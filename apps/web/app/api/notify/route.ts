@@ -1,36 +1,21 @@
 /**
  * /api/notify — Supabase database webhook handler for push notifications.
  *
- * Supabase fires this route on every INSERT into `chat_messages` via a
- * database webhook configured in the Supabase dashboard.
+ * Supabase fires this route on every INSERT into `chat_messages` via the
+ * `chat_messages_notify_webhook` DB trigger (net.http_post → this endpoint).
  *
  * Architecture contract:
  * - Returns 200 immediately (Supabase webhooks retry on non-2xx).
- * - All DB reads and push sends run inside Next.js `after()` so the webhook
- *   gets its 200 before any downstream work is attempted.
+ * - All DB reads and push sends run inside Next.js `after()`.
  * - Uses the service-role admin client — the webhook call is unauthenticated.
- * - A 10-minute dedup window on `chat_threads.last_push_notified_at` prevents
+ * - 10-minute dedup window on `chat_threads.last_push_notified_at` prevents
  *   flooding vendors with push notifications for rapid-fire messages.
  *
- * Supabase webhook POST payload shape (table INSERT event):
- * {
- *   "type": "INSERT",
- *   "table": "chat_messages",
- *   "schema": "public",
- *   "record": { ...all columns of the inserted row... },
- *   "old_record": null
- * }
- *
- * TODO (Phase 2 — before public vendor launch):
- * - Replace the sendPushToToken stub with real FCM / APNs / Web Push calls.
- *   FCM: POST to https://fcm.googleapis.com/v1/projects/{projectId}/messages:send
- *        with Authorization: Bearer {google-oauth-token} from service account.
- *   APNs: Use the `apn` npm package with p8 key + APPLE_TEAM_ID / APPLE_KEY_ID.
- *   Web Push: Use `web-push` with VAPID keys already in lib/web-push.ts.
- * - Add env vars: FCM_PROJECT_ID, FCM_SERVICE_ACCOUNT_JSON (or FCM_SERVER_KEY
- *   for the legacy HTTP v1), APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_APNS_KEY.
- * - On permanent delivery failure (FCM: 'UNREGISTERED', APNs: 410 Gone),
- *   set vendor_push_tokens.is_active = false to prune stale tokens.
+ * Push delivery:
+ * - web  → Web Push API via `web-push` npm package + VAPID keys.
+ *          Token stored in vendor_push_tokens.token is the serialised
+ *          PushSubscription JSON (endpoint + keys.p256dh + keys.auth).
+ * - android/ios → stubbed; native FCM/APNs wired in V1.5.
  */
 
 import 'server-only';
@@ -45,7 +30,6 @@ export const dynamic = 'force-dynamic';
 // Types
 // ---------------------------------------------------------------------------
 
-/** Shape of the `chat_messages` INSERT record in the webhook payload. */
 interface ChatMessageRecord {
   message_id: string;
   thread_id: string;
@@ -72,39 +56,80 @@ interface PushPayload {
 }
 
 // ---------------------------------------------------------------------------
-// Push stub — replace with real FCM/APNs/Web Push in Phase 2.
+// Delivery
 // ---------------------------------------------------------------------------
 
-/**
- * Stub push sender. Logs in development, warns in production.
- *
- * TODO: In Phase 2, wire FCM, APNs, and Web Push here.
- * Each call should return whether the delivery was permanent-failed
- * (invalid/unregistered token) so the caller can deactivate the token.
- */
+function isVapidConfigured(): boolean {
+  return Boolean(
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY &&
+    process.env.VAPID_PRIVATE_KEY,
+  );
+}
+
+async function sendWebPush(
+  subscriptionJson: string,
+  payload: PushPayload,
+): Promise<{ ok: boolean; permanentFailure: boolean }> {
+  if (!isVapidConfigured()) {
+    console.warn('[notify] VAPID keys not set — skipping web push');
+    return { ok: false, permanentFailure: false };
+  }
+
+  let parsed: { endpoint: string; keys: { p256dh: string; auth: string } };
+  try {
+    parsed = JSON.parse(subscriptionJson);
+  } catch {
+    console.error('[notify] web push token is not valid JSON — marking stale');
+    return { ok: false, permanentFailure: true };
+  }
+
+  if (!parsed?.endpoint || !parsed?.keys?.p256dh || !parsed?.keys?.auth) {
+    console.error('[notify] web push token missing endpoint/p256dh/auth — marking stale');
+    return { ok: false, permanentFailure: true };
+  }
+
+  try {
+    const webpush = (await import('web-push')).default;
+    webpush.setVapidDetails(
+      process.env.VAPID_SUBJECT ?? 'mailto:hello@setnayan.com',
+      process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+      process.env.VAPID_PRIVATE_KEY!,
+    );
+
+    await webpush.sendNotification(
+      { endpoint: parsed.endpoint, keys: parsed.keys },
+      JSON.stringify(payload),
+    );
+
+    return { ok: true, permanentFailure: false };
+  } catch (err: unknown) {
+    const statusCode =
+      err && typeof err === 'object' && 'statusCode' in err
+        ? (err as { statusCode?: number }).statusCode
+        : undefined;
+
+    // 404 / 410 = push endpoint expired or unsubscribed — prune the token.
+    if (statusCode === 404 || statusCode === 410) {
+      return { ok: false, permanentFailure: true };
+    }
+
+    console.error('[notify] web push send failed', err);
+    return { ok: false, permanentFailure: false };
+  }
+}
+
 async function sendPushToToken(
   token: string,
   platform: 'android' | 'ios' | 'web',
   payload: PushPayload,
 ): Promise<{ ok: boolean; permanentFailure: boolean }> {
-  // TODO: Replace with real provider calls.
-  // - android/ios: FCM HTTP v1 or APNs p8 key
-  // - web: `web-push` with VAPID keys (see apps/web/lib/web-push.ts for the
-  //   existing couple-side Web Push setup that can be extended here)
-  if (process.env.NODE_ENV === 'development') {
-    console.log('[notify] [DEV STUB] would send push', {
-      platform,
-      token: token.slice(0, 20) + '…',
-      title: payload.title,
-      body: payload.body,
-    });
-  } else {
-    console.warn(
-      '[notify] push stub — FCM/APNs/Web Push not yet wired.',
-      `platform=${platform} thread=${payload.data.thread_id}`,
-    );
+  if (platform === 'web') {
+    return sendWebPush(token, payload);
   }
-  return { ok: true, permanentFailure: false };
+
+  // Native Android/iOS — stubbed until V1.5 FCM/APNs wiring.
+  console.warn(`[notify] native push (${platform}) not yet wired — skipping`);
+  return { ok: false, permanentFailure: false };
 }
 
 // ---------------------------------------------------------------------------
@@ -112,19 +137,16 @@ async function sendPushToToken(
 // ---------------------------------------------------------------------------
 
 export async function POST(req: NextRequest) {
-  // 1. Authenticate the webhook — reject anything without the shared secret.
   const secret = process.env.SUPABASE_WEBHOOK_SECRET;
   if (!secret) {
-    console.error('[notify] SUPABASE_WEBHOOK_SECRET is not set — rejecting all webhook calls.');
+    console.error('[notify] SUPABASE_WEBHOOK_SECRET is not set');
     return NextResponse.json({ error: 'misconfigured' }, { status: 500 });
   }
 
-  const incomingSecret = req.headers.get('x-webhook-secret');
-  if (incomingSecret !== secret) {
+  if (req.headers.get('x-webhook-secret') !== secret) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 
-  // 2. Parse the webhook payload.
   let payload: SupabaseWebhookPayload;
   try {
     payload = (await req.json()) as SupabaseWebhookPayload;
@@ -132,29 +154,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'invalid_json' }, { status: 400 });
   }
 
-  // We only care about INSERT events on chat_messages.
-  if (
-    payload.type !== 'INSERT' ||
-    payload.table !== 'chat_messages' ||
-    !payload.record
-  ) {
+  // The DB trigger sends raw row data, not the Supabase dashboard webhook shape.
+  // Normalise: if payload has no `.type`, treat the whole object as the record.
+  const record: ChatMessageRecord | null =
+    payload.type === 'INSERT' && payload.record
+      ? payload.record
+      : !payload.type && (payload as unknown as ChatMessageRecord).message_id
+        ? (payload as unknown as ChatMessageRecord)
+        : null;
+
+  if (!record) {
     return NextResponse.json({ ok: true, skipped: 'not_a_chat_message_insert' });
   }
 
-  const record = payload.record;
-
-  // Only notify when the sender is the couple (or coordinator) side.
-  // Vendor messages don't need to push-notify the vendor themselves.
-  // vendor_first_reply_at is stamped by the stamp_vendor_first_reply DB trigger
-  // (migration 20270110320018) when sender_role = 'vendor' is inserted into
-  // chat_messages — NOT here. This webhook fires for couple→vendor messages,
-  // so there is nothing to stamp for response-time tracking at this point.
+  // Couple or coordinator sent — notify vendor.
+  // Vendor-sent messages are handled by the stamp_vendor_first_reply DB trigger.
   if (record.sender_role === 'vendor') {
     return NextResponse.json({ ok: true, skipped: 'vendor_sent_skip' });
   }
 
-  // 3. Return 200 immediately — all processing happens in after() so Supabase
-  //    doesn't wait for DB + push work before getting its success response.
   after(async () => {
     await processPushNotification(record);
   });
@@ -171,7 +189,7 @@ async function processPushNotification(record: ChatMessageRecord): Promise<void>
   const { thread_id, vendor_profile_id, body } = record;
 
   try {
-    // 4. Read last_push_notified_at — dedup within a 10-minute window.
+    // Dedup: skip if we notified this thread within the last 10 minutes.
     const { data: thread, error: threadError } = await admin
       .from('chat_threads')
       .select('last_push_notified_at')
@@ -184,55 +202,33 @@ async function processPushNotification(record: ChatMessageRecord): Promise<void>
     }
 
     if (thread.last_push_notified_at) {
-      const msSinceLast =
-        Date.now() - new Date(thread.last_push_notified_at).getTime();
-      const DEDUP_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
-      if (msSinceLast < DEDUP_WINDOW_MS) {
-        // Within dedup window — skip.
-        return;
-      }
+      const msSinceLast = Date.now() - new Date(thread.last_push_notified_at).getTime();
+      if (msSinceLast < 10 * 60 * 1000) return;
     }
 
-    // 5. Stamp the thread immediately so concurrent webhook firings for the
-    //    same thread also hit the dedup guard.
-    const { error: stampError } = await admin
+    // Stamp before sending so concurrent firings hit the guard.
+    await admin
       .from('chat_threads')
       .update({ last_push_notified_at: new Date().toISOString() })
       .eq('thread_id', thread_id);
 
-    if (stampError) {
-      // Non-fatal — we still try to deliver once rather than block.
-      console.warn('[notify] failed to stamp last_push_notified_at', stampError.message);
-    }
-
-    // 6. Look up the vendor's active push tokens.
     const { data: tokens, error: tokensError } = await admin
       .from('vendor_push_tokens')
       .select('id, token, platform')
       .eq('vendor_profile_id', vendor_profile_id)
       .eq('is_active', true);
 
-    if (tokensError) {
-      console.error('[notify] failed to read vendor_push_tokens', tokensError.message);
+    if (tokensError || !tokens || tokens.length === 0) {
+      if (tokensError) console.error('[notify] failed to read vendor_push_tokens', tokensError.message);
       return;
     }
 
-    if (!tokens || tokens.length === 0) {
-      // No active tokens — vendor hasn't enabled push on any device.
-      return;
-    }
-
-    // 7. Build the push payload.
     const pushPayload: PushPayload = {
       title: 'New message',
       body: body.slice(0, 100),
-      data: {
-        thread_id,
-        type: 'new_message',
-      },
+      data: { thread_id, type: 'new_message' },
     };
 
-    // 8. Deliver to all active tokens concurrently.
     const results = await Promise.allSettled(
       tokens.map(async (row) => {
         const result = await sendPushToToken(
@@ -241,7 +237,6 @@ async function processPushNotification(record: ChatMessageRecord): Promise<void>
           pushPayload,
         );
 
-        // Mark stale tokens inactive on permanent delivery failure.
         if (result.permanentFailure) {
           await admin
             .from('vendor_push_tokens')
@@ -258,7 +253,6 @@ async function processPushNotification(record: ChatMessageRecord): Promise<void>
       console.warn(`[notify] ${failures}/${results.length} push(es) threw unexpectedly`);
     }
   } catch (err) {
-    // Top-level catch so a bug here never propagates back and logs cleanly.
     console.error('[notify] processPushNotification threw', err);
   }
 }

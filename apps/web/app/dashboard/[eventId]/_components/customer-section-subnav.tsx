@@ -43,11 +43,13 @@ import { isDayOfOpen } from '@/lib/guest-journey';
 import { goToBuildTab, BB_TAB_EVENT, type BudgetBuildTab } from '@/lib/budget-build';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
+import type { LifecyclePhase } from '@/lib/day-of-mode';
 
 export function CustomerSectionSubnav({
   eventId,
   eventDate,
   navSlots,
+  phase,
 }: {
   eventId: string;
   eventDate: string | null;
@@ -55,6 +57,7 @@ export function CustomerSectionSubnav({
    *  When a child carries a `slotKey`, its admin override is overlaid on the
    *  code default — so every sub-nav child is editable from /admin/menus. */
   navSlots?: Record<string, NavSlotLite>;
+  phase?: LifecyclePhase;
 }) {
   const pathname = usePathname() ?? '';
   const router = useRouter();
@@ -67,7 +70,7 @@ export function CustomerSectionSubnav({
     setDayOfOpen(isDayOfOpen(eventDate, new Date()));
   }, [eventDate]);
 
-  const tree = buildCustomerMenuTree(eventId, { dayOfOpen });
+  const tree = buildCustomerMenuTree(eventId, { dayOfOpen, phase });
   const activeMenu = tree.find((m) => matchesMenuSection(pathname, m)) ?? null;
   // Overlay the nav-registry admin override (label · icon · hidden) onto each
   // child by its slotKey — the registry SSOT now drives the sub-nav children,

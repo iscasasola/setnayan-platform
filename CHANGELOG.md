@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · feat(save-the-date): the auto-playing, scrubbable content "film" (PR4 P1 · flag-gated)
+
+The free base of the redesigned Save-the-Date (build-plan **P1**). The STD page can now render a continuous, self-playing, **scrubbable** film instead of the static announcement card. It opens on the monogram and advances through the content beats on its own — monogram → names → date (+ Add-to-calendar) → venue → story teaser → close (+ Add-to-calendar + See details). Stories-style **segmented scrub bar** (one segment/beat, auto-fills), **press-and-hold to pause**, **tap-left/right to step**, **tap-a-segment to jump**, **replay**, **fullscreen**, music + mute. Colours come from the Mood Board via the page's existing site-palette CSS vars, so it recolours per event at zero cost. Adaptive — only beats with data render (the couple's builder, P4, supplies split venues + media).
+
+- **New `app/[slug]/_components/save-the-date-film.tsx`** — the client film: an adaptive `Slide[]` spine, a `requestAnimationFrame` player (advance + fill the active segment), the gesture layer (hold-to-pause / tap-step / scrub-jump), the Fullscreen API with an `immersive` CSS fallback for iOS, an `<audio>` loop with best-effort gesture-unlocked autostart + mute. Lucide icons (no glyph fonts). 9:16, `max-w-sm`, `aspect-[9/16]`.
+- **`save-the-date.tsx`** — gained a `film?: boolean` prop. When true it builds an `StdFilmContent` from the existing event data (monogram via `deriveMonogram`, `shortDate`, the same `googleCalendarUrl` + `buildWeddingIcs` it already uses) and renders `<SaveTheDateFilm>`; otherwise the original static `SaveTheDateView` is unchanged (the free fallback).
+- **`[slug]/page.tsx`** — threads a `stdFilm` flag (env `NEXT_PUBLIC_STD_FILM=1` OR per-visit `?film=1`) through both render paths (`PublicLanding` ×3 invocations + `InvitationSite`) into the two `<SaveTheDateView>` mounts as `film={stdFilm}`. `searchParams` typed for `film`.
+
+**Flag-gated dark** — `stdFilm` is false by default, so every live wedding page renders exactly as today; the film only shows when the env flag is set or the owner appends `?film=1`. No migration. tsc 0 · `next lint` clean (only pre-existing warnings). PR pending (branch `claude/std-content-film`, auto-merge).
+
+SPEC IMPACT iter 0024 — implements **P1** of `0024_Save_the_Date_Build_Plan_2026-06-17.md` (the free content film). → CHANGELOG + corpus build-plan (mark P1 built) + DECISION_LOG + memory. NEXT: P2 auto-fill resolver · P3 dual-`.ics` · P4 couple builder · P5 journey trigger + ₱1,499 gate.
+
 ## 2026-06-17 · chore(reveal): remove the Crown veil — the reveal library is now 5 templates
 
 Owner: *"remove crown veil so we only have 5 templates."* The Crown veil (`veil-crown`) was a separate, never-finished veil component — only the **Sheer bridal veil** got the 47-iteration design + the port + the Studio wiring; the Crown veil still ran an old gold/flower look and (since the studio PR) only carried unused prop-parity stubs. Removed it cleanly.

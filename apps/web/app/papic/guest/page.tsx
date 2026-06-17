@@ -58,7 +58,7 @@ export default async function PapicGuestPage() {
     );
   }
 
-  const [{ data: ev }, { data: g }, quota] = await Promise.all([
+  const [{ data: ev }, { data: g }, quota, { data: liveEnrollment }] = await Promise.all([
     admin.from('events').select('display_name').eq('event_id', session.event_id).maybeSingle(),
     admin
       .from('guests')
@@ -66,6 +66,15 @@ export default async function PapicGuestPage() {
       .eq('guest_id', session.guest_id)
       .maybeSingle(),
     fetchGuestQuota(admin, session.event_id, session.guest_id),
+    // Active face enrollment? Drives the in-camera "add your face" fallback for
+    // the guest who skipped the optional RSVP selfie.
+    admin
+      .from('guest_face_enrollments')
+      .select('id')
+      .eq('event_id', session.event_id)
+      .eq('guest_id', session.guest_id)
+      .is('revoked_at', null)
+      .maybeSingle(),
   ]);
 
   const guestName =
@@ -107,6 +116,7 @@ export default async function PapicGuestPage() {
       initialRemaining={quota.remaining}
       total={quota.total}
       termsAccepted={termsAccepted}
+      needsFaceEnroll={!liveEnrollment}
     />
   );
 }

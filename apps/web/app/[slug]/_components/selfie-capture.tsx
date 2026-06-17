@@ -25,7 +25,13 @@ import type { FaceGateResult } from '@/lib/face-gate';
  */
 type Phase = 'idle' | 'camera' | 'review';
 
-export function SelfieCapture() {
+export function SelfieCapture({
+  onReadyChange,
+}: {
+  /** Fires when a consented selfie is captured + uploaded (or cleared) — lets a
+   *  standalone enroll form gate its submit. The RSVP form omits it (no-op). */
+  onReadyChange?: (ready: boolean) => void;
+} = {}) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -48,6 +54,12 @@ export function SelfieCapture() {
 
   // Always release the camera on unmount.
   useEffect(() => () => stopStream(), [stopStream]);
+
+  // A consented, uploaded selfie is "ready to enroll" — surface it so a
+  // standalone enroll form (day-of / camera) can enable its submit button.
+  useEffect(() => {
+    onReadyChange?.(Boolean(consent && r2Ref));
+  }, [consent, r2Ref, onReadyChange]);
 
   const startCamera = useCallback(async () => {
     setError(null);

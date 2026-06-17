@@ -35,7 +35,8 @@ export function buildVeilTextures(markImg: HTMLImageElement | null): {
   alpha: THREE.CanvasTexture;
   emissive: THREE.CanvasTexture;
 } {
-  const S = 1024;
+  const S = 2048; // hi-res so the fine tulle thread stays crisp when it fills the screen
+  const SC = S / 1024; // scale fixed-px motifs (marks · flowers) with the resolution
   const cv = (): HTMLCanvasElement => {
     const c = document.createElement('canvas');
     c.width = c.height = S;
@@ -81,10 +82,11 @@ export function buildVeilTextures(markImg: HTMLImageElement | null): {
     }
   };
 
-  // fine tulle net
-  a.strokeStyle = 'rgba(255,255,255,0.26)';
+  // fine tulle net — a dense, faint mesh so it reads as smooth sheer tulle with no
+  // visible gaps even when the veil fills the screen (ref: fine bridal tulle).
+  a.strokeStyle = 'rgba(255,255,255,0.12)';
   a.lineWidth = 1;
-  for (let d = -S; d < S * 2; d += 14) {
+  for (let d = -S; d < S * 2; d += 3) {
     a.beginPath();
     a.moveTo(d, 0);
     a.lineTo(d + S, S);
@@ -97,7 +99,7 @@ export function buildVeilTextures(markImg: HTMLImageElement | null): {
 
   const laceTop = Math.floor(S * 0.8);
   for (let i = 0; i < 24; i++) {
-    star(a, ((i * 137) % S), 40 + ((i * 211) % (laceTop - 110)), 8 + (i % 5), 'rgba(255,255,255,0.78)', 1);
+    star(a, ((i * 137) % S), 40 + ((i * 211) % (laceTop - 110)), (8 + (i % 5)) * SC, 'rgba(255,255,255,0.78)', SC);
   }
 
   // gold Setnayan mark accents
@@ -116,7 +118,7 @@ export function buildVeilTextures(markImg: HTMLImageElement | null): {
     for (let k = 0; k < 11; k++) {
       const mx = 70 + ((k * 173) % (S - 140));
       const my = 110 + ((k * 251) % (laceTop - 200));
-      const ms = 42;
+      const ms = 42 * SC;
       e.drawImage(mwG, mx - ms / 2, my - ms / 2, ms, ms);
       a.globalAlpha = 0.5;
       a.drawImage(mwW, mx - ms / 2, my - ms / 2, ms, ms);
@@ -188,7 +190,7 @@ export function buildVeilTextures(markImg: HTMLImageElement | null): {
 
   const alpha = new THREE.CanvasTexture(aC);
   const emissive = new THREE.CanvasTexture(eC);
-  alpha.anisotropy = 4;
+  alpha.anisotropy = 8;
   // sRGB on the emissive so the gold reads true
   // (CanvasTexture defaults are fine for the alpha map).
   return { alpha, emissive };

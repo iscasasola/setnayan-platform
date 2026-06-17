@@ -44,6 +44,12 @@ Owner renewed Apple Developer + created a real **Developer ID Application** cert
 Windows signing still pending (separate item). SPEC IMPACT: None — CI/release plumbing only.
 
 ## 2026-06-16 · feat(papic): free Papic sampler — 3 seats, 8 photos + 2 clips each, 30-day retention
+## 2026-06-17 · fix(std-reveal): fine tulle mesh on the sheer veil (no visible net gaps)
+
+Follow-up to the veil widen: the diamond net read too coarse once the veil filled the screen ("too close, I can see the gaps"). Reworked the net in `veil-shared.ts` into a dense, faint, fine mesh that reads as smooth sheer tulle (ref: fine bridal tulle, photo 2): texture `S` 1024 → 2048 (crisp at scale), net spacing 14px → 3px at low opacity (0.26 → 0.12), and the fixed-px motifs (gold marks · lace flowers) + alpha anisotropy scaled to the new resolution. `tsc` 0.
+
+SPEC IMPACT: Save-the-Date reveal (0024) — veil-sheer tulle texture only; no schema/SKU change.
+
 ## 2026-06-17 · fix(std-reveal): widen the sheer bridal veil's coverage (veil refinement)
 
 The sheer veil (`veil-reveal.tsx`) draped too narrow — it read as "closed up" on wider screens. Enlarged the Verlet cloth so it drapes well past every screen edge like a full bridal veil, not a centred panel: `clothW` 6.4 → 10, `clothH` 9.2 → 13, pin line `topY` 2.6 → 3.2, with a finer grid (cols 28→36, rows 40→48) so the folds stay soft. Lift-to-clear math is unchanged (keyed off `clothH`). `tsc` 0.

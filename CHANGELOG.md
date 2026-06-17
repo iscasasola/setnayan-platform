@@ -44,6 +44,18 @@ Owner renewed Apple Developer + created a real **Developer ID Application** cert
 Windows signing still pending (separate item). SPEC IMPACT: None — CI/release plumbing only.
 
 ## 2026-06-16 · feat(papic): free Papic sampler — 3 seats, 8 photos + 2 clips each, 30-day retention
+## 2026-06-17 · feat(std-reveal): falling-petal + butterfly effects on the 3D reveal (faithful-rebuild Port B)
+
+Adds the reveal's atmospheric effects to `rigid-webgl.tsx` (Port A in the same PR shipped the shell). Procedural sprites are motion/composition stand-ins; real petal/butterfly art swaps in later with no structural change.
+
+- **Rose petals (cathedral doors)** — fall through the doorway feather-slow (flutter + sway + tumble), cast shadows, and **pile up on the red carpet** with angle-of-repose settling (each petal rolls to the lowest neighbouring column → a natural low drift, not stacks). Owner size 22. Snow/fog effects are intentionally NOT carried over (doors = petals only).
+- **Butterflies (envelopes)** — stream out of the centre as the flaps open, **fly toward the screen (growing) and disperse out all corners/edges**, wings flapping, casting shadows on the card. Owner size 20.
+- Effects gate on `progress` (petals from the first crack, butterflies after the flaps part) and run on a frame clock; all meshes/materials/textures are tracked + disposed on unmount.
+
+`tsc` 0 · `next lint` clean (changed file). No migration, no schema/SKU change.
+
+SPEC IMPACT: Save-the-Date reveal (0024) — implements the Port-B effect locks from the 2026-06-17 tuning spec (feather petals + pile physics + shadows · butterflies fly-to-screen + all-corner exit + shadows · snow/fog removed · sizes 22/20). Sizes are admin-tunable house defaults. Logged in corpus spec doc.
+
 ## 2026-06-17 · feat(std-reveal): cathedral-doors overhaul + carved split monogram + overhead-softbox light (faithful-rebuild Port A)
 
 Ports the locked Save-the-Date reveal design (tuned via the interactive 3D-preview loop; spec `0024_save_the_date/0024_Reveal_Tuning_and_Door_Spec_2026-06-17.md`) into the live three.js scene. Visual shell only — falling-petal/butterfly effects are Port B.

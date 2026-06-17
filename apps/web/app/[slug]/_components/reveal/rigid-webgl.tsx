@@ -375,6 +375,38 @@ function monoTex(text: string): { color: THREE.CanvasTexture; normal: THREE.Canv
   return { color, normal: heightToNormal(hc, 3.4) };
 }
 
+// Effect sizes — owner-locked house defaults (admin-tunable later), 2026-06-17.
+const PETAL_SIZE = 0.006 + (22 / 100) * 0.05; // size 22 → ~0.017
+const BFLY_SIZE = 0.05 + (20 / 100) * 0.14; // size 20 → ~0.078
+
+/** A soft rose petal sprite (real photographic petals swap in later). */
+function petalTex(): THREE.CanvasTexture {
+  const S = 64;
+  const c = mkCanvas(S, S);
+  const x = c.getContext('2d')!;
+  const g = x.createRadialGradient(S * 0.5, S * 0.4, 2, S * 0.5, S * 0.52, S * 0.5);
+  g.addColorStop(0, 'rgba(232,168,182,0.97)');
+  g.addColorStop(0.55, 'rgba(196,92,118,0.92)');
+  g.addColorStop(1, 'rgba(150,48,80,0)');
+  x.fillStyle = g;
+  x.beginPath();
+  x.ellipse(S * 0.5, S * 0.5, S * 0.32, S * 0.47, 0, 0, 6.2832);
+  x.fill();
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+/** One butterfly wing (mirrored for the pair). */
+function wingGeom(): THREE.ShapeGeometry {
+  const s = new THREE.Shape();
+  s.moveTo(0, 0);
+  s.quadraticCurveTo(0.95, 0.72, 0.72, 1.32);
+  s.quadraticCurveTo(0.42, 1.04, 0.05, 0.82);
+  s.quadraticCurveTo(0.34, 0.34, 0, 0);
+  return new THREE.ShapeGeometry(s);
+}
+
 /** One template's flaps: hinge groups + the per-progress angle for each. */
 type Flap = {
   group: THREE.Group;
@@ -495,6 +527,143 @@ export default function RigidWebGL({ variant, progress, monogramText, onUnsuppor
         if (cancelled) return disposeMaps(m);
         if (m) applyMaps([linerMat], m);
       });
+    }
+
+    // ── falling-petal + butterfly effects (Port B), gated on `progress` ──
+    const PETAL = track(petalTex());
+    const WING = track(wingGeom());
+    const fx: Array<{ g0: number; update: (p: number, fr: number) => void }> = [];
+
+    type Petal = { m: THREE.Mesh; vy: number; sw: number; sa: number; rx: number; ry: number; vrx: number; vry: number; settled: boolean; vr: number; bn: number };
+    function fxPetals(reg: { x0: number; x1: number; yBot: number; yTop: number; z: number; g0: number; n: number; cols: number; inc: number }) {
+      const colW = (reg.x1 - reg.x0) / reg.cols;
+      const colH = new Array<number>(reg.cols).fill(0);
+      const mat = track(new THREE.MeshStandardMaterial({ map: PETAL, transparent: true, alphaTest: 0.3, roughness: 0.85, side: THREE.DoubleSide }));
+      const geo = track(new THREE.PlaneGeometry(1, 1.35));
+      const grp = new THREE.Group();
+      scene.add(grp);
+      const ps: Petal[] = [];
+      const spawn = (p: Petal) => {
+        p.m.position.set(rnd(reg.x0, reg.x1), reg.yTop + rnd(0.02, 0.45), reg.z + rnd(-0.004, 0.004));
+        p.vy = -rnd(0.0014, 0.0032);
+        p.sw = rnd(0, 6.28);
+        p.sa = rnd(0.001, 0.0032);
+        p.rx = rnd(0, 6.28);
+        p.ry = rnd(0, 6.28);
+        p.vrx = rnd(-0.05, 0.05);
+        p.vry = rnd(-0.07, 0.07);
+        p.settled = false;
+        p.vr = rnd(0.8, 1.2);
+        p.bn = 0;
+      };
+      for (let i = 0; i < reg.n; i++) {
+        const m = new THREE.Mesh(geo, mat);
+        m.castShadow = true;
+        const p: Petal = { m, vy: 0, sw: 0, sa: 0, rx: 0, ry: 0, vrx: 0, vry: 0, settled: false, vr: 1, bn: 0 };
+        spawn(p);
+        m.visible = false;
+        grp.add(m);
+        ps.push(p);
+      }
+      const colOf = (x: number) => {
+        const c = Math.floor((x - reg.x0) / colW);
+        return c < 0 ? 0 : c >= reg.cols ? reg.cols - 1 : c;
+      };
+      return {
+        g0: reg.g0,
+        update: (p: number, fr: number) => {
+          grp.visible = p > 0.02;
+          const act = Math.ceil(p * reg.n);
+          const sz = PETAL_SIZE;
+          for (let i = 0; i < reg.n; i++) {
+            const it = ps[i]!;
+            const m = it.m;
+            if (i >= act) {
+              m.visible = false;
+              continue;
+            }
+            m.visible = true;
+            const s = sz * it.vr;
+            if (it.settled) {
+              m.scale.set(s, s, s);
+              continue;
+            }
+            it.vy -= 0.000022;
+            m.position.y += it.vy;
+            m.position.x += Math.sin(fr * 0.04 + it.sw) * it.sa;
+            it.rx += it.vrx;
+            it.ry += it.vry;
+            m.rotation.set(it.rx, it.ry, m.rotation.z + 0.012);
+            m.scale.set(s, s, s);
+            const c = colOf(m.position.x);
+            const surf = reg.yBot + colH[c]! * reg.inc;
+            if (m.position.y <= surf) {
+              let lc = c;
+              const cl = c > 0 ? c - 1 : c;
+              const cr = c < reg.cols - 1 ? c + 1 : c;
+              if (colH[cl]! < colH[lc]! - 1) lc = cl;
+              if (colH[cr]! < colH[lc]! - 1) lc = cr;
+              if (it.bn < 1 && it.vy < -0.0045) {
+                it.vy = -it.vy * 0.22;
+                it.bn++;
+                m.position.y = surf;
+              } else {
+                m.position.set(reg.x0 + (lc + 0.5) * colW + rnd(-colW * 0.35, colW * 0.35), reg.yBot + colH[lc]! * reg.inc + s * 0.25, reg.z + rnd(-0.003, 0.003));
+                colH[lc] = colH[lc]! + 1;
+                it.settled = true;
+                m.rotation.set(rnd(-0.25, 0.25), 0, rnd(-1.5, 1.5));
+              }
+            }
+          }
+        },
+      };
+    }
+
+    type Bfly = { g: THREE.Group; wl: THREE.Mesh; wr: THREE.Mesh; angle: number; delay: number; ph: number; life: number; wob: number };
+    function fxButterflies() {
+      const N = 9;
+      const cols = [0xeccae6, 0xf4dcc2, 0xd2dcf2, 0xf2cdd6];
+      const bs: Bfly[] = [];
+      for (let i = 0; i < N; i++) {
+        const g = new THREE.Group();
+        const wm = track(new THREE.MeshStandardMaterial({ color: cols[i % 4]!, transparent: true, opacity: 0.92, roughness: 0.6, side: THREE.DoubleSide }));
+        const wl = new THREE.Mesh(WING, wm);
+        const wr = new THREE.Mesh(WING, wm);
+        wr.scale.x = -1;
+        wl.castShadow = true;
+        wr.castShadow = true;
+        g.add(wl, wr);
+        g.visible = false;
+        scene.add(g);
+        bs.push({ g, wl, wr, angle: (i / N) * 6.2832 + rnd(-0.3, 0.3), delay: (i / N) * 0.5, ph: rnd(0, 6.28), life: 0, wob: rnd(0.5, 1) });
+      }
+      return {
+        g0: 0.5,
+        update: (p: number, fr: number) => {
+          for (let i = 0; i < N; i++) {
+            const b = bs[i]!;
+            const local = (p - b.delay) / (1 - b.delay);
+            if (local <= 0) {
+              b.g.visible = false;
+              b.life = 0;
+              continue;
+            }
+            b.g.visible = true;
+            b.life = Math.min(1, b.life + 0.006);
+            const e = b.life * b.life * (3 - 2 * b.life);
+            const r = e * 1.7; // outward, past the screen corner
+            const z = 0.1 + e * 0.5; // toward the camera
+            const wob = Math.sin(fr * 0.05 + b.ph) * 0.08 * b.wob;
+            b.g.position.set(Math.cos(b.angle) * r + wob, Math.sin(b.angle) * r + e * 0.15 + wob, z);
+            const sc = BFLY_SIZE * (1 + (z - 0.1) * 1.6); // grows as it approaches
+            b.g.scale.setScalar(sc);
+            const fl = Math.sin(fr * 0.32 + b.ph) * 0.95 + 0.35;
+            b.wl.rotation.y = fl;
+            b.wr.rotation.y = -fl;
+            b.g.rotation.z = Math.sin(fr * 0.04 + b.ph) * 0.25 + b.angle * 0.1;
+          }
+        },
+      };
     }
 
     function makeFlap(geom: THREE.BufferGeometry, px: number, py: number, pz: number, back: THREE.Material): THREE.Group {
@@ -671,7 +840,13 @@ export default function RigidWebGL({ variant, progress, monogramText, onUnsuppor
       };
       flaps.push({ group: makeDoor(false), axis: 'y', maxDeg: -138, start: 0, end: 1.0, slowIn: true });
       flaps.push({ group: makeDoor(true), axis: 'y', maxDeg: 138, start: 0, end: 1.0, slowIn: true });
+
+      // rose petals fall through the doorway, feather-slow, piling on the carpet
+      fx.push(fxPetals({ x0: -Wd * 0.92, x1: Wd * 0.92, yBot: dB + 0.02, yTop: dT, z: 0.014, g0: 0.05, n: 90, cols: 30, inc: 0.0045 }));
     }
+
+    // envelopes release butterflies from the centre as the flaps open
+    if (!isDoors) fx.push(fxButterflies());
 
     for (const f of flaps) scene.add(f.group);
 
@@ -706,13 +881,19 @@ export default function RigidWebGL({ variant, progress, monogramText, onUnsuppor
     window.addEventListener('resize', onResize);
 
     let raf = 0;
+    let frame = 0;
     const loop = () => {
+      frame++;
       const p = progressRef.current;
       for (const f of flaps) {
         const t = THREE.MathUtils.clamp((p - f.start) / (f.end - f.start), 0, 1);
         const ang = THREE.MathUtils.degToRad(f.maxDeg) * eased(t, !!f.slowIn);
         if (f.axis === 'y') f.group.rotation.y = ang;
         else f.group.rotation.x = ang;
+      }
+      for (const e of fx) {
+        const lp = THREE.MathUtils.clamp((p - e.g0) / (1 - e.g0), 0, 1);
+        e.update(lp, frame);
       }
       renderer.toneMappingExposure = 1.0 + smooth(p) * 0.28 + Math.max(0, p - 0.9) * 1.3;
       spot.position.x += (LIGHT_ANCHOR.x + aim.x * PARALLAX_RADIUS - spot.position.x) * 0.1;

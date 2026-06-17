@@ -685,3 +685,23 @@ test.describe('rect chain snap catch radius', () => {
     expect(snapped!.rot).toBe(0);
   });
 });
+
+// --- booth catalog contract (place-then-pick) ---------------------------------
+
+import { BOOTH_CATALOG as PICKABLE_BOOTHS } from '../../lib/seating';
+
+test.describe('booth catalog', () => {
+  test('the picker offers real kinds and never the unassigned placeholder', () => {
+    const types = PICKABLE_BOOTHS.map((b) => b.type);
+    expect(types).toEqual([
+      'photo_booth',
+      'mobile_bar',
+      'dessert_station',
+      'gift_table',
+      'souvenir_table',
+      'registration_desk',
+      'custom',
+    ]);
+    expect(types).not.toContain('unassigned');
+  });
+});

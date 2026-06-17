@@ -15,13 +15,14 @@
  */
 
 import dynamic from 'next/dynamic';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { RotateCcw, Sparkles, X } from 'lucide-react';
 import { FourFlapEnvelope } from '@/app/[slug]/_components/reveal/four-flap';
 import { RigidReveal } from '@/app/[slug]/_components/reveal/rigid-reveal';
 import {
   isVeilTemplate,
   REVEAL_LIBRARY,
+  RIGID_REVEAL_MS,
   type RevealTemplate,
 } from '@/app/[slug]/_components/reveal/reveal-templates';
 import type { WaxSealConfig } from '@/lib/wax-seal/types';
@@ -70,6 +71,17 @@ export function RevealPreviewCard({
 }: Props) {
   const [tpl, setTpl] = useState<RevealTemplate | null>(null);
   const [revealed, setRevealed] = useState(false);
+  // The rigid fold-beat timer. Tracked so we can cancel it whenever the user
+  // closes, replays, or switches template — otherwise a stale setRevealed(true)
+  // fires later and unmounts a freshly-mounted veil mid-lift.
+  const foldTimer = useRef<number | null>(null);
+  const clearFoldTimer = () => {
+    if (foldTimer.current !== null) {
+      window.clearTimeout(foldTimer.current);
+      foldTimer.current = null;
+    }
+  };
+  useEffect(() => clearFoldTimer, []);
 
   const mono = monogram(displayName || 'A & J');
   const dateLabel = dateIso
@@ -77,10 +89,12 @@ export function RevealPreviewCard({
     : '';
 
   const launch = (t: RevealTemplate) => {
+    clearFoldTimer();
     setTpl(t);
     setRevealed(false);
   };
   const close = () => {
+    clearFoldTimer();
     setTpl(null);
     setRevealed(false);
   };

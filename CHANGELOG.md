@@ -27,6 +27,22 @@ Lane 2 of the Alaala embed: the Studio hub (`/add-ons`) is the *store*; this is 
 SPEC IMPACT: None on schema/SKU (new narrative surface + one nav item). **Lane 3 next** — finish the keystones (Kwento → Live Photo Wall → produced-output), the part competitors structurally can't copy.
 
 ## 2026-06-15 · feat(alaala): name the memory pillar "Alaala" — Studio hub framing + manifesto naming (Lane 1 of 3)
+## 2026-06-16 · fix(std-reveal): post-merge review fixes — preview-card timer leak, moodboard veil colour, crown-veil clear, a11y
+
+Follow-up to #1573 (the reveal library completion). A 25-agent adversarial review (verdict: working-with-nits, approach sound) confirmed the architecture and surfaced a small set of real fixes, all applied here. Still flag-gated (`NEXT_PUBLIC_STD_REVEAL` default OFF).
+
+- **Bug — studio preview timer leak** (`reveal-preview-card.tsx`): the rigid fold-beat `setTimeout(setRevealed, …)` was never cancelled, so a Close-then-veil sequence within the window fired a stale `setRevealed(true)` and unmounted a freshly-mounted veil mid-lift. Now tracked in a ref and cleared on launch / close / unmount.
+- **Bug (copy-vs-behavior) — veil colour ignored the Mood Board.** Both live `[slug]/page.tsx` `RevealOverlay` mounts and the studio call site hardcoded `#f3ece1` while the copy promises "recolours to your Mood Board." Added `veilColorFromPalette()` to `lib/site-palette.ts` (most-colourful palette swatch lightened 60% toward ivory → a sheer, hue-carrying tint) and threaded it into both live mounts + the studio page (which now selects `role_palette`). Ivory stays the genuine fallback.
+- **Crown veil could sag back into view** (`veil-crown.tsx`): at full fold the slack belly could droop across the invitation before the overlay faded. Raised `hemRise` to `lift*(clothH*2+4)` so the two pin rows separate by more than a cloth length → the drape pulls taut and lifts clear. (`onRevealed` already fired on the scalar lift, so this was visual-only, never a hang.)
+- **Accessibility — `prefers-reduced-motion`** now honored: such guests skip the reveal entirely and see content directly (gated in `RevealOverlay`). Covers the whole template family on the live path.
+- **Polish + consistency:** church-doors arch now mirrored onto the liner back face so it persists through the swing; V1 sheer-veil `wind` aligned 0.5 → 0.40 (the locked §1a craft constant, matching the crown veil); extracted `RIGID_FOLD_MS`/`RIGID_REVEAL_MS` so the overlay + preview timers stop being independent magic numbers.
+- **Owner-confirm (not changed): `?reveal=` is not a hard kill-switch** — a guest appending a valid `?reveal=` in the Save-the-Date phase activates the reveal in any environment, flag or no flag. Left as-is (it's how Vercel previews demo it) but the misleading "previews only" comment was corrected; decide the production kill-switch semantics before the veils launch.
+
+tsc 0 · `next lint` clean · `lint:retired` 0 (verified in worktree).
+
+SPEC IMPACT: 0024 Save the Date — no scope change; correctness/a11y/colour-wiring fixes on the flag-gated reveal. Logged in corpus `DECISION_LOG.md`.
+
+## 2026-06-16 · fix(payments): complete PR4 bundle-awareness — 3 Essentials-tier SKUs a bundle buyer was wrongly denied (PR4b)
 
 Owner ask: *"we also want to do the customization of this template from the admin"* + *"where we can activate and deactivate features of the template?"* — owner picked **Full template studio** (toggles **and** a live slider panel). Today the reveal was gated only by the `NEXT_PUBLIC_STD_REVEAL` env flag with all settings baked as constants; this makes it admin-managed end-to-end, following the `platform_settings` / `homepage_hero_config` recipe.
 

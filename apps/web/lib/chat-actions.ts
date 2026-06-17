@@ -196,6 +196,26 @@ export async function sendChatMessage(formData: FormData) {
   });
   if (error) throw new Error(error.message);
 
+  // vendor_first_reply_at — stamp the thread when the vendor sends their first
+  // message. The DB trigger `stamp_vendor_first_reply` (migration 20270110320018)
+  // does this atomically on every chat_messages INSERT where sender_role='vendor'
+  // and the thread's vendor_first_reply_at IS NULL, so this application-level
+  // path is defense-in-depth only. It is intentionally a best-effort UPDATE
+  // that never blocks the send — if the column doesn't exist yet (pre-migration)
+  // or the RLS policy denies the write, we log and continue.
+  if (senderRole === 'vendor' && !thread.vendor_first_reply_at) {
+    const adminForStamp = createAdminClient();
+    const { error: stampErr } = await adminForStamp
+      .from('chat_threads')
+      .update({ vendor_first_reply_at: new Date().toISOString() })
+      .eq('thread_id', thread.thread_id)
+      .is('vendor_first_reply_at', null); // idempotent: only stamps first reply
+    if (stampErr) {
+      // Non-fatal — DB trigger covers this path. Log for observability.
+      console.warn('[sendChatMessage] vendor_first_reply_at stamp skipped:', stampErr.message);
+    }
+  }
+
   // Notify the OTHER party. The couple side notifies the vendor user;
   // the vendor side notifies every couple member on the event. Use the
   // admin client so the lookup bypasses RLS without leaking auth scope.

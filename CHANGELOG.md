@@ -4,6 +4,26 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · PR #10 — chat_threads.vendor_first_reply_at + real avg_response_minutes
+
+**What landed:**
+- `supabase/migrations/20270110320018_chat_threads_first_reply.sql` — adds `vendor_first_reply_at TIMESTAMPTZ` column to `chat_threads` (idempotent `ADD COLUMN IF NOT EXISTS`), backfills from existing `chat_messages` (`MIN(created_at) WHERE sender_role = 'vendor'`), and installs the `stamp_vendor_first_reply` trigger that stamps the column on the first vendor `chat_messages` INSERT per thread. Partial index `chat_threads_vendor_first_reply_at_idx` on `(vendor_profile_id, vendor_first_reply_at) WHERE NOT NULL` speeds the activity-stats query.
+- `apps/web/lib/vendor-activity.ts` — replaces the `avg_response_minutes = 0` stub with a real median computation over `(vendor_first_reply_at − created_at)` in minutes, sorted ascending and taking the middle value (or average of two middles for even counts). Fallback stays 0 when no threads have a reply yet. Updated the `chat_threads` select to include `vendor_first_reply_at` and typed the row accordingly.
+- `apps/web/lib/chat.ts` — added `vendor_first_reply_at: string | null` to `ChatThreadRow` and extended `THREAD_SELECT` so `fetchThreadById` returns the new column.
+- `apps/web/lib/chat-actions.ts` — added defense-in-depth application-level stamp in `sendChatMessage` (after the `chat_messages` INSERT, when `senderRole === 'vendor'` and `thread.vendor_first_reply_at` is null, issues a best-effort `UPDATE` via admin client with `.is('vendor_first_reply_at', null)` idempotent guard). DB trigger is the primary path; app stamp is the fallback.
+- `apps/web/app/api/notify/route.ts` — added clarifying comment that `vendor_first_reply_at` is stamped by the DB trigger on vendor-message INSERT, NOT by this webhook (which only fires for couple→vendor messages).
+
+**Key schema facts confirmed:**
+- `chat_messages` timestamp column: `created_at` (not `sent_at`)
+- `chat_messages.sender_role` CHECK `('couple','vendor','coordinator')` (enum `chat_sender_role`)
+- `chat_threads` PK: `thread_id` UUID
+- `chat_messages.thread_id` FK → `chat_threads.thread_id`
+- `vendor_first_reply_at` was not present on any prior migration — this is a net-new column
+
+**SPEC IMPACT:** Unblocks accurate `avg_response_minutes` in `vendor_activity_stats` per `02_Specifications/Vendor_Quality_Rating_System_2026-06-17.md` § 2 (responsiveness score component). The stub TODO comment at lib/vendor-activity.ts line 331 is now resolved.
+
+---
+
 ## 2026-06-17 · PR #NEXT — /api/notify push webhook route
 
 **What landed:** `apps/web/app/api/notify/route.ts` — Supabase database webhook handler that fires on every `chat_messages` INSERT and delivers push notifications to the vendor side.
@@ -28,6 +48,34 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 - `SUPABASE_WEBHOOK_SECRET` — shared secret set in both Supabase Dashboard → Database Webhooks and Vercel env vars.
 
 **SPEC IMPACT:** Push notification route per `02_Specifications/Vendor_Quality_Rating_System_2026-06-17.md` § 7 (End-to-end flow steps 3–8). Phase 2 FCM/APNs/Web Push wiring is noted as TODO in the route's JSDoc.
+## 2026-06-17 · feat(vendor-quality): server-side score recomputation module
+
+**Context:** PR 5 of the vendor quality rating system (spec `02_Specifications/Vendor_Quality_Rating_System_2026-06-17.md`). Follows PR #1650 (migrations) which landed `vendor_activity_stats`, `vendor_push_tokens`, `vendor_partnerships`, and `chat_threads.last_push_notified_at`.
+
+**What changed:**
+- New file `apps/web/lib/vendor-activity.ts` — server-only score recomputation module.
+  - Pure helpers (all exported for testability, zero side effects):
+    - `computeBayesianReviewAvg(reviews, priorMean?, priorWeight?)` — Bayesian avg with prior mean=4.0, weight=10; scales to [1,5]
+    - `computeLoginDecayScore(lastLoginAt)` — linear 100→0 over 60 days; null → 100 (new account benefit-of-doubt)
+    - `computeCoupleTrustScore(params)` — 40% review + 30% reliability + 30% responsiveness
+    - `computePlatformHealthScore(params)` — 40% trust + 20% login-decay + 15% finalized + 15% inquiry-pct + 10% referral
+    - `computeQualityScore(coupleTrust, platformHealth)` — 70% / 30% composite
+  - `recomputeVendorActivityStats(vendorProfileId)` — full recompute + upsert into `vendor_activity_stats` using `createAdminClient()` (service-role, bypasses RLS)
+  - `triggerVendorActivityRecompute(vendorProfileId)` — fire-and-forget wrapper for `after()` / `waitUntil` use; catches and logs errors, never throws
+- Schema findings (actual column names discovered during build):
+  - `vendor_reviews`: `rating_communication`, `rating_quality`, `rating_value`, `rating_on_time` (NOT `communication_rating` etc.)
+  - `event_vendors` PK: `vendor_id` (not `event_vendor_id`)
+  - `force_majeure_flags.event_vendor_id` → `event_vendors.vendor_id` (two-step join for vendor cancellation count)
+  - `vendor_profiles.user_id` → `auth.users.id` (used to resolve `last_sign_in_at` via admin API)
+  - `vendor_activity_stats.last_active_at` (not `last_login_at`) — set from `auth.users.last_sign_in_at`
+- Stubbed with `// TODO:` comments:
+  - `avg_response_minutes` = 0 until `chat_threads` / `chat_messages` gets a `vendor_first_reply_at` column
+  - `inquiryToBookingPct` uses approximation (`finalized / total_threads`) until `chat_threads → event_vendors` join exists
+  - `referralScore` = 0 until vendor referral tracking is implemented
+
+**Files:** `apps/web/lib/vendor-activity.ts` (new)
+
+**SPEC IMPACT:** Implements §2–§5 of `Vendor_Quality_Rating_System_2026-06-17.md` (score formulas, recompute trigger architecture). No new DB schema. Three stubs (`avg_response_minutes`, `inquiry_to_booking` exact join, `referralScore`) noted in TODO comments — schema additions needed before those can be exact.
 
 ---
 

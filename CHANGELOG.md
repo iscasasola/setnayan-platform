@@ -18,6 +18,18 @@ Owner decision (2026-06-16): "website is cheaper · website charges via BDO and 
 SPEC IMPACT: native payment routes to web (corpus `Pricing_Holistic_Pass §6` web-checkout policy + DECISION_LOG).
 
 ## 2026-06-16 · feat(nav): wire the CUSTOMER bottom nav to the registry (first consumption PR)
+## 2026-06-16 · ci(desktop): re-add macOS Developer-ID signing + notarization — gated (fixes the 2026-06-15 empty-secret break)
+
+Owner renewed Apple Developer + created a real **Developer ID Application** cert (G2, Team `P95JPDWWB3`, exp 2031). Re-wires macOS code-signing into `build-desktop.yml` so a downloaded `.dmg` opens with no Gatekeeper warning — but **gated** to avoid the bug that got the first attempt reverted on 2026-06-15 (a missing secret resolves to an empty string, and `tauri build` treats an empty `APPLE_CERTIFICATE` as "cert present" → `security import` on nothing → whole macOS build fails).
+
+- `.github/workflows/build-desktop.yml` — new **"Configure macOS signing"** step (before `tauri build`, macOS only): reads the six `APPLE_*` secrets via step `env`, and **only when `APPLE_CERTIFICATE` is non-empty** writes them to `$GITHUB_ENV` for the build. A MISSING secret is therefore never exported as an empty string — so forks / pre-secrets builds still succeed UNSIGNED (ad-hoc fallback step runs), and a fully-configured build signs + notarizes + staples (verify step runs). Replaces the 2026-06-15 "removed" comment block with the gated rationale.
+
+**OWNER ACTION — add 6 repo secrets** (Settings → Secrets and variables → Actions). Until `APPLE_CERTIFICATE` exists, builds stay unsigned (no regression):
+- `APPLE_CERTIFICATE` (base64 of the `.p12`), `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY` (`Developer ID Application: Indalecio Casasola (P95JPDWWB3)`), `APPLE_TEAM_ID` (`P95JPDWWB3`), `APPLE_ID` (Apple email), `APPLE_PASSWORD` (app-specific password).
+
+Windows signing still pending (separate item). SPEC IMPACT: None — CI/release plumbing only.
+
+## 2026-06-16 · feat(papic): free Papic sampler — 3 seats, 8 photos + 2 clips each, 30-day retention
 
 Lane 2 of the Alaala embed: the Studio hub (`/add-ons`) is the *store*; this is the *story*. A new couple surface lays out the arc of the day so the couple sees their wedding as one living memory being assembled, not a flat grid of SKUs.
 

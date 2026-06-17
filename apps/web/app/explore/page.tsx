@@ -940,15 +940,6 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   let filters = parseFilters(raw);
   const admin = createAdminClient();
 
-  // Social auto-publish flush — the traffic-piggyback doctrine: the platform
-  // is cron-free by lock ([[project_setnayan_cron_free]]), so the dispatch
-  // engine rides on organic traffic via Next 15 after() instead of a
-  // scheduler. The public marketplace is the highest-traffic server-rendered
-  // route, so posts go out on time even when nobody on the team is in
-  // /admin. Fire-and-forget after the response; the 10-minute throttle
-  // inside runSocialFlush makes this effectively free, and it never throws.
-  after(() => runSocialFlush().catch(() => {}));
-
   // DB-driven event-type roster (2026-06-13 cutover) — ACTIVE vocab rows.
   // parseFilters only shape-checked ?event_type=; here it's validated against
   // the live roster (unknown / retired keys fall back to null = no filter).
@@ -2121,6 +2112,13 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     })),
     bookingCounts,
   );
+
+  // Social auto-publish flush — called AFTER all cookies()/createClient() reads
+  // so Next.js 15 doesn't flag it as "cookies() inside after()". The after()
+  // call itself must happen before the return (i.e. before the response is
+  // committed), but all dynamic-API reads must precede it. Moving it here
+  // (after the last createClient/cookies call) fixes the Sentry NEXTJS-A error.
+  after(() => runSocialFlush().catch(() => {}));
 
   return (
     <main className="min-h-dvh bg-cream">

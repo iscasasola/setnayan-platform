@@ -66,7 +66,7 @@ export function OnboardingMusic({ srcs }: { srcs: string[] }) {
     if (!el || list.length === 0) return;
     const next = (indexRef.current + 1) % list.length;
     indexRef.current = next;
-    el.src = list[next];
+    el.src = list[next] ?? '';
     el.currentTime = 0;
     el.volume = VOLUME;
     void el

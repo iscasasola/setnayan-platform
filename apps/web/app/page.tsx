@@ -1,5 +1,5 @@
 /**
- * Homepage · / — HERO → "tap to learn more" → "what you get".
+ * Homepage · / — HERO → "tap to learn more" → 4-step features narrative.
  *
  * The hero is the admin-uploaded scroll-scrub video (HeroVideoScrub) when one
  * is published, falling back to the default keynote hero otherwise — see
@@ -8,21 +8,22 @@
  * COMPOSITION (the top Nav is NOT here — it's the ONE persistent site-wide
  * nav mounted in the root layout via SiteChrome, so it survives navigations;
  * see _components/marketing/site-chrome.tsx):
- *   1. Hero           — full-screen scroll-scrub video → end-of-scroll CTA
- *   2. PostHeroReveal — gates the content below: at the hero end the page LOCKS
- *                       (the collapsed content makes the hero end the page
- *                       bottom), a "Tap to learn more ↓" pill fades in, and a
- *                       tap expands + scrolls into:
- *                         • WhatYouGet — the "A Place for Each" narrative
- *                           (how Setnayan helps you · free-first · price-free)
- *                         • SiteFooter
+ *   1. Hero              — full-screen scroll-scrub video → end-of-scroll CTA
+ *   2. PostHeroReveal    — gates the content below: at the hero end the page LOCKS
+ *                          (the collapsed content makes the hero end the page
+ *                          bottom), a "Tap to learn more ↓" pill fades in, and a
+ *                          tap expands + scrolls into:
+ *                            • FeaturesNarrative — 4-panel step-through:
+ *                                Panel 0  "Fourteen features. One home."
+ *                                Panel 1  Six free tools (with product mocks)
+ *                                Panel 2  Eight premium features
+ *                                Panel 3  Vendor marketplace → "Read our story"
+ *                            • SiteFooter
  *
- * 2026-06-14 (owner): after the hero, answer "how does this help me?" in depth —
- * you create + run the whole wedding free, add paid services only if you want
- * more. "What you get" was pulled from the top nav (this page IS it now).
- * Earlier hero-only directive (PromoBar + ProblemSection + … + Footer removed)
- * is superseded for everything BELOW the hero; those section components still
- * live in _sections.tsx for other pages.
+ * 2026-06-18 (owner): replaced the long-scroll WhatYouGet + OurStoryTeaser with
+ * FeaturesNarrative — a click-to-advance step-through that takes the visitor
+ * through the 14-feature narrative before landing on the vendor marketplace and
+ * the Our Story link.
  *
  * KEPT INTENTIONALLY (invisible, no visual footprint): GEO/SERP metadata + the
  * WebSite + SoftwareApplication JSON-LD graph, so AI answer engines + search
@@ -33,8 +34,7 @@
 
 import { Hero } from '@/app/_components/marketing/_sections';
 import { PostHeroReveal } from '@/app/_components/marketing/PostHeroReveal';
-import { WhatYouGet } from '@/app/_components/marketing/WhatYouGet';
-import { OurStoryTeaser } from '@/app/_components/marketing/OurStory';
+import { FeaturesNarrative } from '@/app/_components/marketing/FeaturesNarrative';
 import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
 
 // GEO Phase G2 (2026-05-28) — brand-first title + value-prop description.
@@ -152,8 +152,7 @@ export default function HomePage() {
       <main className="bg-[var(--m-paper)] text-[var(--m-ink)]">
         <Hero />
         <PostHeroReveal>
-          <WhatYouGet />
-          <OurStoryTeaser />
+          <FeaturesNarrative />
           <SiteFooter />
         </PostHeroReveal>
       </main>

@@ -90,7 +90,7 @@ export async function Hero() {
               fontWeight: 400,
             }}
           >
-            Goodbye, Viber chaos.
+            Every guest leaves with their own memories of your wedding.
           </h1>
           <div className="mt-2 sm:mt-3.5">
             <span
@@ -111,25 +111,26 @@ export async function Hero() {
               <circle cx="50" cy="10" r="2" fill="var(--m-orange)" />
             </svg>
             <span className="m-serif italic text-[22px] text-[var(--m-slate)]">
-              <span className="text-[var(--m-ink)]">&ldquo;It&apos;s all set.&rdquo;</span> The whole wedding, in one app.
+              <span className="text-[var(--m-ink)]">&ldquo;Set na &apos;yan.&rdquo;</span> You plan the day. Every guest keeps their piece of it.
             </span>
           </div>
           <p
             className="m-serif italic text-[var(--m-slate)] mt-5 sm:mt-8 max-w-[560px]"
             style={{ fontSize: 21, lineHeight: 1.65, textWrap: 'pretty' as 'pretty' }}
           >
-            Plan your Filipino wedding without the twelve spreadsheets.{' '}
+            You&rsquo;re giving your guests a personalized keepsake.{' '}
             <span className="not-italic font-[var(--font-sans-marketing,var(--font-sans))] text-[17px] text-[var(--m-ink)]">
-              Guest list, verified vendors, QR invitations, day-of livestream, same-day highlight reel — all in one
-              place, so you can spend less time chasing receipts and more time being engaged.
+              Plan for free — guest list, verified vendors, seating, QR invitations. On your day, every
+              guest&rsquo;s phone becomes a crew. Photos appear tagged. Personal reels are ready to share before
+              the night is over.
             </span>
           </p>
           <div className="mt-4 hidden sm:inline-flex items-center gap-3 px-3.5 py-2.5 rounded-[10px] bg-[var(--m-ivory)] border border-[var(--m-line)] max-w-[560px]">
             <span className="w-[7px] h-[7px] rounded-full bg-[var(--m-orange)] shrink-0" />
             <div className="text-[13px] text-[var(--m-ink)] leading-snug">
-              <strong className="font-medium">Wedding today. Every celebration tomorrow.</strong>{' '}
+              <strong className="font-medium">The reel they share tonight is your best referral tomorrow.</strong>{' '}
               <span className="text-[var(--m-slate)]">
-                Debut, birthday, baptism, corporate — opening as our vendor base reaches each event type.
+                Word-of-mouth, built into every wedding — no boosted posts required.
               </span>
             </div>
           </div>
@@ -182,9 +183,9 @@ function HeroCollage() {
   // peeking out from behind the clean dashboard card (brief 2026-06-13:
   // "messy screenshots vs clean dashboard" split visual).
   const chaos = [
-    { tag: 'Viber · 11:04 pm', body: '“sino mag-pa-print ng QR??”', rot: -7, top: '6%', left: -28 },
-    { tag: 'Budget_FINAL_v8.xlsx', body: '₱2M, mostly guessed', rot: 5, top: '38%', left: -44 },
-    { tag: 'GCash · screenshot', body: 'receipt… somewhere', rot: -4, top: '72%', left: -20 },
+    { tag: 'Viber · Day-of', body: '”sino nag-foto sa table namin??”', rot: -7, top: '6%', left: -28 },
+    { tag: 'Photos · 3 months later', body: 'still waiting for the link', rot: 5, top: '38%', left: -44 },
+    { tag: 'Guest camera roll', body: '”we got nothing from that night”', rot: -4, top: '72%', left: -20 },
   ];
   return (
     <div className="relative h-[480px] sm:h-[560px] lg:h-[600px] flex items-stretch lg:ml-6">

@@ -40,9 +40,9 @@ import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
 // GEO Phase G2 (2026-05-28) — brand-first title + value-prop description.
 // Carried forward from prior page.tsx so AI answer engines + SERP cards
 // keep extracting the same brand + price + 0% commission signals. Pricing
-const HOME_TITLE = 'Setnayan · Filipino wedding planning + verified vendors';
+const HOME_TITLE = 'Setnayan · Every guest leaves with their own wedding memories';
 const HOME_DESCRIPTION =
-  'Filipino-first wedding planning. Free to start. Verified vendor marketplace. 0% commission. Plan your whole wedding in one place.';
+  'Filipino-first wedding platform. Plan free — guest list, vendors, seating, QR invites. On your wedding day, every guest leaves with their own tagged photos and a personal highlight reel. Verified vendors. 0% commission.';
 
 export const metadata = {
   title: HOME_TITLE,
@@ -113,7 +113,7 @@ const softwareAppJsonLd = {
   publisher: { '@type': 'Organization', '@id': `${SITE_URL}/#organization` },
   isPartOf: { '@type': 'WebSite', '@id': `${SITE_URL}/#website` },
   description:
-    "The Philippines-first wedding platform. Couples plan free, then add the moments that set the day apart — Papic guest photo-and-video capture with QR-tagged galleries and personal reels, Panood livestream on the event page, the Setnayan AI planner, a custom Pakanta song, and an Animated Monogram. 0% commission on verified vendor bookings.",
+    "The Philippines-first wedding platform. Every guest leaves with their own tagged photos and a personal highlight reel — phones become a coordinated crew via Papic, photos appear instantly, reels are ready before the night is over. Couples plan free; the paid layer adds Panood livestream, Setnayan AI planner, a custom Pakanta song, and an Animated Monogram. 0% commission on verified vendor bookings.",
   featureList: [
     // 2026-06-13 reprice scrub (Pricing.md § 00.D): RSVP is a paid SKU —
     // the "Free" prefix stays only on tools the ₱0 tier actually includes.

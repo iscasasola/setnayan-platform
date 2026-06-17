@@ -45,26 +45,16 @@ type Props = {
 };
 
 export function SidebarSection({ group, pathname: _pathname, children }: Props) {
-  // Header-less group (label === '') — render just the items list with no
-  // heading button. Used by the customer unified 5-tab layout which uses a
-  // single root group. Skips the collapsible toggle; items always render.
-  if (!group.label) {
-    return (
-      <section className="px-2 pb-2">
-        <ul className="flex flex-col gap-0.5">{children}</ul>
-      </section>
-    );
-  }
-
-  // pathname is part of the public Props contract so callers can pass it
-  // alongside the group without restructuring; the child <SidebarItem>s
-  // are the only consumers today. Reserved for future per-section active
-  // hinting (e.g., auto-open the section containing the active item).
+  // Hooks must be called unconditionally (Rules of Hooks) — the header-less
+  // branch (group.label === '') returns after these calls, not before.
+  const headerless = !group.label;
   const storageKey = `setnayan.nav.section.${group.key}.open`;
   const initialOpen = group.defaultOpen ?? true;
   const [open, setOpen] = useState(initialOpen);
 
   useEffect(() => {
+    // Header-less groups have no collapsible toggle — skip localStorage.
+    if (headerless) return;
     try {
       const v = window.localStorage.getItem(storageKey);
       if (v === '1') setOpen(true);
@@ -72,7 +62,7 @@ export function SidebarSection({ group, pathname: _pathname, children }: Props) 
     } catch {
       // localStorage blocked — silently default.
     }
-  }, [storageKey]);
+  }, [headerless, storageKey]);
 
   const toggle = () => {
     setOpen((prev) => {
@@ -85,6 +75,16 @@ export function SidebarSection({ group, pathname: _pathname, children }: Props) 
       return next;
     });
   };
+
+  // Header-less group — render just the items list, no heading button.
+  // Placed AFTER all hooks so Rules of Hooks is satisfied.
+  if (headerless) {
+    return (
+      <section className="px-2 pb-2">
+        <ul className="flex flex-col gap-0.5">{children}</ul>
+      </section>
+    );
+  }
 
   const ChevronIcon = open ? ChevronUp : ChevronDown;
 

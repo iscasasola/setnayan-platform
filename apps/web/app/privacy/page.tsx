@@ -35,7 +35,7 @@ export default function PrivacyPage() {
             How we handle your data
           </h1>
           <p className="text-xs text-ink/55">
-            Effective 2026-05-13 · subject to RA 10173 (Philippines Data Privacy Act)
+            Effective 2026-05-13 · last updated 2026-06-17 · subject to RA 10173 (Philippines Data Privacy Act)
           </p>
         </header>
 
@@ -64,9 +64,10 @@ export default function PrivacyPage() {
           <p className="pt-2">
             Cross-border data transfers — Singapore (Supabase), United States
             (Cloudflare R2 PH-region buckets), United States (Anthropic Console
-            for Setnayan AI AI), and United States (Persona for vendor
-            verification) — are subject to RA 10173 § 21 and the cloud
-            provider&rsquo;s adequacy commitments.
+            for Setnayan AI), United States (Persona for vendor verification),
+            and United States (Google LLC, when you connect the optional Google
+            Drive or YouTube integrations) — are subject to RA 10173 § 21 and
+            the provider&rsquo;s adequacy commitments.
           </p>
         </Section>
 

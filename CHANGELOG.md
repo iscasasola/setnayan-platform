@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · feat(marketing): make /our-story Google-OAuth-acceptable (explains the app's purpose) + privacy hygiene
+
+A previous Google OAuth verification attempt was rejected — *"Your home page does not explain the purpose of your app."* The homepage is a cinematic scroll-scrub video whose plain explanation is gated behind a "tap to learn more" reveal, so a reviewer sees a video + poetry, never a clear statement of what the app does. **Owner decided to KEEP the YouTube scopes and pursue verification** (vs. the alternative of dropping the unused scopes — see the heads-up below), and to satisfy the home-page check on **`/our-story`** rather than clutter the front-page hero (Google checks whatever URL is set as the consent screen's "Application home page", which can be a subpage).
+
+- **`our-story/page.tsx`** — added a plain-language **"What Setnayan is"** section after the brand manifesto: states the app's purpose (a free Filipino wedding-planning platform), the core planning features, and — crucially for verification — names the **Google Drive** (Papic / Photo Delivery → copies finished photos into a folder the app creates; `drive.file` honesty preserved) and **YouTube** (Panood livestream) features tied to the requested scopes, with a link to the Privacy Policy. The manifesto + the cinematic front page are untouched. Owner action: set the OAuth consent screen's Application home page to `https://www.setnayan.com/our-story`.
+- **`privacy/page.tsx`** — fixed the `Setnayan AI AI` typo, added **Google LLC (US)** to the cross-border-transfer enumeration (it was in Subprocessors but missing here), and bumped the header to `Effective 2026-05-13 · last updated 2026-06-17`. The Drive/YouTube disclosure sections + Limited Use + YouTube ToS links were already present and compliant.
+
+Reverted within this PR (course correction): an earlier commit had gated the dormant YouTube OAuth connect off (for the drop-scopes path); since the owner is keeping the scopes, `panood/setup/page.tsx` is restored to `main` (connect stays live for the verification demo).
+
+⚠ HEADS-UP recorded for owner: making the page acceptable clears the *home-page* rejection, but the submission will still hit a separate wall — `youtube.upload` is **exercised by no live code** (grep-verified: zero `liveBroadcasts`/`liveStreams`/upload calls; shipped Panood is paste-the-watch-URL embed via `lib/panood-watch.ts`). Google rejects scopes it can't see used in the demo. Easiest unblock = drop **just** `youtube.upload` and keep `youtube` for the channel-connect demo; full pass needs the programmatic-broadcast feature actually built.
+
+SPEC IMPACT: `/our-story` doubles as the OAuth-verification home page (now describes app functionality + Google integrations). No SKU/schema/pricing change. Logged in corpus `DECISION_LOG.md`.
 ## 2026-06-17 · feat(papic): "Download all" — stream the whole gallery as a ZIP (no Google Drive needed)
 
 The bulk counterpart to per-photo Save (#1634/#1638): a couple can pull their entire Papic gallery to their phone/computer in one click, **without connecting Google Drive**.

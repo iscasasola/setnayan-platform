@@ -21,7 +21,7 @@
 import { formatEventDate } from '@/lib/events';
 import {
   googleCalendarUrl,
-  buildWeddingIcs,
+  buildSaveTheDateIcs,
   icsDataHref,
 } from '@/lib/calendar-links';
 
@@ -45,6 +45,8 @@ export type StdFilmContent = {
   musicUrl?: string | null;
   /** Presigned photo URLs for the closing gallery beat; empty → no gallery beat. */
   gallery?: string[];
+  /** Formatted invitation-launch date for the close beat; null → no reminder line. */
+  launchLabel?: string | null;
 };
 
 export type ResolveStdFilmInput = {
@@ -52,6 +54,8 @@ export type ResolveStdFilmInput = {
   /** The couple's explicit monogram text (resolveMonogram().text); else derived. */
   monogramText?: string | null;
   dateIso: string | null;
+  /** When the full invitation goes live (events.std_invitation_launch_date). */
+  launchDateIso?: string | null;
   venueName?: string | null;
   venueAddress?: string | null;
   /** Raw events.love_story (unknown shape) — teaser extracted + truncated. */
@@ -109,11 +113,12 @@ export function resolveStdFilmContent(input: ResolveStdFilmInput): StdFilmConten
     dateIso: input.dateIso,
     location,
   });
-  const ics = buildWeddingIcs({
-    title: input.displayName,
-    dateIso: input.dateIso,
+  const ics = buildSaveTheDateIcs({
+    coupleName: input.displayName,
+    weddingDateIso: input.dateIso,
+    launchDateIso: input.launchDateIso,
     location,
-    uid: `wedding-${input.publicId}@setnayan.com`,
+    publicId: input.publicId,
   });
   return {
     monogram,
@@ -131,5 +136,6 @@ export function resolveStdFilmContent(input: ResolveStdFilmInput): StdFilmConten
     gallery: (input.galleryUrls ?? [])
       .filter((u): u is string => typeof u === 'string' && u.length > 0)
       .slice(0, MAX_GALLERY),
+    launchLabel: input.launchDateIso ? formatEventDate(input.launchDateIso) : null,
   };
 }

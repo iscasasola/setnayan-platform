@@ -148,7 +148,7 @@ const fetchEventBySlug = cache(async (slug: string) => {
   const { data } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, love_story, wax_seal_config, std_reveal_template',
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, love_story, wax_seal_config, std_reveal_template, std_invitation_launch_date',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -892,6 +892,9 @@ type EventRow = {
   // The couple's chosen Save-the-Date opening reveal (events.std_reveal_template,
   // migration 20270113257561) — overrides the admin house default. (PR4 P4)
   std_reveal_template?: string | null;
+  // When the full invitation goes live (events.std_invitation_launch_date) —
+  // drives the STD film's close beat + the second add-to-calendar VEVENT. (PR4 P3)
+  std_invitation_launch_date?: string | null;
   // JSONB column populated by the host via /dashboard/[eventId]/website/photo-moments.
   // Shape: { intro_copy: string, moments: [{ time_label, title, note, mode }] }.
   // Unknown / empty shapes degrade gracefully in PhotoMomentsWidget — the
@@ -1304,6 +1307,7 @@ function PublicLanding({
           galleryUrls={
             ourPhotoUrls.length ? ourPhotoUrls : heroPhotoUrl ? [heroPhotoUrl] : []
           }
+          launchDateIso={event.std_invitation_launch_date}
         />
       ) : (
         <>
@@ -1837,6 +1841,7 @@ function InvitationSite({
             galleryUrls={
               ourPhotoUrls.length ? ourPhotoUrls : heroPhotoUrl ? [heroPhotoUrl] : []
             }
+            launchDateIso={event.std_invitation_launch_date}
           />
         ) : (
           <>

@@ -100,6 +100,69 @@ export function buildWeddingIcs(opts: {
   return lines.join('\r\n') + '\r\n';
 }
 
+/**
+ * A combined Save-the-Date .ics with up to TWO all-day VEVENTs: the wedding
+ * (primary) and — when set — the day the full invitation goes live (a gentle
+ * "[Names] — invitation arrives" reminder). This is the end-of-film add-to-
+ * calendar (build plan P3 · the couple sets the launch date in the builder).
+ * Returns null when there's neither a wedding date nor a launch date. Stable
+ * UIDs (public_id-derived) so re-adds dedupe per device.
+ */
+export function buildSaveTheDateIcs(opts: {
+  coupleName: string;
+  weddingDateIso: string | null;
+  launchDateIso?: string | null;
+  location?: string | null;
+  publicId: string;
+}): string | null {
+  const vevents: string[] = [];
+
+  if (opts.weddingDateIso) {
+    const start = basicDate(opts.weddingDateIso);
+    const end = nextBasicDate(opts.weddingDateIso);
+    if (start && end) {
+      vevents.push(
+        'BEGIN:VEVENT',
+        `UID:wedding-${opts.publicId}@setnayan.com`,
+        `DTSTAMP:${start}T000000Z`,
+        `DTSTART;VALUE=DATE:${start}`,
+        `DTEND;VALUE=DATE:${end}`,
+        `SUMMARY:${icsEscape(opts.coupleName)}`,
+        ...(opts.location ? [`LOCATION:${icsEscape(opts.location)}`] : []),
+        'END:VEVENT',
+      );
+    }
+  }
+
+  if (opts.launchDateIso) {
+    const start = basicDate(opts.launchDateIso);
+    const end = nextBasicDate(opts.launchDateIso);
+    if (start && end) {
+      vevents.push(
+        'BEGIN:VEVENT',
+        `UID:invite-${opts.publicId}@setnayan.com`,
+        `DTSTAMP:${start}T000000Z`,
+        `DTSTART;VALUE=DATE:${start}`,
+        `DTEND;VALUE=DATE:${end}`,
+        `SUMMARY:${icsEscape(`${opts.coupleName} — invitation arrives`)}`,
+        'END:VEVENT',
+      );
+    }
+  }
+
+  if (vevents.length === 0) return null;
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Setnayan//Save the Date//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    ...vevents,
+    'END:VCALENDAR',
+  ];
+  return lines.join('\r\n') + '\r\n';
+}
+
 /** Wrap an ICS string as a downloadable data: URI. */
 export function icsDataHref(ics: string): string {
   return `data:text/calendar;charset=utf-8,${encodeURIComponent(ics)}`;

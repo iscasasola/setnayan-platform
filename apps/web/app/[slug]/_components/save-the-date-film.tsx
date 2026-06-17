@@ -140,13 +140,16 @@ export function SaveTheDateFilm({ content }: { content: StdFilmContent }) {
           celebrate with you
         </p>
         <p className={LABEL}>Formal invitation to follow</p>
+        {content.launchLabel ? (
+          <p className="font-display text-sm italic text-ink/55">Arrives {content.launchLabel}</p>
+        ) : null}
         <div className="mt-2 flex flex-wrap items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
-          {content.gcalUrl || content.icsHref ? (
+          {content.icsHref || content.gcalUrl ? (
             <a
-              href={content.gcalUrl ?? content.icsHref ?? '#'}
-              {...(content.gcalUrl
-                ? { target: '_blank', rel: 'noopener noreferrer' }
-                : { download: content.icsFilename })}
+              href={content.icsHref ?? content.gcalUrl ?? '#'}
+              {...(content.icsHref
+                ? { download: content.icsFilename }
+                : { target: '_blank', rel: 'noopener noreferrer' })}
               className="inline-flex items-center gap-2 rounded-full bg-mulberry px-4 py-2 text-[12px] font-semibold text-cream"
             >
               Add to calendar

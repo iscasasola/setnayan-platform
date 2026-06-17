@@ -92,6 +92,7 @@ export default async function SaveTheDatePage({ params, searchParams }: Props) {
     displayName: event?.display_name ?? '',
     monogramText: event?.monogram_text,
     dateIso: event?.event_date ?? null,
+    launchDateIso: event?.std_invitation_launch_date,
     venueName: event?.venue_name,
     venueAddress: event?.venue_address,
     loveStory: event?.love_story,

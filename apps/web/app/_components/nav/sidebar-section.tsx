@@ -47,6 +47,7 @@ type Props = {
 export function SidebarSection({ group, pathname: _pathname, children }: Props) {
   // Hooks must be called unconditionally (Rules of Hooks) — the header-less
   // branch (group.label === '') returns after these calls, not before.
+  // owner 2026-06-17: header-less used by customer unified 5-tab sidebar.
   const headerless = !group.label;
   const storageKey = `setnayan.nav.section.${group.key}.open`;
   const initialOpen = group.defaultOpen ?? true;

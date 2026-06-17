@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · feat(save-the-date): price + sell the premium openings — ₱799 "template unlock" (owner-set)
+
+Activates the P5 premium-openings gate at the owner's price: **₱799** for the cinematic-openings "template unlock" (revised down from the provisional ₱1,499). The content film stays free; the openings (the veil/envelope/doors reveal that lifts to uncover the page) are now a purchasable unlock.
+
+- **New migration `20270113942330`** (applied to prod) — seeds `platform_retail_catalog_v2` with `STD_PREMIUM_OPENINGS` @ ₱799 (idempotent upsert · `saas_overhead_cost_php` 0 · not token-able). **Price is admin-managed** — the owner changes it anytime at `/admin/pricing?edit=STD_PREMIUM_OPENINGS`; the app reads it at runtime via `formatV2Sku`, never hardcoded.
+- **`lib/v2/sku-catalog-v2.ts`** — registers `STD_PREMIUM_OPENINGS` in `V2_SKU_CODES` (required for `formatV2Sku` to resolve the price).
+- **`add-ons/save-the-date/page.tsx`** — a new unlock card mirrors the Animated Monogram buy flow exactly: not-owned → "Make your opening play live · ₱799" + the `InlineCheckoutDrawer`; owned → "✓ Cinematic openings unlocked." The price + payment settings resolve from the catalog + `platform_settings`.
+- **`lib/std-openings.ts`** — doc updated: the gate is now ACTIVATED (price seeded + buy-CTA live + purchase-gated, since the admin global toggle is off by default).
+
+No code price hardcoded · `tsc` 0 · `next lint` clean · migration guard 408 unique. The P5 gate routes ownership → the live `RevealOverlay`, so a purchase makes the couple's chosen opening play for guests.
+
+SPEC IMPACT iter 0024 — completes the P5 activation. **Still provisional** — the holistic pricing pass reconciles ₱799 à-la-carte vs the ₱3,999 PRO unlock (à-la-carte vs included). → CHANGELOG + corpus DECISION_LOG + memory.
+
 ## 2026-06-17 · feat(save-the-date): premium-openings gate plumbing + journey trigger (PR4 P5)
 
 The final phase. The **journey trigger was already done** — the `save_the_dates` checklist item seeds when the date is set and already deep-links to the builder (`checklist.ts:639`), so this is the **gate**.

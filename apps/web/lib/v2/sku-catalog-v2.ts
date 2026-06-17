@@ -42,6 +42,10 @@ export const V2_SKU_CODES = [
   'PAKULAY',
   'PABATI',
   'PAPIC_ADDON_STORIES',
+  // Save-the-Date premium openings — the ₱799 cinematic-openings "template
+  // unlock" (0024 PR4 P5; owner-set price, admin-editable at /admin/pricing).
+  // is_token_able=FALSE (couple-paid). Seeded by migration 20270113942330.
+  'STD_PREMIUM_OPENINGS',
   // 10 crew-delivered token-worthy (is_token_able=TRUE)
   'LIVE_BACKGROUND',
   'LIVE_WALL',

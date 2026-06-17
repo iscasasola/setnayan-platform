@@ -13,22 +13,22 @@ import { eventOwnsSku } from '@/lib/entitlements';
  * cinematic openings layered ON TOP are the PREMIUM. This resolves whether an
  * event has bought that premium opening unlock.
  *
- * GATE WIRING (additive · DORMANT until the owner activates):
+ * GATE WIRING (additive):
  *   RevealOverlay shows an opening when ANY of: the admin global toggle
  *   (config.enabled, the Reveal Studio master) · the ?reveal= preview override ·
- *   THIS per-event ownership. So today (no STD_PREMIUM_OPENINGS is sold) it's a
- *   no-op — the admin global stays the live control. When the owner is ready to
- *   sell openings as the ₱1,499 à-la-carte unlock, the activation runbook is:
- *     (1) seed the STD_PREMIUM_OPENINGS price into platform_retail_catalog_v2
- *         (admin-managed; PROVISIONAL — reconcile vs the ₱3,999 PRO unlock in
- *         the holistic pricing pass);
- *     (2) surface the buy-CTA (InlineCheckoutDrawer) on /add-ons/save-the-date;
- *     (3) turn the admin global toggle OFF so only owners get openings.
- *   The free film stays free throughout.
+ *   THIS per-event ownership. With the admin global toggle OFF (the default),
+ *   ownership is the live gate → only couples who bought the unlock get openings.
  *
- * ⚠ PRICE IS NOT SET HERE. Per the admin-managed-pricing rule the amount lives
- * in the catalog (never hardcoded). This change seeds NO price and adds NO
- * paywall — it is the gate plumbing only.
+ * ✅ ACTIVATED 2026-06-17 (owner-priced ₱799): the catalog row is seeded
+ *   (migration 20270113942330 · platform_retail_catalog_v2 · STD_PREMIUM_OPENINGS)
+ *   and the buy-CTA is LIVE on /add-ons/save-the-date (the InlineCheckoutDrawer
+ *   flow, mirroring Animated Monogram). The admin global toggle stays OFF, so it's
+ *   purchase-gated. The free content film stays free throughout.
+ *
+ * PRICE IS ADMIN-MANAGED — ₱799 is the owner-set seed; change it anytime at
+ * /admin/pricing?edit=STD_PREMIUM_OPENINGS. Read at runtime via formatV2Sku,
+ * never hardcoded. PROVISIONAL — reconcile vs the ₱3,999 PRO unlock (à-la-carte
+ * vs included) in the holistic pricing pass.
  *
  * SAFETY · queries the existing `orders` table via the shared bundle-aware
  * eventOwnsSku() reader — no new table, no migration, graceful-degrade to "not

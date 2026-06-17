@@ -8,6 +8,7 @@ import { screenCapture } from '@/lib/nsfw-screen';
 import { ingestToWall } from '@/lib/live-wall';
 import { eventSamplerIsKept } from '@/lib/papic-sampler';
 import { parsePapicTagScan } from '@/lib/papic-tag';
+import { autoTagCapture } from '@/lib/face-match';
 import {
   PAPIC_SAMPLER_PHOTO_CAP,
   PAPIC_SAMPLER_CLIP_CAP,
@@ -348,4 +349,75 @@ export async function tagSeatCapture(
     tableLabel: typeof r.table_label === 'string' ? r.table_label : undefined,
     already: Boolean(r.already),
   };
+}
+
+/**
+ * Best-effort FACE auto-tag for a just-captured seat photo. The capturing phone
+ * detected faces + computed their descriptors ON-DEVICE (lib/face-embed) and
+ * sends only the tiny 128-d vectors here — the face IMAGE never leaves the phone.
+ *
+ * We re-check (under the claimer's RLS session) that the caller owns this seat
+ * and that the photo belongs to it, then hand the vectors to the server matcher
+ * (autoTagCapture), which compares them to the event's CONSENTED enrollments and
+ * writes auto_face photo_tags. The matcher is the only place the small guest
+ * vectors are read, and they never leave our server.
+ *
+ * Dormant until enrollments carry vectors + a face model is hosted
+ * (NEXT_PUBLIC_FACE_MODEL_URL): with no enrolled vectors this is a clean no-op.
+ * Never throws — a face-tag miss must never break the camera; the photo is
+ * already saved (untagged-still-delivered) before this ever runs.
+ */
+export async function autoTagSeatCapture(
+  token: string,
+  photoId: string,
+  faceVectors: number[][],
+): Promise<{ autoTagged: number }> {
+  try {
+    const cleanToken = token?.trim();
+    const cleanPhotoId = photoId?.trim();
+    if (
+      !cleanToken ||
+      !cleanPhotoId ||
+      !Array.isArray(faceVectors) ||
+      faceVectors.length === 0
+    ) {
+      return { autoTagged: 0 };
+    }
+
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { autoTagged: 0 };
+
+    // RLS (paparazzi_seats_claimer_read) returns the row only for the claimer —
+    // resolving the seat by token doubles as the auth check.
+    const { data: seat } = await supabase
+      .from('paparazzi_seats')
+      .select('seat_id, event_id, revoked_at, claimer_user_id')
+      .eq('claim_qr_token', cleanToken)
+      .maybeSingle();
+    if (!seat || seat.claimer_user_id !== user.id || seat.revoked_at) {
+      return { autoTagged: 0 };
+    }
+
+    // The photo must belong to THIS seat — no cross-photo vector injection.
+    const { data: photo } = await supabase
+      .from('papic_photos')
+      .select('photo_id')
+      .eq('photo_id', cleanPhotoId)
+      .eq('paparazzi_seat_id', seat.seat_id)
+      .maybeSingle();
+    if (!photo) return { autoTagged: 0 };
+
+    return await autoTagCapture({
+      eventId: seat.event_id as string,
+      sourceTable: 'papic_photos',
+      photoId: cleanPhotoId,
+      faceVectors,
+    });
+  } catch {
+    // best-effort — face tagging never affects the saved photo
+    return { autoTagged: 0 };
+  }
 }

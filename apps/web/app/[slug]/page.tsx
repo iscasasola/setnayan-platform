@@ -126,7 +126,13 @@ const RESERVED_TOP_LEVEL = new Set([
 
 type Props = {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ invite?: string; invite_error?: string; phase?: string }>;
+  searchParams: Promise<{
+    invite?: string;
+    invite_error?: string;
+    phase?: string;
+    // PR4 P1 — per-visit preview of the auto-playing STD film while it bakes.
+    film?: string;
+  }>;
 };
 
 // Soft-404 fix (SEO) — this route has a loading.tsx, so the streaming shell
@@ -518,6 +524,13 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // PublicLanding + InvitationSite like heroPhotoUrl.
   const lifecyclePhase: LifecyclePhase = phaseOverride ?? getLifecyclePhase(event.event_date);
 
+  // PR4 P1 — flag-gate the auto-playing Save-the-Date "film". The bare film is
+  // the free base (the static STD view is the fallback); the cinematic openings
+  // (RevealOverlay) layer ON TOP and become the ₱1,499 premium (P5 gate). Env
+  // for a global rollout, ?film=1 for a per-visit preview while it bakes.
+  const stdFilm =
+    process.env.NEXT_PUBLIC_STD_FILM === '1' || search.film === '1';
+
   // (Note: guest-session cookie was already read above for the private-gate
   // check — reuse the same `session` reference rather than re-fetching.)
 
@@ -615,6 +628,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         dayOfPhase={dayOfPhase}
         phasesEnabled={phasesEnabled}
         lifecyclePhase={lifecyclePhase}
+        stdFilm={stdFilm}
         heroPhotoUrl={heroPhotoUrl}
         heroVideoUrl={heroVideoUrl}
         bgMusicUrl={bgMusicUrl}
@@ -638,6 +652,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         dayOfPhase={dayOfPhase}
         phasesEnabled={phasesEnabled}
         lifecyclePhase={lifecyclePhase}
+        stdFilm={stdFilm}
         heroPhotoUrl={heroPhotoUrl}
         heroVideoUrl={heroVideoUrl}
         bgMusicUrl={bgMusicUrl}
@@ -668,6 +683,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         dayOfPhase={dayOfPhase}
         phasesEnabled={phasesEnabled}
         lifecyclePhase={lifecyclePhase}
+        stdFilm={stdFilm}
         heroPhotoUrl={heroPhotoUrl}
         heroVideoUrl={heroVideoUrl}
         bgMusicUrl={bgMusicUrl}
@@ -795,6 +811,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         dayOfPhase={dayOfPhase}
         phasesEnabled={phasesEnabled}
         lifecyclePhase={lifecyclePhase}
+        stdFilm={stdFilm}
         heroPhotoUrl={heroPhotoUrl}
         heroVideoUrl={heroVideoUrl}
         bgMusicUrl={bgMusicUrl}
@@ -1100,6 +1117,7 @@ function PublicLanding({
   dayOfPhase,
   phasesEnabled,
   lifecyclePhase,
+  stdFilm,
   heroPhotoUrl,
   heroVideoUrl,
   bgMusicUrl,
@@ -1119,6 +1137,8 @@ function PublicLanding({
   // consulted when `phasesEnabled` is true. See lib/invitation-widgets.ts.
   phasesEnabled: boolean;
   lifecyclePhase: LifecyclePhase;
+  /** PR4 P1 — render the auto-playing STD film instead of the static section. */
+  stdFilm: boolean;
   // Presigned GET URL for the host's uploaded hero photo, or null when the
   // monogram-only fallback should render. See displayUrlForStoredAsset() in
   // lib/uploads.ts — caller resolves once at the top-level page.
@@ -1259,6 +1279,7 @@ function PublicLanding({
           publicId={event.public_id}
           loveStory={event.love_story}
           showTextHero={!hasHeroMedia}
+          film={stdFilm}
         />
       ) : (
         <>
@@ -1537,6 +1558,7 @@ function InvitationSite({
   dayOfPhase,
   phasesEnabled,
   lifecyclePhase,
+  stdFilm,
   heroPhotoUrl,
   heroVideoUrl,
   bgMusicUrl,
@@ -1570,6 +1592,8 @@ function InvitationSite({
   // is only consulted when `phasesEnabled` is true.
   phasesEnabled: boolean;
   lifecyclePhase: LifecyclePhase;
+  /** PR4 P1 — render the auto-playing STD film instead of the static section. */
+  stdFilm: boolean;
   // Presigned GET URL for the host's uploaded hero photo, or null when the
   // monogram-only fallback should render. Caller resolves once at the
   // top-level page so PublicLanding + InvitationSite share the result.
@@ -1782,6 +1806,7 @@ function InvitationSite({
             publicId={event.public_id}
             loveStory={event.love_story}
             showTextHero={false}
+            film={stdFilm}
           />
         ) : (
           <>

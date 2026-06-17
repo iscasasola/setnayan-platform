@@ -20,6 +20,25 @@ import {
 } from '@/lib/calendar-links';
 import { CountdownWidget } from './countdown';
 import { OurStory } from './our-story';
+import { SaveTheDateFilm, type StdFilmContent } from './save-the-date-film';
+
+function deriveMonogram(name: string): string {
+  const parts = name
+    .split(/\s*[&+]\s*|\s+and\s+/i)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (parts.length >= 2) return `${parts[0]!.charAt(0)} & ${parts[1]!.charAt(0)}`.toUpperCase();
+  return (name.trim().charAt(0) || '✦').toUpperCase();
+}
+
+function shortDate(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${mm}.${dd}.${String(d.getFullYear()).slice(-2)}`;
+}
 
 type Props = {
   displayName: string;
@@ -36,6 +55,8 @@ type Props = {
    * signed-in path always renders the monogram hero above, so it passes false.
    */
   showTextHero: boolean;
+  /** When true, render the auto-playing scrubbable "film" instead of the static section (PR4 P1, flag-gated). */
+  film?: boolean;
 };
 
 export function SaveTheDateView({
@@ -46,6 +67,7 @@ export function SaveTheDateView({
   publicId,
   loveStory,
   showTextHero,
+  film = false,
 }: Props) {
   const location = [venueName, venueAddress].filter(Boolean).join(', ') || null;
   const gcalUrl = googleCalendarUrl({ title: displayName, dateIso, location });
@@ -55,6 +77,35 @@ export function SaveTheDateView({
     location,
     uid: `wedding-${publicId}@setnayan.com`,
   });
+
+  // PR4 P1 — the auto-playing scrubbable film (flag-gated). Reuses the same
+  // event data; the couple's builder (P4) later supplies split venues + media.
+  if (film) {
+    const content: StdFilmContent = {
+      monogram: deriveMonogram(displayName),
+      names: displayName,
+      dateBig: shortDate(dateIso),
+      dateLabel: dateIso ? formatEventDate(dateIso) : null,
+      venueName,
+      venueCity: venueAddress,
+      storyTeaser:
+        typeof loveStory === 'string' && loveStory.trim()
+          ? loveStory.length > 120
+            ? loveStory.slice(0, 118).trimEnd() + '…'
+            : loveStory.trim()
+          : null,
+      websiteUrl: null,
+      gcalUrl,
+      icsHref: ics ? icsDataHref(ics) : null,
+      icsFilename: `${displayName.replace(/[^\w-]+/g, '-')}-save-the-date.ics`,
+      musicUrl: null,
+    };
+    return (
+      <section className="py-2">
+        <SaveTheDateFilm content={content} />
+      </section>
+    );
+  }
 
   return (
     <section className="space-y-8 text-center">

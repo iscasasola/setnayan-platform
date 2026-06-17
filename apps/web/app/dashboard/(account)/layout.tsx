@@ -62,7 +62,10 @@ export default async function AccountDashboardLayout({
     })().catch(() => null),
     // AccountSwitcher panel data — events, gallery, favorites, editorials,
     // context rail flags. Graceful degrade to null on any error.
-    getSwitcherData().catch(() => null),
+    getSwitcherData(user.id).catch((err: unknown) => {
+      console.error('[AccountSwitcher] data fetch failed:', err);
+      return null;
+    }),
   ]);
 
   // Hide archived events from the switcher, then sort active-first /

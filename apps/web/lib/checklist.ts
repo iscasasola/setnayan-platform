@@ -99,16 +99,19 @@ export const CHECKLIST_TEMPLATE: ReadonlyArray<ChecklistTemplateItem> = [
   { key: 'pick_party', title: 'Choose your wedding party (maid of honour, best man, entourage)', category: 'foundations', dueOffsetDays: 500 },
   { key: 'guest_estimate', title: 'Confirm your guest count — set during setup, adjust here if needed', category: 'guests', dueOffsetDays: 495 },
   { key: 'set_budget', title: 'Review your budget — Setnayan estimated one from your recommended services', category: 'foundations', dueOffsetDays: 490 },
-  { key: 'shortlist_venues', title: 'Research & shortlist ceremony venues (church, chapel, or garden)', category: 'vendors', dueOffsetDays: 480 },
-  { key: 'shortlist_reception_venue', title: 'Research & shortlist reception venues (hall, hotel, or garden)', category: 'vendors', dueOffsetDays: 470 },
+  // Reception venue first — it sets the date window, the capacity ceiling, and the
+  // budget anchor. Ceremony venue follows once the reception shortlist exists.
+  { key: 'shortlist_reception_venue', title: 'Research & shortlist reception venues (hall, hotel, or garden)', category: 'vendors', dueOffsetDays: 480 },
+  { key: 'shortlist_venues', title: 'Research & shortlist ceremony venues (church, chapel, or garden)', category: 'vendors', dueOffsetDays: 470 },
   { key: 'ask_parish', title: 'Ask your parish for its full requirements list & timeline', category: 'paperwork', dueOffsetDays: 460, appliesTo: isChurchCeremony },
   { key: 'find_date', title: 'Find the date both venues share — use the date finder', category: 'foundations', dueOffsetDays: 420 },
   { key: 'set_date', title: 'Lock your date — the day your ceremony and reception venue both agree on', category: 'foundations', dueOffsetDays: 400 },
 
   // ══ 12–9 months before — Lock your look & key vendors ══
   { key: 'lock_theme', title: 'Lock your theme, palette & overall style', category: 'design', dueOffsetDays: 340 },
-  { key: 'book_venue', title: 'Pay your deposit & sign the contract with your ceremony venue', category: 'vendors', dueOffsetDays: 330 },
-  { key: 'book_reception_venue', title: 'Pay your deposit & sign the contract with your reception venue', category: 'vendors', dueOffsetDays: 325 },
+  // Reception deposit first — mirrors the shortlisting priority.
+  { key: 'book_reception_venue', title: 'Pay your deposit & sign the contract with your reception venue', category: 'vendors', dueOffsetDays: 330 },
+  { key: 'book_venue', title: 'Pay your deposit & sign the contract with your ceremony venue', category: 'vendors', dueOffsetDays: 325 },
   { key: 'book_host', title: 'Book your host / emcee', category: 'vendors', dueOffsetDays: 320 },
   { key: 'book_ceremony_music', title: 'Book your ceremony musicians (string quartet, choir, soloist)', category: 'vendors', dueOffsetDays: 310 },
   { key: 'book_reception_music', title: 'Book your reception music (band, DJ, or mobile bar)', category: 'vendors', dueOffsetDays: 305 },
@@ -489,6 +492,48 @@ export function groupChecklistByPhase(
   }
   return groups;
 }
+
+/**
+ * Three-tier budget priority for wedding planning.
+ *
+ * Tier 1 — Reception venue.
+ *   The date anchor and capacity ceiling. Everything else is scheduled around
+ *   what the reception hall has available. Shortlisted and deposited first.
+ *
+ * Tier 2 — The 4 Big.
+ *   Ceremony venue · Catering · Coordinator · Photo & Video.
+ *   Together these account for 60–75 % of most PH wedding budgets. Booked
+ *   immediately after the date is locked.
+ *
+ * Tier 3 — The rest of the taxonomy.
+ *   Florist · HMUA · Cake · Band/DJ · Photobooth · Lights & Sound ·
+ *   Bridal Car · and every other category the couple picks in setup.
+ *
+ * Paperwork costs are computed separately — see BUDGET_PAPERWORK_TASK_KEYS.
+ *
+ * The budget health-check reads this priority order when deciding which
+ * uncovered categories to flag first.
+ */
+export const CHECKLIST_BUDGET_TIERS = {
+  /** plan-group IDs for Tier 1. Lock this before any other vendor. */
+  tier1: ['reception_venue'] as const,
+  /** plan-group IDs for Tier 2 — the 4 Big. */
+  tier2: ['ceremony_venue', 'catering', 'coordinator', 'photo_video'] as const,
+} as const;
+
+/**
+ * Template-task keys whose completion involves real out-of-pocket costs —
+ * factored into the budget health-check as a "paperwork line."
+ * Amounts vary by LGU and parish; the budget page estimates from
+ * `ceremony_type` + `region`. Catholic-only tasks are already gated by
+ * `appliesTo: isChurchCeremony` in the template.
+ */
+export const BUDGET_PAPERWORK_TASK_KEYS = [
+  'marriage_license', // civil registrar fee — applies all ceremony types
+  'psa_cenomar',      // PSA document fees — applies all
+  'church_fee',       // church package — catholic only
+  'pre_cana',         // Pre-Cana seminar — catholic only
+] as const;
 
 /**
  * Deep-link a template task to the surface where it actually gets done, when

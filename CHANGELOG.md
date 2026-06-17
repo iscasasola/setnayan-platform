@@ -84,6 +84,13 @@ tsc 0 · `next lint` clean · `lint:retired` 0 (verified in worktree).
 SPEC IMPACT: 0024 Save the Date — no scope change; correctness/a11y/colour-wiring fixes on the flag-gated reveal. Logged in corpus `DECISION_LOG.md`.
 
 ## 2026-06-16 · fix(payments): complete PR4 bundle-awareness — 3 Essentials-tier SKUs a bundle buyer was wrongly denied (PR4b)
+## 2026-06-16 · chore(db): drop the retired budget_category_flags table
+
+Migration `20270108000000` — removes `budget_category_flags`, the legacy 2-state Pin/Flag Build's storage. The 3-State Build replaced it with `event_category_build_state`, and #1568 deleted the last code that touched it. Audited before dropping: **0 code references · 0 incoming FKs · 0 view/rule deps**, only stale Flag-marker rows. Plain `DROP TABLE IF EXISTS` (no CASCADE) — RLS policies + indexes drop with it. Applied to prod in-session + ledger row inserted.
+
+SPEC IMPACT: None — completes the 3-State Build cleanup; closes the last follow-up from the #1568 retire-the-flag work.
+
+## 2026-06-16 · chore(compare): simpler Modify-confirm wording
 
 Owner ask: *"we also want to do the customization of this template from the admin"* + *"where we can activate and deactivate features of the template?"* — owner picked **Full template studio** (toggles **and** a live slider panel). Today the reveal was gated only by the `NEXT_PUBLIC_STD_REVEAL` env flag with all settings baked as constants; this makes it admin-managed end-to-end, following the `platform_settings` / `homepage_hero_config` recipe.
 

@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · feat(reveal): port the DESIGN-LOCKED bridal-veil reveal to the Save-the-Date page
+
+**What landed (`apps/web/app/[slug]/_components/reveal/`):**
+- **`veil-reveal.tsx`** — fully rewritten as a faithful port of the owner-approved reference implementation (build `veil_lower_shakes_petals`, the 47th `show_widget` tuning iteration, 2026-06-17). Replaces the old 28×40 / gold-mark / pin-rise placeholder. Now a 66×50 Verlet cloth with: flat-crown→blooming folds, real gravity drop, hem-weighted wind, a **hard 1.2% strain clamp** (inextensible — a tap-pull holds taut, never rubber-stretches), the **sim-driven two-end trailing fold** (hem pulled off-screen past the top, only the valance droop occupies the top ~30%, float keeps it high), and gestures: **swipe-up = reveal · swipe-down = re-cover · double-tap = hands-free auto · grab-and-pull = local inextensible hold · tap = bat a petal away.** The logo is now the **white sparse Setnayan mark** (fixed-pixel tiled, `ResizeObserver` re-fit so rotation adds marks instead of stretching) — no gold, no flower-lace hem. Adds a **100-petal `InstancedMesh`** rose shower with 4 mixed behaviours (cling/feather/rotate/straight), **tap-to-bounce**, **lower-the-veil-shakes-all-petals-loose**, and petals that **start only when the veil first lifts** (none on the covered veil). All locked settings (spec §6) baked as constants; couple-customizable surface = `veilColor` + `petalsColor` only.
+- **`reveal-overlay.tsx`** — threads a new optional `petalsColor` prop (Mood-Board blush-rose default `#e87a93`) into the veil.
+- **`veil-crown.tsx`** — accepts an (unused) optional `petalsColor` for prop-parity with `VeilReveal` (both render via one `<VeilComponent>` in the overlay).
+
+**Gating / safety:** unchanged — the reveal only shows in the Save-the-Date phase, behind `NEXT_PUBLIC_STD_REVEAL=1` (global) or per-visit `?reveal=veil-sheer`, respects `prefers-reduced-motion`, and silently reveals if WebGL is unavailable (never a gate). three.js stays code-split (loaded via `next/dynamic(ssr:false)`), so the couple-site main bundle is untouched. No schema change, no migration.
+
+**Verification:** `tsc --noEmit` clean · `next lint` clean on all three files · authoritative production build + Lighthouse run in CI (auto-merge waits on them).
+
+**SPEC IMPACT:** Implements `0024_save_the_date/0024_Veil_Reveal_Spec_2026-06-17.md` (design + §6 locked settings + §8 exact constants) and its ground-truth `0024_Veil_Reveal_Prototype_2026-06-17.html`. Corpus spec §7 port-plan + `DECISION_LOG.md` updated to mark the veil PORTED; memory `[[project_setnayan_std_reveal_spec]]` updated. Still pending (separate work): the PR4 content layer (7 elements + the 3 customizations wired from the Mood Board + the per-event template chooser + orientation lock).
+
+---
+
 ## 2026-06-17 · PR #10 — chat_threads.vendor_first_reply_at + real avg_response_minutes
 ## 2026-06-17 · feat(nav): unify customer desktop sidebar to match 5-tab mobile nav
 

@@ -56,10 +56,23 @@ export type SurfaceMaps = {
   roughnessMap: THREE.Texture;
 };
 
+/** Load a single photo texture (e.g. the church-interior backdrop).
+ *  No recolour — used as-is. Returns null on failure; caller keeps its fallback. */
+export function loadSingleTexture(url: string): Promise<THREE.Texture | null> {
+  return new Promise((resolve) => {
+    new THREE.TextureLoader().load(
+      url,
+      (t) => { t.colorSpace = THREE.SRGBColorSpace; resolve(t); },
+      undefined,
+      () => resolve(null),
+    );
+  });
+}
+
 /** Load + recolour one surface's maps. Returns null on any failure (caller keeps
  *  the flat moodboard colour — the scene never breaks). */
 export async function loadSurfaceMaps(
-  surface: 'paper' | 'liner',
+  surface: 'paper' | 'liner' | 'door' | 'stone',
   role: THREE.Color,
   repeat = 1.6,
   anisotropy = 1,

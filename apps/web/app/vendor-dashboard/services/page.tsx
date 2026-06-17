@@ -922,7 +922,7 @@ function DiscountFields({
       <div className="space-y-3 border-t border-ink/10 px-3 pb-3 pt-3">
         <p className="text-xs text-ink/55">
           Optional. When set, the discount type and value appear on your service card.
-          Leave the type as "None" to remove any active discount.
+          Leave the type as &ldquo;None&rdquo; to remove any active discount.
         </p>
         <Field
           label="Discount type"

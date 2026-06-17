@@ -219,7 +219,10 @@ export default async function EventLayout({ children, params }: Props) {
       return null;
     }),
     // AccountSwitcher panel data — graceful degrade to null on any error.
-    getSwitcherData().catch(() => null),
+    getSwitcherData(user.id).catch((err: unknown) => {
+      console.error('[AccountSwitcher] data fetch failed:', err);
+      return null;
+    }),
   ]);
   // Log silent SELECT errors before falling through to notFound().
   // Swapped from .single() (which sets PGRST116 "0 rows" as an error)

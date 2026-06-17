@@ -1,7 +1,6 @@
 import 'server-only';
 
 import { createClient } from '@/lib/supabase/server';
-import { getCurrentUser } from '@/lib/auth';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -63,13 +62,15 @@ export type SwitcherData = {
  * from a server component (a layout or header server component), with the
  * result passed as a prop to the `<AccountSwitcher>` client component.
  *
+ * Accepts `userId` explicitly so the caller (layout) can pass the already-
+ * resolved user ID without a second `getCurrentUser()` call inside this
+ * function — avoids any React cache() scoping issues in Promise.all chains.
+ *
  * Every sub-query is wrapped in try/catch so a missing table (pre-migration)
  * or RLS error degrades to an empty array rather than crashing the chrome.
  */
-export async function getSwitcherData(): Promise<SwitcherData | null> {
-  const user = await getCurrentUser();
-  if (!user) return null;
-
+export async function getSwitcherData(userId: string): Promise<SwitcherData | null> {
+  try {
   const supabase = await createClient();
 
   // Parallel: user profile + role summary + events the user belongs to
@@ -77,20 +78,20 @@ export async function getSwitcherData(): Promise<SwitcherData | null> {
     supabase
       .from('users')
       .select('display_name, email, profile_photo_url, is_internal, is_team_member')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .maybeSingle(),
-    fetchUserRoleSummary(supabase, user.id),
+    fetchUserRoleSummary(supabase, userId),
     supabase
       .from('event_members')
       .select('event_id, member_type')
-      .eq('user_id', user.id),
+      .eq('user_id', userId),
   ]);
 
   if (userRes.error) {
     logQueryError(
       'getSwitcherData (users)',
       userRes.error,
-      { user_id: user.id },
+      { user_id: userId },
       'graceful_degrade',
     );
   }
@@ -98,7 +99,7 @@ export async function getSwitcherData(): Promise<SwitcherData | null> {
     logQueryError(
       'getSwitcherData (event_members)',
       membershipRes.error,
-      { user_id: user.id },
+      { user_id: userId },
       'graceful_degrade',
     );
   }
@@ -132,7 +133,7 @@ export async function getSwitcherData(): Promise<SwitcherData | null> {
       logQueryError(
         'getSwitcherData (events)',
         eventsErr,
-        { user_id: user.id },
+        { user_id: userId },
         'graceful_degrade',
       );
     }
@@ -179,7 +180,7 @@ export async function getSwitcherData(): Promise<SwitcherData | null> {
     const { data: favRows, error: favErr } = await supabase
       .from('vendor_favorites')
       .select('vendor_profile_id, vendor_profiles:vendor_profile_id ( business_name, logo_url )')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .limit(20);
 
     if (!favErr && favRows) {
@@ -236,9 +237,9 @@ export async function getSwitcherData(): Promise<SwitcherData | null> {
   };
 
   return {
-    userId: user.id,
+    userId,
     displayName: profile?.display_name ?? null,
-    email: profile?.email ?? user.email ?? '',
+    email: profile?.email ?? '',
     photoUrl: photoUrl ?? null,
     events,
     gallery,
@@ -246,4 +247,8 @@ export async function getSwitcherData(): Promise<SwitcherData | null> {
     editorials,
     context,
   };
+  } catch (err) {
+    console.error('[AccountSwitcher] getSwitcherData threw unexpectedly:', err);
+    return null;
+  }
 }

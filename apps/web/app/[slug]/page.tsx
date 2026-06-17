@@ -34,6 +34,7 @@ import { BackgroundMusic } from './_components/background-music';
 import { EditorialContent } from './_components/editorial/editorial-content';
 import { SaveTheDateView } from './_components/save-the-date';
 import { RevealOverlayServer } from './_components/reveal/reveal-overlay-server';
+import { REVEAL_TEMPLATE_IDS, type RevealTemplateId } from '@/lib/reveal-config';
 import { OurStory } from './_components/our-story';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import {
@@ -147,7 +148,7 @@ const fetchEventBySlug = cache(async (slug: string) => {
   const { data } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, love_story, wax_seal_config',
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, love_story, wax_seal_config, std_reveal_template',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -252,6 +253,16 @@ function revealMarkSvg(event: EventRow): string | null {
 /** The couple's minted wax-seal recipe for the reveal (null → default levers). */
 function revealSealConfig(event: EventRow): WaxSealConfig | null {
   return sanitizeWaxSealConfig(event.wax_seal_config);
+}
+
+/** The couple's chosen opening (events.std_reveal_template) validated to a known
+ *  id, or null → the admin house default. Validated server-side because the
+ *  client RevealOverlay can't import reveal-config (it pulls the admin client). */
+function coerceRevealTemplate(v: unknown): RevealTemplateId | null {
+  return typeof v === 'string' &&
+    (REVEAL_TEMPLATE_IDS as readonly string[]).includes(v)
+    ? (v as RevealTemplateId)
+    : null;
 }
 
 export default async function PublicInvitationPage({ params, searchParams }: Props) {
@@ -878,6 +889,9 @@ type EventRow = {
   // The couple-minted wax-seal recipe (candle-stamp maker, 0024 §3) — deterministic
   // config rendered client-side by paintWaxSeal. Unknown + sanitized at use.
   wax_seal_config?: unknown;
+  // The couple's chosen Save-the-Date opening reveal (events.std_reveal_template,
+  // migration 20270113257561) — overrides the admin house default. (PR4 P4)
+  std_reveal_template?: string | null;
   // JSONB column populated by the host via /dashboard/[eventId]/website/photo-moments.
   // Shape: { intro_copy: string, moments: [{ time_label, title, note, mode }] }.
   // Unknown / empty shapes degrade gracefully in PhotoMomentsWidget — the
@@ -1239,6 +1253,7 @@ function PublicLanding({
         sealConfig={revealSealConfig(event)}
         sealFallbackSeed={fallbackSeedFromPublicId(event.public_id)}
         veilColor={revealVeilColor(event.role_palette)}
+        eventTemplate={coerceRevealTemplate(event.std_reveal_template)}
       />
       {bgMusicUrl ? <BackgroundMusic src={bgMusicUrl} /> : null}
       {/* When a hero photo/video is uploaded, render a full-bleed banner.
@@ -1716,6 +1731,7 @@ function InvitationSite({
         sealConfig={revealSealConfig(event)}
         sealFallbackSeed={fallbackSeedFromPublicId(event.public_id)}
         veilColor={revealVeilColor(event.role_palette)}
+        eventTemplate={coerceRevealTemplate(event.std_reveal_template)}
       />
       {bgMusicUrl ? <BackgroundMusic src={bgMusicUrl} /> : null}
       <article className="space-y-12">

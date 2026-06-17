@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · feat(save-the-date): the couple builder + the chosen opening persists (PR4 P4)
+
+Turns the Save-the-Date add-on from a read-only reveal *preview* into a real **builder**, and — for the first time — **persists the couple's chosen opening** so the live page honours it.
+
+**Schema** (migration `20270113257561`, applied to prod): two columns on `events` — `std_reveal_template` (which of the 5 openings; NULL = admin house default) + `std_invitation_launch_date` (drives the film's closing beat + P3's second calendar VEVENT). _The film's music + closing gallery deliberately reuse the couple's existing site music + `our_photos` (resolved in P2) — a dedicated Pakanta-song / STD-video override (the build plan's `std_media` / `std_music_choice`) is **deferred for owner sign-off** rather than added as dead columns, per the auto-generate / single-source philosophy._
+
+- **New `actions.ts`** — `chooseRevealTemplate(eventId, templateId)` (validated against the 5 ids, couple-gated, called via `useTransition`) + `saveInvitationLaunchDate(formData)`. Both write through the couple's authenticated client (`couple_can_update_event` RLS).
+- **`reveal-preview-card.tsx`** — was preview-only; now **persists**. Each opening shows a chosen ✓ ring; the full-screen preview gains a "Make this mine" button; the choice saves + reflects instantly.
+- **`add-ons/save-the-date/page.tsx`** — rebuilt into the builder: **Choose your opening** → **Preview your film** (the actual `<SaveTheDateFilm>` mounted with resolved content — the same music + gallery guests get) → **What your film shows** (auto-fill summary with ✓ / one-tap "Add" links to the soundtrack + photos editors) → **Add your touches** (the invitation-launch date + wax seal).
+- **Live page wiring** — `[slug]/page.tsx` selects `std_reveal_template` (+ `EventRow`, + a server-side `coerceRevealTemplate` validator since the client overlay can't import reveal-config) and threads `eventTemplate` into both `RevealOverlayServer` mounts; **`RevealOverlay`** now resolves `?reveal= override → eventTemplate → admin default`, so the couple's pick actually plays.
+
+No RLS change (events already couple-writable). tsc 0 · `next lint` clean · migration guard 407 unique. The reveal stays admin-gated (`config.enabled`); this just makes the *which-opening* choice per-couple. PR pending (branch `claude/std-builder`, auto-merge).
+
+SPEC IMPACT iter 0024 — implements **P4** (the builder + `std_*` schema), unblocking P3 (launch date) + P5 (template choice). The `std_media` / `std_music_choice` columns are intentionally NOT added — **owner decision flagged**: reuse the couple's site music + photos (lean, on-brand) vs. dedicated STD-specific uploads. → CHANGELOG + corpus build-plan + DECISION_LOG + memory.
+
 ## 2026-06-17 · feat(save-the-date): auto-fill resolver — music + closing gallery from existing data (PR4 P2)
 
 Extracts P1's inline content-building into a pure, tested resolver and enriches the film from data the couple already has — **no new schema**.

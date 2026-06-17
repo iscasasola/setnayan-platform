@@ -77,6 +77,8 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
   const framesRef = useRef<HTMLImageElement[]>([]);
   const loaderRef = useRef<HTMLDivElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
+  const loadingContentRef = useRef<HTMLDivElement>(null);
+  const readyPromptRef = useRef<HTMLDivElement>(null);
   const loadedRef = useRef<Uint8Array>(new Uint8Array(0));
   const readyRef = useRef(false);
   const armedRef = useRef(false); // gate the swipe-to-dismiss until just after ready, so leftover momentum can't auto-start the scrub mid-way
@@ -129,12 +131,9 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
       window.setTimeout(() => {
         armedRef.current = true;
       }, 350);
-      // Keep the veil up but invite the swipe — it fades on the first deliberate scroll.
-      if (statusRef.current) {
-        statusRef.current.textContent = 'Swipe up to begin ↑';
-        statusRef.current.style.color = 'var(--m-orange-3)';
-        statusRef.current.style.opacity = '1';
-      }
+      // Swap loading content for the ready prompt — veil fades on first deliberate scroll.
+      if (loadingContentRef.current) loadingContentRef.current.style.opacity = '0';
+      if (readyPromptRef.current) readyPromptRef.current.style.opacity = '1';
     };
 
     if (reduce) {
@@ -367,29 +366,66 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
         >
           scroll ↓
         </div>
-        {/* Loading veil — minimal brand hold while frames preload; fades on first scroll. */}
+        {/* Loading veil — feature list while frames preload; swaps to scroll prompt when ready. */}
         <div
           ref={loaderRef}
           aria-hidden
-          className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-6"
+          className="pointer-events-none absolute inset-0 flex items-center justify-center"
           style={{ background: '#F6F3EE', zIndex: 5, transition: 'opacity .8s ease' }}
         >
-          <div className="m-mono" style={{ fontSize: 13, letterSpacing: '.32em', color: '#1E2229' }}>
-            SETNAYAN
-          </div>
-          <div style={{ width: 160, height: 1, background: 'rgba(30,34,41,.12)', borderRadius: 1, overflow: 'hidden' }}>
-            <div
-              ref={barRef}
-              style={{ height: '100%', background: 'var(--m-orange-3)', transformOrigin: 'left', transform: 'scaleX(0)', transition: 'transform .25s linear' }}
-            />
-          </div>
+          {/* Loading content — fades out when ready */}
           <div
-            ref={statusRef}
-            className="m-mono"
-            style={{ fontSize: 9, letterSpacing: '.22em', textTransform: 'uppercase', color: 'rgba(30,34,41,.38)', transition: 'color .5s ease, opacity .5s ease' }}
+            ref={loadingContentRef}
+            className="flex flex-col items-center"
+            style={{ transition: 'opacity .5s ease', maxWidth: 520, width: '100%', padding: '0 32px', textAlign: 'center' }}
           >
-            Setting it up for you
+            <div className="m-mono" style={{ fontSize: 11, letterSpacing: '.32em', color: 'var(--m-orange-3)', marginBottom: 40 }}>
+              SETNAYAN
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 48px', marginBottom: 44, textAlign: 'left', width: '100%', maxWidth: 400 }}>
+              {[
+                'Online Planner', 'Guest List',
+                'Budget Tracker', 'Seat Plan',
+                'Checklist',      'Mood Board',
+                'Save the Date',  'RSVP',
+                'Event Website',  'Papic',
+                'Panood',         'Pakanta',
+              ].map((f) => (
+                <div key={f} className="m-mono" style={{ fontSize: 10, letterSpacing: '.14em', color: '#1E2229', opacity: .55 }}>
+                  {f}
+                </div>
+              ))}
+            </div>
+            <div style={{ width: 160, height: 1, background: 'rgba(30,34,41,.12)', borderRadius: 1, overflow: 'hidden', marginBottom: 14 }}>
+              <div
+                ref={barRef}
+                style={{ height: '100%', background: 'var(--m-orange-3)', transformOrigin: 'left', transform: 'scaleX(0)', transition: 'transform .25s linear' }}
+              />
+            </div>
+            <div
+              ref={statusRef}
+              className="m-mono"
+              style={{ fontSize: 9, letterSpacing: '.22em', textTransform: 'uppercase', color: 'rgba(30,34,41,.38)', transition: 'color .5s ease, opacity .5s ease' }}
+            >
+              Setting it up for you
+            </div>
           </div>
+
+          {/* Ready prompt — shown when loading completes */}
+          <div
+            ref={readyPromptRef}
+            className="absolute flex flex-col items-center gap-3"
+            style={{ opacity: 0, transition: 'opacity .6s ease', pointerEvents: 'none' }}
+          >
+            <div style={{ fontSize: 28, color: 'var(--m-orange-3)', animation: 'stn-bounce-up 1.4s ease-in-out infinite' }}>
+              &#8593;
+            </div>
+            <div className="m-mono" style={{ fontSize: 10, letterSpacing: '.28em', textTransform: 'uppercase', color: 'var(--m-orange-3)' }}>
+              Scroll up
+            </div>
+          </div>
+
+          <style>{`@keyframes stn-bounce-up { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }`}</style>
         </div>
       </div>
     </section>

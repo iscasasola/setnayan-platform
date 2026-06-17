@@ -56,7 +56,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { MapPin, Navigation, Sparkles, Star, ExternalLink } from 'lucide-react';
+import { MapPin, Navigation, Sparkles, Star, ExternalLink, Zap, Clock, AlertCircle } from 'lucide-react';
 
 import { displayServiceLabel, formatPhp, resolveVendorDisplayName, VENDOR_PLACEHOLDER_PHOTO } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
@@ -151,6 +151,30 @@ export type VendorCardData = {
    *   0 → no badge
    */
   relationship_depth?: 0 | 1 | 2 | 3;
+  /**
+   * PR #6 — quality / activity signals from vendor_activity_stats.
+   * quality_score        0–100 composite (70% couple_trust + 30% health).
+   *                      NULL when no row exists yet (vendor not yet scored).
+   * finalized_booking_count  drives the experience-tier badge.
+   * last_active_at       ISO timestamp of last login — drives the
+   *                      "Low recent activity" badge (> 60 days).
+   * avg_response_minutes drives the "Usually responds in Xh" badge (< 4h).
+   */
+  quality_score?: number | null;
+  finalized_booking_count?: number | null;
+  last_active_at?: string | null;
+  avg_response_minutes?: number | null;
+  /**
+   * PR #6 — partnership badge from vendor_partnerships (admin-verified only).
+   * Null = no relevant partnership for this couple's shortlisted vendors.
+   * Set only when the couple is logged in + has a shortlisted vendor who
+   * has an active admin-verified partnership pointing at this card vendor.
+   */
+  partnership_badge?: {
+    relationship_type: 'sponsored_included' | 'sponsored_discounted' | 'accredited' | 'general';
+    recommending_vendor_name: string;
+    discount_pct: number | null;
+  } | null;
 };
 
 type Props = {
@@ -359,6 +383,24 @@ export function VendorCard({
         </div>
       ) : null}
 
+      {/* PR #6 — partnership badge. Renders only when an admin-verified
+          active partnership exists between one of the couple's shortlisted
+          vendors and this vendor. Pinned types (sponsored_included,
+          sponsored_discounted) render a prominent teal chip; accredited
+          gets an indigo chip; general gets a subtle grey label. */}
+      {vendor.partnership_badge ? (
+        <PartnershipBadge badge={vendor.partnership_badge} />
+      ) : null}
+
+      {/* PR #6 — activity / quality signals row. Renders at most two chips
+          (responsiveness + experience tier OR low-activity warning). Never
+          renders placeholder text when data is absent. */}
+      <ActivityBadges
+        avgResponseMinutes={vendor.avg_response_minutes ?? null}
+        lastActiveAt={vendor.last_active_at ?? null}
+        finalizedBookingCount={vendor.finalized_booking_count ?? null}
+      />
+
       {vendor.tagline ? (
         <p className="line-clamp-2 text-sm text-ink/65">{vendor.tagline}</p>
       ) : null}
@@ -466,6 +508,136 @@ export function VendorCard({
         </div>
       </div>
     </article>
+  );
+}
+
+/**
+ * PR #6 — Partnership badge chip. Relationship-type specific copy and
+ * colour. Only rendered when page.tsx resolves an admin-verified partnership
+ * between this vendor and one of the couple's shortlisted vendors.
+ */
+function PartnershipBadge({
+  badge,
+}: {
+  badge: NonNullable<VendorCardData['partnership_badge']>;
+}) {
+  const { relationship_type: type, recommending_vendor_name: source, discount_pct: disc } = badge;
+
+  let chipCopy: string;
+  let chipClasses: string;
+
+  if (type === 'sponsored_included') {
+    chipCopy = `Included with ${source} · No extra fee`;
+    chipClasses = 'border-teal-300/60 bg-teal-50 text-teal-900';
+  } else if (type === 'sponsored_discounted') {
+    chipCopy = `Preferred partner of ${source}${disc ? ` · ${disc}% off` : ''}`;
+    chipClasses = 'border-teal-300/60 bg-teal-50 text-teal-900';
+  } else if (type === 'accredited') {
+    chipCopy = `Accredited by ${source}`;
+    chipClasses = 'border-indigo-300/60 bg-indigo-50 text-indigo-900';
+  } else {
+    // general
+    chipCopy = `Recommended by ${source}`;
+    chipClasses = 'border-ink/15 bg-ink/5 text-ink/70';
+  }
+
+  return (
+    <div
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] ${chipClasses}`}
+      title={`This vendor has a verified partnership with ${source}.`}
+    >
+      <Zap className="h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />
+      <span className="truncate">{chipCopy}</span>
+    </div>
+  );
+}
+
+/** 60 days in milliseconds — threshold for the "low recent activity" warning. */
+const LOW_ACTIVITY_THRESHOLD_MS = 60 * 24 * 60 * 60 * 1000;
+/** 4 hours in minutes — threshold for "usually responds in Xh" badge. */
+const FAST_REPLY_THRESHOLD_MIN = 240;
+
+/**
+ * PR #6 — Activity / quality signal chips. Shows at most two badges:
+ *   1. Responsiveness — "Usually responds in Xh" when median < 4h + last login ≤ 7d.
+ *   2. Experience tier — from finalized_booking_count:
+ *        0     → New (suppressed — "new" already covered by VendorBadgeRow)
+ *        1–4   → Established
+ *        5–19  → Experienced
+ *        20–49 → Expert
+ *        50+   → Elite
+ *   3. Low activity warning — only shown when no responsiveness badge AND
+ *      last_active_at > 60 days ago.
+ *
+ * All inputs optional; renders nothing when all are null.
+ */
+function ActivityBadges({
+  avgResponseMinutes,
+  lastActiveAt,
+  finalizedBookingCount,
+}: {
+  avgResponseMinutes: number | null;
+  lastActiveAt: string | null;
+  finalizedBookingCount: number | null;
+}) {
+  const now = Date.now();
+
+  // Responsiveness badge — fast reply rate + recently online.
+  const isRecentlyActive =
+    lastActiveAt !== null &&
+    now - Date.parse(lastActiveAt) <= 7 * 24 * 60 * 60 * 1000;
+  const showResponsive =
+    avgResponseMinutes !== null &&
+    avgResponseMinutes < FAST_REPLY_THRESHOLD_MIN &&
+    isRecentlyActive;
+
+  // Low-activity warning — skip when we're already surfacing responsiveness.
+  const isInactive =
+    !showResponsive &&
+    lastActiveAt !== null &&
+    now - Date.parse(lastActiveAt) > LOW_ACTIVITY_THRESHOLD_MS;
+
+  // Experience tier from finalized bookings.
+  let experienceTier: string | null = null;
+  if (finalizedBookingCount !== null && finalizedBookingCount > 0) {
+    if (finalizedBookingCount >= 50) experienceTier = 'Elite';
+    else if (finalizedBookingCount >= 20) experienceTier = 'Expert';
+    else if (finalizedBookingCount >= 5) experienceTier = 'Experienced';
+    else experienceTier = 'Established';
+  }
+
+  if (!showResponsive && !isInactive && !experienceTier) return null;
+
+  return (
+    <ul className="flex flex-wrap gap-1.5">
+      {showResponsive && avgResponseMinutes !== null ? (
+        <li
+          className="inline-flex items-center gap-1 rounded-full border border-emerald-300/50 bg-emerald-50 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-emerald-900"
+          title="This vendor has a fast median response time and was active recently."
+        >
+          <Clock className="h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />
+          {avgResponseMinutes < 60
+            ? `Usually responds in ${avgResponseMinutes}m`
+            : `Usually responds in ${Math.round(avgResponseMinutes / 60)}h`}
+        </li>
+      ) : isInactive ? (
+        <li
+          className="inline-flex items-center gap-1 rounded-full border border-amber-300/50 bg-amber-50 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-amber-900"
+          title="This vendor hasn't logged in recently. Messages may take longer than usual."
+        >
+          <AlertCircle className="h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />
+          Low recent activity
+        </li>
+      ) : null}
+      {experienceTier ? (
+        <li
+          className="inline-flex items-center gap-1 rounded-full border border-violet-300/50 bg-violet-50 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-violet-900"
+          title={`${finalizedBookingCount} finalized events through Setnayan.`}
+        >
+          {experienceTier}
+        </li>
+      ) : null}
+    </ul>
   );
 }
 

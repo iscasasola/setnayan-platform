@@ -227,6 +227,189 @@ export async function fetchYoutubeChannel(
   }
 }
 
+/* -------------------------------------------------------------------------- */
+/*  Live broadcast lifecycle — the "upgraded" Panood (0011)                    */
+/* -------------------------------------------------------------------------- */
+//
+// Setnayan creates + manages the live broadcast on the couple's OWN channel
+// (the `youtube` scope), surfaces the RTMP ingestion URL + stream key for their
+// encoder (OBS), and transitions the broadcast through its lifecycle. Setnayan
+// NEVER sends video bytes — the couple's encoder pushes to the stream key. The
+// broadcast id IS the watch/video id, so the public event page embeds
+// https://www.youtube.com/watch?v=<broadcastId> through the existing
+// events.panood_watch_url pipeline (zero embed changes). Every call takes an
+// access token from getEventYoutubeAccessToken (lib/panood-broadcast.ts).
+//
+// Docs: developers.google.com/youtube/v3/live/docs/liveBroadcasts + liveStreams.
+
+const YOUTUBE_LIVE_BROADCASTS_URL =
+  'https://www.googleapis.com/youtube/v3/liveBroadcasts';
+const YOUTUBE_LIVE_STREAMS_URL =
+  'https://www.googleapis.com/youtube/v3/liveStreams';
+
+export type YoutubeBroadcast = { broadcastId: string; lifeCycleStatus: string };
+export type YoutubeStream = {
+  streamId: string;
+  ingestionAddress: string; // RTMP server URL the couple pastes into OBS
+  streamName: string; // the OBS "Stream Key" — a secret
+};
+
+/** Shared authed JSON fetch for the Data API. Throws with context on non-2xx. */
+async function youtubeApi(
+  url: string,
+  accessToken: string,
+  init?: { method?: string; body?: string },
+): Promise<unknown> {
+  const res = await fetch(url, {
+    method: init?.method ?? 'GET',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache',
+    },
+    body: init?.body,
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(
+      `YouTube ${init?.method ?? 'GET'} ${url.split('?')[0]} failed: ${res.status} ${text.slice(0, 300)}`,
+    );
+  }
+  return res.json();
+}
+
+/**
+ * liveBroadcasts.insert — create the broadcast container on the user's channel.
+ * enableAutoStart/Stop = YouTube flips it to live/complete automatically when
+ * the encoder connects/disconnects (so manual transitions are a fallback).
+ * enableEmbed = required for the event-page iframe. Returns broadcastId (==
+ * the public videoId for the watch URL).
+ */
+export async function createYoutubeBroadcast(
+  accessToken: string,
+  input: {
+    title: string;
+    scheduledStartTime: string; // ISO 8601
+    privacyStatus?: 'public' | 'unlisted' | 'private';
+  },
+): Promise<YoutubeBroadcast> {
+  const json = (await youtubeApi(
+    `${YOUTUBE_LIVE_BROADCASTS_URL}?part=snippet,contentDetails,status`,
+    accessToken,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        snippet: {
+          title: input.title.slice(0, 100),
+          scheduledStartTime: input.scheduledStartTime,
+        },
+        contentDetails: {
+          enableAutoStart: true,
+          enableAutoStop: true,
+          enableDvr: true,
+          enableEmbed: true,
+          monitorStream: { enableMonitorStream: false },
+        },
+        status: {
+          privacyStatus: input.privacyStatus ?? 'unlisted',
+          selfDeclaredMadeForKids: false,
+        },
+      }),
+    },
+  )) as { id: string; status?: { lifeCycleStatus?: string } };
+  return { broadcastId: json.id, lifeCycleStatus: json.status?.lifeCycleStatus ?? 'created' };
+}
+
+/**
+ * liveStreams.insert — create the RTMP stream the couple's encoder pushes to.
+ * Returns the ingestion address (RTMP server URL) + streamName (the Stream Key,
+ * a secret). resolution/frameRate 'variable' so any encoder config works.
+ */
+export async function createYoutubeStream(
+  accessToken: string,
+  input: { title: string },
+): Promise<YoutubeStream> {
+  const json = (await youtubeApi(
+    `${YOUTUBE_LIVE_STREAMS_URL}?part=snippet,cdn,contentDetails`,
+    accessToken,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        snippet: { title: input.title.slice(0, 100) },
+        cdn: { ingestionType: 'rtmp', resolution: 'variable', frameRate: 'variable' },
+        contentDetails: { isReusable: false },
+      }),
+    },
+  )) as {
+    id: string;
+    cdn?: { ingestionInfo?: { ingestionAddress?: string; streamName?: string } };
+  };
+  const info = json.cdn?.ingestionInfo;
+  if (!info?.ingestionAddress || !info?.streamName) {
+    throw new Error('YouTube liveStreams.insert returned no ingestion info');
+  }
+  return {
+    streamId: json.id,
+    ingestionAddress: info.ingestionAddress,
+    streamName: info.streamName,
+  };
+}
+
+/** liveBroadcasts.bind — attach the stream to the broadcast. */
+export async function bindYoutubeBroadcast(
+  accessToken: string,
+  broadcastId: string,
+  streamId: string,
+): Promise<void> {
+  await youtubeApi(
+    `${YOUTUBE_LIVE_BROADCASTS_URL}/bind?id=${encodeURIComponent(broadcastId)}&streamId=${encodeURIComponent(streamId)}&part=id,contentDetails`,
+    accessToken,
+    { method: 'POST' },
+  );
+}
+
+/**
+ * liveBroadcasts.transition — move the broadcast to testing/live/complete.
+ * With enableAutoStart this can race YouTube's own auto-transition; callers
+ * should treat a "redundantTransition" error as success.
+ */
+export async function transitionYoutubeBroadcast(
+  accessToken: string,
+  broadcastId: string,
+  broadcastStatus: 'testing' | 'live' | 'complete',
+): Promise<{ lifeCycleStatus: string }> {
+  const json = (await youtubeApi(
+    `${YOUTUBE_LIVE_BROADCASTS_URL}/transition?broadcastStatus=${broadcastStatus}&id=${encodeURIComponent(broadcastId)}&part=id,status`,
+    accessToken,
+    { method: 'POST' },
+  )) as { status?: { lifeCycleStatus?: string } };
+  return { lifeCycleStatus: json.status?.lifeCycleStatus ?? broadcastStatus };
+}
+
+/**
+ * liveStreams.list(part=status) — read the stream's ingestion status. Poll
+ * until streamStatus === 'active' (the encoder is connected + sending) before
+ * transitioning the broadcast to live. 1 quota unit.
+ */
+export async function getYoutubeStreamStatus(
+  accessToken: string,
+  streamId: string,
+): Promise<{ streamStatus: string; healthStatus: string | null }> {
+  const json = (await youtubeApi(
+    `${YOUTUBE_LIVE_STREAMS_URL}?part=status&id=${encodeURIComponent(streamId)}`,
+    accessToken,
+  )) as {
+    items?: Array<{
+      status?: { streamStatus?: string; healthStatus?: { status?: string } };
+    }>;
+  };
+  const st = json.items?.[0]?.status;
+  return {
+    streamStatus: st?.streamStatus ?? 'inactive',
+    healthStatus: st?.healthStatus?.status ?? null,
+  };
+}
+
 /**
  * POST the refresh token to Google's revoke endpoint. Best-effort — Google
  * returns 200 if the token was valid, 400 if it was already revoked. We

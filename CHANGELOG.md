@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · feat(0011 Panood): upgraded YouTube live broadcast — foundation (step 1/3)
+
+Owner: build the "upgraded" Panood so Setnayan creates + runs the live broadcast on the couple's OWN YouTube channel and it auto-embeds on the event page (vs. the free tier, where they paste a YouTube link). This genuinely exercises the `youtube` scope — which makes it demo-able for Google verification (the free embed uses no scopes). Designed via a map+API-research+synthesis workflow (build plan in the session transcript). Backend foundation only here — no user-facing change yet:
+
+- **`lib/panood-broadcast.ts` (NEW)** — `getEventYoutubeAccessToken(eventId)`: the YouTube token refresher that did NOT exist (only a bulk cron did). Cloned verbatim from `getEventDriveAccessToken` (lib/drive-copy.ts), including the `connection_health='needs_reauth'` write on `invalid_grant` so a Google-side revoke can surface a reconnect prompt. Plus `getActivePanoodBroadcast` / `getActivePanoodStreamKey` (server-only reads; the stream key is kept out of the general read).
+- **`lib/panood-youtube.ts`** — 6 pure YouTube Data API helpers + URL constants: `createYoutubeBroadcast` (liveBroadcasts.insert · enableAutoStart/Stop/Embed), `createYoutubeStream` (liveStreams.insert · returns RTMP ingestion address + stream key), `bindYoutubeBroadcast` (bind), `transitionYoutubeBroadcast` (testing/live/complete), `getYoutubeStreamStatus` (poll until the encoder is `active`), over a shared authed `youtubeApi` fetch. Mirrors the existing `fetchYoutubeChannel` shape. The broadcast id == the public videoId, so the watch URL is `youtube.com/watch?v=<broadcastId>`.
+- **migration `20270110320012_panood_broadcasts.sql`** (allocator-generated, non-round) — server-role-only table (RLS on, no policy; holds the secret stream key like an oauth_grants refresh token; one-active-broadcast-per-event partial unique index for idempotency/quota safety). Watch URL mirrors to the existing `events.panood_watch_url`, so the event-page embed needs zero changes.
+
+Architecture: Setnayan owns the broadcast *container* (create→manage→embed); the couple's encoder (OBS) pushes the actual video to the stream key. No server-side video/compositing (that's a far larger future build). `tsc` 0 · `next lint` clean · migration guard ✓ (391 unique).
+
+Next (steps 2-3): the `createBroadcast`/`goLive`/`endBroadcast` server actions + the setup-page UI (encoder card with RTMP URL + stream key, go-live/end controls, auto-filled watch URL). OWNER ACTION (post-merge): apply migration `20270110320012`.
+
+SPEC IMPACT: iteration 0011 — Panood gains a real (upgraded) YouTube broadcast tier alongside the free paste-link embed; the `youtube` scope becomes genuinely exercised (verification demo). Logged in corpus `DECISION_LOG.md`.
+
 ## 2026-06-17 · fix(onboarding): "Something went wrong" on commit — empty SUPABASE_SERVICE_ROLE_KEY + hardened error handling
 
 **Root cause (confirmed by prod DB audit):** `apps/web/.env.local` was pulled from Vercel CLI with `SUPABASE_SERVICE_ROLE_KEY=""` (Vercel masks sensitive env vars in `vercel env pull` output). On local dev (`next dev`), `createAdminClient()` at the top of `commitOnboardingWedding` hits `!key` and throws `'Missing SUPABASE env vars for admin client.'` — uncaught from the server action, Next.js forwards it to the client, the catch block at shell line 2964 fires → "Something went wrong saving your plan. Please try again." The prod DB was clean (all triggers, CHECK constraints, and columns verified by direct query: widget trigger at 15 types, CHECK at 15 types, all events columns present, test INSERT succeeded — no DB-level issue).

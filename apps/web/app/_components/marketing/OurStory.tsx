@@ -88,7 +88,7 @@ export function OurStoryManifesto() {
             {/* Hands composite — orb between three depth layers of the hands photo */}
             <div className="flex flex-shrink-0 justify-center">
               <HeroHandsComposite
-                className="w-[260px] rounded-2xl sm:w-[310px] lg:w-[370px]"
+                className="w-[260px] sm:w-[310px] lg:w-[370px]"
               />
             </div>
 

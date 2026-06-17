@@ -61,7 +61,14 @@ export function HeroHandsComposite({
   return (
     <div
       className={`alaala-hands-root ${className}`}
-      style={{ position: 'relative', display: 'inline-block' }}
+      style={{
+        position: 'relative',
+        display: 'inline-block',
+        WebkitMaskImage:
+          'radial-gradient(ellipse 86% 72% at 50% 58%, black 26%, transparent 92%)',
+        maskImage:
+          'radial-gradient(ellipse 86% 72% at 50% 58%, black 26%, transparent 92%)',
+      }}
     >
       {/* ── Layer 1: background — full hands photo ── */}
       <Image

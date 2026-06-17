@@ -129,6 +129,10 @@ function isImage(contentType: string): boolean {
   return contentType.startsWith('image/');
 }
 
+function isAudio(contentType: string): boolean {
+  return contentType.startsWith('audio/');
+}
+
 function bytesToHuman(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -175,6 +179,13 @@ function contentTypeFromRef(value: string): string {
   if (lower.endsWith('.gif')) return 'image/gif';
   if (lower.endsWith('.heic') || lower.endsWith('.heif')) return 'image/heic';
   if (lower.endsWith('.avif')) return 'image/avif';
+  // Audio (onboarding background-music playlist, wedding-website chrome) so a
+  // seeded track renders an <audio> player rather than a broken <img>.
+  if (lower.endsWith('.mp3')) return 'audio/mpeg';
+  if (lower.endsWith('.m4a') || lower.endsWith('.mp4a')) return 'audio/mp4';
+  if (lower.endsWith('.aac')) return 'audio/aac';
+  if (lower.endsWith('.ogg') || lower.endsWith('.oga')) return 'audio/ogg';
+  if (lower.endsWith('.wav')) return 'audio/wav';
   // Default to JPEG — most legacy logos are JPEG/PNG; misclassifying lets
   // the thumbnail still render through the <img> tag.
   return 'image/jpeg';
@@ -615,6 +626,17 @@ export function FileUpload({
                   <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={2} />
                   Uploaded
                 </p>
+                {/* Audio preview — lets the admin hear the current track(s),
+                    e.g. the onboarding background-music playlist. */}
+                {isAudio(item.contentType) && item.displayUrl ? (
+                  // eslint-disable-next-line jsx-a11y/media-has-caption -- short audio preview, no captions
+                  <audio
+                    controls
+                    preload="none"
+                    src={item.displayUrl}
+                    className="mt-1 h-8 w-full"
+                  />
+                ) : null}
               </div>
               <button
                 type="button"

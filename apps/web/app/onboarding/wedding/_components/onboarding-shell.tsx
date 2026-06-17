@@ -1489,7 +1489,7 @@ export function OnboardingShell({
   resume,
   activeFaiths = null,
   pricing,
-  bgMusicUrl = null,
+  bgMusicUrls = null,
   refinements = REFINEMENTS_DATA,
   hiddenCats = [],
   dynamicTiles = [],
@@ -1513,11 +1513,13 @@ export function OnboardingShell({
    */
   pricing: OnboardingPricing;
   /**
-   * Resolved stream URL for the owner-uploaded onboarding background music
-   * (owner 2026-06-08 — admin uploads an owned/AI-generated track at
-   * /admin/settings). Null when unset/disabled → the player never mounts.
+   * Resolved, ordered stream URLs for the owner-uploaded onboarding
+   * background-music playlist (owner 2026-06-09; was a single URL 2026-06-08 —
+   * admin uploads one or more owned/AI-generated tracks at /admin/onboarding).
+   * Empty/null when unset/disabled → the player never mounts. Tracks play
+   * back-to-back and the set loops.
    */
-  bgMusicUrl?: string | null;
+  bgMusicUrls?: string[] | null;
   /**
    * DB-backed refinement catalogue (owner 2026-06-08, items 8 + 9) — fetched
    * server-side via getOnboardingRefinements() in page.tsx (DB-first, falls back
@@ -3029,9 +3031,12 @@ export function OnboardingShell({
               </svg>
               <span className="wm">SETNAYAN</span>
             </span>
-            {/* Owner-uploaded background music (owner 2026-06-08) — only when admin set a
-                track. margin-left:auto right-aligns it; sits beside Skip when shown. */}
-            {bgMusicUrl ? <OnboardingMusic src={bgMusicUrl} /> : null}
+            {/* Owner-uploaded background-music playlist (owner 2026-06-09) — only when
+                the admin set ≥1 track. margin-left:auto right-aligns it; sits beside
+                Skip when shown. Tracks play back-to-back and loop. */}
+            {bgMusicUrls && bgMusicUrls.length > 0 ? (
+              <OnboardingMusic srcs={bgMusicUrls} />
+            ) : null}
             <button
               className="skip"
               type="button"

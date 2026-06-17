@@ -24,17 +24,27 @@ export default async function AdminOnboardingPage({ searchParams }: Props) {
   const admin = createAdminClient();
   const settings = await fetchPlatformSettings(admin);
 
-  // Wedding onboarding background music — resolve the stored r2:// ref so the
-  // uploader shows the current track. Same columns the /onboarding/wedding read
-  // path uses (relocated here from /admin/settings; read path unchanged).
-  const musicRef =
-    typeof settings.onboarding_bg_music_r2_key === 'string' &&
-    settings.onboarding_bg_music_r2_key.startsWith('r2://')
-      ? settings.onboarding_bg_music_r2_key
-      : null;
-  const musicUrl = musicRef ? await displayUrlForStoredAsset(musicRef) : null;
+  // Wedding onboarding background-music PLAYLIST (owner 2026-06-09). Resolve the
+  // stored r2:// refs IN ORDER so the uploader shows + plays the current tracks.
+  // Array-first with a singular fallback so a row that predates the playlist
+  // migration still shows its one track. Same columns the /onboarding/wedding
+  // read path uses.
+  const musicRefs = (
+    Array.isArray(settings.onboarding_bg_music_r2_keys) &&
+    settings.onboarding_bg_music_r2_keys.length > 0
+      ? settings.onboarding_bg_music_r2_keys
+      : settings.onboarding_bg_music_r2_key
+        ? [settings.onboarding_bg_music_r2_key]
+        : []
+  ).filter((r): r is string => typeof r === 'string' && r.startsWith('r2://'));
+  const musicUrls = await Promise.all(
+    musicRefs.map((r) => displayUrlForStoredAsset(r)),
+  );
   const musicDisplay: Record<string, string> = {};
-  if (musicRef && musicUrl) musicDisplay[musicRef] = musicUrl;
+  musicRefs.forEach((ref, i) => {
+    const url = musicUrls[i];
+    if (url) musicDisplay[ref] = url;
+  });
   const musicEnabled = settings.onboarding_bg_music_enabled === true;
 
   return (
@@ -88,10 +98,13 @@ export default async function AdminOnboardingPage({ searchParams }: Props) {
           <p className="mb-3 text-sm text-ink/60">
             A soft, low-volume soundtrack while couples go through the wedding
             onboarding. It never blasts on — it starts quietly on the first tap
-            and each couple can mute it. Upload an{' '}
-            <strong>owned / AI-generated</strong> track only (e.g. your Suno
-            instrumental) — Setnayan serves the file, so it must be music you own
-            the rights to. Leave empty for no music.
+            and each couple can mute it. Add{' '}
+            <strong>one or more tracks</strong> — they play back-to-back in the
+            order shown and loop, so when one song ends the next plays. Upload{' '}
+            <strong>owned / AI-generated</strong> music only (e.g. your Suno
+            instrumentals) — Setnayan serves the files, so it must be music you
+            own the rights to. The tracks listed below are what's playing now;
+            press ▶ to hear any of them. Remove all for no music.
           </p>
 
           <form action={updateOnboardingMusic} className="space-y-3">
@@ -99,14 +112,15 @@ export default async function AdminOnboardingPage({ searchParams }: Props) {
               bucket="media"
               pathPrefix="onboarding/background-music"
               name="bg_music_url"
-              multiple={false}
+              multiple
+              maxFiles={8}
               maxSizeMB={40}
               acceptedTypes={['audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/ogg', 'audio/wav']}
-              currentValue={musicRef}
+              currentValue={musicRefs}
               initialDisplayUrls={musicDisplay}
               variant="wide"
-              label="Music file"
-              help="MP3, M4A, AAC, OGG, or WAV. Up to 40 MB (a ~30-min instrumental fits). A seamless loop also works."
+              label="Music tracks (play in order, then loop)"
+              help="MP3, M4A, AAC, OGG, or WAV. Up to 40 MB each (a ~30-min instrumental fits). Add up to 8 — they play back-to-back in the order added and loop."
             />
             <label className="flex items-center gap-2 text-sm text-ink">
               <input

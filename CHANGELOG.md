@@ -69,6 +69,23 @@ tsc 0 · `next lint` clean · `lint:retired` 0 (verified in worktree).
 SPEC IMPACT: 0024 Save the Date — no scope change; correctness/a11y/colour-wiring fixes on the flag-gated reveal. Logged in corpus `DECISION_LOG.md`.
 
 ## 2026-06-16 · fix(payments): complete PR4 bundle-awareness — 3 Essentials-tier SKUs a bundle buyer was wrongly denied (PR4b)
+## 2026-06-09 · feat(onboarding): background music → ordered playlist + audible "current tracks" admin view
+
+**Context:** Owner: "we do not have a way to see what file is currently working on the onboarding. and we can add a couple of songs, so when a song ends, a new song can play." Two asks: (1) make the admin onboarding page *show + let you hear* the active track(s); (2) support multiple songs that play back-to-back and loop.
+
+**Storage (migration `20261014000000_onboarding_music_playlist.sql`, applied to prod):** new `platform_settings.onboarding_bg_music_r2_keys TEXT[]` (ordered playlist; array order = play order), backfilled from the legacy singular `onboarding_bg_music_r2_key`, which is kept and still written as the first track for back-compat/rollback. Read paths are array-first with a singular fallback.
+
+**`lib/platform-settings.ts`:** `PlatformSettingsRow` + SELECT + FALLBACK gain the array; `fetchOnboardingBgMusicUrl()` → `fetchOnboardingBgMusicUrls(): Promise<string[]>` (presigns each ref in order, drops any that fail so one bad row can't silence the set).
+
+**`onboarding-music.tsx`:** `OnboardingMusic` takes `srcs: string[]`; on `ended` it advances to the next track and wraps to the first (a one-track playlist behaves exactly like the old looping single track). Removed the `loop` attr; kept the first-gesture autostart + persisted mute. Threaded through `onboarding/wedding/page.tsx` + `onboarding-shell.tsx` (`bgMusicUrl` → `bgMusicUrls`).
+
+**`admin/onboarding/page.tsx` + actions:** the uploader is now `<FileUpload multiple maxFiles={8}>` seeded with the current playlist; `updateOnboardingMusic` persists `formData.getAll('bg_music_url')` as the ordered array (+ mirrors the first into the legacy column). **`_components/file-upload.tsx`** gains an inline `<audio controls>` for audio items (and `contentTypeFromRef` now recognizes `.mp3/.m4a/.aac/.ogg/.wav`) so seeded + newly-uploaded tracks are auditionable — that's the "see/hear what's currently set" affordance. Additive; image/PDF/contract flows unchanged.
+
+**Verification:** types reviewed; CI typecheck + production build + Vercel preview gate. Migration applied to prod via direct SQL (`ADD COLUMN IF NOT EXISTS` + idempotent backfill) because the repo's migration history has pre-existing drift that makes `supabase db push` unsafe to reconcile on prod; column + backfill confirmed present. Builds on today's R2 presigned-PUT fix (#1177) — uploads had to work first.
+
+**SPEC IMPACT:** Onboarding background music is now a looping playlist (1–8 owned/AI-generated tracks) instead of a single track; admin surface shows + previews the active set. No pricing/SKU/schema-of-record change.
+
+## 2026-06-09 · fix(uploads): R2 presigned PUT broken by @aws-sdk/client-s3 default checksum (all direct-to-R2 uploads)
 
 Owner ask: *"we also want to do the customization of this template from the admin"* + *"where we can activate and deactivate features of the template?"* — owner picked **Full template studio** (toggles **and** a live slider panel). Today the reveal was gated only by the `NEXT_PUBLIC_STD_REVEAL` env flag with all settings baked as constants; this makes it admin-managed end-to-end, following the `platform_settings` / `homepage_hero_config` recipe.
 

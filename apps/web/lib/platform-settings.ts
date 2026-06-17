@@ -13,9 +13,15 @@ export type PlatformSettingsRow = {
   gcash_number: string | null;
   gcash_qr_url: string | null;
   default_vat_rate_pct: number;
-  /** r2:// ref to the owner-uploaded onboarding background music (owner 2026-06-08). */
+  /**
+   * Legacy single r2:// ref to the onboarding background music (owner 2026-06-08).
+   * Superseded by the ordered `onboarding_bg_music_r2_keys` playlist (2026-06-09);
+   * still written as the first track for back-compat. Read paths prefer the array.
+   */
   onboarding_bg_music_r2_key: string | null;
-  /** Master toggle — onboarding music plays only when TRUE AND a track is set. */
+  /** Ordered playlist of r2:// refs (owner 2026-06-09). Array order = play order; the player advances on track end and loops the set. */
+  onboarding_bg_music_r2_keys: string[];
+  /** Master toggle — onboarding music plays only when TRUE AND ≥1 track is set. */
   onboarding_bg_music_enabled: boolean;
   /** Admin default brand icon (owner 2026-06-10) — public asset URLs + version. */
   brand_icon_master_url: string | null;
@@ -28,7 +34,7 @@ export type PlatformSettingsRow = {
 };
 
 const SELECT =
-  'id,business_name,business_tin,business_address,business_email,bdo_account_name,bdo_account_number,bdo_qr_url,gcash_account_name,gcash_number,gcash_qr_url,default_vat_rate_pct,onboarding_bg_music_r2_key,onboarding_bg_music_enabled,brand_icon_master_url,brand_favicon_ico_url,brand_apple_touch_url,brand_icon_png_512_url,brand_icon_svg_url,brand_icon_version,updated_at';
+  'id,business_name,business_tin,business_address,business_email,bdo_account_name,bdo_account_number,bdo_qr_url,gcash_account_name,gcash_number,gcash_qr_url,default_vat_rate_pct,onboarding_bg_music_r2_key,onboarding_bg_music_r2_keys,onboarding_bg_music_enabled,brand_icon_master_url,brand_favicon_ico_url,brand_apple_touch_url,brand_icon_png_512_url,brand_icon_svg_url,brand_icon_version,updated_at';
 
 const FALLBACK: PlatformSettingsRow = {
   id: 1,
@@ -44,6 +50,7 @@ const FALLBACK: PlatformSettingsRow = {
   gcash_qr_url: null,
   default_vat_rate_pct: 12,
   onboarding_bg_music_r2_key: null,
+  onboarding_bg_music_r2_keys: [],
   onboarding_bg_music_enabled: true,
   brand_icon_master_url: null,
   brand_favicon_ico_url: null,
@@ -76,24 +83,42 @@ export function hasMerchantPaymentInfo(s: PlatformSettingsRow): boolean {
 }
 
 /**
- * Resolve the onboarding background-music stream URL, or null when none is set
- * / disabled (owner 2026-06-08). Self-contained server fetch (mirrors
- * lib/v2-catalog's admin-client + try/catch pattern) so the onboarding page can
- * `await` it directly: reads platform_settings via the admin client (the
- * onboarding flow is anonymous, so we don't depend on a logged-in session or
- * anon RLS), then presigns the r2:// ref. Returns null on ANY error (missing
- * service-role env in CI, no track, disabled) — the player simply never mounts.
+ * Resolve the ordered onboarding background-music playlist as stream URLs, or an
+ * empty array when none is set / disabled (owner 2026-06-09; was a single URL
+ * 2026-06-08). Self-contained server fetch (mirrors lib/v2-catalog's
+ * admin-client + try/catch pattern) so the onboarding page can `await` it
+ * directly: reads platform_settings via the admin client (the onboarding flow is
+ * anonymous, so we don't depend on a logged-in session or anon RLS), then
+ * presigns each r2:// ref IN ORDER. Returns [] on ANY error (missing
+ * service-role env in CI, no tracks, disabled) — the player simply never mounts.
+ *
+ * Array-first with a singular fallback: prefers `onboarding_bg_music_r2_keys`,
+ * falling back to the legacy `onboarding_bg_music_r2_key` so a row that predates
+ * the playlist migration (or a partial backfill) still plays its one track.
  */
-export async function fetchOnboardingBgMusicUrl(): Promise<string | null> {
+export async function fetchOnboardingBgMusicUrls(): Promise<string[]> {
   try {
     const { createAdminClient } = await import('./supabase/admin');
     const { displayUrlForStoredAsset } = await import('./uploads');
     const admin = createAdminClient();
     const s = await fetchPlatformSettings(admin);
-    const key = s.onboarding_bg_music_r2_key;
-    if (!s.onboarding_bg_music_enabled || !key || !key.startsWith('r2://')) return null;
-    return await displayUrlForStoredAsset(key);
+    if (!s.onboarding_bg_music_enabled) return [];
+
+    const refs = (
+      Array.isArray(s.onboarding_bg_music_r2_keys) &&
+      s.onboarding_bg_music_r2_keys.length > 0
+        ? s.onboarding_bg_music_r2_keys
+        : s.onboarding_bg_music_r2_key
+          ? [s.onboarding_bg_music_r2_key]
+          : []
+    ).filter((r): r is string => typeof r === 'string' && r.startsWith('r2://'));
+    if (refs.length === 0) return [];
+
+    // Presign in order; drop any ref that fails to resolve so one bad row
+    // doesn't silence the whole playlist.
+    const urls = await Promise.all(refs.map((r) => displayUrlForStoredAsset(r)));
+    return urls.filter((u): u is string => typeof u === 'string' && u.length > 0);
   } catch {
-    return null;
+    return [];
   }
 }

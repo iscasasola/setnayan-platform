@@ -23,7 +23,7 @@ import type { Metadata } from 'next';
 import { createClient } from '@/lib/supabase/server';
 import { fetchActiveCeremonyTypes } from '@/lib/religion-readiness';
 import { fetchV2CustomerCatalog, fetchV2BundleCatalog } from '@/lib/v2-catalog';
-import { fetchOnboardingBgMusicUrl } from '@/lib/platform-settings';
+import { fetchOnboardingBgMusicUrls } from '@/lib/platform-settings';
 import { getOnboardingRefinements, getOnboardingTiles } from '@/lib/onboarding-refinements';
 import { hiddenOnboardingExtraCats } from '@/lib/onboarding-availability';
 import { OnboardingShell } from './_components/onboarding-shell';
@@ -77,14 +77,15 @@ export default async function OnboardingWeddingPage({
   // Fetch the active wedding religions alongside auth so the faith picker can
   // gate on the launch status (admin /admin/wedding-types flips these). Returns
   // null on any read error → the shell falls back to its built-in soon flags.
-  const [userRes, activeFaiths, customerSkus, bundles, bgMusicUrl, refinements, hiddenCats, dynamicTiles] = await Promise.all([
+  const [userRes, activeFaiths, customerSkus, bundles, bgMusicUrls, refinements, hiddenCats, dynamicTiles] = await Promise.all([
     supabase.auth.getUser(),
     fetchActiveCeremonyTypes(supabase),
     fetchV2CustomerCatalog(),
     fetchV2BundleCatalog(),
-    // Owner-uploaded onboarding background music (owner 2026-06-08). Null when
-    // unset/disabled/no service-role env → the shell's player never mounts.
-    fetchOnboardingBgMusicUrl(),
+    // Owner-uploaded onboarding background-music playlist (owner 2026-06-09; was
+    // a single track 2026-06-08). Empty when unset/disabled/no service-role env
+    // → the shell's player never mounts.
+    fetchOnboardingBgMusicUrls(),
     // DB-backed refinement catalogue (owner 2026-06-08, items 8 + 9). DB-first,
     // falls back to the static REFINEMENTS_DATA module on any read error/empty.
     getOnboardingRefinements('wedding'),
@@ -109,7 +110,7 @@ export default async function OnboardingWeddingPage({
       resume={sp.resume === '1'}
       activeFaiths={activeFaiths}
       pricing={pricing}
-      bgMusicUrl={bgMusicUrl}
+      bgMusicUrls={bgMusicUrls}
       refinements={refinements}
       hiddenCats={hiddenCats}
       dynamicTiles={dynamicTiles}

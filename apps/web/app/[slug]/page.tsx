@@ -32,7 +32,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { BackgroundMusic } from './_components/background-music';
 import { EditorialContent } from './_components/editorial/editorial-content';
 import { SaveTheDateView } from './_components/save-the-date';
-import { RevealOverlay } from './_components/reveal/reveal-overlay';
+import { RevealOverlayServer } from './_components/reveal/reveal-overlay-server';
 import { OurStory } from './_components/our-story';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import {
@@ -1188,7 +1188,7 @@ function PublicLanding({
   return (
     <InvitationShell backdrop={backdrop} rolePalette={event.role_palette}>
       <GuestPreload eventSlug={event.slug} />
-      <RevealOverlay
+      <RevealOverlayServer
         enabled={showSaveTheDate}
         monogram={revealMonogram(event.display_name)}
         markSvg={revealMarkSvg(event)}
@@ -1649,7 +1649,7 @@ function InvitationSite({
   return (
     <InvitationShell backdrop={backdrop} rolePalette={event.role_palette}>
       <GuestPreload eventSlug={event.slug} />
-      <RevealOverlay
+      <RevealOverlayServer
         enabled={showSaveTheDate}
         monogram={revealMonogram(event.display_name)}
         markSvg={revealMarkSvg(event)}

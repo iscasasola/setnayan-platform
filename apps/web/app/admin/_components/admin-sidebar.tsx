@@ -517,6 +517,12 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         icon: Video,
       },
       {
+        key: 'reveal-studio',
+        label: 'Reveal Studio',
+        href: '/admin/reveal-studio',
+        icon: Sparkles,
+      },
+      {
         // Real Stories featuring (PR D) — pin + order which consented wedding
         // editorials surface (and which is the hero) on the public /realstories
         // index. Curation on top of the RA 10173 consent gate.

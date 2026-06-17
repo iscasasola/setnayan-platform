@@ -1,5 +1,6 @@
 'use server';
 
+import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -168,8 +169,6 @@ export async function submitCoupleReview(formData: FormData) {
   // outer try/catch means this block is fully inert until the module lands —
   // the review still succeeds, scores just don't refresh yet.
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { after } = require('next/server') as { after: (fn: () => unknown) => void };
     const { triggerVendorActivityRecompute } = await import('@/lib/vendor-activity') as {
       triggerVendorActivityRecompute: (id: string) => Promise<void>;
     };

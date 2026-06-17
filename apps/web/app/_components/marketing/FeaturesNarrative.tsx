@@ -204,6 +204,7 @@ function NextBtn({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       style={{
         display: 'inline-flex',
@@ -521,8 +522,8 @@ function PanelPremium({ onNext }: { onNext: () => void }) {
                     letterSpacing: '.12em',
                     textTransform: 'uppercase',
                     color: 'var(--m-mulberry)',
-                    background: 'color-mix(in srgb, var(--m-mulberry) 10%, transparent)',
-                    border: '1px solid color-mix(in srgb, var(--m-mulberry) 24%, transparent)',
+                    background: 'var(--m-mulberry-4)',
+                    border: '1px solid var(--m-mulberry-3)',
                     borderRadius: 999,
                     padding: '3px 8px',
                     whiteSpace: 'nowrap',
@@ -661,19 +662,46 @@ function PanelMarketplace() {
   );
 }
 
+const TOTAL_STEPS = 4;
+
 // ─── Main export ───────────────────────────────────────────────────────────
 export function FeaturesNarrative() {
   const [step, setStep] = useState(0);
   const [visible, setVisible] = useState(true);
   const sectionRef = useRef<HTMLDivElement>(null);
+  // Prevents double-click/rapid-click from skipping multiple steps.
+  const advancing = useRef(false);
 
   const advance = () => {
+    if (advancing.current || step >= TOTAL_STEPS - 1) return;
+    advancing.current = true;
+
+    // Skip the fade if the visitor prefers reduced motion.
+    const reduce = typeof window !== 'undefined'
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (reduce) {
+      setStep((s) => Math.min(s + 1, TOTAL_STEPS - 1));
+      // Two rAFs: first fires before paint, second after layout is stable.
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          sectionRef.current?.scrollIntoView({ block: 'start' });
+          advancing.current = false;
+        }),
+      );
+      return;
+    }
+
     setVisible(false);
     setTimeout(() => {
-      setStep((s) => s + 1);
+      setStep((s) => Math.min(s + 1, TOTAL_STEPS - 1));
       setVisible(true);
       requestAnimationFrame(() =>
-        sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+        requestAnimationFrame(() => {
+          sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          // Unlock after the smooth scroll has had time to land (~600ms).
+          setTimeout(() => { advancing.current = false; }, 600);
+        }),
       );
     }, 260);
   };
@@ -681,6 +709,8 @@ export function FeaturesNarrative() {
   return (
     <div
       ref={sectionRef}
+      aria-live="polite"
+      aria-atomic="true"
       style={{
         opacity: visible ? 1 : 0,
         transition: 'opacity 0.26s ease',

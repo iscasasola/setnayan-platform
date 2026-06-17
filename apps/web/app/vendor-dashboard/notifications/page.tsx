@@ -6,6 +6,7 @@ import { fetchOwnNotifications } from '@/lib/notifications';
 import { markAllNotificationsRead } from '@/lib/notification-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { NotificationsList } from '@/app/_components/notifications/notifications-list';
+import { PushToggle } from './push-toggle';
 
 export const metadata = { title: 'Notifications · Vendor' };
 
@@ -30,6 +31,9 @@ export default async function VendorNotificationsPage() {
           </p>
         </div>
       </header>
+
+      {/* Push notification opt-in / disable toggle */}
+      <PushToggle />
 
       {unreadCount > 0 ? (
         <form action={markAllNotificationsRead} className="mb-4">

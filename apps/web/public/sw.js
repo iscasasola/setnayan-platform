@@ -362,13 +362,18 @@ self.addEventListener('fetch', (event) => {
 
 // ---------------------------------------------------------------------------
 // Web Push (compliance/push-offline — Apple guideline 4.2). The server's
-// sendWebPush() (apps/web/lib/web-push.ts) posts a JSON payload
-// { title, body, url, tag } to the user's subscriptions; we render it as a
-// notification and route clicks back into the app. Best-effort and defensive:
-// a malformed payload still shows a generic Setnayan notification rather than
-// throwing inside the push event.
+// /api/notify route fires a JSON payload { title, body, data: { thread_id,
+// type } } when a couple sends the vendor a message. We render it as a
+// notification and route clicks into the vendor messages thread.
+//
+// Payload shape (from /api/notify → sendWebPush):
+//   { title: string, body: string, data: { thread_id?: string, type?: string } }
+//
+// Best-effort and defensive: a malformed payload shows a generic Setnayan
+// notification rather than throwing inside the push event.
 // ---------------------------------------------------------------------------
 self.addEventListener('push', (event) => {
+  /** @type {{ title?: string, body?: string, data?: Record<string,string> }} */
   let payload = {};
   try {
     payload = event.data ? event.data.json() : {};
@@ -377,12 +382,17 @@ self.addEventListener('push', (event) => {
   }
 
   const title = payload.title || 'Setnayan';
+  const data = (payload.data && typeof payload.data === 'object') ? payload.data : {};
   const options = {
     body: payload.body || '',
+    // Use the existing SVG icon at the public root (icon-192.svg).
+    // Chromium supports SVG notification icons; Safari ignores the icon field.
     icon: '/icon-192.svg',
     badge: '/icon-192.svg',
-    tag: payload.tag || undefined,
-    data: { url: payload.url || '/' },
+    // Collapse per-thread: one notification per open conversation, not per message.
+    tag: data.thread_id || 'setnayan-vendor',
+    // Carry the structured data so notificationclick can route correctly.
+    data,
   };
 
   event.waitUntil(self.registration.showNotification(title, options));
@@ -390,7 +400,12 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const target = (event.notification.data && event.notification.data.url) || '/';
+  const data = event.notification.data || {};
+  // Route vendor message notifications to the thread; fall back to the vendor
+  // dashboard root for any other notification type.
+  const target = data.thread_id
+    ? `/vendor-dashboard/messages?thread=${encodeURIComponent(data.thread_id)}`
+    : '/vendor-dashboard';
 
   event.waitUntil(
     self.clients

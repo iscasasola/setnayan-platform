@@ -78,6 +78,31 @@ SPEC IMPACT: Customer nav IA change (owner 2026-06-17 — unify to 5 tabs). No s
 3. Reject (single-admin) sets `is_active = false` and cancels any pending approval request.
 
 **SPEC IMPACT:** Adds `vendor_partnerships` HQ queue to the admin console (iteration 0023). The vendor-side stub at `/vendor-dashboard/partnerships` is a new surface not explicitly spec'd in the iteration folders. No pricing impact. No retired feature.
+## 2026-06-17 · PR #1656 (claude/vendor-push-registration) — Vendor push token registration
+
+**What landed:**
+- `apps/web/app/vendor-dashboard/actions/push-tokens.ts` — three server actions: `registerPushToken`, `deactivatePushToken`, `deactivateAllPushTokens`. Upserts into `vendor_push_tokens` on conflict `(vendor_profile_id, token)`.
+- `apps/web/app/vendor-dashboard/_components/push-notification-registrar.tsx` — client component, vendor-dashboard-only. Detects push support → shows non-blocking fixed-bottom banner when permission is `'default'` → on [Enable] requests browser permission → subscribes via VAPID → calls `registerPushToken(endpoint, 'web')`. Silently refreshes on every mount when already granted. Session-dismissible.
+- `apps/web/app/vendor-dashboard/notifications/push-toggle.tsx` — settings toggle card on the Notifications page. Reads live `Notification.permission`; [Disable] calls `deactivateAllPushTokens()`.
+- `apps/web/app/vendor-dashboard/notifications/page.tsx` — adds `<PushToggle />` above the feed.
+- `apps/web/app/vendor-dashboard/layout.tsx` — adds `<PushNotificationRegistrar />` at the bottom of the vendor shell.
+- `apps/web/public/sw.js` — updated `push` + `notificationclick` handlers to be `thread_id`-aware: click routes to `/vendor-dashboard/messages?thread={thread_id}`; notifications collapse per-thread via `tag: data.thread_id`.
+- `apps/mobile/package.json` — added `@capacitor/push-notifications ^8.0.1` (not installed; owner action: `npm install && npx cap sync`).
+- `apps/mobile/src/push.ts` — `initVendorPushNotifications()` helper for the Capacitor native shell; bridges FCM (Android) / APNs (iOS) token back to `registerPushToken`.
+
+**VAPID env vars (already in `.env.example`):**
+- `NEXT_PUBLIC_VAPID_PUBLIC_KEY` — public key for browser push subscriptions (add to Vercel).
+- `VAPID_PRIVATE_KEY` — private key for server-side push signing (add to Vercel, server-only).
+- `VAPID_SUBJECT` — contact URI, defaults to `mailto:hello@setnayan.com`.
+Generate: `npx web-push generate-vapid-keys`
+
+**Owner actions required:**
+1. Generate VAPID keys and add to Vercel env vars.
+2. Run `npm install && npx cap sync` in `apps/mobile/` to wire the Capacitor plugin.
+3. Configure FCM (Firebase `google-services.json`) and APNs keys in native projects.
+4. Wire `sendPushToToken()` in `/api/notify` with real FCM/APNs/Web Push calls (TODO stub in that file).
+
+**SPEC IMPACT:** Wires the token registration leg of the push notification flow introduced by PR #1652 (`/api/notify`). The sw.js push/notificationclick handlers replace the prior generic `payload.url` routing with vendor-thread-aware routing. No spec corpus change required — the push registration flow is implementation detail of the existing 0028 email/notification spec.
 
 ---
 

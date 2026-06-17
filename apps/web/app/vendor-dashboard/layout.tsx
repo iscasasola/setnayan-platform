@@ -17,6 +17,7 @@ import { isMusicVendor } from '@/lib/songs';
 import { VendorBottomNav } from './_components/vendor-bottom-nav';
 import { resolveVendorRole } from '@/lib/vendor-role';
 import { getNavSlotMap } from '@/lib/nav-registry';
+import { PushNotificationRegistrar } from './_components/push-notification-registrar';
 
 /**
  * Vendor dashboard layout — v2.1 Navigation Phase 2 (vendor doorway).
@@ -249,6 +250,10 @@ export default async function VendorDashboardLayout({
           BottomNav primitive. Sits outside SidebarShell so it doesn't
           inherit the desktop sidebar offset. */}
       <VendorBottomNav role={vendorRole} navSlots={navSlots} />
+      {/* Push notification opt-in banner. Client-only; renders null once the
+          vendor has granted push permission or dismissed the prompt. Sits above
+          the BottomNav (z-40) without blocking any interaction. */}
+      <PushNotificationRegistrar />
     </div>
   );
 }

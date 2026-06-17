@@ -43,12 +43,23 @@ import {
   Gem, Globe, Camera,
   // Budget children:
   Gauge, PieChart, Receipt,
+  // Day-of phase icons:
+  QrCode, LayoutGrid, Rocket, CalendarClock,
+  // After phase icons:
+  Star, Newspaper, Images,
   type LucideIcon,
 } from 'lucide-react';
+import type { LifecyclePhase } from '@/lib/day-of-mode';
 import { buildGuestJourney } from './guest-journey';
 import { BUDGET_BUILD_TABS, TAB_META } from './budget-build';
 
-export type CustomerMenuKey = 'home' | 'guests' | 'explore' | 'studio' | 'design' | 'budget';
+export type CustomerMenuKey =
+  // Plan phase
+  | 'home' | 'guests' | 'explore' | 'studio' | 'design' | 'budget'
+  // Day-of phase
+  | 'now' | 'checkin' | 'seats' | 'services' | 'schedule'
+  // After phase
+  | 'review' | 'editorial' | 'galleries';
 
 export type MenuChildKind = 'route' | 'tab' | 'anchor';
 
@@ -99,6 +110,9 @@ export type CustomerMenu = {
 export type CustomerMenuCtx = {
   /** Un-mutes the Guests "Day-of" stage once the live window is open. */
   dayOfOpen?: boolean;
+  /** When set, overrides the returned tree with the phase-appropriate menus.
+   *  Day-of and After menus have no children (the dock hides). */
+  phase?: LifecyclePhase;
 };
 
 /**
@@ -114,6 +128,29 @@ export function buildCustomerMenuTree(
   eventId: string,
   ctx: CustomerMenuCtx = {},
 ): CustomerMenu[] {
+  // Phase takeover: Day-of and After replace the planning menu entirely.
+  // These menus carry no children (no sectionMatch) so the docked sub-nav
+  // returns null for them — only the bottom nav reads this path.
+  if (ctx.phase === 'dayof') {
+    const base = `/dashboard/${eventId}`;
+    return [
+      { key: 'now',      label: 'Now',       icon: Home,          href: base,                              activeMatch: base,                              activeMatchExact: true  },
+      { key: 'checkin',  label: 'Check-in',  icon: QrCode,        href: `${base}/guests/checkin`,          activeMatch: `${base}/guests/checkin`                                  },
+      { key: 'seats',    label: 'Seats',     icon: LayoutGrid,    href: `${base}/seating`,                 activeMatch: `${base}/seating`                                         },
+      { key: 'services', label: 'Services',  icon: Rocket,        href: `${base}/launch`,                  activeMatch: `${base}/launch`                                          },
+      { key: 'schedule', label: 'Schedule',  icon: CalendarClock, href: `${base}/schedule`,                activeMatch: `${base}/schedule`                                        },
+    ];
+  }
+  if (ctx.phase === 'after') {
+    const base = `/dashboard/${eventId}`;
+    return [
+      { key: 'home',      label: 'Home',      icon: Home,      href: base,                              activeMatch: base,                              activeMatchExact: true },
+      { key: 'review',    label: 'Review',    icon: Star,      href: `${base}/vendors`,                 activeMatch: `${base}/vendors`                                         },
+      { key: 'editorial', label: 'Editorial', icon: Newspaper, href: `${base}/website/editorial`,       activeMatch: `${base}/website/editorial`                               },
+      { key: 'galleries', label: 'Galleries', icon: Images,    href: `${base}/galleries`,               activeMatch: `${base}/galleries`                                       },
+    ];
+  }
+
   const base = `/dashboard/${eventId}`;
   const guestStages = buildGuestJourney(eventId, { dayOfOpen: ctx.dayOfOpen });
 

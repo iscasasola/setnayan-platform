@@ -21,6 +21,7 @@ import {
 import { SubmitButton } from '@/app/_components/submit-button';
 import { submitRsvp, withdrawFaceConsent } from './actions';
 import { SelfieCapture } from './_components/selfie-capture';
+import { DayOfFaceEnroll } from './_components/day-of-face-enroll';
 import { CountdownWidget } from './_components/countdown';
 import { ScheduleWidget } from './_components/schedule-widget';
 import { fetchPublicScheduleBlocks, type ScheduleBlockRow } from '@/lib/schedule';
@@ -716,6 +717,22 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
       ? await getGuestLiveGallery(event.event_id, guest.guest_id)
       : null;
 
+  // "Register your face if you haven't yet" — day-of catch for a guest who
+  // skipped the optional RSVP selfie. True only in the live window when this
+  // guest has NO active face enrollment, so the on-the-day page can prompt one
+  // tap that makes their candid photos find them. Cheap targeted read.
+  let needsFaceEnroll = false;
+  if (dayOfPhase === 'live') {
+    const { data: liveEnrollment } = await admin
+      .from('guest_face_enrollments')
+      .select('id')
+      .eq('event_id', event.event_id)
+      .eq('guest_id', guest.guest_id)
+      .is('revoked_at', null)
+      .maybeSingle();
+    needsFaceEnroll = !liveEnrollment;
+  }
+
   // Guest Hub Card — seat assignment for THIS guest only (one targeted query;
   // the hub card needs the table label without loading the full floor plan).
   // Graceful-degrade: if the join fails or no assignment exists, tableLabel
@@ -787,6 +804,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         liveWall={liveWall}
         watchLive={watchLive}
         guestLiveGallery={guestLiveGallery}
+        needsFaceEnroll={needsFaceEnroll}
         guestHubData={guestHubData}
       />
       {papicGuestActive && (
@@ -1528,6 +1546,7 @@ function InvitationSite({
   liveWall,
   watchLive,
   guestLiveGallery,
+  needsFaceEnroll,
   guestHubData,
 }: {
   event: EventRow;
@@ -1576,6 +1595,9 @@ function InvitationSite({
   watchLive?: WatchLiveData | null;
   /** This guest's tagged photos so far — live window only, clean-screened. */
   guestLiveGallery?: GuestLiveGallery | null;
+  /** True in the live window when the guest has no active face enrollment —
+   *  drives the day-of "add your face" prompt so their photos auto-find them. */
+  needsFaceEnroll?: boolean;
   /** Pre-assembled data bundle for the persistent GuestHubCard. */
   guestHubData: GuestHubData;
 }) {
@@ -1816,6 +1838,12 @@ function InvitationSite({
             initialCaption={liveWall.caption}
           />
         ) : null}
+
+        {/* "Add your face" — day-of catch for a guest who skipped the RSVP
+            selfie. One tap enrolls them so their candid photos auto-find them
+            (and feeds the "Photos of you" gallery below). Live window only,
+            self-hides once enrolled. QR-scan tagging is the fallback either way. */}
+        {isLive && needsFaceEnroll ? <DayOfFaceEnroll context="day_of" /> : null}
 
         {/* Per-guest LIVE gallery — "photos of you, so far". The personalized
             half of the on-the-day gallery pair (the wall mirror above is the

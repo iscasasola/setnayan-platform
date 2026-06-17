@@ -50,6 +50,27 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'uploads_unavailable' }, { status: 503 });
   }
 
+  // Optional on-device face descriptors (best-effort) — the phone detected faces
+  // + computed their 128-d vectors and sent only those; the face IMAGE stayed on
+  // the device. Parsed defensively: a malformed/oversized field just disables
+  // auto-tag for this shot, never rejects the capture. Absent entirely until a
+  // face model is hosted (NEXT_PUBLIC_FACE_MODEL_URL).
+  let faceVectors: number[][] = [];
+  const fvRaw = form.get('face_vectors');
+  if (typeof fvRaw === 'string' && fvRaw.length > 0 && fvRaw.length < 200_000) {
+    try {
+      const parsed = JSON.parse(fvRaw);
+      if (Array.isArray(parsed)) {
+        faceVectors = parsed.filter(
+          (v): v is number[] =>
+            Array.isArray(v) && v.length > 0 && v.every((n) => typeof n === 'number'),
+        );
+      }
+    } catch {
+      faceVectors = [];
+    }
+  }
+
   const admin = createAdminClient();
 
   // UGC moderation pre-checks (Apple 1.2 / Google Play UGC) — cheap reads that
@@ -158,6 +179,25 @@ export async function POST(req: Request) {
         }
       } catch {
         // best-effort — the wall reconcile never blocks a capture
+      }
+      // FACE auto-tag (best-effort) — match the on-device descriptors against the
+      // event's CONSENTED enrollments and write auto_face tags on this guest
+      // capture. Runs regardless of the wall gate; the small guest vectors are
+      // read only here and never leave our server. Dormant until enrollments
+      // carry vectors (no enrolled vectors → clean no-op). QR scan is the manual
+      // fallback either way.
+      if (captureId && faceVectors.length > 0) {
+        try {
+          const { autoTagCapture } = await import('@/lib/face-match');
+          await autoTagCapture({
+            eventId: session.event_id,
+            sourceTable: 'papic_guest_captures',
+            photoId: captureId,
+            faceVectors,
+          });
+        } catch {
+          // best-effort — face tagging never affects the saved photo
+        }
       }
     });
     // Auto-sync this guest capture into the couple's Google Drive (Phase 2),

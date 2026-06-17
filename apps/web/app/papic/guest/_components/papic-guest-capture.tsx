@@ -1,7 +1,43 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Camera, Loader2, Check, CircleAlert, ImageIcon, ShieldCheck } from 'lucide-react';
+import {
+  Camera,
+  Loader2,
+  Check,
+  CircleAlert,
+  ImageIcon,
+  ShieldCheck,
+  Sparkles,
+  X,
+  ScanLine,
+  Users,
+} from 'lucide-react';
+import { DayOfFaceEnroll } from '@/app/[slug]/_components/day-of-face-enroll';
+import { makeQrDetector } from '@/lib/qr-scan';
+
+const TAG_CAP = 10; // max tags per photo (corpus hard cap · mirrored server-side)
+
+/** Friendly, guest-facing copy for a tag failure. The camera never breaks on a
+ *  tag miss — these just steer the next scan. */
+function tagErrorMessage(error: string): string {
+  switch (error) {
+    case 'unrecognized':
+      return 'That’s not a guest or table QR — point at a place card or table sign.';
+    case 'guest_not_found':
+      return 'That guest QR isn’t from this wedding.';
+    case 'table_not_found':
+      return 'That table sign isn’t from this wedding.';
+    case 'cap_reached':
+      return `This photo already has ${TAG_CAP} tags — that’s the max.`;
+    case 'not_your_photo':
+      return 'You can only tag your own photos.';
+    case 'unavailable':
+      return 'Tagging isn’t available right now — your photo still saved.';
+    default:
+      return 'Couldn’t tag that — try again.';
+  }
+}
 
 // Papic · guest capture (client)
 //
@@ -22,6 +58,9 @@ type Props = {
   total: number;
   /** Has this guest already accepted the one-time UGC terms of use? */
   termsAccepted: boolean;
+  /** True when the guest has no active face enrollment — shows the in-camera
+   *  "add your face" fallback prompt so their candid shots auto-find them. */
+  needsFaceEnroll?: boolean;
 };
 
 export function PapicGuestCapture({
@@ -30,6 +69,7 @@ export function PapicGuestCapture({
   initialRemaining,
   total,
   termsAccepted,
+  needsFaceEnroll = false,
 }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -63,6 +103,24 @@ export function PapicGuestCapture({
   const [acceptBusy, setAcceptBusy] = useState(false);
   const [acceptError, setAcceptError] = useState<string | null>(null);
 
+  // In-camera "add your face" fallback (the straight-to-shooting guest who
+  // skipped the RSVP selfie). enrolling swaps the rear capture stream for the
+  // front-camera enroll panel; enrolled hides the prompt afterward.
+  const [enrolling, setEnrolling] = useState(false);
+  const [enrolled, setEnrolled] = useState(false);
+  const [promptDismissed, setPromptDismissed] = useState(false);
+
+  // Scan-to-tag (QR fallback) — after a shot, the guest can scan a place-card or
+  // table QR to mark who's in it, so it lands in that guest's "Photos of you".
+  // Mirrors the seat camera, on the same rear stream.
+  const [lastCaptureId, setLastCaptureId] = useState<string | null>(null);
+  const [tagging, setTagging] = useState(false);
+  const [tagCount, setTagCount] = useState(0);
+  const [taggedNames, setTaggedNames] = useState<string[]>([]);
+  const [tagNotice, setTagNotice] = useState<string | null>(null);
+  const tagBusyRef = useRef(false);
+  const lastScanRef = useRef<string>('');
+
   const exhausted = remaining <= 0;
 
   const acceptTerms = useCallback(async () => {
@@ -83,7 +141,10 @@ export function PapicGuestCapture({
   useEffect(() => {
     // Don't request the camera until the guest has accepted the UGC terms and
     // isn't blocked — no point prompting for camera access behind the gate.
-    if (!accepted || blocked) return;
+    // Also release it while enrolling: the front-camera selfie panel owns the
+    // camera then (most phones allow only one active stream), and this effect's
+    // cleanup re-acquires the rear stream when enrolling flips back off.
+    if (!accepted || blocked || enrolling) return;
     let cancelled = false;
     async function start() {
       try {
@@ -110,7 +171,7 @@ export function PapicGuestCapture({
       cancelled = true;
       streamRef.current?.getTracks().forEach((t) => t.stop());
     };
-  }, [accepted, blocked]);
+  }, [accepted, blocked, enrolling]);
 
   const capture = useCallback(async () => {
     if (busy || !ready || exhausted || !accepted || blocked) return;
@@ -146,6 +207,19 @@ export function PapicGuestCapture({
     try {
       const form = new FormData();
       form.append('file', blob, `papic-${Date.now()}.jpg`);
+      // FACE auto-tag: detect faces + compute their 128-d descriptors ON-DEVICE
+      // (lazy-imported face-api.js) from the frame we just froze, and send ONLY
+      // the tiny vectors — the face IMAGE never leaves the phone. The server
+      // matcher tags whoever's enrolled; QR scan stays the manual fallback.
+      // Dormant until a model is hosted (NEXT_PUBLIC_FACE_MODEL_URL) → []; the
+      // 'saved' feedback never waits on it failing.
+      try {
+        const { embedFaces } = await import('@/lib/face-embed');
+        const vectors = await embedFaces(canvas);
+        if (vectors.length > 0) form.append('face_vectors', JSON.stringify(vectors));
+      } catch {
+        // best-effort — a face-tag miss never affects the saved photo
+      }
       const res = await fetch('/api/papic/guest-capture', { method: 'POST', body: form });
       const json = (await res.json().catch(() => ({}))) as {
         status?: string;
@@ -182,6 +256,13 @@ export function PapicGuestCapture({
         setKwentoText('');
         setKwentoPhase('idle');
         setKwentoError(null);
+        // Arm scan-to-tag for the shot just saved (fresh tag state per photo).
+        setLastCaptureId(json.captureId);
+        setTagging(false);
+        setTagCount(0);
+        setTaggedNames([]);
+        setTagNotice(null);
+        lastScanRef.current = '';
       }
     } catch {
       setSaveError("That shot didn't save — check your signal and try again.");
@@ -189,6 +270,107 @@ export function PapicGuestCapture({
       setBusy(false);
     }
   }, [busy, ready, exhausted, accepted, blocked]);
+
+  // ---- scan-to-tag ---------------------------------------------------------
+
+  const startTagging = useCallback(() => {
+    if (!lastCaptureId) return;
+    lastScanRef.current = '';
+    tagBusyRef.current = false;
+    setTagNotice(null);
+    setTagging(true);
+  }, [lastCaptureId]);
+
+  const stopTagging = useCallback(() => setTagging(false), []);
+
+  // Act on one decoded QR: POST it to the guest-tag route (which classifies it
+  // as a guest or table code, confirms the capture is ours, and writes the tag
+  // within this event). The camera keeps running regardless — a miss only
+  // steers the next scan.
+  const handleScan = useCallback(
+    async (raw: string) => {
+      if (!lastCaptureId) return;
+      let r: Record<string, unknown>;
+      try {
+        const res = await fetch('/api/papic/guest-tag', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ captureId: lastCaptureId, scanned: raw }),
+        });
+        r = (await res.json().catch(() => ({ ok: false, error: 'tag_failed' }))) as Record<
+          string,
+          unknown
+        >;
+      } catch {
+        r = { ok: false, error: 'tag_failed' };
+      }
+
+      if (!r.ok) {
+        setTagNotice(tagErrorMessage(String(r.error ?? 'tag_failed')));
+        // Retry a transient error by clearing the debounce so a held code
+        // self-heals; deterministic outcomes stay debounced.
+        if (r.error === 'tag_failed') lastScanRef.current = '';
+        return;
+      }
+
+      if (typeof navigator !== 'undefined') navigator.vibrate?.(60);
+      setTagCount(Number(r.tag_count ?? 0));
+      const names = Array.isArray(r.names) ? (r.names as string[]) : [];
+      const added = Number(r.added ?? 0);
+      if (added > 0) {
+        setTaggedNames((prev) => Array.from(new Set([...prev, ...names])));
+      }
+      if (r.kind === 'table') {
+        const label = typeof r.table_label === 'string' ? r.table_label : 'that table';
+        if (added === 0 && Number(r.total_at_table ?? 0) === 0) {
+          setTagNotice(`No one’s seated at ${label} yet.`);
+        } else if (r.truncated) {
+          setTagNotice(`${label}: added ${added}, but this photo hit the ${TAG_CAP}-tag limit.`);
+        } else if (added === 0) {
+          setTagNotice(`Everyone at ${label} is already tagged.`);
+        } else {
+          setTagNotice(null);
+        }
+      } else {
+        setTagNotice(r.already ? `${names[0] ?? 'They’re'} already tagged.` : null);
+      }
+    },
+    [lastCaptureId],
+  );
+
+  // Decode loop — runs only while the tag sheet is open, on the EXISTING rear
+  // stream. Serial + debounced on the raw payload so a held code fires once.
+  useEffect(() => {
+    if (!tagging) return;
+    let active = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    void (async () => {
+      const detect = await makeQrDetector();
+      if (!active) return;
+      const loop = async () => {
+        if (!active) return;
+        const video = videoRef.current;
+        if (video && !tagBusyRef.current) {
+          const raw = await detect(video).catch(() => null);
+          if (active && raw && raw !== lastScanRef.current) {
+            lastScanRef.current = raw;
+            tagBusyRef.current = true;
+            try {
+              await handleScan(raw);
+            } finally {
+              tagBusyRef.current = false;
+            }
+          }
+        }
+        if (active) timer = setTimeout(loop, 200);
+      };
+      void loop();
+    })();
+    return () => {
+      active = false;
+      if (timer) clearTimeout(timer);
+    };
+  }, [tagging, handleScan]);
 
   const sendKwento = async () => {
     if (!kwentoCaptureId || kwentoPhase === 'sending') return;
@@ -351,6 +533,28 @@ export function PapicGuestCapture({
     );
   }
 
+  // Face enroll panel — the front-camera selfie owns the camera while this is
+  // up (the rear capture stream was released by the effect above).
+  if (enrolling) {
+    return (
+      <main className="flex min-h-screen flex-col bg-ink px-4 py-8 text-cream">
+        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-cream/70">
+          Papic · candid camera
+        </p>
+        <div className="mx-auto mt-6 w-full max-w-md">
+          <DayOfFaceEnroll
+            context="guest_camera"
+            onDone={() => {
+              setEnrolled(true);
+              setEnrolling(false);
+            }}
+            onSkip={() => setEnrolling(false)}
+          />
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="flex min-h-screen flex-col bg-ink text-cream">
       <header className="flex items-center justify-between px-4 py-3">
@@ -362,6 +566,30 @@ export function PapicGuestCapture({
           {remaining} left
         </span>
       </header>
+
+      {/* In-camera "add your face" fallback — catches the guest who jumped
+          straight to shooting without enrolling on their landing page. Opens the
+          front-camera selfie panel; dismissible. QR scan is the fallback either way. */}
+      {needsFaceEnroll && !enrolled && !promptDismissed ? (
+        <div className="mx-3 mb-1 flex items-center gap-2 rounded-xl bg-cream/10 px-3 py-2 text-xs text-cream/90">
+          <Sparkles aria-hidden className="h-4 w-4 shrink-0 text-cream" strokeWidth={1.75} />
+          <button
+            type="button"
+            onClick={() => setEnrolling(true)}
+            className="flex-1 text-left font-medium underline-offset-2 hover:underline"
+          >
+            Add your face so your photos find you
+          </button>
+          <button
+            type="button"
+            onClick={() => setPromptDismissed(true)}
+            aria-label="Dismiss"
+            className="shrink-0 rounded-full p-1 text-cream/60 hover:text-cream"
+          >
+            <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+          </button>
+        </div>
+      ) : null}
 
       <div className="relative flex-1 overflow-hidden">
         <video
@@ -400,7 +628,7 @@ export function PapicGuestCapture({
           <button
             type="button"
             onClick={capture}
-            disabled={busy || !ready || exhausted}
+            disabled={busy || !ready || exhausted || tagging}
             aria-label="Take a photo"
             className="flex items-center justify-center rounded-full border-4 border-cream/80 bg-cream/10 transition active:scale-95 disabled:opacity-40"
             style={{ height: '4.5rem', width: '4.5rem' }}
@@ -417,6 +645,58 @@ export function PapicGuestCapture({
             ? 'Your camera is all used up — enjoy the celebration.'
             : 'Every photo lands in the couple’s gallery in real time.'}
         </p>
+
+        {/* Scan-to-tag — the QR fallback so this shot reaches the right guest's
+            "Photos of you." Offered after a capture; opens a scanner on the live
+            rear stream. Tagging is optional — the photo already landed. */}
+        {lastCaptureId && !tagging ? (
+          <button
+            type="button"
+            onClick={startTagging}
+            className="mx-auto flex items-center justify-center gap-2 rounded-full bg-cream/10 px-4 py-2 text-sm font-medium text-cream transition hover:bg-cream/20"
+          >
+            <ScanLine aria-hidden className="h-4 w-4" strokeWidth={2} />
+            Tag who&rsquo;s in it
+          </button>
+        ) : null}
+
+        {tagging ? (
+          <div className="rounded-xl border border-cream/15 bg-cream/5 p-3">
+            <div className="flex items-center justify-between">
+              <p className="inline-flex items-center gap-2 text-sm font-medium text-cream/90">
+                <ScanLine aria-hidden className="h-4 w-4 text-cream" strokeWidth={2} />
+                Point at a place card or table sign
+              </p>
+              <span className="font-mono text-[11px] text-cream/55">{tagCount}/{TAG_CAP}</span>
+            </div>
+            {taggedNames.length > 0 ? (
+              <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Tagged guests">
+                {taggedNames.map((n) => (
+                  <li
+                    key={n}
+                    className="inline-flex items-center gap-1 rounded-full bg-cream/10 px-2.5 py-1 text-xs text-cream"
+                  >
+                    <Users aria-hidden className="h-3 w-3" strokeWidth={2} />
+                    {n}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 text-xs text-cream/55">
+                Hold a guest&rsquo;s QR or a table sign in the frame — no tap needed.
+              </p>
+            )}
+            {tagNotice ? <p className="mt-2 text-xs text-cream/80">{tagNotice}</p> : null}
+            <button
+              type="button"
+              onClick={stopTagging}
+              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md bg-cream/15 px-4 py-2 text-sm font-medium text-cream hover:bg-cream/25"
+            >
+              <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
+              Done tagging
+            </button>
+          </div>
+        ) : null}
 
         {kwentoCaptureId && kwentoPhase !== 'sent' && kwentoPhase !== 'held' ? (
           <div className="rounded-xl border border-cream/15 bg-cream/5 p-3">

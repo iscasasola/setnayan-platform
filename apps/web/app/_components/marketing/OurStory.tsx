@@ -307,7 +307,7 @@ export function OurStoryManifesto() {
 // ─────────────────────────────────────────────────────────────────────────────
 export function OurStoryTeaser() {
   return (
-    <section className="relative overflow-hidden" style={{ background: '#0e0f12' }}>
+    <section className="relative overflow-hidden" style={{ background: ‘#0e0f12’ }}>
       <Blob top={-70} left={-50} size={520} color="var(--m-orange)" opacity={0.1} />
       <Blob bottom={-130} right={-70} size={540} color="var(--m-mulberry)" opacity={0.16} />
 
@@ -315,57 +315,50 @@ export function OurStoryTeaser() {
         <Reveal>
           <div
             className="m-mono"
-            style={{ fontSize: 11, letterSpacing: '.26em', textTransform: 'uppercase', color: 'var(--m-orange-3)' }}
+            style={{ fontSize: 11, letterSpacing: ‘.26em’, textTransform: ‘uppercase’, color: ‘var(--m-orange-3)’ }}
           >
-            A new way to remember
+            A different kind of wedding
           </div>
           <h2
-            className="m-serif italic mx-auto mt-5"
-            style={{ color: '#FBFBFA', fontSize: 'clamp(2rem, 5.6vw, 3.4rem)', lineHeight: 1.08, maxWidth: 680 }}
+            className="m-serif italic mx-auto mt-6"
+            style={{ color: ‘#FBFBFA’, fontSize: ‘clamp(2rem, 5.6vw, 3.4rem)’, lineHeight: 1.08, maxWidth: 720 }}
           >
-            Your wedding was <span style={{ color: 'var(--m-orange-3)' }}>never still.</span>
+            Weddings have always been planned{‘ ‘}
+            <span style={{ color: ‘rgba(251,251,250,.5)’ }}>for the couple.</span>
           </h2>
           <p
-            className="mx-auto mt-5"
-            style={{ color: 'rgba(251,251,250,.64)', fontSize: 'clamp(1rem, 2.5vw, 1.15rem)', lineHeight: 1.6, maxWidth: 520 }}
+            className="m-serif italic mx-auto mt-5"
+            style={{ color: ‘var(--m-orange-3)’, fontSize: ‘clamp(1.3rem, 3.6vw, 2rem)’, lineHeight: 1.3, maxWidth: 640 }}
           >
-            We used to keep weddings in albums. Setnayan keeps them alive — the moments you missed, the
-            people who couldn’t come, the stories your guests tell.
+            Setnayan is the first platform that makes the wedding an experience for everyone who attends.
           </p>
-
-          {/* paper → digital → living */}
-          <div
-            className="m-mono mt-7 inline-flex flex-wrap items-center justify-center gap-2.5"
-            style={{ fontSize: 11, letterSpacing: '.16em', textTransform: 'uppercase' }}
+          <p
+            className="mx-auto mt-6"
+            style={{ color: ‘rgba(251,251,250,.52)’, fontSize: ‘clamp(.95rem, 2.4vw, 1.1rem)’, lineHeight: 1.65, maxWidth: 500 }}
           >
-            <span style={{ color: 'rgba(251,251,250,.42)' }}>Paper</span>
-            <span style={{ color: 'rgba(251,251,250,.28)' }}>→</span>
-            <span style={{ color: 'rgba(251,251,250,.42)' }}>Digital</span>
-            <span style={{ color: 'rgba(251,251,250,.28)' }}>→</span>
-            <span style={{ color: 'var(--m-orange-3)' }}>Living</span>
-          </div>
-
-          <div className="mt-8">
+            Why this matters now — and why it changes everything about how we celebrate.
+          </p>
+          <div className="mt-9">
             <Link
               href="/our-story"
               className="m-mono inline-flex items-center gap-2"
               style={{
                 fontSize: 12,
-                letterSpacing: '.14em',
-                textTransform: 'uppercase',
-                color: '#FBFBFA',
-                borderBottom: '1px solid var(--m-orange-3)',
+                letterSpacing: ‘.14em’,
+                textTransform: ‘uppercase’,
+                color: ‘#FBFBFA’,
+                borderBottom: ‘1px solid var(--m-orange-3)’,
                 paddingBottom: 4,
               }}
             >
-              Read our story <span style={{ color: 'var(--m-orange-3)' }}>→</span>
+              See our story <span style={{ color: ‘var(--m-orange-3)’ }}>→</span>
             </Link>
           </div>
         </Reveal>
       </div>
 
       {/* melt into the light footer below */}
-      <div aria-hidden style={{ height: 110, background: 'linear-gradient(to bottom, #0e0f12 0%, var(--m-paper) 100%)' }} />
+      <div aria-hidden style={{ height: 110, background: ‘linear-gradient(to bottom, #0e0f12 0%, var(--m-paper) 100%)’ }} />
     </section>
   );
 }

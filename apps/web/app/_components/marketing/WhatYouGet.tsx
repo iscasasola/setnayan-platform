@@ -377,15 +377,15 @@ export function WhatYouGet() {
               className="m-serif italic mx-auto mt-5"
               style={{ fontSize: 'clamp(2.1rem, 6vw, 3.6rem)', lineHeight: 1.08, maxWidth: 820 }}
             >
-              Not just a place to inquire.{' '}
-              <span style={{ color: 'var(--m-mulberry)' }}>A home you move into — free.</span>
+              Fourteen features.{' '}
+              <span style={{ color: 'var(--m-mulberry)' }}>One home.</span>
             </h2>
             <p
               className="mx-auto mt-6 text-[var(--m-slate)]"
               style={{ fontSize: 'clamp(1rem, 2.6vw, 1.2rem)', lineHeight: 1.6, maxWidth: 600 }}
             >
-              Most apps hand you a list of vendors and leave. Setnayan is where you actually build
-              and run the whole wedding — every part of it, free from the first day.
+              Everything a wedding needs — from the first vendor inquiry to the last guest&rsquo;s personal reel —
+              in one place. Free to start. Add what you want.
             </p>
           </Reveal>
         </div>
@@ -404,7 +404,7 @@ export function WhatYouGet() {
               marginBottom: 28,
             }}
           >
-            A place for each
+            Six of fourteen · always free
           </div>
           <div
             className="grid gap-3.5 sm:gap-4"
@@ -476,7 +476,7 @@ export function WhatYouGet() {
             className="m-serif italic mx-auto mt-8 text-center text-[var(--m-slate)]"
             style={{ fontSize: 'clamp(1.05rem, 2.8vw, 1.35rem)', maxWidth: 560 }}
           >
-            Every part of your wedding has a place. You don&rsquo;t pay to start — you just move in.
+            Every part of the planning has a home. You don&rsquo;t pay to start — you just move in.
           </p>
         </div>
 
@@ -511,13 +511,14 @@ export function WhatYouGet() {
               className="m-serif italic"
               style={{ fontSize: 'clamp(1.7rem, 4.5vw, 2.6rem)', lineHeight: 1.12 }}
             >
-              Want every guest to leave with something to keep?
+              The other eight. The ones your guests will feel.
             </h3>
             <p
               className="mx-auto mt-4 text-[var(--m-slate)]"
               style={{ fontSize: 'clamp(1rem, 2.6vw, 1.15rem)', lineHeight: 1.6, maxWidth: 600 }}
             >
-              The planning stays free. Every addition is something your guests will feel.
+              Save the Date, RSVP, Papic, Panood, Pakanta, Kwento, Animated Monogram, Setnayan AI.
+              Add only what you want. The planning always stays free.
             </p>
             <div className="mt-6 flex flex-wrap justify-center gap-2.5">
               {EXTRAS.map((e) => (

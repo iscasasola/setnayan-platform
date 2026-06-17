@@ -13,7 +13,11 @@ import {
   Users,
   ScanLine,
 } from 'lucide-react';
-import { recordSeatCapture, tagSeatCapture } from '@/app/papic/actions';
+import {
+  recordSeatCapture,
+  tagSeatCapture,
+  autoTagSeatCapture,
+} from '@/app/papic/actions';
 import { makeQrDetector } from '@/lib/qr-scan';
 
 // Papic · paparazzo capture (client)
@@ -231,6 +235,40 @@ export function PapicSeatCapture({
     lastScanRef.current = '';
   }, []);
 
+  // FACE auto-tag (best-effort, fire-and-forget) — runs AFTER the photo is saved
+  // so the shutter stays instant and the photo always lands (untagged-still-
+  // delivered). The phone detects faces + computes their 128-d descriptors
+  // on-device (lazy-imported face-api.js) from the just-shot frame and sends ONLY
+  // the vectors to the matcher; the face IMAGE never leaves the device. Dormant
+  // until a face model is hosted (NEXT_PUBLIC_FACE_MODEL_URL) — embedFaces then
+  // returns [] and this no-ops. Any error is swallowed; QR scan stays the manual
+  // fallback either way.
+  const autoTagFromBlob = useCallback(
+    async (photoId: string, imageBlob: Blob) => {
+      try {
+        const { embedFaces } = await import('@/lib/face-embed');
+        const url = URL.createObjectURL(imageBlob);
+        try {
+          const img = new Image();
+          img.src = url;
+          await new Promise<void>((resolve, reject) => {
+            img.onload = () => resolve();
+            img.onerror = () => reject(new Error('decode'));
+          });
+          const vectors = await embedFaces(img);
+          if (vectors.length > 0) {
+            await autoTagSeatCapture(token, photoId, vectors);
+          }
+        } finally {
+          URL.revokeObjectURL(url);
+        }
+      } catch {
+        // best-effort — a face-tag miss never affects the saved photo
+      }
+    },
+    [token],
+  );
+
   const capturePhoto = useCallback(async () => {
     if (busy || recording || !ready || photoFull) return;
     setBusy(true);
@@ -252,12 +290,13 @@ export function PapicSeatCapture({
       setPhotos((n) => n + 1);
       flash();
       armTagging(result.photoId);
+      if (result.photoId) void autoTagFromBlob(result.photoId, blob);
     } catch {
       setSaveError("That shot didn't save — check your signal and try again.");
     } finally {
       setBusy(false);
     }
-  }, [busy, recording, ready, photoFull, grabFrame, uploadBlob, token, photoCap, photos, flash, armTagging]);
+  }, [busy, recording, ready, photoFull, grabFrame, uploadBlob, token, photoCap, photos, flash, armTagging, autoTagFromBlob]);
 
   const finishClip = useCallback(
     async (clipBlob: Blob, mime: string) => {
@@ -286,13 +325,15 @@ export function PapicSeatCapture({
         setClips((n) => n + 1);
         flash();
         armTagging(result.photoId);
+        // Clips: embed from the poster frame (the still proxy we already grabbed).
+        if (result.photoId && poster) void autoTagFromBlob(result.photoId, poster);
       } catch {
         setSaveError("That clip didn't save — check your signal and try again.");
       } finally {
         setBusy(false);
       }
     },
-    [grabFrame, uploadBlob, token, clipCap, clips, flash, armTagging],
+    [grabFrame, uploadBlob, token, clipCap, clips, flash, armTagging, autoTagFromBlob],
   );
 
   const stopClip = useCallback(() => {

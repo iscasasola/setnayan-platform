@@ -146,6 +146,19 @@ export function PapicGuestCapture({
     try {
       const form = new FormData();
       form.append('file', blob, `papic-${Date.now()}.jpg`);
+      // FACE auto-tag: detect faces + compute their 128-d descriptors ON-DEVICE
+      // (lazy-imported face-api.js) from the frame we just froze, and send ONLY
+      // the tiny vectors — the face IMAGE never leaves the phone. The server
+      // matcher tags whoever's enrolled; QR scan stays the manual fallback.
+      // Dormant until a model is hosted (NEXT_PUBLIC_FACE_MODEL_URL) → []; the
+      // 'saved' feedback never waits on it failing.
+      try {
+        const { embedFaces } = await import('@/lib/face-embed');
+        const vectors = await embedFaces(canvas);
+        if (vectors.length > 0) form.append('face_vectors', JSON.stringify(vectors));
+      } catch {
+        // best-effort — a face-tag miss never affects the saved photo
+      }
       const res = await fetch('/api/papic/guest-capture', { method: 'POST', body: form });
       const json = (await res.json().catch(() => ({}))) as {
         status?: string;

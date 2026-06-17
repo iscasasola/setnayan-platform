@@ -6,6 +6,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { getDashboardShell } from '@/lib/dashboard-shell';
 import { OuterDashboardHeader } from '@/app/dashboard/_components/outer-dashboard-header';
+import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 
 /**
  * Account-scoped dashboard chrome — route group `(account)` (URL-transparent),
@@ -43,7 +44,7 @@ export default async function AccountDashboardLayout({
   // getDashboardShell(user.id) in this request gets the already-resolved
   // result at zero DB cost.
   const supabase = await createClient();
-  const [{ events, roles, unreadCount }, profilePhotoUrl] = await Promise.all([
+  const [{ events, roles, unreadCount }, profilePhotoUrl, switcherData] = await Promise.all([
     getDashboardShell(user.id),
     // Account profile photo for the (I) avatar (owner directive 2026-06-12:
     // avatar = ACCOUNT photo, never the event logo). Presigned display URL;
@@ -59,6 +60,9 @@ export default async function AccountDashboardLayout({
           ?.profile_photo_url ?? null,
       );
     })().catch(() => null),
+    // AccountSwitcher panel data — events, gallery, favorites, editorials,
+    // context rail flags. Graceful degrade to null on any error.
+    getSwitcherData().catch(() => null),
   ]);
 
   // Hide archived events from the switcher, then sort active-first /
@@ -115,6 +119,7 @@ export default async function AccountDashboardLayout({
         hasAdminAccess={roles.hasAdminAccess}
         vendorProfiles={roles.vendorProfiles}
         eventTypes={eventTypes}
+        switcherData={switcherData}
       />
       <main className="flex-1">{children}</main>
     </div>

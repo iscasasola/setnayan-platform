@@ -5,6 +5,8 @@ import type { EventTypeRow } from '@/app/dashboard/(account)/create-event/_compo
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { ProfileMenu } from '@/app/_components/profile-menu';
 import { HideOnScrollHeader } from '@/app/_components/nav/hide-on-scroll-header';
+import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
+import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 
 /**
  * Account-route dashboard chrome — iteration 0000 single-strip top-nav
@@ -60,6 +62,12 @@ type Props = {
   /** DB-driven creatable event types (2026-06-13) for the switcher's
       add-event sheet — fetched by the account layout, threaded through. */
   eventTypes?: readonly EventTypeRow[];
+  /**
+   * Pre-fetched data for the AccountSwitcher panel. When provided, the new
+   * unified account-switcher pill renders alongside the existing ProfileMenu.
+   * Optional so old call-sites degrade gracefully.
+   */
+  switcherData?: SwitcherData | null;
 };
 
 export function OuterDashboardHeader({
@@ -73,6 +81,7 @@ export function OuterDashboardHeader({
   hasAdminAccess,
   vendorProfiles,
   eventTypes,
+  switcherData,
 }: Props) {
   // Reusable chrome elements rendered in two layouts: a sticky top strip
   // on mobile, OR a fixed left sidebar on desktop (owner directive 2026-05-23
@@ -126,7 +135,15 @@ export function OuterDashboardHeader({
               ariaBaseLabel="Notifications"
               ariaUnreadSuffix="unread"
             />
-            <ProfileMenu email={email} photoUrl={photoUrl} ariaLabel="Account menu" />
+            {/* AccountSwitcher replaces ProfileMenu on mobile — the unified
+                identity panel (bottom sheet) with events + gallery + favorites
+                + editorials + profile actions + context rail. Degrades to the
+                old ProfileMenu if switcher data wasn't fetched. */}
+            {switcherData ? (
+              <AccountSwitcher data={switcherData} />
+            ) : (
+              <ProfileMenu email={email} photoUrl={photoUrl} ariaLabel="Account menu" />
+            )}
           </div>
         </div>
       </HideOnScrollHeader>
@@ -172,7 +189,13 @@ export function OuterDashboardHeader({
               ariaBaseLabel="Notifications"
               ariaUnreadSuffix="unread"
             />
-            <ProfileMenu email={email} photoUrl={photoUrl} ariaLabel="Account menu" />
+            {/* On desktop sidebar the AccountSwitcher opens a left-side
+                drawer. Degrades to ProfileMenu if data wasn't fetched. */}
+            {switcherData ? (
+              <AccountSwitcher data={switcherData} />
+            ) : (
+              <ProfileMenu email={email} photoUrl={photoUrl} ariaLabel="Account menu" />
+            )}
           </div>
         </div>
       </nav>

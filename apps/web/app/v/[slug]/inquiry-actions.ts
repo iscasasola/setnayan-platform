@@ -107,23 +107,6 @@ export async function startServiceInquiry(input: {
     return { status: 'error', message: 'That service is no longer available.' };
   }
 
-  // Check for an existing open thread before creating a new one. If a thread
-  // already exists for this (event, vendor) pair with a non-declined status, we
-  // surface a "View thread" redirect so the couple doesn't open a second thread.
-  // We detect via chat_threads UNIQUE(event_id, vendor_profile_id): the upsert
-  // below would converge anyway, but we want to tell the UI whether this is a
-  // brand-new inquiry (isExisting=false → redirect to thread) vs. a resumption
-  // of an existing one (isExisting=true → also redirect to thread, no modal).
-  const { data: existingThread } = await supabase
-    .from('chat_threads')
-    .select('thread_id, inquiry_status')
-    .eq('event_id', eventId)
-    .eq('vendor_profile_id', vendorProfileId)
-    .maybeSingle();
-  const isExisting =
-    existingThread?.thread_id != null &&
-    existingThread.inquiry_status !== 'declined';
-
   // follow → upsert thread → first message (best-effort message). Mirrors the
   // canonical inquiry pattern in unlock-category.ts.
   try {
@@ -202,7 +185,6 @@ export async function startServiceInquiry(input: {
   }
 
   // Build the full set of validated service IDs for requested_service_ids
-  const confirmedServiceIds: string[] = [initialServiceId];
   for (const rawId of input.alsoServiceIds) {
     const id = String(rawId).trim();
     if (!id || id === initialServiceId || !ownedById.has(id)) continue;

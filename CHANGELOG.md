@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · feat(papic): wire capture → face matcher (auto_face tags) on BOTH camera surfaces — DORMANT
+
+Closes the capture-side of self-hosted face auto-tagging: the just-shot frame is embedded on-device and the tiny descriptors are handed to the server matcher (`autoTagCapture`, #1608), which writes `auto_face` tags. Pairs with the enrollment embedder (#1616). Still **dormant** — `embedFaces` returns `[]` until a model is hosted on R2 (`NEXT_PUBLIC_FACE_MODEL_URL`), so every path below is a clean no-op today and the photo always lands untagged-still-delivered.
+
+- **Crew seat camera** — `app/papic/seat/[token]/_components/papic-seat-capture.tsx`: after a photo/clip saves (so the shutter stays instant), best-effort embeds the frame (lazy `import('@/lib/face-embed')`) and calls the new **`autoTagSeatCapture`** server action (`app/papic/actions.ts`). The action re-checks (under the claimer's RLS session) that the caller owns the seat AND the photo belongs to it, then hands the vectors to `autoTagCapture` (`sourceTable: 'papic_photos'`). Only the 128-d vectors travel; the face image never leaves the phone.
+- **Guest disposable camera** — `app/papic/guest/_components/papic-guest-capture.tsx` embeds the frozen frame and appends `face_vectors` to the capture POST; `app/api/papic/guest-capture/route.ts` parses it defensively and calls `autoTagCapture` (`sourceTable: 'papic_guest_captures'`) in the background `after()` block once the `capture_id` resolves. This makes guest-camera shots taggable for the first time — previously they had no tag path at all.
+- Best-effort throughout: every embed/match is wrapped + swallowed; a face-tag miss never blocks the camera. QR scan remains the manual fallback (owner-confirmed) on both surfaces.
+
+**SPEC IMPACT:** Advances 0012 toward the spec's confidence-banded auto-face-tagging. The capture→matcher wire now EXISTS (was the audited gap); it activates only when the owner hosts the face-api weights + sets `NEXT_PUBLIC_FACE_MODEL_URL`. No public copy change needed — the feature is real once activated. Remaining for the loop: day-of "register if not yet" prompt (PR C) + extend QR-scan tagging to the guest camera (PR D) + R2 model hosting (owner).
+
 ## 2026-06-17 · feat(reveal): port the DESIGN-LOCKED bridal-veil reveal to the Save-the-Date page
 ## 2026-06-17 · feat(papic): on-device face embedder (face-api.js/dlib) + enrollment wiring — DORMANT
 

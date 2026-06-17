@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Briefcase, Clock, Eye, EyeOff, Plus, Trash2 } from 'lucide-react';
+import { Briefcase, ChevronDown, Clock, Eye, EyeOff, Gift, Plus, Tag, Trash2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorServices } from '@/lib/vendor-services';
@@ -357,6 +357,8 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                     defaultValue=""
                   />
                 ) : null}
+                <DiscountFields idPrefix={`new-${addCategory}`} />
+                <ExclusivePerkField idPrefix={`new-${addCategory}`} />
                 <div className="flex items-center justify-between">
                   <Link
                     href="/vendor-dashboard/services"
@@ -407,6 +409,13 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                         {svc.is_active ? 'Active' : 'Hidden'} ·{' '}
                         {formatPhp(svc.starting_price_php)} starting
                       </p>
+                      {svc.discount_type ? (
+                        <DiscountBadge
+                          type={svc.discount_type}
+                          value={svc.discount_value}
+                          expiresAt={svc.discount_expires_at}
+                        />
+                      ) : null}
                       {svc.branch_id && branchLabelById.has(svc.branch_id) ? (
                         <p className="text-xs text-ink/60">
                           Branch: {branchLabelById.get(svc.branch_id)}
@@ -564,6 +573,17 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                         defaultValue={svc.branch_id ?? ''}
                       />
                     ) : null}
+                    <DiscountFields
+                      idPrefix={svc.vendor_service_id}
+                      typeDefault={svc.discount_type ?? undefined}
+                      valueDefault={svc.discount_value ?? undefined}
+                      expiresDefault={svc.discount_expires_at ?? undefined}
+                      conditionsDefault={svc.discount_conditions_md ?? undefined}
+                    />
+                    <ExclusivePerkField
+                      idPrefix={svc.vendor_service_id}
+                      perkDefault={svc.exclusive_perk_text ?? undefined}
+                    />
                     <div className="flex justify-end">
                       <SubmitButton
                         className="inline-flex h-9 items-center justify-center rounded-md border border-ink/20 bg-cream px-4 text-xs font-medium text-ink hover:border-ink/40"
@@ -835,6 +855,207 @@ function BranchSelect({
         ))}
       </select>
     </Field>
+  );
+}
+
+// ── Discount type labels ─────────────────────────────────────────────────────
+const DISCOUNT_TYPE_LABELS: Record<string, string> = {
+  early_booking: 'Early Booking',
+  off_peak: 'Off-Peak',
+  bundle: 'Package Bundle',
+  promo: 'Limited-Time Promo',
+  returning: 'Returning Couple',
+};
+
+const DISCOUNT_TYPE_HELPS: Record<string, string> = {
+  early_booking: '% or flat off for bookings placed well before the event date.',
+  off_peak: 'Lower rate for non-peak months (specify in Conditions).',
+  bundle: 'Reduced price when ≥2 services from your profile are purchased by the same couple.',
+  promo: 'Expiry-gated discount — requires an end date.',
+  returning: 'Loyalty rate for couples who have completed a prior booking with you.',
+};
+
+/**
+ * Collapsible "Discount" section for the service editor.
+ * The <details> element handles expand/collapse without JS.
+ */
+function DiscountFields({
+  idPrefix,
+  typeDefault,
+  valueDefault,
+  expiresDefault,
+  conditionsDefault,
+}: {
+  idPrefix: string;
+  typeDefault?: string;
+  valueDefault?: number;
+  expiresDefault?: string;
+  conditionsDefault?: string;
+}) {
+  const hasDiscount = Boolean(typeDefault);
+  // Convert stored ISO string to YYYY-MM-DD for <input type="date">
+  let expiresDateVal = '';
+  if (expiresDefault) {
+    try {
+      expiresDateVal = expiresDefault.slice(0, 10);
+    } catch {
+      expiresDateVal = '';
+    }
+  }
+  return (
+    <details
+      className="rounded-xl border border-ink/10 bg-cream"
+      open={hasDiscount}
+    >
+      <summary className="flex cursor-pointer select-none items-center justify-between gap-2 px-3 py-2.5">
+        <span className="flex items-center gap-2 text-sm font-medium text-ink">
+          <Tag aria-hidden className="h-4 w-4 text-ink/55" strokeWidth={1.75} />
+          Discount
+          {hasDiscount ? (
+            <span className="inline-flex items-center rounded-full bg-terracotta/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-terracotta-700">
+              Active
+            </span>
+          ) : null}
+        </span>
+        <ChevronDown aria-hidden className="h-4 w-4 text-ink/40" strokeWidth={1.75} />
+      </summary>
+      <div className="space-y-3 border-t border-ink/10 px-3 pb-3 pt-3">
+        <p className="text-xs text-ink/55">
+          Optional. When set, the discount type and value appear on your service card.
+          Leave the type as &ldquo;None&rdquo; to remove any active discount.
+        </p>
+        <Field
+          label="Discount type"
+          htmlFor={`${idPrefix}-disc-type`}
+          help={typeDefault ? DISCOUNT_TYPE_HELPS[typeDefault] : undefined}
+        >
+          <select
+            id={`${idPrefix}-disc-type`}
+            name="discount_type"
+            defaultValue={typeDefault ?? ''}
+            className="input-field cursor-pointer"
+          >
+            <option value="">None — no discount</option>
+            {Object.entries(DISCOUNT_TYPE_LABELS).map(([val, label]) => (
+              <option key={val} value={val}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field
+          label="Discount amount"
+          htmlFor={`${idPrefix}-disc-val`}
+          help="Positive number. Use a whole number for % (e.g. 10 = 10%) or PHP flat (e.g. 5000)."
+        >
+          <input
+            id={`${idPrefix}-disc-val`}
+            name="discount_value"
+            type="number"
+            min={0.01}
+            step="any"
+            placeholder="e.g. 10 or 5000"
+            defaultValue={valueDefault ?? ''}
+            className="input-field"
+          />
+        </Field>
+        <Field
+          label="Promo expiry date (required for Limited-Time Promo)"
+          htmlFor={`${idPrefix}-disc-exp`}
+        >
+          <input
+            id={`${idPrefix}-disc-exp`}
+            name="discount_expires_at"
+            type="date"
+            defaultValue={expiresDateVal}
+            className="input-field"
+          />
+        </Field>
+        <Field
+          label="Conditions (optional)"
+          htmlFor={`${idPrefix}-disc-cond`}
+          help="Markdown supported. E.g. 'Valid for bookings ≥ 6 months before the event.'"
+        >
+          <textarea
+            id={`${idPrefix}-disc-cond`}
+            name="discount_conditions_md"
+            rows={3}
+            maxLength={1000}
+            placeholder="Describe any conditions, inclusions, or fine print…"
+            defaultValue={conditionsDefault ?? ''}
+            className="input-field resize-none"
+          />
+        </Field>
+      </div>
+    </details>
+  );
+}
+
+/**
+ * "Setnayan Exclusive" perk field. Required to publish; optional for drafts.
+ * The field is always visible (not collapsible) so vendors can't miss it.
+ */
+function ExclusivePerkField({
+  idPrefix,
+  perkDefault,
+}: {
+  idPrefix: string;
+  perkDefault?: string;
+}) {
+  return (
+    <div className="space-y-2 rounded-xl border border-terracotta/40 bg-terracotta/5 p-3">
+      <div className="flex items-center gap-2">
+        <Gift aria-hidden className="h-4 w-4 text-terracotta-600" strokeWidth={1.75} />
+        <p className="text-sm font-semibold text-ink">Setnayan Exclusive</p>
+        <span className="inline-flex items-center rounded-full bg-terracotta/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-terracotta-700">
+          Required to publish
+        </span>
+      </div>
+      <p className="text-xs text-ink/60">
+        A hidden perk you offer exclusively to couples who book through Setnayan.
+        It&rsquo;s revealed in-chat only after the vendor accepts the inquiry.
+        It&rsquo;s contractually binding once revealed — so make it meaningful.
+      </p>
+      <Field
+        label="Exclusive perk"
+        htmlFor={`${idPrefix}-excl-perk`}
+        help="Cannot be blank if you want to publish (activate) this service."
+      >
+        <input
+          id={`${idPrefix}-excl-perk`}
+          name="exclusive_perk_text"
+          type="text"
+          maxLength={500}
+          placeholder="e.g. Free 1-hour extension · Complimentary styling session · Waived travel fee within 30 km"
+          defaultValue={perkDefault ?? ''}
+          className="input-field"
+        />
+      </Field>
+    </div>
+  );
+}
+
+/**
+ * Inline discount badge shown on the service card when a discount is active.
+ */
+function DiscountBadge({
+  type,
+  value,
+  expiresAt,
+}: {
+  type: string;
+  value: number | null;
+  expiresAt: string | null;
+}) {
+  const label = DISCOUNT_TYPE_LABELS[type] ?? type;
+  const expired = expiresAt ? new Date(expiresAt) < new Date() : false;
+  if (expired) return null; // don't show expired promos on the card
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-terracotta-700">
+      <Tag className="h-3 w-3" strokeWidth={2} />
+      {label}
+      {value != null ? ` · ${value}` : ''}
+    </span>
   );
 }
 

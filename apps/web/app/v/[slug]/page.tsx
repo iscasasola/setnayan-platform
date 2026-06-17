@@ -570,6 +570,10 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
   let initialFollowing = false;
   let coupleEventId: string | null = null;
   let isAlreadySaved = false;
+  /** Existing chat thread for this (coupleEvent, vendor) pair — non-null when
+   *  the couple already sent an inquiry (any status except declined). Passed
+   *  to the InquiryComposer so it can surface "View thread" instead of opening
+   *  a new modal on re-visit. */
   let existingThreadId: string | null = null;
   if (user) {
     initialFollowing = await isFollowingVendor(supabase, user.id, vendor.vendor_profile_id);
@@ -591,7 +595,11 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
           .maybeSingle(),
       ]);
       isAlreadySaved = Boolean(savedResult.data?.vendor_id);
-      const t = threadResult.data as { thread_id: string; inquiry_status: string } | null;
+      // Only surface "View thread" for non-declined threads — a declined
+      // thread has no active conversation to resume.
+      const t = threadResult.data as
+        | { thread_id: string; inquiry_status: string }
+        | null;
       if (t?.thread_id && t.inquiry_status !== 'declined') {
         existingThreadId = t.thread_id;
       }
@@ -1156,6 +1164,9 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
               guestEditHref={
                 coupleEventId ? `/dashboard/${coupleEventId}/guests` : null
               }
+              // Existing-thread detection: non-null when the couple already
+              // has a pending/accepted thread with this vendor. The composer
+              // shows "View thread" instead of opening the inquiry modal.
               existingThreadId={existingThreadId}
               existingThreadHref={
                 existingThreadId && coupleEventId

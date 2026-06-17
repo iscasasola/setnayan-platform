@@ -211,6 +211,11 @@ const nextConfig: NextConfig = {
     // build script so the ceiling is deterministic, not GC-timing-dependent.
     // https://nextjs.org/docs/app/api-reference/config/next-config-js/webpackMemoryOptimizations
     webpackMemoryOptimizations: true,
+    // Limit webpack to 1 parallel worker — cuts peak build RAM so Vercel's
+    // standard container doesn't OOM. Slower build; identical output.
+    // Next lever after webpackMemoryOptimizations (#1258) + ignoreBuildErrors
+    // (#1425). Escalate to Vercel Enhanced Builds (paid) if this recurs.
+    cpus: 1,
     serverActions: {
       bodySizeLimit: '6mb',
     },

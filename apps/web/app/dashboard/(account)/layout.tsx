@@ -1,12 +1,9 @@
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
-import { sortEventsForSwitcher } from '@/lib/events';
-import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { getDashboardShell } from '@/lib/dashboard-shell';
 import { OuterDashboardHeader } from '@/app/dashboard/_components/outer-dashboard-header';
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
+import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 
 /**
  * Account-scoped dashboard chrome — route group `(account)` (URL-transparent),
@@ -43,40 +40,27 @@ export default async function AccountDashboardLayout({
   // share the same render tree — any page or layout that also calls
   // getDashboardShell(user.id) in this request gets the already-resolved
   // result at zero DB cost.
-  const supabase = await createClient();
-  const [{ events, roles, unreadCount }, profilePhotoUrl, switcherData] = await Promise.all([
+  const minimalSwitcherFallback: SwitcherData = {
+    userId: user.id,
+    displayName: null,
+    email: user.email ?? '',
+    photoUrl: null,
+    events: [],
+    gallery: [],
+    favorites: [],
+    editorials: [],
+    context: { hasVendor: false, vendorName: null, isAdmin: false },
+  };
+  const [{ unreadCount }, switcherData] = await Promise.all([
     getDashboardShell(user.id),
-    // Account profile photo for the (I) avatar (owner directive 2026-06-12:
-    // avatar = ACCOUNT photo, never the event logo). Presigned display URL;
-    // degrades to null (initial fallback) on any error.
-    (async () => {
-      const { data } = await supabase
-        .from('users')
-        .select('profile_photo_url')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      return displayUrlForStoredAsset(
-        (data as { profile_photo_url?: string | null } | null)
-          ?.profile_photo_url ?? null,
-      );
-    })().catch(() => null),
-    // AccountSwitcher panel data — events, gallery, favorites, editorials,
-    // context rail flags. Graceful degrade to null on any error.
+    // AccountSwitcher panel data. getSwitcherData never returns null after
+    // the 2026-06-17 always-on fix; the .catch here guards against any
+    // unexpected outer throw.
     getSwitcherData(user.id).catch((err: unknown) => {
       console.error('[AccountSwitcher] data fetch failed:', err);
-      return null;
+      return minimalSwitcherFallback;
     }),
   ]);
-
-  // Hide archived events from the switcher, then sort active-first /
-  // expired-rightmost (2026-05-17 owner directive · sortEventsForSwitcher
-  // preserves primary-then-date-asc inside the active group).
-  const visibleEvents = events.filter((e) => !e.archived);
-  const activeEvents = sortEventsForSwitcher(visibleEvents);
-  const primary =
-    visibleEvents.find((e) => e.is_primary) ?? activeEvents[0] ?? null;
-
-  const eventTypes = await getCreatableEventTypes();
 
   return (
     <div
@@ -87,41 +71,7 @@ export default async function AccountDashboardLayout({
           (fixed left). On account routes the header ALWAYS renders, so the
           gutter is structurally correct — no client guard, no flash. */}
       <OuterDashboardHeader
-        userId={user.id}
-        email={user.email ?? ''}
-        photoUrl={profilePhotoUrl}
         unreadCount={unreadCount}
-        primaryEvent={
-          primary
-            ? {
-                event_id: primary.event_id,
-                display_name: primary.display_name,
-                event_date: primary.event_date,
-                monogram_text: primary.monogram_text,
-                monogram_color: primary.monogram_color,
-                monogram_frame_key: primary.monogram_frame_key,
-                monogram_font_key: primary.monogram_font_key,
-                monogram_style: primary.monogram_style,
-                monogram_custom_svg: primary.monogram_uploaded_svg ?? primary.monogram_custom_svg,
-              }
-            : null
-        }
-        switcherEvents={activeEvents.map((e) => ({
-          event_id: e.event_id,
-          display_name: e.display_name,
-          event_date: e.event_date,
-          is_primary: e.is_primary,
-          monogram_text: e.monogram_text,
-          monogram_color: e.monogram_color,
-          monogram_frame_key: e.monogram_frame_key,
-          monogram_font_key: e.monogram_font_key,
-          monogram_style: e.monogram_style,
-          monogram_custom_svg: e.monogram_uploaded_svg ?? e.monogram_custom_svg,
-        }))}
-        hasVendorAccess={roles.hasVendorAccess}
-        hasAdminAccess={roles.hasAdminAccess}
-        vendorProfiles={roles.vendorProfiles}
-        eventTypes={eventTypes}
         switcherData={switcherData}
       />
       <main className="flex-1">{children}</main>

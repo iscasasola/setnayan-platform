@@ -248,6 +248,9 @@ export function WaxSeal({
           height: size,
           opacity: painted ? 1 : 0,
           transition: 'opacity 200ms ease-out',
+          transform: config?.pour.cx_offset
+            ? `translateX(${config.pour.cx_offset * size / 2}px)`
+            : undefined,
         }}
       />
     </span>

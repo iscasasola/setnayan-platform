@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · feat(save-the-date): premium-openings gate plumbing + journey trigger (PR4 P5)
+
+The final phase. The **journey trigger was already done** — the `save_the_dates` checklist item seeds when the date is set and already deep-links to the builder (`checklist.ts:639`), so this is the **gate**.
+
+Per the owner-settled model (FREE film · PREMIUM openings ₱1,499) — and the locked rule that prices are **admin-managed + provisional** (the ₱1,499-vs-₱3,999-PRO reconciliation is holistic-pass work) — this lands the gate as **dormant, additive plumbing**, not a live paywall:
+
+- **New `lib/std-openings.ts`** — `STD_PREMIUM_OPENINGS_SERVICE_KEY` + `eventOwnsStdOpenings()` (the bundle-aware `eventOwnsSku` reader, graceful-degrade, no new table).
+- **`reveal-overlay.tsx`** — openings now activate on `admin global toggle · ?reveal= override · OR the couple owning the premium unlock`. Additive: today (no SKU sold) it's a no-op; the admin global stays the live control. The free film beneath always plays.
+- **`reveal-overlay-server.tsx`** — resolves ownership, but **scoped tight**: only when the reveal is in play (`enabled` = the STD phase) AND the admin global isn't already unlocking for everyone — so the common paths pay zero extra queries.
+- **`[slug]/page.tsx`** — threads `eventId` into both overlay mounts.
+
+**No price seeded · no paywall · no migration.** tsc 0 · `next lint` clean. The reveal's current behavior is unchanged.
+
+**⚠ OWNER — activation runbook (holistic pricing pass):** to turn openings into the ₱1,499 premium: (1) seed the `STD_PREMIUM_OPENINGS` price into `platform_retail_catalog_v2` (reconcile vs the ₱3,999 PRO unlock); (2) surface the buy-CTA (`InlineCheckoutDrawer`) on `/add-ons/save-the-date`; (3) flip the admin Reveal Studio global toggle OFF so only owners get openings. The free film stays free throughout. Documented in `lib/std-openings.ts`.
+
+SPEC IMPACT iter 0024 — **completes PR4 (P1–P5)**. The free Save-the-Date film + scrub + auto-fill + dual calendar + builder are LIVE-on-merge (flag-gated); the premium-openings paywall is wired-but-dormant pending the owner's price seed. → CHANGELOG + corpus build-plan + DECISION_LOG + memory.
+
 ## 2026-06-17 · feat(save-the-date): the end-of-film dual add-to-calendar (PR4 P3)
 
 The film now ends with a TWO-event calendar: the wedding **and** — when the couple set it in the builder (P4) — the day the **full invitation goes live**.

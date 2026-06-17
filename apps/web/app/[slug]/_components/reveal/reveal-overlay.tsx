@@ -66,6 +66,10 @@ type Props = {
   /** The couple's chosen opening (events.std_reveal_template) — overrides the
    *  admin house default, beneath a per-visit ?reveal= override. (PR4 P4) */
   eventTemplate?: RevealTemplateId | null;
+  /** The couple owns the premium openings unlock (PR4 P5) — an additive
+   *  activation path alongside the admin global toggle + the ?reveal= override.
+   *  Dormant until the STD_PREMIUM_OPENINGS SKU is sellable. */
+  premiumUnlocked?: boolean;
 };
 
 const FLAG_ON = process.env.NEXT_PUBLIC_STD_REVEAL === '1';
@@ -81,6 +85,7 @@ export function RevealOverlay({
   petalsColor = '#e87a93',
   config,
   eventTemplate = null,
+  premiumUnlocked = false,
 }: Props) {
   const [mounted, setMounted] = useState(false);
   const [reveal, setReveal] = useState('');
@@ -104,7 +109,13 @@ export function RevealOverlay({
   const veil = isVeilTemplate(template);
 
   const configEnabled = config?.enabled ?? false;
-  const active = enabled && !reducedMotion && (configEnabled || FLAG_ON || override !== null);
+  // Openings activate on ANY of: the admin global toggle (free-for-all) · the
+  // ?reveal= preview override · OR the couple owning the premium unlock (PR4 P5,
+  // dormant until the SKU sells). The free film beneath always plays regardless.
+  const active =
+    enabled &&
+    !reducedMotion &&
+    (configEnabled || FLAG_ON || override !== null || premiumUnlocked);
   if (!active || !mounted || gone) return null;
 
   if (veil) {

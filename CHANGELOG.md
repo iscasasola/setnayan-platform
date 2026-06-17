@@ -18,6 +18,18 @@ Owner decision (2026-06-16): "website is cheaper · website charges via BDO and 
 SPEC IMPACT: native payment routes to web (corpus `Pricing_Holistic_Pass §6` web-checkout policy + DECISION_LOG).
 
 ## 2026-06-16 · feat(nav): wire the CUSTOMER bottom nav to the registry (first consumption PR)
+## 2026-06-16 · ci(desktop): re-add macOS Developer-ID signing + notarization — gated (fixes the 2026-06-15 empty-secret break)
+
+Owner renewed Apple Developer + created a real **Developer ID Application** cert (G2, Team `P95JPDWWB3`, exp 2031). Re-wires macOS code-signing into `build-desktop.yml` so a downloaded `.dmg` opens with no Gatekeeper warning — but **gated** to avoid the bug that got the first attempt reverted on 2026-06-15 (a missing secret resolves to an empty string, and `tauri build` treats an empty `APPLE_CERTIFICATE` as "cert present" → `security import` on nothing → whole macOS build fails).
+
+- `.github/workflows/build-desktop.yml` — new **"Configure macOS signing"** step (before `tauri build`, macOS only): reads the six `APPLE_*` secrets via step `env`, and **only when `APPLE_CERTIFICATE` is non-empty** writes them to `$GITHUB_ENV` for the build. A MISSING secret is therefore never exported as an empty string — so forks / pre-secrets builds still succeed UNSIGNED (ad-hoc fallback step runs), and a fully-configured build signs + notarizes + staples (verify step runs). Replaces the 2026-06-15 "removed" comment block with the gated rationale.
+
+**OWNER ACTION — add 6 repo secrets** (Settings → Secrets and variables → Actions). Until `APPLE_CERTIFICATE` exists, builds stay unsigned (no regression):
+- `APPLE_CERTIFICATE` (base64 of the `.p12`), `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY` (`Developer ID Application: Indalecio Casasola (P95JPDWWB3)`), `APPLE_TEAM_ID` (`P95JPDWWB3`), `APPLE_ID` (Apple email), `APPLE_PASSWORD` (app-specific password).
+
+Windows signing still pending (separate item). SPEC IMPACT: None — CI/release plumbing only.
+
+## 2026-06-16 · feat(papic): free Papic sampler — 3 seats, 8 photos + 2 clips each, 30-day retention
 
 Lane 2 of the Alaala embed: the Studio hub (`/add-ons`) is the *store*; this is the *story*. A new couple surface lays out the arc of the day so the couple sees their wedding as one living memory being assembled, not a flat grid of SKUs.
 
@@ -27,13 +39,22 @@ Lane 2 of the Alaala embed: the Studio hub (`/add-ons`) is the *store*; this is 
 SPEC IMPACT: None on schema/SKU (new narrative surface + one nav item). **Lane 3 next** — finish the keystones (Kwento → Live Photo Wall → produced-output), the part competitors structurally can't copy.
 
 ## 2026-06-15 · feat(alaala): name the memory pillar "Alaala" — Studio hub framing + manifesto naming (Lane 1 of 3)
-## 2026-06-17 · fix(papic): runtime-load face-api.js from R2 instead of bundling it (Vercel build OOM)
+## 2026-06-16 · fix(std-reveal): post-merge review fixes — preview-card timer leak, moodboard veil colour, crown-veil clear, a11y
 
-GitHub's production build passed with `@vladmandic/face-api` bundled, but **Vercel's 8 GB build machine OOM-killed the deploy** three times — face-api (+ its bundled TF.js) tipped `next build` back over the ceiling (the #1258 mechanic; `next.config.ts` already skips in-build typecheck/lint for the same reason).
+Follow-up to #1573 (the reveal library completion). A 25-agent adversarial review (verdict: working-with-nits, approach sound) confirmed the architecture and surfaced a small set of real fixes, all applied here. Still flag-gated (`NEXT_PUBLIC_STD_REVEAL` default OFF).
 
-Fix: `lib/face-embed.ts` now loads the face-api.js UMD at **runtime** as a `<script>` from the **same R2 host as the weights** (default `${NEXT_PUBLIC_FACE_MODEL_URL}/face-api.js`, override `NEXT_PUBLIC_FACE_API_URL`) — so webpack never processes it and the build returns to baseline memory. The `@vladmandic/face-api` npm dep is removed (lockfile regenerated); a minimal hand-typed interface replaces `typeof import(...)`. Behavior is unchanged and still **dormant** until a model is hosted (the script URL only resolves when `NEXT_PUBLIC_FACE_MODEL_URL` is set). CSP is unaffected — the app ships only `frame-ancestors 'self'`, no `script-src`. `OWNER_ACTIONS.md` updated to upload `face-api.js` alongside the weights.
+- **Bug — studio preview timer leak** (`reveal-preview-card.tsx`): the rigid fold-beat `setTimeout(setRevealed, …)` was never cancelled, so a Close-then-veil sequence within the window fired a stale `setRevealed(true)` and unmounted a freshly-mounted veil mid-lift. Now tracked in a ref and cleared on launch / close / unmount.
+- **Bug (copy-vs-behavior) — veil colour ignored the Mood Board.** Both live `[slug]/page.tsx` `RevealOverlay` mounts and the studio call site hardcoded `#f3ece1` while the copy promises "recolours to your Mood Board." Added `veilColorFromPalette()` to `lib/site-palette.ts` (most-colourful palette swatch lightened 60% toward ivory → a sheer, hue-carrying tint) and threaded it into both live mounts + the studio page (which now selects `role_palette`). Ivory stays the genuine fallback.
+- **Crown veil could sag back into view** (`veil-crown.tsx`): at full fold the slack belly could droop across the invitation before the overlay faded. Raised `hemRise` to `lift*(clothH*2+4)` so the two pin rows separate by more than a cloth length → the drape pulls taut and lifts clear. (`onRevealed` already fired on the scalar lift, so this was visual-only, never a hang.)
+- **Accessibility — `prefers-reduced-motion`** now honored: such guests skip the reveal entirely and see content directly (gated in `RevealOverlay`). Covers the whole template family on the live path.
+- **Polish + consistency:** church-doors arch now mirrored onto the liner back face so it persists through the swing; V1 sheer-veil `wind` aligned 0.5 → 0.40 (the locked §1a craft constant, matching the crown veil); extracted `RIGID_FOLD_MS`/`RIGID_REVEAL_MS` so the overlay + preview timers stop being independent magic numbers.
+- **Owner-confirm (not changed): `?reveal=` is not a hard kill-switch** — a guest appending a valid `?reveal=` in the Save-the-Date phase activates the reveal in any environment, flag or no flag. Left as-is (it's how Vercel previews demo it) but the misleading "previews only" comment was corrected; decide the production kill-switch semantics before the veils launch.
 
-**SPEC IMPACT:** None — build-infra fix; the dormant face loop is functionally identical.
+tsc 0 · `next lint` clean · `lint:retired` 0 (verified in worktree).
+
+SPEC IMPACT: 0024 Save the Date — no scope change; correctness/a11y/colour-wiring fixes on the flag-gated reveal. Logged in corpus `DECISION_LOG.md`.
+
+## 2026-06-16 · fix(payments): complete PR4 bundle-awareness — 3 Essentials-tier SKUs a bundle buyer was wrongly denied (PR4b)
 
 Owner ask: *"we also want to do the customization of this template from the admin"* + *"where we can activate and deactivate features of the template?"* — owner picked **Full template studio** (toggles **and** a live slider panel). Today the reveal was gated only by the `NEXT_PUBLIC_STD_REVEAL` env flag with all settings baked as constants; this makes it admin-managed end-to-end, following the `platform_settings` / `homepage_hero_config` recipe.
 
@@ -66,52 +87,8 @@ All three new components carry a JSDoc header noting the 2026-06-14 A6 dedup and
 Verify: `tsc --noEmit` exit 0 · `next lint` clean on all five changed/new files.
 
 SPEC IMPACT: None (code-internal; no behavior/visual change).
-## 2026-06-17 · feat(papic): "register your face if you haven't yet" — day-of card + in-camera fallback
-## 2026-06-17 · feat(papic): extend QR-scan tagging to the GUEST camera
-
-The QR fallback (owner-confirmed) now works on **both** cameras. The seat camera already had scan-to-tag (`papic_tag_capture`), but it's keyed on a seat claim token + `auth.uid()` — the guest disposable camera has neither (cookie identity, captures in `papic_guest_captures`), so guest-camera shots were **untaggable by any method** (QR or face). This closes that gap.
-
-- **`supabase/migrations/20270111000000_papic_guest_qr_tagging.sql`** (new) — `papic_tag_guest_capture(p_guest_id, p_capture_id, p_guest_token, p_table_ref)`, a SECURITY DEFINER RPC mirroring the seat RPC's guest/table resolution + 10-tag cap + alphabetized fan-out, but keyed on **guest-capture ownership** (`papic_guest_captures.guest_id = p_guest_id`). Granted to `service_role` only — the route (which validated the guest-session cookie) is the gate; no `auth.uid()` backstop here.
-- **`app/api/papic/guest-tag/route.ts`** (new) — cookie-validated POST that parses the scan (`parsePapicTagScan`) and calls the RPC via the admin client. Returns the RPC's JSONB.
-- **`papic-guest-capture.tsx`** — ports the seat camera's scan-to-tag UX onto the rear stream: a "Tag who's in it" affordance after a capture → a scanner panel (decode loop on the live video, debounced, serial), tagged-name chips, `N/10` counter, friendly miss copy. The shutter is disabled while tagging. Untagged-still-delivered (the photo already landed).
-
-**SPEC IMPACT:** Adds the guest-camera tagging path the audit found entirely missing (the seat RPC hardcoded `source_table='papic_photos'`). Completes the owner-confirmed "QR scan is our fallback" doctrine across both cameras. New migration (additive, idempotent, RLS-neutral). Pairs with the face loop (prior entries) — face auto-tag is the primary path, QR scan the fallback.
-
-The catch for a guest who skipped the optional RSVP selfie: a one-tap enroll surfaced on the live day-of page **and** inside the guest camera, so their candid photos can auto-find them. Owner-chosen placement (day-of card + camera fallback).
-
-- **`app/papic/face-enroll-actions.ts`** (new) — `enrollGuestFace`, a cookie-authenticated (setnayan_guest_session) enrollment write. Same columns as the RSVP enrollment block (selfie → display photo + `guest_face_enrollments` with consent + optional on-device `face_vector`), `source: 'guest_portal'`, revoke-then-insert (one active enrollment per event,guest). Best-effort; biometric consent mandatory (RA 10173).
-- **`app/[slug]/_components/day-of-face-enroll.tsx`** (new) — the "Add your face" card. Wraps the existing `SelfieCapture` in a standalone form, gates submit on a captured+consented selfie, shows a success state, self-hides once enrolled.
-- **`SelfieCapture`** — gains one optional, backward-compatible `onReadyChange` prop so the standalone form can enable its submit (RSVP omits it → no-op).
-- **Day-of page** — `app/[slug]/page.tsx` computes `needsFaceEnroll` (live window + no active enrollment) and renders the card above "Photos of you."
-- **Guest-camera fallback** — `papic-guest-capture.tsx` shows a dismissible "Add your face so your photos find you" prompt; tapping it releases the rear capture stream (effect now gated on `enrolling`) and mounts the front-camera enroll panel, then resumes shooting. `app/papic/guest/page.tsx` passes `needsFaceEnroll`.
-
-**SPEC IMPACT:** Adds the 0012 "enroll if not yet registered" path the audit found missing (enrollment previously lived only in the optional RSVP widget). No pricing/scope change. Pairs with the capture→matcher wire (prior entry); QR-scan tagging remains the manual fallback (owner-confirmed). Still dormant for auto-tag until the face model is hosted, but the selfie + display photo land immediately.
-
-## 2026-06-17 · feat(papic): wire capture → face matcher (auto_face tags) on BOTH camera surfaces — DORMANT
-
-Closes the capture-side of self-hosted face auto-tagging: the just-shot frame is embedded on-device and the tiny descriptors are handed to the server matcher (`autoTagCapture`, #1608), which writes `auto_face` tags. Pairs with the enrollment embedder (#1616). Still **dormant** — `embedFaces` returns `[]` until a model is hosted on R2 (`NEXT_PUBLIC_FACE_MODEL_URL`), so every path below is a clean no-op today and the photo always lands untagged-still-delivered.
-
-- **Crew seat camera** — `app/papic/seat/[token]/_components/papic-seat-capture.tsx`: after a photo/clip saves (so the shutter stays instant), best-effort embeds the frame (lazy `import('@/lib/face-embed')`) and calls the new **`autoTagSeatCapture`** server action (`app/papic/actions.ts`). The action re-checks (under the claimer's RLS session) that the caller owns the seat AND the photo belongs to it, then hands the vectors to `autoTagCapture` (`sourceTable: 'papic_photos'`). Only the 128-d vectors travel; the face image never leaves the phone.
-- **Guest disposable camera** — `app/papic/guest/_components/papic-guest-capture.tsx` embeds the frozen frame and appends `face_vectors` to the capture POST; `app/api/papic/guest-capture/route.ts` parses it defensively and calls `autoTagCapture` (`sourceTable: 'papic_guest_captures'`) in the background `after()` block once the `capture_id` resolves. This makes guest-camera shots taggable for the first time — previously they had no tag path at all.
-- Best-effort throughout: every embed/match is wrapped + swallowed; a face-tag miss never blocks the camera. QR scan remains the manual fallback (owner-confirmed) on both surfaces.
-
-**SPEC IMPACT:** Advances 0012 toward the spec's confidence-banded auto-face-tagging. The capture→matcher wire now EXISTS (was the audited gap); it activates only when the owner hosts the face-api weights + sets `NEXT_PUBLIC_FACE_MODEL_URL`. No public copy change needed — the feature is real once activated. Remaining for the loop: day-of "register if not yet" prompt (PR C) + extend QR-scan tagging to the guest camera (PR D) + R2 model hosting (owner).
 
 ## 2026-06-17 · feat(reveal): port the DESIGN-LOCKED bridal-veil reveal to the Save-the-Date page
-## 2026-06-17 · feat(papic): on-device face embedder (face-api.js/dlib) + enrollment wiring — DORMANT
-
-The on-device half of self-hosted face auto-tagging, on the validated model (dlib ResNet via face-api.js — public-domain + MIT, 99.38% LFW). Ships **dormant**: with no model hosted on R2 (`NEXT_PUBLIC_FACE_MODEL_URL` unset) every call is a clean no-op and enrollment stays image-only — exactly today's behavior.
-
-- **`lib/face-embed.ts`** (new, browser) — `embedSingleFace` (one selfie → 128-d descriptor, for enrollment) + `embedFaces` (a photo → one descriptor per face, for capture). **Lazy-imports** face-api.js so the library + TF.js stay OUT of the main bundle until a face is embedded. The face IMAGE never leaves the device; only the tiny descriptor moves on. Best-effort (null/[] on no model / no face / error) — never blocks a selfie or capture.
-- **Enrollment wiring** — `app/[slug]/_components/selfie-capture.tsx`: after the quality gate, best-effort computes the descriptor (lazy import) → renders a hidden `selfie_vector`; `app/[slug]/actions.ts` parses + validates it and stores `guest_face_enrollments.face_vector` + `vector_model` (columns already existed; reserved-NULL until now). Image-only fallback if absent.
-- **`lib/face-embed-core.ts`** — `VECTOR_MODEL` → `faceapi-dlib@1` (the actual model now). `@vladmandic/face-api@^1.7.15` added (TF.js was already a dep, so low bundle delta; lazy-loaded). Lockfile updated.
-- **`OWNER_ACTIONS.md`** — the one activation step: host the 3 face-api model sets (~12 MB) on the public R2 bucket + set `NEXT_PUBLIC_FACE_MODEL_URL`, then validate on a real device.
-
-Pairs with the server matcher (#1608, `lib/face-match.ts`): phone fingerprints → server matches → `auto_face` tags. Remaining: the capture-side call into the matcher (next PR, needs #1608) + the R2 model hosting (owner). NOTE: the browser embedder can't be run in CI — it's verified on a real device once the model is hosted.
-
-SPEC IMPACT: iteration 0012 — on-device face embedding + enrollment-vector storage built (dormant). Logged in corpus DECISION_LOG.md.
-
-## 2026-06-16 · docs(nav): backfill changelog for the registry final-public-pass + cleanup (#1583, #1581)
 
 **What landed (`apps/web/app/[slug]/_components/reveal/`):**
 - **`veil-reveal.tsx`** — fully rewritten as a faithful port of the owner-approved reference implementation (build `veil_lower_shakes_petals`, the 47th `show_widget` tuning iteration, 2026-06-17). Replaces the old 28×40 / gold-mark / pin-rise placeholder. Now a 66×50 Verlet cloth with: flat-crown→blooming folds, real gravity drop, hem-weighted wind, a **hard 1.2% strain clamp** (inextensible — a tap-pull holds taut, never rubber-stretches), the **sim-driven two-end trailing fold** (hem pulled off-screen past the top, only the valance droop occupies the top ~30%, float keeps it high), and gestures: **swipe-up = reveal · swipe-down = re-cover · double-tap = hands-free auto · grab-and-pull = local inextensible hold · tap = bat a petal away.** The logo is now the **white sparse Setnayan mark** (fixed-pixel tiled, `ResizeObserver` re-fit so rotation adds marks instead of stretching) — no gold, no flower-lace hem. Adds a **100-petal `InstancedMesh`** rose shower with 4 mixed behaviours (cling/feather/rotate/straight), **tap-to-bounce**, **lower-the-veil-shakes-all-petals-loose**, and petals that **start only when the veil first lifts** (none on the covered veil). All locked settings (spec §6) baked as constants; couple-customizable surface = `veilColor` + `petalsColor` only.
@@ -225,6 +202,28 @@ Generate: `npx web-push generate-vapid-keys`
 4. Wire `sendPushToToken()` in `/api/notify` with real FCM/APNs/Web Push calls (TODO stub in that file).
 
 **SPEC IMPACT:** Wires the token registration leg of the push notification flow introduced by PR #1652 (`/api/notify`). The sw.js push/notificationclick handlers replace the prior generic `payload.url` routing with vendor-thread-aware routing. No spec corpus change required — the push registration flow is implementation detail of the existing 0028 email/notification spec.
+## 2026-06-17 · PR #1663 — Vendor review response: editable replies, flag-as-fake, 500-char limit
+
+**What landed:**
+
+- `supabase/migrations/20270111780655_vendor_review_response.sql` — migration applied to prod:
+  1. `lock_vendor_reply()` trigger updated: immutability guard removed so replies are editable; auto-stamps `vendor_reply_at` on first write and refreshes it on edits.
+  2. `vendor_reviews.vendor_reply` DB CHECK tightened from 2,000 → 500 chars.
+  3. New `vendor_review_flags` table (UUID PK, FK to `vendor_reviews` + `vendor_profiles`, status `pending/dismissed/escalated`, unique per review+vendor) with 3 RLS policies + RLS enabled.
+
+- `apps/web/lib/reviews.ts` — `VENDOR_REPLY_MAX_CHARS = 500` constant; `submitVendorReply` updated to 500-char limit (editable, no longer one-time); new `flagReviewAsFake()` function; `ReviewFlagReason` type + `REVIEW_FLAG_REASON_LABEL` record.
+
+- `apps/web/app/vendor-dashboard/reviews/page.tsx` — existing reply shows "Edit response" via `<details>` expand with prefilled textarea; new "Flag" icon per review opens dropdown reason selector; char limit updated to 500 throughout.
+
+- `apps/web/app/vendor-dashboard/reviews/actions.ts` — `postVendorReply` (post + edit, validates profile ownership); new `submitFlagAsFake` action.
+
+- `apps/web/app/admin/reviews/page.tsx` + `actions.ts` — new "Vendor fake-review flags" queue section with pending count badge at top of review-moderation page; `dismissReviewFlag` action writes `admin_audit_log`.
+
+- `apps/web/app/v/[slug]/page.tsx` — `VendorReplyBlock` now shows "Response from [Vendor Name]" label; `vendorName` prop threaded through `ReviewRow`.
+
+- `apps/web/app/dashboard/[eventId]/_components/vendor-marketplace-info.tsx` — same "Response from [name]" label in couple-dashboard marketplace info drawer.
+
+**SPEC IMPACT:** `0022_vendor_dashboard/0022_vendor_dashboard.md` — vendor reply is now editable (not one-time per § 2.x); 500-char limit; fake-flag flow added. `0023_admin_console/0023_admin_console.md` — new fake-review flag queue added to review moderation surface.
 
 ---
 

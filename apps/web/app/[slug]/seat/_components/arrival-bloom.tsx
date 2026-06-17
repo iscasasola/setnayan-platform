@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
 import { AnimatedMonogramHero } from '@/app/_components/animated-monogram-hero';
 import { EventMonogram } from '@/app/_components/event-monogram';
 
@@ -39,6 +40,14 @@ type Props = {
   hasPakanta: boolean;
   /** Read once on the server from guest_checkins.checked_in_at. Toggles copy. */
   arrived: boolean;
+  /**
+   * PR5: when provided, the bloom subscribes to `seating-changes:{eventId}` and
+   * pulses the seat card gently when the couple updates this guest's assignment.
+   * Separate from the full router.refresh() the SeatingChangesListener does —
+   * this is an in-component micro-signal specifically on the monogram bloom so
+   * the guest gets immediate visual feedback that their seat info refreshed.
+   */
+  eventId?: string;
 };
 
 export function ArrivalBloom({
@@ -51,18 +60,42 @@ export function ArrivalBloom({
   hasAnimatedMonogram,
   hasPakanta,
   arrived,
+  eventId,
 }: Props) {
   // `play` keys the bloom: it fires on mount and re-fires when the guest taps
   // "Show my seat". Re-mounting the hero via a changing key restarts its
   // mount-driven SVG animation; the wrapper CSS bloom is keyed off `play` too.
   const [play, setPlay] = useState(0);
+  // PR5: gentle pulse state — true for ~1.2s when a live seat-change arrives.
+  const [liveUpdated, setLiveUpdated] = useState(false);
+  const pulseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     // One-shot bloom on first paint.
     setPlay((n) => n + 1);
-    // PR5: when guest_checkins gains a row live, repaint via Supabase Realtime —
-    // not in PR4. PR4's bloom fires only on load / the "Show my seat" tap.
   }, []);
+
+  // PR5: subscribe to seating-changes when eventId is provided. On receiving
+  // assignment_updated the bloom does NOT re-key (that would restart the full
+  // monogram animation — too heavy). Instead it triggers a brief CSS pulse on
+  // the seat-info text so the guest notices their info refreshed.
+  useEffect(() => {
+    if (!eventId) return;
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`seating-changes:${eventId}`)
+      .on('broadcast', { event: 'assignment_updated' }, () => {
+        // Clear any in-flight timer before starting a new pulse.
+        if (pulseTimer.current) clearTimeout(pulseTimer.current);
+        setLiveUpdated(true);
+        pulseTimer.current = setTimeout(() => setLiveUpdated(false), 1200);
+      })
+      .subscribe();
+    return () => {
+      if (pulseTimer.current) clearTimeout(pulseTimer.current);
+      void supabase.removeChannel(channel);
+    };
+  }, [eventId]);
 
   return (
     <div className="flex flex-col items-center gap-3 text-center">
@@ -76,8 +109,17 @@ export function ArrivalBloom({
           100% { opacity: 1; transform: scale(1); }
         }
         .seatpass-bloom { animation: seatpass-bloom-in 1.4s cubic-bezier(0.22, 1, 0.36, 1) both; }
+        @keyframes seatpass-live-pulse {
+          0%   { opacity: 1; }
+          30%  { opacity: 0.5; }
+          60%  { opacity: 1; }
+          80%  { opacity: 0.7; }
+          100% { opacity: 1; }
+        }
+        .seatpass-live-pulse { animation: seatpass-live-pulse 1.2s ease both; }
         @media (prefers-reduced-motion: reduce) {
           .seatpass-bloom { animation: none; }
+          .seatpass-live-pulse { animation: none; }
         }
       `}</style>
 
@@ -103,7 +145,7 @@ export function ArrivalBloom({
         )}
       </div>
 
-      <div className="space-y-1">
+      <div className={`space-y-1${liveUpdated ? ' seatpass-live-pulse' : ''}`}>
         <p className="font-serif text-xl italic text-terracotta sm:text-2xl">
           {arrived
             ? `Welcome, ${firstName} — so glad you made it!`

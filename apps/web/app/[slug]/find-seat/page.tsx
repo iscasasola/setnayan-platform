@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { ArrowLeft, MapPin } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { Logo } from '@/app/_components/logo';
+import { SeatingChangesListener } from '@/app/[slug]/_components/seating-changes-listener';
 import { NameSearch } from './_components/name-search';
 
 export const metadata = { title: 'Find your seat · Setnayan' };
@@ -62,6 +63,8 @@ export default async function FindSeatPage({ params }: Props) {
     <Shell displayName={event.display_name} slug={slug}>
       {published ? (
         <div className="space-y-6">
+          {/* Re-reads silently when the couple updates seat assignments */}
+          <SeatingChangesListener eventId={event.event_id} />
           <header className="space-y-2 text-center">
             <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
               Find your seat

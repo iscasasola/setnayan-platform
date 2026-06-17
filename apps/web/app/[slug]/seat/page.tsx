@@ -4,6 +4,7 @@ import { ArrowLeft, DoorOpen, MapPin, Users } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readGuestSession } from '@/lib/guest-session';
 import { Logo } from '@/app/_components/logo';
+import { SeatingChangesListener } from '@/app/[slug]/_components/seating-changes-listener';
 import { fetchEntrance, type EntrancePos } from '@/lib/indoor-blueprint';
 import {
   eventOwnsCustomQrGuest,
@@ -319,6 +320,8 @@ async function PersonalPass({
   return (
     <SeatPassShell displayName={event.display_name} slug={slug}>
       <div className="space-y-6">
+        {/* Re-reads silently when the couple updates this guest's seat */}
+        <SeatingChangesListener eventId={event.event_id} />
         <ArrivalBloom
           firstName={firstName}
           tableLabel={targetTable?.table_label ?? 'your table'}
@@ -329,6 +332,7 @@ async function PersonalPass({
           hasAnimatedMonogram={hasAnimatedMonogram}
           hasPakanta={hasPakanta}
           arrived={arrived}
+          eventId={event.event_id}
         />
 
         <header className="space-y-2 text-center">
@@ -437,6 +441,8 @@ async function PublicTableView({
   return (
     <SeatPassShell displayName={event.display_name} slug={slug}>
       <div className="space-y-6">
+        {/* Re-reads silently when the couple updates table occupants */}
+        <SeatingChangesListener eventId={event.event_id} />
         <div className="flex flex-col items-center gap-3 text-center">
           <EventMonogramBadge
             text={mono.text}

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchGuestsByEvent, fetchGroupMembershipsByEvent } from '@/lib/guests';
+import { broadcastSeatingChange } from '@/lib/seating-broadcast';
 import { SeatingLockError } from './seating-lock-error';
 import {
   BOOTH_CATALOG,
@@ -192,6 +193,9 @@ export async function assignGuest(formData: FormData) {
 
   await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
+  // Notify open guest-facing pages (seat-finder, seat-pass) so they re-read
+  // the updated assignment silently. Fire-and-forget; never throws.
+  void broadcastSeatingChange(eventId);
 }
 
 // Seat a whole custom group at one table in a single tap. Seats every member
@@ -267,6 +271,7 @@ export async function assignGroup(
     if (error) throw new Error(error.message);
     await refreshSeatingLock(supabase, lockIdFrom(formData));
     revalidatePath(`/dashboard/${eventId}/seating`);
+    void broadcastSeatingChange(eventId);
   }
 
   return {
@@ -344,6 +349,7 @@ export async function autoSeatGuests(formData: FormData) {
     .eq('event_id', eventId);
 
   revalidatePath(`/dashboard/${eventId}/seating`);
+  void broadcastSeatingChange(eventId);
 }
 
 // Save the floor-plan markers (stage position + the single entrance door).
@@ -524,6 +530,7 @@ export async function unassignGuest(formData: FormData) {
 
   await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
+  void broadcastSeatingChange(eventId);
 }
 
 // Set a table's orientation (0–359°). Lets couples rotate a table so wedges /
@@ -936,6 +943,7 @@ export async function seatRoleAtTable(
     if (error) throw new Error(error.message);
     await refreshSeatingLock(supabase, lockIdFrom(formData));
     revalidatePath(`/dashboard/${eventId}/seating`);
+    void broadcastSeatingChange(eventId);
   }
 
   return { seated: rows.length, requested: eligible.length, overflow: eligible.length - rows.length };
@@ -1261,5 +1269,6 @@ export async function autoArrange(formData: FormData): Promise<{ seated: number 
 
   await refreshSeatingLock(supabase, lockId);
   revalidatePath(`/dashboard/${eventId}/seating`);
+  void broadcastSeatingChange(eventId);
   return { seated: rows.length };
 }

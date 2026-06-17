@@ -170,6 +170,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
     text-decoration: none; border: 1px solid rgba(30,34,41,.18); background: var(--cream); color: var(--ink); }
   .toolbar button { background: #C97B4B; border-color: #C97B4B; color: #fff; font-weight: 600; }
   .toolbar .hint { color: var(--muted); font-size: 12px; border: 0; padding: 0; }
+  .print-advisory { background: #fffbeb; border: 1px solid #f59e0b; border-radius: 8px; padding: 10px 16px;
+    font-family: -apple-system, system-ui, sans-serif; font-size: 12px; color: #92400e; display: flex;
+    align-items: center; gap: 8px; }
+  .print-advisory::before { content: '⚠'; font-size: 14px; flex-shrink: 0; }
+  @media print { .print-advisory { display: none; } }
   .doc { max-width: 800px; margin: 0 auto; padding: 16px; }
   .sheet { background: var(--cream); margin: 16px auto; padding: 22mm 18mm; box-shadow: 0 1px 6px rgba(0,0,0,.12); }
   .cover h1 { font-size: 40px; margin: 0 0 4px; letter-spacing: .01em; }
@@ -213,6 +218,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
     <a href="/dashboard/${esc(eventId)}/seating">← Back to seating</a>
     <span class="hint">One table sign per page · place cards at the end</span>
     <button type="button" onclick="window.print()">Print / Save as PDF</button>
+  </div>
+  <div class="print-advisory" style="max-width:800px;margin:10px auto 0;box-sizing:border-box;">
+    Seat assignments may change after printing. Guests can always scan their QR code for the latest seat.
   </div>
   <div class="doc">
     <section class="sheet cover">

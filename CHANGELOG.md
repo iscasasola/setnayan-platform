@@ -4,6 +4,26 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · feat(reveal): Reveal Studio — admin customizes + activates/deactivates the Save-the-Date reveal
+
+Owner ask: *"we also want to do the customization of this template from the admin"* + *"where we can activate and deactivate features of the template?"* — owner picked **Full template studio** (toggles **and** a live slider panel). Today the reveal was gated only by the `NEXT_PUBLIC_STD_REVEAL` env flag with all settings baked as constants; this makes it admin-managed end-to-end, following the `platform_settings` / `homepage_hero_config` recipe.
+
+**What landed:**
+- **`supabase/migrations/20270111083513_reveal_studio_config.sql`** — new singleton `reveal_studio_config` (id=1, JSONB `config`, read-all RLS, admin-write via service role). Holds master on/off · default + allowed templates · feature toggles · the veil look knobs.
+- **`apps/web/lib/reveal-config.ts`** — the config SHAPE (single source of truth): `RevealStudioConfig` · `VeilLook` · `RevealFeatures`, the **LOCKED `DEFAULT_*` values** (spec §6), `mergeRevealConfig()` (type-guarded deep-merge), and `fetchRevealConfig()` (cached service-role read; always falls back to the locked defaults — so a missing row never breaks the couple page).
+- **`apps/web/app/[slug]/_components/reveal/veil-reveal.tsx`** — refactored to be **settings-driven**: the §6 constants now come from `look`/`features` props (read via refs) so the admin's sliders tune the running sim live — per-frame knobs (wind, weight, valance, petal density, colours, feature toggles) update instantly; structural knobs (folds, fullness, reaches, logo) trigger an in-place geometry/texture rebuild. Feature gates added: `features.logo` (draw the mark or not), `features.petals` (park/seed the shower). Locked defaults preserved when no props are passed.
+- **`reveal-overlay.tsx`** — accepts the resolved `config`; the master toggle (`config.enabled`) replaces the env flag (env + `?reveal=` kept as fallbacks), `config.defaultTemplate` replaces the hardcoded `four-flap`, and `config.veil`/`config.features` flow into the veil.
+- **`reveal-overlay-server.tsx`** (new) — async server wrapper that resolves the config and feeds the client overlay; `[slug]/page.tsx` mounts it at both reveal sites (PublicLanding + InvitationSite).
+- **`veil-crown.tsx`** — gains optional `look`/`features` for prop-parity (unused there).
+- **`apps/web/app/admin/reveal-studio/`** — the Studio: `page.tsx` (server, fetches config) · `actions.ts` (`saveRevealStudio` — `assertAdmin` → service-role update of id=1 → `revalidatePath('/[slug]')`) · `studio.tsx` (client — master/template/feature toggles, default colour pickers, the veil-look sliders, a **live `<VeilReveal>` preview** that tunes as you drag, Save + Reset-to-locked-defaults).
+- **Admin nav** — added the `Reveal Studio` sidebar item (`admin-sidebar.tsx`, `Sparkles` icon) + the `admin.sidebar.reveal-studio` registry slot (`nav-registry-defaults.ts`) so it's admin-editable via `/admin/menus`.
+
+**Verification:** `tsc` clean · `next lint` clean · nav-registry drift test 8/8 · nav-icon-source + bottom-nav guards pass · migration timestamp check passes (398 unique). ⚠ The migration must be applied to prod (`supabase db push`) post-merge for the admin Save to persist; until then the couple page safely falls back to the locked defaults (reveal stays OFF, as today).
+
+**SPEC IMPACT:** New admin surface for iteration 0024. Couple-site behaviour is unchanged by default (reveal still off until an admin enables it). Logged in corpus `DECISION_LOG.md`; spec `0024_Veil_Reveal_Spec_2026-06-17.md` §6 noted as now admin-overridable (defaults unchanged); memory `[[project_setnayan_std_reveal_spec]]` updated. This is **PR1** of the studio; PR2 = per-event override + extending feature parity to the rigid (envelope/doors) templates.
+
+---
+
 ## 2026-06-17 · feat(reveal): port the DESIGN-LOCKED bridal-veil reveal to the Save-the-Date page
 
 **What landed (`apps/web/app/[slug]/_components/reveal/`):**

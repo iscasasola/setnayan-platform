@@ -22,43 +22,35 @@
  * loaded via next/dynamic(ssr:false) from RevealOverlay, so three lands in a
  * code-split chunk fetched only when the reveal actually mounts.
  *
- * Couple-customizable: `veilColor` (tulle) + `petalsColor` (the white Setnayan
- * mark stays white). Everything else — physics, timing, fold, lighting, the
- * locked-settings block below — is author-time baked house default.
+ * SETTINGS — the `look` + `features` props come from the admin Reveal Studio
+ * (lib/reveal-config.ts), defaulting to the LOCKED §6 values. They're read via
+ * refs so the admin's live sliders tune the running sim: per-frame knobs (wind,
+ * weight, valance, petal density, colours, feature toggles) update instantly;
+ * structural knobs (folds, fullness, reaches, logo size/opacity) trigger a
+ * geometry/texture rebuild. On the live couple site the props are static, so the
+ * settings are effectively baked. Couple-customizable = `veilColor` + `petalsColor`.
  */
 
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { MARK_PATH } from './veil-shared';
+import { DEFAULT_VEIL_LOOK, type VeilLook, type RevealFeatures } from '@/lib/reveal-config';
 
 type Props = {
   /** Veil tulle colour (hex), Mood-Board-driven. Ivory fallback handled by caller. */
   veilColor: string;
   /** Rose-petal colour family (hex). Blush-rose default. */
   petalsColor?: string;
+  /** The veil look knobs (admin Reveal Studio). Missing fields fall back to the locked defaults. */
+  look?: Partial<VeilLook>;
+  /** Per-feature toggles (petals · logo). `music` is handled at the page level, not the canvas. */
+  features?: RevealFeatures;
   /** Fired once when the veil has been lifted clear of the invitation. */
   onRevealed: () => void;
 };
 
-// ── LOCKED SETTINGS (spec §6 · owner-tuned 2026-06-17) — baked, never couple-facing.
-const TILEPX = 125; // logo gap px (large = plain veil)
-const LOGOSIZE = 9; // mark size as % of the tile
-const LOGOOP = 22; // mark opacity (subtle white)
-const FOLDS = 16; // bloom fold count
-const WEIGHT = 26; // gravity
-const BOUNCE = 83; // settle damping (low = lively)
-const LIFTPK = 70; // hold forward peak
-const STRETCH = 15; // soft strain envelope (the hard 1.2% clamp dominates)
-const HOLD = 22; // tap-pinch radius
-const WIND = 48; // hem-weighted sway
-const VAL = 30; // top-valance % (the visible fold droop)
-const TRAIL = 100; // fold follow softness (loose/laggy)
-const FLOAT = 100; // keeps the fold high during reveal
-const FULL = 100; // fold depth at the hem
-const LENGTH = 10; // hem reaches ~5–10% from the bottom
-const PETALS = 100; // petal density
 const TEX = 1024; // texture resolution
-const AUTO_DUR = 5.0; // auto-reveal (feather) seconds
+const DEFAULT_FEATURES: RevealFeatures = { petals: true, logo: true, music: false };
 
 type PP = {
   type: string;
@@ -84,7 +76,7 @@ type GrabState = {
   cy0: number;
 };
 
-export default function VeilReveal({ veilColor, petalsColor, onRevealed }: Props) {
+export default function VeilReveal({ veilColor, petalsColor, look, features, onRevealed }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const colorRef = useRef(veilColor);
   colorRef.current = veilColor;
@@ -93,6 +85,19 @@ export default function VeilReveal({ veilColor, petalsColor, onRevealed }: Props
   const onRevealedRef = useRef(onRevealed);
   onRevealedRef.current = onRevealed;
   const revealedRef = useRef(false);
+
+  // Merge the admin look over the locked defaults; read via a ref so the running
+  // sim picks up live slider changes (per-frame knobs) without a remount.
+  const L: VeilLook = { ...DEFAULT_VEIL_LOOK, ...(look ?? {}) };
+  const cfgRef = useRef<VeilLook>(L);
+  cfgRef.current = L;
+  const feats: RevealFeatures = features ?? DEFAULT_FEATURES;
+  const featuresRef = useRef<RevealFeatures>(feats);
+  featuresRef.current = feats;
+  // Structural knobs need a geometry/texture rebuild; the main effect wires this.
+  const restructureRef = useRef<() => void>(() => {});
+  const firstRestructure = useRef(true);
+  const structuralKey = `${L.tilePx}|${L.logoSize}|${L.logoOpacity}|${L.folds}|${L.fullness}|${L.reaches}|${feats.logo}`;
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -167,9 +172,9 @@ export default function VeilReveal({ veilColor, petalsColor, onRevealed }: Props
         a.lineTo(d + S, 0);
         a.stroke();
       }
-      if (markReady) {
-        const ms = S * (LOGOSIZE / 100);
-        a.globalAlpha = Math.min(1, (LOGOOP / 100) * 1.3);
+      if (markReady && featuresRef.current.logo) {
+        const ms = S * (cfgRef.current.logoSize / 100);
+        a.globalAlpha = Math.min(1, (cfgRef.current.logoOpacity / 100) * 1.3);
         a.drawImage(markImg, S * 0.5 - ms / 2, S * 0.5 - ms / 2, ms, ms);
         a.globalAlpha = 1;
       }
@@ -412,7 +417,7 @@ export default function VeilReveal({ veilColor, petalsColor, onRevealed }: Props
     };
     const bounceAt = (cx: number, cy: number) => {
       const tr = cv.getBoundingClientRect();
-      const aN = Math.round((NP * PETALS) / 100);
+      const aN = Math.round((NP * cfgRef.current.petalsDensity) / 100);
       let best = -1;
       let bd = 38 * 38;
       for (let i = 0; i < aN; i++) {
@@ -434,7 +439,7 @@ export default function VeilReveal({ veilColor, petalsColor, onRevealed }: Props
       return false;
     };
     const updatePetals = (dt: number, shaking: boolean) => {
-      const aN = Math.round((NP * PETALS) / 100);
+      const aN = Math.round((NP * cfgRef.current.petalsDensity) / 100);
       for (let i = 0; i < NP; i++) {
         const P = pPar[i]!;
         if (i >= aN) {
@@ -481,12 +486,12 @@ export default function VeilReveal({ veilColor, petalsColor, onRevealed }: Props
       }
     };
 
-    const maxStrain = () => 0.004 + (STRETCH / 100) * 0.12;
+    const maxStrain = () => 0.004 + (cfgRef.current.stretch / 100) * 0.12;
     const setRepeat = () => {
       if (!clothW) return;
       const facW = clothW / (2 * vw);
       const facH = clothH / (2 * vh);
-      if (mat.alphaMap) mat.alphaMap.repeat.set((facW * W) / TILEPX, (facH * H) / TILEPX);
+      if (mat.alphaMap) mat.alphaMap.repeat.set((facW * W) / cfgRef.current.tilePx, (facH * H) / cfgRef.current.tilePx);
     };
     const rebuildTex = () => {
       const old = mat.alphaMap;
@@ -498,10 +503,10 @@ export default function VeilReveal({ veilColor, petalsColor, onRevealed }: Props
     const envOf = (rf: number) => 0.16 + 0.84 * Math.pow(rf, 1.5);
     const buildCloth = () => {
       topPin = vh * 1.06;
-      clothH = vh * (2.12 - LENGTH / 47);
+      clothH = vh * (2.12 - cfgRef.current.reaches / 47);
       const pinW = 2 * vw * 1.2;
       PINW = pinW;
-      const extra = 0.04 + (FULL / 100) * 0.4;
+      const extra = 0.04 + (cfgRef.current.fullness / 100) * 0.4;
       dx = pinW / (cols - 1);
       dy = clothH / (rows - 1);
       for (let ix = 0; ix < cols; ix++) {
@@ -528,6 +533,8 @@ export default function VeilReveal({ veilColor, petalsColor, onRevealed }: Props
     };
     const seedPose = (extend: number) => {
       const pinW = PINW;
+      const fullness = cfgRef.current.fullness;
+      const folds = cfgRef.current.folds;
       for (let iy = 0; iy < rows; iy++)
         for (let ix = 0; ix < cols; ix++) {
           const k = idx(ix, iy);
@@ -541,7 +548,7 @@ export default function VeilReveal({ veilColor, petalsColor, onRevealed }: Props
           } else {
             px[k] = Xf;
             py[k] = topPin - iy * dy * extend;
-            pz[k] = frontZ + (FULL / 100) * 0.26 * envOf(rf) * Math.sin(fx * 6.2832 * FOLDS);
+            pz[k] = frontZ + (fullness / 100) * 0.26 * envOf(rf) * Math.sin(fx * 6.2832 * folds);
           }
           qx[k] = px[k]!;
           qy[k] = py[k]!;
@@ -572,6 +579,11 @@ export default function VeilReveal({ veilColor, petalsColor, onRevealed }: Props
       seedPose(1.0);
       presettle(120);
     };
+    // Structural knobs (folds / fullness / reaches / logo) rebuild geometry + texture.
+    restructureRef.current = () => {
+      rebuildTex();
+      applyView();
+    };
 
     const ray = new THREE.Raycaster();
     const gplane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -frontZ);
@@ -593,17 +605,18 @@ export default function VeilReveal({ veilColor, petalsColor, onRevealed }: Props
       gplane.constant = -z;
       return ray.ray.intersectPlane(gplane, hitv) ? { x: hitv.x, y: hitv.y } : null;
     };
-    const pinchZ = () => frontZ + (LIFTPK / 100) * 0.9;
+    const pinchZ = () => frontZ + (cfgRef.current.liftPk / 100) * 0.9;
 
     function step(dt: number) {
       t += dt;
+      const cfg = cfgRef.current;
       const fth = featherFrames > 0;
       const le = ss(0, 0.7, lift);
-      const drag = 0.952 + (BOUNCE / 100) * 0.03 + (fth ? 0.012 : 0);
-      const g = -(2.5 + (WEIGHT / 100) * 7) * (fth ? 0.5 : 1) * (1 - (FLOAT / 100) * 0.92 * le);
+      const drag = 0.952 + (cfg.bounce / 100) * 0.03 + (fth ? 0.012 : 0);
+      const g = -(2.5 + (cfg.weight / 100) * 7) * (fth ? 0.5 : 1) * (1 - (cfg.floatUp / 100) * 0.92 * le);
       const pz0 = pinchZ();
       const BUNCH = 0.3;
-      const wind = settling ? 0 : (WIND / 100) * 5;
+      const wind = settling ? 0 : (cfg.wind / 100) * 5;
       for (let k = 0; k < N; k++) {
         if (k < cols) {
           px[k] = pinX[k]!;
@@ -632,9 +645,9 @@ export default function VeilReveal({ veilColor, petalsColor, onRevealed }: Props
       }
       // Reveal fold — hem pulled up past the top edge, two-end-led, the cloth trails.
       if (lift > 0.015) {
-        const pull0 = (0.05 + (TRAIL / 100) * 0.32) * ss(0.02, 0.42, lift);
+        const pull0 = (0.05 + (cfg.trail / 100) * 0.32) * ss(0.02, 0.42, lift);
         const clothHvh = clothH / vh;
-        const hemUp = Math.max(0.2, clothHvh - 4 * (VAL / 100));
+        const hemUp = Math.max(0.2, clothHvh - 4 * (cfg.topValance / 100));
         const hy = topPin + vh * hemUp * ss(0.02, 1, lift);
         const hz = frontZ - 0.25;
         for (let ix2 = 0; ix2 < cols; ix2++) {
@@ -642,9 +655,9 @@ export default function VeilReveal({ veilColor, petalsColor, onRevealed }: Props
           const endW = Math.max(0, 1 - Math.min(fx, 1 - fx) / 0.3);
           const w = pull0 * (0.3 + 0.7 * endW);
           const vk = idx(ix2, rows - 1);
-          px[vk] = px[vk]! + ((pinX[ix2]! - px[vk]!) * w * 0.4);
-          py[vk] = py[vk]! + ((hy - py[vk]!) * w);
-          pz[vk] = pz[vk]! + ((hz - pz[vk]!) * w);
+          px[vk] = px[vk]! + (pinX[ix2]! - px[vk]!) * w * 0.4;
+          py[vk] = py[vk]! + (hy - py[vk]!) * w;
+          pz[vk] = pz[vk]! + (hz - pz[vk]!) * w;
         }
       }
       const gl = Object.keys(grabs);
@@ -660,9 +673,9 @@ export default function VeilReveal({ veilColor, petalsColor, onRevealed }: Props
             if (kk < cols) continue;
             const tx = gg.cx + cl[ci]!.ox * BUNCH;
             const ty = gg.cy + cl[ci]!.oy * BUNCH;
-            px[kk] = px[kk]! + ((tx - px[kk]!) * 0.4);
-            py[kk] = py[kk]! + ((ty - py[kk]!) * 0.4);
-            pz[kk] = pz[kk]! + ((pz0 - pz[kk]!) * 0.32);
+            px[kk] = px[kk]! + (tx - px[kk]!) * 0.4;
+            py[kk] = py[kk]! + (ty - py[kk]!) * 0.4;
+            pz[kk] = pz[kk]! + (pz0 - pz[kk]!) * 0.32;
           }
         }
         for (let c = 0; c < cons.length; c++) {
@@ -681,14 +694,14 @@ export default function VeilReveal({ veilColor, petalsColor, onRevealed }: Props
           const oy = ey * f;
           const oz = ez * f;
           if (A >= cols) {
-            px[A] = px[A]! + (ox);
-            py[A] = py[A]! + (oy);
-            pz[A] = pz[A]! + (oz);
+            px[A] = px[A]! + ox;
+            py[A] = py[A]! + oy;
+            pz[A] = pz[A]! + oz;
           }
           if (B >= cols) {
-            px[B] = px[B]! - (ox);
-            py[B] = py[B]! - (oy);
-            pz[B] = pz[B]! - (oz);
+            px[B] = px[B]! - ox;
+            py[B] = py[B]! - oy;
+            pz[B] = pz[B]! - oz;
           }
         }
       }
@@ -709,14 +722,14 @@ export default function VeilReveal({ veilColor, petalsColor, onRevealed }: Props
             const oy2 = ey2 * f2;
             const oz2 = ez2 * f2;
             if (A2 >= cols) {
-              px[A2] = px[A2]! + (ox2);
-              py[A2] = py[A2]! + (oy2);
-              pz[A2] = pz[A2]! + (oz2);
+              px[A2] = px[A2]! + ox2;
+              py[A2] = py[A2]! + oy2;
+              pz[A2] = pz[A2]! + oz2;
             }
             if (B2 >= cols) {
-              px[B2] = px[B2]! - (ox2);
-              py[B2] = py[B2]! - (oy2);
-              pz[B2] = pz[B2]! - (oz2);
+              px[B2] = px[B2]! - ox2;
+              py[B2] = py[B2]! - oy2;
+              pz[B2] = pz[B2]! - oz2;
             }
           }
         }
@@ -748,11 +761,12 @@ export default function VeilReveal({ veilColor, petalsColor, onRevealed }: Props
     const loop = (now: number) => {
       const dt = Math.min(0.033, (now - last) / 1000);
       last = now;
+      const autoDur = Math.max(0.4, cfgRef.current.feather);
       if (auto) {
-        autoT += dt / AUTO_DUR;
+        autoT += dt / autoDur;
         const p = Math.min(1, autoT);
         liftTarget = ss(0.05, 0.95, p);
-        if (p > 0.3) featherFrames = Math.round(AUTO_DUR * 34);
+        if (p > 0.3) featherFrames = Math.round(autoDur * 34);
         if (autoT >= 1) {
           auto = false;
           liftTarget = 1;
@@ -770,11 +784,18 @@ export default function VeilReveal({ veilColor, petalsColor, onRevealed }: Props
       posAttr.needsUpdate = true;
       geo.computeVertexNormals();
       // Petals begin the moment the veil first lifts — none on the covered veil.
-      if (!petalsSeeded && lift > 0.1) {
-        initPetals();
-        petalsSeeded = true;
+      // Honors the live `features.petals` toggle (parks them when turned off).
+      const wantPetals = featuresRef.current.petals;
+      if (wantPetals) {
+        if (!petalsSeeded && lift > 0.1) {
+          initPetals();
+          petalsSeeded = true;
+        }
+        if (petalsSeeded) updatePetals(Math.min(0.033, dt), shakeFrames > 0);
+      } else if (petalsSeeded) {
+        parkAll();
+        petalsSeeded = false;
       }
-      if (petalsSeeded) updatePetals(Math.min(0.033, dt), shakeFrames > 0);
       renderer.render(scene, camera);
       if (lift > 0.985 && !revealedRef.current) {
         revealedRef.current = true;
@@ -800,7 +821,7 @@ export default function VeilReveal({ veilColor, petalsColor, onRevealed }: Props
       if (hp) {
         const hx = hp.x;
         const hy = hp.y;
-        const R = 0.018 + (HOLD / 100) * 0.1;
+        const R = 0.018 + (cfgRef.current.hold / 100) * 0.1;
         const R2 = R * R;
         const cl: Array<{ k: number; ox: number; oy: number }> = [];
         for (let k = cols; k < N; k++) {
@@ -908,6 +929,7 @@ export default function VeilReveal({ veilColor, petalsColor, onRevealed }: Props
       if (roFrame) cancelAnimationFrame(roFrame);
       if (roFull) window.clearTimeout(roFull);
       ro?.disconnect();
+      restructureRef.current = () => {};
       cv.removeEventListener('pointerdown', onDown);
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', release);
@@ -923,6 +945,17 @@ export default function VeilReveal({ veilColor, petalsColor, onRevealed }: Props
       if (cv.parentNode) cv.parentNode.removeChild(cv);
     };
   }, []);
+
+  // Structural look changes (folds / fullness / reaches / logo size·opacity·on-off)
+  // rebuild geometry + texture in place — used by the admin studio's live sliders.
+  // The live couple site never changes these, so this is a no-op there after mount.
+  useEffect(() => {
+    if (firstRestructure.current) {
+      firstRestructure.current = false;
+      return;
+    }
+    restructureRef.current();
+  }, [structuralKey]);
 
   return <div ref={mountRef} className="absolute inset-0" style={{ touchAction: 'none' }} aria-hidden />;
 }

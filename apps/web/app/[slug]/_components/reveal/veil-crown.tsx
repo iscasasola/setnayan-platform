@@ -24,12 +24,17 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { buildVeilTextures, makeVeilMaterial, markUrl } from './veil-shared';
+import type { VeilLook, RevealFeatures } from '@/lib/reveal-config';
 
 type Props = {
   /** Veil tulle colour (hex), Mood-Board-driven. Ivory fallback handled by caller. */
   veilColor: string;
   /** Rose-petal colour family (hex). Accepted for prop-parity with VeilReveal; unused here. */
   petalsColor?: string;
+  /** Veil look knobs. Accepted for prop-parity with VeilReveal; unused here. */
+  look?: Partial<VeilLook>;
+  /** Per-feature toggles. Accepted for prop-parity with VeilReveal; unused here. */
+  features?: RevealFeatures;
   /** Fired once when the veil has been folded clear of the invitation. */
   onRevealed: () => void;
 };

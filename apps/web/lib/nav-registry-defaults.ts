@@ -2263,6 +2263,18 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 42,
   },
   {
+    key: "admin.sidebar.reveal-studio",
+    scope: "admin",
+    area: "admin-sidebar",
+    route: "/admin/reveal-studio",
+    label: "Reveal Studio",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Sparkles",
+    customRef: null,
+    sortOrder: 42,
+  },
+  {
     key: "admin.sidebar.real-stories",
     scope: "admin",
     area: "admin-sidebar",

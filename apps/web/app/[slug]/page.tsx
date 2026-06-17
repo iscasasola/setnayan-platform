@@ -876,10 +876,6 @@ type EventRow = {
   // empty → OurPhotosWidget renders nothing (section hides). Distinct from the
   // guest-tagged your_photos widget.
   our_photos?: string[] | null;
-  // Couple's told-back story (JSONB · how_we_met / proposal / milestones /
-  // anchors), collected by the onboarding Love Stage (20260914000000).
-  // Rendered read-only by OurLoveStoryWidget (Increment A.2).
-  love_story?: unknown;
   // Looping hero video + background music chrome (Increment B). r2:// refs
   // shipped in the lifecycle foundation (20260912000000); edited at
   // /dashboard/[eventId]/website/site-chrome. The hero video, when present,

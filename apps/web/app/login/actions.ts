@@ -59,7 +59,11 @@ export async function signInWithPassword(formData: FormData) {
   // canonical HTML form contract for checkboxes. So `remember === 'on'`
   // means "stay signed in"; anything else means session-only.
   const remember = String(formData.get('remember') ?? '') === 'on';
-  const next = safeNext(formData.get('next'));
+  const rawNext = safeNext(formData.get('next'));
+  // Default to the dashboard, not the marketing homepage — eliminates the
+  // middleware double-hop (POST→/ →middleware redirect→/dashboard) that made
+  // sign-in feel like it wasn't going straight to the app.
+  const next = rawNext === '/' ? '/dashboard' : rawNext;
 
   if (!email || !password) {
     return redirect(`/login?error=missing&next=${encodeURIComponent(next)}`);

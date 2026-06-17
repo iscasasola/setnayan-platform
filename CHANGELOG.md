@@ -256,6 +256,21 @@ Generate: `npx web-push generate-vapid-keys`
 - `apps/web/app/dashboard/[eventId]/_components/vendor-marketplace-info.tsx` — same "Response from [name]" label in couple-dashboard marketplace info drawer.
 
 **SPEC IMPACT:** `0022_vendor_dashboard/0022_vendor_dashboard.md` — vendor reply is now editable (not one-time per § 2.x); 500-char limit; fake-flag flow added. `0023_admin_console/0023_admin_console.md` — new fake-review flag queue added to review moderation surface.
+## 2026-06-17 · PR 9 — No-results negotiation flow on /explore
+
+**What landed:**
+- `apps/web/app/explore/_components/no-results-state.tsx` — NEW. Client component replacing `EmptyState` for category-scoped zero-result searches. Presents four recovery actions: Negotiate, Find cheaper (widen filters), Browse all, Add from outside + invite to Setnayan.
+- `apps/web/app/explore/actions.ts` — Added `negotiateWithTopVendor` server action. Upserts a `chat_threads` row for the vendor + event pair, checks anti-bombarding (no re-send if a couple message was sent in the last 7 days), inserts the pre-drafted outreach message. Returns `{ threadId, alreadySent }` so the client can navigate to the thread.
+- `apps/web/app/explore/page.tsx` — Three changes: (1) import `NoResultsState`; (2) added `totalCategoryCount` + `topVendorForNegotiate` queries that run only when `rows.length === 0 && category/tile filter is active`; (3) replaced `EmptyState` call with `NoResultsState` for category-scoped empty results, falls through to `EmptyState` for non-category / coming-soon event-type paths.
+
+**Behavior detail:**
+- Count banner: "X vendors in [Category] across Setnayan — adjust/clear filters to see them." Shown when `totalCategoryCount > 0`.
+- Negotiate card: targets the highest-ranked vendor in the category. Message template: "Hi [Name], I found you on Setnayan while looking for [Category] for my [event type] on [date]. I'm working with a budget of ₱[X] — would you be open to discussing what's possible?" Anti-bombarding: skips insert and shows "already reached out" if couple already messaged in last 7 days.
+- Find cheaper: links to `buildHref(filters, { matchEvent: false, verifiedOnly: false, page: 1 })` to drop strict filters.
+- Add from outside: links to `/dashboard/[eventId]/vendors/add-contact`; "Invite to Setnayan" copies `https://setnayan.com/for-vendors?ref=[eventId]` to clipboard.
+- Anonymous visitors: Negotiate and Add contact show "Sign in" prompts instead.
+
+**SPEC IMPACT:** None. Addition-only — no existing search filter logic modified. `EmptyState` is retained for non-category paths.
 
 ---
 

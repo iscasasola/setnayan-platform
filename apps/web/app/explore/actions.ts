@@ -360,3 +360,123 @@ export async function addVenueDirectoryEntryToPlan(
   return { status: 'ok', eventVendorId: inserted.vendor_id };
 }
 
+// ============================================================================
+// Negotiate-with-top-vendor (PR 9 — no-results negotiation flow)
+// ----------------------------------------------------------------------------
+// Called from the NoResultsState component when the couple taps "Negotiate"
+// on a zero-result search. Finds (or creates) the chat thread between the
+// couple's primary event and the specified vendor, then sends a pre-drafted
+// introductory message — UNLESS a couple message was already sent to that
+// thread within the last 7 days (anti-bombarding).
+//
+// Returns the thread_id so the client can navigate to the thread page, plus
+// an `alreadySent` flag telling the UI whether the message was new or skipped.
+// ============================================================================
+
+export type NegotiateResult =
+  | { status: 'ok'; threadId: string; alreadySent: boolean }
+  | { status: 'not_signed_in' }
+  | { status: 'no_primary_event' }
+  | { status: 'vendor_not_found' }
+  | { status: 'error'; message: string };
+
+export async function negotiateWithTopVendor(
+  formData: FormData,
+): Promise<NegotiateResult> {
+  const vendorProfileId = String(formData.get('vendor_profile_id') ?? '').trim();
+  const eventId = String(formData.get('event_id') ?? '').trim();
+  const categoryLabel = String(formData.get('category_label') ?? '').trim();
+  const eventTypeLabel = String(formData.get('event_type_label') ?? '').trim();
+  const dateWindow = String(formData.get('date_window') ?? '').trim();
+  const budgetPhp = String(formData.get('budget_php') ?? '').trim();
+
+  if (!vendorProfileId || !eventId) {
+    return { status: 'error', message: 'Missing vendor_profile_id or event_id' };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { status: 'not_signed_in' };
+  }
+
+  const admin = createAdminClient();
+
+  // 1. Confirm the vendor exists and grab its business_name for the message.
+  const { data: vendor, error: vErr } = await admin
+    .from('vendor_profiles')
+    .select('vendor_profile_id, business_name')
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  if (vErr) return { status: 'error', message: vErr.message };
+  if (!vendor) return { status: 'vendor_not_found' };
+
+  // 2. Upsert the chat thread (idempotent — UNIQUE on event_id,vendor_profile_id).
+  const { error: upsertErr } = await admin
+    .from('chat_threads')
+    .upsert(
+      {
+        event_id: eventId,
+        vendor_profile_id: vendorProfileId,
+        created_by_user_id: user.id,
+      },
+      { onConflict: 'event_id,vendor_profile_id', ignoreDuplicates: true },
+    );
+  if (upsertErr) return { status: 'error', message: upsertErr.message };
+
+  // 3. Fetch the thread_id (may have pre-existed).
+  const { data: thread, error: tErr } = await admin
+    .from('chat_threads')
+    .select('thread_id')
+    .eq('event_id', eventId)
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  if (tErr) return { status: 'error', message: tErr.message };
+  if (!thread) return { status: 'error', message: 'Thread not found after upsert' };
+
+  const threadId = thread.thread_id as string;
+
+  // 4. Anti-bombarding: check for a couple message in the last 7 days.
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const { count: recentCount } = await admin
+    .from('chat_messages')
+    .select('*', { count: 'exact', head: true })
+    .eq('thread_id', threadId)
+    .eq('sender_role', 'couple')
+    .gte('created_at', sevenDaysAgo);
+
+  if ((recentCount ?? 0) > 0) {
+    // Already sent recently — just open the thread.
+    return { status: 'ok', threadId, alreadySent: true };
+  }
+
+  // 5. Build and send the pre-drafted negotiation message.
+  const vendorName = (vendor.business_name as string | null) ?? 'vendor';
+  const categoryPart = categoryLabel || 'this category';
+  const eventTypePart = eventTypeLabel || 'my event';
+  const datePart = dateWindow || 'my event date';
+  const budgetPart = budgetPhp ? `₱${Number(budgetPhp).toLocaleString()}` : 'my budget';
+
+  const body =
+    `Hi ${vendorName}, I found you on Setnayan while looking for ${categoryPart} ` +
+    `for my ${eventTypePart} on ${datePart}. ` +
+    `I'm working with a budget of ${budgetPart} — would you be open to discussing ` +
+    `what's possible? I'd love to hear from you.`;
+
+  const { error: msgErr } = await admin.from('chat_messages').insert({
+    thread_id: threadId,
+    event_id: eventId,
+    vendor_profile_id: vendorProfileId,
+    sender_user_id: user.id,
+    sender_role: 'couple',
+    body,
+  });
+  if (msgErr) return { status: 'error', message: msgErr.message };
+
+  revalidatePath(`/dashboard/${eventId}/messages`);
+  revalidatePath('/explore');
+
+  return { status: 'ok', threadId, alreadySent: false };
+}

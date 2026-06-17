@@ -91,6 +91,7 @@ import {
 } from '@/lib/vendor-badges';
 import { fetchLatestReviewsByVendor } from '@/lib/vendor-reviews-preview';
 import { r2PublicUrl, R2_BUCKETS } from '@/lib/r2';
+import { NoResultsState } from './_components/no-results-state';
 
 // Mirrors TaxonomyEntry['faith']. `null` covers two cases: anonymous browse
 // (no event linked) AND civil ceremonies (secular by nature — no faith tag
@@ -1489,6 +1490,76 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     broadenedCount = bc ?? 0;
   }
 
+  // PR 9 — no-results negotiation. When the visible result set is empty, we
+  // need two extra data points for the NoResultsState component:
+  //   (a) totalCategoryCount — the raw count for the category/tile with NO
+  //       filters applied (not even city/q). Tells the couple "X vendors in
+  //       [Category] across Setnayan" even when none match their filter combo.
+  //   (b) topVendorForNegotiate — the top-ranking vendor in the category
+  //       (ordered by ad_rank desc, avg_rating_overall desc) used as the
+  //       negotiation target. Both queries only run when rows is empty.
+  let totalCategoryCount: number | null = null;
+  let topVendorForNegotiate: { vendorProfileId: string; businessName: string } | null = null;
+
+  if (rows.length === 0 && (filters.category || filters.tile)) {
+    const [catCountResult, topVendorResult] = await Promise.all([
+      // (a) Total count for the category, no city/q/event-type restriction.
+      (async () => {
+        let q = admin
+          .from('vendor_market_stats')
+          .select('vendor_profile_id', { count: 'exact', head: true })
+          .in('public_visibility', PUBLIC_SURFACE_VISIBILITIES as readonly string[])
+          .not('business_name', 'is', null)
+          .neq('business_name', '');
+        if (!inDemoMode && demoVendorIds.length > 0) {
+          type QShape = { not: (c: string, o: string, v: string) => typeof q };
+          q = (q as unknown as QShape).not(
+            'vendor_profile_id',
+            'in',
+            `(${demoVendorIds.join(',')})`,
+          );
+        }
+        if (filters.category) {
+          q = q.contains('services', [filters.category]);
+        }
+        const { count } = await q;
+        return count ?? 0;
+      })(),
+      // (b) Top vendor in the category for the negotiation CTA.
+      (async () => {
+        let q = admin
+          .from('vendor_market_stats')
+          .select('vendor_profile_id, business_name')
+          .in('public_visibility', PUBLIC_SURFACE_VISIBILITIES as readonly string[])
+          .not('business_name', 'is', null)
+          .neq('business_name', '')
+          .order('ad_rank', { ascending: false })
+          .order('avg_rating_overall', { ascending: false })
+          .limit(1);
+        if (!inDemoMode && demoVendorIds.length > 0) {
+          type QShape = { not: (c: string, o: string, v: string) => typeof q };
+          q = (q as unknown as QShape).not(
+            'vendor_profile_id',
+            'in',
+            `(${demoVendorIds.join(',')})`,
+          );
+        }
+        if (filters.category) {
+          q = q.contains('services', [filters.category]);
+        }
+        const { data } = await q;
+        const row = data?.[0];
+        if (!row) return null;
+        return {
+          vendorProfileId: row.vendor_profile_id as string,
+          businessName: (row.business_name as string) ?? '',
+        };
+      })(),
+    ]);
+    totalCategoryCount = catCountResult;
+    topVendorForNegotiate = topVendorResult;
+  }
+
   // Each card already carries its stats + active-ad columns on the view row,
   // so the render below reads them directly off `v` — no per-card Map lookup
   // and no second roundtrip.
@@ -2314,13 +2385,67 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         ) : null}
 
         {visible.length === 0 ? (
-          <EmptyState
-            filters={filters}
-            broadenedCount={broadenedCount}
-            eventTypeLabel={
-              filters.eventType ? (eventTypeLabel.get(filters.eventType) ?? filters.eventType) : null
+          // PR 9 — NoResultsState replaces EmptyState for category-scoped
+          // searches, offering negotiate / find-cheaper / add-contact CTAs.
+          // Falls through to the legacy EmptyState for non-category / event-type
+          // coming-soon paths (those render earlier in EmptyState before this
+          // branch). When the search has a category/tile scope, we show the
+          // richer recovery surface.
+          (() => {
+            const hasCategoryScope = !!(filters.category || filters.tile);
+            const broadenHref = buildHref(filters, {
+              matchEvent: false,
+              verifiedOnly: false,
+              page: 1,
+            });
+            // dateWindow: format the couple's event date into a human-readable
+            // string for the negotiation message (e.g. "December 2026").
+            let dateWindow: string | null = null;
+            if (coupleEventDate && coupleEventDatePrecision) {
+              dateWindow = formatEventDateWithPrecision(
+                coupleEventDate,
+                coupleEventDatePrecision,
+              );
             }
-          />
+            // Category label: prefer tile label, fall back to category service label.
+            const noResultsCategoryLabel =
+              filters.tile
+                ? (WEDDING_TILE_LABEL[filters.tile] ?? filters.tile)
+                : filters.category
+                  ? displayServiceLabel(filters.category)
+                  : null;
+
+            return hasCategoryScope ? (
+              <NoResultsState
+                hasStrictFilter={hasStrictFilter}
+                broadenHref={broadenHref}
+                broadenedCount={broadenedCount}
+                totalCategoryCount={totalCategoryCount}
+                categoryLabel={noResultsCategoryLabel}
+                coupleEventId={coupleEventId}
+                topVendor={topVendorForNegotiate}
+                eventTypeLabel={
+                  filters.eventType
+                    ? (eventTypeLabel.get(filters.eventType) ?? filters.eventType)
+                    : null
+                }
+                dateWindow={dateWindow}
+                budgetPhp={null}
+                isAuthenticated={user !== null}
+                focusedMode={filters.focusedMode}
+              />
+            ) : (
+              <EmptyState
+                filters={filters}
+                broadenedCount={broadenedCount}
+                eventTypeLabel={
+                  filters.eventType
+                    ? (eventTypeLabel.get(filters.eventType) ?? filters.eventType)
+                    : null
+                }
+              />
+            );
+          })()
         ) : (
           <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {visible.map((v) => {

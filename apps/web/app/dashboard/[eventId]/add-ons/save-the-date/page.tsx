@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, CalendarClock, Check, Plus, Stamp } from 'lucide-react';
+import { ArrowLeft, CalendarClock, Check, Plus, Sparkles, Stamp } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { sealColorFromPalette, veilColorFromPalette } from '@/lib/site-palette';
@@ -12,14 +12,23 @@ import type { RevealTemplate } from '@/app/[slug]/_components/reveal/reveal-temp
 import { RevealPreviewCard } from '@/app/dashboard/[eventId]/_components/reveal-preview-card';
 import { SaveTheDateFilm } from '@/app/[slug]/_components/save-the-date-film';
 import { saveInvitationLaunchDate } from './actions';
+import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { formatPhp } from '@/lib/orders';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
+import {
+  eventOwnsStdOpenings,
+  STD_PREMIUM_OPENINGS_SERVICE_KEY,
+} from '@/lib/std-openings';
 
 // 2026-06-17 — owner "replace": this page IS the Save-the-Date *builder* — the
 // couple picks the opening reveal (one of 5), previews the auto-filled content
 // FILM (PR4 P1/P2), and adds their touches (invitation-launch date · soundtrack
-// · closing photos). FREE = the film; the cinematic openings become the ₱1,499
-// premium in P5. The old paid ₱99 Save-the-Date VIDEO render SKU
-// (`save_the_date_video`) + its template library are retired-but-intact (not
-// surfaced here).
+// · closing photos). FREE = the film; the cinematic OPENINGS are the premium
+// "template unlock" — owner-priced ₱799 (admin-managed, /admin/pricing), sold
+// here via the same InlineCheckoutDrawer flow as the other paid SKUs. The old
+// paid ₱99 Save-the-Date VIDEO render SKU (`save_the_date_video`) + its template
+// library are retired-but-intact (not surfaced here).
 
 export const metadata = { title: 'Save the Date · Setnayan' };
 
@@ -69,6 +78,18 @@ export default async function SaveTheDatePage({ params, searchParams }: Props) {
   const sealFallbackSeed = fallbackSeedFromPublicId(event?.public_id);
   const hasMintedSeal = sealConfig !== null;
   const chosenTemplate = coerceTemplate(event?.std_reveal_template);
+
+  // Premium openings unlock (the "template unlock"). The content film is FREE;
+  // the cinematic openings (the reveal) play on the live page once the couple
+  // unlocks them. Price is admin-managed (catalog · /admin/pricing) — read at
+  // runtime via formatV2Sku, never hardcoded. Mirrors the Animated Monogram buy
+  // flow; ownership reads the couple's own orders (eventOwnsStdOpenings).
+  const [ownsOpenings, openingsSku, settings] = await Promise.all([
+    eventOwnsStdOpenings(supabase, eventId),
+    formatV2Sku(STD_PREMIUM_OPENINGS_SERVICE_KEY).catch(() => null),
+    fetchPlatformSettings(supabase),
+  ]);
+  const openingsPricePhp = openingsSku?.price_php ?? null;
 
   // Resolve the same presigned media the live page uses, so the builder preview
   // is exactly what guests get: the couple's site music = the film soundtrack,
@@ -185,6 +206,52 @@ export default async function SaveTheDatePage({ params, searchParams }: Props) {
         eventId={eventId}
         chosenTemplate={chosenTemplate}
       />
+
+      {/* 1b · Unlock the cinematic openings (premium · admin-priced "template unlock"). */}
+      {ownsOpenings ? (
+        <div className="flex items-center gap-3 rounded-2xl border border-emerald-300 bg-emerald-50/60 px-5 py-4">
+          <Check aria-hidden className="h-5 w-5 shrink-0 text-emerald-600" strokeWidth={2.5} />
+          <p className="text-sm text-emerald-800">
+            <span className="font-medium">Cinematic openings unlocked.</span> Your chosen opening
+            lifts to reveal your page on your live site.
+          </p>
+        </div>
+      ) : openingsPricePhp != null ? (
+        <section className="space-y-3 rounded-2xl border border-mulberry/20 bg-mulberry/5 p-5 sm:p-6">
+          <div className="flex items-start gap-3">
+            <Sparkles
+              aria-hidden
+              className="mt-0.5 h-5 w-5 shrink-0 text-mulberry"
+              strokeWidth={1.75}
+            />
+            <div className="space-y-1">
+              <h2 className="font-serif text-lg italic">Make your opening play live</h2>
+              <p className="max-w-prose text-sm text-ink/70">
+                Your film is free. Add a{' '}
+                <span className="font-medium text-ink">cinematic opening</span> — a veil or envelope
+                that lifts to reveal your page — and it plays for every guest who opens your link.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-ink/65">
+              One price for your wedding ·{' '}
+              <span className="font-mono text-base text-ink">{formatPhp(openingsPricePhp)}</span>
+            </p>
+            <InlineCheckoutDrawer
+              eventId={eventId}
+              serviceKey={STD_PREMIUM_OPENINGS_SERVICE_KEY}
+              displayName={`Save-the-Date Cinematic Openings${
+                event?.display_name ? ` · ${event.display_name}` : ''
+              }`}
+              originalPriceCentavos={String(Math.round(openingsPricePhp * 100))}
+              settings={settings}
+              triggerLabel="Unlock the openings"
+              triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70 sm:w-auto"
+            />
+          </div>
+        </section>
+      ) : null}
 
       {/* 2 · Preview the film itself — the exact piece guests see beneath the opening. */}
       <section className="space-y-3">

@@ -561,11 +561,11 @@ const FAST_REPLY_THRESHOLD_MIN = 240;
  * PR #6 — Activity / quality signal chips. Shows at most two badges:
  *   1. Responsiveness — "Usually responds in Xh" when median < 4h + last login ≤ 7d.
  *   2. Experience tier — from finalized_booking_count:
- *        0     → New (suppressed — "new" already covered by VendorBadgeRow)
- *        1–4   → Established
- *        5–19  → Experienced
- *        20–49 → Expert
- *        50+   → Elite
+ *        0       → New to Setnayan (suppressed — "new" already covered by VendorBadgeRow)
+ *        1–10    → Established
+ *        11–50   → Experienced
+ *        51–200  → Expert
+ *        200+    → Elite
  *   3. Low activity warning — only shown when no responsiveness badge AND
  *      last_active_at > 60 days ago.
  *
@@ -600,9 +600,9 @@ function ActivityBadges({
   // Experience tier from finalized bookings.
   let experienceTier: string | null = null;
   if (finalizedBookingCount !== null && finalizedBookingCount > 0) {
-    if (finalizedBookingCount >= 50) experienceTier = 'Elite';
-    else if (finalizedBookingCount >= 20) experienceTier = 'Expert';
-    else if (finalizedBookingCount >= 5) experienceTier = 'Experienced';
+    if (finalizedBookingCount >= 200) experienceTier = 'Elite';
+    else if (finalizedBookingCount >= 51) experienceTier = 'Expert';
+    else if (finalizedBookingCount >= 11) experienceTier = 'Experienced';
     else experienceTier = 'Established';
   }
 

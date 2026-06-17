@@ -159,6 +159,17 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/verify',
       },
       {
+        // Vendor Partnerships — two-admin verification queue for vendor-to-vendor
+        // commercial relationships (accredited / sponsored / general). Badges are
+        // invisible until a second admin confirms. Vendor-side stub at
+        // /vendor-dashboard/partnerships lets vendors submit claims.
+        key: 'vendor-partnerships',
+        label: 'Partnerships',
+        href: '/admin/vendor-partnerships',
+        icon: Handshake,
+        matchPrefix: '/admin/vendor-partnerships',
+      },
+      {
         key: 'payments',
         label: 'Payments',
         href: '/admin/payments',

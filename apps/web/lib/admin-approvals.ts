@@ -13,7 +13,8 @@
 export type ApprovalActionType =
   | 'grant_internal_account'
   | 'grant_team_pool'
-  | 'promote_to_admin';
+  | 'promote_to_admin'
+  | 'approve_vendor_partnership';
 
 export type ApprovalActionMeta = {
   type: ApprovalActionType;

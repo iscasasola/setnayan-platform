@@ -41,6 +41,7 @@ import {
   CheckCheck,
   LifeBuoy,
   UserX,
+  Handshake,
 } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -73,6 +74,7 @@ export default async function AdminWorkLanding() {
     accountDeletionsRes,
     approvalsRes,
     helpRes,
+    partnershipsRes,
   ] = await Promise.all([
     // Verify — applications awaiting review. /admin/verify defaults to the
     // 'applications' surface (vendor_verification_applications · pending_review),
@@ -122,6 +124,12 @@ export default async function AdminWorkLanding() {
       .from('help_messages')
       .select('*', head)
       .in('status', ['new', 'in_progress']),
+    // Vendor partnerships — unverified + active = awaiting HQ two-admin review.
+    admin
+      .from('vendor_partnerships')
+      .select('*', head)
+      .eq('admin_verified', false)
+      .eq('is_active', true),
   ]);
 
   const rows: TriageItem[] = [
@@ -228,6 +236,16 @@ export default async function AdminWorkLanding() {
       icon: LifeBuoy,
       description: 'Open help-center tickets.',
       count: take(helpRes.count),
+    },
+    {
+      // Vendor partnerships — unverified partnership claims awaiting two-admin
+      // review before their badge renders on couple search results.
+      key: 'vendor-partnerships',
+      label: 'Partnerships',
+      href: '/admin/vendor-partnerships',
+      icon: Handshake,
+      description: 'Vendor-to-vendor partnership claims awaiting two-admin verification.',
+      count: take(partnershipsRes.count),
     },
   ];
 

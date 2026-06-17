@@ -43,6 +43,26 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **No new migrations** — all tables used (`vendor_profiles`, `vendor_activity_stats`, `chat_threads`, `chat_messages`, `vendor_reviews`, `event_vendors`, `events`, `users`) already exist.
 
 **SPEC IMPACT:** `02_Specifications/Vendor_Quality_Rating_System_2026-06-17.md` § 5 (threshold actions) + § 7 (email notifications). Threshold action emails are now implemented; two-admin-gate triggers remain wired to admin console actions (separate PR).
+## 2026-06-17 · PR #1656 — Vendor partnerships HQ verification queue
+
+**What landed:**
+
+- `supabase/migrations/20270110320018_vendor_partnerships_approval_type.sql` — extends `admin_approval_requests` with a new `target_id TEXT` column and adds `'approve_vendor_partnership'` to the `action_type` CHECK constraint. This lets the two-admin approval queue hold vendor partnership verification requests alongside user-escalation requests.
+- `apps/web/app/admin/vendor-partnerships/page.tsx` — admin queue page at `/admin/vendor-partnerships` showing all `vendor_partnerships WHERE admin_verified = false AND is_active = true`. Per-row state machine: (a) no pending approval → first admin clicks "Approve (two-admin gate)"; (b) pending approval exists → second admin sees "Confirm & verify (2nd admin)" or "Reject"; (c) initiating admin cannot self-confirm (four-eyes enforced by atomic `.neq('initiated_by', userId)` UPDATE + DB CHECK). Also includes HQ manual "Add partnership" form (vendor search dropdowns + relationship type + fee + discount + covered plan groups multi-select). Recently verified list at bottom.
+- `apps/web/app/admin/vendor-partnerships/actions.ts` — five server actions: `initiateApproval`, `confirmApproval`, `rejectPartnership`, `createPartnershipHq`, `submitPartnershipClaim`. All admin actions go through `requireAdmin()`. All writes best-effort audit to `admin_audit_log`.
+- `apps/web/app/vendor-dashboard/partnerships/page.tsx` — vendor-side stub at `/vendor-dashboard/partnerships`. Shows the vendor's live/pending/inactive partnership list and a "Declare a vendor partnership" form (calls `submitPartnershipClaim`). Partnerships default `admin_verified = false` so vendors cannot self-activate badges.
+- `apps/web/app/admin/_components/admin-sidebar.tsx` — "Partnerships" nav item added to the Work group (after Verify), using the `Handshake` icon.
+- `apps/web/app/admin/work/page.tsx` — Partnerships added to the Work mobile triage feed with a live pending count.
+- `apps/web/app/vendor-dashboard/_components/vendor-sidebar.tsx` — "Partnerships" nav item added to the Grow group (after Verify).
+- `apps/web/lib/admin-approvals.ts` — `ApprovalActionType` union extended with `'approve_vendor_partnership'`.
+- `apps/web/lib/nav-registry-defaults.ts` — `admin.sidebar.vendor-partnerships` and `vendor.sidebar.partnerships` slot defaults added.
+
+**Two-admin gate implementation:**
+1. First admin clicks "Approve" → `initiateApproval` creates an `admin_approval_requests` row (`action_type='approve_vendor_partnership'`, `target_id=<partnership id>`, `status='pending'`, `expires_at=now+72h`).
+2. Second admin (different person) clicks "Confirm & verify" → `confirmApproval` atomically UPDATEs with `.neq('initiated_by', userId)` + `.eq('status', 'pending')` + `.gt('expires_at', now)`. Only if that claim succeeds does it flip `vendor_partnerships.admin_verified = true`. Same initiator gets a "you cannot self-approve" error. Rollback is applied if the `vendor_partnerships` UPDATE fails.
+3. Reject (single-admin) sets `is_active = false` and cancels any pending approval request.
+
+**SPEC IMPACT:** Adds `vendor_partnerships` HQ queue to the admin console (iteration 0023). The vendor-side stub at `/vendor-dashboard/partnerships` is a new surface not explicitly spec'd in the iteration folders. No pricing impact. No retired feature.
 
 ---
 

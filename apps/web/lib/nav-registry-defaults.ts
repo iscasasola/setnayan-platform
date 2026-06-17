@@ -1480,6 +1480,20 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 16,
   },
   {
+    // Vendor partnerships — declare vendor-to-vendor relationships; HQ reviews
+    // before badges appear on couple search results.
+    key: "vendor.sidebar.partnerships",
+    scope: "vendor",
+    area: "vendor-sidebar",
+    route: "/vendor-dashboard/partnerships",
+    label: "Partnerships",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Handshake",
+    customRef: null,
+    sortOrder: 17,
+  },
+  {
     key: "vendor.sidebar.reviews",
     scope: "vendor",
     area: "vendor-sidebar",
@@ -1716,6 +1730,19 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "BadgeCheck",
+    customRef: null,
+    sortOrder: 1,
+  },
+  {
+    // Vendor partnerships two-admin verification queue (PR #11 vendor-quality).
+    key: "admin.sidebar.vendor-partnerships",
+    scope: "admin",
+    area: "admin-sidebar",
+    route: "/admin/vendor-partnerships",
+    label: "Partnerships",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Handshake",
     customRef: null,
     sortOrder: 1,
   },

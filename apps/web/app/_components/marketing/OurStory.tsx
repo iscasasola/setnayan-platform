@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Reveal, Blob } from './_motion';
-import { AlaalaOrb } from './AlaalaOrb';
+import { AlaalaOrbGL } from './AlaalaOrbGL';
 
 /**
  * OurStory — the "Living Memories" brand manifesto.
@@ -87,7 +87,7 @@ export function OurStoryManifesto() {
           <div className="flex flex-col items-center gap-10 lg:flex-row lg:items-center lg:gap-16 lg:pb-4">
             {/* Orb — responsive size; cold-start renders CSS gradient skin */}
             <div className="flex flex-shrink-0 justify-center">
-              <AlaalaOrb className="h-[260px] w-[260px] sm:h-[310px] sm:w-[310px] lg:h-[370px] lg:w-[370px]" />
+              <AlaalaOrbGL className="h-[260px] w-[260px] sm:h-[310px] sm:w-[310px] lg:h-[370px] lg:w-[370px]" />
             </div>
 
             {/* Text — "Alaala / living memory / proposition" */}

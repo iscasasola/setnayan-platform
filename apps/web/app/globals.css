@@ -1329,6 +1329,19 @@ html[data-sn-boot] #sn-init-splash.sn-boot-done {
     0 0 0 10px rgba(197, 160, 89, 0.03);
 }
 
+/* GL orb — WebGL canvas sits directly in the root, no overflow wrapper needed */
+.alaala-orb-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 1.5px rgba(197, 160, 89, 0.2),
+    0 16px 80px rgba(14, 15, 18, 0.72),
+    0 0 0 10px rgba(197, 160, 89, 0.03);
+}
+
 .alaala-orb-gradient {
   position: absolute;
   inset: 0;

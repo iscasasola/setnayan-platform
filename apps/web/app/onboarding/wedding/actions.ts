@@ -308,7 +308,12 @@ export async function commitOnboardingWedding(
   const displayName =
     [brideFirst, groomFirst].filter(Boolean).join(' & ') || 'Our Wedding';
 
-  const admin = createAdminClient();
+  let admin: ReturnType<typeof createAdminClient>;
+  try {
+    admin = createAdminClient();
+  } catch {
+    return { ok: false, error: 'server_config_error' };
+  }
   const slug = await generateUniqueSlug(admin, displayName);
   const now = new Date().toISOString();
 
@@ -403,6 +408,7 @@ export async function commitOnboardingWedding(
     .single();
 
   if (insertError || !insertedEvent) {
+    console.error('[commitOnboardingWedding] events INSERT failed:', insertError?.message, insertError?.code, insertError?.details);
     return {
       ok: false,
       error: insertError?.message ?? 'event_insert_failed',

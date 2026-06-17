@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · feat(wax-seal): WebGL2 renderer with height-field normal mapping (PR #1683)
+
+Upgrades the wax-seal painter from a Canvas-2D 3-pixel-shifted-copy emboss to a full WebGL2 Phong-lit pipeline.
+
+- **New `lib/wax-seal/paint-webgl.ts`** — GLSL 300 es fragment shader: height field (cosine dome + rim bulge + die alpha depression) → central-difference surface normals → Blinn-Phong lighting, SSS edge glow, anti-aliased seeded Fourier puddle shape. Exports `initWaxSealGL`, `buildDieForGL`, `paintWaxSealWebGL`.
+- **`app/[slug]/_components/reveal/wax-seal.tsx`** — lazy-init GL once per canvas; WebGL2 primary path, Canvas-2D fallback when WebGL2 is unavailable.
+- **`app/dashboard/[eventId]/add-ons/save-the-date/stamp/wax-stamp-maker.tsx`** — same dual-path; `markRef` typed `HTMLCanvasElement`; die built via `buildDieForGL`; GL initialized sync in the die-build effect before the async die arrives.
+
+Same seed → same puddle outline in both renderers (same `mulberry32` PRNG order). Canvas-2D path unchanged as fallback.
+
+SPEC IMPACT: None (rendering upgrade, no recipe/schema change).
+
+---
+
 ## 2026-06-17 · feat(reveal): Reveal Studio — admin customizes + activates/deactivates the Save-the-Date reveal
 ## 2026-06-15 · feat(alaala): the in-app Alaala hub — the memory arc as a place (Lane 2)
 ## 2026-06-16 · feat(payments): native app hands off checkout to the website (BDO/GCash, base price)

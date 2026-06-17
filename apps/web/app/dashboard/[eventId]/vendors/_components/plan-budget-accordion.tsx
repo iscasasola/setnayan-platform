@@ -894,6 +894,7 @@ export function PlanBudgetAccordion({
               onOpenSearch={openSearch}
               onOpen={openService}
               lockHintKey={lockHintKey}
+              reviewStatusByVendorId={reviewStatusByVendorId}
             />
           ))}
           {/* Recap lives INSIDE .cats (not a sibling after it): the pile's
@@ -983,6 +984,7 @@ function FolderSection({
   onOpenSearch,
   onOpen,
   lockHintKey,
+  reviewStatusByVendorId,
 }: {
   folder: AccordionFolder;
   eventId: string;
@@ -997,6 +999,7 @@ function FolderSection({
   onOpenSearch: (groupId: string, label: string) => void;
   onOpen: (href: string, label: string) => void;
   lockHintKey: string | null;
+  reviewStatusByVendorId: ReadonlyMap<string, VendorReviewStatus>;
 }) {
   const hasLocked = folder.lockedTotal > 0;
   // Single-open (owner 2026-06-09): the .cat-head is now a toggle button; only

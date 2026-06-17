@@ -37,7 +37,7 @@ import { FourFlapEnvelope } from './four-flap';
 import { RigidReveal } from './rigid-reveal';
 import { isVeilTemplate, REVEAL_ALIASES, type RevealTemplate } from './reveal-templates';
 import type { WaxSealConfig } from '@/lib/wax-seal/types';
-import type { RevealStudioConfig } from '@/lib/reveal-config';
+import type { RevealStudioConfig, RevealTemplateId } from '@/lib/reveal-config';
 
 const VeilReveal = dynamic(() => import('./veil-reveal'), { ssr: false });
 
@@ -63,6 +63,9 @@ type Props = {
   petalsColor?: string;
   /** Resolved admin Reveal Studio config (master toggle · default template · veil look · features). */
   config?: RevealStudioConfig;
+  /** The couple's chosen opening (events.std_reveal_template) — overrides the
+   *  admin house default, beneath a per-visit ?reveal= override. (PR4 P4) */
+  eventTemplate?: RevealTemplateId | null;
 };
 
 const FLAG_ON = process.env.NEXT_PUBLIC_STD_REVEAL === '1';
@@ -77,6 +80,7 @@ export function RevealOverlay({
   veilColor = '#f3ece1',
   petalsColor = '#e87a93',
   config,
+  eventTemplate = null,
 }: Props) {
   const [mounted, setMounted] = useState(false);
   const [reveal, setReveal] = useState('');
@@ -95,7 +99,8 @@ export function RevealOverlay({
   }, []);
 
   const override = reveal ? REVEAL_ALIASES[reveal] ?? null : null;
-  const template: RevealTemplate = override ?? config?.defaultTemplate ?? 'four-flap';
+  const template: RevealTemplate =
+    override ?? eventTemplate ?? config?.defaultTemplate ?? 'four-flap';
   const veil = isVeilTemplate(template);
 
   const configEnabled = config?.enabled ?? false;

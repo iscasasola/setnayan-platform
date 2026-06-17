@@ -15,8 +15,9 @@
  */
 
 import dynamic from 'next/dynamic';
-import { useEffect, useRef, useState } from 'react';
-import { RotateCcw, Sparkles, X } from 'lucide-react';
+import { useEffect, useRef, useState, useTransition } from 'react';
+import { Check, RotateCcw, Sparkles, X } from 'lucide-react';
+import { chooseRevealTemplate } from '@/app/dashboard/[eventId]/add-ons/save-the-date/actions';
 import { FourFlapEnvelope } from '@/app/[slug]/_components/reveal/four-flap';
 import { RigidReveal } from '@/app/[slug]/_components/reveal/rigid-reveal';
 import {
@@ -55,6 +56,10 @@ type Props = {
   sealFallbackSeed?: number;
   /** Veil tulle colour — Mood-Board driven (ivory fallback). */
   veilColor?: string;
+  /** The event whose chosen opening this persists (PR4 P4). */
+  eventId: string;
+  /** The couple's currently-saved opening (events.std_reveal_template). */
+  chosenTemplate?: RevealTemplate | null;
 };
 
 export function RevealPreviewCard({
@@ -65,9 +70,22 @@ export function RevealPreviewCard({
   sealConfig = null,
   sealFallbackSeed,
   veilColor = '#f3ece1',
+  eventId,
+  chosenTemplate = null,
 }: Props) {
   const [tpl, setTpl] = useState<RevealTemplate | null>(null);
   const [revealed, setRevealed] = useState(false);
+  const [chosen, setChosen] = useState<RevealTemplate | null>(chosenTemplate);
+  const [pending, startTransition] = useTransition();
+
+  // Persist the couple's opening choice (events.std_reveal_template). The action
+  // revalidates the page, but we also flip local `chosen` so the preview reflects
+  // it instantly without waiting for the round-trip.
+  const saveChoice = (t: RevealTemplate) =>
+    startTransition(async () => {
+      const r = await chooseRevealTemplate(eventId, t);
+      if (r.ok) setChosen(t);
+    });
   // The rigid fold-beat timer. Tracked so we can cancel it whenever the user
   // closes, replays, or switches template — otherwise a stale setRevealed(true)
   // fires later and unmounts a freshly-mounted veil mid-lift.
@@ -143,21 +161,41 @@ export function RevealPreviewCard({
           </p>
         </div>
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-          {REVEAL_LIBRARY.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => launch(t.id)}
-              className={`inline-flex min-h-[44pt] items-center justify-center gap-2 rounded-md px-4 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
-                t.family === 'veil'
-                  ? 'bg-mulberry text-cream hover:bg-mulberry-600 focus-visible:outline-mulberry'
-                  : 'border border-ink/20 bg-cream text-ink hover:border-ink/40 focus-visible:outline-ink'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
+          {REVEAL_LIBRARY.map((t) => {
+            const isChosen = chosen === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => launch(t.id)}
+                aria-pressed={isChosen}
+                className={`relative inline-flex min-h-[44pt] items-center justify-center gap-1.5 rounded-md px-4 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
+                  t.family === 'veil'
+                    ? 'bg-mulberry text-cream hover:bg-mulberry-600 focus-visible:outline-mulberry'
+                    : 'border border-ink/20 bg-cream text-ink hover:border-ink/40 focus-visible:outline-ink'
+                } ${isChosen ? 'ring-2 ring-terracotta ring-offset-2' : ''}`}
+              >
+                {isChosen ? (
+                  <Check aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} />
+                ) : null}
+                {t.label}
+              </button>
+            );
+          })}
         </div>
+        {chosen ? (
+          <p className="text-xs text-ink/55">
+            Your page opens with{' '}
+            <span className="font-medium text-ink/80">
+              {REVEAL_LIBRARY.find((t) => t.id === chosen)?.label}
+            </span>
+            . Tap any opening to preview, then make it yours.
+          </p>
+        ) : (
+          <p className="text-xs text-ink/55">
+            Tap an opening to preview it full-screen, then make it yours.
+          </p>
+        )}
       </div>
 
       {tpl ? (
@@ -183,7 +221,22 @@ export function RevealPreviewCard({
             </div>
           ) : null}
 
-          <div className="absolute right-4 top-4 flex gap-2">
+          <div className="absolute right-4 top-4 flex items-center gap-2">
+            {chosen === tpl ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-2 text-xs font-medium text-white backdrop-blur">
+                <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
+                Your opening
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => saveChoice(tpl)}
+                disabled={pending}
+                className="inline-flex items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-xs font-semibold text-cream shadow-lg transition hover:bg-mulberry-600 disabled:opacity-60"
+              >
+                {pending ? 'Saving…' : 'Make this mine'}
+              </button>
+            )}
             {revealed ? (
               <button
                 type="button"

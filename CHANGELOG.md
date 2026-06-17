@@ -6,6 +6,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ## 2026-06-17 · feat(reveal): Reveal Studio — admin customizes + activates/deactivates the Save-the-Date reveal
 ## 2026-06-15 · feat(alaala): the in-app Alaala hub — the memory arc as a place (Lane 2)
+## 2026-06-16 · feat(payments): native app hands off checkout to the website (BDO/GCash, base price)
+
+Owner decision (2026-06-16): "website is cheaper · website charges via BDO and GCash." Inside the iOS/Android app, payment is routed to the **website** instead of running the in-app flow. Two reasons: (1) Apple/Google forbid selling digital goods in-app via an external rail (BDO/GCash) — that's an App Store rejection; the purchase must happen out-of-app. (2) The website is the cheaper path (base catalog price, 0% store cut, no IAP markup). This supersedes the closed +30% native-markup PR (#1458) — app and web both charge the base price; the app just hands off.
+
+- **`InlineCheckoutDrawer`** detects the native shell post-mount (`SetnayanApp` UA — same marker the middleware uses) and, on native, the buy trigger opens the current checkout page in the **external browser** (`window.open(href, '_system')` → Capacitor hands off to Safari/Chrome) instead of the in-app drawer. The buyer completes payment out-of-app via BDO/GCash at the base price. Trigger gets an external-link icon + a "Opens setnayan.com to pay" hint on native.
+- **Web is byte-identical** — `isNativeApp` is false everywhere except the Capacitor WebView, so the inline BDO/GCash flow is unchanged on the website.
+
+`tsc` green. Native-only behavior (can't be exercised in a browser preview). **Follow-up (flagged):** auth continuity — the external browser has a separate cookie jar, so the buyer may need to log in on the web; a one-time deep-link/magic-link handoff would smooth that. App-Store-policy-sensitive → no auto-merge, for owner review.
+
+SPEC IMPACT: native payment routes to web (corpus `Pricing_Holistic_Pass §6` web-checkout policy + DECISION_LOG).
+
+## 2026-06-16 · feat(nav): wire the CUSTOMER bottom nav to the registry (first consumption PR)
 
 Lane 2 of the Alaala embed: the Studio hub (`/add-ons`) is the *store*; this is the *story*. A new couple surface lays out the arc of the day so the couple sees their wedding as one living memory being assembled, not a flat grid of SKUs.
 

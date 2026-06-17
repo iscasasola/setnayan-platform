@@ -4,11 +4,11 @@
  * WaxSeal — the couple's monogram pressed into a wax seal (0024 addendum §3).
  *
  * Renders the MINTED recipe (events.wax_seal_config, via the candle-stamp maker)
- * with the deterministic Canvas-2D painter `paintWaxSeal`, so the seal a guest
- * sees is byte-identical to what the couple minted — a real self-levelled wax
- * puddle, the monogram pressed in as a raised emboss, per-pour bulge/bubbles,
- * matte/glossy sheen. The monogram is the stamp DIE (markSvg); colour is the
- * Mood-Board deep accent (recolours at ₱0). No drop shadow — material only (§1a).
+ * with the WebGL2 painter `paintWaxSealWebGL` — height-field normal mapping,
+ * Phong lighting, subsurface scattering stand-in — so the embossed monogram has
+ * genuine 3D depth. Falls back to Canvas-2D `paintWaxSeal` on browsers without
+ * WebGL2 support. The seal a guest sees is deterministically identical to what the
+ * couple minted (same seed → same puddle shape, regardless of renderer).
  *
  * Progressive enhancement: a CSS-mask static seal renders before hydration / with
  * no JS, then the canvas paints over it on mount, so it is never blank. When the
@@ -23,6 +23,12 @@ import {
   type WaxSealConfig,
 } from '@/lib/wax-seal/types';
 import { buildMarkCanvas, paintWaxSeal } from '@/lib/wax-seal/paint';
+import {
+  buildDieForGL,
+  initWaxSealGL,
+  paintWaxSealWebGL,
+  type WaxSealGLState,
+} from '@/lib/wax-seal/paint-webgl';
 
 type Props = {
   /** The couple's monogram SVG markup (uploaded/custom) — the stamp die. Null → lettered. */
@@ -144,6 +150,9 @@ export function WaxSeal({
   size = 84,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // GL state: undefined = not attempted, null = failed (use Canvas 2D)
+  const glInitRef = useRef(false);
+  const glRef = useRef<WaxSealGLState | null>(null);
   const [painted, setPainted] = useState(false);
 
   const resolvedColor = resolveWaxColor(config, waxColor);
@@ -156,24 +165,49 @@ export function WaxSeal({
     const cv = canvasRef.current;
     if (!cv) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const S = Math.round(size * dpr);
-    cv.width = S;
-    cv.height = S;
-    const ctx = cv.getContext('2d');
-    if (!ctx) return;
+
+    // lazy-init WebGL2 once per canvas lifetime
+    if (!glInitRef.current) {
+      glInitRef.current = true;
+      glRef.current = initWaxSealGL(cv);
+    }
+    const glState = glRef.current;
+
     (async () => {
-      const mark = await buildMarkCanvas(markSvg);
-      if (cancelled) return;
-      paintWaxSeal(ctx, {
-        config,
-        mark,
-        monogramText,
-        waxColor: resolvedColor,
-        finish,
-        seed,
-        size,
-        dpr,
-      });
+      if (glState) {
+        // WebGL2 path — height-field normal mapping + Phong
+        const die = await buildDieForGL(markSvg, monogramText);
+        if (cancelled) return;
+        paintWaxSealWebGL(glState, {
+          config,
+          mark: die,
+          monogramText,
+          waxColor: resolvedColor,
+          finish,
+          seed,
+          size,
+          dpr,
+        });
+      } else {
+        // Canvas-2D fallback (WebGL2 unavailable)
+        const S = Math.round(size * dpr);
+        cv.width = S;
+        cv.height = S;
+        const ctx = cv.getContext('2d');
+        if (!ctx) return;
+        const mark = await buildMarkCanvas(markSvg);
+        if (cancelled) return;
+        paintWaxSeal(ctx, {
+          config,
+          mark,
+          monogramText,
+          waxColor: resolvedColor,
+          finish,
+          seed,
+          size,
+          dpr,
+        });
+      }
       if (!cancelled) setPainted(true);
     })();
     return () => {

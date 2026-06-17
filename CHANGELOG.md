@@ -20,11 +20,46 @@ Owner: *"remove crown veil so we only have 5 templates."* The Crown veil (`veil-
 **Verification:** `tsc` clean · `next lint` clean · zero remaining `veil-crown`/`VeilCrown` references.
 
 **SPEC IMPACT:** iteration 0024 reveal library 7→5 (Crown veil retired by owner 2026-06-17). Corpus `DECISION_LOG.md` + spec `0024_Veil_Reveal_Spec_2026-06-17.md` + memory `[[project_setnayan_std_reveal_spec]]` updated.
+## 2026-06-17 · feat(wax-seal): WebGL2 renderer with height-field normal mapping (PR #1683)
+
+Upgrades the wax-seal painter from a Canvas-2D 3-pixel-shifted-copy emboss to a full WebGL2 Phong-lit pipeline.
+
+- **New `lib/wax-seal/paint-webgl.ts`** — GLSL 300 es fragment shader: height field (cosine dome + rim bulge + die alpha depression) → central-difference surface normals → Blinn-Phong lighting, SSS edge glow, anti-aliased seeded Fourier puddle shape. Exports `initWaxSealGL`, `buildDieForGL`, `paintWaxSealWebGL`.
+- **`app/[slug]/_components/reveal/wax-seal.tsx`** — lazy-init GL once per canvas; WebGL2 primary path, Canvas-2D fallback when WebGL2 is unavailable.
+- **`app/dashboard/[eventId]/add-ons/save-the-date/stamp/wax-stamp-maker.tsx`** — same dual-path; `markRef` typed `HTMLCanvasElement`; die built via `buildDieForGL`; GL initialized sync in the die-build effect before the async die arrives.
+
+Same seed → same puddle outline in both renderers (same `mulberry32` PRNG order). Canvas-2D path unchanged as fallback.
+
+SPEC IMPACT: None (rendering upgrade, no recipe/schema change).
 
 ---
 
 ## 2026-06-17 · feat(reveal): Reveal Studio — admin customizes + activates/deactivates the Save-the-Date reveal
 ## 2026-06-15 · feat(alaala): the in-app Alaala hub — the memory arc as a place (Lane 2)
+## 2026-06-16 · feat(payments): native app hands off checkout to the website (BDO/GCash, base price)
+
+Owner decision (2026-06-16): "website is cheaper · website charges via BDO and GCash." Inside the iOS/Android app, payment is routed to the **website** instead of running the in-app flow. Two reasons: (1) Apple/Google forbid selling digital goods in-app via an external rail (BDO/GCash) — that's an App Store rejection; the purchase must happen out-of-app. (2) The website is the cheaper path (base catalog price, 0% store cut, no IAP markup). This supersedes the closed +30% native-markup PR (#1458) — app and web both charge the base price; the app just hands off.
+
+- **`InlineCheckoutDrawer`** detects the native shell post-mount (`SetnayanApp` UA — same marker the middleware uses) and, on native, the buy trigger opens the current checkout page in the **external browser** (`window.open(href, '_system')` → Capacitor hands off to Safari/Chrome) instead of the in-app drawer. The buyer completes payment out-of-app via BDO/GCash at the base price. Trigger gets an external-link icon + a "Opens setnayan.com to pay" hint on native.
+- **Web is byte-identical** — `isNativeApp` is false everywhere except the Capacitor WebView, so the inline BDO/GCash flow is unchanged on the website.
+
+`tsc` green. Native-only behavior (can't be exercised in a browser preview). **Follow-up (flagged):** auth continuity — the external browser has a separate cookie jar, so the buyer may need to log in on the web; a one-time deep-link/magic-link handoff would smooth that. App-Store-policy-sensitive → no auto-merge, for owner review.
+
+SPEC IMPACT: native payment routes to web (corpus `Pricing_Holistic_Pass §6` web-checkout policy + DECISION_LOG).
+
+## 2026-06-16 · feat(nav): wire the CUSTOMER bottom nav to the registry (first consumption PR)
+## 2026-06-16 · ci(desktop): re-add macOS Developer-ID signing + notarization — gated (fixes the 2026-06-15 empty-secret break)
+
+Owner renewed Apple Developer + created a real **Developer ID Application** cert (G2, Team `P95JPDWWB3`, exp 2031). Re-wires macOS code-signing into `build-desktop.yml` so a downloaded `.dmg` opens with no Gatekeeper warning — but **gated** to avoid the bug that got the first attempt reverted on 2026-06-15 (a missing secret resolves to an empty string, and `tauri build` treats an empty `APPLE_CERTIFICATE` as "cert present" → `security import` on nothing → whole macOS build fails).
+
+- `.github/workflows/build-desktop.yml` — new **"Configure macOS signing"** step (before `tauri build`, macOS only): reads the six `APPLE_*` secrets via step `env`, and **only when `APPLE_CERTIFICATE` is non-empty** writes them to `$GITHUB_ENV` for the build. A MISSING secret is therefore never exported as an empty string — so forks / pre-secrets builds still succeed UNSIGNED (ad-hoc fallback step runs), and a fully-configured build signs + notarizes + staples (verify step runs). Replaces the 2026-06-15 "removed" comment block with the gated rationale.
+
+**OWNER ACTION — add 6 repo secrets** (Settings → Secrets and variables → Actions). Until `APPLE_CERTIFICATE` exists, builds stay unsigned (no regression):
+- `APPLE_CERTIFICATE` (base64 of the `.p12`), `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY` (`Developer ID Application: Indalecio Casasola (P95JPDWWB3)`), `APPLE_TEAM_ID` (`P95JPDWWB3`), `APPLE_ID` (Apple email), `APPLE_PASSWORD` (app-specific password).
+
+Windows signing still pending (separate item). SPEC IMPACT: None — CI/release plumbing only.
+
+## 2026-06-16 · feat(papic): free Papic sampler — 3 seats, 8 photos + 2 clips each, 30-day retention
 
 Lane 2 of the Alaala embed: the Studio hub (`/add-ons`) is the *store*; this is the *story*. A new couple surface lays out the arc of the day so the couple sees their wedding as one living memory being assembled, not a flat grid of SKUs.
 
@@ -34,6 +69,22 @@ Lane 2 of the Alaala embed: the Studio hub (`/add-ons`) is the *store*; this is 
 SPEC IMPACT: None on schema/SKU (new narrative surface + one nav item). **Lane 3 next** — finish the keystones (Kwento → Live Photo Wall → produced-output), the part competitors structurally can't copy.
 
 ## 2026-06-15 · feat(alaala): name the memory pillar "Alaala" — Studio hub framing + manifesto naming (Lane 1 of 3)
+## 2026-06-16 · fix(std-reveal): post-merge review fixes — preview-card timer leak, moodboard veil colour, crown-veil clear, a11y
+
+Follow-up to #1573 (the reveal library completion). A 25-agent adversarial review (verdict: working-with-nits, approach sound) confirmed the architecture and surfaced a small set of real fixes, all applied here. Still flag-gated (`NEXT_PUBLIC_STD_REVEAL` default OFF).
+
+- **Bug — studio preview timer leak** (`reveal-preview-card.tsx`): the rigid fold-beat `setTimeout(setRevealed, …)` was never cancelled, so a Close-then-veil sequence within the window fired a stale `setRevealed(true)` and unmounted a freshly-mounted veil mid-lift. Now tracked in a ref and cleared on launch / close / unmount.
+- **Bug (copy-vs-behavior) — veil colour ignored the Mood Board.** Both live `[slug]/page.tsx` `RevealOverlay` mounts and the studio call site hardcoded `#f3ece1` while the copy promises "recolours to your Mood Board." Added `veilColorFromPalette()` to `lib/site-palette.ts` (most-colourful palette swatch lightened 60% toward ivory → a sheer, hue-carrying tint) and threaded it into both live mounts + the studio page (which now selects `role_palette`). Ivory stays the genuine fallback.
+- **Crown veil could sag back into view** (`veil-crown.tsx`): at full fold the slack belly could droop across the invitation before the overlay faded. Raised `hemRise` to `lift*(clothH*2+4)` so the two pin rows separate by more than a cloth length → the drape pulls taut and lifts clear. (`onRevealed` already fired on the scalar lift, so this was visual-only, never a hang.)
+- **Accessibility — `prefers-reduced-motion`** now honored: such guests skip the reveal entirely and see content directly (gated in `RevealOverlay`). Covers the whole template family on the live path.
+- **Polish + consistency:** church-doors arch now mirrored onto the liner back face so it persists through the swing; V1 sheer-veil `wind` aligned 0.5 → 0.40 (the locked §1a craft constant, matching the crown veil); extracted `RIGID_FOLD_MS`/`RIGID_REVEAL_MS` so the overlay + preview timers stop being independent magic numbers.
+- **Owner-confirm (not changed): `?reveal=` is not a hard kill-switch** — a guest appending a valid `?reveal=` in the Save-the-Date phase activates the reveal in any environment, flag or no flag. Left as-is (it's how Vercel previews demo it) but the misleading "previews only" comment was corrected; decide the production kill-switch semantics before the veils launch.
+
+tsc 0 · `next lint` clean · `lint:retired` 0 (verified in worktree).
+
+SPEC IMPACT: 0024 Save the Date — no scope change; correctness/a11y/colour-wiring fixes on the flag-gated reveal. Logged in corpus `DECISION_LOG.md`.
+
+## 2026-06-16 · fix(payments): complete PR4 bundle-awareness — 3 Essentials-tier SKUs a bundle buyer was wrongly denied (PR4b)
 
 Owner ask: *"we also want to do the customization of this template from the admin"* + *"where we can activate and deactivate features of the template?"* — owner picked **Full template studio** (toggles **and** a live slider panel). Today the reveal was gated only by the `NEXT_PUBLIC_STD_REVEAL` env flag with all settings baked as constants; this makes it admin-managed end-to-end, following the `platform_settings` / `homepage_hero_config` recipe.
 
@@ -52,6 +103,38 @@ Owner ask: *"we also want to do the customization of this template from the admi
 **SPEC IMPACT:** New admin surface for iteration 0024. Couple-site behaviour is unchanged by default (reveal still off until an admin enables it). Logged in corpus `DECISION_LOG.md`; spec `0024_Veil_Reveal_Spec_2026-06-17.md` §6 noted as now admin-overridable (defaults unchanged); memory `[[project_setnayan_std_reveal_spec]]` updated. This is **PR1** of the studio; PR2 = per-event override + extending feature parity to the rigid (envelope/doors) templates.
 
 ---
+## 2026-06-14 · refactor(dashboard): shared verification cards — dedup Track A6
+
+Deduped the presentational layer the vendor (SUBMIT) and admin (REVIEW) verification surfaces had forked. New `apps/web/app/_components/verification/` owns the genuinely-shared cards; both pages keep their own role-scoped, RLS-bound fetch + server actions (vendor submits its draft; admin approves/rejects/demotes) — only presentation was extracted, never the data or action flows.
+
+- **`verification-status-card.tsx`** — owns all verification-state presentation keyed off `VERIFICATION_STATE_LABEL`. Two exports because the two surfaces render the state at different sizes: `VerificationStatusCard` (vendor's full hero card; the "Latest application" footer is passed in as a `meta` node) and `VerificationStateBadge` (admin queue's compact "Tier · …" pill). Both surfaces' tone palettes are co-located here and preserved byte-for-byte (they intentionally differ slightly — `text-ink/75` card vs `text-ink/65` pill).
+- **`doc-slot-card.tsx`** — the vendor doc-slot card *shell* (`DocSlotCard`: bordered tile + "Item N of N" eyebrow + label + hint) plus the shared `SlotBadge`. The per-slot input form (file upload / URL field / Setnayan-run notice) is passed in as `children`, so the submit-side action wiring stays in the vendor page. The admin's read-only `<details>` doc list is genuinely different DOM and was left in-page on purpose.
+- **`application-progress.tsx`** — the vendor's `{n} of {total} · {pct}%` progress card with its accessible progress bar. The admin shows the same count as a plain inline "Checklist: N/12" line (no bar) — left in-page.
+- **`vendor-dashboard/verify/page.tsx`** now renders the three shared components (local `StatusCard`, `ApplicationProgressBar`, `SlotBadge`, and the old inline `DocSlotCard` markup removed; a thin `VendorDocSlotCard` wrapper feeds the shared shell). **`admin/verify/page.tsx`** swapped its local `StateBadge` for the shared `VerificationStateBadge`. Net ~162 LOC removed from the two pages.
+
+All three new components carry a JSDoc header noting the 2026-06-14 A6 dedup and mirror the `viewerRole` role-parameterization of `app/_components/chat-message-stream.tsx`. No DOM/visual change — the rendered markup matches today byte-for-byte.
+
+Verify: `tsc --noEmit` exit 0 · `next lint` clean on all five changed/new files.
+
+SPEC IMPACT: None (code-internal; no behavior/visual change).
+## 2026-06-14 · refactor(dashboard): app-wide <Field>/<FormFlash> dedup sweep — Track A2
+
+Finishes the form-primitive dedup (dashboard-consolidation Track A): replaces remaining LOCAL copies with the shared primitives already on `main` (`@/app/_components/forms/field` + `@/app/_components/forms/form-flash`). Pure behavior- and visual-preserving refactor — rendered DOM is identical; no copy/logic/route/schema change. Net −102 LOC across 16 files (53 ins / 155 del).
+
+- **Local `Field` defs removed: 3 of 12 candidates.** Replaced with `import { Field } from '@/app/_components/forms/field'` where the local def was byte-identical to the shared superset (shared adds an optional `required` asterisk; every call site uses only `label`/`htmlFor`/`help`): `app/admin/settings/payment-methods/page.tsx`, `app/help/page.tsx`, `app/vendor-dashboard/services/page.tsx`.
+- **9 of 12 left inline (NOT byte-identical — would change DOM if forced):**
+  - `app/[slug]/page.tsx`, `app/dashboard/[eventId]/guests/[guestId]/page.tsx`, `app/dashboard/[eventId]/guests/new/page.tsx` — different contract: take `{id, type, placeholder, defaultValue}` and render their own `<input>` inside a `<div>`.
+  - `app/admin/vendors/[vendorProfileId]/edit/page.tsx` — asterisk is `text-rose-600` (shared uses `text-terracotta`) + no `help` slot.
+  - `app/dashboard/[eventId]/_components/new-manual-vendor-modal.tsx` — `<div>` wrapper, uppercase `text-xs` label, `hint` (not `help`).
+  - `app/admin/connection-logs/connection-logs-client.tsx` — `{label, children}`, mono `<p>` label in a `<div>`.
+  - `app/admin/force-majeure/[flagId]/page.tsx`, `app/admin/payouts/page.tsx` — `<dt>/<dd>` read-only description-list display fields (not form fields).
+  - `app/dashboard/[eventId]/paperwork/page.tsx` — deadline display field with `{tone, icon, collapsible}` + lucide icons.
+- **Standard flash banners converted to `<FormFlash>`: 19** (15 `tone="error"` + 4 `tone="success"`), each byte-identical to what `FormFlash` renders (`mb-4 rounded-md border … px-4 py-3 text-sm`, exact terracotta-700 / emerald-800 tokens, `role="alert"`/`role="status"`), preserving the exact `{msg}` expression (incl. `decodeURIComponent(search.error)`). Touched: `admin/addons`, `admin/concierge-abuse`, `admin/funnels`, `admin/payment-options`, `admin/payouts`, `admin/settings/demo-mode`, `admin/settings/payment-methods` (×3), `admin/social-queue`, `admin/user-reports`, `admin/verify` (×3), `dashboard/(account)/api-keys`, `dashboard/[eventId]/guests/quick`, `join/[eventId]`, `vendor-dashboard/payment-options` (×2).
+- **Non-standard banner tones left inline** (would change DOM): all amber (`border-amber-…`), neutral ink (`border-ink/… bg-ink/…`), `text-emerald-900` success variants (concierge-abuse), `border-emerald-200` / no-`role` variants (social-queue success loop), and any with different margin (`mb-6`/`mt-4`/none), padding (`px-3 py-2`), `text-xs`, icon children, or `inline-flex` structure. ~50 such variant `<p>` banners remain inline by design.
+
+Verify: `pnpm exec tsc --noEmit` exit 0, zero `error TS` · `pnpm exec next lint --file <each of 16 changed files>` clean (no unused imports left behind).
+
+SPEC IMPACT: None (code-internal; no behavior/visual/route/schema change)
 
 ## 2026-06-17 · feat(reveal): port the DESIGN-LOCKED bridal-veil reveal to the Save-the-Date page
 
@@ -167,6 +250,28 @@ Generate: `npx web-push generate-vapid-keys`
 4. Wire `sendPushToToken()` in `/api/notify` with real FCM/APNs/Web Push calls (TODO stub in that file).
 
 **SPEC IMPACT:** Wires the token registration leg of the push notification flow introduced by PR #1652 (`/api/notify`). The sw.js push/notificationclick handlers replace the prior generic `payload.url` routing with vendor-thread-aware routing. No spec corpus change required — the push registration flow is implementation detail of the existing 0028 email/notification spec.
+## 2026-06-17 · PR #1663 — Vendor review response: editable replies, flag-as-fake, 500-char limit
+
+**What landed:**
+
+- `supabase/migrations/20270111780655_vendor_review_response.sql` — migration applied to prod:
+  1. `lock_vendor_reply()` trigger updated: immutability guard removed so replies are editable; auto-stamps `vendor_reply_at` on first write and refreshes it on edits.
+  2. `vendor_reviews.vendor_reply` DB CHECK tightened from 2,000 → 500 chars.
+  3. New `vendor_review_flags` table (UUID PK, FK to `vendor_reviews` + `vendor_profiles`, status `pending/dismissed/escalated`, unique per review+vendor) with 3 RLS policies + RLS enabled.
+
+- `apps/web/lib/reviews.ts` — `VENDOR_REPLY_MAX_CHARS = 500` constant; `submitVendorReply` updated to 500-char limit (editable, no longer one-time); new `flagReviewAsFake()` function; `ReviewFlagReason` type + `REVIEW_FLAG_REASON_LABEL` record.
+
+- `apps/web/app/vendor-dashboard/reviews/page.tsx` — existing reply shows "Edit response" via `<details>` expand with prefilled textarea; new "Flag" icon per review opens dropdown reason selector; char limit updated to 500 throughout.
+
+- `apps/web/app/vendor-dashboard/reviews/actions.ts` — `postVendorReply` (post + edit, validates profile ownership); new `submitFlagAsFake` action.
+
+- `apps/web/app/admin/reviews/page.tsx` + `actions.ts` — new "Vendor fake-review flags" queue section with pending count badge at top of review-moderation page; `dismissReviewFlag` action writes `admin_audit_log`.
+
+- `apps/web/app/v/[slug]/page.tsx` — `VendorReplyBlock` now shows "Response from [Vendor Name]" label; `vendorName` prop threaded through `ReviewRow`.
+
+- `apps/web/app/dashboard/[eventId]/_components/vendor-marketplace-info.tsx` — same "Response from [name]" label in couple-dashboard marketplace info drawer.
+
+**SPEC IMPACT:** `0022_vendor_dashboard/0022_vendor_dashboard.md` — vendor reply is now editable (not one-time per § 2.x); 500-char limit; fake-flag flow added. `0023_admin_console/0023_admin_console.md` — new fake-review flag queue added to review moderation surface.
 
 ---
 
@@ -314,6 +419,19 @@ Generate: `npx web-push generate-vapid-keys`
 **Verification:** `tsc --noEmit` clean · `next lint` clean (pre-existing warnings only) · production build green. Migrations applied to prod in-session (see below).
 
 **SPEC IMPACT:** `03_Strategy/Vendor_Portal_Event_Data_Link_2026-06-13.md` build-state updated (designed → shipped); decision-log row appended; memory `project_setnayan_vendor_feature_access_map` updated.
+## 2026-06-13 · feat(pakanta): auto-compose the custom-song brief from the onboarding love story (Phase 1 — composer + admin queue)
+## 2026-06-13 · feat(pakanta): generate the custom song from the onboarding love story — composer + couple surface + admin queue
+
+**Context:** Owner directive — the onboarding "told-back love stage" already interviews the couple (how they met, the spark, the almost, the proposal, milestones, tone → `events.love_story` JSONB). That interview should *generate the Pakanta custom song* instead of re-asking the story in a separate intake. (Follow-up to #1320, which deleted the wizard's redundant 8-question Pakanta intake.) This PR ships the full loop: onboarding → composed brief → couple top-up → admin/music-team queue.
+
+- **`lib/pakanta-brief.ts` (new) — deterministic song-brief composer.** Mirrors the wedding-website composer (`app/[slug]/_components/editorial/compose.ts`): v1 = TEMPLATE composition, **NO LLM**, never invents facts (every line gated on a present field). `composePakantaBrief({ coupleNames, loveStory, storyTone, responses? })` weaves the onboarding love story into a songwriter brief — story paragraphs, anchors (their song/place/food, milestones), pet names (Pakanta top-up → else the love-story in-joke), and musical direction (story_tone → mood + a soft suggestion among the 6 owned catalogue feels, overridden by the couple's named singers / music type). Emits a single copy-paste `copyBlock` for Suno. The `love_story` half covers the *story* (old intake Q1–3); the optional `pakanta_intake_drafts.responses` half covers *music* (pet names, favourite singers, music type) + any extra wish. Either source may be empty → the brief degrades gracefully.
+- **Couple surface `app/dashboard/[eventId]/add-ons/pakanta/` (new) — page + `PakantaMusicForm`.** Replaces the deleted wizard card. The page SHOWS the love story we already have ("your song will be written from this", read-only from `love_story`) and only collects the **music top-up** the story doesn't carry: what they call each other, each side's favourite singer, music type (+ two optional "extra wishes"). No re-telling the story. `[Save for later]` drafts; `[Continue to payment]` forwards to the existing `/orders/new?service=pakanta_basic` flow. When the love story is empty, it nudges the couple to the love-story details instead of pretending. Added a **`pakanta`** entry (`digital_services`) to `lib/add-ons-catalog.ts` so the Services storefront links to it — Pakanta had **no entry point** after the wizard card was removed.
+- **`savePakantaIntake` reworked** (`pakanta-actions.ts`) — dropped the dead `wizard_state` coupling (the wizard is gone) and re-based validation on the four **music** fields (the story fields are no longer collected; they live in `love_story`). Same `pakanta_intake_drafts` JSONB shape → no migration.
+- **`app/admin/pakanta/page.tsx` (new) — the back-office Pakanta queue.** Exactly what the 2026-06 schema anticipated ("Admins read all rows so the back-office Pakanta queue can scan for new intakes"). Lists `pakanta_intake_drafts`, joins `events` for `display_name` / `love_story` / `story_tone`, renders each composed brief (purchased/pending float to top) with a copy-paste block for the music team. Server component, `createAdminClient()`, layout-gated, `logQueryError` graceful-degrade — same shape as `/admin/account-deletions`. + a **"Pakanta queue"** item in the admin sidebar.
+
+**Verification:** `pnpm typecheck` (2/2 packages) + `pnpm lint` (2/2, FULL TURBO clean) GREEN in a fresh worktree off origin/main. No migration (love_story is JSONB; the `pakanta_intake_drafts` admin-read RLS already exists). Composer is a pure function; the couple page mirrors the `animated-monogram` add-on pattern; the admin page mirrors `/admin/account-deletions` and degrades gracefully if the table is unmigrated. Live render of the couple page left as a preview link for the owner (per verification-economy preference).
+
+**SPEC IMPACT:** Logged as a DECISION_LOG.md row (2026-06-13). Realizes iteration 0036's "the order flow can copy customer_brief from the matching draft" intent via `love_story` instead of a re-interview, and gives Pakanta a live couple surface again (the wizard card was its only entry point). **Deferred (flagged to owner):** optionally add a `pet_names` ("what you call each other") field to the **onboarding** love stage so it's captured in the single interview — today pet names are collected on the Pakanta page itself (or inferred from the love-story in-joke anchor). Suno generation stays a manual music-team step (no per-render AI — locked).
 
 ## 2026-06-13 · fix(migrations): resolve duplicate timestamp 20261206000000 blocking all PR merges
 

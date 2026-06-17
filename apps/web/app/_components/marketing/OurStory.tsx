@@ -160,37 +160,129 @@ export function OurStoryManifesto() {
       </div>
 
       {/* ───────────────────────────────────────────────────────────────
-          ACT 2 — THE MANIFESTO (light). The emotional core.
+          ACT 2 — THE MANIFESTO (light). The emotional core + the shift.
           ─────────────────────────────────────────────────────────────── */}
-      <div className="bg-[var(--m-paper)]">
-        <div className="mx-auto max-w-[760px] px-5 pt-4 pb-16 text-center sm:px-8">
+      <div className=”bg-[var(--m-paper)]”>
+        <div className=”mx-auto max-w-[760px] px-5 pt-4 pb-10 text-center sm:px-8”>
           <Reveal>
             <p
-              className="m-serif italic"
-              style={{ fontSize: 'clamp(1.5rem, 4.2vw, 2.4rem)', lineHeight: 1.3, color: 'var(--m-ink)' }}
+              className=”m-serif italic”
+              style={{ fontSize: ‘clamp(1.5rem, 4.2vw, 2.4rem)’, lineHeight: 1.3, color: ‘var(--m-ink)’ }}
             >
               But a wedding was never a still photo.
             </p>
           </Reveal>
 
           <Reveal delay={80}>
-            <p className="mt-8 text-[var(--m-slate)]" style={{ fontSize: 'clamp(1.05rem, 2.6vw, 1.2rem)', lineHeight: 1.7 }}>
+            <p className=”mt-8 text-[var(--m-slate)]” style={{ fontSize: ‘clamp(1.05rem, 2.6vw, 1.2rem)’, lineHeight: 1.7 }}>
               It was your lola laughing in the third row. The friend who cried during your vows. The
-              cousin overseas who stayed up until 3&nbsp;a.m. just to watch you say{' '}
-              <span className="m-serif italic text-[var(--m-ink)]">“I do.”</span> The joke you missed —
-              because you were busy getting married. The story your guests are{' '}
-              <span className="m-serif italic text-[var(--m-ink)]">still</span> telling each other, one
+              cousin overseas who stayed up until 3&nbsp;a.m. just to watch you say{‘ ‘}
+              <span className=”m-serif italic text-[var(--m-ink)]”>”I do.”</span> The joke you missed —
+              because you were busy getting married. The story your guests are{‘ ‘}
+              <span className=”m-serif italic text-[var(--m-ink)]”>still</span> telling each other, one
               you’ve never even heard.
             </p>
           </Reveal>
 
           <Reveal delay={140}>
             <p
-              className="m-serif italic mx-auto mt-10"
-              style={{ fontSize: 'clamp(1.4rem, 3.6vw, 2rem)', lineHeight: 1.3, maxWidth: 560 }}
+              className=”m-serif italic mx-auto mt-10”
+              style={{ fontSize: ‘clamp(1.4rem, 3.6vw, 2rem)’, lineHeight: 1.3, maxWidth: 560 }}
             >
-              A photograph can’t hold that. An album can’t move.{' '}
-              <span style={{ color: 'var(--m-mulberry)' }}>Until now.</span>
+              A photograph can’t hold that. An album can’t move.{‘ ‘}
+              <span style={{ color: ‘var(--m-mulberry)’ }}>Until now.</span>
+            </p>
+          </Reveal>
+        </div>
+
+        {/* ─────────────────────────────────────────────────────────────
+            THE SHIFT — the uncomfortable observation.
+            ───────────────────────────────────────────────────────────── */}
+        <div
+          style={{
+            background: ‘var(--m-ivory)’,
+            borderTop: ‘1px solid var(--m-line-soft)’,
+            borderBottom: ‘1px solid var(--m-line-soft)’,
+          }}
+        >
+          <div className=”mx-auto max-w-[760px] px-5 py-16 sm:px-8”>
+            <Reveal>
+              <div
+                className=”m-mono text-center”
+                style={{ fontSize: 11, letterSpacing: ‘.24em’, textTransform: ‘uppercase’, color: ‘var(--m-slate-2)’, marginBottom: 28 }}
+              >
+                The shift
+              </div>
+              <p
+                className=”m-serif italic text-center”
+                style={{ fontSize: ‘clamp(1.5rem, 4vw, 2.3rem)’, lineHeight: 1.25, color: ‘var(--m-ink)’ }}
+              >
+                Here&rsquo;s what no one says out loud.
+              </p>
+              <p className=”mt-8 text-[var(--m-slate)]” style={{ fontSize: ‘clamp(1.05rem, 2.6vw, 1.2rem)’, lineHeight: 1.7 }}>
+                Weddings have always been planned <span className=”text-[var(--m-ink)] font-medium”>for the couple</span>.
+                The venue — chosen for you. The photos — yours, delivered months later. The album — on your shelf.
+                The whole event, designed around two people.
+              </p>
+              <p className=”mt-6 text-[var(--m-slate)]” style={{ fontSize: ‘clamp(1.05rem, 2.6vw, 1.2rem)’, lineHeight: 1.7 }}>
+                Meanwhile, a hundred and fifty people got dressed up, drove across the city,
+                cried during your vows, danced until their feet hurt — and went home with a blurry
+                selfie and a memory that&rsquo;s already starting to fade.
+              </p>
+              <p className=”mt-6 text-[var(--m-slate)]” style={{ fontSize: ‘clamp(1.05rem, 2.6vw, 1.2rem)’, lineHeight: 1.7 }}>
+                That&rsquo;s not a design choice. It&rsquo;s just how it&rsquo;s always been —
+                because there was no other way.
+              </p>
+              <p
+                className=”m-serif italic mt-10 text-center”
+                style={{ fontSize: ‘clamp(1.4rem, 3.8vw, 2.2rem)’, lineHeight: 1.25, color: ‘var(--m-ink)’ }}
+              >
+                We think a wedding should be an experience{‘ ‘}
+                <span style={{ color: ‘var(--m-mulberry)’ }}>for everyone who attends.</span>
+              </p>
+            </Reveal>
+          </div>
+        </div>
+
+        {/* ─────────────────────────────────────────────────────────────
+            WHY NOW — the technology moment + the cultural shift.
+            ───────────────────────────────────────────────────────────── */}
+        <div className=”mx-auto max-w-[760px] px-5 py-16 sm:px-8”>
+          <Reveal>
+            <div
+              className=”m-mono text-center”
+              style={{ fontSize: 11, letterSpacing: ‘.24em’, textTransform: ‘uppercase’, color: ‘var(--m-slate-2)’, marginBottom: 28 }}
+            >
+              Why now
+            </div>
+            <p
+              className=”m-serif italic text-center”
+              style={{ fontSize: ‘clamp(1.5rem, 4vw, 2.3rem)’, lineHeight: 1.25, color: ‘var(--m-ink)’ }}
+            >
+              The technology finally caught up to the idea.
+            </p>
+            <p className=”mt-8 text-[var(--m-slate)]” style={{ fontSize: ‘clamp(1.05rem, 2.6vw, 1.2rem)’, lineHeight: 1.7 }}>
+              Face recognition at consumer scale. Real-time cloud delivery. AI rendering on a phone.
+              A photo taken at a reception table — tagged with a guest&rsquo;s face, in their hands
+              before the cake is cut. This was impossible five years ago at any price. Today
+              it&rsquo;s what we ship.
+            </p>
+            <p className=”mt-6 text-[var(--m-slate)]” style={{ fontSize: ‘clamp(1.05rem, 2.6vw, 1.2rem)’, lineHeight: 1.7 }}>
+              The couples getting married today grew up in the experience economy. They know their
+              guests measure the night by how it made them feel, not what was on the menu. They want
+              to give something that lasts longer than the thank-you card.
+            </p>
+            <p className=”mt-6 text-[var(--m-slate)]” style={{ fontSize: ‘clamp(1.05rem, 2.6vw, 1.2rem)’, lineHeight: 1.7 }}>
+              And when a guest shares their personal reel tonight, it reaches four hundred people in
+              their network. Among those four hundred are next year&rsquo;s brides. The wedding
+              itself becomes the moment someone discovers what a wedding could be.
+            </p>
+            <p
+              className=”m-serif italic mt-10 text-center”
+              style={{ fontSize: ‘clamp(1.3rem, 3.4vw, 1.9rem)’, lineHeight: 1.3, color: ‘var(--m-slate)’ }}
+            >
+              We didn&rsquo;t build Setnayan to be a better planning tool.{‘ ‘}
+              <span className=”text-[var(--m-ink)]”>We built it to shift the paradigm.</span>
             </p>
           </Reveal>
         </div>
@@ -272,22 +364,23 @@ export function OurStoryManifesto() {
               </div>
               <h2
                 className="m-serif italic mx-auto"
-                style={{ color: '#FBFBFA', fontSize: 'clamp(2.1rem, 5.8vw, 3.6rem)', lineHeight: 1.06, maxWidth: 680 }}
+                style={{ color: ‘#FBFBFA’, fontSize: ‘clamp(2.1rem, 5.8vw, 3.6rem)’, lineHeight: 1.06, maxWidth: 720 }}
               >
-                This isn’t a better album. It’s{' '}
-                <span style={{ color: 'var(--m-orange-3)' }}>a new kind of memory.</span>
+                Weddings have always been planned for the couple.{‘ ‘}
+                <span style={{ color: ‘var(--m-orange-3)’ }}>We&rsquo;re changing that.</span>
               </h2>
               <p
                 className="mx-auto mt-6"
-                style={{ color: 'rgba(251,251,250,.62)', fontSize: 'clamp(1rem, 2.5vw, 1.15rem)', lineHeight: 1.6, maxWidth: 520 }}
+                style={{ color: ‘rgba(251,251,250,.62)’, fontSize: ‘clamp(1rem, 2.5vw, 1.15rem)’, lineHeight: 1.6, maxWidth: 560 }}
               >
-                The way we remember has been waiting for the technology to catch up. It just did.
+                Setnayan is the first platform that makes the wedding an experience for everyone who attends —
+                not just the two people standing at the altar.
               </p>
               <p
                 className="m-serif italic mx-auto mt-6"
-                style={{ color: 'var(--m-orange-3)', fontSize: 'clamp(1.2rem, 3vw, 1.6rem)', lineHeight: 1.3, maxWidth: 540 }}
+                style={{ color: ‘var(--m-orange-3)’, fontSize: ‘clamp(1.2rem, 3vw, 1.6rem)’, lineHeight: 1.3, maxWidth: 540 }}
               >
-                We call it Alaala — the memory you keep.
+                Set na &lsquo;yan. It&rsquo;s all set — for the couple, and for everyone who showed up.
               </p>
               <div className="mt-9">
                 <Link href="/onboarding/wedding" className="m-btn m-btn-primary m-btn-lg">

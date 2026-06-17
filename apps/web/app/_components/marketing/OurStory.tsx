@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Reveal, Blob } from './_motion';
+import { AlaalaOrb } from './AlaalaOrb';
 
 /**
  * OurStory — the "Living Memories" brand manifesto.
@@ -81,32 +82,75 @@ export function OurStoryManifesto() {
         <Blob top={-80} left={-60} size={560} color="var(--m-orange)" opacity={0.12} />
         <Blob bottom={-140} right={-90} size={600} color="var(--m-mulberry)" opacity={0.18} />
 
-        <div className="relative mx-auto max-w-[1100px] px-5 pt-24 pb-16 sm:px-8 sm:pt-28 lg:px-14">
-          <Reveal>
-            <div
-              className="m-mono text-center"
-              style={{ fontSize: 11, letterSpacing: '.26em', textTransform: 'uppercase', color: 'var(--m-orange-3)' }}
-            >
-              Our story
+        <div className="relative mx-auto max-w-[1100px] px-5 pt-16 pb-12 sm:px-8 sm:pt-20 lg:px-14">
+          {/* ── ACT 1 HERO: Orb + Alaala proposition ── */}
+          <div className="flex flex-col items-center gap-10 lg:flex-row lg:items-center lg:gap-16 lg:pb-4">
+            {/* Orb — responsive size; cold-start renders CSS gradient skin */}
+            <div className="flex flex-shrink-0 justify-center">
+              <AlaalaOrb className="h-[260px] w-[260px] sm:h-[310px] sm:w-[310px] lg:h-[370px] lg:w-[370px]" />
             </div>
-            <h1
-              className="m-serif italic mx-auto mt-6 text-center"
-              style={{ color: '#FBFBFA', fontSize: 'clamp(2.4rem, 6.4vw, 4.4rem)', lineHeight: 1.04, maxWidth: 860 }}
-            >
-              Your wedding was{' '}
-              <span style={{ color: 'var(--m-orange-3)' }}>never still.</span>
-            </h1>
-            <p
-              className="mx-auto mt-6 text-center"
-              style={{ color: 'rgba(251,251,250,.66)', fontSize: 'clamp(1.05rem, 2.6vw, 1.25rem)', lineHeight: 1.6, maxWidth: 600 }}
-            >
-              We have always kept the people we love in albums. First on paper. Then on screens — the
-              same still frames, just glowing now.
-            </p>
+
+            {/* Text — "Alaala / living memory / proposition" */}
+            <Reveal>
+              <div
+                className="m-mono text-center lg:text-left"
+                style={{ fontSize: 11, letterSpacing: '.26em', textTransform: 'uppercase', color: 'var(--m-orange-3)' }}
+              >
+                Our story
+              </div>
+              <h1
+                className="m-serif italic mt-3 text-center lg:text-left"
+                style={{ color: '#FBFBFA', fontSize: 'clamp(3rem, 8vw, 5.5rem)', lineHeight: 1.0, letterSpacing: '-0.01em' }}
+              >
+                Alaala.
+              </h1>
+              <p
+                className="m-mono mt-1 text-center lg:text-left"
+                style={{ fontSize: 11, letterSpacing: '.2em', textTransform: 'uppercase', color: 'rgba(251,251,250,0.36)' }}
+              >
+                living memory
+              </p>
+              <p
+                className="m-serif italic mt-6 text-center lg:text-left"
+                style={{ color: '#FBFBFA', fontSize: 'clamp(1.15rem, 3vw, 1.6rem)', lineHeight: 1.24 }}
+              >
+                Everyone gives you a record.
+                <br />
+                We give you an{' '}
+                <span style={{ color: 'var(--m-orange-3)' }}>Alaala.</span>
+              </p>
+              <p
+                className="mt-4 text-center lg:text-left"
+                style={{ color: 'rgba(251,251,250,.5)', fontSize: 'clamp(0.9rem, 2.1vw, 1rem)', lineHeight: 1.68, maxWidth: 440 }}
+              >
+                Every guest goes home with a personal highlight reel — the moments, the
+                people, the stories. Yours to keep, forever.
+              </p>
+            </Reveal>
+          </div>
+
+          {/* ── Bridge: "never still" → three-era evolution ── */}
+          <Reveal>
+            <div className="mt-16 text-center">
+              <h2
+                className="m-serif italic mx-auto"
+                style={{ color: '#FBFBFA', fontSize: 'clamp(1.65rem, 4.4vw, 2.7rem)', lineHeight: 1.1 }}
+              >
+                Your wedding was{' '}
+                <span style={{ color: 'var(--m-orange-3)' }}>never still.</span>
+              </h2>
+              <p
+                className="mx-auto mt-4"
+                style={{ color: 'rgba(251,251,250,.6)', fontSize: 'clamp(0.9rem, 2.2vw, 1.05rem)', lineHeight: 1.65, maxWidth: 540 }}
+              >
+                We have always kept the people we love in albums. First on paper. Then on screens —
+                the same still frames, just glowing now.
+              </p>
+            </div>
           </Reveal>
 
           {/* The three eras */}
-          <div className="mt-16 grid gap-4 sm:gap-5 lg:grid-cols-3">
+          <div className="mt-10 grid gap-4 sm:gap-5 lg:grid-cols-3">
             {ERAS.map((e, i) => (
               <Reveal key={e.name} delay={i * 110}>
                 <div

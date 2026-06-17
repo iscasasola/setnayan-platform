@@ -5,6 +5,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 ---
 
 ## 2026-06-17 · feat(reveal): Reveal Studio — admin customizes + activates/deactivates the Save-the-Date reveal
+## 2026-06-15 · feat(alaala): the in-app Alaala hub — the memory arc as a place (Lane 2)
+
+Lane 2 of the Alaala embed: the Studio hub (`/add-ons`) is the *store*; this is the *story*. A new couple surface lays out the arc of the day so the couple sees their wedding as one living memory being assembled, not a flat grid of SKUs.
+
+- **New route `apps/web/app/dashboard/[eventId]/alaala/page.tsx`** — server component, **catalog-driven**: maps the real `ADD_ONS` entries to six memory stages (opening → moment → people → stories → look & sound → kept forever); each chip deep-links into that feature's setup. Header names the pillar + states the guardrail. Calm v2.1, `--m-*` tokens. (Per-event ownership / "watch it fill with real content" is a follow-up; today it's the narrative + the links.)
+- **`apps/web/app/dashboard/[eventId]/_components/customer-nav-config.ts`** — adds an **Alaala** entry (Aperture icon, `key: 'alaala'`, `/alaala`) to the top anchor group → **Home · Studio · Alaala · Explore**. ⚠ IA NOTE: the top group was 3 anchors; promoted to 4 for prominence per the owner "winning piece" directive — **flagged for owner review** (easy to move to a journey group if preferred).
+
+SPEC IMPACT: None on schema/SKU (new narrative surface + one nav item). **Lane 3 next** — finish the keystones (Kwento → Live Photo Wall → produced-output), the part competitors structurally can't copy.
+
+## 2026-06-15 · feat(alaala): name the memory pillar "Alaala" — Studio hub framing + manifesto naming (Lane 1 of 3)
 
 Owner ask: *"we also want to do the customization of this template from the admin"* + *"where we can activate and deactivate features of the template?"* — owner picked **Full template studio** (toggles **and** a live slider panel). Today the reveal was gated only by the `NEXT_PUBLIC_STD_REVEAL` env flag with all settings baked as constants; this makes it admin-managed end-to-end, following the `platform_settings` / `homepage_hero_config` recipe.
 

@@ -326,10 +326,10 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
         />
         {/* Story captions — fade in over the scrub; hidden by reduced-motion and once the end CTA reveals. */}
         <div ref={capARef} aria-hidden className="m-serif italic pointer-events-none absolute px-6 text-center" style={CAP_STYLE}>
-          A thousand photos. Most guests never see a single one.
+          A thousand choices. The same questions, over and over.
         </div>
         <div ref={capBRef} aria-hidden className="m-serif italic pointer-events-none absolute px-6 text-center" style={CAP_STYLE}>
-          Every guest leaves with their own memories of your wedding.
+          Say it once — and find your perfect fit.
         </div>
         <div
           ref={endRef}
@@ -346,7 +346,7 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
             className="m-serif italic"
             style={{ color: '#FBFBFA', fontSize: 'clamp(2rem, 5vw, 3.4rem)', lineHeight: 1.08, margin: '0 auto' }}
           >
-            Give every guest <span style={{ color: 'var(--m-orange-3)' }}>something to keep.</span>
+            Everything you need to <span style={{ color: 'var(--m-orange-3)' }}>start your wedding.</span>
           </div>
           <div style={{ marginTop: 28 }}>
             <Link href={ctaHref} className="m-btn m-btn-primary m-btn-lg">
@@ -386,10 +386,10 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
               className="m-serif italic"
               style={{ color: ‘#1E2229’, fontSize: ‘clamp(1.4rem, 4.4vw, 2.15rem)’, lineHeight: 1.32, margin: ‘0 auto 14px’, maxWidth: 560 }}
             >
-              Your guests will be on their phones tomorrow. Make sure they leave with something that&rsquo;s actually theirs.
+              Weddings have always been planned for the couple.
             </p>
-            <p style={{ color: ‘rgba(30,34,41,.6)’, fontSize: ‘clamp(.95rem, 2.6vw, 1.05rem)’, lineHeight: 1.5, margin: ‘0 auto 30px’, maxWidth: 440 }}>
-              We&rsquo;re setting it all up.
+            <p style={{ color: ‘var(--m-orange-2)’, fontSize: ‘clamp(1rem, 2.8vw, 1.2rem)’, lineHeight: 1.5, margin: ‘0 auto 30px’, maxWidth: 480, fontStyle: ‘italic’ }}>
+              We built the first platform that makes it an experience for everyone who attends.
             </p>
             <div style={{ height: 2, maxWidth: 220, margin: '0 auto 16px', borderRadius: 2, background: 'rgba(30,34,41,.12)', overflow: 'hidden' }}>
               <div

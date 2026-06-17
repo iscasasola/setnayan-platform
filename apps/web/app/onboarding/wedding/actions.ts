@@ -333,6 +333,9 @@ export async function commitOnboardingWedding(
       .map((k) => RECEPTION_TO_VENUE_SETTING[k])
       .find((v): v is string => Boolean(v)) ?? DEFAULT_VENUE;
 
+  // Normalize legacy 'nolimit' value (pre-fix localStorage cache) → DB canonical 'no_limit'.
+  const budgetBand = payload.budgetBand === 'nolimit' ? 'no_limit' : payload.budgetBand;
+
   const { data: insertedEvent, error: insertError } = await admin
     .from('events')
     .insert({
@@ -363,7 +366,7 @@ export async function commitOnboardingWedding(
       date_candidates: candidates.length ? candidates : null,
       date_window_start: windowStart,
       date_window_end: windowEnd,
-      budget_band: payload.budgetBand,
+      budget_band: budgetBand,
       estimated_budget_centavos:
         typeof payload.budgetAmountCentavos === 'number' ? payload.budgetAmountCentavos : null,
       monogram_frame_key: payload.monogramFrameKey,
@@ -422,6 +425,7 @@ export async function commitOnboardingWedding(
     joined_via: 'created_event',
   });
   if (memberError) {
+    console.error('[commitOnboardingWedding] event_members INSERT failed:', memberError.message, memberError.code, memberError.details);
     return { ok: false, error: memberError.message };
   }
 

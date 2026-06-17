@@ -283,10 +283,10 @@ const BUDGET_BANDS: { value: string; label: string; tag: string; med: number }[]
   { value: 'elevated', label: 'Elevated', tag: 'Polished', med: 7500 },
   { value: 'premium', label: 'Premium', tag: 'Entry luxury', med: 11000 },
   { value: 'luxury', label: 'Luxury', tag: 'No-compromise', med: 15000 },
-  { value: 'nolimit', label: 'No limit', tag: 'No ceiling', med: 0 },
+  { value: 'no_limit', label: 'No limit', tag: 'No ceiling', med: 0 },
 ];
 const budgetTierBand = (band: string) =>
-  band === 'essentials' || band === 'simple' ? 'lean' : band === 'premium' || band === 'luxury' || band === 'nolimit' ? 'lavish' : 'mid';
+  band === 'essentials' || band === 'simple' ? 'lean' : band === 'premium' || band === 'luxury' || band === 'no_limit' ? 'lavish' : 'mid';
 
 /* ── budget AMOUNT math (owner 2026-06-02: text box + line picker + min-floor + max-of-range) ──
    Per-head median × pax, ±20%, rounded to the nearest ₱50k. Floor = the essentials low
@@ -313,7 +313,7 @@ const fmtPeso = (n: number) =>
 /* the working-budget value the couple effectively chose: their typed/dragged amount,
    else the current band's MAX for the pax (the "set to max of the range chosen" default). */
 function effectiveBudgetPesos(band: string, amount: number | null, pax: number): number | null {
-  if (band === 'nolimit') return null;
+  if (band === 'no_limit') return null;
   if (typeof amount === 'number' && amount > 0) return amount;
   const b = PRICED_BANDS.find((x) => x.value === band) ?? PRICED_BANDS[2] ?? PRICED_BANDS[0]!;
   return bandHi(b.med, pax);
@@ -2323,7 +2323,7 @@ export function OnboardingShell({
   const budgetSet = state.budgetBand != null; // false until the couple sets a budget — drives the unset (empty) display
   const budgetView = (() => {
     const tier = paxTier.t;
-    if (budgetBandValue === 'nolimit') {
+    if (budgetBandValue === 'no_limit') {
       return { dataBand: 'luxury', img: `budget/${tier}_luxury`, label: 'No limit', tag: 'No ceiling', rangeText: 'The best of everything' };
     }
     const b = BUDGET_BANDS.find((x) => x.value === budgetBandValue) ?? BUDGET_BANDS[2]!;
@@ -2355,7 +2355,7 @@ export function OnboardingShell({
   );
   const onBudgetBandPill = useCallback(
     (b: { value: string; med: number }) => {
-      applyBudget(b.value, b.value === 'nolimit' ? null : bandHi(b.med, pax));
+      applyBudget(b.value, b.value === 'no_limit' ? null : bandHi(b.med, pax));
     },
     [applyBudget, pax],
   );
@@ -2554,7 +2554,7 @@ export function OnboardingShell({
   })();
   const recapBudget = (() => {
     if (!state.budgetBand) return null;
-    if (state.budgetBand === 'nolimit') return 'No limit';
+    if (state.budgetBand === 'no_limit') return 'No limit';
     const band = BUDGET_BANDS.find((b) => b.value === state.budgetBand);
     const eff = effectiveBudgetPesos(state.budgetBand, state.budgetAmount, state.pax ?? 150);
     return [band?.label, eff ? fmtPeso(eff) : null].filter(Boolean).join(' · ') || null;
@@ -3755,7 +3755,7 @@ export function OnboardingShell({
               </figure>
             </div>
             <div className="tapzone">
-              {budgetBandValue === 'nolimit' ? (
+              {budgetBandValue === 'no_limit' ? (
                 <div className="bdg-nolimit-row">
                   <span className="bdg-nolimit-note">No ceiling — the best of everything.</span>
                   <button type="button" className="bdg-nolimit-exit" onClick={() => onBudgetAmount(budgetCeilingV)}>
@@ -3788,7 +3788,7 @@ export function OnboardingShell({
                         }}
                       />
                     </div>
-                    <button type="button" className="bdg-nolimit" onClick={() => applyBudget('nolimit', null)}>
+                    <button type="button" className="bdg-nolimit" onClick={() => applyBudget('no_limit', null)}>
                       No limit
                     </button>
                   </div>

@@ -1257,6 +1257,7 @@ function PublicLanding({
         sealFallbackSeed={fallbackSeedFromPublicId(event.public_id)}
         veilColor={revealVeilColor(event.role_palette)}
         eventTemplate={coerceRevealTemplate(event.std_reveal_template)}
+        eventId={event.event_id}
       />
       {bgMusicUrl ? <BackgroundMusic src={bgMusicUrl} /> : null}
       {/* When a hero photo/video is uploaded, render a full-bleed banner.
@@ -1736,6 +1737,7 @@ function InvitationSite({
         sealFallbackSeed={fallbackSeedFromPublicId(event.public_id)}
         veilColor={revealVeilColor(event.role_palette)}
         eventTemplate={coerceRevealTemplate(event.std_reveal_template)}
+        eventId={event.event_id}
       />
       {bgMusicUrl ? <BackgroundMusic src={bgMusicUrl} /> : null}
       <article className="space-y-12">

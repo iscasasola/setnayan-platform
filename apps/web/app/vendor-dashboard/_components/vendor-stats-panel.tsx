@@ -32,8 +32,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  *     this is still being populated (pending migration). Show "—" to avoid
  *     misleading vendors with a false "0 minutes" reading.
  *   - Experience badge tiers:
- *       New (<5) · Established (5-14) · Experienced (15-29) ·
- *       Expert (30-49) · Elite (50+)
+ *       New to Setnayan (0) · Established (1-10) · Experienced (11-50) ·
+ *       Expert (51-200) · Elite (200+)
  *   - Anonymous benchmark placeholder: shows "Benchmark data coming soon"
  *     until aggregate seeded data exists for percentile computation.
  *
@@ -90,10 +90,10 @@ function formatResponseTime(minutes: number): string | null {
 
 /**
  * Derive experience tier badge from finalized_booking_count.
- * Tiers: New (<5) · Established (5–14) · Experienced (15–29) · Expert (30–49) · Elite (50+)
+ * Tiers: New to Setnayan (0) · Established (1–10) · Experienced (11–50) · Expert (51–200) · Elite (200+)
  */
 function getExperienceTier(count: number): ExperienceTier {
-  if (count >= 50) {
+  if (count >= 200) {
     return {
       label: 'Elite',
       nextTierLabel: null,
@@ -102,37 +102,37 @@ function getExperienceTier(count: number): ExperienceTier {
       bg: 'bg-amber-100',
     };
   }
-  if (count >= 30) {
+  if (count >= 51) {
     return {
       label: 'Expert',
       nextTierLabel: 'Elite',
-      nextTierCount: 50 - count,
+      nextTierCount: 200 - count,
       color: 'text-violet-800',
       bg: 'bg-violet-100',
     };
   }
-  if (count >= 15) {
+  if (count >= 11) {
     return {
       label: 'Experienced',
       nextTierLabel: 'Expert',
-      nextTierCount: 30 - count,
+      nextTierCount: 51 - count,
       color: 'text-emerald-800',
       bg: 'bg-emerald-100',
     };
   }
-  if (count >= 5) {
+  if (count >= 1) {
     return {
       label: 'Established',
       nextTierLabel: 'Experienced',
-      nextTierCount: 15 - count,
+      nextTierCount: 11 - count,
       color: 'text-blue-800',
       bg: 'bg-blue-100',
     };
   }
   return {
-    label: 'New',
+    label: 'New to Setnayan',
     nextTierLabel: 'Established',
-    nextTierCount: 5 - count,
+    nextTierCount: 1 - count,
     color: 'text-ink/70',
     bg: 'bg-ink/8',
   };

@@ -122,18 +122,13 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
     mount.appendChild(cv);
 
     const scene = new THREE.Scene();
-    const camZ = 4.4;
-    const fov = 45;
-    const frontZ = 0.6;
-    const camera = new THREE.PerspectiveCamera(fov, 1, 0.1, 100);
-    camera.position.set(0, 0, camZ);
-    scene.add(new THREE.HemisphereLight(0xfff6e8, 0x1c1610, 0.55));
-    const key = new THREE.SpotLight(0xfff3e0, 2.2, 40, Math.PI / 5, 0.7, 1.0);
-    key.position.set(2.8, 3.6, 4.4);
+    const camera = new THREE.PerspectiveCamera(45, W / H, 0.1, 100);
+    camera.position.set(0, 0, 4.4);
+    scene.add(new THREE.HemisphereLight(0xfff6e8, 0x241c16, 0.6));
+    const key = new THREE.SpotLight(0xfff3e0, 1.6, 40, Math.PI / 5, 0.6, 1.0);
+    key.position.set(2, 3.2, 4.8);
     scene.add(key);
-    const rim = new THREE.DirectionalLight(0xfff0d8, 0.5);
-    rim.position.set(-3, 0.4, 2.0);
-    scene.add(rim);
+    const frontZ = 0.6;
 
     let W = 0;
     let H = 0;

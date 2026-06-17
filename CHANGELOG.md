@@ -44,6 +44,12 @@ Owner renewed Apple Developer + created a real **Developer ID Application** cert
 Windows signing still pending (separate item). SPEC IMPACT: None — CI/release plumbing only.
 
 ## 2026-06-16 · feat(papic): free Papic sampler — 3 seats, 8 photos + 2 clips each, 30-day retention
+## 2026-06-17 · fix(std-reveal): widen the sheer bridal veil's coverage (veil refinement)
+
+The sheer veil (`veil-reveal.tsx`) draped too narrow — it read as "closed up" on wider screens. Enlarged the Verlet cloth so it drapes well past every screen edge like a full bridal veil, not a centred panel: `clothW` 6.4 → 10, `clothH` 9.2 → 13, pin line `topY` 2.6 → 3.2, with a finer grid (cols 28→36, rows 40→48) so the folds stay soft. Lift-to-clear math is unchanged (keyed off `clothH`). `tsc` 0.
+
+SPEC IMPACT: Save-the-Date reveal (0024) — veil-sheer coverage tuning only; no schema/SKU change.
+
 ## 2026-06-17 · feat(std-reveal): real Recraft textures replace the procedural stand-ins (faithful-rebuild · assets pass)
 
 Swaps the reveal's painted-in-code stand-ins for real photoreal assets generated with Recraft + processed (resize/optimise; petal & butterfly keyed to transparent alpha), committed under `public/reveal/assets/`. Loaded **async with the procedural version as the instant fallback** — on a load failure the stand-in just stays, so the reveal never breaks.

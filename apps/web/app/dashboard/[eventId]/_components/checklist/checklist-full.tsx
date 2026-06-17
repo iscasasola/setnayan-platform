@@ -6,7 +6,9 @@ import {
   type ChecklistItemView,
   type ChecklistPhaseGroup,
 } from '@/lib/checklist';
+import { CATEGORY_STATE_LABELS, type CategoryDecisionState } from '@/lib/checklist-state';
 import { toggleChecklistItem } from '../../checklist-actions';
+import { CategoryDecisionPrompt } from '../CategoryDecisionPrompt';
 
 /**
  * ChecklistFull — the browsable, full wedding checklist.
@@ -16,7 +18,17 @@ import { toggleChecklistItem } from '../../checklist-actions';
  * component: toggles are plain <form action> submits (no client JS), mirroring
  * the home ChecklistCard. The list is deterministic and free — Setnayan AI only
  * tailors WHICH tasks appear (church steps are dropped for a civil ceremony).
+ *
+ * Also renders a "Vendor categories" section below the task list, with inline
+ * CategoryDecisionPrompt nudges for each vendor plan group the couple is
+ * tracking (Tier 1 + Tier 2 + their onboarding picks).
  */
+
+export type CategoryStateEntry = {
+  planGroupId: string;
+  label: string;
+  state: CategoryDecisionState;
+};
 
 type Props = {
   eventId: string;
@@ -25,6 +37,8 @@ type Props = {
   doneCount: number;
   /** Couple's wedding date — null shows the "add a date" hint instead of due dates. */
   eventDate: string | null;
+  /** Per-plan-group decision states for vendor categories. */
+  categoryStates?: ReadonlyArray<CategoryStateEntry>;
 };
 
 /** Format a computed due date + soft urgency tint for the meta line. */
@@ -106,7 +120,99 @@ function PhaseRows({ eventId, items }: { eventId: string; items: ReadonlyArray<C
   );
 }
 
-export function ChecklistFull({ eventId, groups, totalCount, doneCount, eventDate }: Props) {
+/** State dot color for the passive pill (one_option, searching, in_progress, done). */
+function stateDotClass(state: CategoryDecisionState): string {
+  switch (state) {
+    case 'done':       return 'bg-emerald-500';
+    case 'in_progress': return 'bg-blue-400';
+    case 'searching':  return 'bg-violet-400';
+    case 'one_option': return 'bg-amber-400';
+    default:           return 'bg-ink/20';
+  }
+}
+
+/**
+ * VendorCategoriesSection — the per-plan-group decision prompt block.
+ *
+ * Shows below the phase-based task list. Each plan group row shows:
+ *   - group label
+ *   - current state pill (passive states: in_progress / done / searching / one_option)
+ *   - CategoryDecisionPrompt for actionable states (not_started / needs_more_options /
+ *     excluded / deferred)
+ */
+function VendorCategoriesSection({
+  eventId,
+  categoryStates,
+}: {
+  eventId: string;
+  categoryStates: ReadonlyArray<CategoryStateEntry>;
+}) {
+  if (categoryStates.length === 0) return null;
+
+  // Show passive-state entries only if they have something to communicate;
+  // filter out completely-active states that already have an inline prompt.
+  const PASSIVE_STATES: ReadonlySet<CategoryDecisionState> = new Set([
+    'one_option',
+    'searching',
+    'in_progress',
+    'done',
+  ]);
+  const PROMPT_STATES: ReadonlySet<CategoryDecisionState> = new Set([
+    'not_started',
+    'needs_more_options',
+    'excluded',
+    'deferred',
+  ]);
+
+  return (
+    <section className="space-y-3">
+      <div className="border-b border-ink/10 pb-1">
+        <h2 className="text-sm font-semibold text-ink">Vendor categories</h2>
+        <p className="mt-0.5 text-xs text-ink/55">
+          Let us know what you need — skip categories that don't apply.
+        </p>
+      </div>
+
+      <ul className="space-y-2.5">
+        {categoryStates.map(({ planGroupId, label, state }) => {
+          const isPassive = PASSIVE_STATES.has(state);
+          const hasPrompt = PROMPT_STATES.has(state);
+
+          return (
+            <li key={planGroupId}>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm text-ink">{label}</span>
+
+                {/* Passive states: show a status pill instead of a prompt */}
+                {isPassive && (
+                  <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-ink/10 bg-cream px-2 py-0.5 text-[11px] text-ink/60">
+                    <span
+                      aria-hidden
+                      className={`h-1.5 w-1.5 rounded-full ${stateDotClass(state)}`}
+                    />
+                    {CATEGORY_STATE_LABELS[state]}
+                  </span>
+                )}
+              </div>
+
+              {/* Prompt states: inline decision nudge */}
+              {hasPrompt && (
+                <CategoryDecisionPrompt
+                  planGroupId={planGroupId}
+                  currentState={state}
+                  eventId={eventId}
+                  label={label}
+                />
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+export function ChecklistFull({ eventId, groups, totalCount, doneCount, eventDate, categoryStates }: Props) {
   const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
 
   return (
@@ -151,6 +257,12 @@ export function ChecklistFull({ eventId, groups, totalCount, doneCount, eventDat
           </Link>
         ) : null}
       </header>
+
+      {/* Vendor categories decision section — above the phase task list so couples
+          can orient on what they need before diving into individual tasks. */}
+      {categoryStates && categoryStates.length > 0 ? (
+        <VendorCategoriesSection eventId={eventId} categoryStates={categoryStates} />
+      ) : null}
 
       {totalCount === 0 ? (
         <p className="rounded-xl border border-dashed border-ink/15 bg-cream px-4 py-6 text-center text-sm text-ink/60">

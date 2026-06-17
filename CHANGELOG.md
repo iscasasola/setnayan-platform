@@ -44,6 +44,21 @@ Owner renewed Apple Developer + created a real **Developer ID Application** cert
 Windows signing still pending (separate item). SPEC IMPACT: None — CI/release plumbing only.
 
 ## 2026-06-16 · feat(papic): free Papic sampler — 3 seats, 8 photos + 2 clips each, 30-day retention
+## 2026-06-16 · chore(explore): remove all seeded "fake venue" listings — explore = live vendors only
+
+Owner: *"we only place the live vendors here … we remove all the fake venues."* The explore/marketplace browse (and a public `/venues` SEO section) were surfacing the seeded `venue_directory` table — informational ceremony/reception venues with stock Pexels/Wikimedia photos and `[+ Add to plan]` buttons — reading as a stocked marketplace when no real vendors are listed yet. In this app **venues are NOT modeled as bookable `vendor_profiles`**, so "live vendors only" means the seeded venue surfaces come out.
+
+- **`app/explore/page.tsx`** — dropped the three `venue_directory`-backed sections: `PairedVenuePanel` (ceremony venues near a saved reception), `CeremonyVenuesSection` (church/mosque/civil cards **+ a hardcoded `CEREMONY_VENUE_PLACEHOLDERS` array that rendered fake venue NAMES even with zero DB rows**), and `ReceptionVenuesSection` (facet picker + venue cards). Pruned the now-unused `CatalogView` props (`venueAnchorName`, `coupleCeremonyType`, `hostVenueSetting`, `venueFilterActive`, `venueFacet`).
+- **Kept** the static `CeremonyVenuePanel` *guidance* (where ceremonies happen · book the parish · Setnayan finds the officiant + handles paperwork) — honest help copy, not a fake listing; fixed its now-dead `#reception` anchor link.
+- Deleted the public SEO venue directory: `app/venues`, `app/venues/[city]`, `app/venue/[slug]`, `app/venues/_lib/venue-directory.ts`, `app/sitemap-venues.xml`. Dropped the `venues` child from `app/sitemap.xml` + `/venues`+`/venue/` from `app/robots.ts` (the only inbound link came from the deleted `ReceptionVenuesSection`).
+- Deleted 4 orphaned components (`ceremony-venues-section`, `reception-venues-section`, `paired-venue-panel`, `add-venue-to-plan-button`).
+- **Left dormant — no breakage** (all read `venue_directory` with graceful-empty fallbacks): the `venue_directory` table + seed migration, the admin curation UI (`app/admin/venues/*`), `lib/officiant-auto-resolve.ts`, `lib/religion-readiness.ts` (still counts venues toward a faith's readiness — unchanged because table DATA is untouched, only display removed), `lib/wedding-plan-groups.ts`, `lib/venue-recommendations.ts`. The `addVenueDirectoryEntryToPlan` server action is now unreachable — left as inert dead code (shares imports with live actions); safe to delete in a follow-up.
+
+`tsc --noEmit` green · `next lint` clean (no new warnings) · production build green. Cosmetic follow-up: the folder strip still shows a "Venue" tile (now anchorless `#reception`); the Venue folder renders ceremony guidance only.
+
+SPEC IMPACT: explore marketplace + the `/venues` SEO directory no longer surface seeded `venue_directory` venues anywhere couple-facing — venues are not a V1 vendor category. The `venue_directory` data + admin tooling remain for a future bookable-venue iteration (V1.2 per the seed-migration note). Logged in corpus `DECISION_LOG.md` (iteration 0015 explore + the venue-directory line). Reversible via git if real curated/bookable venues return.
+
+## 2026-06-16 · feat(onboarding): reframe the "Your Plan" climax — honest free list + Setnayan AI ₱3,999 keep-card
 
 Lane 2 of the Alaala embed: the Studio hub (`/add-ons`) is the *store*; this is the *story*. A new couple surface lays out the arc of the day so the couple sees their wedding as one living memory being assembled, not a flat grid of SKUs.
 

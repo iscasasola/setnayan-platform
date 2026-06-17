@@ -97,6 +97,8 @@ export const CHECKLIST_TEMPLATE: ReadonlyArray<ChecklistTemplateItem> = [
   { key: 'shortlist_dates', title: 'Share your rough timing preference — a window, not a locked date', category: 'foundations', dueOffsetDays: 520 },
   { key: 'draft_guest_list', title: 'Draft a rough guest list (start lean — it always grows)', category: 'guests', dueOffsetDays: 510 },
   { key: 'pick_party', title: 'Choose your wedding party (maid of honour, best man, entourage)', category: 'foundations', dueOffsetDays: 500 },
+  { key: 'guest_estimate', title: 'Estimate your guest count — you need this before venues', category: 'guests', dueOffsetDays: 495 },
+  { key: 'set_budget', title: 'Set your overall budget based on your guest count', category: 'foundations', dueOffsetDays: 490 },
   { key: 'shortlist_venues', title: 'Research & shortlist ceremony venues (church, chapel, or garden)', category: 'vendors', dueOffsetDays: 480 },
   { key: 'shortlist_reception_venue', title: 'Research & shortlist reception venues (hall, hotel, or garden)', category: 'vendors', dueOffsetDays: 470 },
   { key: 'ask_parish', title: 'Ask your parish for its full requirements list & timeline', category: 'paperwork', dueOffsetDays: 460, appliesTo: isChurchCeremony },
@@ -104,11 +106,9 @@ export const CHECKLIST_TEMPLATE: ReadonlyArray<ChecklistTemplateItem> = [
   { key: 'set_date', title: 'Lock your date — the day your ceremony and reception venue both agree on', category: 'foundations', dueOffsetDays: 400 },
 
   // ══ 12–9 months before — Lock your look & key vendors ══
-  { key: 'set_budget', title: 'Set your overall budget', category: 'foundations', dueOffsetDays: 360 },
-  { key: 'guest_estimate', title: 'Estimate your guest count', category: 'foundations', dueOffsetDays: 350 },
   { key: 'lock_theme', title: 'Lock your theme, palette & overall style', category: 'design', dueOffsetDays: 340 },
-  { key: 'book_venue', title: 'Book your ceremony venue (confirm the date with the church or chapel)', category: 'vendors', dueOffsetDays: 330 },
-  { key: 'book_reception_venue', title: 'Book your reception venue (confirm the date with the hall or hotel)', category: 'vendors', dueOffsetDays: 325 },
+  { key: 'book_venue', title: 'Pay your deposit & sign the contract with your ceremony venue', category: 'vendors', dueOffsetDays: 330 },
+  { key: 'book_reception_venue', title: 'Pay your deposit & sign the contract with your reception venue', category: 'vendors', dueOffsetDays: 325 },
   { key: 'book_host', title: 'Book your host / emcee', category: 'vendors', dueOffsetDays: 320 },
   { key: 'book_ceremony_music', title: 'Book your ceremony musicians (string quartet, choir, soloist)', category: 'vendors', dueOffsetDays: 310 },
   { key: 'book_reception_music', title: 'Book your reception music (band, DJ, or mobile bar)', category: 'vendors', dueOffsetDays: 305 },

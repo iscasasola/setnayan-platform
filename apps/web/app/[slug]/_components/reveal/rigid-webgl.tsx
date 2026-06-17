@@ -213,21 +213,111 @@ export default function RigidWebGL({ variant, progress, onUnsupported }: Props) 
       flaps.push({ group: makeFlap(rectGeom(w, h, 0, -h / 2), 0, halfH, Z_FLAP, linerMat), axis: 'x', maxDeg: -158, start: 0, end: 0.62 });
       flaps.push({ group: makeFlap(rectGeom(w, h, 0, h / 2), 0, -halfH, Z_FLAP, linerMat), axis: 'x', maxDeg: 158, start: 0.06, end: 0.7 });
     } else if (variant === 'church-doors') {
-      const door = (mirror: boolean) => {
-        // arched door: rectangle + rounded top, hinge edge at local x=0.
-        const w = halfW;
-        const s = new THREE.Shape();
+      // ── Geometry constants ────────────────────────────────────────────────
+      const DOOR_DEPTH  = 0.05;  // door panel thickness (visible on open edge)
+      const STONE_DEPTH = 0.08;  // stone arch surround depth
+      // Spring height: arch leaves the outer/hinge edge here and curves to the peak.
+      // 0.38*halfH ≈ 69 % up the door, matching the reference photo proportion.
+      const SPRING_Y = halfH * 0.38;
+
+      // ── Correct pointed-gothic door shape ────────────────────────────────
+      // Coordinate system: hinge edge at local x=0 (outer wall), centre seam at
+      // local x=sgn*halfW.  The arch PEAKS at the centre-seam top (world x=0) and
+      // curves outward+downward to SPRING_Y on the hinge edge — the previous code
+      // had this backwards (peak was on the hinge side).
+      // Vertical tangents at both ends: cp1 directly below peak → sharp point;
+      // cp2 directly above spring → smooth entry into the straight side rail.
+      const doorShape = (mirror: boolean): THREE.Shape => {
         const sgn = mirror ? -1 : 1;
-        const arch = halfH * 0.5;
-        s.moveTo(0, -halfH);
-        s.lineTo(sgn * w, -halfH);
-        s.lineTo(sgn * w, halfH - arch);
-        s.quadraticCurveTo(sgn * w, halfH, 0, halfH);
-        s.lineTo(0, -halfH);
-        return new THREE.ShapeGeometry(s);
+        const w   = halfW;
+        const s   = new THREE.Shape();
+        s.moveTo(0, -halfH);            // hinge bottom
+        s.lineTo(sgn * w, -halfH);      // centre seam bottom
+        s.lineTo(sgn * w, halfH);       // centre seam straight up → ARCH PEAK
+        s.bezierCurveTo(
+          sgn * w, halfH * 0.65,        // cp1 — below peak, vertical departure
+          0,       halfH * 0.60,        // cp2 — above spring, vertical arrival
+          0,       SPRING_Y,            // spring point on outer edge
+        );
+        s.lineTo(0, -halfH);            // outer edge straight down
+        return s;
       };
-      flaps.push({ group: makeFlap(door(false), -halfW, 0, Z_FLAP, doorLinerMat), axis: 'y', maxDeg: -138, start: 0, end: 0.72 });
-      flaps.push({ group: makeFlap(door(true), halfW, 0, Z_FLAP, doorLinerMat), axis: 'y', maxDeg: 138, start: 0.04, end: 0.76 });
+
+      // ── Extruded door panels (gives visible thickness on open edge) ───────
+      const doorWoodMat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color('#8b5e3c'),
+        roughness: 0.82,
+        metalness: 0,
+      });
+      disposables.push(doorWoodMat);
+
+      const makeDoorGroup = (mirror: boolean, hx: number): THREE.Group => {
+        const g   = new THREE.Group();
+        g.position.set(hx, 0, Z_FLAP);
+        const geo = new THREE.ExtrudeGeometry(doorShape(mirror), {
+          depth: DOOR_DEPTH,
+          bevelEnabled: false,
+        });
+        geo.translate(0, 0, -DOOR_DEPTH); // front face sits at local z=0
+        const mesh = new THREE.Mesh(geo, doorWoodMat);
+        mesh.castShadow    = true;
+        mesh.receiveShadow = true;
+        g.add(mesh);
+        disposables.push(geo);
+        return g;
+      };
+
+      flaps.push({ group: makeDoorGroup(false, -halfW), axis: 'y', maxDeg: -138, start: 0,    end: 0.72 });
+      flaps.push({ group: makeDoorGroup(true,   halfW), axis: 'y', maxDeg:  138, start: 0.04, end: 0.76 });
+
+      // ── Stone arch surround (static — never rotates) ──────────────────────
+      // Rectangular stone wall with a pointed arch hole whose bezier CPs are the
+      // world-space reversal of the door arch beziers, so both silhouettes align.
+      const STONE_W      = halfW * 1.45; // pilasters extend beyond the door opening
+      const stoneOutline = new THREE.Shape();
+      stoneOutline.moveTo(-STONE_W, -halfH);
+      stoneOutline.lineTo( STONE_W, -halfH);
+      stoneOutline.lineTo( STONE_W,  halfH);
+      stoneOutline.lineTo(-STONE_W,  halfH);
+      stoneOutline.lineTo(-STONE_W, -halfH);
+
+      // Arch hole — world coords.
+      // Left half:  left spring (−halfW, SPRING_Y) → peak (0, halfH).
+      // Right half: peak (0, halfH) → right spring (+halfW, SPRING_Y).
+      // CPs are the world-space reversal of the door arch CPs (left door offset −halfW).
+      const archHole = new THREE.Path();
+      archHole.moveTo(-halfW, -halfH);
+      archHole.lineTo(-halfW, SPRING_Y);
+      archHole.bezierCurveTo(
+        -halfW, halfH * 0.60,   // reversed door cp2 → world
+         0,     halfH * 0.65,   // reversed door cp1 → world
+         0,     halfH,          // peak
+      );
+      archHole.bezierCurveTo(
+         0,    halfH * 0.65,    // mirror
+         halfW, halfH * 0.60,
+         halfW, SPRING_Y,       // right spring
+      );
+      archHole.lineTo( halfW, -halfH);
+      archHole.lineTo(-halfW, -halfH);
+      stoneOutline.holes.push(archHole);
+
+      const stoneMat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color('#c0b5a5'),
+        roughness: 0.92,
+        metalness: 0,
+      });
+      const stoneGeo = new THREE.ExtrudeGeometry(stoneOutline, {
+        depth: STONE_DEPTH,
+        bevelEnabled: false,
+      });
+      stoneGeo.translate(0, 0, -STONE_DEPTH); // front face at z=0
+      const stoneMesh = new THREE.Mesh(stoneGeo, stoneMat);
+      stoneMesh.position.z = Z_FLAP + DOOR_DEPTH + 0.008; // in front of closed door face
+      stoneMesh.castShadow    = true;
+      stoneMesh.receiveShadow = true;
+      scene.add(stoneMesh);
+      disposables.push(stoneMat, stoneGeo);
     } else {
       // four-flap: 4 triangles whose apex meets at centre, hinged on each edge,
       // folding back over their edge in sequence (top first), z-staggered.

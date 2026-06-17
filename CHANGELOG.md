@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · fix(onboarding): "Something went wrong" on commit — empty SUPABASE_SERVICE_ROLE_KEY + hardened error handling
+
+**Root cause (confirmed by prod DB audit):** `apps/web/.env.local` was pulled from Vercel CLI with `SUPABASE_SERVICE_ROLE_KEY=""` (Vercel masks sensitive env vars in `vercel env pull` output). On local dev (`next dev`), `createAdminClient()` at the top of `commitOnboardingWedding` hits `!key` and throws `'Missing SUPABASE env vars for admin client.'` — uncaught from the server action, Next.js forwards it to the client, the catch block at shell line 2964 fires → "Something went wrong saving your plan. Please try again." The prod DB was clean (all triggers, CHECK constraints, and columns verified by direct query: widget trigger at 15 types, CHECK at 15 types, all events columns present, test INSERT succeeded — no DB-level issue).
+
+**What landed:**
+
+- **`apps/web/app/onboarding/wedding/actions.ts`** — wrapped `createAdminClient()` in a try/catch that returns `{ ok: false, error: 'server_config_error' }` instead of letting the throw escape the server action (uncaught server-action throws hit the client's generic catch before the structured error path). Added `console.error('[commitOnboardingWedding] events INSERT failed:', ...)` for `insertError.message/code/details` so the actual DB error is visible in Vercel logs on prod failures.
+
+- **`supabase/migrations/20270110130000_invitation_widgets_our_photos_reconcile.sql`** — new idempotent migration that applies the `our_photos` widget type to the `invitation_widgets_widget_type_check` CHECK + `populate_default_invitation_widgets()` trigger at a fresh timestamp (the original `20260919000000` was taken in prod by a parallel-session migration; this makes the ledger match reality). NO-OP on the current prod DB — both the CHECK and trigger are already at 15 types; this just records the canonical state. Apply when the pending migration queue is flushed.
+
+- **`apps/web/.env.local`** (gitignored) — `SUPABASE_SERVICE_ROLE_KEY` filled in with the real project API key (retrieved via `supabase projects api-keys`). Fixes the root cause for local dev. NOT committed.
+
+**SPEC IMPACT:** None.
+
+---
+
 ## 2026-06-17 · feat(marketing): make /our-story Google-OAuth-acceptable (explains the app's purpose) + privacy hygiene
 
 A previous Google OAuth verification attempt was rejected — *"Your home page does not explain the purpose of your app."* The homepage is a cinematic scroll-scrub video whose plain explanation is gated behind a "tap to learn more" reveal, so a reviewer sees a video + poetry, never a clear statement of what the app does. **Owner decided to KEEP the YouTube scopes and pursue verification** (vs. the alternative of dropping the unused scopes — see the heads-up below), and to satisfy the home-page check on **`/our-story`** rather than clutter the front-page hero (Google checks whatever URL is set as the consent screen's "Application home page", which can be a subpage).

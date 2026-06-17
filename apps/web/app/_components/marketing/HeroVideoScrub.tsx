@@ -396,26 +396,17 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
             </div>
           </div>
 
-          {/* Tagline + feature grid — always visible in both loading and ready states */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24, width: '100%', maxWidth: 480 }}>
-            <div className="m-mono" style={{ fontSize: 11, letterSpacing: '.24em', color: '#C9A96E' }}>
-              14 features &middot; 1 app
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '11px 40px', width: '100%', maxWidth: 400 }}>
-              {[
-                'Online Planner',  'Guest List',
-                'Budget Tracker',  'Seat Plan',
-                'Checklist',       'Mood Board',
-                'Save the Date',   'RSVP',
-                'Event Website',   'Editorial',
-                'Papic',           'Panood',
-                'Kwento',          'Pakanta',
-              ].map((f) => (
-                <div key={f} className="m-mono" style={{ fontSize: 10, letterSpacing: '.12em', color: '#1E2229', opacity: .52 }}>
-                  {f}
-                </div>
-              ))}
-            </div>
+          {/* Manifesto — always visible in both loading and ready states */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, width: '100%', maxWidth: 520, textAlign: 'center' }}>
+            <p style={{ margin: 0, fontSize: 15, lineHeight: 1.6, color: 'rgba(30,34,41,0.38)', fontWeight: 400 }}>
+              Weddings have always been planned for the couple.
+            </p>
+            <div style={{ width: 24, height: 1, background: '#C9A96E', opacity: 0.5 }} />
+            <p style={{ margin: 0, fontSize: 15, lineHeight: 1.6, color: '#1E2229', fontWeight: 400 }}>
+              We built the first platform where{' '}
+              <span style={{ color: '#C9A96E' }}>every guest</span>
+              {' '}is part of it.
+            </p>
           </div>
 
           <style>{`@keyframes stn-nudge-up{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}`}</style>

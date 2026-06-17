@@ -4,6 +4,29 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · PR #1658 — Checklist inline decision capture UI
+
+**What landed:** Per-plan-group vendor category decision prompts on the couple's `/dashboard/[eventId]/checklist` page. Couples can now mark a vendor category as "Definite No", "Not sure yet", or navigate to find a vendor — without leaving the checklist.
+
+**New files:**
+- `supabase/migrations/20270110320013_event_category_decisions.sql` — new table `event_category_decisions(event_id, plan_group_id, decision, decided_at)` with `unique(event_id, plan_group_id)` and couple-write RLS policy
+- `apps/web/lib/checklist-state.ts` — 8-state `CategoryDecisionState` type + `resolveCategoryState()` pure fn + `CATEGORY_STATE_LABELS` + `CATEGORY_STATE_PROMPTS` (forward-ports from PR #1649)
+- `apps/web/lib/checklist-taxonomy.ts` — `getEventInterestedPlanGroups()` server helper (from PR #1649)
+- `apps/web/app/dashboard/[eventId]/checklist/actions.ts` — `setCategoryDecision(eventId, planGroupId, 'excluded'|'deferred'|null)` server action; `null` deletes the row (reset to `not_started`)
+- `apps/web/app/dashboard/[eventId]/_components/CategoryDecisionPrompt.tsx` — client component using `useTransition`; shows 3-button prompt for `not_started`, alternative prompt for `needs_more_options`, muted pill+undo for `excluded`/`deferred`, null for active states
+
+**Changed files:**
+- `apps/web/app/dashboard/[eventId]/checklist/page.tsx` — parallel-fetches `event_category_decisions` + `event_vendors` + `interested_categories`; resolves `CategoryDecisionState` per plan group; passes `categoryStates[]` to `ChecklistFull`; graceful-degrades on missing migration
+- `apps/web/app/dashboard/[eventId]/_components/checklist/checklist-full.tsx` — new `VendorCategoriesSection` block above the phase task list; Tier 1+2 always shown; Tier 3 from onboarding picks; passive states show a status pill
+- `apps/web/lib/checklist-autocomplete.ts` + `.test.ts` — `dateStatusLocked` signal added; auto-completes `set_date` when `events.date_status = 'locked'` (also from #1649)
+- `apps/web/app/dashboard/[eventId]/checklist-actions.ts` — include `date_status` in events select; wire `dateStatusLocked` signal in `reconcileChecklistCompletion`
+
+**plan_group_id linkage:** `event_vendors.category` (VendorCategory enum) → `planGroupForCategory()` from `lib/wedding-plan-groups.ts` → `PlanGroupId` → grouped per plan group for state resolution.
+
+**SPEC IMPACT:** Implements the inline decision capture described in `02_Specifications/Adaptive_Checklist_Design_2026-06-17.md` (per-category state machine + couple decision prompts). The `event_category_decisions` table is the new canonical store for explicit couple decisions.
+
+---
+
 ## 2026-06-17 · PR #NEXT — /api/notify push webhook route
 
 **What landed:** `apps/web/app/api/notify/route.ts` — Supabase database webhook handler that fires on every `chat_messages` INSERT and delivers push notifications to the vendor side.

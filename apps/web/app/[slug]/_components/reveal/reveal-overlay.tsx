@@ -54,6 +54,8 @@ type Props = {
   sealFallbackSeed?: number;
   /** Veil tulle colour (hex) from the Mood Board palette. */
   veilColor?: string;
+  /** Rose-petal colour (hex) from the Mood Board palette. Blush-rose default. */
+  petalsColor?: string;
 };
 
 const FLAG_ON = process.env.NEXT_PUBLIC_STD_REVEAL === '1';
@@ -66,6 +68,7 @@ export function RevealOverlay({
   sealConfig = null,
   sealFallbackSeed,
   veilColor = '#f3ece1',
+  petalsColor = '#e87a93',
 }: Props) {
   const [mounted, setMounted] = useState(false);
   const [reveal, setReveal] = useState('');
@@ -100,6 +103,7 @@ export function RevealOverlay({
       >
         <VeilComponent
           veilColor={veilColor}
+          petalsColor={petalsColor}
           onRevealed={() => {
             setOpen(true);
             setTimeout(() => setGone(true), 500);

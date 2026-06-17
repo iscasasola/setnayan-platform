@@ -28,6 +28,8 @@ import { buildVeilTextures, makeVeilMaterial, markUrl } from './veil-shared';
 type Props = {
   /** Veil tulle colour (hex), Mood-Board-driven. Ivory fallback handled by caller. */
   veilColor: string;
+  /** Rose-petal colour family (hex). Accepted for prop-parity with VeilReveal; unused here. */
+  petalsColor?: string;
   /** Fired once when the veil has been folded clear of the invitation. */
   onRevealed: () => void;
 };

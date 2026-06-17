@@ -238,14 +238,15 @@ export async function recomputeVendorActivityStats(vendorProfileId: string): Pro
         .select('status')
         .eq('vendor_profile_id', vendorProfileId),
 
-      // Inquiries (chat_threads) — all threads + accepted (replied) threads
-      // TODO: Add replied_at / first_vendor_reply_at column to chat_threads
-      //   so we can compute per-thread response time. For now:
-      //   - response_rate_pct = accepted threads / all threads (vendor accepted = replied)
-      //   - avg_response_minutes = 0 (stubbed until timing column exists)
+      // Inquiries (chat_threads) — all threads + response timing.
+      // vendor_first_reply_at is stamped by the stamp_vendor_first_reply trigger
+      // (migration 20270110320018) on the first vendor chat_messages INSERT.
+      // response_rate_pct = accepted threads / all threads.
+      // avg_response_minutes = median of (vendor_first_reply_at - created_at) in minutes,
+      // computed in JS below.
       supabase
         .from('chat_threads')
-        .select('thread_id,inquiry_status,accepted_at,created_at')
+        .select('thread_id,inquiry_status,accepted_at,created_at,vendor_first_reply_at')
         .eq('vendor_profile_id', vendorProfileId),
 
     ]);
@@ -319,16 +320,36 @@ export async function recomputeVendorActivityStats(vendorProfileId: string): Pro
     inquiry_status: string;
     accepted_at: string | null;
     created_at: string;
+    vendor_first_reply_at: string | null;
   }>;
   const totalThreads = threadRows.length;
   const repliedThreads = threadRows.filter((t) => t.inquiry_status === 'accepted').length;
   const responseRatePct =
     totalThreads > 0 ? Math.round((repliedThreads / totalThreads) * 100) : 0;
 
-  // TODO: Add vendor_first_reply_at to chat_messages or chat_threads so we can
-  //   compute avg_response_minutes = avg(first_vendor_message_at - thread_created_at)
-  //   for threads where a vendor replied within 48h.
-  const avgResponseMinutes = 0; // stubbed until timing column is available
+  // avg_response_minutes: median of (vendor_first_reply_at − created_at) in minutes,
+  // computed over threads where the vendor actually replied.
+  // Median is more robust than mean for response-time data (outliers from very slow
+  // replies on old threads skew the mean heavily).
+  // Fallback: 0 when no threads have a reply yet.
+  const replyDeltas: number[] = threadRows
+    .filter((t) => t.vendor_first_reply_at != null)
+    .map((t) => {
+      const replyMs = new Date(t.vendor_first_reply_at!).getTime();
+      const openMs = new Date(t.created_at).getTime();
+      return Math.max(0, (replyMs - openMs) / 60_000); // ms → minutes, floor at 0
+    })
+    .sort((a, b) => a - b);
+
+  let avgResponseMinutes = 0;
+  if (replyDeltas.length > 0) {
+    const mid = Math.floor(replyDeltas.length / 2);
+    const rawMedian =
+      replyDeltas.length % 2 === 1
+        ? (replyDeltas[mid] ?? 0)                                          // odd: middle value
+        : ((replyDeltas[mid - 1] ?? 0) + (replyDeltas[mid] ?? 0)) / 2;   // even: avg of two middles
+    avgResponseMinutes = Math.round(rawMedian);
+  }
 
   // inquiry-to-booking conversion: threads that led to a finalized booking
   // TODO: link chat_threads to event_vendors for exact conversion tracking.

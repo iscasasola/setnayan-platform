@@ -145,6 +145,10 @@ export async function POST(req: NextRequest) {
 
   // Only notify when the sender is the couple (or coordinator) side.
   // Vendor messages don't need to push-notify the vendor themselves.
+  // vendor_first_reply_at is stamped by the stamp_vendor_first_reply DB trigger
+  // (migration 20270110320018) when sender_role = 'vendor' is inserted into
+  // chat_messages — NOT here. This webhook fires for couple→vendor messages,
+  // so there is nothing to stamp for response-time tracking at this point.
   if (record.sender_role === 'vendor') {
     return NextResponse.json({ ok: true, skipped: 'vendor_sent_skip' });
   }

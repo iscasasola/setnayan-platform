@@ -36,6 +36,14 @@ export type ChatThreadRow = {
   // pre-feature threads.
   pax_at_inquiry: number | null;
   pax_current: number | null;
+  /**
+   * Timestamp of the vendor's first chat_messages INSERT on this thread.
+   * Stamped by the `stamp_vendor_first_reply` DB trigger (migration
+   * 20270110320018) and defense-in-depth-stamped by sendChatMessage.
+   * Null until the vendor sends their first reply. Used to compute
+   * avg_response_minutes in lib/vendor-activity.ts.
+   */
+  vendor_first_reply_at: string | null;
 };
 
 export type CoupleThreadWithVendor = ChatThreadRow & {
@@ -91,7 +99,7 @@ export type ChatMessageRow = {
 };
 
 const THREAD_SELECT =
-  'thread_id,public_id,event_id,vendor_profile_id,created_at,updated_at,inquiry_status,accepted_at,declined_at,decline_reason,pax_at_inquiry,pax_current';
+  'thread_id,public_id,event_id,vendor_profile_id,created_at,updated_at,inquiry_status,accepted_at,declined_at,decline_reason,pax_at_inquiry,pax_current,vendor_first_reply_at';
 
 /**
  * Count of message threads with at least one unread message for the current

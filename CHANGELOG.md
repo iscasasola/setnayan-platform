@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · fix(layout): remove nested `<main>` inside SidebarShell's `<main>` (PR #1693)
+
+`SidebarShell` wraps all content in `<main class="lg:pl-[...]">` for the semantic main landmark. `[eventId]/layout.tsx` was also wrapping children in a second `<main class="mx-auto w-full px-4 py-6">` — producing two nested `<main>` elements, which is invalid HTML (spec: only one `<main>` per document, never nested). Changed the inner wrapper to `<div>` — same padding/margin behavior, no semantic breakage. The outer SidebarShell `<main>` is the correct ARIA landmark; the inner was a pure layout utility.
+
+- **File:** `apps/web/app/dashboard/[eventId]/layout.tsx` line 318: `<main>` → `<div>`
+
+**SPEC IMPACT:** None (bug fix only).
+
+---
+
 ## 2026-06-17 · feat(papic): close the face auto-tag loop end-to-end (PR #1616) — DORMANT
 
 The end-to-end Papic face loop the audit found broken. Shipped in #1616 (its CHANGELOG entry was deferred to dodge a merge-conflict deadlock — this is that follow-up). Everything is **dormant** until the owner hosts the face-api weights + `face-api.js` on R2 and sets `NEXT_PUBLIC_FACE_MODEL_URL` (`OWNER_ACTIONS.md`); until then every path is a clean no-op and photos still land untagged-still-delivered.

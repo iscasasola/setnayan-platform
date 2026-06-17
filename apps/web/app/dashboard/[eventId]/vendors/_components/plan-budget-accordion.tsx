@@ -586,6 +586,11 @@ html.dark .pbacc .intro-loop .lp-n,
 html.dark .pbacc .pba-coach .pc-b{color:#C99DB0}
 html.dark .pbacc .pba-coach{background:rgba(197,160,89,.14);border-color:rgba(197,160,89,.45)}
 html.dark .pbacc .lockhint{background:rgba(197,160,89,.14)}
+.pbacc .review-cta{display:block;margin-top:7px;font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;text-align:center;color:var(--mulberry);background:rgba(149,53,83,.08);border-radius:8px;padding:7px 9px;transition:background .18s var(--ease);text-decoration:none}
+.pbacc .review-cta:hover,.pbacc .review-cta:focus{background:rgba(149,53,83,.15)}
+.pbacc .review-done{display:block;margin-top:7px;font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;text-align:center;color:#2f6f4e;background:rgba(47,111,78,.08);border-radius:8px;padding:7px 9px}
+html.dark .pbacc .review-cta{background:rgba(149,53,83,.16)}
+html.dark .pbacc .review-cta:hover,.pbacc .review-cta:focus{background:rgba(149,53,83,.24)}
 
 /* ---- In-app Setnayan service cards (nested, supplementary, float-to-top) ----
    Rendered as the FIRST cards in a category rail (Papic/Panood/Save-the-Date →
@@ -657,12 +662,22 @@ html.dark .pbacc .tools-all{color:#C99DB0}
 `;
 
 // ── Root ────────────────────────────────────────────────────────────────
+export type VendorReviewStatus = 'open' | 'submitted';
+
 export function PlanBudgetAccordion({
   model,
   eventId,
+  reviewStatusByVendorId = new Map(),
 }: {
   model: PlanBudgetModel;
   eventId: string;
+  /**
+   * Review eligibility / completion per vendor_id.
+   * 'open'      — review window is open, no review submitted yet → show "Leave a review"
+   * 'submitted' — review already submitted → show "Review submitted ✓"
+   * Absent key  → no badge (e.g. not complete, or no linked profile)
+   */
+  reviewStatusByVendorId?: ReadonlyMap<string, VendorReviewStatus>;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   // Compare sheet — which child category (≥2 shortlisted) is being compared.
@@ -879,6 +894,7 @@ export function PlanBudgetAccordion({
               onOpenSearch={openSearch}
               onOpen={openService}
               lockHintKey={lockHintKey}
+              reviewStatusByVendorId={reviewStatusByVendorId}
             />
           ))}
           {/* Recap lives INSIDE .cats (not a sibling after it): the pile's
@@ -968,6 +984,7 @@ function FolderSection({
   onOpenSearch,
   onOpen,
   lockHintKey,
+  reviewStatusByVendorId,
 }: {
   folder: AccordionFolder;
   eventId: string;
@@ -982,6 +999,7 @@ function FolderSection({
   onOpenSearch: (groupId: string, label: string) => void;
   onOpen: (href: string, label: string) => void;
   lockHintKey: string | null;
+  reviewStatusByVendorId: ReadonlyMap<string, VendorReviewStatus>;
 }) {
   const hasLocked = folder.lockedTotal > 0;
   // Single-open (owner 2026-06-09): the .cat-head is now a toggle button; only
@@ -1036,6 +1054,7 @@ function FolderSection({
                 onOpenSearch={onOpenSearch}
                 onOpen={onOpen}
                 lockHintKey={lockHintKey}
+                reviewStatusByVendorId={reviewStatusByVendorId}
               />
             </div>
           ))
@@ -1071,6 +1090,7 @@ function ChildRail({
   onOpenSearch,
   onOpen,
   lockHintKey,
+  reviewStatusByVendorId = new Map(),
 }: {
   child: AccordionChild;
   eventId: string;
@@ -1086,6 +1106,8 @@ function ChildRail({
   onOpenSearch: (groupId: string, label: string) => void;
   onOpen: (href: string, label: string) => void;
   lockHintKey: string | null;
+  /** Review status per vendor_id, populated by the server fetch for completed vendors. */
+  reviewStatusByVendorId?: ReadonlyMap<string, VendorReviewStatus>;
 }) {
   // Setnayan in-app services that belong to this category — prepended to the
   // rail as supplementary ✦ Setnayan cards (float-to-top). A category with a
@@ -1225,6 +1247,7 @@ function ChildRail({
               onOpen={onOpen}
               lockHintKey={lockHintKey}
               personalizationEnabled={child.personalizationEnabled}
+              reviewStatus={reviewStatusByVendorId?.get(pick.vendor_id) ?? null}
               existingBuildPick={
                 buildPickRow && buildPickRow.vendor_id !== pick.vendor_id
                   ? {
@@ -1365,6 +1388,7 @@ function VendorCardAtom({
   lockHintKey,
   personalizationEnabled,
   existingBuildPick,
+  reviewStatus = null,
 }: {
   pick: AccordionPick;
   eventId: string;
@@ -1377,6 +1401,13 @@ function VendorCardAtom({
   /** The category's current build pick when it's a DIFFERENT vendor than this
    *  card (→ the "Add to build" Replace/Add-both popup). null otherwise. */
   existingBuildPick: { name: string; pricePhp: number | null } | null;
+  /**
+   * Review status for this vendor (completed bookings only):
+   *   'open'      → show "Leave a review" CTA
+   *   'submitted' → show "Review submitted ✓"
+   *   null        → no badge
+   */
+  reviewStatus?: VendorReviewStatus | null;
 }) {
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [opening, setOpening] = useState(false);
@@ -1680,6 +1711,23 @@ function VendorCardAtom({
       {/* Locked → "↩ Change pick" reverts to considering (re-expands the rail). */}
       {locked && (
         <ChangePickButton eventId={eventId} vendorId={pick.vendor_id} />
+      )}
+
+      {/* Review badge — shown only on completed bookings (reviewStatus set by
+          the server fetch in vendors/page.tsx for event_vendors.status = 'complete').
+          'open'      → "Leave a review" button links to the review form.
+          'submitted' → "Review submitted ✓" confirmation label. */}
+      {reviewStatus === 'open' && (
+        <Link
+          href={`/dashboard/${eventId}/vendors/${pick.vendor_id}/review`}
+          className="review-cta"
+          onClick={(e) => e.stopPropagation()}
+        >
+          Leave a review
+        </Link>
+      )}
+      {reviewStatus === 'submitted' && (
+        <span className="review-done">Review submitted ✓</span>
       )}
     </div>
   );

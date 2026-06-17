@@ -26,7 +26,7 @@
 
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
-import { loadSurfaceMaps, type SurfaceMaps } from './reveal-textures';
+import { loadSurfaceMaps, loadSingleTexture, type SurfaceMaps } from './reveal-textures';
 
 export type RigidWebGLVariant =
   | 'four-flap'
@@ -267,8 +267,65 @@ export default function RigidWebGL({ variant, progress, onUnsupported }: Props) 
         return g;
       };
 
-      flaps.push({ group: makeDoorGroup(false, -halfW), axis: 'y', maxDeg: -138, start: 0,    end: 0.72 });
-      flaps.push({ group: makeDoorGroup(true,   halfW), axis: 'y', maxDeg:  138, start: 0.04, end: 0.76 });
+      const leftGroup  = makeDoorGroup(false, -halfW);
+      const rightGroup = makeDoorGroup(true,   halfW);
+      flaps.push({ group: leftGroup,  axis: 'y', maxDeg: -138, start: 0,    end: 0.72 });
+      flaps.push({ group: rightGroup, axis: 'y', maxDeg:  138, start: 0.04, end: 0.76 });
+
+      // ── PBR texture maps (door + stone) ───────────────────────────────────
+      // Assets live at /reveal/textures/door/ and /reveal/textures/stone/ once
+      // generated via Recraft. Until then the flat colour fallback stays active —
+      // loadSurfaceMaps returns null on 404 and the caller never breaks.
+      loadSurfaceMaps('door', new THREE.Color('#8b5e3c'), 2.0, aniso).then((m) => {
+        if (cancelled) return disposeMaps(m);
+        if (m) applyMaps([doorWoodMat], m);
+      });
+
+      // ── Church-interior backdrop ──────────────────────────────────────────
+      // Replaces the plain cream paper with a candlelit red-carpet aisle photo.
+      // Asset: /reveal/textures/interior/aisle.webp (Recraft-generated).
+      // The paper mesh is always in the scene; we just swap its texture here.
+      loadSingleTexture('/reveal/textures/interior/aisle.webp').then((t) => {
+        if (cancelled || !t) return;
+        paperMat.map = t;
+        paperMat.color.set(0xffffff); // clear cream tint so photo shows true
+        paperMat.needsUpdate = true;
+        disposables.push(t);
+      });
+
+      // ── Iron ring-pull handle (torus) — child of each door group ──────────
+      // Positioned near the centre-seam edge of each door (the leading/pull edge).
+      // The handle travels with the door as it swings open.
+      const ironMat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color('#111110'),
+        roughness: 0.35,
+        metalness: 0.9,
+      });
+      disposables.push(ironMat);
+
+      const addHandle = (group: THREE.Group, sgn: number) => {
+        const w  = halfW;
+        const hx = sgn * w * 0.8;   // 80 % toward the centre seam
+        const hy = halfH * 0.0;     // vertical mid-door
+
+        const ringGeo = new THREE.TorusGeometry(0.045, 0.009, 12, 32);
+        const ring    = new THREE.Mesh(ringGeo, ironMat);
+        ring.position.set(hx, hy, 0.008);
+        ring.castShadow = true;
+        group.add(ring);
+        disposables.push(ringGeo);
+
+        // Small mounting plate behind the ring
+        const plateGeo = new THREE.CylinderGeometry(0.022, 0.022, 0.012, 16);
+        const plate    = new THREE.Mesh(plateGeo, ironMat);
+        plate.rotation.x = Math.PI / 2;
+        plate.position.set(hx, hy, 0.003);
+        group.add(plate);
+        disposables.push(plateGeo);
+      };
+
+      addHandle(leftGroup,   1);   // handle on seam side of left door
+      addHandle(rightGroup, -1);   // handle on seam side of right door
 
       // ── Stone arch surround (static — never rotates) ──────────────────────
       // Rectangular stone wall with a pointed arch hole whose bezier CPs are the
@@ -318,6 +375,12 @@ export default function RigidWebGL({ variant, progress, onUnsupported }: Props) 
       stoneMesh.receiveShadow = true;
       scene.add(stoneMesh);
       disposables.push(stoneMat, stoneGeo);
+
+      // Wire stone PBR maps when the asset is available.
+      loadSurfaceMaps('stone', new THREE.Color('#c0b5a5'), 1.6, aniso).then((m) => {
+        if (cancelled) return disposeMaps(m);
+        if (m) applyMaps([stoneMat], m);
+      });
     } else {
       // four-flap: 4 triangles whose apex meets at centre, hinged on each edge,
       // folding back over their edge in sequence (top first), z-staggered.

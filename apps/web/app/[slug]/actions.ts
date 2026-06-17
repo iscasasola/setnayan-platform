@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { VECTOR_MODEL } from '@/lib/face-embed-core';
 import { readGuestSession } from '@/lib/guest-session';
 import { emitNotification } from '@/lib/notification-emit';
 import type { MealPreference, RsvpStatus } from '@/lib/guests';
@@ -121,6 +122,26 @@ export async function submitRsvp(
         }
       }
 
+      // Optional on-device face descriptor (dlib via face-api.js) — the guest's
+      // face fingerprint for gallery auto-tagging. Absent until the embedder +
+      // a hosted model are live → enroll image-only exactly as before.
+      let faceVector: number[] | null = null;
+      const rawVector = clean(formData.get('selfie_vector'));
+      if (rawVector) {
+        try {
+          const v = JSON.parse(rawVector) as unknown;
+          if (
+            Array.isArray(v) &&
+            v.length > 0 &&
+            v.every((n) => typeof n === 'number' && Number.isFinite(n))
+          ) {
+            faceVector = v as number[];
+          }
+        } catch {
+          // malformed vector — enroll without it
+        }
+      }
+
       // Upsert: the partial unique index allows only one non-revoked enrollment
       // per (event, guest), so retire any live row before inserting the fresh
       // one (re-RSVP with a new selfie supersedes the old).
@@ -138,6 +159,8 @@ export async function submitRsvp(
         source: 'rsvp_selfie',
         quality_score: qualityScore,
         quality_meta: qualityMeta,
+        face_vector: faceVector,
+        vector_model: faceVector ? VECTOR_MODEL : null,
         consent_at: new Date().toISOString(),
         consent_source: 'rsvp',
       });

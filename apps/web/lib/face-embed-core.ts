@@ -10,7 +10,7 @@
 // behavior), so this ships safely DORMANT until the owner hosts the model.
 
 /** Bumped whenever the model or preprocessing changes → triggers re-embedding. */
-export const VECTOR_MODEL = 'mobilefacenet@1';
+export const VECTOR_MODEL = 'faceapi-dlib@1';
 
 /** Model input is a square RGB crop of this many px per side (MobileFaceNet). */
 export const FACE_EMBED_INPUT_SIZE = 112;

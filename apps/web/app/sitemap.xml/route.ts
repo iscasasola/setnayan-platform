@@ -42,13 +42,14 @@ export async function GET(): Promise<Response> {
   const now = new Date().toISOString();
 
   // Order matches the SEO Playbook §4.2 recommendation: static first
-  // (highest authority pages), then venues + vendors (transactional
-  // crawl targets), then weddings (editorial discovery surface).
+  // (highest authority pages), then vendors (transactional crawl target),
+  // then weddings (editorial discovery surface). The venues child was
+  // dropped 2026-06-16 — the seeded venue_directory pages (/venues,
+  // /venue/[slug]) were removed per owner "remove all the fake venues".
   const children: ReadonlyArray<{ slug: string; lastmod: string }> = [
     { slug: 'sitemap-static.xml', lastmod: now },
     { slug: 'sitemap-help.xml', lastmod: now },
     { slug: 'sitemap-blog.xml', lastmod: now },
-    { slug: 'sitemap-venues.xml', lastmod: now },
     { slug: 'sitemap-vendors.xml', lastmod: now },
     { slug: 'sitemap-weddings.xml', lastmod: now },
   ];

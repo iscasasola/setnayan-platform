@@ -158,6 +158,11 @@ export function RevealStudio({ initial }: { initial: RevealStudioConfig }) {
   const [draft, setDraft] = useState<RevealStudioConfig>(initial);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  // Bumping this remounts the preview veil → it re-drapes from scratch. Used to
+  // bring the veil back after a reveal (and via the ↻ Replay button) so the
+  // studio preview never dead-ends on a settled, off-screen revealed veil.
+  const [previewKey, setPreviewKey] = useState(0);
+  const redrapePreview = () => setPreviewKey((k) => k + 1);
 
   const setLook = (key: keyof VeilLook, v: number) =>
     setDraft((d) => ({ ...d, veil: { ...d.veil, [key]: v } }));
@@ -312,20 +317,36 @@ export function RevealStudio({ initial }: { initial: RevealStudioConfig }) {
             <div className="font-serif text-2xl text-white/90">Maria &amp; Jose</div>
             <div className="mt-2 text-[12px] text-white/45">12 · 12 · 2026</div>
           </div>
-          {/* the live veil */}
+          {/* the live veil — keyed so it can re-drape (remount) after a reveal */}
           <VeilReveal
+            key={previewKey}
             veilColor={draft.veilColorDefault}
             petalsColor={draft.petalsColor}
             look={draft.veil}
             features={draft.features}
             onRevealed={() => {
-              /* preview only — no overlay to remove */
+              // The reveal is a one-shot — on the live couple site the overlay then
+              // hands off to the page and unmounts. The studio preview has nothing
+              // to hand off to, so it would otherwise sit on a settled, off-screen
+              // veil and look "stopped". Re-drape shortly after so the preview loops
+              // back to the tunable draped veil.
+              window.setTimeout(redrapePreview, 1500);
             }}
           />
         </div>
-        <p className="mt-2 text-center text-[11px]" style={{ color: SLATE }}>
-          Swipe up to lift · swipe down to re-cover · tap a petal to bounce it
-        </p>
+        <div className="mt-2 flex items-center justify-center gap-2">
+          <p className="text-[11px]" style={{ color: SLATE }}>
+            Swipe up to lift · swipe down to re-cover · tap a petal to bounce it
+          </p>
+          <button
+            type="button"
+            onClick={redrapePreview}
+            className="shrink-0 rounded-full border px-2.5 py-1 text-[11px]"
+            style={{ borderColor: LINE, color: SLATE }}
+          >
+            ↻ Replay
+          </button>
+        </div>
 
         <div className="mt-5 space-y-2">
           <button

@@ -15,6 +15,17 @@ Upgrades the wax-seal painter from a Canvas-2D 3-pixel-shifted-copy emboss to a 
 Same seed → same puddle outline in both renderers (same `mulberry32` PRNG order). Canvas-2D path unchanged as fallback.
 
 SPEC IMPACT: None (rendering upgrade, no recipe/schema change).
+## 2026-06-17 · fix(reveal-studio): the live preview now re-drapes after a reveal (was "stuck" once the veil went up)
+
+Owner: *"I opened the studio Save the Date; after the veil went up, the animation stopped."* Not a crash — the reveal is a **one-shot**: on the live couple site, once the veil lifts clear `onRevealed` hands off to the page and the overlay unmounts. The **studio preview** passed a no-op `onRevealed`, so the veil settled into its revealed (off-screen) pose with nothing to bring it back → it looked stopped.
+
+- **`app/admin/reveal-studio/studio.tsx`** — the preview `<VeilReveal>` is now `key`ed by a `previewKey`; on `onRevealed` it **auto re-drapes** (remounts ~1.5s after the reveal) so the preview loops back to the tunable draped veil instead of dead-ending. Added a **↻ Replay** control next to the caption to re-drape on demand.
+
+No change to the live couple-site reveal (it still hands off + unmounts correctly); this is studio-preview-only.
+
+**Verification:** `tsc` clean · `next lint` clean.
+
+**SPEC IMPACT:** None (admin tooling UX fix). Logged in corpus `DECISION_LOG.md`.
 
 ---
 

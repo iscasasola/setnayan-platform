@@ -101,8 +101,9 @@ export function PushNotificationRegistrar() {
       });
     }
 
-    // The subscription endpoint IS the token for Web Push.
-    await registerPushToken(subscription.endpoint, 'web');
+    // Store the full subscription JSON — the server needs endpoint + p256dh + auth
+    // to encrypt Web Push messages. Storing only the endpoint is not sufficient.
+    await registerPushToken(JSON.stringify(subscription.toJSON()), 'web');
   }, []);
 
   useEffect(() => {

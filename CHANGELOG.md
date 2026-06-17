@@ -59,6 +59,18 @@ All three new components carry a JSDoc header noting the 2026-06-14 A6 dedup and
 Verify: `tsc --noEmit` exit 0 · `next lint` clean on all five changed/new files.
 
 SPEC IMPACT: None (code-internal; no behavior/visual change).
+## 2026-06-17 · feat(papic): "register your face if you haven't yet" — day-of card + in-camera fallback
+
+The catch for a guest who skipped the optional RSVP selfie: a one-tap enroll surfaced on the live day-of page **and** inside the guest camera, so their candid photos can auto-find them. Owner-chosen placement (day-of card + camera fallback).
+
+- **`app/papic/face-enroll-actions.ts`** (new) — `enrollGuestFace`, a cookie-authenticated (setnayan_guest_session) enrollment write. Same columns as the RSVP enrollment block (selfie → display photo + `guest_face_enrollments` with consent + optional on-device `face_vector`), `source: 'guest_portal'`, revoke-then-insert (one active enrollment per event,guest). Best-effort; biometric consent mandatory (RA 10173).
+- **`app/[slug]/_components/day-of-face-enroll.tsx`** (new) — the "Add your face" card. Wraps the existing `SelfieCapture` in a standalone form, gates submit on a captured+consented selfie, shows a success state, self-hides once enrolled.
+- **`SelfieCapture`** — gains one optional, backward-compatible `onReadyChange` prop so the standalone form can enable its submit (RSVP omits it → no-op).
+- **Day-of page** — `app/[slug]/page.tsx` computes `needsFaceEnroll` (live window + no active enrollment) and renders the card above "Photos of you."
+- **Guest-camera fallback** — `papic-guest-capture.tsx` shows a dismissible "Add your face so your photos find you" prompt; tapping it releases the rear capture stream (effect now gated on `enrolling`) and mounts the front-camera enroll panel, then resumes shooting. `app/papic/guest/page.tsx` passes `needsFaceEnroll`.
+
+**SPEC IMPACT:** Adds the 0012 "enroll if not yet registered" path the audit found missing (enrollment previously lived only in the optional RSVP widget). No pricing/scope change. Pairs with the capture→matcher wire (prior entry); QR-scan tagging remains the manual fallback (owner-confirmed). Still dormant for auto-tag until the face model is hosted, but the selfie + display photo land immediately.
+
 ## 2026-06-17 · feat(papic): wire capture → face matcher (auto_face tags) on BOTH camera surfaces — DORMANT
 
 Closes the capture-side of self-hosted face auto-tagging: the just-shot frame is embedded on-device and the tiny descriptors are handed to the server matcher (`autoTagCapture`, #1608), which writes `auto_face` tags. Pairs with the enrollment embedder (#1616). Still **dormant** — `embedFaces` returns `[]` until a model is hosted on R2 (`NEXT_PUBLIC_FACE_MODEL_URL`), so every path below is a clean no-op today and the photo always lands untagged-still-delivered.

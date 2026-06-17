@@ -14,6 +14,22 @@ Owner asked for a save-to-gallery option alongside Google Drive. Added a per-pho
 Complements Drive: Drive = the couple's permanent *archive*; Save = a *grab-to-my-phone*. Pairs naturally with face auto-tagging (a guest sees *their* photos → taps Save). NOTE: clips currently save their **poster still** (the gallery exposes the poster URL, not a presigned video) — real clip-video save + the guest-gallery wiring + a bulk **"Save all" ZIP** are quick follow-ups.
 
 SPEC IMPACT: iteration 0012 — per-photo save-to-device on the Papic gallery. Logged in corpus DECISION_LOG.md.
+## 2026-06-17 · feat(onboarding): taxonomy-driven PICK step — new vendor categories auto-appear without a deploy
+
+The onboarding PICK step ("What would you love at your wedding?") was hardcoded in `PICK_GROUPS`. Whenever a new vendor category was added to the admin taxonomy the file had to be manually edited and a deploy kicked. This ships the live-DB alternative: the PICK step now reads tier-2 `service_categories` scoped to the event type at request time, so any new category an admin adds to the taxonomy (with `applicable_event_types = ['wedding']` or null = universal) automatically shows up for the next couple who opens onboarding — no deploy.
+
+- **`lib/onboarding-refinements.ts`** — added `OnboardingPickChip` type export + `getOnboardingTiles(eventType)` cached server function: queries `service_categories` tier-2, filters by `applicable_event_types`, returns `{ cat, label, folder }[]`. Falls back to `[]` on any read error. Also updated `getOnboardingRefinements(eventType)` to accept an event type and filter leaves via the `service_categories!tile_id(applicable_event_types)` embedded join — so refinements (style sub-steps) are event-type scoped too.
+- **`app/onboarding/wedding/page.tsx`** — extends the `Promise.all` fetch to include `getOnboardingTiles('wedding')`; passes the result to `<OnboardingShell dynamicTiles={...}>`.
+- **`app/onboarding/wedding/_components/onboarding-shell.tsx`** — four changes:
+  - `PICK_GROUPS` → `PICK_GROUPS_FALLBACK` (static seed for graceful degradation).
+  - New `pickGroups` useMemo: merges DB tiles into the fallback (new tiles not already in the fallback are appended to their folder group, or a new group if the folder is unrecognised).
+  - New `extrasOrder` + `refinementKeys` useMemos derived from `pickGroups` — the refine pass and recap both adapt dynamically to new tiles.
+  - `PICK_LABEL` + `extrasGroups` render now read `pickGroups` (was the static constant), so new tiles get labels and appear in the EXTRAS confirmation screen automatically.
+  - Module-level `EXTRAS_ORDER` removed (was static); `queueFor` / `refineExtrasQueueFor` take `extrasOrder` + `refinementKeys` as parameters.
+
+The admin taxonomy page (`/admin/taxonomy`) already writes `service_categories.applicable_event_types` — the end-to-end admin → onboarding flow works with no additional admin-side build.
+
+**SPEC IMPACT:** `0016_step_by_step_plan_builder` — the onboarding PICK step is now taxonomy-driven (Phase 1 of "taxonomy-drives-onboarding"); the static `PICK_GROUPS` list is a fallback, not the source of truth. Logged in corpus `DECISION_LOG.md`. **setnayan-platform PR [#1629](https://github.com/iscasasola/setnayan-platform/pull/1629), merge commit `90dbbd93`.**
 
 ## 2026-06-17 · feat(nav): docked sub-nav children are now admin-editable via the registry (customer-menu redesign PR6/6)
 

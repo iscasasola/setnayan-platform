@@ -13,7 +13,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   Circle,
-  Square,
   QrCode,
   HardHat,
   type LucideIcon,
@@ -1926,15 +1925,9 @@ function Checklist({
 }) {
   const progress = plannerProgress(statuses);
   const byKey = new Map(statuses.map((s) => [s.key, s]));
-  // v2.1 deep-fix (2026-05-28) — Setnayan AI checklist card uses
-  // --m-paper background + --m-line border + --m-shadow-sm rest. Progress
-  // bar fill swaps from terracotta semantic class to sienna --m-orange.
-  // Track bg uses --m-line-soft so the track has the warm ivory cast
-  // (vs the cool ink/10 we had before). All percentage math + STEPS
-  // lookup + tr() translations + step.key navigation unchanged.
   return (
     <div
-      className="space-y-3 rounded-2xl border p-5"
+      className="space-y-4 rounded-2xl border p-5"
       style={{
         background: 'var(--m-paper)',
         borderColor: 'var(--m-line)',
@@ -1942,27 +1935,21 @@ function Checklist({
       }}
     >
       <div className="flex items-center justify-between">
-        <div className="space-y-0.5">
-          <h2
-            className="m-eyebrow font-mono text-[11px] uppercase tracking-[0.2em]"
-            style={{ color: 'var(--m-slate-3)' }}
-          >
-            {tr('section.concierge')}
-          </h2>
-          <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
-            {progress.done} of {progress.total} steps · prefer to fly solo? Switch to DIY in
-            Profile.
-          </p>
-        </div>
+        <h2
+          className="font-mono text-[11px] uppercase tracking-[0.2em]"
+          style={{ color: 'var(--m-slate-3)' }}
+        >
+          {tr('section.concierge')}
+        </h2>
         <span
           className="font-mono text-sm font-semibold"
           style={{ color: 'var(--m-orange-2)' }}
         >
-          {progress.pct}%
+          {progress.done}/{progress.total}
         </span>
       </div>
       <div
-        className="h-1.5 w-full overflow-hidden rounded-full"
+        className="h-1 w-full overflow-hidden rounded-full"
         style={{ background: 'var(--m-line-soft)' }}
       >
         <span
@@ -1970,18 +1957,12 @@ function Checklist({
           style={{ width: `${progress.pct}%`, background: 'var(--m-orange)' }}
         />
       </div>
-      <ol
-        className="divide-y rounded-xl border"
-        style={{
-          borderColor: 'var(--m-line)',
-          background: 'var(--m-paper-2)',
-        }}
-      >
-        {STEPS.map((step, i) => {
+      <ul className="space-y-5 pt-1">
+        {STEPS.map((step) => {
           const status = byKey.get(step.key);
           const done = status?.completed ?? false;
           return (
-            <li key={step.key} className="flex items-start gap-3 px-3 py-3 sm:px-4">
+            <li key={step.key} className="flex items-start gap-3">
               {step.source === 'manual' ? (
                 <form action={toggleJourneyStep}>
                   <input type="hidden" name="event_id" value={eventId} />
@@ -1990,51 +1971,41 @@ function Checklist({
                   <button
                     type="submit"
                     aria-label={done ? `Mark ${step.label} not done` : `Mark ${step.label} done`}
-                    className="mt-0.5 inline-flex h-6 w-6 items-center justify-center text-terracotta"
+                    className="mt-0.5 flex-none text-terracotta"
                   >
                     {done ? (
                       <CheckCircle2 className="h-5 w-5" strokeWidth={2} />
                     ) : (
-                      <Square className="h-5 w-5 text-ink/40" strokeWidth={1.75} />
+                      <Circle className="h-5 w-5" style={{ color: 'var(--m-line)' }} strokeWidth={1.75} />
                     )}
                   </button>
                 </form>
               ) : (
-                <span
-                  aria-hidden
-                  className="mt-0.5 inline-flex h-6 w-6 items-center justify-center"
-                >
+                <span aria-hidden className="mt-0.5 flex-none">
                   {done ? (
                     <CheckCircle2 className="h-5 w-5 text-terracotta" strokeWidth={2} />
                   ) : (
-                    <Circle className="h-5 w-5 text-ink/30" strokeWidth={1.75} />
+                    <Circle className="h-5 w-5" style={{ color: 'var(--m-line)' }} strokeWidth={1.75} />
                   )}
                 </span>
               )}
-              <Link
-                href={step.href(eventId)}
-                className="flex flex-1 flex-col gap-0.5 hover:text-terracotta"
-              >
-                <span className="flex items-center gap-2">
-                  <span
-                    className={`text-sm ${
-                      done ? 'text-ink/50 line-through' : 'font-medium text-ink'
-                    }`}
-                  >
-                    {i + 1}. {step.label}
-                  </span>
-                  {step.source === 'auto' ? (
-                    <span className="rounded-full bg-ink/5 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/45">
-                      auto
-                    </span>
-                  ) : null}
+              <Link href={step.href(eventId)} className="group flex flex-1 flex-col gap-0.5">
+                <span
+                  className={`text-base leading-snug transition-colors group-hover:text-terracotta ${
+                    done ? 'line-through' : ''
+                  }`}
+                  style={{ color: done ? 'var(--m-slate-3)' : 'var(--m-ink)' }}
+                >
+                  {step.label}
                 </span>
-                <span className="text-xs text-ink/55">{step.hint}</span>
+                <span className="text-sm leading-relaxed" style={{ color: 'var(--m-slate-3)' }}>
+                  {step.hint}
+                </span>
               </Link>
             </li>
           );
         })}
-      </ol>
+      </ul>
     </div>
   );
 }

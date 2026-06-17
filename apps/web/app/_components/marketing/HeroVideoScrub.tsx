@@ -366,32 +366,41 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
         >
           scroll ↓
         </div>
-        {/* Loading veil — nugget + feature list while frames preload. */}
+        {/* Loading veil — pill swaps on reveal; feature grid always visible in both states. */}
         <div
           ref={loaderRef}
           aria-hidden
-          className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-0"
-          style={{ background: '#F6F3EE', zIndex: 5, transition: 'opacity .8s ease', padding: '0 32px' }}
+          className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center"
+          style={{ background: '#F6F3EE', zIndex: 5, transition: 'opacity .8s ease', padding: '0 32px', gap: 32 }}
         >
-          {/* Nugget: loading state */}
-          <div
-            ref={loadingContentRef}
-            style={{ transition: 'opacity .4s ease', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0, width: '100%', maxWidth: 480 }}
-          >
-            {/* Loading pill */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#1E2229', borderRadius: 999, padding: '8px 18px 8px 14px', marginBottom: 36 }}>
+          {/* Pill wrapper — fixed height so loading + ready pills overlap cleanly */}
+          <div style={{ position: 'relative', height: 36, width: '100%', maxWidth: 480 }}>
+            {/* Loading pill — visible while buffering */}
+            <div
+              ref={loadingContentRef}
+              style={{ transition: 'opacity .4s ease', display: 'flex', alignItems: 'center', gap: 8, background: '#1E2229', borderRadius: 999, padding: '8px 18px 8px 14px', position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', whiteSpace: 'nowrap' }}
+            >
               <span className="m-mono" style={{ fontSize: 9, letterSpacing: '.2em', color: 'rgba(255,255,255,.5)', textTransform: 'uppercase' }}>Loading</span>
               <div style={{ width: 100, height: 2, background: 'rgba(255,255,255,.15)', borderRadius: 1, overflow: 'hidden' }}>
                 <div ref={barRef} style={{ height: '100%', background: '#C9A96E', transformOrigin: 'left', transform: 'scaleX(0)', transition: 'transform .25s linear' }} />
               </div>
             </div>
 
-            {/* Tagline */}
-            <div className="m-mono" style={{ fontSize: 11, letterSpacing: '.24em', color: '#C9A96E', marginBottom: 28 }}>
+            {/* Ready pill — fades in on reveal() */}
+            <div
+              ref={readyPromptRef}
+              style={{ opacity: 0, transition: 'opacity .5s ease', display: 'flex', alignItems: 'center', gap: 10, background: '#1E2229', borderRadius: 999, padding: '9px 22px 9px 16px', position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', whiteSpace: 'nowrap' }}
+            >
+              <span style={{ fontSize: 15, color: '#C9A96E', animation: 'stn-nudge-up 1.4s ease-in-out infinite', display: 'inline-block' }}>&#8593;</span>
+              <span className="m-mono" style={{ fontSize: 10, letterSpacing: '.24em', color: '#C9A96E', textTransform: 'uppercase' }}>Scroll up</span>
+            </div>
+          </div>
+
+          {/* Tagline + feature grid — always visible in both loading and ready states */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24, width: '100%', maxWidth: 480 }}>
+            <div className="m-mono" style={{ fontSize: 11, letterSpacing: '.24em', color: '#C9A96E' }}>
               14 features &middot; 1 app
             </div>
-
-            {/* Feature grid */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '11px 40px', width: '100%', maxWidth: 400 }}>
               {[
                 'Online Planner',  'Guest List',
@@ -409,23 +418,7 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
             </div>
           </div>
 
-          {/* Nugget: ready state — shown alongside the feature list */}
-          <div
-            ref={readyPromptRef}
-            style={{ opacity: 0, transition: 'opacity .5s ease', position: 'absolute', top: 'clamp(32px, 8vh, 64px)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#1E2229', borderRadius: 999, padding: '9px 22px 9px 16px' }}>
-              <span style={{ fontSize: 16, color: '#C9A96E', animation: 'stn-nudge-up 1.4s ease-in-out infinite', display: 'inline-block' }}>&#8593;</span>
-              <span className="m-mono" style={{ fontSize: 10, letterSpacing: '.24em', color: '#C9A96E', textTransform: 'uppercase' }}>Scroll up</span>
-            </div>
-          </div>
-
-          <style>{`
-            @keyframes stn-nudge-up {
-              0%,100% { transform: translateY(0); }
-              50%      { transform: translateY(-5px); }
-            }
-          `}</style>
+          <style>{`@keyframes stn-nudge-up{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}`}</style>
         </div>
       </div>
     </section>

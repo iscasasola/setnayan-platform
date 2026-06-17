@@ -256,6 +256,24 @@ Generate: `npx web-push generate-vapid-keys`
 - `apps/web/app/dashboard/[eventId]/_components/vendor-marketplace-info.tsx` — same "Response from [name]" label in couple-dashboard marketplace info drawer.
 
 **SPEC IMPACT:** `0022_vendor_dashboard/0022_vendor_dashboard.md` — vendor reply is now editable (not one-time per § 2.x); 500-char limit; fake-flag flow added. `0023_admin_console/0023_admin_console.md` — new fake-review flag queue added to review moderation surface.
+## 2026-06-17 · PR #NEXT — couple post-event review form
+
+**What landed:** Couple-side vendor review submission flow (5-axis, binary on_time).
+
+**Files changed:**
+- `apps/web/app/_components/on-time-binary-input.tsx` *(NEW)* — binary Yes/No toggle component; Yes posts `rating_on_time=5`, No posts `rating_on_time=1`. Two pill buttons, green=Yes / rose=No. Hidden `<input>` carries the value so it works inside any `<form>`.
+- `apps/web/lib/reviews.ts` — extended `REVIEW_AXIS_LABEL` with the long-form question labels for the form; added `REVIEW_ON_TIME_LABEL` export (`'Did they arrive and deliver on schedule?'`). Existing `createReview` / `fetchOwnReviewForVendor` untouched.
+- `apps/web/app/dashboard/[eventId]/vendors/[vendorId]/review/page.tsx` — split axes into `STAR_AXES` (overall · communication · quality · value) + explicit `OnTimeBinaryInput` for on_time. Updated body textarea label to "Tell other couples about your experience (optional)" with 500-char cap and `rows={5}`. Submit button text changed to "Submit review".
+- `apps/web/app/dashboard/[eventId]/vendors/[vendorId]/review/actions.ts` — parallel split of `STAR_AXES` + `parseOnTimeRating` (enforces only 5 or 1). Body truncated from 4000 → 500. Fail-soft dynamic import of `triggerVendorActivityRecompute` from `lib/vendor-activity` called inside `after()` (inert until that branch merges to main).
+- `apps/web/app/dashboard/[eventId]/vendors/_components/plan-budget-accordion.tsx` — added `VendorReviewStatus = 'open' | 'submitted'` type, `reviewStatusByVendorId` prop threaded `PlanBudgetAccordion → ChildRail → VendorCardAtom`. Renders "Leave a review" CTA (mulberry pill, links to `/review`) or "Review submitted ✓" badge (green). CSS added to `PBA_CSS` block.
+- `apps/web/app/dashboard/[eventId]/vendors/page.tsx` — added async IIFE that: filters `status='complete'` vendors → checks 30–365 day window from `events.event_date` → resolves `vendor_profiles` via contact email (admin client) → checks `vendor_reviews` for existing rows (user client) → returns `Map<vendorId, VendorReviewStatus>`. Fail-soft (returns empty map on any error).
+
+**Gate logic (server-enforced):**
+1. `event_vendors.status = 'complete'`
+2. `events.event_date + 30 days ≤ today ≤ events.event_date + 365 days`
+3. No existing review for `(vendor_profile_id, event_id, couple_user_id)`
+
+**SPEC IMPACT:** `0006_vendors_management` — review entry point on vendor cards (§ review CTA). `02_Specifications/Vendor_Quality_Rating_System_2026-06-17.md` — couple-side submit flow (§ 5 couple submit). On_time binary rule (Yes=5/No=1) matches `vendor_reviews` DB constraint; no schema change needed.
 
 ---
 

@@ -5,7 +5,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { StarRatingInput } from '@/app/_components/star-rating-input';
-import { fetchOwnReviewForVendor, REVIEW_AXIS_LABEL, type ReviewAxis } from '@/lib/reviews';
+import { OnTimeBinaryInput } from '@/app/_components/on-time-binary-input';
+import { fetchOwnReviewForVendor, REVIEW_AXIS_LABEL, REVIEW_ON_TIME_LABEL, type ReviewAxis } from '@/lib/reviews';
 import { VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
 import {
   detectSelfReviewSignal,
@@ -28,12 +29,12 @@ function parseBlockedSignal(raw: string | undefined): SelfReviewSignal | null {
 
 export const metadata = { title: 'Leave a review · Setnayan' };
 
-const AXES: ReadonlyArray<ReviewAxis> = [
+/** Star-rated axes — excludes on_time which is a binary Yes/No toggle. */
+const STAR_AXES: ReadonlyArray<ReviewAxis> = [
   'overall',
   'communication',
   'quality',
   'value',
-  'on_time',
 ];
 
 type Props = {
@@ -246,7 +247,7 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
             Ratings
           </h2>
           <ul className="divide-y divide-ink/10">
-            {AXES.map((axis) => (
+            {STAR_AXES.map((axis) => (
               <li key={axis} className="py-2">
                 <StarRatingInput
                   name={`rating_${axis}`}
@@ -255,6 +256,14 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
                 />
               </li>
             ))}
+            {/* on_time is a binary Yes / No — not a star gradient. */}
+            <li className="py-2">
+              <OnTimeBinaryInput
+                name="rating_on_time"
+                label={REVIEW_ON_TIME_LABEL}
+                required
+              />
+            </li>
           </ul>
         </section>
 
@@ -263,17 +272,17 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
             className="block font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55"
             htmlFor="body"
           >
-            Your review (optional)
+            Tell other couples about your experience (optional)
           </label>
           <textarea
             id="body"
             name="body"
-            rows={6}
-            maxLength={4000}
+            rows={5}
+            maxLength={500}
             placeholder="What stood out? Anything future couples should know?"
-            className="input-field min-h-[140px] py-2"
+            className="input-field min-h-[120px] py-2"
           />
-          <p className="text-xs text-ink/50">Up to 4,000 characters.</p>
+          <p className="text-xs text-ink/50">Up to 500 characters.</p>
         </section>
 
         <div className="flex items-center justify-between gap-3 border-t border-ink/10 pt-4">
@@ -282,7 +291,7 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
             Verified couple — review tied to a delivered service.
           </p>
           <SubmitButton className="button-primary" pendingLabel="Submitting…">
-            Post review
+            Submit review
           </SubmitButton>
         </div>
       </form>

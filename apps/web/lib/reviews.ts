@@ -16,11 +16,18 @@ export type ReviewAxis = (typeof REVIEW_AXES)[number];
 
 export const REVIEW_AXIS_LABEL: Record<ReviewAxis, string> = {
   overall: 'Overall',
-  communication: 'Communication',
-  quality: 'Quality of work',
-  value: 'Value for money',
+  communication: 'How well did they communicate throughout the process?',
+  quality: 'Did they deliver what was promised on the day?',
+  value: 'Was the price fair for what you received?',
+  // on_time is binary (Yes=5 / No=1) — use REVIEW_ON_TIME_LABEL for the UI
+  // question; REVIEW_AXIS_LABEL keeps a short form for display (star breakdowns
+  // in the vendor profile public page use the short label).
   on_time: 'On-time delivery',
 };
+
+/** Label for the on_time binary Yes/No toggle shown in the review form. */
+export const REVIEW_ON_TIME_LABEL =
+  'Did they arrive and deliver on schedule?';
 
 export type ReviewRow = {
   review_id: string;

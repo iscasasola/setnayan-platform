@@ -1,11 +1,8 @@
 import Link from 'next/link';
 import { Store } from 'lucide-react';
-import { EventSwitcher, type SwitcherEvent, type SwitcherVendorTarget } from '@/app/dashboard/[eventId]/_components/event-switcher';
-import type { EventTypeRow } from '@/app/dashboard/(account)/create-event/_components/event-types';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
-import { ProfileMenu } from '@/app/_components/profile-menu';
 import { HideOnScrollHeader } from '@/app/_components/nav/hide-on-scroll-header';
-import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
+import { AccountSwitcher, AccountSwitcherStandalone } from '@/app/_components/account-switcher/account-switcher';
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 
 /**
@@ -35,139 +32,47 @@ import type { SwitcherData } from '@/app/_components/account-switcher/get-switch
  *     `Sign out` button are intentionally NOT in this chrome.
  */
 
-type PrimaryEventData = {
-  event_id: string;
-  display_name: string;
-  event_date: string | null;
-  monogram_text: string | null;
-  monogram_color: string | null;
-  monogram_frame_key?: string | null;
-  monogram_font_key?: string | null;
-  monogram_style?: string | null;
-  monogram_custom_svg?: string | null;
-};
-
 type Props = {
-  userId: string;
-  email: string;
-  /** Presigned display URL of the ACCOUNT's profile photo (owner directive
-      2026-06-12: avatar = account photo, never the event logo). */
-  photoUrl: string | null;
   unreadCount: number;
-  primaryEvent: PrimaryEventData | null;
-  switcherEvents: SwitcherEvent[];
-  hasVendorAccess: boolean;
-  hasAdminAccess: boolean;
-  vendorProfiles: SwitcherVendorTarget[];
-  /** DB-driven creatable event types (2026-06-13) for the switcher's
-      add-event sheet — fetched by the account layout, threaded through. */
-  eventTypes?: readonly EventTypeRow[];
-  /**
-   * Pre-fetched data for the AccountSwitcher panel. When provided, the new
-   * unified account-switcher pill renders alongside the existing ProfileMenu.
-   * Optional so old call-sites degrade gracefully.
-   */
-  switcherData?: SwitcherData | null;
+  /** Pre-fetched data for the unified AccountSwitcher — always provided
+      now that getSwitcherData never returns null. */
+  switcherData: SwitcherData;
 };
 
-export function OuterDashboardHeader({
-  userId,
-  email,
-  photoUrl,
-  unreadCount,
-  primaryEvent,
-  switcherEvents,
-  hasVendorAccess,
-  hasAdminAccess,
-  vendorProfiles,
-  eventTypes,
-  switcherData,
-}: Props) {
-  // Reusable chrome elements rendered in two layouts: a sticky top strip
-  // on mobile, OR a fixed left sidebar on desktop (owner directive 2026-05-23
-  // "the top nav did not combine to side nav on desktop mode").
-  // Unified switcher (2026-06-12 single-switcher directive) — the
-  // EventSwitcher handles the zero-event case itself (empty "+" monogram
-  // anchor with the menu still openable).
-  const monogramAffordance = (
-    <EventSwitcher
-      currentRole="customer"
-      currentEventId={primaryEvent?.event_id ?? null}
-      currentEventName={primaryEvent?.display_name ?? null}
-      currentEventDate={primaryEvent?.event_date ?? null}
-      currentMonogramText={primaryEvent?.monogram_text ?? null}
-      currentMonogramColor={primaryEvent?.monogram_color ?? null}
-      currentMonogramFrameKey={primaryEvent?.monogram_frame_key}
-      currentMonogramFontKey={primaryEvent?.monogram_font_key}
-      currentMonogramStyle={primaryEvent?.monogram_style}
-      currentMonogramCustomSvg={primaryEvent?.monogram_custom_svg}
-      events={switcherEvents}
-      hasCustomerAccess
-      hasVendorAccess={hasVendorAccess}
-      hasAdminAccess={hasAdminAccess}
-      vendorProfiles={vendorProfiles}
-      eventTypes={eventTypes}
-    />
-  );
-
-  // Upper-right avatar = the ACCOUNT's profile photo (owner directive
-  // 2026-06-12: account photo, never the event logo). ProfileMenu falls back
-  // to the account initial when no photo is uploaded.
+export function OuterDashboardHeader({ unreadCount, switcherData }: Props) {
   return (
     <>
-      {/* Mobile: sticky top strip (< lg / < 1024px). Hidden on desktop —
-          the sidebar below is the single source of chrome on lg+. Hides on
-          scroll-down / reveals on scroll-up per the universal top-nav rule
-          (owner 2026-06-15) via HideOnScrollHeader. */}
+      {/* Mobile: sticky top strip (< lg). AccountSwitcher pill at LEFT replaces
+          the old EventSwitcher monogram; bell stays at RIGHT. Hides on scroll-
+          down per the universal top-nav rule (owner 2026-06-15). */}
       <HideOnScrollHeader className="sticky top-0 z-10 border-b border-[var(--m-line)] bg-[var(--m-paper)]/95 backdrop-blur lg:hidden">
         <div className="mx-auto flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
-          {monogramAffordance}
+          <AccountSwitcher data={switcherData} />
 
           <div className="flex items-center gap-2">
-            {/* Marketplace (Store) link + Switch View pill REMOVED from the
-                mobile top bar per owner directive 2026-06-03. Both stay
-                reachable: Marketplace via in-app entry points + the desktop
-                sidebar below; role-switch via the event-switcher dropdown. */}
             <UnreadBellBadge
-              userId={userId}
+              userId={switcherData.userId}
               initialUnread={unreadCount}
               href="/dashboard/notifications"
               ariaBaseLabel="Notifications"
               ariaUnreadSuffix="unread"
             />
-            {/* AccountSwitcher replaces ProfileMenu on mobile — the unified
-                identity panel (bottom sheet) with events + gallery + favorites
-                + editorials + profile actions + context rail. Degrades to the
-                old ProfileMenu if switcher data wasn't fetched. */}
-            {switcherData ? (
-              <AccountSwitcher data={switcherData} />
-            ) : (
-              <ProfileMenu email={email} photoUrl={photoUrl} ariaLabel="Account menu" />
-            )}
           </div>
         </div>
       </HideOnScrollHeader>
 
-      {/* Desktop: fixed left sidebar (>= lg / >= 1024px). Paper palette
-          (--m-paper-2 surface · --m-line border) so it matches the event
-          route's SidebarShell. Main content gets `lg:pl-60` from the account
-          layout so it sits to the right of this 240px sidebar. */}
+      {/* Desktop: fixed left sidebar (>= lg). Paper palette (--m-paper-2 surface
+          · --m-line border). Main content gets `lg:pl-60` from the account
+          layout. AccountSwitcherStandalone at the bottom replaces ProfileMenu. */}
       <nav
         aria-label="Dashboard navigation"
         className="hidden lg:fixed lg:left-0 lg:top-0 lg:bottom-0 lg:z-30 lg:flex lg:w-60 lg:flex-col lg:border-r lg:border-[var(--m-line)] lg:bg-[var(--m-paper-2)]"
       >
-        {/* Top: monogram + caret event switcher (or "Add event" empty state). */}
-        <div className="border-b border-[var(--m-line)] px-3 py-3">
-          {monogramAffordance}
-        </div>
-
-        {/* Middle (flex-1): empty spacer. Non-event routes don't have the
-            event nav — those live in the event-route sidebar. Browsing
-            affordances live at the bottom strip so the chrome doesn't read
-            empty. */}
+        {/* Spacer — non-event routes have no sidebar nav items here; affordances
+            live at the bottom strip so the chrome doesn't read empty. */}
         <div className="flex-1" />
 
-        {/* Bottom strip: Marketplace + bell + profile. */}
+        {/* Bottom strip: Marketplace + bell + AccountSwitcherStandalone. */}
         <div className="border-t border-[var(--m-line)] px-3 py-3">
           <Link
             href="/explore"
@@ -178,24 +83,15 @@ export function OuterDashboardHeader({
             <span>Marketplace</span>
           </Link>
 
-          {/* RoleSwitchPill RETIRED 2026-06-12 (single-switcher directive) —
-              cross-console hopping lives in the unified EventSwitcher's
-              "Switch view" rows (top-of-sidebar monogram caret above). */}
           <div className="mt-2 flex items-center justify-end gap-2 border-t border-[var(--m-line)] pt-3">
             <UnreadBellBadge
-              userId={userId}
+              userId={switcherData.userId}
               initialUnread={unreadCount}
               href="/dashboard/notifications"
               ariaBaseLabel="Notifications"
               ariaUnreadSuffix="unread"
             />
-            {/* On desktop sidebar the AccountSwitcher opens a left-side
-                drawer. Degrades to ProfileMenu if data wasn't fetched. */}
-            {switcherData ? (
-              <AccountSwitcher data={switcherData} />
-            ) : (
-              <ProfileMenu email={email} photoUrl={photoUrl} ariaLabel="Account menu" />
-            )}
+            <AccountSwitcherStandalone data={switcherData} />
           </div>
         </div>
       </nav>

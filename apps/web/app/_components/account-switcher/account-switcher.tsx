@@ -25,6 +25,8 @@ type Tab = 'gallery' | 'favorites' | 'editorials';
 
 type Props = {
   data: SwitcherData;
+  /** When provided, shown next to the avatar in the trigger pill (e.g. event display name). */
+  currentEventName?: string | null;
 };
 
 /**
@@ -49,7 +51,7 @@ type Props = {
  *   – Desktop: drawer slides in from left (translateX -100% → 0) + backdrop fades in
  *   Both: CSS transitions 0.3s ease
  */
-export function AccountSwitcher({ data }: Props) {
+export function AccountSwitcher({ data, currentEventName }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('gallery');
@@ -476,6 +478,11 @@ export function AccountSwitcher({ data }: Props) {
             initial
           )}
         </span>
+        {currentEventName ? (
+          <span className="max-w-[120px] truncate text-xs font-medium text-ink/80">
+            {currentEventName}
+          </span>
+        ) : null}
         <ChevronDown
           aria-hidden
           className={`h-3.5 w-3.5 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}

@@ -69,7 +69,7 @@ export type SwitcherData = {
  * Every sub-query is wrapped in try/catch so a missing table (pre-migration)
  * or RLS error degrades to an empty array rather than crashing the chrome.
  */
-export async function getSwitcherData(userId: string): Promise<SwitcherData | null> {
+export async function getSwitcherData(userId: string): Promise<SwitcherData> {
   try {
   const supabase = await createClient();
 
@@ -249,6 +249,16 @@ export async function getSwitcherData(userId: string): Promise<SwitcherData | nu
   };
   } catch (err) {
     console.error('[AccountSwitcher] getSwitcherData threw unexpectedly:', err);
-    return null;
+    return {
+      userId,
+      displayName: null,
+      email: '',
+      photoUrl: null,
+      events: [],
+      gallery: [],
+      favorites: [],
+      editorials: [],
+      context: { hasVendor: false, vendorName: null, isAdmin: false },
+    };
   }
 }

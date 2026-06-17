@@ -4,23 +4,20 @@ import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getLifecyclePhase } from '@/lib/day-of-mode';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
-import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { getDashboardShell } from '@/lib/dashboard-shell';
 import { countUnreadMessages } from '@/lib/chat';
 import { getLocale, makeT } from '@/lib/i18n';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { EventSwitcher } from './_components/event-switcher';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { UnreadMessagesBadge } from '@/app/_components/unread-messages-badge';
-import { ProfileMenu } from '@/app/_components/profile-menu';
 import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
 import { CustomerSidebar } from './_components/customer-sidebar';
 import { CustomerBottomNav } from './_components/customer-bottom-nav';
 import { CustomerSectionSubnav } from './_components/customer-section-subnav';
 import { getNavSlotMap } from '@/lib/nav-registry';
-import { getCreatableEventTypes } from '@/lib/event-types-db';
-import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
+import { AccountSwitcher, AccountSwitcherStandalone } from '@/app/_components/account-switcher/account-switcher';
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
+import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 
 type Props = {
   children: React.ReactNode;
@@ -140,12 +137,22 @@ export default async function EventLayout({ children, params }: Props) {
   // getDashboardShell fetches events + roles + unreadCount via React cache() —
   // the cache key is userId only, so if (account)/layout or any other layout
   // in this render tree already resolved it, this call is free (zero DB hits).
+  const minimalSwitcherFallback: SwitcherData = {
+    userId: user.id,
+    displayName: null,
+    email: user.email ?? '',
+    photoUrl: null,
+    events: [],
+    gallery: [],
+    favorites: [],
+    editorials: [],
+    context: { hasVendor: false, vendorName: null, isAdmin: false },
+  };
   const [
-    { events: switcherEvents, roles, unreadCount },
+    { unreadCount },
     eventRes,
     unreadMessages,
     locale,
-    profilePhotoUrl,
     switcherData,
   ] = await Promise.all([
     getDashboardShell(user.id),
@@ -198,30 +205,11 @@ export default async function EventLayout({ children, params }: Props) {
       return 0;
     }),
     Promise.resolve(getLocale()).catch(() => 'en' as const),
-    // Account profile photo for the (I) avatar (owner directive 2026-06-12:
-    // the avatar is the ACCOUNT's photo, never the event logo — reverses the
-    // 2026-06-03 avatar-IS-event-logo lock). Presigned display URL resolved
-    // server-side; degrades to null (initial fallback) on any error.
-    (async () => {
-      const { data } = await supabase
-        .from('users')
-        .select('profile_photo_url')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      return displayUrlForStoredAsset(data?.profile_photo_url);
-    })().catch((err: unknown) => {
-      logQueryError(
-        'EventLayout (profile photo threw)',
-        err instanceof Error ? err : new Error(String(err)),
-        { event_id: eventId, user_id: user.id },
-        'graceful_degrade',
-      );
-      return null;
-    }),
-    // AccountSwitcher panel data — graceful degrade to null on any error.
+    // AccountSwitcher panel data. getSwitcherData never returns null after the
+    // 2026-06-17 always-on fix; the .catch here guards against any outer throw.
     getSwitcherData(user.id).catch((err: unknown) => {
       console.error('[AccountSwitcher] data fetch failed:', err);
-      return null;
+      return minimalSwitcherFallback;
     }),
   ]);
   // Log silent SELECT errors before falling through to notFound().
@@ -262,42 +250,12 @@ export default async function EventLayout({ children, params }: Props) {
   // inside a <div className="sticky top-0 z-20 backdrop-blur"> wrapper
   // owned by the layout; now SidebarShell owns the sticky chrome and we
   // just inject the inner row.
-  // DB-driven creatable event types for the switcher's add-event sheet
-  // (2026-06-13 cutover) — request-cached via React cache().
-  const creatableEventTypes = await getCreatableEventTypes();
-
   const topBar = (
     <div className="mx-auto flex w-full items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
-      <EventSwitcher
-        currentRole="customer"
-        currentEventId={event.event_id}
-        currentEventName={event.display_name}
-        currentEventDate={event.event_date}
-        currentMonogramText={event.monogram_text}
-        currentMonogramColor={event.monogram_color}
-        currentMonogramFrameKey={event.monogram_frame_key}
-        currentMonogramFontKey={event.monogram_font_key}
-        currentMonogramStyle={event.monogram_style}
-        currentMonogramCustomSvg={event.monogram_uploaded_svg ?? event.monogram_custom_svg}
-        events={switcherEvents
-          .filter((e) => !e.archived)
-          .map((e) => ({
-            event_id: e.event_id,
-            display_name: e.display_name,
-            event_date: e.event_date,
-            is_primary: e.is_primary,
-            monogram_text: e.monogram_text,
-            monogram_color: e.monogram_color,
-            monogram_frame_key: e.monogram_frame_key,
-            monogram_font_key: e.monogram_font_key,
-            monogram_style: e.monogram_style,
-            monogram_custom_svg: e.monogram_uploaded_svg ?? e.monogram_custom_svg,
-          }))}
-        hasCustomerAccess={roles.hasCustomerAccess}
-        hasVendorAccess={roles.hasVendorAccess}
-        hasAdminAccess={roles.hasAdminAccess}
-        vendorProfiles={roles.vendorProfiles}
-        eventTypes={creatableEventTypes}
+      {/* LEFT: unified AccountSwitcher pill (replaces EventSwitcher monogram). */}
+      <AccountSwitcher
+        data={switcherData}
+        currentEventName={event.display_name as string}
       />
       <div className="flex items-center gap-2">
         {/* Planning escape (Event Lifecycle Menu) — while the bottom nav is the
@@ -344,21 +302,8 @@ export default async function EventLayout({ children, params }: Props) {
           ariaBaseLabel={tr('nav.notifications')}
           ariaUnreadSuffix="unread"
         />
-        {/* (I) avatar = the ACCOUNT's profile photo (or initial fallback) —
-            owner directive 2026-06-12. The event's monogram/logo belongs to
-            the event only and lives on the EventSwitcher chip at left.
-            AccountSwitcher replaces ProfileMenu when data is available;
-            degrades to old ProfileMenu on fetch failure. */}
-        {switcherData ? (
-          <AccountSwitcher data={switcherData} />
-        ) : (
-          <ProfileMenu
-            email={user.email ?? ''}
-            photoUrl={profilePhotoUrl}
-            ariaLabel={tr('common.profile')}
-            eventId={eventId}
-          />
-        )}
+        {/* Avatar handled by the AccountSwitcher pill at LEFT — no separate
+            profile avatar on the right side of the top bar (2026-06-17). */}
       </div>
     </div>
   );
@@ -386,6 +331,7 @@ export default async function EventLayout({ children, params }: Props) {
           />
         }
         topBar={topBar}
+        sidebarFooter={<AccountSwitcherStandalone data={switcherData} />}
       >
         {/* Pad the bottom on mobile so BottomNav doesn't cover the last
             row of content. SidebarShell already handles the desktop

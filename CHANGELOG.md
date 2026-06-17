@@ -16,6 +16,118 @@ Reverted within this PR (course correction): an earlier commit had gated the dor
 ⚠ HEADS-UP recorded for owner: making the page acceptable clears the *home-page* rejection, but the submission will still hit a separate wall — `youtube.upload` is **exercised by no live code** (grep-verified: zero `liveBroadcasts`/`liveStreams`/upload calls; shipped Panood is paste-the-watch-URL embed via `lib/panood-watch.ts`). Google rejects scopes it can't see used in the demo. Easiest unblock = drop **just** `youtube.upload` and keep `youtube` for the channel-connect demo; full pass needs the programmatic-broadcast feature actually built.
 
 SPEC IMPACT: `/our-story` doubles as the OAuth-verification home page (now describes app functionality + Google integrations). No SKU/schema/pricing change. Logged in corpus `DECISION_LOG.md`.
+## 2026-06-17 · feat(papic): "Download all" — stream the whole gallery as a ZIP (no Google Drive needed)
+
+The bulk counterpart to per-photo Save (#1634/#1638): a couple can pull their entire Papic gallery to their phone/computer in one click, **without connecting Google Drive**.
+
+- **`gallery-zip/route.ts`** (new, Node runtime) — `GET /dashboard/[eventId]/add-ons/papic/gallery-zip`: couple-gated (auth + couple-membership, mirrors the magazine route), gathers the event's captures (photos + clip videos, not hidden / not NSFW-blocked, capped at 1000), and **streams** a ZIP: each R2 object is fetched + appended one at a time (bounded memory) via `archiver` in **store mode** (photos/videos already compressed → no CPU), piped to the client as it builds. Files named `YYYY-MM-DD-NNNN-id.jpg/.mp4`. A missing object is skipped, never aborting the whole download.
+- **`papic-gallery-grid.tsx`** — a **Download all** link under the filter chips (when `eventId` + photos exist) → the route, `download` attribute.
+- Deps: `archiver` + `@types/archiver`; lockfile updated.
+
+Complements the storage model: **Drive = the couple's auto-synced archive; "Download all" = a one-shot grab of everything**, and the per-photo Save = grab one. Real-device/large-gallery behaviour (Vercel `maxDuration`) tuned in a pilot. Clips zip their original video; the gallery's per-tile Save still uses the poster (separate follow-up).
+
+SPEC IMPACT: iteration 0012 — bulk gallery ZIP download as a Drive-free "keep everything" path. Logged in corpus DECISION_LOG.md.
+
+## 2026-06-17 · feat(papic): "Save to phone" on the guest day-of wall + shared button (DRY)
+
+Extends the per-photo Save (#1634) to the guest side and de-duplicates the button.
+
+- **`app/_components/save-photo-button.tsx`** (new, shared) — `SavePhotoButton` extracted from the couple gallery's inline copy; both galleries now import it (one source of truth).
+- **`live-wall-block.tsx`** (guest day-of wall on the personal landing page) — a Save button on every wall tile, so a guest can drop a photo straight into their camera roll (native share sheet → "Save to Photos", download fallback). Saves the screened **wall-safe** derivative (respects opt-out face-blur), which is what the guest sees.
+- **`papic-gallery-grid.tsx`** — refactored to use the shared button (removed the inline `SaveButton` + its now-unused imports).
+
+Remaining follow-up: the bulk **"Save all" ZIP** (a server-streaming route — web has no bulk-to-camera-roll API) + real clip-video save.
+
+SPEC IMPACT: iteration 0012 — save-to-device now on both the couple gallery and the guest wall, via a shared component. Logged in corpus DECISION_LOG.md.
+
+## 2026-06-17 · feat(papic): "Save to phone" — 1-tap save a gallery photo to the camera roll
+
+Owner asked for a save-to-gallery option alongside Google Drive. Added a per-photo **Save** button on the couple's Papic gallery.
+
+- **`lib/save-to-device.ts`** (new) — `saveImageToDevice(url, filename)`: fetches the (full-res, presigned) image and hands it to the OS via the **Web Share API** (`navigator.share({ files })`) → the native share sheet → **"Save to Photos"** (iOS) / **"Save image"** (Android), landing it in the camera roll. Feature-detected per-file with `navigator.canShare({ files })`; **falls back to a plain download** (Files/Downloads) on browsers without file-share (older / most desktop). Best-effort (never throws); a cancelled share sheet counts as success, not failure. (Browsers can't write to the gallery silently — the share sheet is the closest the web allows; a *true* 1-tap silent save is a native-shell capability for later.)
+- **`papic-gallery-grid.tsx`** — a small `SaveButton` overlay on every tile (top-left, opposite the clip badge) with a brief check-mark on success. Saves `p.url`, which is the presigned **original** (R2 doesn't resize), so it's the full-res photo.
+
+Complements Drive: Drive = the couple's permanent *archive*; Save = a *grab-to-my-phone*. Pairs naturally with face auto-tagging (a guest sees *their* photos → taps Save). NOTE: clips currently save their **poster still** (the gallery exposes the poster URL, not a presigned video) — real clip-video save + the guest-gallery wiring + a bulk **"Save all" ZIP** are quick follow-ups.
+
+SPEC IMPACT: iteration 0012 — per-photo save-to-device on the Papic gallery. Logged in corpus DECISION_LOG.md.
+
+## 2026-06-17 · feat: multi-service inquiry modal on vendor public profile
+
+When a couple taps **Inquire** on a vendor who has multiple services, a bottom-sheet modal (centered dialog on desktop) now appears before the inquiry fires, listing the initial service pre-checked (non-removable) plus the vendor's other services as opt-in checkboxes — all bundled into one chat thread and one token burn.
+
+- **`app/v/[slug]/page.tsx`** — reads the vendor's other published services and passes them to the composer.
+- **`app/v/[slug]/_components/inquiry-composer.tsx`** — new `ServicePickerModal`: sheet on mobile, dialog on desktop; single-service vendors skip it; pre-existing non-declined thread → "You already have an inquiry" state with an optional "Ask about more services" button for multi-service vendors.
+- **`app/v/[slug]/inquiry-actions.ts`** — `submitInquiry` updated to accept `selectedServiceIds[]`; records each in `thread_service_interests` (initial / couple_added).
+- **`supabase/migrations/20270108000100_inquiry_multi_service.sql`** — adds `requested_service_ids UUID[]` to `event_vendors`; `thread_service_interests` join table; RLS policies; `submit_multi_service_inquiry` RPC that atomically creates the thread + the interest rows.
+
+SPEC IMPACT: iteration 0022 §5 (vendor inquiry flow) + 0021 §8 (couple inquiry UX). **setnayan-platform PR [#1633](https://github.com/iscasasola/setnayan-platform/pull/1633), merge commit `5671ff23`.**
+
+## 2026-06-17 · feat: vendor relationship depth badge + top-of-results float
+
+Vendors the couple already has a relationship with for the current event surface first in any category search, carrying a contextual badge so couples can spot and continue conversations without scrolling.
+
+- **`app/dashboard/[eventId]/vendors/_actions/category-search.ts`** — join on `event_vendors` + `vendor_event_unlocks` to compute `relationship_depth`; relationship vendors sort first (desc depth), then by normal match score.
+- **`app/explore/page.tsx`** + **`app/explore/_components/vendor-card.tsx`** — same float + badge logic for the authenticated marketplace view.
+- Badge states: **"Your vendor"** (deposit_paid/complete, Obsidian pill) · **"You're in conversation"** (token-pursued, Mulberry ring) · **"In your shortlist"** (any non-declined inquiry, Champagne Gold ring). No badge for logged-out visitors or no-relationship vendors.
+- No schema change — depth is computed from existing `event_vendors.status` + `vendor_event_unlocks` at read time.
+
+SPEC IMPACT: None (no schema, no SKU). **setnayan-platform PR [#1632](https://github.com/iscasasola/setnayan-platform/pull/1632), merge commit `d81995c7`.**
+
+## 2026-06-17 · feat(mobile): Capacitor detection + mobile SRP pricing + web nudge banners
+
+Vendor purchase surfaces now show the correct price depending on platform: web DB prices (discounted ~33% from SRP) on desktop/PWA; SRP on the Capacitor native app (App Store rules prohibit offering web discounts in-app). A persistent "Buy on web for less" banner nudges mobile users to the browser.
+
+- **`lib/capacitor.ts`** (new) — SSR-safe `isNativeApp()` via `window.Capacitor.isNativePlatform()`.
+- **Tokens page** — `BuyTokensCta` converted to `'use client'`; reads `isNativeApp()` and displays SRP prices (₱150/token for the single pack, scaling 1.5× for all packs) on native and DB prices on web.
+- **Subscription page** — `SubscriptionCards` reads `isNativeApp()` and shows SRP (Pro ₱9,000/28d · ₱90,000/yr; Enterprise ₱15,000/28d · ₱150,000/yr) on native and DB prices on web.
+- **`app/vendor-dashboard/_components/web-nudge-banner.tsx`** (new) — Champagne Gold banner with deep-link for mobile users; shown on both the tokens and subscription pages when native.
+- Payment flow unchanged — server actions use `sku_code`; the DB RPC reads the authoritative DB price at order time.
+
+SPEC IMPACT: iteration 0022 §6B (vendor subscriptions/tokens) — mobile SRP pricing + web nudge wired per the 2026-06-17 dual-channel pricing formula decision. No schema change. **setnayan-platform PR [#1631](https://github.com/iscasasola/setnayan-platform/pull/1631), merge commit `b3ab280c`.**
+
+## 2026-06-17 · feat(onboarding): taxonomy-driven PICK step — new vendor categories auto-appear without a deploy
+
+The onboarding PICK step ("What would you love at your wedding?") was hardcoded in `PICK_GROUPS`. Whenever a new vendor category was added to the admin taxonomy the file had to be manually edited and a deploy kicked. This ships the live-DB alternative: the PICK step now reads tier-2 `service_categories` scoped to the event type at request time, so any new category an admin adds to the taxonomy (with `applicable_event_types = ['wedding']` or null = universal) automatically shows up for the next couple who opens onboarding — no deploy.
+
+- **`lib/onboarding-refinements.ts`** — added `OnboardingPickChip` type export + `getOnboardingTiles(eventType)` cached server function: queries `service_categories` tier-2, filters by `applicable_event_types`, returns `{ cat, label, folder }[]`. Falls back to `[]` on any read error. Also updated `getOnboardingRefinements(eventType)` to accept an event type and filter leaves via the `service_categories!tile_id(applicable_event_types)` embedded join — so refinements (style sub-steps) are event-type scoped too.
+- **`app/onboarding/wedding/page.tsx`** — extends the `Promise.all` fetch to include `getOnboardingTiles('wedding')`; passes the result to `<OnboardingShell dynamicTiles={...}>`.
+- **`app/onboarding/wedding/_components/onboarding-shell.tsx`** — four changes:
+  - `PICK_GROUPS` → `PICK_GROUPS_FALLBACK` (static seed for graceful degradation).
+  - New `pickGroups` useMemo: merges DB tiles into the fallback (new tiles not already in the fallback are appended to their folder group, or a new group if the folder is unrecognised).
+  - New `extrasOrder` + `refinementKeys` useMemos derived from `pickGroups` — the refine pass and recap both adapt dynamically to new tiles.
+  - `PICK_LABEL` + `extrasGroups` render now read `pickGroups` (was the static constant), so new tiles get labels and appear in the EXTRAS confirmation screen automatically.
+  - Module-level `EXTRAS_ORDER` removed (was static); `queueFor` / `refineExtrasQueueFor` take `extrasOrder` + `refinementKeys` as parameters.
+
+The admin taxonomy page (`/admin/taxonomy`) already writes `service_categories.applicable_event_types` — the end-to-end admin → onboarding flow works with no additional admin-side build.
+
+**SPEC IMPACT:** `0016_step_by_step_plan_builder` — the onboarding PICK step is now taxonomy-driven (Phase 1 of "taxonomy-drives-onboarding"); the static `PICK_GROUPS` list is a fallback, not the source of truth. Logged in corpus `DECISION_LOG.md`. **setnayan-platform PR [#1629](https://github.com/iscasasola/setnayan-platform/pull/1629), merge commit `90dbbd93`.**
+
+## 2026-06-17 · fix(nav): fail-proof sub-nav dock offset — derive from bottom nav's measured height
+
+Follow-up hardening of #1625. The sub-nav's `bottom` was a hardcoded `+84px` tied to the bar's assumed height — one of three independent height constants that had to stay in lockstep. A future label/tab-count/font change would silently overlap or gap the two pills.
+
+- **`app/_components/nav/bottom-nav.tsx`** — `NavShell` publishes the pill's real rendered height to `--sn-bottomnav-h` via a `ResizeObserver` (one observer, cheap; falls back to the 64px design height pre-hydration).
+- **`app/_components/nav/sub-nav.tsx`** — docks at `calc(env(safe-area-inset-bottom) + var(--sn-bottomnav-h, 64px) + 20px)` — `20 = 12px` nav float-offset + 8px gap — so it always sits 8px above the actual bar regardless of its height.
+
+SPEC IMPACT: None (nav geometry, no SKU/schema). **setnayan-platform PR [#1627](https://github.com/iscasasola/setnayan-platform/pull/1627), merge commit `d31fe9f8`.**
+
+## 2026-06-17 · fix(nav): bottom nav keeps labels + full height when a sub-nav is docked
+
+Owner directive: revert the 2026-06-16 "icons-only when a SubNav is docked" shrink. The pill bottom nav was dropping its text labels and shrinking 56px→48px whenever a sub-nav docked; labels + full height must stay constant.
+
+- **`app/_components/nav/bottom-nav.tsx`** — `compact` forced to `false` (the `useSubNavDocked` read removed); the two downstream ternaries (`minHeight`, label `maxHeight`/`opacity`) now always take the full-height/labelled branch. The store in `sub-nav.tsx` is left in place but unread — re-import to restore the shrink if ever wanted.
+- **`app/_components/nav/sub-nav.tsx`** — dock offset corrected from `+76px` to `+84px` to account for the now-full-height bar.
+
+SPEC IMPACT: None. **setnayan-platform PR [#1625](https://github.com/iscasasola/setnayan-platform/pull/1625), merge commit `c8ed5cf9`.**
+
+## 2026-06-17 · nav: add `/admin/papic-sampler` to the admin Work group
+
+The `/admin/papic-sampler` page (free-Papic abuse monitor) existed on disk but had no entry in either the sidebar or the bottom nav, making it unreachable via the admin navigation.
+
+- **`app/admin/_components/admin-sidebar.tsx`** — added a "Papic sampler" entry with the `Camera` icon to the **Work** group (alongside Setnayan AI abuse, account-deletions, and user-reports — all abuse-watch surfaces).
+- **`app/admin/_components/admin-bottom-nav.tsx`** — added `/admin/papic-sampler` to the Work tab's `activeMatch` list so the tab highlights correctly on mobile.
+
+SPEC IMPACT: None (nav wiring only). **setnayan-platform PR [#1624](https://github.com/iscasasola/setnayan-platform/pull/1624), merge commit `00a6221c`.**
 
 ## 2026-06-17 · feat(nav): docked sub-nav children are now admin-editable via the registry (customer-menu redesign PR6/6)
 

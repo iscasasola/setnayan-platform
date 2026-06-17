@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Play } from 'lucide-react';
+import { Play, Download } from 'lucide-react';
 import type { GalleryPhoto, GalleryTagSource } from '@/lib/papic-gallery';
+import { SavePhotoButton } from '@/app/_components/save-photo-button';
 
 // Real Papic gallery grid — the couple's captured photos + clips with working
 // filter chips. Server-fetched (presigned thumbnails) and passed in; this only
@@ -22,7 +23,13 @@ function tagDotClass(source: GalleryTagSource): string {
   return 'bg-ink/30';
 }
 
-export function PapicGalleryGrid({ photos }: { photos: GalleryPhoto[] }) {
+export function PapicGalleryGrid({
+  photos,
+  eventId,
+}: {
+  photos: GalleryPhoto[];
+  eventId?: string;
+}) {
   const [filter, setFilter] = useState<FilterId>('all');
 
   const shown = photos.filter((p) => {
@@ -56,6 +63,17 @@ export function PapicGalleryGrid({ photos }: { photos: GalleryPhoto[] }) {
         })}
       </ul>
 
+      {eventId && photos.length > 0 ? (
+        <a
+          href={`/dashboard/${eventId}/add-ons/papic/gallery-zip`}
+          download
+          className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:bg-ink/10"
+        >
+          <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+          Download all
+        </a>
+      ) : null}
+
       {shown.length === 0 ? (
         <p className="text-sm text-ink/55">No photos in this view yet.</p>
       ) : (
@@ -85,6 +103,9 @@ export function PapicGalleryGrid({ photos }: { photos: GalleryPhoto[] }) {
                     <span className="sr-only">Video clip</span>
                   </span>
                 )}
+                {p.url ? (
+                  <SavePhotoButton url={p.url} filename={`setnayan-photo-${p.id}.jpg`} />
+                ) : null}
                 <span
                   className={`absolute bottom-1 left-1 h-2 w-2 rounded-full ring-1 ring-white/70 ${tagDotClass(p.tagSource)}`}
                   aria-hidden

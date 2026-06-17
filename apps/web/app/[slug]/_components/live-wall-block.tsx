@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { mergeTiles, type WallTile } from '@/lib/live-wall-logic';
+import { SavePhotoButton } from '@/app/_components/save-photo-button';
 
 /**
  * LiveWallBlock — the Salamisim Live Photo Wall, mirrored onto the guest's
@@ -141,6 +142,12 @@ export function LiveWallBlock({
               loading="lazy"
               className="h-full w-full object-cover"
             />
+            {tile.url ? (
+              <SavePhotoButton
+                url={tile.url}
+                filename={`setnayan-photo-${tile.feedId}.jpg`}
+              />
+            ) : null}
           </figure>
         ))}
       </div>

@@ -21,6 +21,28 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 - `vendor_first_reply_at` was not present on any prior migration — this is a net-new column
 
 **SPEC IMPACT:** Unblocks accurate `avg_response_minutes` in `vendor_activity_stats` per `02_Specifications/Vendor_Quality_Rating_System_2026-06-17.md` § 2 (responsiveness score component). The stub TODO comment at lib/vendor-activity.ts line 331 is now resolved.
+## 2026-06-17 · PR #NEXT — Vendor threshold action emails
+
+**What landed:**
+- `apps/web/lib/vendor-email-triggers.ts` — five threshold-action email functions for the vendor quality system, following the plain-text `sendEmail` pattern from `lib/email.ts`.
+- `apps/web/lib/vendor-activity.ts` — `recomputeVendorActivityStats()`: computes and upserts quality/health scores into `vendor_activity_stats`. Wires the slow-response email edge-trigger (response_rate_pct crossing below 50%) inside `after()`.
+
+**Emails added:**
+1. `sendVendorUnderReviewEmail(vendorProfileId)` — "Your Setnayan profile is under review"
+2. `sendVendorSuspensionEmail(vendorProfileId, cancellationCount)` — "Your Setnayan account has been temporarily suspended"
+3. `sendVendorGhostWarningEmail(vendorProfileId, eventId)` — "Action required — you have a booking in 7 days"
+4. `sendReviewFlagOutcomeEmail(reviewId, outcome, reason)` — fires BOTH vendor-who-flagged AND couple-whose-review-was-flagged emails
+5. `sendVendorSlowResponseEmail(vendorProfileId, responseRatePct)` — "Improve your response rate on Setnayan"
+
+**Trigger wiring status:**
+- Wired: slow-response email (edge-trigger in `recomputeVendorActivityStats` when response_rate_pct crosses below 50).
+- TODO (two-admin gate): under_review, suspension, ghost warning, and review-flag-outcome emails are documented as TODO comments inside `vendor-activity.ts` — these require a human admin to approve via HQ console before firing, so they must be triggered from the admin action handlers (not from the score recomputer).
+
+**Email resolution:** vendor_profiles.contact_email → fallback to users.email (auth account).
+
+**No new migrations** — all tables used (`vendor_profiles`, `vendor_activity_stats`, `chat_threads`, `chat_messages`, `vendor_reviews`, `event_vendors`, `events`, `users`) already exist.
+
+**SPEC IMPACT:** `02_Specifications/Vendor_Quality_Rating_System_2026-06-17.md` § 5 (threshold actions) + § 7 (email notifications). Threshold action emails are now implemented; two-admin-gate triggers remain wired to admin console actions (separate PR).
 
 ---
 

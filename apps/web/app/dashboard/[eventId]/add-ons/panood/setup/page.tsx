@@ -21,6 +21,7 @@ import { formatPhp } from '@/lib/orders';
 import { getYoutubeOAuthConfig } from '@/lib/panood-youtube';
 import { CopyLink } from '../_components/copy-link';
 import { savePanoodWatchUrl, clearPanoodWatchUrl } from './actions';
+import { BroadcastControl } from './_components/broadcast-control';
 
 export const metadata = { title: 'Panood setup · Setnayan' };
 
@@ -253,6 +254,9 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
         oauthReady={oauthReady}
         youtubeGrant={youtubeGrant}
       />
+
+      {/* P1 on-device broadcaster — native app only; "use the app" note on web. */}
+      <BroadcastControl eventId={eventId} youtubeConnected={!!youtubeGrant} />
 
       <SetupStatus
         eventId={eventId}

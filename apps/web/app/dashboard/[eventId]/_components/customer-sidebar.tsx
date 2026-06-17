@@ -1,98 +1,45 @@
 'use client';
 
 /**
- * CustomerSidebar — v2.1 Navigation Phase 1 (customer doorway).
+ * CustomerSidebar — unified 5-tab desktop sidebar (owner 2026-06-17).
  *
- * WHY: CLAUDE.md tenth 2026-05-28 row v2.1 brief canonical lock + 14th
- * 2026-05-28 row System Wiring Map audit (62 surfaces · 19 of them
- * customer-side) + 2026-05-23 row 2 admin nav pattern that PR #606
- * established as the reference for the 3-doorway sidebar treatment.
+ * WHY: mobile shows 5 flat tabs (Home · Guests · Explore · Studio · Budget);
+ * the desktop sidebar previously used a different 6-group journey structure
+ * (Setnayan · Plan · Book · Design · Day-of · After). This mismatch meant a
+ * user switching between breakpoints saw a completely different nav IA.
  *
- * Pre-Phase 1 the customer chrome rendered a 5-tab pill bar at
- * apps/web/app/dashboard/[eventId]/_components/bottom-nav.tsx (Today ·
- * Home · Guests · Website · Services) — fine on mobile but on desktop
- * it was the ONLY nav surface, forcing every other surface (Schedule ·
- * Vendors · Budget · Orders · Receipts · Messages · Contracts · Mood
- * Board · Activity · Disputes · Event QR · Hosts) into umbrella catch-
- * alls under "Services" with no per-route lighting. The audit found this
- * silently kept the side nav from highlighting any non-headline surface.
+ * The fix: the desktop sidebar now mirrors the same 5 top-level destinations
+ * as the mobile tabs. ONE header-less group, five items, each expandable to
+ * reveal their sub-pages on the desktop rail:
+ *   1. Home    — dashboard root  (Checklist · Schedule · Messages · Contracts)
+ *   2. Guests  — guest hub       (5 journey stages · Event QR)
+ *   3. Explore — vendor market   (leaf — no sub-pages)
+ *   4. Studio  — add-ons hub     (Website · Mood Board · Monogram · Live Wall)
+ *   5. Budget  — financials      (Activity · Disputes)
  *
- * This file owns the NavGroup[] array consumed by SidebarShell +
- * SidebarSection + SidebarItem from @/app/_components/nav/*. It is the
- * single source of truth for customer event-scoped nav structure on
- * desktop. The 5-item mobile BottomNav lives in customer-bottom-nav.tsx
- * alongside this file.
+ * The NavGroup[] builder lives in customer-nav-config.ts (server-safe neutral
+ * module). This file owns the rendering layer: registry overlay via
+ * applyRegistry(), active-state computation via usePathname, and the
+ * SidebarSection + SidebarItem composition.
  *
- * 6 JOURNEY GROUPS (owner-locked — the IA reads as the couple's planning
- * JOURNEY; everything past Setnayan + Plan collapses by default). Re-pointed
- * from the destination-menu structure shipped in PR #1465 back to this
- * journey IA. Full WHY + per-item provenance lives in the builder at
- * customer-nav-config.ts:
- *   1. Setnayan — Home · Studio · Explore                   (open)
- *   2. Plan     — Guests · Seating · Schedule · Budget      (open)
- *   3. Book     — Messages · Contracts                      (collapsed)
- *   4. Design   — Website · Mood Board · Monogram           (collapsed)
- *   5. Day-of   — Live Wall · Event QR                      (collapsed)
- *   6. After    — Activity · Disputes                       (collapsed)
+ * ACTIVE STATE — <SidebarItem> handles the standard rule
+ * (`pathname === href || pathname.startsWith(matchPrefix + '/')`). Home is
+ * the one exception: its matchPrefix is the sentinel `__home__` so the
+ * startsWith branch never fires and only the exact-match branch lights it
+ * (every other event route shares the `/dashboard/${eventId}/` prefix).
  *
- * NO Settings group — Personalization (/details) · Hosts (/hosts) · Profile
- * + all account settings live under the profile avatar (top-right ProfileMenu
- * → Profile / Settings / Sign out). Those routes still exist and stay
- * reachable directly + via the Profile/Settings page; they're just off the
- * primary nav. Orders + Receipts stay retired-from-sidebar (reachable via
- * order-confirmation emails + Studio + Budget).
- *
- * REMOVED from the brief vs the original ship spec:
- *   - "Privacy" under Settings — /dashboard/profile/privacy doesn't exist
- *     on this codebase (only /dashboard/profile + /dashboard/profile/
- *     concierge). Adding a sidebar entry to a 404 would violate
- *     [[feedback_setnayan_orphan_prevention]]. Privacy controls live
- *     inside the Profile page itself; the Profile entry surfaces them.
- *
- * MOOD BOARD path — lives under /dashboard/[eventId]/add-ons/mood-board
- * per the on-disk route. Surfacing it as a sibling Share entry (rather
- * than nesting it under Add-ons) keeps the most-loved styling surface
- * one tap away — matches the iteration 0010 lock (mood-board has its
- * own first-class tile on event-home too).
- *
- * BRAND-LAYER per the v2.1 brief: route paths + DB tables stay; sidebar
- * labels read in editorial brand voice. "Setnayan AI" not "Concierge."
- * "Add-ons" not "Services" (legacy label from the 2026-05-22 4-tab era
- * still in i18n as `nav.services` but the canonical surface is `Add-ons`
- * per CLAUDE.md 2026-05-22 rename — surfaced in the v2.1 voice).
- *
- * HREFS — the customer sidebar is event-scoped. Item hrefs include the
- * full `/dashboard/${eventId}/...` path because the NavItem type holds a
- * single href string (no Route helper). The exported builder
- * `buildCustomerNavGroups(eventId)` takes the eventId and returns the
- * NavGroup[] with hrefs baked in. The mobile BottomNav builder
- * `buildCustomerBottomNav(eventId)` mirrors this pattern.
- *
- * ACTIVE STATE — defers to <SidebarItem>'s default
- * (`pathname === href || pathname.startsWith(matchPrefix + '/')`) for
- * most items. One exception needs exact-match:
- *   - `Home` (`/dashboard/${eventId}`) — every other event-scoped route
- *     also starts with `/dashboard/${eventId}/`, so a startsWith match
- *     would keep Home perpetually active. We instead set matchPrefix to
- *     an unrouted sentinel `__home__` so the strict-prefix branch never
- *     fires and only the `pathname === href` branch keeps Home lit. Home is
- *     a child of the Setnayan group.
- *
- * GUESTS umbrella — `matchPrefix='/dashboard/${eventId}/guests'` so
- * `/dashboard/${eventId}/guests/[guestId]` keeps Guests lit. Same
- * treatment for Vendors (per-vendor workspace at /vendors/[vendorId]) +
- * Messages (per-thread at /messages/[threadId]) + Orders (per-order at
- * /orders/[orderId]) + Add-ons (per-addon at /add-ons/[addon]) + Mood
- * Board (sub-routes inside /add-ons/mood-board) + Contracts (per-
- * contract at /contracts/[contractId]) + Schedule + Seating + Disputes +
- * Hosts + Sponsors (legacy alias) — each defaults to its own href
- * which IS the prefix.
+ * NAV REGISTRY — admin-editable slot labels/icons via navSlots prop. The top-
+ * level 5 tabs are covered by SIDEBAR_SLOT_KEYS; child items by
+ * CHILD_SLOT_KEYS. Slots absent from the registry fall through to hardcoded
+ * defaults (e.g. "Checklist" has no registry slot yet). A slot marked
+ * `isHidden` drops the item entirely.
  */
 
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { isDayOfOpen } from '@/lib/guest-journey';
-import { Wordmark } from '@/app/_components/brand-marks';
+import { AccountSwitcherStandalone } from '@/app/_components/account-switcher/account-switcher';
+import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import { SidebarSection } from '@/app/_components/nav/sidebar-section';
 import { SidebarItem } from '@/app/_components/nav/sidebar-item';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
@@ -113,66 +60,50 @@ import { buildCustomerNavGroups } from './customer-nav-config';
 export { buildCustomerNavGroups };
 
 /**
- * --- BEGIN historical buildCustomerNavGroups body (now lives in
- * customer-nav-config.ts) — kept in JSDoc form as a reference for the
- * 7-group customer IA structure. Any edits to the builder MUST land in
- * customer-nav-config.ts; this comment is documentation only.
- *
- * Builds the canonical customer NavGroup[] for the given eventId. Mobile-
- * overflow landing at /dashboard/[eventId]/more consumes the same builder
- * via shape introspection — single source of truth.
- *
- * Stable group/item `key` values mean future label edits (e.g., a brand
- * polish pass on "Today" → "Setnayan AI" in the heading) don't reset
- * the per-section `setnayan.nav.section.<key>.open` localStorage state.
- * --- END historical body
- */
-
-
-/**
- * CustomerSidebar — renders the 6 customer journey groups using the shared
- * SidebarSection + SidebarItem primitives. Wraps with a brand header
- * (Wordmark) so the customer doorway reads as a separate context from
- * vendor + admin doorways (each doorway gets the same chrome shape with
- * different context — the Wordmark eyebrow + 'Event' label is the
- * customer-side variant).
+ * CustomerSidebar — renders the unified 5-tab nav using SidebarSection +
+ * SidebarItem primitives. The header-less root group means SidebarSection
+ * renders no heading button — just the 5 items (each expandable to their
+ * sub-pages). Wraps with a Wordmark brand header so the customer doorway
+ * reads as its own context vs the vendor + admin doorways.
  */
 /**
- * Maps each journey-group ITEM key → its admin nav-registry slot key. Items
- * absent here (e.g. the "Checklist" auto-step) have no registry slot yet and
- * pass through with their hardcoded label/icon. GROUP heading labels are a
- * deferred follow-up (no group slots yet).
+ * Maps the five top-level tab item keys → their admin nav-registry slot keys.
+ * Matches the unified 5-tab structure in customer-nav-config.ts.
  */
 const SIDEBAR_SLOT_KEYS: Record<string, string> = {
   home: 'customer.sidebar.home',
-  'add-ons': 'customer.sidebar.studio',
-  vendors: 'customer.sidebar.explore',
   guests: 'customer.sidebar.guests',
-  schedule: 'customer.sidebar.schedule',
+  explore: 'customer.sidebar.explore',
+  studio: 'customer.sidebar.studio',
   budget: 'customer.sidebar.budget',
-  messages: 'customer.sidebar.messages',
-  contracts: 'customer.sidebar.contracts',
-  website: 'customer.sidebar.website',
-  'mood-board': 'customer.sidebar.mood-board',
-  monogram: 'customer.sidebar.monogram',
-  live: 'customer.sidebar.live',
-  'event-qr': 'customer.sidebar.event-qr',
-  activity: 'customer.sidebar.activity',
-  disputes: 'customer.sidebar.disputes',
 };
 
 /**
- * Maps nested child item keys → their registry slot keys. Currently covers the
- * five guest-journey stages that live under the "Guests" parent item. "seat"
- * reuses the pre-existing `customer.sidebar.seating` slot so admins who already
- * customised it see their changes reflected here too.
+ * Maps all child item keys → their registry slot keys. Covers the five
+ * guest-journey stages plus every other sub-page nested under a top-level tab.
+ * Items absent here (e.g. "Checklist") have no registry slot and pass through
+ * with their hardcoded label/icon.
  */
 const CHILD_SLOT_KEYS: Record<string, string> = {
+  // Home children
+  schedule: 'customer.sidebar.schedule',
+  messages: 'customer.sidebar.messages',
+  contracts: 'customer.sidebar.contracts',
+  // Guests children — five journey stages
   build: 'customer.sidebar.guests-build',
   invite: 'customer.sidebar.guests-invite',
   confirm: 'customer.sidebar.guests-confirm',
   seat: 'customer.sidebar.seating',
   dayof: 'customer.sidebar.guests-dayof',
+  'event-qr': 'customer.sidebar.event-qr',
+  // Studio children
+  website: 'customer.sidebar.website',
+  'mood-board': 'customer.sidebar.mood-board',
+  monogram: 'customer.sidebar.monogram',
+  live: 'customer.sidebar.live',
+  // Budget children
+  activity: 'customer.sidebar.activity',
+  disputes: 'customer.sidebar.disputes',
 };
 
 /**
@@ -212,6 +143,7 @@ export function CustomerSidebar({
   eventId,
   navSlots,
   eventDate,
+  switcherData,
 }: {
   eventId: string;
   navSlots?: Record<string, NavSlotLite>;
@@ -222,6 +154,9 @@ export function CustomerSidebar({
    * pattern as <GuestsSectionSubnav>.
    */
   eventDate?: string | null;
+  /** Pre-fetched AccountSwitcher data — renders at the top of the sidebar
+      replacing the Wordmark, so the user's identity is always in the top-left. */
+  switcherData?: SwitcherData;
 }) {
   const pathname = usePathname() ?? `/dashboard/${eventId}`;
   const [dayOfOpen, setDayOfOpen] = useState(false);
@@ -235,19 +170,13 @@ export function CustomerSidebar({
 
   return (
     <>
-      {/* Brand header — scrolls with the nav rather than being pinned.
-          Matches the v2.1 editorial register: Wordmark + 'Event' eyebrow
-          in m-label-mono. Mirrors admin-sidebar.tsx for cross-doorway
-          chrome consistency. */}
-      <header className="px-4 pb-4 pt-2 [[data-sidebar-collapsed='1']_&]:hidden">
-        <Wordmark className="text-ink" />
-        <p
-          className="m-label-mono mt-2"
-          style={{ color: 'var(--m-slate-2)' }}
-        >
-          Event
-        </p>
-      </header>
+      {/* Account switcher — top of sidebar, replaces the old Wordmark header.
+          User identity at top-left (desktop); hidden when collapsed to icon rail. */}
+      {switcherData ? (
+        <div className="px-3 pb-3 pt-3 [[data-sidebar-collapsed='1']_&]:hidden">
+          <AccountSwitcherStandalone data={switcherData} />
+        </div>
+      ) : null}
 
       {groups.map((group) => (
         <SidebarSection key={group.key} group={group} pathname={pathname}>

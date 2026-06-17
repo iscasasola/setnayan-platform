@@ -570,6 +570,10 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
   let initialFollowing = false;
   let coupleEventId: string | null = null;
   let isAlreadySaved = false;
+  /** Existing chat thread for this (coupleEvent, vendor) pair — non-null when
+   *  the couple already sent an inquiry (any status except declined). Passed
+   *  to the InquiryComposer so it can surface "View thread" instead of opening
+   *  a new modal on re-visit. */
   let existingThreadId: string | null = null;
   if (user) {
     initialFollowing = await isFollowingVendor(supabase, user.id, vendor.vendor_profile_id);
@@ -591,7 +595,11 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
           .maybeSingle(),
       ]);
       isAlreadySaved = Boolean(savedResult.data?.vendor_id);
-      const t = threadResult.data as { thread_id: string; inquiry_status: string } | null;
+      // Only surface "View thread" for non-declined threads — a declined
+      // thread has no active conversation to resume.
+      const t = threadResult.data as
+        | { thread_id: string; inquiry_status: string }
+        | null;
       if (t?.thread_id && t.inquiry_status !== 'declined') {
         existingThreadId = t.thread_id;
       }
@@ -1156,6 +1164,9 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
               guestEditHref={
                 coupleEventId ? `/dashboard/${coupleEventId}/guests` : null
               }
+              // Existing-thread detection: non-null when the couple already
+              // has a pending/accepted thread with this vendor. The composer
+              // shows "View thread" instead of opening the inquiry modal.
               existingThreadId={existingThreadId}
               existingThreadHref={
                 existingThreadId && coupleEventId
@@ -1421,7 +1432,12 @@ function ReviewsSection({
         <ul className="space-y-4">
           {reviews.map((r) => (
             <li key={r.review_id}>
-              <ReviewRow review={r} showStars={showStars} showComments={showComments} />
+              <ReviewRow
+                review={r}
+                showStars={showStars}
+                showComments={showComments}
+                vendorName={businessName}
+              />
             </li>
           ))}
         </ul>
@@ -1495,12 +1511,15 @@ function ReviewRow({
   review,
   showStars,
   showComments,
+  vendorName,
 }: {
   review: ReviewWithCouple;
   /** Phase C: hide the overall star row when the tier can't count stars. */
   showStars: boolean;
   /** Phase C: hide the comment body + axis stats + vendor reply. */
   showComments: boolean;
+  /** Business name used to label the vendor reply ("Response from [name]"). */
+  vendorName: string;
 }) {
   const author =
     review.couple_display_name && review.couple_display_name.trim().length > 0
@@ -1537,7 +1556,9 @@ function ReviewRow({
             <AxisStat axis="value" value={review.rating_value} />
             <AxisStat axis="on_time" value={review.rating_on_time} />
           </dl>
-          {review.vendor_reply ? <VendorReplyBlock review={review} /> : null}
+          {review.vendor_reply ? (
+            <VendorReplyBlock review={review} vendorName={vendorName} />
+          ) : null}
         </>
       ) : null}
     </article>
@@ -1575,7 +1596,13 @@ function StarRow({ value }: { value: number }) {
   );
 }
 
-function VendorReplyBlock({ review }: { review: ReviewWithCouple }) {
+function VendorReplyBlock({
+  review,
+  vendorName,
+}: {
+  review: ReviewWithCouple;
+  vendorName: string;
+}) {
   const repliedAt = review.vendor_reply_at
     ? new Date(review.vendor_reply_at).toLocaleDateString('en-PH', {
         year: 'numeric',
@@ -1586,7 +1613,8 @@ function VendorReplyBlock({ review }: { review: ReviewWithCouple }) {
   return (
     <div className="mt-3 rounded-md border-l-4 border-terracotta/40 bg-terracotta/[0.06] p-3 pl-4">
       <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta-700">
-        Vendor reply {repliedAt ? `· ${repliedAt}` : null}
+        Response from {vendorName}
+        {repliedAt ? ` · ${repliedAt}` : null}
       </p>
       <p className="mt-1 whitespace-pre-line text-sm text-ink/80">{review.vendor_reply}</p>
     </div>

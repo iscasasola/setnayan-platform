@@ -16,6 +16,7 @@ import {
   FileDown,
   Footprints,
   Gift,
+  HelpCircle,
   Link2,
   List,
   Map as MapIcon,
@@ -354,7 +355,8 @@ export function SeatingEditor({
   });
   const [showRoomPanel, setShowRoomPanel] = useState(false);
   const [showExport, setShowExport] = useState(false);
-  const [showAddBooth, setShowAddBooth] = useState(false);
+  // The booth whose type-picker is open (place-then-pick). null = none.
+  const [boothPickerFor, setBoothPickerFor] = useState<string | null>(null);
   const [canvasW, setCanvasW] = useState(0);
   const [floorDirty, setFloorDirty] = useState(false);
 
@@ -1610,6 +1612,10 @@ export function SeatingEditor({
         // A tap (no drag) on a table selects it → opens the popup toolbar.
         setHighlightId((id) => (id === d.id ? null : d.id));
       }
+    } else if (d && d.kind === 'booth') {
+      // A tap (no drag) on a booth opens its type picker (place-then-pick) —
+      // for a blank pin OR to re-type an existing one.
+      setBoothPickerFor((cur) => (cur === d.id ? null : d.id));
     }
     if (e) pointersRef.current.delete(e.pointerId);
     if (pointersRef.current.size < 2) pinchRef.current = null;
@@ -1713,8 +1719,11 @@ export function SeatingEditor({
   // Add a vendor booth. Sized room → it spawns onto the nearest legal
   // perimeter spot (bottom-centre bias), never mid-room. Free venue → into the
   // tidy row behind the tables (no walls to hug); the couple drags from there.
-  const addBooth = (type: BoothType) => {
-    const label = BOOTH_CATALOG.find((b) => b.type === type)?.label ?? 'Booth';
+  // Place-then-pick (owner-directed 2026-06-13): one click drops a BLANK pin;
+  // the couple taps it to choose which booth it is. Placement is the same
+  // wall/free logic — only the type starts 'unassigned'. The picker opens
+  // immediately so the next step is obvious.
+  const addBooth = () => {
     const p = venueScaled
       ? clampBoothToPerimeter(
           50,
@@ -1727,13 +1736,14 @@ export function SeatingEditor({
           y: 90,
         };
     tmpBoothSeq.current += 1;
+    const id = `tmp-${tmpBoothSeq.current}`;
     setBooths((bs) => [
       ...bs,
       {
-        booth_id: `tmp-${tmpBoothSeq.current}`,
+        booth_id: id,
         event_id: eventId,
-        booth_type: type,
-        label,
+        booth_type: 'unassigned',
+        label: 'New booth',
         x_pos: p.x,
         y_pos: p.y,
         sort_order: bs.length,
@@ -1744,10 +1754,30 @@ export function SeatingEditor({
       },
     ]);
     setBoothsDirty(true);
+    setBoothPickerFor(id);
+  };
+  // Assign / change a booth's type from the picker. The label follows the type
+  // unless the couple has renamed it to something off-catalog.
+  const setBoothType = (boothId: string, type: Exclude<BoothType, 'unassigned'>) => {
+    const catalogLabels = new Set<string>([
+      'New booth',
+      ...BOOTH_CATALOG.map((b) => b.label),
+    ]);
+    const newLabel = BOOTH_CATALOG.find((b) => b.type === type)?.label ?? 'Booth';
+    setBooths((bs) =>
+      bs.map((b) =>
+        b.booth_id === boothId
+          ? { ...b, booth_type: type, label: catalogLabels.has(b.label) ? newLabel : b.label }
+          : b,
+      ),
+    );
+    setBoothsDirty(true);
+    setBoothPickerFor(null);
   };
   const removeBooth = (boothId: string) => {
     setBooths((bs) => bs.filter((b) => b.booth_id !== boothId));
     setBoothsDirty(true);
+    setBoothPickerFor((cur) => (cur === boothId ? null : cur));
   };
   // Serialize local booth state for the server (tmp ids become inserts).
   const boothsPayload = (bs: FloorBoothRow[]) =>
@@ -2486,59 +2516,18 @@ export function SeatingEditor({
               </button>
             ) : null}
             {view === 'plan' ? (
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowAddBooth((v) => !v)}
-                  aria-haspopup="menu"
-                  aria-expanded={showAddBooth}
-                  title={
-                    venueScaled
-                      ? 'Vendor booths anchor to the walls — never blocking the stage or doors'
-                      : 'Vendor booths — drop them anywhere; an open venue has no walls'
-                  }
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta"
-                >
-                  <Store className="h-3.5 w-3.5" /> Add booth
-                  <ChevronDown className="h-3 w-3 text-ink/40" />
-                </button>
-                {showAddBooth ? (
-                  <>
-                    <button
-                      type="button"
-                      aria-hidden
-                      tabIndex={-1}
-                      onClick={() => setShowAddBooth(false)}
-                      className="fixed inset-0 z-30 cursor-default"
-                    />
-                    <div
-                      role="menu"
-                      className="absolute left-0 z-40 mt-1 w-48 overflow-hidden rounded-xl border border-ink/10 bg-cream p-1 shadow-lg"
-                    >
-                      {BOOTH_CATALOG.map((b) => (
-                        <button
-                          key={b.type}
-                          role="menuitem"
-                          type="button"
-                          onClick={() => {
-                            setShowAddBooth(false);
-                            addBooth(b.type);
-                          }}
-                          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-ink/[0.04]"
-                        >
-                          <BoothIcon type={b.type} className="h-4 w-4 text-terracotta-700" />
-                          {b.label}
-                        </button>
-                      ))}
-                      <p className="px-3 py-1.5 text-[10px] text-ink/45">
-                        {venueScaled
-                          ? 'Booths snap to the perimeter — clear of the stage wall & door paths.'
-                          : 'Open venue — place booths anywhere; no walls to hug.'}
-                      </p>
-                    </div>
-                  </>
-                ) : null}
-              </div>
+              <button
+                type="button"
+                onClick={addBooth}
+                title={
+                  venueScaled
+                    ? 'Drop a vendor booth, then tap it to pick what it is — it anchors to the walls'
+                    : 'Drop a vendor booth, then tap it to pick what it is — an open venue has no walls'
+                }
+                className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta"
+              >
+                <Store className="h-3.5 w-3.5" /> Add booth
+              </button>
             ) : null}
             {view === 'plan' && layoutDirty ? (
               <button
@@ -3158,36 +3147,85 @@ export function SeatingEditor({
 
           {/* vendor booths — perimeter-anchored markers; the drag handler runs
               the wall-snap rules live so they can't leave the legal band */}
-          {booths.map((b) => (
-            <div
-              key={b.booth_id}
-              className="absolute z-10 -translate-x-1/2 -translate-y-1/2"
-              style={{ left: `${b.x_pos}%`, top: `${b.y_pos}%` }}
-            >
-              <button
-                type="button"
-                onPointerDown={onBoothPointerDown(b.booth_id)}
-                aria-label={`${b.label} — ${venueScaled ? 'drag along the walls' : 'drag to move'}`}
-                className={`flex select-none items-center gap-1.5 rounded-md border bg-cream/85 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-ink/70 shadow-sm backdrop-blur-sm ${
-                  dragId === `__booth_${b.booth_id}__`
-                    ? 'border-terracotta cursor-grabbing'
-                    : 'border-ink/25 cursor-grab'
-                }`}
+          {booths.map((b) => {
+            const unassigned = b.booth_type === 'unassigned';
+            return (
+              <div
+                key={b.booth_id}
+                className="absolute z-10 -translate-x-1/2 -translate-y-1/2"
+                style={{ left: `${b.x_pos}%`, top: `${b.y_pos}%` }}
               >
-                <BoothIcon type={b.booth_type} className="h-3.5 w-3.5 text-terracotta-700" />
-                {b.label}
-              </button>
-              <button
-                type="button"
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={() => removeBooth(b.booth_id)}
-                aria-label={`Remove ${b.label}`}
-                className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-rose-600"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-          ))}
+                <button
+                  type="button"
+                  onPointerDown={onBoothPointerDown(b.booth_id)}
+                  aria-label={`${unassigned ? 'New booth — tap to pick a type' : b.label} — ${
+                    venueScaled ? 'drag along the walls' : 'drag to move'
+                  }`}
+                  className={`flex select-none items-center gap-1.5 rounded-md border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] shadow-sm backdrop-blur-sm ${
+                    unassigned
+                      ? 'border-dashed border-terracotta/60 bg-terracotta/[0.06] text-terracotta-700'
+                      : 'bg-cream/85 text-ink/70'
+                  } ${
+                    dragId === `__booth_${b.booth_id}__`
+                      ? 'border-terracotta cursor-grabbing'
+                      : `${unassigned ? '' : 'border-ink/25'} cursor-grab`
+                  }`}
+                >
+                  <BoothIcon type={b.booth_type} className="h-3.5 w-3.5 text-terracotta-700" />
+                  {unassigned ? 'Pick type' : b.label}
+                </button>
+                <button
+                  type="button"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={() => removeBooth(b.booth_id)}
+                  aria-label={`Remove ${b.label}`}
+                  className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-rose-600"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+
+                {/* type picker — opens on tap (no-drag) or right after Add booth */}
+                {boothPickerFor === b.booth_id ? (
+                  <>
+                    <button
+                      type="button"
+                      aria-hidden
+                      tabIndex={-1}
+                      onPointerDown={(e) => {
+                        e.stopPropagation();
+                        setBoothPickerFor(null);
+                      }}
+                      className="fixed inset-0 z-40 cursor-default"
+                    />
+                    <div
+                      role="menu"
+                      aria-label="Pick a booth type"
+                      onPointerDown={(e) => e.stopPropagation()}
+                      className="absolute left-1/2 top-full z-50 mt-2 w-48 -translate-x-1/2 overflow-hidden rounded-xl border border-ink/10 bg-cream p-1 shadow-lg"
+                    >
+                      <p className="px-3 pb-1 pt-1.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/45">
+                        What is this booth?
+                      </p>
+                      {BOOTH_CATALOG.map((c) => (
+                        <button
+                          key={c.type}
+                          role="menuitem"
+                          type="button"
+                          onClick={() => setBoothType(b.booth_id, c.type)}
+                          className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-ink/[0.04] ${
+                            b.booth_type === c.type ? 'text-terracotta-700' : 'text-ink'
+                          }`}
+                        >
+                          <BoothIcon type={c.type} className="h-4 w-4 text-terracotta-700" />
+                          {c.label}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            );
+          })}
 
           {/* Wayfinding signs — rotatable arrow + label (Restrooms, Parking…) */}
           {signs.map((s) => (
@@ -4199,19 +4237,21 @@ function Pill({ children, tone = 'default' }: { children: React.ReactNode; tone?
 
 function BoothIcon({ type, className }: { type: BoothType; className?: string }) {
   const Icon =
-    type === 'photo_booth'
-      ? Camera
-      : type === 'mobile_bar'
-        ? Martini
-        : type === 'dessert_station'
-          ? CakeSlice
-          : type === 'gift_table'
-            ? Gift
-            : type === 'souvenir_table'
-              ? Package
-              : type === 'registration_desk'
-                ? ClipboardList
-                : Store;
+    type === 'unassigned'
+      ? HelpCircle
+      : type === 'photo_booth'
+        ? Camera
+        : type === 'mobile_bar'
+          ? Martini
+          : type === 'dessert_station'
+            ? CakeSlice
+            : type === 'gift_table'
+              ? Gift
+              : type === 'souvenir_table'
+                ? Package
+                : type === 'registration_desk'
+                  ? ClipboardList
+                  : Store;
   return <Icon className={className} />;
 }
 

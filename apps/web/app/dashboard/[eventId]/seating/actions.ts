@@ -948,7 +948,8 @@ export async function seatRoleAtTable(
 // auto-seat pass server-side. No AI calls anywhere on this path.
 // ---------------------------------------------------------------------------
 
-const VALID_BOOTH_TYPES = new Set(BOOTH_CATALOG.map((b) => b.type));
+// The 6 pickable kinds + 'unassigned' (a blank pin the couple hasn't typed yet).
+const VALID_BOOTH_TYPES = new Set<BoothType>([...BOOTH_CATALOG.map((b) => b.type), 'unassigned']);
 const MAX_BOOTHS = 12;
 
 type BoothPayload = {
@@ -996,7 +997,9 @@ function parseBoothsPayload(raw: unknown): BoothPayload[] {
     return {
       booth_id: typeof o.booth_id === 'string' && o.booth_id.length > 0 ? o.booth_id : null,
       booth_type: type as BoothType,
-      label: label || (BOOTH_CATALOG.find((c) => c.type === type)?.label ?? 'Booth'),
+      label:
+        label ||
+        (type === 'unassigned' ? 'New booth' : BOOTH_CATALOG.find((c) => c.type === type)?.label ?? 'Booth'),
       x_pos: Math.max(lo, Math.min(hi, x)),
       y_pos: Math.max(lo, Math.min(hi, y)),
       sort_order: i,

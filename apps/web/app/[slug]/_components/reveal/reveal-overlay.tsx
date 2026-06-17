@@ -15,10 +15,15 @@
  * guests skip the reveal and see the content directly).
  *
  * Activation (the caller passes `enabled` = "we're in the Save-the-Date phase"):
- *   - global flag  `NEXT_PUBLIC_STD_REVEAL=1`  → on for everyone, default template
+ *   - admin toggle `config.enabled` (DB `reveal_studio_config`, set in the
+ *     /admin/reveal-studio Reveal Studio) → on for everyone, `config.defaultTemplate`
+ *   - global flag  `NEXT_PUBLIC_STD_REVEAL=1`  → legacy env fallback (kept for previews)
  *   - per-visit URL `?reveal=<id>` → activates AND overrides the template for that
- *     one visit, even when the flag is off (how we demo on Vercel previews).
+ *     one visit, even when the toggle is off (how we demo on Vercel previews).
  *     Accepted ids in ./reveal-templates REVEAL_ALIASES, e.g. ?reveal=church-doors.
+ *
+ * The admin also customizes the veil look + per-feature toggles via `config`
+ * (resolved from lib/reveal-config); those flow into the veil as `look`/`features`.
  *
  * Template registry is a switch (./reveal-templates). The rigid families are pure
  * CSS-3D (in the main chunk, Lighthouse-safe); the two WebGL veils are lazy-loaded
@@ -32,6 +37,7 @@ import { FourFlapEnvelope } from './four-flap';
 import { RigidReveal } from './rigid-reveal';
 import { isVeilTemplate, REVEAL_ALIASES, type RevealTemplate } from './reveal-templates';
 import type { WaxSealConfig } from '@/lib/wax-seal/types';
+import type { RevealStudioConfig } from '@/lib/reveal-config';
 
 const VeilReveal = dynamic(() => import('./veil-reveal'), { ssr: false });
 const VeilCrown = dynamic(() => import('./veil-crown'), { ssr: false });
@@ -54,6 +60,10 @@ type Props = {
   sealFallbackSeed?: number;
   /** Veil tulle colour (hex) from the Mood Board palette. */
   veilColor?: string;
+  /** Rose-petal colour (hex) from the Mood Board palette. Blush-rose default. */
+  petalsColor?: string;
+  /** Resolved admin Reveal Studio config (master toggle · default template · veil look · features). */
+  config?: RevealStudioConfig;
 };
 
 const FLAG_ON = process.env.NEXT_PUBLIC_STD_REVEAL === '1';
@@ -66,6 +76,8 @@ export function RevealOverlay({
   sealConfig = null,
   sealFallbackSeed,
   veilColor = '#f3ece1',
+  petalsColor = '#e87a93',
+  config,
 }: Props) {
   const [mounted, setMounted] = useState(false);
   const [reveal, setReveal] = useState('');
@@ -84,10 +96,11 @@ export function RevealOverlay({
   }, []);
 
   const override = reveal ? REVEAL_ALIASES[reveal] ?? null : null;
-  const template: RevealTemplate = override ?? 'four-flap';
+  const template: RevealTemplate = override ?? config?.defaultTemplate ?? 'four-flap';
   const veil = isVeilTemplate(template);
 
-  const active = enabled && !reducedMotion && (FLAG_ON || override !== null);
+  const configEnabled = config?.enabled ?? false;
+  const active = enabled && !reducedMotion && (configEnabled || FLAG_ON || override !== null);
   if (!active || !mounted || gone) return null;
 
   if (veil) {
@@ -100,6 +113,9 @@ export function RevealOverlay({
       >
         <VeilComponent
           veilColor={veilColor}
+          petalsColor={petalsColor}
+          look={config?.veil}
+          features={config?.features}
           onRevealed={() => {
             setOpen(true);
             setTimeout(() => setGone(true), 500);

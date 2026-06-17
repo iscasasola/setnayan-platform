@@ -59,6 +59,65 @@ function parseSurchargePctOrNull(raw: FormDataEntryValue | null): number | null 
   return n;
 }
 
+const DISCOUNT_TYPES = ['early_booking', 'off_peak', 'bundle', 'promo', 'returning'] as const;
+type DiscountType = (typeof DISCOUNT_TYPES)[number];
+
+/** Parse optional discount fields from formData. Throws on invalid combos. */
+function parseDiscountFields(formData: FormData): {
+  discount_type: DiscountType | null;
+  discount_value: number | null;
+  discount_expires_at: string | null;
+  discount_conditions_md: string | null;
+} {
+  const typeRaw = formData.get('discount_type');
+  const discount_type =
+    typeof typeRaw === 'string' && (DISCOUNT_TYPES as readonly string[]).includes(typeRaw)
+      ? (typeRaw as DiscountType)
+      : null;
+
+  const valueRaw = formData.get('discount_value');
+  let discount_value: number | null = null;
+  if (typeof valueRaw === 'string' && valueRaw.trim().length > 0) {
+    const n = Number(valueRaw.trim());
+    if (!Number.isFinite(n) || n <= 0) {
+      throw new Error('Discount amount must be a positive number.');
+    }
+    discount_value = n;
+  }
+
+  if (discount_type !== null && discount_value === null) {
+    throw new Error('A discount amount is required when a discount type is selected.');
+  }
+
+  const expiresRaw = formData.get('discount_expires_at');
+  let discount_expires_at: string | null = null;
+  if (typeof expiresRaw === 'string' && expiresRaw.trim().length > 0) {
+    const d = new Date(expiresRaw.trim());
+    if (isNaN(d.getTime())) {
+      throw new Error('Discount expiry must be a valid date.');
+    }
+    discount_expires_at = d.toISOString();
+  }
+  if (discount_type === 'promo' && discount_expires_at === null) {
+    throw new Error('Limited-Time Promo discounts require an expiry date.');
+  }
+
+  const condRaw = formData.get('discount_conditions_md');
+  const discount_conditions_md =
+    typeof condRaw === 'string' && condRaw.trim().length > 0
+      ? condRaw.trim().slice(0, 1000)
+      : null;
+
+  return { discount_type, discount_value, discount_expires_at, discount_conditions_md };
+}
+
+/** Parse exclusive_perk_text. Returns null when blank (allowed for drafts). */
+function parseExclusivePerk(formData: FormData): string | null {
+  const raw = formData.get('exclusive_perk_text');
+  if (typeof raw !== 'string' || raw.trim().length === 0) return null;
+  return raw.trim().slice(0, 500);
+}
+
 /**
  * Recommended lead time in months (Setnayan AI §4, vendor-owned 2026-06-16): a
  * non-negative number, fractional allowed (0.5 ≈ 2 weeks). Blank → null = no
@@ -144,6 +203,11 @@ export async function createVendorService(formData: FormData) {
   let recommended_lead_time_months: number | null;
   let last_minute_end_months: number | null;
   let last_minute_surcharge_pct: number | null;
+  let discount_type: ReturnType<typeof parseDiscountFields>['discount_type'];
+  let discount_value: number | null;
+  let discount_expires_at: string | null;
+  let discount_conditions_md: string | null;
+  let exclusive_perk_text: string | null;
   try {
     category = parseCategory(formData.get('category'));
     starting_price_php = parseInt0OrNull(formData.get('starting_price_php'));
@@ -158,6 +222,9 @@ export async function createVendorService(formData: FormData) {
     last_minute_surcharge_pct = parseSurchargePctOrNull(
       formData.get('last_minute_surcharge_pct'),
     );
+    ({ discount_type, discount_value, discount_expires_at, discount_conditions_md } =
+      parseDiscountFields(formData));
+    exclusive_perk_text = parseExclusivePerk(formData);
   } catch (e) {
     return redirect(
       `/vendor-dashboard/services?error=${encodeURIComponent((e as Error).message)}`,
@@ -254,7 +321,14 @@ export async function createVendorService(formData: FormData) {
     last_minute_end_months,
     last_minute_surcharge_pct,
     daily_capacity,
-    is_active: true,
+    discount_type,
+    discount_value,
+    discount_expires_at,
+    discount_conditions_md,
+    exclusive_perk_text,
+    // New services are created as drafts (is_active: false) so the publish gate
+    // (exclusive_perk_text required) is enforced only on the toggle action.
+    is_active: false,
   });
 
   if (error) {
@@ -314,6 +388,11 @@ export async function updateVendorService(formData: FormData) {
   let recommended_lead_time_months: number | null;
   let last_minute_end_months: number | null;
   let last_minute_surcharge_pct: number | null;
+  let discount_type: ReturnType<typeof parseDiscountFields>['discount_type'];
+  let discount_value: number | null;
+  let discount_expires_at: string | null;
+  let discount_conditions_md: string | null;
+  let exclusive_perk_text: string | null;
   try {
     starting_price_php = parseInt0OrNull(formData.get('starting_price_php'));
     added_pax_price_php = parseInt0OrNull(formData.get('added_pax_price_php'));
@@ -326,6 +405,9 @@ export async function updateVendorService(formData: FormData) {
     last_minute_surcharge_pct = parseSurchargePctOrNull(
       formData.get('last_minute_surcharge_pct'),
     );
+    ({ discount_type, discount_value, discount_expires_at, discount_conditions_md } =
+      parseDiscountFields(formData));
+    exclusive_perk_text = parseExclusivePerk(formData);
   } catch (e) {
     return redirect(
       `/vendor-dashboard/services?error=${encodeURIComponent((e as Error).message)}`,
@@ -369,6 +451,11 @@ export async function updateVendorService(formData: FormData) {
       last_minute_end_months,
       last_minute_surcharge_pct,
       daily_capacity,
+      discount_type,
+      discount_value,
+      discount_expires_at,
+      discount_conditions_md,
+      exclusive_perk_text,
       updated_at: new Date().toISOString(),
     })
     .eq('vendor_service_id', idRaw)
@@ -470,6 +557,26 @@ export async function toggleVendorServiceActive(formData: FormData) {
     return redirect('/vendor-dashboard/services?error=Missing+service+id');
   }
   const is_active = nextRaw === 'true' || nextRaw === 'on' || nextRaw === '1';
+
+  // Publish gate (Part B, v2.1 §7.2): exclusive_perk_text is required to
+  // publish (is_active=true). Drafts (is_active=false) may omit it.
+  if (is_active) {
+    const { data: svcRow } = await supabase
+      .from('vendor_services')
+      .select('exclusive_perk_text')
+      .eq('vendor_service_id', idRaw)
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .maybeSingle();
+    const perk = (svcRow as { exclusive_perk_text?: string | null } | null)
+      ?.exclusive_perk_text;
+    if (!perk || perk.trim().length === 0) {
+      return redirect(
+        `/vendor-dashboard/services?error=${encodeURIComponent(
+          'A Setnayan Exclusive perk is required to publish this service.',
+        )}`,
+      );
+    }
+  }
 
   const { error } = await supabase
     .from('vendor_services')

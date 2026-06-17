@@ -26,6 +26,7 @@ function signals(p: Partial<ChecklistSignals>): ChecklistSignals {
     monogramSet: false,
     marriageLicenseReceived: false,
     psaReceived: false,
+    dateStatusLocked: false,
     ...p,
   };
 }

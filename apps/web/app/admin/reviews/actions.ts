@@ -269,3 +269,47 @@ export async function escalateAppeal(formData: FormData) {
   revalidatePath('/admin/reviews');
   redirect('/admin/reviews?escalated=1');
 }
+
+/**
+ * Admin dismisses a vendor fake-review flag. Updates the flag status to
+ * 'dismissed' and records an optional admin note + reviewer id + timestamp.
+ * Logs to admin_audit_log for accountability.
+ */
+export async function dismissReviewFlag(formData: FormData) {
+  const { userId } = await requireAdmin();
+
+  const flagId = formData.get('flag_id');
+  const adminNote = nullIfBlank(formData.get('admin_note'));
+  if (typeof flagId !== 'string') throw new Error('Invalid flag_id');
+
+  const admin = createAdminClient();
+
+  const { error } = await admin
+    .from('vendor_review_flags')
+    .update({
+      status: 'dismissed',
+      admin_note: adminNote,
+      reviewed_by_admin_id: userId,
+      reviewed_at: new Date().toISOString(),
+    })
+    .eq('flag_id', flagId)
+    .eq('status', 'pending'); // idempotency guard
+
+  if (error) throw new Error(`dismissReviewFlag failed: ${error.message}`);
+
+  const { error: auditErr } = await admin.from('admin_audit_log').insert({
+    action: 'review_flag_dismiss',
+    target_id: flagId,
+    actor_user_id: userId,
+    metadata: {
+      flag_id: flagId,
+      admin_note: adminNote?.slice(0, 500) ?? null,
+    },
+  });
+  if (auditErr) {
+    console.error('[dismissReviewFlag] audit log insert failed', auditErr.message);
+  }
+
+  revalidatePath('/admin/reviews');
+  redirect('/admin/reviews?flag_dismissed=1');
+}

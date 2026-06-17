@@ -37,6 +37,8 @@
 
 import {
   Home, Users, Compass, Sparkles, Palette, Wallet,
+  // Home children:
+  LayoutDashboard, ClipboardList,
   // Studio children:
   Gem, Globe, Camera,
   // Budget children:
@@ -105,7 +107,7 @@ export type CustomerMenuCtx = {
  * Budget. Children: Guests (routed, from `guest-journey.ts`) · Explore (tabs,
  * from `budget-build.ts`) · Studio (anchor sections — Setnayan AI · Website ·
  * Capture · Branding, scrolling the regrouped /add-ons hub) · Budget (anchor
- * scroll-sections). Home is the only childless menu. (The `design` key remains
+ * scroll-sections). Home children: Overview + Checklist (routed). (The `design` key remains
  * in CustomerMenuKey but no longer renders a menu — /design redirects to Studio.)
  */
 export function buildCustomerMenuTree(
@@ -121,8 +123,31 @@ export function buildCustomerMenuTree(
       label: 'Home',
       icon: Home,
       href: base,
-      activeMatch: base,
+      activeMatch: [base, `${base}/checklist`],
       activeMatchExact: true,
+      sectionMatch: [base, `${base}/checklist`],
+      sectionMatchExact: true,
+      subnavLabel: 'Home',
+      children: [
+        {
+          key: 'overview',
+          label: 'Overview',
+          icon: LayoutDashboard,
+          kind: 'route' as const,
+          href: base,
+          match: base,
+          slotKey: 'customer.home-subnav.overview',
+        },
+        {
+          key: 'checklist',
+          label: 'Checklist',
+          icon: ClipboardList,
+          kind: 'route' as const,
+          href: `${base}/checklist`,
+          match: `${base}/checklist`,
+          slotKey: 'customer.home-subnav.checklist',
+        },
+      ],
     },
     {
       key: 'guests',

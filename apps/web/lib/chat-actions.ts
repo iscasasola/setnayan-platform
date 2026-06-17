@@ -196,6 +196,26 @@ export async function sendChatMessage(formData: FormData) {
   });
   if (error) throw new Error(error.message);
 
+  // vendor_first_reply_at — stamp the thread when the vendor sends their first
+  // message. The DB trigger `stamp_vendor_first_reply` (migration 20270110320018)
+  // does this atomically on every chat_messages INSERT where sender_role='vendor'
+  // and the thread's vendor_first_reply_at IS NULL, so this application-level
+  // path is defense-in-depth only. It is intentionally a best-effort UPDATE
+  // that never blocks the send — if the column doesn't exist yet (pre-migration)
+  // or the RLS policy denies the write, we log and continue.
+  if (senderRole === 'vendor' && !thread.vendor_first_reply_at) {
+    const adminForStamp = createAdminClient();
+    const { error: stampErr } = await adminForStamp
+      .from('chat_threads')
+      .update({ vendor_first_reply_at: new Date().toISOString() })
+      .eq('thread_id', thread.thread_id)
+      .is('vendor_first_reply_at', null); // idempotent: only stamps first reply
+    if (stampErr) {
+      // Non-fatal — DB trigger covers this path. Log for observability.
+      console.warn('[sendChatMessage] vendor_first_reply_at stamp skipped:', stampErr.message);
+    }
+  }
+
   // Notify the OTHER party. The couple side notifies the vendor user;
   // the vendor side notifies every couple member on the event. Use the
   // admin client so the lookup bypasses RLS without leaking auth scope.
@@ -455,6 +475,15 @@ export async function acceptInquiry(formData: FormData) {
       threadId: thread.thread_id,
       type: 'inquiry_accepted',
     });
+    // Part B — Setnayan Exclusive perk reveal (v2.1 §7.2).
+    // After the vendor burns tokens to pursue an inquiry, insert one system
+    // message per service that carries an exclusive_perk_text, using the
+    // admin client so the 'system' sender_role bypasses couple/vendor RLS.
+    await revealExclusivePerks({
+      threadId: thread.thread_id,
+      eventId: thread.event_id,
+      vendorProfileId: thread.vendor_profile_id,
+    });
   }
 
   if (typeof returnTo === 'string' && returnTo.startsWith('/')) {
@@ -552,5 +581,76 @@ async function notifyCoupleOfInquiryOutcome(args: {
         ? `/dashboard/${args.eventId}/messages/${args.threadId}`
         : `/dashboard/${args.eventId}/vendors`,
     });
+  }
+}
+
+// ── Setnayan Exclusive perk reveal (Part B, v2.1 §7.2) ──────────────────────
+/**
+ * After a vendor's token-pursue succeeds (burn_on_answer / acceptInquiry),
+ * fetch all active services this vendor has for the event thread and insert
+ * one 'system' chat message per service that carries exclusive_perk_text.
+ *
+ * The admin client is used (service-role) so the 'system' sender_role can
+ * bypass the couple/vendor INSERT RLS that guards chat_messages — the same
+ * pattern as the Build 3d-C re-quote nudge (migration 20270101010000).
+ *
+ * Best-effort: any error is logged and silently swallowed so the accept flow
+ * is never blocked by a missing column (pre-migration) or an empty perk set.
+ */
+async function revealExclusivePerks(args: {
+  threadId: string;
+  eventId: string;
+  vendorProfileId: string;
+}): Promise<void> {
+  try {
+    const admin = createAdminClient();
+
+    // Fetch the vendor's active services that carry a perk.
+    // We scope to is_active=true since draft services aren't visible publicly.
+    const { data: services } = await admin
+      .from('vendor_services')
+      .select('vendor_service_id,title,category,exclusive_perk_text')
+      .eq('vendor_profile_id', args.vendorProfileId)
+      .eq('is_active', true)
+      .not('exclusive_perk_text', 'is', null);
+
+    if (!services || services.length === 0) return;
+
+    // Build one system message per service with a perk.
+    const messages = services
+      .filter(
+        (s: { exclusive_perk_text?: string | null }) =>
+          typeof s.exclusive_perk_text === 'string' && s.exclusive_perk_text.trim().length > 0,
+      )
+      .map((s: {
+        vendor_service_id: string;
+        title: string | null;
+        category: string;
+        exclusive_perk_text: string;
+      }) => {
+        const label = s.title?.trim() || s.category;
+        return {
+          thread_id: args.threadId,
+          event_id: args.eventId,
+          vendor_profile_id: args.vendorProfileId,
+          // service-role insert — sender_user_id can be null for system msgs.
+          sender_user_id: null as unknown as string,
+          sender_role: 'system' as const,
+          body: `**Setnayan Exclusive unlocked 🎁** ${label}: ${s.exclusive_perk_text}`,
+        };
+      });
+
+    if (messages.length === 0) return;
+
+    const { error } = await admin.from('chat_messages').insert(messages);
+    if (error) {
+      // Gracefully degrade — likely a pre-migration column miss. Never block accept.
+      console.error('[revealExclusivePerks] insert error (non-blocking):', error.message);
+    }
+  } catch (caught) {
+    console.error(
+      '[revealExclusivePerks] threw (non-blocking):',
+      caught instanceof Error ? caught.message : String(caught),
+    );
   }
 }

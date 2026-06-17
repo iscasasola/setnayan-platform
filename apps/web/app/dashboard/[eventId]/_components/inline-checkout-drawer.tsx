@@ -132,6 +132,28 @@ export function InlineCheckoutDrawer({
 }: InlineCheckoutDrawerProps) {
   const [open, setOpen] = useState(false);
 
+  // Native (Capacitor) app → hand payment off to the WEBSITE instead of running
+  // the in-app BDO/GCash flow. Two reasons: (1) Apple/Google forbid selling
+  // digital goods in-app via an external rail (BDO/GCash) — that's an App Store
+  // rejection; the purchase must happen out-of-app. (2) The website is the
+  // cheaper path (base catalog price, 0% store cut) — owner 2026-06-16. The
+  // shell tags its WebView UA with 'SetnayanApp'. Detected POST-MOUNT so the
+  // server-rendered markup (web variant) doesn't hydration-mismatch.
+  const [isNativeApp, setIsNativeApp] = useState(false);
+  useEffect(() => {
+    if (typeof navigator !== 'undefined' && /SetnayanApp/i.test(navigator.userAgent)) {
+      setIsNativeApp(true);
+    }
+  }, []);
+
+  // Open this checkout page in the EXTERNAL browser ('_system' → Capacitor hands
+  // off to Safari/Chrome), where the buyer completes the purchase out-of-app at
+  // the base price via BDO/GCash. Only ever called on native.
+  const openWebCheckout = () => {
+    if (typeof window === 'undefined') return;
+    window.open(window.location.href, '_system');
+  };
+
   // Voucher state — managed locally because the apply action returns a
   // result we render inline · we don't navigate.
   const [voucherInput, setVoucherInput] = useState('');
@@ -192,14 +214,19 @@ export function InlineCheckoutDrawer({
   const trigger = (
     <button
       type="button"
-      onClick={() => setOpen(true)}
+      onClick={() => (isNativeApp ? openWebCheckout() : setOpen(true))}
       className={
         triggerClassName ??
         'inline-flex items-center gap-2 rounded-full bg-mulberry px-5 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600'
       }
-      aria-haspopup="dialog"
+      aria-haspopup={isNativeApp ? undefined : 'dialog'}
+      title={isNativeApp ? 'Opens setnayan.com to pay with BDO/GCash' : undefined}
     >
-      <CreditCard aria-hidden className="h-4 w-4" strokeWidth={2} />
+      {isNativeApp ? (
+        <ExternalLink aria-hidden className="h-4 w-4" strokeWidth={2} />
+      ) : (
+        <CreditCard aria-hidden className="h-4 w-4" strokeWidth={2} />
+      )}
       {triggerLabel ?? 'Add this service'}
       <span className="font-mono text-xs font-normal opacity-90">
         · {originalPesoDisplay}

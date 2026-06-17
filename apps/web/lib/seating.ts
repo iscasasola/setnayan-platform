@@ -840,9 +840,13 @@ export type BoothType =
   | 'gift_table'
   | 'souvenir_table'
   | 'registration_desk'
-  | 'custom';
+  | 'custom'
+  // A blank pin the couple has placed but not yet typed (place-then-pick).
+  | 'unassigned';
 
-export const BOOTH_CATALOG: ReadonlyArray<{ type: BoothType; label: string }> = [
+// The pickable kinds shown in the booth type picker — 'unassigned' is the
+// pre-pick state and is deliberately NOT offered as a choice.
+export const BOOTH_CATALOG: ReadonlyArray<{ type: Exclude<BoothType, 'unassigned'>; label: string }> = [
   { type: 'photo_booth', label: 'Photo Booth' },
   { type: 'mobile_bar', label: 'Mobile Bar' },
   { type: 'dessert_station', label: 'Dessert Station' },

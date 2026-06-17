@@ -41,9 +41,6 @@ import { IconTileFolderStrip } from './_components/icon-tile-folder-strip';
 import { StickyMarketplaceHeader } from './_components/sticky-marketplace-header';
 import { ExploreSearchHero, type ExploreChip } from './_components/explore-search-hero';
 import type { FilterDrawerProps } from './_components/filter-drawer';
-import { PairedVenuePanel } from './_components/paired-venue-panel';
-import { CeremonyVenuesSection } from './_components/ceremony-venues-section';
-import { ReceptionVenuesSection } from './_components/reception-venues-section';
 import {
   TAXONOMY_MAP,
   WEDDING_FOLDER_LABEL,
@@ -609,6 +606,24 @@ type VendorCardRow = {
    * 0 (default) = no relationship / logged-out visitor.
    */
   relationship_depth?: 0 | 1 | 2 | 3;
+  /**
+   * PR #6 — quality / activity signals from vendor_activity_stats.
+   * quality_score: 0–100 composite. NULL when no row exists yet (default = 50 for sort).
+   * finalized_booking_count, last_active_at, avg_response_minutes for badge chips.
+   */
+  quality_score?: number | null;
+  finalized_booking_count?: number | null;
+  last_active_at?: string | null;
+  avg_response_minutes?: number | null;
+  /**
+   * PR #6 — partnership badge resolved from vendor_partnerships.
+   * NULL = no admin-verified partnership to a shortlisted couple vendor.
+   */
+  partnership_badge?: {
+    relationship_type: 'sponsored_included' | 'sponsored_discounted' | 'accredited' | 'general';
+    recommending_vendor_name: string;
+    discount_pct: number | null;
+  } | null;
 };
 
 /** Reverse map: tile URL slug (e.g. `photo-video`) → WeddingTile key. */
@@ -922,15 +937,6 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   let filters = parseFilters(raw);
   const admin = createAdminClient();
 
-  // Social auto-publish flush — the traffic-piggyback doctrine: the platform
-  // is cron-free by lock ([[project_setnayan_cron_free]]), so the dispatch
-  // engine rides on organic traffic via Next 15 after() instead of a
-  // scheduler. The public marketplace is the highest-traffic server-rendered
-  // route, so posts go out on time even when nobody on the team is in
-  // /admin. Fire-and-forget after the response; the 10-minute throttle
-  // inside runSocialFlush makes this effectively free, and it never throws.
-  after(() => runSocialFlush().catch(() => {}));
-
   // DB-driven event-type roster (2026-06-13 cutover) — ACTIVE vocab rows.
   // parseFilters only shape-checked ?event_type=; here it's validated against
   // the live roster (unknown / retired keys fall back to null = no filter).
@@ -980,7 +986,6 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // every vendor card. Populated by saveVendorToPicks when the couple saves
   // a category='venue' vendor with coords. NULL = no anchor → no chips.
   let venueAnchor: { lat: number; lng: number } | null = null;
-  let venueAnchorName: string | null = null;
   // Task #45 (2026-05-22) — host's event_date + precision drive the
   // marketplace candidate-window. Read alongside the existing event fields
   // in the same select so the intersection filter doesn't add a roundtrip.
@@ -1021,7 +1026,6 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           lat: Number(ev.venue_latitude),
           lng: Number(ev.venue_longitude),
         };
-        venueAnchorName = (ev?.venue_name as string | null) ?? null;
       }
       // Iteration 0043 — ceremony × venue compat fields are wedding-only
       // (NULL for non-wedding events per migration 20260521080000), so the
@@ -1151,16 +1155,11 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           matchEvent={filters.matchEvent}
           coupleFaith={coupleFaith}
           venueAnchor={venueAnchor}
-          venueAnchorName={venueAnchorName}
-          coupleCeremonyType={matchableEvent?.ceremony_type ?? null}
           coupleEventType={coupleEventType}
           currentEventId={coupleEventId}
           isAuthenticated={user !== null}
           noticeKey={noticeKey}
           scopedFolder={filters.folder}
-          hostVenueSetting={hostVenueSetting}
-          venueFilterActive={venueFilterActive}
-          venueFacet={filters.venueFacet}
           inDemoMode={inDemoMode}
           focusedMode={filters.focusedMode}
           faithFilter={filters.faithFilter}
@@ -1343,7 +1342,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     );
   }
 
-  // Sort chain.
+  // Sort chain (PR #6 updated — quality_score added as step 3):
   //   1. is_setnayan_service DESC (owner directive 2026-05-22 PM) —
   //      first-party Setnayan canonicals (Papic, Panood, Pailaw,
   //      Patiktok, Pakanta, Setnayan AI, Animated Monogram,
@@ -1352,9 +1351,18 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   //      time via the 10-canonical array in migration 20260607020000.
   //   2. ad_rank DESC (iteration 0006, 2026-05-21) — Sponsored Boost +
   //      Boosted Ads next, per iteration 0022 § 5b.
-  //   3. User-chosen sort below.
-  // All columns live on vendor_market_stats so PostgREST orders + paginates
-  // in one query — no in-memory pass.
+  //   3. quality_score DESC (PR #6, 2026-06-17) — vendors with a higher
+  //      precomputed quality composite float above unscored or lower-quality
+  //      vendors within the same ad tier. vendor_activity_stats rows are
+  //      LEFT JOIN'd in-memory post-pagination (vendor_market_stats view
+  //      doesn't carry the column). The SQL ORDER BY here uses COALESCE to
+  //      treat a missing row as quality_score=50 (mid-range default), so
+  //      unscored vendors sort in the middle — neither top nor bottom.
+  //      NOTE: vendor_market_stats does NOT have quality_score; this step
+  //      is applied in-memory after fetching activity stats below.
+  //   4. User-chosen sort below.
+  // vendor_market_stats columns drive the SQL ORDER BY; quality_score is
+  // applied in-memory after the activity-stats enrichment loop.
   query = query.order('is_setnayan_service', { ascending: false });
   query = query.order('ad_rank', { ascending: false });
   switch (filters.sort) {
@@ -1602,7 +1610,15 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // page load.
   // ---------------------------------------------------------------------
   const visibleVendorIds = visible.map((v) => v.vendor_profile_id);
-  const [verificationByVendorId, servicesByVendorId, bookingCounts, reviewsByVendorId, relationshipDepthMap] =
+  const [
+    verificationByVendorId,
+    servicesByVendorId,
+    bookingCounts,
+    reviewsByVendorId,
+    relationshipDepthMap,
+    activityStatsByVendorId,
+    partnershipBadgeByVendorId,
+  ] =
     await Promise.all([
       (async (): Promise<
         Map<
@@ -1772,6 +1788,167 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         }
         return out;
       })(),
+      // PR #6 — vendor_activity_stats read. Fetches quality_score,
+      // finalized_booking_count, last_active_at, and avg_response_minutes
+      // for each visible vendor in one batched read. Fail-soft: an empty
+      // map means quality_score falls back to the 50-default in the sort
+      // and all activity badges are suppressed (no crash).
+      (async (): Promise<Map<string, {
+        quality_score: number | null;
+        finalized_booking_count: number | null;
+        last_active_at: string | null;
+        avg_response_minutes: number | null;
+      }>> => {
+        if (visibleVendorIds.length === 0) return new Map();
+        const { data, error } = await admin
+          .from('vendor_activity_stats')
+          .select(
+            'vendor_profile_id, quality_score, finalized_booking_count, last_active_at, avg_response_minutes',
+          )
+          .in('vendor_profile_id', visibleVendorIds);
+        if (error) {
+          console.warn('[explore] vendor_activity_stats fetch failed', error.message);
+          return new Map();
+        }
+        const out = new Map<string, {
+          quality_score: number | null;
+          finalized_booking_count: number | null;
+          last_active_at: string | null;
+          avg_response_minutes: number | null;
+        }>();
+        for (const row of data ?? []) {
+          const r = row as {
+            vendor_profile_id: string;
+            quality_score: number | null;
+            finalized_booking_count: number | null;
+            last_active_at: string | null;
+            avg_response_minutes: number | null;
+          };
+          out.set(r.vendor_profile_id, {
+            quality_score: r.quality_score ?? null,
+            finalized_booking_count: r.finalized_booking_count ?? null,
+            last_active_at: r.last_active_at ?? null,
+            avg_response_minutes: r.avg_response_minutes ?? null,
+          });
+        }
+        return out;
+      })(),
+      // PR #6 — vendor_partnerships read. Resolves partnership badges for
+      // this couple's shortlisted vendors. Gated on: (a) user is logged in,
+      // (b) coupleEventId exists, (c) visible vendors exist.
+      //
+      // Algorithm:
+      //   1. Fetch all event_vendors for this event with "shortlisted"
+      //      status (shortlisted, contracted, deposit_paid, delivered, complete).
+      //   2. If there are any, fetch vendor_partnerships WHERE
+      //      recommending_vendor_id IN (shortlisted IDs) AND
+      //      recommended_vendor_id IN (visibleVendorIds) AND
+      //      admin_verified = true AND is_active = true.
+      //   3. Also fetch business_name for the recommending vendors.
+      //   4. For each visible vendor, find the "best" partnership
+      //      (priority: sponsored_included > sponsored_discounted > accredited > general).
+      //
+      // Returns a Map from vendor_profile_id → partnership_badge object.
+      // Fail-soft: empty map = no badges rendered.
+      (async (): Promise<Map<string, VendorCardRow['partnership_badge']>> => {
+        if (!user || !coupleEventId || visibleVendorIds.length === 0) {
+          return new Map();
+        }
+        // Statuses that qualify a vendor as "shortlisted" for the purpose
+        // of surfacing partnership badges (couple has a real relationship).
+        const SHORTLIST_STATUSES = [
+          'shortlisted', 'contracted', 'deposit_paid', 'delivered', 'complete',
+        ] as const;
+        const { data: evData, error: evError } = await admin
+          .from('event_vendors')
+          .select('marketplace_vendor_id')
+          .eq('event_id', coupleEventId)
+          .in('status', SHORTLIST_STATUSES as unknown as string[])
+          .not('marketplace_vendor_id', 'is', null);
+        if (evError) {
+          console.warn('[explore] event_vendors partnership read failed', evError.message);
+          return new Map();
+        }
+        const shortlistedIds = Array.from(
+          new Set(
+            (evData ?? [])
+              .map((r) => (r as { marketplace_vendor_id: string | null }).marketplace_vendor_id)
+              .filter((id): id is string => Boolean(id)),
+          ),
+        );
+        if (shortlistedIds.length === 0) return new Map();
+
+        // Fetch active admin-verified partnerships where the recommender is
+        // one of the shortlisted vendors and the recommended is on this page.
+        const { data: pData, error: pError } = await admin
+          .from('vendor_partnerships')
+          .select(
+            'recommending_vendor_id, recommended_vendor_id, relationship_type, discount_pct',
+          )
+          .in('recommending_vendor_id', shortlistedIds)
+          .in('recommended_vendor_id', visibleVendorIds)
+          .eq('is_active', true)
+          .eq('admin_verified', true);
+        if (pError) {
+          console.warn('[explore] vendor_partnerships read failed', pError.message);
+          return new Map();
+        }
+        if (!pData || pData.length === 0) return new Map();
+
+        // Fetch business names for the recommending vendors (for badge copy).
+        const recommenderIds = Array.from(
+          new Set(
+            pData.map((r) => (r as { recommending_vendor_id: string }).recommending_vendor_id),
+          ),
+        );
+        const { data: nameData } = await admin
+          .from('vendor_profiles')
+          .select('vendor_profile_id, business_name')
+          .in('vendor_profile_id', recommenderIds);
+        const nameMap = new Map<string, string>();
+        for (const row of nameData ?? []) {
+          const r = row as { vendor_profile_id: string; business_name: string | null };
+          nameMap.set(r.vendor_profile_id, r.business_name ?? 'Your vendor');
+        }
+
+        // Priority order: sponsored_included wins, then sponsored_discounted,
+        // then accredited, then general. When a visible vendor is recommended
+        // by multiple shortlisted vendors, the highest-priority badge wins.
+        const PRIORITY: Record<string, number> = {
+          sponsored_included: 4,
+          sponsored_discounted: 3,
+          accredited: 2,
+          general: 1,
+        };
+
+        const out = new Map<string, VendorCardRow['partnership_badge']>();
+        for (const row of pData) {
+          const r = row as {
+            recommending_vendor_id: string;
+            recommended_vendor_id: string;
+            relationship_type: string;
+            discount_pct: number | null;
+          };
+          const existing = out.get(r.recommended_vendor_id);
+          const newPriority = PRIORITY[r.relationship_type] ?? 0;
+          const existingPriority = existing
+            ? (PRIORITY[existing.relationship_type] ?? 0)
+            : -1;
+          if (newPriority > existingPriority) {
+            const rt = r.relationship_type as
+              | 'sponsored_included'
+              | 'sponsored_discounted'
+              | 'accredited'
+              | 'general';
+            out.set(r.recommended_vendor_id, {
+              relationship_type: rt,
+              recommending_vendor_name: nameMap.get(r.recommending_vendor_id) ?? 'Your vendor',
+              discount_pct: r.discount_pct ?? null,
+            });
+          }
+        }
+        return out;
+      })(),
     ]);
 
   // Enrich each visible row with the new optional fields. Real-vendor
@@ -1807,6 +1984,14 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     // Relationship depth — 0 for logged-out visitors and vendors with no
     // relationship to this couple's event.
     v.relationship_depth = relationshipDepthMap.get(v.vendor_profile_id) ?? 0;
+    // PR #6 — quality / activity stats from vendor_activity_stats.
+    const activity = activityStatsByVendorId.get(v.vendor_profile_id) ?? null;
+    v.quality_score = activity?.quality_score ?? null;
+    v.finalized_booking_count = activity?.finalized_booking_count ?? null;
+    v.last_active_at = activity?.last_active_at ?? null;
+    v.avg_response_minutes = activity?.avg_response_minutes ?? null;
+    // PR #6 — partnership badge (null = no relevant partnership on this page).
+    v.partnership_badge = partnershipBadgeByVendorId.get(v.vendor_profile_id) ?? null;
   }
 
   // ── Relationship-depth sort (runs before the phase-C rating/review re-sort) ─
@@ -1817,6 +2002,52 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     visible = [...visible].sort(
       (a, b) => (b.relationship_depth ?? 0) - (a.relationship_depth ?? 0),
     );
+  }
+
+  // ── PR #6 partnership pin + quality_score sort ────────────────────────
+  // Runs AFTER relationship-depth sort, BEFORE the Phase C gated sort so
+  // it layers additive signals without breaking the existing precedence.
+  //
+  // Priority stack within this pass:
+  //   1. sponsored_included / sponsored_discounted partnerships → pin top
+  //   2. accredited partnerships → rise in sort
+  //   3. quality_score DESC (0–100, missing → 50 default)
+  //   4. general partnerships → no position change (badge only)
+  //
+  // This pass is always run (not guarded on `filters.sort`) because
+  // quality_score and partnership badges are organic signals that should
+  // apply regardless of which sort the user picked. They improve relevance
+  // within a given sort; they don't override user intent (the Phase C
+  // rating/review pass below can still re-rank within ties).
+  const hasPartnership = visible.some((v) => v.partnership_badge !== null);
+  const hasQualityData = visible.some((v) => v.quality_score !== null);
+  if (hasPartnership || hasQualityData) {
+    const partnershipPriority = (v: VendorCardRow): number => {
+      const type = v.partnership_badge?.relationship_type;
+      if (type === 'sponsored_included') return 4;
+      if (type === 'sponsored_discounted') return 3;
+      if (type === 'accredited') return 2;
+      // 'general' badge renders but doesn't change position
+      return 0;
+    };
+    // Missing quality_score → 50 (mid-range default per spec).
+    const qualityOf = (v: VendorCardRow): number => v.quality_score ?? 50;
+    visible = [...visible].sort((a, b) => {
+      // 0. Preserve existing relationship-depth precedence (depth wins all).
+      const depthDiff = (b.relationship_depth ?? 0) - (a.relationship_depth ?? 0);
+      if (depthDiff !== 0) return depthDiff;
+      // 1. is_setnayan_service DESC (first-party float — unchanged).
+      const setnayanDiff = (b.is_setnayan_service ? 1 : 0) - (a.is_setnayan_service ? 1 : 0);
+      if (setnayanDiff !== 0) return setnayanDiff;
+      // 2. ad_rank DESC (paid sponsors/boosts — unchanged).
+      const adDiff = (b.ad_rank ?? 0) - (a.ad_rank ?? 0);
+      if (adDiff !== 0) return adDiff;
+      // 3. Partnership priority DESC (sponsored_included → sponsored_discounted → accredited).
+      const partDiff = partnershipPriority(b) - partnershipPriority(a);
+      if (partDiff !== 0) return partDiff;
+      // 4. quality_score DESC (50 default for unscored vendors).
+      return qualityOf(b) - qualityOf(a);
+    });
   }
 
   // ── Phase C sort-leak fix (rating/review sorts) ─────────────────────────
@@ -1871,6 +2102,13 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     })),
     bookingCounts,
   );
+
+  // Social auto-publish flush — called AFTER all cookies()/createClient() reads
+  // so Next.js 15 doesn't flag it as "cookies() inside after()". The after()
+  // call itself must happen before the return (i.e. before the response is
+  // committed), but all dynamic-API reads must precede it. Moving it here
+  // (after the last createClient/cookies call) fixes the Sentry NEXTJS-A error.
+  after(() => runSocialFlush().catch(() => {}));
 
   return (
     <main className="min-h-dvh bg-cream">
@@ -2557,28 +2795,17 @@ const CATALOG_LIVE_PHASES: ReadonlySet<TaxonomyPhase> = new Set([
   'V1.1.6',
 ]);
 
-// Reception facet definitions moved into apps/web/app/explore/_components/
-// reception-venues-section.tsx as part of the 2026-05-22 evening "Pull V1.2
-// venue directory forward" PR. The new <ReceptionVenuesSection> owns BOTH
-// the chip filter bar AND the venue card grid; this file no longer needs
-// the constant.
-
 async function CatalogView({
   admin,
   matchableEvent,
   matchEvent,
   coupleFaith,
   venueAnchor,
-  venueAnchorName,
-  coupleCeremonyType,
   coupleEventType,
   currentEventId,
   isAuthenticated,
   noticeKey,
   scopedFolder,
-  hostVenueSetting,
-  venueFilterActive,
-  venueFacet,
   inDemoMode,
   focusedMode,
   faithFilter,
@@ -2593,8 +2820,6 @@ async function CatalogView({
   matchEvent: boolean;
   coupleFaith: CoupleFaith;
   venueAnchor: { lat: number; lng: number } | null;
-  venueAnchorName: string | null;
-  coupleCeremonyType: string | null;
   /** events.event_type — drives the tile-level multi-event applicability gate. */
   coupleEventType: string | null;
   currentEventId: string | null;
@@ -2614,21 +2839,6 @@ async function CatalogView({
    *  user came in via the universal Browse path (top-nav, sitemap, direct
    *  visit) — full 12-folder catalog renders as before. */
   scopedFolder: WeddingFolder | null;
-  /** Task #48 — host's events.venue_setting (snake_case enum). Null on
-   *  anonymous browse OR for hosts who haven't picked one yet. Drives the
-   *  VenueFilterBanner / VenuePickerHint surface in the Reception folder
-   *  section, plus the per-facet "your setting" highlight on the chips. */
-  hostVenueSetting: string | null;
-  /** Task #48 — true when the venue default-on filter is currently
-   *  active (host has a setting + ?venue is NOT 0). Drives the banner
-   *  surface AND the auto-applied venue param on Reception facet drill-
-   *  ins so the host stays scoped. */
-  venueFilterActive: boolean;
-  /** 2026-05-22 evening — explicit `?venue=<facet>` pick from the URL.
-   *  Null when the URL uses the on/off toggle form. When set, the
-   *  Reception folder's FacetFilterBar renders this chip as the active
-   *  one + the card grid narrows to that facet's venue_type. */
-  venueFacet: string | null;
   /** 2026-05-22 evening — admin demo mode. When true, the Reception card
    *  grid includes `is_demo=TRUE` venue_directory rows + each card
    *  surfaces a DEMO chip overlay on its hero photo. */
@@ -3077,38 +3287,20 @@ async function CatalogView({
           <ScopedFolderBanner folder={scopedFolder} />
         ) : null}
 
-        {/* PairedVenuePanel surfaces ceremony venue cards (churches /
-            mosques / civil registrars). It belongs to the Ceremony folder
-            conceptually. When the catalog is scoped to a non-ceremony
-            folder via ?folder=… (e.g. Reception), suppress it so the
-            scoped view stays single-folder per the owner directive. */}
-        {venueAnchor && (scopedFolder === null || scopedFolder === 'venue') ? (
-          <PairedVenuePanel
-            anchor={{
-              lat: venueAnchor.lat,
-              lng: venueAnchor.lng,
-              name: venueAnchorName,
-            }}
-            coupleCeremonyType={coupleCeremonyType}
-            currentEventId={currentEventId}
-          />
-        ) : null}
-
         {WEDDING_FOLDER_ORDER.map((folder) => {
           // Task #47 — when the catalog is scoped to a single parent, skip
           // every other parent section so couples landing on one parent
           // (e.g. Venue) don't also see the rest.
           if (scopedFolder !== null && folder !== scopedFolder) return null;
 
-          // VENUE parent — Reception + Ceremony are venue_directory /
-          // venue_setting backed, NOT category cards. Render the two venue
-          // pickers (Ceremony venue panel + cards, Reception facet picker +
-          // cards). Officiants auto-resolve from the ceremony venue (Card 04,
-          // 2026-05-29); pre-marriage paperwork lives in the Setnayan AI
-          // wizard. The PairedVenuePanel (church/mosque/civil cards near the
-          // host's venue) renders above this loop. Sub-block ids match
-          // WEDDING_TILE_SLUG so dashboard venue [Search] deep-links anchor
-          // to the right picker (?folder=venue#reception / #ceremony-venue).
+          // VENUE parent — venues are NOT modeled as bookable vendor_profiles
+          // in V1, so this folder shows ceremony GUIDANCE only (how to handle
+          // your ceremony venue + officiant + pre-marriage paperwork). The
+          // seeded venue_directory listings (CeremonyVenuesSection / Reception
+          // facet cards / PairedVenuePanel) were removed 2026-06-16 per owner
+          // "we only place live vendors here — remove all the fake venues".
+          // The venue_directory table + admin curation UI stay dormant for a
+          // future bookable-venue iteration.
           if (folder === 'venue') {
             return (
               <section
@@ -3129,35 +3321,11 @@ async function CatalogView({
                   </span>
                 </header>
 
-                <div className="mb-10 scroll-mt-24" id={WEDDING_TILE_SLUG.ceremony_venue}>
+                <div className="scroll-mt-24" id={WEDDING_TILE_SLUG.ceremony_venue}>
                   <h3 className="mb-3 text-base font-semibold tracking-tight text-ink">
                     {WEDDING_TILE_LABEL.ceremony_venue}
                   </h3>
                   <CeremonyVenuePanel />
-                  <CeremonyVenuesSection
-                    coupleCeremonyType={coupleCeremonyType}
-                    venueAnchor={venueAnchor}
-                    currentEventId={currentEventId}
-                  />
-                </div>
-
-                <div className="scroll-mt-24" id={WEDDING_TILE_SLUG.reception}>
-                  <div className="mb-3 flex items-baseline justify-between gap-3">
-                    <h3 className="text-base font-semibold tracking-tight text-ink">
-                      {WEDDING_TILE_LABEL.reception}
-                    </h3>
-                    <span className="font-mono text-xs text-ink/55">
-                      6 venue settings
-                    </span>
-                  </div>
-                  <ReceptionVenuesSection
-                    hostVenueSetting={hostVenueSetting}
-                    venueFilterActive={venueFilterActive}
-                    activeFacet={venueFacet}
-                    venueAnchor={venueAnchor}
-                    currentEventId={currentEventId}
-                    isDemoMode={inDemoMode}
-                  />
                 </div>
               </section>
             );
@@ -3375,14 +3543,8 @@ function CeremonyVenuePanel() {
           <span className="font-medium text-ink">
             At your reception venue (combined)
           </span>{' '}
-          — pick a garden / beach / destination / heritage / outdoor venue from{' '}
-          <a
-            href={`#${WEDDING_TILE_SLUG.reception}`}
-            className="font-medium text-terracotta underline-offset-4 hover:underline"
-          >
-            Reception
-          </a>{' '}
-          that&rsquo;s tagged &ldquo;also hosts ceremony&rdquo;.
+          — many garden / beach / destination / heritage / outdoor venues also
+          host the ceremony; arrange it directly with the venue.
         </li>
       </ul>
     </div>

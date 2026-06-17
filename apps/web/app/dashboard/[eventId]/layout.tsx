@@ -4,23 +4,20 @@ import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getLifecyclePhase } from '@/lib/day-of-mode';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
-import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { getDashboardShell } from '@/lib/dashboard-shell';
 import { countUnreadMessages } from '@/lib/chat';
 import { getLocale, makeT } from '@/lib/i18n';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { EventSwitcher } from './_components/event-switcher';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { UnreadMessagesBadge } from '@/app/_components/unread-messages-badge';
-import { ProfileMenu } from '@/app/_components/profile-menu';
 import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
 import { CustomerSidebar } from './_components/customer-sidebar';
 import { CustomerBottomNav } from './_components/customer-bottom-nav';
 import { CustomerSectionSubnav } from './_components/customer-section-subnav';
 import { getNavSlotMap } from '@/lib/nav-registry';
-import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
+import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 
 type Props = {
   children: React.ReactNode;
@@ -140,12 +137,22 @@ export default async function EventLayout({ children, params }: Props) {
   // getDashboardShell fetches events + roles + unreadCount via React cache() —
   // the cache key is userId only, so if (account)/layout or any other layout
   // in this render tree already resolved it, this call is free (zero DB hits).
+  const minimalSwitcherFallback: SwitcherData = {
+    userId: user.id,
+    displayName: null,
+    email: user.email ?? '',
+    photoUrl: null,
+    events: [],
+    gallery: [],
+    favorites: [],
+    editorials: [],
+    context: { hasVendor: false, vendorName: null, isAdmin: false },
+  };
   const [
-    { events: switcherEvents, roles, unreadCount },
+    { unreadCount },
     eventRes,
     unreadMessages,
     locale,
-    profilePhotoUrl,
     switcherData,
   ] = await Promise.all([
     getDashboardShell(user.id),
@@ -198,28 +205,12 @@ export default async function EventLayout({ children, params }: Props) {
       return 0;
     }),
     Promise.resolve(getLocale()).catch(() => 'en' as const),
-    // Account profile photo for the (I) avatar (owner directive 2026-06-12:
-    // the avatar is the ACCOUNT's photo, never the event logo — reverses the
-    // 2026-06-03 avatar-IS-event-logo lock). Presigned display URL resolved
-    // server-side; degrades to null (initial fallback) on any error.
-    (async () => {
-      const { data } = await supabase
-        .from('users')
-        .select('profile_photo_url')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      return displayUrlForStoredAsset(data?.profile_photo_url);
-    })().catch((err: unknown) => {
-      logQueryError(
-        'EventLayout (profile photo threw)',
-        err instanceof Error ? err : new Error(String(err)),
-        { event_id: eventId, user_id: user.id },
-        'graceful_degrade',
-      );
-      return null;
+    // AccountSwitcher panel data. getSwitcherData never returns null after the
+    // 2026-06-17 always-on fix; the .catch here guards against any outer throw.
+    getSwitcherData(user.id).catch((err: unknown) => {
+      console.error('[AccountSwitcher] data fetch failed:', err);
+      return minimalSwitcherFallback;
     }),
-    // AccountSwitcher panel data — graceful degrade to null on any error.
-    getSwitcherData().catch(() => null),
   ]);
   // Log silent SELECT errors before falling through to notFound().
   // Swapped from .single() (which sets PGRST116 "0 rows" as an error)
@@ -259,103 +250,35 @@ export default async function EventLayout({ children, params }: Props) {
   // inside a <div className="sticky top-0 z-20 backdrop-blur"> wrapper
   // owned by the layout; now SidebarShell owns the sticky chrome and we
   // just inject the inner row.
-  // DB-driven creatable event types for the switcher's add-event sheet
-  // (2026-06-13 cutover) — request-cached via React cache().
-  const creatableEventTypes = await getCreatableEventTypes();
-
   const topBar = (
-    <div className="mx-auto flex w-full items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
-      <EventSwitcher
-        currentRole="customer"
-        currentEventId={event.event_id}
-        currentEventName={event.display_name}
-        currentEventDate={event.event_date}
-        currentMonogramText={event.monogram_text}
-        currentMonogramColor={event.monogram_color}
-        currentMonogramFrameKey={event.monogram_frame_key}
-        currentMonogramFontKey={event.monogram_font_key}
-        currentMonogramStyle={event.monogram_style}
-        currentMonogramCustomSvg={event.monogram_uploaded_svg ?? event.monogram_custom_svg}
-        events={switcherEvents
-          .filter((e) => !e.archived)
-          .map((e) => ({
-            event_id: e.event_id,
-            display_name: e.display_name,
-            event_date: e.event_date,
-            is_primary: e.is_primary,
-            monogram_text: e.monogram_text,
-            monogram_color: e.monogram_color,
-            monogram_frame_key: e.monogram_frame_key,
-            monogram_font_key: e.monogram_font_key,
-            monogram_style: e.monogram_style,
-            monogram_custom_svg: e.monogram_uploaded_svg ?? e.monogram_custom_svg,
-          }))}
-        hasCustomerAccess={roles.hasCustomerAccess}
-        hasVendorAccess={roles.hasVendorAccess}
-        hasAdminAccess={roles.hasAdminAccess}
-        vendorProfiles={roles.vendorProfiles}
-        eventTypes={creatableEventTypes}
+    <div className="mx-auto flex w-full items-center justify-end gap-3 px-4 py-3 sm:px-6 lg:px-8">
+      {/* Planning escape (Event Lifecycle Menu) — day-of only, mobile only.
+          Desktop uses the sidebar; bottom nav is the day-of command center. */}
+      {phase === 'dayof' ? (
+        <Link
+          href={`/dashboard/${eventId}/more`}
+          className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-cream/80 px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-cream hover:text-ink lg:hidden"
+        >
+          <ClipboardList aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+          Planning
+        </Link>
+      ) : null}
+      <UnreadMessagesBadge
+        userId={user.id}
+        initialUnread={unreadMessages}
+        href={`/dashboard/${eventId}/messages`}
       />
-      <div className="flex items-center gap-2">
-        {/* Planning escape (Event Lifecycle Menu) — while the bottom nav is the
-            day-of command center, this is the one way back to the planning
-            menu (Guests/Budget/…), kept OUTSIDE the bar so it never collides
-            with the "Now" tab. Links to /more, the existing planning launcher.
-            Day-of only; hidden on lg (desktop uses the sidebar). */}
-        {phase === 'dayof' ? (
-          <Link
-            href={`/dashboard/${eventId}/more`}
-            className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-cream/80 px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-cream hover:text-ink lg:hidden"
-          >
-            <ClipboardList aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            Planning
-          </Link>
-        ) : null}
-        {/* Marketplace (Store) link + mobile Switch View pill REMOVED from
-            the event-scoped top nav per owner directive 2026-06-03 (circled
-            both icons on the mobile top strip; "remove these 2 on top nav").
-            Neither function is orphaned:
-            • Marketplace `/explore` stays reachable via the home
-              marketplace-tease-strip CTA, the "Browse your matched services"
-              button, and every plan-card folder link.
-            • Role-switching (Shop / Setnayan HQ consoles) stays reachable via the
-              unified EventSwitcher's "Switch view" rows (left monogram caret)
-              on every viewport — the desktop sidebar-footer pill was retired
-              2026-06-12 (single-switcher directive). */}
-        {/* Messages icon + unread badge (iteration 0019; badge follow-up to
-            the icon-only link from PR #837). Read-state lands via the
-            chat_thread_reads marker (migration
-            20260728000000_chat_thread_reads.sql) + count_unread_message_threads()
-            RPC. countUnreadMessages graceful-degrades to 0 pre-migration, so
-            the badge is safe before the owner pushes it. Styled to match
-            UnreadBellBadge exactly. */}
-        <UnreadMessagesBadge
-          userId={user.id}
-          initialUnread={unreadMessages}
-          href={`/dashboard/${eventId}/messages`}
-        />
-        <UnreadBellBadge
-          userId={user.id}
-          initialUnread={unreadCount}
-          href="/dashboard/notifications"
-          ariaBaseLabel={tr('nav.notifications')}
-          ariaUnreadSuffix="unread"
-        />
-        {/* (I) avatar = the ACCOUNT's profile photo (or initial fallback) —
-            owner directive 2026-06-12. The event's monogram/logo belongs to
-            the event only and lives on the EventSwitcher chip at left.
-            AccountSwitcher replaces ProfileMenu when data is available;
-            degrades to old ProfileMenu on fetch failure. */}
-        {switcherData ? (
-          <AccountSwitcher data={switcherData} />
-        ) : (
-          <ProfileMenu
-            email={user.email ?? ''}
-            photoUrl={profilePhotoUrl}
-            ariaLabel={tr('common.profile')}
-            eventId={eventId}
-          />
-        )}
+      <UnreadBellBadge
+        userId={user.id}
+        initialUnread={unreadCount}
+        href="/dashboard/notifications"
+        ariaBaseLabel={tr('nav.notifications')}
+        ariaUnreadSuffix="unread"
+      />
+      {/* AccountSwitcher — mobile only, rightmost corner of the top bar.
+          Desktop uses AccountSwitcherStandalone at the top of the sidebar. */}
+      <div className="lg:hidden">
+        <AccountSwitcher data={switcherData} />
       </div>
     </div>
   );
@@ -380,6 +303,7 @@ export default async function EventLayout({ children, params }: Props) {
             eventId={eventId}
             navSlots={navSlots}
             eventDate={(event.event_date as string | null) ?? null}
+            switcherData={switcherData}
           />
         }
         topBar={topBar}

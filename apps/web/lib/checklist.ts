@@ -91,21 +91,27 @@ export function isChurchCeremony(ceremonyType: string | null | undefined): boole
  * Seeded into `event_checklist_items` on first open (see actions.ensureSeeded).
  */
 export const CHECKLIST_TEMPLATE: ReadonlyArray<ChecklistTemplateItem> = [
-  // ══ 18–12 months before — Foundations & the big bookings ══
+  // ══ 18–12 months before — Finding your date & the big decisions ══
   { key: 'decide_type', title: 'Decide your wedding type & overall vibe (church, civil, garden, destination)', category: 'foundations', dueOffsetDays: 540 },
   { key: 'who_pays', title: 'Agree on the budget split — who pays for what', category: 'foundations', dueOffsetDays: 530 },
-  { key: 'shortlist_dates', title: 'Shortlist 2–3 possible wedding dates', category: 'foundations', dueOffsetDays: 520 },
+  { key: 'shortlist_dates', title: 'Share your rough timing preference — a window, not a locked date', category: 'foundations', dueOffsetDays: 520 },
   { key: 'draft_guest_list', title: 'Draft a rough guest list (start lean — it always grows)', category: 'guests', dueOffsetDays: 510 },
   { key: 'pick_party', title: 'Choose your wedding party (maid of honour, best man, entourage)', category: 'foundations', dueOffsetDays: 500 },
-  { key: 'shortlist_venues', title: 'Research & shortlist your ceremony and reception venues', category: 'vendors', dueOffsetDays: 470 },
+  { key: 'guest_estimate', title: 'Confirm your guest count — set during setup, adjust here if needed', category: 'guests', dueOffsetDays: 495 },
+  { key: 'set_budget', title: 'Review your budget — Setnayan estimated one from your recommended services', category: 'foundations', dueOffsetDays: 490 },
+  // Reception venue first — it sets the date window, the capacity ceiling, and the
+  // budget anchor. Ceremony venue follows once the reception shortlist exists.
+  { key: 'shortlist_reception_venue', title: 'Research & shortlist reception venues (hall, hotel, or garden)', category: 'vendors', dueOffsetDays: 480 },
+  { key: 'shortlist_venues', title: 'Research & shortlist ceremony venues (church, chapel, or garden)', category: 'vendors', dueOffsetDays: 470 },
   { key: 'ask_parish', title: 'Ask your parish for its full requirements list & timeline', category: 'paperwork', dueOffsetDays: 460, appliesTo: isChurchCeremony },
+  { key: 'find_date', title: 'Find the date both venues share — use the date finder', category: 'foundations', dueOffsetDays: 420 },
+  { key: 'set_date', title: 'Lock your date — the day your ceremony and reception venue both agree on', category: 'foundations', dueOffsetDays: 400 },
 
   // ══ 12–9 months before — Lock your look & key vendors ══
-  { key: 'set_date', title: 'Lock your wedding date', category: 'foundations', dueOffsetDays: 365 },
-  { key: 'set_budget', title: 'Set your overall budget', category: 'foundations', dueOffsetDays: 360 },
-  { key: 'guest_estimate', title: 'Estimate your guest count', category: 'foundations', dueOffsetDays: 350 },
   { key: 'lock_theme', title: 'Lock your theme, palette & overall style', category: 'design', dueOffsetDays: 340 },
-  { key: 'book_venue', title: 'Book your ceremony & reception venue', category: 'vendors', dueOffsetDays: 330 },
+  // Reception deposit first — mirrors the shortlisting priority.
+  { key: 'book_reception_venue', title: 'Pay your deposit & sign the contract with your reception venue', category: 'vendors', dueOffsetDays: 330 },
+  { key: 'book_venue', title: 'Pay your deposit & sign the contract with your ceremony venue', category: 'vendors', dueOffsetDays: 325 },
   { key: 'book_host', title: 'Book your host / emcee', category: 'vendors', dueOffsetDays: 320 },
   { key: 'book_ceremony_music', title: 'Book your ceremony musicians (string quartet, choir, soloist)', category: 'vendors', dueOffsetDays: 310 },
   { key: 'book_reception_music', title: 'Book your reception music (band, DJ, or mobile bar)', category: 'vendors', dueOffsetDays: 305 },
@@ -218,7 +224,7 @@ export type ChecklistPhase = {
 };
 
 export const CHECKLIST_PHASES: ReadonlyArray<ChecklistPhase> = [
-  { id: 'p1', label: '18–12 months before', blurb: 'Foundations & the big bookings', maxDays: 100000, minDays: 366 },
+  { id: 'p1', label: '18–12 months before', blurb: 'Finding your date & the big decisions', maxDays: 100000, minDays: 366 },
   { id: 'p2', label: '12–9 months before', blurb: 'Lock your look & key vendors', maxDays: 365, minDays: 271 },
   { id: 'p3', label: '9–6 months before', blurb: 'The details take shape', maxDays: 270, minDays: 181 },
   { id: 'p4', label: '6–4 months before', blurb: 'Invitations, fittings & flow', maxDays: 180, minDays: 121 },
@@ -488,6 +494,67 @@ export function groupChecklistByPhase(
 }
 
 /**
+ * Three-tier budget priority — applies to every event type.
+ *
+ * Tier 1 — Reception venue.
+ *   The date anchor and capacity ceiling. Everything else is scheduled around
+ *   what the reception hall has available. Shortlisted and deposited first.
+ *
+ * Tier 2 — The 4 Big.
+ *   Ceremony venue · Catering · Coordinator · Photo & Video.
+ *   Together these account for 60–75 % of most PH wedding budgets. Booked
+ *   immediately after the date is locked.
+ *
+ * Tier 3 — The rest of the event-type taxonomy.
+ *   NOT a hardcoded list. Computed at runtime from the event's taxonomy
+ *   categories (the couple's `interested_categories` picks filtered through
+ *   the active event type's plan-group tree), minus whatever's already in
+ *   Tier 1 + Tier 2. Different event types (debut, birthday, corporate, etc.)
+ *   have different taxonomies → Tier 3 changes accordingly.
+ *   Use `checklistTier3PlanGroups()` to derive it.
+ *
+ * Paperwork costs are computed separately — see BUDGET_PAPERWORK_TASK_KEYS.
+ */
+export const CHECKLIST_BUDGET_TIERS = {
+  /** plan-group IDs for Tier 1. Lock this before any other vendor. */
+  tier1: ['reception_venue'] as const,
+  /** plan-group IDs for Tier 2 — the 4 Big. */
+  tier2: ['ceremony_venue', 'catering', 'coordinator', 'photo_video'] as const,
+} as const;
+
+/** All plan-group IDs explicitly assigned to Tier 1 or Tier 2. */
+const TIER_1_2_IDS = new Set<string>([
+  ...CHECKLIST_BUDGET_TIERS.tier1,
+  ...CHECKLIST_BUDGET_TIERS.tier2,
+]);
+
+/**
+ * Derive Tier 3 plan-group IDs for a specific event — the portion of the
+ * event's taxonomy not already covered by Tier 1 or Tier 2.
+ *
+ * `interestedPlanGroups` is the couple's onboarding picks mapped to plan-group
+ * IDs (via `PICK_TO_GROUP` from `lib/onboarding-availability.ts`). Pass the
+ * full event-type plan-group list when no picks exist (pre-onboarding events).
+ */
+export function checklistTier3PlanGroups(interestedPlanGroups: string[]): string[] {
+  return interestedPlanGroups.filter((id) => !TIER_1_2_IDS.has(id));
+}
+
+/**
+ * Template-task keys whose completion involves real out-of-pocket costs —
+ * factored into the budget health-check as a "paperwork line."
+ * Amounts vary by LGU and parish; the budget page estimates from
+ * `ceremony_type` + `region`. Catholic-only tasks are already gated by
+ * `appliesTo: isChurchCeremony` in the template.
+ */
+export const BUDGET_PAPERWORK_TASK_KEYS = [
+  'marriage_license', // civil registrar fee — applies all ceremony types
+  'psa_cenomar',      // PSA document fees — applies all
+  'church_fee',       // church package — catholic only
+  'pre_cana',         // Pre-Cana seminar — catholic only
+] as const;
+
+/**
  * Deep-link a template task to the surface where it actually gets done, when
  * there's an obvious one. Returns null for tasks with no single destination
  * (the row then renders without a jump arrow). Shared by the home card and the
@@ -503,14 +570,17 @@ export function checklistItemHref(eventId: string, key: string | null): string |
   // catalogTile. Other vendor tasks (tastings, follow-ups) fall through to the
   // plain vendors surface below.
   const VENDOR_TILE: Record<string, string> = {
-    shortlist_venues: 'reception',
-    book_venue: 'reception',
+    shortlist_venues: 'ceremony_venue',
+    shortlist_reception_venue: 'reception',
+    book_venue: 'ceremony_venue',
+    book_reception_venue: 'reception',
     book_caterer: 'catering',
     book_photo: 'photo_video',
     book_hmua: 'hmua',
     book_coordinator: 'coordinator',
     book_florist: 'florist',
     book_host: 'host_mc',
+    book_ceremony_music: 'music_entertainment',
     book_reception_music: 'live_band',
     book_photobooth: 'photo_booth',
     book_lights_sound: 'lights_sound',
@@ -520,6 +590,10 @@ export function checklistItemHref(eventId: string, key: string | null): string |
   if (VENDOR_TILE[key]) return `${base}/vendors?tab=shortlist&open=${VENDOR_TILE[key]}`;
 
   const map: Record<string, string> = {
+    // Date-finding flow
+    shortlist_dates: `${base}/date-selection`,
+    find_date: `${base}/find-date`,
+    set_date: `${base}/date-selection`,
     // Budget & money
     set_budget: `${base}/budget`,
     who_pays: `${base}/budget`,
@@ -529,7 +603,9 @@ export function checklistItemHref(eventId: string, key: string | null): string |
     cash_envelopes: `${base}/budget`,
     // Vendors
     shortlist_venues: `${base}/vendors`,
+    shortlist_reception_venue: `${base}/vendors`,
     book_venue: `${base}/vendors`,
+    book_reception_venue: `${base}/vendors`,
     book_caterer: `${base}/vendors`,
     book_photo: `${base}/vendors`,
     book_hmua: `${base}/vendors`,
@@ -560,7 +636,7 @@ export function checklistItemHref(eventId: string, key: string | null): string |
     final_headcount: `${base}/guests`,
     thank_you_notes: `${base}/guests`,
     // Invitations
-    save_the_dates: `${base}/invitation`,
+    save_the_dates: `${base}/add-ons/save-the-date`,
     order_invitations: `${base}/invitation`,
     invitations: `${base}/invitation`,
     // Design

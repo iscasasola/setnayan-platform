@@ -18,13 +18,19 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { RotateCcw, Sparkles, Stamp, Wand2 } from 'lucide-react';
-import { buildMarkCanvas, paintWaxSeal } from '@/lib/wax-seal/paint';
+import { paintWaxSeal } from '@/lib/wax-seal/paint';
 import {
   WAX_SEAL_V,
   type WaxFinish,
   type WaxMarkSource,
   type WaxSealConfig,
 } from '@/lib/wax-seal/types';
+import {
+  buildDieForGL,
+  initWaxSealGL,
+  paintWaxSealWebGL,
+  type WaxSealGLState,
+} from '@/lib/wax-seal/paint-webgl';
 import { saveWaxSeal } from '../wax-actions';
 
 type Props = {
@@ -75,7 +81,9 @@ export function WaxStampMaker({
   existing,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const markRef = useRef<CanvasImageSource | null>(null);
+  const markRef = useRef<HTMLCanvasElement | null>(null);
+  const glInitRef = useRef(false);
+  const glRef = useRef<WaxSealGLState | null>(null);
   const rafRef = useRef(0);
   const reduced = useRef(false);
   // The pour's window-level release backstop (so a release ANYWHERE ends it —
@@ -129,42 +137,63 @@ export function WaxStampMaker({
       const cv = canvasRef.current;
       if (!cv) return;
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const S = Math.round(PREVIEW * dpr);
-      if (cv.width !== S) {
-        cv.width = S;
-        cv.height = S;
-      }
-      const ctx = cv.getContext('2d');
-      if (!ctx) return;
-      paintWaxSeal(ctx, {
-        config: {
-          v: WAX_SEAL_V,
-          seed,
-          wax: { color: waxChoice === 'auto' ? null : waxChoice, finish },
-          pour: { amount: opts.amount, irregularity: opts.irregularity, bubbles: opts.bubbles },
-          press: { crispness: opts.crispness, depth: opts.depth, offset: opts.offset, skew: opts.skew },
-          mark: { source: markSource },
-        },
-        mark: markRef.current,
-        monogramText,
-        waxColor: resolvedColor,
-        finish,
+      const cfg = {
+        v: WAX_SEAL_V,
         seed,
-        size: PREVIEW,
-        dpr,
-        pressed: opts.pressed,
-      });
+        wax: { color: waxChoice === 'auto' ? null : waxChoice, finish },
+        pour: { amount: opts.amount, irregularity: opts.irregularity, bubbles: opts.bubbles },
+        press: { crispness: opts.crispness, depth: opts.depth, offset: opts.offset, skew: opts.skew },
+        mark: { source: markSource },
+      };
+      const glState = glRef.current;
+      if (glState) {
+        paintWaxSealWebGL(glState, {
+          config: cfg,
+          mark: markRef.current,
+          monogramText,
+          waxColor: resolvedColor,
+          finish,
+          seed,
+          size: PREVIEW,
+          dpr,
+          pressed: opts.pressed,
+        });
+      } else {
+        const S = Math.round(PREVIEW * dpr);
+        if (cv.width !== S) { cv.width = S; cv.height = S; }
+        const ctx = cv.getContext('2d');
+        if (!ctx) return;
+        paintWaxSeal(ctx, {
+          config: cfg,
+          mark: markRef.current,
+          monogramText,
+          waxColor: resolvedColor,
+          finish,
+          seed,
+          size: PREVIEW,
+          dpr,
+          pressed: opts.pressed,
+        });
+      }
     },
     [seed, waxChoice, finish, resolvedColor, monogramText, markSource],
   );
 
-  // build the die once + detect reduced-motion
+  // build the die once + detect reduced-motion + init GL
   useEffect(() => {
     reduced.current =
       typeof window !== 'undefined' &&
       (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false);
+
+    // lazy-init WebGL2 once per canvas lifetime (sync, before the async die build)
+    const cv = canvasRef.current;
+    if (cv && !glInitRef.current) {
+      glInitRef.current = true;
+      glRef.current = initWaxSealGL(cv);
+    }
+
     let cancelled = false;
-    buildMarkCanvas(markSvg).then((c) => {
+    buildDieForGL(markSvg, monogramText).then((c) => {
       if (!cancelled) {
         markRef.current = c;
         // repaint the current view now the die is ready
@@ -179,7 +208,7 @@ export function WaxStampMaker({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [markSvg]);
+  }, [markSvg, monogramText]);
 
   // re-paint the confirm view whenever colour / finish / final changes
   useEffect(() => {

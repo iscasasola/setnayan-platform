@@ -19,2395 +19,125 @@ P1 is single-camera (the director device's own camera) → proves the native RTM
 SPEC IMPACT: iteration 0011 — Panood upgraded tier = native on-device multi-cam switcher (₱0 cloud); the lifecycle actions + runbook are the P1 web half + native handoff. Logged in corpus `DECISION_LOG.md`.
 
 ## 2026-06-17 · feat(0011 Panood): upgraded YouTube live broadcast — foundation (step 1/3)
+## 2026-06-17 · feat(wax-seal): WebGL2 renderer with height-field normal mapping (PR #1683)
 
-Owner: build the "upgraded" Panood so Setnayan creates + runs the live broadcast on the couple's OWN YouTube channel and it auto-embeds on the event page (vs. the free tier, where they paste a YouTube link). This genuinely exercises the `youtube` scope — which makes it demo-able for Google verification (the free embed uses no scopes). Designed via a map+API-research+synthesis workflow (build plan in the session transcript). Backend foundation only here — no user-facing change yet:
+Upgrades the wax-seal painter from a Canvas-2D 3-pixel-shifted-copy emboss to a full WebGL2 Phong-lit pipeline.
 
-- **`lib/panood-broadcast.ts` (NEW)** — `getEventYoutubeAccessToken(eventId)`: the YouTube token refresher that did NOT exist (only a bulk cron did). Cloned verbatim from `getEventDriveAccessToken` (lib/drive-copy.ts), including the `connection_health='needs_reauth'` write on `invalid_grant` so a Google-side revoke can surface a reconnect prompt. Plus `getActivePanoodBroadcast` / `getActivePanoodStreamKey` (server-only reads; the stream key is kept out of the general read).
-- **`lib/panood-youtube.ts`** — 6 pure YouTube Data API helpers + URL constants: `createYoutubeBroadcast` (liveBroadcasts.insert · enableAutoStart/Stop/Embed), `createYoutubeStream` (liveStreams.insert · returns RTMP ingestion address + stream key), `bindYoutubeBroadcast` (bind), `transitionYoutubeBroadcast` (testing/live/complete), `getYoutubeStreamStatus` (poll until the encoder is `active`), over a shared authed `youtubeApi` fetch. Mirrors the existing `fetchYoutubeChannel` shape. The broadcast id == the public videoId, so the watch URL is `youtube.com/watch?v=<broadcastId>`.
-- **migration `20270110320012_panood_broadcasts.sql`** (allocator-generated, non-round) — server-role-only table (RLS on, no policy; holds the secret stream key like an oauth_grants refresh token; one-active-broadcast-per-event partial unique index for idempotency/quota safety). Watch URL mirrors to the existing `events.panood_watch_url`, so the event-page embed needs zero changes.
+- **New `lib/wax-seal/paint-webgl.ts`** — GLSL 300 es fragment shader: height field (cosine dome + rim bulge + die alpha depression) → central-difference surface normals → Blinn-Phong lighting, SSS edge glow, anti-aliased seeded Fourier puddle shape. Exports `initWaxSealGL`, `buildDieForGL`, `paintWaxSealWebGL`.
+- **`app/[slug]/_components/reveal/wax-seal.tsx`** — lazy-init GL once per canvas; WebGL2 primary path, Canvas-2D fallback when WebGL2 is unavailable.
+- **`app/dashboard/[eventId]/add-ons/save-the-date/stamp/wax-stamp-maker.tsx`** — same dual-path; `markRef` typed `HTMLCanvasElement`; die built via `buildDieForGL`; GL initialized sync in the die-build effect before the async die arrives.
 
-Architecture: Setnayan owns the broadcast *container* (create→manage→embed); the couple's encoder (OBS) pushes the actual video to the stream key. No server-side video/compositing (that's a far larger future build). `tsc` 0 · `next lint` clean · migration guard ✓ (391 unique).
+Same seed → same puddle outline in both renderers (same `mulberry32` PRNG order). Canvas-2D path unchanged as fallback.
 
-Next (steps 2-3): the `createBroadcast`/`goLive`/`endBroadcast` server actions + the setup-page UI (encoder card with RTMP URL + stream key, go-live/end controls, auto-filled watch URL). OWNER ACTION (post-merge): apply migration `20270110320012`.
-
-SPEC IMPACT: iteration 0011 — Panood gains a real (upgraded) YouTube broadcast tier alongside the free paste-link embed; the `youtube` scope becomes genuinely exercised (verification demo). Logged in corpus `DECISION_LOG.md`.
-
-## 2026-06-17 · fix(onboarding): "Something went wrong" on commit — empty SUPABASE_SERVICE_ROLE_KEY + hardened error handling
-
-**Root cause (confirmed by prod DB audit):** `apps/web/.env.local` was pulled from Vercel CLI with `SUPABASE_SERVICE_ROLE_KEY=""` (Vercel masks sensitive env vars in `vercel env pull` output). On local dev (`next dev`), `createAdminClient()` at the top of `commitOnboardingWedding` hits `!key` and throws `'Missing SUPABASE env vars for admin client.'` — uncaught from the server action, Next.js forwards it to the client, the catch block at shell line 2964 fires → "Something went wrong saving your plan. Please try again." The prod DB was clean (all triggers, CHECK constraints, and columns verified by direct query: widget trigger at 15 types, CHECK at 15 types, all events columns present, test INSERT succeeded — no DB-level issue).
-
-**What landed:**
-
-- **`apps/web/app/onboarding/wedding/actions.ts`** — wrapped `createAdminClient()` in a try/catch that returns `{ ok: false, error: 'server_config_error' }` instead of letting the throw escape the server action (uncaught server-action throws hit the client's generic catch before the structured error path). Added `console.error('[commitOnboardingWedding] events INSERT failed:', ...)` for `insertError.message/code/details` so the actual DB error is visible in Vercel logs on prod failures.
-
-- **`supabase/migrations/20270110130000_invitation_widgets_our_photos_reconcile.sql`** — new idempotent migration that applies the `our_photos` widget type to the `invitation_widgets_widget_type_check` CHECK + `populate_default_invitation_widgets()` trigger at a fresh timestamp (the original `20260919000000` was taken in prod by a parallel-session migration; this makes the ledger match reality). NO-OP on the current prod DB — both the CHECK and trigger are already at 15 types; this just records the canonical state. Apply when the pending migration queue is flushed.
-
-- **`apps/web/.env.local`** (gitignored) — `SUPABASE_SERVICE_ROLE_KEY` filled in with the real project API key (retrieved via `supabase projects api-keys`). Fixes the root cause for local dev. NOT committed.
-
-**SPEC IMPACT:** None.
+SPEC IMPACT: None (rendering upgrade, no recipe/schema change).
 
 ---
 
-## 2026-06-17 · feat(marketing): make /our-story Google-OAuth-acceptable (explains the app's purpose) + privacy hygiene
+## 2026-06-17 · feat(reveal): Reveal Studio — admin customizes + activates/deactivates the Save-the-Date reveal
+## 2026-06-15 · feat(alaala): the in-app Alaala hub — the memory arc as a place (Lane 2)
+## 2026-06-16 · feat(payments): native app hands off checkout to the website (BDO/GCash, base price)
 
-A previous Google OAuth verification attempt was rejected — *"Your home page does not explain the purpose of your app."* The homepage is a cinematic scroll-scrub video whose plain explanation is gated behind a "tap to learn more" reveal, so a reviewer sees a video + poetry, never a clear statement of what the app does. **Owner decided to KEEP the YouTube scopes and pursue verification** (vs. the alternative of dropping the unused scopes — see the heads-up below), and to satisfy the home-page check on **`/our-story`** rather than clutter the front-page hero (Google checks whatever URL is set as the consent screen's "Application home page", which can be a subpage).
+Owner decision (2026-06-16): "website is cheaper · website charges via BDO and GCash." Inside the iOS/Android app, payment is routed to the **website** instead of running the in-app flow. Two reasons: (1) Apple/Google forbid selling digital goods in-app via an external rail (BDO/GCash) — that's an App Store rejection; the purchase must happen out-of-app. (2) The website is the cheaper path (base catalog price, 0% store cut, no IAP markup). This supersedes the closed +30% native-markup PR (#1458) — app and web both charge the base price; the app just hands off.
 
-- **`our-story/page.tsx`** — added a plain-language **"What Setnayan is"** section after the brand manifesto: states the app's purpose (a free Filipino wedding-planning platform), the core planning features, and — crucially for verification — names the **Google Drive** (Papic / Photo Delivery → copies finished photos into a folder the app creates; `drive.file` honesty preserved) and **YouTube** (Panood livestream) features tied to the requested scopes, with a link to the Privacy Policy. The manifesto + the cinematic front page are untouched. Owner action: set the OAuth consent screen's Application home page to `https://www.setnayan.com/our-story`.
-- **`privacy/page.tsx`** — fixed the `Setnayan AI AI` typo, added **Google LLC (US)** to the cross-border-transfer enumeration (it was in Subprocessors but missing here), and bumped the header to `Effective 2026-05-13 · last updated 2026-06-17`. The Drive/YouTube disclosure sections + Limited Use + YouTube ToS links were already present and compliant.
+- **`InlineCheckoutDrawer`** detects the native shell post-mount (`SetnayanApp` UA — same marker the middleware uses) and, on native, the buy trigger opens the current checkout page in the **external browser** (`window.open(href, '_system')` → Capacitor hands off to Safari/Chrome) instead of the in-app drawer. The buyer completes payment out-of-app via BDO/GCash at the base price. Trigger gets an external-link icon + a "Opens setnayan.com to pay" hint on native.
+- **Web is byte-identical** — `isNativeApp` is false everywhere except the Capacitor WebView, so the inline BDO/GCash flow is unchanged on the website.
 
-Reverted within this PR (course correction): an earlier commit had gated the dormant YouTube OAuth connect off (for the drop-scopes path); since the owner is keeping the scopes, `panood/setup/page.tsx` is restored to `main` (connect stays live for the verification demo).
+`tsc` green. Native-only behavior (can't be exercised in a browser preview). **Follow-up (flagged):** auth continuity — the external browser has a separate cookie jar, so the buyer may need to log in on the web; a one-time deep-link/magic-link handoff would smooth that. App-Store-policy-sensitive → no auto-merge, for owner review.
 
-⚠ HEADS-UP recorded for owner: making the page acceptable clears the *home-page* rejection, but the submission will still hit a separate wall — `youtube.upload` is **exercised by no live code** (grep-verified: zero `liveBroadcasts`/`liveStreams`/upload calls; shipped Panood is paste-the-watch-URL embed via `lib/panood-watch.ts`). Google rejects scopes it can't see used in the demo. Easiest unblock = drop **just** `youtube.upload` and keep `youtube` for the channel-connect demo; full pass needs the programmatic-broadcast feature actually built.
+SPEC IMPACT: native payment routes to web (corpus `Pricing_Holistic_Pass §6` web-checkout policy + DECISION_LOG).
 
-SPEC IMPACT: `/our-story` doubles as the OAuth-verification home page (now describes app functionality + Google integrations). No SKU/schema/pricing change. Logged in corpus `DECISION_LOG.md`.
-## 2026-06-17 · feat(papic): "Download all" — stream the whole gallery as a ZIP (no Google Drive needed)
+## 2026-06-16 · feat(nav): wire the CUSTOMER bottom nav to the registry (first consumption PR)
+## 2026-06-16 · ci(desktop): re-add macOS Developer-ID signing + notarization — gated (fixes the 2026-06-15 empty-secret break)
 
-The bulk counterpart to per-photo Save (#1634/#1638): a couple can pull their entire Papic gallery to their phone/computer in one click, **without connecting Google Drive**.
+Owner renewed Apple Developer + created a real **Developer ID Application** cert (G2, Team `P95JPDWWB3`, exp 2031). Re-wires macOS code-signing into `build-desktop.yml` so a downloaded `.dmg` opens with no Gatekeeper warning — but **gated** to avoid the bug that got the first attempt reverted on 2026-06-15 (a missing secret resolves to an empty string, and `tauri build` treats an empty `APPLE_CERTIFICATE` as "cert present" → `security import` on nothing → whole macOS build fails).
 
-- **`gallery-zip/route.ts`** (new, Node runtime) — `GET /dashboard/[eventId]/add-ons/papic/gallery-zip`: couple-gated (auth + couple-membership, mirrors the magazine route), gathers the event's captures (photos + clip videos, not hidden / not NSFW-blocked, capped at 1000), and **streams** a ZIP: each R2 object is fetched + appended one at a time (bounded memory) via `archiver` in **store mode** (photos/videos already compressed → no CPU), piped to the client as it builds. Files named `YYYY-MM-DD-NNNN-id.jpg/.mp4`. A missing object is skipped, never aborting the whole download.
-- **`papic-gallery-grid.tsx`** — a **Download all** link under the filter chips (when `eventId` + photos exist) → the route, `download` attribute.
-- Deps: `archiver` + `@types/archiver`; lockfile updated.
+- `.github/workflows/build-desktop.yml` — new **"Configure macOS signing"** step (before `tauri build`, macOS only): reads the six `APPLE_*` secrets via step `env`, and **only when `APPLE_CERTIFICATE` is non-empty** writes them to `$GITHUB_ENV` for the build. A MISSING secret is therefore never exported as an empty string — so forks / pre-secrets builds still succeed UNSIGNED (ad-hoc fallback step runs), and a fully-configured build signs + notarizes + staples (verify step runs). Replaces the 2026-06-15 "removed" comment block with the gated rationale.
 
-Complements the storage model: **Drive = the couple's auto-synced archive; "Download all" = a one-shot grab of everything**, and the per-photo Save = grab one. Real-device/large-gallery behaviour (Vercel `maxDuration`) tuned in a pilot. Clips zip their original video; the gallery's per-tile Save still uses the poster (separate follow-up).
+**OWNER ACTION — add 6 repo secrets** (Settings → Secrets and variables → Actions). Until `APPLE_CERTIFICATE` exists, builds stay unsigned (no regression):
+- `APPLE_CERTIFICATE` (base64 of the `.p12`), `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY` (`Developer ID Application: Indalecio Casasola (P95JPDWWB3)`), `APPLE_TEAM_ID` (`P95JPDWWB3`), `APPLE_ID` (Apple email), `APPLE_PASSWORD` (app-specific password).
 
-SPEC IMPACT: iteration 0012 — bulk gallery ZIP download as a Drive-free "keep everything" path. Logged in corpus DECISION_LOG.md.
+Windows signing still pending (separate item). SPEC IMPACT: None — CI/release plumbing only.
 
-## 2026-06-17 · feat(papic): "Save to phone" on the guest day-of wall + shared button (DRY)
+## 2026-06-16 · feat(papic): free Papic sampler — 3 seats, 8 photos + 2 clips each, 30-day retention
+## 2026-06-16 · chore(explore): remove all seeded "fake venue" listings — explore = live vendors only
 
-Extends the per-photo Save (#1634) to the guest side and de-duplicates the button.
+Owner: *"we only place the live vendors here … we remove all the fake venues."* The explore/marketplace browse (and a public `/venues` SEO section) were surfacing the seeded `venue_directory` table — informational ceremony/reception venues with stock Pexels/Wikimedia photos and `[+ Add to plan]` buttons — reading as a stocked marketplace when no real vendors are listed yet. In this app **venues are NOT modeled as bookable `vendor_profiles`**, so "live vendors only" means the seeded venue surfaces come out.
 
-- **`app/_components/save-photo-button.tsx`** (new, shared) — `SavePhotoButton` extracted from the couple gallery's inline copy; both galleries now import it (one source of truth).
-- **`live-wall-block.tsx`** (guest day-of wall on the personal landing page) — a Save button on every wall tile, so a guest can drop a photo straight into their camera roll (native share sheet → "Save to Photos", download fallback). Saves the screened **wall-safe** derivative (respects opt-out face-blur), which is what the guest sees.
-- **`papic-gallery-grid.tsx`** — refactored to use the shared button (removed the inline `SaveButton` + its now-unused imports).
+- **`app/explore/page.tsx`** — dropped the three `venue_directory`-backed sections: `PairedVenuePanel` (ceremony venues near a saved reception), `CeremonyVenuesSection` (church/mosque/civil cards **+ a hardcoded `CEREMONY_VENUE_PLACEHOLDERS` array that rendered fake venue NAMES even with zero DB rows**), and `ReceptionVenuesSection` (facet picker + venue cards). Pruned the now-unused `CatalogView` props (`venueAnchorName`, `coupleCeremonyType`, `hostVenueSetting`, `venueFilterActive`, `venueFacet`).
+- **Kept** the static `CeremonyVenuePanel` *guidance* (where ceremonies happen · book the parish · Setnayan finds the officiant + handles paperwork) — honest help copy, not a fake listing; fixed its now-dead `#reception` anchor link.
+- Deleted the public SEO venue directory: `app/venues`, `app/venues/[city]`, `app/venue/[slug]`, `app/venues/_lib/venue-directory.ts`, `app/sitemap-venues.xml`. Dropped the `venues` child from `app/sitemap.xml` + `/venues`+`/venue/` from `app/robots.ts` (the only inbound link came from the deleted `ReceptionVenuesSection`).
+- Deleted 4 orphaned components (`ceremony-venues-section`, `reception-venues-section`, `paired-venue-panel`, `add-venue-to-plan-button`).
+- **Left dormant — no breakage** (all read `venue_directory` with graceful-empty fallbacks): the `venue_directory` table + seed migration, the admin curation UI (`app/admin/venues/*`), `lib/officiant-auto-resolve.ts`, `lib/religion-readiness.ts` (still counts venues toward a faith's readiness — unchanged because table DATA is untouched, only display removed), `lib/wedding-plan-groups.ts`, `lib/venue-recommendations.ts`. The `addVenueDirectoryEntryToPlan` server action is now unreachable — left as inert dead code (shares imports with live actions); safe to delete in a follow-up.
 
-Remaining follow-up: the bulk **"Save all" ZIP** (a server-streaming route — web has no bulk-to-camera-roll API) + real clip-video save.
+`tsc --noEmit` green · `next lint` clean (no new warnings) · production build green. Cosmetic follow-up: the folder strip still shows a "Venue" tile (now anchorless `#reception`); the Venue folder renders ceremony guidance only.
 
-SPEC IMPACT: iteration 0012 — save-to-device now on both the couple gallery and the guest wall, via a shared component. Logged in corpus DECISION_LOG.md.
-
-## 2026-06-17 · feat(papic): "Save to phone" — 1-tap save a gallery photo to the camera roll
-
-Owner asked for a save-to-gallery option alongside Google Drive. Added a per-photo **Save** button on the couple's Papic gallery.
-
-- **`lib/save-to-device.ts`** (new) — `saveImageToDevice(url, filename)`: fetches the (full-res, presigned) image and hands it to the OS via the **Web Share API** (`navigator.share({ files })`) → the native share sheet → **"Save to Photos"** (iOS) / **"Save image"** (Android), landing it in the camera roll. Feature-detected per-file with `navigator.canShare({ files })`; **falls back to a plain download** (Files/Downloads) on browsers without file-share (older / most desktop). Best-effort (never throws); a cancelled share sheet counts as success, not failure. (Browsers can't write to the gallery silently — the share sheet is the closest the web allows; a *true* 1-tap silent save is a native-shell capability for later.)
-- **`papic-gallery-grid.tsx`** — a small `SaveButton` overlay on every tile (top-left, opposite the clip badge) with a brief check-mark on success. Saves `p.url`, which is the presigned **original** (R2 doesn't resize), so it's the full-res photo.
-
-Complements Drive: Drive = the couple's permanent *archive*; Save = a *grab-to-my-phone*. Pairs naturally with face auto-tagging (a guest sees *their* photos → taps Save). NOTE: clips currently save their **poster still** (the gallery exposes the poster URL, not a presigned video) — real clip-video save + the guest-gallery wiring + a bulk **"Save all" ZIP** are quick follow-ups.
-
-SPEC IMPACT: iteration 0012 — per-photo save-to-device on the Papic gallery. Logged in corpus DECISION_LOG.md.
-
-## 2026-06-17 · feat: multi-service inquiry modal on vendor public profile
-
-When a couple taps **Inquire** on a vendor who has multiple services, a bottom-sheet modal (centered dialog on desktop) now appears before the inquiry fires, listing the initial service pre-checked (non-removable) plus the vendor's other services as opt-in checkboxes — all bundled into one chat thread and one token burn.
-
-- **`app/v/[slug]/page.tsx`** — reads the vendor's other published services and passes them to the composer.
-- **`app/v/[slug]/_components/inquiry-composer.tsx`** — new `ServicePickerModal`: sheet on mobile, dialog on desktop; single-service vendors skip it; pre-existing non-declined thread → "You already have an inquiry" state with an optional "Ask about more services" button for multi-service vendors.
-- **`app/v/[slug]/inquiry-actions.ts`** — `submitInquiry` updated to accept `selectedServiceIds[]`; records each in `thread_service_interests` (initial / couple_added).
-- **`supabase/migrations/20270108000100_inquiry_multi_service.sql`** — adds `requested_service_ids UUID[]` to `event_vendors`; `thread_service_interests` join table; RLS policies; `submit_multi_service_inquiry` RPC that atomically creates the thread + the interest rows.
-
-SPEC IMPACT: iteration 0022 §5 (vendor inquiry flow) + 0021 §8 (couple inquiry UX). **setnayan-platform PR [#1633](https://github.com/iscasasola/setnayan-platform/pull/1633), merge commit `5671ff23`.**
-
-## 2026-06-17 · feat: vendor relationship depth badge + top-of-results float
-
-Vendors the couple already has a relationship with for the current event surface first in any category search, carrying a contextual badge so couples can spot and continue conversations without scrolling.
-
-- **`app/dashboard/[eventId]/vendors/_actions/category-search.ts`** — join on `event_vendors` + `vendor_event_unlocks` to compute `relationship_depth`; relationship vendors sort first (desc depth), then by normal match score.
-- **`app/explore/page.tsx`** + **`app/explore/_components/vendor-card.tsx`** — same float + badge logic for the authenticated marketplace view.
-- Badge states: **"Your vendor"** (deposit_paid/complete, Obsidian pill) · **"You're in conversation"** (token-pursued, Mulberry ring) · **"In your shortlist"** (any non-declined inquiry, Champagne Gold ring). No badge for logged-out visitors or no-relationship vendors.
-- No schema change — depth is computed from existing `event_vendors.status` + `vendor_event_unlocks` at read time.
-
-SPEC IMPACT: None (no schema, no SKU). **setnayan-platform PR [#1632](https://github.com/iscasasola/setnayan-platform/pull/1632), merge commit `d81995c7`.**
-
-## 2026-06-17 · feat(mobile): Capacitor detection + mobile SRP pricing + web nudge banners
-
-Vendor purchase surfaces now show the correct price depending on platform: web DB prices (discounted ~33% from SRP) on desktop/PWA; SRP on the Capacitor native app (App Store rules prohibit offering web discounts in-app). A persistent "Buy on web for less" banner nudges mobile users to the browser.
-
-- **`lib/capacitor.ts`** (new) — SSR-safe `isNativeApp()` via `window.Capacitor.isNativePlatform()`.
-- **Tokens page** — `BuyTokensCta` converted to `'use client'`; reads `isNativeApp()` and displays SRP prices (₱150/token for the single pack, scaling 1.5× for all packs) on native and DB prices on web.
-- **Subscription page** — `SubscriptionCards` reads `isNativeApp()` and shows SRP (Pro ₱9,000/28d · ₱90,000/yr; Enterprise ₱15,000/28d · ₱150,000/yr) on native and DB prices on web.
-- **`app/vendor-dashboard/_components/web-nudge-banner.tsx`** (new) — Champagne Gold banner with deep-link for mobile users; shown on both the tokens and subscription pages when native.
-- Payment flow unchanged — server actions use `sku_code`; the DB RPC reads the authoritative DB price at order time.
-
-SPEC IMPACT: iteration 0022 §6B (vendor subscriptions/tokens) — mobile SRP pricing + web nudge wired per the 2026-06-17 dual-channel pricing formula decision. No schema change. **setnayan-platform PR [#1631](https://github.com/iscasasola/setnayan-platform/pull/1631), merge commit `b3ab280c`.**
-
-## 2026-06-17 · feat(onboarding): taxonomy-driven PICK step — new vendor categories auto-appear without a deploy
-
-The onboarding PICK step ("What would you love at your wedding?") was hardcoded in `PICK_GROUPS`. Whenever a new vendor category was added to the admin taxonomy the file had to be manually edited and a deploy kicked. This ships the live-DB alternative: the PICK step now reads tier-2 `service_categories` scoped to the event type at request time, so any new category an admin adds to the taxonomy (with `applicable_event_types = ['wedding']` or null = universal) automatically shows up for the next couple who opens onboarding — no deploy.
-
-- **`lib/onboarding-refinements.ts`** — added `OnboardingPickChip` type export + `getOnboardingTiles(eventType)` cached server function: queries `service_categories` tier-2, filters by `applicable_event_types`, returns `{ cat, label, folder }[]`. Falls back to `[]` on any read error. Also updated `getOnboardingRefinements(eventType)` to accept an event type and filter leaves via the `service_categories!tile_id(applicable_event_types)` embedded join — so refinements (style sub-steps) are event-type scoped too.
-- **`app/onboarding/wedding/page.tsx`** — extends the `Promise.all` fetch to include `getOnboardingTiles('wedding')`; passes the result to `<OnboardingShell dynamicTiles={...}>`.
-- **`app/onboarding/wedding/_components/onboarding-shell.tsx`** — four changes:
-  - `PICK_GROUPS` → `PICK_GROUPS_FALLBACK` (static seed for graceful degradation).
-  - New `pickGroups` useMemo: merges DB tiles into the fallback (new tiles not already in the fallback are appended to their folder group, or a new group if the folder is unrecognised).
-  - New `extrasOrder` + `refinementKeys` useMemos derived from `pickGroups` — the refine pass and recap both adapt dynamically to new tiles.
-  - `PICK_LABEL` + `extrasGroups` render now read `pickGroups` (was the static constant), so new tiles get labels and appear in the EXTRAS confirmation screen automatically.
-  - Module-level `EXTRAS_ORDER` removed (was static); `queueFor` / `refineExtrasQueueFor` take `extrasOrder` + `refinementKeys` as parameters.
-
-The admin taxonomy page (`/admin/taxonomy`) already writes `service_categories.applicable_event_types` — the end-to-end admin → onboarding flow works with no additional admin-side build.
-
-**SPEC IMPACT:** `0016_step_by_step_plan_builder` — the onboarding PICK step is now taxonomy-driven (Phase 1 of "taxonomy-drives-onboarding"); the static `PICK_GROUPS` list is a fallback, not the source of truth. Logged in corpus `DECISION_LOG.md`. **setnayan-platform PR [#1629](https://github.com/iscasasola/setnayan-platform/pull/1629), merge commit `90dbbd93`.**
-
-## 2026-06-17 · fix(nav): fail-proof sub-nav dock offset — derive from bottom nav's measured height
-
-Follow-up hardening of #1625. The sub-nav's `bottom` was a hardcoded `+84px` tied to the bar's assumed height — one of three independent height constants that had to stay in lockstep. A future label/tab-count/font change would silently overlap or gap the two pills.
-
-- **`app/_components/nav/bottom-nav.tsx`** — `NavShell` publishes the pill's real rendered height to `--sn-bottomnav-h` via a `ResizeObserver` (one observer, cheap; falls back to the 64px design height pre-hydration).
-- **`app/_components/nav/sub-nav.tsx`** — docks at `calc(env(safe-area-inset-bottom) + var(--sn-bottomnav-h, 64px) + 20px)` — `20 = 12px` nav float-offset + 8px gap — so it always sits 8px above the actual bar regardless of its height.
-
-SPEC IMPACT: None (nav geometry, no SKU/schema). **setnayan-platform PR [#1627](https://github.com/iscasasola/setnayan-platform/pull/1627), merge commit `d31fe9f8`.**
-
-## 2026-06-17 · fix(nav): bottom nav keeps labels + full height when a sub-nav is docked
-
-Owner directive: revert the 2026-06-16 "icons-only when a SubNav is docked" shrink. The pill bottom nav was dropping its text labels and shrinking 56px→48px whenever a sub-nav docked; labels + full height must stay constant.
-
-- **`app/_components/nav/bottom-nav.tsx`** — `compact` forced to `false` (the `useSubNavDocked` read removed); the two downstream ternaries (`minHeight`, label `maxHeight`/`opacity`) now always take the full-height/labelled branch. The store in `sub-nav.tsx` is left in place but unread — re-import to restore the shrink if ever wanted.
-- **`app/_components/nav/sub-nav.tsx`** — dock offset corrected from `+76px` to `+84px` to account for the now-full-height bar.
-
-SPEC IMPACT: None. **setnayan-platform PR [#1625](https://github.com/iscasasola/setnayan-platform/pull/1625), merge commit `c8ed5cf9`.**
-
-## 2026-06-17 · nav: add `/admin/papic-sampler` to the admin Work group
-
-The `/admin/papic-sampler` page (free-Papic abuse monitor) existed on disk but had no entry in either the sidebar or the bottom nav, making it unreachable via the admin navigation.
-
-- **`app/admin/_components/admin-sidebar.tsx`** — added a "Papic sampler" entry with the `Camera` icon to the **Work** group (alongside Setnayan AI abuse, account-deletions, and user-reports — all abuse-watch surfaces).
-- **`app/admin/_components/admin-bottom-nav.tsx`** — added `/admin/papic-sampler` to the Work tab's `activeMatch` list so the tab highlights correctly on mobile.
-
-SPEC IMPACT: None (nav wiring only). **setnayan-platform PR [#1624](https://github.com/iscasasola/setnayan-platform/pull/1624), merge commit `00a6221c`.**
-
-## 2026-06-17 · feat(nav): docked sub-nav children are now admin-editable via the registry (customer-menu redesign PR6/6)
-
-Closes the registry-SSOT gap the #1595 review flagged: the mobile docked sub-nav's CHILDREN (Guests journey · Explore takeover tabs · Studio sections · Budget anchors) rendered from code only — so `/admin/menus` couldn't rename/re-icon/hide them, unlike the top-level menus. Now every sub-nav child overlays its admin override.
-
-- **`lib/customer-menu.ts`** — `CustomerMenuChild` gains `slotKey?`; `buildCustomerMenuTree` stamps each child with its registry key: `customer.guest-journey.*` · `customer.budget-subnav.*` (the Explore tabs, legacy name) · `customer.studio-subnav.*` · `customer.budget-anchors.*`.
-- **`lib/nav-registry-defaults.ts`** — added the 7 missing slots (hand-edited per the file's "DO hand-edit to add NEW slots" contract): `studio-subnav` ×4 (Setnayan AI · Website · Capture · Branding) + `budget-anchors-subnav` ×3 (Overview · Allocate · Payments). The guest-journey + Explore-tab slots already existed.
-- **`customer-section-subnav.tsx`** — the dock now takes `navSlots` and overlays each child's admin override (label · icon via `navIconComponent` · hidden→drop) on the code default. Only NAME + ICON are admin-editable; `kind`/`href`/`tab`/`hash`/`match` stay code-owned, so routing + the anchor scroll-spy are untouched.
-- **`layout.tsx`** — passes the already-fetched `navSlots` to the dock (it already feeds the bottom nav + sidebar).
-
-So an admin editing e.g. "Branding" or "Confirm" at `/admin/menus` now changes the live mobile sub-nav. `tsc` 0 · `next lint` clean (changed files) · bottom-nav guard ✓ · nav-icon-source guard ✓. No migration (registry defaults are in-code; the `nav_slot_override` table already exists).
-
-SPEC IMPACT: nav-registry — the customer docked sub-nav children join the admin-editable SSOT (7 new default slots). No SKU/pricing/schema change. Logged in corpus `DECISION_LOG.md`. **This completes the customer-menu redesign's registry track.** Remaining from the 6-PR plan: the desktop sidebar's NESTED children (a small follow-up, same `slotKey` overlay) + PR5 = the separate "event lifecycle menu" initiative (phase-aware nav).
-
-## 2026-06-17 · chore(db): failproof migration timestamps — force the allocator + activate the dormant guard
-
-Owner: "fail proof it." A 2026-06-17 session hit the dup-timestamp collision **twice in one sitting** (each needing manual ledger surgery) despite the repo already having an allocator + a CI guard + a pre-push hook. Root cause wasn't a missing guard — it was **bypassed/unused** ones. Two holes, both closed:
-
-- **Hand-typing bypassed the allocator.** Migrations were created by hand-typing `YYYYMMDD000000` prefixes instead of `pnpm migration:new`; two branches independently pick the same round date, each passes CI alone, then collide on merge. **`scripts/check-migration-timestamps.mjs` is rewritten** as the single source of truth for two rules: RULE 1 (no duplicate 14-digit prefix — unchanged) and **RULE 2 (a NEW migration — one not yet on origin/main — must NOT use a hand-typed `YYYYMMDD000000` round prefix)**. The allocator never emits a round prefix, so this cleanly forces its use; the 209 existing round migrations are grandfathered (they're on main). Pure rule functions are exported + unit-tested (`scripts/check-migration-timestamps.test.mjs`, 5 cases). The CI "migration timestamp guard" job now runs this script (one source, no drift vs the old inline sh) after fetching origin/main, plus the unit test; the `.githooks/pre-push` hook gains the same RULE 2 in pure sh.
-- **The pre-push guard was silently OFF.** `core.hooksPath` was a leftover `~/.git/hooks` (samples only), and `setup-git-hooks.mjs` *respected* it → the guard never ran locally, so the collision only surfaced in CI **after** the migration had been applied to prod (forcing ledger surgery). `setup-git-hooks.mjs` now **auto-activates** `.githooks` when the custom path holds no real hooks (samples/empty/missing → nothing to preserve), and still respects a path that has real hooks.
-- **Allocator hardened:** `new-migration.mjs` random nudge widened 1e3 → **1e6** (concurrent allocations against the same main now collide ~1-in-a-million, not 1-in-a-thousand) and **guaranteed never to emit a round `…000000` prefix** (so it can never trip RULE 2 itself).
-
-Verified: guard ✓ on the real 387-migration tree, ✓ catches a new hand-typed file (exit 1), ✓ allows an allocator-style file, ✓ safely SKIPS RULE 2 (not 209 false-fails) when origin/main is unavailable; allocator emits a non-round prefix; 5/5 unit tests; hook auto-activated locally (core.hooksPath → .githooks).
-
-SPEC IMPACT: None (dev-tooling/CI hardening; no schema, SKU, or app behavior change). The structural lever for the *other* root cause — applying migrations to prod **ahead of merge** (which jammed `db push` + caused the silent QR-RPC drop) — is re-enabling auto-apply-on-merge; flagged for owner (needs the `SUPABASE_DB_URL` Actions secret). Logged in corpus `DECISION_LOG.md`.
-## 2026-06-17 · chore(ci): scaffold auto-apply-migrations-on-merge — armed but dormant until the secrets are set
-
-The structural fix for the migration-pain ROOT cause (companion to the timestamp-failproof #1617). Applying migrations to prod **manually, ahead of the PR merge** is what caused this repo's worst incidents — the `db push` jam, the silent QR-RPC drop, and the dup-collision ledger surgery (all 2026-06-17). Auto-apply-on-merge means migrations apply ONLY post-merge, under finalized timestamps, applied==recorded — the whole class disappears.
-
-The workflow already existed (`.github/workflows/supabase-migrations.yml`) but its `push:` trigger was commented out (2026-05-24 pilot-safety disable) and its secret-check **hard-failed** when secrets were absent — so simply arming it would have spammed a red failure on every migration merge. This makes it **safe to arm**:
-
-- **Push trigger un-commented** (runs on a merge to main that touches `supabase/migrations/**`).
-- **New `gate` step makes it DORMANT until configured:** it green no-ops (with a `::notice::`) while `SUPABASE_ACCESS_TOKEN` / `SUPABASE_DB_PASSWORD` (secrets) + `SUPABASE_PROJECT_REF` (variable) are unset; every real step (`checkout`/`link`/`db push`/`migration list`) is gated on `steps.gate.outputs.enabled == 'true'`. So arming it costs nothing today, and the 2026-05-24 "don't auto-apply during pilot" concern is preserved — **nothing applies until the owner sets the secrets.**
-- **"Flip on" = set the 3** (no further code change). Header updated with the rationale + steps.
-
-It triggers on push to **main** (not on PRs), so it never blocks a PR check. YAML validated (triggers: push + workflow_dispatch).
-
-SPEC IMPACT: None (CI scaffolding; inert until the owner sets the secrets). **⚠ OWNER:** this arms (dormant) the workflow you deliberately disabled 2026-05-24 — it stays a green no-op until you set the 3 secrets, at which point migration merges self-apply to prod. Logged in corpus `DECISION_LOG.md`.
-## 2026-06-17 · feat(std-reveal): photoreal paper + liner textures on the 3D rigid scene (faithful-rebuild PR3b/4)
-
-Stacks on PR3a (the WebGL scene). Realises the §1a **TRUE TEXTURE** requirement for the two surfaces a guest stares at — the invitation **paper** (back plane + flap fronts) and the **liner** (flap backs) — as real PBR material maps. Church-door wood is the heavier unique surface and defers to **PR3c**.
-
-- **Assets (made once, reused by every couple, ₱0):** generated two seamless albedo scans via Recraft (cotton-rag wedding paper · kraft liner) — I `Read` both to confirm they look right (a premium linen weave + a kraft speckle). New re-runnable `apps/web/scripts/build-reveal-textures.mjs` (sharp) derives, per surface, the **normal map** (wrap-around Sobel from a luminance height field — verified the output reads as a proper tangent-space normal with the fibre as relief) and a **roughness map** (inverted-luminance, leveled to a matte band), and emits optimised WebP. The large source scans are git-ignored (`*_albedo_src.webp`); the six derived maps (~1.6 MB) are committed under `public/reveal/textures/{paper,liner}/`.
-- **`reveal/reveal-textures.ts` (new):** loads the map set and **recolours the albedo LIVE** toward the couple's Mood-Board role colour with a luminance-preserving Canvas `'color'` blend at 0.22 alpha (§2e "blend, not tint" — fibre/grain survive; only the hue shifts). Normal + roughness are colour-agnostic and shared unchanged. **sRGB on albedo, linear on normal/roughness** (the one PBR bug to never get wrong). Returns null on any failure → the scene keeps its flat Mood-Board colour, never breaks.
-- **`reveal/rigid-webgl.tsx`:** loads paper + liner maps **async** (only when a reveal mounts) and applies them to the materials when ready, so the scene upgrades from flat colour → textured; `roughness=1` so the map drives it; max anisotropy so the grain stays crisp at grazing angles; a `cancelled` guard disposes maps that resolve after unmount. Doors use the paper map as an interim until PR3c wood.
-
-Textures are FETCHED at runtime (static `public/` WebP, CDN-cached, lazy per reveal) — NOT in the JS bundle; three.js stays code-split. Flag-gated unchanged (`NEXT_PUBLIC_STD_REVEAL` default OFF). `tsc` 0 · `next lint` clean. **⚠ Same verification reality as PR3a — the textured LOOK on the lit 3D scene is eyeball-only on a real GPU; I verified the source maps visually but not the final composite. Please review on the Vercel preview** (`?reveal=four-flap…`; `?reveal3d=off` to A/B vs CSS).
-
-SPEC IMPACT: realises `0024_ADDENDUM §1a/§2e` TRUE-TEXTURE photoreal paper + liner (luminance-preserving moodboard recolour, ₱0) for the rigid reveal. No SKU/schema/pricing change. PR3c = church-door wood (CC0/Recraft). Logged in corpus `DECISION_LOG.md`.
-
-## 2026-06-17 · feat(std-reveal): rigid family → real three.js 3D scene + one-light VSM shadows (faithful-rebuild PR3a/4)
-
-PR3 of the Save-the-Date faithful rebuild, staged on a 4-agent architecture pass (map seam · three.js conventions · scene design · texture pipeline). **PR3a = the real-time WebGL conversion + the locked §1a lighting/shadow rig**; PR3b (photoreal PBR textures + church-door wood) follows. Replaces the flat CSS-3D rigid flaps (four-flap · two-flap-v/h · church-doors) with an **actual three.js scene** so the three §1a shadow types (form shading · flap-cast-on-paper · seam occlusion) fall out of real geometry + light, not hand-faking.
-
-- **New `reveal/rigid-webgl.tsx`** — a back invitation PAPER plane (receiveShadow) + per-template flap **meshes** (two-sided: paper front, liner back via stacked double-sided meshes) hinged in groups, driven by the same `progress` 0..1 (read live via a ref so palette/scrub never tears down the GL context). **ONE soft centre `SpotLight`** + a `HemisphereLight` fill, **`VSMShadowMap`** — carrying the owner's locked picker values verbatim as `LIGHT_LOCK` (DIAMETER 5 → `shadow.radius=5`/`blurSamples=12` · DIFFUSION 100 → `penumbra=1.0`+`hemi≈1.1` · BRIGHTNESS 50 → `intensity≈1.4`). Orthographic head-on camera (flat envelope, symmetric flaps + shadows). `progress` drives each flap's rotation via smoothstep + staggered relay windows to fold ~158–160° (doors 138°) fully off-frame → the §1a clean shadowless end state, with an exposure bloom to "best light" at full open. **Parallax moves ONLY the light** (gyro/pointer; paper + flaps locked → shadows slide), off under `prefers-reduced-motion`. Colours read live from the same `--color-cream`/`--color-terracotta`/`--color-mulberry` Mood-Board vars `buildSitePaletteVars` overrides (₱0 recolour, no new threading). The PBR texture-map slots are wired for PR3b.
-- **New `reveal/rigid-flaps.tsx`** — the WebGL-or-CSS switch. Lazy-loads `rigid-webgl` via `next/dynamic(ssr:false)` so **three.js stays code-split** (verified by a production build: three lives only in lazy chunks; the 200 KB shared-bundle gate is untouched). Falls back to the existing CSS flaps when WebGL is unavailable **or** on `?reveal3d=off` (an A/B escape hatch). `four-flap`/`rigid-reveal` now pass their existing progress-driven CSS JSX as the `cssFallback` — so the fallback is byte-identical to today and **RigidStage's gesture/seal/scroll/onOpened engine is untouched** (zero regression).
-- **Verification:** I can't render WebGL in this sandbox, so this went through a 2-agent code-correctness review (three.js API + scene math; integration + bundle + fallback). It caught a **critical** bug — several flaps' fold-direction signs were inverted (folding behind the opaque paper → blank reveal); fixed by deriving the correct `maxDeg` sign per flap from the rotation matrices, then **re-verified by an independent agent: all 10 flaps now lift toward the camera and fold off-frame.** Also fixed: resize-staleness (scene rescales in x to stay full-bleed) + shadow-cam near. `tsc` 0 · `next lint` clean · production build green (three code-split confirmed).
-
-Flag-gated reveal unchanged (`NEXT_PUBLIC_STD_REVEAL` default OFF → zero live impact). **⚠ The WebGL LOOK is eyeball-only on a real GPU — please review on the Vercel preview** (`?reveal=four-flap|two-flap-vertical|two-flap-horizontal|church-doors`; `?reveal3d=off` to A/B against the CSS version) — it is likely to want a tuning pass (light/shadow/fold timing are all `LIGHT_LOCK`/window constants). The CSS reveal remains the safety net.
-
-SPEC IMPACT: realises `0024_ADDENDUM §1a` (real 3D scene · one centre light · VSM shadow maps · two-sided flaps · parallax-on-shadows) for the rigid family. No SKU/schema/pricing/public-surface change. PR3b = the §1a TRUE-TEXTURE photoreal maps + church-door wood. Logged in corpus `DECISION_LOG.md`.
-
-## 2026-06-17 · feat(std-reveal): the Candle Stamp Maker — couples mint their wax seal (faithful-rebuild PR2/4)
-
-Owner: "the monogram created will be the stamp used to create the wax seal." PR2 of the Save-the-Date faithful rebuild builds the **candle stamp maker** (`0024_ADDENDUM §3` + `Wax_Seal_Creation_Rules_2026-06-15.md`): the couple's monogram is the brass **die**, which they press into molten wax to **mint a one-of-a-kind seal**. Designed via a 10-agent map+design+judge+synthesize workflow against the live code.
-
-**Architecture — deterministic recipe, ₱0, renders identically in maker + live reveal:**
-- New column `events.wax_seal_config jsonb` (migration `20270109000483`, additive · nullable · length-capped) stores a tiny **recipe** `{v, seed, wax{color,finish}, pour{amount,irregularity,bubbles}, press{crispness,depth,offset,skew}, mark, isDefault}` — **not an image**. The monogram die + wax colour are read **live** (`monogram_uploaded_svg ?? monogram_custom_svg`; Mood-Board deep accent), so the seal recolours for free and never bakes per-couple pixels. RLS: the existing `couple_can_update_event` policy is the enforcement (no new policy); the action gates on explicit couple membership then writes RLS-scoped.
-- New `lib/wax-seal/{types,paint}.ts` — `types` = the `WaxSealConfig` + `sanitizeWaxSealConfig` (clamps/whitelists/hex-validates) + `mulberry32` seeded PRNG + `fallbackSeedFromPublicId` + `resolveWaxColor` + `defaultConfigFromSeed`; `paint` = the deterministic **Canvas-2D `paintWaxSeal`** (seeded self-levelled puddle, monogram pressed in as a raised emboss, per-pour rim bulge + overheat micro-bubbles, matte/glossy sheen — **no drop shadow**, §1a) + `buildMarkCanvas` (vector marks → alpha silhouette; **raster `<image>` uploads → luminance-threshold height field**, fixing PR1's raster→blank limitation). 8 unit tests (`wax-seal.test.ts`) lock determinism + the sanitizer.
-- `reveal/wax-seal.tsx` **refactored** CSS-mask → a `<canvas>` calling `paintWaxSeal`, with the prior CSS render kept as the pre-hydration / no-JS static fallback (never blank). The recipe threads through the existing reveal relay (`RevealOverlay` → rigid family → `RigidStage` → `WaxSeal`) + the dashboard preview as two new props (`config`/`fallbackSeed`), defaulting to a `public_id`-seeded bespoke seal when un-minted — so **every couple gets a one-of-a-kind seal from day one**; the maker is authoring, never a gate.
-- The maker (`add-ons/save-the-date/stamp/`): a server page + the `wax-stamp-maker.tsx` ritual — **pour** (hold to grow the puddle / tap for default; over-hold seeds overheat bubbles) → **the 3-zone consistency window** (the one skill beat — a needle dwells in a green "ready" band) → **press** the die straight down (no twist gesture exists, so the no-twist craft rule holds by construction) → **set** → **confirm** (wax-colour swatches from the Mood Board + matte/glossy + "Pour again" / "Use this seal"). Never-stuck: tap-pours, the needle dwells, idling auto-presses a perfect seal, an always-present one-tap "mint a clean seal", and `prefers-reduced-motion` skips straight to a crisp default. `saveWaxSeal`/`clearWaxSeal` server actions (cloned from the cipher-monogram pattern). A "Make your wax seal" CTA on the Save-the-Date page.
-
-Migration applied to prod via `supabase db query` (statement-by-statement + manual ledger row — `supabase db push` is blocked by a pre-existing `20270110000000` parallel-session ledger drift; flagged for owner, not touched here). Flag-gated reveal unchanged (`NEXT_PUBLIC_STD_REVEAL` default OFF). Verified: `tsc` 0 · `next lint` clean · `test:unit` wax-seal 8/8. Adversarial review pass to follow (as in PR1).
-
-**⚠ Surfaced for owner (recommended defaults shipped):** (1) `reveal/wax-seal.tsx` moved CSS→Canvas — the merged PR1 seal's look changes slightly (the upgrade that makes minting reproducible + fixes raster emboss); (2) un-minted couples now get a `public_id`-seeded bespoke seal rather than a plain default disc; (3) the maker lives at `…/save-the-date/stamp` (a child route).
-
-SPEC IMPACT: new `events.wax_seal_config` column + the candle-stamp maker surface (free, no SKU). Aligns to `0024_ADDENDUM §3` (wax seal from the monogram, ₱0) + the wax-seal craft rules. No pricing/SKU/public-marketing change. Logged in corpus `DECISION_LOG.md`.
-## 2026-06-16 · docs(nav): backfill changelog for the registry final-public-pass + cleanup (#1583, #1581)
-
-Backfill — the changelog entries for #1583 and #1581 were intentionally dropped from those PRs to clear a parallel-session changelog-conflict deadlock (every concurrent PR appends here, so the entries kept bumping the PRs to DIRTY and pausing auto-merge). The code merged cleanly; this records the history after the fact.
-
-**#1583 · feat(nav): final public pass — marketing nav + nav-icon-source guard + download CTA** (merged 2026-06-16). Completes the nav/icon/menu registry rollout. (a) Public marketing top-nav (`site-nav.tsx`/`site-chrome.tsx`/`layout.tsx`) now consumes the registry — root layout resolves `getNavSlotMap()` once, threads it through `SiteChrome → Nav`, overlays the 5 `public.site-nav.*` labels (label-only; href/order stay in code; fails open). The last doorway after customer/vendor/admin. (b) **`lint-nav-icon-source` guard** — `apps/web/scripts/lint-nav-icon-source.mjs` + CI job + `lint:navicon` script; a standalone node guard (mirrors `lint-bottom-nav.mjs`, not ESLint) asserting the 7 nav-chrome chokepoints each consume the registry + the plumbing keeps its exports. **Positive delegation guard, deliberately NOT a lucide ban** (chokepoints intentionally import lucide fallbacks). (c) Wired `public.download.mac-api` label onto `app/download/page.tsx` (both buttons + step-1 copy; label-only/fail-open; 1-hr ISR propagation noted in-code). Passed a 3-lens adversarial review (SHIP, 0 must-fix). Superseded duplicate PRs #1574 (mine) and #1551 (stale parallel), both closed. Remaining `public.*` slots verified not-wirable and left seeded-but-inert (`vendor-nav.*` dead, guest/papic CTAs, `marketing.home` logo, `download.page`/`.qr-png` no-link/broken-route).
-
-**#1581 · chore(nav): remove dead VendorNav + its 3 orphaned registry slots** (merged 2026-06-16). Deleted the unused `apps/web/app/for-vendors/_components/vendor-nav.tsx` (dead since commit 238ae4d1 — `/for-vendors` uses the shared marketing `<Nav>`), removed the 3 orphaned `public.vendor-nav.*` default rows from `lib/nav-registry-defaults.ts`, and scrubbed 2 stale comments. Verified safe first: prod `nav_slot_override` had 0 rows `LIKE 'public.vendor-nav.%'`.
-
-Owner follow-ups (carried from #1583): add `lint nav icon source` to branch-protection required checks (advisory until then); Phase-9 seed-vs-DB drift test still unbuilt; misc `nav-registry-defaults.ts` inconsistencies flagged out-of-scope.
-
-SPEC IMPACT: None (additive guard + behavior-preserving label overlays + dead-code/inert-defaults removal; no SKU/pricing/schema/route change).
-## 2026-06-17 · fix(papic): recalibrate face matcher to EUCLIDEAN (validated dlib thresholds)
-## 2026-06-17 · feat(papic): recalibrate face matcher to EUCLIDEAN (validated dlib thresholds) + server-side matcher
-
-After validating the commercially-clean self-hosted model (dlib face-recognition ResNet via face-api.js — public-domain weights + MIT, 99.38% LFW) on real faces (Obama×2 / Biden×2): same-person euclidean distance **0.40–0.47**, different-person **0.79–0.90** — clean separation. The matcher core (#1594) had shipped with ArcFace-style **cosine ≥0.85** thresholds, which are WRONG for dlib (on cosine, different people score 0.80–0.84, hugging the 0.85 line → false suggestions).
-
-- **`lib/face-match-core.ts`** — `cosineSimilarity` → **`euclideanDistance`**; thresholds now `FACE_AUTO_MAX_DISTANCE = 0.5` / `FACE_SUGGEST_MAX_DISTANCE = 0.6` (face-api's native match line, sitting in the validated gap): distance ≤0.5 → auto-tag, 0.5–0.6 → suggest, >0.6 → untagged. `planAutoTags` picks the CLOSEST (min-distance) enrollment per guest; `FaceMatch.confidence` → `FaceMatch.distance` (lower = better). Dedupe / 10-tag-cap / already-tagged-exclusion logic unchanged.
-- **`lib/face-match-core.test.ts`** — rewritten for euclidean; distances numerically verified (close 0.40 auto · borderline 0.55 suggest · far 0.85 none · dedupe min 0.30 · cap closest-first).
-- **`lib/face-match.ts`** (new, server-only) — `autoTagCapture({eventId, sourceTable, photoId, faceVectors})` = the "match-on-our-server" brain: fetch the event's consented/non-revoked enrollments **that have a vector**, run the pure matcher, write `auto_face` photo_tags. The face IMAGES never touch any recognition service — only the small vectors move, and guest vectors never leave our server. Dedupe via the `(source_table,source_id,guest_id)` unique constraint; the DB 10-tag cap trigger backstops the limit across all writers. Best-effort (never breaks a capture). **Dormant** until enrollments carry vectors (no on-device embedder/model yet) → clean no-op today.
-
-The core swap is consumer-safe (foundation). The server matcher is the next piece of the self-hosted pipeline; the on-device embedder + R2 model hosting come next. Final thresholds tuned on real wedding photos in a pilot.
-
-SPEC IMPACT: iteration 0012 — face auto-tag thresholds corrected to the validated self-hosted model (euclidean, not the ArcFace cosine). Logged in corpus DECISION_LOG.md.
-
-## 2026-06-17 · feat(papic): NSFW re-screen self-heal + DB-enforced 10-tag cap (the last two #1577/#1588 review items)
-
-Two Papic moderation/tagging hardening fixes the prior reviews surfaced and left for owner sign-off (owner: "yes on 2"):
-
-- **NSFW re-screen self-heal (B).** `screenCapture()` is fail-open AND fire-and-forget from the capture `after()` hook — so if it drops (an R2 hiccup, a cold lambda, a killed request) the row stays `moderation_state='unscreened'` **forever**, and is then permanently invisible on every guest-facing allowlist surface (guest-live-gallery + the Live Wall show only `'clean'`) while the couple's own private gallery still shows it — a silent *screening* gap, distinct from the tag-leg one. New `reScreenStuckCaptures(eventId)` in `lib/nsfw-screen.ts`: a bounded (10/table), never-throwing, cron-free sweep that re-runs the screen on rows stuck `'unscreened'` past a 15-min grace window (so an in-flight first screen isn't disturbed), across BOTH capture tables (`papic_photos` + `papic_guest_captures`). `screenCapture` re-fetches the R2 bytes, re-decides, and writes ONLY where still `'unscreened'` → fully idempotent. Fired from `after()` on the couple moderation surface (`/add-ons/papic/moderation`).
-- **DB-enforced 10-tag cap (C).** The "max 10 tags per photo" product lock was enforced only inside the `papic_tag_capture` RPC (QR tags); `auto_face` / `manual_pick` / any future writer of `photo_tags` could exceed it. New migration `20270110120000_photo_tags_cap_trigger.sql` adds a `BEFORE INSERT` trigger (`enforce_photo_tag_cap`, SECURITY DEFINER + pinned `search_path` so the `count(*)` is RLS-accurate) that makes ≤10 tags per photo (`(source_table, source_id)`) a DB invariant across ALL sources. At the cap it `RETURN NULL`s — silently skipping the over-cap row (truncate semantics, matching the spec's table-QR "alphabetize + truncate"), never erroring the insert/batch. The RPC already limits to the remaining cap, so the trigger is a pure backstop for the non-RPC paths.
-
-tsc 0 · `next lint` clean · timestamp guard 387 unique. Migration applies cleanly now that `db push` is unjammed (#1596). PR pending (branch `claude/papic-moderation-hardening`, auto-merge).
-
-SPEC IMPACT: iteration 0012 — the 10-tag cap is now a DB invariant across all tag sources (was RPC-only/advisory; owner-locked 2026-06-17), and the NSFW screen now self-heals dropped screenings. No SKU/pricing change. Logged in corpus `DECISION_LOG.md`.
-## 2026-06-17 · feat(nav): Design + Budget child sub-navs (customer-menu redesign PR2/6)
-## 2026-06-17 · feat(nav): Studio absorbs Design — 5 menus + Studio's 4-section sub-nav (customer-menu redesign PR3/6)
-
-Owner-locked 2026-06-17: *"the design could live inside studio … everything into studio."* Design is folded into Studio → the customer doorway drops to **5 top menus: Home · Guests · Explore · Studio · Budget**. Studio becomes the creative/output hub with a docked 4-section sub-nav.
-
-- **`lib/add-ons-catalog.ts`** — `StudioGroup` retyped to the 4 Studio sections + a hidden `utility`: `setnayan_ai | website | capture | branding | utility`. Every add-on regrouped (owner-decided placements): **Setnayan AI** ← Setnayan AI · Playlist · **Website** ← Save the Date · Landing Page (the RSVP/Event/Editorial site) · **Capture** ← Papic · Panood · Photo Delivery · Patiktok · **Branding** ← Monogram · Mood Board · LED Background · Pakanta · Music Creator · Custom QR · Indoor Blueprint · **utility (hidden)** ← Orders + **Paprint/Supplies** (Paprint removed — *"not our service for now"*; couples use a printer). Photo Delivery clarified as the pro photographer's Drive handoff (≠ Papic), kept in Capture.
-- **`add-ons/page.tsx`** — `SECTIONS` rebuilt to the 4 groups with anchor ids (`#studio-ai/-website/-capture/-branding`) + `scroll-mt`; dropped the `plan_organize` free-tools special-casing (those were cross-links to Guests/Budget/Schedule — redundant now each owns its menu). `utility` group is absent → Orders/Paprint hidden from the hub.
-- **`lib/customer-menu.ts`** — removed the **Design** menu; **Studio** gains 4 **anchor** children (Setnayan AI · Website · Capture · Branding) scrolling the regrouped hub (exact `/add-ons`); Studio's `activeMatch` now also covers the former Design routes (`/design`, `/site-editor`, `/monogram`).
-- **`customer-bottom-nav.tsx`** — dropped the Design tab (→ 5 tabs); Studio's tab lights the former Design routes. **`design/page.tsx`** → now a server `redirect()` to `/add-ons` (route kept only to catch lingering links).
-
-The dock reuses PR2's `anchor` plumbing verbatim (scroll-spy + smooth scroll); Guests/Explore/Budget unchanged. `tsc --noEmit` 0 · `next lint` clean (changed files) · bottom-nav template guard ✓. No migration. Owner to confirm on the Vercel preview (5-tab bar, Studio sub-nav scroll-spy across the 4 sections, /design → Studio redirect).
-
-SPEC IMPACT: nav architecture — 5 top menus; Studio = creative/output hub (Website[Save the Date·RSVP·Event·Editorial] · Capture · Branding · Setnayan AI); Paprint de-listed. No SKU/pricing/schema change (Paprint route dormant, not deleted). Logged in corpus `DECISION_LOG.md` (0021/0010/0024/0036/0018). Next: PR4 desktop sidebar unify to the 5-menu tree · PR5 phase fold-in · PR6 registry parent-link · (+ Home children).
-
-## 2026-06-17 · feat(nav): Budget child sub-nav + anchor child flavor (customer-menu redesign PR2/6)
-
-Budget gains children in the canonical tree (plan `adaptive-forging-lobster.md`), and PR2 introduces a third child flavor — **`anchor`** (on-page scroll sections) — alongside the existing `route` (separate pages) + `tab` (in-page panels), so a menu whose sub-sections aren't separate routes can still surface a sub-nav. _(Design was originally bundled here too, but the owner decided 2026-06-17 to FOLD DESIGN INTO STUDIO — Website + Mood Board + Monogram become Studio sections beside Save the Date — so Design's children land with the Studio restructure, not as a standalone menu. PR2 is now Budget-only; the `anchor` flavor + the generalized dock plumbing it needs stay.)_
-
-- **`lib/customer-menu.ts`** — `MenuChildKind` gains `'anchor'` (+ `hash` field). **Budget** children (anchor): Overview · Allocate · Payments → scroll to `#budget-overview`/`#budget-allocate`/`#budget-payments`; `sectionMatch` = exact `/budget` (Disputes is a separate post-event surface, intentionally not a budget section). Design stays a childless parent until the Studio restructure.
-- **`customer-section-subnav.tsx`** — handles the `anchor` kind: an `activeAnchor` state seeded to the first section, a lightweight `IntersectionObserver` scroll-spy (`rootMargin -30%/-60%`) that lights whichever section is in the active band, and onSelect → `scrollIntoView({behavior:'smooth'})`. The `activeKey` fallback **drops the first-child default** (`?? ''`) so a future launcher hub shows the dock with nothing falsely highlighted; routed/tab/anchor active-resolution is unchanged.
-- **`budget/page.tsx`** — adds `id` + `scroll-mt-24` to the three existing section wrappers (no layout/structure change). Guests + Explore behave exactly as in PR1; the bottom nav, sidebar, and every other page are untouched.
-
-Verified in the worktree: `tsc --noEmit` 0 · `next lint` clean (changed files) · bottom-nav template guard ✓. Authed surface needs prod env → owner confirms on the Vercel preview (Budget scroll-spy).
-
-SPEC IMPACT: minor — adds the `anchor` sub-nav flavor + Budget children (3 of 6 menus now carry children); no SKU/schema/pricing/public change. Logged in corpus `DECISION_LOG.md` (0021/0007). Next: the Studio restructure (absorbs Design; Studio sub-nav = Setnayan AI · Website[Save the Date·RSVP·Event·Editorial] · Capture · Branding) then Home, sidebar unify, phase fold-in, registry parent-link.
-
-## 2026-06-17 · refactor(nav): customer-menu SSOT tree + ONE generalized section sub-nav (redesign PR1/6)
-
-Owner: *"sub nav are child menus of the 6 menus … we are redesigning how the customer menu is"* → all 6 menus get child sub-navs, unified into one hierarchy (plan `adaptive-forging-lobster.md`). **PR1 is the foundation, behavior-preserving:** it introduces the canonical tree and collapses the two bespoke section docks into one config-driven component. Stacks on the sub-nav-first PR (#1593).
-
-- **NEW `lib/customer-menu.ts` — the single canonical hierarchy.** `buildCustomerMenuTree(eventId, ctx)` returns the 6 parents (Home·Guests·Explore·Studio·Design·Budget), each able to own `children`. In PR1 only **Guests** (children sourced from `lib/guest-journey.ts`, `kind:'route'`) and **Explore** (from `lib/budget-build.ts` `BUDGET_BUILD_TABS`/`TAB_META`, `kind:'tab'`) carry children — the other four are parents-without-children until their PRs. A child is either `route` (separate page → router.push, active by longest-prefix `match`) or `tab` (in-page panel → `replaceState(?tab=)` + the `BB_TAB_EVENT` bus). Each parent carries BOTH a broad `activeMatch` (the bottom-nav tab, consumed in PR4) and a narrow `sectionMatch`/`sectionMatchExact` (where the dock shows): Guests = prefix over `/guests`+`/seating` (mirrors `isGuestJourneyPath`); Explore = exact `/vendors` (mirrors the old `isTakeoverRoot`). Helpers `matchesMenuSection` + `activeRouteChildKey`. Neutral module (no `'use client'`) so server + client both import it.
-- **NEW `customer-section-subnav.tsx` — ONE dock replaces two.** Reads the tree, resolves the active parent via `usePathname()`, renders that parent's children through the shared `<SubNav>`, and dispatches per child `kind` (routed → router.push; tab → replaceState + `goToBuildTab`). Preserves verbatim: the Guests Day-of mute/time-gate (deferred to an effect, SSR-safe), the Explore `?tab=` seeding + `BB_TAB_EVENT` listener (so Compare→Build / Build→Lock keep it lit), `dockedCount`→icons-only coordination, `.subnav-lift`-on-entry, the shared `html.subnav-docked` clearance, and `null` when the active parent has no children. **Deletes** `guests-section-subnav.tsx` + `vendors-section-subnav.tsx`; the layout now mounts the single `<CustomerSectionSubnav>` next to `<CustomerBottomNav>`.
-- No change to the bottom nav, the sidebar, or any page; `guest-journey.ts`/`budget-build.ts` stay the per-domain single-sources (the tree composes them). Guests (routed) + Explore (tabs) behave identically to before.
-
-Verified in the worktree: `tsc --noEmit` 0 · `next lint` clean (changed files) · bottom-nav template guard ✓. Authed surface needs prod env → owner confirms on the Vercel preview.
-
-SPEC IMPACT: minor — establishes the canonical customer-menu hierarchy (6 parents → children) as one SSOT and unifies the section-sub-nav implementation; no SKU/schema/pricing/public change. Logged in corpus `DECISION_LOG.md` (0021/0022). Next: PR2 Design+Budget children · PR3 Home+Studio · PR4 sidebar unify · PR5 phase fold-in · PR6 registry parent-link.
-
-## 2026-06-17 · feat(explore): sub-nav renders + responds first — lift the takeover section nav into the event layout
-
-Owner: *"when we open explore, the first that should load is the sub nav before the full screen. the sub nav should always respond first."* The in-app **Explore** tab (`/dashboard/[eventId]/vendors` → the Services "Build" takeover) blocks behind the full-screen loading cover (`vendors/loading.tsx` — spinner + "Downloading your information…") while the ~48KB server `page.tsx` fetches all five slots; the 5-stage `<SubNav>` (Summary · Shortlist · Build · Compare · Lock) lived **inside** `ServicesTakeover`, which the server builds last, so it only painted **after** every query resolved. Now the sub-nav paints + is tappable the instant Explore opens, with the panel streaming in behind it.
-
-- **Moved the dock up to the event layout** (the proven `<GuestsSectionSubnav>` pattern, #1503). New client component `app/dashboard/[eventId]/_components/vendors-section-subnav.tsx`, mounted once in `dashboard/[eventId]/layout.tsx` next to `<CustomerBottomNav>` + `<GuestsSectionSubnav>`. A layout renders **above** the page segment's `<Suspense>`/`loading.tsx` boundary and **persists across the loading→page swap**, so the shelf mounts once (the `.subnav-lift` reveal fires on section ENTRY only) and is interactive while the page data is still in flight. Self-gates with `usePathname()` to the exact takeover root (`/dashboard/[eventId]/vendors`) → `null` on `/categories`, `/packages`, vendor-detail, and every other tab (no double-stack).
-- **One route, client-state tabs** (unlike the Guests journey's separate routes), so the dock drives switching over the existing **`BB_TAB_EVENT`** bus: `onSelect` → mirror into `?tab=` via `replaceState` + dispatch the event, which `ServicesTakeover`'s listener consumes to switch the panel (no server round-trip). The dock also LISTENS to the bus so cross-tab jumps (Compare "Modify" → Build, Build → Lock via `goToBuildTab`) keep it lit. Active tab seeds from `?tab=` (read off `window`, not `useSearchParams` — `replaceState` doesn't update that hook), default `'summary'` to match `page.tsx`'s no-`?tab=` fallback.
-- **Bus + meta lifted to `lib/budget-build.ts`.** `BB_TAB_EVENT`, `goToBuildTab`, and `TAB_META` (label/icon/blurb) now live next to `BUDGET_BUILD_TABS` so the dock (layout subtree) and the takeover (page subtree) share one source without a cross-`_components` import. `services-takeover.tsx` **re-exports** `BB_TAB_EVENT`/`goToBuildTab` so the imperative consumers (`build-compare.tsx`, `build-picks-list.tsx`) are untouched, **removes** its own inline `<SubNav>` (mandatory — keeping it would double the pill + `dockedCount`), and now seeds its initial tab from the live `window` `?tab=` (deferred to a mount effect → no hydration flash) so a tab tapped *during* the load is honored when the panel finally mounts.
-- **Bottom-clearance:** the dock flags `<html class="subnav-docked">` while on-screen; `globals.css`'s `[data-shell-main]` padding rule now matches `subnav-docked` alongside the Guests `guests-subnav-docked` (Guests untouched). Desktop unaffected (`<SubNav>` is `lg:hidden`; the takeover keeps its desktop top strip). Guests (`/guests*`,`/seating*`) and Explore (`/vendors`) gate on mutually-exclusive paths → `dockedCount` is only ever driven by one section.
-
-Verified in the worktree: `tsc --noEmit` 0 · `next lint` clean (changed files) · bottom-nav template guard ✓. The authenticated `/vendors` surface needs prod env (absent in a fresh worktree) + the "sub-nav-first" beat is timing-dependent locally; the layout-persistence guarantees the order regardless — owner to confirm the entry feel on the Vercel preview (per the verification-economy preference).
-
-SPEC IMPACT: minor — the Explore/Services takeover's section sub-nav is now mounted in the event layout (ahead of the server panel) rather than inside the takeover; consistent with the `<SubNav>` canonical pattern. Logged in corpus `DECISION_LOG.md` (iterations 0021/0022).
-## 2026-06-17 · chore(nav): drop the orphaned `seating` sidebar slot-key (adversarial-review follow-up to #1595)
-
-A 20-agent adversarial review of #1595 (the desktop sub-nav → sidebar change) confirmed the functional logic is correct and **Seating is not orphaned** (still reachable via the Home plan tile, the auto-expanding Guests journey, the mobile bottom nav, and the mobile `<SubNav>`). One clean piece of tech debt it surfaced: `SIDEBAR_SLOT_KEYS['seating']` in `customer-sidebar.tsx` was left behind after the standalone "Seating" Plan item moved under Guests as the nested "Seat" child — and `applyRegistry` only walks top-level `group.items`, so the entry is unreachable. Removed it (+ documented why nested children don't get registry overrides yet). Pure dead-code removal; no behavior change. `tsc --noEmit` 0.
-
-Surfaced for owner (NOT changed here): (1) the muted "not yet" Day-of state dims via opacity below WCAG AA — a **cross-component** design call (the mobile `<SubNav>` uses the same 0.45 pattern), better solved with a "soon" cue than low contrast; (2) the `customer.guest-journey.*` nav-registry slots are consumed by **neither** the sidebar nor the mobile shelf — wiring them is a nav-registry-workstream follow-up that must land on **both** surfaces to avoid drift.
-
-SPEC IMPACT: None (dead-code cleanup; no SKU/pricing/schema/public-surface change). → corpus `DECISION_LOG.md`.
-
-## 2026-06-17 · feat(0009/0012): point-of-need Drive connect — the 3 deferred surfaces (Papic · Recap · multi-account)
-
-Owner: "go." Stacked onto the same PR #1597. The three surfaces the first slice deferred, all reusing the shared `DriveSafetyPanel`/`DriveConnectCard`/`DriveReconnectBanner` (relocated `…/photo-delivery/_components/drive-connect-card.tsx` → `app/_components/drive-connect-card.tsx` since three surfaces now consume them).
-
-- **Papic storage radio** (`add-ons/papic/page.tsx`): the bare "Connect Google Drive" CTA now leads with the `DriveSafetyPanel` (the consent-screen pre-emption) and says "connect once covers your recap and photographer hand-off too." The connected panel gains the reconnect banner (reads the new `connection_health`) and the account-switch affordance. Storage-target semantics (`setnayan_r2` vs `google_drive_only`) left untouched — that drives the capture pipeline.
-- **Recap nudge** (`add-ons/papic/recap/page.tsx` + new client `_components/recap-drive-nudge.tsx`): a calm, dismissible champagne-gold "Love this? Save the originals to your Drive" card at the strongest emotional point of need. Server-gated on **recap-has-content AND no live grant AND OAuth-ready**; dismissal is event-scoped in localStorage (a clean opt-out, never a re-show-every-visit nag).
-- **Multi-account** (handled at the page level — **zero changes to the shared OAuth callback**): each connected panel (Papic + Photo Delivery) already knows both the login email (`user.email`) and the grant email; when they differ it shows a calm "Not your sign-in — use a different account" link (couples often connect a shared `ourwedding@gmail.com` on purpose, so this surfaces, never blocks). The "use a different account" path adds `?switch=1` to the start routes → new `forceAccountChooser` option on `buildDriveAuthorizeUrl` sets `prompt='select_account consent'` so Google's chooser actually appears (without it Google silently reuses the last session).
-
-Verified: `tsc --noEmit` EXIT=0 · `next lint` EXIT=0 (no new-file warnings). Full-env render → Vercel preview (local OAuth env unset). No new migration (reuses `20270110000000` from the first slice).
-
-SPEC IMPACT: extends the 0009/0012 point-of-need connect to all three planned couple surfaces; no SKU/pricing/schema change beyond the already-added `connection_health` column. Logged in corpus `DECISION_LOG.md`.
-
-## 2026-06-17 · feat(0009/0012): point-of-need Drive connect — safety-led card + "needs reconnect" state
-
-Owner picked "ask at point of need" over bundling Drive into login, then "build it." First slice = the **Photo Delivery** surface + the reconnect flag (the agreed scope; Papic-radio + Recap nudge + multi-account check are follow-ups, reusing the same components).
-
-Ground-truth pass against `origin/main` first (the design research read stale `~/` worktrees): confirmed the Photo Delivery connect routes through the **shared** Drive redirect URI (`getDriveOAuthConfig` → `/api/oauth/drive/callback`), so it always writes the single `provider='drive'` grant and stamps the `events.photo_delivery_*` mirror. Both upload paths (`lib/photo-delivery-release.ts` + `lib/drive-copy.ts`) read that one grant — so "connect once covers everything" is already true on `main`. The earlier "provider fragmentation" worry was a stale-worktree artifact; the standalone `/api/oauth/photo-delivery/callback` route (writes `provider='drive_photo_delivery'`) is **dead code** never reached by the shared redirect URI (flagged for owner — safe to delete in a follow-up).
-
-- **New shared components** (`…/photo-delivery/_components/drive-connect-card.tsx`, presentational server components): `DriveSafetyPanel` (the `drive.file` reassurance that pre-empts Google's consent screen — "lists a lot of permissions, that's normal… we can open only the one wedding folder it makes, never your existing files"), `DriveConnectCard` (benefit headline + body + safety panel + connect CTA + a defer path; Drive framed as an additive "own copy", never a gate; owns the env-gated "setup pending" fallback), and `DriveReconnectBanner` (calm champagne-gold, not alarming red — recoverable).
-- **Photo Delivery panel** (`photo-delivery-panel.tsx`): replaced the bare "Step 1 of 3 — Link your Google Drive" idle card with `DriveConnectCard`; renders `DriveReconnectBanner` on the connected panel when the grant is broken; threaded a `needsReauth` prop. **page.tsx** reads `oauth_grants.connection_health` (provider='drive', RLS-scoped to the couple, same pattern as the Papic page) and passes it down.
-- **Reconnect flag (the one backend change)** — new migration `20270109000000_oauth_grants_connection_health.sql` adds `oauth_grants.connection_health text NOT NULL DEFAULT 'ok' CHECK (… IN ('ok','needs_reauth'))` (column add inherits existing RLS). Both lazy token refreshers (`getEventDriveAccessToken` in `drive-copy.ts` + the release-path reader in `photo-delivery-release.ts`) previously **swallowed** a Google-side `invalid_grant` (`catch { return null }`) so a revoked token showed "Connected" while uploads silently stalled. They now set `connection_health='needs_reauth'` on failure and clear it to `'ok'` on every successful refresh.
-
-Verified: `tsc --noEmit` EXIT=0 · `next lint` EXIT=0 (only pre-existing warnings, none in new files). Full-env render deferred to the Vercel preview (local OAuth env is unset → card shows the "setup pending" placeholder). Migration NOT yet applied to prod — see OWNER ACTION below.
-
-OWNER ACTION: apply migration `20270110000000` via `supabase db push --db-url "$SUPABASE_DB_URL"` (or it ships with the next batch). Until applied, the `connection_health` reads/writes target a missing column — the page read fails soft (banner just never shows); the refresher writes would error in their catch. Low blast radius (Drive OAuth is still admin-gated off in prod), but apply before relying on the reconnect banner.
-
-SPEC IMPACT: iteration 0009 connect-panel copy is replaced with the safety-led point-of-need card, and a new `needs_reauth` reconnect state is added (0009 + 0012 share it). No SKU / pricing change; one additive nullable-default column. Logged in corpus `DECISION_LOG.md`. Surfaced for owner: dead `/api/oauth/photo-delivery/callback` route; the two deferred connect surfaces (Papic radio, Recap nudge) + multi-account confirm; and the two product decisions (per-surface sync-mode default, disconnect→nudge resurfacing) defaulted to auto-sync-from-Papic / review-from-Photo-Delivery and a near-wedding re-surface.
-## 2026-06-17 · fix(copy): stop claiming face auto-tagging is live (it isn't yet)
-
-Honesty pass alongside the face-auto-tag build (Phases 1+2a shipped the foundation; the recognition engine is still validation-gated). User-facing copy claimed face auto-tagging works *today* — it doesn't; tagging is QR-driven. Softened the 7 over-claims to describe the live mechanism (personal/table QR) + the untagged-still-delivered guarantee, dropping the unbuilt face-recognition claims:
-
-- `app/dashboard/[eventId]/add-ons/papic/page.tsx` — removed "Auto-face tags fire at ≥ 0.85 cosine confidence" (a working-feature claim with a number) → leads with QR tagging; dropped "face detection" from the Camera Bridge capability line.
-- `lib/help.ts` (public help) — "auto-tagged via face detection" → "tagged to each guest by QR so everyone gets their own".
-- `lib/wizard.ts` — "auto-tags every photo by face + table QR + scans" → "tags photos by personal + table QR so every guest gets theirs".
-- `app/page.tsx` + `app/layout.tsx` (homepage + site meta / JSON-LD) — "auto-tagged / face-detection auto-tagged galleries" → "QR-tagged galleries".
-
-Left as-is (accurate, not over-claims): the RSVP biometric-consent copy ("your photo is set up for face recognition at this wedding" — the selfie IS enrolled) and internal code comments.
-
-SPEC IMPACT: iteration 0012 — public/dashboard copy no longer promises face auto-tagging before it ships. Logged in corpus DECISION_LOG.md.
-
-## 2026-06-16 · feat(editorial): vendor day-of media WRITE PATH — submit UI + NSFW screen + migration [Increment 2]
-
-Builds on Increment 1 (the display). The couple's **recommended vendor** can now actually submit day-of media; it auto-shows on the editorial once it clears the NSFW screen.
-
-- **Migration `20270102000000_editorial_vendor_media.sql`** (applied to prod) — new event-scoped, vendor-authored table mirroring `event_preparation_items`: `media_type` (photo/clip), `boomerang_r2_key` (clip = baked boomerang, enforced by a CHECK), `still_r2_key` (photo, or clip poster + NSFW proxy), `moderation_state`, `hidden_by_couple`, `event_vendor_id` (the recommended-pick plan row). RLS-at-create: couple SELECT+UPDATE (hide), vendor SELECT/INSERT/UPDATE/DELETE own (accepted-thread baseline), admin ALL. *(Applied via `db query`/pg per the ledger-drift workaround — `db push` was blocked by parallel-session drift; the file's original `20261229000000` collided with a parallel migration so it was renamed to `20270102000000` and the ledger row recorded.)*
-- **`lib/editorial-vendor-media.ts`** — the eligibility gate `findRecommendedEventVendorId()`: resolves `event_vendors(selection_match_rank=1).service_id → vendor_services.vendor_profile_id`, so only the couple's recommended pick qualifies. Plus `MAX_PER_TYPE=3` + `SubmitMediaItem` (kept out of the `'use server'` file).
-- **`…/clients/[eventId]/editorial-media/{page.tsx,actions.ts,_components/editorial-media-studio.tsx}`** — the vendor submit surface: gated to the recommended pick, add up to 3 photos + 3 clips; **clips trim to ≤5s and bake to a boomerang IN THE BROWSER** (same encoder as the couple's Living Hero). The action re-checks the gate + the 3-each cap server-side, inserts via the admin client, and fires the NSFW screen. Existing submissions show a live status (Checking… / Live / Hidden) with withdraw.
-- **`lib/nsfw-screen.ts`** — `screenEditorialVendorMedia()` reuses the `classifyImageBytes` + `decideNsfw` primitives; screens the still JPEG (the proxy for both photos and clips). Public editorial **fails closed** for vendor media (only `clean` shows).
-- **`editorial/data.ts`** — the real-event loader now reads `editorial_vendor_media` (clean + not-hidden + recommended-pick re-checked LIVE so swapping the vendor drops their media) into `vendorMedia`.
-- **`…/clients/[eventId]/page.tsx`** — an "Add to their editorial" entry card on the Event Brief, shown only to the recommended pick.
-
-Verified: migration live on prod (15 cols, RLS on, 7 policies, CHECK present); `tsc` green; `next lint` clean; the new vendor route compiles (307 → login, not 500) and the sample editorial + new DB-loader path render without error.
-
-> **Follow-ups (schema/RLS already support both):** a couple per-item hide control (the `hidden_by_couple` column + couple-UPDATE policy are in place; today they hide the whole strip via the section toggle) and a dedicated admin takedown surface (admin-ALL policy is in place).
-
-SPEC IMPACT: iteration 0046 — the editorial gains a vendor-submitted day-of media block (gate = `selection_match_rank=1`, auto-show after NSFW, clips always boomerang). Logged to corpus `DECISION_LOG.md`.
-## 2026-06-16 · feat(editorial): "From Your Vendors" strip — the couple's recommended vendor's day-of media (clips boomerang) [Increment 1: display]
-
-Owner: *"if the vendor submits up to 3 photo / 5-second video of their day-of service to that event, it can show on the editorial of the couple (gated if they are recommended or not). Our rule in editorial should always boomerang."* Owner locked the two pivotal decisions: **eligible = the couple's recommended / first-pick vendor** (`event_vendors.selection_match_rank = 1`), and **auto-show after NSFW moderation** (couple can hide). This is **Increment 1 — the couple-facing display + a visible demo on the samples.** The vendor write path (table + submit UI + NSFW + admin) is Increment 2.
-
-- **`editorial/data.ts`** — new `VendorMediaItem` type + `vendorMedia: VendorMediaItem[]` on `EditorialData`; new `fromVendors` section key (so the couple can toggle it). Real events resolve to `[]` for now (the DB-backed loader lands with the write path).
-- **`editorial-content.tsx` `VendorMediaStrip`** — a credited grid placed after "From the Day": photos render as stills; **clips render as muted, looping, GIF-like boomerangs** (the editorial video rule — every clip is pre-baked forward+reverse) with the still as poster and a "◆ loop" tag + vendor credit per frame.
-- **`editorial-editor.tsx`** — "From your vendors" added to the section toggles.
-- **5 samples seeded** — each carries a vendor boomerang clip + a photo credited to its first-pick photographer, backed by 10 newly-generated vendor photos (Recraft, distinct from the gallery) + 5 freshly-baked vendor boomerang clips (`zoompan` sine ping-pong, ~190–320 KB).
-
-Verified (Playwright DOM, dev server): on all samples the "From Your Vendors" strip renders, the vendor clip is `muted/loop/playsInline` and **plays in real-time when scrolled into view** (`paused:false`, `currentTime` advancing) — Chrome idles it offscreen, which is correct. `tsc` green; `next lint` clean.
-
-SPEC IMPACT: iteration 0046 — editorial gains a "From your vendors" block fed by the couple's recommended vendor's day-of media (clips always boomerang); gate = `selection_match_rank = 1`, auto-show after NSFW. Increment 2 (write path) pending. Logged to corpus `DECISION_LOG.md`.
-## 2026-06-16 · feat(editorial): the hero now plays its boomerang as a continuously-looping GIF (root cause: the editorial had no `<video>` at all)
-
-Owner: *"why does the video not autoplay? or how can we make the video run like a gif that continuously plays?"* — on the editorial. A 5-reader code trace found the **root cause: the editorial rendered ZERO `<video>` elements.** The hero was an image-only `HeroPhoto` (`<img>`), and the data layer *actively dropped* clip-type heroes (`ptype !== 'clip'` guard), so there was literally nothing to autoplay. The boomerang machinery already worked on the public couple page `/[slug]` — it was just never wired into the editorial.
-
-- **`editorial/data.ts`** — added `heroVideoUrl` to `EditorialData`; the real-event loader now resolves the couple's Living-Hero boomerang (`events.landing_page_hero_video_r2_key`, already baked forward+reverse by the Living Hero Studio) into it. Additive: null → the hero stays the still photo.
-- **`editorial-content.tsx` `HeroPhoto`** — renders a `<video autoPlay muted loop playsInline poster={still}>` when `heroVideoUrl` is present, else the `<img>`. That four-attribute set (`autoplay`+`muted`+`loop`+`playsInline`) is the exact contract a browser needs to run a video like a continuously-playing GIF with no user tap (`muted` is mandatory — browsers block sound-on autoplay; `playsInline` stops iOS fullscreen-hijack). The still is the `poster`, so there's no black flash. **Editorial rule enforced:** any editorial video is a *baked forward+reverse boomerang*, so the loop is seamless (no felt cut) — never a one-shot clip.
-- **5 sample editorials + `/realstories` cards** — all 5 now carry a `heroVideoUrl`. Maria & Juan and Jack & Jill use their existing scene-motion boomerangs; the other three got freshly-baked seamless **ping-pong** loops (`zoompan` sine zoom 1.0→1.09→1.0 → start frame = end frame, 5 s · 24 fps · H.264, ~500–600 KB each) so all five move.
-
-Verified (Playwright DOM, dev server): the editorial hero `<video>` reports `autoplay/muted/loop/playsInline` = true, `currentSrc` = the boomerang `.mp4`, `paused:false`, and `currentTime` advances in real-time on all 5 samples (incl. the 3 newly-baked clips). `tsc` green; `next lint` clean.
-
-SPEC IMPACT: iteration 0046 — the editorial hero plays the couple's baked boomerang as a muted/looping GIF-like banner; "editorial video is always a boomerang" is now the rule. Logged to corpus `DECISION_LOG.md`. (Companion: vendor day-of media on the editorial — gated on recommendation — is designed and pending owner sign-off; not in this PR.)
-## 2026-06-15 · feat(realstories): the 5 sample editorials are now complete — day-recap write-up + photo gallery on each
-
-Owner: *"the editorials of the samples are all incomplete. there is no write up, photos, services that play?"* The 5 `/realstories` sample editorials (Maria & Juan, Jack & Jill, John & Jane, Peter & Mary, Jack & Rose) rendered their masthead, headline, hero, By-the-Numbers, reviews and Powered-by strip — but had a **blank body** (`draft: {}` → no `leadParagraphs`) and an **empty "From the Day" gallery** (`galleryPhotos: []`), so they looked half-finished.
-
-- **`…/editorial/data.ts`** — each of the 5 fixtures now carries a **2–3-paragraph DAY-RECAP write-up** (`draft.leadParagraphs`) and **3 gallery photos** (`galleryPhotos`). The bodies are newspaper-style coverage of the *wedding day itself* — ceremony, reception, the moments — voiced per the couple's `tone` (warm / playful / formal). They deliberately **do not** retell the love story: the editorial body intentionally drops the auto love-narrative (it lives on the run-up paths), so the samples model the same lock — front-page *day* coverage, written through the couple-editable `draft.leadParagraphs` path.
-- **`public/realstories/{couple}-g{1,2,3}.jpg`** — 15 new wedding photos (Recraft-generated, per-couple themed: garden/Taal, Cebu cove, Manila rooftop, Tagaytay estate, Baguio pines), optimized to ~300–500 KB each (1100 px, q80 JPEG). Wired as each fixture's `galleryPhotos`; the existing `isOn('gallery')` gate + `PhotoGallery` spread (1 lead frame + tight grid) render them under "From the Day".
-
-Verified end-to-end on the Jack & Jill sample (dev server + Playwright, scrolled to trigger lazy-load): the full editorial now reads masthead → headline → hero → **drop-cap day-recap body (2 columns)** → By the Numbers → vendor team → From the Couple → **From the Day photo gallery (3 frames)** → reviews → Powered by Setnayan. `tsc` green; `next lint` clean (no new warnings). Samples flow through the identical `EditorialContent` engine as real couples, so they track the live format.
-
-SPEC IMPACT: iteration 0046 — sample editorials carry a day-recap body + photo gallery (modeling the love-narrative-free editorial body). Logged to corpus `DECISION_LOG.md`.
-## 2026-06-17 · feat(nav): the section sub-nav expands FROM the desktop sidebar (delivers the journey follow-up)
-
-Owner: *"let the subnav expand from the side nav when on desktop. subnav setup is only for mobile. but when there is a sidenav, all will be under the side nav."* The mobile `<SubNav>` floating pill is the **mobile** rendering of a section's sub-stages; on desktop those stages were homeless — the Guests journey only surfaced as an on-page ribbon on the Build page, so once you were on Invite/Confirm/Day-of the desktop journey nav vanished. This closes the gap the prior journey PR explicitly left ("desktop journey strip on every journey surface").
-
-- **General primitive (shared nav).** `NavItem` gains optional `children?: NavItem[]` (+ `muted?`). `<SidebarItem>` renders an item with children as an **expandable parent**: it **auto-expands while the active route is inside the section** (the parent OR any child matches — owner-picked auto-expand-on-active, not a manual toggle) and collapses otherwise. The most-specific (longest-`matchPrefix`) child is the active LEAF and carries the orange accent bar + tint; the parent reads as the active ANCESTOR (orange icon + ink label, no bar) so exactly one row owns the accent. Children render indented + one size down; a `muted` child dims ("not yet"); the whole sub-list hides on the collapsed 64px icon rail. Leaf items (vendor + admin sidebars, every other customer row) are byte-for-byte unchanged — the new path only triggers when `children` is present. The mobile `<SubNav>` is untouched and still `lg:hidden`.
-- **Wired the Guests journey.** `customer-nav-config.ts`'s Plan-group "Guests" item now carries `children` = the five stages from the `lib/guest-journey` SSOT (Build · Invite · Confirm · Seat · Day-of), so the desktop sidebar and the mobile shelf read the **same** source and can't drift. Day-of stays time-gated/muted until the live window (the client sidebar computes `dayOfOpen` from the event date in an effect → no hydration flash; `eventDate` threaded layout → `<CustomerSidebar>`).
-- **Dropped the standalone "Seating" Plan item (owner-picked).** The journey already owns Seating as its "Seat" stage, so the duplicate top-level sibling is gone — Seating now lives under Guests. Desktop-sidebar-only in practice: the mobile bottom nav uses the separate flat `buildCustomerNavTabs` roster (its Guests tab still lights on `/seating`), and the only other `buildCustomerNavGroups` consumer (`CustomerMobileLanding` via the retired `/more`) is no longer rendered.
-
-Scope note: the **Services "Build" takeover** sub-nav is client-tab state (not routes), behind `BUDGET_BUILD_ENABLED` (off in prod), and already has its own desktop top strip — it can't live in a route-based sidebar, so it's out of scope. The on-page `LifecycleRibbon` (desktop Build page) is **kept** — it carries live work-remaining badges the sidebar doesn't; whether to retire it now that the journey lives in the sidebar is flagged for owner.
-
-Verified: `tsc --noEmit` 0 · `next lint` clean (changed files) · `lint:botnav` ✓. No migration. Visual surface = the Vercel PR preview (desktop ≥1024px, any `/dashboard/[id]/guests*` or `/seating` route).
-
-SPEC IMPACT: iteration 0021/0001/0008 — desktop customer sidebar IA: Guests is an expandable journey parent; the standalone Seating sidebar item is retired (moved under Guests as "Seat"). No SKU/pricing/schema/public-surface change. → corpus `DECISION_LOG.md`.
-## 2026-06-17 · chore(db): land the editorial_vendor_media migration onto main to unjam `supabase db push`
-
-Migration-pipeline hygiene — no app code. **Root cause of the QR-RPC silent drop (#1588) traced here.** The prod migration ledger had `20270102000000` (`editorial_vendor_media`, iteration 0046) recorded as applied — its table + 7 RLS policies exist in prod — but the **file was not on `main`**: it lives only on the still-open, 100-commits-behind PR #1532 (`claude/editorial-vendor-media`), whose migration was applied to prod *ahead of its merge*. A ledger version with no local file **jams `supabase db push`**, so every migration merged after it had to be hand-applied — and `20270108000000`'s `papic_tag_capture` RPC was silently dropped that way (the #1588 scan-to-tag feature was 42883-degrading on prod until it was applied manually this session).
-
-This lands **only** the migration file (byte-identical to #1532's branch copy + the git-history original), decoupled from #1532's feature code (which has real conflicts with the already-merged "Vendors we loved" editorial work — that rebase belongs to the editorial session, not here):
-- `main`'s migration files now match the ledger → `db push` is unjammed → future migrations apply normally instead of being silently dropped.
-- The table already exists in prod + the migration is idempotent (`CREATE TABLE IF NOT EXISTS`, `DROP POLICY IF EXISTS`/`CREATE POLICY`), so `db push` will not re-apply it (it's in the ledger); a fresh rebuild recreates it in order.
-- When #1532 eventually merges, the file is already present and identical → no conflict.
-
-Timestamp guard ✓ (385 unique; `20270102000000` is unique on `main` — the colliding `orders_platform` was long since renamed to `20270103040000`).
-
-SPEC IMPACT: None (DB bookkeeping — restores ledger/file/prod consistency; no schema, SKU, or pricing change). Logged in corpus `DECISION_LOG.md`, with the process note (applying an in-flight branch's migration to prod ahead of merge jams the pipeline).
-## 2026-06-17 · feat(papic): face auto-tagging Phase 2a — pure embedding helpers (geometry + L2-normalize) + tests
-
-Phase 2a of the face auto-tagging program (after #1594's matcher core). The pure, verifiable pre/post-processing the on-device embedder will use — kept separate from the (browser-only, ONNX) inference so it can be unit-tested.
-
-- **`lib/face-embed-core.ts`** (new, pure — no `server-only`/model runtime): `squareCropBox()` (expand a face detection box to a margin'd square crop, clamped fully inside the image — the model takes a square input), `l2normalize()` (unit-length embeddings so cosine = dot product), the model contract constants (`VECTOR_MODEL='mobilefacenet@1'`, `FACE_EMBED_INPUT_SIZE=112`, `FACE_CROP_MARGIN`), and `isFaceModelConfigured()` — the **dormant gate**: until `NEXT_PUBLIC_FACE_MODEL_URL` (a self-hosted MobileFaceNet on R2) is set, the embedder is a clean no-op and enrollment is image-only exactly as today.
-- **`lib/face-embed-core.test.ts`** (new, `node:test`, CI `test:unit`): L2-normalize (unit-length + zero-vector), and squareCropBox (centered, edge-clamped, capped-to-image, non-square uses larger side, non-positive → null). Crop math numerically verified.
-
-**Deliberately NOT in this PR (the validation-gated step):** the browser ONNX embedder (`onnxruntime-web` + the MobileFaceNet model from R2) and its RSVP wiring. That's biometric ML that can't be run/validated in CI, and wrong preprocessing silently yields garbage embeddings — so it needs the hosted model + a real-device validation pass (same-person vs different-person cosine separation) before it touches the live enrollment path. Owner action for that step: source + host a MobileFaceNet ONNX on R2 + set `NEXT_PUBLIC_FACE_MODEL_URL`.
-
-SPEC IMPACT: iteration 0012 — the deterministic half of face embedding is codified + tested; the inference half remains gated on model hosting + validation. Logged in corpus `DECISION_LOG.md`.
-
-## 2026-06-17 · fix(std-reveal): rigid reveals → scroll-driven + swipe-the-seal + real monogram wax seal (faithful-rebuild PR1/4)
-
-Owner reported the Save-the-Date reveal templates "are all not working properly" and, on inspection of the locked plan (`0024_ADDENDUM_envelope_open_experience_2026-06-14.md` §1a/§3), the shipped build had deviated on the **two** things they flagged: (1) the 3 envelopes + church doors opened by **tap**, not the locked **scroll-driven** model; (2) the seal was a **hardcoded mulberry text circle**, not the couple's real monogram pressed into a Mood-Board-coloured wax seal. Owner chose the **full faithful rebuild**; this is PR1 of 4 — the interaction + the real seal (PR2 candle-stamp maker · PR3 WebGL 3D + photoreal textures · PR4 scroll-scrub content timeline + editor to follow).
-
-- **New `RigidStage`** (`reveal/rigid-stage.tsx`) — the shared engine for the rigid family, implementing the §1a interaction: (a) the wax seal rests on the paper; **pick it up + motion-drag it off** with real **momentum physics** (owner: "the stamp needs to be *motion*-ly dragged off") — on release it carries the throw's velocity, sliding in the release direction with friction, only gaining gravity + tumble once *past* the screen edge (never "falls" on the paper); a weak/paused release springs it back and stays sealed; (b) once gone, **scroll / drag scrubs the flaps open** (progress 0→1, rAF-lerped) — no tap. Keyboard fallback (Enter on the seal opens). Mirrors the veil family's scroll/drag-to-lift so the whole library feels consistent.
-- **New `WaxSeal`** (`reveal/wax-seal.tsx`) — the couple's real monogram (`events.monogram_uploaded_svg ?? monogram_custom_svg`, the 0037/Cipher mark) rendered as an **embossed relief** (three CSS-masked wax-tone copies → pressed-in look) on a waxy disc; **no drop shadow** (owner-explicit §1a). Colour = the Mood-Board deep accent. Lettered fallback ("A & J") when the couple has no mark yet.
-- **`four-flap` + `rigid-reveal` rewritten** to be **progress-driven** (scrubbed, not booleans) and consume `RigidStage` via a `renderFlaps(progress)` prop; two-sided flaps (paper front / liner back) kept, church-doors liner arch retained.
-- **Colour wiring** — `lib/site-palette.ts` gains `sealColorFromPalette()` (deep accent → wax) + `veilColorFromPalette()` (sheer hue-carrying tint). Threaded through `RevealOverlay` (both live `[slug]` mounts now pass the real mark + wax + veil colours) and the dashboard **preview card** + its page (fetches `monogram_*_svg` + `role_palette`). `RevealOverlay` now also honors `prefers-reduced-motion` (skips the reveal).
-- Veils confirmed already scroll/drag-driven (no change needed).
-
-**Adversarial review pass** (14-agent workflow: 5 correctness dimensions → each finding refuted-or-confirmed by an independent verifier that re-simulated the actual tick loop) caught **6 real defects** in the momentum physics + seal mask, all fixed + re-verified: (1) **upward flings stalled** — gravity `vy += 0.9` was applied even when exiting the *top* edge, so the most natural "lift it off" flick reversed and fell back onto the paper then froze ~3.3s; gravity now only ever pushes *further* off-screen; (2) **out-and-back flick froze** — the launch-vector fallback could produce `(0,0)`; now it scales the real release velocity (preserving direction) and only falls back to displacement when velocity ≈ 0, clearing immediately when there's no direction at all; (3) **drag-pause-gentle-release wrongly flung** — release velocity went stale during a stationary hold; now decayed by idle time so "let go in place" stays sealed; (4) **blank wax disc for raster monogram uploads** — a `<svg><image>` upload has no usable alpha silhouette so the alpha-mask passed the whole opaque rect; raster-wrapped marks now fall back to the lettered emboss (true raster→wax emboss deferred to the candle-stamp maker); (5) the throw now follows the **release direction** on curved flicks; (6) the **cue escalates** ("Flick the seal off the page") after repeated weak releases (kept swipe-to-open per the owner lock — no tap-to-open). Re-simulation across 390×844 + 1440×900 confirms every fling terminates ≤24 frames, never reverses onto paper, correct direction.
-
-Flag-gated unchanged: `NEXT_PUBLIC_STD_REVEAL` default OFF → zero live impact; previewable via `?reveal=four-flap|two-flap-vertical|two-flap-horizontal|church-doors|veil|crown` on a wedding slug in the Save-the-Date phase, and in the dashboard Save-the-Date chooser. Verified: `tsc` 0 · `next lint` clean (local preview server unavailable in sandbox → gesture/visual validation on the Vercel preview).
-
-SPEC IMPACT: **Closes drift** — the shipped reveal now matches `0024_ADDENDUM §1a` (scroll-driven open + swipe-the-seal gate) and `§3` (monogram wax seal recoloured from the Mood Board). No SKU/schema/pricing/public-surface change. Logged in corpus `DECISION_LOG.md`.
-## 2026-06-17 · feat(papic): face auto-tagging — Phase 1, the pure matcher core (+ tests)
-
-Owner picked "build web face auto-tagging now" (self-hosted, on-device). Architecture: browser-on-device embedding (MobileFaceNet from R2) + server-side cosine matching — honors the locked on-device-face preference, the ₱0 marginal-cost model, and the spec's "self-hosted, no paid cloud" line. This is **Phase 1**: the pure, architecture-agnostic policy core, with nothing wired yet (no behavior change).
-
-- **`lib/face-match-core.ts`** (new, pure — no `server-only`/DB/model runtime): `cosineSimilarity()` + `planAutoTags()`. Encodes the locked policy exactly — confidence **≥0.85 → auto-tag**, **0.65–0.85 → suggest**, **<0.65 → untagged**; the **10-tag-per-photo cap combined with existing tags** (auto-tags take remaining slots by confidence, never exceed it); dedupe of one guest matched by two faces (keeps higher confidence); never re-tags an already-tagged guest.
-- **`lib/face-match-core.test.ts`** (new, `node:test`, runs in CI `test:unit`): the cosine basics (identical/orthogonal/opposite/invalid), each confidence band, two-faces-one-guest dedupe, already-tagged exclusion, and the cap truncation. Test vectors numerically verified to land in the asserted bands.
-
-Next phases (not in this PR): Phase 2 browser embed module + fill `guest_face_enrollments.face_vector` (columns already reserved) + backfill existing selfies; Phase 3 per-capture embed → match → write `auto_face` tags (consent-gated; opt-outs already blurred by FaceBlock) + the 0.65–0.85 suggested-tag UI.
-
-SPEC IMPACT: iteration 0012 — face auto-tagging moves from reference-only to in-progress; the spec's ≥0.85/0.65–0.85 thresholds + 10-tag cap are now codified + tested. (Note: marketing/help copy already claims face auto-tagging — it stays partially-unfulfilled until Phase 3 lands.) Logged in corpus `DECISION_LOG.md`.
-
-## 2026-06-16 · feat(papic): surface the free sampler on the add-ons grid + branded sampler expiry emails
-
-The last two open conversion-UX findings from the #1577 sampler audit (the rest shipped across #1582/#1585/#1588). A re-audit against current `main` first confirmed the other audit items were already closed — the admin double-count, Drive backlog flush, and reminder-subject collision all landed in the "three free-sampler correctness fixes" PR; the QR-tag leg landed in #1588; the cap-TOCTOU and email-timing items are documented-as-benign in shipped code (one phone per seat; T-7/T-1 anchored to earliest roll-off). What remained:
-
-- **B1 — discoverability.** A couple browsing the Studio add-ons grid (`/dashboard/[eventId]/add-ons`) had no signal that Papic has a **free** sampler — the tile read as a paid capture add-on. Added an optional `freeTrial?: string` to `AddOnEntry` + `StudioCard` (a distinct mulberry chip, separate from the orange genuinely-free "Free" chip and the "Soon" chip), and set `freeTrial: 'Free to try'` on the Papic entry. Never a price source (the comment makes that explicit); the feature page still owns price + purchase.
-- **B2 — branded expiry emails.** The T-7/T-1 sampler-expiry reminders were **plain text** (`sendEmail` was text-only — "HTML rendering is a follow-on"). Added an optional `html?` body to `SendEmailArgs` (Resend sends multipart; HTML-capable clients render it, the rest fall back to `text`) + a new dependency-free **`lib/email-template.ts` `renderBrandedEmail()`** — inline-hex mirror of the `--m-*` paper palette on table layout (the only thing that renders across Gmail/Apple Mail/Outlook), with the SETNAYAN wordmark, a gold rule, and a single mulberry CTA. `papic-sampler-emails.ts` now sends both halves for T-7 and T-1. Reusable by 0028's other 9 templates later.
-
-Verified: `tsc --noEmit` 0 · `next lint` clean (6 files) · the email template rendered through `tsx` (2614 bytes, wordmark + CTA + correct escaping). Emails stay dormant until `RESEND_API_KEY` is set; the chip is live immediately.
-
-SPEC IMPACT: iteration 0012 sampler — the free sampler is now discoverable from the Studio grid, and its expiry reminders are branded HTML (0028 gains a reusable branded-email layout). No SKU / schema / pricing change. Logged in corpus `DECISION_LOG.md`.
-## 2026-06-16 · fix(papic): failproof the scan-to-tag leg — adversarial review pass on #1588
-
-Owner: "failproof?" A 3-lens adversarial review (SQL/security · parser/classification · client/integration+downstream) of the just-merged #1588. **Verdicts: SQL = ship** (logic, security, event-scope, cap-truncation, idempotency all *cleared* as correct); **parsers + client = ship-with-fixes.** Two reviewer "fixes" were **rejected after scrutiny** (see below). Landed the real, scoped ones:
-
-- **Parser null-safety.** `parsePapicTagScan(raw)` now coerces `raw ?? ''` before calling the reused `parseGuestQrPayload` (which does a bare `raw.trim()`), so it can't throw on a stray null — honoring `tagSeatCapture`'s "never throws" contract by construction.
-- **Transient-failure retry (lost-tag fix).** The scan loop set `lastScanRef = raw` *before* the await and never cleared it on failure, so a code held under the lens that hit a transient `tag_failed` was silently stuck until the next capture. Now a `tag_failed` clears the debounce so the same code self-heals on the next tick; deterministic outcomes (unrecognized / not-found / cap / unavailable) stay debounced so a held code can't spam the RPC.
-- **A11y.** Added a persistent visually-hidden `aria-live="polite"` region announcing tag notices + the running `n/10` count (the scan-to-tag flow was sighted-only); the visual notice stays conditional so the layout is unchanged.
-- **8 new parser tests** (16 total) locking down the adversarial cases: null/undefined input, dual-param precedence (guest-first, order-independent), a guest token smuggled into `?t=` (stays a server-rejectable table ref), `#?t=` fragment ignored, newline-appended URLs, lowercase `public_id` in `?t=`, Crockford length boundaries, and `?invite=present-but-invalid` not falling through to `?g=`.
-
-**Rejected (would have been wrong):**
-- *"Loosen the guest live gallery's `moderation_state='clean'` filter so freshly-tagged photos always show."* That filter is a **deliberate NSFW allowlist** on a guest-facing surface (the file documents it) — loosening it would surface un-screened photos to guests, violating the corpus "NSFW filter on by default, cannot be disabled." The real issue (the NSFW screen is fail-open with no re-screen/backfill, so a dropped screen leaves a row stuck `unscreened` and invisible on allowlist surfaces) is a **pre-existing screening-pipeline reliability gap**, not the tag leg. Flagged for owner; **not** fixed by weakening safety. The couple gallery (private, exclusion-based filter) still shows everything.
-- *"Hard-enforce the 10-tag cap with a DB trigger on `photo_tags`."* A blanket trigger would also cap `auto_face` tags, whose intended cap behavior is unspecified — a load-bearing cross-feature decision. **Surfaced for owner sign-off**, not silently baked in. The cap stays advisory in the RPC (single-claimer/single-phone serializes scans, so overflow is bounded to a contrived double-tap — the reviewer rated it low).
-
-Verified: `tsc` 0 · `test:unit` papic-tag 16/16 · `next lint` clean · production build green.
-
-SPEC IMPACT: None (correctness + test/a11y hardening on #1588; no SKU/schema/pricing/public-surface change). Two items surfaced for owner: the screening-pipeline fail-open re-screen gap, and whether to DB-enforce the 10-tag cap across all tag sources. Logged in corpus `DECISION_LOG.md`.
-
-## 2026-06-16 · feat(papic): scan-to-tag — wire the QR tag leg on the seat capture surface
-
-The last unwired leg of the Papic capture pipeline. A claimed paparazzo could shoot photos + clips, but there was no way to record **who's in a shot** — so the couple-gallery tag chips (`lib/papic-gallery.ts`) and each guest's live "photos of you" feed (`lib/guest-live-gallery.ts`), both of which already read `photo_tags`, had nothing to read. This stacks on the #1585 clip work (same `papic-seat-capture.tsx` + `recordSeatCapture`) and closes the loop.
-
-- **DB write boundary (new RPC).** `photo_tags` shipped with the Live Photo Wall (`20261104000959`) with reads for couple/coordinator/admin and **writes intentionally locked to service-role / DEFINER RPC** — a paparazzo is neither, so a direct insert is (correctly) RLS-blocked. New migration `20270108000000_papic_qr_tagging.sql` adds `papic_tag_capture(p_token, p_photo_id, p_guest_token, p_table_ref)` (SECURITY DEFINER): re-checks **seat ownership** (`claimer_user_id = auth.uid()` + claim token + not revoked) and **photo ownership** (the photo belongs to that seat) before any write, and resolves the guest/table **only within the seat's event** (wedding-scoped — a QR from another wedding never resolves). Individual QR → 1 guest (`source='individual_qr'`); table QR → fan-out to every seated guest (`event_seat_assignments`), alphabetized, `source='table_qr'`. **10-tag/photo cap** (corpus hard constraint) with alphabetized truncation + a `truncated` flag the UI surfaces (corpus pitfall #3). Idempotent re-scan. `GRANT EXECUTE … TO authenticated` only.
-- **Payload parsers (pure + tested).** `lib/papic-tag.ts` — reuses the shipped `parseGuestQrPayload` (handles the `?invite=` / `?g=` / bare-hex guest formats) and adds `parseTableQrPayload` for the seating-sign QR (`?t=<S89T-…>` public_id, the qr_token inside `?t=`, or a bare `S89T-…`). `parsePapicTagScan` classifies a scan as guest | table | null. 14 unit tests (`lib/papic-tag.test.ts`). Resolving the table by **either public_id or qr_token** means signs already at a venue work regardless of which the seating print pack encoded.
-- **Live decoder.** `lib/qr-scan.ts` — `makeQrDetector()` prefers the native **BarcodeDetector** (hardware-accelerated) and **falls back to jsQR** (already a dep, used by the check-in desk) on browsers without it. Browser-only, lazy-imported.
-- **Capture UI.** `papic-seat-capture.tsx` — after a capture lands, a "Tag who's in it" pill opens a tag sheet that runs the decode loop on the **existing** live stream (no second `getUserMedia` — the iOS-safe shape), shows a scan reticle + a running `n/10` + chips of tagged names, warns on cap-truncation / unrecognized / off-event codes, and is fully **skippable** (untagged photos still reach the gallery — corpus guarantee). `recordSeatCapture` now also returns the inserted `photoId` so the just-captured shot is the tag target.
-
-⚠ **Owner flag (DB):** the `papic_tag_capture` RPC requires migration `20270108000000` applied to prod (`supabase db push --db-url "$SUPABASE_DB_URL"`). Until then the UI degrades gracefully — tagging shows "isn't ready yet — your photo's saved either way" (the `42883` missing-RPC path). Reconciliation note: the seating print pack's table sign currently encodes `?t=<public_id>` while the `20261101000000` publish-QR migration reserved `event_tables.qr_token` for this fan-out; the RPC accepts both, so no reprint is needed.
-
-Verified in the worktree: `tsc --noEmit` 0 · `test:unit` (papic-tag 14/14, checkin 14/14) · `next lint` clean (new files emit nothing) · migration-timestamp guard ✓ (384 unique). Browser camera/QR flow needs a claimed seat + printed QRs — owner to verify on the Vercel preview.
-
-SPEC IMPACT: iteration 0012 — the QR-tagging leg of the capture pipeline is now built (was the documented "unwired tag leg"). Logged in corpus `DECISION_LOG.md`.
-## 2026-06-16 · chore(papic): failproof the sampler "keep = permanent" promise — paid-ownership backstop + CI regression guard
-
-Owner: "failproof it." The "connect Drive OR upgrade to paid Papic = photos kept forever" promise is now enforced across several best-effort sites (3 convert hooks #1577 · capture-time stamp · the retention-sweep self-heal #1586). Two ways it could still silently regress — both closed here.
-
-- **Residual code hole — the sweep backstop only recognized Drive grants.** `eventSamplerIsKept` (the keep-check the sweep self-heals on) checked only for an active Drive grant. So a couple who *upgraded to paid Papic* but whose `PAPIC_SEATS` activation hook's best-effort `expires_at` clear silently failed would NOT be caught by the sweep — their photos would still be deleted. `eventSamplerIsKept` now also returns true for **paid Papic ownership** (`eventOwnsPapicSeats`, service-role), so the sweep self-heals **both** convert paths regardless of which hook missed. (Harmless at the capture site — paid owners don't reach the free sampler.)
-- **CI regression guard** (`scripts/lint-papic-keep-permanent.mjs` + `lint:papic-keep` + new CI job, matching `lint-entitlement-gates`). Presence-checks the whole chain stays wired: paid-upgrade hook → `makeSamplerPermanent`; Drive callback → `makeSamplerPermanent`; storage→Drive switch → `makeSamplerPermanent`; sweep → `eventSamplerIsKept` + `makeSamplerPermanent`; capture → `is_free_sampler` + `eventSamplerIsKept`; and the keep-check itself references BOTH `oauth_grants` and `eventOwnsPapicSeats`. If any link is un-wired by a future refactor, CI **fails loudly and names the cut wire** instead of couples silently losing photos at day 30. Verified locally: passes intact, fails (exit 1) when a wire is cut, passes again when restored.
-
-No migration. The locked `expires_at IS NULL = permanent / 5-year` rule is untouched.
-
-SPEC IMPACT: iteration 0012 sampler — the keep-permanent backstop now covers paid upgrades too, and is regression-proofed at PR-merge time. Logged in corpus `DECISION_LOG.md`.
-
-## 2026-06-16 · feat(papic): dashboard sampler-retention card + sampler-aware gallery nudge — close 2 of the #1577 audit's conversion-UX findings
-
-From the same "make the sampler powerful" push. The #1577 52-agent audit confirmed two conversion-UX gaps it left for owner triage — **"gallery not sampler-aware"** and **"banner informational-not-converting."** This closes both on the couple's Papic add-on dashboard (`/dashboard/[eventId]/add-ons/papic`) — the surface where the real convert actions already live (the Drive-connect inside the storage card + the crew-pack `InlineCheckoutDrawer`).
-
-- **New on-page `SamplerRetentionCard` — "Keep your free photos forever."** Gated on `!ownsPapicSeats && samplerExpiringCount > 0`; it reads the soonest non-expired `papic_photos.expires_at` (mirroring the `/crew` banner's countdown so both surfaces agree). **Two co-equal CTAs** (owner pick 2026-06-16: equal weight, no visual primary): **"Keep your own copy — Google Drive"** and **"Upgrade to full Papic · ₱…"**.
-- **Free-first + 503-safe by design.** The Drive CTA **anchors DOWN to the storage card** (`#papic-storage`) rather than deep-linking `/api/oauth/drive/start` (which 503s when `GOOGLE_DRIVE_OAUTH_CLIENT_ID` is unset). The storage card owns the connect button + its own "coming soon — admin setup pending" gate, so the 503 route is never surfaced from a CTA. The upgrade CTA reuses the crew pack's `InlineCheckoutDrawer` and renders only when platform settings are present (the drawer needs the BDO/GCash QR refs); the free Drive path renders regardless.
-- **`GalleryPreviewCard` is now sampler-aware.** A slim "Your N free sampler photos expire in X days — keep them" nudge sits above the grid (where the couple actually sees the photos) and links up to `#papic-keep`.
-
-Single file (`app/dashboard/[eventId]/add-ons/papic/page.tsx`), additive — no new deps, no migration, reuses the existing `PAPIC_SEATS` SKU + the #1577 keep-permanent mechanic. tsc 0 · `next lint` clean. PR pending (branch `claude/papic-sampler-retention`, auto-merge).
-
-SPEC IMPACT: iteration 0012 — the couple-side Papic add-on page now **converts** the free sampler (was informational only); closes the #1577 audit's "gallery not sampler-aware" + "banner informational-not-converting" findings. No SKU / schema / pricing / public-surface change. Logged in corpus `DECISION_LOG.md`.
-## 2026-06-16 · fix(payments): red-team hardening of the bundle-entitlement fixes (PR4d)
-
-A 14-agent adversarial red-team (workflow `entitlement-redteam`) tried to break the merged PR4/PR4b fixes across 5 angles and found 8 confirmed holes (1 candidate refuted). Fixed the confirmed ones:
-
-- **Complete buyer couldn't launch Panood (high)** — the couple-facing Panood gates (add-on page, galleries, launch hub "Go live") resolve via `resolveAddOnState()`, which matched only à-la-carte SKU orders, not the bundle code. A MEDIA_PACK buyer's single `MEDIA_PACK` order matched nothing → stuck on "add". Fix: `resolveAddOnState` now adds the *granting* bundle code(s) for the feature's canonical SKU to its ownership query — Panood→`PANOOD_SYSTEM` is in **MEDIA_PACK only**, so Essentials buyers are NOT over-granted, and the existing paid/fulfilled-vs-submitted gating treats a bundle exactly like an à-la-carte order (paid→launch, submitted→request_sent, refunded→re-locks). (Guest watch-live was already bundle-aware; this closes the couple side.)
-- **Refunded/cancelled Setnayan AI stayed ON forever (high)** — the feature reads the stored `events.setnayan_ai_active` boolean, which activation stamps true but nothing ever cleared, so a full refund left the paid AI live ("refund the money, keep the AI"). Added `deactivateOrderSku()` in `lib/sku-activation.ts` (symmetric to `activateOrderSku`), called from `refundOrder` + `rejectPayment` after the status flip. It **re-derives** ownership via `eventOwnsSku` (bundle-aware, refund-aware, admin client) and clears the flag *only* when the event no longer owns AI by any other live order/bundle — so a couple who owns AI twice (à-la-carte + bundle) keeps it on a single refund. `PAPIC_SEATS` sampler-permanence is deliberately NOT reversed (owner-locked "upgrade = permanent").
-- **AI activation hook swallowed its DB error (med)** — now surfaces it so the dispatcher's outer catch logs it (silent un-provisioning had no retry signal).
-- **Bundle fan-out had no per-child fault isolation (was latent, now real)** — PR #1577 added a 2nd child hook (`PAPIC_SEATS`), so a `SETNAYAN_AI` write error could starve `PAPIC_SEATS`. Each child call is now try/caught (honors the file's "every hook non-fatal" contract).
-- **Branded-QR + custom-qr gates were purchaser-scoped (high)** — the ownership read ran under the user's RLS client, but `orders` RLS is `user_id = auth.uid()`, so a co-host event member who didn't personally place the order was denied a SKU the event paid for. The guest/event reads ARE the membership gate; ownership is an event-level fact → now read with the admin client (post-authorization) in the public QR route + the custom-qr detail & print pages.
-
-Refuted: "checkOrderOwnership omits 'draft'" — by design (a `draft` order isn't a committed purchase).
-
-**⚠ OWNER NOTE — systemic, NOT fixed here:** `orders` RLS is purchaser-scoped (`USING (user_id = auth.uid())`, migration `20260513150000`), never broadened to event members. So **every** couple-SKU gate that reads `orders` under a user-scoped client denies a co-host (non-purchaser) member — PR4d fixed the specific surfaces above, but the general fix is an **RLS migration** giving event members SELECT on their event's orders (e.g. `event_id IN (SELECT current_event_ids())`). That needs owner sign-off: (a) a co-host would then see the event's order amounts (privacy), and (b) it's a migration (currently `db push` is blocked by the orphan `20270102000000` ledger row). Until then, `resolveAddOnState`'s à-la-carte path and any other user-client gate still deny co-hosts.
-
-Verified: `tsc --noEmit` 0 · `lint entitlement gates` clean (all new reads use `eventOwnsSku`) · 25/25 unit tests · existing lints pass.
-
-SPEC IMPACT: None (correctness hardening of the already-specced apply-then-pay entitlement flow). Logged in `DECISION_LOG.md`.
-## 2026-06-16 · fix(papic): sampler retention sweep now respects "keep = permanent" (defense-in-depth + tests)
-
-Follow-up hardening on #1577. #1577 cleared `papic_photos.expires_at` at the three convert moments (paid `PAPIC_SEATS` activation, Drive OAuth callback, Papic storage→Drive switch) + a capture-time check — but those clears are **best-effort**, so a silent miss or a connect-then-sample row could still leave a converted event with expiring sampler photos that `sweepExpiredSamplerPhotos` would then delete. The sweep itself had no guard.
-
-- **`lib/papic-retention.ts`** — before deleting anything, the sweep now asks `eventSamplerIsKept(eventId)` (active Drive grant). For a **converted** event it **self-heals** — `makeSamplerPermanent(eventId)` flips the rows' `expires_at → NULL` — and deletes nothing. Self-heal (not just skip) is deliberate: the couple gallery hides any row whose expiry is already past, so skipping alone would keep the bytes but still vanish the photos from the couple's view. After the heal the rows are permanent (`expires_at IS NULL`) and the sweep — which only ever selects non-null, past expiries — can never see them again, preserving the locked "`expires_at IS NULL` = permanent" rule.
-- The orchestration moved to a **pure `lib/papic-retention-core.ts`** (no `server-only`; type-only `R2BucketName` import) that takes injected seams (`SweepDeps`: `isKept`/`makePermanent`/`fetchExpired`/`deleteRows`/`deleteObject`); `papic-retention.ts` is now a thin server-only wrapper supplying the real seams. This matches the repo's testable-engine pattern — a `'server-only'` module can't be imported under `tsx --test`, so the test targets the pure core.
-- **`lib/papic-retention-core.test.ts`** (new) — `node:test` suite (runs in CI via `test:unit`): converted event self-heals + deletes nothing; un-converted event with expired rows deletes the right R2 refs + row ids and returns the count (also asserts the `r2://bucket/key` parse + that a null poster is skipped); empty + read-error (pre-migration column) → no-op, never deletes; a failing R2 object delete never aborts the row cleanup.
-
-Paid-upgrade's own `expires_at` clear (the other half of "most robust") already shipped in #1577's `PAPIC_SEATS` hook. The locked 5-year/permanent retention (`expires_at IS NULL` rows) is untouched — the sweep never fetches them.
-
-SPEC IMPACT: iteration 0012 sampler — the retention sweep is now the last line of defense for "connect Drive / upgrade = permanent." Logged in corpus `DECISION_LOG.md`.
-
-## 2026-06-16 · fix(build): failproof multi-pick build picks — kill a live category-wipe bug + lock the data-loss guard
-
-A **second, distinct** multi-pick data-loss bug (separate from the #1512 compute-path fix): the Build "Your build" Remove (X) button called `removeBuildPick({ eventId, planGroupId })` **without a `vendorId`**, and `removeBuildPick`'s vendorless branch deletes EVERY pick in the category. So removing one vendor from a multi-pick category (Look / Booths / Prints) silently wiped the couple's **other** picks in that category. Found while auditing whether the original (#1512) bug was truly closed — it was; this is a different write path.
-
-Fixed + failproofed (defense-in-depth so the class can't recur):
-
-- **Live fix** — `app/dashboard/[eventId]/vendors/_components/build-picks-list.tsx` now passes `vendorId: item.vendorId`, so Remove drops only that one pick.
-- **Foolproof API** — `removeBuildPick`'s `vendorId` is now **REQUIRED**; the silent "omit → wipe whole category" path is gone (whole-build reset stays the explicit `clearBuildPicks`). `tsc` proves no caller relied on the old optional form.
-- **Single source of truth** — new `lib/build-pick-rules.ts` `replacesSiblingsOnPin()` (= `!isMultiPickGroup`); both `setBuildPick` and `runBuild3State` route their sibling-clearing decision through it, so the guard can't be half-applied or quietly dropped in a refactor (it was nearly lost once in the #1568 Build refactor that deleted `build-flags-actions.ts`).
-- **Testable write cores** — new `lib/build-pick-write.ts` `pinBuildPickRow`/`removeBuildPickRow` are the only add/pin/remove mutators of `event_build_picks`; they enforce the guard. (The deliberate whole-build resets `applyBuildToWorking`/`clearBuildPicks` stay open-coded.)
-- **Regression tests** — `lib/build-pick-rules.test.ts` (decision over every `PLAN_GROUP`) + `lib/build-pick-write.test.ts` (fake recorder client asserting a multi-pick pin issues **NO** delete, a single-pick pin scopes its `.neq`, and remove targets exactly one vendor). 11 new tests; the suite fails loudly if the guard ever regresses.
-
-Verified in the worktree: `tsc --noEmit` 0 · `test:unit` 237/237 · `next lint` clean. A 4-lens adversarial review (data-loss completeness · regression-equivalence · test efficacy · schema soundness) returned **ship / no blockers** (one doc-comment nit, fixed).
-
-SPEC IMPACT: None (correctness fix + test/guard hardening; no SKU / schema / pricing / public-surface change). Logged in corpus `DECISION_LOG.md`.
-## 2026-06-16 · feat(papic): web 5-second clip capture + sampler-aware counter & cap-hit on the seat surface
-
-From the sampler power-audit (owner picked "build clips" + the conversion power-ups). Three things on the friend's `/papic/seat/[token]` capture surface:
-
-- **Real 5-second clips on the web.** The capture component gains a Photo/Clip toggle and a `MediaRecorder` clip mode: records the live session stream, **hard-stops at 5 000 ms** (the corpus clip cap — not configurable), grabs a poster frame, presigns + PUTs both the video and poster to R2, and records via `recordSeatCapture(token, ref, 'clip', posterRef)`. The server side was already ready — `/api/upload` allows `video/mp4|webm|quicktime` and `recordSeatCapture` already handles `kind='clip'` + poster + the 2-clip sampler cap; only the client UI was missing. This makes the long-standing "2 clips each" sampler copy **true** (resolves the audit's "clips unreachable / over-promise" finding by building, not softening). Clips work for paid seats too (uncapped).
-  - **iOS-safe audio:** one `getUserMedia` for the whole session, requesting audio up front so clips have sound, falling back to **video-only if the mic is denied** (the camera never breaks). No second `getUserMedia` mid-record, which is what drops the camera on iOS Safari.
-  - Browser-portable container via `MediaRecorder.isTypeSupported` (Safari→mp4, Chrome/Firefox→webm); the poster is best-effort (clip still lands without it).
-- **Sampler-aware shots counter.** The header pill now reads `N/8 photos` / `M/2 clips` for a free-sampler seat (mode-aware) and `N shots` for an uncapped paid seat — the friend can see the cap coming. Per-kind counts are loaded in the seat page and the caps (`PAPIC_SAMPLER_PHOTO_CAP`/`CLIP_CAP`) passed as props.
-- **Correct cap-hit moment.** Hitting a cap previously surfaced a factually-wrong "didn't save — check your signal" error. It now shows a celebratory "that's all your free photos/clips — every one's in the couple's gallery," with a one-tap nudge to the other mode if it still has room. (`recordSeatCapture`'s `sampler_*_cap` results are treated as a full-state, not an error.)
-
-Component prop change: `initialCount` → `initialPhotos` + `initialClips` + `photoCap`/`clipCap`; the only caller (the seat page) is updated in the same PR.
-
-SPEC IMPACT: iteration 0012 — the web Papic capture slice now does clips (was "photos only, clips a documented follow-up"); the sampler "2 clips each" promise is now real. Logged in corpus `DECISION_LOG.md`.
-## 2026-06-16 · fix(papic): three free-sampler correctness fixes — live count, Drive backlog flush, distinct reminder subject
-
-Three independent, additive/best-effort fixes from a Papic free-sampler audit (no migration; none change existing happy-path behavior):
-
-- **Admin sampler count counted already-expired (and now kept) rows** — `apps/web/app/admin/papic-sampler/page.tsx` counted `papic_photos` filtered only by `expires_at IS NOT NULL`, so it included rows whose expiry had already passed but the opportunistic sweep hadn't deleted yet. (After the keep-permanent fix #1577, made-permanent photos correctly have `expires_at = NULL` and drop out.) Added `.gt('expires_at', new Date().toISOString())` to the count query so it reflects only currently-LIVE sampler photos.
-- **Drive-copy backlog never flushed on connect** — `apps/web/app/api/oauth/drive/callback/route.ts` made sampler photos permanent on a successful Drive connect (#1577) but never flushed pending `drive_copy_artifacts` rows (including captures taken BEFORE the connect), so the couple's "own copy in Drive" could fail to land. Added a best-effort background `after(() => runDriveCopyBatch({ eventId }).catch(() => {}))` after the keep-permanent path, just before the redirect. Imported `after` from `next/server` and `runDriveCopyBatch` from `@/lib/drive-copy`.
-- **T-7 and T-1 reminder emails shared one subject** — `apps/web/lib/papic-sampler-emails.ts` sent both scheduled expiry warnings with the same `subject`, so in Gmail the urgent T-1 collapsed under the T-7 thread. The T-7 send keeps `Your free Papic photos — keep them before they roll off`; the T-1 send now uses `Last day — your free Papic photos roll off tomorrow`. Scheduling logic, the once-per-event lock, and the #1572/#1577 guards are untouched; body/personalization unchanged.
-
-SPEC IMPACT: None — correctness/polish on iteration 0012 sampler.
-
-## 2026-06-16 · chore(ci): failproof the bundle-entitlement fixes — two CI guards against silent regression (PR4c)
-
-After PR4/PR4b fixed the "bundle buyer wrongly denied a paid SKU" bugs, this adds a CI lint that makes the whole bug class non-recurring (`apps/web/scripts/lint-entitlement-gates.mjs`, new CI job `lint entitlement gates`, pure node like the existing `lint-*.mjs`):
-
-- **GUARD 1 — bundle-aware gate discipline:** `checkOrderOwnership()` (the bare exact-key reader, blind to bundle ownership) may be CALLED only from `lib/entitlements.ts` (where `eventOwnsSku()` delegates to it) or test files, or a call line annotated `entitlement-gate-lint: bare-ok <reason>` for a SKU that's in no bundle. Any new couple-SKU gate using the bare reader fails CI — exactly the check that would have caught PR4b's 3 bugs. Resolved the two pre-existing bare callers: **`pro-website.ts` → `eventOwnsSku`** (PRO_WEBSITE *is* a bundle child; dead code today but now correct-if-revived), and **`indoor-blueprint.ts`** annotated `bare-ok` (INDOOR_BLUEPRINT is in no bundle — bare is correct).
-- **GUARD 2 — bundle-membership single source of truth:** the three mirrors of "which child SKUs each bundle grants" must agree exactly — `BUNDLE_MEMBERS` (onboarding-pricing.ts, the buy surface) ↔ `BUNDLE_CHILD_SKUS` (entitlements.ts, the read gate) ↔ `bundles_granting_sku()` (the DB provisioning SQL). Drift = a bundle buyer denied (or over-granted) a child SKU. Also asserts no bundle code nests as a child (the `activateBundleChildren` recursion-safety invariant).
-- +1 unit test (recursion-safety invariant) → `entitlements.test.ts` 25/25.
-
-Both guards proven non-vacuous: a planted bare call fails GUARD 1; removing one SKU from a mirror fails GUARD 2; clean after revert. `tsc --noEmit` 0; existing lint scripts unaffected.
-
-SPEC IMPACT: None (CI-only guardrail). Logged in `DECISION_LOG.md`.
-
-## 2026-06-16 · fix(social): exchange System User token → Page token before FB publish
-
-Facebook auto-publish was failing every dispatch with `(#200) … requires both pages_read_engagement and pages_manage_posts as an admin` even though the configured `META_PAGE_ACCESS_TOKEN` carried all required scopes. Root cause: the env token is a long-lived **System User** token (the Meta-recommended credential for automated posting — never-expiring, asset-scoped), and the Graph page-publish endpoints (`/{page}/feed`, `/{page}/photos`) reject a System User token directly — they require the Page's OWN access token.
-
-- `apps/web/lib/social/facebook.ts` — new `resolvePageAccessToken(pageId, configuredToken)` calls `GET /{page-id}?fields=access_token` to exchange the System User token for the Page token before publishing. Per-process memo (keyed by source token — a Page token derived from a never-expiring SU token is itself non-expiring), 15s timeout, safe fallback to the configured token on exchange failure (a no-op when the env already holds a real Page token, so the change is correct for either credential type). Diagnosed against the live token: it debugs as `type: SYSTEM_USER` with `pages_read_engagement` + `pages_manage_posts` + `pages_manage_engagement` granted; the exchange yields a `type: PAGE` token for page `1142862912244794`.
-
-Unblocks the social content engine (10 journal teasers queued Jun 16–21; the 1 due teaser + 3 other rows had been burned to `failed` by the pre-fix dispatch). Instagram (`instagram.ts`, currently OFF — no `IG_USER_ID`) will need the same exchange when activated — follow-up.
-
-SPEC IMPACT: None. Pure infra/auth fix to the social pipeline; no schema, pricing, or feature-scope change.
-## 2026-06-16 · fix(papic): honor the locked "connect Drive OR upgrade = permanent" sampler promise (CRITICAL)
-
-A 52-agent end-to-end audit of the free Papic sampler found one critical, load-bearing defect (flagged independently by 5 dimensions, adversarially verified): the locked rule "connecting Google Drive OR upgrading to paid Papic makes sampler photos permanent" (migration `20270103000000` lines 6-8) was **entirely unimplemented** — there was no `.update()` on `papic_photos.expires_at` anywhere in the app. So a couple who *converted* (the funnel's whole goal) still had their sampler photos **deleted at day 30** — including from their **paid** gallery — and the reminder email told them "every original is safe" while it happened.
-
-Fix (no migration — all paths are service-role; the promise now lives in one place):
-
-- **`lib/papic-sampler.ts`** (new) — `makeSamplerPermanent(eventId)` clears the 30-day `expires_at` on an event's sampler photos (idempotent, service-role, best-effort/never-throws); `eventSamplerIsKept(eventId)` reports whether an active Drive grant already exists.
-- **Sample-then-convert** (the common path): `makeSamplerPermanent` + `cancelSamplerExpiryWarnings` fire at all three convert moments — the paid-`PAPIC_SEATS` activation hook (`lib/sku-activation.ts`, also reached by MEDIA_PACK bundle buyers via the child fan-out), the Drive OAuth callback (`app/api/oauth/drive/callback/route.ts` — covers both Papic and Photo-Delivery entry points), and the Papic storage→Drive switch (`add-ons/papic/actions.ts`).
-- **Convert-then-sample** (Drive connected before sampling): `recordSeatCapture` now stamps `expires_at = null` when `eventSamplerIsKept` is true, so those shots are born permanent.
-- **Cancel-on-keep** — `cancelSamplerExpiryWarnings(eventId)` (new, in `lib/papic-sampler-emails.ts`) pulls the two scheduled Resend T-7/T-1 emails on conversion via the stored `papic_sampler_email_log` message ids, backed by a new `cancelScheduledEmail(id)` in `lib/email.ts`. Gated on `RESEND_API_KEY` + best-effort, so it's a no-op while Resend is off.
-
-All hooks are non-fatal and idempotent — a failure can never roll back a payment activation or a Drive connect. Once `expires_at` is NULL the existing retention sweep skips the rows and the gallery stops hiding them, so no sweep/gallery changes were needed.
-
-SPEC IMPACT: iteration 0012 sampler — the "keep = permanent" promise is now actually implemented (it was spec-locked but unbuilt). Logged in corpus `DECISION_LOG.md`. The audit's other 29 findings (conversion-UX power-ups, the unwired QR-tag leg, web clips unreachable, abuse posture) are summarized for owner triage, not in this PR.
-
-## 2026-06-16 · fix(payments): complete PR4 bundle-awareness — 3 Essentials-tier SKUs a bundle buyer was wrongly denied (PR4b)
-
-A 70-agent adversarial audit (workflow `bundle-entitlement-audit`) found PR4's bundle-awareness was INCOMPLETE. A bundle purchase lands as a SINGLE `orders` row keyed `GUIDED_PACK`/`MEDIA_PACK` — it never decomposes into child orders, and `activateOrderSku` had no bundle hook. PR4 made the media SKUs (LIVE_WALL/PANOOD/PAPIC) bundle-aware via `eventOwnsSku`, but **three Essentials-tier digital children kept BARE `checkOrderOwnership` gates** → a couple who bought Essentials or Complete was told they DON'T own a SKU they paid for (and shown a double-buy CTA). Adversarially confirmed (high confidence, every passing-path refuted) and fixed:
-
-- **CUSTOM_QR_GUEST (high severity)** — `eventOwnsSku` at all 3 gates: the add-on page (`add-ons/custom-qr-guest/page.tsx`), the print pack (`print/page.tsx`), and the public branded-QR route (`api/website/qr/guest/[guestId]/route.ts`, try/catch 500-path preserved).
-- **ANIMATED_MONOGRAM** — one-line helper swap in `lib/animated-monogram.ts` (`eventOwnsAnimatedMonogram` → `eventOwnsSku`); fixes all 3 runtime gates (public hero, dashboard monogram, add-on page) that share the helper.
-- **SETNAYAN_AI** — the subtle one: its feature gates read the STORED `events.setnayan_ai_active` boolean (via `isSetnayanAiActive`), NOT a read-time ownership query, so a read-side swap alone would NOT fix the feature. Added `activateBundleChildren()` to `lib/sku-activation.ts` — a `GUIDED_PACK`/`MEDIA_PACK` approval now fans the bundle's children through their own activation hooks (membership from `BUNDLE_CHILD_SKUS`, so it can't drift from the gate; idempotent; only flag-backed children do anything — today just SETNAYAN_AI). Also swapped the add-on page `owns` check to `eventOwnsSku` so a bundle buyer isn't offered a second purchase during the reconciliation window before activation stamps the flag. **Live, not latent** — the owner flipped `SETNAYAN_AI_PAYWALL_ENABLED=true` on prod 2026-06-16, so this denial was active for bundle buyers.
-- `INDOOR_BLUEPRINT` stays on the bare reader — confirmed in NO bundle, so it's correct.
-- +6 regression tests in `lib/entitlements.test.ts` (a GUIDED_PACK and MEDIA_PACK buyer owns each of the 3 SKUs via `eventOwnsSku`). 24/24 pass. `tsc --noEmit` exit 0.
-
-**⚠ Owner note — website cluster left for a follow-up (NOT a live bug):** `PRO_WEBSITE`/`EVENT_WEBSITE`/`PRO_RSVP` are in `BUNDLE_CHILD_SKUS` but were retired by the website collapse into `COUPLE_WEBSITE_PRO` (₱3,999). `eventOwnsProWebsite` has ZERO live callers (dead code), and `COUPLE_WEBSITE_PRO`'s ownership gate + buy surface aren't built yet ("follow-up"). So nobody is denied today. When that gate IS built, `BUNDLE_CHILD_SKUS` must be updated (swap the 3 retired website SKUs → `COUPLE_WEBSITE_PRO`) **and** the owner must decide whether Essentials/Complete include the ₱3,999 website unlock (a pricing call → holistic pass).
-
-SPEC IMPACT: None (mechanical completion of the already-specced PR4 dead-unlock repair, extended to the SKUs PR4 missed). The fix surface — bundle-aware ownership reads + a bundle activation fan-out — matches PR4's design. Logged in corpus `DECISION_LOG.md`.
-
-## 2026-06-16 · feat(std-reveal): complete the reveal library — 3 envelopes + crown veil (PR4/4 · flag-off)
-
-Finishes the Save-the-Date reveal template set (0024 addendum §1a locks 7 total: 4 rigid envelopes + 2 veils + 1 curtain). PR1–PR3 shipped the four-flap envelope + the sheer veil + the in-dashboard preview/rewire; this lands the **4 remaining** openings, all behind the same `NEXT_PUBLIC_STD_REVEAL` flag (default OFF → zero live impact):
-
-- **`rigid-reveal.tsx`** (new) — three rigid envelopes on the four-flap pure-CSS-3D engine (no WebGL dep → inside the guest-site Lighthouse budget), via a `variant` prop: **two-flap-vertical** (splits left | right, swings open), **two-flap-horizontal** (top | bottom), **church-doors** (two arched doors swing wide, 2-panel inset + gold trim). Each flap is two-sided — paper front, liner-accent back — so you glimpse the inner colour as it swings past upright. Recolours via the per-event moodboard Tailwind tokens (cream / terracotta / mulberry / ink), ₱0.
-- **`veil-crown.tsx`** (new) — bridal veil V2 "crown-pinned · folding": a three.js Verlet cloth gathered narrow at the crown, fanning into deep folds to the hem; drag / scroll lifts the **hem up & back over the crown**. Code-split via `next/dynamic(ssr:false)` like the sheer veil — main bundle untouched.
-- **`veil-shared.ts`** (new) — extracted the gold Setnayan mark + procedural tulle-net / filigree-lace-hem texture + recolourable fresnel material out of `veil-reveal.tsx`, now shared by both veils (the "shared net body + lace hem" the design calls for). `veil-reveal.tsx` refactored to consume it (−211 lines, behaviour identical).
-- **`reveal-templates.ts`** (new) — tiny pure registry (template type · `?reveal=` aliases · ordered library) shared by the overlay and the studio chooser at zero bundle cost.
-- **`reveal-overlay.tsx`** — the switch now routes all six; `?reveal=` accepts every id (e.g. `?reveal=church-doors`, `?reveal=two-flap-horizontal`, `?reveal=crown`) plus the back-compat `veil` / `envelope` aliases, so any template is previewable on a Vercel preview without flipping the global flag.
-- **`reveal-preview-card.tsx`** — the studio "Opening reveal" chooser now offers all six (preview-only; per-event persistence + a content editor remain a separate, owner-deferred step).
-
-Six of seven templates now built; the **curtain (Veil C)** is the only one outstanding (its own follow-up). `tsc --noEmit` 0 · `next lint` clean · `lint:retired` 0 (verified in worktree).
-
-SPEC IMPACT: 0024 Save the Date — completes the §1a reveal library minus the curtain; design-locked in the corpus, lands behind the existing flag. Logged in corpus `DECISION_LOG.md`.
-## 2026-06-16 · fix(payments): merge-forward PR4 (dead-unlock repair) onto current main + close a freshly-reintroduced dead-path gate
-
-PR #1447 (the payment-activation repair — revenue-path) had gone stale (81 commits behind `main`) with only a failed Vercel deploy blocking its auto-merge. Merged current `origin/main` into the branch to bring it up to date and re-trigger a fresh deploy. The merge was mechanical: one trivial import-union conflict in `app/[slug]/_components/editorial/data.ts` (kept BOTH `eventOwnsSku` and main's new `fetchEventRecommendations`); `admin/payments/actions.ts` auto-merged (main's `getSetnayanFeeBps` and PR4's reject-cancel/approve-activate live in different functions); CHANGELOG union.
-
-- **New dead-path gate closed (in-scope extension):** the merge surfaced `app/dashboard/[eventId]/launch/page.tsx` — the day-of Services LAUNCH hub, added on main by the Event Lifecycle Menu work — gating the Live Photo Wall "Open the wall" launch button on the dead `event_software_activations_v2` table (the exact bug PR4 fixes everywhere else). A LIVE_WALL / Media-Pack buyer whose ownership lives in `orders` would have wrongly seen the upsell instead of the launch button on their wedding day. Rewired to `eventOwnsSku(supabase, eventId, 'LIVE_WALL')` — orders-backed + bundle-aware — identical to the sibling `/live` gate. Now the ONLY remaining `event_software_activations_v2` reads in the repo are the manpower-telemetry routes (`api/v1/manpower/*`), which are not couple-SKU payment gates.
-- Verified locally: 18/18 `lib/entitlements.test.ts` pass (covers `checkOrderOwnership` + `eventOwnsSku` + `BUNDLE_CHILD_SKUS`). Full `typecheck + lint` / `production build` delegated to required CI on push.
-
-SPEC IMPACT: None (mechanical merge-forward + one additional site of the same already-specced dead-unlock repair). The PR4 behavior — ownership reads off `orders.status`, reject-revokes, approve-always-activates, bundle-aware — is unchanged.
-## 2026-06-16 · fix(papic): don't burn the sampler-email lock when Resend is unconfigured
-
-Hardening on the cron-free sampler expiry emails shipped in #1566. `scheduleSamplerExpiryWarnings` claimed the once-per-event `papic_sampler_email_log` PK lock **before** attempting the Resend sends. Because `RESEND_API_KEY` is still unset in prod (OWNER_ACTIONS Phase 2 deferred), every first sampler capture today writes the lock row and sends nothing — so the day the owner keys Resend, those events are *permanently* locked out of their T-7/T-1 reminders (the next capture's insert hits 23505 and bails).
-
-- **Top guard** — `if (!isEmailConfigured()) return;` runs *before* the lock insert, so a keyless capture schedules nothing **and** claims nothing; a later capture (once the key is live) still gets to schedule. Mirrors the file's existing "resolve couple email first so we don't burn the lock on an unreachable couple" rationale.
-- **Release-on-failure** — if the key *is* present but both sends fail (transient Resend error), the lock row we claimed is deleted so a later capture retries. With no message ids there's nothing to double-cancel, and a possible duplicate reminder beats zero reminders. The normal success path is unchanged (ids stored, lock kept).
-- No migration; no behavior change while Resend stays off except that the lock is no longer burned. Code-only, single file.
-
-Note for the owner: the feature itself was already built+merged (#1566) and its migration `20270107000000` is applied to prod — but **no sampler emails will send until `RESEND_API_KEY` is set in Vercel** (OWNER_ACTIONS Phase 2). Couples who sampled *before* that flip won't be back-scheduled (the reminders schedule on first capture); the in-app expiry banner from #1558 backstops them.
-
-SPEC IMPACT: iteration 0012 sampler — reminder scheduling is now safe across the Resend-off→on transition. Logged in corpus `DECISION_LOG.md` (which was also missing the #1566 landing).
-
-## 2026-06-16 · feat(compare): Lock now confirms too (same overwrite as Modify)
-
-Owner go-ahead. Compare's *Lock* runs the same `applyBuildToWorking` as Modify, so it also overwrites the live working build (before routing to the Lock tab) — it now goes through the same confirm dialog. `onApply` confirms for BOTH destinations when the working build has picks to lose; the confirm button reads **Lock** vs **Replace** by action. Also unified the dialog body to "This replaces your current build with “{name}”…" (drops the Modify-only "Build tab" phrasing so it reads right for both).
-
-SPEC IMPACT: 0016 Compare — Modify AND Lock are both confirm-first destructive actions.
-
-## 2026-06-16 · chore(compare): simpler Modify-confirm wording
-
-Owner: "fix the wordings and make it simpler." Tightened the Modify confirm dialog — body is now "This replaces what's on your Build tab with “{name}”. Save your current plan first if you want to keep it." and the buttons are **Replace** / **Cancel** (were "Replace & modify" / "Keep current"). Copy-only; no behavior change.
-
-SPEC IMPACT: None (UI copy).
-
-## 2026-06-16 · feat(social): Journal → Facebook bridge — auto-syndicate every blog article as a teaser post
-
-Owner wants the existing 10 Journal (`/blog`) articles posted to Facebook as "start information" teasers that hook readers to the full article — and every future daily article to ride the same rails automatically. The social autopilot (`lib/social/flush.ts`) already composes/schedules/dispatches FB posts cron-free with a rate governor + admin queue, but it only knew about new couples + verified vendors. This adds the blog as a content source.
-
-- **`lib/social/flush.ts`** — new `sweepJournalArticles()` (Phase-1 compose sweep): every **published** `BLOG_ARTICLES` entry without a post yet → a `social_posts` row. Body = a curiosity-hook caption; `link_url` = the article URL so Facebook attaches its **native link card** (the article's OG cover + title + description) and stays clickable. (The on-the-fly card URL has no image extension, so dispatch already takes the `/feed` link-post branch — a photo post would drop the link.)
-- Rides `source_type='announcement'` with a deterministic `journal:{slug}` ref — **no migration** (the existing `source_type` CHECK has no `journal_article`, and `supabase db push` is currently blocked by the orphan `20270102000000` ledger row). The partial-unique index `(source_type, source_ref)` gives compose-once / never-repost for free; a pulled teaser won't resurrect. Shows in `/admin/social-queue` as "Journal · {title}".
-- **`lib/social/journal-hooks.ts`** (new) — 10 hand-written, benefit-led, price-free hook captions keyed by slug; an article with no hook falls back to its `excerpt`, so a future daily article posts fine before a bespoke hook exists.
-- Drip behavior: no hold window → each article takes the next governor slot (FB ≤3/day · ≥3h apart), so the 10-article backlog spreads over ~4 days instead of flooding. Future-dated articles (`publishedAt` gate) stay out until their day — the mechanism a daily drip will use.
-
-**Dormant until activated:** composes immediately on deploy (queue fills, visible to admin), but **posts nothing** until the owner sets `META_PAGE_ID` + `META_PAGE_ACCESS_TOKEN` and flips `facebook_enabled` + `autopublish_enabled`. `tsc --noEmit` green · `next lint` clean · `lint:retired` 0 · production build green (verified on the identical change set).
-
-SPEC IMPACT: the Journal is now a Facebook content source (extends 0038 Editorial + the Social Sharing Program § 8). Logged in corpus `DECISION_LOG.md`. Groundwork for the hands-off daily-blog engine (owner-chosen 2026-06-16).
-## 2026-06-16 · feat(compare): confirm before Modify overwrites the working build
-
-Owner spec for the Compare tab: "the role of compare is to compare the saved builds on build. we can choose to delete, modify or lock. modify will jump that build back to build and erase whatever build is on build. notify the user first before commencing this action."
-
-- **Modify now confirms first.** Clicking *modify* on a saved build runs `applyBuildToWorking`, which OVERWRITES the live working build with that saved build's picks. `onApply` now awaits the shared `useConfirm()` dialog ("Replace your current build?" · "Replace & modify" / "Keep current" · destructive tint) before applying — but only when the working build actually has picks to lose (an empty working build → no prompt). The saved build's title is shown in the body.
-- Wires the existing on-brand `app/_components/confirm-dialog.tsx` (HTML5 `<dialog>`, focus-trap + ESC), not a `window.confirm`.
-- **Note for owner:** *Lock* uses the same `applyBuildToWorking` and therefore also overwrites the working build (before routing to the Lock tab). Only Modify was named, so Lock is left unguarded pending your call.
-
-SPEC IMPACT: 0016 Plan Builder / Compare tab — Modify is a confirm-first destructive action. Logged in `DECISION_LOG.md`.
-
-## 2026-06-16 · feat(papic): cron-free sampler expiry emails (Resend-scheduled T-7/T-1)
-
-The last free-sampler follow-up — timed expiry-warning emails WITHOUT a cron. On the first sampler capture per event, we hand Resend two future-dated emails (`scheduledAt` ≈ T-7d and ≈ T-1d before the 30-day expiry); Resend delivers them at the right time, so there's no scheduler/cron on our side (Resend schedules up to 30 days out — both windows fit). Reaches the couple who never return — exactly who the in-app banner can't.
-
-- **migration `20270107000000`** (applied to prod) — `papic_sampler_email_log` (event_id PK = once-per-event lock; t7/t1 message ids for an optional future cancel; admin-only RLS).
-- **`lib/email.ts`** — `SendEmailArgs.scheduledAt?` passed through to Resend (`resend@6.12.3` supports it). Immediate send unchanged.
-- **`lib/papic-sampler-emails.ts`** (new) — `scheduleSamplerExpiryWarnings(eventId, expiresAt)`: resolves the couple's email, PK-locks once per event, schedules the two emails. Copy is worded so it's correct whether or not they later keep the photos ("ignore this if you've already connected Drive or upgraded") — so no cancel-on-keep hook is required. Never throws.
-- **`papic/actions.ts`** — `recordSeatCapture` `after()` calls it for sampler captures (lazy import, best-effort).
-- Dormant until `RESEND_API_KEY` is set (same gate as every other email). `tsc` + `next lint` green.
-
-SPEC IMPACT: iteration 0012 — sampler expiry emails (cron-free, provider-scheduled). Closes the last sampler follow-up. Logged in corpus `DECISION_LOG.md`.
-## 2026-06-16 · chore(build): retire the legacy Pin/Flag Build + the BUILD_3STATE_ENABLED flag (3-State is now the only path)
-
-The 3-State Build (Locked/Auto/Excluded) went live on production earlier today; the feature flag is no longer a rollback switch worth keeping (owner: "clean it all now"). This removes the flag and every legacy code path it gated, so there's a single Build implementation to maintain.
-
-- **Flag removed.** Deleted `isBuild3StateEnabled()` from `lib/build-3state.ts` and every guard/branch: `page.tsx` now mounts `Build3StateControl` unconditionally; the four server actions (`getCategoryBuildStates` / `setCategoryBuildState` / `resetBuildStates` / `runBuild3State`), the fallback action, and `savePlanBuildNamed` drop their flag re-checks.
-- **Legacy Build-tab files deleted** (only reachable via the old flag-off path): `_components/build-pins.tsx` (BuildPins), `_components/build-anchors.tsx` (BuildAnchors component — its `AnchorData` type moved into `build-3state-control.tsx`; the `setAnchor` action in `build-anchors-actions.ts` is KEPT, the new DimensionRow uses it), `_components/category-flags.tsx`, `_components/build-compute.tsx`, and `build-flags-actions.ts` (the `budget_category_flags` writes).
-- **Compare locked to named builds.** `build-compare.tsx` drops the `named` prop and the A/B/C slot save bar + `slot`/`SLOTS`/`takenSlots` machinery; `savePlanBuild` (the A/B/C upsert action) is deleted. Save-As is now the only save path. `deleteBudgetBuild` + `BuildSlot` (read type for legacy `'A'|'B'|'C'` labels still on old rows) are kept.
-- **Kept as-is:** the `budget_category_flags` table itself (no longer written, but not dropped here — a table-drop migration is a separate, audited step to avoid data loss). Stale "default OFF / flag-gated / A/B/C is live" docstrings updated to match.
-- Net: 5 files deleted, 9 modified; no DB change.
-
-SPEC IMPACT: `Build_3State_Solver_2026-06-16.md` is the live + only Build (the flag/rollback framing is retired). Logged in `DECISION_LOG.md`.
-
-## 2026-06-16 · fix(hero): slow the homepage scroll-scrub so a fast swipe can't blow through it
-
-Owner: "the scroll ends too fast — we want it to scroll so that even if they swipe fast, the animation is still correct and moving slowly." The hero scroll-scrub played its entire frame sequence + CTA reveal over just **200vh of scroll** (a `300vh` section minus the `100vh` sticky child), and computed the frame **instantly** from scroll position, so a fast flick snapped straight to the end.
-
-**The real lever is a minimum play TIME, not scroll distance.** Owner's sharper framing: a fast swipe should still take the clip's *set* number of seconds to finish (the animation keeps playing slowly after the finger stops) — and frame count is a *smoothness* lever, not a *duration* lever.
-
-- **`apps/web/app/_components/marketing/HeroVideoScrub.tsx`** — the frame is no longer a pure function of scroll position. The rendered progress now *chases* the scroll target through a **delta-time, speed-capped** rAF loop:
-  1. **`MIN_PLAY_SECONDS` (new, 5) + `MAX_RATE = 1/MIN_PLAY_SECONDS`** — the animation can advance at most `MAX_RATE` progress-per-second, so a full play-through **always takes ≥ MIN_PLAY_SECONDS no matter how fast you swipe**. A fling can't finish it in one flick; it keeps gliding at the capped rate, even after the finger stops, until done. A slow, deliberate scrub stays *under* the cap so it still tracks scroll 1:1 (`EASE_PER_SEC` softens the final settle). This is robust because `PostHeroReveal` collapses the content below the hero to zero height — a hard fling *lands* at the hero's end and stays pinned, so the animation finishes on-screen instead of scrolling away. Veil-fade still keys off **raw** scroll; reduced-motion + hold-nearest-loaded-frame unchanged.
-  2. **`TRACK_VH` 300 → 700** — kept as the runway a *deliberate* (slow) scrubber scrolls through at their own pace.
-  3. **Strategic preload (`LEAD` now rate-aware).** The loading veil still gates only on the *opening* frames (the rest stream in the background, `render()` holds the nearest loaded frame), so the frame bump did **not** lengthen the upfront wait. But the release threshold was a magic `24` — exactly 1s of buffer for a 120-frame/5s hero, yet 3s for a sparse 40-frame clip. Now `LEAD = round(N / MIN_PLAY_SECONDS)` (floor 8) buffers a consistent **~1 second of playback** regardless of frame count, and `fetchPriority: high` is aligned to exactly those frames. The time-paced playback *helps* here: a guaranteed-slow playhead (≤ N/MIN_PLAY_SECONDS frames/sec) gives the background stream far more runway to stay ahead, so stalls are rarer.
-- **`apps/web/app/admin/hero-video/hero-uploader.tsx`** — frame density **8fps → 24fps** (`MIN_FRAMES` 36→72, `MAX_FRAMES` 150→360). ⚠ **Load-bearing reversal flagged for owner:** with a seconds-long play-through, too few frames look like a stepped slideshow — this addresses the owner's "they extract only a few frames per second" hunch and partly reverses the earlier "keep it ~40 frames" perf trim. Frame count = *smoothness*, **independent** of the duration set by `MIN_PLAY_SECONDS`. Safe because frames preload behind the veil and stream progressively (the scrub releases after the opening frames), so a ~5–6s clip → ~120–144 frames ≈ 5–6MB of *streamed* bytes, **not** a front-door freeze. The currently-published live hero already has ~1,019 frames → slow + smooth with **no re-upload**; the bump only affects the *next* upload.
-
-`tsc --noEmit` green on both files (lint runs in CI). Verify on the PR's Vercel preview (the scrub only renders when a hero video is published). PR pending (branch `claude/hero-scrub-slower`, auto-merge).
-
-SPEC IMPACT: None on schema/SKU. Tuning of the homepage hero scroll-scrub (iteration 0015 main website). Logged in corpus `DECISION_LOG.md` (2026-06-16). The frame-density bump is the one decision to confirm. `MIN_PLAY_SECONDS` (duration) and the uploader FPS (smoothness) are independent dials.
-## 2026-06-16 · chore(std-reveal): rewire every Save-the-Date surface off the retired video, onto the reveal (PR3d)
-
-Owner: *"yes adjust everything that is wired to make this our new save the date."* Swept every code reference to the old ₱99 video product and pointed it at the free page-opening reveal. The `save_the_date_video` **SKU code stays everywhere it's a DB key** (historical-order fetches, receipt labels, persisted wizard task-id, v2 SKU map) so old buyers' orders never break — only *labels, copy, and the catalog's active flag* changed.
-
-- **`lib/sku-catalog.ts`** — `save_the_date_video` set `isActive: false`, dropped from `LAUNCH_PROMO_SKU_CODES` (7→6 active), added to `RETIRED_SKU_CODES` (it was already `is_active=FALSE` in prod since 2026-05-28).
-- **User-facing labels → "Save the Date" + `Sparkles` icon:** `lib/add-ons-catalog.ts` (label + icon + blurb "the opening reveal for your page… free, recolours to your palette" + CTA "Choose your reveal", dropped the now-unused `Video` import), `lib/route-meta.ts`, `lib/nav-registry-defaults.ts`.
-- **Copy fixes:** `lib/social-sharing.ts` ("rendered"→"made on Setnayan"), `lib/wizard.ts` prenup card ("feeds your save-the-date video"→"share as your save-the-date"), `supplies-marketplace` mailer blurb ("video QR"→"page QR"), `documents/page.tsx` (dropped the "Draft a Save-the-Date video" CTA clause), `admin/users/page.tsx` (comp-grant placeholders off the retired example), `your-plan-section.tsx` (`hasSaveTheDateOrder` reframed as historical-only).
-- **`lib/add-on-stats.ts`** — `'save-the-date': []` (no SKU; the reveal is free).
-- **`lib/save-the-date.ts` deleted** — orphaned video template library (`git rm`).
-- **LEFT intact (DB keys / receipts / tests):** `documents` creation-SKU set + receipt label map ("Save-the-Date Video" for old orders), `dashboard/page.tsx` historical-order fetch, `stress-test-lock-unlock.ts` fixture, `wizard.ts` task-id `'save_the_date_video'` (schema stability for `events.wizard_state`).
-
-`tsc --noEmit` 0 errors · `next lint` clean · `lint:retired` 0 retired strings (all verified locally).
-
-SPEC IMPACT: 0024 Save the Date — the video render add-on is retired from every couple-facing surface; the Save-the-Date product is now the free page-opening reveal end-to-end. SKU bookkeeping in `service_catalog` already reflected the retirement; corpus DECISION_LOG row appended.
-
-## 2026-06-16 · feat(std-reveal): the Save-the-Date page IS the reveal now — replaced the video gallery (PR3c)
-
-Owner: *"replace."* `/dashboard/[eventId]/add-ons/save-the-date` is now the Save-the-Date **reveal** (the website opening), not the old ₱99 Save-the-Date **video** render.
-
-- Rewrote the page: reframed header ("how your wedding page opens for guests"), the `RevealPreviewCard` as the body; removed the video template gallery + how-it-works + Feature-Us + custom-request + the local `TemplateCard`/`Preview` components and their imports/queries.
-- **Video infra left intact (not deleted):** the `save_the_date_video` SKU, `@/lib/save-the-date` template library, `InlineCheckoutDrawer`, `FeatureUsCard` — existing orders + the catalog are unaffected, fully reversible. The page just no longer surfaces them.
-
-⚠ **Loose ends flagged for owner (not done here):** the `save_the_date_video` SKU still lives in the catalog + `/pricing`; if the video product is to be fully retired, that's a separate migration + pricing/copy pass. The plan-section + site-editor tiles link here under the generic "Save the Date" label (fits the reveal — no change needed).
-
-Next: reveal chooser **persistence** (which template the couple picked, so the live page uses it) + the content/upload editor.
-
-`tsc --noEmit` 0 errors · `next lint` clean (verified locally).
-
-SPEC IMPACT: 0024 Save the Date — the Save-the-Date surface is now the reveal experience (owner "replace"); the video render add-on retained in code, dropped from the page.
-
-## 2026-06-16 · fix(std-reveal): move the opening-reveal preview onto the Save-the-Date page (PR3b)
-
-Owner pointed at `/dashboard/[eventId]/add-ons/save-the-date`: *"this should be the link where it should be… the website shows the old save the date."* Relocated the reveal preview from the website editor (PR3a) to the **Save-the-Date add-on page**, where the couple looks for it.
-
-- Moved `reveal-preview-card.tsx` → `app/dashboard/[eventId]/_components/` (shared, `git mv`).
-- Renders the **"Opening reveal"** preview at the **top** of `add-ons/save-the-date`, above the existing video gallery, with a divider that separates the two: the **free** website-opening reveal vs the **₱99 Save-the-Date video** render.
-- Reverted the PR3a website-editor placement (import + render + the `event_date` select add).
-
-⚠ **NAMING OVERLAP flagged for owner:** this page is titled "Save the Date" and is the *paid video* product; the *reveal* is the *free website opening*. They now coexist on one page — owner to decide whether to consolidate / rename (e.g. "Save the Date" = the page-opening, "Save-the-Date Video" = the render add-on).
-
-`tsc --noEmit` 0 errors · `next lint` clean (verified locally).
-
-SPEC IMPACT: 0024 Save the Date — reveal preview relocated to the Save-the-Date add-on surface (the owner-specified link).
-## 2026-06-16 · feat(admin): /admin/completions — force-complete + uphold-non-delivery backstop (Event Lifecycle Menu §6.1)
-
-The human backstop for the per-vendor completion handshake (PR #1537). When a handshake can't self-resolve, an admin now has a surface to break the tie:
-
-- **Migration `20270106000000`** — `event_vendors.completion_resolved_at` + `completion_resolution_note` (admin-only metadata; no RLS change — couple/vendor surfaces react to `completion_status` alone) + a partial index for the unresolved queue. **Applied to prod**.
-- **`/admin/completions`** (new) — lists `event_vendors` needing attention: open **disputes** (always), `awaiting_vendor` rows whose event is >14d past (vendor never marked complete), and `vendor_marked` rows unconfirmed >5d. The "stuck" cut is computed in JS (PostgREST can't do `now() - interval`); resolved rows are excluded by the query. Mirrors the `/admin/disputes` skeleton (server component, admin-client reads, per-row `<details>` action forms, fail-soft reads). Disputes sort first.
-- **Two outcomes** (`completions/actions.ts`, each `requireAdmin()`-gated, service-role writes): **force-complete** → `completion_status='confirmed'` (+ stamps `customer_confirmed_received_at`) so the review/recommendation unlocks; **uphold non-delivery** (disputed rows only, note required) → keeps `completion_status='disputed'` (review STAYS frozen — correct) but stamps the row resolved so it leaves the queue. Both notify the couple(s) (reuse `booking_confirmed` / `dispute_filed` — no new notification enum) and the vendor (guarded null for off-platform), and write an `admin_audit_log` row (best-effort). Idempotent.
-- **Nav** — Work-group sidebar item (`Handshake` icon) + bottom-nav Work-tab activeMatch + `nav-registry-defaults` slot (`admin.sidebar.completions`).
-
-`tsc --noEmit` + `next lint` + migration-timestamp guard green.
-
-SPEC IMPACT: implements `Event_Lifecycle_Menu_Design_2026-06-16.md` §6.1 ("Admin force-complete is the human backstop — needs a new /admin completion surface") + §7 (Admin actor). Logged in corpus `DECISION_LOG.md` (2026-06-16). Closes one of the two deferred §8 net-new items flagged when PR4 shipped (the other — "Move to memories" archive — remains open).
-## 2026-06-16 · feat(editorial): "Vendors we loved" block — the recommendation referral loop on the public wedding page (Event Lifecycle Menu §6.3)
-
-The couple's opt-in vendor recommendations (PR #1559) now surface on their public Editorial page — guests + visitors (= future couples) see who the couple loved, in the couple's own words. This is the organic referral loop §6.3 describes.
-
-- **`lib/vendor-recommendations.ts`** — new `fetchEventRecommendations(supabase, eventId)`: joins `vendor_recommendations` → `vendor_profiles` (business_name · business_slug · logo_url · public_visibility), dedupes per vendor (the UNIQUE key is per-recommender, so both partners → one card, preferring the one with an endorsement), resolves logos via `displayLogoUrl`, and gates on `isPubliclyVisible` (hidden/archived dropped). `recommended_by_user_id` is never selected (no PII). Server-only; graceful-degrade to `[]`.
-- **Editorial composer** (`app/[slug]/_components/editorial/`) — `EditorialData.vendorsWeLoved` + the `vendorsWeLoved` key added to `EditorialSections` + `EDITORIAL_SECTION_KEYS` (so the couple's toggle persists). `loadEditorialData` fetches it best-effort via the admin client; all 5 sample fixtures populated (the flagship sample carries demo cards). New `VendorsWeLoved` render component — endorsement blockquote led, logo + name (→ `/v/[slug]` when slugged), editorial design tokens (terracotta rule, font-serif italic, font-mono eyebrow). Gated `isOn('vendorsWeLoved') && data.vendorsWeLoved.length` (default-on, content-gated — hidden for couples who recommended no one). No `page.tsx` change (both public mount points pick it up).
-- **Dashboard editor** — a "Vendors we loved" section toggle row (`website/editorial`).
-
-No migration (reads the existing `vendor_recommendations` table; the `sections` map is jsonb). `tsc --noEmit` + `next lint` green. **Adversarially reviewed** (3-lens + verify workflow): no blocker/high findings; the public-visibility JS filter was confirmed load-bearing (admin client bypasses RLS) and annotated as such; no PII leak, XSS-safe (React-escaped endorsement), dedup + null-safety + graceful-degrade all verified.
-
-⚠ **Owner sign-off flag (hybrid-anonymity):** the block names `business_name` + links directly, with NO tier gate — matching spec §6.3 (name + link, referral loop), since the couple explicitly, publicly endorses a vendor they actually hired (completion-gated). This means a free-tier **verified** vendor's name shows on the public editorial, which has mild tension with the "free+verified names masked until first chat reply" doctrine. Shipped spec-faithful; flag if you'd prefer to tier-gate the name/link.
-
-SPEC IMPACT: implements `Event_Lifecycle_Menu_Design_2026-06-16.md` §6.3 ("Couple's Editorial page — a 'vendors we loved' block"). Logged in corpus `DECISION_LOG.md` (2026-06-16). Closes the deferred Editorial-block follow-up from PR6. Remaining §6.3 surfaces: auto-favorite to all hosts' future shortlist (needs a per-user saved-vendors store) + photo-evidence anti-fake layers 3-4 (need photo→vendor attribution).
-
-## 2026-06-16 · feat(papic): free-sampler polish — expiry banner + admin usage view + own R2 prefix
-
-Three follow-ups on the free Papic sampler (#1547), one PR:
-
-- **In-app expiry banner** (`add-ons/papic/crew/page.tsx`) — the sampler banner now shows a live countdown ("your N free photos expire in X days") computed from the soonest non-expired `papic_photos.expires_at` (couple RLS), falling back to the static "kept for 30 days" when no photos exist yet. Connect-Drive/upgrade CTA unchanged. (The scheduled T-7/T-1 *emails* still need a daily scheduler — deferred, outside the cron-free path.)
-- **Admin sampler-usage view** (`/admin/papic-sampler` + a Tile on the admin home) — read-only: every event with a free sampler, the couple (email/name from `public.users`), seats claimed, sampler photos, and a ⚠ flag on any couple running 2+ sampler events (the real cross-event abuse vector, since 1/event is already enforced by the RPC). Added a `camera` icon to the admin Tile.
-- **Own R2 key prefix for sampler captures** (`papic/seat/[token]` capture + page) — sampler captures now upload under `papic-sampler/…` (paid stays `papic/…`) so an R2 object-lifecycle rule can expire ONLY sampler bytes. `PapicSeatCapture` gained an `isFreeSampler` prop; the seat page reads `paparazzi_seats.is_free_sampler`. `OWNER_ACTIONS.md` documents the optional Cloudflare lifecycle rule.
-
-No migration. `tsc` + `next lint` green.
-
-SPEC IMPACT: iteration 0012 — free-sampler polish (expiry visibility + admin abuse watch + storage-lifecycle prefix). Logged in corpus `DECISION_LOG.md`.
-## 2026-06-16 · feat(recommend): Recommend-your-vendors — completion-gated Recommended list + marketplace signal (Event Lifecycle Menu PR6)
-
-The After phase's referral loop: alongside the per-vendor review, the couple can **recommend** the vendors they loved. A recommendation is *separate* from a review (a review can be a fair 3★; a recommendation is an explicit, opt-in "I'd recommend them"), per-vendor opt-in, reversible, and carries a **higher anti-fake bar** because it publicly boosts the vendor.
-
-- **Migration `20270105000000_vendor_recommendations.sql`** — `vendor_recommendations` (vendor_profile_id · event_id · recommended_by_user_id · endorsement, unique per triple), mirroring `vendor_reviews`. **Applied to prod** (ledger drift → `db query` + manual ledger row). RLS: public-read (powers the marketplace signal); couple-insert **gated by the SAME completion OR-chain as the review** (correlated by `marketplace_vendor_id`, dispute-freeze, M=7d/N=30d/legacy) — this enforces **anti-fake layers 1+2** (a real inquiry that ran the full lifecycle to completion); couple-update (edit endorsement) + couple-delete (withdraw).
-- **`recommendVendor` / `withdrawRecommendation`** actions (review/actions.ts) — upsert through the USER's client so RLS enforces the gate; a blocked insert routes back with `?recommend=blocked` (explained, not crashed); best-effort vendor notification.
-- **`RecommendVendorCard`** — shown on the After review page in both the review-form and already-reviewed states (only reachable past the completion gate). Opt-in + optional one-line endorsement + withdraw.
-- **`lib/vendor-recommendations.ts`** — `countVendorRecommendingCouples` (DISTINCT events; bounded set, no materialized view).
-- **Marketplace signal** — "Recommended by N couples" on `/v/[slug]` (Reviews section header) + a matching badge on the vendor's `/vendor-dashboard/reviews`. Proof-backed, stronger than a star average.
-
-**Deferred (infra-blocked — documented, per spec §6.3 "V1 = automated signals + admin backstop"):** the **photo-evidence layers 3-4** (photos of the service + cross-service photo consistency) need photo→vendor attribution that doesn't exist yet (same gap as per-vendor galleries) → an **admin-review backstop**, not a hard gate. The **auto-favorite to all event hosts' future shortlist** needs a per-user saved-vendors store (today the "shortlist" is event-scoped `event_vendors`), and the **Editorial "vendors we loved" block** is a follow-up render. None block the core recommend → marketplace-proof loop shipped here.
-
-`tsc --noEmit` + `next lint` + migration-timestamp guard green.
-
-SPEC IMPACT: implements `Event_Lifecycle_Menu_Design_2026-06-16.md` §6.3 + §10 PR6 (recommend loop + anti-fake layers 1-2 + marketplace signal). Logged in corpus `DECISION_LOG.md` (2026-06-16). This closes the Lifecycle-menu build (PR1–PR6); remaining net-new (§8): admin force-complete surface, "Move to memories" archive, Editorial "vendors we loved" block, photo→vendor attribution (unblocks galleries + recommend layers 3-4 + auto-favorite).
-
-## 2026-06-16 · feat(papic): real gallery — wire the couple's Papic gallery to actual photos (replaces the mock)
-
-Closed the long-standing `TODO(0012)` mock gallery on the Papic dashboard page. The couple's gallery now shows their **real** captures (crew + guest), the payoff that makes the free Papic sampler (and paid Papic) feel real.
-
-- **`lib/papic-gallery.ts`** (new) — `fetchPapicGallery(supabase, eventId)` reads `papic_photos` (crew) + `papic_guest_captures` (guest) under the couple's RLS, merges + sorts by `captured_at`, and presigns thumbnails via `displayUrlForStoredAsset` (clips use their `poster_r2_key`). Filters OUT: NSFW-blocked (`moderation_state`), couple-hidden (`hidden_at`), and **expired free-sampler** photos (`expires_at` in the past — the read-time half of the 30-day sampler retention). Tags resolved from `photo_tags` (best-effort; missing/unreadable → everything shows untagged, honouring untagged-still-delivered). Graceful-degrade to `[]` on a missing table/column.
-- **`add-ons/papic/_components/papic-gallery-grid.tsx`** (new, client) — the grid with working filter chips (All · Photos of us · Untagged · Videos), clip play-badges, and per-tile tag dots (auto-face green / QR-or-manual terracotta / untagged grey).
-- **`add-ons/papic/page.tsx`** — `GalleryPreviewCard` is now an async server component that fetches real photos + renders the grid, or an empty state ("your gallery fills up as your crew shoots → Set up your crew") when there are none. Removed the mock `MOCK_PHOTOS` / `MockPhoto` / `PhotoTile` / preview `FILTERS` and their now-unused icon imports.
-- No migration — reads existing columns (incl. the sampler's `expires_at`, already on prod). `tsc` + `next lint` green.
-
-SPEC IMPACT: iteration 0012 — the couple-facing Papic gallery is now real (was a documented mock). Benefits both the free sampler and paid PAPIC_SEATS. Logged in corpus `DECISION_LOG.md`.
-## 2026-06-16 · feat(day-of): same-day "Get help" — verified-paid vendor shortlist + escalation (Event Lifecycle Menu PR5)
-
-The Day-of "Get help" card grows a second layer. If something goes wrong on the wedding day (a no-show, a last-minute gap), the couple now sees a shortlist of **verified, paid vendors who opted into same-day work, nearest the venue first** — above the existing escalate-to-support floor. V1 is filter + escalation only; real same-day *booking* is V1.5.
-
-- **Migration `20270104000000_vendor_same_day_available.sql`** — `vendor_profiles.same_day_available BOOLEAN NOT NULL DEFAULT FALSE` + a partial index `WHERE same_day_available`. No RLS change (plain column on an existing table; the public read of verified profiles already exposes it). **Applied to prod** (ledger drift from parallel sessions → applied via `db query` + manual ledger row, per the established pattern).
-- **`apps/web/lib/same-day-vendors.ts`** (new) — `findSameDayVendors(supabase, venue)`: filters `public_visibility='verified'` AND `tier_state <> 'free'` AND `same_day_available=TRUE`, then ranks — venue geo present → `haversineKm` ascending (geo-less vendors trail); venue geo absent → same-`hq_region` first, then alphabetical (**never empty**, so an off-platform venue with no lat/long still gets a list). Caps at 5; graceful-degrade to `[]` pre-migration.
-- **`get-help-card.tsx`** — renders the shortlist (name · first service · distance/city · link to `/v/[slug]`) above the escalation CTA; falls back to the escalation-only copy when no one opted in. Threaded server-side: `day-of page → DayOfModeGrid → GetHelpCard` (computed only while `dayOfActive`, best-effort).
-- **Vendor opt-in** — `vendor-dashboard/profile`: a new "I can take same-day & day-of jobs" checkbox (soft-probed read mirroring `social_feature_opt_out`; written in `saveVendorProfile`'s payload). Default off.
-
-Why the tier gate (`tier_state <> 'free'`): only paid vendors surface — their names are always visible (free+verified names stay masked until first chat reply per the hybrid-anonymity doctrine) and they have skin in the game.
-
-`tsc --noEmit` + `next lint` + migration-timestamp guard all green.
-
-SPEC IMPACT: implements `Event_Lifecycle_Menu_Design_2026-06-16.md` §4 ("Get help") + §10 PR5. Logged in corpus `DECISION_LOG.md` (2026-06-16). Remaining lifecycle work: PR6 (recommend-your-vendors + anti-fake stack), admin force-complete + "Move to memories" archive.
-
-## 2026-06-15 · feat(alaala): onboarding "promise" beat — name Alaala at the emotional peak (Lane 1 complete)
-
-Completes **Lane 1** (the narrative spine). Right after the couple commits their love story in onboarding (after `love_preview`, before the practical region/pax/budget questions — the emotional peak), a one-screen brand moment names the pillar and states the guardrail.
-
-- **`apps/web/app/onboarding/wedding/_components/onboarding-shell.tsx`** — new `alaala_promise` screen inserted in `FLOW_IDS` between `love_preview` and `region`; label added to the exhaustive `NEXT_LABEL_BY_ID`; `canContinue` defaults true (a 1-tap brand moment, not a gate). Copy: *"Your day, kept alive."* — "we keep it as your *Alaala*: the moments you'll be too busy to see, the people who can't be there, the stories your guests tell. A living memory, not a frozen album. And we stay out of the way — the day is yours to live; we just quietly remember it."
-
-SPEC IMPACT: None on schema/SKU (onboarding copy + one screen). **Lane 1 (spine) now complete** (Studio hub band + `/our-story` naming + onboarding promise); Lane 2 (a dedicated in-app Alaala hub) next.
-## 2026-06-16 · feat(nav): After-phase menu roster + per-source Galleries hub (Event Lifecycle Menu PR4c)
-
-The lifecycle bottom-nav gains its third roster — the **After** menu, shown once the wedding is closed out (`events.cleared_at` set, or read-side T+24h auto-clear). PR1 shipped Plan↔Day-of; PR4 (4a/4b) shipped the completion handshake; this is the menu that lands the couple in the *memories* phase. Until now `phase === 'after'` fell back to the Plan bar.
-
-- **`apps/web/app/dashboard/[eventId]/_components/customer-bottom-nav.tsx`** — new `buildAfterNavTabs(eventId)` in the SAME file (the lint guard forbids a fork): **Home · Review · Editorial · Galleries**. Home is the Setnayan-mark anchor on the event root (exact match, so the dashboard stays alive as the event's reference home — planning demoted, never deleted; no separate escape needed since Home *is* the dashboard). Review → `/vendors` (the completion-gated per-vendor review tracker shipped in PR4b), Editorial → `/website/editorial` (the living recap), Galleries → the new hub below. `CustomerBottomNav` dispatch now three-way: `dayof → buildDayOfNavTabs`, `after → buildAfterNavTabs`, else the Plan roster.
-- **`apps/web/app/dashboard/[eventId]/galleries/page.tsx`** (new) — the After **Galleries** hub. Does NOT re-implement photo grids: it gathers the owned media sources, each with a **"collecting → ready"** badge (deliveries land over days), and links to the existing per-source surface. Sources: Papic (owned via `eventOwnsPapicSeats`; ready when `papic_photos` + `papic_guest_captures` count > 0 → `/add-ons/papic/recap`, else "collecting" → `/add-ons/papic`), Panood (owned via `resolveAddOnState === 'launch'` → broadcast recording), and the couple's own `events.our_photos` (always shown, never gated → `/website/our-photos`). Couple **or** delegated coordinator; graceful-degrade to 0 on a legacy/missing table.
-- Reuse over reinvent: ownership checks + `resolveAddOnState` + `eventOwnsPapicSeats` + `countEventGuestCaptures` are the same canonical helpers the Day-of launch hub uses. Desktop sidebar stays phase-agnostic (the lifecycle menu is the mobile bottom-nav, matching PR1–PR3).
-
-⚠ **Galleries are PER-PAPIC-SOURCE, not per-vendor** (spec §6/§9.6): `papic_photos` links to a Papic *seat*, not a vendor, and 0009 photo-delivery is event-level — there's no photo→vendor join yet. Per-vendor galleries (release on the completion handshake) wait on that attribution; PR6's anti-fake stack hits the same gap. Kept per-source on purpose.
-
-`tsc --noEmit` + `next lint` + bottom-nav template guard all green.
-
-SPEC IMPACT: completes the After-menu roster from `Event_Lifecycle_Menu_Design_2026-06-16.md` §6 + §10 PR4 ("buildAfterNavTabs, per-source galleries"). Logged in corpus `DECISION_LOG.md` (2026-06-16). Remaining lifecycle pieces: admin force-complete surface + "Move to memories" archive (both net-new §8), PR5 (same-day Get-help), PR6 (recommend-your-vendors).
-## 2026-06-16 · fix(build-3state): remove duplicate "Your anchors" block on the 3-State Build tab
-
-Live verification on a preview (flag on, headless browser logged in as the test couple) showed the Build tab rendering **two** "Your anchors" sections stacked: the new tri-state Date/Budget/Location toggles, then the **legacy** `BuildAnchors` Pin/Flag module immediately below — because `Build3StateControl` reused `<BuildAnchors>` purely as a value editor, but that component drags in its own header + Pin/Flag toggles + "Set" buttons. The result read as broken/doubled (this is what "still not there" was actually showing).
-
-- **Folded value editing into the new `DimensionRow`.** Each Date/Budget/Location row now reveals an inline value editor *only when Locked* (auto-opens when Locked-without-value, per §4), persisting onto the `events` columns via the same `setAnchor` action. Dropped the `<BuildAnchors>` reuse entirely → one unified row per anchor, no duplicate "Your anchors" block. Legacy (flag-off) `BuildAnchors` path is untouched and byte-identical.
-- **Removed the dead `_dim_*` `sr-only` span** (it was `aria-hidden` + `sr-only` = invisible to everyone, but leaked the reserved dimension key as scraped text).
-- Change is entirely within the flag-gated `build-3state-control.tsx`; production (flag off) is byte-identical.
-
-SPEC IMPACT: None — implements `Build_3State_Solver_2026-06-16.md` §4 (Locked dimension resolves to a value) more faithfully than the duplicated-module build; no spec text changes.
+SPEC IMPACT: explore marketplace + the `/venues` SEO directory no longer surface seeded `venue_directory` venues anywhere couple-facing — venues are not a V1 vendor category. The `venue_directory` data + admin tooling remain for a future bookable-venue iteration (V1.2 per the seed-migration note). Logged in corpus `DECISION_LOG.md` (iteration 0015 explore + the venue-directory line). Reversible via git if real curated/bookable venues return.
 
 ## 2026-06-16 · feat(onboarding): reframe the "Your Plan" climax — honest free list + Setnayan AI ₱3,999 keep-card
 
-Owner reassessment of the onboarding plan screen ("define Setnayan AI here … show how much to keep this") plus a corrected free-from-the-start list. The screen was giving the *paid* AI layer away as free and never naming or pricing Setnayan AI.
+Lane 2 of the Alaala embed: the Studio hub (`/add-ons`) is the *store*; this is the *story*. A new couple surface lays out the arc of the day so the couple sees their wedding as one living memory being assembled, not a flat grid of SKUs.
 
-- **Free list corrected (`FREE_TOOL_DRIVERS`).** Removed `Smart vendor matching` (₱4,999) and `Wedding date aligner` (₱1,499) from the "free forever" tally — both are Setnayan AI per the locked AI definition (ranking/scoring/date-aligner = AI, not the free floor). Marketplace *browse* stays free. Added a free **Papic sampler** entry (3 guest seats to taste candid-capture tagging).
-- **Setnayan AI keep-card** replaces the `Keep guiding me — free` toggle on the `plan` screen: defines the AI, lists 3 benefits (vendor matching · deadline timeline · reach-best-matches), shows the catalog price (`pricing.setnayanAi.label` from `platform_retail_catalog_v2` — never hardcoded; degrades gracefully if the row is missing), anchored vs a ₱30k+ coordinator. Primary CTA commits + routes to the existing `add-ons/setnayan-ai` checkout via a new `addonSlugOverride` path threaded through `handleFinish`→`goToDashboard`; "Maybe later" continues free.
-- **`onboarding-pricing.ts`** — `OnboardingPricing` gains `setnayanAi: {price,label} | null`, read by service_code from the live customer catalog (AI isn't an onboarding "pick" key, so it's not in `svc`).
-- **`onboarding.css`** — `.aikeep*` styles in brand tokens (mulberry CTA, gold accents, serif price).
-- `tsc --noEmit` green.
+- **New route `apps/web/app/dashboard/[eventId]/alaala/page.tsx`** — server component, **catalog-driven**: maps the real `ADD_ONS` entries to six memory stages (opening → moment → people → stories → look & sound → kept forever); each chip deep-links into that feature's setup. Header names the pillar + states the guardrail. Calm v2.1, `--m-*` tokens. (Per-event ownership / "watch it fill with real content" is a follow-up; today it's the narrative + the links.)
+- **`apps/web/app/dashboard/[eventId]/_components/customer-nav-config.ts`** — adds an **Alaala** entry (Aperture icon, `key: 'alaala'`, `/alaala`) to the top anchor group → **Home · Studio · Alaala · Explore**. ⚠ IA NOTE: the top group was 3 anchors; promoted to 4 for prominence per the owner "winning piece" directive — **flagged for owner review** (easy to move to a journey group if preferred).
 
-Does NOT flip the global `SETNAYAN_AI_PAYWALL_ENABLED` flag — AI stays free-to-try until the owner flips it (the "flip-time" go-live). The card + checkout work either way. Known follow-up: the free `Reach my best matches` auto-inquiry card below the keep-card is now redundant and folds into the AI entitlement at flip-time.
-
-SPEC IMPACT: onboarding plan-screen now presents Setnayan AI as the ₱3,999 paid keep (per 2026-06-07 pricing lock + 2026-06-08 AI definition) and corrects the free-tier value list (adds the free Papic sampler concept). Logged in corpus `DECISION_LOG.md`. The free Papic sampler **entitlement + 3-seat/8-photo+2-clip caps + 30-day retention** is a separate follow-up PR (PR2).
-## 2026-06-16 · feat(nav): wire the ADMIN doorway to the registry (consumption PR 4)
-
-Fourth consumption of the nav/icon/menu registry — the **admin doorway** (sidebar ~55 items + 6-tab bottom nav) now sources each item's **label + icon from the admin registry** (`admin.sidebar.*` + `admin.bottom-nav.*` slots), falling back to the hardcoded defaults. **Visually identical today** (override table empty → defaults; verified every admin sidebar item + bottom tab matches its registry default, all 54 admin icons in the curated allowlist). Admin nav has no role-gating, so the overlay applies directly.
-
-- **`apps/web/lib/nav-registry-defaults.ts`** — two coverage fixes so all 55 sidebar items have a slot: renamed `admin.sidebar.token-sales` → `admin.sidebar.token-purchases` (the actual item key) and added `admin.sidebar.menus` (the "Menus & icons" entry added with the foundation PR; Shapes icon).
-- **`apps/web/app/admin/_components/admin-sidebar.tsx`** — `applyAdminRegistry(groups, navSlots)` overlays label + `navIconComponent(icon)` per item via `admin.sidebar.<key>`; hidden slot drops the item; neutral `ADMIN_NAV_GROUPS` + shared SidebarSection/SidebarItem untouched.
-- **`apps/web/app/admin/_components/admin-bottom-nav.tsx`** — same overlay over the 6 tabs (keys match slot suffixes 1:1).
-- **`apps/web/app/admin/layout.tsx`** — resolves `getNavSlotMap()` server-side, passes `navSlots` to both.
-- **`apps/web/app/admin/_components/admin-bottom-nav.tsx`** (bonus, from the review) — closed 3 pre-existing mobile active-tab gaps (orphan-prevention): added `/admin/pakanta` to the Work tab and `/admin/menus` + `/admin/recaps` to the More tab so those routes light the right tab on mobile. (`demo-mode` is already covered by the `/admin/settings` prefix; `my-account` → `/dashboard/profile` is outside the admin doorway.)
-
-`pnpm typecheck` + `pnpm lint` green. All three dashboards (customer · vendor · admin) are now registry-driven. Deferred: `_overview-tile.tsx` ICONS map (admin landing tiles — a separate tile-icon system). NEXT: PUBLIC marketing nav (label-only), then group-heading slots + the ESLint guard.
-
-SPEC IMPACT: None — behavior-preserving wiring. Logged in memory `project_setnayan_nav_icon_menu_registry`.
-## 2026-06-16 · feat(journal): free printable wedding-checklist article + downloadable planner PDF (top-of-funnel)
-
-Owner directive: publish a Journal article that gives DIY / physical-checklist couples a printable wedding checklist, offers it as a download, and promotes the free in-app living checklist as the guided alternative.
-
-- **`apps/web/lib/blog.ts`** — new featured article **"A free, printable wedding checklist for Filipino couples"** (`/blog/free-printable-wedding-checklist-philippines`, category `planning`). Explains why a checklist is the DIY couple's backbone, makes the case for a printable one, lays out a (non-overlapping) 18-month→day-of countdown, and promotes the **free** in-app living checklist as "the paper planner, kept current for you" (recomputes deadlines from the date, auto-ticks as you book, jumps to the right vendor). Pinned as the index hero (the prior featured planning article was un-featured — one-line revert). Deliberately does NOT mention paid Setnayan AI — sells the free funnel without muddying the paywall.
-- **New `download` BlogBlock variant** (lib/blog.ts) + renderer (`app/blog/[slug]/page.tsx`) — a proper download button (`<a download>`, mulberry brand button, `Download` glyph) for static `/public` assets; reusable beyond this article.
-- **Assets** — `public/blog/checklist-cover.webp` (Recraft-generated editorial flat-lay, 249 KB, on-brand) + `public/blog/setnayan-wedding-checklist.pdf` (the 15-page designed printable planner, 226 KB).
-- **Adversarial review (8-agent workflow) → 2 confirmed fixed / 3 refuted:** (MED) overlapping timeline buckets (12/9/6/4/2 appeared in two stages each) → made non-overlapping; (LOW) three stacked terminal CTAs → moved the marketplace CTA up, dropped the duplicate, article now ends on the "Set na 'yan." sign-off with the free-checklist promo as the climax. Refuted (correctly): the PDF already carries a 2025–2026 market-estimate disclaimer (no Setnayan SKU prices — public-hygiene clean), the 18-vs-12-month framing is compatible with the sibling article, and the excerpt renders clean under the meta cap (trimmed anyway for card consistency).
-- `tsc` + `next lint` + retired-string guard + production build all green; article in the blog sitemap.
-
-SPEC IMPACT: iteration 0038 (Editorial/Journal) — new planning article + a reusable download block. Free-downloadable-checklist + free-vs-paid-guidance positioning logged in corpus `DECISION_LOG.md`.
-## 2026-06-16 · feat(papic): free Papic sampler — 3 seats, 8 photos + 2 clips each, 30-day retention
-
-Owner-locked (2026-06-16): let a couple TRY Papic free so they experience the claim→shoot→tag→gallery loop, then convert to the paid pass. Built as a thin entitlement on the EXISTING Papic web pipeline (seat claim + web capture + QR tagging all already shipped) — no rebuild.
-
-- **Migration `20270103000000_papic_free_sampler.sql` (APPLIED TO PROD, ledger recorded — statement-by-statement, not a blind `db push`, vs the in-flight 20270102000000 collision).** `paparazzi_seats.is_free_sampler BOOLEAN` + `papic_photos.expires_at TIMESTAMPTZ` (NULL = permanent; partial index) + RPC `papic_provision_sampler(event_id)` — couple/admin-gated, idempotent, ONE sampler per event, 3 seats at seat_index 101–103 (own range, never collides with the paid pass's 1–5).
-- **Caps + retention in `recordSeatCapture`** (`app/papic/actions.ts`): sampler seats enforce 8 photos + 2 clips per seat (5-sec clip cap unchanged) and stamp `expires_at = NOW()+30d`. Sampler captures SKIP wall ingest + FaceBlock (it's a private try, not the day-of wall); NSFW screen still always runs.
-- **Cron-free retention** (`lib/papic-retention.ts` + `r2Delete` in `lib/r2.ts`): a bounded (25), event-scoped, best-effort sweep deletes expired sampler R2 bytes + rows in `after()` on the crew page. Can never touch paid photos (filters on a non-null past `expires_at`). An R2 lifecycle rule on the media bucket is the optional long-tail byte hardening (owner infra).
-- **Couple surface:** crew page (`…/add-ons/papic/crew`) now serves the sampler when the event has no paid pass — provision CTA, the 3 claim links + QR, per-seat caps, and the "kept 30 days · connect Drive or upgrade to keep forever" framing. Papic page gained a "Try Papic free first" link for non-owners. `provisionPapicSampler` action mirrors `provisionPapicSeats`. **Never Drive-gated** — capture works without Drive; connecting Drive (existing storage_target/oauth path) is the "keep forever" escape.
-- `lib/papic-seats.ts`: `PAPIC_SAMPLER_*` constants + `fetchPapicSamplerSeats` (and `fetchPapicSeats` now scopes to paid seats only). `tsc --noEmit` green.
-
-Free entitlement only — NEVER zeroes the paid PAPIC_SEATS ₱2,999. Known follow-ups (deferred): T-7/T-1 expiry warning emails (need a scheduled trigger — out of the cron-free path), an admin cross-event abuse surface (1/event is enforced per-event by the RPC), and wiring real sampler photos into the couple gallery grid (still mock — sampler shots show on the capture surface today).
-
-SPEC IMPACT: new free Papic sampler in iteration 0012 (Papic) + the free-tier (couple website / Papic taste) in Pricing.md. Logged in corpus `DECISION_LOG.md`.
-
-## 2026-06-16 · feat(std-reveal): preview the opening reveal in the website editor — the "studio" surface (PR3a)
-
-The couple can now **see and pick** their opening reveal from the dashboard — no published-slug / production-URL gymnastics. Follows PR1 (#1525 foundation) + PR2 (#1541 veil). Owner: *"i cannot see our page… this should be on studio?"* — yes; the reveal lives with the wedding website it opens, so its home is the website editor.
-
-- **`apps/web/app/dashboard/[eventId]/website/_components/reveal-preview-card.tsx`** (new) — an **"Opening reveal"** card in the website editor. **Preview the veil** / **Preview the envelope** → plays the real reveal full-screen over a sample of the couple's own Save-the-Date card (their monogram · name · date); lift / open it to uncover the card, then Replay / Close. Reuses the exact `[slug]` reveal components (`FourFlapEnvelope` + lazy `VeilReveal`) — so the preview is exactly what guests get. three.js stays code-split.
-- **`apps/web/app/dashboard/[eventId]/website/page.tsx`** — adds `event_date` to the events select; renders the card beneath the website hero.
-
-`tsc --noEmit` 0 errors · `next lint` clean (verified locally).
-
-Next: PR3b — persist the couple's chosen template + wire `veilColor` from the Mood Board (ivory default for now); add the crown + curtain veil modes.
-
-SPEC IMPACT: 0024 Save the Date — in-dashboard reveal preview/chooser (the studio surface) for the design-locked reveal. Corpus `DECISION_LOG.md` row appended.
-
-## 2026-06-16 · feat(nav): wire the VENDOR doorway to the registry (consumption PR 3)
-
-Third consumption of the nav/icon/menu registry — the **vendor doorway** (sidebar + bottom nav) now sources each item's **label + icon from the admin registry** (`vendor.sidebar.*` + `vendor.bottom-nav.*` slots), falling back to the hardcoded defaults. **Visually identical today** (override table empty → defaults; verified all 36 vendor slot defaults match the code labels+icons exactly, and all 24 vendor icons are in the curated allowlist).
-
-- **`apps/web/app/vendor-dashboard/_components/vendor-sidebar.tsx`** — `applyVendorRegistry(groups, navSlots)` overlays label + `navIconComponent(icon)` per item via its `vendor.sidebar.<key>` slot (item key matches the slot suffix 1:1, no map needed); a hidden slot drops the item. Applied AFTER the role + showRepertoire filters, so role-gating stays in code. The neutral `VENDOR_NAV_GROUPS` const + shared SidebarSection/SidebarItem primitives untouched.
-- **`apps/web/app/vendor-dashboard/_components/vendor-bottom-nav.tsx`** — same overlay over the 6-tab strip; the Home tab keeps `key: 'profile'` (localStorage continuity) but maps to the `vendor.bottom-nav.home` slot. Applied after the role filter.
-- **`apps/web/app/vendor-dashboard/layout.tsx`** — resolves `getNavSlotMap()` server-side, passes `navSlots` to both `<VendorSidebar>` + `<VendorBottomNav>`.
-
-Reuses the proven pattern (`navIconComponent` → stable component; BottomNav primitive untouched). `pnpm typecheck` + `pnpm lint` green. Deferred: `vendor.topbar.notifications` + `vendor.payment-options.*` slots. NEXT: admin doorway → public, then group-heading slots + ESLint guard.
-
-SPEC IMPACT: None — behavior-preserving wiring. Logged in memory `project_setnayan_nav_icon_menu_registry`.
-## 2026-06-16 · feat(std-reveal): the trademark bridal-veil reveal — WebGL cloth, code-split behind the flag (PR2/3)
-
-Adds the hero reveal to the Save-the-Date opening: the **Setnayan bridal veil** as a real cloth simulation. Follows PR1 (#1525, the flag + overlay foundation).
-
-- **`apps/web/app/[slug]/_components/reveal/veil-reveal.tsx`** (new) — `VeilReveal`, a sheer tulle veil (three.js Verlet cloth) on a **transparent** full-screen canvas over the invitation, so the page content shows softly through while it's up. Scalloped **filigree-lace hem** (outline star-flowers + picots) + the **gold Setnayan mark** woven in (stays gold while the tulle recolours), fresnel fold-whitening, wind sway. **Drag / scroll up to lift it off** → past a third of the way it completes and fires `onRevealed`; the overlay then removes itself. No-WebGL → reveals immediately (never a gate).
-- **`three` + `@types/three`** added (`package.json` + `pnpm-lock.yaml`). Loaded only inside `VeilReveal`, which `RevealOverlay` pulls via `next/dynamic(ssr:false)` → three.js lands in a **code-split chunk fetched only when the veil mounts**; the main couple-site bundle is untouched.
-- **`reveal-overlay.tsx`** — template registry now switches envelope ↔ veil. Activation: global flag `NEXT_PUBLIC_STD_REVEAL=1` (default off) **or** a per-visit URL override **`?reveal=veil`** (reads `window.location.search` client-side) so the veil can be **previewed on a Vercel preview** without flipping the global flag. `veilColor` prop flows the tulle colour in.
-- **`page.tsx`** — passes `enabled` (= Save-the-Date phase active) + `veilColor`; the overlay decides flag/param/template.
-
-`tsc --noEmit` 0 errors · `next lint` clean (verified locally — worktree has node_modules this time).
-
-Next: PR3 — dashboard template chooser + content editor; + wire `veilColor` from the couple's Mood Board palette (currently ivory default) and add the crown + curtain veil modes.
-
-SPEC IMPACT: 0024 Save the Date — reveal experience design-locked in `0024_ADDENDUM` §1a; this lands the WebGL veil build behind the flag/preview-param. Corpus `DECISION_LOG.md` row appended.
-## 2026-06-16 · feat(admin): stamp the originating platform on orders + show it in /admin/payments
-
-Owner asked for admin visibility into where a purchase comes from (web vs the native app) — the companion to the route-to-web hand-off (#1538).
-
-- **New migration `20270102000000_orders_platform.sql`** (idempotent, **NOT applied — owner `supabase db push`**): adds `orders.platform TEXT NOT NULL DEFAULT 'web'` + a `web|ios|android` CHECK. Existing rows default to `web`.
-- **New `lib/request-platform.ts`** — `getRequestPlatform()` reads the request UA (`SetnayanApp/ios`|`/android`) + the `setnayan-client-type=capacitor` cookie (the same signals the middleware uses); safe outside request scope → `web`.
-- **Stamp at creation:** `submitOrderAction` writes `platform` on every new order — preferring an explicit, validated form hint (so the route-to-web hand-off can later carry the app origin through the external browser via `?checkout_origin=`) else the detected platform.
-- **Admin display:** `/admin/payments` gains a **Platform** stat per order row (Web / iOS app / Android app), reading `order.platform`.
-- **Admin filter:** a Platform filter row (All / Web / iOS app / Android app) on `/admin/payments`, **orthogonal to the existing status filter** (composes with Pending/All — switching one preserves the other). When active the order embed becomes `!inner` + `.eq('order.platform', …)` so only matching orders show. Hidden on the orders-needing-a-quote view.
-
-`tsc` green. **Note on the route-to-web interaction:** once #1538 ships, native buyers pay in the external browser, so the order is created in a web context and stamps `web` unless the hand-off passes the origin hint — the `platform` form-field plumbing for that is already in place here; wiring the hint into the #1538 hand-off is the small follow-up. Migration → no auto-merge.
-
-SPEC IMPACT: order-origin telemetry (web/ios/android) surfaced in admin; DECISION_LOG.
-
-## 2026-06-16 · feat(nav): wire the CUSTOMER sidebar to the registry (consumption PR 2)
-
-Second consumption of the nav/icon/menu registry. The customer **desktop sidebar** (the 6 journey groups → items) now sources each item's **label + icon from the admin registry** (`customer.sidebar.*` slots), falling back to the hardcoded default. **Visually identical today** (override table empty → every slot resolves to its code default — verified all 16 items' default label+icon match the config exactly, and all 16 icons are in the curated allowlist).
-
-- **`apps/web/app/dashboard/[eventId]/_components/customer-sidebar.tsx`** — `applyRegistry(groups, navSlots)` overlays registry label + `navIconComponent(icon)` per item via a `SIDEBAR_SLOT_KEYS` map (item key → `customer.sidebar.*`); a hidden slot drops the item. The neutral `buildCustomerNavGroups` builder stays untouched + server-safe (overrides applied in the client sidebar). Items with no slot yet (the "Checklist" auto-step) pass through unchanged. GROUP heading labels + the day-of roster slots remain deferred follow-ups.
-- **`apps/web/app/dashboard/[eventId]/layout.tsx`** — passes the already-resolved `navSlots` to `<CustomerSidebar>` (reuses the same `getNavSlotMap()` the bottom nav uses).
-
-Reuses the bottom-nav pattern (`navIconComponent` → stable component; the shared SidebarSection/SidebarItem primitives untouched). `pnpm typecheck` + `pnpm lint` green. NEXT: vendor → admin → public, then group-heading slots + the ESLint guard.
-
-SPEC IMPACT: None — behavior-preserving wiring. Logged in memory `project_setnayan_nav_icon_menu_registry`.
-## 2026-06-16 · feat(checklist): sync the wedding checklist to our services — jump-to-category + auto-complete from real state
-
-Made the in-app checklist *do* something (owner: "Book your caterer will make them jump to find caterer" → "Both — jump + auto-complete"). Two halves, no migration.
-
-- **Jump-to-category.** `checklistItemHref` (lib/checklist.ts) now sends each booking task to `…/vendors?tab=shortlist&open=<tile>` — the Find tab with that category's folder pre-expanded — instead of the generic collapsed list. Tiles mirror `PLAN_GROUPS` catalogTile (caterer→catering, photo→photo_video, hmua, coordinator, florist, host_mc, live_band, photo_booth, lights_sound, bridal_car, cake, reception). `ShortlistCategories` gained an `initialOpenTile` prop (server-seeds the open folder/tile, falls back to the collapsed default for normal visits); `vendors/page.tsx` threads `searchParams.open`. Vendor tasks with no single tile (tastings, follow-ups) keep the plain `/vendors`.
-- **Auto-complete (two-way sync).** New `lib/checklist-autocomplete.ts` maps structural facts → satisfied `template_key`s (reusing `PLAN_GROUPS` + `CONFIRMED_VENDOR_STATUSES`, the same definition the home Wedding Roadmap uses). `reconcileChecklistCompletion` (checklist-actions.ts) reads event state — confirmed vendors by category, budget, guests, seating tables, schedule blocks, palette, custom monogram, received paperwork — and flips matching **pending** tasks to done. Deterministic, never un-checks, never blocks the render.
-- **Adversarial review (16-agent workflow) → 5 confirmed findings fixed, 6 refuted:**
-  - **(HIGH) auth:** seed + reconcile write via the admin client (RLS-bypassing), but the render fires for *any* event member. Added a **couple-membership gate** (mirrors `couple_writes_checklist`) so only a couple's render mutates the list; guests/vendors/coordinators still READ it via RLS.
-  - **(MED) perf:** reconcile no longer runs on every render — it's gated on there being an open, auto-completable task left, and the UPDATE is narrowed to (satisfied ∩ still-open candidates) so it never issues a no-op write. Once everything's auto-done, the 6 signal reads stop firing.
-  - **(MED) over-mapping:** reception-music narrowed to `band_dj` only (a ceremony string-quartet/choir no longer wrongly completes "Book your reception music"; ceremony musicians stay manual). Regression test added.
-  - **(MED) bridal car:** `transportation` is the only enum value for car/shuttle/misc transport — accepted as working-as-titled ("Book your bridal car / transportation") and documented.
-  - **(LOW) tab-revisit re-spring:** documented + deferred (a persistent-mount fix on the shared takeover isn't worth the regression risk for the nicety).
-- **Tests:** +9 (auto-complete mapping incl. the band/DJ narrowing + the deep-link href). 22/22 pass · `tsc` + `next lint` + bottom-nav/retired guards + production build all green.
-
-SPEC IMPACT: deepens the checklist↔marketplace + checklist↔planning connections (architect mandate). Logged in corpus `DECISION_LOG.md` (iteration 0016/0021/0006).
-## 2026-06-16 · feat(nav): wire the CUSTOMER bottom nav to the registry (first consumption PR)
-
-First wiring of the nav/icon/menu registry into live chrome. The customer mobile bottom nav (the flat 6-tab bar: Home · Guests · Explore · Studio · Design · Budget) now sources its **label + icon per tab from the admin registry**, falling back to the prior hardcoded values. **Visually identical today** (the override table is empty → every slot resolves to its code default); editing a `customer.bottom-nav.*` slot on `/admin/menus` now changes the live bar.
-
-- **`apps/web/lib/nav-registry-defaults.ts`** — added the 4 missing bottom-nav slots (`customer.bottom-nav.{guests,explore,studio,budget}`, icons Users/Compass/Sparkles/Wallet) so all 6 tabs have a slot; bumped `design`'s sortOrder so the admin area lists in tab order.
-- **`apps/web/lib/nav-registry-types.ts` + `nav-registry.ts`** — `NavSlotLite` + `getNavSlotMap()`: a serializable `slot_key → {label, icon, isHidden}` map for passing server→client (cached via NAV_REGISTRY_TAG, fails open to defaults).
-- **`apps/web/app/_components/nav/nav-icon-component.tsx`** (new) — `navIconComponent(descriptor)` resolves a registry icon to a STABLE component (lucide name → component · SetnayanMark → inline mark · uploaded image → cached `<img>` wrapper). This is why **`BottomNav` itself is untouched** (the lint-enforced, "unbreakable" primitive) — it still renders `<Icon className strokeWidth style aria-hidden />` exactly as before; the press-grow `transform` even applies to custom images.
-- **`apps/web/app/dashboard/[eventId]/_components/customer-bottom-nav.tsx`** — tabs now take `navSlots`; each tab looks up `customer.bottom-nav.<key>` for its label+icon (fallback = prior hardcoded), and a hidden slot drops its tab. `href` + `activeMatch` stay in code (routing, not naming).
-- **`apps/web/app/dashboard/[eventId]/layout.tsx`** — resolves `getNavSlotMap()` server-side, passes it to `<CustomerBottomNav>`.
-
-Verified all 6 default icons resolve (no silent Circle fallback). `pnpm typecheck` + `pnpm lint` green. NEXT: customer sidebar, then vendor/admin/public.
-
-SPEC IMPACT: None — behavior-preserving wiring. Logged in `DECISION_LOG.md` (registry program) + memory `project_setnayan_nav_icon_menu_registry`.
-## 2026-06-16 · feat: Event Lifecycle Menu PR4b — completion-handshake UI (vendor mark-complete ↔ couple confirm/dispute)
-
-Makes PR4a's handshake schema usable: the **vendor marks the service complete → the couple confirms received** (unlocking the review) **or reports a problem** (a non-delivery dispute that freezes the gate). No migration — consumes the PR4a columns.
-
-- **`apps/web/lib/completion-handshake.ts`** (new) — `reviewState(completion, eventDate)` → `reviewable | awaiting_confirm | disputed | awaiting_vendor`, mirroring the read-side review-gate RLS (M=7d/N=30d/legacy) so the UI and DB agree. Pure/reusable.
-- **Vendor side** — `vendorMarkServiceComplete` action (`vendor-dashboard/clients/[eventId]/actions.ts`): verifies the caller's profile owns the `event_vendors` row, stamps `service_marked_complete_at` + `completion_status='vendor_marked'` (admin client, idempotent), and notifies the couple (`review_request`). A **completion card** on the vendor event brief shows the state (mark-complete → "waiting on the couple" → "confirmed" / "reported a problem").
-- **Couple side** — `coupleConfirmReceived` + `coupleReportNonDelivery` actions (`review/actions.ts`). The review page now branches on `reviewState`: `awaiting_confirm` → a **"Did you get everything?"** banner (confirm unlocks the review + galleries; report freezes it; auto-confirms after 7 days); `disputed` → an on-hold state; `awaiting_vendor` → the (reworded) not-yet state.
-
-`tsc` + `next lint` green. **Reuses** the existing review page/actions, the vendor brief, `emitNotification`. PR pending (branch `claude/lifecycle-pr4b-handshake-ui`, auto-merge).
-
-SPEC IMPACT: None on pricing/SKUs. Implements §6.1 (the handshake interaction) of `Event_Lifecycle_Menu_Design_2026-06-16.md`. Next: PR4c (the After menu roster + Editorial/Galleries, into the Alaala hub).
-
-## 2026-06-16 · fix(reviews)+feat: Event Lifecycle Menu PR4a — completion-handshake schema + review-gate bug fix
-
-The data + RLS core of the After-phase completion handshake (§6.1), and a fix for a **pre-existing review-gate bug**. Migration-only (the vendor mark-complete + couple confirm/dispute UI + the After menu land in PR4b).
-
-- **`supabase/migrations/20270101000000_vendor_completion_handshake.sql`** (new · **applied to prod**):
-  - **BUG FIX (security/correctness):** `vendor_reviews_couple_insert`'s `EXISTS` was **not correlated to the vendor being reviewed** — so the moment *any one* vendor on an event was `delivered`/`complete`, the couple could review *every* vendor. The rewrite correlates on `ev.marketplace_vendor_id = vendor_reviews.vendor_profile_id`.
-  - **Handshake schema** on `event_vendors`: `service_marked_complete_at` (vendor), `customer_confirmed_received_at` (couple), `completion_disputed_at`, `completion_status` (`awaiting_vendor` → `vendor_marked` → `confirmed`/`auto_confirmed`/`disputed`, CHECK-constrained).
-  - **Hybrid gate (read-side, no cron · guardrail §11.5):** a review unlocks on explicit confirm OR **M=7d** customer auto-confirm after the vendor marks complete OR **N=30d** vendor auto-complete after the event (anti-gaming) OR the legacy `delivered`/`complete` path. An open **dispute** (`completion_status='disputed'`) freezes the gate.
-  - **Backfill:** legacy `delivered`/`complete` rows → `completion_status='confirmed'` so live events don't regress (their reviews stay unlocked, now per-vendor-correct).
-
-**No regression:** the existing couple-`delivered` flip (`updateVendorStatus`) still unlocks reviews via the legacy branch — now correctly vendor-scoped. Migration **applied to prod before merge** (no-drift `db push`). Migration-timestamp guard green.
-
-SPEC IMPACT: None on pricing/SKUs. Implements §6.1 data + guardrails §11.3 (vendor-scoped review) + §11.5 (read-side timers) of `Event_Lifecycle_Menu_Design_2026-06-16.md`. Adds `event_vendors` completion columns. PR pending (branch `claude/lifecycle-pr4a-handshake`, auto-merge).
-
-## 2026-06-16 · feat(nav): Event Lifecycle Menu PR3 — Wrap-up / clearance gate (Day-of → After)
-
-Third PR. Introduces the **event-level clearance** that flips the lifecycle phase Day-of → After (§6.2, distinct from the per-vendor handshake in PR4), plus the derived `after` phase the menu hangs off.
-
-- **`supabase/migrations/20261231020000_event_clearance.sql`** (new · **applied to prod**) — `events.cleared_at` + `cleared_by_user_id` (audit-only; events RLS unchanged).
-- **`apps/web/lib/day-of-mode.ts`** — `getLifecyclePhase(eventDate, clearedAt): 'plan' | 'dayof' | 'after'`. `after` = explicitly cleared OR past T+24h (**auto-clear evaluated read-side**, no cron — per the locked cron-free rule); `dayof` = `isEventDayActive` (live ‖ post) and not cleared; else `plan`.
-- **`apps/web/app/dashboard/[eventId]/clearance/{page,actions}.tsx`** (new) — the `/clearance` close-out: a checklist (stop the livestream · freeze the wall into the recap · close check-in — links to wind each down) + a single **"Close out the day"** action that stamps `cleared_at`/`cleared_by_user_id`. Couple OR delegated coordinator; the write goes through the admin client **after** a membership check + is idempotent (`.is('cleared_at', null)`).
-- **`customer-bottom-nav.tsx` + `layout.tsx`** — the bottom-nav prop becomes `phase` (was `isDayOf`); the layout computes `getLifecyclePhase(event_date, cleared_at)` server-side and threads it (Planning escape now shows on `dayof`). `cleared_at` added to the layout event select. The `after` roster lands in PR4; until then `after` shows the Plan bar.
-- **`page.tsx`** (event home) — the day-of grid gate moves from `isInDayOfWindow` → the lifecycle phase (`=== 'dayof'`), so an **evening reception** (which lands in `post`) finally gets the day-of grid (guardrail §11.1), and the grid hides once the day is cleared. **`grid.tsx`** gains a "When the day winds down, close it out" CTA → `/clearance`.
-
-`tsc`, `next lint`, `lint:botnav`, migration-timestamp guard all green. Migration **applied to prod** before merge (no-drift `db push`, only this migration pending). PR pending (branch `claude/lifecycle-pr3-clearance`, auto-merge).
-
-SPEC IMPACT: None on data/pricing/SKUs. Implements §5/§10 (PR3) + honors guardrails §11.1 (`isEventDayActive` gate) + §11.5 (read-side time-flip, no cron). Adds `events.cleared_at` — note in iteration 0031 (day-of) if the corpus is reconciled.
-## 2026-06-16 · feat(build): vendor re-quote nudge — budget-miss, reply-gated, flag-dark (Build 3d-C)
-
-The 3-state Build's Auto resolution (`runBuild3State`) now invites a QUOTED vendor it turned away **on budget** — but who still passes date + location — to send a fresh proposition, as a Setnayan **system message in that vendor's chat thread**. Opportunity-framed, **budget number withheld**, CTA → `/vendor-dashboard/proposals`. Entirely behind `BUILD_3STATE_ENABLED` (default OFF) — with the flag off `runBuild3State` returns before resolution, so **no nudge can ever fire**. Does NOT depend on Setnayan AI (fires for both the cheapest-fit AI-off and compat AI-on Auto paths).
-
-- **`apps/web/lib/build-3state.ts`** — `resolveBuildPicks` now additionally returns `budgetRejected` (`BudgetRejectedVendor[]`): quoted vendors an Auto row left unpicked **only** because their quote exceeded the remaining budget. Purely additive — `picks`/`clearGroupIds`/`unfilledAuto` are byte-identical, so the shipped solver behaviour is unchanged. A single-pick group that filled has **no** budget miss (the pricier ones were out-ranked, not turned away); an unfilled single-pick surfaces all its over-budget quotes; a multi-pick surfaces over-budget quotes even when other slots filled. A date/location miss never reaches the quoted set → SILENT by construction.
-- **`apps/web/lib/build-requote-nudge.ts`** (new) — the PURE gate/throttle core. `selectNudgesToSend` enforces the owner-locked throttle: **ONE nudge per (event, vendor, plan_group)**; a pending un-replied nudge opts the service out; the vendor must **REPLY** (a vendor message after the nudge's `sent_at`) before it re-arms. `buildRequoteNudgeBody` is the copy — English, opportunity-framed, never prints the budget number.
-- **`apps/web/app/dashboard/[eventId]/vendors/build-3state-actions.ts`** — `runBuild3State` fires the nudge **fire-and-forget via Next `after()`** so `[Build]` is never slowed or failed by it. `fireRequoteNudges` (admin client) resolves each budget-rejected vendor → its open (`accepted`) chat thread, applies the reply-gated throttle, posts the `sender_role='system'` message, and upserts the `build_requote_nudges` throttle row. Never throws; degrades silently pre-migration.
-- **`apps/web/lib/chat.ts`** + **`apps/web/app/_components/chat-message-stream.tsx`** — `ChatSenderRole` gains `'system'`; the stream renders a system message as a centered Setnayan note (not "from the couple"/"from the vendor"). `'system'` deliberately does not trip the `sender_role='vendor'` name-reveal trigger.
-- **`supabase/migrations/20270101010000_build_requote_nudge.sql`** (new · **APPLIED to prod** via `supabase db push`) — `ALTER TYPE public.chat_sender_role ADD VALUE 'system'` + the `build_requote_nudges` throttle table (`UNIQUE(event_id, vendor_profile_id, plan_group_id)`, RLS-enabled with no policies → service-role only). Additive + flag-dark. Timestamp `20270101010000` chosen to clear a parallel-session collision (another session's `20261231020000_event_clearance` + the `20270101000000_vendor_completion_handshake` ledger entry, both since merged + reconciled).
-- **Tests:** `apps/web/lib/build-3state.test.ts` (+5 cases for `budgetRejected`) and `apps/web/lib/build-requote-nudge.test.ts` (new, 13 cases for the gate/throttle + copy guardrails). Full unit suite 209 green; `tsc` + `next lint` clean.
-
-SPEC IMPACT: None on pricing/SKUs. Implements §7 of `Build_3State_Solver_2026-06-16.md` (the re-quote nudge). Corpus `DECISION_LOG.md` row to be appended noting the nudge build landed flag-dark with the throttle/reply-gate + `chat_sender_role='system'`.
-
-## 2026-06-16 · feat(nav): Event Lifecycle Menu PR2 — Day-of Services launch hub + Get-help card
-
-Second PR of the Event Lifecycle Menu. The Day-of "Services" tab now points at a real **unified launch hub**, and the day-of grid gains a **Get-help** escalation card.
-
-- **`apps/web/app/dashboard/[eventId]/launch/page.tsx`** (new) — the day-of Services hub: one place to START every owned live service with its day-of verb — **Panood "Go live"** (`/add-ons/panood/broadcast`), **Live Wall "Open the wall"** (`/live`), **Papic "Hand out seats"** (`/add-ons/papic/crew`) — plus a quiet "Add" upsell for anything not yet owned. Ownership read with the **canonical per-service checks** (reuse, not reinvent): `event_software_activations_v2` (`LIVE_WALL`, the /live page's own gate) · `resolveAddOnState().state === 'launch'` (Panood) · `eventOwnsPapicSeats()` (Papic). Couple OR delegated coordinator (mirrors `/live` + `/guests/checkin`).
-- **`apps/web/app/dashboard/[eventId]/_components/customer-bottom-nav.tsx`** — re-points the Day-of **Services** tab from the PR1 interim `/add-ons` to `/launch`.
-- **`apps/web/app/dashboard/[eventId]/_components/day-of-mode/get-help-card.tsx`** (new) + **`grid.tsx`** — adds a **Get-help** card to the `DayOfModeGrid` (the escalation floor: routes to `/help` if a vendor no-shows or the couple needs a hand). PR5 adds the same-day nearby-vendor shortlist above this escalation. (Broadcast already lives in the grid.)
-
-No migration (all ownership state lives in existing `orders` / `event_software_activations_v2`). `tsc`, `next lint`, `lint:botnav` all green. PR pending (branch `claude/lifecycle-pr2-dayof-contents`, auto-merge).
-
-SPEC IMPACT: None on data/pricing/SKUs. Implements §4/§10 (PR2) of `Event_Lifecycle_Menu_Design_2026-06-16.md` — the day-of command-center contents the Plan↔Day-of swap (PR1) reveals.
-
-## 2026-06-16 · feat(std-reveal): Save-the-Date reveal foundation — flag-gated four-flap envelope on the couple website (PR1 of 3)
-
-Build foundation for the Save-the-Date "reveal" experience (the opening animation that uncovers the couple's invitation). Design-locked across `0024_ADDENDUM_envelope_open_experience_2026-06-14.md` (7-template library · trademark veil RSVP · craft constants · colour-only customization). This PR lands the integration scaffold + the first template, **flag-off**.
-
-- **`apps/web/app/[slug]/_components/reveal/reveal-overlay.tsx`** (new) — `RevealOverlay`, the opening layer mounted over the Save-the-Date lifecycle phase. **Progressive enhancement:** renders nothing on the server / before mount, so a guest without JS (or pre-hydration) sees the content directly — the reveal is a delight layer, never a gate. Once opened it removes itself so the page underneath is fully interactive. Template registry is a switch so the WebGL veils + curtain drop in behind the same contract.
-- **`apps/web/app/[slug]/_components/reveal/four-flap.tsx`** (new) — first template: the rigid **four-flap envelope**, pure CSS 3D (four edge-pinned triangular flaps fold open to the corners; wax-seal "tap to open" cue). **No WebGL dependency** → stays inside the guest-site bundle / Lighthouse budget. Styled entirely with the moodboard-recoloured Tailwind tokens (`cream/mulberry/terracotta/ink`) that `app/[slug]` already overrides per event via `buildSitePaletteVars`, so it recolours automatically at ₱0.
-- **`apps/web/app/[slug]/page.tsx`** — mounts `<RevealOverlay>` in both the anonymous (PublicLanding) and signed-in (InvitationSite) paths, gated by **`NEXT_PUBLIC_STD_REVEAL` (default off)** — zero effect on the live site until the full library + chooser ship. Adds a `revealMonogram()` helper (couple initials for the seal).
-
-Next: PR2 adds the WebGL veils + curtain lazy-loaded behind the same flag (code-split so the main bundle stays clean); PR3 the dashboard template chooser + content editor.
-
-Verification: typecheck/lint deferred to CI — the fresh worktree's `pnpm install` was not run this pass (borrowed `node_modules` from the base checkout didn't resolve under pnpm's layout). Required CI checks gate the auto-merge.
-
-SPEC IMPACT: 0024 Save the Date. The reveal experience is design-locked in the corpus (`0024_ADDENDUM` §1a). This is the build foundation behind a flag; corpus `DECISION_LOG.md` row appended noting build-PR1 landed.
-## 2026-06-16 · feat(nav): Event Lifecycle Menu PR1 — phase-aware bottom-nav swap (Plan ↔ Day-of)
-
-First PR of the Event Lifecycle Menu (`Event_Lifecycle_Menu_Design_2026-06-16.md`): the customer bottom nav swaps its whole roster while the event is live. The Plan tabs (Home · Guests · Explore · Studio · Design · Budget) step aside for the **day-of command center** — **Now · Check-in · Seats · Services · Schedule**.
-
-- **`apps/web/app/dashboard/[eventId]/_components/customer-bottom-nav.tsx`** — new `buildDayOfNavTabs(eventId)` (5 operable destinations, all already existing: Now=event root, Check-in=`/guests/checkin`, Seats=`/seating`, Services=`/add-ons` *interim until PR2's unified launch hub*, Schedule=`/schedule`). `CustomerBottomNav` gains an `isDayOf` prop and dispatches between the Plan roster and the Day-of roster. Slot 1 stays the Setnayan mark (the event root already becomes the live "Now" view), relabelled "Now". Lives in the same file (lint guard `lint:botnav` requires delegation to the canonical `<BottomNav>` — green).
-- **`apps/web/app/dashboard/[eventId]/layout.tsx`** — computes the phase **server-side** via `isEventDayActive(event.event_date)` (live ‖ post, **NOT** `isInDayOfWindow` — an evening reception lands in `post` and must still get the Day-of bar) and passes `isDayOf` down (no client `Date.now()`, no hydration flash). Adds the **Planning escape** — a day-of-only top-bar link to `/more` (the existing planning launcher), kept *outside* the bar so it never collides with the "Now" tab on the active-state.
-
-Mobile-only (the bar is `lg:hidden`; desktop uses the sidebar). `tsc`, `next lint`, `lint:botnav` all green. **Reuses** the canonical `BottomNav` (auto-scales 5/6 tabs identically) + the shipped `isEventDayActive` + `/more` — no new primitives, no migration. PR pending (branch `claude/lifecycle-pr1-menu-swap`, auto-merge).
-
-SPEC IMPACT: None on data/pricing/SKUs. Implements §2/§4/§10 (PR1) of `Event_Lifecycle_Menu_Design_2026-06-16.md` — the phase-dispatch primitive every later phase (Wrap-up, After) hangs its menu off. Honors guardrail §11.1 (gate on `isEventDayActive`).
-## 2026-06-16 · feat(build): named Save-As builds → Compare (flag-dark, relax-migration)
-
-Adds free-form **NAMED** saved builds to the 3-state Build's Compare tab, replacing the fixed A/B/C 3-slot cap. Everything is gated by `BUILD_3STATE_ENABLED` (default OFF): with the flag off, the Compare save bar is the existing A/B/C slot picker + `Plan {label}` titling — **byte-identical to today** — and the new named action fails soft (it also self-guards on the flag). A build becomes identified by `build_id` + a free-form `title`; the couple types a name to save a **new** build, or picks an existing one to **overwrite**. New pure logic (`normalizeBuildTitle`/`displayBuildTitle`/`sortSavedBuilds`/`planSaveAs`) is unit-tested; a stale overwrite target fails soft to create so a save is never dropped.
-
-- **`supabase/migrations/20261231010000_budget_builds_named.sql`** (new — **NOT applied**; operator applies after review) — RELAX-ONLY/additive: drops `budget_builds.label` NOT NULL + the `('A'|'B'|'C')` CHECK, and replaces the full `(event_id,label)` UNIQUE index with a **partial** unique index scoped to `label IS NOT NULL` (legacy A/B/C `onConflict event_id,label` upserts keep working; named rows with `label NULL` are uncapped). Adds `(event_id, created_at)` ordering index. Existing rows untouched.
-- **`apps/web/lib/named-builds.ts`** (new) — pure helpers (title normalize/cap, display title with `Build N` fallback, A/B/C-then-named sort, create-vs-overwrite decision).
-- **`apps/web/lib/named-builds.test.ts`** (new) — 13 unit tests.
-- **`apps/web/app/dashboard/[eventId]/vendors/build-actions.ts`** — adds `savePlanBuildNamed` (flag-guarded; create new `label NULL` row OR overwrite by `build_id`); widens `SavedPlanBuild.label` to `BuildSlot | null` + optional `created_at`.
-- **`apps/web/app/dashboard/[eventId]/vendors/_components/build-compare.tsx`** — `named` prop; flag-on renders the Save-As name input + overwrite selector and sorts/titles columns via the pure helpers; flag-off path unchanged.
-- **`apps/web/app/dashboard/[eventId]/vendors/page.tsx`** — passes `named={isBuild3StateEnabled()}`; adds `created_at` to the builds SELECT.
-
-`pnpm typecheck` (0 errors) + `pnpm lint` green; 174 unit tests pass (13 new).
-
-SPEC IMPACT: None (flag-dark; Build_3State_Solver_2026-06-16.md).
-## 2026-06-16 · feat(build): Auto-ON compat-engine ranking + marketplace fallback search (flag-dark)
-
-Extends the 3-state Build solver (PR #1522) with the **Setnayan-AI-ON behavior** and the **marketplace fallback**, entirely behind `BUILD_3STATE_ENABLED` (default OFF) — with the flag off, behavior is byte-identical to today (every new path is unreachable, and `resolveBuildPicks` defaults to the unchanged cheapest-fit). **No migration.** Two parts:
-
-1. **Auto-ON ranking.** When the flag is on AND Setnayan AI is active for the event, an Auto row now resolves by RANKING that category's quoted vendors with `lib/compat-score` (reception-anchored distance + reviews + verification + boost) and picking the TOP-ranked that fits the remaining budget — instead of plain cheapest-fit. Cost still GATES (a pick must fit); compat only re-orders the survivors. AI-OFF (flag on) keeps the shipped cheapest-fit unchanged. The pure resolver gained a `rankMode: 'cheapest' | 'compat'` arg (default `'cheapest'`) + an optional hidden `compatScore` on `QuotedVendor`; the compat scores are computed in `runBuild3State` only when AI is active and are **never returned to the client** (sort-only). 7 new unit tests cover the compat branch.
-2. **Marketplace fallback.** When an Auto row can't be filled from the couple's own quotes, the couple can "Find more options": a new server action falls back to a marketplace search on the requirement (reusing the proven `searchCategoryVendors`), returns the TOP 10 (+ "show 5 more") ordered by a **hidden compatibility %** (sort-only — never displayed), as tap-to-add **suggestions** (NOT auto-added / auto-charged; the add reuses `attachMarketplaceVendorToCategory`). Works without AI (coarser sort); AI makes it richer.
-
-Files: `apps/web/lib/build-3state.ts` (rankMode + compat sort, additive), `apps/web/lib/build-3state.test.ts` (+7 compat tests), `apps/web/app/dashboard/[eventId]/vendors/build-3state-actions.ts` (AI gate → rank mode + compat-score read), `apps/web/app/dashboard/[eventId]/vendors/build-3state-fallback-actions.ts` (new — fallback suggestions), `apps/web/app/dashboard/[eventId]/vendors/_components/build-3state-control.tsx` (FallbackPanel under the unfilled list).
-
-SPEC IMPACT: None (flag-dark; Build_3State_Solver_2026-06-16.md)
-
----
-
-## 2026-06-16 · feat(admin): nav/icon/menu registry — foundation (admin-managed source of truth for every menu name + icon)
-
-Owner: *"all icons and namings are there … these will set the source for all the icons and menus on setnayan for all accounts."* Foundation PR for the admin-managed registry that owns the **name (label) + icon** of every menu/route across Setnayan, all account types. Triggered by the Setnayan-AI-vs-Studio shared-`Sparkles` clash. Discovery workflow mapped **176 deduped slots** → `Nav_Icon_Menu_Registry_Design_2026-06-16.md`.
-
-Architecture: **code defaults + sparse DB overrides + resolver.** This PR is **additive — it changes no live behavior** (the existing nav still hardcodes its own icons; `route-meta.ts` was imported nowhere). The live-nav wiring lands in follow-up PRs.
-
-- **`supabase/migrations/20261231000000_nav_slot_override.sql`** (new) — `nav_slot_override` table: `slot_key` PK, `label`, `icon_kind` (lucide|custom|none), `lucide_name`, `custom_url`, `is_hidden`, `updated_at/by`. RLS at create time: **public SELECT** (nav renders everywhere incl. logged-out), **single-admin write** via `is_admin()` (governance: single-admin + audit, owner-locked 2026-06-16). CHECK constraints tie icon_kind→its value. **Must be applied** (`supabase db push`) before edits persist; until then the page renders defaults (resolver fails open).
-- **`apps/web/lib/nav-registry-defaults.ts`** (new, generated) — the **187 slot defaults** (key · scope · area · route · label · icon), the route-meta successor and single in-code source the overrides layer on top of.
-- **`apps/web/lib/nav-registry-types.ts`** (new) — shared types (server + client safe).
-- **`apps/web/lib/nav-registry.ts`** (new, server-only) — resolver: merges defaults + overrides (`COALESCE`), service-role read cached via `unstable_cache` + `NAV_REGISTRY_TAG`, fails open to defaults. `getResolvedNavSlots` / `getNavArea` / `getNavSlot`.
-- **`apps/web/lib/nav-icons.ts`** (new, generated) — curated **257-icon** Lucide allowlist (explicit imports → tree-shaken, instant render, no flash) covering all 94 default icons + a generous picker set, validated against `lucide-react`. Powers both `<DynamicIcon>` and the picker.
-- **`apps/web/app/_components/nav/dynamic-icon.tsx`** (new) — renders a slot's icon descriptor: Lucide glyph · inline custom mark (`SetnayanMark`, currentColor) · uploaded image · none.
-- **`apps/web/app/admin/menus/`** (new) — the `/admin/menus` page + server actions (`setSlotLabel` · `setSlotLucideIcon` · `setSlotNoIcon` · `setSlotHidden` · `resetSlot` · `uploadSlotIcon`→R2) + the grouped editor (scope tabs · search · inline rename · searchable Lucide picker · custom upload · hide · reset). Every write: `requireAdmin` + validated + `admin_audit_log` + `revalidateTag`.
-- **`apps/web/app/admin/_components/admin-sidebar.tsx`** — adds "Menus & icons" (Shapes) to the Platform group.
-
-`pnpm typecheck` + `pnpm lint` green.
-
-SPEC IMPACT: Logged in `DECISION_LOG.md` (2026-06-16 registry program row) + design doc `Nav_Icon_Menu_Registry_Design_2026-06-16.md` + memory `project_setnayan_nav_icon_menu_registry`. No locked-SKU/schema-rename impact (additive infra).
-## 2026-06-16 · feat(vendor): per-service recommended lead time — last-minute START becomes vendor-owned
-
-Owner refinement 2026-06-16 (revises `What_Is_Setnayan_AI_2026-06-08.md` §4): a service's last-minute START is no longer a platform per-leaf guess (`planning_deadlines kind='last_minute_start'`) — it's the **vendor's own per-service RECOMMENDED LEAD TIME** (the normal/comfortable lead for regular effort). The last-minute range is now `[recommended_lead_time → latest-accept cutoff]`, both vendor-declared per service; the existing hard cutoff (`last_minute_end_months`) + optional 0–100% surcharge + AI-only visibility are unchanged. A service with no recommended lead time → no last-minute range → always bookable whenever the schedule permits.
-
-**Dark-by-data:** NULL recommended lead time on every existing row + nothing platform-seeded = today's state → every zone resolves `'normal'` → zero behavior change until a vendor fills one in. The category-wide AI-off-empty rule deliberately stays on the *platform* group START so one vendor's lead time can never black out a whole category.
-
-- **`supabase/migrations/20261231000100_vendor_recommended_lead_time.sql`** — additive nullable `vendor_services.recommended_lead_time_months NUMERIC` (CHECK ≥ 0). **Applied to prod** via `supabase db push`.
-- **`apps/web/lib/last-minute.ts`** — new `resolveLastMinuteStart()` (vendor-first → platform-fallback → null); zone math unchanged.
-- **`apps/web/lib/vendor-services.ts`** — select + type the new column.
-- **`apps/web/app/dashboard/[eventId]/vendors/_actions/category-search.ts`** — START sourced per-service from the vendor's recommended lead time.
-- **`apps/web/app/vendor-dashboard/services/{page.tsx,actions.ts}`** — vendor "Recommended lead time" field + the "honor bookings up to your accept-until date" commitment nudge.
-- **`apps/web/lib/last-minute.test.ts`** — 13 cases incl. dark-by-data.
-
-SPEC IMPACT: revises `What_Is_Setnayan_AI_2026-06-08.md` §4 (platform-START → vendor-owned) — corpus updated + DECISION_LOG row (2026-06-16).
-
----
-
-## 2026-06-16 · feat(build): event_category_build_state table (Phase 3d schema — dark)
-
-The 3-State Solver's foundation (`Build_3State_Solver_2026-06-16.md`, PR 3d-0). New couple-own table `event_category_build_state(event_id, plan_group_id, state ∈ locked|auto|excluded, pinned_vendor_id, set_by)` — one tri-state row per category, consolidating `budget_category_flags` (the Flag marker) + `event_build_picks` (the pinned vendor) into one control. `pinned_vendor_id` holds the Locked taxonomy pick (NULL for the Date/Budget/Location dimension rows, whose value lives on `events`).
-
-Additive + **DARK**: nothing reads it until `BUILD_3STATE_ENABLED` is flipped, so it's a no-op for the live Build. The old tables are NOT dropped — they're retired in a later migration after the flag flip. **Applied to prod via `supabase db push`** (ledger up to date); RLS = 4 couple-own policies (`member_type='couple'`), mirroring `event_build_picks`.
-
-- **`supabase/migrations/20261230000000_event_category_build_state.sql`** — table + index + RLS.
-
-SPEC IMPACT: None new (the corpus already tracks Phase 3d — `Build_3State_Solver_2026-06-16.md` §10/§12 + DECISION_LOG 2026-06-16).
-
----
-## 2026-06-16 · feat(build): 3-state control (Locked/Auto/Excluded) + Reset + Build, behind BUILD_3STATE_ENABLED
-
-The CORE of the Phase-3d Build solver, **flag-dark** (default OFF). Each Build row gets a leftmost tri-state — 🔒 Locked · ⚡ Auto · 👁️ Excluded — replacing the legacy 2-state Flag/Unflag; a bottom bar adds [Reset] (→ all Excluded) and [Build] (resolve every Auto row). Rows = taxonomy categories with ≥1 QUOTED inquiry (`event_vendors.total_cost_php != null`) plus the three always-present dimension rows (Date · Budget · Location). Locked requires a concrete pick — a taxonomy row picks one of its quoted inquiries; the dimension rows reuse the existing anchor value editors. [Build] writes resolved picks to the EXISTING `event_build_picks` table, so Compare/Lock are unchanged.
-
-**Flag-dark invariant:** with `BUILD_3STATE_ENABLED` unset/`false` (default), the new state-table read, toggle UI, Reset, and Build-resolution are ALL unreachable — the page keeps the current `<BuildPins>` slot (2-state `CategoryFlags` + `openCats` sourcing + `computeBuildFromShortlist`) byte-identical. The only production-path edit in `page.tsx` is `const buildSlot` → `let buildSlot`; the entire 3-state branch sits inside `if (isBuild3StateEnabled())`, which short-circuits to a no-op when off (the state query never even runs).
-
-ADDITIVE — no migration. The `event_category_build_state` table already exists in prod (migration `20261230000000`); this PR reads/writes it. Resolved picks go to the existing `event_build_picks`. Honors `isMultiPickGroup` so multi-pick groups (Look/Booths/Prints) keep several picks and single-pick groups never clobber the couple's other picks. Fail-soft (state read → empty map = all Excluded). The pure state→picks resolver `resolveBuildPicks` is unit-tested (11 cases); full `test:unit` 161/161, `tsc --noEmit` + `next lint` green.
-
-- **`apps/web/lib/build-3state.ts`** (new) — the flag (`isBuild3StateEnabled`, default OFF, env-read mirroring `lib/setnayan-ai.ts`), the reserved dimension keys (`_dim_date`/`_dim_budget`/`_dim_location`), the `BuildState` type, and the PURE `resolveBuildPicks(states, quoted, budgetPhp)` resolver (Locked verbatim + cost-reserving · Auto cheapest-quote-that-fits, reusing the OFF-solver logic · Excluded → clear · multi-pick aware · no vendor reuse).
-- **`apps/web/lib/build-3state.test.ts`** (new) — 11 unit cases over `resolveBuildPicks`.
-- **`apps/web/app/dashboard/[eventId]/vendors/build-3state-actions.ts`** (new) — server actions `getCategoryBuildStates`, `setCategoryBuildState` (upsert, `set_by`=auth uid, Locked-requires-pick guard), `resetBuildStates` (delete all → all Excluded), `runBuild3State` (read states+quotes+budget → `resolveBuildPicks` → reconcile `event_build_picks`, multi-pick-safe). Each re-checks the flag and refuses when off.
-- **`apps/web/app/dashboard/[eventId]/vendors/_components/build-3state-control.tsx`** (new) — the trio control (Lock/Zap/EyeOff Lucide icons), the Locked taxonomy picker (that category's quotes), the dimension rows wired to the reused `BuildAnchors` value editors, and the [Reset]/[Build] bar. Save-As is deferred (follow-on flagged PR).
-- **`apps/web/app/dashboard/[eventId]/vendors/page.tsx`** — derives the 3-state `buildSlot` from the already-fetched model ONLY inside the `isBuild3StateEnabled()` branch; flag-off path untouched.
-
-Deferred to follow-on flagged PRs (NOT in this PR): the Auto-ON `compat-score` ranking engine, the marketplace fallback search (top-10/+5, hidden-%), the vendor re-quote nudge, and named Save-As builds.
-
-SPEC IMPACT: None (flag-dark; spec = Build_3State_Solver_2026-06-16.md).
-
-## 2026-06-16 · feat(ai): plain-English "why" alongside the % match
-
-Adds a short human-readable reason line next to the existing "{score}% match" pill on the AI-mode vendor cards, without touching the number or the score math.
-
-- **`apps/web/lib/compat-score.ts`** — new exported pure helper `explainCompatScore(input)` returning an ORDERED array of up to 3 short reason strings, drawn ONLY from dimensions that are a real positive signal (input present AND scores strictly above its neutral baseline, using the SAME sub-functions the score uses). Admit-unknown is preserved: a missing/neutral dimension is omitted, never phrased — so today's host-search inputs naturally yield only distance/reviews/verified and never print "Matches your style" or "Free on your dates" while those dims sit at neutral. Returns `[]` when nothing qualifies.
-- **`apps/web/app/dashboard/[eventId]/vendors/_components/plan-budget-accordion.tsx`** — VendorCardAtom renders `explainCompatScore(...)` as a small `.whyline` subline under the distance line (mono, gold-deep token), shown only in AI mode and only when ≥1 reason qualifies. The `{match.score}% match` pill is untouched.
-
-Additive; no schema/enum/migration; fail-soft (no qualifying reason → renders nothing). The % number is kept exactly where it renders.
-
-SPEC IMPACT: None — additive couple-side UI on top of the existing GATE+SCORE compatibility layer; no spec corpus change.
-
-## 2026-06-16 · feat(ai): Setnayan AI paywall gating (flag-dark) + last-minute empty-state unlock CTA
-
-Two host-search improvements, both **dark by default** — they share the `/add-ons/setnayan-ai` destination. With the `SETNAYAN_AI_PAYWALL_ENABLED` flag OFF (its default) **and** no `last_minute_start` rows seeded (current prod state), there is **zero visible or behavioral change** — every new branch is a no-op until a deliberate owner action (flip the flag and/or seed last-minute data).
-
-- **`…/vendors/_actions/category-search.ts`** — added an optional `isLastMinuteLocked?: boolean` to `CategorySearchResult`, set `true` ONLY in the existing `categoryEmptyForGenericSearch` (§4 edge-#2) branch. That branch already requires a configured `last_minute_start` START + AI-off + a locked-and-close date, so it stays dormant until an admin seeds last-minute config (none in prod).
-- **`…/vendors/_components/category-search-overlay.tsx`** — when that empty state is last-minute-locked, the overlay renders a calm, capability-framed unlock CTA ("Vendors can still take your date — Unlock with Setnayan AI", linking to `/add-ons/setnayan-ai`) instead of the bare "no vendors" copy. Capability framing, never "locked"/"hidden inventory". State defaults false → original copy unchanged.
-- **`…/vendors/build-flags-actions.ts`** — `generateFlaggedVendors` now returns a discriminated `{ ok:false, shouldPurchase:true }` when the paywall is ON and the event hasn't purchased Setnayan AI (via the existing `shouldOfferSetnayanAiPurchase` predicate — owns-but-manual is never re-charged). Flag OFF → returns the exact same `{ ok:false, error }` as before; the `shouldPurchase` key is never present.
-- **`…/vendors/_components/category-flags.tsx`** — routes the client to `/add-ons/setnayan-ai` when `res.shouldPurchase`; otherwise the error-message path is unchanged.
-
-Reuses the existing `SETNAYAN_AI_PAYWALL_ENABLED` flag + `lib/setnayan-ai.ts` helpers + the `/add-ons/setnayan-ai` buy route. The `assistOff` short-circuit of `computeCompatScore` (Part B-a) already existed and is flag-independent — left untouched to preserve the flag-off invariant. Additive; no schema/enum/migration; fail-soft. `tsc --noEmit` + `next lint` green.
-
-SPEC IMPACT: None (flag-dark) — additive couple-side gating behind `SETNAYAN_AI_PAYWALL_ENABLED` (default off) and dormant last-minute data; no spec corpus change.
-
-## 2026-06-16 · feat(build): one-tap log a vendor quote into the build (with couple confirmation)
-
-Vendor-authored quote bridge (host-search improvement #1) — a vendor's quoted ₱ now flows into the couple's Build with one tap + an editable confirm modal, instead of the couple hand-typing it. Additive, no schema; reuses the existing `updateVendorCosts` writer.
-
-- **`apps/web/lib/quote-detection.ts`** (new) — pure, fail-soft detection: a tolerant ₱/PHP/P regex (`detectAmountsInText`), a vendor-only newest-first scanner (`detectAmountsFromVendorMessages`), a calm never-nag-once-matched gate (`shouldOfferQuoteLog`), and a proposal-total→service/transport/food splitter (`splitProposalToCosting`). Advisory only — returns candidates in pesos; never writes.
-- **`…/workspace/_components/quote-bridge.tsx`** (new, client) — the affordance + the money-safety gate: a chat-quote chip and a "Log as service price" proposal action, both opening ONE editable confirm modal. Transport/food pre-fill from the couple's CURRENT stored values (never zeroed); confirm posts to `updateVendorCosts`.
-- **`…/workspace/page.tsx`** — server-side: scans the vendor's recent `chat_messages` (vendor `sender_role` only) + visible `vendor_proposals` (sent/viewed/accepted) for amounts, computes the chip gate, renders `<QuoteBridge>` in the external-vendor Costing section. Every fetch is best-effort (no thread / pre-migration table → no affordance).
-- **`apps/web/lib/quote-detection.test.ts`** (new) — 17 tests: regex tolerance + noise rejection, vendor-only scanning, the never-nag rule, and the split invariant (service + transport + food === total). 17/17 pass.
-
-Money guards: never writes silently (editable modal gate on every path), pre-fills are editable, transport/food seed from current values, detector is advisory. `tsc --noEmit` + `next lint` green; 17/17 unit tests pass. No migration.
-
-SPEC IMPACT: None — additive couple-side UX over existing tables (`event_vendors`, `chat_messages`, `vendor_proposals`) and the existing `updateVendorCosts` writer.
-
-## 2026-06-16 · feat(checklist): the full 18-month wedding checklist — ~90 tasks, a browsable /checklist page, top-up seeding
-
-Turned the static 18-month wedding planner into a live, **free** in-app checklist. The `event_checklist_items` table + computed-offset model (`due_date = wedding_date − offset`, so the whole countdown shifts when the date changes) already shipped (migration `20261224000000`, on prod); this fills it in and gives it a real home.
-
-- **`apps/web/lib/checklist.ts`** — expanded `CHECKLIST_TEMPLATE` from 28 → 91 tasks across the full arc (18 months out → the day of & after; offsets now exceed 365 and go negative for post-wedding tasks). The original 28 keys/offsets are preserved verbatim (no churn for already-seeded couples). Added a `CHECKLIST_PHASES` model + `phaseForOffset()` + `groupChecklistByPhase()` (9 countdown phases, done-items-sink ordering), a shared `checklistItemHref()` deep-link map, and **deterministic ceremony tailoring** via `appliesTo`/`isChurchCeremony` — Catholic-only steps (banns, canonical interview, Pre-Cana, church fee…) are dropped for a civil wedding, kept when ceremony is unset.
-- **`…/[eventId]/checklist-actions.ts`** — `ensureChecklistSeeded` is now a **TOP-UP**: it inserts only the template keys an event is MISSING (diff on `template_key`), tailored to the event's `ceremony_type`. Brand-new events get the whole list; couples seeded under the old 28-item template gain the new tasks on next render without touching their progress or custom rows.
-- **`…/[eventId]/checklist/page.tsx` + `…/_components/checklist/checklist-full.tsx`** (new) — the browsable full checklist: every task grouped by countdown phase, with a progress bar, computed due dates, a one-tap toggle (server action, no client JS), per-task deep-links, and an "add your wedding date" hint when no date is set. Done items sink (stay visible, dimmed).
-- **`…/_components/checklist/checklist-card.tsx`** — the home "Up next" card now links to the full list ("View full checklist (N)") and shares the `checklistItemHref` map (deleted its local copy).
-- **`…/_components/customer-nav-config.ts`** — added **Checklist** as the first item in the Plan journey group (desktop sidebar + mobile bottom-nav accordion).
-- **`apps/web/lib/checklist.test.ts`** — +6 tests (phase mapping, ceremony filtering, done-sink grouping, contiguous phase coverage, every-template-item-maps-to-a-phase). 13/13 pass.
-
-Positioning (owner-flagged): the checklist is **FREE and ungated** — a deterministic, zero-marginal-cost core planning tool, NOT behind the paid Setnayan AI SKU. "Setnayan AI" is the free deterministic personalization (tailors WHICH tasks appear by ceremony); the paid AI later adds proactive nudging/auto-advance. **No migration** (table already on prod). `tsc --noEmit` + `next lint` + production build all green; 13/13 unit tests pass.
-
-SPEC IMPACT: New free couple-facing surface + a free-vs-paid positioning call. Logged in corpus `DECISION_LOG.md` (iteration 0016/0021). Free-vs-paid flagged for owner sign-off in the PR.
-## 2026-06-16 · feat(explore): disclose paid placement + explain anonymized vendor names
-
-The couple-facing category-search overlay floated boosted vendors (`ad_rank` desc) above the review-ranked tier under a bare **"Featured"** badge with no disclosure — couples could read paid placement as a Setnayan/AI recommendation. And Free/Verified vendors render an anonymized placeholder name until their first reply (`name_revealed_at IS NULL`) with no explanation, so the listing read as fake. Both additions are UI-only / additive.
-
-- **`apps/web/app/dashboard/[eventId]/vendors/_actions/category-search.ts`** — added `nameAnonymized: boolean` to `CategoryVendorResult`, computed server-side with the existing `isVendorNameRevealed` gate (same inputs the name resolver already uses; fail-soft `?? null` on every field). Threaded through both result constructions.
-- **`apps/web/app/dashboard/[eventId]/vendors/_components/category-search-overlay.tsx`** — the "Featured" badge now carries a `title` tooltip ("Paid placement … Not an AI recommendation") plus a quiet **"Paid partnership with Setnayan"** subline; anonymized cards show a **"Real name shown after they reply"** subline (only while `nameAnonymized`). New `.disclose` style uses existing `--mono` / `--ink-soft` tokens.
-
-SPEC IMPACT: None (trust/clarity UI; no schema, no pricing, no ranking change — the locked favorites→boosted→reviews→nearest order is untouched). Aligns with [[project_setnayan_vendor_hybrid_anonymity]] + public-surface honesty.
-## 2026-06-16 · feat(chat): show decline reason + allow follow-up / withdraw on stuck inquiries
-
-Unstuck the couple-side inquiry thread so a pending/declined inquiry is no longer a dead end. (1) The declined state now interpolates the vendor's real `chat_threads.decline_reason` ("Why: …") when present, instead of always saying the vendor "isn't available" — the data was already on the thread row but never shown. (2) A pending thread previously hard-disabled the composer after the inquiry; now the couple may send exactly ONE follow-up nudge while waiting, then it re-disables (UI gate + a matching server gate in `sendChatMessage` keyed on prior message count; the vendor accept-gate semantics are untouched). (3) Added an explicit "Withdraw inquiry" action (`withdrawInquiry` server action) that mirrors the couple-own `deleteVendor` remove path — RLS-safe hard delete of the couple's own thread (no `withdrawn` enum value exists, and adding one would be a schema change). (4) The declined-state "See similar vendors" link now deep-links to the matching plan group (`#group-<id>`, via `canonicalServiceToPlanGroupId` on the vendor's primary canonical service) so it lands in the right category instead of a generic list.
-
-- **`apps/web/app/dashboard/[eventId]/messages/[threadId]/page.tsx`** — decline-reason copy, one-follow-up form gate, Withdraw action, category deep-link.
-- **`apps/web/app/dashboard/[eventId]/messages/actions.ts`** — new `withdrawInquiry` action (RLS-safe couple-own thread delete; CASCADE cleans messages/reads).
-- **`apps/web/lib/chat-actions.ts`** — relax the couple pending gate to allow exactly one follow-up (prior count ≥ 2 re-disables); vendor accept-gate unchanged.
-
-SPEC IMPACT: None (additive UX on the existing accept-gate; no schema/enum/migration change — withdraw is a remove, not a new status).
-## 2026-06-16 · feat(shortlist): surface inquiry acceptance + a Waiting-for-quotes strip
-
-Make the couple SEE where each vendor inquiry stands without opening every thread. Three additive, fail-soft surfaces, no schema change:
-
-- **Waiting for quotes (Shortlist top).** A new read-only strip lists the marketplace picks whose inquiry is still `pending` (couple reached out, no acceptance/quote yet), oldest-first, with a "how long it's been waiting" pill — built from the `chat_threads` join the Vendors page already runs (now also selecting `created_at`). Empty → renders nothing.
-- **"Ready to quote" badge (Messages list).** The couple thread list already badged `pending` ("Waiting for reply") + `declined` ("Not available"); added the missing `accepted` case as an emerald "Ready to quote" pill (matches the `inquiry_accepted` notification tone).
-- **Web Push on accept.** Added `inquiry_accepted` to `PUSH_ENABLED_TYPES` — the type already exists in the `NotificationType` enum and is already emitted on accept, so this only opens the push channel (no migration).
-
-- **`apps/web/app/dashboard/[eventId]/vendors/_components/waiting-for-quotes.tsx`** — new presentational strip (Clean Editorial `--m-*` tokens; self-contained fail-soft relative-time label).
-- **`apps/web/app/dashboard/[eventId]/vendors/page.tsx`** — extend the `chat_threads` select with `created_at`, build the oldest-first pending list during the existing enrichment pass, render `<WaitingForQuotes>` atop the Shortlist content.
-- **`apps/web/app/dashboard/[eventId]/messages/page.tsx`** — add the `accepted` badge branch.
-- **`apps/web/lib/notification-emit.ts`** — add `inquiry_accepted` to `PUSH_ENABLED_TYPES`.
-
-SPEC IMPACT: None (additive read-only surfacing + a push-channel allowlist add; no schema/enum/migration). The waiting strip links to the Messages list (the page joins threads by `vendor_profile_id`, not a per-vendor `thread_id`).
-## 2026-06-16 · feat(vendors): show pax surcharge on cards + headcount at inquiry time
-
-Removed two pre-quote blindsides in the Adaptive Pax Pricing flow — both read-only, no schema. (1) **Pax surcharge footnote**: the vendor-confirmed `event_vendors.pax_surcharge_php` (migration `20261211000000`) is already baked into `total_cost_php` but was never shown, so couples locked at a base price then saw a +₱ jump in Costing. Threaded `pax_surcharge_php` / `pax_quote_base` / `cost_basis_pax` through `fetchEventVendors` → `EventVendorRowInput` → `PlanCardPick` → `AccordionPick` and render a quiet "+₱X for Y guests over the Z-guest package" footnote on the vendor card, only when a surcharge applies (all fields nullable → nothing renders otherwise). (2) **Headcount-at-inquiry pill**: `startServiceInquiry` silently snapshots live pax onto `chat_threads.pax_at_inquiry`, but the public-profile `InquiryComposer` never showed it, so a stale estimate could reach the vendor. Resolve `resolveLivePax` server-side (only when the composer shows) and render a read-only "Headcount for this inquiry: N" pill with an Edit link to the guest list. UI-only — the binding snapshot logic in `inquiry-actions.ts` is unchanged (it still re-resolves at submit time).
-
-- **`apps/web/lib/vendors.ts`** — added the 3 pax columns to the `fetchEventVendors` SELECT + `EventVendorRow` type (optional/nullable).
-- **`apps/web/lib/wedding-plan-groups.ts`** — added the 3 fields to `EventVendorRowInput` + `PlanCardPick` + the bucketer's pick build (via `toNum`).
-- **`apps/web/app/dashboard/[eventId]/vendors/page.tsx`** — mapped the fields into `vendorRows`.
-- **`apps/web/app/dashboard/[eventId]/vendors/_components/plan-budget-accordion.tsx`** — compute + render the `.paxnote` card footnote.
-- **`apps/web/app/v/[slug]/page.tsx`** — resolve `inquiryLivePax` (composer-gated) + pass `inquiryPax` / `guestEditHref` to the composer.
-- **`apps/web/app/v/[slug]/_components/inquiry-composer.tsx`** — render the read-only headcount pill + Edit link.
-
-SPEC IMPACT: None (read-only surfacing of already-stored Adaptive Pax Pricing data; no schema/enum/migration change).
-
----
-
-## 2026-06-16 · fix(build): align compute upsert onConflict with the multi-pick PK
-
-The Build "Compute" auto-fill (`computeBuildFromShortlist` in `build-flags-actions.ts`) upserted `event_build_picks` with `onConflict: 'event_id,plan_group_id'` — the table's ORIGINAL 2-column PK. Migration `20261020000000_event_build_picks_multi.sql` widened that PK to `(event_id, plan_group_id, vendor_id)` so the multi-service folders (Look / Booths / Prints) can hold several vendors per category, which left the 2-col conflict target matching no constraint (Postgres 42P10). Aligned it to the 3-col PK, exactly as `build-pick-actions.ts` already does.
-
-Behavior is unchanged on the normal path — compute only fills categories with **no** existing pick (the `pinnedGroupIds` guard), so it inserts one row per empty flagged category and never clobbers a couple's picks; this makes the conflict target schema-correct so the upsert can't error on conflict. Surfaced by the 2026-06-16 host-search improvement audit's "multi-pick data-loss" finding — verified the real mechanism is the stale conflict target, not an overwrite (the `pinnedGroupIds` skip already prevents touching populated groups).
-
-- **`apps/web/app/dashboard/[eventId]/vendors/build-flags-actions.ts`** — `onConflict: 'event_id,plan_group_id'` → `'event_id,plan_group_id,vendor_id'` + an explanatory comment.
-
-SPEC IMPACT: None (correctness fix; aligns code with the shipped `20261020000000` multi-pick schema). Context: `03_Strategy/Host_Search_Improvement_Audit_2026-06-16.md` + `Build_3State_Solver_2026-06-16.md` § 12.
-
----
-
-## 2026-06-16 · feat(icons): Setnayan AI gets its own glyph (Gem) — resolves the shared-Sparkles clash with Studio
-
-Owner: *"setnayan ai gem."* Setnayan AI and Studio (`/add-ons`) were both rendering Lucide `Sparkles`, and Setnayan AI is itself a card *inside* Studio — so parent + child wore the identical icon. Setnayan AI now uses `Gem` everywhere it shows its identity mark; **Studio keeps `Sparkles`.**
-
-- **`apps/web/lib/route-meta.ts`** — `addOns.setnayanAi` icon `Sparkles → Gem` (route-header / breadcrumb registry).
-- **`apps/web/lib/add-ons-catalog.ts`** — the `setnayan-ai` Studio-grid card `Icon: Sparkles → Gem` (the card that sat next to Studio). LED Background card keeps `Sparkles`.
-- **`apps/web/app/dashboard/[eventId]/_components/concierge-banner.tsx`** — DIY banner identity badge → `Gem`.
-- **`apps/web/app/dashboard/(account)/profile/concierge/page.tsx`** — settings page hero + DIY section header + "See pricing" CTA → `Gem`.
-- **`apps/web/app/dashboard/(account)/profile/page.tsx`** — profile "Setnayan AI" link glyph → `Gem`.
-- **`apps/web/app/dashboard/[eventId]/vendors/_components/summary-ai-toggle.tsx`** — "Setnayan AI is on/off" toggle glyph → `Gem`.
-- **`apps/web/app/dashboard/[eventId]/vendors/_components/category-flags.tsx`** — inline "Setnayan AI will…" mark → `Gem`.
-
-Deliberately left as `Sparkles` (not Setnayan-AI identity marks): the pricing "Live" build-status chip, the "All locked" completion pill, and the "pricing loads — refresh" fallback hint. Admin "Setnayan AI brain/abuse" surfaces already use `Brain`/`Flag` (untouched).
-
-Verification: `node_modules` not installed in the fresh worktree, so `tsc`/`next lint` were not run locally — confirmed `Gem` is a valid `lucide-react@1.14.0` export and grep-verified zero dangling `Sparkles` references + every `Gem` user imports it. CI typecheck + lint gate the merge.
-
-SPEC IMPACT: None — cosmetic icon swap. Notable brand decision (Setnayan AI mark = Gem) logged in `DECISION_LOG.md`.
-
-## 2026-06-16 · fix(explore): Shortlist parents now collapse + default to a collapsed overview
-
-Owner: *"we want the parent categories to collapse so we can find the other services faster."* Root cause: the two-level folder→category redesign was built but **never reached `main`** — PR #1504 merged at the FIRST version (folders were always-open headers, so all ~53 categories rendered in one long scroll). The later two-level + size-balance commits landed on the already-merged branch and were orphaned. This lands that redesign (recovered from the orphaned commit) **plus** collapse-by-default.
-
-- **`apps/web/app/dashboard/[eventId]/vendors/_components/shortlist-categories.tsx`** — replaces the always-open folder headers with a **two-level single-open accordion**: parent categories (folders) are now **collapsible**, and **all collapse by default** so the Shortlist opens as a tight list of the ~10 parents — tap one to reveal its categories, tap a category for its vendor carousel. One folder + one category open at a time. Connecting indent rail, plain height/opacity expand (no sticky overlap), and app-balanced sizing (folder header 18px, tighter rows, smaller cards). Find + Add-manually per category unchanged.
-
-`next lint` + `tsc --noEmit` green.
-
-SPEC IMPACT: None — navigation/layout only. Restores the intended two-level Shortlist and makes the parent list the default view (iteration 0021 / Budget-Build takeover). Supersedes the orphaned never-merged redesign.
-
-## 2026-06-16 · feat(admin): per-event-type category scoping — close the "add a type → tailor its taxonomy" loop
-
-Owner: *"build a convenience"* so adding an event type guides you to scope its taxonomy (the two — `/admin/event-types` and `/admin/taxonomy` — otherwise drift, and a new type silently inherits the full wedding-shaped category set).
-
-- **`apps/web/app/admin/event-types/[eventType]/categories/page.tsx`** (new) — a dedicated **per-type scoping screen** reached from the roster. Lists all 10 folders → ~54 categories with a single **Offered / Hidden** toggle *for that one event type* (plus folder-level **Offer all / Hide all**), and a live "Offers X of N categories · universal/tailored" summary. Far faster than hand-editing the multi-type checkboxes on `/admin/taxonomy`.
-- **`apps/web/app/admin/event-types/actions.ts`** — `setTileEventTypeOffered` + `setFolderEventTypeOffered`. They write the SAME `service_categories.applicable_event_types` the marketplace + Shortlist read, with the correct allow-list semantics: hiding a *universal* category materializes "all active types except this one"; re-offering normalizes "covers every active type" back to NULL (universal). Sanitizes to active vocab keys so the validation trigger never rejects, audit-logs every change, and revalidates the marketplace / create-event / taxonomy / vendor surfaces.
-- **`apps/web/app/admin/event-types/page.tsx`** — each roster row now shows **"Offers X of N categories"**, a **"Not tailored"** amber chip when a type still inherits everything, and a **"Scope categories →"** link to the screen above. So a freshly-created type visibly reads "Not tailored · Scope categories →" — the guided prompt. Explainer copy updated (the old "taxonomy picks up new types automatically — no extra step" line was misleading; tailoring IS the step).
-
-No schema change (operates on the existing column via admin actions). `next lint` + `tsc --noEmit` green.
-
-SPEC IMPACT: new admin surface `/admin/event-types/[eventType]/categories` + two scoping actions; makes per-event-type taxonomy tailoring a first-class, discoverable step (Setnayan HQ / iteration 0023). Logged to corpus `DECISION_LOG.md`.
-## 2026-06-16 · fix(guests): day-of check-in "Scan a guest's QR" never opened the camera
-
-Owner report: *"when i click scan guest's qr. no camera went up."* The day-of check-in desk (iteration 0031, `/dashboard/[eventId]/guests/checkin`) acquired the camera but the viewfinder never appeared — the button just flipped back with no error.
-
-- **`apps/web/app/dashboard/[eventId]/guests/checkin/_components/checkin-desk.tsx`** — `startScanner` read `videoRef.current` on the line right after `setScanning(true)`. But the `<video>` element is conditionally rendered (only while `scanning === true`), and a state setter doesn't synchronously mount it, so `videoRef.current` was **still `null`**. The function's `if (!video)` guard then fired, stopped the freshly-granted `MediaStream`, and reset `scanning` to `false` — so the camera permission could flash but no viewfinder ever showed, and no error surfaced. Fix: the click handler now only acquires the decoder + stream and flips `scanning` on; a new `useEffect([scanning, onToken])` binds the stream to the `<video>` and runs the jsQR decode loop **after** React commits the element (the same mount-then-bind pattern `papic-seat-capture.tsx` already uses). Cleanup cancels the rAF loop. `jsqrRef` caches the dynamically-imported decoder between the two.
-
-`tsc --noEmit` + `next lint` green (no new warnings on the file).
-
-SPEC IMPACT: None. Behavior now matches what iteration 0031 already specified (scanner opens a live viewfinder); no data/schema/pricing/SKU change. PR pending (branch `claude/fix-checkin-scanner-camera`, auto-merge).
-
-## 2026-06-16 · feat(event-types): add "Gala Night" to the event-type roster
-
-Owner: *"also add Gala Night."* `event_type_vocab` is the single source for the event-type roster (migration `20261205000000`), so one seed row flows to every consumer — the create-event picker, vendor "event types you serve", the marketplace `?event_type=` filter, and the `/admin/taxonomy` event-applicability checkboxes — with no TS change (`EVENT_TYPES_FALLBACK` is fail-open fallback only; new types are NOT added there by design).
-
-- **`supabase/migrations/20261229000000_event_type_vocab_add_gala_night.sql`** (new) — inserts `('gala_night', 'Gala Night', 13)` with `status='active'`, **`enabled=FALSE`**, emoji `🌟`, description. `enabled=FALSE` means it joins the ACTIVE roster (vendors can pre-tag coverage, the taxonomy can scope categories to it) but does NOT yet show in the couple-side create-event picker — matching how anniversary / graduation / reunion were staged. Flip `enabled=TRUE` from `/admin/event-types` when launching it to couples. Idempotent (`ON CONFLICT DO NOTHING`).
-
-Ledger was clean (in sync through `20261228000213`); applied to prod via `supabase db push` (single pending migration).
-
-SPEC IMPACT: event-type roster gains a 13th type, **Gala Night** (`gala_night`), `enabled=FALSE` until launch. Now selectable as an `applicable_event_types` scope in the admin taxonomy. Logged to corpus `DECISION_LOG.md`.
-## 2026-06-16 · feat(guests): Guests sub-nav becomes the JOURNEY (Build · Invite · Confirm · Seat · Day-of)
-
-Owner direction: the Guests area is a journey, not a pile of tools — and "most is already built, it's a matter of how it's executed." Re-points the (just-shipped) mobile Guests shelf from the four surfaces (`Guests · Seating · Event QR · Hosts`) to the five journey stages, sequencing surfaces that already exist. The desktop "lifecycle ribbon" was already this journey; this brings mobile in line and gives the one missing stage (Invite) a real home.
-
-- **`apps/web/lib/guest-journey.ts`** (new) — single source of truth for the five stages (label · icon · route · active-match): Build→`/guests`, Invite→`/guests/invite`, Confirm→`/guests/claims`, Seat→`/seating`, Day-of→`/guests/checkin`. Plus `activeJourneyKey` (longest-prefix match), `isGuestJourneyPath` (nav visibility), and `isDayOfOpen(eventDate, now)` (the eve→day-after window). Neutral module so the desktop ribbon and the mobile shelf both import it and can't drift.
-- **`apps/web/app/dashboard/[eventId]/guests/invite/page.tsx`** (+ `_components/invite-link.tsx`) (new) — the **Invite** stage's home, which didn't exist (it was only a "Share" dropdown on the list header). One join link + QR (`qrcode` lib, same as event-qr) + copy island + a "requests waiting to confirm" forward-nudge. Couple-only. Join-link shape matches the list page's `fetchJoinUrl`.
-- **`apps/web/app/dashboard/[eventId]/_components/guests-section-subnav.tsx`** — rewritten to render the journey from `lib/guest-journey` instead of the four surfaces; visibility gated to `/guests*` + `/seating*` (so **Event QR** — a crew-pairing tool — and **Hosts** — a team surface — leave the guest nav; both stay reachable from the Home tiles grid). **Day-of is time-gated**: rendered muted until the event window, computed in an effect so SSR/client agree (no hydration flash).
-- **`apps/web/app/_components/nav/sub-nav.tsx`** — additive: `SubNavItem.muted?` renders a dimmed "not yet" item (stays tappable; active item never dims). Backward-compatible — Explore's items don't set it. `lint:botnav` unaffected (keys on `*bottom-nav*` filenames).
-- **`apps/web/app/dashboard/[eventId]/layout.tsx`** — passes `eventDate` to the shelf for the Day-of gate.
-- **`apps/web/app/dashboard/[eventId]/guests/_components/lifecycle-ribbon.tsx`** — desktop ribbon's **Invite** step now points at `/guests/invite` (was the Confirm/claims surface).
-
-`tsc --noEmit`, `next lint`, `lint:botnav` all green. **Deferred to a follow-up:** desktop journey strip on every journey surface (today the ribbon shows on `/guests` only) + live badges in the mobile shelf + aligning the ribbon's Invite "to send" badge to the single-link model. PR pending (branch `claude/guests-journey-nav`, auto-merge).
-
-SPEC IMPACT: None on data/pricing/SKUs. Reshapes the iteration 0021 customer Guests nav from surfaces → a guided journey, with a new dedicated Invite surface (sequences 0001 guest list, 0002 QR invites/claims, 0008 seating, 0031 day-of check-in). Update [[project_setnayan_bottom_nav_canonical]] + DECISION_LOG.
-
-## 2026-06-16 · feat(explore): Shortlist tab → full-taxonomy category browser (faith + event-type scoped)
-
-Owner: *"analyze shortlist and fix its UI/UX … present the different categories completely … show all the categories from taxonomy"* + *"full taxonomy for the event's type. if it covers a religion, show whichever taxonomy it is compatible to"* + *"vertical accordion that collapses; when a category is picked the others collapse … services show as a carousel."*
-
-The Shortlist tab rendered the whole legacy plan-and-budget surface (cover + deadlines + recap + a single-open accordion of the **22 curated planning buckets**, with Officiant + Accommodation silently dropped). It now presents the **complete taxonomy** — all 10 folders → ~53 tiles, the same set the Explore marketplace shows — as a focused category browser.
-
-- **`apps/web/lib/shortlist-taxonomy.ts`** (new, pure) — `buildShortlistFolders()` returns folders → tiles, scoped by **event type** (`passesEventTypeFilter` on the tile's `applicable_event_types`) and **faith** (a tile hides only if every canonical under it is faith-tagged-incompatible — include-only, untagged always shows; unions primary + secondary rite for mixed weddings). Both controls are **admin-taxonomy-driven** (`/admin/taxonomy`), so a debut / tournament / Muslim ceremony each render their OWN category set as those taxonomies are tagged — the Shortlist code routes by event type + faith, no hardcoded per-type list. Reuses the shared `lib/taxonomy-filters.ts` predicates so the Shortlist, marketplace, and category search can't disagree. An exhaustive `VendorCategory ↔ tile` bridge (from `PLAN_GROUPS.catalogTile` + a supplement) attaches considered vendors to their tile (no pick lost) AND resolves a tile → category for "Add manually".
-- **`apps/web/app/dashboard/[eventId]/vendors/_components/shortlist-categories.tsx`** (new) — a **single-open vertical accordion** of categories grouped under folder heads (opening one category collapses the others "to keep them focused"); each open category shows its considered vendors as a **horizontal scroll-snap carousel** (read-only cards → vendor detail). Every category carries BOTH a **"Find"** (marketplace tile) AND an **"Add manually"** (the shared `NewManualVendorModal`) affordance — as rail cards when populated, as a side-by-side row when empty — so every taxonomy category is browsable + manually addable. Pill / rounded / frosted language matches the app nav + `sn-seg` menus; dark-mode + reduced-motion handled.
-- **`apps/web/app/dashboard/[eventId]/vendors/page.tsx`** — the takeover's `shortlistSlot` now renders the taxonomy browser (with the existing Setnayan-AI offer banner above it). Selects `events.event_type`; builds the couple faith set from `ceremony_type` + `secondary_ceremony_type`.
-
-ISOLATION: the Shortlist is now **decoupled from the plan-group lock/build model**. Summary / Build / Compare / Lock keep the unchanged `buildPlanBudgetModel` (plan groups, deadlines, hard-single), and `BUDGET_BUILD_ENABLED=false` still falls back to the legacy `PlanBudgetAccordion` (kill-switch intact). Lock/Build live on their own tabs, so the Shortlist carries none of that machinery — it can't destabilize them.
-
-`next lint` + `tsc --noEmit` green. Best eyeballed on the PR's Vercel preview.
-
-SPEC IMPACT: Surfaces a deliberate reversal to flag — the Shortlist tab now shows the **full taxonomy tiles** rather than the **22 planning buckets** (2026-05-22 directive), and the per-tab deadline/tier planning guidance now lives on Build/Lock only. Faith scoping is the existing include-only filter (not a hard "hide" reversal). Iteration 0021 / Budget-Build takeover.
-## 2026-06-16 · feat(nav): docked Guests-section sub-nav (Guests · Seating · Event QR · Hosts)
-
-Owner: *"create a subnav for guests on customer dashboard."* The flat 6-tab bottom nav (#1500) collapses the whole people-and-day-of cluster behind one **Guests** tab, whose `activeMatch` already enumerates the four sibling surfaces that belong to it (`/guests · /seating · /event-qr · /hosts`). This gives that tab the same subordinate shelf the Explore/Services tab got from the reusable `<SubNav>` (#1503) — so a couple can hop Guests ↔ Seating ↔ Event QR ↔ Hosts without bouncing through the bottom nav.
-
-- **`apps/web/app/dashboard/[eventId]/_components/guests-section-subnav.tsx`** (new) — wraps the reusable `<SubNav>` and wires it to the **router** (unlike the Services takeover's in-page panels: the Guests cluster is four separate routes). `onSelect → router.push`, `activeKey ← usePathname` (four mutually-exclusive prefixes; child routes of the list — `/guests/quick`, `/import`, `/claims`, `/checkin`, `/new`, `/[guestId]` — light the "Guests" item, so the shelf rides along on the guest sub-tools and offers a path back). Self-gates: renders the shelf only while the path is inside the cluster, `null` everywhere else. Item set mirrors the Guests bottom-nav tab's `activeMatch` verbatim → single source of truth with the bar above it. Mounting `<SubNav>` flips the bottom nav to icons-only for free (`useSubNavDocked`).
-- **`apps/web/app/dashboard/[eventId]/layout.tsx`** — mounts `<GuestsSectionSubnav>` once next to `<CustomerBottomNav>` (same place + self-gating pattern as the bottom nav, so it's reachable on every cluster route with zero per-page wiring / no orphans). Tagged the mobile shell-main wrapper with `data-shell-main` for the clearance rule below.
-- **`apps/web/app/globals.css`** — while docked, the component flags `<html class="guests-subnav-docked">`; added a rule giving `[data-shell-main]` extra bottom room (`safe-area + 8.5rem`) on mobile so the floating pill never covers the last rows of scrolling content. Cancelled at `lg` (the pill is `lg:hidden`; desktop uses the sidebar, which already lists all four surfaces).
-
-Mobile-only by construction (`<SubNav>` is `lg:hidden`). `tsc --noEmit`, `next lint`, and `lint:botnav` all green (the shelf is a section sub-nav, not a forked bottom-nav, so the single-source guard stays satisfied). Dock offset + the 8.5rem clearance are geometry-derived from the nav — eyeball on the PR's Vercel preview. PR pending (branch `claude/guests-subnav`, auto-merge).
-
-SPEC IMPACT: None on data/pricing/SKUs. Extends the iteration 0021 customer nav chrome — the docked-`SubNav`-per-tab pattern now covers a SECOND tab (Guests), and for the first time drives **routing** rather than in-page panel state. Update [[project_setnayan_bottom_nav_canonical]] + DECISION_LOG.
-
-## 2026-06-16 · feat(nav): extract a reusable `SubNav` (icon-over-text) + collapse the bottom nav to icons-only while it's docked
-
-Owner follow-ups to the dock-lift below: (1) sub-nav labels go UNDER the icon, not beside; (2) make it a reusable thing — *"we will call this sub nav and make sure this subnav can be created on other pages"*; (3) *"when sub nav shows, the bottom nav shrink and becomes icons only"* → (4) clarified: *"it shrinks in size because the text is lost only. do not shrink the icon."*
-
-- **`apps/web/app/_components/nav/sub-nav.tsx`** (new) — the reusable `SubNav` companion to `BottomNav`. Renders a floating frosted pill docked above the bottom nav (geometry mirrors `NavShell` one size down), **icon-over-text** items, lift reveal (`.subnav-lift`). API: `<SubNav items={{key,label,icon}[]} activeKey onSelect ariaLabel />` — any page whose primary tab owns sub-sections can mount it. Exposes `useSubNavDocked()` backed by a tiny module-level store (count of mounted `SubNav`s) — race-free vs. a fire-and-forget event, so mount order with `BottomNav` doesn't matter.
-- **`apps/web/app/_components/nav/bottom-nav.tsx`** — `BottomNavFlat` reads `useSubNavDocked()`; when a sub-nav is docked, `BottomNavTab` enters **compact** mode: the label row collapses (max-height + fade) and the cell min-height drops ~10px, so the bar gets shorter *because the text is gone* — **the 22px icon is unchanged**. Transitioned, and restores its labels when the sub-nav unmounts. The locked pill / press-light / icon-grow / four `--bn-*` knobs are untouched (the `lint:botnav` template-integrity guard stays green).
-- **`apps/web/app/dashboard/[eventId]/vendors/_components/services-takeover.tsx`** — the inline docked `<nav>` is replaced by `<SubNav items={…} activeKey={tab} onSelect={selectTab} />`. Mounting it on `/vendors` is what flips the bottom nav to icons-only. Desktop top strip + panel clearance unchanged.
-- **`apps/web/app/globals.css`** — renamed the keyframe/class `bb-subnav-*` → generic `subnav-lift` (it's now owned by the shared component), `prefers-reduced-motion` opt-out kept.
-
-Compact-mode is wired into the FLAT nav path (customer/vendor/admin); the accordion path is unused by any live doorway (flat 6-tab nav, #1500) so it's left untouched. `next lint`, `tsc --noEmit`, `lint:botnav` all green. Dock offset (76px above the now-compact nav) + the shrink amount are geometry-derived — eyeball on the PR's Vercel preview.
-
-SPEC IMPACT: None on data/pricing/SKUs. Introduces a reusable `SubNav` nav primitive + a coordinated icons-only mode on the canonical `BottomNav` (extends iteration 0021 nav chrome). Update [[project_setnayan_bottom_nav_canonical]].
-
-## 2026-06-16 · feat(explore): dock the mobile section nav above the bottom nav as a sub-nav, with a "lift" reveal
-
-Owner direction (follow-up to the de-dupe below): *"the blue one will be pinned on top of the bottom nav as its sub nav"* → after comparing reveal styles, owner picked **Lift**. The Explore (Services "Build" takeover) section nav — Summary · Shortlist · Build · Compare · Lock — was a sticky pill at the **top** of the page body on mobile. It now docks at the **bottom**, directly above the global bottom-nav pill, as that tab's contextual sub-nav.
-
-- **`apps/web/app/dashboard/[eventId]/vendors/_components/services-takeover.tsx`**
-  - Mobile section nav: `sticky top-0` → `fixed` floating pill docked above the bottom nav. Geometry mirrors `bottom-nav.tsx` → `NavShell` so it reads as the nav's subordinate shelf: `inset-x-[14px]`, frosted `--m-paper-2 @ 92%` + the same soft shadow, fully rounded, `z-20` (a hair under the nav's `z-30`). Bottom offset = `calc(env(safe-area-inset-bottom) + 84px)` = nav offset (12) + nav height (64) + 8px gap.
-  - Reveal: `bb-subnav-dock` plays the **lift** keyframe **once on mount**. Entering `/vendors` is what mounts the takeover, so the lift fires on *section entry* and never re-fires when switching sub-tabs (client state, no remount) — exactly the "don't bounce on every nav" rule. Starts 16px lower + faded, behind the nav, so it appears to rise out of the dock.
-  - Tab panel: added `pb-[calc(env(safe-area-inset-bottom)+40px)] lg:pb-0` so the last content clears the docked pill (which floats over content) on top of the layout's own `pb-20`. Desktop is untouched — the top strip (`hidden lg:block`) still owns lg+, the docked pill is `lg:hidden`.
-- **`apps/web/app/globals.css`** — added the `@keyframes bb-subnav-lift` (opacity 0 + `translateY(16px)` → rest, 200ms decelerating ease, `both` fill) and the `.bb-subnav-dock` class, with a `prefers-reduced-motion: reduce` opt-out. Grouped with the `.sn-seg` rules.
-
-`next lint`, `tsc --noEmit`, and `lint:botnav` all green. (The docked element is a section `sn-seg` sub-nav, not a forked app bottom-nav, so the bottom-nav single-source guard is satisfied.) Visual confirm is on the PR's Vercel preview — the dock offset (84px) and panel clearance (40px) are geometry-derived from the nav and best eyeballed on a real phone.
-
-SPEC IMPACT: None on data/pricing/SKUs — a mobile layout + interaction change to the Explore section nav (iteration 0021 / Budget-Build takeover). The section nav is now docked bottom chrome with a lift reveal rather than a sticky top strip.
-
-## 2026-06-16 · fix(explore): duplicate Services tab strip on mobile (Summary · Shortlist · Build · Compare · Lock rendered twice)
-
-Owner screenshot (Explore page): the 5-tab section nav rendered **twice** on phones — a full-label bar that overflowed the viewport (clipping "Lock") stacked directly above the truncated sticky pill ("Su…", "Sho…", "Co…").
-
-Root cause: a CSS specificity collision. `.sn-seg { display: flex }` (globals.css) and Tailwind's `.hidden` (`display: none`) are both single-class selectors (equal specificity), so `.sn-seg` wins on source order. The **desktop** tab strip in `services-takeover.tsx` put the responsive toggle directly on the `.sn-seg` element (`className="sn-seg mb-4 hidden lg:flex"`), so `hidden` never actually hid it — the desktop strip leaked onto mobile, stacking under the sticky mobile pill (whose `lg:hidden` correctly sits on a plain wrapper, not on `.sn-seg`).
-
-- **`apps/web/app/dashboard/[eventId]/vendors/_components/services-takeover.tsx`** — wrapped the desktop `.sn-seg` strip in a plain `<div className="mb-4 hidden lg:block">` so the show/hide toggle no longer lives on the `.sn-seg` element. Mirrors the working mobile-strip pattern below it. Now exactly one section nav renders per breakpoint (sticky pill < 1024px, top strip ≥ 1024px). No other surface hit the collision — the only other `sn-seg*` + responsive-utility combo (`schedule-mode-toggle.tsx`) uses `flex-*`/padding utilities, not a `display` toggle.
-
-This is a live-prod bug: the Services "Build" takeover is on by default (`BUDGET_BUILD_ENABLED`), so every couple saw the doubled bar on mobile. `next lint` + `tsc --noEmit` green.
-
-SPEC IMPACT: None — pure layout/CSS bug fix; no behavior, route, pricing, or SKU change.
-
-## 2026-06-16 · feat(nav): customer bottom nav → flat 6-tab bar (Home · Guests · Explore · Studio · Design · Budget)
-
-Owner-locked 2026-06-16, resolving a long "how do I fit all 6 menus so it's *all there*" exploration (accordion → mother/osmosis → settled on structure over animation). With six real destinations there's nothing to reveal in the bar — each tab navigates to its page, and the page surfaces its own sub-features as cards. No accordion, no "More", no overlay.
-
-- **`apps/web/app/dashboard/[eventId]/_components/customer-bottom-nav.tsx`** — replaced the journey-group accordion (`<BottomNav menus={…}>`) with six flat tabs via the canonical flat `items` path: **Home** (the Setnayan brand mark IS this tab · exact-match on the event root), **Guests** (+ seating/event-qr/hosts light it), **Explore** (`/vendors`), **Studio** (`/add-ons` — Papic/Panood/Patiktok/… hub), **Design** (new hub), **Budget** (+ disputes). Each tab's `activeMatch` enumerates its child routes so the right tab stays lit on any sub-page. Reuses the locked pill/press-light/icon-grow treatment verbatim.
-- **`apps/web/app/dashboard/[eventId]/design/page.tsx`** (new) — the **Design hub**: cards out to Website (`/site-editor`), Mood Board (`/add-ons/mood-board`), and Monogram (`/monogram`), which were otherwise scattered with no single home. Same launcher pattern as the Studio/add-ons hub.
-
-The accordion machinery in the shared `bottom-nav.tsx` primitive is left in place (now unused by any doorway) for a later cleanup. Desktop sidebar + mobile-landing still render the legacy journey groups — aligning them to these six is the fast follow. `lint:botnav` + `next lint` + typecheck green.
-
-SPEC IMPACT: customer mobile primary nav restructured to 6 flat tabs (iteration 0021); new `/dashboard/[eventId]/design` hub route. Supersedes the journey-group accordion + the mother/osmosis explorations.
-
-## 2026-06-15 · fix(nav): accordion bottom-nav stays open on tap + hinge keeps its logo (no back-chevron)
-
-Owner: *"when I click on a button I don't want my bottom nav to reset. I want it to stay where the icon is pressed"* and *"if I click on Setnayan, the logo stays and not a back button — then the icons get pushed out while the submenu is pushed in."* Two coupled accordion fixes.
-
-- **`apps/web/app/_components/nav/bottom-nav.tsx`**
-  - **Stay open:** removed the auto-collapse-on-route-change effect (`setOpen(null)` on `pathname`) and replaced it with a keep-open effect — tapping a child navigates AND keeps its section expanded, so the traveling pill glides to the freshly-active child instead of the bar snapping back to the six menus (e.g. *Setnayan → Home* now stays on the Setnayan section with Home lit). The open state persists naturally (the bar lives in the dashboard layout, not remounted across in-section nav). Safeguards: clears any stale animation lock from a fast nav, and follows the active menu if an on-page link jumps to a *different* section. Primary mode stays primary — navigation never auto-opens a section the user didn't tap.
-  - **Logo hinge:** the open menu's hinge (slot 0) now KEEPS its own glyph — the Setnayan logo — instead of swapping to a `ChevronLeft` back-arrow. It still toggles the section closed on tap (rendered in ink as the anchor; `aria-expanded`/`aria-label` updated). The existing expand choreography is unchanged and already reads as "other icons pushed out, submenu pushed in": the hinge glides to the left corner, the other top menus slide off-edge, and the children cascade in from behind the corner. Removed the now-unused `ChevronLeft` import.
-
-Reuses the locked bottom-nav template verbatim (pill/press-light/icon-grow); `lint:botnav` + `next lint` + the isolated-file typecheck all green.
-
-SPEC IMPACT: interaction change to the customer accordion bottom nav (iteration 0021) — sections are sticky-per-session (reversing per-visit collapse) and the section hinge shows the menu's logo rather than a back-chevron.
-## 2026-06-15 · chore(for-vendors): remove the fabricated "₱18,400/year saved" figure (factual numbers only)
-
-Owner "use factual numbers only" → "then continue." Final fabricated number on the page was the constructed "Average PH vendor saves ₱18,400/year" estimate (no real data — just a sum of competitor tool subscriptions). Removed all 3 user-facing instances in `stack-close-vendor.tsx`, kept the (true) consolidation message:
-
-- Intro paragraph: "Average PH vendor saves ₱18,400/year on subscriptions alone" → "one login, free to start."
-- BEFORE-stack footer: "{N} tools · ~₱18,400/yr in subs" → "{N} tools · separate logins, separate bills."
-- AFTER-card stat: "₱18.4K / saved / year" → "1 login / for everything."
-- Footnote: "Estimated tool-subscription savings · your current stack may vary" → "One dashboard instead of the stack below."
-
-The other numbers flagged by the sweep are not user-facing (₱499/wk, ₱1,200/wk, ₱32,487, ₱71,487 are all in code comments) or already handled by the hero PR ([#1473](https://github.com/iscasasola/setnayan-platform/pull/1473): the "42 vendors / 23 in verification" stats + the "84 weddings" testimonials claim).
-
-`tsc --noEmit` green. SPEC IMPACT: None — removes a fabricated marketing figure. With this, every user-facing number on `/for-vendors` is now either a real DB price/spec or a true claim (0%, ₱0). Logged to corpus `DECISION_LOG.md`.
-
-## 2026-06-15 · fix(theme): `burgundy` was an undefined color — primary buttons rendered invisible on 9 surfaces
-
-Owner: *"the editor is fixed?"* — investigating turned up a real, pre-existing bug. After the Clean Editorial rebrand (CTAs → **mulberry**), the old `burgundy` color was **removed from `tailwind.config.ts` and `globals.css` but never deleted from the components**. So `bg-burgundy` / `text-burgundy` / `border-burgundy` were **dead classes** that resolved to nothing — primary buttons rendered with a transparent background (invisible / white-on-white).
-
-Affected (all using `burgundy`): the **editorial editor** + its page, the **living-hero studio** + page, the **hero-photo editor**, mood-board library editor, panood setup, wedding-attire guide, and the explore vendor-badge row — **9 components**, several already shipped.
-
-Fix — one line at the root: aliased **`burgundy` → the canonical Mulberry CTA** in `tailwind.config.ts` (`DEFAULT`/`600`/`700` → `--color-mulberry*`). The `<alpha-value>` placeholder covers every `burgundy/NN` opacity variant in use (`/5 /10 /20 /40 /50 /90`), so all nine surfaces render with one change and zero per-component churn.
-
-Verified: the editorial editor's **Publish** button computed background is now `rgb(92, 37, 66)` (#5C2542 Rich Mulberry) instead of transparent; the screenshot shows mulberry toggles + buttons throughout. `tsc` green; dev build renders. Prefer `mulberry` in new code — the `burgundy` slot is back-compat only.
-
-SPEC IMPACT: None (theming bug fix; the Clean Editorial palette is unchanged). Logged to corpus `DECISION_LOG.md`.
-## 2026-06-15 · fix(editorial): mobile dateline — Share flanks Vol·No, date centered (no orphaned Share row)
-
-Owner (mobile screenshot): *"fix placements on mobile version."* On phones the masthead `EditionLine` collapsed `flex-col items-center`, so its three parts stacked into three centered lines — `Vol. I · No. 3`, then `City · Date`, then **Share on its own full row** — re-introducing exactly the "share takes a whole row" the inline-share change removed on desktop.
-
-- **`editorial-content.tsx` `EditionLine`** — split into two responsive layouts: desktop (`sm+`) keeps the single `Vol·No · City·Date · Share` row; mobile (`< sm`) puts **`Vol·No` (left) and `Share` (right) on one flanking row** with the **date centered just below**. So Share stays compact in the dateline furniture and the date reads as the prominent line. Verified on a 390px viewport (Jack & Jill sample).
-
-SPEC IMPACT: None (responsive layout fix). Logged to corpus `DECISION_LOG.md`.
-## 2026-06-15 · feat(editorial): the editor opens PRE-FILLED with the couple's onboarding-derived content
-
-Owner: *"the editorial is dependent on the information placed in the editor; the initial information there is the onboarding information gathered; but they can still change it."* A 3-agent trace confirmed the dependency exists (the editorial auto-composes from onboarding — names → headline, archetype → eyebrow, years/date/venue/tone → sub-headline, guest message → pull-quote — and the editor's `draft_json` overrides + section toggles drive the render) **but** found the gap: the editor page read **only `draft_json`**, so its fields were **blank** until the couple typed — it never *showed* them their onboarding content to edit.
-
-- **`…/website/editorial/page.tsx`** — now runs `loadEditorialData(eventId)` + `composeCopy()` and pre-fills each field with the couple's **current composed copy** (their override on top of the onboarding default): eyebrow, headline, sub-headline, pull-quote, byline. `composeCopy` already prefers a saved override, so an edited field shows the edit and an untouched one shows the auto-written-from-onboarding value. Best-effort (falls back to raw draft if it can't compose). "Your story" stays the couple's own (the editorial body intentionally drops the auto love-narrative — that lives on the run-up paths), so it's never pre-filled.
-- Copy updated (page + "The words" helper): *"These are written from your wedding details. Edit anything — or clear a field to let us rewrite it."* — clearing a field still deletes the override (`saveEditorial`) so it reverts to the dynamic auto-default.
-
-Net: open the editor and you **see your own front-page story already written from onboarding**, ready to tweak — and the editorial stays dependent on onboarding for anything you don't change. `tsc` + `next lint` clean. (Live click-through still pending the Chrome extension connecting.)
-
-SPEC IMPACT: iteration 0046 — the editorial editor's initial field values are the couple's onboarding-derived composed copy (editable; clear-to-revert). Logged to corpus `DECISION_LOG.md`.
-
-The `build (macos-latest)` desktop job had been failing every PR (non-required, so merges still went through). Root cause: the job set `APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}`, and with no such secret GitHub resolves it to an **empty string** — which `tauri build` treats as "a cert is present" and runs `security import` on nothing → `failed to import keychain certificate`. (A malformed `APPLE_CERTIFICATE` secret set 2026-06-14 was deleted first; the empty-string fallback then surfaced this second failure.)
-
-- **`.github/workflows/build-desktop.yml`** — removed the job-level `APPLE_*` signing `env:` block so the vars are **unset** (not empty). `tauri build` now skips cert import and the existing ad-hoc signing step produces an unsigned `.app`/`.dmg` → green. Documented how to re-add the env (gated on the secret existing, never empty) when a real Developer ID cert is configured for signed/notarized distribution.
-
-Context: owner has no Apple Developer ID cert installed (`security find-identity` → 0 identities) and the desktop app is not a launch blocker (web-first V1). Signed Mac distribution is deferred.
-
-SPEC IMPACT: None (CI infrastructure only).
-
-## 2026-06-15 · fix(for-vendors): vendor prices were rendering without the ₱ sign (missing peso glyph)
-
-Found while verifying the mobile tier-switcher (previous entry) on prod: the live `/for-vendors` matrix showed Pro/Enterprise as "**6,000 / 28d**" / "**10,000 / 28d**" — no peso sign — while Free/Verified showed "₱0". The new mobile price banner made it glaring.
-
-Root cause in **`apps/web/lib/v2-catalog.ts` `getVendorPrices()`**: `formatPeso(n)` returns the **number only** (callers prepend `₱` themselves — see lines 293/296). But `getVendorPrices` built its display strings with bare `formatPeso(n)` on the DB path while its *fallbacks* included `₱`. So in production (DB populated), every vendor price string came back sign-less: `proMonthly:"6,000"`. The RSC payload on prod confirmed it.
-
-Fix: the `fmt`/`save` helpers and `tokenUnit` now wrap with `` `₱${formatPeso(n)}` ``, so the display strings always carry the peso sign — matching the fallbacks and the hardcoded "₱0".
-
-Audited every consumer before fixing at the source: matrix (desktop + mobile banner), `stack-close-vendor`, `vendor-hero`, `how-it-works` (EN + TL), `for-vendors/page.tsx` metadata + JSON-LD descriptions, and the `FAQ` answer — **all render the fields bare**, so none double the sign. The schema.org Offer `price:` fields use the separate numeric `p.num.*`, so structured-data prices stay sign-free (correct). Verified: no `₱{...}` / `₱${...}` prepend exists anywhere for these fields.
-
-`tsc` + `next lint` clean; production build green.
-
-SPEC IMPACT: None — display-only currency-symbol fix; no price values changed. Pre-existing bug (not introduced by the tier-switcher). Logged to corpus `DECISION_LOG.md`.
-
-## 2026-06-15 · fix(editorial): masthead Volume follows the awards cycle (Nov 18 → Nov 17), not the calendar year
-## 2026-06-15 · docs(editorial): lock the rule — the editorial date is the WEDDING date, never the publish date
-
-Owner: *"the date on the editorial will not be the date published but the date of their wedding."* A 6-agent audit (5 surface auditors + an adversarial leak-hunter) confirmed this is **already** how every user-visible surface behaves — masthead dateline, lead paragraph, OG share card, and index cards all derive from `events.event_date` (via `eventDateFormatted` / `eventDateLabel` / `monthYear`). The only `publishedAt`/`published_at`/`generated_at` uses are non-visible (JSON-LD `datePublished`/`dateModified`, sitemap `lastmod`, sorting) — where the publish date is correct/expected. **No leak found.**
-
-Change is a regression guard only: a comment at `editionCenter()` (`editorial-content.tsx`) stating the owner rule so a future edit can't silently swap the dateline to a publish/generated/created date.
-
-SPEC IMPACT: iteration 0046 — codifies "editorial date = wedding date (events.event_date), never the publish date; publish date is meta-only." Logged to corpus `DECISION_LOG.md`.
-
-Owner: *"November 18 to November 17 of the next year. So Volume I is November 18, 2026 to November 17, 2027."* The Setnayan awards cycle — not Jan–Dec — defines the edition year.
-
-- **`editorial-content.tsx`** — new `editionVolume(eventDate)`: the edition year runs **Nov 18 → Nov 17**; Vol. I = the Nov-18-2026 cycle, Vol. II = Nov-18-2027, … A December wedding starts a Volume; the following June is still that Volume. Clamped to ≥ I (the inaugural edition covers anything before the first cycle's start). Replaces the calendar-year `year − 2025`.
-- **`editorial/data.ts`** — the `No.` count window now starts on the cycle's **Nov-18** (not Jan 1), so `No.` is the wedding's position within its awards cycle.
-
-Verified boundary: `2027-11-17 → Vol. I`, `2027-11-18 → Vol. II`. The 5 samples (early-2026 dates) clamp to **Vol. I · No. 1–5** as before. `tsc` + `next lint` clean.
-
-SPEC IMPACT: iteration 0046 — the editorial masthead Volume = the Setnayan awards cycle (Nov 18 → Nov 17; Vol. I = 2026-11-18 → 2027-11-17). Supersedes the same-day calendar-year edition (#1488). The awards-cycle rule is otherwise undocumented in the corpus — logged to `DECISION_LOG.md` as the canonical definition.
-
-Owner: *"the price table doesn't work well on mobile. what can we do?"* — and picked the **tier switcher** option.
-
-The `/for-vendors` deep-dive comparison matrix is a fixed 5-column grid (Capability + Free + Verified + Pro + Enterprise) across 8 sections / ~35 feature rows. Its only small-screen handling was `overflow-x: auto` + `min-width: 760px`, so on a ~380px phone it became a **760px-wide sideways scroll**: Pro/Enterprise (the columns we sell) sat off-screen and the price header scrolled away after a few rows. The section also hardcoded `padding: '120px 56px'` with no mobile override.
-
-- **`app/for-vendors/_components/vendor-pricing-matrix.tsx`** (new, client island) — owns the matrix data + `MatrixCell` (moved out of the server component). Renders **two layouts, toggled purely by CSS `display`** (no JS-breakpoint hydration mismatch):
-  - **Desktop (≥1024px):** the original 5-column grid, **markup unchanged** — no visual change.
-  - **Mobile (<1024px):** a **sticky segmented control** (Free / ✓ Verified / ★ Pro / ⬢ Enterprise, default Pro) + a single 2-column layout (feature label + the selected tier's value). A sticky price banner (dark when Pro is selected, mirroring the desktop highlight) keeps tier + price pinned while scanning the full list. **Zero horizontal scroll.** The sticky control pins below the sticky `VendorNav` (`top: 64px`, `72px` ≥640px). Only client state is the selected tier.
-- **`app/for-vendors/_components/for-vendors-deep-dive.tsx`** — replaced the ~240-line inline matrix block with `<VendorPricingMatrix prices={p} />`; prices still resolved server-side via `getVendorPrices()` and passed in. Removed the now-obsolete `.m-matrix-container`/`.m-matrix-row` mobile CSS. Section padding moved to the repo convention `clamp(64px, 11vw, 120px) clamp(20px, 5vw, 56px)` so it breathes on phones.
-
-No price/feature/copy changes — every tier value is identical to before; this is presentation only. `tsc` + `next lint` + `lint:retired` + `lint:botnav` clean; production build green.
-
-SPEC IMPACT: None (presentation-only responsive fix; pricing + feature matrix unchanged). UX decision (mobile pricing pattern = tier switcher) logged to corpus `DECISION_LOG.md`.
-## 2026-06-15 · feat(editorial): masthead Vol./No. are real — Volume = year, No. = wedding's number that year
-
-Owner: *"Vol. 1 · No. 1 will be our weddings. Volume 1 is 2026, Volume 2 is 2027. No. 1 is the wedding number for the year."* The dateline's `Vol. I · No. 1` was hardcoded — now it's computed:
-
-- **Volume = the wedding's year** as a Roman numeral, anchored at **Vol. I = 2026** (`year − 2025`; Vol. II = 2027…). New `toRoman()` in `editorial-content.tsx`; `EditionLine` left slot now takes the computed string.
-- **No. = the wedding's number within its year** — the Nth Setnayan wedding of that year, by date. `EditorialData.editionNo`: the real loader (`loadEditorialData`) counts `event_type='wedding'` rows in the same year with `event_date <=` this wedding's (best-effort → null falls back to No. 1); the 5 samples are stamped chronologically for 2026 (Maria & Juan 1, John & Jane 2, Jack & Jill 3, Jack & Rose 4, Peter & Mary 5).
-
-Verified: Jack & Jill → `Vol. I · No. 3`, Peter & Mary → `Vol. I · No. 5`. `tsc` + `next lint` clean.
-
-SPEC IMPACT: iteration 0046 — the editorial masthead dateline encodes the platform's wedding edition (Volume = year from 2026, No. = wedding-of-the-year). Logged to corpus `DECISION_LOG.md`.
-
-## 2026-06-15 · fix(editorial): share goes inline in the dateline (replaces "Priceless"), not a full row
-
-Owner: *"we don't want the share button to take up a whole row — place it on the part of 'Priceless' and replace Priceless."* (Format: `SHARE` (f) (p) (⛓).)
-
-- **`app/realstories/_components/share-buttons.tsx`** — added a `compact` variant: a small `SHARE` mono label + three icon-only buttons (Facebook, Pinterest, copy-link chain), no pills/labels, sized for the masthead dateline.
-- **`app/[slug]/_components/editorial/editorial-content.tsx`** — removed the full-width "Share this story" strip; the `EditionLine` right slot (where **Priceless** was) now renders `<ShareButtons compact … />` for real editorials + samples, falling back to `Priceless` when there's no share target. `EditionLine.right` widened from `string` to `ReactNode`.
-
-Net: the dateline reads `Vol. I · No. 1` · `City · Date` · `Share (f)(p)(⛓)` — no extra row. `tsc` + `next lint` clean; verified on the Maria & Juan sample.
-
-SPEC IMPACT: iteration 0046 — the editorial share control is inline in the dateline (replaces the price slot), supersedes the 2026-06-15 full-row masthead strip. Logged to corpus `DECISION_LOG.md`.
-
-## 2026-06-15 · feat(editorial): consolidated editorial editor — words, features, and inputs in one page
-
-Owner: *"the editorial editor will be a page where all of these can be input — the content, choosing of photos, choosing the features they want to show on the editorial."* Confirmed scope: **full story-text control** + **every optional section toggleable**.
-
-Until now the editorial was fully auto-composed and the couple couldn't change a word, hide a block, or pick photos in one place. New page at **`/dashboard/[eventId]/website/editorial`** does all of it:
-
-- **The words (full control)** — eyebrow, headline, sub-headline, the story body (multi-paragraph), pull-quote, byline. Saved to `event_editorial.draft_json`; the compose engine (`composeCopy`) already prefers these over its auto-written defaults, so any field left blank still gets a polished default (nothing can render empty/ugly). The couple's own lead paragraphs now render in `EditorialContent` (previously hard-dropped); the auto love-narrative still stays on the run-up paths.
-- **What shows (every optional section)** — toggles for By the Numbers, photo gallery, guest wishes, vendor team, Powered-by-Setnayan, Live Photo Wall, and the thank-you note → `draft_json.sections`. `EditorialContent` gates each block on the map (`isOn(k) = sections?.[k] !== false`); the masthead, headline, and hero are the always-on spine. Hiding By the Numbers collapses the sidebar to a full-width story.
-- **The inputs** — link cards to the existing piece-editors (Living hero, Photos, Thank-you note) so they live alongside the editor, plus draft/publish controls and a "Preview your editorial" link.
-- **Data + save** — `EditorialData.sections` (read via `readSections(draft_json)`, default-on); `saveEditorial` action merges into existing `draft_json` (preserves unmanaged keys like seeded reviews), sets `status` + `edited_by_couple`, host-membership-gated then written via the admin client (the composer owns `event_editorial`). New "Editorial" tile on the website hub.
-
-No migration — `event_editorial.draft_json` (JSONB) holds it all. `tsc` + `next lint` clean; production build green.
-
-SPEC IMPACT: iteration 0046 — couples now author their editorial (content + section visibility) from one page; render honors `draft_json` content overrides + `draft_json.sections` visibility. Logged to corpus `DECISION_LOG.md`.
-
-## 2026-06-15 · feat(editorial): the Share button lives ON the editorial (its own masthead spot)
-
-Owner: *"when we open the editorial, the share button will not be outside the editorial — we place it on the editorial itself; it will have its personal place."*
-
-- **`app/[slug]/_components/editorial/editorial-content.tsx`** — moved sharing into the masthead furniture: a designed **"Share this story"** strip sits just under the dateline (Vol · city · date · Priceless), above the lead headline, framed with a hairline — reads as part of the newspaper, not a floating bar. The old top-right floated `<ShareButtons>` is gone. `EditorialContent` now takes an optional `share={{ url, title, image }}`; it falls back to the couple's own `/[slug]` target for real editorials (unchanged), and the sample detail passes its `/realstories/[slug]` target — so the in-editorial share now renders for **samples too** (previously real-only).
-- **`app/realstories/[slug]/page.tsx`** — dropped the external slim-bar `<ShareButtons>` (the bar keeps only the "← Real weddings" back-link + the sample label) and passes the share target into `<EditorialContent share=… />`. Removed the now-unused import.
-
-No double share button anywhere; the editorial owns its share affordance. `tsc` + `next lint` clean; verified visually on the Maria & Juan sample.
-
-SPEC IMPACT: iteration 0046 — the editorial's share control is part of the editorial layout (masthead), not an external bar. Logged to corpus `DECISION_LOG.md`.
-## 2026-06-15 · feat(website): Living Hero Studio — couples bake a boomerang hero in the browser
-
-Owner mechanic: *"the boomerang is created upon the couple picking their 5 seconds. If they upload a longer video they pick their 5s; they pick a freeze frame for the PDF/print; and if the net is too slow we convert to just photos."* Built it — **in the couple's browser** (owner-chosen), no server video pipeline.
-
-- **`apps/web/lib/boomerang-encoder.ts`** (new) — `bakeBoomerang()` extracts the trimmed ≤5s window, encodes it forward then reversed (duplicate turnaround frames dropped) into one ~10s MP4 via **WebCodecs `VideoEncoder` + `mp4-muxer`** (no ffmpeg.wasm, no SharedArrayBuffer, no CSP changes), and captures the chosen freeze frame as a JPEG. `captureFreezeFrame()` is the still-only path. Throws `EncoderUnsupportedError` where WebCodecs is absent. Verified in Chromium: a real ~1.8 MB boomerang + 124 KB still, plays continuously. New dep: `mp4-muxer`.
-- **`app/dashboard/[eventId]/website/living-hero/`** (new) — page + `LivingHeroStudio` client component: pick video → **trim bar (5s window)** → **freeze-frame scrubber** → "Make it move" (bake, with progress) → preview → presigned-PUT the clip + still to R2 → `saveLivingHero` action. **Photo-first:** a "Use a photo instead" button (and an automatic fallback on unsupported devices / slow uploads) saves just the still. Linked from the hero-photo editor ("Make it move →").
-- **No migration, no render change.** It reuses the existing `events.landing_page_hero_video_r2_key` (the loop) + `landing_page_hero_image_url` (the still = poster + print + slow-net fallback), and the public `/[slug]` hero (`HeroBackgroundMedia`) already autoplays the video looped with the still as poster — so a baked boomerang plays forward↔reverse continuously with zero changes.
-- **`lib/showcase-db.ts`** — `loadPublishedShowcases` now resolves `heroVideoUrl` from `landing_page_hero_video_r2_key`, so a real couple's living hero appears on their `/realstories` card too.
-- **`app/realstories/_components/gallery.tsx`** — the viewer now also drops to the poster on **data-saver / 2g** connections (the "if net is too slow, just photos" path at viewing time), alongside the existing reduced-motion fallback.
-
-The freeze frame is one pick doing four jobs: the print/PDF still, the video poster, the social-share image, and the slow-network/unsupported fallback. Verified end-to-end (Playwright: upload → trim → bake → preview). `tsc` + `next lint` clean.
-
-SPEC IMPACT: iteration 0046 — couples create a forward↔reverse "living hero" from a ≤5s moment entirely in-browser (WebCodecs), photo-first; reuses the existing hero-video columns + render. Logged to corpus `DECISION_LOG.md`.
-
-## 2026-06-15 · fix(realstories): real continuous forward↔reverse loop (pre-baked boomerang clips)
-
-Owner: *"make the loop like a forward and reverse continuously."* The first cut drove the reverse leg by scrubbing `video.currentTime` backward via rAF — which stutters badly on compressed H.264 (seeking between sparse keyframes), so in practice it read as a forward jump-cut, not a smooth back-and-forth.
-
-Fixed by **pre-baking the boomerang into the clip file** and letting the browser loop it natively (no per-frame seeking):
-
-- **`public/realstories/maria-juan-tagaytay.mp4` + `jack-jill-cebu.mp4`** re-encoded as forward + reversed-frames concatenated (`[fwd][rev]concat`, one duplicate turnaround frame trimmed), 5s → a 10s seamless cycle. Side benefit: re-compressed from ~8–9 Mbps to CRF 27 → **732 KB / 805 KB (was ~5–6 MB each, ~7× smaller)**; vertical clip scaled to 600px wide for the small tile. Verified the loop returns to origin (frame@0.5s ≡ frame@9.5s, distinct from the @5s turnaround).
-- **`app/realstories/_components/gallery.tsx`** — `BoomerangVideo` simplified to native `loop` (removed the rAF reverse-scrub: `reverseRaf`, `playReverse`, the `ended` listener, `stopReverse`). It now only viewport-gates playback + keeps the ≤3-concurrent slot scheduler + `prefers-reduced-motion` poster fallback. `loop={false}` → `loop`.
-
-`tsc` + `next lint` clean. The clip on the cover and the Jack & Jill tile now glide forward then reverse continuously, with no felt cut.
-
-SPEC IMPACT: iteration 0046 — the live editorial loop is a pre-baked boomerang + native loop (supersedes the rAF reverse-scrub noted in the prior two entries / `DECISION_LOG.md`).
-
-## 2026-06-15 · feat(nav): route-registry foundation (`routes.ts` + `route-meta.ts`) + Setnayan-logo nav glyph
-
-Owner: *"build and merge to the website."* Lands the single-source-of-truth route foundation (additive, nothing imports it yet) plus the customer-nav Setnayan-logo icon.
-
-- **`apps/web/lib/routes.ts`** (new) — THE path registry: typed builders for all **327** app routes (`routes.dashboard.guests.detail(eventId, guestId)` → `/dashboard/${eventId}/guests/${guestId}`), generated from the live route tree, 0 collisions. Inert until callers migrate to it; a future rename then becomes a one-line edit here + a folder move, and every caller follows.
-- **`apps/web/lib/route-meta.ts`** (new) — the icon+label SIBLING of `routes.ts`, keyed in the SAME nested shape (`routeMeta.dashboard.guests.index`). Built from a whole-app icon↔route audit (172 canonical bindings across customer/vendor/admin/guest/public; directional-affordance glyphs + dynamic-catalog placeholders excluded). Single source for a route's identity icon.
-- **`apps/web/app/_components/setnayan-mark-icon.tsx`** (new) + **`customer-nav-config.ts`** — the "Setnayan" journey menu now uses the actual brand mark (filled, `currentColor`) as its glyph, so it tints slate↔gold with the other tabs instead of fixed gold.
-
-Both registries are additive and **unimported** — zero runtime/behavior change beyond the one nav glyph. `tsc --noEmit` + `next lint` green. Next (separately gated): codemod-migrate callers onto the registry + route-integrity guards (fs↔registry, no-raw-strings, every-nav-route-has-an-icon).
-
-SPEC IMPACT: None for the registries (internal foundation). Minor: customer nav 'Setnayan' menu glyph is now the brand mark (iteration 0021).
-## 2026-06-15 · feat(realstories): a wall of living front pages — dedup sections, search, live ping-pong video
-
-Owner: *"this needs to be visually powerful. each editorial is already a front-page look. showcase Featured, most-viewed, new editorials, and a search — a systematic way to flex all our editorials. if an editorial is featured AND most-viewed it shows in only one. and run the 5-second hero clip live, looping forward and reverse so the shot doesn't feel cut."*
-
-`/realstories` was a single sample card on a flat page. Rebuilt as a **gallery of magazine covers** organised by one **dedup cascade** (each story claimed by its highest bucket, never repeated) + search, applying the locked "living Daily-Prophet front page" editorial DNA at the index level.
-
-- **`apps/web/app/realstories/_components/gallery.tsx`** (new, client island) — `RealStoriesGallery`:
-  - **Cascade:** `The cover` (lowest `featureRank` = admin-pinned hero, 1 story) → `Most loved` (next editor-ranked picks — the **editors'-pick stand-in for "most viewed"** until view tracking exists; no fabricated counts shown) → `Just published` (newest of what's left) → `The archive` (everything still unseen). A `Set` of shown hrefs guarantees no story appears twice. Empty sections self-hide → looks right with 1 story or 50.
-  - **Search** — a live-filtered bar (couple · city · ceremony · venue · theme); non-empty query collapses the sections into one results grid with a count + clear.
-  - **`BoomerangVideo`** — plays a 5s hero clip forward natively, then reverse-scrubs `currentTime` to 0 via rAF (negative `playbackRate` is unreliable in Chrome/Safari), then forward again → seamless ping-pong, no felt cut. **Viewport-gated** (IntersectionObserver), **≤3 concurrent** (global slot scheduler — the Daily-Prophet rule), muted/playsInline, poster still, and **honors `prefers-reduced-motion`** (poster only).
-- **`apps/web/lib/real-weddings.ts`** — `RealWedding` gains `heroImageUrl`, `heroVideoUrl`, `featureRank`. **Seeded 5 new clearly-labelled `Sample` editorials** (Bea & Niko · Cebu beach; Andrea & Paolo · Manila rooftop; Sofia & Liam · Baguio forest; Camille & Rey · Tagaytay estate; Mira & Caleb · Laguna lakeside) with full story/team content, plus hero media on Maria & Juan — so all four sections populate now. Each carries a visible **Sample** badge (no story is presented as a real client).
-- **`apps/web/lib/showcase-db.ts`** — `ShowcaseEntry` gains `heroImageUrl`/`heroVideoUrl`/`featureRank`; `loadPublishedShowcases` now resolves `events.landing_page_hero_image_url` → display URL and carries `showcase_feature_rank`, so **real consent-gated editorials get the identical treatment** automatically when they publish (~Dec 2026).
-- **`apps/web/app/realstories/page.tsx`** — normalizes samples OR DB showcases into one `GalleryItem[]` and renders the gallery (JSON-LD/SEO + CTA unchanged).
-- **`apps/web/app/realstories/[slug]/page.tsx`** — the new samples (no editorial fixture) now render a proper **front-page editorial** (`SampleEditorial`: hero image/video + pull-quote + story + palette + team) instead of a bare card.
-- **`apps/web/public/realstories/*`** (new assets) — 6 editorial hero stills (Recraft, ~2 MB total) + 2 real 5-second hero clips (Higgsfield Kling 3.0, viewport-gated). No identifiable real people are presented as clients; assets are marketing samples.
-
-Validation: `tsc --noEmit` green; `next lint` clean on changed files (only the repo-standard `<img>` LCP warning). Production build gates auto-merge.
-
-SPEC IMPACT: iteration 0046 Real Weddings showcase — the index becomes a dedup-cascaded gallery (Cover / Most loved / Just published / Archive) with search + live ping-pong hero video; "most viewed" ships as an editors'-pick stand-in pending view tracking. Logged to corpus `DECISION_LOG.md`.
-
-**Follow-up (same PR) — 5 named sample editorials + main photo on the editorial.** Owner: *"use their main photo on the editorial. Can we make 5 different sample websites? maria and juan, jack and jill, john and jane, peter and mary, jack and rose — so we can see how they look?"*
-
-- **Sample roster → the owner's 5 named couples** (`lib/real-weddings.ts`): Maria & Juan (Tagaytay garden) · Jack & Jill (Cebu beach) · John & Jane (Manila rooftop) · Peter & Mary (Tagaytay estate) · Jack & Rose (Baguio forest). Assets renamed to match (`public/realstories/*`); Maria & Juan + Jack & Jill carry the live 5s clips.
-- **Each sample now renders through the REAL editorial engine with its main photo** (`app/[slug]/_components/editorial/data.ts`). Replaced the single `SAMPLE_EDITORIAL_EVENT_ID` fixture with a 5-entry registry (`SAMPLE_EDITORIALS` + exported `SAMPLE_EDITORIAL_IDS`); every fixture sets `heroPhotoUrl` to the couple's photo (Maria & Juan's was `null` — that's the "no main photo" gap, now fixed), with distinct love story / milestones / metrics / vendors / reviews per couple. So clicking any sample shows a full front-page editorial led by the main photo — exactly how a real couple's website editorial will look.
-- `app/realstories/[slug]/page.tsx` maps all 5 slugs via `SAMPLE_EDITORIAL_IDS` (the hand-rolled `SampleEditorial` stays only as a defensive fallback for an unmapped slug).
-- `app/api/og/realstory/[slug]/route.ts` now feeds the couple's absolute hero-photo URL to the OG card → the photo-background share variant lights up (was branded-only).
-
-Validation: `tsc` green; `next lint` clean (repo-standard `<img>` warning only); production build re-run green. Lands in the same PR (#1480).
-
-## 2026-06-15 · feat(monogram): upload your own monogram — it overrules every Setnayan mark
-
-Owner rule: when a couple uploads THEIR OWN monogram in the Monogram Maker, it must **overrule** every Setnayan mark — the Cipher / Bespoke-AI `monogram_custom_svg` AND the lettered lockup — everywhere, with no second monogram stored.
-
-- **Migration `20261228000213_add_monogram_uploaded_svg_column.sql`** — one nullable `events.monogram_uploaded_svg` column, holding the uploaded mark as render-ready **inline SVG markup** (same storage model as `monogram_custom_svg`, so it renders inline everywhere with zero presigned-URL plumbing). **Applied to prod.**
-- **Upload + remove server actions** (`monogram/actions.ts`) — `uploadMonogram` accepts PNG/JPG/WEBP/SVG (≤4 MB): an **SVG** is run through `sanitizeBespokeSvg` (the bespoke allowlist — no scripts/handlers/href/data:); a **raster** is `sharp`-downscaled to a 512px transparent webp and wrapped in `<svg><image href="data:image/webp;base64,…"/></svg>` (machine-built, inert, renders via the existing data-URI `<img>` path). `removeUploadedMonogram` clears it → falls back to the bespoke/cipher mark, then the lettered lockup. RLS-scoped to the couple (mirrors `saveMonogram`).
-- **Upload card UI** (`monogram/upload-card.tsx`) — a "Upload your own" card at the **top** of the Maker (it overrides everything below): file picker + live preview + active/remove states + status notices.
-- **Precedence — uploaded wins everywhere it shows.** Resolved at the data layer as `monogram_uploaded_svg ?? monogram_custom_svg` fed into the **existing** custom-mark slot, so the surfaces that already render the custom mark show the upload with no component changes: the **chrome icon** (`EventMonogram`, via all four chrome layouts + `fetchUserEvents`), the **website hero** (`[slug]/page.tsx` `bespokeSvg`), and the **Maker preview**. All three render via the inert data-URI `<img>` path, which handles the raster-wrapped SVG.
-
-Scope note: QR centers stay typographic (legibility, unchanged), and the PDF/social-card builders keep their current mark — embedding a raster-wrapped SVG there needs a raster-capable path (follow-up). `tsc --noEmit` green; `next lint` clean on changed files. PR pending (branch `claude/monogram-upload`, auto-merge). Verify on the Vercel preview: upload a PNG/SVG in the Maker → it shows in the dashboard chrome icon + the website hero; Remove → falls back.
-
-SPEC IMPACT: iteration 0037 (monogram) — new top-priority uploaded-monogram source overruling the AI/Cipher + lettered marks. Logged to corpus `DECISION_LOG.md`.
-
-## 2026-06-15 · fix(nav): ONE persistent top nav for the whole site (stop the per-page remount)
-
-Owner: *"why is it when we press a menu on the top nav of the website, the top nav also resets? we already said the top nav stays and the body should only change. we do not need one top nav for each. we want one top nav to navigate the whole website."*
-
-Root cause: every marketing page rendered its **own** `<Nav>` inside its `page.tsx`. In the App Router a `page` is unmounted and rebuilt on every navigation, so each nav click tore down the old nav and mounted a fresh one — the "reset"/flash, and (since #1475) the hide-on-scroll state reset too. A nav rendered in a **layout** is preserved across navigations; only the body re-renders.
-
-- **`apps/web/app/_components/marketing/site-chrome.tsx`** (new) — `SiteChrome`, a thin client gate. Reads `usePathname()` and renders the shared `<Nav>` only on the explicit set of public marketing routes (exact-match = behavior-preserving), `null` everywhere else. `/explore` gets `sticky={false}` (its own search bar pins). Canonical post-redirect paths handled: `/vendors`→`/explore`, `/weddings`→`/realstories`.
-- **`apps/web/app/layout.tsx`** — mounts `<SiteChrome />` **once**, inside `<Providers>` as a sibling of `{children}`. The root layout is the only shared ancestor of the flat public pages, so a single Nav instance now survives every navigation; only the page body swaps.
-- **Removed the per-page `<Nav>` (import + render) from all 12 pages** that had it: `page.tsx` (home), `about`, `how-it-works`, `pricing`, `for-vendors`, `our-story`, `blog`, `realstories`, `features/_PageBody`, `explore`, `tl/about`, `tl/how-it-works`. No page gains/loses the nav — it's the same set, just hoisted.
-
-Untouched: the legacy `SiteHeader` on `/waitlist` + `/download` (separate component), guest-landing / vendor-profile / venue pages (their own `NavLinksRow` chrome), and all authed consoles (own chrome; `SiteChrome` returns null there). To extend the nav to more public routes later, add the path to `NAV_ROUTES`.
-
-Validation: local `tsc` blocked by the same worktree pnpm-symlink resolution issue as #1475 (blanket "Cannot find module 'react'" — toolchain, not code). Verified no dangling `Nav` references remain in the 12 pages (grep), import paths resolve, and the gate routes match the real redirected pathnames. Required CI (typecheck + lint + production build) gates the auto-merge.
-
-SPEC IMPACT: chrome architecture — the marketing top nav becomes a single persistent layout-level instance (iteration 0000 shell / 0015 main website). Logged to corpus `DECISION_LOG.md`.
-## 2026-06-15 · feat(monogram): one monogram everywhere — long-press chrome icon to edit + custom-SVG shows in chrome
-
-Owner directive: the event monogram must be a single source of truth — the chrome icon links to the Maker, the Maker pre-loads the current mark, editing it changes the default everywhere, and **no second monogram** is ever stored. Investigation confirmed the lettered model was *already* single-source (onboarding ↔ Maker ↔ chrome all read/write the same `monogram_style/_font_key/_frame_key` columns; the Maker already pre-loads + `saveMonogram` revalidates the chrome). Two gaps remained, resolved per owner's answers:
-
-- **Q1 — long-press to edit (`event-switcher.tsx`).** The chrome monogram chip stays a **picker** (tap now opens the event switcher); a **long-press** raises a portaled confirm — *"Do you want to edit your monogram? [No] [Let's edit]"* — and "Let's edit" routes to `/dashboard/[eventId]/monogram` (the Maker). Esc / backdrop dismiss. The empty "+" anchor has no monogram so it's exempt (long-press no-ops; tap still links to create-event). Reassigns the chip's old tap→Home / long-press→switcher behavior (the adjacent caret still opens the switcher too).
-- **Q2 — custom SVG shows everywhere (`event-monogram.tsx` + chrome plumbing).** When a couple makes a Cipher/Bespoke-AI mark (`monogram_custom_svg`), `EventMonogram` now renders it (inert `<img>` data-URI, object-contain in the round chip) as the **top-priority** branch, so the small dashboard/switcher icon matches the website hero/QR — genuinely one mark, no letters-in-chrome / SVG-on-hero split. Plumbed `monogram_custom_svg` through `lib/events.ts` (`fetchUserEvents` select + `EventRow`), the `SwitcherEvent` type + `currentMonogramCustomSvg` prop, and all four chrome layouts (couple `[eventId]`, account, admin, vendor) + `OuterDashboardHeader`.
-
-No schema change — every column already exists. `saveMonogram` and the precedence model are unchanged (custom mark outranks lettering, exactly as the hero already did). `tsc --noEmit` green; `next lint` clean on changed files. PR pending (branch `claude/monogram-single-source`, auto-merge). Verify on the Vercel preview: long-press the header monogram → edit confirm → Maker; a couple with a Cipher/Bespoke mark sees it in the chrome icon.
-
-SPEC IMPACT: behavior on iterations 0000 (event-switcher chrome — monogram chip tap=picker, long-press=edit) + 0037 (bespoke/cipher monogram now renders in chrome). Logged to corpus `DECISION_LOG.md`.
-
-## 2026-06-15 · fix(onboarding): system Back walks the wedding-onboarding steps (no escape to the old picker)
-
-Owner bug: *"the onboarding when back is pressed doesn't go back from the previous onboarding — it went back to the old onboarding, which is wrong. The only onboarding should be the new one."* The new `/onboarding/wedding` flow drives its 15+ screens with pure React state (`go(d)`), so the on-screen "‹" button worked — but the **device hardware Back button, the browser Back button, and the mobile swipe-back gesture were never intercepted**. They popped the whole page out of onboarding, landing the couple on whatever loaded before it. For the dashboard / `create-event` entry path that previous page was the legacy `/dashboard/create-event` event-type picker = the "old onboarding" the owner kept hitting.
-
-- **`apps/web/app/onboarding/wedding/_components/onboarding-shell.tsx`** — added a mount-once history **sentinel trap**: keep exactly one extra history entry on top while the shell is mounted; each Back press pops it → `go(-1)` (which already handles the refine / style sub-steps) → re-arm a fresh sentinel (same URL, so the address bar never changes). On the first screen (`welcome`) the pop is allowed through so the couple still leaves onboarding cleanly. Forward nav stays pure state (no `pushState`), so the sentinel always sits on top. `go` + a `canGoBack` flag are read through refs so the listener stays stable (no re-arm per step). An `exitingOnbRef` flips true when the final commit→dashboard nav begins so a teardown `popstate` can't re-step the flow. **The on-screen "‹" button is untouched** — it already worked. Now every form of Back behaves identically and walks the steps.
-- **`apps/web/app/dashboard/(account)/create-event/_components/event-type-picker.tsx`** — the Wedding tile now `router.replace()`s into `/onboarding/wedding` instead of `router.push()`, so the legacy picker can never linger in history as a Back target behind the tailored onboarding. Backing out at the first onboarding screen returns to the dashboard, never the old picker page.
-- **Deleted `apps/web/app/dashboard/(account)/create-event/_components/wedding-type-picker.tsx`** (347 lines) — the orphaned legacy wedding form (`WeddingTypePicker`), already dead code (rendered nowhere; only a self-reference + a stale comment). Gone for good: `/onboarding/wedding` is the one and only wedding onboarding now.
-
-Validation: `tsc --noEmit` green; `next lint` clean on the changed files (only pre-existing repo-wide warnings remain). PR pending (branch `claude/onboarding-back-fix`, auto-merge). Verify on the Vercel preview: enter onboarding, advance a few screens, press the **browser/device Back** (and swipe-back on mobile) — it should step back one screen at a time, not jump to the picker.
-
-SPEC IMPACT: behavior fix on iteration 0016 (Setnayan AI / wedding onboarding) — system-Back now walks the flow; legacy `WeddingTypePicker` retired. Logged to corpus `DECISION_LOG.md`.
-
-## 2026-06-15 · feat(nav): universal top-nav hide-on-scroll-down / reveal-on-scroll-up
-
-Owner: *"we want to apply this as a universal rule on top navs. whether on website or on dashboards."* The marketing site nav already auto-hid on scroll-down (owner 2026-06-14, for the full-screen hero scrub); this promotes that to a platform-wide rule so every top nav behaves the same — marketing pages AND the couple / vendor / admin dashboards.
-
-- **`apps/web/app/_components/nav/use-hide-on-scroll.ts`** (new) — single canonical hook. Lifts the exact scroll math out of `site-nav.tsx` (window `scrollY`; always-visible 64px top band; ±4px deadzone; `requestAnimationFrame`-throttled passive listener) and returns `hidden`. `enabled` arg (default true) lets a caller opt out without breaking rules-of-hooks. The caller owns the visual treatment, so each surface keeps its own palette/transition.
-- **`apps/web/app/_components/nav/hide-on-scroll-header.tsx`** (new) — thin client `<header>` wrapper around the hook, so **server**-component surfaces (e.g. `OuterDashboardHeader`) can adopt the rule without becoming client components themselves.
-- **`apps/web/app/_components/nav/sidebar-shell.tsx`** — the sticky `topBar` slot now applies the transform (`-translate-y-full` ↔ `translate-y-0`, 300ms ease, `motion-reduce`-aware) driven by `useHideOnScroll(Boolean(topBar))`. **One change here covers all three dashboards** (couple `dashboard/[eventId]`, `vendor-dashboard`, `admin`) since each injects only the inner row into this shared slot. The desktop LEFT sidebar is a side nav, not a top nav, so it stays put.
-- **`apps/web/app/_components/marketing/site-nav.tsx`** — refactored to consume the shared hook (deleted its inline `useState`/`useEffect` copy). Behavior identical; now a single source of truth.
-- **`apps/web/app/dashboard/_components/outer-dashboard-header.tsx`** — account-routes mobile sticky header swapped to `<HideOnScrollHeader>`.
-
-Left intentionally untouched: the **Explore/marketplace search bar** (a search affordance deliberately pinned so it never scrolls away — not a nav) and all **bottom navs** (owner said *top* navs; bottom-nav canonical lock).
-
-Validation: local `tsc --noEmit` couldn't run cleanly in the worktree (pnpm symlink resolution across the worktree boundary reports a blanket "Cannot find module 'react'" for every file — toolchain, not code). The hook body is lifted verbatim from the already-CI-green `site-nav.tsx`; required CI (typecheck + lint + production build) gates the auto-merge.
-
-SPEC IMPACT: chrome-behavior rule — `site-nav.tsx` hide-on-scroll generalized to every top nav (iteration 0000 shell + 0021/0022/0023 dashboards). Logged to corpus `DECISION_LOG.md`.
-## 2026-06-15 · feat(for-vendors): hero right-rail — a real thriving vendor instead of the abstract dashboard mock
-## 2026-06-15 · feat(for-vendors): full-bleed hero photo + factual-only numbers
-
-Owner, across a few messages: replace the hero's abstract "9 ACTIVE LEADS · Pipeline" dashboard mock with a real successful vendor → then "i want a full bleed photo" (not a boxed photo + chip) → then "use factual numbers only."
-
-- **Full-bleed hero photo.** `vendor-hero.tsx` right rail is now a `next/image` that **bleeds to the viewport right edge and fills the row height** (no card, no rounded corners, no overlay chip). On mobile it's a full-width band under the copy. Bleed = `.m-hero-photo` margin cancels the section's horizontal padding (`calc(-1 * clamp(20px,5vw,56px))`) + `align-self:stretch` + width-scaled `min-height: clamp(420px,42vw,680px)` (keeps the 3:4 portrait from cropping to a landscape slit on ultrawide). `objectPosition: center 32%` keeps her face framed.
-- **New `public/for-vendors/vendor-success.avif`** (140 KB, Recraft, picked from 4) — a confident Filipino florist *laughing* in her sunlit studio, arms crossed, clearly thriving. The success payoff to the tired-florist "problem" band.
-- **Factual numbers only.** Removed the fabricated hero stat counts "42 verified vendors live · 23 in verification" (founder-only marketplace) → now "0% commission, ever · Paid straight to you · Free during launch" (all true). Also removed the fabricated "Eighty-four weddings in. Real names, real venues, real numbers" claim from the testimonials intro (`page-tail.tsx`).
-- **Locked part preserved:** headline + both CTAs (`/signup?as=vendor`, `/help#contact`) untouched. Verified by a 3-reviewer adversarial workflow (0 high / 0 med / 14 low — bleed math "CORRECT and SAFE", lock "CLEAN"); the two highest-value low findings (ultrawide crop + objectPosition) were applied.
-
-`tsc --noEmit` green. SPEC IMPACT: None — hero imagery + removing fabricated public numbers. Logged to corpus `DECISION_LOG.md`.
-
-## 2026-06-15 · feat(for-vendors): relatable imagery — show the vendor's problem, not the dream
-
-Owner: "make the imagery more relatable — we want them to feel 'yes, that is my problem.'" The `EditorialBand` showed a styled candlelit reception table — the aspirational *output*, which reads as the dream, not the pain. The whole repo image library (836 assets) is polished output; nothing depicts a vendor's daily grind.
-
-- **New asset `public/for-vendors/vendor-late-night.avif`** (56 KB, generated on-brand via Recraft) — a tired Filipino wedding florist alone at her worktable late at night, reading an endless stream of phone messages while bouquets + an open laptop wait. The vendor's *reality*.
-- **`editorial-band.tsx` rebuilt** — swapped the reception photo for the new image; recognition-hook copy that names the pain and pivots to the fix: eyebrow "Sound familiar?" → headline "The inquiries never stop — and most were never going to book you." → "That's the part we fix. You focus on the craft — we bring you the couples who actually fit." (mirrors the owner's own "95% of inquiries never book me"). Left-weighted dark wash keeps the copy legible while her face stays clear.
-
-`tsc --noEmit` green. SPEC IMPACT: None — marketing imagery/copy. Logged to corpus `DECISION_LOG.md`.
-
-## 2026-06-15 · style(login): brand panel is logo-only ("keep it clean and simple")
-
-Owner: *"remove this and just leave the logo on top. keep it clean and simple."* Stripped the `/login` brand rail down to just the Wordmark.
-
-- **`apps/web/app/login/page.tsx`** — removed the "WELCOME BACK" eyebrow, the "Pick up *where you left off.*" display heading, the "Your guest list is right where you saved it." micro-copy, and the "setnayan.com" footer from the `.m-login-brand` panel. Kept the Wordmark (still links home) on the existing ivory→paper gradient rail; dropped the now-unneeded flex `gap`. Form panel (email/password + Google/Apple OAuth) untouched.
-
-SPEC IMPACT: minor login-surface copy removal (iteration 0000 shell). Logged to corpus `DECISION_LOG.md`.
-## 2026-06-15 · feat(admin): date-gated Apple-secret renewal reminder on the HQ home
-
-Owner: *"add a reminder on my admin account to renew this and place a prompt for me to paste on claude. 3 days before that day comes."* The Supabase "Sign in with Apple" client secret is a ~6-month JWT (the current one expires **2026-12-11**); this surfaces a self-service renewal reminder.
-
-- **`apps/web/app/admin/_apple-secret-reminder.tsx`** (new) — client component, **date-gated to 2026-12-08** (3 days before expiry), dismissible per-browser via `localStorage`. Shows a copy-to-clipboard **paste prompt** the owner drops into Claude Code (`node ~/.setnayan-apple-renew/mint.cjs` → re-mint the JWT → paste into Supabase Auth → Providers → Apple). Escalates copy + border to mulberry once past the expiry date. Renders `null` (server + first paint) the rest of the year — no hydration mismatch, zero footprint until the window opens.
-- **`apps/web/app/admin/page.tsx`** — mounts `<AppleSecretReminder />` just below the home header.
-
-Context: chosen over an always-on local `launchd` auto-renewer (built earlier this session, then removed because it needed a Supabase Management API token the owner opted not to store). The `.p8` + `mint.cjs` helper live at `~/.setnayan-apple-renew/` on the owner's Mac (not in the repo). To roll the window forward after a renewal, bump `SHOW_FROM`/`EXPIRES` + the `localStorage` key suffix in the component. `tsc --noEmit` green.
-
-SPEC IMPACT: adds a one-off internal-ops reminder card to the admin console (iteration 0023). Logged to corpus `DECISION_LOG.md`.
-
-## 2026-06-15 · feat(auth): login provider set = email/password + Google + Apple (drop Facebook + magic-link)
-
-Owner: *"let us fix the login page. i only want the email and password plus google and apple id. no facebook. no magic link."* The locked V1 sign-in set is now **email + password**, **Continue with Google**, and **Continue with Apple** — nothing else.
-
-- **`apps/web/app/login/page.tsx`** — removed the secondary **magic-link** form (the "Or send a magic link" / "Email me a magic link" block), its `sent`/`magicLinkSent` searchParam handling + "Magic link sent" status banner, and the `signInWithMagicLink` import. Email+password form, OAuth row, "Forgot password?", "Stay signed in", and the create-account tail link are untouched.
-- **`apps/web/app/login/actions.ts`** — deleted the now-dead `signInWithMagicLink` server action (was the only consumer of `signInWithOtp` here). `signInWithPassword` + the "Stay signed in" cookie-downgrade are unchanged.
-- **`apps/web/app/_components/oauth-button-row.tsx`** — swapped the **Facebook** button for an **Apple** button (gate `NEXT_PUBLIC_OAUTH_FACEBOOK_ENABLED` → `NEXT_PUBLIC_OAUTH_APPLE_ENABLED`; `FacebookFIcon` → monochrome `AppleIcon`; `pendingLabel` "Redirecting to Apple…"). Same neutral Clean-Editorial chrome + `<SubmitButton>` instant-loading pattern. This component is shared, so `/signup` gets the same provider set automatically.
-- **`apps/web/app/auth/oauth-actions.ts`** — `signInWithFacebook` → `signInWithApple`; provider union `'google' | 'facebook'` → `'google' | 'apple'`. Flow + `safeNext`/`redirectTo` round-trip unchanged.
-- **`.env.example`** — `NEXT_PUBLIC_OAUTH_FACEBOOK_ENABLED` → `NEXT_PUBLIC_OAUTH_APPLE_ENABLED`; comment now documents the Google+Apple set + Apple Developer Program dependency.
-
-Facebook **sharing** (`lib/social/facebook.ts` et al.) is a different feature and is untouched — only Facebook *login* was removed. `tsc --noEmit` green on the full app.
-
-**Owner action to make the OAuth buttons appear (both still default OFF):** in Supabase Studio → Auth → Providers, toggle ON + paste credentials for Google and Apple, then set `NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED=true` / `NEXT_PUBLIC_OAUTH_APPLE_ENABLED=true` in Vercel. **Apple additionally requires Apple Developer Program enrollment ($99/yr)** for the Services ID + client-secret JWT. Until configured, the buttons stay hidden and only email/password renders.
-
-SPEC IMPACT: reverses two prior locks — Apple OAuth was "deferred to V1.1 per owner directive 2026-05-23", and the magic-link form was "preserved as industry-standard passwordless affordance". Both superseded by the owner's 2026-06-15 directive. Logged to corpus `DECISION_LOG.md`.
-
-## 2026-06-15 · fix(native-bridge): `.then()` on Capacitor `addListener` crashes the native apps on first launch
-
-**THE native-shell launch-blocker** (found by reading the real WKWebView console via Safari Web Inspector on the iOS sim). On first launch the app booted straight to the root error boundary instead of `/login`. Real device console: `TypeError: App.addListener("backButton", …).then is not a function` at `app/layout-*.js`.
-
-Cause: `app/_components/native-bridge.tsx` chained `.then().catch()` directly onto `App.addListener(...)`. Capacitor's **native** bridge returns a listener handle **synchronously** (not a Promise), so `.then` is `undefined` → `TypeError` thrown in the `useEffect` → crashes the whole app (NativeBridge is mounted app-wide). It never reproduced in a browser because the web Capacitor stub returns a Promise.
-
-- **`apps/web/app/_components/native-bridge.tsx`** — route every native-bridge call through `Promise.resolve(...)`: a `track()` helper for the two `addListener` calls (back-button + deep-link), and `Promise.resolve(...).catch()` for `SplashScreen.hide()` + `StatusBar.setOverlaysWebView()`. Now works whether the bridge returns a Promise (web) or a bare value/handle (native).
-
-Verified deterministically: a headless repro with `addListener` stubbed to return a non-thenable handle (matching the device) reproduces the **exact** `TypeError` + same bundle, and crashes to the error boundary; the patched bridge renders `/login`. (Separately, the earlier IndexedDB fix #1460 was a valid but UNRELATED Safari-Private-Browsing fix — a look-alike that produced the same error screen; THIS is the native-launch cause.)
-
-SPEC IMPACT: None (defensive bug fix on the native shell glue).
-## 2026-06-15 · chore(tokens): fully retire the "token back" Productions-referral/stacking reward (code + DB + docs)
-
-Owner: "make sure the codes for the token back is also removed/deleted and so does the documentation. we will retire this idea." Follow-up to removing the `/for-vendors` Recommend-&-Earn section (#1462). The mechanic — a vendor earning bidding tokens BACK for delivering/recommending Setnayan Productions media services — was **never wired** (the reward fanout was always "V1.x scope"; only a dead calculator + telemetry capture ever existed). Mapped + verified each file before deleting.
-
-**Deleted (reward-only):**
-- `lib/v2/token-stacking.ts` — the 1/3/5/7/9/11/14 stacking-reward calculator.
-- `lib/telemetry/insert.ts` + the **7** `app/api/telemetry/{papic,panood,patiktok,pabati,sde,camera_bridge,live_wall}/route.ts` media checkpoint endpoints (sole writers of `telemetry_events`).
-- `app/admin/telemetry/` (viewer page + loading) + its 3 admin-nav links (`admin/insights`, `admin-sidebar`, `admin-bottom-nav`) + the orphaned `Activity` icon imports.
-- **Migration `20261228000000`** drops `telemetry_events` (CASCADE — sole writer/readers all deleted).
-
-**Edited (shared — surgical):** removed the `telemetry_reward` + `referral_reward` labels from the vendor wallet UI (`voucher-list.tsx` + `recent-history.tsx`).
-
-**Kept (verified separate):** `app_telemetry_logs` / the Connection-Logs fault tracker (`/api/telemetry/client-fault` + `auto-resolve` → `fault-log.ts`) — different system, untouched.
-
-**NOT touched — flagged to owner (separate manpower/crew domain, pending the crew-rate-marketplace decision):** the manpower telemetry-reward objects `event_software_activations_v2`, `token_rewards_log`, `execute_manpower_telemetry_reward()`, `/api/v1/manpower/verify-telemetry`, and the `manpower_handshake` grant_source; plus the now-unused `telemetry_reward`/`referral_reward` grant_source CHECK enum values (left as harmless no-ops — nothing writes them).
-
-**Surviving token economy unchanged:** burn-to-answer · founder grant · admin grants · voucher redemption · subscription bundles · purchase.
-
-Docs updated: corpus ground-truth + `CLAUDE-CODE-BRIEF-v2.1` §2.4/§5.3 + memory `project_setnayan_vendor_token_model`. `tsc --noEmit` green.
-
-SPEC IMPACT: retires a non-existent feature across code + schema + canonical docs. Logged to corpus `DECISION_LOG.md`.
-
-⚠️ The `20261228000000` migration is **destructive** (DROP TABLE) and is NOT auto-applied — apply deliberately via the normal `supabase db push` flow.
-
-## 2026-06-15 · chore(for-vendors): remove the "recommend an add-on → earn a token" referral mechanic (doesn't exist)
-
-Owner flagged the "Recommend & earn" section: "we no longer have this." The recommend-an-add-on → earn-a-bidding-token-back referral mechanic isn't a real feature, so the section was built on a false premise (and it was the only reason couple add-ons appeared on the vendor page).
-
-- **Deleted `recommend-strip.tsx`** + removed `<RecommendStrip />` from `page.tsx` (import + usage). The page flow is now Hero → Vision → EditorialBand → Stack → Deep-dive → Voices → FAQ → CTA.
-- **`for-vendors-deep-dive.tsx`** — removed the matrix row `Earn tokens from Productions referrals` and trimmed the Bidding-section note (dropped "Earn tokens by recommending Productions services…" → now just "Vendors spend tokens to accept couple inquiries; verified vendors get free couple unlocks every week"). Same retired mechanic.
-- **Kept:** the EditorialBand reception photo (no false claim); the Patricia Cruz testimonial (its "referral program" line is an organic word-of-mouth metaphor, not the token mechanic). **Untouched + flagged to owner:** the separate, "coming soon" Crew-Rate Marketplace ("earn a referral cut on crew gigs") — a different mechanic; confirm if that's also gone.
-
-`tsc --noEmit` green. SPEC IMPACT: removes a non-existent feature from public copy (extends the public-claims hygiene work). Logged to corpus `DECISION_LOG.md`.
-
-## 2026-06-15 · fix(providers): IndexedDB sync-throw crashes the app where storage is blocked (native shells + Safari Private)
-
-**Launch-blocking crash, found while running the iOS native shell on the simulator.** The Capacitor app booted to the root error boundary ("Something on our end didn't work") instead of `/login`. Root-caused + reproduced deterministically: `app/providers.tsx` `createIdbStorage()` runs inside a `useState` initializer **during render**, and `prime()` calls idb-keyval `get()`, which lazily hits `indexedDB.open()`. A **remote-URL WKWebView** (and **Safari Private Browsing**) partition/block IndexedDB and throw `SecurityError` **synchronously** on that access. The existing guard was `.then().catch()` — async-only — so the synchronous throw escaped into React render → root error boundary (client-side, no `digest`).
-
-- **`apps/web/app/providers.tsx`** — wrap every idb-keyval call (`get`/`set`/`del`) in a `safe()` helper that catches **both** a synchronous throw and an async rejection, and latches `idbUsable=false` after the first failure so it stops touching IndexedDB and falls back to pure in-memory cache (app still works, cache just doesn't persist that session).
-
-Verified: (a) repro — headless Chromium loading the live site with `window.indexedDB` made to throw synchronously renders the exact error screen; with the same block, the patched logic renders `/login`. (b) unit — real `idb-keyval` `get()` throws `SecurityError` synchronously when IndexedDB is blocked; `safe(() => get())` swallows it and resolves `undefined`. This crash hit **both native shells** (same web bundle) **and** Safari Private Browsing on the live site.
-
-SPEC IMPACT: None (defensive bug fix; no schema/SKU/behavior change for working storage).
-## 2026-06-15 · feat(nav): vendor + Setnayan HQ bottom navs go to a full 6 tabs (Website · Money + Insights)
-
-Owner: "vendor and Setnayan HQ bottom nav must maximize the 6 menus." Both mobile strips were running 5/4 of 6 slots; filled the rest with the surface that best serves each doorway. Two forks resolved with the owner (AskUserQuestion) against the **real shipped** nav — the first-pass recommendation was built on a stale surface scan, corrected before any edit.
-
-- **Vendor → 6 tabs: Home · Bookings · Calendar · Messages · Website · More.** New **Website** tab (owner picked it over Services for the 6th slot; the 4th content slot stayed **Calendar over Earnings** — Earnings remains in More, preserving the 2026-06-14 "calendar = the vendor pitch" call). Website is a **live preview** of the vendor's public page (`/v/[slug]`) "as couples see it" with Edit + Open-live; degrades gracefully when there's no slug yet (Pro custom-address) or the page isn't publicly visible. New route `app/vendor-dashboard/website/page.tsx`; added to the desktop sidebar Home group (orphan-prevention parity).
-- **Setnayan HQ → 6 tabs: Home · Work · Directory · Money · Insights · More.** Re-promoted **Money** + **Insights** to dedicated tabs (owner-approved — "6 tabs, keep 'Work'"), reversing the *fold-into-More* part of the 2026-06-08 ops redesign while **keeping** the Queues→Work rename. `/admin/money` is now a real card-grid landing (was a redirect); new `/admin/insights` landing; `/admin/more` carries the Platform group only (retired the 3-section accordion `more-landing.tsx` → flat `MobileLandingGrid`, matching `/admin/directory`). `payment-methods` deliberately stays under More's `/admin/settings` umbrella to avoid a Money+More double-highlight.
-- Both landings mirror their desktop sidebar group 1:1 (no orphan surfaces). `lint:botnav` + `tsc --noEmit` + `next lint` all green.
-
-PR pending (branch `claude/nav-6tab-website-insights`, auto-merge) — required production build runs in CI. SPEC IMPACT: nav config is shipped-code-canonical (the iteration specs predate the 2026-06 nav refactors). Logged to corpus `DECISION_LOG.md`; flagged for owner that this reverses parts of two dated nav decisions (2026-06-08 admin minimal-spine + restores Money tab) — owner-approved this session. No schema/SKU/price change.
-
-## 2026-06-15 · feat(kwento): close the 3 buildable Kwento gaps — guest self-delete, FaceBlock author-hide, couple email (Alaala Lane 3)
-
-Kwento (photo-anchored guest messages) was ~90% shipped; this closes the three remaining **buildable** gaps. The "words baked into a film" moat stays blocked on the absent video render pipeline — a separate, owner-actionable infra decision, not a Kwento gap.
-
-- **Guest 24h self-delete.** New service-role RPC `guest_delete_own_message` (24h window + author-only + not-baked guard; soft-delete + pulls it from the wall immediately) + `POST /api/papic/kwento/delete` + an inline "Changed your mind? Delete this story" affordance on the guest capture surface after sending (`papic-guest-capture.tsx`). The submit route now returns the `messageId`.
-- **FaceBlock → hide author.** New RPC `set_guest_messages_hidden_by_faceblock`; the couple's guest-edit action calls it (best-effort, inside the existing FaceBlock `after()` block) so enabling "blur my face on the wall" also hides that guest as the public author of their Kwentos (the couple still sees them privately).
-- **Couple email on a held Kwento.** New `kwento_flagged` notification type (0028 enum); the submit route fires `emitNotification` (via `after()`, couple-recipient, links to the moderation queue) ONLY when Tier-1 moderation HELD the message — clean ones surface in the queue/wall console without an email (no live-reception spam).
-
-Migrations: `20261227000000_kwento_flagged_notification_type.sql` (standalone enum-add) + `20261227000100_kwento_p1_self_delete_faceblock_sync.sql` (2 RPCs). **Applied to prod 2026-06-15** (idempotent: `ADD VALUE IF NOT EXISTS` + `CREATE OR REPLACE`). tsc + lint green.
-
-SPEC IMPACT: 0012 § Kwento — P1 self-delete + FaceBlock author-sync + flagged-email landed; the produced-FILM form remains blocked on the video pipeline. No price/SKU change.
-## 2026-06-15 · feat(for-vendors): photography — real on-brand assets warm the reflowed page
-
-Owner: "use photos if needed." The reflowed page was all type + cards; added two photographic moments using real production assets already in `public/` (no fake faces — the testimonial-integrity pass stands).
-
-- **`recommend-strip.tsx`** — replaced the text pills with a 4-up image grid of actual Productions services using their real product photos: Papic (`/add-ons/papic.avif`), Panood (`/add-ons/panood.avif`), Animated Monogram (`/add-ons/custom-monogram.avif`), Highlight Reel (`/add-ons/ai-video.avif`). Makes "recommend an add-on" tangible. `next/image`, 16:9, lazy.
-- **New `editorial-band.tsx`** — one full-bleed photographic breath (the candlelit reception table, `/dashboard/cover-reception-table.avif`) behind a dark wash, with a poster line ("Spend your hours on the craft — not on chasing the next inquiry"). Inserted after `VendorVision`, bridging the vision into the what-you-get stack.
-- Deliberately left the hero alone (template/button-locked) and used no `portraits/*` faces on testimonials (would re-introduce the fabricated-endorsement problem just cleaned up).
-
-`tsc --noEmit` green. SPEC IMPACT: None. Bundled into the reflow PR #1459.
-
-## 2026-06-15 · refactor(for-vendors): full strategic reflow — comprehensiveness → conversion
-
-Owner: "strategically update it on how it should look." The page had grown to ~20 sections that said the same things 3–6× (0% commission ×6, the tier comparison twice, "what you get" across the hero + vision + stack + deep-dive) and dumped the entire couple-facing economy (the Free/Bid/À-la-carte pricing cards + the full 21-service Productions catalog) into the middle of a vendor-recruitment page. Reflowed to a single hook → why → what-you-get → pricing → proof → recommend → objections → close arc (~18 content sections → 8). Owner approved the full reflow (AskUserQuestion). No new claims — reflow + consolidation + cuts.
-
-- **`vendor-vision.tsx` trimmed** — removed the "5 growth tools" grid (duplicated the deep-dive benefit cards), the Tokens panel, and the Pro/Enterprise panel (both duplicated the deep-dive tier matrix + bidding rows + the FAQ). Vision now carries only the promise + 3 pillars + the new-vendor-discovery card, and hands off downstream. Component is now sync (no DB read).
-- **Cut the two couple-facing sections** — removed the couple `<Pricing />` (Free/Bid/À-la-carte) and `<ProductionsCatalog />` (21 services) from the vendor page; **deleted the orphaned `productions-catalog.tsx`** (zero remaining imports).
-- **New `recommend-strip.tsx`** in their place — a compact "recommend an add-on → earn a referral token back" strip (the one vendor-relevant slice of the couple add-on economy), with example SKUs + a link to `/pricing` for the full catalog. Preserves the reason the catalog was there without dumping it inline.
-- **`page-tail.tsx` Voices → vendor-led** — promoted a vendor (Mika Reyes, Bloom & Co. Florals) to the featured quote; kept Camille Lao (coordinator) + one couple voice (Patricia Cruz, reframed as the demand signal); dropped the pure-couple guest quote (Andrea Sy).
-- **`page.tsx`** — recomposed the section order, dropped the `Pricing` + `ProductionsCatalog` imports, added `RecommendStrip`.
-
-`tsc --noEmit` green. SPEC IMPACT: None on schema/SKU/price — IA/copy restructure of a marketing surface (iteration 0015/0022). Logged to corpus `DECISION_LOG.md`.
-
-## 2026-06-15 · feat(pricing): soft-paywall banner on the match surface (completes the Setnayan AI buy flow)
-
-Follow-up to the AI buy surface (#1433). The buy *page* shipped there; this adds the **soft paywall where couples feel the gate** — the top of the vendor shortlist on `/dashboard/[eventId]/vendors`. When the AI paywall is ON and the event hasn't purchased Setnayan AI (`shouldOfferSetnayanAiPurchase(event)`), a "See your ranked shortlist — Unlock" banner links to `/add-ons/setnayan-ai` (which shows the catalog price + checkout). Rendered in both the takeover shortlist slot and the bare return by wrapping the `services` element.
-
-**Dormant until you flip the flag.** `shouldOfferSetnayanAiPurchase` returns false while `SETNAYAN_AI_PAYWALL_ENABLED` is off, so there's no banner today — it appears the moment the paywall goes live, alongside the per-candidate "% match" pills the gate already controls. Pure-UI addition; no price value, no SKU, no schema. `tsc` green.
-
-SPEC IMPACT: None (UI; the price still comes from the catalog via the buy page).
-## 2026-06-15 · chore(for-vendors): delete BIR-receipt claims + soften iPhone analogy & ₱228K mock
-
-Owner audit ("check what needs to be deleted") → owner selected: remove BIR-receipt claims + soften the iPhone line / ₱228K earnings mock. (Kept by owner choice: the 5 named testimonials and the "42 verified vendors" stat line.)
-
-- **BIR-receipt claims removed** — they contradicted the page's own "Setnayan never holds your money · couples pay you directly · 0% commission" (if we never receive the money we can't issue the vendor's OR), and had already been stripped from the hero (code comment at `vendor-hero.tsx` flags it) but missed elsewhere:
-  - `for-vendors-deep-dive.tsx` — deleted the "BIR done for you · Official Receipts, 2307s, and EWT generated on every payout" benefit card.
-  - `page-tail.tsx` — removed the Joey Castro "writing Official Receipts by hand … Setnayan does it" testimonial (4 voices remain); removed the footer "Tax-compliant receipts" link.
-  - `stack-close-vendor.tsx` — dropped "Manual Form 2307s" + "Hand-written ORs" from the BEFORE stack (now 8 tools, auto-updates the "N apps replaced" count); removed "BIR forms by hand" / "₱2-5K per event in BIR receipt prep" savings claims (×3); removed "BIR receipts" from the AFTER one-login list.
-  - **Kept** (true, not removed): "we check your DTI · BIR · Mayor's Permit at verification" mentions in `page.tsx` meta + the "how do I know a vendor is legit" FAQ — those describe verification, not receipt generation.
-- **iPhone analogy** — removed "What iPhone did for software, Setnayan does for Filipino wedding services" caption under "ONE SETNAYAN."
-- **₱228K mock** — hero pipeline card "Today's earnings · ₱228K · 2 bookings paid" → "Booked this week · 2 bookings confirmed" (kept the truthful "Paid straight to you · Setnayan never holds your money" line).
-
-`tsc --noEmit` green. SPEC IMPACT: None on schema/SKU/price — removes inaccurate/contradictory public claims (aligns with the #1316 public-claims purge). Logged to corpus `DECISION_LOG.md`.
-## 2026-06-15 · feat(pricing): wire the holistic pass — website collapse + flat-₱100 vendor tokens (migration)
-
-Executes the **verified, unambiguous** parts of `Pricing_Holistic_Pass_2026-06-15.md` (owner "do it now"). New migration `20261230000000_holistic_pricing_pass_2026_06_15.sql` (idempotent, **NOT applied — owner runs `supabase db push`**):
-
-- **⚠ Website collapse (load-bearing).** New `COUPLE_WEBSITE_PRO` ₱3,999 — the single premium unlock across all 4 website phases (owner ruling 2026-06-14). Retires (is_active=false) the overlapping in-build SKUs it absorbs: `EVENT_WEBSITE` · `PRO_RSVP` · `RSVP_PRO_WEBSITE` · `RSVP_WEBSITE` · `PRO_WEBSITE` (Editorial ₱7,999 — the §5① "absorb" rec, executed per do-it-now). The **free 4-in-1 site + unlimited free RSVP are NOT SKUs** and are untouched; deactivation doesn't revoke existing orders (ownership = `orders.status`). Reader keys updated: `COUPLE_WEBSITE_PRO` added to `V2_SKU_CODES` + `BUILD_STATUS` ('partial' — buy surface is a follow-up).
-- **Vendor token packs → flat ₱100/token** (§4): ₱400/1,000/2,500/5,000/10,000 (was the tiered ₱1,000–18,000 ladder).
-
-**Deliberately NOT touched — flagged for owner confirmation:** the migration history shows `ANIMATED_MONOGRAM` is **₱2,499** and `PAKANTA` is **₱3,499** in the DB (seeds, never repriced) — the collection-doc's "live+DB" figures the §2 doc relied on were wrong. Per the source hierarchy (live site > DB > docs) I did **not** silently cut those; confirm against the live site. Every other §2 à-la-carte value already matches the canonical DB (no-op).
-
-Still queued (need the bundle-membership PRs #1447/#1451 on main first): seed the 5 family bundles into `platform_package_catalog` + membership, multi-bundle cart, pick-one Papic, the `COUPLE_WEBSITE_PRO` buy surface. `tsc` green.
-
-SPEC IMPACT: executes the website collapse + token reprice (corpus `Pricing_Holistic_Pass §1/§4` + DECISION_LOG); à-la-carte resolutions stay provisional pending the 2 flagged confirmations.
-
-## 2026-06-15 · feat(recap): Auto-Recap — the "living recap" keepsake (Living Memories pillar · produce-the-keepsake)
-
-Ships the **produce-the-keepsake** row of the Living Memories pillar that was buildable TODAY without a video pipeline (there is none in the repo — no FFmpeg/Remotion/owned-music; SDE/Thank-You/Highlights as *films* remain blocked on that infra). The recap rides the shipped image/PDF substrate (`pdf-lib`/`satori`/`sharp`) the Kwento Magazine + social cards already use, and is assembled ON THE FLY from data that already exists — **no new SKU, FREE** (parity with Kwento Magazine).
-
-- **Schema** — migration `20261225000000_event_recaps.sql`: one `event_recaps` row per event tracking publish state (`draft|published|unpublished` + `published_at` + `unpublished_by`). RLS at CREATE time (couple/coordinator SELECT · couple+admin write · no `anon` policy — public reads go service-role behind the published gate).
-- **Assembler** `lib/auto-recap.ts` — reuses `loadEditorialData`/`composeCopy` (the FRAME: love story + lede), `getWallSnapshot` (face-blurred wall-safe day stream), `bucketMoments` (chaptering) — no forks. **Public-safe by construction:** the public recap reads ONLY the couple's own curated `our_photos` + face-blurred wall-safe derivatives (`moderation_state='clean'` + `wall_safe_r2_key`, fail-closed) + wall-approved Kwentos (`wall_eligible`). Unblurred masters never touch it — those stay in the private Kwento Magazine.
-- **Public page** `app/[slug]/recap/page.tsx` — the palette-skinned "living recap" (hero · love-story prologue · time-chaptered wall-safe photos · curated gallery · "Mga Boses" guest voices · share bar), rendered only when published (else a gentle stand-in). `generateMetadata` → OG card.
-- **Share card** `lib/social/recap-card.tsx` + `app/api/og/recap/[slug]/route.ts` — 1200×630 satori/sharp card (branded + public-safe-photo variant), public, fail-safe 302→brand card.
-- **Couple surface** `app/dashboard/[eventId]/add-ons/papic/recap/{page,actions}.tsx` + `_components/recap-card.tsx` (wired onto the Papic page) — publish/unpublish + a plain-English explainer of exactly what the public page exposes (private vs public counts) + a link to the private magazine.
-- **Vendor surface** `app/vendor-dashboard/recaps/page.tsx` + `lib/recap-vendor.ts` + nav — a linked vendor sees the couples-they-helped recaps (own booked events ∩ published), shareable to their Page.
-- **Admin surface** `app/admin/recaps/{page,actions}.tsx` + nav — HQ lists every live recap + an RA 10173 takedown lever (audit-logged; couple can re-publish).
-
-**Connections (architect mandate):** couple publishes → public page + share card go live → linked vendor sees it → HQ can audit/take down. Love story flows from `events.love_story` (single source); photos from Papic captures → wall-safe gate; voices from `photo_messages` → wall-approved.
-
-SPEC IMPACT: New surface in iteration 0012 (Papic · Living Memories produce-the-keepsake). Logged to corpus `DECISION_LOG.md`; the unbuilt-video-pipeline finding + the public-safe recap design recorded. FREE, no price invented (pricing batched per the holistic-pass rule).
-## 2026-06-15 · fix(db): migration-ledger reconciliation — 5 drifted migrations made consistent on prod
-
-Follows the dup-timestamp hotfix [#1449](https://github.com/iscasasola/setnayan-platform/pull/1449) (which renamed `public_seat_lookup` `20261215000000`→`20261215001000` so `db push` stops keying two files to one version). A prod-ledger audit found the renamed file plus four others were drifted — their objects existed on prod but the `supabase_migrations.schema_migrations` rows were missing, so `db push` either skipped or mis-saw them. Reconciled the ledger to reality (DB-side only; **no code change** — the rename already shipped in #1449):
-
-- **Verified #1449 deduped the correct file:** the prod ledger's `20261215000000` row is `guard_guest_edits_when_locked` (the *applied* one), so renaming the *un*applied `public_seat_lookup` was right.
-- **4 migrations were fully applied but unrecorded** (every object verified present on prod) → recorded their ledger rows via `supabase migration repair --status applied`, no DB object change: `20261122000000_panood_watch_url` (events.panood_watch_url col), `20261202001000_admin_intelligence_analytics` (3 fns + idx), `20261215001000_public_seat_lookup` (fn — the dup-collision casualty), `20261216000000_seating_editor_locks` (table + 4 fns + RLS + policy).
-- **1 migration was genuinely unapplied** → applied `20261224000000_event_checklist_items` to prod (idempotent: table + unique/idx + trigger fn + trigger + RLS + 2 policies; verified live), recorded its ledger row.
-- **Did NOT run a blind `supabase db push`** (it would have hit the consistency guard against the in-flight `20261225000000_event_recaps`, PR #1448, and is the wrong tool while the ledger is drifted). Applied statement-by-statement via `supabase db query -f` with a dollar-quote/string/comment-aware splitter (psql unavailable).
-- **Result:** zero migrations pending from `origin/main`; the only remote-ledger row not yet on `main` is `20261225000000` (auto-recap, PR #1448) — it lands when that PR merges. Future `db push` is now safe.
-
-SPEC IMPACT: None (prod-ledger reconciliation; schema already matched the migrations). Logged to corpus `DECISION_LOG.md`.
-## 2026-06-15 · chore(for-vendors): remove the Founder Bonus (100 free tokens before 31 Jan 2027)
-
-Owner: "please remove the founder bonus." Stripped the dated 100-free-tokens-on-verification promo from every touchpoint on `/for-vendors`. The **standing** verified perk — "up to 10 free couple unlocks a week" — is kept; only the time-limited founder grant is gone.
-
-- **`vendor-hero.tsx`** — dropped the "Founder bonus 100 free bidding tokens on verification before 31 Jan 2027" sentence from the hero subheadline.
-- **`for-vendors-deep-dive.tsx`** — deleted the dedicated dark "100× · Founder bonus" callout (incl. its "Verify now →" CTA); removed the matrix row "Founder bonus 100 tokens (until 31 Jan 2027)" and replaced the now-orphaned vague "Ongoing token bonus qualification" row with a clearer, truthful "Free couple unlocks per week · — / Up to 10 / Up to 10 / Up to 10" row (the standing perk).
-- **`page-tail.tsx`** — FAQ "How does Setnayan make money?" (static + DB-driven copies): removed "and everyone starts with 100 free tokens on verification"; kept the weekly free unlocks.
-- **`page.tsx`** — removed "100 free tokens on verification" from the meta description, the Twitter card, and three schema.org Offer descriptions (Verified, Pro 28-day, Pro annual).
-- **`vendor-vision.tsx`** (the spine shipped in #1437) — repaired the two blocks that leaned on the grant: the discovery point "100 free inquiries to start" → "Free weekly unlocks to start (verified vendors get free couple unlocks every week)"; the Tokens block's "we drop 100 free tokens in your wallet" → "Verified vendors get free couple unlocks every week, so you can start without spending."
-
-`tsc --noEmit` green. SPEC IMPACT: None on schema/SKU/price. Retires a launch promo; logged to corpus `DECISION_LOG.md`. (Shipped together with the tier-matrix realignment below in PR #1446.)
-
-## 2026-06-15 · refactor(for-vendors): realign tier matrix to the "growth-gated, not craft-gated" story
-
-Follow-up to the `VendorVision` spine ([#1437](https://github.com/iscasasola/setnayan-platform/pull/1437)). That section frames Pro/Enterprise as "Free is a whole business; paid tiers are for growing" — but the comparison matrix a few scrolls down still framed the same tiers as "the toolkit Pro+ vendors use to close more weddings," which reads as paying to unlock your craft. This makes the whole page tell one story. **Framing/copy only — no feature was re-gated** (the actual Free/Verified/Pro/Enterprise capability gating is unchanged, per the 2026-06-07 capability matrix).
-
-- `apps/web/app/for-vendors/_components/for-vendors-deep-dive.tsx` — (1) **Free-vs-Pro intro** eyebrow `"Free vs Pro · what you get on each side"` → `"Free is a whole business · paid tiers are for growing"`; body rewritten to "Free isn't a trial — it's a complete business … Pro and Enterprise don't unlock your craft; they expand it — more categories, more team, wider reach, and tools that scale as you grow." (2) **Matrix section** `"🛠 Pro tools"` → `"📈 Grow & scale · Pro+"`; note rewritten from "the toolkit Pro+ vendors use to close more weddings" to "Tools that expand your business as it grows — never ones you need to run your craft."
-- The individual rows under that section (Editorial Tagging, AI Proposal Builder, category benchmarks, demand pulse, theft watch, crew-rate, co-listing) keep their Pro+ gating — all genuinely growth/scale/reach tools, now correctly framed as such. `tsc --noEmit` green.
-
-OPEN (flagged to owner, NOT changed here): **`File sharing with couples`** is still gated to Pro+ in the same section — the one row that reads as core-collaboration rather than growth. Moving it to Free/Verified is a real product/pricing decision, so it's surfaced rather than silently changed.
-
-SPEC IMPACT: None on schema / SKU / price / tier capabilities. Public-copy framing only (iteration 0015/0022); logged to corpus `DECISION_LOG.md`.
-## 2026-06-15 · fix(payments): Papic seat/guest provisioning is now bundle-aware at the DB level (PR #1447 follow-up)
-
-Closes the residual gap flagged in PR #1447. That PR made the app-side ownership READ bundle-aware (`eventOwnsSku` + `BUNDLE_CHILD_SKUS`), so a `MEDIA_PACK` buyer owns the child SKUs — but the DB RPC `papic_provision_seats()` gated via `papic_event_owns_service(event, key)` which matched the **exact** `service_key` only. So a Media-Pack buyer who clicked "provision seats" hit the RPC's exact-key check (`'PAPIC_SEATS'` → no direct order) and the seats never materialized. (Same for the `'PAPIC_GUEST'` path.)
-
-- **DB (new migration `20261228000000_papic_ownership_bundle_aware.sql`):** new `public.bundles_granting_sku(child) → text[]` helper (the SQL mirror of `BUNDLE_CHILD_SKUS`), and `papic_event_owns_service` now matches the exact key **OR** any owned bundle that includes it. Exact-key branch + status filter preserved verbatim → no change for à-la-carte buyers. Idempotent. **NOT applied — owner runs `supabase db push`.**
-- **App (parity):** `lib/papic-seats.ts:eventOwnsPapicSeats` and `lib/papic-guest.ts:eventOwnsPapicGuest` switched from the exact-key `checkOrderOwnership` to bundle-aware `eventOwnsSku`, so the add-on **page** gate and the DB **RPC** now agree — a Media-Pack buyer both SEES the provision UI and can materialize the seats / guest quota.
-- **Sync note:** bundle membership now lives in THREE mirrors — `BUNDLE_MEMBERS` (onboarding, canonical) → `BUNDLE_CHILD_SKUS` (`lib/entitlements.ts`) → `bundles_granting_sku` (SQL). Keep in sync if composition changes.
-
-Stacks on PR #1447 (depends on its `eventOwnsSku`/`BUNDLE_CHILD_SKUS`). `tsc` + `pnpm test:unit` (135/135) green. SPEC IMPACT: None (mechanics; no price/SKU change).
-
-## 2026-06-15 · ci(desktop): Developer-ID signing + Apple notarization for the macOS build
-
-Owner renewed the Apple Developer membership → wire real macOS signing so a downloaded `.dmg` opens without the Gatekeeper "unidentified developer / damaged" warning (was: ad-hoc signed only). Env-var-driven so **no certificate ever lands in the repo**; Tauri v2's bundler imports the cert + notarizes during `tauri build`. Follows the `desktop-latest` rolling-release work ([#1434](https://github.com/iscasasola/setnayan-platform/pull/1434)).
-
-- `.github/workflows/build-desktop.yml` — job-level `env` feeds six `APPLE_*` repo secrets to `tauri build`. When `APPLE_SIGNING_IDENTITY` is set: Developer-ID-sign + hardened-runtime + notarize-via-notarytool + staple, then a new verify step logs `codesign` authority / `spctl` Gatekeeper verdict / `stapler validate`. When the secrets are absent (forks, or before the owner adds them): the existing ad-hoc codesign step runs instead (made conditional on `env.APPLE_SIGNING_IDENTITY == ''`) so CI is unchanged and never breaks. Release-body Gatekeeper note reworded for both states; `tauri.conf.json` identifier (`com.setnayan.desktop`) confirmed correct.
-
-**OWNER ACTION REQUIRED — add these 6 repo secrets** (Settings → Secrets and variables → Actions) before macOS builds will sign; until then they keep ad-hoc-signing:
-- `APPLE_CERTIFICATE` — base64 of the exported *Developer ID Application* cert `.p12`
-- `APPLE_CERTIFICATE_PASSWORD` — that `.p12`'s password
-- `APPLE_SIGNING_IDENTITY` — e.g. `Developer ID Application: <Name> (<TEAMID>)`
-- `APPLE_ID` — Apple ID email
-- `APPLE_PASSWORD` — an **app-specific password** (appleid.apple.com → Sign-In & Security), not the account password
-- `APPLE_TEAM_ID` — 10-char Team ID
-
-Windows signing is still unsigned (separate Phase-2 item).
-
-SPEC IMPACT: None. CI/release-plumbing only — no schema, SKU, or product-surface change.
-## 2026-06-15 · fix(pricing): 4-tier BUNDLE charge is now catalog-authoritative (PR 2b of the pricing/payments plumbing fix)
-
-PR 1 (#1431) made `submitOrderAction` re-resolve the charged price from `platform_retail_catalog_v2` for every RETAIL SKU so the browser-supplied amount is never trusted. But the **two 4-tier paywall bundles** — Essentials (`GUIDED_PACK` ₱12,999) and Complete (`MEDIA_PACK` ₱27,999) — live in a **different** table (`platform_package_catalog`, columns `package_code`/`title`/`retail_price_php`), so the retail re-resolution returned null for them and the bundle charge fell back to the **client-supplied** `original_centavos` — a tamperable ₱12,999/₱27,999.
-
-- **`apps/web/lib/v2-catalog.ts`** — new `resolveBundleChargeCentavos(packageCode): Promise<number | null>`: the bundle analogue of `resolvePaxPricedOrderCentavos`. Reads the admin-set `retail_price_php` from `platform_package_catalog` (honors `is_active`, flat-priced → `× 100`), returns null for non-bundle/retired/error so the caller degrades to the client value exactly as before.
-- **`apps/web/app/dashboard/[eventId]/checkout/actions.ts`** — `submitOrderAction` now checks the package catalog when the retail resolve misses: `resolvePaxPricedOrderCentavos` → else `resolveBundleChargeCentavos`. A tampered bundle URL/price can no longer change what's billed. Flat + pax retail behavior is byte-identical (untouched first branch).
-
-**Bundle purchase path (verified):** the onboarding bundle screen routes to `/dashboard/[eventId]/add-ons/bundle?code=GUIDED_PACK|MEDIA_PACK`, which mounts the shared `InlineCheckoutDrawer` with `service_key = package_code` → submit hits the SAME `submitOrderAction` / `orders` + `payments` path as every retail SKU. No new action, no schema change. NO price VALUE invented or changed — only existing DB rows read. tsc green.
-
-SPEC IMPACT: None on prices/schema (server re-resolution only · prices stay owner-set in `platform_package_catalog`). Closes the bundle leg of the "catalog = single source of truth for every charge" program (PR 1 retail → PR 2 AI buy surface → this 2b bundle re-resolution).
-## 2026-06-15 · ci(mobile): Android `.aab` build workflow for Google Play submission
-
-App-store submission prep. The owner is registering a Google Play (Personal) developer account and has activated the Apple Developer Program. Native build tooling isn't installed locally (no JDK / Android SDK / full Xcode), so the Android app bundle is built in CI to match the existing `build-desktop.yml` "CI is the build machine" pattern.
-
-- **New `.github/workflows/build-android.yml`** — `workflow_dispatch`-only (manual). Sets up JDK 17 + Node 22 + Android SDK 36, runs `npm ci` + `npx cap sync android` in `apps/mobile`, decodes the upload keystore from `ANDROID_KEYSTORE_BASE64` + `ANDROID_KEYSTORE_PASSWORD` secrets into a gitignored `keystore.properties`, builds `:app:bundleRelease`, and uploads the signed `.aab` as an artifact. Manual-only on purpose so it doesn't fire red before the secrets exist.
-
-Upload keystore was generated out-of-repo at `/Users/Shared/setnayan-keys/` (alias `setnayan`, RSA 2048, 10000-day validity); `.gitignore` already blocks `*.jks` / `keystore.properties`. Full owner runbook (registration steps, listing copy, Google Data Safety answers, Apple privacy labels, iOS Xcode steps, Guideline 4.2 risk note) in the spec corpus: `0052_native_apps_delivery/App_Store_Submission_Runbook_2026-06-15.md`.
-
-SPEC IMPACT: None (CI infra + owner-action docs; no schema/SKU/feature change). The runbook is a new corpus delivery doc, not an iteration-spec edit.
-## 2026-06-15 · fix(payments): repair the dead unlock path + revoke-on-reject + activate-on-approve (PR 4 of the pricing/payments plumbing fix)
-
-The highest-risk PR in the pricing/payments series — three money-path bugs on the SKU activation chain, all read-side (no migration).
-
-- **Bug 1 — dead unlock pathway (the big one).** Several couple surfaces gated "is this SKU unlocked?" by READING `event_software_activations_v2`, but the ONLY writer of that table on the payment path is the DB fn `verify_and_activate_manual_payment()` (migration `20260903000000`), which has **zero app callers**. Net: any SKU gated this way could **never unlock by paying** ("pay and get nothing"). Rewired every such read to the canonical orders.status reader. New `eventOwnsSku()` + `BUNDLE_CHILD_SKUS` in **`apps/web/lib/entitlements.ts`**: owns a SKU when there's a live direct order for it **OR** a live order for a bundle (`GUIDED_PACK`/`MEDIA_PACK`) that includes it — closing the bundle→child gap (a Media Pack order is one row keyed `MEDIA_PACK`, never per-child). Read sites rewired (all from `.from('event_software_activations_v2')` → `eventOwnsSku()`): `app/dashboard/[eventId]/add-ons/papic/_components/live-wall-card.tsx` (LIVE_WALL), `app/dashboard/[eventId]/live/page.tsx` (LIVE_WALL), `app/wall/[eventId]/page.tsx` (LIVE_WALL), `app/[slug]/page.tsx` (LIVE_WALL **+** PANOOD_SYSTEM day-of blocks), `app/[slug]/live-wall/route.ts` (LIVE_WALL feed), `app/[slug]/_components/editorial/data.ts` (LIVE_WALL editorial section), `lib/face-blur.ts` (LIVE_WALL bake gate, dynamic import). The two **manpower** API routes (`sync-device`, `verify-telemetry`) keep using the table — they're vendor-side reward-telemetry writers, NOT couple-payment gates.
-- **Bug 2 — rejected payment didn't revoke access.** `rejectPayment` (`app/admin/payments/actions.ts`) set `payments.status='rejected'` but left `orders.status='submitted'`, which the orders reader still counts as OWNED — couple kept the SKU after a hard reject. Now also flips the order to `'cancelled'` (only when still `draft`/`submitted`/`awaiting_payment` — race-safe `.in()` WHERE, idempotent, non-fatal + fault-logged on failure) so it leaves the owned set; the order is now in `RELINQUISHED_STATUSES`. **Resubmit path untouched** (it deliberately keeps the order alive). Adds a `/dashboard` layout revalidate so gated surfaces re-render locked.
-- **Bug 3 — approve-without-promote skipped activation.** `activateOrderSku` lived inside `approvePayment`'s `if (promoteOrder)` block, so approving with the promote checkbox off matched the payment but never ran SKU side-effect provisioning (SETNAYAN_AI boolean, concierge state machine, vendor branch flag). Moved the dispatcher call OUT of the promote block so it runs on **every** approval, exactly once (idempotent hooks; receipt/payout/analytics stay promote-gated). Aligns provisioning with ownership (a matched/`submitted` order is already OWNED).
-
-Verification: `pnpm typecheck` clean; `pnpm test:unit` 135/135 (added 8 `eventOwnsSku`/bundle cases; the 10 existing `checkOrderOwnership` invariants kept green — that helper is unchanged). No price changed, no migration applied.
-
-**Surfaced for owner:** (a) `BUNDLE_CHILD_SKUS` is the entitlement-layer mirror of `BUNDLE_MEMBERS` in `app/onboarding/wedding/_components/onboarding-pricing.ts` — keep the two in sync if bundle composition changes. (b) The couple-initiated `papic_provision_seats` RPC (migration `20260718000000`) gates by exact `service_key` only, so a Media-Pack buyer passes the app-side PAPIC_SEATS page gate but the RPC would refuse to materialize seats — a follow-up (bundle-aware DB gate, or write child ownership on bundle approve) is flagged, not fixed here.
-
-SPEC IMPACT: None on prices / SKUs / schema. Behavior fix only: bundled + directly-purchased SKUs gated on `event_software_activations_v2` now actually unlock on payment; rejected payments revoke; approvals always activate.
-## 2026-06-15 · feat(admin): editable vendor pricing + Setnayan Pay fee at /admin/pricing (PR 3 of the pricing/payments plumbing fix)
-
-Before this, `/admin/pricing` only let the owner edit the **customer** catalog (`platform_retail_catalog_v2` + `platform_package_catalog`). Vendor subscriptions / token packs (`vendor_billing_catalog`) and the Setnayan Pay convenience fee were **migration-only** — to change a vendor price or the fee you had to write SQL. This closes that gap.
-
-- **`apps/web/app/admin/pricing/actions.ts`** — two new `requireAdmin`-gated server actions, each mirroring the existing `updateRetailSku` shape EXACTLY (validation → snapshot prior → >₱500 (or >2.0pp) `console.warn` two-admin gate → `UPDATE` → `admin_audit_log` insert → `revalidatePath` → `redirect`):
-  - **`updateVendorSku`** writes `vendor_billing_catalog.price_php` + `is_active` (positive-price validated against the table's `CHECK price_php > 0`; stamps `updated_at` explicitly since this table has no updated_at trigger / `updated_by_admin_id` column). Revalidates `/for-vendors` + `/pricing` (both read `getVendorPrices()`) + `/admin/pricing`. Audit action `v2_vendor_sku_edit`.
-  - **`updatePlatformFee`** writes `platform_settings.setnayan_pay_fee_pct` (0–100 clamp). Audit action `platform_fee_edit`. Revalidates `/admin/pricing` + `/admin/payments` + `/vendor-dashboard`.
-- **`apps/web/app/admin/pricing/page.tsx`** — adds a **"Vendor pricing"** section (every `vendor_billing_catalog` row, read in full incl. inactive so a retirement can be reversed, with the same `?edit=<sku_code>` single-row form UX) and a **"Platform fee"** editor (single-row form via the `__platform_fee__` sentinel; shows a "Code default" badge until the column is first saved).
-- **`apps/web/lib/payouts.ts`** (`getSetnayanFeeBps`) + **`apps/web/lib/vendor-earnings.ts`** (`getSetnayanFeePct`) — read the fee from `platform_settings` with the existing code constants (5.0% / 500 bps) as fallback, so an unset column is byte-identical to current behavior. **`app/admin/payments/actions.ts`** payout breakdown now uses the admin-set fee when an order carries no per-order `setnayan_fee_bps` snapshot (historical orders keep their own).
-- **Migration `supabase/migrations/20261225000000_platform_settings_setnayan_pay_fee.sql`** — idempotent `ADD COLUMN IF NOT EXISTS setnayan_pay_fee_pct NUMERIC(5,2) NOT NULL DEFAULT 5.00` (= the current code value · no re-price) + a 0–100 CHECK + column comment. **NOT applied — owner runs `supabase db push`.**
-
-No price VALUE changed in any seed/migration — this adds the ability to EDIT, not a re-price. tsc + lint green. Closes PR 3 of the 4-PR plumbing fix (PR 4 = payment activation repair still queued). **Owner action:** `supabase db push` to land the fee column (until then the fee falls back to the 5.0% constant and the editor shows "Code default").
-
-SPEC IMPACT: None on locked SKU values or schema canon (adds an admin-edit affordance + one settings column defaulted to the existing fee). Vendor-price + fee editability is now a live admin capability — note for the corpus `0023_admin_console` / `Pricing.md` (admin-managed-prices rule).
+SPEC IMPACT: None on schema/SKU (new narrative surface + one nav item). **Lane 3 next** — finish the keystones (Kwento → Live Photo Wall → produced-output), the part competitors structurally can't copy.
 
 ## 2026-06-15 · feat(alaala): name the memory pillar "Alaala" — Studio hub framing + manifesto naming (Lane 1 of 3)
+## 2026-06-16 · fix(std-reveal): post-merge review fixes — preview-card timer leak, moodboard veil colour, crown-veil clear, a11y
 
-Owner locked the Living-Memories pillar's customer-facing name = **Alaala** (Tagalog: memory / remembrance / keepsake — it gathers Papic / Panood / Kwento / Pakanta / the rest into one promise) + a 3-lane embed plan (narrative spine → in-app Alaala hub → finish the uncopyable keystones). This is **Lane 1 (the spine), increment 1**:
+Follow-up to #1573 (the reveal library completion). A 25-agent adversarial review (verdict: working-with-nits, approach sound) confirmed the architecture and surfaced a small set of real fixes, all applied here. Still flag-gated (`NEXT_PUBLIC_STD_REVEAL` default OFF).
 
-- **`apps/web/app/dashboard/[eventId]/add-ons/page.tsx`** (the Studio hub) — adds an **Alaala framing band** above the service sections: names the pillar ("Alaala · the memory you keep"), frames the memory features below as "the pieces of your Alaala — the living memory of your day," and states the **guardrail** ("it never gets in the way — the day stays yours; the tech just quietly remembers it"). Calm v2.1 surface, `--m-*` tokens; no catalog restructure.
-- **`apps/web/app/_components/marketing/OurStory.tsx`** — the live `/our-story` manifesto close now NAMES the pillar: *"We call it Alaala — the memory you keep."*
+- **Bug — studio preview timer leak** (`reveal-preview-card.tsx`): the rigid fold-beat `setTimeout(setRevealed, …)` was never cancelled, so a Close-then-veil sequence within the window fired a stale `setRevealed(true)` and unmounted a freshly-mounted veil mid-lift. Now tracked in a ref and cleared on launch / close / unmount.
+- **Bug (copy-vs-behavior) — veil colour ignored the Mood Board.** Both live `[slug]/page.tsx` `RevealOverlay` mounts and the studio call site hardcoded `#f3ece1` while the copy promises "recolours to your Mood Board." Added `veilColorFromPalette()` to `lib/site-palette.ts` (most-colourful palette swatch lightened 60% toward ivory → a sheer, hue-carrying tint) and threaded it into both live mounts + the studio page (which now selects `role_palette`). Ivory stays the genuine fallback.
+- **Crown veil could sag back into view** (`veil-crown.tsx`): at full fold the slack belly could droop across the invitation before the overlay faded. Raised `hemRise` to `lift*(clothH*2+4)` so the two pin rows separate by more than a cloth length → the drape pulls taut and lifts clear. (`onRevealed` already fired on the scalar lift, so this was visual-only, never a hang.)
+- **Accessibility — `prefers-reduced-motion`** now honored: such guests skip the reveal entirely and see content directly (gated in `RevealOverlay`). Covers the whole template family on the live path.
+- **Polish + consistency:** church-doors arch now mirrored onto the liner back face so it persists through the swing; V1 sheer-veil `wind` aligned 0.5 → 0.40 (the locked §1a craft constant, matching the crown veil); extracted `RIGID_FOLD_MS`/`RIGID_REVEAL_MS` so the overlay + preview timers stop being independent magic numbers.
+- **Owner-confirm (not changed): `?reveal=` is not a hard kill-switch** — a guest appending a valid `?reveal=` in the Save-the-Date phase activates the reveal in any environment, flag or no flag. Left as-is (it's how Vercel previews demo it) but the misleading "previews only" comment was corrected; decide the production kill-switch semantics before the veils launch.
 
-Canonical pillar definition (spec corpus): `03_Strategy/Alaala_Pillar_2026-06-15.md`. SPEC IMPACT: None on schema/SKU (naming + framing copy). **Queued:** Lane 1 remainder (onboarding "promise" beat) · Lane 2 (a dedicated in-app Alaala hub with the save-the-date→day-of→editorial through-line) · Lane 3 (finish the keystones: Kwento → Live Photo Wall → produced-output SDE/Thank-You/Highlights — the parts competitors structurally can't copy).
-## 2026-06-15 · feat(for-vendors): vendor vision spine — the "why" above the feature stack
+tsc 0 · `next lint` clean · `lint:retired` 0 (verified in worktree).
 
-Owner brief: "share our vision to the vendors." The page led with the feature stack (VendorHero → StackCloseVendor → DeepDive → Pricing table); this adds the missing narrative that earns the vendor *before* the proof.
+SPEC IMPACT: 0024 Save the Date — no scope change; correctness/a11y/colour-wiring fixes on the flag-gated reveal. Logged in corpus `DECISION_LOG.md`.
 
-- **New `apps/web/app/for-vendors/_components/vendor-vision.tsx`** (`VendorVision`, async server component) — slots between `VendorHero` and `StackCloseVendor` in `page.tsx`. Six owner-authored moments, tightened to page copy: (1) the promise — "you give couples the wedding of their dreams; we give you back your time"; (2) set-your-price-once (base + per-pax, shown instantly, yours to vary per couple, never forced into a fixed public rate); (3) every-inquiry-counts (we've paid for ads too; you pay only on real fit; 0% commission); (4) we-never-abuse-your-business (rise by merit, can't pay to fake success); (5) **how new vendors get discovered** — fit-not-fame · "no reviews yet" = unknown not bad · 100 free tokens · hidden-until-reply · merit climb (the deterministic leaf-match + never-empty + hybrid-anonymity model); (6) the 5 growth tools (calendar sync · BYO couples · portfolio-as-website · editorial tagging · 0% commission).
-- **Tokens block** — "simple + honest" per owner 2026-06-15: one token opens one real matched inquiry, 100 free on verification, top-ups at `{p.tokenUnit}`/token, earn-back on recommended services. (Region-banding deliberately kept out of public copy by owner call.)
-- **Pro & Enterprise block** — growth-gated, not craft-gated (owner 2026-06-15): "Free is a whole business; Pro/Enterprise are for when you're growing." Paid tiers expand reach / team / categories / tools, never unlock the craft. Prices `{p.proMonthly}` / `{p.enterpriseMonthly}` read live from `getVendorPrices()` — never hardcoded (admin-managed-prices rule).
-- Built entirely in the page's `--m-*` Clean-Editorial tokens + `m-display`/`m-card`/`m-btn` vocabulary; responsive via scoped `.m-vv-*` grid classes. `tsc --noEmit` green.
+## 2026-06-16 · fix(payments): complete PR4 bundle-awareness — 3 Essentials-tier SKUs a bundle buyer was wrongly denied (PR4b)
+## 2026-06-16 · chore(db): drop the retired budget_category_flags table
 
-SPEC IMPACT: None on schema / SKU / price. New vendor-facing positioning on /for-vendors (iteration 0015 marketing site · vendor pitch shared with 0022); logged to corpus `DECISION_LOG.md`.
-## 2026-06-15 · feat(blog): Setnayan Journal magazine redesign — photo-led cover, Nuggets, inspiration reader
+Migration `20270108000000` — removes `budget_category_flags`, the legacy 2-state Pin/Flag Build's storage. The 3-State Build replaced it with `event_category_build_state`, and #1568 deleted the last code that touched it. Audited before dropping: **0 code references · 0 incoming FKs · 0 view/rule deps**, only stale Flag-marker rows. Plain `DROP TABLE IF EXISTS` (no CASCADE) — RLS policies + indexes drop with it. Applied to prod in-session + ledger row inserted.
 
-Owner: "this is very powerful … present it in a more fashionable way than just a set of boxes — a preview in the beginning and an inspiration blog when opened … can you create photos as well?" Turns the text-only `/blog` (0038 first slice) into a photo-led editorial without disturbing the SEO/GEO machinery.
+SPEC IMPACT: None — completes the 3-State Build cleanup; closes the last follow-up from the #1568 retire-the-flag work.
 
-- **`lib/blog.ts`** — `BlogArticle` gains `cover` + `coverAlt` (now also the OG/BlogPosting `image`, so every share/SERP card gets art); `BlogBlock` union gains `quote` (gold pull-quote) + `image` (inline figure); new `BLOG_NUGGETS` — bite-size shareable wisdom lifted from the guides, each linking to its source article (owner: nuggets = "shareable wisdom from guides"). `blogPlainText` handles the new block types.
-- **`app/blog/page.tsx`** — magazine index: full-bleed **cover** for the featured guide (scrim + Cormorant masthead), a dark **Nuggets** band, a wide **lead** story + photo-led `StoryCard` grid (replaces the uniform text boxes). Category filter + Blog/Breadcrumb JSON-LD preserved; OG image added.
-- **`app/blog/[slug]/page.tsx`** — inspiration reader: immersive cover header, drop-cap lead, gold pull-quotes, inline figures, photo "Keep reading" cards. `summary_large_image` Twitter card + OG/BlogPosting `image`. Static render + soft-404 shape (`dynamicParams=false`) unchanged.
-- **`public/blog/{hero,venue,budget,ceremony,nugget}.webp`** — 5 AI-generated covers (Recraft), optimized webp. Owner-approved as V1 placeholders — "AI now, swap to real photography later." Reused thematically across the 9 articles.
+## 2026-06-16 · chore(compare): simpler Modify-confirm wording
 
-Brand-native: uses the existing Clean-Editorial tokens (`cream`/`ink`/`terracotta`=champagne-gold/`mulberry` CTA/`accent-soft`) + `font-display` (Cormorant) — no new font. Typecheck green on the changed files; lint/build via CI + Vercel preview.
+Owner ask: *"we also want to do the customization of this template from the admin"* + *"where we can activate and deactivate features of the template?"* — owner picked **Full template studio** (toggles **and** a live slider panel). Today the reveal was gated only by the `NEXT_PUBLIC_STD_REVEAL` env flag with all settings baked as constants; this makes it admin-managed end-to-end, following the `platform_settings` / `homepage_hero_config` recipe.
 
-SPEC IMPACT: 0038 editorial — blog identity clarified (owner 2026-06-15): helpful planning-education that spans event types as they unlock + weaves in useful services; distinct from "Real Stories" (real-event showcases). Article cover-image + Nuggets concept added. → corpus DECISION_LOG.
+**What landed:**
+- **`supabase/migrations/20270111083513_reveal_studio_config.sql`** — new singleton `reveal_studio_config` (id=1, JSONB `config`, read-all RLS, admin-write via service role). Holds master on/off · default + allowed templates · feature toggles · the veil look knobs.
+- **`apps/web/lib/reveal-config.ts`** — the config SHAPE (single source of truth): `RevealStudioConfig` · `VeilLook` · `RevealFeatures`, the **LOCKED `DEFAULT_*` values** (spec §6), `mergeRevealConfig()` (type-guarded deep-merge), and `fetchRevealConfig()` (cached service-role read; always falls back to the locked defaults — so a missing row never breaks the couple page).
+- **`apps/web/app/[slug]/_components/reveal/veil-reveal.tsx`** — refactored to be **settings-driven**: the §6 constants now come from `look`/`features` props (read via refs) so the admin's sliders tune the running sim live — per-frame knobs (wind, weight, valance, petal density, colours, feature toggles) update instantly; structural knobs (folds, fullness, reaches, logo) trigger an in-place geometry/texture rebuild. Feature gates added: `features.logo` (draw the mark or not), `features.petals` (park/seed the shower). Locked defaults preserved when no props are passed.
+- **`reveal-overlay.tsx`** — accepts the resolved `config`; the master toggle (`config.enabled`) replaces the env flag (env + `?reveal=` kept as fallbacks), `config.defaultTemplate` replaces the hardcoded `four-flap`, and `config.veil`/`config.features` flow into the veil.
+- **`reveal-overlay-server.tsx`** (new) — async server wrapper that resolves the config and feeds the client overlay; `[slug]/page.tsx` mounts it at both reveal sites (PublicLanding + InvitationSite).
+- **`veil-crown.tsx`** — gains optional `look`/`features` for prop-parity (unused there).
+- **`apps/web/app/admin/reveal-studio/`** — the Studio: `page.tsx` (server, fetches config) · `actions.ts` (`saveRevealStudio` — `assertAdmin` → service-role update of id=1 → `revalidatePath('/[slug]')`) · `studio.tsx` (client — master/template/feature toggles, default colour pickers, the veil-look sliders, a **live `<VeilReveal>` preview** that tunes as you drag, Save + Reset-to-locked-defaults).
+- **Admin nav** — added the `Reveal Studio` sidebar item (`admin-sidebar.tsx`, `Sparkles` icon) + the `admin.sidebar.reveal-studio` registry slot (`nav-registry-defaults.ts`) so it's admin-editable via `/admin/menus`.
 
-## 2026-06-15 · feat(pricing): Setnayan AI buy surface — the missing purchase path (PR 2 of the pricing/payments plumbing fix)
+**Verification:** `tsc` clean · `next lint` clean · nav-registry drift test 8/8 · nav-icon-source + bottom-nav guards pass · migration timestamp check passes (398 unique). ⚠ The migration must be applied to prod (`supabase db push`) post-merge for the admin Save to persist; until then the couple page safely falls back to the locked defaults (reveal stays OFF, as today).
 
-The audit found Setnayan AI is free for **two** reasons: the paywall flag is off AND **nothing let a couple buy it** (no add-on page, not in the onboarding add-on map). The entitlement chain was fully wired (checkout → admin approve → `events.setnayan_ai_active` → `lib/setnayan-ai.ts` gate) but had no front door. This PR builds it.
-
-- **New buy page** `app/dashboard/[eventId]/add-ons/setnayan-ai/page.tsx` with a 3-state gate off the single governing gate (`lib/setnayan-ai.ts`): **active** (AI on — covers free-during-launch when the flag is off + paid-and-on when it's on), **owns-but-off** (purchased / pending order / paywall-off but toggled to Manual → nudge to switch Assisted on, never a second charge), and **buy** (paywall on + not owned → `InlineCheckoutDrawer` at the catalog price, with graceful "loads from catalog" when the row is unreadable). Price read from the V2 catalog only (`formatV2Sku('SETNAYAN_AI')`, now resolvable after PR 1); the server re-resolves the authoritative charge regardless.
-- **New helper** `shouldOfferSetnayanAiPurchase(event)` in `lib/setnayan-ai.ts` — keyed on the `setnayan_ai_active` entitlement boolean (not the Assisted/Manual toggle) so an owner who toggled Manual is never re-offered the purchase. Reusable for a future soft-paywall CTA on the match surface.
-- **Registered** Setnayan AI as the lead card in `lib/add-ons-catalog.ts` (`plan_organize` studio group) so it's discoverable in the Studio hub.
-
-**Dormant until you flip it.** The buy state only renders when `SETNAYAN_AI_PAYWALL_ENABLED=true` (your Vercel env switch) — shipping this changes nothing live today. After it merges: set the flag → couples can buy at ₱3,999 → paying unlocks the ranked match (chain verified end-to-end). Typecheck green. Stacks on PR 1 (#1431).
-
-SPEC IMPACT: None on prices. Closes the "no purchase path for SETNAYAN_AI" gap so the first paywall can actually charge once enabled.
-## 2026-06-14 · feat(our-story): "Living Memories" brand manifesto — /our-story page + homepage teaser + shareable card
-
-Owner: "I want to share this idea with the world … embrace this new concept of memories." The umbrella idea over Papic / Panood / Kwento / Editorial — memory-keeping evolved from paper albums → digital albums → **LIVING memories**; a wedding was never meant to be frozen, and the four features prove it (capture → keep).
-
-- **New page `apps/web/app/our-story/page.tsx`** (static, `force-static`) — the full manifesto: cinematic dark open (paper → digital → living eras) → the manifesto core ("a wedding was never a still photo") → the four features as proof (the moments = Papic · the people = Panood · the stories = Kwento · kept forever = Editorial) → close + CTA. JSON-LD (BreadcrumbList + AboutPage), `og:image` → `/api/og/manifesto`.
-- **New `apps/web/app/_components/marketing/OurStory.tsx`** — `OurStoryManifesto()` (page body) + `OurStoryTeaser()` (homepage band). Zero-dep `Reveal`/`Blob` + `--m-*` Clean-Editorial tokens + the `#0e0f12` hero canvas so the brand reads as one film; sells FEELING, not implementation; inline-SVG feature mocks (mirrors `WhatYouGet`'s `RoomMock`).
-- **Homepage `apps/web/app/page.tsx`** — `<OurStoryTeaser />` inserted inside `PostHeroReveal` (between `WhatYouGet` and the footer); a soft brand grace-note that routes into `/our-story` (the primary "start planning" CTA still fires above it in `WhatYouGet`).
-- **Nav `apps/web/app/_components/marketing/site-nav.tsx`** — "Our story" repointed `/about` → `/our-story` (desktop + mobile share the `links` array; `/about` stays reachable directly).
-- **New shareable card `apps/web/lib/social/manifesto-card.tsx` + `apps/web/app/api/og/manifesto/route.ts`** — dark "A new way to remember / Memories that move" card via satori + sharp (bundled static fonts, no new dep), in **3 formats**: `og` 1200×630 (link unfurl) · `square` 1080×1080 (feed) · `story` 1080×1920 (Reels/TikTok/Stories), selected via `?format=`. Same pipeline as `realstory-card.tsx`.
-
-Companion corpus artifacts (manifesto copy + 55s film script/storyboard): `03_Strategy/Living_Memories_Manifesto_2026-06-14.md` + `03_Strategy/Living_Memories_Film_Script_2026-06-14.md`.
-
-SPEC IMPACT: None on schema/SKU. New brand-manifesto surface (iteration 0015); the four media-feature positionings + the umbrella thesis are logged to corpus `DECISION_LOG.md` + memory.
-## 2026-06-15 · ci(desktop): publish every main build to a rolling `desktop-latest` release (kill the stale download)
-
-Owner asked to stop the public Mac download going stale. Audit found: the desktop `.dmg`/`.msi` build off `main` only ever landed as a 14-day **Actions artifact** (login-gated, expiring), while the one public download — GitHub Release `v0.0.1` — was a **one-time manual upload from 2026-05-13**, ~a month behind `main`. The verified macOS artifact is a real, mountable, ad-hoc-signed `Setnayan.app` (Apple-Silicon-only Tauri remote-URL shell, ~2.9 MB app / 1.4 MB dmg).
-
-- `.github/workflows/build-desktop.yml` — new `publish-latest` job (`needs: build`, push-to-`main` only) downloads both platform artifacts and publishes them to a rolling **`desktop-latest`** pre-release via `softprops/action-gh-release@v2`, giving a stable always-current URL (`…/releases/download/desktop-latest/Setnayan_0.0.1_aarch64.dmg`). `if: always()` so a flaky Windows leg (non-required check) can't freeze the Mac refresh; `fail_on_unmatched_files: true` so an empty publish fails loudly. Release body documents the ad-hoc-signed / not-notarized / Apple-Silicon-only Gatekeeper caveats. The semantic `v0.0.1` release is left untouched.
-- Same file — flipped the artifact upload `if-no-files-found: warn` → `error`: a desktop build that produces no installer is a real failure and should not pass silently.
-
-STILL OPEN (surfaced to owner, NOT in this PR — need owner action/decision): (1) **Developer-ID signing + notarization** — downloads still hit Gatekeeper friction until Setnayan has an Apple Developer cert + notarization secrets; (2) **no Intel/x86_64 or universal macOS build** — Intel Macs can't run it; (3) **no "Download for Mac" link on setnayan.com** — only discoverable via the Releases page.
-
-SPEC IMPACT: None. CI/release-plumbing only — no schema, SKU, or product-surface change.
-
-## 2026-06-14 · fix(hero): restore full-bleed fill — homepage hero covers the screen again
-
-Owner: "the video is no longer fill. i see the square video and not see the filled screen." Reverses this morning's `e15a28ac` contain decision ("contain it · sharp, not full-screen"), which centered the scrub in an `86vmin` square capped at the source's native size to avoid upscaling a low-res clip.
-
-- `apps/web/app/_components/marketing/HeroVideoScrub.tsx` — frame `<img>` back to `absolute inset-0 h-full w-full` + `object-fit: cover` (full-bleed). Dropped the `frameWidth`/`frameHeight` props + the `nativeSide` cap + the flex-centering wrapper; the captions/scrim/end-overlay are unchanged (already positioned for the both-crops safe zone).
-- `apps/web/app/_components/marketing/_sections.tsx` — `Hero()` stops passing the now-unused `frameWidth`/`frameHeight` to `<HeroVideoScrub>` (still read by the admin editor via `hero-video.ts`, untouched).
-
-SHARPNESS NOTE (surfaced to owner): the live published hero is **1,019 frames @ 720×720** (old extraction). Filling the screen upscales that → soft on laptops/desktops — the exact reason it was contained this morning. For fill AND crisp the owner must re-upload + re-publish in `/admin/hero-video` (re-extracts at the current 960px cap), and the extraction `FRAME_MAX_EDGE` can be bumped (e.g. 1440–1920) at the cost of a heavier preload (the "front-door freeze" trade-off).
-
-SPEC IMPACT: None on schema/SKU. Homepage-UX reversal (contain → fill) logged to corpus `DECISION_LOG.md`.
-## 2026-06-14 · fix(pricing): catalog is the single source of truth for every charge + make SETNAYAN_AI / PRO_RSVP / EVENT_WEBSITE resolvable
-
-PR 1 of the pricing/payments plumbing fix (owner "fix them all now", from a 3-audit pass on origin/main). Mechanics only — no price *values* changed; they now simply come from the admin catalog instead of code.
-
-- **Charge integrity (keystone).** `app/dashboard/[eventId]/checkout/actions.ts` `submitOrderAction` now re-resolves the charged price from `platform_retail_catalog_v2` for **every** catalog SKU, not just pax-priced ones. Previously flat SKUs trusted the browser-supplied `original_centavos`, so a per-page hardcoded fallback (or a tampered client) set the actual billed amount. Now the admin-set catalog price is authoritative for every order; only SKUs with no catalog row (vendor / bundle / legacy) keep the client value. Doc on `resolvePaxPricedOrderCentavos` (`lib/v2-catalog.ts`) updated to match.
-- **Allowlist + build status.** Added `SETNAYAN_AI`, `PRO_RSVP`, `EVENT_WEBSITE` to `V2_SKU_CODES` (`lib/v2/sku-catalog-v2.ts`) — they were live catalog rows but `formatV2Sku()` returned `null` for them (silently price-null'd every surface that reads them this way, and blocked building the Setnayan AI buy surface). Added honest `BUILD_STATUS` for `SETNAYAN_AI` (live) + `PRO_RSVP` (partial) so they stop defaulting to "Coming soon" on `/pricing`.
-- **Hardcode purge.** Removed the two divergent hardcoded price fallbacks the audit flagged: Custom QR per Guest `₱1,499` (catalog `₱999`) and Pakanta `₱1,999` (catalog `₱3,499`). Both pages now read catalog-only and degrade gracefully ("Pricing loads from your catalog") when the row is unreadable — the same pattern `animated-monogram` already uses.
-
-Typecheck green. Does **not** flip `SETNAYAN_AI_PAYWALL_ENABLED` (owner's Vercel env switch) and does **not** yet wire the Setnayan AI buy surface — that's PR 2.
-
-SPEC IMPACT: None. No price values changed; this only makes the admin catalog the runtime source of truth and removes code-side price literals. (Bundle SKUs `GUIDED_PACK`/`MEDIA_PACK` are not yet covered by the server re-resolution — flagged for PR 2.)
-## 2026-06-14 · design(website): homepage "tap to learn more" reveal — continue the hero, make the benefit felt
-
-The hero is a cinematic dark (`#0e0f12`) scroll-scrub ending on a premium serif end-card. Tapping "Tap to learn more ↓" then dropped the visitor straight onto a flat, bright page of six one-line bordered boxes with a tiny "Free" tag — a hard cut from cinema → spreadsheet. Owner: "it felt empty… make it match our hero… let customers actually FEEL the difference."
-
-- `apps/web/app/_components/marketing/WhatYouGet.tsx` — rebuilt the post-hero narrative as one continuous film:
-  - **Beat 0 — dark bridge.** Opens on the SAME `#0e0f12` canvas as the hero end-card (no jarring cut), reusing the brand's chaos→order device: "Without Setnayan" (dim, tilted chaos chips — Viber 11pm, Budget.xlsx v8, 14 vendor PDFs, GCash receipts) → arrow → "With Setnayan" (one bright, glowing dashboard card: RSVPs/Vendors/Tables + a 62% budget bar). Canvas then fades dark→light — the relief made literal.
-  - **Beat 2 — "A place for each."** The six free tools now each carry a small inline-SVG product MOCK (RSVP avatars · table floor-plan · budget bars · run-of-show timeline · palette swatches · site + QR) plus a concrete "what it replaces" line, so each reads as a real surface, not a labelled box.
-  - Beats 1/3/4/5 (reframe · find-your-people 0% commission · soft upgrade · close+CTA) kept the owner's approved voice; add-ons surfaced as tangible chips (Setnayan AI · Papic · custom song · same-day film). Still PRICE-FREE by design.
-  - Zero new deps — reuses the repo's `Reveal`/`Blob` primitives + `--m-*` Clean Editorial tokens; renders cleanly through the client `PostHeroReveal` gate (SSR-expanded for SEO/no-JS). Typecheck clean.
-
-SPEC IMPACT: None on schema/SKU (homepage copy + layout only, price-free). Notable public-surface design decision logged to corpus `DECISION_LOG.md`.
-
-## 2026-06-14 · docs(workflow): MERGE_WORKFLOW.md — one-page merge/deploy quick reference
-
-Owner-requested quick reference for the auto-upload merge policy: what ships (every green non-draft PR, auto), the 4 phrases that change it (hold = draft · pause = `--disable-auto` · go-staging = "we're now publicly accepting vendors" · reset = "auto-upload mode"), and why it's safe (7 required checks gate every merge). Complements the server-side enforcement shipped in #1424 and the corpus memories `project_setnayan_merge_workflow_reality` / `project_setnayan_deployment_phases`.
-
-SPEC IMPACT: None (repo-process doc only).
-## 2026-06-14 · perf(website): homepage hero — browser-cache frames across repeat visits (presigned path)
-
-Follow-up to the progressive-release fix. First-visit is handled by progressive release; this makes a RETURNING visitor re-use browser-cached frames instead of re-downloading tens of MB. On the live presigned path (R2 S3 endpoint, no public host), two things blocked that: the signed URL was re-minted every 6h (cache-key churn) and the GET response carried no `Cache-Control`.
-
-- `apps/web/lib/r2.ts` — `r2SignedGet` gains an optional `responseCacheControl` that signs the S3 `response-cache-control` override into the URL → R2 returns that `Cache-Control` on the GET, with no change to how objects were uploaded.
-- `apps/web/lib/hero-video.ts` — frame presigns now request `Cache-Control: public, max-age=31536000, immutable` (frame keys are content-stable; a republish writes entirely new keys). Presign lifetime 24h → **7d** (SigV4 max) and the re-sign interval 6h → **6d**, so the same signed URL is served for ~6 days → the browser cache key stops churning. A republish still bumps `updated_at` → fresh URLs immediately. Worst case for a returning visitor drops from "re-download every 6h / possibly every visit" to "at most one re-download per ~6 days."
-
-This is the in-code repeat-visit win that needs NO infra change. The best end-state — edge (CDN) caching + permanently stable URLs — is the optional Cloudflare action of binding the media bucket to a public host; the read path (`resolveMediaUrls` / `publicHostConfigured`) already auto-switches to plain public URLs when `R2_PUBLIC_URL` is a real host instead of the S3 endpoint.
-
-SPEC IMPACT: None on schema/SKU. Caching behavior only; logged to corpus `DECISION_LOG.md`.
-
-## 2026-06-14 · perf(website): homepage hero stops freezing the front door — progressive release + lighter frames
-
-The homepage hero scroll-scrub showed a "Setting it up for you…" veil that **hard-locked page scroll until every frame downloaded**. The live published hero is **1,019 frames** (`f-0000…f-1018`, 720×720, served as presigned GETs to the R2 S3 endpoint — no CDN) ≈ tens of MB, so the first thing every visitor hit was a multi-second (up to the 30s backstop) freeze. The frame count is a relic: it was extracted by an old uploader at ~30fps, while the current uploader already caps at 12fps/150.
-
-- `apps/web/app/_components/marketing/HeroVideoScrub.tsx` — **progressive release.** The veil now lifts as soon as the opening frames are in (`LEAD = min(N, 24)`, the same set already marked `fetchPriority: 'high'`) instead of waiting for all N; the rest stream in the background. Safe because `apply()` already holds the nearest already-loaded frame, so the scrub never blanks. Hang backstop tightened 30s → 12s. Hero is now interactive in ~1s regardless of frame count. Softens the prior "everything must load first" design (owner-approved this session) — the pitch + progress bar still show; they just no longer trap the visitor.
-- `apps/web/app/admin/hero-video/hero-uploader.tsx` — **lighter extraction defaults** for future re-uploads: FPS 12→8, `FRAME_MAX_EDGE` 1280→960, `FRAME_JPEG_QUALITY` 0.90→0.82. A ~5s clip now makes ~40 frames @ ~960px — a small preload. (Owner action to realize the win on the *current* hero: re-upload + re-publish in `/admin/hero-video` so the live 1,019-frame sequence is re-extracted to ~40.)
-
-SPEC IMPACT: None on schema/SKU. Notable homepage-UX decision logged to corpus `DECISION_LOG.md` (hero no longer hard-blocks first paint; default extraction density reduced).
-
-## 2026-06-14 · fix(build): stop Vercel build OOM — skip redundant in-build typecheck/lint
-
-A production-build OOM resurfaced (the recurring #1258): a Vercel build sat **19 minutes** in Next's "Linting and checking validity of types" phase, then a process was SIGKILL'd out of memory → `routes-manifest.json couldn't be found` → deploy errored. Production kept serving the last good deploy, but the OOM is intermittent and creeping back as the route count grows past Vercel's **free 8GB build-machine ceiling**. #1258 already pulled the `webpackMemoryOptimizations` + `--max-old-space-size=4096` levers; this pulls the next free one.
-
-- `apps/web/next.config.ts` — `typescript.ignoreBuildErrors: true` + `eslint.ignoreDuringBuilds: true`. The in-`next build` type-check loads the **full TypeScript program** (multiple GB resident) on top of the webpack output — the single largest memory peak, and exactly where the OOM died. Both checks are **already enforced as dedicated, required CI jobs** (`.github/workflows/ci.yml` → `typecheck-lint`: `pnpm typecheck` + `pnpm lint`) in their own isolated containers, so this removes a pure duplication. FREE, OUTPUT-NEUTRAL (type-check/lint never affect emitted JS), and loses NO safety — a type/lint error still fails the required CI job and blocks the merge. Does NOT disable the webpack `server-only` compile guard (fires during compilation, not the type-check pass).
-- `turbo.json` — declared the 9 build env vars Vercel flagged as "set on your project, but missing from turbo.json" (`GOOGLE_DRIVE_OAUTH_*`, `PHOTO_DELIVERY_OAUTH_REDIRECT_URI`, `YOUTUBE_OAUTH_*`, `RECRAFT_API_KEY`, `WEBSITE_PHASES_ENABLED`) so build-time reads are stable and the turbo cache key is correct.
-
-SPEC IMPACT: None. Build-pipeline config only — no schema, no SKU, no product surface.
-
-## 2026-06-14 · feat(website): seat-reservation delta — "your place is reserved" + couple reserved→seated view (4-path PR D)
-
-Owner locked the RSVP path's purpose: **seat reservation + attendance confirmation**, in the "holds a place; couple seats them" model (no guest seat-picking, no conflict logic, no capacity gate). Small delta on top of the already-shipped RSVP.
-
-- `apps/web/app/[slug]/page.tsx` (`RsvpWidget`) — when a guest is confirmed attending, show a **"Your place is reserved"** reassurance line. Pure server render (no client state); it's the confirmation that attendance held their place.
-- `apps/web/app/dashboard/[eventId]/seating/page.tsx` — a **reserved → seated** summary strip above the editor: Reserved (confirmed attending) · Seated (in a chair) · To seat (the rest, highlighted when > 0). Derived from data the page already loads (`seatingGuests` carries `rsvp_status` + `seated_table_id`) — **no new query, no migration**.
-
-SPEC IMPACT: formalizes RSVP = hold-a-place reservation + attendance confirmation, and surfaces the RSVP→seat-plan handoff for the couple. Logged in `DECISION_LOG.md` (corpus). Stacks on PR C (`claude/couple-editorial`).
-## 2026-06-14 · feat(homepage): post-hero "Tap to learn more" → "A Place for Each" / what-you-get
-
-Owner design this session: after the hero scrub's "Set na 'yan" end-card, the page should LOCK — the visitor can end right there, or **Tap to learn more ↓**, which reveals the "what you get" content below the hero. "What you get" is removed from the top nav (the homepage IS it now). The post-hero content answers "how does this actually help me?" in depth — you create + run the whole wedding free, add paid services only if you want more — price-free by design ("a place for each").
-
-- `apps/web/app/_components/marketing/PostHeroReveal.tsx` (new · client) — gates the post-hero content. It renders EXPANDED on the server (SEO + no-JS see everything), then collapses on mount so the hero's end IS the page bottom — a natural "lock" with no scroll-momentum fight. A fixed "Tap to learn more ↓" pill fades in at the hero end; tap expands + smooth-scrolls into the content. `prefers-reduced-motion` skips the gate (content stays open).
-- `apps/web/app/_components/marketing/WhatYouGet.tsx` (new) — the "A Place for Each" narrative: reframe ("not just a place to inquire — a home you move into, free") → a place for each (free-tool grid) → free 0%-commission marketplace → soft paid upgrade (no prices) → CTA. Dependency-light (no framer-motion) so it renders through the client gate as server children.
-- `apps/web/app/page.tsx` — composes Nav + Hero + PostHeroReveal{ WhatYouGet + SiteFooter }. (Homepage gains a footer it previously lacked.)
-- `apps/web/app/_components/marketing/site-nav.tsx` — removed the "What you get" → /features link from the top nav (desktop + mobile share the one `links` array).
-- `apps/web/app/_components/marketing/HeroVideoScrub.tsx` — minor: fade the "scroll ↓" hint as the end overlay reveals, so it hands off cleanly to the new pill (homepage-only component).
-
-**Verification:** `tsc` clean · `next lint` clean (no new warnings) · lint:retired/botnav/email-links pass · production build green. The `/features` route + its content are untouched (still live, just not in the nav) — duplicate-content de-dup with the homepage is a follow-up.
-
-**SPEC IMPACT:** Homepage IA — the "what you get" content is now surfaced on the homepage behind a tap-gate, and "What you get" is dropped from the top nav. Touches iteration `0015` (main website) homepage composition. Logged at the bottom of `DECISION_LOG.md` (corpus).
+**SPEC IMPACT:** New admin surface for iteration 0024. Couple-site behaviour is unchanged by default (reveal still off until an admin enables it). Logged in corpus `DECISION_LOG.md`; spec `0024_Veil_Reveal_Spec_2026-06-17.md` §6 noted as now admin-overridable (defaults unchanged); memory `[[project_setnayan_std_reveal_spec]]` updated. This is **PR1** of the studio; PR2 = per-event override + extending feature parity to the rigid (envelope/doors) templates.
 
 ---
+## 2026-06-14 · refactor(dashboard): shared verification cards — dedup Track A6
 
-## 2026-06-12 · fix(monogram): chrome-size fallback for hero-only hairline scripts
-## 2026-06-14 · ci(automerge): make auto-upload reliable across all sessions (auto-arm + lighthouse required-check fix)
+Deduped the presentational layer the vendor (SUBMIT) and admin (REVIEW) verification surfaces had forked. New `apps/web/app/_components/verification/` owns the genuinely-shared cards; both pages keep their own role-scoped, RLS-bound fetch + server actions (vendor submits its draft; admin approves/rejects/demotes) — only presentation was extracted, never the data or action flows.
 
-Owner: make auto-merge-to-prod the standing, enforced default so it never depends on a session remembering — and stop the silent stall where required checks never report. Two `.github` guardrails:
+- **`verification-status-card.tsx`** — owns all verification-state presentation keyed off `VERIFICATION_STATE_LABEL`. Two exports because the two surfaces render the state at different sizes: `VerificationStatusCard` (vendor's full hero card; the "Latest application" footer is passed in as a `meta` node) and `VerificationStateBadge` (admin queue's compact "Tier · …" pill). Both surfaces' tone palettes are co-located here and preserved byte-for-byte (they intentionally differ slightly — `text-ink/75` card vs `text-ink/65` pill).
+- **`doc-slot-card.tsx`** — the vendor doc-slot card *shell* (`DocSlotCard`: bordered tile + "Item N of N" eyebrow + label + hint) plus the shared `SlotBadge`. The per-slot input form (file upload / URL field / Setnayan-run notice) is passed in as `children`, so the submit-side action wiring stays in the vendor page. The admin's read-only `<details>` doc list is genuinely different DOM and was left in-page on purpose.
+- **`application-progress.tsx`** — the vendor's `{n} of {total} · {pct}%` progress card with its accessible progress bar. The admin shows the same count as a plain inline "Checklist: N/12" line (no bar) — left in-page.
+- **`vendor-dashboard/verify/page.tsx`** now renders the three shared components (local `StatusCard`, `ApplicationProgressBar`, `SlotBadge`, and the old inline `DocSlotCard` markup removed; a thin `VendorDocSlotCard` wrapper feeds the shared shell). **`admin/verify/page.tsx`** swapped its local `StateBadge` for the shared `VerificationStateBadge`. Net ~162 LOC removed from the two pages.
 
-- `.github/workflows/auto-merge.yml` (new) — arms `gh pr merge --auto --merge` on every **non-draft** PR (`opened` / `reopened` / `ready_for_review`). Removes the "forgot to arm auto-merge" failure mode that let ~20 PRs pile up. Branch protection still gates the actual merge (all 7 required checks must pass), so broken code can never auto-merge. HOLD a PR by opening it as a **draft**; pause an armed one with `gh pr merge <#> --disable-auto`.
-- `.github/workflows/lighthouse.yml` — `lighthouse` is a REQUIRED check but was path-filtered to `apps/web/**`, so docs/backend/migration-only PRs never triggered it → the required context never reported → the PR sat "mergeable but blocked" forever and auto-merge could never complete. Now the workflow runs on every PR and the job short-circuits to a ~10s success when no frontend files changed (still reporting the required `lighthouse` context); a real frontend change runs the full audit. Detection **fails open** — any uncertainty runs the full audit, so the quality gate is never silently skipped.
+All three new components carry a JSDoc header noting the 2026-06-14 A6 dedup and mirror the `viewerRole` role-parameterization of `app/_components/chat-message-stream.tsx`. No DOM/visual change — the rendered markup matches today byte-for-byte.
 
-Net: every green PR now auto-merges to prod with no manual step, and docs/backend PRs stop stalling the queue. Retire `auto-merge.yml` at public-vendor launch when updates move to a temp/staging site.
+Verify: `tsc --noEmit` exit 0 · `next lint` clean on all five changed/new files.
 
-SPEC IMPACT: None (CI/merge automation; no app schema/SKU/pricing/surface change). Workflow policy logged in corpus `DECISION_LOG.md` (2026-06-14) + memory `project_setnayan_deployment_phases`.
-
-**Context:** flagged in the #1260 typeface-picker ship — Tangerine and Luxurious Script are featherweight hairlines that vanish at the chrome icon's ~28–36px (event switcher · profile avatar). The owner's "exact font in chrome" lock (2026-06-03) predates these faces and is preserved for every face that holds up small.
-
-- **`lib/monogram.ts`:** `MONO_FONT_STACK` entries gain an optional `smallFallback`; ONLY `tangerine` + `luxurious` set it (→ `script`/Great Vibes — the established chrome-tolerated script, same romantic register). `resolveMonogramDesign` returns `smallFontFamily/smallFontStyle/smallLetterSpacing` — identical to the exact face for the other six.
-- **`event-monogram.tsx` (the chrome icon):** both branches (framed + letters-forward) render the SMALL stack. Hero, medallion, Maker preview, and landing page keep the exact chosen face untouched.
-- Verified-no-change: the QR-center overlay (`monogramOverlaySvg`) already hardcodes a generic serif (and the standalone QR SVG route can't load webfonts at all) — no legibility issue there to fix.
-
-**Verification:** `tsc` clean · `next lint` clean. No schema; no behavior change for the original four faces or the two sturdy new serifs.
-
-**SPEC IMPACT:** None beyond the #1260 row's flagged follow-up now closed (corpus DECISION_LOG batch row).
-## 2026-06-14 · feat(website): love story → the pre-event paths; Editorial = pure showcase (4-path PR C)
-
-Owner decisions this session: (1) "no show of what they spent" — the Editorial recaps *what was used/created* (gallery, vendor credits, "used at this wedding", thank-you) but shows **no money** (it already showed none — confirmed); (2) "love story applies to save the date, rsvp and event" — the couple's love story moves OFF the post-event Editorial and ONTO the run-up paths. Stacks on PR B (branch `claude/couple-palette`).
-
-- `apps/web/app/[slug]/_components/our-story.tsx` (new) — a self-contained `OurStory` with a small PURE composer that weaves only the **timeless** love-story beats (how they met · the proposal · the spark) + a milestone timeline. Deliberately NOT the editorial's `composeLede` (whose closing is past-tense "were married" — wrong before the wedding). `variant="teaser"` (one line, for Save the Date) / `"full"` (prose + timeline, for RSVP + Event). Renders nothing when there's no story. Reads the existing `events.love_story` JSONB (no migration).
-- `apps/web/app/[slug]/page.tsx` — `love_story` added to the event select + `EventRow`; `<OurStory variant="full">` rendered in both run-up bodies (PublicLanding + InvitationSite — which only render in the rsvp/event phases, so it naturally stays off Editorial); `<OurStory variant="teaser">` threaded into `SaveTheDateView`.
-- `apps/web/app/[slug]/_components/save-the-date.tsx` — takes `loveStory`, renders the teaser.
-- `apps/web/app/[slug]/_components/editorial/editorial-content.tsx` — removed the love narrative: the lede prose paragraphs (kept the thank-you pull-quote) + the "The Story So Far" milestone timeline (+ its now-unused `Timeline` component). Editorial now leads with its masthead title + cover photo, then the showcase (team · gallery · live wall · reviews · Powered by Setnayan). No money anywhere.
-
-Photo scrims: the hero + editorial cover photo already carry gradient scrims (no net-new needed); `OurStory` is text-only.
-
-SPEC IMPACT: love story relocates from post-event Editorial → pre-event paths (iteration 0002 + 0046); Editorial is a money-free showcase. Resolves the two open product calls (spend privacy + love-story home). Logged in `DECISION_LOG.md` (corpus).
-
-## 2026-06-14 · feat(website): mood-board palette skins the couple site — contrast-safe theming (4-path PR B)
-
-Owner design: "our RSVP will adapt to the mood board's palette" + "the editorial will also be based on their moodboard and the rest of their personal website." The couple's palette already lived in the DB (`events.role_palette`, iteration 0010 mood board) but was never applied to the public site — the `/[slug]` page rendered fixed brand colors. This wires it in, across all four paths, with a legibility guarantee.
-
-- `apps/web/lib/site-palette.ts` (new, + `site-palette.test.ts`) — `buildSitePaletteVars(rolePalette)` maps the decorative palette to UI roles with a **WCAG-AA contrast floor**: accent (terracotta family) ← boldest palette color, darkened until it reads as text on the page; CTA (mulberry family) ← a deep palette color, darkened until light button text reads on it; paper ← a near-white palette color (subtle tint) else the safe default; ink ← kept the safe obsidian (always-legible). Returns `null` (→ defaults) when the palette is absent/too thin. Pure + unit-tested (AA asserted on a tricky pastel palette).
-- The couple-site Tailwind colors (`cream`/`ink`/`terracotta`/`mulberry` + `-600`/`-700`) already resolve to `rgb(var(--color-*) / …)`, so theming = **overriding those `--color-*` vars on `InvitationShell`'s `<main>`** — re-skins every existing class on the couple site with **no component refactor** and **zero blast radius** on the dashboard/marketing (subtree-scoped). Values emitted as space-separated RGB channels.
-- `apps/web/app/[slug]/page.tsx` — `InvitationShell` takes `rolePalette`, computes the theme, applies it as scoped `style` on `<main>`; `role_palette` added to the event select + `EventRow`; threaded to all three shells (PublicLanding · InvitationSite · PrivateLanding). Applies to Save the Date, RSVP, Event, and Editorial alike.
-
-Fallback is graceful: a couple with no mood board sees today's Clean-Editorial look unchanged.
-
-SPEC IMPACT: couples' public site is now palette-driven from the mood board (iteration 0010 → 0002 + 0046). Logged in `DECISION_LOG.md` (corpus). Follow-up (PR C): Editorial content alignment (love story → Event; public "used at this wedding" vs couple-private spend) + photo scrims over imagery.
-
-## 2026-06-14 · feat(website): 4-path couple website — add the Save the Date phase + turn the lifecycle ON for weddings
-
-Owner design this session: the couple wedding website is four named paths the guest moves through over time — **Save the Date → RSVP → Event → Editorial** — time-gated (the page shows whichever path fits the date), single `/[slug]` page (no separate routes). The phase engine already existed (`rsvp | event | editorial`) but was flag-dark (`WEBSITE_PHASES_ENABLED`, off) and had no Save the Date.
-
-- `apps/web/lib/invitation-widgets.ts` — added `save_the_date` to `LifecyclePhase` (now 4 phases) + `STD_THRESHOLD_DAYS = 90` (provisional). `getLifecyclePhase()` now splits the far-future pre-event window: `> 90 days` out → `save_the_date`, within → `rsvp` (past → `editorial`, near-event windows unchanged). `WIDGET_PHASES.hero` includes `save_the_date` so the hero renders in the new phase.
-- `apps/web/lib/calendar-links.ts` (new) — pure Google-Calendar-URL + RFC 5545 all-day `.ics` helpers (mirrors the budget feed) for the Save-the-Date "add to calendar".
-- `apps/web/app/[slug]/_components/save-the-date.tsx` (new) — the minimal STD view: monogram/name + date + countdown + add-to-calendar + "invitation to follow". Asks nothing of the guest.
-- `apps/web/app/[slug]/page.tsx` — **lifecycle now ON for weddings** (`phasesEnabled = isWebsitePhasesEnabled() || event.event_type === 'wedding'`; the surface is already wedding-only via `notFound()`). Added the `save_the_date` body branch to both the anonymous (PublicLanding) and signed-in (InvitationSite) paths + the `?phase=save_the_date` host/demo preview.
-- `apps/web/app/dashboard/[eventId]/website/page.tsx` — "Your page through time" block: host-only `?phase=` preview chips for all four phases.
-
-This is the load-bearing flip: enabling the lifecycle for weddings means post-event sites now render the Editorial recap and day-of sites the live surface (both already built, previously flag-dark). Verify the four `?phase=` states on the preview before merge. Mood-board palette wiring + Editorial content alignment (love story → Event, public/private spend) are deliberately separate follow-up PRs.
-
-SPEC IMPACT: 4-path couple-website IA (Save the Date phase added; lifecycle live for weddings; single-page phase-swap; ~90-day STD threshold). Logged at the bottom of `DECISION_LOG.md` (corpus). Touches the lifecycle described in `Wedding_Website_Lifecycle_Spec_2026-06-07` + iteration `0002` — corpus correction headers to follow with the palette/editorial PRs.
-
-## 2026-06-14 · feat(hero): make the loading wait useful — story veil + lock-then-swipe
-
-Owner: the loading time should sell, not stall. The hero veil now carries the pitch while the dense sequence loads, then invites the swipe once it's ready.
-
-- `app/_components/marketing/HeroVideoScrub.tsx` — while frames load, the **light (alabaster)** veil shows the story ("Ever felt buried by wedding planning — hundreds, even thousands of services to sift through, only to find most don't fit your wedding? We're setting it all up for you.") + a live progress bar, and **page scroll is locked** (`body overflow:hidden` + a non-passive `touchmove` preventer) so nobody swipes into a half-loaded scrub. When every frame is in, scroll is **released** and the status flips to **"Swipe up to begin ↑"** (gold); the veil fades on the first deliberate swipe. A 30s backstop + unmount cleanup always release the lock; reduced-motion skips the veil/lock entirely.
-- **Always starts at frame 1:** on ready we snap scroll back to the top (`scrollTo(0,0)`) and arm the swipe-to-dismiss ~350ms later, so any scroll that slipped through during loading (e.g. iOS momentum) can't make the scrub start mid-way.
-
-SPEC IMPACT: None (homepage hero load/UX only — marketing motion copy; no schema/SKU/pricing).
-
-Follow-up to the dense-frame hero scrub (#1416). On a ~1000-frame sequence the scrub could swap the `<img>` to a frame that hadn't downloaded/decoded yet and **freeze on blank** ("next images don't show / feels stuck"), especially on the initial load or a slower connection.
-
-- `app/_components/marketing/HeroVideoScrub.tsx` — three guards: (1) `apply()` never swaps to a not-yet-decoded frame — it holds the **nearest already-loaded** frame until the target one arrives (no blank freeze); (2) the opening 24 frames load at `fetchPriority:'high'`; (3) a **loading veil** with a thin progress bar holds until **every frame is decoded** (owner: "everything must load first" — the user never enters the scrub on a half-loaded sequence), then fades out; a 30s backstop is the only escape hatch if a request truly hangs. Reduced-motion hides the veil and shows the final frame.
-- Caption readability (owner: "readable and bold"): the two story captions go **bold (`fontWeight 800`, forces weight on the single-weight Instrument Serif), larger**, near-black, with a **crisp white outline + halo** so they stay legible over both the bright field and the darker objects (vintage cars) instead of the thin faint serif they shipped as.
-
-SPEC IMPACT: None (homepage hero load/UX robustness only).
-
-## 2026-06-14 · feat(studio): rebuild /add-ons into the benefit-led Studio hub
-
-The couple `/dashboard/[eventId]/add-ons` page (the sidebar "Studio" item + bottom-nav "Studio" tab both already point here) was a cinema-poster grid that listed every in-app service flat, by vendor taxonomy. Rebuilt it as the **Studio hub** — a calm, benefit-led, job-to-be-done discovery surface in the v2.1 paper palette (premium-calm, not posters). REDESIGN_PLAN Phase 2.
-
-- **Four job-to-be-done groups** (fixed order), each a mono section label + a responsive paper-card grid:
-  1. **Capture the day** — Papic · Panood · Photo Delivery · Patiktok
-  2. **Your website & story** — Landing Page · Save the Date · Monogram Creator · Custom QR per guest · LED Background
-  3. **Plan & organize** *(free)* — the four free core sidebar tools (Guest list · Seating · Budget · Schedule) lead the group, then Mood Board · Indoor Blueprint
-  4. **Music & extras** — Music Creator · Playlist · Paprint · Orders
-  Within each group, available cards come first and coming-soon cards sink to the bottom.
-- **New card model** (`add-ons/_components/studio-card.tsx`): a soft paper card — tinted `--m-paper-2` icon square + name + one-line benefit + chip + CTA. Available → **"Open"** deep-link to the feature's own page (which already handles buy-vs-use); `tier === 'free'` shows a subtle "Free" chip; `coming_soon` → muted non-interactive "Soon" chip, no CTA. No price is ever shown on the card (pricing stays admin-managed on the feature page).
-- **Additive catalog change** (`lib/add-ons-catalog.ts`): two new OPTIONAL fields on `AddOnEntry` — `studioGroup` (set on all 16 entries) + `tier?: 'free'` (marked only on genuinely-free entries: mood-board · playlist · orders · landing-page · music-creator). No existing field removed/repurposed, so the Services/vendors tab (the other importer, which consumes `poster.*`) is unaffected. Plus a separate `studioFreeTools(eventId)` factory (NOT added to `ADD_ONS`, so it can't pollute the Services tab) for the four free sidebar deep-links.
-- **service-poster.tsx kept** — the `ServicePoster` *component* is now unused, but the file still exports the `PosterStyle`/`PosterMotion` *types* that the catalog imports and the Services tab consumes via `addon.poster.*`. Deleting it would break the build, so it stays (the task's delete was conditional on "unused anywhere"; it is not).
-- Dropped the old internal-admin iteration-code pill (and its `createClient`/`getCurrentUser` calls) — the Studio design surfaces only status + Free chips.
-- **Deferred (noted, not built):** owned-aware "Learn more vs Open" CTA, and a working Notify-me backend for coming-soon items (kept as a static "Soon" state).
-- Verified: typecheck ✅ · lint ✅ (all 3 changed/new files clean). Route unchanged (`/dashboard/[eventId]/add-ons`).
-
-SPEC IMPACT: refines REDESIGN_PLAN Phase 2 (Studio hub); no routes/schema/pricing change.
-## 2026-06-14 · feat(monogram): chosen lockup in the PDFs, the social/OG card, and the animated hero (items 2+3 of "do all 3")
-
-Completes the monogram-everywhere consistency pass. The couple's chosen type-only lockup (bar/duo/script/infinity) now renders on the three remaining surfaces; framed / single-initial / legacy / bespoke keep the existing initials rendering everywhere. Built as a 3-agent parallel workflow, then **adversarially reviewed** (3 skeptical reviewers) — the review caught real bugs the build agents' own local checks missed, all fixed before merge.
-
-- **PDFs** (`lib/lockup-pdf.ts` new + `seating-pdf.ts` + `concept-pdf.ts` + both export routes + `types/opentype.js.d.ts`): draws the lockup in the monogram badge via `opentype.js` glyph-paths + `pdf-lib` `drawSvgPath` (no `@pdf-lib/fontkit` dep needed). Both routes now SELECT + pass the monogram design columns. **Review fixes:** use `deriveMonogram` for the label (raw `display_name` dropped the lockup for "and"/"-"/"+"-joined couples); pivot the synthetic italic shear at the baseline (was drifting caps left, misaligned with the divider/∞); `drawSvgPath` `borderWidth: 6` not `6×scale` (pdf-lib applies the line width after the CTM scale → ∞ was ~4× too thin). Verified by rasterizing all four styles — caps align, ∞ reads at the right weight.
-- **Social / OG card** (`lib/social/card.tsx` + `app/api/social/card/[postId]/route.ts` + bundled `Cormorant-Regular.ttf`): the lockup is built as a native **satori element tree** (so glyphs use the bundled fonts, not sharp's font substitution); route threads the design onto the card ctx. **Review fix:** padded `duo`'s near-square viewBox so the un-clipped satori glyphs fit the ring (satori has no SVG viewport to clip like the chrome) — duo reads a touch smaller on the card.
-- **Animation** (`animated-monogram-hero.tsx` + `hero-monogram.tsx` + maker preview + 2 add-on/maker callers): rebuilt the 6 motion signatures (draw/foil/bloom/editorial/halo/stardust) to play on the chosen **lockup** instead of the text initials, all SSR-safe + reduced-motion fallbacks. Threaded through all 4 callers, so the paid animation on the **public hero** now animates the mark, and the **Monogram Maker live preview** is now WYSIWYG. Reviewer verdict: ship (guards + threading + geometry verified end-to-end; only cosmetic minors).
-- **Font-tracing safety net** (`next.config.ts`): `outputFileTracingIncludes` now bundles `assets/cipher-fonts/*.ttf` + `lib/social/fonts/*.ttf` so the PDF routes don't ENOENT in the serverless runtime — confirmed traced into `.next/standalone`.
-- Verified: typecheck ✅ · lint ✅ · production build ✅ (exit 0) · PDF badges rasterized + visually confirmed. Social card + animations render only on the Vercel preview (known local satori gap) — eyeball the preview.
-
-**Flagged for owner:** there is **no Playfair Display static TTF** in the repo, so the `duo` style substitutes a near-equivalent serif in the PDF (Bodoni Moda) and the OG card (Cardo); it's exact in chrome/hero/QR (web font). Adding a Playfair static TTF would make `duo` pixel-exact in those raster surfaces. Also deferred (reviewer minors, no action to ship): foil sheen doesn't clip across the stroked ∞; a harmless duplicate gradient id in the infinity+foil SVG; `transform-box: view-box` degrades gracefully on Safari < 16.
-
-SPEC IMPACT: completes the chosen-lockup-as-mark consistency across all couple-facing surfaces (extends the chip #1374/#1376 + hero/QR #1402). No SKU/pricing impact; no migration (monogram columns already exist). Logged in corpus `DECISION_LOG.md`.
-
----
-## 2026-06-14 · feat(hero): dense frame extraction + scroll-synced story captions on the homepage scrub
-
-The admin-uploaded homepage hero (`/admin/hero-video` → `HeroVideoScrub`) extracted only a sparse 180 frames (8 fps, hard cap), so the scroll-scrub *stepped* over its 300vh track instead of gliding. Now it captures effectively every frame, and the scrub carries two story-caption beats over the bright video before the existing end CTA.
-
-- `app/admin/hero-video/hero-uploader.tsx` — frame capture made dense: `FPS` 8→30 (≈native), `MAX_FRAMES` 180→1200 (safe ~40s ceiling; below it every frame is kept), `MIN_FRAMES` 24→48, upload concurrency 4→6. To keep the homepage preload light despite ~1000 frames, the per-frame downscale dropped 1080→`DOWNSCALE_MAX` 720px (a scrub is full-screen motion; 720 reads crisp and ~halves payload). Browser seek-based extraction is otherwise unchanged — only density + frame size.
-- `app/_components/marketing/HeroVideoScrub.tsx` — two scroll-synced captions fade in over the scrub (A: "A thousand choices. The same questions, over and over." during the overwhelm; B: "Say it once — and find your perfect fit." during the trim), then yield to the existing "Set na ’yan" + CTA end overlay. Dark editorial serif with a soft light halo for legibility on the bright frames, parked in the both-crops (16:9 + 9:16) safe zone; `aria-hidden` and hidden under reduced-motion.
-
-SPEC IMPACT: None (homepage hero motion/UX only — no schema, SKU, pricing, or copy-of-record change; the captions are marketing motion text and the end CTA / "0% commission" line is unchanged).
-
-## 2026-06-14 · fix(pricing): real charges read admin-only — kill divergent hardcoded price fallbacks
-
-Owner rule (2026-06-14): every feature is priced in the admin catalog (amount admin-set, frequency predefined per SKU); code must never hardcode a price. Two hardcoded fallbacks diverged from admin (the ₱2,499-vs-₱1,999 Animated Monogram mismatch the pricing collection flagged). Neither value is changed here (numbers stay parked for the holistic pricing pass) — this only enforces the *source*.
-
-- `api/v1/billing/initialize-maya/route.ts` — `readSkuPrice`/`readBundlePrice` now read the admin catalog as the ONLY source for a real charge: SKU miss/failure → `null` (caller 400s), bundle failure → throw (caller 500s, fail-closed). The hardcoded `PRICING_BOOK`/`BUNDLE_BOOK` are now **DEMO-ONLY** (relabeled) — used solely under `DEMO_MODE` (walkthrough recording, no real charge), so a stale fallback can never bill a wrong amount.
-- `add-ons/animated-monogram/page.tsx` — removed `FALLBACK_PRICE_PHP = 2499`; the price comes only from `formatV2Sku()` (admin). When the catalog row is unreadable (CI / pre-seed only — never a real customer in prod), `pricePhp` is `null` and the buy block degrades to "Pricing loads from your catalog" instead of inventing a number.
-- Verified: typecheck ✅ · lint ✅. Maya route is dormant V1 plumbing (no public API / Maya not approved in V1), so this hardens it ahead of activation.
-
-SPEC IMPACT: None — enforces the admin-priced rule (memory `project_setnayan_pricing_admin_managed`); no price value changed, no schema/route change. (The demo book still lists stale/retired SKU prices on purpose — parked; it never bills.)
-
----
-
-## 2026-06-14 · fix(monogram): "Your Plan" tile pointed at a dead "coming soon" stub instead of the live maker
-
-Found during a monogram dead-code audit (owner: "we have several monogram makers — keep the ones that serve the app, delete what doesn't"). The audit found NO duplicate/orphaned makers — the three editor modes on `/dashboard/[eventId]/monogram` (typographic lockup · Cipher Studio · Bespoke AI) + the onboarding picker + the paid Animated Monogram upsell are all live and distinct. The one genuinely stale thing: the **"Your Plan" monogram tile** linked to `/dashboard/[eventId]/add-ons/monogram-creator` — a route that doesn't exist, so it rendered the iteration-0037 *"Monogram Creator… Coming back soon"* placeholder (a relic from before the maker shipped). Couples clicking it hit a dead end instead of the live maker.
-
-- `your-plan-section.tsx` — the monogram tile now links to `/dashboard/[eventId]/monogram` (the live maker; matches what the side nav already points at).
-- `add-ons/[addon]/page.tsx` — added `SHIPPED_REDIRECTS` so `/add-ons/monogram-creator` 307-redirects to `/monogram` (any old CTA/bookmark lands on the real tool), and removed the stale `monogram-creator` "coming soon" entry from `ADD_ON_META`.
-- Verified: typecheck ✅ · lint ✅.
-
-SPEC IMPACT: None — corrects a stale internal link to a shipped feature; no schema/SKU/pricing/route-shape change. (Flagged for later, NOT changed here: the `music-creator` + `landing-page` add-on stubs may be similarly stale if those features are live; and the kept surfaces — animated hero / PDF / maker preview / social card — still render initials rather than the chosen lockup, pending owner's consistency-scope decision.)
-## 2026-06-14 · feat(realstories): vendor "Featured in Real Stories" + Share to your Page (PR C, vendor half — CLOSES the loop)
-
-The vendor half of PR C — the last piece of the Real-Stories featuring loop. Gives vendors a one-click "Share to your Facebook Page" for the published weddings they helped create (free social proof + reach back to Setnayan).
-
-- **NEW `lib/realstories-vendor.ts`** — `loadVendorFeaturedStories(bookedEventIds)`: the vendor's OWN booked events intersected with the **same RA 10173 public-showcase gate** as `lib/showcase-db.ts` (couple opted in via `users.public_summary_consent_at`, wedding with a public slug, past the T+30d grace). Self-contained (own consent-join, no `showcase-db` ripple), admin-client read, best-effort → `[]`. Ownership is already enforced by the caller passing only the vendor's own booked event ids.
-- **NEW `app/vendor-dashboard/real-stories/page.tsx`** — lists each featured wedding (couple · city · date) with "View the story" → the couple's `/[slug]` editorial + a **`<ShareButtons>`** (reused from PR B) pointed at that editorial with `/api/og/realstory-slug/[slug]` as the share image. Vendor-auth-gated (`fetchOwnVendorProfile`). Pre-launch empty state ("Your featured weddings will appear here…") — no fabricated entries.
-- **`app/vendor-dashboard/_components/vendor-sidebar.tsx`** — "Real Stories" nav item (Sparkles icon) in the **Grow** group; auto-propagates to the `/more` overflow + mobile via `VENDOR_NAV_GROUPS`.
-
-Read-only, no migration. Ready-but-empty today (no consented editorials exist yet); populates automatically as couples publish. tsc + lint clean.
-
-SPEC IMPACT: closes the Real-Stories featuring loop (couple publish → admin curate → couple share → **vendor share**). Logged in corpus `DECISION_LOG.md` (2026-06-14).
-
----
+SPEC IMPACT: None (code-internal; no behavior/visual change).
 ## 2026-06-14 · refactor(dashboard): app-wide <Field>/<FormFlash> dedup sweep — Track A2
 
 Finishes the form-primitive dedup (dashboard-consolidation Track A): replaces remaining LOCAL copies with the shared primitives already on `main` (`@/app/_components/forms/field` + `@/app/_components/forms/form-flash`). Pure behavior- and visual-preserving refactor — rendered DOM is identical; no copy/logic/route/schema change. Net −102 LOC across 16 files (53 ins / 155 del).
@@ -2426,960 +156,191 @@ Finishes the form-primitive dedup (dashboard-consolidation Track A): replaces re
 Verify: `pnpm exec tsc --noEmit` exit 0, zero `error TS` · `pnpm exec next lint --file <each of 16 changed files>` clean (no unused imports left behind).
 
 SPEC IMPACT: None (code-internal; no behavior/visual/route/schema change)
-## 2026-06-14 · refactor(dashboard): shared verification cards — dedup Track A6
 
-Deduped the presentational layer the vendor (SUBMIT) and admin (REVIEW) verification surfaces had forked. New `apps/web/app/_components/verification/` owns the genuinely-shared cards; both pages keep their own role-scoped, RLS-bound fetch + server actions (vendor submits its draft; admin approves/rejects/demotes) — only presentation was extracted, never the data or action flows.
+## 2026-06-17 · feat(reveal): port the DESIGN-LOCKED bridal-veil reveal to the Save-the-Date page
 
-- **`verification-status-card.tsx`** — owns all verification-state presentation keyed off `VERIFICATION_STATE_LABEL`. Two exports because the two surfaces render the state at different sizes: `VerificationStatusCard` (vendor's full hero card; the "Latest application" footer is passed in as a `meta` node) and `VerificationStateBadge` (admin queue's compact "Tier · …" pill). Both surfaces' tone palettes are co-located here and preserved byte-for-byte (they intentionally differ slightly — `text-ink/75` card vs `text-ink/65` pill).
-- **`doc-slot-card.tsx`** — the vendor doc-slot card *shell* (`DocSlotCard`: bordered tile + "Item N of N" eyebrow + label + hint) plus the shared `SlotBadge`. The per-slot input form (file upload / URL field / Setnayan-run notice) is passed in as `children`, so the submit-side action wiring stays in the vendor page. The admin's read-only `<details>` doc list is genuinely different DOM and was left in-page on purpose.
-- **`application-progress.tsx`** — the vendor's `{n} of {total} · {pct}%` progress card with its accessible progress bar. The admin shows the same count as a plain inline "Checklist: N/12" line (no bar) — left in-page.
-- **`vendor-dashboard/verify/page.tsx`** now renders the three shared components (local `StatusCard`, `ApplicationProgressBar`, `SlotBadge`, and the old inline `DocSlotCard` markup removed; a thin `VendorDocSlotCard` wrapper feeds the shared shell). **`admin/verify/page.tsx`** swapped its local `StateBadge` for the shared `VerificationStateBadge`. Net ~162 LOC removed from the two pages.
+**What landed (`apps/web/app/[slug]/_components/reveal/`):**
+- **`veil-reveal.tsx`** — fully rewritten as a faithful port of the owner-approved reference implementation (build `veil_lower_shakes_petals`, the 47th `show_widget` tuning iteration, 2026-06-17). Replaces the old 28×40 / gold-mark / pin-rise placeholder. Now a 66×50 Verlet cloth with: flat-crown→blooming folds, real gravity drop, hem-weighted wind, a **hard 1.2% strain clamp** (inextensible — a tap-pull holds taut, never rubber-stretches), the **sim-driven two-end trailing fold** (hem pulled off-screen past the top, only the valance droop occupies the top ~30%, float keeps it high), and gestures: **swipe-up = reveal · swipe-down = re-cover · double-tap = hands-free auto · grab-and-pull = local inextensible hold · tap = bat a petal away.** The logo is now the **white sparse Setnayan mark** (fixed-pixel tiled, `ResizeObserver` re-fit so rotation adds marks instead of stretching) — no gold, no flower-lace hem. Adds a **100-petal `InstancedMesh`** rose shower with 4 mixed behaviours (cling/feather/rotate/straight), **tap-to-bounce**, **lower-the-veil-shakes-all-petals-loose**, and petals that **start only when the veil first lifts** (none on the covered veil). All locked settings (spec §6) baked as constants; couple-customizable surface = `veilColor` + `petalsColor` only.
+- **`reveal-overlay.tsx`** — threads a new optional `petalsColor` prop (Mood-Board blush-rose default `#e87a93`) into the veil.
+- **`veil-crown.tsx`** — accepts an (unused) optional `petalsColor` for prop-parity with `VeilReveal` (both render via one `<VeilComponent>` in the overlay).
 
-All three new components carry a JSDoc header noting the 2026-06-14 A6 dedup and mirror the `viewerRole` role-parameterization of `app/_components/chat-message-stream.tsx`. No DOM/visual change — the rendered markup matches today byte-for-byte.
+**Gating / safety:** unchanged — the reveal only shows in the Save-the-Date phase, behind `NEXT_PUBLIC_STD_REVEAL=1` (global) or per-visit `?reveal=veil-sheer`, respects `prefers-reduced-motion`, and silently reveals if WebGL is unavailable (never a gate). three.js stays code-split (loaded via `next/dynamic(ssr:false)`), so the couple-site main bundle is untouched. No schema change, no migration.
 
-Verify: `tsc --noEmit` exit 0 · `next lint` clean on all five changed/new files.
+**Verification:** `tsc --noEmit` clean · `next lint` clean on all three files · authoritative production build + Lighthouse run in CI (auto-merge waits on them).
 
-SPEC IMPACT: None (code-internal; no behavior/visual change).
-
-## 2026-06-14 · fix(nav): admin bottom-nav highlight gaps + duplicate sidebar icons
-
-Two correctness/clarity fixes to the admin doorway nav (`apps/web/app/admin/_components/`). Surgical — no labels, hrefs, routes, order, or `is_admin` gating changed.
-
-- **Bottom-nav activeMatch gaps (`admin-bottom-nav.tsx`)** — several live admin routes lit no mobile tab (the 4-tab strip Home · Work · Directory · More) because they were absent from the per-tab `activeMatch` arrays, so navigating to them left every tab dark. Cross-checked the full sidebar route list against the four arrays and added every orphan:
-  - **Work** tab: `+/admin/pax-changes`, `+/admin/user-reports`, `+/admin/social-queue`, `+/admin/account-deletions` (the last surfaced by the orphan cross-check).
-  - **More** tab: `+/admin/refinements`, `+/admin/hero-video`, `+/admin/real-stories` (the last two surfaced by the cross-check — all three are Platform-group surfaces).
-  - `/admin/settings/payment-methods` + `/admin/settings/demo-mode` already light More via the existing `/admin/settings` prefix; `/dashboard/profile` (My account) is an intentional cross-doorway link to the shared profile and correctly lights no admin tab.
-- **Duplicate sidebar icons (`admin-sidebar.tsx`)** — four pairs of semantically-different items rendered the same glyph; gave the lower-frequency member a distinct, true-to-meaning lucide icon (imports added: `MessageSquareWarning`, `Landmark`, `RefreshCw`, `UsersRound`):
-  - **Disputes** (vendor-txn) keeps `Shield`; **User reports** (UGC moderation) `Shield`→`MessageSquareWarning`.
-  - **Payment options** (act-now queue) keeps `CreditCard`; **Payment methods** (bank-rails config) `CreditCard`→`Landmark`.
-  - **Verify** keeps `BadgeCheck`; **Subscriptions** (recurring billing) `BadgeCheck`→`RefreshCw`.
-  - **Operations & Hiring** keeps `TrendingUp`; **Pax changes** (headcount-change queue) `TrendingUp`→`UsersRound`.
-
-Verify: `tsc --noEmit` exit 0 · `next lint` clean on both files · `scripts/lint-bottom-nav.mjs` passed.
-
-SPEC IMPACT: None (nav highlight + icons; no routes/labels/gates changed).
-## 2026-06-14 · refactor(nav): couple sidebar journey groups + Studio/Explore + 6-tab bottom nav
-
-Reorganizes the COUPLE dashboard navigation per the owner-locked REDESIGN_PLAN journey-group IA. **Pure nav/labels — every route is unchanged**; item `key` values are preserved so per-section `setnayan.nav.section.<key>.open` localStorage state survives.
-
-- **`customer-nav-config.ts` (`buildCustomerNavGroups`)** rebuilt from 6 verb buckets (Plan/Spend/Communicate/Share/After/Settings) into 7 journey groups, with everything past the top + Plan collapsed by default:
-  - **Top group** (key `main`, "Setnayan", open): **Home · Studio · Explore**. `add-ons` relabeled **"Studio"** (in-app services hub, route `/add-ons` unchanged); `vendors` relabeled **"Explore"** with icon swapped Briefcase→**Compass** (route `/dashboard/[eventId]/vendors` unchanged — this is the couple in-app surface, distinct from the public `/explore` marketplace).
-  - **Plan** (open): Guests · Seating · Schedule · **Budget** (folded in from the retired Spend group).
-  - **Book** (collapsed): Messages · Contracts.
-  - **Design** (collapsed): Website · Mood Board · Monogram.
-  - **Day-of** (collapsed): Live Wall · **Event QR** (moved from After).
-  - **After** (collapsed): Activity · Disputes. **Activity gained an explicit `matchPrefix`** (`…/activity`) so sub-routes like `/activity/[id]` light it.
-  - **Settings** (collapsed): Personalization · Hosts · Profile · **Find your date** (demoted from Plan, kept reachable — not deleted).
-  - Removed the now-unused `ShoppingCart`/`Receipt`/`Briefcase` lucide imports; added `Compass`.
-- **`customer-bottom-nav.tsx`** rebuilt from 5 tabs to the owner-locked **6 tabs: Home · Guests · Studio · Budget · Wedding · More** (icons Home/Users/Sparkles/Wallet/Globe/Menu). The shared `<BottomNav>` already supports 6 columns — no primitive change. **Wedding** tab → `/site-editor/[eventId]` (+ legacy `/website` + `/invitation` in activeMatch). **More umbrella** re-enumerated per orphan-prevention to cover every non-tab route: **Explore/vendors** (no longer a primary tab), Seating, Schedule, Messages, Contracts, Mood Board, Monogram, Live Wall, Event QR, Activity, Disputes, Personalization, Find-your-date, Profile, plus legacy/app-root surfaces (receipts, orders, paperwork, documents, date-selection).
-- **`more/page.tsx`** — `BOTTOM_NAV_KEYS` updated to the new primary-tab set (`home, guests, add-ons, budget, website`) so the /more grid drops those and shows true overflow; **Explore (vendors)** now appears in the grid (added a description). Description map refreshed: added `vendors`/`monogram`/`live`, dropped `add-ons`/`budget` (now bottom tabs); header de-dupe copy updated for the 6-tab set.
-- **`customer-sidebar.tsx`** — JSDoc group-list comment refreshed to the 7 journey groups.
-
-Verified: `tsc --noEmit` clean; `next lint` clean on all 4 changed files; `scripts/lint-bottom-nav.mjs` (canonical bottom-nav guard) passes (delegation + template integrity).
-
-SPEC IMPACT: None (nav/labels; routes unchanged).
+**SPEC IMPACT:** Implements `0024_save_the_date/0024_Veil_Reveal_Spec_2026-06-17.md` (design + §6 locked settings + §8 exact constants) and its ground-truth `0024_Veil_Reveal_Prototype_2026-06-17.html`. Corpus spec §7 port-plan + `DECISION_LOG.md` updated to mark the veil PORTED; memory `[[project_setnayan_std_reveal_spec]]` updated. Still pending (separate work): the PR4 content layer (7 elements + the 3 customizations wired from the Mood Board + the per-event template chooser + orientation lock).
 
 ---
 
-## 2026-06-14 · fix(pwa): auto-stamp the service-worker cache version per deploy (kills stale-shell-after-deploy)
-## 2026-06-14 · refactor(nav): vendor Grow-group merge + Calendar into bottom nav + More activeMatch fix
+## 2026-06-17 · PR #10 — chat_threads.vendor_first_reply_at + real avg_response_minutes
+## 2026-06-17 · feat(nav): unify customer desktop sidebar to match 5-tab mobile nav
 
-Vendor dashboard navigation consolidation per the owner-locked REDESIGN_PLAN. Routes, hrefs, icons and all role/tier gating are unchanged — only nav grouping + which routes light which mobile tab.
+**Commit `7dacbe70` · PR [#1641](https://github.com/iscasasola/setnayan-platform/pull/1641)**
 
-- `apps/web/app/vendor-dashboard/_components/vendor-sidebar.tsx` — **Grow** is now the single home for paid reach + reputation. Moved **Subscription**, **Tokens**, **Redeem code** from the Business (`money`) group into the Grow (`marketing`) group (keys/hrefs/icons/`matchPrefix`/gating untouched — only the group object they live in changed). After: **Grow** = Subscription · Tokens · Redeem code · Marketing · Verify · Reviews · Moodboard library; **Business** = Earnings · How clients pay you · Manpower · Branches · Team & Setnayan. Group order + every role-scope/enterprise-tier gate preserved (gating keys on item `key`, which is unchanged, so the move is gating-neutral).
-- `apps/web/app/vendor-dashboard/_components/vendor-bottom-nav.tsx` — mobile tabs are now **Home · Bookings · Calendar · Messages · More** (Calendar `CalendarDays` → `/vendor-dashboard/calendar` replaces Earnings as primary tab 3; Earnings stays reachable via the sidebar Business group + the More umbrella). The vendor pitch is the calendar that stops double-bookings, so it earns a primary tab.
-- Same file — fixed the **More** `activeMatch` umbrella so no vendor route goes unlit on mobile. Added the audit-flagged gaps (`/clients`, `/proposals`, `/subscription`), moved `/earnings` IN (left the tab bar), and added `/tax-documents` for bookmark continuity. More now enumerates every non-primary-tab vendor route.
+Desktop sidebar previously showed 6 journey groups (Setnayan · Plan · Book · Design · Day-of · After) while the mobile bottom nav showed 5 flat tabs (Home · Guests · Explore · Studio · Budget) — a completely different IA at every breakpoint.
 
-Verify: `tsc --noEmit` exit 0 · `next lint` clean on both files · `node scripts/lint-bottom-nav.mjs` passes (delegation + template integrity intact).
+- **`customer-nav-config.ts`** — rewritten from 6 journey groups to one header-less root group with 5 items matching the mobile tabs. Each item expands to its sub-pages: Home → Checklist/Schedule/Messages/Contracts; Guests → 5 journey stages + Event QR; Explore → leaf; Studio → Website/Mood Board/Monogram/Live Wall; Budget → Activity/Disputes.
+- **`sidebar-section.tsx`** — added header-less early return: when `group.label === ''`, renders just the items `<ul>` with no heading button.
+- **`customer-sidebar.tsx`** — updated `SIDEBAR_SLOT_KEYS` to 5 top-level tab keys; moved all sub-page items (schedule, messages, contracts, event-qr, website, mood-board, monogram, live, activity, disputes) into `CHILD_SLOT_KEYS`.
 
-SPEC IMPACT: None (nav grouping/labels; routes + gates unchanged)
-
-
-
-Durable follow-up to the 2026-06-14 chrome retirement (which only one-time-bumped `sw.js` v3→v4). `public/sw.js` namespaces all five caches (SHELL/STATIC/IMAGE/FONT/DAYOF) by a hand-maintained `const VERSION`; `STATIC_CACHE` serves Next chunks stale-while-revalidate, so when VERSION isn't bumped on a deploy, returning PWA users get the PRIOR build's shell/JS for one load. Now it auto-bumps per deploy:
-
-- `apps/web/scripts/stamp-sw.mjs` (NEW) — at build, rewrites the `const VERSION = '…';` line to the deploy's `VERCEL_GIT_COMMIT_SHA` (12-char prefix). Line-anchored regex (`/^const VERSION = '…';/m`) targets ONLY the code line, never the commented examples of that shape in the header; FAILS the build (exit 1) if the line ever goes missing; no-op (keeps the `'v4'` fallback) when the SHA is unset (dev/local builds never dirty the file).
-- `apps/web/package.json` "build" → `node scripts/stamp-sw.mjs && … next build`.
-- `turbo.json` — added `VERCEL_GIT_COMMIT_SHA` to the `build` task `env` so turbo forces a cache MISS per commit → the stamp always runs. **Without this**, a revert / redeploy / root-or-other-package-only commit could turbo-cache-HIT, skip the build script, and ship an un-bumped `sw.js` — re-introducing the stale shell (caught in adversarial review). Next's own `.next/cache` keeps the forced rebuild incremental, so the cost is small.
-- `public/sw.js` — comment now documents the stamp; `const VERSION = 'v4'` kept as the stamp target + dev fallback.
-
-Why it works: every deploy changes `sw.js` bytes → the browser's SW-update check re-fetches `/sw.js` (already served `no-cache` per next.config.ts), byte-compares, installs the new worker; the existing `install`→`skipWaiting()` + `activate`→(delete non-`KNOWN_CACHES` + `clients.claim()`) evict the prior deploy's caches. Worst case = one extra cold load per deploy (as intended). Registration stays `/sw.js` (a `?v=<sha>` URL would be defeated by the stale shell re-registering the old URL — the file-byte-change on a fixed URL is the reliable trigger).
-
-Adversarial review: SHIP after its two wiring fixes (commit the script + the turbo `env` entry) — both applied here. Stamp unit-tested: stamps the real line, ignores the commented examples, no-ops without the var, fails loud on a missing line. No TS changed (tsc/lint unaffected); CI's production-build check exercises the stamp end-to-end.
-
-OWNER QA (native): the Capacitor WebView (`apps/mobile` remote-URL shell) uses the same SW + `no-cache` update path, so it propagates by design — worth one Android + one iOS deploy-then-reopen confirmation pass.
-
-SPEC IMPACT: None (build/PWA infra; no schema/SKU/pricing/UX). Logged in corpus `DECISION_LOG.md` (2026-06-14).
-## 2026-06-14 · feat(realstories): real-editorial share — photo OG card + share buttons on the couple's `/[slug]` (PR C, couple half)
-
-Couple half of PR C of the Real-Stories featuring program. The couple consent ("Feature our wedding" → `public_summary_consent_at`) already existed; this makes a real couple's **own editorial shareable with a beautiful, photo-based** Facebook/Pinterest card.
-
-- **`lib/social/realstory-card.tsx`** — added the **photo-background variant**: when an editorial has a hero photo, the card is the couple's actual photo (smart-cropped to 1.91:1) with a bottom gradient scrim + white Cardo-serif names + eyebrow + venue/date. Falls back to the branded card on any fetch/decode failure (never fails the share). Verified locally over a deliberately-light test photo — the scrim keeps the white type legible.
-- **NEW `app/api/og/realstory-slug/[slug]/route.ts`** — the OG card for a REAL couple's `/[slug]` (vs the sample route). Resolves the event by slug, renders the card **only when `data.published`** (else 302→`/brand/og-card.webp`); the RA 10173 public-showcase consent gates the `/realstories` index, not a couple sharing their own public page. Shorter cache (1h + SWR) so a republish/photo-swap refreshes.
-- **`app/[slug]/_components/editorial/data.ts`** — `EditorialData` gains `slug` (real event's slug; **null for the curated sample**, which is how the editorial render avoids double-rendering share buttons on the sample).
-- **`app/[slug]/_components/editorial/editorial-content.tsx`** — renders `<ShareButtons>` at the top of the editorial **only when `data.slug` is set** (real editorials), pointed at `/{slug}` with the slug OG card as the Pinterest media.
-- **`app/[slug]/page.tsx`** — `generateMetadata` now sets `og:image` (the slug card route) + `twitter.summary_large_image`. The route's `published` gate means a share previews as the brand card pre-editorial and the photo editorial card once the story is live — in every phase.
-
-Verified: tsc + lint clean on changed files (satori/sharp = known local-install gap, in CI). Both card variants (branded + photo) rendered + eyeballed locally.
-
-SPEC IMPACT: real editorials at `/[slug]` are now FB/Pinterest-shareable with a per-couple photo OG card. Logged in corpus `DECISION_LOG.md` (2026-06-14). The **vendor half of PR C** ("Featured in Real Stories" + "Share to your Page") is still outstanding — its background agent hit a transient rate-limit before opening a PR; to be re-run.
-## 2026-06-14 · feat(hero): contained scrub presentation + hybrid extraction (12fps @ 1280px)
-
-The hero scrub looked pixelated because the source clip (incl. the uploaded Higgsfield render) is **960×960**, and the hero stretched it **edge-to-edge** (`object-fit:cover` over 100vh) → ~1.5–2.7× upscale → pixelation. Measured: the live frame is a faithful 960×960 / 178 KB JPEG, so it's not compression — it's upscaling a 960px source past its native size. Owner chose **"contain it · sharp, not full-screen"** over re-rendering bigger.
-
-- `apps/web/app/_components/marketing/HeroVideoScrub.tsx` — the scrub frame is now **centered and contained** on the dark canvas, sized `min(nativeSide, 86vmin)` so it is **never displayed larger than the source's native resolution** (no upscaling → crisp on any screen), with a subtle rounded frame + shadow. New optional `frameWidth`/`frameHeight` props feed the native cap (fallback 960). The sticky stage is now flex-centered; scrim + end-CTA + scroll hint overlay unchanged.
-- `apps/web/app/_components/marketing/_sections.tsx` — `Hero()` passes `frameWidth`/`frameHeight` from the published config.
-- `apps/web/app/admin/hero-video/hero-uploader.tsx` — **hybrid frame extraction (owner 2026-06-14)**: the middle ground between the merged #1416 dense-but-soft capture (30fps @ 720px) and the sparse-but-sharp first cut (6fps @ 1920px). Now `FPS=12`, `FRAME_MAX_EDGE=1280`, `FRAME_JPEG_QUALITY=0.90`, `MIN_FRAMES=36`, `MAX_FRAMES=150`, `imageSmoothingQuality='high'`. 12fps glides smoothly enough for a scroll-scrub without the 30fps frame explosion; 1280px stays crisp on the **contained** hero (never full-bleed) on normal + most retina displays; a ~5s clip → ~60 frames → a bounded preload.
-
-Net: the contained hero renders **smooth AND sharp** — smoother than the 6fps cut, crisper than the live 720px capture, without a payload blow-up. Trade-off the owner accepted: not edge-to-edge. Extraction constants run at admin upload time (browser → R2), so they don't affect the homepage JS bundle / Lighthouse gates; the contain change is what bounds on-page payload.
-
-SPEC IMPACT: None (hero presentation + admin asset-quality tuning; no schema/SKU/pricing). Logged in corpus `DECISION_LOG.md` (2026-06-14).
+SPEC IMPACT: Customer nav IA change (owner 2026-06-17 — unify to 5 tabs). No schema change. Logged in corpus `DECISION_LOG.md`. Memory `[[project_setnayan_nav_icon_menu_registry]]` updated.
 
 ---
 
-## 2026-06-14 · refactor(explore): rename the public marketplace route `/vendors` → `/explore` (308 redirects, SEO preserved)
+## 2026-06-17 · feat(marketing): make /our-story Google-OAuth-acceptable (explains the app's purpose) + privacy hygiene
 
-Owner directive 2026-06-14 (*"also fix the address to https://www.setnayan.com/explore"*). The "Explore" nav already pointed at the marketplace; this makes the **URL** match — the public discovery surface now lives at `/explore`. Companion to the search-first reframe in the same PR.
+**What landed:**
+- `supabase/migrations/20270110320018_chat_threads_first_reply.sql` — adds `vendor_first_reply_at TIMESTAMPTZ` column to `chat_threads` (idempotent `ADD COLUMN IF NOT EXISTS`), backfills from existing `chat_messages` (`MIN(created_at) WHERE sender_role = 'vendor'`), and installs the `stamp_vendor_first_reply` trigger that stamps the column on the first vendor `chat_messages` INSERT per thread. Partial index `chat_threads_vendor_first_reply_at_idx` on `(vendor_profile_id, vendor_first_reply_at) WHERE NOT NULL` speeds the activity-stats query.
+- `apps/web/lib/vendor-activity.ts` — replaces the `avg_response_minutes = 0` stub with a real median computation over `(vendor_first_reply_at − created_at)` in minutes, sorted ascending and taking the middle value (or average of two middles for even counts). Fallback stays 0 when no threads have a reply yet. Updated the `chat_threads` select to include `vendor_first_reply_at` and typed the row accordingly.
+- `apps/web/lib/chat.ts` — added `vendor_first_reply_at: string | null` to `ChatThreadRow` and extended `THREAD_SELECT` so `fetchThreadById` returns the new column.
+- `apps/web/lib/chat-actions.ts` — added defense-in-depth application-level stamp in `sendChatMessage` (after the `chat_messages` INSERT, when `senderRole === 'vendor'` and `thread.vendor_first_reply_at` is null, issues a best-effort `UPDATE` via admin client with `.is('vendor_first_reply_at', null)` idempotent guard). DB trigger is the primary path; app stamp is the fallback.
+- `apps/web/app/api/notify/route.ts` — added clarifying comment that `vendor_first_reply_at` is stamped by the DB trigger on vendor-message INSERT, NOT by this webhook (which only fires for couple→vendor messages).
 
-- **Route moved:** `git mv apps/web/app/vendors → apps/web/app/explore` (25 files: page + `categories/` + `compare/` + 18 `_components/` + `actions.ts`; no layout/route-handlers/dynamic-segments, so no route-shape changes). All intra-folder relative imports survive the move; the 3 external `@/app/vendors/...` imports (`v/[slug]`, `venue/[slug]`, the dashboard category-search overlay) were repointed to `@/app/explore/...`.
-- **115+ internal references rewritten** `/vendors` → `/explore` — every `Link`/`href`/`router.push`/`<form action>`/`redirect`/`revalidatePath`/canonical/OpenGraph/JSON-LD/sitemap/robots value that targets the marketplace. Driven by an exhaustive bucketed audit (a discovery + an adversarial-verification multi-agent pass) so the **landmines stayed put**: `/dashboard/[eventId]/vendors` (couple in-app), `/admin/vendors` (console), `/api/v1/vendors` (public API), `/keynote/vendors` (static deck), `@/lib/vendors*` imports, `/vendors-*` identifiers, and `/v/[slug]` vendor profiles are all unchanged.
-- **308 permanent redirects** in `middleware.ts` (repo convention — there's no `next.config` `redirects()`): `/vendors` → `/explore`, `/vendors/categories` → `/explore/categories`, query strings preserved via `${rest}${search}`; the old `/vendors/compare` orphan-guard (307 → `/vendors?notice=…`) was folded into the new block as `/vendors/compare` → `/explore?notice=compare_v1_2` (308) and the dead `COMPARE_ORPHAN_PATH` const removed. Runs after the vendor-subdomain rewrite so `slug.setnayan.com` still resolves to `/v/{slug}`.
-- **SEO:** `/explore` page canonical + OpenGraph url + the 12 JSON-LD ItemList folder URLs, `robots.ts` allow-list, and `sitemap-static.xml` all repointed to `/explore`. `sitemap-vendors.xml` (vendor-profile `/v/` URLs) and the sitemap-index child filename correctly left untouched.
-- **Drive-by bug fix (flagged):** `editorial-content.tsx` linked featured vendors to `/vendors/${slug}` — a route that never existed under `/vendors` (profiles are `/v/[slug]`), so it 404'd. Corrected to `/v/${slug}`.
+**Key schema facts confirmed:**
+- `chat_messages` timestamp column: `created_at` (not `sent_at`)
+- `chat_messages.sender_role` CHECK `('couple','vendor','coordinator')` (enum `chat_sender_role`)
+- `chat_threads` PK: `thread_id` UUID
+- `chat_messages.thread_id` FK → `chat_threads.thread_id`
+- `vendor_first_reply_at` was not present on any prior migration — this is a net-new column
 
-Verified: `tsc --noEmit` clean; `next lint` clean; production build green (214/214 pages — `/explore`, `/explore/categories`, `/explore/compare` present, no `/vendors` route, all keep-routes intact); retired-strings + email-links + bottom-nav guards pass; adversarial 3-agent verification (stray-links / keep-integrity / redirect-SEO).
+**SPEC IMPACT:** Unblocks accurate `avg_response_minutes` in `vendor_activity_stats` per `02_Specifications/Vendor_Quality_Rating_System_2026-06-17.md` § 2 (responsiveness score component). The stub TODO comment at lib/vendor-activity.ts line 331 is now resolved.
+## 2026-06-17 · PR #NEXT — Vendor threshold action emails
 
-SPEC IMPACT: the public marketplace URL is now `/explore` (was `/vendors`); old URLs 308-redirect. Logged in corpus `DECISION_LOG.md` (2026-06-14). The locked 6-page IA's "Explore" tile now matches its address.
+**What landed:**
+- `apps/web/lib/vendor-email-triggers.ts` — five threshold-action email functions for the vendor quality system, following the plain-text `sendEmail` pattern from `lib/email.ts`.
+- `apps/web/lib/vendor-activity.ts` — `recomputeVendorActivityStats()`: computes and upserts quality/health scores into `vendor_activity_stats`. Wires the slow-response email edge-trigger (response_rate_pct crossing below 50%) inside `after()`.
 
----
+**Emails added:**
+1. `sendVendorUnderReviewEmail(vendorProfileId)` — "Your Setnayan profile is under review"
+2. `sendVendorSuspensionEmail(vendorProfileId, cancellationCount)` — "Your Setnayan account has been temporarily suspended"
+3. `sendVendorGhostWarningEmail(vendorProfileId, eventId)` — "Action required — you have a booking in 7 days"
+4. `sendReviewFlagOutcomeEmail(reviewId, outcome, reason)` — fires BOTH vendor-who-flagged AND couple-whose-review-was-flagged emails
+5. `sendVendorSlowResponseEmail(vendorProfileId, responseRatePct)` — "Improve your response rate on Setnayan"
 
-## 2026-06-14 · feat(explore): bare `/vendors` = search bar only (catalog demoted) + unified multi-field search
+**Trigger wiring status:**
+- Wired: slow-response email (edge-trigger in `recomputeVendorActivityStats` when response_rate_pct crosses below 50).
+- TODO (two-admin gate): under_review, suspension, ghost warning, and review-flag-outcome emails are documented as TODO comments inside `vendor-activity.ts` — these require a human admin to approve via HQ console before firing, so they must be triggered from the admin action handlers (not from the score recomputer).
 
-Owner directive 2026-06-13 (*"why do i see services here? we just want a search bar … they can search for a category + vendor + service + place or details they can combine and we want to show all that works with their search"*). Direct follow-up to the same-day `explore-search-hero` PR (#1382), which added the search hero but kept the full category catalog rendering **below** it — so a bare `/vendors` still showed services. This finishes the reframe: the hero stands alone on the landing, and the search itself becomes genuinely multi-field.
+**Email resolution:** vendor_profiles.contact_email → fallback to users.email (auth account).
 
-- **Catalog demoted off the bare landing.** `apps/web/app/vendors/page.tsx` — new `browseMode` flag (`?browse=1` / `?folder=` / `?tile=` / `?from=plan`) threaded into `CatalogView`; the curated browse catalog below the hero (`IconTileFolderStrip` + `PairedVenuePanel` + the per-folder grids) now renders **only** when `browseMode` is true. A bare Explore visit shows the `ExploreSearchHero` + popular chips and a single "Browse all categories →" link. **Demoted, not deleted** — every catalog deep-link (dashboard planning cards, scoped folders, `?browse=1`) still renders the full catalog; nothing was removed.
-- **Hero chips are now live "Popular searches."** `CatalogView` derives the hero's chips from the top categories by live vendor count (`fetchVendorCountsByService`, already fetched there) instead of the static `EXPLORE_HERO_CHIPS` list (kept as the pre-launch fallback when no category has vendors yet).
-- **Unified multi-field search.** New `applyMarketplaceTextSearch()` replaces the `business_name`-only `ilike` on `q` (main query + broadened-count query). Each whitespace token must match the vendor name, tagline, city, OR a listed service (resolved against the 192-taxonomy) — one PostgREST `.or()` group per token, chained so tokens INTERSECT ("photographer tagaytay" → photography vendors in Tagaytay only). Tokens stripped to `[a-z0-9]` (well-formed + injection-safe inside the `.or()` predicate). **No migration** — `services.ov` uses the existing GIN index; name/tagline/city already live on `vendor_market_stats`. (Scale note: leading-wildcard `ilike` won't hit a btree — add `pg_trgm` GIN later if the pool grows.)
-- **The results-page search bar now actually searches.** `sticky-marketplace-header.tsx` — the vendor-grid search input had no surrounding form, so free-text Enter was a silent no-op (only autocomplete category-jumps worked). Wrapped it in a GET form with hidden inputs carrying the host's filters (city/sort/match/event_type/folder/venue/faith) so free-text refinement works once a visitor is in results. `category` is intentionally not preserved (a fresh free-text query reads as "search everything").
-- `taxonomy-search.tsx` `'bar'`-variant placeholder → "Search vendors, services, or places…".
+**No new migrations** — all tables used (`vendor_profiles`, `vendor_activity_stats`, `chat_threads`, `chat_messages`, `vendor_reviews`, `event_vendors`, `events`, `users`) already exist.
 
-Verified: `tsc --noEmit` clean, `next lint` clean (no findings in changed files), production build green (214/214 pages), retired-strings + email-links + bottom-nav guards pass.
+**SPEC IMPACT:** `02_Specifications/Vendor_Quality_Rating_System_2026-06-17.md` § 5 (threshold actions) + § 7 (email notifications). Threshold action emails are now implemented; two-admin-gate triggers remain wired to admin console actions (separate PR).
+## 2026-06-17 · PR #1656 — Vendor partnerships HQ verification queue
 
-SPEC IMPACT: completes the `/vendors` (Explore) search-first reframe started in #1382 — the curated catalog is now demoted behind `?browse=`; search is multi-field. Logged in corpus `DECISION_LOG.md` (2026-06-14). Owner heads-up: venue browsing (Reception 6-setting facet picker + ceremony-venue cards) now reaches couples via search or "Browse all categories" rather than auto-rendering on landing.
-## 2026-06-14 · feat(realstories): admin curate/feature + hero slot for the public Real Stories index (PR D of the Real Stories featuring program)
+**What landed:**
 
-Fourth of the sequenced Real Stories program (PR A = rename · PR B = OG share cards · PR C = couple/vendor publish-to-Real-Stories · **PR D = admin curate/feature**). Adds a Setnayan HQ surface to FEATURE (pin) + ORDER which published, consent-gated wedding editorials surface on `/realstories`, and which fills the hero. Depends on nothing from B/C. Pre-launch there are zero real consented showcases, so every state degrades gracefully to the existing labelled sample.
+- `supabase/migrations/20270110320018_vendor_partnerships_approval_type.sql` — extends `admin_approval_requests` with a new `target_id TEXT` column and adds `'approve_vendor_partnership'` to the `action_type` CHECK constraint. This lets the two-admin approval queue hold vendor partnership verification requests alongside user-escalation requests.
+- `apps/web/app/admin/vendor-partnerships/page.tsx` — admin queue page at `/admin/vendor-partnerships` showing all `vendor_partnerships WHERE admin_verified = false AND is_active = true`. Per-row state machine: (a) no pending approval → first admin clicks "Approve (two-admin gate)"; (b) pending approval exists → second admin sees "Confirm & verify (2nd admin)" or "Reject"; (c) initiating admin cannot self-confirm (four-eyes enforced by atomic `.neq('initiated_by', userId)` UPDATE + DB CHECK). Also includes HQ manual "Add partnership" form (vendor search dropdowns + relationship type + fee + discount + covered plan groups multi-select). Recently verified list at bottom.
+- `apps/web/app/admin/vendor-partnerships/actions.ts` — five server actions: `initiateApproval`, `confirmApproval`, `rejectPartnership`, `createPartnershipHq`, `submitPartnershipClaim`. All admin actions go through `requireAdmin()`. All writes best-effort audit to `admin_audit_log`.
+- `apps/web/app/vendor-dashboard/partnerships/page.tsx` — vendor-side stub at `/vendor-dashboard/partnerships`. Shows the vendor's live/pending/inactive partnership list and a "Declare a vendor partnership" form (calls `submitPartnershipClaim`). Partnerships default `admin_verified = false` so vendors cannot self-activate badges.
+- `apps/web/app/admin/_components/admin-sidebar.tsx` — "Partnerships" nav item added to the Work group (after Verify), using the `Handshake` icon.
+- `apps/web/app/admin/work/page.tsx` — Partnerships added to the Work mobile triage feed with a live pending count.
+- `apps/web/app/vendor-dashboard/_components/vendor-sidebar.tsx` — "Partnerships" nav item added to the Grow group (after Verify).
+- `apps/web/lib/admin-approvals.ts` — `ApprovalActionType` union extended with `'approve_vendor_partnership'`.
+- `apps/web/lib/nav-registry-defaults.ts` — `admin.sidebar.vendor-partnerships` and `vendor.sidebar.partnerships` slot defaults added.
 
-- **Migration `supabase/migrations/20261221000000_realstories_featuring.sql`** (additive + idempotent · **NOT auto-applied** — owner runs `supabase db push --db-url "$SUPABASE_DB_URL"`): two nullable columns on `events` — `showcase_featured_at timestamptz` (NULL = not featured) + `showcase_feature_rank int` (lower = higher; NULL last) + a partial index on featured rows. No new table. RLS unchanged: `events` already enables RLS at CREATE TABLE time and the existing `couple_can_update_event` policy carries `OR public.is_admin()`; the public read path uses the admin (service-role) client exactly as `loadPublishedShowcases` already does.
-- **Admin surface `app/admin/real-stories/` (page + actions)** — lists the consent-gated, past-grace, public-slug weddings (new `loadShowcaseCandidatesForAdmin` in `lib/showcase-db.ts`), each with a Feature toggle + a 0–9999 order input; two server actions (`setShowcaseFeatured` / `setShowcaseRank`) re-assert `requireAdmin` + the full RA 10173 eligibility gate before writing, audit every mutation to `admin_audit_log`, and `revalidatePath('/realstories')` so the public page updates with no redeploy. Three honest states: empty ("No published Real Stories yet… the public page shows the sample meanwhile"), migration-not-applied (shows the exact `db push` command), and the curated sample explained as non-featurable.
-- **Public ordering + hero `lib/showcase-db.ts` + `app/realstories/page.tsx`** — `loadPublishedShowcases` now selects the two columns and orders featured-first (`rank` → `featured_at` → `event_date`), surfacing a `featured` flag on `ShowcaseEntry`; the index renders the leading featured real showcase as a hero (new `RealHero`, mirroring the sample featured-hero), the rest as the grid. Graceful pre-migration fallback: if the featuring columns don't exist yet, the loader retries the original newest-first query (every row `featured:false`) so real showcases still surface. Sample fallback intact when there are zero real showcases.
-- **Nav** — "Real Stories" entry added to the admin Platform group (`admin-sidebar.tsx`) + the `/admin/more` mobile overflow (`more-landing.tsx`), both with the `Newspaper` icon.
-- **Did NOT touch PR B's files** (`app/realstories/[slug]/page.tsx`, `app/realstories/_components/*`, `lib/social/*`, `app/api/og/*`). Verified `tsc --noEmit` (zero errors in these files; only the unrelated pre-existing missing-optional-native-dep errors remain) + `next lint` clean.
+**Two-admin gate implementation:**
+1. First admin clicks "Approve" → `initiateApproval` creates an `admin_approval_requests` row (`action_type='approve_vendor_partnership'`, `target_id=<partnership id>`, `status='pending'`, `expires_at=now+72h`).
+2. Second admin (different person) clicks "Confirm & verify" → `confirmApproval` atomically UPDATEs with `.neq('initiated_by', userId)` + `.eq('status', 'pending')` + `.gt('expires_at', now)`. Only if that claim succeeds does it flip `vendor_partnerships.admin_verified = true`. Same initiator gets a "you cannot self-approve" error. Rollback is applied if the `vendor_partnerships` UPDATE fails.
+3. Reject (single-admin) sets `is_active = false` and cancels any pending approval request.
 
-SPEC IMPACT: iteration 0046 Real Stories gains an admin featuring/curation layer (events.showcase_featured_at + showcase_feature_rank). Logged in corpus `DECISION_LOG.md` (2026-06-14). Honesty lock preserved: only REAL consented editorials are ever featurable; the sample stays labelled "Sample showcase" and cannot be admin-featured.
-## 2026-06-14 · feat(realstories): Facebook-shareable editorials — OG share card + share buttons (PR B of the Real-Stories featuring program)
+**SPEC IMPACT:** Adds `vendor_partnerships` HQ queue to the admin console (iteration 0023). The vendor-side stub at `/vendor-dashboard/partnerships` is a new surface not explicitly spec'd in the iteration folders. No pricing impact. No retired feature.
+## 2026-06-17 · PR #1656 (claude/vendor-push-registration) — Vendor push token registration
 
-Owner: *"the editorials should be shareable so vendors and customers can share on their facebook … will it have a preview on facebook … so the exact editorial can be viewable than just a link."* The editorial pages set `og:title`/`og:description` but had **no `og:image`**, so a Facebook/Pinterest share rendered as a bare link. This adds the per-editorial share card + share buttons.
+**What landed:**
+- `apps/web/app/vendor-dashboard/actions/push-tokens.ts` — three server actions: `registerPushToken`, `deactivatePushToken`, `deactivateAllPushTokens`. Upserts into `vendor_push_tokens` on conflict `(vendor_profile_id, token)`.
+- `apps/web/app/vendor-dashboard/_components/push-notification-registrar.tsx` — client component, vendor-dashboard-only. Detects push support → shows non-blocking fixed-bottom banner when permission is `'default'` → on [Enable] requests browser permission → subscribes via VAPID → calls `registerPushToken(endpoint, 'web')`. Silently refreshes on every mount when already granted. Session-dismissible.
+- `apps/web/app/vendor-dashboard/notifications/push-toggle.tsx` — settings toggle card on the Notifications page. Reads live `Notification.permission`; [Disable] calls `deactivateAllPushTokens()`.
+- `apps/web/app/vendor-dashboard/notifications/page.tsx` — adds `<PushToggle />` above the feed.
+- `apps/web/app/vendor-dashboard/layout.tsx` — adds `<PushNotificationRegistrar />` at the bottom of the vendor shell.
+- `apps/web/public/sw.js` — updated `push` + `notificationclick` handlers to be `thread_id`-aware: click routes to `/vendor-dashboard/messages?thread={thread_id}`; notifications collapse per-thread via `tag: data.thread_id`.
+- `apps/mobile/package.json` — added `@capacitor/push-notifications ^8.0.1` (not installed; owner action: `npm install && npx cap sync`).
+- `apps/mobile/src/push.ts` — `initVendorPushNotifications()` helper for the Capacitor native shell; bridges FCM (Android) / APNs (iOS) token back to `registerPushToken`.
 
-- **NEW `lib/social/realstory-card.tsx`** — renders a **1200×630 (1.91:1 Open Graph ratio)** branded share card via the same satori + sharp + bundled-static-font pipeline as `lib/social/card.tsx` (kept self-contained so the two render paths evolve independently): gold-ruled editorial mat · "A SETNAYAN REAL STORY" eyebrow · couple names in Cardo serif · venue/ceremony descriptor · date · the wedding's palette swatch row · SETNAYAN wordmark. `heroPhotoUrl` accepted now so the real-editorial photo-background variant is a one-line wire-up later (today's live sample has no photo → branded card).
-- **NEW `app/api/og/realstory/[slug]/route.ts`** — public, Node-runtime, immutable-cached. Renders the card for a slug from the fixed public `REAL_WEDDINGS` set (404 on unknown); on any render error it 302s to the static `/brand/og-card.webp` so a crawler never gets a 500.
-- **NEW `app/realstories/_components/share-buttons.tsx`** — client `<ShareButtons>`: **Facebook** (sharer), **Pinterest** (pins the og:image — wedding inspo is Pinterest-native), **Copy link** (Messenger/Viber/IG-DM). Reusable — drops onto the couple's own `/[slug]` editorial + the vendor "share to your Page" surface in PR C. (Brand glyphs inlined; newer lucide dropped Facebook/Pinterest icons.)
-- **`app/realstories/[slug]/page.tsx`** — `generateMetadata` now sets `openGraph.images` (the card, 1200×630) + `twitter.card: 'summary_large_image'`; the showcase bar renders `<ShareButtons>`. So a shared Real Story shows the couple + palette + venue and **deep-links to that exact editorial** — a beautiful clickable card, not a link.
+**VAPID env vars (already in `.env.example`):**
+- `NEXT_PUBLIC_VAPID_PUBLIC_KEY` — public key for browser push subscriptions (add to Vercel).
+- `VAPID_PRIVATE_KEY` — private key for server-side push signing (add to Vercel, server-only).
+- `VAPID_SUBJECT` — contact URI, defaults to `mailto:hello@setnayan.com`.
+Generate: `npx web-push generate-vapid-keys`
 
-Verified: tsc + lint clean on changed files (the `satori`/`sharp` module-resolution errors are the known local-install gap — present in CI). The satori render can't run in the local install (those deps live only in CI), so the **card visual is verified on the Vercel preview** post-build, not locally.
+**Owner actions required:**
+1. Generate VAPID keys and add to Vercel env vars.
+2. Run `npm install && npx cap sync` in `apps/mobile/` to wire the Capacitor plugin.
+3. Configure FCM (Firebase `google-services.json`) and APNs keys in native projects.
+4. Wire `sendPushToToken()` in `/api/notify` with real FCM/APNs/Web Push calls (TODO stub in that file).
 
-SPEC IMPACT: iteration 0046 editorials are now FB/Pinterest-shareable with a per-story OG card. Logged in corpus `DECISION_LOG.md` (2026-06-14). Next: PR C — couple "Publish to Real Stories" consent + "Share our story" + vendor "Featured / Share to your Page" (reuses `<ShareButtons>` + the card, adds the photo-background variant); PR D (parallel) — admin curate/feature.
-## 2026-06-14 · feat(chrome): the chosen monogram lockup now renders on the public hero + QR centers (consistency follow-up)
+**SPEC IMPACT:** Wires the token registration leg of the push notification flow introduced by PR #1652 (`/api/notify`). The sw.js push/notificationclick handlers replace the prior generic `payload.url` routing with vendor-thread-aware routing. No spec corpus change required — the push registration flow is implementation detail of the existing 0028 email/notification spec.
+## 2026-06-17 · PR #1663 — Vendor review response: editable replies, flag-as-fake, 500-char limit
 
-Follow-up to the monogram-as-event-logo work (PRs #1374/#1376). An audit of every monogram render site found the dashboard switcher showed the couple's real lockup, but the two highest-impact couple-facing surfaces still drew plain initials. Owner: bring the public hero + QR centers in line.
+**What landed:**
 
-**Public landing hero (`app/[slug]`).** The three near-identical hero cascades (PrivateLanding + the 2 InvitationSite variants) drew initials in a serif circle when the couple hadn't bought the paid animation. Centralized into one new `app/_components/hero-monogram.tsx` (`HeroMonogram`) with the full precedence: bespoke/Cipher SVG → paid AnimatedMonogram (text) → **chosen lockup via MonogramMark (bar/duo/script/infinity, frameless, 80px)** → **framed (gold frame + initials)** → legacy/single-name circle. The page already selected the design columns; added the three to the local `EventRow` type so the sub-components' `event` prop carries them. Removed the now-inlined AnimatedMonogramHero/BespokeMonogramMark imports from the page.
-  - SCOPE NOTE (flagged): the paid ANIMATED_MONOGRAM layer still animates the typographic text, not the lockup — animated lockup variants are a deliberate follow-up. Non-animated couples (the common case) now get their real static lockup.
+- `supabase/migrations/20270111780655_vendor_review_response.sql` — migration applied to prod:
+  1. `lock_vendor_reply()` trigger updated: immutability guard removed so replies are editable; auto-stamps `vendor_reply_at` on first write and refreshes it on edits.
+  2. `vendor_reviews.vendor_reply` DB CHECK tightened from 2,000 → 500 chars.
+  3. New `vendor_review_flags` table (UUID PK, FK to `vendor_reviews` + `vendor_profiles`, status `pending/dismissed/escalated`, unique per review+vendor) with 3 RLS policies + RLS enabled.
 
-**QR-code centers (`lib/monogram.ts` → `monogramOverlaySvg`).** It drew hardcoded serif-italic initials, ignoring the chosen font/style. Now: `MonogramConfig` carries the full design (via `resolveMonogram`), and `monogramOverlaySvg` draws the chosen lockup inside the cream clearance circle via a new string-SVG twin of `MonogramMark` (`lockupMarkSvg`) — same footprint, so the level-H QR stays scannable. Framed/legacy fall back to initials, now in the couple's chosen face. Threaded the three design columns into the 5 QR-caller selects (site-editor, custom-qr-guest + its print, invitation + its print). `splitInitials` promoted to `lib/monogram.ts` (shared by chip + hero + QR).
+- `apps/web/lib/reviews.ts` — `VENDOR_REPLY_MAX_CHARS = 500` constant; `submitVendorReply` updated to 500-char limit (editable, no longer one-time); new `flagReviewAsFake()` function; `ReviewFlagReason` type + `REVIEW_FLAG_REASON_LABEL` record.
 
-- Verified: typecheck ✅ · lint ✅ (no new warnings) · generated real composited QRs through the actual `compositeMonogram` for all 5 styles + legacy — each center shows the correct mark, QR structure intact.
+- `apps/web/app/vendor-dashboard/reviews/page.tsx` — existing reply shows "Edit response" via `<details>` expand with prefilled textarea; new "Flag" icon per review opens dropdown reason selector; char limit updated to 500 throughout.
 
-SPEC IMPACT: extends the chosen-lockup-as-logo behavior (reversed the 2026-06-03 letters-forward lock, PR #1374) to the public hero + QR centers. Still out of line (deliberately deferred): animated-hero-as-lockup, PDF/print exports, monogram-maker preview, social/OG card. Logged in corpus `DECISION_LOG.md`. No SKU/pricing impact; no migration (columns already exist).
+- `apps/web/app/vendor-dashboard/reviews/actions.ts` — `postVendorReply` (post + edit, validates profile ownership); new `submitFlagAsFake` action.
 
----
+- `apps/web/app/admin/reviews/page.tsx` + `actions.ts` — new "Vendor fake-review flags" queue section with pending count badge at top of review-moderation page; `dismissReviewFlag` action writes `admin_audit_log`.
 
-## 2026-06-14 · feat(realstories): rename the Real Weddings showcase /weddings → /realstories (PR A of the Real-Stories featuring program)
+- `apps/web/app/v/[slug]/page.tsx` — `VendorReplyBlock` now shows "Response from [Vendor Name]" label; `vendorName` prop threaded through `ReviewRow`.
 
-Owner: "rename it as /realstories." First of a sequenced program to turn the showcase into a Facebook-shareable featuring loop (PR A = rename · PR B = OG share cards + share buttons · PR C = couple "Publish to Real Stories" consent + vendor "share to your Page" · PR D = admin curate/feature).
+- `apps/web/app/dashboard/[eventId]/_components/vendor-marketplace-info.tsx` — same "Response from [name]" label in couple-dashboard marketplace info drawer.
 
-- **`git mv app/weddings → app/realstories`** (index + `[slug]` detail). Swapped every `/weddings` route reference → `/realstories` across 14 files: the two route pages (canonical · breadcrumb · Article JSON-LD · back-links), `sitemap-weddings.xml` (now emits `/realstories` URLs — route filename kept so the sitemap URL itself doesn't 404), `sitemap-static`, `robots.ts` (allow-list), `lib/real-weddings.ts`, `lib/showcase-db.ts`, `app/[slug]/_components/editorial/data.ts`, plus the inbound links on `/privacy`, `/signup`, `/vendors`, and the couple `dashboard/.../website/privacy` consent surface.
-- **301 redirects** added in `next.config.ts`: `/weddings` → `/realstories` and `/weddings/:slug` → `/realstories/:slug` (`permanent: true`). Consolidates the already-indexed `/weddings` ranking to the new path AND keeps the in-flight nav PR #1391's `/weddings` links working (it was open at rename time) instead of 404-ing.
-- Visible **"Real weddings" copy + the SEO title/keywords are intentionally unchanged** (strong "real Filipino weddings" keyword); only the route path changed. The nav label "Real Stories" → `/realstories` is the friendly label over the keyword-rich page — aligning the page H1 to "Real Stories" is an optional owner follow-up.
+**SPEC IMPACT:** `0022_vendor_dashboard/0022_vendor_dashboard.md` — vendor reply is now editable (not one-time per § 2.x); 500-char limit; fake-flag flow added. `0023_admin_console/0023_admin_console.md` — new fake-review flag queue added to review moderation surface.
+## 2026-06-17 · PR #NEXT — couple post-event review form
 
-SPEC IMPACT: iteration 0046 showcase route renamed `/weddings` → `/realstories` (301-preserved). Logged in corpus `DECISION_LOG.md` (2026-06-14). Next: PR B — per-editorial OG share cards (satori, reusing `lib/social/card.tsx`) + Facebook/Pinterest/Copy share buttons on the editorial, so a shared link shows a beautiful preview and deep-links to the exact story.
-## 2026-06-14 · fix(dashboard): retire the legacy cream chrome — kill the "old design flashes then reroutes to the new design"
+**What landed:** Couple-side vendor review submission flow (5-axis, binary on_time).
 
-Owner: *"the dashboard tries to load the original first design then reroutes to the new design — we want the latest design to be the first design, delete the old design."* Audit (multi-agent) found this is **not** a content reroute — it's a **dual-chrome layering** bug. The shared parent `app/dashboard/layout.tsx` rendered the legacy cream `OuterDashboardHeader` + a `bg-cream lg:pl-60` gutter **unconditionally** (server-side) for every `/dashboard` route, including event routes — where it was suppressed only by a **client** `usePathname()` guard and its gutter cancelled by a `lg:-ml-60` hack in `[eventId]/layout.tsx`. So the old chrome painted first, then hydration removed it and the paper `SidebarShell` overlaid it. (A docstring in `[eventId]/layout.tsx` claimed this cleanup had already shipped "Phase 0" — it never did.)
+**Files changed:**
+- `apps/web/app/_components/on-time-binary-input.tsx` *(NEW)* — binary Yes/No toggle component; Yes posts `rating_on_time=5`, No posts `rating_on_time=1`. Two pill buttons, green=Yes / rose=No. Hidden `<input>` carries the value so it works inside any `<form>`.
+- `apps/web/lib/reviews.ts` — extended `REVIEW_AXIS_LABEL` with the long-form question labels for the form; added `REVIEW_ON_TIME_LABEL` export (`'Did they arrive and deliver on schedule?'`). Existing `createReview` / `fetchOwnReviewForVendor` untouched.
+- `apps/web/app/dashboard/[eventId]/vendors/[vendorId]/review/page.tsx` — split axes into `STAR_AXES` (overall · communication · quality · value) + explicit `OnTimeBinaryInput` for on_time. Updated body textarea label to "Tell other couples about your experience (optional)" with 500-char cap and `rows={5}`. Submit button text changed to "Submit review".
+- `apps/web/app/dashboard/[eventId]/vendors/[vendorId]/review/actions.ts` — parallel split of `STAR_AXES` + `parseOnTimeRating` (enforces only 5 or 1). Body truncated from 4000 → 500. Fail-soft dynamic import of `triggerVendorActivityRecompute` from `lib/vendor-activity` called inside `after()` (inert until that branch merges to main).
+- `apps/web/app/dashboard/[eventId]/vendors/_components/plan-budget-accordion.tsx` — added `VendorReviewStatus = 'open' | 'submitted'` type, `reviewStatusByVendorId` prop threaded `PlanBudgetAccordion → ChildRail → VendorCardAtom`. Renders "Leave a review" CTA (mulberry pill, links to `/review`) or "Review submitted ✓" badge (green). CSS added to `PBA_CSS` block.
+- `apps/web/app/dashboard/[eventId]/vendors/page.tsx` — added async IIFE that: filters `status='complete'` vendors → checks 30–365 day window from `events.event_date` → resolves `vendor_profiles` via contact email (admin client) → checks `vendor_reviews` for existing rows (user client) → returns `Map<vendorId, VendorReviewStatus>`. Fail-soft (returns empty map on any error).
 
-Owner chose **retire the old chrome entirely** (one paper system everywhere). Fix = a Next.js **route-group split**:
+**Gate logic (server-enforced):**
+1. `event_vendors.status = 'complete'`
+2. `events.event_date + 30 days ≤ today ≤ events.event_date + 365 days`
+3. No existing review for `(vendor_profile_id, event_id, couple_user_id)`
 
-- **Moved** the non-event routes — picker `page.tsx`, `profile/`, `notifications/`, `create-event/`, `api-keys/`, `loading.tsx` — into a new URL-transparent group `app/dashboard/(account)/` (git tracked as renames; URLs unchanged).
-- **NEW** `app/dashboard/(account)/layout.tsx` — owns the account chrome: the events/roles/unread/avatar fetch + switcher mapping (lifted verbatim from the old parent) + `<OuterDashboardHeader>` + the `lg:pl-60` gutter, on a `--m-paper` base. Renders ONLY on account routes (structurally, server-side) — no client guard, no flash.
-- **Slimmed** `app/dashboard/layout.tsx` — now renders NO chrome: only the auth gate, the defensive users-profile probe (column-drift `SELECT *` fallback + try/catch), deleted-account sign-out, vendor→`/vendor-dashboard` redirect, ghosting `after()`, and the welcome `GuidedTour`, in an `app-surface min-h-dvh` + `--m-paper` wrapper (keeps the Source Sans readability lock for every dashboard route).
-- **`app/dashboard/_components/outer-dashboard-header.tsx`** — removed the `usePathname()`/`isEventScopedRoute` "return null on event routes" guard (no longer mounted there) → drops `'use client'` (now a server component); swapped the cream classes to the v2.1 `--m-paper`/`--m-paper-2`/`--m-line` paper tokens.
-- **`app/dashboard/[eventId]/layout.tsx`** — removed the `lg:-ml-60` outer-cancel wrapper (parent adds no gutter now → nothing to cancel; SidebarShell owns its own `--shell-main-offset`).
-- **Import fixes** for the folder move: `@/app/dashboard/create-event/…` → `@/app/dashboard/(account)/create-event/…` (+ `profile/concierge`) in `[eventId]/_components/event-switcher.tsx`, `lib/event-types-db.ts`, `admin/payments/actions.ts`, and the header itself.
-- **`public/sw.js`** VERSION `v3`→`v4` — evicts the stale `STATIC_CACHE` so returning PWA users don't get the prior build's old-chrome shell for one load. (A per-deploy auto-stamp `NEXT_PUBLIC_CACHE_BUSTER ← VERCEL_GIT_COMMIT_SHA` is the durable fix — flagged in-code as an owner follow-up.)
-
-Adversarial review (separate agent): **PASS — no functional regressions**; every old-parent responsibility still runs on the right subtree, the server-component conversion is clean, no broken imports, account chrome + post-login redirect intact. Verified: `tsc --noEmit` ✅ (0 errors) · `next lint` ✅ (clean) on all changed files. No schema/migration.
-
-SPEC IMPACT: None — chrome/routing refactor; no SKU/schema/pricing/copy change. The `(account)` route group is an internal structure only (URLs unchanged). Logged in corpus `DECISION_LOG.md` (2026-06-14). Owner follow-up flagged: per-deploy SW cache-buster auto-stamp.
-
----
-## 2026-06-14 · feat(seating): cocktail arrival zone — entrance dock + Front Desk booth + wayfinding signs
-
-Owner-directed (2026-06-14), extending the cocktail/waiting-area feature with three arrival-zone pieces. Designed + adversarially reviewed via workflows (the review caught a vendor-side dock-corruption bug, fixed). Stacks on the vendor-editor PR [#1381](https://github.com/iscasasola/setnayan-platform/pull/1381) — **merge that first.**
-
-1. **Linked at the entrance door.** New `cocktail_linked` (default TRUE) — a couple/coordinator connect⇄separate toggle on the room. Linked **docks** the room beside the reception at `entrance_x/y` (nearest-wall + GAP push, cross-axis aligned to the door) with a drawn doorway connector (arrive→register→enter). Dragging the room auto-unlinks; re-docks on entrance move / add / room resize. The cocktail coordinate clamp is **widened to [-80,180]** across all three write paths (couple `saveFloorPlan`, `vendor_set_cocktail_area`, cocktail-zone booths in `parseBoothsPayload`) so the off-wall room isn't snapped on-canvas; `fitView` now frames the cocktail room + entrance, and the view auto-fits when the room is enabled. Vendors **read** the link but can't toggle it.
-2. **Default Front Desk booth.** New `registration_desk` booth_type; `addCocktailArea` idempotently seeds one "Front Desk" booth into the room (guarded across local state + the fetched prop, so no duplicate on toggle/reload). `ClipboardList` icon.
-3. **General wayfinding signs.** New `event_floor_signs` table (rotatable arrow + 1–40 char label, default "Restrooms", add ≤24). Couple/coordinator manage via a replace-all `saveSigns` (same shape as `saveBooths`, lock-asserted); ARRANGE-tier cocktail vendors CRUD via `vendor_upsert/move/delete_sign` (booth-tier vendors rejected). Editor: drag / rotate 45° / double-click rename / delete + an "Add sign" toolbar button.
-
-- `supabase/migrations/20261222000000_iteration_0008_cocktail_arrival_zone.sql` — **additive, APPLIED TO PROD 2026-06-14** (statement-by-statement, ledgered): `cocktail_linked` col, `registration_desk` in the `event_floor_booths` booth_type CHECK, `event_floor_signs` + RLS (couple Pattern B + coordinator seat_plan='edit'), `get_vendor_cocktail_editor` v2 (adds `linked`+`entrance`+`signs`), `vendor_set_cocktail_area` widened clamp, `vendor_upsert_cocktail_booth` + 3 vendor sign RPCs (all ARRANGE-gated).
-- `lib/seating.ts` (cocktail_linked, registration_desk, FloorSignRow + fetchSigns), couple `actions.ts` (cocktail_linked + widened clamp + saveSigns), `page.tsx` (fetchSigns), `seating-editor.tsx` (dock + toggle + connector + seeds + sign UI + fitView), vendor `cocktail-editor.tsx`/`actions.ts` (read-only connector + sign CRUD).
-- **Concurrency note (intentional):** vendor cocktail/booth/sign writes stay OUTSIDE the couple's exclusive seating lock (low-stakes pins; documented in the migration header).
-- **Deferred follow-up (flagged):** signs + Front Desk don't yet reach the guest-consumable surfaces (publish print-pack, day-of guest map 0031) — authoring only for now.
-- Verified: `tsc` clean; migration applied + verified on prod; adversarial review (6 agents) → 1 confirmed bug fixed.
-
-SPEC IMPACT: extends iteration 0008's cocktail-area feature. Logged in corpus `DECISION_LOG.md` + `0008` AS-BUILT header.
-
-## 2026-06-14 · perf(images): cut Vercel image-optimization spend (owner ~$130/mo overage)
-
-Owner flagged a ~$150 Vercel bill = $20 Pro base + ~$130 usage overage. Audited `apps/web/next.config.ts` against `origin/main`: the `images` block ran every photo (R2 hero/vendor/moodboard + Supabase + the seeded Pexels/Picsum/Wikimedia stock hotlinks) through Vercel's per-transformation image optimizer, emitting **both** AVIF **and** WebP across Next's full default 8-size `deviceSizes` spread — a high billable-transformation count for a gallery-heavy, mostly view-once image workload. Confirmed NOT the cause: no `vercel.json` / no Vercel `crons` schedule, so the dormant `/api/cron/*` routes are not billing. Zero-infra interim cut (no component/render changes, fully reversible):
-
-- apps/web/next.config.ts `images` — `formats` AVIF+WebP → **WebP only** (~halves transforms; WebP visually indistinguishable here, reverses the prior "AVIF first" posture on cost grounds); `deviceSizes` trimmed to `[640,750,828,1080,1200,1920]` (drops the two most-expensive variants 2048/3840 — 1920 is already sharp on 4K full-bleed); `minimumCacheTTL` 7d → **31d** (fewer re-optimizations of immutable source images).
-- Verified: `tsc --noEmit` ✅ · `next lint` ✅. No schema/migration.
-
-Structural follow-up (NOT in this PR): the proper near-zero fix is the Cloudflare Images cutover already specced in `Image_Optimization_Plan.md` (free R2 egress + on-demand variants) — needs owner Cloudflare decision. Owner action surfaced separately: set a Vercel **Spend Management** hard cap so an overage can never recur silently.
-
-SPEC IMPACT: None — infra/cost config tuning, no SKU/schema/pricing/UX/product-copy change. Minor reversal of the documented "AVIF first" image posture, on cost grounds only; flagged here for lineage.
-## 2026-06-14 · feat(home): hero-only homepage — strip the marketing narrative to nav + hero
-
-Owner directive 2026-06-14 ("remove everything. just keep the hero part as the whole page"; clarified scope = **Hero + top nav**). The homepage `/` now renders ONLY the sticky `Nav` + the `Hero` (the admin-uploaded scroll-scrub video, falling back to the default keynote hero when none is published).
-
-- `apps/web/app/page.tsx` — render reduced to `<Nav /><Hero />`. **Removed from the homepage:** `PromoBar`, `ProblemSection`, `ForCouples`, `MarketplacePreview`, `OnTheDay`, `PersonalSite`, `DashboardPreview`, `PricingSection`, `FAQSection`, `ClosingCTA`, `VendorBand`, `Footer`. Imports trimmed to `{ Nav, Hero }`. The section components are **not deleted** — they still live in `_sections.tsx` and are reused by `app/v/[slug]/page.tsx` + the dedicated marketing pages (`/features`, `/pricing`, `/vendors`, `/about`, `/help`), so that content (and its SEO) is unchanged on those routes.
-- Kept (no visual footprint): the GEO/SERP `metadata` + the `WebSite` + `SoftwareApplication` JSON-LD graph (AI-answer-engine / search-card surface), and `export const dynamic = 'force-dynamic'` — Hero() reads the published hero-video row + resolves presigned frame URLs per request. Updated the force-dynamic rationale comment (was attributed to the now-removed PricingSection).
-- Homepage e2e (`tests/e2e/homepage.spec.ts`) unaffected: it asserts the hero h1, "Start planning", and "Sign in" — all in the retained Nav + Hero.
-
-**Trade-offs (flagged for owner):** (1) the homepage loses its crawlable marketing copy + the footer's Privacy/Terms links — those legal links now reach users only via other pages; (2) traditional-SEO text on `/` drops to near-zero (mitigated: JSON-LD retained + the marketing content still lives on `/features`, `/pricing`, etc.). Easily reverted (git) if the owner wants sections back.
-
-SPEC IMPACT: Homepage composition diverges from iteration `0015_main_website` (full marketing narrative). Logged in corpus `DECISION_LOG.md` (2026-06-14); 0015 AS-BUILT note deferred to the next corpus pass.
+**SPEC IMPACT:** `0006_vendors_management` — review entry point on vendor cards (§ review CTA). `02_Specifications/Vendor_Quality_Rating_System_2026-06-17.md` — couple-side submit flow (§ 5 couple submit). On_time binary rule (Yes=5/No=1) matches `vendor_reviews` DB constraint; no schema change needed.
 
 ---
 
-## 2026-06-14 · refactor(dashboard): shared <NotificationsList> — dedup Track A4
-
-The couple (`/dashboard/notifications`) and vendor (`/vendor-dashboard/notifications`) notification pages both called the same user-scoped `fetchOwnNotifications` from `lib/notifications.ts` yet forked a byte-identical `<ul>` of items + a near-identical empty state, differing only in a back-link, header subtitle, mark-all placement, and empty-state copy. Extracted the shared list/item/empty-state markup to `app/_components/notifications/notifications-list.tsx`; both pages become thin containers that keep their own auth gate + header + mark-all-read control and pass the already-fetched rows down with per-role `returnTo` + `emptyState` props. No behavior or visual change — rendered output matches byte-for-byte.
-
-- apps/web/app/_components/notifications/notifications-list.tsx — NEW
-- apps/web/app/dashboard/notifications/page.tsx — thin container
-- apps/web/app/vendor-dashboard/notifications/page.tsx — thin container
-- Verified: tsc --noEmit ✅ · next lint ✅. No schema/migration.
-
-SPEC IMPACT: None — code-internal refactor. Dashboard dedup Track A4.
-## 2026-06-14 · refactor(dashboard): shared <ContractCard> — dedup Track A3
-
-The couple contract list (`app/dashboard/[eventId]/contracts/page.tsx`) and the vendor contract list (`app/vendor-dashboard/contracts/page.tsx`) forked byte-identical presentation: the contract row card, the status badge, the `STATUS_TONE` tone map, and the empty-state shell. Extracted them into a single shared module at `app/_components/contracts/`. Both pages keep their own role-scoped, RLS-bound fetch (`fetchEventContracts` for couples · `fetchVendorContracts` for vendors) — only the presentational card/badge/empty-state is shared; per-role differences (detail-route `href`, "From {vendor}" vs "For {event}" subtitle) are passed via props, mirroring the `viewerRole`-parameterized `chat-message-stream.tsx` pattern. No behavior or visual change — pure dedup.
-
-- apps/web/app/_components/contracts/contract-card.tsx — NEW <ContractCard> (+ <ContractStatusBadge>, <ContractsEmptyState>, and the now-single-source STATUS_TONE map)
-- apps/web/app/dashboard/[eventId]/contracts/page.tsx — render shared card + empty state (dropped local STATUS_TONE + forked markup)
-- apps/web/app/vendor-dashboard/contracts/page.tsx — render shared card + empty state (dropped local STATUS_TONE + forked markup)
-- Verified: tsc --noEmit ✅ (exit 0) · next lint ✅ (No ESLint warnings or errors). No schema/migration.
-
-SPEC IMPACT: None — code-internal refactor; no SKU/schema/pricing/copy/UX change. Dashboard dedup Track A3.
-## 2026-06-14 · refactor(dashboard): shared <ThreadListCard> — dedup Track A5
-
-The couple (`/dashboard/[eventId]/messages`) and vendor (`/vendor-dashboard/messages`) messages-LIST pages forked identical thread-row markup — the `<li>`/`<Link>` shell, the avatar slot, title + inquiry-status badge + last-activity line, and the trailing chevron (the thread DETAIL view was already shared via `<ChatMessageStream>`). Extracted that row into a shared `<ThreadListCard>` (plus a `<ThreadListAvatar>` helper) under `app/_components/chat/`, parameterized on the per-role differences (href, title, optional avatar/badge/extra, timestamp line). Each page keeps its OWN role-scoped fetch + scoping validation (couple validates the event via `fetchCoupleThreads`; vendor validates the vendor profile via `fetchVendorThreads`) — the pages are not merged and the fetch is not shared. The couple-only follow-gate UI stays couple-only in the couple page. Pure dedup: rendered output (classes/copy/order/unread-status logic) is unchanged.
-
-- apps/web/app/_components/chat/thread-list-card.tsx — NEW
-- apps/web/app/dashboard/[eventId]/messages/page.tsx — render shared row (keeps follow-gate; dropped local `Avatar`)
-- apps/web/app/vendor-dashboard/messages/page.tsx — render shared row
-- Verified: tsc --noEmit ✅ · next lint ✅. No schema/migration.
-
-SPEC IMPACT: None — code-internal refactor. Dashboard dedup Track A5.
-## 2026-06-14 · feat(seating): zone walkthrough video (seat-finding PR 6 of 6)
-
-The "first-person walk to your table" the market ships **nowhere** — a coordinator (or a no-coordinator couple's DIY helper) records a short vertical clip walking from the entrance to a cluster of tables, tags those tables, and a guest who finds their seat watches the exact walk to their table. Migration `20261219000000_walkthrough_zones.sql`.
-
-- **Schema** — new `event_walkthrough_zones` (one row per named zone, holds the R2 clip ref + `published_at`) + nullable `event_tables.walkthrough_zone_id` (`ON DELETE SET NULL` — dropping a zone never touches seating). RLS mirrors `event_tables`: couple (`current_couple_event_ids`) + coordinator delegate (`moderator_area_level(...,'seat_plan')='edit'`). The guest read is the SECURITY DEFINER RPC only — the table is never anon-readable.
-- **`public_seat_lookup` RPC** — DROP+CREATE (return-type change) adds `{walk_zone_label, walk_video_key}` via a LEFT JOIN to the matched table's PUBLISHED zone clip. Every existing guard preserved (min-len 2, LIKE-escape, published-gate, minimal columns, LIMIT 25); guests with no zone clip get exactly today's result.
-- **`/api/seat-lookup` route** — presigns each distinct clip ref (deduped; a zone's clip is shared by its tables) to a short-lived GET URL, so the table stays private. A presign failure degrades to "no clip", never a 500.
-- **`/[slug]/find-seat` finder** — each result is now a `MatchCard` with a lazy "▶ Watch the walk to your table" disclosure (the `<video>` + its bytes mount only on tap; inline-SVG glyph, no icon dep on the public build).
-- **Coordinator/couple manager** — new `/dashboard/[eventId]/seating/walkthrough` (linked from the seating header). Create/rename/delete zones, tag tables (parameterized `.in()` set-update, UUID-validated), upload a clip via the shared `<FileUpload>` (bucket `media`, video MIME, 60 MB), preview, and a "show to guests" publish toggle (guarded — can't publish an empty zone). Every server action authorizes couple OR seat_plan-edit delegate; RLS is the backstop.
-
-Verified: `tsc` + `next lint` (no new warnings) + `next build` + 92/92 unit tests + migration-timestamp guard clean.
-
-SPEC IMPACT: implements the 2026-06-13 "zone-clip routing" half of the seat-finding design (iter 0008 + 0031 + the retired Indoor-Blueprint walkthrough half). **Built ungated/free** — the walkthrough is COORDINATOR LABOR (not a Setnayan SKU) and must stay delegatable so a no-coordinator couple does it free (dual-path parity + free-wayfinding). **Open (owner):** whether the *hosting/tool* is monetized at all is deferred to the holistic pricing pass (do not gate before that). Migration applied to prod (statement-by-statement). Logged in corpus `DECISION_LOG.md` (2026-06-14).
-## 2026-06-14 · fix(nav): one shared marketing top nav on every page + clickable logo → home
-
-Owner report: the top nav menu *changed* when clicking through to a nav destination — and the "SET NA 'YAN" logo wasn't clickable. Root cause: the canonical 6-page `Nav` (What you get · Explore · For vendors · Our story · Real Stories) only rendered on the homepage; the linked pages had **forked into 4 other headers** — the legacy `SiteHeader` (Marketplace / How it works / Features / Pricing / Help) on `/about`, `/how-it-works`, `/pricing`, `/features`, and a bespoke inline header on `/blog`. So every click swapped the whole menu. The logo was a bare `<Wordmark>` (no link), despite the owner's own note "Home (the video scrub) = the logo".
-
-- **NEW `app/_components/marketing/site-nav.tsx`** — the canonical `PromoBar` + `Nav` extracted out of the heavy homepage module (`_sections.tsx`) into one lean file (imports only `Link` + `Wordmark` + `MobileMenu`, so importing `<Nav>` into a subpage doesn't drag framer-motion / `HeroVideoScrub` / catalog fetchers into that page's bundle). Single source of truth for the marketing top nav — per the owner anti-fork chrome doctrine.
-- **Logo → home:** the `<Wordmark>` is now wrapped in `<Link href="/" aria-label="Setnayan — home">`. Clicking the mark/wordmark routes to the hero on every page (same-page link on `/`).
-- `_sections.tsx` — `PromoBar`/`Nav` definitions removed (now re-homed in `site-nav`); dropped the now-unused `MobileMenu` import. `page.tsx` imports `PromoBar, Nav` from `site-nav`; homepage render unchanged.
-- **Swapped to the shared `<Nav>`** (replacing the legacy `SiteHeader` / inline header): `app/features/_PageBody.tsx` (covers `/features` **and** `/tl/features`), `app/about/page.tsx`, `app/blog/page.tsx`, `app/how-it-works/page.tsx`, `app/pricing/page.tsx`, plus `app/tl/about/page.tsx` + `app/tl/how-it-works/page.tsx` so the `/tl` locale stays internally consistent (nav labels are English in both old and new — no localization regression).
-- **`/weddings` (the "Real Stories" landing) also swapped to the shared `<Nav>`** (follow-up: owner caught that clicking "Real Stories" still showed the legacy `SiteHeader`). The `/weddings/[slug]` editorial detail keeps its immersive "← Back" bar (blog-post pattern).
-- **Owner reversed the vendor deferral for the nav bar specifically ("keep this top nav the same on Explore + For vendors"):** `/for-vendors` swaps its bespoke `VendorNav` → shared `<Nav>`; `/vendors` (Explore) replaces its minimal inline `<header>` (logo + auth-aware CTA) → `<Nav sticky={false} />`. The page-level marketplace search/filter chrome (`StickyMarketplaceHeader`, `ExploreSearchHero`) is untouched.
-- **`Nav` gained a `sticky` prop (default `true`).** `/vendors` renders `<Nav sticky={false} />` because the marketplace search bar is itself `sm:sticky sm:top-0` — two sticky-top bars would stack/overlap on scroll. Every other page keeps the sticky nav.
-- **Removed the "Search anything… ⌘K" pill from the nav** (owner "delete the search there"). The marketplace keeps its own page-level search (that's the page's purpose, not a nav control).
-- **Auto-hide on scroll (owner "hide the top nav as we scroll down … pure scrubbing on the screen"):** `site-nav.tsx` is now a `'use client'` island; the sticky `<Nav>` slides up out of view on scroll-down and slides back on scroll-up (or when near the very top, `scrollY < 64`). So the homepage hero scrub (`HeroVideoScrub`, a 300vh pinned track) goes full-screen the moment you scroll into it. Passive `scroll` listener throttled with `requestAnimationFrame`; `motion-reduce:transition-none` for reduced-motion. Only applies when `sticky` (non-sticky `/vendors` scrolls the nav away naturally).
-- **Folded in the overlapping `claude/real-stories-editorials` work (was PR #1390, now superseded — collided in `_sections.tsx`/`CHANGELOG`, already DIRTY):** "Real Stories" points at the real-wedding showcase **`/weddings`** (iteration 0046, Maria & Juan sample editorial), NOT `/blog`, in the shared `Nav`, homepage `Footer` (keeps `/blog` as "Planning guides"), and `_SiteFooter`. `/blog` URLs untouched → zero SEO risk. `site-header.tsx` `PRIMARY_NAV` aligned to the 6-page IA for the residual `SiteHeader` pages (`/download`, `/waitlist`).
-
-SPEC IMPACT: None (front-end chrome consolidation; the 6-page nav was owner-locked 2026-06-13 and the `/blog`→`/weddings` "Real Stories" repoint was owner-decided 2026-06-14, already in corpus `DECISION_LOG.md`). Logged in corpus `DECISION_LOG.md` (2026-06-14). Now the shared `<Nav>` renders on every public marketing page; `SiteHeader` survives only on `/download`/`/waitlist` (labels aligned) and `/tl/*` pages beyond `about`/`how-it-works`/`features`. `VendorNav` (`for-vendors/_components/vendor-nav.tsx`) is now unused.
-
----
-
-## 2026-06-13 · fix(r2): public media URLs use the bucket-bound public host (homepage hero scrub blank)
-## 2026-06-14 · feat(nav): pill-segmented dashboard menus (shared `.sn-seg` template — no more rectangles)
-
-Owner: "make each menu a pill also, not rectangles again." Extends the floating-pill bottom-nav language to the in-page dashboard section menus.
-
-- `app/globals.css` — new SHARED pill-segmented template: `.sn-seg` (rounded pill TRACK — subtle ink-tint bg + 0.5px border) + `.sn-seg-item` (evenly-sized options) + active state via `aria-selected="true"` / `aria-current="page"` / `.is-active` (raised white pill + ink text + soft shadow). One source of truth, matching the bottom-nav pill language.
-- Converted the four dashboard section menus to it (style only — all logic/handlers/state/a11y preserved):
-  - **Services tabs** (`services-takeover.tsx`) — both the desktop top strip and the mobile sticky-top nav (Summary·Shortlist·Build·Compare·Lock) → pill segmented (was `border-b` underline strips); BB_TAB_EVENT + `?tab=` mirroring intact. Mobile items get `min-w-0` + truncate so 5 labels degrade cleanly on ~320px.
-  - **Guests menu** (`mobile-guest-carousel.tsx`) — the 5-pill row at the top of the carousel sheet → `.sn-seg` (was a `grid grid-cols-5` + `border-b`); carousel logic untouched.
-  - **Schedule toggle** (`schedule-mode-toggle.tsx`) — Preparation/Event-Day → pill segmented; `?view=` Link contract intact (active badge recolored for legibility on the white pill).
-  - **Guest view-switcher** (`view-switcher.tsx`) — List/Mind-map → pill segmented.
-- Built via a parallel convert-then-adversarially-verify workflow; all four passed (minor non-blocking notes only).
-- Verified: typecheck ✅ · lint ✅ · `lint:botnav` ✅ · production build ✅.
-
-SPEC IMPACT: adds the shared `.sn-seg` pill-segmented menu template (companion to the bottom-nav pill template). Memory `project_setnayan_bottom_nav_canonical` + corpus `DECISION_LOG.md` updated. No SKU / schema / pricing / route impact.
-
-**Bug:** the homepage scroll-scrub hero (PR #1372) shipped, published (120 frames, `is_published=true`), and renders `<HeroVideoScrub>` on the live page — but it paints **blank** because every frame URL points at the R2 **S3 API endpoint** (`https://<account>.r2.cloudflarestorage.com/setnayan-media/…`), which requires SigV4-signed requests and returns **HTTP 400** to a plain browser `<img>`. Root cause: `R2_PUBLIC_URL` in Vercel prod is set to the S3 API endpoint (confirmed via the live `<head>` preconnect, which `layout.tsx` derives from `R2_PUBLIC_URL`), and `publicUrlFor()` builds `${R2_PUBLIC_URL}/${bucket}/${key}` off it. This silently broke **all** raw-public-URL assets (vendor/service/profile photos, merchant QR) — not just the hero; it was masked because most display paths use short-lived presigned GETs (`presignDisplayUrl`), and the full-screen hero is the first feature to depend on raw public URLs.
-
-- `apps/web/lib/r2.ts` `publicUrlFor()` — `media` is the only publicly-served bucket; a Cloudflare public bucket URL (custom domain or `r2.dev`) binds to ONE bucket and serves objects at `/{key}` with NO bucket segment. So media URLs are now `${R2_PUBLIC_URL}/${key}` (bucket segment dropped). Non-media buckets (private; read via presigned GETs) keep the legacy `${base}/${bucket}/${key}` shape purely for delete round-trip. Added a one-shot runtime `console.warn` when `R2_PUBLIC_URL` is mistakenly set to `*.r2.cloudflarestorage.com` — the exact footgun that caused this.
-- `apps/web/lib/storage.ts` `parseR2Url()` — now round-trips all three shapes: bucket-less media (new live shape, matched by public-host comparison), `${base}/${bucket}/${key}`, and the raw `…cloudflarestorage.com/{bucket}/{key}` (legacy URLs already stored in the DB → deletes stay safe through the transition). Verified with a 13-case round-trip suite (custom domain, r2.dev, non-media, legacy, transition, no-base, encoded keys, foreign URLs).
-- `.env.example` — documented `R2_PUBLIC_URL` (was a bare `=`): must be a public host bound to `setnayan-media`, never the S3 API endpoint.
-
-**OWNER ACTIONS (required for the fix to take effect — code alone is inert):** (1) In Cloudflare R2, make `setnayan-media` publicly readable — recommend a custom domain `media.setnayan.com` for prod (r2.dev works for a quick test). (2) Set `R2_PUBLIC_URL` in Vercel (Production) to that host. (3) After (1)+(2)+merge, the dashboard/vendor/profile images self-heal (URLs recomputed from keys at render); the hero row's stored `frame_urls`+`video_url` need a one-shot DB rewrite (prepared, run post-env) + `revalidatePath('/')`.
-
-SPEC IMPACT: None (config + URL-construction fix; no schema, no SKU, no pricing). The R2 public-URL convention (`R2_PUBLIC_URL` = media-bucket public host, no bucket segment) logged in corpus `DECISION_LOG.md` (2026-06-13).
-## 2026-06-14 · feat(explore): search-first reframe of the public `/vendors` (Explore) landing
-
-Owner directive 2026-06-13 ("opens with ONE clean universal search box … simple, modern, clean, strategic … lead with search, simplify"). Closes follow-up (1) from the 2026-06-13 nav-simplify entry below. The public `/vendors` catalog landing now **leads with a search-first hero** instead of the pinned `StickyMarketplaceHeader` (44pt search pill + FilterDrawer trigger, bottom-pinned on mobile). The rich category browse (icon-tile folder strip + folder grids) still renders below as the "browse everything" breadth.
-
-- **NEW `app/vendors/_components/explore-search-hero.tsx`** — premium-calm hero on the Clean-Editorial `--m-*` marketing tokens (paper/ink/slate + champagne-gold accent): eyebrow "Explore" · headline "Everything for your day, in one search." · subhead naming both vendors AND Setnayan's own services · one big centered universal search box · a short row of quick-search chips. The box is the existing `TaxonomySearch` autocomplete (its 192-canonical option list already spans the `setnayan_*` first-party services), wrapped in `<form method="get" action="/vendors">` so free-text Enter submits `?q=` and suggestion-pick router-pushes `?category=` — results land in the existing vendor-grid path (which floats `is_setnayan_service` rows first). No new index, no schema, no migration.
-- `app/vendors/_components/taxonomy-search.tsx` — added a `variant?: 'bar' | 'hero'` prop (default `'bar'` → every existing caller unchanged). `'hero'` = taller rounded-full field on `--m-*` tokens + a drops-DOWN paper dropdown (the hero sits at the top, no bottom bar to dodge).
-- `app/vendors/page.tsx` — `CatalogView` (non-focused) renders `<ExploreSearchHero>` in place of the catalog-mode `<StickyMarketplaceHeader>`; removed the now-dead catalog-mode FilterDrawer faith-option computation (`crossFolderFaithCounts/Options` + `drawerFaithValue`). Added `EXPLORE_HERO_CHIPS` (6 real V1.1-base canonicals: photography/videography/catering/wedding_coordination/bridal_hmua/wedding_cake). `pb-36` mobile clearance → `pb-16` (no bottom-pinned bar). Focused-mode (`?from=plan`) path + the **vendor-grid** `StickyMarketplaceHeader` (with the full FilterDrawer) are untouched — landing-mode filters simplify to search-first only.
-- `app/vendors/_components/icon-tile-folder-strip.tsx` — sticky offset `sm:top-[88px]` → `top-0` (the strip is now the landing's sole top-sticky element; nothing pins above it).
-
-Deliberate simplifications flagged to owner: (a) the public Explore **landing** drops its Filters drawer (city/sort/verified/match/faith) — filters reappear the moment a search/category drops the visitor into vendor-grid mode; (b) the `setnayan_*` services are intentionally NOT chipped — `?category=setnayan_papic` returns an **empty grid on prod today** (no publicly-visible first-party listing yet), so they surface via the search autocomplete + the catalog tiles below until provisioned as real visible vendor listings.
-
-SPEC IMPACT: None (UX reframe of an existing surface; no schema/pricing/SKU change). Logged in corpus `DECISION_LOG.md` (2026-06-14). Open owner decisions surfaced in the PR: provision `setnayan_*` services as visible vendor listings so they appear in search RESULTS (not just catalog tiles); and the separate "Real Stories" (`/blog`) editorials-vs-guides direction (follow-up (2), still unstarted).
-## 2026-06-14 · fix(hero): scrub frames resolve from R2 keys (presigned now, public later) — homepage scrub displays
-
-Makes the published scroll-scrub hero actually **show** without waiting on the owner's Cloudflare/Vercel work. The scrub was blank because the stored frame URLs were the R2 S3 API endpoint (`…r2.cloudflarestorage.com`), which 400s a plain browser `<img>` (see the 2026-06-13 R2 entry + PR #1380). `R2_PUBLIC_URL` in prod is still the S3 endpoint, so rather than block on the public-bucket setup, the read path now builds loadable URLs from the frame **keys** at render time.
-
-- `supabase/migrations/20261220000000_homepage_hero_frame_keys.sql` — adds `frame_keys JSONB` to `homepage_hero_config` (the R2 object keys = source of truth, decoupled from URL shape) + backfills the existing published row from `frame_urls` (`split_part` on `/setnayan-media/`). **APPLIED TO PROD** (120 keys backfilled, ledger row `20261220000000` recorded; bumped from `…19` which `iteration_0008_cocktail_vendor_rpcs` already claimed).
-- `apps/web/lib/hero-video.ts` — `fetchPublishedHeroVideo()` resolves keys → **public URLs** when `R2_PUBLIC_URL` is a real public host (custom domain / r2.dev), else **presigned GETs** (`r2SignedGet`, 24h). The homepage is `force-dynamic`, so the presigned batch is wrapped in `unstable_cache` keyed on the row's `updated_at` (6h TTL ≪ 24h presign life) — the **same** signed URLs are reused across renders so browsers actually cache the frames (without this, a per-render-unique query string would force every repeat visitor to re-download the whole ~120-frame sequence); an admin republish bumps `updated_at` → fresh URLs. Prefers stored `frame_keys`, derives from `frame_urls` for old rows (`keyFromUrl` handles all shapes). Still **never throws** — any read/resolve failure returns null → default hero. `videoUrl` no longer surfaced to the scrub (it renders frames, not the source video); admin video preview presigns from `video_r2_key`.
-- `apps/web/app/admin/hero-video/actions.ts` — `saveHeroVideo()` now persists `frame_keys` (already in hand from the uploader).
-
-Net: today the scrub shows via presigned frames (works with existing R2 creds, R2 egress stays free); once `media.setnayan.com` + `R2_PUBLIC_URL` are wired (PR #1380), it auto-switches to cacheable public URLs with no further change. Verified with a 13-case key-derivation/URL-resolution suite.
-
-SPEC IMPACT: None (read-path + storage refinement; no SKU/pricing/schema-contract change). Logged in corpus `DECISION_LOG.md` (2026-06-14).
-## 2026-06-14 · refactor(dashboard): shared `<Field>` + `<FormFlash>` form primitives — dedup Track A1 (settings centerpiece)
-
-Dashboard-consolidation Track A, step 1 (owner-approved plan 2026-06-13: "consolidate the dashboard design, remove all duplicates, make sure they all fall properly to their respective roles" → dedup-first, then the locked IA redesign). A grounded audit of `origin/main` found the chrome (shared `app/_components/nav/*` primitives) and role-gating already consolidated — the real duplication is at the surface/primitive level: `function Field()` defined locally in **15 files** and the saved/error flash banner copy-pasted across **~39**. This extracts the two byte-identical primitives and proves them on the three settings/profile pages (couple · vendor · admin).
-
-- `app/_components/forms/field.tsx` — NEW shared `<Field label htmlFor help? required? children>`. The vendor variant's optional `required` asterisk is folded in as the superset, so couple/admin call sites (which omit it) reproduce byte-for-byte.
-- `app/_components/forms/form-flash.tsx` — NEW shared `<FormFlash tone="error"|"success">`: the terracotta `role="alert"` + emerald `role="status"` banner chrome. Message text and which search param triggers each banner stay in the page (no copy change). One-off tones (couple amber deletion-pending, admin neutral icon-reset) intentionally left inline — they aren't the duplicated pattern.
-- `app/dashboard/profile/page.tsx` · `app/vendor-dashboard/profile/page.tsx` · `app/admin/settings/page.tsx` — deleted each page's local `Field` def + the duplicated banner `<p>` blocks; now import the shared primitives. **No behavior/visual change**: sections, fields, copy, role-scoped data, and the vendor page's deliberate v2.1-token styling are untouched (visual unification of section labels/cards is Track B, owner-locked — not done here). Couple's `Row` facts-grid helper kept in place (FactsRow extraction deferred).
-- Verified locally: `tsc --noEmit` ✅ (exit 0, 0 errors) · `next lint` on the 5 changed files ✅ (no warnings/errors). No schema, migration, or env change.
-
-SPEC IMPACT: None — code-internal refactor; no SKU, schema, pricing, copy, or UX change. First landing of the dashboard dedup program (plan at `~/.claude/plans/binary-cuddling-popcorn.md`); Track A continues with the app-wide `Field`/flash sweep (A2), then shared surface cards (contracts · notifications · messages-list · verify). Logged in corpus `DECISION_LOG.md` (2026-06-14).
-
----
-## 2026-06-14 · feat(seating): live day-of seat-plan propagation (seat-finding PR 5 of 6)
-
-The "win over frozen paper" — a reseat done DURING the event reaches the guest-facing surfaces on its own, with **no push/email** (the owner's silent-only lock). The data path was already live (all finder surfaces are `force-dynamic` reading `event_seat_assignments`); this PR adds the **day-of UX** that was missing. **No migration.**
-
-- **`lib/day-of-mode.ts`** — new `isEventDayActive()` = `live || post` phase (T-1h .. T+24h). The existing `live` window is midnight-anchored (T-1h..T+8h ≈ 11pm-prev..8am), so an EVENING reception falls in `post` — `isEventDayActive` spans the whole wedding day so the feature actually covers evening weddings.
-- **`lib/use-day-of-live-refresh.ts`** (new) — `useDayOfLiveTick(eventDate, onTick)`: fires on a 45s cadence + tab-focus + visibility-regain, only while the wedding day is active AND the tab is visible. A PULL, never a push — no notification/email/realtime channel; inert during normal planning.
-- **`app/_components/live-refresher.tsx`** (new) — render-nothing companion that calls `router.refresh()` on each tick (re-runs the server component → fresh props). Mounted on **`/[slug]/find-my-table`** (paid wayfinding map re-lights) and the **`/dashboard/[eventId]/guests/checkin`** desk (each guest's table re-labels on the board; the desk's local check-in/scanner state survives the refresh — verified `selected`/results read the live memoized `guests` prop).
-- **`/[slug]/find-seat` free finder** — `NameSearch` now takes `eventDate` and silently re-fires the *last* lookup on each day-of tick (its result lives in client state, so `router.refresh()` can't reach it). Quiet refresh never flips an existing result to an error.
-- **`day-of-editing-banner.tsx`** (new) — a clock-driven banner on the seating editor (a sibling of `<SeatingEditor>`, so the 4.4k-line editor is untouched): during the wedding day it tells the editor that changes reach guests instantly AND that **printed cards/signs are frozen snapshots — the live digital plan is today's source of truth** (encodes the day-of digital-only-responsibility lock). `seating/page.tsx` + `checkin/page.tsx` + the two `[slug]` pages now select `events.event_date`.
-
-Verified: `tsc` + `next lint` (no new warnings) + `next build` + 92/92 unit tests clean. PR pending (branch `claude/seat-live-propagation`, auto-merge to arm).
-
-SPEC IMPACT: implements the 2026-06-13 "live day-of reprogramming" 3-lock decision (digital-only responsibility · exclusive lock [shipped PR 2] · silent-only updates) for iter 0008 seat plan + 0031 day-of guest. **Open (owner):** PR 4 (paid seat pass) is still unbuilt — it will inherit this live-data + tick pattern when it lands. Logged in corpus `DECISION_LOG.md` (2026-06-14).
-## 2026-06-13 · feat(seating): vendor cocktail-area editor + write RPCs — first vendor write access to a couple surface [PR 2 of 2]
-
-Owner-directed (2026-06-13): the cocktail / waiting area "can be accessed by the booth vendors + the stylist … add them all: stylist/decor, florist, booth, coordinator, lights, performers." This lands the vendor-facing half of the cocktail-area feature (couple editor shipped in [#1375](https://github.com/iscasasola/setnayan-platform/pull/1375)/[#1378](https://github.com/iscasasola/setnayan-platform/pull/1378)). **First time a vendor WRITES to a couple's planning blueprint** — scoped to the cocktail area + its booths only; reception seating and guest PII are never touched or returned.
-
-- `supabase/migrations/20261221120000_iteration_0008_cocktail_vendor_rpcs.sql` — **purely additive** SECURITY DEFINER RPCs (NOT direct table RLS, so writes stay column- + ownership-scoped). Shared gate `_cocktail_vendor_caps` (booked status + eligible category + the couple's `cocktail_vendor_edit` revoke switch). Two tiers: **ARRANGE** (`reception_decor`/`florist`/`planner_coordinator`/`lights_and_sound`/`led_screens` → size the room + edit any cocktail booth) vs **BOOTH** (`photobooth`/`mobile_bar`/`cake_maker`/`band_dj`/`string_quartet`/`choir`/`host_emcee` → place/move/delete only their OWN booth). RPCs: `get_vendor_cocktail_editor` (read context, PII-free, pre-publish OK), `vendor_set_cocktail_area`, `vendor_upsert/move/delete_cocktail_booth` (booth coords clamped into the room). **APPLIED TO PROD 2026-06-13** (statement-by-statement, ledger row recorded; gate verified — raises `not_a_vendor` for a non-vendor caller).
-- `app/vendor-dashboard/clients/[eventId]/cocktail/` — `page.tsx` (gated server route) + `cocktail-editor.tsx` (lean pointer-drag canvas: reception shown read-only context, cocktail room + booths editable per caps, optimistic writes with rollback + friendly RPC-error copy) + `actions.ts` (thin RPC wrappers).
-- `app/vendor-dashboard/clients/[eventId]/page.tsx` — a "Cocktail area" card appears on the brief when `get_vendor_cocktail_editor` succeeds (eligible vendor + room enabled + editing on).
-
-SPEC IMPACT: completes iteration 0008's cocktail-area feature. Opens the first vendor write path to a couple surface (rails: cocktail+booths only · never guest seating/PII · booked-gated · couple-revocable). Category sets are owner-tunable. Logged in corpus `DECISION_LOG.md` + `0008` AS-BUILT header. `tsc` clean.
-
-## 2026-06-13 · feat(nav): floating-pill bar + consistent pill — finalize the ONE bottom-nav template
-
-Two owner directives, one PR, both in the single shared `app/_components/nav/bottom-nav.tsx` (every console already mounts it; nothing hardcoded left to remove — the legacy dashboard bottom-nav.tsx is already gone, and the lint guard enforces delegation):
-
-1. **Floating pill bar** (owner: "we want it in a long floating pill … use this as the template"). The bar was an edge-to-edge bottom strip (`fixed inset-x-0 bottom-0 border-t`) — that's what never matched the demos. It's now a **floating pill**: `fixed left-[14px] right-[14px] bottom-[calc(safe-area+12px)] rounded-full border` + a soft drop shadow + `overflow-hidden`, frosted-glass background unchanged. Applies to customer / vendor / admin at once.
-2. **Consistent active pill across 3/4/5/6 tabs** (owner: "still not the same … must adjust for 3,4,5,6 icons"). The pill (and press-light) used to FILL its cell, so admin's 4 wide cells made a wider pill than the 5-tab consoles. Now it's a CONSISTENT centered capsule — `width: min(52px, calc(100% - 8px))`, `margin-inline:auto` (press-light `min(64px, calc(100% - 2px))`). Tabs still distribute evenly (1fr) for tap targets, but the visible pill is the same ~52px on 3/4/5-tab bars (caps only on a tight 6-tab phone).
-
-Net: the bottom nav is now a single floating-pill template — same shape, same pill, same colours, same motion — on every console; only each role's tabs differ. No change to the `--bn-*` knobs or guard markers.
-
-Verified: typecheck ✅ · lint ✅ · `lint:botnav` ✅.
-
-SPEC IMPACT: finalizes the owner-locked bottom-nav template (floating pill + consistent capsule). Supersedes the earlier edge-to-edge bar + "pill fills the cell" measurements. Memory `project_setnayan_bottom_nav_canonical` + corpus `DECISION_LOG.md` updated. No SKU / schema / pricing / route impact.
-
----
-
-## 2026-06-13 · refactor(nav): simple 6-page site map — Home · What you get · Explore · For vendors · Our story · Real Stories
-
-Owner directive 2026-06-13 ("here are the pages we will have… we want it to be simple"): collapse the busy top nav to the locked 6-page IA + Log in. Home = the video scrub (= the logo). Every target page already exists — this is nav + labels, no new pages.
-
-- `app/_components/marketing/_sections.tsx` `Nav()` — `links` array → **What you get** (`/features`) · **Explore** (`/vendors`) · **For vendors** (`/for-vendors`) · **Our story** (`/about`) · **Real Stories** (`/blog`). Dropped from the top nav: Marketplace (→ Explore), How it works (→ What you get), Pricing (→ folded into What you get + footer), Help (→ footer). The same array feeds the mobile menu, so both update together.
-- Nav search button label "Search vendors, dates, help…" → **"Search anything…"** — signals the universal-search direction for Explore (one box across vendors + our own services, which already surface as listings).
-- `Footer()` Product column aligned: Marketplace → **Explore services**, How it works → **What you get**, added **Real Stories** (`/blog`); Pricing/Help/Privacy/Terms stay reachable in the footer.
-- `/blog` page itself unchanged (still "Setnayan Journal" SEO) — the nav says "Real Stories" but the guides-vs-editorials content direction is an owner decision, not silently flipped.
-
-SPEC IMPACT: public-site IA simplified to 6 pages + login (no new routes; nav/labels only). Open follow-ups (owner): (1) Explore = make `/vendors` open search-first; (2) Real Stories = decide if `/blog` becomes real-event editorials or stays planning guides under the new name. Logged in corpus `DECISION_LOG.md` (2026-06-13).
-
----
-
-## 2026-06-13 · refactor(seating): cocktail/waiting area in the SAME blueprint — booths-only second room (replaces same-day multi-area overlay) [PR A of 3]
-
-Owner adjustment 2026-06-13: "instead of areas & booths, use our seatplan maker for another smaller room — the cocktail / waiting area just outside the reception; booths only, NO tables/chairs; just 1 place; make the room in the SAME blueprint as the seat plan; the cocktail area can be accessed by the booth vendors + the stylist, who can also customize the size." This is the schema + consolidation slice; the couple editor (PR B) and the vendor editor + write RPCs (PR C) follow.
-
-The multi-area pin overlay that shipped the same morning (`event_floor_areas` + `event_floor_objects`, the `/seating/areas` route) is **superseded** — collapsed into ONE cocktail room drawn on the existing `event_floor_plan` canvas, with booths stored on the existing `event_floor_booths` table (one blueprint, one booth table).
-
-- `supabase/migrations/20261218000000_iteration_0008_cocktail_area.sql` — **purely ADDITIVE**: (a) `event_floor_plan` cocktail_* room columns (resizable labelled rectangle on the same canvas + optional schedule-block tie + optional metric size + `cocktail_vendor_edit` couple revoke switch); (b) `event_floor_booths` gains `zone` (`reception`|`cocktail`) + `event_vendor_id` (booth-owner link for vendor scoping) + coordinator-delegate RLS (matching the rest of the seat-plan family); (c) `get_vendor_seat_plan` v3 — drops `areas`, sources booths from `event_floor_booths` (zone + `is_mine` + `vendor_name`), adds the cocktail room to the payload. **APPLIED TO PROD 2026-06-13** (statement-by-statement via `supabase db query`, since `db push` is ledger-drift-blocked; ledger row recorded). The `/seating/areas` route + the `event_floor_objects`/`event_floor_areas` tables are retired, but their **data fold + DROP is deferred to a separate owner-gated cleanup migration** — prod carries a few rows on two test events (`test-maria-and-jose` + a junk slug), and the DROP is one-way; until then those tables sit orphaned (no route reads them).
-- `app/dashboard/[eventId]/seating/areas/` — **deleted** (route page + actions + `area-canvas` component); the "Areas & booths" link removed from `seating/page.tsx` (the cocktail control returns inside the editor in PR B).
-- `app/vendor-dashboard/clients/[eventId]/seat-plan/page.tsx` — vendor viewer reworked to the v3 payload: booths zone-tagged (no `area_id`); the cocktail room renders as a dashed second room on the SAME canvas; a single cocktail-window note replaces the N-areas loop.
-- Vendor WRITE access (stylist + booth vendors arranging the cocktail area) is intentionally **not** in this PR — it lands in PR C via SECURITY DEFINER RPCs (column- + ownership-scoped, never reception seating). This PR only adds the couple-controlled `cocktail_vendor_edit` gate those RPCs will read.
-- Migration timestamps unique (351 ✓). Typecheck/lint/build run in CI (no `node_modules` in the worktree).
-
-SPEC IMPACT: refines iteration 0008. Retires the same-day multi-area model (`event_floor_areas`/`event_floor_objects` + `/seating/areas`) in favour of a single in-blueprint cocktail room. Opens (in PR C) the first vendor WRITE access to a couple planning surface — flagged for owner. Logged in corpus `DECISION_LOG.md` (2026-06-13) + the `0008_seating_chart_editor.md` AS-BUILT header.
-## 2026-06-13 · fix(chrome): bigger monogram marks — fill the chip height (presence follow-up)
-
-Follow-up to the monogram-as-event-logo change (PR #1374). The four type-only marks rendered inside a square box with `preserveAspectRatio=meet`, so the wide lockups (∞ / bar / script) letterboxed vertically and drew at ~half the chip height — they read small.
-
-- `monogram-mark.tsx` — the SVG now sets `height={px}` and lets width auto-compute from the viewBox aspect (no forced square → no vertical letterbox), and each viewBox is cropped tight to its glyphs (`bar` 6 14 120 70 · `duo` 18 18 66 62 · `script` 8 6 168 90 · `infinity` 18 8 164 76). Marks now fill the full chip height at every size (28/36/44).
-- `event-monogram.tsx` — drops the square `box` (h-9 w-9) class from the mark's className so the auto width isn't clamped; `box` still governs the framed + letters-forward + empty branches (unchanged).
-- Verified: typecheck ✅ · lint ✅ · a faithful before/after SVG preview confirmed the marks roughly double in drawn height and read clearly.
-
-SPEC IMPACT: None — pure visual tuning of the already-logged monogram-as-logo feature (corpus DECISION_LOG 2026-06-13). No SKU / schema / pricing / route impact.
-
----
-
-## 2026-06-13 · feat(homepage): admin-uploaded hero video — full-screen scroll-scrub homepage hero
-
-Owner directive 2026-06-13: a place in the admin console to upload a hero video that becomes the homepage's full-screen scroll-scrub, ending on a "Start your wedding planning here — free" CTA. V1 scope addition (flagged). Vercel can't run ffmpeg, so frames are extracted **in the admin's browser** (the only render pipeline in-repo is a stub) — same one-upload UX, no new infra.
-
-- `supabase/migrations/20261217000000_homepage_hero_video.sql` — new single-row `homepage_hero_config` (video + extracted `frame_urls` JSONB + cta + `is_published`), read-all RLS, writes via service-role (mirrors `platform_settings`). **Needs applying to prod** (`supabase db push --db-url`).
-- `lib/hero-video.ts` — `fetchPublishedHeroVideo()` (homepage read, degrades to default hero on any failure / pre-migration) + `fetchHeroVideoConfigForAdmin()`.
-- `app/_components/marketing/HeroVideoScrub.tsx` — client island; preloads the frame sequence and swaps frames on scroll (image-sequence scrub — browser `<video>` seeking is unreliable; this is the Apple technique). Zero-dep (passive scroll + rAF, no GSAP/Lenis). `object-fit:cover` so a 1:1 source fits desktop + mobile; CTA fades in at the end; reduced-motion shows final frame + CTA.
-- `app/_components/marketing/_sections.tsx` — `Hero()` now async; renders `<HeroVideoScrub>` when a video is published, else the existing headline + `HeroCollage` (graceful fallback).
-- `app/admin/hero-video/` — `page.tsx` + `hero-uploader.tsx` (pick video → presigned R2 upload → in-browser frame extraction via `<video>`+canvas → upload frames → save → Publish/Unpublish) + `actions.ts` (admin-gated, service-role writes, `revalidatePath('/')` on publish). Sidebar entry "Hero video" under Content.
-- Reuses the existing `/api/upload` presigned-PUT flow (already allows `video/mp4` 60 MB + image frames on the `media` bucket) + `publicUrlFor` for permanent frame URLs.
-- Verified: typecheck ✅ · lint ✅ (no new warnings) · production build via CI (required check).
-
-SPEC IMPACT: new V1 feature — admin homepage-hero-video upload + public scroll-scrub hero. New table `homepage_hero_config`. Logged in corpus `DECISION_LOG.md` (2026-06-13). No SKU / pricing impact; one new admin surface (`/admin/hero-video`) + one new homepage behavior (publish-gated, fallback-safe).
-## 2026-06-13 · feat(onboarding+chrome): desktop editorial canvas + the saved monogram IS the event logo
-
-Two owner asks (2026-06-13): (1) give the wedding onboarding a real desktop version, and (2) make the monogram the couple designs in onboarding their actual event logo, dependent on their chosen lockup.
-
-**Desktop canvas — enrich the surround, keep the locked frame.** On desktop the onboarding (`/onboarding/wedding`) rendered as a 430×880 phone card stranded on a stone background. Owner picked "enrich the canvas, keep the frame": the locked `.onbw>.phone` prototype (port-as-is lock 2026-06-02) is untouched; a new desktop-only editorial aside fills the space beside it.
-- New `app/onboarding/wedding/_components/desktop-aside.tsx` (`OnboardingDesktopAside`) — brand mark + SETNAYAN wordmark, eyebrow, serif headline, value line, 3 reassurance ticks, "Set na 'yan." signature. `aria-hidden` (purely decorative; the phone carries every control + the brand lockup, so SRs don't hear it twice).
-- New `app/onboarding/wedding/_styles/onboarding-desktop.css` — desktop-only (`@media min-width:1024px`), all scoped under `.onbw`, layered ON TOP of the prototype mirror (whose header forbids hand-tweaking it). Centers the [aside · phone] pair; **pins the phone to its locked 430px** in the flex row so `width:100%` can't shrink it below the lock; under 940px viewport height it falls back to top-aligned + scroll so the 880px card never clips. Below 1024px the aside is `display:none` → mobile + tablet are byte-for-byte unchanged.
-- `onboarding-shell.tsx` — import both + render `<OnboardingDesktopAside/>` as the first child of `.onbw`.
-
-**Saved monogram → event logo (reverses the 2026-06-03 letters-forward lock for the four type-only lockups).** The switcher logo already used the couple's chosen font + ink, but only drew their initials in that font — not the lockup they designed. Now it draws their real mark, varying with their choice.
-- New `app/_components/monogram-mark.tsx` (`MonogramMark`) — self-contained inline-SVG twin of the four TYPE-ONLY lockups (bar · duo · script · infinity) from `mono-lockup.tsx`: same geometry, mark-only (names stripped), no trace animation, no `.onbw` CSS dependency. `framed` deliberately stays letters-forward (its 237-path gold ring is illegible at ~28–44px — the exact reason the original lock existed); single-initial events stay letters-forward too.
-- `event-monogram.tsx` — renders `MonogramMark` for type-only styles when both initials exist; framed + legacy + single-name paths unchanged.
-- Threaded `monogram_style` end-to-end — it was selected nowhere in the chrome, so the four `frame=null` type lockups collapsed to whichever shared the font. Touched: `EventSwitcher` (`SwitcherEvent` type + props + both `EventMonogram` call sites), `dashboard/[eventId]/layout.tsx` (event select + anchor + menu map), `outer-dashboard-header.tsx` (`PrimaryEventData` + anchor), `dashboard/layout.tsx` (primary + list maps), `admin/layout.tsx` + `vendor-dashboard/layout.tsx` (maps + anchors). `lib/events.ts` already selected it; `resolveMonogramDesign` already prefers the style key.
-- Verified: typecheck ✅ · lint ✅ (no new warnings) · a faithful standalone SVG preview confirmed all four marks render distinct + legible at 28/36/44px and the desktop canvas composes cleanly. Production build runs in CI.
-
-SPEC IMPACT: reverses the 2026-06-03 "chrome monogram renders letters-forward" lock for the four type-only lockups (framed unchanged); adds a desktop-only onboarding canvas (the port-as-is frame itself is untouched). Logged in corpus `DECISION_LOG.md` (2026-06-13). No SKU / pricing impact; no new routes; no migration (`monogram_style` column already exists).
-## 2026-06-13 · refactor(entitlements): one shared couple-SKU ownership reader + a per-SKU activation dispatcher (seat-finding PR 3 of 6 · paid-layer hardening)
-
-Behavior-preserving consolidation that de-risks the paid layer and sets up PR 4's Papic seat-pass. Three refactors over existing order state — **zero new tables, zero migration, zero behavior change for already-owned SKUs**. Activation state IS `orders.status` (no new column).
-
-- **New `lib/entitlements.ts`** — `checkOrderOwnership(supabase, eventId, serviceKey)`: the single refund-aware ownership read, extracted verbatim from `eventOwnsProWebsite` (refund-aware `.not('status','in',('cancelled','refunded','lapsed'))` + `42P01`/`42703` graceful-degrade-to-`false` + defense-in-depth client-side filter; any other DB error still throws). Exports the canonical `RELINQUISHED_STATUSES` set.
-- **5 gate helpers delegate** — `eventOwnsProWebsite` / `eventOwnsIndoorBlueprint` / `eventOwnsAnimatedMonogram` / `eventOwnsPapicSeats` / `eventOwnsPapicGuest` keep their exported names + signatures + `*_SERVICE_KEY` constants; bodies are now a one-line `checkOrderOwnership(...)` call and each file's local `RELINQUISHED_STATUSES` copy is deleted (now the only definition is in `entitlements.ts`). Geometry/seat/quota helpers in those files are untouched. *(Spec said "6 identical helpers"; reality has 5 of this exact pattern — `add-on-stats.ts:eventOwnsFeature` is a different shape (multi-SKU `.in()` + `status='paid'` only) and was left untouched.)*
-- **3 inline `CUSTOM_QR_GUEST` gates route through the helper** — `add-ons/custom-qr-guest/page.tsx`, `.../print/page.tsx`, `api/website/qr/guest/[guestId]/route.ts`. The route preserves its existing 500-on-genuine-DB-error response by wrapping the helper call in try/catch (the helper throws where the old inline gate returned a 500 NextResponse — identical outcome).
-- **New `lib/sku-activation.ts`** — `activateOrderSku(ctx)`: a frozen, extensible per-SKU activation dispatcher (exact-match map for `concierge_complete` + `SETNAYAN_AI`; prefix/predicate fallback for `vendor_additional_branch__{branch_id}`). **Contract: every hook is non-fatal — `activateOrderSku` wraps each in try/catch and NEVER throws**, so a failed activation never rolls back the already-approved payment. PR 4 registers `PAPIC_SEATS` by editing this map only.
-- **`admin/payments/actions.ts`** — the three hardcoded `if (order?.service_key === …)` activation branches inside `if (promoteOrder)` are replaced by ONE `activateOrderSku(...)` call (after `schedulePayoutsForOrder`, before the block closes). Dropped now-relocated imports (`activateConcierge`, `branchIdFromServiceKey`) + now-unused constants (`TODAYS_FOCUS_SKU_CODE`, `SETNAYAN_AI_SKU_CODE`); `appendLedger` import retained (still used at 3 other sites). `revalidatePath('/dashboard','layout')` left exactly as-is.
-- New unit suite `lib/entitlements.test.ts` (11 cases — owned/not-owned/relinquished-filter/42P01/42703/other-error-throws/canonical-query-shape).
-- Verified: `pnpm typecheck` ✅ · `pnpm lint` ✅ (0 errors) · `pnpm build` ✅ · `pnpm test:unit` ✅ (99/99).
-
-SPEC IMPACT: None — pure behavior-preserving refactor. No SKU / pricing / schema / route change. NO migration (spec-confirmed; activation state is `orders.status`, `events.setnayan_ai_active` already exists per `20260917000000`). Note: timestamp `20261217000000` (which a migration *would* have used) is already claimed on main by the in-flight homepage-hero PR #1372 — another reason no migration is correct here. Logged at the bottom of corpus `DECISION_LOG.md` (2026-06-13): the dispatcher is now the single extension point for PR 4's Papic seat-pass.
-
----
-
-## 2026-06-13 · feat(nav): global bottom nav everywhere — Guests/Services relocate their bars up, Website gets a hub
-
-Owner directive 2026-06-13 ("global nav everywhere"): the customer bottom nav must stay visible on every surface. This retires the Guests + Services "focus-mode" suppressions (2026-06-03) and gives the Website tab a real hub so the full-screen editor isn't a chrome-less dead-end.
-
-- `customer-bottom-nav.tsx` — removed BOTH focus-mode early-returns (the `/guests` always-hide and the `/vendors` budgetBuild-hide); the component is now a thin `<BottomNav items=…>` wrapper (dropped the now-unused `usePathname` + `budgetBuild` prop). Website tab repointed from `/site-editor` to the new `${base}/website` hub; activeMatch now covers `/website` + `/site-editor` + `/invitation`. `layout.tsx` stops passing `budgetBuild` (and drops the now-unused `isBudgetBuildEnabled` import).
-- **Services** (`services-takeover.tsx`) — the mobile section nav (Summary·Shortlist·Build·Compare·Lock) flips from a `fixed bottom-0` bar to a **sticky-top header** (border-b, z-10), so the global nav owns the bottom. CustomEvent (`BB_TAB_EVENT`) + `?tab=` URL mirroring + floating ✕ all preserved; desktop strip unchanged.
-- **Guests** (`mobile-guest-carousel.tsx`) — the carousel's 5-pill menu (Summary·Search·Add·Customize·Journey) moved from a `fixed bottom-0` bar to the **top row of the sheet**; the sheet now docks at `bottom-[calc(80px+safe-area)]` (the app-wide `pb-20` nav clearance) so it rests above the global nav with no double bar. Panel state stays inside the carousel (no risky page-level state lift); ResizeObserver no-feedback-loop logic, keyboard docking, grabber, snap track, and all 5 panels preserved. Collapsed floor keeps the pills reachable.
-- **Website** — `/dashboard/[eventId]/website` was a redirect; now a real **hub page** inside EventLayout (so it has the global nav): couple-membership gate, reuses the editor's exact event fetch (display_name + slug + `buildEventLandingUrl`), shows the live URL + a "Launch editor" CTA → `/site-editor` + quick-links (Invitation & URL, Who-can-view). The editor's ✕ `backHref` now returns to the hub instead of event home. The full-screen editor itself is unchanged.
-- Built via a mapping workflow + a parallel implement-then-adversarially-verify workflow; the review caught an undersized nav-clearance (56→80px) in Guests, fixed here.
-- Verified: typecheck ✅ · lint ✅ (no new warnings) · `lint:botnav` ✅ · production build ✅.
-
-SPEC IMPACT: reverses the 2026-06-03 Guests/Services focus-mode lock + adds a Website hub. Logged in corpus `DECISION_LOG.md` (2026-06-13) + memory `project_setnayan_bottom_nav_canonical`. No SKU / schema / pricing impact; one new in-dashboard route (`/website` hub, replacing a redirect).
-
----
-
-## 2026-06-13 · fix(nav): bolder bottom-nav active pill + tap-fired press-light (visibility follow-up)
-
-Follow-up to the canonical bottom-nav template — the first cut was too subtle to read as "changed" on a real device (8% grey pill, press-light only on hold). Owner asked to make it unmistakable.
-
-- `app/_components/nav/bottom-nav.tsx` — active pill grey **8% → 15%** so the active tab reads at a glance; `--bn-glow` knob **1.2 → 1.5**. The press-light is now a **one-shot bloom** (`nav-press-flash`, re-keyed per press via a `flash` state) that fires on a normal **tap** (not just press-and-hold) — even a quick tap plays the full bloom-and-fade. Still fills the pill top-to-bottom and feathers only at the ends.
-- `app/globals.css` — `@keyframes nav-press-flash` + `.nav-press-flash` (peak reads `--bn-glow`, duration `--bn-dur`).
-- `scripts/lint-bottom-nav.mjs` — added `nav-press-flash` to the protected markers so the press-light can't be silently stripped either.
-- Note: the travel + flash are CSS-motion, so iOS **Reduce Motion** still freezes them; the bolder static pill is the motion-independent "it changed" signal.
-- Verified: typecheck + lint (no new warnings) + guard pass.
-
-SPEC IMPACT: tuning of the owner-locked bottom-nav template (memory `project_setnayan_bottom_nav_canonical` baseline updated: glow 1.2→1.5, pill 8%→15%, press-light fires on tap). No SKU / schema / pricing / route impact.
-## 2026-06-13 · feat(seating): exclusive seating-editor lock (seat-finding PR 2 of 6 · the live-edit gate)
-
-The build-order gate before any live two-way seating editing: ONE editor at a time per event. Owner-locked — applies to couple co-owners too (the second partner drops to view-only), and it's the FIRST enablement of coordinator seating writes (gated behind the lock AND the existing `can_edit_seating` delegation). Event-scoped lock, 30s heartbeat / 90s server-clock stale-takeover. Built in a fresh-context agent then double adversarially reviewed (build → verify → fix → re-verify).
-
-- New migration `20261216000000_seating_editor_locks.sql`: `seating_editor_locks` table (`UNIQUE(event_id)`) + RLS read policy (couple / seat_plan-edit delegate / admin; RPC-only writes) + 4 `SECURITY DEFINER` RPCs — acquire (`INSERT ON CONFLICT` fast-path → `SELECT FOR UPDATE` serialize → mine / took_over(>90s) / held_by_other), refresh (`ROW_COUNT`→ok/lost), release (idempotent DELETE), `assert_seating_lock_held`. ⚠ NOT yet applied to prod.
-- `actions.ts`: `assertSeatingLockHeld()` before all 18 mutations (bulk actions assert/refresh once); best-effort refresh after; `SeatingLockError` in its own module (a `'use server'` file can only export async fns). `publishSeating` EXEMPT (couple-only via the `enforce_couple_publish` trigger).
-- `use-seating-lock.ts` (new): acquire-on-mount · 30s heartbeat · release on unmount/pagehide (best-effort — the 90s server stale-takeover is the real backstop) · stale-takeover · one-shot auto-retry on transient acquire failure.
-- `use-seating-presence.ts`: broadcasts the holder's live heartbeat on the existing channel so view-only peers compute staleness from the LIVE beat (no false "Take over" against a live editor).
-- `seating-editor.tsx`: view-only gating on every edit affordance; lock banner + takeover when a peer is present AND a solo-recovery banner when none (a solo editor can never get stuck); gated action callers catch a lost lock and drop to view-only.
-
-Verified: `tsc` + `next lint` + `build` + 89/89 unit tests, across both the build and an independent re-verify. Adversarial review confirmed the concurrency core sound (no double-win; server-clock staleness only) and all four UX findings fixed.
-
-**SPEC IMPACT:** Builds documented seat-finding PR 2 (corpus `DECISION_LOG.md` 2026-06-13 + memory `project_setnayan_seatfinding_pr2_lock`); extends iter 0008. ⚠ **MIGRATION-FIRST:** `20261216000000` MUST be applied to prod BEFORE this merges/deploys, or the editor view-only-locks (missing RPC). Open for owner: ① action-layer enforcement (not RLS — `assert_seating_lock_held` shipped + used live); ② co-owner exclusivity is a behavior change for two-partner couples. Fast-follows: distinguish transient-infra errors from genuine lock-loss on the assert path; first-mount banner flicker.
-## 2026-06-13 · feat(pax): adaptive pax pricing — Phase 9 (final-only behavior + post-finalize edit-guard) — spec fully landed
-
-The last two items, completing the program: decision #5's final-only behavior and the post-finalize guest-edit guard.
-
-**#5 — final-only now does something** (`lib/pax.ts` `fetchVendorPaxProposals`): in `adaptive_pricing_mode='final_only'` the per-vendor surcharge proposals are **suppressed while the count is still moving** (not yet locked) — faithful to "set the adjustment once at finalization." Once the count finalizes, the binding proposal appears (both modes). Realtime (the default) proposes continuously, as before. So the Phase 8 toggle now changes real behavior for both parties, not just a stored preference.
-
-**Post-finalize edit-guard** (decision #6's "anything after can't work"):
-- Migration **`20261215000000_guard_guest_edits_when_locked.sql`** (applied to prod): a `BEFORE INSERT/UPDATE/DELETE` trigger on `guests` that blocks **count-affecting** writes (insert, `rsvp_status` change, soft-delete, hard delete) once `guest_count_locked_at` is set — path-independent (couple page, quick-add, import, the guest self-RSVP portal, accepted claims). **service_role is exempt** (admin/system + the finalize path) and **cosmetic edits pass** (photo/tags/seating/meal — only the headcount is frozen). Check-in is unaffected regardless (it writes `guest_checkins`, never `guests`).
-- Friendly pre-checks (`lib/pax.ts` `guestEditsLocked`) on the two main add paths — `createGuest` (redirect `?error=finalized`, new error copy) + `quickAddGuest` (inline error) — so the couple sees "your guest list is finalized" instead of a raw DB error; the trigger is the backstop for every other path.
-
-With this, **all six locked decisions are fully implemented in behavior** (not just settings). Program complete: schema → couple meter → inquiry snapshot → vendor rate → surcharge+confirm → HQ audit → auto-finalize → couple settings → final-only + edit-guard.
-
-Verified: `tsc` + `lint` + `next build` clean; migration timestamp guard ✓.
-
-**SPEC IMPACT:** None to locked scope. Closes the Adaptive Pax Pricing program (`DECISION_LOG.md` 2026-06-13, all 6 decisions). Memory `project_setnayan_adaptive_pax_pricing` → fully complete.
-
----
-
-## 2026-06-13 · feat(pax): adaptive pax pricing — Phase 8 (couple settings: edit deadline + pricing view)
-
-The couple-control half of decisions #5 + #6: a "Guest list & pricing" card on `/details` lets the couple set their **guest-list edit deadline** (overrides the default 14-days-before-the-event) and pick their **pricing view** (realtime vs final-only). No migration — the columns landed in Phase 1; only their UI was missing.
-
-- **`updatePaxSettings`** (`dashboard/[eventId]/actions.ts`) — host-gated, admin-write, audited (same pattern as `updateGuestCount`). Writes `events.guest_list_edit_deadline` (validated ISO date or null = use the default) + `adaptive_pricing_mode` (`realtime`|`final_only`). The finalize LOCK columns (`guest_count_locked_at`/`final_pax`) are NOT touched here — they stay guarded to the service-role finalize path (Phase 7 trigger).
-- **`PaxSettingsCard`** (new client component) + wired into `/details`: a date input + a two-option radio, with a Save/transition + saved/error feedback.
-
-**Effect today:** the deadline override is honored by `ensureFinalized()` (Phase 7) the moment it ships — the couple controls when their count finalizes. The `adaptive_pricing_mode` value is now **stored + selectable**; its display behavior (final-only hiding the realtime cost projection on the budget) is the one remaining follow-up.
-
-**Still deferred (documented):** decision #5's final-only **display effect** + the budget cost-projection it gates; a hard post-deadline **edit-guard** (UX only — the freeze protects the money).
-
-Verified: `tsc` + `lint` + `next build` clean.
-
-**SPEC IMPACT:** None to locked scope. 14-day default provisional. Adaptive Pax Pricing program (`DECISION_LOG.md` 2026-06-13, decisions #5/#6); memory updated.
-## 2026-06-13 · feat(i18n): Taglish /features + the shared marketing-i18n foundation (dictionary + thin routes)
-
-Owner picked the **dictionary + thin-routes** architecture for scaling Taglish ("english and taglish" → "dictionary + thin routes"). This lands that foundation and proves it on the hardest page — `/features`, whose copy was spread across **11 section components** (the exact case an inline twin can't handle without duplicating 11 files).
-
-- New shared foundation `lib/marketing-i18n.tsx`: `MarketingLocale` type, `localeAlternates()` (reciprocal en-PH/tl-PH/x-default hreflang + canonical), `localeUrl`/`inLanguageTag`, and a `<LocaleSwitch>` hero switcher — so future localized pages stop hand-rolling their own `LANGUAGES` map.
-- `/features` refactored to **dictionary-driven**: each of the 11 sections now reads its copy from a co-located `COPY[locale]` dict (icons / iteration tags / SKU brand names stay language-neutral). The page splits into a shared `_PageBody` (threads `locale` + per-locale JSON-LD) + two **thin routes**: `/features` (en) and the new **`/tl/features`** (tl). The two can never structurally drift — only the prose differs.
-- The micro-mock visuals + footer stay shared (illustrative product-screenshot chrome — normal to leave in the default language).
-- **Stale-claim fix:** the guest-microsite "Multilingual EN / TL / CEB toggle" → "EN / TL" (Cebuano was dropped from the public locale set 2026-06-13, #1362).
-- `/tl/features` added to `sitemap-static.xml`; `/features` lastmod bumped.
-
-Correctness: dict strings use real Unicode punctuation (— ’ “ ” ·), which renders identically whether a section uses plain `{text}` or `dangerouslySetInnerHTML`, so the EN output is unchanged. Still skipping `/pricing` + home (both read live data → an inline copy drifts; they need this dictionary applied to their data layer, not a hand-translated clone).
-
-Verified: tsc + eslint (no new issues) + production build (`/features` + `/tl/features` register identically — same body, both `ƒ`).
-
-**SPEC IMPACT:** localization foundation established + extended to `/features`; `DECISION_LOG.md` updated. Next pages reuse `lib/marketing-i18n.tsx`; the live-data pages (`/pricing`, home) are the remaining architecture step.
-
----
-
-## 2026-06-13 · feat(i18n): Taglish /how-it-works — localization rolls to the role-map page
-
-Second page in the English + Taglish localization (after `/tl/about`). The "how it works" role-map — the highest-intent explainer for couples deciding whether Setnayan fits — now has a Taglish twin.
-
-- New `/tl/how-it-works` — Taglish edition of the six-role map + flow + CTAs. The live vendor Pro price comes from the SAME `getVendorPrices()` source as the EN page → no price drift; only the prose is translated.
-- Reciprocal **hreflang** on both pages (en-PH/tl-PH/x-default via `alternates.languages`) + an EN ↔ Taglish switcher in each hero. (EN page: `SITE_URL` hoisted above `metadata` + canonical made absolute, matching the `/about` pattern.)
-- `/tl/how-it-works` added to `sitemap-static.xml`; `/how-it-works` lastmod bumped (hreflang + switcher); `/tl` already in the robots allow-list. Fixed a stale "Tagalog" → "Taglish" comment on the `/tl/about` sitemap row.
-
-Content is inline per-page (same as `/tl/about`) — a shared per-locale dictionary (or `[locale]` route group) remains the scale-up step once more pages localize. **`/pricing` intentionally NOT twinned:** it renders live SKU prices from `platform_retail_catalog_v2`, so an inline copy would drift — it needs the dictionary/shared-data approach, not a hand-translated clone.
-
-Verified: tsc + production build (`/how-it-works` + `/tl/how-it-works` both register as `ƒ` dynamic).
-
-**SPEC IMPACT:** localization extended to a 2nd page; `DECISION_LOG.md` updated. Scale-up architecture (dictionary vs route group · CEB-dropped · which pages next) still flagged for owner.
-## 2026-06-13 · feat(pax): adaptive pax pricing — Phase 7 (auto-finalize at the edit deadline)
-
-Owner decision #6: the guest count auto-finalizes at the edit deadline; after that the binding pax is frozen and vendor costs are final. Works out-of-box — no settings UI required.
-
-- **Migration `20261213000000_pax_final_count.sql`** — `events.final_pax INT` (the frozen binding count). **Applied to prod 2026-06-13.**
-- **`lib/pax.ts`** — `ensureFinalized()` (lazy, cron-free): if the edit deadline has passed and the event isn't locked, stamp `guest_count_locked_at` + freeze `final_pax = max(estimated_pax, headcount)`. The effective deadline is the couple's explicit `guest_list_edit_deadline`, else **14 days before the event** (default, provisional). Race-safe (UPDATE gated on `guest_count_locked_at IS NULL`). `resolveLivePax()` now returns `final_pax` once locked → late RSVPs / accepted claims can't move a booked cost (the binding-price guarantee). Extracted `liveHeadcount()` so the floor math + finalize snapshot never diverge.
-- **Guest page** — calls `ensureFinalized()` on view (lazy lock) and shows a "Guest list finalized · N guests locked in" banner (desktop + mobile) when locked.
-
-**Why the freeze is the core:** check-in only writes `guest_checkins` (never `guests`), so day-of check-in is unaffected; and because pricing reads go through `resolveLivePax` → `final_pax`, even a post-deadline guest add (e.g. an accepted claim) can't change a vendor's cost. So pricing correctness comes from the freeze, not from hard-blocking edits.
-
-**Deferred (documented fast-follows), not in this PR:** (a) decision #5's realtime-vs-final **display toggle** UI + the budget cost-projection it gates (the `adaptive_pricing_mode` column defaults to `realtime` = today's behavior); (b) a settings surface to **override** the 14-day deadline default; (c) a hard **edit-guard** that blocks planning edits post-deadline (UX only — the freeze already protects money). Flagged so "complete" stays honest.
-
-**Adversarial review (3 lenses) caught + fixed three real issues before merge:**
-- **Timezone** — `${date}T23:59:59` parsed as server-local time; now parsed as UTC (`…Z`) so the lock fires at the same instant on any server.
-- **Race / authority** — the finalize loser's UPDATE matches 0 rows but it returned its own (stale) computed `final_pax`. Now the write goes through the **service-role admin client** and re-reads the **DB-authoritative** `guest_count_locked_at` + `final_pax`, so the loser returns the winner's frozen value.
-- **Money integrity (blocker)** — `guest_count_locked_at` / `final_pax` were couple-writable under the broad events UPDATE RLS (a couple could forge `final_pax=1` to dodge a surcharge). New migration **`20261214000000_guard_pax_finalize_columns.sql`** (applied to prod): a BEFORE UPDATE trigger silently reverts any non-`service_role` change to those two columns; the finalize path writes them via the admin client. (Over-engineering findings — move finalize to a cron, full SQL transaction — dismissed: the cron-free lazy-on-read lock is the locked pattern, and the re-fetch covers the practical race.)
-
-Verified: `tsc` + `lint` + `next build` clean; migration timestamp guard ✓.
-
-**SPEC IMPACT:** None to locked scope. 14-day finalize lead is provisional. Adaptive Pax Pricing program (`DECISION_LOG.md` 2026-06-13, decision #6); memory updated.
-
----
-
-## 2026-06-13 · refactor(i18n): the two locales are English + Taglish (rewrite /tl/about in Taglish; drop Cebuano)
-
-Per owner ("english and taglish"): the public locales are **English (root) + Taglish** — the real conversational register Filipino couples use — not formal Tagalog + Cebuano. Follow-up to #1360.
-
-- `/tl/about` rewritten in genuine **Taglish** (natural English-Tagalog code-switching — "i-plan ang event, mag-hire from a 0%-commission marketplace…") instead of formal Tagalog.
-- Locale switcher relabeled **Tagalog → Taglish** on both `/about` and `/tl/about`; the `/about` "in your language" fact now reads "English-primary, with Taglish."
-- **Cebuano dropped** — `/ceb` removed from the robots allow-list. (The `/tl` route + `tl-PH` hreflang stay: "Taglish" has no ISO code, so `tl` is the closest standard; the register + label are Taglish.)
-
-Verified: tsc + build (`/about` + `/tl/about` static) + retired-strings clean.
-
-**SPEC IMPACT:** locale set corrected to English + Taglish (no Cebuano); `DECISION_LOG.md` updated.
-## 2026-06-13 · feat(seating): FREE guest seat-finder — "find your seat" (seat-finding PR 1 of 6)
-
-First slice of the guest seat-finding program (`DECISION_LOG.md` 2026-06-13 — "Interactive guest seat-finding linked to Custom QR" + "Live day-of reprogramming"; market study finding: assigned-seat wayfinding is open white space, the industry ceiling is scan→name→table#). Delivers the design's FREE tier-(a) baseline that didn't exist: a guest who scans the shared/master venue QR (lands on `/[slug]`) taps "Find your seat", types their name, and sees their table label — no app, no login, no paid SKU. The richer personalized entrance→table map stays the paid `/[slug]/find-my-table` (Indoor Blueprint) surface.
-
-- New `SECURITY DEFINER` RPC `public_seat_lookup(p_slug, p_query)` (migration `20261215000000`, ⚠ NOT yet applied to prod): name→table_label for a PUBLISHED plan only (`event_floor_plan.published_at`), anon-callable, returns ONLY `{display_name, table_label}` (never guest_id/qr_token/PII), min query length 2, LIKE-wildcard-escaped, `LIMIT 25`, soft-deleted guests excluded. Mirrors `get_vendor_seat_plan`'s published-gate + minimal-columns posture.
-- New public route `/api/seat-lookup/[slug]` — normalizes via `normalizeGuestName`, best-effort per-IP throttle, graceful-empty on a pre-migration DB.
-- New public page `/[slug]/find-seat` (no session/SKU) + client `name-search` (debounced, pure-CSS, client-side min-length guard) + a "Find your seat" CTA on the anonymous `PublicLanding` (pure navigation; the route self-gates the published state).
-- New `lib/seat-lookup.ts` (`sanitizeSeatLookupQuery` + types) with a 3-case unit suite.
-
-Read-only for guests (cannot corrupt seating data) and no lock needed — shippable independently of the lock foundation (PR 2). Keeps the seat-plan-stays-free lock (~₱0 to run) and is the wedge vs the PH rival that gates seating behind ₱8,995.
-
-Verified: `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · 92/92 unit tests ✓ · retired-strings ✓. Production build via CI.
-
-**SPEC IMPACT:** Builds the documented seat-finding design (corpus `DECISION_LOG.md` 2026-06-13 rows); extends iter 0008 (seating) + 0031 (day-of guest). ⚠ Migration `20261215000000` must be applied to prod (`supabase db push`). The Custom-QR-vs-Indoor-Blueprint reconciliation (live code still gates the paid finder on `INDOOR_BLUEPRINT`, contradicting the corpus "retired" decision) is flagged for owner — PR 4 territory.
-
----
-
-## 2026-06-13 · feat(i18n): Tagalog /about — first slice of marketing-site localization (hreflang)
-
-First slice of the SEO localization ("Cebuano moat", SEO playbook §0.14): the public marketing site was EN-only (the existing `lib/i18n` is dashboard-only). Ships a Tagalog edition of the brand/entity page at `/tl/about` with the **locale-subpath** URL strategy + reciprocal **hreflang**, establishing the pattern CEB + more pages follow.
-
-- New `/tl/about` — fully static Tagalog `/about` (hero · fact grid · "software, hindi ahensiya" · Tagalog FAQ · CTAs); JSON-LD `inLanguage: tl-PH`, `AboutPage`/`BreadcrumbList`/`FAQPage`.
-- Reciprocal **hreflang** on both `/about` (en-PH, x-default) and `/tl/about` (tl-PH) via `alternates.languages`; an EN ↔ Tagalog locale switcher on each.
-- `/tl` + `/ceb` added to the `robots.ts` allow-list; `/tl/about` added to `sitemap-static.xml`.
-
-Natural Filipino copy (brand/product terms kept in English, as couples actually speak). Content is inline for this first slice; a shared per-locale dictionary (or `[locale]` route group) is the scale-up step when localizing more pages.
-
-Verified: tsc + production build (`/about` + `/tl/about` both static ○).
-
-**SPEC IMPACT:** new localization surface; `DECISION_LOG.md` + SEO playbook §0.14 note the first slice. The scale-up architecture (dictionary vs `[locale]` route group · CEB · which pages next) is flagged for owner direction.
-## 2026-06-13 · feat(pax): adaptive pax pricing — Phase 6 (HQ audit of cost changes) — program COMPLETE
-
-The final phase: an append-only HQ trail of every pax-driven vendor cost change, so a mediator can answer "why did this vendor's cost jump?" during a dispute (the architect-mandate admin surface). Completes the 6-phase Adaptive Pax Pricing program.
-
-- **Migration `20261212000000_pax_change_audit.sql`** — new `pax_change_audit` table (internal bigserial PK; no FKs so history outlives bookings) capturing action (accept/decline), live_pax, quote_base_pax, prev_pax, rate, prev/new surcharge, prev/new total, created_at. RLS enabled at create time: **admin-read only** (`is_admin()`); writes come from the service-role confirm actions (bypass RLS) so there's intentionally no insert policy. **Applied to prod 2026-06-13** (`db push`; only pending migration on remote was this one).
-- **`pax-actions.ts`** — `acceptPaxSurcharge`/`declinePaxSurcharge` now write one audit row each (best-effort `try/catch` — a failed insert never blocks the vendor's decision). On decline the new surcharge/total equal the previous (price held).
-- **`/admin/pax-changes`** (new) — read-only HQ list of the audit (vendor · event · action · guest delta · surcharge before→after · total before→after), batched name resolution, graceful empty state. Added to the admin sidebar after Disputes (`TrendingUp` icon). Auth via the admin layout gate.
-
-No couple/vendor-facing change. `tsc` + `lint` + `next build` clean; migration timestamp guard ✓.
-
-**Program summary (Phases 1-6, all shipped 2026-06-13):** schema → couple guest-list meter → inquiry pax snapshot → vendor per-guest rate → surcharge with in-thread vendor confirm → HQ audit. Both migrations (`20261211000000`, `20261212000000`) applied to prod.
-
-**SPEC IMPACT:** None to locked scope. Closes the Adaptive Pax Pricing program (`DECISION_LOG.md` 2026-06-13 admin_surface). Memory `project_setnayan_adaptive_pax_pricing` → program complete. Corpus `0023_admin_console` AS-BUILT note (new pax-changes surface) + `0007`/`0021`/`0022` notes to follow.
-
----
-
-## 2026-06-13 · feat(pax): adaptive pax pricing — Phase 5 (per-vendor surcharge + in-thread confirm)
-
-The money-moving core. When the couple's guest count moves a booked vendor's cost (vendor set a per-added-guest rate), the change surfaces as an Accept/Decline card in the chat thread and only moves `total_cost_php` when the **vendor confirms** — symmetric (a drop shows a credit), per the owner lock. No migration (uses the Phase 1 columns).
-
-- **`lib/pax.ts`**: `computeAddedPaxSurcharge({livePax, quoteBasePax, ratePhp, block})` = `ceil((livePax-base)/block)*rate` (0 when no rate / at-or-below base — the owner fallback; mirrors the customer floor+block model). `fetchVendorPaxProposals()` returns the booked services (total_cost_php set) carrying a rate whose live pax has moved away from the last-decided count (`cost_basis_pax`), each with the `delta` to confirm.
-- **Vendor thread** (`vendor-dashboard/messages/[threadId]`): recomputes live pax **fresh on view** via the admin client (the vendor's RLS can't read the couple's guests; gated by the existing thread-ownership check) → always-current "Planning for ~N" + an Accept/Decline card per pending service: "Now planning for N (you quoted ~M). At ₱X/guest your total would increase/decrease by ±₱Y."
-- **`pax-actions.ts`** (new): `acceptPaxSurcharge` re-derives the target server-side (authoritative — client value never trusted), writes `total_cost_php = total − applied + target`, `pax_surcharge_php`, `cost_basis_pax`, locks `pax_quote_base`; `declinePaxSurcharge` just sets `cost_basis_pax` (holds the price). event_vendors is the couple's table → admin-client write after the ownership gate.
-- **Couple thread**: header now shows the same fresh live pax (the couple's own client can read their guests).
-- **Budget** auto-reflects — `total_cost_php` updates on Accept, so the couple's vendor cost updates with no extra wiring.
-- `lib/pax.test.ts`: 6 tests (no-rate fallback, at/below base, per-guest, per-block round-up, null guards, symmetric drop).
-
-**Design note (deviation from the originally-floated after()-push):** rather than hooking every guest mutation to push `pax_current`, the thread/budget **recompute fresh on view** (admin client) — correct whenever viewed, no mutation-hook sprawl, and it sidesteps the vendor-RLS-can't-read-guests problem. The stored `pax_current`/`pax_at_inquiry` remain (inbox previews + the immutable base). An after()-push to pre-warm the cache is a trivial future add.
-
-**Scope:** surcharge applies to **booked** services (a committed `total_cost_php`) with a rate; inquiry-stage just shows the count (Phase 3). Phase 6 (HQ audit of every cost change) still to come.
-
-Verified: `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · 6/6 unit tests ✓ · `next build` ✓.
-
-**SPEC IMPACT:** None to locked scope. Builds the spec'd-but-unbuilt `0021 §12.3` confirm flow (single-rate form). Adaptive Pax Pricing program (`DECISION_LOG.md` 2026-06-13); memory updated. Corpus `0007_budget_expenses` + `0021 §12.3` AS-BUILT notes to follow.
-
----
-
-## 2026-06-13 · feat(pax): adaptive pax pricing — Phase 4 (vendor per-added-guest rate input)
-
-Vendors can now set an optional per-added-guest surcharge rate on each service. Input + storage only — the rate has **no effect yet**; applying it to live costs is Phase 5 (where the surcharge math + the symmetric vendor-confirm flow land). Honors the owner's fallback: blank = no extra charge.
-
-- `vendor-dashboard/services/page.tsx`: new "Additional cost per added guest (PHP)" field in BOTH the new-service form and the edit-service form (pre-filled from the saved value), beside the existing starting price. Helper copy: "Optional. Charged per guest above the count you quote. Leave blank for no extra charge."
-- `services/actions.ts`: `createVendorService` + `updateVendorService` parse `added_pax_price_php` via the existing `parseInt0OrNull` and write it (insert + update).
-- `lib/vendor-services.ts`: `VendorServiceRow` + `BASE_COLS` carry `added_pax_price_php` so the editor pre-fills and any reader sees it.
-
-Deliberately self-contained — does NOT touch `lib/pax.ts` (Phase 3's file): the surcharge *math* (`computeAddedPaxSurcharge`) belongs in Phase 5 where it's first applied, so Phase 4 has no cross-phase file dependency. Column exists in prod (migration `20261211000000` applied 2026-06-13).
-
-Verified: `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · `next build` ✓ (exit 0).
-
-**SPEC IMPACT:** None to locked scope. Peso amount is vendor-entered (no default seeded). Adaptive Pax Pricing program (`DECISION_LOG.md` 2026-06-13); memory updated. Corpus `0022_vendor_dashboard` AS-BUILT note (the per-pax pricing it specced now exists in its single-rate form) to follow.
-
----
-
-## 2026-06-13 · feat(nav): canonical bottom-nav template — traveling pill + press-light, app-wide + lint-guarded
-
-Owner-locked the bottom-nav tap interaction as THE unbreakable app-wide template ("set it as an unbreakable rule, like the real template of the app"), after a long session dialling the feel against an Instagram Liquid-Glass reference video.
-
-- `app/_components/nav/bottom-nav.tsx` — upgraded the ONE shared primitive that all three doorways already mount (customer/vendor/admin wrappers just pass `items`). New locked interaction: a **full stadium pill** that fills its tab cell and **travels on RELEASE** (selection commits on finger-up → route changes → active index flips → pill glides over) with a spring + subtle horizontal "liquid" stretch; a diffused **white press-light** that blooms under the finger **on press-down** (pointerdown), fills the pill top-to-bottom solid and feathers only at the left/right ends (tall element clipped by the row's `overflow-hidden`), fading on release; the pressed **icon grows** while held. Four motion knobs live as `--bn-*` CSS custom props on the nav root (**owner-locked baseline: 500ms · grow 1.15 · glow 1.2 · stretch 1.1 · white**) — retune the whole app's nav feel from ONE place. Removed the generic `.sn-bounce` on active tabs (this nav treatment supersedes it). Props/types unchanged → zero churn for the three wrappers.
-- `app/globals.css` — `@keyframes nav-pill-travel` + `.nav-pill-stretch` (peak/duration read `--bn-stretch`/`--bn-dur`).
-- `scripts/lint-bottom-nav.mjs` (new) + `lint:botnav` script + CI job `lint-bottom-nav` — the "unbreakable" enforcement: fails the build if a `*-bottom-nav.tsx` wrapper is added that doesn't delegate to the canonical primitive, OR if the canonical loses its locked-interaction markers (the `--bn-*` knobs + the travel-stretch hook).
-- Lights up customer + vendor + admin bottom navs automatically (all consume the shared component). Guest landing (0031 day-of) has no bottom nav — nothing to change there.
-- Verified: `typecheck` clean · `lint` clean (no new warnings in changed files) · `lint:botnav` passes.
-
-SPEC IMPACT: Owner-locked the bottom nav as an unbreakable app-wide template + lint guard. Recorded in corpus `DECISION_LOG.md` (2026-06-13) + memory `project_setnayan_bottom_nav_canonical` (indexed in `MEMORY.md`). No SKU / schema / pricing / route impact.
-## 2026-06-13 · feat(pax): adaptive pax pricing — Phase 3 (snapshot pax on new inquiries)
-
-Inquiries now carry the couple's live pax. When a couple opens a vendor inquiry — via `unlockCategoryWithInquiry()` (add-a-category) or `startServiceInquiry()` (`/v/[slug]`) — the thread snapshots the count, and both thread headers show it. First runtime use of the Phase 1 columns (now applied to prod).
-
-- New server helper `lib/pax.ts` → `resolveLivePax(supabase, eventId)` = `max(events.estimated_pax floor, headcount on events.headcount_basis)`; counts only SURE attending guests by default (the locked basis); returns `null` when there's nothing to anchor on. (`HeadcountBasis` defined locally here to keep the server module import-independent; mirrors the union in `lib/guests.ts`.)
-- Both inquiry upserts now set `chat_threads.pax_current` (insert + on-conflict) and set the immutable `chat_threads.pax_at_inquiry` exactly once (when still null) — the count the vendor first quoted against. `null` live-pax → no pax written (graceful).
-- `lib/chat.ts`: `THREAD_SELECT` + `ChatThreadRow` carry `pax_at_inquiry` / `pax_current`, so both thread pages get them with no extra query.
-- Vendor thread header (`vendor-dashboard/messages/[threadId]`) and couple thread header (`dashboard/[eventId]/messages/[threadId]`) render "Planning for ~N guests · was M at inquiry" (the "was M" only once the count has grown).
-
-Read/snapshot only — no cost recompute or surcharge yet (phases 4-5). Inquiry status-flip / one-thread-per-pairing rules untouched.
-
-**Migration note:** the Phase 1 migration `20261211000000` was **applied to prod 2026-06-13** (`supabase db push`; it was the only pending migration — clean apply), so these columns exist at runtime. Independent of the Phase 2 PR (defines its own `HeadcountBasis`).
-
-Verified: `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · `next build` ✓.
-
-**SPEC IMPACT:** None to locked scope. Adaptive Pax Pricing program (`DECISION_LOG.md` 2026-06-13); memory updated. Corpus `0019_communications` (thread context) + `0006`/`0007` AS-BUILT notes to follow once the program lands.
-
----
-
-## 2026-06-13 · feat(weddings): DB-driven Real Weddings browse — real editorials replace the sample (consent-gated)
-
-Builds the deferred 0046 cross-wedding browse so `/weddings` surfaces REAL published editorials and the sample yields automatically — end-to-end, per owner ("our sample until a real wedding is uploaded").
-
-- `lib/showcase-db.ts` (new) — `loadPublishedShowcases()`: server-only, admin-client, **consent-gated** query. A wedding qualifies only when it's a wedding with a public slug, past the **T+30d grace window**, AND a couple member's account opted in to public showcase inclusion (`users.public_summary_consent_at` — the RA 10173 gate shipped in `20260519000000_phase_a_event_editorial_consent.sql`). Best-effort → `[]` on any issue. **Verified against prod:** the 3-step join runs clean and returns 0 today (no consented past weddings), so the sample still shows.
-- `/weddings` index — now async + DB-backed: shows real showcases (each linking to the couple's **canonical `/[slug]` editorial**, never a duplicate copy under `/weddings`) when any exist; otherwise the curated sample. Conditional intro copy. Renders per-request (dynamic) → real weddings appear the instant they qualify, no cache to bust.
-- `sitemap-weddings.xml` — same priority: emits real `/[slug]` editorial URLs (honest `event_date` lastmod) when they exist, else the sample.
-
-The per-wedding editorial itself is unchanged (0002 Phase 4 at `/[slug]`); this adds the cross-wedding browse + discovery. First real wedding = the founder's Dec 2026 (→ ~Jan 2027), at which point the sample drops automatically.
-
-Verified: tsc + production build (`/weddings` dynamic, `/weddings/[slug]` sample SSG ●, `/sitemap-weddings.xml` ISR).
-
-**SPEC IMPACT:** implements the 0046 cross-wedding DB browse (consent-gated); `DECISION_LOG.md` + the `0046_wedding_showcase` header note it.
-## 2026-06-13 · feat(weddings): in-dashboard Real Weddings consent toggle (RA 10173 opt-in / one-click opt-out)
-
-Adds the "Phase B" consent surface the 0046 migration pointed at: couples can now opt in/out of public `/weddings` showcase listing **anytime** from `/dashboard/[eventId]/website/privacy`. Previously `users.public_summary_consent_at` was set only at signup, with no way to change it later — this completes the RA 10173 one-click opt-out guardrail for the consent-gated browse (PR #1353).
-
-- New `setShowcaseConsent` server action — host-gated (reuses `requireHostMembership`), writes the caller's OWN `users.public_summary_consent_at` (NOW() to opt in, NULL to opt out) via the admin client (the `users` self-update path isn't exposed to the auth client).
-- The privacy page reads the current state (via admin, defaults off on error) and renders a clear opt-in/out card — links to `/weddings`, with an explicit "only after the day, 30-day grace, only while on" note.
-
-Verified: tsc + production build (`/dashboard/[eventId]/website/privacy` compiles).
-
-**SPEC IMPACT:** implements the 0046 in-dashboard consent toggle (flips from unbuilt → shipped); `DECISION_LOG.md` + the `0046_wedding_showcase` header note it.
-## 2026-06-13 · feat(pax): adaptive pax pricing — Phase 2 (couple guest-list pax meter)
-
-The visible half of the feature: a pax-target meter on the guest list showing progress toward the couple's minimum pax (`events.estimated_pax`), filling on the **sure-attending** basis (the owner-locked "who counts"). Read-only, couple-facing; no vendor/pricing writes (those are phases 3-5). Independent of the Phase 1 migration — pure compute on data that already exists (`computeGuestStats` headcount + `estimated_pax`), so it ships without any prod schema change.
-
-- New pure helpers in `lib/guests.ts`: `headcountForBasis(stats, basis)` and `computePaxProgress(stats, estimatedPax, basis)` → `PaxProgress { target, headcount, livePax = max(target, headcount), progressPct (capped 100), exceeded, overBy, remaining }`. Returns `null` when no target is set (meter hidden). `basis` defaults to `'attending'`; the `attending_plus_maybe` / `invited` arms are wired for the future `events.headcount_basis` column but unused in V1.
-- `guests/page.tsx` now selects `estimated_pax` alongside `role_palette` (same batched read, no extra RTT) and computes `paxProgress` once.
-- Desktop: `SummaryStrip` renders the meter above the confirmations bar — "Guest target · N of M pax · X%" with a terracotta bar; flips to "Now planning for N · K over your M minimum" (deeper bar, full) once sure-attending tops the floor.
-- Mobile: the carousel's Summary panel renders the same meter above the RSVP count boxes.
-- Unit suite `lib/guests.pax.test.ts` (8 tests): basis selection, floor-protected `livePax`, bar capping at 100% while `overBy` reports true excess, exact-at-target not exceeded, null on no/zero/negative target.
-
-Verified: `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · 8/8 unit tests ✓ · `next build` ✓.
-
-**SPEC IMPACT:** None to locked scope. Part of the Adaptive Pax Pricing program (`DECISION_LOG.md` 2026-06-13); memory `project_setnayan_adaptive_pax_pricing` (Phase 2 done). Corpus iteration `0001_creating_guest_list` AS-BUILT note to follow once the program lands.
-## 2026-06-13 · feat(pax): adaptive pax pricing — Phase 1 schema (columns only, no behavior change)
-
-**Context:** owner feature — thread one guest-count number from the guest list → vendor inquiries → per-vendor pricing → budget, designed + locked 2026-06-13 (see `DECISION_LOG.md` "Adaptive Pax Pricing"). A mapping+design workflow over 7 subsystems found the vendor per-pax model (`0022 §2.2`) and the cost-delta-on-guest-change flow (`0021 §12.3`) are **spec'd but never coded** — shipped vendor pricing is flat `vendor_services.starting_price_php`, `event_vendors.total_cost_php` is couple-entered, and the `price_model='per_pax'` enum is defined-but-unread. So this builds the spec. Customer-side PAPIC_GUEST floor+increment (`platform_retail_catalog_v2`, `computePaxPriceCentavos`) is the working template.
-
-**The model (owner-locked, 6 decisions):** `events.estimated_pax` (unchanged) = the "minimum pax" = pricing floor; stays couple-editable, never auto-mutates. `live_pax = max(estimated_pax, sure-attending headcount)` — only `rsvp_status='attending'` guests push past the floor (maybes/no-replies never move price). Past the floor → vendors get the new count + couple told "prices may change". Vendor sets an OPTIONAL per-added-guest rate (blank = no surcharge). Vendor-facing count is fully live up+down, but any *confirmed* cost change goes through the §12.3 vendor confirm in both directions. Couple view = realtime adaptive preview (default) or final-only. Auto-finalizes at the guest-list edit deadline, then binding.
-
-**This PR — schema only, zero behavior change.** Migration `20261211000000_adaptive_pax_pricing_columns.sql` adds the columns later phases read; all NULL-safe / sane-defaulted so every existing row means "flat price, no surcharge, no snapshot, realtime view, attending-basis" (today's behavior). No reads wired. Columns sit on tables that already have RLS → row access unchanged.
-- `events`: `headcount_basis` (default `attending`), `adaptive_pricing_mode` (default `realtime`), `guest_list_edit_deadline`, `guest_count_locked_at`
-- `vendor_services`: `added_pax_price_php` (NULL = no surcharge), `added_pax_block` (default 1)
-- `chat_threads`: `pax_at_inquiry` (immutable snapshot), `pax_current` (live, up+down)
-- `event_vendors`: `pax_quote_base`, `pax_surcharge_php` (NULL = no rate set), `cost_basis_pax`
-
-**⚠ NOT yet applied to prod.** Additive + NULL-safe + idempotent (`ADD COLUMN IF NOT EXISTS`); apply via `supabase db push --db-url "$SUPABASE_DB_URL"` (or surgically) when Phase 2 first reads a column. Timestamp guard ✓ (346 unique). No TS touched → typecheck/lint/build unaffected.
-
-**Phases queued:** 2 couple guest-list %-meter · 3 snapshot pax on new inquiries · 4 vendor rate field + `computeAddedPaxSurcharge` · 5 push to open threads + recompute (§12.3 confirm) + budget line · 6 HQ audit + dispute view.
-
-**SPEC IMPACT:** Design + 6 decisions recorded in `DECISION_LOG.md` 2026-06-13 ("Adaptive Pax Pricing"); memory `project_setnayan_adaptive_pax_pricing`. Per-phase AS-BUILT notes to follow on corpus iterations 0001/0006/0007/0022 as each phase ships. Peso amounts remain provisional (no default rate seeded).
-
----
-
-## 2026-06-13 · feat(weddings): the sample is a fallback — real weddings auto-replace it
-
-Per owner ("this is our sample until a real wedding is uploaded"), the `/weddings` index + `sitemap-weddings.xml` now treat samples as PLACEHOLDERS: they render only while there are no real (non-sample) weddings. The moment a real wedding enters the source — a non-sample entry now, or the DB-driven Phase-4 published-editorials browse later (0046 deferred) — the sample drops out automatically (both the index listing and the sitemap filter `!isSample`, falling back to the sample only when the real set is empty). The index intro copy is conditional (sample framing vs real-weddings framing). No behaviour change today — only the sample exists, so it still shows.
-
-**SPEC IMPACT:** encodes the sample-as-placeholder lifecycle; `DECISION_LOG.md` + the `0046_wedding_showcase` header note it.
-
----
-
-## 2026-06-13 · refactor(weddings): the Real Weddings sample now renders the real editorial (follows it)
-
-Per owner direction ("when we update the editorial, this sample needs to follow the editorial as well"), the `/weddings/[slug]` showcase no longer uses a bespoke layout — it renders through the **same `EditorialContent` component** as a real wedding's post-event editorial (the `/[slug]` Phase-4 "newspaper"). A curated Maria & Juan sample fixture feeds it via a `loadEditorialData` sentinel, so any future change to the editorial format updates the sample automatically — no parallel layout to drift.
-
-- `editorial/data.ts`: new `SAMPLE_EDITORIAL_EVENT_ID` + `sampleEditorialData()` (a complete `EditorialData` for Maria & Juan — Catholic garden wedding in Tagaytay: love story, by-the-numbers, archetype, illustrative team credits, couple/guest reviews, Setnayan-services strip; no real PII) + a sentinel branch at the top of `loadEditorialData` that returns the fixture **without touching the DB**.
-- `app/weddings/[slug]/page.tsx`: rewritten to render `<EditorialContent eventId={sample} />` behind a slim "Sample showcase" bar (back-nav + an honest "real editorials begin December 2026" line); the bespoke facts-strip/story/team layout is removed. A `slug → fixture id` map keeps the sentinel single-sourced.
-- Real, consent-gated editorials (0002/0046 Phase 4) are unchanged — real event ids fall straight through the sentinel to the live DB loader.
-
-Verified: `tsc` + production build (`/weddings/[slug]` sample prerendered ● through the editorial; no DB at build).
-
-**SPEC IMPACT:** Supersedes the bespoke showcase-detail layout from PR #1349 (same day). `DECISION_LOG.md` + the `0046_wedding_showcase` AS-BUILT header note that the sample now renders via the editorial.
-
----
-
-## 2026-06-13 · feat(weddings): Real Weddings showcase live with a sample (iteration 0046 first slice)
-
-Lights up the `/weddings` surface (previously a polite "coming December 2026" empty state) with a populated, indexable showcase — and seeds one clearly-labelled SAMPLE wedding so the page demonstrates the format before real editorials exist.
-
-- **`/weddings` + `/weddings/[slug]`** — the index now renders a featured showcase + grid; the new per-showcase page carries the couple, an at-a-glance facts strip (ceremony · setting · city · theme · guests), the story, a "team behind the day" section (role chips → /vendors + /venues), a "How Setnayan helped" block, and `Article` + `BreadcrumbList` JSON-LD. Same in-code-constant SSG pattern as `/blog` (no DB, no markdown dep, `dynamicParams=false` → real 404s).
-- **Sample, not a real client.** The one seed (`Maria & Juan`, a Catholic garden wedding in Tagaytay) is `isSample: true` — fictional, with a visible "Sample showcase" label + a line that real couple editorials begin December 2026. No real person's data (so no RA 10173 consent gate) and no fabricated vendor business names (the team section links to vendor *categories*). The canonical DB-driven, consent-gated real-editorial model (0046/0002 Phase 4) is unchanged and merges in alongside these later.
-- **Discovery**: `sitemap-weddings.xml` now emits the hub + sample (honest per-entry lastmod) instead of an empty urlset; `/weddings` removed from `sitemap-static` to avoid a duplicate URL (hub-in-its-own-child pattern, like /help + /blog); `/weddings` added to the `robots.ts` allow-list; the `llms.txt` Real Weddings entry notes a sample is viewable now.
-
-Verified: `tsc` + production build (`/weddings`, `/weddings/[slug]`, `/sitemap-weddings.xml` all generate; sample prerendered ●).
-
-**SPEC IMPACT:** Implements the 0046 first slice (cross-wedding browse + per-showcase page) with a sample seed; the `0046_wedding_showcase` AS-BUILT header + `DECISION_LOG.md` note the sample-now / real-editorials-December-2026 split.
-
----
-
-## 2026-06-13 · feat(blog): +5 Setnayan Journal articles (Journal now 9 posts)
-
-Follow-up to the 0038 first slice (PR #1344). Adds 5 more PH-anchored long-tail articles to `lib/blog.ts` (4 → 9): a wedding-budget breakdown, a marriage-licence step-by-step, how to choose a venue, Catholic-wedding requirements (Pre-Cana / banns / documents), and Filipino wedding traditions explained. Same in-code-constant engine — no schema, no new deps, no route changes; each article auto-picks-up the existing `sitemap-blog.xml` (honest per-article lastmod), `BlogPosting`/`BreadcrumbList` JSON-LD, and the category filters. Benefits-only copy, no quoted SKU prices (drift-proof), internal-link CTAs to /vendors · /venues · /how-it-works · /signup.
-
-Verified: `tsc` + production build clean (all 9 articles prerendered ●).
-
-**SPEC IMPACT:** Extends the 0038 first-slice content set (4 → 9 articles); the `DECISION_LOG.md` #1344 row + the `0038_editorial_and_affiliates` AS-BUILT header note the 9-article count.
-
----
-## 2026-06-13 · feat(ui): universal press + select-bounce interaction — pressing anything feels alive, picking anything pops
-
-Owner directive — "set this as a universal function … across the whole app, so we can see an interaction when something is pressed" + the seat-plan ask "when a table/seat is selected … bounce 15%."
-
-**The primitive (globals.css):**
-- **Press feedback made truly universal.** The global :active press rule (button / [role=button] / a.button / input[submit|button] / summary, added 2026-05-31) switched from `transform: scale(0.96)` to the standalone **`scale: 0.96` PROPERTY** (transition `transform`→`scale`). The standalone `scale` property is independent of `transform`, so it now COMPOSES with any element's existing transform instead of clobbering it. The old rule silently broke press feedback on every interactive element that carried its own transform (seat-plan tables `translate(-50%,-50%) scale()`, translated/rotated cards) — they dropped their transform and jumped on press. Verified app-wide via grep: nothing sets the standalone `scale` property anywhere, so nothing collides; the lone flagged `.m-btn:active{transform:translateY(0)}` is a false alarm (different property, composes). Near-pure improvement; frozen by the existing prefers-reduced-motion block.
-- **`.sn-bounce` + `@keyframes sn-pick-bounce`** — a reusable 15% select-bounce (scale 1 → 1.15 → settle), also using the `scale` property so it composes anywhere. Re-triggers via a React `key` (in-page toggles) or a route re-mount (nav).
-
-**Rolled out across the app (parallel, one agent per file):**
-- Seat plan: the selected table + the picked guest's chair bounce.
-- Active nav everywhere: `sidebar-item` + `bottom-nav` active item (all three doorways).
-- Onboarding pickers (the #1 funnel surface): service cards + role/kind `.opt` cards + faith chips + love-story cue chips (all className-only `.sel` on plain elements a global aria rule could never reach).
-- Tab strips + toggles: vendors `services-takeover` (desktop + mobile), schedule mode toggle, `build-pin-mode`, attire-guide persona picker, vendor cycle toggle + payment-method tiles, marketplace reception facet chips, admin verify tabs + payments filter chips.
-
-**Why no single global select rule:** keying a bounce on aria-selected/aria-pressed/role=tab/aria-current would bounce-storm on every page load (everything already-selected re-mounts on route change) AND miss the onboarding pickers (className-only, no aria). So the press feedback is global; the louder select-bounce is applied per-surface at genuine "I just picked this" moments.
-
-**Verification:** designed + rolled out + adversarially verified via three background workflows (map/design, app-wide safety audit + survey, parallel apply + verify). `tsc` clean, `next lint` clean on all touched files. Live: seat-plan table bounce animation confirmed running (getAnimations); the press now keeps an element's transform (hub stays put); bottom-nav active tab + selected onboarding `.opt` carry `.sn-bounce`. 15 files.
-
-**SPEC IMPACT:** None (app-wide interaction polish). Two minor a11y notes parked (cycle-toggle rationale wording; attire-guide drops keyboard focus on deselect-remount — acceptable).
-
-## 2026-06-13 · fix(concurrency): DB guard for the hard-single double-lock (last open conflict-audit item)
-
-**Context:** the final un-serialized cross-actor write from the 2026-06-04 conflict audit (PR #1339 closed the other two). `finalizeVendor` enforced "exactly one CONFIRMED vendor per hard-single plan group per event" (ceremony_venue · reception_venue · officiant · coordinator · host_mc · led_background) with an app-level read-then-write — two hosts of the SAME event (e.g. a couple member + a moderator) could both pass the sibling check and both lock a different vendor in one group. Blast radius was low (white soft-holds, no money, self-correcting) so it was deferred; this closes it. **Owner picked Approach A** (generated column + partial-unique index) over the advisory-lock RPC alternative, because it's path-independent and self-backfilling.
-
-**Migration `20261210000000_hard_single_lock_guard.sql` (applied to prod + behaviorally verified):**
-- New `event_vendors.hard_single_group` — a `GENERATED ALWAYS … STORED` column mapping the 7 hard-single categories (`religious_venue`/`church_fees`→ceremony_venue · `venue`→reception_venue · `officiant` · `planner_coordinator`→coordinator · `host_emcee`→host_mc · `led_screens`→led_background) to their 6 groups; `NULL` for every other category. The full category→group map stays canonical in TS (`lib/wedding-plan-groups.ts`); only these 7 hard-single rows are mirrored in SQL, and an unmapped future category yields `NULL` and is simply un-guarded — never worse than today.
-- Partial-unique index `event_vendors_hard_single_lock_uniq (event_id, hard_single_group) WHERE hard_single_group IS NOT NULL AND archived_at IS NULL AND status IN (CONFIRMED)`. **Path-independent** — it rejects the second confirmed write no matter which path makes it (the generic finalize lock write, the `acquire_service_time_slot` slot path, a `deposit_paid` flip, or an admin approval). Auto-backfills existing rows; no changes at the many `event_vendors` INSERT sites. A defensive pre-dedupe demotes any pre-existing duplicates to `considering` (verified 0 on prod — no-op).
-
-**App change (`app/dashboard/[eventId]/vendors/actions.ts`):** the lost-the-race `23505` is converted back into the existing `hard_single_conflict` modal so the UX is unchanged — added `isHardSingleUniqueViolation()` + `buildHardSingleConflict()` helpers, wired into both confirmed-write paths (the slot-acquire RPC error and the generic lock write). The early fast-path sibling check now also filters `archived_at IS NULL` to match the index predicate.
-
-**Behaviorally verified on prod** (rolled-back transaction): inserting a second `contracted` venue for one event is rejected with `23505`; the generated column resolved `venue → reception_venue`; 0 test rows persisted. `tsc --noEmit` clean.
-
-**SPEC IMPACT:** None to product behavior (UX identical; the guard only makes the rare concurrent case correct). Architecture note → `DECISION_LOG.md`; the conflict-architecture "build DB guards before two-way features" lock is now satisfied for ALL shipped two-way surfaces. Memory `project_setnayan_conflict_architecture` updated (hard-single item flipped from OPEN to CLOSED).
-## 2026-06-13 · feat(blog): Setnayan Journal — public editorial surface (`/blog`), iteration 0038 first slice
-
-First slice of iteration 0038 (Editorial & Affiliates), which was a V1.1 paper spec / NOT-BUILT until now. Ships the **editorial content surface only** — the affiliate/recommendations/sponsored-content parts (which need DB tables + monetization decisions) are deliberately deferred to later slices.
-
-- **`/blog` + `/blog/[slug]`** — new public SSG routes that **mirror the shipped `/help/[slug]` pattern exactly**: content is an in-code typed constant (`lib/blog.ts`) — no DB, no CMS vendor, no markdown-renderer dependency — so every slug is pre-rendered via `generateStaticParams` with `dynamicParams=false`, and anything else 404s at the routing layer (no `loading.tsx` → no soft-404, same fix class as the help per-article rollout).
-- **4 PH-anchored long-tail seed articles** (the SEO playbook §0/§5 + 0038 § 4.0 targets): a 12-month planning timeline, a supplier-cost guide, civil-vs-church, and the ninong/ninang entourage explainer. Bodies sell **benefits only** (public-surface hygiene) and quote **no Setnayan SKU prices** (drift-proof) — only durable facts (free planning workspace, 0% commission). Each article carries internal-link CTAs to `/vendors`, `/how-it-works`, and `/signup` (hub-and-spoke, no orphan pages).
-- **Structured JSON-LD**: `BlogPosting` + `BreadcrumbList` per article; `Blog` + `ItemList` + `BreadcrumbList` on the index. `en-PH`, publisher pointed at the existing `#organization` node.
-- **Discovery**: new `sitemap-blog.xml` route with **honest per-article `lastmod`** (`updatedAt ?? publishedAt`, not a build-time `Date()`), registered in the `sitemap.xml` index; a **"Journal" link** added to the marketing footer; and a `/blog` entry added to `public/llms.txt` (GEO). `/blog` was already pre-allowed in `robots.ts`, so no robots change.
-
-Verified: `tsc` + production build clean (no new deps).
-
-**SPEC IMPACT:** Implements iteration **0038 first slice** — `/blog` + `/blog/[slug]` flip from "NOT BUILT" to shipped in the corpus `0038_editorial_and_affiliates` AS-BUILT header + `App_Build_Status.md` (0038 → ⚠ partial: editorial shipped, affiliates/recommendations/sponsored deferred). Logged at the bottom of `DECISION_LOG.md`.
-## 2026-06-13 · feat(guests): desktop guest-list redesign — consolidated chrome, unified filters, combinable views+groups
-
-**Context:** the Guests tab desktop layout had grown by accretion to **8 stacked chrome blocks** (header · lifecycle ribbon · view switcher · team segment · stats strip · seating card · share link · search toolbar) before the guest list began — pushing the list past the laptop fold. The owner flagged two duplications: the guest total rendered **3×** (H1 "280 guests" + an "Invited 280" stat card + "270 of 280 responded"), and seating was reachable **3 ways** on one screen (left nav + the ribbon's Seat step + a standalone "Seating chart" card). Both were desktop-only — the mobile bottom-sheet carousel never had them. Approved direction this session: consolidate desktop + unify the six scattered filter controls into one system + make role-views and custom groups combinable.
-
-**Layout (desktop, `app/dashboard/[eventId]/guests/page.tsx`):** 8 blocks → 4 rows.
-- New `SummaryStrip` replaces the old `StatsStrip` (progress bar + 5 cards): a slim strip with the confirmations bar + **four RSVP toggle pills (Attending/Pending/Declined/Maybe) that ARE the filter** — tap an active pill to clear it. Plus-ones kept as a caption. The duplicate **"Invited" card is gone** (the total headlines the H1 + the "of N" caption).
-- The standalone **"Seating chart" card is removed** (the ribbon's Seat step + the left nav already reach `/seating`).
-- **Share** folded from a full-width collapsible row into a compact header `<details>` dropdown (`ShareDropdown`).
-- The List/Mind-map switch folded into the search/sort toolbar; **Side** (Everyone/Bride/Groom) moved from a full-width segment row into the rail (rail is now Side → Views → Groups → Tags).
-
-**Unified filters + always-visible state:** new `ActiveFilters` server component — a removable-chip row that is the single home for *every* active dimension (search · side · RSVP · role-view · group · tag) with one "Clear all". Rendered inline on desktop and as a **sticky strip above the list on mobile** (`lg:hidden`, gated on `hasAnyFilter`) — closes the mobile gap where active filters were only a dot on the filter icon. The desktop rail's `buildHref` now carries *every* active param so any one facet toggles without dropping the rest.
-
-**Combinable views + groups (the behavior change):** custom groups moved off the overloaded `view="group:<id>"` scheme onto their own **`group` param**, so a host can stack "Wedding Party" (role view) AND "Cousins" (custom group) — previously mutually exclusive. The role-group filter now always runs (was skipped when a group was active). Touch points: `page.tsx` (derive `currentGroupId` from `group`; always `filterByRoleGroup`; `activeView=view`), `groups-actions.ts` ×3 redirects, `groups-sidebar.tsx` fallback href, `view-switcher.tsx` preserved-keys, mobile carousel role/group selects + Clear-all. A back-compat shim maps any stale `view=group:<id>` link onto the new param so old bookmarks/redirects still resolve.
-
-**Ribbon clarity:** the lifecycle badges read backwards ("Seat 192" looked like 192 *are* seated; it means 192 are *not*). Added an inline `badgeWord` so badges now read **"258 to send" / "to review" / "192 to seat" / "arrived"** on both the desktop ribbon and the mobile Journey panel.
-
-`tsc --noEmit` + `next lint` clean (no new warnings); `next build` compiles (exit 0). The URL param contract is otherwise unchanged, so server filtering logic and the rest of the mobile carousel are untouched.
-
-**SPEC IMPACT:** None to locked scope/SKUs. UX/architecture note → `DECISION_LOG.md` (guest-list desktop consolidation + `view`/`group` param split for combinable role-view × custom-group filtering). No schema/migration change.
-## 2026-06-13 · docs(owner-actions): sync Web Push (VAPID) + guest_role enum bug to verified prod state
-
-`OWNER_ACTIONS.md` corrected against live prod (doc-only, no code/schema change). (1) The **Web Push / VAPID** owner-action is marked ✅ done — all three keys (`NEXT_PUBLIC_VAPID_PUBLIC_KEY` · `VAPID_PRIVATE_KEY` · `VAPID_SUBJECT`) were confirmed set in Vercel (Production + Preview since 2026-06-11) with later prod deploys carrying them, so `sendWebPush` is live; the steps are kept for key-rotation reference with a do-not-rotate-on-Production warning (rotating the public key invalidates existing push subscriptions). (2) The §9 **"active user-facing bug"** (guest-list edit form throwing `invalid input value for enum guest_role: "bride"`) is marked ✅ resolved — the prod `guest_role` enum now includes `bride` + `groom` (24 values, verified via DB introspection). Both were stale 🔴 entries with no remaining action.
-
-**SPEC IMPACT:** None (doc-only; corpus `API_Integration_Checklist.md` #19e/#19f/#21d statuses synced to ✅/handed-off in the same pass).
-
----
-
-## 2026-06-13 · fix(concurrency): DB guards for the two un-serialized two-way writes (re-audit of the 2026-06-04 conflict findings)
-
-**Context:** the standing conflict-architecture lock ("build DB-level guards before two-way features") was re-verified against current `origin/main` after the schedule-pool (#1288/#1290/#1292), linked-inquiry (#1312), and vendor-portal (#1323) two-way features shipped. A full re-audit found the 2026-06-04 list of 7 races is now **closed at the DB level** by the pool layer (`acquire_schedule_pools()` deterministic-order `FOR UPDATE` + the partial-unique live-booking index serialize every BOOKED transition; `updateVendorStatus` is the single writer; `unlock_vendor_event()`'s `UNIQUE(vendor_profile_id,event_id)` + `ON CONFLICT` guards the unlock burn; `chat_threads UNIQUE(event_id,vendor_profile_id)` guards thread/unlock duplication; `deleteVendor` refuses booked rows + releases pools, and chat/orders are independently keyed so no orphans). **Two writers were still un-serialized**, both fixed here (migration `20261209000000_concurrency_guards.sql`, applied to prod via `db push` + verified):
-
-- **`import_external_client()` token double-spend (the one real money race introduced by the new features)** — the RPC did INSERT-then-burn with no idempotency key, so a vendor double-clicking "Import client" (or a retry after a slow 200) created two `external_client` calendar blocks and **burned two tokens**. Added a partial-unique index `vendor_calendar_blocks_external_client_uniq (vendor_profile_id, pool_id, blocked_at, client_name) WHERE block_source='external_client'`; the RPC now `INSERT … ON CONFLICT DO NOTHING` and **only burns when a new row was inserted** (rowcount-gated, mirrors the proven `unlock_vendor_event` pattern). A duplicate returns the existing block with `tokens_burned:0, already:true` so the caller's success UX still fires. Defensive pre-dedupe collapses any pre-existing dupes (≈0 rows — `external_client` shipped 2026-06-12 on the founder-only marketplace) so the index can build.
-- **`respond_vendor_proposal()` accept/decline last-writer-wins** — the RPC did `SELECT` (no lock) → in-memory guard → `UPDATE` (no status precondition), so two concurrent accepts, or accept-vs-decline, both passed. Added `SELECT … FOR UPDATE` to serialize, plus `AND status IN ('sent','viewed')` on the UPDATE with a `GET DIAGNOSTICS` rowcount → `already_resolved` (defense in depth). Blast radius was cosmetic (accepting is a signal, not a payment) but the fix is trivially correct.
-- **`finalizeVendor` lock-write status precondition** (app-level, `app/dashboard/[eventId]/vendors/actions.ts`) — the generic soft-hold lock UPDATE flipped `status→'contracted'` with no precondition; added `.not('status','in','("deposit_paid","delivered","complete")')` so a finalize racing a downpayment can never downgrade a money-locked row back to a white soft-hold.
-
-**Verified live on prod:** ledger row present · partial-unique index present · `import_external_client` carries `ON CONFLICT` + the `already` branch · `respond_vendor_proposal` carries `FOR UPDATE` + the status precondition + `GET DIAGNOSTICS`. `tsc --noEmit` clean.
-
-**Known remaining item (flagged, NOT fixed here — owner call):** the **hard-single double-lock** (exactly-one-vendor-per-group, e.g. one ceremony venue) is still an app-level read-then-write in `finalizeVendor`, not a DB constraint. It only affects two hosts of the *same* event racing on *white soft-holds* (no money, self-correcting), is explicitly owner-accepted-for-V1 in a code comment, and a proper DB fix needs a stored `plan_group` column or an `pg_advisory_xact_lock`-wrapped RPC — more work than its blast radius warrants today. Left as a documented V1.x item.
-
-**SPEC IMPACT:** None to product behavior. Architecture note → `DECISION_LOG.md` (the conflict-architecture lock's "build DB guards before two-way features" item is now satisfied for all shipped two-way surfaces except the flagged hard-single); memory `project_setnayan_conflict_architecture` updated with the re-audit outcome.
-
----
-
-## 2026-06-13 · fix(vendor): stacked-cost worked example used the retired ₱1,999/28d Pro price
-
-`app/vendor-dashboard/marketing/page.tsx` `StackedExample` — the only hardcoded peso figures on the page (everything else renders from `vendor_billing_catalog`). Pro Vendor corrected to the DB-canonical ₱6,000/28d (≈ ₱1,500/wk) and the example's weekly total recomputed ₱23,844 → ~₱24,883. Closes the "signed-in vendor-dashboard/marketing still shows ₱1,999/28d" leftover flagged in PR #1335. Boosted Ads ₱7,999/wk + Sponsored Boost ₱799,999/yr figures left as-is (not contradicted by any canonical source at hand).
-
-**SPEC IMPACT:** None (display copy aligned to the already-canonical DB price).
-
----
-
-## 2026-06-13 · feat(pricing): 4-tier site-sync — locked 2026-06-07 pricing across all public surfaces
-
-**Context:** the owner-locked 2026-06-07 reprice (corpus `Pricing.md § 00` — Free–Explore ₱0 · Setnayan AI ₱3,999 · Essentials ₱12,999 · Complete ₱27,999; 19 paid SKUs, SRP ₱53,981) had landed in the DB catalogs (`platform_retail_catalog_v2` / `platform_package_catalog` / `vendor_billing_catalog`) but NOT in the public marketing copy, which still sold the three reversed pillars (§ 00.D): free-to-plan / free wedding website / free RSVP, plus the retired ₱1,499 Setnayan AI price. This PR is the pending "site-sync" flagged in `Pricing.md § 00.E` and memory `project_setnayan_pricing_tiers`.
-
-**Changes (all prices render live from the DB catalogs — zero hardcoded peso figures added to TSX):**
-- **Homepage** (`app/page.tsx`, `_components/marketing/_sections.tsx`, `_fixtures.ts`) — PricingSection re-cut from 3 cards (Couples-free / Productions / Bundles) to the 4-tier ladder (DB-priced; Essentials/Complete CTAs → onboarding, their only purchase point per owner 2026-06-08). DashboardPreview planner price now reads `SETNAYAN_AI` (was leaking the retired `TODAYS_FOCUS` ₱1,499). "Free to plan" → "Start free"; FAQ + couple-features re-scoped to the free workspace (guest list · seating · budget · schedule · mood board); vendor bullets/FAQ carry no static peso figures (DB renders them on /for-vendors). Restored-JSON-LD featureList: "Free guest list & RSVP management" → free-claims only on actually-free tools.
-- **/pricing** (`app/pricing/page.tsx`) — new 4-tier overview section (display-only; bundles stay onboarding-only) + tier `Product`/`Offer` JSON-LD re-listed for GEO coherence (offer URL = `/onboarding/wedding`). "Free website. Free QR. Free forever." → "Start free." workspace card. Metadata/OG scrubbed of free-website claims. Stale "BIR receipts" → "itemized receipts"; "Pro Website" → "Editorial Website".
-- **/for-vendors** (`page-tail.tsx`) — "Is the planning really free?" FAQ no longer promises RSVP/QR-invitations free; fallback money-FAQ renamed Pro Website → Editorial Website. (Offer JSON-LD already DB-driven — untouched.)
-- **/about** — metadata + FACTS + body: "Free for couples" → "Free to start" with the workspace enumerated (RSVP dropped from free lists). FAQPage JSON-LD inherits the lib/help.ts fixes.
-- **/waitlist** — "Free wedding website…" bullet de-freed; free bullet now lists only the workspace.
-- **/how-it-works** — "Plan one wedding, free" card body re-scoped (invitations + day-of experience removed from the free claim).
-- **/signup** — "Guest list + RSVP · free" and "BIR-stamped receipts" bullets replaced (the latter per the #1316 claims purge); "Free planning forever" → "The planning workspace is free"; metadata softened.
-- **/privacy** — uncanonical Patiktok "₱1,999/day Personal / ₱999/day Setnayan" tier prices stripped (tier names kept; prices live on /pricing).
-- **`lib/help.ts`** — cost / is-it-free / Setnayan-AI / Papic / Panood articles realigned to § 00 (cascades into /help pages + /about FAQPage JSON-LD). Setnayan AI described as the assisted-planning tier at ₱3,999.
-- **`lib/v2-catalog.ts`** — `getCustomerSkuPrice` now honors `is_active` so a retired SKU can never leak a stale price onto a marketing surface.
-- **`public/llms.txt`** — full reprice: 4 planning tiers added; à-la-carte re-cut to the 19 live SKUs (Indoor Blueprint · Call-Time Escalator · Pro Website · High Res Archive retired); vendor subs corrected to the DB-canonical Pro ₱6,000/28d (₱60,000/yr) · Enterprise ₱10,000/28d (₱100,000/yr); token packs corrected to the flat ₱100/token ladder (₱400–₱10,000); Free vendor tier dropped from the public table (not marketplace-searchable per the 2026-06-07 capability matrix).
-
-**DB:** NO migration needed — prod catalogs already carry § 00 in full (verified live: 19 active customer SKUs, 3 removed SKUs `is_active=false`, GUIDED_PACK ₱12,999 / MEDIA_PACK ₱27,999, vendor subs + flat-₱100 packs). The brief's vendor figures (Pro ₱2,499 / Ent ₱5,499, ₱250-token packs) are pre-reprice corpus values — DB + live site win per the source-of-truth order (DECISION_LOG 2026-06-09 "already canonical at HEAD so NO reprice").
-
+## 2026-06-17 · PR #NEXT — /api/notify push webhook route
+
+**What landed:** `apps/web/app/api/notify/route.ts` — Supabase database webhook handler that fires on every `chat_messages` INSERT and delivers push notifications to the vendor side.
+
+**Route logic:**
+1. Verifies `x-webhook-secret` header against `SUPABASE_WEBHOOK_SECRET` env var (401 on mismatch).
+2. Filters to `INSERT` events on `chat_messages` only; skips `sender_role = 'vendor'` (no self-notify).
+3. Returns `200 { ok, queued: true }` immediately — all DB + push work deferred to `after()`.
+4. Inside `after()`: reads `chat_threads.last_push_notified_at` — skips if within 10-minute dedup window.
+5. Stamps `last_push_notified_at = now()` before any push attempt to collapse concurrent webhook fires.
+6. Reads vendor's active push tokens from `vendor_push_tokens WHERE is_active = true`.
+7. Delivers to all active tokens concurrently; sets `is_active = false` on permanent delivery failure.
+8. Push send is a **stub** in this PR (`sendPushToToken` logs + returns success) — Phase 2 wires FCM/APNs/Web Push.
+
+**Schema findings vs spec brief:**
+- `chat_messages.sender_user_id` (not `sender_id`) — FK to `users`.
+- `chat_messages.sender_role` enum `('couple','vendor','coordinator')` — used to skip vendor self-notifies.
+- `chat_messages.vendor_profile_id` is denormalized onto the message row — no extra join needed to find the recipient vendor.
+- `vendor_push_tokens.id` is `bigserial` (not UUID) — used for deactivation update.
+
+**New env var required (Supabase webhook config):**
+- `SUPABASE_WEBHOOK_SECRET` — shared secret set in both Supabase Dashboard → Database Webhooks and Vercel env vars.
+
+**SPEC IMPACT:** Push notification route per `02_Specifications/Vendor_Quality_Rating_System_2026-06-17.md` § 7 (End-to-end flow steps 3–8). Phase 2 FCM/APNs/Web Push wiring is noted as TODO in the route's JSDoc.
+## 2026-06-17 · feat(vendor-quality): server-side score recomputation module
+
+**Context:** PR 5 of the vendor quality rating system (spec `02_Specifications/Vendor_Quality_Rating_System_2026-06-17.md`). Follows PR #1650 (migrations) which landed `vendor_activity_stats`, `vendor_push_tokens`, `vendor_partnerships`, and `chat_threads.last_push_notified_at`.
 **Known leftover (flagged, untouched):** the DB carries BOTH `RSVP_PRO_WEBSITE` "RSVP Pro" ₱4,499 AND `PRO_RSVP` "Pro RSVP" ₱1,999 active while base `RSVP_WEBSITE` ₱2,499 is inactive — § 00.B says RSVP ₱2,499 + RSVP Pro ₱4,499. llms.txt mirrors the DB; the naming collision needs an owner call. Signed-in `vendor-dashboard/marketing` still shows "₱1,999/28d" Pro copy (non-public, out of scope here).
 
 **Verification:** `tsc --noEmit` clean · `next lint` clean (pre-existing warnings only) · `next build` passes.
@@ -3459,23 +420,6 @@ Verified: `tsc` + production build clean (no new deps).
 **Verification:** `npx tsc --noEmit` clean (app code) + `next lint` clean on the changed file.
 
 **SPEC IMPACT:** closes the "budget median needs `WHERE is_linked_only=FALSE`" open item tracked in the linked-services/demo-coverage workstream (memory `project_setnayan_linked_services_and_demo_coverage`). Parent session to mark it resolved in the corpus.
-## 2026-06-13 · feat(marketing): premium couple-centric homepage redesign + responsive marketing system
-
-**Context:** owner brief 2026-06-13 — "One App, Less Drama" positioning pass. Homepage becomes **strictly couple-centric** (vendor pitch moves to a high-contrast pre-footer band + /for-vendors); hero leads with the emotional hook "Goodbye, Viber chaos. Hello, Set na 'yan."; the whole marketing surface gets a fluid-responsive type/padding system so it reads premium on phones, not just desktops.
-
-- **`globals.css`:** new marketing layout primitives — `.m-section` (clamp() fluid section padding, replaces hardcoded `px-14` + inline `paddingTop: 120`) and `.m-h-xl/lg/md` (clamp() display headings, replace inline `fontSize: 64–96px` that overflowed phones).
-- **Hero (`_sections.tsx`):** new headline pair — serif italic "Goodbye, Viber chaos." + display "Hello, Set na 'yan." Subhead leads with "Plan your Filipino wedding without the twelve spreadsheets." HeroCollage gains a **chaos layer** (tilted washed-out Viber/Budget_v8.xlsx/GCash-receipt chips peeking from behind the clean dashboard card — the brief's messy-vs-clean split visual). Hero secondary CTA is now "See how it works ↓" (anchors to `#bakit-setnayan`); the "I'm a vendor →" hero button moved to the VendorBand.
-- **Nav:** mobile/tablet hamburger menu (new client island `_nav-mobile.tsx` — links + Sign in + Start planning sheet under the sticky nav; below `lg` there was previously NO way to reach nav links). Desktop links now `lg`+, search pill `xl`+.
-- **ProblemSection:** re-eyebrowed "Bakit Setnayan?", `id="bakit-setnayan"` anchor, chaos→one-place arrow rotates vertical on mobile with reserved space.
-- **TwoSides → ForCouples:** the vendor half of the old side-by-side is gone from the homepage (couple-centric directive). COUPLE_FEATURES now renders as a 3-col lifted-card grid. `VENDOR_FEATURES` fixture retained (unused by homepage).
-- **NEW VendorBand** (pre-footer, mulberry, full-bleed link): "Are you an event vendor? Run your business here →" + mono proof points (0% commission · free verified badge · one calendar, zero double-bookings). ClosingCTA drops its vendor ghost button (single doorway).
-- **All other sections** (Marketplace / OnTheDay / PersonalSite / DashboardPreview / Pricing / FAQ / Closing / Footer / PromoBar): converted to the fluid `.m-section` + `.m-h-*` system; footer goes 2-col on mobile; promo bar drops detail sentence below `sm`.
-- **/for-vendors:** hero section padding fluid; **operational-wins strip** added under the hero (The ultimate calendar · 0% commission · Verified badge — free · Automated bookings — the four switch-from-Viber reasons, per the brief); 5 fixed `fontSize: 36–44` headings in the deep dive → clamp(); VendorNav made responsive (was fixed `padding: 18px 56px`, wordmark wrapped to 3 lines on phones).
-- **Compliance fix while in the file:** vendor-hero pipeline card claimed "BIR ORs auto-stamped · 24h disbursement" — violates the #1316 BIR-claims purge AND the standing vendor-payment-disclosure rule (Setnayan never holds vendor money). Now: "₱228K · 2 bookings paid / Paid straight to you · Setnayan never holds your money".
-
-**Verification:** `tsc --noEmit` + `next lint` clean on all touched files. Visual pass on local dev (desktop 1280 + mobile 375): hero chaos-vs-clean collage, hamburger menu open/close, Bakit-Setnayan arrow, VendorBand, footer 2-col, /for-vendors wins strip + nav. Production build run locally before PR.
-
-**SPEC IMPACT:** corpus `0015_main_website` describes the pre-redesign homepage — superseded-by-live per the 2026-06-07 source-of-truth flip; logged as a DECISION_LOG row (homepage couple-centric + VendorBand + hero copy) rather than a spec rewrite.
 
 ## 2026-06-13 · fix(seo/content): finish the BIR-claim purge #1316 missed (3 public surfaces)
 
@@ -3527,20 +471,6 @@ Verified: `tsc` + production build clean (no new deps).
 **Verification:** `pnpm typecheck` (2/2 packages) + `pnpm lint` (2/2, FULL TURBO clean) GREEN in a fresh worktree off origin/main. No migration (love_story is JSONB; the `pakanta_intake_drafts` admin-read RLS already exists). Composer is a pure function; the couple page mirrors the `animated-monogram` add-on pattern; the admin page mirrors `/admin/account-deletions` and degrades gracefully if the table is unmigrated. Live render of the couple page left as a preview link for the owner (per verification-economy preference).
 
 **SPEC IMPACT:** Logged as a DECISION_LOG.md row (2026-06-13). Realizes iteration 0036's "the order flow can copy customer_brief from the matching draft" intent via `love_story` instead of a re-interview, and gives Pakanta a live couple surface again (the wizard card was its only entry point). **Deferred (flagged to owner):** optionally add a `pet_names` ("what you call each other") field to the **onboarding** love stage so it's captured in the single interview — today pet names are collected on the Pakanta page itself (or inferred from the love-story in-joke anchor). Suno generation stays a manual music-team step (no per-render AI — locked).
-## 2026-06-13 · feat(dashboard): 4 zero-cost deterministic customer utilities + new planning checklist
-
-**Context:** owner directive — add high-utility, zero-cost, no-external-API automated features to the customer dashboard. Four deterministic pure-logic functions, each wired into its existing view. The codebase already had the data substrates (allocation benchmark engine, guest stats, schedule blocks, statutory deadlines), so three are clean pure-function adds; the fourth (checklist) is a new persisted surface the owner explicitly opted into.
-
-- **`lib/rsvp-projection.ts`** (pure + 5 tests) — `projectAttendance()` returns a **Projected Attendance RANGE** in heads (incl. plus-ones): `low` = confirmed only, `expected` = confirmed + 85% of pending + 50% of maybe, `high` = everyone shows. The 85%/50% are named, owner-tunable constants (`DEFAULT_PENDING_ATTENDANCE_RATE` / `DEFAULT_MAYBE_ATTENDANCE_RATE`), clamped so a bad override can't break the `low ≤ expected ≤ high` envelope. `headcountsFromGuests()` derives precise per-status heads. Wired into the guests-page stats strip ("Projected attendance 80–130 · ~119 likely · plan meals early").
-- **`lib/budget-overspend.ts`** (pure + 5 tests) — `computeBudgetOverspend()` diffs each category's chosen ₱ vs its benchmark and runs a deterministic greedy **absorption plan** naming which under-budget categories cover the excess; `netOverPhp` reports the genuinely-uncovered remainder. Wired into the budget **allocation planner** (benchmark = engine recommendation, actual = the couple's pinned/tilted amount) as a soft banner — emerald when fully absorbable, terracotta otherwise. No new plumbing: reuses the existing `computeBudgetAllocation` per-leaf output.
-- **`lib/emcee-script.ts`** (pure + 6 tests) — `buildEmceeScript()` compiles the saved `event_schedule_blocks` + wedding-party names (`guests.role`) into a formatted host/emcee script, **time-ordered** (re-sorts by `start_at`, since `groupScheduleBlocksByParent` orders by `sort_order` only), parents nesting children, with per-block cues + a roster of named party roles. Copy / download-as-`.txt` button + modal on the schedule page (server action `generateEmceeScript`).
-- **`lib/checklist.ts` + migration `20261208000000_event_checklist_items.sql`** (pure ranking + 6 tests) — **NEW couple planning checklist.** 28-item PH-wedding template seeds on first home open (idempotent); `rankUrgentChecklistItems()` surfaces the **top-3 most time-urgent OPEN items** for the couple's current runway (overdue-first, then soonest-due, undated last). New table mirrors the `guest_groups` RLS pattern (event members read; couples + admins write via `current_event_ids()` / `event_members` couple gate; RLS at CREATE TABLE; type letter `J`; `completed_at` trigger). "Up next" card streams on event-home via its own `<Suspense>` (`ChecklistAsync`) — kept OUT of the home `Promise.all`, graceful-degrades to nothing if the table isn't applied. Toggles are plain `<form action>` server-action submits.
-
-**Verification:** `pnpm typecheck` clean, `pnpm lint` clean (only pre-existing warnings in unrelated files), `pnpm build` green, **22/22 new unit tests** pass. Rebased onto `origin/main` after PR #1320 (revived "Today's one thing" hero) merged — the new "Up next" checklist card coexists with that single-focus hero (both gated off in Manual mode).
-
-**⚠ Migration not yet applied to prod** — `event_checklist_items` needs `supabase db push --db-url "$SUPABASE_DB_URL"`. The checklist card stays hidden (graceful-degrade) until applied; the other three features need no migration and light up on deploy.
-
-**SPEC IMPACT:** New `event_checklist_items` table + couple checklist surface. **Reverses part of the 2026-06-03 "Today's Focus" retirement** — the owner re-opted into a *multi-item checkable checklist* (distinct from the retired single-thing wizard, which stays dead). Logged at the bottom of `DECISION_LOG.md`. Architect-mandate follow-up flagged: an admin master-template editor for the checklist (V1 seeds from the TS template constant) — surfaced to owner, not built this pass. RSVP 85%/50% multipliers are provisional planning assumptions for the holistic pricing/heuristics review.
 
 ## 2026-06-13 · fix(migrations): resolve duplicate timestamp 20261206000000 blocking all PR merges
 
@@ -3566,28 +496,19 @@ Verified: `tsc` + production build clean (no new deps).
 
 **SPEC IMPACT:** Logged as a DECISION_LOG.md row (2026-06-13). The "Today's Focus retired" decision (memory + DECISION_LOG) is amended: the single-focus `pickTodaysOneThing` hero is back (free), and the wizard render layer is gone (no longer "left on disk as quick-revert"). The paid 65-card wizard surface stays retired; no pricing/SKU change. None for the corpus beyond the log row.
 
-## 2026-06-13 · feat(seating): change a table's style after the fact · stage/dance dimensions in metres · easier banquet connect
+## 2026-06-13 · feat(seating): place-then-pick booths — drop a blank pin, then tap to choose what it is
 
-Three owner-directed seat-plan editor additions (2026-06-13):
+**Context:** owner directive — "we will allow them to place a booth and then they will just pick which booth." The Add-booth dropdown made you choose the type up front, disconnected from anything; this flips it to place-first.
 
-- **Change table style** ("they picked long table, then decided to make them round tables — give them the right to do so"). The per-table popup gains a **Style** dropdown (full catalog grouped by shape: round / long banquet / family head / sweetheart / serpentine). New `updateTableType` action resets capacity to the new shape, clears deleted-chair state, and returns any guest sitting in a chair the new (smaller) shape lacks to the unseated pool — the notice reports how many. Position + label are kept.
-- **Stage & dance-floor dimensions in metres.** When a room size is set, the Room panel shows Stage W/L and Dance W/L numeric inputs (metres), converting against the venue dimensions (a 24%-wide stage in a 20 m room reads 4.8 m; typing 8 m sets it to 40%). Free-size venues have no metre scale, so there the drag grips remain the way to size them.
-- **Easier banquet/family-head connect.** The rect end-to-end snap catch radius was a flat 36 px — almost impossible to hit by hand, since a family-head's flush join sits a whole tabletop-length (~250 px) from the neighbour's centre. It now scales with the moving table's half-length (`max(40, halfLen·0.9)`), so dragging two long tables roughly end-to-end snaps them flush. (This compounds with the same-day catapult fix, which previously flung a table away before it reached the join.)
+- **Add booth** is now a single button (no type dropdown): it drops ONE blank pin and immediately opens a "What is this booth?" picker. Tapping any booth later re-opens the picker to set/change its type. Placement reuses the existing wall (sized room) / free-row (open venue) logic.
+- **New `'unassigned'` booth state** (migration `20261209000000`, applied to prod): a blank pin persists, so a half-built plan can be saved and typed later. Renders dashed + "Pick type" with a help icon; `BOOTH_CATALOG` stays the 6 pickable kinds and never offers 'unassigned'.
+- Drag vs tap stays clean — a *moved* booth marks the layout dirty (no picker); only a no-move tap opens the picker.
 
-**Verification:** 42/42 pure-logic tests (1 new: the scaled tolerance catches a half-table-short drag the 36 px default misses, still landing flush). `tsc` clean. Live on the demo event: changed round "Barkada" → long banquet (capacity 8) and reverted; Stage W = 8 m in a 20 m room set the stage to 40%; Style dropdown lists all 11 catalog types. No demo data left changed.
+**⚠ Architecture flag (owner decision needed — surfaced, not resolved):** a SECOND, vendor-linked booth system already exists — `event_floor_objects` (the "Areas & booths" link → `/seating/areas`), with an `event_vendor_id` link to a BOOKED vendor and vendor-side visibility via `get_vendor_seat_plan`. The owner-approved "auto-link booths to booked vendors" is essentially that system. Rather than bolt a duplicate vendor-link FK onto `event_floor_booths`, this PR ships only the place-then-pick interaction (which transfers to either backing table) and leaves the **unify-vs-keep-separate** call to the owner. No vendor link added here.
 
-**SPEC IMPACT:** iteration 0008 — tables are now re-styleable post-creation and the stage/dance floor carry metre dimensions; logged in DECISION_LOG.
+**Verification:** 42/42 pure-logic tests (1 new: catalog offers the 6 kinds, never 'unassigned'). `tsc` clean (pre-existing unrelated satori error only). Live browser on the demo event: Add-booth dropped a blank pin + auto-opened the picker; picking "Mobile Bar" typed it; tapping it re-opened the picker. Migration verified on prod; nothing test-related persisted to the demo DB.
 
-## 2026-06-13 · fix(seating): tables no longer catapult across the room on the first pixel of a drag (worst on round + sweetheart)
-
-**Context:** owner — "round tables and sweetheart table still move to the right when clicked. we want the same as the long table and serpentine tables." Reproduced on the demo event: a 6–8px nudge flung round "Sponsors 1" 63% of the canvas, "Barkada" 56%, Sweethearts 39%, while the rectangular Family Head barely moved (14%).
-
-- **Root cause:** the interactive drag ran the overlap resolver (`nearestFree`) on every pointer-move. If the grabbed table already touched a neighbour, the very first move spiralled it outward to the nearest clear spot — a big sideways jump. It hit round/sweetheart hardest (they collide with everything) and was invisible on banquet/serpentine (same-kind collision is exempt and they snap to joints, both of which bypass the resolver).
-- **Fix:** during a drag the table now follows the cursor directly (alignment + grid snap still applied; chain/kiss snap still applies for connecting). The resolver is no longer run per-move, so nothing teleports. The mount-time auto-place still gives un-positioned tables a non-overlapping home, so nothing lands stacked on load; couples may now place tables touching on purpose.
-
-**Verification:** live on the demo event — a realistic drag of round "Sponsors 1", "Barkada" and "Sweethearts" tracks the cursor (~3% move for a ~24px drag) instead of catapulting 40–65%; instrumented the move handler to confirm the smooth `align` path runs (never the spiral). `tsc` clean.
-
-**SPEC IMPACT:** None (drag-interaction fix). Also unblocks connecting banquet/round tables — the catapult could fling a table away before it reached its neighbour to snap.
+**SPEC IMPACT:** None beyond the 0008 booth surface; refines the add-booth interaction. The two-booth-system unify question is logged for owner sign-off.
 
 ## 2026-06-13 · fix(seating): free-size venues have no walls — booths & doors place freely (gardens / open fields)
 
@@ -3678,22 +599,6 @@ Three owner-directed seat-plan editor additions (2026-06-13):
 **Verification:** brace-balance check on all structurally-edited files (help.ts article removal, _Compliance.tsx) passed; full repo sweep confirms zero remaining served `BIR-compliant` / `₱1,499 (one-time|lifetime) verification` / `Today's Focus` strings (the only `₱1,499` left is the legit shipped Setnayan AI price). Typecheck + lint + prod build run as required CI checks on the PR.
 
 **SPEC IMPACT:** Logged as a DECISION_LOG.md row (2026-06-13). Two reconciliations vs. the corpus: (1) vendor verification is **free during launch** (the corpus/`Pricing.md` ₱1,499 one-time verification SKU is retired in public copy); (2) Setnayan does **not** issue BIR-compliant Official Receipts — only plain itemized order receipts (contradicts iteration 0026 BIR/OR promises, which remain unshipped). **NOT changed here:** the AI-planner price stays at the shipped ₱1,499 — if the owner wants the 2026-06-07 ₱3,999 lock live, that's a separate DB (`platform_retail_catalog_v2`) + copy sync, not a stale-claim fix.
-## 2026-06-13 · feat(admin): /admin/intelligence — churn radar · market pulse · lead scoring (local-DB analytics, zero AI spend)
-
-**Context:** owner request — a high-utility admin analytics dashboard that runs entirely on local database aggregations (no external AI/API costs): (1) churn detection for future-dated events whose couple has gone quiet, (2) market-wide aggregates (planned budgets, top locations, event-type mix), (3) an engagement-based lead-scoring ranking with "Auto-arrange + budget = High-Value Premium Prospect" as the headline signal.
-
-- **Migration `20261202000000_admin_intelligence_analytics.sql`** — three SECURITY DEFINER STABLE RPCs, each guarded by `is_admin() OR auth.role() = 'service_role'` and EXECUTE-revoked from `anon`:
-  - `admin_churn_risk_events(p_stale_days, p_limit)` — non-archived events with `event_date >= CURRENT_DATE` whose owner couple shows zero activity (auth `last_sign_in_at` · guest created/updated · budget line items/payments · seat assignments · event row edits) inside the window. Returns per-signal timestamps + days-inactive.
-  - `admin_market_analytics()` — one-round-trip JSONB: planned-budget aggregates over `events.estimated_budget_centavos` (avg · median · min · max · coverage), top-5 `events.region`, event-type breakdown.
-  - `admin_lead_scores(p_limit)` — 0–100 weighted score from feature adoption (budget set 15 · line items 10 · payments 10 · Auto-arrange 15 · tables 5 · guests 10+5 · vendors 10+5 · website 5 · monogram 5 · active-this-week 5); tiers `high_value` ≥70 / `engaged` ≥40 / `early`. Internal accounts (`users.is_internal`) excluded from churn + leads.
-  - Also: `events.auto_seat_last_used_at` column (stamped by the seating `autoSeatGuests` action so Auto-arrange adoption is a direct signal; ≥10 seat assignments is the proxy for pre-column events) + partial index `events_future_active_date_idx ON events(event_date) WHERE archived = FALSE`.
-- **`lib/admin/intelligence-stats.ts`** — service-role fetch of the 3 RPCs in parallel, wrapped in `unstable_cache` (10-min revalidate · `admin-intelligence` tag), so the DB sees at most ~6 aggregation rounds/hour per window variant regardless of admin traffic. Demo-mode builder mirrors growth-stats.
-- **`/admin/intelligence` page** — server-rendered, no client JS (mirrors `/admin/growth`): churn-window GET-form (7/14/30 days), Churn radar table, Market pulse stat tiles + region/type bar lists, Lead scores table with tier badges + signal chips. Registered in AdminSidebar (Insights group, Radar icon), AdminBottomNav `activeMatch`, and the `/admin/more` accordion.
-- **Migration applied to prod** statement-by-statement via `supabase db query` (ledger drift from parallel sessions blocked `db push`; ledger row `20261202000000` inserted manually). All three RPCs smoke-tested live: market pulse returns real aggregates (7 weddings · avg planned budget ₱2.16M · CALABARZON top region), churn radar 0 rows (all couples active <14d), lead scores rank 3 engaged-tier events.
-
-**Verification:** `pnpm typecheck` + `pnpm lint` green in a fresh worktree off origin/main (lint warnings pre-existing, untouched files); RPCs executed against prod with real data.
-
-**SPEC IMPACT:** new admin surface (#30-class addition to the 0023 Setnayan HQ surface map) + new `events` column. Logged as a `DECISION_LOG.md` row (2026-06-13) per the relaxed corpus-sync mandate; iteration `0023_admin_console` re-sync is part of the in-progress per-iteration AS-BUILT correction pass, not this PR.
 
 ## 2026-06-13 · feat(seo): per-article /help/[slug] URLs — 61 help Q&As become individually indexable
 
@@ -3884,203 +789,56 @@ Three owner-directed seat-plan editor additions (2026-06-13):
 **Context:** owner-approved `Booths_Refinement_Catalog_2026-06-12.md` (spec corpus root). The Booths parent had the marketplace's biggest refinement gap — 7 of 15 tiles with zero refinements — and weak PH-local coverage on the rest.
 
 **What changed:**
-- **Migration `20261130000000_booths_refinement_catalog.sql`** (idempotent ON CONFLICT seeds):
-  - 7 new `onboarding_refinements` leaves keyed by the onboarding PICK_GROUPS keys (`massage_chair` "Wellness Station" · `nail_bar` · `perfume_bar` · `arcade` · `tarot` · `caricature` "Live Art & Calligraphy" · `engraving`), each mapped to its marketplace tile_id.
-  - 42 options under the new leaves + 49 additions to the 8 existing booth leaves (photo_booth +7 incl. **Pabati** · mobile_bar +6 incl. gin bar + lambanog/tuba · coffee +5 incl. kapeng barako · mocktail +4 incl. fresh buko + sago't gulaman · food_truck +4 incl. silog · dessert +6 incl. bibingka & puto bumbong + turon · food_cart +12 incl. taho, kwek-kwek, isaw, mais con yelo, buko shake · henna +5 incl. Indian bridal mehndi). "Other specialty cart" ships photo-less (emoji card) by design.
-  - Retired mobile_bar "Mocktail only" + "Coffee-focused" (capabilities that ARE their own tiles; stored JSONB snapshots unaffected). Coffee "Both" relabeled "Coffee + tea".
-  - "56-pax coaster" → "30-pax coaster" (a Toyota Coaster seats ~29; photo already corrected in PR #1293; new `guest_shuttle/30-pax-coaster.webp` path).
-  - Canonical taxonomy: `donut_wall_display` re-homed food_cart → dessert; **`pabati` canonical inserted** (booths › photo_booth, is_setnayan, per the 2026-06-03 amendment — closes its absence from code AND DB).
-- **`lib/taxonomy.ts`:** pabati canonical + donut_wall_display tile move (mirrors the DB).
-- **`_data/refinements.ts`:** coaster label fixed in the TS fallback. (New leaves intentionally NOT added to the fallback — DB is the live source; fallback covers total-DB-failure only.)
-- **97 new photos** under `public/onboarding/refinements/` (7 leaf headers 900×675 + 90 option cards 480×360): Recraft v3 → LANCZOS → WEBP q82, every one visually verified by reviewer agents (2 retry rounds; PH items held to authenticity — real taho cup, painted sorbetes-style styling, perya banderitas, Tausug-pattern henna, parol-decorated karaoke).
-
-**Verification:** `tsc` clean. Migration NOT yet applied to prod — apply after this PR's deploy so option cards never reference undeployed files (ledger drift workaround: statement-by-statement + manual ledger row, version 20261130000000).
-
-**SPEC IMPACT:** `Booths_Refinement_Catalog_2026-06-12.md` statuses flip ➕→seeded once applied; DECISION_LOG row added. Booths refinement coverage: 49 → 138 active options (PH-local 7 → 22).
-## 2026-06-13 · feat(seating): multi-area blueprints + booth placement — cocktail areas land
-
-**Context:** owner-approved same day ("booth placement means we can extend a blueprint for the cocktail place while waiting for the reception venue? … yes build it"). The classic PH flow — ceremony → cocktail hour while the reception flips → reception — now has a blueprint. Closes the booth-pins deferral from the Phase 4 entry below.
-
-- **Migration `20261202000000_floor_areas_booths.sql`** (APPLIED to prod + ledger row): **`event_floor_areas`** — additional spaces beyond the reception room (cocktail/garden/foyer/ceremony/custom), each optionally tied to a **schedule block** so the area carries its live window ("active during Cocktails 5–7 PM"); **`event_floor_objects`** — free-placed booth/station/bar/dessert/photo-wall pins on an area or on the reception canvas (`area_id NULL`), each optionally linked to the **booked vendor** running it. RLS = the seat-plan family pair (couple Pattern B + Phase 2 delegate `seat_plan` edit). **`get_vendor_seat_plan` v2** adds `areas` (+ window) and `objects` with an **`is_mine` flag** resolved against the caller's booked event_vendor ids.
-- **New couple surface `/dashboard/[eventId]/seating/areas`** ("Areas & booths"): create areas, tie them to a timeline block, and **drag booth pins** on a touch-friendly canvas (pointer-capture drag, optimistic position, one write on drag-end). Pins on the reception room get their own card (tables stay in the main editor — this surface deliberately avoids surgery on the 150KB seating editor). Linked from the Seating header.
-- **Vendor seat-plan viewer**: reception pins render on the floor map; each additional area renders as its own canvas with its live window; the vendor's own pins show as a highlighted **"YOU"** marker plus a "Your spot: Photo Booth — Cocktail garden" banner. The vendor's whole setup question — *where am I, in which space, at what time, through which entrance* — is now one page.
-
-**Verification:** `tsc` clean. Prod-smoked: demo seed on the test event (Cocktail garden + "Grazing & dessert station" pinned to the booked caterer) → impersonated `vendor.test` receives areas + objects with `is_mine=true` ✓.
-
-**SPEC IMPACT:** corpus `03_Strategy/Feature_Access_By_Vendor_Category_2026-06-12.md` § 6/§ 9 — booth-pins deferral closed, superseded by the multi-area model; DECISION_LOG row appended.
-
-## 2026-06-13 · feat(seating): read-only vendor seat-plan viewer — feature-access program Phase 4
-
-**Context:** Phase 4 of the owner-locked feature-access program (corpus `03_Strategy/Feature_Access_By_Vendor_Category_2026-06-12.md` § 6). The published seat plan stops being couple-eyes-only: the caterer counts covers, the venue checks fit, the florist counts centerpieces, the band sees the stage — all without a single guest name crossing.
-
-- **Migration `20261201000000_vendor_seat_plan_viewer.sql`** (APPLIED to prod + ledger row): SECURITY DEFINER RPC `get_vendor_seat_plan(p_event_id)` — same gate pattern as the Brief. Requires: booked org + **floor-touching category** (§ 7 matrix: Feast/Venue/Design/Booths/Program/Documentary + coordinator; Prints/Transport refused with `category_not_floor`) + **`event_floor_plan.published_at` set** (`not_published` otherwise — drafts stay couple+delegate-only). Returns the full published geometry (stage incl. w/h, dance floor, guest + **service entrance**, venue dimensions, every table's x/y/rotation/type/capacity) + per-table **seated counts**, and per-table **meal counts** for food-relevant categories (the caterer's covers sheet — kills the "couple re-types dietary into chat" workflow). No new vendor RLS on seating tables; the gate lives in the function.
-- **New page `/vendor-dashboard/clients/[eventId]/seat-plan`**: positioned floor map (aspect from real venue dimensions when set; round vs rect table shapes, rotation honored, seated/capacity on each table, stage/dance/entrance markers) + a "Covers per table" sheet with meal chips for food categories. Linked from the Brief's seat-plan card once published.
-- **Booth placement pins deferred** (§ 6 last pillar): pinning "Photo Booth — [vendor]" as a first-class floor object needs a new object type in the 0008 editor (150KB client component) — scoped as its own follow-up slice rather than hacked in here; the corpus doc § 9 row carries the note.
-
-**Verification:** `tsc` clean. Prod-smoked: test event's floor plan published (demo data), impersonated `vendor.test` (booked caterer) receives the full plan with 4 tables + `dietary_included=true` ✓; gate errors (`not_a_vendor`/`not_booked`/`category_not_floor`/`not_published`) all route the page back to the Brief.
-
-**SPEC IMPACT:** corpus `03_Strategy/Feature_Access_By_Vendor_Category_2026-06-12.md` § 9 Phase 4 → BUILT (booth pins deferred); DECISION_LOG row appended.
-
-## 2026-06-13 · feat(timeline): shared day-of timeline + vendor Suggest flow — feature-access program Phase 3
-
-**Context:** Phase 3 of the owner-locked feature-access program (corpus `03_Strategy/Feature_Access_By_Vendor_Category_2026-06-12.md` § 4). One timeline, three lenses: couple + delegate edit, booked vendors view FULL + suggest (locked D2), guests read the public blocks (0031, unchanged).
-
-- **Migration `20261130000000_shared_timeline_suggestions.sql`** (APPLIED to prod + ledger row): `current_vendor_booked_event_ids()` helper; booked vendors get live SELECT on `event_schedule_blocks` (full timeline per locked D2; vendor surfaces never select couple-private `notes`); new **`event_schedule_suggestions`** — vendors PROPOSE (`kind adjust|new`, proposed label/times/location + required note), couple or schedule-edit delegate RESOLVE (`open→accepted|declined`). No vendor writes to the timeline ever — suggestion rows only, per the conflict-architecture lock. RLS: vendor insert gated on booked + own org + own user; vendor reads own org’s rows; couple + moderators read all; resolution couple or `moderator_area_level(…,'schedule')='edit'`.
-- **Vendor Brief page** (`/vendor-dashboard/clients/[eventId]`): timeline card is now LIVE rows (block ids) with per-block "Request a change" (note + optional proposed window), "Suggest a new timeline entry", a "Your requests" status list (open/accepted/declined), and **"Add to calendar"** → new **`calendar.ics` route** (per-vendor ICS feed of the timeline; RLS booked gate — empty set → 404).
-- **Couple Schedule page**: "Vendor requests" queue on the Event-Day view — Accept applies the proposal (adjust → patches the block; new → creates a **private draft** block, `is_public=false` so guests see nothing until the couple flips it) · Decline just flips status. `resolveScheduleSuggestion` runs under RLS (couple or schedule-edit delegate).
-
-**Deliberately deferred:** vendor own-slot pinning (needs block↔vendor assignment — lands with Phase 4 booth pins) · suggestion withdraw by vendor (V1 state machine is one-directional) · notification fan-out on new suggestions (0028 template follow-up).
-
-**Verification:** `tsc` clean. Prod-smoked: impersonated `vendor.test` reads the full test-event timeline (D2) and inserts a suggestion via RLS ✓; impersonated `couple.test` reads + declines it ✓.
-
-**SPEC IMPACT:** corpus `03_Strategy/Feature_Access_By_Vendor_Category_2026-06-12.md` § 9 Phase 3 → BUILT; DECISION_LOG row appended.
-
-## 2026-06-12 · feat(vendor): Vendor Event Brief — Phase 1 of the feature-access-by-category program
-
-**Context:** owner-locked design session 2026-06-12 (corpus `03_Strategy/Feature_Access_By_Vendor_Category_2026-06-12.md`, D1–D5 all settled). Today a booked vendor sees nothing of the couple's planning; the Brief closes the biggest gap with zero new write paths — pax, palette, monogram, timeline, seat-plan status in one card.
-
-- **Migration `20261128000000_vendor_event_brief.sql`** (APPLIED to prod statement-by-statement + manual ledger row — standing parallel-session ledger drift): SECURITY DEFINER RPC `get_vendor_event_brief(p_event_id)`. Caller resolves to vendor org(s) via `vendor_profiles.user_id` ∪ `vendor_team_members`; **booked gate** = live `event_vendors` row in `contracted/deposit_paid/delivered/complete` linked via `marketplace_vendor_id`. Returns aggregates only — **guest PII never crosses** (counts, never rows; RA 10173 § 8 of the locked doc). Dietary/meal counts only for food-relevant categories + coordinator (`catering`, `cake_maker`, `mobile_bar`, `venue`, `planner_coordinator`). Full day-of timeline per **locked D2** (couple-private block `notes` excluded). `REVOKE` from PUBLIC/anon, grant to `authenticated`.
-- **New page `/vendor-dashboard/clients/[eventId]`**: the Brief card — headcount (attending/invited + RSVP breakdown), meals card (caterer-only) with restriction-notes nudge, palette swatch strips (ceremony/reception/bride/groom/guest dress code/role families from `role_palette`), monogram (custom SVG falls back to styled text), full day-of timeline, seat-plan status chip (published/tables/seated). "Event brief" link added per booked event group on `/vendor-dashboard/clients`.
-- **Deliberately deferred:** crew-meal total (bookings carry no service linkage yet — needs the booking→`vendor_services` link), per-category Brief field raise/lower (rides the Phase 2 grants substrate), seat-plan floor-plan viewer (Phase 4).
-
-**Verification:** `tsc` + `next lint` clean. Prod-smoked end-to-end: impersonated `vendor.test` (linked as the test event's booked caterer "Grazia Catering" — demo now live for the test account) → full brief JSON returned (pax 234/280, palettes, monogram M&J, 6 timeline blocks); `couple.test` impersonation correctly refused `not_a_vendor`.
-
-**SPEC IMPACT:** corpus `03_Strategy/Feature_Access_By_Vendor_Category_2026-06-12.md` § 9 Phase 1 → BUILT (edited directly per standing authorization); DECISION_LOG row appended.
-
-## 2026-06-12 · fix(seating): confirm before deleting a table with seated guests
-
-**Context:** follow-up flagged while verifying the owner's "deleting a table releases guests to unseated" question — the release works (DB `ON DELETE CASCADE` on `event_seat_assignments`), but every delete control fired in one tap, silently unseating everyone at the table. Mis-taps on phones made that a real risk.
-
-- **New guard `requestRemoveTable`** in `seating-editor.tsx`: empty tables keep one-tap delete; a table with 1+ seated guests opens a confirm dialog first — "Delete {name}? N seated guest(s) will go back to Unseated." All four delete entry points route through it (sidebar row, phone bottom-sheet toolbar, desktop popover, list view).
-- **Dialog follows the editor's responsive convention:** bottom sheet on phones (`items-end`, full-width 44px buttons, safe-area padding) and a centered card on `md:`+ — markup mirrors the existing auto-seat confirm (z-[60] overlay, backdrop-tap + Cancel to dismiss). Linked tables show the unit name (`link_group_label`).
-- No schema, no server-action changes — `deleteTable` and the optimistic `applyTableOpt` delete are untouched; the dialog only gates when they fire.
-
-**Verification:** `tsc` + `next lint` clean on the touched file. Auth-gated surface — visual check on the live demo event after merge.
-
-**SPEC IMPACT:** None (0008 spec doesn't specify delete confirmation; pure UX guard, no behavior change for empty tables).
-
-## 2026-06-12 · fix(seating): resize grips get a recognizable diagonal-arrows icon
-
-**Context:** owner feedback while reviewing the live editor — the bare corner grips (small bordered squares / "vertical rectangle") on the stage, dance floor, and room corner don't read as "resize"; replace them with an explicit resize icon.
-
-- All three SE corner grips (stage · dance floor · to-scale room corner) now render a `Maximize2` diagonal double-arrow icon (rotated 90° to match the ↘ `nwse-resize` axis) inside a slightly larger 20px cream chip — stage keeps its terracotta accent, dance floor mulberry, room ink-with-terracotta-hover. Stage + dance grips also gain `title` tooltips matching the room handles' existing pattern.
-- Pointer handlers, positioning anchors, and the room's edge pills (width/length) are untouched — purely a visual-affordance change on the grip buttons. `Maximize2` was already imported in `seating-editor.tsx`; no new imports.
-- Verified in the same session: deleting a table already releases its guests to the unseated pool by design (`event_seat_assignments.table_id … ON DELETE CASCADE`, migration `20260513090000`) — no code change needed for that owner question.
-
-**Verification:** `tsc` clean on `seating-editor.tsx` (worktree's 3 pre-existing missing-module errors are stale local node_modules, not CI). UI-only; auth-gated surface — visual check on the live demo event after merge.
-
-**SPEC IMPACT:** None (visual affordance only; 0008 spec doesn't pin grip glyphs).
-## 2026-06-12 · feat(vendor): universal "All schedules" calendar view — PR 4 of the schedule-pool program
-
-**Context:** owner asked "does the vendor have a universal scheduler also?" — the calendar shipped per-pool tabs only. This adds the whole-business view.
-
-- **"All schedules" tab** (default view for multi-schedule vendors; single-schedule vendors land on their one pool): every pool's day state stacked per day — compact chips `TAG n/cap` (amber partial · terracotta full) and `TAG ✕` closed, with an all-pools-closed day collapsing to one "Closed" badge. Open days stay visually quiet; legend below the grid maps tags to schedules.
-- Block + import forms become pool-aware in the universal view (scope/pool selects across every schedule; block scope defaults to business-wide there); upcoming list spans all pools with per-entry schedule labels.
-- Pure page-level change (`calendar/page.tsx`): day-state computation refactored to per-pool maps (`buildDayStates`) shared by both views. No schema, no action changes.
-
-**Verification:** `tsc` clean (non-e2e) · `next lint` clean.
-
-**SPEC IMPACT:** folded into the program's architecture-doc §11 row (universal view noted).
-
-## 2026-06-12 · feat(vendor): Calendar + Clients surfaces — PR 3 of the schedule-pool program
-
-**Context:** the vendor-facing half of the owner-locked 2026-06-12 scheduling model. `/vendor-dashboard` had no calendar or client-book surface at all — blocks existed only as a table. Two new routes + sidebar entries (Work group).
-
-- **`/vendor-dashboard/calendar`:** one calendar, one tab per schedule pool (the "new category shows a new schedule" rule made visible; merged pools read as "Photo Video · Same Day Edit"). Month grid with day states — `n/capacity` consumed (booked + imported clients) · Closed (own block, pool-scoped or business-wide) — plus: daily-capacity editor (clamped to the tier's `slotsPerDay` ceiling), Block-dates form (pool-scoped or org-wide; couples only ever see "unavailable"), Import-outside-client form, upcoming list with Remove, and the **merge UI** ("Which categories share this team?" — point a category at another pool / its own new one; orphaned pools deactivate, never delete — history kept).
-- **`/vendor-dashboard/clients`:** the book of business in three buckets — **Booked via Setnayan** (live pool reservations grouped by event, chat deep-links), **In conversation** (accepted threads not yet booked), **Outside clients** (imported externals with remove + import form). Copy states the boundary: outside clients hold dates but are NOT app clients — no thread, no stats, no reviews.
-- **`lib/vendor-schedule.ts` (new):** pool fetch with lazy bootstrap (every active service category + linked category materializes its pool on first visit), live-booking fetch enriched with event names + thread ids via the admin client (vendor is party to the booking but holds no events RLS), block fetch normalized to PH civil-day ranges.
-- **Migration `20261127000000_external_client_import.sql`** (applied to prod + ledger row, same statement-by-statement fallback): `import_external_client()` DEFINER RPC — ownership-checked, pool-validated, inserts the `external_client` block AND burns the tier-matrix **1-token import fee** (`importCustomerTokenCost`, all tiers) via `consume_vendor_assets_per_voucher` **atomically** (insufficient balance RAISES → block rolls back; app maps it to a top-up nudge linking /vendor-dashboard/tokens).
-- Server-rendered forms throughout (zero new client JS); feedback via `?notice=` codes.
-
-**Verification:** `tsc` clean (non-e2e) · `next lint` clean on all five touched files. RPC applied + verified on prod.
-
-**SPEC IMPACT:** corpus architecture doc §11 phase-3 build-state + DECISION_LOG completion row (applied with this program's docs pass).
-
-## 2026-06-12 · feat(scheduling): wire booking transitions to schedule pools — PR 2 (consume/release)
-
-**Context:** PR 2 of the schedule-pool program (PR 1 = `20261126000000` schema, applied to prod). Wires the owner-locked white/BOOKED doctrine into the only writer of booked statuses: white (considering..contracted) stays unlimited and consumes nothing; the pool acquire fires on the BOOKED transition; releases are status-flips, never deletes.
-
-- **`lib/schedule-pools.ts` (new):** `resolvePoolIdsForService` (service's leaf category + every linked "comes with" category → pool ids via `resolve_schedule_pool`; merged categories dedupe to one pool — bundles lock every pool they span) + typed `acquireSchedulePools` / `releaseSchedulePools` RPC relays. All capacity math stays in the SECURITY DEFINER RPCs (conflict-audit doctrine: only the DB serializes).
-- **`updateVendorStatus`:** white→BOOKED transition (deposit_paid/delivered/complete) on a marketplace-linked row with a booked service now acquires the service's pools BEFORE the status write — `full`/`blocked` surfaces a plain-English error naming the pool instead of silently double-booking; `no_date`/`no_pools` degrade open (eventual-consistency doctrine — the atomic gate engages once a day-precise date exists). BOOKED→white downgrade releases with reason `status_downgrade`; a failed status write after a successful acquire releases immediately (no phantom holds).
-- **`deleteVendor`:** booked rows (deposit_paid+) can no longer be hard-deleted from the tracker — routed to the cancel/dispute flow (conflict-audit finding #6). Stray live reservations released with an auditable reason before any delete (a hard delete would CASCADE them silently).
-- **`cancelBookingAsHost`:** defensive `release_schedule_pools('host_cancelled')` before the row delete (pre-payment rows normally hold nothing; belt-and-suspenders for downgrade leftovers).
-
-**Out of scope (queued):** pool-scoped displacement of competing inquiries + the one-broadcast notification (needs thread→service linkage — inquiry-lifecycle phase); the event_vendors hard-delete→archive sweep (101 read sites, needs a default-filter pass); vendor Calendar/Clients UI (PR 3).
-
-**Verification:** `tsc` clean (non-e2e) · `next lint` clean on both touched files. No migration (rides PR 1).
-
-**SPEC IMPACT:** none beyond PR 1's (same corpus rows cover the wiring); architecture doc §11 phase-3 build-state updated when the program completes.
-
-## 2026-06-12 · feat(scheduling): per-category schedule pools + multi-pool atomic acquire — PR 1 (schema substrate)
-
-**Context:** owner-locked 2026-06-12 scheduling architecture (corpus `Customer_Vendor_Marketplace_Architecture_2026-06-04.md` §4/§5a + DECISION_LOG row). The schedulable resource becomes the **(org, leaf-category) pool**: every service a vendor files under one category shares ONE schedule; a new category = a new independent schedule; merged categories ("same team serves both") = two mapping rows → one pool. Substrate-first migration (cf. `20260627010000`) — code PRs follow.
-
-- **Migration `20261126000000_schedule_pools.sql`** (applied to prod statement-by-statement via `db query` + manual ledger row — remote ledger has 3 parallel-session versions not on main, so `db push` refuses; same fallback as `20261115000604`):
-  - `vendor_schedule_pools` — pool-grain capacity (`daily_booking_capacity` default 1, CHECK 1–50), RLS owner-ALL + published-public-read (mirrors `vendor_services`).
-  - `vendor_schedule_pool_categories` — category→pool resolution, PK (vendor, category_key); merge = N categories → 1 pool. Canonical leaf TEXT vocabulary (same as `vendor_services.category`, never an enum).
-  - `vendor_schedule_pool_bookings` — the ONLY capacity-consuming rows; partial-unique live row per (pool, event_vendor); **released via `released_at` + reason, never DELETE** (revive + audit substrate). No write policies — writes go exclusively through the DEFINER RPCs (conflict-audit doctrine: only the DB can serialize).
-  - `vendor_calendar_blocks` + `pool_id` (NULL = org-wide closure) + `client_name/contact/note` + `block_source='external_client'` (vendor's off-app booking: pool-scoped by CHECK, consumes 1 capacity unit; NOT an app client — no thread/stats/reviews; couples still see only "unavailable").
-  - **`acquire_schedule_pools(event, event_vendor, pool_ids[])`** — the multi-pool ALL-OR-NOTHING atomic acquire (owner verbatim: "bundles mean they lock both schedules for both category"): deterministic-order `FOR UPDATE` on every pool row (no deadlock between concurrent bundles) → closure-block check → occupancy (live reservations + external-client jobs) → consume all or none. Degrades open without a day-precise date (eventual-consistency doctrine; the atomic gate is the booking).
-  - `release_schedule_pools(event_vendor, reason)` — status-flip release; couple-or-vendor authorized.
-  - `resolve_schedule_pool(vendor, category)` — lazy pool bootstrap (advisory-lock serialized), creation bounded to the vendor's own catalog.
-  - `chat_inquiry_status` enum + `displaced` / `withdrawn` / `expired` (inquiry lifecycle = status-flip never hard-delete; `expired` replaces the "auto-deleted" 30-day wording).
-
-**Verification:** all 45 statements applied clean to prod; RPC presence + 6 enum labels + constraint set verified via `db query`. Schema-only PR — no app behavior change until PR 2 wires `finalizeVendor`/cancel paths and PR 3 ships the vendor Calendar/Clients surfaces.
-
-**SPEC IMPACT:** corpus architecture doc §4/§5a/§10/§11 + DECISION_LOG 2026-06-12 row (landed in the same owner session that locked the rules); memory `project_setnayan_booking_ruleset` updated.
-## 2026-06-12 · fix(onboarding): refinement photo accuracy pass — 42 images regenerated + Reception leaf gets its own header
-
-**Context:** owner asked to verify every taxonomy refinement photo depicts the labeled offering. Full audit of all 251 DB-referenced onboarding refinement images (38 tiles: leaf `_main` headers + option cards) against `onboarding_refinements` / `onboarding_refinement_options` labels.
-
-**What changed (42 .webp files under `apps/web/public/onboarding/`, same paths so no DB changes for 41 of them):**
-- **6 outright-wrong images replaced:** `hmua/traditional` (showed heirloom accessories, zero makeup) · `food_cart/halo-halo` (western parfait, not halo-halo) · `performers/folk-dancers` (terno exhibit, nobody dancing → now tinikling mid-performance) · `photo_booth/360-booth` (no rotating arm → now platform + boom arm) · `printing/save-the-date` (keepsake calendar with garbled text → clean "Save the date" card) · `guest_shuttle/56-pax-coaster` (full-size coach indistinguishable from 48-pax sibling → now a true Coaster-style minibus).
-- **8 garbled-AI-text images replaced** (gibberish lettering at focal point): `printing/signage` (now legible "WELCOME") · `photo_video/_main` · `photo_booth/_main` · `choreographer/_main` · `coordinator/destination` · `coordinator/full-service` · `coordinator/month-of` · `catering/halal`.
-- **28 unclear/confusable images replaced** — PH-authenticity upgrades (`food_cart/sorbetes` now the iconic painted pushcart · `food_truck/filipino-street-food` now fishballs/kwek-kwek/banana cue · `souvenirs/native-filipino` now abaca fans + bayong + capiz · `henna/philippine-muslim` now Tausug/Maranao-style with dyed fingertips and okir motifs · `cuisine_filipino` now lechon-centered · `wedding_singer/opm` + `dj/opm` now parol-decorated) · sibling-confusion fixes (`groom_attire/classic-suit` + `slim-fit-suit` no longer read as three-piece · `dessert/pastries` no longer cupcake-like · `bride_attire/a-line` full silhouette · `choir/string-quartet` now exactly four players · `dj/k-pop` lightstick staging · `mobile_bar/beer-wine` shows both · `mocktail/dessert` + `mobile_bar/mocktail-only` purged of alcohol bottles) · clarity fixes (`filipiniana/jusi`, `coffee/both`, `stylist/themed`, `performers/rondalla`, `setting_events_place`, `cuisine_fusion`, `cuisine_spanish`, `wedding_singer/ballads`, `bridal_car/motorcycle-escort`, `photo_booth/gif`, `coordinator/partial`).
-- **New `refinements/reception/_main.webp`** + migration `20261126000000_reception_refinement_main_photo.sql`: the Reception leaf's `main_photo` previously reused `/onboarding/prefs/setting_ballroom.webp` — the exact file on its own "Hotel ballroom" option card.
-
-**Pipeline:** Recraft v3 `realistic_image` @1365×1024 → LANCZOS downscale to the existing 480×360 (options) / 900×675 (leaf mains) → WEBP q82. Every replacement visually verified (2 retry rounds for vest/bottle/text/mirror failure modes).
-
-**Verification:** static assets only + one idempotent data UPDATE; all 42 replacements eyeballed against labels; 209 of 251 audited images judged accurate and left untouched.
-
-**SPEC IMPACT:** Corpus DECISION_LOG row (photo-accuracy audit, 2026-06-12). Owner flag: the `guest_shuttle` option label "56-pax coaster" is implausible — a Toyota Coaster seats ~29; label fix needs an owner call (photo now shows a real Coaster).
-
-## 2026-06-12 · feat(vendors): Compare — available wedding dates per saved build (takeover spec §4)
-
-**Context:** owner sequential-run item; the last designed-not-built piece of the takeover spec's Compare section. The spec reverses the usual order — *build the vendor combination first, then see which dates the whole team can do* — for couples who came in with a flexible date (year/month precision).
-
-- **New footer row in Compare's table:** per column (each saved build + Current), the day-intersection of that build's CONNECTED vendors' calendars inside the couple's window — "12 days free · Nov 14 · Nov 21 · Nov 28 +9". Empty intersection → the spec's never-blank copy naming the first vendor pair with no overlapping date: *"No single date works — X and Y don't overlap. Swap one."* Columns with no connected vendors show a dash (manual/off-platform picks have no calendars and never constrain).
-- **`getAvailableDaysForVendorSet` (new, `lib/vendor-availability.ts`):** the per-vendor-set sibling of `getCommonAvailableDays` (which is hardwired to the event's CONFIRMED vendors). Takes an explicit `{profileId, name}[]`, computes per-vendor blocked-day sets, the intersection, and the conflict pair. Reads blocks via the caller-supplied client — the page passes the ADMIN client because 0022 § 2.3 RLS only opens calendars after a booking and a build is pre-booking by definition (the spec's whole point). **Aggregate-only surfacing** mirrors the §6a eyeing-count posture: day counts + the spec-required conflict pair, never a vendor's raw calendar.
-- Gated exactly like the Lock tab's availability panel: fires only at year/month date precision; day-precise or missing dates hide the row entirely.
-
-**Verification:** `tsc` clean · `next lint` clean. Read-only feature (no writes); ≤4 columns × one batched blocks query each per page load.
-
-**SPEC IMPACT:** Takeover spec §4 "Compare shows the available wedding dates per build" → BUILT. Corpus DECISION_LOG row with the sequential-run batch.
-
-## 2026-06-12 · feat(vendors): category-satisfaction — covered categories stop showing "Not started"
-
-**Context:** owner sequential-run item; the shared follow-up cut from PR #1274. A committed pick whose package "comes with" another category (marketplace `vendor_service_links` OR host-authored covers for manual vendors) previously had NO effect on that category's state — the cake slot still said "Not started" and Build's Flag/Compute still tried to fill it, even when the caterer's package includes the cake.
-
-- **Model (`vendors-plan-budget.ts`):** `linked_services` entries gain an optional `groupId` (the covered plan group); a post-build coverage pass marks EMPTY categories `coveredBy: { vendorName, fromGroupLabel }` when a **committed** pick (in the build, or locked) elsewhere covers them. Shortlist-only candidates never cover (5 shortlisted caterers ≠ cake handled); own candidates win over coverage (non-empty children skip the badge).
-- **Page (`vendors/page.tsx`):** marketplace link rows resolve `linked_canonical_service` → plan group via `canonicalServiceToPlanGroupId`; host covers (already group ids) carry theirs directly. Build's `openCats` excludes covered children → the Flag list and Compute no longer offer/fill categories another package already includes.
-- **Shortlist UI (`plan-budget-accordion.tsx`):** the leaf header shows a green "✓ covered" badge (with the coverer in the tooltip) instead of "Not started"; the opened empty state explains — "Covered by {vendor} — their {group} package already includes this" — while keeping Find/Add available. **Informational, never a gate** (consistent with the takeover spec's never-block doctrine).
-
-**Verification:** `tsc` clean · `next lint` clean. No schema (rides the existing links + covers columns); no behavior change for categories with their own candidates.
-
-**SPEC IMPACT:** Corpus DECISION_LOG row with the sequential-run batch (closes the "covered category still shows open" gap flagged in the #1274 row for BOTH marketplace and DIY paths).
-
-## 2026-06-12 · feat(0012): Salamisim P3 — /dashboard/[eventId]/live day-of console
-
-**Context:** P1 parked the wall controls in a small card on the Papic add-on page; running the wall at a real reception (coordinator standing at the projector, couple mid-program) needs one dedicated screen. P3 is that screen — composed entirely from shipped pieces, no forked logic.
+- New file `apps/web/lib/vendor-activity.ts` — server-only score recomputation module.
+  - Pure helpers (all exported for testability, zero side effects):
+    - `computeBayesianReviewAvg(reviews, priorMean?, priorWeight?)` — Bayesian avg with prior mean=4.0, weight=10; scales to [1,5]
+    - `computeLoginDecayScore(lastLoginAt)` — linear 100→0 over 60 days; null → 100 (new account benefit-of-doubt)
+    - `computeCoupleTrustScore(params)` — 40% review + 30% reliability + 30% responsiveness
+    - `computePlatformHealthScore(params)` — 40% trust + 20% login-decay + 15% finalized + 15% inquiry-pct + 10% referral
+    - `computeQualityScore(coupleTrust, platformHealth)` — 70% / 30% composite
+  - `recomputeVendorActivityStats(vendorProfileId)` — full recompute + upsert into `vendor_activity_stats` using `createAdminClient()` (service-role, bypasses RLS)
+  - `triggerVendorActivityRecompute(vendorProfileId)` — fire-and-forget wrapper for `after()` / `waitUntil` use; catches and logs errors, never throws
+- Schema findings (actual column names discovered during build):
+  - `vendor_reviews`: `rating_communication`, `rating_quality`, `rating_value`, `rating_on_time` (NOT `communication_rating` etc.)
+  - `event_vendors` PK: `vendor_id` (not `event_vendor_id`)
+  - `force_majeure_flags.event_vendor_id` → `event_vendors.vendor_id` (two-step join for vendor cancellation count)
+  - `vendor_profiles.user_id` → `auth.users.id` (used to resolve `last_sign_in_at` via admin API)
+  - `vendor_activity_stats.last_active_at` (not `last_login_at`) — set from `auth.users.last_sign_in_at`
+- Stubbed with `// TODO:` comments:
+  - `avg_response_minutes` = 0 until `chat_threads` / `chat_messages` gets a `vendor_first_reply_at` column
+  - `inquiryToBookingPct` uses approximation (`finalized / total_threads`) until `chat_threads → event_vendors` join exists
+  - `referralScore` = 0 until vendor referral tracking is implemented
+
+**Files:** `apps/web/lib/vendor-activity.ts` (new)
+
+**SPEC IMPACT:** Implements §2–§5 of `Vendor_Quality_Rating_System_2026-06-17.md` (score formulas, recompute trigger architecture). No new DB schema. Three stubs (`avg_response_minutes`, `inquiry_to_booking` exact join, `referralScore`) noted in TODO comments — schema additions needed before those can be exact.
+
+---
+
+## 2026-06-17 · feat(0011 Panood): upgraded YouTube live broadcast — foundation (step 1/3)
+## 2026-06-17 · feat(explore): quality_score sort + vendor partnership badges + activity chips (PR #6 of vendor-quality series)
+
+**Context:** Migration series PRs #1 (vendor_activity_stats) and #5 (vendor_partnerships tables) landed but weren't yet wired into the Explore search surface. This PR connects them.
 
 **What changed:**
-- **`/dashboard/[eventId]/live`** (new page, couple OR coordinator — the same authority every wall RPC already checks): status header (tiles on wall / hidden / screens connected) · **lifecycle mode control** (Auto · Teaser · Live · Recap — writes `events.live_mode_override`; Auto = NULL, server derives from the event date; the two real day-of moments are "open the wall early" and "freeze to recap when the program ends") · **FaceBlock posture strip** (when ≥1 guest has FaceBlock on: explains every photo projects blurred + shows blur-ready coverage of recent tiles, so "why is the wall thin?" is answerable at a glance) · the P1 `LiveWallControls` reused at 60 tiles (screen codes + per-tile hide/unhide kill switch) · the Kwento approval queue reused inline · projector URL hint. Events without LIVE_WALL get a quiet add-on doorway (no price copy — catalog reads at purchase surfaces).
-- **`live/actions.ts`** — `setWallMode` (membership check couple/coordinator at app level + admin-client write, since the shipped `couple_can_update_event` RLS policy is couple-keyed; documented).
-- **Nav:** "Live Wall" entry in the Share group (`customer-nav-config.ts`, MonitorPlay icon) — safe for every event because the page degrades to the doorway.
-- **Shared actions now dual-revalidate** (`revalidateWallSurfaces` / `revalidateKwentoSurfaces`): the wall + kwento actions refresh BOTH the add-on card and the /live console.
 
-**Verification:** tsc + lint clean. No migration, no new lib logic (composition only); all 4 existing suites untouched.
+**`apps/web/app/explore/page.tsx`**
+- Added `quality_score`, `finalized_booking_count`, `last_active_at`, `avg_response_minutes`, and `partnership_badge` fields to `VendorCardRow` type.
+- Extended the `Promise.all` enrichment block from 5 to 7 parallel reads (reads 6 and 7 are new):
+  - Read #6: `vendor_activity_stats` — fetches quality scores + activity signals for all visible vendor IDs.
+  - Read #7: `vendor_partnerships` — resolves partnership badges for visible vendors against the couple's shortlisted vendors (`status IN ('shortlisted','contracted','deposit_paid','delivered','complete')`, `admin_verified=true`, `is_active=true`). Fail-soft: empty map = no badges.
+- Added new in-memory sort pass (runs after relationship-depth sort, before Phase C rating/review re-sort). Priority stack: `is_setnayan_service DESC` → `ad_rank DESC` → partnership priority (sponsored_included=4 / sponsored_discounted=3 / accredited=2 / general=0) → `quality_score DESC` (missing → default 50 mid-range per spec).
+- Enriches each visible row with activity stats + partnership badge.
 
-**SPEC IMPACT:** 0012 Salamisim section — P3 shipped (the "full /live control tab + Kwento lower-thirds" build-order row: lower-thirds shipped with Kwento P2; the control tab is this). Landing direct in corpus (DECISION_LOG + 0012 .md + .docx).
+**`apps/web/app/explore/_components/vendor-card.tsx`**
+- Added `quality_score`, `finalized_booking_count`, `last_active_at`, `avg_response_minutes`, `partnership_badge` fields to `VendorCardData` type.
+- Added `PartnershipBadge` component: `sponsored_included` → teal "Included with [Venue] · No extra fee"; `sponsored_discounted` → teal "Preferred partner of [Vendor] · X% off"; `accredited` → indigo "Accredited by [Vendor]"; `general` → subtle grey "Recommended by [Vendor]".
+- Added `ActivityBadges` component: "Usually responds in Xh" (green, < 4h + active ≤ 7d); "Low recent activity" (amber, > 60d inactive); experience tiers Established/Experienced/Expert/Elite from `finalized_booking_count`.
+- Added `Zap`, `Clock`, `AlertCircle` Lucide imports.
+
+**Files changed:** `apps/web/app/explore/page.tsx` · `apps/web/app/explore/_components/vendor-card.tsx`
+
+**SPEC IMPACT:** Implements §6–§7 of `Vendor_Quality_Rating_System_2026-06-17.md` (search surface wiring). The quality_score composite formula ships in PR #5's recompute module; this PR wires the output to sort and card badges. No schema changes — reads existing `vendor_activity_stats` + `vendor_partnerships`. No corpus edit required.
 
 ---
 
@@ -4113,17 +871,6 @@ Three owner-directed seat-plan editor additions (2026-06-13):
 **SPEC IMPACT:** 0012 Salamisim section — P2 shipped (blur pipeline + per-row baked gates + couple toggle + re-bake sweep); the "FaceBlock ship gate" advisory updates from "P2 unbuilt — wall withheld on FaceBlock events" to "P2 LIVE — FaceBlock events project blurred derivatives". Residual-risk posture (detector recall is not perfect; fail-closed + kill switch + moderated surface) documented in the spec. Landing direct in corpus (DECISION_LOG + 0012 .md + .docx).
 
 ---
-## 2026-06-12 · feat(panood): Watch-Live on the guest day-of page + the first REAL persistence on the Panood setup surface
-
-**Context:** Owner: *"panood … must be on the on-the-day part"* — slice 3 (final) of the §7.5 on-the-day trio. Blocker found honestly: the Panood setup page's `youtubeWatchUrl` was a mock (`null`, no storage). This lands the storage, the couple-side field, and the guest block.
-
-- **Migration `20261122000000_panood_watch_url.sql` (applied to prod, ledger synced):** `events.panood_watch_url TEXT` — the canonical YouTube watch URL; written manually by the couple now, by the broadcaster auto-creation (YouTube Data API) later. *(Ledger note: remote-only `20261115000604` from a parallel session handled via the local-stub pattern; only this migration applied.)*
-- **`lib/panood-watch.ts` (new, pure):** `parseYouTubeVideoId` (watch?v= · youtu.be · /live/ · /embed/ · /shorts/ · scheme-tolerant) + `normalizeYouTubeWatchUrl` (canonical https form) + `youTubeEmbedUrl` (youtube-nocookie). **Normalize-or-reject is the injection barrier** — this value renders in an iframe on the public page. 4/4 unit assertions incl. the reject contract (evil hosts, javascript:, oversized ids).
-- **Panood setup page:** Step-5 box gains a real **"Save watch link"** field (host-guarded actions in `setup/actions.ts`; saved/error flags; Remove link) — the first real persistence on this otherwise-mock surface; the saved URL replaces the mock in the display.
-- **`app/[slug]/page.tsx`:** during the live window, with `PANOOD_SYSTEM` active + a staged URL → **Watch Live leads the page** (above the pinned schedule on the guest path; FIRST block on the anonymous path — the cookie-less remote relatives clicking from Messenger are exactly who this is for). youtube-nocookie embed + "Open on YouTube".
-
-**Verification:** `tsc` clean · 4/4 parser spec green · migration applied + ledger synced. **SPEC IMPACT:** §7.5 Panood row, live half — DECISION_LOG row added.
-
 ## 2026-06-12 · feat(website): per-guest LIVE gallery — "photos of you, so far" on the day-of page
 
 **Context:** Owner: *"the gallery must be on the on-the-day part"* — slice 2 of the spec §7.5 service stage. The wall mirror (prior entry) is the SHARED half; this is the PERSONALIZED half: while the wedding runs, a cookie-session guest sees the photos **they are tagged in** arriving through the day — the live form of the post-event "your photos" delivery, and personalization no competitor ships.
@@ -6099,19 +2846,6 @@ The takeover now has 4 of 5 tabs real (Summary · Shortlist · Build · Lock); *
 **Verify:** `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · `next build` ✓. Behind `BUDGET_BUILD_ENABLED` (default OFF) → zero production change.
 
 **SPEC IMPACT:** Phase 5 (core) of `Budget_Build_Services_Takeover_2026-06-08.md`. Logged in `DECISION_LOG.md`.
-## 2026-06-07 · feat(admin-pricing): per-SKU cost + margin column, editable cost + active toggle (0023)
-
-**Context:** `/admin/pricing` already SELECTed `saas_overhead_cost_php` from `platform_retail_catalog_v2` but never showed or wrote it. Owner needs the per-SKU cost-per-event and margin visible while editing prices live, plus a way to deactivate the 3 retired SKUs (Indoor Blueprint, High Res Archive, Call-Time Escalator) from the UI.
-
-**What landed (2 files, admin-only surface):**
-- **`app/admin/pricing/page.tsx`** — added a `marginPct(price, cost)` helper (divide-by-zero guarded → `null` for FREE SKUs). Each retail row now renders **Cost / event** (reuses `formatPeso`) and a computed **Margin %**. Header stats grid gains an **Avg margin (paid)** tile (now 5 tiles). The single-row edit form gains a `saas_overhead_cost_php` number input beside the retail-price field. (The `is_active` toggle was already present in the form — left intact / functional so retired SKUs are deactivatable.)
-- **`app/admin/pricing/actions.ts`** — `updateRetailSku` now reads, validates (non-negative, 2-dp rounded), and writes `saas_overhead_cost_php` alongside `retail_price_php`, preserving the existing `updated_by_admin_id` audit field, the prior-row snapshot/audit diff, and the 3 `revalidatePath` calls.
-
-No prices changed, no catalog rows added/removed, no DB migration or write — all cost values + deactivations are entered later by the owner via this UI.
-
-**Verify:** `pnpm typecheck` (tsc --noEmit) ✓ — clean.
-
-**SPEC IMPACT:** None — pricing model already landed in the corpus (Pricing.md § 00).
 
 ## 2026-06-09 · feat(mood-board): couple-facing Recolor Studio + 4-chapter redesign (0010)
 
@@ -6598,6 +3332,18 @@ Effects were already applied + the new version recorded. No DB change.
 **Verify:** no remaining inline `planning_mode === 'manual'` checks; no unused vars; diff is 4 files / +58−13. Build via CI required checks.
 
 **SPEC IMPACT:** Implements the §2 free-floor↔AI boundary + AI-off→generic from `What_Is_Setnayan_AI_2026-06-08.md` (corpus). → DECISION_LOG. PR-1 of the Setnayan AI build (next: paid entitlement · last-minute · dependencies).
+## 2026-06-08 · feat(website): Our Love Story content block (live invitation site)
+
+**Context:** Increment A.2 of the wedding-website lifecycle. The onboarding Love Stage already **collects** `events.love_story` (20260914000000); this adds the public-site **widget that renders it**.
+
+**What landed:**
+- Migration `20260916000000_invitation_widgets_our_love_story.sql` — adds the `our_love_story` widget_type (CHECK + seed trigger + backfill).
+- `lib/invitation-widgets.ts` — `our_love_story` in WIDGET_TYPES + catalog (`editor_subroute: null` — collection lives in onboarding).
+- `app/[slug]/page.tsx` — read-only `OurLoveStoryWidget` on both authed-guest + anonymous paths: How-we-met · The proposal · a milestones timeline; **hides when empty**. Defensive parse of the rich `love_story` JSONB (how_we_met / proposal / milestones / anchors …).
+
+**Verify:** CI typecheck + production build; migration additive + idempotent; applied to prod via `supabase db push`.
+
+**SPEC IMPACT:** §6.5 render shipped. An edit-later editor (must match the onboarding love-story shape) is a follow-up to coordinate with the onboarding workstream.
 
 ## 2026-06-08 · feat(onboarding): Dream Team PR-3 — two-screen picker, retire StyleSubStepper
 
@@ -7422,17 +4168,6 @@ Payloads are ids/flags only; #1046's `insertFaultLog` redaction is the second-la
 **Verify:** `tsc --noEmit` clean; `next lint` clean for the changed files (only pre-existing warnings elsewhere). Founder-only marketplace today → travels usually empty (no Expand shown) until vendor density grows; native list + notes render as before. No migration.
 
 **SPEC IMPACT:** Region flips from hard-filter to **ringed** in the leaf-match contract. Logged in corpus `DECISION_LOG.md` (2026-06-05) + prototype `Onboarding_Wedding_Flow_2026-06-01.html` step 13 rebuilt to match. Pending corpus mirrors: leaf-match region-ringed note · 0007 Transportation cross-ref · 0022 vendor radius/travel control. **Deferred (need data, not fakeable per "real numbers only"):** budget demote-flag (no price in venue search), style ring-1/2 sub-split (engine doesn't return `compatible_venue_settings`).
-## 2026-06-05 · feat(v2): canonical region-weighted inquiry-burn pricing (1-2-3, min-wage banded)
-
-**Context:** Owner repriced the vendor token **burn-to-answer** from the 2026-06-03 region ladder **3-4-5-6** down to **1-2-3 tokens = ₱100 / ₱200 / ₱300** (₱300 ceiling), banded by the wedding region's **minimum wage** and keyed to `events.region`. Rationale: the burn is an anti-spam / skin-in-the-game gate, **not** a value meter — realized booking value is off-platform-invisible (RA 11967) and one burn unlocks the whole (vendor, event) relationship, so it can't be priced to the booking. It's priced cheap at the low-ticket floor; value-scaling stays in the region-tiered subscription (unchanged). The ₱600 old NCR ceiling was 20% of a ₱3k service; ₱300 is 10% and ≈ the old pre-refinement ₱250 flat while the lead is now 6-dim matched + scored.
-
-**What changed** (`apps/web/lib/v2/`):
-- New `region-token-burn.ts` — canonical source of truth for the burn: `TOKEN_PRICE_PHP` (₱100), `BURN_CEILING_TOKENS` (3), `BURN_BAND_REGIONS` (band→region slugs), and pure `regionBurnTokens(region)` / `regionBurnPhp(region)` helpers. Band 3 = NCR/CALABARZON/Central Luzon; band 2 = Cebu/Iloilo/Davao/CDO/CAR/Ilocos/Cagayan/MIMAROPA; band 1 = Bicol/E.Visayas/Zamboanga/SOCCSKSARGEN/Caraga/BARMM. Keyed on the onboarding `events.region` slugs (underscore + PSGC aliases included for the known region-slug drift); unknown/null/`abroad` → floor band 1.
-- **No behavior change** — nothing imports it yet. Mirrors the existing `token-stacking.ts` pattern (compute ahead of activation). **Activating the live charge** (wiring `consume_vendor_assets(vendor, regionBurnTokens(event.region))` into the inquiry-answer path, which `unlock-category.ts` keeps "economically inert" in the pilot) is a deliberate post-pilot go-live, intentionally NOT in this change — it needs owner sign-off.
-
-**Verify:** Pure, self-contained TS module, no imports, never throws (kind floor default). Typecheck + lint via CI on the PR (local `tsc` impractical in a fresh worktree without installed deps).
-
-**SPEC IMPACT:** Corpus already updated this session (authorized direct edits): `Token_Economy_Flow_Map_2026-06-01.html`, `CLAUDE-CODE-BRIEF-v2.1_2026-05-28.md` (+.docx), `Price_Reconciliation_2026-06-04.md`, `V2_Cutover_Plan_2026-05-28.md` (+.docx), `Onboarding_Blueprint_2026-05-30.md` (+.docx), and a `DECISION_LOG.md` 2026-06-05 row — all reflect 1-2-3 superseding 3-4-5-6. No pending Cowork item.
 
 ## 2026-06-05 · fix(onboarding): un-stretch the Church ceremony photo (Style step)
 

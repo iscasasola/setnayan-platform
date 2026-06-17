@@ -77,6 +77,8 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
   const framesRef = useRef<HTMLImageElement[]>([]);
   const loaderRef = useRef<HTMLDivElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
+  const loadingContentRef = useRef<HTMLDivElement>(null);
+  const readyPromptRef = useRef<HTMLDivElement>(null);
   const loadedRef = useRef<Uint8Array>(new Uint8Array(0));
   const readyRef = useRef(false);
   const armedRef = useRef(false); // gate the swipe-to-dismiss until just after ready, so leftover momentum can't auto-start the scrub mid-way
@@ -129,12 +131,9 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
       window.setTimeout(() => {
         armedRef.current = true;
       }, 350);
-      // Keep the veil up but invite the swipe — it fades on the first deliberate scroll.
-      if (statusRef.current) {
-        statusRef.current.textContent = 'Swipe up to begin ↑';
-        statusRef.current.style.color = 'var(--m-orange-3)';
-        statusRef.current.style.opacity = '1';
-      }
+      // Swap loading content for the ready prompt — veil fades on first deliberate scroll.
+      if (loadingContentRef.current) loadingContentRef.current.style.opacity = '0';
+      if (readyPromptRef.current) readyPromptRef.current.style.opacity = '1';
     };
 
     if (reduce) {
@@ -367,44 +366,66 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
         >
           scroll ↓
         </div>
-        {/* Loading veil — turns the wait into the pitch: holds the visitor on the story
-            (scroll locked) until every frame is in, then invites the swipe; fades on first scroll. */}
+        {/* Loading veil — nugget + feature list while frames preload. */}
         <div
           ref={loaderRef}
           aria-hidden
-          className="pointer-events-none absolute inset-0 flex items-center justify-center px-6"
-          style={{ background: '#F6F3EE', zIndex: 5, transition: 'opacity .8s ease' }}
+          className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-0"
+          style={{ background: '#F6F3EE', zIndex: 5, transition: 'opacity .8s ease', padding: '0 32px' }}
         >
-          <div style={{ maxWidth: 600, textAlign: 'center' }}>
-            <div
-              className="m-mono"
-              style={{ fontSize: 10, letterSpacing: '.26em', textTransform: 'uppercase', color: 'var(--m-orange-3)', marginBottom: 22 }}
-            >
-              Set na ’yan
+          {/* Nugget: loading state */}
+          <div
+            ref={loadingContentRef}
+            style={{ transition: 'opacity .4s ease', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0, width: '100%', maxWidth: 480 }}
+          >
+            {/* Loading pill */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#1E2229', borderRadius: 999, padding: '8px 18px 8px 14px', marginBottom: 36 }}>
+              <span className="m-mono" style={{ fontSize: 9, letterSpacing: '.2em', color: 'rgba(255,255,255,.5)', textTransform: 'uppercase' }}>Loading</span>
+              <div style={{ width: 100, height: 2, background: 'rgba(255,255,255,.15)', borderRadius: 1, overflow: 'hidden' }}>
+                <div ref={barRef} style={{ height: '100%', background: '#C9A96E', transformOrigin: 'left', transform: 'scaleX(0)', transition: 'transform .25s linear' }} />
+              </div>
             </div>
-            <p
-              className="m-serif italic"
-              style={{ color: '#1E2229', fontSize: 'clamp(1.4rem, 4.4vw, 2.15rem)', lineHeight: 1.32, margin: '0 auto 14px', maxWidth: 560 }}
-            >
-              Ever felt buried by wedding planning — hundreds, even thousands of services to sift through, only to find most don’t fit your wedding?
-            </p>
-            <p style={{ color: 'rgba(30,34,41,.6)', fontSize: 'clamp(.95rem, 2.6vw, 1.05rem)', lineHeight: 1.5, margin: '0 auto 30px', maxWidth: 440 }}>
-              We’re setting it all up for you.
-            </p>
-            <div style={{ height: 2, maxWidth: 220, margin: '0 auto 16px', borderRadius: 2, background: 'rgba(30,34,41,.12)', overflow: 'hidden' }}>
-              <div
-                ref={barRef}
-                style={{ height: '100%', background: 'var(--m-orange-3)', transformOrigin: 'left', transform: 'scaleX(0)', transition: 'transform .25s linear' }}
-              />
+
+            {/* Tagline */}
+            <div className="m-mono" style={{ fontSize: 11, letterSpacing: '.24em', color: '#C9A96E', marginBottom: 28 }}>
+              14 features &middot; 1 app
             </div>
-            <div
-              ref={statusRef}
-              className="m-mono"
-              style={{ fontSize: 11, letterSpacing: '.2em', textTransform: 'uppercase', color: 'rgba(30,34,41,.5)', transition: 'color .5s ease, opacity .5s ease' }}
-            >
-              Setting it up for you…
+
+            {/* Feature grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '11px 40px', width: '100%', maxWidth: 400 }}>
+              {[
+                'Online Planner',  'Guest List',
+                'Budget Tracker',  'Seat Plan',
+                'Checklist',       'Mood Board',
+                'Save the Date',   'RSVP',
+                'Event Website',   'Editorial',
+                'Papic',           'Panood',
+                'Kwento',          'Pakanta',
+              ].map((f) => (
+                <div key={f} className="m-mono" style={{ fontSize: 10, letterSpacing: '.12em', color: '#1E2229', opacity: .52 }}>
+                  {f}
+                </div>
+              ))}
             </div>
           </div>
+
+          {/* Nugget: ready state — shown alongside the feature list */}
+          <div
+            ref={readyPromptRef}
+            style={{ opacity: 0, transition: 'opacity .5s ease', position: 'absolute', top: 'clamp(32px, 8vh, 64px)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#1E2229', borderRadius: 999, padding: '9px 22px 9px 16px' }}>
+              <span style={{ fontSize: 16, color: '#C9A96E', animation: 'stn-nudge-up 1.4s ease-in-out infinite', display: 'inline-block' }}>&#8593;</span>
+              <span className="m-mono" style={{ fontSize: 10, letterSpacing: '.24em', color: '#C9A96E', textTransform: 'uppercase' }}>Scroll up</span>
+            </div>
+          </div>
+
+          <style>{`
+            @keyframes stn-nudge-up {
+              0%,100% { transform: translateY(0); }
+              50%      { transform: translateY(-5px); }
+            }
+          `}</style>
         </div>
       </div>
     </section>

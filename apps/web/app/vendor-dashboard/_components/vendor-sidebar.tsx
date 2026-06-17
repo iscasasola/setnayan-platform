@@ -110,6 +110,7 @@ import {
   Crown,
   Building2,
   Images,
+  Handshake,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { Wordmark } from '@/app/_components/brand-marks';
@@ -209,6 +210,16 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
       { key: 'redeem-code', label: 'Redeem code', href: '/vendor-dashboard/redeem-code', icon: Tag, matchPrefix: '/vendor-dashboard/redeem-code' },
       { key: 'marketing', label: 'Marketing', href: '/vendor-dashboard/marketing', icon: Megaphone, matchPrefix: '/vendor-dashboard/marketing' },
       { key: 'verify', label: 'Verify', href: '/vendor-dashboard/verify', icon: ShieldCheck, matchPrefix: '/vendor-dashboard/verify' },
+      {
+        // Vendor partnerships — declare vendor-to-vendor commercial relationships.
+        // Badges are invisible to couples until Setnayan HQ verifies them (two-admin
+        // gate). Lives in Grow because it's a trust + visibility surface.
+        key: 'partnerships',
+        label: 'Partnerships',
+        href: '/vendor-dashboard/partnerships',
+        icon: Handshake,
+        matchPrefix: '/vendor-dashboard/partnerships',
+      },
       { key: 'reviews', label: 'Reviews', href: '/vendor-dashboard/reviews', icon: Star, matchPrefix: '/vendor-dashboard/reviews' },
       { key: 'real-stories', label: 'Real Stories', href: '/vendor-dashboard/real-stories', icon: Sparkles, matchPrefix: '/vendor-dashboard/real-stories' },
       { key: 'recaps', label: 'Recaps', href: '/vendor-dashboard/recaps', icon: Images, matchPrefix: '/vendor-dashboard/recaps' },

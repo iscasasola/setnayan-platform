@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { safeNext } from '@/lib/auth';
 import { stampLastLogin } from '@/lib/login-activity';
+import { accountHomePath } from '@/lib/account-security';
 
 /**
  * "Stay signed in" cookie downgrade.
@@ -59,18 +60,21 @@ export async function signInWithPassword(formData: FormData) {
   // canonical HTML form contract for checkboxes. So `remember === 'on'`
   // means "stay signed in"; anything else means session-only.
   const remember = String(formData.get('remember') ?? '') === 'on';
-  const next = safeNext(formData.get('next'));
+  const rawNext = safeNext(formData.get('next'));
+  // When no explicit next, use /dashboard as error-redirect fallback.
+  // Real post-auth destination is computed by account_type below.
+  const fallbackNext = rawNext === '/' ? '/dashboard' : rawNext;
 
   if (!email || !password) {
-    return redirect(`/login?error=missing&next=${encodeURIComponent(next)}`);
+    return redirect(`/login?error=missing&next=${encodeURIComponent(fallbackNext)}`);
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { error, data } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
     return redirect(
-      `/login?error=${encodeURIComponent(error.message)}&next=${encodeURIComponent(next)}`,
+      `/login?error=${encodeURIComponent(error.message)}&next=${encodeURIComponent(fallbackNext)}`,
     );
   }
 
@@ -83,5 +87,19 @@ export async function signInWithPassword(formData: FormData) {
   // check (lib/ghosting.ts). Fail-soft inside; never blocks the redirect.
   await stampLastLogin(supabase);
 
-  return redirect(next);
+  // Route directly to the account's home when no explicit destination was given —
+  // avoids the double-hop where vendors landed on /dashboard then got bounced
+  // to /vendor-dashboard by dashboard/layout.tsx.
+  let destination = fallbackNext;
+  const userId = data.user?.id;
+  if (rawNext === '/' && userId) {
+    const { data: profile } = await supabase
+      .from('users')
+      .select('account_type')
+      .eq('user_id', userId)
+      .maybeSingle();
+    destination = accountHomePath(profile?.account_type);
+  }
+
+  return redirect(destination);
 }

@@ -16,11 +16,18 @@ export type ReviewAxis = (typeof REVIEW_AXES)[number];
 
 export const REVIEW_AXIS_LABEL: Record<ReviewAxis, string> = {
   overall: 'Overall',
-  communication: 'Communication',
-  quality: 'Quality of work',
-  value: 'Value for money',
+  communication: 'How well did they communicate throughout the process?',
+  quality: 'Did they deliver what was promised on the day?',
+  value: 'Was the price fair for what you received?',
+  // on_time is binary (Yes=5 / No=1) — use REVIEW_ON_TIME_LABEL for the UI
+  // question; REVIEW_AXIS_LABEL keeps a short form for display (star breakdowns
+  // in the vendor profile public page use the short label).
   on_time: 'On-time delivery',
 };
+
+/** Label for the on_time binary Yes/No toggle shown in the review form. */
+export const REVIEW_ON_TIME_LABEL =
+  'Did they arrive and deliver on schedule?';
 
 export type ReviewRow = {
   review_id: string;
@@ -277,9 +284,13 @@ export async function fetchOwnReviewForVendor(
   return (data ?? null) as ReviewRow | null;
 }
 
+export const VENDOR_REPLY_MAX_CHARS = 500;
+
 /**
- * Vendor-side reply. RLS + the lock_vendor_reply trigger guarantee this is
- * a one-time write: subsequent attempts raise a DB error.
+ * Vendor-side reply (initial post or edit). The DB trigger stamps
+ * vendor_reply_at automatically; subsequent edits update it to NOW() as well.
+ * Validates the vendor owns the review before writing — RLS enforces this too,
+ * but we fail early to give a clearer error.
  */
 export async function submitVendorReply(
   supabase: SupabaseClient,
@@ -288,12 +299,58 @@ export async function submitVendorReply(
 ): Promise<void> {
   const trimmed = reply.trim();
   if (trimmed.length === 0) throw new Error('Reply cannot be empty.');
-  if (trimmed.length > 2000) throw new Error('Reply must be 2000 characters or fewer.');
+  if (trimmed.length > VENDOR_REPLY_MAX_CHARS)
+    throw new Error(`Reply must be ${VENDOR_REPLY_MAX_CHARS} characters or fewer.`);
   const { error } = await supabase
     .from('vendor_reviews')
-    .update({ vendor_reply: trimmed, vendor_reply_at: new Date().toISOString() })
+    .update({ vendor_reply: trimmed })
     .eq('review_id', reviewId);
   if (error) throw new Error(`submitVendorReply failed: ${error.message}`);
+}
+
+export type ReviewFlagReason =
+  | 'fake_reviewer'
+  | 'competitor_account'
+  | 'defamatory_content'
+  | 'wrong_vendor'
+  | 'other';
+
+export const REVIEW_FLAG_REASON_LABEL: Record<ReviewFlagReason, string> = {
+  fake_reviewer: 'Fake or anonymous reviewer',
+  competitor_account: 'Suspected competitor account',
+  defamatory_content: 'Defamatory or false claims',
+  wrong_vendor: 'Review is for a different vendor',
+  other: 'Other reason',
+};
+
+/**
+ * Vendor flags a review as fake/disputed. Inserts into vendor_review_flags
+ * which feeds the HQ adjudication queue in /admin/reviews. A vendor can only
+ * flag a given review once (DB UNIQUE constraint).
+ */
+export async function flagReviewAsFake(
+  supabase: SupabaseClient,
+  reviewId: string,
+  vendorProfileId: string,
+  reason: string,
+): Promise<void> {
+  const trimmed = reason.trim();
+  if (trimmed.length === 0) throw new Error('Flag reason cannot be empty.');
+  if (trimmed.length > 1000) throw new Error('Flag reason must be 1000 characters or fewer.');
+  const { error } = await supabase
+    .from('vendor_review_flags')
+    .insert({
+      review_id: reviewId,
+      reported_by_vendor_profile_id: vendorProfileId,
+      reason: trimmed,
+    });
+  if (error) {
+    // Unique violation means already flagged.
+    if (error.code === '23505') {
+      throw new Error('You have already flagged this review. HQ will review it.');
+    }
+    throw new Error(`flagReviewAsFake failed: ${error.message}`);
+  }
 }
 
 /**

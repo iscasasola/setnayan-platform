@@ -1,23 +1,24 @@
 'use client';
 
 /**
- * WaxStampMaker — the candle-stamp minting ritual (0024 §3 · PR2).
+ * WaxStampMaker — pour any amount of wax, then physically push the stamp.
  *
- * The couple pours the wax, waits for it to set (the one skill beat — the 3-zone
- * consistency window from Wax_Seal_Creation_Rules), then presses their monogram
- * die straight in. Every pour mints a one-of-a-kind seal (a deterministic
- * recipe + seed), recoloured from their Mood Board. It then renders with the
- * exact same `paintWaxSeal` the live guest reveal uses, so what they mint is what
- * a guest sees. Free, ₱0 — the recipe is data, the die + colour are read live.
+ * UX flow:
+ *   tap canvas  → one small drop falls (freedom: small amounts are valid)
+ *   hold canvas → continuous stream (larger amount builds up)
+ *   wax limit   → MAX_WAX cap stops drops from adding (can still hold)
+ *   push stamp  → press & hold the die above the canvas; it descends while
+ *                  held and the WebGL impression deepens in real time;
+ *                  release when the depth feels right
+ *   outcome     → verdict based on achieved press depth + colour/finish tweaks
  *
- * UX north star: you cannot get stuck or fail. A plain tap pours; the needle
- * dwells in "ready"; idling auto-presses a perfect seal; there is always a
- * one-tap "mint a clean seal"; prefers-reduced-motion skips the animation.
- * No twist gesture exists (so the no-twist craft rule holds by construction).
+ * Two-canvas stack: WebGL puddle (bottom) + Canvas-2D drop/ripple overlay (top).
+ * The stamp visual lives in an overhead zone above the canvas; its translateY
+ * is driven directly via ref in rAF — never through React state.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { RotateCcw, Sparkles, Stamp, Wand2 } from 'lucide-react';
+import { RotateCcw, Sparkles } from 'lucide-react';
 import { paintWaxSeal } from '@/lib/wax-seal/paint';
 import {
   WAX_SEAL_V,
@@ -43,32 +44,29 @@ type Props = {
   existing: WaxSealConfig | null;
 };
 
-type Phase = 'intro' | 'pour' | 'cool' | 'set' | 'confirm';
+type Phase = 'idle' | 'pouring' | 'pressing' | 'outcome';
+type Drop = { x: number; y: number; vy: number; r: number };
+type Ripple = { cx: number; cy: number; r: number; maxR: number; opa: number };
 
-type Final = {
-  amount: number;
-  irregularity: number;
-  bubbles: number;
-  crispness: number;
-  depth: number;
-  offset: [number, number];
-  skew: number;
-  isDefault: boolean;
-  verdict: string;
-};
-
-const PREVIEW = 280; // CSS px
+const PREVIEW         = 280;   // canvas side px
+const CX              = PREVIEW / 2;
+const CY              = PREVIEW / 2;
+const STAMP_CLEARANCE = 120;   // overhead zone above canvas px
+const STAMP_HANDLE_H  = 34;    // handle height px
+const STAMP_DIE_D     = 80;    // die diameter px
+const STAMP_H         = STAMP_HANDLE_H + STAMP_DIE_D; // 114 px
+// STAMP_TOP: stamp top edge so die bottom aligns with canvas top at rest
+// = STAMP_CLEARANCE - STAMP_H = 120 - 114 = 6 px from container top
+const STAMP_TOP       = STAMP_CLEARANCE - STAMP_H;    // 6
+const STAMP_TRAVEL    = 62;    // max downward travel into canvas px
+const DROP_WAX        = 0.05;  // wax per merged drop
+const MIN_PRESS       = 0.04;  // minimum wax to allow pressing (≈ 1 drop)
+const MAX_WAX         = 0.96;
+const MAX_PRESS_DEPTH = 0.86;
+const FULL_PRESS_MS   = 2200;  // time to reach MAX_PRESS_DEPTH from press start
 
 function randSeed(): number {
-  return Math.floor(Math.random() * 0xffffffff) >>> 0;
-}
-
-/** Consistency needle over time (s): hot → dwells in the ready band → firm. */
-function needleAt(t: number): number {
-  if (t < 1.2) return 1 - (t / 1.2) * 0.26; // 1.00 → 0.74  (HOT, quick)
-  if (t < 6) return 0.74 - ((t - 1.2) / 4.8) * 0.4; // 0.74 → 0.34 (READY, dwell)
-  if (t < 8) return Math.max(0, 0.34 - ((t - 6) / 2) * 0.34); // 0.34 → 0 (FIRM)
-  return 0;
+  return (Math.random() * 0xffffffff) >>> 0;
 }
 
 export function WaxStampMaker({
@@ -80,83 +78,76 @@ export function WaxStampMaker({
   fallbackSeed,
   existing,
 }: Props) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const markRef = useRef<HTMLCanvasElement | null>(null);
+  // ── canvas refs ──────────────────────────────────────────────────────────
+  const canvasRef  = useRef<HTMLCanvasElement>(null);
+  const overlayRef = useRef<HTMLCanvasElement>(null);
+
+  // ── stamp visual refs (transform driven directly — never via React state) ─
+  const stampRef      = useRef<HTMLDivElement>(null);
+  const stampLabelRef = useRef<HTMLParagraphElement>(null);
+
+  // ── GL state ─────────────────────────────────────────────────────────────
   const glInitRef = useRef(false);
-  const glRef = useRef<WaxSealGLState | null>(null);
-  const rafRef = useRef(0);
-  const reduced = useRef(false);
-  // The pour's window-level release backstop (so a release ANYWHERE ends it —
-  // touch implicit-capture can route pointerup to a now-unmounted node).
-  const pourRelease = useRef<((e: Event) => void) | null>(null);
-  const endPourRef = useRef<() => void>(() => {});
+  const glRef     = useRef<WaxSealGLState | null>(null);
+  const markRef   = useRef<HTMLCanvasElement | null>(null);
 
-  // fast-changing animation state (not React state — avoids per-frame re-render)
-  const anim = useRef({
-    amount: 0.6,
-    irregularity: 0.3,
-    bubbles: 0,
-    depth: 0,
-    needle: 1,
-    holding: false,
-    t0: 0,
-    pressedAt: 0,
-  });
+  // ── animation refs (hot path — never trigger React re-renders) ───────────
+  const drops   = useRef<Drop[]>([]);
+  const ripples = useRef<Ripple[]>([]);
+  const rafRef      = useRef(0);   // overlay loop rAF id
+  const pressRafRef = useRef(0);   // press loop rAF id
 
-  const [phase, setPhase] = useState<Phase>(existing ? 'confirm' : 'intro');
-  const [seed, setSeed] = useState<number>(existing?.seed ?? fallbackSeed);
-  const [waxChoice, setWaxChoice] = useState<string | 'auto'>(existing?.wax.color ?? 'auto');
-  const [finish, setFinish] = useState<WaxFinish>(existing?.wax.finish ?? 'matte');
-  const [final, setFinal] = useState<Final | null>(
-    existing
-      ? {
-          amount: existing.pour.amount,
-          irregularity: existing.pour.irregularity,
-          bubbles: existing.pour.bubbles,
-          crispness: existing.press.crispness,
-          depth: existing.press.depth,
-          offset: existing.press.offset,
-          skew: existing.press.skew,
-          isDefault: existing.isDefault ?? false,
-          verdict: 'Your saved seal.',
-        }
-      : null,
-  );
-  const [needleUi, setNeedleUi] = useState(1); // mirrors anim.needle for the meter
+  const drippingRef        = useRef(false);
+  const lastDropRef        = useRef(0);
+  const waxAmtRef          = useRef(0);
+  const puddleVisibleRef   = useRef(!!existing);
+  const colorRef           = useRef(defaultWaxColor);
+  const overlayLoopRef     = useRef<FrameRequestCallback>(() => {});
+  const pressLoopRef       = useRef<FrameRequestCallback>(() => {});
+
+  // pressing-specific refs
+  const pressStartRef    = useRef(0);
+  const pressDepthRef    = useRef(0);
+  const isPressActiveRef = useRef(false);
+  const finalizeRef      = useRef(() => {});
+
+  // ── React state ───────────────────────────────────────────────────────────
+  const [phase, setPhase]                 = useState<Phase>(existing ? 'outcome' : 'idle');
+  const [seed, setSeed]                   = useState(existing?.seed ?? fallbackSeed);
+  const [waxChoice, setWaxChoice]         = useState<string | 'auto'>(existing?.wax.color ?? 'auto');
+  const [finish, setFinish]               = useState<WaxFinish>(existing?.wax.finish ?? 'matte');
+  const [waxAmt, setWaxAmt]               = useState(existing?.pour.amount ?? 0);
+  const [puddleVisible, setPuddleVisible] = useState(!!existing);
+  const [savedConfig, setSavedConfig]     = useState<WaxSealConfig | null>(existing);
+  const [verdict, setVerdict]             = useState(existing ? 'Your saved seal.' : '');
+  const [savedDepth, setSavedDepth]       = useState(existing?.press.depth ?? 0.82);
 
   const resolvedColor = waxChoice === 'auto' ? defaultWaxColor : waxChoice;
   const markSource: WaxMarkSource = markSvg
-    ? /<image[\s/>]/i.test(markSvg)
-      ? 'uploaded'
-      : 'custom'
+    ? /<image[\s/>]/i.test(markSvg) ? 'uploaded' : 'custom'
     : 'letters';
 
-  // paint the seal canvas from the given levers
-  const paint = useCallback(
-    (opts: { amount: number; irregularity: number; bubbles: number; crispness: number; depth: number; offset: [number, number]; skew: number; pressed: boolean }) => {
+  useEffect(() => { colorRef.current = resolvedColor; }, [resolvedColor]);
+
+  // ── paint helper ──────────────────────────────────────────────────────────
+  const paintCb = useCallback(
+    (am: number, pressed: boolean, de: number, irr = 0.3, bu = 0) => {
       const cv = canvasRef.current;
       if (!cv) return;
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const cfg = {
+      const cfg: WaxSealConfig = {
         v: WAX_SEAL_V,
         seed,
         wax: { color: waxChoice === 'auto' ? null : waxChoice, finish },
-        pour: { amount: opts.amount, irregularity: opts.irregularity, bubbles: opts.bubbles },
-        press: { crispness: opts.crispness, depth: opts.depth, offset: opts.offset, skew: opts.skew },
+        pour: { amount: am, irregularity: irr, bubbles: bu },
+        press: { crispness: 0.74, depth: de, offset: [0, 0], skew: 0 },
         mark: { source: markSource },
       };
-      const glState = glRef.current;
-      if (glState) {
-        paintWaxSealWebGL(glState, {
-          config: cfg,
-          mark: markRef.current,
-          monogramText,
-          waxColor: resolvedColor,
-          finish,
-          seed,
-          size: PREVIEW,
-          dpr,
-          pressed: opts.pressed,
+      const gl = glRef.current;
+      if (gl) {
+        paintWaxSealWebGL(gl, {
+          config: cfg, mark: markRef.current, monogramText,
+          waxColor: resolvedColor, finish, seed, size: PREVIEW, dpr, pressed,
         });
       } else {
         const S = Math.round(PREVIEW * dpr);
@@ -164,360 +155,542 @@ export function WaxStampMaker({
         const ctx = cv.getContext('2d');
         if (!ctx) return;
         paintWaxSeal(ctx, {
-          config: cfg,
-          mark: markRef.current,
-          monogramText,
-          waxColor: resolvedColor,
-          finish,
-          seed,
-          size: PREVIEW,
-          dpr,
-          pressed: opts.pressed,
+          config: cfg, mark: markRef.current, monogramText,
+          waxColor: resolvedColor, finish, seed, size: PREVIEW, dpr, pressed,
         });
       }
     },
     [seed, waxChoice, finish, resolvedColor, monogramText, markSource],
   );
+  const paintRef = useRef(paintCb);
+  useEffect(() => { paintRef.current = paintCb; }, [paintCb]);
 
-  // build the die once + detect reduced-motion + init GL
+  // ── GL + die init ─────────────────────────────────────────────────────────
   useEffect(() => {
-    reduced.current =
-      typeof window !== 'undefined' &&
-      (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false);
-
-    // lazy-init WebGL2 once per canvas lifetime (sync, before the async die build)
     const cv = canvasRef.current;
     if (cv && !glInitRef.current) {
       glInitRef.current = true;
       glRef.current = initWaxSealGL(cv);
     }
-
     let cancelled = false;
     buildDieForGL(markSvg, monogramText).then((c) => {
-      if (!cancelled) {
-        markRef.current = c;
-        // repaint the current view now the die is ready
-        if (final) {
-          paint({ ...final, pressed: true });
-        } else {
-          paint({ amount: anim.current.amount, irregularity: anim.current.irregularity, bubbles: 0, crispness: 0.6, depth: 0, offset: [0, 0], skew: 0, pressed: false });
-        }
+      if (cancelled) return;
+      markRef.current = c;
+      if (existing) {
+        paintRef.current(
+          existing.pour.amount, true, existing.press.depth,
+          existing.pour.irregularity, existing.pour.bubbles,
+        );
       }
     });
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [markSvg, monogramText]);
 
-  // re-paint the confirm view whenever colour / finish / final changes
+  // Re-paint outcome seal when colour / finish changes
   useEffect(() => {
-    if (phase === 'confirm' && final) paint({ ...final, pressed: true });
-  }, [phase, final, paint]);
+    if (phase === 'outcome' && savedConfig) {
+      paintRef.current(
+        savedConfig.pour.amount, true, savedDepth,
+        savedConfig.pour.irregularity, savedConfig.pour.bubbles,
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, savedConfig, savedDepth, waxChoice, finish]);
 
-  const stopRaf = () => {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    rafRef.current = 0;
-  };
+  // Set stamp transform to resting position when it becomes visible
+  useEffect(() => {
+    if (phase !== 'outcome' && stampRef.current) {
+      stampRef.current.style.transform = 'translateY(0px)';
+    }
+  }, [phase]);
 
-  const enterConfirm = useCallback(
-    (vals: Final) => {
-      stopRaf();
-      setFinal(vals);
-      setPhase('confirm');
-    },
-    [],
-  );
+  // ── overlay loop (pour phase) ─────────────────────────────────────────────
+  useEffect(() => {
+    overlayLoopRef.current = () => {
+      if (phase !== 'pouring') return;
+      const overlay = overlayRef.current;
+      if (!overlay) return;
+      const ctx = overlay.getContext('2d');
+      if (!ctx) return;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const S = Math.round(PREVIEW * dpr);
+      if (overlay.width !== S || overlay.height !== S) { overlay.width = S; overlay.height = S; }
+      ctx.clearRect(0, 0, S, S);
 
-  // ── press → set → confirm ──
-  const doPress = useCallback(
-    (needle: number) => {
-      const a = anim.current;
-      const ready = needle <= 0.74 && needle >= 0.34;
-      const hot = needle > 0.74;
-      const crispness = hot ? 0.24 : ready ? 0.52 + Math.random() * 0.16 : 0.82;
-      const targetDepth = hot ? 0.6 : ready ? 0.82 : 0.4;
-      const bubbles = Math.min(1, a.bubbles + (hot ? 0.28 : 0));
-      const offset: [number, number] = [(Math.random() - 0.5) * 0.18, (Math.random() - 0.5) * 0.18];
-      const skew = (Math.random() - 0.5) * 0.1;
-      const verdict = hot
-        ? 'A touch early — soft and dreamy.'
-        : ready
-          ? 'A crisp, clean press.'
-          : 'Set a little firm — quiet and shallow.';
-      const finalVals: Final = {
-        amount: a.amount,
-        irregularity: a.irregularity,
-        bubbles,
-        crispness,
-        depth: targetDepth,
-        offset,
-        skew,
-        isDefault: false,
-        verdict,
-      };
-
-      if (reduced.current) {
-        enterConfirm(finalVals);
-        return;
-      }
-
-      // brief "setting…" — ramp depth from 0 to target
-      setPhase('set');
-      a.pressedAt = performance.now();
-      const ramp = () => {
-        const k = Math.min(1, (performance.now() - a.pressedAt) / 1100);
-        paint({
-          amount: finalVals.amount,
-          irregularity: finalVals.irregularity,
-          bubbles: finalVals.bubbles,
-          crispness: finalVals.crispness,
-          depth: targetDepth * k,
-          offset,
-          skew,
-          pressed: true,
+      const now = performance.now();
+      if (drippingRef.current && now - lastDropRef.current > 110 && waxAmtRef.current < MAX_WAX) {
+        lastDropRef.current = now;
+        drops.current.push({
+          x: CX + (Math.random() - 0.5) * 8,
+          y: -8,
+          vy: 1.8 + Math.random() * 0.6,
+          r: 5 + Math.random() * 3,
         });
-        if (k < 1) {
-          rafRef.current = requestAnimationFrame(ramp);
-        } else {
-          enterConfirm(finalVals);
+      }
+
+      const hex = (colorRef.current || '#5c2542').replace('#', '');
+      const n = parseInt(hex, 16);
+      const wr = (n >> 16) & 255;
+      const wg = (n >> 8) & 255;
+      const wb = n & 255;
+
+      // Thin wax stream while dripping
+      if (drippingRef.current && drops.current.length > 0) {
+        const lowestY = drops.current.reduce((m: number, d: Drop) => Math.max(m, d.y + d.r), -8);
+        ctx.save();
+        ctx.scale(dpr, dpr);
+        ctx.beginPath();
+        ctx.moveTo(CX, -2);
+        ctx.lineTo(CX, Math.min(lowestY, CY - 4));
+        ctx.strokeStyle = `rgba(${wr},${wg},${wb},0.32)`;
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Physics + merge
+      const surviving: Drop[] = [];
+      let waxChanged = false;
+      for (const d of drops.current) {
+        d.vy += 0.45;
+        d.y  += d.vy;
+        if (d.y >= CY) {
+          if (waxAmtRef.current < MAX_WAX) {
+            waxAmtRef.current = Math.min(MAX_WAX, waxAmtRef.current + DROP_WAX);
+            waxChanged = true;
+          }
+          if (!puddleVisibleRef.current) { puddleVisibleRef.current = true; setPuddleVisible(true); }
+          ripples.current.push({ cx: d.x, cy: CY, r: d.r * 0.4, maxR: 20, opa: 0.72 });
+          continue;
         }
-      };
-      stopRaf();
-      rafRef.current = requestAnimationFrame(ramp);
-    },
-    [enterConfirm, paint],
-  );
-
-  // ── cool beat: the needle drifts + dwells; press whenever (or auto) ──
-  const startCool = useCallback(() => {
-    const a = anim.current;
-    a.t0 = performance.now();
-    setPhase('cool');
-    if (reduced.current) {
-      a.needle = 0.5;
-      doPress(0.5);
-      return;
-    }
-    const loop = () => {
-      const t = (performance.now() - a.t0) / 1000;
-      a.needle = needleAt(t);
-      setNeedleUi(a.needle);
-      paint({ amount: a.amount, irregularity: a.irregularity, bubbles: a.bubbles, crispness: 0.6, depth: 0, offset: [0, 0], skew: 0, pressed: false });
-      if (t > 6.5) {
-        // idled through the window → auto-press a perfect seal
-        doPress(0.5);
-        return;
+        surviving.push(d);
+        ctx.save();
+        ctx.scale(dpr, dpr);
+        ctx.beginPath();
+        ctx.ellipse(d.x, d.y, d.r * 0.52, d.r, 0, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${wr},${wg},${wb},0.9)`;
+        ctx.fill();
+        ctx.restore();
       }
-      rafRef.current = requestAnimationFrame(loop);
-    };
-    stopRaf();
-    rafRef.current = requestAnimationFrame(loop);
-  }, [doPress, paint]);
+      drops.current = surviving;
 
-  // ── pour beat: hold to grow the puddle (tap = default puddle) ──
-  const detachPourRelease = useCallback(() => {
-    const r = pourRelease.current;
-    if (r) {
-      window.removeEventListener('pointerup', r);
-      window.removeEventListener('pointercancel', r);
-      pourRelease.current = null;
+      if (waxChanged) {
+        setWaxAmt(waxAmtRef.current);
+        const bu = waxAmtRef.current > 0.82 ? (waxAmtRef.current - 0.82) * 4.5 : 0;
+        paintRef.current(waxAmtRef.current, false, 0, 0.3, bu);
+      }
+
+      // Ripples
+      const alive: Ripple[] = [];
+      for (const rip of ripples.current) {
+        rip.r = Math.min(rip.r + 1.5, rip.maxR);
+        rip.opa -= 0.03;
+        if (rip.opa <= 0) continue;
+        ctx.save();
+        ctx.scale(dpr, dpr);
+        ctx.beginPath();
+        ctx.arc(rip.cx, rip.cy, rip.r, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(${wr},${wg},${wb},${rip.opa})`;
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+        ctx.restore();
+        alive.push(rip);
+      }
+      ripples.current = alive;
+
+      rafRef.current = requestAnimationFrame(overlayLoopRef.current);
+    };
+  }, [phase]);
+
+  // Start / stop overlay loop
+  useEffect(() => {
+    if (phase === 'pouring') {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(overlayLoopRef.current);
+    } else {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = 0;
+      const ov = overlayRef.current;
+      const ctx = ov?.getContext('2d');
+      if (ctx) ctx.clearRect(0, 0, ov!.width, ov!.height);
     }
-  }, []);
+    return () => { cancelAnimationFrame(rafRef.current); };
+  }, [phase]);
 
-  const endPour = useCallback(() => {
-    const a = anim.current;
-    if (!a.holding) return;
-    a.holding = false;
-    detachPourRelease();
-    // A quick tap (no real hold) pours a default-size puddle — you can't pour wrong.
-    if (performance.now() - a.t0 < 200) a.amount = 0.6;
-    stopRaf();
-    startCool();
-  }, [startCool, detachPourRelease]);
-  endPourRef.current = endPour;
+  // ── press loop (pressing phase) ───────────────────────────────────────────
+  useEffect(() => {
+    pressLoopRef.current = () => {
+      if (phase !== 'pressing') return;
+      const elapsed  = performance.now() - pressStartRef.current;
+      const progress = Math.min(1, elapsed / FULL_PRESS_MS);
+      const depth    = progress * MAX_PRESS_DEPTH;
+      pressDepthRef.current = depth;
 
-  const startPour = useCallback(() => {
-    const a = anim.current;
-    a.amount = 0.5;
-    a.bubbles = 0;
-    a.irregularity = 0.24 + Math.random() * 0.14;
-    a.holding = true;
-    a.t0 = performance.now();
-    setPhase('pour');
-    // End the pour on release ANYWHERE (the pour button is a persistent node so
-    // its own pointerup fires, but this backstop also covers release off-button
-    // / lost capture) → the pour can never get stuck.
-    detachPourRelease();
-    const release = () => endPourRef.current();
-    pourRelease.current = release;
-    window.addEventListener('pointerup', release);
-    window.addEventListener('pointercancel', release);
-    const loop = () => {
-      if (!a.holding) return;
-      const held = (performance.now() - a.t0) / 1000;
-      a.amount = Math.min(0.95, 0.5 + held * 0.4);
-      if (held > 1.6) a.bubbles = Math.min(0.5, (held - 1.6) * 0.3); // overheat
-      paint({ amount: a.amount, irregularity: a.irregularity, bubbles: a.bubbles, crispness: 0.6, depth: 0, offset: [0, 0], skew: 0, pressed: false });
-      rafRef.current = requestAnimationFrame(loop);
+      // Move stamp downward — direct DOM, no React re-render
+      if (stampRef.current) {
+        stampRef.current.style.transform = `translateY(${progress * STAMP_TRAVEL}px)`;
+      }
+
+      // Update label text at the sweet-spot threshold
+      if (stampLabelRef.current) {
+        if (depth >= 0.56 && stampLabelRef.current.dataset.stage !== 'ready') {
+          stampLabelRef.current.dataset.stage = 'ready';
+          stampLabelRef.current.textContent = 'Release when ready';
+          stampLabelRef.current.style.color = `rgba(${parseInt((colorRef.current||'#5c2542').slice(1,3),16)},${parseInt((colorRef.current||'#5c2542').slice(3,5),16)},${parseInt((colorRef.current||'#5c2542').slice(5,7),16)},0.8)`;
+        }
+      }
+
+      // Paint WebGL in real time as stamp descends
+      const amt = waxAmtRef.current;
+      const bu  = amt > 0.82 ? (amt - 0.82) * 4.5 : 0;
+      paintRef.current(amt, true, depth, 0.3, bu);
+
+      if (isPressActiveRef.current) {
+        pressRafRef.current = requestAnimationFrame(pressLoopRef.current);
+      }
     };
-    stopRaf();
-    rafRef.current = requestAnimationFrame(loop);
-  }, [paint, detachPourRelease]);
+  }, [phase]);
 
-  // one-tap perfect seal (accessibility / "I just want a seal")
-  const mintClean = useCallback(() => {
-    stopRaf();
-    const s = randSeed();
-    setSeed(s);
-    anim.current.amount = 0.62;
-    anim.current.irregularity = 0.28;
-    anim.current.bubbles = 0;
-    enterConfirm({
-      amount: 0.62,
-      irregularity: 0.28,
-      bubbles: 0,
-      crispness: 0.6,
-      depth: 0.82,
-      offset: [0, 0],
-      skew: 0,
-      isDefault: true,
-      verdict: 'A clean, classic seal.',
-    });
-  }, [enterConfirm]);
+  // Start press loop when phase becomes 'pressing'
+  useEffect(() => {
+    if (phase === 'pressing') {
+      cancelAnimationFrame(pressRafRef.current);
+      pressRafRef.current = requestAnimationFrame(pressLoopRef.current);
+    } else {
+      cancelAnimationFrame(pressRafRef.current);
+      pressRafRef.current = 0;
+    }
+    return () => { cancelAnimationFrame(pressRafRef.current); };
+  }, [phase]);
 
-  const pourAgain = useCallback(() => {
-    stopRaf();
+  // ── finalize press → outcome ───────────────────────────────────────────────
+  const finalizePress = useCallback(() => {
+    cancelAnimationFrame(pressRafRef.current);
+    pressRafRef.current = 0;
+
+    const depth = pressDepthRef.current;
+    const amt   = waxAmtRef.current;
+    const bu    = amt > 0.82 ? (amt - 0.82) * 4.5 : 0;
+
+    const verdictText =
+      depth < 0.28 ? 'A delicate, barely-there impression.'
+      : depth < 0.55 ? 'Lightly pressed — subtle and considered.'
+      : depth < 0.76 ? 'A crisp, clean press — just right.'
+      : 'Pressed deep — full and rich.';
+
+    const cfg: WaxSealConfig = {
+      v: WAX_SEAL_V,
+      seed,
+      wax: { color: waxChoice === 'auto' ? null : waxChoice, finish },
+      pour: { amount: amt, irregularity: 0.3, bubbles: bu },
+      press: { crispness: 0.74, depth: Math.max(0.05, depth), offset: [0, 0], skew: 0 },
+      mark: { source: markSource },
+      isDefault: false,
+    };
+
+    // Reset stamp visual before it's removed from DOM
+    if (stampRef.current) stampRef.current.style.transform = 'translateY(0px)';
+    if (stampLabelRef.current) {
+      stampLabelRef.current.textContent = 'Push to stamp';
+      stampLabelRef.current.style.color = 'rgba(240,234,216,0.45)';
+      delete stampLabelRef.current.dataset.stage;
+    }
+
+    setSavedConfig(cfg);
+    setSavedDepth(Math.max(0.05, depth));
+    setVerdict(verdictText);
+    setPhase('outcome');
+  }, [seed, waxChoice, finish, markSource]);
+
+  useEffect(() => { finalizeRef.current = finalizePress; }, [finalizePress]);
+
+  // ── stamp push handler ────────────────────────────────────────────────────
+  const handleStampDown = useCallback((e: React.PointerEvent) => {
+    e.stopPropagation();
+    if (waxAmtRef.current < MIN_PRESS) return;
+    if (phase !== 'idle' && phase !== 'pouring') return;
+
+    // Stop any ongoing drip
+    drippingRef.current = false;
+    drops.current = [];
+    ripples.current = [];
+
+    // Reset label for this press session
+    if (stampLabelRef.current) {
+      stampLabelRef.current.textContent = 'Hold…';
+      stampLabelRef.current.style.color = 'rgba(240,234,216,0.45)';
+      delete stampLabelRef.current.dataset.stage;
+    }
+
+    pressStartRef.current    = performance.now();
+    isPressActiveRef.current = true;
+    pressDepthRef.current    = 0;
+
+    setPhase('pressing');
+
+    const onRelease = () => {
+      isPressActiveRef.current = false;
+      finalizeRef.current();
+    };
+    window.addEventListener('pointerup',     onRelease, { once: true });
+    window.addEventListener('pointercancel', onRelease, { once: true });
+  }, [phase]);
+
+  // ── canvas pour handlers ──────────────────────────────────────────────────
+  const handleCanvasDown = useCallback((e: React.PointerEvent) => {
+    if (phase === 'pressing' || phase === 'outcome') return;
+    e.stopPropagation();
+    if (phase === 'idle') setPhase('pouring');
+    drippingRef.current = true;
+    lastDropRef.current = 0;
+    if (waxAmtRef.current < MAX_WAX) {
+      drops.current.push({
+        x: CX + (Math.random() - 0.5) * 6,
+        y: -8,
+        vy: 2,
+        r: 5 + Math.random() * 2.5,
+      });
+    }
+  }, [phase]);
+
+  const handleCanvasUp = useCallback(() => { drippingRef.current = false; }, []);
+
+  // ── reset ─────────────────────────────────────────────────────────────────
+  const reset = useCallback(() => {
+    cancelAnimationFrame(rafRef.current);
+    cancelAnimationFrame(pressRafRef.current);
+    rafRef.current = pressRafRef.current = 0;
+    drops.current = [];
+    ripples.current = [];
+    drippingRef.current = false;
+    isPressActiveRef.current = false;
+    waxAmtRef.current = 0;
+    puddleVisibleRef.current = false;
+    pressDepthRef.current = 0;
+    setWaxAmt(0);
+    setPuddleVisible(false);
+    setSavedConfig(null);
+    setVerdict('');
     setSeed(randSeed());
-    setFinal(null);
-    anim.current.amount = 0.6;
-    anim.current.bubbles = 0;
-    anim.current.depth = 0;
-    setPhase('intro');
+    setPhase('idle');
+    const ov  = overlayRef.current;
+    const ctx = ov?.getContext('2d');
+    if (ctx) ctx.clearRect(0, 0, ov!.width, ov!.height);
+    const gl = glRef.current?.gl;
+    if (gl) { gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); }
   }, []);
 
-  useEffect(
-    () => () => {
-      stopRaf();
-      detachPourRelease();
-    },
-    [detachPourRelease],
-  );
+  useEffect(() => () => {
+    cancelAnimationFrame(rafRef.current);
+    cancelAnimationFrame(pressRafRef.current);
+  }, []);
 
-  const config: WaxSealConfig | null = final
-    ? {
-        v: WAX_SEAL_V,
-        seed,
-        wax: { color: waxChoice === 'auto' ? null : waxChoice, finish },
-        pour: { amount: final.amount, irregularity: final.irregularity, bubbles: final.bubbles },
-        press: { crispness: final.crispness, depth: final.depth, offset: final.offset, skew: final.skew },
-        mark: { source: markSource },
-        isDefault: final.isDefault,
-      }
-    : null;
+  // ── derived layout values ─────────────────────────────────────────────────
+  const showStamp  = phase !== 'outcome';
+  const containerH = showStamp ? STAMP_CLEARANCE + PREVIEW : PREVIEW;
+  const canvasTop  = showStamp ? STAMP_CLEARANCE : 0;
+  const canPress   = waxAmt >= MIN_PRESS && (phase === 'idle' || phase === 'pouring');
+  const atLimit    = waxAmt >= MAX_WAX;
 
-  const zone = needleUi > 0.74 ? 'hot' : needleUi >= 0.34 ? 'ready' : 'firm';
-
+  // ── render ────────────────────────────────────────────────────────────────
   return (
     <section
       id="wax-maker"
       className="overflow-hidden rounded-2xl border border-ink/10 bg-[radial-gradient(120%_100%_at_50%_30%,#241c17_0%,#15110e_72%)] text-cream"
     >
       <div className="flex flex-col items-center gap-6 p-6 sm:p-10">
-        {/* the seal stage */}
-        <div className="relative" style={{ width: PREVIEW, maxWidth: '100%' }}>
+
+        {/* ── seal stage ───────────────────────────────────────────────────── */}
+        <div
+          className="relative touch-none select-none overflow-visible"
+          style={{
+            width: PREVIEW,
+            maxWidth: '100%',
+            height: containerH,
+            transition: 'height 0.35s ease',
+          }}
+        >
+          {/* ── stamp visual (overhead zone; descends during pressing) ─────── */}
+          {showStamp && (
+            <div
+              ref={stampRef}
+              onPointerDown={handleStampDown}
+              className="touch-none select-none"
+              style={{
+                position: 'absolute',
+                top: STAMP_TOP,              // 6px — die bottom aligns with canvas top
+                left: `calc(50% - ${STAMP_DIE_D / 2}px)`,  // centered without transform
+                width: STAMP_DIE_D,
+                zIndex: 10,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                cursor: canPress ? 'pointer' : 'default',
+                // NOTE: transform is NOT set here — controlled exclusively via ref
+              }}
+            >
+              {/* Handle */}
+              <div
+                style={{
+                  width: 28,
+                  height: STAMP_HANDLE_H,
+                  background: 'linear-gradient(135deg,#4a3428 0%,#1c140e 100%)',
+                  borderRadius: '5px 5px 0 0',
+                  boxShadow: '0 -3px 10px rgba(0,0,0,0.5), inset 0 1px 1px rgba(255,255,255,0.08)',
+                }}
+              />
+              {/* Die face */}
+              <div
+                style={{
+                  width: STAMP_DIE_D,
+                  height: STAMP_DIE_D,
+                  borderRadius: '50%',
+                  background: 'radial-gradient(ellipse at 38% 30%,#2e2018 0%,#0f0b07 100%)',
+                  boxShadow: `0 0 0 2.5px ${resolvedColor}55, 0 5px 18px rgba(0,0,0,0.75), inset 0 1px 3px rgba(255,255,255,0.06)`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: resolvedColor,
+                  fontFamily: 'Georgia,"Times New Roman",serif',
+                  fontStyle: 'italic',
+                  fontSize: 21,
+                  opacity: canPress ? 1 : 0.38,
+                  transition: 'opacity 0.3s',
+                }}
+              >
+                {monogramText}
+              </div>
+              {/* Press label (text updated directly via ref during pressing) */}
+              <p
+                ref={stampLabelRef}
+                style={{
+                  fontSize: 9,
+                  letterSpacing: '0.26em',
+                  textTransform: 'uppercase',
+                  color: 'rgba(240,234,216,0.45)',
+                  fontFamily: 'inherit',
+                  marginTop: 6,
+                  lineHeight: 1,
+                  userSelect: 'none',
+                  pointerEvents: 'none',
+                }}
+              >
+                {canPress ? 'Push to stamp' : 'Pour first'}
+              </p>
+            </div>
+          )}
+
+          {/* ── WebGL / Canvas-2D puddle ─────────────────────────────────── */}
           <canvas
             ref={canvasRef}
             width={PREVIEW}
             height={PREVIEW}
             aria-hidden
-            className={`mx-auto block transition-transform duration-500 ${
-              phase === 'set' ? 'scale-[0.98]' : 'scale-100'
-            }`}
-            style={{ width: PREVIEW, height: PREVIEW, maxWidth: '100%' }}
+            className="absolute block"
+            style={{
+              top: canvasTop,
+              left: 0,
+              width: PREVIEW,
+              height: PREVIEW,
+              opacity: puddleVisible ? 1 : 0,
+              transition: 'opacity 0.3s, top 0.35s ease',
+            }}
           />
-          {phase === 'intro' ? (
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <Stamp aria-hidden className="h-10 w-10 text-cream/40" strokeWidth={1.25} />
-            </div>
-          ) : null}
+
+          {/* ── Drop + ripple overlay ─────────────────────────────────────── */}
+          <canvas
+            ref={overlayRef}
+            width={PREVIEW}
+            height={PREVIEW}
+            aria-hidden
+            className="pointer-events-none absolute block"
+            style={{
+              top: canvasTop,
+              left: 0,
+              width: PREVIEW,
+              height: PREVIEW,
+              transition: 'top 0.35s ease',
+            }}
+          />
+
+          {/* ── Pour interaction zone ─────────────────────────────────────── */}
+          <div
+            className="absolute"
+            style={{
+              top: canvasTop,
+              left: 0,
+              width: PREVIEW,
+              height: PREVIEW,
+              cursor: (phase === 'idle' || phase === 'pouring') ? 'crosshair' : 'default',
+              transition: 'top 0.35s ease',
+            }}
+            onPointerDown={handleCanvasDown}
+            onPointerUp={handleCanvasUp}
+            onPointerCancel={handleCanvasUp}
+          >
+            {/* Idle hint */}
+            {phase === 'idle' && (
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cream/35">
+                  Tap to drip · Hold to pour
+                </p>
+              </div>
+            )}
+
+            {/* Wax-at-limit indicator */}
+            {atLimit && phase === 'pouring' && (
+              <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center">
+                <p className="font-mono text-[9px] uppercase tracking-[0.24em] text-cream/38">
+                  Wax at capacity
+                </p>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* the consistency meter (cool beat only) */}
-        {phase === 'cool' ? (
-          <div className="w-full max-w-sm space-y-2">
-            <div className="relative h-3 overflow-hidden rounded-full bg-cream/15">
-              {/* the green "ready" band: 0.34..0.74 of the track */}
-              <div className="absolute inset-y-0 rounded-full bg-emerald-400/30" style={{ left: '34%', right: '26%' }} />
-              <div
-                className="absolute top-1/2 h-5 w-1 -translate-y-1/2 rounded-full bg-cream shadow"
-                style={{ left: `calc(${needleUi * 100}% - 2px)` }}
-              />
-            </div>
-            <p className="text-center font-mono text-[11px] uppercase tracking-[0.24em] text-cream/70">
-              {zone === 'ready' ? 'Ready — press now' : zone === 'hot' ? 'Too hot — let it set' : 'Setting firm'}
-            </p>
-          </div>
-        ) : null}
-
-        {/* copy + controls per phase */}
+        {/* ── phase controls ───────────────────────────────────────────────── */}
         <div className="flex w-full max-w-sm flex-col items-center gap-4 text-center">
-          {phase === 'intro' || phase === 'pour' ? (
+
+          {(phase === 'idle' || phase === 'pouring') && (
+            <p className="text-sm text-cream/60">
+              {phase === 'idle'
+                ? 'Drip any amount of wax — then push the stamp into it.'
+                : waxAmt < MIN_PRESS
+                  ? 'Keep dripping…'
+                  : 'Ready. Pour more or push the stamp above into the wax.'}
+            </p>
+          )}
+
+          {phase === 'pressing' && (
+            <p className="text-sm text-cream/55">
+              Hold until the impression feels right — then release.
+            </p>
+          )}
+
+          {phase === 'outcome' && savedConfig && (
             <>
-              <p className="text-sm text-cream/75">
-                {phase === 'pour'
-                  ? 'Hold to pour more wax — let go when the puddle looks right.'
-                  : 'This is your stamp. Press it into warm wax to mint your seal — every pour is one of a kind.'}
-              </p>
-              {/* ONE persistent button across intro→pour: the same DOM node holds
-                  the pointer capture, so the release that ends the pour always
-                  lands on a handler (touch implicit-capture safe). */}
-              <button
-                type="button"
-                onPointerDown={startPour}
-                onPointerUp={endPour}
-                onPointerCancel={endPour}
-                className="inline-flex min-h-[44px] touch-none select-none items-center gap-2 rounded-full bg-cream px-6 text-sm font-semibold text-ink transition hover:bg-cream/90"
-              >
-                {phase === 'pour' ? 'Release to set' : 'Pour the wax'}
-              </button>
-            </>
-          ) : null}
+              {verdict && (
+                <p className="flex items-center justify-center gap-1.5 text-sm text-cream/90">
+                  <Sparkles aria-hidden className="h-4 w-4 text-[#cb9e4b]" strokeWidth={1.75} />
+                  {verdict}
+                </p>
+              )}
 
-          {phase === 'cool' ? (
-            <button
-              type="button"
-              onClick={() => {
-                stopRaf();
-                doPress(anim.current.needle);
-              }}
-              className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-cream px-6 text-sm font-semibold text-ink transition hover:bg-cream/90"
-            >
-              <Stamp aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              Press the stamp
-            </button>
-          ) : null}
-
-          {phase === 'set' ? (
-            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-cream/70">Setting…</p>
-          ) : null}
-
-          {phase === 'confirm' && final ? (
-            <>
-              <p className="flex items-center justify-center gap-2 text-sm text-cream/85">
-                <Sparkles aria-hidden className="h-4 w-4 text-[#cb9e4b]" strokeWidth={1.75} />
-                {final.verdict}
-              </p>
-
-              {/* wax colour */}
+              {/* Wax colour */}
               <div className="space-y-2">
-                <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-cream/55">Wax colour</p>
+                <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-cream/55">
+                  Wax colour
+                </p>
                 <div className="flex flex-wrap items-center justify-center gap-2">
                   <button
                     type="button"
                     onClick={() => setWaxChoice('auto')}
                     className={`rounded-full px-3 py-1 text-[11px] font-medium transition ${
-                      waxChoice === 'auto' ? 'bg-cream text-ink' : 'bg-cream/15 text-cream/80 hover:bg-cream/25'
+                      waxChoice === 'auto'
+                        ? 'bg-cream text-ink'
+                        : 'bg-cream/15 text-cream/80 hover:bg-cream/25'
                     }`}
                   >
                     Mood Board
@@ -526,7 +699,7 @@ export function WaxStampMaker({
                     <button
                       key={hex}
                       type="button"
-                      aria-label={`Wax ${hex}`}
+                      aria-label={`Wax colour ${hex}`}
                       onClick={() => setWaxChoice(hex)}
                       className={`h-7 w-7 rounded-full ring-2 ring-offset-2 ring-offset-[#15110e] transition ${
                         waxChoice === hex ? 'ring-cream' : 'ring-transparent hover:ring-cream/40'
@@ -537,7 +710,7 @@ export function WaxStampMaker({
                 </div>
               </div>
 
-              {/* finish */}
+              {/* Finish */}
               <div className="flex items-center gap-2">
                 {(['matte', 'glossy'] as WaxFinish[]).map((f) => (
                   <button
@@ -545,7 +718,9 @@ export function WaxStampMaker({
                     type="button"
                     onClick={() => setFinish(f)}
                     className={`rounded-full px-4 py-1 text-[11px] font-medium capitalize transition ${
-                      finish === f ? 'bg-cream text-ink' : 'bg-cream/15 text-cream/80 hover:bg-cream/25'
+                      finish === f
+                        ? 'bg-cream text-ink'
+                        : 'bg-cream/15 text-cream/80 hover:bg-cream/25'
                     }`}
                   >
                     {f}
@@ -553,39 +728,30 @@ export function WaxStampMaker({
                 ))}
               </div>
 
+              {/* Actions */}
               <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
                 <button
                   type="button"
-                  onClick={pourAgain}
+                  onClick={reset}
                   className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-cream/30 px-5 text-sm font-medium text-cream/85 transition hover:bg-cream/10"
                 >
                   <RotateCcw aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                  Pour again
+                  Try again
                 </button>
                 <form action={saveWaxSeal}>
                   <input type="hidden" name="event_id" value={eventId} />
-                  <input type="hidden" name="config" value={JSON.stringify(config)} />
+                  <input type="hidden" name="config" value={JSON.stringify(savedConfig)} />
                   <button
                     type="submit"
                     className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-[#cb9e4b] px-6 text-sm font-semibold text-ink transition hover:bg-[#b8923f]"
                   >
-                    Use this seal
+                    <Sparkles aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                    Love it — use this seal
                   </button>
                 </form>
               </div>
             </>
-          ) : null}
-
-          {phase !== 'confirm' ? (
-            <button
-              type="button"
-              onClick={mintClean}
-              className="inline-flex items-center gap-1.5 text-[11px] font-medium text-cream/50 underline-offset-4 hover:text-cream/80 hover:underline"
-            >
-              <Wand2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-              Or just mint a clean seal
-            </button>
-          ) : null}
+          )}
         </div>
       </div>
     </section>

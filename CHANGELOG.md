@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · feat(save-the-date): auto-fill resolver — music + closing gallery from existing data (PR4 P2)
+
+Extracts P1's inline content-building into a pure, tested resolver and enriches the film from data the couple already has — **no new schema**.
+
+- **New `lib/save-the-date-content.ts`** — `resolveStdFilmContent(input)` is the single source of truth for `StdFilmContent` (the film component + `save-the-date.tsx` both import the type from here now). It assembles the beats from existing event data and adds two enrichments the inline P1 version left null: the couple's **site music** (`events.site_bg_music_*`, already resolved to a presigned URL in the page) becomes the film's **soundtrack**, and their **curated photos** (`events.our_photos`, else the hero photo) become a **closing gallery beat**. The monogram honours the couple's explicit `monogram_text` override, else derives from the names. Pure + isomorphic → **16 unit tests** (`save-the-date-content.test.ts`).
+- **`save-the-date-film.tsx`** — imports `StdFilmContent` from the lib; new **gallery beat** (a tidy 2-col montage of up to 6 photos) renders just before the close when photos exist.
+- **`save-the-date.tsx`** — the film branch now calls `resolveStdFilmContent(...)` instead of building the object inline; gains `monogramText` / `musicUrl` / `galleryUrls` props.
+- **`[slug]/page.tsx`** — threads `monogramText={event.monogram_text}` (added to `EventRow`; already in the SELECT), `musicUrl={bgMusicUrl}`, and `galleryUrls` (the couple's `our_photos`, else `[heroPhotoUrl]`) into both `<SaveTheDateView>` mounts.
+
+Still **flag-gated dark** (the film only renders under `NEXT_PUBLIC_STD_FILM=1` / `?film=1`). No migration. tsc 0 · `next lint` clean · 16/16 unit. Stacked on P1 (#1698). PR pending (branch `claude/std-film-resolver`, auto-merge).
+
+SPEC IMPACT iter 0024 — implements **P2** of the build plan (auto-fill resolver). Pakanta song + split ceremony/reception venue + video are deferred to **P4** (they need their own `std_*` columns). → CHANGELOG + corpus build-plan + DECISION_LOG.
+
 ## 2026-06-17 · feat(save-the-date): the auto-playing, scrubbable content "film" (PR4 P1 · flag-gated)
 
 The free base of the redesigned Save-the-Date (build-plan **P1**). The STD page can now render a continuous, self-playing, **scrubbable** film instead of the static announcement card. It opens on the monogram and advances through the content beats on its own — monogram → names → date (+ Add-to-calendar) → venue → story teaser → close (+ Add-to-calendar + See details). Stories-style **segmented scrub bar** (one segment/beat, auto-fills), **press-and-hold to pause**, **tap-left/right to step**, **tap-a-segment to jump**, **replay**, **fullscreen**, music + mute. Colours come from the Mood Board via the page's existing site-palette CSS vars, so it recolours per event at zero cost. Adaptive — only beats with data render (the couple's builder, P4, supplies split venues + media).

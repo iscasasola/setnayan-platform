@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · feat(papic): "Save to phone" on the guest day-of wall + shared button (DRY)
+
+Extends the per-photo Save (#1634) to the guest side and de-duplicates the button.
+
+- **`app/_components/save-photo-button.tsx`** (new, shared) — `SavePhotoButton` extracted from the couple gallery's inline copy; both galleries now import it (one source of truth).
+- **`live-wall-block.tsx`** (guest day-of wall on the personal landing page) — a Save button on every wall tile, so a guest can drop a photo straight into their camera roll (native share sheet → "Save to Photos", download fallback). Saves the screened **wall-safe** derivative (respects opt-out face-blur), which is what the guest sees.
+- **`papic-gallery-grid.tsx`** — refactored to use the shared button (removed the inline `SaveButton` + its now-unused imports).
+
+Remaining follow-up: the bulk **"Save all" ZIP** (a server-streaming route — web has no bulk-to-camera-roll API) + real clip-video save.
+
+SPEC IMPACT: iteration 0012 — save-to-device now on both the couple gallery and the guest wall, via a shared component. Logged in corpus DECISION_LOG.md.
+
 ## 2026-06-17 · feat(papic): "Save to phone" — 1-tap save a gallery photo to the camera roll
 
 Owner asked for a save-to-gallery option alongside Google Drive. Added a per-photo **Save** button on the couple's Papic gallery.

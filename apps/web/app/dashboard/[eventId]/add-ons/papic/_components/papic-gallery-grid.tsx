@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Play, Download, Loader2, Check } from 'lucide-react';
+import { Play } from 'lucide-react';
 import type { GalleryPhoto, GalleryTagSource } from '@/lib/papic-gallery';
-import { saveImageToDevice } from '@/lib/save-to-device';
+import { SavePhotoButton } from '@/app/_components/save-photo-button';
 
 // Real Papic gallery grid — the couple's captured photos + clips with working
 // filter chips. Server-fetched (presigned thumbnails) and passed in; this only
@@ -21,36 +21,6 @@ function tagDotClass(source: GalleryTagSource): string {
   if (source === 'auto_face') return 'bg-emerald-500';
   if (source === 'qr' || source === 'manual') return 'bg-terracotta';
   return 'bg-ink/30';
-}
-
-// Per-tile "Save to phone" — native share sheet ("Save to Photos") on mobile,
-// download fallback elsewhere. Best-effort; brief check-mark on success.
-function SaveButton({ url, filename }: { url: string; filename: string }) {
-  const [state, setState] = useState<'idle' | 'saving' | 'done'>('idle');
-  return (
-    <button
-      type="button"
-      aria-label="Save to phone"
-      onClick={async (e) => {
-        e.stopPropagation();
-        if (state === 'saving') return;
-        setState('saving');
-        const r = await saveImageToDevice(url, filename);
-        setState(r === 'failed' ? 'idle' : 'done');
-        if (r !== 'failed') setTimeout(() => setState('idle'), 1500);
-      }}
-      className="absolute left-1 top-1 rounded-full bg-black/55 p-1 text-cream transition active:scale-95"
-    >
-      {state === 'saving' ? (
-        <Loader2 aria-hidden className="h-3 w-3 animate-spin" strokeWidth={2} />
-      ) : state === 'done' ? (
-        <Check aria-hidden className="h-3 w-3" strokeWidth={2.5} />
-      ) : (
-        <Download aria-hidden className="h-3 w-3" strokeWidth={2} />
-      )}
-      <span className="sr-only">Save to phone</span>
-    </button>
-  );
 }
 
 export function PapicGalleryGrid({ photos }: { photos: GalleryPhoto[] }) {
@@ -117,7 +87,7 @@ export function PapicGalleryGrid({ photos }: { photos: GalleryPhoto[] }) {
                   </span>
                 )}
                 {p.url ? (
-                  <SaveButton url={p.url} filename={`setnayan-photo-${p.id}.jpg`} />
+                  <SavePhotoButton url={p.url} filename={`setnayan-photo-${p.id}.jpg`} />
                 ) : null}
                 <span
                   className={`absolute bottom-1 left-1 h-2 w-2 rounded-full ring-1 ring-white/70 ${tagDotClass(p.tagSource)}`}

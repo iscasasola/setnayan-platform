@@ -196,6 +196,34 @@ Capacitor app, end-to-end into the shipped YouTube + embed pipeline) is closed.
 - **P4** — `restartIce()` internet fallback, reconnection / never-black standby,
   device guardrails, the bundled dedicated 5GHz router.
 
+## The files are in the repo now — here's how to wire them
+
+The full P1 plugin set ships in this PR. To build:
+
+**Web (already done + verified):**
+- `apps/web/lib/native/panood-broadcaster.ts` — the `PanoodBroadcaster` plugin contract.
+- `apps/web/app/dashboard/[eventId]/add-ons/panood/setup/_components/broadcast-control.tsx` — the director UI (Go live / End), wired into the setup page; shows a "use the app" note in a plain browser.
+- `@capacitor/core` added to `apps/web`.
+
+**iOS** — `apps/mobile/native-plugins/ios/PanoodBroadcasterPlugin.swift`:
+1. In Xcode, add this file to the App target (`App/App/`).
+2. Add **HaishinKit** via Swift Package Manager (`https://github.com/HaishinKit/HaishinKit.swift`).
+3. `Info.plist`: `NSCameraUsageDescription`, `NSMicrophoneUsageDescription`; Background Modes → Audio.
+4. Capacitor 8 auto-discovers the `@objc(PanoodBroadcasterPlugin)` `CAPBridgedPlugin` — confirm it loads.
+
+**Android** — `apps/mobile/android/app/src/main/java/com/setnayan/app/PanoodBroadcasterPlugin.kt` (already in the package):
+1. `settings.gradle`: add `maven { url 'https://jitpack.io' }`.
+2. `app/build.gradle`: `implementation "com.github.pedroSG94:RootEncoder:2.5.7"` (pin to your tested version).
+3. `MainActivity` `onCreate` (before `super.onCreate`): `registerPlugin(PanoodBroadcasterPlugin::class.java)`.
+4. `AndroidManifest.xml`: `CAMERA`, `RECORD_AUDIO`, `INTERNET` permissions.
+
+**Then:** `pnpm --filter web build` → `npx cap sync` → `npx cap open ios|android` → run on the device.
+
+> ⚠ These native files are written to the libraries' documented APIs but **were not
+> compiled** (no Xcode/Android Studio here). Expect to adjust API specifics to your
+> installed HaishinKit / RootEncoder versions — the lifecycle (connect → publish →
+> close) is stable; the attach-source / surface calls are the version-sensitive bits.
+
 ## Device + network requirements (lock for the kit)
 
 - **Director:** iPad (Pro/Air M2+, iPad 7th-gen+, mini 5th+) or a 2020+ Apple-Silicon

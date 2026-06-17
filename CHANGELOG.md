@@ -101,6 +101,24 @@ All three new components carry a JSDoc header noting the 2026-06-14 A6 dedup and
 Verify: `tsc --noEmit` exit 0 · `next lint` clean on all five changed/new files.
 
 SPEC IMPACT: None (code-internal; no behavior/visual change).
+## 2026-06-14 · refactor(dashboard): app-wide <Field>/<FormFlash> dedup sweep — Track A2
+
+Finishes the form-primitive dedup (dashboard-consolidation Track A): replaces remaining LOCAL copies with the shared primitives already on `main` (`@/app/_components/forms/field` + `@/app/_components/forms/form-flash`). Pure behavior- and visual-preserving refactor — rendered DOM is identical; no copy/logic/route/schema change. Net −102 LOC across 16 files (53 ins / 155 del).
+
+- **Local `Field` defs removed: 3 of 12 candidates.** Replaced with `import { Field } from '@/app/_components/forms/field'` where the local def was byte-identical to the shared superset (shared adds an optional `required` asterisk; every call site uses only `label`/`htmlFor`/`help`): `app/admin/settings/payment-methods/page.tsx`, `app/help/page.tsx`, `app/vendor-dashboard/services/page.tsx`.
+- **9 of 12 left inline (NOT byte-identical — would change DOM if forced):**
+  - `app/[slug]/page.tsx`, `app/dashboard/[eventId]/guests/[guestId]/page.tsx`, `app/dashboard/[eventId]/guests/new/page.tsx` — different contract: take `{id, type, placeholder, defaultValue}` and render their own `<input>` inside a `<div>`.
+  - `app/admin/vendors/[vendorProfileId]/edit/page.tsx` — asterisk is `text-rose-600` (shared uses `text-terracotta`) + no `help` slot.
+  - `app/dashboard/[eventId]/_components/new-manual-vendor-modal.tsx` — `<div>` wrapper, uppercase `text-xs` label, `hint` (not `help`).
+  - `app/admin/connection-logs/connection-logs-client.tsx` — `{label, children}`, mono `<p>` label in a `<div>`.
+  - `app/admin/force-majeure/[flagId]/page.tsx`, `app/admin/payouts/page.tsx` — `<dt>/<dd>` read-only description-list display fields (not form fields).
+  - `app/dashboard/[eventId]/paperwork/page.tsx` — deadline display field with `{tone, icon, collapsible}` + lucide icons.
+- **Standard flash banners converted to `<FormFlash>`: 19** (15 `tone="error"` + 4 `tone="success"`), each byte-identical to what `FormFlash` renders (`mb-4 rounded-md border … px-4 py-3 text-sm`, exact terracotta-700 / emerald-800 tokens, `role="alert"`/`role="status"`), preserving the exact `{msg}` expression (incl. `decodeURIComponent(search.error)`). Touched: `admin/addons`, `admin/concierge-abuse`, `admin/funnels`, `admin/payment-options`, `admin/payouts`, `admin/settings/demo-mode`, `admin/settings/payment-methods` (×3), `admin/social-queue`, `admin/user-reports`, `admin/verify` (×3), `dashboard/(account)/api-keys`, `dashboard/[eventId]/guests/quick`, `join/[eventId]`, `vendor-dashboard/payment-options` (×2).
+- **Non-standard banner tones left inline** (would change DOM): all amber (`border-amber-…`), neutral ink (`border-ink/… bg-ink/…`), `text-emerald-900` success variants (concierge-abuse), `border-emerald-200` / no-`role` variants (social-queue success loop), and any with different margin (`mb-6`/`mt-4`/none), padding (`px-3 py-2`), `text-xs`, icon children, or `inline-flex` structure. ~50 such variant `<p>` banners remain inline by design.
+
+Verify: `pnpm exec tsc --noEmit` exit 0, zero `error TS` · `pnpm exec next lint --file <each of 16 changed files>` clean (no unused imports left behind).
+
+SPEC IMPACT: None (code-internal; no behavior/visual/route/schema change)
 
 ## 2026-06-17 · feat(reveal): port the DESIGN-LOCKED bridal-veil reveal to the Save-the-Date page
 

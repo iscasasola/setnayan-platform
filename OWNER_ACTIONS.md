@@ -1093,9 +1093,14 @@ To turn it on:
 1. Download the 3 face-api.js model sets (detector + landmarks + recognition):
    `ssd_mobilenetv1`, `face_landmark_68`, `face_recognition` (each a
    `*-weights_manifest.json` + `*.bin`, ~12 MB total) from the
-   `@vladmandic/face-api` model folder.
+   `@vladmandic/face-api` model folder — **plus the `face-api.js` UMD build
+   itself** (`dist/face-api.js`, ~1 MB) from the same package.
 2. Upload that folder to the **public** R2 bucket (e.g. under
-   `face-models/`), so the manifests + `.bin` files are publicly fetchable.
+   `face-models/`), so the manifests + `.bin` files **and `face-api.js`** are
+   publicly fetchable. (The library is loaded at runtime from R2 — not bundled
+   — so the `next build` stays under Vercel's 8 GB ceiling; see `next.config.ts`
+   #1258. The script URL defaults to `${MODEL_URL}/face-api.js`; override with
+   `NEXT_PUBLIC_FACE_API_URL` if you host it elsewhere.)
 3. Set **`NEXT_PUBLIC_FACE_MODEL_URL`** in Vercel to that folder URL and redeploy.
 4. **Validate on a real device first** (a few of your own test photos): confirm
    same-person matches and different-person doesn't, before relying on it for a

@@ -27,6 +27,13 @@ Lane 2 of the Alaala embed: the Studio hub (`/add-ons`) is the *store*; this is 
 SPEC IMPACT: None on schema/SKU (new narrative surface + one nav item). **Lane 3 next** — finish the keystones (Kwento → Live Photo Wall → produced-output), the part competitors structurally can't copy.
 
 ## 2026-06-15 · feat(alaala): name the memory pillar "Alaala" — Studio hub framing + manifesto naming (Lane 1 of 3)
+## 2026-06-17 · fix(papic): runtime-load face-api.js from R2 instead of bundling it (Vercel build OOM)
+
+GitHub's production build passed with `@vladmandic/face-api` bundled, but **Vercel's 8 GB build machine OOM-killed the deploy** three times — face-api (+ its bundled TF.js) tipped `next build` back over the ceiling (the #1258 mechanic; `next.config.ts` already skips in-build typecheck/lint for the same reason).
+
+Fix: `lib/face-embed.ts` now loads the face-api.js UMD at **runtime** as a `<script>` from the **same R2 host as the weights** (default `${NEXT_PUBLIC_FACE_MODEL_URL}/face-api.js`, override `NEXT_PUBLIC_FACE_API_URL`) — so webpack never processes it and the build returns to baseline memory. The `@vladmandic/face-api` npm dep is removed (lockfile regenerated); a minimal hand-typed interface replaces `typeof import(...)`. Behavior is unchanged and still **dormant** until a model is hosted (the script URL only resolves when `NEXT_PUBLIC_FACE_MODEL_URL` is set). CSP is unaffected — the app ships only `frame-ancestors 'self'`, no `script-src`. `OWNER_ACTIONS.md` updated to upload `face-api.js` alongside the weights.
+
+**SPEC IMPACT:** None — build-infra fix; the dormant face loop is functionally identical.
 
 Owner ask: *"we also want to do the customization of this template from the admin"* + *"where we can activate and deactivate features of the template?"* — owner picked **Full template studio** (toggles **and** a live slider panel). Today the reveal was gated only by the `NEXT_PUBLIC_STD_REVEAL` env flag with all settings baked as constants; this makes it admin-managed end-to-end, following the `platform_settings` / `homepage_hero_config` recipe.
 

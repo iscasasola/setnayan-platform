@@ -1,7 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Camera, Loader2, Check, CircleAlert, ImageIcon, ShieldCheck } from 'lucide-react';
+import {
+  Camera,
+  Loader2,
+  Check,
+  CircleAlert,
+  ImageIcon,
+  ShieldCheck,
+  Sparkles,
+  X,
+} from 'lucide-react';
+import { DayOfFaceEnroll } from '@/app/[slug]/_components/day-of-face-enroll';
 
 // Papic · guest capture (client)
 //
@@ -22,6 +32,9 @@ type Props = {
   total: number;
   /** Has this guest already accepted the one-time UGC terms of use? */
   termsAccepted: boolean;
+  /** True when the guest has no active face enrollment — shows the in-camera
+   *  "add your face" fallback prompt so their candid shots auto-find them. */
+  needsFaceEnroll?: boolean;
 };
 
 export function PapicGuestCapture({
@@ -30,6 +43,7 @@ export function PapicGuestCapture({
   initialRemaining,
   total,
   termsAccepted,
+  needsFaceEnroll = false,
 }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -63,6 +77,13 @@ export function PapicGuestCapture({
   const [acceptBusy, setAcceptBusy] = useState(false);
   const [acceptError, setAcceptError] = useState<string | null>(null);
 
+  // In-camera "add your face" fallback (the straight-to-shooting guest who
+  // skipped the RSVP selfie). enrolling swaps the rear capture stream for the
+  // front-camera enroll panel; enrolled hides the prompt afterward.
+  const [enrolling, setEnrolling] = useState(false);
+  const [enrolled, setEnrolled] = useState(false);
+  const [promptDismissed, setPromptDismissed] = useState(false);
+
   const exhausted = remaining <= 0;
 
   const acceptTerms = useCallback(async () => {
@@ -83,7 +104,10 @@ export function PapicGuestCapture({
   useEffect(() => {
     // Don't request the camera until the guest has accepted the UGC terms and
     // isn't blocked — no point prompting for camera access behind the gate.
-    if (!accepted || blocked) return;
+    // Also release it while enrolling: the front-camera selfie panel owns the
+    // camera then (most phones allow only one active stream), and this effect's
+    // cleanup re-acquires the rear stream when enrolling flips back off.
+    if (!accepted || blocked || enrolling) return;
     let cancelled = false;
     async function start() {
       try {
@@ -110,7 +134,7 @@ export function PapicGuestCapture({
       cancelled = true;
       streamRef.current?.getTracks().forEach((t) => t.stop());
     };
-  }, [accepted, blocked]);
+  }, [accepted, blocked, enrolling]);
 
   const capture = useCallback(async () => {
     if (busy || !ready || exhausted || !accepted || blocked) return;
@@ -364,6 +388,28 @@ export function PapicGuestCapture({
     );
   }
 
+  // Face enroll panel — the front-camera selfie owns the camera while this is
+  // up (the rear capture stream was released by the effect above).
+  if (enrolling) {
+    return (
+      <main className="flex min-h-screen flex-col bg-ink px-4 py-8 text-cream">
+        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-cream/70">
+          Papic · candid camera
+        </p>
+        <div className="mx-auto mt-6 w-full max-w-md">
+          <DayOfFaceEnroll
+            context="guest_camera"
+            onDone={() => {
+              setEnrolled(true);
+              setEnrolling(false);
+            }}
+            onSkip={() => setEnrolling(false)}
+          />
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="flex min-h-screen flex-col bg-ink text-cream">
       <header className="flex items-center justify-between px-4 py-3">
@@ -375,6 +421,30 @@ export function PapicGuestCapture({
           {remaining} left
         </span>
       </header>
+
+      {/* In-camera "add your face" fallback — catches the guest who jumped
+          straight to shooting without enrolling on their landing page. Opens the
+          front-camera selfie panel; dismissible. QR scan is the fallback either way. */}
+      {needsFaceEnroll && !enrolled && !promptDismissed ? (
+        <div className="mx-3 mb-1 flex items-center gap-2 rounded-xl bg-cream/10 px-3 py-2 text-xs text-cream/90">
+          <Sparkles aria-hidden className="h-4 w-4 shrink-0 text-cream" strokeWidth={1.75} />
+          <button
+            type="button"
+            onClick={() => setEnrolling(true)}
+            className="flex-1 text-left font-medium underline-offset-2 hover:underline"
+          >
+            Add your face so your photos find you
+          </button>
+          <button
+            type="button"
+            onClick={() => setPromptDismissed(true)}
+            aria-label="Dismiss"
+            className="shrink-0 rounded-full p-1 text-cream/60 hover:text-cream"
+          >
+            <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+          </button>
+        </div>
+      ) : null}
 
       <div className="relative flex-1 overflow-hidden">
         <video

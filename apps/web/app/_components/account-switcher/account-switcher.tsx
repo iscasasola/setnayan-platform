@@ -587,14 +587,39 @@ export function AccountSwitcherStandalone({ data }: Props) {
   const showHQ = data.context.isAdmin;
   const showContextRail = showShop || showHQ;
 
-  // Re-use the full AccountSwitcher but expose it via the icon trigger
   return (
     <>
-      <AccountSwitcherIconTrigger
-        data={data}
-        open={open}
-        onToggle={() => setOpen((v) => !v)}
-      />
+      {/* Expanded row trigger — shown when the sidebar is open */}
+      <button
+        type="button"
+        aria-label="Open account switcher"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left transition-colors hover:bg-ink/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40"
+      >
+        <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-terracotta/15 text-xs font-semibold text-terracotta-700">
+          {data.photoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={data.photoUrl} alt="" className="h-full w-full object-cover" />
+          ) : (
+            initial
+          )}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-medium text-ink">
+            {data.displayName ?? data.email}
+          </span>
+          {data.displayName ? (
+            <span className="block truncate text-xs text-ink/50">{data.email}</span>
+          ) : null}
+        </span>
+        <ChevronDown
+          aria-hidden
+          className={`h-3.5 w-3.5 shrink-0 text-ink/40 transition-transform ${open ? 'rotate-180' : ''}`}
+          strokeWidth={2.5}
+        />
+      </button>
       {open && mounted && typeof document !== 'undefined'
         ? createPortal(
             <>

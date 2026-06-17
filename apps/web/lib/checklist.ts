@@ -91,21 +91,24 @@ export function isChurchCeremony(ceremonyType: string | null | undefined): boole
  * Seeded into `event_checklist_items` on first open (see actions.ensureSeeded).
  */
 export const CHECKLIST_TEMPLATE: ReadonlyArray<ChecklistTemplateItem> = [
-  // ══ 18–12 months before — Foundations & the big bookings ══
+  // ══ 18–12 months before — Finding your date & the big decisions ══
   { key: 'decide_type', title: 'Decide your wedding type & overall vibe (church, civil, garden, destination)', category: 'foundations', dueOffsetDays: 540 },
   { key: 'who_pays', title: 'Agree on the budget split — who pays for what', category: 'foundations', dueOffsetDays: 530 },
-  { key: 'shortlist_dates', title: 'Shortlist 2–3 possible wedding dates', category: 'foundations', dueOffsetDays: 520 },
+  { key: 'shortlist_dates', title: 'Share your rough timing preference — a window, not a locked date', category: 'foundations', dueOffsetDays: 520 },
   { key: 'draft_guest_list', title: 'Draft a rough guest list (start lean — it always grows)', category: 'guests', dueOffsetDays: 510 },
   { key: 'pick_party', title: 'Choose your wedding party (maid of honour, best man, entourage)', category: 'foundations', dueOffsetDays: 500 },
-  { key: 'shortlist_venues', title: 'Research & shortlist your ceremony and reception venues', category: 'vendors', dueOffsetDays: 470 },
+  { key: 'shortlist_venues', title: 'Research & shortlist ceremony venues (church, chapel, or garden)', category: 'vendors', dueOffsetDays: 480 },
+  { key: 'shortlist_reception_venue', title: 'Research & shortlist reception venues (hall, hotel, or garden)', category: 'vendors', dueOffsetDays: 470 },
   { key: 'ask_parish', title: 'Ask your parish for its full requirements list & timeline', category: 'paperwork', dueOffsetDays: 460, appliesTo: isChurchCeremony },
+  { key: 'find_date', title: 'Find the date both venues share — use the date finder', category: 'foundations', dueOffsetDays: 420 },
+  { key: 'set_date', title: 'Lock your date — the day your ceremony and reception venue both agree on', category: 'foundations', dueOffsetDays: 400 },
 
   // ══ 12–9 months before — Lock your look & key vendors ══
-  { key: 'set_date', title: 'Lock your wedding date', category: 'foundations', dueOffsetDays: 365 },
   { key: 'set_budget', title: 'Set your overall budget', category: 'foundations', dueOffsetDays: 360 },
   { key: 'guest_estimate', title: 'Estimate your guest count', category: 'foundations', dueOffsetDays: 350 },
   { key: 'lock_theme', title: 'Lock your theme, palette & overall style', category: 'design', dueOffsetDays: 340 },
-  { key: 'book_venue', title: 'Book your ceremony & reception venue', category: 'vendors', dueOffsetDays: 330 },
+  { key: 'book_venue', title: 'Book your ceremony venue (confirm the date with the church or chapel)', category: 'vendors', dueOffsetDays: 330 },
+  { key: 'book_reception_venue', title: 'Book your reception venue (confirm the date with the hall or hotel)', category: 'vendors', dueOffsetDays: 325 },
   { key: 'book_host', title: 'Book your host / emcee', category: 'vendors', dueOffsetDays: 320 },
   { key: 'book_ceremony_music', title: 'Book your ceremony musicians (string quartet, choir, soloist)', category: 'vendors', dueOffsetDays: 310 },
   { key: 'book_reception_music', title: 'Book your reception music (band, DJ, or mobile bar)', category: 'vendors', dueOffsetDays: 305 },
@@ -218,7 +221,7 @@ export type ChecklistPhase = {
 };
 
 export const CHECKLIST_PHASES: ReadonlyArray<ChecklistPhase> = [
-  { id: 'p1', label: '18–12 months before', blurb: 'Foundations & the big bookings', maxDays: 100000, minDays: 366 },
+  { id: 'p1', label: '18–12 months before', blurb: 'Finding your date & the big decisions', maxDays: 100000, minDays: 366 },
   { id: 'p2', label: '12–9 months before', blurb: 'Lock your look & key vendors', maxDays: 365, minDays: 271 },
   { id: 'p3', label: '9–6 months before', blurb: 'The details take shape', maxDays: 270, minDays: 181 },
   { id: 'p4', label: '6–4 months before', blurb: 'Invitations, fittings & flow', maxDays: 180, minDays: 121 },
@@ -503,14 +506,17 @@ export function checklistItemHref(eventId: string, key: string | null): string |
   // catalogTile. Other vendor tasks (tastings, follow-ups) fall through to the
   // plain vendors surface below.
   const VENDOR_TILE: Record<string, string> = {
-    shortlist_venues: 'reception',
-    book_venue: 'reception',
+    shortlist_venues: 'ceremony_venue',
+    shortlist_reception_venue: 'reception',
+    book_venue: 'ceremony_venue',
+    book_reception_venue: 'reception',
     book_caterer: 'catering',
     book_photo: 'photo_video',
     book_hmua: 'hmua',
     book_coordinator: 'coordinator',
     book_florist: 'florist',
     book_host: 'host_mc',
+    book_ceremony_music: 'music_entertainment',
     book_reception_music: 'live_band',
     book_photobooth: 'photo_booth',
     book_lights_sound: 'lights_sound',
@@ -520,6 +526,10 @@ export function checklistItemHref(eventId: string, key: string | null): string |
   if (VENDOR_TILE[key]) return `${base}/vendors?tab=shortlist&open=${VENDOR_TILE[key]}`;
 
   const map: Record<string, string> = {
+    // Date-finding flow
+    shortlist_dates: `${base}/date-selection`,
+    find_date: `${base}/find-date`,
+    set_date: `${base}/date-selection`,
     // Budget & money
     set_budget: `${base}/budget`,
     who_pays: `${base}/budget`,
@@ -529,7 +539,9 @@ export function checklistItemHref(eventId: string, key: string | null): string |
     cash_envelopes: `${base}/budget`,
     // Vendors
     shortlist_venues: `${base}/vendors`,
+    shortlist_reception_venue: `${base}/vendors`,
     book_venue: `${base}/vendors`,
+    book_reception_venue: `${base}/vendors`,
     book_caterer: `${base}/vendors`,
     book_photo: `${base}/vendors`,
     book_hmua: `${base}/vendors`,
@@ -560,7 +572,7 @@ export function checklistItemHref(eventId: string, key: string | null): string |
     final_headcount: `${base}/guests`,
     thank_you_notes: `${base}/guests`,
     // Invitations
-    save_the_dates: `${base}/invitation`,
+    save_the_dates: `${base}/add-ons/save-the-date`,
     order_invitations: `${base}/invitation`,
     invitations: `${base}/invitation`,
     // Design

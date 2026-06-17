@@ -148,7 +148,7 @@ export async function reconcileChecklistCompletion(
       admin
         .from('events')
         .select(
-          'estimated_budget_centavos, estimated_pax, palette_finalized_at, monogram_custom_svg, monogram_uploaded_svg',
+          'estimated_budget_centavos, estimated_pax, palette_finalized_at, monogram_custom_svg, monogram_uploaded_svg, date_status',
         )
         .eq('event_id', eventId)
         .maybeSingle(),
@@ -171,6 +171,7 @@ export async function reconcileChecklistCompletion(
       palette_finalized_at?: string | null;
       monogram_custom_svg?: string | null;
       monogram_uploaded_svg?: string | null;
+      date_status?: string | null;
     };
     const vendors = (vendorsRes.data ?? []) as { category: string; status: string | null }[];
     const confirmed = new Set<string>(CONFIRMED_VENDOR_STATUSES as readonly string[]);
@@ -196,6 +197,7 @@ export async function reconcileChecklistCompletion(
       monogramSet: !!ev.monogram_custom_svg || !!ev.monogram_uploaded_svg,
       marriageLicenseReceived: isReceived((t) => t === 'marriage_license'),
       psaReceived: isReceived((t) => t.startsWith('psa') || t.startsWith('cenomar')),
+      dateStatusLocked: ev.date_status === 'locked',
     };
 
     // Only flip tasks that are BOTH satisfied by state AND still-open candidates,

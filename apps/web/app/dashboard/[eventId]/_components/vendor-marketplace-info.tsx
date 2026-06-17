@@ -555,7 +555,7 @@ function ReviewsCard({
         <ul className="space-y-2.5">
           {reviews.map((r) => (
             <li key={r.review_id}>
-              <ReviewRow review={r} />
+              <ReviewRow review={r} vendorName={vendorBusinessName} />
             </li>
           ))}
         </ul>
@@ -597,7 +597,7 @@ const AXIS_ORDER: ReadonlyArray<ReviewAxis> = [
   'on_time',
 ];
 
-function ReviewRow({ review }: { review: ReviewWithCouple }) {
+function ReviewRow({ review, vendorName }: { review: ReviewWithCouple; vendorName: string }) {
   const author =
     review.couple_display_name && review.couple_display_name.trim().length > 0
       ? review.couple_display_name
@@ -655,7 +655,7 @@ function ReviewRow({ review }: { review: ReviewWithCouple }) {
               strokeWidth={1.75}
             />
             <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
-              Vendor reply
+              Response from {vendorName}
             </span>
           </div>
           <p className="mt-1 line-clamp-3 text-[11px] text-ink/75">{review.vendor_reply}</p>

@@ -174,6 +174,28 @@ Generate: `npx web-push generate-vapid-keys`
 4. Wire `sendPushToToken()` in `/api/notify` with real FCM/APNs/Web Push calls (TODO stub in that file).
 
 **SPEC IMPACT:** Wires the token registration leg of the push notification flow introduced by PR #1652 (`/api/notify`). The sw.js push/notificationclick handlers replace the prior generic `payload.url` routing with vendor-thread-aware routing. No spec corpus change required — the push registration flow is implementation detail of the existing 0028 email/notification spec.
+## 2026-06-17 · PR #1663 — Vendor review response: editable replies, flag-as-fake, 500-char limit
+
+**What landed:**
+
+- `supabase/migrations/20270111780655_vendor_review_response.sql` — migration applied to prod:
+  1. `lock_vendor_reply()` trigger updated: immutability guard removed so replies are editable; auto-stamps `vendor_reply_at` on first write and refreshes it on edits.
+  2. `vendor_reviews.vendor_reply` DB CHECK tightened from 2,000 → 500 chars.
+  3. New `vendor_review_flags` table (UUID PK, FK to `vendor_reviews` + `vendor_profiles`, status `pending/dismissed/escalated`, unique per review+vendor) with 3 RLS policies + RLS enabled.
+
+- `apps/web/lib/reviews.ts` — `VENDOR_REPLY_MAX_CHARS = 500` constant; `submitVendorReply` updated to 500-char limit (editable, no longer one-time); new `flagReviewAsFake()` function; `ReviewFlagReason` type + `REVIEW_FLAG_REASON_LABEL` record.
+
+- `apps/web/app/vendor-dashboard/reviews/page.tsx` — existing reply shows "Edit response" via `<details>` expand with prefilled textarea; new "Flag" icon per review opens dropdown reason selector; char limit updated to 500 throughout.
+
+- `apps/web/app/vendor-dashboard/reviews/actions.ts` — `postVendorReply` (post + edit, validates profile ownership); new `submitFlagAsFake` action.
+
+- `apps/web/app/admin/reviews/page.tsx` + `actions.ts` — new "Vendor fake-review flags" queue section with pending count badge at top of review-moderation page; `dismissReviewFlag` action writes `admin_audit_log`.
+
+- `apps/web/app/v/[slug]/page.tsx` — `VendorReplyBlock` now shows "Response from [Vendor Name]" label; `vendorName` prop threaded through `ReviewRow`.
+
+- `apps/web/app/dashboard/[eventId]/_components/vendor-marketplace-info.tsx` — same "Response from [name]" label in couple-dashboard marketplace info drawer.
+
+**SPEC IMPACT:** `0022_vendor_dashboard/0022_vendor_dashboard.md` — vendor reply is now editable (not one-time per § 2.x); 500-char limit; fake-flag flow added. `0023_admin_console/0023_admin_console.md` — new fake-review flag queue added to review moderation surface.
 
 ---
 

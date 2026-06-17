@@ -12,6 +12,7 @@ import {
   escalateAppeal,
   overridePublishReview,
   rejectAppeal,
+  dismissReviewFlag,
 } from './actions';
 
 export const metadata = { title: 'Reviews · Admin' };
@@ -42,6 +43,23 @@ type FlaggedReviewRow = {
   created_at: string;
   override_admin_id: string | null;
   override_reason: string | null;
+};
+
+type VendorFakeFlagRow = {
+  flag_id: string;
+  review_id: string;
+  reported_by_vendor_profile_id: string;
+  reason: string;
+  status: 'pending' | 'dismissed' | 'escalated';
+  admin_note: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  // joined from vendor_reviews
+  review_rating_overall: number | null;
+  review_body: string | null;
+  review_public_id: string | null;
+  // joined from vendor_profiles (reporter)
+  vendor_business_name: string | null;
 };
 
 const SIGNAL_BADGE_TONE: Record<SelfReviewSignal, string> = {
@@ -78,6 +96,7 @@ type Props = {
     override?: string;
     rejected?: string;
     escalated?: string;
+    flag_dismissed?: string;
   }>;
 };
 
@@ -167,11 +186,11 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
         ? 'Appeal rejected. Reviewer is notified via email.'
         : search.escalated === '1'
           ? 'Appeal escalated to the two-admin queue.'
-          : null;
+          : search.flag_dismissed === '1'
+            ? 'Vendor fake-review flag dismissed.'
+            : null;
 
-  // ── Flagged review-mods queue (placeholder for V1; full surface lands
-  //    with the moderation workflow). Pulls reviews carrying an
-  //    override_admin_id so admins can audit their own override actions.
+  // ── Flagged review-mods queue (admin override-publish audit trail) ────
   const { data: flaggedData } = await admin
     .from('vendor_reviews')
     .select(
@@ -182,13 +201,78 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
     .limit(25);
   const flaggedReviews = (flaggedData ?? []) as FlaggedReviewRow[];
 
+  // ── Vendor fake-flag queue ────────────────────────────────────────────
+  const { data: fakeFlagData } = await admin
+    .from('vendor_review_flags')
+    .select(
+      'flag_id,review_id,reported_by_vendor_profile_id,reason,status,admin_note,reviewed_at,created_at',
+    )
+    .eq('status', 'pending')
+    .order('created_at', { ascending: true })
+    .limit(50);
+  const rawFakeFlags = (fakeFlagData ?? []) as Array<{
+    flag_id: string;
+    review_id: string;
+    reported_by_vendor_profile_id: string;
+    reason: string;
+    status: 'pending' | 'dismissed' | 'escalated';
+    admin_note: string | null;
+    reviewed_at: string | null;
+    created_at: string;
+  }>;
+
+  // Resolve review + vendor details for the flag queue.
+  const flagReviewIds = Array.from(new Set(rawFakeFlags.map((f) => f.review_id)));
+  const flagVendorIds = Array.from(new Set(rawFakeFlags.map((f) => f.reported_by_vendor_profile_id)));
+
+  const [flagReviewData, flagVendorData] = await Promise.all([
+    flagReviewIds.length > 0
+      ? admin
+          .from('vendor_reviews')
+          .select('review_id,public_id,rating_overall,body')
+          .in('review_id', flagReviewIds)
+          .then((r) => r.data ?? [])
+      : Promise.resolve([]),
+    flagVendorIds.length > 0
+      ? admin
+          .from('vendor_profiles')
+          .select('vendor_profile_id,business_name')
+          .in('vendor_profile_id', flagVendorIds)
+          .then((r) => r.data ?? [])
+      : Promise.resolve([]),
+  ]);
+
+  const flagReviewMap = new Map(
+    (flagReviewData as Array<{ review_id: string; public_id: string; rating_overall: number; body: string | null }>).map(
+      (r) => [r.review_id, r],
+    ),
+  );
+  const flagVendorMap = new Map(
+    (flagVendorData as Array<{ vendor_profile_id: string; business_name: string | null }>).map(
+      (v) => [v.vendor_profile_id, v],
+    ),
+  );
+
+  const fakeFlags: VendorFakeFlagRow[] = rawFakeFlags.map((f) => {
+    const rev = flagReviewMap.get(f.review_id);
+    const vend = flagVendorMap.get(f.reported_by_vendor_profile_id);
+    return {
+      ...f,
+      review_rating_overall: rev?.rating_overall ?? null,
+      review_body: rev?.body ?? null,
+      review_public_id: rev?.public_id ?? null,
+      vendor_business_name: vend?.business_name ?? null,
+    };
+  });
+
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">Review moderation</h1>
         <p className="text-sm text-ink/60">
-          Two queues — <span className="font-medium">Self-review appeals</span> (blocked
-          reviewers contesting the related-account gate) and{' '}
+          Three queues — <span className="font-medium">Vendor fake-review flags</span>{' '}
+          (vendor-reported disputed reviews), <span className="font-medium">Self-review
+          appeals</span> (blocked reviewers contesting the related-account gate), and{' '}
           <span className="font-medium">Admin override-published reviews</span> (audit
           trail of every override-publish you&rsquo;ve issued).
         </p>
@@ -202,6 +286,41 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
           {flash}
         </p>
       ) : null}
+
+      {/* ── Vendor fake-review flags ──────────────────────────────────── */}
+      <section className="mb-10 space-y-4" aria-labelledby="vendor-fake-flags-heading">
+        <header className="space-y-0.5">
+          <h2
+            id="vendor-fake-flags-heading"
+            className="inline-flex items-center gap-2 text-lg font-semibold tracking-tight"
+          >
+            <Flag aria-hidden className="h-4 w-4 text-rose-700" strokeWidth={1.75} />
+            Vendor fake-review flags
+            {fakeFlags.length > 0 ? (
+              <span className="ml-1 inline-flex h-5 items-center rounded-full bg-rose-600 px-2 font-mono text-[10px] text-white">
+                {fakeFlags.length}
+              </span>
+            ) : null}
+          </h2>
+          <p className="text-xs text-ink/55">
+            Vendors flag reviews they believe are fake or fraudulent. Dismiss to close, or
+            escalate to the two-admin override queue. SLA: 48 hours.
+          </p>
+        </header>
+
+        {fakeFlags.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center text-sm text-ink/55">
+            <Flag aria-hidden className="mx-auto mb-2 h-6 w-6 text-ink/30" strokeWidth={1.5} />
+            No pending fake-review flags.
+          </div>
+        ) : (
+          <ul className="space-y-3">
+            {fakeFlags.map((f) => (
+              <VendorFakeFlagCard key={f.flag_id} flag={f} />
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section className="space-y-4" aria-labelledby="self-review-appeals-heading">
         <header className="flex flex-wrap items-end justify-between gap-3">
@@ -510,6 +629,80 @@ function AppealCard({
           Decided {appeal.decided_at?.slice(0, 10)}. Reason: {appeal.decision_reason ?? '—'}
         </div>
       )}
+    </li>
+  );
+}
+
+function VendorFakeFlagCard({ flag }: { flag: VendorFakeFlagRow }) {
+  return (
+    <li className="space-y-3 rounded-xl border border-rose-200/60 bg-rose-50/30 p-4">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-0.5">
+          <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
+            Flag {flag.flag_id.slice(0, 8)} · {flag.created_at.slice(0, 10)}
+          </p>
+          <p className="text-sm font-medium text-ink">
+            {flag.vendor_business_name ?? 'Unknown vendor'} flagged review{' '}
+            {flag.review_public_id ? (
+              <span className="font-mono text-[11px] text-ink/70">{flag.review_public_id}</span>
+            ) : null}
+          </p>
+        </div>
+        <span className="rounded-full bg-rose-200 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-rose-900">
+          Pending
+        </span>
+      </header>
+
+      {flag.review_rating_overall !== null || flag.review_body ? (
+        <div className="rounded-lg bg-ink/[0.04] p-3 text-xs">
+          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+            Flagged review
+          </p>
+          {flag.review_rating_overall !== null ? (
+            <p className="mt-1 text-sm text-ink">
+              {flag.review_rating_overall}★ overall
+            </p>
+          ) : null}
+          {flag.review_body ? (
+            <p className="mt-1 line-clamp-3 whitespace-pre-wrap text-sm text-ink/80">
+              &ldquo;{flag.review_body}&rdquo;
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div className="rounded-lg border border-rose-200 bg-white/60 p-3 text-xs">
+        <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-rose-900">
+          Vendor reason
+        </p>
+        <p className="mt-1 whitespace-pre-wrap text-sm text-ink/80">{flag.reason}</p>
+      </div>
+
+      <div className="flex flex-col gap-3 border-t border-ink/10 pt-3 sm:flex-row sm:items-end">
+        <form action={dismissReviewFlag} className="flex-1 space-y-2">
+          <input type="hidden" name="flag_id" value={flag.flag_id} />
+          <textarea
+            name="admin_note"
+            rows={2}
+            maxLength={1000}
+            placeholder="Dismiss note (optional — explain why the flag is unfounded)…"
+            className="input-field min-h-[52px] w-full py-2 text-xs"
+          />
+          <SubmitButton
+            className="button-secondary inline-flex items-center gap-1.5 text-xs"
+            pendingLabel="Dismissing…"
+          >
+            Dismiss flag
+          </SubmitButton>
+        </form>
+        <div className="flex-1 rounded-lg border border-amber-200 bg-amber-50/60 p-3 text-xs text-amber-900">
+          <p className="font-medium">To escalate:</p>
+          <p className="mt-0.5 text-amber-800">
+            Use the self-review override-publish queue — reject or override-publish
+            the underlying review from there. Create an appeal row manually if needed.
+          </p>
+        </div>
+      </div>
     </li>
   );
 }

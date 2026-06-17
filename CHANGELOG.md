@@ -44,6 +44,17 @@ Owner renewed Apple Developer + created a real **Developer ID Application** cert
 Windows signing still pending (separate item). SPEC IMPACT: None — CI/release plumbing only.
 
 ## 2026-06-16 · feat(papic): free Papic sampler — 3 seats, 8 photos + 2 clips each, 30-day retention
+## 2026-06-17 · feat(std-reveal): real Recraft textures replace the procedural stand-ins (faithful-rebuild · assets pass)
+
+Swaps the reveal's painted-in-code stand-ins for real photoreal assets generated with Recraft + processed (resize/optimise; petal & butterfly keyed to transparent alpha), committed under `public/reveal/assets/`. Loaded **async with the procedural version as the instant fallback** — on a load failure the stand-in just stays, so the reveal never breaks.
+
+- **Cathedral doors** → real studded honey-oak plank `door_wood.webp` (door face UVs normalised to 0..1 so it maps cleanly); **wall** → ashlar `wall_stone.webp` (tiled 3×5); **rose window** → real stained-glass `rose_window.webp` (circle-masked to drop the dark corners); **doorway interior** → a candlelit red-carpet `aisle.webp` — the reveal destination.
+- **Petals** → a real keyed rose-petal sprite; **butterflies** → a real keyed butterfly sprite on a flapping quad (replaces the procedural two-wing shapes; wings flap via scale, still casts a shaped shadow).
+
+Note: the carpet colour is now baked into the aisle photo (the `--color-carpet` hook is dormant until a recolour pass). `tsc` 0 · `next lint` clean (changed file). Assets ~367 KB total, in the lazy reveal chunk (no main-bundle impact).
+
+SPEC IMPACT: Save-the-Date reveal (0024) — fulfils the "real assets swap in later" plan from the 2026-06-17 spec; procedural generators remain as fallbacks. Logged in corpus spec doc.
+
 ## 2026-06-17 · feat(std-reveal): falling-petal + butterfly effects on the 3D reveal (faithful-rebuild Port B)
 
 Adds the reveal's atmospheric effects to `rigid-webgl.tsx` (Port A in the same PR shipped the shell). Procedural sprites are motion/composition stand-ins; real petal/butterfly art swaps in later with no structural change.

@@ -375,6 +375,55 @@ function monoTex(text: string): { color: THREE.CanvasTexture; normal: THREE.Canv
   return { color, normal: heightToNormal(hc, 3.4) };
 }
 
+// ── real photoreal assets (Recraft) — loaded async, swapped over the procedural
+//    stand-ins once ready; on any load failure the stand-in simply stays. ──
+const ASSET = '/reveal/assets';
+function loadImage(url: string): Promise<HTMLImageElement> {
+  return new Promise((res, rej) => {
+    const im = new Image();
+    im.onload = () => res(im);
+    im.onerror = rej;
+    im.src = url;
+  });
+}
+/** An sRGB colour texture from an image URL (alpha preserved). */
+async function loadColor(url: string): Promise<THREE.CanvasTexture> {
+  const im = await loadImage(url);
+  const c = mkCanvas(im.naturalWidth || 512, im.naturalHeight || 512);
+  c.getContext('2d')!.drawImage(im, 0, 0);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+/** Colour texture + a normal map derived from its luminance (square crop). */
+async function loadColorNormal(url: string, strength: number): Promise<{ color: THREE.CanvasTexture; normal: THREE.CanvasTexture }> {
+  const im = await loadImage(url);
+  const S = Math.min(im.naturalWidth || 512, im.naturalHeight || 512);
+  const c = mkCanvas(S, S);
+  c.getContext('2d')!.drawImage(im, 0, 0, S, S);
+  const color = new THREE.CanvasTexture(c);
+  color.colorSpace = THREE.SRGBColorSpace;
+  return { color, normal: heightToNormal(c, strength) };
+}
+/** The rose window, masked to a soft circle (drops the dark stone corners). */
+async function loadRose(url: string): Promise<THREE.CanvasTexture> {
+  const im = await loadImage(url);
+  const S = Math.min(im.naturalWidth || 512, im.naturalHeight || 512);
+  const c = mkCanvas(S, S);
+  const x = c.getContext('2d')!;
+  x.drawImage(im, 0, 0, S, S);
+  x.globalCompositeOperation = 'destination-in';
+  const g = x.createRadialGradient(S / 2, S / 2, S * 0.3, S / 2, S / 2, S * 0.5);
+  g.addColorStop(0, 'rgba(0,0,0,1)');
+  g.addColorStop(0.9, 'rgba(0,0,0,1)');
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  x.fillStyle = g;
+  x.fillRect(0, 0, S, S);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
 // Effect sizes — owner-locked house defaults (admin-tunable later), 2026-06-17.
 const PETAL_SIZE = 0.006 + (22 / 100) * 0.05; // size 22 → ~0.017
 const BFLY_SIZE = 0.05 + (20 / 100) * 0.14; // size 20 → ~0.078
@@ -395,16 +444,6 @@ function petalTex(): THREE.CanvasTexture {
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   return t;
-}
-
-/** One butterfly wing (mirrored for the pair). */
-function wingGeom(): THREE.ShapeGeometry {
-  const s = new THREE.Shape();
-  s.moveTo(0, 0);
-  s.quadraticCurveTo(0.95, 0.72, 0.72, 1.32);
-  s.quadraticCurveTo(0.42, 1.04, 0.05, 0.82);
-  s.quadraticCurveTo(0.34, 0.34, 0, 0);
-  return new THREE.ShapeGeometry(s);
 }
 
 /** One template's flaps: hinge groups + the per-progress angle for each. */
@@ -472,6 +511,44 @@ export default function RigidWebGL({ variant, progress, monogramText, onUnsuppor
       return o;
     };
 
+    // swap a real asset onto a material once it loads (stand-in shows meanwhile;
+    // on failure the stand-in just stays — the reveal never breaks)
+    const swapColorNormal = (
+      mat: THREE.MeshStandardMaterial,
+      p: Promise<{ color: THREE.CanvasTexture; normal: THREE.CanvasTexture }>,
+      repeat?: [number, number],
+    ) => {
+      p.then((m) => {
+        if (cancelled) {
+          m.color.dispose();
+          m.normal.dispose();
+          return;
+        }
+        if (repeat)
+          for (const t of [m.color, m.normal]) {
+            t.wrapS = t.wrapT = THREE.RepeatWrapping;
+            t.repeat.set(repeat[0], repeat[1]);
+          }
+        mat.map = m.color;
+        mat.normalMap = m.normal;
+        mat.color.set(0xffffff);
+        mat.needsUpdate = true;
+        disposables.push(m.color, m.normal);
+      }).catch(() => {});
+    };
+    const swapMap = (mat: THREE.MeshStandardMaterial | THREE.MeshBasicMaterial, p: Promise<THREE.CanvasTexture>) => {
+      p.then((t) => {
+        if (cancelled) {
+          t.dispose();
+          return;
+        }
+        mat.map = t;
+        mat.color.set(0xffffff);
+        mat.needsUpdate = true;
+        disposables.push(t);
+      }).catch(() => {});
+    };
+
     // ── back plane: invitation paper (envelopes) or stone cathedral wall (doors) ──
     let baseMat: THREE.MeshStandardMaterial;
     if (isDoors) {
@@ -483,6 +560,7 @@ export default function RigidWebGL({ variant, progress, monogramText, onUnsuppor
     const paper = new THREE.Mesh(track(new THREE.PlaneGeometry(2 * halfW, 2 * halfH)), baseMat);
     paper.receiveShadow = true;
     scene.add(paper);
+    if (isDoors) swapColorNormal(baseMat, loadColorNormal(`${ASSET}/wall_stone.webp`, 1.0), [3, 5]);
 
     // ── overhead softbox light + hemisphere fill ──
     const spot = new THREE.SpotLight(0xfff7ec, LIGHT_LOCK.SPOT_INTENSITY, 0, Math.PI / 4, LIGHT_LOCK.SPOT_PENUMBRA, 0);
@@ -531,7 +609,6 @@ export default function RigidWebGL({ variant, progress, monogramText, onUnsuppor
 
     // ── falling-petal + butterfly effects (Port B), gated on `progress` ──
     const PETAL = track(petalTex());
-    const WING = track(wingGeom());
     const fx: Array<{ g0: number; update: (p: number, fr: number) => void }> = [];
 
     type Petal = { m: THREE.Mesh; vy: number; sw: number; sa: number; rx: number; ry: number; vrx: number; vry: number; settled: boolean; vr: number; bn: number };
@@ -539,6 +616,7 @@ export default function RigidWebGL({ variant, progress, monogramText, onUnsuppor
       const colW = (reg.x1 - reg.x0) / reg.cols;
       const colH = new Array<number>(reg.cols).fill(0);
       const mat = track(new THREE.MeshStandardMaterial({ map: PETAL, transparent: true, alphaTest: 0.3, roughness: 0.85, side: THREE.DoubleSide }));
+      swapMap(mat, loadColor(`${ASSET}/petal.webp`));
       const geo = track(new THREE.PlaneGeometry(1, 1.35));
       const grp = new THREE.Group();
       scene.add(grp);
@@ -619,23 +697,19 @@ export default function RigidWebGL({ variant, progress, monogramText, onUnsuppor
       };
     }
 
-    type Bfly = { g: THREE.Group; wl: THREE.Mesh; wr: THREE.Mesh; angle: number; delay: number; ph: number; life: number; wob: number };
+    type Bfly = { m: THREE.Mesh; angle: number; delay: number; ph: number; life: number; wob: number };
     function fxButterflies() {
       const N = 9;
-      const cols = [0xeccae6, 0xf4dcc2, 0xd2dcf2, 0xf2cdd6];
+      const geo = track(new THREE.PlaneGeometry(1, 1));
+      const mat = track(new THREE.MeshStandardMaterial({ color: 0xeccae6, transparent: true, alphaTest: 0.4, roughness: 0.6, side: THREE.DoubleSide }));
+      swapMap(mat, loadColor(`${ASSET}/butterfly.webp`)); // real butterfly sprite
       const bs: Bfly[] = [];
       for (let i = 0; i < N; i++) {
-        const g = new THREE.Group();
-        const wm = track(new THREE.MeshStandardMaterial({ color: cols[i % 4]!, transparent: true, opacity: 0.92, roughness: 0.6, side: THREE.DoubleSide }));
-        const wl = new THREE.Mesh(WING, wm);
-        const wr = new THREE.Mesh(WING, wm);
-        wr.scale.x = -1;
-        wl.castShadow = true;
-        wr.castShadow = true;
-        g.add(wl, wr);
-        g.visible = false;
-        scene.add(g);
-        bs.push({ g, wl, wr, angle: (i / N) * 6.2832 + rnd(-0.3, 0.3), delay: (i / N) * 0.5, ph: rnd(0, 6.28), life: 0, wob: rnd(0.5, 1) });
+        const m = new THREE.Mesh(geo, mat);
+        m.castShadow = true;
+        m.visible = false;
+        scene.add(m);
+        bs.push({ m, angle: (i / N) * 6.2832 + rnd(-0.3, 0.3), delay: (i / N) * 0.5, ph: rnd(0, 6.28), life: 0, wob: rnd(0.5, 1) });
       }
       return {
         g0: 0.5,
@@ -644,23 +718,21 @@ export default function RigidWebGL({ variant, progress, monogramText, onUnsuppor
             const b = bs[i]!;
             const local = (p - b.delay) / (1 - b.delay);
             if (local <= 0) {
-              b.g.visible = false;
+              b.m.visible = false;
               b.life = 0;
               continue;
             }
-            b.g.visible = true;
+            b.m.visible = true;
             b.life = Math.min(1, b.life + 0.006);
             const e = b.life * b.life * (3 - 2 * b.life);
             const r = e * 1.7; // outward, past the screen corner
             const z = 0.1 + e * 0.5; // toward the camera
             const wob = Math.sin(fr * 0.05 + b.ph) * 0.08 * b.wob;
-            b.g.position.set(Math.cos(b.angle) * r + wob, Math.sin(b.angle) * r + e * 0.15 + wob, z);
+            b.m.position.set(Math.cos(b.angle) * r + wob, Math.sin(b.angle) * r + e * 0.15 + wob, z);
             const sc = BFLY_SIZE * (1 + (z - 0.1) * 1.6); // grows as it approaches
-            b.g.scale.setScalar(sc);
-            const fl = Math.sin(fr * 0.32 + b.ph) * 0.95 + 0.35;
-            b.wl.rotation.y = fl;
-            b.wr.rotation.y = -fl;
-            b.g.rotation.z = Math.sin(fr * 0.04 + b.ph) * 0.25 + b.angle * 0.1;
+            const flap = 0.55 + 0.45 * Math.abs(Math.sin(fr * 0.3 + b.ph)); // wings open/close
+            b.m.scale.set(sc * flap, sc, sc);
+            b.m.rotation.z = Math.sin(fr * 0.04 + b.ph) * 0.25 + b.angle * 0.1;
           }
         },
       };
@@ -733,12 +805,11 @@ export default function RigidWebGL({ variant, progress, monogramText, onUnsuppor
       const Wd = halfW;
 
       // rose window above the doorway
-      const rose = new THREE.Mesh(
-        track(new THREE.PlaneGeometry(0.4 * halfW, 0.4 * halfW)),
-        track(new THREE.MeshBasicMaterial({ map: track(roseTex()), transparent: true })),
-      );
+      const roseMat = track(new THREE.MeshBasicMaterial({ map: track(roseTex()), transparent: true }));
+      const rose = new THREE.Mesh(track(new THREE.PlaneGeometry(0.4 * halfW, 0.4 * halfW)), roseMat);
       rose.position.set(0, dT + 0.16, 0.02);
       scene.add(rose);
+      swapMap(roseMat, loadRose(`${ASSET}/rose_window.webp`));
 
       // interior reveal (red-carpet aisle) filling the gothic doorway, behind the doors
       const hs = new THREE.Shape();
@@ -759,10 +830,12 @@ export default function RigidWebGL({ variant, progress, monogramText, onUnsuppor
         uvAttr.setXY(vi, (posAttr.getX(vi) - bb.min.x) * iw, (posAttr.getY(vi) - bb.min.y) * ih);
       }
       uvAttr.needsUpdate = true;
-      const hole = new THREE.Mesh(hg, track(new THREE.MeshBasicMaterial({ map: track(interiorTex(carpetCol)) })));
+      const holeMat = track(new THREE.MeshBasicMaterial({ map: track(interiorTex(carpetCol)) }));
+      const hole = new THREE.Mesh(hg, holeMat);
       hole.position.z = 0.01;
       scene.add(hole);
       disposables.push(hg);
+      swapMap(holeMat, loadColor(`${ASSET}/aisle.webp`)); // candlelit red-carpet aisle
 
       // red-carpet threshold strip (the floor in front of / below the doors)
       const carpet = new THREE.Mesh(
@@ -794,6 +867,15 @@ export default function RigidWebGL({ variant, progress, monogramText, onUnsuppor
         const TH = 0.08;
         const g = new THREE.ExtrudeGeometry(doorShape(mirror), { depth: TH, bevelEnabled: false });
         g.translate(0, 0, -TH / 2);
+        // normalise the face UVs to 0..1 so the wood + studs map cleanly
+        g.computeBoundingBox();
+        const gb = g.boundingBox!;
+        const u = g.attributes.uv as THREE.BufferAttribute;
+        const ps = g.attributes.position as THREE.BufferAttribute;
+        const gw = 1 / (gb.max.x - gb.min.x);
+        const gh = 1 / (gb.max.y - gb.min.y);
+        for (let i = 0; i < u.count; i++) u.setXY(i, (ps.getX(i) - gb.min.x) * gw, (ps.getY(i) - gb.min.y) * gh);
+        u.needsUpdate = true;
         return g;
       };
       // split monogram decal: left door shows left half, right door right half
@@ -827,6 +909,7 @@ export default function RigidWebGL({ variant, progress, monogramText, onUnsuppor
           new THREE.MeshStandardMaterial({ color: 0xffffff, map: dt.color, normalMap: dt.normal, roughness: 0.78, side: THREE.DoubleSide }),
         );
         face.normalScale = new THREE.Vector2(0.7, 0.7);
+        swapColorNormal(face, loadColorNormal(`${ASSET}/door_wood.webp`, 2.2)); // real studded oak
         const slab = new THREE.Mesh(track(doorGeom(mirror)), [face, edgeMat]);
         slab.castShadow = true;
         slab.receiveShadow = true;

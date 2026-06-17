@@ -1361,7 +1361,7 @@ async function GalleryPreviewCard({
       )}
 
       {hasPhotos ? (
-        <PapicGalleryGrid photos={photos} />
+        <PapicGalleryGrid photos={photos} eventId={eventId} />
       ) : (
         <div className="rounded-xl border border-dashed border-ink/15 bg-cream/60 p-6 text-center">
           <p className="text-sm text-ink/65">

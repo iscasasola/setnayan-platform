@@ -10,7 +10,9 @@ export async function GET(request: NextRequest) {
   // value that doesn't start with `/`. Without it this route is an
   // open redirect — anything in `?next=` lands the browser off-domain
   // after a successful exchange.
-  const next = safeNext(url.searchParams.get('next'));
+  const rawNext = safeNext(url.searchParams.get('next'));
+  // Mirror the signInWithPassword default: go straight to dashboard, not /
+  const next = rawNext === '/' ? '/dashboard' : rawNext;
 
   if (code) {
     const supabase = await createClient();

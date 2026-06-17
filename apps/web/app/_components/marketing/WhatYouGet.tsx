@@ -263,7 +263,7 @@ export function WhatYouGet() {
                   className="m-serif italic"
                   style={{ fontSize: 26, lineHeight: 1.1, marginTop: 10, color: 'var(--m-ink)' }}
                 >
-                  Your wedding, all in one place.
+                  Your wedding planned. Your guests, remembered.
                 </div>
                 <div className="mt-4 grid grid-cols-3 gap-2.5">
                   {DASH_STATS.map((s) => (
@@ -511,13 +511,13 @@ export function WhatYouGet() {
               className="m-serif italic"
               style={{ fontSize: 'clamp(1.7rem, 4.5vw, 2.6rem)', lineHeight: 1.12 }}
             >
-              Want it sharper? Want it remembered?
+              Want every guest to leave with something to keep?
             </h3>
             <p
               className="mx-auto mt-4 text-[var(--m-slate)]"
               style={{ fontSize: 'clamp(1rem, 2.6vw, 1.15rem)', lineHeight: 1.6, maxWidth: 600 }}
             >
-              Add only what you want — the planning always stays free.
+              The planning stays free. Every addition is something your guests will feel.
             </p>
             <div className="mt-6 flex flex-wrap justify-center gap-2.5">
               {EXTRAS.map((e) => (
@@ -611,10 +611,10 @@ const DASH_STATS: Array<{ v: string; k: string }> = [
 // Beat 4 data — premium add-ons as tangible chips (price-free).
 // ─────────────────────────────────────────────────────────────────────
 const EXTRAS: Array<{ name: string; what: string }> = [
-  { name: 'Setnayan AI', what: 'ranks your best-fit vendors' },
-  { name: 'Papic', what: 'guests become your photo crew' },
-  { name: 'Custom song', what: 'a track that’s only yours' },
-  { name: 'Same-day film', what: 'a highlight reel by the reception' },
+  { name: ‘Papic’, what: ‘every guest leaves with their own photos and a personal reel’ },
+  { name: ‘Same-day film’, what: ‘highlight reel ready by the reception’ },
+  { name: ‘Setnayan AI’, what: ‘ranks your best-fit vendors’ },
+  { name: ‘Custom song’, what: ‘a track that\’s only yours’ },
 ];
 
 // ─────────────────────────────────────────────────────────────────────

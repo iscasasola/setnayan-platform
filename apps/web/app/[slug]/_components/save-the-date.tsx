@@ -47,6 +47,9 @@ type Props = {
   monogramText?: string | null;
   /** Presigned soundtrack URL (the couple's site music) — film only (P2). */
   musicUrl?: string | null;
+  /** Presigned URL of the couple's NSFW-approved closing video — film only (PR-B).
+   *  Set only when stdVideoIsLive; plays as the locked video island beat. */
+  videoUrl?: string | null;
   /** Presigned photo URLs for the film's closing gallery beat — film only (P2). */
   galleryUrls?: string[];
   /** When the full invitation goes live (events.std_invitation_launch_date) — film only (P3). */
@@ -70,6 +73,7 @@ export function SaveTheDateView({
   film = false,
   monogramText,
   musicUrl,
+  videoUrl,
   galleryUrls,
   launchDateIso,
   themeId,
@@ -101,6 +105,7 @@ export function SaveTheDateView({
       loveStory,
       publicId,
       musicUrl,
+      videoUrl,
       galleryUrls,
     });
     return (

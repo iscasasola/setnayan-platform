@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { REVEAL_TEMPLATE_IDS, type RevealTemplateId } from '@/lib/reveal-config';
 import { STD_THEME_IDS } from '@/lib/std-themes';
@@ -9,6 +10,7 @@ import { resolveRevealEffects, type RevealEffects } from '@/lib/std-reveal-effec
 import { NO_REVEAL } from '@/app/[slug]/_components/reveal/reveal-templates';
 import { resolveStdBackground, type StdBackground } from '@/lib/std-backgrounds';
 import { resolveStdMedia, type StdMedia } from '@/lib/std-media';
+import { screenStdVideo } from '@/lib/nsfw-screen';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 
 /**
@@ -154,14 +156,52 @@ export async function saveAllStdContent(
   if (data.background !== undefined && data.background !== null) {
     patch.std_background = resolveStdBackground(data.background);
   }
-  // Step-3 media choice — validated to {type, videoKey?, nsfw?}. A video saves
-  // as nsfw:'pending' (re-screened before it can go live — gate enforced in PR-B).
+  // Step-3 media choice — validated to {type, videoKey?, posterKey?, nsfw?}.
+  //
+  // SECURITY: the NSFW verdict is set by the SERVER-SIDE screen only — never
+  // trusted from the client (otherwise a couple could POST nsfw:'approved' and
+  // bypass the platform lock). So a new/changed video is forced to 'pending';
+  // an UNCHANGED video keeps the server's existing verdict. The poster frame
+  // (the screening proxy) is taken from the upload, falling back to the saved
+  // one for an unchanged video.
+  let screenAfterSave: { videoKey: string; posterR2Key: string } | null = null;
   if (data.media !== undefined && data.media !== null) {
-    patch.std_media = resolveStdMedia(data.media);
+    const incoming = resolveStdMedia(data.media);
+    if (incoming.type === 'video' && incoming.videoKey) {
+      const { data: cur } = await supabase
+        .from('events')
+        .select('std_media')
+        .eq('event_id', eventId)
+        .maybeSingle();
+      const current = resolveStdMedia((cur as Record<string, unknown> | null)?.std_media);
+      const sameVideo =
+        current.type === 'video' && current.videoKey === incoming.videoKey;
+      const nsfw = sameVideo ? (current.nsfw ?? 'pending') : 'pending';
+      const posterKey =
+        incoming.posterKey ?? (sameVideo ? (current.posterKey ?? null) : null);
+      patch.std_media = {
+        type: 'video',
+        videoKey: incoming.videoKey,
+        posterKey,
+        nsfw,
+      };
+      if (nsfw === 'pending' && posterKey) {
+        screenAfterSave = { videoKey: incoming.videoKey, posterR2Key: posterKey };
+      }
+    } else {
+      patch.std_media = { type: 'gallery' };
+    }
   }
 
   const { error } = await supabase.from('events').update(patch).eq('event_id', eventId);
   if (error) return { ok: false, error: 'db-error' };
+
+  // Screen the uploaded video by its poster frame (background, fail-open). Only
+  // an 'approved' verdict ever lets the video play on the public page.
+  if (screenAfterSave) {
+    const { videoKey, posterR2Key } = screenAfterSave;
+    after(() => screenStdVideo({ eventId, videoKey, posterR2Key }).catch(() => {}));
+  }
 
   revalidate(eventId);
   return { ok: true };

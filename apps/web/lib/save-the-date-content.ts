@@ -43,6 +43,13 @@ export type StdFilmContent = {
   icsFilename: string;
   /** Presigned soundtrack URL (the couple's site music); null → silent film. */
   musicUrl?: string | null;
+  /**
+   * Presigned URL of the couple's uploaded closing VIDEO — plays as a locked
+   * real-time island beat (plays to the end with sound) in place of the photo
+   * gallery. null → no video beat (the gallery beat shows instead). On the live
+   * page this is set ONLY when the video is NSFW-approved (stdVideoIsLive).
+   */
+  videoUrl?: string | null;
   /** Presigned photo URLs for the closing gallery beat; empty → no gallery beat. */
   gallery?: string[];
   /** Formatted invitation-launch date for the close beat; null → no reminder line. */
@@ -65,6 +72,8 @@ export type ResolveStdFilmInput = {
   publicId: string;
   /** Presigned soundtrack URL (the couple's site music) — resolved server-side. */
   musicUrl?: string | null;
+  /** Presigned URL of the couple's NSFW-approved closing video — resolved server-side. */
+  videoUrl?: string | null;
   /** Presigned photo URLs for the closing gallery — resolved server-side. */
   galleryUrls?: string[];
 };
@@ -133,6 +142,7 @@ export function resolveStdFilmContent(input: ResolveStdFilmInput): StdFilmConten
     icsHref: ics ? icsDataHref(ics) : null,
     icsFilename: `${input.displayName.replace(/[^\w-]+/g, '-')}-save-the-date.ics`,
     musicUrl: input.musicUrl ?? null,
+    videoUrl: input.videoUrl ?? null,
     gallery: (input.galleryUrls ?? [])
       .filter((u): u is string => typeof u === 'string' && u.length > 0)
       .slice(0, MAX_GALLERY),

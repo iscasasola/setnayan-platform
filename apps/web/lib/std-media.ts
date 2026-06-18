@@ -14,6 +14,14 @@ export type StdMedia = {
   type: StdMediaType;
   /** R2 ref of the uploaded video (kind === 'video'). */
   videoKey?: string | null;
+  /**
+   * R2 ref of the client-extracted poster frame (kind === 'video'). nsfwjs is
+   * image-only and the lambda has no ffmpeg, so this single JPEG (grabbed in
+   * the browser at upload time) is the video's NSFW screening proxy — exactly
+   * how Papic clips screen via `poster_r2_key`. Absent → the screen can't run
+   * and the video stays 'pending' (never goes live).
+   */
+  posterKey?: string | null;
   /** NSFW screening status of the uploaded video. */
   nsfw?: StdNsfwStatus;
 };
@@ -25,7 +33,9 @@ export function resolveStdMedia(raw: unknown): StdMedia {
     if (o.type === 'video' && typeof o.videoKey === 'string' && o.videoKey) {
       const nsfw: StdNsfwStatus =
         o.nsfw === 'approved' || o.nsfw === 'rejected' ? o.nsfw : 'pending';
-      return { type: 'video', videoKey: o.videoKey, nsfw };
+      const posterKey =
+        typeof o.posterKey === 'string' && o.posterKey ? o.posterKey : null;
+      return { type: 'video', videoKey: o.videoKey, posterKey, nsfw };
     }
   }
   return { type: 'gallery' };

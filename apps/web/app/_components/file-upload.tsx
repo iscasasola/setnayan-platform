@@ -83,6 +83,14 @@ export type FileUploadProps = {
    * it's an array of refs in insertion order.
    */
   onChange?: (value: string | string[] | null) => void;
+  /**
+   * Fires with the raw File the moment it passes local validation, BEFORE the
+   * upload starts. Lets a parent derive something from the file's bytes in the
+   * browser — e.g. extracting a video poster frame for NSFW screening (the R2
+   * object can't be canvas-read cross-origin, but the local File can). Optional;
+   * existing callers are unaffected.
+   */
+  onFilePicked?: (file: File) => void;
   /** Optional label rendered above the dropzone. */
   label?: string;
   /** Optional help text shown under the dropzone. */
@@ -191,6 +199,7 @@ export function FileUpload({
   currentValue,
   initialDisplayUrls,
   onChange,
+  onFilePicked,
   label,
   help,
   disabled = false,
@@ -306,6 +315,14 @@ export function FileUpload({
             `${file.name} is ${file.type || 'an unknown type'} — allowed: ${acceptedTypes.join(', ')}.`,
           );
           continue;
+        }
+
+        // Hand the raw, validated File to the parent before the upload begins
+        // (e.g. for client-side video poster extraction). Best-effort.
+        try {
+          onFilePicked?.(file);
+        } catch {
+          /* never block an upload on a parent hook */
         }
 
         await uploadOne(file);

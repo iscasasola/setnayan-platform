@@ -18,7 +18,7 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { Check, ExternalLink, Sparkles } from 'lucide-react';
+import { Check, ExternalLink, Sparkles, Wand2 } from 'lucide-react';
 import { SaveTheDateFilm } from '@/app/[slug]/_components/save-the-date-film';
 import { STD_THEMES, type StdThemeId } from '@/lib/std-themes';
 import { formatEventDate } from '@/lib/events';
@@ -117,6 +117,25 @@ export function StdBuilderClient({
       launchLabel,
     };
   }, [initialContent, filmDate, venueName, venueCity, filmStory, launchDate]);
+
+  // Autofill — pull the couple's event details into EVERY film field at once so
+  // the Information step shows all the real values, ready to fine-tune. Client-
+  // only: it fills the inputs; nothing persists until Render, and clearing a
+  // field reverts that line to live event data.
+  const autofillDate = dateIso ? dateIso.slice(0, 10) : '';
+  const canAutofill = Boolean(
+    autofillDate ||
+      initialContent.venueName ||
+      initialContent.venueCity ||
+      initialContent.storyTeaser,
+  );
+  const handleAutofill = () => {
+    if (autofillDate) setFilmDate(autofillDate);
+    if (initialContent.venueName) setVenueName(initialContent.venueName);
+    if (initialContent.venueCity) setVenueCity(initialContent.venueCity);
+    if (initialContent.storyTeaser) setFilmStory(initialContent.storyTeaser);
+    if (result !== 'idle') setResult('idle');
+  };
 
   const handleRender = () => {
     startSave(async () => {
@@ -218,6 +237,18 @@ export function StdBuilderClient({
                 Your film fills from your event. Edit here to set film-specific text — your event stays unchanged.
               </p>
             </div>
+
+            {/* Autofill — drop every event detail into the fields below in one tap. */}
+            {canAutofill ? (
+              <button
+                type="button"
+                onClick={handleAutofill}
+                className="inline-flex items-center gap-2 self-start rounded-full border border-terracotta/30 bg-terracotta/5 px-4 py-2 text-sm font-medium text-terracotta transition hover:bg-terracotta/10"
+              >
+                <Wand2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                Autofill from my event details
+              </button>
+            ) : null}
 
             {/* Editable fields */}
             <div className="space-y-5 rounded-2xl border border-ink/10 bg-white/70 p-5">
@@ -407,8 +438,10 @@ export function StdBuilderClient({
             <div className="flex justify-center">
               <DeviceToggle device={device} onChange={setDevice} />
             </div>
+            {/* Interactive: the film's own tap / scrub / hold controls are live
+                here so the couple can experience the real thing in miniature. */}
             <DeviceFrame device={device}>
-              <div className="absolute inset-0" style={{ pointerEvents: 'none' }}>
+              <div className="absolute inset-0">
                 <SaveTheDateFilm content={liveContent} themeId={themeId} preview fill />
               </div>
             </DeviceFrame>
@@ -416,7 +449,7 @@ export function StdBuilderClient({
 
           {/* Quality notice */}
           <p className="text-center text-xs text-ink/50">
-            This preview is intentionally small.{' '}
+            Try it — tap to flip through, press &amp; hold to pause.{' '}
             <span className="text-ink/70">Upon finalizing, your Save the Date plays at full quality on your page.</span>
           </p>
 

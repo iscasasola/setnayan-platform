@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-18 · feat(save-the-date): builder Information step — one-tap Autofill + interactive live preview
+
+Two owner-requested tweaks to the Save-the-Date builder's **Step 3 · Information** ("What your film shows") and the live preview.
+
+- **Autofill button** — the editable film fields (wedding date, venue name, city, story line) start blank and fall back to live event data implicitly, so the section read as "empty" even when the event had the details. Added an **"Autofill from my event details"** button that drops every available event value into the fields in one tap, so the Information step *shows all* the real values ready to fine-tune. Client-only — it just fills the inputs; nothing persists until **Render**, and clearing a field still reverts that line to live event data. The button only appears (`canAutofill`) when there's something to pull. Date autofill uses the event `dateIso` (sliced to `YYYY-MM-DD` for the date input); venue/city/story use the pre-resolved `initialContent`.
+- **Interactive preview** — the live-preview device frame wrapped the film in `pointerEvents: 'none'`, so it only auto-played. Removed the block: the film's own controls (tap to flip through, press-&-hold to pause, scrub bars, transport) are already wired in `preview` mode, so the couple can now *experience the real interaction* in the miniature. The frame stays small + watermarked (un-recordable); the helper copy now invites the interaction ("Try it — tap to flip through, press & hold to pause").
+
+`app/dashboard/[eventId]/add-ons/save-the-date/_components/StdBuilderClient.tsx` only. No schema, no server-action change, no new props. `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: iter 0024 (Save-the-Date) builder UX — the Information step gains an explicit Autofill action and the preview is interactive. No pricing / schema / public-page change. DECISION_LOG row added.
+
 ## 2026-06-18 · feat(patiktok): reel delivery — email + persistent download + admin monitor (PR4 of 4)
 
 Closes the Patiktok record→render→download slice. Stacked on PR3 (#1741).

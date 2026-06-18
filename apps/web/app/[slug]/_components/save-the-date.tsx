@@ -19,6 +19,7 @@ import {
   icsDataHref,
 } from '@/lib/calendar-links';
 import { resolveStdFilmContent } from '@/lib/save-the-date-content';
+import { resolveStdTheme } from '@/lib/std-themes';
 import { CountdownWidget } from './countdown';
 import { OurStory } from './our-story';
 import { SaveTheDateFilm } from './save-the-date-film';
@@ -48,6 +49,8 @@ type Props = {
   galleryUrls?: string[];
   /** When the full invitation goes live (events.std_invitation_launch_date) — film only (P3). */
   launchDateIso?: string | null;
+  /** Visual theme for the film (lib/std-themes · 2026-06-18). Defaults to 'moodboard'. */
+  themeId?: string | null;
 };
 
 export function SaveTheDateView({
@@ -63,6 +66,7 @@ export function SaveTheDateView({
   musicUrl,
   galleryUrls,
   launchDateIso,
+  themeId,
 }: Props) {
   const location = [venueName, venueAddress].filter(Boolean).join(', ') || null;
   const gcalUrl = googleCalendarUrl({ title: displayName, dateIso, location });
@@ -93,7 +97,7 @@ export function SaveTheDateView({
     });
     return (
       <section className="py-2">
-        <SaveTheDateFilm content={content} />
+        <SaveTheDateFilm content={content} themeId={resolveStdTheme(themeId)} />
       </section>
     );
   }

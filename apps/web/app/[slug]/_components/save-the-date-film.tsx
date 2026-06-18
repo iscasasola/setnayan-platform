@@ -16,6 +16,13 @@
  *
  * After the last slide the guest can dismiss the film to reach the normal
  * wedding page below (RSVP widgets, schedule, etc.).
+ *
+ * theme system (2026-06-18): pass themeId to change the visual palette and
+ * font. Defaults to 'moodboard' (current behaviour — inherits the event
+ * mood-board CSS vars).
+ *
+ * preview mode: pass preview={true} in the builder's small phone frame —
+ * disables the 'std-reveal-done' wait, audio autoplay, and dismiss/fullscreen.
  */
 
 import type * as React from 'react';
@@ -31,20 +38,25 @@ import {
   X,
 } from 'lucide-react';
 import { type StdFilmContent } from '@/lib/save-the-date-content';
+import { STD_THEMES, resolveStdTheme, type StdThemeId } from '@/lib/std-themes';
 
 type Slide = { key: string; node: ReactNode; dur: number };
 
-const LABEL = 'font-mono text-[10px] uppercase tracking-[0.3em] text-terracotta';
-
 export function SaveTheDateFilm({
   content,
+  themeId,
   preview = false,
 }: {
   content: StdFilmContent;
+  /** Theme override. Defaults to 'moodboard' (inherits the event's Mood Board palette). */
+  themeId?: StdThemeId;
   /** When true, renders as a contained phone-card (for the builder preview).
    *  When false (default), renders full-screen under the reveal overlay. */
   preview?: boolean;
 }) {
+  const theme = STD_THEMES.find((t) => t.id === resolveStdTheme(themeId)) ?? STD_THEMES[0]!;
+  const LABEL = theme.labelCls;
+
   const slides: Slide[] = [];
 
   slides.push({
@@ -53,10 +65,10 @@ export function SaveTheDateFilm({
     node: (
       <div className="flex flex-col items-center gap-3">
         <p className={LABEL}>Save the Date</p>
-        <div className="font-display text-6xl font-medium text-mulberry sm:text-7xl">
+        <div className={`${theme.fontCls} text-6xl font-medium ${theme.accentText} sm:text-7xl`}>
           {content.monogram}
         </div>
-        <div className="h-px w-10 bg-mulberry/40" />
+        <div className={`h-px w-10 ${theme.scrubFill} opacity-40`} />
       </div>
     ),
   });
@@ -67,10 +79,10 @@ export function SaveTheDateFilm({
     node: (
       <div className="flex flex-col items-center gap-3 text-center">
         <p className={LABEL}>Together with their families</p>
-        <h1 className="font-display text-5xl font-medium italic tracking-tight sm:text-6xl">
+        <h1 className={`${theme.fontCls} text-5xl font-medium italic tracking-tight sm:text-6xl`}>
           {content.names}
         </h1>
-        <p className="font-display text-xl italic text-ink/55">are getting married</p>
+        <p className={`${theme.fontCls} text-xl italic ${theme.subtleText}`}>are getting married</p>
       </div>
     ),
   });
@@ -83,12 +95,12 @@ export function SaveTheDateFilm({
         <div className="flex flex-col items-center gap-4 text-center">
           <p className={LABEL}>Mark your calendars</p>
           {content.dateBig ? (
-            <div className="font-display text-6xl font-medium tracking-tight sm:text-7xl">
+            <div className={`${theme.fontCls} text-6xl font-medium tracking-tight sm:text-7xl`}>
               {content.dateBig}
             </div>
           ) : null}
           {content.dateLabel ? (
-            <p className="font-display text-2xl italic text-ink/65">{content.dateLabel}</p>
+            <p className={`${theme.fontCls} text-2xl italic ${theme.subtleText}`}>{content.dateLabel}</p>
           ) : null}
           {content.gcalUrl || content.icsHref ? (
             <a
@@ -97,7 +109,7 @@ export function SaveTheDateFilm({
                 ? { target: '_blank', rel: 'noopener noreferrer' }
                 : { download: content.icsFilename })}
               onClick={(e: MouseEvent) => e.stopPropagation()}
-              className="mt-1 inline-flex items-center gap-2 rounded-full bg-mulberry px-6 py-2.5 text-[13px] font-semibold text-cream shadow transition hover:bg-mulberry-600"
+              className={`mt-1 inline-flex items-center gap-2 rounded-full ${theme.accentBg} px-6 py-2.5 text-[13px] font-semibold ${theme.accentFgOnBg} shadow transition hover:${theme.accentBgHover}`}
             >
               Add to calendar
             </a>
@@ -114,9 +126,9 @@ export function SaveTheDateFilm({
       node: (
         <div className="flex flex-col items-center gap-3 text-center">
           <p className={LABEL}>The celebration</p>
-          <h2 className="font-display text-4xl font-medium sm:text-5xl">{content.venueName}</h2>
+          <h2 className={`${theme.fontCls} text-4xl font-medium sm:text-5xl`}>{content.venueName}</h2>
           {content.venueCity ? (
-            <p className="font-display text-xl italic text-ink/55">{content.venueCity}</p>
+            <p className={`${theme.fontCls} text-xl italic ${theme.subtleText}`}>{content.venueCity}</p>
           ) : null}
         </div>
       ),
@@ -130,7 +142,7 @@ export function SaveTheDateFilm({
       node: (
         <div className="flex max-w-xs flex-col items-center gap-3 text-center">
           <p className={LABEL}>Our story</p>
-          <p className="font-display text-2xl italic leading-snug text-ink/80">
+          <p className={`${theme.fontCls} text-2xl italic leading-snug ${theme.subtleText}`}>
             &ldquo;{content.storyTeaser}&rdquo;
           </p>
         </div>
@@ -170,17 +182,17 @@ export function SaveTheDateFilm({
     dur: Infinity,
     node: (
       <div className="flex flex-col items-center gap-4 text-center">
-        <div className="font-display text-4xl font-medium text-mulberry">
+        <div className={`${theme.fontCls} text-4xl font-medium ${theme.accentText}`}>
           {content.monogram}
         </div>
-        <p className="font-display text-3xl font-medium italic leading-tight">
+        <p className={`${theme.fontCls} text-3xl font-medium italic leading-tight`}>
           We can&rsquo;t wait to
           <br />
           celebrate with you
         </p>
         <p className={LABEL}>Formal invitation to follow</p>
         {content.launchLabel ? (
-          <p className="font-display text-sm italic text-ink/50">
+          <p className={`${theme.fontCls} text-sm italic ${theme.subtleText}`}>
             Arrives {content.launchLabel}
           </p>
         ) : null}
@@ -194,7 +206,7 @@ export function SaveTheDateFilm({
               {...(content.icsHref
                 ? { download: content.icsFilename }
                 : { target: '_blank', rel: 'noopener noreferrer' })}
-              className="inline-flex items-center gap-2 rounded-full bg-mulberry px-5 py-2.5 text-[13px] font-semibold text-cream shadow"
+              className={`inline-flex items-center gap-2 rounded-full ${theme.accentBg} px-5 py-2.5 text-[13px] font-semibold ${theme.accentFgOnBg} shadow`}
             >
               Add to calendar
             </a>
@@ -385,11 +397,11 @@ export function SaveTheDateFilm({
                 setPlaying(true);
               }
             }}
-            className="h-[2px] flex-1 overflow-hidden rounded-full bg-ink/15"
+            className="h-[2px] flex-1 overflow-hidden rounded-full bg-current/15"
           >
             <span
               ref={(el) => { fillRefs.current[j] = el; }}
-              className="block h-full w-0 bg-mulberry"
+              className={`block h-full w-0 ${theme.scrubFill}`}
             />
           </button>
         ))}
@@ -405,7 +417,7 @@ export function SaveTheDateFilm({
             type="button"
             onClick={toggleMute}
             aria-label={muted ? 'Unmute music' : 'Mute music'}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-ink/5 text-ink/50 hover:bg-ink/10"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-current/5 opacity-60 hover:opacity-80"
           >
             {muted ? <VolumeX aria-hidden className="h-4 w-4" /> : <Music aria-hidden className="h-4 w-4" />}
           </button>
@@ -415,7 +427,7 @@ export function SaveTheDateFilm({
             type="button"
             onClick={preview ? replay : () => setDismissed(true)}
             aria-label={preview ? 'Replay film' : 'Continue to invitation page'}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-ink/5 text-ink/50 hover:bg-ink/10"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-current/5 opacity-60 hover:opacity-80"
           >
             {preview ? <RotateCcw aria-hidden className="h-4 w-4" /> : <X aria-hidden className="h-4 w-4" />}
           </button>
@@ -445,7 +457,7 @@ export function SaveTheDateFilm({
           onPointerDown={(e) => e.stopPropagation()}
           onPointerUp={(e) => e.stopPropagation()}
           onClick={() => setDismissed(true)}
-          className="absolute inset-x-8 bottom-24 z-30 rounded-full bg-mulberry py-3.5 text-sm font-semibold text-cream shadow-lg transition hover:bg-mulberry-600"
+          className={`absolute inset-x-8 bottom-24 z-30 rounded-full ${theme.accentBg} py-3.5 text-sm font-semibold ${theme.accentFgOnBg} shadow-lg transition hover:${theme.accentBgHover}`}
         >
           See your wedding page
         </button>
@@ -460,7 +472,7 @@ export function SaveTheDateFilm({
           type="button"
           onClick={() => goRef.current(idxRef.current - 1)}
           aria-label="Previous slide"
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-ink/15 text-ink/55 hover:border-ink/30"
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-current/15 opacity-60 hover:opacity-80"
         >
           <ChevronLeft aria-hidden className="h-4 w-4" />
         </button>
@@ -469,7 +481,7 @@ export function SaveTheDateFilm({
           type="button"
           onClick={isClose ? replay : playPause}
           aria-label={isClose ? 'Replay film' : playing ? 'Pause' : 'Play'}
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-ink/15 text-ink/65 hover:border-ink/30"
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-current/15 opacity-70 hover:opacity-90"
         >
           {isClose ? (
             <RotateCcw aria-hidden className="h-4 w-4" />
@@ -485,7 +497,7 @@ export function SaveTheDateFilm({
             type="button"
             onClick={preview ? replay : () => setDismissed(true)}
             aria-label={preview ? 'Replay film' : 'Continue to invitation page'}
-            className="flex h-9 items-center justify-center rounded-full border border-ink/15 px-4 text-xs font-medium text-ink/55 hover:border-ink/30"
+            className="flex h-9 items-center justify-center rounded-full border border-current/15 px-4 text-xs font-medium opacity-60 hover:opacity-80"
           >
             {preview ? 'Replay' : 'Continue'}
           </button>
@@ -494,7 +506,7 @@ export function SaveTheDateFilm({
             type="button"
             onClick={() => goRef.current(idxRef.current + 1)}
             aria-label="Next slide"
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-ink/15 text-ink/55 hover:border-ink/30"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-current/15 opacity-60 hover:opacity-80"
           >
             <ChevronRight aria-hidden className="h-4 w-4" />
           </button>
@@ -515,17 +527,17 @@ export function SaveTheDateFilm({
     return (
       <div
         {...stageProps}
-        className="relative mx-auto aspect-[9/16] w-full max-w-xs select-none overflow-hidden rounded-3xl bg-cream text-ink shadow-xl"
+        className={`relative mx-auto aspect-[9/16] w-full max-w-xs select-none overflow-hidden rounded-3xl ${theme.outerBg} ${theme.outerFg} shadow-xl`}
       >
         {filmContent}
       </div>
     );
   }
 
-  // Full-screen: cream backdrop fills the whole viewport; stage is phone-width
+  // Full-screen: theme's outer bg fills the whole viewport; stage is phone-width
   // centered so the scrub bars and content look intentional on desktop.
   return (
-    <div className="fixed inset-0 z-[50] flex justify-center bg-cream text-ink">
+    <div className={`fixed inset-0 z-[50] flex justify-center ${theme.outerBg} ${theme.outerFg}`}>
       <div
         {...stageProps}
         className="relative h-full w-full max-w-sm select-none overflow-hidden"

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { REVEAL_TEMPLATE_IDS, type RevealTemplateId } from '@/lib/reveal-config';
+import { STD_THEME_IDS } from '@/lib/std-themes';
 
 /**
  * Server actions for the Save-the-Date builder (0024 PR4 · P4).
@@ -61,6 +62,44 @@ export async function chooseRevealTemplate(
     .update({ std_reveal_template: templateId })
     .eq('event_id', eventId);
   if (error) return { ok: false };
+  revalidate(eventId);
+  return { ok: true };
+}
+
+/**
+ * saveAllStdContent — single-shot save for the live builder (2026-06-18).
+ * Persists the couple's theme choice + optional invitation launch date in one
+ * write. Returns { ok: boolean } — no redirect, so the builder can stay put
+ * and show an inline success state (the one-Render-button UX).
+ */
+export async function saveAllStdContent(
+  eventId: string,
+  data: { theme?: string; launchDate?: string | null },
+): Promise<{ ok: boolean; error?: string }> {
+  if (!eventId) return { ok: false, error: 'missing-event' };
+  const supabase = await requireCouple(eventId);
+
+  const theme =
+    data.theme && (STD_THEME_IDS as readonly string[]).includes(data.theme)
+      ? data.theme
+      : null;
+
+  const rawDate = data.launchDate?.trim() ?? null;
+  const launchDate =
+    rawDate === '' || rawDate === null
+      ? null
+      : /^\d{4}-\d{2}-\d{2}$/.test(rawDate)
+        ? rawDate
+        : undefined; // invalid date → skip
+  if (launchDate === undefined) return { ok: false, error: 'bad-date' };
+
+  const patch: Record<string, unknown> = {};
+  if (theme !== null) patch.std_theme = theme;
+  patch.std_invitation_launch_date = launchDate;
+
+  const { error } = await supabase.from('events').update(patch).eq('event_id', eventId);
+  if (error) return { ok: false, error: 'db-error' };
+
   revalidate(eventId);
   return { ok: true };
 }

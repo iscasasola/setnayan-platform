@@ -14,6 +14,16 @@ export type RevealTemplate =
   | 'church-doors'
   | 'veil-sheer';
 
+/**
+ * The FREE choice — no opening reveal at all; the content film plays straight
+ * away (the reveal templates are the premium "filter" layered on top). Stored
+ * in `events.std_reveal_template` as the string 'none' so a couple's explicit
+ * "no opening" is distinct from null ("not chosen → house default"), and is
+ * honoured even for couples who own the premium unlock. (owner 2026-06-18)
+ */
+export const NO_REVEAL = 'none' as const;
+export type RevealChoice = RevealTemplate | typeof NO_REVEAL;
+
 /** Veil templates lift/fold themselves clear (drag-driven); rigid ones swing open on tap. */
 export function isVeilTemplate(t: RevealTemplate): boolean {
   return t === 'veil-sheer';

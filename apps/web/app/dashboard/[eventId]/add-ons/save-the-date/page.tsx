@@ -10,7 +10,11 @@ import { resolveStdFilmContent } from '@/lib/save-the-date-content';
 import { resolveStdTheme } from '@/lib/std-themes';
 import { resolveRevealEffects } from '@/lib/std-reveal-effects';
 import { REVEAL_TEMPLATE_IDS, fetchRevealConfig } from '@/lib/reveal-config';
-import type { RevealTemplate } from '@/app/[slug]/_components/reveal/reveal-templates';
+import {
+  NO_REVEAL,
+  type RevealTemplate,
+  type RevealChoice,
+} from '@/app/[slug]/_components/reveal/reveal-templates';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
@@ -33,7 +37,8 @@ type Props = {
   params: Promise<{ eventId: string }>;
 };
 
-function coerceTemplate(v: unknown): RevealTemplate | null {
+function coerceTemplate(v: unknown): RevealChoice | null {
+  if (v === NO_REVEAL) return NO_REVEAL; // the couple's explicit "No Reveal"
   return typeof v === 'string' && (REVEAL_TEMPLATE_IDS as readonly string[]).includes(v)
     ? (v as RevealTemplate)
     : null;

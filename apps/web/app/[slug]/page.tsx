@@ -257,9 +257,11 @@ function revealSealConfig(event: EventRow): WaxSealConfig | null {
 }
 
 /** The couple's chosen opening (events.std_reveal_template) validated to a known
- *  id, or null → the admin house default. Validated server-side because the
- *  client RevealOverlay can't import reveal-config (it pulls the admin client). */
-function coerceRevealTemplate(v: unknown): RevealTemplateId | null {
+ *  id, 'none' (No Reveal — the free, no-opening choice), or null → the admin
+ *  house default. Validated server-side because the client RevealOverlay can't
+ *  import reveal-config (it pulls the admin client). */
+function coerceRevealTemplate(v: unknown): RevealTemplateId | 'none' | null {
+  if (v === 'none') return 'none'; // NO_REVEAL — honoured even with the premium unlock
   return typeof v === 'string' &&
     (REVEAL_TEMPLATE_IDS as readonly string[]).includes(v)
     ? (v as RevealTemplateId)

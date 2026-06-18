@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { REVEAL_TEMPLATE_IDS, type RevealTemplateId } from '@/lib/reveal-config';
 import { STD_THEME_IDS } from '@/lib/std-themes';
 import { resolveRevealEffects, type RevealEffects } from '@/lib/std-reveal-effects';
+import { NO_REVEAL } from '@/app/[slug]/_components/reveal/reveal-templates';
 
 /**
  * Server actions for the Save-the-Date builder (0024 PR4 · P4).
@@ -56,7 +57,10 @@ export async function chooseRevealTemplate(
   eventId: string,
   templateId: string,
 ): Promise<{ ok: boolean }> {
-  if (!eventId || !isRevealTemplateId(templateId)) return { ok: false };
+  // Accept the 5 openings + 'none' (No Reveal — the free, no-opening choice).
+  if (!eventId || !(templateId === NO_REVEAL || isRevealTemplateId(templateId))) {
+    return { ok: false };
+  }
   const supabase = await requireCouple(eventId);
   const { error } = await supabase
     .from('events')

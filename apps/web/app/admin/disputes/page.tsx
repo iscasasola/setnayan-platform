@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { relativeTime } from '@/lib/activity';
 import { resolveDispute } from './actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Disputes · Admin' };
 
@@ -486,9 +487,9 @@ function DisputesTable({
                           className="input-field text-xs"
                           aria-label="Resolution notes"
                         />
-                        <button type="submit" className="button-secondary text-xs">
+                        <SubmitButton pendingLabel="Applying…" className="button-secondary text-xs">
                           Apply resolution
-                        </button>
+                        </SubmitButton>
                       </form>
                     </details>
                   ) : (

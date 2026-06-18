@@ -97,7 +97,11 @@ export type NotificationType =
   // kwento_flash_auto_walled: informational coordinator-only count shown in the
   // live console (not emailed). Logged as a notification row for the audit trail.
   | 'kwento_story_batch'
-  | 'kwento_flash_auto_walled';
+  | 'kwento_flash_auto_walled'
+  // Added 2026-06-18 (Kwento Phase 3 · Assignment Board). Fired (guest-recipient)
+  // from the nudge server action when a couple or delegate presses "Nudge" on an
+  // assigned editorial moment. Capped at 3 nudges per assignment by the action.
+  | 'kwento_assignment_nudge';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   chat_message: 'New message',
@@ -129,6 +133,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   kwento_flagged: 'Guest story to review',
   kwento_story_batch: 'Guest stories to review',
   kwento_flash_auto_walled: 'Flash story auto-walled',
+  kwento_assignment_nudge: 'Story assignment nudge',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -179,6 +184,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   kwento_story_batch: 'bg-amber-100 text-amber-900',
   // Flash auto-walled = informational / positive → sky (matches chat_message).
   kwento_flash_auto_walled: 'bg-sky-100 text-sky-800',
+  // A nudge to write their story = gentle action-needed → amber (same register).
+  kwento_assignment_nudge: 'bg-amber-100 text-amber-900',
 };
 
 export type NotificationRow = {

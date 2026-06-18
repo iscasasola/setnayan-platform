@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { setTileEventTypeOffered, setFolderEventTypeOffered } from '../../actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Scope categories · Event Types · Admin' };
 // Admin-client DB read → keep dynamic (same rationale as the roster page).
@@ -129,13 +130,13 @@ export default async function ScopeCategoriesPage({
                     <input type="hidden" name="event_type" value={eventType} />
                     <input type="hidden" name="folder_id" value={folder.id} />
                     <input type="hidden" name="offered" value="1" />
-                    <button type="submit" className={BULK_BTN}>Offer all</button>
+                    <SubmitButton pendingLabel="Updating…" className={BULK_BTN}>Offer all</SubmitButton>
                   </form>
                   <form action={setFolderEventTypeOffered}>
                     <input type="hidden" name="event_type" value={eventType} />
                     <input type="hidden" name="folder_id" value={folder.id} />
                     <input type="hidden" name="offered" value="0" />
-                    <button type="submit" className={BULK_BTN}>Hide all</button>
+                    <SubmitButton pendingLabel="Updating…" className={BULK_BTN}>Hide all</SubmitButton>
                   </form>
                 </div>
               </div>
@@ -149,13 +150,13 @@ export default async function ScopeCategoriesPage({
                         <input type="hidden" name="event_type" value={eventType} />
                         <input type="hidden" name="tile_id" value={t.id} />
                         <input type="hidden" name="offered" value={on ? '0' : '1'} />
-                        <button
-                          type="submit"
+                        <SubmitButton
+                          pendingLabel="…"
                           className={on ? PILL_ON : PILL_OFF}
                           aria-label={`${on ? 'Hide' : 'Offer'} ${t.label_en} ${on ? 'from' : 'to'} ${row.label_en}`}
                         >
                           {on ? 'Offered' : 'Hidden'}
-                        </button>
+                        </SubmitButton>
                       </form>
                     </li>
                   );

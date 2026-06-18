@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · feat(std): Save-the-Date Step-1 Background picker (plain · paper · realistic · upload)
+
+Builds the new Step-1 "Background" — the backdrop the whole film plays over (owner-designed 2026-06-18/19; the 5-step builder is Background → Content → Video/Gallery → Music → Reveal). This PR ships the picker + persistence + the builder-preview render.
+
+- **Schema:** `events.std_background` JSONB `{kind: plain|paper|realistic|upload, value}` (migration `20270125138761`, applied to prod + ledgered).
+- **Library** (`lib/std-backgrounds.ts`): `resolveStdBackground`, the plain palette (8 presets), and **procedural CSS paper textures** (`paperBackgroundStyle` — base tone + SVG fractal-noise grain + per-style weave/veining; seamless + recolourable, no image assets).
+- **Picker** (`std-background-picker.tsx`): plain swatches + native colour input · 5 paper · 10 realistic thumbnails · an Upload tile labelled "Soon" (it ships with the parallax engine — its whole value is the auto-3D lean).
+- **Render** (`std-background-layer.tsx`): full-bleed layer behind the film, all 4 kinds, with a subtle **whole-image parallax lean** (pointer/tilt, inside an overscan; reduced-motion safe) + a legibility scrim on photo backgrounds. Real depth comes free because the content film floats above it.
+- **Film** (`save-the-date-film.tsx`): new `transparent` prop → the stage bg goes transparent so the Step-1 background shows through (Background replaces the theme's backdrop; theme still drives fonts + text/accent colours).
+- **Wiring:** `StdBuilderClient` gets the picker as Step 1 (Opening→2, Theme→3, Information→4) + the layer behind the preview film; `saveAllStdContent` persists `background`; the builder page resolves + passes it.
+
+Deferred to the next PRs (noted): the **live `/[slug]` page render** (same layer + transparent film; lands with the flag-gated film go-live), the **upload→R2 + per-pixel depth** (Depth Anything — the parallax engine), and the full 5-step reorg (video/music steps, reveal→last).
+
+Verified: `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — Step-1 Background shipped (picker + persistence + builder render). See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · feat(std): Save-the-Date background library — 10 realistic scenes generated (Step 1 assets)
 
 Generated + QC'd the **10 realistic parallax-background scenes** for the new Step-1 "Background" (owner spec 2026-06-18/19) and added the library manifest. Assets in `apps/web/public/std/backgrounds/` (~14MB, 1024² webp, center-safe for any crop): aurora · golden-hour · peonies field · rose-archway · open seascape · starlit · misty sunrise · bridgerton · candlelit ballroom · fairy-lights.

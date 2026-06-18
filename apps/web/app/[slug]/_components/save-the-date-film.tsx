@@ -47,6 +47,7 @@ export function SaveTheDateFilm({
   themeId,
   preview = false,
   fill = false,
+  transparent = false,
 }: {
   content: StdFilmContent;
   /** Theme override. Defaults to 'moodboard' (inherits the event's Mood Board palette). */
@@ -58,8 +59,13 @@ export function SaveTheDateFilm({
    *  card — themed bg fills, portrait stage centered (mirrors the live desktop
    *  layout, so it reads right in both the iPhone and MacBook frames). */
   fill?: boolean;
+  /** When true, the film's own stage background is transparent so the Step-1
+   *  Background layer behind it shows through (Background replaces the theme bg;
+   *  the theme still drives fonts + text/accent colours). 2026-06-19. */
+  transparent?: boolean;
 }) {
   const theme = STD_THEMES.find((t) => t.id === resolveStdTheme(themeId)) ?? STD_THEMES[0]!;
+  const outerBgCls = transparent ? 'bg-transparent' : theme.outerBg;
   const LABEL = theme.labelCls;
 
   const slides: Slide[] = [];
@@ -532,7 +538,7 @@ export function SaveTheDateFilm({
     // Fill a device-frame screen: themed bg fills, portrait stage centered —
     // identical to the live desktop layout below, minus the fixed positioning.
     return (
-      <div className={`absolute inset-0 flex justify-center overflow-hidden ${theme.outerBg} ${theme.outerFg}`}>
+      <div className={`absolute inset-0 flex justify-center overflow-hidden ${outerBgCls} ${theme.outerFg}`}>
         <div {...stageProps} className="relative h-full w-full max-w-sm select-none overflow-hidden">
           {filmContent}
         </div>
@@ -544,7 +550,7 @@ export function SaveTheDateFilm({
     return (
       <div
         {...stageProps}
-        className={`relative mx-auto aspect-[9/16] w-full max-w-xs select-none overflow-hidden rounded-3xl ${theme.outerBg} ${theme.outerFg} shadow-xl`}
+        className={`relative mx-auto aspect-[9/16] w-full max-w-xs select-none overflow-hidden rounded-3xl ${outerBgCls} ${theme.outerFg} shadow-xl`}
       >
         {filmContent}
       </div>
@@ -554,7 +560,7 @@ export function SaveTheDateFilm({
   // Full-screen: theme's outer bg fills the whole viewport; stage is phone-width
   // centered so the scrub bars and content look intentional on desktop.
   return (
-    <div className={`fixed inset-0 z-[50] flex justify-center ${theme.outerBg} ${theme.outerFg}`}>
+    <div className={`fixed inset-0 z-[50] flex justify-center ${outerBgCls} ${theme.outerFg}`}>
       <div
         {...stageProps}
         className="relative h-full w-full max-w-sm select-none overflow-hidden"

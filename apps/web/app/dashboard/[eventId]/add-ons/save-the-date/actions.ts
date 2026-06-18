@@ -7,6 +7,7 @@ import { REVEAL_TEMPLATE_IDS, type RevealTemplateId } from '@/lib/reveal-config'
 import { STD_THEME_IDS } from '@/lib/std-themes';
 import { resolveRevealEffects, type RevealEffects } from '@/lib/std-reveal-effects';
 import { NO_REVEAL } from '@/app/[slug]/_components/reveal/reveal-templates';
+import { resolveStdBackground, type StdBackground } from '@/lib/std-backgrounds';
 
 /**
  * Server actions for the Save-the-Date builder (0024 PR4 · P4).
@@ -92,6 +93,7 @@ export async function saveAllStdContent(
     filmVenueCity?: string | null;
     filmStory?: string | null;
     revealEffects?: RevealEffects | null;
+    background?: StdBackground | null;
   },
 ): Promise<{ ok: boolean; error?: string }> {
   if (!eventId) return { ok: false, error: 'missing-event' };
@@ -130,6 +132,10 @@ export async function saveAllStdContent(
   // Reveal effect toggles — sanitised to {butterflies,petals} booleans.
   if (data.revealEffects !== undefined && data.revealEffects !== null) {
     patch.std_reveal_effects = resolveRevealEffects(data.revealEffects);
+  }
+  // Step-1 background choice — validated to {kind, value}.
+  if (data.background !== undefined && data.background !== null) {
+    patch.std_background = resolveStdBackground(data.background);
   }
 
   const { error } = await supabase.from('events').update(patch).eq('event_id', eventId);

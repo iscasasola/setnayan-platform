@@ -33,6 +33,9 @@ import {
 } from '@/app/[slug]/_components/reveal/reveal-templates';
 import { RevealPreviewCard } from '@/app/dashboard/[eventId]/_components/reveal-preview-card';
 import { RevealPreview } from '@/app/dashboard/[eventId]/_components/reveal-preview';
+import { StdBackgroundPicker } from '@/app/dashboard/[eventId]/_components/std-background-picker';
+import { StdBackgroundLayer } from '@/app/dashboard/[eventId]/_components/std-background-layer';
+import { realisticBgSrc, type StdBackground } from '@/lib/std-backgrounds';
 import type { RevealEffects } from '@/lib/std-reveal-effects';
 import type { RevealEffectsLook, VeilLook } from '@/lib/reveal-config';
 import {
@@ -53,6 +56,8 @@ type Props = {
   initialRevealTemplate: RevealChoice | null;
   /** The couple's saved reveal effect toggles (resolved; defaults applied). */
   initialEffects: RevealEffects;
+  /** The couple's saved Step-1 background (resolved; defaults to plain). */
+  initialBackground: StdBackground;
   /** Raw std_film_* snapshot values — null means not yet set (falls back to live event data). */
   initialFilmDate?: string | null;
   initialFilmVenueName?: string | null;
@@ -86,6 +91,7 @@ export function StdBuilderClient({
   initialLaunchDate,
   initialRevealTemplate,
   initialEffects,
+  initialBackground,
   initialFilmDate,
   initialFilmVenueName,
   initialFilmVenueCity,
@@ -134,6 +140,12 @@ export function StdBuilderClient({
   const [revealDone, setRevealDone] = useState(false);
   // Per-opening effect toggles (butterflies / petals); saved on Render.
   const [effects, setEffects] = useState<RevealEffects>(initialEffects);
+  // Step-1 background choice (plain / paper / realistic / upload); saved on Render.
+  const [background, setBackground] = useState<StdBackground>(initialBackground);
+  const pickBackground = (bg: StdBackground) => {
+    setBackground(bg);
+    if (result !== 'idle') setResult('idle');
+  };
 
   // Any change that should replay the opening also resets the lifted state.
   const pickOpening = (t: RevealChoice) => {
@@ -218,6 +230,7 @@ export function StdBuilderClient({
         filmVenueCity: venueCity.trim() || null,
         filmStory: filmStory.trim() || null,
         revealEffects: effects,
+        background,
       });
       setResult(r.ok ? 'ok' : 'error');
     });
@@ -232,10 +245,13 @@ export function StdBuilderClient({
       {/* ── Steps 1 + 2 + 3 (left) + the single live preview (right) ───────── */}
       <div className="lg:grid lg:grid-cols-[1fr_320px] lg:items-start lg:gap-8">
 
-        {/* LEFT: Opening picker + Theme + Info */}
+        {/* LEFT: Background + Opening picker + Theme + Info */}
         <div className="space-y-8">
 
-          {/* Step 1 · Opening picker — drives the single shared preview → */}
+          {/* Step 1 · Background — the backdrop the whole film plays over */}
+          <StdBackgroundPicker value={background} onChange={pickBackground} />
+
+          {/* Step 2 · Opening picker — drives the single shared preview → */}
           <RevealPreviewCard
             eventId={eventId}
             previewing={previewing}
@@ -253,7 +269,7 @@ export function StdBuilderClient({
           <section className="space-y-3">
             <div className="space-y-1">
               <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-                Step 2 · Theme
+                Step 3 · Theme
               </p>
               <h2 className="font-serif text-xl italic">Choose your look</h2>
               <p className="text-sm text-ink/65">
@@ -303,7 +319,7 @@ export function StdBuilderClient({
           <section className="space-y-3">
             <div className="space-y-1">
               <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-                Step 3 · Information
+                Step 4 · Information
               </p>
               <h2 className="font-serif text-xl italic">What your film shows</h2>
               <p className="text-sm text-ink/65">
@@ -525,7 +541,12 @@ export function StdBuilderClient({
                 it — exactly how a guest experiences the live page, in miniature.
                 key={restartKey} on both lets Replay remount → opening + film from beat 1. */}
             <DeviceFrame device={device}>
-              {/* base — the content film, running underneath */}
+              {/* layer 0 — the Step-1 background, behind everything */}
+              <StdBackgroundLayer
+                background={background}
+                imageUrl={background.kind === 'realistic' ? realisticBgSrc(background.value) : null}
+              />
+              {/* base — the content film (transparent stage so the background shows) */}
               <div className="absolute inset-0">
                 <SaveTheDateFilm
                   key={restartKey}
@@ -533,6 +554,7 @@ export function StdBuilderClient({
                   themeId={themeId}
                   preview
                   fill
+                  transparent
                 />
               </div>
               {/* overlay — the opening. Skipped entirely for No Reveal (the free

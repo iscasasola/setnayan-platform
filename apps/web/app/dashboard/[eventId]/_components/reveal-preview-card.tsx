@@ -18,6 +18,9 @@ import {
   REVEAL_LIBRARY,
   type RevealTemplate,
 } from '@/app/[slug]/_components/reveal/reveal-templates';
+import type { RevealEffects } from '@/lib/std-reveal-effects';
+
+const ENVELOPES: RevealTemplate[] = ['four-flap', 'two-flap-vertical', 'two-flap-horizontal'];
 
 type Props = {
   /** The event whose chosen opening this persists. */
@@ -28,6 +31,10 @@ type Props = {
   onPreview: (t: RevealTemplate) => void;
   /** The couple's currently-saved opening (events.std_reveal_template). */
   chosenTemplate?: RevealTemplate | null;
+  /** Effect toggles (owned by the parent; saved on Render). */
+  effects: RevealEffects;
+  /** Flip one effect toggle. */
+  onToggleEffect: (key: keyof RevealEffects) => void;
 };
 
 export function RevealPreviewCard({
@@ -35,7 +42,16 @@ export function RevealPreviewCard({
   previewing,
   onPreview,
   chosenTemplate = null,
+  effects,
+  onToggleEffect,
 }: Props) {
+  const isEnvelope = ENVELOPES.includes(previewing);
+  const effectKey: keyof RevealEffects = isEnvelope ? 'butterflies' : 'petals';
+  const effectLabel = isEnvelope ? 'Add butterflies' : 'Add falling petals';
+  const effectHint = isEnvelope
+    ? 'Butterflies flutter out as the flaps open.'
+    : 'Rose petals drift down through the reveal.';
+  const effectOn = effects[effectKey];
   const [chosen, setChosen] = useState<RevealTemplate | null>(chosenTemplate);
   const [pending, startTransition] = useTransition();
 
@@ -104,6 +120,36 @@ export function RevealPreviewCard({
           {previewedItem.blurb}
         </p>
       ) : null}
+
+      {/* Effect toggle (per-opening). The wax seal is NOT here — it's the
+          structural open-gate, always on for envelopes (owner-locked). */}
+      <div className="space-y-2 rounded-xl border border-ink/10 bg-cream/60 p-3.5">
+        <button
+          type="button"
+          onClick={() => onToggleEffect(effectKey)}
+          aria-pressed={effectOn}
+          className="flex w-full items-center gap-3 text-left"
+        >
+          <span
+            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
+              effectOn
+                ? 'border-mulberry bg-mulberry text-cream'
+                : 'border-ink/30 bg-white text-transparent'
+            }`}
+          >
+            <Check aria-hidden className="h-3 w-3" strokeWidth={3} />
+          </span>
+          <span>
+            <span className="block text-sm font-medium text-ink">{effectLabel}</span>
+            <span className="block text-xs text-ink/55">{effectHint}</span>
+          </span>
+        </button>
+        {isEnvelope ? (
+          <p className="pl-8 text-[11px] text-ink/45">
+            Your wax seal is always part of the envelope — guests swipe it to open.
+          </p>
+        ) : null}
+      </div>
 
       {/* Commit */}
       <div>

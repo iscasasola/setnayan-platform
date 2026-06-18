@@ -31,6 +31,7 @@ import {
 } from '@/app/[slug]/_components/reveal/reveal-templates';
 import { RevealPreviewCard } from '@/app/dashboard/[eventId]/_components/reveal-preview-card';
 import { RevealPreview } from '@/app/dashboard/[eventId]/_components/reveal-preview';
+import type { RevealEffects } from '@/lib/std-reveal-effects';
 import {
   DeviceFrame,
   DeviceToggle,
@@ -47,6 +48,8 @@ type Props = {
   initialThemeId: StdThemeId;
   initialLaunchDate: string;
   initialRevealTemplate: RevealTemplate | null;
+  /** The couple's saved reveal effect toggles (resolved; defaults applied). */
+  initialEffects: RevealEffects;
   /** Raw std_film_* snapshot values — null means not yet set (falls back to live event data). */
   initialFilmDate?: string | null;
   initialFilmVenueName?: string | null;
@@ -71,6 +74,7 @@ export function StdBuilderClient({
   initialThemeId,
   initialLaunchDate,
   initialRevealTemplate,
+  initialEffects,
   initialFilmDate,
   initialFilmVenueName,
   initialFilmVenueCity,
@@ -102,6 +106,8 @@ export function StdBuilderClient({
   );
   // True once the opening has auto-played + lifted away, revealing the film.
   const [revealDone, setRevealDone] = useState(false);
+  // Per-opening effect toggles (butterflies / petals); saved on Render.
+  const [effects, setEffects] = useState<RevealEffects>(initialEffects);
 
   // Any change that should replay the opening also resets the lifted state.
   const pickOpening = (t: RevealTemplate) => {
@@ -115,6 +121,13 @@ export function StdBuilderClient({
   const restartPreview = () => {
     setRestartKey((k) => k + 1);
     setRevealDone(false);
+  };
+  // Flip an effect + replay the opening so the change is visible immediately.
+  const toggleEffect = (key: keyof RevealEffects) => {
+    setEffects((e) => ({ ...e, [key]: !e[key] }));
+    setRestartKey((k) => k + 1);
+    setRevealDone(false);
+    if (result !== 'idle') setResult('idle');
   };
 
   // Every state change re-derives the full content object so the preview
@@ -171,6 +184,7 @@ export function StdBuilderClient({
         filmVenueName: venueName.trim() || null,
         filmVenueCity: venueCity.trim() || null,
         filmStory: filmStory.trim() || null,
+        revealEffects: effects,
       });
       setResult(r.ok ? 'ok' : 'error');
     });
@@ -194,6 +208,8 @@ export function StdBuilderClient({
             previewing={previewing}
             onPreview={pickOpening}
             chosenTemplate={initialRevealTemplate}
+            effects={effects}
+            onToggleEffect={toggleEffect}
           />
 
           {/* Step 2 · Theme */}
@@ -497,6 +513,7 @@ export function StdBuilderClient({
                   sealConfig={sealConfig}
                   sealFallbackSeed={sealFallbackSeed}
                   veilColor={veilColor}
+                  effects={effects}
                   onDone={() => setRevealDone(true)}
                 />
               </div>

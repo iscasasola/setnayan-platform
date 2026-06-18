@@ -38,6 +38,7 @@ import { RigidReveal } from './rigid-reveal';
 import { isVeilTemplate, REVEAL_ALIASES, type RevealTemplate } from './reveal-templates';
 import type { WaxSealConfig } from '@/lib/wax-seal/types';
 import type { RevealStudioConfig, RevealTemplateId } from '@/lib/reveal-config';
+import { rigidEffectFor, type RevealEffects } from '@/lib/std-reveal-effects';
 
 const VeilReveal = dynamic(() => import('./veil-reveal'), { ssr: false });
 
@@ -66,6 +67,9 @@ type Props = {
   /** The couple's chosen opening (events.std_reveal_template) — overrides the
    *  admin house default, beneath a per-visit ?reveal= override. (PR4 P4) */
   eventTemplate?: RevealTemplateId | null;
+  /** The couple's reveal effect toggles (events.std_reveal_effects, resolved):
+   *  butterflies → envelopes · petals → church doors + veil. (2026-06-18) */
+  eventEffects?: RevealEffects;
   /** The couple owns the premium openings unlock (PR4 P5) — an additive
    *  activation path alongside the admin global toggle + the ?reveal= override.
    *  Dormant until the STD_PREMIUM_OPENINGS SKU is sellable. */
@@ -85,6 +89,7 @@ export function RevealOverlay({
   petalsColor = '#e87a93',
   config,
   eventTemplate = null,
+  eventEffects,
   premiumUnlocked = false,
 }: Props) {
   const [mounted, setMounted] = useState(false);
@@ -129,7 +134,11 @@ export function RevealOverlay({
           veilColor={veilColor}
           petalsColor={petalsColor}
           look={config?.veil}
-          features={config?.features}
+          features={{
+            petals: eventEffects?.petals ?? config?.features?.petals ?? true,
+            logo: config?.features?.logo ?? true,
+            music: config?.features?.music ?? false,
+          }}
           onRevealed={() => {
             setOpen(true);
             setTimeout(() => {
@@ -157,6 +166,9 @@ export function RevealOverlay({
     window.dispatchEvent(new CustomEvent('std-reveal-done'));
     setGone(true);
   };
+  // Couple-chosen decorative effect that plays as the opening parts:
+  // butterflies on envelopes, petals on church doors (null → none).
+  const rigidEffect = eventEffects ? rigidEffectFor(template, eventEffects) : null;
   return (
     <div className="fixed inset-0 z-[60] overflow-hidden">
       {template === 'two-flap-vertical' ||
@@ -170,6 +182,7 @@ export function RevealOverlay({
           config={sealConfig}
           fallbackSeed={sealFallbackSeed}
           onOpened={onOpened}
+          effect={rigidEffect}
         />
       ) : (
         <FourFlapEnvelope
@@ -179,6 +192,7 @@ export function RevealOverlay({
           config={sealConfig}
           fallbackSeed={sealFallbackSeed}
           onOpened={onOpened}
+          effect={rigidEffect}
         />
       )}
     </div>

@@ -292,6 +292,7 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
       <VectorStudio
         eventId={eventId}
         initialConfig={studioConfig}
+        initialNames={monogram.text}
         hasStudio={hasStudio}
         notice={studioNotice}
       />

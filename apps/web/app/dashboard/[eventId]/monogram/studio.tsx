@@ -45,11 +45,15 @@ function SaveButton({ onArm }: { onArm: (e: React.MouseEvent<HTMLButtonElement>)
 export function VectorStudio({
   eventId,
   initialConfig,
+  initialNames,
   hasStudio,
   notice,
 }: {
   eventId: string;
   initialConfig: StudioConfig | null;
+  /** The event's initials (e.g. "A & B") — seeds a FIRST design so the editor
+   *  opens on the couple's mark, not the built-in "Maria & Juan" placeholder. */
+  initialNames: string | null;
   hasStudio: boolean;
   notice: { tone: 'ok' | 'error'; text: string } | null;
 }) {
@@ -76,7 +80,7 @@ export function VectorStudio({
         const PaperOffset = off.PaperOffset ?? off.default?.PaperOffset ?? off.default ?? off;
         const ot: any = otMod as any;
         const opentype = ot.parse ? ot : (ot.default ?? ot);
-        api = mountStudio({ root: rootRef.current, paper, opentype, PaperOffset, initialConfig }) as StudioApi;
+        api = mountStudio({ root: rootRef.current, paper, opentype, PaperOffset, initialConfig, initialNames }) as StudioApi;
         apiRef.current = api;
         setReady(true);
       } catch {

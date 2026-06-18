@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · fix(monogram): the dashboard Vector Studio seeds from the couple's initials (same PR #1798)
+
+Owner: on the event's Monogram Maker (`/dashboard/[eventId]/monogram`), the Vector Studio opened on its built-in **"Maria & Juan"** placeholder instead of the couple's initials — so it didn't read as *their* monogram maker, and saving that generic mark **replaced the event's assigned monogram** with the wrong initials. Root cause: `VectorStudio` never received the event's initials — its sibling cards (Cipher / Bespoke / lettered Maker) all take `initialInitials` / `defaultInitials`, but `VectorStudio` took only `initialConfig` (the *saved* design), so a first-time open fell through to the engine's hardcoded default.
+
+- The page now passes `initialNames={monogram.text}` (the resolved "A & B" label).
+- The engine seeds the names field from it **on a first open only** — when there's no saved studio design to restore (a saved config carries its own names, so it's skipped then).
+- The public studio is unaffected (no event → keeps the generic demo default).
+
+So the editor now opens on the couple's real initials, and a save produces a mark consistent with their assigned monogram — no more generic clobber. (Also explains the reported "monogram saves overlap the assigned monogram": before the fix, the saved generic mark and the event's lettered mark disagreed across surfaces.)
+
+Verified: `pnpm typecheck` clean · `pnpm lint` 0 errors · `pnpm build` green.
+
+SPEC IMPACT: monogram Phase 5 — bugfix. None beyond the studio.
+
 ## 2026-06-19 · feat(monogram): carry the public-studio design through sign-up (PR pending, auto-merge)
 
 Closes the loop on the public studio: a monogram designed on the free `/monogram` studio **before** sign-up now follows the visitor into their new wedding. No new server action — it reuses the existing `saveStudioAction` (which already re-sanitizes the SVG + enforces couple membership), so a client-controlled localStorage payload can never become an unsafe or cross-account mark.

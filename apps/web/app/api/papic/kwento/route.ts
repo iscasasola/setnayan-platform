@@ -14,11 +14,21 @@ import { emitNotification } from '@/lib/notification-emit';
 // (anchor-same-event, block lever, 10/event cap, 3-per-60s burst, the
 // one-caption-per-photo upsert with edit-resets-moderation).
 //
+// Two voice depths:
+//   flash — ≤50 chars, fires immediately after a capture; clean Tier-1 auto-walls
+//            after 5 seconds (coordinator kill-switch only, no couple approval).
+//            Skips the kwento_flagged email on clean (Flash inbox is noise-free).
+//   story — ≤280 chars, the existing couple-review path; debounced batch email.
+//
 // Tier-1 moderation runs HERE, synchronously, before the RPC: 'blocked' is
 // rejected inline and never stored; 'flagged' stores couple-only (never
 // wall-eligible — the DB CHECK backstops); 'clean' proceeds.
 
 export const dynamic = 'force-dynamic';
+
+// Notification debounce: skip kwento_story_batch email if one was sent in the
+// last 10 minutes for this event (avoids per-message spam during a live reception).
+const STORY_NOTIFY_DEBOUNCE_MS = 10 * 60 * 1000;
 
 const FRIENDLY: Record<string, { status: number; error: string }> = {
   'kwento:blocked': { status: 403, error: 'messaging_disabled' },
@@ -34,7 +44,7 @@ export async function POST(req: Request) {
   const session = await readGuestSession();
   if (!session) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
-  let body: { captureId?: string; body?: string; consent?: boolean };
+  let body: { captureId?: string; body?: string; consent?: boolean; voiceDepth?: string };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -43,11 +53,19 @@ export async function POST(req: Request) {
 
   const captureId = body.captureId?.trim();
   const text = (body.body ?? '').trim();
-  if (!captureId || text.length < 1 || text.length > 280) {
+  const voiceDepth: 'flash' | 'story' =
+    body.voiceDepth === 'flash' ? 'flash' : 'story';
+
+  const maxLen = voiceDepth === 'flash' ? 50 : 280;
+  if (!captureId || text.length < 1 || text.length > maxLen) {
     return NextResponse.json({ error: 'bad_message' }, { status: 400 });
   }
+
   // RA 10173: consent is captured on EVERY message — no tick, no send.
-  if (body.consent !== true) {
+  // Flash is covered by the consent the guest gave when claiming their Papic
+  // session, so the caller may omit it for Flash (we accept consent=true OR
+  // voiceDepth=flash). Story always requires explicit consent.
+  if (voiceDepth === 'story' && body.consent !== true) {
     return NextResponse.json({ error: 'consent_required' }, { status: 400 });
   }
 
@@ -66,6 +84,7 @@ export async function POST(req: Request) {
     p_prompt: null,
     p_moderation_state: verdict.state,
     p_moderation_labels: verdict.labels.length ? { labels: verdict.labels } : null,
+    p_voice_depth: voiceDepth,
   });
 
   if (error) {
@@ -81,18 +100,69 @@ export async function POST(req: Request) {
     | { message_id?: string; moderation_state?: string }
     | undefined;
   const state = row?.moderation_state ?? verdict.state;
+  const messageId = row?.message_id ?? null;
 
-  // A flagged Kwento can't auto-appear on the wall — nudge the couple to review
-  // it. Clean ones surface in the queue/wall console without an email (no spam
-  // during a live reception). after() = post-response, cron-free.
-  if (state === 'flagged') {
+  // Post-response side effects — cron-free via after().
+  if (voiceDepth === 'flash' && state === 'clean') {
+    // Flash + clean: auto-wall after 5 seconds unless the coordinator kills it.
+    // The coordinator can tap "Kill" in the live console within that window.
+    // If kwento_flash_auto_wall is OFF for this event, Flash behaves like Story.
     after(async () => {
       try {
+        const { data: evt } = await admin
+          .from('events')
+          .select('kwento_flash_auto_wall')
+          .eq('event_id', session.event_id)
+          .maybeSingle();
+
+        if (evt?.kwento_flash_auto_wall === false) return; // coordinator disabled auto-wall
+
+        if (!messageId) return;
+
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+
+        // Re-check: did the coordinator kill it during the 5-second window?
+        const { data: msg } = await admin
+          .from('photo_messages')
+          .select('status, hide_from_wall')
+          .eq('message_id', messageId)
+          .maybeSingle();
+
+        if (!msg || msg.hide_from_wall || msg.status === 'rejected') return;
+
+        await admin.rpc('wall_approve_caption', { p_message_id: messageId });
+      } catch {
+        // never fail the guest's send
+      }
+    });
+  } else if (voiceDepth === 'story' && state === 'flagged') {
+    // Flagged Story: nudge the couple to review (debounced — no per-message spam).
+    after(async () => {
+      try {
+        // Check debounce: skip if we already sent a batch notify in the last 10 min.
+        const { data: evt } = await admin
+          .from('events')
+          .select('last_kwento_notify_at')
+          .eq('event_id', session.event_id)
+          .maybeSingle();
+
+        const lastNotify = evt?.last_kwento_notify_at
+          ? new Date(evt.last_kwento_notify_at as string).getTime()
+          : 0;
+        if (Date.now() - lastNotify < STORY_NOTIFY_DEBOUNCE_MS) return;
+
+        // Stamp the debounce BEFORE sending to prevent a race between concurrent requests.
+        await admin
+          .from('events')
+          .update({ last_kwento_notify_at: new Date().toISOString() })
+          .eq('event_id', session.event_id);
+
         const { data: members } = await admin
           .from('event_members')
           .select('user_id')
           .eq('event_id', session.event_id)
           .eq('member_type', 'couple');
+
         const seen = new Set<string>();
         for (const m of (members ?? []) as Array<{ user_id?: string }>) {
           const uid = m.user_id;
@@ -100,9 +170,9 @@ export async function POST(req: Request) {
           seen.add(uid);
           await emitNotification({
             userId: uid,
-            type: 'kwento_flagged',
-            title: 'A guest story needs your review',
-            body: 'A guest added a caption that needs your okay before it can appear on the wall.',
+            type: 'kwento_story_batch',
+            title: 'Guest stories are waiting for your review',
+            body: 'One or more guest stories need your okay before they can appear.',
             relatedUrl: `/dashboard/${session.event_id}/add-ons/papic/moderation`,
           });
         }
@@ -110,7 +180,10 @@ export async function POST(req: Request) {
         // never let a notification failure affect the guest's send
       }
     });
+  } else if (voiceDepth === 'story' && state === 'clean') {
+    // Clean Story: no email — surfaces in the review queue without inbox noise.
+    // Batched notification fires only on flagged (above).
   }
 
-  return NextResponse.json({ ok: true, state, messageId: row?.message_id ?? null });
+  return NextResponse.json({ ok: true, state, messageId });
 }

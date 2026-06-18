@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-18 · feat(std): PR4 content film — full-screen experience after the reveal (#1731)
+
+Removed the `NEXT_PUBLIC_STD_FILM` env gate that silently disabled the Save-the-Date film in production. `SaveTheDateFilm` is now a full-screen `fixed inset-0 z-[50]` experience that plays UNDER the reveal overlay (z-[60]). `RevealOverlay` dispatches a `std-reveal-done` custom event from both the veil `onRevealed` and the rigid `onOpened` paths so the film's RAF loop starts the exact moment the reveal clears (2s fallback if no reveal is active). Last slide stays at `Infinity` until the guest taps Continue; dismissing reveals the normal wedding page beneath.
+
+**Files:** `app/[slug]/page.tsx` · `app/[slug]/_components/reveal/reveal-overlay.tsx` · `app/[slug]/_components/save-the-date-film.tsx`
+
+**SPEC IMPACT:** iter 0024 — the content-film layer is now live on every STD-phase wedding page (free tier); `?film=0` disables to the static countdown fallback for debugging.
+
+---
+
 ## 2026-06-18 · Kwento Monumental Upgrade — PR 1 (FaceBlock fix) + PR 2 (Flash tier) + PR 3 (Density Map)
 
 Three-PR build from the approved Kwento Monumental Upgrade plan (`Kwento_Monumental_Upgrade_2026-06-18.md`). Turns Kwento from a single-voice photo-message feature into the narrative infrastructure layer of the event.

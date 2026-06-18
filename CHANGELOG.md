@@ -4,6 +4,47 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-18 · feat(patiktok): reel delivery — email + persistent download + admin monitor (PR4 of 4)
+
+Closes the Patiktok record→render→download slice. Stacked on PR3 (#1741).
+
+- **New `lib/patiktok-reel-emails.ts`** — `sendPatiktokReelReadyEmail` (branded "your reel is ready" via Resend, mirrors the Papic sampler email pattern). Resolves the couple's email, links to the Patiktok dashboard (durable), stamps `delivered_at`. Self-guards on RESEND config; **never throws**. Fired from `finalizePatiktokRenderJob` via Next 15 **`after()`** — cron-free, non-blocking.
+- **Persistent download** — `page.tsx` "Your renders" now resolves a **fresh presigned GET** from the durable `output_object_key` for each completed reel and renders a real **Download** button (replaces the static "Download link emailed" line). Guarded by `isR2Configured`.
+- **New admin monitor `app/admin/patiktok/page.tsx`** — read-only render-job queue across all events (status counts + per-job event/template/mode/size/delivery/failure), so the team can spot reels that failed (no-WebCodecs device, R2 CORS not set). Linked from the admin home tile.
+
+tsc 0 · ESLint clean · `lint:navicon` green. Email no-ops cleanly until RESEND is keyed; downloads no-op until R2 is configured.
+
+This completes the architect triad for Patiktok: **couple** (gallery + in-browser render + download), **operator** (booth capture), **admin** (render monitor) — with the email connecting render → couple.
+
+SPEC IMPACT iter 0017 — Patiktok now delivers a real reel end-to-end (capture → render → download/email); only TikTok auto-post (verified-app audit) + owned music (Suno ingestion) remain owner/external-gated. → CHANGELOG + corpus DECISION_LOG.
+
+## 2026-06-18 · feat(patiktok): client-side WebCodecs reel render engine (PR3 of 4)
+
+The piece that makes Patiktok actually produce a video — replaces the 100ms placeholder worker with a real client-side renderer. Stacked on PR2 (#1723). Owner-locked render host: **client-side, ₱0 server compute**.
+
+- **New `lib/patiktok-render.ts`** — composites the booth clips cover-fit onto a 1080×1920 canvas with a template overlay and encodes a 9:16 MP4. **Primary path** = WebCodecs `VideoEncoder` → `mp4-muxer` (clean H.264 MP4, AVC config probed via `isConfigSupported` across High/Main/Baseline L4.0–4.2, deterministic frame-stepped at 30fps). **Fallback** = `MediaRecorder` over `canvas.captureStream()` (real-time, webm) for browsers without WebCodecs. Encoder backpressure, abort support, per-frame progress.
+- **New server actions** (`actions.ts`): `claimPatiktokRenderJob` (RLS-read = auth, gathers event clips as presigned GET URLs, resolves music, flips job → `processing` via service role), `finalizePatiktokRenderJob` (writes `output_object_key`/bytes/`render_mode`, records the job→clip junction, marks clips `included`, returns a 7-day presigned download), `failPatiktokRenderJob`.
+- **New `_components/reel-renderer.tsx`** (client) — drives claim → render (progress bar) → presigned reel upload → finalize → in-page preview + **Download reel** + render-again. Couple-readable errors with retry.
+- **`page.tsx`** — mounts `ReelRenderer` for the `?queued=<jobId>` job; the queued banner now points at in-browser render instead of "we'll email it".
+
+tsc 0 · ESLint clean. **NOT auto-merged** — this is the one piece CI can't exercise (the render needs a real browser + camera-captured clips + a CORS-configured R2). Verify on a device before merge.
+
+Music stays a plumbed-but-inert seam (`musicUrl` passed through; reels render silent until the owned Suno catalogue is ingested). Audio mux + TikTok auto-post remain out of scope (owner/TikTok-gated).
+
+SPEC IMPACT iter 0017 — the render worker is real (client-side); the Phase-1 placeholder `output_url` write is retired. → CHANGELOG + corpus DECISION_LOG.
+
+## 2026-06-18 · feat(patiktok): web booth capture + direct-to-R2 clip upload (PR2 of 4)
+
+The INPUT half of the render pipeline — turns the disabled "Start Recording" button into a real capture loop. Stacked on PR1 (#1713 schema).
+
+- **New `app/api/patiktok/upload/route.ts`** — video-shaped presigned-PUT endpoint (the generic `/api/upload` caps media at 10 MB, images-only). Whitelists `video/webm`/`mp4`/`quicktime`, per-kind caps (clip ≤ 60 MB, reel ≤ 150 MB), event-membership-gated, keys under `patiktok/clips/{eventId}/…` and `patiktok/renders/{eventId}/{jobId}.mp4` (reel kind is pre-wired for PR3). Graceful 503 when R2 isn't configured.
+- **New `_components/booth-capture.tsx`** (client) — `getUserMedia` (9:16, audio) → 3-2-1 countdown → `MediaRecorder` (target = template duration, hard cap 30s, manual stop) → in-place review with playback → retake (max 3) → "Keep this clip" uploads direct-to-R2 via the presign and records the row. Optional per-guest label; running session counter; "Continue to render" link; full timer/stream cleanup on unmount; permission/record/upload errors surfaced with retry. Safari-aware mimeType picker (mp4) with webm fallback (`render_mode` follows).
+- **New `recordPatiktokClip` server action** — RLS-scoped INSERT into `patiktok_source_clips` (cookie client, not admin — the DB enforces event membership).
+- **`booth/page.tsx`** — `RecordCTA` now mounts `BoothCapture`; removed the orphaned `Camera` import + the phase-4.1 TODO placeholders.
+
+tsc 0 · ESLint clean. No render yet (PR3 stitches these clips via client-side WebCodecs). Requires R2 CORS + credentials (owner action) for browser PUTs to succeed in prod.
+
+SPEC IMPACT iter 0017 — booth capture is now real (was a disabled stub). → CHANGELOG + corpus DECISION_LOG.
 ## 2026-06-18 · feat(std): content-film preview now uses the iPhone/MacBook device frames + toggle
 
 The Step-2/3 content-film preview (the "Live preview" / Render column) now uses the **same device frames + iPhone↔MacBook toggle** as the Step-1 reveal chooser — replacing the plain CSS-scaled 220px rounded rectangle. Couples see their Save-the-Date film as it looks on a phone *and* a laptop. Owner-requested.

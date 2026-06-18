@@ -125,6 +125,14 @@ const config: Config = {
         display: ['var(--font-display)', ...defaultTheme.fontFamily.serif],
         serif: ['var(--font-display)', ...defaultTheme.fontFamily.serif],
         mono: ['var(--font-mono)', ...defaultTheme.fontFamily.mono],
+        // Extra display faces (already loaded as CSS vars on <html> in
+        // app/layout.tsx) — used by the Save-the-Date film themes for genuine
+        // font variety. All readable display faces; the script font is reserved
+        // for accents only (too ornate for body/date text).
+        playfair: ['var(--font-playfair)', ...defaultTheme.fontFamily.serif],
+        caslon: ['var(--font-libre-caslon)', ...defaultTheme.fontFamily.serif],
+        vidaloka: ['var(--font-vidaloka)', ...defaultTheme.fontFamily.serif],
+        script: ['var(--font-script)', 'cursive'],
       },
     },
   },

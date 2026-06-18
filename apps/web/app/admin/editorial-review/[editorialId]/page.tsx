@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
 import type { ScanFlag } from '@/lib/editorial-scan';
-import { resolveFlag, unlockForCouple } from './actions';
+import { resolveFlag, unlockForCouple, triggerRescan } from './actions';
 
 export const metadata = { title: 'Editorial review · Admin' };
 
@@ -81,6 +81,20 @@ export default async function EditorialReviewDetailPage({
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {redPending.length} red flag{redPending.length > 1 ? 's' : ''} must be resolved before unlocking.
         </div>
+      )}
+
+      {/* Re-scan */}
+      {(row.scan_status === 'flagged' || row.scan_status === 'clean' || row.scan_status === 'skipped' || row.scan_status === 'admin_cleared') && (
+        <form
+          action={async () => {
+            'use server';
+            await triggerRescan(editorialId);
+          }}
+        >
+          <SubmitButton className="w-full rounded-lg border border-[--m-ink-border] bg-white py-2 text-sm text-[--m-ink-secondary] hover:bg-[--m-surface-raised]">
+            Re-scan editorial
+          </SubmitButton>
+        </form>
       )}
 
       {/* Flags list */}

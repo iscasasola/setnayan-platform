@@ -1,9 +1,10 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
-import type { ScanFlag } from '@/lib/editorial-scan';
+import { scanEditorial, type ScanFlag } from '@/lib/editorial-scan';
 
 async function requireAdmin() {
   const user = await getCurrentUser();
@@ -79,6 +80,24 @@ export async function unlockForCouple(editorialId: string) {
       unlocked_for_couple_at: new Date().toISOString(),
     })
     .eq('editorial_id', editorialId);
+
+  revalidatePath(`/admin/editorial-review/${editorialId}`);
+  revalidatePath('/admin/editorial-review');
+}
+
+export async function triggerRescan(editorialId: string) {
+  const { admin } = await requireAdmin();
+
+  await admin
+    .from('event_editorial')
+    .update({
+      scan_status: 'pending',
+      scan_flags: [],
+      scan_completed_at: null,
+    })
+    .eq('editorial_id', editorialId);
+
+  after(() => scanEditorial(editorialId));
 
   revalidatePath(`/admin/editorial-review/${editorialId}`);
   revalidatePath('/admin/editorial-review');

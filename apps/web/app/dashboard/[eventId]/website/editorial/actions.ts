@@ -11,8 +11,10 @@
 // preserved by merging rather than replacing.
 
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { scanEditorial } from '@/lib/editorial-scan';
 import {
   EDITORIAL_SECTION_KEYS,
   type EditorialSections,
@@ -126,5 +128,19 @@ export async function saveEditorial(
   if (ev?.slug) {
     revalidatePath(`/${ev.slug}`);
   }
+
+  // Fire quality scan in the background after the response is sent.
+  // Only triggers when the editorial is in the default 'pending' state
+  // (first save). Re-scans are triggered from the admin review queue.
+  const { data: saved } = await admin
+    .from('event_editorial')
+    .select('editorial_id, scan_status')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (saved?.scan_status === 'pending') {
+    const eid = saved.editorial_id;
+    after(() => scanEditorial(eid));
+  }
+
   return { ok: true };
 }

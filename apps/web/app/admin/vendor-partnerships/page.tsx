@@ -7,6 +7,7 @@ import {
   rejectPartnership,
   createPartnershipHq,
 } from './actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Vendor Partnerships · Admin' };
 
@@ -326,62 +327,62 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
                           <form>
                             <input type="hidden" name="approval_id" value={pendingApproval!.approval_id} />
                             <input type="hidden" name="partnership_id" value={partnershipIdStr} />
-                            <button
+                            <SubmitButton
                               formAction={confirmApproval}
-                              type="submit"
+                              pendingLabel="Confirming…"
                               className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-emerald-700"
                             >
                               Confirm &amp; verify (2nd admin)
-                            </button>
+                            </SubmitButton>
                           </form>
                           <form>
                             <input type="hidden" name="partnership_id" value={partnershipIdStr} />
-                            <button
+                            <SubmitButton
                               formAction={rejectPartnership}
-                              type="submit"
+                              pendingLabel="Rejecting…"
                               className="rounded-md border border-terracotta/40 bg-white px-3 py-1.5 text-xs font-bold text-terracotta-700 transition-colors hover:bg-terracotta-50"
                             >
                               Reject
-                            </button>
+                            </SubmitButton>
                           </form>
                         </>
                       ) : hasApprovalRequest && isMineInitiated ? (
                         /* Initiating admin: can only reject (can't self-confirm) */
                         <form>
                           <input type="hidden" name="partnership_id" value={partnershipIdStr} />
-                          <button
+                          <SubmitButton
                             formAction={rejectPartnership}
-                            type="submit"
+                            pendingLabel="Rejecting…"
                             className="rounded-md border border-terracotta/40 bg-white px-3 py-1.5 text-xs font-bold text-terracotta-700 transition-colors hover:bg-terracotta-50"
                           >
                             Reject
-                          </button>
+                          </SubmitButton>
                         </form>
                       ) : (
                         /* No pending approval yet: first admin initiates */
                         <>
                           <form>
                             <input type="hidden" name="partnership_id" value={partnershipIdStr} />
-                            <button
+                            <SubmitButton
                               formAction={initiateApproval}
-                              type="submit"
+                              pendingLabel="Approving…"
                               className="rounded-md bg-ink px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-ink/90"
                             >
                               Approve (two-admin gate)
-                            </button>
+                            </SubmitButton>
                           </form>
                           <p className="max-w-[180px] text-right text-[10px] text-ink/45">
                             A second admin must also confirm before the badge goes live.
                           </p>
                           <form>
                             <input type="hidden" name="partnership_id" value={partnershipIdStr} />
-                            <button
+                            <SubmitButton
                               formAction={rejectPartnership}
-                              type="submit"
+                              pendingLabel="Rejecting…"
                               className="rounded-md border border-terracotta/40 bg-white px-3 py-1.5 text-xs font-bold text-terracotta-700 transition-colors hover:bg-terracotta-50"
                             >
                               Reject
-                            </button>
+                            </SubmitButton>
                           </form>
                         </>
                       )}
@@ -503,12 +504,12 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
           </div>
 
           <div className="sm:col-span-2">
-            <button
-              type="submit"
+            <SubmitButton
+              pendingLabel="Creating…"
               className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-ink/90"
             >
               Create partnership (pending verification)
-            </button>
+            </SubmitButton>
           </div>
         </form>
       </section>

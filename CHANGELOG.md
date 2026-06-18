@@ -15,6 +15,16 @@ The Studio hub's only monogram card ("Monogram Creator" · CTA "Open studio") ro
 Not browser-verified locally (auth-gated dashboard); relying on CI typecheck+lint + a preview link for the owner. The change is a route string + card-copy edit.
 
 SPEC IMPACT: None (routing/discoverability fix; no schema, no pricing change — the free maker and the paid ANIMATED_MONOGRAM SKU are both unchanged, only the Studio entry point is corrected).
+## 2026-06-18 · fix(db): apply the 2 unapplied migrations + repair the widget CHECK + reconcile the ledger
+
+Prod had merged features whose migrations were never applied (deploy-process gap). Fixed against prod directly:
+
+- **`kwento_assignments`** (`20270120760120`) — table + indexes + RLS + 4 policies applied (Kwento editorial assignments were broken in prod).
+- **`invitation_widgets` "our love story"** (`20270110320023`) — the `our_love_story` widget type + seed-trigger entry + a backfill row for all 55 events. **The migration's `widget_type` CHECK list was itself stale** (omitted `our_photos` + `what_to_bring`, both already in prod), so its DROP/ADD-CONSTRAINT failed mid-way and left the table briefly unconstrained — repaired by restoring the **complete 16-type constraint** (matches `WIDGET_TYPES`).
+- **Forward-fix migration** `20270125000000_invitation_widgets_widget_type_check_complete.sql` — so a fresh DB setup rebuilds the *complete* constraint, not the stale one (the buggy migration is already ledgered so it won't re-run on prod).
+- **Ledger reconciliation** — added `supabase_migrations.schema_migrations` rows for all 7 previously-drifted/unapplied versions (`std_theme`, `events_std_reveal_effects`, `drop_budget_category_flags`, `std_theme_remap_to_five_set`, `vendor_review_response`, + the 2 above). **No repo migration is now unledgered** in prod.
+
+SPEC IMPACT: None — applying existing-but-unpushed migrations + one forward-fix for constraint completeness. ⚠ Owner: the deploy process isn't auto-applying migrations on merge — several merged PRs' DB changes never reached prod. Worth a standing fix (apply-on-merge or a pre-deploy `db push` gate).
 
 ## 2026-06-18 · feat(std): "No Reveal" — the free, no-opening choice
 

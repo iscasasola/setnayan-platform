@@ -21,6 +21,18 @@ Verified: `pnpm typecheck` clean · `pnpm lint` 0 errors · `pnpm build` green.
 
 SPEC IMPACT: monogram overhaul **Phase 5** — `03_Strategy/Monogram_Studio_Design_2026-06-19.md` flipped from "PROTOTYPE · no app code yet" → SHIPPED; `DECISION_LOG.md` row added; memory `project_setnayan_monogram_overhaul` updated. ⚠ **Surfaced for owner sign-off:** the studio writes the same `monogram_custom_svg` as Cipher/Bespoke/Upload, so it is a **4th path to the one official mark** — no new SKU, the free monogram stays free.
 
+## 2026-06-19 · feat(std): auto-fill ceremony + reception venues from finalized bookings (PR-M)
+
+Owner directive: the Save-the-Date shouldn't be a manual form — when the couple finalizes their venues, the info should upload automatically; and there should be a separate **ceremony** and **reception** venue (the 7-beat spine). Implements the "auto from bookings + manual fallback" model.
+
+- **Resolver** `lib/std-venues.ts`: `resolveStdFinalizedVenues(admin, eventId)` reads `event_vendors` — the **ceremony** = the finalized `religious_venue`/`church_fees` booking, the **reception** = the finalized `venue` booking (finalized = status in `CONFIRMED_VENDOR_STATUSES`, most-recent wins). Names only; never throws.
+- **Content** `lib/save-the-date-content.ts`: `StdFilmContent` venue field split into `ceremonyVenue` + `receptionVenue` + `receptionCity` (was a single `venueName`/`venueCity`). The film (`save-the-date-film.tsx`) now has **two venue beats** — "The ceremony" then "The celebration" — each shown only when its venue resolves.
+- **Resolution** (live page + builder): ceremony = finalized booking; reception = finalized booking ?? the couple's manual entry (`std_film_venue_*`) ?? `events.venue_name`. Also **fixes the live film to honor the `std_film_venue_*` override** (the live page never read it before — only the builder did).
+- **Builder Content step**: the venue field is relabelled **Reception venue** (the manual fallback for off-platform/DIY couples); a read-only **Ceremony venue** line shows the booked ceremony when present. Auto-filled values surface as "Auto-filled from your booking."
+
+Verified: `pnpm typecheck` + `pnpm lint` clean; `save-the-date-content` tests pass. No migration (reads `event_vendors`; reception manual fallback reuses the existing `std_film_venue_*`).
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the Content step is now auto-fill-from-canonical: ceremony + reception venues come from the finalized bookings (manual reception fallback for DIY). FOLLOW-UPS (flagged for owner): (1) make the builder's date **read-only / sourced from Date Selection** (the date already comes from `event_date`; the builder UI still shows a free input — PR-N); (2) a manual **ceremony** fallback field for DIY couples (ceremony is booking-only today). See `DECISION_LOG.md` 2026-06-19.
 ## 2026-06-19 · fix(std): raise the Save-the-Date video cap to 200 MB (PR-J)
 
 Owner reported a video upload silently failing — it was over the 60 MB cap, so the picker rejected it and `std_media` stayed `gallery` (no video). Immediate unblock: raise the cap.

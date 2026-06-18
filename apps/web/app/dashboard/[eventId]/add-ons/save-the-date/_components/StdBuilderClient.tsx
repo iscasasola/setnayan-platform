@@ -270,8 +270,10 @@ export function StdBuilderClient({
     const dateOverride = filmDate.trim() || null;
     const dateBig = shortDate(dateOverride) ?? initialContent.dateBig;
     const dateLabel = dateOverride ? formatEventDate(dateOverride) : initialContent.dateLabel;
-    const resolvedVenueName = venueName.trim() || initialContent.venueName || null;
-    const resolvedVenueCity = venueCity.trim() || initialContent.venueCity || null;
+    // The builder's venue field is the RECEPTION manual fallback; ceremony +
+    // reception otherwise auto-fill from the finalized bookings (initialContent).
+    const resolvedReception = venueName.trim() || initialContent.receptionVenue || null;
+    const resolvedReceptionCity = venueCity.trim() || initialContent.receptionCity || null;
     const storyRaw = filmStory.trim();
     const resolvedStory = storyRaw
       ? storyRaw.length > STORY_MAX
@@ -283,8 +285,8 @@ export function StdBuilderClient({
       ...initialContent,
       dateBig,
       dateLabel,
-      venueName: resolvedVenueName,
-      venueCity: resolvedVenueCity,
+      receptionVenue: resolvedReception,
+      receptionCity: resolvedReceptionCity,
       storyTeaser: resolvedStory,
       launchLabel,
       // Music mirrors the Step-4 "Play music" toggle (events.std_reveal_effects.music);
@@ -303,14 +305,14 @@ export function StdBuilderClient({
   const autofillDate = dateIso ? dateIso.slice(0, 10) : '';
   const canAutofill = Boolean(
     autofillDate ||
-      initialContent.venueName ||
-      initialContent.venueCity ||
+      initialContent.receptionVenue ||
+      initialContent.receptionCity ||
       initialContent.storyTeaser,
   );
   const handleAutofill = () => {
     if (autofillDate) setFilmDate(autofillDate);
-    if (initialContent.venueName) setVenueName(initialContent.venueName);
-    if (initialContent.venueCity) setVenueCity(initialContent.venueCity);
+    if (initialContent.receptionVenue) setVenueName(initialContent.receptionVenue);
+    if (initialContent.receptionCity) setVenueCity(initialContent.receptionCity);
     if (initialContent.storyTeaser) setFilmStory(initialContent.storyTeaser);
     if (result !== 'idle') setResult('idle');
   };
@@ -490,25 +492,39 @@ export function StdBuilderClient({
                 ) : null}
               </div>
 
-              {/* Venue name */}
+              {/* Ceremony venue — read-only, auto-filled from the finalized booking. */}
+              {initialContent.ceremonyVenue ? (
+                <div>
+                  <span className="block text-xs font-semibold uppercase tracking-wide text-ink/60">
+                    Ceremony venue
+                  </span>
+                  <p className="mt-1.5 rounded-lg border border-ink/10 bg-white/60 px-3 py-2.5 text-sm text-ink">
+                    {initialContent.ceremonyVenue}
+                  </p>
+                  <p className={helperCls}>From your booked ceremony venue.</p>
+                </div>
+              ) : null}
+
+              {/* Reception venue — auto-fills from the finalized booking; the field
+                  is the manual fallback for couples who book off-platform. */}
               <div>
                 <label htmlFor="film_venue_name" className="block text-xs font-semibold uppercase tracking-wide text-ink/60">
-                  Venue name
+                  Reception venue
                 </label>
                 <input
                   id="film_venue_name"
                   type="text"
                   value={venueName}
                   onChange={(e) => { setVenueName(e.target.value); if (result !== 'idle') setResult('idle'); }}
-                  placeholder={initialContent.venueName ?? 'e.g. The Grand Ballroom'}
+                  placeholder={initialContent.receptionVenue ?? 'e.g. The Grand Ballroom'}
                   className={`mt-1.5 ${inputCls}`}
                 />
-                {!venueName && initialContent.venueName ? (
-                  <p className={helperCls}>Auto-filled · {initialContent.venueName}</p>
+                {!venueName && initialContent.receptionVenue ? (
+                  <p className={helperCls}>Auto-filled from your booking · {initialContent.receptionVenue}</p>
                 ) : null}
               </div>
 
-              {/* Venue city / area */}
+              {/* Reception city / area */}
               <div>
                 <label htmlFor="film_venue_city" className="block text-xs font-semibold uppercase tracking-wide text-ink/60">
                   City or area
@@ -518,11 +534,11 @@ export function StdBuilderClient({
                   type="text"
                   value={venueCity}
                   onChange={(e) => { setVenueCity(e.target.value); if (result !== 'idle') setResult('idle'); }}
-                  placeholder={initialContent.venueCity ?? 'e.g. Makati, Metro Manila'}
+                  placeholder={initialContent.receptionCity ?? 'e.g. Makati, Metro Manila'}
                   className={`mt-1.5 ${inputCls}`}
                 />
-                {!venueCity && initialContent.venueCity ? (
-                  <p className={helperCls}>Auto-filled · {initialContent.venueCity}</p>
+                {!venueCity && initialContent.receptionCity ? (
+                  <p className={helperCls}>Auto-filled · {initialContent.receptionCity}</p>
                 ) : null}
               </div>
 

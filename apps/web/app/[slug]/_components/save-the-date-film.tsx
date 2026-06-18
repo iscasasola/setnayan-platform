@@ -211,16 +211,32 @@ export function SaveTheDateFilm({
     });
   }
 
-  if (content.venueName) {
+  // Ceremony then reception — separate beats, each shown only when its venue
+  // resolved (from the finalized bookings / manual fallback). The film adapts:
+  // one venue → one beat; both → two; neither → skipped.
+  if (content.ceremonyVenue) {
     slides.push({
-      key: 'venue',
+      key: 'ceremony',
+      dur: 4000,
+      node: (
+        <div className="flex flex-col items-center gap-3 text-center">
+          <p className={LABEL}>The ceremony</p>
+          <h2 className={`${theme.fontCls} text-4xl font-medium sm:text-5xl`}>{content.ceremonyVenue}</h2>
+        </div>
+      ),
+    });
+  }
+
+  if (content.receptionVenue) {
+    slides.push({
+      key: 'reception',
       dur: 4000,
       node: (
         <div className="flex flex-col items-center gap-3 text-center">
           <p className={LABEL}>The celebration</p>
-          <h2 className={`${theme.fontCls} text-4xl font-medium sm:text-5xl`}>{content.venueName}</h2>
-          {content.venueCity ? (
-            <p className={`${theme.fontCls} text-xl italic ${theme.subtleText}`}>{content.venueCity}</p>
+          <h2 className={`${theme.fontCls} text-4xl font-medium sm:text-5xl`}>{content.receptionVenue}</h2>
+          {content.receptionCity ? (
+            <p className={`${theme.fontCls} text-xl italic ${theme.subtleText}`}>{content.receptionCity}</p>
           ) : null}
         </div>
       ),

@@ -31,6 +31,12 @@ type Props = {
   dateIso: string | null;
   venueName: string | null;
   venueAddress: string | null;
+  /** Film only — the ceremony + reception venue names (auto-filled upstream from
+   *  the finalized bookings ?? manual ?? event) + reception city. The static
+   *  (non-film) path still uses venueName/venueAddress for its calendar links. */
+  ceremonyVenue?: string | null;
+  receptionVenue?: string | null;
+  receptionCity?: string | null;
   publicId: string;
   // Couple's love story (events.love_story) — shown here as a one-line teaser
   // (the full story lives on the RSVP + Event paths). Absent → nothing renders.
@@ -70,6 +76,9 @@ export function SaveTheDateView({
   dateIso,
   venueName,
   venueAddress,
+  ceremonyVenue,
+  receptionVenue,
+  receptionCity,
   publicId,
   loveStory,
   showTextHero,
@@ -105,8 +114,9 @@ export function SaveTheDateView({
       monogramSvg,
       dateIso,
       launchDateIso,
-      venueName,
-      venueAddress,
+      ceremonyVenue,
+      receptionVenue,
+      receptionCity,
       loveStory,
       publicId,
       musicUrl,

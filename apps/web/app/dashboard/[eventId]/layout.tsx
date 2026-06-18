@@ -15,7 +15,7 @@ import { CustomerSidebar } from './_components/customer-sidebar';
 import { CustomerBottomNav } from './_components/customer-bottom-nav';
 import { CustomerSectionSubnav } from './_components/customer-section-subnav';
 import { getNavSlotMap } from '@/lib/nav-registry';
-import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
+import { AccountSwitcher, AccountSwitcherStandalone } from '@/app/_components/account-switcher/account-switcher';
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 
@@ -298,12 +298,18 @@ export default async function EventLayout({ children, params }: Props) {
   return (
     <>
       <SidebarShell
+        sidebarHeader={
+          switcherData ? (
+            <div className="px-3 py-3">
+              <AccountSwitcherStandalone data={switcherData} />
+            </div>
+          ) : undefined
+        }
         sidebar={
           <CustomerSidebar
             eventId={eventId}
             navSlots={navSlots}
             eventDate={(event.event_date as string | null) ?? null}
-            switcherData={switcherData}
           />
         }
         topBar={topBar}

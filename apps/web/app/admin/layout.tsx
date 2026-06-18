@@ -13,6 +13,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { GuidedTour } from '@/app/_components/guided-tour';
 import { completeTour } from '@/lib/tour-actions';
 import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
+import { Wordmark } from '@/app/_components/brand-marks';
 import { AdminSidebar } from './_components/admin-sidebar';
 import { AdminBottomNav } from './_components/admin-bottom-nav';
 import { getNavSlotMap } from '@/lib/nav-registry';
@@ -189,7 +190,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     // wrapper: no transform/filter so the BottomNav's fixed positioning and
     // SidebarShell's own offset math are unaffected.
     <div className="app-surface">
-      <SidebarShell sidebar={<AdminSidebar navSlots={navSlots} />} topBar={topBar}>
+      <SidebarShell
+        sidebarHeader={
+          <header className="px-4 py-3">
+            <Wordmark />
+            <p className="m-label-mono mt-1.5" style={{ color: 'var(--m-slate-2)' }}>Setnayan HQ</p>
+          </header>
+        }
+        sidebar={<AdminSidebar navSlots={navSlots} />}
+        topBar={topBar}
+      >
         {/* Pad the bottom on mobile so BottomNav doesn't cover the last
             row of content. SidebarShell already handles the desktop
             sidebar offset via its lg:pl-[var(--shell-main-offset)] math. */}

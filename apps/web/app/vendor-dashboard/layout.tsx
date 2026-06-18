@@ -11,6 +11,7 @@ import { EventSwitcher } from '@/app/dashboard/[eventId]/_components/event-switc
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
+import { Wordmark } from '@/app/_components/brand-marks';
 import { VendorSidebar } from './_components/vendor-sidebar';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { isMusicVendor } from '@/lib/songs';
@@ -240,7 +241,16 @@ export default async function VendorDashboardLayout({
     // wrapper: no transform/filter so the BottomNav's fixed positioning and
     // SidebarShell's own offset math are unaffected.
     <div className="app-surface">
-      <SidebarShell sidebar={<VendorSidebar role={vendorRole} showRepertoire={showRepertoire} navSlots={navSlots} />} topBar={topBar}>
+      <SidebarShell
+        sidebarHeader={
+          <header className="px-4 py-3">
+            <Wordmark />
+            <p className="m-label-mono mt-1.5" style={{ color: 'var(--m-slate-2)' }}>Vendor</p>
+          </header>
+        }
+        sidebar={<VendorSidebar role={vendorRole} showRepertoire={showRepertoire} navSlots={navSlots} />}
+        topBar={topBar}
+      >
         {/* Pad the bottom on mobile so BottomNav doesn't cover the last
             row of content. SidebarShell already handles the desktop
             sidebar offset via its lg:pl-[var(--shell-main-offset)] math. */}

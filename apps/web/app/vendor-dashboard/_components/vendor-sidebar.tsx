@@ -113,7 +113,6 @@ import {
   Handshake,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
-import { Wordmark } from '@/app/_components/brand-marks';
 import { SidebarSection } from '@/app/_components/nav/sidebar-section';
 import { SidebarItem } from '@/app/_components/nav/sidebar-item';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
@@ -302,20 +301,6 @@ export function VendorSidebar({
 
   return (
     <>
-      {/* Brand header — scrolls with the nav rather than being pinned.
-          Matches the v2.1 editorial register: Wordmark + 'Vendor' eyebrow
-          in m-label-mono. Mirrors admin-sidebar.tsx + customer-sidebar.tsx
-          for cross-doorway chrome consistency. */}
-      <header className="px-4 pb-4 pt-2 [[data-sidebar-collapsed='1']_&]:hidden">
-        <Wordmark className="text-ink" />
-        <p
-          className="m-label-mono mt-2"
-          style={{ color: 'var(--m-slate-2)' }}
-        >
-          Vendor
-        </p>
-      </header>
-
       {groups.map((group) => (
         <SidebarSection key={group.key} group={group} pathname={pathname}>
           {group.items.map((item) => (

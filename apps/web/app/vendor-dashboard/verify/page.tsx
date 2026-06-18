@@ -36,7 +36,7 @@ import {
 export const metadata = {
   title: 'Verification · Vendor',
   description:
-    'Submit the 12-document vendor verification checklist to unlock Pro Vendor, Boosted Ads, the verified marketplace badge, and 100 complimentary tokens on approval.',
+    'Submit the 12-document vendor verification checklist to unlock Pro Vendor, the verified marketplace badge, and 100 complimentary tokens on approval.',
 };
 
 type Props = {
@@ -133,8 +133,8 @@ export default async function VendorVerifyPage({ searchParams }: Props) {
         <p className="max-w-prose text-base text-ink/65">
           Submit the 12-item checklist below to flip your profile to{' '}
           <span className="font-medium">Verified</span> on the marketplace.
-          Verified vendors unlock Pro Vendor and Enterprise subscriptions,
-          Boosted Ads, Sponsored Boost, and the verified badge on every listing.
+          Verified vendors unlock Pro Vendor and Enterprise subscriptions
+          and the verified badge on every listing.
           Initial verification is{' '}
           <span className="font-medium">free</span>; annual renewal is{' '}
           <span className="font-medium">{formatPhpCentavos(150000)}</span>;

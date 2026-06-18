@@ -16,7 +16,7 @@
  * Auth: admin layout already gates access (see app/admin/layout.tsx);
  * this page renders unconditionally because non-admins never reach it.
  */
-import { X, Package, Sparkles, Video, Camera, Tv, Film, Music, Type, Globe2, Receipt, ImageDown, Printer, Star, Wrench, BadgeCheck, Megaphone, type LucideIcon } from 'lucide-react';
+import { X, Package, Sparkles, Video, Camera, Tv, Film, Music, Type, Globe2, Receipt, ImageDown, Printer, Star, Wrench, BadgeCheck, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -28,7 +28,7 @@ export const metadata = { title: 'Add-ons · Admin' };
 // ---------------------------------------------------------------------------
 // Customer-side SKU categories. Anything in service_catalog whose `category`
 // is in this set surfaces on the Customer add-ons tab. Vendor-side categories
-// (vendor_subscription, vendor_verification, vendor_ads, vendor_tools) belong
+// (vendor_subscription, vendor_verification, vendor_tools) belong
 // on the Vendor tab which is "Coming soon" in V1.
 //
 // Source: the seed migrations under supabase/migrations/20260516000000_*,
@@ -61,7 +61,6 @@ const CATEGORY_DISPLAY: Record<string, string> = {
   concierge: "Setnayan AI",
   vendor_subscription: 'Vendor subscription',
   vendor_verification: 'Vendor verification',
-  vendor_ads: 'Vendor ads',
   vendor_tools: 'Vendor tools',
 };
 
@@ -85,7 +84,6 @@ function iconForSku(skuCode: string, category: string): LucideIcon {
   if (skuCode.startsWith('vendor_pro') || skuCode.startsWith('vendor_subscription')) return BadgeCheck;
   if (skuCode.startsWith('vendor_verification')) return BadgeCheck;
   if (skuCode.startsWith('all_tools') || skuCode.startsWith('tool_')) return Wrench;
-  if (skuCode.startsWith('boosted_ads') || skuCode.startsWith('sponsored_boost')) return Megaphone;
   if (category === 'panood') return Tv;
   if (category === 'papic') return Camera;
   if (category === 'patiktok') return Film;

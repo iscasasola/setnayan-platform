@@ -165,7 +165,6 @@ const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/vendor-dashboard/subscription',
       '/vendor-dashboard/tokens',
       '/vendor-dashboard/redeem-code',
-      '/vendor-dashboard/marketing',
       '/vendor-dashboard/verify',
       '/vendor-dashboard/reviews',
       '/vendor-dashboard/moodboard-library',

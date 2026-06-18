@@ -35,7 +35,7 @@ export const metadata = { title: 'More · Vendor · Setnayan' };
  * NavItem.key from VENDOR_NAV_GROUPS so a future label rename
  * (e.g., "Tax docs" → "Tax & receipts") doesn't desync the description.
  *
- * Profile + Bookings + Messages + Marketing appear in the BottomNav as
+ * Profile + Bookings + Messages appear in the BottomNav as
  * dedicated tabs but the /more surface intentionally includes them too —
  * vendor who lands here from deep links or shared URLs gets a complete
  * view of every surface, not just the overflow. Mirrors the customer
@@ -65,9 +65,6 @@ const DESCRIPTIONS: Record<string, string> = {
   messages:
     'Host chat threads, file shares, and the per-thread inbox.',
 
-  // Marketing group
-  marketing:
-    'Boosted Ads + Sponsored Boost surfaces. Visibility levers for paid tiers.',
   verify:
     'Verification status, document checklist, and the lifetime badge after admin review.',
   reviews:

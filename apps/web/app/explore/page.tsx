@@ -22,7 +22,6 @@ import {
   parseVisibility,
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
-import type { ActiveAdLookup } from '@/lib/vendor-ads';
 import { formatStarRating } from '@/lib/reviews';
 import { EventTypeNotifyForm } from './_components/event-type-notify-form';
 import { TaxonomySearch, type TaxonomyOption } from './_components/taxonomy-search';
@@ -527,19 +526,12 @@ type VendorCardRow = {
   created_at: string;
   // Iteration 0006 — sourced from vendor_market_stats view (see migration
   // 20260601020000). avg_rating + review_count let the marketplace card
-  // render without a second SELECT; ad_* lets it render the Sponsored /
-  // Boosted pill without a third SELECT. ad_rank powers the SQL-side sort
-  // so we no longer hydrate 2000 rows just to re-sort 24.
+  // render without a second SELECT.
   avg_rating_overall: number;
   review_count: number;
-  ad_rank: number;
-  ad_tier: 'sponsored' | 'boosted' | null;
-  ad_sku_code: string | null;
-  ad_radius_km: number | null;
-  ad_expires_at: string | null;
-  // Sort key #1 (first-party Setnayan canonicals float above all else, incl.
-  // paid sponsors — owner directive 2026-05-22 PM). Selected so the Phase C
-  // in-memory rating/review re-sort can preserve this precedence explicitly.
+  // Sort key #1 (first-party Setnayan canonicals float above all else —
+  // owner directive 2026-05-22 PM). Selected so the Phase C in-memory
+  // rating/review re-sort can preserve this precedence explicitly.
   is_setnayan_service?: boolean | null;
   // PR brief 2026-05-22 evening — demo-mode marketplace simulation.
   // Optional because (a) Agent 1's `is_demo` column may not be on main
@@ -1202,7 +1194,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       // Phase C sort-leak fix: `is_setnayan_service` is now SELECTED (it was
       // only used in .order() before) so the in-memory rating/review re-sort
       // below can preserve the first-party float precedence explicitly.
-      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_latitude,hq_longitude,contact_email,public_visibility,created_at,avg_rating_overall,review_count,ad_rank,ad_tier,ad_sku_code,ad_radius_km,ad_expires_at,is_setnayan_service',
+      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_latitude,hq_longitude,contact_email,public_visibility,created_at,avg_rating_overall,review_count,is_setnayan_service',
       { count: 'exact' },
     )
     .in('public_visibility', allowedVisibilities as readonly string[])
@@ -1342,29 +1334,26 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     );
   }
 
-  // Sort chain (PR #6 updated — quality_score added as step 3):
+  // Sort chain (PR #6 updated — quality_score added as step 2):
   //   1. is_setnayan_service DESC (owner directive 2026-05-22 PM) —
   //      first-party Setnayan canonicals (Papic, Panood, Pailaw,
   //      Patiktok, Pakanta, Setnayan AI, Animated Monogram,
-  //      Save-the-Date Video, AI Highlights) float ABOVE everything else,
-  //      including paid sponsors. Vendor's services[] is checked at view-compute
-  //      time via the 10-canonical array in migration 20260607020000.
-  //   2. ad_rank DESC (iteration 0006, 2026-05-21) — Sponsored Boost +
-  //      Boosted Ads next, per iteration 0022 § 5b.
-  //   3. quality_score DESC (PR #6, 2026-06-17) — vendors with a higher
+  //      Save-the-Date Video, AI Highlights) float ABOVE everything else.
+  //      Vendor's services[] is checked at view-compute time via the
+  //      10-canonical array in migration 20260607020000.
+  //   2. quality_score DESC (PR #6, 2026-06-17) — vendors with a higher
   //      precomputed quality composite float above unscored or lower-quality
-  //      vendors within the same ad tier. vendor_activity_stats rows are
-  //      LEFT JOIN'd in-memory post-pagination (vendor_market_stats view
-  //      doesn't carry the column). The SQL ORDER BY here uses COALESCE to
-  //      treat a missing row as quality_score=50 (mid-range default), so
-  //      unscored vendors sort in the middle — neither top nor bottom.
+  //      vendors. vendor_activity_stats rows are LEFT JOIN'd in-memory
+  //      post-pagination (vendor_market_stats view doesn't carry the column).
+  //      The SQL ORDER BY here uses COALESCE to treat a missing row as
+  //      quality_score=50 (mid-range default), so unscored vendors sort in
+  //      the middle — neither top nor bottom.
   //      NOTE: vendor_market_stats does NOT have quality_score; this step
   //      is applied in-memory after fetching activity stats below.
-  //   4. User-chosen sort below.
+  //   3. User-chosen sort below.
   // vendor_market_stats columns drive the SQL ORDER BY; quality_score is
   // applied in-memory after the activity-stats enrichment loop.
   query = query.order('is_setnayan_service', { ascending: false });
-  query = query.order('ad_rank', { ascending: false });
   switch (filters.sort) {
     case 'highest_rated':
       query = query
@@ -2039,13 +2028,10 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       // 1. is_setnayan_service DESC (first-party float — unchanged).
       const setnayanDiff = (b.is_setnayan_service ? 1 : 0) - (a.is_setnayan_service ? 1 : 0);
       if (setnayanDiff !== 0) return setnayanDiff;
-      // 2. ad_rank DESC (paid sponsors/boosts — unchanged).
-      const adDiff = (b.ad_rank ?? 0) - (a.ad_rank ?? 0);
-      if (adDiff !== 0) return adDiff;
-      // 3. Partnership priority DESC (sponsored_included → sponsored_discounted → accredited).
+      // 2. Partnership priority DESC (sponsored_included → sponsored_discounted → accredited).
       const partDiff = partnershipPriority(b) - partnershipPriority(a);
       if (partDiff !== 0) return partDiff;
-      // 4. quality_score DESC (50 default for unscored vendors).
+      // 3. quality_score DESC (50 default for unscored vendors).
       return qualityOf(b) - qualityOf(a);
     });
   }
@@ -2060,9 +2046,9 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // order matches the visible numbers. This is a POST-PAGINATION re-sort —
   // acceptable for the founder-only marketplace; the fuller fix is a
   // tier-aware ORDER BY in a view that exposes tier_state (deferred). The
-  // primary is_setnayan_service → ad_rank precedence is preserved (compared
-  // first); only the rating/review tiebreak uses gated values. Array#sort is
-  // stable in V8 so equal-key rows keep their SQL order.
+  // primary is_setnayan_service precedence is preserved (compared first); only
+  // the rating/review tiebreak uses gated values. Array#sort is stable in V8 so
+  // equal-key rows keep their SQL order.
   if (filters.sort === 'highest_rated' || filters.sort === 'most_reviews') {
     const gatedRatingOf = (v: VendorCardRow): number =>
       tierCaps(v.tier_state ?? null).reviewStarsCounted
@@ -2075,10 +2061,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       // 1. is_setnayan_service DESC (first-party float — unchanged).
       const setnayanDiff = setnayanRank(b) - setnayanRank(a);
       if (setnayanDiff !== 0) return setnayanDiff;
-      // 2. ad_rank DESC (paid sponsors/boosts — unchanged).
-      const adDiff = (b.ad_rank ?? 0) - (a.ad_rank ?? 0);
-      if (adDiff !== 0) return adDiff;
-      // 3. GATED rating / review sort.
+      // 2. GATED rating / review sort.
       if (filters.sort === 'highest_rated') {
         const r = gatedRatingOf(b) - gatedRatingOf(a);
         if (r !== 0) return r;
@@ -2314,16 +2297,6 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         ) : (
           <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {visible.map((v) => {
-              const ad: ActiveAdLookup | null =
-                v.ad_tier && v.ad_sku_code && v.ad_radius_km !== null && v.ad_expires_at
-                  ? {
-                      vendor_profile_id: v.vendor_profile_id,
-                      tier: v.ad_tier,
-                      radius_km: v.ad_radius_km,
-                      sku_code: v.ad_sku_code as ActiveAdLookup['sku_code'],
-                      expires_at: v.ad_expires_at,
-                    }
-                  : null;
               /* Phase C review-display gate (vendor-tier-caps · surface-layer
                  gate). Stars/count show only when reviewStarsCounted (Free =
                  hidden → card renders "new"); review comment bodies (the
@@ -2357,7 +2330,6 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                     isSaved={savedSet.has(v.vendor_profile_id)}
                     eventId={coupleEventId}
                     venueAnchor={venueAnchor}
-                    ad={ad}
                     badges={badgesByVendorId.get(v.vendor_profile_id) ?? []}
                     reviews={gatedReviews}
                   />

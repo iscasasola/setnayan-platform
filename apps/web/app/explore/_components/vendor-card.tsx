@@ -30,7 +30,6 @@
  * Existing card concerns we preserve (unchanged from the old
  * VendorMarketCard):
  *   - Coming-soon visibility state hides the Follow CTA + dims border.
- *   - Sponsored / Boosted ad accents win the border treatment.
  *   - Demo-mode chip + starting-price label for admin demo browsing
  *     (2026-05-22 evening lock).
  *   - Save-vendor button gated on authenticated + has-event + bookable.
@@ -64,7 +63,6 @@ import { formatStarRating } from '@/lib/reviews';
 import { haversineKm, formatDistanceKm } from '@/lib/distance';
 import { parseVisibility, isBookable } from '@/lib/vendor-visibility';
 import type { VendorPublicVisibility } from '@/lib/vendor-visibility';
-import type { ActiveAdLookup } from '@/lib/vendor-ads';
 import type { VendorBadge } from '@/lib/vendor-badges';
 import type { VendorReviewPreview } from '@/lib/vendor-reviews-preview';
 import { FollowGate } from '@/app/_components/follow-gate';
@@ -186,7 +184,6 @@ type Props = {
   isSaved: boolean;
   eventId: string | null;
   venueAnchor: { lat: number; lng: number } | null;
-  ad: ActiveAdLookup | null;
   badges: ReadonlyArray<VendorBadge>;
   reviews: ReadonlyArray<VendorReviewPreview>;
 };
@@ -200,7 +197,6 @@ export function VendorCard({
   isSaved,
   eventId,
   venueAnchor,
-  ad,
   badges,
   reviews,
 }: Props) {
@@ -238,8 +234,6 @@ export function VendorCard({
   const visibility = parseVisibility(vendor.public_visibility);
   const bookable = isBookable(visibility);
   const isComingSoon = visibility === 'coming_soon';
-  const sponsoredAccent = ad?.tier === 'sponsored';
-  const boostedAccent = ad?.tier === 'boosted';
   const isDemoCard = vendor.is_demo === true;
 
   // Distance — both ends must exist or we skip the row entirely (no
@@ -275,11 +269,7 @@ export function VendorCard({
           ? 'border-amber-300 ring-1 ring-amber-200/70'
           : isComingSoon
             ? 'border-dashed border-ink/20 opacity-90'
-            : sponsoredAccent
-              ? 'border-amber-300 ring-1 ring-amber-200'
-              : boostedAccent
-                ? 'border-terracotta/30'
-                : 'border-ink/10'
+            : 'border-ink/10'
       }`}
     >
       {/* Photo full-row banner on top on ALL viewports (owner directive
@@ -318,15 +308,6 @@ export function VendorCard({
             {isComingSoon ? (
               <span className="shrink-0 rounded-full bg-ink/8 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
                 Coming soon
-              </span>
-            ) : null}
-            {sponsoredAccent ? (
-              <span className="shrink-0 rounded-full bg-amber-400 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-amber-950">
-                Featured Sponsor
-              </span>
-            ) : boostedAccent ? (
-              <span className="shrink-0 rounded-full bg-terracotta px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-cream">
-                Boosted
               </span>
             ) : null}
           </div>

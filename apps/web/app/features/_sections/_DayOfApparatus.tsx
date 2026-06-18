@@ -75,7 +75,7 @@ const COPY: Record<
       },
       {
         tagline: 'A wedding song written for the two of you',
-        body: 'Custom song composition + recording for your wedding day. Three tiers: Basic for a 60-second pure-vocal piece, Premium for full production with your love story woven through, Wedding Suite for ceremony processional + reception entrance + first-dance song bundle. All Setnayan-AI-generated, royalty-free, yours forever.',
+        body: 'Custom song composition + recording for your wedding day. Tell Setnayan your story — one original, full-production, AI-generated song, royalty-free and yours forever. Pakanta becomes the soundtrack for every Setnayan-rendered video at your wedding.',
       },
       {
         tagline: 'Full-res handoff after the day',
@@ -118,7 +118,7 @@ const COPY: Record<
       },
       {
         tagline: 'Isang kasal na kanta, ginawa para sa inyong dalawa',
-        body: 'Custom song composition + recording para sa wedding day mo. Tatlong tier: Basic para sa 60-second pure-vocal piece, Premium para sa full production kasama ang love story niyo, Wedding Suite para sa ceremony processional + reception entrance + first-dance song bundle. Lahat Setnayan-AI-generated, royalty-free, sa inyo habambuhay.',
+        body: 'Custom song composition + recording para sa wedding day mo. Ibahagi ang inyong kwento kay Setnayan — isang original, full-production, AI-generated na kanta, royalty-free at sa inyo habambuhay. Nagiging soundtrack ng bawat Setnayan-rendered video sa kasal ninyo ang Pakanta.',
       },
       {
         tagline: 'Full-res handoff pagkatapos ng araw',

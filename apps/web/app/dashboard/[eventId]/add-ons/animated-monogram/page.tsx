@@ -4,8 +4,9 @@ import { ArrowLeft, Check, ExternalLink, PencilLine, Sparkles } from 'lucide-rea
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { resolveMonogram } from '@/lib/monogram';
-import { eventOwnsAnimatedMonogram } from '@/lib/animated-monogram';
+import { eventOwnsAnimatedMonogram, eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { AnimatedMonogramHero } from '@/app/_components/animated-monogram-hero';
+import { PaymentUnderReview } from '@/app/dashboard/[eventId]/_components/payment-under-review';
 import {
   MONOGRAM_MOTIONS,
   resolveMonogramMotion,
@@ -91,6 +92,12 @@ export default async function AnimatedMonogramPage({ params }: Props) {
   if (!event) redirect(`/dashboard/${eventId}`);
 
   const owns = await eventOwnsAnimatedMonogram(supabase, eventId);
+  // Payment handshake (2026-06-18): `owns` counts a still-pending ('submitted')
+  // order so the buy CTA stays suppressed (double-buy prevention), but the live
+  // animation only goes on once the Setnayan team verifies payment. `active`
+  // gates the OwnedView; owned-but-pending shows "payment under review". Only
+  // query when owns is true (cheap — skips the read for the common buy case).
+  const active = owns ? await eventAnimatedMonogramActive(supabase, eventId) : false;
   const monogram = resolveMonogram(event);
   // The couple's chosen Motion Library signature (lib/monogram-motion.ts ·
   // picked in the Monogram Maker · NULL → 'draw'). Both previews below play
@@ -137,7 +144,7 @@ export default async function AnimatedMonogramPage({ params }: Props) {
         </p>
       </header>
 
-      {owns ? (
+      {active ? (
         <OwnedView
           monogram={monogram}
           publicLandingUrl={publicLandingUrl}
@@ -145,6 +152,8 @@ export default async function AnimatedMonogramPage({ params }: Props) {
           motion={motion}
           motionLabel={motionLabel}
         />
+      ) : owns ? (
+        <PaymentUnderReview feature="animated monogram" />
       ) : (
         <UnownedView
           monogram={monogram}

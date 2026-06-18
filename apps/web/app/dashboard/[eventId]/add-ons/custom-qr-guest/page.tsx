@@ -16,7 +16,8 @@ import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { eventOwnsSku } from '@/lib/entitlements';
+import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
+import { PaymentUnderReview } from '@/app/dashboard/[eventId]/_components/payment-under-review';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 
 export const metadata = { title: 'Custom QR per guest · Setnayan' };
@@ -86,6 +87,14 @@ export default async function CustomQrGuestPage({ params }: Props) {
   // auth.uid()), so the user client would deny a co-host member who didn't
   // personally place the order and wrongly show them the buy CTA.
   const owns = await eventOwnsSku(createAdminClient(), eventId, SKU_CODE);
+  // Payment handshake (2026-06-18): `owns` counts a still-pending ('submitted')
+  // order (double-buy prevention), but the branded QR cards only render once the
+  // Setnayan team verifies payment. `active` gates the OwnedView; owned-but-
+  // pending shows "payment under review". Only query when owns is true (cheap).
+  // Same admin client as the owns read — ownership is an event-level fact, but
+  // orders RLS is purchaser-scoped, so a co-host who didn't place the order
+  // would otherwise read active=false.
+  const active = owns ? await eventSkuActive(createAdminClient(), eventId, SKU_CODE) : false;
 
   const monogram = resolveMonogram(event);
   const palette = sanitizeRolePalette(event.role_palette ?? {});
@@ -133,7 +142,7 @@ export default async function CustomQrGuestPage({ params }: Props) {
         </p>
       </header>
 
-      {owns ? (
+      {active ? (
         <OwnedView
           eventId={eventId}
           slug={slug}
@@ -143,6 +152,8 @@ export default async function CustomQrGuestPage({ params }: Props) {
           supabase={supabase}
           displayName={event.display_name}
         />
+      ) : owns ? (
+        <PaymentUnderReview feature="guest QR codes" />
       ) : (
         <UnownedView
           eventId={eventId}

@@ -8,6 +8,7 @@ import { formatPhp } from '@/lib/orders';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { eventOwnsSku } from '@/lib/entitlements';
 import { isSetnayanAiActive, isSetnayanAiPaywallEnabled } from '@/lib/setnayan-ai';
+import { PaymentUnderReview } from '@/app/dashboard/[eventId]/_components/payment-under-review';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 
 export const metadata = { title: 'Setnayan AI · Setnayan' };
@@ -86,6 +87,16 @@ export default async function SetnayanAiPage({ params }: Props) {
     event.setnayan_ai_active === true ||
     (await eventOwnsSku(supabase, eventId, SKU_CODE));
 
+  // Payment handshake (2026-06-18): the `setnayan_ai_active` FLAG is the
+  // payment-confirmed signal — admin approval stamps it. So a couple who has
+  // PAID (paywall on) but whose order is still pending verification reads
+  // owns=true / approved=false → "payment under review", instead of the
+  // misleading "switched to manual" nudge below (they never switched anything).
+  // The free-during-launch case (paywall off) lands in the `active` branch
+  // already; the approved-but-toggled-to-manual case keeps its nudge.
+  const approved = Boolean(event.setnayan_ai_active);
+  const showPending = owns && paywallOn && !approved;
+
   // Pricing from the live V2 catalog (single source of truth). null when the
   // row is unreadable (e.g. no service-role key in CI / pre-seed) → the buy
   // block degrades gracefully instead of inventing a number.
@@ -150,6 +161,8 @@ export default async function SetnayanAiPage({ params }: Props) {
             to see the shortlist.
           </p>
         </div>
+      ) : showPending ? (
+        <PaymentUnderReview feature="Setnayan AI" />
       ) : owns || !paywallOn ? (
         <div className="rounded-xl border border-ink/10 bg-cream p-5">
           <p className="text-sm font-medium text-ink">

@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-18 · feat(payments): "payment under review" on the remaining add-on buy pages (handshake PR2)
+
+Follow-up to the admin-approval handshake (#1718). The 6 add-on buy pages that weren't in the first PR now show the honest 3-state — **approved → "unlocked"/owned · pending → "payment under review" · none → buy-CTA** — so the dashboard no longer reads "owned" while the live feature is (correctly) withheld pending approval.
+
+- **New shared `<PaymentUnderReview feature="…">`** (`dashboard/[eventId]/_components/payment-under-review.tsx`) — the amber "we'll unlock it once we confirm your payment" badge; no buy-CTA renders alongside (double-buy stays prevented).
+- **6 buy surfaces** compute `active` (`eventSkuActive` / `eventAnimatedMonogramActive` / `eventPapicSeatsActive`) alongside the unchanged `owns`, querying only when owned: animated-monogram · custom-qr-guest · indoor-blueprint · papic (crew-pack section, conservative — no inner-JSX restructure) · setnayan-ai (keyed off the `setnayan_ai_active` approval flag, NOT the manual/free-launch path) · the Papic live-wall card.
+
+No schema, no migration. tsc 0 · `next lint` clean · 332/332 unit. Display-only — the feature gates (active-only, shipped in #1718) already enforce the handshake.
+
+SPEC IMPACT — completes the handshake UX across all paid SKUs. → CHANGELOG + corpus DECISION_LOG.
+
 ## 2026-06-18 · feat(payments): admin-approval handshake — paid features unlock only AFTER the team verifies payment (owner)
 
 Owner 2026-06-18: *"the QR payment is a handshake and must be approved by admin before they can access it?"* → **yes, all paid SKUs.** The apply-then-pay model granted access the moment a couple uploaded their payment screenshot (order status `submitted`) — so a paid feature went live for guests **before** the Setnayan team verified the payment. This switches **feature access** to a true handshake: a paid feature unlocks only when the order is **admin-approved** (`paid`/`fulfilled`). Double-buy prevention is preserved (a pending order still blocks a second purchase).

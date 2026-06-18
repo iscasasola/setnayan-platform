@@ -59,6 +59,22 @@ export type RevealFeatures = {
   music: boolean;
 };
 
+/**
+ * Rigid-family effect calibration (envelopes → butterflies · church doors →
+ * petals). 0–100 console-style values mapped to the canvas particle layer
+ * (reveal-particles.tsx). Author-time baked house defaults, admin-tunable in the
+ * Reveal Studio (spec `0024_Reveal_Tuning_and_Door_Spec` §7/§8 — petals + butterflies).
+ */
+export type RevealEffectsLook = {
+  butterflySize: number; // wing scale
+  butterflyCount: number; // how many are in the air at once
+  butterflySpeed: number; // outward fly-from-envelope speed
+  petalSize: number; // petal scale
+  petalDensity: number; // how many petals fall
+  petalFall: number; // fall speed
+  shadow: number; // soft cast-shadow strength (both)
+};
+
 export type RevealStudioConfig = {
   /** Master on/off for the reveal (replaces the NEXT_PUBLIC_STD_REVEAL env flag). */
   enabled: boolean;
@@ -74,6 +90,8 @@ export type RevealStudioConfig = {
   petalsColor: string;
   /** The veil look knobs. */
   veil: VeilLook;
+  /** The rigid-family effect knobs (butterflies + petals). */
+  effects: RevealEffectsLook;
 };
 
 /** LOCKED owner-tuned defaults (spec §6, 2026-06-17). Every read merges over these. */
@@ -97,6 +115,17 @@ export const DEFAULT_VEIL_LOOK: VeilLook = {
   stretch: 15,
 };
 
+/** LOCKED rigid-effect defaults (spec §7 — butterfly size 20 · petal size 22). */
+export const DEFAULT_EFFECTS_LOOK: RevealEffectsLook = {
+  butterflySize: 45,
+  butterflyCount: 60,
+  butterflySpeed: 55,
+  petalSize: 50,
+  petalDensity: 70,
+  petalFall: 50,
+  shadow: 55,
+};
+
 export const DEFAULT_REVEAL_CONFIG: RevealStudioConfig = {
   // Off by default — same as the env-flag-off default today; admin flips it on
   // (the ?reveal= URL override still works for previews regardless).
@@ -113,6 +142,7 @@ export const DEFAULT_REVEAL_CONFIG: RevealStudioConfig = {
   veilColorDefault: '#f3ece1',
   petalsColor: '#e87a93',
   veil: DEFAULT_VEIL_LOOK,
+  effects: DEFAULT_EFFECTS_LOOK,
 };
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -154,6 +184,20 @@ function mergeLook(raw: unknown): VeilLook {
   };
 }
 
+function mergeEffects(raw: unknown): RevealEffectsLook {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  const d = DEFAULT_EFFECTS_LOOK;
+  return {
+    butterflySize: num(r.butterflySize, d.butterflySize),
+    butterflyCount: num(r.butterflyCount, d.butterflyCount),
+    butterflySpeed: num(r.butterflySpeed, d.butterflySpeed),
+    petalSize: num(r.petalSize, d.petalSize),
+    petalDensity: num(r.petalDensity, d.petalDensity),
+    petalFall: num(r.petalFall, d.petalFall),
+    shadow: num(r.shadow, d.shadow),
+  };
+}
+
 /** Deep-merge a raw JSONB value over the locked defaults, with type guards. */
 export function mergeRevealConfig(raw: unknown): RevealStudioConfig {
   const r = (raw ?? {}) as Record<string, unknown>;
@@ -174,6 +218,7 @@ export function mergeRevealConfig(raw: unknown): RevealStudioConfig {
     veilColorDefault: hex(r.veilColorDefault, d.veilColorDefault),
     petalsColor: hex(r.petalsColor, d.petalsColor),
     veil: mergeLook(r.veil),
+    effects: mergeEffects(r.effects),
   };
 }
 

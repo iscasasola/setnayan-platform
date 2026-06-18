@@ -18,13 +18,20 @@ import dynamic from 'next/dynamic';
 import {
   DEFAULT_REVEAL_CONFIG,
   REVEAL_TEMPLATE_IDS,
+  type RevealEffectsLook,
   type RevealStudioConfig,
   type RevealTemplateId,
   type VeilLook,
 } from '@/lib/reveal-config';
+import { FourFlapEnvelope } from '@/app/[slug]/_components/reveal/four-flap';
+import { RigidReveal } from '@/app/[slug]/_components/reveal/rigid-reveal';
 import { saveRevealStudio } from './actions';
 
 const VeilReveal = dynamic(() => import('@/app/[slug]/_components/reveal/veil-reveal'), { ssr: false });
+
+/** Which template the live preview shows (veil drives the veil sliders; the
+ *  rigid ones drive the effect sliders so they can be calibrated in view). */
+type PreviewTpl = 'veil-sheer' | 'four-flap' | 'church-doors';
 
 const TEMPLATE_LABELS: Record<RevealTemplateId, string> = {
   'four-flap': 'Four-flap envelope',
@@ -67,6 +74,30 @@ const LOOK_GROUPS: Array<{ group: string; sliders: SliderDef[] }> = [
       { key: 'stretch', label: 'Stretch give', min: 0, max: 100 },
       { key: 'petalsDensity', label: 'Petal density', min: 0, max: 100 },
     ],
+  },
+];
+
+type EffectSliderDef = { key: keyof RevealEffectsLook; label: string };
+const EFFECT_SLIDERS: Array<{ group: string; sliders: EffectSliderDef[] }> = [
+  {
+    group: 'Butterflies (envelopes)',
+    sliders: [
+      { key: 'butterflySize', label: 'Butterfly size' },
+      { key: 'butterflyCount', label: 'How many' },
+      { key: 'butterflySpeed', label: 'Fly-out speed' },
+    ],
+  },
+  {
+    group: 'Petals (church doors)',
+    sliders: [
+      { key: 'petalSize', label: 'Petal size' },
+      { key: 'petalDensity', label: 'Petal density' },
+      { key: 'petalFall', label: 'Fall speed' },
+    ],
+  },
+  {
+    group: 'Shared',
+    sliders: [{ key: 'shadow', label: 'Cast-shadow strength' }],
   },
 ];
 
@@ -163,9 +194,12 @@ export function RevealStudio({ initial }: { initial: RevealStudioConfig }) {
   // studio preview never dead-ends on a settled, off-screen revealed veil.
   const [previewKey, setPreviewKey] = useState(0);
   const redrapePreview = () => setPreviewKey((k) => k + 1);
+  const [previewTpl, setPreviewTpl] = useState<PreviewTpl>('veil-sheer');
 
   const setLook = (key: keyof VeilLook, v: number) =>
     setDraft((d) => ({ ...d, veil: { ...d.veil, [key]: v } }));
+  const setEffect = (key: keyof RevealEffectsLook, v: number) =>
+    setDraft((d) => ({ ...d, effects: { ...d.effects, [key]: v } }));
   const setFeature = (key: keyof RevealStudioConfig['features'], v: boolean) =>
     setDraft((d) => ({ ...d, features: { ...d.features, [key]: v } }));
   const setTemplateAllowed = (id: RevealTemplateId, v: boolean) =>
@@ -300,12 +334,65 @@ export function RevealStudio({ initial }: { initial: RevealStudioConfig }) {
             </div>
           ))}
         </section>
+
+        {/* Rigid effects (butterflies + petals) */}
+        <section className="space-y-5">
+          <h2 className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: SLATE }}>
+            Effects — envelopes &amp; doors
+          </h2>
+          <p className="text-[12px]" style={{ color: SLATE }}>
+            Switch the preview to <b style={{ color: INK }}>Four-flap</b> or <b style={{ color: INK }}>Church doors</b> (right) to calibrate these in view.
+          </p>
+          {EFFECT_SLIDERS.map((g) => (
+            <div key={g.group} className="space-y-3">
+              <div className="text-[12px] font-medium" style={{ color: INK }}>
+                {g.group}
+              </div>
+              <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
+                {g.sliders.map((s) => (
+                  <Slider
+                    key={s.key}
+                    label={s.label}
+                    value={draft.effects[s.key]}
+                    min={0}
+                    max={100}
+                    onChange={(v) => setEffect(s.key, v)}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </section>
       </div>
 
       {/* ── Live preview + save ──────────────────────────────────── */}
       <div className="lg:sticky lg:top-6 lg:self-start">
         <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider" style={{ color: SLATE }}>
           Live preview
+        </div>
+        <div className="mb-2 flex gap-1.5">
+          {([
+            ['veil-sheer', 'Veil'],
+            ['four-flap', 'Envelope'],
+            ['church-doors', 'Doors'],
+          ] as Array<[PreviewTpl, string]>).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => {
+                setPreviewTpl(id);
+                redrapePreview();
+              }}
+              className="rounded-full border px-3 py-1 text-[11px] font-medium"
+              style={{
+                borderColor: previewTpl === id ? ACCENT : LINE,
+                color: previewTpl === id ? '#fff' : SLATE,
+                background: previewTpl === id ? ACCENT : 'transparent',
+              }}
+            >
+              {label}
+            </button>
+          ))}
         </div>
         <div
           className="relative mx-auto aspect-[9/19] w-full max-w-[300px] overflow-hidden rounded-[2rem] border shadow-xl"
@@ -317,22 +404,49 @@ export function RevealStudio({ initial }: { initial: RevealStudioConfig }) {
             <div className="font-serif text-2xl text-white/90">Maria &amp; Jose</div>
             <div className="mt-2 text-[12px] text-white/45">12 · 12 · 2026</div>
           </div>
-          {/* the live veil — keyed so it can re-drape (remount) after a reveal */}
-          <VeilReveal
-            key={previewKey}
-            veilColor={draft.veilColorDefault}
-            petalsColor={draft.petalsColor}
-            look={draft.veil}
-            features={draft.features}
-            onRevealed={() => {
-              // The reveal is a one-shot — on the live couple site the overlay then
-              // hands off to the page and unmounts. The studio preview has nothing
-              // to hand off to, so it would otherwise sit on a settled, off-screen
-              // veil and look "stopped". Re-drape shortly after so the preview loops
-              // back to the tunable draped veil.
-              window.setTimeout(redrapePreview, 1500);
-            }}
-          />
+          {/* the live reveal — veil drives the veil sliders; the rigid templates
+              auto-play with the effect particles so the effect sliders calibrate
+              in view. Keyed so it re-drapes (remounts) after each reveal. */}
+          {previewTpl === 'veil-sheer' ? (
+            <VeilReveal
+              key={previewKey}
+              veilColor={draft.veilColorDefault}
+              petalsColor={draft.petalsColor}
+              look={draft.veil}
+              features={draft.features}
+              onRevealed={() => {
+                // One-shot on the live site (overlay hands off + unmounts). The
+                // studio has nothing to hand off to, so re-drape shortly after to
+                // loop back to the tunable draped veil.
+                window.setTimeout(redrapePreview, 1500);
+              }}
+            />
+          ) : previewTpl === 'church-doors' ? (
+            <RigidReveal
+              key={previewKey}
+              variant="church-doors"
+              markSvg={null}
+              monogram="M & J"
+              waxColor="#7d2b4f"
+              fallbackSeed={1}
+              onOpened={() => window.setTimeout(redrapePreview, 1800)}
+              autoPlay
+              effect="petals"
+              effectLook={draft.effects}
+            />
+          ) : (
+            <FourFlapEnvelope
+              key={previewKey}
+              markSvg={null}
+              monogram="M & J"
+              waxColor="#7d2b4f"
+              fallbackSeed={1}
+              onOpened={() => window.setTimeout(redrapePreview, 1800)}
+              autoPlay
+              effect="butterflies"
+              effectLook={draft.effects}
+            />
+          )}
         </div>
         <div className="mt-2 flex items-center justify-center gap-2">
           <p className="text-[11px]" style={{ color: SLATE }}>

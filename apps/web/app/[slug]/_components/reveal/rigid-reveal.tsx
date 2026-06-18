@@ -23,6 +23,7 @@ import type { WaxSealConfig } from '@/lib/wax-seal/types';
 import { RigidStage } from './rigid-stage';
 import { RigidFlaps } from './rigid-flaps';
 import type { RevealParticleKind } from './reveal-particles';
+import type { RevealEffectsLook } from '@/lib/reveal-config';
 
 export type RigidVariant = 'two-flap-vertical' | 'two-flap-horizontal' | 'church-doors';
 
@@ -44,6 +45,8 @@ type Props = {
   autoPlay?: boolean;
   /** Decorative effect that plays as the doors/flaps part (butterflies / petals). */
   effect?: RevealParticleKind | null;
+  /** Admin calibration for the effect particles. */
+  effectLook?: RevealEffectsLook;
 };
 
 const FOLD = 'absolute will-change-transform [transform-style:preserve-3d]';
@@ -168,6 +171,7 @@ export function RigidReveal({
   onOpened,
   autoPlay = false,
   effect = null,
+  effectLook,
 }: Props) {
   return (
     <RigidStage
@@ -179,6 +183,7 @@ export function RigidReveal({
       onOpened={onOpened}
       autoPlay={autoPlay}
       effect={effect}
+      effectLook={effectLook}
       renderFlaps={(p) => (
         <RigidFlaps
           variant={variant}

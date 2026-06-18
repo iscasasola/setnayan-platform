@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · feat(std): background legibility — Auto / Lighten / Darken (PR-H)
+
+Fixes text readability over a Save-the-Date background. The old layer had a fixed *dark* scrim while the film text was *dark* too — so dark text over a bright photo region (e.g. the aurora sky) was unreadable. Now the veil and the text colour are **paired**, with a couple-facing control.
+
+- **Model** `lib/std-backgrounds.ts`: `StdBackground.legibility` (`auto` | `lighten` | `darken`, default auto, persisted in the `std_background` JSONB — no migration). `resolveStdLegibility(bg)` → `{ veil, tone }` that always pair: **lighten** = cream wash + dark text · **darken** = dark wash + light text · **auto** = per-kind (plain by colour luminance, paper → dark text, photos → darken + light text, the safe universal).
+- **Veil** `std-background-layer.tsx`: the fixed dark scrim is replaced by the resolved veil (stronger at the top + bottom where the monogram + close beats sit); `none` for calm plain/paper auto.
+- **Text tone** `save-the-date-film.tsx`: a `tone` prop drives `applyTextTone(theme, tone)` — overrides only the theme's TEXT colours (keeps its accent button + display font), plus a soft text-shadow so the type pops off a busy photo. Wired so a dark plain colour also flips to light text automatically.
+- **Builder**: a "Step 1 · Readability" segmented control (Auto / Lighten / Darken) under the Background picker; legibility persists across background changes; the live preview reflects it. The font + base colours remain the separate "Step 1 · Fonts & colours" (theme) control.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. Visual — verify on the Vercel preview. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — backgrounds gain a readability treatment (veil + paired text tone) so names/dates stay legible over any scene/photo/colour. Couple-facing control in Step 1. See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · feat(std): the couple's real monogram mark in the film (PR-G)
 
 The Save-the-Date film's opening + closing beats showed plain text initials (e.g. "M & J"). When the couple has an actual monogram mark (uploaded · Cipher · bespoke) it now renders that mark instead — so the film leads and lands on their real mark, matching the reveal.

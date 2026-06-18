@@ -18,7 +18,7 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { Check, ExternalLink, Music2, RotateCcw, Sparkles, Wand2 } from 'lucide-react';
+import { Check, ExternalLink, Moon, Music2, RotateCcw, Sparkles, Sun, Wand2 } from 'lucide-react';
 import { SaveTheDateFilm } from '@/app/[slug]/_components/save-the-date-film';
 import { STD_THEMES, type StdThemeId } from '@/lib/std-themes';
 import { formatEventDate } from '@/lib/events';
@@ -37,7 +37,12 @@ import { RevealPreview } from '@/app/dashboard/[eventId]/_components/reveal-prev
 import { StdBackgroundPicker } from '@/app/dashboard/[eventId]/_components/std-background-picker';
 import { StdMediaPicker, type StdVideoUpload } from '@/app/dashboard/[eventId]/_components/std-media-picker';
 import { StdBackgroundLayer } from '@/app/[slug]/_components/std-background-layer';
-import { realisticBgSrc, type StdBackground } from '@/lib/std-backgrounds';
+import {
+  realisticBgSrc,
+  resolveStdLegibility,
+  type StdBackground,
+  type StdLegibility,
+} from '@/lib/std-backgrounds';
 import type { StdMedia } from '@/lib/std-media';
 import type { RevealEffects } from '@/lib/std-reveal-effects';
 import type { RevealEffectsLook, VeilLook } from '@/lib/reveal-config';
@@ -160,7 +165,12 @@ export function StdBuilderClient({
   // Presigned URL for an uploaded background (kind === 'upload') — drives the preview.
   const [uploadUrl, setUploadUrl] = useState<string | null>(initialUploadUrl ?? null);
   const pickBackground = (bg: StdBackground) => {
-    setBackground(bg);
+    // Keep the chosen legibility when the background itself changes.
+    setBackground({ ...bg, legibility: bg.legibility ?? background.legibility ?? 'auto' });
+    if (result !== 'idle') setResult('idle');
+  };
+  const setLegibility = (legibility: StdLegibility) => {
+    setBackground((b) => ({ ...b, legibility }));
     if (result !== 'idle') setResult('idle');
   };
   // Upload picked → set it + presign the ref so the preview shows it immediately.
@@ -345,6 +355,43 @@ export function StdBuilderClient({
             uploadUrl={uploadUrl}
             onUpload={handleUpload}
           />
+
+          {/* Step 1 (cont.) · Readability — veil + text tone so the names always
+              read over the background (Lighten = cream wash + dark text · Darken
+              = dark wash + light text · Auto adapts to the chosen background). */}
+          <section className="space-y-2.5">
+            <div className="space-y-1">
+              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
+                Step 1 · Readability
+              </p>
+              <p className="text-sm text-ink/65">
+                Keep your names crisp over the background. <span className="font-medium text-ink/80">Auto</span> adapts to your choice — or <span className="font-medium text-ink/80">Lighten</span> / <span className="font-medium text-ink/80">Darken</span> to fine-tune.
+              </p>
+            </div>
+            <div className="inline-flex rounded-xl border border-ink/15 bg-cream p-1">
+              {([
+                { id: 'auto', label: 'Auto', Icon: Sparkles },
+                { id: 'lighten', label: 'Lighten', Icon: Sun },
+                { id: 'darken', label: 'Darken', Icon: Moon },
+              ] as const).map(({ id, label, Icon }) => {
+                const active = (background.legibility ?? 'auto') === id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => setLegibility(id)}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                      active ? 'bg-mulberry text-cream' : 'text-ink/65 hover:text-ink'
+                    }`}
+                  >
+                    <Icon aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
 
           {/* Step 1 (cont.) · Theme — folds into Background; sets the fonts +
               text colours only (the Background above sets the scene). */}
@@ -701,6 +748,7 @@ export function StdBuilderClient({
                   preview
                   fill
                   transparent
+                  tone={resolveStdLegibility(background).tone}
                 />
               </div>
               {/* overlay — the opening. Skipped entirely for No Reveal (the free

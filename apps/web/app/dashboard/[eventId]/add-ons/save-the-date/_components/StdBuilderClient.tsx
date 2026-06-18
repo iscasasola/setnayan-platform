@@ -214,7 +214,7 @@ export function StdBuilderClient({
               When does your full invitation go live?
             </label>
             <p className="text-xs text-ink/55">
-              We'll add a "remind me when the invite arrives" to the end-of-film calendar. Optional.
+              We&rsquo;ll add a &ldquo;remind me when the invite arrives&rdquo; to the end-of-film calendar. Optional.
             </p>
             <input
               id="std_launch_date"

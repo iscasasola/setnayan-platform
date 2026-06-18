@@ -222,7 +222,7 @@ export default async function AdminVendorTokensPage({
             </SubmitButton>
           </div>
           <p className="text-xs text-ink/50">
-            Leave end date blank for open-ended comp access (you'll need to revert manually).
+            Leave end date blank for open-ended comp access (you&rsquo;ll need to revert manually).
             Pro/Enterprise billing is 28-day cycles — 1 cycle from today ={' '}
             {new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toLocaleDateString('en-PH', {
               month: 'short',

@@ -281,7 +281,7 @@ export default async function SaveTheDatePage({ params, searchParams }: Props) {
             pause.
           </p>
         </div>
-        <SaveTheDateFilm content={content} />
+        <SaveTheDateFilm content={content} preview />
       </section>
 
       {/* 3 · What your film shows (the auto-fill summary). */}

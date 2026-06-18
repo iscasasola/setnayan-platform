@@ -36,7 +36,15 @@ type Slide = { key: string; node: ReactNode; dur: number };
 
 const LABEL = 'font-mono text-[10px] uppercase tracking-[0.3em] text-terracotta';
 
-export function SaveTheDateFilm({ content }: { content: StdFilmContent }) {
+export function SaveTheDateFilm({
+  content,
+  preview = false,
+}: {
+  content: StdFilmContent;
+  /** When true, renders as a contained phone-card (for the builder preview).
+   *  When false (default), renders full-screen under the reveal overlay. */
+  preview?: boolean;
+}) {
   const slides: Slide[] = [];
 
   slides.push({
@@ -211,9 +219,16 @@ export function SaveTheDateFilm({ content }: { content: StdFilmContent }) {
   const pauseAtRef = useRef(0);
   const goRef = useRef<(j: number) => void>(() => {});
 
-  // Wait for the reveal to dispatch 'std-reveal-done' before starting.
-  // Falls back to auto-start after 2 s in case no reveal is active.
+  // Preview mode: start immediately (no reveal event to wait for).
+  // Full-screen mode: wait for 'std-reveal-done' from the RevealOverlay;
+  // fall back to auto-start after 2 s if no reveal is active.
   useEffect(() => {
+    if (preview) {
+      playingRef.current = true;
+      setPlaying(true);
+      startRef.current = performance.now();
+      return;
+    }
     const start = () => {
       if (playingRef.current) return;
       playingRef.current = true;
@@ -228,7 +243,7 @@ export function SaveTheDateFilm({ content }: { content: StdFilmContent }) {
       clearTimeout(fallback);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [preview]);
 
   // RAF player — fills each segment and advances slides.
   useEffect(() => {
@@ -342,14 +357,20 @@ export function SaveTheDateFilm({ content }: { content: StdFilmContent }) {
     });
   };
 
-  if (dismissed) return null;
+  // Full-screen mode only: dismissed removes the film so the page beneath shows.
+  // Preview mode: never remove — replay instead (handled below on dismiss buttons).
+  if (dismissed && !preview) return null;
 
   const isClose = idx === N - 1;
 
   return (
     <div
       ref={stageRef}
-      className="fixed inset-0 z-[50] select-none overflow-hidden bg-cream text-ink"
+      className={
+        preview
+          ? 'relative mx-auto aspect-[9/16] w-full max-w-xs select-none overflow-hidden rounded-3xl bg-cream text-ink shadow-xl'
+          : 'fixed inset-0 z-[50] select-none overflow-hidden bg-cream text-ink'
+      }
       style={{ touchAction: 'none' }}
       onPointerDown={onPointerDown}
       onPointerUp={onPointerUp}
@@ -408,11 +429,15 @@ export function SaveTheDateFilm({ content }: { content: StdFilmContent }) {
         {isClose ? (
           <button
             type="button"
-            onClick={() => setDismissed(true)}
-            aria-label="Continue to invitation page"
+            onClick={preview ? replay : () => setDismissed(true)}
+            aria-label={preview ? 'Replay film' : 'Continue to invitation page'}
             className="flex h-8 w-8 items-center justify-center rounded-full bg-ink/5 text-ink/50 hover:bg-ink/10"
           >
-            <X aria-hidden className="h-4 w-4" />
+            {preview ? (
+              <RotateCcw aria-hidden className="h-4 w-4" />
+            ) : (
+              <X aria-hidden className="h-4 w-4" />
+            )}
           </button>
         ) : null}
       </div>
@@ -464,11 +489,11 @@ export function SaveTheDateFilm({ content }: { content: StdFilmContent }) {
         {isClose ? (
           <button
             type="button"
-            onClick={() => setDismissed(true)}
-            aria-label="Continue to invitation page"
+            onClick={preview ? replay : () => setDismissed(true)}
+            aria-label={preview ? 'Replay film' : 'Continue to invitation page'}
             className="flex h-9 items-center justify-center rounded-full border border-ink/15 px-4 text-xs font-medium text-ink/55 hover:border-ink/30"
           >
-            Continue
+            {preview ? 'Replay' : 'Continue'}
           </button>
         ) : (
           <button

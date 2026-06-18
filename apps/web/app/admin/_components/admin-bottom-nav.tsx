@@ -103,6 +103,8 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/admin/songs',
       '/admin/moodboard-library',
       '/admin/notifications',
+      '/admin/blog',
+      '/admin/help-center',
     ],
   },
   {

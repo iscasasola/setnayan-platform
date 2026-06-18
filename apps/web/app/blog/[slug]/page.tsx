@@ -14,15 +14,12 @@ import {
   readingMinutes,
   type BlogBlock,
 } from '@/lib/blog';
+import { fetchBlogArticleFromDB } from '@/lib/blog-db';
+import { createAdminClient } from '@/lib/supabase/admin';
 
-// Per-article Journal pages — magazine reader (iteration 0038, 2026-06-15).
-// Immersive cover header, drop-cap lead, gold pull-quotes ("nuggets"), inline
-// figures, and photo "keep reading" cards. Same soft-404-proof shape as the
-// first slice: the article set is a fixed in-code constant, every slug is
-// pre-rendered, anything else 404s (dynamicParams=false). No DB, no loading
-// boundary that would commit a 200 before notFound() runs.
-export const dynamicParams = false;
-export const revalidate = 3600;
+// DB-first: admin-published DB articles override static ones with the same
+// slug. dynamicParams removed so DB-only slugs render on first request (ISR).
+export const revalidate = 60;
 
 const SITE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
@@ -49,9 +46,15 @@ export function generateStaticParams(): Array<{ slug: string }> {
   return ALL_BLOG_ARTICLES.map((article) => ({ slug: article.slug }));
 }
 
+async function resolveArticle(slug: string) {
+  const supabase = createAdminClient();
+  const dbArticle = await fetchBlogArticleFromDB(supabase, slug);
+  return dbArticle ?? findBlogArticle(slug) ?? null;
+}
+
 export async function generateMetadata({ params }: Props) {
   const { slug } = await params;
-  const article = findBlogArticle(slug);
+  const article = await resolveArticle(slug);
   if (!article) notFound();
   const description = blogMetaDescription(article);
   const canonicalUrl = `${SITE_URL}/blog/${article.slug}`;
@@ -179,7 +182,7 @@ function Block({ block, lead }: { block: BlogBlock; lead?: boolean }) {
 
 export default async function BlogArticlePage({ params }: Props) {
   const { slug } = await params;
-  const article = findBlogArticle(slug);
+  const article = await resolveArticle(slug);
   if (!article) notFound();
   const categoryLabel = blogCategoryLabel(article.category);
   const related = relatedBlogArticles(slug);

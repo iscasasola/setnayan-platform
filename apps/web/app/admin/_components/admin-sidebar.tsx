@@ -194,6 +194,8 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
       { key: 'songs',            label: 'Songs',            href: '/admin/songs',            icon: Music,     matchPrefix: '/admin/songs' },
       { key: 'moodboard-library',label: 'Moodboard library',href: '/admin/moodboard-library',icon: Palette },
       { key: 'notifications',    label: 'Notifications',    href: '/admin/notifications',    icon: Bell },
+      { key: 'blog',             label: 'Blog articles',    href: '/admin/blog',             icon: Newspaper, matchPrefix: '/admin/blog' },
+      { key: 'help-center',      label: 'Help articles',    href: '/admin/help-center',      icon: BookOpen,  matchPrefix: '/admin/help-center' },
     ],
   },
 

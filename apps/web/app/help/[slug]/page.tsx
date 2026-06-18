@@ -7,17 +7,14 @@ import {
   findHelpArticle,
   relatedHelpArticles,
   helpMetaDescription,
+  type HelpTopic,
 } from '@/lib/help';
+import { fetchHelpArticleFromDB } from '@/lib/help-db';
+import { createAdminClient } from '@/lib/supabase/admin';
 
-// Per-article help pages (SEO/GEO, 2026-06-13). Each of the 61 help articles
-// gets its own indexable URL at /help/[slug] with Article + single-question
-// FAQPage JSON-LD, so each high-intent informational Q can rank on its own
-// (the /help hub still ships the full multi-question FAQPage). The article set
-// is a fixed in-code constant, so we pre-render all slugs and 404 anything
-// else at the routing layer (dynamicParams=false) — no DB, no soft-404, no
-// loading boundary that would commit a 200 before notFound() runs.
-export const dynamicParams = false;
-export const revalidate = 3600;
+// DB-first: admin-published articles override static ones with the same slug.
+// dynamicParams removed so DB-only slugs render on first request (ISR at 60s).
+export const revalidate = 60;
 
 const SITE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
@@ -31,9 +28,25 @@ export function generateStaticParams(): Array<{ slug: string }> {
   return ALL_HELP_ARTICLES.map(({ article }) => ({ slug: article.slug }));
 }
 
+async function resolveHelpArticle(slug: string) {
+  const supabase = createAdminClient();
+  const dbRow = await fetchHelpArticleFromDB(supabase, slug);
+  if (dbRow) {
+    // Shape a synthetic HelpArticleWithTopic for the renderer
+    const syntheticTopic: HelpTopic = {
+      key: dbRow.topicKey,
+      label: dbRow.topicKey,
+      roles: dbRow.roles,
+      articles: [{ slug: dbRow.slug, title: dbRow.title, body: dbRow.body }],
+    };
+    return { article: { slug: dbRow.slug, title: dbRow.title, body: dbRow.body }, topic: syntheticTopic };
+  }
+  return findHelpArticle(slug) ?? null;
+}
+
 export async function generateMetadata({ params }: Props) {
   const { slug } = await params;
-  const found = findHelpArticle(slug);
+  const found = await resolveHelpArticle(slug);
   if (!found) notFound();
   const { article, topic } = found;
   const description = helpMetaDescription(article.body);
@@ -61,7 +74,7 @@ export async function generateMetadata({ params }: Props) {
 
 export default async function HelpArticlePage({ params }: Props) {
   const { slug } = await params;
-  const found = findHelpArticle(slug);
+  const found = await resolveHelpArticle(slug);
   if (!found) notFound();
   const { article, topic } = found;
   const related = relatedHelpArticles(slug);

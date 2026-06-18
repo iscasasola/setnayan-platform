@@ -13,13 +13,12 @@ import {
   type BlogArticle,
   type BlogCategoryKey,
 } from '@/lib/blog';
+import { fetchPublishedBlogArticlesFromDB } from '@/lib/blog-db';
+import { createAdminClient } from '@/lib/supabase/admin';
 
-// Setnayan Journal index — magazine redesign (iteration 0038, 2026-06-15).
-// Photo-led editorial: a full-bleed cover for the featured guide, a "Nuggets"
-// band of shareable wisdom, and a varied grid of story cards. Keeps the
-// SEO/GEO machinery from the 2026-06-13 first slice intact (static render,
-// Blog + Breadcrumb JSON-LD, category filter via ?category). Public, no auth.
-export const revalidate = 3600;
+// DB-first: admin-managed articles override static ones with the same slug.
+// ISR at 60s so new articles published from /admin/blog go live promptly.
+export const revalidate = 60;
 
 const SITE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
@@ -147,16 +146,27 @@ export default async function BlogIndexPage({ searchParams }: Props) {
     ? search.category
     : undefined;
 
+  // DB-first merge: admin-published articles override static ones with the
+  // same slug; new DB slugs are appended. Static floor keeps all existing
+  // articles publishing even if the DB is empty.
+  const supabase = createAdminClient();
+  const dbArticles = await fetchPublishedBlogArticlesFromDB(supabase);
+  const dbSlugs = new Set(dbArticles.map((a) => a.slug));
+  const mergedArticles: BlogArticle[] = [
+    ...dbArticles,
+    ...ALL_BLOG_ARTICLES.filter((a) => !dbSlugs.has(a.slug)),
+  ].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
+
   const categories = blogCategoriesInUse();
 
   const visible = activeCategory
-    ? ALL_BLOG_ARTICLES.filter((a) => a.category === activeCategory)
-    : ALL_BLOG_ARTICLES;
+    ? mergedArticles.filter((a) => a.category === activeCategory)
+    : mergedArticles;
 
   // Cover hero only on the unfiltered view: the pinned featured article, else newest.
   const featured = activeCategory
     ? undefined
-    : ALL_BLOG_ARTICLES.find((a) => a.featured) ?? ALL_BLOG_ARTICLES[0];
+    : mergedArticles.find((a) => a.featured) ?? mergedArticles[0];
   const remaining = featured
     ? visible.filter((a) => a.slug !== featured.slug)
     : visible;
@@ -172,7 +182,7 @@ export default async function BlogIndexPage({ searchParams }: Props) {
     url: `${SITE_URL}/blog`,
     inLanguage: 'en-PH',
     publisher: { '@type': 'Organization', '@id': `${SITE_URL}/#organization` },
-    blogPost: ALL_BLOG_ARTICLES.map((a) => ({
+    blogPost: mergedArticles.map((a) => ({
       '@type': 'BlogPosting',
       headline: a.title,
       url: `${SITE_URL}/blog/${a.slug}`,

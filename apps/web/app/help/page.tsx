@@ -1,16 +1,17 @@
 import Link from 'next/link';
 import { HelpCircle, MessageSquare, Mail, Heart, Briefcase, Mailbox, Shield } from 'lucide-react';
-import { HELP_TOPICS, HELP_ROLES, type HelpRole } from '@/lib/help';
+import { HELP_TOPICS, HELP_ROLES, type HelpRole, type HelpTopic } from '@/lib/help';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { fetchHelpArticlesFromDB } from '@/lib/help-db';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { Field } from '@/app/_components/forms/field';
 import { Logo } from '@/app/_components/logo';
 import { submitHelpMessage } from './actions';
 
-// SEO/GEO Bucket 8 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — 1hr Vercel
-// edge cache so static marketing routes serve Google's crawl rate-limit
-// budget without origin pressure. Each page rebuilds at most once per hour.
-export const revalidate = 3600;
+// DB-first: admin-managed articles override / supplement static ones.
+// ISR at 60s so new help articles go live promptly after publish.
+export const revalidate = 60;
 
 export const metadata = {
   title: 'Help & support',
@@ -52,9 +53,23 @@ export default async function HelpPage({ searchParams }: Props) {
   const search = await searchParams;
   const role: HelpRole | undefined = isHelpRole(search.role) ? search.role : undefined;
 
+  // DB-first merge: for each topic, DB articles with the same slug override
+  // the static ones; new DB slugs are appended.
+  const adminSupabase = createAdminClient();
+  const dbByTopic = await fetchHelpArticlesFromDB(adminSupabase);
+  const mergedTopics: HelpTopic[] = HELP_TOPICS.map((topic) => {
+    const dbArticles = dbByTopic.get(topic.key) ?? [];
+    if (dbArticles.length === 0) return topic;
+    const dbSlugs = new Set(dbArticles.map((a) => a.slug));
+    return {
+      ...topic,
+      articles: [...dbArticles, ...topic.articles.filter((a) => !dbSlugs.has(a.slug))],
+    };
+  });
+
   const visibleTopics = role
-    ? HELP_TOPICS.filter((t) => t.roles.includes(role))
-    : HELP_TOPICS;
+    ? mergedTopics.filter((t) => t.roles.includes(role))
+    : mergedTopics;
 
   const activeRoleMeta = role ? HELP_ROLES.find((r) => r.key === role) : undefined;
 

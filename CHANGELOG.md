@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-18 · fix(studio): the Monogram Maker is now reachable from Studio
+
+The Studio hub's only monogram card ("Monogram Creator" · CTA "Open studio") routed to `/dashboard/[eventId]/add-ons/animated-monogram` — the **paid ₱2,499 Animated-Monogram buy page** — not to the actual **Monogram Maker** (`/dashboard/[eventId]/monogram`, the free lettered/Cipher/Bespoke/upload design hub). So a couple on Studio who wanted to design their monogram hit a buy wall instead of the maker; the maker was only reachable from the Home "Your plan" list and a link buried inside the upsell page.
+
+- `add-ons-catalog.ts` · `addOnHref`: `animated-monogram` now resolves to `/dashboard/${eventId}/monogram` (the maker), alongside the existing `orders` special-case. The maker funnels to the paid animation via its own "See the Animated Monogram" CTAs, so `/add-ons/animated-monogram` stays reachable as the upsell.
+- `add-ons-catalog.ts` · the `animated-monogram` entry: label `Monogram Creator` → `Monogram Maker` (matches the page's own title + the couple's mental model); blurb rewritten to describe the maker's four paths (lettered · cipher · Setnayan AI · upload); CTA `Open studio` → `Open the maker`; added `tier: 'free'` so the card shows a "Free" chip (the maker is never gated) while `serviceKey: ANIMATED_MONOGRAM` still flips the chip to "Active" once the paid draw-on animation is owned.
+- Blast radius: `addOnHref` is also consumed by the Vendors-tab plan/budget accordion and the Alaala hub — both now consistently open the maker for the monogram entry, which is the intended funnel.
+
+Not browser-verified locally (auth-gated dashboard); relying on CI typecheck+lint + a preview link for the owner. The change is a route string + card-copy edit.
+
+SPEC IMPACT: None (routing/discoverability fix; no schema, no pricing change — the free maker and the paid ANIMATED_MONOGRAM SKU are both unchanged, only the Studio entry point is corrected).
 ## 2026-06-18 · fix(db): apply the 2 unapplied migrations + repair the widget CHECK + reconcile the ledger
 
 Prod had merged features whose migrations were never applied (deploy-process gap). Fixed against prod directly:

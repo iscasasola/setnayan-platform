@@ -115,12 +115,22 @@ export type AddOnEntry = {
 
 /**
  * Resolve the href for a given add-on key + event ID.
- * Orders is a special case that links to /orders, not /add-ons/orders.
+ *
+ * A few keys don't live under /add-ons/<key>:
+ *   • orders            → /orders (the order history surface).
+ *   • animated-monogram → /monogram, the couple's Monogram MAKER (the free
+ *     design hub — lettered lockups · Cipher Studio · Setnayan-AI Bespoke ·
+ *     upload). The Studio card's label/CTA promise "design your monogram", so
+ *     it must open the maker, not the paid Animated-Monogram buy page. The
+ *     maker itself funnels to that paid upgrade (its "See the Animated
+ *     Monogram" CTAs → /add-ons/animated-monogram), so the SKU page stays
+ *     reachable as the upsell. (Fix 2026-06-18 — the maker was unreachable
+ *     from Studio; only the buy wall showed.)
  */
 export function addOnHref(key: string, eventId: string): string {
-  return key === 'orders'
-    ? `/dashboard/${eventId}/orders`
-    : `/dashboard/${eventId}/add-ons/${key}`;
+  if (key === 'orders') return `/dashboard/${eventId}/orders`;
+  if (key === 'animated-monogram') return `/dashboard/${eventId}/monogram`;
+  return `/dashboard/${eventId}/add-ons/${key}`;
 }
 
 export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
@@ -273,15 +283,20 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'animated-monogram',
-    label: 'Monogram Creator',
+    label: 'Monogram Maker',
     Icon: Type,
     iteration: '0004',
     status: 'web_v1',
     category: 'digital_services',
     blurb:
-      'Design your wedding monogram · animated SVG trace · custom hero background',
-    cta: 'Open studio',
+      'Design your wedding monogram — lettered, interlocking cipher, Setnayan AI, or your own upload',
+    cta: 'Open the maker',
     studioGroup: 'branding',
+    // The maker itself is free (the lettered / cipher / upload monogram is
+    // never gated) → "Free" chip. serviceKey keeps the Animated-Monogram SKU
+    // ownership badge, so the chip flips to "Active" once the paid draw-on
+    // animation is owned (chip priority: Active > Pending > Free).
+    tier: 'free',
     serviceKey: 'ANIMATED_MONOGRAM',
     poster: {
       motion: 'pulse',

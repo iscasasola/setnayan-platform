@@ -8,12 +8,12 @@
  * phone frame that updates in real-time as the couple makes changes.
  * One "Render" button saves everything in a single write.
  *
+ * Step 3 has fully inline-editable fields that write to the std_film_*
+ * snapshot columns — overriding live event data without changing the event
+ * itself. The preview reflects every keystroke.
+ *
  * Layout: two-column on lg+ (builder | sticky preview + Render), stacked on
  * mobile (builder → preview → Render).
- *
- * The preview is rendered at the film's natural 384px width but scaled down
- * to ~220px display via CSS transform, so it looks pixel-sharp (not blurry)
- * while remaining too small to screen-record as a usable asset.
  */
 
 import { useMemo, useState, useTransition } from 'react';
@@ -22,13 +22,12 @@ import { Check, ExternalLink, Sparkles } from 'lucide-react';
 import { SaveTheDateFilm } from '@/app/[slug]/_components/save-the-date-film';
 import { STD_THEMES, type StdThemeId } from '@/lib/std-themes';
 import { formatEventDate } from '@/lib/events';
+import { shortDate } from '@/lib/save-the-date-content';
 import { saveAllStdContent } from '../actions';
 import type { StdFilmContent } from '@/lib/save-the-date-content';
 import type { RevealTemplate } from '@/app/[slug]/_components/reveal/reveal-templates';
 import { RevealPreviewCard } from '@/app/dashboard/[eventId]/_components/reveal-preview-card';
 import type { WaxSealConfig } from '@/lib/wax-seal/types';
-
-type InfoRow = { label: string; done: boolean; value?: string; href?: string };
 
 type Props = {
   eventId: string;
@@ -39,8 +38,11 @@ type Props = {
   initialThemeId: StdThemeId;
   initialLaunchDate: string;
   initialRevealTemplate: RevealTemplate | null;
-  /** Status rows displayed in the "Your information" section. */
-  infoRows: InfoRow[];
+  /** Raw std_film_* snapshot values — null means not yet set (falls back to live event data). */
+  initialFilmDate?: string | null;
+  initialFilmVenueName?: string | null;
+  initialFilmVenueCity?: string | null;
+  initialFilmStory?: string | null;
   // RevealPreviewCard props (forwarded)
   displayName: string;
   dateIso: string | null;
@@ -58,6 +60,8 @@ const PREVIEW_SCALE = PREVIEW_W / FILM_NATURAL_W; // ~0.573
 const PREVIEW_H = Math.round(PREVIEW_W * (16 / 9));
 const FILM_NATURAL_H = Math.round(FILM_NATURAL_W * (16 / 9));
 
+const STORY_MAX = 120;
+
 export function StdBuilderClient({
   eventId,
   slug,
@@ -65,7 +69,10 @@ export function StdBuilderClient({
   initialThemeId,
   initialLaunchDate,
   initialRevealTemplate,
-  infoRows,
+  initialFilmDate,
+  initialFilmVenueName,
+  initialFilmVenueCity,
+  initialFilmStory,
   displayName,
   dateIso,
   markSvg,
@@ -76,25 +83,59 @@ export function StdBuilderClient({
 }: Props) {
   const [themeId, setThemeId] = useState<StdThemeId>(initialThemeId);
   const [launchDate, setLaunchDate] = useState(initialLaunchDate);
+
+  // Film-snapshot overrides — each drives both the preview AND what gets saved.
+  const [filmDate, setFilmDate] = useState(initialFilmDate ?? '');
+  const [venueName, setVenueName] = useState(initialFilmVenueName ?? '');
+  const [venueCity, setVenueCity] = useState(initialFilmVenueCity ?? '');
+  const [filmStory, setFilmStory] = useState(initialFilmStory ?? '');
+
   const [saving, startSave] = useTransition();
   const [result, setResult] = useState<'idle' | 'ok' | 'error'>('idle');
 
-  // Derive live content: all fields come from the server (presigned URLs, names,
-  // date, venue, story) — only launchLabel can change in this builder.
+  // Every state change re-derives the full content object so the preview
+  // reflects exactly what would render on the live page after saving.
   const liveContent = useMemo<StdFilmContent>(() => {
+    const dateOverride = filmDate.trim() || null;
+    const dateBig = shortDate(dateOverride) ?? initialContent.dateBig;
+    const dateLabel = dateOverride ? formatEventDate(dateOverride) : initialContent.dateLabel;
+    const resolvedVenueName = venueName.trim() || initialContent.venueName || null;
+    const resolvedVenueCity = venueCity.trim() || initialContent.venueCity || null;
+    const storyRaw = filmStory.trim();
+    const resolvedStory = storyRaw
+      ? storyRaw.length > STORY_MAX
+        ? storyRaw.slice(0, STORY_MAX - 2).trimEnd() + '…'
+        : storyRaw
+      : (initialContent.storyTeaser ?? null);
     const launchLabel = launchDate ? formatEventDate(launchDate) : null;
-    return { ...initialContent, launchLabel };
-  }, [initialContent, launchDate]);
+    return {
+      ...initialContent,
+      dateBig,
+      dateLabel,
+      venueName: resolvedVenueName,
+      venueCity: resolvedVenueCity,
+      storyTeaser: resolvedStory,
+      launchLabel,
+    };
+  }, [initialContent, filmDate, venueName, venueCity, filmStory, launchDate]);
 
   const handleRender = () => {
     startSave(async () => {
       const r = await saveAllStdContent(eventId, {
         theme: themeId,
         launchDate: launchDate || null,
+        filmDate: filmDate.trim() || null,
+        filmVenueName: venueName.trim() || null,
+        filmVenueCity: venueCity.trim() || null,
+        filmStory: filmStory.trim() || null,
       });
       setResult(r.ok ? 'ok' : 'error');
     });
   };
+
+  const inputCls =
+    'w-full rounded-lg border border-ink/15 bg-cream px-3 py-2.5 text-sm text-ink placeholder:text-ink/35 focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta/30';
+  const helperCls = 'mt-1.5 text-[11px] text-ink/45';
 
   return (
     <div className="space-y-8">
@@ -167,7 +208,7 @@ export function StdBuilderClient({
             </div>
           </section>
 
-          {/* Step 3 · Your information */}
+          {/* Step 3 · Information — inline editable */}
           <section className="space-y-3">
             <div className="space-y-1">
               <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
@@ -175,57 +216,185 @@ export function StdBuilderClient({
               </p>
               <h2 className="font-serif text-xl italic">What your film shows</h2>
               <p className="text-sm text-ink/65">
-                Auto-filled from your event. Tap <strong>Add</strong> to fill any gap.
+                Your film fills from your event. Edit here to set film-specific text — your event stays unchanged.
               </p>
             </div>
+
+            {/* Editable fields */}
+            <div className="space-y-5 rounded-2xl border border-ink/10 bg-white/70 p-5">
+
+              {/* Wedding date */}
+              <div>
+                <label htmlFor="film_date" className="block text-xs font-semibold uppercase tracking-wide text-ink/60">
+                  Wedding date
+                </label>
+                <input
+                  id="film_date"
+                  type="date"
+                  value={filmDate}
+                  onChange={(e) => { setFilmDate(e.target.value); if (result !== 'idle') setResult('idle'); }}
+                  className={`mt-1.5 ${inputCls}`}
+                />
+                {!filmDate && initialContent.dateLabel ? (
+                  <p className={helperCls}>Auto-filled · {initialContent.dateLabel}</p>
+                ) : !filmDate ? (
+                  <p className={helperCls}>No date set yet — add it in your event dashboard.</p>
+                ) : null}
+              </div>
+
+              {/* Venue name */}
+              <div>
+                <label htmlFor="film_venue_name" className="block text-xs font-semibold uppercase tracking-wide text-ink/60">
+                  Venue name
+                </label>
+                <input
+                  id="film_venue_name"
+                  type="text"
+                  value={venueName}
+                  onChange={(e) => { setVenueName(e.target.value); if (result !== 'idle') setResult('idle'); }}
+                  placeholder={initialContent.venueName ?? 'e.g. The Grand Ballroom'}
+                  className={`mt-1.5 ${inputCls}`}
+                />
+                {!venueName && initialContent.venueName ? (
+                  <p className={helperCls}>Auto-filled · {initialContent.venueName}</p>
+                ) : null}
+              </div>
+
+              {/* Venue city / area */}
+              <div>
+                <label htmlFor="film_venue_city" className="block text-xs font-semibold uppercase tracking-wide text-ink/60">
+                  City or area
+                </label>
+                <input
+                  id="film_venue_city"
+                  type="text"
+                  value={venueCity}
+                  onChange={(e) => { setVenueCity(e.target.value); if (result !== 'idle') setResult('idle'); }}
+                  placeholder={initialContent.venueCity ?? 'e.g. Makati, Metro Manila'}
+                  className={`mt-1.5 ${inputCls}`}
+                />
+                {!venueCity && initialContent.venueCity ? (
+                  <p className={helperCls}>Auto-filled · {initialContent.venueCity}</p>
+                ) : null}
+              </div>
+
+              {/* Story teaser */}
+              <div>
+                <label htmlFor="film_story" className="block text-xs font-semibold uppercase tracking-wide text-ink/60">
+                  A line from your story
+                </label>
+                <textarea
+                  id="film_story"
+                  rows={2}
+                  maxLength={STORY_MAX}
+                  value={filmStory}
+                  onChange={(e) => { setFilmStory(e.target.value); if (result !== 'idle') setResult('idle'); }}
+                  placeholder={initialContent.storyTeaser ?? 'A short sentence about your love story…'}
+                  className={`mt-1.5 resize-none ${inputCls}`}
+                />
+                <div className="mt-1.5 flex items-start justify-between gap-2">
+                  {!filmStory && initialContent.storyTeaser ? (
+                    <p className={helperCls}>Auto-filled from your love story</p>
+                  ) : (
+                    <span />
+                  )}
+                  <p className={`shrink-0 ${helperCls} ${filmStory.length >= STORY_MAX ? 'text-terracotta' : ''}`}>
+                    {filmStory.length}/{STORY_MAX}
+                  </p>
+                </div>
+              </div>
+
+              {/* Invitation launch date */}
+              <div>
+                <label htmlFor="std_launch_date" className="block text-xs font-semibold uppercase tracking-wide text-ink/60">
+                  Invitation goes live <span className="font-normal normal-case tracking-normal text-ink/40">(optional)</span>
+                </label>
+                <input
+                  id="std_launch_date"
+                  type="date"
+                  value={launchDate}
+                  onChange={(e) => { setLaunchDate(e.target.value); if (result !== 'idle') setResult('idle'); }}
+                  className={`mt-1.5 ${inputCls}`}
+                />
+                <p className={helperCls}>
+                  We&rsquo;ll add a &ldquo;remind me when the invite arrives&rdquo; to the end-of-film calendar.
+                </p>
+              </div>
+            </div>
+
+            {/* Non-editable status items */}
             <ul className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-white/70">
-              {infoRows.map((r) => (
-                <li key={r.label} className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-ink/85">{r.label}</p>
-                    {r.done && r.value ? (
-                      <p className="truncate text-xs text-ink/55">{r.value}</p>
-                    ) : null}
-                  </div>
-                  {r.done ? (
-                    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
-                      <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
-                      Added
-                    </span>
-                  ) : r.href ? (
-                    <Link
-                      href={r.href}
-                      className="inline-flex shrink-0 items-center gap-1 rounded-full border border-ink/15 bg-cream px-3 py-1 text-xs font-medium text-ink/70 hover:border-terracotta hover:text-terracotta"
-                    >
-                      Add
-                    </Link>
-                  ) : null}
-                </li>
-              ))}
+              {/* Names & monogram — core event data, edit via dashboard */}
+              <li className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-ink/85">Your names</p>
+                  <p className="truncate text-xs text-ink/50">{initialContent.names}</p>
+                </div>
+                <Link
+                  href={`/dashboard/${eventId}`}
+                  className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-ink/50 hover:text-terracotta"
+                >
+                  Edit
+                  <ExternalLink aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+                </Link>
+              </li>
+
+              {/* Soundtrack */}
+              <li className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-ink/85">Soundtrack</p>
+                  {!initialContent.musicUrl ? (
+                    <p className="text-xs text-ink/45">Not added yet</p>
+                  ) : (
+                    <p className="text-xs text-emerald-600">Added</p>
+                  )}
+                </div>
+                {initialContent.musicUrl ? (
+                  <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                    <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
+                    Added
+                  </span>
+                ) : (
+                  <Link
+                    href={`/dashboard/${eventId}/website/site-chrome`}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-full border border-ink/15 bg-cream px-3 py-1 text-xs font-medium text-ink/70 hover:border-terracotta hover:text-terracotta"
+                  >
+                    Add
+                  </Link>
+                )}
+              </li>
+
+              {/* Closing photos */}
+              <li className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-ink/85">Closing photos</p>
+                  {(initialContent.gallery?.length ?? 0) > 0 ? (
+                    <p className="text-xs text-emerald-600">
+                      {initialContent.gallery!.length} photo{initialContent.gallery!.length > 1 ? 's' : ''}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-ink/45">Not added yet</p>
+                  )}
+                </div>
+                {(initialContent.gallery?.length ?? 0) > 0 ? (
+                  <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                    <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
+                    Added
+                  </span>
+                ) : (
+                  <Link
+                    href={`/dashboard/${eventId}/website/our-photos`}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-full border border-ink/15 bg-cream px-3 py-1 text-xs font-medium text-ink/70 hover:border-terracotta hover:text-terracotta"
+                  >
+                    Add
+                  </Link>
+                )}
+              </li>
             </ul>
-            <p className="text-xs text-ink/50">
+
+            <p className="text-xs text-ink/45">
               Missing items are simply skipped — the film adapts to what it has.
             </p>
-          </section>
-
-          {/* Invitation launch date */}
-          <section className="space-y-2 rounded-2xl border border-ink/10 bg-white/70 p-4 sm:p-5">
-            <label htmlFor="std_launch_date" className="text-sm font-medium text-ink/85">
-              When does your full invitation go live?
-            </label>
-            <p className="text-xs text-ink/55">
-              We&rsquo;ll add a &ldquo;remind me when the invite arrives&rdquo; to the end-of-film calendar. Optional.
-            </p>
-            <input
-              id="std_launch_date"
-              type="date"
-              value={launchDate}
-              onChange={(e) => {
-                setLaunchDate(e.target.value);
-                if (result !== 'idle') setResult('idle');
-              }}
-              className="mt-1 rounded-md border border-ink/20 bg-cream px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none"
-            />
           </section>
         </div>
 

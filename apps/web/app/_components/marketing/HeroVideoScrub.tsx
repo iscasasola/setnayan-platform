@@ -114,6 +114,11 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
     const reduce =
       typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+    // Minimum time the veil stays up — ensures the manifesto statement is
+    // actually readable even on fast connections where frames land in <0.5s.
+    const MIN_VEIL_MS = 2800;
+    const veilStart = Date.now();
+
     const stopTouch = (e: TouchEvent) => e.preventDefault();
     const unlock = () => {
       document.body.style.overflow = '';
@@ -134,6 +139,13 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
       // Swap loading content for the ready prompt — veil fades on first deliberate scroll.
       if (loadingContentRef.current) loadingContentRef.current.style.opacity = '0';
       if (readyPromptRef.current) readyPromptRef.current.style.opacity = '1';
+    };
+    // Respects the minimum veil hold time so the manifesto is readable.
+    const scheduleReveal = () => {
+      if (reduce) return;
+      const elapsed = Date.now() - veilStart;
+      const remaining = MIN_VEIL_MS - elapsed;
+      if (remaining <= 0) { reveal(); } else { window.setTimeout(reveal, remaining); }
     };
 
     if (reduce) {
@@ -156,7 +168,7 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
         if (barRef.current) barRef.current.style.transform = `scaleX(${(done / n).toFixed(3)})`;
         // Opening frames in (or, for a tiny sequence, all of them) → release + invite
         // the swipe; the bar keeps advancing behind the fading veil as the rest arrive.
-        if (!reduce && (leadDone >= LEAD || done >= n)) reveal();
+        if (!reduce && (leadDone >= LEAD || done >= n)) scheduleReveal();
       };
       im.onload = onDone;
       im.onerror = onDone; // a failed frame still counts, so the veil can never trap the user
@@ -397,12 +409,12 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
           </div>
 
           {/* Manifesto — always visible in both loading and ready states */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, width: '100%', maxWidth: 520, textAlign: 'center' }}>
-            <p style={{ margin: 0, fontSize: 15, lineHeight: 1.6, color: 'rgba(30,34,41,0.38)', fontWeight: 400 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, width: '100%', maxWidth: 600, textAlign: 'center' }}>
+            <p className="m-serif italic" style={{ margin: 0, fontSize: 'clamp(1.55rem, 3.8vw, 2.3rem)', lineHeight: 1.15, color: 'rgba(30,34,41,0.32)', fontWeight: 400 }}>
               Weddings have always been planned for the couple.
             </p>
-            <div style={{ width: 24, height: 1, background: '#C9A96E', opacity: 0.5 }} />
-            <p style={{ margin: 0, fontSize: 15, lineHeight: 1.6, color: '#1E2229', fontWeight: 400 }}>
+            <div style={{ width: 28, height: 1, background: '#C9A96E', opacity: 0.6 }} />
+            <p className="m-serif italic" style={{ margin: 0, fontSize: 'clamp(1.55rem, 3.8vw, 2.3rem)', lineHeight: 1.15, color: '#1E2229', fontWeight: 400 }}>
               We built the first platform where{' '}
               <span style={{ color: '#C9A96E' }}>every guest</span>
               {' '}is part of it.

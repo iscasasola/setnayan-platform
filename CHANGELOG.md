@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-18 · feat(patiktok): reel delivery — email + persistent download + admin monitor (PR4 of 4)
+
+Closes the Patiktok record→render→download slice. Stacked on PR3 (#1741).
+
+- **New `lib/patiktok-reel-emails.ts`** — `sendPatiktokReelReadyEmail` (branded "your reel is ready" via Resend, mirrors the Papic sampler email pattern). Resolves the couple's email, links to the Patiktok dashboard (durable), stamps `delivered_at`. Self-guards on RESEND config; **never throws**. Fired from `finalizePatiktokRenderJob` via Next 15 **`after()`** — cron-free, non-blocking.
+- **Persistent download** — `page.tsx` "Your renders" now resolves a **fresh presigned GET** from the durable `output_object_key` for each completed reel and renders a real **Download** button (replaces the static "Download link emailed" line). Guarded by `isR2Configured`.
+- **New admin monitor `app/admin/patiktok/page.tsx`** — read-only render-job queue across all events (status counts + per-job event/template/mode/size/delivery/failure), so the team can spot reels that failed (no-WebCodecs device, R2 CORS not set). Linked from the admin home tile.
+
+tsc 0 · ESLint clean · `lint:navicon` green. Email no-ops cleanly until RESEND is keyed; downloads no-op until R2 is configured.
+
+This completes the architect triad for Patiktok: **couple** (gallery + in-browser render + download), **operator** (booth capture), **admin** (render monitor) — with the email connecting render → couple.
+
+SPEC IMPACT iter 0017 — Patiktok now delivers a real reel end-to-end (capture → render → download/email); only TikTok auto-post (verified-app audit) + owned music (Suno ingestion) remain owner/external-gated. → CHANGELOG + corpus DECISION_LOG.
+
 ## 2026-06-18 · feat(patiktok): client-side WebCodecs reel render engine (PR3 of 4)
 
 The piece that makes Patiktok actually produce a video — replaces the 100ms placeholder worker with a real client-side renderer. Stacked on PR2 (#1723). Owner-locked render host: **client-side, ₱0 server compute**.

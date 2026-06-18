@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   Clock3,
+  Download,
   ExternalLink,
   Film,
   Hash,
@@ -17,6 +18,8 @@ import {
   XCircle,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { presignDisplayUrl } from '@/lib/uploads';
+import { isR2Configured, R2_BUCKETS } from '@/lib/r2';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { formatPhp } from '@/lib/orders';
 import {
@@ -51,6 +54,7 @@ type RenderJobRow = {
   duration_sec: number;
   status: 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled';
   output_url: string | null;
+  output_object_key: string | null;
   failure_reason: string | null;
   enqueued_at: string;
   completed_at: string | null;
@@ -115,12 +119,35 @@ export default async function PatiktokGallery({
   const { data: jobsRaw } = await supabase
     .from('patiktok_render_jobs')
     .select(
-      'job_id, template_slug, duration_sec, status, output_url, failure_reason, enqueued_at, completed_at',
+      'job_id, template_slug, duration_sec, status, output_url, output_object_key, failure_reason, enqueued_at, completed_at',
     )
     .eq('event_id', eventId)
     .order('enqueued_at', { ascending: false })
     .limit(20);
   const jobs = (jobsRaw ?? []) as RenderJobRow[];
+
+  // Resolve a fresh presigned download URL for completed reels (the stored
+  // output_url presign expires; output_object_key is the durable pointer).
+  const downloadUrls: Record<string, string> = {};
+  const completedJobs = jobs.filter(
+    (j) => j.status === 'completed' && j.output_object_key,
+  );
+  if (isR2Configured() && completedJobs.length > 0) {
+    const entries = await Promise.all(
+      completedJobs.map(
+        async (j) =>
+          [
+            j.job_id,
+            await presignDisplayUrl(
+              R2_BUCKETS.media,
+              j.output_object_key as string,
+              60 * 60 * 24 * 7,
+            ),
+          ] as const,
+      ),
+    );
+    for (const [id, url] of entries) downloadUrls[id] = url;
+  }
 
   const { data: grantRaw } = await supabase
     .from('patiktok_oauth_grants')
@@ -232,7 +259,7 @@ export default async function PatiktokGallery({
         settings={settings}
       />
 
-      <YourRenders jobs={jobs} eventId={eventId} />
+      <YourRenders jobs={jobs} eventId={eventId} downloadUrls={downloadUrls} />
 
       <HowItWorks />
 
@@ -273,9 +300,11 @@ export default async function PatiktokGallery({
 function YourRenders({
   jobs,
   eventId: _eventId,
+  downloadUrls,
 }: {
   jobs: ReadonlyArray<RenderJobRow>;
   eventId: string;
+  downloadUrls: Record<string, string>;
 }) {
   if (jobs.length === 0) return null;
   return (
@@ -311,10 +340,18 @@ function YourRenders({
                   </p>
                 ) : null}
               </div>
-              {job.status === 'completed' && job.output_url ? (
-                <p className="font-mono text-[11px] text-ink/55">
-                  Download link emailed
-                </p>
+              {job.status === 'completed' && downloadUrls[job.job_id] ? (
+                <a
+                  href={downloadUrls[job.job_id]}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-md bg-mulberry px-2.5 py-1.5 text-xs font-medium text-cream transition-colors hover:bg-mulberry-600"
+                >
+                  <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  Download
+                </a>
+              ) : job.status === 'completed' ? (
+                <p className="font-mono text-[11px] text-ink/55">Ready</p>
               ) : null}
             </li>
           );

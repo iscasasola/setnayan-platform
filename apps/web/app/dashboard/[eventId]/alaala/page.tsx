@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 import { ADD_ONS, addOnHref } from '@/lib/add-ons-catalog';
-import { getKwentoDensity } from '@/lib/kwento-density';
+import { getKwentoDensity, type KwentoDensityRow } from '@/lib/kwento-density';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 
@@ -96,7 +96,7 @@ export default async function AlaalaPage({ params }: Props) {
       .eq('status', 'approved')
       .order('updated_at', { ascending: false })
       .limit(3)
-      .catch(() => ({ data: null })),
+      .then((r) => r, () => ({ data: null })),
   ]);
 
   // Resolve thumbnail URLs for the top density photos.
@@ -109,7 +109,7 @@ export default async function AlaalaPage({ params }: Props) {
 
   const densityCards: DensityCard[] = densityRows.length
     ? await Promise.all(
-        densityRows.map(async (row) => {
+        densityRows.map(async (row: KwentoDensityRow) => {
           // Try to get a thumbnail from papic_guest_captures.r2_key first.
           let thumbUrl: string | null = null;
           try {

@@ -173,6 +173,10 @@ export function LivingHeroStudio({
     'inline-flex h-11 items-center justify-center rounded-lg border border-burgundy/20 bg-burgundy px-5 text-sm font-semibold text-cream transition hover:bg-burgundy/90 disabled:opacity-50';
   const ghostBtn =
     'inline-flex h-11 items-center justify-center rounded-lg border border-ink/15 bg-white px-5 text-sm font-medium text-ink/75 transition hover:bg-cream';
+  // Hoist before JSX to avoid TypeScript narrowing the type away inside
+  // phase-guarded blocks (e.g. `phase === 'ready'` narrows phase, making
+  // `phase === 'saving'` always-false inside that branch).
+  const isSaving = phase === 'saving';
 
   return (
     <div className="space-y-5">
@@ -300,11 +304,11 @@ export function LivingHeroStudio({
             ) : (
               <div className="flex flex-wrap gap-3">
                 {supported ? (
-                  <button type="button" onClick={onBake} disabled={phase === 'saving'} className={primaryBtn}>
+                  <button type="button" onClick={onBake} disabled={isSaving} className={primaryBtn}>
                     Make it move
                   </button>
                 ) : null}
-                <button type="button" onClick={onUsePhoto} disabled={phase === 'saving'} className={supported ? ghostBtn : primaryBtn}>
+                <button type="button" onClick={onUsePhoto} disabled={isSaving} className={supported ? ghostBtn : primaryBtn}>
                   Use a photo instead
                 </button>
                 <button type="button" onClick={reset} className={ghostBtn}>
@@ -326,7 +330,7 @@ export function LivingHeroStudio({
           </div>
           <p className="mt-2 text-sm text-ink/55">It plays forward, then reverses — on a gentle loop.</p>
           <div className="mt-4 flex flex-wrap gap-3">
-            <button type="button" onClick={onSaveBoomerang} disabled={phase === 'saving'} className={primaryBtn}>
+            <button type="button" onClick={onSaveBoomerang} disabled={isSaving} className={primaryBtn}>
               Save as my hero
             </button>
             <button type="button" onClick={reset} className={ghostBtn}>

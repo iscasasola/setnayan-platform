@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-18 · feat(std): "No Reveal" — the free, no-opening choice
+
+The couple can now pick **No Reveal** in the Save-the-Date opening picker — the free option where the content film plays straight away with no opening to lift (the reveal templates are the premium "filter" on top). Distinct from "not chosen" so it's honoured even for couples who own the premium unlock.
+
+- `reveal-templates.ts`: `NO_REVEAL = 'none'` sentinel + `RevealChoice = RevealTemplate | 'none'` (kept OUT of the `RevealTemplate` union so the reveal switches don't need a 'none' case).
+- `reveal-preview-card.tsx`: a "No reveal · Free · just your film" tile (first); when selected the effect controls hide and the blurb explains it's the free option.
+- `StdBuilderClient.tsx`: `previewing`/`initialRevealTemplate` widened to `RevealChoice`; the preview skips the opening overlay entirely for No Reveal (film plays directly).
+- `reveal-overlay.tsx` (live): when the couple chose `'none'` (and there's no `?reveal=` override) the overlay renders nothing — even with the premium unlock. The film auto-starts via its existing 2 s fallback (no `std-reveal-done` needed).
+- `coerceTemplate` (builder page) + `coerceRevealTemplate` (live page) pass `'none'` through; `chooseRevealTemplate` accepts it.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — "No Reveal" is the explicit free baseline in the opening picker (reveals = premium filter on top). No schema change (reuses `events.std_reveal_template` = `'none'`).
+
 ## 2026-06-18 · fix(std): the veil stays on top — it's a persistent layer over the playing film, not a one-shot gate
 
 The veil used to fade out + unmount the moment it lifted, so the film only started after the veil was gone and the veil could never come back down. Now the veil is a **persistent top layer**: the first lift starts the film *underneath* (still dispatches `std-reveal-done`) while the veil stays mounted on top (z-60), so a guest can swipe it back **down** and it re-covers the still-playing film (VeilReveal is already two-way). Veil-specific — the rigid openings (envelope/doors) genuinely part and clear, so they keep fading/unmounting.

@@ -27,7 +27,9 @@ import { saveAllStdContent } from '../actions';
 import type { StdFilmContent } from '@/lib/save-the-date-content';
 import {
   REVEAL_LIBRARY,
+  NO_REVEAL,
   type RevealTemplate,
+  type RevealChoice,
 } from '@/app/[slug]/_components/reveal/reveal-templates';
 import { RevealPreviewCard } from '@/app/dashboard/[eventId]/_components/reveal-preview-card';
 import { RevealPreview } from '@/app/dashboard/[eventId]/_components/reveal-preview';
@@ -48,7 +50,7 @@ type Props = {
   initialContent: StdFilmContent;
   initialThemeId: StdThemeId;
   initialLaunchDate: string;
-  initialRevealTemplate: RevealTemplate | null;
+  initialRevealTemplate: RevealChoice | null;
   /** The couple's saved reveal effect toggles (resolved; defaults applied). */
   initialEffects: RevealEffects;
   /** Raw std_film_* snapshot values — null means not yet set (falls back to live event data). */
@@ -119,10 +121,14 @@ export function StdBuilderClient({
   const firstAllowed = (
     REVEAL_LIBRARY.find((t) => allowedTemplates[t.id] !== false) ?? REVEAL_LIBRARY[0]!
   ).id;
-  const [previewing, setPreviewing] = useState<RevealTemplate>(
-    initialRevealTemplate && allowedTemplates[initialRevealTemplate] !== false
-      ? initialRevealTemplate
-      : firstAllowed,
+  const [previewing, setPreviewing] = useState<RevealChoice>(
+    // 'none' (No Reveal) is always honoured; otherwise the saved opening if the
+    // admin still allows it, else the first enabled opening.
+    initialRevealTemplate === NO_REVEAL
+      ? NO_REVEAL
+      : initialRevealTemplate && allowedTemplates[initialRevealTemplate] !== false
+        ? initialRevealTemplate
+        : firstAllowed,
   );
   // True once the opening has auto-played + lifted away, revealing the film.
   const [revealDone, setRevealDone] = useState(false);
@@ -130,7 +136,7 @@ export function StdBuilderClient({
   const [effects, setEffects] = useState<RevealEffects>(initialEffects);
 
   // Any change that should replay the opening also resets the lifted state.
-  const pickOpening = (t: RevealTemplate) => {
+  const pickOpening = (t: RevealChoice) => {
     setPreviewing(t);
     setRevealDone(false);
   };
@@ -529,33 +535,37 @@ export function StdBuilderClient({
                   fill
                 />
               </div>
-              {/* overlay — the opening. The rigid openings (envelope/doors)
-                  truly part and clear, so they fade out once lifted. The VEIL
-                  is a persistent top layer (two-way), so it STAYS on top over
-                  the playing film — matching the live page. (2026-06-18) */}
-              <div
-                className={`absolute inset-0 transition-opacity duration-700 ${
-                  revealDone && previewing !== 'veil-sheer'
-                    ? 'pointer-events-none opacity-0'
-                    : 'opacity-100'
-                }`}
-              >
-                <RevealPreview
-                  key={`${device}-${previewing}-${restartKey}`}
-                  template={previewing}
-                  markSvg={markSvg}
-                  monogram={liveContent.monogram}
-                  waxColor={waxColor}
-                  sealConfig={sealConfig}
-                  sealFallbackSeed={sealFallbackSeed}
-                  veilColor={veilColor}
-                  petalsColor={petalsColor}
-                  veilLook={veilLook}
-                  effectLook={effectLook}
-                  effects={effects}
-                  onDone={() => setRevealDone(true)}
-                />
-              </div>
+              {/* overlay — the opening. Skipped entirely for No Reveal (the free
+                  choice → the film plays straight away, nothing on top). The
+                  rigid openings (envelope/doors) truly part and clear, so they
+                  fade out once lifted. The VEIL is a persistent top layer
+                  (two-way), so it STAYS on top over the playing film — matching
+                  the live page. (2026-06-18) */}
+              {previewing === NO_REVEAL ? null : (
+                <div
+                  className={`absolute inset-0 transition-opacity duration-700 ${
+                    revealDone && previewing !== 'veil-sheer'
+                      ? 'pointer-events-none opacity-0'
+                      : 'opacity-100'
+                  }`}
+                >
+                  <RevealPreview
+                    key={`${device}-${previewing}-${restartKey}`}
+                    template={previewing}
+                    markSvg={markSvg}
+                    monogram={liveContent.monogram}
+                    waxColor={waxColor}
+                    sealConfig={sealConfig}
+                    sealFallbackSeed={sealFallbackSeed}
+                    veilColor={veilColor}
+                    petalsColor={petalsColor}
+                    veilLook={veilLook}
+                    effectLook={effectLook}
+                    effects={effects}
+                    onDone={() => setRevealDone(true)}
+                  />
+                </div>
+              )}
             </DeviceFrame>
           </div>
 

@@ -35,7 +35,7 @@ import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 import { FourFlapEnvelope } from './four-flap';
 import { RigidReveal } from './rigid-reveal';
-import { isVeilTemplate, REVEAL_ALIASES, type RevealTemplate } from './reveal-templates';
+import { isVeilTemplate, NO_REVEAL, REVEAL_ALIASES, type RevealTemplate } from './reveal-templates';
 import type { WaxSealConfig } from '@/lib/wax-seal/types';
 import type { RevealStudioConfig, RevealTemplateId } from '@/lib/reveal-config';
 import { rigidEffectFor, type RevealEffects } from '@/lib/std-reveal-effects';
@@ -65,8 +65,9 @@ type Props = {
   /** Resolved admin Reveal Studio config (master toggle · default template · veil look · features). */
   config?: RevealStudioConfig;
   /** The couple's chosen opening (events.std_reveal_template) — overrides the
-   *  admin house default, beneath a per-visit ?reveal= override. (PR4 P4) */
-  eventTemplate?: RevealTemplateId | null;
+   *  admin house default, beneath a per-visit ?reveal= override. (PR4 P4)
+   *  'none' = the couple chose No Reveal (free → no opening; film plays directly). */
+  eventTemplate?: RevealTemplateId | typeof NO_REVEAL | null;
   /** The couple's reveal effect toggles (events.std_reveal_effects, resolved):
    *  butterflies → envelopes · petals → church doors + veil. (2026-06-18) */
   eventEffects?: RevealEffects;
@@ -109,8 +110,12 @@ export function RevealOverlay({
   }, []);
 
   const override = reveal ? REVEAL_ALIASES[reveal] ?? null : null;
+  // The couple choosing No Reveal ('none') means no opening at all — even with
+  // the premium unlock (folded into `active` below). The ?reveal= override
+  // still wins (admin/demo). Here we just narrow 'none' out of the template chain.
+  const eventChoice = eventTemplate === NO_REVEAL ? null : eventTemplate;
   let template: RevealTemplate =
-    override ?? eventTemplate ?? config?.defaultTemplate ?? 'four-flap';
+    override ?? eventChoice ?? config?.defaultTemplate ?? 'four-flap';
   // Honor the admin "allowed openings" map: an opening the admin deactivated
   // (config.templates[id] === false) falls back to the house default — or the
   // first still-enabled opening. The ?reveal= preview override bypasses this.
@@ -133,6 +138,7 @@ export function RevealOverlay({
   const active =
     enabled &&
     !reducedMotion &&
+    !(eventTemplate === NO_REVEAL && !override) &&
     (configEnabled || FLAG_ON || override !== null || premiumUnlocked);
   if (!active || !mounted || gone) return null;
 

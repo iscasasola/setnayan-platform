@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-18 · feat(std): consolidate to ONE live preview — opening plays → lifts away → film
+
+Per owner ("there should only be 1 live preview … the one by Render"), the builder's two separate previews (a Step-1 opening preview + a content-film preview) are collapsed into **one** device frame: the content film plays as the base layer while the chosen opening auto-plays on top and **lifts away to reveal it** — exactly how a guest experiences the live page, in miniature. Single device toggle, single Replay.
+
+- `reveal-preview.tsx` — new `onDone` callback (maps to the child's `onRevealed`/`onOpened`) so the opening can signal "lifted, reveal the film". Was hardcoded `noop`.
+- `reveal-preview-card.tsx` — reduced to a **controlled Step-1 picker** (tiles + active-opening blurb + "Make this mine"). Its in-card device preview + device toggle are removed; `previewing` is lifted to the parent.
+- `StdBuilderClient.tsx` — owns `previewing` + `revealDone`; Step-1 picker moves into the left column above Theme/Info; the single right-rail preview stacks `SaveTheDateFilm` (base) under `RevealPreview` (overlay, fades on `onDone`). Picking an opening / switching device / Replay all reset `revealDone` + remount so the opening replays. The two commits stay distinct (opening = eager `chooseRevealTemplate`; film = `Render`).
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. (Live builder needs auth — visual proof via the Vercel preview.)
+
+SPEC IMPACT: `0024_save_the_date/` — builder is now a single opening→film preview (was two). DECISION_LOG row added. Effect toggles (butterflies/petals) land in follow-up PRs C–E.
+
 ## 2026-06-18 · feat(std): trim film themes 10 → 5 (Default · Mood Board · Heritage · Noir · Botanical)
 
 Owner-locked the Save-the-Date film theme set to five: **Default · Mood Board · Heritage · Noir · Botanical** (down from 10). `editorial` was renamed to `default` (same clean palette, relabelled "Default"); the five niche themes (`blush`, `midnight`, `coastal`, `sunset`, `plum`) were removed. The picker + film renderer + server-action allow-list all read `STD_THEMES`/`STD_THEME_IDS`, so trimming the array auto-propagates with no other code edits.

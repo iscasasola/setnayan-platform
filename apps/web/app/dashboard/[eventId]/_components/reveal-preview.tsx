@@ -39,6 +39,9 @@ type Props = {
   sealConfig?: WaxSealConfig | null;
   sealFallbackSeed?: number;
   veilColor?: string;
+  /** Fired once the opening finishes auto-playing (lifts away) — lets a parent
+   *  reveal the film beneath. Maps to onRevealed (veil) / onOpened (rigid). */
+  onDone?: () => void;
 };
 
 export function RevealPreview({
@@ -49,12 +52,13 @@ export function RevealPreview({
   sealConfig = null,
   sealFallbackSeed,
   veilColor = '#f3ece1',
+  onDone = noop,
 }: Props) {
   if (isVeilTemplate(template)) {
     return (
       <VeilReveal
         veilColor={veilColor}
-        onRevealed={noop}
+        onRevealed={onDone}
         autoplay
         lowRes
         features={{ petals: false, logo: true, music: false }}
@@ -74,7 +78,7 @@ export function RevealPreview({
         waxColor={waxColor}
         config={sealConfig}
         fallbackSeed={sealFallbackSeed}
-        onOpened={noop}
+        onOpened={onDone}
         autoPlay
       />
     );
@@ -86,7 +90,7 @@ export function RevealPreview({
       waxColor={waxColor}
       config={sealConfig}
       fallbackSeed={sealFallbackSeed}
-      onOpened={noop}
+      onOpened={onDone}
       autoPlay
     />
   );

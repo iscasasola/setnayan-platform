@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { REVEAL_TEMPLATE_IDS, type RevealTemplateId } from '@/lib/reveal-config';
 import { STD_THEME_IDS } from '@/lib/std-themes';
+import { resolveRevealEffects } from '@/lib/std-reveal-effects';
 
 /**
  * Server actions for the Save-the-Date builder (0024 PR4 · P4).
@@ -86,6 +87,7 @@ export async function saveAllStdContent(
     filmVenueName?: string | null;
     filmVenueCity?: string | null;
     filmStory?: string | null;
+    revealEffects?: { butterflies?: boolean; petals?: boolean } | null;
   },
 ): Promise<{ ok: boolean; error?: string }> {
   if (!eventId) return { ok: false, error: 'missing-event' };
@@ -121,6 +123,10 @@ export async function saveAllStdContent(
   if (data.filmVenueName !== undefined) patch.std_film_venue_name = data.filmVenueName?.trim() || null;
   if (data.filmVenueCity !== undefined) patch.std_film_venue_city = data.filmVenueCity?.trim() || null;
   if (data.filmStory !== undefined) patch.std_film_story = data.filmStory?.trim() || null;
+  // Reveal effect toggles — sanitised to {butterflies,petals} booleans.
+  if (data.revealEffects !== undefined && data.revealEffects !== null) {
+    patch.std_reveal_effects = resolveRevealEffects(data.revealEffects);
+  }
 
   const { error } = await supabase.from('events').update(patch).eq('event_id', eventId);
   if (error) return { ok: false, error: 'db-error' };

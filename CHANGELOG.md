@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-18 · feat(std): per-event reveal effects — wire butterflies + petals on (builder + live)
+
+Turns the effect layer on per-event (the capability shipped default-off in the same PR). Couple-facing Step-1 toggles, persisted + honored on the **builder preview AND the live guest page**. Wax seal stays always-on for envelopes (structural gate, owner-locked).
+
+- Migration `20270123686171_events_std_reveal_effects.sql` — `events.std_reveal_effects` JSONB `{butterflies,petals}` (length-capped, no RLS change; events already has `couple_can_update_event`). Applied to prod (column + CHECK live).
+- NEW `lib/std-reveal-effects.ts` — `RevealEffects` type · `resolveRevealEffects` (NULL → butterflies off, petals on) · `rigidEffectFor(template, effects)` (envelopes→butterflies, church-doors→petals, veil→null since it uses WebGL petals).
+- Builder: Step-1 picker card gains the per-opening toggle (envelope → *Add butterflies*; church/veil → *Add falling petals*) + an envelope "wax seal always on" note; `StdBuilderClient` holds `effects` state (toggling replays the opening so the change shows) and saves it on **Render** (`saveAllStdContent` → `std_reveal_effects`); `reveal-preview` feeds effects to the reveal (veil `features.petals` / rigid `effect`); `page.tsx` reads + resolves `initialEffects`.
+- Live: `[slug]/page.tsx` selects `std_reveal_effects` (+ `EventRow`), passes resolved effects to **both** `RevealOverlayServer` mounts (forwarded via `{...props}`); `RevealOverlay` drives the veil's `features.petals` + the rigid `effect` prop from the per-event toggles.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. (Live builder + reveal need auth/visible browser — Vercel preview is the visual proof; the canvas effect layer runs only in a visible browser, not the headless tool.)
+
+SPEC IMPACT: `0024_save_the_date/` — per-event reveal effects now exist (butterflies on envelopes, petals on doors + veil; wax seal always-on). DECISION_LOG 2026-06-18 effects rows. ⚠ Default petals-on now also applies to church doors (was veil-only) — intended per the 2026-06-17 reveal-tuning spec; near-zero existing data (no wedding had a saved theme).
+
 ## 2026-06-18 · feat(std): consolidate to ONE live preview — opening plays → lifts away → film
 
 Per owner ("there should only be 1 live preview … the one by Render"), the builder's two separate previews (a Step-1 opening preview + a content-film preview) are collapsed into **one** device frame: the content film plays as the base layer while the chosen opening auto-plays on top and **lifts away to reveal it** — exactly how a guest experiences the live page, in miniature. Single device toggle, single Replay.

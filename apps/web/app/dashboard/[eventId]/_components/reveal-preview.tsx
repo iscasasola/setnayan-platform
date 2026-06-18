@@ -22,6 +22,10 @@ import {
   type RevealTemplate,
 } from '@/app/[slug]/_components/reveal/reveal-templates';
 import type { WaxSealConfig } from '@/lib/wax-seal/types';
+import {
+  rigidEffectFor,
+  type RevealEffects,
+} from '@/lib/std-reveal-effects';
 
 const VeilReveal = dynamic(() => import('@/app/[slug]/_components/reveal/veil-reveal'), {
   ssr: false,
@@ -42,6 +46,9 @@ type Props = {
   /** Fired once the opening finishes auto-playing (lifts away) — lets a parent
    *  reveal the film beneath. Maps to onRevealed (veil) / onOpened (rigid). */
   onDone?: () => void;
+  /** Couple's effect toggles. Veil → petals via WebGL features; rigid → the
+   *  canvas-2D particle layer (butterflies for envelopes, petals for doors). */
+  effects?: RevealEffects;
 };
 
 export function RevealPreview({
@@ -53,6 +60,7 @@ export function RevealPreview({
   sealFallbackSeed,
   veilColor = '#f3ece1',
   onDone = noop,
+  effects,
 }: Props) {
   if (isVeilTemplate(template)) {
     return (
@@ -61,10 +69,11 @@ export function RevealPreview({
         onRevealed={onDone}
         autoplay
         lowRes
-        features={{ petals: false, logo: true, music: false }}
+        features={{ petals: effects?.petals ?? true, logo: true, music: false }}
       />
     );
   }
+  const effect = effects ? rigidEffectFor(template, effects) : null;
   if (
     template === 'two-flap-vertical' ||
     template === 'two-flap-horizontal' ||
@@ -80,6 +89,7 @@ export function RevealPreview({
         fallbackSeed={sealFallbackSeed}
         onOpened={onDone}
         autoPlay
+        effect={effect}
       />
     );
   }
@@ -92,6 +102,7 @@ export function RevealPreview({
       fallbackSeed={sealFallbackSeed}
       onOpened={onDone}
       autoPlay
+      effect={effect}
     />
   );
 }

@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-18 · fix(std): Reveal Studio previews all 5 reveals + petals always start from the top
+
+Two owner fixes:
+1. **All 5 reveals in the studio preview** — the calibration preview switch was Veil · Envelope · Doors (3); now **Veil · Four-flap · Side · Top · Doors** (all 5). `studio.tsx`: `PreviewTpl = RevealTemplateId` + a `PREVIEW_TPLS` list; the render branches veil → `VeilReveal`, four-flap → `FourFlapEnvelope` (butterflies), and the three remaining rigid variants → `RigidReveal variant={previewTpl}` (church-doors = petals, side/top = butterflies).
+2. **Petals always start from the top** — the veil's three.js `initPetals()` seeded the FIRST burst scattered across the whole screen height (`y = ±vh*1.4`), so on lift petals popped in mid-screen/bottom. Now seeded **above the top + staggered upward** (`y = vh*(1.05 + rnd*1.9)`) so the shower rains in from the top. (`spawnFalling` already spawned from above the top; the door/envelope canvas petals already spawn at `y:-8`.)
+
+Verified: `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: matches `0024_Save_the_Date_Content_and_Customization` §4 (petals on lift) + reveal-tuning §5. No schema/API change.
+
 ## 2026-06-18 · feat(std): admin calibration for the reveal effects (butterflies + petals)
 
 Per owner ("settings of the effects on admin so I can calibrate them properly") + reveal-tuning spec §7/§8 ("author-time baked, admin-tunable"). The rigid-family particle effects were hardcoded; now they're calibrated from the Reveal Studio and read through to the live reveal.

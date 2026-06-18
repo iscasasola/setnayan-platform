@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · feat(std): full-screen Save-the-Date — no top nav, no chrome (PR-Q)
+
+Owner: "we don't want the top nav, we want a full screen save the date."
+
+- `InvitationShell` gains a **`fullBleed`** mode: when the full-screen film is the body it renders just `<main>{children}</main>` — **no** "Setnayan · Invitation" top bar, **no** footer, **no** centred max-width column. Passed as `fullBleed={showSaveTheDate && stdFilm}` from both the anonymous (`PublicLanding`) and signed-in (`InvitationSite`) paths. The reveal overlay (z-60) + the film (z-50) fill the viewport edge-to-edge.
+- The film is now **terminal** in this phase: removed the "See your wedding page" dismiss + the `dismissed` state. There's no page beneath a Save-the-Date (the RSVP/widgets belong to later phases), so the film holds on its closing beat instead of dismissing to an empty, chrome-less page.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the Save-the-Date is a true full-screen experience (no site header/footer); the film is terminal (no dismiss) since there's no underlying page in the save-the-date phase. The static (`?film=0`) fallback keeps the normal chrome. See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · feat(std): wedding date chosen from the couple's onboarding dates (PR-P)
 
 Last of the builder-cleanup batch (A). Owner: the STD wedding date must come from the couple's own date choices, not a free-typed field — "based on their choices on onboarding, or the priority date if they've picked one / have only one."

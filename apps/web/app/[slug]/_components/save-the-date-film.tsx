@@ -354,7 +354,6 @@ export function SaveTheDateFilm({
   const videoSlideIndex = hasVideo ? slides.findIndex((s) => s.key === 'video') : -1;
   const [idx, setIdx] = useState(0);
   const [playing, setPlaying] = useState(false); // starts paused; unblocks on reveal-done
-  const [dismissed, setDismissed] = useState(false);
   const [muted, setMuted] = useState(false);
 
   const fillRefs = useRef<Array<HTMLSpanElement | null>>([]);
@@ -568,11 +567,9 @@ export function SaveTheDateFilm({
     });
   };
 
-  // Full-screen: dismissed removes the film so the page beneath shows.
-  // Preview: never dismiss — replay instead.
-  if (dismissed && !preview) return null;
-
-  const isClose = idx === N - 1;
+  // The Save-the-Date is the whole full-screen experience (no chrome, no page
+  // beneath in this phase) — the film holds on its closing beat; there's no
+  // dismiss. (owner 2026-06-19)
 
   // Inner JSX shared by both layout modes (preview card + full-screen).
   const filmContent = (
@@ -630,20 +627,6 @@ export function SaveTheDateFilm({
           </div>
         ))}
       </div>
-
-      {/* The only button: on the final beat, a single clean exit to the wedding
-          page (live only — the builder preview just loops). No transport bar. */}
-      {isClose && !preview ? (
-        <button
-          type="button"
-          onPointerDown={(e) => e.stopPropagation()}
-          onPointerUp={(e) => e.stopPropagation()}
-          onClick={() => setDismissed(true)}
-          className={`absolute inset-x-8 bottom-12 z-30 rounded-full ${theme.accentBg} py-3.5 text-sm font-semibold ${theme.accentFgOnBg} shadow-lg transition hover:${theme.accentBgHover}`}
-        >
-          See your wedding page
-        </button>
-      ) : null}
     </>
   );
 

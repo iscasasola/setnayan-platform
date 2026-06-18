@@ -49,6 +49,34 @@ Verified: `pnpm typecheck` (my files clean; monogram-studio `paper` errors are a
 
 SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` + `0024_Veil_Reveal_Spec` — the video autoplays with a music↔video crossfade; desktop type + monogram scale up; veil petals only fall (no random cling). See `DECISION_LOG.md` 2026-06-19.
 
+## 2026-06-19 · fix(monogram): the dashboard Vector Studio seeds from the couple's initials (same PR #1798)
+
+Owner: on the event's Monogram Maker (`/dashboard/[eventId]/monogram`), the Vector Studio opened on its built-in **"Maria & Juan"** placeholder instead of the couple's initials — so it didn't read as *their* monogram maker, and saving that generic mark **replaced the event's assigned monogram** with the wrong initials. Root cause: `VectorStudio` never received the event's initials — its sibling cards (Cipher / Bespoke / lettered Maker) all take `initialInitials` / `defaultInitials`, but `VectorStudio` took only `initialConfig` (the *saved* design), so a first-time open fell through to the engine's hardcoded default.
+
+- The page now passes `initialNames={monogram.text}` (the resolved "A & B" label).
+- The engine seeds the names field from it **on a first open only** — when there's no saved studio design to restore (a saved config carries its own names, so it's skipped then).
+- The public studio is unaffected (no event → keeps the generic demo default).
+
+So the editor now opens on the couple's real initials, and a save produces a mark consistent with their assigned monogram — no more generic clobber. (Also explains the reported "monogram saves overlap the assigned monogram": before the fix, the saved generic mark and the event's lettered mark disagreed across surfaces.)
+
+Verified: `pnpm typecheck` clean · `pnpm lint` 0 errors · `pnpm build` green.
+
+SPEC IMPACT: monogram Phase 5 — bugfix. None beyond the studio.
+
+## 2026-06-19 · feat(monogram): carry the public-studio design through sign-up (PR pending, auto-merge)
+
+Closes the loop on the public studio: a monogram designed on the free `/monogram` studio **before** sign-up now follows the visitor into their new wedding. No new server action — it reuses the existing `saveStudioAction` (which already re-sanitizes the SVG + enforces couple membership), so a client-controlled localStorage payload can never become an unsafe or cross-account mark.
+
+- **Bridge** `lib/monogram-studio/draft.ts` — `stashMonogramDraft` / `readMonogramDraft` / `clearMonogramDraft` over `localStorage` (sanitized SVG + re-editable config + 30-day TTL + size guard; SSR-safe — touches storage only inside functions). Device-bound by nature; the download is the cross-device fallback.
+- **Public studio** stashes the (sanitized) design on **download** and on the **"start planning · free"** CTA click.
+- **Dashboard restore card** `app/dashboard/[eventId]/monogram/draft-restore.tsx` — on the Monogram Maker, when a valid draft exists **and** the event has no custom mark yet, a "pick up the monogram you designed" card (with an inert data-URI preview) submits it to `saveStudioAction` → it becomes the official mark. Shows nothing otherwise (no layout cost).
+- **One-shot**: the draft is cleared as soon as a mark exists (right after Apply's redirect), so it never re-surfaces later if the couple clears their mark (adversarial-review fix). CTA copy corrected to point at the Monogram Maker specifically (not "your dashboard").
+
+Reviewed by a 14-agent adversarial pass (security · SSR/correctness · UX-flow · hygiene); 2 real issues found and fixed (draft cleanup after apply + CTA copy accuracy). The localStorage→server trust boundary is safe: `event_id` is server-rendered from the authed page, and `saveStudioAction` re-sanitizes.
+
+Verified: `pnpm typecheck` clean · `pnpm lint` 0 errors · `pnpm build` green (an initial run hit the flaky Next `webpack-runtime.js` worker error on an unrelated `/help` page; a clean rebuild passed).
+
+SPEC IMPACT: monogram Phase 5 — completes the public-studio funnel. DECISION_LOG + memory + corpus design doc updated.
 ## 2026-06-19 · feat(std): auto-to-full-screen + robust window-level scroll-scrub (PR-W follow-up)
 
 Owner: "can we make it auto play to full screen? it is not scrubbing as well." (The scroll-scrub wasn't live yet — PR-W hadn't merged — and the wheel was bound to the centred stage only; both addressed here, same PR-W branch.)

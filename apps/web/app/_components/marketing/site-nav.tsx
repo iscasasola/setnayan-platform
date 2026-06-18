@@ -87,7 +87,7 @@ export function Nav({
     { label: 'For vendors', href: '/for-vendors', slot: 'public.site-nav.for-vendors' },
     { label: 'Our story', href: '/our-story', slot: 'public.site-nav.our-story' },
     { label: 'Journal', href: '/blog', slot: 'public.site-nav.journal' },
-    { label: 'Real Stories', href: '/weddings', slot: 'public.site-nav.real-stories' },
+    { label: 'Real Stories', href: '/realstories', slot: 'public.site-nav.real-stories' },
   ];
 
   const links: Array<{ label: string; href: string }> = navLinks

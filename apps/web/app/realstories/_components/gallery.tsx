@@ -4,23 +4,21 @@
 // Real Stories gallery — "a wall of living front pages" (iteration 0046)
 // ============================================================================
 //
-// Client island that renders every published editorial as a magazine cover,
-// organised by a single DEDUP CASCADE so no story repeats across sections:
+// Client island that renders every published editorial as a newspaper cover
+// (The [Name] Chronicle — Vol. I, No. X), organised by a dedup cascade:
 //
 //   1. The Cover        — lowest featureRank (admin-pinned hero). 1 story.
-//   2. Most loved       — the next editor-ranked picks. (Editors'-pick stand-in
-//                         for "most viewed" until real view tracking ships.)
+//   2. Most loved       — the next editor-ranked picks.
 //   3. Just published   — newest by date, of whatever's left.
-//   4. The archive      — everything still unseen, so we flex them all.
+//   4. The archive      — everything still unseen.
 //
-// A search box collapses the sections into one filtered grid across ALL stories.
+// Event type filter chips collapse the cascade into a filtered grid.
+// A search box further filters across all stories.
 //
 // Live video: a card whose hero is a clip plays it on a seamless, continuous
 // forward→reverse (ping-pong) loop via <BoomerangVideo>. The clip file is a
 // PRE-BAKED boomerang (forward + reversed, concatenated), so native loop alone
-// gives a smooth back-and-forth with no per-frame seeking. Viewport-gated, max 3
-// playing at once, muted, with the still as poster + a reduced-motion fallback.
-// (The locked "Daily-Prophet" editorial rule, applied at the index level.)
+// gives a smooth back-and-forth. Viewport-gated, max 3 playing at once, muted.
 // ============================================================================
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -29,28 +27,32 @@ import { Search, X, ArrowRight, Play } from 'lucide-react';
 
 export type GalleryItem = {
   href: string;
+  /** Couple names for weddings; person's name for debuts, graduations, etc. */
   coupleNames: string;
-  metaLine: string; // e.g. "Catholic · Tagaytay"
+  /** Short meta string — kept for real-showcase entries; not rendered in tile. */
+  metaLine: string;
   ceremonyType?: string;
   venueSetting?: string;
   theme?: string;
   city?: string | null;
-  palette: string[]; // fallback visual strip / base colour
+  palette: string[];
   heroImageUrl: string | null;
   heroVideoUrl: string | null;
-  featureRank: number | null; // 1 = Cover, then Most loved, in order
-  publishedSort: string; // ISO — newest-first ordering
+  featureRank: number | null;
+  publishedSort: string;
   isSample: boolean;
-  searchText: string; // pre-lowercased haystack
+  searchText: string;
+  // Editorial identity
+  eventType?: string | null;     // Wedding · Debut · Anniversary · Graduation · Reunion · …
+  witnessQuote?: string | null;  // quote from a witness, NOT the subject
+  witnessAttribution?: string | null;
+  services?: string[] | null;    // ['Papic', 'Panood', 'Monogram', 'Setnayan AI']
+  editionNumber?: number | null; // Vol. I, No. X
 };
 
 // ── Boomerang (ping-pong) video player ──────────────────────────────────────
-// The source is a pre-baked boomerang (forward + reversed frames concatenated),
-// so a plain native `loop` gives a seamless, continuous forward→reverse cycle —
-// no jump-cut, no per-frame currentTime seeking (which stutters on compressed
-// video). This component just gates playback: it plays only while the card is in
-// view, and caps concurrency globally at 3 to protect mobile battery/decoders
-// (the Daily-Prophet "≤3 concurrent" rule); extra cards hold on the poster.
+// Pre-baked boomerang source → native loop gives seamless forward→reverse.
+// Plays only while the card is in view; caps at 3 concurrent across the page.
 
 const MAX_CONCURRENT = 3;
 let liveCount = 0;
@@ -72,15 +74,7 @@ function releaseSlot() {
   }
 }
 
-function BoomerangVideo({
-  src,
-  poster,
-  alt,
-}: {
-  src: string;
-  poster: string | null;
-  alt: string;
-}) {
+function BoomerangVideo({ src, poster, alt }: { src: string; poster: string | null; alt: string }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const hasSlot = useRef(false);
@@ -94,23 +88,15 @@ function BoomerangVideo({
     const reduce =
       typeof window.matchMedia === 'function' &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduce) return; // poster only — never autoplay under reduced motion.
+    if (reduce) return;
 
-    // Slow connection / data-saver → the still poster only (the "if net is too
-    // slow, just photos" path). The poster already renders; we just never fetch
-    // the clip. navigator.connection is Chromium-only — absent elsewhere = play.
-    const conn = (navigator as unknown as { connection?: { saveData?: boolean; effectiveType?: string } })
-      .connection;
+    const conn = (navigator as unknown as { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
     if (conn && (conn.saveData || /(^|-)2g$/.test(conn.effectiveType ?? ''))) return;
 
-    // The clip is a pre-baked boomerang, so native loop carries the continuous
-    // forward→reverse cycle — we only start/stop it.
     const startPlaying = () => video.play().catch(() => {});
     const stopPlaying = () => video.pause();
 
     const grant = () => {
-      // Only claim the slot if we still need it; otherwise hand it straight
-      // back so a queued-but-since-scrolled-away card never holds a slot.
       if (inView.current) {
         hasSlot.current = true;
         startPlaying();
@@ -171,21 +157,13 @@ function BoomerangVideo({
 
 type TileSize = 'cover' | 'loved' | 'card';
 
-function Tile({
-  item,
-  size,
-  tag,
-}: {
-  item: GalleryItem;
-  size: TileSize;
-  tag?: string;
-}) {
+function Tile({ item, size, tag }: { item: GalleryItem; size: TileSize; tag?: string }) {
   const minH =
     size === 'cover'
-      ? 'min-h-[300px] sm:min-h-[420px]'
+      ? 'min-h-[320px] sm:min-h-[460px]'
       : size === 'loved'
-        ? 'min-h-[260px]'
-        : 'min-h-[200px]';
+        ? 'min-h-[280px]'
+        : 'min-h-[220px]';
   const base = item.palette[0] ?? '#6B4E3D';
   const showVideo = Boolean(item.heroVideoUrl);
 
@@ -195,12 +173,9 @@ function Tile({
       className={`group relative flex flex-col justify-end overflow-hidden rounded-2xl sm:rounded-3xl ${minH}`}
       style={{ backgroundColor: base }}
     >
+      {/* Background: video > image > palette strip */}
       {showVideo ? (
-        <BoomerangVideo
-          src={item.heroVideoUrl as string}
-          poster={item.heroImageUrl}
-          alt={item.coupleNames}
-        />
+        <BoomerangVideo src={item.heroVideoUrl as string} poster={item.heroImageUrl} alt={item.coupleNames} />
       ) : item.heroImageUrl ? (
         <img
           src={item.heroImageUrl}
@@ -216,61 +191,104 @@ function Tile({
         </div>
       )}
 
-      {/* Legibility scrim — solid (no gradient flash), heavier on the cover. */}
+      {/* Legibility scrim */}
       <div
         className="absolute inset-x-0 bottom-0"
         style={{
-          height: size === 'cover' ? '62%' : '70%',
-          background:
-            'linear-gradient(to top, rgba(18,14,10,0.72), rgba(18,14,10,0.30) 55%, rgba(18,14,10,0))',
+          height: size === 'cover' ? '68%' : '74%',
+          background: 'linear-gradient(to top, rgba(12,10,8,0.82), rgba(12,10,8,0.35) 52%, rgba(12,10,8,0))',
         }}
         aria-hidden
       />
 
-      {/* Tags */}
-      <div className="pointer-events-none absolute inset-x-3 top-3 flex flex-wrap items-center gap-1.5">
-        {tag ? (
-          <span className="rounded-full bg-white/95 px-2.5 py-1 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-ink">
-            {tag}
+      {/* Top tags: event type (left) · section + media + sample (right) */}
+      <div className="pointer-events-none absolute inset-x-3 top-3 flex items-start justify-between gap-1.5">
+        {item.eventType ? (
+          <span className="rounded-full bg-white/90 px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.13em] text-ink">
+            {item.eventType}
           </span>
-        ) : null}
-        {showVideo ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-terracotta px-2.5 py-1 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-white">
-            <Play aria-hidden className="h-2.5 w-2.5" fill="currentColor" strokeWidth={0} />
-            Live · 5s loop
-          </span>
-        ) : null}
-        {item.isSample ? (
-          <span className="rounded-full border border-white/50 bg-white/10 px-2.5 py-1 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-white backdrop-blur-sm">
-            Sample
-          </span>
-        ) : null}
+        ) : (
+          <span aria-hidden />
+        )}
+        <div className="flex flex-wrap items-start justify-end gap-1.5">
+          {tag ? (
+            <span className="rounded-full bg-white/90 px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.13em] text-ink">
+              {tag}
+            </span>
+          ) : null}
+          {showVideo ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-terracotta px-2.5 py-1 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-white">
+              <Play aria-hidden className="h-2.5 w-2.5" fill="currentColor" strokeWidth={0} />
+              Live · 5s
+            </span>
+          ) : null}
+          {item.isSample ? (
+            <span className="rounded-full border border-white/40 bg-white/10 px-2.5 py-1 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-white/80 backdrop-blur-sm">
+              Sample
+            </span>
+          ) : null}
+        </div>
       </div>
 
-      {/* Body */}
-      <div className={`relative ${size === 'cover' ? 'p-6 sm:p-9' : 'p-4 sm:p-5'} text-white`}>
-        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-white/85">
-          {item.metaLine}
-        </p>
+      {/* Body — newspaper nameplate layout */}
+      <div className={`relative text-white ${size === 'cover' ? 'p-6 sm:p-9' : 'p-4 sm:p-5'}`}>
+        {/* Nameplate — "The [Name] Chronicle" in serif italic */}
         <h3
-          className={`mt-1.5 font-semibold leading-[1.12] tracking-tight text-white ${
-            size === 'cover' ? 'text-2xl sm:text-4xl' : size === 'loved' ? 'text-xl' : 'text-lg'
+          className={`m-serif italic font-normal leading-[1.1] tracking-tight text-white ${
+            size === 'cover' ? 'text-[1.75rem] sm:text-[2.75rem]' : size === 'loved' ? 'text-[1.3rem]' : 'text-[1.15rem]'
           }`}
         >
-          {item.coupleNames}
+          The {item.coupleNames} Chronicle
         </h3>
+
+        {/* Edition dateline */}
+        <p className="mt-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-white/55">
+          Vol.&nbsp;I&nbsp;&middot;&nbsp;No.&nbsp;{item.editionNumber ?? '–'}
+          {item.city ? <>&nbsp;&middot;&nbsp;{item.city}</> : null}
+        </p>
+
+        {/* Divider — cover only */}
         {size === 'cover' ? (
-          <>
-            {item.theme ? (
-              <p className="mt-2.5 max-w-xl text-sm text-white/85 sm:text-base">
-                {[item.theme, item.venueSetting?.toLowerCase(), item.city].filter(Boolean).join(' · ')}
-              </p>
+          <div className="mt-4 h-px w-full bg-white/20" aria-hidden />
+        ) : null}
+
+        {/* Witness pull-quote — cover and loved */}
+        {(size === 'cover' || size === 'loved') && item.witnessQuote ? (
+          <blockquote className={`${size === 'cover' ? 'mt-4' : 'mt-3'} border-l border-white/30 pl-3`}>
+            <p
+              className={`m-serif italic leading-snug text-white/88 ${
+                size === 'cover' ? 'text-[0.9375rem] sm:text-base' : 'text-[0.8125rem]'
+              }`}
+            >
+              &ldquo;{item.witnessQuote}&rdquo;
+            </p>
+            {size === 'cover' && item.witnessAttribution ? (
+              <footer className="mt-1 font-mono text-[9px] uppercase tracking-[0.13em] text-white/45">
+                — {item.witnessAttribution}
+              </footer>
             ) : null}
-            <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-white">
-              Read the story
-              <ArrowRight aria-hidden className="h-4 w-4 transition group-hover:translate-x-0.5" strokeWidth={2} />
-            </span>
-          </>
+          </blockquote>
+        ) : null}
+
+        {/* Service badges */}
+        {item.services && item.services.length > 0 ? (
+          <div className={`${size === 'cover' ? 'mt-4' : 'mt-3'} flex flex-wrap gap-1`}>
+            {item.services.map((s) => (
+              <span
+                key={s}
+                className="rounded-full bg-white/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.1em] text-white/70 backdrop-blur-[2px]"
+              >
+                {s}
+              </span>
+            ))}
+          </div>
+        ) : null}
+
+        {size === 'cover' ? (
+          <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-white">
+            Read the story
+            <ArrowRight aria-hidden className="h-4 w-4 transition group-hover:translate-x-0.5" strokeWidth={2} />
+          </span>
         ) : null}
       </div>
     </Link>
@@ -292,10 +310,34 @@ function SectionHead({ title, note }: { title: string; note?: string }) {
 
 export function RealStoriesGallery({ items }: { items: GalleryItem[] }) {
   const [query, setQuery] = useState('');
+  const [activeType, setActiveType] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const q = query.trim().toLowerCase();
 
-  // Dedup cascade. Each section claims from a shrinking pool by priority.
+  // Derive event types from items — only show types that exist.
+  const eventTypes = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const it of items) {
+      if (it.eventType && !seen.has(it.eventType)) {
+        seen.add(it.eventType);
+        out.push(it.eventType);
+      }
+    }
+    return out;
+  }, [items]);
+
+  // Filtered results when search or type filter is active.
+  const filtered = useMemo(() => {
+    let out = items;
+    if (activeType) out = out.filter((i) => i.eventType === activeType);
+    if (q) out = out.filter((i) => i.searchText.includes(q));
+    return out;
+  }, [items, activeType, q]);
+
+  const isFiltering = Boolean(q || activeType);
+
+  // Dedup cascade — runs across all items when no filter is active.
   const sections = useMemo(() => {
     const seen = new Set<string>();
     const take = (pool: GalleryItem[], k: number) => {
@@ -315,16 +357,11 @@ export function RealStoriesGallery({ items }: { items: GalleryItem[] }) {
     const byDate = [...items].sort((a, b) => (a.publishedSort < b.publishedSort ? 1 : -1));
 
     const cover = take(byRank, 1);
-    const loved = take(byRank, 3); // next editor-ranked picks after the cover
-    const fresh = take(byDate, 3); // newest of whatever's left
+    const loved = take(byRank, 3);
+    const fresh = take(byDate, 3);
     const archive = items.filter((i) => !seen.has(i.href));
     return { cover, loved, fresh, archive };
   }, [items]);
-
-  const results = useMemo(() => {
-    if (!q) return [];
-    return items.filter((i) => i.searchText.includes(q));
-  }, [items, q]);
 
   return (
     <div>
@@ -340,8 +377,8 @@ export function RealStoriesGallery({ items }: { items: GalleryItem[] }) {
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search couples, city, ceremony, venue, theme…"
-          aria-label="Search real wedding stories"
+          placeholder="Search by name, city, milestone, theme…"
+          aria-label="Search real stories"
           className="h-12 w-full rounded-full border border-ink/15 bg-white/70 pl-11 pr-11 text-[15px] text-ink outline-none transition placeholder:text-ink/40 focus:border-terracotta/50 focus:bg-white"
         />
         {query ? (
@@ -359,36 +396,73 @@ export function RealStoriesGallery({ items }: { items: GalleryItem[] }) {
         ) : null}
       </div>
 
-      {q ? (
+      {/* Event type filter chips */}
+      {eventTypes.length > 1 ? (
+        <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Filter by milestone type">
+          <button
+            type="button"
+            onClick={() => setActiveType(null)}
+            className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition ${
+              !activeType
+                ? 'bg-ink text-white'
+                : 'border border-ink/15 bg-white/60 text-ink/65 hover:bg-white hover:text-ink'
+            }`}
+          >
+            All
+          </button>
+          {eventTypes.map((type) => (
+            <button
+              key={type}
+              type="button"
+              onClick={() => setActiveType(activeType === type ? null : type)}
+              className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition ${
+                activeType === type
+                  ? 'bg-ink text-white'
+                  : 'border border-ink/15 bg-white/60 text-ink/65 hover:bg-white hover:text-ink'
+              }`}
+            >
+              {type}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {/* Results when filtering / searching */}
+      {isFiltering ? (
         <>
           <SectionHead
-            title={`${results.length} ${results.length === 1 ? 'story' : 'stories'} for “${query}”`}
-            note="searching every editorial"
+            title={
+              filtered.length === 0
+                ? 'No stories found'
+                : `${filtered.length} ${filtered.length === 1 ? 'story' : 'stories'}${activeType ? ` · ${activeType}` : ''}${q ? ` for "${query}"` : ''}`
+            }
+            note={q ? 'searching every editorial' : undefined}
           />
-          {results.length === 0 ? (
+          {filtered.length === 0 ? (
             <p className="rounded-2xl border border-ink/10 bg-white/50 p-8 text-center text-sm text-ink/55">
-              No stories match yet — try a city, ceremony type, or theme.
+              No stories match yet — try a different name, city, or milestone type.
             </p>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {results.map((it) => (
+              {filtered.map((it) => (
                 <Tile key={it.href} item={it} size="card" />
               ))}
             </div>
           )}
         </>
       ) : (
+        /* Dedup cascade */
         <>
           {sections.cover[0] ? (
             <>
-              <SectionHead title="The cover" note="featured editorial" />
+              <SectionHead title="The cover" note="featured edition" />
               <Tile item={sections.cover[0]} size="cover" tag="Featured" />
             </>
           ) : null}
 
           {sections.loved.length > 0 ? (
             <>
-              <SectionHead title="Most loved" note="editors’ picks" />
+              <SectionHead title="Most loved" note="editors' picks" />
               <div className="grid gap-4 sm:grid-cols-2">
                 {sections.loved.map((it) => (
                   <Tile key={it.href} item={it} size="loved" />
@@ -399,7 +473,7 @@ export function RealStoriesGallery({ items }: { items: GalleryItem[] }) {
 
           {sections.fresh.length > 0 ? (
             <>
-              <SectionHead title="Just published" note="the latest stories" />
+              <SectionHead title="Just published" note="the latest editions" />
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {sections.fresh.map((it) => (
                   <Tile key={it.href} item={it} size="card" tag="New" />
@@ -410,7 +484,7 @@ export function RealStoriesGallery({ items }: { items: GalleryItem[] }) {
 
           {sections.archive.length > 0 ? (
             <>
-              <SectionHead title="The archive" note="every other story" />
+              <SectionHead title="The archive" note="every edition" />
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {sections.archive.map((it) => (
                   <Tile key={it.href} item={it} size="card" />

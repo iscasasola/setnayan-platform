@@ -12,6 +12,7 @@ import {
 } from '@/lib/vendor-service-attributes';
 import { saveVendorServiceAttribute, removeVendorServiceAttribute } from './actions';
 import { AttributeFieldRenderer } from './_components/attribute-field-renderer';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Service attributes · Vendor · Setnayan' };
 
@@ -238,9 +239,9 @@ export default async function VendorAttributesPage({ searchParams }: Props) {
               </option>
             ))}
           </select>
-          <button type="submit" className="button-primary h-10 px-4 text-sm">
+          <SubmitButton pendingLabel="Adding…" className="button-primary h-10 px-4 text-sm">
             Add
-          </button>
+          </SubmitButton>
         </form>
         {addCandidateSchema ? (
           <div className="mt-6">
@@ -355,9 +356,9 @@ function ServiceForm({
         ))}
 
         <div className="flex flex-wrap items-center gap-3 pt-2">
-          <button type="submit" className="button-primary h-10 px-4 text-sm">
+          <SubmitButton pendingLabel="Saving…" className="button-primary h-10 px-4 text-sm">
             {isNew ? 'Add service + save' : 'Save'}
-          </button>
+          </SubmitButton>
           {!isNew ? (
             <RemoveServiceButton canonicalService={schema.canonical_service} />
           ) : null}
@@ -387,12 +388,12 @@ function RemoveServiceButton({ canonicalService }: { canonicalService: string })
   return (
     <form action={removeVendorServiceAttribute} className="inline">
       <input type="hidden" name="canonical_service" value={canonicalService} />
-      <button
-        type="submit"
+      <SubmitButton
+        pendingLabel="Removing…"
         className="text-xs font-medium text-terracotta hover:underline"
       >
         Remove this service&rsquo;s payload
-      </button>
+      </SubmitButton>
     </form>
   );
 }

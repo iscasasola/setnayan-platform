@@ -33,6 +33,7 @@ import {
 } from '../actions';
 import { sweepExpiredSamplerPhotos } from '@/lib/papic-retention';
 import { CopyButton } from './_components/copy-button';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 // Papic · Your photo crew (couple-side seat management)
 //
@@ -136,13 +137,13 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
           </p>
           <form action={provisionPapicSampler} className="mt-5">
             <input type="hidden" name="event_id" value={eventId} />
-            <button
-              type="submit"
+            <SubmitButton
+              pendingLabel="Starting…"
               className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600"
             >
               <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
               Start my {PAPIC_SAMPLER_SEAT_COUNT} free seats
-            </button>
+            </SubmitButton>
           </form>
           <Link
             href={backLink}
@@ -277,13 +278,13 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
           </p>
           <form action={provisionPapicSeats} className="mt-5">
             <input type="hidden" name="event_id" value={eventId} />
-            <button
-              type="submit"
+            <SubmitButton
+              pendingLabel="Setting up…"
               className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600"
             >
               <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
               Set up my {seatTotal} seats
-            </button>
+            </SubmitButton>
           </form>
         </div>
       ) : (
@@ -340,13 +341,13 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
                 <form action={reissuePapicSeat} className="mt-3">
                   <input type="hidden" name="event_id" value={eventId} />
                   <input type="hidden" name="seat_id" value={s.seat_id} />
-                  <button
-                    type="submit"
+                  <SubmitButton
+                    pendingLabel="Reissuing…"
                     className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/5"
                   >
                     <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
                     {claimed ? 'Reissue to someone else' : 'Reset link'}
-                  </button>
+                  </SubmitButton>
                 </form>
               </div>
             );

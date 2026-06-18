@@ -18,6 +18,7 @@ import {
   reassignCategoryPool,
   updatePoolCapacity,
 } from './actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Calendar · Vendor' };
 
@@ -456,12 +457,12 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
                     defaultValue={activePool.capacity}
                     className="w-24 rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm"
                   />
-                  <button
-                    type="submit"
+                  <SubmitButton
+                    pendingLabel="Saving…"
                     className="rounded-lg bg-ink px-4 py-1.5 text-sm font-medium text-cream"
                   >
                     Save
-                  </button>
+                  </SubmitButton>
                 </form>
               </div>
             </>
@@ -503,9 +504,9 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
                     </option>
                   ))}
                 </select>
-                <button type="submit" className="justify-self-start rounded-lg bg-ink px-4 py-1.5 text-sm font-medium text-cream">
+                <SubmitButton pendingLabel="Adding…" className="justify-self-start rounded-lg bg-ink px-4 py-1.5 text-sm font-medium text-cream">
                   Add block
-                </button>
+                </SubmitButton>
               </form>
             </details>
 
@@ -540,9 +541,9 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
                   <span className="text-sm text-ink/50">to</span>
                   <input type="date" name="end_date" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
                 </div>
-                <button type="submit" className="justify-self-start rounded-lg bg-ink px-4 py-1.5 text-sm font-medium text-cream">
+                <SubmitButton pendingLabel="Importing…" className="justify-self-start rounded-lg bg-ink px-4 py-1.5 text-sm font-medium text-cream">
                   Import · 1 token
-                </button>
+                </SubmitButton>
               </form>
             </details>
           </div>
@@ -591,9 +592,9 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
                     <form action={removeBlock}>
                       {returnFields}
                       <input type="hidden" name="block_id" value={blk.blockId} />
-                      <button type="submit" className="text-sm text-ink/55 underline hover:text-ink">
+                      <SubmitButton pendingLabel="Removing…" className="text-sm text-ink/55 underline hover:text-ink">
                         Remove
-                      </button>
+                      </SubmitButton>
                     </form>
                   </li>
                 ))}
@@ -630,9 +631,9 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
                         ))}
                         <option value="new">Its own new schedule</option>
                       </select>
-                      <button type="submit" className="rounded-lg border border-ink/20 px-3 py-1 text-sm hover:border-ink/40">
+                      <SubmitButton pendingLabel="Moving…" className="rounded-lg border border-ink/20 px-3 py-1 text-sm hover:border-ink/40">
                         Move
-                      </button>
+                      </SubmitButton>
                     </form>
                   </li>
                 )),

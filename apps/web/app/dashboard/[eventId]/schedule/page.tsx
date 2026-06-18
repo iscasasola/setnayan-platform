@@ -231,23 +231,13 @@ function VendorSuggestionsQueue({
                   <input type="hidden" name="event_id" value={eventId} />
                   <input type="hidden" name="suggestion_id" value={s.suggestion_id} />
                   <input type="hidden" name="decision" value="accept" />
-                  <button
-                    type="submit"
-                    className="rounded-md bg-ink px-3 py-1 text-xs font-semibold text-cream hover:bg-ink/85"
-                  >
-                    Accept
-                  </button>
+                  <SubmitButton pendingLabel="Accepting…" className="rounded-md bg-ink px-3 py-1 text-xs font-semibold text-cream hover:bg-ink/85">Accept</SubmitButton>
                 </form>
                 <form action={resolveScheduleSuggestion}>
                   <input type="hidden" name="event_id" value={eventId} />
                   <input type="hidden" name="suggestion_id" value={s.suggestion_id} />
                   <input type="hidden" name="decision" value="decline" />
-                  <button
-                    type="submit"
-                    className="rounded-md border border-ink/20 px-3 py-1 text-xs font-medium text-ink/70 hover:bg-ink/5"
-                  >
-                    Decline
-                  </button>
+                  <SubmitButton pendingLabel="Declining…" className="rounded-md border border-ink/20 px-3 py-1 text-xs font-medium text-ink/70 hover:bg-ink/5">Decline</SubmitButton>
                 </form>
               </div>
             </li>

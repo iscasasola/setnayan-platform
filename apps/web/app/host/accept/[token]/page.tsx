@@ -8,6 +8,7 @@ import {
   type RoleSubtype,
 } from '@/lib/event-moderators';
 import { acceptHostInvite, declineHostInvite } from './actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = {
   title: 'Accept your invitation · Setnayan',
@@ -263,22 +264,14 @@ export default async function HostAcceptPage({ params, searchParams }: Props) {
       <div className="grid gap-3 sm:grid-cols-2">
         <form action={acceptHostInvite}>
           <input type="hidden" name="token" value={token} />
-          <button
-            type="submit"
-            className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-5 py-3 text-sm font-medium text-cream transition hover:bg-mulberry-600"
-          >
+          <SubmitButton pendingLabel="Accepting…" className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-5 py-3 text-sm font-medium text-cream transition hover:bg-mulberry-600">
             <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             Accept invitation
-          </button>
+          </SubmitButton>
         </form>
         <form action={declineHostInvite}>
           <input type="hidden" name="token" value={token} />
-          <button
-            type="submit"
-            className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-ink/15 bg-cream px-5 py-3 text-sm font-medium text-ink/70 transition hover:bg-ink/[0.03]"
-          >
-            Decline
-          </button>
+          <SubmitButton pendingLabel="Declining…" className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-ink/15 bg-cream px-5 py-3 text-sm font-medium text-ink/70 transition hover:bg-ink/[0.03]">Decline</SubmitButton>
         </form>
       </div>
     </AcceptShell>

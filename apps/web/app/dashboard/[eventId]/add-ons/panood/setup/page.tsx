@@ -21,6 +21,7 @@ import { formatPhp } from '@/lib/orders';
 import { getYoutubeOAuthConfig } from '@/lib/panood-youtube';
 import { CopyLink } from '../_components/copy-link';
 import { savePanoodWatchUrl, clearPanoodWatchUrl } from './actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Panood setup · Setnayan' };
 
@@ -427,13 +428,13 @@ function ConnectedPanel({
         </div>
         <form action="/api/oauth/youtube/disconnect" method="post">
           <input type="hidden" name="event_id" value={eventId} />
-          <button
-            type="submit"
+          <SubmitButton
+            pendingLabel="Disconnecting…"
             className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink"
           >
             <Unlink2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             Disconnect
-          </button>
+          </SubmitButton>
         </form>
       </div>
       <p className="text-xs text-ink/65">
@@ -943,13 +944,13 @@ function YouTubeDelivery({
             </p>
             <form action={clearPanoodWatchUrl} className="mt-3">
               <input type="hidden" name="event_id" value={eventId} />
-              <button
-                type="submit"
+              <SubmitButton
+                pendingLabel="Removing…"
                 className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-burgundy/40 hover:text-burgundy"
               >
                 <Unlink2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                 Remove link
-              </button>
+              </SubmitButton>
             </form>
           </>
         ) : connected ? (
@@ -978,13 +979,13 @@ function YouTubeDelivery({
               placeholder="Paste your YouTube watch link — youtube.com/watch?v=…"
               className="min-h-[44px] flex-1 rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none"
             />
-            <button
-              type="submit"
+            <SubmitButton
+              pendingLabel="Saving…"
               className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-burgundy/20 bg-burgundy px-4 text-sm font-semibold text-cream transition-colors hover:bg-burgundy/90"
             >
               <Radio aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               Save watch link
-            </button>
+            </SubmitButton>
           </form>
         ) : null}
         {!youtubeWatchUrl ? (

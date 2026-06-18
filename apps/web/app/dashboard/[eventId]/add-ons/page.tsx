@@ -5,6 +5,7 @@ import {
   type StudioGroup,
 } from '@/lib/add-ons-catalog';
 import { StudioCard } from './_components/studio-card';
+import { createClient } from '@/lib/supabase/server';
 
 // The cinema-poster card (service-poster.tsx) still owns the `PosterStyle`
 // type that the catalog + Services tab consume, so it is intentionally kept.
@@ -47,6 +48,20 @@ function comingSoonLast(a: AddOnEntry, b: AddOnEntry): number {
 
 export default async function StudioPage({ params }: Props) {
   const { eventId } = await params;
+
+  const supabase = await createClient();
+  const { data: liveOrders } = await supabase
+    .from('orders')
+    .select('service_key, status')
+    .eq('event_id', eventId)
+    .not('status', 'in', '("cancelled","refunded","lapsed")');
+
+  const orderStatusMap = new Map<string, string>();
+  for (const o of liveOrders ?? []) {
+    if (o.service_key && !orderStatusMap.has(o.service_key)) {
+      orderStatusMap.set(o.service_key, o.status as string);
+    }
+  }
 
   return (
     <section className="space-y-10">
@@ -115,6 +130,7 @@ export default async function StudioPage({ params }: Props) {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {addOns.map((addon) => {
                 const comingSoon = addon.status === 'coming_soon';
+                const ownedStatus = addon.serviceKey ? (orderStatusMap.get(addon.serviceKey) ?? null) : null;
                 return (
                   <StudioCard
                     key={addon.key}
@@ -125,6 +141,7 @@ export default async function StudioPage({ params }: Props) {
                     comingSoon={comingSoon}
                     free={addon.tier === 'free'}
                     freeTrial={addon.freeTrial}
+                    ownedStatus={ownedStatus}
                   />
                 );
               })}

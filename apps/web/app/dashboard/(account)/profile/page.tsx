@@ -837,10 +837,10 @@ export default async function ProfilePage({ searchParams }: Props) {
           API keys
         </Link>
         <form action={restartTour}>
-          <button className="button-secondary inline-flex items-center gap-2" type="submit">
+          <SubmitButton pendingLabel="Restarting…" className="button-secondary inline-flex items-center gap-2">
             <Compass aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             Restart welcome tour
-          </button>
+          </SubmitButton>
         </form>
         {isAdmin ? (
           <Link href="/admin" className="button-secondary">
@@ -848,9 +848,9 @@ export default async function ProfilePage({ searchParams }: Props) {
           </Link>
         ) : null}
         <form action="/auth/sign-out" method="post">
-          <button className="button-secondary" type="submit">
+          <SubmitButton pendingLabel="Signing out…" className="button-secondary">
             {tr('cta.sign_out')}
-          </button>
+          </SubmitButton>
         </form>
       </section>
     </div>

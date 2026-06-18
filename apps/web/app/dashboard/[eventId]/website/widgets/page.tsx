@@ -28,6 +28,7 @@ import {
   moveWidgetUp,
   toggleWidgetVisibility,
 } from './actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Customize widgets · Setnayan' };
 
@@ -424,8 +425,8 @@ function WidgetRow({
           <input type="hidden" name="widget_id" value={row.widget_id} />
           <input type="hidden" name="widget_type" value={row.widget_type} />
           <input type="hidden" name="next_visible" value={nextVisible} />
-          <button
-            type="submit"
+          <SubmitButton
+            pendingLabel="…"
             disabled={row.is_always_on}
             className={`inline-flex h-9 min-h-[44pt] items-center gap-1.5 rounded-md border px-3 text-xs font-medium transition-colors sm:min-h-0 ${
               row.is_always_on
@@ -460,7 +461,7 @@ function WidgetRow({
                 Hidden
               </>
             )}
-          </button>
+          </SubmitButton>
         </form>
 
         {/* Up button — hidden for always-on rows; disabled at top boundary */}
@@ -468,8 +469,8 @@ function WidgetRow({
           <form action={moveWidgetUp} className="flex items-center">
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="widget_id" value={row.widget_id} />
-            <button
-              type="submit"
+            <SubmitButton
+              pendingLabel="…"
               disabled={isFirstHideable}
               className={`inline-flex h-9 min-h-[44pt] w-9 items-center justify-center rounded-md border transition-colors sm:min-h-0 ${
                 isFirstHideable
@@ -480,7 +481,7 @@ function WidgetRow({
               title={isFirstHideable ? 'Already at the top.' : 'Move up'}
             >
               <ArrowUp aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            </button>
+            </SubmitButton>
           </form>
         ) : null}
 
@@ -489,8 +490,8 @@ function WidgetRow({
           <form action={moveWidgetDown} className="flex items-center">
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="widget_id" value={row.widget_id} />
-            <button
-              type="submit"
+            <SubmitButton
+              pendingLabel="…"
               disabled={isLastHideable}
               className={`inline-flex h-9 min-h-[44pt] w-9 items-center justify-center rounded-md border transition-colors sm:min-h-0 ${
                 isLastHideable
@@ -501,7 +502,7 @@ function WidgetRow({
               title={isLastHideable ? 'Already at the bottom.' : 'Move down'}
             >
               <ArrowDown aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            </button>
+            </SubmitButton>
           </form>
         ) : null}
       </div>

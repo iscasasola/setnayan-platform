@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { PrintButton } from '@/components/print-button';
 import { addPortionRule, deletePortionRule } from './actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Production Sheet · Vendor' };
 
@@ -301,13 +302,13 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
                       <form action={deletePortionRule}>
                         <input type="hidden" name="event_id" value={eventId} />
                         <input type="hidden" name="rule_id" value={rule.rule_id} />
-                        <button
-                          type="submit"
+                        <SubmitButton
+                          pendingLabel=""
                           aria-label={`Delete ${rule.label}`}
                           className="text-ink/40 hover:text-red-700"
                         >
                           <Trash2 aria-hidden className="h-4 w-4" />
-                        </button>
+                        </SubmitButton>
                       </form>
                     </td>
                   </tr>
@@ -361,9 +362,9 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
                 <input type="number" name="waste_factor_pct" min="0" max="100" step="any" defaultValue="0" className="w-16 rounded-lg border border-ink/20 bg-white px-2 py-1.5" />
               </label>
             </div>
-            <button type="submit" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
+            <SubmitButton pendingLabel="Saving…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
               Save rule
-            </button>
+            </SubmitButton>
           </form>
         </details>
       </div>

@@ -137,7 +137,7 @@ export function BuyTokensCta({ packs }: { packs: TokenPack[] }) {
                 </div>
                 <form action={startTokenPurchase} className="shrink-0">
                   <input type="hidden" name="pack_sku_code" value={pack.sku_code} />
-                  <SubmitButton pendingLabel="Starting…">Buy</SubmitButton>
+                  <SubmitButton className="button-primary h-9 px-4 text-sm" pendingLabel="Starting…">Buy</SubmitButton>
                 </form>
               </li>
             );

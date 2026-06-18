@@ -39,6 +39,13 @@ type Props = {
    * when `free` or `comingSoon` is set.
    */
   freeTrial?: string;
+  /**
+   * Live order status for this service (from the event's orders table).
+   * 'submitted' | 'awaiting_payment' → "Pending review" amber chip.
+   * 'paid' | 'fulfilled' → "Active" green chip.
+   * null/undefined → normal chip (free / freeTrial / nothing).
+   */
+  ownedStatus?: string | null;
 };
 
 export function StudioCard({
@@ -49,8 +56,11 @@ export function StudioCard({
   comingSoon = false,
   free = false,
   freeTrial,
+  ownedStatus,
 }: Props) {
   const available = !comingSoon && Boolean(href);
+  const isPending = ownedStatus === 'submitted' || ownedStatus === 'awaiting_payment';
+  const isActive = ownedStatus === 'paid' || ownedStatus === 'fulfilled';
 
   const inner = (
     <>
@@ -67,24 +77,28 @@ export function StudioCard({
         </span>
 
         {comingSoon ? (
-          <span
-            className="rounded-full px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.15em]"
-            style={{ background: 'var(--m-line-soft)', color: 'var(--m-slate-3)' }}
-          >
+          <span className="rounded-full px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.15em]"
+            style={{ background: 'var(--m-line-soft)', color: 'var(--m-slate-3)' }}>
             Soon
           </span>
+        ) : isActive ? (
+          <span className="rounded-full px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.15em]"
+            style={{ background: 'oklch(0.94 0.04 150)', color: 'oklch(0.38 0.10 150)' }}>
+            Active
+          </span>
+        ) : isPending ? (
+          <span className="rounded-full px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.15em]"
+            style={{ background: 'oklch(0.96 0.06 85)', color: 'oklch(0.48 0.12 75)' }}>
+            Pending review
+          </span>
         ) : free ? (
-          <span
-            className="rounded-full px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.15em]"
-            style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
-          >
+          <span className="rounded-full px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.15em]"
+            style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}>
             Free
           </span>
         ) : freeTrial ? (
-          <span
-            className="rounded-full px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.15em]"
-            style={{ background: 'var(--m-mulberry-4)', color: 'var(--m-mulberry)' }}
-          >
+          <span className="rounded-full px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.15em]"
+            style={{ background: 'var(--m-mulberry-4)', color: 'var(--m-mulberry)' }}>
             {freeTrial}
           </span>
         ) : null}

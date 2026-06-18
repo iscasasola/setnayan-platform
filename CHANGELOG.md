@@ -4,6 +4,47 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-18 · feat(std): live preview builder — Reveal + Theme + one Render button — PR #1742
+
+3-step Save-the-Date builder replacing the old per-field form rows (each with their own Save + redirect). Couples now pick: (1) Reveal opening, (2) Visual theme, (3) see their auto-filled information. A CSS-scaled live phone preview (220px display, 384px natural width via `scale(0.573)`) updates in real time as theme changes. One **Render** button saves everything in a single DB write.
+
+**Migration `20260618000001_std_theme.sql` (applied directly via `db query` to prod):**
+- `events.std_theme TEXT` — stores the couple's chosen film theme (NULL → 'moodboard')
+
+**New: `apps/web/lib/std-themes.ts`:**
+- 5 themes: `moodboard` · `editorial` · `heritage` · `noir` · `botanical`
+- Each theme has: bg/fg/accent/font/scrub Tailwind class sets for full recoloring
+- `resolveStdTheme(id)` helper validates and defaults to 'moodboard'
+
+**Modified: `apps/web/app/[slug]/_components/save-the-date-film.tsx`:**
+- `themeId?: StdThemeId` prop — theme-aware class rendering replaces hardcoded Tailwind colors
+- `preview?: boolean` prop — suppresses audio/fullscreen in the builder's phone frame
+- All hardcoded `text-mulberry`, `bg-cream`, `font-display`, etc. replaced with `${theme.*}` variables
+
+**New: `apps/web/app/dashboard/[eventId]/add-ons/save-the-date/_components/StdBuilderClient.tsx`:**
+- Client component with `themeId` + `launchDate` state
+- `useMemo` live content derivation (only `launchLabel` can change; presigned URLs are server-resolved)
+- Two-column desktop layout (`lg:grid-cols-[1fr_260px]`): steps on left, sticky preview + Render on right
+- Watermark overlay ("Preview") on the small phone frame
+
+**Modified: `apps/web/app/dashboard/[eventId]/add-ons/save-the-date/page.tsx`:**
+- Complete rewrite: now renders `StdBuilderClient` + premium openings section + wax seal link
+- Selects `std_theme`, `slug`, `std_film_*` snapshot columns; passes initial content + theme to client
+- Removed: old per-field form JSX, `searchParams`, `SubmitButton`
+
+**Modified: `apps/web/app/dashboard/[eventId]/add-ons/save-the-date/actions.ts`:**
+- `saveAllStdContent` (new): saves `std_theme` + `std_invitation_launch_date` in one write, returns `{ ok: boolean }` (no redirect)
+- `saveInvitationLaunchDate` kept for backwards compat but no longer used by the page
+
+**Modified: `apps/web/app/[slug]/_components/save-the-date.tsx`, `apps/web/app/[slug]/page.tsx`:**
+- `[slug]/page.tsx`: adds `std_theme` to SELECT, passes `themeId` to both `SaveTheDateView` call sites
+- `save-the-date.tsx`: `themeId?: string | null` prop → `resolveStdTheme(themeId)` → `SaveTheDateFilm`
+
+**SPEC IMPACT:** `DECISION_LOG.md` row added (2026-06-18, STD builder redesign). `0024_save_the_date/` CLAUDE.md built-state updated.
+
+
+---
+
 ## 2026-06-18 · feat(editorial): three-layer quality scan + admin review queue — PR #1730
 
 Auto-scan (OpenAI Moderation + LanguageTool) runs on every editorial before the couple sees it. Admin reviews flagged content and unlocks. Zero monthly cost (both APIs are free).

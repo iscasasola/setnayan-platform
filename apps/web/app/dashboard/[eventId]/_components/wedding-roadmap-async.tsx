@@ -1,4 +1,5 @@
 import { AlertTriangle, Check, ListChecks } from 'lucide-react';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { createClient } from '@/lib/supabase/server';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
@@ -191,14 +192,14 @@ export async function WeddingRoadmapAsync({
               <form action={toggleRoadmapItem} className="shrink-0">
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="item_key" value={item.key} />
-                <button
-                  type="submit"
+                <SubmitButton
+                  pendingLabel="Saving…"
                   aria-label={`Mark "${item.label}" done`}
                   className="inline-flex items-center gap-1 rounded-full border border-ink/15 bg-paper px-3 py-1 text-[11px] font-medium text-ink/55 transition-colors hover:border-terracotta/40 hover:text-terracotta"
                 >
                   <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
                   Done
-                </button>
+                </SubmitButton>
               </form>
             </li>
           ))}

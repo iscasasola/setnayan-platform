@@ -578,12 +578,12 @@ function SubmitCard({
         )}
         <form action={withdrawApplication}>
           <input type="hidden" name="application_id" value={applicationId} />
-          <button
-            type="submit"
+          <SubmitButton
+            pendingLabel="Withdrawing…"
             className="inline-flex h-10 items-center rounded-md border border-ink/20 px-3 text-xs text-ink/70 hover:bg-ink/5"
           >
             Withdraw draft
-          </button>
+          </SubmitButton>
         </form>
       </div>
     </article>

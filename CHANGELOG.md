@@ -4,6 +4,51 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · fix(std): music autoplays · content waits for the veil · petals cling on hit (PR-W follow-up 4)
+
+Owner: "music did not auto play. and content will [only] play [once] the veil is up." + "[petals] can cling but only 30% of the petals, and only if the petals hit the veil."
+
+- **Content waits for the veil.** The film had a 2 s fallback that auto-started even when a veil was present — so the beats played UNDER the veil, and (because that start wasn't from a user gesture) the **music autoplay was blocked**. Now `RevealOverlay` publishes `window.__stdRevealActive` when a reveal will show; the film only auto-starts (after a short grace) when NO reveal is active, otherwise it holds until **`std-reveal-done`** (veil fully lifted). If the reveal can't run, veil-reveal already fires `std-reveal-done` itself, so it never hangs.
+- **Music autoplays.** On the lift gesture the veil dispatches `std-go-fullscreen` **synchronously**; the film now also **plays the soundtrack there** — inside that user activation — so audio-with-sound is allowed (browsers block it without a gesture). It's already playing as the veil rises.
+- **Petals cling on hit (≤30%).** Re-added clinging, but collision-based: a falling petal that hits the **covered** veil (lift low, on-screen, near the cloth front) rolls **once** — ~30% cling **where they landed** (snap to the nearest cloth point, keeping their offset), capped at **30% of petals**; the rest fall on. No random pre-seeding.
+
+Verified: `pnpm typecheck` (my files clean; monogram-studio `paper` errors are an unrelated local install gap) + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` + `0024_Veil_Reveal_Spec` — content holds until the veil lifts; music starts on the lift gesture; veil petals cling only on collision, ≤30%. See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(std): uniform scale-to-fit film (one design canvas, transform-scaled) (PR-W follow-up 3)
+
+Owner: "resizing still did not work. we want to take the maximum width always without causing the texts to exceed both width and height, and keep everything at the same size."
+
+Replaced the breakpoint-based responsive sizing (discrete `sm:`/`lg:` font jumps + `md:max-w` stage widening — which scaled in steps and never truly filled the screen) with a single **uniform scale-to-fit**:
+
+- The film is now composed at ONE fixed logical canvas (`BASE_W 440 × BASE_H 780`); every beat's type + monogram are sized **once** (no responsive variants).
+- A `ResizeObserver` measures the container and sets `fitScale = clamp(min(cw/BASE_W, ch/BASE_H), 0.6, 2.3)` — the largest scale that fits within **both** width and height. The whole stage gets `transform: scale(fitScale)`, centred. So the content is as big as possible on any screen **without overflowing either dimension**, and **everything stays proportional** ("same size" = one uniform scale).
+- Applies identically on the live full-screen page and the builder preview frames.
+- Video clip cap switched from `68vh` → `520px` (stage-relative, so it scales with the canvas instead of fighting the transform).
+
+Verified: `pnpm typecheck` (my files clean; monogram-studio `paper` errors are an unrelated local install gap) + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the film scales as one uniform unit to fit any viewport (max size, no overflow), replacing breakpoint font bumps. See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(std): video autoplays + audio crossfade · bigger desktop text · petals only fall (PR-W follow-up 2)
+
+Owner screenshot + notes: "the text are not larger on desktop. the leaves are randomly attaching to the veil but no leaf was falling on that direction. the video should autoplay, no more clicking. the background music will play automatically [and] crossfade to the video as the video plays, then crossfade again when it returns to the last screen."
+
+`save-the-date-film.tsx`:
+
+- **Video AUTOPLAYS** — removed the play-button → fullscreen interaction. The video plays by itself when its beat is active (the reveal gesture already granted the page media playback) inside the already-full-screen experience, and advances to the calendar close on its natural end. No clicking.
+- **Audio crossfade** — the soundtrack now **crossfades** (~700ms) to the video's audio as the video plays, then crossfades back to the music when the film returns to the closing screen (replaces the old hard music-pause/duck). Robust: the fade always converges to the target volume even if interrupted.
+- **Bigger on desktop** — the headline beats AND the monogram mark now scale up at `lg`: the close-beat date + monogram + invitation + venue sublines were missed before (the screenshot was the close beat). The monogram lockup/SVG uses responsive scale classes (`scale-[…] lg:scale-[…]`, `lg:h-44` etc.) so it's prominent on desktop, not an 80px chip.
+
+`reveal/veil-reveal.tsx`:
+
+- **Petals only fall** — removed the artificial "cling to a random veil grid point" (both the init seeding and the recycle path). Leaves were appearing stuck on the lifted veil where none had fallen; now every petal showers down from the top and none pre-attach. (Supersedes the §6 "petals cling / lowering shakes them loose" behaviour — owner-directed.)
+
+Verified: `pnpm typecheck` (my files clean; monogram-studio `paper` errors are an unrelated local install gap) + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` + `0024_Veil_Reveal_Spec` — the video autoplays with a music↔video crossfade; desktop type + monogram scale up; veil petals only fall (no random cling). See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · fix(monogram): the dashboard Vector Studio seeds from the couple's initials (same PR #1798)
 
 Owner: on the event's Monogram Maker (`/dashboard/[eventId]/monogram`), the Vector Studio opened on its built-in **"Maria & Juan"** placeholder instead of the couple's initials — so it didn't read as *their* monogram maker, and saving that generic mark **replaced the event's assigned monogram** with the wrong initials. Root cause: `VectorStudio` never received the event's initials — its sibling cards (Cipher / Bespoke / lettered Maker) all take `initialInitials` / `defaultInitials`, but `VectorStudio` took only `initialConfig` (the *saved* design), so a first-time open fell through to the engine's hardcoded default.

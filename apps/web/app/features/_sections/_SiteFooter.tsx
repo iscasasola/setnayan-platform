@@ -37,6 +37,9 @@ export function SiteFooter() {
           <Link href="/blog" className="hover:text-ink">
             Journal
           </Link>
+          <Link href="/monogram" className="hover:text-ink">
+            Monogram maker
+          </Link>
           <Link href="/for-vendors" className="hover:text-ink">
             For vendors
           </Link>

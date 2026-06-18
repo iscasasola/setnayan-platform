@@ -1,14 +1,18 @@
 /**
- * Save-the-Date film themes — visual treatment of the content film.
- * (iteration 0024 PR4 · live builder 2026-06-18)
+ * Save-the-Date film FONTS — the couple's one look choice (iteration 0024).
  *
- * Each theme controls: background, text colour, accent colour, label style,
- * and display font. 'moodboard' is the default — it inherits the couple's
- * mood board palette (cream/ink/mulberry/terracotta). The others are fixed
- * palettes that offer a different aesthetic feel.
+ * 2026-06-19 (owner): the old multi-property "themes" (background + colours +
+ * font) are reduced to a FONT choice only — "look doesn't matter because we
+ * have a custom background now." The Step-1 Background sets the scene, and the
+ * legibility tone (lib/std-backgrounds · resolveStdLegibility → the film's
+ * applyTextTone) drives the text colours over it. So every entry shares one
+ * neutral palette and differs ONLY by its display font.
  *
- * All Tailwind classes are defined as complete string literals so JIT
- * includes them without safelisting.
+ * The 5 ids are kept stable (no migration); each is repurposed as a distinct,
+ * wedding-elegant font. Unknown/legacy ids fall back to the first via
+ * resolveStdTheme. All Tailwind classes are complete string literals so JIT
+ * includes them without safelisting; the font utilities are the registered
+ * next/font families (tailwind.config fontFamily).
  */
 
 export const STD_THEME_IDS = [
@@ -23,122 +27,59 @@ export type StdThemeId = (typeof STD_THEME_IDS)[number];
 
 export type StdTheme = {
   id: StdThemeId;
+  /** Font name shown in the picker (rendered IN the font). */
   label: string;
   description: string;
-  /** Outer stage background class. */
+  /** Outer stage background class (moot — the Step-1 background shows through). */
   outerBg: string;
-  /** Outer stage text class. */
+  /** Outer stage text class (moot — the legibility tone overrides it). */
   outerFg: string;
-  /** Mono-uppercase accent label class (replaces the hardcoded LABEL const). */
+  /** Mono-uppercase accent label class (tone overrides the colour). */
   labelCls: string;
-  /** Accent text colour (monogram, decorative dividers). */
+  /** Accent text colour (tone overrides). */
   accentText: string;
-  /** Accent background (CTA buttons). */
+  /** Accent background (CTA buttons — kept, shared across fonts). */
   accentBg: string;
   /** Accent background hover state. */
   accentBgHover: string;
   /** Foreground colour ON the accent background (button text). */
   accentFgOnBg: string;
-  /** Subtle/secondary text colour (subtitles, supporting copy). */
+  /** Subtle/secondary text colour (tone overrides). */
   subtleText: string;
-  /** Display font class for headings + name/date/venue text. */
+  /** Display font class — THE choice. Drives every heading + name/date/venue. */
   fontCls: string;
-  /** Scrub-bar active fill. */
+  /** Scrub-bar active fill (the bars are removed; tone overrides anyway). */
   scrubFill: string;
-  /** CSS hex for the theme picker swatch background. */
+  /** CSS hex for the picker swatch background. */
   swatchBg: string;
-  /** CSS hex for the theme picker swatch text. */
+  /** CSS hex for the picker swatch text. */
   swatchFg: string;
 };
 
+// One shared neutral palette — colours come from the background + tone, so only
+// the accent button colour (mulberry on cream) is meaningful here.
+const SHARED = {
+  outerBg: 'bg-cream',
+  outerFg: 'text-ink',
+  labelCls: 'font-mono text-[10px] uppercase tracking-[0.3em] text-terracotta',
+  accentText: 'text-mulberry',
+  accentBg: 'bg-mulberry',
+  accentBgHover: 'hover:bg-mulberry-600',
+  accentFgOnBg: 'text-cream',
+  subtleText: 'text-ink/60',
+  scrubFill: 'bg-mulberry',
+  swatchBg: '#f5f0e8',
+  swatchFg: '#1a1412',
+} as const;
+
 export const STD_THEMES: StdTheme[] = [
-  {
-    id: 'default',
-    label: 'Default',
-    description: 'Clean & timeless',
-    outerBg: 'bg-white',
-    outerFg: 'text-gray-900',
-    labelCls: 'font-mono text-[10px] uppercase tracking-[0.3em] text-gray-500',
-    accentText: 'text-gray-900',
-    accentBg: 'bg-gray-900',
-    accentBgHover: 'hover:bg-gray-800',
-    accentFgOnBg: 'text-white',
-    subtleText: 'text-gray-500',
-    fontCls: 'font-sans',
-    scrubFill: 'bg-gray-900',
-    swatchBg: '#ffffff',
-    swatchFg: '#111827',
-  },
-  {
-    id: 'moodboard',
-    label: 'Mood Board',
-    description: 'Your palette, your story',
-    outerBg: 'bg-cream',
-    outerFg: 'text-ink',
-    labelCls: 'font-mono text-[10px] uppercase tracking-[0.3em] text-terracotta',
-    accentText: 'text-mulberry',
-    accentBg: 'bg-mulberry',
-    accentBgHover: 'hover:bg-mulberry-600',
-    accentFgOnBg: 'text-cream',
-    subtleText: 'text-ink/60',
-    fontCls: 'font-display',
-    scrubFill: 'bg-mulberry',
-    swatchBg: '#f5f0e8',
-    swatchFg: '#1a1412',
-  },
-  {
-    id: 'heritage',
-    label: 'Heritage',
-    description: 'Warm, timeless, classic',
-    outerBg: 'bg-amber-50',
-    outerFg: 'text-amber-950',
-    labelCls: 'font-mono text-[10px] uppercase tracking-[0.3em] text-amber-700',
-    accentText: 'text-amber-900',
-    accentBg: 'bg-amber-900',
-    accentBgHover: 'hover:bg-amber-800',
-    accentFgOnBg: 'text-amber-50',
-    subtleText: 'text-amber-700',
-    fontCls: 'font-serif',
-    scrubFill: 'bg-amber-900',
-    swatchBg: '#fffbeb',
-    swatchFg: '#451a03',
-  },
-  {
-    id: 'noir',
-    label: 'Noir',
-    description: 'Cinematic, bold, dark',
-    outerBg: 'bg-zinc-950',
-    outerFg: 'text-zinc-50',
-    labelCls: 'font-mono text-[10px] uppercase tracking-[0.3em] text-zinc-400',
-    accentText: 'text-zinc-100',
-    accentBg: 'bg-zinc-100',
-    accentBgHover: 'hover:bg-white',
-    accentFgOnBg: 'text-zinc-950',
-    subtleText: 'text-zinc-400',
-    fontCls: 'font-display',
-    scrubFill: 'bg-zinc-100',
-    swatchBg: '#09090b',
-    swatchFg: '#fafafa',
-  },
-  {
-    id: 'botanical',
-    label: 'Botanical',
-    description: 'Natural, garden, serene',
-    outerBg: 'bg-stone-50',
-    outerFg: 'text-stone-800',
-    labelCls: 'font-mono text-[10px] uppercase tracking-[0.3em] text-emerald-700',
-    accentText: 'text-emerald-800',
-    accentBg: 'bg-emerald-800',
-    accentBgHover: 'hover:bg-emerald-900',
-    accentFgOnBg: 'text-stone-50',
-    subtleText: 'text-stone-500',
-    fontCls: 'font-serif',
-    scrubFill: 'bg-emerald-800',
-    swatchBg: '#fafaf9',
-    swatchFg: '#1c1917',
-  },
+  { id: 'default', label: 'Cormorant', description: 'Refined classic serif', fontCls: 'font-display', ...SHARED },
+  { id: 'moodboard', label: 'Playfair', description: 'High-contrast editorial', fontCls: 'font-playfair', ...SHARED },
+  { id: 'heritage', label: 'Caslon', description: 'Warm, timeless book serif', fontCls: 'font-caslon', ...SHARED },
+  { id: 'noir', label: 'Vidaloka', description: 'Bold modern display', fontCls: 'font-vidaloka', ...SHARED },
+  { id: 'botanical', label: 'Script', description: 'Romantic handwritten', fontCls: 'font-script', ...SHARED },
 ];
 
 export function resolveStdTheme(id: unknown): StdThemeId {
-  return STD_THEME_IDS.includes(id as StdThemeId) ? (id as StdThemeId) : 'moodboard';
+  return STD_THEME_IDS.includes(id as StdThemeId) ? (id as StdThemeId) : 'default';
 }

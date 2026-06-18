@@ -144,13 +144,18 @@ export function RevealOverlay({
 
   if (veil) {
     // The veil is a PERSISTENT top layer, not a one-shot gate: the first lift
-    // STARTS the film underneath (dispatch 'std-reveal-done'), but the veil
-    // stays mounted on top (z-60) — the guest can swipe it back DOWN and it
-    // re-covers the still-playing film (VeilReveal is two-way). So we never
-    // fade it out / unmount it (unlike the rigid openings, which truly part
-    // and clear). (owner 2026-06-18 "reveal stays on top, not under")
+    // STARTS the film underneath (dispatch 'std-reveal-done') and the veil
+    // stays mounted on top (z-60), drooped to its valance — we never fade it
+    // out / unmount it (unlike the rigid openings, which truly part and clear).
+    // (owner 2026-06-18 "reveal stays on top, not under")
+    //
+    // BUT once lifted, the layer goes pointer-events-none (owner 2026-06-19):
+    // a swipe on a now-uncovered area must SCRUB THE FILM beneath (z-50), not
+    // grab the transparent canvas and re-cover the veil. So the two-way
+    // re-cover is retired post-reveal — `open` (set in onRevealed) flips the
+    // whole overlay non-interactive and every gesture falls through to the film.
     return (
-      <div className="fixed inset-0 z-[60] overflow-hidden">
+      <div className={`fixed inset-0 z-[60] overflow-hidden ${open ? 'pointer-events-none' : ''}`}>
         <VeilReveal
           veilColor={eventEffects?.veilColor ?? veilColor}
           petalsColor={eventEffects?.petalColor ?? petalsColor}

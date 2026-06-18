@@ -34,8 +34,10 @@ import {
 import { RevealPreviewCard } from '@/app/dashboard/[eventId]/_components/reveal-preview-card';
 import { RevealPreview } from '@/app/dashboard/[eventId]/_components/reveal-preview';
 import { StdBackgroundPicker } from '@/app/dashboard/[eventId]/_components/std-background-picker';
+import { StdMediaPicker } from '@/app/dashboard/[eventId]/_components/std-media-picker';
 import { StdBackgroundLayer } from '@/app/[slug]/_components/std-background-layer';
 import { realisticBgSrc, type StdBackground } from '@/lib/std-backgrounds';
+import type { StdMedia } from '@/lib/std-media';
 import type { RevealEffects } from '@/lib/std-reveal-effects';
 import type { RevealEffectsLook, VeilLook } from '@/lib/reveal-config';
 import {
@@ -60,6 +62,12 @@ type Props = {
   initialBackground: StdBackground;
   /** Presigned URL for the saved upload background (if kind === 'upload'). */
   initialUploadUrl?: string | null;
+  /** The couple's saved Step-3 media choice (resolved; defaults to gallery). */
+  initialMedia: StdMedia;
+  /** Presigned URL for the saved uploaded video (if media.type === 'video'). */
+  initialVideoUrl?: string | null;
+  /** How many photos the couple has (the gallery option's content count). */
+  galleryCount?: number;
   /** Raw std_film_* snapshot values — null means not yet set (falls back to live event data). */
   initialFilmDate?: string | null;
   initialFilmVenueName?: string | null;
@@ -95,6 +103,9 @@ export function StdBuilderClient({
   initialEffects,
   initialBackground,
   initialUploadUrl,
+  initialMedia,
+  initialVideoUrl,
+  galleryCount,
   initialFilmDate,
   initialFilmVenueName,
   initialFilmVenueCity,
@@ -162,6 +173,21 @@ export function StdBuilderClient({
     presignStdBackground(eventId, ref)
       .then((r) => setUploadUrl(r.url))
       .catch(() => {});
+  };
+
+  // Step-3 media (gallery / uploaded video); saved on Render.
+  const [media, setMedia] = useState<StdMedia>(initialMedia);
+  const pickMedia = (m: StdMedia) => {
+    setMedia(m);
+    if (result !== 'idle') setResult('idle');
+  };
+  // A new video upload resets the NSFW gate to pending (re-screened before live).
+  const handleVideoUpload = (ref: string | null) => {
+    if (!ref) {
+      pickMedia({ type: 'gallery' });
+      return;
+    }
+    pickMedia({ type: 'video', videoKey: ref, nsfw: 'pending' });
   };
 
   // Any change that should replay the opening also resets the lifted state.
@@ -248,6 +274,7 @@ export function StdBuilderClient({
         filmStory: filmStory.trim() || null,
         revealEffects: effects,
         background,
+        media,
       });
       setResult(r.ok ? 'ok' : 'error');
     });
@@ -538,6 +565,16 @@ export function StdBuilderClient({
               Missing items are simply skipped — the film adapts to what it has.
             </p>
           </section>
+
+          {/* Video / Gallery — the film's closing media (gallery or uploaded video) */}
+          <StdMediaPicker
+            value={media}
+            onChange={pickMedia}
+            eventId={eventId}
+            galleryCount={galleryCount}
+            videoUrl={initialVideoUrl}
+            onUploadVideo={handleVideoUpload}
+          />
         </div>
 
         {/* RIGHT: Sticky preview + Render */}

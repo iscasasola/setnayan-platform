@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · feat(std): Video / Gallery step — picker + persistence (PR-A of the video reinstatement)
+
+PR-A of the Step-3 "Video / Gallery Photo" feature (owner reinstated video 2026-06-18). The couple chooses how the film closes — their **photo gallery** (default) or an **uploaded video** — and uploads the video. Playback + NSFW gate + live render = PR-B; the full 5-step reorg = PR-C.
+
+- **Schema:** `events.std_media` JSONB `{type: gallery|video, videoKey?, nsfw?}` (migration `20270125872172`, applied + ledgered).
+- **Lib** `std-media.ts`: `resolveStdMedia` (validates; video → `nsfw:'pending'`) + `stdVideoIsLive` (only `'approved'` videos go public — the platform NSFW lock, enforced in PR-B).
+- **Picker** `std-media-picker.tsx`: Gallery vs Upload-a-video (`<FileUpload>` MP4/MOV/WebM, 64 MB) with a clear "screened before it goes live" note.
+- **Builder + save:** `StdBuilderClient` gets the picker (a new left-column step) + a video-upload handler that resets the NSFW gate to pending; `saveAllStdContent` persists `std_media`; the page resolves it + the saved video's presigned URL + the gallery count.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` + `0024_ADDENDUM_envelope_open_experience_2026-06-14` — video reinstated; Step-3 media choice persists. PR-B adds the locked-island playback + NSFW screening + live render. See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · feat(std): Step-1 Background — upload your own photo (the 4th kind)
 
 Replaces the "Soon" upload tile with a real photo upload, completing the Background picker's four kinds (plain · paper · realistic · upload).

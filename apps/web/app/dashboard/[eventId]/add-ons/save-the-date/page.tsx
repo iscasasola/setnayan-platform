@@ -10,6 +10,7 @@ import { resolveStdFilmContent } from '@/lib/save-the-date-content';
 import { resolveStdTheme } from '@/lib/std-themes';
 import { resolveRevealEffects } from '@/lib/std-reveal-effects';
 import { resolveStdBackground } from '@/lib/std-backgrounds';
+import { resolveStdMedia } from '@/lib/std-media';
 import { REVEAL_TEMPLATE_IDS, fetchRevealConfig } from '@/lib/reveal-config';
 import {
   NO_REVEAL,
@@ -56,7 +57,7 @@ export default async function SaveTheDatePage({ params }: Props) {
   const { data: event } = await supabase
     .from('events')
     .select(
-      'public_id, slug, display_name, event_date, venue_name, venue_address, love_story, monogram_text, monogram_custom_svg, monogram_uploaded_svg, role_palette, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_film_date, std_film_venue_name, std_film_venue_city, std_film_story, std_background, our_photos, site_bg_music_enabled, site_bg_music_r2_key, landing_page_hero_image_url',
+      'public_id, slug, display_name, event_date, venue_name, venue_address, love_story, monogram_text, monogram_custom_svg, monogram_uploaded_svg, role_palette, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_film_date, std_film_venue_name, std_film_venue_city, std_film_story, std_background, std_media, our_photos, site_bg_music_enabled, site_bg_music_r2_key, landing_page_hero_image_url',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -81,6 +82,11 @@ export default async function SaveTheDatePage({ params }: Props) {
   const stdBackground = resolveStdBackground(event?.std_background, veilColor);
   const stdBackgroundUploadUrl =
     stdBackground.kind === 'upload' ? await displayUrlForStoredAsset(stdBackground.value) : null;
+  const stdMedia = resolveStdMedia(event?.std_media);
+  const stdMediaVideoUrl =
+    stdMedia.type === 'video' && stdMedia.videoKey
+      ? await displayUrlForStoredAsset(stdMedia.videoKey)
+      : null;
 
   const [ownsOpenings, openingsSku, settings, revealConfig] = await Promise.all([
     eventOwnsStdOpenings(supabase, eventId),
@@ -215,6 +221,9 @@ export default async function SaveTheDatePage({ params }: Props) {
         initialEffects={effects}
         initialBackground={stdBackground}
         initialUploadUrl={stdBackgroundUploadUrl}
+        initialMedia={stdMedia}
+        initialVideoUrl={stdMediaVideoUrl}
+        galleryCount={ourPhotoUrls.length}
         initialFilmDate={stdDate}
         initialFilmVenueName={stdVenueName}
         initialFilmVenueCity={stdVenueCity}

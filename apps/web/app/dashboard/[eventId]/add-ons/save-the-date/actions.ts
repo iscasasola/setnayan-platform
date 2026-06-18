@@ -8,6 +8,7 @@ import { STD_THEME_IDS } from '@/lib/std-themes';
 import { resolveRevealEffects, type RevealEffects } from '@/lib/std-reveal-effects';
 import { NO_REVEAL } from '@/app/[slug]/_components/reveal/reveal-templates';
 import { resolveStdBackground, type StdBackground } from '@/lib/std-backgrounds';
+import { resolveStdMedia, type StdMedia } from '@/lib/std-media';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 
 /**
@@ -109,6 +110,7 @@ export async function saveAllStdContent(
     filmStory?: string | null;
     revealEffects?: RevealEffects | null;
     background?: StdBackground | null;
+    media?: StdMedia | null;
   },
 ): Promise<{ ok: boolean; error?: string }> {
   if (!eventId) return { ok: false, error: 'missing-event' };
@@ -151,6 +153,11 @@ export async function saveAllStdContent(
   // Step-1 background choice — validated to {kind, value}.
   if (data.background !== undefined && data.background !== null) {
     patch.std_background = resolveStdBackground(data.background);
+  }
+  // Step-3 media choice — validated to {type, videoKey?, nsfw?}. A video saves
+  // as nsfw:'pending' (re-screened before it can go live — gate enforced in PR-B).
+  if (data.media !== undefined && data.media !== null) {
+    patch.std_media = resolveStdMedia(data.media);
   }
 
   const { error } = await supabase.from('events').update(patch).eq('event_id', eventId);

@@ -4,6 +4,33 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · feat(std): auto-to-full-screen + robust window-level scroll-scrub (PR-W follow-up)
+
+Owner: "can we make it auto play to full screen? it is not scrubbing as well." (The scroll-scrub wasn't live yet — PR-W hadn't merged — and the wheel was bound to the centred stage only; both addressed here, same PR-W branch.)
+
+- **Auto-to-full-screen.** The film now requests the **Fullscreen API** so it plays with the browser chrome hidden. Browsers require a user gesture, so it fires on the reveal-lift (the veil dispatches `std-go-fullscreen` **synchronously** from its lift tap, preserving the activation) or, with no reveal, on the guest's first tap on the film. Targets `documentElement` (reveal + film both inside), once only, wrapped in try/catch — iOS Safari has no element-fullscreen so it silently stays the CSS full-viewport (already edge-to-edge).
+- **Scroll-scrub made robust.** Moved the wheel handler from the centred stage (`onWheel` prop — missed the desktop margins beside the `max-w-2xl` column) to a **`window` wheel listener**, so a mouse/trackpad scroll **anywhere** steps the beats (down = forward, up = back; debounced; manual mode). The vertical-swipe scrub (mobile) is unchanged.
+
+Verified: `pnpm typecheck` (my files clean; monogram-studio `paper` errors are an unrelated local install gap) + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the film auto-plays to true full screen on the reveal-lift gesture (best-effort; iOS stays full-viewport), and scrolls/scrubs anywhere on screen. See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(std): responsive + per-beat animations + scroll-scrub (PR-W)
+
+Owner: "make save the date adjust for mobile and desktop version also. I also need a unique way to animate each information and it must be able to auto play or scrubbed via scroll to go back to information."
+
+`save-the-date-film.tsx`:
+
+- **Responsive desktop/mobile.** The full-screen stage was a phone-width `max-w-sm` column on every screen; it now widens — `md:max-w-xl lg:max-w-2xl` — and the headline beats scale up at `lg` (names → 7xl, date → 8xl, venues → 6xl, sentiment → 5xl) so desktop reads as a full composition, not a narrow strip. Mobile is unchanged (full-width). Slide padding eases in (`px-8 sm:px-10`).
+- **A unique animation per beat.** 9 keyframes (`FILM_ANIM_CSS`) — monogram **bloom**, names **rise**, date **zoom**, ceremony **slide-in-left**, reception **slide-in-right**, sentiment **breathe**, invitation **blur-in**, video **pop**, close **soft-rise**. The active slide applies its `anim` inline so it re-fires on every visit (forward or scrubbed back). Honors `prefers-reduced-motion` (animations off, plain cross-fade).
+- **Scroll-scrub (back + forward).** Mouse-wheel / trackpad scroll and a vertical swipe now step the beats (down/up-swipe = forward, up/down-swipe = back), debounced to one beat per flick, switching to MANUAL mode so the guest can scroll back to any earlier info. Auto-play still runs until the first scrub; horizontal taps stay a quick nudge that keeps it playing; press-hold still pauses.
+- **Re-applies the orphaned PR-T** (full-width legibility scrim + `hitControl` button-tap guard): #1792 auto-merged at the PR-S commit *before* PR-T was pushed, so those never reached `main` — folded back in here.
+- **Carries PR-V** (the veil/film spatial grab-zone) — this branch is a superset; #1795 is closed in favour of this PR.
+
+Verified: `pnpm typecheck` (my files clean; the `paper`/`paperjs-offset` errors are an unrelated local install gap from the monogram-studio merge — CI installs them) + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the film is responsive, each beat has its own entrance motion, and it scrubs by scroll/swipe (back + forward) as well as auto-playing. See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · feat(public): free no-login Monogram Studio on www.setnayan.com/monogram (PR pending, auto-merge)
 
 Owner: *"build this to www.setnayan.com"* + *"we already made a free monogram — should this be free too?"* → **yes, free** (the static/vector mark is free by the standing lock; the tool is an acquisition lead-magnet; an anonymous visitor can't take payment anyway; monetization stays downstream in the Animated Monogram reveal + tiers). New public route **`/monogram`** — the same Vector Studio, no login, design + **download** (crisp SVG + transparent PNG) + a *"start planning free"* CTA into the sign-up funnel.

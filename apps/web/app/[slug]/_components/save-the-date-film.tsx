@@ -665,7 +665,7 @@ export function SaveTheDateFilm({
           wired below). The lone exception is a single subtle mute, since the
           soundtrack auto-plays and needs an escape. */}
       {content.musicUrl || content.videoUrl ? (
-        <div className="absolute right-4 top-5 z-20" onClick={(e) => e.stopPropagation()}>
+        <div className="absolute bottom-5 right-4 z-20" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
             onClick={toggleMute}

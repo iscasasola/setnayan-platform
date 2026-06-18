@@ -149,13 +149,14 @@ export function RevealOverlay({
     // out / unmount it (unlike the rigid openings, which truly part and clear).
     // (owner 2026-06-18 "reveal stays on top, not under")
     //
-    // BUT once lifted, the layer goes pointer-events-none (owner 2026-06-19):
-    // a swipe on a now-uncovered area must SCRUB THE FILM beneath (z-50), not
-    // grab the transparent canvas and re-cover the veil. So the two-way
-    // re-cover is retired post-reveal — `open` (set in onRevealed) flips the
-    // whole overlay non-interactive and every gesture falls through to the film.
+    // The veil AND the film must BOTH be reachable (owner 2026-06-19: "I still
+    // want the veil accessible but also want to navigate the messages"). The
+    // wrapper is pointer-events-none so the film (z-50) is reachable by default;
+    // VeilReveal re-enables input only inside its own grab-zone (full-screen
+    // while covering, top valance band once lifted). So: swipe the top band →
+    // grab/re-cover the veil; swipe the body → scrub the film messages.
     return (
-      <div className={`fixed inset-0 z-[60] overflow-hidden ${open ? 'pointer-events-none' : ''}`}>
+      <div className="pointer-events-none fixed inset-0 z-[60] overflow-hidden">
         <VeilReveal
           veilColor={eventEffects?.veilColor ?? veilColor}
           petalsColor={eventEffects?.petalColor ?? petalsColor}

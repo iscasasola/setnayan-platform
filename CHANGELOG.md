@@ -15,6 +15,16 @@ The Studio hub's only monogram card ("Monogram Creator" · CTA "Open studio") ro
 Not browser-verified locally (auth-gated dashboard); relying on CI typecheck+lint + a preview link for the owner. The change is a route string + card-copy edit.
 
 SPEC IMPACT: None (routing/discoverability fix; no schema, no pricing change — the free maker and the paid ANIMATED_MONOGRAM SKU are both unchanged, only the Studio entry point is corrected).
+## 2026-06-18 · fix(papic): Pro Camera Bridge is now INCLUDED with Papic (no separate ₱1,499 purchase)
+
+Owner 2026-06-18: "camera bridge will be included on the papic service · no need to purchase as an additional." Part of the pricing-authority cleanup (PR 3a).
+
+The Papic add-on page's "Section 3 · DSLR Pro Camera Bridge" displayed a hardcoded `₱1,499` per-seat price (the `PRO_CAMERA_BRIDGE_PRICE` constant) and a disabled "Add bridge" CTA — a separate paid item that was never actually wired to a charge (no catalog row existed for it). Reframed as **included with Papic**: removed the price + the `PRO_CAMERA_BRIDGE_PRICE` constant, the heading now reads "Pair a real camera body — included with Papic", and the footnote states bridging is included with the seats (no extra purchase). The pairing CTA stays (a feature action, "coming with native app"), not a purchase.
+
+`app/dashboard/[eventId]/add-ons/papic/page.tsx` only. `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: iter 0012 (Papic) — the Pro Camera Bridge SKU (₱1,499/seat) is retired; DSLR pairing is bundled into Papic. **Remaining pricing cleanup (queued):** Papic seat-pack display figures → catalog · `lib/wizard.ts` price copy → catalog · `/pricing` "₱999/28 days" branch line → `getVendorPrices().branch` · **delete the retired Boosted-Ads / Sponsored-Boost feature** (owner "yes delete them" — ~16-file removal across `/admin/ads`, `/vendor-dashboard/marketing`, `/explore`, for-vendors, `lib/vendor-ads.ts` + `lib/sku-catalog.ts`, its own dedicated PR). DECISION_LOG row added.
+
 ## 2026-06-18 · fix(db): apply the 2 unapplied migrations + repair the widget CHECK + reconcile the ledger
 
 Prod had merged features whose migrations were never applied (deploy-process gap). Fixed against prod directly:

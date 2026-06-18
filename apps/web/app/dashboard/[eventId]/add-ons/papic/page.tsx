@@ -105,7 +105,8 @@ type Props = {
 // to PHP per the 2026-05-12 decision log; do NOT invent new numbers here.
 const PAPIC_3_SEATS_PRICE = 1499;
 const PAPIC_5_SEATS_PRICE = 2499;
-const PRO_CAMERA_BRIDGE_PRICE = 1499;
+// Pro Camera Bridge is INCLUDED with Papic (owner 2026-06-18 · no separate
+// purchase) — its former ₱1,499 SKU constant is retired.
 
 // Mock data only. Real seat + bridge state moves to Supabase once the
 // native pairing pipeline is built (TODO(0012)).
@@ -1162,11 +1163,10 @@ function ProCameraBridgeCard({
             Section 3 · DSLR Pro Camera Bridge
           </p>
           <h2 className="text-xl font-semibold tracking-tight">
-            Pair a real camera body for{' '}
-            <span className="font-mono text-base text-terracotta">
-              {formatPhp(PRO_CAMERA_BRIDGE_PRICE)}
-            </span>{' '}
-            per seat
+            Pair a real camera body —{' '}
+            <span className="font-mono text-base text-emerald-700">
+              included with Papic
+            </span>
           </h2>
         </div>
         <div className="inline-flex items-center gap-2 rounded-full bg-terracotta/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
@@ -1236,16 +1236,15 @@ function ProCameraBridgeCard({
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-prose text-xs text-ink/55">
-          One purchase counts toward whichever surface the paired phone
+          Bridging is included with your Papic seats — no extra purchase. One
+          bridge per phone-camera pair, on whichever surface the paired phone
           is running (Papic or Panood live stream).
         </p>
-        {/* TODO(0012): wire this CTA into the 0034 apply-then-pay
-            service_orders flow once the schema is in place. */}
         <button
           type="button"
           className="inline-flex items-center gap-2 rounded-md border border-terracotta px-4 py-2 text-sm font-medium text-terracotta hover:bg-terracotta/5 disabled:opacity-70"
           disabled
-          aria-label="Add Pro Camera Bridge to a seat (coming with native app)"
+          aria-label="Pair a Pro Camera Bridge to a seat (coming with native app)"
         >
           <Aperture aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           Add bridge to a seat

@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · feat(public): free no-login Monogram Studio on www.setnayan.com/monogram (PR pending, auto-merge)
+
+Owner: *"build this to www.setnayan.com"* + *"we already made a free monogram — should this be free too?"* → **yes, free** (the static/vector mark is free by the standing lock; the tool is an acquisition lead-magnet; an anonymous visitor can't take payment anyway; monetization stays downstream in the Animated Monogram reveal + tiers). New public route **`/monogram`** — the same Vector Studio, no login, design + **download** (crisp SVG + transparent PNG) + a *"start planning free"* CTA into the sign-up funnel.
+
+- **Shared extraction**: moved the engine to `lib/monogram-studio/engine.ts` and the editor DOM/CSS to `lib/monogram-studio/markup.ts` (`STUDIO_HTML` + `STUDIO_CSS`), so the couple-facing dashboard studio AND the public studio render the identical editor from one source (no dup). Dashboard `studio.tsx` now imports from `@/lib/monogram-studio/*`; its route bundle dropped 31 kB → 17.6 kB (markup moved to a shared chunk).
+- **Public component** `app/monogram/public-monogram-studio.tsx` (`'use client'`): reuses `mountStudio` via the same client-only dynamic import of paper.js/opentype.js (never touches SSR), but ends in **Download SVG** (`sanitizeStudioSvg` → Blob) and **Download PNG** (client raster: viewBox-aspect sizing, transparent alpha preserved, `encodeURIComponent` data-URI — Unicode-safe), plus the CTA. No server action, no eventId, no auth.
+- **Public page** `app/monogram/page.tsx` (server, static `○`): benefits-only copy, `WebApplication` JSON-LD (free, references the site `#organization`), 3-step explainer, "make it official" CTA. SEO metadata + canonical `/monogram`.
+- **Discoverability**: `/monogram` added to `NAV_ROUTES` (persistent chrome renders) + a footer "Monogram maker" link. NOT added to the locked 6-page top-nav link set (IA lock respected).
+- **Hygiene**: no implementation leak in public copy; guarded PostHog `public_monogram_downloaded` / `public_monogram_cta` events (no PII); Blob/data-URI downloads need no CSP change.
+
+Reviewed by a 44-agent adversarial pass (hygiene · security · SSR/reuse · download correctness · UX); the one real fix was the OG image (was the `/our-story` manifesto card → now the neutral `/brand/og-card.webp`). `?from=monogram` is harmless + URL-trackable via PostHog; deeper onboarding capture is an optional follow-up.
+
+Verified: `pnpm typecheck` clean · `pnpm lint` 0 errors · `pnpm build` green (`/monogram` prerenders static; paper.js in a separate dynamic chunk).
+
+SPEC IMPACT: monogram Phase 5 — public surface. Corpus design doc + DECISION_LOG + memory updated. Carry-the-design-through-signup (auto-apply to the new event) is the noted next enhancement.
 ## 2026-06-19 · fix(std): veil AND film both reachable — spatial grab-zone (PR-V)
 
 Owner: "I still want the veil to be accessible. but I also want to be able to navigate the messages."

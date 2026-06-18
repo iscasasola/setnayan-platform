@@ -19,6 +19,7 @@ import {
   HelpCircle,
   Link2,
   List,
+  Loader2,
   Map as MapIcon,
   Martini,
   Maximize2,
@@ -2602,11 +2603,15 @@ export function SeatingEditor({
             <button
               type="button"
               onClick={publishAndPrint}
-              disabled={tables.length === 0}
+              disabled={isPending || tables.length === 0}
               title="Publish the plan and open printable table signs + place cards"
               className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta disabled:opacity-50"
             >
-              <Printer className="h-3.5 w-3.5" /> Publish &amp; print
+              {isPending ? (
+                <><Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" /> Publishing…</>
+              ) : (
+                <><Printer className="h-3.5 w-3.5" /> Publish &amp; print</>
+              )}
             </button>
             <button
               type="button"

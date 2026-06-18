@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Check, Plus, AlertCircle } from 'lucide-react';
+import { Check, Plus, AlertCircle, Loader2 } from 'lucide-react';
 import { offerServiceInterest, type OfferServiceResult } from '../actions';
 
 export type VendorOfferOption = {
@@ -80,7 +80,11 @@ export function VendorOfferService({
         disabled={pending || !selected}
         className="inline-flex h-9 items-center gap-1.5 rounded-md border border-ink/20 px-3 text-sm font-medium text-ink transition-colors hover:bg-ink/5 disabled:cursor-default disabled:opacity-60"
       >
-        <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+        {pending ? (
+          <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
+        ) : (
+          <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+        )}
         {pending ? 'Adding…' : 'Add'}
       </button>
       {state.kind === 'done' ? (

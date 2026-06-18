@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · fix(std): veil AND film both reachable — spatial grab-zone (PR-V)
+
+Owner: "I still want the veil to be accessible. but I also want to be able to navigate the messages."
+
+PR-S made the veil layer `pointer-events-none` after reveal so swipes scrubbed the film — but that made the veil itself un-grabbable. This replaces the all-or-nothing release with a **spatial split** keyed to where the veil physically is:
+
+- `veil-reveal.tsx`: the canvas still renders full-screen, but pointer input is captured by a dedicated **grab-zone** child (the mount is now `pointer-events:none`; the grab-zone is `pointer-events:auto`). The RAF loop **resizes the grab-zone from `lift`**: full-screen while the veil COVERS the page (grab anywhere to lift), shrinking to the **top valance band** (`24vh`) once LIFTED — so swipes lower down fall through to the film (z-50) and scrub the messages, while the top stays the veil's. Hysteresis (0.6 up / 0.35 down) avoids flicker; capture moves to the grab-zone so a drag keeps tracking as it resizes. The two-way swipe-down-to-re-cover is **restored** (it works in the top band).
+- `reveal-overlay.tsx`: the veil wrapper is `pointer-events-none` (the grab-zone re-enables input for its region only) — replaces PR-S's `open`-gated full-layer release.
+- `save-the-date-film.tsx`: moved the mute toggle from top-right to **bottom-right** so it isn't covered by the top veil grab-zone (and stays tappable).
+
+Verified: `pnpm typecheck` (my files clean; pre-existing `paper` module errors are an unrelated local install gap from the monogram-studio merge — CI installs them) + `pnpm lint` clean.
+
+SPEC IMPACT: `0024_Veil_Reveal_Spec` / `0024_Save_the_Date_Content_and_Customization` — post-reveal the veil is grabbable in its top valance band while the film body scrubs the messages (supersedes PR-S's "two-way retired post-reveal"). See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · feat(std): the film's logo falls back to the onboarding lockup (PR-U)
 
 Owner: "logo will be from the onboarding, but if they upload or use the monogram lab, it will bypass the onboarding logo."

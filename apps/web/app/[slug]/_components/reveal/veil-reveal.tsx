@@ -89,6 +89,15 @@ type GrabState = {
 
 export default function VeilReveal({ veilColor, petalsColor, look, features, onRevealed, autoplay = false, lowRes = false }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
+  // Pointer hit-zone (owner 2026-06-19 "I still want the veil accessible but
+  // also want to navigate the messages"): the canvas renders full-screen but
+  // input is captured ONLY here — full-screen while the veil COVERS the page
+  // (grab anywhere to lift), then shrinks to the TOP valance band once LIFTED so
+  // swipes lower down fall through to the film beneath (z-50) and scrub the
+  // messages. The veil stays re-grabbable at the top. grabTopBand tracks which
+  // mode is active (driven by `lift` in the loop).
+  const grabRef = useRef<HTMLDivElement>(null);
+  const grabTopBandRef = useRef(false);
   const colorRef = useRef(veilColor);
   colorRef.current = veilColor;
   const petalColorRef = useRef(petalsColor);
@@ -790,6 +799,22 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       lift += (liftTarget - lift) * 0.05;
       if (lift < pl - 0.0008) shakeFrames = 18;
       if (shakeFrames > 0) shakeFrames--;
+      // Resize the grab-zone to follow the veil: lifted (lift high) → only the
+      // top valance band captures input so the film below is navigable; covering
+      // (lift low) → full-screen so the guest can grab anywhere to lift again.
+      // Hysteresis (0.6 / 0.35) avoids flicker as lift animates through.
+      const wantTopBand = grabTopBandRef.current ? lift > 0.35 : lift > 0.6;
+      if (wantTopBand !== grabTopBandRef.current && grabRef.current) {
+        grabTopBandRef.current = wantTopBand;
+        const g = grabRef.current;
+        if (wantTopBand) {
+          g.style.bottom = 'auto';
+          g.style.height = '24vh';
+        } else {
+          g.style.bottom = '0';
+          g.style.height = '';
+        }
+      }
       mat.color.set(colorRef.current || '#f3ece1');
       step(1 / 60);
       const zc = camZ - 0.7;
@@ -862,7 +887,9 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
         grabs[e.pointerId]!.cy = hy;
         grabs[e.pointerId]!.lastY = hy;
       }
-      cv.setPointerCapture?.(e.pointerId);
+      // Capture on the grab-zone so a drag keeps tracking even after it shrinks
+      // to the top band mid-gesture (and after the pointer leaves the canvas).
+      grabRef.current?.setPointerCapture?.(e.pointerId);
     };
     const onMove = (e: PointerEvent) => {
       const g = grabs[e.pointerId];
@@ -904,8 +931,13 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       if (grabs[e.pointerId]) delete grabs[e.pointerId];
     };
     // Live page = drag-to-lift. Preview = no gesture input (auto-lift only).
-    if (!autoplay) {
-      cv.addEventListener('pointerdown', onDown);
+    // pointerdown binds to the grab-zone (not the canvas) so input is scoped to
+    // its region; move/up stay on window so a drag keeps tracking past the zone.
+    // Coordinate math uses cv's rect (full-screen) — clientX/Y are viewport
+    // coords, so it's correct regardless of which element caught the down.
+    const grabEl = grabRef.current;
+    if (!autoplay && grabEl) {
+      grabEl.addEventListener('pointerdown', onDown);
       window.addEventListener('pointermove', onMove);
       window.addEventListener('pointerup', release);
       window.addEventListener('pointercancel', onCancel);
@@ -954,7 +986,7 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       if (roFull) window.clearTimeout(roFull);
       ro?.disconnect();
       restructureRef.current = () => {};
-      cv.removeEventListener('pointerdown', onDown);
+      grabEl?.removeEventListener('pointerdown', onDown);
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', release);
       window.removeEventListener('pointercancel', onCancel);
@@ -968,6 +1000,9 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       renderer.dispose();
       if (cv.parentNode) cv.parentNode.removeChild(cv);
     };
+    // Mount-once: the sim owns its own lifecycle; live prop changes flow via the
+    // refs + the structuralKey effect, never a remount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Structural look changes (folds / fullness / reaches / logo size·opacity·on-off)
@@ -981,5 +1016,24 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
     restructureRef.current();
   }, [structuralKey]);
 
-  return <div ref={mountRef} className="absolute inset-0" style={{ touchAction: 'none' }} aria-hidden />;
+  return (
+    // The mount (canvas host) is pointer-transparent; only the grab-zone child
+    // captures input. So once the veil lifts and the grab-zone shrinks to the
+    // top band, swipes over the body reach the film beneath.
+    <div
+      ref={mountRef}
+      className="absolute inset-0"
+      style={{ touchAction: 'none', pointerEvents: 'none' }}
+      aria-hidden
+    >
+      {/* Veil hit-zone — full while covering, top valance band once lifted (the
+          loop resizes it via grabRef.style). pointer-events:auto re-enables input
+          for just this region inside the pointer-none mount. */}
+      <div
+        ref={grabRef}
+        className="absolute inset-x-0 top-0 bottom-0"
+        style={{ touchAction: 'none', pointerEvents: 'auto' }}
+      />
+    </div>
+  );
 }

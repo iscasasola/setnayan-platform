@@ -357,27 +357,15 @@ export function SaveTheDateFilm({
     });
   };
 
-  // Full-screen mode only: dismissed removes the film so the page beneath shows.
-  // Preview mode: never remove — replay instead (handled below on dismiss buttons).
+  // Full-screen: dismissed removes the film so the page beneath shows.
+  // Preview: never dismiss — replay instead.
   if (dismissed && !preview) return null;
 
   const isClose = idx === N - 1;
 
-  return (
-    <div
-      ref={stageRef}
-      className={
-        preview
-          ? 'relative mx-auto aspect-[9/16] w-full max-w-xs select-none overflow-hidden rounded-3xl bg-cream text-ink shadow-xl'
-          : 'fixed inset-0 z-[50] select-none overflow-hidden bg-cream text-ink'
-      }
-      style={{ touchAction: 'none' }}
-      onPointerDown={onPointerDown}
-      onPointerUp={onPointerUp}
-      onPointerCancel={() => {
-        if (holdRef.current) window.clearTimeout(holdRef.current);
-      }}
-    >
+  // Inner JSX shared by both layout modes (preview card + full-screen).
+  const filmContent = (
+    <>
       {content.musicUrl ? (
         <audio ref={audioRef} src={content.musicUrl} loop muted={muted} />
       ) : null}
@@ -419,11 +407,7 @@ export function SaveTheDateFilm({
             aria-label={muted ? 'Unmute music' : 'Mute music'}
             className="flex h-8 w-8 items-center justify-center rounded-full bg-ink/5 text-ink/50 hover:bg-ink/10"
           >
-            {muted ? (
-              <VolumeX aria-hidden className="h-4 w-4" />
-            ) : (
-              <Music aria-hidden className="h-4 w-4" />
-            )}
+            {muted ? <VolumeX aria-hidden className="h-4 w-4" /> : <Music aria-hidden className="h-4 w-4" />}
           </button>
         ) : null}
         {isClose ? (
@@ -433,11 +417,7 @@ export function SaveTheDateFilm({
             aria-label={preview ? 'Replay film' : 'Continue to invitation page'}
             className="flex h-8 w-8 items-center justify-center rounded-full bg-ink/5 text-ink/50 hover:bg-ink/10"
           >
-            {preview ? (
-              <RotateCcw aria-hidden className="h-4 w-4" />
-            ) : (
-              <X aria-hidden className="h-4 w-4" />
-            )}
+            {preview ? <RotateCcw aria-hidden className="h-4 w-4" /> : <X aria-hidden className="h-4 w-4" />}
           </button>
         ) : null}
       </div>
@@ -456,6 +436,20 @@ export function SaveTheDateFilm({
           </div>
         ))}
       </div>
+
+      {/* Close slide — prominent "See your wedding page" CTA (full-screen only).
+          Positioned above the small transport bar so it's unmissable on desktop. */}
+      {isClose && !preview ? (
+        <button
+          type="button"
+          onPointerDown={(e) => e.stopPropagation()}
+          onPointerUp={(e) => e.stopPropagation()}
+          onClick={() => setDismissed(true)}
+          className="absolute inset-x-8 bottom-24 z-30 rounded-full bg-mulberry py-3.5 text-sm font-semibold text-cream shadow-lg transition hover:bg-mulberry-600"
+        >
+          See your wedding page
+        </button>
+      ) : null}
 
       {/* Bottom transport */}
       <div
@@ -505,6 +499,38 @@ export function SaveTheDateFilm({
             <ChevronRight aria-hidden className="h-4 w-4" />
           </button>
         )}
+      </div>
+    </>
+  );
+
+  const stageProps = {
+    ref: stageRef,
+    style: { touchAction: 'none' as const },
+    onPointerDown,
+    onPointerUp,
+    onPointerCancel: () => { if (holdRef.current) window.clearTimeout(holdRef.current); },
+  };
+
+  if (preview) {
+    return (
+      <div
+        {...stageProps}
+        className="relative mx-auto aspect-[9/16] w-full max-w-xs select-none overflow-hidden rounded-3xl bg-cream text-ink shadow-xl"
+      >
+        {filmContent}
+      </div>
+    );
+  }
+
+  // Full-screen: cream backdrop fills the whole viewport; stage is phone-width
+  // centered so the scrub bars and content look intentional on desktop.
+  return (
+    <div className="fixed inset-0 z-[50] flex justify-center bg-cream text-ink">
+      <div
+        {...stageProps}
+        className="relative h-full w-full max-w-sm select-none overflow-hidden"
+      >
+        {filmContent}
       </div>
     </div>
   );

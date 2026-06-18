@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · fix(std): post-reveal swipes scrub the film, not re-cover the veil (PR-S)
+
+Owner: "when I swipe down on a place without the veil, it should [not] bring the veil down — instead it should animate the texts via scrubbing."
+
+The veil is a persistent full-screen WebGL layer at `z-[60]` over the film (`z-[50]`). Even after it lifted it kept capturing pointer events, and `veil-reveal`'s `release()` reads a downward swipe as `setLift(0)` → re-covers. So a swipe on a now-uncovered area grabbed the transparent canvas instead of reaching the film.
+
+- `reveal-overlay.tsx` (veil branch): once the veil is revealed (`open`, set in `onRevealed`), the whole overlay flips to **`pointer-events-none`** — every gesture falls through to the film beneath, whose `onPointerUp` already steps the beats (tap/swipe the left third = back, otherwise = forward). The two-way "swipe down to re-cover" is **retired post-reveal** (the canvas's `window`-bound move/up listeners become harmless no-ops with no grab to act on).
+- The veil stays mounted + rendering (its drooped valance is still visible on top) — only its interactivity is released.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. No migration. Shipped on the PR #1792 branch alongside the 9-beat spine (one branch to avoid the stacked-CHANGELOG churn).
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` / `0024_Veil_Reveal_Spec` — post-reveal the veil is non-interactive; swipes scrub the film (the 2026-06-18 two-way re-cover is retired once lifted). See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · feat(std): the 9-beat film spine + video → full screen (PR-R)
 
 Owner respec of the film's beat order + the video behaviour:

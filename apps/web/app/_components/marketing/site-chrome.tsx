@@ -44,6 +44,7 @@ const NAV_ROUTES = new Set<string>([
   '/realstories',
   '/features',
   '/explore',
+  '/monogram',
   '/tl/about',
   '/tl/how-it-works',
 ]);

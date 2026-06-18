@@ -86,8 +86,8 @@ type RetailInput = {
   price: string;
   active: boolean;
 };
-type BundleInput = { title: string; price: string; active: boolean };
-type VendorInput = { price: string; active: boolean };
+type BundleInput = { title: string; desc: string; price: string; active: boolean };
+type VendorInput = { desc: string; price: string; active: boolean };
 
 // ─── saveAllPricing ───────────────────────────────────────────────────
 export async function saveAllPricing(formData: FormData) {
@@ -109,7 +109,7 @@ export async function saveAllPricing(formData: FormData) {
   const ensureBundle = (code: string) => {
     let b = bundle.get(code);
     if (!b) {
-      b = { title: '', price: '', active: false };
+      b = { title: '', desc: '', price: '', active: false };
       bundle.set(code, b);
     }
     return b;
@@ -117,7 +117,7 @@ export async function saveAllPricing(formData: FormData) {
   const ensureVendor = (code: string) => {
     let v = vendor.get(code);
     if (!v) {
-      v = { price: '', active: false };
+      v = { desc: '', price: '', active: false };
       vendor.set(code, v);
     }
     return v;
@@ -144,11 +144,13 @@ export async function saveAllPricing(formData: FormData) {
     } else if (kind === 'bundle') {
       const b = ensureBundle(code);
       if (field === 'title') b.title = value;
+      else if (field === 'desc') b.desc = value;
       else if (field === 'price') b.price = value;
       else if (field === 'active') b.active = true;
     } else {
       const v = ensureVendor(code);
-      if (field === 'price') v.price = value;
+      if (field === 'desc') v.desc = value;
+      else if (field === 'price') v.price = value;
       else if (field === 'active') v.active = true;
     }
   }
@@ -165,10 +167,10 @@ export async function saveAllPricing(formData: FormData) {
       .select('service_code, title, description, retail_price_php, saas_overhead_cost_php, is_active'),
     admin
       .from('platform_package_catalog')
-      .select('package_code, title, retail_price_php, is_active'),
+      .select('package_code, title, description, retail_price_php, is_active'),
     admin
       .from('vendor_billing_catalog')
-      .select('sku_code, price_php, is_active'),
+      .select('sku_code, description, price_php, is_active'),
     admin
       .from('platform_settings')
       .select('setnayan_pay_fee_pct')
@@ -291,9 +293,12 @@ export async function saveAllPricing(formData: FormData) {
       continue;
     }
     const priceR = round2(price);
+    const desc = input.desc.trim();
+    const descVal = desc === '' ? null : desc;
 
     const same =
       prior.title === title &&
+      (prior.description ?? null) === descVal &&
       Number(prior.retail_price_php) === priceR &&
       prior.is_active === input.active;
     if (same) continue;
@@ -311,6 +316,7 @@ export async function saveAllPricing(formData: FormData) {
         .from('platform_package_catalog')
         .update({
           title,
+          description: descVal,
           retail_price_php: priceR,
           is_active: input.active,
           updated_by_admin_id: adminUserId,
@@ -326,7 +332,7 @@ export async function saveAllPricing(formData: FormData) {
         package_code: code,
         bulk: true,
         before: prior,
-        after: { title, retail_price_php: priceR, is_active: input.active },
+        after: { title, description: descVal, retail_price_php: priceR, is_active: input.active },
       },
     });
   }
@@ -345,9 +351,13 @@ export async function saveAllPricing(formData: FormData) {
       continue;
     }
     const priceR = round2(price);
+    const desc = input.desc.trim();
+    const descVal = desc === '' ? null : desc;
 
     const same =
-      Number(prior.price_php) === priceR && prior.is_active === input.active;
+      Number(prior.price_php) === priceR &&
+      (prior.description ?? null) === descVal &&
+      prior.is_active === input.active;
     if (same) continue;
 
     if (Math.abs(Number(prior.price_php) - priceR) > 500) {
@@ -363,6 +373,7 @@ export async function saveAllPricing(formData: FormData) {
         .from('vendor_billing_catalog')
         .update({
           price_php: priceR,
+          description: descVal,
           is_active: input.active,
           // No updated_at trigger on this table — stamp it explicitly.
           updated_at: new Date().toISOString(),
@@ -378,7 +389,7 @@ export async function saveAllPricing(formData: FormData) {
         sku_code: code,
         bulk: true,
         before: prior,
-        after: { price_php: priceR, is_active: input.active },
+        after: { price_php: priceR, description: descVal, is_active: input.active },
       },
     });
   }
@@ -464,4 +475,86 @@ export async function saveAllPricing(formData: FormData) {
   if (skipped.length > 0) params.set('skipped', String(skipped.length));
   if (firstError) params.set('error', '1');
   redirect(`/admin/pricing?${params.toString()}`);
+}
+
+// ─── createBundle ─────────────────────────────────────────────────────
+//
+// Insert a brand-new row into platform_package_catalog from the "Create a
+// bundle" form (owner 2026-06-18 · "a place where I can create bundles · pick
+// name and set a bundle price"). A bundle is name + price (+ optional
+// description); platform_package_catalog stores no membership, so what a bundle
+// *unlocks* stays a separate concern. The package_code is derived from the
+// name (UPPER_SNAKE) and de-duplicated against existing codes.
+//
+// Form fields: bundle_name (required) · bundle_price (required · ≥0) ·
+// bundle_desc (optional). On success → revalidate the 3 surfaces + redirect
+// with ?created=<code> so the new bundle shows in the list, ready to fine-tune
+// in the bulk editor. On validation failure → redirect with ?createError=<why>.
+//
+export async function createBundle(formData: FormData) {
+  const { adminUserId } = await requireAdmin();
+
+  const name = (formData.get('bundle_name') ?? '').toString().trim();
+  const priceRaw = (formData.get('bundle_price') ?? '').toString().trim();
+  const desc = (formData.get('bundle_desc') ?? '').toString().trim();
+
+  if (!name) redirect('/admin/pricing?createError=name');
+  const price = Number(priceRaw);
+  if (!Number.isFinite(price) || price < 0) {
+    redirect('/admin/pricing?createError=price');
+  }
+  const priceR = round2(price);
+
+  // Derive a stable UPPER_SNAKE package_code from the name.
+  const base =
+    name
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 40) || 'BUNDLE';
+
+  const admin = createAdminClient();
+
+  // De-dupe against existing codes that share the base (e.g. BUNDLE, BUNDLE_2).
+  const { data: existing } = await admin
+    .from('platform_package_catalog')
+    .select('package_code')
+    .like('package_code', `${base}%`);
+  const taken = new Set((existing ?? []).map((r) => r.package_code as string));
+  let code = base;
+  for (let n = 2; taken.has(code); n += 1) code = `${base}_${n}`;
+
+  const { error } = await admin.from('platform_package_catalog').insert({
+    package_code: code,
+    title: name,
+    description: desc === '' ? null : desc,
+    retail_price_php: priceR,
+    is_active: true,
+    updated_by_admin_id: adminUserId,
+  });
+  if (error) {
+    console.error('[createBundle] insert failed', error.message);
+    redirect('/admin/pricing?createError=db');
+  }
+
+  const { error: auditErr } = await admin.from('admin_audit_log').insert({
+    action: 'v2_bundle_sku_create',
+    target_id: code,
+    actor_user_id: adminUserId,
+    metadata: {
+      table: 'platform_package_catalog',
+      package_code: code,
+      title: name,
+      description: desc === '' ? null : desc,
+      retail_price_php: priceR,
+    },
+  });
+  if (auditErr) {
+    console.error('[createBundle] audit log insert failed', auditErr.message);
+  }
+
+  revalidatePath('/pricing');
+  revalidatePath('/for-vendors');
+  revalidatePath('/admin/pricing');
+  redirect(`/admin/pricing?created=${encodeURIComponent(code)}`);
 }

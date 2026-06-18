@@ -26,6 +26,17 @@ Per owner ("settings of the effects on admin so I can calibrate them properly") 
 Verified: `pnpm typecheck` + `pnpm lint` clean. (Effects render only in a visible browser; the Reveal Studio preview is where the owner calibrates.)
 
 SPEC IMPACT: `0024_Reveal_Tuning_and_Door_Spec` §7/§8 — the butterfly + petal calibration is now admin-tunable (was hardcoded). DECISION_LOG 2026-06-18. Follow-up: thread `effectLook` into the couple builder preview too (today it shows the locked defaults).
+## 2026-06-18 · feat(admin): /admin/pricing editor v2 — roomier rows, ⓘ "what it's for", create-a-bundle
+
+Owner-requested fixes to the admin pricing editor (the single source of truth for app prices). Migration `20270124000000` (applied to prod via `db query` + ledger repair) adds an additive `description TEXT` column to `platform_package_catalog` + `vendor_billing_catalog` (retail already had one).
+
+- **Roomier layout + live margin** — the editable rows move to client islands (`_components/catalog-editor.tsx`) inside the existing server-action `<form>`. Rows are less cramped (the description is no longer an always-visible input), and **margin recomputes live** as you edit cost/price (it used to update only after saving).
+- **ⓘ "What this is for"** — every row (customer SKU · bundle · vendor) gets a collapsible info panel with an editable description, so codes like `PANOOD` / `GUIDED_PACK` are self-explanatory without re-cluttering the list. `saveAllPricing` now persists bundle + vendor descriptions too (diff + audit extended).
+- **Create a bundle** — a dedicated "Create a bundle" card (its own `<form>` → new `createBundle` action) inserts a `platform_package_catalog` row from a name + price (+ optional description); the `package_code` is derived from the name and de-duplicated. It appears in the Bundles section, ready to fine-tune. A bundle stores name + price + description only — what it *unlocks* is a separate follow-up (no membership table).
+
+Files: `supabase/migrations/20270124000000_pricing_catalog_descriptions.sql` · `app/admin/pricing/actions.ts` (bundle/vendor `description` + `createBundle`) · `app/admin/pricing/page.tsx` · `app/admin/pricing/_components/{catalog-editor.tsx,grids.ts}`. `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: iter 0023 (Admin Console) pricing surface — editor gains descriptions for all line items + a bundle creator. Additive schema only; no pricing values change. **Follow-ups queued (owner "yes"):** wire Panood to the catalog (the real "saving doesn't propagate" bug — it hardcodes prices + uses V1 keys absent from the catalog), then replace the remaining display-only hardcodes (wizard copy, Papic display figures, pricing-page branch line) + delete retired ad prices. DECISION_LOG row added.
 
 ## 2026-06-18 · fix(std): soft cast shadows on reveal butterflies + petals (grounds them, not flat)
 

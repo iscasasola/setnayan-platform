@@ -23,65 +23,53 @@
  * This file owns the NavGroup[] array consumed by SidebarShell +
  * SidebarSection + SidebarItem from @/app/_components/nav/*. It is the
  * single source of truth for vendor nav structure on desktop. The
- * 5-item mobile BottomNav lives in vendor-bottom-nav.tsx alongside this
+ * 6-tab mobile BottomNav lives in vendor-bottom-nav.tsx alongside this
  * file.
  *
- * 4 GROUPS (remapped 2026-06-04 from the original 6 per the Nav Phase 2
- * brief). Group keys are preserved from the 6-group layout for
- * localStorage open-state continuity, so key and label diverge:
- *   1. Home (key 'home')         — Overview (/vendor-dashboard root ·
- *                      exact-match) · Profile
- *   2. Work (key 'pipeline')     — Bookings · Messages · Services ·
- *                      Contracts · Repertoire · Attributes (merged the old
- *                      Pipeline + Communicate groups)
- *   3. Grow (key 'marketing')    — Subscription · Tokens · Redeem code ·
- *                      Marketing · Verify · Reviews · Moodboard library
- *                      (single home for paid reach + reputation · the three
- *                      paid SKUs folded in from Business 2026-06-14 per the
- *                      owner-locked REDESIGN_PLAN)
- *   4. Business (key 'money')    — Earnings · How clients pay you
- *                      (payment-options) · Manpower · Branches · Team &
- *                      Setnayan (pure money/ops · merged the old Money +
- *                      Team groups · Tax docs retired 2026-05-29 under the
- *                      V2 publisher posture · Setnayan no longer withholds
- *                      vendor income tax · no Form 2307 obligation)
+ * 6 GROUPS (reclustered 2026-06-18 from the 4-group layout). Mirrors the
+ * admin console 6-group pattern (PR #1712). Group and item keys are NEW
+ * (localStorage open-state intentionally reset on the recluster):
+ *
+ *   1. Home (key 'home')          — Overview (root · exact-match) ·
+ *                       Profile · Website (public-page preview)
+ *
+ *   2. Operations (key 'operations') — Bookings · Calendar · Clients ·
+ *                       Messages · Contracts · Proposals
+ *                       (all live-event run-the-business surfaces)
+ *
+ *   3. Offerings (key 'offerings')  — Services · Packages · Attributes ·
+ *                       Repertoire
+ *                       (what the vendor sells + describes)
+ *
+ *   4. Grow (key 'grow')           — Subscription · Tokens · Redeem code ·
+ *                       Marketing · Verify · Partnerships · Reviews
+ *                       (everything that buys the vendor more reach +
+ *                       trust + visibility)
+ *
+ *   5. Content (key 'content')     — Real Stories · Recaps ·
+ *                       Moodboard library
+ *                       (portfolio + editorial content)
+ *
+ *   6. Business (key 'business')   — Earnings · How clients pay you ·
+ *                       Manpower · Branches · Team & Setnayan
+ *                       (pure money + org/ops · Tax docs retired
+ *                       2026-05-29 under V2 publisher posture)
  *
  * OMITTED PER ORPHAN-PREVENTION RULE — routes the brief enumerated but
  * which DON'T EXIST on disk get dropped per
  * [[feedback_setnayan_orphan_prevention]]: Bids (/vendor-dashboard/bids
- * never landed · v2.1 lead-broker side-branch RETIRED per CLAUDE.md
- * tenth 2026-05-28 row — bids surface in /vendor-dashboard/bookings
- * + per-thread chat) · Calendar (/vendor-dashboard/calendar · Phase E
- * +V1.x · CLAUDE.md 2026-05-24 ninth row Rules 3+5 calendar block
- * primitives shipped to schema but UI deferred) · Settings + Billing
- * (V1.x post-pilot per CLAUDE.md eleventh 2026-05-28 row annual SKU
- * lock — both pending Phase L8). No sidebar entries · no orphan risk.
- *
- * ADDED VS BRIEF for orphan-prevention on existing surfaces: Services
- * (/vendor-dashboard/services) + Attributes (/vendor-dashboard/attributes)
- * land in Pipeline (they set the offerings vendors lock with hosts) ·
- * Reviews (/vendor-dashboard/reviews) + Moodboard library
- * (/vendor-dashboard/moodboard-library) land in Marketing (both are
- * trust + visibility surfaces) · Redeem code (/vendor-dashboard/redeem-code)
- * lands in Money (token redemption · sits with Tokens). All 6 surfaces
- * exist on disk per the audit + need sidebar entries so they don't
- * orphan after the pill bar retires.
+ * never landed · v2.1 lead-broker side-branch RETIRED).
  *
  * NOTIFICATIONS — surfaced via topbar UnreadBellBadge per the admin
  * pattern (PR #606). Not duplicated in the sidebar — the topbar bell
  * is the canonical entry point for /vendor-dashboard/notifications.
  *
- * BRAND-LAYER per the v2.1 brief: route paths + DB tables stay; sidebar
- * labels read in editorial brand voice. "Team & Setnayan" not "Team"
- * (matches existing 14-tab strip label). "Tax docs" not "Tax Documents"
- * (concise sidebar label preferred at 16rem width).
- *
  * ACTIVE STATE — defers to <SidebarItem>'s default
  * (`pathname === href || pathname.startsWith(matchPrefix + '/')`) for
- * most items. One exception needs exact-match: Profile
+ * most items. One exception needs exact-match: Overview
  * (`/vendor-dashboard`) — every other vendor route also starts with
- * `/vendor-dashboard/`, so a startsWith match would keep Profile
- * perpetually active. Sentinel matchPrefix `__profile-exact__` so the
+ * `/vendor-dashboard/`, so a startsWith match would keep Overview
+ * perpetually active. Sentinel matchPrefix `__overview-exact__` so the
  * strict-prefix branch never fires and only `pathname === href` lights
  * the entry. Same pattern as customer Home + admin Overview.
  */
@@ -124,14 +112,14 @@ import { filterVendorNavGroups } from '@/lib/vendor-role';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 
 /**
- * Canonical vendor NavGroup[] export. Phases 1-3 of nav refactor each own
- * their own NavGroup[] array; this is the vendor doorway's. Mobile-overflow
- * landing at /vendor-dashboard/more consumes the same group definition via
- * shape introspection — single source of truth.
+ * Canonical vendor NavGroup[] export — 6 semantic topic groups that map
+ * 1-to-1 to the 6 conceptual areas of a vendor's Setnayan account. Mobile
+ * bottom nav uses a fixed 6-tab strip (vendor-bottom-nav.tsx); the More
+ * landing at /vendor-dashboard/more consumes this array via shape
+ * introspection for its grouped link grid.
  *
- * Stable group/item `key` values mean future label edits (e.g., a brand
- * polish pass on "Tax docs" → "Tax & receipts") don't reset the per-section
- * `setnayan.nav.section.<key>.open` localStorage state.
+ * Stable item `key` values mean future label edits don't reset the per-
+ * section `setnayan.nav.section.<key>.open` localStorage state.
  */
 export const VENDOR_NAV_GROUPS: NavGroup[] = [
   {
@@ -156,10 +144,8 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/vendor-dashboard/profile',
       },
       {
-        // 2026-06-15 nav-tune — live preview of the vendor's public page
-        // (/v/[slug]) "as couples see it" + Edit + Open-live. Desktop parity
-        // for the new Website bottom-nav tab per
-        // [[feedback_setnayan_orphan_prevention]].
+        // Live preview of the vendor's public page (/v/[slug]) —
+        // "what couples see" — with Edit + Open-live entry points.
         key: 'website',
         label: 'Website',
         href: '/vendor-dashboard/website',
@@ -169,53 +155,47 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    // REMAP 2026-06-04 — 6 groups → 4 for a simpler, mobile-first vendor
-    // dashboard. "Work" merges the old Pipeline + Communicate (the daily
-    // run-the-business surfaces). Group KEY stays 'pipeline' so the
-    // persisted section-open state survives the relabel; item keys unchanged.
-    key: 'pipeline',
-    label: 'Work',
+    // Operations — live-event run-the-business surfaces.
+    key: 'operations',
+    label: 'Operations',
     items: [
       { key: 'bookings', label: 'Bookings', href: '/vendor-dashboard/bookings', icon: Briefcase, matchPrefix: '/vendor-dashboard/bookings' },
-      // Schedule-pool surfaces (owner lock 2026-06-12) — one schedule per
-      // service category; Clients = booked + in-conversation + imported
-      // outside clients.
       { key: 'calendar', label: 'Calendar', href: '/vendor-dashboard/calendar', icon: CalendarDays, matchPrefix: '/vendor-dashboard/calendar' },
       { key: 'clients', label: 'Clients', href: '/vendor-dashboard/clients', icon: Users, matchPrefix: '/vendor-dashboard/clients' },
       { key: 'messages', label: 'Messages', href: '/vendor-dashboard/messages', icon: MessageSquare, matchPrefix: '/vendor-dashboard/messages' },
-      { key: 'services', label: 'Services', href: '/vendor-dashboard/services', icon: ClipboardList, matchPrefix: '/vendor-dashboard/services' },
-      { key: 'packages', label: 'Packages', href: '/vendor-dashboard/packages', icon: PackageIcon, matchPrefix: '/vendor-dashboard/packages' },
       { key: 'contracts', label: 'Contracts', href: '/vendor-dashboard/contracts', icon: FileSignature, matchPrefix: '/vendor-dashboard/contracts' },
-      // Data-link program ③ — auto-filled proposals for booked clients.
       { key: 'proposals', label: 'Proposals', href: '/vendor-dashboard/proposals', icon: FileText, matchPrefix: '/vendor-dashboard/proposals' },
-      { key: 'repertoire', label: 'Repertoire', href: '/vendor-dashboard/repertoire', icon: Music, matchPrefix: '/vendor-dashboard/repertoire' },
-      { key: 'attributes', label: 'Attributes', href: '/vendor-dashboard/attributes', icon: Tag, matchPrefix: '/vendor-dashboard/attributes' },
     ],
   },
   {
-    // "Grow" = the single home for paid reach + reputation. Group KEY stays
-    // 'marketing' for open-state continuity; item keys unchanged.
-    //
-    // CONSOLIDATION 2026-06-14 (owner-locked REDESIGN_PLAN) — the paid
-    // "grow your business with Setnayan" SKUs (Subscription · Tokens ·
-    // Redeem code) moved here from the Business group so Grow is the one
-    // place for everything that buys a vendor more reach + trust. Routes,
-    // hrefs, icons and per-item gating are unchanged — only the group
-    // object the items live in changed. Business keeps the pure money/ops
-    // surfaces.
-    key: 'marketing',
+    // Offerings — what the vendor sells and how they describe themselves.
+    key: 'offerings',
+    label: 'Offerings',
+    items: [
+      { key: 'services', label: 'Services', href: '/vendor-dashboard/services', icon: ClipboardList, matchPrefix: '/vendor-dashboard/services' },
+      { key: 'packages', label: 'Packages', href: '/vendor-dashboard/packages', icon: PackageIcon, matchPrefix: '/vendor-dashboard/packages' },
+      { key: 'attributes', label: 'Attributes', href: '/vendor-dashboard/attributes', icon: Tag, matchPrefix: '/vendor-dashboard/attributes' },
+      // Repertoire is a music-act surface (band · singer · orchestra · choir
+      // · DJ) — hidden for every other category (owner directive 2026-06-13;
+      // the page keeps its own isMusicVendor gate). Filtered via showRepertoire
+      // prop in VendorSidebar below.
+      { key: 'repertoire', label: 'Repertoire', href: '/vendor-dashboard/repertoire', icon: Music, matchPrefix: '/vendor-dashboard/repertoire' },
+    ],
+  },
+  {
+    // Grow — everything that buys the vendor more reach, trust, and
+    // visibility on the Setnayan platform.
+    key: 'grow',
     label: 'Grow',
     items: [
-      // Subscription — self-serve Pro/Enterprise upgrade (Phase D · Tier #5).
       { key: 'subscription', label: 'Subscription', href: '/vendor-dashboard/subscription', icon: Crown, matchPrefix: '/vendor-dashboard/subscription' },
       { key: 'tokens', label: 'Tokens', href: '/vendor-dashboard/tokens', icon: Coins, matchPrefix: '/vendor-dashboard/tokens' },
       { key: 'redeem-code', label: 'Redeem code', href: '/vendor-dashboard/redeem-code', icon: Tag, matchPrefix: '/vendor-dashboard/redeem-code' },
       { key: 'marketing', label: 'Marketing', href: '/vendor-dashboard/marketing', icon: Megaphone, matchPrefix: '/vendor-dashboard/marketing' },
       { key: 'verify', label: 'Verify', href: '/vendor-dashboard/verify', icon: ShieldCheck, matchPrefix: '/vendor-dashboard/verify' },
       {
-        // Vendor partnerships — declare vendor-to-vendor commercial relationships.
-        // Badges are invisible to couples until Setnayan HQ verifies them (two-admin
-        // gate). Lives in Grow because it's a trust + visibility surface.
+        // Vendor-to-vendor commercial relationships. Badges are invisible to
+        // couples until Setnayan HQ verifies them (two-admin gate).
         key: 'partnerships',
         label: 'Partnerships',
         href: '/vendor-dashboard/partnerships',
@@ -223,39 +203,43 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/vendor-dashboard/partnerships',
       },
       { key: 'reviews', label: 'Reviews', href: '/vendor-dashboard/reviews', icon: Star, matchPrefix: '/vendor-dashboard/reviews' },
+    ],
+  },
+  {
+    // Content — portfolio and editorial content surfaces.
+    key: 'content',
+    label: 'Content',
+    items: [
       { key: 'real-stories', label: 'Real Stories', href: '/vendor-dashboard/real-stories', icon: Sparkles, matchPrefix: '/vendor-dashboard/real-stories' },
       { key: 'recaps', label: 'Recaps', href: '/vendor-dashboard/recaps', icon: Images, matchPrefix: '/vendor-dashboard/recaps' },
       { key: 'moodboard-library', label: 'Moodboard library', href: '/vendor-dashboard/moodboard-library', icon: Palette, matchPrefix: '/vendor-dashboard/moodboard-library' },
     ],
   },
   {
-    // "Business" = pure money + org/ops. Merges the old Money + Team. Group
-    // KEY stays 'money' for open-state continuity; item keys unchanged. (Tax
-    // docs retired 2026-05-29 under V2 publisher posture · Subscription ·
-    // Tokens · Redeem code moved to the Grow group 2026-06-14.)
-    key: 'money',
+    // Business — pure money + org/ops. Tax docs retired 2026-05-29 under
+    // the V2 publisher posture (Setnayan no longer withholds vendor income
+    // tax · no Form 2307 obligation · page redirects to /vendor-dashboard).
+    key: 'business',
     label: 'Business',
     items: [
       { key: 'earnings', label: 'Earnings', href: '/vendor-dashboard/earnings', icon: Wallet, matchPrefix: '/vendor-dashboard/earnings' },
       { key: 'payment-options', label: 'How clients pay you', href: '/vendor-dashboard/payment-options', icon: Wallet, matchPrefix: '/vendor-dashboard/payment-options' },
       { key: 'manpower', label: 'Manpower', href: '/vendor-dashboard/manpower', icon: HardHat, matchPrefix: '/vendor-dashboard/manpower' },
-      // Branches — Enterprise sub-location accounts (owner-locked 2026-06-05).
-      // Owner/admin only: 'branches' is absent from VENDOR_SCOPED_NAV_ITEM_KEYS
-      // so filterVendorNavGroups hides it from agents/viewers. The page + the
-      // create/cancel actions re-check tier=enterprise + role server-side.
-      { key: 'branches', label: 'Branches', href: '/vendor-dashboard/branches', icon: Building2, matchPrefix: '/vendor-dashboard/branches' },
+      {
+        // Branches — Enterprise sub-location accounts (owner-locked 2026-06-05).
+        // Owner/admin only: 'branches' is absent from VENDOR_SCOPED_NAV_ITEM_KEYS
+        // so filterVendorNavGroups hides it from agents/viewers.
+        key: 'branches',
+        label: 'Branches',
+        href: '/vendor-dashboard/branches',
+        icon: Building2,
+        matchPrefix: '/vendor-dashboard/branches',
+      },
       { key: 'team', label: 'Team & Setnayan', href: '/vendor-dashboard/team', icon: Users, matchPrefix: '/vendor-dashboard/team' },
     ],
   },
 ];
 
-/**
- * VendorSidebar — renders the 4 vendor nav groups using the shared
- * SidebarSection + SidebarItem primitives. Wraps with a brand header
- * (Wordmark + 'Vendor' eyebrow) so the vendor doorway reads as a
- * separate context from customer + admin doorways. Mirrors the
- * customer-sidebar + admin-sidebar header treatment.
- */
 /**
  * Overlays admin nav-registry label + icon onto each sidebar item via its
  * `vendor.sidebar.<key>` slot (the item key matches the slot suffix 1:1).
@@ -279,6 +263,13 @@ function applyVendorRegistry(
   }));
 }
 
+/**
+ * VendorSidebar — renders the 6 vendor nav groups using the shared
+ * SidebarSection + SidebarItem primitives. Wraps with a brand header
+ * (Wordmark + 'Vendor' eyebrow) so the vendor doorway reads as a
+ * separate context from customer + admin doorways. Mirrors the
+ * customer-sidebar + admin-sidebar header treatment.
+ */
 export function VendorSidebar({
   role,
   showRepertoire = true,

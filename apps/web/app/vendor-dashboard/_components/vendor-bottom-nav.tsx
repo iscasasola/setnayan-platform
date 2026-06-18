@@ -12,10 +12,10 @@
  * with the 5-tab + /more landing pattern. Customer doorway (PR #625)
  * mirrored it.
  *
- * The desktop sidebar (vendor-sidebar.tsx) exposes 4 groups (remapped
- * 2026-06-04 from the original 6): Home · Work (key 'pipeline') · Grow
- * (key 'marketing') · Business (key 'money'). The bottom strip flattens
- * those into 6 tabs (2026-06-15 nav-tune — Website added · owner-picked):
+ * The desktop sidebar (vendor-sidebar.tsx) exposes 6 groups (reclustered
+ * 2026-06-18): Home · Operations · Offerings · Grow · Content · Business.
+ * The bottom strip flattens those into 6 fixed tabs (2026-06-15 nav-tune
+ * — Website added · owner-picked · MOBILE LOCK: never grows beyond 6):
  *   1. Home (key 'profile') — /vendor-dashboard (exact-match · Overview)
  *   2. Bookings    — Booking pipeline (per-booking workspace · soft-hold
  *                    + downpaid status · cancel + release CTAs)

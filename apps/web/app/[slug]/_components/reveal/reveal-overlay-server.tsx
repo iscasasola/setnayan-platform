@@ -1,7 +1,7 @@
 import type { ComponentProps } from 'react';
 import { fetchRevealConfig } from '@/lib/reveal-config';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { eventOwnsStdOpenings } from '@/lib/std-openings';
+import { eventStdOpeningsActive } from '@/lib/std-openings';
 import { RevealOverlay } from './reveal-overlay';
 
 type Props = Omit<ComponentProps<typeof RevealOverlay>, 'config' | 'premiumUnlocked'> & {
@@ -24,7 +24,7 @@ export async function RevealOverlayServer({ eventId, ...props }: Props) {
   // zero extra queries on the common paths, a no-op until the SKU sells (P5).
   const premiumUnlocked =
     props.enabled && !config.enabled && eventId
-      ? await eventOwnsStdOpenings(createAdminClient(), eventId)
+      ? await eventStdOpeningsActive(createAdminClient(), eventId)
       : false;
   return (
     <RevealOverlay

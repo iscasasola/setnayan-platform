@@ -10,9 +10,9 @@ import { formatEventDate } from '@/lib/events';
 import { ROLE_LABELS, type GuestRole } from '@/lib/guests';
 import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
 import { resolveMonogram, type MonogramConfig } from '@/lib/monogram';
-import { eventOwnsAnimatedMonogram } from '@/lib/animated-monogram';
-import { eventOwnsPapicGuest } from '@/lib/papic-guest';
-import { eventOwnsSku } from '@/lib/entitlements';
+import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
+import { eventPapicGuestActive } from '@/lib/papic-guest';
+import { eventSkuActive } from '@/lib/entitlements';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
 import {
   resolveMonogramMotion,
@@ -299,7 +299,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // below as `MonogramMotionKey | false` — false = static circle. Degrades to
   // `false` on any orders-table shape error — see lib/animated-monogram.ts.
   // The separate 0004 monogram_hero_upgrade widget path is untouched.
-  const ownsAnimatedMonogram = await eventOwnsAnimatedMonogram(
+  const ownsAnimatedMonogram = await eventAnimatedMonogramActive(
     admin,
     event.event_id,
   );
@@ -597,8 +597,8 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
       // event_software_activations_v2 reads had no payment-path writer (their
       // only writer, verify_and_activate_manual_payment, has zero callers).
       const [ownsWall, ownsPanood, watchRowRes] = await Promise.all([
-        eventOwnsSku(admin, event.event_id, 'LIVE_WALL'),
-        eventOwnsSku(admin, event.event_id, 'PANOOD_SYSTEM'),
+        eventSkuActive(admin, event.event_id, 'LIVE_WALL'),
+        eventSkuActive(admin, event.event_id, 'PANOOD_SYSTEM'),
         admin
           .from('events')
           .select('panood_watch_url')
@@ -733,7 +733,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // Papic guest camera (PAPIC_GUEST) — when the couple owns the pack, give the
   // cookie-bearing guest a floating "be a candid camera" CTA into /papic/guest.
   // Gated, admin read, graceful-degrade so the anonymous public path is untouched.
-  const papicGuestActive = await eventOwnsPapicGuest(admin, event.event_id);
+  const papicGuestActive = await eventPapicGuestActive(admin, event.event_id);
 
   // Per-guest LIVE gallery (owner 2026-06-12: "the gallery must be on the
   // on-the-day part") — the photos THIS guest is tagged in, arriving through

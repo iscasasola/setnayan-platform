@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, CalendarClock, Check, Plus, Sparkles, Stamp } from 'lucide-react';
+import { ArrowLeft, CalendarClock, Check, Clock, Plus, Sparkles, Stamp } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { sealColorFromPalette, veilColorFromPalette } from '@/lib/site-palette';
@@ -18,6 +18,7 @@ import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import {
   eventOwnsStdOpenings,
+  eventStdOpeningsActive,
   STD_PREMIUM_OPENINGS_SERVICE_KEY,
 } from '@/lib/std-openings';
 
@@ -84,8 +85,12 @@ export default async function SaveTheDatePage({ params, searchParams }: Props) {
   // unlocks them. Price is admin-managed (catalog · /admin/pricing) — read at
   // runtime via formatV2Sku, never hardcoded. Mirrors the Animated Monogram buy
   // flow; ownership reads the couple's own orders (eventOwnsStdOpenings).
-  const [ownsOpenings, openingsSku, settings] = await Promise.all([
+  const [ownsOpenings, openingsActive, openingsSku, settings] = await Promise.all([
+    // ownsOpenings = has a LIVE order (incl. a pending 'submitted' one) → no
+    // double-buy CTA. openingsActive = ADMIN-APPROVED → the opening actually
+    // plays live (the handshake). A pending order is owned-but-not-active.
     eventOwnsStdOpenings(supabase, eventId),
+    eventStdOpeningsActive(supabase, eventId),
     formatV2Sku(STD_PREMIUM_OPENINGS_SERVICE_KEY).catch(() => null),
     fetchPlatformSettings(supabase),
   ]);
@@ -208,12 +213,20 @@ export default async function SaveTheDatePage({ params, searchParams }: Props) {
       />
 
       {/* 1b · Unlock the cinematic openings (premium · admin-priced "template unlock"). */}
-      {ownsOpenings ? (
+      {openingsActive ? (
         <div className="flex items-center gap-3 rounded-2xl border border-emerald-300 bg-emerald-50/60 px-5 py-4">
           <Check aria-hidden className="h-5 w-5 shrink-0 text-emerald-600" strokeWidth={2.5} />
           <p className="text-sm text-emerald-800">
             <span className="font-medium">Cinematic openings unlocked.</span> Your chosen opening
             lifts to reveal your page on your live site.
+          </p>
+        </div>
+      ) : ownsOpenings ? (
+        <div className="flex items-start gap-3 rounded-2xl border border-amber-300 bg-amber-50/60 px-5 py-4">
+          <Clock aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" strokeWidth={2} />
+          <p className="text-sm text-amber-800">
+            <span className="font-medium">Payment under review.</span> Your cinematic opening goes
+            live on your page the moment our team confirms your payment — usually within a day.
           </p>
         </div>
       ) : openingsPricePhp != null && openingsPricePhp > 0 ? (

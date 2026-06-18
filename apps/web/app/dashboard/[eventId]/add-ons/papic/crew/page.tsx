@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import {
-  eventOwnsPapicSeats,
+  eventPapicSeatsActive,
   fetchPapicSeats,
   fetchPapicSamplerSeats,
   papicSeatClaimUrl,
@@ -84,7 +84,7 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
 
   const backLink = `/dashboard/${eventId}/add-ons/papic`;
 
-  const owns = await eventOwnsPapicSeats(supabase, eventId);
+  const owns = await eventPapicSeatsActive(supabase, eventId);
   // Paid crew when owned; otherwise the free sampler.
   const isSampler = !owns;
   const seats = owns

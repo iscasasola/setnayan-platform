@@ -32,7 +32,7 @@ Three-PR build from the approved Kwento Monumental Upgrade plan (`Kwento_Monumen
 Kwento Monumental Upgrade Phase 3. Couples (+ Best Man/MoH delegates) can now assign a confirmed guest to each of the 10 locked editorial moments (Bridal March → Money Dance). Assigned guests receive an introductory email and up to 3 nudge reminders.
 
 **Files changed:**
-- `supabase/migrations/20270120000000_kwento_assignments.sql` — `kwento_assignments` table (event/moment/guest unique constraint, RLS via `current_event_ids()`). No `fulfilled_column_id` — deferred to Phase 4 when `kwento_columns` exists.
+- `supabase/migrations/20270120760120_kwento_assignments.sql` — `kwento_assignments` table (event/moment/guest unique constraint, RLS via `current_event_ids()`). No `fulfilled_column_id` — deferred to Phase 4 when `kwento_columns` exists.
 - `apps/web/lib/kwento-moments.ts` — 10 locked `KwentoMoment` constants + `KWENTO_MOMENT_BY_KEY` map
 - `apps/web/lib/notifications.ts` — `kwento_assignment_nudge` type added
 - `apps/web/app/dashboard/[eventId]/alaala/assignments/page.tsx` — server page: fetches assignments + confirmed guest list, renders all 10 moment cards
@@ -41,6 +41,19 @@ Kwento Monumental Upgrade Phase 3. Couples (+ Best Man/MoH delegates) can now as
 - `apps/web/app/dashboard/[eventId]/alaala/page.tsx` — "Story Assignments" entry card added above the footer (links to `/alaala/assignments`)
 
 **SPEC IMPACT:** `Kwento_Monumental_Upgrade_2026-06-18.md` Phase 3 (Assignment Board) implemented. Phases 4–6 (Column tier, Editorial assembly, Vendor voice) queued for future sessions.
+
+---
+## 2026-06-18 · fix(papic): restore eventOwnsPapicSeats in sampler keep-check
+
+Regression introduced by the payment-handshake PR (#1718): `eventSamplerIsKept` was
+changed to `eventPapicSeatsActive` (admin-approved orders only). The keep-check must
+use `eventOwnsPapicSeats` (any active order, including submitted-pending-review) so a
+couple who has uploaded a payment screenshot does not lose their sampler photos during
+the ≤24-hr admin-review window.
+
+**File:** `apps/web/lib/papic-sampler.ts`
+
+**SPEC IMPACT:** None (bug fix, no spec change).
 
 ---
 

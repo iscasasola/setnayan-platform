@@ -88,3 +88,43 @@ export async function saveInvitationLaunchDate(formData: FormData): Promise<void
   revalidate(eventId);
   redirect(`/dashboard/${eventId}/add-ons/save-the-date?std=saved#touches`);
 }
+
+export async function saveStdContent(formData: FormData): Promise<void> {
+  const eventId = String(formData.get('event_id') ?? '').trim();
+  if (!eventId) throw new Error('Missing event_id');
+  const supabase = await requireCouple(eventId);
+
+  const updates: Record<string, unknown> = {};
+
+  const rawDate = String(formData.get('event_date') ?? '').trim();
+  if (rawDate) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
+      redirect(`/dashboard/${eventId}/add-ons/save-the-date?std_error=bad-date#content`);
+    }
+    updates.event_date = rawDate;
+  }
+
+  const venueName = String(formData.get('venue_name') ?? '').trim();
+  if (venueName) updates.venue_name = venueName;
+
+  const venueAddress = String(formData.get('venue_address') ?? '').trim();
+  if (venueAddress) updates.venue_address = venueAddress;
+
+  const loveStory = String(formData.get('love_story') ?? '').trim();
+  if (loveStory) updates.love_story = loveStory;
+
+  if (Object.keys(updates).length === 0) {
+    redirect(`/dashboard/${eventId}/add-ons/save-the-date`);
+  }
+
+  const { error } = await supabase
+    .from('events')
+    .update(updates)
+    .eq('event_id', eventId);
+  if (error) {
+    redirect(`/dashboard/${eventId}/add-ons/save-the-date?std_error=save#content`);
+  }
+
+  revalidate(eventId);
+  redirect(`/dashboard/${eventId}/add-ons/save-the-date?std=saved#content`);
+}

@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-18 · feat(save-the-date): builder batch 1 — more themes, reveal labels, preview Restart
+
+First of three owner-requested builder batches. (Batch 2 = drag-to-reorder film sequence; batch 3 = background music + optional video.)
+
+- **More themes (Step 2)** — owner: *"step 2 theme should be more of the color effects and font effects."* Added 5 themes to `STD_THEMES` (now 10): **Blush** (rose · Playfair), **Midnight Gold** (dark slate + gold · Vidaloka), **Coastal** (sky blue · Libre Caslon), **Sunset** (warm orange · Cormorant), **Plum** (fuchsia · Playfair) — each a distinct colour *and* font. Wired 4 already-loaded display faces (`--font-playfair` / `--font-libre-caslon` / `--font-vidaloka` / `--font-script`) as Tailwind `font-*` utilities in `tailwind.config.ts` so themes get real font variety (script reserved for accents — too ornate for body/date text).
+- **Reveal labels (Step 1)** — owner couldn't tell the openings apart because the previews are deliberately tiny + un-recordable (owner-locked 2026-06-18, NOT reversed). Added a plain-English `blurb` + a 2-3-word `motion` chip to each of the 5 `REVEAL_LIBRARY` openings. The chooser now shows the previewed opening's "what it does" line under the device frame, and a motion chip on every picker tile — so they're distinguishable without making the preview recordable.
+- **Preview Restart** — owner: *"live preview has a reset button."* Added a **Restart** button next to the device toggle in the live-preview column; it remounts the film (`key={restartKey}`) → replays from the first beat.
+
+Files: `lib/std-themes.ts` · `tailwind.config.ts` · `app/[slug]/_components/reveal/reveal-templates.ts` · `app/dashboard/[eventId]/_components/reveal-preview-card.tsx` · `app/dashboard/[eventId]/add-ons/save-the-date/_components/StdBuilderClient.tsx`. No schema. `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: iter 0024 (Save-the-Date) builder UX — theme library expanded 5→10, reveal openings gain descriptions, preview gains a Restart. No pricing / schema / public-data change. DECISION_LOG row added.
+
 ## 2026-06-18 · feat(save-the-date): builder Information step — one-tap Autofill + interactive live preview
 
 Two owner-requested tweaks to the Save-the-Date builder's **Step 3 · Information** ("What your film shows") and the live preview.

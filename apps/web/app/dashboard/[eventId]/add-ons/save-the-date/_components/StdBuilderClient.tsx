@@ -18,7 +18,7 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { Check, ExternalLink, Sparkles, Wand2 } from 'lucide-react';
+import { Check, ExternalLink, RotateCcw, Sparkles, Wand2 } from 'lucide-react';
 import { SaveTheDateFilm } from '@/app/[slug]/_components/save-the-date-film';
 import { STD_THEMES, type StdThemeId } from '@/lib/std-themes';
 import { formatEventDate } from '@/lib/events';
@@ -91,6 +91,8 @@ export function StdBuilderClient({
   const [saving, startSave] = useTransition();
   const [result, setResult] = useState<'idle' | 'ok' | 'error'>('idle');
   const [device, setDevice] = useState<PreviewDevice>('iphone');
+  // Bumping this remounts the preview film → restarts it from the first beat.
+  const [restartKey, setRestartKey] = useState(0);
 
   // Every state change re-derives the full content object so the preview
   // reflects exactly what would render on the live page after saving.
@@ -435,14 +437,30 @@ export function StdBuilderClient({
             <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/50">
               Live preview
             </p>
-            <div className="flex justify-center">
+            <div className="flex items-center justify-center gap-2">
               <DeviceToggle device={device} onChange={setDevice} />
+              <button
+                type="button"
+                onClick={() => setRestartKey((k) => k + 1)}
+                aria-label="Restart preview from the beginning"
+                className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:border-ink/30 hover:text-ink"
+              >
+                <RotateCcw aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                Restart
+              </button>
             </div>
             {/* Interactive: the film's own tap / scrub / hold controls are live
-                here so the couple can experience the real thing in miniature. */}
+                here so the couple can experience the real thing in miniature.
+                key={restartKey} lets the Restart button remount → replay from beat 1. */}
             <DeviceFrame device={device}>
               <div className="absolute inset-0">
-                <SaveTheDateFilm content={liveContent} themeId={themeId} preview fill />
+                <SaveTheDateFilm
+                  key={restartKey}
+                  content={liveContent}
+                  themeId={themeId}
+                  preview
+                  fill
+                />
               </div>
             </DeviceFrame>
           </div>

@@ -82,6 +82,7 @@ export function RevealPreviewCard({
     });
 
   const isChosen = previewing === chosen;
+  const previewedItem = REVEAL_LIBRARY.find((t) => t.id === previewing);
 
   return (
     <section className="overflow-hidden rounded-2xl border border-ink/10 bg-white/70">
@@ -120,6 +121,16 @@ export function RevealPreviewCard({
           </DeviceFrame>
         </div>
 
+        {/* What this opening does — the previews are tiny + un-recordable, so
+            this line is how the couple tells the five openings apart. */}
+        {previewedItem ? (
+          <p className="mx-auto max-w-prose text-center text-sm text-ink/70">
+            <span className="font-medium text-ink">{previewedItem.label}</span>
+            {' — '}
+            {previewedItem.blurb}
+          </p>
+        ) : null}
+
         {/* Opening picker */}
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
           {REVEAL_LIBRARY.map((t) => {
@@ -131,16 +142,23 @@ export function RevealPreviewCard({
                 type="button"
                 onClick={() => setPreviewing(t.id)}
                 aria-pressed={active}
-                className={`relative inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-md border px-3 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta ${
+                className={`relative flex min-h-[44px] flex-col items-center justify-center gap-0.5 rounded-md border px-3 py-2 text-center transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta ${
                   active
                     ? 'border-terracotta bg-terracotta/5 text-ink ring-2 ring-terracotta/15'
                     : 'border-ink/15 bg-cream text-ink/75 hover:border-ink/30'
                 }`}
               >
                 {saved ? (
-                  <Check aria-hidden className="h-3.5 w-3.5 shrink-0 text-terracotta" strokeWidth={2.5} />
+                  <Check
+                    aria-hidden
+                    className="absolute right-1.5 top-1.5 h-3.5 w-3.5 text-terracotta"
+                    strokeWidth={2.5}
+                  />
                 ) : null}
-                {t.label}
+                <span className="text-sm font-medium leading-tight">{t.label}</span>
+                <span className="font-mono text-[9px] uppercase tracking-[0.12em] opacity-55">
+                  {t.motion}
+                </span>
               </button>
             );
           })}

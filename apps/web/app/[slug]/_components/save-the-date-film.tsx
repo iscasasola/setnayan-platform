@@ -593,6 +593,23 @@ export function SaveTheDateFilm({
         <audio ref={audioRef} src={content.musicUrl} loop muted={muted} />
       ) : null}
 
+      {/* Localized text scrim — a soft radial behind the centred text so it reads
+          over a vivid photo WITHOUT washing the whole image (the global veil is
+          'none' for auto photos). Pairs with the tone: light text → a dark halo,
+          dark text → a cream halo. Only when a background tone is active. */}
+      {tone && transparent ? (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-0"
+          style={{
+            background:
+              tone === 'light'
+                ? 'radial-gradient(ellipse 80% 58% at 50% 47%, rgba(0,0,0,0.52) 0%, rgba(0,0,0,0.26) 45%, rgba(0,0,0,0) 72%)'
+                : 'radial-gradient(ellipse 80% 58% at 50% 47%, rgba(250,247,240,0.64) 0%, rgba(250,247,240,0.32) 45%, rgba(250,247,240,0) 72%)',
+          }}
+        />
+      ) : null}
+
       {/* Stories-style scrub bars */}
       <div className="absolute inset-x-4 top-4 z-20 flex gap-1.5">
         {slides.map((s, j) => (

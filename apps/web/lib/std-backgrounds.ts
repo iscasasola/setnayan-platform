@@ -22,21 +22,39 @@
 
 export type StdBackgroundKind = 'plain' | 'paper' | 'realistic' | 'upload';
 
-export type StdRealisticBg = { id: string; label: string; src: string };
+export type StdRealisticBg = {
+  id: string;
+  label: string;
+  src: string;
+  /** Measured relative luminance (0=black…1=white) of the centre text region —
+   *  drives Smart Auto's text tone. Computed once with sharp over the generated
+   *  asset (centre 64% crop); see DECISION_LOG 2026-06-19. */
+  lum: number;
+};
 
 /** The 10 generated photoreal scenes (public/std/backgrounds/*.webp). */
 export const STD_REALISTIC_BACKGROUNDS: readonly StdRealisticBg[] = [
-  { id: 'aurora', label: 'Aurora borealis', src: '/std/backgrounds/aurora.webp' },
-  { id: 'golden-hour', label: 'Golden hour', src: '/std/backgrounds/golden-hour.webp' },
-  { id: 'peonies', label: 'Peony field', src: '/std/backgrounds/peonies.webp' },
-  { id: 'rose-archway', label: 'Rose archway', src: '/std/backgrounds/rose-archway.webp' },
-  { id: 'seascape', label: 'Open seascape', src: '/std/backgrounds/seascape.webp' },
-  { id: 'starlit', label: 'Starlit night', src: '/std/backgrounds/starlit.webp' },
-  { id: 'sunrise', label: 'Misty sunrise', src: '/std/backgrounds/sunrise.webp' },
-  { id: 'bridgerton', label: 'Bridgerton', src: '/std/backgrounds/bridgerton.webp' },
-  { id: 'ballroom', label: 'Candlelit ballroom', src: '/std/backgrounds/ballroom.webp' },
-  { id: 'fairy-lights', label: 'Fairy-light garden', src: '/std/backgrounds/fairy-lights.webp' },
+  { id: 'aurora', label: 'Aurora borealis', src: '/std/backgrounds/aurora.webp', lum: 0.512 },
+  { id: 'golden-hour', label: 'Golden hour', src: '/std/backgrounds/golden-hour.webp', lum: 0.462 },
+  { id: 'peonies', label: 'Peony field', src: '/std/backgrounds/peonies.webp', lum: 0.491 },
+  { id: 'rose-archway', label: 'Rose archway', src: '/std/backgrounds/rose-archway.webp', lum: 0.360 },
+  { id: 'seascape', label: 'Open seascape', src: '/std/backgrounds/seascape.webp', lum: 0.349 },
+  { id: 'starlit', label: 'Starlit night', src: '/std/backgrounds/starlit.webp', lum: 0.547 },
+  { id: 'sunrise', label: 'Misty sunrise', src: '/std/backgrounds/sunrise.webp', lum: 0.822 },
+  { id: 'bridgerton', label: 'Bridgerton', src: '/std/backgrounds/bridgerton.webp', lum: 0.481 },
+  { id: 'ballroom', label: 'Candlelit ballroom', src: '/std/backgrounds/ballroom.webp', lum: 0.382 },
+  { id: 'fairy-lights', label: 'Fairy-light garden', src: '/std/backgrounds/fairy-lights.webp', lum: 0.385 },
 ];
+
+/** Measured centre luminance of a realistic scene (Smart Auto). */
+export function sceneLuminance(id: string): number | null {
+  return STD_REALISTIC_BACKGROUNDS.find((b) => b.id === id)?.lum ?? null;
+}
+
+/** A photo this bright (or brighter) gets DARK text; below it, LIGHT text. Light
+ *  text on a dark localized scrim is the robust premium default; only genuinely
+ *  bright/airy scenes (e.g. misty sunrise) flip to dark text. */
+export const LUM_DARK_TEXT_THRESHOLD = 0.7;
 
 export type StdPaperBg = { id: string; label: string };
 
@@ -104,12 +122,25 @@ export function resolveStdLegibility(bg: StdBackground): { veil: StdVeil; tone: 
   const mode = bg.legibility ?? 'auto';
   if (mode === 'lighten') return { veil: 'light', tone: 'dark' };
   if (mode === 'darken') return { veil: 'dark', tone: 'light' };
-  // auto
+  // auto — measured: plain by its hex, realistic by its baked luminance, paper is
+  // a light surface, upload defaults to the robust light-text choice. Photos get
+  // NO global veil — the film's localized text scrim (which always pairs with the
+  // tone) does the work, so the photo stays vivid.
   if (bg.kind === 'plain') {
-    return hexLuminance(bg.value) < 0.5 ? { veil: 'none', tone: 'light' } : { veil: 'none', tone: 'dark' };
+    return hexLuminance(bg.value) >= LUM_DARK_TEXT_THRESHOLD
+      ? { veil: 'none', tone: 'dark' }
+      : hexLuminance(bg.value) < 0.5
+        ? { veil: 'none', tone: 'light' }
+        : { veil: 'none', tone: 'dark' };
   }
   if (bg.kind === 'paper') return { veil: 'none', tone: 'dark' };
-  return { veil: 'dark', tone: 'light' };
+  if (bg.kind === 'realistic') {
+    const lum = sceneLuminance(bg.value) ?? 0.4;
+    return { veil: 'none', tone: lum >= LUM_DARK_TEXT_THRESHOLD ? 'dark' : 'light' };
+  }
+  // upload — luminance unknown server-side; light text + the localized dark scrim
+  // reads over ANY photo (the safe universal). Manual Lighten flips it for taste.
+  return { veil: 'none', tone: 'light' };
 }
 
 export const DEFAULT_PLAIN_COLOR = '#f3ece1';

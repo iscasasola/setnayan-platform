@@ -79,6 +79,8 @@ export default async function SaveTheDatePage({ params }: Props) {
   const themeId = resolveStdTheme(event?.std_theme);
   const effects = resolveRevealEffects(event?.std_reveal_effects);
   const stdBackground = resolveStdBackground(event?.std_background, veilColor);
+  const stdBackgroundUploadUrl =
+    stdBackground.kind === 'upload' ? await displayUrlForStoredAsset(stdBackground.value) : null;
 
   const [ownsOpenings, openingsSku, settings, revealConfig] = await Promise.all([
     eventOwnsStdOpenings(supabase, eventId),
@@ -212,6 +214,7 @@ export default async function SaveTheDatePage({ params }: Props) {
         initialRevealTemplate={chosenTemplate}
         initialEffects={effects}
         initialBackground={stdBackground}
+        initialUploadUrl={stdBackgroundUploadUrl}
         initialFilmDate={stdDate}
         initialFilmVenueName={stdVenueName}
         initialFilmVenueCity={stdVenueCity}

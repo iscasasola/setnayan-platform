@@ -10,7 +10,8 @@
  * engine (its whole point is the auto-3D lean). Plain/paper/realistic work now.
  */
 
-import { Check, Sparkles, Upload } from 'lucide-react';
+import { Check, Sparkles } from 'lucide-react';
+import { FileUpload } from '@/app/_components/file-upload';
 import {
   STD_PLAIN_PRESETS,
   STD_PAPER_BACKGROUNDS,
@@ -22,12 +23,18 @@ import {
 type Props = {
   value: StdBackground;
   onChange: (bg: StdBackground) => void;
+  /** The event id — where uploaded photos are stored (R2 path). */
+  eventId: string;
+  /** Display URL for the currently-uploaded photo (presigned), for the thumbnail. */
+  uploadUrl?: string | null;
+  /** Fires with the new r2:// ref (or null on clear) when a photo is uploaded. */
+  onUpload: (ref: string | null) => void;
 };
 
 const tile =
   'relative flex items-center justify-center overflow-hidden rounded-md border transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta';
 
-export function StdBackgroundPicker({ value, onChange }: Props) {
+export function StdBackgroundPicker({ value, onChange, eventId, uploadUrl, onUpload }: Props) {
   const sel = (kind: StdBackground['kind'], v: string) => value.kind === kind && value.value === v;
 
   return (
@@ -146,18 +153,22 @@ export function StdBackgroundPicker({ value, onChange }: Props) {
         </p>
       </div>
 
-      {/* Upload — placeholder until the parallax engine lands */}
-      <div className="flex items-center gap-3 rounded-md border border-dashed border-ink/25 bg-ink/5 px-4 py-3">
-        <Upload aria-hidden className="h-5 w-5 shrink-0 text-ink/40" strokeWidth={1.75} />
-        <div className="flex-1">
-          <p className="text-sm font-medium text-ink/70">Upload your own photo</p>
-          <p className="text-xs text-ink/45">
-            Auto-converted to a 3D-depth background — arriving with the parallax engine.
-          </p>
-        </div>
-        <span className="rounded-full bg-ink/10 px-2.5 py-1 text-[11px] font-medium text-ink/55">
-          Soon
-        </span>
+      {/* Upload your own photo */}
+      <div className="space-y-2">
+        <p className="text-xs font-medium text-ink/55">Upload your own</p>
+        <FileUpload
+          bucket="media"
+          pathPrefix={`events/${eventId}/std-background`}
+          acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
+          maxSizeMB={8}
+          variant="wide"
+          currentValue={value.kind === 'upload' ? value.value : null}
+          initialDisplayUrls={
+            value.kind === 'upload' && uploadUrl ? { [value.value]: uploadUrl } : {}
+          }
+          onChange={(v) => onUpload(typeof v === 'string' ? v : null)}
+          help="We fit it to the page. (The 3D-depth lean arrives with the parallax engine.)"
+        />
       </div>
     </section>
   );

@@ -529,10 +529,15 @@ export function StdBuilderClient({
                   fill
                 />
               </div>
-              {/* overlay — the opening; fades out once it has lifted away */}
+              {/* overlay — the opening. The rigid openings (envelope/doors)
+                  truly part and clear, so they fade out once lifted. The VEIL
+                  is a persistent top layer (two-way), so it STAYS on top over
+                  the playing film — matching the live page. (2026-06-18) */}
               <div
                 className={`absolute inset-0 transition-opacity duration-700 ${
-                  revealDone ? 'pointer-events-none opacity-0' : 'opacity-100'
+                  revealDone && previewing !== 'veil-sheer'
+                    ? 'pointer-events-none opacity-0'
+                    : 'opacity-100'
                 }`}
               >
                 <RevealPreview

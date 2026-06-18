@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-18 · fix(std): the veil stays on top — it's a persistent layer over the playing film, not a one-shot gate
+
+The veil used to fade out + unmount the moment it lifted, so the film only started after the veil was gone and the veil could never come back down. Now the veil is a **persistent top layer**: the first lift starts the film *underneath* (still dispatches `std-reveal-done`) while the veil stays mounted on top (z-60), so a guest can swipe it back **down** and it re-covers the still-playing film (VeilReveal is already two-way). Veil-specific — the rigid openings (envelope/doors) genuinely part and clear, so they keep fading/unmounting.
+
+- `reveal-overlay.tsx`: veil container no longer fades on `open`; `onRevealed` dispatches `std-reveal-done` once (guarded on `!open`) and no longer `setTimeout → setGone`. The "Lift the veil ↑" hint still fades.
+- `StdBuilderClient.tsx` preview: the opening overlay fades only for non-veil openings (`revealDone && previewing !== 'veil-sheer'`); the veil stays on top over the film, mirroring the live page.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. (Visual/interaction needs a real browser — three.js doesn't render headless.)
+
+SPEC IMPACT: `0024_Veil_Reveal_Spec` / `0024_Save_the_Date_Content_and_Customization` — the veil is a two-way persistent layer over the film, not a gate that disappears. No schema/API change.
+
 ## 2026-06-18 · fix(std): couple opening picker honours the admin "allowed openings" map
 
 Deactivating an opening in the Reveal Studio had no effect on couples — the Step-1 picker rendered the full `REVEAL_LIBRARY` and ignored `reveal_studio_config.templates` (its own comment said it was "for the future chooser"). Now connected end-to-end:

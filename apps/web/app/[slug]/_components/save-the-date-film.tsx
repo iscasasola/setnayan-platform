@@ -39,10 +39,39 @@ import {
   X,
 } from 'lucide-react';
 import { type StdFilmContent } from '@/lib/save-the-date-content';
-import { STD_THEMES, resolveStdTheme, type StdThemeId } from '@/lib/std-themes';
+import { STD_THEMES, resolveStdTheme, type StdTheme, type StdThemeId } from '@/lib/std-themes';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 
 type Slide = { key: string; node: ReactNode; dur: number };
+
+/**
+ * Override a theme's TEXT colours for legibility over a Step-1 background, while
+ * keeping its accent button + display font. 'light' tone = light text (the
+ * background layer has darkened the photo); 'dark' tone = dark ink (the layer
+ * laid a cream wash). null → the theme's own colours, unchanged. Paired with the
+ * veil in StdBackgroundLayer (lib/std-backgrounds · resolveStdLegibility).
+ */
+function applyTextTone(theme: StdTheme, tone: 'light' | 'dark' | null): StdTheme {
+  if (!tone) return theme;
+  if (tone === 'light') {
+    return {
+      ...theme,
+      outerFg: 'text-[#fbf7f0]',
+      accentText: 'text-[#fbf7f0]',
+      subtleText: 'text-white/75',
+      labelCls: 'font-mono text-[10px] uppercase tracking-[0.3em] text-white/80',
+      scrubFill: 'bg-white',
+    };
+  }
+  return {
+    ...theme,
+    outerFg: 'text-[#211d18]',
+    accentText: 'text-[#211d18]',
+    subtleText: 'text-black/65',
+    labelCls: 'font-mono text-[10px] uppercase tracking-[0.3em] text-black/70',
+    scrubFill: 'bg-black/70',
+  };
+}
 
 /**
  * The film's monogram mark — the couple's actual SVG mark (uploaded / Cipher /
@@ -77,6 +106,7 @@ export function SaveTheDateFilm({
   preview = false,
   fill = false,
   transparent = false,
+  tone = null,
 }: {
   content: StdFilmContent;
   /** Theme override. Defaults to 'moodboard' (inherits the event's Mood Board palette). */
@@ -92,8 +122,16 @@ export function SaveTheDateFilm({
    *  Background layer behind it shows through (Background replaces the theme bg;
    *  the theme still drives fonts + text/accent colours). 2026-06-19. */
   transparent?: boolean;
+  /** Legibility text tone over a Step-1 background (lib/std-backgrounds ·
+   *  resolveStdLegibility). 'light' = light text (on a darkened veil), 'dark' =
+   *  dark text (on a cream veil), null = use the theme's own text colours. The
+   *  veil itself is drawn by StdBackgroundLayer; this keeps the two paired. */
+  tone?: 'light' | 'dark' | null;
 }) {
-  const theme = STD_THEMES.find((t) => t.id === resolveStdTheme(themeId)) ?? STD_THEMES[0]!;
+  const base = STD_THEMES.find((t) => t.id === resolveStdTheme(themeId)) ?? STD_THEMES[0]!;
+  // When a background sets a tone, override the theme's TEXT colours (not the
+  // accent button / font) so names + dates always read; otherwise use the theme.
+  const theme = applyTextTone(base, tone);
   const outerBgCls = transparent ? 'bg-transparent' : theme.outerBg;
   const LABEL = theme.labelCls;
 
@@ -690,7 +728,17 @@ export function SaveTheDateFilm({
 
   const stageProps = {
     ref: stageRef,
-    style: { touchAction: 'none' as const },
+    style: {
+      touchAction: 'none' as const,
+      // A soft text-shadow makes the toned text pop off a busy photo (inherits
+      // to all text on the stage). Only when a background tone is active.
+      textShadow:
+        tone === 'light'
+          ? '0 1px 12px rgba(0,0,0,0.45)'
+          : tone === 'dark'
+            ? '0 1px 10px rgba(255,255,255,0.55)'
+            : undefined,
+    },
     onPointerDown,
     onPointerUp,
     onPointerCancel: () => { if (holdRef.current) window.clearTimeout(holdRef.current); },

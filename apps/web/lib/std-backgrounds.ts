@@ -56,12 +56,61 @@ export function realisticBgSrc(id: string): string | null {
   return STD_REALISTIC_BACKGROUNDS.find((b) => b.id === id)?.src ?? null;
 }
 
+/**
+ * Legibility mode — how the background is treated so the names/dates always
+ * read on top (the film's text colour follows): 'lighten' washes a cream veil
+ * over it (→ dark text), 'darken' drops a dark veil (→ light text), 'auto'
+ * picks per background. Stored on std_background; defaults to 'auto'.
+ */
+export type StdLegibility = 'auto' | 'lighten' | 'darken';
+
 /** The couple's chosen background (events.std_background JSONB). */
 export type StdBackground = {
   kind: StdBackgroundKind;
   /** plain → hex · paper → paper id · realistic → scene id · upload → R2 key. */
   value: string;
+  /** Readability treatment (default 'auto'). */
+  legibility?: StdLegibility;
 };
+
+/** Resolved legibility: the veil to lay over the background + the text tone the
+ *  film should use on top. The two ALWAYS pair so text is readable. */
+export type StdVeil = 'none' | 'light' | 'dark';
+export type StdTextTone = 'light' | 'dark';
+
+/** Relative luminance (0=black … 1=white) of a #rgb/#rrggbb colour. */
+function hexLuminance(hex: string): number {
+  const m = /^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.exec(hex.trim());
+  if (!m) return 1; // unknown → treat as light (dark text)
+  let h = m[1]!;
+  if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+  const r = parseInt(h.slice(0, 2), 16) / 255;
+  const g = parseInt(h.slice(2, 4), 16) / 255;
+  const b = parseInt(h.slice(4, 6), 16) / 255;
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/**
+ * Resolve the legibility treatment for a background → { veil, tone }.
+ *
+ *  - 'lighten' → a cream wash veil + dark text (airy / editorial).
+ *  - 'darken'  → a dark veil + light text (reads over ANY busy photo).
+ *  - 'auto'    → plain: by colour luminance (no veil, tone follows) ·
+ *                paper: light surface → dark text, no veil ·
+ *                realistic / upload: darken + light text (the safe universal
+ *                choice over an unknown/busy photo).
+ */
+export function resolveStdLegibility(bg: StdBackground): { veil: StdVeil; tone: StdTextTone } {
+  const mode = bg.legibility ?? 'auto';
+  if (mode === 'lighten') return { veil: 'light', tone: 'dark' };
+  if (mode === 'darken') return { veil: 'dark', tone: 'light' };
+  // auto
+  if (bg.kind === 'plain') {
+    return hexLuminance(bg.value) < 0.5 ? { veil: 'none', tone: 'light' } : { veil: 'none', tone: 'dark' };
+  }
+  if (bg.kind === 'paper') return { veil: 'none', tone: 'dark' };
+  return { veil: 'dark', tone: 'light' };
+}
 
 export const DEFAULT_PLAIN_COLOR = '#f3ece1';
 
@@ -134,10 +183,12 @@ export function resolveStdBackground(raw: unknown, fallbackColor = DEFAULT_PLAIN
   if (raw && typeof raw === 'object') {
     const o = raw as Record<string, unknown>;
     const value = typeof o.value === 'string' ? o.value : '';
-    if (o.kind === 'plain' && /^#[0-9a-fA-F]{3,8}$/.test(value)) return { kind: 'plain', value };
-    if (o.kind === 'paper' && STD_PAPER_IDS.includes(value)) return { kind: 'paper', value };
-    if (o.kind === 'realistic' && STD_REALISTIC_IDS.includes(value)) return { kind: 'realistic', value };
-    if (o.kind === 'upload' && value) return { kind: 'upload', value };
+    const legibility: StdLegibility =
+      o.legibility === 'lighten' || o.legibility === 'darken' ? o.legibility : 'auto';
+    if (o.kind === 'plain' && /^#[0-9a-fA-F]{3,8}$/.test(value)) return { kind: 'plain', value, legibility };
+    if (o.kind === 'paper' && STD_PAPER_IDS.includes(value)) return { kind: 'paper', value, legibility };
+    if (o.kind === 'realistic' && STD_REALISTIC_IDS.includes(value)) return { kind: 'realistic', value, legibility };
+    if (o.kind === 'upload' && value) return { kind: 'upload', value, legibility };
   }
-  return { kind: 'plain', value: fallbackColor };
+  return { kind: 'plain', value: fallbackColor, legibility: 'auto' };
 }

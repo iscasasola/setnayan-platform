@@ -24,7 +24,7 @@ import { CountdownWidget } from './countdown';
 import { OurStory } from './our-story';
 import { SaveTheDateFilm } from './save-the-date-film';
 import { StdBackgroundLayer } from './std-background-layer';
-import type { StdBackground } from '@/lib/std-backgrounds';
+import { resolveStdLegibility, type StdBackground } from '@/lib/std-backgrounds';
 
 type Props = {
   displayName: string;
@@ -122,6 +122,7 @@ export function SaveTheDateView({
           content={content}
           themeId={resolveStdTheme(themeId)}
           transparent={Boolean(background)}
+          tone={background ? resolveStdLegibility(background).tone : null}
         />
       </section>
     );

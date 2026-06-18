@@ -18,7 +18,11 @@
  */
 
 import { useEffect, useRef, type CSSProperties } from 'react';
-import { paperBackgroundStyle, type StdBackground } from '@/lib/std-backgrounds';
+import {
+  paperBackgroundStyle,
+  resolveStdLegibility,
+  type StdBackground,
+} from '@/lib/std-backgrounds';
 
 type Props = {
   background: StdBackground;
@@ -98,22 +102,29 @@ export function StdBackgroundLayer({
     style.backgroundColor = '#f3ece1';
   }
 
-  // Photo backgrounds (realistic / upload) get a faint scrim so the names + dates
-  // stay legible over a busy image. Plain / paper are calm enough to skip it.
-  const needsScrim = background.kind === 'realistic' || background.kind === 'upload';
+  // Legibility veil — paired with the film's text tone so names + dates always
+  // read. 'darken' (or auto over photos) drops a dark wash → light text;
+  // 'lighten' lays a cream wash → dark text. Stronger at the top + bottom where
+  // the monogram + close beats sit. 'none' (plain / paper auto) → no veil.
+  const { veil } = resolveStdLegibility(background);
+  const veilBg =
+    veil === 'dark'
+      ? 'linear-gradient(180deg, rgba(0,0,0,0.46) 0%, rgba(0,0,0,0.30) 32%, rgba(0,0,0,0.30) 68%, rgba(0,0,0,0.52) 100%)'
+      : veil === 'light'
+        ? 'linear-gradient(180deg, rgba(250,247,240,0.66) 0%, rgba(250,247,240,0.48) 32%, rgba(250,247,240,0.48) 68%, rgba(250,247,240,0.70) 100%)'
+        : null;
 
   return (
     <>
       <div ref={ref} aria-hidden className={className} style={style} />
-      {needsScrim ? (
+      {veilBg ? (
         <div
           aria-hidden
           style={{
             position: fixed ? 'fixed' : 'absolute',
             inset: 0,
             ...(fixed ? { zIndex: 41 } : {}),
-            background:
-              'linear-gradient(180deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.12) 30%, rgba(0,0,0,0.12) 70%, rgba(0,0,0,0.34) 100%)',
+            background: veilBg,
           }}
         />
       ) : null}

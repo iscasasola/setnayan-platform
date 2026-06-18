@@ -16,6 +16,16 @@ Owner directive: the Save-the-Date shouldn't be a manual form — when the coupl
 Verified: `pnpm typecheck` + `pnpm lint` clean; `save-the-date-content` tests pass. No migration (reads `event_vendors`; reception manual fallback reuses the existing `std_film_venue_*`).
 
 SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the Content step is now auto-fill-from-canonical: ceremony + reception venues come from the finalized bookings (manual reception fallback for DIY). FOLLOW-UPS (flagged for owner): (1) make the builder's date **read-only / sourced from Date Selection** (the date already comes from `event_date`; the builder UI still shows a free input — PR-N); (2) a manual **ceremony** fallback field for DIY couples (ceremony is booking-only today). See `DECISION_LOG.md` 2026-06-19.
+## 2026-06-19 · fix(std): the builder's date backfills the canonical wedding date (PR-L)
+
+Owner set the Save-the-Date date in the builder but the public page still showed nothing. Root cause: the builder's "Wedding date" field writes `std_film_date` (a film **display override** — "your event stays unchanged"), but the public page's lifecycle phase reads the canonical `events.event_date` to decide whether to show the film. With `event_date` null, the page sat in the RSVP phase and the film never rendered — even though the date, venue, background were all saved.
+
+- `saveAllStdContent`: when a film date is set **and** `events.event_date IS NULL`, backfill `event_date` from it (guarded to null so an existing wedding date is never clobbered; `std_film_date` stays the display-only override). So setting the date in the builder now actually moves the event into the Save-the-Date phase.
+- Builder copy: the date field's "No date set yet — add it in your event dashboard" → "set it here and it becomes your wedding date. Your Save-the-Date shows once your wedding is more than 90 days away" (the phase rule made explicit, no longer misleading).
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. No migration. (Also applied the same fix to the affected live event directly so it shows immediately.)
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the STD builder's date now backfills `event_date` when empty; the public film still gates on the save-the-date phase (wedding > 90 days out), now surfaced in the builder copy.
 
 ## 2026-06-19 · feat(std): Smart Auto + localized text scrim (PR-I)
 

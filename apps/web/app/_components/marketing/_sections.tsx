@@ -118,10 +118,10 @@ export async function Hero() {
             className="m-serif italic text-[var(--m-slate)] mt-5 sm:mt-8 max-w-[560px]"
             style={{ fontSize: 21, lineHeight: 1.65, textWrap: 'pretty' as 'pretty' }}
           >
-            Plan your Filipino wedding without the twelve spreadsheets.{' '}
+            Every guest leaves with their own photos and a personal memory reel.{' '}
             <span className="not-italic font-[var(--font-sans-marketing,var(--font-sans))] text-[17px] text-[var(--m-ink)]">
-              Guest list, verified vendors, QR invitations, day-of livestream, same-day highlight reel — all in one
-              place, so you can spend less time chasing receipts and more time being engaged.
+              The planning that gets them there — guest list, verified vendors, seating, schedule — runs in one
+              place, free from the day you start.
             </span>
           </p>
           <div className="mt-4 hidden sm:inline-flex items-center gap-3 px-3.5 py-2.5 rounded-[10px] bg-[var(--m-ivory)] border border-[var(--m-line)] max-w-[560px]">

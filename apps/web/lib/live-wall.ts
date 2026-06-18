@@ -248,14 +248,16 @@ export async function getWallSnapshot(
     if (msg) {
       const { data: author } = await admin
         .from('guests')
-        .select('first_name, display_name')
+        .select('first_name, display_name, faceblock_enabled')
         .eq('guest_id', msg.guest_id as string)
         .maybeSingle();
-      caption = {
-        text: msg.body_text as string,
-        author: (author?.display_name as string) || (author?.first_name as string) || 'A guest',
-        atIso: msg.updated_at as string,
-      };
+      if (!author?.faceblock_enabled) {
+        caption = {
+          text: msg.body_text as string,
+          author: (author?.display_name as string) || (author?.first_name as string) || 'A guest',
+          atIso: msg.updated_at as string,
+        };
+      }
     }
   } catch {
     caption = null; // pre-migration env — the wall simply has no captions

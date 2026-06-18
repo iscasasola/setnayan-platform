@@ -4,6 +4,30 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-18 · Kwento Monumental Upgrade — PR 1 (FaceBlock fix) + PR 2 (Flash tier) + PR 3 (Density Map)
+
+Three-PR build from the approved Kwento Monumental Upgrade plan (`Kwento_Monumental_Upgrade_2026-06-18.md`). Turns Kwento from a single-voice photo-message feature into the narrative infrastructure layer of the event.
+
+**PR 1 (#1721) — fix(live-wall): FaceBlock serve-path guard**
+- `lib/live-wall.ts`: `getWallSnapshot()` was filtering on `photo_messages.author_publicly_hidden` (a cached column). Now fetches `guests.faceblock_enabled` at serve-time and suppresses `caption` if true, regardless of whether the cache column synced.
+- `app/dashboard/[eventId]/website/living-hero/_components/living-hero-studio.tsx`: Hoisted `isSaving = phase === 'saving'` before JSX to fix pre-existing TS2367 narrowing errors that blocked CI.
+
+**PR 2 (#1722) — feat(kwento): Phase 1 Flash tier**
+- Migration `20270115000000_kwento_voice_depth.sql`: `voice_depth` column (`flash`/`story`), per-depth DB CHECK constraints, `last_kwento_notify_at` + `kwento_flash_auto_wall` on `events`.
+- Route `app/api/papic/kwento/route.ts`: `voiceDepth` param, Flash auto-wall (5 s `after()` + coordinator kill-switch), Story debounced batch notify (10 min per event).
+- Guest capture UX (`papic-guest-capture.tsx`): two-step Flash (one-liner + 5 s countdown) → Story phase machine.
+- `lib/notifications.ts`: `kwento_story_batch` + `kwento_flash_auto_walled` notification types.
+- Live console: Flash auto-wall toggle (`flash-auto-wall-toggle.tsx`) + `toggleFlashAutoWall` server action.
+
+**PR 3 (#1724) — feat(kwento): Phase 2 Density Map**
+- `lib/kwento-density.ts`: `getKwentoDensity(eventId, limit)` — JS-aggregated Kwento counts per photo, top N with preview caption.
+- Alaala hub (`alaala/page.tsx`): upgraded from static to dynamic; "Most storied moments" horizontal card row + "Mga Boses" pull-quotes (both hidden when no Kwentos).
+- Papic gallery: `PapicGalleryGrid` gains optional `kwentoDensity` prop; gold/amber/grey density dot on thumbnails.
+
+**SPEC IMPACT:** `Kwento_Monumental_Upgrade_2026-06-18.md` Phases 1 + 2 implemented. `Kwento_Automation_Failproof_2026-06-18.md` G1 (FaceBlock) + G2 (auto-wall) guarantees shipped. Phases 3–6 queued for future sessions.
+
+---
+
 ## 2026-06-18 · feat(patiktok): capture + render foundation — source-clip storage + render-job output (PR1 of 4)
 
 Patiktok (iteration 0017) was a complete UX scaffold with **no video pipeline**: a render-job queue but nowhere to store booth-recorded clips, and only a placeholder `output_url`. Owner greenlit finishing the **record → render → download** slice (TikTok auto-post stays deferred behind TikTok's verified-app audit) on a **client-side WebCodecs** render host (₱0 server compute — honors marginal-cost = R2-only). This is the schema foundation; capture/render/deliver follow in PR2–4.

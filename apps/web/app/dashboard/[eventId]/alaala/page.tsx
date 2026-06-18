@@ -1,6 +1,9 @@
 import Link from 'next/link';
 
 import { ADD_ONS, addOnHref } from '@/lib/add-ons-catalog';
+import { getKwentoDensity } from '@/lib/kwento-density';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 
 /**
  * Alaala — the couple's living-memory hub (Lane 2 of the Alaala embed).
@@ -18,6 +21,7 @@ import { ADD_ONS, addOnHref } from '@/lib/add-ons-catalog';
  */
 
 export const metadata = { title: 'Alaala' };
+export const dynamic = 'force-dynamic';
 
 type Props = { params: Promise<{ eventId: string }> };
 
@@ -80,6 +84,88 @@ export default async function AlaalaPage({ params }: Props) {
   const { eventId } = await params;
   const byKey = new Map(ADD_ONS.map((a) => [a.key, a]));
 
+  // Fetch density map and recent approved stories in parallel.
+  // If either fails (Papic not active, no data), we silently hide the sections.
+  const admin = createAdminClient();
+  const [densityRows, { data: recentStories }] = await Promise.all([
+    getKwentoDensity(eventId, 5).catch(() => []),
+    admin
+      .from('photo_messages')
+      .select('message_id, body_text, source_id, guest_id')
+      .eq('event_id', eventId)
+      .eq('status', 'approved')
+      .order('updated_at', { ascending: false })
+      .limit(3)
+      .catch(() => ({ data: null })),
+  ]);
+
+  // Resolve thumbnail URLs for the top density photos.
+  type DensityCard = {
+    photoId: string;
+    density: number;
+    preview: string | null;
+    thumbUrl: string | null;
+  };
+
+  const densityCards: DensityCard[] = densityRows.length
+    ? await Promise.all(
+        densityRows.map(async (row) => {
+          // Try to get a thumbnail from papic_guest_captures.r2_key first.
+          let thumbUrl: string | null = null;
+          try {
+            const { data: cap } = await admin
+              .from('papic_guest_captures')
+              .select('r2_key')
+              .eq('capture_id', row.photoId)
+              .maybeSingle();
+            if (cap?.r2_key) {
+              thumbUrl = await displayUrlForStoredAsset(cap.r2_key as string, {
+                ttlSeconds: 60 * 60,
+              });
+            }
+          } catch {
+            // no thumbnail — card still shows density badge
+          }
+          return { ...row, thumbUrl };
+        }),
+      )
+    : [];
+
+  // Resolve guest names for the Mga Boses pull-quotes.
+  type VoiceQuote = {
+    messageId: string;
+    text: string;
+    authorName: string;
+  };
+
+  const voiceQuotes: VoiceQuote[] = [];
+  if (recentStories && recentStories.length > 0) {
+    const guestIds = [...new Set((recentStories as Array<{ guest_id: string | null }>).map((r) => r.guest_id).filter(Boolean) as string[])];
+    const { data: guests } = guestIds.length
+      ? await admin
+          .from('guests')
+          .select('guest_id, first_name, display_name')
+          .in('guest_id', guestIds)
+      : { data: [] };
+    const guestMap = new Map(
+      (guests ?? []).map((g: { guest_id: string; first_name?: string; display_name?: string }) => [
+        g.guest_id,
+        (g.display_name as string) || (g.first_name as string) || 'A guest',
+      ]),
+    );
+    for (const row of recentStories as Array<{
+      message_id: string;
+      body_text: string;
+      guest_id: string | null;
+    }>) {
+      voiceQuotes.push({
+        messageId: row.message_id,
+        text: (row.body_text ?? '').slice(0, 200),
+        authorName: row.guest_id ? (guestMap.get(row.guest_id) ?? 'A guest') : 'A guest',
+      });
+    }
+  }
+
   function resolve(chip: Chip) {
     const entry = chip.key ? byKey.get(chip.key) : undefined;
     const label = chip.label ?? entry?.label ?? chip.key ?? '';
@@ -113,6 +199,56 @@ export default async function AlaalaPage({ params }: Props) {
           And it never gets in the way. The day stays yours — the tech just quietly remembers it.
         </p>
       </header>
+
+      {/* ── Most storied moments (only when Kwentos exist) ── */}
+      {densityCards.length > 0 ? (
+        <div className="space-y-3">
+          <p
+            className="font-mono text-[11px] uppercase tracking-[0.2em]"
+            style={{ color: 'var(--m-orange-2)' }}
+          >
+            Most storied moments
+          </p>
+          <ul className="flex gap-3 overflow-x-auto pb-1">
+            {densityCards.map((card) => (
+              <li
+                key={card.photoId}
+                className="relative shrink-0 w-28 rounded-xl overflow-hidden border"
+                style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}
+              >
+                {card.thumbUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={card.thumbUrl}
+                    alt=""
+                    loading="lazy"
+                    className="h-28 w-28 object-cover"
+                  />
+                ) : (
+                  <div className="h-28 w-28" style={{ background: 'var(--m-paper)' }} />
+                )}
+                <div
+                  className="absolute top-1.5 right-1.5 rounded-full px-1.5 py-0.5 font-mono text-[10px] font-semibold"
+                  style={{
+                    background: card.density >= 3 ? '#D97706' : card.density === 2 ? '#B45309' : 'rgba(0,0,0,0.45)',
+                    color: '#fff',
+                  }}
+                >
+                  {card.density}
+                </div>
+                {card.preview ? (
+                  <p
+                    className="px-2 py-1.5 text-[11px] leading-tight line-clamp-2"
+                    style={{ color: 'var(--m-slate)' }}
+                  >
+                    {card.preview}
+                  </p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       {/* ── The arc of the day ── */}
       <ol className="space-y-4">
@@ -183,6 +319,49 @@ export default async function AlaalaPage({ params }: Props) {
           </li>
         ))}
       </ol>
+
+      {/* ── Mga Boses — what your guests are saying (only when stories exist) ── */}
+      {voiceQuotes.length > 0 ? (
+        <div className="space-y-3">
+          <div className="flex items-baseline justify-between">
+            <p
+              className="font-mono text-[11px] uppercase tracking-[0.2em]"
+              style={{ color: 'var(--m-orange-2)' }}
+            >
+              Mga Boses · what your guests are saying
+            </p>
+            <Link
+              href={`/dashboard/${eventId}/add-ons/papic/moderation`}
+              className="text-[12px]"
+              style={{ color: 'var(--m-orange-2)' }}
+            >
+              See all →
+            </Link>
+          </div>
+          <ul className="space-y-3">
+            {voiceQuotes.map((q) => (
+              <li
+                key={q.messageId}
+                className="rounded-xl border p-4"
+                style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}
+              >
+                <p
+                  className="text-[14px] leading-relaxed italic"
+                  style={{ color: 'var(--m-slate)' }}
+                >
+                  &ldquo;{q.text}{q.text.length >= 200 ? '…' : ''}&rdquo;
+                </p>
+                <p
+                  className="mt-1.5 text-[12px] font-medium"
+                  style={{ color: 'var(--m-slate-2)' }}
+                >
+                  — {q.authorName}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       {/* ── Close — every piece adds to the Alaala ── */}
       <footer className="rounded-2xl border p-5 text-center sm:p-6" style={{ borderColor: 'var(--m-line)' }}>

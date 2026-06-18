@@ -2,7 +2,6 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import {
   ArrowLeft,
-  Camera,
   CheckCircle2,
   Clock3,
   Film,
@@ -22,6 +21,7 @@ import {
   type PatiktokTemplate,
 } from '@/lib/patiktok';
 import { createOrder } from '../../../orders/actions';
+import { BoothCapture } from '../_components/booth-capture';
 
 // Iteration 0017 Phase 4 — Patiktok Operator Dashboard.
 //
@@ -331,44 +331,26 @@ function RecordCTA({
   primaryTemplate: PatiktokTemplate;
 }) {
   return (
-    <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
-      <h2 className="inline-flex items-center gap-1.5 text-lg font-semibold tracking-tight">
-        <Camera aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
-        Start Recording
-      </h2>
-      <p className="text-sm text-ink/65">
-        Camera flow opens with the {primaryTemplate.name} template loaded.
-        Guest steps on the X mark · countdown plays · face-lock zooms ·
-        guest reviews · submit. Max 3 retakes per guest.
-      </p>
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          disabled
-          className="inline-flex items-center justify-center gap-2 rounded-md bg-terracotta/40 px-4 py-2.5 text-sm font-medium text-cream"
-          title="Camera capture lands in Phase 4.1"
-        >
-          <Camera aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          Start Recording
-        </button>
-        <Link
-          href={`/dashboard/${eventId}/add-ons/patiktok/${primaryTemplate.slug}`}
-          className="inline-flex items-center justify-center gap-2 rounded-md border border-ink/15 bg-cream px-4 py-2.5 text-sm font-medium text-ink/70 hover:border-terracotta/40 hover:text-terracotta-700"
-        >
-          <Film className="h-4 w-4" strokeWidth={1.75} />
-          Preview template + queue render
-        </Link>
-      </div>
-      <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
-        Camera capture · TODO(0017-phase4.1) · getUserMedia + MediaRecorder + face-lock
-      </p>
-      <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
-        Multi-performer · TODO(0017-phase5.1) · MediaPipe-WASM face detection · geometric-center anchor · tag-others prompt post-clip
-      </p>
+    <div className="space-y-3">
+      <BoothCapture
+        eventId={eventId}
+        template={{
+          slug: primaryTemplate.slug,
+          name: primaryTemplate.name,
+          defaultDurationSec: primaryTemplate.defaultDurationSec,
+        }}
+      />
+      <Link
+        href={`/dashboard/${eventId}/add-ons/patiktok/${primaryTemplate.slug}`}
+        className="inline-flex items-center justify-center gap-2 rounded-md border border-ink/15 bg-cream px-4 py-2.5 text-sm font-medium text-ink/70 hover:border-terracotta/40 hover:text-terracotta-700"
+      >
+        <Film className="h-4 w-4" strokeWidth={1.75} />
+        Preview template + queue render
+      </Link>
       <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
         External display dual-view · TODO(0017-phase5.2) · Presentation API + split / PIP layouts for HDMI / AirPlay / Chromecast
       </p>
-    </section>
+    </div>
   );
 }
 

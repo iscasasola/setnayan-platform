@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-18 · feat(patiktok): web booth capture + direct-to-R2 clip upload (PR2 of 4)
+
+The INPUT half of the render pipeline — turns the disabled "Start Recording" button into a real capture loop. Stacked on PR1 (#1713 schema).
+
+- **New `app/api/patiktok/upload/route.ts`** — video-shaped presigned-PUT endpoint (the generic `/api/upload` caps media at 10 MB, images-only). Whitelists `video/webm`/`mp4`/`quicktime`, per-kind caps (clip ≤ 60 MB, reel ≤ 150 MB), event-membership-gated, keys under `patiktok/clips/{eventId}/…` and `patiktok/renders/{eventId}/{jobId}.mp4` (reel kind is pre-wired for PR3). Graceful 503 when R2 isn't configured.
+- **New `_components/booth-capture.tsx`** (client) — `getUserMedia` (9:16, audio) → 3-2-1 countdown → `MediaRecorder` (target = template duration, hard cap 30s, manual stop) → in-place review with playback → retake (max 3) → "Keep this clip" uploads direct-to-R2 via the presign and records the row. Optional per-guest label; running session counter; "Continue to render" link; full timer/stream cleanup on unmount; permission/record/upload errors surfaced with retry. Safari-aware mimeType picker (mp4) with webm fallback (`render_mode` follows).
+- **New `recordPatiktokClip` server action** — RLS-scoped INSERT into `patiktok_source_clips` (cookie client, not admin — the DB enforces event membership).
+- **`booth/page.tsx`** — `RecordCTA` now mounts `BoothCapture`; removed the orphaned `Camera` import + the phase-4.1 TODO placeholders.
+
+tsc 0 · ESLint clean. No render yet (PR3 stitches these clips via client-side WebCodecs). Requires R2 CORS + credentials (owner action) for browser PUTs to succeed in prod.
+
+SPEC IMPACT iter 0017 — booth capture is now real (was a disabled stub). → CHANGELOG + corpus DECISION_LOG.
+
 ## 2026-06-18 · feat(patiktok): capture + render foundation — source-clip storage + render-job output (PR1 of 4)
 
 Patiktok (iteration 0017) was a complete UX scaffold with **no video pipeline**: a render-job queue but nowhere to store booth-recorded clips, and only a placeholder `output_url`. Owner greenlit finishing the **record → render → download** slice (TikTok auto-post stays deferred behind TikTok's verified-app audit) on a **client-side WebCodecs** render host (₱0 server compute — honors marginal-cost = R2-only). This is the schema foundation; capture/render/deliver follow in PR2–4.

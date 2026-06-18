@@ -98,6 +98,75 @@ export async function submitPatiktokRender(formData: FormData) {
 }
 
 /**
+ * Iteration 0017 PR2 — record a booth-captured clip.
+ *
+ * Called by the client booth-capture component AFTER it has PUT the recorded
+ * blob direct-to-R2 via the presigned URL from `/api/patiktok/upload`. Inserts
+ * a `patiktok_source_clips` row pointing at the uploaded object. Uses the
+ * cookie-scoped client (NOT the admin client) so RLS enforces event membership
+ * on the INSERT — a non-member's row is rejected at the database.
+ *
+ * Returns the new clip_id so the component can track the session's captures.
+ */
+export async function recordPatiktokClip(input: {
+  eventId: string;
+  templateSlug?: string | null;
+  r2Bucket?: string | null;
+  r2Key: string;
+  mimeType?: string | null;
+  durationSec?: number | null;
+  width?: number | null;
+  height?: number | null;
+  sizeBytes?: number | null;
+  performerLabel?: string | null;
+}): Promise<{ clipId: string }> {
+  if (typeof input.eventId !== 'string' || input.eventId.length === 0) {
+    throw new Error('eventId required');
+  }
+  if (typeof input.r2Key !== 'string' || input.r2Key.length === 0) {
+    throw new Error('r2Key required');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data, error } = await supabase
+    .from('patiktok_source_clips')
+    .insert({
+      event_id: input.eventId,
+      template_slug: input.templateSlug ?? null,
+      captured_by: user.id,
+      r2_bucket: input.r2Bucket || 'setnayan-media',
+      r2_object_key: input.r2Key,
+      mime_type: input.mimeType || 'video/webm',
+      duration_sec:
+        typeof input.durationSec === 'number' && input.durationSec > 0
+          ? input.durationSec
+          : null,
+      width: input.width ?? null,
+      height: input.height ?? null,
+      size_bytes: input.sizeBytes ?? null,
+      performer_label:
+        typeof input.performerLabel === 'string' && input.performerLabel.trim()
+          ? input.performerLabel.trim()
+          : null,
+      status: 'uploaded',
+    })
+    .select('clip_id')
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message ?? 'Could not record clip');
+  }
+
+  revalidatePath(`/dashboard/${input.eventId}/add-ons/patiktok/booth`);
+  return { clipId: data.clip_id as string };
+}
+
+/**
  * Phase 3.0.1 — couple-initiated TikTok grant revocation.
  *
  * Soft-revokes the active patiktok_oauth_grants row for the event (sets

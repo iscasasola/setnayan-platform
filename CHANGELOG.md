@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · feat(std): responsive + per-beat animations + scroll-scrub (PR-W)
+
+Owner: "make save the date adjust for mobile and desktop version also. I also need a unique way to animate each information and it must be able to auto play or scrubbed via scroll to go back to information."
+
+`save-the-date-film.tsx`:
+
+- **Responsive desktop/mobile.** The full-screen stage was a phone-width `max-w-sm` column on every screen; it now widens — `md:max-w-xl lg:max-w-2xl` — and the headline beats scale up at `lg` (names → 7xl, date → 8xl, venues → 6xl, sentiment → 5xl) so desktop reads as a full composition, not a narrow strip. Mobile is unchanged (full-width). Slide padding eases in (`px-8 sm:px-10`).
+- **A unique animation per beat.** 9 keyframes (`FILM_ANIM_CSS`) — monogram **bloom**, names **rise**, date **zoom**, ceremony **slide-in-left**, reception **slide-in-right**, sentiment **breathe**, invitation **blur-in**, video **pop**, close **soft-rise**. The active slide applies its `anim` inline so it re-fires on every visit (forward or scrubbed back). Honors `prefers-reduced-motion` (animations off, plain cross-fade).
+- **Scroll-scrub (back + forward).** Mouse-wheel / trackpad scroll and a vertical swipe now step the beats (down/up-swipe = forward, up/down-swipe = back), debounced to one beat per flick, switching to MANUAL mode so the guest can scroll back to any earlier info. Auto-play still runs until the first scrub; horizontal taps stay a quick nudge that keeps it playing; press-hold still pauses.
+- **Re-applies the orphaned PR-T** (full-width legibility scrim + `hitControl` button-tap guard): #1792 auto-merged at the PR-S commit *before* PR-T was pushed, so those never reached `main` — folded back in here.
+- **Carries PR-V** (the veil/film spatial grab-zone) — this branch is a superset; #1795 is closed in favour of this PR.
+
+Verified: `pnpm typecheck` (my files clean; the `paper`/`paperjs-offset` errors are an unrelated local install gap from the monogram-studio merge — CI installs them) + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the film is responsive, each beat has its own entrance motion, and it scrubs by scroll/swipe (back + forward) as well as auto-playing. See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · fix(std): veil AND film both reachable — spatial grab-zone (PR-V)
 
 Owner: "I still want the veil to be accessible. but I also want to be able to navigate the messages."

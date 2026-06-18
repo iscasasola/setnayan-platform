@@ -39,7 +39,50 @@ import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
 import { type MonogramConfig } from '@/lib/monogram';
 
-type Slide = { key: string; node: ReactNode; dur: number };
+type Slide = {
+  key: string;
+  node: ReactNode;
+  dur: number;
+  /** A UNIQUE entrance animation per beat (owner 2026-06-19 "a unique way to
+   *  animate each information"). CSS `animation` shorthand referencing the
+   *  keyframes in FILM_ANIM_CSS; replays each time the beat becomes active. */
+  anim: string;
+};
+
+/**
+ * Per-beat entrance keyframes — one distinct motion per piece of information so
+ * each beat reveals its own way (bloom · rise · zoom · slide-in L/R · breathe ·
+ * blur-in · pop · soft-rise). Injected once via a <style> tag in the film; the
+ * active slide applies its `anim` inline (so it re-fires on every visit, forward
+ * or scrubbed back). `both` fill-mode holds the final resting state.
+ */
+const FILM_ANIM_CSS = `
+@keyframes stdBloom { from { opacity: 0; transform: scale(.62); filter: blur(6px); } to { opacity: 1; transform: scale(1); filter: blur(0); } }
+@keyframes stdRise { from { opacity: 0; transform: translateY(34px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes stdZoom { from { opacity: 0; transform: scale(1.32); } to { opacity: 1; transform: scale(1); } }
+@keyframes stdSlideL { from { opacity: 0; transform: translateX(-54px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes stdSlideR { from { opacity: 0; transform: translateX(54px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes stdBreathe { from { opacity: 0; transform: scale(1.1); } 60% { opacity: 1; } to { opacity: 1; transform: scale(1); } }
+@keyframes stdBlurIn { from { opacity: 0; filter: blur(12px); letter-spacing: .12em; } to { opacity: 1; filter: blur(0); letter-spacing: normal; } }
+@keyframes stdPop { from { opacity: 0; transform: scale(.88); } to { opacity: 1; transform: scale(1); } }
+@keyframes stdRiseSoft { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) {
+  .std-anim { animation: none !important; }
+}
+`;
+
+const EASE = 'cubic-bezier(.2,.8,.2,1)';
+const ANIM = {
+  bloom: `stdBloom 900ms ${EASE} both`,
+  rise: `stdRise 800ms ${EASE} both`,
+  zoom: `stdZoom 820ms ${EASE} both`,
+  slideL: `stdSlideL 820ms ${EASE} both`,
+  slideR: `stdSlideR 820ms ${EASE} both`,
+  breathe: `stdBreathe 1100ms ease-out both`,
+  blurIn: `stdBlurIn 950ms ease-out both`,
+  pop: `stdPop 700ms ${EASE} both`,
+  riseSoft: `stdRiseSoft 1000ms ease-out both`,
+} as const;
 
 /**
  * The couple's ONBOARDING lockup — their chosen monogram design (bar / duo /
@@ -196,6 +239,7 @@ export function SaveTheDateFilm({
   slides.push({
     key: 'monogram',
     dur: 4000,
+    anim: ANIM.bloom,
     node: (
       <div className="flex flex-col items-center gap-3">
         <p className={LABEL}>Save the Date</p>
@@ -216,10 +260,11 @@ export function SaveTheDateFilm({
   slides.push({
     key: 'names',
     dur: 4200,
+    anim: ANIM.rise,
     node: (
       <div className="flex flex-col items-center gap-3 text-center">
         <p className={LABEL}>Together with their families</p>
-        <h1 className={`${theme.fontCls} text-5xl font-medium italic tracking-tight sm:text-6xl`}>
+        <h1 className={`${theme.fontCls} text-5xl font-medium italic tracking-tight sm:text-6xl lg:text-7xl`}>
           {content.names}
         </h1>
         <p className={`${theme.fontCls} text-xl italic ${theme.subtleText}`}>are getting married</p>
@@ -232,11 +277,12 @@ export function SaveTheDateFilm({
     slides.push({
       key: 'date',
       dur: 4800,
+      anim: ANIM.zoom,
       node: (
         <div className="flex flex-col items-center gap-4 text-center">
           <p className={LABEL}>Mark your calendars</p>
           {content.dateBig ? (
-            <div className={`${theme.fontCls} text-6xl font-medium tracking-tight sm:text-7xl`}>
+            <div className={`${theme.fontCls} text-6xl font-medium tracking-tight sm:text-7xl lg:text-8xl`}>
               {content.dateBig}
             </div>
           ) : null}
@@ -253,11 +299,12 @@ export function SaveTheDateFilm({
     slides.push({
       key: 'ceremony',
       dur: 4200,
+      anim: ANIM.slideL,
       node: (
         <div className="flex flex-col items-center gap-3 text-center">
           <p className={LABEL}>The ceremony</p>
           <p className={`${theme.fontCls} text-xl italic ${theme.subtleText}`}>We&rsquo;ll exchange our vows at</p>
-          <h2 className={`${theme.fontCls} text-4xl font-medium sm:text-5xl`}>{content.ceremonyVenue}</h2>
+          <h2 className={`${theme.fontCls} text-4xl font-medium sm:text-5xl lg:text-6xl`}>{content.ceremonyVenue}</h2>
         </div>
       ),
     });
@@ -268,11 +315,12 @@ export function SaveTheDateFilm({
     slides.push({
       key: 'reception',
       dur: 4200,
+      anim: ANIM.slideR,
       node: (
         <div className="flex flex-col items-center gap-3 text-center">
           <p className={LABEL}>The celebration</p>
           <p className={`${theme.fontCls} text-xl italic ${theme.subtleText}`}>And we&rsquo;ll celebrate together at</p>
-          <h2 className={`${theme.fontCls} text-4xl font-medium sm:text-5xl`}>{content.receptionVenue}</h2>
+          <h2 className={`${theme.fontCls} text-4xl font-medium sm:text-5xl lg:text-6xl`}>{content.receptionVenue}</h2>
           {content.receptionCity ? (
             <p className={`${theme.fontCls} text-xl italic ${theme.subtleText}`}>{content.receptionCity}</p>
           ) : null}
@@ -285,6 +333,7 @@ export function SaveTheDateFilm({
   slides.push({
     key: 'sentiment',
     dur: 4600,
+    anim: ANIM.breathe,
     node: (
       <div className="flex flex-col items-center gap-3 text-center">
         <FilmMonogram
@@ -295,7 +344,7 @@ export function SaveTheDateFilm({
           sizeCls="h-14 w-14 sm:h-16 sm:w-16"
           textCls={`${theme.fontCls} text-3xl font-medium ${theme.accentText}`}
         />
-        <p className={`${theme.fontCls} text-3xl font-medium italic leading-tight sm:text-4xl`}>
+        <p className={`${theme.fontCls} text-3xl font-medium italic leading-tight sm:text-4xl lg:text-5xl`}>
           We can&rsquo;t wait to
           <br />
           celebrate with you
@@ -308,6 +357,7 @@ export function SaveTheDateFilm({
   slides.push({
     key: 'invitation',
     dur: 4400,
+    anim: ANIM.blurIn,
     node: (
       <div className="flex flex-col items-center gap-3 text-center">
         <p className={LABEL}>Formal invitation to follow</p>
@@ -334,6 +384,7 @@ export function SaveTheDateFilm({
     slides.push({
       key: 'video',
       dur: Infinity,
+      anim: ANIM.pop,
       node: (
         <div className="flex w-full max-w-sm flex-col items-center gap-4">
           <p className={LABEL}>Watch our story</p>
@@ -369,6 +420,7 @@ export function SaveTheDateFilm({
     slides.push({
       key: 'gallery',
       dur: 6500,
+      anim: ANIM.zoom,
       node: (
         <div className="flex w-full max-w-xs flex-col items-center gap-3">
           <p className={LABEL}>Until then</p>
@@ -395,6 +447,7 @@ export function SaveTheDateFilm({
   slides.push({
     key: 'close',
     dur: Infinity,
+    anim: ANIM.riseSoft,
     node: (
       <div className="flex flex-col items-center gap-4 text-center">
         <FilmMonogram
@@ -563,14 +616,47 @@ export function SaveTheDateFilm({
     };
   }, [muted, content.musicUrl, preview, videoSlideIndex]);
 
-  // Press-and-hold pauses; a quick tap on left/right steps; the gesture also
-  // unlocks audio (browser requires user gesture).
+  // Press-and-hold pauses; a quick tap on left/right steps; a vertical swipe or
+  // a mouse-wheel SCROLLS through the beats (owner 2026-06-19: "auto play or
+  // scrubbed via scroll to go back to information"). The gesture also unlocks
+  // audio (browser requires user gesture).
   const holdRef = useRef<number | null>(null);
   const wasHoldRef = useRef(false);
   const downXRef = useRef(0);
+  const downYRef = useRef(0);
+  const wheelAtRef = useRef(0);
+
+  // A tap that lands on a real control (Add to calendar · play · mute) must reach
+  // THAT button, not be swallowed as a film scrub/pause.
+  const hitControl = (e: React.PointerEvent) =>
+    Boolean((e.target as HTMLElement | null)?.closest?.('button, a'));
+
+  // Scrub to an adjacent beat (clamped) and switch to MANUAL — the deliberate
+  // scroll/swipe takes control, so auto-advance stops where the guest landed.
+  const stepBeat = (dir: number) => {
+    const target = Math.max(0, Math.min(N - 1, idxRef.current + dir));
+    goRef.current(target);
+    if (playingRef.current) {
+      playingRef.current = false;
+      setPlaying(false);
+    }
+  };
+
+  // Mouse-wheel / trackpad scroll → step beats (down = forward, up = back).
+  // Debounced so one flick = one beat. Live page only (in the builder preview
+  // the wheel belongs to the scrolling builder page).
+  const onWheel = (e: React.WheelEvent) => {
+    if (preview) return;
+    const now = performance.now();
+    if (now - wheelAtRef.current < 380 || Math.abs(e.deltaY) < 16) return;
+    wheelAtRef.current = now;
+    stepBeat(e.deltaY > 0 ? 1 : -1);
+  };
 
   const onPointerDown = (e: React.PointerEvent) => {
+    if (hitControl(e)) return;
     downXRef.current = e.clientX;
+    downYRef.current = e.clientY;
     wasHoldRef.current = false;
     // Unlock the soundtrack on the gesture — but NOT while on the video beat
     // (there the music stays ducked; the video effect owns it).
@@ -593,6 +679,7 @@ export function SaveTheDateFilm({
   };
 
   const onPointerUp = (e: React.PointerEvent) => {
+    if (hitControl(e)) return;
     if (holdRef.current) window.clearTimeout(holdRef.current);
     if (wasHoldRef.current) {
       if (!playingRef.current) {
@@ -602,6 +689,14 @@ export function SaveTheDateFilm({
       }
       return;
     }
+    const dx = e.clientX - downXRef.current;
+    const dy = e.clientY - downYRef.current;
+    // Vertical swipe = SCROLL-scrub (up → next, down → back) into manual mode.
+    if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 30) {
+      stepBeat(dy < 0 ? 1 : -1);
+      return;
+    }
+    // Horizontal tap = a quick nudge that keeps the film auto-playing.
     const r = stageRef.current?.getBoundingClientRect();
     const x = r ? e.clientX - r.left : 0;
     const w = r?.width ?? 1;
@@ -638,31 +733,17 @@ export function SaveTheDateFilm({
   // Inner JSX shared by both layout modes (preview card + full-screen).
   const filmContent = (
     <>
+      {/* Per-beat entrance keyframes (injected once). */}
+      <style dangerouslySetInnerHTML={{ __html: FILM_ANIM_CSS }} />
+
       {content.musicUrl ? (
         <audio ref={audioRef} src={content.musicUrl} loop muted={muted} />
       ) : null}
 
-      {/* Localized text scrim — a soft radial behind the centred text so it reads
-          over a vivid photo WITHOUT washing the whole image (the global veil is
-          'none' for auto photos). Pairs with the tone: light text → a dark halo,
-          dark text → a cream halo. Only when a background tone is active. */}
-      {tone && transparent ? (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 z-0"
-          style={{
-            background:
-              tone === 'light'
-                ? 'radial-gradient(ellipse 80% 58% at 50% 47%, rgba(0,0,0,0.52) 0%, rgba(0,0,0,0.26) 45%, rgba(0,0,0,0) 72%)'
-                : 'radial-gradient(ellipse 80% 58% at 50% 47%, rgba(250,247,240,0.64) 0%, rgba(250,247,240,0.32) 45%, rgba(250,247,240,0) 72%)',
-          }}
-        />
-      ) : null}
-
       {/* Chrome removed (owner 2026-06-19): NO stories scrub bars, NO transport
           controls — just the texts. The film auto-plays; the guest scrubs by
-          tapping the left/right thirds and holds to pause (invisible gestures,
-          wired below). The lone exception is a single subtle mute, since the
+          scrolling / vertical-swiping (or tapping the left/right thirds) and
+          holds to pause. The lone exception is a single subtle mute, since the
           soundtrack auto-plays and needs an escape. */}
       {content.musicUrl || content.videoUrl ? (
         <div className="absolute bottom-5 right-4 z-20" onClick={(e) => e.stopPropagation()}>
@@ -677,22 +758,48 @@ export function SaveTheDateFilm({
         </div>
       ) : null}
 
-      {/* Slides */}
+      {/* Slides — each beat plays its OWN entrance animation when it becomes
+          active (re-fires on every visit, forward or scrubbed back). The
+          animation rides the full-screen slide box, so the centred content
+          rises / blooms / slides as one. */}
       <div className="absolute inset-0">
-        {slides.map((s, j) => (
-          <div
-            key={s.key}
-            className={`absolute inset-0 flex flex-col items-center justify-center px-10 text-center transition-opacity duration-500 ${
-              j === idx ? 'opacity-100' : 'opacity-0 pointer-events-none'
-            }`}
-            aria-hidden={j !== idx}
-          >
-            {s.node}
-          </div>
-        ))}
+        {slides.map((s, j) => {
+          const active = j === idx;
+          return (
+            <div
+              key={s.key}
+              className={`std-anim absolute inset-0 flex flex-col items-center justify-center px-8 text-center transition-opacity duration-500 sm:px-10 ${
+                active ? 'opacity-100' : 'pointer-events-none opacity-0'
+              }`}
+              style={active ? { animation: s.anim } : undefined}
+              aria-hidden={!active}
+            >
+              {s.node}
+            </div>
+          );
+        })}
       </div>
     </>
   );
+
+  // Full-WIDTH legibility scrim (owner 2026-06-19: "the shade needs to cover
+  // full width"). A horizontal band centred vertically, fading top + bottom,
+  // rendered in the OUTER full-viewport container (not the phone-width stage) so
+  // it spans edge to edge behind the centred text. Only when a background tone
+  // is active (auto photos that need help reading).
+  const scrimNode =
+    tone && transparent ? (
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-0"
+        style={{
+          background:
+            tone === 'light'
+              ? 'linear-gradient(to bottom, rgba(0,0,0,0) 4%, rgba(0,0,0,0.44) 30%, rgba(0,0,0,0.44) 70%, rgba(0,0,0,0) 96%)'
+              : 'linear-gradient(to bottom, rgba(250,247,240,0) 4%, rgba(250,247,240,0.6) 30%, rgba(250,247,240,0.6) 70%, rgba(250,247,240,0) 96%)',
+        }}
+      />
+    ) : null;
 
   const stageProps = {
     ref: stageRef,
@@ -709,6 +816,7 @@ export function SaveTheDateFilm({
     },
     onPointerDown,
     onPointerUp,
+    onWheel,
     onPointerCancel: () => { if (holdRef.current) window.clearTimeout(holdRef.current); },
   };
 
@@ -717,7 +825,8 @@ export function SaveTheDateFilm({
     // identical to the live desktop layout below, minus the fixed positioning.
     return (
       <div className={`absolute inset-0 flex justify-center overflow-hidden ${outerBgCls} ${theme.outerFg}`}>
-        <div {...stageProps} className="relative h-full w-full max-w-sm select-none overflow-hidden">
+        {scrimNode}
+        <div {...stageProps} className="relative z-10 h-full w-full max-w-sm select-none overflow-hidden">
           {filmContent}
         </div>
       </div>
@@ -730,18 +839,23 @@ export function SaveTheDateFilm({
         {...stageProps}
         className={`relative mx-auto aspect-[9/16] w-full max-w-xs select-none overflow-hidden rounded-3xl ${outerBgCls} ${theme.outerFg} shadow-xl`}
       >
+        {scrimNode}
         {filmContent}
       </div>
     );
   }
 
-  // Full-screen: theme's outer bg fills the whole viewport; stage is phone-width
-  // centered so the content looks intentional on desktop.
+  // Full-screen: theme's outer bg fills the whole viewport (with the photo
+  // background behind). The stage is phone-width on mobile and WIDENS on desktop
+  // (owner 2026-06-19 "adjust for mobile and desktop") so the centred content
+  // reads as a full composition, not a narrow column. The full-width scrim sits
+  // in this container, behind the stage, spanning edge to edge.
   return (
     <div className={`fixed inset-0 z-[50] flex justify-center ${outerBgCls} ${theme.outerFg}`}>
+      {scrimNode}
       <div
         {...stageProps}
-        className="relative h-full w-full max-w-sm select-none overflow-hidden"
+        className="relative z-10 h-full w-full max-w-sm select-none overflow-hidden md:max-w-xl lg:max-w-2xl"
       >
         {filmContent}
       </div>

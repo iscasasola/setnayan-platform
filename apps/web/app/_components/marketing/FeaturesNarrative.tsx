@@ -461,7 +461,7 @@ function PanelPremium({ onNext }: { onNext: () => void }) {
           className="m-mono text-center"
           style={{ fontSize: 11, letterSpacing: '.24em', textTransform: 'uppercase', color: 'var(--m-mulberry)', marginBottom: 16 }}
         >
-          Premium · when you're ready
+          Premium · when you&rsquo;re ready
         </div>
 
         <h2

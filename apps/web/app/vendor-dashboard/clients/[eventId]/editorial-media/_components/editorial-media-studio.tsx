@@ -228,7 +228,8 @@ export function EditorialMediaStudio({
                   <button
                     type="button"
                     onClick={() => onDeleteExisting(m.mediaId)}
-                    className="inline-flex items-center gap-1 text-xs font-medium text-red-700 hover:underline"
+                    disabled={!!busy}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-red-700 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Trash2 aria-hidden className="h-3.5 w-3.5" /> Remove
                   </button>

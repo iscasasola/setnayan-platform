@@ -300,11 +300,11 @@ export function LivingHeroStudio({
             ) : (
               <div className="flex flex-wrap gap-3">
                 {supported ? (
-                  <button type="button" onClick={onBake} className={primaryBtn}>
+                  <button type="button" onClick={onBake} disabled={phase === 'saving'} className={primaryBtn}>
                     Make it move
                   </button>
                 ) : null}
-                <button type="button" onClick={onUsePhoto} className={supported ? ghostBtn : primaryBtn}>
+                <button type="button" onClick={onUsePhoto} disabled={phase === 'saving'} className={supported ? ghostBtn : primaryBtn}>
                   Use a photo instead
                 </button>
                 <button type="button" onClick={reset} className={ghostBtn}>
@@ -326,7 +326,7 @@ export function LivingHeroStudio({
           </div>
           <p className="mt-2 text-sm text-ink/55">It plays forward, then reverses — on a gentle loop.</p>
           <div className="mt-4 flex flex-wrap gap-3">
-            <button type="button" onClick={onSaveBoomerang} className={primaryBtn}>
+            <button type="button" onClick={onSaveBoomerang} disabled={phase === 'saving'} className={primaryBtn}>
               Save as my hero
             </button>
             <button type="button" onClick={reset} className={ghostBtn}>

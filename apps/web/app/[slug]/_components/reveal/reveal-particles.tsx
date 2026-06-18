@@ -96,12 +96,17 @@ export function RevealParticles({
           color: pick(),
         });
       } else {
+        // Emerge from the envelope's centre (where the flaps part) and fly
+        // OUTWARD to all edges — a slight upward bias so they rise like real
+        // butterflies. They grow as they travel (toward-the-camera feel).
+        const ang = Math.random() * Math.PI * 2;
+        const spd = (0.7 + Math.random() * 1.0) * s;
         parts.push({
-          x: w * 0.5 + (Math.random() - 0.5) * w * 0.6,
-          y: h * (0.5 + Math.random() * 0.15),
-          vx: (Math.random() - 0.5) * 1.1 * s,
-          vy: -(0.5 + Math.random() * 0.7) * s,
-          size: (5 + Math.random() * 3) * s,
+          x: w * 0.5 + (Math.random() - 0.5) * w * 0.14,
+          y: h * 0.46 + (Math.random() - 0.5) * h * 0.08,
+          vx: Math.cos(ang) * spd,
+          vy: Math.sin(ang) * spd - 0.28 * s,
+          size: (4 + Math.random() * 3) * s,
           rot: 0,
           vr: 0,
           flap: Math.random() * 6.2832,
@@ -160,9 +165,11 @@ export function RevealParticles({
         } else {
           p.x += p.vx;
           p.y += p.vy;
+          p.size += 0.05 * Math.max(0.6, h / 620); // grow toward the camera
           p.flap += 0.35;
           drawButterfly(p);
-          if (p.y < -14 || p.x < -20 || p.x > w + 20) parts.splice(i, 1);
+          // exit out ANY edge (they radiate from the centre)
+          if (p.x < -28 || p.x > w + 28 || p.y < -28 || p.y > h + 28) parts.splice(i, 1);
         }
       }
       raf = requestAnimationFrame(loop);

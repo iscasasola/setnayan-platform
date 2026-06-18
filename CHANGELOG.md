@@ -4,6 +4,12 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-18 · fix(std): butterflies fly OUT from the envelope (radial emanation)
+
+Owner: *"the butterflies fly out from the envelope as they open."* The reveal butterflies spawned mid-screen drifting up; now they **emerge from the envelope's centre** (where the flaps part) and **radiate outward to all edges**, with a slight upward bias and a gentle size-grow as they travel (the spec's "fly toward the screen, exit all corners/edges"). Single-file tweak to `reveal/reveal-particles.tsx` (butterfly spawn position/velocity + grow + exit-any-edge); petals unchanged.
+
+SPEC IMPACT: matches `0024_Reveal_Tuning_and_Door_Spec_2026-06-17.md` §5 envelope-effect intent (butterflies fly-to-screen + all-corner exit). No schema/API/public-copy change.
+
 ## 2026-06-18 · feat(std): per-event reveal effects — wire butterflies + petals on (builder + live)
 
 Turns the effect layer on per-event (the capability shipped default-off in the same PR). Couple-facing Step-1 toggles, persisted + honored on the **builder preview AND the live guest page**. Wax seal stays always-on for envelopes (structural gate, owner-locked).

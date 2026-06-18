@@ -44,6 +44,8 @@
     "next": "^15.1.0",
     "nsfwjs": "^4.3.0",
     "opentype.js": "^2.0.0",
+    "paper": "^0.12.18",
+    "paperjs-offset": "^1.0.8",
     "pdf-lib": "^1.17.1",
     "perfect-freehand": "^1.2.3",
     "posthog-js": "^1.165.0",

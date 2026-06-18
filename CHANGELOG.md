@@ -17,6 +17,36 @@ Verified: `pnpm typecheck` + `pnpm lint` clean. No migration.
 
 SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — logo precedence is **uploaded → monogram-lab → onboarding lockup → initials**; the film's default mark is the onboarding lockup, not generic initials. See `DECISION_LOG.md` 2026-06-19.
 
+## 2026-06-19 · feat(monogram): studio colours — Ink / Outline / Backdrop presets + custom picker + Clear (same PR #1793)
+
+Owner: *"provide color choices and custom color for Ink, Outline (add clear), Backdrop (add clear)."* The studio's colour section is now three labelled rows, each with a curated preset palette **and** a native custom-colour picker (`<input type=color>`):
+
+- **Ink** — 7 presets (mulberry · gold · champagne · obsidian · navy · sage · dusty-rose) + custom.
+- **Outline** — was a hardcoded gold ring; now a **global outline colour** (6 metal/ink presets + custom) **+ Clear** (`none` → the outline ring isn't drawn even at width > 0). New `drawShape` reads `outlineHex`; default stays gold so existing marks are unchanged.
+- **Backdrop** — 6 presets + custom **+ Clear** (transparent checkerboard). Backdrop is the working canvas only — the **saved mark is always transparent** regardless (noted in-UI).
+
+Persistence: new `StudioConfig.outlineColor` (hex | `'none'`) added to `lib/monogram-studio-shared.ts` + `sanitizeStudioConfig` (clamped; ink/backdrop already accepted any `#rrggbb`). Engine gains `outlineHex` state, `selSwatch`/`syncColorInput` helpers, and click/`input` handlers for all three rows; `serialize`/`applyConfig` round-trip the colour. No schema change (the column is JSONB), no new dep.
+
+Verified: `pnpm typecheck` clean · `pnpm lint` 0 errors · `pnpm build` green.
+
+SPEC IMPACT: monogram Phase 5 increment — folded into the studio design doc + the existing DECISION_LOG row note. None beyond the studio.
+
+## 2026-06-19 · feat(monogram): Vector Monogram Studio — compose your mark from scratch, saved as the official monogram (PR pending, auto-merge)
+
+Built the **Vector Monogram Studio** into the Monogram Maker (`/dashboard/[eventId]/monogram`) — the app port of the v21 `show_widget` prototype (owner: *"build this to our monogram Lab"* + *"make sure what we render here will be our official monogram"*). Real font outlines (opentype.js) composed on a paper.js vector canvas: drag/pinch/twist letters, per-crossing **Combine / Cut / Delete** boolean interlock, per-letter outside-outline + cut-gap + auto-clean, a mirrored **fountain pen** (4 nib tips) for frames, **stamped vector symbols** (mirror on = frame, off = standalone), 8 OFL typefaces, undo/redo, and 3 ink-reveal animations (Handwriting / Trace / Droplet) with Speed/Delay/Smoothness. Renders as the flagship designer card — after Upload, before Cipher.
+
+**It IS the official monogram.** Save exports a tight-viewBox PURE-PATHS SVG (no webfont dependency) → `events.monogram_custom_svg`, the single canonical mark every surface already reads (chrome icon, QR centre, landing hero, save-the-date, seating/mood PDFs, social cards). A re-editable `events.monogram_studio_config` (new column) restores the composition. Saving clears `monogram_cipher_config` + `monogram_custom_generation_id` so exactly one source owns the mark; cipher-save + bespoke-apply now likewise clear `monogram_studio_config` (exclusivity), and `hasStudio` gates on `!monogram_uploaded_svg` (an upload still overrides).
+
+- **Migration** `20270126539355_add_events_monogram_studio_config_column.sql` (applied to prod · idempotent ADD COLUMN; RLS inherited on `events`).
+- **Deps:** `paper@^0.12.18` + `paperjs-offset@^1.0.8`, **dynamically imported client-only** (never touches SSR; opentype.js ^2 already present). `next.config.ts` `webpack` stubs paper's node-only `jsdom`/`canvas` requires (`resolve.alias … = false`) so the server compile resolves — paper's own `browser` field only covers the web target.
+- **Fonts:** 8 OFL TTFs vendored to `public/monogram-studio/fonts/` (+ `LICENSES.md`) — self-hosted, no CDN at runtime.
+- **New files:** `lib/monogram-studio-shared.ts` (config type + `sanitizeStudioConfig` + `sanitizeStudioSvg` — strict reject-don't-repair allowlist mirroring the bespoke SVG defense), `monogram/studio.tsx` (typed React wrapper + Save/Clear server-action forms), `monogram/monogram-studio-engine.ts` (`// @ts-nocheck` — the ported imperative paper.js engine; its public return is consumed type-safely), `monogram/studio-actions.ts` (`saveStudioAction`/`clearStudioAction` · couple-membership gate · sanitize-on-save).
+
+Because the boolean engine can't be cheaply re-run server-side (paper.js needs a canvas), the mark is rendered client-side and the server SANITIZES the client SVG — the same defense the bespoke AI path uses for externally-produced SVG (strict allowlist: no script/use/style/external refs/event handlers; viewBox required; size-capped).
+
+Verified: `pnpm typecheck` clean · `pnpm lint` 0 errors · `pnpm build` green.
+
+SPEC IMPACT: monogram overhaul **Phase 5** — `03_Strategy/Monogram_Studio_Design_2026-06-19.md` flipped from "PROTOTYPE · no app code yet" → SHIPPED; `DECISION_LOG.md` row added; memory `project_setnayan_monogram_overhaul` updated. ⚠ **Surfaced for owner sign-off:** the studio writes the same `monogram_custom_svg` as Cipher/Bespoke/Upload, so it is a **4th path to the one official mark** — no new SKU, the free monogram stays free.
 ## 2026-06-19 · fix(std): post-reveal swipes scrub the film, not re-cover the veil (PR-S)
 
 Owner: "when I swipe down on a place without the veil, it should [not] bring the veil down — instead it should animate the texts via scrubbing."

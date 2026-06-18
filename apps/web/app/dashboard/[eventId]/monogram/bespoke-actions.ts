@@ -153,6 +153,9 @@ export async function applyBespokeAction(formData: FormData): Promise<void> {
     .update({
       monogram_custom_svg: generation.svg_text,
       monogram_custom_generation_id: generation.generation_id,
+      // A bespoke mark supersedes any vector-studio composition — drop its
+      // re-editable source so one source owns the mark.
+      monogram_studio_config: null,
     })
     .eq('event_id', eventId);
   if (error) backToMaker(eventId, { bespoke_error: 'save' });

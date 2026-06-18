@@ -25,6 +25,8 @@ import {
 } from './monogram-maker';
 import { BespokeStudio, type BespokeCandidateView } from './bespoke-studio';
 import { CipherStudio } from './cipher-studio';
+import { VectorStudio } from './studio';
+import { sanitizeStudioConfig } from '@/lib/monogram-studio-shared';
 import { MonogramUploadCard } from './upload-card';
 
 export const metadata = { title: 'Monogram Maker · Setnayan' };
@@ -60,6 +62,8 @@ type Props = {
     bespoke_error?: string;
     cipher?: string;
     cipher_error?: string;
+    studio?: string;
+    studio_error?: string;
     upload?: string;
   }>;
 };
@@ -81,6 +85,16 @@ const CIPHER_NOTICES: Record<string, { tone: 'ok' | 'error'; text: string }> = {
   cleared: { tone: 'ok', text: 'Back to your lettered monogram.' },
   invalid: { tone: 'error', text: 'That design could not be read — please try again.' },
   render: { tone: 'error', text: 'That design could not be rendered — please adjust and retry.' },
+  save: { tone: 'error', text: 'Something went wrong saving — please try again.' },
+  'not-found': { tone: 'error', text: 'This page is for the couple’s account.' },
+};
+
+// Customer-safe status lines for the vector studio's redirect flags.
+const STUDIO_NOTICES: Record<string, { tone: 'ok' | 'error'; text: string }> = {
+  saved: { tone: 'ok', text: 'Your studio monogram is now your mark everywhere.' },
+  cleared: { tone: 'ok', text: 'Removed your studio mark — back to your lettered monogram.' },
+  invalid: { tone: 'error', text: 'That design could not be read — please try again.' },
+  render: { tone: 'error', text: 'That design could not be saved — please adjust and retry.' },
   save: { tone: 'error', text: 'Something went wrong saving — please try again.' },
   'not-found': { tone: 'error', text: 'This page is for the couple’s account.' },
 };
@@ -118,7 +132,7 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
   const { data: event } = await supabase
     .from('events')
     .select(
-      'event_id, display_name, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_motion_key, monogram_uploaded_svg, monogram_custom_svg, monogram_custom_generation_id, monogram_cipher_config',
+      'event_id, display_name, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_motion_key, monogram_uploaded_svg, monogram_custom_svg, monogram_custom_generation_id, monogram_cipher_config, monogram_studio_config',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -200,6 +214,14 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
   const uploadedDataUri = uploadedSvg ? bespokeSvgToDataUri(uploadedSvg) : null;
   const uploadNotice = UPLOAD_NOTICES[sp.upload ?? ''] ?? null;
 
+  // ── Vector studio state (Phase 5 · the from-scratch composer). hasStudio =
+  // the EFFECTIVE mark is this studio's (re-editable config present, a custom
+  // svg exists, and no upload overrides it) — mirrors the precedence below so
+  // exactly one editor card claims the active mark.
+  const studioConfig = sanitizeStudioConfig(event.monogram_studio_config);
+  const hasStudio = Boolean(studioConfig && event.monogram_custom_svg && !uploadedSvg);
+  const studioNotice = STUDIO_NOTICES[sp.studio_error ?? ''] ?? STUDIO_NOTICES[sp.studio ?? ''] ?? null;
+
   // ── Social Sharing & Featuring Program (migration 20261203000000) — the
   // live (un-revoked) consent row for THIS custom mark, so the Feature-Us
   // card flips to its "already allowed" state. artifact_ref keys on the
@@ -261,6 +283,14 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
 
       {/* ── Upload your own (overrides everything below · owner rule 2026-06-15) ── */}
       <MonogramUploadCard eventId={eventId} activeDataUri={uploadedDataUri} />
+
+      {/* ── Vector studio — compose the mark from scratch (real outlines · booleans · pen · symbols) ── */}
+      <VectorStudio
+        eventId={eventId}
+        initialConfig={studioConfig}
+        hasStudio={hasStudio}
+        notice={studioNotice}
+      />
 
       {/* ── Cipher studio — design the interlocking mark ── */}
       <CipherStudio

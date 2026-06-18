@@ -82,13 +82,25 @@ export function PapicGuestCapture({
   const [justSaved, setJustSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [blocked, setBlocked] = useState(false);
-  // Kwento (0012): after a shot, the guest can tell the couple the story
-  // behind it — the warmest moment to ask. Anchored on the capture just made.
+  // Kwento (0012): after a shot, the guest can tell the couple the story behind
+  // it — the warmest moment to ask. Anchored on the capture just made.
+  //
+  // Two-step voice-depth flow:
+  //   flash  — bottom one-liner (≤50 chars), 5-second auto-dismiss, no consent
+  //             checkbox (covered by the Papic session consent).
+  //   story  — the existing full textarea (≤280 chars) with consent checkbox,
+  //             offered after Flash sends OR after it times out/is dismissed.
   const [kwentoCaptureId, setKwentoCaptureId] = useState<string | null>(null);
-  const [kwentoText, setKwentoText] = useState('');
+  const [kwentoFlashText, setKwentoFlashText] = useState('');
+  const [kwentoStoryText, setKwentoStoryText] = useState('');
   const [kwentoConsent, setKwentoConsent] = useState(false);
-  const [kwentoPhase, setKwentoPhase] = useState<'idle' | 'sending' | 'sent' | 'held'>('idle');
+  const [kwentoPhase, setKwentoPhase] = useState<
+    'idle' | 'flash' | 'flash_sending' | 'story' | 'story_sending' | 'sent' | 'held'
+  >('idle');
   const [kwentoError, setKwentoError] = useState<string | null>(null);
+  const [flashCountdown, setFlashCountdown] = useState(5);
+  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flashIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // The just-sent message, so the guest can change their mind and delete it.
   // The 24h window + ownership are enforced server-side by the delete RPC.
   const [sentMessageId, setSentMessageId] = useState<string | null>(null);
@@ -253,9 +265,15 @@ export function PapicGuestCapture({
       setTimeout(() => setJustSaved(false), 900);
       if (json.captureId) {
         setKwentoCaptureId(json.captureId);
-        setKwentoText('');
-        setKwentoPhase('idle');
+        setKwentoFlashText('');
+        setKwentoStoryText('');
+        setKwentoConsent(false);
+        // Open the Flash prompt immediately.
+        setKwentoPhase('flash');
+        setFlashCountdown(5);
         setKwentoError(null);
+        setSentMessageId(null);
+        setDeletePhase('idle');
         // Arm scan-to-tag for the shot just saved (fresh tag state per photo).
         setLastCaptureId(json.captureId);
         setTagging(false);
@@ -372,17 +390,104 @@ export function PapicGuestCapture({
     };
   }, [tagging, handleScan]);
 
-  const sendKwento = async () => {
-    if (!kwentoCaptureId || kwentoPhase === 'sending') return;
-    const text = kwentoText.trim();
-    if (text.length < 1 || !kwentoConsent) return;
-    setKwentoPhase('sending');
+  // ---- Kwento Flash countdown timer ----------------------------------------
+
+  // Starts when Flash phase opens; clears on send, dismiss, or unmount.
+  useEffect(() => {
+    if (kwentoPhase !== 'flash') {
+      if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+      if (flashIntervalRef.current) clearInterval(flashIntervalRef.current);
+      return;
+    }
+    setFlashCountdown(5);
+    flashIntervalRef.current = setInterval(
+      () => setFlashCountdown((c) => Math.max(0, c - 1)),
+      1000,
+    );
+    // Auto-dismiss to Story after 5 seconds.
+    flashTimerRef.current = setTimeout(() => {
+      setKwentoPhase((p) => (p === 'flash' ? 'story' : p));
+    }, 5000);
+    return () => {
+      if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+      if (flashIntervalRef.current) clearInterval(flashIntervalRef.current);
+    };
+  }, [kwentoPhase]);
+
+  // ---- send helpers ---------------------------------------------------------
+
+  const dismissFlash = useCallback(() => {
+    if (kwentoPhase !== 'flash') return;
+    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+    if (flashIntervalRef.current) clearInterval(flashIntervalRef.current);
+    setKwentoPhase('story');
+  }, [kwentoPhase]);
+
+  const sendFlash = async () => {
+    if (!kwentoCaptureId || kwentoPhase === 'flash_sending') return;
+    const text = kwentoFlashText.trim();
+    if (text.length < 1) return;
+    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+    if (flashIntervalRef.current) clearInterval(flashIntervalRef.current);
+    setKwentoPhase('flash_sending');
     setKwentoError(null);
     try {
       const res = await fetch('/api/papic/kwento', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ captureId: kwentoCaptureId, body: text, consent: true }),
+        body: JSON.stringify({
+          captureId: kwentoCaptureId,
+          body: text,
+          voiceDepth: 'flash',
+          // Flash consent is covered by the Papic session claim.
+          consent: true,
+        }),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        state?: string;
+        error?: string;
+        messageId?: string;
+      };
+      if (res.ok && json.ok) {
+        setSentMessageId(json.messageId ?? null);
+        setDeletePhase('idle');
+        // Flash sent → immediately offer Story ("Tell them more?").
+        setKwentoPhase('story');
+        return;
+      }
+      setKwentoPhase('flash');
+      setKwentoError(
+        json.error === 'keep_it_sweet'
+          ? "Let's keep it sweet 💛 — try rephrasing."
+          : json.error === 'limit_reached'
+            ? "You've shared your 10 kwentos for this celebration — salamat!"
+            : json.error === 'too_fast'
+              ? 'One kwento at a time — give it a few seconds.'
+              : "That didn't send — try again.",
+      );
+    } catch {
+      setKwentoPhase('flash');
+      setKwentoError('No signal — try again in a moment.');
+    }
+  };
+
+  const sendStory = async () => {
+    if (!kwentoCaptureId || kwentoPhase === 'story_sending') return;
+    const text = kwentoStoryText.trim();
+    if (text.length < 1 || !kwentoConsent) return;
+    setKwentoPhase('story_sending');
+    setKwentoError(null);
+    try {
+      const res = await fetch('/api/papic/kwento', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          captureId: kwentoCaptureId,
+          body: text,
+          voiceDepth: 'story',
+          consent: true,
+        }),
       });
       const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
@@ -396,7 +501,7 @@ export function PapicGuestCapture({
         setDeletePhase('idle');
         return;
       }
-      setKwentoPhase('idle');
+      setKwentoPhase('story');
       setKwentoError(
         json.error === 'keep_it_sweet'
           ? "Let's keep it sweet 💛 — try rephrasing that one."
@@ -407,7 +512,7 @@ export function PapicGuestCapture({
               : "That didn't send — try again.",
       );
     } catch {
-      setKwentoPhase('idle');
+      setKwentoPhase('story');
       setKwentoError('No signal — try again in a moment.');
     }
   };
@@ -698,19 +803,69 @@ export function PapicGuestCapture({
           </div>
         ) : null}
 
-        {kwentoCaptureId && kwentoPhase !== 'sent' && kwentoPhase !== 'held' ? (
+        {/* ── Flash prompt — bottom one-liner, auto-dismisses in 5 s ──────── */}
+        {kwentoCaptureId && kwentoPhase === 'flash' ? (
+          <div className="rounded-xl border border-cream/20 bg-cream/8 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-medium text-cream/90">
+                <span className="mr-1">⚡</span> One line. What just happened?
+              </p>
+              <span className="shrink-0 rounded-full bg-cream/15 px-2 py-0.5 font-mono text-[11px] text-cream/60">
+                {flashCountdown}s
+              </span>
+            </div>
+            <div className="mt-2 flex gap-2">
+              <input
+                type="text"
+                value={kwentoFlashText}
+                onChange={(e) => setKwentoFlashText(e.target.value.slice(0, 50))}
+                placeholder="Hindi mapigil ang tawa…"
+                className="flex-1 rounded-md border border-cream/15 bg-ink/40 px-3 py-2 text-sm text-cream placeholder:text-cream/30 focus:border-cream/40 focus:outline-none"
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={() => void sendFlash()}
+                disabled={kwentoPhase === 'flash_sending' || kwentoFlashText.trim().length === 0}
+                className="shrink-0 rounded-md bg-mulberry px-3 py-2 text-sm font-medium text-cream disabled:opacity-40"
+              >
+                {kwentoPhase === 'flash_sending' ? (
+                  <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
+                ) : (
+                  '↑'
+                )}
+              </button>
+            </div>
+            <div className="mt-1 flex items-center justify-between">
+              <span className="text-[10px] text-cream/35">{kwentoFlashText.length}/50</span>
+              <button
+                type="button"
+                onClick={dismissFlash}
+                className="text-[11px] text-cream/40 underline underline-offset-2 hover:text-cream/70"
+              >
+                Skip
+              </button>
+            </div>
+            {kwentoError ? (
+              <p className="mt-1 text-xs text-terracotta">{kwentoError}</p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {/* ── Story offer — appears after Flash sends or is dismissed ──────── */}
+        {kwentoCaptureId && kwentoPhase === 'story' ? (
           <div className="rounded-xl border border-cream/15 bg-cream/5 p-3">
             <p className="text-sm font-medium text-cream/90">
-              ✍️ Ano&rsquo;ng nangyari dito? Tell {eventName} the story.
+              ✍️ Tell them more? {sentMessageId ? '(Optional — Flash already sent 💛)' : 'Ano\'ng nangyari dito?'}
             </p>
             <textarea
-              value={kwentoText}
-              onChange={(e) => setKwentoText(e.target.value.slice(0, 280))}
+              value={kwentoStoryText}
+              onChange={(e) => setKwentoStoryText(e.target.value.slice(0, 280))}
               rows={2}
               placeholder="Right after the first dance — hindi mapigil ang tawa…"
               className="mt-2 w-full resize-none rounded-md border border-cream/15 bg-ink/40 px-3 py-2 text-sm text-cream placeholder:text-cream/30 focus:border-cream/40 focus:outline-none"
             />
-            <div className="mt-1 text-right text-[11px] text-cream/40">{kwentoText.length}/280</div>
+            <div className="mt-1 text-right text-[11px] text-cream/40">{kwentoStoryText.length}/280</div>
             <label className="mt-1 flex items-start gap-2 text-xs text-cream/70">
               <input
                 type="checkbox"
@@ -723,22 +878,43 @@ export function PapicGuestCapture({
                 use it in their wedding video. 💛
               </span>
             </label>
-            <button
-              type="button"
-              onClick={() => void sendKwento()}
-              disabled={kwentoPhase === 'sending' || kwentoText.trim().length === 0 || !kwentoConsent}
-              className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-50"
-            >
-              {kwentoPhase === 'sending' ? (
-                <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
-              ) : null}
-              Send to the couple 💌
-            </button>
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                onClick={() => void sendStory()}
+                disabled={kwentoPhase === 'story_sending' || kwentoStoryText.trim().length === 0 || !kwentoConsent}
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-50"
+              >
+                {kwentoPhase === 'story_sending' ? (
+                  <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
+                ) : null}
+                Send to the couple 💌
+              </button>
+              {sentMessageId ? (
+                <button
+                  type="button"
+                  onClick={() => setKwentoPhase('sent')}
+                  className="rounded-md border border-cream/15 px-3 py-2 text-sm text-cream/60 hover:text-cream"
+                >
+                  Done
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setKwentoPhase('idle')}
+                  className="rounded-md border border-cream/15 px-3 py-2 text-sm text-cream/60 hover:text-cream"
+                >
+                  Skip
+                </button>
+              )}
+            </div>
             {kwentoError ? (
               <p className="mt-2 text-xs text-terracotta">{kwentoError}</p>
             ) : null}
           </div>
         ) : null}
+
+        {/* ── Confirmation / delete ─────────────────────────────────────────── */}
         {kwentoPhase === 'sent' || kwentoPhase === 'held' ? (
           <div className="space-y-1 text-center">
             <p className="text-xs text-cream/80">

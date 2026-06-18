@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · fix(pricing): the last display-only hardcodes now read the admin catalog
+
+PR 3b of the pricing-authority cleanup — removes the three remaining places that *displayed* a hardcoded price (none mis-charged; the charge path already re-resolves from the catalog). After this, every displayed price flows from `/admin/pricing` too.
+
+- **Papic seat-pack figure** — the "Section 2 · seat status" header showed `formatPhp(seatPackPrice(pack))` off the hardcoded `PAPIC_3/5_SEATS_PRICE` constants. Now displays `papicSeatsPricePhp` (already fetched from the catalog `PAPIC_SEATS` via `formatV2Sku`), threaded into `SeatStatusCard` as a `pricePhp` prop. Deleted the `seatPackPrice` helper + both constants.
+- **`/pricing` vendor-branch line** — the intro copy hardcoded "₱999 / 28 days each". Now interpolates `vendor_branch_28day`'s price from the catalog (`vendorSkus`), ₱999 fallback only if the row is missing.
+- **`lib/wizard.ts` planning copy** — five couple-facing guidance strings quoted stale self-prices (Monogram Hero ₱1,999 / Live Schedule ₱999 / SDE from ₱9,999 / Pakanta ₱1,999-9,999 / AI-Highlight ₱999-2,999 / memento ₱2,499). Since the live price always shows at the add-on/checkout (catalog-driven) and interpolating into prose is a fragile refactor of a static module, the stale self-prices are stripped from the copy (tiers, turnaround + the ₱50-150K *market* comparison kept).
+
+Files: `app/dashboard/[eventId]/add-ons/papic/page.tsx` · `app/pricing/page.tsx` · `lib/wizard.ts`. `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: none beyond display — no price values change; the wizard simply stops quoting prices that belong in the catalog. **Last pricing-authority item: delete the retired Boosted-Ads / Sponsored-Boost feature (separate PR).** DECISION_LOG row covered by the 2026-06-18 pricing-authority rows.
+
 ## 2026-06-19 · feat(std): Video / Gallery step — picker + persistence (PR-A of the video reinstatement)
 
 PR-A of the Step-3 "Video / Gallery Photo" feature (owner reinstated video 2026-06-18). The couple chooses how the film closes — their **photo gallery** (default) or an **uploaded video** — and uploads the video. Playback + NSFW gate + live render = PR-B; the full 5-step reorg = PR-C.

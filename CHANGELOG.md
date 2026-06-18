@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · feat(std): uniform scale-to-fit film (one design canvas, transform-scaled) (PR-W follow-up 3)
+
+Owner: "resizing still did not work. we want to take the maximum width always without causing the texts to exceed both width and height, and keep everything at the same size."
+
+Replaced the breakpoint-based responsive sizing (discrete `sm:`/`lg:` font jumps + `md:max-w` stage widening — which scaled in steps and never truly filled the screen) with a single **uniform scale-to-fit**:
+
+- The film is now composed at ONE fixed logical canvas (`BASE_W 440 × BASE_H 780`); every beat's type + monogram are sized **once** (no responsive variants).
+- A `ResizeObserver` measures the container and sets `fitScale = clamp(min(cw/BASE_W, ch/BASE_H), 0.6, 2.3)` — the largest scale that fits within **both** width and height. The whole stage gets `transform: scale(fitScale)`, centred. So the content is as big as possible on any screen **without overflowing either dimension**, and **everything stays proportional** ("same size" = one uniform scale).
+- Applies identically on the live full-screen page and the builder preview frames.
+- Video clip cap switched from `68vh` → `520px` (stage-relative, so it scales with the canvas instead of fighting the transform).
+
+Verified: `pnpm typecheck` (my files clean; monogram-studio `paper` errors are an unrelated local install gap) + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the film scales as one uniform unit to fit any viewport (max size, no overflow), replacing breakpoint font bumps. See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · feat(std): video autoplays + audio crossfade · bigger desktop text · petals only fall (PR-W follow-up 2)
 
 Owner screenshot + notes: "the text are not larger on desktop. the leaves are randomly attaching to the veil but no leaf was falling on that direction. the video should autoplay, no more clicking. the background music will play automatically [and] crossfade to the video as the video plays, then crossfade again when it returns to the last screen."

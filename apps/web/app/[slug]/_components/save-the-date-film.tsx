@@ -71,6 +71,19 @@ const FILM_ANIM_CSS = `
 }
 `;
 
+// The film is composed at ONE fixed logical size (a portrait "design canvas")
+// and the whole stage is uniformly transform-scaled to fit the screen (owner
+// 2026-06-19: "take the maximum width always without causing the texts to
+// exceed both width and height, and keep everything at the same size"). So every
+// element keeps its proportions and the type/monogram are sized ONCE here — no
+// responsive breakpoints (which scaled in steps + fought the transform). The fit
+// scale = min(containerW / BASE_W, containerH / BASE_H) — the largest scale that
+// fits within BOTH dimensions, i.e. maximum size without overflowing either.
+const BASE_W = 440;
+const BASE_H = 780;
+const FIT_MIN = 0.6;
+const FIT_MAX = 2.3;
+
 const EASE = 'cubic-bezier(.2,.8,.2,1)';
 const ANIM = {
   bloom: `stdBloom 900ms ${EASE} both`,
@@ -153,8 +166,8 @@ function FilmMonogram({
   textCls: string;
   /** The onboarding lockup — rendered when there's no uploaded/lab SVG. */
   lockup?: StdLockup | null;
-  /** Responsive Tailwind scale classes for the 80px HeroMonogram so it fills
-   *  this beat — larger on desktop (owner 2026-06-19). */
+  /** Fixed Tailwind scale class for the 80px HeroMonogram so it fills this beat
+   *  (the stage's transform-scale handles all responsiveness — no breakpoints). */
   lockupScaleCls: string;
 }) {
   // 1 · uploaded / monogram-lab mark wins (bypasses the onboarding logo).
@@ -245,9 +258,9 @@ export function SaveTheDateFilm({
           svg={content.monogramSvg}
           text={content.monogram}
           lockup={lockup}
-          lockupScaleCls="scale-[1.55] lg:scale-[2.1]"
-          sizeCls="h-28 w-28 sm:h-32 sm:w-32 lg:h-44 lg:w-44"
-          textCls={`${theme.fontCls} text-6xl font-medium ${theme.accentText} sm:text-7xl lg:text-8xl`}
+          lockupScaleCls="scale-[1.8]"
+          sizeCls="h-36 w-36"
+          textCls={`${theme.fontCls} text-7xl font-medium ${theme.accentText}`}
         />
         <div className={`h-px w-10 ${theme.scrubFill} opacity-40`} />
       </div>
@@ -262,10 +275,10 @@ export function SaveTheDateFilm({
     node: (
       <div className="flex flex-col items-center gap-3 text-center">
         <p className={LABEL}>Together with their families</p>
-        <h1 className={`${theme.fontCls} text-5xl font-medium italic tracking-tight sm:text-6xl lg:text-7xl`}>
+        <h1 className={`${theme.fontCls} text-6xl font-medium italic tracking-tight`}>
           {content.names}
         </h1>
-        <p className={`${theme.fontCls} text-xl italic ${theme.subtleText} lg:text-2xl`}>are getting married</p>
+        <p className={`${theme.fontCls} text-xl italic ${theme.subtleText}`}>are getting married</p>
       </div>
     ),
   });
@@ -280,12 +293,12 @@ export function SaveTheDateFilm({
         <div className="flex flex-col items-center gap-4 text-center">
           <p className={LABEL}>Mark your calendars</p>
           {content.dateBig ? (
-            <div className={`${theme.fontCls} text-6xl font-medium tracking-tight sm:text-7xl lg:text-8xl`}>
+            <div className={`${theme.fontCls} text-7xl font-medium tracking-tight`}>
               {content.dateBig}
             </div>
           ) : null}
           {content.dateLabel ? (
-            <p className={`${theme.fontCls} text-2xl italic ${theme.subtleText} lg:text-3xl`}>{content.dateLabel}</p>
+            <p className={`${theme.fontCls} text-2xl italic ${theme.subtleText}`}>{content.dateLabel}</p>
           ) : null}
         </div>
       ),
@@ -301,8 +314,8 @@ export function SaveTheDateFilm({
       node: (
         <div className="flex flex-col items-center gap-3 text-center">
           <p className={LABEL}>The ceremony</p>
-          <p className={`${theme.fontCls} text-xl italic ${theme.subtleText} lg:text-2xl`}>We&rsquo;ll exchange our vows at</p>
-          <h2 className={`${theme.fontCls} text-4xl font-medium sm:text-5xl lg:text-6xl`}>{content.ceremonyVenue}</h2>
+          <p className={`${theme.fontCls} text-xl italic ${theme.subtleText}`}>We&rsquo;ll exchange our vows at</p>
+          <h2 className={`${theme.fontCls} text-5xl font-medium`}>{content.ceremonyVenue}</h2>
         </div>
       ),
     });
@@ -317,10 +330,10 @@ export function SaveTheDateFilm({
       node: (
         <div className="flex flex-col items-center gap-3 text-center">
           <p className={LABEL}>The celebration</p>
-          <p className={`${theme.fontCls} text-xl italic ${theme.subtleText} lg:text-2xl`}>And we&rsquo;ll celebrate together at</p>
-          <h2 className={`${theme.fontCls} text-4xl font-medium sm:text-5xl lg:text-6xl`}>{content.receptionVenue}</h2>
+          <p className={`${theme.fontCls} text-xl italic ${theme.subtleText}`}>And we&rsquo;ll celebrate together at</p>
+          <h2 className={`${theme.fontCls} text-5xl font-medium`}>{content.receptionVenue}</h2>
           {content.receptionCity ? (
-            <p className={`${theme.fontCls} text-xl italic ${theme.subtleText} lg:text-2xl`}>{content.receptionCity}</p>
+            <p className={`${theme.fontCls} text-xl italic ${theme.subtleText}`}>{content.receptionCity}</p>
           ) : null}
         </div>
       ),
@@ -338,11 +351,11 @@ export function SaveTheDateFilm({
           svg={content.monogramSvg}
           text={content.monogram}
           lockup={lockup}
-          lockupScaleCls="scale-[0.82] lg:scale-110"
-          sizeCls="h-14 w-14 sm:h-16 sm:w-16 lg:h-20 lg:w-20"
-          textCls={`${theme.fontCls} text-3xl font-medium ${theme.accentText} lg:text-4xl`}
+          lockupScaleCls="scale-[0.9]"
+          sizeCls="h-16 w-16"
+          textCls={`${theme.fontCls} text-3xl font-medium ${theme.accentText}`}
         />
-        <p className={`${theme.fontCls} text-3xl font-medium italic leading-tight sm:text-4xl lg:text-5xl`}>
+        <p className={`${theme.fontCls} text-4xl font-medium italic leading-tight`}>
           We can&rsquo;t wait to
           <br />
           celebrate with you
@@ -360,11 +373,11 @@ export function SaveTheDateFilm({
       <div className="flex flex-col items-center gap-3 text-center">
         <p className={LABEL}>Formal invitation to follow</p>
         {content.launchLabel ? (
-          <p className={`${theme.fontCls} text-3xl font-medium italic sm:text-4xl lg:text-5xl`}>
+          <p className={`${theme.fontCls} text-4xl font-medium italic`}>
             Arrives {content.launchLabel}
           </p>
         ) : (
-          <p className={`${theme.fontCls} text-2xl italic ${theme.subtleText} lg:text-3xl`}>
+          <p className={`${theme.fontCls} text-2xl italic ${theme.subtleText}`}>
             Watch your inbox
           </p>
         )}
@@ -385,7 +398,7 @@ export function SaveTheDateFilm({
       dur: Infinity,
       anim: ANIM.pop,
       node: (
-        <div className="flex w-full max-w-sm flex-col items-center gap-4 lg:max-w-md">
+        <div className="flex w-full max-w-sm flex-col items-center gap-4">
           <p className={LABEL}>Watch our story</p>
           {/* eslint-disable-next-line jsx-a11y/media-has-caption -- couple-uploaded keepsake clip, no caption track */}
           <video
@@ -393,7 +406,7 @@ export function SaveTheDateFilm({
             src={content.videoUrl ?? undefined}
             playsInline
             preload="auto"
-            className="max-h-[68vh] w-full rounded-2xl object-contain shadow-lg"
+            className="max-h-[520px] w-full rounded-2xl object-contain shadow-lg"
           />
         </div>
       ),
@@ -436,13 +449,13 @@ export function SaveTheDateFilm({
           svg={content.monogramSvg}
           text={content.monogram}
           lockup={lockup}
-          lockupScaleCls="scale-[0.95] lg:scale-[1.35]"
-          sizeCls="h-16 w-16 sm:h-20 sm:w-20 lg:h-28 lg:w-28"
-          textCls={`${theme.fontCls} text-4xl font-medium ${theme.accentText} lg:text-5xl`}
+          lockupScaleCls="scale-[1.1]"
+          sizeCls="h-24 w-24"
+          textCls={`${theme.fontCls} text-4xl font-medium ${theme.accentText}`}
         />
         <p className={LABEL}>Save the date</p>
         {content.dateLabel ? (
-          <p className={`${theme.fontCls} text-3xl font-medium italic leading-tight lg:text-5xl`}>
+          <p className={`${theme.fontCls} text-3xl font-medium italic leading-tight`}>
             {content.dateLabel}
           </p>
         ) : null}
@@ -480,6 +493,27 @@ export function SaveTheDateFilm({
   // close over once-built effects).
   const videoSlideIdxRef = useRef(-1);
   videoSlideIdxRef.current = videoSlideIndex;
+
+  // Uniform fit-to-screen scale (owner 2026-06-19). The container is measured;
+  // the BASE_W×BASE_H stage is transform-scaled by `fitScale` to the largest
+  // size that fits within both dimensions, keeping every element proportional.
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [fitScale, setFitScale] = useState(1);
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const measure = () => {
+      const cw = el.clientWidth;
+      const ch = el.clientHeight;
+      if (cw < 2 || ch < 2) return;
+      const s = Math.min(cw / BASE_W, ch / BASE_H);
+      setFitScale(Math.max(FIT_MIN, Math.min(FIT_MAX, s)));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // Preview mode: start immediately (no reveal event to wait for).
   // Full-screen mode: wait for 'std-reveal-done' from the RevealOverlay;
@@ -832,15 +866,36 @@ export function SaveTheDateFilm({
     onPointerCancel: () => { if (holdRef.current) window.clearTimeout(holdRef.current); },
   };
 
+  // The fixed-size design canvas, uniformly scaled to fit its container. Every
+  // beat is composed at BASE_W×BASE_H; `fitScale` makes it as large as fits
+  // within both the width AND height — so the type/monogram are maximal on every
+  // screen without ever overflowing, and all proportions are preserved.
+  const stageEl = (
+    <div
+      {...stageProps}
+      style={{
+        ...stageProps.style,
+        width: BASE_W,
+        height: BASE_H,
+        transform: `scale(${fitScale})`,
+        transformOrigin: 'center',
+      }}
+      className="relative z-10 shrink-0 select-none"
+    >
+      {filmContent}
+    </div>
+  );
+
   if (preview && fill) {
-    // Fill a device-frame screen: themed bg fills, portrait stage centered —
-    // identical to the live desktop layout below, minus the fixed positioning.
+    // Fill a device-frame screen: themed bg fills, the design canvas is scaled to
+    // fit the frame — identical to the live layout below, minus fixed positioning.
     return (
-      <div className={`absolute inset-0 flex justify-center overflow-hidden ${outerBgCls} ${theme.outerFg}`}>
+      <div
+        ref={containerRef}
+        className={`absolute inset-0 flex items-center justify-center overflow-hidden ${outerBgCls} ${theme.outerFg}`}
+      >
         {scrimNode}
-        <div {...stageProps} className="relative z-10 h-full w-full max-w-sm select-none overflow-hidden">
-          {filmContent}
-        </div>
+        {stageEl}
       </div>
     );
   }
@@ -848,29 +903,25 @@ export function SaveTheDateFilm({
   if (preview) {
     return (
       <div
-        {...stageProps}
-        className={`relative mx-auto aspect-[9/16] w-full max-w-xs select-none overflow-hidden rounded-3xl ${outerBgCls} ${theme.outerFg} shadow-xl`}
+        ref={containerRef}
+        className={`relative mx-auto flex aspect-[9/16] w-full max-w-xs items-center justify-center overflow-hidden rounded-3xl ${outerBgCls} ${theme.outerFg} shadow-xl`}
       >
         {scrimNode}
-        {filmContent}
+        {stageEl}
       </div>
     );
   }
 
-  // Full-screen: theme's outer bg fills the whole viewport (with the photo
-  // background behind). The stage is phone-width on mobile and WIDENS on desktop
-  // (owner 2026-06-19 "adjust for mobile and desktop") so the centred content
-  // reads as a full composition, not a narrow column. The full-width scrim sits
-  // in this container, behind the stage, spanning edge to edge.
+  // Full-screen: the themed bg + photo fill the whole viewport; the design canvas
+  // is centred and uniformly scaled to fit (max size, no overflow — owner
+  // 2026-06-19). The full-width scrim spans the container, behind the canvas.
   return (
-    <div className={`fixed inset-0 z-[50] flex justify-center ${outerBgCls} ${theme.outerFg}`}>
+    <div
+      ref={containerRef}
+      className={`fixed inset-0 z-[50] flex items-center justify-center overflow-hidden ${outerBgCls} ${theme.outerFg}`}
+    >
       {scrimNode}
-      <div
-        {...stageProps}
-        className="relative z-10 h-full w-full max-w-sm select-none overflow-hidden md:max-w-xl lg:max-w-2xl"
-      >
-        {filmContent}
-      </div>
+      {stageEl}
     </div>
   );
 }

@@ -32,6 +32,7 @@ import {
 } from '@/lib/papic-drive';
 import {
   eventOwnsPapicSeats,
+  eventPapicSeatsActive,
   PAPIC_SEATS_PRICE_PHP,
   PAPIC_SEATS_SERVICE_KEY,
   PAPIC_SAMPLER_SEAT_COUNT,
@@ -39,6 +40,7 @@ import {
   PAPIC_SAMPLER_CLIP_CAP,
   PAPIC_SAMPLER_RETENTION_DAYS,
 } from '@/lib/papic-seats';
+import { PaymentUnderReview } from '@/app/dashboard/[eventId]/_components/payment-under-review';
 import { fetchPapicGallery } from '@/lib/papic-gallery';
 import { PapicGalleryGrid } from './_components/papic-gallery-grid';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
@@ -227,7 +229,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   // of four serial round-trips (owner perf pass 2026-06-03). The price/settings
   // reads keep their own `.catch` fallbacks, so a failure in one never rejects
   // the batch or breaks the always-rendered Papic page.
-  const [grantRaw, ownsPapicSeats, papicSeatsSku, platformSettings] =
+  const [grantRaw, ownsPapicSeats, papicActive, papicSeatsSku, platformSettings] =
     await Promise.all([
       // Drive OAuth grant — RLS scopes oauth_grants by event_id IN
       // current_event_ids(), so the anon client is fine (no service role).
@@ -240,7 +242,12 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         .maybeSingle()
         .then((r) => r.data ?? null),
       // Photo-crew ownership — graceful-degrades to false on a missing table.
+      // Counts a still-pending ('submitted') order (double-buy prevention).
       eventOwnsPapicSeats(supabase, eventId),
+      // Photo-crew ACTIVE (payment handshake 2026-06-18) — true only once the
+      // Setnayan team verifies payment. `ownsPapicSeats && !papicActive` =
+      // payment under review; the crew-management CTA waits for activation.
+      eventPapicSeatsActive(supabase, eventId),
       // Seat SKU price + platform settings each tolerate failure (.catch).
       formatV2Sku(PAPIC_SEATS_SERVICE_KEY).catch(() => null),
       fetchPlatformSettings(supabase).catch(() => null),
@@ -328,13 +335,17 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
               Your photo crew · 5 seats
             </p>
             <p className="max-w-prose text-sm text-ink/65">
-              {ownsPapicSeats
+              {papicActive
                 ? 'Your photo-crew pack is active. Set up your five seats and share a claim link with each friend.'
-                : 'Turn five friends into your candid camera crew — each shoots from their own phone, and every photo lands in your gallery in real time.'}
+                : ownsPapicSeats
+                  ? 'Your photo-crew pack is on its way — set up your five seats the moment our team confirms your payment.'
+                  : 'Turn five friends into your candid camera crew — each shoots from their own phone, and every photo lands in your gallery in real time.'}
             </p>
           </div>
           <div className="shrink-0">
-            {ownsPapicSeats ? (
+            {/* Payment handshake (2026-06-18): active → manage; owned-but-
+                pending → "payment under review"; not owned → buy. */}
+            {papicActive ? (
               <Link
                 href={`/dashboard/${eventId}/add-ons/papic/crew`}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 sm:w-auto"
@@ -342,6 +353,8 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
                 Manage my 5 seats
                 <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
               </Link>
+            ) : ownsPapicSeats ? (
+              <PaymentUnderReview feature="Papic seats" />
             ) : platformSettings ? (
               <InlineCheckoutDrawer
                 eventId={eventId}

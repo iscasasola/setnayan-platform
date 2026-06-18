@@ -1,7 +1,8 @@
 import { MonitorPlay } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { eventOwnsSku } from '@/lib/entitlements';
+import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
+import { PaymentUnderReview } from '@/app/dashboard/[eventId]/_components/payment-under-review';
 import { LiveWallControls, type WallScreenRow, type WallTileRow } from './live-wall-controls';
 
 /**
@@ -24,6 +25,25 @@ export async function LiveWallCard({ eventId }: { eventId: string }) {
 
   const owns = await eventOwnsSku(supabase, eventId, 'LIVE_WALL');
   if (!owns) return null;
+
+  // Payment handshake (2026-06-18): owning the SKU now counts a still-pending
+  // ('submitted') order, so gate the live feature on admin approval. Owned but
+  // not-yet-active → show the "payment under review" card instead of the live
+  // controls (and skip the wall reads — nothing to manage until it's live).
+  const active = owns ? await eventSkuActive(supabase, eventId, 'LIVE_WALL') : false;
+  if (!active) {
+    return (
+      <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
+        <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
+          <MonitorPlay aria-hidden className="h-4.5 w-4.5 text-terracotta" strokeWidth={2} />
+          Live Photo Wall
+        </h2>
+        <div className="mt-3">
+          <PaymentUnderReview feature="live photo wall" />
+        </div>
+      </section>
+    );
+  }
 
   const [{ data: sessions }, { data: feed }] = await Promise.all([
     supabase

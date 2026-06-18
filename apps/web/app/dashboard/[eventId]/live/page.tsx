@@ -13,7 +13,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { getDayOfPhase } from '@/lib/day-of-mode';
-import { eventOwnsSku } from '@/lib/entitlements';
+import { eventSkuActive } from '@/lib/entitlements';
 import { resolveWallMode, type WallMode } from '@/lib/live-wall-logic';
 import {
   LiveWallControls,
@@ -22,6 +22,7 @@ import {
 } from '../add-ons/papic/_components/live-wall-controls';
 import { KwentoQueue } from '../add-ons/papic/moderation/_components/kwento-queue';
 import { WallModeControl } from './_components/mode-control';
+import { FlashAutoWallToggle } from './_components/flash-auto-wall-toggle';
 
 export const metadata = { title: 'Live Wall · Setnayan' };
 export const dynamic = 'force-dynamic';
@@ -59,7 +60,7 @@ export default async function LiveWallConsolePage({
   // repair, 2026-06-15) — bundle-aware, so a Media Pack buyer reaches the
   // console too. Replaces the event_software_activations_v2 read whose only
   // writer (verify_and_activate_manual_payment) had zero app callers.
-  const owns = await eventOwnsSku(supabase, eventId, 'LIVE_WALL');
+  const owns = await eventSkuActive(supabase, eventId, 'LIVE_WALL');
 
   if (!owns) {
     // Not purchased — a quiet doorway to the add-on, not a dead end. Price
@@ -99,7 +100,7 @@ export default async function LiveWallConsolePage({
   ] = await Promise.all([
     admin
       .from('events')
-      .select('event_date, live_mode_override')
+      .select('event_date, live_mode_override, kwento_flash_auto_wall')
       .eq('event_id', eventId)
       .maybeSingle(),
     supabase
@@ -134,6 +135,7 @@ export default async function LiveWallConsolePage({
   ]);
 
   const override = (event?.live_mode_override ?? null) as WallMode | null;
+  const flashAutoWall = (event?.kwento_flash_auto_wall ?? true) as boolean;
   const resolved = resolveWallMode(
     override,
     getDayOfPhase((event?.event_date as string) ?? ''),
@@ -264,7 +266,21 @@ export default async function LiveWallConsolePage({
         </p>
       </section>
 
-      <KwentoQueue eventId={eventId} />
+      <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-sm font-semibold text-ink">Guest Stories (Kwento)</h2>
+            <p className="mt-0.5 text-xs text-ink/50">
+              Flash stories (⚡, ≤50 chars) can auto-post to the wall after 5 seconds — you can
+              kill any one from the queue. Stories (≤280 chars) always go to review first.
+            </p>
+          </div>
+          <FlashAutoWallToggle eventId={eventId} enabled={flashAutoWall} />
+        </div>
+        <div className="mt-4">
+          <KwentoQueue eventId={eventId} />
+        </div>
+      </section>
     </div>
   );
 }

@@ -23,12 +23,28 @@ function tagDotClass(source: GalleryTagSource): string {
   return 'bg-ink/30';
 }
 
+/**
+ * Kwento density indicator:
+ *   ≥3 stories → gold dot  (editorial lead — this moment has a story)
+ *   2  stories → amber dot
+ *   1  story   → grey dot
+ */
+function kwentoDotClass(density: number): string {
+  if (density >= 3) return 'bg-amber-400';
+  if (density === 2) return 'bg-amber-300';
+  return 'bg-ink/30';
+}
+
 export function PapicGalleryGrid({
   photos,
   eventId,
+  kwentoDensity,
 }: {
   photos: GalleryPhoto[];
   eventId?: string;
+  /** Map of photoId → story count. When provided, photos with ≥1 story get a
+   *  small density dot in the lower-right corner of their thumbnail. */
+  kwentoDensity?: Map<string, number>;
 }) {
   const [filter, setFilter] = useState<FilterId>('all');
 
@@ -110,6 +126,13 @@ export function PapicGalleryGrid({
                   className={`absolute bottom-1 left-1 h-2 w-2 rounded-full ring-1 ring-white/70 ${tagDotClass(p.tagSource)}`}
                   aria-hidden
                 />
+                {kwentoDensity && (kwentoDensity.get(p.id) ?? 0) >= 1 ? (
+                  <span
+                    className={`absolute bottom-1 right-1 h-2 w-2 rounded-full ring-1 ring-white/70 ${kwentoDotClass(kwentoDensity.get(p.id) ?? 1)}`}
+                    title={`${kwentoDensity.get(p.id)} guest ${kwentoDensity.get(p.id) === 1 ? 'story' : 'stories'}`}
+                    aria-hidden
+                  />
+                ) : null}
               </div>
             </li>
           ))}

@@ -293,6 +293,13 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/pakanta',
       },
       {
+        key: 'editorial-review',
+        label: 'Editorial review',
+        href: '/admin/editorial-review',
+        icon: Newspaper,
+        matchPrefix: '/admin/editorial-review',
+      },
+      {
         key: 'help',
         label: 'Help',
         href: '/admin/help',

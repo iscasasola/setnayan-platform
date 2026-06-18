@@ -8,6 +8,7 @@ import {
   retireEventType,
   unretireEventType,
 } from './actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Event Types · Admin' };
 // Top-level admin-client DB read — keep this route dynamic (same rationale as
@@ -175,9 +176,9 @@ export default async function AdminEventTypesPage({ searchParams }: { searchPara
             <input name="sort_order" type="number" min={0} defaultValue={100} className={INPUT} />
           </label>
           <div className="sm:col-span-2 lg:col-span-5">
-            <button type="submit" className={BTN_PRIMARY}>
+            <SubmitButton pendingLabel="Creating…" className={BTN_PRIMARY}>
               Create event type
-            </button>
+            </SubmitButton>
           </div>
         </form>
       </section>
@@ -235,18 +236,18 @@ export default async function AdminEventTypesPage({ searchParams }: { searchPara
                       <form action={setEventTypeEnabled}>
                         <input type="hidden" name="event_type" value={r.event_type} />
                         <input type="hidden" name="enabled" value={r.enabled ? '0' : '1'} />
-                        <button type="submit" className={BTN_SECONDARY}>
+                        <SubmitButton pendingLabel="Updating…" className={BTN_SECONDARY}>
                           {r.enabled ? 'Hide from picker' : 'Show in picker'}
-                        </button>
+                        </SubmitButton>
                       </form>
                     ) : null}
 
                     {retired ? (
                       <form action={unretireEventType}>
                         <input type="hidden" name="event_type" value={r.event_type} />
-                        <button type="submit" className={BTN_SECONDARY}>
+                        <SubmitButton pendingLabel="Un-retiring…" className={BTN_SECONDARY}>
                           Un-retire
-                        </button>
+                        </SubmitButton>
                       </form>
                     ) : r.event_type !== 'wedding' ? (
                       <ConfirmForm
@@ -256,9 +257,9 @@ export default async function AdminEventTypesPage({ searchParams }: { searchPara
                         confirmLabel="Retire it"
                       >
                         <input type="hidden" name="event_type" value={r.event_type} />
-                        <button type="submit" className="rounded-md border border-rose-200 bg-white px-2.5 py-1 text-[11px] font-medium text-rose-700 hover:bg-rose-50">
+                        <SubmitButton pendingLabel="Retiring…" className="rounded-md border border-rose-200 bg-white px-2.5 py-1 text-[11px] font-medium text-rose-700 hover:bg-rose-50">
                           Retire
-                        </button>
+                        </SubmitButton>
                       </ConfirmForm>
                     ) : null}
                   </div>
@@ -337,9 +338,9 @@ export default async function AdminEventTypesPage({ searchParams }: { searchPara
                       </span>
                     </label>
                     <div className="lg:col-span-3">
-                      <button type="submit" className={BTN_PRIMARY}>
+                      <SubmitButton pendingLabel="Saving…" className={BTN_PRIMARY}>
                         Save
-                      </button>
+                      </SubmitButton>
                     </div>
                   </form>
                 </details>

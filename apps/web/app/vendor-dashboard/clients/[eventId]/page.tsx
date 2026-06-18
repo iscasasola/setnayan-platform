@@ -557,12 +557,12 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
                     callTime.lead_minutes / 60
                   } hr setup ahead of ${callTime.anchor_label}.`}
                 />
-                <button
-                  type="submit"
+                <SubmitButton
+                  pendingLabel="Requesting…"
                   className="rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream"
                 >
                   Request this call time
-                </button>
+                </SubmitButton>
               </form>
             </div>
           ) : null}
@@ -637,9 +637,9 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
                         <input type="datetime-local" name="proposed_end_at" className="rounded-lg border border-ink/20 bg-white px-2 py-1 text-xs" />
                         <span className="text-xs text-ink/45">(optional new time)</span>
                       </div>
-                      <button type="submit" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
+                      <SubmitButton pendingLabel="Sending…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
                         Send request
-                      </button>
+                      </SubmitButton>
                     </form>
                   </details>
                 </li>
@@ -661,9 +661,9 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
                 <input type="datetime-local" name="proposed_end_at" className="rounded-lg border border-ink/20 bg-white px-2 py-1 text-xs" />
               </div>
               <input type="text" name="proposed_location" maxLength={200} placeholder="Location (optional)" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
-              <button type="submit" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
+              <SubmitButton pendingLabel="Sending…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
                 Send suggestion
-              </button>
+              </SubmitButton>
             </form>
           </details>
 

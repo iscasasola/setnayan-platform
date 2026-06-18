@@ -13,6 +13,7 @@ import { ChevronLeft } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchThreadById, fetchMessages, formatChatTimestamp } from '@/lib/chat';
 import { adminAcceptInquiry, adminDeclineInquiry, adminReplyAsVendor } from '../actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Demo inquiry · Admin' };
 export const dynamic = 'force-dynamic';
@@ -112,12 +113,12 @@ export default async function DemoInquiryThreadPage({ params }: Props) {
             placeholder={`Reply as ${vendorName}…`}
             className="input-field min-h-[60px] flex-1 py-2"
           />
-          <button
-            type="submit"
+          <SubmitButton
             className="inline-flex h-11 items-center rounded-md bg-mulberry px-5 text-sm font-semibold text-cream hover:bg-mulberry-600"
+            pendingLabel="Sending…"
           >
             Send
-          </button>
+          </SubmitButton>
         </form>
       ) : thread.inquiry_status === 'pending' ? (
         <div className="space-y-3 rounded-xl border border-terracotta/30 bg-terracotta/5 p-4">
@@ -128,12 +129,12 @@ export default async function DemoInquiryThreadPage({ params }: Props) {
           <div className="flex flex-wrap gap-2">
             <form action={adminAcceptInquiry}>
               <input type="hidden" name="thread_id" value={threadId} />
-              <button
-                type="submit"
+              <SubmitButton
                 className="inline-flex h-11 items-center rounded-md bg-mulberry px-5 text-sm font-semibold text-cream hover:bg-mulberry-600"
+                pendingLabel="Accepting…"
               >
                 Accept inquiry
-              </button>
+              </SubmitButton>
             </form>
             <form action={adminDeclineInquiry} className="flex items-end gap-2">
               <input type="hidden" name="thread_id" value={threadId} />
@@ -144,12 +145,12 @@ export default async function DemoInquiryThreadPage({ params }: Props) {
                 placeholder="Decline reason (optional)"
                 className="input-field h-11 w-56 py-2 text-sm"
               />
-              <button
-                type="submit"
+              <SubmitButton
                 className="inline-flex h-11 items-center rounded-md border border-ink/20 px-5 text-sm font-semibold text-ink hover:bg-ink/5"
+                pendingLabel="Declining…"
               >
                 Decline
-              </button>
+              </SubmitButton>
             </form>
           </div>
         </div>

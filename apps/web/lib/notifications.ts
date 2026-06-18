@@ -89,7 +89,19 @@ export type NotificationType =
   // from app/api/papic/kwento/route.ts when a guest's Kwento is HELD by Tier-1
   // moderation and needs review before it can appear on the wall. Clean Kwentos
   // do NOT notify (the queue/wall console surfaces them; no live-reception spam).
-  | 'kwento_flagged';
+  | 'kwento_flagged'
+  // Added 2026-06-18 (Kwento Monumental Upgrade · Flash tier).
+  // kwento_story_batch: debounced batch email to the couple when a flagged Story
+  // arrives (max 1 per 10 minutes per event — suppresses per-message spam during
+  // a live reception). Fired from app/api/papic/kwento/route.ts.
+  // kwento_flash_auto_walled: informational coordinator-only count shown in the
+  // live console (not emailed). Logged as a notification row for the audit trail.
+  | 'kwento_story_batch'
+  | 'kwento_flash_auto_walled'
+  // Added 2026-06-18 (Kwento Phase 3 · Assignment Board). Fired (guest-recipient)
+  // from the nudge server action when a couple or delegate presses "Nudge" on an
+  // assigned editorial moment. Capped at 3 nudges per assignment by the action.
+  | 'kwento_assignment_nudge';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   chat_message: 'New message',
@@ -119,6 +131,9 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   guest_claim_pending: 'Guest request to confirm',
   security_alert: 'Security alert',
   kwento_flagged: 'Guest story to review',
+  kwento_story_batch: 'Guest stories to review',
+  kwento_flash_auto_walled: 'Flash story auto-walled',
+  kwento_assignment_nudge: 'Story assignment nudge',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -165,6 +180,12 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   // A held guest story = the couple's okay is needed → amber (action-needed),
   // matching review_request / guest_claim_pending.
   kwento_flagged: 'bg-amber-100 text-amber-900',
+  // Debounced batch story notify = same action-needed register as kwento_flagged.
+  kwento_story_batch: 'bg-amber-100 text-amber-900',
+  // Flash auto-walled = informational / positive → sky (matches chat_message).
+  kwento_flash_auto_walled: 'bg-sky-100 text-sky-800',
+  // A nudge to write their story = gentle action-needed → amber (same register).
+  kwento_assignment_nudge: 'bg-amber-100 text-amber-900',
 };
 
 export type NotificationRow = {

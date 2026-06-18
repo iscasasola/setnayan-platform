@@ -10,9 +10,9 @@ import { formatEventDate } from '@/lib/events';
 import { ROLE_LABELS, type GuestRole } from '@/lib/guests';
 import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
 import { resolveMonogram, type MonogramConfig } from '@/lib/monogram';
-import { eventOwnsAnimatedMonogram } from '@/lib/animated-monogram';
-import { eventOwnsPapicGuest } from '@/lib/papic-guest';
-import { eventOwnsSku } from '@/lib/entitlements';
+import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
+import { eventPapicGuestActive } from '@/lib/papic-guest';
+import { eventSkuActive } from '@/lib/entitlements';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
 import {
   resolveMonogramMotion,
@@ -148,7 +148,7 @@ const fetchEventBySlug = cache(async (slug: string) => {
   const { data } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, love_story, wax_seal_config, std_reveal_template, std_invitation_launch_date',
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, love_story, wax_seal_config, std_reveal_template, std_invitation_launch_date, std_theme',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -299,7 +299,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // below as `MonogramMotionKey | false` — false = static circle. Degrades to
   // `false` on any orders-table shape error — see lib/animated-monogram.ts.
   // The separate 0004 monogram_hero_upgrade widget path is untouched.
-  const ownsAnimatedMonogram = await eventOwnsAnimatedMonogram(
+  const ownsAnimatedMonogram = await eventAnimatedMonogramActive(
     admin,
     event.event_id,
   );
@@ -539,8 +539,9 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // the free base (the static STD view is the fallback); the cinematic openings
   // (RevealOverlay) layer ON TOP and become the ₱1,499 premium (P5 gate). Env
   // for a global rollout, ?film=1 for a per-visit preview while it bakes.
-  const stdFilm =
-    process.env.NEXT_PUBLIC_STD_FILM === '1' || search.film === '1';
+  // Film is on by default for the STD phase; ?film=0 disables it for a
+  // plain-countdown fallback (useful for testing the static path).
+  const stdFilm = search.film !== '0';
 
   // (Note: guest-session cookie was already read above for the private-gate
   // check — reuse the same `session` reference rather than re-fetching.)
@@ -597,8 +598,8 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
       // event_software_activations_v2 reads had no payment-path writer (their
       // only writer, verify_and_activate_manual_payment, has zero callers).
       const [ownsWall, ownsPanood, watchRowRes] = await Promise.all([
-        eventOwnsSku(admin, event.event_id, 'LIVE_WALL'),
-        eventOwnsSku(admin, event.event_id, 'PANOOD_SYSTEM'),
+        eventSkuActive(admin, event.event_id, 'LIVE_WALL'),
+        eventSkuActive(admin, event.event_id, 'PANOOD_SYSTEM'),
         admin
           .from('events')
           .select('panood_watch_url')
@@ -733,7 +734,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // Papic guest camera (PAPIC_GUEST) — when the couple owns the pack, give the
   // cookie-bearing guest a floating "be a candid camera" CTA into /papic/guest.
   // Gated, admin read, graceful-degrade so the anonymous public path is untouched.
-  const papicGuestActive = await eventOwnsPapicGuest(admin, event.event_id);
+  const papicGuestActive = await eventPapicGuestActive(admin, event.event_id);
 
   // Per-guest LIVE gallery (owner 2026-06-12: "the gallery must be on the
   // on-the-day part") — the photos THIS guest is tagged in, arriving through
@@ -895,6 +896,8 @@ type EventRow = {
   // When the full invitation goes live (events.std_invitation_launch_date) —
   // drives the STD film's close beat + the second add-to-calendar VEVENT. (PR4 P3)
   std_invitation_launch_date?: string | null;
+  // Visual theme for the film (lib/std-themes · 2026-06-18). NULL = 'moodboard'.
+  std_theme?: string | null;
   // JSONB column populated by the host via /dashboard/[eventId]/website/photo-moments.
   // Shape: { intro_copy: string, moments: [{ time_label, title, note, mode }] }.
   // Unknown / empty shapes degrade gracefully in PhotoMomentsWidget — the
@@ -1309,6 +1312,7 @@ function PublicLanding({
             ourPhotoUrls.length ? ourPhotoUrls : heroPhotoUrl ? [heroPhotoUrl] : []
           }
           launchDateIso={event.std_invitation_launch_date}
+          themeId={event.std_theme}
         />
       ) : (
         <>
@@ -1844,6 +1848,7 @@ function InvitationSite({
               ourPhotoUrls.length ? ourPhotoUrls : heroPhotoUrl ? [heroPhotoUrl] : []
             }
             launchDateIso={event.std_invitation_launch_date}
+            themeId={event.std_theme}
           />
         ) : (
           <>

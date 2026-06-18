@@ -50,6 +50,7 @@ type PaymentJoined = {
     public_id: string;
     reference_code: string;
     description: string;
+    service_key: string | null;
     requested_total_php: number;
     confirmed_total_php: number | null;
     status: OrderStatus;
@@ -107,8 +108,8 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
     // embed would keep them with a null order). Every payment has an order, so
     // !inner drops nothing else.
     const orderEmbed = platformFilter
-      ? 'order:orders!inner(public_id, reference_code, description, requested_total_php, confirmed_total_php, status, platform)'
-      : 'order:orders(public_id, reference_code, description, requested_total_php, confirmed_total_php, status, platform)';
+      ? 'order:orders!inner(public_id, reference_code, description, service_key, requested_total_php, confirmed_total_php, status, platform)'
+      : 'order:orders(public_id, reference_code, description, service_key, requested_total_php, confirmed_total_php, status, platform)';
     let paymentsQuery = admin
       .from('payments')
       .select(
@@ -335,6 +336,17 @@ function PaymentsList({ payments }: { payments: PaymentJoined[] }) {
               </span>
             </div>
 
+            {p.order?.description ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-medium text-ink">{p.order.description}</p>
+                {p.order.service_key ? (
+                  <span className="rounded bg-ink/[0.06] px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/55">
+                    {p.order.service_key}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
+
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
               <Stat label="Amount" value={formatPhp(p.amount_php)} />
               <Stat label="Channel" value={p.channel} />
@@ -373,15 +385,25 @@ function PaymentsList({ payments }: { payments: PaymentJoined[] }) {
             ) : null}
 
             {p.screenshot_url ? (
-              <a
-                href={p.screenshot_url}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-terracotta hover:underline"
-              >
-                Screenshot
-                <ExternalLink aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-              </a>
+              <div className="space-y-1">
+                <a href={p.screenshot_url} target="_blank" rel="noreferrer">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={p.screenshot_url}
+                    alt="Payment screenshot"
+                    className="max-h-64 w-auto rounded-md border border-ink/10 object-contain"
+                  />
+                </a>
+                <a
+                  href={p.screenshot_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-terracotta hover:underline"
+                >
+                  Open full size
+                  <ExternalLink aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+                </a>
+              </div>
             ) : null}
 
             {p.status === 'pending' ? (

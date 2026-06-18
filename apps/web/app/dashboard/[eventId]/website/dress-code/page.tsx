@@ -6,6 +6,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { updateDressCode, type DressCodeConfig } from './actions';
 import { ListField } from './_components/list-field';
 import { PaletteField } from './_components/palette-field';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Edit dress code · Setnayan' };
 
@@ -176,12 +177,7 @@ export default async function DressCodeEditorPage({
 
           {/* Submit */}
           <div className="flex flex-wrap items-center gap-3 border-t border-ink/10 pt-4">
-            <button
-              type="submit"
-              className="inline-flex h-11 min-h-[44pt] items-center justify-center gap-2 rounded-md bg-mulberry px-5 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry"
-            >
-              Save changes
-            </button>
+            <SubmitButton pendingLabel="Saving…" className="inline-flex h-11 min-h-[44pt] items-center justify-center gap-2 rounded-md bg-mulberry px-5 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry">Save changes</SubmitButton>
             <Link
               href={`/dashboard/${eventId}/website`}
               className="inline-flex h-11 min-h-[44pt] items-center justify-center gap-2 rounded-md border border-ink/15 bg-cream px-4 text-sm font-medium text-ink transition-colors hover:border-ink/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"

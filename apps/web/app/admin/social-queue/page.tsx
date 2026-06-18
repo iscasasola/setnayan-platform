@@ -30,6 +30,7 @@ import {
   updatePublishSettings,
   updateSocialPostBody,
 } from './actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Social queue · Admin' };
 
@@ -475,12 +476,12 @@ export default async function AdminSocialQueuePage({ searchParams }: Props) {
                   )}
                   <form action={markConsentTakenDown}>
                     <input type="hidden" name="consent_id" value={c.consent_id} />
-                    <button
-                      type="submit"
+                    <SubmitButton
+                      pendingLabel="Marking…"
                       className="inline-flex h-9 items-center rounded-md bg-terracotta/15 px-3 text-xs font-medium text-terracotta-700 hover:bg-terracotta/25"
                     >
                       Mark taken down
-                    </button>
+                    </SubmitButton>
                   </form>
                 </article>
               </li>
@@ -536,18 +537,18 @@ export default async function AdminSocialQueuePage({ searchParams }: Props) {
                   <div className="flex flex-wrap items-center gap-2 border-t border-ink/10 pt-3">
                     <form action={retrySocialPost}>
                       <input type="hidden" name="post_id" value={p.post_id} />
-                      <button type="submit" className="button-primary h-9 px-3 text-xs">
+                      <SubmitButton pendingLabel="Retrying…" className="button-primary h-9 px-3 text-xs">
                         Retry
-                      </button>
+                      </SubmitButton>
                     </form>
                     <form action={pullSocialPost}>
                       <input type="hidden" name="post_id" value={p.post_id} />
-                      <button
-                        type="submit"
+                      <SubmitButton
+                        pendingLabel="Pulling…"
                         className="inline-flex h-9 items-center rounded-md border border-terracotta/30 bg-terracotta/5 px-3 text-xs text-terracotta-700 hover:bg-terracotta/15"
                       >
                         Pull
-                      </button>
+                      </SubmitButton>
                     </form>
                   </div>
                 </article>
@@ -685,9 +686,9 @@ export default async function AdminSocialQueuePage({ searchParams }: Props) {
                 className="input-field h-9 w-full text-xs"
               />
             </label>
-            <button type="submit" className="button-primary h-9 px-3 text-xs">
+            <SubmitButton pendingLabel="Queuing…" className="button-primary h-9 px-3 text-xs">
               Queue announcement
-            </button>
+            </SubmitButton>
           </form>
         </article>
       </section>
@@ -764,9 +765,9 @@ export default async function AdminSocialQueuePage({ searchParams }: Props) {
                 />
                 Active (in the rotation)
               </label>
-              <button type="submit" className="button-primary h-9 px-3 text-xs">
+              <SubmitButton pendingLabel="Adding…" className="button-primary h-9 px-3 text-xs">
                 Add item
-              </button>
+              </SubmitButton>
             </div>
           </form>
         </article>
@@ -847,9 +848,9 @@ export default async function AdminSocialQueuePage({ searchParams }: Props) {
                       placeholder="https://facebook.com/… (optional)"
                       className="input-field h-9 min-w-0 flex-1 text-xs"
                     />
-                    <button type="submit" className="button-primary h-9 px-3 text-xs">
+                    <SubmitButton pendingLabel="Marking…" className="button-primary h-9 px-3 text-xs">
                       Mark posted
-                    </button>
+                    </SubmitButton>
                   </form>
                 </article>
               </li>
@@ -960,9 +961,9 @@ export default async function AdminSocialQueuePage({ searchParams }: Props) {
                       placeholder="https://facebook.com/… (optional)"
                       className="input-field h-9 min-w-0 flex-1 text-xs"
                     />
-                    <button type="submit" className="button-primary h-9 px-3 text-xs">
+                    <SubmitButton pendingLabel="Marking…" className="button-primary h-9 px-3 text-xs">
                       Mark posted
-                    </button>
+                    </SubmitButton>
                   </form>
                 </article>
               </li>
@@ -1186,9 +1187,9 @@ function AutopilotStrip({
           />
           TikTok
         </label>
-        <button type="submit" className="button-primary h-9 px-3 text-xs">
+        <SubmitButton pendingLabel="Saving…" className="button-primary h-9 px-3 text-xs">
           Save
-        </button>
+        </SubmitButton>
       </form>
     </section>
   );
@@ -1346,30 +1347,30 @@ function ScheduledPostCard({ post, now }: { post: SocialPostRow; now: number }) 
                 defaultValue={post.body}
                 className="block w-full rounded-md border border-ink/20 bg-cream px-2 py-1 text-xs text-ink"
               />
-              <button type="submit" className="button-primary h-9 px-3 text-xs">
+              <SubmitButton pendingLabel="Saving…" className="button-primary h-9 px-3 text-xs">
                 Save copy
-              </button>
+              </SubmitButton>
             </form>
           </details>
 
           <div className="flex flex-wrap items-center gap-2 border-t border-ink/10 pt-3">
             <form action={pullSocialPost}>
               <input type="hidden" name="post_id" value={post.post_id} />
-              <button
-                type="submit"
+              <SubmitButton
+                pendingLabel="Pulling…"
                 className="inline-flex h-9 items-center rounded-md border border-terracotta/30 bg-terracotta/5 px-3 text-xs text-terracotta-700 hover:bg-terracotta/15"
               >
                 Pull
-              </button>
+              </SubmitButton>
             </form>
             {/* Post-now skips the hold window but NEVER the content gate —
                 a couple's event-date + 7d is not overridable. */}
             {!gateFuture ? (
               <form action={postSocialPostNow}>
                 <input type="hidden" name="post_id" value={post.post_id} />
-                <button type="submit" className="button-primary h-9 px-3 text-xs">
+                <SubmitButton pendingLabel="Posting…" className="button-primary h-9 px-3 text-xs">
                   Post now
-                </button>
+                </SubmitButton>
               </form>
             ) : null}
           </div>
@@ -1449,9 +1450,9 @@ function EvergreenItemCard({ item }: { item: EvergreenItemRow }) {
               />
               Active (in the rotation)
             </label>
-            <button type="submit" className="button-primary h-9 px-3 text-xs">
+            <SubmitButton pendingLabel="Saving…" className="button-primary h-9 px-3 text-xs">
               Save
-            </button>
+            </SubmitButton>
           </div>
         </form>
       </details>

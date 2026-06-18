@@ -132,7 +132,10 @@ export function RevealOverlay({
           features={config?.features}
           onRevealed={() => {
             setOpen(true);
-            setTimeout(() => setGone(true), 500);
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('std-reveal-done'));
+              setGone(true);
+            }, 500);
           }}
         />
         <div
@@ -150,7 +153,10 @@ export function RevealOverlay({
 
   // Rigid family — RigidStage owns the seal-swipe gate + scroll-scrub open and
   // fires onOpened once the flaps are fully clear; we then remove the overlay.
-  const onOpened = () => setGone(true);
+  const onOpened = () => {
+    window.dispatchEvent(new CustomEvent('std-reveal-done'));
+    setGone(true);
+  };
   return (
     <div className="fixed inset-0 z-[60] overflow-hidden">
       {template === 'two-flap-vertical' ||

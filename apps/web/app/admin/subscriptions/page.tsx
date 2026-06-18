@@ -211,7 +211,7 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
                   <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                     <form action={approveSubscription}>
                       <input type="hidden" name="purchase_id" value={p.purchase_id} />
-                      <SubmitButton pendingLabel="Confirming…">
+                      <SubmitButton className="button-primary h-9 px-4 text-sm" pendingLabel="Confirming…">
                         Confirm payment &amp; activate plan
                       </SubmitButton>
                     </form>
@@ -226,12 +226,12 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
                         placeholder="Reason (optional)"
                         className="w-44 rounded-md border border-ink/15 bg-paper px-2 py-1.5 text-xs"
                       />
-                      <button
-                        type="submit"
+                      <SubmitButton
+                        pendingLabel="Rejecting…"
                         className="rounded-md border border-rose-300 px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-50"
                       >
                         Reject
-                      </button>
+                      </SubmitButton>
                     </form>
                   </div>
                 </li>

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { eventOwnsSku } from '@/lib/entitlements';
+import { eventSkuActive } from '@/lib/entitlements';
 import { getWallSnapshot } from '@/lib/live-wall';
 
 /**
@@ -37,7 +37,7 @@ export async function GET(
   // Ownership reads off orders.status via eventOwnsSku() (PR4 dead-unlock
   // repair, 2026-06-15) — bundle-aware, mirroring /wall/[eventId]'s door. The
   // old event_software_activations_v2 read had no payment-path writer.
-  const owns = await eventOwnsSku(admin, event.event_id, 'LIVE_WALL');
+  const owns = await eventSkuActive(admin, event.event_id, 'LIVE_WALL');
   if (!owns) {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }

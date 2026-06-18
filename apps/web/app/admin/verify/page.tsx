@@ -24,6 +24,7 @@ import {
   type VerificationState,
 } from '@/lib/vendor-verification';
 import { VerificationStateBadge } from '@/app/_components/verification/verification-status-card';
+import { SubmitButton } from '@/app/_components/submit-button';
 import {
   approveApplication,
   approveVendor,
@@ -592,12 +593,12 @@ function ActionRow({ application }: { application: ApplicationRow }) {
             name="application_id"
             value={application.application_id}
           />
-          <button
-            type="submit"
+          <SubmitButton
+            pendingLabel="Marking…"
             className="inline-flex h-11 items-center rounded-md border border-ink/20 px-3 text-xs text-ink/70 hover:bg-ink/5"
           >
             Mark in review
-          </button>
+          </SubmitButton>
         </form>
       ) : null}
 
@@ -609,12 +610,12 @@ function ActionRow({ application }: { application: ApplicationRow }) {
             value={application.application_id}
           />
           <input type="hidden" name="reason" value="" />
-          <button
-            type="submit"
+          <SubmitButton
+            pendingLabel="Approving…"
             className="button-primary h-9 px-3 text-xs"
           >
             Approve → Verified
-          </button>
+          </SubmitButton>
         </form>
       ) : null}
 
@@ -647,12 +648,12 @@ function ActionRow({ application }: { application: ApplicationRow }) {
               placeholder="e.g. DTI certificate image is unreadable; please re-upload"
               className="block w-full rounded-md border border-ink/20 bg-cream px-2 py-1 text-xs text-ink"
             />
-            <button
-              type="submit"
+            <SubmitButton
+              pendingLabel="Rejecting…"
               className="inline-flex h-11 items-center rounded-md bg-terracotta/15 px-3 text-xs font-medium text-terracotta-700 hover:bg-terracotta/25"
             >
               Confirm reject
-            </button>
+            </SubmitButton>
           </form>
         </details>
       ) : null}
@@ -691,12 +692,12 @@ function ActionRow({ application }: { application: ApplicationRow }) {
               placeholder="e.g. 3+ disputes in 30 days; revoking verified-tier perks"
               className="block w-full rounded-md border border-ink/20 bg-cream px-2 py-1 text-xs text-ink"
             />
-            <button
-              type="submit"
+            <SubmitButton
+              pendingLabel="Demoting…"
               className="inline-flex h-11 items-center rounded-md bg-amber-100 px-3 text-xs font-medium text-amber-900 hover:bg-amber-200"
             >
               Confirm demote
-            </button>
+            </SubmitButton>
           </form>
         </details>
       ) : null}
@@ -870,29 +871,29 @@ function VerifyCard({ vendor }: { vendor: VendorVisibilityRow }) {
         {visibility !== 'verified' ? (
           <form action={approveVendor}>
             <input type="hidden" name="vendor_profile_id" value={vendor.vendor_profile_id} />
-            <button type="submit" className="button-primary h-9 px-3 text-xs">
+            <SubmitButton pendingLabel="Approving…" className="button-primary h-9 px-3 text-xs">
               Approve → Verified
-            </button>
+            </SubmitButton>
           </form>
         ) : null}
         {visibility !== 'hidden' ? (
           <form action={rejectVendor}>
             <input type="hidden" name="vendor_profile_id" value={vendor.vendor_profile_id} />
             <input type="hidden" name="reject_to" value="hidden" />
-            <button type="submit" className="button-secondary h-9 px-3 text-xs">
+            <SubmitButton pendingLabel="Hiding…" className="button-secondary h-9 px-3 text-xs">
               Reject → Hidden
-            </button>
+            </SubmitButton>
           </form>
         ) : null}
         {visibility !== 'archived' ? (
           <form action={archiveVendor}>
             <input type="hidden" name="vendor_profile_id" value={vendor.vendor_profile_id} />
-            <button
-              type="submit"
+            <SubmitButton
+              pendingLabel="Archiving…"
               className="inline-flex h-11 items-center rounded-md border border-ink/20 px-3 text-xs text-ink/70 hover:bg-ink/5"
             >
               Archive
-            </button>
+            </SubmitButton>
           </form>
         ) : null}
       </div>

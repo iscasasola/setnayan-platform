@@ -45,6 +45,172 @@ The INPUT half of the render pipeline — turns the disabled "Start Recording" b
 tsc 0 · ESLint clean. No render yet (PR3 stitches these clips via client-side WebCodecs). Requires R2 CORS + credentials (owner action) for browser PUTs to succeed in prod.
 
 SPEC IMPACT iter 0017 — booth capture is now real (was a disabled stub). → CHANGELOG + corpus DECISION_LOG.
+## 2026-06-18 · feat(std): Step-1 reveal chooser — auto-play previews in iPhone/MacBook device frames
+
+The Step-1 "Opening reveal" chooser is rebuilt: instead of a full-screen, full-resolution, *interactive* (swipe-the-seal / drag-to-lift) overlay with no watermark, the couple now sees the selected opening **auto-play inside a device frame they can toggle between iPhone and MacBook Pro 16"** — small, low-resolution, watermarked (too small to screen-record). "Make this mine" still persists the choice. The full-quality interactive opening continues to ship on the live guest page (unchanged).
+
+**Reveal engine — new opt-in preview props (all default to live behavior):**
+- `rigid-stage.tsx` — `autoPlay?: boolean`: skips the seal gate, ramps `targetRef` 0→1 on a ~4.2s timer (feeds the same pipe gestures use, so the easing rAF still owns progress + fires `onOpened` once), and gates OFF all wheel/pointer/touch listeners so embedded previews never hijack the dashboard scroll. Scroll cue suppressed in preview.
+- `four-flap.tsx` / `rigid-reveal.tsx` — forward `autoPlay`; pass `forcePreviewCss={autoPlay}` so previews use the cheap CSS-3D flaps (no per-preview WebGL context).
+- `rigid-flaps.tsx` — new `forcePreviewCss?: boolean`, OR'd into the existing force-CSS guard (avoids colliding with the `?reveal3d=off` state).
+- `veil-reveal.tsx` — `autoplay?: boolean` (auto-lift on mount via existing `startAuto()`, gestures gated off) + `lowRes?: boolean` (caps `setPixelRatio` to 1). Petals off in preview.
+
+**New components (`apps/web/app/dashboard/[eventId]/_components/`):**
+- `device-frame.tsx` — fluid iPhone (9:19.5) / MacBook Pro 16" (16:10) shells via CSS `aspect-ratio`; pinned "Preview" watermark.
+- `reveal-preview.tsx` — mounts ONE opening in auto-play + low-res + non-interactive mode, filling the device screen. Veil lazy-loaded; one low-DPR WebGL context max (rigid templates are CSS-only).
+
+**Rewrote `reveal-preview-card.tsx`:** device toggle (iPhone ↔ MacBook) + auto-play preview + opening picker + "Make this mine". Deleted the full-screen `fixed inset-0` interactive overlay and its `tpl`/`revealed`/`launch`/`close`/`renderReveal`/`foldTimer` machinery.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. Architecture adversarially design-reviewed (6-agent pass): 5-template chooser costs ≤1 small WebGL context.
+
+SPEC IMPACT: `0024_Reveal_Tuning_and_Door_Spec_2026-06-17.md` §8/§10 — the couple-facing Step-1 chooser is now watermarked auto-play device-frame previews (full-screen in-dashboard interactive overlay retired; interactive reveal lives only on the live guest page). Owner-approved 2026-06-18. DECISION_LOG row added.
+
+## 2026-06-18 · feat(std): live preview builder — Reveal + Theme + one Render button — PR #1742
+
+3-step Save-the-Date builder replacing the old per-field form rows (each with their own Save + redirect). Couples now pick: (1) Reveal opening, (2) Visual theme, (3) see their auto-filled information. A CSS-scaled live phone preview (220px display, 384px natural width via `scale(0.573)`) updates in real time as theme changes. One **Render** button saves everything in a single DB write.
+
+**Migration `20260618000001_std_theme.sql` (applied directly via `db query` to prod):**
+- `events.std_theme TEXT` — stores the couple's chosen film theme (NULL → 'moodboard')
+
+**New: `apps/web/lib/std-themes.ts`:**
+- 5 themes: `moodboard` · `editorial` · `heritage` · `noir` · `botanical`
+- Each theme has: bg/fg/accent/font/scrub Tailwind class sets for full recoloring
+- `resolveStdTheme(id)` helper validates and defaults to 'moodboard'
+
+**Modified: `apps/web/app/[slug]/_components/save-the-date-film.tsx`:**
+- `themeId?: StdThemeId` prop — theme-aware class rendering replaces hardcoded Tailwind colors
+- `preview?: boolean` prop — suppresses audio/fullscreen in the builder's phone frame
+- All hardcoded `text-mulberry`, `bg-cream`, `font-display`, etc. replaced with `${theme.*}` variables
+
+**New: `apps/web/app/dashboard/[eventId]/add-ons/save-the-date/_components/StdBuilderClient.tsx`:**
+- Client component with `themeId` + `launchDate` state
+- `useMemo` live content derivation (only `launchLabel` can change; presigned URLs are server-resolved)
+- Two-column desktop layout (`lg:grid-cols-[1fr_260px]`): steps on left, sticky preview + Render on right
+- Watermark overlay ("Preview") on the small phone frame
+
+**Modified: `apps/web/app/dashboard/[eventId]/add-ons/save-the-date/page.tsx`:**
+- Complete rewrite: now renders `StdBuilderClient` + premium openings section + wax seal link
+- Selects `std_theme`, `slug`, `std_film_*` snapshot columns; passes initial content + theme to client
+- Removed: old per-field form JSX, `searchParams`, `SubmitButton`
+
+**Modified: `apps/web/app/dashboard/[eventId]/add-ons/save-the-date/actions.ts`:**
+- `saveAllStdContent` (new): saves `std_theme` + `std_invitation_launch_date` in one write, returns `{ ok: boolean }` (no redirect)
+- `saveInvitationLaunchDate` kept for backwards compat but no longer used by the page
+
+**Modified: `apps/web/app/[slug]/_components/save-the-date.tsx`, `apps/web/app/[slug]/page.tsx`:**
+- `[slug]/page.tsx`: adds `std_theme` to SELECT, passes `themeId` to both `SaveTheDateView` call sites
+- `save-the-date.tsx`: `themeId?: string | null` prop → `resolveStdTheme(themeId)` → `SaveTheDateFilm`
+
+**SPEC IMPACT:** `DECISION_LOG.md` row added (2026-06-18, STD builder redesign). `0024_save_the_date/` CLAUDE.md built-state updated.
+
+
+---
+
+## 2026-06-18 · feat(editorial): three-layer quality scan + admin review queue — PR #1730
+
+Auto-scan (OpenAI Moderation + LanguageTool) runs on every editorial before the couple sees it. Admin reviews flagged content and unlocks. Zero monthly cost (both APIs are free).
+
+**Migration `20270115451085_editorial_scan.sql` (applied directly via `db query` — pre-existing `invitation_widgets` constraint blocked `db push --include-all`):**
+- `event_editorial`: +`scan_status` (pending→scanning→clean→flagged→admin_cleared→skipped), +`scan_flags` JSONB, +`scan_completed_at`, +`unlocked_for_couple_at`
+- Partial index `event_editorial_scan_queue_idx` for admin queue fetch
+
+**`apps/web/lib/editorial-scan.ts` (new):**
+- `scanEditorial(editorialId)`: OpenAI Moderation batch → LanguageTool per-field (120ms gap) → store flags → auto-unlock if clean; on error sets `skipped` and auto-unlocks (never blocks couple)
+- `ScanFlag` interface with severity (`red`=vulgar/`yellow`=grammar) and resolution lifecycle
+
+**`apps/web/app/dashboard/[eventId]/website/editorial/actions.ts`:**
+- `saveEditorial()` now fires `after(() => scanEditorial(eid))` on first save (`scan_status=pending`)
+
+**`apps/web/app/admin/editorial-review/` (new):**
+- List page: sections for Needs review / Queued / Cleared with red/yellow badge counts
+- Detail page: per-flag cards with Mark OK + admin rewrite textarea; Unlock button gated on no pending red flags; Re-scan button
+- `actions.ts`: `resolveFlag`, `unlockForCouple`, `triggerRescan`
+
+**`apps/web/app/admin/_components/admin-sidebar.tsx`:** Editorial review nav entry added (Work group, after queues)
+**`.env.example`:** `OPENAI_API_KEY` documented (Moderations-only restricted key)
+
+**SPEC IMPACT:** `Editorial_Experience_Spec_2026-06-18.md` § Quality Gate implemented. Migration applied to prod. `OPENAI_API_KEY` must be added to Vercel env by owner (key created in session).
+## 2026-06-18 · feat(std): PR4 content film — full-screen experience after the reveal (#1731)
+
+Removed the `NEXT_PUBLIC_STD_FILM` env gate that silently disabled the Save-the-Date film in production. `SaveTheDateFilm` is now a full-screen `fixed inset-0 z-[50]` experience that plays UNDER the reveal overlay (z-[60]). `RevealOverlay` dispatches a `std-reveal-done` custom event from both the veil `onRevealed` and the rigid `onOpened` paths so the film's RAF loop starts the exact moment the reveal clears (2s fallback if no reveal is active). Last slide stays at `Infinity` until the guest taps Continue; dismissing reveals the normal wedding page beneath.
+
+**Files:** `app/[slug]/page.tsx` · `app/[slug]/_components/reveal/reveal-overlay.tsx` · `app/[slug]/_components/save-the-date-film.tsx`
+
+**SPEC IMPACT:** iter 0024 — the content-film layer is now live on every STD-phase wedding page (free tier); `?film=0` disables to the static countdown fallback for debugging.
+
+---
+
+## 2026-06-18 · Kwento Monumental Upgrade — PR 1 (FaceBlock fix) + PR 2 (Flash tier) + PR 3 (Density Map)
+
+Three-PR build from the approved Kwento Monumental Upgrade plan (`Kwento_Monumental_Upgrade_2026-06-18.md`). Turns Kwento from a single-voice photo-message feature into the narrative infrastructure layer of the event.
+
+**PR 1 (#1721) — fix(live-wall): FaceBlock serve-path guard**
+- `lib/live-wall.ts`: `getWallSnapshot()` was filtering on `photo_messages.author_publicly_hidden` (a cached column). Now fetches `guests.faceblock_enabled` at serve-time and suppresses `caption` if true, regardless of whether the cache column synced.
+- `app/dashboard/[eventId]/website/living-hero/_components/living-hero-studio.tsx`: Hoisted `isSaving = phase === 'saving'` before JSX to fix pre-existing TS2367 narrowing errors that blocked CI.
+
+**PR 2 (#1722) — feat(kwento): Phase 1 Flash tier**
+- Migration `20270115000000_kwento_voice_depth.sql`: `voice_depth` column (`flash`/`story`), per-depth DB CHECK constraints, `last_kwento_notify_at` + `kwento_flash_auto_wall` on `events`.
+- Route `app/api/papic/kwento/route.ts`: `voiceDepth` param, Flash auto-wall (5 s `after()` + coordinator kill-switch), Story debounced batch notify (10 min per event).
+- Guest capture UX (`papic-guest-capture.tsx`): two-step Flash (one-liner + 5 s countdown) → Story phase machine.
+- `lib/notifications.ts`: `kwento_story_batch` + `kwento_flash_auto_walled` notification types.
+- Live console: Flash auto-wall toggle (`flash-auto-wall-toggle.tsx`) + `toggleFlashAutoWall` server action.
+
+**PR 3 (#1724) — feat(kwento): Phase 2 Density Map**
+- `lib/kwento-density.ts`: `getKwentoDensity(eventId, limit)` — JS-aggregated Kwento counts per photo, top N with preview caption.
+- Alaala hub (`alaala/page.tsx`): upgraded from static to dynamic; "Most storied moments" horizontal card row + "Mga Boses" pull-quotes (both hidden when no Kwentos).
+- Papic gallery: `PapicGalleryGrid` gains optional `kwentoDensity` prop; gold/amber/grey density dot on thumbnails.
+
+**SPEC IMPACT:** `Kwento_Monumental_Upgrade_2026-06-18.md` Phases 1 + 2 implemented. `Kwento_Automation_Failproof_2026-06-18.md` G1 (FaceBlock) + G2 (auto-wall) guarantees shipped. Phases 3–6 queued for future sessions.
+
+---
+## 2026-06-18 · feat(kwento): Phase 3 Assignment Board — editorial moment-slot assignments + nudge cascade
+
+Kwento Monumental Upgrade Phase 3. Couples (+ Best Man/MoH delegates) can now assign a confirmed guest to each of the 10 locked editorial moments (Bridal March → Money Dance). Assigned guests receive an introductory email and up to 3 nudge reminders.
+
+**Files changed:**
+- `supabase/migrations/20270120760120_kwento_assignments.sql` — `kwento_assignments` table (event/moment/guest unique constraint, RLS via `current_event_ids()`). No `fulfilled_column_id` — deferred to Phase 4 when `kwento_columns` exists.
+- `apps/web/lib/kwento-moments.ts` — 10 locked `KwentoMoment` constants + `KWENTO_MOMENT_BY_KEY` map
+- `apps/web/lib/notifications.ts` — `kwento_assignment_nudge` type added
+- `apps/web/app/dashboard/[eventId]/alaala/assignments/page.tsx` — server page: fetches assignments + confirmed guest list, renders all 10 moment cards
+- `apps/web/app/dashboard/[eventId]/alaala/assignments/_components/assignment-controls.tsx` — `GuestPicker` + `AssignmentRow` client components (assign, nudge, remove)
+- `apps/web/app/dashboard/[eventId]/alaala/assignments/actions.ts` — `createAssignment`, `removeAssignment`, `nudgeAssignee` server actions; `dispatchNudgeEmail` fires via `after()` to send Resend email + in-app notification (if guest has a linked account)
+- `apps/web/app/dashboard/[eventId]/alaala/page.tsx` — "Story Assignments" entry card added above the footer (links to `/alaala/assignments`)
+
+**SPEC IMPACT:** `Kwento_Monumental_Upgrade_2026-06-18.md` Phase 3 (Assignment Board) implemented. Phases 4–6 (Column tier, Editorial assembly, Vendor voice) queued for future sessions.
+
+---
+## 2026-06-18 · fix(papic): restore eventOwnsPapicSeats in sampler keep-check
+
+Regression introduced by the payment-handshake PR (#1718): `eventSamplerIsKept` was
+changed to `eventPapicSeatsActive` (admin-approved orders only). The keep-check must
+use `eventOwnsPapicSeats` (any active order, including submitted-pending-review) so a
+couple who has uploaded a payment screenshot does not lose their sampler photos during
+the ≤24-hr admin-review window.
+
+**File:** `apps/web/lib/papic-sampler.ts`
+
+**SPEC IMPACT:** None (bug fix, no spec change).
+
+---
+
+## 2026-06-18 · feat(payments): admin-approval handshake — paid features unlock only AFTER the team verifies payment (owner)
+
+Owner 2026-06-18: *"the QR payment is a handshake and must be approved by admin before they can access it?"* → **yes, all paid SKUs.** The apply-then-pay model granted access the moment a couple uploaded their payment screenshot (order status `submitted`) — so a paid feature went live for guests **before** the Setnayan team verified the payment. This switches **feature access** to a true handshake: a paid feature unlocks only when the order is **admin-approved** (`paid`/`fulfilled`). Double-buy prevention is preserved (a pending order still blocks a second purchase).
+
+**The split — `lib/entitlements.ts`:**
+- `eventOwnsSku` / `checkOrderOwnership` — **UNCHANGED**: "has a LIVE order" (status ∉ {cancelled,refunded,lapsed}, so `submitted` counts). **Buy surfaces keep this** for double-buy prevention.
+- **New `eventSkuActive` / `checkOrderActive`** — APPROVED-only (`ACTIVE_STATUSES = {paid, fulfilled}`), bundle-aware. **Feature gates call this.** +16 unit tests (40 total): a `submitted` order is owned-but-not-active; a paid bundle activates its children; a submitted bundle does not.
+- New co-located gate readers: `eventStdOpeningsActive`, `eventAnimatedMonogramActive`, `eventPapicGuestActive`, `eventPapicSeatsActive`.
+
+**20 feature gates switched to active** — every surface that renders/unlocks a paid feature, across ALL paid SKUs: the public couple page (animated monogram · LIVE_WALL · PANOOD_SYSTEM · Papic guest CTA), the Save-the-Date reveal opening, the editorial photo wall, the live-wall route + projector page, the public Papic guest camera, the branded-QR PNG endpoint, face-blur, the Papic sampler, the SETNAYAN_AI deactivation re-check, and the couple's live / monogram / launch / galleries / crew / moderation dashboards. **Leak-grep clean** — no feature gate still reads the pending-inclusive helper.
+
+**Honest buy-surface display (focus SKU):** the Save-the-Date openings page now shows three states — **approved → "unlocked"**, **pending → "payment under review"** (no second-buy), **none → buy-CTA** — pairing `eventStdOpeningsActive` with `eventOwnsStdOpenings`.
+
+No schema, no migration. tsc 0 · `next lint` clean · **332/332 unit**. The admin approve (`paid`) / reject (`cancelled`) flow is unchanged — approval now flips the feature LIVE; reject still revokes.
+
+SPEC IMPACT — restores the spec's *"service activates after the team verifies"* for ALL paid SKUs. → CHANGELOG + corpus DECISION_LOG.
+
+**Follow-up (PR2):** the other 6 add-on buy surfaces (animated-monogram · custom-qr-guest · indoor-blueprint · papic · setnayan-ai · live-wall-card) get the same "payment under review" display — until then a pending order on those shows "owned" optimistically (cosmetic only; the live gate already withholds the feature).
 
 ## 2026-06-18 · feat(patiktok): capture + render foundation — source-clip storage + render-job output (PR1 of 4)
 

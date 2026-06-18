@@ -2,6 +2,7 @@ import { Coins } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { updateBand } from './actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Token bands · Admin' };
 
@@ -112,9 +113,9 @@ export default async function AdminTokenBandsPage() {
                     <span className="text-xs text-ink/55">
                       = ₱{(r.tokens * 100).toLocaleString('en-PH')}
                     </span>
-                    <button type="submit" className="button-secondary text-xs">
+                    <SubmitButton className="button-secondary text-xs" pendingLabel="Saving…">
                       Save
-                    </button>
+                    </SubmitButton>
                   </form>
                 </td>
               </tr>

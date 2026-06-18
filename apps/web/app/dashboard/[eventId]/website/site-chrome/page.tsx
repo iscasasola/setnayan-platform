@@ -6,6 +6,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { FileUpload } from '@/app/_components/file-upload';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { updateSiteChrome } from './actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Music & video hero · Setnayan' };
 
@@ -170,9 +171,7 @@ export default async function SiteChromeEditorPage({
           />
         </fieldset>
 
-        <button type="submit" className="button-primary">
-          Save music &amp; video
-        </button>
+        <SubmitButton pendingLabel="Saving…" className="button-primary">Save music &amp; video</SubmitButton>
       </form>
     </section>
   );

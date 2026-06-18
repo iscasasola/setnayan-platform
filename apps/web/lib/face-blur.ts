@@ -390,8 +390,8 @@ export async function bakeFaceBlurForCapture(opts: {
     // event_software_activations_v2 read had no payment-path writer, so a
     // paid wall never baked. Dynamic import matches this module's lazy-load
     // posture for its heavy static graph.
-    const { eventOwnsSku } = await import('@/lib/entitlements');
-    const ownsWall = await eventOwnsSku(admin, eventId, 'LIVE_WALL');
+    const { eventSkuActive } = await import('@/lib/entitlements');
+    const ownsWall = await eventSkuActive(admin, eventId, 'LIVE_WALL');
     if (!ownsWall) return { baked: false, reason: 'no_live_wall' };
 
     // Fetch originals back from R2 by the stored ref (same as nsfw-screen).

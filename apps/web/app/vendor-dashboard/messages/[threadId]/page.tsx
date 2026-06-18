@@ -18,6 +18,7 @@ import {
   VendorOfferService,
   type VendorOfferOption,
 } from './_components/vendor-offer-service';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Thread · Vendor' };
 
@@ -158,22 +159,22 @@ export default async function VendorThreadPage({ params }: Props) {
               <form action={acceptPaxSurcharge}>
                 <input type="hidden" name="event_vendor_id" value={p.eventVendorId} />
                 <input type="hidden" name="thread_id" value={threadId} />
-                <button
-                  type="submit"
+                <SubmitButton
+                  pendingLabel="Applying…"
                   className="inline-flex h-9 items-center rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600"
                 >
                   {up ? `Apply +${peso(p.delta)}` : `Apply −${peso(p.delta)}`}
-                </button>
+                </SubmitButton>
               </form>
               <form action={declinePaxSurcharge}>
                 <input type="hidden" name="event_vendor_id" value={p.eventVendorId} />
                 <input type="hidden" name="thread_id" value={threadId} />
-                <button
-                  type="submit"
+                <SubmitButton
+                  pendingLabel="Holding…"
                   className="inline-flex h-9 items-center rounded-lg border border-ink/15 bg-cream px-4 text-sm text-ink/70 hover:border-ink/40"
                 >
                   Hold price
-                </button>
+                </SubmitButton>
               </form>
             </div>
           </div>
@@ -222,12 +223,12 @@ export default async function VendorThreadPage({ params }: Props) {
                 name="return_to"
                 value={`/vendor-dashboard/messages/${threadId}`}
               />
-              <button
-                type="submit"
+              <SubmitButton
+                pendingLabel="Accepting…"
                 className="inline-flex h-11 items-center rounded-md bg-mulberry px-5 text-sm font-semibold text-cream hover:bg-mulberry-600"
               >
                 Accept inquiry
-              </button>
+              </SubmitButton>
             </form>
             <form action={declineInquiry}>
               <input type="hidden" name="thread_id" value={threadId} />
@@ -236,12 +237,12 @@ export default async function VendorThreadPage({ params }: Props) {
                 name="return_to"
                 value={`/vendor-dashboard/messages/${threadId}`}
               />
-              <button
-                type="submit"
+              <SubmitButton
+                pendingLabel="Declining…"
                 className="inline-flex h-11 items-center rounded-md border border-ink/20 px-5 text-sm font-semibold text-ink hover:bg-ink/5"
               >
                 Decline
-              </button>
+              </SubmitButton>
             </form>
           </div>
         </div>

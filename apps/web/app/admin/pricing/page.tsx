@@ -9,6 +9,7 @@ import {
   updatePlatformFee,
 } from './actions';
 import { SETNAYAN_PAY_FEE_PCT } from '@/lib/vendor-earnings';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Pricing · Admin' };
 
@@ -533,12 +534,12 @@ function RetailRowView({
           </label>
         </div>
         <div className="mt-4 flex gap-2">
-          <button
-            type="submit"
+          <SubmitButton
             className="rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta/90"
+            pendingLabel="Saving…"
           >
             Save
-          </button>
+          </SubmitButton>
           <Link
             href="/admin/pricing"
             className="rounded-md border border-ink/20 px-4 py-2 text-sm font-medium text-ink/70 hover:bg-ink/5"
@@ -679,12 +680,12 @@ function BundleRowView({
           </label>
         </div>
         <div className="mt-4 flex gap-2">
-          <button
-            type="submit"
+          <SubmitButton
             className="rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta/90"
+            pendingLabel="Saving…"
           >
             Save
-          </button>
+          </SubmitButton>
           <Link
             href="/admin/pricing"
             className="rounded-md border border-ink/20 px-4 py-2 text-sm font-medium text-ink/70 hover:bg-ink/5"
@@ -798,12 +799,12 @@ function VendorRowView({
           </label>
         </div>
         <div className="mt-4 flex gap-2">
-          <button
-            type="submit"
+          <SubmitButton
             className="rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta/90"
+            pendingLabel="Saving…"
           >
             Save
-          </button>
+          </SubmitButton>
           <Link
             href="/admin/pricing"
             className="rounded-md border border-ink/20 px-4 py-2 text-sm font-medium text-ink/70 hover:bg-ink/5"
@@ -899,12 +900,12 @@ function PlatformFeeView({
           />
         </label>
         <div className="mt-4 flex gap-2">
-          <button
-            type="submit"
+          <SubmitButton
             className="rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta/90"
+            pendingLabel="Saving…"
           >
             Save
-          </button>
+          </SubmitButton>
           <Link
             href="/admin/pricing"
             className="rounded-md border border-ink/20 px-4 py-2 text-sm font-medium text-ink/70 hover:bg-ink/5"

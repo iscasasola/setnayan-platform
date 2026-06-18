@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { Copy, Mail, Send, X } from 'lucide-react';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 type Props = {
   /** Identifies this sponsor in the global "open modal for X" dance. */
@@ -166,13 +167,13 @@ export function InvitationTemplateModal({
               <form action={formAction}>
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="sponsor_id" value={sponsorId} />
-                <button
-                  type="submit"
+                <SubmitButton
+                  pendingLabel="Marking sent…"
                   className="inline-flex items-center gap-1.5 rounded-md bg-mulberry px-3 py-1.5 text-xs font-medium text-cream hover:bg-mulberry-600"
                 >
                   <Send aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                   Mark invitation sent
-                </button>
+                </SubmitButton>
               </form>
             </footer>
           </div>

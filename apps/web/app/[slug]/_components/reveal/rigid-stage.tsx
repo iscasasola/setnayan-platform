@@ -36,7 +36,16 @@ type Props = {
   onOpened: () => void;
   /** Render the template's flaps for a given open progress (0 = shut, 1 = clear). */
   renderFlaps: (progress: number) => ReactNode;
+  /**
+   * Preview/demo mode (dashboard Step-1 chooser). Skips the seal gate, ignores
+   * all gesture input, and auto-plays the open on a timer. Default undefined →
+   * the live guest page is byte-for-byte unchanged.
+   */
+  autoPlay?: boolean;
 };
+
+/** Auto-play open duration (ms) for preview mode — matches the ~scrub feel. */
+const AUTOPLAY_MS = 4200;
 
 const SCRUB_WHEEL = 0.0016; // wheel delta → progress
 const SCRUB_DRAG = 0.0042; // pointer/touch drag px → progress
@@ -54,6 +63,7 @@ export function RigidStage({
   fallbackSeed,
   onOpened,
   renderFlaps,
+  autoPlay = false,
 }: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
   const sealRef = useRef<HTMLButtonElement>(null);
@@ -249,6 +259,27 @@ export function RigidStage({
 
   useEffect(() => () => cancelFling(), []);
 
+  // ── Preview auto-play ───────────────────────────────────────────────────
+  // In preview mode we skip the seal gate and ramp targetRef 0→1 on a timer,
+  // feeding the SAME pipe the gestures use — so the easing rAF below still owns
+  // `progress` + fires onOpened exactly once, and the open looks identical to a
+  // real scrub. (The scroll-scrub effect keeps its rAF running; only its input
+  // listeners are gated off for previews — see below.)
+  useEffect(() => {
+    if (!autoPlay) return;
+    setSealGone(true);
+    let raf = 0;
+    let start = 0;
+    const step = (t: number) => {
+      if (!start) start = t;
+      const p = Math.min(1, (t - start) / AUTOPLAY_MS);
+      targetRef.current = p;
+      if (p < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [autoPlay]);
+
   // ── 2. scroll-scrub open (after the seal is gone) ───────────────────────
   useEffect(() => {
     if (!sealGone) return;
@@ -286,11 +317,16 @@ export function RigidStage({
       if (e.cancelable) e.preventDefault();
     };
 
-    el.addEventListener('wheel', onWheel, { passive: false });
-    el.addEventListener('pointerdown', onDown);
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    // Previews are read-only: no gesture listeners (so multiple/embedded
+    // previews never hijack the dashboard's scroll). The easing rAF below still
+    // runs for everyone — it's what advances `progress` + fires onOpened.
+    if (!autoPlay) {
+      el.addEventListener('wheel', onWheel, { passive: false });
+      el.addEventListener('pointerdown', onDown);
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+      el.addEventListener('touchmove', onTouchMove, { passive: false });
+    }
 
     let raf = 0;
     const tick = () => {
@@ -309,13 +345,15 @@ export function RigidStage({
 
     return () => {
       cancelAnimationFrame(raf);
-      el.removeEventListener('wheel', onWheel);
-      el.removeEventListener('pointerdown', onDown);
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-      el.removeEventListener('touchmove', onTouchMove);
+      if (!autoPlay) {
+        el.removeEventListener('wheel', onWheel);
+        el.removeEventListener('pointerdown', onDown);
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        el.removeEventListener('touchmove', onTouchMove);
+      }
     };
-  }, [sealGone]);
+  }, [sealGone, autoPlay]);
 
   return (
     <div ref={stageRef} className="absolute inset-0 overflow-hidden" style={{ touchAction: 'none' }}>
@@ -365,8 +403,8 @@ export function RigidStage({
         </div>
       ) : null}
 
-      {/* once sealed-off → scroll cue, until the open gets going */}
-      {sealGone ? (
+      {/* once sealed-off → scroll cue, until the open gets going (live only) */}
+      {sealGone && !autoPlay ? (
         <div
           className={`pointer-events-none absolute inset-x-0 bottom-12 text-center transition-opacity duration-500 ${
             progress > 0.12 ? 'opacity-0' : 'opacity-100'

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Camera, LogIn, CircleAlert, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { claimPapicSeat } from '@/app/papic/actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 // Papic · seat claim (public)
 //
@@ -116,13 +117,10 @@ export default async function PapicClaimPage({ params, searchParams }: Props) {
       </p>
       <form action={claimPapicSeat} className="mt-5">
         <input type="hidden" name="token" value={token} />
-        <button
-          type="submit"
-          className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream hover:bg-mulberry-600"
-        >
+        <SubmitButton pendingLabel="Claiming…" className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream hover:bg-mulberry-600">
           <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
           Claim my seat &amp; start shooting
-        </button>
+        </SubmitButton>
       </form>
       <p className="mt-3 text-xs text-ink/50">
         Signed in as {user.email ?? 'your account'}.

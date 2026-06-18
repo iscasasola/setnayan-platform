@@ -39,6 +39,8 @@ type Props = {
   fallbackSeed?: number;
   /** Fired once the flaps have scrubbed fully open. */
   onOpened: () => void;
+  /** Preview/demo mode — auto-plays the open, ignores gestures (dashboard chooser). */
+  autoPlay?: boolean;
 };
 
 const FOLD = 'absolute will-change-transform [transform-style:preserve-3d]';
@@ -161,6 +163,7 @@ export function RigidReveal({
   config = null,
   fallbackSeed,
   onOpened,
+  autoPlay = false,
 }: Props) {
   return (
     <RigidStage
@@ -170,8 +173,15 @@ export function RigidReveal({
       config={config}
       fallbackSeed={fallbackSeed}
       onOpened={onOpened}
+      autoPlay={autoPlay}
       renderFlaps={(p) => (
-        <RigidFlaps variant={variant} progress={p} cssFallback={flaps(variant, p)} />
+        <RigidFlaps
+          variant={variant}
+          progress={p}
+          monogramText={monogram}
+          cssFallback={flaps(variant, p)}
+          forcePreviewCss={autoPlay}
+        />
       )}
     />
   );

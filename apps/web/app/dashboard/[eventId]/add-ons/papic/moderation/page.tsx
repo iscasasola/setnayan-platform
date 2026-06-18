@@ -7,7 +7,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { reScreenStuckCaptures } from '@/lib/nsfw-screen';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { eventOwnsPapicGuest } from '@/lib/papic-guest';
+import { eventPapicGuestActive } from '@/lib/papic-guest';
 import { KwentoQueue } from './_components/kwento-queue';
 import {
   reportCapture,
@@ -16,6 +16,7 @@ import {
   unblockUploader,
   approveScreenedCapture,
 } from './actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Photo moderation · Papic · Setnayan' };
 export const dynamic = 'force-dynamic';
@@ -69,7 +70,7 @@ export default async function PapicModerationPage({
 
   const admin = createAdminClient();
 
-  const owns = await eventOwnsPapicGuest(admin, eventId);
+  const owns = await eventPapicGuestActive(admin, eventId);
 
   // Captures (newest first), the blocked-guest list, any open reports, and the
   // NSFW-screened (auto-filtered) captures from BOTH capture tables — one
@@ -294,8 +295,8 @@ export default async function PapicModerationPage({
                 <form action={setCaptureHidden.bind(null, eventId)}>
                   <input type="hidden" name="capture_id" value={captureId} />
                   <input type="hidden" name="hide" value={hidden ? '0' : '1'} />
-                  <button
-                    type="submit"
+                  <SubmitButton
+                    pendingLabel="Updating…"
                     className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/80 hover:bg-ink/[0.04]"
                   >
                     {hidden ? (
@@ -307,7 +308,7 @@ export default async function PapicModerationPage({
                         <EyeOff aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Hide from gallery
                       </>
                     )}
-                  </button>
+                  </SubmitButton>
                 </form>
 
                 {/* Report */}
@@ -326,12 +327,12 @@ export default async function PapicModerationPage({
                         </option>
                       ))}
                     </select>
-                    <button
-                      type="submit"
+                    <SubmitButton
+                      pendingLabel="Reporting…"
                       className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-900 hover:bg-amber-100"
                     >
                       <Flag aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Report
-                    </button>
+                    </SubmitButton>
                   </div>
                 </form>
 
@@ -339,22 +340,22 @@ export default async function PapicModerationPage({
                 {isBlocked ? (
                   <form action={unblockUploader.bind(null, eventId)}>
                     <input type="hidden" name="guest_id" value={guestId} />
-                    <button
-                      type="submit"
+                    <SubmitButton
+                      pendingLabel="Unblocking…"
                       className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/[0.04]"
                     >
                       Unblock {name}&rsquo;s camera
-                    </button>
+                    </SubmitButton>
                   </form>
                 ) : (
                   <form action={blockUploader.bind(null, eventId)}>
                     <input type="hidden" name="guest_id" value={guestId} />
-                    <button
-                      type="submit"
+                    <SubmitButton
+                      pendingLabel="Blocking…"
                       className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-terracotta/30 bg-terracotta/5 px-3 py-1.5 text-xs font-medium text-terracotta-700 hover:bg-terracotta/10"
                     >
                       <UserX aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Block {name}&rsquo;s camera
-                    </button>
+                    </SubmitButton>
                   </form>
                 )}
               </li>
@@ -380,12 +381,12 @@ export default async function PapicModerationPage({
                   <span className="text-ink/80">{guestName.get(gid) ?? 'Guest'}</span>
                   <form action={unblockUploader.bind(null, eventId)}>
                     <input type="hidden" name="guest_id" value={gid} />
-                    <button
-                      type="submit"
+                    <SubmitButton
+                      pendingLabel="Unblocking…"
                       className="rounded-md border border-ink/15 px-2.5 py-1 text-xs font-medium text-ink/70 hover:bg-ink/[0.04]"
                     >
                       Unblock
-                    </button>
+                    </SubmitButton>
                   </form>
                 </li>
               );
@@ -439,12 +440,12 @@ export default async function PapicModerationPage({
                   <form action={approveScreenedCapture.bind(null, eventId)}>
                     <input type="hidden" name="table" value={s.table} />
                     <input type="hidden" name="id" value={s.id} />
-                    <button
-                      type="submit"
+                    <SubmitButton
+                      pendingLabel="Approving…"
                       className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-800 hover:bg-emerald-100"
                     >
                       <Eye aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Approve — show this photo
-                    </button>
+                    </SubmitButton>
                   </form>
                 </li>
               );

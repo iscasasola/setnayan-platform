@@ -20,6 +20,7 @@ import {
   setFolderEventTypes,
   setServiceFaith,
 } from './actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Taxonomy · Admin' };
 // Top-level DB reads (admin client + getTaxonomy) — keep this route dynamic so a
@@ -556,12 +557,12 @@ export default async function AdminTaxonomyPage({
                         </optgroup>
                       ))}
                     </select>
-                    <button
-                      type="submit"
+                    <SubmitButton
                       className="rounded-md border border-emerald-300 bg-white px-2 py-1 text-[11px] font-medium text-emerald-700 hover:bg-emerald-50"
+                      pendingLabel="Promoting…"
                     >
                       Promote ✓
-                    </button>
+                    </SubmitButton>
                   </form>
                   <form action={mapCategoryRequest} className="flex items-center gap-1">
                     <input type="hidden" name="request_id" value={r.request_id} />
@@ -582,23 +583,23 @@ export default async function AdminTaxonomyPage({
                         </option>
                       ))}
                     </select>
-                    <button
-                      type="submit"
+                    <SubmitButton
                       className="rounded-md border border-sky-300 bg-white px-2 py-1 text-[11px] font-medium text-sky-700 hover:bg-sky-50"
+                      pendingLabel="Mapping…"
                     >
                       Map →
-                    </button>
+                    </SubmitButton>
                   </form>
                   <form action={resolveCategoryRequest}>
                     <input type="hidden" name="request_id" value={r.request_id} />
                     <input type="hidden" name="outcome" value="kept_private" />
                     <BackFields q={back.q} view={back.view} anchor="queue" />
-                    <button
-                      type="submit"
+                    <SubmitButton
                       className="rounded-md border border-ink/20 bg-white px-2 py-1 text-[11px] font-medium text-ink/70 hover:border-ink/40"
+                      pendingLabel="Saving…"
                     >
                       Keep private
-                    </button>
+                    </SubmitButton>
                   </form>
                   <form action={resolveCategoryRequest} className="flex items-center gap-1">
                     <input type="hidden" name="request_id" value={r.request_id} />
@@ -610,12 +611,12 @@ export default async function AdminTaxonomyPage({
                       aria-label="Reject reason"
                       className="w-28 rounded-md border border-ink/15 bg-white px-1.5 py-1 text-[11px] text-ink"
                     />
-                    <button
-                      type="submit"
+                    <SubmitButton
                       className="rounded-md border border-rose-200 bg-white px-2 py-1 text-[11px] font-medium text-rose-700 hover:bg-rose-50"
+                      pendingLabel="Rejecting…"
                     >
                       Reject
-                    </button>
+                    </SubmitButton>
                   </form>
                 </div>
               </li>
@@ -684,12 +685,12 @@ export default async function AdminTaxonomyPage({
                       <option value="month">months</option>
                     </select>
                     <span className="text-xs text-ink/50">before</span>
-                    <button
-                      type="submit"
+                    <SubmitButton
                       className="rounded-md border border-ink/15 bg-white px-3 py-1 text-sm font-medium text-ink transition-colors hover:border-terracotta/50 hover:text-terracotta"
+                      pendingLabel="Saving…"
                     >
                       Save
-                    </button>
+                    </SubmitButton>
                   </form>
                 </li>
               ))}
@@ -748,23 +749,23 @@ export default async function AdminTaxonomyPage({
                     className="w-16 rounded-md border border-ink/15 bg-white px-2 py-1 text-sm text-ink"
                   />
                   <span className="text-xs text-ink/50">mo before</span>
-                  <button
-                    type="submit"
+                  <SubmitButton
                     className="rounded-md border border-ink/15 bg-white px-3 py-1 text-sm font-medium text-ink transition-colors hover:border-terracotta/50 hover:text-terracotta"
+                    pendingLabel="Saving…"
                   >
                     Save
-                  </button>
+                  </SubmitButton>
                 </form>
                 {current != null ? (
                   <form action={clearLastMinuteStart} className="shrink-0">
                     <input type="hidden" name="ref_key" value={g.id} />
                     <BackFields q={back.q} view={back.view} anchor="lastminute" />
-                    <button
-                      type="submit"
+                    <SubmitButton
                       className="rounded-md border border-rose-200 bg-white px-2 py-1 text-[11px] font-medium text-rose-700 hover:bg-rose-50"
+                      pendingLabel="Clearing…"
                     >
                       Clear
-                    </button>
+                    </SubmitButton>
                   </form>
                 ) : null}
               </li>
@@ -869,12 +870,12 @@ export default async function AdminTaxonomyPage({
                         <input type="checkbox" name="confirm_overwrite" required className="h-3 w-3" />
                         Overwrite the scopes of all {tiles.length} tiles
                       </label>
-                      <button
-                        type="submit"
+                      <SubmitButton
                         className="rounded-md border border-rose-200 bg-white px-2 py-0.5 text-[11px] font-medium text-rose-700 hover:bg-rose-50"
+                        pendingLabel="Applying…"
                       >
                         Apply to all {tiles.length} tiles
-                      </button>
+                      </SubmitButton>
                       <span className="text-[10px] text-ink/40">overwrites every tile in this folder</span>
                     </form>
                   </details>
@@ -934,39 +935,39 @@ export default async function AdminTaxonomyPage({
                                 <input type="hidden" name="id" value={tile} />
                                 <input type="hidden" name="direction" value="up" />
                                 <BackFields q={back.q} view={back.view} anchor={`t-${tile}`} />
-                                <button
-                                  type="submit"
+                                <SubmitButton
                                   aria-label={`Move ${tile} up`}
                                   title="Move up"
                                   className="shrink-0 rounded-md border border-ink/15 bg-white px-1.5 py-1 text-[11px] text-ink/70 transition-colors hover:border-ink/40"
+                                  pendingLabel="…"
                                 >
                                   ▲
-                                </button>
+                                </SubmitButton>
                               </form>
                               <form action={moveTaxonomyNode}>
                                 <input type="hidden" name="id" value={tile} />
                                 <input type="hidden" name="direction" value="down" />
                                 <BackFields q={back.q} view={back.view} anchor={`t-${tile}`} />
-                                <button
-                                  type="submit"
+                                <SubmitButton
                                   aria-label={`Move ${tile} down`}
                                   title="Move down"
                                   className="shrink-0 rounded-md border border-ink/15 bg-white px-1.5 py-1 text-[11px] text-ink/70 transition-colors hover:border-ink/40"
+                                  pendingLabel="…"
                                 >
                                   ▼
-                                </button>
+                                </SubmitButton>
                               </form>
                               <form action={deleteTaxonomyNode}>
                                 <input type="hidden" name="id" value={tile} />
                                 <BackFields q={back.q} view={back.view} anchor={`t-${tile}`} />
-                                <button
-                                  type="submit"
+                                <SubmitButton
                                   aria-label={`Delete ${tile}`}
                                   title="Delete — blocked if services are still filed here"
                                   className="shrink-0 rounded-md border border-rose-200 bg-white px-2 py-1 text-[11px] font-medium text-rose-700 transition-colors hover:bg-rose-50"
+                                  pendingLabel="…"
                                 >
                                   ✕
-                                </button>
+                                </SubmitButton>
                               </form>
                             </div>
                             <TileEventTypes
@@ -1020,12 +1021,12 @@ export default async function AdminTaxonomyPage({
                                 aria-label={`Add a service under ${tile}`}
                                 className="min-w-0 flex-1 rounded-md border border-ink/15 bg-white px-2 py-1 text-sm text-ink"
                               />
-                              <button
-                                type="submit"
+                              <SubmitButton
                                 className="shrink-0 rounded-md border border-emerald-300 bg-white px-3 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-50"
+                                pendingLabel="Adding…"
                               >
                                 Add
-                              </button>
+                              </SubmitButton>
                             </form>
                           </div>
                         </details>
@@ -1046,12 +1047,12 @@ export default async function AdminTaxonomyPage({
                         aria-label={`Add a tile under ${folder}`}
                         className="min-w-0 flex-1 rounded-md border border-ink/15 bg-white px-2 py-1 text-sm text-ink"
                       />
-                      <button
-                        type="submit"
+                      <SubmitButton
                         className="shrink-0 rounded-md border border-emerald-300 bg-white px-3 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-50"
+                        pendingLabel="Adding…"
                       >
                         Add
-                      </button>
+                      </SubmitButton>
                     </form>
                   </div>
                 </div>
@@ -1151,12 +1152,12 @@ export default async function AdminTaxonomyPage({
                 <input type="checkbox" name="is_ph" className="h-4 w-4" />
                 PH-specific
               </label>
-              <button
-                type="submit"
+              <SubmitButton
                 className="ml-auto rounded-md border border-emerald-300 bg-white px-4 py-1.5 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-50"
+                pendingLabel="Adding…"
               >
                 Add service
-              </button>
+              </SubmitButton>
             </div>
           </form>
         </details>
@@ -1266,12 +1267,12 @@ function TileEventTypes({
             {v.label_en}
           </label>
         ))}
-        <button
-          type="submit"
+        <SubmitButton
           className="rounded-md border border-ink/20 bg-ink px-2 py-0.5 text-[11px] font-medium text-white transition-colors hover:bg-ink/80"
+          pendingLabel="Saving…"
         >
           Save
-        </button>
+        </SubmitButton>
         <span className="text-[10px] text-ink/40">none = universal</span>
       </form>
     </details>
@@ -1323,12 +1324,12 @@ function ServiceFaithControl({
             </option>
           ))}
         </select>
-        <button
-          type="submit"
+        <SubmitButton
           className="rounded-md border border-ink/20 bg-ink px-2 py-1 text-[11px] font-medium text-white transition-colors hover:bg-ink/80"
+          pendingLabel="Setting…"
         >
           Set
-        </button>
+        </SubmitButton>
       </form>
     </details>
   );
@@ -1417,12 +1418,12 @@ function ServiceLine({
             </optgroup>
           ))}
         </select>
-        <button
-          type="submit"
+        <SubmitButton
           className="rounded-md border border-ink/15 bg-white px-2 py-1 text-[11px] font-medium text-ink transition-colors hover:border-terracotta/50 hover:text-terracotta"
+          pendingLabel="Moving…"
         >
           {meta?.tile ? 'Move' : 'File'}
-        </button>
+        </SubmitButton>
       </form>
     </li>
   );
@@ -1464,12 +1465,12 @@ function NodeRenameForm({
         className="min-w-0 flex-1 rounded-md border border-ink/15 bg-white px-2 py-1 text-sm text-ink"
       />
       <span className="hidden font-mono text-[10px] text-ink/40 sm:inline">{id}</span>
-      <button
-        type="submit"
+      <SubmitButton
         className="shrink-0 rounded-md border border-ink/15 bg-white px-3 py-1 text-xs font-medium text-ink transition-colors hover:border-terracotta/50 hover:text-terracotta"
+        pendingLabel="Saving…"
       >
         Save
-      </button>
+      </SubmitButton>
     </form>
   );
 }

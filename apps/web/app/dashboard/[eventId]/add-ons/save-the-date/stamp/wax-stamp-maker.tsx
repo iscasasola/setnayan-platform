@@ -17,7 +17,7 @@
  * is driven directly via ref in rAF — never through React state.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { RotateCcw, Sparkles } from 'lucide-react';
 import { paintWaxSeal } from '@/lib/wax-seal/paint';
 import {
@@ -33,6 +33,7 @@ import {
   type WaxSealGLState,
 } from '@/lib/wax-seal/paint-webgl';
 import { saveWaxSeal } from '../wax-actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 type Props = {
   eventId: string;
@@ -111,6 +112,11 @@ export function WaxStampMaker({
   const isPressActiveRef = useRef(false);
   const finalizeRef      = useRef(() => {});
 
+  // puddle position (hot path — no React state)
+  const pudCXRef      = useRef(CX);  // puddle center x in canvas-px (drifts toward tap)
+  const tapXRef       = useRef(CX);  // most recent tap x in pour-zone stage-px
+  const syncOffsetRef = useRef<() => void>(() => {});
+
   // ── React state ───────────────────────────────────────────────────────────
   const [phase, setPhase]                 = useState<Phase>(existing ? 'outcome' : 'idle');
   const [seed, setSeed]                   = useState(existing?.seed ?? fallbackSeed);
@@ -181,6 +187,11 @@ export function WaxStampMaker({
           existing.pour.amount, true, existing.press.depth,
           existing.pour.irregularity, existing.pour.bubbles,
         );
+        // Restore horizontal puddle position from saved config
+        if (existing.pour.cx_offset && canvasRef.current) {
+          const savedDx = existing.pour.cx_offset * CX;
+          canvasRef.current.style.transform = `translateX(${savedDx}px)`;
+        }
       }
     });
     return () => { cancelled = true; };
@@ -198,12 +209,23 @@ export function WaxStampMaker({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, savedConfig, savedDepth, waxChoice, finish]);
 
-  // Set stamp transform to resting position when it becomes visible
-  useEffect(() => {
+  // Set stamp resting position when it becomes visible (layout effect = no flash)
+  useLayoutEffect(() => {
     if (phase !== 'outcome' && stampRef.current) {
       stampRef.current.style.transform = 'translateY(0px)';
+      stampRef.current.style.left = `${pudCXRef.current - STAMP_DIE_D / 2}px`;
     }
   }, [phase]);
+
+  // Keeps canvas + stamp aligned to pudCXRef whenever it changes
+  useEffect(() => {
+    syncOffsetRef.current = () => {
+      const dx = pudCXRef.current - CX;
+      if (canvasRef.current) canvasRef.current.style.transform = `translateX(${dx}px)`;
+      if (overlayRef.current) overlayRef.current.style.transform = `translateX(${dx}px)`;
+      if (stampRef.current) stampRef.current.style.left = `${pudCXRef.current - STAMP_DIE_D / 2}px`;
+    };
+  }, []);
 
   // ── overlay loop (pour phase) ─────────────────────────────────────────────
   useEffect(() => {
@@ -221,8 +243,10 @@ export function WaxStampMaker({
       const now = performance.now();
       if (drippingRef.current && now - lastDropRef.current > 110 && waxAmtRef.current < MAX_WAX) {
         lastDropRef.current = now;
+        // Spawn at tap position in canvas coords: visual position = tapXRef in stage
+        const spawnDx = pudCXRef.current - CX;
         drops.current.push({
-          x: CX + (Math.random() - 0.5) * 8,
+          x: tapXRef.current - spawnDx + (Math.random() - 0.5) * 8,
           y: -8,
           vy: 1.8 + Math.random() * 0.6,
           r: 5 + Math.random() * 3,
@@ -235,14 +259,15 @@ export function WaxStampMaker({
       const wg = (n >> 8) & 255;
       const wb = n & 255;
 
-      // Thin wax stream while dripping
+      // Thin wax stream while dripping (aligned to tap position in canvas coords)
       if (drippingRef.current && drops.current.length > 0) {
         const lowestY = drops.current.reduce((m: number, d: Drop) => Math.max(m, d.y + d.r), -8);
+        const streamX = tapXRef.current - (pudCXRef.current - CX);
         ctx.save();
         ctx.scale(dpr, dpr);
         ctx.beginPath();
-        ctx.moveTo(CX, -2);
-        ctx.lineTo(CX, Math.min(lowestY, CY - 4));
+        ctx.moveTo(streamX, -2);
+        ctx.lineTo(streamX, Math.min(lowestY, CY - 4));
         ctx.strokeStyle = `rgba(${wr},${wg},${wb},0.32)`;
         ctx.lineWidth = 3;
         ctx.lineCap = 'round';
@@ -280,6 +305,7 @@ export function WaxStampMaker({
         setWaxAmt(waxAmtRef.current);
         const bu = waxAmtRef.current > 0.82 ? (waxAmtRef.current - 0.82) * 4.5 : 0;
         paintRef.current(waxAmtRef.current, false, 0, 0.3, bu);
+        syncOffsetRef.current();
       }
 
       // Ripples
@@ -384,7 +410,7 @@ export function WaxStampMaker({
       v: WAX_SEAL_V,
       seed,
       wax: { color: waxChoice === 'auto' ? null : waxChoice, finish },
-      pour: { amount: amt, irregularity: 0.3, bubbles: bu },
+      pour: { amount: amt, irregularity: 0.3, bubbles: bu, cx_offset: (pudCXRef.current - CX) / CX },
       press: { crispness: 0.74, depth: Math.max(0.05, depth), offset: [0, 0], skew: 0 },
       mark: { source: markSource },
       isDefault: false,
@@ -442,20 +468,48 @@ export function WaxStampMaker({
   const handleCanvasDown = useCallback((e: React.PointerEvent) => {
     if (phase === 'pressing' || phase === 'outcome') return;
     e.stopPropagation();
+
+    // Tap position in pour-zone stage coords (clamped to avoid die-edge overhang)
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const tapX = Math.max(STAMP_DIE_D * 0.5, Math.min(PREVIEW - STAMP_DIE_D * 0.5, e.clientX - rect.left));
+    tapXRef.current = tapX;
+
+    // First tap locks puddle position; subsequent taps blend toward the new tap
+    if (!puddleVisibleRef.current) {
+      pudCXRef.current = tapX;
+    } else {
+      pudCXRef.current = pudCXRef.current * 0.70 + tapX * 0.30;
+      pudCXRef.current = Math.max(STAMP_DIE_D * 0.5, Math.min(PREVIEW - STAMP_DIE_D * 0.5, pudCXRef.current));
+    }
+
     if (phase === 'idle') setPhase('pouring');
     drippingRef.current = true;
     lastDropRef.current = 0;
+
     if (waxAmtRef.current < MAX_WAX) {
+      const dx = pudCXRef.current - CX;
       drops.current.push({
-        x: CX + (Math.random() - 0.5) * 6,
+        x: tapX - dx + (Math.random() - 0.5) * 6, // canvas coords → appear at tapX in stage
         y: -8,
         vy: 2,
         r: 5 + Math.random() * 2.5,
       });
     }
+    syncOffsetRef.current();
   }, [phase]);
 
   const handleCanvasUp = useCallback(() => { drippingRef.current = false; }, []);
+
+  // Drag while holding to steer where wax pours
+  const handleCanvasMove = useCallback((e: React.PointerEvent) => {
+    if (!drippingRef.current || phase !== 'pouring') return;
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const tapX = Math.max(STAMP_DIE_D * 0.5, Math.min(PREVIEW - STAMP_DIE_D * 0.5, e.clientX - rect.left));
+    tapXRef.current = tapX;
+    pudCXRef.current = pudCXRef.current * 0.93 + tapX * 0.07;
+    pudCXRef.current = Math.max(STAMP_DIE_D * 0.5, Math.min(PREVIEW - STAMP_DIE_D * 0.5, pudCXRef.current));
+    syncOffsetRef.current();
+  }, [phase]);
 
   // ── reset ─────────────────────────────────────────────────────────────────
   const reset = useCallback(() => {
@@ -469,6 +523,10 @@ export function WaxStampMaker({
     waxAmtRef.current = 0;
     puddleVisibleRef.current = false;
     pressDepthRef.current = 0;
+    pudCXRef.current = CX;
+    tapXRef.current = CX;
+    if (canvasRef.current) canvasRef.current.style.transform = '';
+    if (overlayRef.current) overlayRef.current.style.transform = '';
     setWaxAmt(0);
     setPuddleVisible(false);
     setSavedConfig(null);
@@ -520,8 +578,7 @@ export function WaxStampMaker({
               className="touch-none select-none"
               style={{
                 position: 'absolute',
-                top: STAMP_TOP,              // 6px — die bottom aligns with canvas top
-                left: `calc(50% - ${STAMP_DIE_D / 2}px)`,  // centered without transform
+                top: STAMP_TOP,
                 width: STAMP_DIE_D,
                 zIndex: 10,
                 display: 'flex',
@@ -629,6 +686,7 @@ export function WaxStampMaker({
             onPointerDown={handleCanvasDown}
             onPointerUp={handleCanvasUp}
             onPointerCancel={handleCanvasUp}
+            onPointerMove={handleCanvasMove}
           >
             {/* Idle hint */}
             {phase === 'idle' && (
@@ -741,13 +799,13 @@ export function WaxStampMaker({
                 <form action={saveWaxSeal}>
                   <input type="hidden" name="event_id" value={eventId} />
                   <input type="hidden" name="config" value={JSON.stringify(savedConfig)} />
-                  <button
-                    type="submit"
+                  <SubmitButton
+                    pendingLabel="Saving…"
                     className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-[#cb9e4b] px-6 text-sm font-semibold text-ink transition hover:bg-[#b8923f]"
                   >
                     <Sparkles aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                     Love it — use this seal
-                  </button>
+                  </SubmitButton>
                 </form>
               </div>
             </>

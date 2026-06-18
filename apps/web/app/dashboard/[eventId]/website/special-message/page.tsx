@@ -4,6 +4,7 @@ import { ArrowLeft, CheckCircle2, Heart } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { updateSpecialMessage } from './actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Edit special message · Setnayan' };
 
@@ -98,9 +99,7 @@ export default async function SpecialMessageEditorPage({
           />
           <span className="mt-1 block text-xs text-ink/45">Up to 600 characters.</span>
         </label>
-        <button type="submit" className="button-primary">
-          Save message
-        </button>
+        <SubmitButton pendingLabel="Saving…" className="button-primary">Save message</SubmitButton>
       </form>
     </section>
   );

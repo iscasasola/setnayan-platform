@@ -35,6 +35,9 @@ export type WaxSealConfig = {
     irregularity: number;
     /** Overheat micro-bubble density, 0..1. */
     bubbles: number;
+    /** Horizontal puddle center offset as fraction of half-canvas, -1..1.
+     *  Positive = right. 0 / absent = centered. Tap-anywhere uniqueness anchor. */
+    cx_offset?: number;
   };
   press: {
     /** The 3-zone outcome: <0.34 hot/soft · 0.34–0.74 crisp · >0.74 shallow. */
@@ -125,6 +128,9 @@ export function sanitizeWaxSealConfig(raw: unknown): WaxSealConfig | null {
       amount: clamp01(num(pour.amount, 0.6)),
       irregularity: clamp01(num(pour.irregularity, 0.3)),
       bubbles: clamp01(num(pour.bubbles, 0)),
+      ...(num(pour.cx_offset, 0) !== 0
+        ? { cx_offset: clampPm1(num(pour.cx_offset, 0)) }
+        : {}),
     },
     press: {
       crispness: clamp01(num(press.crispness, 0.7)),

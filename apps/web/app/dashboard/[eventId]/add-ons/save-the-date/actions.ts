@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { REVEAL_TEMPLATE_IDS, type RevealTemplateId } from '@/lib/reveal-config';
+import { STD_THEME_IDS } from '@/lib/std-themes';
 
 /**
  * Server actions for the Save-the-Date builder (0024 PR4 · P4).
@@ -65,6 +66,69 @@ export async function chooseRevealTemplate(
   return { ok: true };
 }
 
+/**
+ * saveAllStdContent — single-shot save for the live builder (2026-06-18).
+ * Persists theme + invitation launch date + the four film-snapshot columns
+ * (std_film_date / venue_name / venue_city / story) in one write.
+ * Returns { ok: boolean } — no redirect; the builder shows an inline result.
+ *
+ * Snapshot fields store film-specific overrides so subsequent edits to the
+ * core event (event_date, venue_name, love_story) don't change a finalized
+ * film. Passing null/empty clears the override and falls back to live event
+ * data on the next render.
+ */
+export async function saveAllStdContent(
+  eventId: string,
+  data: {
+    theme?: string;
+    launchDate?: string | null;
+    filmDate?: string | null;
+    filmVenueName?: string | null;
+    filmVenueCity?: string | null;
+    filmStory?: string | null;
+  },
+): Promise<{ ok: boolean; error?: string }> {
+  if (!eventId) return { ok: false, error: 'missing-event' };
+  const supabase = await requireCouple(eventId);
+
+  const theme =
+    data.theme && (STD_THEME_IDS as readonly string[]).includes(data.theme)
+      ? data.theme
+      : null;
+
+  const rawDate = data.launchDate?.trim() ?? null;
+  const launchDate =
+    rawDate === '' || rawDate === null
+      ? null
+      : /^\d{4}-\d{2}-\d{2}$/.test(rawDate)
+        ? rawDate
+        : undefined;
+  if (launchDate === undefined) return { ok: false, error: 'bad-date' };
+
+  const rawFilmDate = data.filmDate?.trim() ?? null;
+  const filmDate =
+    rawFilmDate === '' || rawFilmDate === null
+      ? null
+      : /^\d{4}-\d{2}-\d{2}$/.test(rawFilmDate)
+        ? rawFilmDate
+        : undefined;
+  if (filmDate === undefined) return { ok: false, error: 'bad-film-date' };
+
+  const patch: Record<string, unknown> = {};
+  if (theme !== null) patch.std_theme = theme;
+  patch.std_invitation_launch_date = launchDate;
+  if (data.filmDate !== undefined) patch.std_film_date = filmDate;
+  if (data.filmVenueName !== undefined) patch.std_film_venue_name = data.filmVenueName?.trim() || null;
+  if (data.filmVenueCity !== undefined) patch.std_film_venue_city = data.filmVenueCity?.trim() || null;
+  if (data.filmStory !== undefined) patch.std_film_story = data.filmStory?.trim() || null;
+
+  const { error } = await supabase.from('events').update(patch).eq('event_id', eventId);
+  if (error) return { ok: false, error: 'db-error' };
+
+  revalidate(eventId);
+  return { ok: true };
+}
+
 export async function saveInvitationLaunchDate(formData: FormData): Promise<void> {
   const eventId = String(formData.get('event_id') ?? '').trim();
   if (!eventId) throw new Error('Missing event_id');
@@ -87,4 +151,74 @@ export async function saveInvitationLaunchDate(formData: FormData): Promise<void
 
   revalidate(eventId);
   redirect(`/dashboard/${eventId}/add-ons/save-the-date?std=saved#touches`);
+}
+
+export async function saveStdContent(formData: FormData): Promise<void> {
+  const eventId = String(formData.get('event_id') ?? '').trim();
+  if (!eventId) throw new Error('Missing event_id');
+  const supabase = await requireCouple(eventId);
+
+  // Writes to the STD-specific snapshot columns (std_film_*), NOT the live
+  // event columns (event_date / venue_name / etc.). This decouples the film
+  // content from subsequent event edits — the snapshot is the source of truth
+  // for the film once finalized. See migration 20270122000000.
+  const updates: Record<string, unknown> = {};
+
+  const rawDate = String(formData.get('film_date') ?? '').trim();
+  if (rawDate) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
+      redirect(`/dashboard/${eventId}/add-ons/save-the-date?std_error=bad-date#content`);
+    }
+    updates.std_film_date = rawDate;
+  }
+
+  const venueName = String(formData.get('film_venue_name') ?? '').trim();
+  if (venueName) updates.std_film_venue_name = venueName;
+
+  const venueCity = String(formData.get('film_venue_city') ?? '').trim();
+  if (venueCity) updates.std_film_venue_city = venueCity;
+
+  const filmStory = String(formData.get('film_story') ?? '').trim();
+  if (filmStory) updates.std_film_story = filmStory;
+
+  if (Object.keys(updates).length === 0) {
+    redirect(`/dashboard/${eventId}/add-ons/save-the-date`);
+  }
+
+  const { error } = await supabase
+    .from('events')
+    .update(updates)
+    .eq('event_id', eventId);
+  if (error) {
+    redirect(`/dashboard/${eventId}/add-ons/save-the-date?std_error=save#content`);
+  }
+
+  revalidate(eventId);
+  redirect(`/dashboard/${eventId}/add-ons/save-the-date?std=saved#content`);
+}
+
+export async function saveSoundtrack(formData: FormData): Promise<void> {
+  const eventId = String(formData.get('event_id') ?? '').trim();
+  if (!eventId) throw new Error('Missing event_id');
+  const supabase = await requireCouple(eventId);
+
+  const musicRef = String(formData.get('music_r2_ref') ?? '').trim();
+  if (!musicRef) {
+    redirect(`/dashboard/${eventId}/add-ons/save-the-date`);
+  }
+
+  const { error } = await supabase
+    .from('events')
+    .update({
+      site_bg_music_r2_key: musicRef,
+      site_bg_music_source: 'upload',
+      site_bg_music_enabled: true,
+    })
+    .eq('event_id', eventId);
+  if (error) {
+    redirect(`/dashboard/${eventId}/add-ons/save-the-date?std_error=save#content`);
+  }
+
+  revalidate(eventId);
+  redirect(`/dashboard/${eventId}/add-ons/save-the-date?std=saved#content`);
 }

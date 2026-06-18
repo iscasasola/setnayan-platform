@@ -18,6 +18,7 @@ import {
 } from './actions';
 import { DirectPayPreviewButton } from '@/app/dashboard/[eventId]/_components/vendor-direct-pay';
 import { FormFlash } from '@/app/_components/forms/form-flash';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Payment options · Admin' };
 
@@ -370,9 +371,9 @@ function ActionRow({
             name="payment_method_id"
             value={row.payment_method_id}
           />
-          <button type="submit" className="button-primary h-9 px-3 text-xs">
+          <SubmitButton className="button-primary h-9 px-3 text-xs" pendingLabel="Approving…">
             Approve
-          </button>
+          </SubmitButton>
         </form>
       ) : null}
 
@@ -383,12 +384,12 @@ function ActionRow({
             name="payment_method_id"
             value={row.payment_method_id}
           />
-          <button
-            type="submit"
+          <SubmitButton
             className="inline-flex h-9 items-center rounded-md border border-amber-300 bg-amber-50 px-3 text-xs font-medium text-amber-900 hover:bg-amber-100"
+            pendingLabel="Holding…"
           >
             Hold
-          </button>
+          </SubmitButton>
         </form>
       ) : null}
 
@@ -398,12 +399,12 @@ function ActionRow({
           name="payment_method_id"
           value={row.payment_method_id}
         />
-        <button
-          type="submit"
+        <SubmitButton
           className="inline-flex h-9 items-center rounded-md border border-terracotta/30 bg-terracotta/5 px-3 text-xs font-medium text-terracotta-700 hover:bg-terracotta/15"
+          pendingLabel="Removing…"
         >
           Remove
-        </button>
+        </SubmitButton>
       </form>
     </div>
   );

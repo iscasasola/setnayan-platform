@@ -105,6 +105,12 @@ export type AddOnEntry = {
    * page still owns the real price + purchase.
    */
   freeTrial?: string;
+  /**
+   * DB service_key for ownership checks on the Studio hub. Absent on free tools
+   * and services with variable/multi-SKU pricing — those skip the hub-level
+   * ownership badge; their detail pages handle state.
+   */
+  serviceKey?: string;
 };
 
 /**
@@ -129,6 +135,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
       'Ranked vendor matches by date, budget, location, guest count & faith — a shortlist made for your wedding, not a directory',
     cta: 'See your matches',
     studioGroup: 'setnayan_ai',
+    serviceKey: 'SETNAYAN_AI',
     poster: {
       motion: 'pulse',
       baseBackground:
@@ -254,6 +261,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb: 'A custom song for your wedding — written from the love story you told us',
     cta: 'Create your song',
     studioGroup: 'branding',
+    serviceKey: 'PAKANTA',
     poster: {
       motion: 'pulse',
       baseBackground:
@@ -274,6 +282,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
       'Design your wedding monogram · animated SVG trace · custom hero background',
     cta: 'Open studio',
     studioGroup: 'branding',
+    serviceKey: 'ANIMATED_MONOGRAM',
     poster: {
       motion: 'pulse',
       baseBackground:
@@ -294,6 +303,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
       'A branded QR for every guest · your monogram + palette colors · print-ready',
     cta: 'Brand my QRs',
     studioGroup: 'branding',
+    serviceKey: 'CUSTOM_QR_GUEST',
     poster: {
       motion: 'drift',
       baseBackground:
@@ -314,6 +324,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     cta: 'Set up',
     studioGroup: 'capture',
     freeTrial: 'Free to try',
+    serviceKey: 'PAPIC_SEATS',
     poster: {
       motion: 'pulse',
       baseBackground:
@@ -431,6 +442,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
       'Your seating chart, turned into wayfinding · each guest finds their table from the entrance',
     cta: 'Map my venue',
     studioGroup: 'branding',
+    serviceKey: 'INDOOR_BLUEPRINT',
     poster: {
       motion: 'drift',
       baseBackground:

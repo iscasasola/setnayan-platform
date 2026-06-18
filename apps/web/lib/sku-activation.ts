@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { appendLedger } from '@/lib/ledger';
 import { activateConcierge } from '@/app/dashboard/(account)/profile/concierge/actions';
 import { branchIdFromServiceKey } from '@/lib/vendor-branches';
-import { BUNDLE_CHILD_SKUS, eventOwnsSku } from '@/lib/entitlements';
+import { BUNDLE_CHILD_SKUS, eventSkuActive } from '@/lib/entitlements';
 import { makeSamplerPermanent } from '@/lib/papic-sampler';
 import { cancelSamplerExpiryWarnings } from '@/lib/papic-sampler-emails';
 
@@ -205,7 +205,7 @@ export async function activateOrderSku(ctx: ActivationContext): Promise<void> {
  */
 async function deactivateSetnayanAiIfUnowned(ctx: ActivationContext): Promise<void> {
   if (!ctx.eventId) return;
-  if (await eventOwnsSku(ctx.admin, ctx.eventId, 'SETNAYAN_AI')) return; // still owned → keep
+  if (await eventSkuActive(ctx.admin, ctx.eventId, 'SETNAYAN_AI')) return; // still owned → keep
   const { error } = await ctx.admin
     .from('events')
     .update({ setnayan_ai_active: false })

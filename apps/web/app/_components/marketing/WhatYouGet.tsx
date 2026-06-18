@@ -346,6 +346,37 @@ export function WhatYouGet() {
           </div>
         </div>
 
+        {/* ── NEW BEAT: Papic — guests become the crew ──────────────────────
+            Sits in the dark section so the contrast reads: chaos → still dark
+            but now purposeful → light (planning). Sets up the UPS before the
+            "free planning tools" section that follows. */}
+        <div className="relative mx-auto max-w-[1100px] px-5 pt-2 pb-16 sm:px-8 lg:px-14">
+          <Reveal>
+            <div
+              className="m-mono text-center"
+              style={{ fontSize: 11, letterSpacing: '.24em', textTransform: 'uppercase', color: 'var(--m-orange-3)' }}
+            >
+              Papic
+            </div>
+            <h2
+              className="m-serif italic mx-auto mt-5 text-center"
+              style={{ color: '#FBFBFA', fontSize: 'clamp(1.9rem, 5.2vw, 3.2rem)', lineHeight: 1.1, maxWidth: 780 }}
+            >
+              Your guests don&rsquo;t hire a photographer.{' '}
+              <span style={{ color: 'var(--m-orange-3)' }}>They become one.</span>
+            </h2>
+            <p
+              className="mx-auto mt-5 text-center"
+              style={{ color: 'rgba(251,251,250,.62)', fontSize: 'clamp(1rem, 2.5vw, 1.15rem)', lineHeight: 1.6, maxWidth: 600 }}
+            >
+              Papic turns your most enthusiastic cousins, friends, and ninongs into your photo crew.
+              They shoot freely from designated seats — every guest&rsquo;s photo auto-tagged via QR scan.
+              Everyone leaves with their own gallery and a personalised souvenir reel.
+              No production hire. No waiting weeks for a USB drive.
+            </p>
+          </Reveal>
+        </div>
+
         {/* Dark → light transition: the relief, made literal. */}
         <div
           aria-hidden
@@ -503,48 +534,7 @@ export function WhatYouGet() {
         </div>
 
         {/* ─────────────────────────────────────────────────────────────
-            BEAT 4 — soft upgrade (no prices)
-            ───────────────────────────────────────────────────────────── */}
-        <div className="mx-auto max-w-[820px] border-t border-[var(--m-line-soft)] px-5 py-12 text-center sm:px-8 lg:px-14">
-          <Reveal>
-            <h3
-              className="m-serif italic"
-              style={{ fontSize: 'clamp(1.7rem, 4.5vw, 2.6rem)', lineHeight: 1.12 }}
-            >
-              Want it sharper? Want it remembered?
-            </h3>
-            <p
-              className="mx-auto mt-4 text-[var(--m-slate)]"
-              style={{ fontSize: 'clamp(1rem, 2.6vw, 1.15rem)', lineHeight: 1.6, maxWidth: 600 }}
-            >
-              Add only what you want — the planning always stays free.
-            </p>
-            <div className="mt-6 flex flex-wrap justify-center gap-2.5">
-              {EXTRAS.map((e) => (
-                <span
-                  key={e.name}
-                  className="m-pill"
-                  style={{ padding: '8px 14px', fontSize: 13 }}
-                >
-                  <span
-                    style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: 999,
-                      background: 'var(--m-mulberry)',
-                      display: 'inline-block',
-                    }}
-                  />
-                  <span className="text-[var(--m-ink)] font-medium">{e.name}</span>
-                  <span className="text-[var(--m-slate-2)]">— {e.what}</span>
-                </span>
-              ))}
-            </div>
-          </Reveal>
-        </div>
-
-        {/* ─────────────────────────────────────────────────────────────
-            BEAT 5 — close + CTA (echoes the hero end-card)
+            BEAT 4 — close + CTA (echoes the hero end-card)
             ───────────────────────────────────────────────────────────── */}
         <div className="px-5 pt-12 pb-24 text-center sm:px-8 lg:px-14">
           <Reveal>
@@ -607,15 +597,6 @@ const DASH_STATS: Array<{ v: string; k: string }> = [
   { v: '12', k: 'Tables' },
 ];
 
-// ─────────────────────────────────────────────────────────────────────
-// Beat 4 data — premium add-ons as tangible chips (price-free).
-// ─────────────────────────────────────────────────────────────────────
-const EXTRAS: Array<{ name: string; what: string }> = [
-  { name: 'Setnayan AI', what: 'ranks your best-fit vendors' },
-  { name: 'Papic', what: 'guests become your photo crew' },
-  { name: 'Custom song', what: 'a track that’s only yours' },
-  { name: 'Same-day film', what: 'a highlight reel by the reception' },
-];
 
 // ─────────────────────────────────────────────────────────────────────
 // RoomMock — tiny, theme-tokened product visuals so each free tool reads

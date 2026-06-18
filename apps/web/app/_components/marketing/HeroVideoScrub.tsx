@@ -378,13 +378,26 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
         >
           scroll ↓
         </div>
-        {/* Loading veil — pill swaps on reveal; feature grid always visible in both states. */}
+        {/* Loading veil — manifesto is the hero; pill anchors to the bottom. */}
         <div
           ref={loaderRef}
           aria-hidden
           className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center"
-          style={{ background: '#F6F3EE', zIndex: 5, transition: 'opacity .8s ease', padding: '0 32px', gap: 32 }}
+          style={{ background: '#F6F3EE', zIndex: 5, transition: 'opacity .8s ease', padding: '0 32px 80px', gap: 28 }}
         >
+          {/* Manifesto — dominant; visible in both loading and ready states */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, width: '100%', maxWidth: 600, textAlign: 'center' }}>
+            <p className="m-serif italic" style={{ margin: 0, fontSize: 'clamp(1.55rem, 3.8vw, 2.3rem)', lineHeight: 1.15, color: 'rgba(30,34,41,0.45)', fontWeight: 400 }}>
+              Weddings have always been planned for the couple.
+            </p>
+            <div style={{ width: 28, height: 1, background: '#C9A96E', opacity: 0.7 }} />
+            <p className="m-serif italic" style={{ margin: 0, fontSize: 'clamp(1.55rem, 3.8vw, 2.3rem)', lineHeight: 1.15, color: '#1E2229', fontWeight: 400 }}>
+              We built the first platform where{' '}
+              <span style={{ color: '#C9A96E' }}>every guest</span>
+              {' '}is part of it.
+            </p>
+          </div>
+
           {/* Pill wrapper — fixed height so loading + ready pills overlap cleanly */}
           <div style={{ position: 'relative', height: 36, width: '100%', maxWidth: 480 }}>
             {/* Loading pill — visible while buffering */}
@@ -406,19 +419,6 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
               <span style={{ fontSize: 15, color: '#C9A96E', animation: 'stn-nudge-up 1.4s ease-in-out infinite', display: 'inline-block' }}>&#8593;</span>
               <span className="m-mono" style={{ fontSize: 10, letterSpacing: '.24em', color: '#C9A96E', textTransform: 'uppercase' }}>Scroll up</span>
             </div>
-          </div>
-
-          {/* Manifesto — always visible in both loading and ready states */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, width: '100%', maxWidth: 600, textAlign: 'center' }}>
-            <p className="m-serif italic" style={{ margin: 0, fontSize: 'clamp(1.55rem, 3.8vw, 2.3rem)', lineHeight: 1.15, color: 'rgba(30,34,41,0.32)', fontWeight: 400 }}>
-              Weddings have always been planned for the couple.
-            </p>
-            <div style={{ width: 28, height: 1, background: '#C9A96E', opacity: 0.6 }} />
-            <p className="m-serif italic" style={{ margin: 0, fontSize: 'clamp(1.55rem, 3.8vw, 2.3rem)', lineHeight: 1.15, color: '#1E2229', fontWeight: 400 }}>
-              We built the first platform where{' '}
-              <span style={{ color: '#C9A96E' }}>every guest</span>
-              {' '}is part of it.
-            </p>
           </div>
 
           <style>{`@keyframes stn-nudge-up{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}`}</style>

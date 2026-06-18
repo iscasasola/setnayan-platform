@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · feat(std): admin override for stuck Save-the-Date videos (PR-E)
+
+Closes the gap PR-B flagged: the automatic poster-frame screen is fail-open → a video can sit at `nsfw:'pending'` forever (poster extraction / model hiccup) and silently never go live, with no recourse. Now an admin can decide it.
+
+- **Reveal Studio panel** (`/admin/reveal-studio`): a "Save-the-Date videos · needs review" queue listing couple videos that are **pending** or **rejected** (auto-approved ones are presumed fine + omitted). Each row plays the clip (with its poster) and offers **Approve** / **Reject**. The panel hides entirely when the queue is empty — no clutter.
+- **Action** `setStdVideoModeration(eventId, decision)` (admin-gated via `assertAdmin`, service-role write): sets `events.std_media.nsfw` to `approved` (goes live) or `rejected` (gallery shows). Revalidates `/[slug]`.
+- The page query filters STD-video events and presigns the video + poster for review; fail-safe to an empty queue on any read error (never breaks the studio).
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. Admin UI — verify on the Vercel preview. No migration (reuses `events.std_media`).
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the NSFW video gate now has the admin-manual-approve path noted as a PR-B follow-up. See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · feat(std): inline song upload in the Music step (PR-D)
 
 Completes the owner's "song pick/upload" for Step 4 — the Music step no longer just links out; the couple uploads their song right there.

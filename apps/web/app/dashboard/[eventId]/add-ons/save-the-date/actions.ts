@@ -209,6 +209,21 @@ export async function saveAllStdContent(
   const { error } = await supabase.from('events').update(patch).eq('event_id', eventId);
   if (error) return { ok: false, error: 'db-error' };
 
+  // Backfill the canonical wedding date from the Save-the-Date date when the
+  // event has none yet. The public page's lifecycle phase reads
+  // events.event_date (NOT std_film_date) to decide whether to show the film —
+  // so without this, a couple who only sets the date here would never see their
+  // Save-the-Date appear (it'd sit in the RSVP phase). Guarded to event_date IS
+  // NULL so an existing wedding date is never clobbered; std_film_date stays the
+  // display-only override on top.
+  if (filmDate) {
+    await supabase
+      .from('events')
+      .update({ event_date: filmDate })
+      .eq('event_id', eventId)
+      .is('event_date', null);
+  }
+
   // Screen the uploaded video by its poster frame (background, fail-open). Only
   // an 'approved' verdict ever lets the video play on the public page.
   if (screenAfterSave) {

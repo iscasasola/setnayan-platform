@@ -486,7 +486,7 @@ export function StdBuilderClient({
                 {!filmDate && initialContent.dateLabel ? (
                   <p className={helperCls}>Auto-filled · {initialContent.dateLabel}</p>
                 ) : !filmDate ? (
-                  <p className={helperCls}>No date set yet — add it in your event dashboard.</p>
+                  <p className={helperCls}>No date set yet — set it here and it becomes your wedding date. Your Save-the-Date shows once your wedding is more than 90 days away.</p>
                 ) : null}
               </div>
 

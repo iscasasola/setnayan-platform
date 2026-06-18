@@ -954,6 +954,17 @@ Per owner decision (Option B), Panood collapses to **one per-day SKU = the catal
 `app/dashboard/[eventId]/add-ons/panood/page.tsx` only. `pnpm typecheck` + `pnpm lint` clean. The dropped V1 keys still linger harmlessly in `lib/add-on-stats.ts` / `lib/subscriptions.ts` / the legacy `lib/sku-catalog.ts` mirror (they handle historical orders; the mirror cleanup is PR3).
 
 SPEC IMPACT: iter 0011 (Panood) is now a single per-day SKU priced from the admin catalog (Annual + AI media SKUs retired from the buy flow). **Next — PR3:** replace the remaining display-only hardcodes (`lib/wizard.ts` copy, Papic display figures, `/pricing` branch line) + delete retired Boosted-Ads prices. DECISION_LOG row added.
+## 2026-06-18 · fix(std): preview veil is controllable (drag/double-tap) + Save-the-Date save no longer fails (missing prod columns)
+
+Two builder bugs reported on a live couple Save-the-Date builder:
+
+1. **Couldn't control the veil in the preview** — `veil-reveal.tsx` only attached the pointer listeners `if (!autoplay)`, and the preview passes `autoplay`, so drag + double-tap were dead. Now the listeners attach **always**; the preview keeps its hands-free auto-demo (`startAuto`) AND is controllable — a swipe/double-tap cleanly overrides the demo (`setLift`/`doRevealAuto` clear `auto`/`locked`; the gesture handlers never gated on them). Live page unchanged.
+
+2. **"Cannot save the details"** — the save hard-failed with `column "std_film_date" does not exist`. The migration `20270122468502_std_film_content_snapshot.sql` (adds `std_film_date` / `std_film_venue_name` / `std_film_venue_city` / `std_film_story`) was **never applied to prod**; the page's SELECT of those columns silently failed → `event` came back null (builder ran degraded) and the save UPDATE errored. **Applied the migration to prod** (idempotent `ADD COLUMN IF NOT EXISTS`) + recorded the ledger row `20270122468502`. Verified the action's UPDATE now succeeds. No code change for this one — the migration just hadn't been pushed.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: None — bug fixes (gesture-listener gating + applying an existing-but-unpushed migration).
 
 ## 2026-06-18 · fix(std): couple opening picker honours the admin "allowed openings" map
 

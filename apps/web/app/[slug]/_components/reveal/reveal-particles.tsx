@@ -119,7 +119,13 @@ export function RevealParticles({
       ctx.save();
       ctx.translate(p.x, p.y);
       ctx.rotate(p.rot);
-      ctx.globalAlpha = 0.92;
+      // Soft cast shadow — offset down-right, blurred; grounds the petal on the
+      // film instead of floating flat (spec §5 "lit, shadow-casting").
+      ctx.shadowColor = 'rgba(0,0,0,0.28)';
+      ctx.shadowBlur = p.size * 1.1;
+      ctx.shadowOffsetX = p.size * 0.45;
+      ctx.shadowOffsetY = p.size * 0.7;
+      ctx.globalAlpha = 0.94;
       ctx.fillStyle = p.color;
       ctx.beginPath();
       ctx.ellipse(0, 0, p.size, p.size * 0.55, 0, 0, 6.2832);
@@ -130,6 +136,11 @@ export function RevealParticles({
       ctx.save();
       ctx.translate(p.x, p.y);
       const ww = p.size * (0.55 + 0.45 * Math.abs(Math.sin(p.flap)));
+      // Cast shadow on the wings only (set once, before the body strut).
+      ctx.shadowColor = 'rgba(0,0,0,0.3)';
+      ctx.shadowBlur = p.size * 1.2;
+      ctx.shadowOffsetX = p.size * 0.55;
+      ctx.shadowOffsetY = p.size * 0.85;
       ctx.fillStyle = p.color;
       for (const d of [-1, 1]) {
         ctx.beginPath();
@@ -139,6 +150,7 @@ export function RevealParticles({
         ctx.ellipse(d * ww * 0.45, p.size * 0.3, ww * 0.42, p.size * 0.38, d * 0.4, 0, 6.2832);
         ctx.fill();
       }
+      ctx.shadowColor = 'transparent';
       ctx.fillStyle = 'rgba(40,30,20,0.7)';
       ctx.fillRect(-1, -p.size * 0.5, 2, p.size);
       ctx.restore();

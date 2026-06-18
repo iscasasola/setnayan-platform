@@ -112,7 +112,9 @@ const ALLOWED_MIME_TYPES: ReadonlySet<string> = new Set([
 // audio/video chrome uploads. Bytes. The signed content-length still binds the
 // actual PUT, so a client can't claim a small size then send more.
 const TYPE_MAX_BYTES: ReadonlyArray<readonly [string, number]> = [
-  ['video/', 60 * 1024 * 1024], // 60 MB — a short, compressed hero loop
+  ['video/', 200 * 1024 * 1024], // 200 MB ceiling — a Save-the-Date clip / hero loop. The
+  // STD media picker auto-compresses larger videos client-side to a web-friendly
+  // target before upload; this is the hard safety net (R2 egress is free). 2026-06-19
   ['audio/', 40 * 1024 * 1024], // 40 MB — a full-length background song (covers a ~30-min onboarding track)
 ];
 

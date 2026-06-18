@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · fix(std): uploaded song plays — drop the redundant veil-music gate
+
+Owner: "background music is not playing when the veil is up. I uploaded the music on the save the date page."
+
+`bgMusicUrl` (app/[slug]/page.tsx) required THREE flags: `site_bg_music_enabled` **AND** the track key **AND** `std_reveal_effects.music` (the veil "Add music" effect, which the veil canvas ignores — "handled at page level"). The Save-the-Date Music step's upload sets the first two, but the redundant third flag (off unless the couple toggled it) was nulling the music URL — so the film got no soundtrack at all even after the upload. Dropped the `&& stdEffectsForMusic.music` gate: `site_bg_music_enabled` is the single on/off, so an uploaded + enabled song now just plays (no re-save needed — the existing `site_bg_music_enabled=true` from the upload resolves the URL on the next load). Pairs with the recovered autoplay-on-lift fix (#1800), which actually starts it.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the couple's uploaded/enabled site song is the single source for the film soundtrack; the redundant veil `music` flag no longer gates it. See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · fix(std): music autoplays · content waits for the veil · petals cling on hit (PR-W follow-up 4)
 
 Owner: "music did not auto play. and content will [only] play [once] the veil is up." + "[petals] can cling but only 30% of the petals, and only if the petals hit the veil."

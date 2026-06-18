@@ -22,7 +22,7 @@ import { resolveStdFilmContent } from '@/lib/save-the-date-content';
 import { resolveStdTheme } from '@/lib/std-themes';
 import { CountdownWidget } from './countdown';
 import { OurStory } from './our-story';
-import { SaveTheDateFilm } from './save-the-date-film';
+import { SaveTheDateFilm, type StdLockup } from './save-the-date-film';
 import { StdBackgroundLayer } from './std-background-layer';
 import { resolveStdLegibility, type StdBackground } from '@/lib/std-backgrounds';
 
@@ -54,6 +54,9 @@ type Props = {
   /** Sanitized SVG of the couple's monogram mark — film renders it in the
    *  monogram + close beats instead of text initials when present. */
   monogramSvg?: string | null;
+  /** The couple's onboarding lockup — the film's mark when there's no uploaded /
+   *  monogram-lab SVG (owner 2026-06-19 logo precedence). */
+  lockup?: StdLockup | null;
   /** Presigned soundtrack URL (the couple's site music) — film only (P2). */
   musicUrl?: string | null;
   /** Presigned URL of the couple's NSFW-approved closing video — film only (PR-B).
@@ -85,6 +88,7 @@ export function SaveTheDateView({
   film = false,
   monogramText,
   monogramSvg,
+  lockup,
   musicUrl,
   videoUrl,
   galleryUrls,
@@ -133,6 +137,7 @@ export function SaveTheDateView({
           themeId={resolveStdTheme(themeId)}
           transparent={Boolean(background)}
           tone={background ? resolveStdLegibility(background).tone : null}
+          lockup={lockup ?? null}
         />
       </section>
     );

@@ -19,6 +19,32 @@ Reviewed by a 44-agent adversarial pass (hygiene · security · SSR/reuse · dow
 Verified: `pnpm typecheck` clean · `pnpm lint` 0 errors · `pnpm build` green (`/monogram` prerenders static; paper.js in a separate dynamic chunk).
 
 SPEC IMPACT: monogram Phase 5 — public surface. Corpus design doc + DECISION_LOG + memory updated. Carry-the-design-through-signup (auto-apply to the new event) is the noted next enhancement.
+## 2026-06-19 · fix(std): veil AND film both reachable — spatial grab-zone (PR-V)
+
+Owner: "I still want the veil to be accessible. but I also want to be able to navigate the messages."
+
+PR-S made the veil layer `pointer-events-none` after reveal so swipes scrubbed the film — but that made the veil itself un-grabbable. This replaces the all-or-nothing release with a **spatial split** keyed to where the veil physically is:
+
+- `veil-reveal.tsx`: the canvas still renders full-screen, but pointer input is captured by a dedicated **grab-zone** child (the mount is now `pointer-events:none`; the grab-zone is `pointer-events:auto`). The RAF loop **resizes the grab-zone from `lift`**: full-screen while the veil COVERS the page (grab anywhere to lift), shrinking to the **top valance band** (`24vh`) once LIFTED — so swipes lower down fall through to the film (z-50) and scrub the messages, while the top stays the veil's. Hysteresis (0.6 up / 0.35 down) avoids flicker; capture moves to the grab-zone so a drag keeps tracking as it resizes. The two-way swipe-down-to-re-cover is **restored** (it works in the top band).
+- `reveal-overlay.tsx`: the veil wrapper is `pointer-events-none` (the grab-zone re-enables input for its region only) — replaces PR-S's `open`-gated full-layer release.
+- `save-the-date-film.tsx`: moved the mute toggle from top-right to **bottom-right** so it isn't covered by the top veil grab-zone (and stays tappable).
+
+Verified: `pnpm typecheck` (my files clean; pre-existing `paper` module errors are an unrelated local install gap from the monogram-studio merge — CI installs them) + `pnpm lint` clean.
+
+SPEC IMPACT: `0024_Veil_Reveal_Spec` / `0024_Save_the_Date_Content_and_Customization` — post-reveal the veil is grabbable in its top valance band while the film body scrubs the messages (supersedes PR-S's "two-way retired post-reveal"). See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(std): the film's logo falls back to the onboarding lockup (PR-U)
+
+Owner: "logo will be from the onboarding, but if they upload or use the monogram lab, it will bypass the onboarding logo."
+
+The film's monogram beats showed the uploaded/lab SVG when present, else plain initials in the film's own font. Now the fallback is the couple's **onboarding lockup** — the actual mark they designed at onboarding (bar / duo / script / infinity, framed, or the initials circle).
+
+- New `FilmMonogram` precedence: (1) `content.monogramSvg` — the uploaded / monogram-lab mark wins; (2) else the **onboarding lockup**, rendered via the canonical `HeroMonogram` (so the film matches the hero / chrome / QR mark exactly), scaled per beat; (3) last-resort initials in the film font (safety net only).
+- New `StdLockup` type + `lockup` prop on `SaveTheDateFilm`. Threaded from the live page (`stdLockupFor(event)` → `resolveMonogram` + design columns) on both the anonymous + signed-in paths, and from the builder (preview parity). Added `monogram_color` to `EventRow` and the builder SELECT (the design columns were already fetched).
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — logo precedence is **uploaded → monogram-lab → onboarding lockup → initials**; the film's default mark is the onboarding lockup, not generic initials. See `DECISION_LOG.md` 2026-06-19.
 
 ## 2026-06-19 · feat(monogram): studio colours — Ink / Outline / Backdrop presets + custom picker + Clear (same PR #1793)
 

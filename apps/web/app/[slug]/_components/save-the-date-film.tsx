@@ -68,6 +68,13 @@ export function SaveTheDateFilm({
   const outerBgCls = transparent ? 'bg-transparent' : theme.outerBg;
   const LABEL = theme.labelCls;
 
+  // The couple's uploaded closing video plays as a locked real-time island beat
+  // (plays to the end with sound) in place of the photo gallery. Declared above
+  // the slides so the video slide can bind the ref. See the orchestration
+  // effect below for play/pause + music-duck handling.
+  const videoElRef = useRef<HTMLVideoElement | null>(null);
+  const hasVideo = Boolean(content.videoUrl);
+
   const slides: Slide[] = [];
 
   slides.push({
@@ -161,7 +168,30 @@ export function SaveTheDateFilm({
     });
   }
 
-  if (content.gallery && content.gallery.length > 0) {
+  if (hasVideo) {
+    // Video island — a locked real-time beat. The segment bar tracks the
+    // video clock (not a timer), the soundtrack ducks, and the film advances
+    // on 'ended' (both wired in the effects below). dur Infinity so the RAF
+    // timer never advances it. The element lives in the DOM for every slide
+    // (opacity-gated), so videoElRef is bound before the beat is reached.
+    slides.push({
+      key: 'video',
+      dur: Infinity,
+      node: (
+        <div className="flex w-full max-w-sm flex-col items-center gap-3">
+          <p className={LABEL}>Watch our story</p>
+          {/* eslint-disable-next-line jsx-a11y/media-has-caption -- couple-uploaded keepsake clip, no caption track */}
+          <video
+            ref={videoElRef}
+            src={content.videoUrl ?? undefined}
+            playsInline
+            preload="metadata"
+            className="max-h-[72vh] w-auto max-w-full rounded-2xl object-contain shadow-lg"
+          />
+        </div>
+      ),
+    });
+  } else if (content.gallery && content.gallery.length > 0) {
     slides.push({
       key: 'gallery',
       dur: 5000,
@@ -228,6 +258,7 @@ export function SaveTheDateFilm({
   });
 
   const N = slides.length;
+  const videoSlideIndex = hasVideo ? slides.findIndex((s) => s.key === 'video') : -1;
   const [idx, setIdx] = useState(0);
   const [playing, setPlaying] = useState(false); // starts paused; unblocks on reveal-done
   const [dismissed, setDismissed] = useState(false);
@@ -241,6 +272,12 @@ export function SaveTheDateFilm({
   const startRef = useRef(0);
   const pauseAtRef = useRef(0);
   const goRef = useRef<(j: number) => void>(() => {});
+  // Latest video-slide index for the RAF loop + gesture guards (which close
+  // over a once-built effect), and a "was on the video beat last render" flag
+  // so we reset the video to its start only when the guest first reaches it.
+  const videoSlideIdxRef = useRef(-1);
+  videoSlideIdxRef.current = videoSlideIndex;
+  const prevOnVideoRef = useRef(false);
 
   // Preview mode: start immediately (no reveal event to wait for).
   // Full-screen mode: wait for 'std-reveal-done' from the RevealOverlay;
@@ -287,22 +324,69 @@ export function SaveTheDateFilm({
 
     const loop = (now: number) => {
       if (playingRef.current) {
-        const dur = slides[idxRef.current]?.dur ?? 4000;
-        if (dur !== Infinity) {
-          const e = now - startRef.current;
-          const frac = Math.min(1, e / dur);
-          setFill(idxRef.current, frac * 100);
-          if (e >= dur) go(idxRef.current + 1);
+        if (idxRef.current === videoSlideIdxRef.current) {
+          // Video island: the segment bar follows the video clock; the beat
+          // advances on 'ended' (listener below), never on a timer.
+          const v = videoElRef.current;
+          const d = v?.duration ?? 0;
+          if (v && d && Number.isFinite(d) && d > 0) {
+            setFill(idxRef.current, Math.min(100, (v.currentTime / d) * 100));
+          }
         } else {
-          setFill(idxRef.current, 100);
+          const dur = slides[idxRef.current]?.dur ?? 4000;
+          if (dur !== Infinity) {
+            const e = now - startRef.current;
+            const frac = Math.min(1, e / dur);
+            setFill(idxRef.current, frac * 100);
+            if (e >= dur) go(idxRef.current + 1);
+          } else {
+            setFill(idxRef.current, 100);
+          }
         }
       }
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
+
+    // The video island hands control back to the scrub on natural end.
+    const videoEl = videoElRef.current;
+    const onEnded = () => go(videoSlideIdxRef.current + 1);
+    if (videoEl) videoEl.addEventListener('ended', onEnded);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      if (videoEl) videoEl.removeEventListener('ended', onEnded);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [N]);
+
+  // Coordinate the video island with the soundtrack. On the video beat the
+  // music ducks and the video plays to the end with sound (muted in the
+  // builder preview so it can autoplay); everywhere else the video is paused
+  // and the music resumes when the film is playing + unmuted. Resets the video
+  // to its start only on the render the guest first reaches it.
+  useEffect(() => {
+    // No video → leave music exactly as the existing handlers drive it.
+    if (videoSlideIndex < 0) return;
+    const v = videoElRef.current;
+    const onVideo = idx === videoSlideIndex;
+    if (onVideo && v) {
+      if (!prevOnVideoRef.current) {
+        try { v.currentTime = 0; } catch { /* not seekable yet — plays from 0 */ }
+      }
+      if (audioRef.current) audioRef.current.pause();
+      v.muted = muted || preview;
+      if (playing) v.play().catch(() => {});
+      else v.pause();
+    } else {
+      if (v) v.pause();
+      if (content.musicUrl && audioRef.current && !preview) {
+        if (playing && !muted) audioRef.current.play().catch(() => {});
+        else audioRef.current.pause();
+      }
+    }
+    prevOnVideoRef.current = onVideo;
+  }, [idx, playing, muted, videoSlideIndex, content.musicUrl, preview]);
 
   // Press-and-hold pauses; a quick tap on left/right steps; the gesture also
   // unlocks audio (browser requires user gesture).
@@ -313,7 +397,14 @@ export function SaveTheDateFilm({
   const onPointerDown = (e: React.PointerEvent) => {
     downXRef.current = e.clientX;
     wasHoldRef.current = false;
-    if (audioRef.current && audioRef.current.paused && !muted) {
+    // Unlock the soundtrack on the gesture — but NOT while the video island is
+    // playing (there the music stays ducked; the orchestration effect owns it).
+    if (
+      audioRef.current &&
+      audioRef.current.paused &&
+      !muted &&
+      idxRef.current !== videoSlideIdxRef.current
+    ) {
       audioRef.current.play().catch(() => {});
     }
     holdRef.current = window.setTimeout(() => {
@@ -372,9 +463,15 @@ export function SaveTheDateFilm({
   const toggleMute = () => {
     setMuted((m) => {
       const next = !m;
+      const onVideo = idxRef.current === videoSlideIdxRef.current;
       if (audioRef.current) {
         audioRef.current.muted = next;
-        if (!next) audioRef.current.play().catch(() => {});
+        // Only resume music on unmute when we're NOT on the ducked video beat.
+        if (!next && !onVideo) audioRef.current.play().catch(() => {});
+      }
+      if (videoElRef.current) {
+        videoElRef.current.muted = next || preview;
+        if (!next && onVideo) videoElRef.current.play().catch(() => {});
       }
       return next;
     });
@@ -423,11 +520,11 @@ export function SaveTheDateFilm({
         className="absolute right-4 top-6 z-20 flex items-center gap-1.5"
         onClick={(e) => e.stopPropagation()}
       >
-        {content.musicUrl ? (
+        {content.musicUrl || content.videoUrl ? (
           <button
             type="button"
             onClick={toggleMute}
-            aria-label={muted ? 'Unmute music' : 'Mute music'}
+            aria-label={muted ? 'Unmute sound' : 'Mute sound'}
             className="flex h-8 w-8 items-center justify-center rounded-full bg-current/5 opacity-60 hover:opacity-80"
           >
             {muted ? <VolumeX aria-hidden className="h-4 w-4" /> : <Music aria-hidden className="h-4 w-4" />}

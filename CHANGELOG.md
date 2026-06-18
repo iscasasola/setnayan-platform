@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · feat(std): Video / Gallery — locked video island + NSFW gate + live render (PR-B)
+
+PR-B of the Step-3 video reinstatement. The couple's uploaded video now PLAYS — as a locked real-time "island" beat in the film — but only after it passes an NSFW screen, and only on the live page once approved.
+
+- **Film** `save-the-date-film.tsx`: `StdFilmContent.videoUrl` + a **video island slide** (replaces the gallery beat when a video is set). It plays to the end **with sound**; the segment bar tracks the **video clock** (not a timer — browsers don't hold `<video>` seeks during scroll, per the hero-scrub note); the soundtrack **ducks** while it plays and resumes after; the beat advances on `ended`. The new music-coordination effect is scoped to video films only, so existing photo-gallery films are unchanged. (Addendum §2/§6 "video island".)
+- **Live gate** `[slug]/page.tsx`: selects `std_media`, and presigns + plays the video **only when `stdVideoIsLive`** (`nsfw === 'approved'`); otherwise the photo gallery beat shows. Threaded `stdVideoUrl` through `PublicLanding` + `InvitationSite` → `SaveTheDateView` exactly like `stdBackgroundUrl`.
+- **NSFW screen** `lib/nsfw-screen.ts`: new `screenStdVideo` reuses `classifyImageBytes` + `decideNsfw` on a **poster frame** (nsfwjs is image-only + the lambda has no ffmpeg, so — like a Papic clip — the video is screened by one JPEG). Writes `events.std_media.nsfw` (`clean → approved` · `nsfw_blocked → rejected`), guarded to the same still-pending video; **fail-open → stays pending** (never goes live → gallery shows). Fired via `after()` from `saveAllStdContent`.
+- **Poster extraction:** `<FileUpload>` gains an optional `onFilePicked(file)` hook; `std-media-picker.tsx` grabs a frame from the **local File** (canvas → JPEG, same-origin so no taint), uploads it via `/api/upload`, and hands up `posterKey`. `StdMedia` gains `posterKey?`.
+- **SECURITY:** `saveAllStdContent` never trusts the client's `nsfw` value — a new/changed video is forced to `pending` (server-screened), an unchanged video keeps the server's verdict. (Else a couple could POST `nsfw:'approved'` and bypass the lock.)
+- **Builder preview:** a freshly-uploaded video previews instantly via its local object URL (the couple's private preview shows it regardless of NSFW status); the public gate stays approval-only.
+- Fixed PR-A's client/server size mismatch — the picker now caps video at **60 MB** (matching `/api/upload`'s `video/` cap), down from 64.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean; `save-the-date-content` unit tests 22/22 pass. No migration (reuses the PR-A `events.std_media` JSONB; `posterKey` rides along).
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` + `0024_ADDENDUM_envelope_open_experience_2026-06-14` §2/§6 — the video island playback + NSFW gate are now built. Owner note: admin-manual-approve of a stuck-`pending` video is a future follow-up (the automatic poster screen covers the normal path). See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · feat(std): Video / Gallery step — picker + persistence (PR-A of the video reinstatement)
 
 PR-A of the Step-3 "Video / Gallery Photo" feature (owner reinstated video 2026-06-18). The couple chooses how the film closes — their **photo gallery** (default) or an **uploaded video** — and uploads the video. Playback + NSFW gate + live render = PR-B; the full 5-step reorg = PR-C.

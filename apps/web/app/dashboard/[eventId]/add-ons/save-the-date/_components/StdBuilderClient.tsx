@@ -34,7 +34,7 @@ import {
 import { RevealPreviewCard } from '@/app/dashboard/[eventId]/_components/reveal-preview-card';
 import { RevealPreview } from '@/app/dashboard/[eventId]/_components/reveal-preview';
 import { StdBackgroundPicker } from '@/app/dashboard/[eventId]/_components/std-background-picker';
-import { StdMediaPicker } from '@/app/dashboard/[eventId]/_components/std-media-picker';
+import { StdMediaPicker, type StdVideoUpload } from '@/app/dashboard/[eventId]/_components/std-media-picker';
 import { StdBackgroundLayer } from '@/app/[slug]/_components/std-background-layer';
 import { realisticBgSrc, type StdBackground } from '@/lib/std-backgrounds';
 import type { StdMedia } from '@/lib/std-media';
@@ -177,17 +177,31 @@ export function StdBuilderClient({
 
   // Step-3 media (gallery / uploaded video); saved on Render.
   const [media, setMedia] = useState<StdMedia>(initialMedia);
+  // URL the preview film plays for the video beat: a fresh upload's local
+  // object URL, or the saved video's presigned URL on reload. (The couple's
+  // own preview shows their video regardless of NSFW status — the public gate
+  // is approval-only, enforced on the live page.)
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(
+    initialMedia.type === 'video' ? (initialVideoUrl ?? null) : null,
+  );
   const pickMedia = (m: StdMedia) => {
     setMedia(m);
     if (result !== 'idle') setResult('idle');
   };
   // A new video upload resets the NSFW gate to pending (re-screened before live).
-  const handleVideoUpload = (ref: string | null) => {
-    if (!ref) {
+  const handleVideoUpload = (payload: StdVideoUpload | null) => {
+    if (!payload) {
+      setVideoPreviewUrl(null);
       pickMedia({ type: 'gallery' });
       return;
     }
-    pickMedia({ type: 'video', videoKey: ref, nsfw: 'pending' });
+    setVideoPreviewUrl(payload.previewUrl ?? initialVideoUrl ?? null);
+    pickMedia({
+      type: 'video',
+      videoKey: payload.videoKey,
+      posterKey: payload.posterKey,
+      nsfw: 'pending',
+    });
   };
 
   // Any change that should replay the opening also resets the lifted state.
@@ -241,8 +255,11 @@ export function StdBuilderClient({
       venueCity: resolvedVenueCity,
       storyTeaser: resolvedStory,
       launchLabel,
+      // Preview the chosen closing media: the uploaded video (when picked) plays
+      // as the video island beat; otherwise the gallery beat shows.
+      videoUrl: media.type === 'video' ? videoPreviewUrl : null,
     };
-  }, [initialContent, filmDate, venueName, venueCity, filmStory, launchDate]);
+  }, [initialContent, filmDate, venueName, venueCity, filmStory, launchDate, media.type, videoPreviewUrl]);
 
   // Autofill — pull the couple's event details into EVERY film field at once so
   // the Information step shows all the real values, ready to fine-tune. Client-

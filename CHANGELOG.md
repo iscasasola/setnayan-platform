@@ -4,6 +4,33 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-18 · feat(editorial): three-layer quality scan + admin review queue — PR #1730
+
+Auto-scan (OpenAI Moderation + LanguageTool) runs on every editorial before the couple sees it. Admin reviews flagged content and unlocks. Zero monthly cost (both APIs are free).
+
+**Migration `20270115451085_editorial_scan.sql` (applied directly via `db query` — pre-existing `invitation_widgets` constraint blocked `db push --include-all`):**
+- `event_editorial`: +`scan_status` (pending→scanning→clean→flagged→admin_cleared→skipped), +`scan_flags` JSONB, +`scan_completed_at`, +`unlocked_for_couple_at`
+- Partial index `event_editorial_scan_queue_idx` for admin queue fetch
+
+**`apps/web/lib/editorial-scan.ts` (new):**
+- `scanEditorial(editorialId)`: OpenAI Moderation batch → LanguageTool per-field (120ms gap) → store flags → auto-unlock if clean; on error sets `skipped` and auto-unlocks (never blocks couple)
+- `ScanFlag` interface with severity (`red`=vulgar/`yellow`=grammar) and resolution lifecycle
+
+**`apps/web/app/dashboard/[eventId]/website/editorial/actions.ts`:**
+- `saveEditorial()` now fires `after(() => scanEditorial(eid))` on first save (`scan_status=pending`)
+
+**`apps/web/app/admin/editorial-review/` (new):**
+- List page: sections for Needs review / Queued / Cleared with red/yellow badge counts
+- Detail page: per-flag cards with Mark OK + admin rewrite textarea; Unlock button gated on no pending red flags; Re-scan button
+- `actions.ts`: `resolveFlag`, `unlockForCouple`, `triggerRescan`
+
+**`apps/web/app/admin/_components/admin-sidebar.tsx`:** Editorial review nav entry added (Work group, after queues)
+**`.env.example`:** `OPENAI_API_KEY` documented (Moderations-only restricted key)
+
+**SPEC IMPACT:** `Editorial_Experience_Spec_2026-06-18.md` § Quality Gate implemented. Migration applied to prod. `OPENAI_API_KEY` must be added to Vercel env by owner (key created in session).
+
+---
+
 ## 2026-06-18 · Kwento Monumental Upgrade — PR 1 (FaceBlock fix) + PR 2 (Flash tier) + PR 3 (Density Map)
 
 Three-PR build from the approved Kwento Monumental Upgrade plan (`Kwento_Monumental_Upgrade_2026-06-18.md`). Turns Kwento from a single-voice photo-message feature into the narrative infrastructure layer of the event.

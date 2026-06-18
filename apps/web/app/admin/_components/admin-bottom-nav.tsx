@@ -131,7 +131,18 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     label: 'Intelligence',
     href: '/admin',
     icon: BarChart3,
-    activeMatch: '/admin',
+    // activeMatchExact: true with an explicit array — /admin alone would
+    // startsWith-match every /admin/* route and keep this tab perpetually
+    // active; listing each route avoids that without per-entry exact support.
+    activeMatch: [
+      '/admin',
+      '/admin/growth',
+      '/admin/funnels',
+      '/admin/intelligence',
+      '/admin/operations-hiring',
+      '/admin/connection-logs',
+      '/admin/offline',
+    ],
     activeMatchExact: true,
   },
 ];

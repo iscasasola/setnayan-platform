@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · feat(std): orientation polish — video tilt hint + revealed-veil rotate (PR-F)
+
+Two orientation fixes now that the video island ships.
+
+- **Landscape-video tilt hint (film):** when the video island is a landscape clip and the guest is on a portrait phone, a small "Tilt your phone to landscape" pill shows over the video (orientation spec, content phase). It auto-clears the instant they rotate — driven by a `matchMedia('(orientation: portrait)')` + width listener; full-screen only (the builder preview is a fixed device frame). Portrait videos just fill, as before.
+- **Revealed veil survives a rotate:** the veil already rebuilds the cloth to the new aspect on rotate (debounced `applyView` — the stretch bug was long fixed), but `applyView` re-drapes to covered (`lift→0`). So rotating *after* the guest lifted the veil would silently **re-cover the film**. Now the debounced rebuild lerps a revealed veil straight back to lifted (`revealedRef → liftTarget = 1`) — a rotate re-fits, never re-covers.
+
+Verified: `pnpm typecheck` clean; lint clean (the lone `autoplay`/`lowRes` warning is pre-existing on the veil's mount-once effect, untouched here). These are device-rotation behaviors — verify on a phone via the Vercel preview.
+
+SPEC IMPACT: `0024_Veil_Reveal_Spec` / `0024_Save_the_Date_Content_and_Customization` — the orientation handling (tilt hint + rotate-safe reveal) the spec called for is now built. See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · feat(std): admin override for stuck Save-the-Date videos (PR-E)
 
 Closes the gap PR-B flagged: the automatic poster-frame screen is fail-open → a video can sit at `nsfw:'pending'` forever (poster extraction / model hiccup) and silently never go live, with no recourse. Now an admin can decide it.

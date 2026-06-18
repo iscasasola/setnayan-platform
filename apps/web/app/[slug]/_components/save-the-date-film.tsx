@@ -34,6 +34,7 @@ import {
   Pause,
   Play,
   RotateCcw,
+  Smartphone,
   VolumeX,
   X,
 } from 'lucide-react';
@@ -74,6 +75,10 @@ export function SaveTheDateFilm({
   // effect below for play/pause + music-duck handling.
   const videoElRef = useRef<HTMLVideoElement | null>(null);
   const hasVideo = Boolean(content.videoUrl);
+  // A landscape video on a portrait phone reads tiny — nudge the guest to rotate
+  // (orientation spec, content phase). The hint auto-clears when they do.
+  const [videoLandscape, setVideoLandscape] = useState(false);
+  const [portraitPhone, setPortraitPhone] = useState(false);
 
   const slides: Slide[] = [];
 
@@ -178,7 +183,7 @@ export function SaveTheDateFilm({
       key: 'video',
       dur: Infinity,
       node: (
-        <div className="flex w-full max-w-sm flex-col items-center gap-3">
+        <div className="relative flex w-full max-w-sm flex-col items-center gap-3">
           <p className={LABEL}>Watch our story</p>
           {/* eslint-disable-next-line jsx-a11y/media-has-caption -- couple-uploaded keepsake clip, no caption track */}
           <video
@@ -186,8 +191,18 @@ export function SaveTheDateFilm({
             src={content.videoUrl ?? undefined}
             playsInline
             preload="metadata"
+            onLoadedMetadata={(e) => {
+              const v = e.currentTarget;
+              setVideoLandscape(v.videoWidth > v.videoHeight * 1.1);
+            }}
             className="max-h-[72vh] w-auto max-w-full rounded-2xl object-contain shadow-lg"
           />
+          {!preview && videoLandscape && portraitPhone ? (
+            <div className="pointer-events-none absolute left-1/2 top-2 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-black/60 px-3 py-1.5 text-[11px] font-medium text-white shadow-lg backdrop-blur-sm">
+              <Smartphone aria-hidden className="h-3.5 w-3.5 rotate-90" strokeWidth={2} />
+              Tilt your phone to landscape
+            </div>
+          ) : null}
         </div>
       ),
     });
@@ -387,6 +402,22 @@ export function SaveTheDateFilm({
     }
     prevOnVideoRef.current = onVideo;
   }, [idx, playing, muted, videoSlideIndex, content.musicUrl, preview]);
+
+  // Track portrait-phone orientation for the landscape-video tilt hint. Full-
+  // screen only (the builder preview is a fixed device frame). Clears the moment
+  // the guest rotates to landscape.
+  useEffect(() => {
+    if (preview || typeof window === 'undefined' || !window.matchMedia) return;
+    const portrait = window.matchMedia('(orientation: portrait)');
+    const update = () => setPortraitPhone(portrait.matches && window.innerWidth < 768);
+    update();
+    portrait.addEventListener('change', update);
+    window.addEventListener('resize', update);
+    return () => {
+      portrait.removeEventListener('change', update);
+      window.removeEventListener('resize', update);
+    };
+  }, [preview]);
 
   // Press-and-hold pauses; a quick tap on left/right steps; the gesture also
   // unlocks audio (browser requires user gesture).

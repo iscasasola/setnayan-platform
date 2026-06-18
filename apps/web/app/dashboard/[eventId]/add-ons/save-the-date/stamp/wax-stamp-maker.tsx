@@ -33,6 +33,7 @@ import {
   type WaxSealGLState,
 } from '@/lib/wax-seal/paint-webgl';
 import { saveWaxSeal } from '../wax-actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 type Props = {
   eventId: string;
@@ -798,13 +799,13 @@ export function WaxStampMaker({
                 <form action={saveWaxSeal}>
                   <input type="hidden" name="event_id" value={eventId} />
                   <input type="hidden" name="config" value={JSON.stringify(savedConfig)} />
-                  <button
-                    type="submit"
+                  <SubmitButton
+                    pendingLabel="Saving…"
                     className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-[#cb9e4b] px-6 text-sm font-semibold text-ink transition hover:bg-[#b8923f]"
                   >
                     <Sparkles aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                     Love it — use this seal
-                  </button>
+                  </SubmitButton>
                 </form>
               </div>
             </>

@@ -20,6 +20,7 @@ import {
 } from '@/lib/vendor-packages';
 import { VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
 import { releasePackage, removeItemFromPackage } from '../actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -228,12 +229,7 @@ export default async function PackageBookingPage({ params }: Props) {
                         value={typedBooking.booking_id}
                       />
                       <input type="hidden" name="item_id" value={item.item_id} />
-                      <button
-                        type="submit"
-                        className="inline-flex min-h-[44px] items-center gap-1 rounded-md border border-ink/15 bg-cream px-2.5 py-1.5 text-xs text-ink/70 transition-colors hover:border-rose-300 hover:text-rose-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-500"
-                      >
-                        Remove
-                      </button>
+                      <SubmitButton pendingLabel="Removing…" className="inline-flex min-h-[44px] items-center gap-1 rounded-md border border-ink/15 bg-cream px-2.5 py-1.5 text-xs text-ink/70 transition-colors hover:border-rose-300 hover:text-rose-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-500">Remove</SubmitButton>
                     </form>
                   ) : null}
                 </li>
@@ -309,12 +305,7 @@ export default async function PackageBookingPage({ params }: Props) {
               name="booking_id"
               value={typedBooking.booking_id}
             />
-            <button
-              type="submit"
-              className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-lg border border-rose-300/60 bg-cream px-4 py-2 text-sm font-medium text-rose-800 transition-colors hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-500"
-            >
-              Release this package
-            </button>
+            <SubmitButton pendingLabel="Releasing…" className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-lg border border-rose-300/60 bg-cream px-4 py-2 text-sm font-medium text-rose-800 transition-colors hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-500">Release this package</SubmitButton>
           </form>
         ) : null}
       </section>

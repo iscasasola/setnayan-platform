@@ -5,6 +5,7 @@ import { relativeTime } from '@/lib/activity';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveReport } from './actions';
 import { FormFlash } from '@/app/_components/forms/form-flash';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'User reports · Admin' };
 export const dynamic = 'force-dynamic';
@@ -285,12 +286,12 @@ export default async function AdminUserReportsPage({
                         <form action={resolveReport}>
                           <input type="hidden" name="report_id" value={r.report_id} />
                           <input type="hidden" name="action" value="hide" />
-                          <button
-                            type="submit"
+                          <SubmitButton
                             className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/80 hover:bg-ink/[0.04]"
+                            pendingLabel="Hiding…"
                           >
                             <EyeOff aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Hide content
-                          </button>
+                          </SubmitButton>
                         </form>
                       )}
                       {/* Block resolves a GUEST uploader — only meaningful for
@@ -300,33 +301,33 @@ export default async function AdminUserReportsPage({
                         <form action={resolveReport}>
                           <input type="hidden" name="report_id" value={r.report_id} />
                           <input type="hidden" name="action" value="block" />
-                          <button
-                            type="submit"
+                          <SubmitButton
                             className="inline-flex items-center gap-1.5 rounded-md border border-terracotta/30 bg-terracotta/5 px-3 py-1.5 text-xs font-medium text-terracotta-700 hover:bg-terracotta/10"
+                            pendingLabel="Blocking…"
                           >
                             <UserX aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Block uploader
-                          </button>
+                          </SubmitButton>
                         </form>
                       )}
                       <form action={resolveReport}>
                         <input type="hidden" name="report_id" value={r.report_id} />
                         <input type="hidden" name="action" value="escalate" />
-                        <button
-                          type="submit"
+                        <SubmitButton
                           className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-900 hover:bg-amber-100"
+                          pendingLabel="Escalating…"
                         >
                           <ArrowUpRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Escalate
-                        </button>
+                        </SubmitButton>
                       </form>
                       <form action={resolveReport}>
                         <input type="hidden" name="report_id" value={r.report_id} />
                         <input type="hidden" name="action" value="dismiss" />
-                        <button
-                          type="submit"
+                        <SubmitButton
                           className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/60 hover:bg-ink/[0.04]"
+                          pendingLabel="Dismissing…"
                         >
                           <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Dismiss
-                        </button>
+                        </SubmitButton>
                       </form>
                     </div>
                   )}

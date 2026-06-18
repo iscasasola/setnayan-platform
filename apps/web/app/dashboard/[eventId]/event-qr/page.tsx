@@ -29,6 +29,7 @@ import { RefreshCcw, QrCode } from 'lucide-react';
 import QRCode from 'qrcode';
 import { createClient } from '@/lib/supabase/server';
 import { regenerateEventMasterQR } from './actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Event QR' };
 
@@ -132,13 +133,10 @@ export default async function EventQrPage({ params }: Props) {
               }}
             >
               <input type="hidden" name="event_id" value={event.event_id as string} />
-              <button
-                type="submit"
-                className="inline-flex items-center gap-2 rounded-full border border-ink/15 bg-[var(--m-paper)] px-4 py-2 text-sm font-medium text-ink transition hover:bg-ink/5"
-              >
+              <SubmitButton pendingLabel="Regenerating…" className="inline-flex items-center gap-2 rounded-full border border-ink/15 bg-[var(--m-paper)] px-4 py-2 text-sm font-medium text-ink transition hover:bg-ink/5">
                 <RefreshCcw aria-hidden className="h-4 w-4" strokeWidth={2} />
                 Regenerate QR
-              </button>
+              </SubmitButton>
               <p className="mt-2 text-xs text-ink/55">
                 Rotating prints a new code. Crew devices already paired
                 stay paired — only new pairings using the old code will

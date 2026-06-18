@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { PostGigDrawer } from './_components/post-gig-drawer';
 import type { ManpowerGigRow, ManpowerGigStatus } from '@/app/vendor-dashboard/manpower/actions';
 import { cancelGigFromHost } from './host-actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 /**
  * V2 Phase F · Host-side manpower surface.
@@ -333,12 +334,12 @@ function GigGroup({
                       className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none"
                     />
                   </label>
-                  <button
-                    type="submit"
+                  <SubmitButton
+                    pendingLabel="Cancelling…"
                     className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-rose-700 hover:bg-rose-50"
                   >
                     Cancel gig
-                  </button>
+                  </SubmitButton>
                 </form>
               ) : null}
             </li>

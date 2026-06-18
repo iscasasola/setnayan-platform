@@ -27,6 +27,7 @@ import {
 } from '@/lib/event-sponsors';
 import { AddSponsorModal } from './_components/add-sponsor-modal';
 import { InvitationTemplateModal } from './_components/invitation-template-modal';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { PairTargetPicker } from './_components/pair-target-picker';
 import {
   addSponsor,
@@ -543,13 +544,13 @@ function SponsorCard({
         <form action={removeSponsor}>
           <input type="hidden" name="event_id" value={eventId} />
           <input type="hidden" name="sponsor_id" value={sponsor.id} />
-          <button
-            type="submit"
+          <SubmitButton
+            pendingLabel="Removing…"
             aria-label={`Remove ${sponsor.full_name}`}
             className="rounded-md p-1 text-ink/45 hover:bg-terracotta/10 hover:text-terracotta-700"
           >
             <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          </button>
+          </SubmitButton>
         </form>
       </div>
 
@@ -585,25 +586,25 @@ function SponsorCard({
               <input type="hidden" name="event_id" value={eventId} />
               <input type="hidden" name="sponsor_id" value={sponsor.id} />
               <input type="hidden" name="status" value="accepted" />
-              <button
-                type="submit"
+              <SubmitButton
+                pendingLabel="Saving…"
                 className="inline-flex items-center gap-1 rounded-md border border-emerald-300/60 bg-emerald-50/60 px-2 py-1 text-[11px] font-medium text-emerald-900 hover:bg-emerald-100"
               >
                 <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={1.75} />
                 Marked yes
-              </button>
+              </SubmitButton>
             </form>
             <form action={markResponse}>
               <input type="hidden" name="event_id" value={eventId} />
               <input type="hidden" name="sponsor_id" value={sponsor.id} />
               <input type="hidden" name="status" value="declined" />
-              <button
-                type="submit"
+              <SubmitButton
+                pendingLabel="Saving…"
                 className="inline-flex items-center gap-1 rounded-md border border-ink/15 bg-cream px-2 py-1 text-[11px] font-medium text-ink/70 hover:border-ink/30"
               >
                 <XCircle aria-hidden className="h-3 w-3" strokeWidth={1.75} />
                 Declined
-              </button>
+              </SubmitButton>
             </form>
           </>
         ) : null}

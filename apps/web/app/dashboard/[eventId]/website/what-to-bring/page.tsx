@@ -4,6 +4,7 @@ import { ArrowLeft, CheckCircle2, Gift } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { updateWhatToBring } from './actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Edit what to bring · Setnayan' };
 
@@ -97,9 +98,7 @@ export default async function WhatToBringEditorPage({
           />
           <span className="mt-1 block text-xs text-ink/45">Up to 600 characters.</span>
         </label>
-        <button type="submit" className="button-primary">
-          Save note
-        </button>
+        <SubmitButton pendingLabel="Saving…" className="button-primary">Save note</SubmitButton>
       </form>
     </section>
   );

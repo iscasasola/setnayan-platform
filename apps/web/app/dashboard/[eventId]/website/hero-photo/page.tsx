@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { FileUpload } from '@/app/_components/file-upload';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { uploadHeroPhoto, removeHeroPhoto } from './actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 /**
  * Editor for the wedding landing page hero photo.
@@ -106,14 +107,10 @@ export default async function HeroPhotoEditorPage({
             </h2>
             <form action={removeHeroPhoto}>
               <input type="hidden" name="event_id" value={eventId} />
-              <button
-                type="submit"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/75 transition-colors hover:border-burgundy/40 hover:bg-burgundy/5 hover:text-burgundy focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-                aria-label="Remove the current hero photo"
-              >
+              <SubmitButton pendingLabel="Removing…" className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/75 transition-colors hover:border-burgundy/40 hover:bg-burgundy/5 hover:text-burgundy focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">
                 <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                 <span>Remove</span>
-              </button>
+              </SubmitButton>
             </form>
           </div>
           <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-ink/5">
@@ -179,13 +176,10 @@ export default async function HeroPhotoEditorPage({
             >
               Cancel
             </Link>
-            <button
-              type="submit"
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-burgundy/20 bg-burgundy px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-burgundy/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-            >
+            <SubmitButton pendingLabel="Saving…" className="inline-flex items-center justify-center gap-2 rounded-lg border border-burgundy/20 bg-burgundy px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-burgundy/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">
               <ImagePlus aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               <span>Save photo</span>
-            </button>
+            </SubmitButton>
           </div>
         </form>
       </section>

@@ -6,6 +6,7 @@ import { ConfirmForm } from '@/app/_components/confirm-form';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { VenueForm } from '../_components/venue-form';
 import { deleteVenue, updateVenue } from '../actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Edit venue · Admin' };
 
@@ -104,13 +105,13 @@ export default async function EditVenuePage({ params }: Props) {
             name="venue_directory_id"
             value={row.venue_directory_id}
           />
-          <button
-            type="submit"
+          <SubmitButton
             className="inline-flex h-11 items-center gap-1.5 rounded-md border border-rose-500 bg-rose-500/10 px-4 text-sm font-medium text-rose-700 hover:bg-rose-500/20"
+            pendingLabel="Deleting…"
           >
             <Trash2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             Delete venue
-          </button>
+          </SubmitButton>
         </ConfirmForm>
       </section>
     </div>

@@ -6,6 +6,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { FileUpload } from '@/app/_components/file-upload';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { updateOurPhotos } from './actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Edit our photos · Setnayan' };
 
@@ -126,9 +127,7 @@ export default async function OurPhotosEditorPage({
           label="Gallery photos"
           help={`JPG, PNG, or WebP. Up to 10 MB each · up to ${MAX_PHOTOS} photos. Drag to add more; remove any you don't want before saving.`}
         />
-        <button type="submit" className="button-primary">
-          Save gallery
-        </button>
+        <SubmitButton pendingLabel="Saving…" className="button-primary">Save gallery</SubmitButton>
       </form>
     </section>
   );

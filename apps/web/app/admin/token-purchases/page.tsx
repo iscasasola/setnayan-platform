@@ -220,12 +220,12 @@ export default async function AdminTokenPurchasesPage({ searchParams }: Props) {
                         placeholder="Reason (optional)"
                         className="w-44 rounded-md border border-ink/15 bg-paper px-2 py-1.5 text-xs"
                       />
-                      <button
-                        type="submit"
+                      <SubmitButton
                         className="rounded-md border border-rose-300 px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-50"
+                        pendingLabel="Rejecting…"
                       >
                         Reject
-                      </button>
+                      </SubmitButton>
                     </form>
                   </div>
                 </li>

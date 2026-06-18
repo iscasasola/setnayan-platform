@@ -108,14 +108,14 @@ export default async function VerifyPage({ params, searchParams }: Props) {
 
       <div className="mt-6 flex flex-col gap-2 text-sm">
         <form action={resendClaimOtpAction.bind(null, eventId, token)}>
-          <button type="submit" className="text-terracotta underline-offset-2 hover:underline">
+          <SubmitButton pendingLabel="Resending…" className="text-terracotta underline-offset-2 hover:underline">
             Didn&rsquo;t get a code? Resend it
-          </button>
+          </SubmitButton>
         </form>
         <form action={requestCoupleReviewAction.bind(null, eventId, token)}>
-          <button type="submit" className="text-ink/60 underline-offset-2 hover:underline">
+          <SubmitButton pendingLabel="Requesting…" className="text-ink/60 underline-offset-2 hover:underline">
             Can&rsquo;t access that email? Ask the couple to confirm you
-          </button>
+          </SubmitButton>
         </form>
       </div>
     </JoinShell>

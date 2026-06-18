@@ -53,6 +53,7 @@ import {
   DriveSafetyPanel,
   DriveReconnectBanner,
 } from '@/app/_components/drive-connect-card';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 // Iteration 0012 — Papic (V1 setup surface)
 //
@@ -991,13 +992,13 @@ function DriveConnectedPanel({
         </div>
         <form action="/api/oauth/drive/disconnect" method="post">
           <input type="hidden" name="event_id" value={eventId} />
-          <button
-            type="submit"
+          <SubmitButton
+            pendingLabel="Disconnecting…"
             className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink"
           >
             <Unlink2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             Disconnect
-          </button>
+          </SubmitButton>
         </form>
       </div>
 

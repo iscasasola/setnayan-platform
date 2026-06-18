@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · feat(std): strip the film chrome — texts only, no bars, no controls (PR-N)
+
+Owner: "we just want the texts. no controls. it auto plays or we can scrub. we don't want the white bars. we don't want the navigation controls."
+
+- **Removed** the stories-style white scrub/segment bars (top) and the entire bottom transport (prev / play-pause / next / replay / continue) from `save-the-date-film.tsx`, in both the live film and the builder preview.
+- **Kept** the auto-play + the invisible gestures — tap the left/right thirds to step, press-and-hold to pause — so it still "auto plays or we can scrub," just with no visible UI.
+- **Kept** one subtle mute toggle (the soundtrack auto-plays, so it needs an escape) and, on the final beat, a single clean "See your wedding page" exit (live only — the guest has to be able to leave the full-screen film).
+- Dropped the now-unused transport icons + `playPause`/`replay` helpers.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the film is text-only now (auto-play + gesture scrub, no chrome). Part of the 2026-06-19 builder-cleanup batch (also: theme→5-fonts, veil/petal colour-picker lag fix, date-from-onboarding, auto-invite-3-months — separate PRs). See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · feat(std): auto-fill ceremony + reception venues from finalized bookings (PR-M)
 
 Owner directive: the Save-the-Date shouldn't be a manual form — when the couple finalizes their venues, the info should upload automatically; and there should be a separate **ceremony** and **reception** venue (the 7-beat spine). Implements the "auto from bookings + manual fallback" model.

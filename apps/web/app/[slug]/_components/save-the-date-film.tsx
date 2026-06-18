@@ -27,17 +27,7 @@
 
 import type * as React from 'react';
 import { type MouseEvent, type ReactNode, useEffect, useRef, useState } from 'react';
-import {
-  ChevronLeft,
-  ChevronRight,
-  Music,
-  Pause,
-  Play,
-  RotateCcw,
-  Smartphone,
-  VolumeX,
-  X,
-} from 'lucide-react';
+import { Music, Smartphone, VolumeX } from 'lucide-react';
 import { type StdFilmContent } from '@/lib/save-the-date-content';
 import { STD_THEMES, resolveStdTheme, type StdTheme, type StdThemeId } from '@/lib/std-themes';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
@@ -561,24 +551,6 @@ export function SaveTheDateFilm({
     }
   };
 
-  const playPause = () => {
-    if (playingRef.current) {
-      playingRef.current = false;
-      setPlaying(false);
-      pauseAtRef.current = performance.now();
-    } else {
-      startRef.current += performance.now() - pauseAtRef.current;
-      playingRef.current = true;
-      setPlaying(true);
-    }
-  };
-
-  const replay = () => {
-    playingRef.current = true;
-    setPlaying(true);
-    goRef.current(0);
-  };
-
   const toggleMute = () => {
     setMuted((m) => {
       const next = !m;
@@ -626,57 +598,23 @@ export function SaveTheDateFilm({
         />
       ) : null}
 
-      {/* Stories-style scrub bars */}
-      <div className="absolute inset-x-4 top-4 z-20 flex gap-1.5">
-        {slides.map((s, j) => (
-          <button
-            key={s.key}
-            type="button"
-            aria-label={`Go to slide ${j + 1}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              goRef.current(j);
-              if (!playingRef.current) {
-                playingRef.current = true;
-                setPlaying(true);
-              }
-            }}
-            className="h-[2px] flex-1 overflow-hidden rounded-full bg-current/15"
-          >
-            <span
-              ref={(el) => { fillRefs.current[j] = el; }}
-              className={`block h-full w-0 ${theme.scrubFill}`}
-            />
-          </button>
-        ))}
-      </div>
-
-      {/* Top-right controls */}
-      <div
-        className="absolute right-4 top-6 z-20 flex items-center gap-1.5"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {content.musicUrl || content.videoUrl ? (
+      {/* Chrome removed (owner 2026-06-19): NO stories scrub bars, NO transport
+          controls — just the texts. The film auto-plays; the guest scrubs by
+          tapping the left/right thirds and holds to pause (invisible gestures,
+          wired below). The lone exception is a single subtle mute, since the
+          soundtrack auto-plays and needs an escape. */}
+      {content.musicUrl || content.videoUrl ? (
+        <div className="absolute right-4 top-5 z-20" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
             onClick={toggleMute}
             aria-label={muted ? 'Unmute sound' : 'Mute sound'}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-current/5 opacity-60 hover:opacity-80"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-current/5 opacity-50 transition-opacity hover:opacity-80"
           >
             {muted ? <VolumeX aria-hidden className="h-4 w-4" /> : <Music aria-hidden className="h-4 w-4" />}
           </button>
-        ) : null}
-        {isClose ? (
-          <button
-            type="button"
-            onClick={preview ? replay : () => setDismissed(true)}
-            aria-label={preview ? 'Replay film' : 'Continue to invitation page'}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-current/5 opacity-60 hover:opacity-80"
-          >
-            {preview ? <RotateCcw aria-hidden className="h-4 w-4" /> : <X aria-hidden className="h-4 w-4" />}
-          </button>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
       {/* Slides */}
       <div className="absolute inset-0">
@@ -693,69 +631,19 @@ export function SaveTheDateFilm({
         ))}
       </div>
 
-      {/* Close slide — prominent "See your wedding page" CTA (full-screen only).
-          Positioned above the small transport bar so it's unmissable on desktop. */}
+      {/* The only button: on the final beat, a single clean exit to the wedding
+          page (live only — the builder preview just loops). No transport bar. */}
       {isClose && !preview ? (
         <button
           type="button"
           onPointerDown={(e) => e.stopPropagation()}
           onPointerUp={(e) => e.stopPropagation()}
           onClick={() => setDismissed(true)}
-          className={`absolute inset-x-8 bottom-24 z-30 rounded-full ${theme.accentBg} py-3.5 text-sm font-semibold ${theme.accentFgOnBg} shadow-lg transition hover:${theme.accentBgHover}`}
+          className={`absolute inset-x-8 bottom-12 z-30 rounded-full ${theme.accentBg} py-3.5 text-sm font-semibold ${theme.accentFgOnBg} shadow-lg transition hover:${theme.accentBgHover}`}
         >
           See your wedding page
         </button>
       ) : null}
-
-      {/* Bottom transport */}
-      <div
-        className="absolute inset-x-0 bottom-8 z-20 flex items-center justify-center gap-3"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button
-          type="button"
-          onClick={() => goRef.current(idxRef.current - 1)}
-          aria-label="Previous slide"
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-current/15 opacity-60 hover:opacity-80"
-        >
-          <ChevronLeft aria-hidden className="h-4 w-4" />
-        </button>
-
-        <button
-          type="button"
-          onClick={isClose ? replay : playPause}
-          aria-label={isClose ? 'Replay film' : playing ? 'Pause' : 'Play'}
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-current/15 opacity-70 hover:opacity-90"
-        >
-          {isClose ? (
-            <RotateCcw aria-hidden className="h-4 w-4" />
-          ) : playing ? (
-            <Pause aria-hidden className="h-4 w-4" />
-          ) : (
-            <Play aria-hidden className="h-4 w-4" />
-          )}
-        </button>
-
-        {isClose ? (
-          <button
-            type="button"
-            onClick={preview ? replay : () => setDismissed(true)}
-            aria-label={preview ? 'Replay film' : 'Continue to invitation page'}
-            className="flex h-9 items-center justify-center rounded-full border border-current/15 px-4 text-xs font-medium opacity-60 hover:opacity-80"
-          >
-            {preview ? 'Replay' : 'Continue'}
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => goRef.current(idxRef.current + 1)}
-            aria-label="Next slide"
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-current/15 opacity-60 hover:opacity-80"
-          >
-            <ChevronRight aria-hidden className="h-4 w-4" />
-          </button>
-        )}
-      </div>
     </>
   );
 

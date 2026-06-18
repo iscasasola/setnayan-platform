@@ -9,6 +9,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveStdFilmContent } from '@/lib/save-the-date-content';
 import { resolveStdTheme } from '@/lib/std-themes';
 import { resolveRevealEffects } from '@/lib/std-reveal-effects';
+import { resolveStdBackground } from '@/lib/std-backgrounds';
 import { REVEAL_TEMPLATE_IDS, fetchRevealConfig } from '@/lib/reveal-config';
 import {
   NO_REVEAL,
@@ -55,7 +56,7 @@ export default async function SaveTheDatePage({ params }: Props) {
   const { data: event } = await supabase
     .from('events')
     .select(
-      'public_id, slug, display_name, event_date, venue_name, venue_address, love_story, monogram_text, monogram_custom_svg, monogram_uploaded_svg, role_palette, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_film_date, std_film_venue_name, std_film_venue_city, std_film_story, our_photos, site_bg_music_enabled, site_bg_music_r2_key, landing_page_hero_image_url',
+      'public_id, slug, display_name, event_date, venue_name, venue_address, love_story, monogram_text, monogram_custom_svg, monogram_uploaded_svg, role_palette, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_film_date, std_film_venue_name, std_film_venue_city, std_film_story, std_background, our_photos, site_bg_music_enabled, site_bg_music_r2_key, landing_page_hero_image_url',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -77,6 +78,7 @@ export default async function SaveTheDatePage({ params }: Props) {
   const chosenTemplate = coerceTemplate(event?.std_reveal_template);
   const themeId = resolveStdTheme(event?.std_theme);
   const effects = resolveRevealEffects(event?.std_reveal_effects);
+  const stdBackground = resolveStdBackground(event?.std_background, veilColor);
 
   const [ownsOpenings, openingsSku, settings, revealConfig] = await Promise.all([
     eventOwnsStdOpenings(supabase, eventId),
@@ -209,6 +211,7 @@ export default async function SaveTheDatePage({ params }: Props) {
         initialLaunchDate={launchDate}
         initialRevealTemplate={chosenTemplate}
         initialEffects={effects}
+        initialBackground={stdBackground}
         initialFilmDate={stdDate}
         initialFilmVenueName={stdVenueName}
         initialFilmVenueCity={stdVenueCity}

@@ -29,6 +29,10 @@ import {
  *  (the component imports the type) so the resolver and the view never drift. */
 export type StdFilmContent = {
   monogram: string;
+  /** Sanitized SVG markup of the couple's actual monogram mark (uploaded /
+   *  Cipher / bespoke). When present the film renders it in the monogram + close
+   *  beats instead of the text initials. null → the text-initials fallback. */
+  monogramSvg?: string | null;
   names: string;
   /** Compact date for the big card (e.g. "06.12.27"); null when no date yet. */
   dateBig: string | null;
@@ -60,6 +64,8 @@ export type ResolveStdFilmInput = {
   displayName: string;
   /** The couple's explicit monogram text (resolveMonogram().text); else derived. */
   monogramText?: string | null;
+  /** Sanitized SVG of the couple's monogram mark (uploaded_svg ?? custom_svg). */
+  monogramSvg?: string | null;
   dateIso: string | null;
   /** When the full invitation goes live (events.std_invitation_launch_date). */
   launchDateIso?: string | null;
@@ -131,6 +137,10 @@ export function resolveStdFilmContent(input: ResolveStdFilmInput): StdFilmConten
   });
   return {
     monogram,
+    monogramSvg:
+      typeof input.monogramSvg === 'string' && input.monogramSvg.trim()
+        ? input.monogramSvg
+        : null,
     names: input.displayName,
     dateBig: shortDate(input.dateIso),
     dateLabel: input.dateIso ? formatEventDate(input.dateIso) : null,

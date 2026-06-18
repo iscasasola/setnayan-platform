@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · feat(std): the couple's real monogram mark in the film (PR-G)
+
+The Save-the-Date film's opening + closing beats showed plain text initials (e.g. "M & J"). When the couple has an actual monogram mark (uploaded · Cipher · bespoke) it now renders that mark instead — so the film leads and lands on their real mark, matching the reveal.
+
+- **Film** `save-the-date-film.tsx`: a `FilmMonogram` helper renders the sanitized mark as an inert `<img>` data-URI via `bespokeSvgToDataUri` (the hero's pattern — no `dangerouslySetInnerHTML`), object-contain so it's never clipped; falls back to the typographic initials when there's no mark. Used in the monogram beat (h-28→32) + close beat (h-16→20).
+- **Resolver** `lib/save-the-date-content.ts`: `StdFilmContent.monogramSvg` + `ResolveStdFilmInput.monogramSvg` (sanitized `uploaded_svg ?? custom_svg`).
+- **Live page** threads `bespokeSvg` (already resolved for the hero) into both `SaveTheDateView` paths — wired `bespokeSvg` into `PublicLanding` (the anonymous path lacked it) so the public STD also shows the mark, plus the signed-in path.
+- **Builder** passes `markSvg` so the preview shows the couple's mark too.
+
+No-mark couples are byte-for-byte unchanged (text initials). Verified: `pnpm typecheck` + `pnpm lint` clean; `save-the-date-content` tests 22/22.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the film's Monogram element now renders the couple's real mark (one of the 7 required content elements), not just initials. No schema. Note: the mark renders as-is (its own palette); on a dark film theme a dark mark could be low-contrast — a future design-pass refinement. See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · feat(std): orientation polish — video tilt hint + revealed-veil rotate (PR-F)
 
 Two orientation fixes now that the video island ships.

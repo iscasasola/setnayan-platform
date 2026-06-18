@@ -10,24 +10,29 @@
  * reveal literally uncovered the film already in motion beneath it. If no
  * reveal is active the film auto-starts after a short grace period.
  *
- * Interaction: press-and-hold pauses · tap left-third goes back · tap right
- * advances · tap a scrub bar jumps to that slide · replay from the close beat.
+ * The 9-beat spine (owner 2026-06-19):
+ *   1 monogram · 2 names · 3 wedding date · 4 ceremony venue · 5 reception venue
+ *   · 6 "we can't wait to celebrate with you" · 7 "formal invitation to follow ·
+ *   arrives XXX" · 8 the couple's video (press play → FULL SCREEN on top of
+ *   everything; on end it advances) OR the photo gallery · 9 add-to-calendar.
+ * Beats whose data is missing (no date, one venue, no video) are simply skipped.
+ *
+ * Interaction: the film auto-plays through the text beats; press-and-hold pauses,
+ * a tap on the left third steps back, the right third advances. No chrome — just
+ * the texts. The video beat holds until the guest presses play (or scrubs past).
  * Music auto-plays (the reveal-lift gesture has already unlocked audio).
  *
- * After the last slide the guest can dismiss the film to reach the normal
- * wedding page below (RSVP widgets, schedule, etc.).
- *
- * theme system (2026-06-18): pass themeId to change the visual palette and
- * font. Defaults to 'moodboard' (current behaviour — inherits the event
- * mood-board CSS vars).
+ * theme system: pass themeId to pick the display FONT (the 5 ids map to fonts;
+ * colours come from the Step-1 background + legibility tone).
  *
  * preview mode: pass preview={true} in the builder's small phone frame —
- * disables the 'std-reveal-done' wait, audio autoplay, and dismiss/fullscreen.
+ * disables the 'std-reveal-done' wait, audio autoplay, and the video fullscreen
+ * (the video plays inline + muted so it animates in the device frame).
  */
 
 import type * as React from 'react';
-import { type MouseEvent, type ReactNode, useEffect, useRef, useState } from 'react';
-import { Music, Smartphone, VolumeX } from 'lucide-react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { Music, Play, VolumeX } from 'lucide-react';
 import { type StdFilmContent } from '@/lib/save-the-date-content';
 import { STD_THEMES, resolveStdTheme, type StdTheme, type StdThemeId } from '@/lib/std-themes';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
@@ -99,7 +104,7 @@ export function SaveTheDateFilm({
   tone = null,
 }: {
   content: StdFilmContent;
-  /** Theme override. Defaults to 'moodboard' (inherits the event's Mood Board palette). */
+  /** Theme override (the display font). Defaults to 'default' (Cormorant). */
   themeId?: StdThemeId;
   /** When true, renders as a contained phone-card (for the builder preview).
    *  When false (default), renders full-screen under the reveal overlay. */
@@ -125,19 +130,19 @@ export function SaveTheDateFilm({
   const outerBgCls = transparent ? 'bg-transparent' : theme.outerBg;
   const LABEL = theme.labelCls;
 
-  // The couple's uploaded closing video plays as a locked real-time island beat
-  // (plays to the end with sound) in place of the photo gallery. Declared above
-  // the slides so the video slide can bind the ref. See the orchestration
-  // effect below for play/pause + music-duck handling.
+  // The couple's uploaded video plays as beat 8: pressed it goes FULL SCREEN on
+  // top of everything (never auto-plays inline); on end the film advances to the
+  // calendar close. Declared above the slides so the beat can bind the ref; the
+  // play handler + end/fullscreen wiring live in the effect below.
   const videoElRef = useRef<HTMLVideoElement | null>(null);
   const hasVideo = Boolean(content.videoUrl);
-  // A landscape video on a portrait phone reads tiny — nudge the guest to rotate
-  // (orientation spec, content phase). The hint auto-clears when they do.
-  const [videoLandscape, setVideoLandscape] = useState(false);
-  const [portraitPhone, setPortraitPhone] = useState(false);
+  // Set by the video effect — the JSX play button calls it (deferred so it can
+  // close over the live mute state; mirrors the goRef pattern).
+  const playVideoRef = useRef<() => void>(() => {});
 
   const slides: Slide[] = [];
 
+  // 1 — monogram / logo
   slides.push({
     key: 'monogram',
     dur: 4000,
@@ -155,6 +160,7 @@ export function SaveTheDateFilm({
     ),
   });
 
+  // 2 — names
   slides.push({
     key: 'names',
     dur: 4200,
@@ -169,6 +175,7 @@ export function SaveTheDateFilm({
     ),
   });
 
+  // 3 — wedding date (no add-to-calendar here — that's the closing beat)
   if (content.dateBig || content.dateLabel) {
     slides.push({
       key: 'date',
@@ -184,46 +191,35 @@ export function SaveTheDateFilm({
           {content.dateLabel ? (
             <p className={`${theme.fontCls} text-2xl italic ${theme.subtleText}`}>{content.dateLabel}</p>
           ) : null}
-          {content.gcalUrl || content.icsHref ? (
-            <a
-              href={content.gcalUrl ?? content.icsHref ?? '#'}
-              {...(content.gcalUrl
-                ? { target: '_blank', rel: 'noopener noreferrer' }
-                : { download: content.icsFilename })}
-              onClick={(e: MouseEvent) => e.stopPropagation()}
-              className={`mt-1 inline-flex items-center gap-2 rounded-full ${theme.accentBg} px-6 py-2.5 text-[13px] font-semibold ${theme.accentFgOnBg} shadow transition hover:${theme.accentBgHover}`}
-            >
-              Add to calendar
-            </a>
-          ) : null}
         </div>
       ),
     });
   }
 
-  // Ceremony then reception — separate beats, each shown only when its venue
-  // resolved (from the finalized bookings / manual fallback). The film adapts:
-  // one venue → one beat; both → two; neither → skipped.
+  // 4 — ceremony venue (shown only when the finalized ceremony booking resolved)
   if (content.ceremonyVenue) {
     slides.push({
       key: 'ceremony',
-      dur: 4000,
+      dur: 4200,
       node: (
         <div className="flex flex-col items-center gap-3 text-center">
           <p className={LABEL}>The ceremony</p>
+          <p className={`${theme.fontCls} text-xl italic ${theme.subtleText}`}>We&rsquo;ll exchange our vows at</p>
           <h2 className={`${theme.fontCls} text-4xl font-medium sm:text-5xl`}>{content.ceremonyVenue}</h2>
         </div>
       ),
     });
   }
 
+  // 5 — reception venue ("and we'll celebrate together at …")
   if (content.receptionVenue) {
     slides.push({
       key: 'reception',
-      dur: 4000,
+      dur: 4200,
       node: (
         <div className="flex flex-col items-center gap-3 text-center">
           <p className={LABEL}>The celebration</p>
+          <p className={`${theme.fontCls} text-xl italic ${theme.subtleText}`}>And we&rsquo;ll celebrate together at</p>
           <h2 className={`${theme.fontCls} text-4xl font-medium sm:text-5xl`}>{content.receptionVenue}</h2>
           {content.receptionCity ? (
             <p className={`${theme.fontCls} text-xl italic ${theme.subtleText}`}>{content.receptionCity}</p>
@@ -233,58 +229,92 @@ export function SaveTheDateFilm({
     });
   }
 
-  if (content.storyTeaser) {
-    slides.push({
-      key: 'story',
-      dur: 4600,
-      node: (
-        <div className="flex max-w-xs flex-col items-center gap-3 text-center">
-          <p className={LABEL}>Our story</p>
-          <p className={`${theme.fontCls} text-2xl italic leading-snug ${theme.subtleText}`}>
-            &ldquo;{content.storyTeaser}&rdquo;
-          </p>
-        </div>
-      ),
-    });
-  }
+  // 6 — the closing sentiment
+  slides.push({
+    key: 'sentiment',
+    dur: 4600,
+    node: (
+      <div className="flex flex-col items-center gap-3 text-center">
+        <FilmMonogram
+          svg={content.monogramSvg}
+          text={content.monogram}
+          sizeCls="h-14 w-14 sm:h-16 sm:w-16"
+          textCls={`${theme.fontCls} text-3xl font-medium ${theme.accentText}`}
+        />
+        <p className={`${theme.fontCls} text-3xl font-medium italic leading-tight sm:text-4xl`}>
+          We can&rsquo;t wait to
+          <br />
+          celebrate with you
+        </p>
+      </div>
+    ),
+  });
 
+  // 7 — formal invitation to follow · arrives XXX
+  slides.push({
+    key: 'invitation',
+    dur: 4400,
+    node: (
+      <div className="flex flex-col items-center gap-3 text-center">
+        <p className={LABEL}>Formal invitation to follow</p>
+        {content.launchLabel ? (
+          <p className={`${theme.fontCls} text-3xl font-medium italic sm:text-4xl`}>
+            Arrives {content.launchLabel}
+          </p>
+        ) : (
+          <p className={`${theme.fontCls} text-2xl italic ${theme.subtleText}`}>
+            Watch your inbox
+          </p>
+        )}
+      </div>
+    ),
+  });
+
+  // 8 — the couple's video (press play → FULL SCREEN) OR the photo gallery
   if (hasVideo) {
-    // Video island — a locked real-time beat. The segment bar tracks the
-    // video clock (not a timer), the soundtrack ducks, and the film advances
-    // on 'ended' (both wired in the effects below). dur Infinity so the RAF
-    // timer never advances it. The element lives in the DOM for every slide
-    // (opacity-gated), so videoElRef is bound before the beat is reached.
+    // The video beat holds (dur Infinity) — it never auto-advances on a timer.
+    // Pressing play takes the <video> full-screen on top of everything; on its
+    // natural end the film advances to the calendar close (effect below). The
+    // <video> lives in the DOM for every slide (opacity-gated) so videoElRef is
+    // bound before the beat is reached.
     slides.push({
       key: 'video',
       dur: Infinity,
       node: (
-        <div className="relative flex w-full max-w-sm flex-col items-center gap-3">
+        <div className="flex w-full max-w-sm flex-col items-center gap-4">
           <p className={LABEL}>Watch our story</p>
-          {/* eslint-disable-next-line jsx-a11y/media-has-caption -- couple-uploaded keepsake clip, no caption track */}
-          <video
-            ref={videoElRef}
-            src={content.videoUrl ?? undefined}
-            playsInline
-            preload="metadata"
-            onLoadedMetadata={(e) => {
-              const v = e.currentTarget;
-              setVideoLandscape(v.videoWidth > v.videoHeight * 1.1);
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              playVideoRef.current();
             }}
-            className="max-h-[72vh] w-auto max-w-full rounded-2xl object-contain shadow-lg"
-          />
-          {!preview && videoLandscape && portraitPhone ? (
-            <div className="pointer-events-none absolute left-1/2 top-2 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-black/60 px-3 py-1.5 text-[11px] font-medium text-white shadow-lg backdrop-blur-sm">
-              <Smartphone aria-hidden className="h-3.5 w-3.5 rotate-90" strokeWidth={2} />
-              Tilt your phone to landscape
-            </div>
-          ) : null}
+            aria-label="Play our video full screen"
+            className="group relative w-full overflow-hidden rounded-2xl shadow-lg"
+          >
+            {/* eslint-disable-next-line jsx-a11y/media-has-caption -- couple-uploaded keepsake clip, no caption track */}
+            <video
+              ref={videoElRef}
+              src={content.videoUrl ?? undefined}
+              playsInline
+              muted
+              preload="metadata"
+              className="max-h-[68vh] w-full object-contain"
+            />
+            <span className="absolute inset-0 flex items-center justify-center bg-black/15 transition group-hover:bg-black/25">
+              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white/90 text-[#1a1412] shadow-lg transition group-hover:scale-105">
+                <Play aria-hidden className="h-7 w-7 translate-x-0.5" fill="currentColor" strokeWidth={0} />
+              </span>
+            </span>
+          </button>
+          <p className={`${theme.fontCls} text-base italic ${theme.subtleText}`}>Tap to play full screen</p>
         </div>
       ),
     });
   } else if (content.gallery && content.gallery.length > 0) {
     slides.push({
       key: 'gallery',
-      dur: 5000,
+      dur: 6500,
       node: (
         <div className="flex w-full max-w-xs flex-col items-center gap-3">
           <p className={LABEL}>Until then</p>
@@ -306,8 +336,8 @@ export function SaveTheDateFilm({
     });
   }
 
-  // Close beat — always last. Stays up indefinitely (dur Infinity) so the
-  // guest can read and interact with the calendar links before dismissing.
+  // 9 — add to calendar (terminal beat; holds indefinitely). The ICS / Google
+  // link carries both the wedding date and the invitation-launch reminder.
   slides.push({
     key: 'close',
     dur: Infinity,
@@ -319,33 +349,25 @@ export function SaveTheDateFilm({
           sizeCls="h-16 w-16 sm:h-20 sm:w-20"
           textCls={`${theme.fontCls} text-4xl font-medium ${theme.accentText}`}
         />
-        <p className={`${theme.fontCls} text-3xl font-medium italic leading-tight`}>
-          We can&rsquo;t wait to
-          <br />
-          celebrate with you
-        </p>
-        <p className={LABEL}>Formal invitation to follow</p>
-        {content.launchLabel ? (
-          <p className={`${theme.fontCls} text-sm italic ${theme.subtleText}`}>
-            Arrives {content.launchLabel}
+        <p className={LABEL}>Save the date</p>
+        {content.dateLabel ? (
+          <p className={`${theme.fontCls} text-3xl font-medium italic leading-tight`}>
+            {content.dateLabel}
           </p>
         ) : null}
-        <div
-          className="mt-1 flex flex-wrap items-center justify-center gap-2"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {content.icsHref || content.gcalUrl ? (
+        {content.icsHref || content.gcalUrl ? (
+          <div className="mt-1" onClick={(e) => e.stopPropagation()}>
             <a
               href={content.icsHref ?? content.gcalUrl ?? '#'}
               {...(content.icsHref
                 ? { download: content.icsFilename }
                 : { target: '_blank', rel: 'noopener noreferrer' })}
-              className={`inline-flex items-center gap-2 rounded-full ${theme.accentBg} px-5 py-2.5 text-[13px] font-semibold ${theme.accentFgOnBg} shadow`}
+              className={`inline-flex items-center gap-2 rounded-full ${theme.accentBg} px-6 py-3 text-[13px] font-semibold ${theme.accentFgOnBg} shadow`}
             >
               Add to calendar
             </a>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
       </div>
     ),
   });
@@ -356,7 +378,6 @@ export function SaveTheDateFilm({
   const [playing, setPlaying] = useState(false); // starts paused; unblocks on reveal-done
   const [muted, setMuted] = useState(false);
 
-  const fillRefs = useRef<Array<HTMLSpanElement | null>>([]);
   const stageRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const idxRef = useRef(0);
@@ -364,12 +385,10 @@ export function SaveTheDateFilm({
   const startRef = useRef(0);
   const pauseAtRef = useRef(0);
   const goRef = useRef<(j: number) => void>(() => {});
-  // Latest video-slide index for the RAF loop + gesture guards (which close
-  // over a once-built effect), and a "was on the video beat last render" flag
-  // so we reset the video to its start only when the guest first reaches it.
+  // Latest video-slide index for the gesture guards + the video effect (which
+  // close over once-built effects).
   const videoSlideIdxRef = useRef(-1);
   videoSlideIdxRef.current = videoSlideIndex;
-  const prevOnVideoRef = useRef(false);
 
   // Preview mode: start immediately (no reveal event to wait for).
   // Full-screen mode: wait for 'std-reveal-done' from the RevealOverlay;
@@ -397,104 +416,96 @@ export function SaveTheDateFilm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preview]);
 
-  // RAF player — fills each segment and advances slides.
+  // RAF player — advances timed slides. The video beat (dur Infinity) holds
+  // until the guest presses play (the video effect advances it on 'ended').
   useEffect(() => {
     let raf = 0;
-    const setFill = (j: number, pct: number) => {
-      const el = fillRefs.current[j];
-      if (el) el.style.width = pct + '%';
-    };
     const go = (j: number) => {
       const k = Math.max(0, Math.min(N - 1, j));
       idxRef.current = k;
       setIdx(k);
       startRef.current = performance.now();
-      for (let s = 0; s < N; s++) setFill(s, s < k ? 100 : 0);
     };
     goRef.current = go;
-    for (let s = 0; s < N; s++) setFill(s, 0);
 
     const loop = (now: number) => {
       if (playingRef.current) {
-        if (idxRef.current === videoSlideIdxRef.current) {
-          // Video island: the segment bar follows the video clock; the beat
-          // advances on 'ended' (listener below), never on a timer.
-          const v = videoElRef.current;
-          const d = v?.duration ?? 0;
-          if (v && d && Number.isFinite(d) && d > 0) {
-            setFill(idxRef.current, Math.min(100, (v.currentTime / d) * 100));
-          }
-        } else {
-          const dur = slides[idxRef.current]?.dur ?? 4000;
-          if (dur !== Infinity) {
-            const e = now - startRef.current;
-            const frac = Math.min(1, e / dur);
-            setFill(idxRef.current, frac * 100);
-            if (e >= dur) go(idxRef.current + 1);
-          } else {
-            setFill(idxRef.current, 100);
-          }
+        const dur = slides[idxRef.current]?.dur ?? 4000;
+        if (dur !== Infinity && now - startRef.current >= dur) {
+          go(idxRef.current + 1);
         }
       }
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
-
-    // The video island hands control back to the scrub on natural end.
-    const videoEl = videoElRef.current;
-    const onEnded = () => go(videoSlideIdxRef.current + 1);
-    if (videoEl) videoEl.addEventListener('ended', onEnded);
-
-    return () => {
-      cancelAnimationFrame(raf);
-      if (videoEl) videoEl.removeEventListener('ended', onEnded);
-    };
+    return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [N]);
 
-  // Coordinate the video island with the soundtrack. On the video beat the
-  // music ducks and the video plays to the end with sound (muted in the
-  // builder preview so it can autoplay); everywhere else the video is paused
-  // and the music resumes when the film is playing + unmuted. Resets the video
-  // to its start only on the render the guest first reaches it.
+  // Video beat 8 — full-screen play + advance-on-end. The play button calls
+  // playVideoRef.current(): ducks the music, takes the <video> full-screen on
+  // top of everything, and plays from the start. On the video's natural end (or
+  // when the guest leaves full-screen) the music resumes; on 'ended' the film
+  // advances to the calendar close. In preview the video just plays inline muted
+  // (no fullscreen in the builder's device frame).
   useEffect(() => {
-    // No video → leave music exactly as the existing handlers drive it.
-    if (videoSlideIndex < 0) return;
     const v = videoElRef.current;
-    const onVideo = idx === videoSlideIndex;
-    if (onVideo && v) {
-      if (!prevOnVideoRef.current) {
-        try { v.currentTime = 0; } catch { /* not seekable yet — plays from 0 */ }
+    if (!v || videoSlideIndex < 0) return;
+    const doc = document as Document & {
+      webkitFullscreenElement?: Element;
+      webkitExitFullscreen?: () => void;
+    };
+    type FsVideo = HTMLVideoElement & {
+      webkitRequestFullscreen?: () => void;
+      webkitEnterFullscreen?: () => void;
+    };
+    const resumeMusic = () => {
+      if (content.musicUrl && audioRef.current && !muted && !preview && playingRef.current) {
+        audioRef.current.play().catch(() => {});
+      }
+    };
+
+    playVideoRef.current = () => {
+      try { v.currentTime = 0; } catch { /* not seekable yet — plays from 0 */ }
+      if (preview) {
+        v.muted = true;
+        v.play().catch(() => {});
+        return;
       }
       if (audioRef.current) audioRef.current.pause();
-      v.muted = muted || preview;
-      if (playing) v.play().catch(() => {});
-      else v.pause();
-    } else {
-      if (v) v.pause();
-      if (content.musicUrl && audioRef.current && !preview) {
-        if (playing && !muted) audioRef.current.play().catch(() => {});
-        else audioRef.current.pause();
-      }
-    }
-    prevOnVideoRef.current = onVideo;
-  }, [idx, playing, muted, videoSlideIndex, content.musicUrl, preview]);
-
-  // Track portrait-phone orientation for the landscape-video tilt hint. Full-
-  // screen only (the builder preview is a fixed device frame). Clears the moment
-  // the guest rotates to landscape.
-  useEffect(() => {
-    if (preview || typeof window === 'undefined' || !window.matchMedia) return;
-    const portrait = window.matchMedia('(orientation: portrait)');
-    const update = () => setPortraitPhone(portrait.matches && window.innerWidth < 768);
-    update();
-    portrait.addEventListener('change', update);
-    window.addEventListener('resize', update);
-    return () => {
-      portrait.removeEventListener('change', update);
-      window.removeEventListener('resize', update);
+      v.muted = muted;
+      const fv = v as FsVideo;
+      const req = v.requestFullscreen ?? fv.webkitRequestFullscreen ?? fv.webkitEnterFullscreen;
+      try { req?.call(v); } catch { /* fullscreen denied — plays inline */ }
+      v.play().catch(() => {});
     };
-  }, [preview]);
+
+    const onEnded = () => {
+      const exit = doc.exitFullscreen ?? doc.webkitExitFullscreen;
+      try { exit?.call(doc); } catch { /* already exited */ }
+      goRef.current(videoSlideIdxRef.current + 1);
+      resumeMusic();
+    };
+    // Standard + WebKit (iOS native player) fullscreen-exit → pause, resume music.
+    const onFsChange = () => {
+      const fsEl = doc.fullscreenElement ?? doc.webkitFullscreenElement;
+      if (!fsEl) {
+        v.pause();
+        resumeMusic();
+      }
+    };
+
+    v.addEventListener('ended', onEnded);
+    v.addEventListener('webkitendfullscreen', onFsChange);
+    doc.addEventListener('fullscreenchange', onFsChange);
+    doc.addEventListener('webkitfullscreenchange', onFsChange as EventListener);
+    return () => {
+      v.removeEventListener('ended', onEnded);
+      v.removeEventListener('webkitendfullscreen', onFsChange);
+      doc.removeEventListener('fullscreenchange', onFsChange);
+      doc.removeEventListener('webkitfullscreenchange', onFsChange as EventListener);
+    };
+  }, [muted, content.musicUrl, preview, videoSlideIndex]);
 
   // Press-and-hold pauses; a quick tap on left/right steps; the gesture also
   // unlocks audio (browser requires user gesture).
@@ -505,8 +516,8 @@ export function SaveTheDateFilm({
   const onPointerDown = (e: React.PointerEvent) => {
     downXRef.current = e.clientX;
     wasHoldRef.current = false;
-    // Unlock the soundtrack on the gesture — but NOT while the video island is
-    // playing (there the music stays ducked; the orchestration effect owns it).
+    // Unlock the soundtrack on the gesture — but NOT while on the video beat
+    // (there the music stays ducked; the video effect owns it).
     if (
       audioRef.current &&
       audioRef.current.paused &&
@@ -559,10 +570,7 @@ export function SaveTheDateFilm({
         // Only resume music on unmute when we're NOT on the ducked video beat.
         if (!next && !onVideo) audioRef.current.play().catch(() => {});
       }
-      if (videoElRef.current) {
-        videoElRef.current.muted = next || preview;
-        if (!next && onVideo) videoElRef.current.play().catch(() => {});
-      }
+      if (videoElRef.current) videoElRef.current.muted = next || preview;
       return next;
     });
   };
@@ -672,7 +680,7 @@ export function SaveTheDateFilm({
   }
 
   // Full-screen: theme's outer bg fills the whole viewport; stage is phone-width
-  // centered so the scrub bars and content look intentional on desktop.
+  // centered so the content looks intentional on desktop.
   return (
     <div className={`fixed inset-0 z-[50] flex justify-center ${outerBgCls} ${theme.outerFg}`}>
       <div

@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · feat(std): the 9-beat film spine + video → full screen (PR-R)
+
+Owner respec of the film's beat order + the video behaviour:
+
+> "1. Logo 2. Together with their families… 3. Wedding Date 4. Ceremony Venue message with name of venue 5. and we will celebrate together at Reception Venue 6. We can't wait to celebrate with you 7. Formal Invitation to Follow · Arrives XXX 8. Watch our Video (press play button to go full screen, should go on top of everything) (or scroll the photos if photos) 9. Once the video ends, add to calendar invitation schedule."
+
+`save-the-date-film.tsx` rebuilt to that exact spine:
+
+- **Reordered + reworded beats.** 1 monogram · 2 names · 3 wedding date (**add-to-calendar removed from here**) · 4 ceremony — "We'll exchange our vows at **{ceremonyVenue}**" · 5 reception — "And we'll celebrate together at **{receptionVenue}**" · 6 "We can't wait to celebrate with you" · 7 "Formal invitation to follow · Arrives **{launchLabel}**" · 8 video/gallery · 9 **add-to-calendar** (terminal). Beats 6 + 7 + 9 were split out of the old combined close beat.
+- **Video beat → full screen.** The video no longer auto-plays inline. Beat 8 shows the clip with a play button; pressing it takes the `<video>` **full screen on top of everything** (`requestFullscreen` / WebKit `webkitEnterFullscreen` for the iOS native player) with sound, music ducked. On the video's natural **`ended`** it exits full screen, resumes music, and advances to the calendar close (beat 9). Leaving full screen early pauses + resumes music. The beat holds (`dur: Infinity`) until played or scrubbed past. In the builder preview the video plays inline + muted (no fullscreen in the device frame).
+- **Dropped the standalone "Our story" teaser beat** — not in the owner's spine. ⚠ Flagged for owner: `storyTeaser` is still resolved in `save-the-date-content.ts` but no longer rendered; say the word and we re-add a beat or strip the field.
+- **Simplified the engine.** Removed the now-dead scrub-fill RAF tracking + `fillRefs`, the inline-video orchestration effect, the landscape-tilt hint + orientation effect (the video is full screen now, so the tiny-landscape problem is gone). Auto-play + press-hold-pause + left/right-third scrub gestures unchanged.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean; `save-the-date-content` tests 22/22.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the film is now a fixed 9-beat spine (date card no longer carries the calendar CTA; the standalone story beat is dropped); the couple's video plays **full screen** on a play gesture and the calendar close shows once it ends. See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · feat(std): full-screen Save-the-Date — no top nav, no chrome (PR-Q)
 
 Owner: "we don't want the top nav, we want a full screen save the date."

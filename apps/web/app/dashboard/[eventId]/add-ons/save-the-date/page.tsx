@@ -122,37 +122,6 @@ export default async function SaveTheDatePage({ params }: Props) {
       ? event.std_invitation_launch_date.slice(0, 10)
       : '';
 
-  const infoRows = [
-    { label: 'Your monogram & names', done: true, value: `${content.monogram} · ${content.names}` },
-    {
-      label: 'Wedding date',
-      done: Boolean(content.dateBig),
-      value: content.dateLabel ?? undefined,
-      href: `/dashboard/${eventId}`,
-    },
-    {
-      label: 'Venue',
-      done: Boolean(content.venueName),
-      value: content.venueName ?? undefined,
-      href: `/dashboard/${eventId}`,
-    },
-    {
-      label: 'A line from your story',
-      done: Boolean(content.storyTeaser),
-      href: `/dashboard/${eventId}/website`,
-    },
-    {
-      label: 'Soundtrack',
-      done: Boolean(content.musicUrl),
-      href: `/dashboard/${eventId}/website/site-chrome`,
-    },
-    {
-      label: 'Closing photos',
-      done: (content.gallery?.length ?? 0) > 0,
-      value: content.gallery?.length ? `${content.gallery.length} photo${content.gallery.length > 1 ? 's' : ''}` : undefined,
-      href: `/dashboard/${eventId}/website/our-photos`,
-    },
-  ];
 
   return (
     <section className="space-y-8">
@@ -231,7 +200,10 @@ export default async function SaveTheDatePage({ params }: Props) {
         initialThemeId={themeId}
         initialLaunchDate={launchDate}
         initialRevealTemplate={chosenTemplate}
-        infoRows={infoRows}
+        initialFilmDate={stdDate}
+        initialFilmVenueName={stdVenueName}
+        initialFilmVenueCity={stdVenueCity}
+        initialFilmStory={stdStory}
         displayName={event?.display_name ?? ''}
         dateIso={event?.event_date ?? null}
         markSvg={markSvg}

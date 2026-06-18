@@ -68,13 +68,25 @@ export async function chooseRevealTemplate(
 
 /**
  * saveAllStdContent — single-shot save for the live builder (2026-06-18).
- * Persists the couple's theme choice + optional invitation launch date in one
- * write. Returns { ok: boolean } — no redirect, so the builder can stay put
- * and show an inline success state (the one-Render-button UX).
+ * Persists theme + invitation launch date + the four film-snapshot columns
+ * (std_film_date / venue_name / venue_city / story) in one write.
+ * Returns { ok: boolean } — no redirect; the builder shows an inline result.
+ *
+ * Snapshot fields store film-specific overrides so subsequent edits to the
+ * core event (event_date, venue_name, love_story) don't change a finalized
+ * film. Passing null/empty clears the override and falls back to live event
+ * data on the next render.
  */
 export async function saveAllStdContent(
   eventId: string,
-  data: { theme?: string; launchDate?: string | null },
+  data: {
+    theme?: string;
+    launchDate?: string | null;
+    filmDate?: string | null;
+    filmVenueName?: string | null;
+    filmVenueCity?: string | null;
+    filmStory?: string | null;
+  },
 ): Promise<{ ok: boolean; error?: string }> {
   if (!eventId) return { ok: false, error: 'missing-event' };
   const supabase = await requireCouple(eventId);
@@ -90,12 +102,25 @@ export async function saveAllStdContent(
       ? null
       : /^\d{4}-\d{2}-\d{2}$/.test(rawDate)
         ? rawDate
-        : undefined; // invalid date → skip
+        : undefined;
   if (launchDate === undefined) return { ok: false, error: 'bad-date' };
+
+  const rawFilmDate = data.filmDate?.trim() ?? null;
+  const filmDate =
+    rawFilmDate === '' || rawFilmDate === null
+      ? null
+      : /^\d{4}-\d{2}-\d{2}$/.test(rawFilmDate)
+        ? rawFilmDate
+        : undefined;
+  if (filmDate === undefined) return { ok: false, error: 'bad-film-date' };
 
   const patch: Record<string, unknown> = {};
   if (theme !== null) patch.std_theme = theme;
   patch.std_invitation_launch_date = launchDate;
+  if (data.filmDate !== undefined) patch.std_film_date = filmDate;
+  if (data.filmVenueName !== undefined) patch.std_film_venue_name = data.filmVenueName?.trim() || null;
+  if (data.filmVenueCity !== undefined) patch.std_film_venue_city = data.filmVenueCity?.trim() || null;
+  if (data.filmStory !== undefined) patch.std_film_story = data.filmStory?.trim() || null;
 
   const { error } = await supabase.from('events').update(patch).eq('event_id', eventId);
   if (error) return { ok: false, error: 'db-error' };

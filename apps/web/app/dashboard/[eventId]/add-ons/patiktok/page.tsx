@@ -43,6 +43,7 @@ import { createOrder } from '../../orders/actions';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import { disconnectPatiktokTiktok } from './actions';
+import { ReelRenderer } from './_components/reel-renderer';
 
 type RenderJobRow = {
   job_id: string;
@@ -176,10 +177,12 @@ export default async function PatiktokGallery({
           className="inline-flex items-center gap-2 rounded-2xl border border-emerald-300/70 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
         >
           <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          Render queued. We&rsquo;ll email a download link the moment it
-          finishes — track it under <span className="font-semibold">Your renders</span> below.
+          Render queued. Render it right here in your browser below — it&rsquo;s
+          ready to download the moment it finishes.
         </p>
       ) : null}
+
+      {queued ? <ReelRenderer jobId={queued} eventId={eventId} /> : null}
 
       {tiktokConnected ? (
         <p

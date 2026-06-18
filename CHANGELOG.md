@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-18 · feat(patiktok): client-side WebCodecs reel render engine (PR3 of 4)
+
+The piece that makes Patiktok actually produce a video — replaces the 100ms placeholder worker with a real client-side renderer. Stacked on PR2 (#1723). Owner-locked render host: **client-side, ₱0 server compute**.
+
+- **New `lib/patiktok-render.ts`** — composites the booth clips cover-fit onto a 1080×1920 canvas with a template overlay and encodes a 9:16 MP4. **Primary path** = WebCodecs `VideoEncoder` → `mp4-muxer` (clean H.264 MP4, AVC config probed via `isConfigSupported` across High/Main/Baseline L4.0–4.2, deterministic frame-stepped at 30fps). **Fallback** = `MediaRecorder` over `canvas.captureStream()` (real-time, webm) for browsers without WebCodecs. Encoder backpressure, abort support, per-frame progress.
+- **New server actions** (`actions.ts`): `claimPatiktokRenderJob` (RLS-read = auth, gathers event clips as presigned GET URLs, resolves music, flips job → `processing` via service role), `finalizePatiktokRenderJob` (writes `output_object_key`/bytes/`render_mode`, records the job→clip junction, marks clips `included`, returns a 7-day presigned download), `failPatiktokRenderJob`.
+- **New `_components/reel-renderer.tsx`** (client) — drives claim → render (progress bar) → presigned reel upload → finalize → in-page preview + **Download reel** + render-again. Couple-readable errors with retry.
+- **`page.tsx`** — mounts `ReelRenderer` for the `?queued=<jobId>` job; the queued banner now points at in-browser render instead of "we'll email it".
+
+tsc 0 · ESLint clean. **NOT auto-merged** — this is the one piece CI can't exercise (the render needs a real browser + camera-captured clips + a CORS-configured R2). Verify on a device before merge.
+
+Music stays a plumbed-but-inert seam (`musicUrl` passed through; reels render silent until the owned Suno catalogue is ingested). Audio mux + TikTok auto-post remain out of scope (owner/TikTok-gated).
+
+SPEC IMPACT iter 0017 — the render worker is real (client-side); the Phase-1 placeholder `output_url` write is retired. → CHANGELOG + corpus DECISION_LOG.
+
 ## 2026-06-18 · feat(patiktok): web booth capture + direct-to-R2 clip upload (PR2 of 4)
 
 The INPUT half of the render pipeline — turns the disabled "Start Recording" button into a real capture loop. Stacked on PR1 (#1713 schema).

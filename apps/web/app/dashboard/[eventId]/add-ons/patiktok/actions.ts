@@ -5,6 +5,8 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { findPatiktokTemplate } from '@/lib/patiktok';
+import { presignDisplayUrl } from '@/lib/uploads';
+import { isR2Configured, R2_BUCKETS } from '@/lib/r2';
 
 // Iteration 0017 Phase 2 — Patiktok render-job submission.
 //
@@ -164,6 +166,211 @@ export async function recordPatiktokClip(input: {
 
   revalidatePath(`/dashboard/${input.eventId}/add-ons/patiktok/booth`);
   return { clipId: data.clip_id as string };
+}
+
+/**
+ * Iteration 0017 PR3 — claim a render job for the CLIENT-SIDE renderer.
+ *
+ * The browser (WebCodecs) does the actual encoding, so this server action just
+ * (1) confirms the caller can see the job (RLS-scoped read = event membership),
+ * (2) gathers the event's captured clips as presigned GET URLs the browser can
+ * decode, (3) resolves the chosen music track, and (4) flips the job to
+ * `processing` via the service role (couples never write the queue directly).
+ *
+ * Returns everything the renderer needs. Throws (with a couple-readable
+ * message) when there are no clips yet or R2 isn't configured.
+ */
+export async function claimPatiktokRenderJob(jobId: string): Promise<{
+  eventId: string;
+  templateSlug: string;
+  durationSec: number;
+  musicUrl: string | null;
+  clips: Array<{ clipId: string; url: string; durationSec: number | null }>;
+}> {
+  if (typeof jobId !== 'string' || jobId.length === 0) {
+    throw new Error('jobId required');
+  }
+  if (!isR2Configured()) {
+    throw new Error('Storage is not configured yet — renders are unavailable.');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // RLS-scoped read: only an event member can see this row, so a successful
+  // read is also the authorization check.
+  const { data: job, error: jobError } = await supabase
+    .from('patiktok_render_jobs')
+    .select('job_id, event_id, template_slug, duration_sec, music_track_slug, status')
+    .eq('job_id', jobId)
+    .maybeSingle();
+  if (jobError) throw new Error(jobError.message);
+  if (!job) throw new Error('Render job not found.');
+
+  // Gather the event's captured clips (oldest first → chronological reel).
+  const { data: clipRows, error: clipError } = await supabase
+    .from('patiktok_source_clips')
+    .select('clip_id, r2_bucket, r2_object_key, duration_sec')
+    .eq('event_id', job.event_id)
+    .in('status', ['uploaded', 'included'])
+    .order('captured_at', { ascending: true });
+  if (clipError) throw new Error(clipError.message);
+  if (!clipRows || clipRows.length === 0) {
+    throw new Error('No booth clips captured yet — record at the booth first.');
+  }
+
+  const clips = await Promise.all(
+    clipRows.map(async (c) => ({
+      clipId: c.clip_id as string,
+      // Patiktok clips live in the public media bucket; presign a working GET
+      // URL the browser can decode (24h TTL).
+      url: await presignDisplayUrl(R2_BUCKETS.media, c.r2_object_key as string),
+      durationSec: (c.duration_sec as number | null) ?? null,
+    })),
+  );
+
+  // Resolve music (may be null — owned catalogue isn't ingested yet).
+  let musicUrl: string | null = null;
+  if (job.music_track_slug) {
+    const { data: track } = await supabase
+      .from('patiktok_music_tracks')
+      .select('source_url')
+      .eq('track_slug', job.music_track_slug)
+      .maybeSingle();
+    musicUrl = (track?.source_url as string | null) ?? null;
+  }
+
+  // Flip to processing (service role — the couple never writes the queue).
+  const admin = createAdminClient();
+  await admin
+    .from('patiktok_render_jobs')
+    .update({ status: 'processing', started_at: new Date().toISOString() })
+    .eq('job_id', jobId)
+    .neq('status', 'completed');
+
+  return {
+    eventId: job.event_id as string,
+    templateSlug: job.template_slug as string,
+    durationSec: (job.duration_sec as number) ?? 10,
+    musicUrl,
+    clips,
+  };
+}
+
+/**
+ * Iteration 0017 PR3 — finalize a render job after the browser uploaded the MP4.
+ *
+ * Marks the job complete with the R2 output pointer, records which clips were
+ * stitched (the job→clip junction), and flips those clips to `included`. All
+ * writes are service-role; membership is re-verified via an RLS-scoped read.
+ * Returns a presigned download URL for the just-rendered reel.
+ */
+export async function finalizePatiktokRenderJob(input: {
+  jobId: string;
+  bucket: string;
+  key: string;
+  bytes: number;
+  durationSec: number;
+  renderMode: 'client_webcodecs' | 'client_mediarecorder';
+  clipIds: string[];
+}): Promise<{ downloadUrl: string }> {
+  if (typeof input.jobId !== 'string' || input.jobId.length === 0) {
+    throw new Error('jobId required');
+  }
+  if (typeof input.key !== 'string' || input.key.length === 0) {
+    throw new Error('output key required');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // Membership re-check via RLS-scoped read.
+  const { data: job } = await supabase
+    .from('patiktok_render_jobs')
+    .select('job_id, event_id')
+    .eq('job_id', input.jobId)
+    .maybeSingle();
+  if (!job) throw new Error('Render job not found.');
+
+  // Patiktok reels live in the public media bucket. Presigned GET for
+  // immediate download (max 7-day TTL); the durable pointer is
+  // output_object_key, resolved fresh by the delivery surface in PR4.
+  const bucket = R2_BUCKETS.media;
+  const downloadUrl = await presignDisplayUrl(bucket, input.key, 60 * 60 * 24 * 7);
+
+  const admin = createAdminClient();
+  const { error: updErr } = await admin
+    .from('patiktok_render_jobs')
+    .update({
+      status: 'completed',
+      output_bucket: bucket,
+      output_object_key: input.key,
+      output_bytes: Number.isFinite(input.bytes) ? Math.round(input.bytes) : null,
+      output_url: downloadUrl,
+      render_mode: input.renderMode,
+      completed_at: new Date().toISOString(),
+    })
+    .eq('job_id', input.jobId);
+  if (updErr) throw new Error(updErr.message);
+
+  const clipIds = Array.isArray(input.clipIds) ? input.clipIds.slice(0, 250) : [];
+  if (clipIds.length > 0) {
+    await admin.from('patiktok_render_job_clips').upsert(
+      clipIds.map((clipId, i) => ({
+        job_id: input.jobId,
+        clip_id: clipId,
+        sort_order: i,
+      })),
+      { onConflict: 'job_id,clip_id', ignoreDuplicates: true },
+    );
+    await admin
+      .from('patiktok_source_clips')
+      .update({ status: 'included' })
+      .in('clip_id', clipIds)
+      .eq('status', 'uploaded');
+  }
+
+  revalidatePath(`/dashboard/${job.event_id}/add-ons/patiktok`);
+  return { downloadUrl };
+}
+
+/**
+ * Iteration 0017 PR3 — mark a render job failed (browser render/upload error).
+ */
+export async function failPatiktokRenderJob(input: {
+  jobId: string;
+  reason: string;
+}): Promise<void> {
+  if (typeof input.jobId !== 'string' || input.jobId.length === 0) return;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const { data: job } = await supabase
+    .from('patiktok_render_jobs')
+    .select('job_id')
+    .eq('job_id', input.jobId)
+    .maybeSingle();
+  if (!job) return;
+
+  const admin = createAdminClient();
+  await admin
+    .from('patiktok_render_jobs')
+    .update({
+      status: 'failed',
+      failure_reason: (input.reason || 'Render failed').slice(0, 500),
+      completed_at: new Date().toISOString(),
+    })
+    .eq('job_id', input.jobId);
 }
 
 /**

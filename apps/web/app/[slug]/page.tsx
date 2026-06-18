@@ -681,6 +681,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         backdrop={backdrop}
         liveWall={liveWall}
         watchLive={watchLive}
+        bespokeSvg={bespokeSvg}
       />
     );
   }
@@ -708,6 +709,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         backdrop={backdrop}
         liveWall={liveWall}
         watchLive={watchLive}
+        bespokeSvg={bespokeSvg}
       />
     );
   }
@@ -742,6 +744,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         backdrop={backdrop}
         liveWall={liveWall}
         watchLive={watchLive}
+        bespokeSvg={bespokeSvg}
       />
     );
   }
@@ -1201,6 +1204,7 @@ function PublicLanding({
   backdrop,
   liveWall,
   watchLive,
+  bespokeSvg,
 }: {
   event: EventRow;
   reason?: 'invalid_invite' | 'wrong_event' | null;
@@ -1248,6 +1252,9 @@ function PublicLanding({
   liveWall?: LiveWallData | null;
   /** Panood Watch-Live — non-null only during the live window when PANOOD_SYSTEM is active + a watch URL is staged. */
   watchLive?: WatchLiveData | null;
+  /** Sanitized bespoke monogram SVG (uploaded ?? Cipher) — feeds the STD film's
+   *  monogram beats. null → the film uses text initials. */
+  bespokeSvg?: string | null;
 }) {
   // Public-safe hideable widgets in the host's display order. The 6
   // types below all carry event-level data (no per-guest fields) so
@@ -1365,6 +1372,7 @@ function PublicLanding({
           background={stdBackground}
           backgroundImageUrl={stdBackgroundUrl}
           monogramText={event.monogram_text}
+          monogramSvg={bespokeSvg}
           musicUrl={bgMusicUrl}
           videoUrl={stdVideoUrl}
           galleryUrls={
@@ -1913,6 +1921,7 @@ function InvitationSite({
             background={stdBackground}
             backgroundImageUrl={stdBackgroundUrl}
             monogramText={event.monogram_text}
+            monogramSvg={bespokeSvg}
             musicUrl={bgMusicUrl}
             videoUrl={stdVideoUrl}
             galleryUrls={

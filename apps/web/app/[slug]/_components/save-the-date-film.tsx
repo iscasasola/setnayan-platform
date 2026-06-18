@@ -40,8 +40,36 @@ import {
 } from 'lucide-react';
 import { type StdFilmContent } from '@/lib/save-the-date-content';
 import { STD_THEMES, resolveStdTheme, type StdThemeId } from '@/lib/std-themes';
+import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 
 type Slide = { key: string; node: ReactNode; dur: number };
+
+/**
+ * The film's monogram mark — the couple's actual SVG mark (uploaded / Cipher /
+ * bespoke) when they have one, rendered as an inert <img> data-URI (object-
+ * contain, never clipped); otherwise the typographic initials fallback. Used in
+ * the opening monogram beat + the close beat so the film leads + lands on their
+ * real mark, matching the reveal.
+ */
+function FilmMonogram({
+  svg,
+  text,
+  sizeCls,
+  textCls,
+}: {
+  svg?: string | null;
+  text: string;
+  sizeCls: string;
+  textCls: string;
+}) {
+  if (svg) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={bespokeSvgToDataUri(svg)} alt="" className={`${sizeCls} object-contain`} />
+    );
+  }
+  return <div className={textCls}>{text}</div>;
+}
 
 export function SaveTheDateFilm({
   content,
@@ -88,9 +116,12 @@ export function SaveTheDateFilm({
     node: (
       <div className="flex flex-col items-center gap-3">
         <p className={LABEL}>Save the Date</p>
-        <div className={`${theme.fontCls} text-6xl font-medium ${theme.accentText} sm:text-7xl`}>
-          {content.monogram}
-        </div>
+        <FilmMonogram
+          svg={content.monogramSvg}
+          text={content.monogram}
+          sizeCls="h-28 w-28 sm:h-32 sm:w-32"
+          textCls={`${theme.fontCls} text-6xl font-medium ${theme.accentText} sm:text-7xl`}
+        />
         <div className={`h-px w-10 ${theme.scrubFill} opacity-40`} />
       </div>
     ),
@@ -238,9 +269,12 @@ export function SaveTheDateFilm({
     dur: Infinity,
     node: (
       <div className="flex flex-col items-center gap-4 text-center">
-        <div className={`${theme.fontCls} text-4xl font-medium ${theme.accentText}`}>
-          {content.monogram}
-        </div>
+        <FilmMonogram
+          svg={content.monogramSvg}
+          text={content.monogram}
+          sizeCls="h-16 w-16 sm:h-20 sm:w-20"
+          textCls={`${theme.fontCls} text-4xl font-medium ${theme.accentText}`}
+        />
         <p className={`${theme.fontCls} text-3xl font-medium italic leading-tight`}>
           We can&rsquo;t wait to
           <br />

@@ -45,6 +45,9 @@ type Props = {
   film?: boolean;
   /** Couple's explicit monogram text (resolveMonogram().text) — film only (P2). */
   monogramText?: string | null;
+  /** Sanitized SVG of the couple's monogram mark — film renders it in the
+   *  monogram + close beats instead of text initials when present. */
+  monogramSvg?: string | null;
   /** Presigned soundtrack URL (the couple's site music) — film only (P2). */
   musicUrl?: string | null;
   /** Presigned URL of the couple's NSFW-approved closing video — film only (PR-B).
@@ -72,6 +75,7 @@ export function SaveTheDateView({
   showTextHero,
   film = false,
   monogramText,
+  monogramSvg,
   musicUrl,
   videoUrl,
   galleryUrls,
@@ -98,6 +102,7 @@ export function SaveTheDateView({
     const content = resolveStdFilmContent({
       displayName,
       monogramText,
+      monogramSvg,
       dateIso,
       launchDateIso,
       venueName,

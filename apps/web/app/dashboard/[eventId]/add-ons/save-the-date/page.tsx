@@ -126,6 +126,7 @@ export default async function SaveTheDatePage({ params }: Props) {
   const content = resolveStdFilmContent({
     displayName: event?.display_name ?? '',
     monogramText: event?.monogram_text,
+    monogramSvg: markSvg,
     dateIso: stdDate ?? event?.event_date ?? null,
     launchDateIso: event?.std_invitation_launch_date,
     venueName: stdVenueName ?? event?.venue_name,

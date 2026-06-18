@@ -660,6 +660,11 @@ export function PapicGuestCapture({
     );
   }
 
+  // Hoist before JSX to avoid TS2367: kwentoPhase === 'flash' narrows the type
+  // inside the flash JSX block, making === 'flash_sending' always-false there.
+  const isFlashSending = kwentoPhase === 'flash_sending';
+  const isStorySending = kwentoPhase === 'story_sending';
+
   return (
     <main className="flex min-h-screen flex-col bg-ink text-cream">
       <header className="flex items-center justify-between px-4 py-3">
@@ -826,10 +831,10 @@ export function PapicGuestCapture({
               <button
                 type="button"
                 onClick={() => void sendFlash()}
-                disabled={kwentoPhase === 'flash_sending' || kwentoFlashText.trim().length === 0}
+                disabled={isFlashSending || kwentoFlashText.trim().length === 0}
                 className="shrink-0 rounded-md bg-mulberry px-3 py-2 text-sm font-medium text-cream disabled:opacity-40"
               >
-                {kwentoPhase === 'flash_sending' ? (
+                {isFlashSending ? (
                   <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
                 ) : (
                   '↑'
@@ -882,10 +887,10 @@ export function PapicGuestCapture({
               <button
                 type="button"
                 onClick={() => void sendStory()}
-                disabled={kwentoPhase === 'story_sending' || kwentoStoryText.trim().length === 0 || !kwentoConsent}
+                disabled={isStorySending || kwentoStoryText.trim().length === 0 || !kwentoConsent}
                 className="flex-1 inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-50"
               >
-                {kwentoPhase === 'story_sending' ? (
+                {isStorySending ? (
                   <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
                 ) : null}
                 Send to the couple 💌

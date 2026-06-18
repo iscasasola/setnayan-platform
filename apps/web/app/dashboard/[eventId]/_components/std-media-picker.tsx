@@ -241,13 +241,13 @@ export function StdMediaPicker({
             bucket="media"
             pathPrefix={`events/${eventId}/std-video`}
             acceptedTypes={['video/mp4', 'video/quicktime', 'video/webm']}
-            maxSizeMB={60}
+            maxSizeMB={200}
             variant="wide"
             currentValue={value.videoKey ?? null}
             initialDisplayUrls={value.videoKey && videoUrl ? { [value.videoKey]: videoUrl } : {}}
             onFilePicked={handleFilePicked}
             onChange={(v) => handleVideoChange(typeof v === 'string' ? v : null)}
-            help="MP4/MOV/WebM, up to 60 MB."
+            help="MP4/MOV/WebM, up to 200 MB."
           />
           {value.videoKey ? (
             <p className="text-[11px] font-medium">

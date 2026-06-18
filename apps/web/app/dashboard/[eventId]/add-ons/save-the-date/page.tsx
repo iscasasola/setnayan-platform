@@ -216,7 +216,7 @@ export default async function SaveTheDatePage({ params, searchParams }: Props) {
             lifts to reveal your page on your live site.
           </p>
         </div>
-      ) : openingsPricePhp != null ? (
+      ) : openingsPricePhp != null && openingsPricePhp > 0 ? (
         <section className="space-y-3 rounded-2xl border border-mulberry/20 bg-mulberry/5 p-5 sm:p-6">
           <div className="flex items-start gap-3">
             <Sparkles
@@ -251,7 +251,13 @@ export default async function SaveTheDatePage({ params, searchParams }: Props) {
             />
           </div>
         </section>
-      ) : null}
+      ) : (
+        // Price not yet set (or a non-positive catalog misconfig) — never render a
+        // ₱0 buy-CTA, which would submit a free order. Soft note, not a silent hide.
+        <p className="rounded-2xl border border-ink/10 bg-white/60 px-5 py-4 text-sm text-ink/55">
+          The cinematic openings are being set up — check back shortly.
+        </p>
+      )}
 
       {/* 2 · Preview the film itself — the exact piece guests see beneath the opening. */}
       <section className="space-y-3">

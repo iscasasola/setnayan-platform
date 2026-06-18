@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · fix(save-the-date): fail-proof the ₱799 openings unlock (owner "fail proof it")
+
+Two-lens adversarial review of the just-shipped premium-openings purchase flow. Two real, **INTRODUCED** issues fixed + the migration ledger reconciled; the pre-existing platform behaviors are flagged, not changed (fixing them for one SKU would diverge from every other paid SKU).
+
+- **Migration clobber → fixed.** `20270113942330` used `ON CONFLICT DO UPDATE` — and since the row was seeded out-of-band via `db query` (absent from prod's ledger), the next `db push` would have **silently reverted any admin price edit back to ₱799**. Changed to **`DO NOTHING`** (the price is admin-managed; a re-apply must preserve the admin's value) **and** reconciled the ledger with `supabase migration repair --status applied 20270113257561 20270113942330` (both the P4 + P5 db-query migrations were drifted) — so `db push` now skips them cleanly.
+- **₱0 free-order guard → fixed.** If the catalog price were ever misconfigured to 0, the buy-CTA rendered "₱0.00" and `submitOrderAction` only rejects `< 0` — so a couple could submit a **free** order and own the unlock. The builder now gates the CTA on **`price > 0`** (and shows a soft "being set up" note instead of a silent hide when the price is missing/non-positive).
+- **Revocation contract documented.** Added a comment in `lib/std-openings.ts`: the gate is intentionally **query-based** (an admin reject → order `cancelled` → `eventOwnsSku` false → opening deactivates), so NO activation/deactivation hook is needed — with a warning that any future flag-backed component MUST register a deactivation hook.
+
+tsc 0 · `next lint` clean · migration guard 408. Price verified still ₱799.00 on prod.
+
+**Flagged (PRE-EXISTING, not changed — shared by every paid SKU via the apply-then-pay model):** (1) a `submitted` order counts as owned before admin approval (the opening can show during the ≤24h reconciliation window; revoked on reject); (2) the shared `InlineCheckoutDrawer` lets a couple submit when BDO/GCash settings are empty. These are platform-wide behaviors; changing them for one SKU would be inconsistent.
+
+SPEC IMPACT iter 0024 — hardening only. → CHANGELOG + corpus DECISION_LOG.
+
 ## 2026-06-17 · feat(save-the-date): price + sell the premium openings — ₱799 "template unlock" (owner-set)
 
 Activates the P5 premium-openings gate at the owner's price: **₱799** for the cinematic-openings "template unlock" (revised down from the provisional ₱1,499). The content film stays free; the openings (the veil/envelope/doors reveal that lifts to uncover the page) are now a purchasable unlock.

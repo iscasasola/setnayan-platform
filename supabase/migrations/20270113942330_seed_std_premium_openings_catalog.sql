@@ -16,15 +16,16 @@
 --
 -- saas_overhead_cost_php = 0 — the openings are pure-margin client-side WebGL/CSS
 -- (no per-event render/storage cost). is_token_able = FALSE (couple-paid, not a
--- crew-delivery token SKU). Idempotent upsert (the canonical catalog-seed idiom),
--- so a re-apply re-asserts the seed without erroring.
+-- crew-delivery token SKU). **ON CONFLICT DO NOTHING** — NOT the other seeds'
+-- DO UPDATE: the price is ADMIN-MANAGED, so once the row exists a re-apply must
+-- PRESERVE the admin's value, never silently re-assert ₱799. (The row was seeded
+-- out-of-band via `db query`, so it's currently absent from prod's ledger; DO
+-- NOTHING makes the eventual `db push` a harmless no-op that records the ledger
+-- without clobbering whatever price the admin has set by then. The ledger was
+-- also reconciled now via `supabase migration repair --status applied`.)
 
 INSERT INTO public.platform_retail_catalog_v2
   (service_code, title, retail_price_php, saas_overhead_cost_php, is_token_able)
 VALUES
   ('STD_PREMIUM_OPENINGS', 'Save-the-Date Cinematic Openings', 799.00, 0.00, FALSE)
-ON CONFLICT (service_code) DO UPDATE SET
-  title                  = EXCLUDED.title,
-  retail_price_php       = EXCLUDED.retail_price_php,
-  saas_overhead_cost_php = EXCLUDED.saas_overhead_cost_php,
-  is_token_able          = EXCLUDED.is_token_able;
+ON CONFLICT (service_code) DO NOTHING;

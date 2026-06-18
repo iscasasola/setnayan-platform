@@ -34,6 +34,83 @@ Because the boolean engine can't be cheaply re-run server-side (paper.js needs a
 Verified: `pnpm typecheck` clean · `pnpm lint` 0 errors · `pnpm build` green.
 
 SPEC IMPACT: monogram overhaul **Phase 5** — `03_Strategy/Monogram_Studio_Design_2026-06-19.md` flipped from "PROTOTYPE · no app code yet" → SHIPPED; `DECISION_LOG.md` row added; memory `project_setnayan_monogram_overhaul` updated. ⚠ **Surfaced for owner sign-off:** the studio writes the same `monogram_custom_svg` as Cipher/Bespoke/Upload, so it is a **4th path to the one official mark** — no new SKU, the free monogram stays free.
+## 2026-06-19 · fix(std): post-reveal swipes scrub the film, not re-cover the veil (PR-S)
+
+Owner: "when I swipe down on a place without the veil, it should [not] bring the veil down — instead it should animate the texts via scrubbing."
+
+The veil is a persistent full-screen WebGL layer at `z-[60]` over the film (`z-[50]`). Even after it lifted it kept capturing pointer events, and `veil-reveal`'s `release()` reads a downward swipe as `setLift(0)` → re-covers. So a swipe on a now-uncovered area grabbed the transparent canvas instead of reaching the film.
+
+- `reveal-overlay.tsx` (veil branch): once the veil is revealed (`open`, set in `onRevealed`), the whole overlay flips to **`pointer-events-none`** — every gesture falls through to the film beneath, whose `onPointerUp` already steps the beats (tap/swipe the left third = back, otherwise = forward). The two-way "swipe down to re-cover" is **retired post-reveal** (the canvas's `window`-bound move/up listeners become harmless no-ops with no grab to act on).
+- The veil stays mounted + rendering (its drooped valance is still visible on top) — only its interactivity is released.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. No migration. Shipped on the PR #1792 branch alongside the 9-beat spine (one branch to avoid the stacked-CHANGELOG churn).
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` / `0024_Veil_Reveal_Spec` — post-reveal the veil is non-interactive; swipes scrub the film (the 2026-06-18 two-way re-cover is retired once lifted). See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(std): the 9-beat film spine + video → full screen (PR-R)
+
+Owner respec of the film's beat order + the video behaviour:
+
+> "1. Logo 2. Together with their families… 3. Wedding Date 4. Ceremony Venue message with name of venue 5. and we will celebrate together at Reception Venue 6. We can't wait to celebrate with you 7. Formal Invitation to Follow · Arrives XXX 8. Watch our Video (press play button to go full screen, should go on top of everything) (or scroll the photos if photos) 9. Once the video ends, add to calendar invitation schedule."
+
+`save-the-date-film.tsx` rebuilt to that exact spine:
+
+- **Reordered + reworded beats.** 1 monogram · 2 names · 3 wedding date (**add-to-calendar removed from here**) · 4 ceremony — "We'll exchange our vows at **{ceremonyVenue}**" · 5 reception — "And we'll celebrate together at **{receptionVenue}**" · 6 "We can't wait to celebrate with you" · 7 "Formal invitation to follow · Arrives **{launchLabel}**" · 8 video/gallery · 9 **add-to-calendar** (terminal). Beats 6 + 7 + 9 were split out of the old combined close beat.
+- **Video beat → full screen.** The video no longer auto-plays inline. Beat 8 shows the clip with a play button; pressing it takes the `<video>` **full screen on top of everything** (`requestFullscreen` / WebKit `webkitEnterFullscreen` for the iOS native player) with sound, music ducked. On the video's natural **`ended`** it exits full screen, resumes music, and advances to the calendar close (beat 9). Leaving full screen early pauses + resumes music. The beat holds (`dur: Infinity`) until played or scrubbed past. In the builder preview the video plays inline + muted (no fullscreen in the device frame).
+- **Dropped the standalone "Our story" teaser beat** — not in the owner's spine. ⚠ Flagged for owner: `storyTeaser` is still resolved in `save-the-date-content.ts` but no longer rendered; say the word and we re-add a beat or strip the field.
+- **Simplified the engine.** Removed the now-dead scrub-fill RAF tracking + `fillRefs`, the inline-video orchestration effect, the landscape-tilt hint + orientation effect (the video is full screen now, so the tiny-landscape problem is gone). Auto-play + press-hold-pause + left/right-third scrub gestures unchanged.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean; `save-the-date-content` tests 22/22.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the film is now a fixed 9-beat spine (date card no longer carries the calendar CTA; the standalone story beat is dropped); the couple's video plays **full screen** on a play gesture and the calendar close shows once it ends. See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(std): full-screen Save-the-Date — no top nav, no chrome (PR-Q)
+
+Owner: "we don't want the top nav, we want a full screen save the date."
+
+- `InvitationShell` gains a **`fullBleed`** mode: when the full-screen film is the body it renders just `<main>{children}</main>` — **no** "Setnayan · Invitation" top bar, **no** footer, **no** centred max-width column. Passed as `fullBleed={showSaveTheDate && stdFilm}` from both the anonymous (`PublicLanding`) and signed-in (`InvitationSite`) paths. The reveal overlay (z-60) + the film (z-50) fill the viewport edge-to-edge.
+- The film is now **terminal** in this phase: removed the "See your wedding page" dismiss + the `dismissed` state. There's no page beneath a Save-the-Date (the RSVP/widgets belong to later phases), so the film holds on its closing beat instead of dismissing to an empty, chrome-less page.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the Save-the-Date is a true full-screen experience (no site header/footer); the film is terminal (no dismiss) since there's no underlying page in the save-the-date phase. The static (`?film=0`) fallback keeps the normal chrome. See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(std): wedding date chosen from the couple's onboarding dates (PR-P)
+
+Last of the builder-cleanup batch (A). Owner: the STD wedding date must come from the couple's own date choices, not a free-typed field — "based on their choices on onboarding, or the priority date if they've picked one / have only one."
+
+- The builder page resolves `dateOptions` from `events`: when a date is **locked** (`event_date`) that's the single priority option; otherwise the **onboarding `date_candidates`** (specific mode); window-mode with no specific picks → no options.
+- The builder's free `<input type="date">` is replaced: **1 option** → read-only display of the chosen date; **multiple** → a `<select>` of the onboarding candidates; **none** → a "Pick your date in Date Selection" link. The date defaults to the priority/first option. It can no longer be an arbitrary typed date.
+- Pairs with PR-L: picking the date still backfills `event_date` when none is locked yet.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the STD wedding date is constrained to the couple's onboarding date choices / the locked date. **The 2026-06-19 builder-cleanup batch is now complete** (F texts-only film · D colour-lag · E 5-fonts · C auto-3-month invite · A date-from-onboarding · B venues-from-bookings via PR-M · monogram from the monogram lab via PR-G). See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(std): font-only look + colour-picker lag fix + auto-3-month invite (PR-O)
+
+Three of the builder-cleanup batch (D + E + C).
+
+- **Colour-picker lag fixed (D):** the veil/petal colour pickers were rebuilding the whole WebGL cloth on every tick — `setColor` bumped `restartKey`, remounting `RevealPreview`. Removed that: `veil-reveal` already applies the colour live each frame (`colorRef`/`petalColorRef`), so a colour change is now a cheap, instant prop update with no remount.
+- **"Choose your look" → 5 fonts (E):** the multi-property themes (bg + colours + font) are reduced to a **font choice only** — "look doesn't matter because we have a custom background now." `std-themes.ts` repurposes the 5 ids as 5 distinct wedding fonts (Cormorant · Playfair · Caslon · Vidaloka · Script) sharing one neutral palette (colours come from the Background + legibility tone). The builder section is now **"Step 1 · Font — Pick your font"**, each option rendered in its own typeface. No migration (ids stable; legacy ids fall back to the first).
+- **Auto invitation date (C):** `defaultInvitationLaunchIso(weddingIso)` = wedding − 3 months. The live page + builder default `std_invitation_launch_date` to it (the close-beat "Arrives …" + the ics reminder), with manual entry overriding. Builder shows "Automatic: 3 months before — {date}."
+
+Verified: `pnpm typecheck` + `pnpm lint` clean; `save-the-date-content` tests 22/22.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the look choice is now font-only; veil/petal colour is instant; the invitation launch auto-defaults to 3 months before (manual override). Remaining batch item: wedding-date options sourced from the couple's onboarding date choices (PR-P). See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(std): strip the film chrome — texts only, no bars, no controls (PR-N)
+
+Owner: "we just want the texts. no controls. it auto plays or we can scrub. we don't want the white bars. we don't want the navigation controls."
+
+- **Removed** the stories-style white scrub/segment bars (top) and the entire bottom transport (prev / play-pause / next / replay / continue) from `save-the-date-film.tsx`, in both the live film and the builder preview.
+- **Kept** the auto-play + the invisible gestures — tap the left/right thirds to step, press-and-hold to pause — so it still "auto plays or we can scrub," just with no visible UI.
+- **Kept** one subtle mute toggle (the soundtrack auto-plays, so it needs an escape) and, on the final beat, a single clean "See your wedding page" exit (live only — the guest has to be able to leave the full-screen film).
+- Dropped the now-unused transport icons + `playPause`/`replay` helpers.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the film is text-only now (auto-play + gesture scrub, no chrome). Part of the 2026-06-19 builder-cleanup batch (also: theme→5-fonts, veil/petal colour-picker lag fix, date-from-onboarding, auto-invite-3-months — separate PRs). See `DECISION_LOG.md` 2026-06-19.
 
 ## 2026-06-19 · feat(std): auto-fill ceremony + reception venues from finalized bookings (PR-M)
 

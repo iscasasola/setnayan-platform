@@ -38,6 +38,7 @@ import { resolveRevealEffects } from '@/lib/std-reveal-effects';
 import { resolveStdBackground, realisticBgSrc, type StdBackground } from '@/lib/std-backgrounds';
 import { resolveStdMedia, stdVideoIsLive } from '@/lib/std-media';
 import { resolveStdFinalizedVenues } from '@/lib/std-venues';
+import { defaultInvitationLaunchIso } from '@/lib/save-the-date-content';
 import { REVEAL_TEMPLATE_IDS, type RevealTemplateId } from '@/lib/reveal-config';
 import { OurStory } from './_components/our-story';
 import { sanitizeRolePalette } from '@/lib/mood-board';
@@ -1093,6 +1094,7 @@ function InvitationShell({
   children,
   backdrop,
   rolePalette,
+  fullBleed = false,
 }: {
   children: React.ReactNode;
   backdrop?: React.ReactNode;
@@ -1101,8 +1103,22 @@ function InvitationShell({
   // cream/ink/terracotta/mulberry class on the couple site (all four phases).
   // Null/thin palette → no override → the Clean-Editorial defaults apply.
   rolePalette?: unknown;
+  // Full-screen mode (owner 2026-06-19): the Save-the-Date film IS the whole
+  // experience — drop the Setnayan/Invitation top bar + footer + the centred
+  // max-width column so it plays edge-to-edge with no chrome.
+  fullBleed?: boolean;
 }) {
   const themeVars = buildSitePaletteVars(sanitizeRolePalette(rolePalette));
+  if (fullBleed) {
+    return (
+      <main
+        className="min-h-dvh bg-cream text-ink"
+        style={themeVars ? (themeVars as React.CSSProperties) : undefined}
+      >
+        {children}
+      </main>
+    );
+  }
   return (
     <main
       className={`min-h-dvh text-ink ${backdrop ? 'relative' : 'bg-cream'}`}
@@ -1338,7 +1354,7 @@ function PublicLanding({
 
   const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
   return (
-    <InvitationShell backdrop={backdrop} rolePalette={event.role_palette}>
+    <InvitationShell backdrop={backdrop} rolePalette={event.role_palette} fullBleed={showSaveTheDate && stdFilm}>
       <GuestPreload eventSlug={event.slug} />
       <RevealOverlayServer
         enabled={showSaveTheDate}
@@ -1408,7 +1424,7 @@ function PublicLanding({
           galleryUrls={
             ourPhotoUrls.length ? ourPhotoUrls : heroPhotoUrl ? [heroPhotoUrl] : []
           }
-          launchDateIso={event.std_invitation_launch_date}
+          launchDateIso={event.std_invitation_launch_date ?? defaultInvitationLaunchIso(event.event_date)}
           themeId={event.std_theme}
         />
       ) : (
@@ -1839,7 +1855,7 @@ function InvitationSite({
 
   const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
   return (
-    <InvitationShell backdrop={backdrop} rolePalette={event.role_palette}>
+    <InvitationShell backdrop={backdrop} rolePalette={event.role_palette} fullBleed={showSaveTheDate && stdFilm}>
       <GuestPreload eventSlug={event.slug} />
       <RevealOverlayServer
         enabled={showSaveTheDate}
@@ -1964,7 +1980,7 @@ function InvitationSite({
             galleryUrls={
               ourPhotoUrls.length ? ourPhotoUrls : heroPhotoUrl ? [heroPhotoUrl] : []
             }
-            launchDateIso={event.std_invitation_launch_date}
+            launchDateIso={event.std_invitation_launch_date ?? defaultInvitationLaunchIso(event.event_date)}
             themeId={event.std_theme}
           />
         ) : (

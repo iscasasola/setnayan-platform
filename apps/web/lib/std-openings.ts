@@ -33,6 +33,14 @@ import { eventOwnsSku } from '@/lib/entitlements';
  * SAFETY · queries the existing `orders` table via the shared bundle-aware
  * eventOwnsSku() reader — no new table, no migration, graceful-degrade to "not
  * owned" on a missing orders table (matches eventOwnsAnimatedMonogram).
+ *
+ * REVOCATION is automatic + QUERY-BASED — there is intentionally NO flag column
+ * and NO activation/deactivation hook. An admin reject flips the order to a
+ * relinquished status (cancelled/refunded/lapsed) → eventOwnsSku() returns false
+ * → the opening deactivates on the next render. Keep it query-only; if a future
+ * change adds a flag-backed component for perf, it MUST also register a
+ * deactivation hook (sku-activation.ts / admin payments `deactivateOrderSku`) so
+ * a reject clears it — otherwise the flag would strand the entitlement.
  */
 
 export const STD_PREMIUM_OPENINGS_SERVICE_KEY = 'STD_PREMIUM_OPENINGS';

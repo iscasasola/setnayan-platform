@@ -17,6 +17,7 @@
 import type { WaxSealConfig } from '@/lib/wax-seal/types';
 import { RigidStage } from './rigid-stage';
 import { RigidFlaps } from './rigid-flaps';
+import type { RevealParticleKind } from './reveal-particles';
 
 type Props = {
   /** The couple's monogram SVG markup (uploaded/custom). Null → lettered seal. */
@@ -33,6 +34,8 @@ type Props = {
   onOpened: () => void;
   /** Preview/demo mode — auto-plays the open, ignores gestures (dashboard chooser). */
   autoPlay?: boolean;
+  /** Decorative effect that plays as the flaps part (butterflies / petals). */
+  effect?: RevealParticleKind | null;
 };
 
 const flap = 'absolute inset-0 bg-cream will-change-transform';
@@ -45,6 +48,7 @@ export function FourFlapEnvelope({
   fallbackSeed,
   onOpened,
   autoPlay = false,
+  effect = null,
 }: Props) {
   return (
     <RigidStage
@@ -55,6 +59,7 @@ export function FourFlapEnvelope({
       fallbackSeed={fallbackSeed}
       onOpened={onOpened}
       autoPlay={autoPlay}
+      effect={effect}
       renderFlaps={(p) => {
         const off = 101 * p;
         const css = (

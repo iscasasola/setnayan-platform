@@ -22,6 +22,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import type { WaxSealConfig } from '@/lib/wax-seal/types';
 import { RigidStage } from './rigid-stage';
 import { RigidFlaps } from './rigid-flaps';
+import type { RevealParticleKind } from './reveal-particles';
 
 export type RigidVariant = 'two-flap-vertical' | 'two-flap-horizontal' | 'church-doors';
 
@@ -41,6 +42,8 @@ type Props = {
   onOpened: () => void;
   /** Preview/demo mode — auto-plays the open, ignores gestures (dashboard chooser). */
   autoPlay?: boolean;
+  /** Decorative effect that plays as the doors/flaps part (butterflies / petals). */
+  effect?: RevealParticleKind | null;
 };
 
 const FOLD = 'absolute will-change-transform [transform-style:preserve-3d]';
@@ -164,6 +167,7 @@ export function RigidReveal({
   fallbackSeed,
   onOpened,
   autoPlay = false,
+  effect = null,
 }: Props) {
   return (
     <RigidStage
@@ -174,6 +178,7 @@ export function RigidReveal({
       fallbackSeed={fallbackSeed}
       onOpened={onOpened}
       autoPlay={autoPlay}
+      effect={effect}
       renderFlaps={(p) => (
         <RigidFlaps
           variant={variant}

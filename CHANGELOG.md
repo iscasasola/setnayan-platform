@@ -15,6 +15,17 @@ Per owner ("there should only be 1 live preview … the one by Render"), the bui
 Verified: `pnpm typecheck` + `pnpm lint` clean. (Live builder needs auth — visual proof via the Vercel preview.)
 
 SPEC IMPACT: `0024_save_the_date/` — builder is now a single opening→film preview (was two). DECISION_LOG row added. Effect toggles (butterflies/petals) land in follow-up PRs C–E.
+## 2026-06-18 · feat(std): reveal effect layer — butterflies + petals for the rigid family (capability, default-off)
+
+First half of the owner-approved net-new Step-1 effects. The rigid reveal family (envelopes + church doors) had **no particle system** (only the WebGL veil has petals). Added a lightweight **canvas-2D effect layer** + threaded an opt-in `effect` prop through the rigid stack — **default `null` → no particles → the live guest page is byte-for-byte unchanged.** The next PR adds the per-event column + builder toggles that turn it on.
+
+- NEW `reveal/reveal-particles.tsx` — `RevealParticles` canvas-2D component; `kind: 'butterflies' | 'petals'`. Sizes to its parent (ResizeObserver), spawns over the ~5s open window then settles, caps at 44 particles, honors `prefers-reduced-motion` (renders nothing), `pointer-events-none`, no WebGL context (cheap on a phone). Optional `colors` override for Mood-Board petal tinting.
+- `reveal/rigid-stage.tsx` — new `effect?: RevealParticleKind | null`; mounts `<RevealParticles>` above the flaps once `progress > 0.02` (so it plays as the opening parts, not while the seal still gates a live envelope).
+- `reveal/rigid-reveal.tsx` + `reveal/four-flap.tsx` — forward the `effect` prop to RigidStage.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: None yet (capability only, default-off; nothing renders until a per-event effect is wired in the follow-up PR). `0024_save_the_date/` effects build — see DECISION_LOG 2026-06-18.
 
 ## 2026-06-18 · feat(std): trim film themes 10 → 5 (Default · Mood Board · Heritage · Noir · Botanical)
 

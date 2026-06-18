@@ -23,6 +23,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { WaxSealConfig } from '@/lib/wax-seal/types';
 import { WaxSeal } from './wax-seal';
+import { RevealParticles, type RevealParticleKind } from './reveal-particles';
 
 type Props = {
   markSvg: string | null;
@@ -42,6 +43,12 @@ type Props = {
    * the live guest page is byte-for-byte unchanged.
    */
   autoPlay?: boolean;
+  /**
+   * Couple-chosen decorative effect that plays as the opening parts. Default
+   * null → no particles → the live guest page is unchanged. Envelopes use
+   * 'butterflies', church doors use 'petals' (the veil has its own WebGL petals).
+   */
+  effect?: RevealParticleKind | null;
 };
 
 /** Auto-play open duration (ms) for preview mode — matches the ~scrub feel. */
@@ -64,6 +71,7 @@ export function RigidStage({
   onOpened,
   renderFlaps,
   autoPlay = false,
+  effect = null,
 }: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
   const sealRef = useRef<HTMLButtonElement>(null);
@@ -369,6 +377,9 @@ export function RigidStage({
       >
         {renderFlaps(progress)}
       </div>
+
+      {/* couple-chosen effect (butterflies / petals) — plays as the opening parts */}
+      {effect && progress > 0.02 ? <RevealParticles kind={effect} /> : null}
 
       {/* the seal — pick it up & motion-drag it off to gate the reveal */}
       {!sealGone ? (

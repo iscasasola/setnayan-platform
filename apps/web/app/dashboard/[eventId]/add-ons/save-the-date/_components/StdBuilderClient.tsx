@@ -22,7 +22,7 @@ import { Check, ExternalLink, Moon, Music2, RotateCcw, Sparkles, Sun, Wand2 } fr
 import { SaveTheDateFilm } from '@/app/[slug]/_components/save-the-date-film';
 import { STD_THEMES, type StdThemeId } from '@/lib/std-themes';
 import { formatEventDate } from '@/lib/events';
-import { shortDate } from '@/lib/save-the-date-content';
+import { shortDate, defaultInvitationLaunchIso } from '@/lib/save-the-date-content';
 import { saveAllStdContent, presignStdBackground } from '../actions';
 import { FileUpload } from '@/app/_components/file-upload';
 import type { StdFilmContent } from '@/lib/save-the-date-content';
@@ -256,11 +256,13 @@ export function StdBuilderClient({
     setRevealDone(false);
     if (result !== 'idle') setResult('idle');
   };
-  // Set (or clear, with null = inherit the Mood Board) a veil colour override.
+  // Set (or clear, with null = inherit the Mood Board) a veil/petal colour.
+  // NO remount: veil-reveal reads the colour live each frame (colorRef/
+  // petalColorRef), so a colour change is a cheap prop update — bumping
+  // restartKey here used to rebuild the whole WebGL cloth on every picker tick,
+  // which is what made the colour pickers hang/lag (owner 2026-06-19).
   const setColor = (key: 'veilColor' | 'petalColor', value: string | null) => {
     setEffects((e) => ({ ...e, [key]: value }));
-    setRestartKey((k) => k + 1);
-    setRevealDone(false);
     if (result !== 'idle') setResult('idle');
   };
 
@@ -280,7 +282,11 @@ export function StdBuilderClient({
         ? storyRaw.slice(0, STORY_MAX - 2).trimEnd() + '…'
         : storyRaw
       : (initialContent.storyTeaser ?? null);
-    const launchLabel = launchDate ? formatEventDate(launchDate) : null;
+    // Invitation launch auto-defaults to 3 months before the wedding (owner
+    // 2026-06-19); a manual date overrides it.
+    const autoLaunch = defaultInvitationLaunchIso(dateIso);
+    const effectiveLaunch = launchDate || autoLaunch;
+    const launchLabel = effectiveLaunch ? formatEventDate(effectiveLaunch) : null;
     return {
       ...initialContent,
       dateBig,
@@ -296,7 +302,7 @@ export function StdBuilderClient({
       // as the video island beat; otherwise the gallery beat shows.
       videoUrl: media.type === 'video' ? videoPreviewUrl : null,
     };
-  }, [initialContent, filmDate, venueName, venueCity, filmStory, launchDate, media.type, videoPreviewUrl, effects.music, musicPreviewUrl]);
+  }, [initialContent, filmDate, venueName, venueCity, filmStory, launchDate, dateIso, media.type, videoPreviewUrl, effects.music, musicPreviewUrl]);
 
   // Autofill — pull the couple's event details into EVERY film field at once so
   // the Information step shows all the real values, ready to fine-tune. Client-
@@ -395,16 +401,16 @@ export function StdBuilderClient({
             </div>
           </section>
 
-          {/* Step 1 (cont.) · Theme — folds into Background; sets the fonts +
-              text colours only (the Background above sets the scene). */}
+          {/* Step 1 (cont.) · Font — the only "look" choice. The Background sets
+              the scene + the colours, so this is purely the typeface (owner 2026-06-19). */}
           <section className="space-y-3">
             <div className="space-y-1">
               <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-                Step 1 · Fonts &amp; colours
+                Step 1 · Font
               </p>
-              <h2 className="font-serif text-xl italic">Choose your look</h2>
+              <h2 className="font-serif text-xl italic">Pick your font</h2>
               <p className="text-sm text-ink/65">
-                Your theme sets the fonts and text colours. The Background above sets the scene — both recolour to your Mood Board by default.
+                The one type choice for your film. (Colours come from your Background.)
               </p>
             </div>
             <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3">
@@ -416,12 +422,11 @@ export function StdBuilderClient({
                     type="button"
                     onClick={() => setThemeId(t.id)}
                     aria-pressed={active}
-                    className={`relative flex flex-col items-start gap-1.5 rounded-xl border p-3 text-left transition-all ${
+                    className={`relative flex flex-col items-start gap-1 rounded-xl border bg-cream p-3 text-left transition-all ${
                       active
                         ? 'border-terracotta ring-2 ring-terracotta ring-offset-2'
                         : 'border-ink/10 hover:border-ink/25'
                     }`}
-                    style={{ backgroundColor: t.swatchBg }}
                   >
                     {active ? (
                       <Check
@@ -430,16 +435,9 @@ export function StdBuilderClient({
                         strokeWidth={2.5}
                       />
                     ) : null}
-                    <span
-                      className="h-5 w-5 rounded-full border border-white/20"
-                      style={{ backgroundColor: t.swatchFg }}
-                    />
-                    <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ color: t.swatchFg }}>
-                      {t.label}
-                    </span>
-                    <span className="text-[11px] leading-tight opacity-60" style={{ color: t.swatchFg }}>
-                      {t.description}
-                    </span>
+                    {/* The label rendered IN its own font, so the couple sees the type. */}
+                    <span className={`${t.fontCls} text-2xl leading-none text-ink`}>{t.label}</span>
+                    <span className="text-[11px] leading-tight text-ink/55">{t.description}</span>
                   </button>
                 );
               })}
@@ -568,7 +566,7 @@ export function StdBuilderClient({
                 </div>
               </div>
 
-              {/* Invitation launch date */}
+              {/* Invitation launch date — auto: 3 months before the wedding. */}
               <div>
                 <label htmlFor="std_launch_date" className="block text-xs font-semibold uppercase tracking-wide text-ink/60">
                   Invitation goes live <span className="font-normal normal-case tracking-normal text-ink/40">(optional)</span>
@@ -581,7 +579,9 @@ export function StdBuilderClient({
                   className={`mt-1.5 ${inputCls}`}
                 />
                 <p className={helperCls}>
-                  We&rsquo;ll add a &ldquo;remind me when the invite arrives&rdquo; to the end-of-film calendar.
+                  {!launchDate && defaultInvitationLaunchIso(dateIso)
+                    ? `Automatic: 3 months before — ${formatEventDate(defaultInvitationLaunchIso(dateIso)!)}. Set a date to override.`
+                    : 'We’ll add a “remind me when the invite arrives” to the end-of-film calendar.'}
                 </p>
               </div>
             </div>

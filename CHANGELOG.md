@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · feat(std): font-only look + colour-picker lag fix + auto-3-month invite (PR-O)
+
+Three of the builder-cleanup batch (D + E + C).
+
+- **Colour-picker lag fixed (D):** the veil/petal colour pickers were rebuilding the whole WebGL cloth on every tick — `setColor` bumped `restartKey`, remounting `RevealPreview`. Removed that: `veil-reveal` already applies the colour live each frame (`colorRef`/`petalColorRef`), so a colour change is now a cheap, instant prop update with no remount.
+- **"Choose your look" → 5 fonts (E):** the multi-property themes (bg + colours + font) are reduced to a **font choice only** — "look doesn't matter because we have a custom background now." `std-themes.ts` repurposes the 5 ids as 5 distinct wedding fonts (Cormorant · Playfair · Caslon · Vidaloka · Script) sharing one neutral palette (colours come from the Background + legibility tone). The builder section is now **"Step 1 · Font — Pick your font"**, each option rendered in its own typeface. No migration (ids stable; legacy ids fall back to the first).
+- **Auto invitation date (C):** `defaultInvitationLaunchIso(weddingIso)` = wedding − 3 months. The live page + builder default `std_invitation_launch_date` to it (the close-beat "Arrives …" + the ics reminder), with manual entry overriding. Builder shows "Automatic: 3 months before — {date}."
+
+Verified: `pnpm typecheck` + `pnpm lint` clean; `save-the-date-content` tests 22/22.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the look choice is now font-only; veil/petal colour is instant; the invitation launch auto-defaults to 3 months before (manual override). Remaining batch item: wedding-date options sourced from the couple's onboarding date choices (PR-P). See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · feat(std): strip the film chrome — texts only, no bars, no controls (PR-N)
 
 Owner: "we just want the texts. no controls. it auto plays or we can scrub. we don't want the white bars. we don't want the navigation controls."

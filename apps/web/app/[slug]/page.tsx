@@ -38,6 +38,7 @@ import { resolveRevealEffects } from '@/lib/std-reveal-effects';
 import { resolveStdBackground, realisticBgSrc, type StdBackground } from '@/lib/std-backgrounds';
 import { resolveStdMedia, stdVideoIsLive } from '@/lib/std-media';
 import { resolveStdFinalizedVenues } from '@/lib/std-venues';
+import { defaultInvitationLaunchIso } from '@/lib/save-the-date-content';
 import { REVEAL_TEMPLATE_IDS, type RevealTemplateId } from '@/lib/reveal-config';
 import { OurStory } from './_components/our-story';
 import { sanitizeRolePalette } from '@/lib/mood-board';
@@ -1408,7 +1409,7 @@ function PublicLanding({
           galleryUrls={
             ourPhotoUrls.length ? ourPhotoUrls : heroPhotoUrl ? [heroPhotoUrl] : []
           }
-          launchDateIso={event.std_invitation_launch_date}
+          launchDateIso={event.std_invitation_launch_date ?? defaultInvitationLaunchIso(event.event_date)}
           themeId={event.std_theme}
         />
       ) : (
@@ -1964,7 +1965,7 @@ function InvitationSite({
             galleryUrls={
               ourPhotoUrls.length ? ourPhotoUrls : heroPhotoUrl ? [heroPhotoUrl] : []
             }
-            launchDateIso={event.std_invitation_launch_date}
+            launchDateIso={event.std_invitation_launch_date ?? defaultInvitationLaunchIso(event.event_date)}
             themeId={event.std_theme}
           />
         ) : (

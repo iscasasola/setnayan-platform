@@ -11,7 +11,8 @@ import { REVEAL_TEMPLATE_IDS } from '@/lib/reveal-config';
 import type { RevealTemplate } from '@/app/[slug]/_components/reveal/reveal-templates';
 import { RevealPreviewCard } from '@/app/dashboard/[eventId]/_components/reveal-preview-card';
 import { SaveTheDateFilm } from '@/app/[slug]/_components/save-the-date-film';
-import { saveInvitationLaunchDate } from './actions';
+import { saveInvitationLaunchDate, saveStdContent } from './actions';
+import { SoundtrackRow } from './_components/soundtrack-row';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
@@ -127,45 +128,21 @@ export default async function SaveTheDatePage({ params, searchParams }: Props) {
     galleryUrls,
   });
 
+  // Extract the original filename from the R2 key for display in the Soundtrack row.
+  // R2 key format: r2://setnayan-media/events/{id}/site-music/{uuid}-{originalName}
+  // UUID is always 36 chars; the '-' separator is char 36; original name starts at 37.
+  const musicR2Key = event?.site_bg_music_enabled ? (event?.site_bg_music_r2_key ?? null) : null;
+  const musicFilename = (() => {
+    const seg = musicR2Key?.split('/').pop();
+    if (!seg) return null;
+    return seg.length > 37 ? seg.slice(37) : seg;
+  })();
+
   const launchDate =
     typeof event?.std_invitation_launch_date === 'string'
       ? event.std_invitation_launch_date.slice(0, 10)
       : '';
 
-  // The "what your film shows" rows — each is either filled (✓) or a one-tap
-  // link to the editor that fills it. Music + photos reuse the couple's existing
-  // site assets (no STD-specific upload in V1).
-  const rows: Array<{ label: string; done: boolean; value?: string; href?: string }> = [
-    { label: 'Your monogram & names', done: true, value: `${content.monogram} · ${content.names}` },
-    {
-      label: 'Wedding date',
-      done: Boolean(content.dateBig),
-      value: content.dateLabel ?? undefined,
-      href: `/dashboard/${eventId}`,
-    },
-    {
-      label: 'Venue',
-      done: Boolean(content.venueName),
-      value: content.venueName ?? undefined,
-      href: `/dashboard/${eventId}`,
-    },
-    {
-      label: 'A line from your story',
-      done: Boolean(content.storyTeaser),
-      href: `/dashboard/${eventId}/website`,
-    },
-    {
-      label: 'Soundtrack',
-      done: Boolean(content.musicUrl),
-      href: `/dashboard/${eventId}/website/site-chrome`,
-    },
-    {
-      label: 'Closing photos',
-      done: (content.gallery?.length ?? 0) > 0,
-      value: content.gallery?.length ? `${content.gallery.length} photos` : undefined,
-      href: `/dashboard/${eventId}/website/our-photos`,
-    },
-  ];
 
   return (
     <section className="space-y-8">
@@ -284,34 +261,174 @@ export default async function SaveTheDatePage({ params, searchParams }: Props) {
         <SaveTheDateFilm content={content} preview />
       </section>
 
-      {/* 3 · What your film shows (the auto-fill summary). */}
-      <section className="space-y-3">
+      {/* 3 · What your film shows — inline-editable for date, venue, story. */}
+      <section id="content" className="scroll-mt-24 space-y-3">
         <h2 className="font-serif text-xl italic">What your film shows</h2>
         <ul className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-white/70">
-          {rows.map((r) => (
-            <li key={r.label} className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-ink/85">{r.label}</p>
-                {r.done && r.value ? (
-                  <p className="truncate text-xs text-ink/55">{r.value}</p>
-                ) : null}
-              </div>
-              {r.done ? (
+
+          {/* Monogram & names — always auto-filled */}
+          <li className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-ink/85">Your monogram &amp; names</p>
+              <p className="truncate text-xs text-ink/55">{content.monogram} · {content.names}</p>
+            </div>
+            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+              <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
+              Added
+            </span>
+          </li>
+
+          {/* Wedding date — inline picker when not set */}
+          <li className="px-4 py-3 sm:px-5">
+            {content.dateBig ? (
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-ink/85">Wedding date</p>
+                  <p className="truncate text-xs text-ink/55">{content.dateLabel}</p>
+                </div>
                 <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
                   <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
                   Added
                 </span>
-              ) : r.href ? (
-                <Link
-                  href={r.href}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-full border border-ink/15 bg-cream px-3 py-1 text-xs font-medium text-ink/70 hover:border-terracotta hover:text-terracotta"
-                >
-                  <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                  Add
-                </Link>
+              </div>
+            ) : (
+              <form action={saveStdContent} className="space-y-2">
+                <input type="hidden" name="event_id" value={eventId} />
+                <p className="text-sm font-medium text-ink/85">Wedding date</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="date"
+                    name="event_date"
+                    required
+                    className="rounded-md border border-ink/20 bg-cream px-3 py-1.5 text-sm text-ink focus:border-terracotta focus:outline-none"
+                  />
+                  <button
+                    type="submit"
+                    className="rounded-full bg-mulberry px-3.5 py-1.5 text-xs font-semibold text-cream transition hover:bg-mulberry-600"
+                  >
+                    Save
+                  </button>
+                </div>
+              </form>
+            )}
+          </li>
+
+          {/* Venue — inline inputs when not set */}
+          <li className="px-4 py-3 sm:px-5">
+            {content.venueName ? (
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-ink/85">Venue</p>
+                  <p className="truncate text-xs text-ink/55">{content.venueName}</p>
+                </div>
+                <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                  <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
+                  Added
+                </span>
+              </div>
+            ) : (
+              <form action={saveStdContent} className="space-y-2">
+                <input type="hidden" name="event_id" value={eventId} />
+                <p className="text-sm font-medium text-ink/85">Venue</p>
+                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                  <input
+                    type="text"
+                    name="venue_name"
+                    placeholder="Venue name"
+                    required
+                    className="min-w-0 rounded-md border border-ink/20 bg-cream px-3 py-1.5 text-sm text-ink placeholder:text-ink/35 focus:border-terracotta focus:outline-none sm:flex-1"
+                  />
+                  <input
+                    type="text"
+                    name="venue_address"
+                    placeholder="City / area (optional)"
+                    className="min-w-0 rounded-md border border-ink/20 bg-cream px-3 py-1.5 text-sm text-ink placeholder:text-ink/35 focus:border-terracotta focus:outline-none sm:flex-1"
+                  />
+                  <button
+                    type="submit"
+                    className="self-start rounded-full bg-mulberry px-3.5 py-1.5 text-xs font-semibold text-cream transition hover:bg-mulberry-600 sm:self-auto"
+                  >
+                    Save
+                  </button>
+                </div>
+              </form>
+            )}
+          </li>
+
+          {/* A line from your story — inline textarea when not set */}
+          <li className="px-4 py-3 sm:px-5">
+            {content.storyTeaser ? (
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-ink/85">A line from your story</p>
+                  <p className="line-clamp-2 text-xs text-ink/55">{content.storyTeaser}</p>
+                </div>
+                <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                  <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
+                  Added
+                </span>
+              </div>
+            ) : (
+              <form action={saveStdContent} className="space-y-2">
+                <input type="hidden" name="event_id" value={eventId} />
+                <p className="text-sm font-medium text-ink/85">A line from your story</p>
+                <p className="text-xs text-ink/55">
+                  A sentence or two — the film pulls its opening line from what you write here.
+                </p>
+                <div className="flex flex-col gap-2">
+                  <textarea
+                    name="love_story"
+                    placeholder="e.g. We met on a rainy afternoon and haven't looked back since."
+                    rows={2}
+                    className="w-full resize-none rounded-md border border-ink/20 bg-cream px-3 py-2 text-sm text-ink placeholder:text-ink/35 focus:border-terracotta focus:outline-none"
+                  />
+                  <div>
+                    <button
+                      type="submit"
+                      className="rounded-full bg-mulberry px-3.5 py-1.5 text-xs font-semibold text-cream transition hover:bg-mulberry-600"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+              </form>
+            )}
+          </li>
+
+          {/* Soundtrack — inline upload / replace */}
+          <li className="px-4 py-3 sm:px-5">
+            <SoundtrackRow
+              eventId={eventId}
+              currentMusicRef={musicR2Key}
+              currentFilename={musicFilename}
+              currentMusicUrl={bgMusicUrl}
+            />
+          </li>
+
+          {/* Closing photos — always links to our-photos */}
+          <li className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-ink/85">Closing photos</p>
+              {(content.gallery?.length ?? 0) > 0 ? (
+                <p className="text-xs text-ink/55">{content.gallery!.length} photos</p>
               ) : null}
-            </li>
-          ))}
+            </div>
+            {(content.gallery?.length ?? 0) > 0 ? (
+              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
+                Added
+              </span>
+            ) : (
+              <Link
+                href={`/dashboard/${eventId}/website/our-photos`}
+                className="inline-flex shrink-0 items-center gap-1 rounded-full border border-ink/15 bg-cream px-3 py-1 text-xs font-medium text-ink/70 hover:border-terracotta hover:text-terracotta"
+              >
+                <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                Add
+              </Link>
+            )}
+          </li>
+
         </ul>
         <p className="text-xs text-ink/50">
           Anything you haven&rsquo;t added simply isn&rsquo;t shown — the film adapts to what it has.

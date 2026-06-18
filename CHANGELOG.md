@@ -45,6 +45,17 @@ The INPUT half of the render pipeline — turns the disabled "Start Recording" b
 tsc 0 · ESLint clean. No render yet (PR3 stitches these clips via client-side WebCodecs). Requires R2 CORS + credentials (owner action) for browser PUTs to succeed in prod.
 
 SPEC IMPACT iter 0017 — booth capture is now real (was a disabled stub). → CHANGELOG + corpus DECISION_LOG.
+## 2026-06-18 · feat(admin): /admin/pricing — single-form bulk price editor (one Save button for the whole catalog)
+
+`/admin/pricing` no longer makes you edit one row at a time. The old surface put every SKU / bundle / vendor row behind its own **Edit → Save → reload** round-trip (a `?edit=<code>` form + a separate server action per row), so changing a dozen prices meant a dozen reloads. The whole catalog is now ONE form: every row's price (+ title, cost, description, active) is an inline input, with a sticky **Save all changes** button that writes the entire catalog in a single submit. Owner-requested ("make it easier to insert new prices and just a single update button for all").
+
+- `app/admin/pricing/actions.ts` — replaced the four per-row actions (`updateRetailSku` / `updateBundleSku` / `updateVendorSku` / `updatePlatformFee`) with one `saveAllPricing`. It regroups the flat form fields (`retail.<field>.<code>` / `bundle.…` / `vendor.…` / `setnayan_pay_fee_pct`) back into rows, diffs each against the live DB row, and UPDATEs **only what changed** — across `platform_retail_catalog_v2` + `platform_package_catalog` + `vendor_billing_catalog` + `platform_settings`. A bad field (blank required title · negative price · vendor price ≤ 0, which the DB CHECK forbids) is **skipped** (keeps its live value) instead of failing the whole batch; the skip count comes back in the redirect. The per-table audit-log action names + the >₱500 / >2 pp `console.warn` gate are preserved. One `revalidatePath` sweep (`/pricing` · `/for-vendors` · `/admin/pricing`, + payments / vendor-dashboard when the fee moves). The fee diff compares against the *effective* prior (DB value, else the code constant) so re-saving the displayed fallback isn't a phantom write.
+- `app/admin/pricing/page.tsx` — rewrote the read-only-with-per-row-edit list into an all-editable, column-aligned grid (desktop column headers + per-field labels on mobile; rows reflow to a single column below `md`). Removed the `?edit=` URL mode, the `PLATFORM_FEE_EDIT_KEY` sentinel, the `Pencil` / `X` icon imports, and the four per-row forms. Added a result banner (saved N · skipped M · error) driven by the redirect params, a `Reset` button, and the shared `SubmitButton` spinner on the single save.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. (No DB writes during local verification — the save path is exercised by the Vercel preview / CI production build.)
+
+SPEC IMPACT: iter 0023 (Admin Console) pricing-catalog surface — the edit UX is now single-form bulk-save, not per-row. Internal-tool UX only; **no pricing values, SKUs, schema, or public surfaces change.** DECISION_LOG row added.
+
 ## 2026-06-18 · feat(std): content-film preview now uses the iPhone/MacBook device frames + toggle
 
 The Step-2/3 content-film preview (the "Live preview" / Render column) now uses the **same device frames + iPhone↔MacBook toggle** as the Step-1 reveal chooser — replacing the plain CSS-scaled 220px rounded rectangle. Couples see their Save-the-Date film as it looks on a phone *and* a laptop. Owner-requested.

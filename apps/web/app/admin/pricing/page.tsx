@@ -1,46 +1,38 @@
 import Link from 'next/link';
-import { Pencil, X } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import {
-  updateRetailSku,
-  updateBundleSku,
-  updateVendorSku,
-  updatePlatformFee,
-} from './actions';
-import { SETNAYAN_PAY_FEE_PCT } from '@/lib/vendor-earnings';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { saveAllPricing } from './actions';
+import { SETNAYAN_PAY_FEE_PCT } from '@/lib/vendor-earnings';
 
 export const metadata = { title: 'Pricing · Admin' };
 
 /**
- * /admin/pricing — V2 catalog read+write surface.
+ * /admin/pricing — V2 catalog single-form bulk editor.
  *
- * WHY this exists (and why it's edit-now, not read-only):
- *   Owner directive 2026-05-30 · admin needs real-time price edits with
- *   auto-propagation to /pricing and /for-vendors. Schema audit columns
- *   shipped in migration 20260713000000 (is_active · created_at · updated_at
- *   · updated_by_admin_id). Edit form posts to updateRetailSku /
- *   updateBundleSku server actions which UPDATE the row + write
- *   admin_audit_log + revalidatePath the 3 consumer surfaces.
+ * WHY this shape (owner directive 2026-06-18 · "make it easier to insert new
+ * prices and just a single update button for all"):
+ *   The whole catalog renders as ONE form where every row's price (+ title,
+ *   cost, description, active) is an inline input. A single sticky "Save all
+ *   changes" button posts the entire catalog to the `saveAllPricing` server
+ *   action, which diffs each field and UPDATEs only what changed. No more
+ *   per-row Edit → Save → reload round-trips.
  *
- * Replaces the prior V1 reader of public.service_catalog · per CLAUDE.md
- * tenth + eleventh 2026-05-28 rows V2 publisher cutover, the V2 canonical
- * tables are:
- *   - platform_retail_catalog_v2  (20 customer SKUs · service_code PK)
- *   - platform_package_catalog    (2 bundles · package_code PK)
+ * Canonical V2 tables (per CLAUDE.md 2026-05-28 V2 publisher cutover):
+ *   - platform_retail_catalog_v2  (customer SKUs · service_code PK)
+ *   - platform_package_catalog    (bundles · package_code PK)
+ *   - vendor_billing_catalog      (vendor subs + token packs · sku_code PK)
+ *   - platform_settings.setnayan_pay_fee_pct (Setnayan Pay convenience fee)
  *
- * Edit-mode UX: URL state ?edit=<code> enters single-row edit mode. All
- * other rows stay read-only. Cancel = Link to /admin/pricing (drops the
- * param). Save submits the form → server action UPDATE + revalidatePath +
- * redirect('/admin/pricing'). No client JS needed.
+ * Saves auto-propagate: the action revalidates /pricing + /for-vendors +
+ * /admin/pricing (+ payments/vendor-dashboard when the fee changes) so public
+ * prices update within seconds. No client JS beyond the SubmitButton spinner.
  *
- * Deferred V1.x (flagged in PR body):
- *   - Two-admin gate on >₱500 deltas (currently console.warn only)
- *   - service_catalog_price_history audit trail (Supabase WAL covers
- *     short-term · full price-history table V1.x)
- *   - /admin/addons V1→V2 migration (still reads V1 service_catalog ·
- *     separate PR)
+ * Field-name contract consumed by saveAllPricing:
+ *   retail.<field>.<service_code>   field ∈ title|desc|cost|price|active
+ *   bundle.<field>.<package_code>   field ∈ title|price|active
+ *   vendor.<field>.<sku_code>       field ∈ price|active
+ *   setnayan_pay_fee_pct            (singleton)
  */
 
 type RetailRow = {
@@ -76,7 +68,7 @@ type VendorRow = {
 };
 
 type Props = {
-  searchParams: Promise<{ edit?: string }>;
+  searchParams: Promise<{ saved?: string; skipped?: string; error?: string }>;
 };
 
 const VENDOR_OFFERING_LABEL: Record<VendorRow['offering_type'], string> = {
@@ -84,11 +76,6 @@ const VENDOR_OFFERING_LABEL: Record<VendorRow['offering_type'], string> = {
   subscription_annual: 'Subscription · annual',
   token_pack: 'Token pack',
 };
-
-// Sentinel ?edit= value that opens the single-row platform-fee editor. Namespaced
-// with __ so it can never collide with a real service_code / package_code /
-// sku_code (all of which are bare uppercase / lowercase identifiers).
-const PLATFORM_FEE_EDIT_KEY = '__platform_fee__';
 
 function formatPeso(amount: number): string {
   return amount.toLocaleString('en-PH', {
@@ -124,16 +111,23 @@ function timeAgo(iso: string): string {
   return `${y} year${y === 1 ? '' : 's'} ago`;
 }
 
+// Shared grid templates so each row aligns with its column-header strip.
+const RETAIL_GRID =
+  'md:grid md:grid-cols-[minmax(0,1fr)_7.5rem_8.5rem_4.5rem_5rem] md:items-center md:gap-3';
+const TWOCOL_GRID =
+  'md:grid md:grid-cols-[minmax(0,1fr)_8.5rem_5rem] md:items-center md:gap-3';
+
 export default async function AdminPricingPage({ searchParams }: Props) {
   const search = await searchParams;
-  const editTarget = (search.edit ?? '').trim();
+  const savedCount = search.saved != null ? Number(search.saved) : null;
+  const skippedCount = search.skipped != null ? Number(search.skipped) : 0;
+  const hadError = search.error === '1';
 
   const admin = createAdminClient();
 
   // Load all catalog tables + the platform-settings singleton in parallel.
-  // Small data volume (~20 retail + 2 bundles + ~8 vendor SKUs · no pagination
-  // at V1). The vendor catalog is read in FULL (no is_active filter) so admins
-  // can re-activate a retired SKU — same posture as the customer catalog above.
+  // Small data volume · no pagination at V1. Each catalog is read in FULL (no
+  // is_active filter) so admins can re-activate a retired SKU inline.
   const [retailRes, bundleRes, vendorRes, settingsRes] = await Promise.all([
     admin
       .from('platform_retail_catalog_v2')
@@ -189,18 +183,13 @@ export default async function AdminPricingPage({ searchParams }: Props) {
     price_php: Number(row.price_php),
   }));
 
-  // Current Setnayan Pay fee — the DB value when set, else the code constant
-  // (lib/vendor-earnings.ts) so the editor always shows the live effective fee
-  // even before the column is populated. setnayan_pay_fee_pct may be absent in
-  // a stale env (the column lands in migration 20261225000000) — treat that as
-  // "unset" and fall back to the constant.
+  // Current Setnayan Pay fee — the DB value when set, else the code constant so
+  // the editor always shows the live effective fee. setnayan_pay_fee_pct may be
+  // absent in a stale env (column lands in migration 20261225000000).
   const settingsFee = (settingsRes.data as { setnayan_pay_fee_pct?: number | null } | null)
     ?.setnayan_pay_fee_pct;
-  const feePct =
-    settingsFee != null && Number.isFinite(Number(settingsFee))
-      ? Number(settingsFee)
-      : SETNAYAN_PAY_FEE_PCT;
   const feeIsFromDb = settingsFee != null && Number.isFinite(Number(settingsFee));
+  const feePct = feeIsFromDb ? Number(settingsFee) : SETNAYAN_PAY_FEE_PCT;
 
   // Resolve last-editor display names in one batch.
   const editorIds = new Set<string>();
@@ -229,8 +218,6 @@ export default async function AdminPricingPage({ searchParams }: Props) {
     paidRows.length > 0 ? Math.max(...paidRows.map((r) => r.retail_price_php)) : 0;
   const minPrice =
     paidRows.length > 0 ? Math.min(...paidRows.map((r) => r.retail_price_php)) : 0;
-  // Average margin across paid SKUs (FREE SKUs have no meaningful margin so
-  // they're excluded from the denominator).
   const marginValues = paidRows
     .map((r) => marginPct(r.retail_price_php, r.saas_overhead_cost_php))
     .filter((m): m is number => m !== null);
@@ -246,7 +233,9 @@ export default async function AdminPricingPage({ searchParams }: Props) {
       <header className="mb-6 space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">Pricing &amp; Catalog</h1>
         <p className="text-sm text-ink/60">
-          Live edit surface for the V2 catalog tables. Saves propagate to{' '}
+          Edit every price inline, then hit{' '}
+          <span className="font-medium text-ink">Save all changes</span> once.
+          Saves propagate to{' '}
           <Link href="/pricing" className="underline">
             /pricing
           </Link>{' '}
@@ -254,9 +243,17 @@ export default async function AdminPricingPage({ searchParams }: Props) {
           <Link href="/for-vendors" className="underline">
             /for-vendors
           </Link>{' '}
-          within seconds of saving.
+          within seconds.
         </p>
       </header>
+
+      {savedCount !== null && (
+        <SaveBanner
+          saved={Number.isFinite(savedCount) ? savedCount : 0}
+          skipped={Number.isFinite(skippedCount) ? skippedCount : 0}
+          hadError={hadError}
+        />
+      )}
 
       <div className="mb-6 grid grid-cols-2 gap-2 rounded-2xl border border-ink/10 bg-paper p-4 sm:grid-cols-3 lg:grid-cols-5">
         <Stat label="Active SKUs" value={activeCount.toString()} />
@@ -287,133 +284,190 @@ export default async function AdminPricingPage({ searchParams }: Props) {
         </div>
       )}
 
-      <section className="mb-10">
-        <h2 className="mb-3 text-base font-semibold tracking-tight">
-          Customer SKUs ({retailRows.length})
-        </h2>
-        <div className="overflow-hidden rounded-2xl border border-ink/10">
-          {retailRows.length === 0 ? (
-            <div className="p-8 text-center">
-              <p className="text-sm text-ink/60">
-                No SKUs in platform_retail_catalog_v2 yet.
-              </p>
-            </div>
-          ) : (
-            retailRows.map((row) => (
-              <RetailRowView
-                key={row.service_code}
-                row={row}
-                editMode={editTarget === row.service_code}
-                editorName={
-                  row.updated_by_admin_id
-                    ? editorMap.get(row.updated_by_admin_id) ?? 'Unknown'
-                    : null
-                }
+      <form action={saveAllPricing}>
+        {/* ─── Customer SKUs ─────────────────────────────────────────── */}
+        <section className="mb-10">
+          <h2 className="mb-3 text-base font-semibold tracking-tight">
+            Customer SKUs ({retailRows.length})
+          </h2>
+          <div className="overflow-hidden rounded-2xl border border-ink/10">
+            {retailRows.length === 0 ? (
+              <div className="p-8 text-center">
+                <p className="text-sm text-ink/60">
+                  No SKUs in platform_retail_catalog_v2 yet.
+                </p>
+              </div>
+            ) : (
+              <>
+                <ColHeader
+                  grid={RETAIL_GRID}
+                  cols={[
+                    { label: 'SKU · title · description', align: 'left' },
+                    { label: 'Cost / event', align: 'right' },
+                    { label: 'Retail price', align: 'right' },
+                    { label: 'Margin', align: 'right' },
+                    { label: 'Active', align: 'center' },
+                  ]}
+                />
+                {retailRows.map((row) => (
+                  <RetailEditRow
+                    key={row.service_code}
+                    row={row}
+                    editorName={
+                      row.updated_by_admin_id
+                        ? editorMap.get(row.updated_by_admin_id) ?? 'Unknown'
+                        : null
+                    }
+                  />
+                ))}
+              </>
+            )}
+          </div>
+        </section>
+
+        {/* ─── Bundles ───────────────────────────────────────────────── */}
+        <section className="mb-10">
+          <h2 className="mb-3 text-base font-semibold tracking-tight">
+            Bundles ({bundleRows.length})
+          </h2>
+          <div className="overflow-hidden rounded-2xl border border-ink/10">
+            {bundleRows.length === 0 ? (
+              <div className="p-8 text-center">
+                <p className="text-sm text-ink/60">
+                  No bundles in platform_package_catalog yet.
+                </p>
+              </div>
+            ) : (
+              <>
+                <ColHeader
+                  grid={TWOCOL_GRID}
+                  cols={[
+                    { label: 'Bundle · title', align: 'left' },
+                    { label: 'Retail price', align: 'right' },
+                    { label: 'Active', align: 'center' },
+                  ]}
+                />
+                {bundleRows.map((row) => (
+                  <BundleEditRow
+                    key={row.package_code}
+                    row={row}
+                    editorName={
+                      row.updated_by_admin_id
+                        ? editorMap.get(row.updated_by_admin_id) ?? 'Unknown'
+                        : null
+                    }
+                  />
+                ))}
+              </>
+            )}
+          </div>
+        </section>
+
+        {/* ─── Vendor pricing ────────────────────────────────────────── */}
+        <section className="mb-10">
+          <h2 className="mb-1 text-base font-semibold tracking-tight">
+            Vendor pricing ({vendorRows.length})
+          </h2>
+          <p className="mb-3 text-sm text-ink/60">
+            Subscriptions + bidding token packs from{' '}
+            <code className="rounded bg-ink/5 px-1 font-mono text-xs">
+              vendor_billing_catalog
+            </code>
+            . Price + active state are editable here; titles, tier caps + token
+            grants stay migration-owned.
+          </p>
+          <div className="overflow-hidden rounded-2xl border border-ink/10">
+            {vendorRows.length === 0 ? (
+              <div className="p-8 text-center">
+                <p className="text-sm text-ink/60">
+                  No SKUs in vendor_billing_catalog yet.
+                </p>
+              </div>
+            ) : (
+              <>
+                <ColHeader
+                  grid={TWOCOL_GRID}
+                  cols={[
+                    { label: 'SKU · offering', align: 'left' },
+                    { label: 'Price', align: 'right' },
+                    { label: 'Active', align: 'center' },
+                  ]}
+                />
+                {vendorRows.map((row) => (
+                  <VendorEditRow key={row.sku_code} row={row} />
+                ))}
+              </>
+            )}
+          </div>
+        </section>
+
+        {/* ─── Platform fee ──────────────────────────────────────────── */}
+        <section className="mb-10">
+          <h2 className="mb-1 text-base font-semibold tracking-tight">
+            Platform fee
+          </h2>
+          <p className="mb-3 text-sm text-ink/60">
+            Setnayan Pay convenience-fee percentage added to a customer invoice
+            when they pay a vendor booking through Setnayan. The vendor still
+            receives the full booking amount — the fee is the customer&apos;s
+            cost.{' '}
+            <code className="rounded bg-ink/5 px-1 font-mono text-xs">
+              lib/payouts.ts
+            </code>{' '}
+            +{' '}
+            <code className="rounded bg-ink/5 px-1 font-mono text-xs">
+              lib/vendor-earnings.ts
+            </code>{' '}
+            read this with the {SETNAYAN_PAY_FEE_PCT}% code constant as fallback.
+          </p>
+          <div className="rounded-2xl border border-ink/10 p-4">
+            <label className="block max-w-xs">
+              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                Setnayan Pay fee (%)
+              </span>
+              <input
+                name="setnayan_pay_fee_pct"
+                type="number"
+                step="0.01"
+                min="0"
+                max="100"
+                defaultValue={feePct}
+                required
+                className="input-field mt-1 w-full tabular-nums"
               />
-            ))
-          )}
-        </div>
-      </section>
+              <span className="mt-1 block text-[11px] text-ink/45">
+                {feeIsFromDb
+                  ? 'Set in platform_settings.'
+                  : 'Falling back to the code constant — save once to persist it in the DB.'}
+              </span>
+            </label>
+          </div>
+        </section>
 
-      <section className="mb-10">
-        <h2 className="mb-3 text-base font-semibold tracking-tight">
-          Bundles ({bundleRows.length})
-        </h2>
-        <div className="overflow-hidden rounded-2xl border border-ink/10">
-          {bundleRows.length === 0 ? (
-            <div className="p-8 text-center">
-              <p className="text-sm text-ink/60">
-                No bundles in platform_package_catalog yet.
-              </p>
-            </div>
-          ) : (
-            bundleRows.map((row) => (
-              <BundleRowView
-                key={row.package_code}
-                row={row}
-                editMode={editTarget === row.package_code}
-                editorName={
-                  row.updated_by_admin_id
-                    ? editorMap.get(row.updated_by_admin_id) ?? 'Unknown'
-                    : null
-                }
-              />
-            ))
-          )}
+        {/* ─── Sticky single save bar ───────────────────────────────── */}
+        <div className="sticky bottom-0 z-10 -mx-4 mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-ink/10 bg-paper/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-paper/80 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+          <p className="max-w-md text-xs text-ink/55">
+            Type new prices in any field above, then save them all in one go.
+            Only the rows you actually changed get written.
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="reset"
+              className="rounded-md border border-ink/20 px-4 py-2 text-sm font-medium text-ink/70 transition hover:bg-ink/5"
+            >
+              Reset
+            </button>
+            <SubmitButton
+              className="rounded-md bg-terracotta px-5 py-2 text-sm font-semibold text-cream transition hover:bg-terracotta/90"
+              pendingLabel="Saving all prices…"
+            >
+              Save all changes
+            </SubmitButton>
+          </div>
         </div>
-      </section>
+      </form>
 
-      <section className="mb-10">
-        <h2 className="mb-1 text-base font-semibold tracking-tight">
-          Vendor pricing ({vendorRows.length})
-        </h2>
-        <p className="mb-3 text-sm text-ink/60">
-          Subscriptions + bidding token packs from{' '}
-          <code className="rounded bg-ink/5 px-1 font-mono text-xs">
-            vendor_billing_catalog
-          </code>
-          . Saves propagate to{' '}
-          <Link href="/for-vendors" className="underline">
-            /for-vendors
-          </Link>{' '}
-          and{' '}
-          <Link href="/pricing" className="underline">
-            /pricing
-          </Link>{' '}
-          (which read{' '}
-          <code className="rounded bg-ink/5 px-1 font-mono text-xs">
-            getVendorPrices()
-          </code>
-          ). Price + active state are editable; titles, tier caps + token grants
-          stay migration-owned.
-        </p>
-        <div className="overflow-hidden rounded-2xl border border-ink/10">
-          {vendorRows.length === 0 ? (
-            <div className="p-8 text-center">
-              <p className="text-sm text-ink/60">
-                No SKUs in vendor_billing_catalog yet.
-              </p>
-            </div>
-          ) : (
-            vendorRows.map((row) => (
-              <VendorRowView
-                key={row.sku_code}
-                row={row}
-                editMode={editTarget === row.sku_code}
-              />
-            ))
-          )}
-        </div>
-      </section>
-
-      <section className="mb-10">
-        <h2 className="mb-1 text-base font-semibold tracking-tight">
-          Platform fee
-        </h2>
-        <p className="mb-3 text-sm text-ink/60">
-          Setnayan Pay convenience-fee percentage added to a customer invoice
-          when they pay a vendor booking through Setnayan. The vendor still
-          receives the full booking amount — the fee is the customer&apos;s
-          cost.{' '}
-          <code className="rounded bg-ink/5 px-1 font-mono text-xs">
-            lib/payouts.ts
-          </code>{' '}
-          +{' '}
-          <code className="rounded bg-ink/5 px-1 font-mono text-xs">
-            lib/vendor-earnings.ts
-          </code>{' '}
-          read this with the {SETNAYAN_PAY_FEE_PCT}% code constant as fallback.
-        </p>
-        <div className="overflow-hidden rounded-2xl border border-ink/10">
-          <PlatformFeeView
-            feePct={feePct}
-            feeIsFromDb={feeIsFromDb}
-            editMode={editTarget === PLATFORM_FEE_EDIT_KEY}
-          />
-        </div>
-      </section>
-
-      <div className="rounded-2xl border border-amber-300/60 bg-amber-50/80 p-5">
+      <div className="mt-8 rounded-2xl border border-amber-300/60 bg-amber-50/80 p-5">
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-amber-900">
           Deferred V1.x
         </p>
@@ -432,6 +486,49 @@ export default async function AdminPricingPage({ searchParams }: Props) {
   );
 }
 
+function SaveBanner({
+  saved,
+  skipped,
+  hadError,
+}: {
+  saved: number;
+  skipped: number;
+  hadError: boolean;
+}) {
+  if (hadError) {
+    return (
+      <div className="mb-6 rounded-2xl border border-rose-300/60 bg-rose-50/80 p-4">
+        <p className="text-sm text-rose-900">
+          Something went wrong saving one or more prices — we logged the error.
+          Refresh and confirm the values below, then try again.
+        </p>
+      </div>
+    );
+  }
+  const skippedNote =
+    skipped > 0
+      ? ` ${skipped} row${skipped === 1 ? ' was' : 's were'} skipped (left unchanged — check for a blank or invalid price).`
+      : '';
+  if (saved > 0) {
+    return (
+      <div className="mb-6 rounded-2xl border border-emerald-300/60 bg-emerald-50/80 p-4">
+        <p className="text-sm text-emerald-900">
+          Saved {saved} price change{saved === 1 ? '' : 's'} — now live on
+          /pricing and /for-vendors.{skippedNote}
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="mb-6 rounded-2xl border border-ink/15 bg-cream p-4">
+      <p className="text-sm text-ink/70">
+        No changes to save — everything already matches what&apos;s live.
+        {skippedNote}
+      </p>
+    </div>
+  );
+}
+
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md border border-ink/5 bg-cream p-3">
@@ -445,120 +542,112 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function RetailRowView({
+/**
+ * Desktop-only column-header strip. Mirrors a row's grid template so the
+ * labels sit directly above their inputs. Hidden below md — on mobile each
+ * field carries its own inline label instead (rows reflow to a single column).
+ */
+function ColHeader({
+  grid,
+  cols,
+}: {
+  grid: string;
+  cols: { label: string; align: 'left' | 'right' | 'center' }[];
+}) {
+  return (
+    <div className={`hidden border-b border-ink/10 bg-ink/3 px-4 py-2 ${grid}`}>
+      {cols.map((c) => (
+        <span
+          key={c.label}
+          className={`font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55 ${
+            c.align === 'right'
+              ? 'text-right'
+              : c.align === 'center'
+                ? 'text-center'
+                : 'text-left'
+          }`}
+        >
+          {c.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** A labeled number input. The label shows only below md (the desktop column
+ *  header covers it on wide screens). */
+function NumField({
+  name,
+  label,
+  defaultValue,
+  min = '0',
+  required = false,
+}: {
+  name: string;
+  label: string;
+  defaultValue: number;
+  min?: string;
+  required?: boolean;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55 md:hidden">
+        {label}
+      </span>
+      <input
+        name={name}
+        type="number"
+        step="0.01"
+        min={min}
+        defaultValue={defaultValue}
+        required={required}
+        aria-label={label}
+        className="input-field w-full text-right tabular-nums"
+      />
+    </label>
+  );
+}
+
+/** Active checkbox. Inline label below md; the desktop column header labels it
+ *  on wide screens so the checkbox sits alone, centered. */
+function ActiveToggle({
+  name,
+  defaultChecked,
+}: {
+  name: string;
+  defaultChecked: boolean;
+}) {
+  return (
+    <label className="flex items-center gap-2 md:justify-center">
+      <input
+        type="checkbox"
+        name={name}
+        defaultChecked={defaultChecked}
+        className="h-4 w-4 rounded border-ink/30"
+      />
+      <span className="text-sm text-ink/70 md:hidden">
+        Active · visible on public surfaces
+      </span>
+    </label>
+  );
+}
+
+function RetailEditRow({
   row,
-  editMode,
   editorName,
 }: {
   row: RetailRow;
-  editMode: boolean;
   editorName: string | null;
 }) {
-  if (editMode) {
-    return (
-      <form
-        action={updateRetailSku}
-        className="border-b border-ink/5 bg-cream/50 p-4 last:border-b-0"
-      >
-        <input type="hidden" name="service_code" value={row.service_code} />
-        <div className="mb-3 flex items-center justify-between">
-          <code className="font-mono text-xs uppercase tracking-[0.15em] text-ink/60">
-            {row.service_code}
-          </code>
-          <Link
-            href="/admin/pricing"
-            className="flex items-center gap-1 text-xs text-ink/60 hover:text-ink"
-          >
-            <X className="h-3 w-3" /> Cancel
-          </Link>
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <label className="block">
-            <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-              Title
-            </span>
-            <input
-              name="title"
-              defaultValue={row.title}
-              required
-              className="input-field mt-1 w-full"
-            />
-          </label>
-          <label className="block">
-            <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-              Retail price (₱ · pesos)
-            </span>
-            <input
-              name="retail_price_php"
-              type="number"
-              step="0.01"
-              min="0"
-              defaultValue={row.retail_price_php}
-              required
-              className="input-field mt-1 w-full"
-            />
-          </label>
-          <label className="block">
-            <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-              Cost / event (₱ · pesos)
-            </span>
-            <input
-              name="saas_overhead_cost_php"
-              type="number"
-              step="0.01"
-              min="0"
-              defaultValue={row.saas_overhead_cost_php}
-              required
-              className="input-field mt-1 w-full"
-            />
-          </label>
-          <label className="block sm:col-span-2">
-            <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-              Description (optional)
-            </span>
-            <textarea
-              name="description"
-              defaultValue={row.description ?? ''}
-              rows={2}
-              className="input-field mt-1 w-full"
-            />
-          </label>
-          <label className="flex items-center gap-2 sm:col-span-2">
-            <input
-              name="is_active"
-              type="checkbox"
-              defaultChecked={row.is_active}
-              className="h-4 w-4 rounded border-ink/30"
-            />
-            <span className="text-sm">Active · visible on public surfaces</span>
-          </label>
-        </div>
-        <div className="mt-4 flex gap-2">
-          <SubmitButton
-            className="rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta/90"
-            pendingLabel="Saving…"
-          >
-            Save
-          </SubmitButton>
-          <Link
-            href="/admin/pricing"
-            className="rounded-md border border-ink/20 px-4 py-2 text-sm font-medium text-ink/70 hover:bg-ink/5"
-          >
-            Cancel
-          </Link>
-        </div>
-      </form>
-    );
-  }
-
+  const margin = marginPct(row.retail_price_php, row.saas_overhead_cost_php);
   return (
     <div
-      className={`flex items-center justify-between gap-4 border-b border-ink/5 p-4 last:border-b-0 ${
-        row.is_active ? '' : 'bg-ink/3 opacity-60'
+      className={`gap-3 border-b border-ink/5 px-4 py-3 last:border-b-0 max-md:space-y-3 ${RETAIL_GRID} ${
+        row.is_active ? '' : 'bg-ink/3'
       }`}
     >
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
+      <div className="min-w-0">
+        <div className="mb-1 flex flex-wrap items-center gap-2">
           <code className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
             {row.service_code}
           </code>
@@ -573,138 +662,68 @@ function RetailRowView({
             </span>
           )}
         </div>
-        <p className="mt-0.5 truncate text-sm font-medium text-ink">{row.title}</p>
-        {row.description && (
-          <p className="mt-0.5 truncate text-xs text-ink/55">{row.description}</p>
-        )}
-        <p className="mt-0.5 text-[11px] text-ink/45">
+        <input
+          name={`retail.title.${row.service_code}`}
+          defaultValue={row.title}
+          required
+          aria-label={`${row.service_code} title`}
+          className="input-field w-full"
+        />
+        <input
+          name={`retail.desc.${row.service_code}`}
+          defaultValue={row.description ?? ''}
+          placeholder="Description (optional)"
+          aria-label={`${row.service_code} description`}
+          className="input-field mt-2 w-full text-sm"
+        />
+        <p className="mt-1 text-[11px] text-ink/45">
           Edited {timeAgo(row.updated_at)}
           {editorName ? ` by ${editorName}` : ''}
         </p>
       </div>
-      <div className="flex items-center gap-4">
-        <div className="text-right">
-          <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-            Cost / event
-          </span>
-          <p className="font-mono text-xs tabular-nums text-ink/70">
-            ₱{formatPeso(row.saas_overhead_cost_php)}
-          </p>
-        </div>
-        <div className="text-right">
-          <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-            Margin
-          </span>
-          <p className="font-mono text-xs tabular-nums text-ink/70">
-            {(() => {
-              const m = marginPct(row.retail_price_php, row.saas_overhead_cost_php);
-              return m !== null ? `${m}%` : '—';
-            })()}
-          </p>
-        </div>
-        <span className="font-mono text-sm font-semibold tabular-nums text-ink">
-          {row.retail_price_php > 0 ? `₱${formatPeso(row.retail_price_php)}` : 'FREE'}
+      <NumField
+        name={`retail.cost.${row.service_code}`}
+        label="Cost / event (₱)"
+        defaultValue={row.saas_overhead_cost_php}
+        required
+      />
+      <NumField
+        name={`retail.price.${row.service_code}`}
+        label="Retail price (₱)"
+        defaultValue={row.retail_price_php}
+        required
+      />
+      <div className="md:text-right">
+        <span className="mr-1 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55 md:hidden">
+          Margin
         </span>
-        <Link
-          href={`/admin/pricing?edit=${encodeURIComponent(row.service_code)}`}
-          className="flex items-center gap-1 rounded-md border border-ink/20 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/5"
-        >
-          <Pencil className="h-3 w-3" /> Edit
-        </Link>
+        <span className="font-mono text-xs tabular-nums text-ink/70">
+          {margin !== null ? `${margin}%` : '—'}
+        </span>
       </div>
+      <ActiveToggle
+        name={`retail.active.${row.service_code}`}
+        defaultChecked={row.is_active}
+      />
     </div>
   );
 }
 
-function BundleRowView({
+function BundleEditRow({
   row,
-  editMode,
   editorName,
 }: {
   row: BundleRow;
-  editMode: boolean;
   editorName: string | null;
 }) {
-  if (editMode) {
-    return (
-      <form
-        action={updateBundleSku}
-        className="border-b border-ink/5 bg-cream/50 p-4 last:border-b-0"
-      >
-        <input type="hidden" name="package_code" value={row.package_code} />
-        <div className="mb-3 flex items-center justify-between">
-          <code className="font-mono text-xs uppercase tracking-[0.15em] text-ink/60">
-            {row.package_code}
-          </code>
-          <Link
-            href="/admin/pricing"
-            className="flex items-center gap-1 text-xs text-ink/60 hover:text-ink"
-          >
-            <X className="h-3 w-3" /> Cancel
-          </Link>
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <label className="block">
-            <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-              Title
-            </span>
-            <input
-              name="title"
-              defaultValue={row.title}
-              required
-              className="input-field mt-1 w-full"
-            />
-          </label>
-          <label className="block">
-            <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-              Retail price (₱ · pesos)
-            </span>
-            <input
-              name="retail_price_php"
-              type="number"
-              step="0.01"
-              min="0"
-              defaultValue={row.retail_price_php}
-              required
-              className="input-field mt-1 w-full"
-            />
-          </label>
-          <label className="flex items-center gap-2 sm:col-span-2">
-            <input
-              name="is_active"
-              type="checkbox"
-              defaultChecked={row.is_active}
-              className="h-4 w-4 rounded border-ink/30"
-            />
-            <span className="text-sm">Active · visible on public surfaces</span>
-          </label>
-        </div>
-        <div className="mt-4 flex gap-2">
-          <SubmitButton
-            className="rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta/90"
-            pendingLabel="Saving…"
-          >
-            Save
-          </SubmitButton>
-          <Link
-            href="/admin/pricing"
-            className="rounded-md border border-ink/20 px-4 py-2 text-sm font-medium text-ink/70 hover:bg-ink/5"
-          >
-            Cancel
-          </Link>
-        </div>
-      </form>
-    );
-  }
-
   return (
     <div
-      className={`flex items-center justify-between gap-4 border-b border-ink/5 p-4 last:border-b-0 ${
-        row.is_active ? '' : 'bg-ink/3 opacity-60'
+      className={`gap-3 border-b border-ink/5 px-4 py-3 last:border-b-0 max-md:space-y-3 ${TWOCOL_GRID} ${
+        row.is_active ? '' : 'bg-ink/3'
       }`}
     >
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
+      <div className="min-w-0">
+        <div className="mb-1 flex flex-wrap items-center gap-2">
           <code className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
             {row.package_code}
           </code>
@@ -714,116 +733,41 @@ function BundleRowView({
             </span>
           )}
         </div>
-        <p className="mt-0.5 truncate text-sm font-medium text-ink">{row.title}</p>
-        <p className="mt-0.5 text-[11px] text-ink/45">
+        <input
+          name={`bundle.title.${row.package_code}`}
+          defaultValue={row.title}
+          required
+          aria-label={`${row.package_code} title`}
+          className="input-field w-full"
+        />
+        <p className="mt-1 text-[11px] text-ink/45">
           Edited {timeAgo(row.updated_at)}
           {editorName ? ` by ${editorName}` : ''}
         </p>
       </div>
-      <div className="flex items-center gap-3">
-        <span className="font-mono text-sm font-semibold tabular-nums text-ink">
-          ₱{formatPeso(row.retail_price_php)}
-        </span>
-        <Link
-          href={`/admin/pricing?edit=${encodeURIComponent(row.package_code)}`}
-          className="flex items-center gap-1 rounded-md border border-ink/20 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/5"
-        >
-          <Pencil className="h-3 w-3" /> Edit
-        </Link>
-      </div>
+      <NumField
+        name={`bundle.price.${row.package_code}`}
+        label="Retail price (₱)"
+        defaultValue={row.retail_price_php}
+        required
+      />
+      <ActiveToggle
+        name={`bundle.active.${row.package_code}`}
+        defaultChecked={row.is_active}
+      />
     </div>
   );
 }
 
-function VendorRowView({
-  row,
-  editMode,
-}: {
-  row: VendorRow;
-  editMode: boolean;
-}) {
-  if (editMode) {
-    return (
-      <form
-        action={updateVendorSku}
-        className="border-b border-ink/5 bg-cream/50 p-4 last:border-b-0"
-      >
-        <input type="hidden" name="sku_code" value={row.sku_code} />
-        <div className="mb-3 flex items-center justify-between">
-          <code className="font-mono text-xs uppercase tracking-[0.15em] text-ink/60">
-            {row.sku_code}
-          </code>
-          <Link
-            href="/admin/pricing"
-            className="flex items-center gap-1 text-xs text-ink/60 hover:text-ink"
-          >
-            <X className="h-3 w-3" /> Cancel
-          </Link>
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {/* Title is structural (wires the tier gate) — read-only here. */}
-          <div className="block">
-            <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-              SKU
-            </span>
-            <p className="mt-1 text-sm font-medium text-ink">{row.title}</p>
-            <p className="text-xs text-ink/55">
-              {VENDOR_OFFERING_LABEL[row.offering_type]}
-              {row.token_grant_count
-                ? ` · ${row.token_grant_count} tokens`
-                : ''}
-            </p>
-          </div>
-          <label className="block">
-            <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-              Price (₱ · pesos)
-            </span>
-            <input
-              name="price_php"
-              type="number"
-              step="0.01"
-              min="0.01"
-              defaultValue={row.price_php}
-              required
-              className="input-field mt-1 w-full"
-            />
-          </label>
-          <label className="flex items-center gap-2 sm:col-span-2">
-            <input
-              name="is_active"
-              type="checkbox"
-              defaultChecked={row.is_active}
-              className="h-4 w-4 rounded border-ink/30"
-            />
-            <span className="text-sm">Active · visible on public surfaces</span>
-          </label>
-        </div>
-        <div className="mt-4 flex gap-2">
-          <SubmitButton
-            className="rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta/90"
-            pendingLabel="Saving…"
-          >
-            Save
-          </SubmitButton>
-          <Link
-            href="/admin/pricing"
-            className="rounded-md border border-ink/20 px-4 py-2 text-sm font-medium text-ink/70 hover:bg-ink/5"
-          >
-            Cancel
-          </Link>
-        </div>
-      </form>
-    );
-  }
-
+function VendorEditRow({ row }: { row: VendorRow }) {
   return (
     <div
-      className={`flex items-center justify-between gap-4 border-b border-ink/5 p-4 last:border-b-0 ${
-        row.is_active ? '' : 'bg-ink/3 opacity-60'
+      className={`gap-3 border-b border-ink/5 px-4 py-3 last:border-b-0 max-md:space-y-3 ${TWOCOL_GRID} ${
+        row.is_active ? '' : 'bg-ink/3'
       }`}
     >
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
+      <div className="min-w-0">
+        <div className="mb-1 flex flex-wrap items-center gap-2">
           <code className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
             {row.sku_code}
           </code>
@@ -841,115 +785,23 @@ function VendorRowView({
             </span>
           ) : null}
         </div>
-        <p className="mt-0.5 truncate text-sm font-medium text-ink">{row.title}</p>
+        {/* Title is structural (wires the tier gate) — read-only. */}
+        <p className="text-sm font-medium text-ink">{row.title}</p>
         <p className="mt-0.5 text-[11px] text-ink/45">
           Edited {timeAgo(row.updated_at)}
         </p>
       </div>
-      <div className="flex items-center gap-3">
-        <span className="font-mono text-sm font-semibold tabular-nums text-ink">
-          ₱{formatPeso(row.price_php)}
-        </span>
-        <Link
-          href={`/admin/pricing?edit=${encodeURIComponent(row.sku_code)}`}
-          className="flex items-center gap-1 rounded-md border border-ink/20 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/5"
-        >
-          <Pencil className="h-3 w-3" /> Edit
-        </Link>
-      </div>
-    </div>
-  );
-}
-
-function PlatformFeeView({
-  feePct,
-  feeIsFromDb,
-  editMode,
-}: {
-  feePct: number;
-  feeIsFromDb: boolean;
-  editMode: boolean;
-}) {
-  if (editMode) {
-    return (
-      <form action={updatePlatformFee} className="bg-cream/50 p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <code className="font-mono text-xs uppercase tracking-[0.15em] text-ink/60">
-            setnayan_pay_fee_pct
-          </code>
-          <Link
-            href="/admin/pricing"
-            className="flex items-center gap-1 text-xs text-ink/60 hover:text-ink"
-          >
-            <X className="h-3 w-3" /> Cancel
-          </Link>
-        </div>
-        <label className="block max-w-xs">
-          <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-            Setnayan Pay fee (%)
-          </span>
-          <input
-            name="setnayan_pay_fee_pct"
-            type="number"
-            step="0.01"
-            min="0"
-            max="100"
-            defaultValue={feePct}
-            required
-            className="input-field mt-1 w-full"
-          />
-        </label>
-        <div className="mt-4 flex gap-2">
-          <SubmitButton
-            className="rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta/90"
-            pendingLabel="Saving…"
-          >
-            Save
-          </SubmitButton>
-          <Link
-            href="/admin/pricing"
-            className="rounded-md border border-ink/20 px-4 py-2 text-sm font-medium text-ink/70 hover:bg-ink/5"
-          >
-            Cancel
-          </Link>
-        </div>
-      </form>
-    );
-  }
-
-  return (
-    <div className="flex items-center justify-between gap-4 p-4">
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <code className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-            setnayan_pay_fee_pct
-          </code>
-          {!feeIsFromDb && (
-            <span className="rounded bg-ink/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-ink/55">
-              Code default
-            </span>
-          )}
-        </div>
-        <p className="mt-0.5 text-sm font-medium text-ink">
-          Setnayan Pay convenience fee
-        </p>
-        <p className="mt-0.5 text-[11px] text-ink/45">
-          {feeIsFromDb
-            ? 'Set in platform_settings.'
-            : 'Falling back to the code constant — save once to persist it in the DB.'}
-        </p>
-      </div>
-      <div className="flex items-center gap-3">
-        <span className="font-mono text-sm font-semibold tabular-nums text-ink">
-          {feePct}%
-        </span>
-        <Link
-          href={`/admin/pricing?edit=${encodeURIComponent(PLATFORM_FEE_EDIT_KEY)}`}
-          className="flex items-center gap-1 rounded-md border border-ink/20 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/5"
-        >
-          <Pencil className="h-3 w-3" /> Edit
-        </Link>
-      </div>
+      <NumField
+        name={`vendor.price.${row.sku_code}`}
+        label="Price (₱)"
+        defaultValue={row.price_php}
+        min="0.01"
+        required
+      />
+      <ActiveToggle
+        name={`vendor.active.${row.sku_code}`}
+        defaultChecked={row.is_active}
+      />
     </div>
   );
 }

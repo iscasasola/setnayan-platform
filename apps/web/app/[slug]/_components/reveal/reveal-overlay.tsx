@@ -137,12 +137,14 @@ export function RevealOverlay({
   if (!active || !mounted || gone) return null;
 
   if (veil) {
+    // The veil is a PERSISTENT top layer, not a one-shot gate: the first lift
+    // STARTS the film underneath (dispatch 'std-reveal-done'), but the veil
+    // stays mounted on top (z-60) — the guest can swipe it back DOWN and it
+    // re-covers the still-playing film (VeilReveal is two-way). So we never
+    // fade it out / unmount it (unlike the rigid openings, which truly part
+    // and clear). (owner 2026-06-18 "reveal stays on top, not under")
     return (
-      <div
-        className={`fixed inset-0 z-[60] overflow-hidden transition-opacity duration-500 ${
-          open ? 'opacity-0' : 'opacity-100'
-        }`}
-      >
+      <div className="fixed inset-0 z-[60] overflow-hidden">
         <VeilReveal
           veilColor={eventEffects?.veilColor ?? veilColor}
           petalsColor={eventEffects?.petalColor ?? petalsColor}
@@ -153,11 +155,9 @@ export function RevealOverlay({
             music: eventEffects?.music ?? config?.features?.music ?? false,
           }}
           onRevealed={() => {
+            // Start the film once, on the first lift; keep the veil on top.
+            if (!open) window.dispatchEvent(new CustomEvent('std-reveal-done'));
             setOpen(true);
-            setTimeout(() => {
-              window.dispatchEvent(new CustomEvent('std-reveal-done'));
-              setGone(true);
-            }, 500);
           }}
         />
         <div

@@ -40,6 +40,8 @@ type Props = {
   progress: number;
   /** Called once if WebGL can't initialise → caller falls back to CSS flaps. */
   onUnsupported: () => void;
+  /** Couple's initials/monogram text — carved into the doors, split at the seam. */
+  monogramText?: string;
 };
 
 // LOCKED light values (§1a — owner-set DIAMETER 5 / DIFFUSION 100 / BRIGHTNESS 50).
@@ -68,7 +70,7 @@ function cssColor(probe: HTMLElement, varName: string, fallback: string): THREE.
 /** One template's flaps: hinge groups + the per-progress angle for each. */
 type Flap = { group: THREE.Group; axis: 'x' | 'y'; maxDeg: number; start: number; end: number };
 
-export default function RigidWebGL({ variant, progress, onUnsupported }: Props) {
+export default function RigidWebGL({ variant, progress, onUnsupported, monogramText }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const progressRef = useRef(progress);
   progressRef.current = progress;
@@ -269,8 +271,8 @@ export default function RigidWebGL({ variant, progress, onUnsupported }: Props) 
 
       const leftGroup  = makeDoorGroup(false, -halfW);
       const rightGroup = makeDoorGroup(true,   halfW);
-      flaps.push({ group: leftGroup,  axis: 'y', maxDeg: -138, start: 0,    end: 0.72 });
-      flaps.push({ group: rightGroup, axis: 'y', maxDeg:  138, start: 0.04, end: 0.76 });
+      flaps.push({ group: leftGroup,  axis: 'y', maxDeg: -138, start: 0, end: 0.72 });
+      flaps.push({ group: rightGroup, axis: 'y', maxDeg:  138, start: 0, end: 0.76 });
 
       // ── PBR texture maps (door + stone) ───────────────────────────────────
       // Assets live at /reveal/textures/door/ and /reveal/textures/stone/ once
@@ -327,6 +329,55 @@ export default function RigidWebGL({ variant, progress, onUnsupported }: Props) 
       addHandle(leftGroup,   1);   // handle on seam side of left door
       addHandle(rightGroup, -1);   // handle on seam side of right door
 
+      // ── Carved monogram split across the centre seam ──────────────────────
+      // The couple's initials are drawn centred on a wide canvas, then each door
+      // shows one half — left door the right half, right door the left half — so
+      // the mark reads whole when closed and separates as the doors swing open.
+      if (monogramText) {
+        const S = 512;
+        const cv = document.createElement('canvas');
+        cv.width = S * 2; cv.height = S; // left half = right door, right half = left door
+        const ctx = cv.getContext('2d');
+        if (ctx) {
+          ctx.font = `bold ${S * 0.55}px 'Palatino Linotype', Palatino, serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillStyle = 'rgba(0,0,0,0.38)';
+          ctx.fillText(monogramText, S, S / 2);
+          ctx.strokeStyle = 'rgba(255,255,255,0.13)';
+          ctx.lineWidth = 1.5;
+          ctx.strokeText(monogramText, S, S / 2);
+
+          const fullTex = new THREE.CanvasTexture(cv);
+          fullTex.colorSpace = THREE.SRGBColorSpace;
+          disposables.push(fullTex);
+
+          // Left door: shows right half of canvas (x 0.5→1)
+          const texL = fullTex.clone();
+          texL.offset.set(0.5, 0); texL.repeat.set(0.5, 1); texL.needsUpdate = true;
+          // Right door: shows left half of canvas (x 0→0.5)
+          const texR = fullTex.clone();
+          texR.offset.set(0.0, 0); texR.repeat.set(0.5, 1); texR.needsUpdate = true;
+
+          const monoMat = (tex: THREE.Texture) =>
+            new THREE.MeshStandardMaterial({
+              map: tex, transparent: true, alphaTest: 0.01,
+              roughness: 0.9, metalness: 0, depthWrite: false,
+            });
+
+          const carveGeo = new THREE.PlaneGeometry(halfW * 0.65, halfH * 0.28);
+          const planeL = new THREE.Mesh(carveGeo, monoMat(texL));
+          planeL.position.set(halfW * 0.68, 0, DOOR_DEPTH + 0.003);
+          leftGroup.add(planeL);
+
+          const planeR = new THREE.Mesh(carveGeo, monoMat(texR));
+          planeR.position.set(-halfW * 0.68, 0, DOOR_DEPTH + 0.003);
+          rightGroup.add(planeR);
+
+          disposables.push(carveGeo, texL, texR);
+        }
+      }
+
       // ── Stone arch surround (static — never rotates) ──────────────────────
       // Rectangular stone wall with a pointed arch hole whose bezier CPs are the
       // world-space reversal of the door arch beziers, so both silhouettes align.
@@ -380,6 +431,43 @@ export default function RigidWebGL({ variant, progress, onUnsupported }: Props) 
       loadSurfaceMaps('stone', new THREE.Color('#c0b5a5'), 1.6, aniso).then((m) => {
         if (cancelled) return disposeMaps(m);
         if (m) applyMaps([stoneMat], m);
+      });
+
+      // ── Stone steps (two static treads at the base of the doorway) ───────
+      const step1Geo = new THREE.BoxGeometry(halfW * 2.4, 0.07, 0.10);
+      const step1    = new THREE.Mesh(step1Geo, stoneMat);
+      step1.position.set(0, -halfH + 0.035, Z_FLAP - 0.04);
+      step1.castShadow = true; step1.receiveShadow = true;
+      scene.add(step1);
+      disposables.push(step1Geo);
+
+      const step2Geo = new THREE.BoxGeometry(halfW * 2.7, 0.07, 0.10);
+      const step2    = new THREE.Mesh(step2Geo, stoneMat);
+      step2.position.set(0, -halfH - 0.035, Z_FLAP - 0.08);
+      step2.castShadow = true; step2.receiveShadow = true;
+      scene.add(step2);
+      disposables.push(step2Geo);
+
+      // ── Rose window (stained-glass disc above the arch peak) ─────────────
+      const roseGeo = new THREE.CircleGeometry(halfW * 0.32, 48);
+      const roseMat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color('#ffffff'),
+        roughness: 0.2,
+        metalness: 0,
+        emissive: new THREE.Color('#ffefcc'),
+        emissiveIntensity: 0.3,
+      });
+      const roseMesh = new THREE.Mesh(roseGeo, roseMat);
+      roseMesh.position.set(0, halfH * 0.88, stoneMesh.position.z + STONE_DEPTH + 0.005);
+      roseMesh.receiveShadow = true;
+      scene.add(roseMesh);
+      disposables.push(roseGeo, roseMat);
+
+      loadSingleTexture('/reveal/textures/rose-window/rose_window.webp').then((t) => {
+        if (cancelled || !t) return;
+        roseMat.map = t;
+        roseMat.needsUpdate = true;
+        disposables.push(t);
       });
     } else {
       // four-flap: 4 triangles whose apex meets at centre, hinged on each edge,
@@ -438,7 +526,10 @@ export default function RigidWebGL({ variant, progress, onUnsupported }: Props) 
       const p = progressRef.current;
       for (const f of flaps) {
         const t = THREE.MathUtils.clamp((p - f.start) / (f.end - f.start), 0, 1);
-        const ang = THREE.MathUtils.degToRad(f.maxDeg) * smooth(t);
+        const s = smooth(t);
+        // church-doors: smoothstep^1.5 gives a slow "creak" start that builds
+        const eased = variant === 'church-doors' ? Math.pow(s, 1.5) : s;
+        const ang = THREE.MathUtils.degToRad(f.maxDeg) * eased;
         if (f.axis === 'y') f.group.rotation.y = ang;
         else f.group.rotation.x = ang;
       }

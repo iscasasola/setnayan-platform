@@ -8,6 +8,7 @@ import { STD_THEME_IDS } from '@/lib/std-themes';
 import { resolveRevealEffects, type RevealEffects } from '@/lib/std-reveal-effects';
 import { NO_REVEAL } from '@/app/[slug]/_components/reveal/reveal-templates';
 import { resolveStdBackground, type StdBackground } from '@/lib/std-backgrounds';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 
 /**
  * Server actions for the Save-the-Date builder (0024 PR4 · P4).
@@ -70,6 +71,20 @@ export async function chooseRevealTemplate(
   if (error) return { ok: false };
   revalidate(eventId);
   return { ok: true };
+}
+
+/**
+ * Presign a just-uploaded Step-1 background photo (r2:// ref) → a display URL,
+ * so the builder preview can show it immediately. Gated to the event's couple.
+ */
+export async function presignStdBackground(
+  eventId: string,
+  ref: string,
+): Promise<{ url: string | null }> {
+  if (!eventId || !ref) return { url: null };
+  await requireCouple(eventId);
+  const url = await displayUrlForStoredAsset(ref);
+  return { url: url ?? null };
 }
 
 /**

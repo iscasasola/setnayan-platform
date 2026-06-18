@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · feat(std): Step-1 Background — upload your own photo (the 4th kind)
+
+Replaces the "Soon" upload tile with a real photo upload, completing the Background picker's four kinds (plain · paper · realistic · upload).
+
+- `std-background-picker.tsx`: an `<FileUpload>` (bucket `media`, path `events/{eventId}/std-background`, image-only, 8 MB) → emits the `r2://` ref.
+- `StdBuilderClient`: `handleUpload(ref)` sets `background = {kind:'upload', value: ref}` and **presigns the ref** (new `presignStdBackground` action) so the preview shows the uploaded photo immediately; the background layer renders it cover-fit with the whole-image parallax lean + scrim.
+- Builder page resolves the saved upload's presigned URL (`initialUploadUrl`) for the initial preview; `saveAllStdContent` already persists it; the live `/[slug]` page already resolves + renders it (PR #1771).
+
+The static upload (photo as a cover-fit, leaning backdrop) works now. The **per-pixel 3D-depth** upgrade for uploads is still gated on the depth engine (a depth API key / hosted model — owner infra).
+
+Verified: `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — Step-1 Background is now complete (all 4 kinds). No schema change (reuses `events.std_background`).
+
 ## 2026-06-19 · feat(std): Step-1 background renders on the live guest page
 
 Completes Step 1 end-to-end — the couple's chosen background now shows on the live `/[slug]` Save-the-Date, not just the builder preview.

@@ -23,7 +23,7 @@ import { SaveTheDateFilm } from '@/app/[slug]/_components/save-the-date-film';
 import { STD_THEMES, type StdThemeId } from '@/lib/std-themes';
 import { formatEventDate } from '@/lib/events';
 import { shortDate } from '@/lib/save-the-date-content';
-import { saveAllStdContent } from '../actions';
+import { saveAllStdContent, presignStdBackground } from '../actions';
 import type { StdFilmContent } from '@/lib/save-the-date-content';
 import {
   REVEAL_LIBRARY,
@@ -58,6 +58,8 @@ type Props = {
   initialEffects: RevealEffects;
   /** The couple's saved Step-1 background (resolved; defaults to plain). */
   initialBackground: StdBackground;
+  /** Presigned URL for the saved upload background (if kind === 'upload'). */
+  initialUploadUrl?: string | null;
   /** Raw std_film_* snapshot values — null means not yet set (falls back to live event data). */
   initialFilmDate?: string | null;
   initialFilmVenueName?: string | null;
@@ -92,6 +94,7 @@ export function StdBuilderClient({
   initialRevealTemplate,
   initialEffects,
   initialBackground,
+  initialUploadUrl,
   initialFilmDate,
   initialFilmVenueName,
   initialFilmVenueCity,
@@ -142,9 +145,23 @@ export function StdBuilderClient({
   const [effects, setEffects] = useState<RevealEffects>(initialEffects);
   // Step-1 background choice (plain / paper / realistic / upload); saved on Render.
   const [background, setBackground] = useState<StdBackground>(initialBackground);
+  // Presigned URL for an uploaded background (kind === 'upload') — drives the preview.
+  const [uploadUrl, setUploadUrl] = useState<string | null>(initialUploadUrl ?? null);
   const pickBackground = (bg: StdBackground) => {
     setBackground(bg);
     if (result !== 'idle') setResult('idle');
+  };
+  // Upload picked → set it + presign the ref so the preview shows it immediately.
+  const handleUpload = (ref: string | null) => {
+    if (!ref) {
+      setUploadUrl(null);
+      pickBackground({ kind: 'plain', value: '#f3ece1' });
+      return;
+    }
+    pickBackground({ kind: 'upload', value: ref });
+    presignStdBackground(eventId, ref)
+      .then((r) => setUploadUrl(r.url))
+      .catch(() => {});
   };
 
   // Any change that should replay the opening also resets the lifted state.
@@ -249,7 +266,13 @@ export function StdBuilderClient({
         <div className="space-y-8">
 
           {/* Step 1 · Background — the backdrop the whole film plays over */}
-          <StdBackgroundPicker value={background} onChange={pickBackground} />
+          <StdBackgroundPicker
+            value={background}
+            onChange={pickBackground}
+            eventId={eventId}
+            uploadUrl={uploadUrl}
+            onUpload={handleUpload}
+          />
 
           {/* Step 2 · Opening picker — drives the single shared preview → */}
           <RevealPreviewCard
@@ -544,7 +567,13 @@ export function StdBuilderClient({
               {/* layer 0 — the Step-1 background, behind everything */}
               <StdBackgroundLayer
                 background={background}
-                imageUrl={background.kind === 'realistic' ? realisticBgSrc(background.value) : null}
+                imageUrl={
+                  background.kind === 'realistic'
+                    ? realisticBgSrc(background.value)
+                    : background.kind === 'upload'
+                      ? uploadUrl
+                      : null
+                }
               />
               {/* base — the content film (transparent stage so the background shows) */}
               <div className="absolute inset-0">

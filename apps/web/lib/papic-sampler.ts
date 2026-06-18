@@ -1,6 +1,6 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { eventOwnsPapicSeats } from '@/lib/papic-seats';
+import { eventPapicSeatsActive } from '@/lib/papic-seats';
 
 // Free Papic sampler — the locked "connect Drive OR upgrade = permanent" rule
 // (owner 2026-06-16; migration 20270103000000 lines 6-8). Sampler captures carry
@@ -63,7 +63,7 @@ export async function eventSamplerIsKept(eventId: string): Promise<boolean> {
     // (2) Owns paid Papic — the upgrade path. Checked HERE (not only at the
     // PAPIC_SEATS activation hook) so the sweep self-heals a paid event even if
     // that hook's best-effort expires_at clear was missed.
-    return await eventOwnsPapicSeats(admin, eventId);
+    return await eventPapicSeatsActive(admin, eventId);
   } catch {
     return false;
   }

@@ -7,7 +7,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { reScreenStuckCaptures } from '@/lib/nsfw-screen';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { eventOwnsPapicGuest } from '@/lib/papic-guest';
+import { eventPapicGuestActive } from '@/lib/papic-guest';
 import { KwentoQueue } from './_components/kwento-queue';
 import {
   reportCapture,
@@ -69,7 +69,7 @@ export default async function PapicModerationPage({
 
   const admin = createAdminClient();
 
-  const owns = await eventOwnsPapicGuest(admin, eventId);
+  const owns = await eventPapicGuestActive(admin, eventId);
 
   // Captures (newest first), the blocked-guest list, any open reports, and the
   // NSFW-screened (auto-filtered) captures from BOTH capture tables — one

@@ -27,6 +27,24 @@ Three-PR build from the approved Kwento Monumental Upgrade plan (`Kwento_Monumen
 **SPEC IMPACT:** `Kwento_Monumental_Upgrade_2026-06-18.md` Phases 1 + 2 implemented. `Kwento_Automation_Failproof_2026-06-18.md` G1 (FaceBlock) + G2 (auto-wall) guarantees shipped. Phases 3–6 queued for future sessions.
 
 ---
+## 2026-06-18 · feat(payments): admin-approval handshake — paid features unlock only AFTER the team verifies payment (owner)
+
+Owner 2026-06-18: *"the QR payment is a handshake and must be approved by admin before they can access it?"* → **yes, all paid SKUs.** The apply-then-pay model granted access the moment a couple uploaded their payment screenshot (order status `submitted`) — so a paid feature went live for guests **before** the Setnayan team verified the payment. This switches **feature access** to a true handshake: a paid feature unlocks only when the order is **admin-approved** (`paid`/`fulfilled`). Double-buy prevention is preserved (a pending order still blocks a second purchase).
+
+**The split — `lib/entitlements.ts`:**
+- `eventOwnsSku` / `checkOrderOwnership` — **UNCHANGED**: "has a LIVE order" (status ∉ {cancelled,refunded,lapsed}, so `submitted` counts). **Buy surfaces keep this** for double-buy prevention.
+- **New `eventSkuActive` / `checkOrderActive`** — APPROVED-only (`ACTIVE_STATUSES = {paid, fulfilled}`), bundle-aware. **Feature gates call this.** +16 unit tests (40 total): a `submitted` order is owned-but-not-active; a paid bundle activates its children; a submitted bundle does not.
+- New co-located gate readers: `eventStdOpeningsActive`, `eventAnimatedMonogramActive`, `eventPapicGuestActive`, `eventPapicSeatsActive`.
+
+**20 feature gates switched to active** — every surface that renders/unlocks a paid feature, across ALL paid SKUs: the public couple page (animated monogram · LIVE_WALL · PANOOD_SYSTEM · Papic guest CTA), the Save-the-Date reveal opening, the editorial photo wall, the live-wall route + projector page, the public Papic guest camera, the branded-QR PNG endpoint, face-blur, the Papic sampler, the SETNAYAN_AI deactivation re-check, and the couple's live / monogram / launch / galleries / crew / moderation dashboards. **Leak-grep clean** — no feature gate still reads the pending-inclusive helper.
+
+**Honest buy-surface display (focus SKU):** the Save-the-Date openings page now shows three states — **approved → "unlocked"**, **pending → "payment under review"** (no second-buy), **none → buy-CTA** — pairing `eventStdOpeningsActive` with `eventOwnsStdOpenings`.
+
+No schema, no migration. tsc 0 · `next lint` clean · **332/332 unit**. The admin approve (`paid`) / reject (`cancelled`) flow is unchanged — approval now flips the feature LIVE; reject still revokes.
+
+SPEC IMPACT — restores the spec's *"service activates after the team verifies"* for ALL paid SKUs. → CHANGELOG + corpus DECISION_LOG.
+
+**Follow-up (PR2):** the other 6 add-on buy surfaces (animated-monogram · custom-qr-guest · indoor-blueprint · papic · setnayan-ai · live-wall-card) get the same "payment under review" display — until then a pending order on those shows "owned" optimistically (cosmetic only; the live gate already withholds the feature).
 
 ## 2026-06-18 · feat(patiktok): capture + render foundation — source-clip storage + render-job output (PR1 of 4)
 

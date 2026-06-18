@@ -4,7 +4,7 @@ import { ArrowLeft, Check, Sparkles, ArrowRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { resolveMonogram, deriveMonogram } from '@/lib/monogram';
-import { eventOwnsAnimatedMonogram } from '@/lib/animated-monogram';
+import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import {
   MONOGRAM_MOTIONS,
   resolveMonogramMotion,
@@ -124,7 +124,7 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
     .maybeSingle();
   if (!event) redirect(`/dashboard/${eventId}`);
 
-  const owns = await eventOwnsAnimatedMonogram(supabase, eventId).catch(() => false);
+  const owns = await eventAnimatedMonogramActive(supabase, eventId).catch(() => false);
   const monogram = resolveMonogram(event);
   const motion = resolveMonogramMotion(event.monogram_motion_key);
   const motionLabel =

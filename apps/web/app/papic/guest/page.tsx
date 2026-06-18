@@ -1,7 +1,7 @@
 import { Camera } from 'lucide-react';
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { eventOwnsPapicGuest, fetchGuestQuota } from '@/lib/papic-guest';
+import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
 import { PapicGuestCapture } from './_components/papic-guest-capture';
 
 // Papic · guest camera (PAPIC_GUEST · ₱2,999 — "Every guest's phone, a candid
@@ -45,7 +45,7 @@ export default async function PapicGuestPage() {
 
   const admin = createAdminClient();
 
-  const owns = await eventOwnsPapicGuest(admin, session.event_id);
+  const owns = await eventPapicGuestActive(admin, session.event_id);
   if (!owns) {
     return (
       <Shell>

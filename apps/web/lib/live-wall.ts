@@ -251,8 +251,6 @@ export async function getWallSnapshot(
         .select('first_name, display_name, faceblock_enabled')
         .eq('guest_id', msg.guest_id as string)
         .maybeSingle();
-      // Authoritative FaceBlock check: trust the live DB column, not the
-      // best-effort after() cache in author_publicly_hidden.
       if (!author?.faceblock_enabled) {
         caption = {
           text: msg.body_text as string,

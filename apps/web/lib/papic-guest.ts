@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { eventOwnsSku } from '@/lib/entitlements';
+import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
 
 /**
  * apps/web/lib/papic-guest.ts
@@ -64,6 +64,18 @@ export async function eventOwnsPapicGuest(
   eventId: string,
 ): Promise<boolean> {
   return eventOwnsSku(supabase, eventId, PAPIC_GUEST_SERVICE_KEY);
+}
+
+/**
+ * Is Papic Guest ACTIVE (admin-approved)? The handshake FEATURE GATE — the
+ * guest camera unlocks only after the Setnayan team verifies the payment
+ * (owner 2026-06-18). The buy surface keeps eventOwnsPapicGuest.
+ */
+export async function eventPapicGuestActive(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<boolean> {
+  return eventSkuActive(supabase, eventId, PAPIC_GUEST_SERVICE_KEY);
 }
 
 // ─────────────────────────────────────────────────────────────────────────

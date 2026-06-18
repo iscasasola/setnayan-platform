@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
 import { resolveBrandedQrColors } from '@/lib/qr';
-import { eventOwnsSku } from '@/lib/entitlements';
+import { eventSkuActive } from '@/lib/entitlements';
 
 /**
  * GET /api/website/qr/guest/[guestId] — serves a single guest's BRANDED
@@ -79,7 +79,7 @@ export async function GET(
   // error, so we wrap it to keep this route's existing 500 (not an uncaught throw).
   let owns = false;
   try {
-    owns = await eventOwnsSku(createAdminClient(), guest.event_id, 'CUSTOM_QR_GUEST');
+    owns = await eventSkuActive(createAdminClient(), guest.event_id, 'CUSTOM_QR_GUEST');
   } catch {
     return new NextResponse('Could not verify your upgrade.', { status: 500 });
   }

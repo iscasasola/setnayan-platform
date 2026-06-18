@@ -154,6 +154,11 @@ export default async function PricingPage() {
   const vendorAnnualSubs = vendorSkus.filter((s) => s.offering_type === 'subscription_annual');
   const tokenPacks = vendorSkus.filter((s) => s.offering_type === 'token_pack');
 
+  // Branch add-on price, read from the catalog (₱999 fallback only if the row
+  // is missing) — keeps the intro copy in sync with /admin/pricing.
+  const branchSku = vendorSkus.find((s) => s.sku_code === 'vendor_branch_28day');
+  const branchPriceLabel = `₱${formatPeso(branchSku?.price_php ?? 999)}`;
+
   // Annual counterpart lookup by SKU naming convention.
   // Convention: pro_vendor_monthly ↔ pro_vendor_annual ·
   // enterprise_vendor_monthly ↔ enterprise_vendor_annual. Per migration
@@ -589,7 +594,7 @@ export default async function PricingPage() {
               <strong className="text-ink">100 complimentary tokens</strong>{' '}
               once their verification is approved. Boost individual features
               for 7 days · 4–100 tokens · Pro+ vendors can add branches at
-              ₱999 / 28 days each.
+              {branchPriceLabel} / 28 days each.
             </p>
           </div>
 

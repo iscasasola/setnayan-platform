@@ -626,7 +626,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     kind: 'external_process',
     title: 'Upgrade your website',
     whyItMatters:
-      "Two paid upgrades transform your wedding website. Monogram Hero (₱1,999) gives you the animated SVG-trace monogram + custom video or photo background. Live Schedule (₱999) lights up the 'Happening now' card on the day, auto-scrolling through ceremony → cocktails → reception. Optional · the free version still ships beautifully.",
+      "Two paid upgrades transform your wedding website. Monogram Hero gives you the animated SVG-trace monogram + custom video or photo background. Live Schedule lights up the 'Happening now' card on the day, auto-scrolling through ceremony → cocktails → reception. Optional · the free version still ships beautifully. (See current prices when you add them.)",
     pillLabel: 'Programming',
     prerequisites: ['create_website'],
   },
@@ -730,7 +730,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     kind: 'external_process',
     title: 'Activate Same-Day Edit (SDE)',
     whyItMatters:
-      "Cinematic 3-5 minute reveal of your day, edited DURING the reception and projected before the send-off. Setnayan's SDE crew uses vision AI to surface the best moments + cut them into a story arc — from ₱9,999, dramatically under the ₱50-150K traditional PH SDE rate. T-2 months gives the crew time to plan coverage alongside your photo + Panood team.",
+      "Cinematic 3-5 minute reveal of your day, edited DURING the reception and projected before the send-off. Setnayan's SDE crew uses vision AI to surface the best moments + cut them into a story arc — dramatically under the ₱50-150K traditional PH SDE rate. T-2 months gives the crew time to plan coverage alongside your photo + Panood team.",
     pillLabel: 'Programming',
     prerequisites: ['reception_venue', 'photography'],
   },
@@ -946,7 +946,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     kind: 'external_process',
     title: 'Order your wedding song (Pakanta)',
     whyItMatters:
-      "Custom wedding song by Setnayan AI music. Pick a tier — Basic ₱1,999 / 24 hr, Premium ₱3,999 / 2-5 days with lyric approval, or the Wedding Suite ₱9,999 / 5-7 days for 3 matching songs. The song saves to your event so every Setnayan-rendered video uses it.",
+      "Custom wedding song by Setnayan AI music. Pick a tier — Basic / 24 hr, Premium / 2-5 days with lyric approval, or the Wedding Suite / 5-7 days for 3 matching songs. The song saves to your event so every Setnayan-rendered video uses it.",
     pillLabel: 'Style & Identity',
     prerequisites: ['set_wedding_date'],
   },
@@ -1229,7 +1229,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     kind: 'external_process',
     title: 'Order your AI highlight reel',
     whyItMatters:
-      "Setnayan vision AI reads your full archive after the wedding and cuts it into a cinematic highlight. Pick the 60-second teaser (₱999, T+24hr) for socials · or the 3-minute story-arc reel (₱2,999, T+1 week) for the full ride. Both share the same source material; many couples get both.",
+      "Setnayan vision AI reads your full archive after the wedding and cuts it into a cinematic highlight. Pick the 60-second teaser (T+24hr) for socials · or the 3-minute story-arc reel (T+1 week) for the full ride. Both share the same source material; many couples get both.",
     pillLabel: 'Post-event',
     prerequisites: ['download_photos'],
   },
@@ -1247,7 +1247,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     kind: 'external_process',
     title: 'Get your Couple Keepsake Bundle',
     whyItMatters:
-      "₱2,499 · the post-event memento bundle. Print-ready PDF album + photo download + Panood broadcast reel + your final playlist as a shareable artifact. One purchase · everything that made your day comes home with you.",
+      "The post-event memento bundle. Print-ready PDF album + photo download + Panood broadcast reel + your final playlist as a shareable artifact. One purchase · everything that made your day comes home with you.",
     pillLabel: 'Post-event',
     prerequisites: ['download_photos'],
   },

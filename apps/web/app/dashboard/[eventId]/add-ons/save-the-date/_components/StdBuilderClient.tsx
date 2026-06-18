@@ -24,6 +24,7 @@ import { STD_THEMES, type StdThemeId } from '@/lib/std-themes';
 import { formatEventDate } from '@/lib/events';
 import { shortDate } from '@/lib/save-the-date-content';
 import { saveAllStdContent, presignStdBackground } from '../actions';
+import { FileUpload } from '@/app/_components/file-upload';
 import type { StdFilmContent } from '@/lib/save-the-date-content';
 import {
   REVEAL_LIBRARY,
@@ -204,6 +205,27 @@ export function StdBuilderClient({
     });
   };
 
+  // Step-4 music: a newly-uploaded song (r2 ref) → persisted to the SINGLE-SOURCE
+  // site music on Render. musicPreviewUrl drives the preview's soundtrack: a
+  // fresh upload's local object URL, or the saved site song on load.
+  const [siteMusicKey, setSiteMusicKey] = useState<string | null>(null);
+  const [musicPreviewUrl, setMusicPreviewUrl] = useState<string | null>(
+    initialContent.musicUrl ?? null,
+  );
+  const handleMusicFilePicked = (file: File) => {
+    setMusicPreviewUrl((prev) => {
+      if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(file);
+    });
+  };
+  const handleMusicUpload = (ref: string | null) => {
+    setSiteMusicKey(ref);
+    if (!ref) setMusicPreviewUrl(initialContent.musicUrl ?? null);
+    // Uploading a song implies you want it on — mirror the toggle.
+    if (ref && !effects.music) setEffects((e) => ({ ...e, music: true }));
+    if (result !== 'idle') setResult('idle');
+  };
+
   // Any change that should replay the opening also resets the lifted state.
   const pickOpening = (t: RevealChoice) => {
     setPreviewing(t);
@@ -255,13 +277,14 @@ export function StdBuilderClient({
       venueCity: resolvedVenueCity,
       storyTeaser: resolvedStory,
       launchLabel,
-      // Music mirrors the Step-4 "Play music" toggle (events.std_reveal_effects.music).
-      musicUrl: effects.music ? (initialContent.musicUrl ?? null) : null,
+      // Music mirrors the Step-4 "Play music" toggle (events.std_reveal_effects.music);
+      // the URL is a fresh upload's local preview, else the saved site song.
+      musicUrl: effects.music ? (musicPreviewUrl ?? null) : null,
       // Preview the chosen closing media: the uploaded video (when picked) plays
       // as the video island beat; otherwise the gallery beat shows.
       videoUrl: media.type === 'video' ? videoPreviewUrl : null,
     };
-  }, [initialContent, filmDate, venueName, venueCity, filmStory, launchDate, media.type, videoPreviewUrl, effects.music]);
+  }, [initialContent, filmDate, venueName, venueCity, filmStory, launchDate, media.type, videoPreviewUrl, effects.music, musicPreviewUrl]);
 
   // Autofill — pull the couple's event details into EVERY film field at once so
   // the Information step shows all the real values, ready to fine-tune. Client-
@@ -294,6 +317,7 @@ export function StdBuilderClient({
         revealEffects: effects,
         background,
         media,
+        siteMusicKey,
       });
       setResult(r.ok ? 'ok' : 'error');
     });
@@ -573,32 +597,45 @@ export function StdBuilderClient({
               </span>
             </button>
 
-            {/* Soundtrack status + add/change routes (the couple's website song;
-                Pakanta is their custom song, site-chrome is the upload surface). */}
-            <div className="flex items-center justify-between gap-3 rounded-2xl border border-ink/10 bg-white/70 px-4 py-3.5 sm:px-5">
-              <div className="min-w-0">
+            {/* Your song — inline upload (single-source: this sets the couple's
+                website song, which the film plays). Status + Pakanta route. */}
+            <div className="space-y-2.5 rounded-2xl border border-ink/10 bg-white/70 p-4 sm:p-5">
+              <div className="flex items-center justify-between gap-3">
                 <p className="text-sm font-medium text-ink/85">Your song</p>
-                {initialContent.musicUrl ? (
-                  <p className="inline-flex items-center gap-1 text-xs text-emerald-600">
+                {siteMusicKey || initialContent.musicUrl ? (
+                  <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
                     <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
-                    Added
-                  </p>
+                    {siteMusicKey ? 'New song ready' : 'Added'}
+                  </span>
                 ) : (
-                  <p className="text-xs text-ink/45">No song yet — your film is silent until you add one.</p>
+                  <span className="text-xs text-ink/45">No song yet</span>
                 )}
               </div>
-              <div className="flex shrink-0 items-center gap-2">
+              <FileUpload
+                bucket="media"
+                pathPrefix={`events/${eventId}/site-music`}
+                acceptedTypes={['audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/ogg', 'audio/wav']}
+                maxSizeMB={40}
+                variant="wide"
+                currentValue={siteMusicKey}
+                onFilePicked={handleMusicFilePicked}
+                onChange={(v) => handleMusicUpload(typeof v === 'string' ? v : null)}
+                help="MP3/M4A/AAC/OGG/WAV, up to 40 MB. This becomes your wedding-site song."
+              />
+              <div className="flex flex-wrap items-center gap-3">
                 <Link
                   href={`/dashboard/${eventId}/add-ons/pakanta`}
-                  className="inline-flex items-center gap-1 rounded-full border border-ink/15 bg-cream px-3 py-1 text-xs font-medium text-ink/70 hover:border-terracotta hover:text-terracotta"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-ink/55 hover:text-terracotta"
                 >
-                  Pakanta song
+                  Use your Pakanta song
+                  <ExternalLink aria-hidden className="h-3 w-3" strokeWidth={1.75} />
                 </Link>
                 <Link
                   href={`/dashboard/${eventId}/website/site-chrome`}
-                  className="inline-flex items-center gap-1 rounded-full border border-ink/15 bg-cream px-3 py-1 text-xs font-medium text-ink/70 hover:border-terracotta hover:text-terracotta"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-ink/55 hover:text-terracotta"
                 >
-                  {initialContent.musicUrl ? 'Change' : 'Upload'}
+                  Manage site music
+                  <ExternalLink aria-hidden className="h-3 w-3" strokeWidth={1.75} />
                 </Link>
               </div>
             </div>

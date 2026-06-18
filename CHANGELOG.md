@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · feat(monogram): carry the public-studio design through sign-up (PR pending, auto-merge)
+
+Closes the loop on the public studio: a monogram designed on the free `/monogram` studio **before** sign-up now follows the visitor into their new wedding. No new server action — it reuses the existing `saveStudioAction` (which already re-sanitizes the SVG + enforces couple membership), so a client-controlled localStorage payload can never become an unsafe or cross-account mark.
+
+- **Bridge** `lib/monogram-studio/draft.ts` — `stashMonogramDraft` / `readMonogramDraft` / `clearMonogramDraft` over `localStorage` (sanitized SVG + re-editable config + 30-day TTL + size guard; SSR-safe — touches storage only inside functions). Device-bound by nature; the download is the cross-device fallback.
+- **Public studio** stashes the (sanitized) design on **download** and on the **"start planning · free"** CTA click.
+- **Dashboard restore card** `app/dashboard/[eventId]/monogram/draft-restore.tsx` — on the Monogram Maker, when a valid draft exists **and** the event has no custom mark yet, a "pick up the monogram you designed" card (with an inert data-URI preview) submits it to `saveStudioAction` → it becomes the official mark. Shows nothing otherwise (no layout cost).
+- **One-shot**: the draft is cleared as soon as a mark exists (right after Apply's redirect), so it never re-surfaces later if the couple clears their mark (adversarial-review fix). CTA copy corrected to point at the Monogram Maker specifically (not "your dashboard").
+
+Reviewed by a 14-agent adversarial pass (security · SSR/correctness · UX-flow · hygiene); 2 real issues found and fixed (draft cleanup after apply + CTA copy accuracy). The localStorage→server trust boundary is safe: `event_id` is server-rendered from the authed page, and `saveStudioAction` re-sanitizes.
+
+Verified: `pnpm typecheck` clean · `pnpm lint` 0 errors · `pnpm build` green (an initial run hit the flaky Next `webpack-runtime.js` worker error on an unrelated `/help` page; a clean rebuild passed).
+
+SPEC IMPACT: monogram Phase 5 — completes the public-studio funnel. DECISION_LOG + memory + corpus design doc updated.
+
 ## 2026-06-19 · feat(public): free no-login Monogram Studio on www.setnayan.com/monogram (PR pending, auto-merge)
 
 Owner: *"build this to www.setnayan.com"* + *"we already made a free monogram — should this be free too?"* → **yes, free** (the static/vector mark is free by the standing lock; the tool is an acquisition lead-magnet; an anonymous visitor can't take payment anyway; monetization stays downstream in the Animated Monogram reveal + tiers). New public route **`/monogram`** — the same Vector Studio, no login, design + **download** (crisp SVG + transparent PNG) + a *"start planning free"* CTA into the sign-up funnel.

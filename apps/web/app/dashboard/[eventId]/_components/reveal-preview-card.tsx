@@ -122,6 +122,9 @@ type Props = {
   /** Mood-Board-derived defaults shown when an override is null (inherit). */
   inheritedVeilColor: string;
   inheritedPetalColor: string;
+  /** Admin "which openings couples may use" map (reveal_studio_config.templates).
+   *  A template is offered unless it's explicitly turned off (=== false). */
+  allowed: Record<string, boolean>;
 };
 
 export function RevealPreviewCard({
@@ -134,7 +137,10 @@ export function RevealPreviewCard({
   onSetColor,
   inheritedVeilColor,
   inheritedPetalColor,
+  allowed,
 }: Props) {
+  // Only offer openings the admin left enabled (Reveal Studio · config.templates).
+  const library = REVEAL_LIBRARY.filter((t) => allowed[t.id] !== false);
   const isEnvelope = ENVELOPES.includes(previewing);
   const isVeil = previewing === 'veil-sheer';
   const effectKey: 'butterflies' | 'petals' = isEnvelope ? 'butterflies' : 'petals';
@@ -171,7 +177,7 @@ export function RevealPreviewCard({
 
       {/* Opening picker */}
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-        {REVEAL_LIBRARY.map((t) => {
+        {library.map((t) => {
           const active = previewing === t.id;
           const saved = chosen === t.id;
           return (

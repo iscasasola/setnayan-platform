@@ -70,6 +70,8 @@ type Props = {
    *  the couple's preview matches the same tuned reveal you set in the admin. */
   veilLook?: VeilLook;
   effectLook?: RevealEffectsLook;
+  /** Admin "which openings couples may use" map (reveal_studio_config.templates). */
+  allowedTemplates: Record<string, boolean>;
 };
 
 const STORY_MAX = 120;
@@ -95,6 +97,7 @@ export function StdBuilderClient({
   petalsColor,
   veilLook,
   effectLook,
+  allowedTemplates,
 }: Props) {
   const [themeId, setThemeId] = useState<StdThemeId>(initialThemeId);
   const [launchDate, setLaunchDate] = useState(initialLaunchDate);
@@ -111,8 +114,15 @@ export function StdBuilderClient({
   // Bumping this remounts the preview (opening + film) → replays from the first beat.
   const [restartKey, setRestartKey] = useState(0);
   // The opening shown in the single shared preview (Step 1 picker drives this).
+  // Default the preview to an admin-enabled opening — never one that's been
+  // deactivated in the Reveal Studio (config.templates).
+  const firstAllowed = (
+    REVEAL_LIBRARY.find((t) => allowedTemplates[t.id] !== false) ?? REVEAL_LIBRARY[0]!
+  ).id;
   const [previewing, setPreviewing] = useState<RevealTemplate>(
-    initialRevealTemplate ?? REVEAL_LIBRARY[0]!.id,
+    initialRevealTemplate && allowedTemplates[initialRevealTemplate] !== false
+      ? initialRevealTemplate
+      : firstAllowed,
   );
   // True once the opening has auto-played + lifted away, revealing the film.
   const [revealDone, setRevealDone] = useState(false);
@@ -230,6 +240,7 @@ export function StdBuilderClient({
             onSetColor={setColor}
             inheritedVeilColor={veilColor ?? '#f3ece1'}
             inheritedPetalColor={petalsColor ?? '#e87a93'}
+            allowed={allowedTemplates}
           />
 
           {/* Step 2 · Theme */}

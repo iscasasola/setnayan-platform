@@ -218,6 +218,7 @@ export default async function SaveTheDatePage({ params }: Props) {
         petalsColor={revealConfig.petalsColor}
         veilLook={revealConfig.veil}
         effectLook={revealConfig.effects}
+        allowedTemplates={revealConfig.templates}
       />
 
       {/* Wax seal */}

@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · feat(std): Smart Auto + localized text scrim (PR-I)
+
+Upgrades the legibility Auto mode (PR-H) from a guess to a measurement, and keeps the photo vivid by protecting only the text.
+
+- **Smart Auto (measured):** baked each of the 10 scenes' centre-region luminance into the catalog (`StdRealisticBg.lum`, measured once with sharp). `resolveStdLegibility` auto now picks the text tone from the real value — `lum ≥ 0.7` → dark text, else light text. This fixes the cases a blanket rule got wrong (e.g. misty sunrise `0.82` → dark text; the rest read light over a dark scrim). Plain colours use their hex; uploads default to light text (the localized scrim makes it read on any photo).
+- **Localized text scrim (`save-the-date-film.tsx`):** a soft radial behind the centred text — dark halo under light text, cream halo under dark text — so the type reads while the **photo stays vivid**. Because of this, auto photos now use **no global veil** (`resolveStdLegibility` returns `veil: 'none'` for auto realistic/upload); the manual Lighten/Darken still apply their global wash for taste.
+- Net: the couple picks a scene and the names are readable automatically, without washing out the image. The Lighten/Darken control remains the manual override.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. Visual — verify on the Vercel preview; the radial strength (0.52/0.26) is a one-line tune if it reads heavy/light. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — background legibility is now measured + localized (vivid photo + auto-readable text). Luminance method (sharp, centre-64% crop) noted in `DECISION_LOG.md` 2026-06-19. Future scenes: measure + bake `lum`.
+
 ## 2026-06-19 · feat(std): background legibility — Auto / Lighten / Darken (PR-H)
 
 Fixes text readability over a Save-the-Date background. The old layer had a fixed *dark* scrim while the film text was *dark* too — so dark text over a bright photo region (e.g. the aurora sky) was unreadable. Now the veil and the text colour are **paired**, with a couple-facing control.

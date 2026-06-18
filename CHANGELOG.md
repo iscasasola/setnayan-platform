@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-18 · feat(std): trim film themes 10 → 5 (Default · Mood Board · Heritage · Noir · Botanical)
+
+Owner-locked the Save-the-Date film theme set to five: **Default · Mood Board · Heritage · Noir · Botanical** (down from 10). `editorial` was renamed to `default` (same clean palette, relabelled "Default"); the five niche themes (`blush`, `midnight`, `coastal`, `sunset`, `plum`) were removed. The picker + film renderer + server-action allow-list all read `STD_THEMES`/`STD_THEME_IDS`, so trimming the array auto-propagates with no other code edits.
+
+- `lib/std-themes.ts` — `STD_THEME_IDS` and `STD_THEMES` reduced to the 5; `default` leads the list. `resolveStdTheme` fallback stays `moodboard` (NULL-theme weddings — i.e. all of them today — keep rendering Mood Board; no visual change).
+- Migration `20270123425451_std_theme_remap_to_five_set.sql` — idempotent remap of any saved `editorial → default` and `blush/midnight/coastal/sunset/plum → moodboard`. Applied to prod: **0 rows affected** (no wedding had set a non-default theme), so zero couple-facing change.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: `0024_save_the_date/` — film theme set is now the 5 above (was 10). DECISION_LOG row to follow with the consolidation/effects work.
+
 ## 2026-06-18 · feat(save-the-date): builder batch 1 — more themes, reveal labels, preview Restart
 
 First of three owner-requested builder batches. (Batch 2 = drag-to-reorder film sequence; batch 3 = background music + optional video.)

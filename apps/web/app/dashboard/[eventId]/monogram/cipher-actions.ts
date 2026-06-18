@@ -96,8 +96,10 @@ export async function saveCipherAction(formData: FormData): Promise<void> {
     .update({
       monogram_custom_svg: rendered.svg,
       monogram_cipher_config: config,
-      // A cipher mark is not a bespoke-studio generation — drop that pointer.
+      // A cipher mark is neither a bespoke-studio generation nor a vector-studio
+      // composition — drop those pointers so exactly one source owns the mark.
       monogram_custom_generation_id: null,
+      monogram_studio_config: null,
     })
     .eq('event_id', eventId);
   if (error) backToMaker(eventId, { cipher_error: 'save' });

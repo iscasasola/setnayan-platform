@@ -171,6 +171,22 @@ const nextConfig: NextConfig = {
     'nsfwjs',
     '@tensorflow-models/face-detection',
   ],
+  // paper.js (Vector Monogram Studio engine) ships a Node entry
+  // (paper-full → dist/node/{self,canvas}.js) that `require`s `jsdom` + `canvas`
+  // for server-side rendering we never use — the studio engine runs ONLY in the
+  // browser (client-only dynamic import in studio.tsx). paper's own `browser`
+  // field already stubs these for the web target; mirror that for the SERVER
+  // compile too so `next build` doesn't try to resolve the absent, unused
+  // jsdom/canvas node deps (it OOM-pattern-failed at module resolution before
+  // this). Safe: neither is an app dependency and paper's node path never runs.
+  webpack: (config) => {
+    config.resolve = config.resolve || {};
+    config.resolve.alias = config.resolve.alias || {};
+    config.resolve.alias.jsdom = false;
+    config.resolve.alias.canvas = false;
+    config.resolve.alias['jsdom/lib/jsdom/living/generated/utils'] = false;
+    return config;
+  },
   images: {
     // WebP only — AVIF dropped 2026-06-14 to cut the Vercel image-optimization
     // bill. Emitting BOTH avif+webp DOUBLES Vercel's per-transformation charge,

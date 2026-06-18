@@ -184,7 +184,7 @@ export function StdMediaPicker({
       <div className="space-y-1">
         <p className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
           <Film aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Video / Gallery
+          Step 3 · Video / Gallery
         </p>
         <h2 className="font-serif text-xl italic">How your film ends</h2>
         <p className="text-sm text-ink/65">

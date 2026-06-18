@@ -18,7 +18,7 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { Check, ExternalLink, RotateCcw, Sparkles, Wand2 } from 'lucide-react';
+import { Check, ExternalLink, Music2, RotateCcw, Sparkles, Wand2 } from 'lucide-react';
 import { SaveTheDateFilm } from '@/app/[slug]/_components/save-the-date-film';
 import { STD_THEMES, type StdThemeId } from '@/lib/std-themes';
 import { formatEventDate } from '@/lib/events';
@@ -255,11 +255,13 @@ export function StdBuilderClient({
       venueCity: resolvedVenueCity,
       storyTeaser: resolvedStory,
       launchLabel,
+      // Music mirrors the Step-4 "Play music" toggle (events.std_reveal_effects.music).
+      musicUrl: effects.music ? (initialContent.musicUrl ?? null) : null,
       // Preview the chosen closing media: the uploaded video (when picked) plays
       // as the video island beat; otherwise the gallery beat shows.
       videoUrl: media.type === 'video' ? videoPreviewUrl : null,
     };
-  }, [initialContent, filmDate, venueName, venueCity, filmStory, launchDate, media.type, videoPreviewUrl]);
+  }, [initialContent, filmDate, venueName, venueCity, filmStory, launchDate, media.type, videoPreviewUrl, effects.music]);
 
   // Autofill — pull the couple's event details into EVERY film field at once so
   // the Information step shows all the real values, ready to fine-tune. Client-
@@ -303,10 +305,12 @@ export function StdBuilderClient({
 
   return (
     <div className="space-y-8">
-      {/* ── Steps 1 + 2 + 3 (left) + the single live preview (right) ───────── */}
+      {/* ── The 5 steps (left) + the single live preview (right) ──────────────
+          1 Background (+ theme: fonts/colours) · 2 Content · 3 Video/Gallery ·
+          4 Music · 5 Opening (reveal). */}
       <div className="lg:grid lg:grid-cols-[1fr_320px] lg:items-start lg:gap-8">
 
-        {/* LEFT: Background + Opening picker + Theme + Info */}
+        {/* LEFT: Background+Theme → Content → Video/Gallery → Music → Opening */}
         <div className="space-y-8">
 
           {/* Step 1 · Background — the backdrop the whole film plays over */}
@@ -318,29 +322,16 @@ export function StdBuilderClient({
             onUpload={handleUpload}
           />
 
-          {/* Step 2 · Opening picker — drives the single shared preview → */}
-          <RevealPreviewCard
-            eventId={eventId}
-            previewing={previewing}
-            onPreview={pickOpening}
-            chosenTemplate={initialRevealTemplate}
-            effects={effects}
-            onToggleEffect={toggleEffect}
-            onSetColor={setColor}
-            inheritedVeilColor={veilColor ?? '#f3ece1'}
-            inheritedPetalColor={petalsColor ?? '#e87a93'}
-            allowed={allowedTemplates}
-          />
-
-          {/* Step 2 · Theme */}
+          {/* Step 1 (cont.) · Theme — folds into Background; sets the fonts +
+              text colours only (the Background above sets the scene). */}
           <section className="space-y-3">
             <div className="space-y-1">
               <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-                Step 3 · Theme
+                Step 1 · Fonts &amp; colours
               </p>
               <h2 className="font-serif text-xl italic">Choose your look</h2>
               <p className="text-sm text-ink/65">
-                Background, font, and colour style for your film. All themes recolour to your Mood Board by default.
+                Your theme sets the fonts and text colours. The Background above sets the scene — both recolour to your Mood Board by default.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3">
@@ -382,11 +373,11 @@ export function StdBuilderClient({
             </div>
           </section>
 
-          {/* Step 3 · Information — inline editable */}
+          {/* Step 2 · Content — inline editable */}
           <section className="space-y-3">
             <div className="space-y-1">
               <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-                Step 4 · Information
+                Step 2 · Content
               </p>
               <h2 className="font-serif text-xl italic">What your film shows</h2>
               <p className="text-sm text-ink/65">
@@ -525,57 +516,6 @@ export function StdBuilderClient({
                 </Link>
               </li>
 
-              {/* Soundtrack */}
-              <li className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-ink/85">Soundtrack</p>
-                  {!initialContent.musicUrl ? (
-                    <p className="text-xs text-ink/45">Not added yet</p>
-                  ) : (
-                    <p className="text-xs text-emerald-600">Added</p>
-                  )}
-                </div>
-                {initialContent.musicUrl ? (
-                  <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
-                    <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
-                    Added
-                  </span>
-                ) : (
-                  <Link
-                    href={`/dashboard/${eventId}/website/site-chrome`}
-                    className="inline-flex shrink-0 items-center gap-1 rounded-full border border-ink/15 bg-cream px-3 py-1 text-xs font-medium text-ink/70 hover:border-terracotta hover:text-terracotta"
-                  >
-                    Add
-                  </Link>
-                )}
-              </li>
-
-              {/* Closing photos */}
-              <li className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-ink/85">Closing photos</p>
-                  {(initialContent.gallery?.length ?? 0) > 0 ? (
-                    <p className="text-xs text-emerald-600">
-                      {initialContent.gallery!.length} photo{initialContent.gallery!.length > 1 ? 's' : ''}
-                    </p>
-                  ) : (
-                    <p className="text-xs text-ink/45">Not added yet</p>
-                  )}
-                </div>
-                {(initialContent.gallery?.length ?? 0) > 0 ? (
-                  <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
-                    <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
-                    Added
-                  </span>
-                ) : (
-                  <Link
-                    href={`/dashboard/${eventId}/website/our-photos`}
-                    className="inline-flex shrink-0 items-center gap-1 rounded-full border border-ink/15 bg-cream px-3 py-1 text-xs font-medium text-ink/70 hover:border-terracotta hover:text-terracotta"
-                  >
-                    Add
-                  </Link>
-                )}
-              </li>
             </ul>
 
             <p className="text-xs text-ink/45">
@@ -583,7 +523,7 @@ export function StdBuilderClient({
             </p>
           </section>
 
-          {/* Video / Gallery — the film's closing media (gallery or uploaded video) */}
+          {/* Step 3 · Video / Gallery — the film's closing media */}
           <StdMediaPicker
             value={media}
             onChange={pickMedia}
@@ -591,6 +531,92 @@ export function StdBuilderClient({
             galleryCount={galleryCount}
             videoUrl={initialVideoUrl}
             onUploadVideo={handleVideoUpload}
+          />
+
+          {/* Step 4 · Music — the film's soundtrack + the play-music toggle */}
+          <section className="space-y-3">
+            <div className="space-y-1">
+              <p className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
+                <Music2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                Step 4 · Music
+              </p>
+              <h2 className="font-serif text-xl italic">Set the mood</h2>
+              <p className="text-sm text-ink/65">
+                Your film plays your website song. Add or change it, or turn music off for a silent film.
+              </p>
+            </div>
+
+            {/* Play-music toggle (events.std_reveal_effects.music) */}
+            <button
+              type="button"
+              role="switch"
+              aria-checked={effects.music}
+              onClick={() => toggleEffect('music')}
+              className="flex w-full items-center justify-between gap-3 rounded-2xl border border-ink/10 bg-white/70 px-4 py-3.5 text-left transition-colors hover:border-ink/25 sm:px-5"
+            >
+              <span className="min-w-0">
+                <span className="block text-sm font-medium text-ink/85">Play music in your film</span>
+                <span className="block text-xs text-ink/50">
+                  {effects.music ? 'On — your song plays through the film.' : 'Off — your film plays silently.'}
+                </span>
+              </span>
+              <span
+                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+                  effects.music ? 'bg-terracotta' : 'bg-ink/20'
+                }`}
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                    effects.music ? 'translate-x-5' : 'translate-x-0.5'
+                  }`}
+                />
+              </span>
+            </button>
+
+            {/* Soundtrack status + add/change routes (the couple's website song;
+                Pakanta is their custom song, site-chrome is the upload surface). */}
+            <div className="flex items-center justify-between gap-3 rounded-2xl border border-ink/10 bg-white/70 px-4 py-3.5 sm:px-5">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-ink/85">Your song</p>
+                {initialContent.musicUrl ? (
+                  <p className="inline-flex items-center gap-1 text-xs text-emerald-600">
+                    <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
+                    Added
+                  </p>
+                ) : (
+                  <p className="text-xs text-ink/45">No song yet — your film is silent until you add one.</p>
+                )}
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <Link
+                  href={`/dashboard/${eventId}/add-ons/pakanta`}
+                  className="inline-flex items-center gap-1 rounded-full border border-ink/15 bg-cream px-3 py-1 text-xs font-medium text-ink/70 hover:border-terracotta hover:text-terracotta"
+                >
+                  Pakanta song
+                </Link>
+                <Link
+                  href={`/dashboard/${eventId}/website/site-chrome`}
+                  className="inline-flex items-center gap-1 rounded-full border border-ink/15 bg-cream px-3 py-1 text-xs font-medium text-ink/70 hover:border-terracotta hover:text-terracotta"
+                >
+                  {initialContent.musicUrl ? 'Change' : 'Upload'}
+                </Link>
+              </div>
+            </div>
+          </section>
+
+          {/* Step 5 · Opening (reveal) — the premium opening that lifts away to
+              reveal the film. Last step: the film is built, now choose its entrance. */}
+          <RevealPreviewCard
+            eventId={eventId}
+            previewing={previewing}
+            onPreview={pickOpening}
+            chosenTemplate={initialRevealTemplate}
+            effects={effects}
+            onToggleEffect={toggleEffect}
+            onSetColor={setColor}
+            inheritedVeilColor={veilColor ?? '#f3ece1'}
+            inheritedPetalColor={petalsColor ?? '#e87a93'}
+            allowed={allowedTemplates}
           />
         </div>
 

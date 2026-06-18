@@ -397,12 +397,12 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
           </div>
 
           {/* Manifesto — always visible in both loading and ready states */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, width: '100%', maxWidth: 520, textAlign: 'center' }}>
-            <p style={{ margin: 0, fontSize: 15, lineHeight: 1.6, color: 'rgba(30,34,41,0.38)', fontWeight: 400 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, width: '100%', maxWidth: 600, textAlign: 'center' }}>
+            <p className="m-serif italic" style={{ margin: 0, fontSize: 'clamp(1.55rem, 3.8vw, 2.3rem)', lineHeight: 1.15, color: 'rgba(30,34,41,0.32)', fontWeight: 400 }}>
               Weddings have always been planned for the couple.
             </p>
-            <div style={{ width: 24, height: 1, background: '#C9A96E', opacity: 0.5 }} />
-            <p style={{ margin: 0, fontSize: 15, lineHeight: 1.6, color: '#1E2229', fontWeight: 400 }}>
+            <div style={{ width: 28, height: 1, background: '#C9A96E', opacity: 0.6 }} />
+            <p className="m-serif italic" style={{ margin: 0, fontSize: 'clamp(1.55rem, 3.8vw, 2.3rem)', lineHeight: 1.15, color: '#1E2229', fontWeight: 400 }}>
               We built the first platform where{' '}
               <span style={{ color: '#C9A96E' }}>every guest</span>
               {' '}is part of it.

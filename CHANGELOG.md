@@ -4,6 +4,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · feat(std): video autoplays + audio crossfade · bigger desktop text · petals only fall (PR-W follow-up 2)
+
+Owner screenshot + notes: "the text are not larger on desktop. the leaves are randomly attaching to the veil but no leaf was falling on that direction. the video should autoplay, no more clicking. the background music will play automatically [and] crossfade to the video as the video plays, then crossfade again when it returns to the last screen."
+
+`save-the-date-film.tsx`:
+
+- **Video AUTOPLAYS** — removed the play-button → fullscreen interaction. The video plays by itself when its beat is active (the reveal gesture already granted the page media playback) inside the already-full-screen experience, and advances to the calendar close on its natural end. No clicking.
+- **Audio crossfade** — the soundtrack now **crossfades** (~700ms) to the video's audio as the video plays, then crossfades back to the music when the film returns to the closing screen (replaces the old hard music-pause/duck). Robust: the fade always converges to the target volume even if interrupted.
+- **Bigger on desktop** — the headline beats AND the monogram mark now scale up at `lg`: the close-beat date + monogram + invitation + venue sublines were missed before (the screenshot was the close beat). The monogram lockup/SVG uses responsive scale classes (`scale-[…] lg:scale-[…]`, `lg:h-44` etc.) so it's prominent on desktop, not an 80px chip.
+
+`reveal/veil-reveal.tsx`:
+
+- **Petals only fall** — removed the artificial "cling to a random veil grid point" (both the init seeding and the recycle path). Leaves were appearing stuck on the lifted veil where none had fallen; now every petal showers down from the top and none pre-attach. (Supersedes the §6 "petals cling / lowering shakes them loose" behaviour — owner-directed.)
+
+Verified: `pnpm typecheck` (my files clean; monogram-studio `paper` errors are an unrelated local install gap) + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` + `0024_Veil_Reveal_Spec` — the video autoplays with a music↔video crossfade; desktop type + monogram scale up; veil petals only fall (no random cling). See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · feat(std): auto-to-full-screen + robust window-level scroll-scrub (PR-W follow-up)
 
 Owner: "can we make it auto play to full screen? it is not scrubbing as well." (The scroll-scrub wasn't live yet — PR-W hadn't merged — and the wheel was bound to the centred stage only; both addressed here, same PR-W branch.)

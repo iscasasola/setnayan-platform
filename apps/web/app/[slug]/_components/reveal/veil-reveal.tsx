@@ -394,28 +394,15 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       petals.setColorAt(i, petalColor());
       colDirty = true;
     };
-    const spawnCling = (i: number) => {
-      const P = pPar[i]!;
-      petalParams(P, 'cling');
-      const iy = Math.floor(rows * (0.28 + rnd() * 0.5));
-      const ix = Math.floor(rnd() * cols);
-      pCling[i] = idx(ix, iy);
-      P.ox = (rnd() * 2 - 1) * 0.05;
-      P.oy = (rnd() * 2 - 1) * 0.05;
-      P.size = vh * (0.035 + rnd() * 0.03);
-      pRot[i]!.set(rnd() * 6.28, rnd() * 6.28, (rnd() * 2 - 1) * 0.5);
-      petals.setColorAt(i, petalColor());
-      colDirty = true;
-    };
+    // (owner 2026-06-19) Petals only FALL now — the artificial "cling to a random
+    // veil grid point" was removed: leaves were appearing stuck on the veil where
+    // none had fallen. Every petal showers down from above; none pre-attach.
     const initPetals = () => {
       for (let i = 0; i < NP; i++) {
-        if (rnd() < 0.32) spawnCling(i);
-        else {
-          spawnFalling(i);
-          // Always start ABOVE the top and stagger upward so the shower rains in
-          // FROM THE TOP — never scattered across mid-screen/bottom (owner 2026-06-18).
-          pPos[i]!.y = vh * (1.05 + rnd() * 1.9);
-        }
+        spawnFalling(i);
+        // Always start ABOVE the top and stagger upward so the shower rains in
+        // FROM THE TOP — never scattered across mid-screen/bottom (owner 2026-06-18).
+        pPos[i]!.y = vh * (1.05 + rnd() * 1.9);
       }
     };
     const parkAll = () => {
@@ -491,8 +478,8 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
           pRot[i]!.y += P.sy * dt;
           pRot[i]!.z += P.sz * dt;
           if (pPos[i]!.y < -vh * 1.45) {
-            if (rnd() < 0.3) spawnCling(i);
-            else spawnFalling(i);
+            // Recycle as another falling petal (no random re-cling — owner 2026-06-19).
+            spawnFalling(i);
           }
         }
         pdum.position.copy(pPos[i]!);

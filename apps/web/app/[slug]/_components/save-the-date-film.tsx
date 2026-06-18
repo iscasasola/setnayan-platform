@@ -32,7 +32,7 @@
 
 import type * as React from 'react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
-import { Music, Play, VolumeX } from 'lucide-react';
+import { Music, VolumeX } from 'lucide-react';
 import { type StdFilmContent } from '@/lib/save-the-date-content';
 import { STD_THEMES, resolveStdTheme, type StdTheme, type StdThemeId } from '@/lib/std-themes';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
@@ -145,7 +145,7 @@ function FilmMonogram({
   sizeCls,
   textCls,
   lockup,
-  lockupScale,
+  lockupScaleCls,
 }: {
   svg?: string | null;
   text: string;
@@ -153,8 +153,9 @@ function FilmMonogram({
   textCls: string;
   /** The onboarding lockup — rendered when there's no uploaded/lab SVG. */
   lockup?: StdLockup | null;
-  /** Scale applied to the 80px HeroMonogram so it fills this beat's size. */
-  lockupScale: number;
+  /** Responsive Tailwind scale classes for the 80px HeroMonogram so it fills
+   *  this beat — larger on desktop (owner 2026-06-19). */
+  lockupScaleCls: string;
 }) {
   // 1 · uploaded / monogram-lab mark wins (bypasses the onboarding logo).
   if (svg) {
@@ -166,11 +167,7 @@ function FilmMonogram({
   // 2 · else the couple's onboarding lockup (their real chosen design).
   if (lockup) {
     return (
-      <div
-        aria-hidden
-        className="inline-flex items-center justify-center"
-        style={{ transform: `scale(${lockupScale})`, transformOrigin: 'center' }}
-      >
+      <div aria-hidden className={`inline-flex origin-center items-center justify-center ${lockupScaleCls}`}>
         <HeroMonogram
           event={lockup.design}
           monogram={lockup.monogram}
@@ -229,9 +226,10 @@ export function SaveTheDateFilm({
   // play handler + end/fullscreen wiring live in the effect below.
   const videoElRef = useRef<HTMLVideoElement | null>(null);
   const hasVideo = Boolean(content.videoUrl);
-  // Set by the video effect — the JSX play button calls it (deferred so it can
-  // close over the live mute state; mirrors the goRef pattern).
-  const playVideoRef = useRef<() => void>(() => {});
+  // "Was on the video beat last render" — so the orchestration resets the clip
+  // to its start (and silences it for the fade-up) only when the guest FIRST
+  // reaches the video beat, not on every re-render while it plays.
+  const prevOnVideoRef = useRef(false);
 
   const slides: Slide[] = [];
 
@@ -247,9 +245,9 @@ export function SaveTheDateFilm({
           svg={content.monogramSvg}
           text={content.monogram}
           lockup={lockup}
-          lockupScale={1.55}
-          sizeCls="h-28 w-28 sm:h-32 sm:w-32"
-          textCls={`${theme.fontCls} text-6xl font-medium ${theme.accentText} sm:text-7xl`}
+          lockupScaleCls="scale-[1.55] lg:scale-[2.1]"
+          sizeCls="h-28 w-28 sm:h-32 sm:w-32 lg:h-44 lg:w-44"
+          textCls={`${theme.fontCls} text-6xl font-medium ${theme.accentText} sm:text-7xl lg:text-8xl`}
         />
         <div className={`h-px w-10 ${theme.scrubFill} opacity-40`} />
       </div>
@@ -267,7 +265,7 @@ export function SaveTheDateFilm({
         <h1 className={`${theme.fontCls} text-5xl font-medium italic tracking-tight sm:text-6xl lg:text-7xl`}>
           {content.names}
         </h1>
-        <p className={`${theme.fontCls} text-xl italic ${theme.subtleText}`}>are getting married</p>
+        <p className={`${theme.fontCls} text-xl italic ${theme.subtleText} lg:text-2xl`}>are getting married</p>
       </div>
     ),
   });
@@ -287,7 +285,7 @@ export function SaveTheDateFilm({
             </div>
           ) : null}
           {content.dateLabel ? (
-            <p className={`${theme.fontCls} text-2xl italic ${theme.subtleText}`}>{content.dateLabel}</p>
+            <p className={`${theme.fontCls} text-2xl italic ${theme.subtleText} lg:text-3xl`}>{content.dateLabel}</p>
           ) : null}
         </div>
       ),
@@ -303,7 +301,7 @@ export function SaveTheDateFilm({
       node: (
         <div className="flex flex-col items-center gap-3 text-center">
           <p className={LABEL}>The ceremony</p>
-          <p className={`${theme.fontCls} text-xl italic ${theme.subtleText}`}>We&rsquo;ll exchange our vows at</p>
+          <p className={`${theme.fontCls} text-xl italic ${theme.subtleText} lg:text-2xl`}>We&rsquo;ll exchange our vows at</p>
           <h2 className={`${theme.fontCls} text-4xl font-medium sm:text-5xl lg:text-6xl`}>{content.ceremonyVenue}</h2>
         </div>
       ),
@@ -319,10 +317,10 @@ export function SaveTheDateFilm({
       node: (
         <div className="flex flex-col items-center gap-3 text-center">
           <p className={LABEL}>The celebration</p>
-          <p className={`${theme.fontCls} text-xl italic ${theme.subtleText}`}>And we&rsquo;ll celebrate together at</p>
+          <p className={`${theme.fontCls} text-xl italic ${theme.subtleText} lg:text-2xl`}>And we&rsquo;ll celebrate together at</p>
           <h2 className={`${theme.fontCls} text-4xl font-medium sm:text-5xl lg:text-6xl`}>{content.receptionVenue}</h2>
           {content.receptionCity ? (
-            <p className={`${theme.fontCls} text-xl italic ${theme.subtleText}`}>{content.receptionCity}</p>
+            <p className={`${theme.fontCls} text-xl italic ${theme.subtleText} lg:text-2xl`}>{content.receptionCity}</p>
           ) : null}
         </div>
       ),
@@ -340,9 +338,9 @@ export function SaveTheDateFilm({
           svg={content.monogramSvg}
           text={content.monogram}
           lockup={lockup}
-          lockupScale={0.82}
-          sizeCls="h-14 w-14 sm:h-16 sm:w-16"
-          textCls={`${theme.fontCls} text-3xl font-medium ${theme.accentText}`}
+          lockupScaleCls="scale-[0.82] lg:scale-110"
+          sizeCls="h-14 w-14 sm:h-16 sm:w-16 lg:h-20 lg:w-20"
+          textCls={`${theme.fontCls} text-3xl font-medium ${theme.accentText} lg:text-4xl`}
         />
         <p className={`${theme.fontCls} text-3xl font-medium italic leading-tight sm:text-4xl lg:text-5xl`}>
           We can&rsquo;t wait to
@@ -362,11 +360,11 @@ export function SaveTheDateFilm({
       <div className="flex flex-col items-center gap-3 text-center">
         <p className={LABEL}>Formal invitation to follow</p>
         {content.launchLabel ? (
-          <p className={`${theme.fontCls} text-3xl font-medium italic sm:text-4xl`}>
+          <p className={`${theme.fontCls} text-3xl font-medium italic sm:text-4xl lg:text-5xl`}>
             Arrives {content.launchLabel}
           </p>
         ) : (
-          <p className={`${theme.fontCls} text-2xl italic ${theme.subtleText}`}>
+          <p className={`${theme.fontCls} text-2xl italic ${theme.subtleText} lg:text-3xl`}>
             Watch your inbox
           </p>
         )}
@@ -374,45 +372,29 @@ export function SaveTheDateFilm({
     ),
   });
 
-  // 8 — the couple's video (press play → FULL SCREEN) OR the photo gallery
+  // 8 — the couple's video (AUTOPLAYS inline) OR the photo gallery
   if (hasVideo) {
-    // The video beat holds (dur Infinity) — it never auto-advances on a timer.
-    // Pressing play takes the <video> full-screen on top of everything; on its
-    // natural end the film advances to the calendar close (effect below). The
-    // <video> lives in the DOM for every slide (opacity-gated) so videoElRef is
-    // bound before the beat is reached.
+    // The video beat holds (dur Infinity) — it doesn't auto-advance on a timer;
+    // it AUTOPLAYS (owner 2026-06-19 "the video should autoplay, no more
+    // clicking") inside the already-full-screen experience, the soundtrack
+    // crossfading to its audio, and advances to the calendar close on its
+    // natural end (the orchestration effect below). The <video> lives in the DOM
+    // for every slide (opacity-gated) so videoElRef is bound before the beat.
     slides.push({
       key: 'video',
       dur: Infinity,
       anim: ANIM.pop,
       node: (
-        <div className="flex w-full max-w-sm flex-col items-center gap-4">
+        <div className="flex w-full max-w-sm flex-col items-center gap-4 lg:max-w-md">
           <p className={LABEL}>Watch our story</p>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              playVideoRef.current();
-            }}
-            aria-label="Play our video full screen"
-            className="group relative w-full overflow-hidden rounded-2xl shadow-lg"
-          >
-            {/* eslint-disable-next-line jsx-a11y/media-has-caption -- couple-uploaded keepsake clip, no caption track */}
-            <video
-              ref={videoElRef}
-              src={content.videoUrl ?? undefined}
-              playsInline
-              muted
-              preload="metadata"
-              className="max-h-[68vh] w-full object-contain"
-            />
-            <span className="absolute inset-0 flex items-center justify-center bg-black/15 transition group-hover:bg-black/25">
-              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white/90 text-[#1a1412] shadow-lg transition group-hover:scale-105">
-                <Play aria-hidden className="h-7 w-7 translate-x-0.5" fill="currentColor" strokeWidth={0} />
-              </span>
-            </span>
-          </button>
-          <p className={`${theme.fontCls} text-base italic ${theme.subtleText}`}>Tap to play full screen</p>
+          {/* eslint-disable-next-line jsx-a11y/media-has-caption -- couple-uploaded keepsake clip, no caption track */}
+          <video
+            ref={videoElRef}
+            src={content.videoUrl ?? undefined}
+            playsInline
+            preload="auto"
+            className="max-h-[68vh] w-full rounded-2xl object-contain shadow-lg"
+          />
         </div>
       ),
     });
@@ -454,13 +436,13 @@ export function SaveTheDateFilm({
           svg={content.monogramSvg}
           text={content.monogram}
           lockup={lockup}
-          lockupScale={0.95}
-          sizeCls="h-16 w-16 sm:h-20 sm:w-20"
-          textCls={`${theme.fontCls} text-4xl font-medium ${theme.accentText}`}
+          lockupScaleCls="scale-[0.95] lg:scale-[1.35]"
+          sizeCls="h-16 w-16 sm:h-20 sm:w-20 lg:h-28 lg:w-28"
+          textCls={`${theme.fontCls} text-4xl font-medium ${theme.accentText} lg:text-5xl`}
         />
         <p className={LABEL}>Save the date</p>
         {content.dateLabel ? (
-          <p className={`${theme.fontCls} text-3xl font-medium italic leading-tight`}>
+          <p className={`${theme.fontCls} text-3xl font-medium italic leading-tight lg:text-5xl`}>
             {content.dateLabel}
           </p>
         ) : null}
@@ -525,8 +507,8 @@ export function SaveTheDateFilm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preview]);
 
-  // RAF player — advances timed slides. The video beat (dur Infinity) holds
-  // until the guest presses play (the video effect advances it on 'ended').
+  // RAF player — advances timed slides. The video beat (dur Infinity) holds on
+  // a timer; it autoplays and the video effect advances it on 'ended'.
   useEffect(() => {
     let raf = 0;
     const go = (j: number) => {
@@ -551,70 +533,60 @@ export function SaveTheDateFilm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [N]);
 
-  // Video beat 8 — full-screen play + advance-on-end. The play button calls
-  // playVideoRef.current(): ducks the music, takes the <video> full-screen on
-  // top of everything, and plays from the start. On the video's natural end (or
-  // when the guest leaves full-screen) the music resumes; on 'ended' the film
-  // advances to the calendar close. In preview the video just plays inline muted
-  // (no fullscreen in the builder's device frame).
+  // Video beat — AUTOPLAY + audio CROSSFADE (owner 2026-06-19). The video plays
+  // by itself when its beat is active (the reveal gesture already granted the
+  // page media playback). The soundtrack CROSSFADES to the video's audio as it
+  // plays, then crossfades back to the music when the film returns to the
+  // closing screen. On the video's natural end the film advances to the calendar
+  // close. The whole experience is already full screen (Fullscreen API on the
+  // reveal-lift), so the video plays inline within it.
   useEffect(() => {
     const v = videoElRef.current;
-    if (!v || videoSlideIndex < 0) return;
-    const doc = document as Document & {
-      webkitFullscreenElement?: Element;
-      webkitExitFullscreen?: () => void;
-    };
-    type FsVideo = HTMLVideoElement & {
-      webkitRequestFullscreen?: () => void;
-      webkitEnterFullscreen?: () => void;
-    };
-    const resumeMusic = () => {
-      if (content.musicUrl && audioRef.current && !muted && !preview && playingRef.current) {
-        audioRef.current.play().catch(() => {});
-      }
+    if (videoSlideIndex < 0 || !v) return;
+    const a = audioRef.current;
+    const onVideo = idx === videoSlideIndex;
+
+    // Gentle ~700ms audio dissolve between the music and the video.
+    let fade = 0;
+    const crossfade = (musicTo: number, videoTo: number) => {
+      cancelAnimationFrame(fade);
+      const m0 = a?.volume ?? 1;
+      const v0 = v.volume;
+      const t0 = performance.now();
+      const tick = (now: number) => {
+        const p = Math.min(1, (now - t0) / 700);
+        if (a) a.volume = m0 + (musicTo - m0) * p;
+        v.volume = v0 + (videoTo - v0) * p;
+        if (p < 1) fade = requestAnimationFrame(tick);
+      };
+      fade = requestAnimationFrame(tick);
     };
 
-    playVideoRef.current = () => {
-      try { v.currentTime = 0; } catch { /* not seekable yet — plays from 0 */ }
-      if (preview) {
-        v.muted = true;
-        v.play().catch(() => {});
-        return;
+    if (onVideo) {
+      if (!prevOnVideoRef.current) {
+        try { v.currentTime = 0; } catch { /* not seekable yet — plays from 0 */ }
+        v.volume = 0; // start silent, fade up
       }
-      if (audioRef.current) audioRef.current.pause();
-      v.muted = muted;
-      const fv = v as FsVideo;
-      const req = v.requestFullscreen ?? fv.webkitRequestFullscreen ?? fv.webkitEnterFullscreen;
-      try { req?.call(v); } catch { /* fullscreen denied — plays inline */ }
-      v.play().catch(() => {});
-    };
-
-    const onEnded = () => {
-      const exit = doc.exitFullscreen ?? doc.webkitExitFullscreen;
-      try { exit?.call(doc); } catch { /* already exited */ }
-      goRef.current(videoSlideIdxRef.current + 1);
-      resumeMusic();
-    };
-    // Standard + WebKit (iOS native player) fullscreen-exit → pause, resume music.
-    const onFsChange = () => {
-      const fsEl = doc.fullscreenElement ?? doc.webkitFullscreenElement;
-      if (!fsEl) {
-        v.pause();
-        resumeMusic();
+      v.muted = muted || preview;
+      if (playing) v.play().catch(() => {}); else v.pause();
+      crossfade(0, 1); // music → silent, video → full (converges even if interrupted)
+    } else {
+      crossfade(1, 0); // video → silent, music → full
+      v.pause();
+      if (content.musicUrl && a && !preview && playing && !muted) {
+        a.play().catch(() => {});
       }
-    };
+    }
+    prevOnVideoRef.current = onVideo;
 
+    // Natural end → return to the closing screen (the crossfade-back fires there).
+    const onEnded = () => goRef.current(videoSlideIdxRef.current + 1);
     v.addEventListener('ended', onEnded);
-    v.addEventListener('webkitendfullscreen', onFsChange);
-    doc.addEventListener('fullscreenchange', onFsChange);
-    doc.addEventListener('webkitfullscreenchange', onFsChange as EventListener);
     return () => {
+      cancelAnimationFrame(fade);
       v.removeEventListener('ended', onEnded);
-      v.removeEventListener('webkitendfullscreen', onFsChange);
-      doc.removeEventListener('fullscreenchange', onFsChange);
-      doc.removeEventListener('webkitfullscreenchange', onFsChange as EventListener);
     };
-  }, [muted, content.musicUrl, preview, videoSlideIndex]);
+  }, [idx, playing, muted, videoSlideIndex, content.musicUrl, preview]);
 
   // Press-and-hold pauses; a quick tap on left/right steps; a vertical swipe or
   // a mouse-wheel SCROLLS through the beats (owner 2026-06-19: "auto play or

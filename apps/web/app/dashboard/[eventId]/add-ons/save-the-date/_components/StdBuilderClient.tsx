@@ -76,6 +76,9 @@ type Props = {
   galleryCount?: number;
   /** Raw std_film_* snapshot values — null means not yet set (falls back to live event data). */
   initialFilmDate?: string | null;
+  /** The couple's allowed wedding dates — their onboarding date choices, or the
+   *  single locked/priority date. The STD date is chosen from these, never typed. */
+  dateOptions?: string[];
   initialFilmVenueName?: string | null;
   initialFilmVenueCity?: string | null;
   initialFilmStory?: string | null;
@@ -113,6 +116,7 @@ export function StdBuilderClient({
   initialVideoUrl,
   galleryCount,
   initialFilmDate,
+  dateOptions = [],
   initialFilmVenueName,
   initialFilmVenueCity,
   initialFilmStory,
@@ -131,7 +135,9 @@ export function StdBuilderClient({
   const [launchDate, setLaunchDate] = useState(initialLaunchDate);
 
   // Film-snapshot overrides — each drives both the preview AND what gets saved.
-  const [filmDate, setFilmDate] = useState(initialFilmDate ?? '');
+  // Default to the saved film date, else the priority/first allowed date — the
+  // STD date is always one of the couple's chosen dates (dateOptions), not typed.
+  const [filmDate, setFilmDate] = useState(initialFilmDate ?? dateOptions[0] ?? '');
   const [venueName, setVenueName] = useState(initialFilmVenueName ?? '');
   const [venueCity, setVenueCity] = useState(initialFilmVenueCity ?? '');
   const [filmStory, setFilmStory] = useState(initialFilmStory ?? '');
@@ -471,23 +477,42 @@ export function StdBuilderClient({
             {/* Editable fields */}
             <div className="space-y-5 rounded-2xl border border-ink/10 bg-white/70 p-5">
 
-              {/* Wedding date */}
+              {/* Wedding date — chosen from the couple's onboarding dates (or the
+                  single locked/priority date). Never free-typed (owner 2026-06-19). */}
               <div>
                 <label htmlFor="film_date" className="block text-xs font-semibold uppercase tracking-wide text-ink/60">
                   Wedding date
                 </label>
-                <input
-                  id="film_date"
-                  type="date"
-                  value={filmDate}
-                  onChange={(e) => { setFilmDate(e.target.value); if (result !== 'idle') setResult('idle'); }}
-                  className={`mt-1.5 ${inputCls}`}
-                />
-                {!filmDate && initialContent.dateLabel ? (
-                  <p className={helperCls}>Auto-filled · {initialContent.dateLabel}</p>
-                ) : !filmDate ? (
-                  <p className={helperCls}>No date set yet — set it here and it becomes your wedding date. Your Save-the-Date shows once your wedding is more than 90 days away.</p>
-                ) : null}
+                {dateOptions.length === 0 ? (
+                  <p className="mt-1.5 rounded-lg border border-ink/10 bg-white/60 px-3 py-2.5 text-sm text-ink/60">
+                    Pick your wedding date in{' '}
+                    <Link href={`/dashboard/${eventId}/date-selection`} className="font-medium text-terracotta hover:underline">
+                      Date Selection
+                    </Link>{' '}
+                    — your Save-the-Date fills from it.
+                  </p>
+                ) : dateOptions.length === 1 ? (
+                  <>
+                    <p className="mt-1.5 rounded-lg border border-ink/10 bg-white/60 px-3 py-2.5 text-sm text-ink">
+                      {formatEventDate(dateOptions[0]!)}
+                    </p>
+                    <p className={helperCls}>Your chosen wedding date. Change it in Date Selection.</p>
+                  </>
+                ) : (
+                  <>
+                    <select
+                      id="film_date"
+                      value={filmDate || dateOptions[0]}
+                      onChange={(e) => { setFilmDate(e.target.value); if (result !== 'idle') setResult('idle'); }}
+                      className={`mt-1.5 ${inputCls}`}
+                    >
+                      {dateOptions.map((d) => (
+                        <option key={d} value={d}>{formatEventDate(d)}</option>
+                      ))}
+                    </select>
+                    <p className={helperCls}>One of the dates you chose during onboarding.</p>
+                  </>
+                )}
               </div>
 
               {/* Ceremony venue — read-only, auto-filled from the finalized booking. */}

@@ -59,7 +59,7 @@ export default async function SaveTheDatePage({ params }: Props) {
   const { data: event } = await supabase
     .from('events')
     .select(
-      'public_id, slug, display_name, event_date, venue_name, venue_address, love_story, monogram_text, monogram_custom_svg, monogram_uploaded_svg, role_palette, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_film_date, std_film_venue_name, std_film_venue_city, std_film_story, std_background, std_media, our_photos, site_bg_music_enabled, site_bg_music_r2_key, landing_page_hero_image_url',
+      'public_id, slug, display_name, event_date, venue_name, venue_address, love_story, monogram_text, monogram_custom_svg, monogram_uploaded_svg, role_palette, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_film_date, std_film_venue_name, std_film_venue_city, std_film_story, std_background, std_media, our_photos, site_bg_music_enabled, site_bg_music_r2_key, landing_page_hero_image_url, date_candidates, date_mode',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -123,6 +123,21 @@ export default async function SaveTheDatePage({ params }: Props) {
   const stdVenueName: string | null = event?.std_film_venue_name ?? null;
   const stdVenueCity: string | null = event?.std_film_venue_city ?? null;
   const stdStory: string | null = event?.std_film_story ?? null;
+
+  // STD wedding-date options = the couple's ONBOARDING date choices, or the
+  // locked/priority date once they've settled on one (owner 2026-06-19 — the
+  // date can only be one of their chosen dates, never free-typed). When a date
+  // is locked (event_date) that's the single option; otherwise the specific-mode
+  // candidates; window-mode (no specific picks) → none → "set it in Date Selection".
+  const rawCandidates = Array.isArray(event?.date_candidates) ? event.date_candidates : [];
+  const dateCandidates = (rawCandidates as unknown[]).filter(
+    (d): d is string => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d),
+  );
+  const dateOptions: string[] = event?.event_date
+    ? [event.event_date.slice(0, 10)]
+    : event?.date_mode === 'specific'
+      ? Array.from(new Set(dateCandidates))
+      : [];
 
   // Ceremony + reception venues auto-fill from the couple's FINALIZED bookings
   // (event_vendors). Reception falls back to the manual override then the event
@@ -238,6 +253,7 @@ export default async function SaveTheDatePage({ params }: Props) {
         initialVideoUrl={stdMediaVideoUrl}
         galleryCount={ourPhotoUrls.length}
         initialFilmDate={stdDate}
+        dateOptions={dateOptions}
         initialFilmVenueName={stdVenueName}
         initialFilmVenueCity={stdVenueCity}
         initialFilmStory={stdStory}

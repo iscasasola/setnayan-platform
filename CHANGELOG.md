@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · feat(std): wedding date chosen from the couple's onboarding dates (PR-P)
+
+Last of the builder-cleanup batch (A). Owner: the STD wedding date must come from the couple's own date choices, not a free-typed field — "based on their choices on onboarding, or the priority date if they've picked one / have only one."
+
+- The builder page resolves `dateOptions` from `events`: when a date is **locked** (`event_date`) that's the single priority option; otherwise the **onboarding `date_candidates`** (specific mode); window-mode with no specific picks → no options.
+- The builder's free `<input type="date">` is replaced: **1 option** → read-only display of the chosen date; **multiple** → a `<select>` of the onboarding candidates; **none** → a "Pick your date in Date Selection" link. The date defaults to the priority/first option. It can no longer be an arbitrary typed date.
+- Pairs with PR-L: picking the date still backfills `event_date` when none is locked yet.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the STD wedding date is constrained to the couple's onboarding date choices / the locked date. **The 2026-06-19 builder-cleanup batch is now complete** (F texts-only film · D colour-lag · E 5-fonts · C auto-3-month invite · A date-from-onboarding · B venues-from-bookings via PR-M · monogram from the monogram lab via PR-G). See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · feat(std): font-only look + colour-picker lag fix + auto-3-month invite (PR-O)
 
 Three of the builder-cleanup batch (D + E + C).

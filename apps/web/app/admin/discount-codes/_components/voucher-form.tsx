@@ -686,7 +686,7 @@ export function VoucherForm({
 
       {/* Submit */}
       <div className="flex items-center gap-3 pt-2">
-        <SubmitButton pendingLabel={submitPendingLabel}>
+        <SubmitButton className="button-primary" pendingLabel={submitPendingLabel}>
           {submitLabel}
         </SubmitButton>
         <Link

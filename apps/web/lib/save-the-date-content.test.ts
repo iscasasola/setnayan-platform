@@ -58,8 +58,9 @@ test('resolveStdFilmContent: full input fills every beat', () => {
   const c = resolveStdFilmContent({
     displayName: 'Maria & Jose',
     dateIso: '2027-06-12',
-    venueName: 'Blanco Gardens',
-    venueAddress: 'Tagaytay',
+    ceremonyVenue: 'San Agustin Church',
+    receptionVenue: 'Blanco Gardens',
+    receptionCity: 'Tagaytay',
     loveStory: 'We met at a wedding and never left.',
     publicId: PUBLIC_ID,
     musicUrl: 'https://media.example/song.mp3',
@@ -69,8 +70,9 @@ test('resolveStdFilmContent: full input fills every beat', () => {
   assert.equal(c.names, 'Maria & Jose');
   assert.equal(c.dateBig, '06.12.27');
   assert.ok(c.dateLabel && c.dateLabel.length > 0, 'dateLabel present');
-  assert.equal(c.venueName, 'Blanco Gardens');
-  assert.equal(c.venueCity, 'Tagaytay');
+  assert.equal(c.ceremonyVenue, 'San Agustin Church');
+  assert.equal(c.receptionVenue, 'Blanco Gardens');
+  assert.equal(c.receptionCity, 'Tagaytay');
   assert.equal(c.storyTeaser, 'We met at a wedding and never left.');
   assert.ok(c.gcalUrl && c.gcalUrl.startsWith('https://calendar.google.com'));
   assert.ok(c.icsHref && c.icsHref.startsWith('data:text/calendar'));

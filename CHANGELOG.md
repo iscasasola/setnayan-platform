@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · feat(std): auto-fill ceremony + reception venues from finalized bookings (PR-M)
+
+Owner directive: the Save-the-Date shouldn't be a manual form — when the couple finalizes their venues, the info should upload automatically; and there should be a separate **ceremony** and **reception** venue (the 7-beat spine). Implements the "auto from bookings + manual fallback" model.
+
+- **Resolver** `lib/std-venues.ts`: `resolveStdFinalizedVenues(admin, eventId)` reads `event_vendors` — the **ceremony** = the finalized `religious_venue`/`church_fees` booking, the **reception** = the finalized `venue` booking (finalized = status in `CONFIRMED_VENDOR_STATUSES`, most-recent wins). Names only; never throws.
+- **Content** `lib/save-the-date-content.ts`: `StdFilmContent` venue field split into `ceremonyVenue` + `receptionVenue` + `receptionCity` (was a single `venueName`/`venueCity`). The film (`save-the-date-film.tsx`) now has **two venue beats** — "The ceremony" then "The celebration" — each shown only when its venue resolves.
+- **Resolution** (live page + builder): ceremony = finalized booking; reception = finalized booking ?? the couple's manual entry (`std_film_venue_*`) ?? `events.venue_name`. Also **fixes the live film to honor the `std_film_venue_*` override** (the live page never read it before — only the builder did).
+- **Builder Content step**: the venue field is relabelled **Reception venue** (the manual fallback for off-platform/DIY couples); a read-only **Ceremony venue** line shows the booked ceremony when present. Auto-filled values surface as "Auto-filled from your booking."
+
+Verified: `pnpm typecheck` + `pnpm lint` clean; `save-the-date-content` tests pass. No migration (reads `event_vendors`; reception manual fallback reuses the existing `std_film_venue_*`).
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the Content step is now auto-fill-from-canonical: ceremony + reception venues come from the finalized bookings (manual reception fallback for DIY). FOLLOW-UPS (flagged for owner): (1) make the builder's date **read-only / sourced from Date Selection** (the date already comes from `event_date`; the builder UI still shows a free input — PR-N); (2) a manual **ceremony** fallback field for DIY couples (ceremony is booking-only today). See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · feat(std): Smart Auto + localized text scrim (PR-I)
 
 Upgrades the legibility Auto mode (PR-H) from a guess to a measurement, and keeps the photo vivid by protecting only the text.

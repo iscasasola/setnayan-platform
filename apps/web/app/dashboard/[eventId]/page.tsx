@@ -129,6 +129,7 @@ import type { VendorCategory } from '@/lib/vendors';
 // enrichment pipeline below. setnayan-media is the canonical bucket for
 // vendor portfolio + service media.
 import { R2_BUCKETS, r2PublicUrl } from '@/lib/r2';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -1968,8 +1969,8 @@ function Checklist({
                   <input type="hidden" name="event_id" value={eventId} />
                   <input type="hidden" name="step_key" value={step.key} />
                   <input type="hidden" name="action" value={done ? 'uncomplete' : 'complete'} />
-                  <button
-                    type="submit"
+                  <SubmitButton
+                    pendingLabel="…"
                     aria-label={done ? `Mark ${step.label} not done` : `Mark ${step.label} done`}
                     className="mt-0.5 flex-none text-terracotta"
                   >
@@ -1978,7 +1979,7 @@ function Checklist({
                     ) : (
                       <Circle className="h-5 w-5" style={{ color: 'var(--m-line)' }} strokeWidth={1.75} />
                     )}
-                  </button>
+                  </SubmitButton>
                 </form>
               ) : (
                 <span aria-hidden className="mt-0.5 flex-none">

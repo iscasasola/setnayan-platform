@@ -12,6 +12,7 @@ import { ChatMessageStream } from '@/app/_components/chat-message-stream';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
 import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
 import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Thread' };
 
@@ -162,12 +163,7 @@ export default async function CoupleThreadPage({ params }: Props) {
           <form action={withdrawInquiry}>
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="thread_id" value={threadId} />
-            <button
-              type="submit"
-              className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55 underline-offset-2 hover:text-terracotta hover:underline"
-            >
-              Withdraw inquiry
-            </button>
+            <SubmitButton pendingLabel="Withdrawing…" className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55 underline-offset-2 hover:text-terracotta hover:underline">Withdraw inquiry</SubmitButton>
           </form>
         </div>
       ) : (
@@ -196,12 +192,9 @@ export default async function CoupleThreadPage({ params }: Props) {
             <form action={withdrawInquiry}>
               <input type="hidden" name="event_id" value={eventId} />
               <input type="hidden" name="thread_id" value={threadId} />
-              <button
-                type="submit"
-                className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55 underline-offset-2 hover:text-terracotta hover:underline"
-              >
+              <SubmitButton pendingLabel="Withdrawing…" className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55 underline-offset-2 hover:text-terracotta hover:underline">
                 Withdraw inquiry
-              </button>
+              </SubmitButton>
             </form>
           </div>
         </div>

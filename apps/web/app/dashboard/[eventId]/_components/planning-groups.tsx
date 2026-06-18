@@ -50,6 +50,7 @@ import { SwitchVendorConfirm } from './switch-vendor-confirm';
 // Link · Compare · pick rows · paperwork links) which navigate
 // full-page like every other surface.
 import type { ManualVendorOption } from './manual-vendor-dropdown';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 function formatPHP(value: number | null): string | null {
   if (value === null) return null;
@@ -1317,12 +1318,12 @@ function CompatibilityChip({
       <p className="min-w-0 flex-1 text-[11px] leading-snug text-amber-900">
         {label}
       </p>
-      <button
-        type="submit"
+      <SubmitButton
+        pendingLabel="Removing…"
         className="shrink-0 rounded-md border border-amber-400/60 bg-cream px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-amber-900 transition-colors hover:bg-amber-100"
       >
         Remove
-      </button>
+      </SubmitButton>
     </form>
   );
 }
@@ -1393,13 +1394,13 @@ function AutoCascadedChip({
         Auto-added because {vendorName} is handling your{' '}
         <span className="font-medium text-ink">{sourceLabel}</span>.
       </p>
-      <button
-        type="submit"
+      <SubmitButton
+        pendingLabel="Removing…"
         aria-label={`Remove ${vendorName} from this card`}
         className="shrink-0 rounded-md border border-terracotta/30 bg-cream px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-terracotta transition-colors hover:bg-terracotta/10"
       >
         Remove
-      </button>
+      </SubmitButton>
     </form>
   );
 }

@@ -20,6 +20,7 @@ import {
   eventOwnsStdOpenings,
   STD_PREMIUM_OPENINGS_SERVICE_KEY,
 } from '@/lib/std-openings';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 // 2026-06-17 — owner "replace": this page IS the Save-the-Date *builder* — the
 // couple picks the opening reveal (one of 5), previews the auto-filled content
@@ -333,12 +334,12 @@ export default async function SaveTheDatePage({ params, searchParams }: Props) {
               defaultValue={launchDate}
               className="rounded-md border border-ink/20 bg-cream px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none"
             />
-            <button
-              type="submit"
+            <SubmitButton
+              pendingLabel="Saving…"
               className="inline-flex items-center gap-2 rounded-full bg-mulberry px-4 py-2 text-sm font-semibold text-cream shadow-sm transition hover:bg-mulberry-600"
             >
               Save date
-            </button>
+            </SubmitButton>
           </div>
         </form>
 

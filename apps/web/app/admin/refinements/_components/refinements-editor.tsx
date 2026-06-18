@@ -200,9 +200,9 @@ function OptionRow({ leafKey, option, canDelete }: { leafKey: string; option: Ed
       </form>
       {canDelete ? (
         <form action={removeOption.bind(null, leafKey, option.optionKey)} className="mt-1.5 text-right">
-          <button type="submit" className="inline-flex items-center gap-1 text-[11px] text-ink/45 hover:text-red-600">
+          <SubmitButton className="inline-flex items-center gap-1 text-[11px] text-ink/45 hover:text-red-600" pendingLabel="Deleting…">
             <Trash2 className="h-3 w-3" strokeWidth={1.75} aria-hidden /> Delete option
-          </button>
+          </SubmitButton>
         </form>
       ) : null}
     </div>

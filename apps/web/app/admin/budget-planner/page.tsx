@@ -6,6 +6,7 @@ import {
   type BenchmarkRow,
 } from '@/lib/budget-allocation-data';
 import { updateLeafBenchmark, updateAllocationConfig } from './actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Budget Planner' };
 
@@ -253,12 +254,12 @@ export default async function AdminBudgetPlannerPage() {
             </label>
           </div>
           <div className="mt-5">
-            <button
-              type="submit"
+            <SubmitButton
               className="rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta/90"
+              pendingLabel="Saving…"
             >
               Save settings
-            </button>
+            </SubmitButton>
           </div>
         </form>
       </section>
@@ -421,12 +422,12 @@ function BenchmarkRowForm({ row }: { row: BenchmarkRow }) {
         />
         <span className="text-sm text-ink/70 sm:hidden">Active</span>
       </label>
-      <button
-        type="submit"
+      <SubmitButton
         className="rounded-md bg-terracotta px-3 py-1.5 text-xs font-medium text-cream hover:bg-terracotta/90 sm:px-4 sm:py-2 sm:text-sm"
+        pendingLabel="Saving…"
       >
         Save
-      </button>
+      </SubmitButton>
     </form>
   );
 }

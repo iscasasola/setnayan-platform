@@ -10,6 +10,7 @@ import {
   fetchVendorPools,
 } from '@/lib/vendor-schedule';
 import { importExternalClient, removeBlock } from '../calendar/actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Clients · Vendor' };
 
@@ -234,9 +235,9 @@ export default async function VendorClientsPage({ searchParams }: Props) {
                 <form action={removeBlock}>
                   <input type="hidden" name="return_to" value="clients" />
                   <input type="hidden" name="block_id" value={b.blockId} />
-                  <button type="submit" className="text-sm text-ink/55 underline hover:text-ink">
+                  <SubmitButton pendingLabel="Removing…" className="text-sm text-ink/55 underline hover:text-ink">
                     Remove
-                  </button>
+                  </SubmitButton>
                 </form>
               </li>
             ))}
@@ -265,9 +266,9 @@ export default async function VendorClientsPage({ searchParams }: Props) {
                 <span className="text-sm text-ink/50">to</span>
                 <input type="date" name="end_date" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
               </div>
-              <button type="submit" className="justify-self-start rounded-lg bg-ink px-4 py-1.5 text-sm font-medium text-cream">
+              <SubmitButton pendingLabel="Importing…" className="justify-self-start rounded-lg bg-ink px-4 py-1.5 text-sm font-medium text-cream">
                 Import · 1 token
-              </button>
+              </SubmitButton>
             </form>
           </details>
         ) : null}

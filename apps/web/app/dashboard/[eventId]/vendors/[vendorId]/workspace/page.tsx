@@ -92,6 +92,7 @@ import {
   fetchMarketplaceServices,
   fetchMarketplaceReviews,
 } from '../../../_components/vendor-marketplace-info';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Service workspace · Setnayan' };
 
@@ -1316,12 +1317,7 @@ export default async function VendorWorkspacePage({ params }: Props) {
             <span className="font-medium text-ink">{depositPaidFormatted ?? '—'}</span>
           </div>
 
-          <button
-            type="submit"
-            className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-          >
-            Save costs
-          </button>
+          <SubmitButton pendingLabel="Saving…" className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">Save costs</SubmitButton>
         </form>
         </section>
       )}
@@ -1467,13 +1463,10 @@ export default async function VendorWorkspacePage({ params }: Props) {
             <input type="hidden" name="vendor_id" value={ev.vendor_id} />
             <input type="hidden" name="business_name" value={ev.vendor_name} />
             <input type="hidden" name="category" value={ev.category} />
-            <button
-              type="submit"
-              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-amber-400/60 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900 transition-colors hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-            >
+            <SubmitButton pendingLabel="Creating…" className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-amber-400/60 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900 transition-colors hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">
               <LinkIcon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
               Create a shareable invite link
-            </button>
+            </SubmitButton>
           </form>
         </section>
       ) : null}

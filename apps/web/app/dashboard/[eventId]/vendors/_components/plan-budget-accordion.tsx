@@ -56,6 +56,7 @@ import { haptic } from '@/lib/haptics';
 import { CategorySearchOverlay } from './category-search-overlay';
 import { NewManualVendorModal } from '@/app/dashboard/[eventId]/_components/new-manual-vendor-modal';
 import { ChangePickButton } from './accordion-lock';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { AccordionBuildButton } from './accordion-build';
 import { ADD_ONS, addOnHref, type AddOnEntry } from '@/lib/add-ons-catalog';
 import { isMultiPickGroup, type PlanGroupId } from '@/lib/wedding-plan-groups';
@@ -1639,14 +1640,14 @@ function VendorCardAtom({
             <form action={deleteVendor} style={{ display: 'contents' }}>
               <input type="hidden" name="event_id" value={eventId} />
               <input type="hidden" name="vendor_id" value={pick.vendor_id} />
-              <button
-                type="submit"
+              <SubmitButton
+                pendingLabel="Removing…"
                 className="vx armed"
                 aria-label="Confirm remove"
                 onClick={() => haptic('select')}
               >
                 Remove
-              </button>
+              </SubmitButton>
             </form>
             <button
               type="button"

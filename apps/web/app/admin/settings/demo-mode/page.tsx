@@ -35,6 +35,7 @@ import {
   isAdminProfile,
 } from '@/lib/demo-mode';
 import { FormFlash } from '@/app/_components/forms/form-flash';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Demo mode · Admin · Setnayan' };
 export const dynamic = 'force-dynamic';
@@ -152,16 +153,16 @@ export default async function DemoModeAdminPage({ searchParams }: Props) {
 
         <form action="/api/admin/demo-mode/toggle" method="post">
           <input type="hidden" name="state" value={isOn ? 'off' : 'on'} />
-          <button
-            type="submit"
+          <SubmitButton
             className={
               isOn
                 ? 'rounded-full bg-ink px-5 py-2 text-sm font-medium text-cream hover:bg-ink/90'
                 : 'rounded-full bg-terracotta px-5 py-2 text-sm font-medium text-cream hover:bg-terracotta/90'
             }
+            pendingLabel="Toggling…"
           >
             {isOn ? 'Turn demo mode OFF' : 'Turn demo mode ON'}
-          </button>
+          </SubmitButton>
         </form>
 
         {lastToggle ? (

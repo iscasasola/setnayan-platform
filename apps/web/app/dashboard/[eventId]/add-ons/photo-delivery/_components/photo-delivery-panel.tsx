@@ -18,6 +18,7 @@ import {
   DriveConnectCard,
   DriveReconnectBanner,
 } from '@/app/_components/drive-connect-card';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 // 0009 Photo Delivery panel — wired to real OAuth + release flow.
 //
@@ -340,13 +341,13 @@ function ConnectedState({
 
           <form action={disconnectPhotoDelivery}>
             <input type="hidden" name="event_id" value={eventId} />
-            <button
-              type="submit"
+            <SubmitButton
+              pendingLabel="Disconnecting…"
               className="inline-flex items-center gap-1.5 rounded-md border border-emerald-300/70 bg-cream/60 px-3 py-1.5 text-xs font-medium text-emerald-950 hover:bg-cream"
             >
               <Unlink2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
               Disconnect
-            </button>
+            </SubmitButton>
           </form>
         </div>
       </section>
@@ -377,13 +378,13 @@ function ConnectedState({
           </header>
           <form action={releasePhotoDelivery}>
             <input type="hidden" name="event_id" value={eventId} />
-            <button
-              type="submit"
+            <SubmitButton
+              pendingLabel="Releasing…"
               className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition hover:bg-mulberry-600"
             >
               <CloudUpload aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               Release to Drive
-            </button>
+            </SubmitButton>
           </form>
         </section>
       ) : null}
@@ -431,13 +432,13 @@ function ConnectedState({
             ) : null}
             <form action={releasePhotoDelivery}>
               <input type="hidden" name="event_id" value={eventId} />
-              <button
-                type="submit"
+              <SubmitButton
+                pendingLabel="Releasing…"
                 className="inline-flex items-center gap-1.5 rounded-md border border-emerald-300/70 bg-cream/60 px-3 py-1.5 text-xs font-medium text-emerald-950 hover:bg-cream"
               >
                 <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                 Re-deliver new photos
-              </button>
+              </SubmitButton>
             </form>
           </div>
         </section>
@@ -465,13 +466,13 @@ function ConnectedState({
           </header>
           <form action={releasePhotoDelivery}>
             <input type="hidden" name="event_id" value={eventId} />
-            <button
-              type="submit"
+            <SubmitButton
+              pendingLabel="Retrying…"
               className="inline-flex items-center gap-1.5 rounded-md bg-mulberry px-3 py-1.5 text-xs font-medium text-cream transition hover:bg-mulberry-600"
             >
               <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
               Retry upload
-            </button>
+            </SubmitButton>
           </form>
         </section>
       ) : null}

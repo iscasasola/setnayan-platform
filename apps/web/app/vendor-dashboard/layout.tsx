@@ -19,6 +19,7 @@ import { VendorBottomNav } from './_components/vendor-bottom-nav';
 import { resolveVendorRole } from '@/lib/vendor-role';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { PushNotificationRegistrar } from './_components/push-notification-registrar';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 /**
  * Vendor dashboard layout — v2.1 Navigation Phase 2 (vendor doorway).
@@ -224,9 +225,9 @@ export default async function VendorDashboardLayout({
         />
         <span className="hidden text-sm text-ink/70 sm:inline">{displayName}</span>
         <form action="/auth/sign-out" method="post">
-          <button className="button-secondary h-9 px-3 text-xs" type="submit">
+          <SubmitButton className="button-secondary h-9 px-3 text-xs" pendingLabel="Signing out…">
             Sign out
-          </button>
+          </SubmitButton>
         </form>
       </div>
     </div>

@@ -47,6 +47,17 @@ type Props = {
   features?: RevealFeatures;
   /** Fired once when the veil has been lifted clear of the invitation. */
   onRevealed: () => void;
+  /**
+   * Preview/demo mode (dashboard Step-1 chooser): auto-lift the veil hands-free
+   * on mount and ignore all gesture input. Default false → live guest page is
+   * unchanged (drag-to-lift). Captured at mount.
+   */
+  autoplay?: boolean;
+  /**
+   * Render at a low backing resolution (DPR capped to 1) for the small
+   * watermarked preview frame — keeps it un-recordable as a final asset + cheap.
+   */
+  lowRes?: boolean;
 };
 
 const TEX = 1024; // texture resolution
@@ -76,7 +87,7 @@ type GrabState = {
   cy0: number;
 };
 
-export default function VeilReveal({ veilColor, petalsColor, look, features, onRevealed }: Props) {
+export default function VeilReveal({ veilColor, petalsColor, look, features, onRevealed, autoplay = false, lowRes = false }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const colorRef = useRef(veilColor);
   colorRef.current = veilColor;
@@ -111,7 +122,7 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       onRevealedRef.current();
       return;
     }
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, lowRes ? 1 : 2));
     renderer.setClearColor(0x000000, 0);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     const cv = renderer.domElement;
@@ -890,10 +901,13 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
     const onCancel = (e: PointerEvent) => {
       if (grabs[e.pointerId]) delete grabs[e.pointerId];
     };
-    cv.addEventListener('pointerdown', onDown);
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', release);
-    window.addEventListener('pointercancel', onCancel);
+    // Live page = drag-to-lift. Preview = no gesture input (auto-lift only).
+    if (!autoplay) {
+      cv.addEventListener('pointerdown', onDown);
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', release);
+      window.addEventListener('pointercancel', onCancel);
+    }
 
     // ── Resize / rotate — cheap re-fit immediately (no stretch), full rebuild debounced.
     let roFrame = 0;
@@ -922,6 +936,9 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
 
     parkAll();
     applyView();
+    // Preview mode: lift the veil hands-free on mount (no drag needed in a small
+    // watermarked frame). Holds final state once revealed.
+    if (autoplay) startAuto();
     raf = requestAnimationFrame(loop);
 
     return () => {

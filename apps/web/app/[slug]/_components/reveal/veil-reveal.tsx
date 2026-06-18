@@ -403,7 +403,9 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
         if (rnd() < 0.32) spawnCling(i);
         else {
           spawnFalling(i);
-          pPos[i]!.y = (rnd() * 2 - 1) * vh * 1.4;
+          // Always start ABOVE the top and stagger upward so the shower rains in
+          // FROM THE TOP — never scattered across mid-screen/bottom (owner 2026-06-18).
+          pPos[i]!.y = vh * (1.05 + rnd() * 1.9);
         }
       }
     };

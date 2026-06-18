@@ -30,8 +30,16 @@ import { saveRevealStudio } from './actions';
 const VeilReveal = dynamic(() => import('@/app/[slug]/_components/reveal/veil-reveal'), { ssr: false });
 
 /** Which template the live preview shows (veil drives the veil sliders; the
- *  rigid ones drive the effect sliders so they can be calibrated in view). */
-type PreviewTpl = 'veil-sheer' | 'four-flap' | 'church-doors';
+ *  rigid ones drive the effect sliders so they can be calibrated in view). All
+ *  five reveals are previewable. */
+type PreviewTpl = RevealTemplateId;
+const PREVIEW_TPLS: Array<[PreviewTpl, string]> = [
+  ['veil-sheer', 'Veil'],
+  ['four-flap', 'Four-flap'],
+  ['two-flap-vertical', 'Side'],
+  ['two-flap-horizontal', 'Top'],
+  ['church-doors', 'Doors'],
+];
 
 const TEMPLATE_LABELS: Record<RevealTemplateId, string> = {
   'four-flap': 'Four-flap envelope',
@@ -370,12 +378,8 @@ export function RevealStudio({ initial }: { initial: RevealStudioConfig }) {
         <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider" style={{ color: SLATE }}>
           Live preview
         </div>
-        <div className="mb-2 flex gap-1.5">
-          {([
-            ['veil-sheer', 'Veil'],
-            ['four-flap', 'Envelope'],
-            ['church-doors', 'Doors'],
-          ] as Array<[PreviewTpl, string]>).map(([id, label]) => (
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          {PREVIEW_TPLS.map(([id, label]) => (
             <button
               key={id}
               type="button"
@@ -421,20 +425,7 @@ export function RevealStudio({ initial }: { initial: RevealStudioConfig }) {
                 window.setTimeout(redrapePreview, 1500);
               }}
             />
-          ) : previewTpl === 'church-doors' ? (
-            <RigidReveal
-              key={previewKey}
-              variant="church-doors"
-              markSvg={null}
-              monogram="M & J"
-              waxColor="#7d2b4f"
-              fallbackSeed={1}
-              onOpened={() => window.setTimeout(redrapePreview, 1800)}
-              autoPlay
-              effect="petals"
-              effectLook={draft.effects}
-            />
-          ) : (
+          ) : previewTpl === 'four-flap' ? (
             <FourFlapEnvelope
               key={previewKey}
               markSvg={null}
@@ -444,6 +435,19 @@ export function RevealStudio({ initial }: { initial: RevealStudioConfig }) {
               onOpened={() => window.setTimeout(redrapePreview, 1800)}
               autoPlay
               effect="butterflies"
+              effectLook={draft.effects}
+            />
+          ) : (
+            <RigidReveal
+              key={previewKey}
+              variant={previewTpl}
+              markSvg={null}
+              monogram="M & J"
+              waxColor="#7d2b4f"
+              fallbackSeed={1}
+              onOpened={() => window.setTimeout(redrapePreview, 1800)}
+              autoPlay
+              effect={previewTpl === 'church-doors' ? 'petals' : 'butterflies'}
               effectLook={draft.effects}
             />
           )}

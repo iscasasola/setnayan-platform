@@ -27,11 +27,12 @@ import {
 } from '@/lib/std-openings';
 import { StdBuilderClient } from './_components/StdBuilderClient';
 
-// 2026-06-18 — builder redesign: three-step picker (Reveal · Theme · Information)
-// + a small live preview phone frame that updates in real time, and ONE Render
-// button that saves everything in a single write. The old per-field form rows
-// (each with their own Save button + redirect) are replaced by this client-driven
-// builder; server still resolves the initial data + presigned media URLs.
+// 2026-06-19 — builder redesign: the 5-step builder (1 Background [+ theme:
+// fonts/colours] · 2 Content · 3 Video/Gallery · 4 Music · 5 Opening/reveal) +
+// a live preview that updates in real time, and ONE Render button that saves
+// everything in a single write. The old per-field form rows (each with their own
+// Save button + redirect) are replaced by this client-driven builder; server
+// still resolves the initial data + presigned media URLs.
 
 export const metadata = { title: 'Save the Date · Setnayan' };
 
@@ -155,7 +156,8 @@ export default async function SaveTheDatePage({ params }: Props) {
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Save the Date</h1>
         <p className="max-w-prose text-base text-ink/65">
           Your Save the Date plays as a short, self-running film — it fills itself from what
-          you&rsquo;ve already added. Choose your opening, pick a theme, then hit Render.
+          you&rsquo;ve already added. Set the scene, fine-tune the details, add your video and
+          song, choose how it opens — then hit Render.
         </p>
       </header>
 

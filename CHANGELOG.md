@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · feat(std): the 5-step Save-the-Date builder (PR-C — reorg + Music step)
+
+PR-C of the Step-3 video reinstatement chain. Reframes the builder into the owner's 5-step flow and adds a dedicated Music step. No schema, no new persistence — pure reorg + consolidation of existing controls.
+
+- **New order** (left column): **1 Background** · **2 Content** · **3 Video / Gallery** · **4 Music** · **5 Opening** (reveal). The Opening picker, previously step 2, now sits LAST — the film is built, then you choose its entrance.
+- **Theme folds into Background (Step 1):** the standalone "Theme" step is gone; the theme picker now sits directly under Background as "Step 1 · Fonts & colours", relabelled to say it only drives **fonts + text colours** (Background sets the scene; both still recolour to the Mood Board).
+- **Step 4 · Music (new):** a "Play music in your film" toggle (bound to `std_reveal_effects.music`) + the song status (added / not) with add-or-change routes to **Pakanta** (custom song) and the site-chrome **upload**. The preview's soundtrack now mirrors the toggle.
+- **Content (Step 2)** drops its now-redundant status rows: the **Soundtrack** row moved to the Music step; the **Closing photos** row is owned by the Video/Gallery step (Step 3). "Your names" + the launch-date field stay.
+- Renumbered the in-component eyebrows (`RevealPreviewCard` → Step 5, `StdMediaPicker` → Step 3); refreshed the builder header copy + structural comments.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. UI reorg behind dashboard auth — verify on the Vercel preview.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the couple builder is the 5-step flow (Background → Content → Video → Music → Reveal), theme folded into Background. Follow-up (flagged for owner): the Music step links out to upload/Pakanta; an INLINE song uploader embedded in the step is a fast-follow if wanted. See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · feat(std): Video / Gallery — locked video island + NSFW gate + live render (PR-B)
 
 PR-B of the Step-3 video reinstatement. The couple's uploaded video now PLAYS — as a locked real-time "island" beat in the film — but only after it passes an NSFW screen, and only on the live page once approved.

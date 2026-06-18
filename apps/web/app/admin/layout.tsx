@@ -3,10 +3,6 @@ import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { runSocialFlush } from '@/lib/social/flush';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
-import { EventSwitcher } from '@/app/dashboard/[eventId]/_components/event-switcher';
-import { getCreatableEventTypes } from '@/lib/event-types-db';
-import { fetchUserRoleSummary } from '@/lib/roles';
-import { fetchUserEvents, sortEventsForSwitcher } from '@/lib/events';
 import { countUnread } from '@/lib/notifications';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -17,38 +13,45 @@ import { Wordmark } from '@/app/_components/brand-marks';
 import { AdminSidebar } from './_components/admin-sidebar';
 import { AdminBottomNav } from './_components/admin-bottom-nav';
 import { getNavSlotMap } from '@/lib/nav-registry';
+import { AccountSwitcher, AccountSwitcherStandalone } from '@/app/_components/account-switcher/account-switcher';
+import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
+import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 
 export const metadata = { title: 'Setnayan HQ' };
 
 /**
  * Admin layout — v2.1 Navigation Phase 3 (admin doorway).
  *
- * WHY: CLAUDE.md 2026-05-23 row 2 admin 28-surface lock + 2026-05-28 11th
- * + 14th rows + v2.1 brief canonical lock (10th 2026-05-28 row). Replaces
- * the prior horizontal pill bar (apps/web/app/admin/_components/admin-nav.tsx
- * 19-110) with the shared SidebarShell + SidebarSection + SidebarItem
- * primitives from PR #603. Mobile chrome moves to AdminBottomNav — a 4-tab
- * spine (Home · Work · Directory · More) with 3 overflow landing pages at
- * /admin/work + /admin/directory + /admin/more (legacy /admin/queues +
- * /admin/money redirect to /admin/work + /admin/more) — ops-shaped nav
- * redesign 2026-06-08.
- *
  * STRUCTURE: SidebarShell owns the desktop layout split (sidebar at lg+,
- * main content area with offset). topBar slot carries the admin utilities
- * cluster (brand logo · role-switch pill · admin badge · display name ·
- * sign-out). Mobile chrome (BottomNav at bottom) is rendered as a sibling
- * of SidebarShell — both auto-hide / show via their own breakpoint
- * primitives (sidebar lg:flex, bottom-nav lg:hidden).
+ * main content area with offset). The sidebarHeader carries the brand
+ * wordmark + HQ label + AccountSwitcherStandalone (matching the customer
+ * doorway pattern — owner directive 2026-06-18). The topBar is right-aligned:
+ * unread bell · role badge · display name · sign-out · AccountSwitcher
+ * (mobile-only pill; desktop uses the sidebar AccountSwitcherStandalone).
  *
- * GuidedTour preserved unchanged — fires on first login per the existing
- * tour_seen_keys check.
+ * EventSwitcher was retired from this doorway on 2026-06-18 — the unified
+ * AccountSwitcher owns identity + event switching + cross-console hopping on
+ * all three doorways, consistent with the customer doorway that already shipped
+ * this pattern.
  */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
   if (!user) redirect(loginRedirectPath('/admin'));
   const supabase = await createClient();
 
-  const [{ data: profile }, roles, events, unreadCount] = await Promise.all([
+  const minimalSwitcherFallback: SwitcherData = {
+    userId: user.id,
+    displayName: null,
+    email: user.email ?? '',
+    photoUrl: null,
+    events: [],
+    gallery: [],
+    favorites: [],
+    editorials: [],
+    context: { hasVendor: false, vendorName: null, isAdmin: true },
+  };
+
+  const [{ data: profile }, unreadCount, switcherData] = await Promise.all([
     supabase
       .from('users')
       .select(
@@ -56,24 +59,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       )
       .eq('user_id', user.id)
       .maybeSingle(),
-    fetchUserRoleSummary(supabase, user.id),
-    // Couple events for the top-left EventSwitcher (owner directive
-    // 2026-06-02: switcher visible on all 3 dashboards, same top-left spot
-    // as the customer doorway). Defensive .catch() so a throw in this
-    // non-critical chrome fetch can't crash the admin layout — degrade to
-    // the empty "+" monogram. Mirrors DashboardLayout's 5th-hotfix pattern.
-    fetchUserEvents(supabase, user.id, 'couple').catch((err: unknown) => {
+    countUnread(supabase, user.id),
+    getSwitcherData(user.id).catch((err: unknown) => {
       logQueryError(
-        'AdminLayout (fetchUserEvents threw)',
+        'AdminLayout (getSwitcherData threw)',
         err instanceof Error ? err : new Error(String(err)),
         { user_id: user.id },
         'graceful_degrade',
       );
-      return [] as Awaited<ReturnType<typeof fetchUserEvents>>;
+      return minimalSwitcherFallback;
     }),
-    // Unread count for the top-bar bell. countUnread is React-cached + fails
-    // soft to 0 internally, so no defensive wrapper is needed here.
-    countUnread(supabase, user.id),
   ]);
 
   const isAdmin =
@@ -81,44 +76,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     profile?.is_team_member ||
     profile?.account_type === 'admin';
 
-  // Non-admins shouldn't even see the route exists — render a 404 instead of
-  // bouncing to /dashboard, which could leak the existence of /admin.
+  // Non-admins get a 404 rather than a redirect so the /admin route doesn't
+  // leak its own existence.
   if (!isAdmin) notFound();
 
-  // Social auto-publish flush — cron-free ([[project_setnayan_cron_free]]):
-  // dispatch piggybacks on admin traffic via after(). Fire-and-forget; the
-  // 10-minute throttle inside runSocialFlush makes this effectively free,
-  // and runSocialFlush never throws.
+  // Social auto-publish flush — cron-free: dispatch piggybacks on admin
+  // traffic via after(). Fire-and-forget; the 10-min throttle inside
+  // runSocialFlush makes this effectively free, and it never throws.
   after(() => runSocialFlush().catch(() => {}));
 
   const displayName = profile?.display_name ?? profile?.email ?? 'Setnayan Team';
-
-  // EventSwitcher data — same shape DashboardLayout feeds OuterDashboardHeader.
-  // Hide archived events; active-first + expired-rightmost; primary (or first
-  // active) is the anchor monogram. Zero events → the wrapper renders the
-  // empty "+" monogram linking to /dashboard/create-event.
-
-  // DB-driven creatable event types for the switcher's add-event sheet
-  // (2026-06-13 cutover) — request-cached, so layouts + pages share one read.
-  const creatableEventTypes = await getCreatableEventTypes();
-  const visibleEvents = events.filter((e) => !e.archived);
-  const activeEvents = sortEventsForSwitcher(visibleEvents);
-  const primaryEvent = visibleEvents.find((e) => e.is_primary) ?? activeEvents[0] ?? null;
-  const switcherEvents = activeEvents.map((e) => ({
-    event_id: e.event_id,
-    display_name: e.display_name,
-    event_date: e.event_date,
-    is_primary: e.is_primary,
-    monogram_text: e.monogram_text,
-    monogram_color: e.monogram_color,
-    // Carry the onboarding free-monogram design (owner-locked 2026-06-03) so the
-    // switcher's anchor + dropdown rows render the couple's REAL customized
-    // monogram, matching the customer doorway (the basic-badge bug otherwise).
-    monogram_frame_key: e.monogram_frame_key,
-    monogram_font_key: e.monogram_font_key,
-    monogram_style: e.monogram_style,
-    monogram_custom_svg: e.monogram_uploaded_svg ?? e.monogram_custom_svg,
-  }));
 
   const badge = profile?.is_internal
     ? { label: '🟣 Internal', tone: 'bg-purple-100 text-purple-800' }
@@ -126,57 +93,31 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       ? { label: '🟢 Team Pool', tone: 'bg-emerald-100 text-emerald-800' }
       : { label: 'Setnayan Team', tone: 'bg-ink/10 text-ink/70' };
 
-  // Top bar — admin utilities cluster: unified switcher, admin badge,
-  // display name, sign-out form. The RoleSwitchPill (mobile topBar + desktop
-  // sidebar footer) is RETIRED 2026-06-12 per owner directive "single
-  // switcher" — the unified EventSwitcher top-left now owns BOTH event
-  // switching and cross-console hopping (Customer view / Shop console) on
-  // every viewport.
+  // Top bar — right-aligned utilities cluster. AccountSwitcher pill is
+  // mobile-only (lg:hidden); desktop users open the switcher from the
+  // AccountSwitcherStandalone row in the sidebar header.
   const topBar = (
-    <div className="flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:mx-auto lg:px-8">
-      {/* Top-left unified switcher — same top-left corner it holds on the
-          customer doorway (owner directive 2026-06-02). Customer chrome
-          carries no brand wordmark in this corner either (2026-05-15 chrome
-          lock), so all three doorways read consistently. Zero couple events →
-          the switcher renders the empty "+" monogram anchor but the menu
-          (incl. the "Switch view" rows) still opens via the caret. */}
-      <EventSwitcher
-        currentRole="admin"
-        currentEventId={primaryEvent?.event_id ?? null}
-        currentEventName={primaryEvent?.display_name ?? null}
-        currentEventDate={primaryEvent?.event_date ?? null}
-        currentMonogramText={primaryEvent?.monogram_text ?? null}
-        currentMonogramColor={primaryEvent?.monogram_color ?? null}
-        currentMonogramFrameKey={primaryEvent?.monogram_frame_key}
-        currentMonogramFontKey={primaryEvent?.monogram_font_key}
-        currentMonogramStyle={primaryEvent?.monogram_style}
-        currentMonogramCustomSvg={primaryEvent?.monogram_uploaded_svg ?? primaryEvent?.monogram_custom_svg}
-        events={switcherEvents}
-        hasCustomerAccess={roles.hasCustomerAccess}
-        hasVendorAccess={roles.hasVendorAccess}
-        hasAdminAccess={roles.hasAdminAccess}
-        vendorProfiles={roles.vendorProfiles}
-        eventTypes={creatableEventTypes}
+    <div className="flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-end gap-2 px-4 py-3 sm:px-6 lg:mx-auto lg:px-8">
+      <UnreadBellBadge
+        userId={user.id}
+        initialUnread={unreadCount}
+        href="/admin/notifications"
+        ariaBaseLabel="Notifications"
+        ariaUnreadSuffix="unread"
       />
-      <div className="flex items-center gap-2">
-        <UnreadBellBadge
-          userId={user.id}
-          initialUnread={unreadCount}
-          href="/admin/notifications"
-          ariaBaseLabel="Notifications"
-          ariaUnreadSuffix="unread"
-        />
-        <span
-          className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${badge.tone}`}
-        >
-          {badge.label}
-        </span>
-        <span className="hidden text-sm text-ink/70 sm:inline">{displayName}</span>
-        <form action="/auth/sign-out" method="post">
-          <button className="button-secondary h-9 px-3 text-xs" type="submit">
-            Sign out
-          </button>
-        </form>
+      <span
+        className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${badge.tone}`}
+      >
+        {badge.label}
+      </span>
+      <span className="hidden text-sm text-ink/70 sm:inline">{displayName}</span>
+      <form action="/auth/sign-out" method="post">
+        <button className="button-secondary h-9 px-3 text-xs" type="submit">
+          Sign out
+        </button>
+      </form>
+      <div className="lg:hidden">
+        <AccountSwitcher data={switcherData} />
       </div>
     </div>
   );
@@ -186,16 +127,18 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const navSlots = await getNavSlotMap();
 
   return (
-    // app-surface → Source Sans backend typeface (globals.css). Plain block
-    // wrapper: no transform/filter so the BottomNav's fixed positioning and
-    // SidebarShell's own offset math are unaffected.
     <div className="app-surface">
       <SidebarShell
         sidebarHeader={
-          <header className="px-4 py-3">
-            <Wordmark />
-            <p className="m-label-mono mt-1.5" style={{ color: 'var(--m-slate-2)' }}>Setnayan HQ</p>
-          </header>
+          <>
+            <header className="px-4 py-3">
+              <Wordmark />
+              <p className="m-label-mono mt-1.5" style={{ color: 'var(--m-slate-2)' }}>Setnayan HQ</p>
+            </header>
+            <div className="px-3 pb-3">
+              <AccountSwitcherStandalone data={switcherData} />
+            </div>
+          </>
         }
         sidebar={<AdminSidebar navSlots={navSlots} />}
         topBar={topBar}

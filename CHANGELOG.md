@@ -14,6 +14,17 @@ The veil used to fade out + unmount the moment it lifted, so the film only start
 Verified: `pnpm typecheck` + `pnpm lint` clean. (Visual/interaction needs a real browser — three.js doesn't render headless.)
 
 SPEC IMPACT: `0024_Veil_Reveal_Spec` / `0024_Save_the_Date_Content_and_Customization` — the veil is a two-way persistent layer over the film, not a gate that disappears. No schema/API change.
+## 2026-06-18 · fix(pricing): Panood now reads the admin catalog (the real "saving doesn't propagate" bug)
+
+Owner: "the admin pricing controls all the prices on the app." PR 2 of the pricing-authority effort — fixes the one place a saved admin edit was genuinely ignored on a real charge.
+
+The Panood add-on page hardcoded a 5-SKU ladder (`PANOOD_SKUS`: Daily ₱2,499 / Annual ₱19,999 / AI-Highlight ₱999 / AI-Edited ₱3,499 / Same-Day-Edit ₱9,999) whose `sku_code`s were V1 keys (`panood_daily_broadcast`, `ai_video_highlight_60s`, …) **absent from `platform_retail_catalog_v2`**. The checkout passed those keys as the `service_key`, so `submitOrderAction`'s catalog re-resolve returned null and the **hardcoded client centavos billed regardless of admin edits**.
+
+Per owner decision (Option B), Panood collapses to **one per-day SKU = the catalog row `PANOOD_SYSTEM`** (₱2,499, read live via `formatV2Sku`). The checkout's `serviceKey` is now `PANOOD_SYSTEM`, so `submitOrderAction` re-resolves the price from the catalog (`resolvePaxPricedOrderCentavos`) — editing it at `/admin/pricing` now propagates to the charge. Removed the Annual / AI-Highlight / AI-Edited / Same-Day-Edit offerings from the buy flow, the plans table, the "from" price, and the now-misleading samples; the displayed price + the in-copy day price interpolate the live catalog value (no hardcoded ₱ in the page).
+
+`app/dashboard/[eventId]/add-ons/panood/page.tsx` only. `pnpm typecheck` + `pnpm lint` clean. The dropped V1 keys still linger harmlessly in `lib/add-on-stats.ts` / `lib/subscriptions.ts` / the legacy `lib/sku-catalog.ts` mirror (they handle historical orders; the mirror cleanup is PR3).
+
+SPEC IMPACT: iter 0011 (Panood) is now a single per-day SKU priced from the admin catalog (Annual + AI media SKUs retired from the buy flow). **Next — PR3:** replace the remaining display-only hardcodes (`lib/wizard.ts` copy, Papic display figures, `/pricing` branch line) + delete retired Boosted-Ads prices. DECISION_LOG row added.
 
 ## 2026-06-18 · fix(std): couple opening picker honours the admin "allowed openings" map
 

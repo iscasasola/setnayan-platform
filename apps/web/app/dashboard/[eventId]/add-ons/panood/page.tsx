@@ -22,6 +22,7 @@ import { resolveAddOnState } from '@/lib/add-on-state';
 //   • apps/web/app/dashboard/[eventId]/checkout/actions.ts
 //   • PR #594 + PR #595 voucher schema substrate
 import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 
 // Iteration 0011 — Panood App Store-style detail surface.
 //
@@ -30,85 +31,20 @@ import { fetchPlatformSettings } from '@/lib/platform-settings';
 // the hero CTA flips to "Open Panood setup" and routes into the setup
 // surface that holds YouTube OAuth, broadcaster + camera-operator links.
 //
-// Decision log row 2026-05-17: this is the pilot for the App Store pattern.
-// The shared layout in app/_components/app-store/* will fan out to the
-// other 8 add-ons + vendor service detail pages after Panood validates.
-//
-// Pricing source of truth: service_catalog rows (V1 lock 2026-05-16). The
-// page reads PHP centavos and renders via formatPhp(). Tokens are NOT
-// surfaced — that retirement is in the 2026-05-11 decision log.
+// Pricing source of truth: the admin-managed V2 catalog row PANOOD_SYSTEM in
+// platform_retail_catalog_v2, read live via formatV2Sku (owner 2026-06-18 ·
+// "admin pricing controls all the prices on the app"). Panood is ONE per-day
+// SKU; the prior hardcoded 5-SKU ladder (Daily / Annual / AI-Highlight /
+// AI-Edited / Same-Day-Edit) used V1 keys absent from the catalog, so admin
+// price edits were silently ignored on the charge. The checkout's serviceKey
+// is now PANOOD_SYSTEM, so submitOrderAction re-resolves the price from the
+// catalog — editing it at /admin/pricing now propagates here.
 
 export const metadata = { title: 'Panood · Setnayan' };
 
 type Props = { params: Promise<{ eventId: string }> };
 
-// SKU rows shown in the description's Plans & pricing table AND in the
-// Choose-plan sheet. Mirrors V1 SKU lock; if the catalog moves, this list
-// follows. Price in PHP centavos so we format once at render time.
-type PanoodSku = {
-  sku_code: string;
-  name: string;
-  scope: string;
-  centavos: number;
-  unit: string;
-  badge?: string;
-};
-
-const PANOOD_SKUS: ReadonlyArray<PanoodSku> = [
-  {
-    sku_code: 'panood_daily_broadcast',
-    // Panood always-multi-cam pivot (CLAUDE.md 2026-05-17 row) — Daily
-    // Broadcast bakes in multi-cam (up to 6) at ₱2,499. Camera Sync +
-    // Annual Streaming Plus retired same row · collapsed into the
-    // always-multi-cam SKUs. Pre-pilot audit followup 2026-05-30 ·
-    // canonical price source is `apps/web/lib/sku-catalog.ts`.
-    name: 'Daily Broadcast',
-    scope: 'One day · always multi-cam (up to 6 cameras) · YouTube delivery + auto-archive.',
-    centavos: 249900,
-    unit: ' / day',
-    badge: 'Most popular',
-  },
-  {
-    sku_code: 'panood_annual_streaming',
-    name: 'Annual Streaming',
-    scope: 'Unlimited multi-cam streaming days for a year, across every event on your account. Best for vendors + competition organizers streaming year-round.',
-    centavos: 1999900,
-    unit: ' / year',
-  },
-  {
-    sku_code: 'ai_video_highlight_60s',
-    name: 'AI Video Highlight',
-    scope: '60-second compiled reel from your broadcast archive. Multi-purchase.',
-    centavos: 99900,
-    unit: ' / 60s',
-  },
-  {
-    sku_code: 'ai_edited_highlight_3min',
-    name: 'AI Edited Highlight',
-    scope: '3-minute storyline cut — beats, music, pacing chosen by Claude vision.',
-    centavos: 349900,
-    unit: ' / 3 min',
-  },
-  {
-    sku_code: 'same_day_edit',
-    name: 'Same-Day Edit',
-    scope:
-      'Cinematic 3–5 minute film, delivered before the reception ends. Played live on the LED background screen at the climactic moment.',
-    centavos: 999900,
-    unit: ' / event',
-    badge: 'Flagship',
-  },
-];
-
-function toPlan(sku: PanoodSku): PlanRow {
-  return {
-    name: sku.name,
-    scope: sku.scope,
-    price: formatPhp(sku.centavos / 100),
-    unit: sku.unit,
-    badge: sku.badge,
-  };
-}
+const PANOOD_SKU_CODE = 'PANOOD_SYSTEM';
 
 export default async function PanoodAppStorePage({ params }: Props) {
   const { eventId } = await params;
@@ -129,7 +65,7 @@ export default async function PanoodAppStorePage({ params }: Props) {
   // Parallel-fetch the platform settings alongside stats + state. The
   // settings feed the InlineCheckoutDrawer in ChoosePlanSheet · zero
   // extra round-trips because we're already awaiting two things here.
-  const [stats, stateCtx, settings] = await Promise.all([
+  const [stats, stateCtx, settings, panoodSku] = await Promise.all([
     fetchAddOnStats(supabase, 'panood'),
     resolveAddOnState(
       supabase,
@@ -139,11 +75,34 @@ export default async function PanoodAppStorePage({ params }: Props) {
       `/dashboard/${eventId}/add-ons/panood/setup`,
     ),
     fetchPlatformSettings(supabase),
+    formatV2Sku(PANOOD_SKU_CODE).catch(() => null),
   ]);
   const owned = stateCtx.state === 'launch';
 
-  const fromPriceCentavos = Math.min(...PANOOD_SKUS.map((s) => s.centavos));
-  const fromPriceFormatted = `${formatPhp(fromPriceCentavos / 100)} / day`;
+  // Single per-day SKU, priced live from the admin catalog. The charge itself
+  // is re-resolved server-side from PANOOD_SKU_CODE (the serviceKey), so this
+  // price is for display; a catalog miss only blanks the label, never bills a
+  // stale number.
+  const dailyCentavos = panoodSku?.price_centavos ?? 0;
+  const dailyPriceLabel = panoodSku ? formatPhp(panoodSku.price_php) : '—';
+  const fromPriceFormatted = `${dailyPriceLabel} / day`;
+
+  const dailyPlan = {
+    sku_code: PANOOD_SKU_CODE,
+    name: 'Daily Broadcast',
+    scope: 'One day · always multi-cam (up to 6 cameras) · YouTube delivery + auto-archive.',
+    price: dailyPriceLabel,
+    unit: ' / day',
+    badge: 'Most popular' as const,
+    priceCentavos: String(dailyCentavos),
+  };
+  const planRow: PlanRow = {
+    name: dailyPlan.name,
+    scope: dailyPlan.scope,
+    price: dailyPlan.price,
+    unit: dailyPlan.unit,
+    badge: dailyPlan.badge,
+  };
 
   const stats4: StatTile[] = [
     {
@@ -173,8 +132,8 @@ export default async function PanoodAppStorePage({ params }: Props) {
       caption: 'use Panood',
     },
     {
-      eyebrow: 'Pricing from',
-      value: formatPhp(fromPriceCentavos / 100),
+      eyebrow: 'Pricing',
+      value: dailyPriceLabel,
       caption: 'per day',
     },
   ];
@@ -186,23 +145,24 @@ export default async function PanoodAppStorePage({ params }: Props) {
       choosePlan={{
         eventId,
         triggerLabel: 'Add',
-        priceFromLabel: `From ${fromPriceFormatted}`,
-        // 2026-05-29 Day 2 inline-checkout · thread priceCentavos as a string
-        // so each plan's drawer can do BigInt voucher math. Also pass
-        // settings down to the sheet so the drawer renders BDO + GCash QR
-        // inline without an extra round-trip.
-        plans: PANOOD_SKUS.map((s) => ({
-          sku_code: s.sku_code,
-          name: s.name,
-          scope: s.scope,
-          price: formatPhp(s.centavos / 100),
-          unit: s.unit,
-          badge: s.badge,
-          priceCentavos: String(s.centavos),
-        })),
+        priceFromLabel: fromPriceFormatted,
+        // Single per-day plan. serviceKey = PANOOD_SKU_CODE so the drawer's
+        // order re-resolves the price from the admin catalog; priceCentavos is
+        // the live catalog price threaded through for the inline voucher math.
+        plans: [
+          {
+            sku_code: dailyPlan.sku_code,
+            name: dailyPlan.name,
+            scope: dailyPlan.scope,
+            price: dailyPlan.price,
+            unit: dailyPlan.unit,
+            badge: dailyPlan.badge,
+            priceCentavos: dailyPlan.priceCentavos,
+          },
+        ],
         settings,
         introCopy:
-          'Filipino weddings often have separate event-days for prep, ceremony, and reception. Buy one day per broadcast day, or unlock the full year with an Annual plan.',
+          'Filipino weddings often have separate event-days for prep, ceremony, and reception — buy one Panood broadcast day per event-day.',
         footnote:
           'Apply-then-pay flow · we confirm price before payment · refunds follow the standard 24-hour SLA.',
       }}
@@ -298,24 +258,14 @@ export default async function PanoodAppStorePage({ params }: Props) {
           caption: 'Multi-cam ceremony with monogram overlay and lower-thirds.',
           badge: 'YouTube',
         },
-        {
-          title: 'AI Video Highlight',
-          caption: 'Auto-compiled 60-second reel pulled from highlight markers.',
-          badge: 'MP4 · 60s',
-        },
-        {
-          title: 'Same-Day Edit teaser',
-          caption: 'A 3-minute cinematic cut delivered before the reception ends.',
-          badge: 'Flagship',
-        },
       ]}
       description={{
         paragraphs: [
           'Panood turns five phones into a multi-cam wedding broadcast. One person runs the broadcaster on a laptop or tablet, switches between cameras, marks highlights, and decides when to cut to standby. Camera operators are friends or family with smartphones — no install, just open the link.',
           'Every broadcast goes to your own YouTube channel via a one-time OAuth grant. You control privacy (unlisted by default), you keep the archive forever, you can flip the broadcast to public after the event for sharing. Setnayan never holds the master tape.',
-          'The base plan is Daily Broadcast (₱2,499 / day · always multi-cam, up to 6 cameras). Filipino weddings often run across three days — prep at one venue, ceremony at another, reception at a third — and you can buy one Daily Broadcast per day. Vendors + competition organizers who stream year-round can switch to Annual Streaming (₱19,999 / year · same multi-cam, every event on your account).',
+          `Panood is one Daily Broadcast (${dailyPriceLabel} / day · always multi-cam, up to 6 cameras). Filipino weddings often run across three days — prep at one venue, ceremony at another, reception at a third — so buy one Daily Broadcast per event-day.`,
         ],
-        plans: PANOOD_SKUS.map(toPlan),
+        plans: [planRow],
         notIncluded: [
           'No human crew — you bring your own camera operators (friends or family with smartphones).',
           'No DSLR direct-to-broadcast in V1 — pair a DSLR via Pro Camera Bridge (phone-as-bridge, sold separately).',

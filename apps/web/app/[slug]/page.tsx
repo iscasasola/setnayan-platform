@@ -35,6 +35,7 @@ import { EditorialContent } from './_components/editorial/editorial-content';
 import { SaveTheDateView } from './_components/save-the-date';
 import { RevealOverlayServer } from './_components/reveal/reveal-overlay-server';
 import { resolveRevealEffects } from '@/lib/std-reveal-effects';
+import { resolveStdBackground, realisticBgSrc, type StdBackground } from '@/lib/std-backgrounds';
 import { REVEAL_TEMPLATE_IDS, type RevealTemplateId } from '@/lib/reveal-config';
 import { OurStory } from './_components/our-story';
 import { sanitizeRolePalette } from '@/lib/mood-board';
@@ -149,7 +150,7 @@ const fetchEventBySlug = cache(async (slug: string) => {
   const { data } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme',
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_background',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -351,6 +352,16 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     event.site_bg_music_enabled && event.site_bg_music_r2_key && stdEffectsForMusic.music
       ? await displayUrlForStoredAsset(event.site_bg_music_r2_key)
       : null;
+
+  // Step-1 Save-the-Date background (events.std_background). Realistic → the
+  // public scene src; upload → a presigned R2 url; plain/paper → no image.
+  const stdBackground = resolveStdBackground(event.std_background);
+  const stdBackgroundUrl =
+    stdBackground.kind === 'realistic'
+      ? realisticBgSrc(stdBackground.value)
+      : stdBackground.kind === 'upload'
+        ? await displayUrlForStoredAsset(stdBackground.value)
+        : null;
 
   // Resolve the couple-curated "Our photos" gallery (Increment A.4) to display
   // URLs up-front so both render paths share the result. events.our_photos is a
@@ -647,6 +658,8 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         phasesEnabled={phasesEnabled}
         lifecyclePhase={lifecyclePhase}
         stdFilm={stdFilm}
+        stdBackground={stdBackground}
+        stdBackgroundUrl={stdBackgroundUrl}
         heroPhotoUrl={heroPhotoUrl}
         heroVideoUrl={heroVideoUrl}
         bgMusicUrl={bgMusicUrl}
@@ -671,6 +684,8 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         phasesEnabled={phasesEnabled}
         lifecyclePhase={lifecyclePhase}
         stdFilm={stdFilm}
+        stdBackground={stdBackground}
+        stdBackgroundUrl={stdBackgroundUrl}
         heroPhotoUrl={heroPhotoUrl}
         heroVideoUrl={heroVideoUrl}
         bgMusicUrl={bgMusicUrl}
@@ -702,6 +717,8 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         phasesEnabled={phasesEnabled}
         lifecyclePhase={lifecyclePhase}
         stdFilm={stdFilm}
+        stdBackground={stdBackground}
+        stdBackgroundUrl={stdBackgroundUrl}
         heroPhotoUrl={heroPhotoUrl}
         heroVideoUrl={heroVideoUrl}
         bgMusicUrl={bgMusicUrl}
@@ -830,6 +847,8 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         phasesEnabled={phasesEnabled}
         lifecyclePhase={lifecyclePhase}
         stdFilm={stdFilm}
+        stdBackground={stdBackground}
+        stdBackgroundUrl={stdBackgroundUrl}
         heroPhotoUrl={heroPhotoUrl}
         heroVideoUrl={heroVideoUrl}
         bgMusicUrl={bgMusicUrl}
@@ -907,6 +926,8 @@ type EventRow = {
   std_invitation_launch_date?: string | null;
   // Visual theme for the film (lib/std-themes · 2026-06-18). NULL = 'moodboard'.
   std_theme?: string | null;
+  // Step-1 background choice {kind, value} (events.std_background · 2026-06-19).
+  std_background?: unknown;
   // JSONB column populated by the host via /dashboard/[eventId]/website/photo-moments.
   // Shape: { intro_copy: string, moments: [{ time_label, title, note, mode }] }.
   // Unknown / empty shapes degrade gracefully in PhotoMomentsWidget — the
@@ -1151,6 +1172,8 @@ function PublicLanding({
   phasesEnabled,
   lifecyclePhase,
   stdFilm,
+  stdBackground,
+  stdBackgroundUrl,
   heroPhotoUrl,
   heroVideoUrl,
   bgMusicUrl,
@@ -1172,6 +1195,8 @@ function PublicLanding({
   lifecyclePhase: LifecyclePhase;
   /** PR4 P1 — render the auto-playing STD film instead of the static section. */
   stdFilm: boolean;
+  stdBackground?: StdBackground;
+  stdBackgroundUrl?: string | null;
   // Presigned GET URL for the host's uploaded hero photo, or null when the
   // monogram-only fallback should render. See displayUrlForStoredAsset() in
   // lib/uploads.ts — caller resolves once at the top-level page.
@@ -1316,6 +1341,8 @@ function PublicLanding({
           loveStory={event.love_story}
           showTextHero={!hasHeroMedia}
           film={stdFilm}
+          background={stdBackground}
+          backgroundImageUrl={stdBackgroundUrl}
           monogramText={event.monogram_text}
           musicUrl={bgMusicUrl}
           galleryUrls={
@@ -1602,6 +1629,8 @@ function InvitationSite({
   phasesEnabled,
   lifecyclePhase,
   stdFilm,
+  stdBackground,
+  stdBackgroundUrl,
   heroPhotoUrl,
   heroVideoUrl,
   bgMusicUrl,
@@ -1637,6 +1666,8 @@ function InvitationSite({
   lifecyclePhase: LifecyclePhase;
   /** PR4 P1 — render the auto-playing STD film instead of the static section. */
   stdFilm: boolean;
+  stdBackground?: StdBackground;
+  stdBackgroundUrl?: string | null;
   // Presigned GET URL for the host's uploaded hero photo, or null when the
   // monogram-only fallback should render. Caller resolves once at the
   // top-level page so PublicLanding + InvitationSite share the result.
@@ -1853,6 +1884,8 @@ function InvitationSite({
             loveStory={event.love_story}
             showTextHero={false}
             film={stdFilm}
+            background={stdBackground}
+            backgroundImageUrl={stdBackgroundUrl}
             monogramText={event.monogram_text}
             musicUrl={bgMusicUrl}
             galleryUrls={

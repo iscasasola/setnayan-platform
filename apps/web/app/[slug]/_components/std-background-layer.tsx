@@ -26,10 +26,19 @@ type Props = {
   imageUrl?: string | null;
   /** Subtle pointer/tilt parallax. Default on; auto-off under reduced-motion. */
   parallax?: boolean;
+  /** Live page: position fixed behind the full-screen film (z-40, scrim z-41).
+   *  Default (preview) is absolute, anchored to the device-frame container. */
+  fixed?: boolean;
   className?: string;
 };
 
-export function StdBackgroundLayer({ background, imageUrl, parallax = true, className }: Props) {
+export function StdBackgroundLayer({
+  background,
+  imageUrl,
+  parallax = true,
+  fixed = false,
+  className,
+}: Props) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -71,10 +80,11 @@ export function StdBackgroundLayer({ background, imageUrl, parallax = true, clas
   }, [parallax]);
 
   const style: CSSProperties = {
-    position: 'absolute',
+    position: fixed ? 'fixed' : 'absolute',
     inset: 0,
     transform: 'scale(1.08)',
     willChange: 'transform',
+    ...(fixed ? { zIndex: 40 } : {}),
   };
   if (background.kind === 'plain') {
     style.backgroundColor = background.value;
@@ -99,8 +109,9 @@ export function StdBackgroundLayer({ background, imageUrl, parallax = true, clas
         <div
           aria-hidden
           style={{
-            position: 'absolute',
+            position: fixed ? 'fixed' : 'absolute',
             inset: 0,
+            ...(fixed ? { zIndex: 41 } : {}),
             background:
               'linear-gradient(180deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.12) 30%, rgba(0,0,0,0.12) 70%, rgba(0,0,0,0.34) 100%)',
           }}

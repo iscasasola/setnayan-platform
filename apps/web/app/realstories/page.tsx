@@ -5,52 +5,53 @@ import { ALL_REAL_WEDDINGS } from '@/lib/real-weddings';
 import { loadPublishedShowcases } from '@/lib/showcase-db';
 import { RealStoriesGallery, type GalleryItem } from './_components/gallery';
 
-// /realstories — public Real Weddings showcase index (iteration 0046).
+// /realstories — Real Stories index (iteration 0046).
 //
-// A "wall of living front pages": every published editorial is a magazine
-// cover, organised by a dedup cascade (Cover → Most loved → Just published →
-// Archive, no repeats) with search, and a 5-second hero clip plays live on a
-// ping-pong loop where a couple chose one. See _components/gallery.tsx.
+// "A wall of living front pages": every published editorial is a newspaper
+// cover with its Chronicle nameplate, organised by the dedup cascade (Cover
+// → Most loved → Just published → Archive). Event type filter chips let
+// visitors browse by milestone (Wedding, Debut, Anniversary, Graduation,
+// Reunion, …). A search bar covers the full haystack.
 //
-// Real, consent-gated editorials (loadPublishedShowcases — couples who opted in,
-// past the T+30d grace window) take priority and link to each couple's own
-// canonical editorial at /[slug] (0002 Phase 4 — never duplicated here). Until
-// any real wedding qualifies (first = the founder's Dec 2026 wedding), the page
-// falls back to curated, clearly-labelled SAMPLES (lib/real-weddings.ts) so the
-// surface is live and gives SEO a real page. DB-backed → ISR, not static.
+// Covers ALL Filipino life milestones, not just weddings. The data model is
+// unchanged (events table), but `eventType` is surfaced as the primary
+// browsing axis on this page.
+//
+// Real, consent-gated editorials (loadPublishedShowcases) take priority and
+// link to each person's canonical editorial at /[slug] (0002 Phase 4). Until
+// any real editorial qualifies (first = the founder's Dec 2026 wedding), the
+// page falls back to curated, clearly-labelled SAMPLES. DB-backed → ISR.
 
 const SITE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
 ).replace(/\/$/, '');
 
 export const metadata: Metadata = {
-  title: 'Real weddings · Setnayan',
+  title: 'Real stories · Setnayan',
   description:
-    'Real Filipino weddings, told by the couples who lived them — browse by ceremony type, venue, and theme. Preview a sample showcase now; real couple editorials begin December 2026 with explicit consent per RA 10173.',
+    'Real Filipino weddings, debuts, anniversaries, graduations, and reunions — every major life milestone told in full, by the people who were there. Sample showcases now live; real editorials begin December 2026 with explicit consent per RA 10173.',
   alternates: { canonical: '/realstories' },
   keywords: [
     'real Filipino weddings',
-    'Philippines wedding inspiration',
-    'Setnayan real weddings',
-    'Filipino wedding photos',
-    'wedding editorial Philippines',
-    'Filipino wedding stories',
+    'Filipino debut stories',
+    'Filipino anniversary celebration',
+    'Philippines life milestones',
+    'Setnayan real stories',
+    'Filipino wedding editorial',
+    'wedding stories Philippines',
   ],
   openGraph: {
-    title: 'Real weddings · Setnayan',
+    title: 'Real stories · Setnayan',
     description:
-      'Real Filipino weddings, told by the couples who lived them. Preview a sample showcase now; real editorials begin December 2026.',
+      'Real Filipino life milestones — weddings, debuts, anniversaries, and more — told in full by the people who were there. Sample showcases now live; real editorials begin December 2026.',
     url: '/realstories',
   },
 };
 
-// DB-backed (consent-gated showcases) → ISR. Best-effort loader degrades to the
-// sample, so the page always renders even without DB access.
+// DB-backed (consent-gated showcases) → ISR. Degrades to samples gracefully.
 export const revalidate = 3600;
 
-export default async function WeddingsIndexPage() {
-  // Real consent-gated showcases take priority; the samples are the fallback
-  // shown ONLY until a real wedding is uploaded (owner-locked behaviour).
+export default async function RealStoriesIndexPage() {
   const showcases = await loadPublishedShowcases();
   const showingSamples = showcases.length === 0;
 
@@ -58,7 +59,7 @@ export default async function WeddingsIndexPage() {
     ? ALL_REAL_WEDDINGS.map((w) => ({
         href: `/realstories/${w.slug}`,
         coupleNames: w.coupleNames,
-        metaLine: [w.ceremonyType, w.city].filter(Boolean).join(' · '),
+        metaLine: [w.eventType, w.city].filter(Boolean).join(' · '),
         ceremonyType: w.ceremonyType,
         venueSetting: w.venueSetting,
         theme: w.theme,
@@ -70,12 +71,17 @@ export default async function WeddingsIndexPage() {
         publishedSort: w.publishedAt,
         isSample: true,
         searchText:
-          `${w.coupleNames} ${w.city} ${w.ceremonyType} ${w.venueSetting} ${w.theme} ${w.excerpt}`.toLowerCase(),
+          `${w.coupleNames} ${w.city} ${w.eventType} ${w.ceremonyType} ${w.venueSetting} ${w.theme} ${w.excerpt}`.toLowerCase(),
+        eventType: w.eventType,
+        witnessQuote: w.witnessQuote ?? null,
+        witnessAttribution: w.witnessAttribution ?? null,
+        services: w.services ?? null,
+        editionNumber: w.editionNumber ?? null,
       }))
     : showcases.map((s) => ({
         href: s.href,
         coupleNames: s.coupleNames,
-        metaLine: [s.city, s.dateLabel].filter(Boolean).join(' · ') || 'Real wedding',
+        metaLine: [s.city, s.dateLabel].filter(Boolean).join(' · ') || 'Real story',
         city: s.city,
         palette: s.monogramColor ? [s.monogramColor] : ['#6B4E3D'],
         heroImageUrl: s.heroImageUrl,
@@ -84,6 +90,11 @@ export default async function WeddingsIndexPage() {
         publishedSort: s.eventDate ?? '',
         isSample: false,
         searchText: `${s.coupleNames} ${s.city ?? ''} ${s.dateLabel ?? ''}`.toLowerCase(),
+        eventType: null,
+        witnessQuote: null,
+        witnessAttribution: null,
+        services: null,
+        editionNumber: null,
       }));
 
   const itemListElements = items.map((it, i) => ({
@@ -96,7 +107,7 @@ export default async function WeddingsIndexPage() {
   const collectionJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',
-    name: 'Real weddings · Setnayan',
+    name: 'Real stories · Setnayan',
     url: `${SITE_URL}/realstories`,
     inLanguage: 'en-PH',
     isPartOf: { '@type': 'WebSite', '@id': `${SITE_URL}/#website` },
@@ -107,12 +118,7 @@ export default async function WeddingsIndexPage() {
     '@type': 'BreadcrumbList',
     itemListElement: [
       { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_URL}/` },
-      {
-        '@type': 'ListItem',
-        position: 2,
-        name: 'Real weddings',
-        item: `${SITE_URL}/realstories`,
-      },
+      { '@type': 'ListItem', position: 2, name: 'Real stories', item: `${SITE_URL}/realstories` },
     ],
   };
 
@@ -132,21 +138,21 @@ export default async function WeddingsIndexPage() {
             Real stories
           </p>
           <h1 className="text-balance text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-            Real Filipino weddings, told by the couples who lived them.
+            The front-page story of their life.
           </h1>
           <p className="text-base text-ink/65">
             {showingSamples ? (
               <>
-                Real couple editorials begin December 2026 — published from each
-                couple&rsquo;s own wedding page, with their consent. Here&rsquo;s a
-                set of samples to show how a wedding looks once it&rsquo;s told on
-                Setnayan.
+                Every wedding, debut, anniversary, graduation, and reunion — told
+                in full, by the people who were there. Real editorials begin
+                December 2026. Here&rsquo;s a set of samples to show how each
+                story looks when it&rsquo;s told on Setnayan.
               </>
             ) : (
               <>
-                Real Filipino weddings, published from each couple&rsquo;s own
-                wedding page with their consent — their story, their photos, their
-                vendor team, and the day as it actually unfolded.
+                Real Filipino lives, published from each person&rsquo;s own
+                Setnayan page with their consent — the day as it actually
+                unfolded, written by the people who witnessed it.
               </>
             )}
           </p>
@@ -156,12 +162,12 @@ export default async function WeddingsIndexPage() {
 
         <div className="mt-16 rounded-3xl border border-ink/10 bg-white/60 p-7 text-center sm:p-10">
           <h2 className="text-xl font-semibold tracking-tight text-ink sm:text-2xl">
-            Your wedding could be the next one here.
+            Your story could be the next one here.
           </h2>
           <p className="mx-auto mt-2 max-w-xl text-base text-ink/65">
-            Plan it on Setnayan, and your wedding page becomes your story —
-            published when you&rsquo;re ready, with your photos, your team, and the
-            day as it actually unfolded.
+            Plan your event on Setnayan, and your page becomes your story —
+            published when you&rsquo;re ready, with your photos, your team, and
+            the day as it actually unfolded.
           </p>
           <div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row">
             <Link

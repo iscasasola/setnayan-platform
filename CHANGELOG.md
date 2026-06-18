@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · feat(std): auto-to-full-screen + robust window-level scroll-scrub (PR-W follow-up)
+
+Owner: "can we make it auto play to full screen? it is not scrubbing as well." (The scroll-scrub wasn't live yet — PR-W hadn't merged — and the wheel was bound to the centred stage only; both addressed here, same PR-W branch.)
+
+- **Auto-to-full-screen.** The film now requests the **Fullscreen API** so it plays with the browser chrome hidden. Browsers require a user gesture, so it fires on the reveal-lift (the veil dispatches `std-go-fullscreen` **synchronously** from its lift tap, preserving the activation) or, with no reveal, on the guest's first tap on the film. Targets `documentElement` (reveal + film both inside), once only, wrapped in try/catch — iOS Safari has no element-fullscreen so it silently stays the CSS full-viewport (already edge-to-edge).
+- **Scroll-scrub made robust.** Moved the wheel handler from the centred stage (`onWheel` prop — missed the desktop margins beside the `max-w-2xl` column) to a **`window` wheel listener**, so a mouse/trackpad scroll **anywhere** steps the beats (down = forward, up = back; debounced; manual mode). The vertical-swipe scrub (mobile) is unchanged.
+
+Verified: `pnpm typecheck` (my files clean; monogram-studio `paper` errors are an unrelated local install gap) + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the film auto-plays to true full screen on the reveal-lift gesture (best-effort; iOS stays full-viewport), and scrolls/scrubs anywhere on screen. See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · feat(std): responsive + per-beat animations + scroll-scrub (PR-W)
 
 Owner: "make save the date adjust for mobile and desktop version also. I also need a unique way to animate each information and it must be able to auto play or scrubbed via scroll to go back to information."

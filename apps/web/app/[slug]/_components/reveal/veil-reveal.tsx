@@ -910,6 +910,10 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
         const net = Math.hypot(dxC, dyC);
         delete grabs[e.pointerId];
         if (up > 40 && dur < 460 && up > Math.abs(dxC) * 1.0) {
+          // The lift IS the user gesture — ask the film (z-50) to go full screen
+          // NOW, synchronously, while this activation is live (Fullscreen API
+          // needs a gesture; the film auto-plays to full screen as the veil lifts).
+          try { window.dispatchEvent(new Event('std-go-fullscreen')); } catch { /* noop */ }
           setLift(1);
           return;
         }

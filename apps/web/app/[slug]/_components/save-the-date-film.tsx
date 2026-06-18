@@ -624,7 +624,6 @@ export function SaveTheDateFilm({
   const wasHoldRef = useRef(false);
   const downXRef = useRef(0);
   const downYRef = useRef(0);
-  const wheelAtRef = useRef(0);
 
   // A tap that lands on a real control (Add to calendar · play · mute) must reach
   // THAT button, not be swallowed as a film scrub/pause.
@@ -642,19 +641,25 @@ export function SaveTheDateFilm({
     }
   };
 
-  // Mouse-wheel / trackpad scroll → step beats (down = forward, up = back).
-  // Debounced so one flick = one beat. Live page only (in the builder preview
-  // the wheel belongs to the scrolling builder page).
-  const onWheel = (e: React.WheelEvent) => {
-    if (preview) return;
-    const now = performance.now();
-    if (now - wheelAtRef.current < 380 || Math.abs(e.deltaY) < 16) return;
-    wheelAtRef.current = now;
-    stepBeat(e.deltaY > 0 ? 1 : -1);
+  // Auto-play to FULL SCREEN (owner 2026-06-19). Browsers REQUIRE a user gesture
+  // for the Fullscreen API, so we fire it on the first gesture: the reveal-lift
+  // (the veil dispatches 'std-go-fullscreen' synchronously from its tap — see the
+  // effect below) or, with no reveal, the guest's first tap on the film. Targets
+  // documentElement so the reveal + film are both inside. Once only; iOS Safari
+  // has no element fullscreen → it silently stays the CSS full-viewport (already
+  // edge-to-edge). Never in the builder preview.
+  const fsTriedRef = useRef(false);
+  const requestFilmFullscreen = () => {
+    if (preview || fsTriedRef.current) return;
+    fsTriedRef.current = true;
+    const el = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => void };
+    const req = el.requestFullscreen ?? el.webkitRequestFullscreen;
+    try { req?.call(el); } catch { /* blocked / unsupported — stays full-viewport */ }
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (hitControl(e)) return;
+    requestFilmFullscreen(); // first stage gesture → true full screen (no-reveal path)
     downXRef.current = e.clientX;
     downYRef.current = e.clientY;
     wasHoldRef.current = false;
@@ -725,6 +730,42 @@ export function SaveTheDateFilm({
       return next;
     });
   };
+
+  // Scroll-to-scrub — a WINDOW wheel listener (not the stage) so a mouse/trackpad
+  // scroll anywhere scrubs, even over the cream desktop margins beside the
+  // centred stage. Down = forward, up = back; debounced to one beat per flick;
+  // switches to manual (auto-advance stops where the guest lands). Live only.
+  useEffect(() => {
+    if (preview) return;
+    let last = 0;
+    const onWheel = (e: WheelEvent) => {
+      const now = performance.now();
+      if (now - last < 360 || Math.abs(e.deltaY) < 14) return;
+      last = now;
+      const dir = e.deltaY > 0 ? 1 : -1;
+      goRef.current(Math.max(0, Math.min(N - 1, idxRef.current + dir)));
+      playingRef.current = false;
+      setPlaying(false);
+    };
+    window.addEventListener('wheel', onWheel, { passive: true });
+    return () => window.removeEventListener('wheel', onWheel);
+  }, [preview, N]);
+
+  // Auto-to-full-screen on the reveal-lift gesture: the veil dispatches
+  // 'std-go-fullscreen' synchronously from its lift tap (a user gesture), so the
+  // Fullscreen API call here is still inside that activation. Once only.
+  useEffect(() => {
+    if (preview) return;
+    const onGoFs = () => {
+      if (fsTriedRef.current) return;
+      fsTriedRef.current = true;
+      const el = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => void };
+      const req = el.requestFullscreen ?? el.webkitRequestFullscreen;
+      try { req?.call(el); } catch { /* blocked / unsupported */ }
+    };
+    window.addEventListener('std-go-fullscreen', onGoFs);
+    return () => window.removeEventListener('std-go-fullscreen', onGoFs);
+  }, [preview]);
 
   // The Save-the-Date is the whole full-screen experience (no chrome, no page
   // beneath in this phase) — the film holds on its closing beat; there's no
@@ -816,7 +857,6 @@ export function SaveTheDateFilm({
     },
     onPointerDown,
     onPointerUp,
-    onWheel,
     onPointerCancel: () => { if (holdRef.current) window.clearTimeout(holdRef.current); },
   };
 

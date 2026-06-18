@@ -11,6 +11,7 @@ import { resolveStdTheme } from '@/lib/std-themes';
 import { resolveRevealEffects } from '@/lib/std-reveal-effects';
 import { resolveStdBackground } from '@/lib/std-backgrounds';
 import { resolveStdMedia } from '@/lib/std-media';
+import { resolveStdFinalizedVenues } from '@/lib/std-venues';
 import { REVEAL_TEMPLATE_IDS, fetchRevealConfig } from '@/lib/reveal-config';
 import {
   NO_REVEAL,
@@ -123,14 +124,23 @@ export default async function SaveTheDatePage({ params }: Props) {
   const stdVenueCity: string | null = event?.std_film_venue_city ?? null;
   const stdStory: string | null = event?.std_film_story ?? null;
 
+  // Ceremony + reception venues auto-fill from the couple's FINALIZED bookings
+  // (event_vendors). Reception falls back to the manual override then the event
+  // venue; ceremony is booking-only for now. (Same resolution as the live page.)
+  const finalizedVenues = await resolveStdFinalizedVenues(supabase, eventId);
+  const ceremonyVenue = finalizedVenues.ceremony;
+  const receptionVenue = finalizedVenues.reception ?? stdVenueName ?? event?.venue_name ?? null;
+  const receptionCity = stdVenueCity ?? event?.venue_address ?? null;
+
   const content = resolveStdFilmContent({
     displayName: event?.display_name ?? '',
     monogramText: event?.monogram_text,
     monogramSvg: markSvg,
     dateIso: stdDate ?? event?.event_date ?? null,
     launchDateIso: event?.std_invitation_launch_date,
-    venueName: stdVenueName ?? event?.venue_name,
-    venueAddress: stdVenueCity ?? event?.venue_address,
+    ceremonyVenue,
+    receptionVenue,
+    receptionCity,
     loveStory: stdStory ?? event?.love_story,
     publicId: event?.public_id ?? eventId,
     musicUrl: bgMusicUrl,

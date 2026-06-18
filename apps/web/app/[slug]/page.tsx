@@ -37,6 +37,7 @@ import { RevealOverlayServer } from './_components/reveal/reveal-overlay-server'
 import { resolveRevealEffects } from '@/lib/std-reveal-effects';
 import { resolveStdBackground, realisticBgSrc, type StdBackground } from '@/lib/std-backgrounds';
 import { resolveStdMedia, stdVideoIsLive } from '@/lib/std-media';
+import { resolveStdFinalizedVenues } from '@/lib/std-venues';
 import { REVEAL_TEMPLATE_IDS, type RevealTemplateId } from '@/lib/reveal-config';
 import { OurStory } from './_components/our-story';
 import { sanitizeRolePalette } from '@/lib/mood-board';
@@ -151,7 +152,7 @@ const fetchEventBySlug = cache(async (slug: string) => {
   const { data } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_background, std_media',
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -373,6 +374,21 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     stdVideoIsLive(stdMedia) && stdMedia.videoKey
       ? await displayUrlForStoredAsset(stdMedia.videoKey)
       : null;
+
+  // Save-the-Date ceremony + reception venues (0024 · 2026-06-19). AUTO-FILLED
+  // from the couple's FINALIZED vendor bookings (event_vendors); the reception
+  // falls back to the couple's manual builder entry (std_film_venue_*) then the
+  // event's free-text venue. Ceremony is booking-only for now (manual ceremony
+  // is a follow-up). The film shows whichever venues resolved.
+  const stdFinalizedVenues = await resolveStdFinalizedVenues(admin, event.event_id);
+  const stdVenues = {
+    ceremony: stdFinalizedVenues.ceremony,
+    reception:
+      stdFinalizedVenues.reception ??
+      (event.std_film_venue_name as string | null) ??
+      event.venue_name,
+    receptionCity: (event.std_film_venue_city as string | null) ?? event.venue_address,
+  };
 
   // Resolve the couple-curated "Our photos" gallery (Increment A.4) to display
   // URLs up-front so both render paths share the result. events.our_photos is a
@@ -672,6 +688,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         stdBackground={stdBackground}
         stdBackgroundUrl={stdBackgroundUrl}
         stdVideoUrl={stdVideoUrl}
+        stdVenues={stdVenues}
         heroPhotoUrl={heroPhotoUrl}
         heroVideoUrl={heroVideoUrl}
         bgMusicUrl={bgMusicUrl}
@@ -700,6 +717,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         stdBackground={stdBackground}
         stdBackgroundUrl={stdBackgroundUrl}
         stdVideoUrl={stdVideoUrl}
+        stdVenues={stdVenues}
         heroPhotoUrl={heroPhotoUrl}
         heroVideoUrl={heroVideoUrl}
         bgMusicUrl={bgMusicUrl}
@@ -735,6 +753,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         stdBackground={stdBackground}
         stdBackgroundUrl={stdBackgroundUrl}
         stdVideoUrl={stdVideoUrl}
+        stdVenues={stdVenues}
         heroPhotoUrl={heroPhotoUrl}
         heroVideoUrl={heroVideoUrl}
         bgMusicUrl={bgMusicUrl}
@@ -867,6 +886,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         stdBackground={stdBackground}
         stdBackgroundUrl={stdBackgroundUrl}
         stdVideoUrl={stdVideoUrl}
+        stdVenues={stdVenues}
         heroPhotoUrl={heroPhotoUrl}
         heroVideoUrl={heroVideoUrl}
         bgMusicUrl={bgMusicUrl}
@@ -948,6 +968,9 @@ type EventRow = {
   std_background?: unknown;
   // Step-3 media choice {type, videoKey?, posterKey?, nsfw?} (events.std_media · 2026-06-19).
   std_media?: unknown;
+  // Manual STD venue override (reception fallback when no finalized booking).
+  std_film_venue_name?: string | null;
+  std_film_venue_city?: string | null;
   // JSONB column populated by the host via /dashboard/[eventId]/website/photo-moments.
   // Shape: { intro_copy: string, moments: [{ time_label, title, note, mode }] }.
   // Unknown / empty shapes degrade gracefully in PhotoMomentsWidget — the
@@ -1195,6 +1218,7 @@ function PublicLanding({
   stdBackground,
   stdBackgroundUrl,
   stdVideoUrl,
+  stdVenues,
   heroPhotoUrl,
   heroVideoUrl,
   bgMusicUrl,
@@ -1222,6 +1246,9 @@ function PublicLanding({
   /** Presigned URL of the couple's NSFW-approved closing video (stdVideoIsLive),
    *  or null → the gallery beat shows. Resolved once at the top-level page. */
   stdVideoUrl?: string | null;
+  /** Auto-filled ceremony + reception venue names (finalized bookings ?? manual
+   *  ?? event) + reception city, for the STD film's venue beats. */
+  stdVenues?: { ceremony: string | null; reception: string | null; receptionCity: string | null };
   // Presigned GET URL for the host's uploaded hero photo, or null when the
   // monogram-only fallback should render. See displayUrlForStoredAsset() in
   // lib/uploads.ts — caller resolves once at the top-level page.
@@ -1375,6 +1402,9 @@ function PublicLanding({
           monogramSvg={bespokeSvg}
           musicUrl={bgMusicUrl}
           videoUrl={stdVideoUrl}
+          ceremonyVenue={stdVenues?.ceremony ?? null}
+          receptionVenue={stdVenues?.reception ?? null}
+          receptionCity={stdVenues?.receptionCity ?? null}
           galleryUrls={
             ourPhotoUrls.length ? ourPhotoUrls : heroPhotoUrl ? [heroPhotoUrl] : []
           }
@@ -1662,6 +1692,7 @@ function InvitationSite({
   stdBackground,
   stdBackgroundUrl,
   stdVideoUrl,
+  stdVenues,
   heroPhotoUrl,
   heroVideoUrl,
   bgMusicUrl,
@@ -1702,6 +1733,9 @@ function InvitationSite({
   /** Presigned URL of the couple's NSFW-approved closing video (stdVideoIsLive),
    *  or null → the gallery beat shows. Resolved once at the top-level page. */
   stdVideoUrl?: string | null;
+  /** Auto-filled ceremony + reception venue names (finalized bookings ?? manual
+   *  ?? event) + reception city, for the STD film's venue beats. */
+  stdVenues?: { ceremony: string | null; reception: string | null; receptionCity: string | null };
   // Presigned GET URL for the host's uploaded hero photo, or null when the
   // monogram-only fallback should render. Caller resolves once at the
   // top-level page so PublicLanding + InvitationSite share the result.
@@ -1924,6 +1958,9 @@ function InvitationSite({
             monogramSvg={bespokeSvg}
             musicUrl={bgMusicUrl}
             videoUrl={stdVideoUrl}
+            ceremonyVenue={stdVenues?.ceremony ?? null}
+            receptionVenue={stdVenues?.reception ?? null}
+            receptionCity={stdVenues?.receptionCity ?? null}
             galleryUrls={
               ourPhotoUrls.length ? ourPhotoUrls : heroPhotoUrl ? [heroPhotoUrl] : []
             }

@@ -539,8 +539,9 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // the free base (the static STD view is the fallback); the cinematic openings
   // (RevealOverlay) layer ON TOP and become the ₱1,499 premium (P5 gate). Env
   // for a global rollout, ?film=1 for a per-visit preview while it bakes.
-  const stdFilm =
-    process.env.NEXT_PUBLIC_STD_FILM === '1' || search.film === '1';
+  // Film is on by default for the STD phase; ?film=0 disables it for a
+  // plain-countdown fallback (useful for testing the static path).
+  const stdFilm = search.film !== '0';
 
   // (Note: guest-session cookie was already read above for the private-gate
   // check — reuse the same `session` reference rather than re-fetching.)

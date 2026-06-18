@@ -384,7 +384,7 @@ export function MonogramMaker({
           <p className="text-xs text-ink/55">
             Saves to your wedding website, QR codes, and dashboard.
           </p>
-          <SubmitButton />
+          <SubmitButton className="button-primary">Save monogram</SubmitButton>
         </div>
       </form>
     </div>

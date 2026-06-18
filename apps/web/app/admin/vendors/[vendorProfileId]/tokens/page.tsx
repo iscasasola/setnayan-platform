@@ -79,7 +79,7 @@ export default async function AdminVendorTokensPage({
   const { data: vendor } = await admin
     .from('vendor_profiles')
     .select(
-      'vendor_profile_id, public_id, user_id, business_name, location_city, is_published, tier_state',
+      'vendor_profile_id, public_id, user_id, business_name, location_city, is_published, tier_state, tier_expires_at',
     )
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
@@ -87,6 +87,8 @@ export default async function AdminVendorTokensPage({
   const currentTier = asVendorTier(
     (vendor as { tier_state?: string | null }).tier_state,
   );
+  const currentTierExpiresAt =
+    (vendor as { tier_expires_at?: string | null }).tier_expires_at ?? null;
 
   // Wallet snapshot · NULL row means the vendor hasn't received any tokens
   // yet (the founder-bonus trigger creates the row on verification). We
@@ -112,6 +114,7 @@ export default async function AdminVendorTokensPage({
   const purchased = wallet?.purchased_tokens ?? 0;
   const totalBalance = earned + purchased;
   const isClaimed = vendor.user_id !== null;
+  const hasWalletRow = wallet !== null;
   const grantedCount = search?.granted ? Number(search.granted) : null;
   const tierSet = search?.tier ? asVendorTier(search.tier) : null;
 
@@ -159,29 +162,74 @@ export default async function AdminVendorTokensPage({
           Subscription tier
         </h2>
         <p className="mb-3 text-xs text-ink/60">
-          Current: <span className="font-medium text-ink">{TIER_LABEL[currentTier]}</span>.
-          Set Pro/Enterprise after confirming an off-platform subscription payment
-          (self-serve checkout is a later phase). Capability matrix:
-          Vendor_Tier_Capability_Matrix_2026-06-07.
+          Current: <span className="font-medium text-ink">{TIER_LABEL[currentTier]}</span>
+          {currentTierExpiresAt && (
+            <>
+              {' '}· expires{' '}
+              <span className="font-medium text-ink">
+                {new Date(currentTierExpiresAt).toLocaleDateString('en-PH', {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
+                })}
+              </span>
+            </>
+          )}
+          {!currentTierExpiresAt && currentTier !== 'free' && (
+            <span className="ml-1 text-amber-700">(open-ended — no auto-downgrade)</span>
+          )}
+          . Set Pro/Enterprise after confirming an off-platform subscription payment
+          (self-serve checkout is a later phase).
         </p>
-        <form action={setVendorTier} className="flex flex-wrap items-center gap-2">
+        <form action={setVendorTier} className="space-y-3">
           <input type="hidden" name="vendor_id" value={vendor.vendor_profile_id} />
-          <label htmlFor="tier_state" className="sr-only">
-            Tier
-          </label>
-          <select
-            id="tier_state"
-            name="tier_state"
-            defaultValue={currentTier}
-            className="rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
-          >
-            {VENDOR_TIERS.map((t) => (
-              <option key={t} value={t}>
-                {TIER_LABEL[t]}
-              </option>
-            ))}
-          </select>
-          <SubmitButton pendingLabel="Saving…">Set tier</SubmitButton>
+          <div className="flex flex-wrap items-end gap-3">
+            <div>
+              <label htmlFor="tier_state" className="block text-xs font-medium text-ink/70 mb-1">
+                Tier
+              </label>
+              <select
+                id="tier_state"
+                name="tier_state"
+                defaultValue={currentTier}
+                className="rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
+              >
+                {VENDOR_TIERS.map((t) => (
+                  <option key={t} value={t}>
+                    {TIER_LABEL[t]}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="tier_expires_at" className="block text-xs font-medium text-ink/70 mb-1">
+                Subscription ends <span className="text-ink/50">(optional)</span>
+              </label>
+              <input
+                type="date"
+                id="tier_expires_at"
+                name="tier_expires_at"
+                defaultValue={
+                  currentTierExpiresAt
+                    ? currentTierExpiresAt.slice(0, 10)
+                    : ''
+                }
+                className="rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
+              />
+            </div>
+            <SubmitButton className="button-secondary h-10 px-4 text-sm" pendingLabel="Saving…">
+              Set tier
+            </SubmitButton>
+          </div>
+          <p className="text-xs text-ink/50">
+            Leave end date blank for open-ended comp access (you'll need to revert manually).
+            Pro/Enterprise billing is 28-day cycles — 1 cycle from today ={' '}
+            {new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toLocaleDateString('en-PH', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+            })}.
+          </p>
         </form>
       </section>
 
@@ -196,24 +244,34 @@ export default async function AdminVendorTokensPage({
         <h2 className="mb-3 text-xs font-medium uppercase tracking-[0.15em] text-ink/60">
           Wallet snapshot
         </h2>
-        <div className="grid grid-cols-3 gap-3 text-center">
-          <div>
-            <div className="text-2xl font-semibold text-orange">{earned.toLocaleString('en-PH')}</div>
-            <div className="mt-0.5 text-[11px] uppercase tracking-wider text-ink/60">Earned (expiring)</div>
-          </div>
-          <div>
-            <div className="text-2xl font-semibold text-ink">{purchased.toLocaleString('en-PH')}</div>
-            <div className="mt-0.5 text-[11px] uppercase tracking-wider text-ink/60">Purchased (lifetime)</div>
-          </div>
-          <div>
-            <div className="text-2xl font-semibold text-emerald-700">{totalBalance.toLocaleString('en-PH')}</div>
-            <div className="mt-0.5 text-[11px] uppercase tracking-wider text-ink/60">Total balance</div>
-          </div>
-        </div>
-        <p className="mt-3 text-xs text-ink/50">
-          Earned tokens expire (founder bonus + admin grants + voucher redemptions
-          + telemetry rewards) and burn down first. Purchased tokens never expire.
-        </p>
+        {!hasWalletRow ? (
+          <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+            No wallet row yet — the vendor hasn&rsquo;t been verified (the founder-bonus
+            grant creates the wallet on verification). You can still grant tokens now;
+            they&rsquo;ll be visible the moment the vendor verifies.
+          </p>
+        ) : (
+          <>
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div>
+                <div className="text-2xl font-semibold text-orange">{earned.toLocaleString('en-PH')}</div>
+                <div className="mt-0.5 text-[11px] uppercase tracking-wider text-ink/60">Earned (expiring)</div>
+              </div>
+              <div>
+                <div className="text-2xl font-semibold text-ink">{purchased.toLocaleString('en-PH')}</div>
+                <div className="mt-0.5 text-[11px] uppercase tracking-wider text-ink/60">Purchased (lifetime)</div>
+              </div>
+              <div>
+                <div className="text-2xl font-semibold text-emerald-700">{totalBalance.toLocaleString('en-PH')}</div>
+                <div className="mt-0.5 text-[11px] uppercase tracking-wider text-ink/60">Total balance</div>
+              </div>
+            </div>
+            <p className="mt-3 text-xs text-ink/50">
+              Earned tokens expire (founder bonus + admin grants + voucher redemptions
+              + telemetry rewards) and burn down first. Purchased tokens never expire.
+            </p>
+          </>
+        )}
       </section>
 
       {/* Grant form */}
@@ -293,9 +351,11 @@ export default async function AdminVendorTokensPage({
           </div>
 
           <div className="flex items-center gap-3 pt-1">
-            <SubmitButton pendingLabel="Granting…">Grant tokens</SubmitButton>
+            <SubmitButton className="button-primary h-10 px-5 text-sm" pendingLabel="Granting…">
+              Grant tokens
+            </SubmitButton>
             <p className="text-xs text-ink/60">
-              Logged to <span className="font-mono">admin_audit_log</span> + audit row in token_grants_log.
+              Logged to <span className="font-mono">admin_audit_log</span> + audit row in <span className="font-mono">token_grants_log</span>.
             </p>
           </div>
         </form>

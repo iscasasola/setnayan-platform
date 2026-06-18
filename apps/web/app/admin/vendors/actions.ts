@@ -437,17 +437,30 @@ export async function setVendorTier(formData: FormData): Promise<void> {
     throw new Error('Invalid tier.');
   }
 
+  // Parse optional end-date. Free tier always clears it; paid tiers use the
+  // admin-supplied date or null (open-ended comp access).
+  let tierExpiresAt: string | null = null;
+  if (tier !== 'free') {
+    const raw = String(formData.get('tier_expires_at') ?? '').trim();
+    if (raw.length > 0) {
+      const parsed = new Date(raw);
+      if (isNaN(parsed.getTime())) throw new Error('Invalid end date.');
+      if (parsed <= new Date()) throw new Error('End date must be in the future.');
+      tierExpiresAt = parsed.toISOString();
+    }
+  }
+
   const admin = createAdminClient();
   const { data: before } = await admin
     .from('vendor_profiles')
-    .select('tier_state, business_name, public_id')
+    .select('tier_state, tier_expires_at, business_name, public_id')
     .eq('vendor_profile_id', vendorId)
     .maybeSingle();
   if (!before) throw new Error('Vendor not found.');
 
   const { error } = await admin
     .from('vendor_profiles')
-    .update({ tier_state: tier })
+    .update({ tier_state: tier, tier_expires_at: tierExpiresAt })
     .eq('vendor_profile_id', vendorId);
   if (error) throw new Error(error.message);
 
@@ -460,6 +473,8 @@ export async function setVendorTier(formData: FormData): Promise<void> {
       public_id: before.public_id,
       from_tier: before.tier_state ?? null,
       to_tier: tier,
+      from_expires_at: (before as { tier_expires_at?: string | null }).tier_expires_at ?? null,
+      to_expires_at: tierExpiresAt,
     },
   });
   if (auditErr) {

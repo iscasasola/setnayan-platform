@@ -205,7 +205,7 @@ export default async function AdminTokenPurchasesPage({ searchParams }: Props) {
                   <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                     <form action={approveTokenPurchase}>
                       <input type="hidden" name="purchase_id" value={p.purchase_id} />
-                      <SubmitButton pendingLabel="Confirming…">
+                      <SubmitButton className="button-primary h-9 px-4 text-sm" pendingLabel="Confirming…">
                         Confirm payment &amp; credit tokens
                       </SubmitButton>
                     </form>

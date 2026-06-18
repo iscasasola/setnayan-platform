@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · fix(pwa): guest `/[slug]` page is network-first, not stale-while-revalidate
+
+**This is why every Save-the-Date deploy looked like nothing shipped.** The service worker (`public/sw.js`) classified any bare `/[slug]` navigation as a "day-of guest" page and served it **stale-while-revalidate** from `DAYOF_CACHE` — so the couple's landing page (e.g. `/cale-ice`) returned the **previous build's cached HTML** (→ the old JS chunks) on the first visit after each deploy, only refreshing in the background. The owner kept seeing the old film even though the code was merged + deployed.
+
+- Switched the `/[slug]` (+ `/find-my-table`) navigation to **network-first**: fetch fresh when online and update the cache; fall back to the cached copy **only** when the network fails. Keeps the offline / weak-signal day-of fallback intact while guaranteeing a fresh page whenever the network is up.
+- Static JS/CSS chunks (content-hashed) + images/fonts are unchanged (they can't go stale by filename). Only the document navigation strategy changed.
+
+⚠ One-reload lag: the FIX itself ships via the SW, so the new SW must activate once (a reload) before `/[slug]` becomes network-first; from then on every deploy is fresh on first load.
+
+Verified: `node --check public/sw.js` OK. No migration.
+
+SPEC IMPACT: `Caching_and_Offline_Strategy` § 3.2 — the day-of guest landing page is network-first (was SWR); offline fallback preserved. See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · fix(std): uploaded song plays — drop the redundant veil-music gate
 
 Owner: "background music is not playing when the veil is up. I uploaded the music on the save the date page."

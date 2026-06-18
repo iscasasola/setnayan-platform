@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowLeft, ChevronRight, Star } from 'lucide-react';
+import { ArrowLeft, Check, ChevronRight, Star } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 
@@ -66,6 +66,13 @@ export type AccessibilityItem = {
   detail: string;    // "Single-key cam switching · take/preview pattern."
 };
 
+export type Highlights = {
+  // Optional section heading override — defaults to "What's included".
+  title?: string;
+  // Benefit-led bullets — "what you actually get" for this feature.
+  items: string[];
+};
+
 export type AppStoreLayoutProps = {
   back: {
     href: string;
@@ -80,10 +87,15 @@ export type AppStoreLayoutProps = {
     cta: ReactNode;
     secondary?: ReactNode;
   };
-  stats: StatTile[];
+  // Optional across the board so a lighter catalog-driven feature page can pass
+  // only what it has — every section below renders only when given content.
+  // The Panood pilot passes them all; generic add-on detail pages pass a subset.
+  stats?: StatTile[];
   justLaunchedChip?: string | null;
-  preview: PreviewItem[];
+  preview?: PreviewItem[];
   samples?: SampleItem[];
+  // Optional "What's included" bullet list, rendered right under About.
+  highlights?: Highlights;
   description: {
     paragraphs: string[];
     plans?: PlanRow[];
@@ -95,9 +107,9 @@ export type AppStoreLayoutProps = {
     reviewCount: number;
     distribution?: ReadonlyArray<{ stars: 1 | 2 | 3 | 4 | 5; count: number }>;
   };
-  privacy: PrivacyCategory[];
-  dataLinked: { linked: string[]; notLinked: string[] };
-  accessibility: AccessibilityItem[];
+  privacy?: PrivacyCategory[];
+  dataLinked?: { linked: string[]; notLinked: string[] };
+  accessibility?: AccessibilityItem[];
 };
 
 export function AppStoreLayout({
@@ -107,6 +119,7 @@ export function AppStoreLayout({
   justLaunchedChip,
   preview,
   samples,
+  highlights,
   description,
   reviews,
   privacy,
@@ -165,16 +178,20 @@ export function AppStoreLayout({
       </header>
 
       {/* Stat carousel — App Store row */}
-      <StatCarousel stats={stats} justLaunchedChip={justLaunchedChip ?? null} />
+      {stats && stats.length > 0 ? (
+        <StatCarousel stats={stats} justLaunchedChip={justLaunchedChip ?? null} />
+      ) : null}
 
       {/* Preview */}
-      <Section title="Preview" id="preview">
-        <HorizontalRail>
-          {preview.map((item, i) => (
-            <PreviewCard key={i} item={item} />
-          ))}
-        </HorizontalRail>
-      </Section>
+      {preview && preview.length > 0 ? (
+        <Section title="Preview" id="preview">
+          <HorizontalRail>
+            {preview.map((item, i) => (
+              <PreviewCard key={i} item={item} />
+            ))}
+          </HorizontalRail>
+        </Section>
+      ) : null}
 
       {/* Sample outputs — what the customer actually receives */}
       {samples && samples.length > 0 ? (
@@ -248,6 +265,24 @@ export function AppStoreLayout({
         ) : null}
       </Section>
 
+      {/* What's included — benefit-led bullets */}
+      {highlights && highlights.items.length > 0 ? (
+        <Section title={highlights.title ?? "What's included"} id="included">
+          <ul className="grid gap-2.5 rounded-2xl border border-ink/10 bg-cream p-5 sm:grid-cols-2 sm:p-6">
+            {highlights.items.map((item, i) => (
+              <li key={i} className="flex gap-2.5 text-sm text-ink/75">
+                <Check
+                  aria-hidden
+                  className="mt-0.5 h-4 w-4 shrink-0 text-terracotta-600"
+                  strokeWidth={2.25}
+                />
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </Section>
+      ) : null}
+
       {/* Ratings & Reviews ▸ */}
       {reviews ? (
         <Link
@@ -296,6 +331,7 @@ export function AppStoreLayout({
       ) : null}
 
       {/* Event Privacy */}
+      {privacy && privacy.length > 0 ? (
       <Section
         title="Event Privacy"
         id="privacy"
@@ -325,8 +361,10 @@ export function AppStoreLayout({
           ))}
         </div>
       </Section>
+      ) : null}
 
       {/* Data Linked to You */}
+      {dataLinked && (dataLinked.linked.length > 0 || dataLinked.notLinked.length > 0) ? (
       <Section title="Data Linked to You" id="data-linked">
         <div className="grid gap-3 sm:grid-cols-2">
           <article className="space-y-2 rounded-xl border border-ink/10 bg-cream p-4">
@@ -361,8 +399,10 @@ export function AppStoreLayout({
           </article>
         </div>
       </Section>
+      ) : null}
 
       {/* Accessibility */}
+      {accessibility && accessibility.length > 0 ? (
       <Section title="Accessibility" id="accessibility">
         <ul className="divide-y divide-ink/10 rounded-2xl border border-ink/10 bg-cream">
           {accessibility.map((a) => (
@@ -373,6 +413,7 @@ export function AppStoreLayout({
           ))}
         </ul>
       </Section>
+      ) : null}
     </section>
   );
 }

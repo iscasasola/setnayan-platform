@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · feat(studio): couple Studio becomes an iOS App Store browse + detail experience (PR pending, auto-merge)
+
+Owner: *"customer — studio should look like app store for iOS so we can see information of the different features. Also reorganize the studio: Setnayan AI, Website, Capture, Branding as the subnav."* The 4-section subnav already shipped; the gap was the hub (a flat one-line-blurb grid) and the detail layer (only Panood had the App Store detail — the 2026-05-17 pilot was never fanned out). This PR fans it out to **every** feature and rebuilds the hub.
+
+- **Hub `/dashboard/[eventId]/add-ons` rebuilt as an App Store browse surface.** Each of the four locked sections (Setnayan AI · Website · Capture · Branding) leads with a **featured hero** (poster-gradient card) and lists the rest as **App Store rows** — colourful squircle "app icon" (the feature's poster gradient), name, one-line subtitle, and a **GET / ₱price / Free / Active / Pending** pill. Whole row = one tap target → the feature's detail page (no nested interactive elements). New desktop sticky **section tab strip** (`studio-section-tabs.tsx`, scroll-spy, `lg:`-only — mobile already has the docked sub-nav). New components: `studio-app-row.tsx`, `studio-featured-card.tsx`, `studio-section-tabs.tsx` (the old `studio-card.tsx` grid is retired from the hub).
+- **App Store detail page fanned out to all features.** New catalog-driven route `/add-ons/[addon]/about/page.tsx` renders the shared `AppStoreLayout` from per-feature content in **`lib/add-ons-detail.ts`** (14 features: hero, preview rail, About, What's included, Plans, honest Event-Privacy / Data-linked). Panood keeps its bespoke detail at `/add-ons/panood` (hub links straight there).
+- **Pricing stays admin-managed.** The GET/price pills (hub) and Plans (detail) render **live from `platform_retail_catalog_v2`** by `serviceKey` — never hardcoded (respects the "admin pricing controls all prices" lock). The detail CTA hands off to the feature's own functional surface, which owns the buy/launch flow; "Active" only shows on `paid`/`fulfilled` (aligns with the 2026-06-18 admin-approval handshake).
+- **Shared layout made flexible.** `app-store/layout.tsx` props `stats`/`preview`/`privacy`/`dataLinked`/`accessibility` are now optional (render only when present) + a new optional **What's included** highlights section. Backward-compatible — Panood's page is unchanged. Visual unity: hub uses the same `ink/cream/terracotta/mulberry` tokens (= the Clean Editorial palette, dark-mode-ready) as the detail layout.
+
+Verified: `pnpm typecheck` clean · `pnpm lint` clean (fixed an `aria-disabled`-on-`li`) · new `lib/add-ons-detail.test.ts` (3 tests) guards that every available hub feature has detail content so no row 404s. Visual verification = the PR's Vercel preview (no local `.env.local` on disk in this environment). No migration.
+
+SPEC IMPACT: iter 0021 (couple dashboard · Studio/Services surface) + the 2026-05-17 App Store detail pilot generalized to all in-app services. See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · feat(std): auto-to-full-screen + robust window-level scroll-scrub (PR-W follow-up)
 
 Owner: "can we make it auto play to full screen? it is not scrubbing as well." (The scroll-scrub wasn't live yet — PR-W hadn't merged — and the wheel was bound to the centred stage only; both addressed here, same PR-W branch.)

@@ -7,7 +7,7 @@
  * sub-pages. This makes the desktop and mobile primary nav structurally
  * identical at the top level while the sidebar reveals deeper sub-pages.
  *
- * Five tabs — matched to buildCustomerNavTabs in customer-bottom-nav.tsx:
+ * Five tabs (same as the mobile bottom nav — sourced from lib/customer-menu.ts):
  *   1. Home    → /dashboard/[id]         (checklist · schedule · messages · contracts)
  *   2. Guests  → /dashboard/[id]/guests  (five journey stages + event-qr)
  *   3. Explore → /dashboard/[id]/vendors (marketplace — leaf, no sub-pages)
@@ -27,9 +27,10 @@
  * from firing (every other /dashboard/[id]/... route shares the base prefix),
  * so only the exact pathname === href branch keeps Home lit.
  *
- * BOTTOM NAV: customer-bottom-nav.tsx → buildCustomerNavTabs is an independent
- * builder that owns its own activeMatch logic. Both files agree on the same
- * five destinations; neither drives the other.
+ * BOTTOM NAV: customer-bottom-nav.tsx reads from buildCustomerMenuTree
+ * (lib/customer-menu.ts) — the SSOT for both the bottom nav and the docked
+ * sub-nav. This sidebar builder and the bottom nav share the same five
+ * destinations; active-match logic lives in customer-menu.ts.
  *
  * Server-Component safety (unchanged): neutral (non-'use client') module —
  * both the client sidebar and any Server Component can import + call this.

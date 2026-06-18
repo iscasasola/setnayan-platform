@@ -32,94 +32,77 @@
  * child route's shape diverges materially, add a route-local
  * loading.tsx — this file remains the event-scope default.
  */
+import { Screen, Sk } from '@/components/skeletons';
+
 export default function EventSectionLoading() {
   return (
-    <section className="space-y-6" aria-busy="true" aria-live="polite">
-      {/* Welcome header — couple's name in Saira Condensed display register.
-       *  Larger pulse block sized to typical couple-name lengths. */}
+    <Screen label="Loading your event">
+      {/* Welcome header — couple's name */}
       <div className="space-y-2">
-        <div className="h-10 w-64 max-w-full animate-pulse rounded-md bg-ink/[0.07]" />
-        <div className="h-4 w-48 animate-pulse rounded bg-ink/[0.05]" />
+        <Sk className="h-10 w-64 max-w-full rounded-md" />
+        <Sk className="h-4 w-48 rounded" />
       </div>
 
-      {/* Auspicious chip · event meta line — small status pills. */}
+      {/* Auspicious chip · event meta line */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="h-7 w-32 animate-pulse rounded-full bg-ink/[0.05]" />
-        <div className="h-5 w-56 animate-pulse rounded bg-ink/[0.05]" />
+        <Sk className="h-7 w-32 rounded-full" />
+        <Sk className="h-5 w-56 rounded" />
       </div>
 
-      {/* Stage strip — 6-pip lifecycle indicator. */}
+      {/* Stage strip — 6-pip lifecycle bar */}
       <div className="flex items-center gap-2 py-1">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div
-            key={i}
-            className="h-2 flex-1 animate-pulse rounded-full bg-ink/[0.07]"
-          />
+          <Sk key={i} className="h-2 flex-1 rounded-full" />
         ))}
       </div>
 
-      {/* Budget countdown header — single rounded panel. */}
-      <div className="h-24 animate-pulse rounded-2xl border border-ink/10 bg-ink/[0.03]" />
+      {/* Budget countdown panel */}
+      <Sk className="h-24 rounded-2xl" />
 
-      {/* Finalized chip strip — horizontal scroll of locked-vendor pills. */}
+      {/* Finalized vendor chip strip */}
       <div className="flex gap-2 overflow-hidden">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div
-            key={i}
-            className="h-10 w-32 shrink-0 animate-pulse rounded-full bg-ink/[0.05]"
-          />
+          <Sk key={i} className="h-10 w-32 shrink-0 rounded-full" />
         ))}
       </div>
 
-      {/* Marketplace tease strip — large discovery card. */}
-      <div className="h-40 animate-pulse rounded-2xl border border-ink/10 bg-ink/[0.03]" />
+      {/* Marketplace tease */}
+      <Sk className="h-40 rounded-2xl" />
 
-      {/* Planning groups — eyebrow + 12-card grid. */}
+      {/* Planning groups — eyebrow + 12-tile grid */}
       <div className="space-y-3">
-        <div className="h-3 w-56 animate-pulse rounded bg-ink/[0.07]" />
+        <Sk className="h-3 w-56 rounded" />
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
           {Array.from({ length: 12 }).map((_, i) => (
-            <li
-              key={i}
-              className="h-28 animate-pulse rounded-xl border border-ink/10 bg-ink/[0.03]"
-            />
+            <li key={i}><Sk className="h-28 rounded-xl" /></li>
           ))}
         </ul>
       </div>
 
-      {/* Your plan section — eyebrow + 9-tile grid. */}
+      {/* Your plan — eyebrow + 9-tile grid */}
       <div className="space-y-3">
-        <div className="h-3 w-40 animate-pulse rounded bg-ink/[0.07]" />
+        <Sk className="h-3 w-40 rounded" />
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {Array.from({ length: 9 }).map((_, i) => (
-            <li
-              key={i}
-              className="h-24 animate-pulse rounded-xl border border-ink/10 bg-ink/[0.03]"
-            />
+            <li key={i}><Sk className="h-24 rounded-xl" /></li>
           ))}
         </ul>
       </div>
 
-      {/* Nav grid — eyebrow + 8-tile grid. */}
+      {/* Nav grid — eyebrow + 8-tile grid */}
       <div className="space-y-3">
-        <div className="h-3 w-32 animate-pulse rounded bg-ink/[0.07]" />
+        <Sk className="h-3 w-32 rounded" />
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => (
-            <li
-              key={i}
-              className="h-20 animate-pulse rounded-xl border border-ink/10 bg-ink/[0.03]"
-            />
+            <li key={i}><Sk className="h-20 rounded-xl" /></li>
           ))}
         </ul>
       </div>
 
-      {/* MoneyInFlight · UpcomingSchedules · ActivityFeed — three stacked panels. */}
+      {/* MoneyInFlight · UpcomingSchedules · ActivityFeed */}
       {Array.from({ length: 3 }).map((_, i) => (
-        <div
-          key={i}
-          className="h-32 animate-pulse rounded-2xl border border-ink/10 bg-ink/[0.03]"
-        />
+        <Sk key={i} className="h-32 rounded-2xl" />
       ))}
-    </section>
+    </Screen>
   );
 }

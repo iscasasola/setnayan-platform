@@ -6,6 +6,7 @@ import {
   approvalActionLabel,
 } from '@/lib/admin-approvals';
 import { requestPrivilegedGrant, approveRequest, rejectRequest } from './actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Approvals · Admin' };
 
@@ -166,12 +167,12 @@ export default async function AdminApprovalsPage() {
             />
           </label>
           <div className="sm:col-span-2">
-            <button
-              type="submit"
+            <SubmitButton
+              pendingLabel="Submitting…"
               className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-ink/90"
             >
               Submit for two-admin approval
-            </button>
+            </SubmitButton>
           </div>
         </form>
         <ul className="mt-4 space-y-1 text-xs text-ink/55">
@@ -231,26 +232,26 @@ export default async function AdminApprovalsPage() {
                         </p>
                       ) : (
                         <>
-                          <button
-                            type="submit"
+                          <SubmitButton
                             formAction={approveRequest}
+                            pendingLabel="Approving…"
                             className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-emerald-700"
                           >
                             ✓ Approve &amp; execute
-                          </button>
+                          </SubmitButton>
                           <input
                             type="text"
                             name="reason"
                             placeholder="reason (for reject)"
                             className="w-44 rounded-md border border-ink/15 bg-white px-2 py-1 text-xs"
                           />
-                          <button
-                            type="submit"
+                          <SubmitButton
                             formAction={rejectRequest}
+                            pendingLabel="Rejecting…"
                             className="rounded-md border border-terracotta/40 bg-white px-3 py-1.5 text-xs font-bold text-terracotta-700 transition-colors hover:bg-terracotta-50"
                           >
                             Reject
-                          </button>
+                          </SubmitButton>
                         </>
                       )}
                     </form>

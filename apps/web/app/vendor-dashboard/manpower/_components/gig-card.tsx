@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
-import { Banknote, HandCoins, Check, X } from 'lucide-react';
+import { Banknote, HandCoins, Check, X, Loader2 } from 'lucide-react';
 import {
   acceptManpowerGig,
   completeGig,
@@ -221,7 +221,11 @@ export function GigCard({
                 fontWeight: 500,
               }}
             >
-              <HandCoins className="h-4 w-4" strokeWidth={1.75} />
+              {pending ? (
+                <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} aria-hidden />
+              ) : (
+                <HandCoins className="h-4 w-4" strokeWidth={1.75} />
+              )}
               {pending ? 'Accepting…' : 'Accept · 2 tokens'}
             </button>
           )}
@@ -244,8 +248,12 @@ export function GigCard({
               fontWeight: 500,
             }}
           >
-            <Check className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Mark wrapped
+            {pending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.75} aria-hidden />
+            ) : (
+              <Check className="h-3.5 w-3.5" strokeWidth={1.75} />
+            )}
+            {pending ? 'Wrapping…' : 'Mark wrapped'}
           </button>
 
           {banner?.kind === 'cancel-form' ? (
@@ -273,7 +281,10 @@ export function GigCard({
                 disabled={pending}
                 className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-60"
               >
-                Confirm cancel
+                {pending && (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.75} aria-hidden />
+                )}
+                {pending ? 'Cancelling…' : 'Confirm cancel'}
               </button>
               <button
                 type="button"

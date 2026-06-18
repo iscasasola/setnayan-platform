@@ -86,6 +86,12 @@ importers:
       opentype.js:
         specifier: ^2.0.0
         version: 2.0.0
+      paper:
+        specifier: ^0.12.18
+        version: 0.12.18
+      paperjs-offset:
+        specifier: ^1.0.8
+        version: 1.0.8
       pdf-lib:
         specifier: ^1.17.1
         version: 1.17.1
@@ -3304,6 +3310,13 @@ packages:
 
   pako@1.0.11:
     resolution: {integrity: sha512-4hLB8Py4zZce5s4yd9XzopqwVv/yGNhV1Bl8NTmCq1763HeK2+EwVTv+leGeL13Dnh2wfbqowVPXCIO0z4taYw==}
+
+  paper@0.12.18:
+    resolution: {integrity: sha512-ZSLIEejQTJZuYHhSSqAf4jXOnii0kPhCJGAnYAANtdS72aNwXJ9cP95tZHgq1tnNpvEwgQhggy+4OarviqTCGw==}
+    engines: {node: '>=8.0.0'}
+
+  paperjs-offset@1.0.8:
+    resolution: {integrity: sha512-rUXMtHH4bTNVrCgDcu+x71qyGoPe+01yZtrPD7bowji4VfWiDWzl4EUdRxiZnG5ooPg7b07mk6jVx33hNSojaA==}
 
   parent-module@1.0.1:
     resolution: {integrity: sha512-GQ2EWRpQV8/o+Aw8YqtfZZPfNRWZYkbidE9k5rpl/hC3vtHHBfGm2Ifi6qWV+coDGkrUKZAxE3Lot5kcsRlh+g==}
@@ -7749,6 +7762,12 @@ snapshots:
   pako@0.2.9: {}
 
   pako@1.0.11: {}
+
+  paper@0.12.18: {}
+
+  paperjs-offset@1.0.8:
+    dependencies:
+      paper: 0.12.18
 
   parent-module@1.0.1:
     dependencies:

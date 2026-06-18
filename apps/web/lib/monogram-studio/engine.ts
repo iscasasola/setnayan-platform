@@ -40,6 +40,7 @@ export function mountStudio(opts) {
   const opentype = opts.opentype;
   const PaperOffset = opts.PaperOffset;
   const initialConfig = opts.initialConfig || null;
+  const initialNames = opts.initialNames || null;
 
   const GOLD = '#C5A059';
   const CHECKER =
@@ -215,6 +216,12 @@ export function mountStudio(opts) {
     bgc = '#FBFBFA';
     outlineHex = '#C5A059';
     bindUI();
+    // Seed from the event's initials (e.g. "A & B") on a FIRST open — when there
+    // is no saved studio design to restore. Without this the editor falls back to
+    // its built-in "Maria & Juan" placeholder, so a couple sees the wrong
+    // initials and a save would replace their assigned monogram with a generic
+    // one. A saved initialConfig (applyConfig) carries its own names, so skip then.
+    if (!initialConfig && initialNames) namesEl.value = initialNames;
     derive();
   }
   function glyphPath(ch) {

@@ -28,6 +28,7 @@ import { CipherStudio } from './cipher-studio';
 import { VectorStudio } from './studio';
 import { sanitizeStudioConfig } from '@/lib/monogram-studio-shared';
 import { MonogramUploadCard } from './upload-card';
+import { MonogramDraftRestore } from './draft-restore';
 
 export const metadata = { title: 'Monogram Maker · Setnayan' };
 
@@ -281,6 +282,9 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
         </p>
       ) : null}
 
+      {/* ── Carry-through: restore a mark designed on the free public studio (pre-signup) ── */}
+      <MonogramDraftRestore eventId={eventId} hasCustomMark={Boolean(customSvg)} />
+
       {/* ── Upload your own (overrides everything below · owner rule 2026-06-15) ── */}
       <MonogramUploadCard eventId={eventId} activeDataUri={uploadedDataUri} />
 
@@ -288,6 +292,7 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
       <VectorStudio
         eventId={eventId}
         initialConfig={studioConfig}
+        initialNames={monogram.text}
         hasStudio={hasStudio}
         notice={studioNotice}
       />

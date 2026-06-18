@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · fix(std): raise the Save-the-Date video cap to 200 MB (PR-J)
+
+Owner reported a video upload silently failing — it was over the 60 MB cap, so the picker rejected it and `std_media` stayed `gallery` (no video). Immediate unblock: raise the cap.
+
+- `/api/upload` `video/` `TYPE_MAX_BYTES` 60 MB → **200 MB** (the signed content-length still binds the PUT; R2 egress is free).
+- `std-media-picker` `maxSizeMB` 60 → 200 + help text.
+
+This is the cap half of the owner's "raise the cap AND auto-compress" decision. The **client-side auto-compress** (ffmpeg.wasm, downscale + re-encode large videos to a web-friendly target so they fit + play fast for guests) is the follow-up PR; this raise is the safety-net ceiling.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — STD video cap is 200 MB (was 60). Note: the public Save-the-Date film only renders when the event is in the *save-the-date phase* (wedding > 90 days out) — a couple with no date set sees the RSVP-phase view, not the film (separate finding 2026-06-19).
+
 ## 2026-06-19 · feat(std): Smart Auto + localized text scrim (PR-I)
 
 Upgrades the legibility Auto mode (PR-H) from a guess to a measurement, and keeps the photo vivid by protecting only the text.

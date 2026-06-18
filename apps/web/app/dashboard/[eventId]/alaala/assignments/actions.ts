@@ -3,7 +3,7 @@
 import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { createServerClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/supabase/server';
 import { emitNotification } from '@/lib/notification-emit';
 import { isEmailConfigured, sendEmail } from '@/lib/email';
 import type { KwentoMomentKey } from '@/lib/kwento-moments';
@@ -18,7 +18,7 @@ export async function createAssignment(
   momentKey: KwentoMomentKey,
   guestId: string,
 ): Promise<ActionResult> {
-  const supabase = await createServerClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -50,7 +50,7 @@ export async function removeAssignment(
   momentKey: KwentoMomentKey,
   guestId: string,
 ): Promise<ActionResult> {
-  const supabase = await createServerClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -71,7 +71,7 @@ export async function removeAssignment(
 }
 
 export async function nudgeAssignee(assignmentId: string): Promise<ActionResult> {
-  const supabase = await createServerClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { SubmitButton } from '@/app/_components/forms/submit-button';
+import { SubmitButton } from '@/app/_components/submit-button';
 import type { ScanFlag } from '@/lib/editorial-scan';
 import { resolveFlag, unlockForCouple } from './actions';
 
@@ -27,7 +27,12 @@ export default async function EditorialReviewDetailPage({
   if (!row) notFound();
 
   const flags = (row.scan_flags ?? []) as ScanFlag[];
-  const event = row.events as { event_id: string; display_name: string | null; event_date: string | null } | null;
+  const rawEvent = row.events;
+  const event = (Array.isArray(rawEvent) ? rawEvent[0] : rawEvent) as {
+    event_id: string;
+    display_name: string | null;
+    event_date: string | null;
+  } | null | undefined;
   const redPending = flags.filter(f => f.severity === 'red' && f.status === 'pending');
   const canUnlock = redPending.length === 0 && row.scan_status !== 'admin_cleared';
 

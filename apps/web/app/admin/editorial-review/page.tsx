@@ -84,6 +84,7 @@ export default async function EditorialReviewPage() {
   );
 }
 
+type EventRef = { display_name: string | null; event_date: string | null };
 type RowData = {
   editorial_id: string;
   scan_status: string;
@@ -91,7 +92,8 @@ type RowData = {
   scan_completed_at: string | null;
   unlocked_for_couple_at: string | null;
   published_at: string | null;
-  events: { display_name: string | null; event_date: string | null } | null;
+  // Supabase may return the FK join as array or object depending on type gen
+  events: EventRef | EventRef[] | null;
 };
 
 function EditorialRow({ row }: { row: RowData }) {
@@ -99,6 +101,7 @@ function EditorialRow({ row }: { row: RowData }) {
   const red = flags.filter(f => f.severity === 'red');
   const yellow = flags.filter(f => f.severity === 'yellow');
   const redPending = red.filter(f => f.status === 'pending');
+  const ev = Array.isArray(row.events) ? row.events[0] : row.events;
 
   const statusMap: Record<string, { label: string; class: string }> = {
     flagged: { label: 'Needs review', class: 'text-red-600' },
@@ -117,11 +120,11 @@ function EditorialRow({ row }: { row: RowData }) {
     >
       <div className="flex-1 min-w-0">
         <p className="font-medium text-sm truncate">
-          {row.events?.display_name ?? 'Unnamed couple'}
+          {ev?.display_name ?? 'Unnamed couple'}
         </p>
         <p className="text-xs text-[--m-ink-tertiary] mt-0.5">
-          {row.events?.event_date
-            ? new Date(row.events.event_date).toLocaleDateString('en-PH', {
+          {ev?.event_date
+            ? new Date(ev.event_date).toLocaleDateString('en-PH', {
                 month: 'short', day: 'numeric', year: 'numeric',
               })
             : 'No date'}{' '}

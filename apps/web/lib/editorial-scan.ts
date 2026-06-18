@@ -165,6 +165,7 @@ export async function scanEditorial(editorialId: string): Promise<void> {
 
     for (let i = 0; i < fields.length; i++) {
       const f = fields[i];
+      if (!f) continue;
       const mod = modResults[i];
       const grammar = grammarResults[i] ?? [];
 

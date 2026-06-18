@@ -363,6 +363,34 @@ export default async function AlaalaPage({ params }: Props) {
         </div>
       ) : null}
 
+      {/* ── Story Assignments entry-point ── */}
+      <div
+        className="rounded-2xl border p-5 sm:p-6"
+        style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}
+      >
+        <p
+          className="font-mono text-[11px] uppercase tracking-[0.2em]"
+          style={{ color: 'var(--m-orange-2)' }}
+        >
+          Story Assignments
+        </p>
+        <h2 className="mt-2 text-base font-semibold" style={{ color: 'var(--m-ink)' }}>
+          Ask the right person to tell each story
+        </h2>
+        <p className="mt-1 max-w-prose text-[13.5px] leading-relaxed" style={{ color: 'var(--m-slate)' }}>
+          Assign a guest to each of the 10 locked editorial moments — the Bridal March, the First
+          Dance, the Money Dance and more. They&rsquo;ll get a gentle nudge to write what they
+          witnessed, in their own words.
+        </p>
+        <Link
+          href={`/dashboard/${eventId}/alaala/assignments`}
+          className="mt-4 inline-flex items-center rounded-full px-4 py-2 text-[13px] font-medium transition"
+          style={{ background: 'var(--m-mulberry)', color: '#fff' }}
+        >
+          Manage assignments →
+        </Link>
+      </div>
+
       {/* ── Close — every piece adds to the Alaala ── */}
       <footer className="rounded-2xl border p-5 text-center sm:p-6" style={{ borderColor: 'var(--m-line)' }}>
         <p className="text-[15px]" style={{ color: 'var(--m-slate)' }}>

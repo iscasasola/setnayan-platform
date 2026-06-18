@@ -22,6 +22,88 @@ import type { RevealEffects } from '@/lib/std-reveal-effects';
 
 const ENVELOPES: RevealTemplate[] = ['four-flap', 'two-flap-vertical', 'two-flap-horizontal'];
 
+/** Compact checkbox toggle (veil control block). */
+function EffectToggle({
+  label,
+  hint,
+  on,
+  onToggle,
+}: {
+  label: string;
+  hint: string;
+  on: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={on}
+      className="flex w-full items-center gap-3 text-left"
+    >
+      <span
+        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
+          on ? 'border-mulberry bg-mulberry text-cream' : 'border-ink/30 bg-white text-transparent'
+        }`}
+      >
+        <Check aria-hidden className="h-3 w-3" strokeWidth={3} />
+      </span>
+      <span>
+        <span className="block text-sm font-medium text-ink">{label}</span>
+        <span className="block text-xs text-ink/55">{hint}</span>
+      </span>
+    </button>
+  );
+}
+
+/** Colour swatch + native picker with an inherit-from-Mood-Board reset. */
+function ColorRow({
+  label,
+  value,
+  inherited,
+  onChange,
+  onReset,
+}: {
+  label: string;
+  value: string | null;
+  inherited: string;
+  onChange: (hex: string) => void;
+  onReset: () => void;
+}) {
+  const current = value ?? inherited;
+  return (
+    <div className="flex items-center gap-3">
+      <label
+        className="relative h-7 w-7 shrink-0 cursor-pointer overflow-hidden rounded-full border border-ink/20 shadow-inner"
+        style={{ backgroundColor: current }}
+      >
+        <input
+          type="color"
+          value={current}
+          onChange={(e) => onChange(e.target.value)}
+          className="absolute inset-0 cursor-pointer opacity-0"
+          aria-label={label}
+        />
+      </label>
+      <span className="flex-1">
+        <span className="block text-sm font-medium text-ink">{label}</span>
+        <span className="block text-xs text-ink/55">
+          {value ? current.toUpperCase() : 'From your Mood Board'}
+        </span>
+      </span>
+      {value ? (
+        <button
+          type="button"
+          onClick={onReset}
+          className="text-[11px] font-medium text-terracotta hover:underline"
+        >
+          Reset
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 type Props = {
   /** The event whose chosen opening this persists. */
   eventId: string;
@@ -31,10 +113,15 @@ type Props = {
   onPreview: (t: RevealTemplate) => void;
   /** The couple's currently-saved opening (events.std_reveal_template). */
   chosenTemplate?: RevealTemplate | null;
-  /** Effect toggles (owned by the parent; saved on Render). */
+  /** Effect toggles + colour overrides (owned by the parent; saved on Render). */
   effects: RevealEffects;
-  /** Flip one effect toggle. */
-  onToggleEffect: (key: keyof RevealEffects) => void;
+  /** Flip one boolean effect toggle (butterflies / petals / music). */
+  onToggleEffect: (key: 'butterflies' | 'petals' | 'music') => void;
+  /** Set (or clear, with null) a veil colour override. */
+  onSetColor: (key: 'veilColor' | 'petalColor', value: string | null) => void;
+  /** Mood-Board-derived defaults shown when an override is null (inherit). */
+  inheritedVeilColor: string;
+  inheritedPetalColor: string;
 };
 
 export function RevealPreviewCard({
@@ -44,9 +131,13 @@ export function RevealPreviewCard({
   chosenTemplate = null,
   effects,
   onToggleEffect,
+  onSetColor,
+  inheritedVeilColor,
+  inheritedPetalColor,
 }: Props) {
   const isEnvelope = ENVELOPES.includes(previewing);
-  const effectKey: keyof RevealEffects = isEnvelope ? 'butterflies' : 'petals';
+  const isVeil = previewing === 'veil-sheer';
+  const effectKey: 'butterflies' | 'petals' = isEnvelope ? 'butterflies' : 'petals';
   const effectLabel = isEnvelope ? 'Add butterflies' : 'Add falling petals';
   const effectHint = isEnvelope
     ? 'Butterflies flutter out as the flaps open.'
@@ -121,35 +212,69 @@ export function RevealPreviewCard({
         </p>
       ) : null}
 
-      {/* Effect toggle (per-opening). The wax seal is NOT here — it's the
-          structural open-gate, always on for envelopes (owner-locked). */}
-      <div className="space-y-2 rounded-xl border border-ink/10 bg-cream/60 p-3.5">
-        <button
-          type="button"
-          onClick={() => onToggleEffect(effectKey)}
-          aria-pressed={effectOn}
-          className="flex w-full items-center gap-3 text-left"
-        >
-          <span
-            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
-              effectOn
-                ? 'border-mulberry bg-mulberry text-cream'
-                : 'border-ink/30 bg-white text-transparent'
-            }`}
+      {/* Per-opening controls. The wax seal is NOT here — it's the structural
+          open-gate, always on for envelopes (owner-locked). The veil gets its
+          own four controls (owner 2026-06-18): music · petals · veil + petal
+          colour. Envelopes / doors keep their single decorative toggle. */}
+      {isVeil ? (
+        <div className="space-y-3.5 rounded-xl border border-ink/10 bg-cream/60 p-3.5">
+          <EffectToggle
+            label="Add music"
+            hint="Your song plays as the page opens and through the film."
+            on={effects.music}
+            onToggle={() => onToggleEffect('music')}
+          />
+          <EffectToggle
+            label="Add falling petals"
+            hint="Rose petals drift down from the top through the reveal."
+            on={effects.petals}
+            onToggle={() => onToggleEffect('petals')}
+          />
+          <div className="h-px bg-ink/10" />
+          <ColorRow
+            label="Veil colour"
+            value={effects.veilColor}
+            inherited={inheritedVeilColor}
+            onChange={(hex) => onSetColor('veilColor', hex)}
+            onReset={() => onSetColor('veilColor', null)}
+          />
+          <ColorRow
+            label="Petal colour"
+            value={effects.petalColor}
+            inherited={inheritedPetalColor}
+            onChange={(hex) => onSetColor('petalColor', hex)}
+            onReset={() => onSetColor('petalColor', null)}
+          />
+        </div>
+      ) : (
+        <div className="space-y-2 rounded-xl border border-ink/10 bg-cream/60 p-3.5">
+          <button
+            type="button"
+            onClick={() => onToggleEffect(effectKey)}
+            aria-pressed={effectOn}
+            className="flex w-full items-center gap-3 text-left"
           >
-            <Check aria-hidden className="h-3 w-3" strokeWidth={3} />
-          </span>
-          <span>
-            <span className="block text-sm font-medium text-ink">{effectLabel}</span>
-            <span className="block text-xs text-ink/55">{effectHint}</span>
-          </span>
-        </button>
-        {isEnvelope ? (
-          <p className="pl-8 text-[11px] text-ink/45">
-            Your wax seal is always part of the envelope — guests swipe it to open.
-          </p>
-        ) : null}
-      </div>
+            <span
+              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
+                effectOn
+                  ? 'border-mulberry bg-mulberry text-cream'
+                  : 'border-ink/30 bg-white text-transparent'
+              }`}
+            >
+              <Check aria-hidden className="h-3 w-3" strokeWidth={3} />
+            </span>
+            <span>
+              <span className="block text-sm font-medium text-ink">{effectLabel}</span>
+              <span className="block text-xs text-ink/55">{effectHint}</span>
+            </span>
+          </button>
+          {isEnvelope ? (
+            <p className="pl-8 text-[11px] text-ink/45">
+              Your wax seal is always part of the envelope — guests swipe it to open.
+            </p>
+          ) : null}
+        </div>
+      )}
 
       {/* Commit */}
       <div>

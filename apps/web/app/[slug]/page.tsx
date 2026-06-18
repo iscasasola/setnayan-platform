@@ -342,8 +342,11 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   const heroVideoUrl = await displayUrlForStoredAsset(
     event.landing_page_hero_video_r2_key,
   );
+  // The couple's "Add music" veil control (events.std_reveal_effects.music,
+  // default on) gates whether their song plays on the page. (2026-06-18)
+  const stdEffectsForMusic = resolveRevealEffects(event.std_reveal_effects);
   const bgMusicUrl =
-    event.site_bg_music_enabled && event.site_bg_music_r2_key
+    event.site_bg_music_enabled && event.site_bg_music_r2_key && stdEffectsForMusic.music
       ? await displayUrlForStoredAsset(event.site_bg_music_r2_key)
       : null;
 

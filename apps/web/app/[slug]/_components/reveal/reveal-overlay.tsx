@@ -131,13 +131,13 @@ export function RevealOverlay({
         }`}
       >
         <VeilReveal
-          veilColor={veilColor}
-          petalsColor={petalsColor}
+          veilColor={eventEffects?.veilColor ?? veilColor}
+          petalsColor={eventEffects?.petalColor ?? petalsColor}
           look={config?.veil}
           features={{
             petals: eventEffects?.petals ?? config?.features?.petals ?? true,
             logo: config?.features?.logo ?? true,
-            music: config?.features?.music ?? false,
+            music: eventEffects?.music ?? config?.features?.music ?? false,
           }}
           onRevealed={() => {
             setOpen(true);

@@ -9,7 +9,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveStdFilmContent } from '@/lib/save-the-date-content';
 import { resolveStdTheme } from '@/lib/std-themes';
 import { resolveRevealEffects } from '@/lib/std-reveal-effects';
-import { REVEAL_TEMPLATE_IDS } from '@/lib/reveal-config';
+import { REVEAL_TEMPLATE_IDS, fetchRevealConfig } from '@/lib/reveal-config';
 import type { RevealTemplate } from '@/app/[slug]/_components/reveal/reveal-templates';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
@@ -73,10 +73,11 @@ export default async function SaveTheDatePage({ params }: Props) {
   const themeId = resolveStdTheme(event?.std_theme);
   const effects = resolveRevealEffects(event?.std_reveal_effects);
 
-  const [ownsOpenings, openingsSku, settings] = await Promise.all([
+  const [ownsOpenings, openingsSku, settings, revealConfig] = await Promise.all([
     eventOwnsStdOpenings(supabase, eventId),
     formatV2Sku(STD_PREMIUM_OPENINGS_SERVICE_KEY).catch(() => null),
     fetchPlatformSettings(supabase),
+    fetchRevealConfig(),
   ]);
   const openingsPricePhp = openingsSku?.price_php ?? null;
 
@@ -214,6 +215,9 @@ export default async function SaveTheDatePage({ params }: Props) {
         sealConfig={sealConfig}
         sealFallbackSeed={sealFallbackSeed}
         veilColor={veilColor}
+        petalsColor={revealConfig.petalsColor}
+        veilLook={revealConfig.veil}
+        effectLook={revealConfig.effects}
       />
 
       {/* Wax seal */}

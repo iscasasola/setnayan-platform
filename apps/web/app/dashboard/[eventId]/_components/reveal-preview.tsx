@@ -26,6 +26,7 @@ import {
   rigidEffectFor,
   type RevealEffects,
 } from '@/lib/std-reveal-effects';
+import type { RevealEffectsLook, VeilLook } from '@/lib/reveal-config';
 
 const VeilReveal = dynamic(() => import('@/app/[slug]/_components/reveal/veil-reveal'), {
   ssr: false,
@@ -42,12 +43,19 @@ type Props = {
   waxColor?: string;
   sealConfig?: WaxSealConfig | null;
   sealFallbackSeed?: number;
+  /** Mood-Board-derived inherit defaults; the couple's per-event colour
+   *  overrides (effects.veilColor / effects.petalColor) win over these. */
   veilColor?: string;
+  petalsColor?: string;
+  /** Admin Reveal Studio calibration — veil look + rigid particle look — so the
+   *  couple's preview matches the tuned reveal set in /admin/reveal-studio. */
+  veilLook?: VeilLook;
+  effectLook?: RevealEffectsLook;
   /** Fired once the opening finishes auto-playing (lifts away) — lets a parent
    *  reveal the film beneath. Maps to onRevealed (veil) / onOpened (rigid). */
   onDone?: () => void;
-  /** Couple's effect toggles. Veil → petals via WebGL features; rigid → the
-   *  canvas-2D particle layer (butterflies for envelopes, petals for doors). */
+  /** Couple's effect toggles + colour overrides. Veil → petals via WebGL
+   *  features + veil/petal colour; rigid → the canvas-2D particle layer. */
   effects?: RevealEffects;
 };
 
@@ -59,13 +67,18 @@ export function RevealPreview({
   sealConfig = null,
   sealFallbackSeed,
   veilColor = '#f3ece1',
+  petalsColor,
+  veilLook,
+  effectLook,
   onDone = noop,
   effects,
 }: Props) {
   if (isVeilTemplate(template)) {
     return (
       <VeilReveal
-        veilColor={veilColor}
+        veilColor={effects?.veilColor ?? veilColor}
+        petalsColor={effects?.petalColor ?? petalsColor}
+        look={veilLook}
         onRevealed={onDone}
         autoplay
         lowRes
@@ -90,6 +103,7 @@ export function RevealPreview({
         onOpened={onDone}
         autoPlay
         effect={effect}
+        effectLook={effectLook}
       />
     );
   }
@@ -103,6 +117,7 @@ export function RevealPreview({
       onOpened={onDone}
       autoPlay
       effect={effect}
+      effectLook={effectLook}
     />
   );
 }

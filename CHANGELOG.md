@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-18 · feat(std): couple veil controls — Add music · Add petals · Veil colour · Petal colour
+
+The couple's veil customization in the Save-the-Date builder is now exactly four controls (owner 2026-06-18), and the builder preview mirrors the admin Reveal Studio's tuned veil:
+
+- **Effects model** (`lib/std-reveal-effects.ts`): `RevealEffects` extended `{butterflies, petals}` → adds `music: boolean`, `veilColor: string|null`, `petalColor: string|null`. Defaults: petals on, music on, colours inherit (null). Hex-coerced; resolves from the same `events.std_reveal_effects` JSONB (no migration — JSONB).
+- **Builder picker** (`reveal-preview-card.tsx`): when the veil is selected, shows the four controls — Add music · Add petals toggles + Veil colour · Petal colour pickers (each with a "Reset → from your Mood Board" inherit). Envelopes/doors keep their single decorative toggle + wax-seal note.
+- **Preview parity** (`reveal-preview.tsx` + builder `page.tsx` + `StdBuilderClient`): the couple builder preview now receives the admin `reveal_studio_config` veil `look` + rigid `effects` look + house petal colour, so it renders the *same calibrated veil* as `/admin/reveal-studio`. The couple's colour overrides win over the Mood-Board inherit.
+- **Live page** (`reveal-overlay.tsx`): the veil honours `eventEffects.veilColor` / `eventEffects.petalColor` (over the palette) and `eventEffects.music`.
+- **"Add music" is real** (`[slug]/page.tsx`): `bgMusicUrl` is now gated on `std_reveal_effects.music` (default on → no behaviour change), so turning the control off stops the song on the page.
+- **Action type** (`actions.ts`): `revealEffects` input typed as the full `RevealEffects` (was `{butterflies?,petals?}`).
+
+Verified: `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization_2026-06-17.md` §2 — reconciled "colours are NOT a picker" → the veil has explicit couple colour controls (overrides; admin owns the veil LOOK). `DECISION_LOG.md` 2026-06-18 row covers it.
+
 ## 2026-06-18 · fix(std): Reveal Studio previews all 5 reveals + petals always start from the top
 
 Two owner fixes:

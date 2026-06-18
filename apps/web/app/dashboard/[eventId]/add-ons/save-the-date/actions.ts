@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { REVEAL_TEMPLATE_IDS, type RevealTemplateId } from '@/lib/reveal-config';
 import { STD_THEME_IDS } from '@/lib/std-themes';
-import { resolveRevealEffects } from '@/lib/std-reveal-effects';
+import { resolveRevealEffects, type RevealEffects } from '@/lib/std-reveal-effects';
 
 /**
  * Server actions for the Save-the-Date builder (0024 PR4 · P4).
@@ -87,7 +87,7 @@ export async function saveAllStdContent(
     filmVenueName?: string | null;
     filmVenueCity?: string | null;
     filmStory?: string | null;
-    revealEffects?: { butterflies?: boolean; petals?: boolean } | null;
+    revealEffects?: RevealEffects | null;
   },
 ): Promise<{ ok: boolean; error?: string }> {
   if (!eventId) return { ok: false, error: 'missing-event' };

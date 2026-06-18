@@ -41,9 +41,13 @@
  * arbitrary-variant selector the labels use.
  */
 
+'use client';
+
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { NavItem, NavBadgeTone } from './types';
+import { BB_TAB_EVENT, goToBuildTab, type BudgetBuildTab } from '@/lib/budget-build';
 
 type Props = {
   item: NavItem;
@@ -81,6 +85,28 @@ function activeChildKey(children: NavItem[], pathname: string): string | null {
 
 export function SidebarItem({ item, pathname }: Props) {
   const children = item.children ?? [];
+  const hasTabChildren = children.some((c) => c.tab);
+
+  // Tab-child active state — seeded from ?tab= on navigation, kept live via BB_TAB_EVENT.
+  // Only meaningful when the item has tab-type children (e.g. Explore's 5 tabs).
+  const [activeTab, setActiveTab] = useState<string>('');
+  useEffect(() => {
+    if (!hasTabChildren) return;
+    const tabChildren = children.filter((c) => c.tab);
+    const t = new URLSearchParams(window.location.search).get('tab');
+    const valid = t && tabChildren.some((c) => c.tab === t);
+    setActiveTab(valid ? (t as string) : (tabChildren[0]?.tab ?? ''));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, hasTabChildren]);
+  useEffect(() => {
+    if (!hasTabChildren) return;
+    const onTab = (e: Event) => {
+      const next = (e as CustomEvent<string>).detail;
+      if (next) setActiveTab(next);
+    };
+    window.addEventListener(BB_TAB_EVENT, onTab);
+    return () => window.removeEventListener(BB_TAB_EVENT, onTab);
+  }, [hasTabChildren]);
 
   // Leaf (no children) — unchanged behavior. Vendor + admin sidebars and most
   // customer rows hit this path.
@@ -89,8 +115,15 @@ export function SidebarItem({ item, pathname }: Props) {
   }
 
   // Parent with a sub-journey — the desktop expansion of the mobile <SubNav>.
-  const activeKey = activeChildKey(children, pathname);
-  const inSection = matchesPath(item, pathname) || activeKey !== null;
+  // Tab children use tab-state for active detection; route children use pathname.
+  const routeActiveKey = hasTabChildren ? null : activeChildKey(children, pathname);
+  const tabActiveKey = hasTabChildren
+    ? (children.find((c) => c.tab === activeTab)?.key ??
+       children.find((c) => c.tab)?.key ??
+       null)
+    : null;
+  const activeKey = routeActiveKey ?? tabActiveKey;
+  const inSection = matchesPath(item, pathname) || routeActiveKey !== null;
 
   return (
     <li>
@@ -99,14 +132,34 @@ export function SidebarItem({ item, pathname }: Props) {
           hidden entirely on the collapsed 64px rail (icons-only, no room). */}
       {inSection ? (
         <ul className="mt-0.5 flex flex-col gap-0.5 [[data-sidebar-collapsed='1']_&]:hidden">
-          {children.map((child) => (
-            <SidebarRow
-              key={child.key}
-              item={child}
-              active={child.key === activeKey}
-              nested
-            />
-          ))}
+          {children.map((child) =>
+            child.tab ? (
+              <TabChildRow
+                key={child.key}
+                item={child}
+                active={child.key === activeKey}
+                onSelect={() => {
+                  const t = child.tab!;
+                  setActiveTab(t);
+                  try {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('tab', t);
+                    window.history.replaceState(null, '', url);
+                  } catch {
+                    // history unavailable — panel still switches via event
+                  }
+                  goToBuildTab(t as BudgetBuildTab);
+                }}
+              />
+            ) : (
+              <SidebarRow
+                key={child.key}
+                item={child}
+                active={child.key === activeKey}
+                nested
+              />
+            ),
+          )}
         </ul>
       ) : null}
     </li>
@@ -219,6 +272,53 @@ function ParentRow({ item, inSection }: { item: NavItem; inSection: boolean }) {
         style={{ color: 'var(--m-slate-2)' }}
       />
     </Link>
+  );
+}
+
+/**
+ * Renders a tab-type child as a <button> (not a <Link>) so clicking fires
+ * the BB_TAB_EVENT bus without a server round-trip. Visually identical to
+ * <SidebarRow nested> — same indent, icon size, and active treatment.
+ */
+function TabChildRow({
+  item,
+  active,
+  onSelect,
+}: {
+  item: NavItem;
+  active: boolean;
+  onSelect: () => void;
+}) {
+  const Icon = item.icon;
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onSelect}
+        title={item.description ?? item.label}
+        className={`relative flex w-full min-h-[40px] items-center gap-3 rounded-md py-2 pl-9 pr-3 text-[13px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 hover:bg-[var(--m-paper)]${active ? ' sn-bounce' : ''}`}
+        style={{
+          color: active ? 'var(--m-ink)' : 'var(--m-slate)',
+          background: active ? 'var(--m-orange-4)' : 'transparent',
+          outlineColor: 'var(--m-orange)',
+        }}
+      >
+        {active ? (
+          <span
+            aria-hidden
+            className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-sm"
+            style={{ background: 'var(--m-orange)' }}
+          />
+        ) : null}
+        <Icon
+          aria-hidden
+          className="h-5 w-5 shrink-0"
+          strokeWidth={1.75}
+          style={{ color: active ? 'var(--m-orange)' : 'var(--m-slate)' }}
+        />
+        <span className="truncate [[data-sidebar-collapsed='1']_&]:hidden">{item.label}</span>
+      </button>
+    </li>
   );
 }
 

@@ -54,6 +54,7 @@ import {
   Activity,
   Shield,
 } from 'lucide-react';
+import { BUDGET_BUILD_TABS, TAB_META } from '@/lib/budget-build';
 import type { LucideIcon } from 'lucide-react';
 import type { NavGroup, NavItem } from '@/app/_components/nav/types';
 import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
@@ -150,12 +151,23 @@ export function buildCustomerNavGroups(
           ],
         },
         {
-          // 3 · Explore — vendor marketplace. Leaf node (no sub-pages).
+          // 3 · Explore — vendor marketplace. Sub-items are the 5 Build tabs
+          // (Summary · Shortlist · Build · Compare · Lock); clicking them fires
+          // the BB_TAB_EVENT bus (no server round-trip) via SidebarItem's tab
+          // child handler, mirroring what the mobile <SubNav> pill does.
           key: 'explore',
           label: 'Explore',
           href: `${base}/vendors`,
           icon: Compass,
           matchPrefix: `${base}/vendors`,
+          children: BUDGET_BUILD_TABS.map((t) => ({
+            key: `explore-${t}`,
+            label: TAB_META[t].label,
+            href: `${base}/vendors?tab=${t}`,
+            icon: TAB_META[t].icon,
+            matchPrefix: `${base}/vendors`,
+            tab: t,
+          })),
         },
         {
           // 4 · Studio — add-ons hub. Expands to design surfaces that all

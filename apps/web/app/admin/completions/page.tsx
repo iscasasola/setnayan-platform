@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { relativeTime } from '@/lib/activity';
 import { forceCompleteVendor, upholdNonDelivery } from './actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Completions · Admin' };
 
@@ -274,9 +275,9 @@ function CompletionsTable({
                           className="input-field text-xs"
                           aria-label="Force-complete note"
                         />
-                        <button type="submit" className="button-secondary text-xs">
+                        <SubmitButton pendingLabel="Marking…" className="button-secondary text-xs">
                           Mark as delivered
-                        </button>
+                        </SubmitButton>
                       </form>
                     </details>
                     {r.reason === 'disputed' ? (
@@ -295,9 +296,9 @@ function CompletionsTable({
                             className="input-field text-xs"
                             aria-label="Uphold note"
                           />
-                          <button type="submit" className="button-secondary text-xs">
+                          <SubmitButton pendingLabel="Applying…" className="button-secondary text-xs">
                             Keep review closed
-                          </button>
+                          </SubmitButton>
                         </form>
                       </details>
                     ) : null}

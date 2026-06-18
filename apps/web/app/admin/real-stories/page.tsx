@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { loadShowcaseCandidatesForAdmin } from '@/lib/showcase-db';
 import { setShowcaseFeatured, setShowcaseRank } from './actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Real Stories · Admin' };
 // Top-level admin-client DB read — keep this route dynamic (same rationale as
@@ -190,9 +191,9 @@ export default async function AdminRealStoriesPage({
                               aria-label={`Order for ${r.coupleNames} (lower shows first)`}
                               className={INPUT}
                             />
-                            <button type="submit" className={BTN_SECONDARY}>
+                            <SubmitButton pendingLabel="Saving…" className={BTN_SECONDARY}>
                               Save
-                            </button>
+                            </SubmitButton>
                           </form>
                         ) : (
                           <span className="text-xs text-ink/45">—</span>
@@ -210,12 +211,12 @@ export default async function AdminRealStoriesPage({
                             name="feature"
                             value={r.featured ? '0' : '1'}
                           />
-                          <button
-                            type="submit"
+                          <SubmitButton
+                            pendingLabel="Updating…"
                             className={r.featured ? BTN_SECONDARY : BTN_PRIMARY}
                           >
                             {r.featured ? 'Unfeature' : 'Feature'}
-                          </button>
+                          </SubmitButton>
                         </form>
                       </td>
                     </tr>

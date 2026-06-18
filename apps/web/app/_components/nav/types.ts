@@ -96,6 +96,14 @@ export type NavItem = {
    * inert for the bottom-nav / accordion builders (they don't read it).
    */
   children?: NavItem[];
+  /**
+   * When set, this child is a TAB switcher (not a route navigation). The
+   * value is the tab key to activate (e.g. 'summary', 'shortlist'). The
+   * sidebar renders a <button> that fires the BB_TAB_EVENT bus + mirrors
+   * the active state via ?tab= instead of via pathname matching.
+   * `href` is still required as a fallback for no-JS / deep-link.
+   */
+  tab?: string;
 };
 
 export type NavGroup = {

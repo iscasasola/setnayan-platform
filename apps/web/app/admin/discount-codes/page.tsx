@@ -41,6 +41,7 @@ import {
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { disableDiscountCode, enableDiscountCode } from './actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Discount codes · Admin' };
 
@@ -421,8 +422,8 @@ export default async function AdminDiscountCodesPage({ searchParams }: Props) {
                               name="discount_code_id"
                               value={row.discount_code_id}
                             />
-                            <button
-                              type="submit"
+                            <SubmitButton
+                              pendingLabel="Disabling…"
                               className="inline-flex min-h-[44px] items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-[var(--m-paper-2)]"
                               style={{
                                 color: 'var(--m-slate)',
@@ -431,7 +432,7 @@ export default async function AdminDiscountCodesPage({ searchParams }: Props) {
                             >
                               <Ban className="h-3.5 w-3.5" />
                               Disable
-                            </button>
+                            </SubmitButton>
                           </ConfirmForm>
                         ) : (
                           <ConfirmForm
@@ -443,8 +444,8 @@ export default async function AdminDiscountCodesPage({ searchParams }: Props) {
                               name="discount_code_id"
                               value={row.discount_code_id}
                             />
-                            <button
-                              type="submit"
+                            <SubmitButton
+                              pendingLabel="Enabling…"
                               className="inline-flex min-h-[44px] items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-[var(--m-orange-4)]"
                               style={{
                                 color: 'var(--m-orange-2)',
@@ -453,7 +454,7 @@ export default async function AdminDiscountCodesPage({ searchParams }: Props) {
                             >
                               <CheckCircle2 className="h-3.5 w-3.5" />
                               Enable
-                            </button>
+                            </SubmitButton>
                           </ConfirmForm>
                         )}
                       </div>

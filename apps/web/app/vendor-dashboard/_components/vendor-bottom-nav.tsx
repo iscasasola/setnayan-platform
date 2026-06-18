@@ -156,6 +156,7 @@ const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       // have their own dedicated tab)
       '/vendor-dashboard/clients',
       '/vendor-dashboard/services',
+      '/vendor-dashboard/packages',
       '/vendor-dashboard/contracts',
       '/vendor-dashboard/proposals',
       '/vendor-dashboard/repertoire',

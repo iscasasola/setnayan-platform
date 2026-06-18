@@ -97,6 +97,7 @@ import {
   Megaphone,
   MessageSquare,
   Music,
+  Package as PackageIcon,
   Palette,
   Globe,
   ShieldCheck,
@@ -183,6 +184,7 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
       { key: 'clients', label: 'Clients', href: '/vendor-dashboard/clients', icon: Users, matchPrefix: '/vendor-dashboard/clients' },
       { key: 'messages', label: 'Messages', href: '/vendor-dashboard/messages', icon: MessageSquare, matchPrefix: '/vendor-dashboard/messages' },
       { key: 'services', label: 'Services', href: '/vendor-dashboard/services', icon: ClipboardList, matchPrefix: '/vendor-dashboard/services' },
+      { key: 'packages', label: 'Packages', href: '/vendor-dashboard/packages', icon: PackageIcon, matchPrefix: '/vendor-dashboard/packages' },
       { key: 'contracts', label: 'Contracts', href: '/vendor-dashboard/contracts', icon: FileSignature, matchPrefix: '/vendor-dashboard/contracts' },
       // Data-link program ③ — auto-filled proposals for booked clients.
       { key: 'proposals', label: 'Proposals', href: '/vendor-dashboard/proposals', icon: FileText, matchPrefix: '/vendor-dashboard/proposals' },

@@ -36,8 +36,29 @@ import { Music, Play, VolumeX } from 'lucide-react';
 import { type StdFilmContent } from '@/lib/save-the-date-content';
 import { STD_THEMES, resolveStdTheme, type StdTheme, type StdThemeId } from '@/lib/std-themes';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
+import { HeroMonogram } from '@/app/_components/hero-monogram';
+import { type MonogramConfig } from '@/lib/monogram';
 
 type Slide = { key: string; node: ReactNode; dur: number };
+
+/**
+ * The couple's ONBOARDING lockup — their chosen monogram design (bar / duo /
+ * script / infinity, framed, or the initials circle) from onboarding. The film
+ * renders THIS as the mark when they have NO uploaded/lab SVG (owner 2026-06-19:
+ * "logo will be from the onboarding, but if they upload or use the monogram lab,
+ * it will bypass the onboarding logo"). Reuses HeroMonogram — the one canonical
+ * lockup renderer — so the film matches the hero/chrome/QR mark exactly.
+ */
+export type StdLockup = {
+  /** events monogram design columns (HeroMonogram reads these). */
+  design: {
+    monogram_style?: string | null;
+    monogram_font_key?: string | null;
+    monogram_frame_key?: string | null;
+  };
+  /** Resolved monogram config (text + colour + chosen face). */
+  monogram: MonogramConfig;
+};
 
 /**
  * Override a theme's TEXT colours for legibility over a Step-1 background, while
@@ -80,18 +101,43 @@ function FilmMonogram({
   text,
   sizeCls,
   textCls,
+  lockup,
+  lockupScale,
 }: {
   svg?: string | null;
   text: string;
   sizeCls: string;
   textCls: string;
+  /** The onboarding lockup — rendered when there's no uploaded/lab SVG. */
+  lockup?: StdLockup | null;
+  /** Scale applied to the 80px HeroMonogram so it fills this beat's size. */
+  lockupScale: number;
 }) {
+  // 1 · uploaded / monogram-lab mark wins (bypasses the onboarding logo).
   if (svg) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img src={bespokeSvgToDataUri(svg)} alt="" className={`${sizeCls} object-contain`} />
     );
   }
+  // 2 · else the couple's onboarding lockup (their real chosen design).
+  if (lockup) {
+    return (
+      <div
+        aria-hidden
+        className="inline-flex items-center justify-center"
+        style={{ transform: `scale(${lockupScale})`, transformOrigin: 'center' }}
+      >
+        <HeroMonogram
+          event={lockup.design}
+          monogram={lockup.monogram}
+          animatedMonogram={false}
+          bespokeSvg={null}
+        />
+      </div>
+    );
+  }
+  // 3 · last-resort initials in the film's own font (safety net).
   return <div className={textCls}>{text}</div>;
 }
 
@@ -102,10 +148,14 @@ export function SaveTheDateFilm({
   fill = false,
   transparent = false,
   tone = null,
+  lockup = null,
 }: {
   content: StdFilmContent;
   /** Theme override (the display font). Defaults to 'default' (Cormorant). */
   themeId?: StdThemeId;
+  /** The couple's onboarding lockup — the mark shown when there's no uploaded /
+   *  monogram-lab SVG (content.monogramSvg). null → text-initials fallback. */
+  lockup?: StdLockup | null;
   /** When true, renders as a contained phone-card (for the builder preview).
    *  When false (default), renders full-screen under the reveal overlay. */
   preview?: boolean;
@@ -152,6 +202,8 @@ export function SaveTheDateFilm({
         <FilmMonogram
           svg={content.monogramSvg}
           text={content.monogram}
+          lockup={lockup}
+          lockupScale={1.55}
           sizeCls="h-28 w-28 sm:h-32 sm:w-32"
           textCls={`${theme.fontCls} text-6xl font-medium ${theme.accentText} sm:text-7xl`}
         />
@@ -238,6 +290,8 @@ export function SaveTheDateFilm({
         <FilmMonogram
           svg={content.monogramSvg}
           text={content.monogram}
+          lockup={lockup}
+          lockupScale={0.82}
           sizeCls="h-14 w-14 sm:h-16 sm:w-16"
           textCls={`${theme.fontCls} text-3xl font-medium ${theme.accentText}`}
         />
@@ -346,6 +400,8 @@ export function SaveTheDateFilm({
         <FilmMonogram
           svg={content.monogramSvg}
           text={content.monogram}
+          lockup={lockup}
+          lockupScale={0.95}
           sizeCls="h-16 w-16 sm:h-20 sm:w-20"
           textCls={`${theme.fontCls} text-4xl font-medium ${theme.accentText}`}
         />

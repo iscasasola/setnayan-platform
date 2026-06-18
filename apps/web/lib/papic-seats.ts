@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { eventOwnsSku } from '@/lib/entitlements';
+import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
 
 /**
  * apps/web/lib/papic-seats.ts
@@ -61,6 +61,19 @@ export async function eventOwnsPapicSeats(
   eventId: string,
 ): Promise<boolean> {
   return eventOwnsSku(supabase, eventId, PAPIC_SEATS_SERVICE_KEY);
+}
+
+/**
+ * Are the paid Papic seats ACTIVE (admin-approved)? The handshake FEATURE GATE —
+ * the paid Papic feature set (crew, moderation, sampler→paid) unlocks only after
+ * the Setnayan team verifies the payment (owner 2026-06-18). The buy surface
+ * keeps eventOwnsPapicSeats (which counts a pending order).
+ */
+export async function eventPapicSeatsActive(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<boolean> {
+  return eventSkuActive(supabase, eventId, PAPIC_SEATS_SERVICE_KEY);
 }
 
 // ── Free Papic sampler (owner-locked 2026-06-16) ─────────────────────────────

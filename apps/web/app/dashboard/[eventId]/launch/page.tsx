@@ -4,8 +4,8 @@ import { MonitorPlay, Radio, Camera, ArrowRight, Plus, Rocket } from 'lucide-rea
 import type { LucideIcon } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
-import { eventOwnsPapicSeats } from '@/lib/papic-seats';
-import { eventOwnsSku } from '@/lib/entitlements';
+import { eventPapicSeatsActive } from '@/lib/papic-seats';
+import { eventSkuActive } from '@/lib/entitlements';
 import { resolveAddOnState } from '@/lib/add-on-state';
 
 export const metadata = { title: 'Launch your services' };
@@ -45,9 +45,9 @@ export default async function LaunchHubPage({ params }: Props) {
 
   const base = `/dashboard/${eventId}`;
   const [ownsLiveWall, panoodState, ownsPapic] = await Promise.all([
-    eventOwnsSku(supabase, eventId, 'LIVE_WALL'),
+    eventSkuActive(supabase, eventId, 'LIVE_WALL'),
     resolveAddOnState(supabase, eventId, 'panood', 'couple'),
-    eventOwnsPapicSeats(supabase, eventId),
+    eventPapicSeatsActive(supabase, eventId),
   ]);
 
   type Service = {

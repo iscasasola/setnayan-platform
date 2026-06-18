@@ -1,5 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin';
-import { eventOwnsSku } from '@/lib/entitlements';
+import { eventSkuActive } from '@/lib/entitlements';
 import {
   getWallSnapshot,
   isWallSessionLive,
@@ -35,7 +35,7 @@ export default async function WallPage({ params }: Props) {
   // Media Pack buyer's venue screen lights up too. The old
   // event_software_activations_v2 read had no payment-path writer.
   const admin = createAdminClient();
-  const owns = await eventOwnsSku(admin, eventId, 'LIVE_WALL');
+  const owns = await eventSkuActive(admin, eventId, 'LIVE_WALL');
 
   if (!owns) {
     return (

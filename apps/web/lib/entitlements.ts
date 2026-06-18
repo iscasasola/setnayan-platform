@@ -33,6 +33,18 @@ export const RELINQUISHED_STATUSES = new Set<string>([
   'lapsed',
 ]);
 
+/**
+ * Statuses that mean an order is ADMIN-APPROVED and the feature is unlocked —
+ * the handshake (owner 2026-06-18: "must be approved by admin before they can
+ * access it"). 'paid' is terminal for digital couple SKUs; 'fulfilled' covers
+ * the vendor/delivery path. A still-pending 'submitted' / 'awaiting_payment'
+ * order is NOT active: the couple has applied but the Setnayan team hasn't
+ * verified the payment yet, so the FEATURE stays dark. (eventOwnsSku still
+ * counts a pending order as a LIVE order so buy surfaces don't offer a second
+ * purchase — that's double-buy prevention, a separate concern from access.)
+ */
+export const ACTIVE_STATUSES = new Set<string>(['paid', 'fulfilled']);
+
 export async function checkOrderOwnership(
   supabase: SupabaseClient,
   eventId: string,
@@ -59,6 +71,39 @@ export async function checkOrderOwnership(
   // ever drifts — only a row in a live status confers ownership.
   return (data ?? []).some(
     (row) => !RELINQUISHED_STATUSES.has((row.status as string | null) ?? ''),
+  );
+}
+
+/**
+ * Approved-only ownership — the FEATURE-GATE reader (the handshake). TRUE only
+ * when an order for `serviceKey` is in an ACTIVE status (paid/fulfilled); a
+ * pending 'submitted' order does NOT count, so a paid feature stays dark until
+ * the admin verifies the payment. Same graceful-degrade (42P01/42703 → false)
+ * + throw-on-unknown-error contract as checkOrderOwnership.
+ */
+export async function checkOrderActive(
+  supabase: SupabaseClient,
+  eventId: string,
+  serviceKey: string,
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('orders')
+    .select('status')
+    .eq('event_id', eventId)
+    .eq('service_key', serviceKey)
+    .in('status', ['paid', 'fulfilled']);
+
+  if (error) {
+    if (error.code === '42P01' || error.code === '42703') return false;
+    throw new Error(
+      `Failed to resolve active entitlement for ${serviceKey}: ${error.message}`,
+    );
+  }
+
+  // Defense-in-depth: re-filter client-side in case the DB-side filter drifts —
+  // only a paid/fulfilled row counts as an unlocked feature.
+  return (data ?? []).some((row) =>
+    ACTIVE_STATUSES.has((row.status as string | null) ?? ''),
   );
 }
 
@@ -173,6 +218,32 @@ export async function eventOwnsSku(
   if (!grantingBundles || grantingBundles.length === 0) return false;
   for (const bundleKey of grantingBundles) {
     if (await checkOrderOwnership(supabase, eventId, bundleKey)) return true;
+  }
+  return false;
+}
+
+/**
+ * Bundle-aware ACTIVE entitlement — THE HANDSHAKE GATE. Mirrors eventOwnsSku but
+ * requires the order (direct OR the granting bundle) to be ADMIN-APPROVED
+ * (paid/fulfilled), so a paid feature unlocks only AFTER the Setnayan team
+ * verifies the payment (owner 2026-06-18). Refund/cancel revokes it the same way
+ * (a relinquished order is also not active).
+ *
+ *   • FEATURE GATES (render/unlock the feature) call THIS.
+ *   • BUY SURFACES keep eventOwnsSku (which counts a pending 'submitted' order)
+ *     so a couple mid-review can't double-buy — and pair it with this to show a
+ *     "payment under review" state instead of a misleading "unlocked".
+ */
+export async function eventSkuActive(
+  supabase: SupabaseClient,
+  eventId: string,
+  serviceKey: string,
+): Promise<boolean> {
+  if (await checkOrderActive(supabase, eventId, serviceKey)) return true;
+  const grantingBundles = BUNDLES_GRANTING_SKU.get(serviceKey);
+  if (!grantingBundles || grantingBundles.length === 0) return false;
+  for (const bundleKey of grantingBundles) {
+    if (await checkOrderActive(supabase, eventId, bundleKey)) return true;
   }
   return false;
 }

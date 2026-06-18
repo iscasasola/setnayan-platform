@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { eventOwnsSku } from '@/lib/entitlements';
+import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
 
 /**
  * apps/web/lib/animated-monogram.ts
@@ -70,4 +70,16 @@ export async function eventOwnsAnimatedMonogram(
   eventId: string,
 ): Promise<boolean> {
   return eventOwnsSku(supabase, eventId, ANIMATED_MONOGRAM_SERVICE_KEY);
+}
+
+/**
+ * Is the paid Animated Monogram ACTIVE (admin-approved)? The handshake FEATURE
+ * GATE — the monogram draws live only after the Setnayan team verifies the
+ * payment (owner 2026-06-18). The buy surface keeps eventOwnsAnimatedMonogram.
+ */
+export async function eventAnimatedMonogramActive(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<boolean> {
+  return eventSkuActive(supabase, eventId, ANIMATED_MONOGRAM_SERVICE_KEY);
 }

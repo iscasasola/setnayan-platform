@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { eventOwnsSku } from '@/lib/entitlements';
+import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
 
 /**
  * apps/web/lib/std-openings.ts
@@ -54,4 +54,17 @@ export async function eventOwnsStdOpenings(
   eventId: string,
 ): Promise<boolean> {
   return eventOwnsSku(supabase, eventId, STD_PREMIUM_OPENINGS_SERVICE_KEY);
+}
+
+/**
+ * Does this event have the premium openings ACTIVE (admin-approved)? The
+ * handshake FEATURE GATE — the reveal opening plays only after the Setnayan
+ * team verifies the payment (owner 2026-06-18). Use this on the live reveal;
+ * the buy surface keeps eventOwnsStdOpenings (which counts a pending order).
+ */
+export async function eventStdOpeningsActive(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<boolean> {
+  return eventSkuActive(supabase, eventId, STD_PREMIUM_OPENINGS_SERVICE_KEY);
 }

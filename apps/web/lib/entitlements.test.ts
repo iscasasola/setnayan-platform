@@ -16,9 +16,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import {
   checkOrderOwnership,
+  checkOrderActive,
   eventOwnsSku,
+  eventSkuActive,
   BUNDLE_CHILD_SKUS,
   RELINQUISHED_STATUSES,
+  ACTIVE_STATUSES,
 } from './entitlements';
 
 type QueryResult = { data: { status: string }[] | null; error: { code?: string; message: string } | null };
@@ -47,6 +50,10 @@ function makeSupabase(result: QueryResult) {
     },
     not(...args: unknown[]) {
       calls.push({ method: 'not', args });
+      return builder;
+    },
+    in(...args: unknown[]) {
+      calls.push({ method: 'in', args });
       return builder;
     },
     then(resolve: (value: QueryResult) => unknown) {
@@ -139,7 +146,7 @@ test('RELINQUISHED_STATUSES is the canonical exported set', () => {
  * `owned` is the set of service_keys that should resolve to a live 'paid' row;
  * everything else resolves to zero rows.
  */
-function makeOwnedSupabase(owned: Set<string>) {
+function makeOwnedSupabase(owned: Set<string>, status = 'paid') {
   let currentServiceKey: string | null = null;
   const builder: Record<string, unknown> = {
     from() {
@@ -155,11 +162,14 @@ function makeOwnedSupabase(owned: Set<string>) {
     not() {
       return builder;
     },
+    in() {
+      return builder;
+    },
     then(resolve: (value: QueryResult) => unknown) {
       const data = currentServiceKey && owned.has(currentServiceKey)
-        ? [{ status: 'paid' }]
+        ? [{ status }]
         : [];
-      // Reset for the next chained query (each checkOrderOwnership rebuilds).
+      // Reset for the next chained query (each check rebuilds).
       currentServiceKey = null;
       return Promise.resolve({ data, error: null } as QueryResult).then(resolve);
     },
@@ -258,4 +268,106 @@ test('BUNDLE_CHILD_SKUS: no bundle code is itself a child (activation fan-out ca
       );
     }
   }
+});
+
+// ──────────────────────────────────────────────────────────────────────────
+// checkOrderActive + eventSkuActive — the HANDSHAKE gate (owner 2026-06-18:
+// "must be approved by admin before they can access it"). A paid feature
+// unlocks ONLY when the order is ADMIN-APPROVED (paid/fulfilled); a pending
+// 'submitted' order must NOT count (it would leak access before payment is
+// verified) — even though eventOwnsSku still counts it (double-buy prevention).
+// ──────────────────────────────────────────────────────────────────────────
+
+test('ACTIVE_STATUSES is exactly {paid, fulfilled}', () => {
+  assert.equal(ACTIVE_STATUSES.has('paid'), true);
+  assert.equal(ACTIVE_STATUSES.has('fulfilled'), true);
+  assert.equal(ACTIVE_STATUSES.has('submitted'), false);
+  assert.equal(ACTIVE_STATUSES.has('awaiting_payment'), false);
+  assert.equal(ACTIVE_STATUSES.size, 2);
+});
+
+test('checkOrderActive: a paid order is active', async () => {
+  const { supabase } = makeSupabase({ data: [{ status: 'paid' }], error: null });
+  assert.equal(await checkOrderActive(supabase, 'evt_1', 'PRO_WEBSITE'), true);
+});
+
+test('checkOrderActive: a fulfilled order is active', async () => {
+  const { supabase } = makeSupabase({ data: [{ status: 'fulfilled' }], error: null });
+  assert.equal(await checkOrderActive(supabase, 'evt_1', 'PRO_WEBSITE'), true);
+});
+
+test('checkOrderActive: a SUBMITTED (pending) order is NOT active — the handshake', async () => {
+  // Defense-in-depth: if the DB-side filter ever leaked a submitted row, the
+  // client-side ACTIVE filter must still reject it. Pending != approved.
+  const { supabase } = makeSupabase({ data: [{ status: 'submitted' }], error: null });
+  assert.equal(await checkOrderActive(supabase, 'evt_1', 'ANIMATED_MONOGRAM'), false);
+});
+
+test('checkOrderActive: awaiting_payment is NOT active', async () => {
+  const { supabase } = makeSupabase({ data: [{ status: 'awaiting_payment' }], error: null });
+  assert.equal(await checkOrderActive(supabase, 'evt_1', 'ANIMATED_MONOGRAM'), false);
+});
+
+test('checkOrderActive: no rows → not active', async () => {
+  const { supabase } = makeSupabase({ data: [], error: null });
+  assert.equal(await checkOrderActive(supabase, 'evt_1', 'PAPIC_SEATS'), false);
+});
+
+test('checkOrderActive: queries status IN (paid, fulfilled)', async () => {
+  const { supabase, calls } = makeSupabase({ data: [{ status: 'paid' }], error: null });
+  await checkOrderActive(supabase, 'evt_9', 'STD_PREMIUM_OPENINGS');
+  assert.deepEqual(calls.find((c) => c.method === 'in')?.args, [
+    'status',
+    ['paid', 'fulfilled'],
+  ]);
+});
+
+test('checkOrderActive: 42P01 → false (graceful)', async () => {
+  const { supabase } = makeSupabase({ data: null, error: { code: '42P01', message: 'undefined_table' } });
+  assert.equal(await checkOrderActive(supabase, 'evt_1', 'INDOOR_BLUEPRINT'), false);
+});
+
+test('checkOrderActive: any other DB error throws', async () => {
+  const { supabase } = makeSupabase({ data: null, error: { code: '08006', message: 'connection_failure' } });
+  await assert.rejects(
+    () => checkOrderActive(supabase, 'evt_1', 'PRO_WEBSITE'),
+    /Failed to resolve active entitlement for PRO_WEBSITE: connection_failure/,
+  );
+});
+
+test('eventSkuActive: a paid direct order is active', async () => {
+  const supabase = makeOwnedSupabase(new Set(['LIVE_WALL']), 'paid');
+  assert.equal(await eventSkuActive(supabase, 'evt_1', 'LIVE_WALL'), true);
+});
+
+test('eventSkuActive: a SUBMITTED direct order is NOT active (the gate), but IS a live order (no double-buy)', async () => {
+  const a = makeOwnedSupabase(new Set(['LIVE_WALL']), 'submitted');
+  assert.equal(await eventSkuActive(a, 'evt_1', 'LIVE_WALL'), false);
+  const b = makeOwnedSupabase(new Set(['LIVE_WALL']), 'submitted');
+  assert.equal(await eventOwnsSku(b, 'evt_1', 'LIVE_WALL'), true);
+});
+
+test('eventSkuActive: a PAID MEDIA_PACK bundle activates a child (PANOOD_SYSTEM)', async () => {
+  const supabase = makeOwnedSupabase(new Set(['MEDIA_PACK']), 'paid');
+  assert.equal(await eventSkuActive(supabase, 'evt_1', 'PANOOD_SYSTEM'), true);
+});
+
+test('eventSkuActive: a SUBMITTED bundle does NOT activate its children', async () => {
+  const a = makeOwnedSupabase(new Set(['MEDIA_PACK']), 'submitted');
+  assert.equal(await eventSkuActive(a, 'evt_1', 'PANOOD_SYSTEM'), false);
+  // ...but the bundle order is still a live order (double-buy prevention).
+  const b = makeOwnedSupabase(new Set(['MEDIA_PACK']), 'submitted');
+  assert.equal(await eventOwnsSku(b, 'evt_1', 'PANOOD_SYSTEM'), true);
+});
+
+test('eventSkuActive: GUIDED_PACK (paid) activates a member but not a media-only child', async () => {
+  const a = makeOwnedSupabase(new Set(['GUIDED_PACK']), 'paid');
+  assert.equal(await eventSkuActive(a, 'evt_1', 'PRO_WEBSITE'), true);
+  const b = makeOwnedSupabase(new Set(['GUIDED_PACK']), 'paid');
+  assert.equal(await eventSkuActive(b, 'evt_1', 'PANOOD_SYSTEM'), false);
+});
+
+test('eventSkuActive: nothing owned → not active', async () => {
+  const supabase = makeOwnedSupabase(new Set(), 'paid');
+  assert.equal(await eventSkuActive(supabase, 'evt_1', 'STD_PREMIUM_OPENINGS'), false);
 });

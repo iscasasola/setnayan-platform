@@ -4,7 +4,7 @@ import { Camera, Radio, Image as ImageIcon, ArrowRight, Images } from 'lucide-re
 import type { LucideIcon } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
-import { eventOwnsPapicSeats } from '@/lib/papic-seats';
+import { eventPapicSeatsActive } from '@/lib/papic-seats';
 import { countEventGuestCaptures } from '@/lib/papic-guest';
 import { resolveAddOnState } from '@/lib/add-on-state';
 
@@ -63,7 +63,7 @@ export default async function GalleriesHubPage({ params }: Props) {
   };
 
   const [ownsPapic, panoodState, papicPhotoCount, guestCaptureCount, eventRow] = await Promise.all([
-    eventOwnsPapicSeats(supabase, eventId),
+    eventPapicSeatsActive(supabase, eventId),
     resolveAddOnState(supabase, eventId, 'panood', 'couple'),
     countPapicPhotos(),
     countEventGuestCaptures(supabase, eventId),

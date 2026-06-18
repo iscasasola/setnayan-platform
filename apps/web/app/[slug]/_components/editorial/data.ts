@@ -16,7 +16,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { eventOwnsSku } from '@/lib/entitlements';
+import { eventSkuActive } from '@/lib/entitlements';
 import {
   fetchEventRecommendations,
   type EventRecommendation,
@@ -681,7 +681,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
       // repair, 2026-06-15) — bundle-aware, so a Media Pack buyer's editorial
       // photo-wall section surfaces too. The old event_software_activations_v2
       // read had no payment-path writer.
-      photoWallActive = await eventOwnsSku(admin, eventId, 'LIVE_WALL');
+      photoWallActive = await eventSkuActive(admin, eventId, 'LIVE_WALL');
     } catch {
       photoWallActive = false;
     }

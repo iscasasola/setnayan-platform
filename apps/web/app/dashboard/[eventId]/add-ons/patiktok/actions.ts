@@ -2,11 +2,13 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { findPatiktokTemplate } from '@/lib/patiktok';
 import { presignDisplayUrl } from '@/lib/uploads';
 import { isR2Configured, R2_BUCKETS } from '@/lib/r2';
+import { sendPatiktokReelReadyEmail } from '@/lib/patiktok-reel-emails';
 
 // Iteration 0017 Phase 2 — Patiktok render-job submission.
 //
@@ -293,7 +295,7 @@ export async function finalizePatiktokRenderJob(input: {
   // Membership re-check via RLS-scoped read.
   const { data: job } = await supabase
     .from('patiktok_render_jobs')
-    .select('job_id, event_id')
+    .select('job_id, event_id, template_slug')
     .eq('job_id', input.jobId)
     .maybeSingle();
   if (!job) throw new Error('Render job not found.');
@@ -336,7 +338,14 @@ export async function finalizePatiktokRenderJob(input: {
       .eq('status', 'uploaded');
   }
 
-  revalidatePath(`/dashboard/${job.event_id}/add-ons/patiktok`);
+  // Deliver the "reel ready" email after the response (cron-free, non-blocking).
+  const eventId = job.event_id as string;
+  const templateName = findPatiktokTemplate(job.template_slug as string)?.name ?? null;
+  after(async () => {
+    await sendPatiktokReelReadyEmail({ eventId, jobId: input.jobId, templateName });
+  });
+
+  revalidatePath(`/dashboard/${eventId}/add-ons/patiktok`);
   return { downloadUrl };
 }
 

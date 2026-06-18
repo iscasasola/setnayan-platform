@@ -25,8 +25,12 @@ import { formatEventDate } from '@/lib/events';
 import { shortDate } from '@/lib/save-the-date-content';
 import { saveAllStdContent } from '../actions';
 import type { StdFilmContent } from '@/lib/save-the-date-content';
-import type { RevealTemplate } from '@/app/[slug]/_components/reveal/reveal-templates';
+import {
+  REVEAL_LIBRARY,
+  type RevealTemplate,
+} from '@/app/[slug]/_components/reveal/reveal-templates';
 import { RevealPreviewCard } from '@/app/dashboard/[eventId]/_components/reveal-preview-card';
+import { RevealPreview } from '@/app/dashboard/[eventId]/_components/reveal-preview';
 import {
   DeviceFrame,
   DeviceToggle,
@@ -71,7 +75,6 @@ export function StdBuilderClient({
   initialFilmVenueName,
   initialFilmVenueCity,
   initialFilmStory,
-  displayName,
   dateIso,
   markSvg,
   waxColor,
@@ -91,8 +94,28 @@ export function StdBuilderClient({
   const [saving, startSave] = useTransition();
   const [result, setResult] = useState<'idle' | 'ok' | 'error'>('idle');
   const [device, setDevice] = useState<PreviewDevice>('iphone');
-  // Bumping this remounts the preview film → restarts it from the first beat.
+  // Bumping this remounts the preview (opening + film) → replays from the first beat.
   const [restartKey, setRestartKey] = useState(0);
+  // The opening shown in the single shared preview (Step 1 picker drives this).
+  const [previewing, setPreviewing] = useState<RevealTemplate>(
+    initialRevealTemplate ?? REVEAL_LIBRARY[0]!.id,
+  );
+  // True once the opening has auto-played + lifted away, revealing the film.
+  const [revealDone, setRevealDone] = useState(false);
+
+  // Any change that should replay the opening also resets the lifted state.
+  const pickOpening = (t: RevealTemplate) => {
+    setPreviewing(t);
+    setRevealDone(false);
+  };
+  const changeDevice = (d: PreviewDevice) => {
+    setDevice(d);
+    setRevealDone(false);
+  };
+  const restartPreview = () => {
+    setRestartKey((k) => k + 1);
+    setRevealDone(false);
+  };
 
   // Every state change re-derives the full content object so the preview
   // reflects exactly what would render on the live page after saving.
@@ -159,24 +182,19 @@ export function StdBuilderClient({
 
   return (
     <div className="space-y-8">
-      {/* ── Step 1 · Reveal opening ───────────────────────────────────────── */}
-      <RevealPreviewCard
-        displayName={displayName}
-        dateIso={dateIso}
-        markSvg={markSvg}
-        waxColor={waxColor}
-        sealConfig={sealConfig}
-        sealFallbackSeed={sealFallbackSeed}
-        veilColor={veilColor}
-        eventId={eventId}
-        chosenTemplate={initialRevealTemplate}
-      />
-
-      {/* ── Steps 2 + 3 + Preview — two-column on desktop ─────────────────── */}
+      {/* ── Steps 1 + 2 + 3 (left) + the single live preview (right) ───────── */}
       <div className="lg:grid lg:grid-cols-[1fr_320px] lg:items-start lg:gap-8">
 
-        {/* LEFT: Theme + Info + Launch date */}
+        {/* LEFT: Opening picker + Theme + Info */}
         <div className="space-y-8">
+
+          {/* Step 1 · Opening picker — drives the single shared preview → */}
+          <RevealPreviewCard
+            eventId={eventId}
+            previewing={previewing}
+            onPreview={pickOpening}
+            chosenTemplate={initialRevealTemplate}
+          />
 
           {/* Step 2 · Theme */}
           <section className="space-y-3">
@@ -438,21 +456,23 @@ export function StdBuilderClient({
               Live preview
             </p>
             <div className="flex items-center justify-center gap-2">
-              <DeviceToggle device={device} onChange={setDevice} />
+              <DeviceToggle device={device} onChange={changeDevice} />
               <button
                 type="button"
-                onClick={() => setRestartKey((k) => k + 1)}
-                aria-label="Restart preview from the beginning"
+                onClick={restartPreview}
+                aria-label="Replay the opening from the beginning"
                 className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:border-ink/30 hover:text-ink"
               >
                 <RotateCcw aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                Restart
+                Replay
               </button>
             </div>
-            {/* Interactive: the film's own tap / scrub / hold controls are live
-                here so the couple can experience the real thing in miniature.
-                key={restartKey} lets the Restart button remount → replay from beat 1. */}
+            {/* The single live preview: the film plays as the BASE layer while the
+                chosen opening auto-plays ON TOP and lifts away (onDone) to reveal
+                it — exactly how a guest experiences the live page, in miniature.
+                key={restartKey} on both lets Replay remount → opening + film from beat 1. */}
             <DeviceFrame device={device}>
+              {/* base — the content film, running underneath */}
               <div className="absolute inset-0">
                 <SaveTheDateFilm
                   key={restartKey}
@@ -462,12 +482,30 @@ export function StdBuilderClient({
                   fill
                 />
               </div>
+              {/* overlay — the opening; fades out once it has lifted away */}
+              <div
+                className={`absolute inset-0 transition-opacity duration-700 ${
+                  revealDone ? 'pointer-events-none opacity-0' : 'opacity-100'
+                }`}
+              >
+                <RevealPreview
+                  key={`${device}-${previewing}-${restartKey}`}
+                  template={previewing}
+                  markSvg={markSvg}
+                  monogram={liveContent.monogram}
+                  waxColor={waxColor}
+                  sealConfig={sealConfig}
+                  sealFallbackSeed={sealFallbackSeed}
+                  veilColor={veilColor}
+                  onDone={() => setRevealDone(true)}
+                />
+              </div>
             </DeviceFrame>
           </div>
 
           {/* Quality notice */}
           <p className="text-center text-xs text-ink/50">
-            Try it — tap to flip through, press &amp; hold to pause.{' '}
+            Your opening plays, then your film — tap to flip through, press &amp; hold to pause.{' '}
             <span className="text-ink/70">Upon finalizing, your Save the Date plays at full quality on your page.</span>
           </p>
 

@@ -94,24 +94,28 @@ export async function saveStdContent(formData: FormData): Promise<void> {
   if (!eventId) throw new Error('Missing event_id');
   const supabase = await requireCouple(eventId);
 
+  // Writes to the STD-specific snapshot columns (std_film_*), NOT the live
+  // event columns (event_date / venue_name / etc.). This decouples the film
+  // content from subsequent event edits — the snapshot is the source of truth
+  // for the film once finalized. See migration 20270122000000.
   const updates: Record<string, unknown> = {};
 
-  const rawDate = String(formData.get('event_date') ?? '').trim();
+  const rawDate = String(formData.get('film_date') ?? '').trim();
   if (rawDate) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
       redirect(`/dashboard/${eventId}/add-ons/save-the-date?std_error=bad-date#content`);
     }
-    updates.event_date = rawDate;
+    updates.std_film_date = rawDate;
   }
 
-  const venueName = String(formData.get('venue_name') ?? '').trim();
-  if (venueName) updates.venue_name = venueName;
+  const venueName = String(formData.get('film_venue_name') ?? '').trim();
+  if (venueName) updates.std_film_venue_name = venueName;
 
-  const venueAddress = String(formData.get('venue_address') ?? '').trim();
-  if (venueAddress) updates.venue_address = venueAddress;
+  const venueCity = String(formData.get('film_venue_city') ?? '').trim();
+  if (venueCity) updates.std_film_venue_city = venueCity;
 
-  const loveStory = String(formData.get('love_story') ?? '').trim();
-  if (loveStory) updates.love_story = loveStory;
+  const filmStory = String(formData.get('film_story') ?? '').trim();
+  if (filmStory) updates.std_film_story = filmStory;
 
   if (Object.keys(updates).length === 0) {
     redirect(`/dashboard/${eventId}/add-ons/save-the-date`);

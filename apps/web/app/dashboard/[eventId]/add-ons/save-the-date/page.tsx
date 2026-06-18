@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, CalendarClock, Check, Clock, Plus, Sparkles, Stamp } from 'lucide-react';
+import { ArrowLeft, CalendarClock, Check, Clock, Lock, Plus, Sparkles, Stamp } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { sealColorFromPalette, veilColorFromPalette } from '@/lib/site-palette';
@@ -58,7 +58,7 @@ export default async function SaveTheDatePage({ params, searchParams }: Props) {
   const { data: event } = await supabase
     .from('events')
     .select(
-      'public_id, display_name, event_date, venue_name, venue_address, love_story, monogram_text, monogram_custom_svg, monogram_uploaded_svg, role_palette, wax_seal_config, std_reveal_template, std_invitation_launch_date, our_photos, site_bg_music_enabled, site_bg_music_r2_key, landing_page_hero_image_url',
+      'public_id, display_name, event_date, venue_name, venue_address, love_story, monogram_text, monogram_custom_svg, monogram_uploaded_svg, role_palette, wax_seal_config, std_reveal_template, std_invitation_launch_date, std_film_date, std_film_venue_name, std_film_venue_city, std_film_story, our_photos, site_bg_music_enabled, site_bg_music_r2_key, landing_page_hero_image_url',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -115,14 +115,29 @@ export default async function SaveTheDatePage({ params, searchParams }: Props) {
   ).filter((u): u is string => Boolean(u));
   const galleryUrls = ourPhotoUrls.length ? ourPhotoUrls : heroPhotoUrl ? [heroPhotoUrl] : [];
 
+  // STD-specific snapshot columns take priority over the live event data.
+  // Once saved via the builder inline forms, these are immutable from the
+  // film's perspective (migration 20270122000000).
+  const stdDate: string | null =
+    typeof event?.std_film_date === 'string' ? event.std_film_date.slice(0, 10) : null;
+  const stdVenueName: string | null = event?.std_film_venue_name ?? null;
+  const stdVenueCity: string | null = event?.std_film_venue_city ?? null;
+  const stdStory: string | null = event?.std_film_story ?? null;
+  // Live event fallbacks (shown pre-filled in the form until the couple locks them in).
+  const eventDate: string | null = event?.event_date ?? null;
+  const eventVenueName: string | null = event?.venue_name ?? null;
+  const eventVenueCity: string | null = event?.venue_address ?? null;
+  const eventLoveStory: string | null =
+    typeof event?.love_story === 'string' ? event.love_story : null;
+
   const content = resolveStdFilmContent({
     displayName: event?.display_name ?? '',
     monogramText: event?.monogram_text,
-    dateIso: event?.event_date ?? null,
+    dateIso: stdDate ?? eventDate,
     launchDateIso: event?.std_invitation_launch_date,
-    venueName: event?.venue_name,
-    venueAddress: event?.venue_address,
-    loveStory: event?.love_story,
+    venueName: stdVenueName ?? eventVenueName,
+    venueAddress: stdVenueCity ?? eventVenueCity,
+    loveStory: stdStory ?? eventLoveStory,
     publicId: event?.public_id ?? eventId,
     musicUrl: bgMusicUrl,
     galleryUrls,
@@ -278,108 +293,130 @@ export default async function SaveTheDatePage({ params, searchParams }: Props) {
             </span>
           </li>
 
-          {/* Wedding date — inline picker when not set */}
+          {/* Wedding date — 3 states: finalized (locked) · pre-filled from event · empty */}
           <li className="px-4 py-3 sm:px-5">
-            {content.dateBig ? (
+            {stdDate ? (
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-ink/85">Wedding date</p>
                   <p className="truncate text-xs text-ink/55">{content.dateLabel}</p>
                 </div>
-                <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
-                  <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
-                  Added
+                <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-mulberry/10 px-2.5 py-1 text-xs font-medium text-mulberry">
+                  <Lock aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                  Finalized
                 </span>
               </div>
             ) : (
               <form action={saveStdContent} className="space-y-2">
                 <input type="hidden" name="event_id" value={eventId} />
                 <p className="text-sm font-medium text-ink/85">Wedding date</p>
+                {eventDate ? (
+                  <p className="text-xs text-ink/50">
+                    From your event settings — save to lock this to your film.
+                  </p>
+                ) : null}
                 <div className="flex flex-wrap items-center gap-2">
                   <input
                     type="date"
-                    name="event_date"
+                    name="film_date"
                     required
+                    defaultValue={eventDate ?? undefined}
                     className="rounded-md border border-ink/20 bg-cream px-3 py-1.5 text-sm text-ink focus:border-terracotta focus:outline-none"
                   />
                   <button
                     type="submit"
                     className="rounded-full bg-mulberry px-3.5 py-1.5 text-xs font-semibold text-cream transition hover:bg-mulberry-600"
                   >
-                    Save
+                    {eventDate ? 'Lock this in' : 'Save'}
                   </button>
                 </div>
               </form>
             )}
           </li>
 
-          {/* Venue — inline inputs when not set */}
+          {/* Venue — 3 states: finalized · pre-filled from event · empty */}
           <li className="px-4 py-3 sm:px-5">
-            {content.venueName ? (
+            {stdVenueName ? (
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-ink/85">Venue</p>
-                  <p className="truncate text-xs text-ink/55">{content.venueName}</p>
+                  <p className="truncate text-xs text-ink/55">
+                    {stdVenueCity ? `${stdVenueName}, ${stdVenueCity}` : stdVenueName}
+                  </p>
                 </div>
-                <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
-                  <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
-                  Added
+                <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-mulberry/10 px-2.5 py-1 text-xs font-medium text-mulberry">
+                  <Lock aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                  Finalized
                 </span>
               </div>
             ) : (
               <form action={saveStdContent} className="space-y-2">
                 <input type="hidden" name="event_id" value={eventId} />
                 <p className="text-sm font-medium text-ink/85">Venue</p>
+                {eventVenueName ? (
+                  <p className="text-xs text-ink/50">
+                    From your event settings — save to lock this to your film.
+                  </p>
+                ) : null}
                 <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                   <input
                     type="text"
-                    name="venue_name"
+                    name="film_venue_name"
                     placeholder="Venue name"
                     required
+                    defaultValue={eventVenueName ?? undefined}
                     className="min-w-0 rounded-md border border-ink/20 bg-cream px-3 py-1.5 text-sm text-ink placeholder:text-ink/35 focus:border-terracotta focus:outline-none sm:flex-1"
                   />
                   <input
                     type="text"
-                    name="venue_address"
+                    name="film_venue_city"
                     placeholder="City / area (optional)"
+                    defaultValue={eventVenueCity ?? undefined}
                     className="min-w-0 rounded-md border border-ink/20 bg-cream px-3 py-1.5 text-sm text-ink placeholder:text-ink/35 focus:border-terracotta focus:outline-none sm:flex-1"
                   />
                   <button
                     type="submit"
                     className="self-start rounded-full bg-mulberry px-3.5 py-1.5 text-xs font-semibold text-cream transition hover:bg-mulberry-600 sm:self-auto"
                   >
-                    Save
+                    {eventVenueName ? 'Lock this in' : 'Save'}
                   </button>
                 </div>
               </form>
             )}
           </li>
 
-          {/* A line from your story — inline textarea when not set */}
+          {/* Story — 3 states: finalized · pre-filled from event · empty */}
           <li className="px-4 py-3 sm:px-5">
-            {content.storyTeaser ? (
+            {stdStory ? (
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-ink/85">A line from your story</p>
                   <p className="line-clamp-2 text-xs text-ink/55">{content.storyTeaser}</p>
                 </div>
-                <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
-                  <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
-                  Added
+                <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-mulberry/10 px-2.5 py-1 text-xs font-medium text-mulberry">
+                  <Lock aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                  Finalized
                 </span>
               </div>
             ) : (
               <form action={saveStdContent} className="space-y-2">
                 <input type="hidden" name="event_id" value={eventId} />
                 <p className="text-sm font-medium text-ink/85">A line from your story</p>
-                <p className="text-xs text-ink/55">
-                  A sentence or two — the film pulls its opening line from what you write here.
-                </p>
+                {eventLoveStory ? (
+                  <p className="text-xs text-ink/50">
+                    From your event story — save to lock this to your film.
+                  </p>
+                ) : (
+                  <p className="text-xs text-ink/55">
+                    A sentence or two — the film pulls its opening line from what you write here.
+                  </p>
+                )}
                 <div className="flex flex-col gap-2">
                   <textarea
-                    name="love_story"
+                    name="film_story"
                     placeholder="e.g. We met on a rainy afternoon and haven't looked back since."
                     rows={2}
+                    defaultValue={eventLoveStory ?? undefined}
                     className="w-full resize-none rounded-md border border-ink/20 bg-cream px-3 py-2 text-sm text-ink placeholder:text-ink/35 focus:border-terracotta focus:outline-none"
                   />
                   <div>
@@ -387,7 +424,7 @@ export default async function SaveTheDatePage({ params, searchParams }: Props) {
                       type="submit"
                       className="rounded-full bg-mulberry px-3.5 py-1.5 text-xs font-semibold text-cream transition hover:bg-mulberry-600"
                     >
-                      Save
+                      {eventLoveStory ? 'Lock this in' : 'Save'}
                     </button>
                   </div>
                 </div>

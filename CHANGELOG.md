@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · feat(std): the film's logo falls back to the onboarding lockup (PR-U)
+
+Owner: "logo will be from the onboarding, but if they upload or use the monogram lab, it will bypass the onboarding logo."
+
+The film's monogram beats showed the uploaded/lab SVG when present, else plain initials in the film's own font. Now the fallback is the couple's **onboarding lockup** — the actual mark they designed at onboarding (bar / duo / script / infinity, framed, or the initials circle).
+
+- New `FilmMonogram` precedence: (1) `content.monogramSvg` — the uploaded / monogram-lab mark wins; (2) else the **onboarding lockup**, rendered via the canonical `HeroMonogram` (so the film matches the hero / chrome / QR mark exactly), scaled per beat; (3) last-resort initials in the film font (safety net only).
+- New `StdLockup` type + `lockup` prop on `SaveTheDateFilm`. Threaded from the live page (`stdLockupFor(event)` → `resolveMonogram` + design columns) on both the anonymous + signed-in paths, and from the builder (preview parity). Added `monogram_color` to `EventRow` and the builder SELECT (the design columns were already fetched).
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — logo precedence is **uploaded → monogram-lab → onboarding lockup → initials**; the film's default mark is the onboarding lockup, not generic initials. See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · fix(std): post-reveal swipes scrub the film, not re-cover the veil (PR-S)
 
 Owner: "when I swipe down on a place without the veil, it should [not] bring the veil down — instead it should animate the texts via scrubbing."

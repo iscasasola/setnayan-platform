@@ -33,6 +33,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { BackgroundMusic } from './_components/background-music';
 import { EditorialContent } from './_components/editorial/editorial-content';
 import { SaveTheDateView } from './_components/save-the-date';
+import { type StdLockup } from './_components/save-the-date-film';
 import { RevealOverlayServer } from './_components/reveal/reveal-overlay-server';
 import { resolveRevealEffects } from '@/lib/std-reveal-effects';
 import { resolveStdBackground, realisticBgSrc, type StdBackground } from '@/lib/std-backgrounds';
@@ -253,6 +254,31 @@ function revealMarkSvg(event: EventRow): string | null {
       ? event.monogram_custom_svg
       : null;
   return uploaded ?? custom;
+}
+
+/**
+ * The couple's ONBOARDING lockup for the Save-the-Date film — their chosen
+ * monogram design (bar/duo/script/infinity/framed/circle). The film shows THIS
+ * when they have no uploaded/lab SVG (owner 2026-06-19 logo precedence: upload /
+ * monogram-lab bypass the onboarding logo). Reuses resolveMonogram → HeroMonogram
+ * so the film's mark matches the hero/chrome exactly.
+ */
+function stdLockupFor(event: EventRow): StdLockup {
+  return {
+    design: {
+      monogram_style: event.monogram_style,
+      monogram_font_key: event.monogram_font_key,
+      monogram_frame_key: event.monogram_frame_key,
+    },
+    monogram: resolveMonogram({
+      display_name: event.display_name,
+      monogram_text: event.monogram_text ?? null,
+      monogram_color: event.monogram_color ?? null,
+      monogram_font_key: event.monogram_font_key,
+      monogram_style: event.monogram_style,
+      monogram_frame_key: event.monogram_frame_key,
+    }),
+  };
 }
 
 /** The couple's minted wax-seal recipe for the reveal (null → default levers). */
@@ -943,6 +969,9 @@ type EventRow = {
   monogram_style?: string | null;
   monogram_font_key?: string | null;
   monogram_frame_key?: string | null;
+  // Accent colour for the lockup (events.monogram_color) — used by resolveMonogram
+  // for the badge ring / initials and the STD film's onboarding-lockup fallback.
+  monogram_color?: string | null;
   // Couple's explicit monogram-text override (events.monogram_text, already in
   // the SELECT) — the Save-the-Date film's monogram letters when set, else
   // derived from the display name. See lib/save-the-date-content.ts (P2).
@@ -1416,6 +1445,7 @@ function PublicLanding({
           backgroundImageUrl={stdBackgroundUrl}
           monogramText={event.monogram_text}
           monogramSvg={bespokeSvg}
+          lockup={stdLockupFor(event)}
           musicUrl={bgMusicUrl}
           videoUrl={stdVideoUrl}
           ceremonyVenue={stdVenues?.ceremony ?? null}
@@ -1972,6 +2002,7 @@ function InvitationSite({
             backgroundImageUrl={stdBackgroundUrl}
             monogramText={event.monogram_text}
             monogramSvg={bespokeSvg}
+            lockup={stdLockupFor(event)}
             musicUrl={bgMusicUrl}
             videoUrl={stdVideoUrl}
             ceremonyVenue={stdVenues?.ceremony ?? null}

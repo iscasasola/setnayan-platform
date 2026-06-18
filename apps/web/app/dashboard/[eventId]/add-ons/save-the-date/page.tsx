@@ -7,6 +7,8 @@ import { sealColorFromPalette, veilColorFromPalette } from '@/lib/site-palette';
 import { fallbackSeedFromPublicId, sanitizeWaxSealConfig } from '@/lib/wax-seal/types';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveStdFilmContent } from '@/lib/save-the-date-content';
+import { resolveMonogram } from '@/lib/monogram';
+import { type StdLockup } from '@/app/[slug]/_components/save-the-date-film';
 import { resolveStdTheme } from '@/lib/std-themes';
 import { resolveRevealEffects } from '@/lib/std-reveal-effects';
 import { resolveStdBackground } from '@/lib/std-backgrounds';
@@ -59,7 +61,7 @@ export default async function SaveTheDatePage({ params }: Props) {
   const { data: event } = await supabase
     .from('events')
     .select(
-      'public_id, slug, display_name, event_date, venue_name, venue_address, love_story, monogram_text, monogram_custom_svg, monogram_uploaded_svg, role_palette, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_film_date, std_film_venue_name, std_film_venue_city, std_film_story, std_background, std_media, our_photos, site_bg_music_enabled, site_bg_music_r2_key, landing_page_hero_image_url, date_candidates, date_mode',
+      'public_id, slug, display_name, event_date, venue_name, venue_address, love_story, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_film_date, std_film_venue_name, std_film_venue_city, std_film_story, std_background, std_media, our_photos, site_bg_music_enabled, site_bg_music_r2_key, landing_page_hero_image_url, date_candidates, date_mode',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -71,6 +73,24 @@ export default async function SaveTheDatePage({ params }: Props) {
     (typeof event?.monogram_custom_svg === 'string' && event.monogram_custom_svg.trim()
       ? event.monogram_custom_svg
       : null);
+
+  // The couple's onboarding lockup — the film's mark when there's no markSvg
+  // (owner 2026-06-19 logo precedence). Mirrors the live page's stdLockupFor.
+  const lockup: StdLockup = {
+    design: {
+      monogram_style: event?.monogram_style ?? null,
+      monogram_font_key: event?.monogram_font_key ?? null,
+      monogram_frame_key: event?.monogram_frame_key ?? null,
+    },
+    monogram: resolveMonogram({
+      display_name: event?.display_name ?? '',
+      monogram_text: event?.monogram_text ?? null,
+      monogram_color: event?.monogram_color ?? null,
+      monogram_font_key: event?.monogram_font_key ?? null,
+      monogram_style: event?.monogram_style ?? null,
+      monogram_frame_key: event?.monogram_frame_key ?? null,
+    }),
+  };
 
   const palette = sanitizeRolePalette(event?.role_palette);
   const waxColor = sealColorFromPalette(palette);
@@ -260,6 +280,7 @@ export default async function SaveTheDatePage({ params }: Props) {
         displayName={event?.display_name ?? ''}
         dateIso={event?.event_date ?? null}
         markSvg={markSvg}
+        lockup={lockup}
         waxColor={waxColor}
         sealConfig={sealConfig}
         sealFallbackSeed={sealFallbackSeed}

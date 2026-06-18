@@ -34,7 +34,6 @@ export type SkuCategory =
   | 'patiktok'
   | 'vendor_verification'
   | 'vendor_tools'
-  | 'vendor_ads'
   | 'vendor_subscription'
   | 'retired';
 
@@ -65,11 +64,9 @@ export const LAUNCH_PROMO_UNTIL = new Date('2027-01-30T23:59:59+08:00');
 
 /**
  * SKUs that are FREE during the launch promo (2026-05-18 owner lock).
- * 16 zero-marginal-cost SKUs across couple- and vendor-side. Vendor ads
- * (Boosted + Sponsored Boost) are EXCLUDED — they're competitive marketing
- * slots and free-for-all would defeat their purpose. Concierge, AI
+ * 16 zero-marginal-cost SKUs across couple- and vendor-side. Concierge, AI
  * Highlights, Custom Monogram, Contract Intelligence, and Vendor
- * Verification are also EXCLUDED — those have real labor/API cost.
+ * Verification are EXCLUDED — those have real labor/API cost.
  */
 export const LAUNCH_PROMO_SKU_CODES: ReadonlySet<string> = new Set([
   // Couple-side (6 active — panood_camera_sync + panood_annual_streaming_plus
@@ -460,70 +457,6 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
     category: 'vendor_tools',
     priceCentavos: 9900,
     unit: 'week',
-    multiPurchase: false,
-    subscription: true,
-    refundable: true,
-    purchaserRole: 'vendor',
-    isActive: true,
-  },
-
-  // ---- Boosted Ads (vendor self-serve) ----
-  {
-    skuCode: 'boosted_ads_5km',
-    displayName: 'Boosted Ads — Local 5km',
-    category: 'vendor_ads',
-    priceCentavos: 500000,
-    unit: 'week',
-    multiPurchase: true,
-    subscription: false,
-    refundable: true,
-    purchaserRole: 'vendor',
-    isActive: true,
-  },
-  {
-    skuCode: 'boosted_ads_10km',
-    displayName: 'Boosted Ads — City 10km',
-    category: 'vendor_ads',
-    priceCentavos: 800000,
-    unit: 'week',
-    multiPurchase: true,
-    subscription: false,
-    refundable: true,
-    purchaserRole: 'vendor',
-    isActive: true,
-  },
-  {
-    skuCode: 'boosted_ads_20km',
-    displayName: 'Boosted Ads — Metro 20km',
-    category: 'vendor_ads',
-    priceCentavos: 1500000,
-    unit: 'week',
-    multiPurchase: true,
-    subscription: false,
-    refundable: true,
-    purchaserRole: 'vendor',
-    isActive: true,
-  },
-
-  // ---- Sponsored Boost (verified vendors only) ----
-  {
-    skuCode: 'sponsored_boost_quarterly_30km',
-    displayName: 'Sponsored Boost Quarterly 30km',
-    category: 'vendor_ads',
-    priceCentavos: 25000000,
-    unit: 'quarter',
-    multiPurchase: false,
-    subscription: false,
-    refundable: true,
-    purchaserRole: 'vendor',
-    isActive: true,
-  },
-  {
-    skuCode: 'sponsored_boost_annual_30km',
-    displayName: 'Sponsored Boost Annual 30km',
-    category: 'vendor_ads',
-    priceCentavos: 80000000,
-    unit: 'year',
     multiPurchase: false,
     subscription: true,
     refundable: true,

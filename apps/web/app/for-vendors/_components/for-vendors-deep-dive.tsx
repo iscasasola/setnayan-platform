@@ -15,8 +15,8 @@
  * Annual to ₱24,999 + Boosters surface mention):
  *   - "Setnayan Concierge matching" rows → "Setnayan AI matching" (V2 retire)
  *   - "Concierge matchmaking" in card titles → "Setnayan AI matchmaking"
- *   - "Sponsored Boost ₱1,200/wk" preserved (matches v2.1 brief)
- *   - "Boosted Ads · ₱1,200/wk" preserved (matches v2.1 brief)
+ *   - Boosted Ads + Sponsored Boost vendor ad product RETIRED 2026-06-19 (owner
+ *     "delete them") — the per-week paid-visibility benefit card + matrix rows removed
  *   - Boosters surface mention added (CLAUDE.md 2026-05-30 row § 1(d) reinstated)
  *   - 0% commission claim preserved (V2 publisher posture per CLAUDE.md 2026-05-28 3rd row)
  *   - Founder bonus (100 tokens before 31 Jan 2027) REMOVED 2026-06-15 (owner); the
@@ -51,11 +51,6 @@ const BENEFITS = [
     tag: 'Grow with the platform',
     title: 'Wedding today. Debut, birthday, corporate, anniversaries — yours next.',
     body: 'Every event type opens as our verified vendor count crosses the threshold in your area. Your verification, reviews, and CRM history carry into each one — no second listing, no second login.',
-  },
-  {
-    tag: 'Sponsored boost',
-    title: 'Pay-per-week visibility from 10km → 30km radius. Pause anytime.',
-    body: 'Ready to scale? Boost your profile across nearby cities for a week at a time. Cancel mid-week, prorated refund.',
   },
   {
     tag: 'Crew-rate marketplace',

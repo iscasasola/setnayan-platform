@@ -119,7 +119,6 @@ These tools live in the couple dashboard after sign-in. Not publicly indexable b
 - Calendar with intra-day blocks plus multi-service shared calendars on Pro and Enterprise.
 - Team management — up to four roles on Pro, unlimited team accounts on Enterprise.
 - Earnings rollup. Direct vendor-to-couple bookings settle off-platform; Setnayan never touches that money.
-- Marketing tools — Boosted Ads at ₱1,200 per week (Pro+). Marketplace marketing surfaces activate at 1,000 verified vendors and 5,000 weekly visits, whichever lands later.
 - AI Proposal Builder (Pro+).
 - Reverse-image portfolio theft monitoring (Pro+).
 - Mood board sharing with booked couples for design alignment.

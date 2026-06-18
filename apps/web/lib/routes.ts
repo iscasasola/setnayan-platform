@@ -23,7 +23,6 @@ export const routes = {
       index: () => `/admin/addons`,
       pricingReport: () => `/admin/addons/pricing-report`,
     },
-    ads: () => `/admin/ads`,
     approvals: () => `/admin/approvals`,
     brain: () => `/admin/brain`,
     budgetPlanner: () => `/admin/budget-planner`,
@@ -502,7 +501,6 @@ export const routes = {
     },
     earnings: () => `/vendor-dashboard/earnings`,
     manpower: () => `/vendor-dashboard/manpower`,
-    marketing: () => `/vendor-dashboard/marketing`,
     messages: {
       index: () => `/vendor-dashboard/messages`,
       detail: (threadId: string) => `/vendor-dashboard/messages/${threadId}`,

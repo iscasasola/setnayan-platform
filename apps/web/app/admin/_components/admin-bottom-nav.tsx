@@ -173,7 +173,6 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/admin/hero-video',
       '/admin/real-stories',
       '/admin/recaps',
-      '/admin/ads',
       '/admin/brain',
       '/admin/moodboard-library',
       '/admin/songs',

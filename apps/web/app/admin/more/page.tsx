@@ -26,7 +26,6 @@ import {
   PartyPopper,
   Globe,
   Newspaper,
-  Megaphone,
   Brain,
   Palette,
   Music,
@@ -87,14 +86,6 @@ const PLATFORM_ITEMS: LandingItem[] = [
     icon: Newspaper,
     description:
       'Feature and order which consented wedding editorials surface on the public /realstories page, and pick the hero.',
-  },
-  {
-    key: 'ads',
-    label: 'Ads',
-    href: '/admin/ads',
-    icon: Megaphone,
-    description:
-      'Boosted Ads + Sponsored Boost activation review. Manage vendor marketing tier eligibility.',
   },
   {
     key: 'brain',

@@ -67,12 +67,10 @@ const MATRIX_SECTIONS: MatrixSection[] = [
   },
   {
     section: '📡 Reach & visibility',
-    note: 'Boost radius scales by tier. Boost individual features for 7 days · 4–100 tokens each. Higher tiers also unlock paid ad placements and a shareable bid link for social.',
+    note: 'Boost radius scales by tier. Boost individual features for 7 days · 4–100 tokens each. Higher tiers also unlock a shareable bid link for social.',
     rows: [
       ['Boost radius', '10km', '20km', '50km', '100km'],
       ['Boosters · 7-day feature unlocks · 4–100 tokens each', true, true, true, true],
-      ['Sponsored Boost · top of category search', false, false, true, true],
-      ['Boosted Ads add-on', false, false, true, true],
       ['Additional branch add-on', false, false, true, true],
       ['Sharable bid link for social media', false, false, false, true],
     ],

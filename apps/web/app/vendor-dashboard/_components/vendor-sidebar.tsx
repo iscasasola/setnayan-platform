@@ -35,7 +35,7 @@
  *                      Contracts · Repertoire · Attributes (merged the old
  *                      Pipeline + Communicate groups)
  *   3. Grow (key 'marketing')    — Subscription · Tokens · Redeem code ·
- *                      Marketing · Verify · Reviews · Moodboard library
+ *                      Verify · Reviews · Moodboard library
  *                      (single home for paid reach + reputation · the three
  *                      paid SKUs folded in from Business 2026-06-14 per the
  *                      owner-locked REDESIGN_PLAN)
@@ -94,7 +94,6 @@ import {
   FileSignature,
   FileText,
   HardHat,
-  Megaphone,
   MessageSquare,
   Music,
   Palette,
@@ -207,7 +206,6 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
       { key: 'subscription', label: 'Subscription', href: '/vendor-dashboard/subscription', icon: Crown, matchPrefix: '/vendor-dashboard/subscription' },
       { key: 'tokens', label: 'Tokens', href: '/vendor-dashboard/tokens', icon: Coins, matchPrefix: '/vendor-dashboard/tokens' },
       { key: 'redeem-code', label: 'Redeem code', href: '/vendor-dashboard/redeem-code', icon: Tag, matchPrefix: '/vendor-dashboard/redeem-code' },
-      { key: 'marketing', label: 'Marketing', href: '/vendor-dashboard/marketing', icon: Megaphone, matchPrefix: '/vendor-dashboard/marketing' },
       { key: 'verify', label: 'Verify', href: '/vendor-dashboard/verify', icon: ShieldCheck, matchPrefix: '/vendor-dashboard/verify' },
       {
         // Vendor partnerships — declare vendor-to-vendor commercial relationships.

@@ -786,7 +786,6 @@ async function runSweepLapsedIteration(
     'tool_palette_weekly',
     'tool_qr_reader_weekly',
     'tool_advanced_pricing_weekly',
-    'sponsored_boost_annual_30km',
     'vendor_verification_annual_renewal',
     'panood_annual_streaming',
     'panood_annual_streaming_plus',

@@ -65,10 +65,8 @@
  *   - Vendors absent from the input list get `[]` (no badge rendered).
  *   - When no verified vendor has any bookings, no one gets
  *     `most_booking`. Same for `top_pick` when no one has reviews.
- *   - Sponsored / Boosted ad rank does NOT factor in. Badges are
- *     organic; paid placement floats vendors via `ad_rank` in the
- *     sort (page.tsx line 875), which is the right surface for
- *     monetization to live separately from trust badges.
+ *   - Badges are organic — they reflect real bookings + reviews only,
+ *     never any paid placement signal.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';

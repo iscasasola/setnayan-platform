@@ -171,12 +171,10 @@ export async function runHiringAlertSweep(dashboardUrl: string): Promise<SweepRe
 
     const unlocks: string[] = [];
     if (milestone.milestone_target === 1000) {
-      unlocks.push('Marketing SKUs unlock (Profile Spotlight, Boosted Ads, Sponsored Boost)');
       unlocks.push('First 30 pre-registered vendors get 50% launch discount');
     } else if (milestone.milestone_target === 100) {
       unlocks.push('Pulse 2 hiring trigger — consider Vendor Verification Lead');
     } else if (milestone.milestone_target === 5000) {
-      unlocks.push('Phase 2 ad pricing locks in (no more launch promo)');
       unlocks.push('Pulse 3 hiring window opens');
     }
 

@@ -90,7 +90,6 @@ import {
   Shapes,
   Tag,
   Globe,
-  Megaphone,
   Video,
   Music,
   TrendingUp,
@@ -546,12 +545,6 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/recaps',
         icon: Images,
         matchPrefix: '/admin/recaps',
-      },
-      {
-        key: 'ads',
-        label: 'Ads',
-        href: '/admin/ads',
-        icon: Megaphone,
       },
       {
         key: 'brain',

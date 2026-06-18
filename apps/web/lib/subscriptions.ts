@@ -54,7 +54,6 @@ export const LAPSED_SUBSCRIPTION_SKUS: readonly string[] = [
   'tool_palette_weekly',
   'tool_qr_reader_weekly',
   'tool_advanced_pricing_weekly',
-  'sponsored_boost_annual_30km',
   'vendor_verification_annual_renewal',
 
   // Couple-side (annual)
@@ -181,16 +180,10 @@ const SUBSCRIPTION_DURATION_DAYS: Record<string, number> = {
   tool_qr_reader_weekly: 7,
   tool_advanced_pricing_weekly: 7,
 
-  // Quarterly (90 days) — sponsored_boost_quarterly_30km is `subscription:false`
-  // in sku-catalog (one-shot ad slot) but its derived expiry is still useful
-  // for the marketplace boosted-radius lookup. Not included in
-  // LAPSED_SUBSCRIPTION_SKUS so the sweep ignores it.
-
   // Annual (365 days)
   panood_annual_streaming: 365,
   panood_annual_streaming_plus: 365,
   all_tools_unlock_annual: 365,
   papic_cam_bridge_all_slots_annual: 365,
-  sponsored_boost_annual_30km: 365,
   vendor_verification_annual_renewal: 365,
 };

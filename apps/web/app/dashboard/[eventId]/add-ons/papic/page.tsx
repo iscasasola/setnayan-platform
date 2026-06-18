@@ -101,10 +101,10 @@ type Props = {
   }>;
 };
 
-// V1 prices, sourced from the spec ("Pricing alignment" table). Charm-priced
-// to PHP per the 2026-05-12 decision log; do NOT invent new numbers here.
-const PAPIC_3_SEATS_PRICE = 1499;
-const PAPIC_5_SEATS_PRICE = 2499;
+// Seat-pack price is read live from the admin catalog (PAPIC_SEATS via
+// formatV2Sku → papicSeatsPricePhp), not a hardcoded number. The former
+// PAPIC_3/5_SEATS_PRICE constants are retired (owner 2026-06-18 · "admin
+// pricing controls all the prices").
 // Pro Camera Bridge is INCLUDED with Papic (owner 2026-06-18 · no separate
 // purchase) — its former ₱1,499 SKU constant is retired.
 
@@ -171,10 +171,6 @@ const SDK_MATRIX = [
 
 function seatPackLabel(pack: 'paparazzi_5_seats' | 'paparazzi_3_seats'): string {
   return pack === 'paparazzi_5_seats' ? 'Papic 5-seat pack' : 'Papic 3-seat pack';
-}
-
-function seatPackPrice(pack: 'paparazzi_5_seats' | 'paparazzi_3_seats'): number {
-  return pack === 'paparazzi_5_seats' ? PAPIC_5_SEATS_PRICE : PAPIC_3_SEATS_PRICE;
 }
 
 // Shape of the oauth_grants row we read for the connected-Drive panel.
@@ -470,6 +466,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       <SeatStatusCard
         eventId={eventId}
         pack={MOCK_SEAT_PACK}
+        pricePhp={papicSeatsPricePhp}
         seats={MOCK_SEATS}
         claimed={claimedSeats}
         unclaimed={unclaimedSeats}
@@ -1031,6 +1028,7 @@ function DriveConnectedPanel({
 function SeatStatusCard({
   eventId,
   pack,
+  pricePhp,
   seats,
   claimed,
   unclaimed,
@@ -1038,6 +1036,7 @@ function SeatStatusCard({
 }: {
   eventId: string;
   pack: 'paparazzi_5_seats' | 'paparazzi_3_seats';
+  pricePhp: number;
   seats: ReadonlyArray<MockSeat>;
   claimed: number;
   unclaimed: number;
@@ -1056,7 +1055,7 @@ function SeatStatusCard({
           <h2 className="text-xl font-semibold tracking-tight">
             {seatPackLabel(pack)} ·{' '}
             <span className="font-mono text-base text-terracotta">
-              {formatPhp(seatPackPrice(pack))}
+              {formatPhp(pricePhp)}
             </span>
           </h2>
         </div>

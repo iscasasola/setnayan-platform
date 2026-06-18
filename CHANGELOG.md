@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · feat(std): Save-the-Date background library — 10 realistic scenes generated (Step 1 assets)
+
+Generated + QC'd the **10 realistic parallax-background scenes** for the new Step-1 "Background" (owner spec 2026-06-18/19) and added the library manifest. Assets in `apps/web/public/std/backgrounds/` (~14MB, 1024² webp, center-safe for any crop): aurora · golden-hour · peonies field · rose-archway · open seascape · starlit · misty sunrise · bridgerton · candlelit ballroom · fairy-lights.
+
+- **Generation:** Recraft `realistic_image`, fanned out via a self-reviewing workflow (each scene generated → looked at its own output → regenerated for people/framing), then a manual QC + 2 targeted regen passes. Key lesson baked in: Recraft ignores "no X" negatives but obeys **reframing** (e.g. ceremony "arch" → rose "archway tunnel"; "beach" → "open seascape"; peony "rows" → "carpeted field" to kill the aisle).
+- **Library SSOT:** `lib/std-backgrounds.ts` — `STD_REALISTIC_BACKGROUNDS` (10, with src) + `STD_PAPER_BACKGROUNDS` (5) + kinds (`plain`/`paper`/`realistic`/`upload`).
+- **Paper pivot:** the 5 paper styles are NOT generated images — Recraft only ever produced styled product flat-lays for textures. They become **procedural CSS/SVG** (grain + tint) at the render layer: truly seamless, recolourable to the Mood Board, weightless. Right tool + better result.
+
+Not yet wired (next PRs): the Step-1 picker UI, the depth/parallax renderer (depth-map pipeline for realistic + upload), the paper CSS textures, and the plain-colour option.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — new Step-1 Background (plain · 5 paper · 10 realistic · upload), 1:1 center-safe + overscan, realistic+upload parallax. See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-18 · fix(studio): the Monogram Maker is now reachable from Studio
 
 The Studio hub's only monogram card ("Monogram Creator" · CTA "Open studio") routed to `/dashboard/[eventId]/add-ons/animated-monogram` — the **paid ₱2,499 Animated-Monogram buy page** — not to the actual **Monogram Maker** (`/dashboard/[eventId]/monogram`, the free lettered/Cipher/Bespoke/upload design hub). So a couple on Studio who wanted to design their monogram hit a buy wall instead of the maker; the maker was only reachable from the Home "Your plan" list and a link buried inside the upsell page.

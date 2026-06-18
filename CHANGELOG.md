@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-18 · feat(patiktok): capture + render foundation — source-clip storage + render-job output (PR1 of 4)
+
+Patiktok (iteration 0017) was a complete UX scaffold with **no video pipeline**: a render-job queue but nowhere to store booth-recorded clips, and only a placeholder `output_url`. Owner greenlit finishing the **record → render → download** slice (TikTok auto-post stays deferred behind TikTok's verified-app audit) on a **client-side WebCodecs** render host (₱0 server compute — honors marginal-cost = R2-only). This is the schema foundation; capture/render/deliver follow in PR2–4.
+
+- **New migration `20270114000000`** — `patiktok_source_clips` (one row per booth recording → R2 object key + status + duration + performer label) + `patiktok_render_job_clips` (ordered job→clip junction) + ALTERs `patiktok_render_jobs` with real output (`output_object_key` / `output_bucket` / `output_bytes`), `render_mode` (default `client_webcodecs`, with `client_mediarecorder` fallback + reserved `server_ffmpeg`), and `delivered_at`.
+- **RLS at CREATE time** — event members read/insert/curate their own event's clips (booth is member-scoped so a coordinator can run it); junction access scopes through the parent job's event; render-job writes stay admin/service-role (the browser renders, a server action finalizes) — matching Phase 1's couple-never-writes-the-queue contract.
+
+Migration only — no app code reads the new columns yet (PR2 wires booth capture + presigned-PUT upload). Migration-guard timestamp `20270114000000` is unique + above the current max. Render-host + ship-scope decisions owner-locked 2026-06-18.
+
+SPEC IMPACT iter 0017 — the render pipeline now has a data model (source clips + real output). → CHANGELOG + corpus DECISION_LOG.
+
 ## 2026-06-17 · fix(save-the-date): fail-proof the ₱799 openings unlock (owner "fail proof it")
 
 Two-lens adversarial review of the just-shipped premium-openings purchase flow. Two real, **INTRODUCED** issues fixed + the migration ledger reconciled; the pre-existing platform behaviors are flagged, not changed (fixing them for one SKU would diverge from every other paid SKU).

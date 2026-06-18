@@ -12,6 +12,7 @@ import type { RevealTemplate } from '@/app/[slug]/_components/reveal/reveal-temp
 import { RevealPreviewCard } from '@/app/dashboard/[eventId]/_components/reveal-preview-card';
 import { SaveTheDateFilm } from '@/app/[slug]/_components/save-the-date-film';
 import { saveInvitationLaunchDate, saveStdContent } from './actions';
+import { SoundtrackRow } from './_components/soundtrack-row';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
@@ -126,6 +127,16 @@ export default async function SaveTheDatePage({ params, searchParams }: Props) {
     musicUrl: bgMusicUrl,
     galleryUrls,
   });
+
+  // Extract the original filename from the R2 key for display in the Soundtrack row.
+  // R2 key format: r2://setnayan-media/events/{id}/site-music/{uuid}-{originalName}
+  // UUID is always 36 chars; the '-' separator is char 36; original name starts at 37.
+  const musicR2Key = event?.site_bg_music_enabled ? (event?.site_bg_music_r2_key ?? null) : null;
+  const musicFilename = (() => {
+    const seg = musicR2Key?.split('/').pop();
+    if (!seg) return null;
+    return seg.length > 37 ? seg.slice(37) : seg;
+  })();
 
   const launchDate =
     typeof event?.std_invitation_launch_date === 'string'
@@ -384,25 +395,14 @@ export default async function SaveTheDatePage({ params, searchParams }: Props) {
             )}
           </li>
 
-          {/* Soundtrack — always links to site-chrome */}
-          <li className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-ink/85">Soundtrack</p>
-            </div>
-            {content.musicUrl ? (
-              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
-                <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
-                Added
-              </span>
-            ) : (
-              <Link
-                href={`/dashboard/${eventId}/website/site-chrome`}
-                className="inline-flex shrink-0 items-center gap-1 rounded-full border border-ink/15 bg-cream px-3 py-1 text-xs font-medium text-ink/70 hover:border-terracotta hover:text-terracotta"
-              >
-                <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                Add
-              </Link>
-            )}
+          {/* Soundtrack — inline upload / replace */}
+          <li className="px-4 py-3 sm:px-5">
+            <SoundtrackRow
+              eventId={eventId}
+              currentMusicRef={musicR2Key}
+              currentFilename={musicFilename}
+              currentMusicUrl={bgMusicUrl}
+            />
           </li>
 
           {/* Closing photos — always links to our-photos */}

@@ -128,3 +128,29 @@ export async function saveStdContent(formData: FormData): Promise<void> {
   revalidate(eventId);
   redirect(`/dashboard/${eventId}/add-ons/save-the-date?std=saved#content`);
 }
+
+export async function saveSoundtrack(formData: FormData): Promise<void> {
+  const eventId = String(formData.get('event_id') ?? '').trim();
+  if (!eventId) throw new Error('Missing event_id');
+  const supabase = await requireCouple(eventId);
+
+  const musicRef = String(formData.get('music_r2_ref') ?? '').trim();
+  if (!musicRef) {
+    redirect(`/dashboard/${eventId}/add-ons/save-the-date`);
+  }
+
+  const { error } = await supabase
+    .from('events')
+    .update({
+      site_bg_music_r2_key: musicRef,
+      site_bg_music_source: 'upload',
+      site_bg_music_enabled: true,
+    })
+    .eq('event_id', eventId);
+  if (error) {
+    redirect(`/dashboard/${eventId}/add-ons/save-the-date?std_error=save#content`);
+  }
+
+  revalidate(eventId);
+  redirect(`/dashboard/${eventId}/add-ons/save-the-date?std=saved#content`);
+}

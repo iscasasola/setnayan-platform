@@ -515,9 +515,15 @@ export function SaveTheDateFilm({
     return () => ro.disconnect();
   }, []);
 
-  // Preview mode: start immediately (no reveal event to wait for).
-  // Full-screen mode: wait for 'std-reveal-done' from the RevealOverlay;
-  // fall back to auto-start after 2 s if no reveal is active.
+  // When does the content start advancing?
+  // - Preview: immediately.
+  // - A reveal IS active: ONLY once the veil/door is fully lifted ('std-reveal-
+  //   done'). The content must NOT play under the veil (owner 2026-06-19) — so
+  //   there's no early timer here. (If the reveal can't run — e.g. WebGL fails —
+  //   veil-reveal fires 'std-reveal-done' itself, so we never hang.)
+  // - No reveal: start after a short grace.
+  // The reveal sets window.__stdRevealActive when it will show; we read it after
+  // a tick so the reveal has mounted.
   useEffect(() => {
     if (preview) {
       playingRef.current = true;
@@ -533,10 +539,14 @@ export function SaveTheDateFilm({
       if (!muted && audioRef.current) audioRef.current.play().catch(() => {});
     };
     window.addEventListener('std-reveal-done', start, { once: true });
-    const fallback = setTimeout(start, 2000);
+    // No-reveal path only: start after a grace once we know no reveal armed.
+    const graceStart = window.setTimeout(() => {
+      const revealActive = (window as Window & { __stdRevealActive?: boolean }).__stdRevealActive;
+      if (!revealActive) start();
+    }, 700);
     return () => {
       window.removeEventListener('std-reveal-done', start);
-      clearTimeout(fallback);
+      clearTimeout(graceStart);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preview]);
@@ -757,12 +767,19 @@ export function SaveTheDateFilm({
     return () => window.removeEventListener('wheel', onWheel);
   }, [preview, N]);
 
-  // Auto-to-full-screen on the reveal-lift gesture: the veil dispatches
-  // 'std-go-fullscreen' synchronously from its lift tap (a user gesture), so the
-  // Fullscreen API call here is still inside that activation. Once only.
+  // On the reveal-lift gesture the veil dispatches 'std-go-fullscreen'
+  // SYNCHRONOUSLY from its lift tap (a user gesture), so both the Fullscreen API
+  // AND the music start here are inside that activation — which is why the music
+  // actually autoplays (browsers block audio-with-sound without a gesture; the
+  // lift IS the gesture). The content itself still waits for 'std-reveal-done'.
   useEffect(() => {
     if (preview) return;
     const onGoFs = () => {
+      // Music: unlock + play now (transient activation) so it's already going as
+      // the veil rises. Idempotent — start()/the video effect just continue it.
+      if (content.musicUrl && audioRef.current && !muted) {
+        audioRef.current.play().catch(() => {});
+      }
       if (fsTriedRef.current) return;
       fsTriedRef.current = true;
       const el = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => void };
@@ -771,7 +788,7 @@ export function SaveTheDateFilm({
     };
     window.addEventListener('std-go-fullscreen', onGoFs);
     return () => window.removeEventListener('std-go-fullscreen', onGoFs);
-  }, [preview]);
+  }, [preview, content.musicUrl, muted]);
 
   // The Save-the-Date is the whole full-screen experience (no chrome, no page
   // beneath in this phase) — the film holds on its closing beat; there's no

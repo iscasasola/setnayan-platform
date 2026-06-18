@@ -140,6 +140,19 @@ export function RevealOverlay({
     !reducedMotion &&
     !(eventTemplate === NO_REVEAL && !override) &&
     (configEnabled || FLAG_ON || override !== null || premiumUnlocked);
+
+  // Tell the film (z-50) whether a reveal will actually show, so it knows to WAIT
+  // for the lift instead of auto-starting under the veil (owner 2026-06-19
+  // "content will play [only once] the veil is up"). The film reads this flag
+  // after a short grace; if it's set, the content holds until 'std-reveal-done'.
+  useEffect(() => {
+    const showing = active && mounted && !gone;
+    (window as Window & { __stdRevealActive?: boolean }).__stdRevealActive = showing;
+    return () => {
+      (window as Window & { __stdRevealActive?: boolean }).__stdRevealActive = false;
+    };
+  }, [active, mounted, gone]);
+
   if (!active || !mounted || gone) return null;
 
   if (veil) {

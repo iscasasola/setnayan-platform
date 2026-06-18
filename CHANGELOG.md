@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · fix(std): music autoplays · content waits for the veil · petals cling on hit (PR-W follow-up 4)
+
+Owner: "music did not auto play. and content will [only] play [once] the veil is up." + "[petals] can cling but only 30% of the petals, and only if the petals hit the veil."
+
+- **Content waits for the veil.** The film had a 2 s fallback that auto-started even when a veil was present — so the beats played UNDER the veil, and (because that start wasn't from a user gesture) the **music autoplay was blocked**. Now `RevealOverlay` publishes `window.__stdRevealActive` when a reveal will show; the film only auto-starts (after a short grace) when NO reveal is active, otherwise it holds until **`std-reveal-done`** (veil fully lifted). If the reveal can't run, veil-reveal already fires `std-reveal-done` itself, so it never hangs.
+- **Music autoplays.** On the lift gesture the veil dispatches `std-go-fullscreen` **synchronously**; the film now also **plays the soundtrack there** — inside that user activation — so audio-with-sound is allowed (browsers block it without a gesture). It's already playing as the veil rises.
+- **Petals cling on hit (≤30%).** Re-added clinging, but collision-based: a falling petal that hits the **covered** veil (lift low, on-screen, near the cloth front) rolls **once** — ~30% cling **where they landed** (snap to the nearest cloth point, keeping their offset), capped at **30% of petals**; the rest fall on. No random pre-seeding.
+
+Verified: `pnpm typecheck` (my files clean; monogram-studio `paper` errors are an unrelated local install gap) + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` + `0024_Veil_Reveal_Spec` — content holds until the veil lifts; music starts on the lift gesture; veil petals cling only on collision, ≤30%. See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · feat(std): uniform scale-to-fit film (one design canvas, transform-scaled) (PR-W follow-up 3)
 
 Owner: "resizing still did not work. we want to take the maximum width always without causing the texts to exceed both width and height, and keep everything at the same size."

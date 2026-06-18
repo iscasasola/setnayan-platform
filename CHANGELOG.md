@@ -15,6 +15,19 @@ PR 3b of the pricing-authority cleanup — removes the three remaining places th
 Files: `app/dashboard/[eventId]/add-ons/papic/page.tsx` · `app/pricing/page.tsx` · `lib/wizard.ts`. `pnpm typecheck` + `pnpm lint` clean.
 
 SPEC IMPACT: none beyond display — no price values change; the wizard simply stops quoting prices that belong in the catalog. **Last pricing-authority item: delete the retired Boosted-Ads / Sponsored-Boost feature (separate PR).** DECISION_LOG row covered by the 2026-06-18 pricing-authority rows.
+## 2026-06-19 · chore(vendor): delete the retired Boosted-Ads / Sponsored-Boost product (owner "yes delete them")
+
+Final piece of the pricing-authority cleanup. The retired vendor advertising product (geo-radius "Boosted Ads" + quarterly/annual "Sponsored Boost") is fully removed — it was unused and its hardcoded prices were the last non-catalog price source flagged in the audit. Net `+37 / −1829` across 27 files.
+
+- **Deleted:** the `/admin/ads` route (page · actions · loading), the `/vendor-dashboard/marketing` route (page · actions · loading), and `lib/vendor-ads.ts` (the whole ad ladder + subscription helpers).
+- **Catalog/subscriptions:** dropped the 5 ad SKU rows + the `vendor_ads` `SkuCategory` member from `lib/sku-catalog.ts` (the 5 codes stay in `RETIRED_SKU_CODES` as intentional tombstones); removed `sponsored_boost_annual_30km` from the lapsed-subscription sweep lists in `lib/subscriptions.ts` + the stress-test copy.
+- **Explore:** removed the `ad_*` columns, the `ad_rank` SQL + in-memory sort, the `ActiveAdLookup` plumbing, and the "Featured Sponsor"/"Boosted" card badges + accent borders. The separate vendor-**partnerships** `sponsored_*` feature (`PartnershipBadge`) is untouched.
+- **Nav:** removed the `/admin/ads` + `/vendor-dashboard/marketing` entries from both sidebars, both bottom-navs, both `more` pages, `lib/routes.ts`, and the two slot rows in `lib/nav-registry-defaults.ts` (+ orphaned `Megaphone` imports). The vendor "Grow" group is preserved — only its Marketing *item* went.
+- **Public/marketing copy:** trimmed Boosted/Sponsored mentions from the for-vendors pricing matrix + deep-dive, the vendor verify page, an admin/addons label, a `vendor-badges` doc comment, the hiring-guide milestone email, and a public "Boosted Ads at ₱1,200/week" claim in `public/llms.txt`.
+
+Verified: `tsc` 0 · `next lint` clean · nav guard `lint-nav-icon-source` pass · nav-drift test 8/8 · full `test:unit` **332/332** · sibling guards (`lint:retired`/`lint:botnav`/`lint:entitlement-gates`/`lint:email-links`) all green.
+
+SPEC IMPACT: the vendor Boosted-Ads / Sponsored-Boost SKUs + surfaces are retired/removed (already RETIRED in the corpus). **DB follow-up (optional, separate):** the `vendor_ad_subscriptions` table + `vendor_active_ads` / `vendor_market_stats.ad_*` view columns still exist in prod — the app no longer reads them; a drop-migration can land later. DECISION_LOG row covered by the 2026-06-18 pricing-authority rows. **This closes the pricing-authority loop — every displayed + charged price now flows from `/admin/pricing`** (except the vendor token-burn bands on `/admin/token-bands`, by design).
 
 ## 2026-06-19 · feat(std): Video / Gallery step — picker + persistence (PR-A of the video reinstatement)
 

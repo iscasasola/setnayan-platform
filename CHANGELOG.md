@@ -4,6 +4,30 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · feat(std): admin override for stuck Save-the-Date videos (PR-E)
+
+Closes the gap PR-B flagged: the automatic poster-frame screen is fail-open → a video can sit at `nsfw:'pending'` forever (poster extraction / model hiccup) and silently never go live, with no recourse. Now an admin can decide it.
+
+- **Reveal Studio panel** (`/admin/reveal-studio`): a "Save-the-Date videos · needs review" queue listing couple videos that are **pending** or **rejected** (auto-approved ones are presumed fine + omitted). Each row plays the clip (with its poster) and offers **Approve** / **Reject**. The panel hides entirely when the queue is empty — no clutter.
+- **Action** `setStdVideoModeration(eventId, decision)` (admin-gated via `assertAdmin`, service-role write): sets `events.std_media.nsfw` to `approved` (goes live) or `rejected` (gallery shows). Revalidates `/[slug]`.
+- The page query filters STD-video events and presigns the video + poster for review; fail-safe to an empty queue on any read error (never breaks the studio).
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. Admin UI — verify on the Vercel preview. No migration (reuses `events.std_media`).
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the NSFW video gate now has the admin-manual-approve path noted as a PR-B follow-up. See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(std): inline song upload in the Music step (PR-D)
+
+Completes the owner's "song pick/upload" for Step 4 — the Music step no longer just links out; the couple uploads their song right there.
+
+- **Inline `<FileUpload>`** (audio · MP3/M4A/AAC/OGG/WAV · 40 MB, matching `/api/upload`'s audio cap) in the Step-4 Music section. A fresh upload previews instantly via a local object URL (reuses the `onFilePicked` hook added in PR-B); uploading auto-flips the "Play music" toggle on.
+- **Single-source persistence:** `saveAllStdContent` gains `siteMusicKey` → writes `events.site_bg_music_r2_key` + `site_bg_music_enabled=true`. The STD film already reads the site song (the PR4 single-source decision — no separate STD-music column), so this sets the one wedding-site song. Upload/replace only; disable/remove stays on the dedicated site-chrome surface (we never clobber it here). A "Manage site music" + "Use your Pakanta song" link remain.
+- The preview soundtrack now reflects the fresh upload (gated by the play-music toggle).
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. UI behind dashboard auth — verify on the Vercel preview.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the Music step (Step 4) now has inline song upload; honors the single-source music model (no new column). See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · feat(std): the 5-step Save-the-Date builder (PR-C — reorg + Music step)
 
 PR-C of the Step-3 video reinstatement chain. Reframes the builder into the owner's 5-step flow and adds a dedicated Music step. No schema, no new persistence — pure reorg + consolidation of existing controls.

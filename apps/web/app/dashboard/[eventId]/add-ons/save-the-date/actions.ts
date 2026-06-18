@@ -113,6 +113,10 @@ export async function saveAllStdContent(
     revealEffects?: RevealEffects | null;
     background?: StdBackground | null;
     media?: StdMedia | null;
+    /** A newly-uploaded song r2 ref. Persists to the SINGLE-SOURCE site music
+     *  (events.site_bg_music_*) — the STD film reuses the couple's site song.
+     *  undefined = no change; a string = set + enable. */
+    siteMusicKey?: string | null;
   },
 ): Promise<{ ok: boolean; error?: string }> {
   if (!eventId) return { ok: false, error: 'missing-event' };
@@ -191,6 +195,15 @@ export async function saveAllStdContent(
     } else {
       patch.std_media = { type: 'gallery' };
     }
+  }
+
+  // Step-4 Music — a newly-uploaded song. SINGLE-SOURCE: the STD film reuses the
+  // couple's site song, so this writes events.site_bg_music_* (the same column
+  // the film + Event/RSVP paths read). Uploading a song enables it; removal /
+  // disable stays on the dedicated site-chrome surface (we never clobber here).
+  if (typeof data.siteMusicKey === 'string' && data.siteMusicKey.trim()) {
+    patch.site_bg_music_r2_key = data.siteMusicKey.trim();
+    patch.site_bg_music_enabled = true;
   }
 
   const { error } = await supabase.from('events').update(patch).eq('event_id', eventId);

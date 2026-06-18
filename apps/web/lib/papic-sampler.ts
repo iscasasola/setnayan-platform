@@ -1,6 +1,6 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { eventPapicSeatsActive } from '@/lib/papic-seats';
+import { eventOwnsPapicSeats } from '@/lib/papic-seats';
 
 // Free Papic sampler — the locked "connect Drive OR upgrade = permanent" rule
 // (owner 2026-06-16; migration 20270103000000 lines 6-8). Sampler captures carry
@@ -63,7 +63,15 @@ export async function eventSamplerIsKept(eventId: string): Promise<boolean> {
     // (2) Owns paid Papic — the upgrade path. Checked HERE (not only at the
     // PAPIC_SEATS activation hook) so the sweep self-heals a paid event even if
     // that hook's best-effort expires_at clear was missed.
-    return await eventPapicSeatsActive(admin, eventId);
+    //
+    // RETENTION, NOT a feature gate: uses the pending-inclusive eventOwnsPapicSeats
+    // (NOT eventSkuActive). A couple who has APPLIED to upgrade (order still
+    // 'submitted', under review) has committed — we must NOT delete their sampler
+    // photos at day 30 just because the payment isn't verified yet. The payment
+    // handshake (owner 2026-06-18) gates FEATURE access on approval; data
+    // retention stays pending-inclusive so we never destroy a converting couple's
+    // photos. (Reject → the keep-check re-evaluates to false on the next sweep.)
+    return await eventOwnsPapicSeats(admin, eventId);
   } catch {
     return false;
   }

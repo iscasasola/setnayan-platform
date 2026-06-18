@@ -13,7 +13,9 @@ Follow-up to the admin-approval handshake (#1718). The 6 add-on buy pages that w
 
 No schema, no migration. tsc 0 · `next lint` clean · 332/332 unit. Display-only — the feature gates (active-only, shipped in #1718) already enforce the handshake.
 
-SPEC IMPACT — completes the handshake UX across all paid SKUs. → CHANGELOG + corpus DECISION_LOG.
+**Also — a correctness fix from #1718 (caught by the `lint:papic-keep` guard):** the handshake gate-sweep mis-swapped `lib/papic-sampler.ts` `eventSamplerIsKept` to the active-only reader. That function is **retention, not a feature gate** — "keep this couple's free Papic sampler photos forever once they've converted (Drive OR paid Papic)." Reverted to the **pending-inclusive `eventOwnsPapicSeats`**: a couple who has *applied* to upgrade (order `submitted`, under review) must NOT lose their photos at the day-30 sweep before the payment is verified. The handshake gates feature ACCESS on approval; data retention stays pending-inclusive so a converting couple's photos are never destroyed.
+
+SPEC IMPACT — completes the handshake UX across all paid SKUs + fixes the #1718 retention misclassification. → CHANGELOG + corpus DECISION_LOG.
 
 ## 2026-06-18 · feat(payments): admin-approval handshake — paid features unlock only AFTER the team verifies payment (owner)
 

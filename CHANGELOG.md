@@ -4,6 +4,30 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-18 · feat(editorial): three-layer quality scan + admin review queue — PR #1730
+
+Auto-scan (OpenAI Moderation + LanguageTool) runs on every editorial before the couple sees it. Admin reviews flagged content and unlocks. Zero monthly cost (both APIs are free).
+
+**Migration `20270115451085_editorial_scan.sql` (applied directly via `db query` — pre-existing `invitation_widgets` constraint blocked `db push --include-all`):**
+- `event_editorial`: +`scan_status` (pending→scanning→clean→flagged→admin_cleared→skipped), +`scan_flags` JSONB, +`scan_completed_at`, +`unlocked_for_couple_at`
+- Partial index `event_editorial_scan_queue_idx` for admin queue fetch
+
+**`apps/web/lib/editorial-scan.ts` (new):**
+- `scanEditorial(editorialId)`: OpenAI Moderation batch → LanguageTool per-field (120ms gap) → store flags → auto-unlock if clean; on error sets `skipped` and auto-unlocks (never blocks couple)
+- `ScanFlag` interface with severity (`red`=vulgar/`yellow`=grammar) and resolution lifecycle
+
+**`apps/web/app/dashboard/[eventId]/website/editorial/actions.ts`:**
+- `saveEditorial()` now fires `after(() => scanEditorial(eid))` on first save (`scan_status=pending`)
+
+**`apps/web/app/admin/editorial-review/` (new):**
+- List page: sections for Needs review / Queued / Cleared with red/yellow badge counts
+- Detail page: per-flag cards with Mark OK + admin rewrite textarea; Unlock button gated on no pending red flags; Re-scan button
+- `actions.ts`: `resolveFlag`, `unlockForCouple`, `triggerRescan`
+
+**`apps/web/app/admin/_components/admin-sidebar.tsx`:** Editorial review nav entry added (Work group, after queues)
+**`.env.example`:** `OPENAI_API_KEY` documented (Moderations-only restricted key)
+
+**SPEC IMPACT:** `Editorial_Experience_Spec_2026-06-18.md` § Quality Gate implemented. Migration applied to prod. `OPENAI_API_KEY` must be added to Vercel env by owner (key created in session).
 ## 2026-06-18 · feat(std): PR4 content film — full-screen experience after the reveal (#1731)
 
 Removed the `NEXT_PUBLIC_STD_FILM` env gate that silently disabled the Save-the-Date film in production. `SaveTheDateFilm` is now a full-screen `fixed inset-0 z-[50]` experience that plays UNDER the reveal overlay (z-[60]). `RevealOverlay` dispatches a `std-reveal-done` custom event from both the veil `onRevealed` and the rigid `onOpened` paths so the film's RAF loop starts the exact moment the reveal clears (2s fallback if no reveal is active). Last slide stays at `Infinity` until the guest taps Continue; dismissing reveals the normal wedding page beneath.

@@ -15,14 +15,14 @@
  */
 
 import { useState, useTransition } from 'react';
-import { Check, Laptop, Smartphone, Sparkles } from 'lucide-react';
+import { Check, Sparkles } from 'lucide-react';
 import { chooseRevealTemplate } from '@/app/dashboard/[eventId]/add-ons/save-the-date/actions';
 import {
   REVEAL_LIBRARY,
   type RevealTemplate,
 } from '@/app/[slug]/_components/reveal/reveal-templates';
 import type { WaxSealConfig } from '@/lib/wax-seal/types';
-import { DeviceFrame, type PreviewDevice } from './device-frame';
+import { DeviceFrame, DeviceToggle, type PreviewDevice } from './device-frame';
 import { RevealPreview } from './reveal-preview';
 
 function monogram(name: string): string {
@@ -55,11 +55,6 @@ type Props = {
   /** The couple's currently-saved opening (events.std_reveal_template). */
   chosenTemplate?: RevealTemplate | null;
 };
-
-const DEVICES: { id: PreviewDevice; label: string; Icon: typeof Smartphone }[] = [
-  { id: 'iphone', label: 'iPhone', Icon: Smartphone },
-  { id: 'macbook', label: 'MacBook Pro 16"', Icon: Laptop },
-];
 
 export function RevealPreviewCard({
   displayName,
@@ -106,29 +101,7 @@ export function RevealPreviewCard({
 
         {/* Device toggle */}
         <div className="flex justify-center">
-          <div
-            role="group"
-            aria-label="Preview device"
-            className="inline-flex gap-1 rounded-full border border-ink/10 bg-cream p-1"
-          >
-            {DEVICES.map(({ id, label, Icon }) => {
-              const active = device === id;
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => setDevice(id)}
-                  aria-pressed={active}
-                  className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
-                    active ? 'bg-ink text-cream' : 'text-ink/60 hover:text-ink'
-                  }`}
-                >
-                  <Icon aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                  {label}
-                </button>
-              );
-            })}
-          </div>
+          <DeviceToggle device={device} onChange={setDevice} />
         </div>
 
         {/* Auto-playing device preview */}

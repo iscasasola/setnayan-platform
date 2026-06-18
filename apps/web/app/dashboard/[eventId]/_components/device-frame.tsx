@@ -13,8 +13,49 @@
  */
 
 import type { ReactNode } from 'react';
+import { Laptop, Smartphone } from 'lucide-react';
 
 export type PreviewDevice = 'iphone' | 'macbook';
+
+const DEVICES: { id: PreviewDevice; label: string; Icon: typeof Smartphone }[] = [
+  { id: 'iphone', label: 'iPhone', Icon: Smartphone },
+  { id: 'macbook', label: 'MacBook Pro 16"', Icon: Laptop },
+];
+
+/** iPhone ↔ MacBook segmented toggle, shared by the Step-1 + content-film previews. */
+export function DeviceToggle({
+  device,
+  onChange,
+}: {
+  device: PreviewDevice;
+  onChange: (d: PreviewDevice) => void;
+}) {
+  return (
+    <div
+      role="group"
+      aria-label="Preview device"
+      className="inline-flex gap-1 rounded-full border border-ink/10 bg-cream p-1"
+    >
+      {DEVICES.map(({ id, label, Icon }) => {
+        const active = device === id;
+        return (
+          <button
+            key={id}
+            type="button"
+            onClick={() => onChange(id)}
+            aria-pressed={active}
+            className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
+              active ? 'bg-ink text-cream' : 'text-ink/60 hover:text-ink'
+            }`}
+          >
+            <Icon aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            {label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 function Watermark() {
   return (

@@ -34,7 +34,7 @@ import {
 import { RevealPreviewCard } from '@/app/dashboard/[eventId]/_components/reveal-preview-card';
 import { RevealPreview } from '@/app/dashboard/[eventId]/_components/reveal-preview';
 import { StdBackgroundPicker } from '@/app/dashboard/[eventId]/_components/std-background-picker';
-import { StdBackgroundLayer } from '@/app/dashboard/[eventId]/_components/std-background-layer';
+import { StdBackgroundLayer } from '@/app/[slug]/_components/std-background-layer';
 import { realisticBgSrc, type StdBackground } from '@/lib/std-backgrounds';
 import type { RevealEffects } from '@/lib/std-reveal-effects';
 import type { RevealEffectsLook, VeilLook } from '@/lib/reveal-config';

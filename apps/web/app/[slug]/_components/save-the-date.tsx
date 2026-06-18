@@ -23,6 +23,8 @@ import { resolveStdTheme } from '@/lib/std-themes';
 import { CountdownWidget } from './countdown';
 import { OurStory } from './our-story';
 import { SaveTheDateFilm } from './save-the-date-film';
+import { StdBackgroundLayer } from './std-background-layer';
+import type { StdBackground } from '@/lib/std-backgrounds';
 
 type Props = {
   displayName: string;
@@ -51,6 +53,10 @@ type Props = {
   launchDateIso?: string | null;
   /** Visual theme for the film (lib/std-themes · 2026-06-18). Defaults to 'moodboard'. */
   themeId?: string | null;
+  /** Step-1 background (events.std_background, resolved) — film only (2026-06-19). */
+  background?: StdBackground;
+  /** Resolved background image URL for kind realistic/upload (presigned). */
+  backgroundImageUrl?: string | null;
 };
 
 export function SaveTheDateView({
@@ -67,6 +73,8 @@ export function SaveTheDateView({
   galleryUrls,
   launchDateIso,
   themeId,
+  background,
+  backgroundImageUrl,
 }: Props) {
   const location = [venueName, venueAddress].filter(Boolean).join(', ') || null;
   const gcalUrl = googleCalendarUrl({ title: displayName, dateIso, location });
@@ -97,7 +105,14 @@ export function SaveTheDateView({
     });
     return (
       <section className="py-2">
-        <SaveTheDateFilm content={content} themeId={resolveStdTheme(themeId)} />
+        {background ? (
+          <StdBackgroundLayer background={background} imageUrl={backgroundImageUrl ?? null} fixed />
+        ) : null}
+        <SaveTheDateFilm
+          content={content}
+          themeId={resolveStdTheme(themeId)}
+          transparent={Boolean(background)}
+        />
       </section>
     );
   }

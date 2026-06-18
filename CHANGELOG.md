@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · feat(std): Step-1 background renders on the live guest page
+
+Completes Step 1 end-to-end — the couple's chosen background now shows on the live `/[slug]` Save-the-Date, not just the builder preview.
+
+- Moved `std-background-layer.tsx` from `dashboard/_components` → `[slug]/_components` (shared by both surfaces; respects the import boundary, like the reveal components) + updated the builder import.
+- Layer gains a `fixed` mode (position fixed, z-40; scrim z-41) so it sits behind the full-screen live film (z-50); the reveal overlay stays on top (z-60).
+- `save-the-date.tsx` (live STD view) accepts `background` + `backgroundImageUrl`, renders the layer behind the film, and sets the film `transparent` so the background shows through.
+- `[slug]/page.tsx`: selects `std_background`, resolves it (`resolveStdBackground`) + the image URL (realistic → scene src · upload → presigned R2), and threads `stdBackground`/`stdBackgroundUrl` through `PublicLanding` + `InvitationSite` to `SaveTheDateView`.
+
+Still flag-gated behind the film (`NEXT_PUBLIC_STD_FILM`) so prod is unchanged until the film goes live. Verified: `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: None — wires the existing Step-1 background onto the live render path.
+
 ## 2026-06-19 · feat(std): Save-the-Date Step-1 Background picker (plain · paper · realistic · upload)
 
 Builds the new Step-1 "Background" — the backdrop the whole film plays over (owner-designed 2026-06-18/19; the 5-step builder is Background → Content → Video/Gallery → Music → Reveal). This PR ships the picker + persistence + the builder-preview render.

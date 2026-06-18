@@ -932,6 +932,15 @@ The couple can now pick **No Reveal** in the Save-the-Date opening picker — th
 Verified: `pnpm typecheck` + `pnpm lint` clean.
 
 SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — "No Reveal" is the explicit free baseline in the opening picker (reveals = premium filter on top). No schema change (reuses `events.std_reveal_template` = `'none'`).
+## 2026-06-18 · fix(std): a wedding with no date set is now in the Save-the-Date phase (so the STD actually shows)
+
+A couple rendered their Save-the-Date and the live page showed the generic RSVP-phase landing instead. Root cause: `getLifecyclePhase()` returned `'rsvp'` for a **null `event_date`**, and the STD film only renders in the `'save_the_date'` phase — so any wedding without a finalized date skipped the Save-the-Date entirely.
+
+`lib/invitation-widgets.ts`: a null `event_date` now maps to `'save_the_date'` (was `'rsvp'`). A couple with no finalized date is at the very start of the lifecycle (the announcement stage) — consistent with the future-date split (the farther out the wedding, the earlier the phase; no date = farthest = Save-the-Date). Only the live couple page (`app/[slug]/page.tsx`) consumes this version; the dashboard uses the separate `day-of-mode` `getLifecyclePhase` (unaffected).
+
+Verified: `pnpm typecheck` + `pnpm lint` clean; no test pins the old default.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the Save-the-Date is the lifecycle's first phase, including before a date is set. Aligns with the date-as-output philosophy. No schema change.
 
 ## 2026-06-18 · fix(std): the veil stays on top — it's a persistent layer over the playing film, not a one-shot gate
 

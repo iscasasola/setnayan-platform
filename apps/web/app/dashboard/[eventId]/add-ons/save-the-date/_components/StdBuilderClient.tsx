@@ -32,6 +32,7 @@ import {
 import { RevealPreviewCard } from '@/app/dashboard/[eventId]/_components/reveal-preview-card';
 import { RevealPreview } from '@/app/dashboard/[eventId]/_components/reveal-preview';
 import type { RevealEffects } from '@/lib/std-reveal-effects';
+import type { RevealEffectsLook, VeilLook } from '@/lib/reveal-config';
 import {
   DeviceFrame,
   DeviceToggle,
@@ -62,7 +63,13 @@ type Props = {
   waxColor?: string;
   sealConfig?: WaxSealConfig | null;
   sealFallbackSeed?: number;
+  /** Mood-Board-derived veil tulle + petal colours (the inherit defaults). */
   veilColor?: string;
+  petalsColor?: string;
+  /** Admin Reveal Studio calibration — the veil look + rigid particle look, so
+   *  the couple's preview matches the same tuned reveal you set in the admin. */
+  veilLook?: VeilLook;
+  effectLook?: RevealEffectsLook;
 };
 
 const STORY_MAX = 120;
@@ -85,6 +92,9 @@ export function StdBuilderClient({
   sealConfig,
   sealFallbackSeed,
   veilColor,
+  petalsColor,
+  veilLook,
+  effectLook,
 }: Props) {
   const [themeId, setThemeId] = useState<StdThemeId>(initialThemeId);
   const [launchDate, setLaunchDate] = useState(initialLaunchDate);
@@ -122,9 +132,16 @@ export function StdBuilderClient({
     setRestartKey((k) => k + 1);
     setRevealDone(false);
   };
-  // Flip an effect + replay the opening so the change is visible immediately.
-  const toggleEffect = (key: keyof RevealEffects) => {
+  // Flip a boolean effect + replay the opening so the change is visible immediately.
+  const toggleEffect = (key: 'butterflies' | 'petals' | 'music') => {
     setEffects((e) => ({ ...e, [key]: !e[key] }));
+    setRestartKey((k) => k + 1);
+    setRevealDone(false);
+    if (result !== 'idle') setResult('idle');
+  };
+  // Set (or clear, with null = inherit the Mood Board) a veil colour override.
+  const setColor = (key: 'veilColor' | 'petalColor', value: string | null) => {
+    setEffects((e) => ({ ...e, [key]: value }));
     setRestartKey((k) => k + 1);
     setRevealDone(false);
     if (result !== 'idle') setResult('idle');
@@ -210,6 +227,9 @@ export function StdBuilderClient({
             chosenTemplate={initialRevealTemplate}
             effects={effects}
             onToggleEffect={toggleEffect}
+            onSetColor={setColor}
+            inheritedVeilColor={veilColor ?? '#f3ece1'}
+            inheritedPetalColor={petalsColor ?? '#e87a93'}
           />
 
           {/* Step 2 · Theme */}
@@ -513,6 +533,9 @@ export function StdBuilderClient({
                   sealConfig={sealConfig}
                   sealFallbackSeed={sealFallbackSeed}
                   veilColor={veilColor}
+                  petalsColor={petalsColor}
+                  veilLook={veilLook}
+                  effectLook={effectLook}
                   effects={effects}
                   onDone={() => setRevealDone(true)}
                 />

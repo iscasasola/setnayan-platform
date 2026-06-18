@@ -1,6 +1,8 @@
 import Link from 'next/link';
 
 import { ADD_ONS, addOnHref } from '@/lib/add-ons-catalog';
+import { createClient } from '@/lib/supabase/server';
+import { AlaalaClipUploader } from './_components/clip-uploader';
 
 /**
  * Alaala — the couple's living-memory hub (Lane 2 of the Alaala embed).
@@ -80,6 +82,16 @@ export default async function AlaalaPage({ params }: Props) {
   const { eventId } = await params;
   const byKey = new Map(ADD_ONS.map((a) => [a.key, a]));
 
+  // Fetch existing couple-uploaded clips for the dashboard view
+  const supabase = await createClient();
+  const { data: existingClips } = await supabase
+    .from('alaala_clips')
+    .select('id, r2_object_key, duration_ms')
+    .eq('event_id', eventId)
+    .eq('source', 'couple_upload')
+    .order('sort_order', { ascending: true })
+    .order('id', { ascending: true });
+
   function resolve(chip: Chip) {
     const entry = chip.key ? byKey.get(chip.key) : undefined;
     const label = chip.label ?? entry?.label ?? chip.key ?? '';
@@ -113,6 +125,34 @@ export default async function AlaalaPage({ params }: Props) {
           And it never gets in the way. The day stays yours — the tech just quietly remembers it.
         </p>
       </header>
+
+      {/* ── Clip uploader — couple feeds the Alaala orb ── */}
+      <div
+        className="rounded-2xl border p-5 sm:p-6 space-y-3"
+        style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}
+      >
+        <div>
+          <p
+            className="font-mono text-[11px] uppercase tracking-[0.2em] mb-1"
+            style={{ color: 'var(--m-orange-2)' }}
+          >
+            Alaala orb · your clips
+          </p>
+          <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
+            Add short moments (max 5 seconds) and they'll play inside the glowing orb on your
+            wedding page. The orb comes alive as you add more.
+          </p>
+        </div>
+        <AlaalaClipUploader
+          eventId={eventId}
+          initialClips={(existingClips ?? []).map((c) => ({
+            id: c.id,
+            name: `clip-${c.id}`,
+            durationMs: c.duration_ms,
+            previewUrl: '',
+          }))}
+        />
+      </div>
 
       {/* ── The arc of the day ── */}
       <ol className="space-y-4">

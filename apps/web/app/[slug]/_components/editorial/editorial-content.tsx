@@ -21,6 +21,8 @@ import { type ReactElement, type ReactNode } from 'react';
 import { loadEditorialData, type EditorialData } from './data';
 import { composeCopy, type ComposedCopy } from './compose';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
+import { AlaalaOrbGL } from '@/app/_components/marketing/AlaalaOrbGL';
+import { getPublicAlaalaClipUrls } from '@/lib/alaala';
 
 const SHARE_SITE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
@@ -37,11 +39,18 @@ export async function EditorialContent({
   share?: { url: string; title: string; image: string } | null;
 }): Promise<ReactElement> {
   let data: EditorialData | null = null;
+  const [editorialResult, clipUrls] = await Promise.allSettled([
+    loadEditorialData(eventId),
+    getPublicAlaalaClipUrls(eventId),
+  ]);
+
   try {
-    data = await loadEditorialData(eventId);
+    data = editorialResult.status === 'fulfilled' ? editorialResult.value : null;
   } catch {
     data = null;
   }
+  const alaalaClips: string[] =
+    clipUrls.status === 'fulfilled' ? clipUrls.value : [];
 
   if (!data) {
     return <GracefulFallback />;
@@ -83,6 +92,57 @@ export async function EditorialContent({
   const editionLeft = `Vol. ${toRoman(editionVolume(data.eventDate))} · No. ${data.editionNo ?? 1}`;
 
   return (
+    <>
+    {/* ── Alaala orb — dark opener above the editorial paper ──────────────── */}
+    <div
+      aria-hidden={alaalaClips.length === 0}
+      style={{
+        background: '#0e0f12',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 20,
+        padding: '64px 24px 56px',
+        textAlign: 'center',
+      }}
+    >
+      <AlaalaOrbGL clips={alaalaClips} className="h-48 w-48 sm:h-64 sm:w-64" />
+      <div style={{ maxWidth: 340 }}>
+        <p
+          style={{
+            fontFamily: 'var(--font-mono, monospace)',
+            fontSize: 10,
+            letterSpacing: '0.28em',
+            textTransform: 'uppercase',
+            color: 'rgba(197,160,89,0.7)',
+            marginBottom: 8,
+          }}
+        >
+          Alaala · your living memory
+        </p>
+        <p
+          style={{
+            fontFamily: 'var(--font-display, serif)',
+            fontSize: 22,
+            fontWeight: 600,
+            lineHeight: 1.25,
+            color: '#e8e0d0',
+            letterSpacing: '-0.01em',
+          }}
+        >
+          {alaalaClips.length > 0
+            ? 'Your day, kept inside.'
+            : 'Your Alaala is waiting.'}
+        </p>
+        {alaalaClips.length === 0 && (
+          <p style={{ marginTop: 8, fontSize: 13, color: 'rgba(232,224,208,0.45)', lineHeight: 1.5 }}>
+            Add clips from your dashboard and the orb comes alive with your memories.
+          </p>
+        )}
+      </div>
+    </div>
+
     <div className="min-h-screen bg-[#e7e2d6] px-3 py-6 text-ink sm:px-4 sm:py-10">
       <article className="mx-auto max-w-5xl border border-ink/10 bg-cream px-5 py-7 shadow-[0_30px_70px_-30px_rgba(30,34,41,0.45)] sm:px-10 sm:py-9">
         {/* Phase ribbon (cross-links) ----------------------------------------- */}
@@ -221,6 +281,7 @@ export async function EditorialContent({
         <Colophon names={data.displayName} city={data.venueCity} />
       </article>
     </div>
+    </>
   );
 }
 

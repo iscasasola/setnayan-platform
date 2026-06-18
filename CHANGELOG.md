@@ -4,6 +4,12 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-18 · fix(std): soft cast shadows on reveal butterflies + petals (grounds them, not flat)
+
+Owner: the effects looked flat. The canvas-2D butterflies + petals drew with no shadow; now each casts a **soft, offset, blurred drop-shadow** onto the film (down-right, sized to the particle) — so they read as lit and airborne instead of pasted-on, per `0024_Reveal_Tuning_and_Door_Spec_2026-06-17.md` §5 ("lit, shadow-casting"). Single-file tweak to `reveal/reveal-particles.tsx` (`drawPetal` + `drawButterfly` use `ctx.shadow*`; butterfly body strut resets shadow so it stays crisp).
+
+SPEC IMPACT: matches §5 shadow intent. No schema/API/public-copy change.
+
 ## 2026-06-18 · fix(std): butterflies fly OUT from the envelope (radial emanation)
 
 Owner: *"the butterflies fly out from the envelope as they open."* The reveal butterflies spawned mid-screen drifting up; now they **emerge from the envelope's centre** (where the flaps part) and **radiate outward to all edges**, with a slight upward bias and a gentle size-grow as they travel (the spec's "fly toward the screen, exit all corners/edges"). Single-file tweak to `reveal/reveal-particles.tsx` (butterfly spawn position/velocity + grow + exit-any-edge); petals unchanged.

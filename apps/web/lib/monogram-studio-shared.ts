@@ -93,6 +93,8 @@ export type StudioConfig = {
   text: string;
   font: StudioFontKey;
   ink: string;
+  /** Global outline-ring colour: a hex, or 'none' (no outline drawn). */
+  outlineColor: string;
   bg: string;
   st: StudioLetterState[];
   order: number[];
@@ -135,6 +137,7 @@ export function sanitizeStudioConfig(input: unknown): StudioConfig | null {
   const text = typeof o.text === 'string' ? o.text.slice(0, MAX_TEXT) : '';
   const font = oneOf(o.font, STUDIO_FONT_KEYS, 'cardo');
   const ink = hex(o.ink, '#5C2542');
+  const outlineColor = o.outlineColor === 'none' ? 'none' : hex(o.outlineColor, '#C5A059');
   const bg =
     o.bg === 'transparent' ? 'transparent' : hex(o.bg, STUDIO_BGS.includes(o.bg as never) ? (o.bg as string) : '#FBFBFA');
 
@@ -219,7 +222,7 @@ export function sanitizeStudioConfig(input: unknown): StudioConfig | null {
     };
   }
 
-  const cfg: StudioConfig = { text, font, ink, bg, st, order, pstate, strokes, syms, ...(anim ? { anim } : {}) };
+  const cfg: StudioConfig = { text, font, ink, outlineColor, bg, st, order, pstate, strokes, syms, ...(anim ? { anim } : {}) };
   if (JSON.stringify(cfg).length > MAX_CONFIG_BYTES) return null;
   return cfg;
 }

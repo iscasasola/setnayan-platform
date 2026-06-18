@@ -98,6 +98,7 @@ export function mountStudio(opts) {
     ink,
     inkHex,
     bgc,
+    outlineHex,
     letters = [],
     base = [],
     st = [],
@@ -212,6 +213,7 @@ export function mountStudio(opts) {
     ink = new paper.Color('#5C2542');
     inkHex = '#5C2542';
     bgc = '#FBFBFA';
+    outlineHex = '#C5A059';
     bindUI();
     derive();
   }
@@ -419,10 +421,10 @@ export function mountStudio(opts) {
     layer.addChild(h);
   }
   function drawShape(p, outline) {
-    if (outline > 0) {
+    if (outline > 0 && outlineHex !== 'none') {
       try {
         const ring = dilate(p, outline);
-        ring.fillColor = new paper.Color(GOLD);
+        ring.fillColor = new paper.Color(outlineHex);
         ring.strokeColor = null;
         layer.addChild(ring);
       } catch (e) {}
@@ -1026,6 +1028,18 @@ export function mountStudio(opts) {
     });
   }
 
+  // ── colour-control helpers ──
+  function selSwatch(container, btn) {
+    if (!container) return;
+    [].forEach.call(container.children, function (c) {
+      if (c.classList && (c.classList.contains('sw') || c.classList.contains('bg'))) c.classList.toggle('sel', c === btn);
+    });
+  }
+  function syncColorInput(id, hexVal) {
+    const el = $(id);
+    if (el && /^#[0-9a-fA-F]{6}$/.test(hexVal)) el.value = hexVal;
+  }
+
   // ── reflect helpers (config restore → UI selection state) ──
   function reflectFontChip(key) {
     [].forEach.call($('fonts').children, function (c) {
@@ -1463,11 +1477,29 @@ export function mountStudio(opts) {
     $('inks').addEventListener('click', function (e) {
       const b = e.target.closest('.sw');
       if (!b) return;
-      ink = new paper.Color(b.dataset.c);
       inkHex = b.dataset.c;
-      [].forEach.call(this.children, function (c) {
-        c.classList.toggle('sel', c === b);
-      });
+      ink = new paper.Color(inkHex);
+      selSwatch(this, b);
+      syncColorInput('ink_custom', inkHex);
+      full();
+    });
+    $('ink_custom').addEventListener('input', function () {
+      inkHex = this.value;
+      ink = new paper.Color(inkHex);
+      selSwatch($('inks'), null);
+      full();
+    });
+    $('outs').addEventListener('click', function (e) {
+      const b = e.target.closest('.sw');
+      if (!b) return;
+      outlineHex = b.dataset.c; // a hex, or 'none' (Clear → no outline drawn)
+      selSwatch(this, b);
+      if (outlineHex !== 'none') syncColorInput('out_custom', outlineHex);
+      full();
+    });
+    $('out_custom').addEventListener('input', function () {
+      outlineHex = this.value;
+      selSwatch($('outs'), null);
       full();
     });
     $('bgs').addEventListener('click', function (e) {
@@ -1475,9 +1507,13 @@ export function mountStudio(opts) {
       if (!b) return;
       bgc = b.dataset.c;
       cv.style.background = bgc === 'transparent' ? CHECKER : bgc;
-      [].forEach.call(this.children, function (c) {
-        c.classList.toggle('sel', c === b);
-      });
+      selSwatch(this, b);
+      if (bgc !== 'transparent') syncColorInput('bg_custom', bgc);
+    });
+    $('bg_custom').addEventListener('input', function () {
+      bgc = this.value;
+      cv.style.background = bgc;
+      selSwatch($('bgs'), null);
     });
     $('fonts').addEventListener('click', function (e) {
       const b = e.target.closest('.chip');
@@ -1508,11 +1544,18 @@ export function mountStudio(opts) {
         inkHex = cfg.ink;
         ink = new paper.Color(inkHex);
         reflectSwatch('inks', inkHex);
+        syncColorInput('ink_custom', inkHex);
+      }
+      if (cfg.outlineColor) {
+        outlineHex = cfg.outlineColor;
+        reflectSwatch('outs', outlineHex);
+        if (outlineHex !== 'none') syncColorInput('out_custom', outlineHex);
       }
       if (cfg.bg) {
         bgc = cfg.bg;
         cv.style.background = bgc === 'transparent' ? CHECKER : bgc;
         reflectSwatch('bgs', bgc);
+        if (bgc !== 'transparent') syncColorInput('bg_custom', bgc);
       }
       if (cfg.anim) {
         anim = cfg.anim.kind || anim;
@@ -1560,6 +1603,7 @@ export function mountStudio(opts) {
       text: namesEl.value || '',
       font: fontKey,
       ink: inkHex,
+      outlineColor: outlineHex,
       bg: bgc,
       st: st.map(function (s) {
         return Object.assign({}, s);

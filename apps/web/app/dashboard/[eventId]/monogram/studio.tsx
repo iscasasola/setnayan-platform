@@ -81,6 +81,16 @@ const STUDIO_CSS = `
 .vsroot .vs .collapsible.open .animhdr .chev{transform:rotate(90deg);}
 .vsroot .vs .collapsible .animbody{display:none;flex-direction:column;gap:10px;margin-top:11px;}
 .vsroot .vs .collapsible.open .animbody{display:flex;}
+.vsroot .vs .crow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.vsroot .vs .ckey{font-family:'DM Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);width:58px;flex:none;}
+.vsroot .vs .swrow{gap:7px;}
+.vsroot .vs .cust{display:inline-flex;width:30px;height:30px;border-radius:50%;border:1px dashed var(--gold);overflow:hidden;cursor:pointer;padding:0;flex:none;}
+.vsroot .vs .cust input[type=color]{width:150%;height:150%;border:none;padding:0;margin:-25%;cursor:pointer;background:none;}
+.vsroot .vs .cust input[type=color]::-webkit-color-swatch-wrapper{padding:0;}
+.vsroot .vs .cust input[type=color]::-webkit-color-swatch{border:none;}
+.vsroot .vs .cust input[type=color]::-moz-color-swatch{border:none;}
+.vsroot .vs .sw.clr{background:#fff;position:relative;}
+.vsroot .vs .sw.clr::after{content:'';position:absolute;left:50%;top:4px;bottom:4px;width:2px;background:#C2724C;transform:translateX(-50%) rotate(45deg);border-radius:2px;}
 `;
 
 const STUDIO_HTML = `
@@ -137,20 +147,49 @@ const STUDIO_HTML = `
       <button type="button" class="chip" data-f="script">Vibes</button>
       <button type="button" class="chip" data-f="pinyon">Pinyon</button>
     </div></div>
-    <div><p class="lab">Ink · outline · frame · backdrop</p><div class="row">
-      <div class="row" id="inks" style="gap:9px;">
-        <button type="button" class="sw sel" data-c="#5C2542" style="background:#5C2542" aria-label="Mulberry"></button>
-        <button type="button" class="sw" data-c="#8C6932" style="background:#8C6932" aria-label="Gold"></button>
-        <button type="button" class="sw" data-c="#1E2229" style="background:#1E2229" aria-label="Ink"></button>
+    <div class="box">
+      <p class="lab">Colours</p>
+      <div class="crow">
+        <span class="ckey">Ink</span>
+        <div class="row swrow" id="inks">
+          <button type="button" class="sw sel" data-c="#5C2542" style="background:#5C2542" aria-label="Mulberry"></button>
+          <button type="button" class="sw" data-c="#8C6932" style="background:#8C6932" aria-label="Gold"></button>
+          <button type="button" class="sw" data-c="#C5A059" style="background:#C5A059" aria-label="Champagne"></button>
+          <button type="button" class="sw" data-c="#1E2229" style="background:#1E2229" aria-label="Obsidian"></button>
+          <button type="button" class="sw" data-c="#2A3A5E" style="background:#2A3A5E" aria-label="Navy"></button>
+          <button type="button" class="sw" data-c="#6E7B66" style="background:#6E7B66" aria-label="Sage"></button>
+          <button type="button" class="sw" data-c="#B07A86" style="background:#B07A86" aria-label="Dusty rose"></button>
+        </div>
+        <label class="cust" title="Custom ink colour"><input type="color" id="ink_custom" value="#5C2542" aria-label="Custom ink colour"></label>
       </div>
-      <span style="width:1px;height:24px;background:#D9D2C4;margin:0 4px;"></span>
-      <div class="row" id="bgs" style="gap:8px;">
-        <button type="button" class="bg sel" data-c="#FBFBFA" style="background:#FBFBFA" aria-label="Paper"></button>
-        <button type="button" class="bg" data-c="#ffffff" style="background:#fff" aria-label="White"></button>
-        <button type="button" class="bg" data-c="#e7dcc2" style="background:#e7dcc2" aria-label="Cream"></button>
-        <button type="button" class="bg" data-c="#1E2229" style="background:#1E2229" aria-label="Dark"></button>
-        <button type="button" class="bg" data-c="transparent" style="background:conic-gradient(#dcdcdc 90deg,#fff 0 180deg,#dcdcdc 0 270deg,#fff 0) 0 0/12px 12px" aria-label="Transparent"></button>
-      </div></div></div>
+      <div class="crow">
+        <span class="ckey">Outline</span>
+        <div class="row swrow" id="outs">
+          <button type="button" class="sw sel" data-c="#C5A059" style="background:#C5A059" aria-label="Gold"></button>
+          <button type="button" class="sw" data-c="#E6D2A2" style="background:#E6D2A2" aria-label="Champagne"></button>
+          <button type="button" class="sw" data-c="#C9CDD2" style="background:#C9CDD2" aria-label="Silver"></button>
+          <button type="button" class="sw" data-c="#5C2542" style="background:#5C2542" aria-label="Mulberry"></button>
+          <button type="button" class="sw" data-c="#1E2229" style="background:#1E2229" aria-label="Ink"></button>
+          <button type="button" class="sw" data-c="#FFFFFF" style="background:#fff" aria-label="White"></button>
+          <button type="button" class="sw clr" data-c="none" aria-label="No outline"></button>
+        </div>
+        <label class="cust" title="Custom outline colour"><input type="color" id="out_custom" value="#C5A059" aria-label="Custom outline colour"></label>
+      </div>
+      <div class="crow">
+        <span class="ckey">Backdrop</span>
+        <div class="row swrow" id="bgs">
+          <button type="button" class="bg sel" data-c="#FBFBFA" style="background:#FBFBFA" aria-label="Paper"></button>
+          <button type="button" class="bg" data-c="#ffffff" style="background:#fff" aria-label="White"></button>
+          <button type="button" class="bg" data-c="#e7dcc2" style="background:#e7dcc2" aria-label="Cream"></button>
+          <button type="button" class="bg" data-c="#F6ECEC" style="background:#F6ECEC" aria-label="Blush"></button>
+          <button type="button" class="bg" data-c="#E7ECE3" style="background:#E7ECE3" aria-label="Sage"></button>
+          <button type="button" class="bg" data-c="#1E2229" style="background:#1E2229" aria-label="Dark"></button>
+          <button type="button" class="bg clr" data-c="transparent" style="background:conic-gradient(#dcdcdc 90deg,#fff 0 180deg,#dcdcdc 0 270deg,#fff 0) 0 0/12px 12px" aria-label="Clear (transparent)"></button>
+        </div>
+        <label class="cust" title="Custom backdrop colour"><input type="color" id="bg_custom" value="#FBFBFA" aria-label="Custom backdrop colour"></label>
+      </div>
+      <p class="cap">Backdrop is just your working canvas — your saved monogram is always transparent.</p>
+    </div>
     <div class="box collapsible" id="animbox">
       <div class="animhdr" id="animhdr"><p class="lab" style="margin:0">Preview · animate the reveal<span class="chev">▸</span></p></div>
       <div class="animbody">

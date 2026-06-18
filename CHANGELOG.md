@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-18 · feat(std): content-film preview now uses the iPhone/MacBook device frames + toggle
+
+The Step-2/3 content-film preview (the "Live preview" / Render column) now uses the **same device frames + iPhone↔MacBook toggle** as the Step-1 reveal chooser — replacing the plain CSS-scaled 220px rounded rectangle. Couples see their Save-the-Date film as it looks on a phone *and* a laptop. Owner-requested.
+
+- `save-the-date-film.tsx` — new `fill?: boolean` preview prop: fills the parent (device screen) with the themed bg + a centered portrait stage (`absolute inset-0 flex justify-center` + `max-w-sm` stage), identical to the live desktop layout. The film content is fluid (centered flex + absolute scrub bars) so it reads right in both the portrait iPhone screen and the landscape MacBook screen.
+- `device-frame.tsx` — extracted a shared `DeviceToggle` (iPhone / MacBook Pro 16" segmented control) now used by both the reveal chooser and the film preview.
+- `reveal-preview-card.tsx` — swapped its inline toggle for the shared `DeviceToggle`.
+- `StdBuilderClient.tsx` — replaced the transform-scale frame + standalone watermark with `<DeviceToggle>` + `<DeviceFrame>` wrapping `<SaveTheDateFilm preview fill>` (pointer-events-none, auto-plays). Removed the now-dead `FILM_NATURAL_*`/`PREVIEW_*` constants. Widened the sticky preview column 260px → 320px so the MacBook frame reads.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: None (preview chrome only; the live `/[slug]` film + its desktop/mobile layouts are unchanged).
+
 ## 2026-06-18 · feat(std): Step-1 reveal chooser — auto-play previews in iPhone/MacBook device frames
 
 The Step-1 "Opening reveal" chooser is rebuilt: instead of a full-screen, full-resolution, *interactive* (swipe-the-seal / drag-to-lift) overlay with no watermark, the couple now sees the selected opening **auto-play inside a device frame they can toggle between iPhone and MacBook Pro 16"** — small, low-resolution, watermarked (too small to screen-record). "Make this mine" still persists the choice. The full-quality interactive opening continues to ship on the live guest page (unchanged).

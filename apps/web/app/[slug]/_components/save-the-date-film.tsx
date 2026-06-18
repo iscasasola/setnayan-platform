@@ -46,6 +46,7 @@ export function SaveTheDateFilm({
   content,
   themeId,
   preview = false,
+  fill = false,
 }: {
   content: StdFilmContent;
   /** Theme override. Defaults to 'moodboard' (inherits the event's Mood Board palette). */
@@ -53,6 +54,10 @@ export function SaveTheDateFilm({
   /** When true, renders as a contained phone-card (for the builder preview).
    *  When false (default), renders full-screen under the reveal overlay. */
   preview?: boolean;
+  /** Preview-only: fill the parent (a device frame's screen) instead of a 9:16
+   *  card — themed bg fills, portrait stage centered (mirrors the live desktop
+   *  layout, so it reads right in both the iPhone and MacBook frames). */
+  fill?: boolean;
 }) {
   const theme = STD_THEMES.find((t) => t.id === resolveStdTheme(themeId)) ?? STD_THEMES[0]!;
   const LABEL = theme.labelCls;
@@ -522,6 +527,18 @@ export function SaveTheDateFilm({
     onPointerUp,
     onPointerCancel: () => { if (holdRef.current) window.clearTimeout(holdRef.current); },
   };
+
+  if (preview && fill) {
+    // Fill a device-frame screen: themed bg fills, portrait stage centered —
+    // identical to the live desktop layout below, minus the fixed positioning.
+    return (
+      <div className={`absolute inset-0 flex justify-center overflow-hidden ${theme.outerBg} ${theme.outerFg}`}>
+        <div {...stageProps} className="relative h-full w-full max-w-sm select-none overflow-hidden">
+          {filmContent}
+        </div>
+      </div>
+    );
+  }
 
   if (preview) {
     return (

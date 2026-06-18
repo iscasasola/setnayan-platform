@@ -27,6 +27,11 @@ import { saveAllStdContent } from '../actions';
 import type { StdFilmContent } from '@/lib/save-the-date-content';
 import type { RevealTemplate } from '@/app/[slug]/_components/reveal/reveal-templates';
 import { RevealPreviewCard } from '@/app/dashboard/[eventId]/_components/reveal-preview-card';
+import {
+  DeviceFrame,
+  DeviceToggle,
+  type PreviewDevice,
+} from '@/app/dashboard/[eventId]/_components/device-frame';
 import type { WaxSealConfig } from '@/lib/wax-seal/types';
 
 type Props = {
@@ -52,13 +57,6 @@ type Props = {
   sealFallbackSeed?: number;
   veilColor?: string;
 };
-
-/** Natural width of the film at max-w-sm; scale target → 220px display. */
-const FILM_NATURAL_W = 384;
-const PREVIEW_W = 220;
-const PREVIEW_SCALE = PREVIEW_W / FILM_NATURAL_W; // ~0.573
-const PREVIEW_H = Math.round(PREVIEW_W * (16 / 9));
-const FILM_NATURAL_H = Math.round(FILM_NATURAL_W * (16 / 9));
 
 const STORY_MAX = 120;
 
@@ -92,6 +90,7 @@ export function StdBuilderClient({
 
   const [saving, startSave] = useTransition();
   const [result, setResult] = useState<'idle' | 'ok' | 'error'>('idle');
+  const [device, setDevice] = useState<PreviewDevice>('iphone');
 
   // Every state change re-derives the full content object so the preview
   // reflects exactly what would render on the live page after saving.
@@ -153,7 +152,7 @@ export function StdBuilderClient({
       />
 
       {/* ── Steps 2 + 3 + Preview — two-column on desktop ─────────────────── */}
-      <div className="lg:grid lg:grid-cols-[1fr_260px] lg:items-start lg:gap-8">
+      <div className="lg:grid lg:grid-cols-[1fr_320px] lg:items-start lg:gap-8">
 
         {/* LEFT: Theme + Info + Launch date */}
         <div className="space-y-8">
@@ -400,33 +399,19 @@ export function StdBuilderClient({
 
         {/* RIGHT: Sticky preview + Render */}
         <div className="mt-8 lg:mt-0 lg:sticky lg:top-24 space-y-4">
-          {/* Small phone frame — CSS-scaled for real-animation preview */}
-          <div>
-            <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/50">
+          {/* Live preview — phone / laptop device frames (same as Step 1) */}
+          <div className="space-y-3">
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/50">
               Live preview
             </p>
-            <div
-              className="relative mx-auto overflow-hidden rounded-3xl shadow-lg"
-              style={{ width: PREVIEW_W, height: PREVIEW_H }}
-            >
-              <div
-                style={{
-                  width: FILM_NATURAL_W,
-                  height: FILM_NATURAL_H,
-                  transform: `scale(${PREVIEW_SCALE})`,
-                  transformOrigin: 'top left',
-                  pointerEvents: 'none',
-                }}
-              >
-                <SaveTheDateFilm content={liveContent} themeId={themeId} preview />
-              </div>
-              {/* Watermark overlay — makes the small preview non-recordable as a final asset */}
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center pb-3">
-                <span className="rounded-full bg-black/25 px-3 py-0.5 font-mono text-[9px] uppercase tracking-widest text-white/80 backdrop-blur-sm">
-                  Preview
-                </span>
-              </div>
+            <div className="flex justify-center">
+              <DeviceToggle device={device} onChange={setDevice} />
             </div>
+            <DeviceFrame device={device}>
+              <div className="absolute inset-0" style={{ pointerEvents: 'none' }}>
+                <SaveTheDateFilm content={liveContent} themeId={themeId} preview fill />
+              </div>
+            </DeviceFrame>
           </div>
 
           {/* Quality notice */}

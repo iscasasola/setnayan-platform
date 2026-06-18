@@ -589,16 +589,24 @@ export function AccountSwitcherStandalone({ data }: Props) {
 
   return (
     <>
-      {/* Expanded row trigger — shown when the sidebar is open */}
+      {/* Expanded row trigger — matches SidebarRow visual language exactly:
+          same rounded-md radius, px-3 py-2.5 spacing, gap-3, min-h-[44px]
+          touch target, and --m-paper hover so it reads as one nav family. */}
       <button
         type="button"
         aria-label="Open account switcher"
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left transition-colors hover:bg-ink/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40"
+        className="flex w-full min-h-[44px] items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-medium transition-colors hover:bg-[var(--m-paper)] focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+        style={{ outlineColor: 'var(--m-orange)', color: 'var(--m-ink)' }}
       >
-        <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-terracotta/15 text-xs font-semibold text-terracotta-700">
+        {/* Avatar — slightly larger than a nav icon to signal identity, not a
+            destination. Shares the terracotta/15 tint with active nav items. */}
+        <span
+          className="inline-flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-semibold"
+          style={{ background: 'rgba(201,107,58,0.15)', color: 'var(--m-orange-2)' }}
+        >
           {data.photoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={data.photoUrl} alt="" className="h-full w-full object-cover" />
@@ -607,17 +615,20 @@ export function AccountSwitcherStandalone({ data }: Props) {
           )}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium text-ink">
+          <span className="block truncate" style={{ color: 'var(--m-ink)' }}>
             {data.displayName ?? data.email}
           </span>
           {data.displayName ? (
-            <span className="block truncate text-xs text-ink/50">{data.email}</span>
+            <span className="block truncate text-xs" style={{ color: 'var(--m-slate)' }}>
+              {data.email}
+            </span>
           ) : null}
         </span>
         <ChevronDown
           aria-hidden
-          className={`h-3.5 w-3.5 shrink-0 text-ink/40 transition-transform ${open ? 'rotate-180' : ''}`}
-          strokeWidth={2.5}
+          className={`h-3.5 w-3.5 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
+          strokeWidth={2}
+          style={{ color: 'var(--m-slate-2)' }}
         />
       </button>
       {open && mounted && typeof document !== 'undefined'

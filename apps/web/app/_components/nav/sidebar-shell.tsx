@@ -46,16 +46,16 @@ type Props = {
   /** Sidebar content — typically a <SidebarSection> tree. */
   sidebar: ReactNode;
   /**
+   * Pinned header slot rendered at the TOP of the sidebar, outside the
+   * scrollable nav area. Use this for identity / branding elements
+   * (AccountSwitcher, Wordmark + eyebrow) that must stay visible while the
+   * nav items below scroll. Hidden automatically when the sidebar collapses
+   * to the 64px icon rail via `[[data-sidebar-collapsed='1']_&]:hidden`.
+   */
+  sidebarHeader?: ReactNode;
+  /**
    * Optional sidebar footer slot rendered pinned at the bottom of the
-   * desktop sidebar, just above the collapse/expand toggle. Use this for
-   * always-visible utility affordances (Switch view pill, etc.) that
-   * should live in the sidebar rather than the topBar. Added 2026-05-29
-   * per owner directive to standardize Switch View placement on the
-   * sidebar instead of the cramped topBar. Hidden when the sidebar
-   * collapses to 64px width — callers can opt the slot in/out of the
-   * collapsed render via the `data-sidebar-collapsed` attribute on the
-   * shell root, but the simpler default is to hide the entire footer
-   * block when collapsed so the toggle has full width to itself.
+   * desktop sidebar, just above the collapse/expand toggle.
    */
   sidebarFooter?: ReactNode;
   /** Optional sticky top bar slot rendered above main content. */
@@ -64,7 +64,7 @@ type Props = {
   children: ReactNode;
 };
 
-export function SidebarShell({ sidebar, sidebarFooter, topBar, children }: Props) {
+export function SidebarShell({ sidebar, sidebarHeader, sidebarFooter, topBar, children }: Props) {
   // Default expanded. Hydrate from localStorage on mount so SSR + initial
   // client render agree (both render expanded), then flip if persisted
   // state says otherwise. Avoids hydration mismatch.
@@ -119,11 +119,21 @@ export function SidebarShell({ sidebar, sidebarFooter, topBar, children }: Props
           transition: 'width 180ms cubic-bezier(.2,.7,.2,1)',
         }}
       >
-        {/* Scrollable section list — own scroll context so the footer toggle
-            stays pinned. The shell does not own the brand mark or any
-            top-of-sidebar slot in Phase 0; callers can prepend their own
-            <Wordmark>/<LogoMark> by composing inside the sidebar prop. */}
-        <div className="flex-1 overflow-y-auto py-4">{sidebar}</div>
+        {/* Pinned header — identity / branding (AccountSwitcher, Wordmark).
+            Rendered outside the scroll container so it stays put while the
+            nav items below scroll. Hidden on the 64px collapsed rail. */}
+        {sidebarHeader ? (
+          <div
+            className="shrink-0 border-b [[data-sidebar-collapsed='1']_&]:hidden"
+            style={{ borderColor: 'var(--m-line)' }}
+          >
+            {sidebarHeader}
+          </div>
+        ) : null}
+
+        {/* Scrollable nav — own scroll context so the pinned header + footer
+            toggle stay in place regardless of how many items are in the tree. */}
+        <div className="flex-1 overflow-y-auto py-3">{sidebar}</div>
 
         {/* Optional sidebar footer — utility affordances (Switch view pill,
             etc.) that should always be visible but not part of the scrolling

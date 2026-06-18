@@ -38,8 +38,6 @@
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { isDayOfOpen } from '@/lib/guest-journey';
-import { AccountSwitcherStandalone } from '@/app/_components/account-switcher/account-switcher';
-import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import { SidebarSection } from '@/app/_components/nav/sidebar-section';
 import { SidebarItem } from '@/app/_components/nav/sidebar-item';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
@@ -143,7 +141,6 @@ export function CustomerSidebar({
   eventId,
   navSlots,
   eventDate,
-  switcherData,
 }: {
   eventId: string;
   navSlots?: Record<string, NavSlotLite>;
@@ -154,9 +151,6 @@ export function CustomerSidebar({
    * pattern as <GuestsSectionSubnav>.
    */
   eventDate?: string | null;
-  /** Pre-fetched AccountSwitcher data — renders at the top of the sidebar
-      replacing the Wordmark, so the user's identity is always in the top-left. */
-  switcherData?: SwitcherData;
 }) {
   const pathname = usePathname() ?? `/dashboard/${eventId}`;
   const [dayOfOpen, setDayOfOpen] = useState(false);
@@ -170,14 +164,6 @@ export function CustomerSidebar({
 
   return (
     <>
-      {/* Account switcher — top of sidebar, replaces the old Wordmark header.
-          User identity at top-left (desktop); hidden when collapsed to icon rail. */}
-      {switcherData ? (
-        <div className="px-3 pb-3 pt-3 [[data-sidebar-collapsed='1']_&]:hidden">
-          <AccountSwitcherStandalone data={switcherData} />
-        </div>
-      ) : null}
-
       {groups.map((group) => (
         <SidebarSection key={group.key} group={group} pathname={pathname}>
           {group.items.map((item) => (

@@ -931,7 +931,12 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
         if (roFrame) cancelAnimationFrame(roFrame);
         roFrame = requestAnimationFrame(cheapResize);
         if (roFull) window.clearTimeout(roFull);
-        roFull = window.setTimeout(() => applyView(), 240);
+        roFull = window.setTimeout(() => {
+          applyView(); // rebuilds cloth to the new aspect + re-drapes (lift→0)
+          // ...but if the guest had already lifted the veil (revealed the film),
+          // a rotate must NOT re-cover it — lerp it straight back to revealed.
+          if (revealedRef.current) liftTarget = 1;
+        }, 240);
       });
       ro.observe(cv);
     }

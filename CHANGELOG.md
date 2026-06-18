@@ -4,6 +4,26 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-18 · feat(std): Step-1 reveal chooser — auto-play previews in iPhone/MacBook device frames
+
+The Step-1 "Opening reveal" chooser is rebuilt: instead of a full-screen, full-resolution, *interactive* (swipe-the-seal / drag-to-lift) overlay with no watermark, the couple now sees the selected opening **auto-play inside a device frame they can toggle between iPhone and MacBook Pro 16"** — small, low-resolution, watermarked (too small to screen-record). "Make this mine" still persists the choice. The full-quality interactive opening continues to ship on the live guest page (unchanged).
+
+**Reveal engine — new opt-in preview props (all default to live behavior):**
+- `rigid-stage.tsx` — `autoPlay?: boolean`: skips the seal gate, ramps `targetRef` 0→1 on a ~4.2s timer (feeds the same pipe gestures use, so the easing rAF still owns progress + fires `onOpened` once), and gates OFF all wheel/pointer/touch listeners so embedded previews never hijack the dashboard scroll. Scroll cue suppressed in preview.
+- `four-flap.tsx` / `rigid-reveal.tsx` — forward `autoPlay`; pass `forcePreviewCss={autoPlay}` so previews use the cheap CSS-3D flaps (no per-preview WebGL context).
+- `rigid-flaps.tsx` — new `forcePreviewCss?: boolean`, OR'd into the existing force-CSS guard (avoids colliding with the `?reveal3d=off` state).
+- `veil-reveal.tsx` — `autoplay?: boolean` (auto-lift on mount via existing `startAuto()`, gestures gated off) + `lowRes?: boolean` (caps `setPixelRatio` to 1). Petals off in preview.
+
+**New components (`apps/web/app/dashboard/[eventId]/_components/`):**
+- `device-frame.tsx` — fluid iPhone (9:19.5) / MacBook Pro 16" (16:10) shells via CSS `aspect-ratio`; pinned "Preview" watermark.
+- `reveal-preview.tsx` — mounts ONE opening in auto-play + low-res + non-interactive mode, filling the device screen. Veil lazy-loaded; one low-DPR WebGL context max (rigid templates are CSS-only).
+
+**Rewrote `reveal-preview-card.tsx`:** device toggle (iPhone ↔ MacBook) + auto-play preview + opening picker + "Make this mine". Deleted the full-screen `fixed inset-0` interactive overlay and its `tpl`/`revealed`/`launch`/`close`/`renderReveal`/`foldTimer` machinery.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. Architecture adversarially design-reviewed (6-agent pass): 5-template chooser costs ≤1 small WebGL context.
+
+SPEC IMPACT: `0024_Reveal_Tuning_and_Door_Spec_2026-06-17.md` §8/§10 — the couple-facing Step-1 chooser is now watermarked auto-play device-frame previews (full-screen in-dashboard interactive overlay retired; interactive reveal lives only on the live guest page). Owner-approved 2026-06-18. DECISION_LOG row added.
+
 ## 2026-06-18 · feat(std): live preview builder — Reveal + Theme + one Render button — PR #1742
 
 3-step Save-the-Date builder replacing the old per-field form rows (each with their own Save + redirect). Couples now pick: (1) Reveal opening, (2) Visual theme, (3) see their auto-filled information. A CSS-scaled live phone preview (220px display, 384px natural width via `scale(0.573)`) updates in real time as theme changes. One **Render** button saves everything in a single DB write.

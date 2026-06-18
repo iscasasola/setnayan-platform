@@ -31,6 +31,8 @@ type Props = {
   fallbackSeed?: number;
   /** Fired once the flaps have scrubbed fully open. */
   onOpened: () => void;
+  /** Preview/demo mode — auto-plays the open, ignores gestures (dashboard chooser). */
+  autoPlay?: boolean;
 };
 
 const flap = 'absolute inset-0 bg-cream will-change-transform';
@@ -42,6 +44,7 @@ export function FourFlapEnvelope({
   config = null,
   fallbackSeed,
   onOpened,
+  autoPlay = false,
 }: Props) {
   return (
     <RigidStage
@@ -51,6 +54,7 @@ export function FourFlapEnvelope({
       config={config}
       fallbackSeed={fallbackSeed}
       onOpened={onOpened}
+      autoPlay={autoPlay}
       renderFlaps={(p) => {
         const off = 101 * p;
         const css = (
@@ -81,7 +85,7 @@ export function FourFlapEnvelope({
             />
           </>
         );
-        return <RigidFlaps variant="four-flap" progress={p} cssFallback={css} />;
+        return <RigidFlaps variant="four-flap" progress={p} cssFallback={css} forcePreviewCss={autoPlay} />;
       }}
     />
   );

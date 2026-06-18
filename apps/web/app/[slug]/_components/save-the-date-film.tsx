@@ -513,7 +513,14 @@ export function SaveTheDateFilm({
   const wasHoldRef = useRef(false);
   const downXRef = useRef(0);
 
+  // A tap that lands on a real control (Add to calendar · play · mute) must reach
+  // THAT button, not be swallowed as a film scrub/pause. The stage owns the whole
+  // surface for gestures, so guard both ends on the actual hit target.
+  const hitControl = (e: React.PointerEvent) =>
+    Boolean((e.target as HTMLElement | null)?.closest?.('button, a'));
+
   const onPointerDown = (e: React.PointerEvent) => {
+    if (hitControl(e)) return;
     downXRef.current = e.clientX;
     wasHoldRef.current = false;
     // Unlock the soundtrack on the gesture — but NOT while on the video beat
@@ -537,6 +544,7 @@ export function SaveTheDateFilm({
   };
 
   const onPointerUp = (e: React.PointerEvent) => {
+    if (hitControl(e)) return;
     if (holdRef.current) window.clearTimeout(holdRef.current);
     if (wasHoldRef.current) {
       if (!playingRef.current) {
@@ -586,23 +594,6 @@ export function SaveTheDateFilm({
         <audio ref={audioRef} src={content.musicUrl} loop muted={muted} />
       ) : null}
 
-      {/* Localized text scrim — a soft radial behind the centred text so it reads
-          over a vivid photo WITHOUT washing the whole image (the global veil is
-          'none' for auto photos). Pairs with the tone: light text → a dark halo,
-          dark text → a cream halo. Only when a background tone is active. */}
-      {tone && transparent ? (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 z-0"
-          style={{
-            background:
-              tone === 'light'
-                ? 'radial-gradient(ellipse 80% 58% at 50% 47%, rgba(0,0,0,0.52) 0%, rgba(0,0,0,0.26) 45%, rgba(0,0,0,0) 72%)'
-                : 'radial-gradient(ellipse 80% 58% at 50% 47%, rgba(250,247,240,0.64) 0%, rgba(250,247,240,0.32) 45%, rgba(250,247,240,0) 72%)',
-          }}
-        />
-      ) : null}
-
       {/* Chrome removed (owner 2026-06-19): NO stories scrub bars, NO transport
           controls — just the texts. The film auto-plays; the guest scrubs by
           tapping the left/right thirds and holds to pause (invisible gestures,
@@ -638,6 +629,26 @@ export function SaveTheDateFilm({
     </>
   );
 
+  // Full-WIDTH legibility scrim (owner 2026-06-19: "the shade needs to cover
+  // full width"). A horizontal band centred vertically, fading top + bottom,
+  // rendered in the OUTER full-viewport container (not the phone-width stage) so
+  // it spans edge to edge behind the centred text. Pairs with the tone: light
+  // text → a dark band, dark text → a cream band. Only when a background tone is
+  // active (auto photos that need help reading).
+  const scrimNode =
+    tone && transparent ? (
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-0"
+        style={{
+          background:
+            tone === 'light'
+              ? 'linear-gradient(to bottom, rgba(0,0,0,0) 4%, rgba(0,0,0,0.44) 30%, rgba(0,0,0,0.44) 70%, rgba(0,0,0,0) 96%)'
+              : 'linear-gradient(to bottom, rgba(250,247,240,0) 4%, rgba(250,247,240,0.6) 30%, rgba(250,247,240,0.6) 70%, rgba(250,247,240,0) 96%)',
+        }}
+      />
+    ) : null;
+
   const stageProps = {
     ref: stageRef,
     style: {
@@ -661,7 +672,8 @@ export function SaveTheDateFilm({
     // identical to the live desktop layout below, minus the fixed positioning.
     return (
       <div className={`absolute inset-0 flex justify-center overflow-hidden ${outerBgCls} ${theme.outerFg}`}>
-        <div {...stageProps} className="relative h-full w-full max-w-sm select-none overflow-hidden">
+        {scrimNode}
+        <div {...stageProps} className="relative z-10 h-full w-full max-w-sm select-none overflow-hidden">
           {filmContent}
         </div>
       </div>
@@ -674,18 +686,21 @@ export function SaveTheDateFilm({
         {...stageProps}
         className={`relative mx-auto aspect-[9/16] w-full max-w-xs select-none overflow-hidden rounded-3xl ${outerBgCls} ${theme.outerFg} shadow-xl`}
       >
+        {scrimNode}
         {filmContent}
       </div>
     );
   }
 
   // Full-screen: theme's outer bg fills the whole viewport; stage is phone-width
-  // centered so the content looks intentional on desktop.
+  // centered so the content looks intentional on desktop. The scrim sits in this
+  // full-width container (behind the stage) so it spans edge to edge.
   return (
     <div className={`fixed inset-0 z-[50] flex justify-center ${outerBgCls} ${theme.outerFg}`}>
+      {scrimNode}
       <div
         {...stageProps}
-        className="relative h-full w-full max-w-sm select-none overflow-hidden"
+        className="relative z-10 h-full w-full max-w-sm select-none overflow-hidden"
       >
         {filmContent}
       </div>

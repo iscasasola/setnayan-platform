@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · fix(std): full-width legibility scrim + tappable buttons (PR-T)
+
+Two owner screenshot reports on the live film.
+
+- **Scrim full width.** The legibility shade was a radial scoped to the phone-width stage (`max-w-sm`), so on desktop it read as a narrow vertical band down the middle. Moved it out of the stage into the **full-viewport outer container** as a horizontal band (centred vertically, fading top + bottom) so it spans edge to edge. Stage bumped to `z-10` so text stays above it.
+- **Buttons are tappable.** The stage owns the whole surface for scrub/pause gestures, which swallowed taps on real controls (Add to calendar · play · mute). Added a `hitControl` guard — `onPointerDown`/`onPointerUp` bail when the hit target is inside a `button`/`a`, so the control's own click fires. Complements PR-S (which releases the veil layer's pointer capture after reveal); together a guest can actually press the buttons once the veil is folded.
+- **"Powered by Setnayan" on the film:** already removed by the PR-Q `fullBleed` shell (in this same PR #1792) — in the save-the-date phase the reveal + film are `position:fixed` (zero document-flow height), which collapsed the footer to the top on current prod; `fullBleed` drops the header + footer entirely. Verified gone on the preview.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. No migration. On the PR #1792 branch.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the film's legibility scrim covers full width; controls are tap-safe over the gesture surface. See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · fix(std): post-reveal swipes scrub the film, not re-cover the veil (PR-S)
 
 Owner: "when I swipe down on a place without the veil, it should [not] bring the veil down — instead it should animate the texts via scrubbing."

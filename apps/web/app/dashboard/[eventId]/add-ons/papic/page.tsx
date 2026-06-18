@@ -41,6 +41,7 @@ import {
 } from '@/lib/papic-seats';
 import { fetchPapicGallery } from '@/lib/papic-gallery';
 import { PapicGalleryGrid } from './_components/papic-gallery-grid';
+import { getKwentoDensity } from '@/lib/kwento-density';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
@@ -1314,8 +1315,12 @@ async function GalleryPreviewCard({
   // thumbnails. NSFW-blocked / hidden / expired-sampler photos are filtered out
   // in fetchPapicGallery; untagged photos still show (untagged-still-delivered).
   const supabase = await createClient();
-  const photos = await fetchPapicGallery(supabase, eventId);
+  const [photos, densityRows] = await Promise.all([
+    fetchPapicGallery(supabase, eventId),
+    getKwentoDensity(eventId, 60), // enough to cover the gallery limit
+  ]);
   const hasPhotos = photos.length > 0;
+  const kwentoDensity = new Map(densityRows.map((r) => [r.photoId, r.density]));
 
   return (
     <article className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
@@ -1361,7 +1366,7 @@ async function GalleryPreviewCard({
       )}
 
       {hasPhotos ? (
-        <PapicGalleryGrid photos={photos} eventId={eventId} />
+        <PapicGalleryGrid photos={photos} eventId={eventId} kwentoDensity={kwentoDensity} />
       ) : (
         <div className="rounded-xl border border-dashed border-ink/15 bg-cream/60 p-6 text-center">
           <p className="text-sm text-ink/65">

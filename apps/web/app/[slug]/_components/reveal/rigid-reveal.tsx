@@ -171,7 +171,7 @@ export function RigidReveal({
       fallbackSeed={fallbackSeed}
       onOpened={onOpened}
       renderFlaps={(p) => (
-        <RigidFlaps variant={variant} progress={p} cssFallback={flaps(variant, p)} />
+        <RigidFlaps variant={variant} progress={p} monogramText={monogram} cssFallback={flaps(variant, p)} />
       )}
     />
   );

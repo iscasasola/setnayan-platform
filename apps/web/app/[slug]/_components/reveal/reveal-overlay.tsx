@@ -183,6 +183,7 @@ export function RevealOverlay({
           fallbackSeed={sealFallbackSeed}
           onOpened={onOpened}
           effect={rigidEffect}
+          effectLook={config?.effects}
         />
       ) : (
         <FourFlapEnvelope
@@ -193,6 +194,7 @@ export function RevealOverlay({
           fallbackSeed={sealFallbackSeed}
           onOpened={onOpened}
           effect={rigidEffect}
+          effectLook={config?.effects}
         />
       )}
     </div>

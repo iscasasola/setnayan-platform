@@ -24,6 +24,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { WaxSealConfig } from '@/lib/wax-seal/types';
 import { WaxSeal } from './wax-seal';
 import { RevealParticles, type RevealParticleKind } from './reveal-particles';
+import type { RevealEffectsLook } from '@/lib/reveal-config';
 
 type Props = {
   markSvg: string | null;
@@ -49,6 +50,8 @@ type Props = {
    * 'butterflies', church doors use 'petals' (the veil has its own WebGL petals).
    */
   effect?: RevealParticleKind | null;
+  /** Admin calibration for the effect particles (Reveal Studio). */
+  effectLook?: RevealEffectsLook;
 };
 
 /** Auto-play open duration (ms) for preview mode — matches the ~scrub feel. */
@@ -72,6 +75,7 @@ export function RigidStage({
   renderFlaps,
   autoPlay = false,
   effect = null,
+  effectLook,
 }: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
   const sealRef = useRef<HTMLButtonElement>(null);
@@ -379,7 +383,7 @@ export function RigidStage({
       </div>
 
       {/* couple-chosen effect (butterflies / petals) — plays as the opening parts */}
-      {effect && progress > 0.02 ? <RevealParticles kind={effect} /> : null}
+      {effect && progress > 0.02 ? <RevealParticles kind={effect} look={effectLook} /> : null}
 
       {/* the seal — pick it up & motion-drag it off to gate the reveal */}
       {!sealGone ? (

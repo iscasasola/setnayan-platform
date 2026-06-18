@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-18 · feat(std): admin calibration for the reveal effects (butterflies + petals)
+
+Per owner ("settings of the effects on admin so I can calibrate them properly") + reveal-tuning spec §7/§8 ("author-time baked, admin-tunable"). The rigid-family particle effects were hardcoded; now they're calibrated from the Reveal Studio and read through to the live reveal.
+
+- `lib/reveal-config.ts` — new `RevealEffectsLook` (butterflySize/Count/Speed · petalSize/Density/Fall · shadow, 0–100) + `effects` on `RevealStudioConfig` + `DEFAULT_EFFECTS_LOOK` + `mergeEffects` (so the existing `saveRevealStudio` persists it via `mergeRevealConfig`, no migration — `reveal_studio_config` is open JSONB).
+- `reveal/reveal-particles.tsx` — reads the calibration `look`: maps the 0–100 sliders to particle count, spawn cadence, sizes, speeds, and cast-shadow strength (replaces the hardcoded constants).
+- Threaded `effectLook` through `rigid-stage` ← `rigid-reveal`/`four-flap` ← `reveal-overlay` (live page passes `config.effects`).
+- `app/admin/reveal-studio/studio.tsx` — new **"Effects — envelopes & doors"** slider group + a **preview-template switch (Veil · Envelope · Doors)** so the owner previews the rigid reveal with the butterflies/petals while calibrating (the veil preview only drove the veil sliders before).
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. (Effects render only in a visible browser; the Reveal Studio preview is where the owner calibrates.)
+
+SPEC IMPACT: `0024_Reveal_Tuning_and_Door_Spec` §7/§8 — the butterfly + petal calibration is now admin-tunable (was hardcoded). DECISION_LOG 2026-06-18. Follow-up: thread `effectLook` into the couple builder preview too (today it shows the locked defaults).
+
 ## 2026-06-18 · fix(std): soft cast shadows on reveal butterflies + petals (grounds them, not flat)
 
 Owner: the effects looked flat. The canvas-2D butterflies + petals drew with no shadow; now each casts a **soft, offset, blurred drop-shadow** onto the film (down-right, sized to the particle) — so they read as lit and airborne instead of pasted-on, per `0024_Reveal_Tuning_and_Door_Spec_2026-06-17.md` §5 ("lit, shadow-casting"). Single-file tweak to `reveal/reveal-particles.tsx` (`drawPetal` + `drawButterfly` use `ctx.shadow*`; butterfly body strut resets shadow so it stays crisp).

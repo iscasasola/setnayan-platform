@@ -18,14 +18,13 @@
  */
 
 import { useEffect, useRef } from 'react';
+import { DEFAULT_EFFECTS_LOOK, type RevealEffectsLook } from '@/lib/reveal-config';
 
 export type RevealParticleKind = 'butterflies' | 'petals';
 
 const PETAL_PALETTE = ['#d98aa0', '#c9637f', '#e3a9b6'];
 const BFLY_PALETTE = ['#cb9e4b', '#b8748f', '#7a3b52'];
-const MAX = 44;
 const SPAWN_WINDOW_MS = 5200;
-const SPAWN_EVERY_MS = 150;
 
 type Particle = {
   x: number;
@@ -42,10 +41,13 @@ type Particle = {
 export function RevealParticles({
   kind,
   colors,
+  look,
 }: {
   kind: RevealParticleKind;
   /** Override palette (e.g. Mood-Board petal colour). Falls back to the kind default. */
   colors?: string[];
+  /** Admin calibration (Reveal Studio). Falls back to the locked defaults. */
+  look?: RevealEffectsLook;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
 
@@ -62,6 +64,15 @@ export function RevealParticles({
 
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     const palette = colors && colors.length ? colors : kind === 'petals' ? PETAL_PALETTE : BFLY_PALETTE;
+    // Calibration → particle params (0–100 admin sliders mapped to real values).
+    const L = look ?? DEFAULT_EFFECTS_LOOK;
+    const maxCount =
+      kind === 'petals'
+        ? Math.round(18 + (L.petalDensity / 100) * 42)
+        : Math.round(8 + (L.butterflyCount / 100) * 32);
+    const spawnEvery =
+      kind === 'petals' ? Math.max(70, 280 - L.petalDensity * 1.9) : Math.max(90, 220 - L.butterflyCount * 1.2);
+    const shadowA = 0.1 + (L.shadow / 100) * 0.32;
     let w = 1;
     let h = 1;
 
@@ -81,15 +92,15 @@ export function RevealParticles({
     const pick = () => palette[Math.floor(Math.random() * palette.length)]!;
 
     const spawn = () => {
-      if (parts.length >= MAX) return;
+      if (parts.length >= maxCount) return;
       const s = Math.max(0.6, h / 620);
       if (kind === 'petals') {
         parts.push({
           x: Math.random() * w,
           y: -8,
           vx: (Math.random() - 0.5) * 0.4 * s,
-          vy: (0.5 + Math.random() * 0.7) * s,
-          size: (3 + Math.random() * 2.6) * s,
+          vy: (0.25 + (L.petalFall / 100) * 1.0 + Math.random() * 0.3) * s,
+          size: (2 + (L.petalSize / 100) * 5 + Math.random() * 1) * s,
           rot: Math.random() * 6.2832,
           vr: (Math.random() - 0.5) * 0.12,
           flap: 0,
@@ -100,13 +111,13 @@ export function RevealParticles({
         // OUTWARD to all edges — a slight upward bias so they rise like real
         // butterflies. They grow as they travel (toward-the-camera feel).
         const ang = Math.random() * Math.PI * 2;
-        const spd = (0.7 + Math.random() * 1.0) * s;
+        const spd = (0.4 + (L.butterflySpeed / 100) * 1.6) * (0.7 + Math.random() * 0.5) * s;
         parts.push({
           x: w * 0.5 + (Math.random() - 0.5) * w * 0.14,
           y: h * 0.46 + (Math.random() - 0.5) * h * 0.08,
           vx: Math.cos(ang) * spd,
           vy: Math.sin(ang) * spd - 0.28 * s,
-          size: (4 + Math.random() * 3) * s,
+          size: (3 + (L.butterflySize / 100) * 7 + Math.random() * 1.5) * s,
           rot: 0,
           vr: 0,
           flap: Math.random() * 6.2832,
@@ -121,7 +132,7 @@ export function RevealParticles({
       ctx.rotate(p.rot);
       // Soft cast shadow — offset down-right, blurred; grounds the petal on the
       // film instead of floating flat (spec §5 "lit, shadow-casting").
-      ctx.shadowColor = 'rgba(0,0,0,0.28)';
+      ctx.shadowColor = `rgba(0,0,0,${shadowA})`;
       ctx.shadowBlur = p.size * 1.1;
       ctx.shadowOffsetX = p.size * 0.45;
       ctx.shadowOffsetY = p.size * 0.7;
@@ -137,7 +148,7 @@ export function RevealParticles({
       ctx.translate(p.x, p.y);
       const ww = p.size * (0.55 + 0.45 * Math.abs(Math.sin(p.flap)));
       // Cast shadow on the wings only (set once, before the body strut).
-      ctx.shadowColor = 'rgba(0,0,0,0.3)';
+      ctx.shadowColor = `rgba(0,0,0,${shadowA})`;
       ctx.shadowBlur = p.size * 1.2;
       ctx.shadowOffsetX = p.size * 0.55;
       ctx.shadowOffsetY = p.size * 0.85;
@@ -162,7 +173,7 @@ export function RevealParticles({
     const loop = (t: number) => {
       const elapsed = t - start;
       ctx.clearRect(0, 0, w, h);
-      if (elapsed < SPAWN_WINDOW_MS && t - last > SPAWN_EVERY_MS) {
+      if (elapsed < SPAWN_WINDOW_MS && t - last > spawnEvery) {
         spawn();
         last = t;
       }
@@ -192,7 +203,7 @@ export function RevealParticles({
       cancelAnimationFrame(raf);
       ro?.disconnect();
     };
-  }, [kind, colors]);
+  }, [kind, colors, look]);
 
   return (
     <canvas

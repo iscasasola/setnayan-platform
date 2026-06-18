@@ -109,8 +109,21 @@ export function RevealOverlay({
   }, []);
 
   const override = reveal ? REVEAL_ALIASES[reveal] ?? null : null;
-  const template: RevealTemplate =
+  let template: RevealTemplate =
     override ?? eventTemplate ?? config?.defaultTemplate ?? 'four-flap';
+  // Honor the admin "allowed openings" map: an opening the admin deactivated
+  // (config.templates[id] === false) falls back to the house default — or the
+  // first still-enabled opening. The ?reveal= preview override bypasses this.
+  const allowedMap = config?.templates as Record<string, boolean> | undefined;
+  if (!override && allowedMap && allowedMap[template] === false) {
+    const def = config?.defaultTemplate;
+    template =
+      def && allowedMap[def] !== false
+        ? def
+        : ((Object.keys(allowedMap) as RevealTemplate[]).find(
+            (t) => allowedMap[t] !== false,
+          ) ?? template);
+  }
   const veil = isVeilTemplate(template);
 
   const configEnabled = config?.enabled ?? false;

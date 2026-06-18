@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-18 · fix(std): couple opening picker honours the admin "allowed openings" map
+
+Deactivating an opening in the Reveal Studio had no effect on couples — the Step-1 picker rendered the full `REVEAL_LIBRARY` and ignored `reveal_studio_config.templates` (its own comment said it was "for the future chooser"). Now connected end-to-end:
+
+- **Picker** (`reveal-preview-card.tsx`): takes an `allowed` map, renders only `REVEAL_LIBRARY.filter((t) => allowed[t.id] !== false)` — a deactivated opening disappears from the couple's choices.
+- **Builder** (`StdBuilderClient.tsx` + `page.tsx`): threads `revealConfig.templates` → `allowedTemplates`; the preview defaults to an enabled opening (never a deactivated one, even if it was the saved pick).
+- **Live page** (`reveal-overlay.tsx`): a couple's chosen opening that's since been deactivated falls back to the house default (or the first still-enabled opening); the `?reveal=` preview override bypasses (admin/demo).
+
+Treats missing/true as enabled (only explicit `=== false` hides) so new templates default on. Verified: `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: None — wires an existing config field (`reveal_studio_config.templates`) that was always meant to gate the per-event chooser.
+
 ## 2026-06-18 · feat(std): couple veil controls — Add music · Add petals · Veil colour · Petal colour
 
 The couple's veil customization in the Save-the-Date builder is now exactly four controls (owner 2026-06-18), and the builder preview mirrors the admin Reveal Studio's tuned veil:

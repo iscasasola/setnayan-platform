@@ -229,3 +229,48 @@ export function veilColorFromPalette(palette: RolePalette | null | undefined): s
   if (!base) return '#f3ece1';
   return toHex(lighten(base, 0.6));
 }
+
+// ── Save-the-Date film accent (0024) ──────────────────────────────────────────
+// The film's "Add to calendar" button + accent marks. DEFAULTS to the couple's
+// Mood-Board palette so the Save-the-Date is on-brand with the rest of their
+// site; a manual override (events.std_film_accent_hex) wins when set.
+
+const FILM_CREAM = '#fbf7f0'; // light button text (matches applyTextTone 'light')
+const FILM_INK = '#211d18'; //   dark button text  (matches applyTextTone 'dark')
+
+/**
+ * Film accent — a DEEP, button-legible Mood-Board colour: the boldest swatch
+ * darkened until light button text reads on it (AA 4.5 vs white). Mirrors the
+ * `cta` role in buildSitePaletteVars so the STD button matches the site CTA.
+ * Brand mulberry (#5C2542) fallback when the palette is sparse. `#rrggbb` hex.
+ */
+export function stdAccentFromPalette(palette: RolePalette | null | undefined): string {
+  const colorful = palettePool(palette)
+    .filter((c) => chroma(c) >= 0.12)
+    .sort((a, b) => chroma(b) - chroma(a));
+  const deep = [...colorful]
+    .filter((c) => contrast(c, WHITE) >= 3)
+    .sort((a, b) => luminance(a) - luminance(b));
+  const base = deep[0] ?? colorful[0] ?? DEFAULTS.cta;
+  return toHex(ensureContrast(base, WHITE, 4.5));
+}
+
+/**
+ * Pick the readable foreground for text sitting ON a given accent background —
+ * so ANY couple-chosen accent keeps its button text legible (WCAG). Prefers the
+ * film's on-brand cream/ink tokens (deep accents → cream; pale → ink). The
+ * palette-derived default always clears AA with cream; but a bold MANUAL accent
+ * (e.g. pure red) can leave BOTH tokens just under AA 4.5 — then we escalate to
+ * the pure black/white extreme with the most contrast (which crosses 4.5 for
+ * most such colours; a few mid-tone backgrounds can't reach 4.5 with ANY text,
+ * so this returns the best achievable). A malformed bg falls back to mulberry —
+ * upstream validation (actions.ts) should keep that from happening.
+ */
+export function readableTextOn(bgHex: string): string {
+  const bg = hexToRgb(bgHex) ?? DEFAULTS.cta;
+  const token =
+    contrast(hexToRgb(FILM_CREAM)!, bg) >= contrast(hexToRgb(FILM_INK)!, bg) ? FILM_CREAM : FILM_INK;
+  if (contrast(hexToRgb(token)!, bg) >= 4.5) return token;
+  // Both on-brand tokens fall short — use the pure extreme with the most contrast.
+  return contrast(WHITE, bg) >= contrast({ r: 0, g: 0, b: 0 }, bg) ? '#ffffff' : '#000000';
+}

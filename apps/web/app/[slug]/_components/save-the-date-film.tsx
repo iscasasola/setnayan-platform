@@ -885,6 +885,16 @@ export function SaveTheDateFilm({
       />
     ) : null;
 
+  // Subtle "Created at SETNAYAN" mark at the lower edge (owner 2026-06-19 —
+  // subtle branding only). Sits in the OUTER container (not the scaled stage) so
+  // it stays small + consistent; inherits the tone-aware text colour, very low
+  // opacity, pointer-transparent. Hidden behind the full-screen video overlay.
+  const brandingNode = (
+    <p className="pointer-events-none absolute inset-x-0 bottom-3.5 z-10 text-center font-mono text-[9px] uppercase tracking-[0.3em] opacity-35">
+      Created at Setnayan
+    </p>
+  );
+
   const stageProps = {
     ref: stageRef,
     style: {
@@ -933,6 +943,7 @@ export function SaveTheDateFilm({
       >
         {scrimNode}
         {stageEl}
+        {brandingNode}
       </div>
     );
   }
@@ -945,6 +956,7 @@ export function SaveTheDateFilm({
       >
         {scrimNode}
         {stageEl}
+        {brandingNode}
       </div>
     );
   }
@@ -960,6 +972,7 @@ export function SaveTheDateFilm({
       >
         {scrimNode}
         {stageEl}
+        {brandingNode}
       </div>
 
       {/* FULL-SCREEN video overlay (owner 2026-06-19 "why is the video not full

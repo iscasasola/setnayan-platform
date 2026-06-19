@@ -358,25 +358,27 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       pTested[pi] = 0;
     }
     const petalParams = (P: PP, ty: string) => {
+      // Fall speed dialled DOWN ~0.6× (owner 2026-06-19 "petals need to fall
+      // slower") — the petals drift down more gently across all three behaviours.
       P.type = ty;
       P.swayPh = rnd() * 6.28;
       P.swayF = 0.5 + rnd() * 0.9;
       if (ty === 'feather') {
-        P.grav = -1.4;
+        P.grav = -0.85;
         P.drag = 0.972;
         P.sway = 0.5;
         P.sx = 0.5 + rnd() * 0.6;
         P.sy = 0.22;
         P.sz = 0.3;
       } else if (ty === 'rotate') {
-        P.grav = -2.7;
+        P.grav = -1.6;
         P.drag = 0.987;
         P.sway = 0.16;
         P.sx = 0.3;
         P.sy = 2.4 + rnd() * 2.6;
         P.sz = 3 + rnd() * 3.5;
       } else {
-        P.grav = -3.6;
+        P.grav = -2.2;
         P.drag = 0.992;
         P.sway = 0.07;
         P.sx = 0.1;

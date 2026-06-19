@@ -18,6 +18,16 @@ Owner-approved 2026-06-19. The biggest single design-consistency fix: the app ca
 Verification (no local build — no node_modules; CI typecheck/lint/build/Lighthouse/Vercel preview is the gate): (a) every referenced `success/warn/danger-NNN` shade is one of the 11 defined — no undefined shade; (b) zero `emerald/amber/rose` Tailwind-utility hits remain; (c) 52 files still contain the bare words `emerald`/`amber`/`rose` — all prose, comments, and `tone="emerald"`-style TS string literals (e.g. `admin/discount-codes`, `admin/addons` inline-`style` tone props) — correctly untouched; (d) no removed line carried a non-utility occurrence of those words (zero prose damage); (e) spot-checked diffs across 6 files confirm only the family inside utilities flipped, shades/opacity/variants/surrounding classes intact.
 
 SPEC IMPACT: Flag, do not edit corpus. Introduces three canonical semantic STATUS token families (`success`/`warn`/`danger`) to the Tailwind layer — a new design-system primitive. The Clean Editorial palette doc / design-system reference (e.g. `project_setnayan_palette` memory + any corpus design-token table) may want to document these families and the "use semantic status tokens, not raw emerald/amber/rose" convention going forward. No locked SKU / branding / schema / pricing surface touched — purely a visual token rename. Owner to decide if/when the corpus design-system doc records the new families.
+## 2026-06-19 · ux(std): remove the Save-the-Date content-film mute toggle (owner)
+
+The content film rendered a small translucent mute toggle (bottom-right, `Music`⇄`VolumeX`) as the "lone escape" for its auto-playing soundtrack. Because the film plays *underneath* the sheer veil reveal, the button bled through the veil and showed over the opening. Owner asked to remove it entirely (2026-06-19) — accepting that the soundtrack now has no off-switch.
+
+- **`apps/web/app/[slug]/_components/save-the-date-film.tsx`**: deleted the mute `<button>` block (was gated on `content.musicUrl || content.videoUrl`), the `toggleMute` handler, and the now-unused `lucide-react` `Music`/`VolumeX` import. Replaced `const [muted, setMuted] = useState(false)` with a stable `const muted = false` (no toggle path remains) — the 13 remaining `muted` reads in the audio/video-gating effects are unchanged, so the `<audio loop muted={muted}>` element still auto-plays with sound. No other transport chrome existed to touch.
+
+SPEC IMPACT: None — UI removal only; no schema, pricing, or product-surface change. Note for the owner: the film's auto-playing soundtrack now has **no guest-facing mute** on any phase (accessibility/UX trade-off acknowledged per the 2026-06-19 decision); the separate couple-landing `BackgroundMusic` opt-in control (RSVP/Event phases) is untouched.
+
+---
+
 ## 2026-06-19 · fix(std): close the NaN gap in the Save-the-Date volume clamp (+ correct the root-cause comment)
 
 Follow-up hardening to the earlier volume-clamp fix, after an adversarial root-cause review of the `/[slug]` Save-the-Date `IndexSizeError`. Two findings drove this:

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { emitNotification } from '@/lib/notification-emit';
 import {
   SCHEDULE_BLOCK_TYPES,
   buildScheduleSeed,
@@ -463,7 +464,7 @@ export async function resolveScheduleSuggestion(formData: FormData) {
   const { data: suggestion } = await supabase
     .from('event_schedule_suggestions')
     .select(
-      'suggestion_id, block_id, kind, proposed_label, proposed_start_at, proposed_end_at, proposed_location, note, status',
+      'suggestion_id, block_id, kind, proposed_label, proposed_start_at, proposed_end_at, proposed_location, note, status, vendor_profile_id',
     )
     .eq('suggestion_id', suggestionId)
     .eq('event_id', eventId)
@@ -514,6 +515,46 @@ export async function resolveScheduleSuggestion(formData: FormData) {
     .eq('event_id', eventId)
     .eq('status', 'open');
   if (resolveError) throw new Error(resolveError.message);
+
+  // Notify the suggesting vendor of the couple's decision (best-effort — the
+  // suggestion is already resolved; a failed notify must not roll it back).
+  // The status flip lives on the couple's table; the vendor has no read-push,
+  // so without this the vendor never learns their proposal was accepted or
+  // declined. Resolve the vendor's user_id via the admin client.
+  if (suggestion.vendor_profile_id) {
+    try {
+      const admin = createAdminClient();
+      const [vendorRes, eventRes] = await Promise.all([
+        admin
+          .from('vendor_profiles')
+          .select('user_id')
+          .eq('vendor_profile_id', suggestion.vendor_profile_id)
+          .maybeSingle(),
+        admin
+          .from('events')
+          .select('display_name')
+          .eq('event_id', eventId)
+          .maybeSingle(),
+      ]);
+      if (vendorRes.data?.user_id) {
+        const eventName = eventRes.data?.display_name?.trim() || 'the couple';
+        const accepted = decision === 'accept';
+        await emitNotification({
+          userId: vendorRes.data.user_id,
+          type: 'schedule_suggestion',
+          title: accepted
+            ? `${eventName} accepted your timeline suggestion`
+            : `${eventName} declined your timeline suggestion`,
+          body: accepted
+            ? 'Your proposed change is now on their schedule.'
+            : 'Your proposed change was not applied.',
+          relatedUrl: `/vendor-dashboard/clients/${eventId}`,
+        });
+      }
+    } catch (e) {
+      console.error('[resolveScheduleSuggestion] vendor notify failed:', e);
+    }
+  }
 
   revalidatePath(`/dashboard/${eventId}/schedule`);
   redirect(`/dashboard/${eventId}/schedule?view=event-day`);

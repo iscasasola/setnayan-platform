@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Check, Sparkles, Stamp } from 'lucide-react';
+import { ArrowLeft, Check, Eye, Sparkles, Stamp } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { sanitizeRolePalette } from '@/lib/mood-board';
-import { sealColorFromPalette, veilColorFromPalette } from '@/lib/site-palette';
+import { sealColorFromPalette, veilColorFromPalette, stdAccentFromPalette } from '@/lib/site-palette';
+import { manilaToday, summarizeStdViews } from '@/lib/std-views';
 import { fallbackSeedFromPublicId, sanitizeWaxSealConfig } from '@/lib/wax-seal/types';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveStdFilmContent } from '@/lib/save-the-date-content';
@@ -61,7 +62,7 @@ export default async function SaveTheDatePage({ params }: Props) {
   const { data: event } = await supabase
     .from('events')
     .select(
-      'public_id, slug, display_name, event_date, venue_name, venue_address, love_story, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_film_date, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_story, std_background, std_media, our_photos, site_bg_music_enabled, site_bg_music_r2_key, landing_page_hero_image_url, date_candidates, date_mode',
+      'public_id, slug, display_name, event_date, venue_name, venue_address, love_story, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_film_date, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_story, std_film_accent_hex, std_background, std_media, our_photos, site_bg_music_enabled, site_bg_music_r2_key, landing_page_hero_image_url, date_candidates, date_mode',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -95,6 +96,10 @@ export default async function SaveTheDatePage({ params }: Props) {
   const palette = sanitizeRolePalette(event?.role_palette);
   const waxColor = sealColorFromPalette(palette);
   const veilColor = veilColorFromPalette(palette);
+  // Film accent: the couple's manual override (std_film_accent_hex) wins; the
+  // builder shows the Mood-Board-derived default beneath it when they haven't
+  // set one ("From your Mood Board"). Mirrors the live page's stdAccentColor.
+  const accentDefault = stdAccentFromPalette(palette);
   const sealConfig = sanitizeWaxSealConfig(event?.wax_seal_config);
   const sealFallbackSeed = fallbackSeedFromPublicId(event?.public_id);
   const hasMintedSeal = sealConfig !== null;
@@ -142,6 +147,20 @@ export default async function SaveTheDatePage({ params }: Props) {
     typeof event?.std_film_date === 'string' ? event.std_film_date.slice(0, 10) : null;
   const stdVenueName: string | null = event?.std_film_venue_name ?? null;
   const stdVenueCity: string | null = event?.std_film_venue_city ?? null;
+  const stdAccentHex: string | null = event?.std_film_accent_hex ?? null;
+
+  // Save-the-Date view counter (iteration 0024) — the couple's own readout.
+  // Reads the daily rollup via the couple session (RLS: member of this event);
+  // counts are unique-per-day and exclude the couple's own visits.
+  const stdViewsToday = manilaToday();
+  const { data: stdViewRows } = await supabase
+    .from('event_std_views')
+    .select('view_date, views')
+    .eq('event_id', eventId);
+  const stdViews = summarizeStdViews(
+    (stdViewRows ?? []) as Array<{ view_date: string; views: number }>,
+    stdViewsToday,
+  );
   const stdCeremonyName: string | null = event?.std_film_ceremony_name ?? null;
   const stdStory: string | null = event?.std_film_story ?? null;
 
@@ -207,6 +226,31 @@ export default async function SaveTheDatePage({ params }: Props) {
           song, choose how it opens — then hit Render.
         </p>
       </header>
+
+      {/* Save-the-Date views — unique per day, the couple's own visits excluded. */}
+      <section className="flex flex-wrap items-center gap-x-7 gap-y-2 rounded-2xl border border-ink/10 bg-white/60 px-5 py-4">
+        <div className="flex items-center gap-2">
+          <Eye aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+          <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-terracotta">
+            Save-the-Date views
+          </span>
+        </div>
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-2xl font-semibold tabular-nums">{stdViews.total.toLocaleString()}</span>
+          <span className="text-xs text-ink/55">total</span>
+        </div>
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-lg font-semibold tabular-nums">{stdViews.last7.toLocaleString()}</span>
+          <span className="text-xs text-ink/55">last 7 days</span>
+        </div>
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-lg font-semibold tabular-nums">{stdViews.today.toLocaleString()}</span>
+          <span className="text-xs text-ink/55">today</span>
+        </div>
+        <p className="w-full text-[11px] text-ink/45">
+          Counted once per visitor per day · your own visits aren&rsquo;t counted.
+        </p>
+      </section>
 
       {/* Premium openings unlock */}
       {ownsOpenings ? (
@@ -279,6 +323,8 @@ export default async function SaveTheDatePage({ params }: Props) {
         initialFilmVenueCity={stdVenueCity}
         initialFilmCeremonyName={stdCeremonyName}
         initialFilmStory={stdStory}
+        initialFilmAccentColor={stdAccentHex}
+        initialAccentDefault={accentDefault}
         displayName={event?.display_name ?? ''}
         dateIso={event?.event_date ?? null}
         markSvg={markSvg}

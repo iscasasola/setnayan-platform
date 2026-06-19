@@ -20,12 +20,12 @@ import {
   type EventDatePrecision,
 } from '@/lib/events';
 import {
-  ALLOWED_REGIONS,
   ALLOWED_FEELS,
   MAX_BUDGET_PESOS,
   MAX_NAME_LEN,
   sanitizeName,
 } from '@/lib/match-criteria';
+import { resolveRegion } from '@/lib/region-source';
 import {
   computeCompatibilityIssue,
   type EventVendorRowInput,
@@ -517,13 +517,21 @@ export async function updateEventMatchCriteria(
     return { ok: false, code: 'invalid_input', message: 'event_id required' };
   }
 
-  // Region — '' clears to NULL; otherwise must be a canonical slug.
+  // Region — '' clears to NULL; otherwise resolve through the canonical region
+  // source. ANY of the four spellings (canonical hyphen slug · underscore
+  // variant · PSGC code · 'cagayan-valley') is accepted, then NORMALIZED to the
+  // canonical hyphen slug so new writes converge on one vocabulary. Existing
+  // underscore-stored rows still validate (resolveRegion absorbs them).
   const regionRaw = formData.get('region');
   const regionStr = typeof regionRaw === 'string' ? regionRaw.trim() : '';
-  if (regionStr !== '' && !ALLOWED_REGIONS.has(regionStr)) {
-    return { ok: false, code: 'invalid_input', message: 'Invalid region' };
+  let region: string | null = null;
+  if (regionStr !== '') {
+    const resolvedRegion = resolveRegion(regionStr);
+    if (!resolvedRegion) {
+      return { ok: false, code: 'invalid_input', message: 'Invalid region' };
+    }
+    region = resolvedRegion.slug; // canonical hyphen slug
   }
-  const region = regionStr === '' ? null : regionStr;
 
   // Feel — '' clears to NULL; otherwise must be one of the 8 CHECK values.
   const feelRaw = formData.get('mood_feel_key');

@@ -35,8 +35,14 @@ function parseSlug(raw: FormDataEntryValue | null): string | null {
 const CANONICAL_SERVICE_SET: ReadonlySet<string> = new Set(VENDOR_CATEGORIES);
 
 // Iteration 0043 — wedding-type compatibility tags. Allowed values mirror
-// the events.ceremony_type + events.venue_setting CHECK constraints from
-// migration 20260521000000_iteration_0043_wedding_type_picker.sql.
+// the live events.ceremony_type CHECK constraint AND the CEREMONY_TYPES
+// picker rendered in app/vendor-dashboard/profile/page.tsx (both 18-wide).
+// The canonical list is migration 20261120000000_faith_worldwide_expansion
+// (the latest to widen events_ceremony_type_check). Previously this set held
+// only the original 7 keys, so Save silently dropped the 11 faith expansions
+// (chinese, jewish, born_again, aglipayan, lds, sda, jw, hindu, sikh,
+// buddhist, orthodox) — a false-success bug. Validation still rejects truly
+// unknown values; we just stop dropping the valid ones.
 const ALLOWED_CEREMONY_TYPES: ReadonlySet<string> = new Set([
   'catholic',
   'civil',
@@ -44,6 +50,17 @@ const ALLOWED_CEREMONY_TYPES: ReadonlySet<string> = new Set([
   'christian',
   'muslim',
   'cultural',
+  'chinese',
+  'jewish',
+  'born_again',
+  'aglipayan',
+  'lds',
+  'sda',
+  'jw',
+  'hindu',
+  'sikh',
+  'buddhist',
+  'orthodox',
   'mixed',
 ]);
 const ALLOWED_VENUE_SETTINGS: ReadonlySet<string> = new Set([

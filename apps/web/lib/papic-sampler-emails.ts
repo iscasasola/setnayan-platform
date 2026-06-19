@@ -33,7 +33,7 @@ export async function scheduleSamplerExpiryWarnings(
     // emails, and the day the owner keys Resend those events stay permanently
     // locked out of their reminders. Skipping here means a later capture (once
     // the key is live) still schedules them.
-    if (!isEmailConfigured()) return;
+    if (!(await isEmailConfigured())) return;
 
     const expiresAt = new Date(expiresAtIso).getTime();
     if (!Number.isFinite(expiresAt)) return;
@@ -151,7 +151,7 @@ export async function scheduleSamplerExpiryWarnings(
  */
 export async function cancelSamplerExpiryWarnings(eventId: string): Promise<void> {
   try {
-    if (!eventId || !isEmailConfigured()) return;
+    if (!eventId || !(await isEmailConfigured())) return;
     const admin = createAdminClient();
     const { data } = await admin
       .from('papic_sampler_email_log')

@@ -72,7 +72,7 @@ export async function emitNotification(args: EmitNotificationArgs): Promise<void
 
   // Send email if Resend is configured — fire-and-forget; failures here
   // never affect the in-app notification that already landed.
-  if (isEmailConfigured()) {
+  if (await isEmailConfigured()) {
     try {
       const admin = createAdminClient();
       const { data: recipient } = await admin

@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-18 · feat(admin): Integration Activation Console — PR1 (email slice)
+
+First slice of the owner-approved console (`/admin/integrations`): set the **Resend** API key + from-address from the app, so transactional email goes live **without a Vercel redeploy**.
+
+- **New migration** — `platform_integration_secrets` singleton (id=1, `resend_api_key_enc`), **RLS on / no policies** (deny-by-default → service-role only; the key is **AES-256-GCM-encrypted** via `lib/encryption.ts` before storage) + `platform_settings.resend_from_address` (non-secret).
+- **New `lib/integration-config.ts`** — `resolveResendConfig()` / `isResendConfigured()`: **DB-first, env-fallback**, uncached (a just-saved key takes effect immediately). Graceful-degrades to env if the table/column is absent (forward-compatible — safe to deploy before the migration applies).
+- **`lib/email.ts`** — `sendEmail` / `cancelScheduledEmail` / `isEmailConfigured` now read via the resolver. `isEmailConfigured()` is **async** (a DB-saved key must be honored even with no env key); the 6 call sites (alaala, guest-claim, notification-emit, papic-sampler ×2, patiktok-reel) now `await` it.
+- **`/admin/integrations`** — status (key source · from-address · last-tested), an encrypt-on-save form (blank key field = keep current; the stored secret is never echoed back), a "Send a test email" button (wraps `/api/admin/smoke-test?type=resend`), and a clear-key action. Team-member-aware admin gate. Admin-home tile added.
+
+tsc 0 · ESLint clean · nav-icon guard green. Env-only installs keep working byte-for-byte (resolver falls back to `RESEND_API_KEY` / `RESEND_FROM_ADDRESS`).
+
+⚠ **Security note (owner-approved 2026-06-16, re-surfaced):** storing the key in the DB (encrypted) is a deliberate trade vs env-only — not a security upgrade. `ENCRYPTION_KEY` is now a single point of failure for this key *and* the existing oauth_grants tokens; don't rotate it casually. `NEXT_PUBLIC_*` flags + the R2 public host still need a redeploy (that's PR4 scope).
+
+**Deferred to PR2:** the AI-paywall slice (needs the wider `setnayan-ai.ts` caller-threading) + social/Recraft/R2 cards.
+
+SPEC IMPACT — implements `Integration_Activation_Console_Design_2026-06-16.md` PR1 (email). → CHANGELOG + corpus DECISION_LOG.
+
 ## 2026-06-19 · fix(ci): repair two advisory guards left stale by the Studio route rename (PR pending, auto-merge)
 
 The `add-ons` → `studio` route rename (PR #1815) added route redirects but missed two guard configs that hardcode the old paths, so `lint papic keep-permanent` and `lint retired strings` were **failing on `main`** (baseline) and on every open PR. **No actual bug** — verified the keep-permanent logic is intact at the new path (`studio/papic/actions.ts:141` still calls `makeSamplerPermanent` + `cancelSamplerExpiryWarnings`); only the guards' paths were stale.

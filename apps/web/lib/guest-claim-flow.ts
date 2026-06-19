@@ -139,7 +139,7 @@ export async function processGuestClaim(params: {
     targetGuestId = match.candidate.guestId;
     matchScore = Number(match.score.toFixed(3));
     // Only run the email-OTP handshake when we can actually deliver the code.
-    if (match.candidate.email && isEmailConfigured()) {
+    if (match.candidate.email && (await isEmailConfigured())) {
       otpCode = generateOtpCode();
       otpHmac = hmacOtp(otpCode);
       otpSentTo = match.candidate.email;

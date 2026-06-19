@@ -14,7 +14,7 @@
  * The chain (each must stay wired):
  *   1. paid upgrade         → sku-activation PAPIC_SEATS hook calls makeSamplerPermanent
  *   2. Drive connect        → oauth/drive/callback calls makeSamplerPermanent
- *   3. storage→Drive switch → add-ons/papic/actions calls makeSamplerPermanent
+ *   3. storage→Drive switch → studio/papic/actions calls makeSamplerPermanent
  *   4. retention sweep      → papic-retention self-heals a kept event (the last line of defense)
  *   5. capture-time         → papic/actions stamps expiry ONLY for is_free_sampler + born-permanent if already kept
  *   6. the keep-check itself recognizes BOTH paths (active Drive grant + paid ownership)
@@ -46,7 +46,7 @@ const CHECKS = [
     why: 'connecting Google Drive must make existing sampler photos permanent',
   },
   {
-    file: 'app/dashboard/[eventId]/add-ons/papic/actions.ts',
+    file: 'app/dashboard/[eventId]/studio/papic/actions.ts',
     must: ['makeSamplerPermanent'],
     why: 'switching Papic storage to Google Drive must make existing sampler photos permanent',
   },

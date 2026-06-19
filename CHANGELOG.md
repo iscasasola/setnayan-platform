@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · fix(std): a tap on the Save-the-Date video controls it, never leaves it (PR pending, auto-merge)
+
+Owner: *"when the video is playing and someone taps the video, it should not leave the video. When the video does not play and the video mini box is clicked, it should not go to the next slide and instead play the video in full screen."*
+
+The film's tap handler stepped the beat (prev/next) on any horizontal tap — including on the video beat — so a tap on the clip jumped to the next/previous slide. The fullscreen video overlay is `pointer-events-none`, so those taps fell straight through to the stage stepper.
+
+Fix (`save-the-date-film.tsx` `onPointerUp`): when the active beat IS the video beat, a tap now controls the **video**, never the film —
+- **paused / not-yet-playing → play it full screen.** The play() runs inside the tap gesture, so iOS allows it (and `requestFilmFullscreen()` fires) — this also covers the case where autoplay was blocked and the guest sees a paused clip.
+- **playing → pause it** (stays on the beat).
+- Either way it **returns before the prev/next stepper**, so a tap can never leave the video. Moving on is still a deliberate vertical swipe-scrub, or the video's natural end (→ calendar close).
+
+Verified: `pnpm typecheck` clean. (Tap/video playback can't be exercised headlessly — owner verifies on a phone.) No migration.
+
+SPEC IMPACT: iter 0024 Save-the-Date — video-beat tap behavior. See `DECISION_LOG.md` 2026-06-19.
 ## 2026-06-19 · fix(std): Save-the-Date music now plays on the veil lift on MOBILE (PR pending, auto-merge)
 
 Owner: *"on mobile, the save the date music did not play when the veil was raised."*

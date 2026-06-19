@@ -737,6 +737,31 @@ export function SaveTheDateFilm({
       stepBeat(dy < 0 ? 1 : -1);
       return;
     }
+    // On the VIDEO beat a tap controls the video — never steps the film, so a tap
+    // can't leave the video (owner 2026-06-19). Tapping the paused / not-yet-
+    // playing clip plays it FULL SCREEN (the tap is the gesture, so iOS allows
+    // play()); tapping while it plays pauses it. Moving on is still a vertical
+    // swipe-scrub (handled just above) or the video's natural end.
+    if (idxRef.current === videoSlideIdxRef.current) {
+      const v = videoElRef.current;
+      if (v) {
+        if (v.paused) {
+          requestFilmFullscreen();
+          if (!playingRef.current) {
+            playingRef.current = true;
+            setPlaying(true);
+          }
+          v.play().catch(() => {});
+        } else {
+          v.pause();
+          if (playingRef.current) {
+            playingRef.current = false;
+            setPlaying(false);
+          }
+        }
+      }
+      return;
+    }
     // Horizontal tap = a quick nudge that keeps the film auto-playing.
     const r = stageRef.current?.getBoundingClientRect();
     const x = r ? e.clientX - r.left : 0;

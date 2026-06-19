@@ -380,6 +380,54 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       },
     ],
   },
+  // ─── Papic (candid capture) — couple + guest + crew ──────────────────
+  {
+    key: 'papic',
+    label: 'Papic — candid photos',
+    roles: ['couple', 'guest'],
+    articles: [
+      {
+        slug: 'what-is-papic',
+        title: 'What is Papic?',
+        body: "Papic turns your guests' phones into candid cameras for your wedding. A few friends you pick (your photo crew) shoot freely all night, and — if you add it — every guest can snap photos too. Every shot lands in your private gallery, and each guest can find the photos they're in. No app to install; it all runs in the browser.",
+      },
+      {
+        slug: 'turn-on-papic',
+        title: 'How do I turn on Papic and invite my photo crew?',
+        body: "Open your dashboard → Studio → Papic. Pick how many crew seats you want, then share each seat's link with a friend (one link per friend). They open it on their phone, sign in, and their phone becomes a candid camera bound to your wedding. You can re-issue a seat to someone else anytime. Try it free with the sampler before you commit.",
+      },
+      {
+        slug: 'how-papic-tagging-works',
+        title: 'How do my photos get matched to the right guests?',
+        body: "Two ways, both automatic. (1) Face matching: guests who add a selfie are recognized in candid shots, and those photos appear in their 'Photos of you'. (2) QR scan: your crew can scan a guest's invitation QR or a table sign to mark who's in a shot. Either way, every photo reaches your gallery — tagged or not. Face matching is private and per-wedding: a guest's face data is never shared or reused across events, and it only works with the guest's consent.",
+      },
+      {
+        slug: 'find-download-papic-photos',
+        title: 'Where do I find and download all my Papic photos?',
+        body: "Dashboard → Studio → Papic → Gallery. Every candid from your crew and guests is there — filter by 'Photos of us', videos, or untagged. Save any photo to your phone with one tap, or use 'Download all' to pull the whole gallery as a zip. You can also connect Google Drive to auto-sync everything to your own Drive.",
+      },
+      {
+        slug: 'papic-guest-camera',
+        title: 'Guest: how do I take candid photos for the couple?',
+        body: "If the couple turned on guest cameras, open your invitation link and tap 'Be a candid camera'. Point and shoot — every photo lands straight in the couple's gallery in real time. No sign-in, no app. You have a set number of shots; the counter shows how many you have left. After a shot you can also tell the couple the story behind it.",
+      },
+      {
+        slug: 'add-your-face',
+        title: 'Guest: how do I make sure I get my photos? (add your face)',
+        body: "When you RSVP, tap 'Add your photo' and take one selfie (you'll be asked to agree first — it's optional). That lets the candid photos of you find their way to you automatically, under 'Photos of you' on your page. On the wedding day you can also add it from the 'Add your face' card if you skipped it. No selfie? You'll still get any photo where the crew scans your invitation QR.",
+      },
+      {
+        slug: 'photos-of-you',
+        title: "Guest: where do I find the photos I'm in?",
+        body: "On the wedding day (from about an hour before it starts), open your personal invitation page and look for 'Photos of you — so far'. As the crew and guests shoot, the photos you're in collect there through the day — and they're yours to keep afterward. You show up there once you've added a selfie, or once someone scans your invitation QR onto a photo.",
+      },
+      {
+        slug: 'papic-crew-how-to-shoot',
+        title: 'Crew: I was asked to shoot — how does it work?',
+        body: "The couple sent you a seat link. Open it on your phone, sign in, and tap to claim your seat — your phone is now a candid camera for their wedding. Shoot photos and up-to-5-second clips freely; everything uploads to their gallery automatically. To mark who's in a shot, tap 'Tag who's in it' and hold a guest's place-card QR or a table sign in frame — no typing. If you don't tag, the photo still reaches the couple.",
+      },
+    ],
+  },
   // ─── Admin-role topics ──────────────────────────────────────────────
   {
     key: 'admin-console-basics',

@@ -25,6 +25,16 @@ Confirmed bug (verified via the do-everything assessment): `orders` RLS was buye
 ⚠ **NOT auto-merged — owner sign-off required.** This deliberately exposes one member's order line-items (amount, service_key, reference_code, voucher/discount, status, `admin_notes`) to every co-host on the event. That's the intended shared-planning behavior, but it's a real privacy widening — if any column is buyer-private, scope to a column-limited VIEW instead. The separate `payments` table (screenshots) is NOT touched.
 
 SPEC IMPACT iter 0034 — corrects a multi-member entitlement gap. → CHANGELOG + corpus DECISION_LOG (after sign-off).
+## 2026-06-18 · fix(profile): include vendor media in the RA 10173 data export
+
+The data-export endpoint claimed "vendor portfolio + media uploads (R2 wiring not yet built)" in its `not_included` list — but that's stale: `vendor_profiles.portfolio_r2_keys` ships live, and the raw keys were already in the payload (via `select('*')`), just as un-resolvable `r2://` refs. Additive fix, no new tables:
+
+- **`api/profile/export/route.ts`** — resolves the vendor's logo + `portfolio_r2_keys` to usable URLs (`displayUrlsForStoredAssets`) under `vendor_portfolio_media`, and includes the vendor's own day-of `editorial_vendor_media` (still/boomerang, resolved) under `vendor_submitted_media` — both via RLS-enforced reads, so a vendor only exports their OWN media. Raw `r2://` keys stay in the payload as the durable record; a `media_note` flags that resolved links are presigned/time-limited.
+- Corrected `not_included` to drop the stale portfolio line (now included) and keep the genuine gaps: the API-access audit log (no user-scoped access-log table in V1) + payment records (0034).
+
+tsc 0 · ESLint clean. Compliance-relevant (RA 10173 right-to-portability). The audit-log half stays a separate task (needs a new table + request instrumentation).
+
+SPEC IMPACT iter 0025 — completes the vendor-media half of the data export. → CHANGELOG.
 ## 2026-06-18 · feat(seo/a11y): structured-data + metadata + a11y completeness on public pages
 
 Verified, additive quality wins from a public-surface audit (4-agent sweep) — no design/copy/pricing changes:

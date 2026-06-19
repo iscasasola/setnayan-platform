@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · ux(std): veil-reveal hint now surfaces the hands-free double-tap
+
+The Save-the-Date veil reveal supports two lift gestures — grab-and-pull / swipe up (manual) **and** double-tap = hands-free auto-lift (`veil-reveal.tsx`, gesture block ~line 889; `doRevealAuto()` on the second tap). The bottom-of-screen hint only advertised the manual lift ("Lift the veil ↑"), so guests never learned the double-tap shortcut.
+
+- **`apps/web/app/[slug]/_components/reveal/reveal-overlay.tsx`** (veil branch, ~line 193): added a second, quieter hint line under the primary call — `or double-tap to lift it for you` (text-[9px], `text-cream/60`, same mono/uppercase/tracking + drop-shadow as the primary line). Primary "Lift the veil ↑" line and its styling are unchanged; the new line fades out with the rest of the hint group on `open`.
+
+SPEC IMPACT: None — copy-only hint surfacing an already-shipped gesture (double-tap auto-lift landed with the veil port #1671). No schema, pricing, behavior, or product-surface change. Corpus `0024_Veil_Reveal_Spec_2026-06-17.md` already documents both gestures.
+
+---
+
 ## 2026-06-19 · fix(onboarding): events.together_since no longer commits NULL when entered in the love stage
 
 The dedicated `togetherSince` OnboardingState field has no UI input — the "together since" YEAR the couple types during the love stage only ever writes to `state.loveStory.together_since` (the `love_spark` screen). At commit, `buildCommitPayload` sourced the top-level `events.together_since` column solely from the empty dedicated state, so it committed `NULL` even when the couple supplied a year (the value survived only inside the `love_story` JSONB blob).

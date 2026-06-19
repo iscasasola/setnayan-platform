@@ -391,17 +391,19 @@ export function SaveTheDateFilm({
 
   // 8 — the couple's video (AUTOPLAYS inline) OR the photo gallery
   if (hasVideo) {
-    // The video beat holds (dur Infinity) — it doesn't auto-advance on a timer;
-    // it AUTOPLAYS (owner 2026-06-19 "the video should autoplay, no more
-    // clicking") inside the already-full-screen experience, the soundtrack
-    // crossfading to its audio, and advances to the calendar close on its
-    // natural end (the orchestration effect below). The <video> lives in the DOM
-    // for every slide (opacity-gated) so videoElRef is bound before the beat.
+    // The video beat holds (dur Infinity) — it AUTOPLAYS (owner 2026-06-19 "the
+    // video should autoplay, no more clicking") and plays FULL SCREEN, on top of
+    // everything (owner 2026-06-19 "why is the video not full screen"). On the
+    // live page the actual <video> is the full-screen overlay rendered in the
+    // return below (videoElRef binds there); this beat just holds the label
+    // beneath it. In the builder preview the video plays INLINE in the device
+    // frame instead (a fixed overlay would escape the frame). It crossfades the
+    // soundtrack + advances to the calendar close on its natural end.
     slides.push({
       key: 'video',
       dur: Infinity,
       anim: ANIM.pop,
-      node: (
+      node: preview ? (
         <div className="flex w-full max-w-sm flex-col items-center gap-4">
           <p className={LABEL}>Watch our story</p>
           {/* eslint-disable-next-line jsx-a11y/media-has-caption -- couple-uploaded keepsake clip, no caption track */}
@@ -412,6 +414,10 @@ export function SaveTheDateFilm({
             preload="auto"
             className="max-h-[520px] w-full rounded-2xl object-contain shadow-lg"
           />
+        </div>
+      ) : (
+        <div className="flex flex-col items-center gap-3">
+          <p className={LABEL}>Watch our story</p>
         </div>
       ),
     });
@@ -937,12 +943,38 @@ export function SaveTheDateFilm({
   // is centred and uniformly scaled to fit (max size, no overflow — owner
   // 2026-06-19). The full-width scrim spans the container, behind the canvas.
   return (
-    <div
-      ref={containerRef}
-      className={`fixed inset-0 z-[50] flex items-center justify-center overflow-hidden ${outerBgCls} ${theme.outerFg}`}
-    >
-      {scrimNode}
-      {stageEl}
-    </div>
+    <>
+      <div
+        ref={containerRef}
+        className={`fixed inset-0 z-[50] flex items-center justify-center overflow-hidden ${outerBgCls} ${theme.outerFg}`}
+      >
+        {scrimNode}
+        {stageEl}
+      </div>
+
+      {/* FULL-SCREEN video overlay (owner 2026-06-19 "why is the video not full
+          screen"). The couple's clip takes over the whole viewport on its beat —
+          on top of everything (z-[70], above the reveal/veil) — autoplays
+          object-contain on black, then fades out as the film advances to the
+          calendar close. videoElRef binds here on the live page; the
+          orchestration effect plays it + crossfades the music. */}
+      {hasVideo ? (
+        <div
+          className={`pointer-events-none fixed inset-0 z-[70] flex items-center justify-center bg-black transition-opacity duration-500 ${
+            idx === videoSlideIndex ? 'opacity-100' : 'opacity-0'
+          }`}
+          aria-hidden={idx !== videoSlideIndex}
+        >
+          {/* eslint-disable-next-line jsx-a11y/media-has-caption -- couple-uploaded keepsake clip, no caption track */}
+          <video
+            ref={videoElRef}
+            src={content.videoUrl ?? undefined}
+            playsInline
+            preload="auto"
+            className="h-full w-full object-contain"
+          />
+        </div>
+      ) : null}
+    </>
   );
 }

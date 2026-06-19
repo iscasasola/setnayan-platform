@@ -5,6 +5,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 ---
 
 ## 2026-06-20 · revert(std): restore the Save-the-Date film mute toggle (it was the wrong icon)
+## 2026-06-19 · fix(ci): repair two advisory guards left stale by the Studio route rename (PR pending, auto-merge)
+
+The `add-ons` → `studio` route rename (PR #1815) added route redirects but missed two guard configs that hardcode the old paths, so `lint papic keep-permanent` and `lint retired strings` were **failing on `main`** (baseline) and on every open PR. **No actual bug** — verified the keep-permanent logic is intact at the new path (`studio/papic/actions.ts:141` still calls `makeSamplerPermanent` + `cancelSamplerExpiryWarnings`); only the guards' paths were stale.
+
+- `apps/web/scripts/lint-papic-keep-permanent.mjs` — check #3 path `add-ons/papic/actions.ts` → `studio/papic/actions.ts` (+ matching comment).
+- `apps/web/.retired-strings.json` — "Custom Monogram Pack" allow-path `add-ons/panood/setup/page.tsx` → `studio/panood/setup/page.tsx`.
+
+Verified: both guards run green locally (`retired-strings` 0 violations / 1117 files · `papic-keep-permanent` 6/6 sites intact).
+
+SPEC IMPACT: None (CI guard config only).
+## 2026-06-19 · ux(std): remove the Save-the-Date content-film mute toggle (owner)
 
 Reverts #1843. The owner's "remove this" pointed at a **speaker-with-✕** icon on the veil; with the full screenshot it became clear that's the bottom-LEFT couple background-music player (handled separately by gating it off during the STD phase), **not** the film's mute. The bottom-RIGHT music-note control is the film's mute — "the one that works" — and the owner wants it kept. #1843 had removed it.
 

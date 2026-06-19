@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · fix(copy): retire stale "100 complimentary tokens on verification" claims (PR pending, auto-merge)
+
+The 100-free-tokens-on-verification grant was retired 2026-06-17 (migration `20270110320020_remove_verification_token_grant.sql`, PR #1446) — both AFTER INSERT/UPDATE triggers on `vendor_profiles` dropped, functions stubbed to no-ops; the admin approval action (`admin/verify/actions.ts`) grants no tokens. **Verified gone in the LIVE prod schema** (`information_schema.triggers` returns 0 `vendor_verified_bonus%` rows). Several vendor- and public-facing surfaces still advertised the retired grant; updated to current reality (verification is free; no token bonus), brand voice kept:
+
+- `vendor-dashboard/verify/page.tsx` — metadata description, the green callout (repurposed to "Verification is free during launch" + what approval unlocks, icon retained), and the ApprovedCard text.
+- `lib/help.ts` — "How are vendors verified" article (dropped the founder-bonus sentence).
+- `_components/marketing/_fixtures.ts` — removed the "100 free tokens on verification" `VENDOR_FEATURES` bullet (shown on `/for-vendors`).
+- `pricing/page.tsx` — dropped the "100 complimentary tokens once verified" paragraph sentence + the tier bullet (public pricing).
+- `vendor-dashboard/tokens/_components/voucher-list.tsx` — empty-state now lists real token sources (subscription bundles · admin grants · voucher codes).
+- `admin/vendors/[vendorProfileId]/tokens/page.tsx` — empty grant-history copy no longer claims the bonus "fires automatically on verification."
+
+Left in place: historical code comments + the token-expiry category list (legacy founder-bonus tokens already issued still expire — no retroactive clawback per the migration).
+
+Verified: copy-only; no schema, no logic. CI typecheck/lint/build gate the PR.
+
+SPEC IMPACT: The spec corpus still describes the 100-token verification grant in vendor/pricing specs (e.g. `Pricing.md`, CLAUDE.md vendor-token rows). The grant is retired and code is canonical (per AS_BUILT ground truth) — flagging for owner; corpus reconciliation can land separately. No corpus change blocks this copy PR.
+
 ## 2026-06-19 · refactor(studio): rename the route `/dashboard/[eventId]/add-ons` → `/studio` (PR pending, auto-merge)
 
 Owner: the surface is branded "Studio" everywhere but the URL still read `/add-ons`. Renamed the route to match.

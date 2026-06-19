@@ -88,8 +88,8 @@ export function VoucherList({ vouchers }: { vouchers: VoucherRow[] }) {
       <div className="m-card p-6">
         <p className="m-label-mono mb-2">Active vouchers</p>
         <p className="text-sm text-ink/65">
-          No active earned-token vouchers yet. Verified vendors receive a 100-token
-          founder bonus when their verification is approved.
+          No active earned-token vouchers yet. Earn tokens through subscription
+          bundles, admin grants, or voucher codes.
         </p>
       </div>
     );

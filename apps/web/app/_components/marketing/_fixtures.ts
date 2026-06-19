@@ -152,7 +152,6 @@ export const VENDOR_FEATURES = [
   'Free verified profile during launch — no listing fee, no badge fee.',
   'Pro Vendor unlocks AI proposals, analytics, and a custom microsite.',
   'Enterprise unlocks multi-category listing + sub-4hr priority support.',
-  '100 free tokens on verification before 2027-01-31. Founder bonus for pilot vendors.',
 ];
 
 // "What's live today" pills — v2.1 brief § 1.

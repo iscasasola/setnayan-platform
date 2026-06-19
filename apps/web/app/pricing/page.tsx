@@ -590,9 +590,7 @@ export default async function PricingPage() {
             <p className="text-base leading-relaxed text-ink/65">
               Vendors subscribe in 28-day prepaid blocks for marketplace
               presence, and top up tokens to redeem the same software SKUs
-              couples buy at retail. Verified vendors receive{' '}
-              <strong className="text-ink">100 complimentary tokens</strong>{' '}
-              once their verification is approved. Boost individual features
+              couples buy at retail. Boost individual features
               for 7 days · 4–100 tokens · Pro+ vendors can add branches at
               {branchPriceLabel} / 28 days each.
             </p>
@@ -675,14 +673,6 @@ export default async function PricingPage() {
                           strokeWidth={2}
                         />
                         <span className="text-ink">Your free vendor site at slug.setnayan.com</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <Check
-                          aria-hidden
-                          className="mt-0.5 h-4 w-4 shrink-0 text-terracotta"
-                          strokeWidth={2}
-                        />
-                        <span className="text-ink">100 complimentary tokens once verified</span>
                       </li>
                     </ul>
                   </article>

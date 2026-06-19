@@ -368,8 +368,8 @@ export default async function AdminVendorTokensPage({
         </h2>
         {!recentGrants || recentGrants.length === 0 ? (
           <p className="text-sm text-ink/60">
-            No grants yet for this vendor. The founder-bonus 100-token grant
-            fires automatically on verification.
+            No grants yet for this vendor. Tokens are added via admin direct
+            grants, subscription bundles, or voucher redemptions.
           </p>
         ) : (
           <ul className="divide-y divide-ink/10">

@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · fix(std): music holds during the video + resumes (never restarts)
+
+Owner: "the music should only continue after the video plays. it should not start over from the beginning."
+
+The crossfade left the music PLAYING silently (volume 0) under the video — so a `loop`-ed track looped back toward 0 during a long clip and sounded like it restarted afterwards. Now the music **pauses** (holds its exact position) once it fades out entering the video beat, and **resumes from there** when the film returns to the closing screen (`play()` never resets `currentTime`, and we never touch it). The video keeps its own audio + the ~700ms crossfade both ways; only the music's hold/resume changed.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the soundtrack pauses for the video and continues from where it left off (no restart). See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · fix(theme): register missing `paper` Tailwind color token — Build tab's [Build] button was a blank dark box (PR pending, auto-merge)
 
 Owner reported the Build tab ("Build your plan") showed no buttons for the build action — just a dark rectangle. Root cause: `paper` was used as a Tailwind color (`bg-paper` rows, `text-paper` on dark CTAs) across **21 files**, but it only ever existed as the `--m-paper` CSS variable — it was **never registered as a Tailwind color token** in `tailwind.config.ts`. So `bg-paper` / `text-paper` / `border-paper` compiled to **nothing**. On the Build button (`bg-ink text-paper` + Hammer icon), the dark `bg-ink` rendered but the `text-paper` label + `currentColor` icon inherited the ambient ink color → invisible on dark = blank box. This is the identical failure class the config already documents for the `burgundy` slot.

@@ -600,9 +600,13 @@ export function SaveTheDateFilm({
     const a = audioRef.current;
     const onVideo = idx === videoSlideIndex;
 
-    // Gentle ~700ms audio dissolve between the music and the video.
+    // Gentle ~700ms audio dissolve between the music and the video. When the
+    // music fades to 0 (entering the video) it then PAUSES, so it HOLDS its
+    // position and resumes from there afterwards — it must never restart from
+    // the beginning (owner 2026-06-19), which a still-playing `loop`-ed track
+    // would do by looping back to 0 during a long clip.
     let fade = 0;
-    const crossfade = (musicTo: number, videoTo: number) => {
+    const crossfade = (musicTo: number, videoTo: number, pauseMusicAtEnd = false) => {
       cancelAnimationFrame(fade);
       const m0 = a?.volume ?? 1;
       const v0 = v.volume;
@@ -611,7 +615,11 @@ export function SaveTheDateFilm({
         const p = Math.min(1, (now - t0) / 700);
         if (a) a.volume = m0 + (musicTo - m0) * p;
         v.volume = v0 + (videoTo - v0) * p;
-        if (p < 1) fade = requestAnimationFrame(tick);
+        if (p < 1) {
+          fade = requestAnimationFrame(tick);
+        } else if (pauseMusicAtEnd && a) {
+          a.pause(); // hold the song's position; it resumes here after the video
+        }
       };
       fade = requestAnimationFrame(tick);
     };
@@ -623,13 +631,15 @@ export function SaveTheDateFilm({
       }
       v.muted = muted || preview;
       if (playing) v.play().catch(() => {}); else v.pause();
-      crossfade(0, 1); // music → silent, video → full (converges even if interrupted)
+      crossfade(0, 1, true); // music fades out → PAUSES (holds position); video fades in
     } else {
-      crossfade(1, 0); // video → silent, music → full
-      v.pause();
+      // Resume the music FROM WHERE IT PAUSED — play() never resets currentTime,
+      // and we never touch a.currentTime, so it continues, never restarts.
       if (content.musicUrl && a && !preview && playing && !muted) {
         a.play().catch(() => {});
       }
+      crossfade(1, 0); // video fades out, music fades back up from its held position
+      v.pause();
     }
     prevOnVideoRef.current = onVideo;
 

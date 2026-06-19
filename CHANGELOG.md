@@ -15,6 +15,41 @@ Owner rule "prices are admin-managed" (2026-06-19): move the last hardcoded vend
 Self-reviewed against TS strict (no local `node_modules` → no local typecheck; CI gates). Did NOT touch `lib/sku-activation.ts` or `lib/chat-actions.ts` (the branch-activation hook reads the order's stored total, not a literal, so it's unaffected).
 
 SPEC IMPACT: Pricing surface — the ₱999 branch fee is now an admin-editable catalog SKU (`vendor_additional_branch`) rather than a code literal; price unchanged at ₱999. Aligns with the standing "prices are admin-managed" rule (memory `project_setnayan_pricing_admin_managed`). Note: `vendor-dashboard/branches/page.tsx` static copy still renders `peso(BRANCH_FEE_PHP)` (₱999) — display only; the load-bearing charge now reads the catalog. Worth a follow-up to make the display read the live price too.
+## 2026-06-19 · fix(std): close the NaN gap in the Save-the-Date volume clamp (+ correct the root-cause comment)
+
+Follow-up hardening to the earlier volume-clamp fix, after an adversarial root-cause review of the `/[slug]` Save-the-Date `IndexSizeError`. Two findings drove this:
+
+1. **The shipped clamp left a residual crash path.** `setVol`'s clamp `v < 0 ? 0 : v > 1 ? 1 : v` **passes `NaN` straight through** — `NaN < 0` and `NaN > 1` are both `false`, so the ternary returns `NaN`. And `m0 = a?.volume ?? 1` does **not** substitute for a `NaN` read-back (`NaN` is neither null nor undefined), so a `NaN` propagates through the whole fade ramp. A `NaN`/`Infinity` `.volume` (detached/unloaded media element in a WebView, or a non-monotonic clock making the fade ratio `NaN`) would therefore still throw *after* the first fix. Closed by guarding with `Number.isFinite`: `if (!el || !Number.isFinite(v)) return;` — non-finite values now skip the write (volume untouched that frame; inaudible; next frame self-corrects). The finite branch clamps exactly as before.
+
+2. **Corrected the root-cause comment.** The prior comment claimed "Chrome desktop silently clamps; WebKit … throw." That's **wrong**: the WHATWG HTML volume setter algorithm *requires* a throw for any value outside `[0,1]`, and Blink, WebKit, and Gecko **all throw** (verified against each engine's `setVolume` source — no engine clamps, and the only Blink mechanism that could store `>1`, the `MediaElementVolumeGreaterThanOne` flag, is default-disabled/test-only and unshipped). Desktop Chrome didn't crash here because those sessions never produced an out-of-range value — not because it clamps. Comment rewritten to say so. The original fix's behavior was correct regardless; only the *explanation* was imprecise.
+
+- **`apps/web/app/[slug]/_components/save-the-date-film.tsx`** — `setVol` gains the `Number.isFinite(v)` guard; doc comment rewritten to the spec-accurate account.
+
+Root-cause notes (for the record): the math is decisive that the `1.00243`/`1.01339` overshoots can't come from float rounding on clean inputs (the ramp is a convex combination, provably ≤ 1; rounding is ~10⁴–10¹³× too small), so an input genuinely left `[0,1]`. The most concretely supported app-side source is a **non-monotonic clock** (`now < t0` → `p < 0`) on the music **fade-down** branch, where `vol = m0·(1−p) > 1` — the ramp clamps `p`'s upper bound (`Math.min(1, …)`) but never its lower bound; mobile in-app WebViews (background throttling / clock corrections) are far more prone to this than desktop Chrome, which fits "only mobile/in-app browsers crashed." A `NaN` read-back is a second app-side source. The earlier "platform `.volume` read-back returns `>1`" theory is **retracted** — no engine source supports a conforming getter returning `>1`. All these paths are app-side and are fully closed by the clamp + this `NaN` guard. `tsc --noEmit` clean locally.
+
+SPEC IMPACT: None. Client-side defensive hardening + comment accuracy; no schema, pricing, or corpus surface touched.
+
+## 2026-06-19 · ux(std): veil-reveal hint now surfaces the hands-free double-tap
+
+The Save-the-Date veil reveal supports two lift gestures — grab-and-pull / swipe up (manual) **and** double-tap = hands-free auto-lift (`veil-reveal.tsx`, gesture block ~line 889; `doRevealAuto()` on the second tap). The bottom-of-screen hint only advertised the manual lift ("Lift the veil ↑"), so guests never learned the double-tap shortcut.
+
+- **`apps/web/app/[slug]/_components/reveal/reveal-overlay.tsx`** (veil branch, ~line 193): added a second, quieter hint line under the primary call — `or double-tap to lift it for you` (text-[9px], `text-cream/60`, same mono/uppercase/tracking + drop-shadow as the primary line). Primary "Lift the veil ↑" line and its styling are unchanged; the new line fades out with the rest of the hint group on `open`.
+
+SPEC IMPACT: None — copy-only hint surfacing an already-shipped gesture (double-tap auto-lift landed with the veil port #1671). No schema, pricing, behavior, or product-surface change. Corpus `0024_Veil_Reveal_Spec_2026-06-17.md` already documents both gestures.
+
+---
+
+## 2026-06-19 · fix(payouts): money-direction guard on payout dispatch + a release path for held payouts
+
+Two payout-safety fixes. Files: `lib/payouts.ts`, `app/admin/payments/actions.ts`. No schema change (all columns already exist).
+
+- **M1 — money-direction bug (vendor wrongly PAID for an order they were paying US for).** `schedulePayoutsForOrder()` (in `app/admin/payments/actions.ts`) guarded only on `if (!row.vendor_profile_id) return;`. A **vendor branch activation order** (`vendor_additional_branch__{id}`, owner-locked 2026-06-05 ₱999 Enterprise add-on) carries `vendor_profile_id` (the *paying* vendor) but **no `event_id`** — it's the vendor paying Setnayan, the opposite money direction. The old guard let it fall through and queued a vendor PAYOUT, i.e. Setnayan paying the vendor for an order the vendor paid us for. Added a guard that only dispatches payouts for **couple bookings**: bail when `event_id` is NULL, OR when `branchIdFromServiceKey(service_key) !== null` (belt-and-suspenders for any other vendor-pays-Setnayan SKU on this code path). Added `service_key` to the order select + row type for the second check; imported `branchIdFromServiceKey` from `lib/vendor-branches`.
+- **m3 — held payouts had no release path.** `holdPayout()` set `on_hold=true` / `hold_reason` with no admin-facing reversal — a held payout was stuck until a hand-edited DB write. Added `releasePayoutHold(adminClient, {payoutId, actorUserId, reason})` to `lib/payouts.ts` (sets `on_hold=false`, clears `hold_reason`, appends a `released_hold` audit_log entry; refuses if already paid; no-op-safe on a not-held payout) + `releasePayoutHoldAction(formData)` in `app/admin/payments/actions.ts` (gated by `requireAdmin`, redirect/flash pattern mirroring the sibling `holdPayoutAction`).
+- **Follow-up (not done — outside this unit's owned files):** wire a "Release hold" button into `app/admin/payouts/page.tsx` next to the existing Mark-paid / Place-on-hold controls (currently a held payout shows only the reason banner, no release control). The action is fully callable; only the 1-line form wiring remains.
+
+Self-reviewed against TS strict (no local `node_modules` → no typecheck/lint here; CI gates). New symbols all used; `service_key`/`event_id`/`on_hold`/`hold_reason`/`audit_log`/`paid_at` are pre-existing columns.
+
+SPEC IMPACT: None (payout-safety bug fix + new admin reversal action; no SKU/pricing/schema change — the vendor payout model + the branch ₱999 add-on are both already locked in the corpus). Behavioral note for the corpus payout section: branch/vendor-pays-Setnayan orders never generate a vendor payout, and held payouts now have an admin release path.
 ## 2026-06-19 · fix(onboarding): events.together_since no longer commits NULL when entered in the love stage
 
 The dedicated `togetherSince` OnboardingState field has no UI input — the "together since" YEAR the couple types during the love stage only ever writes to `state.loveStory.together_since` (the `love_spark` screen). At commit, `buildCommitPayload` sourced the top-level `events.together_since` column solely from the empty dedicated state, so it committed `NULL` even when the couple supplied a year (the value survived only inside the `love_story` JSONB blob).
@@ -84,6 +119,13 @@ Production Sentry error on the couple website (`/[slug]`, e.g. `/cale-ice`): an 
 No behavior change on engines that already clamped; eliminates the throw on the strict ones. Typecheck passes locally (`tsc --noEmit`, clean); no node_modules in the worktree so lint/build are gated by CI required checks.
 
 SPEC IMPACT: None. Pure client-side defensive bugfix — no schema, migration, pricing/SKU, branding, or corpus surface touched.
+## 2026-06-19 · ui(std/website): replace the "Play music" pill with an icon-only mute toggle
+
+Owner ask: the floating "Play music" pill on the Save-the-Date / couple website (bottom-left) wasn't the right affordance — a mute icon reads more clearly. Swapped the labeled pill for a compact, icon-only circular toggle using the universal speaker glyph: `Volume2` when sound is on (tap to mute), `VolumeX` when muted/not-started (tap to play). Same position, same translucent-cream/terracotta styling, same tap-to-start behavior (browser autoplay still never force-plays). Shared component, so it updates both render sites on `/[slug]` (save-the-date view + main view).
+
+- **`apps/web/app/[slug]/_components/background-music.tsx`** — dropped the `Music`/`Pause` icons + the `Play music`/`Pause music` text span; now renders an `h-11 w-11` icon-only button toggling `Volume2` ⇄ `VolumeX`. `aria-pressed` retained; `aria-label` switches between "Mute background music" / "Play background music"; added a matching `title` tooltip. Doc comment updated to describe the speaker-on ⇄ muted toggle.
+
+SPEC IMPACT: None. Pure presentational refinement of an existing control; no SKU, schema, branding, or copy-of-record change. (Corpus 0024 STD docs describe the music control only at the feature level, not the icon.)
 
 ## 2026-06-19 · fix(regions): one DB-backed canonical source collapses 4 incompatible PH-region spellings (fallback-safe)
 

@@ -11,12 +11,19 @@ import {
 type Props = {
   name: string;
   initial: string[];
+  /**
+   * Optional DISPLAY labels keyed by the enum category key, sourced live from
+   * the admin taxonomy (see labelForVendorCategory). Cosmetic only — the
+   * checkbox VALUE stays the enum key. Any missing key falls back to the in-code
+   * VENDOR_CATEGORY_LABEL, so omitting the prop renders exactly as before.
+   */
+  labels?: Record<string, string>;
 };
 
 const MAX_SERVICES = 24;
 const MAX_CUSTOM_LEN = 48;
 
-export function ServicesPicker({ name, initial }: Props) {
+export function ServicesPicker({ name, initial, labels }: Props) {
   const [selected, setSelected] = useState<string[]>(() => initial);
   const [customDraft, setCustomDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -115,7 +122,7 @@ export function ServicesPicker({ name, initial }: Props) {
                           disabled={!checked && isAtMax}
                           className="h-4 w-4 cursor-pointer accent-terracotta disabled:cursor-not-allowed"
                         />
-                        <span>{VENDOR_CATEGORY_LABEL[cat]}</span>
+                        <span>{labels?.[cat] ?? VENDOR_CATEGORY_LABEL[cat]}</span>
                       </label>
                     );
                   })}

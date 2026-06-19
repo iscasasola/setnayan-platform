@@ -12,6 +12,7 @@ import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
 import { resolveMonogram, type MonogramConfig } from '@/lib/monogram';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { eventPapicGuestActive } from '@/lib/papic-guest';
+import { eventOwnsPapicSeats } from '@/lib/papic-seats';
 import { eventSkuActive } from '@/lib/entitlements';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
 import {
@@ -845,19 +846,23 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
       : null;
 
   // "Register your face if you haven't yet" — day-of catch for a guest who
-  // skipped the optional RSVP selfie. True only in the live window when this
-  // guest has NO active face enrollment, so the on-the-day page can prompt one
-  // tap that makes their candid photos find them. Cheap targeted read.
+  // skipped the optional RSVP selfie. Shown across the WHOLE pre-event window
+  // (not just the day) so guests enroll early — but only when this event has
+  // candid capture (Papic guest camera or crew seats), the guest hasn't
+  // declined, and they have NO active enrollment. Self-hides the moment they
+  // add a selfie. Two cheap targeted reads, gated to skip work when irrelevant.
   let needsFaceEnroll = false;
-  if (dayOfPhase === 'live') {
-    const { data: liveEnrollment } = await admin
-      .from('guest_face_enrollments')
-      .select('id')
-      .eq('event_id', event.event_id)
-      .eq('guest_id', guest.guest_id)
-      .is('revoked_at', null)
-      .maybeSingle();
-    needsFaceEnroll = !liveEnrollment;
+  if (papicGuestActive || (await eventOwnsPapicSeats(admin, event.event_id))) {
+    if (guest.rsvp_status !== 'declined') {
+      const { data: liveEnrollment } = await admin
+        .from('guest_face_enrollments')
+        .select('id')
+        .eq('event_id', event.event_id)
+        .eq('guest_id', guest.guest_id)
+        .is('revoked_at', null)
+        .maybeSingle();
+      needsFaceEnroll = !liveEnrollment;
+    }
   }
 
   // Guest Hub Card — seat assignment for THIS guest only (one targeted query;
@@ -2097,11 +2102,14 @@ function InvitationSite({
           />
         ) : null}
 
-        {/* "Add your face" — day-of catch for a guest who skipped the RSVP
-            selfie. One tap enrolls them so their candid photos auto-find them
-            (and feeds the "Photos of you" gallery below). Live window only,
-            self-hides once enrolled. QR-scan tagging is the fallback either way. */}
-        {isLive && needsFaceEnroll ? <DayOfFaceEnroll context="day_of" /> : null}
+        {/* "Add your face" — shown across the whole pre-event window (gated in
+            needsFaceEnroll: Papic event · not declined · not yet enrolled) so
+            guests enroll early, plus a day-of catch for anyone who skipped the
+            RSVP selfie. One tap enrolls them so their candid photos auto-find
+            them. Self-hides once enrolled; QR-scan tagging is the fallback. */}
+        {needsFaceEnroll ? (
+          <DayOfFaceEnroll context={isLive ? 'day_of' : 'pre_event'} />
+        ) : null}
 
         {/* Per-guest LIVE gallery — "photos of you, so far". The personalized
             half of the on-the-day gallery pair (the wall mirror above is the

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { emitNotification } from '@/lib/notification-emit';
 
 /**
  * Setnayan HQ · Real Stories actions — curate which published, consent-gated
@@ -101,6 +102,46 @@ async function assertEligibleShowcase(
   return (ev.display_name as string | null)?.trim() || 'A Setnayan wedding';
 }
 
+/**
+ * Notify the couple (every couple-type event member) that their wedding was
+ * featured on Real Stories (Notification Foundation · Phase B). Deep-links to
+ * the public showcase index. Best-effort: a failed notification never affects
+ * the feature write that already landed. Fired on feature only — a pure admin
+ * re-order (setShowcaseRank) is internal curation and would be misleading to
+ * re-announce as "featured" each time, so it stays silent.
+ */
+async function notifyCoupleShowcaseFeatured(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+  displayName: string,
+): Promise<void> {
+  try {
+    const { data: members } = await admin
+      .from('event_members')
+      .select('user_id')
+      .eq('event_id', eventId)
+      .eq('member_type', 'couple');
+    const memberIds = (members ?? [])
+      .map((m) => m.user_id as string)
+      .filter((id): id is string => Boolean(id));
+    if (memberIds.length === 0) return;
+
+    await Promise.all(
+      memberIds.map((userId) =>
+        emitNotification({
+          userId,
+          type: 'showcase_featured',
+          title: 'Your wedding is featured on Real Stories',
+          body: `${displayName} is now featured in the Setnayan Real Stories showcase. Couples planning their own day will see your story.`,
+          relatedUrl: '/realstories',
+        }),
+      ),
+    );
+  } catch (e) {
+    console.error('[real-stories] couple showcase-featured notify failed:', e);
+  }
+}
+
 /** Pin or unpin a wedding on /realstories. */
 export async function setShowcaseFeatured(formData: FormData) {
   const user = await requireAdmin();
@@ -132,6 +173,8 @@ export async function setShowcaseFeatured(formData: FormData) {
       after_json: { showcase_featured_at: 'now' },
       actor_user_id: user.id,
     });
+    // Tell the couple they've been featured (best-effort · never blocks).
+    await notifyCoupleShowcaseFeatured(admin, eventId, name as string);
     revalidatePath('/realstories');
     revalidatePath(BASE);
     redirectBack('ok', `${name} is now featured on Real Stories.`, eventId);

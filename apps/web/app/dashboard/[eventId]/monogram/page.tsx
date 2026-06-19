@@ -18,11 +18,12 @@ import { AnimatedMonogramHero } from '@/app/_components/animated-monogram-hero';
 import { BespokeMonogramMark } from '@/app/_components/bespoke-monogram-mark';
 import { sanitizeCipherConfig } from '@/lib/cipher-shared';
 import { FeatureUsCard } from '@/app/dashboard/[eventId]/_components/feature-us-card';
-import {
-  MonogramMaker,
-  MONO_FONT_OPTIONS,
-  DEFAULT_FONT_FOR_STYLE,
-} from './monogram-maker';
+import { MonogramMaker } from './monogram-maker';
+// Server Component: import these VALUE constants from the plain shared module,
+// NOT from monogram-maker.tsx ('use client') — a server import of a client
+// module's value export is `undefined` in the prod RSC build (crashed the page
+// with "MONO_FONT_OPTIONS.some is not a function").
+import { MONO_FONT_OPTIONS, DEFAULT_FONT_FOR_STYLE } from './monogram-maker-shared';
 import { BespokeStudio, type BespokeCandidateView } from './bespoke-studio';
 import { CipherStudio } from './cipher-studio';
 import { VectorStudio } from './studio';

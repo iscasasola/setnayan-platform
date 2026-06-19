@@ -14,6 +14,17 @@ Two safe, self-contained no-decision cleanups from the design audit (the other a
 Self-reviewed by reading the diff (fresh worktree has no node_modules; CI gates typecheck/lint). Color literals confirmed against `apps/web/app/globals.css` `--m-*` tokens. No migration.
 
 SPEC IMPACT: None.
+## 2026-06-19 · feat(studio): Vector Monogram Studio "takes up the space" — full two-column desktop workspace + large live preview
+
+Owner: "we want this vector studio to open — make it take up the space, not just a small preview." The studio was a fixed ~430px-wide card with a 300px-tall canvas, dwarfed on a desktop page. Now it opens into a real workspace when it has room, on BOTH surfaces that share the editor (public `/monogram` + the couple dashboard studio at `/dashboard/[eventId]/monogram`).
+
+- **`lib/monogram-studio/engine.ts`** — the paper.js view height was hardcoded to 300px (`viewSize = Size(clientWidth, 300)`), so a taller CSS canvas would vertically stretch the mark. Now `syncViewSize()` sizes the view to the canvas host's **actual rendered box** (keeping `view.center` fixed so the origin-composed mark stays centred), and a `ResizeObserver` (rAF-debounced, torn down in `destroy()`) re-syncs on every reflow — breakpoint flips, window resize. The mark renders 1:1 and crisp at whatever size the layout gives it.
+- **`lib/monogram-studio/markup.ts`** (`STUDIO_CSS`) — `.vs` becomes a `container-type:inline-size` context; a `@container (min-width:760px)` rule turns the editor `.card` into a CSS grid (`top` spans both columns; large `canvas` left, scrollable `panel` right) and widens `.frame` to `max-width:1040px`. Below 760px the single-column mobile stack is **unchanged** (canvas height moved to `.sw2` as `clamp(320px,64vw,440px)` so it stays responsive instead of frozen by paper.js's inline size). Container-query so it keys off the studio's own width, not the viewport — graceful inside either host.
+- **`app/monogram/page.tsx`** — `<main>` `max-w-5xl` → `max-w-6xl` so the wider studio has room (header/steps/CTA keep their own narrower max-widths).
+
+Verified: `pnpm typecheck` clean. Visual check deferred to the PR's Vercel preview (the local preview server is rooted at a different checkout). No migration, no schema, no copy change.
+
+SPEC IMPACT: None — presentation/layout only; the editor's behaviour, exports, and shared-markup contract are unchanged. The studio remains the free vector mark (the-free-monogram-stays-free lock).
 
 ## 2026-06-19 · fix(pwa/monogram): /monogram (+ other public routes) were stale-cached as "guest slugs" → Vector Studio stuck loading
 

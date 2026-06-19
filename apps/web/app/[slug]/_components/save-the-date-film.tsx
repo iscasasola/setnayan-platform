@@ -32,7 +32,6 @@
 
 import type * as React from 'react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
-import { Music, VolumeX } from 'lucide-react';
 import { type StdFilmContent } from '@/lib/save-the-date-content';
 import { STD_THEMES, resolveStdTheme, type StdTheme, type StdThemeId } from '@/lib/std-themes';
 import { readableTextOn } from '@/lib/site-palette';
@@ -551,7 +550,10 @@ export function SaveTheDateFilm({
   const videoSlideIndex = hasVideo ? slides.findIndex((s) => s.key === 'video') : -1;
   const [idx, setIdx] = useState(0);
   const [playing, setPlaying] = useState(false); // starts paused; unblocks on reveal-done
-  const [muted, setMuted] = useState(false);
+  // The mute control was removed (owner 2026-06-19) — the soundtrack now plays
+  // for the whole film with no toggle. Kept as an always-false const because the
+  // audio/video effects below still read `muted` to gate playback.
+  const muted = false;
 
   const stageRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -839,20 +841,6 @@ export function SaveTheDateFilm({
     }
   };
 
-  const toggleMute = () => {
-    setMuted((m) => {
-      const next = !m;
-      const onVideo = idxRef.current === videoSlideIdxRef.current;
-      if (audioRef.current) {
-        audioRef.current.muted = next;
-        // Only resume music on unmute when we're NOT on the ducked video beat.
-        if (!next && !onVideo) audioRef.current.play().catch(() => {});
-      }
-      if (videoElRef.current) videoElRef.current.muted = next || preview;
-      return next;
-    });
-  };
-
   // Scroll-to-scrub — a WINDOW wheel listener (not the stage) so a mouse/trackpad
   // scroll anywhere scrubs, even over the cream desktop margins beside the
   // centred stage. Down = forward, up = back; debounced to one beat per flick;
@@ -953,22 +941,10 @@ export function SaveTheDateFilm({
       ) : null}
 
       {/* Chrome removed (owner 2026-06-19): NO stories scrub bars, NO transport
-          controls — just the texts. The film auto-plays; the guest scrubs by
-          scrolling / vertical-swiping (or tapping the left/right thirds) and
-          holds to pause. The lone exception is a single subtle mute, since the
-          soundtrack auto-plays and needs an escape. */}
-      {content.musicUrl || content.videoUrl ? (
-        <div className="absolute bottom-5 right-4 z-20" onClick={(e) => e.stopPropagation()}>
-          <button
-            type="button"
-            onClick={toggleMute}
-            aria-label={muted ? 'Unmute sound' : 'Mute sound'}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-current/5 opacity-50 transition-opacity hover:opacity-80"
-          >
-            {muted ? <VolumeX aria-hidden className="h-4 w-4" /> : <Music aria-hidden className="h-4 w-4" />}
-          </button>
-        </div>
-      ) : null}
+          controls, NO mute toggle — just the texts. The film auto-plays; the
+          guest scrubs by scrolling / vertical-swiping (or tapping the left/right
+          thirds) and holds to pause. The soundtrack plays through with no escape
+          (owner removed the mute 2026-06-19). */}
 
       {/* Slides — each beat plays its OWN entrance animation when it becomes
           active (re-fires on every visit, forward or scrubbed back). The

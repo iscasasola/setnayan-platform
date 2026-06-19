@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · fix(nav): wire couple bottom-nav Day-of + After phase tabs into the nav/icon/menu registry
+
+The couple bottom-nav Day-of (`now/checkin/seats/services/schedule`) and After (`home/review/editorial/galleries`) phase tabs were hardcoded (label + icon in `lib/customer-menu.ts`) with NO matching `NAV_SLOT_DEFAULTS` entry and NO registry overlay in `customer-bottom-nav.tsx`. So admin `/admin/menus` renames/re-icons couldn't reach them (they apply only to slots in `NAV_SLOT_DEFAULTS`), unlike the plan-phase tabs which were already registry-driven. Brought these two phases up to parity:
+
+- **`lib/nav-registry-defaults.ts`** — added 8 new `customer.bottom-nav.*` slot defaults: Day-of `now` (custom SetnayanMark mark, mirroring plan `home`), `checkin` (QrCode), `seats` (LayoutGrid), `services` (Rocket), `schedule` (CalendarClock); After `review` (Star), `editorial` (Newspaper), `galleries` (Images). The After `home` tab reuses the existing `customer.bottom-nav.home` slot (same key/route). All lucide names are already in the `nav-icons.ts` allowlist; all keys are unique and `<scope>.<area>.<kebab>`-shaped.
+- **`app/dashboard/[eventId]/_components/customer-bottom-nav.tsx`** — collapsed the plan-only overlay + day-of/after code-defaults branches into ONE path that applies the `navSlots[`customer.bottom-nav.${m.key}`]` overlay (label · icon · hidden) for ALL phases, keeping the SetnayanMark as the code default on the `now`/`home` anchor when no admin icon override exists.
+- **`lib/customer-menu.ts`** — doc comment on the Day-of/After phase takeover now states the bottom nav overlays the registry slots for these rosters.
+
+`getNavSlotMap()` maps over `NAV_SLOT_DEFAULTS`, and `[eventId]/layout.tsx` already passes the full `navSlots` map to `<CustomerBottomNav phase=… navSlots=… />`, so the wiring is complete end-to-end. The required `lint-nav-icon-source` guard now covers these tabs (they resolve via `navSlots` / `navIconComponent`). Verified: `lint-nav-icon-source.mjs` + `lint-bottom-nav.mjs` both pass; no duplicate slot keys. (No node_modules in the fresh worktree → typecheck/test:unit gated by CI.)
+
+SPEC IMPACT: None (additive nav-registry wiring; no schema, no pricing, no public copy). Notable decision logged at the bottom of `DECISION_LOG.md`.
+
 ## 2026-06-19 · fix(pwa/monogram): /monogram (+ other public routes) were stale-cached as "guest slugs" → Vector Studio stuck loading
 
 Owner: the Monogram Vector Studio (`/monogram`) was stuck on "Loading the typeface…". Diagnosis: the service worker's `isDayOfGuestNavigation` RESERVED set was **out of sync with the app routes** — it listed only a handful, so single-segment PUBLIC pages (`monogram`, `about`, `explore`, `features`, `our-story`, `download`, `how-it-works`, `privacy`, `terms`, `realstories`, `forgot-password`, `reset-password`, `waitlist`) were mistaken for guest slugs and stale-cached (SWR). The owner got an **old `/monogram` build** that hung. (Fonts + page are live on prod — verified HTTP 200 — so it was a caching/serve issue, not missing assets.)

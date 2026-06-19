@@ -130,7 +130,11 @@ export function buildCustomerMenuTree(
 ): CustomerMenu[] {
   // Phase takeover: Day-of and After replace the planning menu entirely.
   // These menus carry no children (no sectionMatch) so the docked sub-nav
-  // returns null for them — only the bottom nav reads this path.
+  // returns null for them — only the bottom nav reads this path. The bottom nav
+  // overlays the admin nav-registry slot `customer.bottom-nav.<key>` on each tab
+  // below (day-of: now/checkin/seats/services/schedule · after:
+  // home/review/editorial/galleries — all present in NAV_SLOT_DEFAULTS), so
+  // /admin/menus renames/re-icons reach these rosters just like the plan tabs.
   if (ctx.phase === 'dayof') {
     const base = `/dashboard/${eventId}`;
     return [

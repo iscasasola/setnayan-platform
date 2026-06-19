@@ -5,14 +5,16 @@
  * `lib/customer-menu.ts`.
  *
  * Phase-aware (Plan → Day-of → After): `buildCustomerMenuTree` returns the
- * correct tab roster for the current lifecycle phase. Plan phase applies
- * admin nav-registry overrides (label + icon per slot); Day-of and After use
- * code defaults (registry slots land in a follow-up). See `lib/customer-menu.ts`
+ * correct tab roster for the current lifecycle phase. All three phases apply
+ * admin nav-registry overrides (label + icon per slot). See `lib/customer-menu.ts`
  * for the full tab definitions and active-match specs per phase.
  *
- * NAV REGISTRY (Plan phase only): `navSlots` (`customer.bottom-nav.<key>`)
- * overlays admin-managed label + icon on each plan tab; a slot marked hidden
- * drops its tab. href + activeMatch always stay in code.
+ * NAV REGISTRY (all phases): `navSlots` (`customer.bottom-nav.<key>`) overlays
+ * admin-managed label + icon on each tab; a slot marked hidden drops its tab.
+ * The Day-of (`now/checkin/seats/services/schedule`) and After
+ * (`home/review/editorial/galleries`) tabs have their own slots in
+ * NAV_SLOT_DEFAULTS, mirroring the plan-phase slots. href + activeMatch always
+ * stay in code.
  *
  * Renders via the shared <BottomNav> primitive — traveling-pill + press-light
  * treatment is reused verbatim. Mobile-only (`lg:hidden`).
@@ -39,26 +41,20 @@ export function CustomerBottomNav({
   const tree = buildCustomerMenuTree(eventId, { phase, dayOfOpen: false });
 
   const items: BottomNavItem[] = tree.flatMap((m) => {
-    if (phase === 'plan') {
-      // Plan phase: apply nav-registry overrides (label + icon).
-      const slot = navSlots?.[`customer.bottom-nav.${m.key}`];
-      if (slot?.isHidden) return [];
-      const label = slot?.label ?? m.label;
-      const icon =
-        slot
-          ? navIconComponent(slot.icon)
-          : m.key === 'home'
-            ? (SetnayanMark as unknown as LucideIcon)
-            : m.icon;
-      return [{ key: m.key, label, icon, href: m.href, activeMatch: m.activeMatch, activeMatchExact: m.activeMatchExact }];
-    }
-    // Day-of / After: registry slots land in a follow-up; use code defaults.
-    // Keep the Setnayan mark on the anchor tab (key 'now' or 'home').
+    // All phases apply nav-registry overrides (label + icon) — plan, day-of, and
+    // after each have `customer.bottom-nav.<key>` slots in NAV_SLOT_DEFAULTS.
+    const slot = navSlots?.[`customer.bottom-nav.${m.key}`];
+    if (slot?.isHidden) return [];
+    const label = slot?.label ?? m.label;
+    // Keep the Setnayan mark on the anchor tab (key 'now' or 'home') as the code
+    // default when no admin override has set an icon for the slot.
     const icon =
-      m.key === 'now' || m.key === 'home'
-        ? (SetnayanMark as unknown as LucideIcon)
-        : m.icon;
-    return [{ key: m.key, label: m.label, icon, href: m.href, activeMatch: m.activeMatch, activeMatchExact: m.activeMatchExact }];
+      slot
+        ? navIconComponent(slot.icon)
+        : m.key === 'now' || m.key === 'home'
+          ? (SetnayanMark as unknown as LucideIcon)
+          : m.icon;
+    return [{ key: m.key, label, icon, href: m.href, activeMatch: m.activeMatch, activeMatchExact: m.activeMatchExact }];
   });
 
   return <BottomNav items={items} />;

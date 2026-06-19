@@ -35,6 +35,15 @@ Owner: "yes moodboard is good and also manual color." The Save-the-Date film's "
 Verified: `pnpm typecheck` + `pnpm lint` clean. 3-lens adversarial review (correctness PASS; contrast lens caught the manual-accent AA gap, fixed above). Visual check on the PR's Vercel preview (local preview server is a different checkout).
 
 SPEC IMPACT: 0024 Save-the-Date — the film accent is no longer fixed mulberry; it inherits the Mood Board with a manual override. Presentation/data only; no SKU/pricing/gating change (STD stays free). Will log in `DECISION_LOG.md`.
+## 2026-06-19 · fix(std): clamp Save-the-Date film volume fades to [0,1] (crashed on WebKit + Facebook in-app browser)
+
+Production Sentry error on the couple website (`/[slug]`, e.g. `/cale-ice`): an uncaught `DOMException` from the auto-playing Save-the-Date content film. The audio↔video crossfade's linear ramp `vol = m0 + (target - m0) * p` (plus some in-app webviews' imprecise `.volume` read-back) could land a hair over `1.0` (Sentry saw `1.00243`). The HTML media spec rejects any volume outside `[0,1]`: **Chrome desktop silently clamps** (so it never surfaced locally), but **WebKit throws `IndexSizeError: The index is not in the allowed range`** and **Chromium/Facebook's in-app browser throws `Failed to set the 'volume' property … outside the range [0,1]`** — Sentry grouped both under one issue (same minified frame `r` in chunk `68896`) because WebKit's generic `IndexSizeError` text hid the real cause. Thrown inside a `requestAnimationFrame` tick, so it didn't white-screen the page, but it logged on every affected guest visit.
+
+- **`apps/web/app/[slug]/_components/save-the-date-film.tsx`** — added a module-scope `setVol(el, v)` helper that clamps to `[0,1]` (`v<0?0:v>1?1:v`) and no-ops on a null element, and routed all six volume writes through it: the two crossfade ramps (music + video), the start-silent `setVol(v,0)`, and the audio-unlock blip save/restore (`setVol(a,0)` / `setVol(a,vol)` ×2). Fade timing and audible result are identical — the only change is that an out-of-range value is pinned to the boundary instead of throwing. `p` was already clamped (`Math.min(1, dt/700)`); this guards the float/read-back overshoot the clamp on `p` can't catch.
+
+No behavior change on engines that already clamped; eliminates the throw on the strict ones. Typecheck passes locally (`tsc --noEmit`, clean); no node_modules in the worktree so lint/build are gated by CI required checks.
+
+SPEC IMPACT: None. Pure client-side defensive bugfix — no schema, migration, pricing/SKU, branding, or corpus surface touched.
 
 ## 2026-06-19 · fix(regions): one DB-backed canonical source collapses 4 incompatible PH-region spellings (fallback-safe)
 

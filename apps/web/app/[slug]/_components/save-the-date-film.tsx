@@ -40,6 +40,20 @@ import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
 import { type MonogramConfig } from '@/lib/monogram';
 
+/**
+ * Set an <audio>/<video> volume safely. The spec rejects any value outside
+ * [0,1]: WebKit throws `IndexSizeError` ("index is not in the allowed range"),
+ * Chromium + in-app webviews throw "volume … outside the range [0,1]". A linear
+ * fade's float math — and some webviews' `.volume` read-back — can overshoot
+ * 1.0 by a hair (~1.002). Chrome desktop silently clamps; WebKit and the
+ * Facebook in-app browser throw. Clamp so the fade is audibly identical and
+ * never throws. (Fixes the /[slug] Save-the-Date crossfade crash · Sentry 2026-06-19.)
+ */
+function setVol(el: HTMLMediaElement | null, v: number) {
+  if (!el) return;
+  el.volume = v < 0 ? 0 : v > 1 ? 1 : v;
+}
+
 type Slide = {
   key: string;
   node: ReactNode;
@@ -654,8 +668,8 @@ export function SaveTheDateFilm({
       const t0 = performance.now();
       const tick = (now: number) => {
         const p = Math.min(1, (now - t0) / 700);
-        if (a) a.volume = m0 + (musicTo - m0) * p;
-        v.volume = v0 + (videoTo - v0) * p;
+        setVol(a, m0 + (musicTo - m0) * p);
+        setVol(v, v0 + (videoTo - v0) * p);
         if (p < 1) {
           fade = requestAnimationFrame(tick);
         } else if (pauseMusicAtEnd && a) {
@@ -668,7 +682,7 @@ export function SaveTheDateFilm({
     if (onVideo) {
       if (!prevOnVideoRef.current) {
         try { v.currentTime = 0; } catch { /* not seekable yet — plays from 0 */ }
-        v.volume = 0; // start silent, fade up
+        setVol(v, 0); // start silent, fade up
       }
       v.muted = muted || preview;
       if (playing) v.play().catch(() => {}); else v.pause();
@@ -900,14 +914,14 @@ export function SaveTheDateFilm({
       // Under the veil: silently unlock, then pause + rewind so it starts fresh
       // on the lift. volume 0 during the play→pause so there's no audible blip.
       const vol = a.volume;
-      a.volume = 0;
+      setVol(a, 0);
       const finish = () => {
         a.pause();
         a.currentTime = 0;
-        a.volume = vol;
+        setVol(a, vol);
       };
       const p = a.play();
-      if (p && typeof p.then === 'function') p.then(finish).catch(() => { a.volume = vol; });
+      if (p && typeof p.then === 'function') p.then(finish).catch(() => { setVol(a, vol); });
       else finish();
     };
     window.addEventListener('pointerdown', unlock, { capture: true, passive: true });

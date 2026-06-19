@@ -40,6 +40,26 @@ import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
 import { type MonogramConfig } from '@/lib/monogram';
 
+/**
+ * Set an <audio>/<video> volume safely. The HTML spec requires the setter to
+ * THROW (`IndexSizeError`) for any value outside [0,1] — every conforming engine
+ * (Blink, WebKit, Gecko) throws; none silently clamps. (Desktop Chrome didn't
+ * crash here only because those sessions never produced an out-of-range value,
+ * not because it clamps.) So we keep the value in range ourselves before every
+ * write: clamp finite values to [0,1], and SKIP non-finite ones — a NaN/Infinity
+ * (e.g. from a detached/unloaded media element, or a non-monotonic clock making
+ * the fade ratio NaN) must NOT reach the setter. A bare `v<0?0:v>1?1:v` would
+ * leak NaN straight through (`NaN<0` and `NaN>1` are both false), so the
+ * Number.isFinite guard is load-bearing, not decorative. Skipping leaves the
+ * volume untouched for that frame — inaudible, and the next frame self-corrects.
+ * (Fixes the /[slug] Save-the-Date crossfade crash · Sentry 2026-06-19; the NaN
+ * guard closes the residual path the first clamp left open.)
+ */
+function setVol(el: HTMLMediaElement | null, v: number) {
+  if (!el || !Number.isFinite(v)) return;
+  el.volume = v < 0 ? 0 : v > 1 ? 1 : v;
+}
+
 type Slide = {
   key: string;
   node: ReactNode;
@@ -654,8 +674,8 @@ export function SaveTheDateFilm({
       const t0 = performance.now();
       const tick = (now: number) => {
         const p = Math.min(1, (now - t0) / 700);
-        if (a) a.volume = m0 + (musicTo - m0) * p;
-        v.volume = v0 + (videoTo - v0) * p;
+        setVol(a, m0 + (musicTo - m0) * p);
+        setVol(v, v0 + (videoTo - v0) * p);
         if (p < 1) {
           fade = requestAnimationFrame(tick);
         } else if (pauseMusicAtEnd && a) {
@@ -668,7 +688,7 @@ export function SaveTheDateFilm({
     if (onVideo) {
       if (!prevOnVideoRef.current) {
         try { v.currentTime = 0; } catch { /* not seekable yet — plays from 0 */ }
-        v.volume = 0; // start silent, fade up
+        setVol(v, 0); // start silent, fade up
       }
       v.muted = muted || preview;
       if (playing) v.play().catch(() => {}); else v.pause();
@@ -900,14 +920,14 @@ export function SaveTheDateFilm({
       // Under the veil: silently unlock, then pause + rewind so it starts fresh
       // on the lift. volume 0 during the play→pause so there's no audible blip.
       const vol = a.volume;
-      a.volume = 0;
+      setVol(a, 0);
       const finish = () => {
         a.pause();
         a.currentTime = 0;
-        a.volume = vol;
+        setVol(a, vol);
       };
       const p = a.play();
-      if (p && typeof p.then === 'function') p.then(finish).catch(() => { a.volume = vol; });
+      if (p && typeof p.then === 'function') p.then(finish).catch(() => { setVol(a, vol); });
       else finish();
     };
     window.addEventListener('pointerdown', unlock, { capture: true, passive: true });

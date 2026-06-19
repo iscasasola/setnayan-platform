@@ -166,7 +166,10 @@ const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/vendor-dashboard/tokens',
       '/vendor-dashboard/redeem-code',
       '/vendor-dashboard/verify',
+      '/vendor-dashboard/partnerships',
       '/vendor-dashboard/reviews',
+      '/vendor-dashboard/real-stories',
+      '/vendor-dashboard/recaps',
       '/vendor-dashboard/moodboard-library',
       // Business group (Earnings moved here from the tab bar 2026-06-14)
       '/vendor-dashboard/earnings',

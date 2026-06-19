@@ -2826,7 +2826,11 @@ export function OnboardingShell({
       storyTone: s.loveSkipped ? null : s.storyTone,
       storyLanguage: s.storyLanguage,
       specialMessage: s.specialMessage.trim() ? s.specialMessage : null,
-      togetherSince: s.togetherSince.trim() ? s.togetherSince : null,
+      // The dedicated togetherSince state has no UI input — the "together since" YEAR
+      // the couple types in the love stage only ever lands in state.loveStory.together_since
+      // (screen love_spark). Fall back to it so events.together_since stops committing NULL.
+      togetherSince:
+        (s.togetherSince.trim() || s.loveStory.together_since.trim()) || null,
     }),
     [],
   );

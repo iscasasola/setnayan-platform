@@ -40,6 +40,7 @@ import { VendorVision } from './_components/vendor-vision';
 import { StackCloseVendor } from './_components/stack-close-vendor';
 import { ForVendorsDeepDive } from './_components/for-vendors-deep-dive';
 import { EditorialBand } from './_components/editorial-band';
+import { VendorDoorScenario } from './_components/vendor-door-scenario';
 import { Voices, FAQ, ClosingCTA, Footer } from './_components/page-tail';
 import { getVendorPrices } from '@/lib/v2-catalog';
 
@@ -266,6 +267,12 @@ export default async function ForVendorsPage() {
             "use photos if needed") — bridges the vision into the what-you-get
             stack with a real on-brand reception photo. */}
         <EditorialBand />
+        {/* VendorDoorScenario · the interactive objection-handler (owner ask
+            2026-06-20). Disarms the relationship-first skeptic — "I value the
+            personal touch, I don't use apps" — with one peer's story (Marco):
+            validate, name the true cost, then show the app filter → match →
+            walk the couple to his door → step back. Illustrative/labelled. */}
+        <VendorDoorScenario />
         <StackCloseVendor />
         <ForVendorsDeepDive />
         <Voices />

@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-20 · feat(for-vendors): interactive "we step back at your door" scenario for the personal-touch skeptic
+
+Owner ask — convert the relationship-first vendor who says *"I value the personal touch; that's why I don't use online apps."* Added a new section to `/for-vendors`: a 6-beat click-through story built around one peer protagonist (**Marco**, an explicitly-labelled ILLUSTRATIVE composite) that **validates his premise first**, names the one true cost (couples message ten suppliers at once and book whoever replied first — not whoever's best), then shows the turn — Setnayan **filters → matches → walks one well-matched couple to his door → STEPS BACK**. He keeps the meeting, his price, his contract, the money (0% commission, paid-direct). Copy is research-backed (objection-handling frameworks + narrative-transportation + PH market: *tiwala* / *walang namamagitan* / "magkano?" ghost-quotes).
+
+- **New `apps/web/app/for-vendors/_components/vendor-door-scenario.tsx`** (`'use client'` + `useState`, the existing FAQ-toggle interactivity pattern). Consumes **only** shared `--m-*` tokens + `.m-*` classes — the cool/warm split is two real brand tokens (`--m-sage` = Setnayan's quiet work ↔ `--m-orange` = the vendor's world) — so a future palette restyle in `globals.css` carries this section automatically (the owner's explicit design-dependency ask: one source, no second copy to sync). Site is icon-font-free → inline SVG heart + "M" initial, not a Tabler icon. `prefers-reduced-motion` respected.
+- **`apps/web/app/for-vendors/page.tsx`** — import + render between `<EditorialBand />` and `<StackCloseVendor />` (the objection-handler lands right before the "what you get" stack). Placement is one line to move.
+- **Honesty:** an "Illustrative scenario" eyebrow + an always-visible disclaimer ("Marco … an illustrative example, not a real customer") keep the composite unambiguous (owner-approved 2026-06-20). Fabricated testimonials backfire hardest with this skeptical audience — swap in a real vendor quote once one exists.
+
+No schema, no migration, no pricing/SKU change. Not built locally (fresh worktree has no `node_modules`); the required CI checks (typecheck + lint + production build + Lighthouse + Vercel preview) are the verification gate, auto-merge armed.
+
+SPEC IMPACT: iter 0015 / 0022 public vendor surface — a new objection-handling marketing section; consistent with existing `/for-vendors` claims (0% commission · paid-direct · free during launch). Logged to `DECISION_LOG.md`.
+
 ## 2026-06-18 · feat(seo/a11y): structured-data + metadata + a11y completeness on public pages
 
 Verified, additive quality wins from a public-surface audit (4-agent sweep) — no design/copy/pricing changes:

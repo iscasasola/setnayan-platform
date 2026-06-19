@@ -84,6 +84,13 @@ Production Sentry error on the couple website (`/[slug]`, e.g. `/cale-ice`): an 
 No behavior change on engines that already clamped; eliminates the throw on the strict ones. Typecheck passes locally (`tsc --noEmit`, clean); no node_modules in the worktree so lint/build are gated by CI required checks.
 
 SPEC IMPACT: None. Pure client-side defensive bugfix — no schema, migration, pricing/SKU, branding, or corpus surface touched.
+## 2026-06-19 · ui(std/website): replace the "Play music" pill with an icon-only mute toggle
+
+Owner ask: the floating "Play music" pill on the Save-the-Date / couple website (bottom-left) wasn't the right affordance — a mute icon reads more clearly. Swapped the labeled pill for a compact, icon-only circular toggle using the universal speaker glyph: `Volume2` when sound is on (tap to mute), `VolumeX` when muted/not-started (tap to play). Same position, same translucent-cream/terracotta styling, same tap-to-start behavior (browser autoplay still never force-plays). Shared component, so it updates both render sites on `/[slug]` (save-the-date view + main view).
+
+- **`apps/web/app/[slug]/_components/background-music.tsx`** — dropped the `Music`/`Pause` icons + the `Play music`/`Pause music` text span; now renders an `h-11 w-11` icon-only button toggling `Volume2` ⇄ `VolumeX`. `aria-pressed` retained; `aria-label` switches between "Mute background music" / "Play background music"; added a matching `title` tooltip. Doc comment updated to describe the speaker-on ⇄ muted toggle.
+
+SPEC IMPACT: None. Pure presentational refinement of an existing control; no SKU, schema, branding, or copy-of-record change. (Corpus 0024 STD docs describe the music control only at the feature level, not the icon.)
 
 ## 2026-06-19 · fix(regions): one DB-backed canonical source collapses 4 incompatible PH-region spellings (fallback-safe)
 

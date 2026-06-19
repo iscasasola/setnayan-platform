@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · feat(std): press-to-glow on the Save-the-Date + admin Reveal Studio control (PR pending, auto-merge)
+
+Owner: *"when the screen is pressed it glow on the save the date — like how in movies the floor subtly glows when you touch it. And we can add settings on the admin for this."*
+
+- **The effect** — new `app/[slug]/_components/reveal/std-touch-glow.tsx`: a `pointer-events-none` z-[80] overlay that blooms a soft **screen-blended** radial light wherever a finger presses, **follows the finger** while held, and fades out (~620ms) on release. Multi-touch → multiple blooms (tracked per `pointerId` with a monotonic uid so a reused id never inherits a fading one). Honors `prefers-reduced-motion` (renders nothing).
+- **Mounted** by `reveal-overlay-server.tsx` — runs for the whole Save-the-Date phase (`enabled`) when the admin toggle is on, so it brightens **both** the reveal opening (touching the veil/doors) and the bare film underneath. Zero prop-drilling (the server wrapper already reads the config).
+- **Admin control** — added a **"Touch glow"** panel to `/admin/reveal-studio` (toggle + colour + Brightness + Size sliders). Persists in the existing `reveal_studio_config` JSON via `saveRevealStudio` — **no migration**. Defaults: ON, warm candlelight `#FBE9C8`, intensity 55, size 50 (couples never override; admin-tuned house default).
+
+Verified: `pnpm typecheck` clean · rendered the bloom against a dark stage via a throwaway route + synthetic presses (confirmed the screen-blend light appears + follows). No migration.
+
+SPEC IMPACT: iter 0024 Save-the-Date — new press-to-glow ambience + Reveal Studio control. See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · fix(std): music holds during the video + resumes (never restarts)
 
 Owner: "the music should only continue after the video plays. it should not start over from the beginning."

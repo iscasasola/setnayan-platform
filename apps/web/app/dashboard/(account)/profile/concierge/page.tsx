@@ -232,10 +232,10 @@ function StatusPanel({
   if (status === 'active' || status === 'trial') {
     const days = daysRemaining(expiresAt);
     return (
-      <section className="rounded-2xl border border-emerald-300/60 bg-emerald-50 p-6">
+      <section className="rounded-2xl border border-success-300/60 bg-success-50 p-6">
         <header className="mb-3 flex items-center gap-2">
-          <CheckCircle2 aria-hidden className="h-4 w-4 text-emerald-700" strokeWidth={1.75} />
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-emerald-900/75">
+          <CheckCircle2 aria-hidden className="h-4 w-4 text-success-700" strokeWidth={1.75} />
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-success-900/75">
             Setnayan AI · active
           </p>
         </header>
@@ -250,7 +250,7 @@ function StatusPanel({
             />
           ) : null}
         </dl>
-        <p className="mt-4 text-sm text-emerald-900/80">
+        <p className="mt-4 text-sm text-success-900/80">
           Your daily wedding planner is unlocked across every event surface. Head to your event
           home to see today&rsquo;s recommended step.
         </p>

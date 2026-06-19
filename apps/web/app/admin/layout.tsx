@@ -90,7 +90,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const badge = profile?.is_internal
     ? { label: '🟣 Internal', tone: 'bg-purple-100 text-purple-800' }
     : profile?.is_team_member
-      ? { label: '🟢 Team Pool', tone: 'bg-emerald-100 text-emerald-800' }
+      ? { label: '🟢 Team Pool', tone: 'bg-success-100 text-success-800' }
       : { label: 'Setnayan Team', tone: 'bg-ink/10 text-ink/70' };
 
   // Top bar — right-aligned utilities cluster. AccountSwitcher pill is

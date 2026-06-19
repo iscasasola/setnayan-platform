@@ -423,7 +423,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       {flash ? (
         <p
           role="status"
-          className="rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+          className="rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800"
         >
           {flash}
         </p>
@@ -432,7 +432,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       {search.error ? (
         <p
           role="alert"
-          className="rounded-md border border-rose-300/60 bg-rose-50 px-4 py-3 text-sm text-rose-800"
+          className="rounded-md border border-danger-300/60 bg-danger-50 px-4 py-3 text-sm text-danger-800"
         >
           {decodeURIComponent(search.error)}
         </p>
@@ -855,9 +855,9 @@ function SummaryStrip({
     count: number;
     tint: string;
   }[] = [
-    { key: 'attending', label: 'Attending', count: stats.attending, tint: 'bg-emerald-100 text-emerald-800' },
-    { key: 'pending', label: 'Pending', count: stats.pending, tint: 'bg-amber-100 text-amber-800' },
-    { key: 'declined', label: 'Declined', count: stats.declined, tint: 'bg-rose-100 text-rose-800' },
+    { key: 'attending', label: 'Attending', count: stats.attending, tint: 'bg-success-100 text-success-800' },
+    { key: 'pending', label: 'Pending', count: stats.pending, tint: 'bg-warn-100 text-warn-800' },
+    { key: 'declined', label: 'Declined', count: stats.declined, tint: 'bg-danger-100 text-danger-800' },
     { key: 'maybe', label: 'Maybe', count: stats.maybe, tint: 'bg-sky-100 text-sky-800' },
   ];
 
@@ -912,9 +912,9 @@ function SummaryStrip({
           aria-label={`${responded} of ${stats.total} guests have responded (${stats.attending} attending, ${stats.maybe} maybe, ${stats.declined} declined, ${stats.pending} pending)`}
           className="mt-1.5 flex h-2 overflow-hidden rounded-full bg-ink/10"
         >
-          <div className="h-full bg-emerald-400" style={{ width: `${seg(stats.attending)}%` }} />
-          <div className="h-full bg-amber-300" style={{ width: `${seg(stats.maybe)}%` }} />
-          <div className="h-full bg-rose-300" style={{ width: `${seg(stats.declined)}%` }} />
+          <div className="h-full bg-success-400" style={{ width: `${seg(stats.attending)}%` }} />
+          <div className="h-full bg-warn-300" style={{ width: `${seg(stats.maybe)}%` }} />
+          <div className="h-full bg-danger-300" style={{ width: `${seg(stats.declined)}%` }} />
         </div>
       </div>
       <ul className="grid grid-cols-4 gap-2 lg:flex lg:shrink-0">
@@ -1105,7 +1105,7 @@ function FacetsSidebar({
     dot?: string;
   }[] = [
     { key: 'all', label: 'Everyone', count: teamCounts.all },
-    { key: 'bride', label: 'Bride', count: teamCounts.bride, dot: 'bg-rose-500' },
+    { key: 'bride', label: 'Bride', count: teamCounts.bride, dot: 'bg-danger-500' },
     { key: 'groom', label: 'Groom', count: teamCounts.groom, dot: 'bg-sky-600' },
   ];
 

@@ -33,7 +33,7 @@ type Params = Promise<{ eventType: string }>;
 type SearchParams = Promise<{ ok?: string; error?: string }>;
 
 const PILL_ON =
-  'rounded-full bg-emerald-600 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-700';
+  'rounded-full bg-success-600 px-3 py-1 text-xs font-medium text-white hover:bg-success-700';
 const PILL_OFF =
   'rounded-full border border-ink/20 bg-white px-3 py-1 text-xs font-medium text-ink/55 hover:border-ink/40';
 const BULK_BTN =
@@ -105,10 +105,10 @@ export default async function ScopeCategoriesPage({
       </header>
 
       {ok ? (
-        <div role="status" className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{ok}</div>
+        <div role="status" className="mb-6 rounded-lg border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800">{ok}</div>
       ) : null}
       {error ? (
-        <div role="alert" className="mb-6 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</div>
+        <div role="alert" className="mb-6 rounded-lg border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-800">{error}</div>
       ) : null}
 
       <div className="space-y-4">

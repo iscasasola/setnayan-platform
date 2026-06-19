@@ -304,7 +304,7 @@ export function LedBackgroundMaker({
           {saving ? 'Saving draft…' : 'Save draft & queue for render'}
         </button>
         {saveError ? (
-          <p className="text-center text-[11px] text-rose-700">
+          <p className="text-center text-[11px] text-danger-700">
             Could not save: {saveError}. Try again.
           </p>
         ) : null}
@@ -350,18 +350,18 @@ function RenderQueuedCard({
   onReset: () => void;
 }) {
   return (
-    <section className="space-y-4 rounded-2xl border border-emerald-300/50 bg-emerald-50/60 p-5 sm:p-6">
+    <section className="space-y-4 rounded-2xl border border-success-300/50 bg-success-50/60 p-5 sm:p-6">
       <div className="flex items-start gap-3">
         <CheckCircle2
           aria-hidden
-          className="mt-0.5 h-6 w-6 text-emerald-700"
+          className="mt-0.5 h-6 w-6 text-success-700"
           strokeWidth={1.75}
         />
         <div className="space-y-1">
-          <h2 className="text-xl font-semibold tracking-tight text-emerald-900">
+          <h2 className="text-xl font-semibold tracking-tight text-success-900">
             Draft saved
           </h2>
-          <p className="text-sm text-emerald-900/80">
+          <p className="text-sm text-success-900/80">
             Your template + settings are saved. The 8K render pipeline ships
             shortly &mdash; we&rsquo;ll notify you the moment your USB master
             is queued so it lands at your venue contact in time for the
@@ -398,11 +398,11 @@ function RenderQueuedCard({
         </div>
       </dl>
 
-      <ul className="space-y-2 text-sm text-emerald-900/85">
+      <ul className="space-y-2 text-sm text-success-900/85">
         <li className="flex items-start gap-2">
           <Sparkles
             aria-hidden
-            className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700"
+            className="mt-0.5 h-4 w-4 shrink-0 text-success-700"
             strokeWidth={1.75}
           />
           <span>
@@ -414,7 +414,7 @@ function RenderQueuedCard({
         <li className="flex items-start gap-2">
           <Mail
             aria-hidden
-            className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700"
+            className="mt-0.5 h-4 w-4 shrink-0 text-success-700"
             strokeWidth={1.75}
           />
           <span>
@@ -426,7 +426,7 @@ function RenderQueuedCard({
         <li className="flex items-start gap-2">
           <Usb
             aria-hidden
-            className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700"
+            className="mt-0.5 h-4 w-4 shrink-0 text-success-700"
             strokeWidth={1.75}
           />
           <span>
@@ -441,7 +441,7 @@ function RenderQueuedCard({
         <button
           type="button"
           onClick={onReset}
-          className="inline-flex items-center gap-2 rounded-md border border-emerald-700/30 bg-cream px-3 py-1.5 text-xs font-medium text-emerald-900 hover:border-emerald-700/60"
+          className="inline-flex items-center gap-2 rounded-md border border-success-700/30 bg-cream px-3 py-1.5 text-xs font-medium text-success-900 hover:border-success-700/60"
         >
           <RefreshCcw aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           Edit draft

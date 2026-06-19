@@ -302,7 +302,7 @@ export function CheckinDesk({
           </button>
         )}
         {cameraError ? (
-          <p className="border-t border-ink/10 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+          <p className="border-t border-ink/10 bg-warn-50 px-4 py-2 text-sm text-warn-800">
             {cameraError}
           </p>
         ) : null}
@@ -343,7 +343,7 @@ export function CheckinDesk({
                       </span>
                     </span>
                     {at ? (
-                      <span className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-emerald-700">
+                      <span className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-success-700">
                         <CircleCheck className="h-3.5 w-3.5" /> {timeLabel(at)}
                       </span>
                     ) : null}
@@ -356,7 +356,7 @@ export function CheckinDesk({
       </section>
 
       {notice ? (
-        <p role="status" className="rounded-xl bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+        <p role="status" className="rounded-xl bg-warn-50 px-4 py-2.5 text-sm text-warn-800">
           {notice}
         </p>
       ) : null}
@@ -386,7 +386,7 @@ export function CheckinDesk({
                   </span>
                 ) : null}
                 {selected.rsvpStatus !== 'attending' ? (
-                  <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">
+                  <span className="rounded-full bg-warn-100 px-2.5 py-1 text-xs font-medium text-warn-800">
                     RSVP&rsquo;d {selected.rsvpStatus}
                   </span>
                 ) : null}
@@ -396,15 +396,15 @@ export function CheckinDesk({
 
           <div className="mt-4">
             {selectedCheckin ? (
-              <div className="flex items-center justify-between gap-3 rounded-xl bg-emerald-50 px-4 py-3">
-                <p className="inline-flex items-center gap-2 text-sm font-medium text-emerald-800">
+              <div className="flex items-center justify-between gap-3 rounded-xl bg-success-50 px-4 py-3">
+                <p className="inline-flex items-center gap-2 text-sm font-medium text-success-800">
                   <CircleCheck className="h-5 w-5" /> Checked in at {timeLabel(selectedCheckin)}
                 </p>
                 <button
                   type="button"
                   disabled={busy}
                   onClick={() => doUndo(selected.guestId)}
-                  className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-emerald-900/70 hover:bg-emerald-100 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-success-900/70 hover:bg-success-100 disabled:opacity-50"
                 >
                   <Undo2 className="h-4 w-4" /> Undo
                 </button>

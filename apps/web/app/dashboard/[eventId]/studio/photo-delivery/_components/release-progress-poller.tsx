@@ -93,14 +93,14 @@ export function ReleaseProgressPoller({
   const clampedPct = Math.min(100, Math.max(0, pct));
 
   return (
-    <div className="space-y-3 rounded-2xl border border-amber-300/60 bg-amber-50/70 p-5">
+    <div className="space-y-3 rounded-2xl border border-warn-300/60 bg-warn-50/70 p-5">
       <div className="flex items-center gap-2">
         <Loader2
           aria-hidden
-          className="h-4 w-4 animate-spin text-amber-900"
+          className="h-4 w-4 animate-spin text-warn-900"
           strokeWidth={2.25}
         />
-        <p className="text-sm font-semibold text-amber-950">
+        <p className="text-sm font-semibold text-warn-950">
           Uploading to your Drive — {clampedPct}% complete
         </p>
       </div>
@@ -110,16 +110,16 @@ export function ReleaseProgressPoller({
         aria-valuenow={clampedPct}
         aria-valuemin={0}
         aria-valuemax={100}
-        className="h-2 overflow-hidden rounded-full bg-amber-200/60"
+        className="h-2 overflow-hidden rounded-full bg-warn-200/60"
       >
         <div
-          className="h-full bg-amber-700 transition-[width] duration-700"
+          className="h-full bg-warn-700 transition-[width] duration-700"
           style={{ width: `${clampedPct}%` }}
         />
       </div>
 
       {totalFiles > 0 ? (
-        <p className="font-mono text-xs text-amber-900/85">
+        <p className="font-mono text-xs text-warn-900/85">
           {uploadedFiles.toLocaleString('en-US')} /{' '}
           {totalFiles.toLocaleString('en-US')} files ·{' '}
           {formatBytes(uploadedBytes)} / {formatBytes(totalBytes)}
@@ -127,7 +127,7 @@ export function ReleaseProgressPoller({
       ) : null}
 
       {currentFile ? (
-        <p className="truncate text-xs text-amber-900/65">
+        <p className="truncate text-xs text-warn-900/65">
           Currently uploading:{' '}
           <span className="font-mono">{currentFile}</span>
         </p>

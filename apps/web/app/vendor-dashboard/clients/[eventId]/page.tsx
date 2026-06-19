@@ -339,7 +339,7 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
       <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
         {isCompleteConfirmed ? (
           <div className="flex items-center gap-3 text-sm">
-            <CheckCircle2 aria-hidden className="h-5 w-5 shrink-0 text-emerald-600" strokeWidth={1.75} />
+            <CheckCircle2 aria-hidden className="h-5 w-5 shrink-0 text-success-600" strokeWidth={1.75} />
             <span className="text-ink/75">
               <span className="font-medium text-ink">Service complete.</span> The couple confirmed they
               received everything.
@@ -347,7 +347,7 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
           </div>
         ) : isDisputed ? (
           <div className="flex items-center gap-3 text-sm">
-            <Clock3 aria-hidden className="h-5 w-5 shrink-0 text-amber-600" strokeWidth={1.75} />
+            <Clock3 aria-hidden className="h-5 w-5 shrink-0 text-warn-600" strokeWidth={1.75} />
             <span className="text-ink/75">
               <span className="font-medium text-ink">The couple reported a problem</span> with the
               delivery. Reach out via your thread to sort it out.
@@ -421,7 +421,7 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
               </ul>
             )}
             {brief.dietary.restriction_notes > 0 ? (
-              <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              <p className="mt-3 rounded-lg bg-warn-50 px-3 py-2 text-xs text-warn-900">
                 {brief.dietary.restriction_notes}{' '}
                 {brief.dietary.restriction_notes === 1 ? 'guest has' : 'guests have'} dietary
                 restriction notes — ask the couple for the details that matter to your menu.
@@ -568,12 +568,12 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
           ) : null}
 
           {search.suggest === 'sent' ? (
-            <p role="status" className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
+            <p role="status" className="mt-3 rounded-lg bg-success-50 px-3 py-2 text-xs text-success-900">
               Request sent — the couple (or their coordinator) will review it.
             </p>
           ) : null}
           {search.suggest === 'error' ? (
-            <p role="alert" className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            <p role="alert" className="mt-3 rounded-lg bg-warn-50 px-3 py-2 text-xs text-warn-900">
               That didn&rsquo;t send — try again.
             </p>
           ) : null}
@@ -678,10 +678,10 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
                     <span
                       className={`rounded-full px-2 py-0.5 font-medium ${
                         s.status === 'accepted'
-                          ? 'bg-emerald-100 text-emerald-900'
+                          ? 'bg-success-100 text-success-900'
                           : s.status === 'declined'
                             ? 'bg-ink/5 text-ink/50'
-                            : 'bg-amber-100 text-amber-900'
+                            : 'bg-warn-100 text-warn-900'
                       }`}
                     >
                       {s.status}
@@ -709,7 +709,7 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
             <span
               className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${
                 brief.seat_plan.published
-                  ? 'bg-emerald-100 text-emerald-900'
+                  ? 'bg-success-100 text-success-900'
                   : 'bg-ink/5 text-ink/60'
               }`}
             >

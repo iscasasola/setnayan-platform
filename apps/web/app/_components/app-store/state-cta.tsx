@@ -54,7 +54,7 @@ export function AddOnStateCta({
       return (
         <Link
           href={context.href ?? '#'}
-          className="inline-flex items-center gap-2 rounded-full border border-amber-300/70 bg-amber-50 px-5 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-100"
+          className="inline-flex items-center gap-2 rounded-full border border-warn-300/70 bg-warn-50 px-5 py-2 text-sm font-semibold text-warn-900 hover:bg-warn-100"
         >
           <Clock3 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           Request sent

@@ -259,7 +259,7 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
           <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
             Resolution notes
           </h2>
-          <p className="whitespace-pre-wrap rounded-md bg-emerald-50/60 p-4 text-sm text-emerald-900">
+          <p className="whitespace-pre-wrap rounded-md bg-success-50/60 p-4 text-sm text-success-900">
             {row.resolution_notes}
           </p>
         </section>

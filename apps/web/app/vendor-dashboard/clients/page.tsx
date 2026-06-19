@@ -114,8 +114,8 @@ export default async function VendorClientsPage({ searchParams }: Props) {
           role="status"
           className={`rounded-xl border px-4 py-3 text-sm ${
             notice.tone === 'ok'
-              ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
-              : 'border-amber-200 bg-amber-50 text-amber-900'
+              ? 'border-success-200 bg-success-50 text-success-900'
+              : 'border-warn-200 bg-warn-50 text-warn-900'
           }`}
         >
           {notice.text}

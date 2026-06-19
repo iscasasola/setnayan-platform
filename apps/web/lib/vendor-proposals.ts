@@ -84,9 +84,9 @@ export const PROPOSAL_STATUS_LABEL: Record<ProposalStatus, string> = {
 
 export const PROPOSAL_STATUS_TONE: Record<ProposalStatus, string> = {
   draft: 'bg-ink/5 text-ink/60',
-  sent: 'bg-amber-100 text-amber-900',
-  viewed: 'bg-amber-100 text-amber-900',
-  accepted: 'bg-emerald-100 text-emerald-900',
-  declined: 'bg-rose-100 text-rose-800',
+  sent: 'bg-warn-100 text-warn-900',
+  viewed: 'bg-warn-100 text-warn-900',
+  accepted: 'bg-success-100 text-success-900',
+  declined: 'bg-danger-100 text-danger-800',
   expired: 'bg-ink/5 text-ink/50',
 };

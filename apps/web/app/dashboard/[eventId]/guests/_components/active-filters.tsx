@@ -87,7 +87,7 @@ export function ActiveFilters({
     chips.push({
       key: 'team',
       label: TEAM_SIDE_LABELS[team],
-      dot: team === 'bride' ? 'bg-rose-500' : 'bg-sky-600',
+      dot: team === 'bride' ? 'bg-danger-500' : 'bg-sky-600',
     });
   if (rsvp && RSVP_LABELS[rsvp]) chips.push({ key: 'rsvp', label: RSVP_LABELS[rsvp] });
   if (view && view !== ('all' as RoleGroup) && ROLE_GROUP_LABELS[view])

@@ -261,7 +261,7 @@ export default async function WidgetsEditorPage({
       {saved ? (
         <div
           role="status"
-          className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+          className="flex items-start gap-3 rounded-lg border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900"
         >
           <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2} />
           <p>Saved. Your wedding page reflects this change now.</p>
@@ -270,7 +270,7 @@ export default async function WidgetsEditorPage({
       {errorMessage ? (
         <div
           role="alert"
-          className="rounded-lg border border-rose-300/70 bg-rose-50 px-4 py-3 text-sm text-rose-900"
+          className="rounded-lg border border-danger-300/70 bg-danger-50 px-4 py-3 text-sm text-danger-900"
         >
           {errorMessage}
         </div>
@@ -432,7 +432,7 @@ function WidgetRow({
               row.is_always_on
                 ? 'cursor-not-allowed border-ink/10 bg-cream/60 text-ink/40'
                 : row.is_visible
-                  ? 'border-emerald-300/70 bg-emerald-50 text-emerald-800 hover:border-emerald-400 hover:bg-emerald-100/60'
+                  ? 'border-success-300/70 bg-success-50 text-success-800 hover:border-success-400 hover:bg-success-100/60'
                   : 'border-ink/15 bg-cream text-ink/60 hover:border-ink/30'
             }`}
             aria-label={

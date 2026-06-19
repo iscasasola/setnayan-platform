@@ -181,7 +181,7 @@ export async function WeddingRoadmapAsync({
                 <p className="mt-0.5 flex flex-wrap items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/40">
                   <span>{item.band}</span>
                   {item.overdue ? (
-                    <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-100 px-1.5 py-px font-medium text-amber-700">
+                    <span className="inline-flex items-center gap-0.5 rounded-full bg-warn-100 px-1.5 py-px font-medium text-warn-700">
                       <AlertTriangle aria-hidden className="h-2.5 w-2.5" strokeWidth={2} />
                       Overdue
                     </span>

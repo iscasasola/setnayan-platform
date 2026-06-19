@@ -143,7 +143,7 @@ export default async function VendorVerifyPage({ searchParams }: Props) {
         </p>
       </header>
 
-      <article className="flex items-start gap-3 rounded-2xl border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-900">
+      <article className="flex items-start gap-3 rounded-2xl border border-success-300 bg-success-50 p-4 text-sm text-success-900">
         <CheckCircle2 aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
         <div className="space-y-1">
           <p className="font-medium">Verification is free during launch</p>
@@ -167,7 +167,7 @@ export default async function VendorVerifyPage({ searchParams }: Props) {
       {search.slot_saved ? (
         <p
           role="status"
-          className="rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+          className="rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800"
         >
           Saved. {completeCount} of {totalSlots} items complete.
         </p>
@@ -175,7 +175,7 @@ export default async function VendorVerifyPage({ searchParams }: Props) {
       {search.submitted ? (
         <p
           role="status"
-          className="rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+          className="rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800"
         >
           Application submitted. Setnayan will review within 3–5 business days.
         </p>
@@ -599,7 +599,7 @@ function PendingReviewCard({
     application.decided_at,
   );
   return (
-    <article className="space-y-2 rounded-2xl border border-amber-300 bg-amber-50 p-5 text-amber-900">
+    <article className="space-y-2 rounded-2xl border border-warn-300 bg-warn-50 p-5 text-warn-900">
       <p className="font-mono text-[11px] uppercase tracking-[0.2em] opacity-75">
         {application.status === 'in_review' ? 'In review' : 'Pending review'}
       </p>
@@ -625,7 +625,7 @@ function ApprovedCard({
   application: NonNullable<Awaited<ReturnType<typeof fetchLatestApplication>>>;
 }) {
   return (
-    <article className="space-y-2 rounded-2xl border border-emerald-300 bg-emerald-50 p-5 text-emerald-900">
+    <article className="space-y-2 rounded-2xl border border-success-300 bg-success-50 p-5 text-success-900">
       <p className="font-mono text-[11px] uppercase tracking-[0.2em] opacity-75">
         Approved
       </p>

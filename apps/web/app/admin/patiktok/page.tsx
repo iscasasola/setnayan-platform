@@ -44,9 +44,9 @@ function fmtMb(bytes: number | null): string {
 function StatusPill({ status }: { status: JobRow['status'] }) {
   const map: Record<JobRow['status'], { Icon: typeof Clock3; cls: string; label: string }> = {
     queued: { Icon: Clock3, cls: 'bg-ink/5 text-ink/70', label: 'Queued' },
-    processing: { Icon: Loader2, cls: 'bg-amber-100 text-amber-900', label: 'Rendering' },
-    completed: { Icon: CheckCircle2, cls: 'bg-emerald-100 text-emerald-900', label: 'Completed' },
-    failed: { Icon: XCircle, cls: 'bg-rose-100 text-rose-900', label: 'Failed' },
+    processing: { Icon: Loader2, cls: 'bg-warn-100 text-warn-900', label: 'Rendering' },
+    completed: { Icon: CheckCircle2, cls: 'bg-success-100 text-success-900', label: 'Completed' },
+    failed: { Icon: XCircle, cls: 'bg-danger-100 text-danger-900', label: 'Failed' },
     cancelled: { Icon: XCircle, cls: 'bg-ink/5 text-ink/55', label: 'Cancelled' },
   };
   const { Icon, cls, label } = map[status];
@@ -156,7 +156,7 @@ export default async function AdminPatiktokPage() {
                     <td className="px-4 py-3">
                       <StatusPill status={j.status} />
                       {j.status === 'failed' && j.failure_reason ? (
-                        <p className="mt-1 inline-flex items-start gap-1 text-[11px] text-rose-700">
+                        <p className="mt-1 inline-flex items-start gap-1 text-[11px] text-danger-700">
                           <AlertTriangle
                             aria-hidden
                             className="mt-0.5 h-3 w-3 shrink-0"

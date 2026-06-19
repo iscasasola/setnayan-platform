@@ -56,7 +56,7 @@ const MODERATION_BADGE: Partial<
 > = {
   pending_review: {
     label: 'In review',
-    className: 'border-amber-300/70 bg-amber-50 text-amber-800',
+    className: 'border-warn-300/70 bg-warn-50 text-warn-800',
   },
   held: {
     label: 'On hold',
@@ -293,7 +293,7 @@ export default async function VendorPaymentOptionsPage({ searchParams }: Props) 
                           e.preventDefault();
                         }
                       }}
-                      className="inline-flex items-center gap-1.5 rounded-md border border-transparent px-3 py-1.5 text-xs font-medium text-ink/55 transition-colors hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
+                      className="inline-flex items-center gap-1.5 rounded-md border border-transparent px-3 py-1.5 text-xs font-medium text-ink/55 transition-colors hover:border-danger-200 hover:bg-danger-50 hover:text-danger-700"
                     >
                       <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                       Delete

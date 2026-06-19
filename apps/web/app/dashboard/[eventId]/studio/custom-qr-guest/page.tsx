@@ -204,8 +204,8 @@ async function OwnedView({
 
   return (
     <>
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-300/60 bg-emerald-50 px-4 py-3">
-        <p className="inline-flex items-center gap-2 text-sm font-medium text-emerald-800">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-success-300/60 bg-success-50 px-4 py-3">
+        <p className="inline-flex items-center gap-2 text-sm font-medium text-success-800">
           <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
           Your branded QR cards are ready — one for every guest below.
         </p>

@@ -158,21 +158,21 @@ export default async function AdminPayoutsPage({ searchParams }: Props) {
           icon={<Clock3 className="h-4 w-4" />}
           label="Pending (filtered)"
           value={formatCentavosPhp(pendingTotal)}
-          tone="bg-amber-100 text-amber-800"
+          tone="bg-warn-100 text-warn-800"
           help={`${rows.filter((r) => !r.paid_at && !r.on_hold).length} stage(s)`}
         />
         <Stat
           icon={<CheckCircle2 className="h-4 w-4" />}
           label="Paid (filtered)"
           value={formatCentavosPhp(paidTotal)}
-          tone="bg-emerald-100 text-emerald-800"
+          tone="bg-success-100 text-success-800"
           help={`${rows.filter((r) => !!r.paid_at).length} stage(s)`}
         />
         <Stat
           icon={<AlertTriangle className="h-4 w-4" />}
           label="On hold (filtered)"
           value={formatCentavosPhp(onHoldTotal)}
-          tone="bg-rose-100 text-rose-800"
+          tone="bg-danger-100 text-danger-800"
           help={`${rows.filter((r) => r.on_hold).length} stage(s)`}
         />
       </section>
@@ -317,15 +317,15 @@ function PayoutCard({ row }: { row: PayoutRow }) {
               {stageLabel}
             </span>
             {isPaid ? (
-              <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-800">
+              <span className="rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-800">
                 Paid
               </span>
             ) : isHeld ? (
-              <span className="rounded-full bg-rose-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-rose-800">
+              <span className="rounded-full bg-danger-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-danger-800">
                 On hold
               </span>
             ) : (
-              <span className="rounded-full bg-amber-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-amber-800">
+              <span className="rounded-full bg-warn-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-warn-800">
                 Scheduled
               </span>
             )}
@@ -372,7 +372,7 @@ function PayoutCard({ row }: { row: PayoutRow }) {
       </dl>
 
       {row.hold_reason ? (
-        <p className="mt-2 rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-xs text-rose-900">
+        <p className="mt-2 rounded-md border border-danger-200 bg-danger-50 px-2 py-1 text-xs text-danger-900">
           <span className="font-medium">On hold:</span> {row.hold_reason}
         </p>
       ) : null}
@@ -466,7 +466,7 @@ function FlashBanner({ flash, error }: { flash?: string; error?: string }) {
   return (
     <div className="mb-4 space-y-2">
       {flash ? (
-        <p className="rounded-md border border-emerald-300/50 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+        <p className="rounded-md border border-success-300/50 bg-success-50 px-4 py-3 text-sm text-success-900">
           {decodeURIComponent(flash)}
         </p>
       ) : null}

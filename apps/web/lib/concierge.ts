@@ -227,10 +227,10 @@ export const ENFORCEMENT_LEVEL_LABEL: Record<ConciergeEnforcementLevel, string> 
 };
 
 export const ENFORCEMENT_LEVEL_TONE: Record<ConciergeEnforcementLevel, string> = {
-  none: 'bg-emerald-100 text-emerald-800',
-  warning: 'bg-amber-100 text-amber-900',
-  trial_banned: 'bg-rose-100 text-rose-800',
-  full_banned: 'bg-rose-200 text-rose-900',
+  none: 'bg-success-100 text-success-800',
+  warning: 'bg-warn-100 text-warn-900',
+  trial_banned: 'bg-danger-100 text-danger-800',
+  full_banned: 'bg-danger-200 text-danger-900',
 };
 
 export const CONCIERGE_STATUS_LABEL: Record<ConciergeStatus, string> = {
@@ -242,7 +242,7 @@ export const CONCIERGE_STATUS_LABEL: Record<ConciergeStatus, string> = {
 
 export const CONCIERGE_STATUS_TONE: Record<ConciergeStatus, string> = {
   diy: 'bg-ink/10 text-ink/70',
-  trial: 'bg-amber-100 text-amber-900',
-  active: 'bg-emerald-100 text-emerald-800',
+  trial: 'bg-warn-100 text-warn-900',
+  active: 'bg-success-100 text-success-800',
   expired: 'bg-ink/10 text-ink/55',
 };

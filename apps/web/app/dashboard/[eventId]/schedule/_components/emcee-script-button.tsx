@@ -109,7 +109,7 @@ export function EmceeScriptButton({ eventId, coupleName }: Props) {
 
             <div className="flex-1 overflow-auto px-4 py-3">
               {error ? (
-                <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                <p className="rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger-700">
                   {error}
                 </p>
               ) : (
@@ -144,7 +144,7 @@ export function EmceeScriptButton({ eventId, coupleName }: Props) {
                   className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm font-medium text-ink transition-colors hover:border-terracotta/40 hover:bg-terracotta/5 disabled:opacity-50"
                 >
                   {copied ? (
-                    <Check aria-hidden className="h-4 w-4 text-emerald-600" strokeWidth={1.75} />
+                    <Check aria-hidden className="h-4 w-4 text-success-600" strokeWidth={1.75} />
                   ) : (
                     <Copy aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                   )}

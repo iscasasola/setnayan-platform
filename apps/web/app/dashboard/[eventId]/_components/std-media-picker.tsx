@@ -252,9 +252,9 @@ export function StdMediaPicker({
           {value.videoKey ? (
             <p className="text-[11px] font-medium">
               {value.nsfw === 'approved' ? (
-                <span className="text-emerald-700">Reviewed — your video is live in the film.</span>
+                <span className="text-success-700">Reviewed — your video is live in the film.</span>
               ) : value.nsfw === 'rejected' ? (
-                <span className="text-rose-700">
+                <span className="text-danger-700">
                   This video didn&rsquo;t pass review, so your film closes on your photo gallery instead. Try a different clip.
                 </span>
               ) : (

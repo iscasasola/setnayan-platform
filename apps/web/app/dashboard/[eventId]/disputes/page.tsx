@@ -120,7 +120,7 @@ export default async function CoupleDisputesPage({ params, searchParams }: Props
       {search.filed ? (
         <p
           role="status"
-          className="rounded-md border border-emerald-300/60 bg-emerald-50/80 px-4 py-3 text-sm text-emerald-900"
+          className="rounded-md border border-success-300/60 bg-success-50/80 px-4 py-3 text-sm text-success-900"
         >
           Flag filed. We&rsquo;ll be in touch — track its status below.
         </p>
@@ -346,7 +346,7 @@ function FlagCard({
       ) : null}
 
       {flag.resolution_notes ? (
-        <p className="rounded-md bg-emerald-50/60 p-3 text-xs text-emerald-900">
+        <p className="rounded-md bg-success-50/60 p-3 text-xs text-success-900">
           <span className="font-mono text-[10px] uppercase tracking-[0.15em]">
             Resolution notes
           </span>

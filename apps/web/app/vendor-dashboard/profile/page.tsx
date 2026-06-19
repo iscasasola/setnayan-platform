@@ -512,7 +512,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
           {completion.missing.length > 0 ? ` · still needed: ${completion.missing.join(', ')}` : ''}
         </p>
         {!profile?.logo_url ? (
-          <p className="inline-flex items-center gap-1 text-xs text-amber-900">
+          <p className="inline-flex items-center gap-1 text-xs text-warn-900">
             <AlertTriangle className="h-3.5 w-3.5" strokeWidth={2} />
             Logo URL is mandatory before couples can see this profile.
           </p>

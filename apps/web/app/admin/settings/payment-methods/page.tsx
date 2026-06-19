@@ -228,7 +228,7 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
             Read-only configuration that ran during the V1 launch period —
             gateway fee, Setnayan Pay platform fee, and minimum-floor per rail.
           </p>
-          <p className="rounded-md border border-amber-200/60 bg-amber-50/60 px-3 py-2 text-xs text-amber-900">
+          <p className="rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900">
             <span className="font-semibold">Retired 2026-05-28 V2 cutover —
             read-only historical view.</span> Setnayan Pay is no longer the
             checkout rail. Setnayan is now a software publisher — customer SKUs
@@ -309,7 +309,7 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
                       </td>
                       <td className="px-3 py-2 text-xs">
                         {m.is_active ? (
-                          <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 font-medium text-emerald-800">
+                          <span className="inline-flex items-center rounded-full bg-success-100 px-2 py-0.5 font-medium text-success-800">
                             Active
                           </span>
                         ) : (
@@ -363,7 +363,7 @@ function QrUploadBlock({
             <form action={removeMerchantQr}>
               <input type="hidden" name="kind" value={kind} />
               <SubmitButton
-                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-danger-700 disabled:cursor-not-allowed disabled:opacity-60"
                 pendingLabel="Removing…"
               >
                 <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />

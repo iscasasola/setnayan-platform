@@ -374,7 +374,7 @@ export function PlanCardLock({ eventId, groupId, groupLabel, pick }: Props) {
             {lockState.kind === 'error' ? (
               <p
                 role="alert"
-                className="mt-3 rounded-md border border-rose-300/50 bg-rose-50/60 px-3 py-2 text-xs text-rose-900"
+                className="mt-3 rounded-md border border-danger-300/50 bg-danger-50/60 px-3 py-2 text-xs text-danger-900"
               >
                 {lockState.message}
               </p>
@@ -385,25 +385,25 @@ export function PlanCardLock({ eventId, groupId, groupLabel, pick }: Props) {
                 role="alertdialog"
                 aria-labelledby="plan-card-lock-conflict-heading"
                 aria-describedby="plan-card-lock-conflict-body"
-                className="mt-3 space-y-3 rounded-lg border border-amber-300/60 bg-amber-50/70 px-3 py-3"
+                className="mt-3 space-y-3 rounded-lg border border-warn-300/60 bg-warn-50/70 px-3 py-3"
               >
                 <div className="flex items-start gap-2">
                   <AlertTriangle
                     aria-hidden
-                    className="mt-0.5 h-4 w-4 shrink-0 text-amber-700"
+                    className="mt-0.5 h-4 w-4 shrink-0 text-warn-700"
                     strokeWidth={2}
                   />
                   <div className="space-y-1">
                     <h3
                       id="plan-card-lock-conflict-heading"
-                      className="text-sm font-semibold text-amber-900"
+                      className="text-sm font-semibold text-warn-900"
                     >
                       {lockState.existingVendorName} is already locked for{' '}
                       {lockState.conflictGroupLabel.toLowerCase()}.
                     </h3>
                     <p
                       id="plan-card-lock-conflict-body"
-                      className="text-xs leading-snug text-amber-900/85"
+                      className="text-xs leading-snug text-warn-900/85"
                     >
                       Only one {lockState.conflictGroupLabel.toLowerCase()} can
                       be locked at a time. Switch to{' '}
@@ -436,7 +436,7 @@ export function PlanCardLock({ eventId, groupId, groupLabel, pick }: Props) {
                     type="button"
                     onClick={() => setLockState({ kind: 'idle' })}
                     disabled={isPending}
-                    className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-amber-400/60 bg-cream px-3 py-2 text-sm font-medium text-amber-900 transition-colors hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 disabled:opacity-60"
+                    className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-warn-400/60 bg-cream px-3 py-2 text-sm font-medium text-warn-900 transition-colors hover:bg-warn-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-warn-600 disabled:opacity-60"
                   >
                     Cancel
                   </button>
@@ -449,25 +449,25 @@ export function PlanCardLock({ eventId, groupId, groupLabel, pick }: Props) {
                 role="alertdialog"
                 aria-labelledby="plan-card-lock-soft-hold-heading"
                 aria-describedby="plan-card-lock-soft-hold-body"
-                className="mt-3 space-y-3 rounded-lg border border-amber-300/60 bg-amber-50/70 px-3 py-3"
+                className="mt-3 space-y-3 rounded-lg border border-warn-300/60 bg-warn-50/70 px-3 py-3"
               >
                 <div className="flex items-start gap-2">
                   <AlertTriangle
                     aria-hidden
-                    className="mt-0.5 h-4 w-4 shrink-0 text-amber-700"
+                    className="mt-0.5 h-4 w-4 shrink-0 text-warn-700"
                     strokeWidth={2}
                   />
                   <div className="space-y-1">
                     <h3
                       id="plan-card-lock-soft-hold-heading"
-                      className="text-sm font-semibold text-amber-900"
+                      className="text-sm font-semibold text-warn-900"
                     >
                       {pick.vendor_name} is fully booked with soft holds for
                       your date.
                     </h3>
                     <p
                       id="plan-card-lock-soft-hold-body"
-                      className="text-xs leading-snug text-amber-900/85"
+                      className="text-xs leading-snug text-warn-900/85"
                     >
                       {pick.vendor_name} already has{' '}
                       {lockState.existingHoldCount} confirmed soft holds for
@@ -488,7 +488,7 @@ export function PlanCardLock({ eventId, groupId, groupLabel, pick }: Props) {
                   <button
                     type="button"
                     onClick={() => setLockState({ kind: 'idle' })}
-                    className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-amber-400/60 bg-cream px-3 py-2 text-sm font-medium text-amber-900 transition-colors hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600"
+                    className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-warn-400/60 bg-cream px-3 py-2 text-sm font-medium text-warn-900 transition-colors hover:bg-warn-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-warn-600"
                   >
                     Dismiss
                   </button>
@@ -646,12 +646,12 @@ function UndoToast({
     <div
       role="status"
       aria-live="polite"
-      className="fixed bottom-4 left-1/2 z-50 w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 rounded-xl border border-emerald-300/60 bg-cream px-4 py-3 shadow-lg"
+      className="fixed bottom-4 left-1/2 z-50 w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 rounded-xl border border-success-300/60 bg-cream px-4 py-3 shadow-lg"
     >
       <div className="flex items-start gap-3">
         <BookmarkCheck
           aria-hidden
-          className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700"
+          className="mt-0.5 h-5 w-5 shrink-0 text-success-700"
           strokeWidth={2}
         />
         <div className="min-w-0 flex-1 space-y-1">

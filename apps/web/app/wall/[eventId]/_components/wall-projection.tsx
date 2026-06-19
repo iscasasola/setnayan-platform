@@ -212,7 +212,7 @@ export function WallProjection({
 
 function ConnDot({ conn }: { conn: Conn }) {
   const color =
-    conn === 'live' ? 'bg-emerald-400' : conn === 'reconnecting' ? 'bg-amber-400' : 'bg-red-500';
+    conn === 'live' ? 'bg-success-400' : conn === 'reconnecting' ? 'bg-warn-400' : 'bg-red-500';
   const label =
     conn === 'live' ? 'connected' : conn === 'reconnecting' ? 'reconnecting' : 'offline';
   return (

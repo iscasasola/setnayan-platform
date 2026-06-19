@@ -122,6 +122,35 @@ export async function suggestScheduleChange(formData: FormData) {
     status: 'open',
   });
 
+  // Notify every couple member that a timeline suggestion is waiting for their
+  // okay (best-effort — never block the suggestion). event_schedule_suggestions
+  // is a vendor write the couple has no read-push for, so without this the
+  // proposal lands silently on the couple's Schedule page. Uses the admin
+  // client to fan out over event_members without leaking the vendor's scope.
+  if (!error) {
+    try {
+      const admin = createAdminClient();
+      const vendorName = profile.business_name?.trim() || 'A vendor';
+      const { data: members } = await admin
+        .from('event_members')
+        .select('user_id')
+        .eq('event_id', eventId)
+        .eq('member_type', 'couple');
+      for (const m of members ?? []) {
+        if (!m.user_id) continue;
+        await emitNotification({
+          userId: m.user_id,
+          type: 'schedule_suggestion',
+          title: `${vendorName} suggested a timeline change`,
+          body: (note as string).trim().slice(0, 200),
+          relatedUrl: `/dashboard/${eventId}/schedule`,
+        });
+      }
+    } catch (e) {
+      console.error('[suggestScheduleChange] couple notify failed:', e);
+    }
+  }
+
   revalidatePath(`/vendor-dashboard/clients/${eventId}`);
   redirect(
     `/vendor-dashboard/clients/${eventId}?suggest=${error ? 'error' : 'sent'}`,

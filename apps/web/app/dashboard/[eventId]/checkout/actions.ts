@@ -52,6 +52,7 @@ import { validateAndCalculateVoucher } from '@/lib/vouchers/validate';
 import { appendLedger } from '@/lib/ledger';
 import { resolvePaxPricedOrderCentavos, resolveBundleChargeCentavos } from '@/lib/v2-catalog';
 import { getRequestPlatform, isRequestPlatform } from '@/lib/request-platform';
+import { notifyAdminsOrderAwaitingReconciliation } from '@/lib/order-admin-notify';
 
 /**
  * Same reference-code shape as createOrder · 'SN' prefix + 8 uppercase hex.
@@ -603,6 +604,19 @@ export async function submitOrderAction(
     amount_centavos: Number(voucherFinalCentavos),
     payment_id: paymentId,
     metadata: { channel, reference_number: referenceNumberClean },
+  });
+
+  // ---- Admin confirmation (best-effort · Notification Foundation Phase B) ----
+  //
+  // Fan out to every admin/internal/team user that a new order is in the
+  // /admin/payments reconciliation queue. The order already carries a
+  // screenshot at this point, so the admin can act immediately. Fail-soft:
+  // a failed notification never affects the order that already landed.
+  await notifyAdminsOrderAwaitingReconciliation({
+    orderId,
+    description: displayName,
+    amountPhp: finalAmountForPayment,
+    referenceCode,
   });
 
   // ---- Payment-instructions email (best-effort · matches PR #591/#593) ----

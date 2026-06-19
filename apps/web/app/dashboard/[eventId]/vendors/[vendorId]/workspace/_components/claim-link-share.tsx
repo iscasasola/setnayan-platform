@@ -66,7 +66,7 @@ export function ClaimLinkShare({ claimUrl, shareTitle, shareText }: Props) {
 
   return (
     <div className="space-y-2">
-      <div className="flex items-stretch gap-2 rounded-lg border border-amber-200/80 bg-white p-2">
+      <div className="flex items-stretch gap-2 rounded-lg border border-warn-200/80 bg-white p-2">
         <code
           className="flex-1 self-center truncate text-xs text-ink/70"
           aria-label="Claim link"
@@ -96,7 +96,7 @@ export function ClaimLinkShare({ claimUrl, shareTitle, shareText }: Props) {
         <button
           type="button"
           onClick={handleShare}
-          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md border border-amber-400/60 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-900 transition-colors hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md border border-warn-400/60 bg-warn-50 px-3 py-1.5 text-xs font-medium text-warn-900 transition-colors hover:bg-warn-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
         >
           <Share2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           Share invite link

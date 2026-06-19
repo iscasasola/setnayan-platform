@@ -333,7 +333,7 @@ function Badge({
 }) {
   const tones: Record<NavBadgeTone, { bg: string; fg: string }> = {
     neutral: { bg: 'bg-stone-100', fg: 'text-stone-700' },
-    amber: { bg: 'bg-amber-100', fg: 'text-amber-900' },
+    amber: { bg: 'bg-warn-100', fg: 'text-warn-900' },
     red: { bg: 'bg-red-100', fg: 'text-red-900' },
     // Brand-accent variant uses --m-orange tokens directly — not Tailwind
     // amber-orange — so the badge stays palette-consistent with the

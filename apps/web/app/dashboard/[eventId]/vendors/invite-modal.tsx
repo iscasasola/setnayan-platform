@@ -185,7 +185,7 @@ export function InviteVendorButton({
                     type="button"
                     onClick={handleConnect}
                     disabled={pending}
-                    className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                    className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-success-600 px-4 py-2 text-sm font-semibold text-white hover:bg-success-700 disabled:opacity-60"
                   >
                     {pending ? 'Connecting…' : 'Connect'}
                   </button>
@@ -212,8 +212,8 @@ export function InviteVendorButton({
 
             {view.kind === 'connected' ? (
               <div className="mt-4 space-y-3">
-                <p className="inline-flex items-center gap-2 text-sm text-emerald-800">
-                  <Sparkles className="h-4 w-4 text-emerald-600" strokeWidth={1.75} />
+                <p className="inline-flex items-center gap-2 text-sm text-success-800">
+                  <Sparkles className="h-4 w-4 text-success-600" strokeWidth={1.75} />
                   Connected to <strong>{view.businessName}</strong>. Chat is now unlocked.
                 </p>
                 <button
@@ -228,7 +228,7 @@ export function InviteVendorButton({
 
             {view.kind === 'error' ? (
               <div className="mt-4 space-y-3">
-                <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-800 ring-1 ring-inset ring-rose-200">
+                <p className="rounded-md bg-danger-50 px-3 py-2 text-sm text-danger-800 ring-1 ring-inset ring-danger-200">
                   {view.message}
                 </p>
                 <button

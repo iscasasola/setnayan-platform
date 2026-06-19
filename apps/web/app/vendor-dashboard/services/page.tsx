@@ -194,7 +194,7 @@ export default async function VendorServicesPage({ searchParams }: Props) {
       {search.saved ? (
         <p
           role="status"
-          className="rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+          className="rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800"
         >
           Services updated.
         </p>
@@ -202,7 +202,7 @@ export default async function VendorServicesPage({ searchParams }: Props) {
       {search.requested ? (
         <p
           role="status"
-          className="rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+          className="rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800"
         >
           Thanks — we&rsquo;ll review your category request and get back to you. There&rsquo;s always a place for what you do.
         </p>
@@ -743,14 +743,14 @@ function RequestStatusBadge({
   mapped: string | null;
 }) {
   const map: Record<CategoryRequestRow['status'], { label: string; tone: string }> = {
-    pending: { label: 'Pending review', tone: 'bg-amber-100 text-amber-900' },
-    promoted: { label: 'Added to directory ✓', tone: 'bg-emerald-100 text-emerald-800' },
+    pending: { label: 'Pending review', tone: 'bg-warn-100 text-warn-900' },
+    promoted: { label: 'Added to directory ✓', tone: 'bg-success-100 text-success-800' },
     mapped: {
       label: mapped ? `Use “${mapped}”` : 'Mapped to an existing category',
       tone: 'bg-sky-100 text-sky-800',
     },
     kept_private: { label: 'Kept for your listing', tone: 'bg-ink/10 text-ink/70' },
-    rejected: { label: 'Not added', tone: 'bg-rose-100 text-rose-800' },
+    rejected: { label: 'Not added', tone: 'bg-danger-100 text-danger-800' },
   };
   const { label, tone } = map[status];
   return (

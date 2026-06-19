@@ -286,7 +286,7 @@ export function VendorPrepForBooking({
               </label>
 
               {errorMessage ? (
-                <p role="alert" className="text-xs text-rose-700">
+                <p role="alert" className="text-xs text-danger-700">
                   {errorMessage}
                 </p>
               ) : null}
@@ -354,7 +354,7 @@ function VendorDeletePrepItem({ itemId, label }: { itemId: string; label: string
       disabled={isPending}
       title={errorMessage ?? `Remove “${label}”`}
       aria-label={`Remove ${label}`}
-      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-ink/40 transition-colors hover:bg-ink/5 hover:text-rose-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-50"
+      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-ink/40 transition-colors hover:bg-ink/5 hover:text-danger-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-50"
     >
       {isPending ? (
         <Loader2 aria-hidden className="h-3 w-3 animate-spin" strokeWidth={2} />

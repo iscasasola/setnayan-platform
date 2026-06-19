@@ -195,18 +195,18 @@ function computeStatus(
   if (ratio <= 1) {
     const headroom = target - projected;
     if (headroom < 1000) {
-      return { copy: '✓ Right on target', tone: 'text-emerald-700' };
+      return { copy: '✓ Right on target', tone: 'text-success-700' };
     }
     return {
       copy: `✓ ${formatPesoCompact(headroom)} under target`,
-      tone: 'text-emerald-700',
+      tone: 'text-success-700',
     };
   }
   const over = projected - target;
   if (ratio <= 1.1) {
     return {
       copy: `${formatPesoCompact(over)} over · room to trim`,
-      tone: 'text-amber-700',
+      tone: 'text-warn-700',
     };
   }
   return {

@@ -320,7 +320,7 @@ export function RevealPreviewCard({
       {/* Commit */}
       <div>
         {isChosen ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3.5 py-2 text-xs font-medium text-emerald-700">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-success-50 px-3.5 py-2 text-xs font-medium text-success-700">
             <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
             This is your opening
           </span>

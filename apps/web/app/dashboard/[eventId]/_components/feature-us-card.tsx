@@ -37,7 +37,7 @@ export function FeatureUsCard({
       <p className="inline-flex items-start gap-2 rounded-xl border border-ink/10 bg-cream p-4 text-sm text-ink/65">
         <Check
           aria-hidden
-          className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600"
+          className="mt-0.5 h-4 w-4 shrink-0 text-success-600"
           strokeWidth={2.5}
         />
         <span>

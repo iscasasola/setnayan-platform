@@ -74,7 +74,7 @@ export default async function AdminRealStoriesPage({
       {ok ? (
         <div
           role="status"
-          className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+          className="mb-6 rounded-lg border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800"
         >
           {ok}
         </div>
@@ -82,7 +82,7 @@ export default async function AdminRealStoriesPage({
       {error ? (
         <div
           role="alert"
-          className="mb-6 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"
+          className="mb-6 rounded-lg border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-800"
         >
           {error}
         </div>
@@ -90,16 +90,16 @@ export default async function AdminRealStoriesPage({
 
       {/* Migration-not-applied state — the featuring columns don't exist yet. */}
       {!result.ok && result.reason === 'migration' ? (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">
+        <div className="rounded-2xl border border-warn-200 bg-warn-50 p-6 text-sm text-warn-900">
           <p className="font-semibold">Almost there — one database step left.</p>
           <p className="mt-2">
             The Real Stories featuring columns haven&rsquo;t been added to the
             database yet. Run the migration{' '}
-            <code className="rounded bg-amber-100 px-1 py-0.5 font-mono text-[12px]">
+            <code className="rounded bg-warn-100 px-1 py-0.5 font-mono text-[12px]">
               20261221000000_realstories_featuring.sql
             </code>{' '}
             (
-            <code className="rounded bg-amber-100 px-1 py-0.5 font-mono text-[12px]">
+            <code className="rounded bg-warn-100 px-1 py-0.5 font-mono text-[12px]">
               supabase db push --db-url &quot;$SUPABASE_DB_URL&quot;
             </code>
             ), then reload this page. Until then, /realstories keeps showing the
@@ -107,7 +107,7 @@ export default async function AdminRealStoriesPage({
           </p>
         </div>
       ) : !result.ok ? (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-800">
+        <div className="rounded-2xl border border-danger-200 bg-danger-50 p-6 text-sm text-danger-800">
           Couldn&rsquo;t load showcases right now. Try again in a moment.
         </div>
       ) : rows.length === 0 ? (
@@ -163,7 +163,7 @@ export default async function AdminRealStoriesPage({
                       </td>
                       <td className="px-4 py-3 align-top">
                         {r.featured ? (
-                          <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-800">
+                          <span className="inline-flex items-center rounded-full bg-success-100 px-2 py-0.5 text-[11px] font-medium text-success-800">
                             Featured
                           </span>
                         ) : (

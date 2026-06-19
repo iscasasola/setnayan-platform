@@ -280,7 +280,7 @@ export function AccordionLockButton({
       {state.kind === 'error' ? (
         <p
           role="alert"
-          className="mt-2 rounded-md border border-rose-300/50 bg-rose-50/60 px-3 py-2 text-[11px] text-rose-900"
+          className="mt-2 rounded-md border border-danger-300/50 bg-danger-50/60 px-3 py-2 text-[11px] text-danger-900"
         >
           {state.message}
         </p>
@@ -390,7 +390,7 @@ function ExceptionModal({
         if (e.target === e.currentTarget) onDismiss();
       }}
     >
-      <div className="relative w-full max-w-md rounded-2xl border border-amber-300/60 bg-cream p-5 shadow-xl sm:p-6">
+      <div className="relative w-full max-w-md rounded-2xl border border-warn-300/60 bg-cream p-5 shadow-xl sm:p-6">
         <button
           type="button"
           aria-label="Close"
@@ -403,16 +403,16 @@ function ExceptionModal({
         <div className="flex items-start gap-2.5">
           <AlertTriangle
             aria-hidden
-            className="mt-0.5 h-5 w-5 shrink-0 text-amber-700"
+            className="mt-0.5 h-5 w-5 shrink-0 text-warn-700"
             strokeWidth={2}
           />
           {state.kind === 'conflict' ? (
             <div className="space-y-1.5 pr-6">
-              <h3 className="text-sm font-semibold text-amber-900">
+              <h3 className="text-sm font-semibold text-warn-900">
                 {state.existingVendorName} is already locked for{' '}
                 {state.conflictGroupLabel.toLowerCase()}.
               </h3>
-              <p className="text-xs leading-snug text-amber-900/85">
+              <p className="text-xs leading-snug text-warn-900/85">
                 Only one {state.conflictGroupLabel.toLowerCase()} can be locked
                 at a time. Switch to <strong>{vendorName}</strong> instead? Your
                 earlier pick stays on the card as a considering option.
@@ -420,10 +420,10 @@ function ExceptionModal({
             </div>
           ) : (
             <div className="space-y-1.5 pr-6">
-              <h3 className="text-sm font-semibold text-amber-900">
+              <h3 className="text-sm font-semibold text-warn-900">
                 {vendorName} is fully booked with soft holds for your date.
               </h3>
-              <p className="text-xs leading-snug text-amber-900/85">
+              <p className="text-xs leading-snug text-warn-900/85">
                 {vendorName} already has {state.existingHoldCount} confirmed soft
                 holds for your wedding date. They only accept {state.currentLimit}{' '}
                 at a time. Try a different vendor or come back later — they&rsquo;ll
@@ -462,7 +462,7 @@ function ExceptionModal({
             type="button"
             onClick={onDismiss}
             disabled={isPending}
-            className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-amber-400/60 bg-cream px-3 py-2 text-sm font-medium text-amber-900 transition-colors hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 disabled:opacity-60"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-warn-400/60 bg-cream px-3 py-2 text-sm font-medium text-warn-900 transition-colors hover:bg-warn-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-warn-600 disabled:opacity-60"
           >
             {state.kind === 'conflict' ? 'Cancel' : 'Dismiss'}
           </button>
@@ -586,12 +586,12 @@ function UndoToast({
     <div
       role="status"
       aria-live="polite"
-      className="fixed bottom-4 left-1/2 z-[100] w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 rounded-xl border border-emerald-300/60 bg-cream px-4 py-3 shadow-lg"
+      className="fixed bottom-4 left-1/2 z-[100] w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 rounded-xl border border-success-300/60 bg-cream px-4 py-3 shadow-lg"
     >
       <div className="flex items-start gap-3">
         <BookmarkCheck
           aria-hidden
-          className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700"
+          className="mt-0.5 h-5 w-5 shrink-0 text-success-700"
           strokeWidth={2}
         />
         <div className="min-w-0 flex-1 space-y-1">

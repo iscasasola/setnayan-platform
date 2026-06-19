@@ -373,11 +373,11 @@ function PaymentsList({ payments }: { payments: PaymentJoined[] }) {
                 {' · status '}
                 <span className="font-mono">{ORDER_STATUS_LABEL[p.order.status]}</span>
                 {matchesRef ? (
-                  <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-emerald-800">
+                  <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-success-100 px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-success-800">
                     Reference matches
                   </span>
                 ) : (
-                  <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-amber-900">
+                  <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-warn-100 px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-warn-900">
                     Verify reference manually
                   </span>
                 )}
@@ -425,7 +425,7 @@ function PaymentsList({ payments }: { payments: PaymentJoined[] }) {
                     Also mark order as paid
                   </label>
                   <SubmitButton
-                    className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-emerald-800 disabled:opacity-70"
+                    className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-success-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-success-800 disabled:opacity-70"
                     pendingLabel="Approving…"
                   >
                     Approve · matched
@@ -451,7 +451,7 @@ function PaymentsList({ payments }: { payments: PaymentJoined[] }) {
                     className="input-field min-h-[60px] py-2 text-sm"
                   />
                   <SubmitButton
-                    className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-amber-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-amber-800 disabled:opacity-70"
+                    className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-warn-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-warn-800 disabled:opacity-70"
                     pendingLabel="Requesting resubmit…"
                   >
                     Request resubmit
@@ -465,7 +465,7 @@ function PaymentsList({ payments }: { payments: PaymentJoined[] }) {
                     className="input-field h-9 py-0 text-sm"
                   />
                   <SubmitButton
-                    className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-rose-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-rose-800 disabled:opacity-70"
+                    className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-danger-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-danger-800 disabled:opacity-70"
                     pendingLabel="Rejecting…"
                   >
                     Reject
@@ -490,13 +490,13 @@ function PaymentsList({ payments }: { payments: PaymentJoined[] }) {
               line below (which surfaces for matched / rejected payments).
             */}
             {p.status === 'resubmit_requested' && p.admin_resubmit_notice ? (
-              <div className="rounded-md border border-amber-300/60 bg-amber-50 p-3 text-xs text-amber-900">
-                <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-amber-900/70">
+              <div className="rounded-md border border-warn-300/60 bg-warn-50 p-3 text-xs text-warn-900">
+                <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-warn-900/70">
                   Resubmit notice sent to couple
                 </p>
                 <p className="mt-1 whitespace-pre-wrap">{p.admin_resubmit_notice}</p>
                 {p.reviewed_at ? (
-                  <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.15em] text-amber-900/70">
+                  <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.15em] text-warn-900/70">
                     Requested {p.reviewed_at.slice(0, 10)}
                   </p>
                 ) : null}

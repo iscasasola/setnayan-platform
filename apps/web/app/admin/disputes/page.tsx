@@ -82,8 +82,8 @@ const STATUS_LABEL: Record<DisputeRow['status'], string> = {
 };
 
 const STATUS_TONE: Record<DisputeRow['status'], string> = {
-  open: 'bg-amber-100 text-amber-900',
-  resolved_for_vendor: 'bg-emerald-100 text-emerald-800',
+  open: 'bg-warn-100 text-warn-900',
+  resolved_for_vendor: 'bg-success-100 text-success-800',
   resolved_for_couple: 'bg-violet-100 text-violet-800',
   withdrawn: 'bg-ink/10 text-ink/60',
 };
@@ -274,11 +274,11 @@ function StatsBanner({
       aria-label="Dispute counts this quarter"
       className="mb-4 grid grid-cols-2 gap-3 rounded-xl border border-ink/10 bg-cream p-4 sm:grid-cols-4"
     >
-      <StatCell label="Open" value={stats.open} tone="bg-amber-100 text-amber-900" />
+      <StatCell label="Open" value={stats.open} tone="bg-warn-100 text-warn-900" />
       <StatCell
         label="Resolved · vendor"
         value={stats.resolved_for_vendor}
-        tone="bg-emerald-100 text-emerald-800"
+        tone="bg-success-100 text-success-800"
       />
       <StatCell
         label="Resolved · couple"

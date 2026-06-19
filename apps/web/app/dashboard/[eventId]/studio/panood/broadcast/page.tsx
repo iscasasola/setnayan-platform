@@ -86,7 +86,7 @@ export default async function PanoodBroadcasterPreview({ params }: Props) {
         </p>
       </header>
 
-      <div className="rounded-md border border-amber-300/60 bg-amber-50 p-3 text-sm text-amber-900">
+      <div className="rounded-md border border-warn-300/60 bg-warn-50 p-3 text-sm text-warn-900">
         <span className="inline-flex items-center gap-1.5 font-medium">
           <AlertTriangle aria-hidden className="h-4 w-4" strokeWidth={2} />
           Preview mode
@@ -176,9 +176,9 @@ function CameraCard({ cam }: { cam: CameraTile }) {
         : 'PAUSED';
   const statusTone =
     cam.status === 'live'
-      ? 'bg-emerald-100 text-emerald-900'
+      ? 'bg-success-100 text-success-900'
       : cam.status === 'offline'
-        ? 'bg-rose-100 text-rose-900'
+        ? 'bg-danger-100 text-danger-900'
         : 'bg-ink/10 text-ink/65';
 
   return (
@@ -258,7 +258,7 @@ function AudioChannel({ label, level }: { label: string; level: number }) {
       <div className="mt-2 h-2 overflow-hidden rounded-full bg-ink/10">
         <div
           aria-hidden
-          className="h-full bg-gradient-to-r from-emerald-400 via-amber-300 to-rose-400"
+          className="h-full bg-gradient-to-r from-success-400 via-warn-300 to-danger-400"
           style={{ width: `${widthPct}%` }}
         />
       </div>

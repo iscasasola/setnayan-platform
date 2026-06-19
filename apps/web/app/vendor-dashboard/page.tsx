@@ -339,12 +339,12 @@ export default async function VendorHomePage() {
           style={{ color: 'var(--m-slate)' }}
         >
           {isVerified ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+            <span className="inline-flex items-center gap-1 rounded-full bg-success-50 px-2 py-0.5 text-xs font-medium text-success-700">
               <CheckCircle2 className="h-3 w-3" strokeWidth={2} aria-hidden />
               Verified vendor
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+            <span className="inline-flex items-center gap-1 rounded-full bg-warn-50 px-2 py-0.5 text-xs font-medium text-warn-700">
               Verification pending
             </span>
           )}
@@ -385,10 +385,10 @@ export default async function VendorHomePage() {
       {profileExists && nameRevealedAt === null ? (
         <Link
           href="/vendor-dashboard/messages"
-          className="mb-6 flex items-center justify-between gap-4 rounded-2xl border border-amber-300/70 bg-amber-50 p-4 transition-colors hover:bg-amber-100"
+          className="mb-6 flex items-center justify-between gap-4 rounded-2xl border border-warn-300/70 bg-warn-50 p-4 transition-colors hover:bg-warn-100"
         >
           <div className="space-y-1">
-            <p className="m-label-mono text-amber-800">
+            <p className="m-label-mono text-warn-800">
               Your business name is currently hidden in browse
             </p>
             <p className="text-sm text-ink/85">
@@ -397,7 +397,7 @@ export default async function VendorHomePage() {
               profile, your microsite, search results.
             </p>
           </div>
-          <span className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-amber-800">
+          <span className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-warn-800">
             Open chat inbox
             <ArrowRight
               className="h-4 w-4"

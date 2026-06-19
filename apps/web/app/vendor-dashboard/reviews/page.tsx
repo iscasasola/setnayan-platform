@@ -117,7 +117,7 @@ function StatsOverview({
           <Star
             className={`h-6 w-6 ${
               stats.avg_rating_overall > 0
-                ? 'fill-amber-400 text-amber-500'
+                ? 'fill-warn-400 text-warn-500'
                 : 'text-ink/25'
             }`}
             strokeWidth={1.5}
@@ -140,11 +140,11 @@ function StatsOverview({
             <li key={star} className="grid grid-cols-[28px_1fr_40px] items-center gap-2">
               <span className="inline-flex items-center gap-0.5 text-ink/65">
                 {star}
-                <Star className="h-3 w-3 fill-amber-400 text-amber-500" strokeWidth={1.5} />
+                <Star className="h-3 w-3 fill-warn-400 text-warn-500" strokeWidth={1.5} />
               </span>
               <span className="h-2 w-full overflow-hidden rounded-full bg-ink/10">
                 <span
-                  className="block h-full bg-amber-400"
+                  className="block h-full bg-warn-400"
                   style={{ width: `${(count / max) * 100}%` }}
                 />
               </span>
@@ -167,7 +167,7 @@ function StatsOverview({
               >
                 <span className="text-ink/65">{REVIEW_AXIS_LABEL[axis]}</span>
                 <span className="inline-flex items-center gap-1 font-mono text-ink/80">
-                  <Star className="h-3 w-3 fill-amber-400 text-amber-500" strokeWidth={1.5} />
+                  <Star className="h-3 w-3 fill-warn-400 text-warn-500" strokeWidth={1.5} />
                   {axisAverages[axis] > 0 ? axisAverages[axis].toFixed(1) : '—'}
                 </span>
               </li>
@@ -359,7 +359,7 @@ function FlagForm({ reviewId }: { reviewId: string }) {
     <details className="group relative">
       <summary
         title="Flag review as fake"
-        className="inline-flex cursor-pointer select-none list-none items-center gap-1 text-[11px] text-ink/40 hover:text-rose-600"
+        className="inline-flex cursor-pointer select-none list-none items-center gap-1 text-[11px] text-ink/40 hover:text-danger-600"
       >
         <Flag aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
         <span className="sr-only">Flag as fake</span>
@@ -392,7 +392,7 @@ function FlagForm({ reviewId }: { reviewId: string }) {
             review once.
           </p>
           <SubmitButton
-            className="inline-flex items-center gap-1.5 rounded-md bg-rose-600 px-3 py-2 text-xs font-medium text-white hover:bg-rose-700 disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 rounded-md bg-danger-600 px-3 py-2 text-xs font-medium text-white hover:bg-danger-700 disabled:opacity-60"
             pendingLabel="Flagging…"
           >
             <Flag className="h-3.5 w-3.5" strokeWidth={2} />
@@ -411,7 +411,7 @@ function AxisStat({ axis, value }: { axis: ReviewAxis; value: number }) {
         {REVIEW_AXIS_LABEL[axis]}
       </dt>
       <dd className="flex items-center gap-1 text-ink/80">
-        <Star className="h-3 w-3 fill-amber-400 text-amber-500" strokeWidth={1.5} />
+        <Star className="h-3 w-3 fill-warn-400 text-warn-500" strokeWidth={1.5} />
         <span className="font-mono text-[11px]">{value.toFixed(0)}</span>
       </dd>
     </div>
@@ -426,7 +426,7 @@ function StarRow({ value }: { value: number }) {
           key={n}
           aria-hidden
           className={`h-4 w-4 ${
-            n <= value ? 'fill-amber-400 text-amber-500' : 'text-ink/25'
+            n <= value ? 'fill-warn-400 text-warn-500' : 'text-ink/25'
           }`}
           strokeWidth={1.5}
         />

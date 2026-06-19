@@ -30,7 +30,7 @@ type Props = {
 const ROLE_TONE: Record<VendorTeamRole, string> = {
   owner: 'bg-violet-100 text-violet-800',
   admin: 'bg-sky-100 text-sky-800',
-  agent: 'bg-emerald-100 text-emerald-800',
+  agent: 'bg-success-100 text-success-800',
   viewer: 'bg-ink/10 text-ink/65',
 };
 
@@ -90,7 +90,7 @@ export default async function VendorTeamPage({ searchParams }: Props) {
       {search.invited ? (
         <p
           role="status"
-          className="rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+          className="rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800"
         >
           Team member added.
         </p>
@@ -98,7 +98,7 @@ export default async function VendorTeamPage({ searchParams }: Props) {
       {search.saved ? (
         <p
           role="status"
-          className="rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+          className="rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800"
         >
           Team updated.
         </p>
@@ -317,10 +317,10 @@ function AgentServiceAssignment({
   return (
     <form
       action={setVendorAgentServices}
-      className="mt-3 space-y-2 rounded-xl border border-emerald-200/70 bg-emerald-50/40 p-3"
+      className="mt-3 space-y-2 rounded-xl border border-success-200/70 bg-success-50/40 p-3"
     >
       <input type="hidden" name="vendor_team_member_id" value={memberId} />
-      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-emerald-900/70">
+      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-success-900/70">
         Assigned services — this agent sees only these (and their customers)
       </p>
       {services.length === 0 ? (
@@ -340,7 +340,7 @@ function AgentServiceAssignment({
                   name="service_ids"
                   value={s.vendor_service_id}
                   defaultChecked={assignedSet.has(s.vendor_service_id)}
-                  className="h-3.5 w-3.5 accent-emerald-600"
+                  className="h-3.5 w-3.5 accent-success-600"
                 />
                 {categoryLabel(s.category)}
                 {s.is_active ? null : <span className="text-ink/40">(inactive)</span>}
@@ -348,7 +348,7 @@ function AgentServiceAssignment({
             ))}
           </div>
           <SubmitButton
-            className="inline-flex h-8 items-center justify-center rounded-md border border-emerald-300 bg-cream px-3 text-xs font-medium text-emerald-900 hover:border-emerald-500"
+            className="inline-flex h-8 items-center justify-center rounded-md border border-success-300 bg-cream px-3 text-xs font-medium text-success-900 hover:border-success-500"
             pendingLabel="Saving…"
           >
             Save assignments

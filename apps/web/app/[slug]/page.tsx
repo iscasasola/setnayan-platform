@@ -1111,7 +1111,7 @@ function WatchLiveBlock({ watchLive }: { watchLive: WatchLiveData }) {
     >
       <div className="flex items-center justify-between gap-3 px-4 py-2.5">
         <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-cream">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-rose-400" />
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-danger-400" />
           Watch live
         </p>
         <a
@@ -1388,8 +1388,8 @@ function PublicLanding({
   // guest at the venue without a session cookie still sees "happening now".
   const dayOfBadge =
     dayOfPhase === 'live' ? (
-      <p className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-800">
-        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-600" />
+      <p className="inline-flex items-center gap-2 rounded-full bg-success-100 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-success-800">
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success-600" />
         Happening now
       </p>
     ) : dayOfPhase === 'post' ? (
@@ -1507,7 +1507,7 @@ function PublicLanding({
             one — every guest has their own personal link.
           </p>
         ) : reason === 'wrong_event' ? (
-          <p className="mx-auto max-w-prose rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="mx-auto max-w-prose rounded-md border border-warn-300 bg-warn-50 px-4 py-3 text-sm text-warn-900">
             You&rsquo;re signed in to a different event&rsquo;s invitation. Open your own
             QR or invite link to switch.
           </p>
@@ -2077,7 +2077,7 @@ function InvitationSite({
         {isLive && scheduleBlocks.length > 0 ? (
           <section
             aria-label="Day-of schedule"
-            className="rounded-2xl border-2 border-emerald-300 bg-emerald-50/50 p-2"
+            className="rounded-2xl border-2 border-success-300 bg-success-50/50 p-2"
           >
             <ScheduleWidget blocks={scheduleBlocks} />
           </section>
@@ -2114,7 +2114,7 @@ function InvitationSite({
           >
             <div className="flex items-center justify-between gap-3">
               <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success-500" />
                 Photos of you — so far
               </p>
               <p className="text-xs text-ink/55">
@@ -2208,7 +2208,7 @@ function InvitationSite({
         ))}
 
         {isLimitedPlusOne ? (
-          <section className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
+          <section className="rounded-xl border border-warn-200 bg-warn-50 p-5 text-sm text-warn-900">
             You&rsquo;re joining as a +1. Photos taken of you will appear in your inviter&rsquo;s
             gallery — ask them to share. In-app features like Shutter and Photo Challenges
             require a full Setnayan account, which the couple hasn&rsquo;t enabled for +1s on
@@ -2547,8 +2547,8 @@ function RsvpWidget({
           couple seats them later). Show the reassurance whenever they're
           attending — this is the "your place is reserved" confirmation. */}
       {guest.rsvp_status === 'attending' ? (
-        <p className="flex items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-center text-sm font-medium text-emerald-800">
-          <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-600" />
+        <p className="flex items-center justify-center gap-2 rounded-lg border border-success-200 bg-success-50 px-3 py-2 text-center text-sm font-medium text-success-800">
+          <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-success-600" />
           Your place is reserved — we can&rsquo;t wait to celebrate with you.
         </p>
       ) : null}
@@ -2556,7 +2556,7 @@ function RsvpWidget({
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         {(
           [
-            { key: 'attending', label: "I'll be there", tone: 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700' },
+            { key: 'attending', label: "I'll be there", tone: 'bg-success-600 text-white border-success-600 hover:bg-success-700' },
             { key: 'maybe', label: 'Maybe', tone: 'bg-cream text-ink border-ink/20 hover:border-ink/40' },
             { key: 'declined', label: "Can't make it", tone: 'bg-cream text-ink border-ink/20 hover:border-ink/40' },
           ] as const
@@ -2667,9 +2667,9 @@ function FaceDataNotice({
 
 function RsvpPill({ status }: { status: GuestRow['rsvp_status'] }) {
   const tone: Record<GuestRow['rsvp_status'], string> = {
-    attending: 'bg-emerald-100 text-emerald-800',
-    pending: 'bg-amber-100 text-amber-800',
-    declined: 'bg-rose-100 text-rose-800',
+    attending: 'bg-success-100 text-success-800',
+    pending: 'bg-warn-100 text-warn-800',
+    declined: 'bg-danger-100 text-danger-800',
     maybe: 'bg-ink/10 text-ink/70',
   };
   const label =
@@ -2759,7 +2759,7 @@ function VenueWidget({ event }: { event: EventRow }) {
     <section className="space-y-3 rounded-xl border border-ink/10 bg-cream p-6">
       <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">Venue</p>
       <div className="overflow-hidden rounded-lg border border-ink/10">
-        <div className="h-32 bg-gradient-to-br from-terracotta/30 via-amber-100 to-emerald-100" />
+        <div className="h-32 bg-gradient-to-br from-terracotta/30 via-warn-100 to-success-100" />
         <div className="space-y-3 bg-cream p-4">
           <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta">
             Ceremony &amp; Reception
@@ -2875,7 +2875,7 @@ function DressCodeWidget({
       {dos.length > 0 || donts.length > 0 ? (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {dos.length > 0 ? (
-            <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+            <div className="space-y-2 rounded-lg border border-success-200 bg-success-50 p-4 text-sm text-success-900">
               <p className="font-mono text-[10px] uppercase tracking-[0.15em]">Do</p>
               <ul className="space-y-1">
                 {dos.map((row, i) => (
@@ -2885,7 +2885,7 @@ function DressCodeWidget({
             </div>
           ) : null}
           {donts.length > 0 ? (
-            <div className="space-y-2 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">
+            <div className="space-y-2 rounded-lg border border-danger-200 bg-danger-50 p-4 text-sm text-danger-900">
               <p className="font-mono text-[10px] uppercase tracking-[0.15em]">
                 Don&rsquo;t
               </p>
@@ -3001,7 +3001,7 @@ function PhotoMomentsWidget({ config }: { config: unknown }) {
 function PhotoMomentModeBadge({ mode }: { mode: PhotoMomentMode }) {
   if (mode === 'camera_ok') {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-800">
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-800">
         <Camera aria-hidden className="h-3 w-3" strokeWidth={2} />
         Cameras welcome
       </span>
@@ -3070,17 +3070,17 @@ function DayOfBanner({ kind }: { kind: 'live' | 'post' }) {
     return (
       <section
         aria-label="Live event mode"
-        className="flex items-center gap-3 rounded-xl border-2 border-emerald-300 bg-emerald-50 p-4 sm:p-5"
+        className="flex items-center gap-3 rounded-xl border-2 border-success-300 bg-success-50 p-4 sm:p-5"
       >
         <span
           aria-hidden
-          className="inline-flex h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-emerald-600"
+          className="inline-flex h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-success-600"
         />
         <div className="flex-1">
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-800">
+          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-success-800">
             Live now
           </p>
-          <p className="text-sm text-emerald-900">
+          <p className="text-sm text-success-900">
             The wedding is happening. Your schedule, QR, and venue info are pinned
             below — they work offline if WiFi cuts out.
           </p>
@@ -3116,7 +3116,7 @@ function TierComparisonWidget({ limited }: { limited: boolean }) {
           </p>
           <h3 className="mt-1 text-2xl font-semibold tracking-tight">Two ways to celebrate</h3>
         </header>
-        <p className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <p className="rounded-md border border-warn-200 bg-warn-50 px-4 py-3 text-sm text-warn-900">
           You&rsquo;re a +1 to your inviter. Your photos will appear in their gallery —
           ask them to show you. Want full access? You can register your own Setnayan account
           anytime — but for this wedding, you&rsquo;re invited as their +1.

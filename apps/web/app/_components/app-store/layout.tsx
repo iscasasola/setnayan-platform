@@ -162,7 +162,7 @@ export function AppStoreLayout({
                   hero.statusPill.tone === 'accent'
                     ? 'inline-flex items-center rounded-full bg-terracotta/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta'
                     : hero.statusPill.tone === 'success'
-                      ? 'inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-900'
+                      ? 'inline-flex items-center rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-900'
                       : 'inline-flex items-center rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55'
                 }
               >
@@ -306,7 +306,7 @@ export function AppStoreLayout({
               </p>
             </div>
             {reviews.avgRating !== null ? (
-              <span className="flex items-center gap-0.5 text-amber-500">
+              <span className="flex items-center gap-0.5 text-warn-500">
                 {[1, 2, 3, 4, 5].map((s) => (
                   <Star
                     key={s}
@@ -389,7 +389,7 @@ export function AppStoreLayout({
             <ul className="space-y-1 text-sm text-ink/75">
               {dataLinked.notLinked.map((item) => (
                 <li key={item} className="flex gap-2">
-                  <span aria-hidden className="text-emerald-600/70">
+                  <span aria-hidden className="text-success-600/70">
                     ○
                   </span>
                   {item}
@@ -474,7 +474,7 @@ function StatCarousel({
             <div className="mt-0.5 flex items-baseline gap-1">
               <p className="text-xl font-semibold tracking-tight text-ink">{s.value}</p>
               {typeof s.starFill === 'number' ? (
-                <span className="flex items-center text-amber-500">
+                <span className="flex items-center text-warn-500">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <Star
                       key={star}

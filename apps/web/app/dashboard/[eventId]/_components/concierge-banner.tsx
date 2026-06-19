@@ -59,8 +59,8 @@ export function ConciergeBanner(props: Props) {
   // during cutover; V2 schema migration retires the framework alongside.
   if (enforcementLevel === 'full_banned') {
     return (
-      <section className="rounded-2xl border border-rose-300/60 bg-rose-50 p-5 text-sm text-rose-900">
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-rose-900/70">
+      <section className="rounded-2xl border border-danger-300/60 bg-danger-50 p-5 text-sm text-danger-900">
+        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-danger-900/70">
           Setnayan AI unavailable
         </p>
         <p className="mt-2">
@@ -69,7 +69,7 @@ export function ConciergeBanner(props: Props) {
         </p>
         <Link
           href="/help#concierge-full-banned-appeal"
-          className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-rose-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-rose-800"
+          className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-danger-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-danger-800"
         >
           Open appeal ticket →
         </Link>
@@ -143,13 +143,13 @@ function ActiveBanner({
   const days = daysRemaining(expiresAt);
   const monthsApprox = days !== null ? Math.max(0, Math.round(days / 30)) : null;
   return (
-    <section className="rounded-2xl border border-emerald-300/60 bg-emerald-50 p-4 sm:p-5">
+    <section className="rounded-2xl border border-success-300/60 bg-success-50 p-4 sm:p-5">
       <header className="flex items-start gap-3">
-        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-200 text-emerald-900">
+        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-success-200 text-success-900">
           <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         </span>
         <div className="min-w-0 flex-1 space-y-1">
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-emerald-900/75">
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-success-900/75">
             Setnayan AI · active
           </p>
           <h2 className="text-base font-semibold tracking-tight text-ink">

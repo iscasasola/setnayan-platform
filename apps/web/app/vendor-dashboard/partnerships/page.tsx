@@ -123,7 +123,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
           <ul className="space-y-3">
             {activeLive.map((p) => (
               <li key={p.id} className="m-card flex items-center gap-3 p-4">
-                <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" />
+                <CheckCircle2 className="h-5 w-5 shrink-0 text-success-600" />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-ink">
                     {partnerNameMap.get(p.recommended_vendor_id) ?? p.recommended_vendor_id}
@@ -132,7 +132,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
                     {RELATIONSHIP_LABELS_SHORT[p.relationship_type] ?? p.relationship_type}
                   </p>
                 </div>
-                <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                <span className="rounded-full bg-success-50 px-2 py-0.5 text-[10px] font-semibold text-success-700">
                   Live
                 </span>
               </li>
@@ -150,7 +150,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
           <ul className="space-y-3">
             {pendingReview.map((p) => (
               <li key={p.id} className="m-card flex items-center gap-3 p-4">
-                <Clock className="h-5 w-5 shrink-0 text-amber-500" />
+                <Clock className="h-5 w-5 shrink-0 text-warn-500" />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-ink">
                     {partnerNameMap.get(p.recommended_vendor_id) ?? p.recommended_vendor_id}
@@ -160,7 +160,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
                     {' · '}Waiting for Setnayan HQ review
                   </p>
                 </div>
-                <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                <span className="rounded-full bg-warn-50 px-2 py-0.5 text-[10px] font-semibold text-warn-700">
                   Review
                 </span>
               </li>

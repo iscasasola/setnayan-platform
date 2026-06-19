@@ -209,7 +209,7 @@ export function AddPreparationItem({ eventId }: { eventId: string }) {
               </label>
 
               {errorMessage ? (
-                <p role="alert" className="text-xs text-rose-700">
+                <p role="alert" className="text-xs text-danger-700">
                   {errorMessage}
                 </p>
               ) : null}
@@ -294,7 +294,7 @@ export function DeletePreparationItemButton({
       disabled={isPending}
       title={errorMessage ?? `Remove “${label}”`}
       aria-label={`Remove ${label}`}
-      className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ink/40 transition-colors hover:bg-ink/5 hover:text-rose-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-50"
+      className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ink/40 transition-colors hover:bg-ink/5 hover:text-danger-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-50"
     >
       {isPending ? (
         <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />

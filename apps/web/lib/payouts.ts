@@ -67,9 +67,9 @@ export const PAYOUT_STAGE_LABEL: Record<PayoutStage, string> = {
 };
 
 export const PAYOUT_STAGE_TONE: Record<PayoutStage, string> = {
-  immediate_full: 'bg-emerald-100 text-emerald-800',
+  immediate_full: 'bg-success-100 text-success-800',
   stage_1_confirm: 'bg-blue-100 text-blue-800',
-  stage_2_event_start: 'bg-amber-100 text-amber-800',
+  stage_2_event_start: 'bg-warn-100 text-warn-800',
   stage_3_event_end: 'bg-purple-100 text-purple-800',
 };
 

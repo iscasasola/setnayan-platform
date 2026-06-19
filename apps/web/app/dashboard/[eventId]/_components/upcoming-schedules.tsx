@@ -158,9 +158,9 @@ function iconStylesFor(category: UpcomingItemCategory): string {
     case 'payment':
       // Payments echo the amber palette used in MoneyInFlight so the
       // visual association carries across both sections.
-      return 'bg-amber-100 text-amber-700';
+      return 'bg-warn-100 text-warn-700';
     case 'renewal':
-      return 'bg-emerald-50 text-emerald-700';
+      return 'bg-success-50 text-success-700';
     case 'document':
       return 'bg-blue-50 text-blue-700';
     case 'meeting':
@@ -178,7 +178,7 @@ function iconStylesFor(category: UpcomingItemCategory): string {
 function containerStylesFor(category: UpcomingItemCategory): string {
   switch (category) {
     case 'payment':
-      return 'border-amber-200/70 bg-amber-50/40';
+      return 'border-warn-200/70 bg-warn-50/40';
     case 'document':
       // Statutory deadlines need to stand out a touch — they're easy
       // to miss otherwise. Soft blue tint matches the icon palette.

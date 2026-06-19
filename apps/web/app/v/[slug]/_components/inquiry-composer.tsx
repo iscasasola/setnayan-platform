@@ -237,7 +237,7 @@ export function InquiryComposer({
 
       {/* Error shown outside the modal for the single-service submit path */}
       {modal.kind === 'error' && !isMultiService ? (
-        <p className="flex items-center gap-1.5 text-xs text-rose-700">
+        <p className="flex items-center gap-1.5 text-xs text-danger-700">
           <AlertCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           {modal.message}
         </p>
@@ -335,7 +335,7 @@ export function InquiryComposer({
                     {linked.map((l, i) => (
                       <li
                         key={`${l.label}-${i}`}
-                        className="inline-flex items-center gap-1 rounded-full border border-emerald-300/60 bg-emerald-50 px-2.5 py-0.5 text-[12px] text-emerald-900"
+                        className="inline-flex items-center gap-1 rounded-full border border-success-300/60 bg-success-50 px-2.5 py-0.5 text-[12px] text-success-900"
                       >
                         <Check aria-hidden className="h-3 w-3" strokeWidth={2.25} />
                         {l.label}
@@ -382,7 +382,7 @@ export function InquiryComposer({
 
               {/* Error */}
               {modal.kind === 'error' ? (
-                <p className="flex items-center gap-1.5 text-xs text-rose-700">
+                <p className="flex items-center gap-1.5 text-xs text-danger-700">
                   <AlertCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
                   {modal.message}
                 </p>

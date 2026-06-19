@@ -198,7 +198,7 @@ export function SiteEditor(props: SiteEditorProps) {
           <X aria-hidden className="h-5 w-5" strokeWidth={2} />
         </Link>
         <span className="absolute right-3 top-4 z-30 flex items-center gap-1.5 rounded-full bg-ink/40 px-2.5 py-1 font-mono text-[9.5px] uppercase tracking-[0.16em] text-cream backdrop-blur-sm">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-rose-400" />
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-danger-400" />
           {tab === 'settings' ? 'Live preview' : `Previewing · ${TAB_TITLE[tab]} page`}
         </span>
 
@@ -526,7 +526,7 @@ function ProCard({
         <span className="text-xs text-ink/55">one-time, this event</span>
       </div>
       {owned ? (
-        <p className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-emerald-300/70 bg-emerald-50 py-2 text-sm font-semibold text-emerald-800 [&_svg]:h-4 [&_svg]:w-4 dark:border-emerald-400/40 dark:bg-emerald-500/10 dark:text-emerald-300">
+        <p className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-success-300/70 bg-success-50 py-2 text-sm font-semibold text-success-800 [&_svg]:h-4 [&_svg]:w-4 dark:border-success-400/40 dark:bg-success-500/10 dark:text-success-300">
           <CheckCircle2 aria-hidden /> Active on this event
         </p>
       ) : (
@@ -549,7 +549,7 @@ function settingsCards(p: SiteEditorProps): ReactNode[] {
             <span className="truncate font-mono text-[12px] text-ink/70">{p.slugDisplay}</span>
             {p.publicLandingUrl && <CopyUrl url={p.publicLandingUrl} />}
           </div>
-          <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+          <div className="flex items-center gap-1.5 text-xs text-success-600 dark:text-success-400">
             <CheckCircle2 aria-hidden className="h-4 w-4" /> Live — this URL is yours.
           </div>
           <CardLink href={`/dashboard/${p.eventId}/invitation`} ghost>
@@ -620,7 +620,7 @@ function rsvpCards(
         invitation floats on top, always readable.
       </Desc>
       {backdropTheme ? (
-        <div className="flex items-center gap-1.5 text-xs text-emerald-600">
+        <div className="flex items-center gap-1.5 text-xs text-success-600">
           <CheckCircle2 aria-hidden className="h-4 w-4" /> {backdropTheme.label} ·{' '}
           {p.rsvpBackdrop?.intensity}
         </div>
@@ -674,7 +674,7 @@ function eventCards(
     <Card key="hero" icon={<ImagePlus />} title="Hero photo" sub="Full-bleed banner">
       <Desc>The first thing guests see — a full-width photo behind your monogram.</Desc>
       {p.heroPhotoUrl ? (
-        <div className="flex items-center gap-1.5 text-xs text-emerald-600">
+        <div className="flex items-center gap-1.5 text-xs text-success-600">
           <CheckCircle2 aria-hidden className="h-4 w-4" /> Photo set — edit it right here.
         </div>
       ) : null}
@@ -896,7 +896,7 @@ function HeroEditSheet({
               <button
                 type="submit"
                 disabled={pending}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-2 text-xs font-semibold text-ink/75 transition hover:border-rose-300 hover:text-rose-700 disabled:opacity-60"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-2 text-xs font-semibold text-ink/75 transition hover:border-danger-300 hover:text-danger-700 disabled:opacity-60"
               >
                 <Trash2 aria-hidden className="h-3.5 w-3.5" /> Remove photo
               </button>
@@ -1088,7 +1088,7 @@ function BackdropEditSheet({
               type="button"
               onClick={turnOff}
               disabled={pending}
-              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-ink/15 px-3 text-sm font-semibold text-ink/70 transition hover:border-rose-300 hover:text-rose-700 disabled:opacity-60"
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-ink/15 px-3 text-sm font-semibold text-ink/70 transition hover:border-danger-300 hover:text-danger-700 disabled:opacity-60"
             >
               <Trash2 aria-hidden className="h-4 w-4" /> Turn off
             </button>
@@ -1139,7 +1139,7 @@ function CopyUrl({ url }: { url: string }) {
       }}
       className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-ink/55 transition hover:bg-ink/5 [&_svg]:h-5 [&_svg]:w-5"
     >
-      {copied ? <Check aria-hidden className="text-emerald-600" /> : <Copy aria-hidden />}
+      {copied ? <Check aria-hidden className="text-success-600" /> : <Copy aria-hidden />}
     </button>
   );
 }

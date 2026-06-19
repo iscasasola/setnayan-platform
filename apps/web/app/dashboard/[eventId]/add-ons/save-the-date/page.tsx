@@ -61,7 +61,7 @@ export default async function SaveTheDatePage({ params }: Props) {
   const { data: event } = await supabase
     .from('events')
     .select(
-      'public_id, slug, display_name, event_date, venue_name, venue_address, love_story, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_film_date, std_film_venue_name, std_film_venue_city, std_film_story, std_background, std_media, our_photos, site_bg_music_enabled, site_bg_music_r2_key, landing_page_hero_image_url, date_candidates, date_mode',
+      'public_id, slug, display_name, event_date, venue_name, venue_address, love_story, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_film_date, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_story, std_background, std_media, our_photos, site_bg_music_enabled, site_bg_music_r2_key, landing_page_hero_image_url, date_candidates, date_mode',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -142,6 +142,7 @@ export default async function SaveTheDatePage({ params }: Props) {
     typeof event?.std_film_date === 'string' ? event.std_film_date.slice(0, 10) : null;
   const stdVenueName: string | null = event?.std_film_venue_name ?? null;
   const stdVenueCity: string | null = event?.std_film_venue_city ?? null;
+  const stdCeremonyName: string | null = event?.std_film_ceremony_name ?? null;
   const stdStory: string | null = event?.std_film_story ?? null;
 
   // STD wedding-date options = the couple's ONBOARDING date choices, or the
@@ -160,10 +161,10 @@ export default async function SaveTheDatePage({ params }: Props) {
       : [];
 
   // Ceremony + reception venues auto-fill from the couple's FINALIZED bookings
-  // (event_vendors). Reception falls back to the manual override then the event
-  // venue; ceremony is booking-only for now. (Same resolution as the live page.)
+  // (event_vendors). Each falls back to its manual override then the event venue.
+  // (Same resolution as the live page.)
   const finalizedVenues = await resolveStdFinalizedVenues(supabase, eventId);
-  const ceremonyVenue = finalizedVenues.ceremony;
+  const ceremonyVenue = finalizedVenues.ceremony ?? stdCeremonyName;
   const receptionVenue = finalizedVenues.reception ?? stdVenueName ?? event?.venue_name ?? null;
   const receptionCity = stdVenueCity ?? event?.venue_address ?? null;
 
@@ -276,6 +277,7 @@ export default async function SaveTheDatePage({ params }: Props) {
         dateOptions={dateOptions}
         initialFilmVenueName={stdVenueName}
         initialFilmVenueCity={stdVenueCity}
+        initialFilmCeremonyName={stdCeremonyName}
         initialFilmStory={stdStory}
         displayName={event?.display_name ?? ''}
         dateIso={event?.event_date ?? null}

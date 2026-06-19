@@ -292,13 +292,17 @@ export function SaveTheDateFilm({
       node: (
         <div className="flex flex-col items-center gap-4 text-center">
           <p className={LABEL}>Mark your calendars</p>
-          {content.dateBig ? (
+          {/* ONE date (owner 2026-06-19 "date showed twice"): the long-form is
+              the hero; the compact MM.DD.YY is only a fallback when there's no
+              long form. */}
+          {content.dateLabel ? (
+            <div className={`${theme.fontCls} text-6xl font-medium tracking-tight`}>
+              {content.dateLabel}
+            </div>
+          ) : content.dateBig ? (
             <div className={`${theme.fontCls} text-7xl font-medium tracking-tight`}>
               {content.dateBig}
             </div>
-          ) : null}
-          {content.dateLabel ? (
-            <p className={`${theme.fontCls} text-2xl italic ${theme.subtleText}`}>{content.dateLabel}</p>
           ) : null}
         </div>
       ),

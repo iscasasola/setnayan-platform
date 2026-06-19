@@ -109,6 +109,7 @@ export async function saveAllStdContent(
     filmDate?: string | null;
     filmVenueName?: string | null;
     filmVenueCity?: string | null;
+    filmCeremonyName?: string | null;
     filmStory?: string | null;
     revealEffects?: RevealEffects | null;
     background?: StdBackground | null;
@@ -151,6 +152,7 @@ export async function saveAllStdContent(
   if (data.filmDate !== undefined) patch.std_film_date = filmDate;
   if (data.filmVenueName !== undefined) patch.std_film_venue_name = data.filmVenueName?.trim() || null;
   if (data.filmVenueCity !== undefined) patch.std_film_venue_city = data.filmVenueCity?.trim() || null;
+  if (data.filmCeremonyName !== undefined) patch.std_film_ceremony_name = data.filmCeremonyName?.trim() || null;
   if (data.filmStory !== undefined) patch.std_film_story = data.filmStory?.trim() || null;
   // Reveal effect toggles — sanitised to {butterflies,petals} booleans.
   if (data.revealEffects !== undefined && data.revealEffects !== null) {

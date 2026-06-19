@@ -81,6 +81,7 @@ type Props = {
   dateOptions?: string[];
   initialFilmVenueName?: string | null;
   initialFilmVenueCity?: string | null;
+  initialFilmCeremonyName?: string | null;
   initialFilmStory?: string | null;
   // RevealPreviewCard props (forwarded)
   displayName: string;
@@ -121,6 +122,7 @@ export function StdBuilderClient({
   dateOptions = [],
   initialFilmVenueName,
   initialFilmVenueCity,
+  initialFilmCeremonyName,
   initialFilmStory,
   dateIso,
   markSvg,
@@ -143,6 +145,7 @@ export function StdBuilderClient({
   const [filmDate, setFilmDate] = useState(initialFilmDate ?? dateOptions[0] ?? '');
   const [venueName, setVenueName] = useState(initialFilmVenueName ?? '');
   const [venueCity, setVenueCity] = useState(initialFilmVenueCity ?? '');
+  const [ceremonyName, setCeremonyName] = useState(initialFilmCeremonyName ?? '');
   const [filmStory, setFilmStory] = useState(initialFilmStory ?? '');
 
   const [saving, startSave] = useTransition();
@@ -281,10 +284,12 @@ export function StdBuilderClient({
     const dateOverride = filmDate.trim() || null;
     const dateBig = shortDate(dateOverride) ?? initialContent.dateBig;
     const dateLabel = dateOverride ? formatEventDate(dateOverride) : initialContent.dateLabel;
-    // The builder's venue field is the RECEPTION manual fallback; ceremony +
-    // reception otherwise auto-fill from the finalized bookings (initialContent).
+    // The builder's venue fields are the manual fallbacks; ceremony + reception
+    // otherwise auto-fill from the finalized bookings (initialContent). A typed
+    // value wins so the preview reflects it live.
     const resolvedReception = venueName.trim() || initialContent.receptionVenue || null;
     const resolvedReceptionCity = venueCity.trim() || initialContent.receptionCity || null;
+    const resolvedCeremony = ceremonyName.trim() || initialContent.ceremonyVenue || null;
     const storyRaw = filmStory.trim();
     const resolvedStory = storyRaw
       ? storyRaw.length > STORY_MAX
@@ -300,6 +305,7 @@ export function StdBuilderClient({
       ...initialContent,
       dateBig,
       dateLabel,
+      ceremonyVenue: resolvedCeremony,
       receptionVenue: resolvedReception,
       receptionCity: resolvedReceptionCity,
       storyTeaser: resolvedStory,
@@ -311,7 +317,7 @@ export function StdBuilderClient({
       // as the video island beat; otherwise the gallery beat shows.
       videoUrl: media.type === 'video' ? videoPreviewUrl : null,
     };
-  }, [initialContent, filmDate, venueName, venueCity, filmStory, launchDate, dateIso, media.type, videoPreviewUrl, effects.music, musicPreviewUrl]);
+  }, [initialContent, filmDate, venueName, venueCity, ceremonyName, filmStory, launchDate, dateIso, media.type, videoPreviewUrl, effects.music, musicPreviewUrl]);
 
   // Autofill — pull the couple's event details into EVERY film field at once so
   // the Information step shows all the real values, ready to fine-tune. Client-
@@ -340,6 +346,7 @@ export function StdBuilderClient({
         filmDate: filmDate.trim() || null,
         filmVenueName: venueName.trim() || null,
         filmVenueCity: venueCity.trim() || null,
+        filmCeremonyName: ceremonyName.trim() || null,
         filmStory: filmStory.trim() || null,
         revealEffects: effects,
         background,
@@ -518,18 +525,25 @@ export function StdBuilderClient({
                 )}
               </div>
 
-              {/* Ceremony venue — read-only, auto-filled from the finalized booking. */}
-              {initialContent.ceremonyVenue ? (
-                <div>
-                  <span className="block text-xs font-semibold uppercase tracking-wide text-ink/60">
-                    Ceremony venue
-                  </span>
-                  <p className="mt-1.5 rounded-lg border border-ink/10 bg-white/60 px-3 py-2.5 text-sm text-ink">
-                    {initialContent.ceremonyVenue}
-                  </p>
-                  <p className={helperCls}>From your booked ceremony venue.</p>
-                </div>
-              ) : null}
+              {/* Ceremony venue — auto-fills from a finalized booking; the field
+                  is the manual entry for couples who book off-platform (owner
+                  2026-06-19 "where is the ceremony venue — add it"). */}
+              <div>
+                <label htmlFor="film_ceremony_name" className="block text-xs font-semibold uppercase tracking-wide text-ink/60">
+                  Ceremony venue
+                </label>
+                <input
+                  id="film_ceremony_name"
+                  type="text"
+                  value={ceremonyName}
+                  onChange={(e) => { setCeremonyName(e.target.value); if (result !== 'idle') setResult('idle'); }}
+                  placeholder={initialContent.ceremonyVenue ?? 'e.g. San Agustin Church'}
+                  className={`mt-1.5 ${inputCls}`}
+                />
+                {!ceremonyName && initialContent.ceremonyVenue ? (
+                  <p className={helperCls}>Auto-filled from your booking · {initialContent.ceremonyVenue}</p>
+                ) : null}
+              </div>
 
               {/* Reception venue — auto-fills from the finalized booking; the field
                   is the manual fallback for couples who book off-platform. */}

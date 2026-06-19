@@ -6,14 +6,20 @@
  *
  * A `screen`-blended radial bloom appears at each touch/press, follows the
  * finger while held, and fades out on release. Multiple fingers → multiple
- * blooms (tracked per pointerId). The whole layer is `pointer-events-none` at
- * z-[80] (above the reveal z-[60] and film z-[50]/[70]), so it brightens the
- * scene without ever blocking a tap. Honors prefers-reduced-motion (renders
- * nothing). Admin-tunable colour/intensity/size (lib/reveal-config touchGlow);
- * mounted by RevealOverlayServer during the STD phase when enabled.
+ * blooms (tracked per pointerId). Honors prefers-reduced-motion (renders
+ * nothing). Admin-tunable colour/intensity/size (lib/reveal-config touchGlow).
+ *
+ * Two modes:
+ *   • Live (default) — full-viewport, `pointer-events-none` at z-[80] (above the
+ *     reveal z-[60] and film z-[50]/[70]); listens on `window`. Mounted by
+ *     RevealOverlayServer during the STD phase.
+ *   • Scoped (pass `containerRef`) — confined to that element + positioned
+ *     relative to it, listening on it (capture phase, so the veil's grab-zone
+ *     can't swallow the press). Used by the admin Reveal Studio's live preview
+ *     so HQ can see + tune the glow in place.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 
 type Glow = { uid: number; x: number; y: number; out: boolean };
 
@@ -22,12 +28,17 @@ export function StdTouchGlow({
   color = '#FBE9C8',
   intensity = 55,
   size = 50,
+  containerRef,
 }: {
   enabled?: boolean;
   color?: string;
   intensity?: number;
   size?: number;
+  /** When set, scope the glow to this element (admin preview) instead of the
+   *  whole viewport — listens on it + positions blooms relative to it. */
+  containerRef?: RefObject<HTMLElement | null>;
 }) {
+  const scoped = Boolean(containerRef);
   const [glows, setGlows] = useState<Glow[]>([]);
   // pointerId → the glow uid it currently drives (a pointerId can be reused, so
   // a monotonic uid avoids a fresh press inheriting a fading one's lifecycle).
@@ -37,16 +48,29 @@ export function StdTouchGlow({
   useEffect(() => {
     if (!enabled) return;
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    const target: HTMLElement | Window = containerRef?.current ?? window;
+
+    // Scoped → coords relative to the container box; live → viewport coords.
+    const coord = (e: PointerEvent) => {
+      const el = containerRef?.current;
+      if (el) {
+        const r = el.getBoundingClientRect();
+        return { x: e.clientX - r.left, y: e.clientY - r.top };
+      }
+      return { x: e.clientX, y: e.clientY };
+    };
 
     const down = (e: PointerEvent) => {
       const uid = ++uidSeq.current;
       pointerUid.current.set(e.pointerId, uid);
-      setGlows((g) => [...g, { uid, x: e.clientX, y: e.clientY, out: false }]);
+      const { x, y } = coord(e);
+      setGlows((g) => [...g, { uid, x, y, out: false }]);
     };
     const move = (e: PointerEvent) => {
       const uid = pointerUid.current.get(e.pointerId);
       if (uid == null) return; // only pointers that pressed (ignore hover)
-      setGlows((g) => g.map((it) => (it.uid === uid ? { ...it, x: e.clientX, y: e.clientY } : it)));
+      const { x, y } = coord(e);
+      setGlows((g) => g.map((it) => (it.uid === uid ? { ...it, x, y } : it)));
     };
     const lift = (e: PointerEvent) => {
       const uid = pointerUid.current.get(e.pointerId);
@@ -56,17 +80,23 @@ export function StdTouchGlow({
       window.setTimeout(() => setGlows((g) => g.filter((it) => it.uid !== uid)), 700);
     };
 
-    window.addEventListener('pointerdown', down, { passive: true });
-    window.addEventListener('pointermove', move, { passive: true });
-    window.addEventListener('pointerup', lift, { passive: true });
-    window.addEventListener('pointercancel', lift, { passive: true });
+    // Capture phase in scoped mode so the veil's grab-zone (a descendant that
+    // captures the pointer) can't swallow the press before we see it.
+    const opts: AddEventListenerOptions = { passive: true, capture: scoped };
+    const d = down as EventListener;
+    const m = move as EventListener;
+    const u = lift as EventListener;
+    target.addEventListener('pointerdown', d, opts);
+    target.addEventListener('pointermove', m, opts);
+    target.addEventListener('pointerup', u, opts);
+    target.addEventListener('pointercancel', u, opts);
     return () => {
-      window.removeEventListener('pointerdown', down);
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', lift);
-      window.removeEventListener('pointercancel', lift);
+      target.removeEventListener('pointerdown', d, opts);
+      target.removeEventListener('pointermove', m, opts);
+      target.removeEventListener('pointerup', u, opts);
+      target.removeEventListener('pointercancel', u, opts);
     };
-  }, [enabled]);
+  }, [enabled, containerRef, scoped]);
 
   if (!enabled) return null;
 
@@ -74,15 +104,32 @@ export function StdTouchGlow({
   const peak = +(0.14 + (Math.min(100, Math.max(0, intensity)) / 100) * 0.46).toFixed(3);
 
   return (
-    <div aria-hidden className="pointer-events-none fixed inset-0 z-[80] overflow-hidden">
+    <div
+      aria-hidden
+      className={
+        scoped
+          ? 'pointer-events-none absolute inset-0 z-30 overflow-hidden'
+          : 'pointer-events-none fixed inset-0 z-[80] overflow-hidden'
+      }
+    >
       {glows.map((g) => (
-        <GlowBlob key={g.uid} x={g.x} y={g.y} out={g.out} diameter={diameter} peak={peak} color={color} />
+        <GlowBlob
+          key={g.uid}
+          scoped={scoped}
+          x={g.x}
+          y={g.y}
+          out={g.out}
+          diameter={diameter}
+          peak={peak}
+          color={color}
+        />
       ))}
     </div>
   );
 }
 
 function GlowBlob({
+  scoped,
   x,
   y,
   out,
@@ -90,6 +137,7 @@ function GlowBlob({
   peak,
   color,
 }: {
+  scoped: boolean;
   x: number;
   y: number;
   out: boolean;
@@ -108,7 +156,7 @@ function GlowBlob({
     <span
       aria-hidden
       style={{
-        position: 'fixed',
+        position: scoped ? 'absolute' : 'fixed',
         left: x,
         top: y,
         width: diameter,

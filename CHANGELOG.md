@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · fix(std): Save-the-Date music now plays on the veil lift on MOBILE (PR pending, auto-merge)
+
+Owner: *"on mobile, the save the date music did not play when the veil was raised."*
+
+Root cause: the veil lift dispatches a **synthetic** `std-go-fullscreen` event (veil-reveal.tsx) and the film calls `audio.play()` inside that event's handler. iOS Safari does **not** treat a synthetically-dispatched (untrusted) event as a user gesture, so `play()` was silently blocked on phones — desktop is lenient, so it only failed on mobile.
+
+Fix (`save-the-date-film.tsx`): unlock the `<audio>` on the guest's **first real touch** via a **capture-phase** `pointerdown`/`touchstart` listener (capture fires even though the veil's grab-zone owns the gesture). It does a trusted, **muted** `play→pause→rewind`, which marks the element user-activated — so the real lift `play()` (`start()` on `std-reveal-done` + `onGoFs`) then works with no gesture. The unlock is volume-0 + rewound, so the music still **begins on the lift**, not on the grab. No blip, no double-play (the already-playing no-reveal path just continues).
+
+Verified: `pnpm typecheck` clean. (iOS audio can't be exercised headlessly — owner verifies on a phone.) No migration.
+
+SPEC IMPACT: iter 0024 Save-the-Date — mobile soundtrack-on-lift fix. See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · feat(std): press-to-glow on the Save-the-Date + admin Reveal Studio control (PR pending, auto-merge)
 
 Owner: *"when the screen is pressed it glow on the save the date — like how in movies the floor subtly glows when you touch it. And we can add settings on the admin for this."*

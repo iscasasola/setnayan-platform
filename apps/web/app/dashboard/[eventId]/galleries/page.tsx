@@ -101,7 +101,7 @@ export default async function GalleriesHubPage({ params }: Props) {
       state: ready ? 'ready' : 'collecting',
       count: ready ? papicCount : null,
       viewLabel: ready ? 'View & download' : 'Open Papic',
-      viewHref: ready ? `${base}/add-ons/papic/recap` : `${base}/add-ons/papic`,
+      viewHref: ready ? `${base}/studio/papic/recap` : `${base}/studio/papic`,
       Icon: Camera,
     });
   }
@@ -115,7 +115,7 @@ export default async function GalleriesHubPage({ params }: Props) {
       state: 'ready',
       count: null,
       viewLabel: 'Watch the recording',
-      viewHref: `${base}/add-ons/panood/broadcast`,
+      viewHref: `${base}/studio/panood/broadcast`,
       Icon: Radio,
     });
   }

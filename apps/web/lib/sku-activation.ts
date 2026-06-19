@@ -102,7 +102,7 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
  * Fan a freshly-approved BUNDLE order (GUIDED_PACK / MEDIA_PACK) through each of
  * its child SKUs' activation hooks. WHY: a bundle purchase lands as a SINGLE
  * orders row keyed by the bundle code — it never decomposes into per-child
- * orders (app/dashboard/[eventId]/add-ons/bundle/page.tsx). activateOrderSku
+ * orders (app/dashboard/[eventId]/studio/bundle/page.tsx). activateOrderSku
  * dispatches on the literal service_key, so a child whose capability depends on
  * a STORED side-effect flag (today only SETNAYAN_AI → events.setnayan_ai_active)
  * would never activate for a bundle buyer. Children whose ownership is read

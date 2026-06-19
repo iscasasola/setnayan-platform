@@ -87,7 +87,7 @@ export const STEPS: ReadonlyArray<StepDefinition> = [
     key: 'after_event',
     label: 'Send thank-yous',
     hint: 'Photo delivery and thank-you messages.',
-    href: (id) => `/dashboard/${id}/add-ons`,
+    href: (id) => `/dashboard/${id}/studio`,
     source: 'manual',
   },
 ];

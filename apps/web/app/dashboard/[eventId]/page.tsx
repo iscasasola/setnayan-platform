@@ -217,7 +217,7 @@ const TILES: Array<{
     key: 'add_ons',
     labelKey: 'nav.add_ons',
     Icon: Sparkles,
-    href: (id) => `/dashboard/${id}/add-ons`,
+    href: (id) => `/dashboard/${id}/studio`,
   },
   {
     key: 'disputes',

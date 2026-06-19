@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · refactor(studio): rename the route `/dashboard/[eventId]/add-ons` → `/studio` (PR pending, auto-merge)
+
+Owner: the surface is branded "Studio" everywhere but the URL still read `/add-ons`. Renamed the route to match.
+
+- **Moved the whole folder** `app/dashboard/[eventId]/add-ons` → `…/studio` (100 files: the hub, the catalog-driven `[addon]/about` detail, and every feature surface — papic · panood · led · mood-board · save-the-date · monogram · qr · blueprint · pakanta · patiktok · photo-delivery · playlist · setnayan-ai · supplies · bundle).
+- **Updated all route strings + imports** (≈50 more files): the `addOnHref` / `appStoreDetailHref` helpers, the customer nav (`customer-menu.ts` Studio tab href + activeMatch + sectionMatch), nav-registry defaults, `revalidatePath`/`redirect` calls (var-name-agnostic literal replace), and every internal link. The `add-ons-catalog` / `add-ons-detail` / `add-on-stats` **module filenames are unchanged** (internal names, not routes).
+- **Redirect safety net** (`middleware.ts`): new `LEGACY_ADDONS_RE` → 308-redirects `/dashboard/:eventId/add-ons/:rest*` → `/studio/:rest*` (carries subpaths + query), so QR codes, bookmarks, older emails, and indexed links survive. The legacy `/services` redirect now also targets `/studio`.
+
+Verified: `pnpm typecheck` clean · **`pnpm build` green — 226/226 pages**, route table confirms all surfaces now at `/dashboard/[eventId]/studio/*`. No migration.
+
+SPEC IMPACT: iter 0021 Studio surface — canonical URL is now `/studio` (old `/add-ons` permanently redirects). See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · copy(studio): Panood detail + hub row one-liners join the stories-and-results voice (PR pending, auto-merge)
 
 Owner follow-ups to the App Store copy pass: (1) bring Panood's bespoke detail page in line, (2) "punch them too" — the short hub-row blurbs.

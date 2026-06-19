@@ -106,7 +106,7 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
     refundable: true,
     purchaserRole: 'couple',
     // RETIRED 2026-06-16 (already is_active=FALSE in prod since 2026-05-28).
-    // The /add-ons/save-the-date surface is now the FREE page-opening reveal;
+    // The /studio/save-the-date surface is now the FREE page-opening reveal;
     // the paid video render is dropped. Record kept for historical-order typing.
     isActive: false,
   },

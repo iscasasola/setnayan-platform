@@ -331,7 +331,7 @@ export default async function AlaalaPage({ params }: Props) {
               Mga Boses · what your guests are saying
             </p>
             <Link
-              href={`/dashboard/${eventId}/add-ons/papic/moderation`}
+              href={`/dashboard/${eventId}/studio/papic/moderation`}
               className="text-[12px]"
               style={{ color: 'var(--m-orange-2)' }}
             >
@@ -398,7 +398,7 @@ export default async function AlaalaPage({ params }: Props) {
         </p>
         <div className="mt-4">
           <Link
-            href={`/dashboard/${eventId}/add-ons`}
+            href={`/dashboard/${eventId}/studio`}
             className="inline-flex items-center rounded-full px-5 py-2.5 text-sm font-medium"
             style={{ background: 'var(--m-mulberry)', color: '#fff' }}
           >

@@ -233,16 +233,16 @@ export function buildCustomerMenuTree(
       key: 'studio',
       label: 'Studio',
       icon: Sparkles,
-      href: `${base}/add-ons`,
+      href: `${base}/studio`,
       // Studio ABSORBED Design (owner 2026-06-17 customer-menu redesign → 5 menus,
       // no standalone Design tab; /design redirects here). activeMatch covers the
       // former Design routes too so the Studio tab lights across them.
-      activeMatch: [`${base}/add-ons`, `${base}/design`, `/site-editor/${eventId}`, `${base}/monogram`],
+      activeMatch: [`${base}/studio`, `${base}/design`, `/site-editor/${eventId}`, `${base}/monogram`],
       // The 4 Studio sections are the docked sub-nav — anchor children scrolling to
       // the regrouped /add-ons hub (lib/add-ons-catalog.ts studioGroup + the
       // SECTIONS ids). Exact /add-ons only: the anchors live on the hub; add-on
-      // detail pages (/add-ons/papic …) are their own surfaces.
-      sectionMatch: `${base}/add-ons`,
+      // detail pages (/studio/papic …) are their own surfaces.
+      sectionMatch: `${base}/studio`,
       sectionMatchExact: true,
       subnavLabel: 'Studio sections',
       children: [

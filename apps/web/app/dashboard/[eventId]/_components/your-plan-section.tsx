@@ -161,7 +161,7 @@ export function YourPlanSection({
       Icon: Palette,
       labelKey: 'tool.mood_board',
       subtitle: subtitleFor('mood_board', stats),
-      href: `/dashboard/${eventId}/add-ons/mood-board`,
+      href: `/dashboard/${eventId}/studio/mood-board`,
     },
     {
       key: 'seat_plan',
@@ -210,7 +210,7 @@ export function YourPlanSection({
       Icon: Mail,
       labelKey: 'tool.save_the_date',
       subtitle: subtitleFor('save_the_date', stats),
-      href: `/dashboard/${eventId}/add-ons/save-the-date`,
+      href: `/dashboard/${eventId}/studio/save-the-date`,
     },
     {
       key: 'monogram',
@@ -218,7 +218,7 @@ export function YourPlanSection({
       labelKey: 'tool.monogram',
       subtitle: subtitleFor('monogram', stats),
       // The Monogram Maker shipped (iteration 0037) — link straight to the live
-      // surface, not the retired `/add-ons/monogram-creator` "coming soon" stub.
+      // surface, not the retired `/studio/monogram-creator` "coming soon" stub.
       href: `/dashboard/${eventId}/monogram`,
     },
   ];

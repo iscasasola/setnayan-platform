@@ -2860,11 +2860,11 @@ export function OnboardingShell({
       // Setnayan AI checkout card. Highest precedence — takes the couple to pay for
       // the planner regardless of bundle/pick state.
       const dest = addonSlugOverride
-        ? `${base}/add-ons/${addonSlugOverride}`
+        ? `${base}/studio/${addonSlugOverride}`
         : bundleVM
-        ? `${base}/add-ons/bundle?code=${encodeURIComponent(bundleVM.code)}`
+        ? `${base}/studio/bundle?code=${encodeURIComponent(bundleVM.code)}`
         : paySlug
-          ? `${base}/add-ons/${paySlug}`
+          ? `${base}/studio/${paySlug}`
           : toServices
             ? `${base}/vendors`
             : base;

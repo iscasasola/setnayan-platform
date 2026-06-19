@@ -173,7 +173,7 @@ export async function POST(req: Request) {
             type: 'kwento_story_batch',
             title: 'Guest stories are waiting for your review',
             body: 'One or more guest stories need your okay before they can appear.',
-            relatedUrl: `/dashboard/${session.event_id}/add-ons/papic/moderation`,
+            relatedUrl: `/dashboard/${session.event_id}/studio/papic/moderation`,
           });
         }
       } catch {

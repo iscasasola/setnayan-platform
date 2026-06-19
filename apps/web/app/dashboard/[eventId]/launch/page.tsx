@@ -16,8 +16,8 @@ type Props = { params: Promise<{ eventId: string }> };
  * Day-of Services LAUNCH hub — the "Services" tab of the Day-of menu (Event
  * Lifecycle Menu, PR2). One place to START every owned live service on the
  * wedding day: Panood "Go live", Live Wall "Open the wall", Papic "Hand out
- * seats". The individual launch surfaces already exist (`/add-ons/panood/
- * broadcast`, `/live`, `/add-ons/papic/crew`); this gathers them with their
+ * seats". The individual launch surfaces already exist (`/studio/panood/
+ * broadcast`, `/live`, `/studio/papic/crew`); this gathers them with their
  * day-of verb and an upsell for anything not yet owned, so the Day-of Services
  * tab points at a real hub instead of one bare console.
  *
@@ -68,8 +68,8 @@ export default async function LaunchHubPage({ params }: Props) {
       blurb: 'Bring everyone who could not make it into the room.',
       owned: panoodState.state === 'launch',
       launchLabel: 'Go live',
-      launchHref: `${base}/add-ons/panood/broadcast`,
-      addHref: `${base}/add-ons/panood`,
+      launchHref: `${base}/studio/panood/broadcast`,
+      addHref: `${base}/studio/panood`,
       Icon: Radio,
     },
     {
@@ -79,7 +79,7 @@ export default async function LaunchHubPage({ params }: Props) {
       owned: ownsLiveWall,
       launchLabel: 'Open the wall',
       launchHref: `${base}/live`,
-      addHref: `${base}/add-ons`,
+      addHref: `${base}/studio`,
       Icon: MonitorPlay,
     },
     {
@@ -88,8 +88,8 @@ export default async function LaunchHubPage({ params }: Props) {
       blurb: 'Hand shooter seats to friends so the day is caught from every angle.',
       owned: ownsPapic,
       launchLabel: 'Hand out seats',
-      launchHref: `${base}/add-ons/papic/crew`,
-      addHref: `${base}/add-ons/papic`,
+      launchHref: `${base}/studio/papic/crew`,
+      addHref: `${base}/studio/papic`,
       Icon: Camera,
     },
   ];

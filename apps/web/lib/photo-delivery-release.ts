@@ -398,7 +398,7 @@ async function fanOutFinalizationNotice(input: {
     .eq('member_type', 'couple');
   const recipients = (couples ?? []).map((r) => r.user_id as string);
 
-  const relatedUrl = `/dashboard/${input.eventId}/add-ons/photo-delivery`;
+  const relatedUrl = `/dashboard/${input.eventId}/studio/photo-delivery`;
 
   if (input.finalStatus === 'complete') {
     const uploaded = (jobRow.uploaded_files as number) ?? 0;

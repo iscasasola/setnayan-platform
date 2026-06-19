@@ -583,7 +583,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
   },
   {
     // Added 2026-05-24 (owner directive · "where do we add the songlist").
-    // The playlist add-on surface at /dashboard/[eventId]/add-ons/playlist
+    // The playlist add-on surface at /dashboard/[eventId]/studio/playlist
     // shipped earlier but had no wizard card pointing at it. Card sits
     // between create_schedule (sets ceremony 3pm · cocktails 5pm ·
     // reception 7pm) and create_website. Couples build the playlist
@@ -635,7 +635,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     // REVEAL — the animation (envelope / bridal veil) that uncovers the
     // couple's invitation when a guest opens their wedding-page link. It
     // recolours from the Mood Board and plays automatically; the old paid
-    // ₱199 video-render flow is retired. The /add-ons/save-the-date route
+    // ₱199 video-render flow is retired. The /studio/save-the-date route
     // is the chooser/preview. (Task id kept as 'save_the_date_video' for
     // events.wizard_state schema stability — do not rename.)
     id: 'save_the_date_video',
@@ -655,7 +655,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     // book the add-on, designate guest paparazzi via QR enrollment, the
     // native app captures + auto-tags during the event. T-3mo entry,
     // T-14d floor (final paparazzi seat assignment). Card surfaces the
-    // intake + tier picker; the add-on surface at /add-ons/papic
+    // intake + tier picker; the add-on surface at /studio/papic
     // handles the actual setup. External-process kind · placeholder
     // body until inline activation UI ships V1.x.
     id: 'papic',

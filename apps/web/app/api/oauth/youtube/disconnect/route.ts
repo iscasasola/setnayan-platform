@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
 
   // No grant = nothing to do; treat as success.
   if (!grant) {
-    const target = new URL(`/dashboard/${eventId}/add-ons/panood`, req.url);
+    const target = new URL(`/dashboard/${eventId}/studio/panood`, req.url);
     target.searchParams.set('youtube_disconnected', '1');
     return NextResponse.redirect(target);
   }
@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
     .update({ revoked_at: new Date().toISOString() })
     .eq('grant_id', grant.grant_id);
 
-  const target = new URL(`/dashboard/${eventId}/add-ons/panood`, req.url);
+  const target = new URL(`/dashboard/${eventId}/studio/panood`, req.url);
   target.searchParams.set('youtube_disconnected', '1');
   return NextResponse.redirect(target);
 }

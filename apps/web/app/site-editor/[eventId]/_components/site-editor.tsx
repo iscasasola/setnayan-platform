@@ -101,7 +101,7 @@ import {
  * standalone purchase flow is a V1.1 deferral (no /add-ons checkout page exists
  * for them yet; the old /orders/new hand-off was retired and would dead-end).
  * Every other service (Panood / Papic / Patiktok / Custom QR / Drive) is a
- * NAVIGATION card into its `/add-ons/<key>` page, which owns its own pricing +
+ * NAVIGATION card into its `/studio/<key>` page, which owns its own pricing +
  * buy state — the locked website wiring rule (see journey.tsx docstring · V2.1
  * Amendment #3).
  */
@@ -584,13 +584,13 @@ function settingsCards(p: SiteEditorProps): ReactNode[] {
     </Card>,
     <Card key="drive" icon={<Cloud />} title="Keep your photos" sub="Sync to Google Drive">
       <Desc>Connect Google Drive so every photo from your day lands in your own folder — yours to keep.</Desc>
-      <CardLink href={`/dashboard/${p.eventId}/add-ons/photo-delivery`} ghost>
+      <CardLink href={`/dashboard/${p.eventId}/studio/photo-delivery`} ghost>
         <Cloud aria-hidden /> Set up Drive sync
       </CardLink>
     </Card>,
     <Card key="guest-qr" icon={<QrCode />} title="Custom QR per guest" sub="A personal QR for everyone">
       <Desc>Give each guest a personal QR, dressed in your monogram and colors, that opens their own invitation.</Desc>
-      <CardLink href={`/dashboard/${p.eventId}/add-ons/custom-qr-guest`} ghost>
+      <CardLink href={`/dashboard/${p.eventId}/studio/custom-qr-guest`} ghost>
         <QrCode aria-hidden /> Set up guest QRs
       </CardLink>
     </Card>,
@@ -718,12 +718,12 @@ function eventCards(
     </Card>,
     <Card key="std" icon={<Wand2 />} title="Save the Date" sub="How your page opens">
       <Desc>A reveal — envelope or bridal veil — that uncovers your invitation, recoloured from your Mood Board. Free.</Desc>
-      <CardLink href={`/dashboard/${p.eventId}/add-ons/save-the-date`} ghost>
+      <CardLink href={`/dashboard/${p.eventId}/studio/save-the-date`} ghost>
         <ArrowUpRight aria-hidden /> Choose your reveal
       </CardLink>
     </Card>,
     /* ── On the day — what goes live while guests celebrate. Each service is a
-       navigation card into its /add-ons/<key> page, which owns its pricing +
+       navigation card into its /studio/<key> page, which owns its pricing +
        buy state (the locked website wiring rule). ── */
     ...(p.publicLandingUrl
       ? [
@@ -737,7 +737,7 @@ function eventCards(
       : []),
     <Card key="panood" icon={<Tv />} title="Live stream — Panood" sub="Broadcast your ceremony">
       <Desc>Broadcast your ceremony to the guests who can&rsquo;t be there in person.</Desc>
-      <CardLink href={`/dashboard/${p.eventId}/add-ons/panood`} ghost>
+      <CardLink href={`/dashboard/${p.eventId}/studio/panood`} ghost>
         <ArrowUpRight aria-hidden /> Set up Panood
       </CardLink>
     </Card>,
@@ -753,13 +753,13 @@ function eventCards(
     />,
     <Card key="papic" icon={<Aperture />} title="Candid capture — Papic" sub="Guest cameras & paparazzo seats">
       <Desc>Turn your guests&rsquo; phones into a shared candid camera, and add dedicated seats for the shooters you pick.</Desc>
-      <CardLink href={`/dashboard/${p.eventId}/add-ons/papic`} ghost>
+      <CardLink href={`/dashboard/${p.eventId}/studio/papic`} ghost>
         <ArrowUpRight aria-hidden /> Set up Papic
       </CardLink>
     </Card>,
     <Card key="patiktok" icon={<Film />} title="Patiktok booth" sub="A vertical-reel booth">
       <Desc>A vertical-reel booth your guests can play with during the celebration.</Desc>
-      <CardLink href={`/dashboard/${p.eventId}/add-ons/patiktok`} ghost>
+      <CardLink href={`/dashboard/${p.eventId}/studio/patiktok`} ghost>
         <ArrowUpRight aria-hidden /> Set up Patiktok
       </CardLink>
     </Card>,

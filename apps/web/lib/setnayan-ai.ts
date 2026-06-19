@@ -61,7 +61,7 @@ export function isSetnayanAiActive(
  * boolean, NOT `isSetnayanAiActive` — a couple who bought it but toggled to
  * Manual still OWNS it and must never see the buy CTA again (double-charge
  * guard). When the paywall is OFF this is always false (AI is free → nothing to
- * sell). Drives the `/add-ons/setnayan-ai` buy surface + the soft-paywall CTA on
+ * sell). Drives the `/studio/setnayan-ai` buy surface + the soft-paywall CTA on
  * the match surface; both stay dormant until `SETNAYAN_AI_PAYWALL_ENABLED=true`.
  */
 export function shouldOfferSetnayanAiPurchase(

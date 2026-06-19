@@ -31,7 +31,7 @@ function redirectWithError(
   reason: string,
 ): NextResponse {
   const target = eventId
-    ? new URL(`/dashboard/${eventId}/add-ons/panood`, origin)
+    ? new URL(`/dashboard/${eventId}/studio/panood`, origin)
     : new URL('/dashboard', origin);
   target.searchParams.set('youtube_error', reason);
   return NextResponse.redirect(target);
@@ -141,7 +141,7 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const target = new URL(`/dashboard/${eventId}/add-ons/panood`, url);
+  const target = new URL(`/dashboard/${eventId}/studio/panood`, url);
   target.searchParams.set('youtube_connected', '1');
   return NextResponse.redirect(target);
 }

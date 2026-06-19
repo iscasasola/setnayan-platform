@@ -43,7 +43,7 @@ const STATE_TTL_MIN = 10;
 type ReturnTo = 'papic' | 'photo-delivery';
 
 function pagePath(returnTo: ReturnTo, eventId: string): string {
-  return `/dashboard/${eventId}/add-ons/${returnTo}`;
+  return `/dashboard/${eventId}/studio/${returnTo}`;
 }
 
 function redirectWithError(

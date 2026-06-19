@@ -5,7 +5,7 @@ import { ADD_ON_DETAILS, addOnDetail } from './add-ons-detail';
 
 // The Studio hub renders the four visible sections (Setnayan AI · Website ·
 // Capture · Branding). Every available feature in those sections links to its
-// App Store detail page at /add-ons/<key>/about — EXCEPT Panood, which has its
+// App Store detail page at /studio/<key>/about — EXCEPT Panood, which has its
 // own bespoke detail surface. This guard fails the build if a hub row would
 // point at a detail page that has no authored content (a 404 for the couple).
 const VISIBLE_GROUPS = new Set(['setnayan_ai', 'website', 'capture', 'branding']);

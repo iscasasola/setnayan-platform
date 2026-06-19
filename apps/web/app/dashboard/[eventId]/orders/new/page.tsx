@@ -14,7 +14,7 @@ import { redirect } from 'next/navigation';
  *       number · submit all in one place.
  *
  *       The new entry point is the per-add-on detail page (e.g.
- *       /dashboard/[eventId]/add-ons/panood) which renders the
+ *       /dashboard/[eventId]/studio/panood) which renders the
  *       <InlineCheckoutDrawer> client component. Direct-URL traffic
  *       to /orders/new (bookmarks · email links from prior pilot
  *       comms · legacy chat shares) lands here and bounces to the
@@ -47,5 +47,5 @@ type Props = {
 
 export default async function RetiredNewOrderPage({ params }: Props) {
   const { eventId } = await params;
-  redirect(`/dashboard/${eventId}/add-ons`);
+  redirect(`/dashboard/${eventId}/studio`);
 }

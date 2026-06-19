@@ -437,7 +437,7 @@ export function CategorySearchOverlay({
               Your wedding is close, so {label.toLowerCase()} vendors who book
               last-minute appear with Setnayan AI on.
             </p>
-            <a href={`/dashboard/${eventId}/add-ons/setnayan-ai`}>
+            <a href={`/dashboard/${eventId}/studio/setnayan-ai`}>
               Unlock with Setnayan AI
             </a>
           </div>

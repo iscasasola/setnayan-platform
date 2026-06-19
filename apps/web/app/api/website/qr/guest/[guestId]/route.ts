@@ -10,7 +10,7 @@ import { eventSkuActive } from '@/lib/entitlements';
  * GET /api/website/qr/guest/[guestId] — serves a single guest's BRANDED
  * invitation QR as a palette-tinted PNG. Drives the "Download PNG" affordance
  * on the owned Custom QR per guest surface
- * (/dashboard/[eventId]/add-ons/custom-qr-guest).
+ * (/dashboard/[eventId]/studio/custom-qr-guest).
  *
  * Closes the partial CUSTOM_QR_GUEST SKU (₱1,499) — the PNG carries the
  * couple's Mood Board palette color in its modules. Like the master event QR

@@ -73,7 +73,7 @@ export async function scheduleSamplerExpiryWarnings(
       .insert({ event_id: eventId });
     if (lockErr) return;
 
-    const link = `${APP_URL}/dashboard/${eventId}/add-ons/papic`;
+    const link = `${APP_URL}/dashboard/${eventId}/studio/papic`;
     // Distinct subjects per send so the urgent T-1 doesn't collapse under the
     // T-7 in the couple's inbox thread (Gmail threads on subject).
     const subjectT7 = 'Your free Papic photos — keep them before they roll off';

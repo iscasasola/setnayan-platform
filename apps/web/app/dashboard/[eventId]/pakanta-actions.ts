@@ -7,7 +7,7 @@
  * brief.ts). So this intake only collects the MUSIC top-up the love story
  * doesn't have — what they call each other, each side's favourite singer, the
  * music type (+ optional extra wishes). Consumed by the dedicated couple page
- * at /dashboard/[eventId]/add-ons/pakanta (PakantaMusicForm).
+ * at /dashboard/[eventId]/studio/pakanta (PakantaMusicForm).
  *
  * Both CTAs persist the same draft row in `pakanta_intake_drafts` keyed by
  * event_id (admin reads it on the /admin/pakanta queue):
@@ -158,7 +158,7 @@ export async function savePakantaIntake(
     return { ok: false, error: upsertErr.message };
   }
 
-  revalidatePath(`/dashboard/${eventIdRaw}/add-ons/pakanta`);
+  revalidatePath(`/dashboard/${eventIdRaw}/studio/pakanta`);
 
   const redirectTo =
     intent === 'purchase'

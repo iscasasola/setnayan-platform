@@ -19,8 +19,8 @@ import {
   LiveWallControls,
   type WallScreenRow,
   type WallTileRow,
-} from '../add-ons/papic/_components/live-wall-controls';
-import { KwentoQueue } from '../add-ons/papic/moderation/_components/kwento-queue';
+} from '../studio/papic/_components/live-wall-controls';
+import { KwentoQueue } from '../studio/papic/moderation/_components/kwento-queue';
 import { WallModeControl } from './_components/mode-control';
 import { FlashAutoWallToggle } from './_components/flash-auto-wall-toggle';
 
@@ -75,7 +75,7 @@ export default async function LiveWallConsolePage({
             fills itself as the night unfolds. The Live Wall is a Papic add-on.
           </p>
           <Link
-            href={`/dashboard/${eventId}/add-ons`}
+            href={`/dashboard/${eventId}/studio`}
             className="mt-5 inline-flex items-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600"
           >
             <Sparkles aria-hidden className="h-4 w-4" strokeWidth={2} />

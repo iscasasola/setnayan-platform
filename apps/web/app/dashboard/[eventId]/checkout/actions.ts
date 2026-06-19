@@ -673,7 +673,7 @@ export async function submitOrderAction(
   // pending order on their next render.
   revalidatePath(`/dashboard/${eventId}/orders`);
   revalidatePath(`/dashboard/${eventId}/orders/${orderId}`);
-  revalidatePath(`/dashboard/${eventId}/add-ons`);
+  revalidatePath(`/dashboard/${eventId}/studio`);
 
   return { ok: true, order_id: orderId, reference_code: referenceCode };
 }

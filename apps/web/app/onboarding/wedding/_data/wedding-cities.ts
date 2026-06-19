@@ -1,6 +1,25 @@
 /* Curated wedding cities + Top-30 carousel order. Ported from the onboarding
    prototype (owner 2026-06-04). The 30 keys in TOP30 each carry a real photo
-   (public/onboarding/cities/{k}.webp) + a wedding nugget. */
+   (public/onboarding/cities/{k}.webp) + a wedding nugget.
+
+   CANONICAL-SOURCE STATUS (2026-06-19 · REGIONS canonical-source QA fix —
+   DEFERRED FOLLOW-UP): public.wedding_destinations + public.regions (migration
+   20270128395443_regions_canonical_source) are the new canonical source for
+   this carousel + the city → region map. This file was INTENTIONALLY left
+   reading its TS literals: CITIES / TOP30 / cityByKey / resolvePick /
+   REGION_CENTROID are consumed SYNCHRONOUSLY inside two client components
+   (onboarding-shell.tsx, location-step.tsx) at render time — carousel cards,
+   distance sort, the per-pick region/coords derivation. A DB cutover here would
+   need an async fetch from a client render path, which can't be done
+   synchronously without risking a blank/janky onboarding carousel; and the
+   wedding_destinations rows aren't verified live yet (city_aliases seeded
+   empty). Per the QA-fix scope, this is the LAST/RISKIEST consumer and is
+   deferred rather than cut over inside the fallback guarantees. The TS literals
+   below mirror the migration seed (same keys / ranks / coords / nuggets), so
+   they stay the build-time fallback; resolvePick still returns the canonical
+   region slug ('cagayan-valley' → 'cagayan'). A future PR can hydrate
+   server-side props from public.wedding_destinations and pass them into the
+   client carousel, keeping these literals as the offline fallback. */
 export type WeddingCity = { k: string; n: string; r: string; rk: string; lat: number; lon: number; top?: number; nug?: string };
 export const CITIES: WeddingCity[] = [
       {k:'tagaytay',n:'Tagaytay',r:'Cavite · CALABARZON',rk:'calabarzon',lat:14.106,lon:120.962,top:1,nug:'Cool-climate gardens & ridges over Taal — the metro’s favorite weekend wedding escape.'},

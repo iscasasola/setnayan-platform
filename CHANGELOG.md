@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-18 · fix(orders): co-hosts can read their event's paid-SKU orders (RLS — NEEDS OWNER SIGN-OFF)
+
+Confirmed bug (verified via the do-everything assessment): `orders` RLS was buyer-only (`orders_owner_read` USING `user_id = auth.uid()`), but events are multi-member. A co-host who didn't click "buy" read **zero** order rows under the RLS-enforced anon client, so every event-scoped entitlement gate (`lib/entitlements.ts`) went dark for them — Studio, Papic live wall, Setnayan AI, budget ledger, launch/live surfaces, animated monogram.
+
+- **New migration** broadens **only the SELECT** policy to `user_id = auth.uid() OR event_id IN (current_event_ids()) OR is_admin()`. The WRITE policy is untouched — a co-host can read but never edit/cancel/refund/forge an order. Idempotent (`DROP POLICY IF EXISTS` + `CREATE`); null-safe on the nullable `event_id`.
+
+⚠ **NOT auto-merged — owner sign-off required.** This deliberately exposes one member's order line-items (amount, service_key, reference_code, voucher/discount, status, `admin_notes`) to every co-host on the event. That's the intended shared-planning behavior, but it's a real privacy widening — if any column is buyer-private, scope to a column-limited VIEW instead. The separate `payments` table (screenshots) is NOT touched.
+
+SPEC IMPACT iter 0034 — corrects a multi-member entitlement gap. → CHANGELOG + corpus DECISION_LOG (after sign-off).
+
 ## 2026-06-19 · fix(ci): repair two advisory guards left stale by the Studio route rename (PR pending, auto-merge)
 
 The `add-ons` → `studio` route rename (PR #1815) added route redirects but missed two guard configs that hardcode the old paths, so `lint papic keep-permanent` and `lint retired strings` were **failing on `main`** (baseline) and on every open PR. **No actual bug** — verified the keep-permanent logic is intact at the new path (`studio/papic/actions.ts:141` still calls `makeSamplerPermanent` + `cancelSamplerExpiryWarnings`); only the guards' paths were stale.

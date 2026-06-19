@@ -948,7 +948,7 @@ export function Footer() {
         { label: 'What you get', href: '/features' },
         { label: 'Real Stories', href: '/weddings' },
         { label: 'Planning guides', href: '/blog' },
-        { label: 'Wedding venues', href: '/venues' },
+        { label: 'Wedding venues', href: '/explore' },
         { label: 'Pricing', href: '/pricing' },
       ],
     },

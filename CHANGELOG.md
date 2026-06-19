@@ -4,6 +4,25 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · fix(nav): menu-connectivity cleanup — all no-decision fixes from the 2026-06-19 menu audit
+
+Applies the six safe, no-decision fixes surfaced by the 2026-06-19 menu-connectivity audit (commit `70684a81`). Nav config only — no behavior, schema, or pricing change.
+
+- **HARD 404 fixed** — `app/_components/marketing/_sections.tsx`: the footer "Wedding venues" link pointed at `/venues`, which has no page and no redirect (and `venues` is a `RESERVED_TOP_LEVEL` segment), so it 404'd. Repointed the href to `/explore` (the venue/marketplace browse); visible label unchanged. (`RESERVED_TOP_LEVEL` untouched.)
+- **Vendor mobile More-tab highlight** — `app/vendor-dashboard/_components/vendor-bottom-nav.tsx`: added `partnerships`, `real-stories`, `recaps` to the More-tab `activeMatch[]` (placed to match the desktop sidebar's **Grow** group order). These pages already exist in `VENDOR_NAV_GROUPS` + the desktop sidebar; this only fixes the mobile More tab failing to light on those routes.
+- **Missing nav-registry defaults** — `lib/nav-registry-defaults.ts`: added 4 slot defaults so they become admin-editable (label + icon) instead of rendering hardcoded fallbacks: `customer.home-subnav.overview` (Overview / LayoutDashboard), `customer.home-subnav.checklist` (Checklist / ClipboardList), `admin.sidebar.editorial-review` (Editorial review / Newspaper), `admin.sidebar.papic-sampler` (Papic sampler / Camera). Each copies the shape/labels/icons from its hardcoded source (`lib/customer-menu.ts`, `ADMIN_NAV_GROUPS`).
+- **Stale registry route field** — `lib/nav-registry-defaults.ts`: `public.site-nav.real-stories` recorded `route: "/weddings"` (the live href is `/realstories`; `app/weddings/` doesn't exist — only a 301 redirect). Corrected the `route` field to `/realstories`.
+- **Dead registry defaults removed** — `lib/nav-registry-defaults.ts`: deleted the orphan `customer.bottom-nav.design` default (Design folded into Studio; `/design` redirects; no menu emits 'design') and the 19 dead `customer.studio.*` defaults under area `studio-addon-hub`. Verified by grep: `getNavArea()` (the only consumer of that area) has **zero call sites**, the add-ons hub renders from `lib/add-ons-catalog.ts`, and neither `customer.studio.*` nor `customer.bottom-nav.design` is referenced anywhere outside the defaults file. (`getNavArea` itself left in place — out of scope; now provably unused.)
+- **Admin Patiktok doorway** — `app/admin/_components/admin-sidebar.tsx`: `/admin/patiktok` existed as a page but had no nav entry (orphan doorway). Added a `patiktok` item to `ADMIN_NAV_GROUPS` in the **Platform** group next to `recaps` (icon `Film`, added to the lucide imports), mirroring the sibling content leaves. (`/admin/queues` legacy alias left alone.)
+
+Self-reviewed (no local `node_modules` → no typecheck/lint here; CI gates). Structural checks on the defaults file pass: 186 unique slot keys, balanced braces, all new lucide names (`LayoutDashboard`, `ClipboardList`, `Newspaper`, `Camera`, `Film`) are in the `nav-icons.ts` allowlist, enum/icon-consistency constraints from `nav-registry-defaults.test.ts` satisfied.
+
+SPEC IMPACT: None (nav configuration only — hrefs, activeMatch arrays, registry data, route metadata; no SKU/schema/pricing/behavior change).
+
+> ⚠ Owner note: before the admin override DB is relied on, confirm no `nav_slot_override` row references the deleted `customer.studio.*` / `customer.bottom-nav.design` keys (the resolver silently ignores orphan overrides — not a runtime bug, but a saved admin rename/hide on those would quietly no-op). Mirrors the pre-delete check done for PR #1581.
+
+---
+
 ## 2026-06-19 · feat(save-the-date): view counter — unique-per-day, couple + HQ surfaces
 
 Owner: "add view count for the save the date (can be tallied for data)." Scope locked with the owner: **unique per day** · **couple + HQ** · **Save-the-Date phase only**.

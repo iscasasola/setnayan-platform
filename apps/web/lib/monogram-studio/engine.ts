@@ -67,7 +67,9 @@ export function mountStudio(opts) {
     fontKey = 'cardo',
     proj = null,
     zt = null,
-    keyHandler = null;
+    keyHandler = null,
+    resizeObs = null,
+    sizeRaf = 0;
 
   function loadFont(key, cb) {
     if (cache[key]) {
@@ -200,6 +202,25 @@ export function mountStudio(opts) {
     updU();
   }
 
+  // Match the view's project-space size to the canvas host's rendered box so
+  // the mark renders 1:1 (no vertical stretch) at whatever size the CSS gives
+  // it. The mark is composed around the origin, so we keep view.center fixed
+  // through the resize and just grow/shrink the visible window around it.
+  function syncViewSize() {
+    if (!view) return;
+    const host = cv.parentElement || cv;
+    const w = Math.max(1, Math.round(host.clientWidth || cv.clientWidth || 390));
+    const h = Math.max(1, Math.round(host.clientHeight || cv.clientHeight || 300));
+    const vs = view.viewSize;
+    if (Math.abs(vs.width - w) < 1 && Math.abs(vs.height - h) < 1) return;
+    const c = view.center;
+    view.viewSize = new paper.Size(w, h);
+    view.center = c;
+    try {
+      view.update();
+    } catch (e) {}
+  }
+
   function start() {
     paper.setup(cv);
     view = paper.view;
@@ -207,9 +228,22 @@ export function mountStudio(opts) {
     layer = paper.project.activeLayer;
     penLayer = new paper.Layer();
     layer.activate();
-    const rw = cv.clientWidth || 390;
-    view.viewSize = new paper.Size(rw, 300);
+    // Size the paper.js view to the canvas's ACTUAL rendered box (the .sw2
+    // host obeys the CSS — full-width on mobile, a tall two-column preview on
+    // desktop) instead of a hardcoded 300px. A ResizeObserver keeps the view in
+    // sync as the layout reflows (breakpoint flips, window resize) so the mark
+    // never stretches — the studio "takes up the space" the page gives it.
+    syncViewSize();
     view.center = new paper.Point(0, 0);
+    try {
+      if (typeof ResizeObserver !== 'undefined') {
+        resizeObs = new ResizeObserver(function () {
+          if (sizeRaf) cancelAnimationFrame(sizeRaf);
+          sizeRaf = requestAnimationFrame(syncViewSize);
+        });
+        resizeObs.observe(cv.parentElement || cv);
+      }
+    } catch (e) {}
     FS = 150;
     ink = new paper.Color('#5C2542');
     inkHex = '#5C2542';
@@ -1684,6 +1718,14 @@ export function mountStudio(opts) {
   function destroy() {
     try {
       if (view) view.onFrame = null;
+    } catch (e) {}
+    try {
+      if (resizeObs) resizeObs.disconnect();
+      resizeObs = null;
+    } catch (e) {}
+    try {
+      if (sizeRaf) cancelAnimationFrame(sizeRaf);
+      sizeRaf = 0;
     } catch (e) {}
     try {
       if (zt) clearTimeout(zt);

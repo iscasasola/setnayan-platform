@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-20 · ux(std): stop the couple background-music speaker from bleeding over the veil reveal
+
+Follow-up to the 2026-06-19 film-mute removal. The actual speaker-with-✕ icon the owner saw on the veil was the couple-website **background-music player** (`background-music.tsx`), not the film's mute — its default (not-yet-playing) state renders a `VolumeX`. That floating control is gated only on `bgMusicUrl`, with **no phase check**, so it rendered during the Save-the-Date phase too and sat under the sheer veil, showing through the reveal.
+
+- **`apps/web/app/[slug]/page.tsx`** (both render paths — anonymous + identified-guest, ~lines 1421 & 1928): changed `{bgMusicUrl ? <BackgroundMusic …/> : null}` → `{bgMusicUrl && !showSaveTheDate ? <BackgroundMusic …/> : null}`. The player now renders only on the live wedding-site phases (RSVP / Event / Editorial), never during the Save-the-Date veil reveal. The STD film owns audio during that phase, so nothing is lost. `showSaveTheDate` is already in scope at both sites.
+
+SPEC IMPACT: None — conditional-render guard only; no schema, pricing, or product-surface change. The `BackgroundMusic` component and the couple's opt-in background-music feature are untouched on every other phase.
+
+---
+
 ## 2026-06-19 · ux(std): remove the Save-the-Date content-film mute toggle (owner)
 
 The content film rendered a small translucent mute toggle (bottom-right, `Music`⇄`VolumeX`) as the "lone escape" for its auto-playing soundtrack. Because the film plays *underneath* the sheer veil reveal, the button bled through the veil and showed over the opening. Owner asked to remove it entirely (2026-06-19) — accepting that the soundtrack now has no off-switch.

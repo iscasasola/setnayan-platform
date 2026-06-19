@@ -157,7 +157,7 @@ async function dispatchNudgeEmail(
         ? `Hi ${guestName},\n\n${coupleName} would love to hear your story of the ${moment.label}.\n\nHead to their Setnayan page to add your message — it'll become part of their living wedding memory.\n\nSetnayan`
         : `Hi ${guestName},\n\n${coupleName} wanted to remind you — they'd still love to hear your story of the ${moment.label}.\n\nYour words mean more than you know.\n\nSetnayan`;
 
-    if (isEmailConfigured()) {
+    if (await isEmailConfigured()) {
       await sendEmail({ to: guest.email as string, subject, text });
     }
 

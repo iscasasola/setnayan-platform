@@ -123,7 +123,8 @@ export async function emitNotification(args: EmitNotificationArgs): Promise<void
   // configured — fire-and-forget; failures here never affect the in-app
   // notification that already landed. The allowlist is the critical fix: it
   // stops the prior behavior of emailing the recipient on EVERY type.
-  if (isEmailConfigured() && EMAIL_ENABLED_TYPES.has(type)) {
+  // (isEmailConfigured is async now — Integration Console DB-first resolver.)
+  if ((await isEmailConfigured()) && EMAIL_ENABLED_TYPES.has(type)) {
     try {
       const admin = createAdminClient();
       const { data: recipient } = await admin

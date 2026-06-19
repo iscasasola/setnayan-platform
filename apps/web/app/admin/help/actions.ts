@@ -97,7 +97,7 @@ export async function setHelpMessageStatus(formData: FormData) {
     // Best-effort: a send failure never blocks the status update. We email
     // straight from here (not emitNotification) because there's no user row to
     // route through, mirroring the branded multipart shape emitNotification uses.
-    if (isEmailConfigured()) {
+    if (await isEmailConfigured()) {
       try {
         const subject = (prior.subject as string | null)?.trim();
         const greetingName = (prior.sender_name as string | null)?.trim();

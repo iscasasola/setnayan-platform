@@ -23,7 +23,7 @@ export async function sendPatiktokReelReadyEmail(input: {
   templateName?: string | null;
 }): Promise<void> {
   try {
-    if (!isEmailConfigured()) return;
+    if (!(await isEmailConfigured())) return;
 
     const admin = createAdminClient();
 

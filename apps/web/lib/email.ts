@@ -1,4 +1,5 @@
 import 'server-only';
+import { resolveResendConfig, isResendConfigured } from '@/lib/integration-config';
 
 export type SendEmailArgs = {
   to: string;
@@ -39,15 +40,14 @@ export type SendEmailResult =
  * sandbox only delivers to the Resend account holder's own email address.
  */
 export async function sendEmail(args: SendEmailArgs): Promise<SendEmailResult> {
-  const apiKey = process.env.RESEND_API_KEY;
+  // DB-first (Integration Activation Console), env-fallback. Lets the owner set
+  // the Resend key from /admin/integrations without a redeploy.
+  const { apiKey, fromAddress } = await resolveResendConfig();
   if (!apiKey) {
     return { ok: false, reason: 'not_configured' };
   }
 
-  const fromEmail =
-    process.env.RESEND_FROM_ADDRESS ??
-    process.env.RESEND_FROM_EMAIL ??
-    'onboarding@resend.dev';
+  const fromEmail = fromAddress ?? 'onboarding@resend.dev';
 
   try {
     // Lazy-import so the bundle stays clean for builds where Resend isn't used.
@@ -73,8 +73,13 @@ export async function sendEmail(args: SendEmailArgs): Promise<SendEmailResult> {
   }
 }
 
-export function isEmailConfigured(): boolean {
-  return Boolean(process.env.RESEND_API_KEY);
+/**
+ * Async now (Integration Activation Console): resolves DB-first, env-fallback.
+ * Callers must `await` it — a DB-saved key must be honored even when no env key
+ * is set, so a sync env-only check would wrongly short-circuit the send.
+ */
+export async function isEmailConfigured(): Promise<boolean> {
+  return isResendConfigured();
 }
 
 /**
@@ -84,7 +89,7 @@ export function isEmailConfigured(): boolean {
  * wrong. Gated on the key and best-effort; returns whether the cancel succeeded.
  */
 export async function cancelScheduledEmail(id: string): Promise<boolean> {
-  const apiKey = process.env.RESEND_API_KEY;
+  const { apiKey } = await resolveResendConfig();
   if (!apiKey || !id) return false;
   try {
     const { Resend } = await import('resend');

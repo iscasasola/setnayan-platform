@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · fix(vendors): editorial-credit + #1-pick wiring — write `linked_vendor_profile_id` on lock, clear on revert, repair slot path + backfill
+
+Owner-approved 2026-06-19. Two cross-account bugs meant the marketplace never attributed completed events to vendors, so the public completed-events count stayed permanently 0 and the Pro/Enterprise editorial credit (the "From Your Vendors" media + #1-match stat) never fired.
+
+- **(A) `app/dashboard/[eventId]/vendors/actions.ts` · `finalizeVendor` generic lock write** — the lock UPDATE never set `event_vendors.linked_vendor_profile_id`, the FK the public stats view + editorial credit join on (`ev.linked_vendor_profile_id = vp.vendor_profile_id`, `20260515020000_public_stats_exclusion.sql`). Now sets `linked_vendor_profile_id = targetVendor.marketplace_vendor_id ?? null` alongside the existing `status` + `selection_match_rank=1`. Same FK target as `marketplace_vendor_id` (`vendor_profiles.vendor_profile_id`); NULL for off-platform/custom vendors, which is correct.
+- **(m2) `revertVendorToConsidering`** — un-picking a vendor now also clears `selection_match_rank` → `null` AND `linked_vendor_profile_id` → `null`, so a no-longer-chosen vendor drops the #1-pick flag and stops contributing editorial credit / completed-events count.
+- **(M2) migration `20270129232225_vendor_editorial_credit_slot_and_backfill.sql` · `CREATE OR REPLACE FUNCTION public.acquire_service_time_slot`** — the Enterprise time-slot path commits the lock atomically inside the RPC's slot lock and previously set only `status` + `service_time_slot_id`, so slot-booked vendors were never flagged #1 and never earned credit. The consuming UPDATE now ALSO sets `selection_match_rank = 1` and `linked_vendor_profile_id = marketplace_vendor_id` (self-column reference reads the pre-UPDATE value) inside the same `FOR UPDATE` lock — all other behavior, auth, capacity counting, and return envelope preserved verbatim from `20260928000000_vendor_service_time_slots.sql`.
+- **(backfill) same migration** — one-time idempotent `UPDATE event_vendors SET linked_vendor_profile_id = marketplace_vendor_id WHERE linked_vendor_profile_id IS NULL AND marketplace_vendor_id IS NOT NULL AND status IN ('contracted','deposit_paid','delivered','complete')` back-attributes historical confirmed bookings.
+
+Lock-status enum confirmed by grep: `LOCKED_STATUS = 'contracted'`; `CONFIRMED_VENDOR_STATUSES = ['contracted','deposit_paid','delivered','complete']` (`lib/events.ts`). Migration is additive + idempotent (`CREATE OR REPLACE`, NULL-scoped backfill) + backward-compatible — the app behaves correctly whether or not the migration is applied yet (the generic-path write already stamps both columns in-app; the migration only repairs the slot path + history). Self-reviewed against TS strict (no local `node_modules` → no typecheck/lint here; CI gates).
+
+SPEC IMPACT: None (bug fix only — wires the already-specced marketplace attribution FK + #1-pick flag that the lock/revert/slot paths were silently dropping; no SKU/schema-shape/pricing/gating change — the columns already exist).
+
+---
+
 ## 2026-06-19 · fix(nav): menu-connectivity cleanup — all no-decision fixes from the 2026-06-19 menu audit
 
 Applies the six safe, no-decision fixes surfaced by the 2026-06-19 menu-connectivity audit (commit `70684a81`). Nav config only — no behavior, schema, or pricing change.

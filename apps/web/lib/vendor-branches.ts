@@ -21,9 +21,22 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * order; auto-charge is N/A in the apply-then-pay model (no card on file).
  */
 
-/** Fixed Additional-Branch fee (owner-locked 2026-06-05 · ₱999 charm). */
+/**
+ * Additional-Branch fee FALLBACK (owner-locked 2026-06-05 · ₱999 charm).
+ *
+ * The canonical, admin-managed price now lives in the `vendor_billing_catalog`
+ * row `vendor_additional_branch` (price stored in PHP — owner rule 2026-06-19
+ * "prices are admin-managed"). Read it server-side with `fetchBranchFeePhp()`.
+ * This literal is the BACKWARD-COMPATIBLE fallback used when the catalog row is
+ * missing (e.g. the seeding migration hasn't been applied yet) — so the branch
+ * flow keeps working at ₱999 regardless of migration state. The UI still
+ * imports this for static copy; the order-creation path resolves the live price.
+ */
 export const BRANCH_FEE_PHP = 999;
 export const BRANCH_FEE_CENTAVOS = BRANCH_FEE_PHP * 100;
+
+/** The catalog sku_code the branch fee is read from (seeded by migration). */
+export const BRANCH_SKU_CODE = 'vendor_additional_branch';
 
 /** 28-day billing window. The admin approval hook stamps orders.expires_at. */
 export const BRANCH_PERIOD_DAYS = 28;
@@ -44,6 +57,34 @@ export function branchIdFromServiceKey(serviceKey: string): string | null {
   if (!serviceKey.startsWith(BRANCH_SERVICE_KEY_PREFIX)) return null;
   const id = serviceKey.slice(BRANCH_SERVICE_KEY_PREFIX.length);
   return id.length > 0 ? id : null;
+}
+
+/**
+ * Resolve the live Additional-Branch fee (in PHP) from the admin-managed
+ * catalog, falling back to the {@link BRANCH_FEE_PHP} literal when the
+ * `vendor_additional_branch` row is missing or unreadable. Mirrors how every
+ * other vendor SKU is read (vendor_billing_catalog · `Number(price_php)`).
+ *
+ * Backward-compatible by construction: if the seeding migration hasn't been
+ * applied yet (or RLS hides the row), the order is still created at ₱999. Any
+ * non-positive / non-finite price is treated as missing and falls back too.
+ */
+export async function fetchBranchFeePhp(
+  supabase: SupabaseClient,
+): Promise<number> {
+  try {
+    const { data, error } = await supabase
+      .from('vendor_billing_catalog')
+      .select('price_php')
+      .eq('sku_code', BRANCH_SKU_CODE)
+      .eq('is_active', true)
+      .maybeSingle();
+    if (error || !data) return BRANCH_FEE_PHP;
+    const price = Number((data as { price_php: number | string }).price_php);
+    return Number.isFinite(price) && price > 0 ? price : BRANCH_FEE_PHP;
+  } catch {
+    return BRANCH_FEE_PHP;
+  }
 }
 
 export const BRANCH_RADIUS_MIN_KM = 1;

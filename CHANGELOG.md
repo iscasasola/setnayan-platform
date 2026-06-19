@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · fix(pricing): vendor Additional-Branch fee → admin-managed catalog (was hardcoded ₱999)
+
+Owner rule "prices are admin-managed" (2026-06-19): move the last hardcoded vendor price — the ₱999 Additional-Branch fee — out of a TypeScript literal and into `vendor_billing_catalog`, so the branch charge reads the live admin-set price at order-creation time.
+
+- **migration `20270128654206_vendor_additional_branch_catalog_sku.sql`** (allocator-prefixed · additive · idempotent) — extends the `vendor_billing_catalog` `offering_type` CHECK with a new `'branch'` value and relaxes `vendor_billing_shape` so a branch row carries `token_grant_count NULL` (same drop+recreate pattern as `20260712000000` which added `subscription_annual`), then seeds `('vendor_additional_branch', 'Additional Branch (28-day)', 999.00, 'branch', …, display_order 80)`. `ON CONFLICT` deliberately does **not** overwrite `price_php`, so re-applying the migration never stomps a later admin price edit. **NOT applied to prod by this PR** (orchestrator applies separately).
+- **`apps/web/lib/vendor-branches.ts`** — added `fetchBranchFeePhp(supabase)` (reads `price_php` for `sku_code = 'vendor_additional_branch'`, `is_active`, via `maybeSingle()`; falls back to the `BRANCH_FEE_PHP` literal on missing row / RLS-hidden / non-finite / non-positive). Added `BRANCH_SKU_CODE` const. `BRANCH_FEE_PHP`/`BRANCH_FEE_CENTAVOS` kept as the backward-compatible fallback (also still used for static UI copy). Price stored/read in **PHP** (NUMERIC), matching every other `vendor_billing_catalog` read in `lib/v2-catalog.ts` — not centavos.
+- **`apps/web/app/vendor-dashboard/branches/actions.ts`** — `createBranch` + `renewBranch` now resolve the fee via `fetchBranchFeePhp()` and pass it into `startBranchPayment`, which stamps `orders.requested_total_php` + `payments.amount_php` from that resolved value instead of the import. Both amount columns are `NUMERIC(12,2)` so a decimal admin price is safe. Backward-compatible: with the migration unapplied the resolver returns ₱999 and behavior is identical to today.
+
+Self-reviewed against TS strict (no local `node_modules` → no local typecheck; CI gates). Did NOT touch `lib/sku-activation.ts` or `lib/chat-actions.ts` (the branch-activation hook reads the order's stored total, not a literal, so it's unaffected).
+
+SPEC IMPACT: Pricing surface — the ₱999 branch fee is now an admin-editable catalog SKU (`vendor_additional_branch`) rather than a code literal; price unchanged at ₱999. Aligns with the standing "prices are admin-managed" rule (memory `project_setnayan_pricing_admin_managed`). Note: `vendor-dashboard/branches/page.tsx` static copy still renders `peso(BRANCH_FEE_PHP)` (₱999) — display only; the load-bearing charge now reads the catalog. Worth a follow-up to make the display read the live price too.
+
+---
+
 ## 2026-06-19 · fix(nav): menu-connectivity cleanup — all no-decision fixes from the 2026-06-19 menu audit
 
 Applies the six safe, no-decision fixes surfaced by the 2026-06-19 menu-connectivity audit (commit `70684a81`). Nav config only — no behavior, schema, or pricing change.

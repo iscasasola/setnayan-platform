@@ -98,3 +98,43 @@ export async function notifyVendorTokensCredited(
     console.error('[token-purchase] vendor credited notify failed:', e);
   }
 }
+
+/**
+ * Tell the vendor their token purchase was rejected (payment not received /
+ * couldn't be matched) and what to do next. Deep-links to the wallet so they
+ * can retry or re-upload proof. Fail-soft — a notify failure never affects the
+ * reject RPC that already ran.
+ */
+export async function notifyVendorTokenPurchaseRejected(
+  purchaseId: string,
+  reason: string,
+): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    const { data: p } = await admin
+      .from('vendor_token_purchases')
+      .select('vendor_id, token_count, amount_php')
+      .eq('purchase_id', purchaseId)
+      .maybeSingle();
+    if (!p) return;
+
+    const { data: v } = await admin
+      .from('vendor_profiles')
+      .select('user_id')
+      .eq('vendor_profile_id', p.vendor_id)
+      .maybeSingle();
+    if (!v?.user_id) return; // unclaimed vendor — no account to notify yet
+
+    await emitNotification({
+      userId: v.user_id as string,
+      type: 'vendor_status_change',
+      title: `Token purchase couldn't be confirmed`,
+      body: `Your ${p.token_count}-token purchase (${peso(
+        Number(p.amount_php),
+      )}) was not confirmed. Reason: ${reason}. You can start a new purchase or re-upload your payment proof from your wallet.`,
+      relatedUrl: '/vendor-dashboard/tokens',
+    });
+  } catch (e) {
+    console.error('[token-purchase] vendor rejected notify failed:', e);
+  }
+}

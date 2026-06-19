@@ -4,6 +4,7 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-20 · revert(std): restore the Save-the-Date film mute toggle (it was the wrong icon)
 ## 2026-06-20 · ux(std): stop the couple background-music speaker from bleeding over the veil reveal
 
 Follow-up to the 2026-06-19 film-mute removal. The actual speaker-with-✕ icon the owner saw on the veil was the couple-website **background-music player** (`background-music.tsx`), not the film's mute — its default (not-yet-playing) state renders a `VolumeX`. That floating control is gated only on `bgMusicUrl`, with **no phase check**, so it rendered during the Save-the-Date phase too and sat under the sheer veil, showing through the reveal.
@@ -26,11 +27,11 @@ Verified: both guards run green locally (`retired-strings` 0 violations / 1117 f
 SPEC IMPACT: None (CI guard config only).
 ## 2026-06-19 · ux(std): remove the Save-the-Date content-film mute toggle (owner)
 
-The content film rendered a small translucent mute toggle (bottom-right, `Music`⇄`VolumeX`) as the "lone escape" for its auto-playing soundtrack. Because the film plays *underneath* the sheer veil reveal, the button bled through the veil and showed over the opening. Owner asked to remove it entirely (2026-06-19) — accepting that the soundtrack now has no off-switch.
+Reverts #1843. The owner's "remove this" pointed at a **speaker-with-✕** icon on the veil; with the full screenshot it became clear that's the bottom-LEFT couple background-music player (handled separately by gating it off during the STD phase), **not** the film's mute. The bottom-RIGHT music-note control is the film's mute — "the one that works" — and the owner wants it kept. #1843 had removed it.
 
-- **`apps/web/app/[slug]/_components/save-the-date-film.tsx`**: deleted the mute `<button>` block (was gated on `content.musicUrl || content.videoUrl`), the `toggleMute` handler, and the now-unused `lucide-react` `Music`/`VolumeX` import. Replaced `const [muted, setMuted] = useState(false)` with a stable `const muted = false` (no toggle path remains) — the 13 remaining `muted` reads in the audio/video-gating effects are unchanged, so the `<audio loop muted={muted}>` element still auto-plays with sound. No other transport chrome existed to touch.
+- **`git revert -m 1` of #1843's merge** (`15af5828`): restores in `apps/web/app/[slug]/_components/save-the-date-film.tsx` the `Music`/`VolumeX` import, the `const [muted, setMuted] = useState(false)` state, the `toggleMute` handler, and the bottom-right mute `<button>` (gated on `content.musicUrl || content.videoUrl`). Clean revert, no conflicts.
 
-SPEC IMPACT: None — UI removal only; no schema, pricing, or product-surface change. Note for the owner: the film's auto-playing soundtrack now has **no guest-facing mute** on any phase (accessibility/UX trade-off acknowledged per the 2026-06-19 decision); the separate couple-landing `BackgroundMusic` opt-in control (RSVP/Event phases) is untouched.
+SPEC IMPACT: None — restores prior UI behavior. Net state across the two open changes: the **left** background-music speaker no longer renders during the veil (#1845), the **right** film mute is back. No schema/pricing/surface change.
 
 ---
 

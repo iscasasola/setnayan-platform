@@ -22,6 +22,9 @@ import {
   signOutOtherDevices,
 } from '@/lib/account-security-actions';
 import { getEventTypeVocab } from '@/lib/event-types-db';
+import { getTaxonomy } from '@/lib/taxonomy-db';
+import { VENDOR_CATEGORIES } from '@/lib/vendors';
+import { labelForVendorCategory } from '@/lib/vendor-category-taxonomy';
 import { saveVendorProfile } from '../actions';
 import { ServicesPicker } from '../_components/services-picker';
 import { CompletedEventsCard } from '../_components/completed-events-card';
@@ -381,6 +384,25 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
   const completion = profileCompletion(profile);
   const pct = completion.total === 0 ? 0 : Math.round((completion.done / completion.total) * 100);
 
+  // Live admin-taxonomy DISPLAY labels for the "what do you offer" picker. The
+  // stored vocabulary is UNCHANGED — labelForVendorCategory only swaps the
+  // human-readable text to whatever an admin set on each anchor tile, falling
+  // back to the in-code VENDOR_CATEGORY_LABEL per category. getTaxonomy() is
+  // itself fallback-safe (uses lib/taxonomy.ts when the DB is unseeded), so this
+  // is safe before any migration. Wrapped so a taxonomy hiccup leaves the picker
+  // rendering exactly as before (labels=undefined → in-code labels).
+  let serviceLabels: Record<string, string> | undefined;
+  try {
+    const tax = await getTaxonomy();
+    serviceLabels = Object.fromEntries(
+      VENDOR_CATEGORIES.map((c) => [c, labelForVendorCategory(c, tax)]),
+    );
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[/vendor-dashboard] taxonomy label lookup failed', err);
+    serviceLabels = undefined;
+  }
+
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
       {/*
@@ -583,7 +605,11 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
           htmlFor="services"
           help="Tick the standard categories you offer. Add custom services for anything not on the list."
         >
-          <ServicesPicker name="services" initial={profile?.services ?? []} />
+          <ServicesPicker
+            name="services"
+            initial={profile?.services ?? []}
+            labels={serviceLabels}
+          />
         </Field>
 
         <Field

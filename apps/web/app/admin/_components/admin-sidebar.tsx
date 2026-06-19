@@ -110,6 +110,7 @@ import {
   Images,
   Radar,
   Camera,
+  Film,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { SidebarSection } from '@/app/_components/nav/sidebar-section';
@@ -545,6 +546,17 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/recaps',
         icon: Images,
         matchPrefix: '/admin/recaps',
+      },
+      {
+        // Patiktok template library oversight — short-form vertical video
+        // templates for the post-event personal reels. Page existed at
+        // /admin/patiktok but had no nav entry (orphan doorway); slotted into
+        // Platform next to the other content surfaces 2026-06-19.
+        key: 'patiktok',
+        label: 'Patiktok',
+        href: '/admin/patiktok',
+        icon: Film,
+        matchPrefix: '/admin/patiktok',
       },
       {
         key: 'brain',

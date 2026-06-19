@@ -32,7 +32,7 @@ import {
   type RevealTemplate,
   type RevealChoice,
 } from '@/app/[slug]/_components/reveal/reveal-templates';
-import { RevealPreviewCard } from '@/app/dashboard/[eventId]/_components/reveal-preview-card';
+import { RevealPreviewCard, ColorRow } from '@/app/dashboard/[eventId]/_components/reveal-preview-card';
 import { RevealPreview } from '@/app/dashboard/[eventId]/_components/reveal-preview';
 import { StdBackgroundPicker } from '@/app/dashboard/[eventId]/_components/std-background-picker';
 import { StdMediaPicker, type StdVideoUpload } from '@/app/dashboard/[eventId]/_components/std-media-picker';
@@ -83,6 +83,11 @@ type Props = {
   initialFilmVenueCity?: string | null;
   initialFilmCeremonyName?: string | null;
   initialFilmStory?: string | null;
+  /** The couple's saved film accent hex override (null = follow Mood Board). */
+  initialFilmAccentColor?: string | null;
+  /** Mood-Board-derived accent shown beneath the picker when no override is set
+   *  ("From your Mood Board") — and used as the preview accent while inheriting. */
+  initialAccentDefault: string;
   // RevealPreviewCard props (forwarded)
   displayName: string;
   dateIso: string | null;
@@ -124,6 +129,8 @@ export function StdBuilderClient({
   initialFilmVenueCity,
   initialFilmCeremonyName,
   initialFilmStory,
+  initialFilmAccentColor,
+  initialAccentDefault,
   dateIso,
   markSvg,
   lockup = null,
@@ -147,6 +154,10 @@ export function StdBuilderClient({
   const [venueCity, setVenueCity] = useState(initialFilmVenueCity ?? '');
   const [ceremonyName, setCeremonyName] = useState(initialFilmCeremonyName ?? '');
   const [filmStory, setFilmStory] = useState(initialFilmStory ?? '');
+  // Film accent override (button + accent marks). null = follow the Mood Board
+  // (initialAccentDefault); a hex from the picker wins. The effective accent
+  // (accentColor ?? initialAccentDefault) drives the preview AND is what saves.
+  const [accentColor, setAccentColor] = useState<string | null>(initialFilmAccentColor ?? null);
 
   const [saving, startSave] = useTransition();
   const [result, setResult] = useState<'idle' | 'ok' | 'error'>('idle');
@@ -277,6 +288,11 @@ export function StdBuilderClient({
     setEffects((e) => ({ ...e, [key]: value }));
     if (result !== 'idle') setResult('idle');
   };
+  // Set (hex) or clear (null = inherit the Mood Board) the film accent colour.
+  const setAccent = (value: string | null) => {
+    setAccentColor(value);
+    if (result !== 'idle') setResult('idle');
+  };
 
   // Every state change re-derives the full content object so the preview
   // reflects exactly what would render on the live page after saving.
@@ -348,6 +364,7 @@ export function StdBuilderClient({
         filmVenueCity: venueCity.trim() || null,
         filmCeremonyName: ceremonyName.trim() || null,
         filmStory: filmStory.trim() || null,
+        filmAccentColor: accentColor,
         revealEffects: effects,
         background,
         media,
@@ -457,6 +474,32 @@ export function StdBuilderClient({
                   </button>
                 );
               })}
+            </div>
+          </section>
+
+          {/* Step 1 (cont.) · Accent — the colour of the "Add to calendar"
+              button + accent marks. Defaults to the couple's Mood Board so the
+              film is on-brand; a manual colour overrides it (owner 2026-06-19
+              "moodboard is good and also manual color"). */}
+          <section className="space-y-3">
+            <div className="space-y-1">
+              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
+                Step 1 · Accent
+              </p>
+              <h2 className="font-serif text-xl italic">Accent colour</h2>
+              <p className="text-sm text-ink/65">
+                Your highlight colour — the &ldquo;Add to calendar&rdquo; button and the little flourishes.
+                It follows your Mood Board automatically; tap the swatch to set your own.
+              </p>
+            </div>
+            <div className="rounded-xl border border-ink/10 bg-cream p-3">
+              <ColorRow
+                label="Accent colour"
+                value={accentColor}
+                inherited={initialAccentDefault}
+                onChange={(hex) => setAccent(hex)}
+                onReset={() => setAccent(null)}
+              />
             </div>
           </section>
 
@@ -808,6 +851,7 @@ export function StdBuilderClient({
                   transparent
                   tone={resolveStdLegibility(background).tone}
                   lockup={lockup}
+                  accentHex={accentColor ?? initialAccentDefault}
                 />
               </div>
               {/* overlay — the opening. Skipped entirely for No Reveal (the free

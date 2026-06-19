@@ -72,6 +72,9 @@ type Props = {
   background?: StdBackground;
   /** Resolved background image URL for kind realistic/upload (presigned). */
   backgroundImageUrl?: string | null;
+  /** Film accent hex (button + accent marks) — resolved upstream as the couple's
+   *  manual override ?? Mood-Board accent ?? mulberry. Film only (2026-06-19). */
+  accentHex?: string | null;
 };
 
 export function SaveTheDateView({
@@ -96,6 +99,7 @@ export function SaveTheDateView({
   themeId,
   background,
   backgroundImageUrl,
+  accentHex,
 }: Props) {
   const location = [venueName, venueAddress].filter(Boolean).join(', ') || null;
   const gcalUrl = googleCalendarUrl({ title: displayName, dateIso, location });
@@ -138,6 +142,7 @@ export function SaveTheDateView({
           transparent={Boolean(background)}
           tone={background ? resolveStdLegibility(background).tone : null}
           lockup={lockup ?? null}
+          accentHex={accentHex ?? null}
         />
       </section>
     );

@@ -83,7 +83,7 @@ export default async function DressCodeEditorPage({
         {saved ? (
           <div
             role="status"
-            className="inline-flex items-center gap-2 rounded-md border border-emerald-300/60 bg-emerald-50 px-3 py-2 text-sm text-emerald-800"
+            className="inline-flex items-center gap-2 rounded-md border border-success-300/60 bg-success-50 px-3 py-2 text-sm text-success-800"
           >
             <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             Saved — your guests will see this on the wedding website.
@@ -92,7 +92,7 @@ export default async function DressCodeEditorPage({
         {error ? (
           <div
             role="alert"
-            className="rounded-md border border-rose-300/60 bg-rose-50 px-3 py-2 text-sm text-rose-800"
+            className="rounded-md border border-danger-300/60 bg-danger-50 px-3 py-2 text-sm text-danger-800"
           >
             {error}
           </div>
@@ -157,7 +157,7 @@ export default async function DressCodeEditorPage({
 
           {/* Do */}
           <div className="space-y-2">
-            <p className="font-mono text-xs uppercase tracking-[0.18em] text-emerald-700">
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-success-700">
               Do
             </p>
             <p className="text-xs text-ink/55">What you&rsquo;d love guests to wear.</p>
@@ -166,7 +166,7 @@ export default async function DressCodeEditorPage({
 
           {/* Don't */}
           <div className="space-y-2">
-            <p className="font-mono text-xs uppercase tracking-[0.18em] text-rose-700">
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-danger-700">
               Don&rsquo;t
             </p>
             <p className="text-xs text-ink/55">
@@ -298,7 +298,7 @@ function DressCodePreview({ config }: { config: DressCodeConfig }) {
       {config.dos.length > 0 || config.donts.length > 0 ? (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {config.dos.length > 0 ? (
-            <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+            <div className="space-y-2 rounded-lg border border-success-200 bg-success-50 p-4 text-sm text-success-900">
               <p className="font-mono text-[10px] uppercase tracking-[0.15em]">Do</p>
               <ul className="space-y-1">
                 {config.dos.map((row, i) => (
@@ -308,7 +308,7 @@ function DressCodePreview({ config }: { config: DressCodeConfig }) {
             </div>
           ) : null}
           {config.donts.length > 0 ? (
-            <div className="space-y-2 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">
+            <div className="space-y-2 rounded-lg border border-danger-200 bg-danger-50 p-4 text-sm text-danger-900">
               <p className="font-mono text-[10px] uppercase tracking-[0.15em]">
                 Don&rsquo;t
               </p>

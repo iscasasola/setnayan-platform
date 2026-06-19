@@ -58,12 +58,12 @@ export default async function AdminRecapsPage({
       </header>
 
       {sp.ok ? (
-        <p className="rounded-md border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+        <p className="rounded-md border border-success-300 bg-success-50 px-4 py-3 text-sm text-success-900">
           {sp.ok}
         </p>
       ) : null}
       {sp.error ? (
-        <p className="rounded-md border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+        <p className="rounded-md border border-danger-300 bg-danger-50 px-4 py-3 text-sm text-danger-900">
           {sp.error}
         </p>
       ) : null}
@@ -116,7 +116,7 @@ export default async function AdminRecapsPage({
                     <input type="hidden" name="event_id" value={recap.event_id as string} />
                     <SubmitButton
                       pendingLabel="Taking down…"
-                      className="rounded-md border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-800 hover:bg-rose-100"
+                      className="rounded-md border border-danger-300 bg-danger-50 px-3 py-1.5 text-xs font-medium text-danger-800 hover:bg-danger-100"
                     >
                       Take down
                     </SubmitButton>

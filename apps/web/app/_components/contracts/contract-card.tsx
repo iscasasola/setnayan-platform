@@ -24,9 +24,9 @@ import { statusLabel, type ContractStatus } from '@/lib/contracts';
 export const STATUS_TONE: Record<ContractStatus, string> = {
   draft: 'bg-ink/10 text-ink/70',
   // Repurposed under upload-only scope (2026-05-18) — see lib/contracts.ts.
-  sent_for_signature: 'bg-emerald-100 text-emerald-800',
-  fully_signed: 'bg-emerald-100 text-emerald-800',
-  cancelled: 'bg-rose-100 text-rose-800',
+  sent_for_signature: 'bg-success-100 text-success-800',
+  fully_signed: 'bg-success-100 text-success-800',
+  cancelled: 'bg-danger-100 text-danger-800',
 };
 
 /** Pill badge rendering a contract's human status + tone. */

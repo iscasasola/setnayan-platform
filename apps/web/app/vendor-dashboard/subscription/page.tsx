@@ -175,14 +175,14 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
         </div>
 
         {search.ordered && (
-          <div className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+          <div className="mt-4 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
             ✓ Upgrade started. Pay with the reference{' '}
             <span className="font-mono font-semibold">{search.ordered}</span> using
             the instructions below — your plan activates once we confirm the payment.
           </div>
         )}
         {search.error && (
-          <div className="mt-4 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+          <div className="mt-4 rounded-md border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-900">
             {search.error}
           </div>
         )}

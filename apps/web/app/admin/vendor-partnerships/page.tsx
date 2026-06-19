@@ -269,13 +269,13 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
                           {RELATIONSHIP_LABELS[row.relationship_type] ?? row.relationship_type}
                         </span>
                         {row.discount_pct ? (
-                          <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                          <span className="rounded-md bg-success-50 px-2 py-0.5 text-[11px] font-semibold text-success-700">
                             {row.discount_pct}% off
                           </span>
                         ) : null}
                         {row.additional_fee_centavos !== null &&
                         row.relationship_type !== 'sponsored_included' ? (
-                          <span className="rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+                          <span className="rounded-md bg-warn-50 px-2 py-0.5 text-[11px] font-semibold text-warn-800">
                             {formatFee(row.additional_fee_centavos, row.relationship_type)}
                           </span>
                         ) : null}
@@ -308,7 +308,7 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
                       </p>
 
                       {hasApprovalRequest ? (
-                        <p className="mt-1 rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-800">
+                        <p className="mt-1 rounded-md bg-warn-50 px-2 py-1 text-xs text-warn-800">
                           Approval initiated by{' '}
                           <strong>{adminNameMap.get(pendingApproval.initiated_by) ?? '—'}</strong>{' '}
                           {timeAgo(pendingApproval.created_at)} —{' '}
@@ -330,7 +330,7 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
                             <SubmitButton
                               formAction={confirmApproval}
                               pendingLabel="Confirming…"
-                              className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-emerald-700"
+                              className="rounded-md bg-success-600 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-success-700"
                             >
                               Confirm &amp; verify (2nd admin)
                             </SubmitButton>

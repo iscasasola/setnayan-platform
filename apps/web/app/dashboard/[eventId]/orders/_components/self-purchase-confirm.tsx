@@ -224,13 +224,13 @@ function SelfPurchaseModal({
             className={`flex w-full items-start gap-3 rounded-xl border p-4 text-left transition-colors ${
               compDisabled
                 ? 'cursor-not-allowed border-ink/10 bg-ink/5 opacity-60'
-                : 'border-ink/15 bg-white hover:border-emerald-500 hover:bg-emerald-50'
+                : 'border-ink/15 bg-white hover:border-success-500 hover:bg-success-50'
             }`}
           >
             <Gift
               aria-hidden
               className={`mt-0.5 h-5 w-5 shrink-0 ${
-                compDisabled ? 'text-ink/40' : 'text-emerald-700'
+                compDisabled ? 'text-ink/40' : 'text-success-700'
               }`}
               strokeWidth={1.75}
             />
@@ -239,7 +239,7 @@ function SelfPurchaseModal({
               <p className="text-xs text-ink/60">
                 Skip payment for this order. Audit-logged.{' '}
                 {compDisabled ? (
-                  <span className="text-rose-700">
+                  <span className="text-danger-700">
                     {quotaRemaining <= 0
                       ? `You've used all ${quotaCap} self-comps for this quarter — pay full price or contact admin to raise the cap.`
                       : 'Only owners and admins can self-comp.'}

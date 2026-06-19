@@ -56,20 +56,20 @@ function rsvpMeta(status: RsvpStatus): {
     case 'attending':
       return {
         label: 'Going',
-        dot: 'bg-emerald-500',
-        badge: 'bg-emerald-50 text-emerald-800 border border-emerald-200',
+        dot: 'bg-success-500',
+        badge: 'bg-success-50 text-success-800 border border-success-200',
       };
     case 'declined':
       return {
         label: 'Declined',
-        dot: 'bg-rose-400',
-        badge: 'bg-rose-50 text-rose-800 border border-rose-200',
+        dot: 'bg-danger-400',
+        badge: 'bg-danger-50 text-danger-800 border border-danger-200',
       };
     case 'maybe':
       return {
         label: 'Maybe',
-        dot: 'bg-amber-400',
-        badge: 'bg-amber-50 text-amber-800 border border-amber-200',
+        dot: 'bg-warn-400',
+        badge: 'bg-warn-50 text-warn-800 border border-warn-200',
       };
     default:
       return {
@@ -221,11 +221,11 @@ export function GuestHubCard({ data }: { data: GuestHubData }) {
                 {rsvp.label}
               </span>
               {rsvpStatus === 'attending' ? (
-                <span className="mt-0.5 text-[11px] text-emerald-700">
+                <span className="mt-0.5 text-[11px] text-success-700">
                   Your place is reserved.
                 </span>
               ) : rsvpStatus === 'pending' ? (
-                <span className="mt-0.5 text-[11px] text-amber-700">
+                <span className="mt-0.5 text-[11px] text-warn-700">
                   Please confirm you&apos;re coming.
                 </span>
               ) : null}

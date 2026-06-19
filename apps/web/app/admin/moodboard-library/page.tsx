@@ -26,7 +26,7 @@ export default async function AdminMoodboardLibraryPage() {
         <header className="mb-6">
           <h1 className="text-3xl font-semibold tracking-tight">Moodboard Library</h1>
         </header>
-        <p className="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+        <p className="rounded-lg border border-danger-300 bg-danger-50 px-4 py-3 text-sm text-danger-700">
           The moodboard library couldn&apos;t load right now. We&apos;ve logged the issue —
           refresh in a moment or check Sentry for the full detail.
         </p>

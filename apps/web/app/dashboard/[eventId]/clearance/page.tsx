@@ -45,8 +45,8 @@ export default async function ClearancePage({ params }: Props) {
   if (cleared) {
     return (
       <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6">
-        <div className="rounded-2xl border border-emerald-300/50 bg-emerald-50 p-8 text-center">
-          <CheckCircle2 aria-hidden className="mx-auto h-8 w-8 text-emerald-600" strokeWidth={1.75} />
+        <div className="rounded-2xl border border-success-300/50 bg-success-50 p-8 text-center">
+          <CheckCircle2 aria-hidden className="mx-auto h-8 w-8 text-success-600" strokeWidth={1.75} />
           <h1 className="mt-3 text-lg font-semibold text-ink">The day is closed out</h1>
           <p className="mx-auto mt-2 max-w-md text-sm text-ink/60">
             Your wedding day is wrapped. The app has moved into After mode — your recap, galleries,

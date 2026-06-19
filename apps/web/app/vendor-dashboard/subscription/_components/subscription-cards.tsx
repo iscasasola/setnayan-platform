@@ -88,7 +88,7 @@ export function SubscriptionCards({
                   {card.tier === 'pro' ? 'Pro' : 'Enterprise'}
                 </p>
                 {card.isCurrent && (
-                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-800">
+                  <span className="rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-800">
                     Current
                   </span>
                 )}
@@ -122,7 +122,7 @@ export function SubscriptionCards({
                     className="flex items-start gap-2 text-sm text-ink/75"
                   >
                     <Check
-                      className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600"
+                      className="mt-0.5 h-4 w-4 shrink-0 text-success-600"
                       strokeWidth={2.25}
                       aria-hidden
                     />

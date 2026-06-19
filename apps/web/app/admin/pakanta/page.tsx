@@ -50,8 +50,8 @@ type EventLite = {
 
 const STATUS_LABEL: Record<DraftRow['status'], { label: string; cls: string }> = {
   draft: { label: 'Draft (not ordered)', cls: 'bg-ink/5 text-ink/60' },
-  purchase_pending: { label: 'Purchase pending', cls: 'bg-amber-100 text-amber-800' },
-  purchased: { label: 'Purchased — write the song', cls: 'bg-emerald-100 text-emerald-800' },
+  purchase_pending: { label: 'Purchase pending', cls: 'bg-warn-100 text-warn-800' },
+  purchased: { label: 'Purchased — write the song', cls: 'bg-success-100 text-success-800' },
 };
 
 export default async function AdminPakantaPage() {
@@ -121,7 +121,7 @@ export default async function AdminPakantaPage() {
       </header>
 
       {queryError ? (
-        <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <div className="mb-6 rounded-lg border border-warn-300 bg-warn-50 px-4 py-3 text-sm text-warn-900">
           Couldn’t load the Pakanta queue ({queryError}). The table may not be migrated on this
           environment yet.
         </div>
@@ -167,7 +167,7 @@ export default async function AdminPakantaPage() {
                 ) : null}
 
                 {!brief.hasMaterial ? (
-                  <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                  <p className="rounded-lg bg-warn-50 px-3 py-2 text-sm text-warn-800">
                     No story material yet — the couple hasn’t finished the love-story onboarding or
                     a Pakanta intake.
                   </p>

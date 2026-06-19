@@ -163,12 +163,12 @@ async function OwnedView({
 
   if (tables.length === 0) {
     return (
-      <div className="rounded-xl border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+      <div className="rounded-xl border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800">
         <p className="inline-flex items-center gap-2 font-medium">
           <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
           Indoor Blueprint is unlocked.
         </p>
-        <p className="mt-2 text-emerald-900/80">
+        <p className="mt-2 text-success-900/80">
           Add tables and seat your guests on the{' '}
           <Link
             href={`/dashboard/${eventId}/seating`}
@@ -185,7 +185,7 @@ async function OwnedView({
 
   return (
     <>
-      <div className="rounded-xl border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+      <div className="rounded-xl border border-success-300/60 bg-success-50 px-4 py-3 text-sm font-medium text-success-800">
         <p className="inline-flex items-center gap-2">
           <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
           Indoor Blueprint is unlocked — your guests can now find their table.

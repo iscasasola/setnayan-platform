@@ -63,7 +63,7 @@ export function GuestPicker({
       >
         {pending ? 'Assigning…' : 'Assign'}
       </button>
-      {error ? <p className="text-[11px] text-rose-600">{error}</p> : null}
+      {error ? <p className="text-[11px] text-danger-600">{error}</p> : null}
     </div>
   );
 }
@@ -139,12 +139,12 @@ export function AssignmentRow({
           type="button"
           onClick={remove}
           disabled={removePending}
-          className="rounded-md border px-2 py-1 text-[12px] transition disabled:opacity-40 hover:border-rose-200 hover:text-rose-600"
+          className="rounded-md border px-2 py-1 text-[12px] transition disabled:opacity-40 hover:border-danger-200 hover:text-danger-600"
           style={{ borderColor: 'var(--m-line)', color: 'var(--m-slate-2)' }}
         >
           {removePending ? '…' : 'Remove'}
         </button>
-        {nudgeError ? <p className="text-[11px] text-rose-600">{nudgeError}</p> : null}
+        {nudgeError ? <p className="text-[11px] text-danger-600">{nudgeError}</p> : null}
       </div>
     </div>
   );

@@ -135,7 +135,7 @@ export default async function AdminPapicSamplerPage() {
           {rows.length} {rows.length === 1 ? 'event' : 'events'} · {distinctCouples}{' '}
           {distinctCouples === 1 ? 'couple' : 'couples'}
           {flaggedCouples > 0 ? (
-            <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+            <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-warn-100 px-2 py-0.5 text-xs font-medium text-warn-800">
               <AlertTriangle aria-hidden className="h-3 w-3" strokeWidth={2} />
               {flaggedCouples} {flaggedCouples === 1 ? 'couple' : 'couples'} with 2+ sampler events
             </span>
@@ -170,7 +170,7 @@ export default async function AdminPapicSamplerPage() {
                 <td className="px-3 py-2">{r.photos}</td>
                 <td className="px-3 py-2">
                   {r.coupleEventCount >= 2 ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-warn-100 px-2 py-0.5 text-xs font-medium text-warn-800">
                       <AlertTriangle aria-hidden className="h-3 w-3" strokeWidth={2} />
                       {r.coupleEventCount}
                     </span>

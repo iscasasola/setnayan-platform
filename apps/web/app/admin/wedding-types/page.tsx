@@ -53,9 +53,9 @@ export default async function WeddingTypesPage() {
 function ReligionCard({ row }: { row: ReligionReadinessRow }) {
   const statusTone =
     row.status === 'active'
-      ? 'bg-emerald-100 text-emerald-800'
+      ? 'bg-success-100 text-success-800'
       : row.status === 'coming_soon'
-        ? 'bg-amber-100 text-amber-900'
+        ? 'bg-warn-100 text-warn-900'
         : 'bg-ink/10 text-ink/60';
   const statusLabel =
     row.status === 'active'
@@ -76,7 +76,7 @@ function ReligionCard({ row }: { row: ReligionReadinessRow }) {
               {statusLabel}
             </span>
             {row.ready ? (
-              <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-700 ring-1 ring-inset ring-emerald-200">
+              <span className="rounded-full bg-success-50 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-700 ring-1 ring-inset ring-success-200">
                 Ready
               </span>
             ) : (
@@ -98,7 +98,7 @@ function ReligionCard({ row }: { row: ReligionReadinessRow }) {
               ceremonyType={row.ceremonyType}
               region={row.region}
               status="active"
-              className="bg-emerald-700 text-cream hover:bg-emerald-800"
+              className="bg-success-700 text-cream hover:bg-success-800"
             >
               Open (go live)
             </StatusButton>
@@ -118,7 +118,7 @@ function ReligionCard({ row }: { row: ReligionReadinessRow }) {
               ceremonyType={row.ceremonyType}
               region={row.region}
               status="disabled"
-              className="border border-ink/15 bg-cream text-ink/60 hover:border-rose-300 hover:text-rose-700"
+              className="border border-ink/15 bg-cream text-ink/60 hover:border-danger-300 hover:text-danger-700"
             >
               Disable
             </StatusButton>

@@ -113,7 +113,7 @@ function BuildTotals({
       </div>
       {remaining != null && (
         <p
-          className={`mt-1.5 text-right text-[11px] ${remaining < 0 ? 'text-rose-300' : 'text-emerald-300'}`}
+          className={`mt-1.5 text-right text-[11px] ${remaining < 0 ? 'text-danger-300' : 'text-success-300'}`}
         >
           {remaining >= 0
             ? `${peso(remaining)} under your ${peso(budgetPhp)} budget`
@@ -151,7 +151,7 @@ function BuildControls({ eventId, hasUnlocked }: { eventId: string; hasUnlocked:
           type="button"
           onClick={reset}
           disabled={pending}
-          className="inline-flex items-center justify-center gap-1.5 rounded-[10px] border border-rose-300 px-3 py-2.5 text-[12.5px] font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-60"
+          className="inline-flex items-center justify-center gap-1.5 rounded-[10px] border border-danger-300 px-3 py-2.5 text-[12.5px] font-semibold text-danger-700 hover:bg-danger-50 disabled:opacity-60"
         >
           {pending ? 'Resetting…' : 'Tap to confirm reset'}
         </button>
@@ -189,7 +189,7 @@ function BuildPickRow({ eventId, item }: { eventId: string; item: BuildPickItem 
   return (
     <div
       className={`flex items-center gap-3 rounded-xl border px-4 py-3 ${
-        item.locked ? 'border-emerald-200 bg-emerald-50/60' : 'border-ink/10 bg-cream'
+        item.locked ? 'border-success-200 bg-success-50/60' : 'border-ink/10 bg-cream'
       }`}
     >
       <span className="min-w-0 flex-1">
@@ -200,7 +200,7 @@ function BuildPickRow({ eventId, item }: { eventId: string; item: BuildPickItem 
       </span>
       <span className="shrink-0 text-sm font-medium text-ink/75">{peso(item.pricePhp)}</span>
       {item.locked ? (
-        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-semibold text-emerald-700">
+        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-success-100 px-2 py-1 text-[10px] font-semibold text-success-700">
           <LockIcon className="h-3 w-3" strokeWidth={2} aria-hidden /> Locked
         </span>
       ) : (

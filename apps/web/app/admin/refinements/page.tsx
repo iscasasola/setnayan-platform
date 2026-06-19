@@ -125,7 +125,7 @@ export default async function AdminRefinementsPage({
         </p>
       ) : null}
       {sp.saved ? (
-        <p role="status" className="mb-4 inline-flex items-center gap-2 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+        <p role="status" className="mb-4 inline-flex items-center gap-2 rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800">
           <CheckCircle2 className="h-4 w-4" strokeWidth={1.75} /> {decodeURIComponent(sp.saved)}
         </p>
       ) : null}

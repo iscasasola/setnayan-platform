@@ -275,21 +275,21 @@ export function MobileGuestCarousel({
               <StatBox
                 label="Attending"
                 value={attending}
-                tint="text-emerald-700"
+                tint="text-success-700"
                 href={buildHref({ rsvp: 'attending' })}
                 active={currentRsvp === 'attending'}
               />
               <StatBox
                 label="Pending"
                 value={pending}
-                tint="text-amber-700"
+                tint="text-warn-700"
                 href={buildHref({ rsvp: 'pending' })}
                 active={currentRsvp === 'pending'}
               />
               <StatBox
                 label="Declined"
                 value={declined}
-                tint="text-rose-700"
+                tint="text-danger-700"
                 href={buildHref({ rsvp: 'declined' })}
                 active={currentRsvp === 'declined'}
               />
@@ -392,7 +392,7 @@ export function MobileGuestCarousel({
                       <span
                         className={`rounded-full px-1.5 text-[10px] font-semibold ${
                           'done' in s && s.done
-                            ? 'bg-emerald-100 text-emerald-800'
+                            ? 'bg-success-100 text-success-800'
                             : 'bg-terracotta/15 text-terracotta-700'
                         }`}
                       >
@@ -825,7 +825,7 @@ function QuickAddInlineForm({ eventId }: { eventId: string }) {
     // the panel stays compact under the top tab bar.
     <div className="flex flex-col gap-3">
       {addError ? (
-        <p className="text-center text-xs font-medium text-rose-600">{addError}</p>
+        <p className="text-center text-xs font-medium text-danger-600">{addError}</p>
       ) : count > 0 ? (
         <p className="text-center text-xs text-ink/50">
           {count} {count === 1 ? 'guest' : 'guests'} added this session

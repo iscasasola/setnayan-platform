@@ -56,7 +56,7 @@ export function PackageCard({
               >
                 <Check
                   aria-hidden
-                  className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700"
+                  className="mt-0.5 h-4 w-4 shrink-0 text-success-700"
                   strokeWidth={2}
                 />
                 <span>{item.service_description}</span>
@@ -67,7 +67,7 @@ export function PackageCard({
       ) : null}
 
       {pkg.is_consumable_flexible && pkg.consumable_budget_centavos > 0 ? (
-        <p className="mt-4 rounded-lg bg-emerald-50/60 px-3 py-2 text-xs text-emerald-900">
+        <p className="mt-4 rounded-lg bg-success-50/60 px-3 py-2 text-xs text-success-900">
           <span className="font-semibold">
             {formatCentavosPhp(pkg.consumable_budget_centavos)} consumable
           </span>{' '}

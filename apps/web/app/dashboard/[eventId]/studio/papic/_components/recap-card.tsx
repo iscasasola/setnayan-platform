@@ -21,7 +21,7 @@ export async function RecapCard({ eventId }: { eventId: string }) {
         </h2>
         <span
           className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.15em] ${
-            isPublished ? 'bg-emerald-100 text-emerald-700' : 'bg-ink/5 text-ink/55'
+            isPublished ? 'bg-success-100 text-success-700' : 'bg-ink/5 text-ink/55'
           }`}
         >
           {isPublished ? (

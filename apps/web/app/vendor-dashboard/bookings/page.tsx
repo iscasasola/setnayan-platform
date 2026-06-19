@@ -239,7 +239,7 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
           })()}
           className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm transition-colors ${
             upcoming
-              ? 'bg-emerald-100 text-emerald-900'
+              ? 'bg-success-100 text-success-900'
               : 'bg-ink/5 text-ink/70 hover:bg-ink/10'
           }`}
         >

@@ -212,13 +212,13 @@ function StatePill({ state }: { state: TileState }) {
       );
     case 'populated':
       return (
-        <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-emerald-800">
+        <span className="shrink-0 rounded-full bg-success-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-success-800">
           {state.verified + state.comingSoon} listed
         </span>
       );
     case 'recruiting':
       return (
-        <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-amber-900">
+        <span className="shrink-0 rounded-full bg-warn-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-warn-900">
           Recruiting
         </span>
       );

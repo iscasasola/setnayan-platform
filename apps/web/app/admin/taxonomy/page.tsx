@@ -70,35 +70,35 @@ const FAITH_TONE: Record<FaithKey, string> = {
   Catholic: 'bg-sky-100 text-sky-800',
   Christian: 'bg-violet-100 text-violet-800',
   'Born Again': 'bg-violet-50 text-violet-700',
-  INC: 'bg-emerald-100 text-emerald-800',
-  Muslim: 'bg-amber-100 text-amber-900',
+  INC: 'bg-success-100 text-success-800',
+  Muslim: 'bg-warn-100 text-warn-900',
   Jewish: 'bg-indigo-100 text-indigo-800',
   Chinese: 'bg-red-100 text-red-800',
-  Cultural: 'bg-rose-100 text-rose-800',
+  Cultural: 'bg-danger-100 text-danger-800',
   Aglipayan: 'bg-cyan-100 text-cyan-800',
   LDS: 'bg-slate-200 text-slate-800',
   SDA: 'bg-teal-100 text-teal-800',
   JW: 'bg-lime-100 text-lime-800',
   Hindu: 'bg-orange-100 text-orange-800',
   Sikh: 'bg-yellow-100 text-yellow-900',
-  Buddhist: 'bg-amber-50 text-amber-800',
+  Buddhist: 'bg-warn-50 text-warn-800',
   Orthodox: 'bg-purple-100 text-purple-800',
   Civil: 'bg-stone-100 text-stone-700',
 };
 
 const PHASE_TONE_BASE = 'bg-ink/5 text-ink/70';
 const PHASE_TONE: Record<string, string> = {
-  'V1.1 base': 'bg-emerald-100 text-emerald-800',
-  'V1.1.1': 'bg-emerald-50 text-emerald-700',
-  'V1.1.2': 'bg-emerald-50 text-emerald-700',
-  'V1.1.3': 'bg-emerald-50 text-emerald-700',
-  'V1.1.4': 'bg-emerald-50 text-emerald-700',
-  'V1.1.5': 'bg-emerald-50 text-emerald-700',
-  'V1.1.6': 'bg-emerald-50 text-emerald-700',
-  'V1.2': 'bg-amber-50 text-amber-800',
-  'V1.3': 'bg-amber-50 text-amber-800',
-  'V1.4': 'bg-amber-50 text-amber-800',
-  'V1.5+': 'bg-rose-50 text-rose-800',
+  'V1.1 base': 'bg-success-100 text-success-800',
+  'V1.1.1': 'bg-success-50 text-success-700',
+  'V1.1.2': 'bg-success-50 text-success-700',
+  'V1.1.3': 'bg-success-50 text-success-700',
+  'V1.1.4': 'bg-success-50 text-success-700',
+  'V1.1.5': 'bg-success-50 text-success-700',
+  'V1.1.6': 'bg-success-50 text-success-700',
+  'V1.2': 'bg-warn-50 text-warn-800',
+  'V1.3': 'bg-warn-50 text-warn-800',
+  'V1.4': 'bg-warn-50 text-warn-800',
+  'V1.5+': 'bg-danger-50 text-danger-800',
 };
 
 const JUMP_PILL =
@@ -374,10 +374,10 @@ export default async function AdminTaxonomyPage({
       </header>
 
       {ok ? (
-        <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{ok}</div>
+        <div className="mb-6 rounded-lg border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800">{ok}</div>
       ) : null}
       {error ? (
-        <div className="mb-6 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</div>
+        <div className="mb-6 rounded-lg border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-800">{error}</div>
       ) : null}
 
       {/* Sticky utility bar — search + filtered views + section jump pills.
@@ -387,12 +387,12 @@ export default async function AdminTaxonomyPage({
           fragment scroll + layout stability depend on the single-pass render. */}
       <div className="sticky top-[57px] z-[15] -mx-4 mb-6 border-b border-ink/10 bg-cream/95 px-4 py-2 backdrop-blur supports-[backdrop-filter]:bg-cream/80 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
         {ok ? (
-          <p role="status" title={ok} className="mb-1.5 truncate text-xs font-medium text-emerald-700">
+          <p role="status" title={ok} className="mb-1.5 truncate text-xs font-medium text-success-700">
             ✓ {ok}
           </p>
         ) : null}
         {error ? (
-          <p role="alert" title={error} className="mb-1.5 truncate text-xs font-medium text-rose-700">
+          <p role="alert" title={error} className="mb-1.5 truncate text-xs font-medium text-danger-700">
             ⚠ {error}
           </p>
         ) : null}
@@ -464,7 +464,7 @@ export default async function AdminTaxonomyPage({
             {unfiled.length > 0 ? (
               <a
                 href="#unfiled"
-                className="rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 font-mono text-[11px] text-amber-800"
+                className="rounded-full border border-warn-300 bg-warn-50 px-2.5 py-0.5 font-mono text-[11px] text-warn-800"
               >
                 Unfiled {unfiled.length}
               </a>
@@ -483,8 +483,8 @@ export default async function AdminTaxonomyPage({
       <p
         className={`mb-8 -mt-4 rounded-lg border px-4 py-2 text-sm ${
           coupleSideDrift.length === 0
-            ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-            : 'border-amber-200 bg-amber-50 text-amber-900'
+            ? 'border-success-200 bg-success-50 text-success-800'
+            : 'border-warn-200 bg-warn-50 text-warn-900'
         }`}
       >
         {coupleSideDrift.length === 0 ? (
@@ -524,7 +524,7 @@ export default async function AdminTaxonomyPage({
             {pendingRequests.map((r) => (
               <li
                 key={r.request_id}
-                className="space-y-2 rounded-xl border border-dashed border-amber-300 bg-amber-50/40 p-3"
+                className="space-y-2 rounded-xl border border-dashed border-warn-300 bg-warn-50/40 p-3"
               >
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <span className="text-sm font-semibold text-ink">{r.proposed_label}</span>
@@ -558,7 +558,7 @@ export default async function AdminTaxonomyPage({
                       ))}
                     </select>
                     <SubmitButton
-                      className="rounded-md border border-emerald-300 bg-white px-2 py-1 text-[11px] font-medium text-emerald-700 hover:bg-emerald-50"
+                      className="rounded-md border border-success-300 bg-white px-2 py-1 text-[11px] font-medium text-success-700 hover:bg-success-50"
                       pendingLabel="Promoting…"
                     >
                       Promote ✓
@@ -612,7 +612,7 @@ export default async function AdminTaxonomyPage({
                       className="w-28 rounded-md border border-ink/15 bg-white px-1.5 py-1 text-[11px] text-ink"
                     />
                     <SubmitButton
-                      className="rounded-md border border-rose-200 bg-white px-2 py-1 text-[11px] font-medium text-rose-700 hover:bg-rose-50"
+                      className="rounded-md border border-danger-200 bg-white px-2 py-1 text-[11px] font-medium text-danger-700 hover:bg-danger-50"
                       pendingLabel="Rejecting…"
                     >
                       Reject
@@ -640,13 +640,13 @@ export default async function AdminTaxonomyPage({
         ) : (
           <>
             {missingCategories.length > 0 ? (
-              <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+              <p className="mb-3 rounded-lg border border-warn-200 bg-warn-50 px-4 py-2 text-sm text-warn-900">
                 ⚠ {missingCategories.length}{' '}
                 {missingCategories.length === 1 ? 'reminder category has' : 'reminder categories have'} no deadline (using code fallback):{' '}
                 {missingCategories.map((g) => g.label).join(', ')}
               </p>
             ) : (
-              <p className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-800">
+              <p className="mb-3 rounded-lg border border-success-200 bg-success-50 px-4 py-2 text-sm text-success-800">
                 ✓ Every reminder category has a deadline set.
               </p>
             )}
@@ -661,7 +661,7 @@ export default async function AdminTaxonomyPage({
                       </Badge>
                       {d.scope === 'leaf' ? <Badge tone="bg-violet-50 text-violet-700">override</Badge> : null}
                       {d.applies_to ? <Badge tone="bg-sky-50 text-sky-700">{d.applies_to}</Badge> : null}
-                      {!d.is_active ? <Badge tone="bg-rose-50 text-rose-700">off</Badge> : null}
+                      {!d.is_active ? <Badge tone="bg-danger-50 text-danger-700">off</Badge> : null}
                     </div>
                     <div className="mt-0.5 truncate font-mono text-[11px] text-ink/45">{d.ref_key}</div>
                   </div>
@@ -727,7 +727,7 @@ export default async function AdminTaxonomyPage({
                   <div className="flex items-center gap-2">
                     <span className="truncate text-sm font-medium text-ink">{g.label}</span>
                     {current != null ? (
-                      <Badge tone="bg-amber-100 text-amber-900">{current} mo</Badge>
+                      <Badge tone="bg-warn-100 text-warn-900">{current} mo</Badge>
                     ) : (
                       <Badge tone="bg-ink/5 text-ink/45">off</Badge>
                     )}
@@ -761,7 +761,7 @@ export default async function AdminTaxonomyPage({
                     <input type="hidden" name="ref_key" value={g.id} />
                     <BackFields q={back.q} view={back.view} anchor="lastminute" />
                     <SubmitButton
-                      className="rounded-md border border-rose-200 bg-white px-2 py-1 text-[11px] font-medium text-rose-700 hover:bg-rose-50"
+                      className="rounded-md border border-danger-200 bg-white px-2 py-1 text-[11px] font-medium text-danger-700 hover:bg-danger-50"
                       pendingLabel="Clearing…"
                     >
                       Clear
@@ -866,12 +866,12 @@ export default async function AdminTaxonomyPage({
                           {v.label_en}
                         </label>
                       ))}
-                      <label className="flex items-center gap-1 text-[11px] font-medium text-rose-700">
+                      <label className="flex items-center gap-1 text-[11px] font-medium text-danger-700">
                         <input type="checkbox" name="confirm_overwrite" required className="h-3 w-3" />
                         Overwrite the scopes of all {tiles.length} tiles
                       </label>
                       <SubmitButton
-                        className="rounded-md border border-rose-200 bg-white px-2 py-0.5 text-[11px] font-medium text-rose-700 hover:bg-rose-50"
+                        className="rounded-md border border-danger-200 bg-white px-2 py-0.5 text-[11px] font-medium text-danger-700 hover:bg-danger-50"
                         pendingLabel="Applying…"
                       >
                         Apply to all {tiles.length} tiles
@@ -914,7 +914,7 @@ export default async function AdminTaxonomyPage({
                               </Badge>
                             ) : null}
                             {faithSvcCount > 0 ? (
-                              <Badge tone="bg-amber-50 text-amber-800">{faithSvcCount} faith</Badge>
+                              <Badge tone="bg-warn-50 text-warn-800">{faithSvcCount} faith</Badge>
                             ) : null}
                             {services.length === 0 ? <Badge tone="bg-ink/5 text-ink/45">empty</Badge> : null}
                             <span className="shrink-0 font-mono text-[10px] text-ink/40">{services.length} svc</span>
@@ -963,7 +963,7 @@ export default async function AdminTaxonomyPage({
                                 <SubmitButton
                                   aria-label={`Delete ${tile}`}
                                   title="Delete — blocked if services are still filed here"
-                                  className="shrink-0 rounded-md border border-rose-200 bg-white px-2 py-1 text-[11px] font-medium text-rose-700 transition-colors hover:bg-rose-50"
+                                  className="shrink-0 rounded-md border border-danger-200 bg-white px-2 py-1 text-[11px] font-medium text-danger-700 transition-colors hover:bg-danger-50"
                                   pendingLabel="…"
                                 >
                                   ✕
@@ -1008,11 +1008,11 @@ export default async function AdminTaxonomyPage({
                             )}
                             <form
                               action={createCanonicalLeaf}
-                              className="flex items-center gap-2 rounded-b-lg border-t border-ink/10 bg-emerald-50/30 px-2 py-1.5"
+                              className="flex items-center gap-2 rounded-b-lg border-t border-ink/10 bg-success-50/30 px-2 py-1.5"
                             >
                               <input type="hidden" name="tile_id" value={tile} />
                               <BackFields q={back.q} view={back.view} anchor={`t-${tile}`} />
-                              <span className="w-12 shrink-0 font-mono text-[10px] uppercase tracking-[0.1em] text-emerald-700/70">
+                              <span className="w-12 shrink-0 font-mono text-[10px] uppercase tracking-[0.1em] text-success-700/70">
                                 ＋ svc
                               </span>
                               <input
@@ -1022,7 +1022,7 @@ export default async function AdminTaxonomyPage({
                                 className="min-w-0 flex-1 rounded-md border border-ink/15 bg-white px-2 py-1 text-sm text-ink"
                               />
                               <SubmitButton
-                                className="shrink-0 rounded-md border border-emerald-300 bg-white px-3 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-50"
+                                className="shrink-0 rounded-md border border-success-300 bg-white px-3 py-1 text-xs font-medium text-success-700 transition-colors hover:bg-success-50"
                                 pendingLabel="Adding…"
                               >
                                 Add
@@ -1034,11 +1034,11 @@ export default async function AdminTaxonomyPage({
                     })}
                     <form
                       action={createTaxonomyNode}
-                      className="flex items-center gap-2 rounded-md border border-dashed border-emerald-300/60 bg-emerald-50/30 px-2 py-1.5"
+                      className="flex items-center gap-2 rounded-md border border-dashed border-success-300/60 bg-success-50/30 px-2 py-1.5"
                     >
                       <input type="hidden" name="parent_id" value={folder} />
                       <BackFields q={back.q} view={back.view} anchor={`f-${folder}`} />
-                      <span className="w-12 shrink-0 font-mono text-[10px] uppercase tracking-[0.1em] text-emerald-700/70">
+                      <span className="w-12 shrink-0 font-mono text-[10px] uppercase tracking-[0.1em] text-success-700/70">
                         ＋ tile
                       </span>
                       <input
@@ -1048,7 +1048,7 @@ export default async function AdminTaxonomyPage({
                         className="min-w-0 flex-1 rounded-md border border-ink/15 bg-white px-2 py-1 text-sm text-ink"
                       />
                       <SubmitButton
-                        className="shrink-0 rounded-md border border-emerald-300 bg-white px-3 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-50"
+                        className="shrink-0 rounded-md border border-success-300 bg-white px-3 py-1 text-xs font-medium text-success-700 transition-colors hover:bg-success-50"
                         pendingLabel="Adding…"
                       >
                         Add
@@ -1153,7 +1153,7 @@ export default async function AdminTaxonomyPage({
                 PH-specific
               </label>
               <SubmitButton
-                className="ml-auto rounded-md border border-emerald-300 bg-white px-4 py-1.5 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-50"
+                className="ml-auto rounded-md border border-success-300 bg-white px-4 py-1.5 text-sm font-medium text-success-700 transition-colors hover:bg-success-50"
                 pendingLabel="Adding…"
               >
                 Add service
@@ -1166,11 +1166,11 @@ export default async function AdminTaxonomyPage({
       {unfiled.length > 0 || view === 'unfiled' ? (
         <section id="unfiled" className="mb-10 scroll-mt-32">
           <header className="mb-2 flex items-baseline justify-between gap-3">
-            <h2 className="text-lg font-semibold tracking-tight text-amber-800">
+            <h2 className="text-lg font-semibold tracking-tight text-warn-800">
               ⚠ Unfiled services{' '}
               <span className="font-normal text-ink/55">— not on any tile</span>
             </h2>
-            <span className="font-mono text-xs text-amber-800">{unfiled.length}</span>
+            <span className="font-mono text-xs text-warn-800">{unfiled.length}</span>
           </header>
           <p className="mb-3 text-sm text-ink/60">
             These <code className="font-mono text-xs">canonical_service_schemas</code> rows aren&apos;t placed on a
@@ -1183,7 +1183,7 @@ export default async function AdminTaxonomyPage({
               Nothing unfiled — every service is placed on a tile.
             </p>
           ) : (
-            <ul className="divide-y divide-amber-200 rounded-xl border border-amber-200 bg-amber-50/50">
+            <ul className="divide-y divide-warn-200 rounded-xl border border-warn-200 bg-warn-50/50">
               {visibleUnfiled.map((row) => (
                 <ServiceLine
                   key={row.canonical_service}
@@ -1390,7 +1390,7 @@ function ServiceLine({
         <Badge tone="bg-ink/5 text-ink/55">
           {facets.length} facet{facets.length === 1 ? '' : 's'}
         </Badge>
-        {hasRequired ? <Badge tone="bg-emerald-50 text-emerald-700">visibility gate</Badge> : null}
+        {hasRequired ? <Badge tone="bg-success-50 text-success-700">visibility gate</Badge> : null}
         <Badge tone="bg-ink/5 text-ink/55">{row.shared_attribute_groups.length} shared</Badge>
       </div>
       <form action={remapCanonical} className="flex shrink-0 items-center gap-1.5">

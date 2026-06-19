@@ -77,9 +77,9 @@ function StatusBadge({ m }: { m: ExistingMedia }) {
   const [label, cls] = m.hiddenByCouple
     ? ['Hidden by couple', 'bg-ink/5 text-ink/55']
     : m.moderationState === 'clean'
-      ? ['Live on editorial', 'bg-emerald-100 text-emerald-900']
+      ? ['Live on editorial', 'bg-success-100 text-success-900']
       : m.moderationState === 'unscreened'
-        ? ['Checking…', 'bg-amber-100 text-amber-900']
+        ? ['Checking…', 'bg-warn-100 text-warn-900']
         : ['Removed', 'bg-red-100 text-red-900'];
   return (
     <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${cls}`}>

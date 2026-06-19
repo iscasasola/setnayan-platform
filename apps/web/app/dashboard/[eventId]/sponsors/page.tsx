@@ -419,7 +419,7 @@ function Banner({
 }) {
   const color =
     kind === 'success'
-      ? 'border-emerald-300/60 bg-emerald-50/70 text-emerald-950'
+      ? 'border-success-300/60 bg-success-50/70 text-success-950'
       : 'border-ink/15 bg-cream text-ink/75';
   return (
     <p
@@ -588,7 +588,7 @@ function SponsorCard({
               <input type="hidden" name="status" value="accepted" />
               <SubmitButton
                 pendingLabel="Saving…"
-                className="inline-flex items-center gap-1 rounded-md border border-emerald-300/60 bg-emerald-50/60 px-2 py-1 text-[11px] font-medium text-emerald-900 hover:bg-emerald-100"
+                className="inline-flex items-center gap-1 rounded-md border border-success-300/60 bg-success-50/60 px-2 py-1 text-[11px] font-medium text-success-900 hover:bg-success-100"
               >
                 <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={1.75} />
                 Marked yes
@@ -631,7 +631,7 @@ function statusChipFor(status: SponsorInvitationStatus): {
     return {
       label: 'Accepted',
       icon: <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={2} />,
-      cls: 'bg-emerald-100/80 text-emerald-900',
+      cls: 'bg-success-100/80 text-success-900',
     };
   }
   if (status === 'declined') {
@@ -645,7 +645,7 @@ function statusChipFor(status: SponsorInvitationStatus): {
     return {
       label: 'Awaiting reply',
       icon: <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2} />,
-      cls: 'bg-amber-100/80 text-amber-900',
+      cls: 'bg-warn-100/80 text-warn-900',
     };
   }
   return {

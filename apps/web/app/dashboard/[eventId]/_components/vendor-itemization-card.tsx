@@ -209,7 +209,7 @@ function PriceSourceChip({ priceSource }: { priceSource: VendorPriceSource }) {
   // 'pending' — vendor hasn't sent pricing yet.
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-amber-800"
+      className="inline-flex items-center gap-1 rounded-full bg-warn-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-warn-800"
       title="The vendor hasn't published pricing yet. Ask them in chat."
     >
       Awaiting pricing
@@ -234,7 +234,7 @@ function Money({
           tone === 'warn'
             ? 'text-terracotta-700'
             : tone === 'good'
-              ? 'text-emerald-700'
+              ? 'text-success-700'
               : tone === 'muted'
                 ? 'text-ink/65'
                 : 'text-ink'
@@ -305,14 +305,14 @@ function LineItemSection({
       ) : null}
 
       {priceSource === 'pending' && !hasVendorControlled ? (
-        <div className="space-y-2 rounded-md border border-dashed border-amber-300/60 bg-amber-50/60 px-3 py-3 text-sm">
+        <div className="space-y-2 rounded-md border border-dashed border-warn-300/60 bg-warn-50/60 px-3 py-3 text-sm">
           <p className="text-ink/75">
             This vendor hasn&rsquo;t shared pricing yet. Their catalog will appear
             here once they publish it.
           </p>
           <Link
             href={`/dashboard/${eventId}/messages?vendor=${vendorMarketplaceId ?? ''}`}
-            className="inline-flex items-center gap-1.5 rounded-md border border-amber-400/50 bg-cream px-2.5 py-1 text-xs font-medium text-amber-900 hover:border-amber-500 hover:text-amber-950"
+            className="inline-flex items-center gap-1.5 rounded-md border border-warn-400/50 bg-cream px-2.5 py-1 text-xs font-medium text-warn-900 hover:border-warn-500 hover:text-warn-950"
           >
             <MessageCircle aria-hidden className="h-3 w-3" strokeWidth={1.75} />
             Ask them for pricing
@@ -352,7 +352,7 @@ function LineItemSection({
                     <SubmitButton
                       aria-label="Delete line item"
                       pendingLabel=""
-                      className="rounded-md p-1 text-ink/40 hover:bg-ink/5 hover:text-rose-700 disabled:opacity-60"
+                      className="rounded-md p-1 text-ink/40 hover:bg-ink/5 hover:text-danger-700 disabled:opacity-60"
                     >
                       <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
                     </SubmitButton>
@@ -485,7 +485,7 @@ function PaymentSection({
       <VendorDirectPay vendorName={vendorName} methods={directPayMethods} />
 
       <header className="flex items-center gap-2">
-        <Receipt aria-hidden className="h-3.5 w-3.5 text-emerald-700" strokeWidth={1.75} />
+        <Receipt aria-hidden className="h-3.5 w-3.5 text-success-700" strokeWidth={1.75} />
         <h3 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
           Payments
         </h3>
@@ -503,20 +503,20 @@ function PaymentSection({
             return (
               <li
                 key={p.payment_id}
-                className="flex items-start justify-between gap-2 rounded-md bg-emerald-50/60 px-3 py-2 text-sm"
+                className="flex items-start justify-between gap-2 rounded-md bg-success-50/60 px-3 py-2 text-sm"
               >
                 <div className="min-w-0 space-y-0.5">
-                  <p className="truncate font-medium text-emerald-900">
+                  <p className="truncate font-medium text-success-900">
                     {line ? line.label : fallbackLabel}
                   </p>
-                  <p className="text-xs text-emerald-900/75">
+                  <p className="text-xs text-success-900/75">
                     {p.paid_at}
                     {p.method ? ` · ${p.method}` : ''}
                     {p.reference ? ` · ref ${p.reference}` : ''}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-sm font-semibold text-emerald-900">
+                  <span className="font-mono text-sm font-semibold text-success-900">
                     {formatPhp(p.amount_php)}
                   </span>
                   <form action={deletePayment}>
@@ -525,7 +525,7 @@ function PaymentSection({
                     <SubmitButton
                       aria-label="Delete payment"
                       pendingLabel=""
-                      className="rounded-md p-1 text-emerald-900/50 hover:bg-emerald-900/5 hover:text-rose-700 disabled:opacity-60"
+                      className="rounded-md p-1 text-success-900/50 hover:bg-success-900/5 hover:text-danger-700 disabled:opacity-60"
                     >
                       <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
                     </SubmitButton>
@@ -612,7 +612,7 @@ function PaymentSection({
           />
         </div>
         <SubmitButton
-          className="col-span-2 inline-flex items-center justify-center gap-1 rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-emerald-800 disabled:opacity-70 sm:col-span-4"
+          className="col-span-2 inline-flex items-center justify-center gap-1 rounded-md bg-success-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-success-800 disabled:opacity-70 sm:col-span-4"
           pendingLabel="Logging…"
         >
           <Plus className="h-3.5 w-3.5" strokeWidth={2} />

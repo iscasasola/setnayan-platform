@@ -138,54 +138,54 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   chat_message: 'bg-sky-100 text-sky-800',
-  order_quoted: 'bg-amber-100 text-amber-900',
-  order_paid: 'bg-emerald-200 text-emerald-900',
-  payment_matched: 'bg-emerald-100 text-emerald-800',
-  payment_rejected: 'bg-rose-100 text-rose-800',
+  order_quoted: 'bg-warn-100 text-warn-900',
+  order_paid: 'bg-success-200 text-success-900',
+  payment_matched: 'bg-success-100 text-success-800',
+  payment_rejected: 'bg-danger-100 text-danger-800',
   payment_refunded: 'bg-violet-100 text-violet-800',
   // Amber matches the "still pending · action needed" register used by
   // payment_status='pending' (PAYMENT_STATUS_TONE in lib/orders.ts) — the
   // resubmit-requested state is operationally a return-to-pending after
   // admin review, not a hard rejection.
-  payment_resubmit_requested: 'bg-amber-100 text-amber-900',
+  payment_resubmit_requested: 'bg-warn-100 text-warn-900',
   rsvp_received: 'bg-terracotta/15 text-terracotta-700',
-  review_request: 'bg-amber-100 text-amber-900',
+  review_request: 'bg-warn-100 text-warn-900',
   help_ticket_replied: 'bg-indigo-100 text-indigo-800',
   vendor_inquiry_received: 'bg-fuchsia-100 text-fuchsia-800',
-  inquiry_accepted: 'bg-emerald-100 text-emerald-800',
+  inquiry_accepted: 'bg-success-100 text-success-800',
   inquiry_declined: 'bg-ink/10 text-ink/70',
-  force_majeure_filed: 'bg-rose-100 text-rose-800',
+  force_majeure_filed: 'bg-danger-100 text-danger-800',
   // Booking confirmed is the couple's strongest positive commitment — match
   // the celebratory emerald used by order_paid/inquiry_accepted.
-  booking_confirmed: 'bg-emerald-200 text-emerald-900',
-  review_received: 'bg-amber-100 text-amber-900',
-  booking_cancelled: 'bg-rose-100 text-rose-800',
-  dispute_filed: 'bg-rose-100 text-rose-800',
+  booking_confirmed: 'bg-success-200 text-success-900',
+  review_received: 'bg-warn-100 text-warn-900',
+  booking_cancelled: 'bg-danger-100 text-danger-800',
+  dispute_filed: 'bg-danger-100 text-danger-800',
   // Both ghosting nudges are "action needed, not an error" → amber, matching
   // review_request / resubmit-requested.
-  inquiry_awaiting_reply: 'bg-amber-100 text-amber-900',
-  inquiry_no_response: 'bg-amber-100 text-amber-900',
-  photo_delivery_complete: 'bg-emerald-100 text-emerald-800',
-  photo_delivery_failed: 'bg-rose-100 text-rose-800',
+  inquiry_awaiting_reply: 'bg-warn-100 text-warn-900',
+  inquiry_no_response: 'bg-warn-100 text-warn-900',
+  photo_delivery_complete: 'bg-success-100 text-success-800',
+  photo_delivery_failed: 'bg-danger-100 text-danger-800',
   // Pending purchase = admin action needed → amber (matches resubmit/awaiting).
-  vendor_token_purchase_pending: 'bg-amber-100 text-amber-900',
+  vendor_token_purchase_pending: 'bg-warn-100 text-warn-900',
   // Tokens credited = positive money-in confirmation → emerald (matches order_paid).
-  vendor_tokens_credited: 'bg-emerald-200 text-emerald-900',
+  vendor_tokens_credited: 'bg-success-200 text-success-900',
   // Guest request awaiting the couple's confirmation = action needed → amber.
-  guest_claim_pending: 'bg-amber-100 text-amber-900',
+  guest_claim_pending: 'bg-warn-100 text-warn-900',
   // Security alert = the alarm register — rose, matching payment_rejected /
   // dispute_filed. Benign for the user who made the change, urgent for the
   // one who didn't; the tray must read as "look at this now" either way.
-  security_alert: 'bg-rose-100 text-rose-800',
+  security_alert: 'bg-danger-100 text-danger-800',
   // A held guest story = the couple's okay is needed → amber (action-needed),
   // matching review_request / guest_claim_pending.
-  kwento_flagged: 'bg-amber-100 text-amber-900',
+  kwento_flagged: 'bg-warn-100 text-warn-900',
   // Debounced batch story notify = same action-needed register as kwento_flagged.
-  kwento_story_batch: 'bg-amber-100 text-amber-900',
+  kwento_story_batch: 'bg-warn-100 text-warn-900',
   // Flash auto-walled = informational / positive → sky (matches chat_message).
   kwento_flash_auto_walled: 'bg-sky-100 text-sky-800',
   // A nudge to write their story = gentle action-needed → amber (same register).
-  kwento_assignment_nudge: 'bg-amber-100 text-amber-900',
+  kwento_assignment_nudge: 'bg-warn-100 text-warn-900',
 };
 
 export type NotificationRow = {

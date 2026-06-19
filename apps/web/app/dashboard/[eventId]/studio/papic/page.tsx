@@ -602,7 +602,7 @@ function StatusBanners({
       {driveConnected ? (
         <p
           role="status"
-          className="inline-flex items-center gap-2 rounded-2xl border border-emerald-300/70 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+          className="inline-flex items-center gap-2 rounded-2xl border border-success-300/70 bg-success-50 px-4 py-3 text-sm text-success-900"
         >
           <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           Google Drive connected
@@ -625,7 +625,7 @@ function StatusBanners({
       {driveError ? (
         <p
           role="alert"
-          className="inline-flex items-start gap-2 rounded-2xl border border-rose-300/70 bg-rose-50 px-4 py-3 text-sm text-rose-900"
+          className="inline-flex items-start gap-2 rounded-2xl border border-danger-300/70 bg-danger-50 px-4 py-3 text-sm text-danger-900"
         >
           <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
           <span>
@@ -639,7 +639,7 @@ function StatusBanners({
       {storageSet === 'r2' ? (
         <p
           role="status"
-          className="inline-flex items-center gap-2 rounded-2xl border border-emerald-300/70 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+          className="inline-flex items-center gap-2 rounded-2xl border border-success-300/70 bg-success-50 px-4 py-3 text-sm text-success-900"
         >
           <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           Storage set to Setnayan — we&rsquo;ll keep a secure copy of every photo.
@@ -649,7 +649,7 @@ function StatusBanners({
       {storageSet === 'drive' ? (
         <p
           role="status"
-          className="inline-flex items-center gap-2 rounded-2xl border border-emerald-300/70 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+          className="inline-flex items-center gap-2 rounded-2xl border border-success-300/70 bg-success-50 px-4 py-3 text-sm text-success-900"
         >
           <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           Storage set to your Google Drive only.
@@ -659,7 +659,7 @@ function StatusBanners({
       {storageError ? (
         <p
           role="alert"
-          className="inline-flex items-start gap-2 rounded-2xl border border-rose-300/70 bg-rose-50 px-4 py-3 text-sm text-rose-900"
+          className="inline-flex items-start gap-2 rounded-2xl border border-danger-300/70 bg-danger-50 px-4 py-3 text-sm text-danger-900"
         >
           <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
           <span>
@@ -833,7 +833,7 @@ function StorageOptionDrive({
                   Coming soon
                 </span>
               ) : connected ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-900">
+                <span className="inline-flex items-center gap-1 rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-900">
                   <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={2} />
                   Connected
                 </span>
@@ -966,7 +966,7 @@ function DriveConnectedPanel({
         />
       ) : null}
 
-      <div className="space-y-3 rounded-xl border border-emerald-200/80 bg-emerald-50/60 p-4">
+      <div className="space-y-3 rounded-xl border border-success-200/80 bg-success-50/60 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1 space-y-0.5">
           <p className="text-sm font-semibold text-ink">
@@ -1163,7 +1163,7 @@ function ProCameraBridgeCard({
           </p>
           <h2 className="text-xl font-semibold tracking-tight">
             Pair a real camera body —{' '}
-            <span className="font-mono text-base text-emerald-700">
+            <span className="font-mono text-base text-success-700">
               included with Papic
             </span>
           </h2>
@@ -1224,7 +1224,7 @@ function ProCameraBridgeCard({
                       Paired with {s.proBridge?.brand} {s.proBridge?.model}
                     </p>
                   </div>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-900">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-900">
                     Active
                   </span>
                 </li>
@@ -1383,7 +1383,7 @@ async function GalleryPreviewCard({
       )}
 
       <div className="flex flex-wrap items-center gap-4 text-xs text-ink/65">
-        <LegendDot color="bg-emerald-500" label="Auto-face tag" />
+        <LegendDot color="bg-success-500" label="Auto-face tag" />
         <LegendDot color="bg-terracotta" label="QR-scanned tag" />
         <LegendDot color="bg-ink/30" label="Untagged" />
       </div>

@@ -214,7 +214,7 @@ export default async function AdminEventsPage({ searchParams }: Props) {
                         <input type="hidden" name="event_id" value={e.event_id} />
                         <SubmitButton
                           title="Hard-delete this event."
-                          className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-rose-100 hover:text-rose-900 disabled:opacity-60"
+                          className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-danger-100 hover:text-danger-900 disabled:opacity-60"
                           pendingLabel="Deleting…"
                         >
                           <Trash2 className="h-3 w-3" strokeWidth={2} />

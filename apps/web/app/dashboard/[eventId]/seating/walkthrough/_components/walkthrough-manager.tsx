@@ -85,7 +85,7 @@ export function WalkthroughManager({
       {error ? (
         <p
           role="alert"
-          className="flex items-start gap-1.5 rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-800"
+          className="flex items-start gap-1.5 rounded-md border border-danger-300 bg-danger-50 px-3 py-2 text-sm text-danger-800"
         >
           <AlertCircle aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2} />
           <span>{error}</span>
@@ -219,7 +219,7 @@ function ZoneCard({
               run(() => deleteWalkthroughZone(eventId, zone.zoneId));
           }}
           aria-label={`Delete ${zone.label}`}
-          className="shrink-0 rounded-lg p-1.5 text-ink/45 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50"
+          className="shrink-0 rounded-lg p-1.5 text-ink/45 hover:bg-danger-50 hover:text-danger-700 disabled:opacity-50"
         >
           <Trash2 className="h-4 w-4" strokeWidth={1.75} />
         </button>
@@ -322,7 +322,7 @@ function ZoneCard({
                 }
                 className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${
                   zone.published
-                    ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                    ? 'bg-success-100 text-success-800 hover:bg-success-200'
                     : 'bg-ink/5 text-ink/70 hover:bg-ink/10'
                 }`}
               >
@@ -343,7 +343,7 @@ function ZoneCard({
                   if (confirm('Remove this walk video? You can record a new one after.'))
                     run(() => removeWalkthroughZoneVideo(eventId, zone.zoneId));
                 }}
-                className="text-xs font-medium text-ink/55 hover:text-rose-700"
+                className="text-xs font-medium text-ink/55 hover:text-danger-700"
               >
                 Remove video
               </button>

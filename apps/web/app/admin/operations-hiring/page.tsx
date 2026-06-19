@@ -16,9 +16,9 @@ import { SmokeTestPanel } from './_components/smoke-test-panel';
 export const metadata = { title: 'Operations & Hiring · Growth Cockpit · Admin' };
 
 const SIGNAL_TONE: Record<SignalLevel, string> = {
-  green: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-  yellow: 'bg-amber-100 text-amber-800 border-amber-200',
-  red: 'bg-rose-100 text-rose-800 border-rose-200',
+  green: 'bg-success-100 text-success-800 border-success-200',
+  yellow: 'bg-warn-100 text-warn-800 border-warn-200',
+  red: 'bg-danger-100 text-danger-800 border-danger-200',
 };
 
 const SIGNAL_DOT: Record<SignalLevel, string> = {
@@ -81,16 +81,16 @@ export default async function OperationsHiringPage() {
 
       {/* Unacknowledged alerts banner */}
       {alerts.length > 0 && (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 p-4">
-          <h2 className="text-sm font-semibold text-rose-900">
+        <div className="rounded-lg border border-danger-200 bg-danger-50 p-4">
+          <h2 className="text-sm font-semibold text-danger-900">
             {alerts.length} unacknowledged alert{alerts.length === 1 ? '' : 's'}
           </h2>
-          <ul className="mt-2 space-y-1 text-sm text-rose-800">
+          <ul className="mt-2 space-y-1 text-sm text-danger-800">
             {alerts.slice(0, 5).map((alert) => (
               <li key={alert.alert_id}>
                 <span className="font-medium">{alert.alert_type.replace(/_/g, ' ')}</span>
                 {alert.signal_name && ` · ${alert.signal_name}`}
-                <span className="ml-2 text-xs text-rose-700/70">
+                <span className="ml-2 text-xs text-danger-700/70">
                   {new Date(alert.fired_at).toLocaleString('en-PH')}
                 </span>
               </li>
@@ -248,7 +248,7 @@ export default async function OperationsHiringPage() {
                       {role.status.replace(/_/g, ' ')}
                     </span>
                   </td>
-                  <td className={`py-3 text-right tabular-nums ${role.days_until_hire_by < 30 ? 'font-semibold text-rose-700' : 'text-ink/70'}`}>
+                  <td className={`py-3 text-right tabular-nums ${role.days_until_hire_by < 30 ? 'font-semibold text-danger-700' : 'text-ink/70'}`}>
                     {role.days_until_hire_by > 0 ? `+${role.days_until_hire_by}d` : `${role.days_until_hire_by}d`}
                   </td>
                 </tr>
@@ -282,7 +282,7 @@ export default async function OperationsHiringPage() {
           </p>
         )}
         {sweep.errors.length > 0 && (
-          <p className="text-rose-700">Sweep errors: {sweep.errors.join('; ')}</p>
+          <p className="text-danger-700">Sweep errors: {sweep.errors.join('; ')}</p>
         )}
       </footer>
     </div>

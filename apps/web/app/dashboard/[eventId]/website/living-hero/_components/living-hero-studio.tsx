@@ -219,7 +219,7 @@ export function LivingHeroStudio({
             </p>
           </label>
           {!supported ? (
-            <p className="mt-3 text-xs text-amber-700">
+            <p className="mt-3 text-xs text-warn-700">
               Heads up: this browser can&rsquo;t make a moving hero, so we&rsquo;ll save your chosen frame as a
               photo instead.
             </p>

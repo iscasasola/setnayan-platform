@@ -126,7 +126,7 @@ const ERROR_COPY: Record<string, string> = {
 // Matches the established side-color convention from the guest list +
 // seating chart UIs so the visual language stays consistent.
 const SIDE_CHIP_TINT: Record<GuestSide, string> = {
-  bride: 'bg-rose-50 text-rose-900 ring-1 ring-rose-200',
+  bride: 'bg-danger-50 text-danger-900 ring-1 ring-danger-200',
   groom: 'bg-sky-50 text-sky-900 ring-1 ring-sky-200',
   both: 'bg-violet-50 text-violet-900 ring-1 ring-violet-200',
 };
@@ -137,13 +137,13 @@ const SIDE_CHIP_TINT: Record<GuestSide, string> = {
 // StatsStrip tints on the guest list page for visual continuity.
 const RSVP_PILL_CLASS: Record<RsvpStatus, string> = {
   attending:
-    'has-[:checked]:bg-emerald-600 has-[:checked]:text-cream has-[:checked]:border-emerald-700',
+    'has-[:checked]:bg-success-600 has-[:checked]:text-cream has-[:checked]:border-success-700',
   pending:
-    'has-[:checked]:bg-amber-100 has-[:checked]:text-amber-900 has-[:checked]:border-amber-400',
+    'has-[:checked]:bg-warn-100 has-[:checked]:text-warn-900 has-[:checked]:border-warn-400',
   maybe:
     'has-[:checked]:bg-sky-100 has-[:checked]:text-sky-900 has-[:checked]:border-sky-400',
   declined:
-    'has-[:checked]:bg-rose-100 has-[:checked]:text-rose-900 has-[:checked]:border-rose-400',
+    'has-[:checked]:bg-danger-100 has-[:checked]:text-danger-900 has-[:checked]:border-danger-400',
 };
 
 type Props = {
@@ -308,7 +308,7 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
       {saved ? (
         <p
           role="status"
-          className="rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-800"
+          className="rounded-md border border-success-300/60 bg-success-50 px-4 py-2.5 text-sm text-success-800"
         >
           Saved.
         </p>
@@ -407,7 +407,7 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
               <TagChip
                 icon={<Armchair aria-hidden className="h-3 w-3" strokeWidth={2} />}
                 label={seatedAt}
-                tint="bg-amber-50 text-amber-900 ring-1 ring-amber-200"
+                tint="bg-warn-50 text-warn-900 ring-1 ring-warn-200"
               />
             ) : null}
             {customGroups.map((g) => (
@@ -432,7 +432,7 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
             </label>
             {isCouple ? (
               <>
-                <div className="inline-flex h-11 items-center gap-2 rounded-md border border-emerald-300 bg-emerald-50 px-4 text-sm font-medium text-emerald-800">
+                <div className="inline-flex h-11 items-center gap-2 rounded-md border border-success-300 bg-success-50 px-4 text-sm font-medium text-success-800">
                   <Check className="h-4 w-4" strokeWidth={2.5} aria-hidden />
                   Attending · always
                 </div>
@@ -502,7 +502,7 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
             </span>
           </label>
           {plusOneStateLabel ? (
-            <p className="rounded-md border border-emerald-200/60 bg-emerald-50/70 px-3 py-2 text-xs text-emerald-900">
+            <p className="rounded-md border border-success-200/60 bg-success-50/70 px-3 py-2 text-xs text-success-900">
               <span className="font-medium">+1 status:</span> {plusOneStateLabel}
               {plusOneRow ? (
                 <>
@@ -518,7 +518,7 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
               ) : null}
             </p>
           ) : guest.plus_one_allowed ? (
-            <p className="rounded-md border border-amber-200/60 bg-amber-50/70 px-3 py-2 text-xs text-amber-900">
+            <p className="rounded-md border border-warn-200/60 bg-warn-50/70 px-3 py-2 text-xs text-warn-900">
               Allowed but no +1 has been added to the list yet.
             </p>
           ) : null}

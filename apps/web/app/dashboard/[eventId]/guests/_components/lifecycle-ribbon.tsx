@@ -132,7 +132,7 @@ export function LifecycleRibbon({
                   title={s.badgeTitle}
                   className={`rounded-full px-1.5 text-[11px] font-semibold ${
                     s.badgeTone === 'done'
-                      ? 'bg-emerald-100 text-emerald-800'
+                      ? 'bg-success-100 text-success-800'
                       : 'bg-terracotta/15 text-terracotta-700'
                   }`}
                 >

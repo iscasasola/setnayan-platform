@@ -226,16 +226,16 @@ export default async function AdminPricingPage({ searchParams }: Props) {
       </header>
 
       {createdCode && (
-        <div className="mb-6 rounded-2xl border border-emerald-300/60 bg-emerald-50/80 p-4">
-          <p className="text-sm text-emerald-900">
+        <div className="mb-6 rounded-2xl border border-success-300/60 bg-success-50/80 p-4">
+          <p className="text-sm text-success-900">
             Created bundle <code className="font-mono text-xs">{createdCode}</code> — set its
             price, description and active state in the Bundles section above, then Save.
           </p>
         </div>
       )}
       {createError && (
-        <div className="mb-6 rounded-2xl border border-rose-300/60 bg-rose-50/80 p-4">
-          <p className="text-sm text-rose-900">
+        <div className="mb-6 rounded-2xl border border-danger-300/60 bg-danger-50/80 p-4">
+          <p className="text-sm text-danger-900">
             {createError === 'name'
               ? 'A bundle needs a name.'
               : createError === 'price'
@@ -261,11 +261,11 @@ export default async function AdminPricingPage({ searchParams }: Props) {
       </div>
 
       {(retailRes.error || bundleRes.error) && (
-        <div className="mb-6 rounded-2xl border border-rose-300/60 bg-rose-50/80 p-5">
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-rose-900">
+        <div className="mb-6 rounded-2xl border border-danger-300/60 bg-danger-50/80 p-5">
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-danger-900">
             Catalog load error
           </p>
-          <p className="mt-1 text-sm text-rose-900">
+          <p className="mt-1 text-sm text-danger-900">
             The pricing catalog couldn&apos;t load right now. We&apos;ve logged the issue — refresh
             in a moment or check Sentry.
           </p>
@@ -518,11 +518,11 @@ export default async function AdminPricingPage({ searchParams }: Props) {
         </form>
       </section>
 
-      <div className="rounded-2xl border border-amber-300/60 bg-amber-50/80 p-5">
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-amber-900">
+      <div className="rounded-2xl border border-warn-300/60 bg-warn-50/80 p-5">
+        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-warn-900">
           Deferred V1.x
         </p>
-        <p className="mt-1 text-sm text-amber-900">
+        <p className="mt-1 text-sm text-warn-900">
           Two-admin approval gate on price deltas above ₱500 logs to console only for now. A
           bundle stores name + price + description; defining which services a bundle{' '}
           <span className="italic">unlocks</span> is a separate follow-up.
@@ -551,8 +551,8 @@ function SaveBanner({
 }) {
   if (hadError) {
     return (
-      <div className="mb-6 rounded-2xl border border-rose-300/60 bg-rose-50/80 p-4">
-        <p className="text-sm text-rose-900">
+      <div className="mb-6 rounded-2xl border border-danger-300/60 bg-danger-50/80 p-4">
+        <p className="text-sm text-danger-900">
           Something went wrong saving one or more prices — we logged the error. Refresh and confirm
           the values below, then try again.
         </p>
@@ -565,8 +565,8 @@ function SaveBanner({
       : '';
   if (saved > 0) {
     return (
-      <div className="mb-6 rounded-2xl border border-emerald-300/60 bg-emerald-50/80 p-4">
-        <p className="text-sm text-emerald-900">
+      <div className="mb-6 rounded-2xl border border-success-300/60 bg-success-50/80 p-4">
+        <p className="text-sm text-success-900">
           Saved {saved} price change{saved === 1 ? '' : 's'} — now live on /pricing and
           /for-vendors.{skippedNote}
         </p>

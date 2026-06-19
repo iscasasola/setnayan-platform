@@ -322,7 +322,7 @@ export function BoothCapture({
           Booth capture
         </h2>
         {captured.length > 0 ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-medium text-emerald-900">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-success-100 px-2.5 py-1 text-[11px] font-medium text-success-900">
             <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             {captured.length} clip{captured.length === 1 ? '' : 's'} this session
           </span>
@@ -440,7 +440,7 @@ export function BoothCapture({
             <button
               type="button"
               onClick={acceptClip}
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-emerald-700 px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-emerald-800"
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-success-700 px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-success-800"
             >
               <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
               Keep this clip

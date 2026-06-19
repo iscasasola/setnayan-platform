@@ -194,7 +194,7 @@ function FlashBanner({
   }
   if (search.app_approved === '1') {
     return (
-      <p className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+      <p className="mb-4 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800">
         Application approved — vendor is now verified.
       </p>
     );
@@ -208,7 +208,7 @@ function FlashBanner({
   }
   if (search.demoted === '1') {
     return (
-      <p className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+      <p className="mb-4 rounded-md border border-warn-300 bg-warn-50 px-4 py-3 text-sm text-warn-900">
         Vendor demoted — verified-tier perks revoked + 3-stage payout
         reinstated for any legacy bookings still routing through Setnayan.
       </p>
@@ -223,7 +223,7 @@ function FlashBanner({
   }
   if (search.approved === '1') {
     return (
-      <p className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+      <p className="mb-4 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800">
         Vendor approved — they&rsquo;re now publicly bookable.
       </p>
     );
@@ -535,7 +535,7 @@ function ApplicationCard({ application }: { application: ApplicationRow }) {
             </p>
           ) : null}
           {application.vendor.demotion_count > 0 ? (
-            <p className="text-amber-700">
+            <p className="text-warn-700">
               Prior demotions: {application.vendor.demotion_count}
             </p>
           ) : null}
@@ -557,9 +557,9 @@ function ApplicationCard({ application }: { application: ApplicationRow }) {
           {DOC_SLOTS.map((slot) => {
             const v = application.doc_uploads?.[slot.key];
             const tone = v
-              ? 'text-emerald-700'
+              ? 'text-success-700'
               : slot.kind === 'upload'
-                ? 'text-amber-700'
+                ? 'text-warn-700'
                 : 'text-ink/60';
             return (
               <li key={slot.key} className={`flex items-center gap-2 ${tone}`}>
@@ -660,7 +660,7 @@ function ActionRow({ application }: { application: ApplicationRow }) {
 
       {isApproved ? (
         <details className="relative">
-          <summary className="inline-flex h-9 cursor-pointer items-center rounded-md border border-amber-300 bg-amber-50 px-3 text-xs text-amber-900">
+          <summary className="inline-flex h-9 cursor-pointer items-center rounded-md border border-warn-300 bg-warn-50 px-3 text-xs text-warn-900">
             Demote…
           </summary>
           <form
@@ -694,7 +694,7 @@ function ActionRow({ application }: { application: ApplicationRow }) {
             />
             <SubmitButton
               pendingLabel="Demoting…"
-              className="inline-flex h-11 items-center rounded-md bg-amber-100 px-3 text-xs font-medium text-amber-900 hover:bg-amber-200"
+              className="inline-flex h-11 items-center rounded-md bg-warn-100 px-3 text-xs font-medium text-warn-900 hover:bg-warn-200"
             >
               Confirm demote
             </SubmitButton>
@@ -711,7 +711,7 @@ function DemotedVendorCard({
   vendor: ApplicationRow['vendor'];
 }) {
   return (
-    <article className="space-y-2 rounded-xl border border-amber-300/60 bg-amber-50/40 p-4">
+    <article className="space-y-2 rounded-xl border border-warn-300/60 bg-warn-50/40 p-4">
       <p className="text-sm font-semibold text-ink">
         {vendor.business_name || 'Unnamed vendor'}
       </p>
@@ -911,8 +911,8 @@ function VerifyCard({ vendor }: { vendor: VendorVisibilityRow }) {
 
 function SlaBadge({ tone, label }: { tone: SlaTone; label: string }) {
   const palette: Record<SlaTone, string> = {
-    on_track: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-    warning: 'bg-amber-50 text-amber-900 border-amber-300',
+    on_track: 'bg-success-50 text-success-800 border-success-200',
+    warning: 'bg-warn-50 text-warn-900 border-warn-300',
     overdue: 'bg-terracotta/10 text-terracotta-700 border-terracotta/30',
     closed: 'bg-ink/5 text-ink/55 border-ink/15',
   };
@@ -929,9 +929,9 @@ function SlaBadge({ tone, label }: { tone: SlaTone; label: string }) {
 function StatusBadge({ status }: { status: ApplicationStatus }) {
   const tone: Record<ApplicationStatus, string> = {
     draft: 'bg-ink/5 text-ink/65',
-    pending_review: 'bg-amber-100 text-amber-900',
-    in_review: 'bg-amber-50 text-amber-900 border border-amber-300',
-    approved: 'bg-emerald-100 text-emerald-800',
+    pending_review: 'bg-warn-100 text-warn-900',
+    in_review: 'bg-warn-50 text-warn-900 border border-warn-300',
+    approved: 'bg-success-100 text-success-800',
     rejected: 'bg-terracotta/10 text-terracotta-700',
     withdrawn: 'bg-ink/8 text-ink/55',
   };
@@ -954,8 +954,8 @@ function StatusBadge({ status }: { status: ApplicationStatus }) {
 
 function VisibilityBadge({ value }: { value: VendorPublicVisibility }) {
   const tone: Record<VendorPublicVisibility, string> = {
-    coming_soon: 'bg-amber-100 text-amber-900',
-    verified: 'bg-emerald-100 text-emerald-800',
+    coming_soon: 'bg-warn-100 text-warn-900',
+    verified: 'bg-success-100 text-success-800',
     hidden: 'bg-ink/8 text-ink/65',
     archived: 'bg-ink/8 text-ink/45',
   };

@@ -201,7 +201,7 @@ export default async function PatiktokGallery({
       {queued ? (
         <p
           role="status"
-          className="inline-flex items-center gap-2 rounded-2xl border border-emerald-300/70 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+          className="inline-flex items-center gap-2 rounded-2xl border border-success-300/70 bg-success-50 px-4 py-3 text-sm text-success-900"
         >
           <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           Render queued. Render it right here in your browser below — it&rsquo;s
@@ -214,7 +214,7 @@ export default async function PatiktokGallery({
       {tiktokConnected ? (
         <p
           role="status"
-          className="inline-flex items-center gap-2 rounded-2xl border border-emerald-300/70 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+          className="inline-flex items-center gap-2 rounded-2xl border border-success-300/70 bg-success-50 px-4 py-3 text-sm text-success-900"
         >
           <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           TikTok connected
@@ -238,7 +238,7 @@ export default async function PatiktokGallery({
       {tiktokError ? (
         <p
           role="alert"
-          className="inline-flex items-start gap-2 rounded-2xl border border-rose-300/70 bg-rose-50 px-4 py-3 text-sm text-rose-900"
+          className="inline-flex items-start gap-2 rounded-2xl border border-danger-300/70 bg-danger-50 px-4 py-3 text-sm text-danger-900"
         >
           <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
           <span>
@@ -335,7 +335,7 @@ function YourRenders({
                   })}
                 </p>
                 {job.status === 'failed' && job.failure_reason ? (
-                  <p className="text-[11px] text-rose-700">
+                  <p className="text-[11px] text-danger-700">
                     {job.failure_reason}
                   </p>
                 ) : null}
@@ -373,17 +373,17 @@ function RenderStatusPill({ status }: { status: RenderJobRow['status'] }) {
     },
     processing: {
       Icon: Loader2,
-      cls: 'bg-amber-100 text-amber-900',
+      cls: 'bg-warn-100 text-warn-900',
       label: 'Rendering',
     },
     completed: {
       Icon: CheckCircle2,
-      cls: 'bg-emerald-100 text-emerald-900',
+      cls: 'bg-success-100 text-success-900',
       label: 'Completed',
     },
     failed: {
       Icon: XCircle,
-      cls: 'bg-rose-100 text-rose-900',
+      cls: 'bg-danger-100 text-danger-900',
       label: 'Failed',
     },
     cancelled: {
@@ -498,7 +498,7 @@ function TierCard({
 
       {isPersonal && tiktokGrant ? (
         <div className="flex flex-wrap items-center gap-2">
-          <p className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-2.5 py-1 text-[11px] text-emerald-900">
+          <p className="inline-flex items-center gap-1.5 rounded-md bg-success-50 px-2.5 py-1 text-[11px] text-success-900">
             <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={1.75} />
             TikTok connected
             {tiktokGrant.tiktok_handle ? `: @${tiktokGrant.tiktok_handle}` : ''}
@@ -506,7 +506,7 @@ function TierCard({
           <form action={disconnectPatiktokTiktok}>
             <input type="hidden" name="event_id" value={eventId} />
             <SubmitButton
-              className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-2.5 py-1 text-[11px] text-ink/70 hover:border-rose-300 hover:text-rose-700 disabled:opacity-70"
+              className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-2.5 py-1 text-[11px] text-ink/70 hover:border-danger-300 hover:text-danger-700 disabled:opacity-70"
               pendingLabel="Disconnecting…"
             >
               Disconnect TikTok
@@ -584,19 +584,19 @@ function HowItWorks() {
     },
   ];
   return (
-    <section className="space-y-3 rounded-2xl border border-amber-200/60 bg-amber-50/60 p-4">
-      <p className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-900">
+    <section className="space-y-3 rounded-2xl border border-warn-200/60 bg-warn-50/60 p-4">
+      <p className="inline-flex items-center gap-1.5 text-sm font-medium text-warn-900">
         <Sparkles className="h-4 w-4" strokeWidth={1.75} />
         How Patiktok runs at your event
       </p>
       <ol className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {steps.map((s) => (
           <li key={s.title} className="space-y-1">
-            <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-amber-900">
+            <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-warn-900">
               <s.Icon aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               {s.title}
             </p>
-            <p className="text-xs text-amber-900/85">{s.body}</p>
+            <p className="text-xs text-warn-900/85">{s.body}</p>
           </li>
         ))}
       </ol>

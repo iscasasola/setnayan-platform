@@ -208,7 +208,7 @@ export function CipherStudio({
       {notice ? (
         <p
           className={`mt-4 rounded-lg px-4 py-2.5 text-sm font-medium ${
-            notice.tone === 'ok' ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'
+            notice.tone === 'ok' ? 'bg-success-50 text-success-800' : 'bg-red-50 text-red-700'
           }`}
         >
           {notice.text}
@@ -216,9 +216,9 @@ export function CipherStudio({
       ) : null}
 
       {hasCipher ? (
-        <div className="mt-4 space-y-2 rounded-xl border border-emerald-300/60 bg-emerald-50 px-4 py-3">
+        <div className="mt-4 space-y-2 rounded-xl border border-success-300/60 bg-success-50 px-4 py-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="inline-flex items-center gap-2 text-sm font-medium text-emerald-800">
+            <p className="inline-flex items-center gap-2 text-sm font-medium text-success-800">
               <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
               Your cipher monogram is live on your wedding website.
             </p>
@@ -233,7 +233,7 @@ export function CipherStudio({
               </button>
             </form>
           </div>
-          <p className="text-xs text-emerald-800/80">
+          <p className="text-xs text-success-800/80">
             Your QR codes and dashboard keep your lettered monogram so your
             initials stay crisp at small sizes.
           </p>

@@ -488,17 +488,17 @@ export function PlanningGroups({
           still expand to see vendor names, vendor logos, "switch vendor"
           affordance, and the locked-card directions row. */}
       {lockedGroups.length > 0 ? (
-        <details className="group rounded-xl border border-emerald-200/60 bg-emerald-50/40 transition-colors open:border-emerald-300/80 open:bg-emerald-50/60">
+        <details className="group rounded-xl border border-success-200/60 bg-success-50/40 transition-colors open:border-success-300/80 open:bg-success-50/60">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
             <div className="flex min-w-0 flex-1 items-center gap-2.5">
               <span
                 aria-hidden
-                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 transition-transform group-open:rotate-90"
+                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-success-100 text-success-700 transition-transform group-open:rotate-90"
               >
                 <ChevronRight className="h-4 w-4" strokeWidth={2} />
               </span>
               <div className="min-w-0">
-                <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-emerald-700">
+                <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-success-700">
                   Locked vendors
                 </p>
                 <p className="text-sm text-ink/70">
@@ -509,12 +509,12 @@ export function PlanningGroups({
                 </p>
               </div>
             </div>
-            <span className="hidden text-xs text-emerald-700 sm:inline">
+            <span className="hidden text-xs text-success-700 sm:inline">
               <span className="group-open:hidden">Show</span>
               <span className="hidden group-open:inline">Hide</span>
             </span>
           </summary>
-          <div className="border-t border-emerald-200/60 px-3 pb-4 pt-3 sm:px-4">
+          <div className="border-t border-success-200/60 px-3 pb-4 pt-3 sm:px-4">
             <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
               {lockedGroups.map((group) => {
                 const picks = bucketed.get(group.id) ?? [];
@@ -701,9 +701,9 @@ function GroupCard({
     <article
       className={`flex h-full flex-col gap-3 rounded-xl border p-4 sm:p-5 ${
         status.tone === 'overdue'
-          ? 'border-rose-300/50 bg-rose-50/40'
+          ? 'border-danger-300/50 bg-danger-50/40'
           : status.tone === 'soon'
-            ? 'border-amber-300/50 bg-amber-50/40'
+            ? 'border-warn-300/50 bg-warn-50/40'
             : 'border-ink/10 bg-cream'
       }`}
     >
@@ -725,9 +725,9 @@ function GroupCard({
       <p
         className={`flex items-center gap-1.5 text-xs ${
           status.tone === 'overdue'
-            ? 'text-rose-800'
+            ? 'text-danger-800'
             : status.tone === 'soon'
-              ? 'text-amber-900'
+              ? 'text-warn-900'
               : status.tone === 'none'
                 ? 'text-ink/50'
                 : 'text-ink/65'
@@ -814,7 +814,7 @@ function GroupCard({
        * the suggestion. */}
       {recommendations.length > 0 ? (
         <div className="space-y-2">
-          <h4 className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-amber-700/90">
+          <h4 className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-warn-700/90">
             <span aria-hidden>⭐</span>
             <span>Recommended — services you’ve already chosen</span>
           </h4>
@@ -1003,7 +1003,7 @@ function LockedCard({
     : null;
 
   return (
-    <article className="flex h-full flex-col gap-3 rounded-xl border border-emerald-300/50 bg-emerald-50/40 p-4 sm:p-5">
+    <article className="flex h-full flex-col gap-3 rounded-xl border border-success-300/50 bg-success-50/40 p-4 sm:p-5">
       <header className="flex items-start justify-between gap-3">
         <div className="space-y-1">
           <h3 className="text-base font-semibold tracking-tight text-ink sm:text-lg">
@@ -1011,13 +1011,13 @@ function LockedCard({
           </h3>
           <p className="text-xs text-ink/55">{hintCopy}</p>
         </div>
-        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-emerald-800">
+        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-success-800">
           <BookmarkCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
           Locked
         </span>
       </header>
 
-      <p className="flex items-center gap-1.5 text-xs text-emerald-800">
+      <p className="flex items-center gap-1.5 text-xs text-success-800">
         <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
         <span>{statusLabel}</span>
       </p>
@@ -1075,7 +1075,7 @@ function LockedCard({
               >
                 <BookmarkCheck
                   aria-hidden
-                  className="h-3.5 w-3.5 shrink-0 text-emerald-700"
+                  className="h-3.5 w-3.5 shrink-0 text-success-700"
                   strokeWidth={2}
                 />
                 <span className="min-w-0 flex-1 truncate text-xs text-ink/80">
@@ -1241,7 +1241,7 @@ function StatusPill({
 }) {
   if (hasLocked) {
     return (
-      <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-emerald-800">
+      <span className="shrink-0 rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-success-800">
         {lockedCount === 1 ? '1 locked' : `${lockedCount} locked`}
       </span>
     );
@@ -1255,14 +1255,14 @@ function StatusPill({
   }
   if (tone === 'overdue') {
     return (
-      <span className="shrink-0 rounded-full bg-rose-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-rose-800">
+      <span className="shrink-0 rounded-full bg-danger-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-danger-800">
         Overdue
       </span>
     );
   }
   if (tone === 'soon') {
     return (
-      <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-amber-900">
+      <span className="shrink-0 rounded-full bg-warn-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-warn-900">
         Due soon
       </span>
     );
@@ -1306,21 +1306,21 @@ function CompatibilityChip({
   return (
     <form
       action={deleteVendor}
-      className="flex flex-wrap items-start gap-2 rounded-md border border-amber-300/50 bg-amber-50/60 px-2.5 py-1.5"
+      className="flex flex-wrap items-start gap-2 rounded-md border border-warn-300/50 bg-warn-50/60 px-2.5 py-1.5"
     >
       <input type="hidden" name="event_id" value={eventId} />
       <input type="hidden" name="vendor_id" value={vendorId} />
       <AlertTriangle
         aria-hidden
-        className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-700"
+        className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warn-700"
         strokeWidth={2}
       />
-      <p className="min-w-0 flex-1 text-[11px] leading-snug text-amber-900">
+      <p className="min-w-0 flex-1 text-[11px] leading-snug text-warn-900">
         {label}
       </p>
       <SubmitButton
         pendingLabel="Removing…"
-        className="shrink-0 rounded-md border border-amber-400/60 bg-cream px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-amber-900 transition-colors hover:bg-amber-100"
+        className="shrink-0 rounded-md border border-warn-400/60 bg-cream px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-warn-900 transition-colors hover:bg-warn-100"
       >
         Remove
       </SubmitButton>
@@ -1428,9 +1428,9 @@ function PaperworkSubLink({
   const showLicenseWarn = summary.hasMarriageLicenseExpiring;
 
   const toneClass = isOverdue
-    ? 'border-rose-300/50 bg-rose-50/60 text-rose-900 hover:bg-rose-100/60'
+    ? 'border-danger-300/50 bg-danger-50/60 text-danger-900 hover:bg-danger-100/60'
     : showLicenseWarn
-      ? 'border-amber-300/50 bg-amber-50/60 text-amber-900 hover:bg-amber-100/60'
+      ? 'border-warn-300/50 bg-warn-50/60 text-warn-900 hover:bg-warn-100/60'
       : hasRows
         ? 'border-ink/15 bg-cream text-ink/80 hover:border-terracotta/40 hover:text-terracotta'
         : 'border-dashed border-ink/20 bg-cream text-ink/70 hover:border-terracotta/40 hover:text-terracotta';

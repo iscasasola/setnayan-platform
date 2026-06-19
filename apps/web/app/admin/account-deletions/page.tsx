@@ -110,7 +110,7 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
       {actioned ? (
         <p
           role="status"
-          className="mb-6 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+          className="mb-6 rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800"
         >
           Request {actioned}. The queue is updated below.
         </p>
@@ -140,7 +140,7 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
               return (
                 <li
                   key={req.request_id}
-                  className="space-y-3 rounded-xl border border-rose-200/60 bg-rose-50/40 p-4"
+                  className="space-y-3 rounded-xl border border-danger-200/60 bg-danger-50/40 p-4"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0 space-y-1">
@@ -178,7 +178,7 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
                     >
                       <input type="hidden" name="request_id" value={req.request_id} />
                       <SubmitButton
-                        className="inline-flex items-center gap-1 rounded-md bg-rose-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-rose-800 disabled:opacity-60"
+                        className="inline-flex items-center gap-1 rounded-md bg-danger-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-danger-800 disabled:opacity-60"
                         pendingLabel="Deleting…"
                       >
                         <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
@@ -195,7 +195,7 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
                     >
                       <input type="hidden" name="request_id" value={req.request_id} />
                       <SubmitButton
-                        className="inline-flex items-center gap-1 rounded-md bg-ink/10 px-3 py-1.5 text-xs font-medium text-ink/80 hover:bg-rose-200 hover:text-rose-900 disabled:opacity-60"
+                        className="inline-flex items-center gap-1 rounded-md bg-ink/10 px-3 py-1.5 text-xs font-medium text-ink/80 hover:bg-danger-200 hover:text-danger-900 disabled:opacity-60"
                         pendingLabel="…"
                       >
                         <Ban className="h-3.5 w-3.5" strokeWidth={2} />
@@ -266,9 +266,9 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
                         <span
                           className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
                             req.status === 'approved'
-                              ? 'bg-rose-100 text-rose-800'
+                              ? 'bg-danger-100 text-danger-800'
                               : req.status === 'rejected'
-                                ? 'bg-amber-100 text-amber-900'
+                                ? 'bg-warn-100 text-warn-900'
                                 : 'bg-ink/10 text-ink/60'
                           }`}
                         >

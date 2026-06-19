@@ -708,7 +708,7 @@ export function StdBuilderClient({
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm font-medium text-ink/85">Your song</p>
                 {siteMusicKey || initialContent.musicUrl ? (
-                  <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                  <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-success-50 px-2.5 py-1 text-xs font-medium text-success-700">
                     <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
                     {siteMusicKey ? 'New song ready' : 'Added'}
                   </span>
@@ -852,13 +852,13 @@ export function StdBuilderClient({
 
           {/* Result messages */}
           {result === 'ok' ? (
-            <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-center text-sm text-emerald-800">
+            <div className="rounded-xl border border-success-300 bg-success-50 px-4 py-3 text-center text-sm text-success-800">
               <span className="font-medium">Saved.</span> Your film is live at full quality.{' '}
               {slug ? (
                 <Link
                   href={`/${slug}`}
                   target="_blank"
-                  className="inline-flex items-center gap-1 font-medium underline decoration-emerald-500 underline-offset-2 hover:text-emerald-900"
+                  className="inline-flex items-center gap-1 font-medium underline decoration-success-500 underline-offset-2 hover:text-success-900"
                 >
                   View your page
                   <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />

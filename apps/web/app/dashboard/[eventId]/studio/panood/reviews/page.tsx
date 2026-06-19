@@ -111,11 +111,11 @@ export default async function PanoodReviewsPage({ params }: Props) {
                 <div key={d.stars} className="flex items-center gap-2 text-xs">
                   <span className="flex w-6 items-center gap-0.5 font-mono text-ink/55">
                     {d.stars}
-                    <Star aria-hidden className="h-3 w-3 fill-amber-500 text-amber-500" />
+                    <Star aria-hidden className="h-3 w-3 fill-warn-500 text-warn-500" />
                   </span>
                   <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-ink/5">
                     <div
-                      className="h-full rounded-full bg-amber-400"
+                      className="h-full rounded-full bg-warn-400"
                       style={{ width: `${pct}%` }}
                     />
                   </div>
@@ -142,7 +142,7 @@ export default async function PanoodReviewsPage({ params }: Props) {
               className="space-y-2 rounded-2xl border border-ink/10 bg-cream p-5"
             >
               <div className="flex items-center justify-between gap-3">
-                <span className="flex items-center gap-0.5 text-amber-500">
+                <span className="flex items-center gap-0.5 text-warn-500">
                   {[1, 2, 3, 4, 5].map((s) => (
                     <Star
                       key={s}

@@ -131,7 +131,7 @@ export default async function AdminVendorTokensPage({
       <header className="mb-6 space-y-2">
         <div className="flex items-center gap-2">
           <Coins aria-hidden className="h-5 w-5 text-orange" strokeWidth={2} />
-          <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-900">
+          <span className="rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-900">
             {isClaimed ? 'Claimed' : 'Unclaimed'}
           </span>
         </div>
@@ -144,13 +144,13 @@ export default async function AdminVendorTokensPage({
       </header>
 
       {grantedCount !== null && Number.isFinite(grantedCount) && (
-        <div className="mb-6 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+        <div className="mb-6 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
           ✓ Granted {grantedCount.toLocaleString('en-PH')} tokens. The vendor&rsquo;s wallet now shows {totalBalance.toLocaleString('en-PH')} total tokens.
         </div>
       )}
 
       {tierSet !== null && (
-        <div className="mb-6 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+        <div className="mb-6 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
           ✓ Tier set to <strong>{TIER_LABEL[tierSet]}</strong>.
         </div>
       )}
@@ -176,7 +176,7 @@ export default async function AdminVendorTokensPage({
             </>
           )}
           {!currentTierExpiresAt && currentTier !== 'free' && (
-            <span className="ml-1 text-amber-700">(open-ended — no auto-downgrade)</span>
+            <span className="ml-1 text-warn-700">(open-ended — no auto-downgrade)</span>
           )}
           . Set Pro/Enterprise after confirming an off-platform subscription payment
           (self-serve checkout is a later phase).
@@ -234,7 +234,7 @@ export default async function AdminVendorTokensPage({
       </section>
 
       {!isClaimed && (
-        <div className="mb-6 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <div className="mb-6 rounded-md border border-warn-200 bg-warn-50 px-4 py-3 text-sm text-warn-900">
           This vendor hasn&rsquo;t claimed yet. Grant the tokens now — they&rsquo;ll see the balance the moment they sign in via their claim link.
         </div>
       )}
@@ -245,7 +245,7 @@ export default async function AdminVendorTokensPage({
           Wallet snapshot
         </h2>
         {!hasWalletRow ? (
-          <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+          <p className="text-sm text-warn-800 bg-warn-50 border border-warn-200 rounded-md px-3 py-2">
             No wallet row yet — the vendor hasn&rsquo;t been verified (the founder-bonus
             grant creates the wallet on verification). You can still grant tokens now;
             they&rsquo;ll be visible the moment the vendor verifies.
@@ -262,7 +262,7 @@ export default async function AdminVendorTokensPage({
                 <div className="mt-0.5 text-[11px] uppercase tracking-wider text-ink/60">Purchased (lifetime)</div>
               </div>
               <div>
-                <div className="text-2xl font-semibold text-emerald-700">{totalBalance.toLocaleString('en-PH')}</div>
+                <div className="text-2xl font-semibold text-success-700">{totalBalance.toLocaleString('en-PH')}</div>
                 <div className="mt-0.5 text-[11px] uppercase tracking-wider text-ink/60">Total balance</div>
               </div>
             </div>

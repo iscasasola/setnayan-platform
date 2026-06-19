@@ -18,7 +18,7 @@ const FILTERS = [
 type FilterId = (typeof FILTERS)[number]['id'];
 
 function tagDotClass(source: GalleryTagSource): string {
-  if (source === 'auto_face') return 'bg-emerald-500';
+  if (source === 'auto_face') return 'bg-success-500';
   if (source === 'qr' || source === 'manual') return 'bg-terracotta';
   return 'bg-ink/30';
 }
@@ -30,8 +30,8 @@ function tagDotClass(source: GalleryTagSource): string {
  *   1  story   → grey dot
  */
 function kwentoDotClass(density: number): string {
-  if (density >= 3) return 'bg-amber-400';
-  if (density === 2) return 'bg-amber-300';
+  if (density >= 3) return 'bg-warn-400';
+  if (density === 2) return 'bg-warn-300';
   return 'bg-ink/30';
 }
 

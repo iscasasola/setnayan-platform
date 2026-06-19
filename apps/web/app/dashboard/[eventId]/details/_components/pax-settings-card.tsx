@@ -97,8 +97,8 @@ export function PaxSettingsCard({
         <button type="submit" className="button-primary" disabled={pending}>
           {pending ? 'Saving…' : 'Save'}
         </button>
-        {saved ? <span className="text-sm text-emerald-700">Saved.</span> : null}
-        {err ? <span className="text-sm text-rose-700">{err}</span> : null}
+        {saved ? <span className="text-sm text-success-700">Saved.</span> : null}
+        {err ? <span className="text-sm text-danger-700">{err}</span> : null}
       </div>
     </form>
   );

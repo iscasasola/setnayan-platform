@@ -88,10 +88,10 @@ export function PlaylistSlotSection({
   // positive slots stay cream/terracotta. Brand-voice editorial restraint
   // per [[feedback_setnayan_no_dev_text_post_launch]].
   const sectionTint = isBannedSlot
-    ? 'border-rose-300/60 bg-rose-50/40'
+    ? 'border-danger-300/60 bg-danger-50/40'
     : 'border-ink/15 bg-cream/40';
-  const labelTint = isBannedSlot ? 'text-rose-900' : 'text-ink';
-  const hintTint = isBannedSlot ? 'text-rose-900/65' : 'text-ink/65';
+  const labelTint = isBannedSlot ? 'text-danger-900' : 'text-ink';
+  const hintTint = isBannedSlot ? 'text-danger-900/65' : 'text-ink/65';
 
   return (
     <section
@@ -130,7 +130,7 @@ export function PlaylistSlotSection({
           onClick={() => setAddOpen(true)}
           className={`inline-flex items-center gap-1.5 text-sm transition-colors ${
             isBannedSlot
-              ? 'text-rose-700 hover:text-rose-900'
+              ? 'text-danger-700 hover:text-danger-900'
               : 'text-terracotta hover:text-terracotta-700'
           }`}
         >
@@ -148,7 +148,7 @@ export function PlaylistSlotSection({
                 htmlFor={`playlist-${slotType}-song`}
                 className="block font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55"
               >
-                Song <span className="text-rose-700">*</span>
+                Song <span className="text-danger-700">*</span>
               </label>
               <input
                 id={`playlist-${slotType}-song`}
@@ -213,7 +213,7 @@ export function PlaylistSlotSection({
           {errorMessage ? (
             <p
               role="alert"
-              className="rounded-md border border-rose-300/60 bg-rose-50 px-3 py-2 text-xs text-rose-800"
+              className="rounded-md border border-danger-300/60 bg-danger-50 px-3 py-2 text-xs text-danger-800"
             >
               {errorMessage}
             </p>
@@ -239,7 +239,7 @@ export function PlaylistSlotSection({
               disabled={isPending || songLabel.trim().length === 0}
               className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-semibold text-cream transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                 isBannedSlot
-                  ? 'bg-rose-700 hover:bg-rose-800'
+                  ? 'bg-danger-700 hover:bg-danger-800'
                   : 'bg-mulberry hover:bg-mulberry-700'
               }`}
             >

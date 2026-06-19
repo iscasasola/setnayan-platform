@@ -520,7 +520,7 @@ export function NewManualVendorModal({
           {errorMsg ? (
             <p
               role="alert"
-              className="flex items-center gap-1.5 rounded-md border border-rose-300/50 bg-rose-50/60 px-2.5 py-1.5 text-[11px] text-rose-900"
+              className="flex items-center gap-1.5 rounded-md border border-danger-300/50 bg-danger-50/60 px-2.5 py-1.5 text-[11px] text-danger-900"
             >
               <AlertCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
               {errorMsg}
@@ -655,7 +655,7 @@ function PostSaveStep({
 
   return (
     <div className="space-y-3.5">
-      <p className="flex items-center gap-2 rounded-md border border-emerald-300/50 bg-emerald-50/60 px-3 py-2 text-sm text-emerald-900">
+      <p className="flex items-center gap-2 rounded-md border border-success-300/50 bg-success-50/60 px-3 py-2 text-sm text-success-900">
         <Check aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2.2} />
         <span>
           <span className="font-semibold">{vendorName}</span> added to {categoryLabel}.
@@ -668,7 +668,7 @@ function PostSaveStep({
           Their package price <span className="font-normal normal-case text-ink/45">(optional)</span>
         </p>
         {priceSavedPhp != null ? (
-          <p className="mt-2 flex items-center gap-1.5 text-sm text-emerald-800">
+          <p className="mt-2 flex items-center gap-1.5 text-sm text-success-800">
             <Check aria-hidden className="h-4 w-4" strokeWidth={2.2} />
             ₱{priceSavedPhp.toLocaleString('en-PH')} saved — ready for your build.
           </p>
@@ -701,7 +701,7 @@ function PostSaveStep({
           </>
         )}
         {priceErr ? (
-          <p role="alert" className="mt-1.5 text-[11px] text-rose-900">
+          <p role="alert" className="mt-1.5 text-[11px] text-danger-900">
             {priceErr}
           </p>
         ) : null}
@@ -766,7 +766,7 @@ function PostSaveStep({
           </>
         )}
         {inviteErr ? (
-          <p role="alert" className="mt-1.5 text-[11px] text-rose-900">
+          <p role="alert" className="mt-1.5 text-[11px] text-danger-900">
             {inviteErr}
           </p>
         ) : null}
@@ -920,7 +920,7 @@ function SuggestionRow({
           ) : null}
         </div>
         {isCrossCategory ? (
-          <p className="rounded-md border border-amber-300/45 bg-amber-50/55 px-2 py-1 text-[11px] leading-snug text-amber-900">
+          <p className="rounded-md border border-warn-300/45 bg-warn-50/55 px-2 py-1 text-[11px] leading-snug text-warn-900">
             {categoriesPretty.length > 0 ? (
               <>
                 <strong className="font-semibold">{vendor.business_name}</strong>{' '}
@@ -1016,7 +1016,7 @@ function LinkedVendorConfirmation({
       {isCrossCategory ? (
         <p
           role="note"
-          className="flex items-start gap-1.5 rounded-md border border-amber-300/50 bg-amber-50/55 px-2.5 py-2 text-[11px] leading-snug text-amber-900"
+          className="flex items-start gap-1.5 rounded-md border border-warn-300/50 bg-warn-50/55 px-2.5 py-2 text-[11px] leading-snug text-warn-900"
         >
           <AlertCircle
             aria-hidden

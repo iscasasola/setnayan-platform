@@ -235,7 +235,7 @@ function FolderVendorCard({
           <span className="inline-flex items-center gap-1">
             <Star
               aria-hidden
-              className="h-3.5 w-3.5 fill-amber-400 text-amber-400"
+              className="h-3.5 w-3.5 fill-warn-400 text-warn-400"
               strokeWidth={1.75}
             />
             <span className="font-mono text-ink">{formatStarRating(rating)}</span>

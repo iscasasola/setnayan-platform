@@ -271,15 +271,15 @@ function BackLink({ eventId }: { eventId: string }) {
 
 function NoDatePrompt({ eventId }: { eventId: string }) {
   return (
-    <div className="rounded-xl border border-amber-300/50 bg-amber-50/50 p-4 text-sm text-amber-900">
+    <div className="rounded-xl border border-warn-300/50 bg-warn-50/50 p-4 text-sm text-warn-900">
       <p className="font-medium">Set a wedding date to unlock deadline math.</p>
-      <p className="mt-1 text-amber-900/80">
+      <p className="mt-1 text-warn-900/80">
         Once your date is in, every paperwork row gets a &ldquo;complete
         by&rdquo; target anchored to PSA + LGU + parish lead times.
       </p>
       <Link
         href={`/dashboard/${eventId}/settings`}
-        className="mt-2 inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.15em] text-amber-900 underline"
+        className="mt-2 inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.15em] text-warn-900 underline"
       >
         Set wedding date
       </Link>
@@ -381,11 +381,11 @@ function SummaryTile({
       <p
         className={`mt-1 text-xl font-semibold tracking-tight ${
           tone === 'bad'
-            ? 'text-rose-700'
+            ? 'text-danger-700'
             : tone === 'warn'
-              ? 'text-amber-800'
+              ? 'text-warn-800'
               : tone === 'good'
-                ? 'text-emerald-700'
+                ? 'text-success-700'
                 : 'text-ink'
         }`}
       >
@@ -423,11 +423,11 @@ function DocumentCard({
   // a separate "danger level" axis per element.
   const borderClass =
     status === 'received'
-      ? 'border-emerald-300/50 bg-emerald-50/40'
+      ? 'border-success-300/50 bg-success-50/40'
       : tone === 'overdue'
-        ? 'border-rose-300/50 bg-rose-50/40'
+        ? 'border-danger-300/50 bg-danger-50/40'
         : tone === 'soon'
-          ? 'border-amber-300/50 bg-amber-50/40'
+          ? 'border-warn-300/50 bg-warn-50/40'
           : 'border-ink/10 bg-cream';
 
   return (
@@ -525,11 +525,11 @@ function Field({
     : 'text-sm font-medium text-ink';
   const toneClass =
     tone === 'overdue'
-      ? 'text-rose-700'
+      ? 'text-danger-700'
       : tone === 'soon'
-        ? 'text-amber-800'
+        ? 'text-warn-800'
         : tone === 'fine'
-          ? 'text-emerald-700'
+          ? 'text-success-700'
           : 'text-ink';
 
   return (
@@ -569,8 +569,8 @@ function ExpiryWarning({
     <div
       className={`mx-5 mb-4 rounded-md border px-3 py-2 text-xs ${
         tone === 'overdue'
-          ? 'border-rose-300/50 bg-rose-50/60 text-rose-900'
-          : 'border-amber-300/50 bg-amber-50/60 text-amber-900'
+          ? 'border-danger-300/50 bg-danger-50/60 text-danger-900'
+          : 'border-warn-300/50 bg-warn-50/60 text-warn-900'
       }`}
     >
       {message}
@@ -627,7 +627,7 @@ function ActionsBlock({
             <input type="hidden" name="paperwork_id" value={row.id} />
             <input type="hidden" name="document_type" value={documentType} />
             <SubmitButton
-              className="inline-flex items-center gap-1.5 rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-emerald-800 disabled:opacity-70"
+              className="inline-flex items-center gap-1.5 rounded-md bg-success-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-success-800 disabled:opacity-70"
               pendingLabel="Saving…"
             >
               <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2} />

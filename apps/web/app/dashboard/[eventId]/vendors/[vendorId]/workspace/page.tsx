@@ -669,7 +669,7 @@ export default async function VendorWorkspacePage({ params }: Props) {
       {/* ============================================================== */}
       <section
         aria-labelledby="vendor-workspace-header"
-        className="rounded-2xl border border-emerald-300/40 bg-emerald-50/40 p-5 sm:p-6"
+        className="rounded-2xl border border-success-300/40 bg-success-50/40 p-5 sm:p-6"
       >
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0 space-y-1.5">
@@ -709,7 +709,7 @@ export default async function VendorWorkspacePage({ params }: Props) {
             </div>
           </div>
 
-          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-emerald-800">
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-success-100 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-success-800">
             <BookmarkCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
             Locked
           </span>
@@ -857,9 +857,9 @@ export default async function VendorWorkspacePage({ params }: Props) {
                   className={[
                     'grid h-7 w-7 place-items-center rounded-full border transition-colors',
                     reached
-                      ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
+                      ? 'border-success-400 bg-success-50 text-success-700'
                       : 'border-ink/15 bg-cream text-ink/30',
-                    isCurrent ? 'ring-2 ring-emerald-300/60 ring-offset-2' : '',
+                    isCurrent ? 'ring-2 ring-success-300/60 ring-offset-2' : '',
                   ].join(' ')}
                 >
                   <Icon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
@@ -1046,10 +1046,10 @@ export default async function VendorWorkspacePage({ params }: Props) {
                     className={[
                       'shrink-0 rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em]',
                       c.status === 'fully_signed'
-                        ? 'bg-emerald-100 text-emerald-800'
+                        ? 'bg-success-100 text-success-800'
                         : c.status === 'cancelled'
-                          ? 'bg-rose-100 text-rose-800'
-                          : 'bg-emerald-50 text-emerald-700',
+                          ? 'bg-danger-100 text-danger-800'
+                          : 'bg-success-50 text-success-700',
                     ].join(' ')}
                   >
                     {c.status === 'sent_for_signature'
@@ -1346,14 +1346,14 @@ export default async function VendorWorkspacePage({ params }: Props) {
       {needsInvite && autoShareInvite && autoShareInvite.status === 'pending' ? (
         <section
           aria-labelledby="claim-invite-heading"
-          className="rounded-2xl border border-amber-300/60 bg-amber-50/60 p-5 sm:p-6"
+          className="rounded-2xl border border-warn-300/60 bg-warn-50/60 p-5 sm:p-6"
         >
           <header className="flex items-start gap-3">
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-amber-100 text-amber-800">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-warn-100 text-warn-800">
               <LinkIcon aria-hidden className="h-4.5 w-4.5" strokeWidth={1.75} />
             </div>
             <div className="min-w-0 space-y-1">
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-amber-800">
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-warn-800">
                 Bring this vendor onto Setnayan
               </p>
               <h2
@@ -1386,14 +1386,14 @@ export default async function VendorWorkspacePage({ params }: Props) {
       ) : needsInvite && autoShareInvite && autoShareInvite.status === 'claimed' ? (
         <section
           aria-labelledby="claim-linked-heading"
-          className="rounded-2xl border border-emerald-200/80 bg-emerald-50/60 p-5"
+          className="rounded-2xl border border-success-200/80 bg-success-50/60 p-5"
         >
           <header className="flex items-start gap-3">
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-800">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-success-100 text-success-800">
               <UserCheck aria-hidden className="h-4.5 w-4.5" strokeWidth={1.75} />
             </div>
             <div className="min-w-0 space-y-1">
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-emerald-800">
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-success-800">
                 Linked to vendor account
               </p>
               <h2
@@ -1438,14 +1438,14 @@ export default async function VendorWorkspacePage({ params }: Props) {
       ) : canOfferInvite ? (
         <section
           aria-labelledby="claim-create-heading"
-          className="rounded-2xl border border-amber-300/60 bg-amber-50/60 p-5 sm:p-6"
+          className="rounded-2xl border border-warn-300/60 bg-warn-50/60 p-5 sm:p-6"
         >
           <header className="flex items-start gap-3">
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-amber-100 text-amber-800">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-warn-100 text-warn-800">
               <LinkIcon aria-hidden className="h-4.5 w-4.5" strokeWidth={1.75} />
             </div>
             <div className="min-w-0 space-y-1">
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-amber-800">
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-warn-800">
                 Bring this vendor onto Setnayan
               </p>
               <h2 id="claim-create-heading" className="text-sm font-semibold text-ink">
@@ -1463,7 +1463,7 @@ export default async function VendorWorkspacePage({ params }: Props) {
             <input type="hidden" name="vendor_id" value={ev.vendor_id} />
             <input type="hidden" name="business_name" value={ev.vendor_name} />
             <input type="hidden" name="category" value={ev.category} />
-            <SubmitButton pendingLabel="Creating…" className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-amber-400/60 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900 transition-colors hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">
+            <SubmitButton pendingLabel="Creating…" className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-warn-400/60 bg-warn-50 px-3 py-2 text-xs font-medium text-warn-900 transition-colors hover:bg-warn-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">
               <LinkIcon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
               Create a shareable invite link
             </SubmitButton>

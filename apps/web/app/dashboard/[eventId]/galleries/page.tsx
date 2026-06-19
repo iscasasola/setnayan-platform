@@ -167,11 +167,11 @@ export default async function GalleriesHubPage({ params }: Props) {
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="text-sm font-semibold text-ink">{s.name}</h2>
                     {ready ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-success-50 px-2 py-0.5 text-[11px] font-medium text-success-700">
                         Ready{s.count != null ? ` · ${s.count}` : ''}
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-warn-50 px-2 py-0.5 text-[11px] font-medium text-warn-700">
                         Collecting…
                       </span>
                     )}

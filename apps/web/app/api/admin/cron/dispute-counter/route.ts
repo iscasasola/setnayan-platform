@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { sendVendorSuspensionEmail } from '@/lib/vendor-email-triggers';
 
 /**
  * Dispute counter cron — runs daily, rolls a 30-day window of disputes per
@@ -228,6 +229,16 @@ export async function POST(request: Request) {
       reason: `${count} disputes in rolling ${ROLLING_WINDOW_DAYS}-day window (threshold ${DEMOTION_THRESHOLD}).`,
       actor_user_id: null,
     });
+
+    // Cross-account signal (Phase B · 2026-06-19): email the demoted vendor so
+    // the dispute-driven status flip isn't silent. Wires the previously-dead
+    // sendVendorSuspensionEmail (it takes the offence count — here the dispute
+    // count in the rolling window). Best-effort: the sender swallows its own
+    // failures and never throws, so a delivery problem never aborts the cron
+    // run or skips the remaining candidates.
+    await sendVendorSuspensionEmail(vendorProfileId, count).catch((e) =>
+      console.error('[dispute-counter] suspension email failed:', e),
+    );
 
     results.push({
       vendor_profile_id: vendorProfileId,

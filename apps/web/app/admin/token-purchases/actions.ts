@@ -21,7 +21,10 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { notifyVendorTokensCredited } from '@/lib/token-purchase-notify';
+import {
+  notifyVendorTokensCredited,
+  notifyVendorTokenPurchaseRejected,
+} from '@/lib/token-purchase-notify';
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -76,9 +79,11 @@ export async function rejectTokenPurchase(formData: FormData): Promise<void> {
   }
   const supabase = await requireAdmin();
 
+  const rejectReason =
+    typeof reason === 'string' && reason.trim() ? reason.trim() : 'Payment not received';
   const { error } = await supabase.rpc('reject_vendor_token_purchase', {
     p_purchase_id: id,
-    p_reason: typeof reason === 'string' && reason.trim() ? reason.trim() : 'Payment not received',
+    p_reason: rejectReason,
   });
   if (error) {
     redirect(
@@ -86,6 +91,9 @@ export async function rejectTokenPurchase(formData: FormData): Promise<void> {
         encodeURIComponent('Could not reject: ' + (error.message ?? 'unknown error')),
     );
   }
+
+  // Tell the vendor their purchase couldn't be confirmed + why. Fail-soft.
+  await notifyVendorTokenPurchaseRejected(id, rejectReason);
 
   revalidatePath('/admin/token-purchases');
   redirect('/admin/token-purchases?done=rejected');

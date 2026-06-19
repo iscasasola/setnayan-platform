@@ -217,7 +217,7 @@ export default async function ProfilePage({ searchParams }: Props) {
       {search.deletion_requested ? (
         <p
           role="status"
-          className="mb-4 rounded-md border border-amber-300/60 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+          className="mb-4 rounded-md border border-warn-300/60 bg-warn-50 px-4 py-3 text-sm text-warn-900"
         >
           Account-deletion request received. Our team will review it within 24 hours. You can
           cancel any time before it&rsquo;s approved — see Privacy &amp; data below.
@@ -742,18 +742,18 @@ export default async function ProfilePage({ searchParams }: Props) {
         </div>
 
         {pendingDeletion ? (
-          <div className="space-y-3 rounded-xl border border-amber-300/60 bg-amber-50/60 p-4">
+          <div className="space-y-3 rounded-xl border border-warn-300/60 bg-warn-50/60 p-4">
             <div className="flex items-start gap-2">
               <AlertTriangle
                 aria-hidden
-                className="mt-0.5 h-4 w-4 shrink-0 text-amber-700"
+                className="mt-0.5 h-4 w-4 shrink-0 text-warn-700"
                 strokeWidth={1.75}
               />
               <div className="space-y-1">
-                <p className="text-sm font-medium text-amber-900">
+                <p className="text-sm font-medium text-warn-900">
                   Account-deletion request pending review
                 </p>
-                <p className="text-xs text-amber-900/85">
+                <p className="text-xs text-warn-900/85">
                   Filed {pendingDeletion.created_at.slice(0, 10)}. Our team reviews
                   deletion requests within 24 hours. If you have active events,
                   bookings, or an outstanding balance, we may reach out before
@@ -772,23 +772,23 @@ export default async function ProfilePage({ searchParams }: Props) {
             </form>
           </div>
         ) : (
-          <details className="space-y-3 rounded-xl border border-rose-200/60 bg-rose-50/50 p-4">
-            <summary className="flex cursor-pointer items-center gap-2 text-sm font-medium text-rose-800">
+          <details className="space-y-3 rounded-xl border border-danger-200/60 bg-danger-50/50 p-4">
+            <summary className="flex cursor-pointer items-center gap-2 text-sm font-medium text-danger-800">
               <AlertTriangle aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               Delete my account
             </summary>
             <form action={requestAccountDeletion} className="mt-3 space-y-3">
-              <p className="text-sm text-rose-900">
+              <p className="text-sm text-danger-900">
                 This files a request to delete your account. Our team reviews it
                 within 24 hours before it takes effect — this lets us check for
                 active events, bookings, or an outstanding balance first. Once
                 approved, deletion is permanent and your email may be blocked from
                 re-registering. Type{' '}
-                <code className="rounded bg-rose-100 px-1 font-mono text-xs">DELETE</code> below
+                <code className="rounded bg-danger-100 px-1 font-mono text-xs">DELETE</code> below
                 to confirm.
               </p>
               <label className="block space-y-1">
-                <span className="block text-sm font-medium text-rose-900">
+                <span className="block text-sm font-medium text-danger-900">
                   Reason (optional)
                 </span>
                 <textarea
@@ -807,7 +807,7 @@ export default async function ProfilePage({ searchParams }: Props) {
                 className="input-field bg-cream"
               />
               <SubmitButton
-                className="inline-flex items-center gap-2 rounded-md bg-rose-700 px-4 py-2 text-sm font-medium text-cream hover:bg-rose-800 disabled:opacity-70"
+                className="inline-flex items-center gap-2 rounded-md bg-danger-700 px-4 py-2 text-sm font-medium text-cream hover:bg-danger-800 disabled:opacity-70"
                 pendingLabel="Submitting…"
               >
                 Request account deletion

@@ -112,7 +112,7 @@ export default async function PrivacyEditorPage({
       {saved ? (
         <div
           role="status"
-          className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+          className="flex items-start gap-3 rounded-lg border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900"
         >
           <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2} />
           <p>Saved. Your wedding page now follows this setting.</p>
@@ -195,7 +195,7 @@ export default async function PrivacyEditorPage({
           <span
             className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
               showcaseOptedIn
-                ? 'bg-emerald-50 text-emerald-800'
+                ? 'bg-success-50 text-success-800'
                 : 'bg-ink/5 text-ink/60'
             }`}
           >

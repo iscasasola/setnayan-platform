@@ -13,7 +13,9 @@ import {
   Apple,
   Briefcase,
   Calendar,
+  Camera,
   CheckCircle2,
+  Images,
   ClipboardList,
   Mailbox,
   MessageSquare,
@@ -47,6 +49,7 @@ export type TourKey =
   // Mini-tours — fire once per user when they first land on the surface.
   | 'customer_vendors_v1'
   | 'customer_seat_plan_v1'
+  | 'customer_papic_v1'
   | 'admin_users_v1'
   | 'admin_force_majeure_v1';
 
@@ -56,6 +59,7 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'guest_welcome_v1',
   'customer_vendors_v1',
   'customer_seat_plan_v1',
+  'customer_papic_v1',
   'admin_users_v1',
   'admin_force_majeure_v1',
 ];
@@ -200,6 +204,33 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         Icon: QrCode,
         title: 'Publish to mint QRs',
         body: "Once you publish, each guest&rsquo;s personal QR includes their seat assignment. The Day-of card on their personal page shows the table number with no extra setup.",
+      },
+    ],
+  },
+  customer_papic_v1: {
+    key: 'customer_papic_v1',
+    label: 'Papic mini-tour',
+    blurb: 'How candid photos get captured, tagged, and delivered.',
+    slides: [
+      {
+        Icon: Camera,
+        title: 'Your guests become the photographers',
+        body: 'A few friends you pick shoot freely all night, and — if you add it — every guest can snap candids too. Every shot lands in your private gallery. No app to install.',
+      },
+      {
+        Icon: Send,
+        title: 'Hand out your photo-crew seats',
+        body: 'Share each seat&rsquo;s link with a friend — their phone becomes a candid camera bound to your wedding. Re-issue a seat anytime. Try the free sampler before you commit.',
+      },
+      {
+        Icon: Sparkles,
+        title: 'The right people are found',
+        body: 'Guests who add a selfie are recognized in candid shots — those photos show up in their &ldquo;Photos of you&rdquo;. Your crew can also scan a guest&rsquo;s QR to tag. Either way, every photo reaches you, tagged or not.',
+      },
+      {
+        Icon: Images,
+        title: 'Everything lands in your gallery',
+        body: 'Filter by &ldquo;Photos of us&rdquo;, save any shot to your phone, or download the whole gallery as a zip. Connect Google Drive to auto-sync every photo to a folder you own.',
       },
     ],
   },

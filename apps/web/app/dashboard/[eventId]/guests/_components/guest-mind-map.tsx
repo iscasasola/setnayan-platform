@@ -91,11 +91,11 @@ const SIDE_ORDER: GuestSide[] = ['bride', 'both', 'groom'];
 function accent(side: GuestSide | null): { text: string; border: string } {
   switch (side) {
     case 'bride':
-      return { text: 'text-rose-600', border: 'border-l-rose-400' };
+      return { text: 'text-danger-600', border: 'border-l-danger-400' };
     case 'groom':
       return { text: 'text-sky-600', border: 'border-l-sky-400' };
     case 'both':
-      return { text: 'text-amber-600', border: 'border-l-amber-400' };
+      return { text: 'text-warn-600', border: 'border-l-warn-400' };
     default:
       return { text: 'text-ink/50', border: 'border-l-ink/30' };
   }
@@ -389,7 +389,7 @@ export function GuestMindMap({
       </div>
 
       {error ? (
-        <p role="alert" className="rounded-md border border-rose-300/60 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+        <p role="alert" className="rounded-md border border-danger-300/60 bg-danger-50 px-3 py-2 text-sm text-danger-800">
           {error}
         </p>
       ) : null}

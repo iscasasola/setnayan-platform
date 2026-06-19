@@ -921,11 +921,22 @@ export async function finalizeVendor(
     // sets rank=1 on the lock transition, and the lock path is guarded against
     // re-running on an already-confirmed row (CONFIRMED_VENDOR_STATUSES
     // already_locked short-circuit above).
+    //
+    // linked_vendor_profile_id (QA fix 2026-06-19): the marketplace-attribution
+    // FK was NEVER written by the lock path, so the public completed-events
+    // count stayed permanently 0 and the Pro/Enterprise editorial credit never
+    // fired (both join event_vendors → vendor_profiles ON
+    // linked_vendor_profile_id; see 20260515020000_public_stats_exclusion.sql).
+    // Stamp it to the chosen vendor's profile id alongside the lock. Same FK
+    // target as marketplace_vendor_id (vendor_profiles.vendor_profile_id), so
+    // they're interchangeable here. NULL for off-platform / custom vendors
+    // (no profile to attribute to) — left NULL, which is correct.
     const { error: lockErr } = await supabase
       .from('event_vendors')
       .update({
         status: LOCKED_STATUS,
         selection_match_rank: 1,
+        linked_vendor_profile_id: targetVendor.marketplace_vendor_id ?? null,
         updated_at: new Date().toISOString(),
       })
       .eq('vendor_id', vendorId)
@@ -1438,9 +1449,20 @@ export async function revertVendorToConsidering(
     return { status: 'not_locked' };
   }
 
+  // Un-picking a vendor must also drop the #1-pick flag + the marketplace
+  // editorial credit (QA fix 2026-06-19). finalizeVendor stamps both
+  // selection_match_rank=1 and linked_vendor_profile_id on lock; reverting to
+  // 'considering' clears them so a no-longer-chosen vendor stops counting as
+  // the recommended pick AND stops contributing to the vendor's public
+  // completed-events count / Pro-Enterprise editorial credit.
   const { error: revertErr } = await supabase
     .from('event_vendors')
-    .update({ status: 'considering', updated_at: new Date().toISOString() })
+    .update({
+      status: 'considering',
+      selection_match_rank: null,
+      linked_vendor_profile_id: null,
+      updated_at: new Date().toISOString(),
+    })
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId);
   if (revertErr) {

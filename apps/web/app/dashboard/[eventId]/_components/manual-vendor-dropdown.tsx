@@ -221,7 +221,7 @@ export function ManualVendorDropdown({
                       </span>
                     </span>
                     {isAttached ? (
-                      <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.1em] text-emerald-800">
+                      <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-success-100 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.1em] text-success-800">
                         <Check
                           aria-hidden
                           className="h-2.5 w-2.5"
@@ -246,7 +246,7 @@ export function ManualVendorDropdown({
             Add a new contact
           </button>
           {attachError ? (
-            <p className="border-t border-rose-200/60 bg-rose-50/60 px-3 py-2 text-[11px] text-rose-900">
+            <p className="border-t border-danger-200/60 bg-danger-50/60 px-3 py-2 text-[11px] text-danger-900">
               {attachError}
             </p>
           ) : null}

@@ -91,7 +91,7 @@ export default async function RepertoirePage({ searchParams }: Props) {
       {sp.saved ? (
         <p
           role="status"
-          className="rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+          className="rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800"
         >
           Repertoire updated.
         </p>
@@ -143,7 +143,7 @@ export default async function RepertoirePage({ searchParams }: Props) {
                       ) : null}
                     </span>
                     {added ? (
-                      <span className="inline-flex shrink-0 items-center gap-1 px-2 py-1 text-xs text-emerald-700">
+                      <span className="inline-flex shrink-0 items-center gap-1 px-2 py-1 text-xs text-success-700">
                         <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Added
                       </span>
                     ) : (

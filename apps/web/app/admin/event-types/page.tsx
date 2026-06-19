@@ -103,12 +103,12 @@ export default async function AdminEventTypesPage({ searchParams }: { searchPara
       </header>
 
       {ok ? (
-        <div role="status" className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+        <div role="status" className="mb-6 rounded-lg border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800">
           {ok}
         </div>
       ) : null}
       {error ? (
-        <div role="alert" className="mb-6 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+        <div role="alert" className="mb-6 rounded-lg border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-800">
           {error}
         </div>
       ) : null}
@@ -221,8 +221,8 @@ export default async function AdminEventTypesPage({ searchParams }: { searchPara
                         retired
                           ? 'bg-ink/10 text-ink/60'
                           : r.enabled
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : 'bg-amber-100 text-amber-800'
+                            ? 'bg-success-100 text-success-800'
+                            : 'bg-warn-100 text-warn-800'
                       }`}
                     >
                       {retired ? 'Retired' : r.enabled ? 'In picker' : 'Hidden from picker'}
@@ -257,7 +257,7 @@ export default async function AdminEventTypesPage({ searchParams }: { searchPara
                         confirmLabel="Retire it"
                       >
                         <input type="hidden" name="event_type" value={r.event_type} />
-                        <SubmitButton pendingLabel="Retiring…" className="rounded-md border border-rose-200 bg-white px-2.5 py-1 text-[11px] font-medium text-rose-700 hover:bg-rose-50">
+                        <SubmitButton pendingLabel="Retiring…" className="rounded-md border border-danger-200 bg-white px-2.5 py-1 text-[11px] font-medium text-danger-700 hover:bg-danger-50">
                           Retire
                         </SubmitButton>
                       </ConfirmForm>
@@ -273,7 +273,7 @@ export default async function AdminEventTypesPage({ searchParams }: { searchPara
                     Offers {offered} of {totalTiles} categories
                   </span>
                   {!retired && !tailored ? (
-                    <span className="rounded-full bg-amber-50 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-amber-700">
+                    <span className="rounded-full bg-warn-50 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-warn-700">
                       Not tailored
                     </span>
                   ) : null}

@@ -82,7 +82,7 @@ export function BlueprintStudio({
         </p>
         <div className="flex items-center gap-2">
           {dirty ? (
-            <span className="font-mono text-[11px] text-amber-700">Unsaved</span>
+            <span className="font-mono text-[11px] text-warn-700">Unsaved</span>
           ) : null}
           <button
             type="button"

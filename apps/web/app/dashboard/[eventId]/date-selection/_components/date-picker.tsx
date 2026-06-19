@@ -196,7 +196,7 @@ export function DatePicker({
       {error ? (
         <div
           role="alert"
-          className="rounded-md bg-rose-50 px-4 py-3 text-sm text-rose-800 ring-1 ring-inset ring-rose-200"
+          className="rounded-md bg-danger-50 px-4 py-3 text-sm text-danger-800 ring-1 ring-inset ring-danger-200"
         >
           {error}
         </div>

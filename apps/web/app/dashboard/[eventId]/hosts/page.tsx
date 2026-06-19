@@ -213,23 +213,23 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
       </header>
 
       {justSent && shareUrl ? (
-        <section className="space-y-3 rounded-2xl border border-emerald-300/60 bg-emerald-50/70 p-4 sm:p-5">
+        <section className="space-y-3 rounded-2xl border border-success-300/60 bg-success-50/70 p-4 sm:p-5">
           <div className="flex items-start gap-3">
-            <span className="mt-0.5 inline-flex h-8 w-8 flex-none items-center justify-center rounded-full bg-emerald-200/80 text-emerald-900">
+            <span className="mt-0.5 inline-flex h-8 w-8 flex-none items-center justify-center rounded-full bg-success-200/80 text-success-900">
               <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             </span>
             <div className="space-y-2">
-              <p className="text-sm font-semibold text-emerald-950">
+              <p className="text-sm font-semibold text-success-950">
                 Invitation created.
               </p>
-              <p className="text-xs text-emerald-900/85">
+              <p className="text-xs text-success-900/85">
                 Share this link with the host you invited. They&apos;ll sign up or sign
                 in, then land on the accept page.
               </p>
-              <code className="block break-all rounded-md bg-cream/80 px-2 py-1.5 font-mono text-[11px] text-emerald-950">
+              <code className="block break-all rounded-md bg-cream/80 px-2 py-1.5 font-mono text-[11px] text-success-950">
                 {shareUrl}
               </code>
-              <p className="text-[11px] text-emerald-900/60">
+              <p className="text-[11px] text-success-900/60">
                 Link expires in 7 days. (Email send via Resend ships in V1.1 — for now copy + send via any channel.)
               </p>
             </div>
@@ -240,7 +240,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
       {justRevoked || grantUpdated || hostRemoved ? (
         <p
           role="status"
-          className="inline-flex items-center gap-1.5 rounded-md bg-emerald-100/80 px-3 py-1.5 text-xs font-medium text-emerald-950"
+          className="inline-flex items-center gap-1.5 rounded-md bg-success-100/80 px-3 py-1.5 text-xs font-medium text-success-950"
         >
           <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           {justRevoked

@@ -116,7 +116,7 @@ export default async function VendorRedeemCodePage({ searchParams }: Props) {
       </header>
 
       {redeemedCount !== null && redeemedCount > 0 && (
-        <div className="mb-6 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+        <div className="mb-6 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
           ✓ Redeemed{' '}
           {redeemedCode ? (
             <span className="font-mono">{redeemedCode}</span>
@@ -129,7 +129,7 @@ export default async function VendorRedeemCodePage({ searchParams }: Props) {
       )}
 
       {errorMsg && (
-        <div className="mb-6 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+        <div className="mb-6 rounded-md border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-900">
           {errorMsg}
         </div>
       )}
@@ -157,7 +157,7 @@ export default async function VendorRedeemCodePage({ searchParams }: Props) {
             </div>
           </div>
           <div>
-            <div className="text-2xl font-semibold text-emerald-700">
+            <div className="text-2xl font-semibold text-success-700">
               {totalBalance.toLocaleString('en-PH')}
             </div>
             <div className="mt-0.5 text-[11px] uppercase tracking-wider text-ink/60">

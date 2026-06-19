@@ -265,9 +265,9 @@ function RowAvatar({
     );
   }
   const sideTint: Record<GuestSide, string> = {
-    bride: 'bg-rose-200/60 text-rose-900',
+    bride: 'bg-danger-200/60 text-danger-900',
     groom: 'bg-sky-200/60 text-sky-900',
-    both: 'bg-amber-200/60 text-amber-900',
+    both: 'bg-warn-200/60 text-warn-900',
   };
   return (
     <span
@@ -679,7 +679,7 @@ function BulkDeleteForm({
       ))}
       <button
         type="submit"
-        className="inline-flex h-8 items-center gap-1.5 rounded-md border border-rose-300/60 bg-rose-50 px-3 text-xs font-medium text-rose-700 hover:border-rose-400 hover:bg-rose-100"
+        className="inline-flex h-8 items-center gap-1.5 rounded-md border border-danger-300/60 bg-danger-50 px-3 text-xs font-medium text-danger-700 hover:border-danger-400 hover:bg-danger-100"
         aria-label={`Remove ${count} selected guest${count === 1 ? '' : 's'}`}
       >
         <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
@@ -942,9 +942,9 @@ function NewGroupInlineForm({
 // -----------------------------------------------------------------------
 
 const SIDE_RING: Record<GuestSide, string> = {
-  bride: 'border-rose-200',
+  bride: 'border-danger-200',
   groom: 'border-sky-200',
-  both: 'border-amber-200',
+  both: 'border-warn-200',
 };
 
 function GuestCard({
@@ -1182,7 +1182,7 @@ function SwipeToDelete({
           type="submit"
           aria-label={`Delete ${guestName}`}
           tabIndex={tx === 0 ? -1 : 0}
-          className="flex w-full flex-col items-center justify-center gap-0.5 bg-rose-600 text-cream"
+          className="flex w-full flex-col items-center justify-center gap-0.5 bg-danger-600 text-cream"
         >
           <Trash2 aria-hidden className="h-5 w-5" strokeWidth={2} />
           <span className="text-[11px] font-semibold">Delete</span>
@@ -1316,9 +1316,9 @@ function GuestPhoto({
     );
   }
   const sideTint: Record<GuestSide, string> = {
-    bride: 'bg-rose-100 text-rose-900',
+    bride: 'bg-danger-100 text-danger-900',
     groom: 'bg-sky-100 text-sky-900',
-    both: 'bg-amber-100 text-amber-900',
+    both: 'bg-warn-100 text-warn-900',
   };
   return (
     <div
@@ -1338,9 +1338,9 @@ function GuestPhoto({
 // cue stays consistent across the card.
 function SidePill({ side }: { side: GuestRow['side'] }) {
   const tone: Record<GuestRow['side'], string> = {
-    bride: 'bg-rose-100 text-rose-900 ring-1 ring-rose-200',
+    bride: 'bg-danger-100 text-danger-900 ring-1 ring-danger-200',
     groom: 'bg-sky-100 text-sky-900 ring-1 ring-sky-200',
-    both: 'bg-amber-100 text-amber-900 ring-1 ring-amber-200',
+    both: 'bg-warn-100 text-warn-900 ring-1 ring-warn-200',
   };
   return (
     <span
@@ -1353,9 +1353,9 @@ function SidePill({ side }: { side: GuestRow['side'] }) {
 
 function RsvpPill({ status }: { status: RsvpStatus }) {
   const tone: Record<RsvpStatus, string> = {
-    attending: 'bg-emerald-100 text-emerald-800',
-    pending: 'bg-amber-100 text-amber-800',
-    declined: 'bg-rose-100 text-rose-800',
+    attending: 'bg-success-100 text-success-800',
+    pending: 'bg-warn-100 text-warn-800',
+    declined: 'bg-danger-100 text-danger-800',
     maybe: 'bg-ink/10 text-ink/70',
   };
   return (

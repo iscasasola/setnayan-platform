@@ -30,10 +30,10 @@ type Props = {
 function dueTag(item: ChecklistItemView): { label: string; tint: string } {
   const d = item.daysUntilDue;
   if (d == null) return { label: 'No date set', tint: 'text-ink/45' };
-  if (d < 0) return { label: `${Math.abs(d)}d overdue`, tint: 'text-rose-700' };
-  if (d === 0) return { label: 'Due today', tint: 'text-rose-700' };
-  if (d === 1) return { label: 'Due tomorrow', tint: 'text-amber-700' };
-  if (d < 7) return { label: `Due in ${d}d`, tint: 'text-amber-700' };
+  if (d < 0) return { label: `${Math.abs(d)}d overdue`, tint: 'text-danger-700' };
+  if (d === 0) return { label: 'Due today', tint: 'text-danger-700' };
+  if (d === 1) return { label: 'Due tomorrow', tint: 'text-warn-700' };
+  if (d < 7) return { label: `Due in ${d}d`, tint: 'text-warn-700' };
   if (d < 30) return { label: `Due in ${d}d`, tint: 'text-ink/55' };
   return { label: `Due in ${Math.round(d / 7)}w`, tint: 'text-ink/55' };
 }
@@ -59,7 +59,7 @@ export function ChecklistCard({ eventId, items, totalCount, doneCount }: Props) 
 
       {items.length === 0 || allDone ? (
         <p className="flex items-center gap-2 rounded-xl border border-dashed border-ink/15 bg-cream px-4 py-3 text-sm text-ink/65">
-          <CheckCircle2 aria-hidden className="h-4 w-4 text-emerald-600" strokeWidth={1.75} />
+          <CheckCircle2 aria-hidden className="h-4 w-4 text-success-600" strokeWidth={1.75} />
           <span>
             {allDone
               ? 'Every checklist item is done — you’re all set.'
@@ -84,7 +84,7 @@ export function ChecklistCard({ eventId, items, totalCount, doneCount }: Props) 
                   <button
                     type="submit"
                     aria-label={`Mark "${item.title}" done`}
-                    className="inline-flex h-6 w-6 items-center justify-center rounded-full text-ink/35 transition hover:text-emerald-600"
+                    className="inline-flex h-6 w-6 items-center justify-center rounded-full text-ink/35 transition hover:text-success-600"
                   >
                     <Circle className="h-5 w-5" strokeWidth={1.75} />
                   </button>

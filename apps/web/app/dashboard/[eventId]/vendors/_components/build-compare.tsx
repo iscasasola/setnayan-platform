@@ -128,10 +128,10 @@ export function BuildCompare({
   const overUnder = (total: number | null) => {
     if (total == null || budgetPhp == null) return null;
     const diff = total - budgetPhp;
-    if (Math.abs(diff) < 1) return { text: 'on budget', tone: 'text-emerald-700' };
+    if (Math.abs(diff) < 1) return { text: 'on budget', tone: 'text-success-700' };
     return diff > 0
-      ? { text: `${peso(diff)} over`, tone: 'text-rose-700' }
-      : { text: `${peso(-diff)} to spare`, tone: 'text-emerald-700' };
+      ? { text: `${peso(diff)} over`, tone: 'text-danger-700' }
+      : { text: `${peso(-diff)} to spare`, tone: 'text-success-700' };
   };
 
   // Save-As: create a NEW named build, or overwrite the chosen one.
@@ -255,7 +255,7 @@ export function BuildCompare({
             {overwriteId ? 'Save' : 'Save As'}
           </button>
         </div>
-        {err ? <p className="text-xs text-rose-700">{err}</p> : null}
+        {err ? <p className="text-xs text-danger-700">{err}</p> : null}
       </div>
 
       {/* Side-by-side comparison */}
@@ -308,7 +308,7 @@ export function BuildCompare({
                               onClick={() => onDelete(c.key)}
                               disabled={pending}
                               aria-label={`Delete ${c.title}`}
-                              className="inline-flex items-center gap-0.5 text-[9px] normal-case tracking-normal text-ink/35 hover:text-rose-600 disabled:opacity-50"
+                              className="inline-flex items-center gap-0.5 text-[9px] normal-case tracking-normal text-ink/35 hover:text-danger-600 disabled:opacity-50"
                             >
                               <Trash2 className="h-3 w-3" strokeWidth={1.75} aria-hidden /> delete
                             </button>
@@ -414,11 +414,11 @@ export function BuildCompare({
                             —
                           </span>
                         ) : a.conflictText ? (
-                          <span className="block text-[10px] leading-snug text-rose-700">
+                          <span className="block text-[10px] leading-snug text-danger-700">
                             {a.conflictText}
                           </span>
                         ) : (
-                          <span className="block text-[10px] leading-snug text-emerald-700">
+                          <span className="block text-[10px] leading-snug text-success-700">
                             {a.totalAvailable} day{a.totalAvailable === 1 ? '' : 's'} free
                             {a.dayLabels.length > 0
                               ? ` · ${a.dayLabels.join(' · ')}${a.moreCount > 0 ? ` +${a.moreCount}` : ''}`

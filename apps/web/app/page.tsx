@@ -100,12 +100,23 @@ const websiteJsonLd = {
   name: 'Setnayan',
   inLanguage: 'en-PH',
   publisher: { '@type': 'Organization', '@id': `${SITE_URL}/#organization` },
+  // Sitelinks search box — lets Google surface a search field for the brand
+  // SERP, pointed at the vendor-discovery surface.
+  potentialAction: {
+    '@type': 'SearchAction',
+    target: {
+      '@type': 'EntryPoint',
+      urlTemplate: `${SITE_URL}/explore?q={search_term_string}`,
+    },
+    'query-input': 'required name=search_term_string',
+  },
 };
 
 const softwareAppJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
   '@id': `${SITE_URL}/#software`,
+  url: `${SITE_URL}/`,
   name: 'Setnayan',
   applicationCategory: 'LifestyleApplication',
   operatingSystem: 'Web, iOS, Android, macOS, Windows',

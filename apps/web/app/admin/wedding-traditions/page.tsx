@@ -66,7 +66,7 @@ export default async function WeddingTraditionsPage() {
           {totalRows > 0 ? (
             <form action={resetTraditionsToDefaults}>
               <SubmitButton
-                className="inline-flex items-center rounded-md border border-ink/20 bg-cream px-4 py-2 text-sm font-medium text-ink hover:border-rose-300 hover:text-rose-700 disabled:opacity-70"
+                className="inline-flex items-center rounded-md border border-ink/20 bg-cream px-4 py-2 text-sm font-medium text-ink hover:border-danger-300 hover:text-danger-700 disabled:opacity-70"
                 pendingLabel="Resetting…"
               >
                 Reset all to latest starter content
@@ -217,7 +217,7 @@ function ItemForm({
         <form action={deleteTraditionItem} className="mt-1">
           <input type="hidden" name="item_id" value={item.item_id} />
           <SubmitButton
-            className="inline-flex items-center rounded-md border border-ink/15 bg-cream px-3 py-1 text-xs font-medium text-ink/60 hover:border-rose-300 hover:text-rose-700 disabled:opacity-70"
+            className="inline-flex items-center rounded-md border border-ink/15 bg-cream px-3 py-1 text-xs font-medium text-ink/60 hover:border-danger-300 hover:text-danger-700 disabled:opacity-70"
             pendingLabel="Removing…"
           >
             Remove

@@ -173,7 +173,7 @@ function TableMarker({
             : 'h-14 w-28 rounded-tr-[2rem] rounded-br-[2rem] rounded-tl-md rounded-bl-md';
 
   const tone = isTarget
-    ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-400/60'
+    ? 'border-success-500 bg-success-50 ring-2 ring-success-400/60'
     : 'border-ink/20 bg-cream/70';
 
   return (
@@ -182,13 +182,13 @@ function TableMarker({
     >
       <span
         className={`line-clamp-2 max-w-full text-[9px] font-semibold leading-tight ${
-          isTarget ? 'text-emerald-900' : 'text-ink/55'
+          isTarget ? 'text-success-900' : 'text-ink/55'
         }`}
       >
         {label}
       </span>
       {isTarget ? (
-        <span className="font-mono text-[7px] uppercase tracking-[0.14em] text-emerald-700">
+        <span className="font-mono text-[7px] uppercase tracking-[0.14em] text-success-700">
           You&rsquo;re here
         </span>
       ) : null}

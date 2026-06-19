@@ -147,18 +147,18 @@ export default async function AdminUsersPage({ searchParams }: Props) {
       {grantBanner ? (
         <section
           role="status"
-          className="mb-6 rounded-2xl border border-emerald-300/60 bg-emerald-50/80 px-5 py-4"
+          className="mb-6 rounded-2xl border border-success-300/60 bg-success-50/80 px-5 py-4"
         >
-          <p className="text-sm text-emerald-900">{grantBanner}</p>
+          <p className="text-sm text-success-900">{grantBanner}</p>
         </section>
       ) : null}
 
       {search.signed_out ? (
         <section
           role="status"
-          className="mb-6 rounded-2xl border border-emerald-300/60 bg-emerald-50/80 px-5 py-4"
+          className="mb-6 rounded-2xl border border-success-300/60 bg-success-50/80 px-5 py-4"
         >
-          <p className="text-sm text-emerald-900">
+          <p className="text-sm text-success-900">
             Force sign-out complete — that user&rsquo;s sessions are revoked on
             every device. Audit-logged.
           </p>
@@ -168,22 +168,22 @@ export default async function AdminUsersPage({ searchParams }: Props) {
       {search.error ? (
         <section
           role="alert"
-          className="mb-6 rounded-2xl border border-rose-300/60 bg-rose-50/80 px-5 py-4"
+          className="mb-6 rounded-2xl border border-danger-300/60 bg-danger-50/80 px-5 py-4"
         >
-          <p className="text-sm text-rose-900">{search.error}</p>
+          <p className="text-sm text-danger-900">{search.error}</p>
         </section>
       ) : null}
 
       {tempPassword ? (
         <section
           role="status"
-          className="mb-6 space-y-3 rounded-2xl border border-amber-300/60 bg-amber-50/80 p-5"
+          className="mb-6 space-y-3 rounded-2xl border border-warn-300/60 bg-warn-50/80 p-5"
         >
           <div className="space-y-1">
-            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-amber-900">
+            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-warn-900">
               Temporary password generated
             </p>
-            <p className="text-sm text-amber-900">
+            <p className="text-sm text-warn-900">
               Share this with{' '}
               {forEmail ? (
                 <span className="font-medium">{forEmail}</span>
@@ -202,7 +202,7 @@ export default async function AdminUsersPage({ searchParams }: Props) {
               Select all + copy
             </span>
           </div>
-          <p className="text-xs text-amber-900/85">
+          <p className="text-xs text-warn-900/85">
             Have the user sign in with this temp password, then change it
             immediately from their Profile page (Personal info → Change
             password).
@@ -342,7 +342,7 @@ function UsersTable({
                         ? 'bg-violet-100 text-violet-800'
                         : u.account_type === 'admin'
                           ? 'bg-ink/15 text-ink'
-                          : 'bg-emerald-100 text-emerald-800'
+                          : 'bg-success-100 text-success-800'
                     }`}
                   >
                     {u.account_type === 'customer' ? 'Couple' : u.account_type}
@@ -363,7 +363,7 @@ function UsersTable({
                       </span>
                     ) : null}
                     {u.is_team_member ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-emerald-800">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-success-100 px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-success-800">
                         <Sparkle className="h-3 w-3" strokeWidth={2} />
                         Team
                       </span>
@@ -386,7 +386,7 @@ function UsersTable({
                           <SubmitButton
                             className={`rounded-md px-2 py-1 text-xs font-medium disabled:opacity-60 ${
                               u.is_team_member
-                                ? 'bg-emerald-100 text-emerald-900 hover:bg-emerald-200'
+                                ? 'bg-success-100 text-success-900 hover:bg-success-200'
                                 : 'bg-ink/5 text-ink/70 hover:bg-ink/10'
                             }`}
                             pendingLabel="…"
@@ -409,7 +409,7 @@ function UsersTable({
                           <input type="hidden" name="user_id" value={u.user_id} />
                           <SubmitButton
                             title="Generate a temporary password to share with this user. Shown once at the top of the page."
-                            className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-amber-100 hover:text-amber-900 disabled:opacity-60"
+                            className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-warn-100 hover:text-warn-900 disabled:opacity-60"
                             pendingLabel="Generating…"
                           >
                             <KeyRound className="h-3 w-3" strokeWidth={2} />
@@ -423,7 +423,7 @@ function UsersTable({
                           <input type="hidden" name="user_id" value={u.user_id} />
                           <SubmitButton
                             title="Revoke every session for this user (compromised-account remedy). Audit-logged."
-                            className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-amber-100 hover:text-amber-900 disabled:opacity-60"
+                            className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-warn-100 hover:text-warn-900 disabled:opacity-60"
                             pendingLabel="Signing out…"
                           >
                             <LogOut className="h-3 w-3" strokeWidth={2} />
@@ -437,7 +437,7 @@ function UsersTable({
                           <input type="hidden" name="user_id" value={u.user_id} />
                           <SubmitButton
                             title="Delete the user. The email is freed for re-signup."
-                            className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-rose-100 hover:text-rose-900 disabled:opacity-60"
+                            className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-danger-100 hover:text-danger-900 disabled:opacity-60"
                             pendingLabel="Deleting…"
                           >
                             <Trash2 className="h-3 w-3" strokeWidth={2} />
@@ -451,7 +451,7 @@ function UsersTable({
                           <input type="hidden" name="user_id" value={u.user_id} />
                           <SubmitButton
                             title="Delete the user AND permanently block this email from re-registering."
-                            className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-rose-200 hover:text-rose-900 disabled:opacity-60"
+                            className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-danger-200 hover:text-danger-900 disabled:opacity-60"
                             pendingLabel="…"
                           >
                             <Ban className="h-3 w-3" strokeWidth={2} />
@@ -562,7 +562,7 @@ function BlacklistTable({ rows }: { rows: BlacklistRow[] }) {
                   >
                     <input type="hidden" name="blacklist_id" value={b.id} />
                     <SubmitButton
-                      className="inline-flex items-center gap-1 rounded-md bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-900 hover:bg-emerald-200 disabled:opacity-60"
+                      className="inline-flex items-center gap-1 rounded-md bg-success-100 px-2 py-1 text-xs font-medium text-success-900 hover:bg-success-200 disabled:opacity-60"
                       pendingLabel="…"
                     >
                       <Undo2 className="h-3 w-3" strokeWidth={2} />
@@ -756,7 +756,7 @@ function GrantCard({ grant, revoked }: { grant: CompGrantRow; revoked: boolean }
       className={`rounded-lg border px-3 py-2.5 ${
         revoked
           ? 'border-ink/10 bg-ink/[0.02] text-ink/60'
-          : 'border-emerald-200/70 bg-emerald-50/50'
+          : 'border-success-200/70 bg-success-50/50'
       }`}
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -803,7 +803,7 @@ function GrantCard({ grant, revoked }: { grant: CompGrantRow; revoked: boolean }
             />
             <SubmitButton
               title="Revoke this grant. The audit log captures it."
-              className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-rose-100 hover:text-rose-900 disabled:opacity-60"
+              className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-danger-100 hover:text-danger-900 disabled:opacity-60"
               pendingLabel="…"
             >
               <XCircle className="h-3 w-3" strokeWidth={2} />

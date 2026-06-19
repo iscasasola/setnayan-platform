@@ -96,8 +96,8 @@ export function GuestNameFields({
       </div>
 
       {dups.length > 0 ? (
-        <div className="space-y-2 rounded-xl border border-amber-300/70 bg-amber-50 p-3">
-          <p className="flex items-center gap-2 text-sm font-semibold leading-tight text-amber-800">
+        <div className="space-y-2 rounded-xl border border-warn-300/70 bg-warn-50 p-3">
+          <p className="flex items-center gap-2 text-sm font-semibold leading-tight text-warn-800">
             <AlertTriangle aria-hidden className="h-4 w-4 flex-none" strokeWidth={1.9} />
             {dups.length > 1
               ? 'You may have already added these guests'
@@ -121,10 +121,10 @@ export function GuestNameFields({
               <span
                 className={`flex-none rounded-full px-2 py-0.5 text-[10px] font-bold ${
                   kind === 'exact'
-                    ? 'bg-rose-100 text-rose-700'
+                    ? 'bg-danger-100 text-danger-700'
                     : kind === 'nick'
                       ? 'bg-violet-100 text-violet-700'
-                      : 'bg-amber-200/70 text-amber-800'
+                      : 'bg-warn-200/70 text-warn-800'
                 }`}
               >
                 {TAG[kind]}

@@ -38,8 +38,8 @@ function dueLabel(item: ChecklistItemView): { label: string; tint: string } {
   });
   let tint = 'text-ink/55';
   if (d != null) {
-    if (d < 0) tint = 'text-rose-700';
-    else if (d <= 7) tint = 'text-amber-700';
+    if (d < 0) tint = 'text-danger-700';
+    else if (d <= 7) tint = 'text-warn-700';
   }
   return { label: `Due ${pretty}`, tint };
 }
@@ -68,7 +68,7 @@ function PhaseRows({ eventId, items }: { eventId: string; items: ReadonlyArray<C
                 type="submit"
                 aria-label={done ? `Mark "${item.title}" not done` : `Mark "${item.title}" done`}
                 className={`inline-flex h-6 w-6 items-center justify-center rounded-full transition ${
-                  done ? 'text-emerald-600' : 'text-ink/35 hover:text-emerald-600'
+                  done ? 'text-success-600' : 'text-ink/35 hover:text-success-600'
                 }`}
               >
                 {done ? (
@@ -134,7 +134,7 @@ export function ChecklistFull({ eventId, groups, totalCount, doneCount, eventDat
             </div>
             <div className="h-2 w-full overflow-hidden rounded-full bg-ink/10">
               <div
-                className="h-full rounded-full bg-emerald-500 transition-all"
+                className="h-full rounded-full bg-success-500 transition-all"
                 style={{ width: `${pct}%` }}
               />
             </div>

@@ -334,7 +334,7 @@ function BrandIconCard({
               <p>This custom icon is live across the browser tab, app icon, and in-app logo.</p>
               <form action={removeBrandIcon}>
                 <SubmitButton
-                  className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-danger-700 disabled:cursor-not-allowed disabled:opacity-60"
                   pendingLabel="Resetting…"
                 >
                   <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -354,7 +354,7 @@ function BrandIconCard({
           <BrandIconUploadForm replace={hasIcon} />
         </div>
 
-        <p className="rounded-md border border-amber-200/60 bg-amber-50/60 px-3 py-2 text-xs text-amber-900">
+        <p className="rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900">
           <span className="font-semibold">Don&rsquo;t see the new tab icon?</span>{' '}
           Browsers cache favicons aggressively. We add a version stamp so most
           browsers refresh on their own; on Safari you may need to clear it once

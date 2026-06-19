@@ -5,6 +5,8 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
+import { isEmailConfigured, sendEmail } from '@/lib/email';
+import { renderBrandedEmail } from '@/lib/email-template';
 
 async function requireAdmin(): Promise<{ userId: string }> {
   const supabase = await createClient();
@@ -49,7 +51,7 @@ export async function setHelpMessageStatus(formData: FormData) {
   // flipping the status. Only the former should fire a notification.
   const { data: prior } = await admin
     .from('help_messages')
-    .select('user_id, admin_notes')
+    .select('user_id, admin_notes, sender_email, sender_name, subject')
     .eq('message_id', messageId)
     .maybeSingle();
 
@@ -88,6 +90,58 @@ export async function setHelpMessageStatus(formData: FormData) {
       body: adminNotes.slice(0, 200),
       relatedUrl: '/help',
     });
+  } else if (repliedNow && prior?.sender_email) {
+    // Anonymous submitter (user_id NULL) — there's no in-app account to drop a
+    // notification row on, so they previously got NOTHING when an admin
+    // replied. Email the reply directly to the address they left on the form.
+    // Best-effort: a send failure never blocks the status update. We email
+    // straight from here (not emitNotification) because there's no user row to
+    // route through, mirroring the branded multipart shape emitNotification uses.
+    if (await isEmailConfigured()) {
+      try {
+        const subject = (prior.subject as string | null)?.trim();
+        const greetingName = (prior.sender_name as string | null)?.trim();
+        const heading = subject
+          ? `Setnayan replied: ${subject}`
+          : 'Setnayan replied to your message';
+        const lead = greetingName ? `Hi ${greetingName},` : 'Hi,';
+        const appUrl =
+          process.env.NEXT_PUBLIC_APP_URL ??
+          'https://setnayan-platform-web.vercel.app';
+        const helpUrl = `${appUrl}/help`;
+        const text = [
+          lead,
+          '',
+          'You reached out to Setnayan support and we have a reply for you:',
+          '',
+          adminNotes,
+          '',
+          `Setnayan Help Center: ${helpUrl}`,
+          '',
+          '—',
+          'You received this because you contacted Setnayan support.',
+        ].join('\n');
+        const html = renderBrandedEmail({
+          heading,
+          paragraphs: [
+            lead,
+            'You reached out to Setnayan support and we have a reply for you:',
+            adminNotes,
+          ],
+          ctaLabel: 'Open the Help Center',
+          ctaHref: helpUrl,
+          footnote: 'You received this because you contacted Setnayan support.',
+        });
+        await sendEmail({
+          to: prior.sender_email as string,
+          subject: heading,
+          text,
+          html,
+        });
+      } catch (e) {
+        console.error('[help] anonymous reply email failed:', e);
+      }
+    }
   }
 
   revalidatePath('/admin/help');

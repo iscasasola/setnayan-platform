@@ -628,7 +628,7 @@ export function FileUpload({
                 <p className="truncate text-sm font-medium text-ink">
                   {item.filename}
                 </p>
-                <p className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-700">
+                <p className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.15em] text-success-700">
                   <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={2} />
                   Uploaded
                 </p>
@@ -636,7 +636,7 @@ export function FileUpload({
               <button
                 type="button"
                 onClick={() => removeItem(item.id)}
-                className="rounded-md p-1 text-ink/55 transition-colors hover:bg-ink/5 hover:text-rose-700"
+                className="rounded-md p-1 text-ink/55 transition-colors hover:bg-ink/5 hover:text-danger-700"
                 aria-label={`Remove ${item.filename}`}
               >
                 <X className="h-4 w-4" strokeWidth={1.75} />
@@ -668,7 +668,7 @@ export function FileUpload({
               <button
                 type="button"
                 onClick={() => cancelInFlight(item.id)}
-                className="rounded-md p-1 text-ink/55 transition-colors hover:bg-ink/5 hover:text-rose-700"
+                className="rounded-md p-1 text-ink/55 transition-colors hover:bg-ink/5 hover:text-danger-700"
                 aria-label={`Cancel ${item.filename}`}
               >
                 <X className="h-4 w-4" strokeWidth={1.75} />

@@ -222,7 +222,7 @@ export function PhotoMomentsEditor({
       {savedAt ? (
         <p
           role="status"
-          className="rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+          className="rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800"
         >
           Saved. Your guests will see the new list on their next visit.
         </p>
@@ -296,7 +296,7 @@ function MomentRow({
             type="button"
             onClick={onRemove}
             aria-label="Remove moment"
-            className="rounded-md p-1.5 text-ink/40 transition-colors hover:bg-ink/5 hover:text-rose-700"
+            className="rounded-md p-1.5 text-ink/40 transition-colors hover:bg-ink/5 hover:text-danger-700"
           >
             <Trash2 className="h-4 w-4" strokeWidth={1.75} />
           </button>
@@ -373,8 +373,8 @@ const MODE_BADGE: Record<
   }
 > = {
   camera_ok: {
-    bgClass: 'bg-emerald-100',
-    textClass: 'text-emerald-800',
+    bgClass: 'bg-success-100',
+    textClass: 'text-success-800',
     Icon: Camera,
   },
   phone_down: {

@@ -353,6 +353,7 @@ export function ProblemSection() {
             width="120"
             height="24"
             viewBox="0 0 120 24"
+            aria-hidden
             style={{ overflow: 'visible' }}
             className="rotate-90 lg:rotate-0 my-14 lg:my-0"
           >

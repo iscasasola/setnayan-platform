@@ -284,7 +284,7 @@ export function BudgetAllocationPlanner({
                 {formatPhp(Math.abs(cushion))}
               </p>
             ) : (
-              <p className="font-display text-2xl text-emerald-700 sm:text-3xl">
+              <p className="font-display text-2xl text-success-700 sm:text-3xl">
                 {formatPhp(cushion)}
               </p>
             )}
@@ -361,7 +361,7 @@ export function BudgetAllocationPlanner({
           {saveState.kind === 'saved' ? (
             <p
               role="status"
-              className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-800"
+              className="inline-flex items-center gap-1.5 rounded-full bg-success-50 px-3 py-1.5 text-xs font-medium text-success-800"
             >
               <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
               Saved
@@ -370,7 +370,7 @@ export function BudgetAllocationPlanner({
           {saveState.kind === 'error' ? (
             <p
               role="alert"
-              className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-800"
+              className="inline-flex items-center gap-1.5 rounded-full bg-danger-50 px-3 py-1.5 text-xs font-medium text-danger-800"
             >
               <AlertTriangle aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
               {saveState.message}
@@ -425,14 +425,14 @@ function OverspendBanner({
       role="status"
       className={`mt-4 flex items-start gap-2 rounded-xl border px-3 py-2.5 text-sm ${
         emerald
-          ? 'border-emerald-300/60 bg-emerald-50/60 text-ink/80'
+          ? 'border-success-300/60 bg-success-50/60 text-ink/80'
           : 'border-terracotta/30 bg-terracotta/[0.06] text-ink/80'
       }`}
     >
       {emerald ? (
         <CheckCircle2
           aria-hidden
-          className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700"
+          className="mt-0.5 h-4 w-4 shrink-0 text-success-700"
           strokeWidth={1.75}
         />
       ) : (
@@ -501,7 +501,7 @@ function LeafRow({
               </span>
             ) : null}
             {leaf.belowFloor ? (
-              <span className="inline-flex items-center gap-1 rounded-full border border-amber-300/60 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-900">
+              <span className="inline-flex items-center gap-1 rounded-full border border-warn-300/60 bg-warn-50 px-2 py-0.5 text-[10px] font-medium text-warn-900">
                 <Info aria-hidden className="h-3 w-3" strokeWidth={2} />
                 below typical floor
               </span>
@@ -532,7 +532,7 @@ function ConfidenceChip({ confidence }: { confidence: LeafAllocation['confidence
   if (confidence === 'high') {
     return (
       <span
-        className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700"
+        className="inline-flex items-center gap-1 text-[11px] font-medium text-success-700"
         title="Backed by plenty of real vendor prices"
       >
         <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={2} />
@@ -709,7 +709,7 @@ function TiltEditor({
             />
           </div>
           {leaf.belowFloor ? (
-            <p className="flex items-start gap-1.5 text-xs text-amber-800">
+            <p className="flex items-start gap-1.5 text-xs text-warn-800">
               <Info aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2} />
               That&rsquo;s below the cheapest price we&rsquo;ve seen for this — still
               fine, just worth knowing.

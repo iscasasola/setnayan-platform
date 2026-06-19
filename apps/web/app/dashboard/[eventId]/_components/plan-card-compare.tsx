@@ -468,14 +468,14 @@ export function PlanCardCompare({
           {lockState.kind === 'error' ? (
             <div
               role="alert"
-              className="flex items-start gap-2 rounded-lg border border-rose-300/60 bg-rose-50/70 px-3 py-2 text-sm text-rose-900"
+              className="flex items-start gap-2 rounded-lg border border-danger-300/60 bg-danger-50/70 px-3 py-2 text-sm text-danger-900"
             >
               <AlertTriangle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={2} />
               <p className="flex-1">{lockState.message}</p>
               <button
                 type="button"
                 onClick={() => setLockState({ kind: 'idle' })}
-                className="shrink-0 rounded-md border border-rose-300/60 bg-cream px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-rose-900 hover:bg-rose-100"
+                className="shrink-0 rounded-md border border-danger-300/60 bg-cream px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-danger-900 hover:bg-danger-100"
               >
                 Dismiss
               </button>
@@ -566,9 +566,9 @@ export function PlanCardCompare({
                           key={p.vendor_id}
                           className={`flex flex-col gap-2 rounded-lg border p-3 transition-colors ${
                             isJustLocked
-                              ? 'border-emerald-400 bg-emerald-50'
+                              ? 'border-success-400 bg-success-50'
                               : isLockedRow
-                                ? 'border-emerald-300/40 bg-emerald-50/30'
+                                ? 'border-success-300/40 bg-success-50/30'
                                 : 'border-ink/10 bg-cream'
                           }`}
                         >
@@ -584,7 +584,7 @@ export function PlanCardCompare({
                             <span
                               className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] ${
                                 isLockedRow
-                                  ? 'bg-emerald-100 text-emerald-800'
+                                  ? 'bg-success-100 text-success-800'
                                   : 'bg-ink/5 text-ink/65'
                               }`}
                             >
@@ -814,22 +814,22 @@ function ConflictModal({
       role="alertdialog"
       aria-labelledby="conflict-heading"
       aria-describedby="conflict-body"
-      className="space-y-3 rounded-lg border border-amber-300/60 bg-amber-50/70 px-4 py-3"
+      className="space-y-3 rounded-lg border border-warn-300/60 bg-warn-50/70 px-4 py-3"
     >
       <div className="flex items-start gap-2">
         <AlertTriangle
           aria-hidden
-          className="mt-0.5 h-4 w-4 shrink-0 text-amber-700"
+          className="mt-0.5 h-4 w-4 shrink-0 text-warn-700"
           strokeWidth={2}
         />
         <div className="space-y-1">
           <h3
             id="conflict-heading"
-            className="text-sm font-semibold text-amber-900"
+            className="text-sm font-semibold text-warn-900"
           >
             {existingVendorName} is already locked for {groupLabel.toLowerCase()}.
           </h3>
-          <p id="conflict-body" className="text-xs leading-snug text-amber-900/85">
+          <p id="conflict-body" className="text-xs leading-snug text-warn-900/85">
             Only one {groupLabel.toLowerCase()} can be locked at a time. Switch to{' '}
             <strong>{newVendorName}</strong> instead? Your earlier pick stays on the
             card as a considering option.
@@ -856,7 +856,7 @@ function ConflictModal({
           type="button"
           onClick={onCancel}
           disabled={isPending}
-          className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-amber-400/60 bg-cream px-3 py-2 text-sm font-medium text-amber-900 transition-colors hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 disabled:opacity-60"
+          className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-warn-400/60 bg-cream px-3 py-2 text-sm font-medium text-warn-900 transition-colors hover:bg-warn-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-warn-600 disabled:opacity-60"
         >
           Cancel
         </button>
@@ -896,22 +896,22 @@ function SoftHoldLimitModal({
       role="alertdialog"
       aria-labelledby="soft-hold-heading"
       aria-describedby="soft-hold-body"
-      className="space-y-3 rounded-lg border border-amber-300/60 bg-amber-50/70 px-4 py-3"
+      className="space-y-3 rounded-lg border border-warn-300/60 bg-warn-50/70 px-4 py-3"
     >
       <div className="flex items-start gap-2">
         <AlertTriangle
           aria-hidden
-          className="mt-0.5 h-4 w-4 shrink-0 text-amber-700"
+          className="mt-0.5 h-4 w-4 shrink-0 text-warn-700"
           strokeWidth={2}
         />
         <div className="space-y-1">
           <h3
             id="soft-hold-heading"
-            className="text-sm font-semibold text-amber-900"
+            className="text-sm font-semibold text-warn-900"
           >
             {vendorName} is fully booked with soft holds for your date.
           </h3>
-          <p id="soft-hold-body" className="text-xs leading-snug text-amber-900/85">
+          <p id="soft-hold-body" className="text-xs leading-snug text-warn-900/85">
             {vendorName} already has {existingHoldCount} confirmed soft holds
             for your wedding date. They only accept {currentLimit} simultaneous
             holds at a time. Try a different vendor or come back later — they&rsquo;ll
@@ -929,7 +929,7 @@ function SoftHoldLimitModal({
         <button
           type="button"
           onClick={onDismiss}
-          className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-amber-400/60 bg-cream px-3 py-2 text-sm font-medium text-amber-900 transition-colors hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600"
+          className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-warn-400/60 bg-cream px-3 py-2 text-sm font-medium text-warn-900 transition-colors hover:bg-warn-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-warn-600"
         >
           Dismiss
         </button>
@@ -971,12 +971,12 @@ function UndoToast({
     <div
       role="status"
       aria-live="polite"
-      className="fixed bottom-4 left-1/2 z-50 w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 rounded-xl border border-emerald-300/60 bg-cream px-4 py-3 shadow-lg"
+      className="fixed bottom-4 left-1/2 z-50 w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 rounded-xl border border-success-300/60 bg-cream px-4 py-3 shadow-lg"
     >
       <div className="flex items-start gap-3">
         <BookmarkCheck
           aria-hidden
-          className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700"
+          className="mt-0.5 h-5 w-5 shrink-0 text-success-700"
           strokeWidth={2}
         />
         <div className="min-w-0 flex-1 space-y-1">

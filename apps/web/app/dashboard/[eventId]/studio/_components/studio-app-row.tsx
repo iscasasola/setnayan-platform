@@ -33,8 +33,8 @@ function PillEl({ pill }: { pill: NonNullable<RowPill> }) {
     price: 'bg-ink/[0.06] text-mulberry',
     free: 'bg-ink/[0.06] text-mulberry',
     trial: 'bg-terracotta/10 text-terracotta-700',
-    active: 'bg-emerald-100 text-emerald-900',
-    pending: 'border border-amber-300/60 bg-amber-50 text-amber-900',
+    active: 'bg-success-100 text-success-900',
+    pending: 'border border-warn-300/60 bg-warn-50 text-warn-900',
     soon: 'bg-ink/5 text-ink/45',
   };
   return (

@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { sendEmail } from '@/lib/email';
+import { emitNotification } from '@/lib/notification-emit';
 
 /** Throw unless the caller is a couple member of this event. */
 async function assertCouple(eventId: string) {
@@ -107,7 +108,20 @@ export async function rejectClaimAction(eventId: string, formData: FormData) {
   if (!claimId) return;
 
   const admin = createAdminClient();
-  await admin
+
+  // Read the claimer BEFORE flipping status so we know who to tell. The
+  // approval path already notifies (email-on-link); rejection previously
+  // flipped status silently, leaving the claimer waiting in /join/[eventId]/
+  // pending forever. claimer_user_id is NOT NULL (the claimer is always an
+  // authenticated Setnayan user), so an in-app notification reaches them.
+  const { data: claim } = await admin
+    .from('guest_claims')
+    .select('claimer_user_id, status')
+    .eq('claim_id', claimId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+
+  const { error: updateError } = await admin
     .from('guest_claims')
     .update({
       status: 'rejected',
@@ -119,6 +133,24 @@ export async function rejectClaimAction(eventId: string, formData: FormData) {
     .eq('claim_id', claimId)
     .eq('event_id', eventId)
     .neq('status', 'confirmed');
+
+  // Best-effort: tell the claimer their request was declined. A soft negative
+  // (no name leak, no event details) — matches the inquiry_declined register.
+  // Skip if the flip didn't apply (already confirmed) or the claim vanished.
+  if (
+    !updateError &&
+    claim?.claimer_user_id &&
+    claim.status !== 'confirmed' &&
+    claim.status !== 'rejected'
+  ) {
+    await emitNotification({
+      userId: claim.claimer_user_id as string,
+      type: 'guest_claim_rejected',
+      title: 'Your request to join the guest list was declined',
+      body: "The couple reviewed your request and didn't add you to their guest list this time. If you think this was a mistake, reach out to them directly.",
+      relatedUrl: `/join/${eventId}`,
+    });
+  }
 
   revalidatePath(`/dashboard/${eventId}/guests/claims`);
 }

@@ -164,8 +164,8 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
         <span
           className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
             metrics.finality.is_provisional
-              ? 'bg-amber-100 text-amber-900'
-              : 'bg-emerald-100 text-emerald-900'
+              ? 'bg-warn-100 text-warn-900'
+              : 'bg-success-100 text-success-900'
           }`}
         >
           {metrics.finality.is_provisional
@@ -210,7 +210,7 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
             </ul>
           )}
           {metrics.dietary_restriction_count > 0 ? (
-            <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            <p className="mt-3 rounded-lg bg-warn-50 px-3 py-2 text-xs text-warn-900">
               {metrics.dietary_restriction_count}{' '}
               {metrics.dietary_restriction_count === 1 ? 'guest has' : 'guests have'} dietary
               restriction notes — ask the couple for specifics.
@@ -251,12 +251,12 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
         </p>
 
         {search.rule === 'invalid' ? (
-          <p role="alert" className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          <p role="alert" className="mt-3 rounded-lg bg-warn-50 px-3 py-2 text-xs text-warn-900">
             Each rule needs a name, a unit, and a per-guest quantity above zero.
           </p>
         ) : null}
         {search.rule === 'error' ? (
-          <p role="alert" className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          <p role="alert" className="mt-3 rounded-lg bg-warn-50 px-3 py-2 text-xs text-warn-900">
             That didn&rsquo;t save — try again.
           </p>
         ) : null}

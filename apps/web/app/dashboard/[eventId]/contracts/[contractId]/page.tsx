@@ -97,7 +97,7 @@ export default async function CustomerContractDetailPage({ params }: Props) {
       </p>
 
       {isCancelled && contract.cancelled_at ? (
-        <p className="rounded-md border border-rose-300/60 bg-rose-50 px-3 py-2 text-xs text-rose-900">
+        <p className="rounded-md border border-danger-300/60 bg-danger-50 px-3 py-2 text-xs text-danger-900">
           This contract was cancelled by the vendor on{' '}
           {new Date(contract.cancelled_at).toLocaleString('en-PH', {
             dateStyle: 'medium',

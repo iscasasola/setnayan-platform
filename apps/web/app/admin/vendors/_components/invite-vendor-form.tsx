@@ -121,18 +121,18 @@ export function InviteVendorForm() {
       </form>
 
       {state.kind === 'success' ? (
-        <div className="mt-4 rounded-md border border-emerald-300/60 bg-emerald-50 p-3">
-          <p className="text-sm font-medium text-emerald-900">
+        <div className="mt-4 rounded-md border border-success-300/60 bg-success-50 p-3">
+          <p className="text-sm font-medium text-success-900">
             Invite link ready — share it with the vendor.
           </p>
           <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
-            <code className="flex-1 truncate rounded-md border border-emerald-200 bg-cream px-3 py-2 font-mono text-xs text-ink/80">
+            <code className="flex-1 truncate rounded-md border border-success-200 bg-cream px-3 py-2 font-mono text-xs text-ink/80">
               {state.claimUrl}
             </code>
             <button
               type="button"
               onClick={() => copyToClipboard(state.claimUrl)}
-              className="inline-flex items-center justify-center gap-1.5 rounded-md border border-emerald-300 bg-cream px-3 py-2 text-xs font-medium text-emerald-900 hover:bg-emerald-100"
+              className="inline-flex items-center justify-center gap-1.5 rounded-md border border-success-300 bg-cream px-3 py-2 text-xs font-medium text-success-900 hover:bg-success-100"
             >
               {copied ? (
                 <>
@@ -147,7 +147,7 @@ export function InviteVendorForm() {
               )}
             </button>
           </div>
-          <p className="mt-2 text-xs text-emerald-900/70">
+          <p className="mt-2 text-xs text-success-900/70">
             Expires in 90 days. The vendor signs up via this link, and a
             vendor_profiles row gets created automatically with the business
             name you entered.

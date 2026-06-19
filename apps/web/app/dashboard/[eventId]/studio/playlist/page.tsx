@@ -116,11 +116,11 @@ export default async function PlaylistPage({ params }: Props) {
 
       {/* Sync status chip · whether a Music vendor is already booked. */}
       {bookedMusic ? (
-        <div className="mb-6 rounded-xl border border-emerald-300/50 bg-emerald-50/60 p-4">
-          <p className="inline-flex items-start gap-2 text-sm text-emerald-900">
+        <div className="mb-6 rounded-xl border border-success-300/50 bg-success-50/60 p-4">
+          <p className="inline-flex items-start gap-2 text-sm text-success-900">
             <Sparkles
               aria-hidden
-              className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-700"
+              className="mt-0.5 h-4 w-4 flex-shrink-0 text-success-700"
               strokeWidth={2}
             />
             <span className="leading-relaxed">

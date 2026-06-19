@@ -86,7 +86,7 @@ const ROLE_OPTS: GuestRole[] = [
 
 /* the Side picker carries its team colour on the control border */
 const SIDE_BORDER: Record<GuestSide, string> = {
-  bride: 'border-rose-400',
+  bride: 'border-danger-400',
   groom: 'border-sky-500',
   both: 'border-violet-400',
 };
@@ -513,7 +513,7 @@ export function QuickAddSheet({
                     </button>
                   </div>
                   {groupError ? (
-                    <p role="alert" className="text-xs text-rose-700">
+                    <p role="alert" className="text-xs text-danger-700">
                       {groupError}
                     </p>
                   ) : null}
@@ -564,8 +564,8 @@ export function QuickAddSheet({
                 </div>
 
                 {dupActive ? (
-                  <div className="space-y-2 rounded-xl border border-amber-300/70 bg-amber-50 p-3">
-                    <p className="flex items-center gap-2 text-sm font-semibold leading-tight text-amber-800">
+                  <div className="space-y-2 rounded-xl border border-warn-300/70 bg-warn-50 p-3">
+                    <p className="flex items-center gap-2 text-sm font-semibold leading-tight text-warn-800">
                       <AlertTriangle aria-hidden className="h-4 w-4 flex-none" strokeWidth={1.9} />
                       {target && !targetHasPicked
                         ? `${target.first_name} is already on your list — with a different role`
@@ -589,10 +589,10 @@ export function QuickAddSheet({
                         <span
                           className={`flex-none rounded-full px-2 py-0.5 text-[10px] font-bold ${
                             kind === 'exact'
-                              ? 'bg-rose-100 text-rose-700'
+                              ? 'bg-danger-100 text-danger-700'
                               : kind === 'nick'
                                 ? 'bg-violet-100 text-violet-700'
-                                : 'bg-amber-200/70 text-amber-800'
+                                : 'bg-warn-200/70 text-warn-800'
                           }`}
                         >
                           {TAG[kind]}
@@ -665,7 +665,7 @@ export function QuickAddSheet({
                 ) : null}
 
                 {error ? (
-                  <p role="alert" className="text-sm text-rose-700">
+                  <p role="alert" className="text-sm text-danger-700">
                     {error}
                   </p>
                 ) : null}

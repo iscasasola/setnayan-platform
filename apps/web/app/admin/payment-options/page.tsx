@@ -144,7 +144,7 @@ export default async function AdminPaymentOptionsPage() {
       <section className="mb-10">
         <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
           Needs review
-          <span className="rounded-full bg-amber-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-amber-900">
+          <span className="rounded-full bg-warn-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-warn-900">
             {needsReview.length}
           </span>
         </h2>
@@ -168,7 +168,7 @@ export default async function AdminPaymentOptionsPage() {
       <section>
         <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
           Published links &amp; QRs
-          <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-800">
+          <span className="rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-800">
             {published.length}
           </span>
         </h2>
@@ -244,7 +244,7 @@ function PaymentMethodCard({
       ) : null}
 
       {row.moderation_note ? (
-        <p className="rounded-md border border-amber-300/60 bg-amber-50/60 px-3 py-2 text-xs text-amber-900">
+        <p className="rounded-md border border-warn-300/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900">
           <span className="font-medium">Moderation note:</span>{' '}
           {row.moderation_note}
         </p>
@@ -385,7 +385,7 @@ function ActionRow({
             value={row.payment_method_id}
           />
           <SubmitButton
-            className="inline-flex h-9 items-center rounded-md border border-amber-300 bg-amber-50 px-3 text-xs font-medium text-amber-900 hover:bg-amber-100"
+            className="inline-flex h-9 items-center rounded-md border border-warn-300 bg-warn-50 px-3 text-xs font-medium text-warn-900 hover:bg-warn-100"
             pendingLabel="Holding…"
           >
             Hold
@@ -436,9 +436,9 @@ function MethodTypeBadge({ type }: { type: PaymentMethodType }) {
 
 function ModerationBadge({ status }: { status: ModerationStatus }) {
   const tone: Record<ModerationStatus, string> = {
-    approved: 'bg-emerald-100 text-emerald-800',
-    pending_review: 'bg-amber-100 text-amber-900',
-    held: 'bg-amber-50 text-amber-900 border border-amber-300',
+    approved: 'bg-success-100 text-success-800',
+    pending_review: 'bg-warn-100 text-warn-900',
+    held: 'bg-warn-50 text-warn-900 border border-warn-300',
     removed: 'bg-terracotta/10 text-terracotta-700',
   };
   const label: Record<ModerationStatus, string> = {
@@ -458,11 +458,11 @@ function ModerationBadge({ status }: { status: ModerationStatus }) {
 
 function AllowlistBadge({ allowlisted }: { allowlisted: boolean }) {
   return allowlisted ? (
-    <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-800">
+    <span className="rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-800">
       on allowlist
     </span>
   ) : (
-    <span className="rounded-full bg-amber-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-amber-900">
+    <span className="rounded-full bg-warn-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-warn-900">
       off allowlist
     </span>
   );

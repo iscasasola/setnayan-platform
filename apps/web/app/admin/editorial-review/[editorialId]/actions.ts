@@ -5,6 +5,54 @@ import { after } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import { scanEditorial, type ScanFlag } from '@/lib/editorial-scan';
+import { emitNotification } from '@/lib/notification-emit';
+
+/**
+ * Notify the couple (every couple-type event member of the editorial's event)
+ * that an editorial decision landed (Notification Foundation · Phase B).
+ * Best-effort: a failed notification never affects the decision write that
+ * already landed.
+ */
+async function notifyCoupleEditorialDecision(
+  admin: ReturnType<typeof createAdminClient>,
+  editorialId: string,
+  title: string,
+  body: string,
+): Promise<void> {
+  try {
+    const { data: ed } = await admin
+      .from('event_editorial')
+      .select('event_id')
+      .eq('editorial_id', editorialId)
+      .maybeSingle();
+    const eventId = ed?.event_id as string | undefined;
+    if (!eventId) return;
+
+    const { data: members } = await admin
+      .from('event_members')
+      .select('user_id')
+      .eq('event_id', eventId)
+      .eq('member_type', 'couple');
+    const memberIds = (members ?? [])
+      .map((m) => m.user_id as string)
+      .filter((id): id is string => Boolean(id));
+    if (memberIds.length === 0) return;
+
+    await Promise.all(
+      memberIds.map((userId) =>
+        emitNotification({
+          userId,
+          type: 'editorial_decision',
+          title,
+          body,
+          relatedUrl: `/dashboard/${eventId}/website/editorial`,
+        }),
+      ),
+    );
+  } catch (e) {
+    console.error('[editorial-review] couple decision notify failed:', e);
+  }
+}
 
 async function requireAdmin() {
   const user = await getCurrentUser();
@@ -80,6 +128,14 @@ export async function unlockForCouple(editorialId: string) {
       unlocked_for_couple_at: new Date().toISOString(),
     })
     .eq('editorial_id', editorialId);
+
+  // Tell the couple their editorial cleared review and is unlocked (approve).
+  await notifyCoupleEditorialDecision(
+    admin,
+    editorialId,
+    'Your editorial is approved',
+    'Setnayan reviewed your wedding editorial and it’s cleared — it can now go live on your event website.',
+  );
 
   revalidatePath(`/admin/editorial-review/${editorialId}`);
   revalidatePath('/admin/editorial-review');

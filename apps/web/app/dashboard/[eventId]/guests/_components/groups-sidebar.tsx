@@ -32,10 +32,10 @@ const ROW_TINT_BY_SIDE: Record<
   { idle: string; active: string; icon: string; count: string }
 > = {
   bride: {
-    idle: 'bg-rose-50 text-rose-900 hover:bg-rose-100',
-    active: 'bg-rose-100 font-medium text-rose-800',
-    icon: 'text-rose-500',
-    count: 'text-rose-500/70',
+    idle: 'bg-danger-50 text-danger-900 hover:bg-danger-100',
+    active: 'bg-danger-100 font-medium text-danger-800',
+    icon: 'text-danger-500',
+    count: 'text-danger-500/70',
   },
   groom: {
     idle: 'bg-sky-50 text-sky-900 hover:bg-sky-100',
@@ -234,7 +234,7 @@ function KebabMenu({
           >
             <button
               type="submit"
-              className="block w-full px-3 py-1.5 text-left text-xs text-rose-700 hover:bg-rose-50"
+              className="block w-full px-3 py-1.5 text-left text-xs text-danger-700 hover:bg-danger-50"
             >
               Delete group
             </button>

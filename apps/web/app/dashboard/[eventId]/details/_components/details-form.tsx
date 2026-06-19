@@ -233,7 +233,7 @@ export function DetailsForm({
           {pending ? 'Saving…' : 'Save basics'}
         </button>
         {saved && !pending ? (
-          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700">
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-success-700">
             <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
             Saved
           </span>

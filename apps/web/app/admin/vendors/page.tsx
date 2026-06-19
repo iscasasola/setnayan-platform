@@ -178,7 +178,7 @@ export default async function AdminVendorsPage({ searchParams }: Props) {
           <header>
             <h2 className="text-base font-semibold tracking-tight">
               New vendor requests
-              <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">
+              <span className="ml-2 rounded-full bg-warn-100 px-2 py-0.5 text-xs font-medium text-warn-900">
                 {requestRows.length}
               </span>
             </h2>
@@ -251,7 +251,7 @@ export default async function AdminVendorsPage({ searchParams }: Props) {
               return (
                 <li
                   key={v.vendor_profile_id}
-                  className="flex flex-col gap-3 rounded-xl border border-dashed border-amber-300/60 bg-amber-50/30 p-4"
+                  className="flex flex-col gap-3 rounded-xl border border-dashed border-warn-300/60 bg-warn-50/30 p-4"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex min-w-0 items-center gap-3">
@@ -267,7 +267,7 @@ export default async function AdminVendorsPage({ searchParams }: Props) {
                         ) : null}
                       </div>
                     </div>
-                    <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-amber-900">
+                    <span className="shrink-0 rounded-full bg-warn-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-warn-900">
                       Unclaimed
                     </span>
                   </div>
@@ -284,7 +284,7 @@ export default async function AdminVendorsPage({ searchParams }: Props) {
                   ) : null}
 
                   {claimUrl ? (
-                    <details className="rounded-md bg-cream/70 p-2 text-[11px] text-ink/70 ring-1 ring-inset ring-amber-200">
+                    <details className="rounded-md bg-cream/70 p-2 text-[11px] text-ink/70 ring-1 ring-inset ring-warn-200">
                       <summary className="cursor-pointer font-medium text-ink/80">
                         Claim link
                       </summary>
@@ -314,7 +314,7 @@ export default async function AdminVendorsPage({ searchParams }: Props) {
                       >
                         <input type="hidden" name="invite_id" value={v.invite_id} />
                         <SubmitButton
-                          className="inline-flex min-h-[44px] items-center gap-1 rounded-md bg-ink/5 px-2.5 py-1.5 text-xs font-medium text-ink/70 hover:bg-rose-100 hover:text-rose-900"
+                          className="inline-flex min-h-[44px] items-center gap-1 rounded-md bg-ink/5 px-2.5 py-1.5 text-xs font-medium text-ink/70 hover:bg-danger-100 hover:text-danger-900"
                           pendingLabel="Revoking…"
                         >
                           <Trash2 className="h-3 w-3" strokeWidth={2} />
@@ -323,7 +323,7 @@ export default async function AdminVendorsPage({ searchParams }: Props) {
                       </ConfirmForm>
                     ) : null}
                     {v.is_published ? (
-                      <span className="ml-auto rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-emerald-800">
+                      <span className="ml-auto rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-success-800">
                         Published
                       </span>
                     ) : null}
@@ -438,8 +438,8 @@ export default async function AdminVendorsPage({ searchParams }: Props) {
 
 function VisibilityBadge({ value }: { value: VendorPublicVisibility }) {
   const tone: Record<VendorPublicVisibility, string> = {
-    coming_soon: 'bg-amber-100 text-amber-900',
-    verified: 'bg-emerald-100 text-emerald-800',
+    coming_soon: 'bg-warn-100 text-warn-900',
+    verified: 'bg-success-100 text-success-800',
     hidden: 'bg-ink/8 text-ink/65',
     archived: 'bg-ink/8 text-ink/45',
   };

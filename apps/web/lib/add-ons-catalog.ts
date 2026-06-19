@@ -186,7 +186,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
         'radial-gradient(ellipse at 30% 70%, #F4D9B0 0%, #C97B4B 70%)',
       motionBackground:
         'radial-gradient(circle at 50% 50%, #FFEED0 0%, transparent 60%)',
-      iconBadgeClass: 'bg-amber-50/30 text-amber-50',
+      iconBadgeClass: 'bg-warn-50/30 text-warn-50',
     },
   },
   {
@@ -206,7 +206,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
         'linear-gradient(135deg, #2B1810 0%, #4A2E1C 50%, #6B3E25 100%)',
       motionBackground:
         'linear-gradient(90deg, transparent 0%, rgba(255, 220, 160, 0.7) 50%, transparent 100%)',
-      iconBadgeClass: 'bg-amber-100/20 text-amber-100',
+      iconBadgeClass: 'bg-warn-100/20 text-warn-100',
     },
   },
   {
@@ -269,7 +269,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
         'radial-gradient(ellipse at 50% 50%, #4A2E1C 0%, #1A1A1A 80%)',
       motionBackground:
         'radial-gradient(circle at 50% 50%, #F4D9B0 0%, transparent 55%)',
-      iconBadgeClass: 'bg-amber-100/20 text-amber-100',
+      iconBadgeClass: 'bg-warn-100/20 text-warn-100',
     },
   },
   {
@@ -379,7 +379,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
         'linear-gradient(135deg, #1F0808 0%, #4A1212 50%, #8B1A1A 100%)',
       motionBackground:
         'linear-gradient(90deg, transparent 0%, rgba(255, 90, 90, 0.8) 50%, transparent 100%)',
-      iconBadgeClass: 'bg-rose-100/15 text-rose-50',
+      iconBadgeClass: 'bg-danger-100/15 text-danger-50',
     },
   },
   {
@@ -478,7 +478,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
         'linear-gradient(135deg, #1A1410 0%, #3A281C 55%, #6B4A30 100%)',
       motionBackground:
         'radial-gradient(circle at 50% 60%, #F4D9B0 0%, transparent 50%)',
-      iconBadgeClass: 'bg-amber-100/20 text-amber-100',
+      iconBadgeClass: 'bg-warn-100/20 text-warn-100',
     },
   },
   {

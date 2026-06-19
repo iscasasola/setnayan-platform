@@ -111,7 +111,7 @@ export default async function CoupleRecapPage({
         <div className="flex items-start gap-3">
           <span
             className={`mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-              isPublished ? 'bg-emerald-100 text-emerald-700' : 'bg-ink/5 text-ink/50'
+              isPublished ? 'bg-success-100 text-success-700' : 'bg-ink/5 text-ink/50'
             }`}
           >
             {isPublished ? (

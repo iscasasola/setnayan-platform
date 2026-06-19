@@ -1224,22 +1224,22 @@ function DemoVendorBanner() {
   return (
     <section
       aria-label="Demo vendor"
-      className="mb-8 rounded-2xl border border-amber-300/70 bg-amber-50 p-5"
+      className="mb-8 rounded-2xl border border-warn-300/70 bg-warn-50 p-5"
     >
       <div className="flex items-start gap-3">
         <Sparkles
           aria-hidden
-          className="mt-0.5 h-4 w-4 text-amber-700"
+          className="mt-0.5 h-4 w-4 text-warn-700"
           strokeWidth={1.75}
         />
         <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-amber-700">
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-warn-700">
             Demo vendor
           </p>
-          <h2 className="mt-1 text-lg font-semibold tracking-tight text-amber-900">
+          <h2 className="mt-1 text-lg font-semibold tracking-tight text-warn-900">
             This profile is synthetic — visible only to admins in demo mode.
           </h2>
-          <p className="mt-1 max-w-2xl text-sm text-amber-900/85">
+          <p className="mt-1 max-w-2xl text-sm text-warn-900/85">
             Pricing renders publicly here so admins can dogfood how the page
             would feel if the 2026-05-16 hide-prices lock were lifted. Real
             vendors stay private to the apply/register flow.
@@ -1475,7 +1475,7 @@ function ReviewHeroMetrics({ stats }: { stats: ReviewStatsRow }) {
       <div className="flex flex-col items-start gap-1">
         <div className="flex items-center gap-1">
           <Star
-            className={`h-6 w-6 ${hero > 0 ? 'fill-amber-400 text-amber-500' : 'text-ink/25'}`}
+            className={`h-6 w-6 ${hero > 0 ? 'fill-warn-400 text-warn-500' : 'text-ink/25'}`}
             strokeWidth={1.5}
           />
           <span className="text-3xl font-semibold text-ink">
@@ -1491,11 +1491,11 @@ function ReviewHeroMetrics({ stats }: { stats: ReviewStatsRow }) {
           <li key={star} className="grid grid-cols-[28px_1fr_40px] items-center gap-2">
             <span className="inline-flex items-center gap-0.5 text-ink/65">
               {star}
-              <Star className="h-3 w-3 fill-amber-400 text-amber-500" strokeWidth={1.5} />
+              <Star className="h-3 w-3 fill-warn-400 text-warn-500" strokeWidth={1.5} />
             </span>
             <span className="h-2 w-full overflow-hidden rounded-full bg-ink/10">
               <span
-                className="block h-full bg-amber-400"
+                className="block h-full bg-warn-400"
                 style={{ width: `${(count / max) * 100}%` }}
               />
             </span>
@@ -1572,7 +1572,7 @@ function AxisStat({ axis, value }: { axis: ReviewAxis; value: number }) {
         {REVIEW_AXIS_LABEL[axis]}
       </dt>
       <dd className="flex items-center gap-1 text-ink/80">
-        <Star className="h-3 w-3 fill-amber-400 text-amber-500" strokeWidth={1.5} />
+        <Star className="h-3 w-3 fill-warn-400 text-warn-500" strokeWidth={1.5} />
         <span className="font-mono text-[11px]">{value.toFixed(0)}</span>
       </dd>
     </div>
@@ -1587,7 +1587,7 @@ function StarRow({ value }: { value: number }) {
           key={n}
           aria-hidden
           className={`h-4 w-4 ${
-            n <= value ? 'fill-amber-400 text-amber-500' : 'text-ink/25'
+            n <= value ? 'fill-warn-400 text-warn-500' : 'text-ink/25'
           }`}
           strokeWidth={1.5}
         />

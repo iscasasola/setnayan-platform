@@ -577,7 +577,7 @@ function ReviewsHero({ stats }: { stats: ReviewStatsRow }) {
   return (
     <div className="flex items-center gap-3 rounded-md bg-cream/40 px-3 py-2">
       <Star
-        className={`h-5 w-5 ${hero > 0 ? 'fill-amber-400 text-amber-500' : 'text-ink/25'}`}
+        className={`h-5 w-5 ${hero > 0 ? 'fill-warn-400 text-warn-500' : 'text-ink/25'}`}
         strokeWidth={1.5}
       />
       <span className="text-xl font-semibold text-ink">
@@ -612,7 +612,7 @@ function ReviewRow({ review, vendorName }: { review: ReviewWithCouple; vendorNam
       <header className="flex flex-wrap items-baseline justify-between gap-2">
         <div className="flex items-center gap-1.5">
           <Star
-            className="h-3.5 w-3.5 fill-amber-400 text-amber-500"
+            className="h-3.5 w-3.5 fill-warn-400 text-warn-500"
             strokeWidth={1.5}
           />
           <span className="text-sm font-semibold text-ink">

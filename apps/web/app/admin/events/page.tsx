@@ -74,9 +74,11 @@ export default async function AdminEventsPage({ searchParams }: Props) {
   // see 20260516210000_vendor_payout_model.sql), so we count distinct
   // non-null vendor_profile_ids on paid orders only.
   const paidVendorsByEvent = new Map<string, Set<string>>();
+  // All-time Save-the-Date views per event (iteration 0024 · daily rollup summed).
+  const stdViewsByEvent = new Map<string, number>();
 
   if (eventIds.length > 0) {
-    const [guestsRes, paidOrdersRes] = await Promise.all([
+    const [guestsRes, paidOrdersRes, stdViewsRes] = await Promise.all([
       admin
         .from('guests')
         .select('event_id')
@@ -88,6 +90,10 @@ export default async function AdminEventsPage({ searchParams }: Props) {
         .in('event_id', eventIds)
         .eq('status', 'paid')
         .not('vendor_profile_id', 'is', null),
+      admin
+        .from('event_std_views')
+        .select('event_id,views')
+        .in('event_id', eventIds),
     ]);
 
     for (const row of guestsRes.data ?? []) {
@@ -99,6 +105,12 @@ export default async function AdminEventsPage({ searchParams }: Props) {
         paidVendorsByEvent.set(row.event_id, new Set());
       }
       paidVendorsByEvent.get(row.event_id)!.add(row.vendor_profile_id);
+    }
+    for (const row of stdViewsRes.data ?? []) {
+      stdViewsByEvent.set(
+        row.event_id,
+        (stdViewsByEvent.get(row.event_id) ?? 0) + (Number(row.views) || 0),
+      );
     }
   }
 
@@ -149,6 +161,7 @@ export default async function AdminEventsPage({ searchParams }: Props) {
               <th className="hidden px-3 py-3 font-medium md:table-cell">Slug</th>
               <th className="px-3 py-3 font-medium">Guests</th>
               <th className="px-3 py-3 font-medium">Paid&nbsp;vendors</th>
+              <th className="px-3 py-3 font-medium">STD&nbsp;views</th>
               <th className="hidden px-3 py-3 font-medium lg:table-cell">Updated</th>
               <th className="hidden px-3 py-3 font-medium lg:table-cell">ID</th>
               <th className="px-3 py-3 font-medium text-right">Actions</th>
@@ -157,7 +170,7 @@ export default async function AdminEventsPage({ searchParams }: Props) {
           <tbody>
             {events.length === 0 ? (
               <tr>
-                <td className="px-3 py-6 text-center text-ink/55" colSpan={9}>
+                <td className="px-3 py-6 text-center text-ink/55" colSpan={10}>
                   No events match.
                 </td>
               </tr>
@@ -165,6 +178,7 @@ export default async function AdminEventsPage({ searchParams }: Props) {
               events.map((e) => {
                 const guestCount = guestCounts.get(e.event_id) ?? 0;
                 const paidVendorCount = paidVendorsByEvent.get(e.event_id)?.size ?? 0;
+                const stdViewCount = stdViewsByEvent.get(e.event_id) ?? 0;
                 return (
                   <tr key={e.event_id} className="border-t border-ink/5 hover:bg-terracotta/[0.04]">
                     <td className="px-3 py-3">
@@ -194,6 +208,11 @@ export default async function AdminEventsPage({ searchParams }: Props) {
                         }
                       >
                         {paidVendorCount}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 font-mono text-sm">
+                      <span className={stdViewCount > 0 ? 'text-ink' : 'text-ink/40'}>
+                        {stdViewCount.toLocaleString()}
                       </span>
                     </td>
                     <td className="hidden px-3 py-3 font-mono text-[11px] text-ink/55 lg:table-cell">

@@ -604,6 +604,64 @@ export async function holdPayout(
 }
 
 /**
+ * Release a payout that was previously placed on hold — the reversal of
+ * `holdPayout`. Clears `on_hold` + `hold_reason` so the cron / admin can
+ * disburse the stage again, and appends a `released_hold` audit row so the
+ * full hold→release history is preserved on the row.
+ *
+ * Without this, a held payout had NO release path — once `holdPayout` set
+ * `on_hold=true`, the only way back was a raw DB write. This closes that gap
+ * (m3).
+ *
+ * No-op-safe: releasing a payout that isn't on hold succeeds (returns ok) but
+ * still records the audit entry, so a double-click can't error. Refuses to
+ * touch an already-paid payout (a release after disbursement is meaningless).
+ */
+export async function releasePayoutHold(
+  adminClient: SupabaseClient,
+  args: {
+    payoutId: string;
+    actorUserId: string;
+    reason?: string | null;
+  },
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { data: row, error: readErr } = await adminClient
+    .from('vendor_payouts')
+    .select('audit_log, on_hold, paid_at')
+    .eq('payout_id', args.payoutId)
+    .maybeSingle();
+  if (readErr) return { ok: false, error: readErr.message };
+  if (!row) return { ok: false, error: 'Payout not found.' };
+  if ((row as { paid_at?: string | null }).paid_at) {
+    return { ok: false, error: 'Payout already paid — nothing to release.' };
+  }
+
+  const now = new Date().toISOString();
+  const prevLog: unknown = (row as { audit_log?: unknown }).audit_log;
+  const nextLog = Array.isArray(prevLog) ? [...prevLog] : [];
+  nextLog.push({
+    at: now,
+    actor: `admin:${args.actorUserId}`,
+    action: 'released_hold',
+    reason: args.reason ?? null,
+    meta: null,
+  });
+
+  const { error: updErr } = await adminClient
+    .from('vendor_payouts')
+    .update({
+      on_hold: false,
+      hold_reason: null,
+      audit_log: nextLog,
+      updated_at: now,
+    })
+    .eq('payout_id', args.payoutId);
+  if (updErr) return { ok: false, error: updErr.message };
+
+  return { ok: true };
+}
+
+/**
  * Map a vendor_profiles row to its effective verification state.
  *
  * Until the parallel agent's verification flow lands the canonical

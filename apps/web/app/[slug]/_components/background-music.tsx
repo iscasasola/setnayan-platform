@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Music, Pause, Volume2 } from 'lucide-react';
+import { Volume2, VolumeX } from 'lucide-react';
 
 /**
  * Looping background music for the wedding site (Increment B ·
@@ -13,8 +13,9 @@ import { Music, Pause, Volume2 } from 'lucide-react';
  * UX rules from §6.2 (and the owner's "UX is north star"):
  *   - Autoplay is blocked by browsers → the song NEVER force-plays. A visible
  *     floating control lets the guest TAP to start.
- *   - An always-visible toggle (play ⇄ pause) — accessible, never a hidden
- *     auto-soundtrack a guest can't silence.
+ *   - An always-visible icon-only mute toggle (speaker-on ⇄ muted) — the
+ *     universal sound affordance, accessible, never a hidden auto-soundtrack a
+ *     guest can't silence.
  *   - Lazy: preload="none" so the audio bytes don't compete with LCP.
  *
  * v1 uses a looping <audio> element. The spec's gapless-via-Web-Audio loop is
@@ -63,18 +64,15 @@ export function BackgroundMusic({ src }: { src: string }) {
         type="button"
         onClick={toggle}
         aria-pressed={playing}
-        aria-label={playing ? 'Pause background music' : 'Play background music'}
-        className="fixed bottom-5 left-5 z-50 inline-flex items-center gap-2 rounded-full border border-ink/10 bg-cream/90 px-4 py-2.5 text-xs font-medium text-ink shadow-lg backdrop-blur transition hover:bg-cream"
+        aria-label={playing ? 'Mute background music' : 'Play background music'}
+        title={playing ? 'Mute music' : 'Play music'}
+        className="fixed bottom-5 left-5 z-50 inline-flex h-11 w-11 items-center justify-center rounded-full border border-ink/10 bg-cream/90 text-terracotta shadow-lg backdrop-blur transition hover:bg-cream"
       >
         {playing ? (
-          <Pause aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+          <Volume2 aria-hidden className="h-5 w-5" strokeWidth={1.75} />
         ) : (
-          <Music aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+          <VolumeX aria-hidden className="h-5 w-5" strokeWidth={1.75} />
         )}
-        <span className="hidden sm:inline">{playing ? 'Pause music' : 'Play music'}</span>
-        {playing ? (
-          <Volume2 aria-hidden className="h-3.5 w-3.5 text-ink/45" strokeWidth={1.75} />
-        ) : null}
       </button>
     </>
   );

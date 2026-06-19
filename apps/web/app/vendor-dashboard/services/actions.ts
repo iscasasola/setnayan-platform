@@ -33,6 +33,17 @@ function parentsOfCategory(category: VendorCategory): string[] {
     .filter(Boolean);
 }
 
+/**
+ * The submitted `category` is the legacy VendorCategory enum key — the
+ * WIRE/STORED vocabulary written to `vendor_services.category`. It is NOT a
+ * taxonomy tile key: the 30 enum keys and the DB tile keys deliberately don't
+ * match (see lib/vendor-category-taxonomy.ts · the A/B/C bucket study). The
+ * enum stays anchored to the live DB tree through VENDOR_CATEGORY_CANONICAL +
+ * validateVendorCategoryMapping (which surfaces drift to admins), so we keep
+ * validating against VENDOR_CATEGORIES here — swapping to tile keys would reject
+ * every existing stored value. DISPLAY labels follow the admin taxonomy via
+ * labelForVendorCategory(); storage/validation are intentionally untouched.
+ */
 function parseCategory(raw: FormDataEntryValue | null): VendorCategory {
   if (typeof raw !== 'string' || !CATEGORY_SET.has(raw)) {
     throw new Error('Unknown service category.');

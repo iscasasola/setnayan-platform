@@ -14,8 +14,10 @@ import {
   dispatchVendorPayouts,
   getSetnayanFeeBps,
   phpToCentavos,
+  releasePayoutHold,
   resolveVendorVerificationState,
 } from '@/lib/payouts';
+import { branchIdFromServiceKey } from '@/lib/vendor-branches';
 // Day 3 of the voucher + inline-checkout sprint (CLAUDE.md 2026-05-29 Day 3
 // row). All admin payment-state transitions append a row to public.order_ledger
 // via the canonical helper. Best-effort writes — never throws, never blocks
@@ -286,6 +288,7 @@ async function schedulePayoutsForOrder(args: {
     .select(
       `order_id, vendor_profile_id, confirmed_total_php, requested_total_php,
        setnayan_fee_bps, gateway_fee_centavos, payment_method_key, event_id,
+       service_key,
        vendor:vendor_profiles!orders_vendor_profile_id_fkey(public_visibility),
        event:events!orders_event_id_fkey(event_date)`,
     )
@@ -302,6 +305,7 @@ async function schedulePayoutsForOrder(args: {
     gateway_fee_centavos: number | null;
     payment_method_key: string | null;
     event_id: string | null;
+    service_key: string | null;
     vendor: { public_visibility: string | null } | null;
     event: { event_date: string | null } | null;
   };
@@ -309,6 +313,26 @@ async function schedulePayoutsForOrder(args: {
   // Skip non-vendor orders silently — couples buying Setnayan SKUs don't
   // generate a vendor payout schedule.
   if (!row.vendor_profile_id) return;
+
+  // MONEY-DIRECTION GUARD (M1): a vendor payout must only ever be dispatched
+  // for a COUPLE BOOKING — i.e. an order where a couple paid Setnayan for a
+  // vendor's service and we owe the vendor their net. A vendor BRANCH
+  // activation order (`vendor_additional_branch__{id}`, owner-locked
+  // 2026-06-05) runs the OTHER direction: the VENDOR pays Setnayan ₱999 for an
+  // Enterprise sub-location. Those orders carry `vendor_profile_id` (the paying
+  // vendor) but NO `event_id` (there's no wedding behind them), so the old
+  // `if (!row.vendor_profile_id) return;` guard let them fall through and
+  // wrongly queued a vendor PAYOUT — i.e. Setnayan would pay the vendor for an
+  // order the vendor was paying US for.
+  //
+  // Two independent signals, either of which means "not a couple booking":
+  //   1. No linked event   → couple bookings always carry an event_id.
+  //   2. A branch service_key → the vendor-pays-Setnayan direction explicitly.
+  // The event_id check alone is robust; the service_key check is belt-and-
+  // suspenders for any other vendor-pays-Setnayan SKU that joins this code path.
+  const isBranchOrder =
+    !!row.service_key && branchIdFromServiceKey(row.service_key) !== null;
+  if (!row.event_id || isBranchOrder) return;
 
   const basePhp = Number(row.confirmed_total_php ?? row.requested_total_php ?? 0);
   if (basePhp <= 0) return;
@@ -949,4 +973,42 @@ export async function confirmOrderTotal(formData: FormData) {
   });
 
   revalidatePath('/admin/payments');
+}
+
+/**
+ * Release a vendor payout that was previously placed on hold (m3).
+ *
+ * The hold path (`holdPayout` / `holdPayoutAction` in app/admin/payouts/)
+ * could set `on_hold=true` with no admin-facing way back — a held payout was
+ * stuck until someone hand-edited the DB. This action reverses it: clears
+ * `on_hold` + `hold_reason` and records a `released_hold` audit entry.
+ *
+ * Single-admin authority is fine for V1 (same gate as mark-paid / hold; the
+ * audit_log captures who released and why). The release UI button belongs next
+ * to the existing Mark-paid / Place-on-hold controls in
+ * app/admin/payouts/page.tsx; wiring that button is a 1-line follow-up in that
+ * page (outside this unit's owned files). Until then this action is callable
+ * directly and via any form posting `payout_id` (+ optional `reason`).
+ */
+export async function releasePayoutHoldAction(formData: FormData) {
+  const { userId } = await requireAdmin();
+  const payoutId = nullIfBlank(formData.get('payout_id'));
+  if (!payoutId) throw new Error('Missing payout_id.');
+  const reason = nullIfBlank(formData.get('reason'));
+
+  const result = await releasePayoutHold(createAdminClient(), {
+    payoutId,
+    actorUserId: userId,
+    reason,
+  });
+
+  if (!result.ok) {
+    redirect(`/admin/payouts?error=${encodeURIComponent(result.error)}`);
+  }
+
+  revalidatePath('/admin/payouts');
+  revalidatePath('/vendor-dashboard/earnings');
+  redirect(
+    `/admin/payouts?flash=${encodeURIComponent('Payout hold released.')}`,
+  );
 }

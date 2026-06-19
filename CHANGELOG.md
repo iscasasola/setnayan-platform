@@ -19,6 +19,73 @@ TypeError: MONO_FONT_OPTIONS.some is not a function
 Verified: `pnpm typecheck` clean · `pnpm lint` 0 errors · reproduced the crash in a prod build, then confirmed the **prod build renders the authed monogram page 200** with the fix (no server error).
 
 SPEC IMPACT: none — bugfix. Hardening note: never import a non-component value from a `'use client'` module into a Server Component.
+## 2026-06-19 · fix(pwa): guest `/[slug]` page is network-first, not stale-while-revalidate
+
+**This is why every Save-the-Date deploy looked like nothing shipped.** The service worker (`public/sw.js`) classified any bare `/[slug]` navigation as a "day-of guest" page and served it **stale-while-revalidate** from `DAYOF_CACHE` — so the couple's landing page (e.g. `/cale-ice`) returned the **previous build's cached HTML** (→ the old JS chunks) on the first visit after each deploy, only refreshing in the background. The owner kept seeing the old film even though the code was merged + deployed.
+
+- Switched the `/[slug]` (+ `/find-my-table`) navigation to **network-first**: fetch fresh when online and update the cache; fall back to the cached copy **only** when the network fails. Keeps the offline / weak-signal day-of fallback intact while guaranteeing a fresh page whenever the network is up.
+- Static JS/CSS chunks (content-hashed) + images/fonts are unchanged (they can't go stale by filename). Only the document navigation strategy changed.
+
+⚠ One-reload lag: the FIX itself ships via the SW, so the new SW must activate once (a reload) before `/[slug]` becomes network-first; from then on every deploy is fresh on first load.
+
+Verified: `node --check public/sw.js` OK. No migration.
+
+SPEC IMPACT: `Caching_and_Offline_Strategy` § 3.2 — the day-of guest landing page is network-first (was SWR); offline fallback preserved. See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · fix(std): uploaded song plays — drop the redundant veil-music gate
+
+Owner: "background music is not playing when the veil is up. I uploaded the music on the save the date page."
+
+`bgMusicUrl` (app/[slug]/page.tsx) required THREE flags: `site_bg_music_enabled` **AND** the track key **AND** `std_reveal_effects.music` (the veil "Add music" effect, which the veil canvas ignores — "handled at page level"). The Save-the-Date Music step's upload sets the first two, but the redundant third flag (off unless the couple toggled it) was nulling the music URL — so the film got no soundtrack at all even after the upload. Dropped the `&& stdEffectsForMusic.music` gate: `site_bg_music_enabled` is the single on/off, so an uploaded + enabled song now just plays (no re-save needed — the existing `site_bg_music_enabled=true` from the upload resolves the URL on the next load). Pairs with the recovered autoplay-on-lift fix (#1800), which actually starts it.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the couple's uploaded/enabled site song is the single source for the film soundtrack; the redundant veil `music` flag no longer gates it. See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · fix(std): music autoplays · content waits for the veil · petals cling on hit (PR-W follow-up 4)
+
+Owner: "music did not auto play. and content will [only] play [once] the veil is up." + "[petals] can cling but only 30% of the petals, and only if the petals hit the veil."
+
+- **Content waits for the veil.** The film had a 2 s fallback that auto-started even when a veil was present — so the beats played UNDER the veil, and (because that start wasn't from a user gesture) the **music autoplay was blocked**. Now `RevealOverlay` publishes `window.__stdRevealActive` when a reveal will show; the film only auto-starts (after a short grace) when NO reveal is active, otherwise it holds until **`std-reveal-done`** (veil fully lifted). If the reveal can't run, veil-reveal already fires `std-reveal-done` itself, so it never hangs.
+- **Music autoplays.** On the lift gesture the veil dispatches `std-go-fullscreen` **synchronously**; the film now also **plays the soundtrack there** — inside that user activation — so audio-with-sound is allowed (browsers block it without a gesture). It's already playing as the veil rises.
+- **Petals cling on hit (≤30%).** Re-added clinging, but collision-based: a falling petal that hits the **covered** veil (lift low, on-screen, near the cloth front) rolls **once** — ~30% cling **where they landed** (snap to the nearest cloth point, keeping their offset), capped at **30% of petals**; the rest fall on. No random pre-seeding.
+
+Verified: `pnpm typecheck` (my files clean; monogram-studio `paper` errors are an unrelated local install gap) + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` + `0024_Veil_Reveal_Spec` — content holds until the veil lifts; music starts on the lift gesture; veil petals cling only on collision, ≤30%. See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(std): uniform scale-to-fit film (one design canvas, transform-scaled) (PR-W follow-up 3)
+
+Owner: "resizing still did not work. we want to take the maximum width always without causing the texts to exceed both width and height, and keep everything at the same size."
+
+Replaced the breakpoint-based responsive sizing (discrete `sm:`/`lg:` font jumps + `md:max-w` stage widening — which scaled in steps and never truly filled the screen) with a single **uniform scale-to-fit**:
+
+- The film is now composed at ONE fixed logical canvas (`BASE_W 440 × BASE_H 780`); every beat's type + monogram are sized **once** (no responsive variants).
+- A `ResizeObserver` measures the container and sets `fitScale = clamp(min(cw/BASE_W, ch/BASE_H), 0.6, 2.3)` — the largest scale that fits within **both** width and height. The whole stage gets `transform: scale(fitScale)`, centred. So the content is as big as possible on any screen **without overflowing either dimension**, and **everything stays proportional** ("same size" = one uniform scale).
+- Applies identically on the live full-screen page and the builder preview frames.
+- Video clip cap switched from `68vh` → `520px` (stage-relative, so it scales with the canvas instead of fighting the transform).
+
+Verified: `pnpm typecheck` (my files clean; monogram-studio `paper` errors are an unrelated local install gap) + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the film scales as one uniform unit to fit any viewport (max size, no overflow), replacing breakpoint font bumps. See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(std): video autoplays + audio crossfade · bigger desktop text · petals only fall (PR-W follow-up 2)
+
+Owner screenshot + notes: "the text are not larger on desktop. the leaves are randomly attaching to the veil but no leaf was falling on that direction. the video should autoplay, no more clicking. the background music will play automatically [and] crossfade to the video as the video plays, then crossfade again when it returns to the last screen."
+
+`save-the-date-film.tsx`:
+
+- **Video AUTOPLAYS** — removed the play-button → fullscreen interaction. The video plays by itself when its beat is active (the reveal gesture already granted the page media playback) inside the already-full-screen experience, and advances to the calendar close on its natural end. No clicking.
+- **Audio crossfade** — the soundtrack now **crossfades** (~700ms) to the video's audio as the video plays, then crossfades back to the music when the film returns to the closing screen (replaces the old hard music-pause/duck). Robust: the fade always converges to the target volume even if interrupted.
+- **Bigger on desktop** — the headline beats AND the monogram mark now scale up at `lg`: the close-beat date + monogram + invitation + venue sublines were missed before (the screenshot was the close beat). The monogram lockup/SVG uses responsive scale classes (`scale-[…] lg:scale-[…]`, `lg:h-44` etc.) so it's prominent on desktop, not an 80px chip.
+
+`reveal/veil-reveal.tsx`:
+
+- **Petals only fall** — removed the artificial "cling to a random veil grid point" (both the init seeding and the recycle path). Leaves were appearing stuck on the lifted veil where none had fallen; now every petal showers down from the top and none pre-attach. (Supersedes the §6 "petals cling / lowering shakes them loose" behaviour — owner-directed.)
+
+Verified: `pnpm typecheck` (my files clean; monogram-studio `paper` errors are an unrelated local install gap) + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` + `0024_Veil_Reveal_Spec` — the video autoplays with a music↔video crossfade; desktop type + monogram scale up; veil petals only fall (no random cling). See `DECISION_LOG.md` 2026-06-19.
 
 ## 2026-06-19 · fix(monogram): the dashboard Vector Studio seeds from the couple's initials (same PR #1798)
 

@@ -1089,6 +1089,22 @@ same-person distance 0.40–0.47 vs different-person 0.79–0.90). **No cloud fa
 API, no per-photo fee; faces never leave the guest's phone — only a tiny numeric
 fingerprint reaches our server.**
 
+**Fast path — one command** (does steps 1–3 below for you). From `apps/web`, with
+your R2 creds exported (grab them from the Cloudflare R2 dashboard — they're
+"Sensitive" in Vercel and can't be pulled):
+
+```bash
+R2_ACCOUNT_ID=… R2_ACCESS_KEY_ID=… R2_SECRET_ACCESS_KEY=… \
+R2_BUCKET_MEDIA=setnayan-media R2_PUBLIC_URL=https://<your-r2-public-host> \
+pnpm host:face-models -- --activate
+```
+
+It downloads the model + lib from the CDN, uploads them to the public media
+bucket under `face-models/`, then sets `NEXT_PUBLIC_FACE_MODEL_URL` + redeploys.
+Drop `--activate` to host the files but flip the switch yourself (Vercel
+dashboard → Settings → Environment Variables); add `--upload-only` to just host.
+Then do the real-device check below. The manual equivalent:
+
 To turn it on:
 1. Download the 3 face-api.js model sets (detector + landmarks + recognition):
    `ssd_mobilenetv1`, `face_landmark_68`, `face_recognition` (each a

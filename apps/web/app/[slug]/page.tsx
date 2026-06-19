@@ -29,6 +29,7 @@ import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
 import { NavLinksRow } from '@/app/_components/nav-links';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
 import { GuestPreload } from './_components/guest-preload';
+import { StdViewBeacon } from './_components/std-view-beacon';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { BackgroundMusic } from './_components/background-music';
 import { EditorialContent } from './_components/editorial/editorial-content';
@@ -1401,6 +1402,7 @@ function PublicLanding({
   return (
     <InvitationShell backdrop={backdrop} rolePalette={event.role_palette} fullBleed={showSaveTheDate && stdFilm}>
       <GuestPreload eventSlug={event.slug} />
+      {showSaveTheDate ? <StdViewBeacon slug={event.slug} /> : null}
       <RevealOverlayServer
         enabled={showSaveTheDate}
         monogram={revealMonogram(event.display_name)}
@@ -1904,6 +1906,7 @@ function InvitationSite({
   return (
     <InvitationShell backdrop={backdrop} rolePalette={event.role_palette} fullBleed={showSaveTheDate && stdFilm}>
       <GuestPreload eventSlug={event.slug} />
+      {showSaveTheDate ? <StdViewBeacon slug={event.slug} /> : null}
       <RevealOverlayServer
         enabled={showSaveTheDate}
         monogram={revealMonogram(event.display_name)}

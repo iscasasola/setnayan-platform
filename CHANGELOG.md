@@ -4,6 +4,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · feat(save-the-date): view counter — unique-per-day, couple + HQ surfaces
+
+Owner: "add view count for the save the date (can be tallied for data)." Scope locked with the owner: **unique per day** · **couple + HQ** · **Save-the-Date phase only**.
+
+- **migration `20270128231476`** — `event_std_views(event_id, view_date, views, updated_at)` daily rollup (PK `(event_id, view_date)`, FK→`events(event_id)` cascade) + RLS (members read via `current_event_ids()` / admins; **no write policy** — writes are service-role only) + `record_std_view(p_event_id, p_date)` SECURITY DEFINER atomic-increment RPC. **Applied to prod** (out-of-band statement-by-statement + ledger row, around a parallel-session ledger-drift migration `20270128090927` left untouched). Privacy-first: the DB holds **only aggregate counts — no per-device data, no PII** (RA 10173).
+- **`lib/std-views.ts`** — `manilaToday()` (YYYY-MM-DD day buckets in Asia/Manila), the dedup-cookie parse/serialize (a small httpOnly `{slug:'YYYY-MM-DD'}` map, pruned to 50), and `summarizeStdViews()` (total / today / last-7).
+- **`app/api/std/view/route.ts`** (POST, nodejs) — the beacon endpoint. Cookie-dedups to one count per device per day; re-resolves the event + **re-checks the lifecycle phase server-side** (a forged POST can't count a non-STD page); **excludes the couple's/coordinators' own visits** (detects a signed-in host via the request's auth cookie); counts via the atomic RPC on the service-role client. Always returns 200 — a beacon never errors the page.
+- **`app/[slug]/_components/std-view-beacon.tsx`** — a silent `'use client'` island that fires one `keepalive` POST on mount.
+- **`app/[slug]/page.tsx`** — mounts `<StdViewBeacon>` in BOTH render paths (PublicLanding + InvitationSite), gated on `showSaveTheDate` (STD phase only). Owner-exclusion lives in the route, so no extra auth/queries on the hot public render.
+- **couple surface** — the STD builder (`studio/save-the-date/page.tsx`) shows **total · last 7 days · today** (read via the couple session under RLS).
+- **HQ surface** — the admin events list (`admin/events/page.tsx`) gains an **all-time "STD views"** column (aggregated via the service-role admin client).
+
+Verified: `pnpm typecheck` clean (resolves against the repo's hoisted node_modules). Lint runs in CI (the fresh worktree has no local `next` binary). No browser verify — beacon/counter not headlessly checkable; owner can watch the builder + admin numbers move.
+
+SPEC IMPACT: 0024 Save-the-Date gains a privacy-first view counter (new `event_std_views` table + `/api/std/view` beacon). Data/analytics only; STD stays free; no SKU/pricing/gating change. Will log in `DECISION_LOG.md`.
+
+---
+
 ## 2026-06-19 · feat(save-the-date): film accent follows the Mood Board, with a manual override
 
 Owner: "yes moodboard is good and also manual color." The Save-the-Date film's "Add to calendar" button + accent marks were a hardcoded mulberry (`lib/std-themes.ts` SHARED). The accent now **defaults to the couple's Mood-Board palette** (so the film is on-brand with the rest of their wedding site), with a **manual hex override** the couple sets in the builder. Resolution order: `events.std_film_accent_hex` (manual) → `stdAccentFromPalette(role_palette)` (deep, button-legible Mood-Board accent) → brand mulberry.

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ArrowLeft, Check, ChevronRight, Star } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { StudioCardDemo, type DemoFrame } from './studio-card-demo';
 import type { ReactNode } from 'react';
 
 // Shared App Store-style detail layout. Used by:
@@ -93,6 +94,8 @@ export type AppStoreLayoutProps = {
   stats?: StatTile[];
   justLaunchedChip?: string | null;
   preview?: PreviewItem[];
+  /** Auto-playing on-card demo. When present, plays instead of the glyph rail. */
+  demo?: DemoFrame[];
   samples?: SampleItem[];
   // Optional "What's included" bullet list, rendered right under About.
   highlights?: Highlights;
@@ -118,6 +121,7 @@ export function AppStoreLayout({
   stats,
   justLaunchedChip,
   preview,
+  demo,
   samples,
   highlights,
   description,
@@ -182,8 +186,13 @@ export function AppStoreLayout({
         <StatCarousel stats={stats} justLaunchedChip={justLaunchedChip ?? null} />
       ) : null}
 
-      {/* Preview */}
-      {preview && preview.length > 0 ? (
+      {/* Preview — the auto-playing demo (what it does + how to operate it)
+          when present, otherwise the static glyph rail. */}
+      {demo && demo.length > 0 ? (
+        <Section title="Preview" id="preview">
+          <StudioCardDemo frames={demo} />
+        </Section>
+      ) : preview && preview.length > 0 ? (
         <Section title="Preview" id="preview">
           <HorizontalRail>
             {preview.map((item, i) => (

@@ -53,6 +53,7 @@ const WEB_ROOT = resolve(__dirname, '..');
 // from the registry. Bracket route segments (e.g. [eventId]) are written
 // LITERALLY — they are real directory names on disk, never shell-globbed.
 const CHOKEPOINTS = [
+  'app/dashboard/(account)/_components/account-sidebar.tsx',
   'app/dashboard/[eventId]/_components/customer-sidebar.tsx',
   'app/dashboard/[eventId]/_components/customer-bottom-nav.tsx',
   'app/vendor-dashboard/_components/vendor-sidebar.tsx',

@@ -37,7 +37,7 @@ export function UnreadBellBadge({
   // 2026-05-23 — Owner reported error-boundary flash post-login: "cannot
   // add `postgres_changes` callbacks for realtime:notif-unread-{userId}
   // after `subscribe()`". Root cause: this component mounts in BOTH
-  // /dashboard/layout.tsx (OuterDashboardHeader) AND
+  // the account layout's top bar (dashboard/(account)/layout.tsx) AND
   // /dashboard/[eventId]/layout.tsx — same userId in both → Supabase
   // Realtime returns the SAME channel singleton on the 2nd mount →
   // calling .on() on an already-subscribed channel throws. useId() gives

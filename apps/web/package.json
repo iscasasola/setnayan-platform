@@ -19,6 +19,7 @@
     "brand:favicon": "node scripts/gen-default-favicon.mjs",
     "seed:demo-vendors": "tsx scripts/seed-demo-vendors.ts",
     "host:face-models": "node scripts/host-face-models.mjs",
+    "capture:demos": "node scripts/capture-demo-videos.mjs",
     "test:unit": "tsx --test \"lib/**/*.test.ts\"",
     "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test"

@@ -233,9 +233,10 @@ export async function withdrawFaceConsent(
     return;
   }
   const admin = createAdminClient();
+  const now = new Date().toISOString();
   await admin
     .from('guest_face_enrollments')
-    .update({ revoked_at: new Date().toISOString() })
+    .update({ revoked_at: now })
     .eq('event_id', eventId)
     .eq('guest_id', guestId)
     .is('revoked_at', null);
@@ -244,11 +245,25 @@ export async function withdrawFaceConsent(
     .update({
       photo_url: null,
       photo_source: null,
-      photo_updated_at: new Date().toISOString(),
+      photo_updated_at: now,
     })
     .eq('event_id', eventId)
     .eq('guest_id', guestId)
     .eq('photo_source', 'selfie');
+
+  // Revoking the enrollment stops FUTURE auto-tags, but the photos this guest is
+  // ALREADY auto-tagged in would otherwise stay tagged — a full RA 10173 "remove
+  // me from face recognition" must also pull those. Soft-tombstone every live
+  // auto_face tag of this guest (human QR/manual tags are left — those are the
+  // couple/photographer's assertion, not a face guess). The removed_at rows keep
+  // excluding the guest in alreadyTaggedGuestIds, so nothing re-tags later.
+  await admin
+    .from('photo_tags')
+    .update({ removed_at: now, removed_by: 'guest' })
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId)
+    .eq('source', 'auto_face')
+    .is('removed_at', null);
 
   const { data: ev } = await admin
     .from('events')
@@ -257,4 +272,46 @@ export async function withdrawFaceConsent(
     .maybeSingle();
   revalidatePath(`/dashboard/${eventId}/guests`);
   redirect(ev?.slug ? `/${ev.slug}?face_removed=1` : '/');
+}
+
+/**
+ * Guest removes a single incorrect auto_face tag of THEMSELVES ("Not me" on one
+ * candid). Narrower than withdrawFaceConsent: the guest stays enrolled and keeps
+ * auto-finding their other photos; only this one shot is dropped.
+ *
+ * Soft tombstone (removed_at), not a delete — see the migration header: a hard
+ * delete would be re-added by the next auto-tag pass. The WHERE clause is pinned
+ * to source='auto_face' + the cookie's own guest_id, so a guest can only drop a
+ * FACE guess of themselves — never a photographer's QR/manual tag, never another
+ * guest's tag. Works for both papic_photos and papic_guest_captures (keyed on
+ * source_table + source_id). Admin-client + guest-session authorized, the same
+ * trust model as submitRsvp / withdrawFaceConsent.
+ */
+export async function removeMyTag(
+  eventId: string,
+  sourceTable: 'papic_photos' | 'papic_guest_captures',
+  sourceId: string,
+  _formData: FormData,
+): Promise<void> {
+  const session = await readGuestSession();
+  if (!session || session.event_id !== eventId) {
+    return;
+  }
+  const admin = createAdminClient();
+  await admin
+    .from('photo_tags')
+    .update({ removed_at: new Date().toISOString(), removed_by: 'guest' })
+    .eq('event_id', eventId)
+    .eq('guest_id', session.guest_id)
+    .eq('source_table', sourceTable)
+    .eq('source_id', sourceId)
+    .eq('source', 'auto_face')
+    .is('removed_at', null);
+
+  const { data: ev } = await admin
+    .from('events')
+    .select('slug')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (ev?.slug) revalidatePath(`/${ev.slug}`);
 }

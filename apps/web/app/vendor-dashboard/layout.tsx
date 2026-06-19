@@ -7,7 +7,7 @@ import { countUnread } from '@/lib/notifications';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
-import { Wordmark } from '@/app/_components/brand-marks';
+import { DoorwaySidebarHeader } from '@/app/_components/nav/doorway-sidebar-header';
 import { VendorSidebar } from './_components/vendor-sidebar';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { isMusicVendor } from '@/lib/songs';
@@ -15,7 +15,7 @@ import { VendorBottomNav } from './_components/vendor-bottom-nav';
 import { resolveVendorRole } from '@/lib/vendor-role';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { PushNotificationRegistrar } from './_components/push-notification-registrar';
-import { AccountSwitcher, AccountSwitcherStandalone } from '@/app/_components/account-switcher/account-switcher';
+import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 
@@ -135,17 +135,7 @@ export default async function VendorDashboardLayout({
   return (
     <div className="app-surface">
       <SidebarShell
-        sidebarHeader={
-          <>
-            <header className="px-4 py-3">
-              <Wordmark />
-              <p className="m-label-mono mt-1.5" style={{ color: 'var(--m-slate-2)' }}>Vendor</p>
-            </header>
-            <div className="px-3 pb-3">
-              <AccountSwitcherStandalone data={switcherData} />
-            </div>
-          </>
-        }
+        sidebarHeader={<DoorwaySidebarHeader label="Vendor" switcherData={switcherData} />}
         sidebar={<VendorSidebar role={vendorRole} showRepertoire={showRepertoire} navSlots={navSlots} />}
         topBar={topBar}
       >

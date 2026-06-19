@@ -76,7 +76,8 @@ export async function fetchPapicGallery(
     const { data: tags } = await supabase
       .from('photo_tags')
       .select('source_table, source_id, source')
-      .eq('event_id', eventId);
+      .eq('event_id', eventId)
+      .is('removed_at', null); // a guest's "not me" tombstone stops colouring the dot
     for (const t of tags ?? []) {
       const key = `${t.source_table as string}:${t.source_id as string}`;
       const existing = tagSourceByKey.get(key);

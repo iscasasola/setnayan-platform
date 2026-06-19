@@ -1,32 +1,42 @@
 import { redirect } from 'next/navigation';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { getDashboardShell } from '@/lib/dashboard-shell';
-import { OuterDashboardHeader } from '@/app/dashboard/_components/outer-dashboard-header';
+import { getNavSlotMap } from '@/lib/nav-registry';
+import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
+import { DoorwaySidebarHeader } from '@/app/_components/nav/doorway-sidebar-header';
+import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
+import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
+import { AccountSidebar } from './_components/account-sidebar';
 
 /**
  * Account-scoped dashboard chrome — route group `(account)` (URL-transparent),
  * covering the non-event dashboard surfaces: the event picker (`/dashboard`),
  * profile, notifications, create-event, api-keys.
  *
- * SPLIT OUT of `dashboard/layout.tsx` 2026-06-14 (chrome retirement). The old
- * parent layout rendered `OuterDashboardHeader` + a `bg-cream lg:pl-60` gutter
- * UNCONDITIONALLY for every `/dashboard` route — including event routes, where
- * the header was suppressed only by a CLIENT `usePathname()` guard and the
- * gutter cancelled by a `lg:-ml-60` hack in `[eventId]/layout.tsx`. Result:
- * the legacy cream chrome painted first on event navigations, then vanished
- * after hydration — the "old design flashes, then reroutes to the new design"
- * report. By moving the account chrome into this group it renders ONLY on the
- * account routes (structurally, server-side); the parent layout owns no chrome;
- * and `[eventId]/layout.tsx` owns the paper SidebarShell alone. No dual-render,
- * no `-ml-60` cancel, no flash. The header is restyled to the v2.1 `--m-*`
- * paper palette so the old cream design is fully retired.
+ * UNIVERSAL SIDEBAR (owner 2026-06-20 "universal style of side bar"). This
+ * surface used to render `OuterDashboardHeader` — a near-empty 240px rail —
+ * which made the sidebar visibly "different" from every event/vendor/admin page
+ * (those already share <SidebarShell>). It now composes the SAME shell:
+ *   - sidebarHeader: <DoorwaySidebarHeader label="Account"> (Wordmark + eyebrow
+ *     + AccountSwitcherStandalone) — the one shared header used by all four
+ *     doorways.
+ *   - sidebar: <AccountSidebar> — the flat account nav (My Events ·
+ *     Notifications · Profile & Settings · Marketplace · New event).
+ *   - topBar: mobile utilities cluster (unread bell + AccountSwitcher pill).
+ *     Carries the same affordances the old mobile strip had; everything else
+ *     (events, profile, create-event, sign-out, console hops) lives in the
+ *     switcher panel.
+ *
+ * SidebarShell owns the desktop offset (`--shell-main-offset`) entirely, so the
+ * legacy `lg:pl-60` gutter is gone. There is no bottom-nav on the account
+ * surface (it's transient — the prior chrome had none either).
  *
  * Auth/profile/deleted/vendor gating + the welcome tour stay in the parent
  * `dashboard/layout.tsx` (shared by this group AND the event subtree). This
- * layout owns only the chrome-data fetch (events/roles/unread/avatar) that the
- * header switcher needs — the same fetch the event layout runs independently.
+ * layout owns only the chrome-data fetch (events/roles/unread/avatar/navSlots)
+ * the header + sidebar need.
  */
 export default async function AccountDashboardLayout({
   children,
@@ -51,7 +61,7 @@ export default async function AccountDashboardLayout({
     editorials: [],
     context: { hasVendor: false, vendorName: null, isAdmin: false },
   };
-  const [{ unreadCount }, switcherData] = await Promise.all([
+  const [{ unreadCount }, switcherData, navSlots] = await Promise.all([
     getDashboardShell(user.id),
     // AccountSwitcher panel data. getSwitcherData never returns null after
     // the 2026-06-17 always-on fix; the .catch here guards against any
@@ -60,21 +70,42 @@ export default async function AccountDashboardLayout({
       console.error('[AccountSwitcher] data fetch failed:', err);
       return minimalSwitcherFallback;
     }),
+    // Nav registry: admin-managed name+icon overrides, resolved server-side and
+    // handed to the (client) account nav. Cached via NAV_REGISTRY_TAG, fails open.
+    getNavSlotMap(),
   ]);
 
-  return (
-    <div
-      className="app-surface flex min-h-dvh flex-col lg:pl-60"
-      style={{ background: 'var(--m-paper)' }}
-    >
-      {/* lg:pl-60 offsets the OuterDashboardHeader's 240px desktop sidebar
-          (fixed left). On account routes the header ALWAYS renders, so the
-          gutter is structurally correct — no client guard, no flash. */}
-      <OuterDashboardHeader
-        unreadCount={unreadCount}
-        switcherData={switcherData}
+  // Top bar — mobile utilities cluster. The unread bell shows at all
+  // breakpoints; the AccountSwitcher pill is mobile-only (lg:hidden), since on
+  // desktop the switcher lives in the sidebar header (AccountSwitcherStandalone).
+  // No standalone sign-out button by design (it lives in the switcher panel).
+  const topBar = (
+    <div className="flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-end gap-2 px-4 py-3 sm:px-6 lg:mx-auto lg:px-8">
+      <UnreadBellBadge
+        userId={user.id}
+        initialUnread={unreadCount}
+        href="/dashboard/notifications"
+        ariaBaseLabel="Notifications"
+        ariaUnreadSuffix="unread"
       />
-      <main className="flex-1">{children}</main>
+      <div className="lg:hidden">
+        <AccountSwitcher data={switcherData} />
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="app-surface">
+      <SidebarShell
+        sidebarHeader={<DoorwaySidebarHeader label="Account" switcherData={switcherData} />}
+        sidebar={<AccountSidebar navSlots={navSlots} />}
+        topBar={topBar}
+      >
+        {/* Account pages have no bottom-nav, so no mobile bottom padding is
+            needed. SidebarShell handles the desktop sidebar offset via its
+            lg:pl-[var(--shell-main-offset)] math. */}
+        <main>{children}</main>
+      </SidebarShell>
     </div>
   );
 }

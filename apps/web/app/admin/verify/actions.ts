@@ -78,10 +78,13 @@ async function transitionVendorVisibility(opts: {
   reason?: string | null;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const admin = createAdminClient();
+  const now = new Date().toISOString();
 
   const { data: existing, error: readErr } = await admin
     .from('vendor_profiles')
-    .select('vendor_profile_id, public_visibility, business_name')
+    .select(
+      'vendor_profile_id, public_visibility, business_name, verification_state',
+    )
     .eq('vendor_profile_id', opts.vendorProfileId)
     .maybeSingle();
 
@@ -93,22 +96,74 @@ async function transitionVendorVisibility(opts: {
     return { ok: true }; // idempotent no-op
   }
 
+  // When this visibility flip publishes the vendor to the marketplace
+  // (nextVisibility === 'verified'), also advance the verification_state so
+  // the vendor dashboard's `verification_state` stops disagreeing with the
+  // marketplace `public_visibility`. Mirrors the Applications-path approve
+  // (applyApplicationDecision case 'approved'): verified + last_verified_at +
+  // a one-year next_renewal_due_at + a vendor_tier_history audit row. Other
+  // transitions (hidden / coming_soon / archived) leave verification_state
+  // untouched — they're marketplace-listing moderation, not de-verification.
+  const fromState = parseVerificationState(existing.verification_state);
+  const shouldVerify = opts.nextVisibility === 'verified';
+  const toState: VerificationState = shouldVerify ? 'verified' : fromState;
+  const stateChanges = shouldVerify && toState !== fromState;
+
   const { error: auditErr } = await admin.from('admin_audit_log').insert({
     action: 'vendor_visibility_change',
     target_table: 'vendor_profiles',
     target_id: opts.vendorProfileId,
-    before_json: { public_visibility: before },
-    after_json: { public_visibility: opts.nextVisibility },
+    before_json: {
+      public_visibility: before,
+      verification_state: fromState,
+    },
+    after_json: {
+      public_visibility: opts.nextVisibility,
+      verification_state: toState,
+    },
     reason: opts.reason ?? null,
     actor_user_id: opts.actor.user_id,
   });
   if (auditErr) return { ok: false, error: `audit log failed: ${auditErr.message}` };
 
+  const updatePayload: Record<string, unknown> = {
+    public_visibility: opts.nextVisibility,
+    updated_at: now,
+  };
+  if (shouldVerify) {
+    const renewalDue = new Date(now);
+    renewalDue.setUTCFullYear(renewalDue.getUTCFullYear() + 1);
+    updatePayload.verification_state = toState;
+    updatePayload.last_verified_at = now;
+    updatePayload.next_renewal_due_at = renewalDue.toISOString();
+  }
+
   const { error: updErr } = await admin
     .from('vendor_profiles')
-    .update({ public_visibility: opts.nextVisibility, updated_at: new Date().toISOString() })
+    .update(updatePayload)
     .eq('vendor_profile_id', opts.vendorProfileId);
   if (updErr) return { ok: false, error: updErr.message };
+
+  // vendor_tier_history audit row — only when verification_state actually
+  // moved (matches Step 3 of applyApplicationDecision). No application drove
+  // this transition, so application_id is null.
+  if (stateChanges) {
+    const { error: historyErr } = await admin
+      .from('vendor_tier_history')
+      .insert({
+        vendor_profile_id: opts.vendorProfileId,
+        from_state: fromState,
+        to_state: toState,
+        application_id: null,
+        admin_user_id: opts.actor.user_id,
+        reason: opts.reason ?? null,
+        metadata: {
+          source: 'admin_visibility_transition',
+          public_visibility: opts.nextVisibility,
+        },
+      });
+    if (historyErr) return { ok: false, error: historyErr.message };
+  }
 
   return { ok: true };
 }

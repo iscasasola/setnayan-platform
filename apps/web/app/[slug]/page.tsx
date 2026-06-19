@@ -1,7 +1,7 @@
 import { cache } from 'react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { Camera, CircleSlash, Lock, MapPin, Sparkles } from 'lucide-react';
+import { Camera, CircleSlash, Lock, MapPin, Sparkles, X } from 'lucide-react';
 import { Logo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
@@ -19,7 +19,7 @@ import {
   type MonogramMotionKey,
 } from '@/lib/monogram-motion';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { submitRsvp, withdrawFaceConsent } from './actions';
+import { submitRsvp, withdrawFaceConsent, removeMyTag } from './actions';
 import { SelfieCapture } from './_components/selfie-capture';
 import { DayOfFaceEnroll } from './_components/day-of-face-enroll';
 import { CountdownWidget } from './_components/countdown';
@@ -2125,17 +2125,33 @@ function InvitationSite({
               {guestLiveGallery.photos.map((p) => (
                 <figure
                   key={p.id}
-                  className="relative aspect-square overflow-hidden rounded-lg bg-ink/5"
+                  className="group relative aspect-square overflow-hidden rounded-lg bg-ink/5"
                 >
                   {/* Presigned 1h URL — raw <img> (optimizer would cache expiry). */}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={p.url} alt="" loading="lazy" className="h-full w-full object-cover" />
+                  {/* "Not me" — drop a wrong auto-face guess of yourself on this
+                      one shot (you stay enrolled for the rest). Auto-tags only;
+                      a photographer's QR tag can't be removed here. */}
+                  <form
+                    action={removeMyTag.bind(null, event.event_id, p.sourceTable, p.id)}
+                    className="absolute right-1 top-1"
+                  >
+                    <SubmitButton
+                      className="inline-flex items-center gap-0.5 rounded-full bg-ink/55 px-1.5 py-0.5 text-[9px] font-medium text-cream backdrop-blur-sm transition hover:bg-ink/80 focus-visible:bg-ink/80"
+                      pendingLabel="…"
+                    >
+                      <X aria-hidden className="h-2.5 w-2.5" strokeWidth={2.5} />
+                      Not me
+                    </SubmitButton>
+                  </form>
                 </figure>
               ))}
             </div>
             <p className="mt-3 text-xs text-ink/55">
               More arrive as the day unfolds — and everything tagged to you is yours to
-              keep after the celebration.
+              keep after the celebration. Tap <span className="font-medium">Not me</span> on
+              any shot that isn&rsquo;t you.
             </p>
           </section>
         ) : null}

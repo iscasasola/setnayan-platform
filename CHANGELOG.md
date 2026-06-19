@@ -16,6 +16,15 @@ Owner: *"why does both sidebar/side nav is different"* → *"we want a universal
 Verified: nav-icon-source guard ✅ · nav-registry-defaults integrity 8/8 ✅ · tsc 0 · lint 0 (pre-existing warnings only) · production build green. Browser-visual deferred to the PR's Vercel preview (no runtime Supabase env on disk in this worktree).
 
 SPEC IMPACT: iter 0000 (app shell / nav) + 0021 / 0022 / 0023 (couple / vendor / admin dashboard chrome) — the account doorway now shares the universal SidebarShell and all four headers are unified via `DoorwaySidebarHeader` → logged in DECISION_LOG + memory. Owner sign-off flags carried in the PR: "Planning"/"Account" eyebrow copy; API-keys omitted from the account rail; no account-page bottom-nav on mobile.
+## 2026-06-18 · fix(orders): co-hosts can read their event's paid-SKU orders (RLS — NEEDS OWNER SIGN-OFF)
+
+Confirmed bug (verified via the do-everything assessment): `orders` RLS was buyer-only (`orders_owner_read` USING `user_id = auth.uid()`), but events are multi-member. A co-host who didn't click "buy" read **zero** order rows under the RLS-enforced anon client, so every event-scoped entitlement gate (`lib/entitlements.ts`) went dark for them — Studio, Papic live wall, Setnayan AI, budget ledger, launch/live surfaces, animated monogram.
+
+- **New migration** broadens **only the SELECT** policy to `user_id = auth.uid() OR event_id IN (current_event_ids()) OR is_admin()`. The WRITE policy is untouched — a co-host can read but never edit/cancel/refund/forge an order. Idempotent (`DROP POLICY IF EXISTS` + `CREATE`); null-safe on the nullable `event_id`.
+
+⚠ **NOT auto-merged — owner sign-off required.** This deliberately exposes one member's order line-items (amount, service_key, reference_code, voucher/discount, status, `admin_notes`) to every co-host on the event. That's the intended shared-planning behavior, but it's a real privacy widening — if any column is buyer-private, scope to a column-limited VIEW instead. The separate `payments` table (screenshots) is NOT touched.
+
+SPEC IMPACT iter 0034 — corrects a multi-member entitlement gap. → CHANGELOG + corpus DECISION_LOG (after sign-off).
 ## 2026-06-18 · feat(seo/a11y): structured-data + metadata + a11y completeness on public pages
 
 Verified, additive quality wins from a public-surface audit (4-agent sweep) — no design/copy/pricing changes:

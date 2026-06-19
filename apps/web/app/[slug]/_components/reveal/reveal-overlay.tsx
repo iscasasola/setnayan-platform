@@ -193,6 +193,9 @@ export function RevealOverlay({
           <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-cream/90 [text-shadow:0_1px_6px_rgba(0,0,0,0.55)]">
             Lift the veil ↑
           </p>
+          <p className="mt-1.5 font-mono text-[9px] uppercase tracking-[0.22em] text-cream/60 [text-shadow:0_1px_6px_rgba(0,0,0,0.55)]">
+            or double-tap to lift it for you
+          </p>
         </div>
       </div>
     );

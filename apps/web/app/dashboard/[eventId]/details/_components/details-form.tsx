@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { Check } from 'lucide-react';
 import { updateEventMatchCriteria } from '../../actions';
 import { REGION_OPTIONS, FEEL_OPTIONS, sanitizeName } from '@/lib/match-criteria';
+import { resolveRegion } from '@/lib/region-source';
 
 /**
  * DetailsForm — edits the governance-free basics on the Personalization page:
@@ -43,7 +44,12 @@ export function DetailsForm({
   const [brideLast, setBrideLast] = useState(initialBrideLast);
   const [groomFirst, setGroomFirst] = useState(initialGroomFirst);
   const [groomLast, setGroomLast] = useState(initialGroomLast);
-  const [region, setRegion] = useState(initialRegion);
+  // Normalize the stored region to its canonical hyphen slug so the <select>
+  // (whose option values are now canonical slugs via REGION_OPTIONS) preselects
+  // regardless of which of the four vocabularies the row was written in
+  // (onboarding hyphen slug, dashboard underscore slug, PSGC code, …). Unknown
+  // / unset → '' (the "Not set" option), matching prior behavior.
+  const [region, setRegion] = useState(resolveRegion(initialRegion)?.slug ?? '');
   const [feel, setFeel] = useState(initialFeel);
   const [budget, setBudget] = useState(initialBudgetPesos);
   const [pending, startTransition] = useTransition();

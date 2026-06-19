@@ -910,9 +910,24 @@ export async function finalizeVendor(
     // let this soft-hold lock-write clobber a row that concurrently advanced
     // to a money status. Without it, a finalize racing a downpayment could
     // downgrade deposit_paid/delivered/complete back to 'contracted'.
+    //
+    // selection_match_rank = 1 (owner-approved 2026-06-19): the locked vendor
+    // IS the couple's chosen pick for that leaf category, so stamp it as the
+    // RECOMMENDED #1 pick here. This activates the vendor-side "From Your
+    // Vendors" editorial-media feature + the #1-match stat, both of which gate
+    // on selection_match_rank = 1 (findRecommendedEventVendorId,
+    // lib/editorial-vendor-media.ts; editorial firstPick stat,
+    // app/[slug]/_components/editorial/data.ts). Idempotent — the write always
+    // sets rank=1 on the lock transition, and the lock path is guarded against
+    // re-running on an already-confirmed row (CONFIRMED_VENDOR_STATUSES
+    // already_locked short-circuit above).
     const { error: lockErr } = await supabase
       .from('event_vendors')
-      .update({ status: LOCKED_STATUS, updated_at: new Date().toISOString() })
+      .update({
+        status: LOCKED_STATUS,
+        selection_match_rank: 1,
+        updated_at: new Date().toISOString(),
+      })
       .eq('vendor_id', vendorId)
       .eq('event_id', eventId)
       .not('status', 'in', '("deposit_paid","delivered","complete")');

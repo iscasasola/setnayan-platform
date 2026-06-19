@@ -1,7 +1,8 @@
 /**
- * monogram-maker-shared.ts — non-client constants for the lettered Monogram
- * Maker, shared by the (client) MonogramMaker component AND the (server)
- * monogram page.
+ * monogram-maker-shared.ts — non-client constants for the lettered monogram
+ * data model (typeface options + per-lockup defaults). Used by the server-side
+ * saveMonogram action (actions.ts) + onboarding; the standalone lettered Maker
+ * UI was retired 2026-06-19 in favour of the Vector Studio + Upload paths.
  *
  * These previously lived in monogram-maker.tsx (`'use client'`). A Server
  * Component importing a VALUE export from a `'use client'` module gets

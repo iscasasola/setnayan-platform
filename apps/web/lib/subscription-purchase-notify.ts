@@ -114,3 +114,47 @@ export async function notifyVendorSubscriptionActivated(
     console.error('[subscription] vendor activated notify failed:', e);
   }
 }
+
+/**
+ * Tell the vendor their subscription upgrade couldn't be confirmed (payment not
+ * received / couldn't be matched) and what to do next. Deep-links to the
+ * subscription page so they can retry or re-upload proof. Uses the
+ * 'vendor_status_change' type (a vendor-recipient, email-enabled account event)
+ * so the "your account upgrade didn't go through" copy reaches their inbox.
+ * Fail-soft — a notify failure never affects the reject RPC that already ran.
+ */
+export async function notifyVendorSubscriptionRejected(
+  purchaseId: string,
+  reason: string,
+): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    const { data: p } = await admin
+      .from('vendor_subscriptions')
+      .select('vendor_id, tier, billing_cycle, amount_php')
+      .eq('purchase_id', purchaseId)
+      .maybeSingle();
+    if (!p) return;
+
+    const { data: v } = await admin
+      .from('vendor_profiles')
+      .select('user_id')
+      .eq('vendor_profile_id', p.vendor_id)
+      .maybeSingle();
+    if (!v?.user_id) return; // unclaimed vendor — no account to notify yet
+
+    const tier = TIER_LABEL[p.tier as string] ?? (p.tier as string);
+
+    await emitNotification({
+      userId: v.user_id as string,
+      type: 'vendor_status_change',
+      title: `Your ${tier} upgrade couldn't be confirmed`,
+      body: `Your ${tier} (${p.billing_cycle}) subscription (${peso(
+        Number(p.amount_php),
+      )}) was not confirmed. Reason: ${reason}. You can start a new upgrade or re-upload your payment proof from your subscription page.`,
+      relatedUrl: '/vendor-dashboard/subscription',
+    });
+  } catch (e) {
+    console.error('[subscription] vendor rejected notify failed:', e);
+  }
+}

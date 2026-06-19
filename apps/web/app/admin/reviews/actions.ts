@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/email';
+import { sendReviewFlagOutcomeEmail } from '@/lib/vendor-email-triggers';
 
 async function requireAdmin(): Promise<{ userId: string }> {
   const supabase = await createClient();
@@ -120,6 +121,18 @@ export async function overridePublishReview(formData: FormData) {
   if (!insertedReviewId) {
     throw new Error('Override-publish produced no review_id — check DB function.');
   }
+
+  // Override-publish makes the blocked review GO LIVE = outcome 'kept' (the
+  // review now stands on the vendor's profile). Email both parties of the
+  // adjudication. Revives the previously-dead sendReviewFlagOutcomeEmail; it's
+  // fail-soft internally so a delivery problem never affects the publish.
+  await sendReviewFlagOutcomeEmail(
+    String(insertedReviewId),
+    'kept',
+    reason,
+  ).catch((e) =>
+    console.error('[overridePublishReview] outcome email failed:', e),
+  );
 
   revalidatePath('/admin/reviews');
   redirect('/admin/reviews?override=1');
@@ -284,6 +297,17 @@ export async function dismissReviewFlag(formData: FormData) {
 
   const admin = createAdminClient();
 
+  // Resolve the flagged review BEFORE the status flip so we can notify both
+  // parties once the flag is adjudicated. The `.eq('status','pending')` guard
+  // on the update makes the whole action idempotent (a second dismiss no-ops);
+  // we still read the review_id here for the outcome email.
+  const { data: flag } = await admin
+    .from('vendor_review_flags')
+    .select('review_id, status')
+    .eq('flag_id', flagId)
+    .maybeSingle();
+  const wasPending = flag?.status === 'pending';
+
   const { error } = await admin
     .from('vendor_review_flags')
     .update({
@@ -308,6 +332,20 @@ export async function dismissReviewFlag(formData: FormData) {
   });
   if (auditErr) {
     console.error('[dismissReviewFlag] audit log insert failed', auditErr.message);
+  }
+
+  // Dismissing the flag = the review STAYS (outcome 'kept'). Email the vendor
+  // who reported it AND the couple whose review was flagged, only on the real
+  // pending→dismissed transition (not on an idempotent re-run). Revives the
+  // previously-dead sendReviewFlagOutcomeEmail; it's fail-soft internally.
+  if (wasPending && flag?.review_id) {
+    await sendReviewFlagOutcomeEmail(
+      flag.review_id as string,
+      'kept',
+      adminNote ?? 'After review, the flagged review did not violate our guidelines and remains on the profile.',
+    ).catch((e) =>
+      console.error('[dismissReviewFlag] outcome email failed:', e),
+    );
   }
 
   revalidatePath('/admin/reviews');

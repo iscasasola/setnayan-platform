@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { notifyAdminsApplicationSubmitted } from '@/lib/vendor-status-notify';
 import {
   APPLICATION_FEE_CENTAVOS,
   APPLICATION_TYPES,
@@ -309,6 +310,15 @@ export async function submitApplication(formData: FormData): Promise<void> {
     },
     actor_user_id: userId,
     reason: null,
+  });
+
+  // Cross-account signal (Phase B · 2026-06-19): fan out to the admin queue so
+  // the SLA-started application is surfaced (and emailed). Best-effort — never
+  // blocks the submit that already landed.
+  await notifyAdminsApplicationSubmitted({
+    vendorProfileId: profile.vendor_profile_id,
+    applicationId,
+    applicationType: app.application_type as string | null | undefined,
   });
 
   revalidatePath('/vendor-dashboard/verify');

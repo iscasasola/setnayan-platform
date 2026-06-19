@@ -12,6 +12,7 @@ import {
   parseVerificationState,
   type VerificationState,
 } from '@/lib/vendor-verification';
+import { notifyVendorStatusChange } from '@/lib/vendor-status-notify';
 
 /**
  * Server actions backing the admin Verification Queue. Two surfaces share
@@ -427,6 +428,23 @@ async function applyApplicationDecision(
   });
   if (auditErr) return { ok: false, error: auditErr.message };
 
+  // Cross-account signal (Phase B · 2026-06-19): tell the vendor their
+  // verification status changed, carrying the decision_reason. Only the three
+  // status-moving decisions notify; set_in_review is internal bookkeeping the
+  // vendor doesn't need pinged about. Best-effort — never rolls back the
+  // decision that already committed.
+  if (
+    input.decision === 'approved' ||
+    input.decision === 'rejected' ||
+    input.decision === 'demoted'
+  ) {
+    await notifyVendorStatusChange({
+      vendorProfileId: vendor.vendor_profile_id,
+      decision: input.decision,
+      reason: input.reason,
+    });
+  }
+
   return { ok: true };
 }
 
@@ -603,6 +621,14 @@ async function applyApplicationDecisionForDemote(opts: {
     after_json: { verification_state: 'demoted' },
     reason: opts.reason,
     actor_user_id: opts.actor.user_id,
+  });
+
+  // Cross-account signal (Phase B · 2026-06-19): tell the vendor they were
+  // demoted + why. Best-effort — never rolls back the demotion.
+  await notifyVendorStatusChange({
+    vendorProfileId: opts.vendorProfileId,
+    decision: 'demoted',
+    reason: opts.reason,
   });
 
   return { ok: true };

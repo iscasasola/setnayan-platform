@@ -133,6 +133,20 @@ export function addOnHref(key: string, eventId: string): string {
   return `/dashboard/${eventId}/add-ons/${key}`;
 }
 
+/**
+ * Where the Studio hub's App Store row points — the feature's detail/info page.
+ *
+ * Default → the catalog-driven App Store detail at /add-ons/<key>/about
+ * (content lives in add-ons-detail.ts). Panood is the exception: its own
+ * surface at /add-ons/panood IS already a bespoke App Store detail (the
+ * 2026-05-17 pilot), so the hub links straight there rather than to a
+ * duplicate /about page.
+ */
+export function appStoreDetailHref(key: string, eventId: string): string {
+  if (key === 'panood') return `/dashboard/${eventId}/add-ons/panood`;
+  return `/dashboard/${eventId}/add-ons/${key}/about`;
+}
+
 export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   {
     key: 'setnayan-ai',

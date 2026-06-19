@@ -75,6 +75,22 @@ export type RevealEffectsLook = {
   shadow: number; // soft cast-shadow strength (both)
 };
 
+/**
+ * Touch-glow — a soft light that blooms where a finger presses on the
+ * Save-the-Date (like a floor that glows where you step in a film). A
+ * screen-blend radial bloom that follows the touch and fades on release.
+ * Admin-tunable; reads on the public couple page during the STD phase.
+ */
+export type RevealTouchGlow = {
+  enabled: boolean;
+  /** Bloom colour (warm candlelight by default; the couple never overrides it). */
+  color: string;
+  /** Peak brightness 0–100 (mapped to opacity). */
+  intensity: number;
+  /** Bloom radius 0–100 (mapped to diameter). */
+  size: number;
+};
+
 export type RevealStudioConfig = {
   /** Master on/off for the reveal (replaces the NEXT_PUBLIC_STD_REVEAL env flag). */
   enabled: boolean;
@@ -92,6 +108,8 @@ export type RevealStudioConfig = {
   veil: VeilLook;
   /** The rigid-family effect knobs (butterflies + petals). */
   effects: RevealEffectsLook;
+  /** Press-to-glow on the Save-the-Date. */
+  touchGlow: RevealTouchGlow;
 };
 
 /** LOCKED owner-tuned defaults (spec §6, 2026-06-17). Every read merges over these. */
@@ -126,6 +144,14 @@ export const DEFAULT_EFFECTS_LOOK: RevealEffectsLook = {
   shadow: 55,
 };
 
+/** Touch-glow defaults — ON, a warm candlelight bloom, subtle. */
+export const DEFAULT_TOUCH_GLOW: RevealTouchGlow = {
+  enabled: true,
+  color: '#FBE9C8',
+  intensity: 55,
+  size: 50,
+};
+
 export const DEFAULT_REVEAL_CONFIG: RevealStudioConfig = {
   // Off by default — same as the env-flag-off default today; admin flips it on
   // (the ?reveal= URL override still works for previews regardless).
@@ -143,6 +169,7 @@ export const DEFAULT_REVEAL_CONFIG: RevealStudioConfig = {
   petalsColor: '#e87a93',
   veil: DEFAULT_VEIL_LOOK,
   effects: DEFAULT_EFFECTS_LOOK,
+  touchGlow: DEFAULT_TOUCH_GLOW,
 };
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -152,6 +179,10 @@ function num(v: unknown, fallback: number): number {
 }
 function bool(v: unknown, fallback: boolean): boolean {
   return typeof v === 'boolean' ? v : fallback;
+}
+function clamp(v: unknown, fallback: number, min: number, max: number): number {
+  const n = typeof v === 'number' && Number.isFinite(v) ? v : fallback;
+  return Math.min(max, Math.max(min, n));
 }
 function hex(v: unknown, fallback: string): string {
   return typeof v === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(v.trim()) ? v.trim() : fallback;
@@ -219,6 +250,18 @@ export function mergeRevealConfig(raw: unknown): RevealStudioConfig {
     petalsColor: hex(r.petalsColor, d.petalsColor),
     veil: mergeLook(r.veil),
     effects: mergeEffects(r.effects),
+    touchGlow: mergeTouchGlow(r.touchGlow),
+  };
+}
+
+function mergeTouchGlow(raw: unknown): RevealTouchGlow {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  const d = DEFAULT_TOUCH_GLOW;
+  return {
+    enabled: bool(r.enabled, d.enabled),
+    color: hex(r.color, d.color),
+    intensity: clamp(r.intensity, d.intensity, 0, 100),
+    size: clamp(r.size, d.size, 0, 100),
   };
 }
 

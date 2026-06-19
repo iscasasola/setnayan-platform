@@ -64,7 +64,7 @@ export default async function CoupleOrdersPage({ params, searchParams }: Props) 
       {flash ? (
         <p
           role="status"
-          className="rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+          className="rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800"
         >
           {flash}
         </p>

@@ -254,9 +254,9 @@ export default async function SaveTheDatePage({ params }: Props) {
 
       {/* Premium openings unlock */}
       {ownsOpenings ? (
-        <div className="flex items-center gap-3 rounded-2xl border border-emerald-300 bg-emerald-50/60 px-5 py-4">
-          <Check aria-hidden className="h-5 w-5 shrink-0 text-emerald-600" strokeWidth={2.5} />
-          <p className="text-sm text-emerald-800">
+        <div className="flex items-center gap-3 rounded-2xl border border-success-300 bg-success-50/60 px-5 py-4">
+          <Check aria-hidden className="h-5 w-5 shrink-0 text-success-600" strokeWidth={2.5} />
+          <p className="text-sm text-success-800">
             <span className="font-medium">Cinematic openings unlocked.</span> Your chosen opening
             lifts to reveal your page on your live site.
           </p>

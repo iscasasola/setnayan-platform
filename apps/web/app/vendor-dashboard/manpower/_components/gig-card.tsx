@@ -164,7 +164,7 @@ export function GigCard({
             </p>
           ) : null}
           {gig.cancellation_reason ? (
-            <p className="mt-2 text-sm text-rose-700">
+            <p className="mt-2 text-sm text-danger-700">
               Cancellation reason: {gig.cancellation_reason}
             </p>
           ) : null}
@@ -181,8 +181,8 @@ export function GigCard({
           role={banner.kind === 'error' ? 'alert' : 'status'}
           className={`mt-3 rounded-md px-3 py-2 text-sm ${
             banner.kind === 'error'
-              ? 'border border-rose-300/50 bg-rose-50 text-rose-900'
-              : 'border border-emerald-300/50 bg-emerald-50 text-emerald-900'
+              ? 'border border-danger-300/50 bg-danger-50 text-danger-900'
+              : 'border border-success-300/50 bg-success-50 text-success-900'
           }`}
         >
           {'msg' in banner ? banner.msg : null}
@@ -194,14 +194,14 @@ export function GigCard({
           {insufficientTokens ? (
             <div
               role="alert"
-              className="flex w-full items-center justify-between gap-2 rounded-md border border-amber-300/50 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+              className="flex w-full items-center justify-between gap-2 rounded-md border border-warn-300/50 bg-warn-50 px-3 py-2 text-sm text-warn-900"
             >
               <span>
                 You need 2 tokens to accept. Top up to claim this gig.
               </span>
               <Link
                 href="/vendor-dashboard/redeem-code"
-                className="text-xs font-medium text-amber-800 underline"
+                className="text-xs font-medium text-warn-800 underline"
               >
                 Redeem code →
               </Link>
@@ -279,7 +279,7 @@ export function GigCard({
                 type="button"
                 onClick={handleCancel}
                 disabled={pending}
-                className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-60"
+                className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-danger-700 hover:bg-danger-50 disabled:opacity-60"
               >
                 {pending && (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.75} aria-hidden />

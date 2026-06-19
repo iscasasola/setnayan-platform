@@ -117,7 +117,7 @@ export default async function WebsiteHubPage({
           <div className="space-y-1.5">
             {publicLandingUrl ? (
               <>
-                <p className="flex items-center gap-1.5 text-sm text-emerald-700">
+                <p className="flex items-center gap-1.5 text-sm text-success-700">
                   <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                   Live — this link is yours.
                 </p>

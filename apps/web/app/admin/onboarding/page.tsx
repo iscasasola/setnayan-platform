@@ -53,7 +53,7 @@ export default async function AdminOnboardingPage({ searchParams }: Props) {
       </header>
 
       {sp.saved ? (
-        <div className="mb-6 flex items-center gap-2 rounded-xl border border-emerald-300/60 bg-emerald-50/60 px-4 py-3 text-sm text-emerald-800">
+        <div className="mb-6 flex items-center gap-2 rounded-xl border border-success-300/60 bg-success-50/60 px-4 py-3 text-sm text-success-800">
           <CheckCircle2 className="h-4 w-4" strokeWidth={2} aria-hidden /> Saved.
         </div>
       ) : null}

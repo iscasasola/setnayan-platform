@@ -265,7 +265,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
   return (
     <div className="space-y-4">
       {notice ? (
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-rose-300 bg-rose-50 px-4 py-2.5 text-sm text-rose-800">
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-danger-300 bg-danger-50 px-4 py-2.5 text-sm text-danger-800">
           <span>{notice}</span>
           <button type="button" onClick={() => setNotice(null)} aria-label="Dismiss">
             <X className="h-4 w-4" />
@@ -457,7 +457,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={() => removeBooth(b)}
                   aria-label={`Remove ${b.label}`}
-                  className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-rose-600"
+                  className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-danger-600"
                 >
                   <Trash2 className="h-3 w-3" />
                 </button>
@@ -503,7 +503,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={() => removeSign(s)}
                   aria-label={`Remove ${s.label}`}
-                  className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-rose-600"
+                  className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-danger-600"
                 >
                   <Trash2 className="h-3 w-3" />
                 </button>

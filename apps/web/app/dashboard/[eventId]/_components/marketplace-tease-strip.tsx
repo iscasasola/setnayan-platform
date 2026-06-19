@@ -193,7 +193,7 @@ export function MarketplaceTeaseStrip({
           Only renders when host has picks producing cross-cat recs. */}
       {flatRecs.length > 0 ? (
         <div className="mt-5 border-t border-ink/10 pt-4">
-          <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-amber-700/90">
+          <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-warn-700/90">
             <Sparkles aria-hidden className="h-3 w-3" />
             Also worth a look · vendors you already picked do more
           </p>

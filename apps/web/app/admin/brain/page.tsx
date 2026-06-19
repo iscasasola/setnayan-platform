@@ -196,18 +196,18 @@ export default async function AdminBrainPage() {
       */}
       <section
         role="status"
-        className="mb-8 flex items-start gap-3 rounded-2xl border border-amber-300/60 bg-amber-50/80 p-5"
+        className="mb-8 flex items-start gap-3 rounded-2xl border border-warn-300/60 bg-warn-50/80 p-5"
       >
         <AlertCircle
           aria-hidden
-          className="mt-0.5 h-5 w-5 shrink-0 text-amber-700"
+          className="mt-0.5 h-5 w-5 shrink-0 text-warn-700"
           strokeWidth={1.75}
         />
         <div className="space-y-1">
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-amber-900">
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-warn-900">
             Pilot posture
           </p>
-          <p className="text-sm text-amber-900">
+          <p className="text-sm text-warn-900">
             The AI Today&apos;s Focus chat is currently OFF for pilot. Content
             authoring here lands ahead of the post-pilot launch.
           </p>
@@ -306,16 +306,16 @@ export default async function AdminBrainPage() {
         admins should see it and decide.
       */}
       {unknown.length > 0 ? (
-        <section className="mt-8 overflow-hidden rounded-2xl border border-rose-200 bg-rose-50">
+        <section className="mt-8 overflow-hidden rounded-2xl border border-danger-200 bg-danger-50">
           <header className="flex flex-wrap items-baseline justify-between gap-3 px-5 py-4">
-            <h2 className="text-base font-semibold tracking-tight text-rose-800">
+            <h2 className="text-base font-semibold tracking-tight text-danger-800">
               Unmapped topic files
             </h2>
-            <span className="font-mono text-xs text-rose-700">
+            <span className="font-mono text-xs text-danger-700">
               {unknown.length} chunk{unknown.length === 1 ? '' : 's'}
             </span>
           </header>
-          <ul className="divide-y divide-rose-200 border-t border-rose-200">
+          <ul className="divide-y divide-danger-200 border-t border-danger-200">
             {unknown.map((row) => (
               <ChunkRowView key={row.id} row={row} unmappedFilename={row.topic_file} />
             ))}
@@ -376,7 +376,7 @@ function ChunkRowView({
               </span>
             ) : null}
             {row.is_stale ? (
-              <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-amber-900">
+              <span className="inline-flex items-center rounded-full bg-warn-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-warn-900">
                 Needs re-embed
               </span>
             ) : null}
@@ -418,7 +418,7 @@ function ChunkRowView({
                 {row.source_citation}
               </span>
             ) : (
-              <span className="text-rose-700">
+              <span className="text-danger-700">
                 <span className="font-mono uppercase tracking-[0.1em]">
                   No source citation
                 </span>
@@ -431,7 +431,7 @@ function ChunkRowView({
               {row.hit_count_30d}
             </span>
             {unmappedFilename ? (
-              <span className="font-mono text-rose-700">
+              <span className="font-mono text-danger-700">
                 topic_file: {unmappedFilename}
               </span>
             ) : null}

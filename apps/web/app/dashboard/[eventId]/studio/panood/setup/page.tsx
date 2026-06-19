@@ -214,7 +214,7 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
       {youtubeConnected ? (
         <p
           role="status"
-          className="inline-flex items-center gap-2 rounded-2xl border border-emerald-300/70 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+          className="inline-flex items-center gap-2 rounded-2xl border border-success-300/70 bg-success-50 px-4 py-3 text-sm text-success-900"
         >
           <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           YouTube connected
@@ -238,7 +238,7 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
       {youtubeError ? (
         <p
           role="alert"
-          className="inline-flex items-start gap-2 rounded-2xl border border-rose-300/70 bg-rose-50 px-4 py-3 text-sm text-rose-900"
+          className="inline-flex items-start gap-2 rounded-2xl border border-danger-300/70 bg-danger-50 px-4 py-3 text-sm text-danger-900"
         >
           <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
           <span>
@@ -405,12 +405,12 @@ function ConnectedPanel({
     day: 'numeric',
   });
   return (
-    <div className="space-y-3 rounded-xl border border-emerald-200/80 bg-emerald-50/60 p-5">
+    <div className="space-y-3 rounded-xl border border-success-200/80 bg-success-50/60 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-3">
           <span
             aria-hidden
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-success-100 text-success-700"
           >
             <CheckCircle2 className="h-4 w-4" strokeWidth={2} />
           </span>
@@ -481,12 +481,12 @@ function SetupStatus({
           </h2>
         </div>
         {setup.baseOwned ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-900">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-success-100 px-3 py-1 text-xs font-medium text-success-900">
             <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             Live Stream base owned
           </span>
         ) : (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-900">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-warn-100 px-3 py-1 text-xs font-medium text-warn-900">
             <Lock aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             Base SKU not yet purchased
           </span>
@@ -594,7 +594,7 @@ function AddOnRow({
         {owned ? (
           <CheckCircle2
             aria-hidden
-            className="h-4 w-4 text-emerald-600"
+            className="h-4 w-4 text-success-600"
             strokeWidth={2}
           />
         ) : (
@@ -696,7 +696,7 @@ function BroadcastSetup({
             ))}
           </div>
           {totalCameras > 3 ? (
-            <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            <p className="rounded-md bg-warn-50 px-3 py-2 text-xs text-warn-900">
               You&rsquo;ve added {totalCameras - 3} extra camera
               {totalCameras - 3 === 1 ? '' : 's'} &mdash; setup links for cameras 4
               {totalCameras > 4 ? '/5' : ''} appear once the broadcaster session opens.
@@ -811,7 +811,7 @@ function PackCard({
           <Icon aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         </span>
         {owned ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-900">
+          <span className="inline-flex items-center gap-1 rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-900">
             <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={2} />
             Owned
           </span>
@@ -837,7 +837,7 @@ function PackCard({
             Not yet available
           </span>
         ) : owned ? (
-          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700">
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-success-700">
             <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             Active on this event
           </span>
@@ -924,7 +924,7 @@ function YouTubeDelivery({
           YouTube watch URL
         </p>
         {watchUrlSaved ? (
-          <p className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-emerald-300/70 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800">
+          <p className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-success-300/70 bg-success-50 px-2.5 py-1 text-xs font-medium text-success-800">
             <CheckCircle2 aria-hidden className="h-3.5 w-3.5" /> Saved — guests see Watch
             Live on the big day.
           </p>

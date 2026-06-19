@@ -366,7 +366,7 @@ export function GovernedFields({
               <div className="flex items-start gap-2">
                 <AlertTriangle
                   aria-hidden
-                  className="mt-0.5 h-4 w-4 shrink-0 text-amber-600"
+                  className="mt-0.5 h-4 w-4 shrink-0 text-warn-600"
                   strokeWidth={2}
                 />
                 <p className="text-sm text-ink/80">
@@ -388,11 +388,11 @@ export function GovernedFields({
                 {conflicts.map((c) => (
                   <div
                     key={c.vendor_id}
-                    className="flex items-center gap-3 rounded-xl border border-amber-300/60 bg-amber-50/60 p-2.5"
+                    className="flex items-center gap-3 rounded-xl border border-warn-300/60 bg-warn-50/60 p-2.5"
                   >
                     <span
                       aria-hidden
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 text-xs font-semibold text-amber-800"
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-warn-100 text-xs font-semibold text-warn-800"
                     >
                       {initials(c.vendor_name)}
                     </span>
@@ -402,7 +402,7 @@ export function GovernedFields({
                         {titleCase(c.category)}
                         {c.raw_status ? ` · ${titleCase(c.raw_status)}` : ''}
                       </p>
-                      <p className="mt-0.5 text-xs text-amber-800">{c.reason}</p>
+                      <p className="mt-0.5 text-xs text-warn-800">{c.reason}</p>
                     </div>
                     <button
                       type="button"
@@ -498,7 +498,7 @@ function EditableRow({
           {label}
           <span className="ml-1.5 text-ink/55">· {value ?? 'Not set'}</span>
           {saved ? (
-            <span className="ml-2 inline-flex items-center gap-1 text-xs font-medium text-emerald-700">
+            <span className="ml-2 inline-flex items-center gap-1 text-xs font-medium text-success-700">
               <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
               Saved
             </span>

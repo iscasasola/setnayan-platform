@@ -41,6 +41,16 @@ export const metadata = {
     canonical: `${SITE_URL}/how-it-works`,
     languages: LANGUAGES,
   },
+  openGraph: {
+    type: 'website',
+    url: `${SITE_URL}/how-it-works`,
+    title: 'How Setnayan works — couples, vendors, guests, admins',
+    description:
+      "The complete map of who's who on Setnayan and where each person spends their time. One paragraph per role, plus how the flow connects.",
+    siteName: 'Setnayan',
+    locale: 'en_PH',
+    images: [{ url: `${SITE_URL}/brand/og-card.webp`, width: 1200, height: 630 }],
+  },
 };
 
 const HOW_IT_WORKS_JSONLD = {

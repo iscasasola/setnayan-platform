@@ -76,7 +76,7 @@ export default async function WaitlistPage({ searchParams }: Props) {
           </p>
 
           {joined ? (
-            <div className="mt-10 rounded-2xl border-2 border-emerald-300/60 bg-emerald-50 p-6 text-emerald-900">
+            <div className="mt-10 rounded-2xl border-2 border-success-300/60 bg-success-50 p-6 text-success-900">
               <div className="flex items-start gap-3">
                 <CheckCircle2
                   aria-hidden
@@ -109,7 +109,7 @@ export default async function WaitlistPage({ searchParams }: Props) {
               {errorMessage ? (
                 <p
                   role="alert"
-                  className="rounded-md border border-rose-300/60 bg-rose-50 px-4 py-3 text-sm text-rose-900"
+                  className="rounded-md border border-danger-300/60 bg-danger-50 px-4 py-3 text-sm text-danger-900"
                 >
                   {errorMessage}
                 </p>

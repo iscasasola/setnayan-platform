@@ -174,7 +174,7 @@ function LiveWallHeader({ count }: { count: number }) {
   return (
     <div className="flex items-center justify-between gap-3">
       <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success-500" />
         Live from the celebration
       </p>
       {count > 0 ? (

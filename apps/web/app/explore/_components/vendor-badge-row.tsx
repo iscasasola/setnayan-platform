@@ -47,7 +47,7 @@ const BADGE_META: Record<VendorBadge, BadgeMeta> = {
       'Setnayan checked this vendor — DTI, BIR, and contact details on file.',
     icon: CheckCircle,
     classes:
-      'border-emerald-300/50 bg-emerald-50 text-emerald-900',
+      'border-success-300/50 bg-success-50 text-success-900',
   },
   most_booking: {
     label: 'Most Booked',
@@ -59,7 +59,7 @@ const BADGE_META: Record<VendorBadge, BadgeMeta> = {
     // border). The badge sits inside the card; the ad accent sits
     // on the card border, so the two never visually clash.
     classes:
-      'border-amber-300/60 bg-amber-50 text-amber-900',
+      'border-warn-300/60 bg-warn-50 text-warn-900',
   },
   top_pick: {
     label: 'Top Pick',
@@ -71,7 +71,7 @@ const BADGE_META: Record<VendorBadge, BadgeMeta> = {
     // and stays distinct from the gold "Most Booked" and emerald
     // "Verified" rows.
     classes:
-      'border-rose-300/60 bg-rose-50 text-rose-900',
+      'border-danger-300/60 bg-danger-50 text-danger-900',
   },
 };
 

@@ -46,7 +46,7 @@ export function SoundtrackRow({
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-success-50 px-2.5 py-1 text-xs font-medium text-success-700">
             <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
             Added
           </span>

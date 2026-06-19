@@ -132,7 +132,7 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
         <p
           role={notice.tone === 'warn' ? 'alert' : 'status'}
           className={`rounded-lg px-3 py-2 text-sm ${
-            notice.tone === 'ok' ? 'bg-emerald-50 text-emerald-900' : 'bg-amber-50 text-amber-900'
+            notice.tone === 'ok' ? 'bg-success-50 text-success-900' : 'bg-warn-50 text-warn-900'
           }`}
         >
           {notice.text}

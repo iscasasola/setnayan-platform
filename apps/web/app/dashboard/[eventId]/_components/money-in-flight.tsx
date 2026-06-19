@@ -105,19 +105,19 @@ function MoneyInFlightRow({
   return (
     <Link
       href={item.href ?? `/dashboard/${eventId}/budget`}
-      className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50/60 px-3 py-2.5 transition hover:border-amber-300 hover:bg-amber-50 sm:px-4 sm:py-3"
+      className="flex items-center gap-3 rounded-xl border border-warn-200 bg-warn-50/60 px-3 py-2.5 transition hover:border-warn-300 hover:bg-warn-50 sm:px-4 sm:py-3"
     >
       <div className="flex w-12 shrink-0 flex-col items-center sm:w-14">
         <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/65">
           {dateTag}
         </span>
-        <span className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.16em] text-amber-700">
+        <span className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.16em] text-warn-700">
           {relative}
         </span>
       </div>
       <span
         aria-hidden
-        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700"
+        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-warn-100 text-warn-700"
       >
         <Wallet className="h-4 w-4" strokeWidth={1.75} />
       </span>

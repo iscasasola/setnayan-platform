@@ -437,10 +437,10 @@ export const STATUS_LABEL: Record<PaperworkStatus, string> = {
 
 export const STATUS_TONE: Record<PaperworkStatus, string> = {
   not_started: 'bg-ink/5 text-ink/55',
-  requested: 'bg-amber-100 text-amber-900',
-  in_processing: 'bg-amber-100 text-amber-900',
-  received: 'bg-emerald-100 text-emerald-800',
-  expired: 'bg-rose-100 text-rose-800',
+  requested: 'bg-warn-100 text-warn-900',
+  in_processing: 'bg-warn-100 text-warn-900',
+  received: 'bg-success-100 text-success-800',
+  expired: 'bg-danger-100 text-danger-800',
 };
 
 /**

@@ -65,7 +65,7 @@ export function MonogramUploadCard({
             <img src={activeDataUri} alt="Your uploaded monogram" className="h-full w-full object-contain p-1" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700">
+            <p className="inline-flex items-center gap-1.5 text-sm font-medium text-success-700">
               <Check aria-hidden className="h-4 w-4" strokeWidth={2.5} />
               Your uploaded monogram is active
             </p>

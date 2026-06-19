@@ -401,8 +401,8 @@ function ContractsSection({
                         label={contractStatusLabel(c.status)}
                         toneClass={
                           c.status === 'cancelled'
-                            ? 'bg-rose-100 text-rose-800'
-                            : 'bg-emerald-100 text-emerald-800'
+                            ? 'bg-danger-100 text-danger-800'
+                            : 'bg-success-100 text-success-800'
                         }
                       />
                     </div>

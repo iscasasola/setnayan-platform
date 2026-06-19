@@ -18,9 +18,9 @@ const peso = (centavos: number) => `₱${Math.round((centavos ?? 0) / 100).toLoc
 
 const STATUS_COPY: Record<PlanBudgetModel['budgetStatus'], { label: string; tone: string }> = {
   no_target: { label: 'No budget set yet', tone: 'text-ink/55' },
-  within: { label: 'Within your budget', tone: 'text-emerald-700' },
-  near: { label: 'Close to your budget', tone: 'text-amber-700' },
-  over: { label: 'Over your budget', tone: 'text-rose-700' },
+  within: { label: 'Within your budget', tone: 'text-success-700' },
+  near: { label: 'Close to your budget', tone: 'text-warn-700' },
+  over: { label: 'Over your budget', tone: 'text-danger-700' },
 };
 
 export function BuildSummary({
@@ -37,10 +37,10 @@ export function BuildSummary({
   const pct = Math.round(Math.min(1, Math.max(0, model.meterFill)) * 100);
   const meterTone =
     model.budgetStatus === 'over'
-      ? 'bg-rose-500'
+      ? 'bg-danger-500'
       : model.budgetStatus === 'near'
-        ? 'bg-amber-500'
-        : 'bg-emerald-500';
+        ? 'bg-warn-500'
+        : 'bg-success-500';
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 px-1 py-2">
@@ -94,7 +94,7 @@ export function BuildSummary({
                   <Clock className="h-4 w-4 text-terracotta" strokeWidth={1.75} aria-hidden /> {d.label}
                 </span>
                 <span
-                  className={`text-xs ${d.timelineStatus === 'overdue' ? 'text-rose-700' : 'text-ink/55'}`}
+                  className={`text-xs ${d.timelineStatus === 'overdue' ? 'text-danger-700' : 'text-ink/55'}`}
                 >
                   {d.daysLeft < 0 ? `${Math.abs(d.daysLeft)}d overdue` : `${d.daysLeft}d left`}
                 </span>

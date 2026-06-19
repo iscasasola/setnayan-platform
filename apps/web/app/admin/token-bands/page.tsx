@@ -51,7 +51,7 @@ export default async function AdminTokenBandsPage() {
           covers all of that vendor&rsquo;s services for the event. ₱100 per token,
           so 1 / 2 / 3 tokens = ₱100 / ₱200 / ₱300.
         </p>
-        <p className="rounded-md border border-amber-200/60 bg-amber-50/60 px-3 py-2 text-xs text-amber-900">
+        <p className="rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900">
           <span className="font-semibold">Pending owner ratification.</span> The
           seeded band→region map is the proposed default keyed to regional
           minimum wage — adjust here as wage orders change. <code>__default__</code>{' '}

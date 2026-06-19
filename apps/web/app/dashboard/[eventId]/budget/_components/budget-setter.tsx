@@ -106,7 +106,7 @@ export function BudgetSetter({
       {state?.ok === true ? (
         <p
           role="status"
-          className="mt-4 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-800"
+          className="mt-4 inline-flex items-center gap-2 rounded-full bg-success-50 px-3 py-1.5 text-xs font-medium text-success-800"
         >
           <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           {state.budgetCentavos === null
@@ -117,7 +117,7 @@ export function BudgetSetter({
       {state?.ok === false ? (
         <p
           role="alert"
-          className="mt-4 inline-flex items-center gap-2 rounded-full bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-800"
+          className="mt-4 inline-flex items-center gap-2 rounded-full bg-danger-50 px-3 py-1.5 text-xs font-medium text-danger-800"
         >
           {state.error}
         </p>

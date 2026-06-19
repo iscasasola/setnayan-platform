@@ -141,8 +141,8 @@ const SOURCE_LABEL: Record<SocialSourceType, string> = {
 };
 
 const SOURCE_CHIP: Record<SocialSourceType, string> = {
-  couple_creation: 'bg-emerald-100 text-emerald-800',
-  vendor_feature: 'bg-amber-100 text-amber-900',
+  couple_creation: 'bg-success-100 text-success-800',
+  vendor_feature: 'bg-warn-100 text-warn-900',
   milestone: 'bg-terracotta/10 text-terracotta-700',
   announcement: 'bg-sky-100 text-sky-800',
   evergreen: 'bg-ink/8 text-ink/65',
@@ -819,7 +819,7 @@ export default async function AdminSocialQueuePage({ searchParams }: Props) {
                         {credit} · event {ev?.event_date ?? '—'}
                       </p>
                     </div>
-                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-800">
+                    <span className="rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-800">
                       Ready
                     </span>
                   </header>
@@ -937,7 +937,7 @@ export default async function AdminSocialQueuePage({ searchParams }: Props) {
                     <span
                       className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
                         proActive
-                          ? 'bg-emerald-100 text-emerald-800'
+                          ? 'bg-success-100 text-success-800'
                           : 'bg-ink/8 text-ink/65'
                       }`}
                     >
@@ -1036,21 +1036,21 @@ function AutopilotStrip({
   const fbChip = !settings.facebook_enabled
     ? { label: 'Facebook · off', tone: 'bg-ink/8 text-ink/55' }
     : fbConfigured
-      ? { label: 'Facebook · live', tone: 'bg-emerald-100 text-emerald-800' }
-      : { label: 'Facebook · awaiting env', tone: 'bg-amber-100 text-amber-900' };
+      ? { label: 'Facebook · live', tone: 'bg-success-100 text-success-800' }
+      : { label: 'Facebook · awaiting env', tone: 'bg-warn-100 text-warn-900' };
   // Instagram is live now (Phase B) — same chip logic as Facebook.
   const igChip = !settings.instagram_enabled
     ? { label: 'Instagram · off', tone: 'bg-ink/8 text-ink/55' }
     : igConfigured
-      ? { label: 'Instagram · live', tone: 'bg-emerald-100 text-emerald-800' }
-      : { label: 'Instagram · awaiting env', tone: 'bg-amber-100 text-amber-900' };
+      ? { label: 'Instagram · live', tone: 'bg-success-100 text-success-800' }
+      : { label: 'Instagram · awaiting env', tone: 'bg-warn-100 text-warn-900' };
   // TikTok (Phase C): live when a token is present (audited app), else the
   // assisted-manual lane — the realistic pre-audit state.
   const ttChip = !settings.tiktok_enabled
     ? { label: 'TikTok · off', tone: 'bg-ink/8 text-ink/55' }
     : ttConfigured
-      ? { label: 'TikTok · live', tone: 'bg-emerald-100 text-emerald-800' }
-      : { label: 'TikTok · assisted (audit pending)', tone: 'bg-amber-100 text-amber-900' };
+      ? { label: 'TikTok · live', tone: 'bg-success-100 text-success-800' }
+      : { label: 'TikTok · assisted (audit pending)', tone: 'bg-warn-100 text-warn-900' };
 
   return (
     <section id="autopilot" className="mb-8 space-y-4 rounded-xl border border-ink/10 bg-cream p-5">
@@ -1068,7 +1068,7 @@ function AutopilotStrip({
           <span
             className={`rounded-full px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
               settings.autopublish_enabled
-                ? 'bg-emerald-100 text-emerald-800'
+                ? 'bg-success-100 text-success-800'
                 : 'bg-ink/8 text-ink/55'
             }`}
           >
@@ -1099,7 +1099,7 @@ function AutopilotStrip({
       </div>
 
       {!fbConfigured ? (
-        <p className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+        <p className="rounded-md border border-warn-300 bg-warn-50 px-4 py-3 text-xs text-warn-900">
           Paste <span className="font-mono">META_PAGE_ID</span> +{' '}
           <span className="font-mono">META_PAGE_ACCESS_TOKEN</span> into Vercel
           env to activate Facebook — see API_Integration_Checklist #21a. The
@@ -1108,7 +1108,7 @@ function AutopilotStrip({
       ) : null}
 
       {!igConfigured ? (
-        <p className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+        <p className="rounded-md border border-warn-300 bg-warn-50 px-4 py-3 text-xs text-warn-900">
           For Instagram, also paste <span className="font-mono">IG_USER_ID</span>{' '}
           (the IG Business account linked to the Page) — the same{' '}
           <span className="font-mono">META_PAGE_ACCESS_TOKEN</span> authorizes
@@ -1119,7 +1119,7 @@ function AutopilotStrip({
       ) : null}
 
       {settings.tiktok_enabled && !ttConfigured ? (
-        <p className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+        <p className="rounded-md border border-warn-300 bg-warn-50 px-4 py-3 text-xs text-warn-900">
           TikTok auto-posting needs an audited app + OAuth token (
           <span className="font-mono">TIKTOK_ACCESS_TOKEN</span>) + a verified{' '}
           <span className="font-mono">PULL_FROM_URL</span> domain — see
@@ -1395,7 +1395,7 @@ function EvergreenItemCard({ item }: { item: EvergreenItemRow }) {
         <p className="min-w-0 truncate text-sm font-semibold text-ink">{item.title}</p>
         <span
           className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
-            item.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-ink/8 text-ink/55'
+            item.is_active ? 'bg-success-100 text-success-800' : 'bg-ink/8 text-ink/55'
           }`}
         >
           {item.is_active ? 'Active' : 'Inactive'}
@@ -1634,7 +1634,7 @@ function FlashBanner({ search }: { search: Awaited<Props['searchParams']> }) {
   for (const [flag, message] of success) {
     if (search[flag] === '1') {
       return (
-        <p className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+        <p className="mb-4 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800">
           {message}
         </p>
       );

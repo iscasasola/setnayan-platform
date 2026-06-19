@@ -24,7 +24,7 @@ type ThreadRow = {
 
 const STATUS_STYLE: Record<ThreadRow['inquiry_status'], string> = {
   pending: 'bg-terracotta/10 text-terracotta-700',
-  accepted: 'bg-emerald-50 text-emerald-700',
+  accepted: 'bg-success-50 text-success-700',
   declined: 'bg-ink/10 text-ink/60',
 };
 

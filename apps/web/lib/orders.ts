@@ -36,9 +36,9 @@ export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
 export const ORDER_STATUS_TONE: Record<OrderStatus, string> = {
   draft: 'bg-ink/5 text-ink/70',
   submitted: 'bg-sky-100 text-sky-800',
-  awaiting_payment: 'bg-amber-100 text-amber-900',
-  paid: 'bg-emerald-100 text-emerald-800',
-  fulfilled: 'bg-emerald-200 text-emerald-900',
+  awaiting_payment: 'bg-warn-100 text-warn-900',
+  paid: 'bg-success-100 text-success-800',
+  fulfilled: 'bg-success-200 text-success-900',
   lapsed: 'bg-ink/15 text-ink/70',
   cancelled: 'bg-ink/10 text-ink/55',
   refunded: 'bg-violet-100 text-violet-800',
@@ -52,13 +52,13 @@ export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
 };
 
 export const PAYMENT_STATUS_TONE: Record<PaymentStatus, string> = {
-  pending: 'bg-amber-100 text-amber-900',
-  matched: 'bg-emerald-100 text-emerald-800',
-  rejected: 'bg-rose-100 text-rose-800',
+  pending: 'bg-warn-100 text-warn-900',
+  matched: 'bg-success-100 text-success-800',
+  rejected: 'bg-danger-100 text-danger-800',
   // Amber matches the "pending review" register since the payment is back
   // in the queue waiting for the couple's next upload — operationally
   // adjacent to 'pending', visually distinct only via the label text.
-  resubmit_requested: 'bg-amber-100 text-amber-900',
+  resubmit_requested: 'bg-warn-100 text-warn-900',
 };
 
 export type OrderRow = {

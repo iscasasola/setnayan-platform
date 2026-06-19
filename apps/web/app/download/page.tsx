@@ -315,7 +315,7 @@ function Card({
 }) {
   const toneClass =
     tone === 'amber'
-      ? 'border-amber-300/60 bg-amber-50/80'
+      ? 'border-warn-300/60 bg-warn-50/80'
       : 'border-ink/10 bg-cream';
   return (
     <div className={`rounded-xl border p-6 ${toneClass}`}>
@@ -323,7 +323,7 @@ function Card({
         <span
           className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${
             tone === 'amber'
-              ? 'bg-amber-200/60 text-amber-900'
+              ? 'bg-warn-200/60 text-warn-900'
               : 'bg-terracotta/10 text-terracotta'
           }`}
         >

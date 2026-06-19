@@ -977,13 +977,18 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
     const onCancel = (e: PointerEvent) => {
       if (grabs[e.pointerId]) delete grabs[e.pointerId];
     };
-    // Live page = drag-to-lift. Preview = no gesture input (auto-lift only).
+    // Gestures are ALWAYS live — on the live page (drag / double-tap to lift)
+    // AND in the preview, where the couple ALSO gets the hands-free auto-demo
+    // (startAuto, below). A swipe or double-tap cleanly overrides the demo
+    // (setLift / doRevealAuto clear `auto`/`locked`), so the couple can drag
+    // and double-tap the veil in the preview. (owner 2026-06-18 — "on preview
+    // i cannot control the veil")
     // pointerdown binds to the grab-zone (not the canvas) so input is scoped to
     // its region; move/up stay on window so a drag keeps tracking past the zone.
     // Coordinate math uses cv's rect (full-screen) — clientX/Y are viewport
     // coords, so it's correct regardless of which element caught the down.
     const grabEl = grabRef.current;
-    if (!autoplay && grabEl) {
+    if (grabEl) {
       grabEl.addEventListener('pointerdown', onDown);
       window.addEventListener('pointermove', onMove);
       window.addEventListener('pointerup', release);

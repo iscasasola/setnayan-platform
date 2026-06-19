@@ -145,7 +145,7 @@ export function RetailRowEditor({ row }: { row: Retail }) {
             <span className="rounded bg-ink/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-ink/55">Inactive</span>
           )}
           {row.is_token_able && (
-            <span className="rounded bg-amber-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-amber-900">Token-worthy</span>
+            <span className="rounded bg-warn-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-warn-900">Token-worthy</span>
           )}
           <InfoToggle open={open} onClick={() => setOpen((v) => !v)} />
         </div>
@@ -239,7 +239,7 @@ export function VendorRowEditor({ row }: { row: Vendor }) {
           )}
           <span className="rounded bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-ink/55">{row.offering_label}</span>
           {row.token_grant_count ? (
-            <span className="rounded bg-amber-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-amber-900">{row.token_grant_count} tokens</span>
+            <span className="rounded bg-warn-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-warn-900">{row.token_grant_count} tokens</span>
           ) : null}
           <InfoToggle open={open} onClick={() => setOpen((v) => !v)} />
         </div>

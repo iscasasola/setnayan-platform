@@ -209,7 +209,7 @@ export default async function DemoVendorsAdminPage() {
             Demo inquiries — read &amp; respond as the vendor →
           </Link>
         </div>
-        <p className="rounded-md border-l-4 border-amber-500 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        <p className="rounded-md border-l-4 border-warn-500 bg-warn-50 px-3 py-2 text-sm text-warn-900">
           <AlertTriangle className="mb-0.5 mr-1 inline-block h-4 w-4" />
           <strong>Hard cleanup deadline:</strong> 2026-12-01 (public launch). All demo
           vendors must be removed by this date. The{' '}
@@ -434,7 +434,7 @@ function Stat({
   value: string;
   tone?: 'ok' | 'warn';
 }) {
-  const toneClass = tone === 'warn' ? 'text-amber-700' : 'text-ink';
+  const toneClass = tone === 'warn' ? 'text-warn-700' : 'text-ink';
   return (
     <div className="rounded-lg border border-ink/10 bg-cream px-4 py-3">
       <p className="text-xs uppercase tracking-wider text-ink/55">{label}</p>

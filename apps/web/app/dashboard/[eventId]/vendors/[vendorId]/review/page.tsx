@@ -287,7 +287,7 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
 
         <div className="flex items-center justify-between gap-3 border-t border-ink/10 pt-4">
           <p className="inline-flex items-center gap-2 text-xs text-ink/60">
-            <ShieldCheck className="h-3.5 w-3.5 text-emerald-700" strokeWidth={2} />
+            <ShieldCheck className="h-3.5 w-3.5 text-success-700" strokeWidth={2} />
             Verified couple — review tied to a delivered service.
           </p>
           <SubmitButton className="button-primary" pendingLabel="Submitting…">
@@ -460,7 +460,7 @@ function SelfReviewBlockedState({
         Back to vendors
       </Link>
       <header className="space-y-2">
-        <p className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-rose-700">
+        <p className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-danger-700">
           <ShieldOff className="h-3.5 w-3.5" strokeWidth={2} />
           Review blocked
         </p>
@@ -480,12 +480,12 @@ function SelfReviewBlockedState({
       </p>
 
       {appealFiled ? (
-        <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-900">
+        <div className="rounded-xl border border-success-300 bg-success-50 p-4 text-sm text-success-900">
           Appeal filed. An admin will review within 48 hours and email you the outcome.
           If overturned, your review is published with an audit trail.
         </div>
       ) : isHard ? (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">
+        <div className="rounded-xl border border-danger-200 bg-danger-50 p-4 text-sm text-danger-900">
           This block is final — owners and team members can never review the vendor they
           run. If you booked this vendor from a separate account that has no connection
           to its team, sign in with that account to leave the review.
@@ -519,17 +519,17 @@ function AppealForm({
   return (
     <form
       action={submitReviewAppeal}
-      className="space-y-4 rounded-xl border border-amber-200 bg-amber-50 p-5"
+      className="space-y-4 rounded-xl border border-warn-200 bg-warn-50 p-5"
     >
       <input type="hidden" name="event_id" value={eventId} />
       <input type="hidden" name="event_vendor_id" value={vendorId} />
       <input type="hidden" name="vendor_profile_id" value={vendorProfileId} />
       <input type="hidden" name="matched_signal" value={signal} />
       <header className="space-y-1">
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-amber-900">
+        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-warn-900">
           Filed an appeal
         </p>
-        <p className="text-sm text-amber-950">
+        <p className="text-sm text-warn-950">
           Filipino households often share GCash, devices, and addresses across
           unrelated members. If this block looks like a false positive, file an appeal
           and an admin will review.
@@ -537,7 +537,7 @@ function AppealForm({
       </header>
 
       <label htmlFor="appeal_reason" className="block space-y-1">
-        <span className="block text-xs font-medium text-amber-950">
+        <span className="block text-xs font-medium text-warn-950">
           What&rsquo;s the connection? (Required)
         </span>
         <textarea
@@ -549,16 +549,16 @@ function AppealForm({
           placeholder={`My GCash is also the GCash my mother-in-law uses; she runs ${vendorName} but I'm not part of her team.`}
           className="input-field min-h-[100px] w-full py-2"
         />
-        <span className="block text-xs text-amber-900/70">
+        <span className="block text-xs text-warn-900/70">
           Up to 4,000 characters. The admin will see this when deciding the appeal.
         </span>
       </label>
 
-      <details className="space-y-2 text-xs text-amber-950/80">
+      <details className="space-y-2 text-xs text-warn-950/80">
         <summary className="cursor-pointer font-medium">Want to attach the review you would have posted?</summary>
-        <div className="mt-2 space-y-3 rounded-lg border border-amber-200 bg-white/60 p-3">
+        <div className="mt-2 space-y-3 rounded-lg border border-warn-200 bg-white/60 p-3">
           <label className="block space-y-1">
-            <span className="block text-[11px] font-medium uppercase tracking-wide text-amber-950">
+            <span className="block text-[11px] font-medium uppercase tracking-wide text-warn-950">
               Overall rating (1–5)
             </span>
             <input
@@ -571,7 +571,7 @@ function AppealForm({
             />
           </label>
           <label className="block space-y-1">
-            <span className="block text-[11px] font-medium uppercase tracking-wide text-amber-950">
+            <span className="block text-[11px] font-medium uppercase tracking-wide text-warn-950">
               Review body (optional)
             </span>
             <textarea
@@ -585,8 +585,8 @@ function AppealForm({
         </div>
       </details>
 
-      <div className="flex items-center justify-between gap-3 border-t border-amber-200 pt-3">
-        <p className="text-xs text-amber-950/70">
+      <div className="flex items-center justify-between gap-3 border-t border-warn-200 pt-3">
+        <p className="text-xs text-warn-950/70">
           Single-admin authority. SLA: 48 hours.
         </p>
         <SubmitButton className="button-primary" pendingLabel="Filing…">

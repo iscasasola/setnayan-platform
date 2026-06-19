@@ -232,9 +232,9 @@ function DirectPayBody({
           any method is shown. Do not soften or paraphrase. */}
       <div
         role="note"
-        className="flex items-start gap-2 rounded-xl border border-amber-300/60 bg-amber-50/70 px-3 py-2.5 text-xs leading-relaxed text-amber-900"
+        className="flex items-start gap-2 rounded-xl border border-warn-300/60 bg-warn-50/70 px-3 py-2.5 text-xs leading-relaxed text-warn-900"
       >
-        <ShieldAlert aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" strokeWidth={1.75} />
+        <ShieldAlert aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-warn-700" strokeWidth={1.75} />
         <p>
           Setnayan doesn&rsquo;t control or hold payments to vendors. You&rsquo;re
           paying {vendorName} directly — confirm these details are really theirs
@@ -369,8 +369,8 @@ function CopyButton({ value, fieldLabel }: { value: string; fieldLabel: string }
     >
       {copied ? (
         <>
-          <Check aria-hidden className="h-3 w-3 text-emerald-700" strokeWidth={2.25} />
-          <span className="text-emerald-700">Copied</span>
+          <Check aria-hidden className="h-3 w-3 text-success-700" strokeWidth={2.25} />
+          <span className="text-success-700">Copied</span>
         </>
       ) : (
         <>
@@ -437,8 +437,8 @@ function QrBody({
               </div>
             ) : null}
 
-            <p className="flex items-start gap-2 rounded-md border border-amber-300/60 bg-amber-50/70 px-3 py-2 text-xs text-amber-900">
-              <AlertTriangle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-700" strokeWidth={1.75} />
+            <p className="flex items-start gap-2 rounded-md border border-warn-300/60 bg-warn-50/70 px-3 py-2 text-xs text-warn-900">
+              <AlertTriangle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warn-700" strokeWidth={1.75} />
               <span>Confirm this is {vendorName}&rsquo;s before you scan.</span>
             </p>
           </div>
@@ -498,8 +498,8 @@ function LinkBody({
               <p className="mt-0.5 break-all font-mono text-xs text-ink">{url}</p>
             </div>
 
-            <p className="flex items-start gap-2 rounded-md border border-amber-300/60 bg-amber-50/70 px-3 py-2 text-xs text-amber-900">
-              <AlertTriangle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-700" strokeWidth={1.75} />
+            <p className="flex items-start gap-2 rounded-md border border-warn-300/60 bg-warn-50/70 px-3 py-2 text-xs text-warn-900">
+              <AlertTriangle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warn-700" strokeWidth={1.75} />
               <span>
                 Setnayan doesn&rsquo;t control this payment. Make sure the address
                 above is really theirs — Setnayan can&rsquo;t recover money sent to

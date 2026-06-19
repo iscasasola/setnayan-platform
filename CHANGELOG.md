@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · fix(std): music holds during the video + resumes (never restarts)
+
+Owner: "the music should only continue after the video plays. it should not start over from the beginning."
+
+The crossfade left the music PLAYING silently (volume 0) under the video — so a `loop`-ed track looped back toward 0 during a long clip and sounded like it restarted afterwards. Now the music **pauses** (holds its exact position) once it fades out entering the video beat, and **resumes from there** when the film returns to the closing screen (`play()` never resets `currentTime`, and we never touch it). The video keeps its own audio + the ~700ms crossfade both ways; only the music's hold/resume changed.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the soundtrack pauses for the video and continues from where it left off (no restart). See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · feat(std): the video plays FULL SCREEN (autoplay takeover)
 
 Owner: "why is the video not full screen?" When the video was switched to autoplay (no play button), it became a small inline clip inside the scaled film canvas (`max-h-520px`), so it no longer took over the screen.

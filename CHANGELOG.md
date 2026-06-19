@@ -16,6 +16,13 @@ Owner-approved 2026-06-19. Two cross-account bugs meant the marketplace never at
 Lock-status enum confirmed by grep: `LOCKED_STATUS = 'contracted'`; `CONFIRMED_VENDOR_STATUSES = ['contracted','deposit_paid','delivered','complete']` (`lib/events.ts`). Migration is additive + idempotent (`CREATE OR REPLACE`, NULL-scoped backfill) + backward-compatible — the app behaves correctly whether or not the migration is applied yet (the generic-path write already stamps both columns in-app; the migration only repairs the slot path + history). Self-reviewed against TS strict (no local `node_modules` → no typecheck/lint here; CI gates).
 
 SPEC IMPACT: None (bug fix only — wires the already-specced marketplace attribution FK + #1-pick flag that the lock/revert/slot paths were silently dropping; no SKU/schema-shape/pricing/gating change — the columns already exist).
+## 2026-06-19 · fix(onboarding): events.together_since no longer commits NULL when entered in the love stage
+
+The dedicated `togetherSince` OnboardingState field has no UI input — the "together since" YEAR the couple types during the love stage only ever writes to `state.loveStory.together_since` (the `love_spark` screen). At commit, `buildCommitPayload` sourced the top-level `events.together_since` column solely from the empty dedicated state, so it committed `NULL` even when the couple supplied a year (the value survived only inside the `love_story` JSONB blob).
+
+- **`apps/web/app/onboarding/wedding/_components/onboarding-shell.tsx`** (`buildCommitPayload`, ~line 2829): fall back to `s.loveStory.together_since.trim()` when `s.togetherSince.trim()` is empty, before defaulting to `null`. Both operands are non-optional `string` (per `types.ts`), so the change is type-safe with no optional chaining. A love-skipping couple who never entered a year still yields `null` (the live `LoveStory` state field is `''`); the `love_story` JSONB blob and every other payload field are untouched.
+
+SPEC IMPACT: None — bug fix only; restores the already-specified mapping of the love-stage "together since" year to the `events.together_since` column. No schema, pricing, or product-surface change.
 
 ---
 

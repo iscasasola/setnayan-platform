@@ -28,9 +28,10 @@
 
 // `revalidatePath(path, 'layout')` is used for every wizard action below
 // (not the default 'page' mode) so the dashboard LAYOUT invalidates too.
-// The OuterDashboardHeader chrome reads `primaryEvent.monogram_text` +
-// `monogram_color` from the layout's events fetch; without the 'layout'
-// flag, the chrome monogram stays stale after Card 11 save (owner-reported
+// The event-scoped sidebar chrome (EventSwitcher monogram + AccountSwitcher)
+// reads `monogram_text` + `monogram_color` from the layout's events fetch;
+// without the 'layout' flag, the chrome monogram stays stale after Card 11
+// save (owner-reported
 // 2026-05-24). Same principle protects any future layout-cached field
 // (event name, primary flag, etc.) from silent staleness — the flag is
 // harmless when an action doesn't touch layout data, and load-bearing

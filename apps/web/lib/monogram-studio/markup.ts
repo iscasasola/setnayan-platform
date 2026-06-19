@@ -10,15 +10,15 @@
  */
 
 export const STUDIO_CSS = `
-.vsroot .vs{--paper:#FBFBFA;--ink:#1E2229;--ink-soft:#5F5E5A;--line:#E7E1D6;--line2:#D9D2C4;--gold:#C5A059;--gold-deep:#8C6932;--mulberry:#5C2542;font-family:'Manrope',system-ui,sans-serif;color:#1E2229;}
+.vsroot .vs{--paper:#FBFBFA;--ink:#1E2229;--ink-soft:#5F5E5A;--line:#E7E1D6;--line2:#D9D2C4;--gold:#C5A059;--gold-deep:#8C6932;--mulberry:#5C2542;font-family:'Manrope',system-ui,sans-serif;color:#1E2229;container-type:inline-size;}
 .vsroot .vs .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);}
 .vsroot .vs .frame{background:#ECE7DD;border-radius:18px;padding:16px;max-width:430px;margin:0 auto;}
 .vsroot .vs .card{background:#FBFBFA;border:1px solid var(--line);border-radius:16px;overflow:hidden;}
 .vsroot .vs .top{display:flex;align-items:center;gap:9px;padding:12px 16px;border-bottom:1px solid var(--line);}
 .vsroot .vs .wm{font-family:'DM Mono',ui-monospace,monospace;font-size:12px;letter-spacing:.3em;font-weight:500;color:#1E2229;}
 .vsroot .vs .tag{margin-left:auto;font-family:'DM Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.18em;color:var(--gold-deep);text-transform:uppercase;}
-.vsroot .vs .sw2{position:relative;}
-.vsroot .vs canvas{display:block;width:100%;height:300px;touch-action:none;background:#FBFBFA;}
+.vsroot .vs .sw2{position:relative;height:clamp(320px,64vw,440px);}
+.vsroot .vs canvas{display:block;width:100%;height:100%;touch-action:none;background:#FBFBFA;}
 .vsroot .vs .load{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'DM Mono',ui-monospace,monospace;font-size:12px;color:var(--ink-soft);background:rgba(251,251,250,.9);}
 .vsroot .vs .load.off{display:none;}
 .vsroot .vs .zoom{position:absolute;top:10px;right:12px;font-family:'DM Mono',ui-monospace,monospace;font-size:11px;color:var(--ink-soft);background:rgba(251,251,250,.7);padding:2px 7px;border-radius:6px;pointer-events:none;}
@@ -77,6 +77,20 @@ export const STUDIO_CSS = `
 .vsroot .vs .cust input[type=color]::-moz-color-swatch{border:none;}
 .vsroot .vs .sw.clr{background:#fff;position:relative;}
 .vsroot .vs .sw.clr::after{content:'';position:absolute;left:50%;top:4px;bottom:4px;width:2px;background:#C2724C;transform:translateX(-50%) rotate(45deg);border-radius:2px;}
+/* Desktop: when the studio has room (container ≥ 760px wide) it stops being a
+   narrow 430px card and opens into a full two-column workspace — a large,
+   tall live preview on the left and the scrollable controls on the right. The
+   engine's ResizeObserver re-sizes the paper.js view to this bigger canvas, so
+   the mark renders crisp and large, "taking up the space" instead of a small
+   preview. Mobile (below the query) keeps the single-column stack untouched. */
+@container (min-width:760px){
+  .vsroot .vs .frame{max-width:1040px;padding:20px;}
+  .vsroot .vs .card{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,360px);grid-template-rows:auto clamp(460px,58vh,680px);grid-template-areas:"top top" "canvas panel";}
+  .vsroot .vs .top{grid-area:top;}
+  .vsroot .vs .sw2{grid-area:canvas;min-height:0;height:100%;border-right:1px solid var(--line);}
+  .vsroot .vs canvas{height:100%;}
+  .vsroot .vs .panel{grid-area:panel;min-height:0;height:100%;overflow-y:auto;border-top:none;}
+}
 `;
 
 export const STUDIO_HTML = `

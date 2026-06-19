@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · fix(onboarding): budget feel-bands moved to an admin-editable table (DB-first, literal fallback)
+
+The onboarding budget step (screen 9) read its 7-band feel ladder from a hardcoded `BUDGET_BANDS` literal in `onboarding-shell.tsx` (essentials per-head median ₱2,000 … luxury ₱15,000, no_limit ₱0). That made the per-head medians — which drive the couple's estimated budget (`per_head_median × pax`) — uneditable without a deploy. Owner-approved 2026-06-19: move them into an admin-tunable table, DB-first with the in-code literal as a fallback so it's safe to merge before the migration is applied.
+
+- **NEW `supabase/migrations/20270128090927_budget_band_config.sql`** (prefix allocator-sourced via `pnpm migration:new`, not a hand-typed round prefix) — `public.budget_band_config` (band_slug PK with a CHECK on the 7 slugs, label, tag, `per_head_median_centavos` BIGINT, is_active, sort_order, updated_at), seeded with the existing 7 bands (medians stored as centavos: 200000…1500000, no_limit 0). RLS enabled at create time: `is_admin()` write/read (canonical helper) + authenticated read. (Migration applied to prod separately by the orchestrator — NOT applied in this PR.)
+- **NEW `apps/web/lib/budget-bands.ts`** — `BudgetBand` type (`med` in PESOS), `BUDGET_BANDS_FALLBACK` (identical to the old literal), and `getBudgetBands()` — SELECTs active bands ordered by sort_order via the authenticated server client, maps `med = centavos/100` (no lossy round), and returns `BUDGET_BANDS_FALLBACK` on ANY error/empty (mirrors `getOnboardingRefinements`).
+- **`apps/web/app/onboarding/wedding/page.tsx`** — added `getBudgetBands()` to the existing `Promise.all`; passes `budgetBands` to `<OnboardingShell/>`.
+- **`apps/web/app/onboarding/wedding/_components/onboarding-shell.tsx`** — deleted the hardcoded `BUDGET_BANDS` literal; added a `budgetBands?: BudgetBand[]` prop (default `BUDGET_BANDS_FALLBACK`); derived `BUDGET_BANDS`/`PRICED_BANDS`/`budgetFloor`/`budgetCeiling`/`nearestBand`/`effectiveBudgetPesos` INSIDE the component from the prop (the floor/ceiling per-head medians are now looked up: `essentials?.med ?? 2000`, `luxury?.med ?? 15000`). `bandLo`/`bandHi`/`round50k`/`budgetTierBand`/`fmtPeso` stay module-scope (pure). Behaviour is identical; only the source of the bands moved.
+- **`apps/web/app/admin/budget-planner/page.tsx` + `actions.ts`** — added a most-upstream "Budget bands (onboarding)" section reading `budget_band_config` ordered by sort_order, one inline edit form per band (read-only band_slug, editable label + tag, per-head median shown in PESOS, is_active), posting to a new admin-gated `updateBudgetBand` action that writes `per_head_median_centavos = pesos × 100`, `updated_at = now()`.
+
+Fallback-safe (DB read → literal fallback) → auto-merge enabled. Could not run typecheck locally (no node_modules); self-reviewed — CI gates it.
+
+SPEC IMPACT: None on locked product decisions (the band ladder values are unchanged; this is a "prices are admin-managed, never hardcoded" hygiene fix per the standing owner rule). New table `budget_band_config` documented inline via COMMENT; no corpus pricing-table edit needed since the medians match the prior literal.
+
 ## 2026-06-19 · fix(vendors): locked vendor now stamped as the couple's #1 pick (`selection_match_rank = 1`)
 
 When a couple locks/contracts a vendor (`finalizeVendor`, the `status='contracted'` lock transition), the generic lock-write previously updated only `{status, updated_at}` — it never set `selection_match_rank`. As a result the locked vendor (which IS the couple's chosen pick for that leaf category) was never marked as the recommended #1 pick, so two downstream features stayed dormant:

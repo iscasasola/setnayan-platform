@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -152,6 +153,14 @@ export async function inviteHost(formData: FormData) {
       `/dashboard/${eventId}/hosts?invite_sent=1&token=${encodeURIComponent(token)}`,
     );
   } catch (e) {
+    // redirect() works by throwing a NEXT_REDIRECT error. The success and
+    // insert-error redirects above live inside this try, so without this
+    // guard the catch swallows them and re-redirects to invite_error=
+    // NEXT_REDIRECT — the couple sees "Could not send invitation:
+    // NEXT_REDIRECT" on every invite, even when it succeeded. Re-throw the
+    // control-flow error so Next handles it; only genuine failures
+    // (Forbidden, bad email/role, DB errors) fall through to invite_error.
+    if (isRedirectError(e)) throw e;
     redirect(
       `/dashboard/${eventId}/hosts?invite_error=${encodeURIComponent((e as Error).message.slice(0, 80))}`,
     );

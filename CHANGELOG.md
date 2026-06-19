@@ -4,19 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-19 · fix(onboarding): budget feel-bands moved to an admin-editable table (DB-first, literal fallback)
+## 2026-06-19 · fix(ci): repair two advisory guards left stale by the Studio route rename (PR pending, auto-merge)
 
-The onboarding budget step (screen 9) read its 7-band feel ladder from a hardcoded `BUDGET_BANDS` literal in `onboarding-shell.tsx` (essentials per-head median ₱2,000 … luxury ₱15,000, no_limit ₱0). That made the per-head medians — which drive the couple's estimated budget (`per_head_median × pax`) — uneditable without a deploy. Owner-approved 2026-06-19: move them into an admin-tunable table, DB-first with the in-code literal as a fallback so it's safe to merge before the migration is applied.
+The `add-ons` → `studio` route rename (PR #1815) added route redirects but missed two guard configs that hardcode the old paths, so `lint papic keep-permanent` and `lint retired strings` were **failing on `main`** (baseline) and on every open PR. **No actual bug** — verified the keep-permanent logic is intact at the new path (`studio/papic/actions.ts:141` still calls `makeSamplerPermanent` + `cancelSamplerExpiryWarnings`); only the guards' paths were stale.
 
-- **NEW `supabase/migrations/20270128090927_budget_band_config.sql`** (prefix allocator-sourced via `pnpm migration:new`, not a hand-typed round prefix) — `public.budget_band_config` (band_slug PK with a CHECK on the 7 slugs, label, tag, `per_head_median_centavos` BIGINT, is_active, sort_order, updated_at), seeded with the existing 7 bands (medians stored as centavos: 200000…1500000, no_limit 0). RLS enabled at create time: `is_admin()` write/read (canonical helper) + authenticated read. (Migration applied to prod separately by the orchestrator — NOT applied in this PR.)
-- **NEW `apps/web/lib/budget-bands.ts`** — `BudgetBand` type (`med` in PESOS), `BUDGET_BANDS_FALLBACK` (identical to the old literal), and `getBudgetBands()` — SELECTs active bands ordered by sort_order via the authenticated server client, maps `med = centavos/100` (no lossy round), and returns `BUDGET_BANDS_FALLBACK` on ANY error/empty (mirrors `getOnboardingRefinements`).
-- **`apps/web/app/onboarding/wedding/page.tsx`** — added `getBudgetBands()` to the existing `Promise.all`; passes `budgetBands` to `<OnboardingShell/>`.
-- **`apps/web/app/onboarding/wedding/_components/onboarding-shell.tsx`** — deleted the hardcoded `BUDGET_BANDS` literal; added a `budgetBands?: BudgetBand[]` prop (default `BUDGET_BANDS_FALLBACK`); derived `BUDGET_BANDS`/`PRICED_BANDS`/`budgetFloor`/`budgetCeiling`/`nearestBand`/`effectiveBudgetPesos` INSIDE the component from the prop (the floor/ceiling per-head medians are now looked up: `essentials?.med ?? 2000`, `luxury?.med ?? 15000`). `bandLo`/`bandHi`/`round50k`/`budgetTierBand`/`fmtPeso` stay module-scope (pure). Behaviour is identical; only the source of the bands moved.
-- **`apps/web/app/admin/budget-planner/page.tsx` + `actions.ts`** — added a most-upstream "Budget bands (onboarding)" section reading `budget_band_config` ordered by sort_order, one inline edit form per band (read-only band_slug, editable label + tag, per-head median shown in PESOS, is_active), posting to a new admin-gated `updateBudgetBand` action that writes `per_head_median_centavos = pesos × 100`, `updated_at = now()`.
+- `apps/web/scripts/lint-papic-keep-permanent.mjs` — check #3 path `add-ons/papic/actions.ts` → `studio/papic/actions.ts` (+ matching comment).
+- `apps/web/.retired-strings.json` — "Custom Monogram Pack" allow-path `add-ons/panood/setup/page.tsx` → `studio/panood/setup/page.tsx`.
 
-Fallback-safe (DB read → literal fallback) → auto-merge enabled. Could not run typecheck locally (no node_modules); self-reviewed — CI gates it.
+Verified: both guards run green locally (`retired-strings` 0 violations / 1117 files · `papic-keep-permanent` 6/6 sites intact).
 
-SPEC IMPACT: None on locked product decisions (the band ladder values are unchanged; this is a "prices are admin-managed, never hardcoded" hygiene fix per the standing owner rule). New table `budget_band_config` documented inline via COMMENT; no corpus pricing-table edit needed since the medians match the prior literal.
+SPEC IMPACT: None (CI guard config only).
 ## 2026-06-19 · ux(std): remove the Save-the-Date content-film mute toggle (owner)
 
 The content film rendered a small translucent mute toggle (bottom-right, `Music`⇄`VolumeX`) as the "lone escape" for its auto-playing soundtrack. Because the film plays *underneath* the sheer veil reveal, the button bled through the veil and showed over the opening. Owner asked to remove it entirely (2026-06-19) — accepting that the soundtrack now has no off-switch.

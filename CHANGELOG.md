@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · fix(monogram): the Monogram Maker page 500'd in production for every couple (same PR #1798)
+
+Owner reported the maker page (`/dashboard/[eventId]/monogram`) showing **"Something on our end didn't work"** (a Server Components render error, message hidden in prod). Reproduced it in a local **production build** (dev was lenient and rendered fine): the real error was
+
+```
+TypeError: MONO_FONT_OPTIONS.some is not a function
+```
+
+**Root cause (a classic prod-only RSC trap):** the page is a Server Component, but it imported the *value* `MONO_FONT_OPTIONS` (+ `DEFAULT_FONT_FOR_STYLE`) from `monogram-maker.tsx`, which is a `'use client'` module. A server import of a **value** export from a client module resolves to `undefined` in the production RSC build (dev tolerates it), so `MONO_FONT_OPTIONS.some(...)` threw and crashed the whole page. Latent since the typeface picker (#1260) added that import; the monogram-studio `lib/` extraction (#1796) changed the route's module graph and tipped the prod bundler into actually stripping the export. (The Vector Studio code was not at fault — this is the lettered-maker font logic.)
+
+**Fix:** moved `MONO_FONT_OPTIONS` / `DEFAULT_FONT_FOR_STYLE` / `MonoFontOption` / `MonoStyle` into a new **non-client** `monogram-maker-shared.ts`. The server page imports the constants from there (a real array on the server); the client `monogram-maker.tsx` imports them from the same module; the component (`MonogramMaker`) is still imported from the client file (normal RSC). No other client→server value imports exist on the page.
+
+Verified: `pnpm typecheck` clean · `pnpm lint` 0 errors · reproduced the crash in a prod build, then confirmed the **prod build renders the authed monogram page 200** with the fix (no server error).
+
+SPEC IMPACT: none — bugfix. Hardening note: never import a non-component value from a `'use client'` module into a Server Component.
 ## 2026-06-19 · fix(pwa): guest `/[slug]` page is network-first, not stale-while-revalidate
 
 **This is why every Save-the-Date deploy looked like nothing shipped.** The service worker (`public/sw.js`) classified any bare `/[slug]` navigation as a "day-of guest" page and served it **stale-while-revalidate** from `DAYOF_CACHE` — so the couple's landing page (e.g. `/cale-ice`) returned the **previous build's cached HTML** (→ the old JS chunks) on the first visit after each deploy, only refreshing in the background. The owner kept seeing the old film even though the code was merged + deployed.

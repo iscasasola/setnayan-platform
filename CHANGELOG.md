@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · fix(vendors): "what do you offer" picker reflects live admin-taxonomy labels (display-only; storage/validation untouched)
+
+The vendor service/category picker rendered category labels from the in-code `VENDOR_CATEGORY_LABEL` constant only, so an admin renaming a taxonomy tile (e.g. "Photo & Video") never flowed through to the labels a vendor sees. Fix makes the DISPLAY label follow the live admin taxonomy while keeping the stored WIRE vocabulary (the 30 `VENDOR_CATEGORIES` enum keys) and all validation byte-for-byte unchanged — fully backward-compatible, no migration.
+
+- **`apps/web/lib/vendor-category-taxonomy.ts`** — added pure helper `labelForVendorCategory(cat, tax)` = `tax.tileLabel[primaryTileForVendorCategory(cat)] ?? VENDOR_CATEGORY_LABEL[cat]`. Fallback-safe by construction: exempt (bucket C) categories have no anchor tile → in-code literal; and `getTaxonomy()` itself falls back to `lib/taxonomy.ts` when the DB is unseeded. `tilesForVendorCategory`/`primaryTileForVendorCategory` are unchanged.
+- **`apps/web/app/vendor-dashboard/services/actions.ts`** — NO functional change to `parseCategory`; added a clarifying comment that the submitted `category` is the wire/stored enum key (NOT a tile key), anchored to the DB tree via `VENDOR_CATEGORY_CANONICAL` + `validateVendorCategoryMapping`. Still validates against `VENDOR_CATEGORIES`.
+- **`apps/web/app/vendor-dashboard/services/page.tsx`** — `await getTaxonomy()` (try/catch → degrades to in-code labels) and a `labelFor(cat)` helper feeding the three picker labels (left-column list, "Add:" heading, title placeholder). The `<input name="category">` value stays the enum key; `VENDOR_CATEGORIES`/`SERVICE_GROUPS` iteration order unchanged.
+- **`apps/web/app/vendor-dashboard/_components/services-picker.tsx`** — accepts optional `labels?: Record<string,string>`; renders `labels?.[cat] ?? VENDOR_CATEGORY_LABEL[cat]`; checkbox VALUE stays the enum key. Omitting the prop renders exactly as before.
+- **`apps/web/app/vendor-dashboard/profile/page.tsx`** — `await getTaxonomy()` (try/catch) → passes `labels={Object.fromEntries(VENDOR_CATEGORIES.map(c => [c, labelForVendorCategory(c, tax)]))}` into `<ServicesPicker/>`.
+- `apps/web/app/admin/taxonomy/page.tsx` already renders `validateVendorCategoryMapping(getTaxonomy())` as a drift warning banner — no change needed.
+
+NOTE for owner: because the label resolves to each category's PRIMARY anchor tile, sibling categories that share a tile (e.g. `photographer` + `videographer` → `photo_video`; `makeup_artist` + `hair_stylist` → `hmua`) will display the SAME tile label once the DB diverges from the in-code per-category names. The picker rows stay distinct (distinct enum values); only the visible text collapses. This is exactly the spec'd helper formula; flagging in case per-category labels are preferred.
+
+SPEC IMPACT: None. Display-only; stored vocabulary + validation (`VENDOR_CATEGORIES`/`CATEGORY_SET`/`parseCategory`) and the canonical anchoring map are unchanged. No schema, no migration, no corpus edit required.
+
 ## 2026-06-19 · fix(vendors): locked vendor now stamped as the couple's #1 pick (`selection_match_rank = 1`)
 
 When a couple locks/contracts a vendor (`finalizeVendor`, the `status='contracted'` lock transition), the generic lock-write previously updated only `{status, updated_at}` — it never set `selection_match_rank`. As a result the locked vendor (which IS the couple's chosen pick for that leaf category) was never marked as the recommended #1 pick, so two downstream features stayed dormant:

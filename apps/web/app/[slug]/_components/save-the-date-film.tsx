@@ -41,16 +41,22 @@ import { HeroMonogram } from '@/app/_components/hero-monogram';
 import { type MonogramConfig } from '@/lib/monogram';
 
 /**
- * Set an <audio>/<video> volume safely. The spec rejects any value outside
- * [0,1]: WebKit throws `IndexSizeError` ("index is not in the allowed range"),
- * Chromium + in-app webviews throw "volume … outside the range [0,1]". A linear
- * fade's float math — and some webviews' `.volume` read-back — can overshoot
- * 1.0 by a hair (~1.002). Chrome desktop silently clamps; WebKit and the
- * Facebook in-app browser throw. Clamp so the fade is audibly identical and
- * never throws. (Fixes the /[slug] Save-the-Date crossfade crash · Sentry 2026-06-19.)
+ * Set an <audio>/<video> volume safely. The HTML spec requires the setter to
+ * THROW (`IndexSizeError`) for any value outside [0,1] — every conforming engine
+ * (Blink, WebKit, Gecko) throws; none silently clamps. (Desktop Chrome didn't
+ * crash here only because those sessions never produced an out-of-range value,
+ * not because it clamps.) So we keep the value in range ourselves before every
+ * write: clamp finite values to [0,1], and SKIP non-finite ones — a NaN/Infinity
+ * (e.g. from a detached/unloaded media element, or a non-monotonic clock making
+ * the fade ratio NaN) must NOT reach the setter. A bare `v<0?0:v>1?1:v` would
+ * leak NaN straight through (`NaN<0` and `NaN>1` are both false), so the
+ * Number.isFinite guard is load-bearing, not decorative. Skipping leaves the
+ * volume untouched for that frame — inaudible, and the next frame self-corrects.
+ * (Fixes the /[slug] Save-the-Date crossfade crash · Sentry 2026-06-19; the NaN
+ * guard closes the residual path the first clamp left open.)
  */
 function setVol(el: HTMLMediaElement | null, v: number) {
-  if (!el) return;
+  if (!el || !Number.isFinite(v)) return;
   el.volume = v < 0 ? 0 : v > 1 ? 1 : v;
 }
 

@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · fix(vendors): locked vendor now stamped as the couple's #1 pick (`selection_match_rank = 1`)
+
+When a couple locks/contracts a vendor (`finalizeVendor`, the `status='contracted'` lock transition), the generic lock-write previously updated only `{status, updated_at}` — it never set `selection_match_rank`. As a result the locked vendor (which IS the couple's chosen pick for that leaf category) was never marked as the recommended #1 pick, so two downstream features stayed dormant:
+
+- The vendor-side **"From Your Vendors" editorial-media** feature (`lib/editorial-vendor-media.ts` → `findRecommendedEventVendorId`) — gates strictly on `event_vendors.selection_match_rank = 1`, so it returned `null` and the vendor could never submit editorial photos/clips.
+- The editorial **#1-match stat** (`app/[slug]/_components/editorial/data.ts` `firstPick` counter) — counts `selection_match_rank = 1` rows, so it always read 0.
+
+Fix (owner-approved 2026-06-19):
+
+- **`app/dashboard/[eventId]/vendors/actions.ts`** — in `finalizeVendor`'s generic lock write, also set `selection_match_rank: 1` on the row. Idempotent (always set on the lock transition) and scoped to the lock transition (guarded by the `already_locked` short-circuit on `CONFIRMED_VENDOR_STATUSES` and the money-status precondition). Single-column additive write; no behavior change to the slot-path lock (handled inside `acquire_service_time_slot`).
+
+SPEC IMPACT: None. (No schema change — `selection_match_rank` already exists on `event_vendors`; this only populates it on the lock path. No corpus edit needed.)
+
 ## 2026-06-19 · fix(pwa/monogram): /monogram (+ other public routes) were stale-cached as "guest slugs" → Vector Studio stuck loading
 
 Owner: the Monogram Vector Studio (`/monogram`) was stuck on "Loading the typeface…". Diagnosis: the service worker's `isDayOfGuestNavigation` RESERVED set was **out of sync with the app routes** — it listed only a handful, so single-segment PUBLIC pages (`monogram`, `about`, `explore`, `features`, `our-story`, `download`, `how-it-works`, `privacy`, `terms`, `realstories`, `forgot-password`, `reset-password`, `waitlist`) were mistaken for guest slugs and stale-cached (SWR). The owner got an **old `/monogram` build** that hung. (Fonts + page are live on prod — verified HTTP 200 — so it was a caching/serve issue, not missing assets.)

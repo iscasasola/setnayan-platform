@@ -59,6 +59,17 @@ Two payout-safety fixes. Files: `lib/payouts.ts`, `app/admin/payments/actions.ts
 Self-reviewed against TS strict (no local `node_modules` → no typecheck/lint here; CI gates). New symbols all used; `service_key`/`event_id`/`on_hold`/`hold_reason`/`audit_log`/`paid_at` are pre-existing columns.
 
 SPEC IMPACT: None (payout-safety bug fix + new admin reversal action; no SKU/pricing/schema change — the vendor payout model + the branch ₱999 add-on are both already locked in the corpus). Behavioral note for the corpus payout section: branch/vendor-pays-Setnayan orders never generate a vendor payout, and held payouts now have an admin release path.
+## 2026-06-19 · fix(lint): re-point two repo-health guards after the /add-ons → /studio route rename
+
+The route rename (`7724deaa`) moved files but two **advisory** lint guards still referenced the old `add-ons/` paths, leaving them RED on `main`:
+
+- **`scripts/lint-papic-keep-permanent.mjs`** — check #3 pointed at `app/dashboard/[eventId]/add-ons/papic/actions.ts` → "FILE MISSING". **Verified the Papic keep-permanent wiring SURVIVED the move** (not a regression): `studio/papic/actions.ts:141` still calls `await makeSamplerPermanent(eventId)`, and the other 5 chain sites are unchanged. So this was purely a stale path — re-pointed to `…/studio/papic/actions.ts` (+ the chain-doc comment). Guard green (6 sites intact).
+- **`.retired-strings.json`** — the "Custom Monogram Pack" exception's `allow_paths` still listed `…/add-ons/panood/setup/page.tsx`; the page moved to `…/studio/panood/setup/page.tsx`. Updated the path (preserves the documented exception pending the spec-vs-code reconciliation). Guard green (0 violations, 1119 files scanned).
+
+No TypeScript touched (only a `.mjs` guard + a `.json` allow-list), so `tsc` is unaffected.
+
+SPEC IMPACT: None — CI tooling only; no product surface, schema, or copy change.
+
 ## 2026-06-19 · fix(onboarding): events.together_since no longer commits NULL when entered in the love stage
 
 The dedicated `togetherSince` OnboardingState field has no UI input — the "together since" YEAR the couple types during the love stage only ever writes to `state.loveStory.together_since` (the `love_spark` screen). At commit, `buildCommitPayload` sourced the top-level `events.together_since` column solely from the empty dedicated state, so it committed `NULL` even when the couple supplied a year (the value survived only inside the `love_story` JSONB blob).

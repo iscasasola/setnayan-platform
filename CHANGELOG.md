@@ -4,16 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-19 · fix(qa): mechanical design-audit cleanups — global-error palette + nested `<main>` landmark
+## 2026-06-19 · fix(ci): repair two advisory guards left stale by the Studio route rename (PR pending, auto-merge)
 
-Two safe, self-contained no-decision cleanups from the design audit (the other audit items — money-formatter consolidation and FormFlash de-duplication — were intentionally SKIPPED because there is no canonical `lib/money.ts` to consolidate into and no byte-identical inline FormFlash duplicate; both would have sprawled across files owned by parallel agents and changed visual/behavioral output):
+The `add-ons` → `studio` route rename (PR #1815) added route redirects but missed two guard configs that hardcode the old paths, so `lint papic keep-permanent` and `lint retired strings` were **failing on `main`** (baseline) and on every open PR. **No actual bug** — verified the keep-permanent logic is intact at the new path (`studio/papic/actions.ts:141` still calls `makeSamplerPermanent` + `cancelSamplerExpiryWarnings`); only the guards' paths were stale.
 
-- **`apps/web/app/global-error.tsx`** — swapped the root error boundary's off-canon colors to Clean Editorial values: background `#FFFFFF` → `#FBFBFA` (Warm Alabaster), text `#050505` → `#1E2229` (Deep Obsidian), and the four subtle `rgba(5, 5, 5, …)` text tints → `rgba(30, 34, 41, …)`. The Mulberry CTA `#5C2542` and white-on-Mulberry button text are unchanged (WCAG AAA). Deleted the stale `2026-05-22 brand pivot: Facebook white` comment. (Inline hex literals are required here — this boundary renders outside Tailwind's pipeline.) Did NOT touch any emerald/amber/rose status colors (separate reviewed PR).
-- **`apps/web/app/dashboard/[eventId]/layout.tsx`** — fixed a duplicate `<main>` landmark: `SidebarShell` already wraps its children in the single `<main>` (`_components/nav/sidebar-shell.tsx`), and this layout nested a second `<main>` around the page content. Converted the inner element to a `<div>` with the identical className (`mx-auto w-full px-4 py-6 sm:px-6 lg:px-8`) — no visual change, valid HTML, one landmark.
+- `apps/web/scripts/lint-papic-keep-permanent.mjs` — check #3 path `add-ons/papic/actions.ts` → `studio/papic/actions.ts` (+ matching comment).
+- `apps/web/.retired-strings.json` — "Custom Monogram Pack" allow-path `add-ons/panood/setup/page.tsx` → `studio/panood/setup/page.tsx`.
 
-Self-reviewed by reading the diff (fresh worktree has no node_modules; CI gates typecheck/lint). Color literals confirmed against `apps/web/app/globals.css` `--m-*` tokens. No migration.
+Verified: both guards run green locally (`retired-strings` 0 violations / 1117 files · `papic-keep-permanent` 6/6 sites intact).
 
-SPEC IMPACT: None.
+SPEC IMPACT: None (CI guard config only).
 ## 2026-06-19 · ux(std): remove the Save-the-Date content-film mute toggle (owner)
 
 The content film rendered a small translucent mute toggle (bottom-right, `Music`⇄`VolumeX`) as the "lone escape" for its auto-playing soundtrack. Because the film plays *underneath* the sheer veil reveal, the button bled through the veil and showed over the opening. Owner asked to remove it entirely (2026-06-19) — accepting that the soundtrack now has no off-switch.

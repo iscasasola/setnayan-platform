@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · fix(dashboard): clear "Set your wedding date" nudge on event home when event_date IS NULL
+
+Date-as-output is kept (onboarding still commits `events.event_date = NULL` — unchanged). But a couple had no obvious, low-friction prompt to SET their date later, and the public-website lifecycle gate (`getLifecyclePhase` in `lib/invitation-widgets.ts`) returns `'rsvp'` for a null date and can never reach Save-the-Date / Event / Editorial — so the date-gated editorial pages could never launch until a date exists.
+
+- **`app/dashboard/[eventId]/_components/set-date-nudge.tsx`** (new) — dismissible client nudge ("Set your wedding date", links to the existing governed surface `/dashboard/[eventId]/date-selection`). Per-event localStorage dismiss (key `setnayan:set-date-nudge-dismissed:<eventId>`), degrades gracefully if localStorage is unavailable. Follows the existing `day-of-mode/banner.tsx` dismiss convention.
+- **`app/dashboard/[eventId]/page.tsx`** — render the nudge directly under `EventCountdownHeader`, gated `{!event.event_date ? … : null}` so it shows ONLY when no date is set (and stops mounting entirely once a date exists). Additive: no other home logic changed; no new date-write path introduced.
+
+Read-only verification: the editorial lifecycle gate already keys correctly on `event_date` (`[slug]/page.tsx:611` → `getLifecyclePhase(event.event_date)`); NOT modified. Date is written by the existing `/date-selection` surface (`date-selection/actions.ts`) and `actions.ts` governed editor — unchanged.
+
+SPEC IMPACT: None. (Additive nudge to an existing surface; reinforces the date-as-output philosophy [[project_setnayan_date_as_output_philosophy]] rather than changing it.)
+
 ## 2026-06-19 · fix(pwa/monogram): /monogram (+ other public routes) were stale-cached as "guest slugs" → Vector Studio stuck loading
 
 Owner: the Monogram Vector Studio (`/monogram`) was stuck on "Loading the typeface…". Diagnosis: the service worker's `isDayOfGuestNavigation` RESERVED set was **out of sync with the app routes** — it listed only a handful, so single-segment PUBLIC pages (`monogram`, `about`, `explore`, `features`, `our-story`, `download`, `how-it-works`, `privacy`, `terms`, `realstories`, `forgot-password`, `reset-password`, `waitlist`) were mistaken for guest slugs and stale-cached (SWR). The owner got an **old `/monogram` build** that hung. (Fonts + page are live on prod — verified HTTP 200 — so it was a caching/serve issue, not missing assets.)

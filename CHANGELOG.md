@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · fix(std): close the NaN gap in the Save-the-Date volume clamp (+ correct the root-cause comment)
+
+Follow-up hardening to the earlier volume-clamp fix, after an adversarial root-cause review of the `/[slug]` Save-the-Date `IndexSizeError`. Two findings drove this:
+
+1. **The shipped clamp left a residual crash path.** `setVol`'s clamp `v < 0 ? 0 : v > 1 ? 1 : v` **passes `NaN` straight through** — `NaN < 0` and `NaN > 1` are both `false`, so the ternary returns `NaN`. And `m0 = a?.volume ?? 1` does **not** substitute for a `NaN` read-back (`NaN` is neither null nor undefined), so a `NaN` propagates through the whole fade ramp. A `NaN`/`Infinity` `.volume` (detached/unloaded media element in a WebView, or a non-monotonic clock making the fade ratio `NaN`) would therefore still throw *after* the first fix. Closed by guarding with `Number.isFinite`: `if (!el || !Number.isFinite(v)) return;` — non-finite values now skip the write (volume untouched that frame; inaudible; next frame self-corrects). The finite branch clamps exactly as before.
+
+2. **Corrected the root-cause comment.** The prior comment claimed "Chrome desktop silently clamps; WebKit … throw." That's **wrong**: the WHATWG HTML volume setter algorithm *requires* a throw for any value outside `[0,1]`, and Blink, WebKit, and Gecko **all throw** (verified against each engine's `setVolume` source — no engine clamps, and the only Blink mechanism that could store `>1`, the `MediaElementVolumeGreaterThanOne` flag, is default-disabled/test-only and unshipped). Desktop Chrome didn't crash here because those sessions never produced an out-of-range value — not because it clamps. Comment rewritten to say so. The original fix's behavior was correct regardless; only the *explanation* was imprecise.
+
+- **`apps/web/app/[slug]/_components/save-the-date-film.tsx`** — `setVol` gains the `Number.isFinite(v)` guard; doc comment rewritten to the spec-accurate account.
+
+Root-cause notes (for the record): the math is decisive that the `1.00243`/`1.01339` overshoots can't come from float rounding on clean inputs (the ramp is a convex combination, provably ≤ 1; rounding is ~10⁴–10¹³× too small), so an input genuinely left `[0,1]`. The most concretely supported app-side source is a **non-monotonic clock** (`now < t0` → `p < 0`) on the music **fade-down** branch, where `vol = m0·(1−p) > 1` — the ramp clamps `p`'s upper bound (`Math.min(1, …)`) but never its lower bound; mobile in-app WebViews (background throttling / clock corrections) are far more prone to this than desktop Chrome, which fits "only mobile/in-app browsers crashed." A `NaN` read-back is a second app-side source. The earlier "platform `.volume` read-back returns `>1`" theory is **retracted** — no engine source supports a conforming getter returning `>1`. All these paths are app-side and are fully closed by the clamp + this `NaN` guard. `tsc --noEmit` clean locally.
+
+SPEC IMPACT: None. Client-side defensive hardening + comment accuracy; no schema, pricing, or corpus surface touched.
+
 ## 2026-06-19 · ux(std): veil-reveal hint now surfaces the hands-free double-tap
 
 The Save-the-Date veil reveal supports two lift gestures — grab-and-pull / swipe up (manual) **and** double-tap = hands-free auto-lift (`veil-reveal.tsx`, gesture block ~line 889; `doRevealAuto()` on the second tap). The bottom-of-screen hint only advertised the manual lift ("Lift the veil ↑"), so guests never learned the double-tap shortcut.

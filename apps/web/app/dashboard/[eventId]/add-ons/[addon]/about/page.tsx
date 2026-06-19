@@ -9,7 +9,6 @@ import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import {
   AppStoreLayout,
   type PlanRow,
-  type StatTile,
   type PreviewItem,
 } from '@/app/_components/app-store/layout';
 
@@ -121,21 +120,6 @@ export default async function AddOnDetailPage({ params }: Props) {
           ? { label: entry.freeTrial, tone: 'accent' as const }
           : undefined;
 
-  // Stat tiles — Price first (live or "Free"), then factual feature specs.
-  // No fabricated ratings / usage counts.
-  const stats: StatTile[] = [
-    {
-      eyebrow: 'Price',
-      value: isFree ? 'Free' : (priceLabel ?? '—'),
-      caption: isFree ? 'part of planning' : entry.freeTrial ? 'free to try first' : 'one-time',
-    },
-    ...(detail.specs ?? []).map((s) => ({
-      eyebrow: s.eyebrow,
-      value: s.value,
-      caption: s.caption,
-    })),
-  ];
-
   const preview: PreviewItem[] = detail.preview.map((p) => ({
     context: p.context,
     caption: p.caption,
@@ -175,16 +159,12 @@ export default async function AddOnDetailPage({ params }: Props) {
         statusPill,
         cta,
       }}
-      stats={stats}
       preview={preview}
-      highlights={{ items: detail.highlights }}
+      highlights={{ title: "What you'll have", items: detail.highlights }}
       description={{
         paragraphs: detail.paragraphs,
         plans,
-        notIncluded: detail.notIncluded,
       }}
-      privacy={detail.privacy}
-      dataLinked={detail.dataLinked}
     />
   );
 }

@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · copy(studio): App Store detail pages rewritten to sell stories + results (PR pending, auto-merge)
+
+Owner, looking at the Setnayan AI detail page: *"it should not explain how we do it or our program — we are selling stories and results."* (Register chosen: punchy & confident.) The first cut described the machinery ("ranks every vendor… a matching layer, not a chatbot… six signals"); rewrote all 14 catalog-driven feature detail pages to lead with the outcome.
+
+- **`lib/add-ons-detail.ts` fully rewritten** — every feature's hero title, tagline, About, "What you'll have" bullets, and preview captions are now short, declarative, benefit-only. No mechanism words (signals/pipeline/face-matching/QR fan-out/render engine). E.g. Setnayan AI → *"Your shortlist. Already made."*; Papic → *"The moments you'll miss, caught."*
+- **Dropped the mechanism sections from the sell page** — removed the stat/spec carousel (e.g. "6 signals") and the Event-Privacy / Data-linked explainers from the catalog-driven detail page; trimmed the `AddOnDetail` type to the story/result fields. The "What's included" section is retitled **"What you'll have."** (Panood's bespoke page keeps its own stats/privacy — unchanged.)
+- Hub featured-hero taglines pull from these taglines, so they punch up too. Pricing still renders live from the admin catalog.
+
+Verified: `pnpm typecheck` clean · `lib/add-ons-detail.test.ts` 3/3 (every hub feature still has detail content). No migration.
+
+SPEC IMPACT: None (copy/voice only; aligns with the locked public-surface-hygiene rule — benefits, never implementation). See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · feat(studio): couple Studio becomes an iOS App Store browse + detail experience (PR pending, auto-merge)
 
 Owner: *"customer — studio should look like app store for iOS so we can see information of the different features. Also reorganize the studio: Setnayan AI, Website, Capture, Branding as the subnav."* The 4-section subnav already shipped; the gap was the hub (a flat one-line-blurb grid) and the detail layer (only Panood had the App Store detail — the 2026-05-17 pilot was never fanned out). This PR fans it out to **every** feature and rebuilds the hub.

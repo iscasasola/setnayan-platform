@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · feat(admin): Reveal Studio can preview + tune the touch-glow in-place (PR pending, auto-merge)
+
+Owner follow-up: HQ couldn't see the press-to-glow inside the Reveal Studio (it's a public-page effect), so it could only be tuned blind. Added a **scoped mode** to `StdTouchGlow` (`containerRef` prop): instead of full-viewport on `window`, it confines itself to a given element, positions blooms relative to it, and listens on it in **capture phase** (so the veil's grab-zone can't swallow the press). The live STD path is unchanged (no `containerRef` → same `fixed` z-[80] window behavior).
+
+Wired into `/admin/reveal-studio`: the live phone-frame preview now mounts the scoped glow, so HQ can **press inside the frame and watch it tune live** with the colour / brightness / size sliders. Preview hint updated to "press to glow."
+
+Verified: `pnpm typecheck` clean. No migration.
+
+SPEC IMPACT: iter 0024 Reveal Studio — in-studio glow preview. See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · copy(studio): Panood detail + hub row one-liners join the stories-and-results voice (PR pending, auto-merge)
 
 Owner follow-ups to the App Store copy pass: (1) bring Panood's bespoke detail page in line, (2) "punch them too" — the short hub-row blurbs.

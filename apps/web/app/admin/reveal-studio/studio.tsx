@@ -13,7 +13,7 @@
  * template/feature toggles still apply to every template on the live site.
  */
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import {
   DEFAULT_REVEAL_CONFIG,
@@ -25,6 +25,7 @@ import {
 } from '@/lib/reveal-config';
 import { FourFlapEnvelope } from '@/app/[slug]/_components/reveal/four-flap';
 import { RigidReveal } from '@/app/[slug]/_components/reveal/rigid-reveal';
+import { StdTouchGlow } from '@/app/[slug]/_components/reveal/std-touch-glow';
 import { saveRevealStudio } from './actions';
 
 const VeilReveal = dynamic(() => import('@/app/[slug]/_components/reveal/veil-reveal'), { ssr: false });
@@ -203,6 +204,9 @@ export function RevealStudio({ initial }: { initial: RevealStudioConfig }) {
   const [previewKey, setPreviewKey] = useState(0);
   const redrapePreview = () => setPreviewKey((k) => k + 1);
   const [previewTpl, setPreviewTpl] = useState<PreviewTpl>('veil-sheer');
+  // The preview phone-frame — the touch-glow scopes itself here so HQ can press
+  // inside the frame and see the glow tune live with the sliders below.
+  const previewBoxRef = useRef<HTMLDivElement>(null);
 
   const setLook = (key: keyof VeilLook, v: number) =>
     setDraft((d) => ({ ...d, veil: { ...d.veil, [key]: v } }));
@@ -451,6 +455,7 @@ export function RevealStudio({ initial }: { initial: RevealStudioConfig }) {
           ))}
         </div>
         <div
+          ref={previewBoxRef}
           className="relative mx-auto aspect-[9/19] w-full max-w-[300px] overflow-hidden rounded-[2rem] border shadow-xl"
           style={{ borderColor: LINE, background: '#0e0e10' }}
         >
@@ -503,10 +508,19 @@ export function RevealStudio({ initial }: { initial: RevealStudioConfig }) {
               effectLook={draft.effects}
             />
           )}
+          {/* Press-to-glow, scoped to this frame — drag/press inside to see it
+              tune live with the sliders. Mirrors the live STD experience. */}
+          <StdTouchGlow
+            containerRef={previewBoxRef}
+            enabled={draft.touchGlow.enabled}
+            color={draft.touchGlow.color}
+            intensity={draft.touchGlow.intensity}
+            size={draft.touchGlow.size}
+          />
         </div>
         <div className="mt-2 flex items-center justify-center gap-2">
           <p className="text-[11px]" style={{ color: SLATE }}>
-            Swipe up to lift · swipe down to re-cover · tap a petal to bounce it
+            Swipe up to lift · press to glow · tap a petal to bounce it
           </p>
           <button
             type="button"

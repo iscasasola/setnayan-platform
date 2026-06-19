@@ -4,16 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-19 · fix(vendor): ceremony-compat false-success + visibility/verification drift
+## 2026-06-19 · fix(ci): repair two advisory guards left stale by the Studio route rename (PR pending, auto-merge)
 
-Two cross-account QA fixes from the 2026-06-19 audit. Code-only, no migration — both touch columns/tables that already exist (`vendor_profiles.verification_state` / `last_verified_at` / `next_renewal_due_at` and `vendor_tier_history`, all from `20260516050000_iteration_0006_vendor_verification_flow.sql`).
+The `add-ons` → `studio` route rename (PR #1815) added route redirects but missed two guard configs that hardcode the old paths, so `lint papic keep-permanent` and `lint retired strings` were **failing on `main`** (baseline) and on every open PR. **No actual bug** — verified the keep-permanent logic is intact at the new path (`studio/papic/actions.ts:141` still calls `makeSamplerPermanent` + `cancelSamplerExpiryWarnings`); only the guards' paths were stale.
 
-- **(M3) Vendor "Wedding compatibility" no longer silently drops faiths** — `app/vendor-dashboard/actions.ts`: `ALLOWED_CEREMONY_TYPES` held only the original 7 keys, so on Save the `parseCompatibilityArray` filter dropped the 11 faith expansions the picker offers (chinese, jewish, born_again, aglipayan, lds, sda, jw, hindu, sikh, buddhist, orthodox) — a false-success bug (UI showed 18 options, DB kept ≤7). Widened the set to all 18, matching the live `events_ceremony_type_check` CHECK (latest widener: `20261120000000_faith_worldwide_expansion.sql`) **and** the `CEREMONY_TYPES` picker in `app/vendor-dashboard/profile/page.tsx`. Validation unchanged — truly-unknown strings are still rejected; we just stop dropping the valid ones.
-- **(m5) Admin "approve to verified" now syncs verification_state** — `app/admin/verify/actions.ts` `transitionVendorVisibility`: when `nextVisibility === 'verified'`, it now also sets `verification_state='verified'` + `last_verified_at` + a one-year `next_renewal_due_at`, and writes a `vendor_tier_history` row (only when the state actually moves; `application_id` null, `metadata.source='admin_visibility_transition'`). Mirrors the Applications-path approve (`applyApplicationDecision` case `'approved'`). Fixes the vendor dashboard showing "unverified" while the marketplace listed the vendor as verified. Other transitions (hidden / coming_soon / archived) leave `verification_state` untouched — marketplace-listing moderation, not de-verification. The `admin_audit_log` before/after JSON now also records the `verification_state` snapshot.
+- `apps/web/scripts/lint-papic-keep-permanent.mjs` — check #3 path `add-ons/papic/actions.ts` → `studio/papic/actions.ts` (+ matching comment).
+- `apps/web/.retired-strings.json` — "Custom Monogram Pack" allow-path `add-ons/panood/setup/page.tsx` → `studio/panood/setup/page.tsx`.
 
-Self-reviewed against TS strict (no local `node_modules` → no typecheck/lint here; CI gates). `VerificationState` + `parseVerificationState` were already imported; `toState` is typed `VerificationState`. Backward-compatible: no schema change, idempotent no-op preserved when visibility is unchanged.
+Verified: both guards run green locally (`retired-strings` 0 violations / 1117 files · `papic-keep-permanent` 6/6 sites intact).
 
-SPEC IMPACT: None (bugfix — restores the already-specced 18-ceremony vendor-compat picker behavior and the 0023 § 3.2 visibility↔verification consistency; no SKU/pricing/schema/scope change).
+SPEC IMPACT: None (CI guard config only).
 ## 2026-06-19 · ux(std): remove the Save-the-Date content-film mute toggle (owner)
 
 The content film rendered a small translucent mute toggle (bottom-right, `Music`⇄`VolumeX`) as the "lone escape" for its auto-playing soundtrack. Because the film plays *underneath* the sheer veil reveal, the button bled through the veil and showed over the opening. Owner asked to remove it entirely (2026-06-19) — accepting that the soundtrack now has no off-switch.

@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-20 · revert(std): restore the Save-the-Date film mute toggle (it was the wrong icon)
+
+Reverts #1843. The owner's "remove this" pointed at a **speaker-with-✕** icon on the veil; with the full screenshot it became clear that's the bottom-LEFT couple background-music player (handled separately by gating it off during the STD phase), **not** the film's mute. The bottom-RIGHT music-note control is the film's mute — "the one that works" — and the owner wants it kept. #1843 had removed it.
+
+- **`git revert -m 1` of #1843's merge** (`15af5828`): restores in `apps/web/app/[slug]/_components/save-the-date-film.tsx` the `Music`/`VolumeX` import, the `const [muted, setMuted] = useState(false)` state, the `toggleMute` handler, and the bottom-right mute `<button>` (gated on `content.musicUrl || content.videoUrl`). Clean revert, no conflicts.
+
+SPEC IMPACT: None — restores prior UI behavior. Net state across the two open changes: the **left** background-music speaker no longer renders during the veil (#1845), the **right** film mute is back. No schema/pricing/surface change.
+
+---
+
 ## 2026-06-19 · fix(std): close the NaN gap in the Save-the-Date volume clamp (+ correct the root-cause comment)
 
 Follow-up hardening to the earlier volume-clamp fix, after an adversarial root-cause review of the `/[slug]` Save-the-Date `IndexSizeError`. Two findings drove this:

@@ -1076,7 +1076,17 @@ findings.
 
 ---
 
-## Face auto-tagging — host the model on R2 (DEFERRED, activates the feature)
+## ✅ DONE (activated 2026-06-19) — Face auto-tagging is LIVE on production
+
+**✅ Activated 2026-06-19.** The 7 model files are hosted on R2 `setnayan-media/face-models/`, `NEXT_PUBLIC_FACE_MODEL_URL` is set in Vercel Production (`https://pub-37d64fe618584c2981a88610a55dd439.r2.dev/face-models`), and production was redeployed. Verified: files serve HTTP 200 with CORS allowing `www.setnayan.com`, and the real-face demo against the live matcher confirmed correct tagging (same-person 0.40–0.47, different-person 0.79–0.90, zero false-positive tags). The steps below are retained for reference / re-hosting only.
+
+- **Off-switch (instantly reversible, no data touched):** `vercel env rm NEXT_PUBLIC_FACE_MODEL_URL production` then redeploy → the whole pipeline goes dormant again.
+- **Re-host in one command:** `pnpm host:face-models -- --activate` (apps/web; needs R2 creds in env).
+- **Two open follow-ups (don't affect safety):** (1) the r2.dev public host is rate-limited — connect a custom domain (e.g. `media.setnayan.com`) to the bucket before a packed live event; (2) there's no "remove tag / not me" control yet, so a rare false positive can't be corrected — a small hardening if wanted.
+
+---
+
+### Reference — how it was hosted (DONE above)
 
 Face auto-tagging (guests' faces matched to their RSVP selfie so the gallery
 auto-tags them) is **built and validated** but ships **dormant** — it does

@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import {
   Play, Pause, Users, Check, ChevronUp, Music, QrCode, Download,
-  Printer, Cloud, ShieldCheck, MapPin,
+  Printer, Cloud, ShieldCheck, MapPin, Sparkles, Star, Globe,
 } from 'lucide-react';
 
 const MULB = 'var(--m-mulberry, #5C2542)';
@@ -760,6 +760,406 @@ const INDOOR_BLUEPRINT_SCENES: RichFrame[] = [
   },
 ];
 
+// ── Setnayan AI — pitch → ranked matches → choose → deadlines ──
+function vendorRow(name: string, pct: string, tint: string, why: string) {
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-ink/10 bg-white p-1.5">
+      <div className="relative h-10 w-10 shrink-0 rounded" style={{ background: tint }}>
+        <span className="absolute left-0.5 top-0.5 rounded px-1 py-0.5 text-[6px] font-medium text-ink" style={{ background: GOLD }}>{pct}</span>
+      </div>
+      <div className="min-w-0">
+        <p className="truncate text-[9px] font-medium">{name}</p>
+        <p className="truncate text-[7px] text-ink/55">{why}</p>
+      </div>
+    </div>
+  );
+}
+const SETNAYAN_AI_SCENES: RichFrame[] = [
+  {
+    caption: 'Stop guessing who to hire.',
+    hint: 'Tap to see your matches.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-4 text-ink">
+        <span className="font-mono text-[8px] uppercase tracking-[0.22em] text-terracotta">Setnayan AI</span>
+        <p className="mt-1 text-[15px] font-semibold leading-tight tracking-tight">Stop guessing<br />who to hire</p>
+        <p className="mt-1.5 text-[9px] text-ink/65">Every vendor, ranked by how well they fit your day.</p>
+        <button type="button" className="mt-4 w-full rounded-md bg-mulberry py-2 text-[11px] font-medium text-cream">See your matches</button>
+      </div>
+    ),
+  },
+  {
+    caption: 'Your best vendors, sorted to the top.',
+    hint: 'Scroll the ranked shortlist.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+        <div className="flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1">
+          <Sparkles aria-hidden className="h-2.5 w-2.5 text-terracotta" strokeWidth={2} />
+          <span className="font-mono text-[6px] uppercase tracking-[0.12em] text-ink/55">Matching you on</span>
+          {['Jun 2027', 'Cebu', 'Garden'].map((p) => <span key={p} className="rounded-full bg-white px-1.5 py-0.5 text-[6px]">{p}</span>)}
+        </div>
+        <div className="mt-2 space-y-1.5">
+          {vendorRow('Camille & Co.', '92%', '#F0997B', 'Nearest · 4.8★ · Verified')}
+          {vendorRow('Bloom Studio', '88%', '#AFA9EC', 'Your style · 4.9★')}
+          {vendorRow('Tala Films', '81%', '#5DCAA5', 'Free on your date')}
+        </div>
+      </div>
+    ),
+  },
+  {
+    caption: 'Book the right team before it’s gone.',
+    hint: 'Tap a card to choose.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-4 text-ink">
+        <div className="rounded-xl border border-ink/10 bg-white p-2.5">
+          <div className="relative h-20 w-full rounded" style={{ background: '#F0997B' }}>
+            <span className="absolute left-1 top-1 rounded px-1 py-0.5 text-[7px] font-medium text-ink" style={{ background: GOLD }}>92% match</span>
+            <span className="absolute bottom-1 right-1 rounded bg-ink/80 px-1 py-0.5 text-[7px] text-cream">₱85,000</span>
+            <span className="absolute right-1 top-1 inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[7px] font-medium text-cream" style={{ background: GOLD, color: '#3a2a0a' }}><Star aria-hidden className="h-2 w-2" strokeWidth={2} /> Chosen</span>
+          </div>
+          <p className="mt-1.5 text-[10px] font-semibold">Camille & Co. Catering</p>
+          <div className="mt-1 flex gap-1">
+            <span className="rounded bg-emerald-600/15 px-1.5 py-0.5 text-[6px] font-medium text-emerald-700">Verified</span>
+            <span className="rounded px-1.5 py-0.5 text-[6px] font-medium text-cream" style={{ background: MULB }}>Setnayan</span>
+          </div>
+          <span className="mt-1.5 inline-block rounded px-1.5 py-0.5 text-[7px]" style={{ background: 'rgba(197,160,89,.15)', color: '#7a5a18' }}>3 also eyeing your date</span>
+        </div>
+      </div>
+    ),
+  },
+  {
+    caption: 'Every decision, with deadlines that nudge you.',
+    hint: 'Tap a circle to check it off.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+        <div className="flex justify-between font-mono text-[7px] uppercase tracking-[0.12em] text-ink/55"><span>Up next</span><span>4 of 18 done</span></div>
+        <div className="mt-2 space-y-1.5">
+          {[
+            { t: 'Lock your venue', due: '3d overdue', c: 'text-rose-700' },
+            { t: 'Book your caterer', due: 'Due in 5d', c: 'text-amber-700' },
+            { t: 'Send save-the-dates', due: 'Due in 3w', c: 'text-ink/50' },
+            { t: 'Order thank-you cards', due: 'Due in 6w', c: 'text-ink/50' },
+          ].map((r) => (
+            <div key={r.t} className="flex items-center gap-2 rounded-lg border border-ink/10 bg-white px-2 py-1.5">
+              <span className="h-3 w-3 shrink-0 rounded-full border-2 border-ink/30" />
+              <span className="flex-1 text-[9px]">{r.t}</span>
+              <span className={`text-[7px] font-medium ${r.c}`}>{r.due}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    ),
+  },
+];
+
+// ── Event Website — share → style → RSVP → recap ──
+const LANDING_PAGE_SCENES: RichFrame[] = [
+  {
+    caption: 'One page behind every link you share.',
+    hint: 'Tap Customize to make it yours.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-cream px-4 text-ink">
+        <span className="font-mono text-[8px] uppercase tracking-[0.22em]" style={{ color: GOLD }}>Your website</span>
+        <span className="mt-1 text-2xl italic" style={{ fontFamily: SERIF }}>Maria & Juan</span>
+        <span className="mt-3 inline-flex items-center gap-1 rounded-full border border-ink/15 px-2.5 py-1 text-[8px] text-ink/70">
+          <Globe aria-hidden className="h-2.5 w-2.5 text-emerald-600" strokeWidth={2} /> setnayan.com/maria-juan
+        </span>
+        <div className="mt-3 h-16 w-32 rounded-xl" style={{ background: 'linear-gradient(135deg, rgba(92,37,66,.12), rgba(191,106,67,.12))' }} />
+        <button type="button" className="mt-4 rounded-full bg-mulberry px-5 py-1.5 text-[10px] font-medium text-cream">Customize</button>
+      </div>
+    ),
+  },
+  {
+    caption: 'Your colors and story, automatically.',
+    hint: 'Swipe the tabs to style each page.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+        <div className="flex gap-1">
+          {['Settings', 'RSVP', 'Event', 'Editorial'].map((t, k) => (
+            <span key={t} className={`rounded-full px-2 py-0.5 text-[7px] ${k === 0 ? 'bg-terracotta text-cream' : 'bg-ink/5 text-ink/55'}`}>{t}</span>
+          ))}
+        </div>
+        <div className="relative mt-2 flex h-[120px] items-center justify-center rounded-lg border border-ink/10 bg-white">
+          <span className="absolute right-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-emerald-600/10 px-1.5 py-0.5 text-[6px] text-emerald-700"><span className="h-1 w-1 animate-pulse rounded-full bg-emerald-500" /> Live preview</span>
+          <div className="text-center">
+            <span className="text-base italic" style={{ fontFamily: SERIF }}>Maria & Juan</span>
+            <span className="mx-auto mt-1 block h-px w-8" style={{ background: GOLD }} />
+          </div>
+        </div>
+        <div className="mt-2 rounded-lg border border-ink/10 p-2">
+          <p className="text-[8px] font-medium">Your colors</p>
+          <div className="mt-1 flex gap-1.5">{['#bf6a43', MULB, GOLD].map((c, k) => <span key={k} className="h-4 w-4 rounded-full" style={{ background: c }} />)}</div>
+        </div>
+      </div>
+    ),
+  },
+  {
+    caption: 'Guests RSVP and reserve their place.',
+    hint: 'They tap once — you see who’s coming.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-4 text-ink">
+        <span className="font-mono text-[8px] uppercase tracking-[0.2em] text-terracotta">RSVP</span>
+        <div className="mt-2 grid grid-cols-3 gap-1.5">
+          <span className="rounded-lg bg-emerald-600 py-2 text-center text-[8px] font-medium text-white">I’ll be there</span>
+          <span className="rounded-lg border border-ink/15 py-2 text-center text-[8px] text-ink/60">Maybe</span>
+          <span className="rounded-lg border border-ink/15 py-2 text-center text-[8px] text-ink/60">Can’t</span>
+        </div>
+        <div className="mt-2 flex items-center gap-1.5 rounded-md bg-emerald-600/10 px-2 py-1.5">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+          <span className="text-[9px] font-medium text-emerald-800">Your place is reserved</span>
+        </div>
+        <button type="button" className="mt-3 w-full rounded-md bg-mulberry py-1.5 text-[10px] font-medium text-cream">Save RSVP</button>
+      </div>
+    ),
+  },
+  {
+    caption: 'After the day, it becomes your story.',
+    hint: 'Your page turns into a keepsake recap.',
+    scene: (
+      <div className="absolute inset-0 flex items-center justify-center px-4" style={{ background: '#e7e2d6' }}>
+        <div className="w-full rounded-md border-t-2 border-ink bg-cream p-4 text-center text-ink">
+          <span className="font-mono text-[7px] uppercase tracking-[0.2em] text-terracotta">A celebration</span>
+          <p className="mt-1 text-base leading-tight" style={{ fontFamily: SERIF }}>Maria & Juan Are Married</p>
+          <span className="mx-auto mt-1.5 block h-px w-12" style={{ background: GOLD }} />
+          <div className="mt-2 h-12 w-full rounded" style={{ background: '#F0997B' }} />
+          <p className="mt-1.5 font-mono text-[6px] uppercase tracking-[0.15em]" style={{ color: MULB }}>By the Setnayan desk</p>
+        </div>
+      </div>
+    ),
+  },
+];
+
+// ── Music Creator — free → moods → use → backs every video ──
+const PURPLE = 'linear-gradient(135deg, #1A0B2E, #6B3FA0)';
+const MUSIC_CREATOR_SCENES: RichFrame[] = [
+  {
+    caption: 'Music you’re cleared to use, free.',
+    hint: 'Open Music in Studio.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-4 text-ink">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl text-white" style={{ background: PURPLE }}>
+          <Music aria-hidden className="h-6 w-6" strokeWidth={1.75} />
+        </div>
+        <span className="mt-3 font-mono text-[8px] uppercase tracking-[0.2em] text-ink/50">Music</span>
+        <p className="text-[14px] font-semibold tracking-tight" style={{ fontFamily: SERIF }}>A soundtrack you can actually use.</p>
+        <p className="mt-1 text-[9px] text-ink/65">Cleared for every wedding video. No fees, ever.</p>
+        <button type="button" className="mt-3 w-full rounded-md bg-mulberry py-2 text-[11px] font-medium text-cream">Open</button>
+      </div>
+    ),
+  },
+  {
+    caption: 'Find the feel for your day.',
+    hint: 'Tap a mood to preview.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+        <p className="text-[12px] font-semibold" style={{ fontFamily: SERIF }}>Library</p>
+        <p className="text-[8px] text-ink/55">Browse by mood and feel.</p>
+        <div className="mt-2 space-y-1.5">
+          {['Romantic & soft', 'Joyful celebration', 'Cinematic build', 'Acoustic & warm'].map((m, k) => (
+            <div key={m} className={`flex items-center gap-2 rounded-lg border bg-white p-2 ${k === 0 ? 'border-mulberry' : 'border-ink/10'}`}>
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-ink/5"><Music aria-hidden className="h-3 w-3 text-ink/50" strokeWidth={2} /></span>
+              <span className="flex-1 text-[9px] font-medium">{m}</span>
+              <Play aria-hidden className="h-3 w-3 text-terracotta" strokeWidth={2} />
+            </div>
+          ))}
+        </div>
+      </div>
+    ),
+  },
+  {
+    caption: 'Your song, locked to your wedding.',
+    hint: 'Tap Use this track.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-4 text-ink">
+        <div className="flex items-center gap-2 rounded-lg border border-ink/10 bg-white p-2.5">
+          <Music aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={2} />
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-medium">Soundtrack</p>
+            <p className="truncate text-[8px] text-ink/55">Golden Hour — romantic.mp3</p>
+          </div>
+          <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-600 px-1.5 py-0.5 text-[7px] font-medium text-white"><Check aria-hidden className="h-2 w-2" strokeWidth={3} /> Added</span>
+        </div>
+        <button type="button" className="mt-3 inline-flex items-center justify-center gap-1.5 rounded-md border py-1.5 text-[10px] font-medium" style={{ borderColor: MULB, color: MULB }}>
+          <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2} /> Make a custom track
+        </button>
+      </div>
+    ),
+  },
+  {
+    caption: 'Backs every wedding video you make.',
+    hint: 'Reels, save-the-date, your gallery.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-cream px-4 text-ink">
+        <div className="flex h-20 w-32 items-end justify-center rounded-lg p-2 text-white" style={{ background: PURPLE }}>
+          <div className="flex h-6 w-full items-end gap-0.5">
+            {[5, 9, 4, 11, 6, 10, 3, 8].map((h, k) => <span key={k} className="flex-1 rounded-sm" style={{ height: `${h * 2}px`, background: GOLD }} />)}
+          </div>
+        </div>
+        <p className="mt-3 text-[12px]" style={{ fontFamily: SERIF }}>On every video from your day.</p>
+        <p className="mt-1 font-mono text-[7px] uppercase tracking-[0.15em] text-ink/45">No licences · no per-video fees</p>
+      </div>
+    ),
+  },
+];
+
+// ── Pakanta — for you → notes → ready → scores every video ──
+const PAKANTA_SCENES: RichFrame[] = [
+  {
+    caption: 'A song made only for the two of you.',
+    hint: 'Tap Pakanta in your services.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col bg-cream px-4 pt-4 text-ink">
+        <div className="flex items-center gap-2">
+          <span className="flex h-10 w-10 items-center justify-center rounded-lg" style={{ background: 'rgba(92,37,66,.1)' }}><Music aria-hidden className="h-5 w-5" style={{ color: MULB }} strokeWidth={1.75} /></span>
+          <div>
+            <p className="text-[14px] font-semibold">Pakanta</p>
+            <p className="text-[8px] text-ink/60">An original song for your wedding — yours, forever.</p>
+          </div>
+        </div>
+        <div className="mt-3 rounded-lg border border-ink/10 bg-cream p-2.5">
+          <p className="font-mono text-[6px] uppercase tracking-[0.15em] text-ink/45">Your song will be written from this</p>
+          <p className="mt-1.5 text-[8px] text-ink/75">• How you met: a rainy queue at a Cubao café</p>
+          <p className="text-[8px] text-ink/75">• The proposal: her lola’s garden, Tagaytay</p>
+        </div>
+      </div>
+    ),
+  },
+  {
+    caption: 'Add a few notes — we know your story.',
+    hint: 'Type pet names and a favourite singer.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-4 text-ink">
+        <div className="rounded-xl border border-ink/10 bg-white p-3">
+          <p className="font-mono text-[6px] uppercase tracking-[0.15em] text-ink/45">A few music notes</p>
+          <p className="mt-2 text-[8px] text-ink/60">What do you call each other?</p>
+          <div className="mt-1 rounded border border-ink/15 px-2 py-1.5 text-[8px] text-ink/40">Bibo & Honey</div>
+          <div className="mt-2 grid grid-cols-2 gap-1.5">
+            <div className="rounded border-2 px-2 py-1.5 text-[8px] text-ink/40" style={{ borderColor: 'rgba(92,37,66,.4)' }}>Bruno Mars</div>
+            <div className="rounded border border-ink/15 px-2 py-1.5 text-[8px] text-ink/40">Moira</div>
+          </div>
+          <button type="button" className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-mulberry py-1.5 text-[9px] font-medium text-cream">
+            <Music aria-hidden className="h-3 w-3" strokeWidth={2} /> Continue to payment · ₱3,499
+          </button>
+        </div>
+      </div>
+    ),
+  },
+  {
+    caption: 'Your finished song, yours to keep.',
+    hint: 'It arrives ready for your big day.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-cream px-4 text-ink">
+        <span className="flex h-14 w-14 items-center justify-center rounded-full" style={{ background: 'rgba(197,160,89,.18)' }}><Music aria-hidden className="h-7 w-7" style={{ color: GOLD }} strokeWidth={1.5} /></span>
+        <p className="mt-2 text-[14px] font-semibold">Your song is ready</p>
+        <div className="mt-2 w-full rounded-lg border border-ink/10 bg-white p-2">
+          <div className="flex items-center gap-2">
+            <Play aria-hidden className="h-4 w-4" style={{ color: MULB }} strokeWidth={2} />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[9px] font-medium">Bibo & Honey — Our Song</p>
+              <p className="text-[7px] text-ink/55">Original · acoustic ballad</p>
+            </div>
+            <span className="rounded-full bg-emerald-600/15 px-1.5 py-0.5 text-[6px] font-medium text-emerald-700">Delivered</span>
+          </div>
+          <div className="mt-1.5 h-0.5 w-2/3 rounded-full" style={{ background: GOLD }} />
+        </div>
+      </div>
+    ),
+  },
+  {
+    caption: 'It scores every video from your day.',
+    hint: 'Plays across your wedding page.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col bg-cream text-ink">
+        <div className="flex h-24 items-end p-2" style={{ background: 'linear-gradient(160deg, #d98a6a, #f7f2ea)' }}>
+          <span className="text-base italic text-white" style={{ fontFamily: SERIF }}>Maria & Juan</span>
+        </div>
+        <div className="flex-1 space-y-2 p-2.5">
+          <div className="h-10 rounded bg-ink/5" />
+          <div className="flex h-12 items-center justify-center rounded bg-ink/5"><Play aria-hidden className="h-4 w-4 text-ink/40" strokeWidth={1.5} /></div>
+        </div>
+        <div className="absolute bottom-3 left-3 inline-flex items-center gap-1.5">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full border border-ink/10 bg-cream"><Music aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={2} /></span>
+          <span className="text-[7px] text-ink/60">Your Pakanta song</span>
+        </div>
+      </div>
+    ),
+  },
+];
+
+// ── Playlist — timeline → add → no-plays → handed to DJ ──
+const PLAYLIST_SCENES: RichFrame[] = [
+  {
+    caption: 'Your whole day, song by song.',
+    hint: 'Scroll the timeline of moments.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+        <span className="w-fit rounded-full bg-terracotta px-2 py-0.5 font-mono text-[6px] uppercase tracking-[0.12em] text-cream">Playlist</span>
+        <p className="mt-1.5 text-[13px] italic" style={{ fontFamily: SERIF }}>Your wedding playlist</p>
+        <div className="mt-2 space-y-1.5">
+          {['Processional', 'Ceremony', 'Cocktail hour', 'First dance · 1 song', 'Dinner'].map((s) => (
+            <div key={s} className="rounded-lg border border-ink/15 px-2.5 py-1.5 text-[9px] italic" style={{ fontFamily: SERIF }}>{s}</div>
+          ))}
+          <div className="rounded-lg border px-2.5 py-1.5 text-[9px] italic" style={{ fontFamily: SERIF, background: '#fce8ec', borderColor: '#f3c2cd', color: '#9f1239' }}>Don’t play these</div>
+        </div>
+      </div>
+    ),
+  },
+  {
+    caption: 'Drop in the song for the moment.',
+    hint: 'Tap Add a song, type title + artist.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-4 text-ink">
+        <div className="rounded-xl border border-ink/10 bg-white p-3">
+          <p className="text-[11px] italic" style={{ fontFamily: SERIF }}>First dance</p>
+          <div className="mt-1 flex items-center justify-between rounded bg-ink/5 px-2 py-1 text-[8px]"><span>Perfect — Ed Sheeran</span><span className="text-ink/40">✎ 🗑</span></div>
+          <p className="mt-2 font-mono text-[6px] uppercase tracking-[0.12em] text-ink/55">Song</p>
+          <div className="mt-0.5 rounded border border-ink/15 px-2 py-1 text-[8px]">At Last</div>
+          <p className="mt-1.5 font-mono text-[6px] uppercase tracking-[0.12em] text-ink/55">Artist</p>
+          <div className="mt-0.5 rounded border border-ink/15 px-2 py-1 text-[8px]">Etta James</div>
+          <button type="button" className="mt-2 inline-flex w-full items-center justify-center gap-1 rounded-full bg-mulberry py-1.5 text-[9px] font-medium text-cream"><Music aria-hidden className="h-2.5 w-2.5" strokeWidth={2} /> Add</button>
+        </div>
+      </div>
+    ),
+  },
+  {
+    caption: 'Flag the songs you never want.',
+    hint: 'Add no-plays your DJ will see.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-4 text-ink">
+        <div className="rounded-xl border p-3" style={{ background: '#fdeef0', borderColor: '#f3c2cd' }}>
+          <p className="text-[11px] italic" style={{ fontFamily: SERIF, color: '#9f1239' }}>Don’t play these</p>
+          <p className="text-[7px]" style={{ color: '#be556e' }}>Songs you do NOT want played.</p>
+          <div className="mt-2 space-y-1">
+            <div className="flex items-center justify-between rounded bg-white/80 px-2 py-1 text-[8px]"><span>Macarena — Los del Río</span><span className="text-ink/30">🗑</span></div>
+            <div className="flex items-center justify-between rounded bg-white/80 px-2 py-1 text-[8px]"><span>Cha Cha Slide</span><span className="text-ink/30">🗑</span></div>
+          </div>
+          <p className="mt-2 text-[8px] font-medium" style={{ color: '#9f1239' }}>+ Add a no-play</p>
+        </div>
+      </div>
+    ),
+  },
+  {
+    caption: 'Handed straight to your DJ.',
+    hint: 'Books a music vendor — it syncs itself.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+        <p className="text-[12px] italic" style={{ fontFamily: SERIF }}>Your wedding playlist</p>
+        <div className="mt-2 flex items-start gap-1.5 rounded-lg border px-2 py-2" style={{ background: '#ecfdf5', borderColor: '#a7f3d0' }}>
+          <Sparkles aria-hidden className="mt-0.5 h-3 w-3 shrink-0 text-emerald-600" strokeWidth={2} />
+          <span className="text-[8px] leading-snug text-emerald-900">Synced with Beats Manila — they see your lineup. Edit anytime.</span>
+        </div>
+        <p className="mt-2 text-[8px] text-ink/55">14 songs picked · 2 on the don’t-play list.</p>
+        <div className="mt-2 space-y-1">
+          {['Processional', 'First dance', 'Open floor'].map((s) => (
+            <div key={s} className="flex items-center gap-1.5 rounded-md border border-ink/10 px-2 py-1 text-[8px]">
+              <Check aria-hidden className="h-2.5 w-2.5 text-emerald-600" strokeWidth={2.5} /> {s}
+            </div>
+          ))}
+        </div>
+      </div>
+    ),
+  },
+];
+
 const RICH_SCENES: Record<string, RichFrame[]> = {
   papic: PAPIC_SCENES,
   'save-the-date': SAVE_THE_DATE_SCENES,
@@ -770,6 +1170,11 @@ const RICH_SCENES: Record<string, RichFrame[]> = {
   patiktok: PATIKTOK_SCENES,
   led: LED_SCENES,
   'indoor-blueprint': INDOOR_BLUEPRINT_SCENES,
+  'setnayan-ai': SETNAYAN_AI_SCENES,
+  'landing-page': LANDING_PAGE_SCENES,
+  'music-creator': MUSIC_CREATOR_SCENES,
+  pakanta: PAKANTA_SCENES,
+  playlist: PLAYLIST_SCENES,
 };
 
 /** Slugs that have a built-in native demo — lets the layout render the demo

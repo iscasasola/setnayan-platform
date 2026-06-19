@@ -4,6 +4,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · fix(disputes): state-guard resolveDispute + restore the severed completion→demotion chain
+
+Cross-account QA fix (owner-approved 2026-06-19). Two related dispute-governance gaps.
+
+- **(m1) `resolveDispute` had no state-machine guard** — `app/admin/disputes/actions.ts`: the UPDATE flipped `status` regardless of the current value, so a double-click after a 503, a race between two admins, or a stale page render would re-fire the opener notification + re-stamp `resolved_at` on an already-resolved dispute. Added `.eq('status','open')` to the UPDATE and switched `.single()` → `.maybeSingle()`; a 0-row result now re-reads the row and surfaces `Dispute already resolved (status: …). Refresh the page.` (mirrors `approvePayment`'s pending→matched guard in `app/admin/payments/actions.ts`). Also added an `admin_audit_log` row on every resolution (`action='dispute_resolved'`, `before_json={status:'open'}`, `after_json={status:<resolution>}`, `reason=notes`, `actor_user_id`) — best-effort/fail-soft, using the canonical insert shape (no `metadata` column — that column doesn't exist on `admin_audit_log` in V1).
+- **(C) `vendor_disputes` was orphaned for INSERT → completion-dispute auto-demotion chain was severed** — nothing wrote `vendor_disputes`, so the nightly `api/admin/cron/dispute-counter` (3+ in a rolling 30-day window → demote verified vendor to `coming_soon`) had no input. Both non-delivery entry points now ALSO open a `vendor_disputes` row (`counts_toward_demotion=true`, status defaults to `'open'`):
+  - `app/dashboard/[eventId]/vendors/[vendorId]/review/actions.ts` — `coupleReportNonDelivery` opens a `category='no_show'` dispute attributed to the reporting couple member.
+  - `app/admin/completions/actions.ts` — `upholdNonDelivery` opens a `category='quality_issue'` dispute (admin-confirmed non-delivery), attributed to the first couple member.
+  - Both go through a local inlined helper (per the repo's copy-per-file convention for `requireAdmin`) that **honors the table's constraints**: resolves `vendor_profile_id` from `event_vendors.marketplace_vendor_id` (SKIP when null — off-platform vendor, nothing to demote + FK would reject); links the most-recent matching `orders.order_id` to satisfy the `CHECK (payout_id IS NOT NULL OR order_id IS NOT NULL)` when one exists; and dedupes (linked `order_id` when present, else `(vendor_profile_id, opened_by, category, status='open')`) so a repeat report never stacks duplicate open disputes. The whole helper is **fail-soft**: when a booking has neither an order nor a payout on file (the common case — vendor money is off-platform per RA 11967), the insert can't satisfy the CHECK, is logged, and swallowed so the caller's primary completion write always commits.
+
+No migration: `vendor_disputes` already exists (migration `20260516210000_vendor_payout_model.sql`). Code is backward-compatible whether or not any pending migration is applied. Self-reviewed against TS strict (no local `node_modules` → no typecheck/lint here; CI gates). Owned files only: `app/admin/disputes/actions.ts`, `app/dashboard/[eventId]/vendors/[vendorId]/review/actions.ts`, `app/admin/completions/actions.ts`.
+
+> ⚠ Owner note: the demotion chain now fires reliably **only** for the disputes that link an order or payout (the CHECK requires one). For purely off-platform vendor bookings (no order, no payout) the `vendor_disputes` insert no-ops by design, so those won't accrue toward auto-demotion. If off-platform completion non-deliveries should also count, that needs a schema change (e.g. an `event_vendor_id` column + relaxed CHECK on `vendor_disputes`) — flagged, not silently changed. Separately, the pre-existing `writeAudit` in `app/admin/completions/actions.ts` inserts a `metadata` column that `admin_audit_log` doesn't have (latent silent-failure inside its own try/catch); left untouched to stay in scope.
+
+SPEC IMPACT: 0006 Vendors / 0023 Admin Console dispute governance — `resolveDispute` is now state-guarded + audited, and the completion-handshake non-delivery flow (couple report + admin uphold) now feeds the demotion cron via `vendor_disputes` rows. No SKU/pricing change. Will log in `DECISION_LOG.md`.
+
+---
+
 ## 2026-06-19 · fix(nav): menu-connectivity cleanup — all no-decision fixes from the 2026-06-19 menu audit
 
 Applies the six safe, no-decision fixes surfaced by the 2026-06-19 menu-connectivity audit (commit `70684a81`). Nav config only — no behavior, schema, or pricing change.

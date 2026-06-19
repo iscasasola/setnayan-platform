@@ -300,6 +300,17 @@ Fix (`save-the-date-film.tsx`): unlock the `<audio>` on the guest's **first real
 Verified: `pnpm typecheck` clean. (iOS audio can't be exercised headlessly — owner verifies on a phone.) No migration.
 
 SPEC IMPACT: iter 0024 Save-the-Date — mobile soundtrack-on-lift fix. See `DECISION_LOG.md` 2026-06-19.
+## 2026-06-19 · fix(hosts): "Could not send invitation: NEXT_REDIRECT" — couples couldn't add hosts (PR pending, auto-merge)
+
+Owner: *"i cannot add hosts. something went wrong."*
+
+Root cause: `inviteHost` in `app/dashboard/[eventId]/hosts/actions.ts` called the success `redirect(…?invite_sent=1&token=…)` **inside** a `try`. Next implements `redirect()` by throwing a `NEXT_REDIRECT` error, so the surrounding `catch (e)` swallowed it and re-redirected to `?invite_error=${e.message}` = `NEXT_REDIRECT`. The hosts page then rendered **"Could not send invitation: NEXT_REDIRECT"** on *every* invite — including ones that actually inserted the row. The same masking hid genuine DB/validation errors. Latent since the feature shipped (commit `e23f96e9`, 2026-05-24); surfaced now that the multi-host invite flow was exercised.
+
+Fix: re-throw Next's control-flow error in the catch — `if (isRedirectError(e)) throw e;` — before the `invite_error` fallback. Matches the existing convention in `app/signup/actions.ts`. Now the success redirect lands on `?invite_sent=1` (couple sees the share link), and only real failures (Forbidden, bad email/role, DB errors) surface their actual message.
+
+Verified: change mirrors the proven `isRedirectError` pattern already in `signup/actions.ts`; import path resolves against the installed Next 15.5.18 (`next/dist/client/components/redirect-error`). Relying on CI typecheck + build (auto-merge gate). No migration.
+
+SPEC IMPACT: None — restores the already-specced multi-host invite (iter 0048) to working order; no behavior/pricing/schema change.
 
 ## 2026-06-19 · feat(std): press-to-glow on the Save-the-Date + admin Reveal Studio control (PR pending, auto-merge)
 

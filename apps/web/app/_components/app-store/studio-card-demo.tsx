@@ -1,8 +1,12 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
-import { Play, Pause, Users, Check, ChevronUp, Music, QrCode, Download } from 'lucide-react';
+import {
+  Play, Pause, Users, Check, ChevronUp, Music, QrCode, Download,
+  Printer, Cloud, ShieldCheck, MapPin,
+} from 'lucide-react';
 
+const MULB = 'var(--m-mulberry, #5C2542)';
 const GOLD = '#C5A059';
 const BLUSH = '#F6ECEC';
 const SAGE = '#9CAF88';
@@ -373,11 +377,399 @@ const MOOD_BOARD_SCENES: RichFrame[] = [
   },
 ];
 
+// ── Custom QR per guest — branded → compare → all guests → print pack ──
+function qrCard(name: string, role: string) {
+  return (
+    <div key={name} className="rounded-lg border border-ink/10 bg-white p-2 text-center">
+      <QrCode aria-hidden className="mx-auto h-9 w-9" strokeWidth={1} style={{ color: MULB }} />
+      <p className="mt-1 text-[8px] italic" style={{ fontFamily: SERIF }}>{name}</p>
+      <p className="font-mono text-[6px] uppercase tracking-[0.15em] text-ink/50">{role}</p>
+    </div>
+  );
+}
+const CUSTOM_QR_SCENES: RichFrame[] = [
+  {
+    caption: 'A code worthy of your invitation.',
+    hint: 'Open Custom QR per guest in Studio.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-cream px-4 text-ink">
+        <span className="font-mono text-[8px] uppercase tracking-[0.22em] text-terracotta">Custom QR per guest</span>
+        <div className="mt-3 rounded-xl border border-ink/10 bg-white p-4 text-center">
+          <div className="relative mx-auto flex h-24 w-24 items-center justify-center">
+            <QrCode aria-hidden className="h-24 w-24" strokeWidth={0.75} style={{ color: MULB }} />
+            <span className="absolute flex h-8 w-8 items-center justify-center rounded-full text-[10px] text-cream ring-2 ring-cream" style={{ background: MULB, fontFamily: SERIF }}>A&amp;J</span>
+          </div>
+          <p className="mt-2 text-[12px] italic" style={{ fontFamily: SERIF }}>Anjelica &amp; José</p>
+          <p className="font-mono text-[7px] uppercase tracking-[0.2em] text-ink/55">December 14 · 2026</p>
+        </div>
+      </div>
+    ),
+  },
+  {
+    caption: 'See plain become unmistakably yours.',
+    hint: 'Compare the default and branded code.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-4 text-ink">
+        <span className="font-mono text-[8px] uppercase tracking-[0.2em] text-terracotta">Your QR, two ways</span>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <div className="rounded-lg border border-ink/10 bg-white p-2 text-center">
+            <QrCode aria-hidden className="mx-auto h-12 w-12 text-ink" strokeWidth={0.75} />
+            <p className="mt-1 text-[8px] font-medium">Default — free</p>
+          </div>
+          <div className="relative rounded-lg border-2 border-terracotta bg-white p-2 text-center">
+            <span className="absolute right-1 top-1 rounded-full bg-terracotta px-1 py-0.5 text-[6px] font-medium text-cream">Upgrade</span>
+            <QrCode aria-hidden className="mx-auto h-12 w-12" strokeWidth={0.75} style={{ color: MULB }} />
+            <p className="mt-1 text-[8px] font-medium">Branded</p>
+          </div>
+        </div>
+        <button type="button" className="mt-auto mb-4 w-full rounded-md bg-mulberry py-1.5 text-[10px] font-medium text-cream">Brand my guests’ QRs</button>
+      </div>
+    ),
+  },
+  {
+    caption: 'Every guest, already done.',
+    hint: 'Open after purchase to see them all.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+        <div className="flex items-center gap-1.5 rounded-md bg-emerald-600/12 px-2 py-1.5">
+          <Check aria-hidden className="h-3 w-3 text-emerald-700" strokeWidth={2.5} />
+          <span className="text-[9px] font-medium text-emerald-800">Your branded QR cards are ready</span>
+        </div>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          {qrCard('Anjelica', 'Bride')}
+          {qrCard('José M.', 'Groom')}
+          {qrCard('Lola Rosa', 'Ninang')}
+          {qrCard('Tito Ben', 'Guest')}
+        </div>
+      </div>
+    ),
+  },
+  {
+    caption: 'Hand the whole set to your stationer.',
+    hint: 'Tap Print all (A4).',
+    scene: (
+      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+        <span className="font-mono text-[8px] uppercase tracking-[0.2em] text-terracotta">Print pack · A4</span>
+        <p className="text-[11px] font-semibold">Ready for your stationer</p>
+        <div className="mt-2 flex-1 rounded-lg border border-dashed border-ink/25 bg-white p-2">
+          <div className="grid grid-cols-3 gap-1.5">
+            {Array.from({ length: 6 }, (_, k) => (
+              <div key={k} className="rounded border border-ink/5 p-1 text-center" style={{ background: '#FAF7F2' }}>
+                <QrCode aria-hidden className="mx-auto h-7 w-7" strokeWidth={0.75} style={{ color: MULB }} />
+              </div>
+            ))}
+          </div>
+        </div>
+        <button type="button" className="mt-2 mb-3 inline-flex items-center justify-center gap-1.5 rounded-md border border-ink/15 bg-white py-1.5 text-[10px] font-medium">
+          <Printer aria-hidden className="h-3 w-3" strokeWidth={2} /> Print all (A4)
+        </button>
+      </div>
+    ),
+  },
+];
+
+// ── Photo Delivery — connect → hold → copy → delivered ──
+const PHOTO_DELIVERY_SCENES: RichFrame[] = [
+  {
+    caption: 'Every photo, in your hands.',
+    hint: 'Tap Connect Google Drive to begin.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-4 text-ink">
+        <p className="text-[14px] font-semibold tracking-tight">Keep your own copy in Drive</p>
+        <p className="mt-1.5 text-[10px] text-ink/65">We drop every finished photo into one folder you own, forever.</p>
+        <span className="mt-3 inline-flex w-fit items-center gap-1 rounded-md border border-terracotta/50 px-2 py-1 text-[8px] text-terracotta">
+          <ShieldCheck aria-hidden className="h-3 w-3" strokeWidth={2} /> Only the folder it creates
+        </span>
+        <button type="button" className="mt-4 inline-flex items-center justify-center gap-1.5 rounded-md bg-mulberry py-2 text-[11px] font-medium text-cream">
+          <Cloud aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Connect Google Drive
+        </button>
+      </div>
+    ),
+  },
+  {
+    caption: 'Setnayan holds them till you’re ready.',
+    hint: 'Tap Release to Drive when review’s done.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col bg-cream px-4 pt-4 text-ink">
+        <div className="rounded-lg bg-emerald-600/10 p-3">
+          <div className="flex items-center gap-1.5 text-emerald-800">
+            <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} /><span className="text-[11px] font-semibold">Drive connected</span>
+          </div>
+          <p className="mt-1 font-mono text-[7px] text-emerald-700/80">Folder: Setnayan · Maria &amp; Juan</p>
+        </div>
+        <div className="mt-3 rounded-lg border border-ink/10 bg-white p-3" style={{ borderTopColor: GOLD, borderTopWidth: 2 }}>
+          <p className="text-[11px] font-medium">Ready when you are</p>
+          <p className="mt-0.5 text-[9px] text-ink/60">Release the full archive in one pass.</p>
+          <button type="button" className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-mulberry py-1.5 text-[10px] font-medium text-cream">
+            <Cloud aria-hidden className="h-3 w-3" strokeWidth={2} /> Release to Drive
+          </button>
+        </div>
+      </div>
+    ),
+  },
+  {
+    caption: 'The originals copy themselves over.',
+    hint: 'Just watch — it runs in the background.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-4 text-ink">
+        <div className="rounded-lg border border-ink/10 bg-white p-3">
+          <p className="text-2xl font-semibold tracking-tight">847<span className="text-sm text-ink/40"> / 1,372</span></p>
+          <p className="text-[9px] text-ink/60">photos · 5.2 GB of 8.4 GB</p>
+          <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-ink/10"><div className="h-full rounded-full bg-emerald-600" style={{ width: '62%' }} /></div>
+          <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-terracotta/10 px-2 py-0.5 text-[7px] text-terracotta">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-terracotta" /> Live sync active
+          </span>
+        </div>
+      </div>
+    ),
+  },
+  {
+    caption: 'Yours to keep — and guests get theirs.',
+    hint: 'Tap Open in Drive for the full archive.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-4 text-ink">
+        <div className="rounded-lg bg-emerald-600/10 p-3">
+          <p className="font-mono text-[7px] uppercase tracking-[0.18em] text-emerald-700">Delivery complete</p>
+          <p className="mt-1 text-[13px] font-semibold text-emerald-900">All photos are in your Drive</p>
+          <p className="mt-0.5 text-[9px] text-emerald-800/80">1,372 files · 8.4 GB · 5-year backup kept.</p>
+          <button type="button" className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-[10px] font-medium text-white">Open in Drive</button>
+        </div>
+        <div className="mt-2 rounded-lg border border-ink/10 bg-white p-2.5 text-[9px] text-ink/65" style={{ borderLeftColor: GOLD, borderLeftWidth: 3 }}>
+          Your guests get the photos they’re in — shared automatically.
+        </div>
+      </div>
+    ),
+  },
+];
+
+// ── Patiktok — pick → set → render → ready ──
+const PATIKTOK_SCENES: RichFrame[] = [
+  {
+    caption: 'Pick a vertical look you love.',
+    hint: 'Tap a style to choose it.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+        <span className="font-mono text-[7px] uppercase tracking-[0.2em] text-terracotta">Patiktok · reel station</span>
+        <p className="text-[12px] font-semibold">Pick the reel templates</p>
+        <div className="mt-1.5 flex gap-1">
+          <span className="rounded-full bg-terracotta px-2 py-0.5 text-[7px] text-cream">All</span>
+          <span className="rounded-full border border-ink/10 px-2 py-0.5 text-[7px] text-ink/55">Ceremony</span>
+          <span className="rounded-full border border-ink/10 px-2 py-0.5 text-[7px] text-ink/55">Reception</span>
+        </div>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <div className="flex aspect-[9/16] flex-col justify-between overflow-hidden rounded-lg border border-ink/10 p-2" style={{ background: '#FAF7F2' }}>
+            <span className="h-1 w-full rounded bg-terracotta" />
+            <span className="text-center text-[10px]" style={{ fontFamily: SERIF, color: '#5a3a2a' }}>Ana &amp; Marco</span>
+            <div className="flex gap-0.5">{PAL.map((c, k) => <span key={k} className="h-1 flex-1" style={{ background: c }} />)}</div>
+          </div>
+          <div className="flex aspect-[9/16] items-center justify-center overflow-hidden rounded-lg border border-ink/10" style={{ background: '#0F0F0F' }}>
+            <span className="text-[10px]" style={{ fontFamily: SERIF, color: GOLD }}>A &amp; M</span>
+          </div>
+        </div>
+      </div>
+    ),
+  },
+  {
+    caption: 'Set the length and the song.',
+    hint: 'Slide the length, pick a track.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+        <span className="font-mono text-[7px] uppercase tracking-[0.2em] text-terracotta">Cebu Sunrise</span>
+        <div className="mt-1.5 rounded-lg border border-ink/10 bg-white p-2.5">
+          <p className="text-[10px] font-medium">Render this reel</p>
+          <div className="mt-2 flex items-center justify-between text-[9px]"><span className="text-ink/60">Mimic duration</span><span className="font-mono">15s</span></div>
+          <div className="mt-1 h-1.5 w-full rounded-full bg-ink/10"><div className="relative h-full w-1/2 rounded-full bg-terracotta"><span className="absolute -right-1.5 -top-1 h-3.5 w-3.5 rounded-full bg-terracotta" /></div></div>
+          <div className="mt-3 flex items-center gap-1.5 rounded-md border border-ink/15 px-2 py-1.5 text-[9px]">
+            <Music aria-hidden className="h-3 w-3 text-ink/50" /><span className="text-ink/70">Auto-pick from template</span>
+          </div>
+          <button type="button" className="mt-2 inline-flex w-full items-center justify-center rounded-md bg-mulberry py-1.5 text-[10px] font-medium text-cream">Render reel</button>
+        </div>
+      </div>
+    ),
+  },
+  {
+    caption: 'Watch it come together right here.',
+    hint: 'Tap Render — keep the tab open.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-4 text-ink">
+        <div className="rounded-md bg-emerald-600/10 px-2 py-1 text-[8px] font-medium text-emerald-800">Render queued — ready soon</div>
+        <div className="mt-2 rounded-lg p-3" style={{ background: 'rgba(92,37,66,.05)', border: '1px solid rgba(92,37,66,.3)' }}>
+          <p className="text-[10px] font-medium" style={{ color: MULB }}>Rendering in your browser… 68%</p>
+          <div className="mt-2 h-2 w-full rounded-full bg-ink/10"><div className="h-full rounded-full" style={{ width: '68%', background: MULB }} /></div>
+          <p className="mt-1.5 text-[8px] text-ink/55">No server, no wait queue.</p>
+        </div>
+      </div>
+    ),
+  },
+  {
+    caption: 'Your reel, ready to share.',
+    hint: 'Tap Download, post to your stories.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-cream px-4 text-ink">
+        <div className="flex aspect-[9/16] w-[128px] items-center justify-center rounded-lg bg-black text-cream"><Play aria-hidden className="h-6 w-6" strokeWidth={1.5} /></div>
+        <button type="button" className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-[10px] font-medium text-white">
+          <Download aria-hidden className="h-3 w-3" strokeWidth={2} /> Download reel
+        </button>
+        <span className="mt-1.5 font-mono text-[7px] uppercase tracking-[0.15em] text-ink/45">Saved to your event gallery</span>
+      </div>
+    ),
+  },
+];
+
+// ── LED Background — hero → templates → customize → ready ──
+const LED_SCENES: RichFrame[] = [
+  {
+    caption: 'Your name, twenty feet tall on stage.',
+    hint: 'Tap to open the background maker.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col" style={{ background: 'radial-gradient(circle at 50% 35%, #0F2A4A, #050D1F)' }}>
+        <div className="flex flex-1 items-center justify-center p-4">
+          <div className="flex aspect-video w-full items-center justify-center rounded" style={{ background: 'radial-gradient(circle, #14365e, #08182e)' }}>
+            <span className="text-2xl" style={{ fontFamily: SERIF, color: GOLD }}>A &amp; R</span>
+          </div>
+        </div>
+        <div className="px-4 pb-7 text-center text-cream">
+          <span className="font-mono text-[8px] uppercase tracking-[0.2em]" style={{ color: GOLD }}>Pailaw · LED background</span>
+          <p className="mt-1 text-base" style={{ fontFamily: SERIF }}>Your name, twenty feet tall.</p>
+          <span className="mt-3 inline-block rounded-full bg-terracotta px-4 py-1 text-[10px] font-medium text-cream">Choose template</span>
+        </div>
+      </div>
+    ),
+  },
+  {
+    caption: 'Pick the look that’s yours.',
+    hint: 'Tap a template card to select.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+        <div className="flex items-center justify-between"><p className="text-[12px] font-semibold">Pick a template</p><span className="font-mono text-[7px] text-ink/55">10 motifs</span></div>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <div className="flex aspect-video items-center justify-center overflow-hidden rounded-lg border-2 border-terracotta" style={{ background: 'linear-gradient(135deg,#3A1226,#8B1E3F)' }}><span className="font-mono text-[8px] uppercase" style={{ color: GOLD }}>Velvet Sweep</span></div>
+          <div className="flex aspect-video items-center justify-center overflow-hidden rounded-lg border border-ink/10" style={{ background: '#0B0B0B' }}><span className="font-mono text-[8px] uppercase" style={{ color: GOLD }}>Gold Particles</span></div>
+          <div className="flex aspect-video items-center justify-center overflow-hidden rounded-lg border border-ink/10" style={{ background: '#0B1530' }}><span className="font-mono text-[8px] uppercase" style={{ color: GOLD }}>Constellation</span></div>
+          <div className="flex aspect-video items-center justify-center overflow-hidden rounded-lg border border-ink/10" style={{ background: 'radial-gradient(circle,#e8d5b5,#cbb088)' }}><span className="font-mono text-[8px] uppercase text-ink/60">Capiz</span></div>
+        </div>
+      </div>
+    ),
+  },
+  {
+    caption: 'Your photos and monogram, woven in.',
+    hint: 'Toggle Photo Pool to blend your photos.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+        <span className="font-mono text-[7px] uppercase tracking-[0.18em] text-ink/55">Customizing · Velvet Sweep</span>
+        <div className="mt-1.5 flex aspect-video items-center justify-center rounded-lg" style={{ background: 'linear-gradient(135deg,#3A1226,#8B1E3F)' }}><span className="text-lg" style={{ fontFamily: SERIF, color: GOLD }}>A &amp; R</span></div>
+        <div className="mt-2 flex items-center justify-between rounded-md border border-ink/10 px-2 py-1.5">
+          <span className="text-[9px]">Photo Pool blend</span>
+          <span className="flex h-3.5 w-6 items-center rounded-full bg-terracotta px-0.5"><span className="ml-auto h-2.5 w-2.5 rounded-full bg-cream" /></span>
+        </div>
+        <div className="mt-2 grid grid-cols-3 gap-1.5">
+          {['5 min', '10 min', '30 min'].map((m, k) => (
+            <span key={m} className={`rounded-md py-1 text-center text-[8px] ${k === 1 ? 'border border-terracotta bg-terracotta/5 text-ink' : 'border border-ink/10 text-ink/55'}`}>{m}</span>
+          ))}
+        </div>
+      </div>
+    ),
+  },
+  {
+    caption: 'Ready for the venue to play.',
+    hint: 'Tap save — we hand it to the venue.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col justify-center bg-emerald-50 px-4 text-ink">
+        <div className="flex items-center gap-1.5"><Check aria-hidden className="h-4 w-4 text-emerald-700" strokeWidth={2.5} /><span className="text-[12px] font-semibold text-emerald-900">Draft saved</span></div>
+        <p className="mt-1 text-[9px] text-emerald-800/80">A venue-ready master that plays offline — no Wi-Fi needed.</p>
+        <div className="mt-3 space-y-1 rounded-lg bg-white/70 p-2.5 text-[8px]">
+          <div className="flex justify-between"><span className="font-mono text-ink/50">TEMPLATE</span><span>Velvet Sweep</span></div>
+          <div className="flex justify-between"><span className="font-mono text-ink/50">LOOP</span><span>10 min · Photo blend</span></div>
+          <div className="flex justify-between"><span className="font-mono text-ink/50">DELIVERY</span><span style={{ color: GOLD }}>To the venue</span></div>
+        </div>
+      </div>
+    ),
+  },
+];
+
+// ── Indoor Blueprint — place → light up → guest view → calm ──
+const DOTTED = {
+  backgroundImage: 'radial-gradient(circle, rgba(0,0,0,.09) 1px, transparent 1px)',
+  backgroundSize: '10px 10px',
+  backgroundColor: '#faf6ef',
+};
+function floorMap(litT3: boolean) {
+  return (
+    <div className="relative flex-1 rounded-lg border border-ink/10" style={DOTTED}>
+      <span className="absolute left-1/2 top-1.5 -translate-x-1/2 rounded-full bg-ink/80 px-2 py-0.5 text-[6px] text-cream">Stage / Head</span>
+      <span className="absolute left-5 top-9 h-5 w-5 rounded-full border-2 border-ink/20" />
+      <span className="absolute right-5 top-9 h-5 w-5 rounded-full border-2 border-ink/20" />
+      {litT3 ? (
+        <span className="absolute bottom-12 left-5 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-[6px] font-medium text-white ring-2 ring-emerald-300">T3</span>
+      ) : (
+        <span className="absolute bottom-12 left-5 h-5 w-5 rounded-full border-2 border-ink/20" />
+      )}
+      <span className="absolute bottom-12 right-5 h-5 w-5 rounded-full border-2 border-ink/20" />
+      <span className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full border-2 border-terracotta px-1.5 py-0.5 text-[6px] text-terracotta">Entrance</span>
+    </div>
+  );
+}
+const INDOOR_BLUEPRINT_SCENES: RichFrame[] = [
+  {
+    caption: 'Place your venue’s front door once.',
+    hint: 'Drag the entrance in, tap Save.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+        <span className="font-mono text-[7px] uppercase tracking-[0.2em] text-terracotta">Indoor Blueprint</span>
+        <p className="text-[11px] font-semibold">Your whole venue, mapped</p>
+        {floorMap(false)}
+        <button type="button" className="mt-2 mb-3 self-end rounded-md bg-mulberry px-3 py-1.5 text-[10px] font-medium text-cream">Save entrance</button>
+      </div>
+    ),
+  },
+  {
+    caption: 'Each guest’s table lights up green.',
+    hint: 'Preview any guest — their seat appears.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+        <p className="text-center text-[11px] font-semibold">You’re at <span className="text-emerald-600">Table 3</span></p>
+        {floorMap(true)}
+        <p className="mt-2 mb-3 text-center text-[8px] text-ink/55">Follow the path to your table.</p>
+      </div>
+    ),
+  },
+  {
+    caption: 'Guests open their map from the invite.',
+    hint: 'Tap “Find my table” on your page.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+        <div className="flex items-center justify-between border-b border-ink/10 pb-1.5 text-[8px]"><span className="font-mono">Setnayan</span><span className="font-mono text-ink/55">Liza &amp; Marco</span></div>
+        <p className="mt-1.5 text-center font-mono text-[7px] uppercase tracking-[0.2em] text-terracotta">Find your table</p>
+        <p className="text-center text-[13px] font-semibold">You’re at <span className="text-emerald-700">Table 3</span></p>
+        <p className="flex items-center justify-center gap-1 text-[8px] text-ink/55"><MapPin aria-hidden className="h-2.5 w-2.5" /> Blue Leaf Pavilion</p>
+        <div className="mt-1.5 flex-1">{floorMap(true)}</div>
+      </div>
+    ),
+  },
+  {
+    caption: 'No crowd at the board, calm arrivals.',
+    hint: 'Everyone seats themselves on arrival.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-ink px-5 text-center text-cream">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-emerald-500"><Check aria-hidden className="h-5 w-5 text-emerald-400" strokeWidth={2} /></div>
+        <span className="mt-3 font-mono text-[8px] uppercase tracking-[0.22em]" style={{ color: GOLD }}>Arrived</span>
+        <p className="mt-1 text-base" style={{ fontFamily: SERIF }}>Everyone finds their seat, calmly</p>
+        <p className="mt-1.5 text-[9px] text-cream/55">No crowd at the board. No one wanders.</p>
+      </div>
+    ),
+  },
+];
+
 const RICH_SCENES: Record<string, RichFrame[]> = {
   papic: PAPIC_SCENES,
   'save-the-date': SAVE_THE_DATE_SCENES,
   'animated-monogram': ANIMATED_MONOGRAM_SCENES,
   'mood-board': MOOD_BOARD_SCENES,
+  'custom-qr-guest': CUSTOM_QR_SCENES,
+  'photo-delivery': PHOTO_DELIVERY_SCENES,
+  patiktok: PATIKTOK_SCENES,
+  led: LED_SCENES,
+  'indoor-blueprint': INDOOR_BLUEPRINT_SCENES,
 };
 
 /** Slugs that have a built-in native demo — lets the layout render the demo

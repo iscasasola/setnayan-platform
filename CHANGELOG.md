@@ -28,6 +28,46 @@ Owner: *"why does both sidebar/side nav is different"* → *"we want a universal
 Verified: nav-icon-source guard ✅ · nav-registry-defaults integrity 8/8 ✅ · tsc 0 · lint 0 (pre-existing warnings only) · production build green. Browser-visual deferred to the PR's Vercel preview (no runtime Supabase env on disk in this worktree).
 
 SPEC IMPACT: iter 0000 (app shell / nav) + 0021 / 0022 / 0023 (couple / vendor / admin dashboard chrome) — the account doorway now shares the universal SidebarShell and all four headers are unified via `DoorwaySidebarHeader` → logged in DECISION_LOG + memory. Owner sign-off flags carried in the PR: "Planning"/"Account" eyebrow copy; API-keys omitted from the account rail; no account-page bottom-nav on mobile.
+## 2026-06-18 · fix(orders): co-hosts can read their event's paid-SKU orders (RLS — NEEDS OWNER SIGN-OFF)
+
+Confirmed bug (verified via the do-everything assessment): `orders` RLS was buyer-only (`orders_owner_read` USING `user_id = auth.uid()`), but events are multi-member. A co-host who didn't click "buy" read **zero** order rows under the RLS-enforced anon client, so every event-scoped entitlement gate (`lib/entitlements.ts`) went dark for them — Studio, Papic live wall, Setnayan AI, budget ledger, launch/live surfaces, animated monogram.
+
+- **New migration** broadens **only the SELECT** policy to `user_id = auth.uid() OR event_id IN (current_event_ids()) OR is_admin()`. The WRITE policy is untouched — a co-host can read but never edit/cancel/refund/forge an order. Idempotent (`DROP POLICY IF EXISTS` + `CREATE`); null-safe on the nullable `event_id`.
+
+⚠ **NOT auto-merged — owner sign-off required.** This deliberately exposes one member's order line-items (amount, service_key, reference_code, voucher/discount, status, `admin_notes`) to every co-host on the event. That's the intended shared-planning behavior, but it's a real privacy widening — if any column is buyer-private, scope to a column-limited VIEW instead. The separate `payments` table (screenshots) is NOT touched.
+
+SPEC IMPACT iter 0034 — corrects a multi-member entitlement gap. → CHANGELOG + corpus DECISION_LOG (after sign-off).
+## 2026-06-18 · fix(profile): include vendor media in the RA 10173 data export
+
+The data-export endpoint claimed "vendor portfolio + media uploads (R2 wiring not yet built)" in its `not_included` list — but that's stale: `vendor_profiles.portfolio_r2_keys` ships live, and the raw keys were already in the payload (via `select('*')`), just as un-resolvable `r2://` refs. Additive fix, no new tables:
+
+- **`api/profile/export/route.ts`** — resolves the vendor's logo + `portfolio_r2_keys` to usable URLs (`displayUrlsForStoredAssets`) under `vendor_portfolio_media`, and includes the vendor's own day-of `editorial_vendor_media` (still/boomerang, resolved) under `vendor_submitted_media` — both via RLS-enforced reads, so a vendor only exports their OWN media. Raw `r2://` keys stay in the payload as the durable record; a `media_note` flags that resolved links are presigned/time-limited.
+- Corrected `not_included` to drop the stale portfolio line (now included) and keep the genuine gaps: the API-access audit log (no user-scoped access-log table in V1) + payment records (0034).
+
+tsc 0 · ESLint clean. Compliance-relevant (RA 10173 right-to-portability). The audit-log half stays a separate task (needs a new table + request instrumentation).
+
+SPEC IMPACT iter 0025 — completes the vendor-media half of the data export. → CHANGELOG.
+## 2026-06-18 · docs(owner-actions): prepend a "LAUNCH NOW" short list
+
+`OWNER_ACTIONS.md` had grown to 1,120 lines of history; the actual go-live gate was buried. Added a top-of-file **🚀 LAUNCH NOW** summary distilling the launch boundary verified this session: the code is launch-complete, and only **4 owner-config items** gate publicly accepting vendors (crypto secrets · business identity + payment accounts · R2 CORS + public host · `dpo@` mailbox — ~1 hr total). Marks the now-resolved items (migrations caught up, build not wedged, **vendor verification works via manual review**, web push live) and the deferred-with-fallback ones (Resend email, social login, AI paywall). The detailed phases below are unchanged.
+
+SPEC IMPACT None — owner-facing checklist clarity only.
+## 2026-06-18 · feat(admin): Integration Activation Console — PR1 (email slice)
+
+First slice of the owner-approved console (`/admin/integrations`): set the **Resend** API key + from-address from the app, so transactional email goes live **without a Vercel redeploy**.
+
+- **New migration** — `platform_integration_secrets` singleton (id=1, `resend_api_key_enc`), **RLS on / no policies** (deny-by-default → service-role only; the key is **AES-256-GCM-encrypted** via `lib/encryption.ts` before storage) + `platform_settings.resend_from_address` (non-secret).
+- **New `lib/integration-config.ts`** — `resolveResendConfig()` / `isResendConfigured()`: **DB-first, env-fallback**, uncached (a just-saved key takes effect immediately). Graceful-degrades to env if the table/column is absent (forward-compatible — safe to deploy before the migration applies).
+- **`lib/email.ts`** — `sendEmail` / `cancelScheduledEmail` / `isEmailConfigured` now read via the resolver. `isEmailConfigured()` is **async** (a DB-saved key must be honored even with no env key); the 6 call sites (alaala, guest-claim, notification-emit, papic-sampler ×2, patiktok-reel) now `await` it.
+- **`/admin/integrations`** — status (key source · from-address · last-tested), an encrypt-on-save form (blank key field = keep current; the stored secret is never echoed back), a "Send a test email" button (wraps `/api/admin/smoke-test?type=resend`), and a clear-key action. Team-member-aware admin gate. Admin-home tile added.
+
+tsc 0 · ESLint clean · nav-icon guard green. Env-only installs keep working byte-for-byte (resolver falls back to `RESEND_API_KEY` / `RESEND_FROM_ADDRESS`).
+
+⚠ **Security note (owner-approved 2026-06-16, re-surfaced):** storing the key in the DB (encrypted) is a deliberate trade vs env-only — not a security upgrade. `ENCRYPTION_KEY` is now a single point of failure for this key *and* the existing oauth_grants tokens; don't rotate it casually. `NEXT_PUBLIC_*` flags + the R2 public host still need a redeploy (that's PR4 scope).
+
+**Deferred to PR2:** the AI-paywall slice (needs the wider `setnayan-ai.ts` caller-threading) + social/Recraft/R2 cards.
+
+SPEC IMPACT — implements `Integration_Activation_Console_Design_2026-06-16.md` PR1 (email). → CHANGELOG + corpus DECISION_LOG.
 ## 2026-06-18 · feat(seo/a11y): structured-data + metadata + a11y completeness on public pages
 
 Verified, additive quality wins from a public-surface audit (4-agent sweep) — no design/copy/pricing changes:

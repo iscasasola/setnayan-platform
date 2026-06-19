@@ -11,6 +11,53 @@
 
 ---
 
+## 🚀 LAUNCH NOW — the short list (added 2026-06-18)
+
+> **Bottom line: the code is launch-complete. What stands between you and publicly
+> accepting vendors + couples is the owner-config below — roughly 1 hour of
+> dashboard setup.** Everything further down this file is detail + history; these
+> four items are the only ones that gate go-live.
+
+### ✅ Must-do to go live (the gate)
+
+1. **4 crypto secrets** in Vercel env — `ENCRYPTION_KEY` · `CRON_SECRET` ·
+   `OAUTH_REFRESH_CRON_SECRET` · `INTERNAL_WORKER_SECRET` (originals leaked via
+   PR #291). OAuth decrypt + cron endpoints 401 until set.
+   → *punch-list #1 below.* **~5 min**
+2. **Business identity + payment accounts** — real business name + TIN (the
+   placeholder `000-000-000-000` is live today), BDO + GCash account details,
+   merchant QR images — all in Platform Settings. **No order or BIR receipt can
+   exist until this is filled.** → *Phase 1, Steps 1.1–1.7.* **~20 min**
+3. **R2 CORS + public media host** — in Cloudflare: apply the bucket CORS policy
+   **and** set `R2_PUBLIC_URL` (r2.dev subdomain or `media.setnayan.com`). Until
+   then every browser upload + every public image fails — **including Patiktok
+   capture/render.** → *"R2 file uploads" + Path A/B below.* **~15 min**
+4. **`dpo@setnayan.com` mailbox** routes to a real inbox — RA 10173 requires the
+   privacy contact be reachable before you collect any PII.
+   → *punch-list #2.* **~5 min**
+
+### ✅ Already handled — not blocking (don't worry about these)
+
+- **Prod migrations** — backlog cleared + ledger caught up (2026-06-18).
+- **Build pipeline** — Vercel OOM fixed; PRs merge cleanly (the build is not wedged).
+- **Vendor verification** — **works** via manual admin review (`/admin/verify` →
+  approve the 12-doc application → vendor flips to `verified` → couples see the
+  badge). The Persona/Veriff webhooks are dormant automation for an *unbuilt*
+  ID-liveness flow — NOT required for verification to function.
+- **Web Push** — live (VAPID keys set 2026-06-11).
+
+### 🟡 Deferred, with a working fallback (do when convenient)
+
+- **Email (Resend)** — `RESEND_API_KEY` unset; manual password reset works
+  (Phase 2A). Not a hard blocker, but **no automated emails send** until keyed
+  (payment instructions, vendor messages, "your Patiktok reel is ready",
+  security alerts). → *Phase 2B.*
+- **Persistent login** JWT bump (*Phase 2C*) · **social login** (*Phase 2D*) ·
+  **AI-paywall** flip (revenue — a pricing/copy decision) · the other media SKUs
+  (Panood / LED / Pakanta — gated on owner infra, not code).
+
+---
+
 ## 2026-06-16 · OPTIONAL — Free Papic sampler: R2 lifecycle auto-cleanup
 
 Free-sampler photos now upload under their own R2 key prefix `papic-sampler/`

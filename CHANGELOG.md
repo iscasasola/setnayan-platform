@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · feat(std): slower petals + subtle "Created at SETNAYAN" mark
+
+Owner: "the petals need to fall slower" + "on the lower part add Created at SETNAYAN (subtle branding only)".
+
+- **Slower petals.** Dialled the veil-reveal petal gravity down ~0.6× across all three behaviours (feather −1.4→−0.85, rotate −2.7→−1.6, straight −3.6→−2.2) so they drift down more gently.
+- **No top-aligned petals.** Clingers now **release and fall** once the veil lifts (`lift > 0.5`) instead of riding the cloth up to the pinned crown and lining up along the top edge (owner 2026-06-19 "why are the petals aligned on the top").
+- **Subtle branding.** A tiny "Created at SETNAYAN" mark at the lower edge of the Save-the-Date film — mono, uppercase, `tracking-[0.3em]`, `opacity-35`, tone-aware colour, `pointer-events-none`. Lives in the outer container (not the scaled stage) so it stays small + consistent; hidden behind the full-screen video overlay. (Distinct from the removed prominent "Powered by Setnayan" footer.)
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` + `0024_Veil_Reveal_Spec` — petals fall ~0.6× slower; a subtle "Created at SETNAYAN" mark sits at the film's lower edge. See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · fix(std): music holds during the video + resumes (never restarts)
 
 Owner: "the music should only continue after the video plays. it should not start over from the beginning."

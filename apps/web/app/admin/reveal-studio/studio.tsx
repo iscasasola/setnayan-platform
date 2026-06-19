@@ -316,6 +316,58 @@ export function RevealStudio({ initial }: { initial: RevealStudioConfig }) {
           </div>
         </section>
 
+        {/* Touch glow */}
+        <section className="space-y-3">
+          <h2 className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: SLATE }}>
+            Touch glow
+          </h2>
+          <Toggle
+            label="Glow where guests press"
+            hint="A soft light blooms under a finger on the Save-the-Date — like a floor that glows when you touch it."
+            checked={draft.touchGlow.enabled}
+            onChange={(v) =>
+              setDraft((d) => ({ ...d, touchGlow: { ...d.touchGlow, enabled: v } }))
+            }
+          />
+          <label className="flex items-center gap-3 text-[13px]" style={{ color: INK }}>
+            <input
+              type="color"
+              value={draft.touchGlow.color}
+              onChange={(e) =>
+                setDraft((d) => ({ ...d, touchGlow: { ...d.touchGlow, color: e.target.value } }))
+              }
+              className="h-9 w-12 cursor-pointer rounded border"
+              style={{ borderColor: LINE }}
+            />
+            <span>
+              Glow colour
+              <span className="block text-[11px]" style={{ color: SLATE }}>
+                A warm light reads best on the dark reveal
+              </span>
+            </span>
+          </label>
+          <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
+            <Slider
+              label="Brightness"
+              value={draft.touchGlow.intensity}
+              min={0}
+              max={100}
+              onChange={(v) =>
+                setDraft((d) => ({ ...d, touchGlow: { ...d.touchGlow, intensity: v } }))
+              }
+            />
+            <Slider
+              label="Size"
+              value={draft.touchGlow.size}
+              min={0}
+              max={100}
+              onChange={(v) =>
+                setDraft((d) => ({ ...d, touchGlow: { ...d.touchGlow, size: v } }))
+              }
+            />
+          </div>
+        </section>
+
         {/* Veil look sliders */}
         <section className="space-y-5">
           <h2 className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: SLATE }}>

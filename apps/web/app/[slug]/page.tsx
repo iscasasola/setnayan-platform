@@ -374,11 +374,13 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   const heroVideoUrl = await displayUrlForStoredAsset(
     event.landing_page_hero_video_r2_key,
   );
-  // The couple's "Add music" veil control (events.std_reveal_effects.music,
-  // default on) gates whether their song plays on the page. (2026-06-18)
-  const stdEffectsForMusic = resolveRevealEffects(event.std_reveal_effects);
+  // The couple's song plays whenever they've ENABLED it + set a track
+  // (events.site_bg_music_*). The Save-the-Date Music step sets both on upload.
+  // (owner 2026-06-19: an uploaded song must just play — the old extra gate on
+  // the redundant std_reveal_effects.music veil flag, which the veil canvas
+  // ignores anyway, was blocking it even after upload.)
   const bgMusicUrl =
-    event.site_bg_music_enabled && event.site_bg_music_r2_key && stdEffectsForMusic.music
+    event.site_bg_music_enabled && event.site_bg_music_r2_key
       ? await displayUrlForStoredAsset(event.site_bg_music_r2_key)
       : null;
 

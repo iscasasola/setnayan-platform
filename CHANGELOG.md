@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-18 · feat(seo/a11y): structured-data + metadata + a11y completeness on public pages
+
+Verified, additive quality wins from a public-surface audit (4-agent sweep) — no design/copy/pricing changes:
+
+- **`/help`** — added `alternates.canonical` + `openGraph` (it had title+description only; a ~90-article surface with no canonical/share-card).
+- **`/how-it-works`** — added `openGraph` (it had canonical + hreflang but no share card).
+- **Homepage WebSite JSON-LD** — added a `SearchAction` `potentialAction` (the Google sitelinks search box, pointed at `/explore?q=`) + `url` on the `SoftwareApplication` node.
+- **`_sections.tsx`** — `aria-hidden` on a decorative arrow SVG (removes screen-reader noise).
+
+Skipped audit false-positives after cross-checking: `/features` already emits JSON-LD via `_PageBody`; the `<img>`→next/image swap on `/explore/compare` (a dynamic vendor URL not in `remotePatterns` would break the image); the HeroScrub change (heavily-iterated, flagged colliding); the `/tl` `<html lang>` fix (touches the critical root layout — flagged for owner).
+
+tsc 0 · ESLint clean. Pure additive `<head>`/JSON-LD/ARIA — zero layout/behavior change.
+
+⚠ Surfaced, not changed: the `/pricing` page shows **stale availability labels** (e.g. Save-the-Date Cinematic Openings ₱799 marked "Coming Soon" though it shipped; Patiktok marked "In Build" though its render pipeline now exists). Prices + availability are owner-managed + mid-reconciliation — owner to reconcile.
+
+SPEC IMPACT None — SEO/accessibility hardening on existing public pages.
+
 ## 2026-06-20 · revert(std): restore the Save-the-Date film mute toggle (it was the wrong icon)
 ## 2026-06-20 · ux(std): stop the couple background-music speaker from bleeding over the veil reveal
 

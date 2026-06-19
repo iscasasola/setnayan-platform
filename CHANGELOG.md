@@ -4,6 +4,12 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-18 · docs(owner-actions): prepend a "LAUNCH NOW" short list
+
+`OWNER_ACTIONS.md` had grown to 1,120 lines of history; the actual go-live gate was buried. Added a top-of-file **🚀 LAUNCH NOW** summary distilling the launch boundary verified this session: the code is launch-complete, and only **4 owner-config items** gate publicly accepting vendors (crypto secrets · business identity + payment accounts · R2 CORS + public host · `dpo@` mailbox — ~1 hr total). Marks the now-resolved items (migrations caught up, build not wedged, **vendor verification works via manual review**, web push live) and the deferred-with-fallback ones (Resend email, social login, AI paywall). The detailed phases below are unchanged.
+
+SPEC IMPACT None — owner-facing checklist clarity only.
+
 ## 2026-06-19 · fix(ci): repair two advisory guards left stale by the Studio route rename (PR pending, auto-merge)
 
 The `add-ons` → `studio` route rename (PR #1815) added route redirects but missed two guard configs that hardcode the old paths, so `lint papic keep-permanent` and `lint retired strings` were **failing on `main`** (baseline) and on every open PR. **No actual bug** — verified the keep-permanent logic is intact at the new path (`studio/papic/actions.ts:141` still calls `makeSamplerPermanent` + `cancelSamplerExpiryWarnings`); only the guards' paths were stale.

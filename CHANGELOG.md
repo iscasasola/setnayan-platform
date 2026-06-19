@@ -15,6 +15,16 @@ The couple bottom-nav Day-of (`now/checkin/seats/services/schedule`) and After (
 `getNavSlotMap()` maps over `NAV_SLOT_DEFAULTS`, and `[eventId]/layout.tsx` already passes the full `navSlots` map to `<CustomerBottomNav phase=… navSlots=… />`, so the wiring is complete end-to-end. The required `lint-nav-icon-source` guard now covers these tabs (they resolve via `navSlots` / `navIconComponent`). Verified: `lint-nav-icon-source.mjs` + `lint-bottom-nav.mjs` both pass; no duplicate slot keys. (No node_modules in the fresh worktree → typecheck/test:unit gated by CI.)
 
 SPEC IMPACT: None (additive nav-registry wiring; no schema, no pricing, no public copy). Notable decision logged at the bottom of `DECISION_LOG.md`.
+## 2026-06-19 · ux(std): remove the Save-the-Date content-film mute toggle (owner)
+
+The content film rendered a small translucent mute toggle (bottom-right, `Music`⇄`VolumeX`) as the "lone escape" for its auto-playing soundtrack. Because the film plays *underneath* the sheer veil reveal, the button bled through the veil and showed over the opening. Owner asked to remove it entirely (2026-06-19) — accepting that the soundtrack now has no off-switch.
+
+- **`apps/web/app/[slug]/_components/save-the-date-film.tsx`**: deleted the mute `<button>` block (was gated on `content.musicUrl || content.videoUrl`), the `toggleMute` handler, and the now-unused `lucide-react` `Music`/`VolumeX` import. Replaced `const [muted, setMuted] = useState(false)` with a stable `const muted = false` (no toggle path remains) — the 13 remaining `muted` reads in the audio/video-gating effects are unchanged, so the `<audio loop muted={muted}>` element still auto-plays with sound. No other transport chrome existed to touch.
+
+SPEC IMPACT: None — UI removal only; no schema, pricing, or product-surface change. Note for the owner: the film's auto-playing soundtrack now has **no guest-facing mute** on any phase (accessibility/UX trade-off acknowledged per the 2026-06-19 decision); the separate couple-landing `BackgroundMusic` opt-in control (RSVP/Event phases) is untouched.
+
+---
+
 ## 2026-06-19 · fix(std): close the NaN gap in the Save-the-Date volume clamp (+ correct the root-cause comment)
 
 Follow-up hardening to the earlier volume-clamp fix, after an adversarial root-cause review of the `/[slug]` Save-the-Date `IndexSizeError`. Two findings drove this:

@@ -1,6 +1,7 @@
 import type { ComponentProps } from 'react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
+import { MiniTour } from '@/app/_components/mini-tour';
 import {
   AlertCircle,
   ArrowLeft,
@@ -494,6 +495,9 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       />
 
       <SettingsCard />
+
+      {/* First-visit orientation — fires once per user when they land here. */}
+      <MiniTour tourKey="customer_papic_v1" />
     </section>
   );
 }

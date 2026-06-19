@@ -14,6 +14,17 @@ SPEC IMPACT: None — copy-only hint surfacing an already-shipped gesture (doubl
 
 ---
 
+## 2026-06-19 · fix(payouts): money-direction guard on payout dispatch + a release path for held payouts
+
+Two payout-safety fixes. Files: `lib/payouts.ts`, `app/admin/payments/actions.ts`. No schema change (all columns already exist).
+
+- **M1 — money-direction bug (vendor wrongly PAID for an order they were paying US for).** `schedulePayoutsForOrder()` (in `app/admin/payments/actions.ts`) guarded only on `if (!row.vendor_profile_id) return;`. A **vendor branch activation order** (`vendor_additional_branch__{id}`, owner-locked 2026-06-05 ₱999 Enterprise add-on) carries `vendor_profile_id` (the *paying* vendor) but **no `event_id`** — it's the vendor paying Setnayan, the opposite money direction. The old guard let it fall through and queued a vendor PAYOUT, i.e. Setnayan paying the vendor for an order the vendor paid us for. Added a guard that only dispatches payouts for **couple bookings**: bail when `event_id` is NULL, OR when `branchIdFromServiceKey(service_key) !== null` (belt-and-suspenders for any other vendor-pays-Setnayan SKU on this code path). Added `service_key` to the order select + row type for the second check; imported `branchIdFromServiceKey` from `lib/vendor-branches`.
+- **m3 — held payouts had no release path.** `holdPayout()` set `on_hold=true` / `hold_reason` with no admin-facing reversal — a held payout was stuck until a hand-edited DB write. Added `releasePayoutHold(adminClient, {payoutId, actorUserId, reason})` to `lib/payouts.ts` (sets `on_hold=false`, clears `hold_reason`, appends a `released_hold` audit_log entry; refuses if already paid; no-op-safe on a not-held payout) + `releasePayoutHoldAction(formData)` in `app/admin/payments/actions.ts` (gated by `requireAdmin`, redirect/flash pattern mirroring the sibling `holdPayoutAction`).
+- **Follow-up (not done — outside this unit's owned files):** wire a "Release hold" button into `app/admin/payouts/page.tsx` next to the existing Mark-paid / Place-on-hold controls (currently a held payout shows only the reason banner, no release control). The action is fully callable; only the 1-line form wiring remains.
+
+Self-reviewed against TS strict (no local `node_modules` → no typecheck/lint here; CI gates). New symbols all used; `service_key`/`event_id`/`on_hold`/`hold_reason`/`audit_log`/`paid_at` are pre-existing columns.
+
+SPEC IMPACT: None (payout-safety bug fix + new admin reversal action; no SKU/pricing/schema change — the vendor payout model + the branch ₱999 add-on are both already locked in the corpus). Behavioral note for the corpus payout section: branch/vendor-pays-Setnayan orders never generate a vendor payout, and held payouts now have an admin release path.
 ## 2026-06-19 · fix(onboarding): events.together_since no longer commits NULL when entered in the love stage
 
 The dedicated `togetherSince` OnboardingState field has no UI input — the "together since" YEAR the couple types during the love stage only ever writes to `state.loveStory.together_since` (the `love_spark` screen). At commit, `buildCommitPayload` sourced the top-level `events.together_since` column solely from the empty dedicated state, so it committed `NULL` even when the couple supplied a year (the value survived only inside the `love_story` JSONB blob).

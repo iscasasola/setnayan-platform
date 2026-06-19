@@ -119,6 +119,9 @@ function HeartGlyph() {
 export function VendorDoorScenario() {
   const [i, setI] = useState(0);
   const b = BEATS[i];
+  // BEATS[i] is `Beat | undefined` under noUncheckedIndexedAccess; `i` is always
+  // a valid index (setI clamps to 0..len-1), but narrow explicitly for tsc.
+  if (!b) return null;
   const last = i === BEATS.length - 1;
   const gold = i >= 4; // couple has crossed into the vendor's world
 

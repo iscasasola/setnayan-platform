@@ -4,16 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-19 · fix(dashboard): clear "Set your wedding date" nudge on event home when event_date IS NULL
+## 2026-06-19 · fix(ci): repair two advisory guards left stale by the Studio route rename (PR pending, auto-merge)
 
-Date-as-output is kept (onboarding still commits `events.event_date = NULL` — unchanged). But a couple had no obvious, low-friction prompt to SET their date later, and the public-website lifecycle gate (`getLifecyclePhase` in `lib/invitation-widgets.ts`) returns `'rsvp'` for a null date and can never reach Save-the-Date / Event / Editorial — so the date-gated editorial pages could never launch until a date exists.
+The `add-ons` → `studio` route rename (PR #1815) added route redirects but missed two guard configs that hardcode the old paths, so `lint papic keep-permanent` and `lint retired strings` were **failing on `main`** (baseline) and on every open PR. **No actual bug** — verified the keep-permanent logic is intact at the new path (`studio/papic/actions.ts:141` still calls `makeSamplerPermanent` + `cancelSamplerExpiryWarnings`); only the guards' paths were stale.
 
-- **`app/dashboard/[eventId]/_components/set-date-nudge.tsx`** (new) — dismissible client nudge ("Set your wedding date", links to the existing governed surface `/dashboard/[eventId]/date-selection`). Per-event localStorage dismiss (key `setnayan:set-date-nudge-dismissed:<eventId>`), degrades gracefully if localStorage is unavailable. Follows the existing `day-of-mode/banner.tsx` dismiss convention.
-- **`app/dashboard/[eventId]/page.tsx`** — render the nudge directly under `EventCountdownHeader`, gated `{!event.event_date ? … : null}` so it shows ONLY when no date is set (and stops mounting entirely once a date exists). Additive: no other home logic changed; no new date-write path introduced.
+- `apps/web/scripts/lint-papic-keep-permanent.mjs` — check #3 path `add-ons/papic/actions.ts` → `studio/papic/actions.ts` (+ matching comment).
+- `apps/web/.retired-strings.json` — "Custom Monogram Pack" allow-path `add-ons/panood/setup/page.tsx` → `studio/panood/setup/page.tsx`.
 
-Read-only verification: the editorial lifecycle gate already keys correctly on `event_date` (`[slug]/page.tsx:611` → `getLifecyclePhase(event.event_date)`); NOT modified. Date is written by the existing `/date-selection` surface (`date-selection/actions.ts`) and `actions.ts` governed editor — unchanged.
+Verified: both guards run green locally (`retired-strings` 0 violations / 1117 files · `papic-keep-permanent` 6/6 sites intact).
 
-SPEC IMPACT: None. (Additive nudge to an existing surface; reinforces the date-as-output philosophy [[project_setnayan_date_as_output_philosophy]] rather than changing it.)
+SPEC IMPACT: None (CI guard config only).
 ## 2026-06-19 · ux(std): remove the Save-the-Date content-film mute toggle (owner)
 
 The content film rendered a small translucent mute toggle (bottom-right, `Music`⇄`VolumeX`) as the "lone escape" for its auto-playing soundtrack. Because the film plays *underneath* the sheer veil reveal, the button bled through the veil and showed over the opening. Owner asked to remove it entirely (2026-06-19) — accepting that the soundtrack now has no off-switch.

@@ -16,6 +16,16 @@ Owner: *"customer — studio should look like app store for iOS so we can see in
 Verified: `pnpm typecheck` clean · `pnpm lint` clean (fixed an `aria-disabled`-on-`li`) · new `lib/add-ons-detail.test.ts` (3 tests) guards that every available hub feature has detail content so no row 404s. Visual verification = the PR's Vercel preview (no local `.env.local` on disk in this environment). No migration.
 
 SPEC IMPACT: iter 0021 (couple dashboard · Studio/Services surface) + the 2026-05-17 App Store detail pilot generalized to all in-app services. See `DECISION_LOG.md` 2026-06-19.
+## 2026-06-19 · feat(std): the video plays FULL SCREEN (autoplay takeover)
+
+Owner: "why is the video not full screen?" When the video was switched to autoplay (no play button), it became a small inline clip inside the scaled film canvas (`max-h-520px`), so it no longer took over the screen.
+
+- On the live page the couple's clip now plays in a **full-screen overlay** (`fixed inset-0`, `z-[70]` — above the film AND the reveal/veil), `object-contain` on black, fading in on the video beat and out as the film advances to the calendar close. It still **autoplays** (no click) and crossfades the soundtrack; on its natural end it advances. The overlay is `pointer-events-none` so the wheel/scroll scrub still works through it and it never traps the guest.
+- The video beat's in-canvas node is now just the "Watch our story" label (the overlay holds the real video). In the **builder preview** the video still plays inline in the device frame (a fixed overlay would escape the frame).
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the video beat is a full-screen autoplay takeover (was a small inline clip after the autoplay change). See `DECISION_LOG.md` 2026-06-19.
 
 ## 2026-06-19 · feat(std): manual ceremony venue + single date on the date beat
 

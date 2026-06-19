@@ -36,7 +36,7 @@ import {
 export const metadata = {
   title: 'Verification · Vendor',
   description:
-    'Submit the 12-document vendor verification checklist to unlock Pro Vendor, the verified marketplace badge, and 100 complimentary tokens on approval.',
+    'Submit the 12-document vendor verification checklist to unlock Pro Vendor and the verified marketplace badge.',
 };
 
 type Props = {
@@ -146,13 +146,12 @@ export default async function VendorVerifyPage({ searchParams }: Props) {
       <article className="flex items-start gap-3 rounded-2xl border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-900">
         <CheckCircle2 aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
         <div className="space-y-1">
-          <p className="font-medium">100 complimentary tokens on approval</p>
+          <p className="font-medium">Verification is free during launch</p>
           <p>
-            Every vendor verified by the Setnayan team gets{' '}
-            <span className="font-semibold">100 tokens</span> loaded into their
-            wallet on the day we approve. Tokens redeem against couple-facing
-            premium tools — your way to give clients a richer experience without
-            spending out-of-pocket on day one.
+            Every vendor the Setnayan team verifies gets the verified
+            marketplace badge, eligibility for{' '}
+            <span className="font-semibold">Pro Vendor and Enterprise</span>, and
+            full visibility in couple searches — no listing fee, no badge fee.
           </p>
         </div>
       </article>
@@ -632,9 +631,8 @@ function ApprovedCard({
       </p>
       <h2 className="text-xl font-semibold">You&rsquo;re verified.</h2>
       <p className="text-sm">
-        Your 100 complimentary tokens are loaded into your wallet, Pro Vendor
-        and Enterprise subscriptions are available to start, and the verified
-        badge is live on your marketplace listing. Approved{' '}
+        Pro Vendor and Enterprise subscriptions are available to start, and the
+        verified badge is live on your marketplace listing. Approved{' '}
         {application.decided_at
           ? new Date(application.decided_at).toLocaleString()
           : ''}

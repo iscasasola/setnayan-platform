@@ -105,7 +105,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'how-are-vendors-verified',
         title: 'How are vendors verified on Setnayan?',
-        body: 'Vendors complete a business-legitimacy check plus a short video call with a Setnayan admin. Verification is free during launch — no listing fee and no badge fee. Vendors verified before 2027-01-31 receive 100 complimentary tokens as a founder bonus.',
+        body: 'Vendors complete a business-legitimacy check plus a short video call with a Setnayan admin. Verification is free during launch — no listing fee and no badge fee.',
       },
       {
         slug: 'what-is-pakanta',

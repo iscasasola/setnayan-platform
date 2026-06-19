@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · fix(vendors): locked vendor now stamped as the couple's #1 pick (`selection_match_rank = 1`)
+
+When a couple locks/contracts a vendor (`finalizeVendor`, the `status='contracted'` lock transition), the generic lock-write previously updated only `{status, updated_at}` — it never set `selection_match_rank`. As a result the locked vendor (which IS the couple's chosen pick for that leaf category) was never marked as the recommended #1 pick, so two downstream features stayed dormant:
+
+- The vendor-side **"From Your Vendors" editorial-media** feature (`lib/editorial-vendor-media.ts` → `findRecommendedEventVendorId`) — gates strictly on `event_vendors.selection_match_rank = 1`, so it returned `null` and the vendor could never submit editorial photos/clips.
+- The editorial **#1-match stat** (`app/[slug]/_components/editorial/data.ts` `firstPick` counter) — counts `selection_match_rank = 1` rows, so it always read 0.
+
+Fix (owner-approved 2026-06-19):
+
+- **`app/dashboard/[eventId]/vendors/actions.ts`** — in `finalizeVendor`'s generic lock write, also set `selection_match_rank: 1` on the row. Idempotent (always set on the lock transition) and scoped to the lock transition (guarded by the `already_locked` short-circuit on `CONFIRMED_VENDOR_STATUSES` and the money-status precondition). Single-column additive write; no behavior change to the slot-path lock (handled inside `acquire_service_time_slot`).
+
+SPEC IMPACT: None. (No schema change — `selection_match_rank` already exists on `event_vendors`; this only populates it on the lock path. No corpus edit needed.)
 ## 2026-06-19 · feat(studio): Vector Monogram Studio "takes up the space" — full two-column desktop workspace + large live preview
 
 Owner: "we want this vector studio to open — make it take up the space, not just a small preview." The studio was a fixed ~430px-wide card with a 300px-tall canvas, dwarfed on a desktop page. Now it opens into a real workspace when it has room, on BOTH surfaces that share the editor (public `/monogram` + the couple dashboard studio at `/dashboard/[eventId]/monogram`).

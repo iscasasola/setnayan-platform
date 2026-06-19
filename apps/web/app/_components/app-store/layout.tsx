@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { ArrowLeft, Check, ChevronRight, Star } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { StudioCardDemo, type DemoFrame } from './studio-card-demo';
+import { StudioCardDemo, RICH_DEMO_SLUGS, type DemoFrame } from './studio-card-demo';
 import type { ReactNode } from 'react';
 
 // Shared App Store-style detail layout. Used by:
@@ -191,9 +191,9 @@ export function AppStoreLayout({
 
       {/* Preview — the auto-playing demo (what it does + how to operate it)
           when present, otherwise the static glyph rail. */}
-      {demo && demo.length > 0 ? (
+      {(demo && demo.length > 0) || (demoSlug && RICH_DEMO_SLUGS.includes(demoSlug)) ? (
         <Section title="Preview" id="preview">
-          <StudioCardDemo frames={demo} slug={demoSlug} />
+          <StudioCardDemo frames={demo ?? []} slug={demoSlug} />
         </Section>
       ) : preview && preview.length > 0 ? (
         <Section title="Preview" id="preview">

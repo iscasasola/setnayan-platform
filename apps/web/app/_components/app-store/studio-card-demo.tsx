@@ -1,7 +1,13 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
-import { Play, Pause, Users, Check } from 'lucide-react';
+import { Play, Pause, Users, Check, ChevronUp, Music, QrCode, Download } from 'lucide-react';
+
+const GOLD = '#C5A059';
+const BLUSH = '#F6ECEC';
+const SAGE = '#9CAF88';
+const CHAMP = '#d9c39a';
+const SERIF = 'var(--font-serif, Georgia, serif)';
 
 // On-card demo engine — the auto-playing "what it does + how to operate it"
 // preview that plays when a couple opens a Studio app card. Two frame sources,
@@ -110,7 +116,273 @@ const PAPIC_SCENES: RichFrame[] = [
   },
 ];
 
-const RICH_SCENES: Record<string, RichFrame[]> = { papic: PAPIC_SCENES };
+// ── Save the Date — sealed → veil lift → film beat → add-to-calendar ──
+const SAVE_THE_DATE_SCENES: RichFrame[] = [
+  {
+    caption: 'Your news arrives, beautifully sealed.',
+    hint: 'Swipe the wax seal to open.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-cream text-ink">
+        <div
+          className="flex h-[116px] w-[116px] items-center justify-center rounded-full text-cream/95 shadow-md"
+          style={{ background: 'radial-gradient(circle at 36% 30%, #a85a44, #6b2a40)' }}
+        >
+          <span className="text-2xl" style={{ fontFamily: SERIF }}>M &amp; J</span>
+        </div>
+        <ChevronUp aria-hidden className="mt-6 h-4 w-4 text-ink/35" strokeWidth={2} />
+        <span className="mt-1 font-mono text-[9px] uppercase tracking-[0.28em] text-ink/55">Swipe to open</span>
+      </div>
+    ),
+  },
+  {
+    caption: 'The veil lifts away.',
+    hint: 'It opens on its own once you swipe.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-ink text-cream">
+        <div className="absolute inset-x-0 top-0 h-1/3" style={{ background: 'linear-gradient(rgba(255,255,255,.78), transparent)' }} />
+        <span className="relative text-lg" style={{ fontFamily: SERIF, color: GOLD }}>M &amp; J</span>
+        <span className="relative mt-1.5 h-px w-10" style={{ background: GOLD }} />
+        <span className="relative mt-2 font-mono text-[9px] uppercase tracking-[0.25em] text-terracotta">Save the Date</span>
+      </div>
+    ),
+  },
+  {
+    caption: 'Their story plays like a little film.',
+    hint: 'Auto-plays; tap to step through it.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-cream px-4 text-ink">
+        <Music aria-hidden className="absolute right-3 top-3 h-3.5 w-3.5 text-ink/20" strokeWidth={2} />
+        <span className="font-mono text-[8px] uppercase tracking-[0.3em] text-terracotta">Mark your calendars</span>
+        <span className="mt-2 text-3xl tracking-tight" style={{ fontFamily: SERIF }}>June 12</span>
+        <span className="text-xl" style={{ fontFamily: SERIF }}>2027</span>
+        <span className="mt-3 h-px w-8 bg-mulberry/40" />
+      </div>
+    ),
+  },
+  {
+    caption: 'One tap and it’s on your calendar.',
+    hint: 'Tap Add to calendar — done.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-cream px-5 text-ink">
+        <span className="text-xl" style={{ fontFamily: SERIF, color: GOLD }}>M &amp; J</span>
+        <span className="mt-1 font-mono text-[8px] uppercase tracking-[0.28em] text-ink/55">Save the Date</span>
+        <span className="mt-0.5 text-base italic" style={{ fontFamily: SERIF }}>June 12, 2027</span>
+        <span className="mt-4 rounded-full bg-terracotta px-4 py-1.5 text-[11px] font-medium text-cream shadow-sm">Add to calendar</span>
+        <span className="mt-2 inline-flex items-center gap-1 rounded-md bg-emerald-600/15 px-2 py-1 text-[9px] font-medium text-emerald-700">
+          <Check aria-hidden className="h-2.5 w-2.5" strokeWidth={2.5} /> Added — Jun 12
+        </span>
+      </div>
+    ),
+  },
+];
+
+// ── Animated Monogram — design → animate → website hero → keepsakes ──
+const ANIMATED_MONOGRAM_SCENES: RichFrame[] = [
+  {
+    caption: 'Design a mark that’s truly yours.',
+    hint: 'Tap a letter to restyle, pinch to size.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+        <div className="flex items-center justify-between text-[8px]">
+          <span className="font-mono uppercase tracking-[0.2em] text-ink/70">Setnayan</span>
+          <span className="font-mono uppercase tracking-[0.15em]" style={{ color: GOLD }}>Vector studio</span>
+        </div>
+        <div className="mt-2 flex aspect-square items-center justify-center rounded-xl border border-ink/10 bg-white">
+          <span className="text-3xl" style={{ fontFamily: SERIF, color: 'var(--m-mulberry, #5C2542)' }}>M&amp;J</span>
+        </div>
+        <p className="mt-2 font-mono text-[7px] uppercase tracking-[0.12em] text-ink/45">Font</p>
+        <div className="mt-1 flex gap-1">
+          {['Cardo', 'Gilda', 'Playfair'].map((f, k) => (
+            <span key={f} className={`rounded px-1.5 py-0.5 text-[8px] ${k === 0 ? 'bg-ink text-cream' : 'bg-ink/5 text-ink/60'}`} style={{ fontFamily: SERIF }}>{f}</span>
+          ))}
+        </div>
+        <div className="mt-2 flex gap-1.5">
+          {['var(--m-mulberry,#5C2542)', GOLD, CHAMP, '#1b1b1d'].map((c, k) => (
+            <span key={k} className="h-4 w-4 rounded-full" style={{ background: c, boxShadow: k === 0 ? `0 0 0 2px ${GOLD}` : undefined }} />
+          ))}
+        </div>
+        <button type="button" className="mt-auto mb-4 w-full rounded-md bg-mulberry py-1.5 text-[10px] font-medium text-cream">Save as my monogram</button>
+      </div>
+    ),
+  },
+  {
+    caption: 'Watch it come to life.',
+    hint: 'Pick a motion — it plays on your page.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+        <span className="font-mono text-[8px] uppercase tracking-[0.22em] text-terracotta">Animated monogram</span>
+        <p className="mt-0.5 text-[13px] font-semibold tracking-tight">Your initials, drawn live</p>
+        <div className="relative mt-2 flex aspect-[4/3] items-center justify-center overflow-hidden rounded-xl bg-white">
+          <span className="text-3xl" style={{ fontFamily: SERIF, color: 'var(--m-mulberry,#5C2542)' }}>M&amp;J</span>
+          <span className="absolute inset-y-4 left-1/3 w-6 -skew-x-12" style={{ background: `linear-gradient(90deg, transparent, ${GOLD}66, transparent)` }} />
+          <span className="absolute right-2 top-2 rounded-full bg-terracotta px-1.5 py-0.5 text-[7px] font-medium text-cream">Upgrade</span>
+        </div>
+        <div className="mt-2 flex gap-1 overflow-hidden">
+          {['Drawn', 'Foil', 'Bloom', 'Halo'].map((m, k) => (
+            <span key={m} className={`rounded-md px-1.5 py-1 text-[8px] ${k === 1 ? 'bg-ink/5 text-ink' : 'bg-ink/5 text-ink/55'}`} style={k === 1 ? { boxShadow: `0 0 0 1.5px ${GOLD}` } : undefined}>{m}</span>
+          ))}
+        </div>
+        <div className="mt-auto mb-4">
+          <p className="font-mono text-[8px] text-ink/55">One price for your wedding · ₱2,499</p>
+          <button type="button" className="mt-1 w-full rounded-md bg-mulberry py-1.5 text-[10px] font-medium text-cream">Draw my monogram live</button>
+        </div>
+      </div>
+    ),
+  },
+  {
+    caption: 'It opens your wedding website.',
+    hint: 'Guests see it bloom in as the page loads.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col items-center justify-center px-5 text-ink" style={{ background: `linear-gradient(${BLUSH}, #f7f2ea)` }}>
+        <div className="relative flex h-12 w-12 items-center justify-center rounded-full" style={{ boxShadow: `0 0 0 1px ${GOLD}` }}>
+          <span className="text-lg" style={{ fontFamily: SERIF, color: 'var(--m-mulberry,#5C2542)' }}>M&amp;J</span>
+        </div>
+        <span className="mt-3 text-xl" style={{ fontFamily: SERIF }}>Maria &amp; Juan</span>
+        <span className="mt-2 h-px w-10" style={{ background: GOLD }} />
+        <span className="mt-2 font-mono text-[8px] uppercase tracking-[0.25em] text-ink/60">December 14, 2026</span>
+        <span className="mt-4 rounded-full border border-terracotta px-4 py-1 text-[10px] font-medium text-terracotta">RSVP</span>
+      </div>
+    ),
+  },
+  {
+    caption: 'And every keepsake carries it.',
+    hint: 'Same mark on your QR and save-the-date.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col justify-center gap-2.5 bg-cream px-4 text-ink">
+        <div className="flex items-center gap-3 rounded-lg border border-ink/10 bg-white p-2.5">
+          <div className="relative flex h-12 w-12 items-center justify-center rounded bg-ink/90 text-cream">
+            <QrCode aria-hidden className="h-9 w-9" strokeWidth={1.25} />
+            <span className="absolute flex h-4 w-4 items-center justify-center rounded-full bg-white text-[7px]" style={{ fontFamily: SERIF, color: 'var(--m-mulberry,#5C2542)' }}>MJ</span>
+          </div>
+          <span className="font-mono text-[8px] uppercase tracking-[0.12em] text-ink/55">Your mark at the heart of your QR</span>
+        </div>
+        <div className="rounded-lg p-3 text-center" style={{ background: BLUSH }}>
+          <span className="text-base" style={{ fontFamily: SERIF, color: GOLD }}>M &amp; J</span>
+          <p className="mt-0.5 text-[11px]" style={{ fontFamily: SERIF }}>Save the Date</p>
+          <p className="font-mono text-[8px] uppercase tracking-[0.2em] text-ink/55">12 · 14 · 2026</p>
+        </div>
+      </div>
+    ),
+  },
+];
+
+// ── Mood Board — palette → recolor → reception → concept book ──
+function paletteStrip(colors: string[]) {
+  return (
+    <div className="flex gap-0.5 overflow-hidden rounded">
+      {colors.map((c, k) => <span key={k} className="h-1.5 flex-1" style={{ background: c }} />)}
+    </div>
+  );
+}
+const PAL = ['var(--m-mulberry,#5C2542)', CHAMP, '#bf6a43', SAGE];
+const MOOD_BOARD_SCENES: RichFrame[] = [
+  {
+    caption: 'Pick the colors of your day.',
+    hint: 'Tap a swatch to set each color.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+        <p className="text-[14px] font-semibold tracking-tight">Mood Board</p>
+        <p className="text-[9px] text-ink/60">Set your palette once, see it everywhere.</p>
+        <p className="mt-2 font-mono text-[7px] uppercase tracking-[0.15em] text-ink/55">Venue</p>
+        <div className="mt-1 rounded-lg border border-ink/10 p-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-medium">Reception palette</span>
+            <span className="rounded-full bg-emerald-600/15 px-1.5 py-0.5 font-mono text-[7px] text-emerald-700">4 / 3–6</span>
+          </div>
+          <div className="mt-2 flex items-center gap-1.5">
+            {PAL.map((c, k) => <span key={k} className="h-6 w-6 rounded-full" style={{ background: c }} />)}
+            <span className="flex h-6 w-6 items-center justify-center rounded-full border border-dashed border-terracotta text-[11px] text-terracotta">+</span>
+          </div>
+        </div>
+        <button type="button" className="mt-auto mb-4 self-end rounded-md bg-terracotta px-4 py-1.5 text-[10px] font-medium text-cream">Save palette</button>
+      </div>
+    ),
+  },
+  {
+    caption: 'See your colors on every part.',
+    hint: 'Cards repaint to match your palette.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+        <p className="text-[13px] font-semibold tracking-tight">In your colors</p>
+        <p className="text-[8px] text-ink/60">One picture per color decision.</p>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          {[
+            { label: 'Bouquet', c: '#bf6a43' },
+            { label: 'Ceremony', c: CHAMP },
+            { label: 'Bride', c: BLUSH },
+            { label: 'Party', c: 'var(--m-mulberry,#5C2542)' },
+          ].map((x) => (
+            <div key={x.label} className="overflow-hidden rounded-lg border border-ink/10">
+              <span className="block h-12 w-full" style={{ background: x.c }} />
+              <div className="p-1.5">
+                <span className="text-[8px] font-medium">{x.label}</span>
+                {paletteStrip(PAL)}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    ),
+  },
+  {
+    caption: 'Style your reception room.',
+    hint: 'Tap a part — ceiling, tables, stage.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+        <p className="text-[13px] font-semibold tracking-tight">Design your reception</p>
+        <p className="text-[8px] text-ink/60">Tap a part of the room.</p>
+        <div className="mt-2 flex-1 overflow-hidden rounded-lg border border-ink/10 p-2">
+          <span className="block h-4 w-full rounded-sm" style={{ background: CHAMP }} />
+          <span className="mx-auto mt-1.5 block h-8 w-2/3 rounded-sm" style={{ background: 'var(--m-mulberry,#5C2542)' }} />
+          <div className="mt-2 flex justify-center gap-2">
+            {[0, 1, 2].map((k) => (
+              <span key={k} className="h-7 w-7 rounded-full" style={{ background: '#bf6a43', boxShadow: k === 1 ? '0 0 0 2px #bf6a43, 0 0 0 4px #ffffff' : undefined }} />
+            ))}
+          </div>
+        </div>
+        <div className="mt-2 mb-3 flex gap-1">
+          {['Round', 'Champagne', 'Tall florals'].map((m, k) => (
+            <span key={m} className={`rounded-full px-2 py-0.5 text-[8px] ${k === 0 ? 'bg-terracotta text-cream' : 'border border-ink/10 text-ink/60'}`}>{m}</span>
+          ))}
+        </div>
+      </div>
+    ),
+  },
+  {
+    caption: 'One vision your whole team shares.',
+    hint: 'Save and share the concept book.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col items-center bg-cream px-4 pt-3 text-ink">
+        <p className="self-start text-[13px] font-semibold tracking-tight">Your concept book</p>
+        <p className="self-start text-[8px] text-ink/60">Palette, reception, attire — one PDF.</p>
+        <div className="mt-2 w-[96px] overflow-hidden rounded-md border border-ink/10 bg-white p-2 text-center shadow-sm">
+          <span className="text-[10px]" style={{ fontFamily: SERIF }}>Maria &amp; Juan</span>
+          {paletteStrip(PAL)}
+          <div className="mt-1.5 space-y-1">
+            <span className="block h-1.5 w-full rounded bg-ink/10" />
+            <span className="block h-1.5 w-3/4 rounded bg-ink/10" />
+            <span className="block h-1.5 w-full rounded bg-ink/10" />
+          </div>
+        </div>
+        <button type="button" className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-terracotta px-3 py-1.5 text-[10px] font-medium text-cream">
+          <Download aria-hidden className="h-3 w-3" strokeWidth={2} /> Download
+        </button>
+        <span className="mt-1.5 font-mono text-[7px] uppercase tracking-[0.15em] text-ink/45">Free · one vision every vendor pulls from</span>
+      </div>
+    ),
+  },
+];
+
+const RICH_SCENES: Record<string, RichFrame[]> = {
+  papic: PAPIC_SCENES,
+  'save-the-date': SAVE_THE_DATE_SCENES,
+  'animated-monogram': ANIMATED_MONOGRAM_SCENES,
+  'mood-board': MOOD_BOARD_SCENES,
+};
+
+/** Slugs that have a built-in native demo — lets the layout render the demo
+ *  section even when a feature has no image/data `demo` frames yet. */
+export const RICH_DEMO_SLUGS = Object.keys(RICH_SCENES);
 
 export function StudioCardDemo({
   frames,

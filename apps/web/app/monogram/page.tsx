@@ -86,7 +86,7 @@ export default function PublicMonogramPage() {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
-      <main className="mx-auto w-full max-w-5xl px-5 pb-20 pt-10 sm:pt-14">
+      <main className="mx-auto w-full max-w-6xl px-5 pb-20 pt-10 sm:pt-14">
         <header className="mx-auto max-w-2xl text-center">
           <p className="font-mono text-xs uppercase tracking-[0.22em] text-[#8C6932]">Free · no sign-up</p>
           <h1 className="mt-3 font-serif text-4xl leading-tight tracking-tight text-[#1E2229] sm:text-5xl">

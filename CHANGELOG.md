@@ -14,6 +14,40 @@ Verified: `pnpm typecheck` + `pnpm lint` clean. No migration.
 
 SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the soundtrack pauses for the video and continues from where it left off (no restart). See `DECISION_LOG.md` 2026-06-19.
 
+## 2026-06-19 · fix(theme): register missing `paper` Tailwind color token — Build tab's [Build] button was a blank dark box (PR pending, auto-merge)
+
+Owner reported the Build tab ("Build your plan") showed no buttons for the build action — just a dark rectangle. Root cause: `paper` was used as a Tailwind color (`bg-paper` rows, `text-paper` on dark CTAs) across **21 files**, but it only ever existed as the `--m-paper` CSS variable — it was **never registered as a Tailwind color token** in `tailwind.config.ts`. So `bg-paper` / `text-paper` / `border-paper` compiled to **nothing**. On the Build button (`bg-ink text-paper` + Hammer icon), the dark `bg-ink` rendered but the `text-paper` label + `currentColor` icon inherited the ambient ink color → invisible on dark = blank box. This is the identical failure class the config already documents for the `burgundy` slot.
+
+- **`apps/web/tailwind.config.ts`** — added `paper: 'rgb(var(--color-cream) / <alpha-value>)'` aliased to the canonical cream surface channel (same Warm Alabaster value; flips correctly in dark mode), so `bg-paper` / `text-paper` / `border-paper` resolve and `<alpha-value>` modifiers like the existing `text-paper/70` (vendor subscription cycle toggle) work too. One-line, follows the `burgundy`→`mulberry` back-compat precedent in the same file.
+
+Verified at the CSS layer (Tailwind compile, before/after): original config emitted **no** `.text-paper`/`.bg-paper`/`.border-paper` rules; with the fix all three emit, plus `.text-paper/70` → `color: rgb(var(--color-cream) / 0.7)`. `.text-paper` resolves to alabaster on light / obsidian on dark, so the Build label + icon are now visible on the dark button. No migration.
+
+SPEC IMPACT: None (repo-side theme-token bug fix; no product, pricing, or spec change). Fixes the same latent gap for the other 20 files using `*-paper` (admin pricing/subscriptions/token pages, several build/details dashboard editors).
+
+## 2026-06-19 · copy(studio): App Store detail pages rewritten to sell stories + results (PR pending, auto-merge)
+
+Owner, looking at the Setnayan AI detail page: *"it should not explain how we do it or our program — we are selling stories and results."* (Register chosen: punchy & confident.) The first cut described the machinery ("ranks every vendor… a matching layer, not a chatbot… six signals"); rewrote all 14 catalog-driven feature detail pages to lead with the outcome.
+
+- **`lib/add-ons-detail.ts` fully rewritten** — every feature's hero title, tagline, About, "What you'll have" bullets, and preview captions are now short, declarative, benefit-only. No mechanism words (signals/pipeline/face-matching/QR fan-out/render engine). E.g. Setnayan AI → *"Your shortlist. Already made."*; Papic → *"The moments you'll miss, caught."*
+- **Dropped the mechanism sections from the sell page** — removed the stat/spec carousel (e.g. "6 signals") and the Event-Privacy / Data-linked explainers from the catalog-driven detail page; trimmed the `AddOnDetail` type to the story/result fields. The "What's included" section is retitled **"What you'll have."** (Panood's bespoke page keeps its own stats/privacy — unchanged.)
+- Hub featured-hero taglines pull from these taglines, so they punch up too. Pricing still renders live from the admin catalog.
+
+Verified: `pnpm typecheck` clean · `lib/add-ons-detail.test.ts` 3/3 (every hub feature still has detail content). No migration.
+
+SPEC IMPACT: None (copy/voice only; aligns with the locked public-surface-hygiene rule — benefits, never implementation). See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(studio): couple Studio becomes an iOS App Store browse + detail experience (PR pending, auto-merge)
+
+Owner: *"customer — studio should look like app store for iOS so we can see information of the different features. Also reorganize the studio: Setnayan AI, Website, Capture, Branding as the subnav."* The 4-section subnav already shipped; the gap was the hub (a flat one-line-blurb grid) and the detail layer (only Panood had the App Store detail — the 2026-05-17 pilot was never fanned out). This PR fans it out to **every** feature and rebuilds the hub.
+
+- **Hub `/dashboard/[eventId]/add-ons` rebuilt as an App Store browse surface.** Each of the four locked sections (Setnayan AI · Website · Capture · Branding) leads with a **featured hero** (poster-gradient card) and lists the rest as **App Store rows** — colourful squircle "app icon" (the feature's poster gradient), name, one-line subtitle, and a **GET / ₱price / Free / Active / Pending** pill. Whole row = one tap target → the feature's detail page (no nested interactive elements). New desktop sticky **section tab strip** (`studio-section-tabs.tsx`, scroll-spy, `lg:`-only — mobile already has the docked sub-nav). New components: `studio-app-row.tsx`, `studio-featured-card.tsx`, `studio-section-tabs.tsx` (the old `studio-card.tsx` grid is retired from the hub).
+- **App Store detail page fanned out to all features.** New catalog-driven route `/add-ons/[addon]/about/page.tsx` renders the shared `AppStoreLayout` from per-feature content in **`lib/add-ons-detail.ts`** (14 features: hero, preview rail, About, What's included, Plans, honest Event-Privacy / Data-linked). Panood keeps its bespoke detail at `/add-ons/panood` (hub links straight there).
+- **Pricing stays admin-managed.** The GET/price pills (hub) and Plans (detail) render **live from `platform_retail_catalog_v2`** by `serviceKey` — never hardcoded (respects the "admin pricing controls all prices" lock). The detail CTA hands off to the feature's own functional surface, which owns the buy/launch flow; "Active" only shows on `paid`/`fulfilled` (aligns with the 2026-06-18 admin-approval handshake).
+- **Shared layout made flexible.** `app-store/layout.tsx` props `stats`/`preview`/`privacy`/`dataLinked`/`accessibility` are now optional (render only when present) + a new optional **What's included** highlights section. Backward-compatible — Panood's page is unchanged. Visual unity: hub uses the same `ink/cream/terracotta/mulberry` tokens (= the Clean Editorial palette, dark-mode-ready) as the detail layout.
+
+Verified: `pnpm typecheck` clean · `pnpm lint` clean (fixed an `aria-disabled`-on-`li`) · new `lib/add-ons-detail.test.ts` (3 tests) guards that every available hub feature has detail content so no row 404s. Visual verification = the PR's Vercel preview (no local `.env.local` on disk in this environment). No migration.
+
+SPEC IMPACT: iter 0021 (couple dashboard · Studio/Services surface) + the 2026-05-17 App Store detail pilot generalized to all in-app services. See `DECISION_LOG.md` 2026-06-19.
 ## 2026-06-19 · feat(std): the video plays FULL SCREEN (autoplay takeover)
 
 Owner: "why is the video not full screen?" When the video was switched to autoplay (no play button), it became a small inline clip inside the scaled film canvas (`max-h-520px`), so it no longer took over the screen.

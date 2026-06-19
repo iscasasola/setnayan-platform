@@ -1,16 +1,18 @@
 import {
   ADD_ONS,
-  addOnHref,
+  appStoreDetailHref,
   type AddOnEntry,
   type StudioGroup,
 } from '@/lib/add-ons-catalog';
-import { StudioCard } from './_components/studio-card';
+import { addOnDetail } from '@/lib/add-ons-detail';
+import { formatPhp } from '@/lib/orders';
+import { StudioAppRow, type RowPill } from './_components/studio-app-row';
+import { StudioFeaturedCard } from './_components/studio-featured-card';
+import { StudioSectionTabs } from './_components/studio-section-tabs';
 import { createClient } from '@/lib/supabase/server';
 
 // The cinema-poster card (service-poster.tsx) still owns the `PosterStyle`
 // type that the catalog + Services tab consume, so it is intentionally kept.
-// Re-export the type from its canonical home so existing imports of
-// `PosterStyle` from this page module keep resolving.
 export type { PosterStyle } from './_components/service-poster';
 
 export const metadata = { title: 'Studio' };
@@ -18,25 +20,27 @@ export const metadata = { title: 'Studio' };
 type Props = { params: Promise<{ eventId: string }> };
 
 /**
- * Studio hub — benefit-led, job-to-be-done discovery surface for every
- * Setnayan in-app service. Replaces the cinema-poster grid (owner directive
- * 2026-06-14 · REDESIGN_PLAN Phase 2) with calm v2.1 paper cards grouped by
- * what the couple is trying to *do*, not by vendor taxonomy.
+ * Studio hub — an iOS App Store-style browse surface for every Setnayan in-app
+ * service (owner 2026-06-19: "Studio should look like the App Store so we can
+ * see info on each feature"). Four sections (the locked Studio sub-nav): each
+ * leads with a featured hero, then lists the rest as App Store rows. Tapping a
+ * feature opens its App Store detail page (catalog-driven, app-store/layout.tsx).
  *
- * Four sections (fixed order): Capture the day · Your website & story ·
- * Plan & organize (free) · Music & extras. Within each section, available
- * cards come first and coming-soon cards sink to the bottom.
+ * Pricing on the GET/price pills renders LIVE from the admin catalog
+ * (platform_retail_catalog_v2) — never hardcoded.
  */
 
-// The 4 Studio sections (owner-locked 2026-06-17 customer-menu redesign — Studio
-// absorbed Design). These ARE Studio's docked sub-nav (lib/customer-menu.ts anchor
-// children scroll to `anchor`). The `utility` group (Orders) is intentionally
-// absent → hidden from the hub. Order matches the sub-nav.
-const SECTIONS: ReadonlyArray<{ group: StudioGroup; label: string; anchor: string }> = [
-  { group: 'setnayan_ai', label: 'Setnayan AI', anchor: 'studio-ai' },
-  { group: 'website', label: 'Website', anchor: 'studio-website' },
-  { group: 'capture', label: 'Capture', anchor: 'studio-capture' },
-  { group: 'branding', label: 'Branding', anchor: 'studio-branding' },
+const SECTIONS: ReadonlyArray<{
+  group: StudioGroup;
+  label: string;
+  anchor: string;
+  /** Preferred featured-hero key; falls back to the first available item. */
+  flagship: string;
+}> = [
+  { group: 'setnayan_ai', label: 'Setnayan AI', anchor: 'studio-ai', flagship: 'setnayan-ai' },
+  { group: 'website', label: 'Website', anchor: 'studio-website', flagship: 'save-the-date' },
+  { group: 'capture', label: 'Capture', anchor: 'studio-capture', flagship: 'papic' },
+  { group: 'branding', label: 'Branding', anchor: 'studio-branding', flagship: 'animated-monogram' },
 ];
 
 /** Available add-ons first; coming-soon sinks to the bottom (stable order). */
@@ -50,11 +54,23 @@ export default async function StudioPage({ params }: Props) {
   const { eventId } = await params;
 
   const supabase = await createClient();
-  const { data: liveOrders } = await supabase
-    .from('orders')
-    .select('service_key, status')
-    .eq('event_id', eventId)
-    .not('status', 'in', '("cancelled","refunded","lapsed")');
+
+  // Live order status per service_key (ownership/pending badges) + live admin
+  // catalog prices for the GET pills — fetched together.
+  const serviceKeys = Array.from(
+    new Set(ADD_ONS.map((a) => a.serviceKey).filter((k): k is string => Boolean(k))),
+  );
+  const [{ data: liveOrders }, { data: priceRows }] = await Promise.all([
+    supabase
+      .from('orders')
+      .select('service_key, status')
+      .eq('event_id', eventId)
+      .not('status', 'in', '("cancelled","refunded","lapsed")'),
+    supabase
+      .from('platform_retail_catalog_v2')
+      .select('service_code, retail_price_php')
+      .in('service_code', serviceKeys),
+  ]);
 
   const orderStatusMap = new Map<string, string>();
   for (const o of liveOrders ?? []) {
@@ -62,90 +78,109 @@ export default async function StudioPage({ params }: Props) {
       orderStatusMap.set(o.service_key, o.status as string);
     }
   }
+  const priceMap = new Map<string, string>();
+  for (const r of priceRows ?? []) {
+    if (r.service_code != null && r.retail_price_php != null) {
+      priceMap.set(r.service_code as string, formatPhp(Number(r.retail_price_php)));
+    }
+  }
+
+  // Resolve the App Store-style pill (price/status) for an entry.
+  function pillFor(entry: AddOnEntry): RowPill {
+    if (entry.status === 'coming_soon') return { text: 'Soon', tone: 'soon' };
+    const status = entry.serviceKey ? orderStatusMap.get(entry.serviceKey) : null;
+    if (status === 'paid' || status === 'fulfilled') return { text: 'Active', tone: 'active' };
+    if (status === 'submitted' || status === 'awaiting_payment')
+      return { text: 'Pending', tone: 'pending' };
+    if (entry.tier === 'free') return { text: 'Free', tone: 'free' };
+    if (entry.freeTrial) return { text: entry.freeTrial, tone: 'trial' };
+    const price = entry.serviceKey ? priceMap.get(entry.serviceKey) : null;
+    return { text: price ?? 'Get', tone: 'price' };
+  }
+
+  const tabs = SECTIONS.map((s) => ({ id: s.anchor, label: s.label }));
 
   return (
-    <section className="space-y-10">
+    <section className="space-y-8">
       <header className="space-y-2">
-        <p
-          className="m-eyebrow font-mono text-[11px] uppercase tracking-[0.22em]"
-          style={{ color: 'var(--m-orange-2)' }}
-        >
+        <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-terracotta-600">
           Studio
         </p>
-        <h1
-          className="text-3xl font-semibold tracking-tight sm:text-4xl"
-          style={{ color: 'var(--m-ink)' }}
-        >
+        <h1 className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
           Everything you can make with Setnayan
         </h1>
-        <p className="max-w-prose text-base" style={{ color: 'var(--m-slate)' }}>
-          Pick a tool to add to your event — from candid capture to your public
-          website, planning aids, and music. New ones light up as they ship.
+        <p className="max-w-prose text-base text-ink/65">
+          Browse the tools you can add to your event — from candid capture to
+          your public website, planning aids, and music. Tap any one to see what
+          it does. New ones light up as they ship.
         </p>
       </header>
 
-      {/* Alaala — the pillar framing. The memory features below (capture · your
-          website & story · music) are the pieces of the couple's living memory;
-          the free planning tools stay practical. Names the pillar + states the
-          guardrail (the tech never intrudes). Calm v2.1 surface, --m-* tokens. */}
-      <div
-        className="rounded-2xl border p-5 sm:p-6"
-        style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}
-      >
-        <p
-          className="m-eyebrow font-mono text-[11px] uppercase tracking-[0.22em]"
-          style={{ color: 'var(--m-orange-2)' }}
-        >
+      {/* Alaala — the pillar framing. The memory features (capture · website &
+          story · music) are the pieces of the couple's living memory. */}
+      <div className="rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
+        <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-terracotta-600">
           Alaala · the memory you keep
         </p>
-        <p className="mt-3 max-w-prose text-[15px] leading-relaxed" style={{ color: 'var(--m-ink)' }}>
+        <p className="mt-3 max-w-prose text-[15px] leading-relaxed text-ink">
           The pieces below become your <span className="italic">Alaala</span> — the living memory of
           your day. The moments you’ll be too busy to see, the people who can’t be there, the stories
           your guests tell — all kept, and made into something you hold forever.
         </p>
-        <p className="mt-2 max-w-prose text-[13px] leading-relaxed" style={{ color: 'var(--m-slate)' }}>
+        <p className="mt-2 max-w-prose text-[13px] leading-relaxed text-ink/60">
           And it never gets in the way. The day stays yours — the tech just quietly remembers it.
         </p>
       </div>
 
-      {SECTIONS.map(({ group, label, anchor }) => {
-        const addOns = ADD_ONS.filter((a) => a.studioGroup === group).slice().sort(
-          comingSoonLast,
-        );
+      <StudioSectionTabs tabs={tabs} />
 
-        // Nothing to show for this section → skip it.
+      {SECTIONS.map(({ group, label, anchor, flagship }) => {
+        const addOns = ADD_ONS.filter((a) => a.studioGroup === group)
+          .slice()
+          .sort(comingSoonLast);
         if (addOns.length === 0) return null;
 
-        return (
-          // id + scroll-mt: the Studio docked sub-nav (lib/customer-menu.ts) scrolls
-          // here and the scroll-spy lights the section in view.
-          <div key={group} id={anchor} className="scroll-mt-24 space-y-4">
-            <h2
-              className="m-eyebrow font-mono text-[11px] uppercase tracking-[0.2em]"
-              style={{ color: 'var(--m-slate)' }}
-            >
-              {label}
-            </h2>
+        // Featured hero = the preferred flagship if it's available, else the
+        // first available item. Coming-soon never gets featured.
+        const available = addOns.filter((a) => a.status !== 'coming_soon');
+        const featured =
+          available.find((a) => a.key === flagship) ?? available[0] ?? null;
+        const rows = addOns.filter((a) => a.key !== featured?.key);
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {addOns.map((addon) => {
-                const comingSoon = addon.status === 'coming_soon';
-                const ownedStatus = addon.serviceKey ? (orderStatusMap.get(addon.serviceKey) ?? null) : null;
-                return (
-                  <StudioCard
-                    key={addon.key}
-                    label={addon.label}
-                    blurb={addon.blurb}
-                    Icon={addon.Icon}
-                    href={comingSoon ? null : addOnHref(addon.key, eventId)}
-                    comingSoon={comingSoon}
-                    free={addon.tier === 'free'}
-                    freeTrial={addon.freeTrial}
-                    ownedStatus={ownedStatus}
-                  />
-                );
-              })}
-            </div>
+        return (
+          <div key={group} id={anchor} className="scroll-mt-24 space-y-4">
+            <h2 className="text-2xl font-semibold tracking-tight text-ink">{label}</h2>
+
+            {featured ? (
+              <StudioFeaturedCard
+                href={appStoreDetailHref(featured.key, eventId)}
+                eyebrow={label}
+                label={featured.label}
+                tagline={addOnDetail(featured.key)?.tagline ?? featured.blurb}
+                Icon={featured.Icon}
+                gradient={featured.poster.baseBackground}
+                pillText={pillFor(featured)?.text ?? 'Open'}
+              />
+            ) : null}
+
+            {rows.length > 0 ? (
+              <ul className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-cream">
+                {rows.map((addon) => {
+                  const comingSoon = addon.status === 'coming_soon';
+                  return (
+                    <StudioAppRow
+                      key={addon.key}
+                      href={comingSoon ? null : appStoreDetailHref(addon.key, eventId)}
+                      label={addon.label}
+                      blurb={addon.blurb}
+                      Icon={addon.Icon}
+                      gradient={addon.poster.baseBackground}
+                      pill={pillFor(addon)}
+                    />
+                  );
+                })}
+              </ul>
+            ) : null}
           </div>
         );
       })}

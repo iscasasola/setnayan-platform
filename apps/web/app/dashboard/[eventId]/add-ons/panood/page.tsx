@@ -174,10 +174,10 @@ export default async function PanoodAppStorePage({ params }: Props) {
       back={{ href: `/dashboard/${eventId}/add-ons`, label: 'Back to add-ons' }}
       hero={{
         Icon: Tv,
-        eyebrow: 'Panood · live broadcast',
-        title: 'Broadcast your wedding live',
+        eyebrow: 'Panood',
+        title: 'No one misses your day.',
         tagline:
-          'Stream to your own YouTube channel with one to five cameras. Family abroad watches in real time; you keep the archive forever.',
+          'Family abroad, friends who couldn’t fly in, lola in the province — all watching live as it happens. And the whole day is yours to keep, forever.',
         statusPill:
           statusPillForState(stateCtx.state) ?? { label: 'Web V1', tone: 'accent' },
         cta: heroCta,
@@ -195,82 +195,66 @@ export default async function PanoodAppStorePage({ params }: Props) {
       justLaunchedChip={stats.hasLaunchSignal ? null : 'Just launched · early access'}
       preview={[
         {
-          context: 'Desktop',
-          caption: 'Broadcaster grid — preview / program switcher, audio rail, highlight markers.',
-          body: (
-            <span>
-              <span aria-hidden className="block text-3xl">
-                ◧
-              </span>
-              <span className="mt-2 block text-[11px] text-ink/55">
-                5 camera tiles · preview · program · take button
-              </span>
-            </span>
-          ),
-        },
-        {
-          context: 'Mobile',
-          caption: 'Camera operator — WebRTC publish · no install · runs in any phone browser.',
-          aspect: '9/16',
-          body: (
-            <span>
-              <span aria-hidden className="block text-3xl">
-                ▭
-              </span>
-              <span className="mt-2 block text-[11px] text-ink/55">
-                Tap to claim cam · pinch to switch lens · slide to end
-              </span>
-            </span>
-          ),
-        },
-        {
-          context: 'Landing page',
-          caption: 'Viewers see the broadcast embedded on your event page with your monogram.',
+          context: 'Watching live',
+          caption: 'Family anywhere watches it happen, in real time.',
           body: (
             <span>
               <span aria-hidden className="block text-3xl">
                 ▶
               </span>
               <span className="mt-2 block text-[11px] text-ink/55">
-                YouTube IFrame Player · ~10s latency · unlimited audience
+                No matter where they are
               </span>
             </span>
           ),
         },
         {
-          context: 'Standby',
-          caption: 'Custom standby cards — countdown, intermission, "Reception begins shortly."',
+          context: 'On your page',
+          caption: 'The stream lives on your wedding page, in your colors.',
           body: (
-            <span>
-              <span aria-hidden className="block text-3xl">
-                ◇
-              </span>
-              <span className="mt-2 block text-[11px] text-ink/55">
-                Optional Custom Monogram pack overlays your monogram on every frame
-              </span>
+            <span aria-hidden className="block text-3xl">
+              ◷
+            </span>
+          ),
+        },
+        {
+          context: 'Every angle',
+          caption: 'The aisle, the altar, the happy tears — all covered.',
+          body: (
+            <span aria-hidden className="block text-3xl">
+              ◧
+            </span>
+          ),
+        },
+        {
+          context: 'Yours forever',
+          caption: 'Saved for you to rewatch any time.',
+          body: (
+            <span aria-hidden className="block text-3xl">
+              ❖
             </span>
           ),
         },
       ]}
-      samples={[
-        {
-          title: 'Sample broadcast (15 s)',
-          caption: 'Multi-cam ceremony with monogram overlay and lower-thirds.',
-          badge: 'YouTube',
-        },
-      ]}
+      highlights={{
+        title: "What you'll have",
+        items: [
+          'Everyone watching live, wherever they are',
+          'Every angle — the aisle, the altar, the happy tears',
+          'Right on your wedding page, in your colors',
+          'The whole day, saved for you to keep',
+        ],
+      }}
       description={{
         paragraphs: [
-          'Panood turns five phones into a multi-cam wedding broadcast. One person runs the broadcaster on a laptop or tablet, switches between cameras, marks highlights, and decides when to cut to standby. Camera operators are friends or family with smartphones — no install, just open the link.',
-          'Every broadcast goes to your own YouTube channel via a one-time OAuth grant. You control privacy (unlisted by default), you keep the archive forever, you can flip the broadcast to public after the event for sharing. Setnayan never holds the master tape.',
-          `Panood is one Daily Broadcast (${dailyPriceLabel} / day · always multi-cam, up to 6 cameras). Filipino weddings often run across three days — prep at one venue, ceremony at another, reception at a third — so buy one Daily Broadcast per event-day.`,
+          'Half the people who love you can’t fit in the room — or can’t make the trip at all. Panood brings them in. Your wedding streams live, so the people who matter are there for every moment as it happens.',
+          'And it doesn’t end when the day does. The whole celebration is saved for you — rewatch the vows, the first dance, the speeches, any time you want.',
+          `Panood covers one day of your celebration (${dailyPriceLabel} / day), from up to six angles. Filipino weddings often run across a few days — prep, ceremony, reception — so add a day for each.`,
         ],
         plans: [planRow],
         notIncluded: [
-          'No human crew — you bring your own camera operators (friends or family with smartphones).',
-          'No DSLR direct-to-broadcast in V1 — pair a DSLR via Pro Camera Bridge (phone-as-bridge, sold separately).',
-          'No Facebook Live destination — couples wanting Facebook can re-broadcast the YouTube stream themselves.',
-          'No portable hotspot rental — low-connectivity venues need their own backup data plan.',
+          'Your camera people are friends or family with phones — not a hired crew.',
+          'Streams to YouTube, not Facebook.',
         ],
       }}
       reviews={{
@@ -278,83 +262,6 @@ export default async function PanoodAppStorePage({ params }: Props) {
         avgRating: stats.avgRating,
         reviewCount: stats.reviewCount,
       }}
-      privacy={[
-        {
-          category: 'Event details',
-          items: ['Event date', 'Couple names', 'Venue address (for low-connectivity check)'],
-          purpose: 'Used to label the broadcast and schedule the auto-archive.',
-        },
-        {
-          category: 'YouTube channel access',
-          items: [
-            'Channel ID',
-            'OAuth refresh token (revocable any time)',
-            'Live broadcast metadata',
-          ],
-          purpose:
-            'Required to create the live broadcast on your channel with monetization off + ultra-low latency.',
-        },
-        {
-          category: 'Camera operator sessions',
-          items: [
-            'Per-camera session token (short-lived)',
-            'Operator phone capability ping (bitrate, battery)',
-          ],
-          purpose: 'Lets the broadcaster show a health dot on each tile and warn before pauses.',
-        },
-        {
-          category: 'Broadcast assets',
-          items: [
-            'Custom Monogram PNG (if uploaded)',
-            'Standby card text',
-            'Highlight markers (★ Mark presses)',
-          ],
-          purpose: 'Composited onto the live feed and stored alongside the YouTube archive.',
-        },
-      ]}
-      dataLinked={{
-        linked: [
-          'Event ID + couple user ID — order history',
-          'OAuth grant on your YouTube channel — refresh token (revocable)',
-          'Uploaded monogram PNG (if used)',
-          'Broadcast metadata (start/end time, camera count, highlight markers)',
-        ],
-        notLinked: [
-          'Aggregate broadcast counts (no event linkage)',
-          'Anonymous "% of weddings stream" stats',
-          'Camera operator phone fingerprints (transient, dropped post-event)',
-          'Audience analytics — held on YouTube under your channel, not Setnayan',
-        ],
-      }}
-      accessibility={[
-        {
-          label: 'Keyboard shortcuts',
-          detail:
-            'Single-key cam preview (1–5) · Space to take preview to program · H mark highlight · L lower-third · S scene card · P picture-in-picture · Esc standby · Shift+E end stream confirm.',
-        },
-        {
-          label: 'Destructive-action safety',
-          detail:
-            'End stream is hold-to-confirm on desktop (1.5 s fill) and slide-to-confirm on mobile. No single tap ever ends the broadcast.',
-        },
-        {
-          label: 'Thumb-zone mobile broadcaster',
-          detail:
-            'Camera strip + Highlight + Standby + Lower-third all live in the bottom 30% of the screen. Long-tail actions tuck behind a More sheet.',
-        },
-        {
-          label: 'Filipino language UI',
-          detail: 'All Panood surfaces ship Filipino copy alongside English; pick once per event.',
-        },
-        {
-          label: 'High-contrast standby cards',
-          detail: 'WCAG AA contrast on every standby template; large type readable on a projector.',
-        },
-        {
-          label: 'Captions on AI Highlight reels',
-          detail: 'Auto-generated burned-in captions ship V1.1; soft captions ship at GA.',
-        },
-      ]}
     />
   );
 }

@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · feat(save-the-date): film accent follows the Mood Board, with a manual override
+
+Owner: "yes moodboard is good and also manual color." The Save-the-Date film's "Add to calendar" button + accent marks were a hardcoded mulberry (`lib/std-themes.ts` SHARED). The accent now **defaults to the couple's Mood-Board palette** (so the film is on-brand with the rest of their wedding site), with a **manual hex override** the couple sets in the builder. Resolution order: `events.std_film_accent_hex` (manual) → `stdAccentFromPalette(role_palette)` (deep, button-legible Mood-Board accent) → brand mulberry.
+
+- **migration `20270128195377`** — `events.std_film_accent_hex text` (nullable; null = follow Mood Board → mulberry). Applied to prod.
+- **`lib/site-palette.ts`** — `stdAccentFromPalette()` (boldest swatch, darkened to AA 4.5 vs white so light button text reads; mirrors the site `cta` role) + `readableTextOn()` (contrast-safe button text: prefers the film's cream/ink tokens, escalates to pure black/white when a bold manual accent leaves both under AA — verified e.g. red #ff0000 → #000 at 5.25:1).
+- **`save-the-date-film.tsx`** — new optional `accentHex` prop. When set: the button uses inline `style` (Tailwind JIT can't emit a runtime hex) with derived contrast-safe text; the beat-1 divider + monogram text-initials follow the accent ONLY when no legibility tone is active (with a photo background, tone wins for readability). `accentHex` null → the original mulberry classes (full back-compat).
+- **`save-the-date.tsx` + `[slug]/page.tsx`** — thread the resolved accent (`stdAccentColor(event)`) through `SaveTheDateView` → film at BOTH public invocations (PublicLanding + InvitationSite); `std_film_accent_hex` added to the SELECT + `EventRow`.
+- **builder** (`studio/save-the-date/{page.tsx,actions.ts,_components/StdBuilderClient.tsx}`) — Step-1 "Accent colour" control (reuses the exported `ColorRow`: swatch + picker + "From your Mood Board" + Reset). Saved via `filmAccentColor` (validated `#rrggbb` → null); live preview recolours instantly. The Mood-Board default is shown beneath the picker.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. 3-lens adversarial review (correctness PASS; contrast lens caught the manual-accent AA gap, fixed above). Visual check on the PR's Vercel preview (local preview server is a different checkout).
+
+SPEC IMPACT: 0024 Save-the-Date — the film accent is no longer fixed mulberry; it inherits the Mood Board with a manual override. Presentation/data only; no SKU/pricing/gating change (STD stays free). Will log in `DECISION_LOG.md`.
+
 ## 2026-06-19 · feat(studio): Vector Monogram Studio "takes up the space" — full two-column desktop workspace + large live preview
 
 Owner: "we want this vector studio to open — make it take up the space, not just a small preview." The studio was a fixed ~430px-wide card with a 300px-tall canvas, dwarfed on a desktop page. Now it opens into a real workspace when it has room, on BOTH surfaces that share the editor (public `/monogram` + the couple dashboard studio at `/dashboard/[eventId]/monogram`).

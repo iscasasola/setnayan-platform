@@ -58,8 +58,9 @@ function EffectToggle({
   );
 }
 
-/** Colour swatch + native picker with an inherit-from-Mood-Board reset. */
-function ColorRow({
+/** Colour swatch + native picker with an inherit-from-Mood-Board reset.
+ *  Shared with the Save-the-Date builder's film accent control. */
+export function ColorRow({
   label,
   value,
   inherited,

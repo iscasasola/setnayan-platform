@@ -342,6 +342,10 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
     const pRot: THREE.Euler[] = [];
     const pPar: PP[] = [];
     const pCling = new Int32Array(NP);
+    // Whether this petal has already tested for a cling on its CURRENT fall — so
+    // each petal only rolls once when it first crosses the veil (owner 2026-06-19:
+    // "it can cling but only 30% of the petals, and only if the petals hit the veil").
+    const pTested = new Int8Array(NP);
     const pdum = new THREE.Object3D();
     let colDirty = true;
     let petalsSeeded = false;
@@ -351,6 +355,7 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       pRot[pi] = new THREE.Euler();
       pPar[pi] = {} as PP;
       pCling[pi] = -1;
+      pTested[pi] = 0;
     }
     const petalParams = (P: PP, ty: string) => {
       P.type = ty;
@@ -391,31 +396,41 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       pVel[i]!.set((rnd() * 2 - 1) * 0.05, -(0.05 + rnd() * 0.08), 0);
       pRot[i]!.set(rnd() * 6.28, rnd() * 6.28, rnd() * 6.28);
       pCling[i] = -1;
+      pTested[i] = 0;
       petals.setColorAt(i, petalColor());
       colDirty = true;
     };
-    const spawnCling = (i: number) => {
+    // Cling a falling petal to the veil where it HIT — snap to the nearest cloth
+    // grid point, keeping its current offset so it sticks where it landed (NOT a
+    // random point). Used by the collision test in updatePetals (owner 2026-06-19).
+    const clingNear = (i: number) => {
       const P = pPar[i]!;
+      const wx = pPos[i]!.x;
+      const wy = pPos[i]!.y;
+      let best = cols;
+      let bd = Infinity;
+      for (let k = cols; k < N; k++) {
+        const a = px[k]! - wx;
+        const b = py[k]! - wy;
+        const d = a * a + b * b;
+        if (d < bd) {
+          bd = d;
+          best = k;
+        }
+      }
       petalParams(P, 'cling');
-      const iy = Math.floor(rows * (0.28 + rnd() * 0.5));
-      const ix = Math.floor(rnd() * cols);
-      pCling[i] = idx(ix, iy);
-      P.ox = (rnd() * 2 - 1) * 0.05;
-      P.oy = (rnd() * 2 - 1) * 0.05;
-      P.size = vh * (0.035 + rnd() * 0.03);
-      pRot[i]!.set(rnd() * 6.28, rnd() * 6.28, (rnd() * 2 - 1) * 0.5);
-      petals.setColorAt(i, petalColor());
-      colDirty = true;
+      pCling[i] = best;
+      P.ox = wx - px[best]!;
+      P.oy = wy - py[best]!;
     };
+    // (owner 2026-06-19) Petals FALL; a petal that HITS the covered veil may cling
+    // where it landed — capped at ~30% of petals, never pre-seeded at random.
     const initPetals = () => {
       for (let i = 0; i < NP; i++) {
-        if (rnd() < 0.32) spawnCling(i);
-        else {
-          spawnFalling(i);
-          // Always start ABOVE the top and stagger upward so the shower rains in
-          // FROM THE TOP — never scattered across mid-screen/bottom (owner 2026-06-18).
-          pPos[i]!.y = vh * (1.05 + rnd() * 1.9);
-        }
+        spawnFalling(i);
+        // Always start ABOVE the top and stagger upward so the shower rains in
+        // FROM THE TOP — never scattered across mid-screen/bottom (owner 2026-06-18).
+        pPos[i]!.y = vh * (1.05 + rnd() * 1.9);
       }
     };
     const parkAll = () => {
@@ -462,6 +477,10 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
     };
     const updatePetals = (dt: number, shaking: boolean) => {
       const aN = Math.round((NP * cfgRef.current.petalsDensity) / 100);
+      // Cap clingers at ~30% of the active petals (owner 2026-06-19).
+      let clingCount = 0;
+      for (let i = 0; i < aN; i++) if (pCling[i]! >= 0) clingCount++;
+      const clingCap = Math.round(aN * 0.3);
       for (let i = 0; i < NP; i++) {
         const P = pPar[i]!;
         if (i >= aN) {
@@ -490,9 +509,26 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
           pRot[i]!.x += P.sx * dt;
           pRot[i]!.y += P.sy * dt;
           pRot[i]!.z += P.sz * dt;
+          // Collision: the petal hit the COVERED veil (lift low, on-screen, near
+          // the cloth front). Roll ONCE per fall — ~30% cling, capped at 30% of
+          // petals; the rest pass on and fall (owner 2026-06-19).
+          if (
+            !pTested[i] &&
+            lift < 0.45 &&
+            pPos[i]!.y < vh * 0.9 &&
+            pPos[i]!.y > -vh * 0.9 &&
+            Math.abs(pPos[i]!.x) < vw * 0.95 &&
+            Math.abs(pPos[i]!.z - frontZ) < 0.4
+          ) {
+            pTested[i] = 1;
+            if (clingCount < clingCap && rnd() < 0.3) {
+              clingNear(i);
+              clingCount++;
+            }
+          }
           if (pPos[i]!.y < -vh * 1.45) {
-            if (rnd() < 0.3) spawnCling(i);
-            else spawnFalling(i);
+            // Recycle as another falling petal.
+            spawnFalling(i);
           }
         }
         pdum.position.copy(pPos[i]!);

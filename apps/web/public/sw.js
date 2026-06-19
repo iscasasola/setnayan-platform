@@ -320,18 +320,33 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Day-of guest navigation (the personal landing page + find-my-table):
-  // stale-while-revalidate so the schedule / table / floorplan render instantly
-  // and survive a venue with weak signal, while still refreshing in the
-  // background when the network is reachable.
+  // Guest landing-page navigation (the personal `/[slug]` page + find-my-table).
+  // NETWORK-FIRST (owner 2026-06-19): always fetch fresh when online and update
+  // the cache, falling back to the cached copy ONLY when the network fails. The
+  // old stale-while-revalidate served the PREVIOUS build's HTML (→ old JS chunks)
+  // on the first visit after every deploy — so couples/owners saw stale pages and
+  // thought nothing shipped. Network-first keeps the offline/weak-signal fallback
+  // (day-of at a venue) while guaranteeing a fresh page whenever the network is up.
   const isNavigation =
     request.mode === 'navigate' || request.destination === 'document';
   if (isNavigation && isDayOfGuestNavigation(url)) {
     event.respondWith(
-      staleWhileRevalidate(DAYOF_CACHE, request).then(
-        (res) =>
-          res ?? caches.match(request).then((c) => c ?? caches.match('/offline.html')),
-      ),
+      fetch(request)
+        .then((response) => {
+          if (response && response.ok) {
+            const clone = response.clone();
+            caches.open(DAYOF_CACHE).then((cache) => {
+              cache.put(request, clone).then(() => {
+                recordAccess(DAYOF_CACHE, request.url);
+                return enforceLimits(DAYOF_CACHE);
+              });
+            });
+          }
+          return response;
+        })
+        .catch(() =>
+          caches.match(request).then((c) => c ?? caches.match('/offline.html')),
+        ),
     );
     return;
   }

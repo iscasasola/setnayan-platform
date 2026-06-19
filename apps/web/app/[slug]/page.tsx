@@ -154,7 +154,7 @@ const fetchEventBySlug = cache(async (slug: string) => {
   const { data } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city',
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -374,11 +374,13 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   const heroVideoUrl = await displayUrlForStoredAsset(
     event.landing_page_hero_video_r2_key,
   );
-  // The couple's "Add music" veil control (events.std_reveal_effects.music,
-  // default on) gates whether their song plays on the page. (2026-06-18)
-  const stdEffectsForMusic = resolveRevealEffects(event.std_reveal_effects);
+  // The couple's song plays whenever they've ENABLED it + set a track
+  // (events.site_bg_music_*). The Save-the-Date Music step sets both on upload.
+  // (owner 2026-06-19: an uploaded song must just play — the old extra gate on
+  // the redundant std_reveal_effects.music veil flag, which the veil canvas
+  // ignores anyway, was blocking it even after upload.)
   const bgMusicUrl =
-    event.site_bg_music_enabled && event.site_bg_music_r2_key && stdEffectsForMusic.music
+    event.site_bg_music_enabled && event.site_bg_music_r2_key
       ? await displayUrlForStoredAsset(event.site_bg_music_r2_key)
       : null;
 
@@ -405,11 +407,13 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // Save-the-Date ceremony + reception venues (0024 · 2026-06-19). AUTO-FILLED
   // from the couple's FINALIZED vendor bookings (event_vendors); the reception
   // falls back to the couple's manual builder entry (std_film_venue_*) then the
-  // event's free-text venue. Ceremony is booking-only for now (manual ceremony
-  // is a follow-up). The film shows whichever venues resolved.
+  // event's free-text venue. Ceremony = the finalized booking, else the couple's
+  // manual ceremony venue (std_film_ceremony_name, owner 2026-06-19). The film
+  // shows whichever venues resolved.
   const stdFinalizedVenues = await resolveStdFinalizedVenues(admin, event.event_id);
   const stdVenues = {
-    ceremony: stdFinalizedVenues.ceremony,
+    ceremony:
+      stdFinalizedVenues.ceremony ?? (event.std_film_ceremony_name as string | null) ?? null,
     reception:
       stdFinalizedVenues.reception ??
       (event.std_film_venue_name as string | null) ??
@@ -1001,6 +1005,8 @@ type EventRow = {
   // Manual STD venue override (reception fallback when no finalized booking).
   std_film_venue_name?: string | null;
   std_film_venue_city?: string | null;
+  // Manual STD ceremony venue (fallback when no finalized ceremony booking).
+  std_film_ceremony_name?: string | null;
   // JSONB column populated by the host via /dashboard/[eventId]/website/photo-moments.
   // Shape: { intro_copy: string, moments: [{ time_label, title, note, mode }] }.
   // Unknown / empty shapes degrade gracefully in PhotoMomentsWidget — the

@@ -6,6 +6,7 @@ import { Download, ImageDown, ArrowRight, Loader2 } from 'lucide-react';
 import { mountStudio } from '@/lib/monogram-studio/engine';
 import { STUDIO_HTML, STUDIO_CSS } from '@/lib/monogram-studio/markup';
 import { sanitizeStudioSvg, type StudioConfig } from '@/lib/monogram-studio-shared';
+import { stashMonogramDraft } from '@/lib/monogram-studio/draft';
 
 /**
  * PublicMonogramStudio — the FREE, no-login Vector Monogram Studio on
@@ -125,7 +126,8 @@ export function PublicMonogramStudio() {
     };
   }, []);
 
-  function exportSvg(): string | null {
+  /** Sanitized export (svg + re-editable config), or null with an error set. */
+  function getCleanExport(): { svg: string; config: StudioConfig } | null {
     const res = apiRef.current?.getExport();
     if (!res || !res.svg) {
       setError('Add at least one initial before downloading.');
@@ -137,24 +139,40 @@ export function PublicMonogramStudio() {
       return null;
     }
     setError(null);
-    return clean;
+    return { svg: clean, config: res.config };
+  }
+
+  /** Silently stash the current design (if any) so it can follow the visitor
+   *  through sign-up to their new wedding. Never surfaces an error. */
+  function stashIfAny() {
+    try {
+      const res = apiRef.current?.getExport();
+      if (res?.svg) {
+        const clean = sanitizeStudioSvg(res.svg);
+        if (clean) stashMonogramDraft(clean, res.config);
+      }
+    } catch {
+      /* noop */
+    }
   }
 
   function onDownloadSvg() {
-    const svg = exportSvg();
-    if (!svg) return;
-    downloadBlob(new Blob([svg], { type: 'image/svg+xml' }), 'setnayan-monogram.svg');
+    const exp = getCleanExport();
+    if (!exp) return;
+    downloadBlob(new Blob([exp.svg], { type: 'image/svg+xml' }), 'setnayan-monogram.svg');
+    stashMonogramDraft(exp.svg, exp.config);
     track('public_monogram_downloaded', { format: 'svg' });
   }
 
   async function onDownloadPng() {
-    const svg = exportSvg();
-    if (!svg || pngBusy) return;
+    const exp = getCleanExport();
+    if (!exp || pngBusy) return;
     setPngBusy(true);
     try {
-      const blob = await rasterizeToPng(svg, 1600);
+      const blob = await rasterizeToPng(exp.svg, 1600);
       if (blob) {
         downloadBlob(blob, 'setnayan-monogram.png');
+        stashMonogramDraft(exp.svg, exp.config);
         track('public_monogram_downloaded', { format: 'png' });
       } else {
         setError('Could not render the PNG — the SVG download still works.');
@@ -205,12 +223,15 @@ export function PublicMonogramStudio() {
       <div className="mx-auto mt-7 max-w-[460px] rounded-2xl border border-[#C5A059]/40 bg-[#FBF6EA] px-5 py-5 text-center">
         <p className="font-serif text-lg text-[#1E2229]">Make it your wedding&rsquo;s monogram</p>
         <p className="mt-1.5 text-sm text-[#5F5E5A]">
-          Start planning free and your mark flows everywhere — your wedding website, QR invitations,
-          save-the-date, and signage.
+          Start planning free and we&rsquo;ll keep this design — pick it up in the Monogram Maker to make it your
+          official mark. From there it flows everywhere: your wedding website, QR invitations, and save-the-date.
         </p>
         <Link
           href="/onboarding/wedding?from=monogram"
-          onClick={() => track('public_monogram_cta', { target: 'onboarding' })}
+          onClick={() => {
+            stashIfAny();
+            track('public_monogram_cta', { target: 'onboarding' });
+          }}
           className="mt-3.5 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full bg-[#5C2542] px-6 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
         >
           Start planning · free

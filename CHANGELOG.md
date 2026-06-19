@@ -17,6 +17,128 @@ Verified: `pnpm typecheck` clean · `pnpm lint` clean (fixed an `aria-disabled`-
 
 SPEC IMPACT: iter 0021 (couple dashboard · Studio/Services surface) + the 2026-05-17 App Store detail pilot generalized to all in-app services. See `DECISION_LOG.md` 2026-06-19.
 
+## 2026-06-19 · feat(std): manual ceremony venue + single date on the date beat
+
+Two owner film-content fixes.
+
+- **Ceremony venue — manual entry added.** The film's ceremony beat only auto-filled from a FINALIZED on-platform ceremony booking (`religious_venue`/`church_fees`); a couple who booked off-platform had no way to set it, so the slide never showed ("where is the ceremony venue — add it"). Added `events.std_film_ceremony_name` (migration `20270127000000`, applied) — the manual fallback paralleling the reception's `std_film_venue_name`. New editable "Ceremony venue" input in the Save-the-Date builder Content step (was a read-only booking display); the live page + builder resolve `ceremony = finalized booking ?? std_film_ceremony_name`. The ceremony slide (beat 4) renders whenever a ceremony venue resolves.
+- **Date shown once.** The date beat rendered BOTH the compact `MM.DD.YY` and the long-form "December 16, 2026" (the date appeared twice). Now it shows the **long-form as the single hero** (the compact is only a fallback when there's no long form).
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. Migration `20270127000000` applied to prod (ledger clean, single pending).
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — ceremony venue now has a manual fallback (not booking-only); the date beat shows one date. See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · fix(monogram): the Monogram Maker page 500'd in production for every couple (same PR #1798)
+
+Owner reported the maker page (`/dashboard/[eventId]/monogram`) showing **"Something on our end didn't work"** (a Server Components render error, message hidden in prod). Reproduced it in a local **production build** (dev was lenient and rendered fine): the real error was
+
+```
+TypeError: MONO_FONT_OPTIONS.some is not a function
+```
+
+**Root cause (a classic prod-only RSC trap):** the page is a Server Component, but it imported the *value* `MONO_FONT_OPTIONS` (+ `DEFAULT_FONT_FOR_STYLE`) from `monogram-maker.tsx`, which is a `'use client'` module. A server import of a **value** export from a client module resolves to `undefined` in the production RSC build (dev tolerates it), so `MONO_FONT_OPTIONS.some(...)` threw and crashed the whole page. Latent since the typeface picker (#1260) added that import; the monogram-studio `lib/` extraction (#1796) changed the route's module graph and tipped the prod bundler into actually stripping the export. (The Vector Studio code was not at fault — this is the lettered-maker font logic.)
+
+**Fix:** moved `MONO_FONT_OPTIONS` / `DEFAULT_FONT_FOR_STYLE` / `MonoFontOption` / `MonoStyle` into a new **non-client** `monogram-maker-shared.ts`. The server page imports the constants from there (a real array on the server); the client `monogram-maker.tsx` imports them from the same module; the component (`MonogramMaker`) is still imported from the client file (normal RSC). No other client→server value imports exist on the page.
+
+Verified: `pnpm typecheck` clean · `pnpm lint` 0 errors · reproduced the crash in a prod build, then confirmed the **prod build renders the authed monogram page 200** with the fix (no server error).
+
+SPEC IMPACT: none — bugfix. Hardening note: never import a non-component value from a `'use client'` module into a Server Component.
+## 2026-06-19 · fix(pwa): guest `/[slug]` page is network-first, not stale-while-revalidate
+
+**This is why every Save-the-Date deploy looked like nothing shipped.** The service worker (`public/sw.js`) classified any bare `/[slug]` navigation as a "day-of guest" page and served it **stale-while-revalidate** from `DAYOF_CACHE` — so the couple's landing page (e.g. `/cale-ice`) returned the **previous build's cached HTML** (→ the old JS chunks) on the first visit after each deploy, only refreshing in the background. The owner kept seeing the old film even though the code was merged + deployed.
+
+- Switched the `/[slug]` (+ `/find-my-table`) navigation to **network-first**: fetch fresh when online and update the cache; fall back to the cached copy **only** when the network fails. Keeps the offline / weak-signal day-of fallback intact while guaranteeing a fresh page whenever the network is up.
+- Static JS/CSS chunks (content-hashed) + images/fonts are unchanged (they can't go stale by filename). Only the document navigation strategy changed.
+
+⚠ One-reload lag: the FIX itself ships via the SW, so the new SW must activate once (a reload) before `/[slug]` becomes network-first; from then on every deploy is fresh on first load.
+
+Verified: `node --check public/sw.js` OK. No migration.
+
+SPEC IMPACT: `Caching_and_Offline_Strategy` § 3.2 — the day-of guest landing page is network-first (was SWR); offline fallback preserved. See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · fix(std): uploaded song plays — drop the redundant veil-music gate
+
+Owner: "background music is not playing when the veil is up. I uploaded the music on the save the date page."
+
+`bgMusicUrl` (app/[slug]/page.tsx) required THREE flags: `site_bg_music_enabled` **AND** the track key **AND** `std_reveal_effects.music` (the veil "Add music" effect, which the veil canvas ignores — "handled at page level"). The Save-the-Date Music step's upload sets the first two, but the redundant third flag (off unless the couple toggled it) was nulling the music URL — so the film got no soundtrack at all even after the upload. Dropped the `&& stdEffectsForMusic.music` gate: `site_bg_music_enabled` is the single on/off, so an uploaded + enabled song now just plays (no re-save needed — the existing `site_bg_music_enabled=true` from the upload resolves the URL on the next load). Pairs with the recovered autoplay-on-lift fix (#1800), which actually starts it.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the couple's uploaded/enabled site song is the single source for the film soundtrack; the redundant veil `music` flag no longer gates it. See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · fix(std): music autoplays · content waits for the veil · petals cling on hit (PR-W follow-up 4)
+
+Owner: "music did not auto play. and content will [only] play [once] the veil is up." + "[petals] can cling but only 30% of the petals, and only if the petals hit the veil."
+
+- **Content waits for the veil.** The film had a 2 s fallback that auto-started even when a veil was present — so the beats played UNDER the veil, and (because that start wasn't from a user gesture) the **music autoplay was blocked**. Now `RevealOverlay` publishes `window.__stdRevealActive` when a reveal will show; the film only auto-starts (after a short grace) when NO reveal is active, otherwise it holds until **`std-reveal-done`** (veil fully lifted). If the reveal can't run, veil-reveal already fires `std-reveal-done` itself, so it never hangs.
+- **Music autoplays.** On the lift gesture the veil dispatches `std-go-fullscreen` **synchronously**; the film now also **plays the soundtrack there** — inside that user activation — so audio-with-sound is allowed (browsers block it without a gesture). It's already playing as the veil rises.
+- **Petals cling on hit (≤30%).** Re-added clinging, but collision-based: a falling petal that hits the **covered** veil (lift low, on-screen, near the cloth front) rolls **once** — ~30% cling **where they landed** (snap to the nearest cloth point, keeping their offset), capped at **30% of petals**; the rest fall on. No random pre-seeding.
+
+Verified: `pnpm typecheck` (my files clean; monogram-studio `paper` errors are an unrelated local install gap) + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` + `0024_Veil_Reveal_Spec` — content holds until the veil lifts; music starts on the lift gesture; veil petals cling only on collision, ≤30%. See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(std): uniform scale-to-fit film (one design canvas, transform-scaled) (PR-W follow-up 3)
+
+Owner: "resizing still did not work. we want to take the maximum width always without causing the texts to exceed both width and height, and keep everything at the same size."
+
+Replaced the breakpoint-based responsive sizing (discrete `sm:`/`lg:` font jumps + `md:max-w` stage widening — which scaled in steps and never truly filled the screen) with a single **uniform scale-to-fit**:
+
+- The film is now composed at ONE fixed logical canvas (`BASE_W 440 × BASE_H 780`); every beat's type + monogram are sized **once** (no responsive variants).
+- A `ResizeObserver` measures the container and sets `fitScale = clamp(min(cw/BASE_W, ch/BASE_H), 0.6, 2.3)` — the largest scale that fits within **both** width and height. The whole stage gets `transform: scale(fitScale)`, centred. So the content is as big as possible on any screen **without overflowing either dimension**, and **everything stays proportional** ("same size" = one uniform scale).
+- Applies identically on the live full-screen page and the builder preview frames.
+- Video clip cap switched from `68vh` → `520px` (stage-relative, so it scales with the canvas instead of fighting the transform).
+
+Verified: `pnpm typecheck` (my files clean; monogram-studio `paper` errors are an unrelated local install gap) + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the film scales as one uniform unit to fit any viewport (max size, no overflow), replacing breakpoint font bumps. See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(std): video autoplays + audio crossfade · bigger desktop text · petals only fall (PR-W follow-up 2)
+
+Owner screenshot + notes: "the text are not larger on desktop. the leaves are randomly attaching to the veil but no leaf was falling on that direction. the video should autoplay, no more clicking. the background music will play automatically [and] crossfade to the video as the video plays, then crossfade again when it returns to the last screen."
+
+`save-the-date-film.tsx`:
+
+- **Video AUTOPLAYS** — removed the play-button → fullscreen interaction. The video plays by itself when its beat is active (the reveal gesture already granted the page media playback) inside the already-full-screen experience, and advances to the calendar close on its natural end. No clicking.
+- **Audio crossfade** — the soundtrack now **crossfades** (~700ms) to the video's audio as the video plays, then crossfades back to the music when the film returns to the closing screen (replaces the old hard music-pause/duck). Robust: the fade always converges to the target volume even if interrupted.
+- **Bigger on desktop** — the headline beats AND the monogram mark now scale up at `lg`: the close-beat date + monogram + invitation + venue sublines were missed before (the screenshot was the close beat). The monogram lockup/SVG uses responsive scale classes (`scale-[…] lg:scale-[…]`, `lg:h-44` etc.) so it's prominent on desktop, not an 80px chip.
+
+`reveal/veil-reveal.tsx`:
+
+- **Petals only fall** — removed the artificial "cling to a random veil grid point" (both the init seeding and the recycle path). Leaves were appearing stuck on the lifted veil where none had fallen; now every petal showers down from the top and none pre-attach. (Supersedes the §6 "petals cling / lowering shakes them loose" behaviour — owner-directed.)
+
+Verified: `pnpm typecheck` (my files clean; monogram-studio `paper` errors are an unrelated local install gap) + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` + `0024_Veil_Reveal_Spec` — the video autoplays with a music↔video crossfade; desktop type + monogram scale up; veil petals only fall (no random cling). See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · fix(monogram): the dashboard Vector Studio seeds from the couple's initials (same PR #1798)
+
+Owner: on the event's Monogram Maker (`/dashboard/[eventId]/monogram`), the Vector Studio opened on its built-in **"Maria & Juan"** placeholder instead of the couple's initials — so it didn't read as *their* monogram maker, and saving that generic mark **replaced the event's assigned monogram** with the wrong initials. Root cause: `VectorStudio` never received the event's initials — its sibling cards (Cipher / Bespoke / lettered Maker) all take `initialInitials` / `defaultInitials`, but `VectorStudio` took only `initialConfig` (the *saved* design), so a first-time open fell through to the engine's hardcoded default.
+
+- The page now passes `initialNames={monogram.text}` (the resolved "A & B" label).
+- The engine seeds the names field from it **on a first open only** — when there's no saved studio design to restore (a saved config carries its own names, so it's skipped then).
+- The public studio is unaffected (no event → keeps the generic demo default).
+
+So the editor now opens on the couple's real initials, and a save produces a mark consistent with their assigned monogram — no more generic clobber. (Also explains the reported "monogram saves overlap the assigned monogram": before the fix, the saved generic mark and the event's lettered mark disagreed across surfaces.)
+
+Verified: `pnpm typecheck` clean · `pnpm lint` 0 errors · `pnpm build` green.
+
+SPEC IMPACT: monogram Phase 5 — bugfix. None beyond the studio.
+
+## 2026-06-19 · feat(monogram): carry the public-studio design through sign-up (PR pending, auto-merge)
+
+Closes the loop on the public studio: a monogram designed on the free `/monogram` studio **before** sign-up now follows the visitor into their new wedding. No new server action — it reuses the existing `saveStudioAction` (which already re-sanitizes the SVG + enforces couple membership), so a client-controlled localStorage payload can never become an unsafe or cross-account mark.
+
+- **Bridge** `lib/monogram-studio/draft.ts` — `stashMonogramDraft` / `readMonogramDraft` / `clearMonogramDraft` over `localStorage` (sanitized SVG + re-editable config + 30-day TTL + size guard; SSR-safe — touches storage only inside functions). Device-bound by nature; the download is the cross-device fallback.
+- **Public studio** stashes the (sanitized) design on **download** and on the **"start planning · free"** CTA click.
+- **Dashboard restore card** `app/dashboard/[eventId]/monogram/draft-restore.tsx` — on the Monogram Maker, when a valid draft exists **and** the event has no custom mark yet, a "pick up the monogram you designed" card (with an inert data-URI preview) submits it to `saveStudioAction` → it becomes the official mark. Shows nothing otherwise (no layout cost).
+- **One-shot**: the draft is cleared as soon as a mark exists (right after Apply's redirect), so it never re-surfaces later if the couple clears their mark (adversarial-review fix). CTA copy corrected to point at the Monogram Maker specifically (not "your dashboard").
+
+Reviewed by a 14-agent adversarial pass (security · SSR/correctness · UX-flow · hygiene); 2 real issues found and fixed (draft cleanup after apply + CTA copy accuracy). The localStorage→server trust boundary is safe: `event_id` is server-rendered from the authed page, and `saveStudioAction` re-sanitizes.
+
+Verified: `pnpm typecheck` clean · `pnpm lint` 0 errors · `pnpm build` green (an initial run hit the flaky Next `webpack-runtime.js` worker error on an unrelated `/help` page; a clean rebuild passed).
+
+SPEC IMPACT: monogram Phase 5 — completes the public-studio funnel. DECISION_LOG + memory + corpus design doc updated.
 ## 2026-06-19 · feat(std): auto-to-full-screen + robust window-level scroll-scrub (PR-W follow-up)
 
 Owner: "can we make it auto play to full screen? it is not scrubbing as well." (The scroll-scrub wasn't live yet — PR-W hadn't merged — and the wheel was bound to the centred stage only; both addressed here, same PR-W branch.)

@@ -101,7 +101,33 @@ export type NotificationType =
   // Added 2026-06-18 (Kwento Phase 3 · Assignment Board). Fired (guest-recipient)
   // from the nudge server action when a couple or delegate presses "Nudge" on an
   // assigned editorial moment. Capped at 3 nudges per assignment by the action.
-  | 'kwento_assignment_nudge';
+  | 'kwento_assignment_nudge'
+  // Added 2026-06-19 (Notification Foundation · Phase A) alongside migration
+  // 20270129155743_add_notification_types.sql. Registered in the union + enum
+  // now so the Phase-B emit-fix PRs can wire emitNotification() at their action
+  // sites; Phase A itself emits NONE of these (safe to land before the migration
+  // is applied — no code path INSERTs a brand-new type yet). Recipients/sites
+  // land with the Phase-B PR that turns each one on:
+  //   vendor_status_change  → vendor: verification / account status changed
+  //   vendor_payout_update  → vendor: payout state advanced (EWT / Form 2307)
+  //   dispute_resolved      → couple/vendor: an open dispute flag was closed
+  //   vendor_review_reply   → couple: vendor replied to their review
+  //   schedule_suggestion   → couple: vendor/coordinator suggested a timeline edit
+  //   pax_surcharge_changed → couple: vendor adjusted the pax-based surcharge
+  //   vendor_joined         → couple: an invited vendor claimed their profile
+  //   editorial_decision    → vendor/couple: editorial/sponsored decision landed
+  //   showcase_featured     → couple: their event was featured in the showcase
+  //   guest_claim_rejected  → guest: couple rejected their invite-claim request
+  | 'vendor_status_change'
+  | 'vendor_payout_update'
+  | 'dispute_resolved'
+  | 'vendor_review_reply'
+  | 'schedule_suggestion'
+  | 'pax_surcharge_changed'
+  | 'vendor_joined'
+  | 'editorial_decision'
+  | 'showcase_featured'
+  | 'guest_claim_rejected';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   chat_message: 'New message',
@@ -134,6 +160,17 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   kwento_story_batch: 'Guest stories to review',
   kwento_flash_auto_walled: 'Flash story auto-walled',
   kwento_assignment_nudge: 'Story assignment nudge',
+  // Phase A (2026-06-19) — labels for the ten new types. Concise tray copy.
+  vendor_status_change: 'Account status updated',
+  vendor_payout_update: 'Payout update',
+  dispute_resolved: 'Dispute resolved',
+  vendor_review_reply: 'Vendor replied to your review',
+  schedule_suggestion: 'Schedule suggestion',
+  pax_surcharge_changed: 'Guest-count charge updated',
+  vendor_joined: 'Vendor joined',
+  editorial_decision: 'Editorial decision',
+  showcase_featured: 'Featured in the showcase',
+  guest_claim_rejected: 'Guest request declined',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -186,6 +223,33 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   kwento_flash_auto_walled: 'bg-sky-100 text-sky-800',
   // A nudge to write their story = gentle action-needed → amber (same register).
   kwento_assignment_nudge: 'bg-warn-100 text-warn-900',
+  // Phase A (2026-06-19) — tones for the ten new types, following the existing
+  // register: emerald = positive/confirmation, rose = alarm/negative, amber =
+  // action-needed, sky = informational, indigo = ops/reply.
+  // Verification/account status can swing either way (verified vs suspended);
+  // sky reads as a neutral "look at this status change" either way.
+  vendor_status_change: 'bg-sky-100 text-sky-800',
+  // Money-in confirmation → emerald, matching vendor_tokens_credited / order_paid.
+  vendor_payout_update: 'bg-success-200 text-success-900',
+  // A dispute closing is a resolution/relief, not an alarm → emerald.
+  dispute_resolved: 'bg-success-100 text-success-800',
+  // A reply to the couple's review = a conversational reply → indigo, matching
+  // help_ticket_replied (the other "someone replied to you" type).
+  vendor_review_reply: 'bg-indigo-100 text-indigo-800',
+  // A suggested timeline edit needs the couple's okay → amber (action-needed),
+  // matching schedule_suggestion's sibling review_request.
+  schedule_suggestion: 'bg-warn-100 text-warn-900',
+  // A changed guest-count charge needs the couple's attention/confirm → amber.
+  pax_surcharge_changed: 'bg-warn-100 text-warn-900',
+  // An invited vendor accepting/claiming = a positive arrival → emerald.
+  vendor_joined: 'bg-success-100 text-success-800',
+  // An editorial/sponsored decision is informational → sky.
+  editorial_decision: 'bg-sky-100 text-sky-800',
+  // Being featured in the showcase is celebratory → emerald.
+  showcase_featured: 'bg-success-200 text-success-900',
+  // A declined guest request is a soft negative → muted ink, matching
+  // inquiry_declined (the other "your request was declined, no leak" type).
+  guest_claim_rejected: 'bg-ink/10 text-ink/70',
 };
 
 export type NotificationRow = {

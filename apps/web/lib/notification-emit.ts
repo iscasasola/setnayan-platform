@@ -1,6 +1,7 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isEmailConfigured, sendEmail } from '@/lib/email';
+import { renderBrandedEmail } from '@/lib/email-template';
 import { isWebPushConfigured, sendWebPush } from '@/lib/web-push';
 import type { NotificationType } from '@/lib/notifications';
 
@@ -30,6 +31,54 @@ const PUSH_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   // exists in the NotificationType enum + is emitted on accept; this only adds
   // the push channel — no schema change.
   'inquiry_accepted',
+]);
+
+// ---------------------------------------------------------------------------
+// EMAIL allowlist (Notification Foundation · Phase A · 2026-06-19).
+//
+// THE BUG this fixes: previously emitNotification() emailed the recipient on
+// EVERY notification type whenever RESEND_API_KEY was set, using one generic
+// untemplated plaintext body. Couples + vendors got a spammy email for every
+// in-app signal (kwento flash counts, informational badges, etc.). 0028 only
+// ever specified email for the transactional set.
+//
+// This Set mirrors PUSH_ENABLED_TYPES: email fires ONLY for types in here.
+// Everything else stays in-app/push-only (NO email). Gating to an allowlist
+// can only REDUCE sends — it never emails a type that wasn't already being
+// emailed — so this is a backward-safe, additive-direction change.
+//
+// Membership = the 0028 transactional templates + the clearly-transactional
+// money/booking/account events, restricted to types that exist in the union
+// today. Deliberately EXCLUDED because no such notification type exists in the
+// code (they're sent via other paths or aren't emitted at all): a standalone
+// `payment_instructions` type (instructions go out via the checkout email
+// path, not emitNotification) and `wedding_day_reminder` (day-of mode 0031 is
+// cron-free and emits no notification). "new vendor message" IS `chat_message`
+// (see PUSH_ENABLED_TYPES note above). The two NEW Phase-A types listed here
+// (vendor_status_change, dispute_resolved) are transactional and belong on the
+// allowlist now even though Phase A doesn't yet emit them — Phase B wires the
+// emit sites.
+const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
+  // Payments + orders (0028 transactional core).
+  'order_quoted',
+  'order_paid',
+  'payment_matched',
+  'payment_rejected',
+  'payment_resubmit_requested',
+  'payment_refunded',
+  // Account + security.
+  'security_alert',
+  'vendor_status_change',
+  // Bookings + vendor relationship.
+  'rsvp_received',
+  'inquiry_accepted',
+  'booking_confirmed',
+  'review_received',
+  // Disputes.
+  'dispute_filed',
+  'dispute_resolved',
+  // New vendor/couple message (the canonical "new_vendor_message").
+  'chat_message',
 ]);
 
 export type EmitNotificationArgs = {
@@ -70,9 +119,11 @@ export async function emitNotification(args: EmitNotificationArgs): Promise<void
     console.error('[notifications] emit threw:', e);
   }
 
-  // Send email if Resend is configured — fire-and-forget; failures here
-  // never affect the in-app notification that already landed.
-  if (isEmailConfigured()) {
+  // Send email ONLY for allowlisted transactional types when Resend is
+  // configured — fire-and-forget; failures here never affect the in-app
+  // notification that already landed. The allowlist is the critical fix: it
+  // stops the prior behavior of emailing the recipient on EVERY type.
+  if (isEmailConfigured() && EMAIL_ENABLED_TYPES.has(type)) {
     try {
       const admin = createAdminClient();
       const { data: recipient } = await admin
@@ -99,10 +150,24 @@ export async function emitNotification(args: EmitNotificationArgs): Promise<void
           .filter((line) => line !== null && line !== undefined)
           .join('\n');
 
+        // Branded multipart: HTML-capable clients render the Setnayan-styled
+        // template (lib/email-template.ts), the rest fall back to `text`. The
+        // branded renderer applies to every allowlisted type — there's one
+        // shared layout, so no per-type renderer is needed.
+        const html = renderBrandedEmail({
+          heading: title,
+          paragraphs: body ? [body] : [],
+          ctaLabel: 'Open Setnayan',
+          ctaHref: link,
+          footnote:
+            "You're receiving this because of activity on your Setnayan account.",
+        });
+
         await sendEmail({
           to: recipient.email,
           subject: title,
           text,
+          html,
         });
       }
     } catch (e) {

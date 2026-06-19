@@ -175,7 +175,7 @@ export async function approvePayment(formData: FormData) {
       userId: payment.user_id,
       type: 'order_paid',
       title: `Order ${order?.public_id ?? ''} marked paid`,
-      body: 'Your order is fully paid. We&apos;ll start work right away.',
+      body: "Your order is fully paid. We'll start work right away.",
       relatedUrl: order?.event_id
         ? `/dashboard/${order.event_id}/orders/${payment.order_id}`
         : null,

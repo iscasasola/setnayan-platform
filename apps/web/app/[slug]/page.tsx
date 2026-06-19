@@ -1415,7 +1415,10 @@ function PublicLanding({
         eventEffects={resolveRevealEffects(event.std_reveal_effects)}
         eventId={event.event_id}
       />
-      {bgMusicUrl ? <BackgroundMusic src={bgMusicUrl} /> : null}
+      {/* Couple's opt-in background-music player — NOT during the Save-the-Date
+          phase: the STD film owns audio there, and this floating speaker control
+          would otherwise bleed through / over the veil reveal. (owner 2026-06-19) */}
+      {bgMusicUrl && !showSaveTheDate ? <BackgroundMusic src={bgMusicUrl} /> : null}
       {/* When a hero photo/video is uploaded, render a full-bleed banner.
           Otherwise fall back to the centered text-only treatment. */}
       {hasHeroMedia && !showEditorialPlaceholder ? (
@@ -1919,7 +1922,10 @@ function InvitationSite({
         eventEffects={resolveRevealEffects(event.std_reveal_effects)}
         eventId={event.event_id}
       />
-      {bgMusicUrl ? <BackgroundMusic src={bgMusicUrl} /> : null}
+      {/* Couple's opt-in background-music player — NOT during the Save-the-Date
+          phase: the STD film owns audio there, and this floating speaker control
+          would otherwise bleed through / over the veil reveal. (owner 2026-06-19) */}
+      {bgMusicUrl && !showSaveTheDate ? <BackgroundMusic src={bgMusicUrl} /> : null}
       <article className="space-y-12">
         {/* Guest Hub Card — persistent status summary for identified returning
             guests. Shows RSVP status, seat, meal, and next schedule item at

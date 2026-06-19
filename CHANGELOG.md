@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · fix(theme): register missing `paper` Tailwind color token — Build tab's [Build] button was a blank dark box (PR pending, auto-merge)
+
+Owner reported the Build tab ("Build your plan") showed no buttons for the build action — just a dark rectangle. Root cause: `paper` was used as a Tailwind color (`bg-paper` rows, `text-paper` on dark CTAs) across **21 files**, but it only ever existed as the `--m-paper` CSS variable — it was **never registered as a Tailwind color token** in `tailwind.config.ts`. So `bg-paper` / `text-paper` / `border-paper` compiled to **nothing**. On the Build button (`bg-ink text-paper` + Hammer icon), the dark `bg-ink` rendered but the `text-paper` label + `currentColor` icon inherited the ambient ink color → invisible on dark = blank box. This is the identical failure class the config already documents for the `burgundy` slot.
+
+- **`apps/web/tailwind.config.ts`** — added `paper: 'rgb(var(--color-cream) / <alpha-value>)'` aliased to the canonical cream surface channel (same Warm Alabaster value; flips correctly in dark mode), so `bg-paper` / `text-paper` / `border-paper` resolve and `<alpha-value>` modifiers like the existing `text-paper/70` (vendor subscription cycle toggle) work too. One-line, follows the `burgundy`→`mulberry` back-compat precedent in the same file.
+
+Verified at the CSS layer (Tailwind compile, before/after): original config emitted **no** `.text-paper`/`.bg-paper`/`.border-paper` rules; with the fix all three emit, plus `.text-paper/70` → `color: rgb(var(--color-cream) / 0.7)`. `.text-paper` resolves to alabaster on light / obsidian on dark, so the Build label + icon are now visible on the dark button. No migration.
+
+SPEC IMPACT: None (repo-side theme-token bug fix; no product, pricing, or spec change). Fixes the same latent gap for the other 20 files using `*-paper` (admin pricing/subscriptions/token pages, several build/details dashboard editors).
+
 ## 2026-06-19 · copy(studio): App Store detail pages rewritten to sell stories + results (PR pending, auto-merge)
 
 Owner, looking at the Setnayan AI detail page: *"it should not explain how we do it or our program — we are selling stories and results."* (Register chosen: punchy & confident.) The first cut described the machinery ("ranks every vendor… a matching layer, not a chatbot… six signals"); rewrote all 14 catalog-driven feature detail pages to lead with the outcome.

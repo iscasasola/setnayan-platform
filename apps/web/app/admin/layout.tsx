@@ -9,11 +9,11 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { GuidedTour } from '@/app/_components/guided-tour';
 import { completeTour } from '@/lib/tour-actions';
 import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
-import { Wordmark } from '@/app/_components/brand-marks';
+import { DoorwaySidebarHeader } from '@/app/_components/nav/doorway-sidebar-header';
 import { AdminSidebar } from './_components/admin-sidebar';
 import { AdminBottomNav } from './_components/admin-bottom-nav';
 import { getNavSlotMap } from '@/lib/nav-registry';
-import { AccountSwitcher, AccountSwitcherStandalone } from '@/app/_components/account-switcher/account-switcher';
+import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 
@@ -129,17 +129,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div className="app-surface">
       <SidebarShell
-        sidebarHeader={
-          <>
-            <header className="px-4 py-3">
-              <Wordmark />
-              <p className="m-label-mono mt-1.5" style={{ color: 'var(--m-slate-2)' }}>Setnayan HQ</p>
-            </header>
-            <div className="px-3 pb-3">
-              <AccountSwitcherStandalone data={switcherData} />
-            </div>
-          </>
-        }
+        sidebarHeader={<DoorwaySidebarHeader label="Setnayan HQ" switcherData={switcherData} />}
         sidebar={<AdminSidebar navSlots={navSlots} />}
         topBar={topBar}
       >

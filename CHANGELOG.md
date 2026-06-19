@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-20 · feat(nav): universal sidebar — account doorway joins SidebarShell + all 4 headers harmonized (PR pending, auto-merge)
+
+Owner: *"why does both sidebar/side nav is different"* → *"we want a universal style of side bar."* Root cause: the event-customer · vendor · admin dashboards already shared one chrome (`SidebarShell` + `SidebarSection`/`SidebarItem`, the v2.1 paper rail), but the **account-level customer pages** (`/dashboard`, `/dashboard/notifications`, `/dashboard/profile`, `/dashboard/create-event`, `/dashboard/api-keys`) still rendered the legacy `OuterDashboardHeader` — a near-empty 240px rail — so the sidebar visibly "changed" the moment you left an event.
+
+- **New shared header** `app/_components/nav/doorway-sidebar-header.tsx` — `Wordmark` + `m-label-mono` eyebrow + `AccountSwitcherStandalone`, parameterized by `label`. Replaces the three hand-rolled `sidebarHeader` blocks so all four doorways move together. The event-customer header gains the Wordmark + a "Planning" eyebrow (was switcher-only); vendor "Vendor" + admin "Setnayan HQ" are byte-for-byte the same (pure refactor).
+- **New account sidebar** `app/dashboard/(account)/_components/account-sidebar.tsx` (+ neutral `account-nav-config.ts` builder) — flat 5-item nav (My Events · Notifications · Profile & Settings · Marketplace · New event) on the shared primitives. Registry chokepoint (consumes `navSlots` + `navIconComponent`); 5 `customer.account.*` slots added to `NAV_SLOT_DEFAULTS` (admin-editable via /admin/menus). "My Events" uses the `__home__` sentinel matchPrefix so `/dashboard` doesn't stay lit on every account route.
+- **Account layout rewritten** onto `SidebarShell` (`(account)/layout.tsx`): drops the legacy `lg:pl-60` gutter (the shell owns the offset); mobile topBar keeps the unread bell + AccountSwitcher pill. No bottom-nav (faithful to the prior transient chrome).
+- **Retired** `outer-dashboard-header.tsx` (the account layout was its only importer) + the now-orphaned `nav/hide-on-scroll-header.tsx` (its sole consumer); scrubbed the stale `OuterDashboardHeader` comments left in 4 sibling files.
+
+Verified: nav-icon-source guard ✅ · nav-registry-defaults integrity 8/8 ✅ · tsc 0 · lint 0 (pre-existing warnings only) · production build green. Browser-visual deferred to the PR's Vercel preview (no runtime Supabase env on disk in this worktree).
+
+SPEC IMPACT: iter 0000 (app shell / nav) + 0021 / 0022 / 0023 (couple / vendor / admin dashboard chrome) — the account doorway now shares the universal SidebarShell and all four headers are unified via `DoorwaySidebarHeader` → logged in DECISION_LOG + memory. Owner sign-off flags carried in the PR: "Planning"/"Account" eyebrow copy; API-keys omitted from the account rail; no account-page bottom-nav on mobile.
 ## 2026-06-18 · feat(seo/a11y): structured-data + metadata + a11y completeness on public pages
 
 Verified, additive quality wins from a public-surface audit (4-agent sweep) — no design/copy/pricing changes:

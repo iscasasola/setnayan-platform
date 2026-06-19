@@ -32,9 +32,10 @@
 
 // Every `revalidatePath()` below uses `'layout'` mode (not default 'page')
 // so the dashboard layout invalidates too. Concierge state writes
-// (trial start · cancel · upgrade · downgrade) change fields the
-// OuterDashboardHeader chrome reads via `primaryEvent.*`; without
-// 'layout' the chrome stays stale until a manual reload. Same canonical
+// (trial start · cancel · upgrade · downgrade) change fields the account
+// sidebar chrome reads from the layout's events + switcher fetch (the
+// AccountSwitcher event list); without 'layout' the chrome stays stale until
+// a manual reload. Same canonical
 // fix as wizard-actions.ts (PR #514) — see CLAUDE.md 2026-05-24
 // "Fix: chrome monogram (+ layout-cached fields) stay stale after wizard save".
 import { revalidatePath } from 'next/cache';

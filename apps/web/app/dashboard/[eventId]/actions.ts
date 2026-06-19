@@ -2,9 +2,9 @@
 
 // Every `revalidatePath()` below uses `'layout'` mode (not default 'page')
 // so the dashboard layout invalidates too. Event-level writes (date / name /
-// venue / settings) change fields the OuterDashboardHeader chrome reads via
-// `primaryEvent.*`; without 'layout' the chrome event-switcher + monogram
-// stay stale until manual reload. Same canonical fix as wizard-actions.ts
+// venue / settings) change fields the sidebar chrome reads from the layout's
+// events fetch (the event-switcher + monogram); without 'layout' they stay
+// stale until manual reload. Same canonical fix as wizard-actions.ts
 // (PR #514) — see CLAUDE.md 2026-05-24 "Fix: chrome monogram (+ layout-cached
 // fields) stay stale after wizard save".
 import { revalidatePath } from 'next/cache';

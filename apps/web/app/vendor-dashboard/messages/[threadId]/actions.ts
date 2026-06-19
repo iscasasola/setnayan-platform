@@ -12,6 +12,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { emitNotification } from '@/lib/notification-emit';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchThreadById } from '@/lib/chat';
 import { recordThreadInterests } from '@/lib/thread-interests';
@@ -67,6 +68,38 @@ export async function offerServiceInterest(formData: FormData): Promise<OfferSer
       },
     ],
   });
+
+  // Notify every couple member that the vendor offered one of their services
+  // in-thread (best-effort — the interest row already landed; a failed notify
+  // must not affect the offer). Without this the offered-service chip appears
+  // on the couple's shared "Inquiring about" row with no signal. Fanned out
+  // over couple-type event_members via the admin client, mirroring the
+  // vendor→couple chat_message path in lib/chat-actions.ts.
+  try {
+    const { data: vendor } = await admin
+      .from('vendor_profiles')
+      .select('business_name')
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .maybeSingle();
+    const vendorName = vendor?.business_name?.trim() || 'a vendor';
+    const { data: members } = await admin
+      .from('event_members')
+      .select('user_id')
+      .eq('event_id', thread.event_id)
+      .eq('member_type', 'couple');
+    for (const m of members ?? []) {
+      if (!m.user_id) continue;
+      await emitNotification({
+        userId: m.user_id,
+        type: 'chat_message',
+        title: `${vendorName} offered a service`,
+        body: 'They suggested one of their services in your conversation.',
+        relatedUrl: `/dashboard/${thread.event_id}/messages/${threadId}`,
+      });
+    }
+  } catch (e) {
+    console.error('[offerServiceInterest] couple notify failed:', e);
+  }
 
   revalidatePath(`/vendor-dashboard/messages/${threadId}`);
   return { status: 'ok' };

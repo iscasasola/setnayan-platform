@@ -4,24 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-19 · fix(notifications): email allowlist + branded gating + 10 new types (Notification Foundation · Phase A)
+## 2026-06-19 · fix(ci): repair two advisory guards left stale by the Studio route rename (PR pending, auto-merge)
 
-The keystone "Notification Foundation" fix that later emit-fix PRs (Phase B) depend on. Three changes, all in the additive/email-reducing direction (auto-merge safe):
+The `add-ons` → `studio` route rename (PR #1815) added route redirects but missed two guard configs that hardcode the old paths, so `lint papic keep-permanent` and `lint retired strings` were **failing on `main`** (baseline) and on every open PR. **No actual bug** — verified the keep-permanent logic is intact at the new path (`studio/papic/actions.ts:141` still calls `makeSamplerPermanent` + `cancelSamplerExpiryWarnings`); only the guards' paths were stale.
 
-1. **Email allowlist (the bug fix).** `lib/notification-emit.ts` `emitNotification()` previously emailed the recipient on **every** notification type whenever `RESEND_API_KEY` was set, using one generic untemplated plaintext body — so couples + vendors got a spammy email for every in-app signal (kwento flash counts, informational badges, etc.). 0028 only ever specified email for the transactional set. Added a new `EMAIL_ENABLED_TYPES` Set (mirroring the existing `PUSH_ENABLED_TYPES`); email now fires **only** for types in it. Everything else stays in-app/push-only. Gating to an allowlist can only **reduce** sends, so it's backward-safe. The in-app notification INSERT is unchanged — it still fires for **all** types.
-2. **Branded email rendering.** When an allowlisted type emails, it now renders via the existing `renderBrandedEmail()` (`lib/email-template.ts`) and sends multipart `html` + `text` (HTML-capable clients get the Setnayan-styled template; the rest fall back to the existing plaintext). One shared branded layout covers every allowlisted type, so no per-type renderer was needed.
-3. **`order_paid` apostrophe fix.** `app/admin/payments/actions.ts` — the `order_paid` body shipped the literal HTML entity `We&apos;ll` into a plaintext email. Replaced with a real apostrophe (`We'll`).
+- `apps/web/scripts/lint-papic-keep-permanent.mjs` — check #3 path `add-ons/papic/actions.ts` → `studio/papic/actions.ts` (+ matching comment).
+- `apps/web/.retired-strings.json` — "Custom Monogram Pack" allow-path `add-ons/panood/setup/page.tsx` → `studio/panood/setup/page.tsx`.
 
-Also adds **ten new notification types** — registered now (TS union + `NOTIFICATION_TYPE_LABEL` + `NOTIFICATION_TYPE_TONE` in `lib/notifications.ts`, and the Postgres `public.notification_type` enum via migration) so Phase-B PRs can wire `emitNotification()` at their action sites. **Phase A emits none of them**, so it's safe to land before the migration is applied (no code path INSERTs a brand-new type yet): `vendor_status_change`, `vendor_payout_update`, `dispute_resolved`, `vendor_review_reply`, `schedule_suggestion`, `pax_surcharge_changed`, `vendor_joined`, `editorial_decision`, `showcase_featured`, `guest_claim_rejected`. Two of these (`vendor_status_change`, `dispute_resolved`) are transactional and join the email allowlist now.
+Verified: both guards run green locally (`retired-strings` 0 violations / 1117 files · `papic-keep-permanent` 6/6 sites intact).
 
-- **`supabase/migrations/20270129155743_add_notification_types.sql`** — bare (no BEGIN/COMMIT) `ALTER TYPE … ADD VALUE IF NOT EXISTS` ×10, matching the `20260907000000_notification_types_cross_actor_signals.sql` pattern. Idempotent. Orchestrator applies to the DB.
-- **`apps/web/lib/notification-emit.ts`** — `EMAIL_ENABLED_TYPES` Set + allowlist gate + `renderBrandedEmail` html.
-- **`apps/web/lib/notifications.ts`** — 10 new types added to union + label + tone maps.
-- **`apps/web/app/admin/payments/actions.ts`** — `&apos;` → `'` in the `order_paid` body.
-
-Not in scope (Phase B, separate PRs): wiring the dead vendor-quality email senders, and adding `emitNotification()` calls at action sites for the new types.
-
-SPEC IMPACT: Aligns the email channel to the 0028 transactional notification spec (which only ever specified email for the transactional set — the prior all-types behavior was a code regression, not a spec change). Ten new notification types added to the schema. **Flagging, not editing the corpus** per the 2026-06-07 source-of-truth flip (code is canonical; log notable decisions in `DECISION_LOG.md`). No pricing/SKU surface touched.
+SPEC IMPACT: None (CI guard config only).
 ## 2026-06-19 · ux(std): remove the Save-the-Date content-film mute toggle (owner)
 
 The content film rendered a small translucent mute toggle (bottom-right, `Music`⇄`VolumeX`) as the "lone escape" for its auto-playing soundtrack. Because the film plays *underneath* the sheer veil reveal, the button bled through the veil and showed over the opening. Owner asked to remove it entirely (2026-06-19) — accepting that the soundtrack now has no off-switch.

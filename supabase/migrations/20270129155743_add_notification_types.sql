@@ -38,3 +38,10 @@ ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'vendor_joined';
 ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'editorial_decision';
 ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'showcase_featured';
 ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'guest_claim_rejected';
+
+-- Pre-existing enum gap (flagged during Phase A): these three values exist in the
+-- TS NotificationType union but were never added to the Postgres enum, so any
+-- emit of them (kwento_story_batch DOES fire today) crashes at the DB. Add them.
+ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'kwento_story_batch';
+ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'kwento_flash_auto_walled';
+ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'kwento_assignment_nudge';

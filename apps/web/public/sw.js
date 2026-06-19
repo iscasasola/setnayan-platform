@@ -75,7 +75,10 @@ function isDayOfGuestNavigation(url) {
   const segments = url.pathname.split('/').filter(Boolean);
   if (segments.length === 0) return false;
   const first = segments[0];
-  // Exclude known top-level app sections so only the bare guest slug matches.
+  // Exclude EVERY known top-level app route so only a bare guest slug matches.
+  // (owner 2026-06-19: /monogram — and other public pages — were mistaken for a
+  // guest slug and stale-cached, so the Vector Studio served an old build that
+  // hung on "Loading the typeface…". Keep this in sync with app/<route>/.)
   const RESERVED = new Set([
     'dashboard',
     'vendor-dashboard',
@@ -90,6 +93,19 @@ function isDayOfGuestNavigation(url) {
     'for-vendors',
     'auth',
     'api',
+    'about',
+    'download',
+    'explore',
+    'features',
+    'forgot-password',
+    'how-it-works',
+    'monogram',
+    'our-story',
+    'privacy',
+    'realstories',
+    'reset-password',
+    'terms',
+    'waitlist',
   ]);
   if (RESERVED.has(first)) return false;
   if (segments.length === 1) return true; // /[slug]

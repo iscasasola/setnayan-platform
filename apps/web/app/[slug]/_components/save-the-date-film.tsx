@@ -35,6 +35,7 @@ import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Music, VolumeX } from 'lucide-react';
 import { type StdFilmContent } from '@/lib/save-the-date-content';
 import { STD_THEMES, resolveStdTheme, type StdTheme, type StdThemeId } from '@/lib/std-themes';
+import { readableTextOn } from '@/lib/site-palette';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
 import { type MonogramConfig } from '@/lib/monogram';
@@ -157,6 +158,7 @@ function FilmMonogram({
   text,
   sizeCls,
   textCls,
+  textStyle,
   lockup,
   lockupScaleCls,
 }: {
@@ -164,6 +166,10 @@ function FilmMonogram({
   text: string;
   sizeCls: string;
   textCls: string;
+  /** Inline colour for the text-initials fallback — the couple's accent hex when
+   *  no legibility tone is forcing light/dark text (the svg/lockup marks carry
+   *  their own ink, so this only colours path 3). */
+  textStyle?: React.CSSProperties;
   /** The onboarding lockup — rendered when there's no uploaded/lab SVG. */
   lockup?: StdLockup | null;
   /** Fixed Tailwind scale class for the 80px HeroMonogram so it fills this beat
@@ -191,7 +197,11 @@ function FilmMonogram({
     );
   }
   // 3 · last-resort initials in the film's own font (safety net).
-  return <div className={textCls}>{text}</div>;
+  return (
+    <div className={textCls} style={textStyle}>
+      {text}
+    </div>
+  );
 }
 
 export function SaveTheDateFilm({
@@ -202,10 +212,17 @@ export function SaveTheDateFilm({
   transparent = false,
   tone = null,
   lockup = null,
+  accentHex = null,
 }: {
   content: StdFilmContent;
   /** Theme override (the display font). Defaults to 'default' (Cormorant). */
   themeId?: StdThemeId;
+  /** The film's accent colour (button + accent marks) as a `#rrggbb` hex —
+   *  resolved upstream as the couple's manual override ?? their Mood-Board
+   *  accent ?? brand mulberry. null → the theme's mulberry Tailwind classes
+   *  (the no-hex fallback). Tailwind JIT can't emit a runtime hex, so when set
+   *  it's applied as an inline style; the button text is derived contrast-safe. */
+  accentHex?: string | null;
   /** The couple's onboarding lockup — the mark shown when there's no uploaded /
    *  monogram-lab SVG (content.monogramSvg). null → text-initials fallback. */
   lockup?: StdLockup | null;
@@ -232,6 +249,26 @@ export function SaveTheDateFilm({
   const theme = applyTextTone(base, tone);
   const outerBgCls = transparent ? 'bg-transparent' : theme.outerBg;
   const LABEL = theme.labelCls;
+
+  // Accent — the couple's colour for the CTA button + accent marks. The BUTTON
+  // always uses the accent (solid fill; its text is derived contrast-safe), so
+  // it stays on-brand on any background. The accent MARKS (beat-1 divider +
+  // the text-initials fallback) take the accent ONLY when no legibility tone is
+  // active — with a photo background + tone, tone wins for readability. When
+  // accentHex is null we keep the theme's mulberry Tailwind classes.
+  const accentBtnCls = accentHex ? '' : `${theme.accentBg} ${theme.accentFgOnBg}`;
+  const accentBtnStyle: React.CSSProperties | undefined = accentHex
+    ? { backgroundColor: accentHex, color: readableTextOn(accentHex) }
+    : undefined;
+  const accentMarkHex = accentHex && tone === null ? accentHex : null;
+  const accentMarkStyle: React.CSSProperties | undefined = accentMarkHex
+    ? { color: accentMarkHex }
+    : undefined;
+  const accentMarkCls = accentMarkHex ? '' : theme.accentText;
+  const dividerCls = accentMarkHex ? '' : theme.scrubFill;
+  const dividerStyle: React.CSSProperties | undefined = accentMarkHex
+    ? { backgroundColor: accentMarkHex }
+    : undefined;
 
   // The couple's uploaded video plays as beat 8: pressed it goes FULL SCREEN on
   // top of everything (never auto-plays inline); on end the film advances to the
@@ -260,9 +297,10 @@ export function SaveTheDateFilm({
           lockup={lockup}
           lockupScaleCls="scale-[1.8]"
           sizeCls="h-36 w-36"
-          textCls={`${theme.fontCls} text-7xl font-medium ${theme.accentText}`}
+          textCls={`${theme.fontCls} text-7xl font-medium ${accentMarkCls}`}
+          textStyle={accentMarkStyle}
         />
-        <div className={`h-px w-10 ${theme.scrubFill} opacity-40`} />
+        <div className={`h-px w-10 ${dividerCls} opacity-40`} style={dividerStyle} />
       </div>
     ),
   });
@@ -357,7 +395,8 @@ export function SaveTheDateFilm({
           lockup={lockup}
           lockupScaleCls="scale-[0.9]"
           sizeCls="h-16 w-16"
-          textCls={`${theme.fontCls} text-3xl font-medium ${theme.accentText}`}
+          textCls={`${theme.fontCls} text-3xl font-medium ${accentMarkCls}`}
+          textStyle={accentMarkStyle}
         />
         <p className={`${theme.fontCls} text-4xl font-medium italic leading-tight`}>
           We can&rsquo;t wait to
@@ -461,7 +500,8 @@ export function SaveTheDateFilm({
           lockup={lockup}
           lockupScaleCls="scale-[1.1]"
           sizeCls="h-24 w-24"
-          textCls={`${theme.fontCls} text-4xl font-medium ${theme.accentText}`}
+          textCls={`${theme.fontCls} text-4xl font-medium ${accentMarkCls}`}
+          textStyle={accentMarkStyle}
         />
         <p className={LABEL}>Save the date</p>
         {content.dateLabel ? (
@@ -476,7 +516,8 @@ export function SaveTheDateFilm({
               {...(content.icsHref
                 ? { download: content.icsFilename }
                 : { target: '_blank', rel: 'noopener noreferrer' })}
-              className={`inline-flex items-center gap-2 rounded-full ${theme.accentBg} px-6 py-3 text-[13px] font-semibold ${theme.accentFgOnBg} shadow`}
+              className={`inline-flex items-center gap-2 rounded-full ${accentBtnCls} px-6 py-3 text-[13px] font-semibold shadow`}
+              style={accentBtnStyle}
             >
               Add to calendar
             </a>

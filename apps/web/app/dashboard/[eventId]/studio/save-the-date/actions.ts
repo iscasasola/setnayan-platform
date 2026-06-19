@@ -111,6 +111,9 @@ export async function saveAllStdContent(
     filmVenueCity?: string | null;
     filmCeremonyName?: string | null;
     filmStory?: string | null;
+    /** Film accent colour as a `#rrggbb` hex, or null to follow the Mood Board.
+     *  Anything malformed degrades to null (never blocks a render). */
+    filmAccentColor?: string | null;
     revealEffects?: RevealEffects | null;
     background?: StdBackground | null;
     media?: StdMedia | null;
@@ -154,6 +157,15 @@ export async function saveAllStdContent(
   if (data.filmVenueCity !== undefined) patch.std_film_venue_city = data.filmVenueCity?.trim() || null;
   if (data.filmCeremonyName !== undefined) patch.std_film_ceremony_name = data.filmCeremonyName?.trim() || null;
   if (data.filmStory !== undefined) patch.std_film_story = data.filmStory?.trim() || null;
+  // Film accent override — a #rrggbb hex (from the colour picker) or null to
+  // follow the Mood Board. The only client sources are <input type=color>
+  // (always valid) or a reset (null); anything malformed degrades to null
+  // rather than failing the whole render. The live page resolves null →
+  // Mood-Board accent → mulberry (stdAccentColor).
+  if (data.filmAccentColor !== undefined) {
+    const raw = data.filmAccentColor?.trim().toLowerCase() ?? '';
+    patch.std_film_accent_hex = /^#[0-9a-f]{6}$/.test(raw) ? raw : null;
+  }
   // Reveal effect toggles — sanitised to {butterflies,petals} booleans.
   if (data.revealEffects !== undefined && data.revealEffects !== null) {
     patch.std_reveal_effects = resolveRevealEffects(data.revealEffects);

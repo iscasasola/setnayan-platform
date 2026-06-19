@@ -92,6 +92,18 @@ export function PublicMonogramStudio() {
   useEffect(() => {
     let alive = true;
     let api: StudioApi | null = null;
+    // Safety net: if the engine/typeface never finishes (a hung dynamic import or
+    // font fetch — e.g. a stale cached build), don't sit on "Loading the
+    // typeface…" forever. Surface a clear refresh prompt instead. (owner
+    // 2026-06-19 "it is not loading properly".)
+    const failTimer = window.setTimeout(() => {
+      if (!alive || apiRef.current) return;
+      const load = rootRef.current?.querySelector<HTMLElement>('#load');
+      if (load) {
+        load.classList.remove('off');
+        load.textContent = 'Still loading — please refresh the page.';
+      }
+    }, 15000);
     (async () => {
       try {
         const [paperMod, offsetMod, otMod] = await Promise.all([
@@ -108,15 +120,18 @@ export function PublicMonogramStudio() {
         api = mountStudio({ root: rootRef.current, paper, opentype, PaperOffset, initialConfig: null }) as StudioApi;
         apiRef.current = api;
         setReady(true);
+        window.clearTimeout(failTimer);
       } catch {
+        window.clearTimeout(failTimer);
         if (rootRef.current) {
           const load = rootRef.current.querySelector<HTMLElement>('#load');
-          if (load) load.textContent = 'Could not start the studio.';
+          if (load) load.textContent = 'Could not start the studio — please refresh.';
         }
       }
     })();
     return () => {
       alive = false;
+      window.clearTimeout(failTimer);
       try {
         api?.destroy();
       } catch {

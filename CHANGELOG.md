@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · fix(pwa/monogram): /monogram (+ other public routes) were stale-cached as "guest slugs" → Vector Studio stuck loading
+
+Owner: the Monogram Vector Studio (`/monogram`) was stuck on "Loading the typeface…". Diagnosis: the service worker's `isDayOfGuestNavigation` RESERVED set was **out of sync with the app routes** — it listed only a handful, so single-segment PUBLIC pages (`monogram`, `about`, `explore`, `features`, `our-story`, `download`, `how-it-works`, `privacy`, `terms`, `realstories`, `forgot-password`, `reset-password`, `waitlist`) were mistaken for guest slugs and stale-cached (SWR). The owner got an **old `/monogram` build** that hung. (Fonts + page are live on prod — verified HTTP 200 — so it was a caching/serve issue, not missing assets.)
+
+- **`public/sw.js`** — completed the `RESERVED` set with every real top-level route, so only an actual guest slug gets the day-of treatment. (Also bumps the SW bytes → forces the new worker to activate, evicting the stale `/monogram`.)
+- **`app/monogram/public-monogram-studio.tsx`** — added a 15 s load safety-net: if the engine/typeface never finishes (hung dynamic import / font fetch / stale build), it surfaces "Still loading — please refresh." instead of an infinite "Loading the typeface…"; the catch path now also says "…please refresh."
+
+Verified: `node --check public/sw.js` OK; `pnpm typecheck` + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `Caching_and_Offline_Strategy` § 3.2 — the day-of guest-nav matcher now excludes ALL public top-level routes (must stay in sync with `app/<route>/`). None for the corpus otherwise. See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · fix(copy): retire stale "100 complimentary tokens on verification" claims (PR pending, auto-merge)
 
 The 100-free-tokens-on-verification grant was retired 2026-06-17 (migration `20270110320020_remove_verification_token_grant.sql`, PR #1446) — both AFTER INSERT/UPDATE triggers on `vendor_profiles` dropped, functions stubbed to no-ops; the admin approval action (`admin/verify/actions.ts`) grants no tokens. **Verified gone in the LIVE prod schema** (`information_schema.triggers` returns 0 `vendor_verified_bonus%` rows). Several vendor- and public-facing surfaces still advertised the retired grant; updated to current reality (verification is free; no token bonus), brand voice kept:

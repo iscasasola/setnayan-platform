@@ -19,6 +19,13 @@ No migration: `vendor_disputes` already exists (migration `20260516210000_vendor
 > ⚠ Owner note: the demotion chain now fires reliably **only** for the disputes that link an order or payout (the CHECK requires one). For purely off-platform vendor bookings (no order, no payout) the `vendor_disputes` insert no-ops by design, so those won't accrue toward auto-demotion. If off-platform completion non-deliveries should also count, that needs a schema change (e.g. an `event_vendor_id` column + relaxed CHECK on `vendor_disputes`) — flagged, not silently changed. Separately, the pre-existing `writeAudit` in `app/admin/completions/actions.ts` inserts a `metadata` column that `admin_audit_log` doesn't have (latent silent-failure inside its own try/catch); left untouched to stay in scope.
 
 SPEC IMPACT: 0006 Vendors / 0023 Admin Console dispute governance — `resolveDispute` is now state-guarded + audited, and the completion-handshake non-delivery flow (couple report + admin uphold) now feeds the demotion cron via `vendor_disputes` rows. No SKU/pricing change. Will log in `DECISION_LOG.md`.
+## 2026-06-19 · fix(onboarding): events.together_since no longer commits NULL when entered in the love stage
+
+The dedicated `togetherSince` OnboardingState field has no UI input — the "together since" YEAR the couple types during the love stage only ever writes to `state.loveStory.together_since` (the `love_spark` screen). At commit, `buildCommitPayload` sourced the top-level `events.together_since` column solely from the empty dedicated state, so it committed `NULL` even when the couple supplied a year (the value survived only inside the `love_story` JSONB blob).
+
+- **`apps/web/app/onboarding/wedding/_components/onboarding-shell.tsx`** (`buildCommitPayload`, ~line 2829): fall back to `s.loveStory.together_since.trim()` when `s.togetherSince.trim()` is empty, before defaulting to `null`. Both operands are non-optional `string` (per `types.ts`), so the change is type-safe with no optional chaining. A love-skipping couple who never entered a year still yields `null` (the live `LoveStory` state field is `''`); the `love_story` JSONB blob and every other payload field are untouched.
+
+SPEC IMPACT: None — bug fix only; restores the already-specified mapping of the love-stage "together since" year to the `events.together_since` column. No schema, pricing, or product-surface change.
 
 ---
 

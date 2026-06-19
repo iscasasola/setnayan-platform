@@ -35,6 +35,11 @@ The data-export endpoint claimed "vendor portfolio + media uploads (R2 wiring no
 tsc 0 · ESLint clean. Compliance-relevant (RA 10173 right-to-portability). The audit-log half stays a separate task (needs a new table + request instrumentation).
 
 SPEC IMPACT iter 0025 — completes the vendor-media half of the data export. → CHANGELOG.
+## 2026-06-18 · docs(owner-actions): prepend a "LAUNCH NOW" short list
+
+`OWNER_ACTIONS.md` had grown to 1,120 lines of history; the actual go-live gate was buried. Added a top-of-file **🚀 LAUNCH NOW** summary distilling the launch boundary verified this session: the code is launch-complete, and only **4 owner-config items** gate publicly accepting vendors (crypto secrets · business identity + payment accounts · R2 CORS + public host · `dpo@` mailbox — ~1 hr total). Marks the now-resolved items (migrations caught up, build not wedged, **vendor verification works via manual review**, web push live) and the deferred-with-fallback ones (Resend email, social login, AI paywall). The detailed phases below are unchanged.
+
+SPEC IMPACT None — owner-facing checklist clarity only.
 ## 2026-06-18 · feat(seo/a11y): structured-data + metadata + a11y completeness on public pages
 
 Verified, additive quality wins from a public-surface audit (4-agent sweep) — no design/copy/pricing changes:

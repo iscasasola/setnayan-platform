@@ -15,6 +15,13 @@ Owner rule "prices are admin-managed" (2026-06-19): move the last hardcoded vend
 Self-reviewed against TS strict (no local `node_modules` → no local typecheck; CI gates). Did NOT touch `lib/sku-activation.ts` or `lib/chat-actions.ts` (the branch-activation hook reads the order's stored total, not a literal, so it's unaffected).
 
 SPEC IMPACT: Pricing surface — the ₱999 branch fee is now an admin-editable catalog SKU (`vendor_additional_branch`) rather than a code literal; price unchanged at ₱999. Aligns with the standing "prices are admin-managed" rule (memory `project_setnayan_pricing_admin_managed`). Note: `vendor-dashboard/branches/page.tsx` static copy still renders `peso(BRANCH_FEE_PHP)` (₱999) — display only; the load-bearing charge now reads the catalog. Worth a follow-up to make the display read the live price too.
+## 2026-06-19 · fix(onboarding): events.together_since no longer commits NULL when entered in the love stage
+
+The dedicated `togetherSince` OnboardingState field has no UI input — the "together since" YEAR the couple types during the love stage only ever writes to `state.loveStory.together_since` (the `love_spark` screen). At commit, `buildCommitPayload` sourced the top-level `events.together_since` column solely from the empty dedicated state, so it committed `NULL` even when the couple supplied a year (the value survived only inside the `love_story` JSONB blob).
+
+- **`apps/web/app/onboarding/wedding/_components/onboarding-shell.tsx`** (`buildCommitPayload`, ~line 2829): fall back to `s.loveStory.together_since.trim()` when `s.togetherSince.trim()` is empty, before defaulting to `null`. Both operands are non-optional `string` (per `types.ts`), so the change is type-safe with no optional chaining. A love-skipping couple who never entered a year still yields `null` (the live `LoveStory` state field is `''`); the `love_story` JSONB blob and every other payload field are untouched.
+
+SPEC IMPACT: None — bug fix only; restores the already-specified mapping of the love-stage "together since" year to the `events.together_since` column. No schema, pricing, or product-surface change.
 
 ---
 

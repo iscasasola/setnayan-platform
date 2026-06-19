@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · copy(studio): Panood detail + hub row one-liners join the stories-and-results voice (PR pending, auto-merge)
+
+Owner follow-ups to the App Store copy pass: (1) bring Panood's bespoke detail page in line, (2) "punch them too" — the short hub-row blurbs.
+
+- **Panood detail page** (`add-ons/panood/page.tsx`) — rewrote hero ("No one misses your day."), preview captions, and About to sell the outcome (family everywhere watching live, the day saved forever) instead of the broadcaster mechanics. **Removed** the Event-Privacy / Data-linked / Accessibility sections (keyboard shortcuts, OAuth tokens, bitrate pings) and the mechanism `samples`/preview sub-lines; added a "What you'll have" block; trimmed `notIncluded` to two plain honest expectations. Kept its real stats + reviews (genuine social proof) and live catalog price.
+- **Hub row one-liners** (`add-ons-catalog.ts` `blurb` × 14) — rewrote every hub-visible blurb to a punchy, result-led line (e.g. Papic → "Your guests become the photographers — every candid in your gallery by morning."; LED → "Your name and monogram, twenty feet tall on the stage screen."). These are shared with the vendor Services tab, so it benefits there too. Hidden utility entries (Orders/Paprint) left as-is.
+
+Verified: `pnpm typecheck` clean · `lib/add-ons-detail.test.ts` 3/3 · no migration.
+
+SPEC IMPACT: None (copy/voice only; aligns with the locked public-surface-hygiene rule). See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · copy(studio): App Store detail pages rewritten to sell stories + results (PR pending, auto-merge)
 
 Owner, looking at the Setnayan AI detail page: *"it should not explain how we do it or our program — we are selling stories and results."* (Register chosen: punchy & confident.) The first cut described the machinery ("ranks every vendor… a matching layer, not a chatbot… six signals"); rewrote all 14 catalog-driven feature detail pages to lead with the outcome.

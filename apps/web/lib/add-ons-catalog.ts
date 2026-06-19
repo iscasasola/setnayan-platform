@@ -156,7 +156,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     status: 'live',
     category: 'tool',
     blurb:
-      'Ranked vendor matches by date, budget, location, guest count & faith — a shortlist made for your wedding, not a directory',
+      'The vendors that fit your budget, date, and style — already at the top.',
     cta: 'See your matches',
     studioGroup: 'setnayan_ai',
     serviceKey: 'SETNAYAN_AI',
@@ -197,7 +197,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     status: 'live',
     category: 'photography',
     blurb:
-      'The opening reveal for your page · a veil or envelope that lifts to your invitation · free, recolours to your palette',
+      'The reveal that opens your invitation — in your colors, and it plays itself.',
     cta: 'Choose your reveal',
     studioGroup: 'website',
     poster: {
@@ -217,7 +217,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     status: 'web_v1',
     category: 'tool',
     blurb:
-      'Customize the public landing page guests see when they scan your QR or open your link',
+      'One beautiful page behind every QR you share — your story, your colors.',
     cta: 'Customize',
     studioGroup: 'website',
     tier: 'free',
@@ -238,7 +238,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     status: 'web_v1',
     category: 'tool',
     blurb:
-      'Pick from Setnayan-owned music or generate a custom track for your event reels',
+      'Music you’re cleared to use on every wedding video — no fees.',
     cta: 'Browse music',
     studioGroup: 'branding',
     tier: 'free',
@@ -259,7 +259,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     status: 'web_v1',
     category: 'tool',
     blurb:
-      "Pick songs by slot · processional · first dance · dinner · open floor · don't-play list. Synced to your DJ or band the moment you book them.",
+      'The right song for every moment — handed straight to your DJ.',
     cta: 'Build your lineup',
     studioGroup: 'setnayan_ai',
     tier: 'free',
@@ -282,7 +282,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0036',
     status: 'live',
     category: 'digital_services',
-    blurb: 'A custom song for your wedding — written from the love story you told us',
+    blurb: 'An original song written from your love story — yours to keep.',
     cta: 'Create your song',
     studioGroup: 'branding',
     serviceKey: 'PAKANTA',
@@ -303,7 +303,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     status: 'web_v1',
     category: 'digital_services',
     blurb:
-      'Design your wedding monogram — lettered, interlocking cipher, Setnayan AI, or your own upload',
+      'Your mark, drawn to life — on your QR, your page, your signage.',
     cta: 'Open the maker',
     studioGroup: 'branding',
     // The maker itself is free (the lettered / cipher / upload monogram is
@@ -329,7 +329,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     status: 'web_v1',
     category: 'tool',
     blurb:
-      'A branded QR for every guest · your monogram + palette colors · print-ready',
+      'A branded code for every guest — your monogram and colors, print-ready.',
     cta: 'Brand my QRs',
     studioGroup: 'branding',
     serviceKey: 'CUSTOM_QR_GUEST',
@@ -349,7 +349,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0012',
     status: 'web_v1',
     category: 'photography',
-    blurb: 'Candid capture · gesture shutter · QR tagging · personal reels',
+    blurb: 'Your guests become the photographers — every candid in your gallery by morning.',
     cta: 'Set up',
     studioGroup: 'capture',
     freeTrial: 'Free to try',
@@ -370,7 +370,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0011',
     status: 'web_v1',
     category: 'photography',
-    blurb: 'Live stream · YouTube delivery · AI Highlights · Same-Day Edit',
+    blurb: 'Your wedding live — everyone who can’t be there, there.',
     cta: 'Set up',
     studioGroup: 'capture',
     poster: {
@@ -390,7 +390,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     status: 'web_v1',
     category: 'tool',
     blurb:
-      'Connect Google Drive · photographer post-event handoff · share albums with guests',
+      'Your photographer’s full-resolution gallery, delivered to your Drive.',
     cta: 'Set up',
     studioGroup: 'capture',
     poster: {
@@ -409,7 +409,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0017',
     status: 'web_v1',
     category: 'photobooth',
-    blurb: 'Vertical-reel template gallery · render-on-demand · 9:16 1080p MP4',
+    blurb: 'Polished vertical reels from your day — ready to post.',
     cta: 'Browse templates',
     studioGroup: 'capture',
     poster: {
@@ -448,7 +448,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0005',
     status: 'web_v1',
     category: 'led_background',
-    blurb: '8K template render · Photo Pool blend · USB delivery',
+    blurb: 'Your name and monogram, twenty feet tall on the stage screen.',
     cta: 'Choose template',
     studioGroup: 'branding',
     poster: {
@@ -468,7 +468,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     status: 'web_v1',
     category: 'tool',
     blurb:
-      'Your seating chart, turned into wayfinding · each guest finds their table from the entrance',
+      'Every guest walks straight from the door to their table.',
     cta: 'Map my venue',
     studioGroup: 'branding',
     serviceKey: 'INDOOR_BLUEPRINT',
@@ -489,7 +489,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     status: 'web_v1',
     category: 'tool',
     blurb:
-      'Your event palette · role + venue color stories · curated theme templates',
+      'Your wedding palette — and it flows into every Setnayan piece.',
     cta: 'Open board',
     studioGroup: 'branding',
     tier: 'free',

@@ -161,6 +161,7 @@ export default async function AddOnDetailPage({ params }: Props) {
       }}
       preview={preview}
       demo={detail.demo}
+      demoSlug={addon}
       highlights={{ title: "What you'll have", items: detail.highlights }}
       description={{
         paragraphs: detail.paragraphs,

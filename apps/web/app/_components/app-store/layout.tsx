@@ -96,6 +96,8 @@ export type AppStoreLayoutProps = {
   preview?: PreviewItem[];
   /** Auto-playing on-card demo. When present, plays instead of the glyph rail. */
   demo?: DemoFrame[];
+  /** Feature slug — enables high-fidelity native demo scenes when registered. */
+  demoSlug?: string;
   samples?: SampleItem[];
   // Optional "What's included" bullet list, rendered right under About.
   highlights?: Highlights;
@@ -122,6 +124,7 @@ export function AppStoreLayout({
   justLaunchedChip,
   preview,
   demo,
+  demoSlug,
   samples,
   highlights,
   description,
@@ -190,7 +193,7 @@ export function AppStoreLayout({
           when present, otherwise the static glyph rail. */}
       {demo && demo.length > 0 ? (
         <Section title="Preview" id="preview">
-          <StudioCardDemo frames={demo} />
+          <StudioCardDemo frames={demo} slug={demoSlug} />
         </Section>
       ) : preview && preview.length > 0 ? (
         <Section title="Preview" id="preview">

@@ -14,6 +14,164 @@ Date-as-output is kept (onboarding still commits `events.event_date = NULL` — 
 Read-only verification: the editorial lifecycle gate already keys correctly on `event_date` (`[slug]/page.tsx:611` → `getLifecyclePhase(event.event_date)`); NOT modified. Date is written by the existing `/date-selection` surface (`date-selection/actions.ts`) and `actions.ts` governed editor — unchanged.
 
 SPEC IMPACT: None. (Additive nudge to an existing surface; reinforces the date-as-output philosophy [[project_setnayan_date_as_output_philosophy]] rather than changing it.)
+## 2026-06-19 · fix(std): close the NaN gap in the Save-the-Date volume clamp (+ correct the root-cause comment)
+
+Follow-up hardening to the earlier volume-clamp fix, after an adversarial root-cause review of the `/[slug]` Save-the-Date `IndexSizeError`. Two findings drove this:
+
+1. **The shipped clamp left a residual crash path.** `setVol`'s clamp `v < 0 ? 0 : v > 1 ? 1 : v` **passes `NaN` straight through** — `NaN < 0` and `NaN > 1` are both `false`, so the ternary returns `NaN`. And `m0 = a?.volume ?? 1` does **not** substitute for a `NaN` read-back (`NaN` is neither null nor undefined), so a `NaN` propagates through the whole fade ramp. A `NaN`/`Infinity` `.volume` (detached/unloaded media element in a WebView, or a non-monotonic clock making the fade ratio `NaN`) would therefore still throw *after* the first fix. Closed by guarding with `Number.isFinite`: `if (!el || !Number.isFinite(v)) return;` — non-finite values now skip the write (volume untouched that frame; inaudible; next frame self-corrects). The finite branch clamps exactly as before.
+
+2. **Corrected the root-cause comment.** The prior comment claimed "Chrome desktop silently clamps; WebKit … throw." That's **wrong**: the WHATWG HTML volume setter algorithm *requires* a throw for any value outside `[0,1]`, and Blink, WebKit, and Gecko **all throw** (verified against each engine's `setVolume` source — no engine clamps, and the only Blink mechanism that could store `>1`, the `MediaElementVolumeGreaterThanOne` flag, is default-disabled/test-only and unshipped). Desktop Chrome didn't crash here because those sessions never produced an out-of-range value — not because it clamps. Comment rewritten to say so. The original fix's behavior was correct regardless; only the *explanation* was imprecise.
+
+- **`apps/web/app/[slug]/_components/save-the-date-film.tsx`** — `setVol` gains the `Number.isFinite(v)` guard; doc comment rewritten to the spec-accurate account.
+
+Root-cause notes (for the record): the math is decisive that the `1.00243`/`1.01339` overshoots can't come from float rounding on clean inputs (the ramp is a convex combination, provably ≤ 1; rounding is ~10⁴–10¹³× too small), so an input genuinely left `[0,1]`. The most concretely supported app-side source is a **non-monotonic clock** (`now < t0` → `p < 0`) on the music **fade-down** branch, where `vol = m0·(1−p) > 1` — the ramp clamps `p`'s upper bound (`Math.min(1, …)`) but never its lower bound; mobile in-app WebViews (background throttling / clock corrections) are far more prone to this than desktop Chrome, which fits "only mobile/in-app browsers crashed." A `NaN` read-back is a second app-side source. The earlier "platform `.volume` read-back returns `>1`" theory is **retracted** — no engine source supports a conforming getter returning `>1`. All these paths are app-side and are fully closed by the clamp + this `NaN` guard. `tsc --noEmit` clean locally.
+
+SPEC IMPACT: None. Client-side defensive hardening + comment accuracy; no schema, pricing, or corpus surface touched.
+
+## 2026-06-19 · ux(std): veil-reveal hint now surfaces the hands-free double-tap
+
+The Save-the-Date veil reveal supports two lift gestures — grab-and-pull / swipe up (manual) **and** double-tap = hands-free auto-lift (`veil-reveal.tsx`, gesture block ~line 889; `doRevealAuto()` on the second tap). The bottom-of-screen hint only advertised the manual lift ("Lift the veil ↑"), so guests never learned the double-tap shortcut.
+
+- **`apps/web/app/[slug]/_components/reveal/reveal-overlay.tsx`** (veil branch, ~line 193): added a second, quieter hint line under the primary call — `or double-tap to lift it for you` (text-[9px], `text-cream/60`, same mono/uppercase/tracking + drop-shadow as the primary line). Primary "Lift the veil ↑" line and its styling are unchanged; the new line fades out with the rest of the hint group on `open`.
+
+SPEC IMPACT: None — copy-only hint surfacing an already-shipped gesture (double-tap auto-lift landed with the veil port #1671). No schema, pricing, behavior, or product-surface change. Corpus `0024_Veil_Reveal_Spec_2026-06-17.md` already documents both gestures.
+
+---
+
+## 2026-06-19 · fix(payouts): money-direction guard on payout dispatch + a release path for held payouts
+
+Two payout-safety fixes. Files: `lib/payouts.ts`, `app/admin/payments/actions.ts`. No schema change (all columns already exist).
+
+- **M1 — money-direction bug (vendor wrongly PAID for an order they were paying US for).** `schedulePayoutsForOrder()` (in `app/admin/payments/actions.ts`) guarded only on `if (!row.vendor_profile_id) return;`. A **vendor branch activation order** (`vendor_additional_branch__{id}`, owner-locked 2026-06-05 ₱999 Enterprise add-on) carries `vendor_profile_id` (the *paying* vendor) but **no `event_id`** — it's the vendor paying Setnayan, the opposite money direction. The old guard let it fall through and queued a vendor PAYOUT, i.e. Setnayan paying the vendor for an order the vendor paid us for. Added a guard that only dispatches payouts for **couple bookings**: bail when `event_id` is NULL, OR when `branchIdFromServiceKey(service_key) !== null` (belt-and-suspenders for any other vendor-pays-Setnayan SKU on this code path). Added `service_key` to the order select + row type for the second check; imported `branchIdFromServiceKey` from `lib/vendor-branches`.
+- **m3 — held payouts had no release path.** `holdPayout()` set `on_hold=true` / `hold_reason` with no admin-facing reversal — a held payout was stuck until a hand-edited DB write. Added `releasePayoutHold(adminClient, {payoutId, actorUserId, reason})` to `lib/payouts.ts` (sets `on_hold=false`, clears `hold_reason`, appends a `released_hold` audit_log entry; refuses if already paid; no-op-safe on a not-held payout) + `releasePayoutHoldAction(formData)` in `app/admin/payments/actions.ts` (gated by `requireAdmin`, redirect/flash pattern mirroring the sibling `holdPayoutAction`).
+- **Follow-up (not done — outside this unit's owned files):** wire a "Release hold" button into `app/admin/payouts/page.tsx` next to the existing Mark-paid / Place-on-hold controls (currently a held payout shows only the reason banner, no release control). The action is fully callable; only the 1-line form wiring remains.
+
+Self-reviewed against TS strict (no local `node_modules` → no typecheck/lint here; CI gates). New symbols all used; `service_key`/`event_id`/`on_hold`/`hold_reason`/`audit_log`/`paid_at` are pre-existing columns.
+
+SPEC IMPACT: None (payout-safety bug fix + new admin reversal action; no SKU/pricing/schema change — the vendor payout model + the branch ₱999 add-on are both already locked in the corpus). Behavioral note for the corpus payout section: branch/vendor-pays-Setnayan orders never generate a vendor payout, and held payouts now have an admin release path.
+## 2026-06-19 · fix(onboarding): events.together_since no longer commits NULL when entered in the love stage
+
+The dedicated `togetherSince` OnboardingState field has no UI input — the "together since" YEAR the couple types during the love stage only ever writes to `state.loveStory.together_since` (the `love_spark` screen). At commit, `buildCommitPayload` sourced the top-level `events.together_since` column solely from the empty dedicated state, so it committed `NULL` even when the couple supplied a year (the value survived only inside the `love_story` JSONB blob).
+
+- **`apps/web/app/onboarding/wedding/_components/onboarding-shell.tsx`** (`buildCommitPayload`, ~line 2829): fall back to `s.loveStory.together_since.trim()` when `s.togetherSince.trim()` is empty, before defaulting to `null`. Both operands are non-optional `string` (per `types.ts`), so the change is type-safe with no optional chaining. A love-skipping couple who never entered a year still yields `null` (the live `LoveStory` state field is `''`); the `love_story` JSONB blob and every other payload field are untouched.
+
+SPEC IMPACT: None — bug fix only; restores the already-specified mapping of the love-stage "together since" year to the `events.together_since` column. No schema, pricing, or product-surface change.
+
+---
+
+## 2026-06-19 · fix(nav): menu-connectivity cleanup — all no-decision fixes from the 2026-06-19 menu audit
+
+Applies the six safe, no-decision fixes surfaced by the 2026-06-19 menu-connectivity audit (commit `70684a81`). Nav config only — no behavior, schema, or pricing change.
+
+- **HARD 404 fixed** — `app/_components/marketing/_sections.tsx`: the footer "Wedding venues" link pointed at `/venues`, which has no page and no redirect (and `venues` is a `RESERVED_TOP_LEVEL` segment), so it 404'd. Repointed the href to `/explore` (the venue/marketplace browse); visible label unchanged. (`RESERVED_TOP_LEVEL` untouched.)
+- **Vendor mobile More-tab highlight** — `app/vendor-dashboard/_components/vendor-bottom-nav.tsx`: added `partnerships`, `real-stories`, `recaps` to the More-tab `activeMatch[]` (placed to match the desktop sidebar's **Grow** group order). These pages already exist in `VENDOR_NAV_GROUPS` + the desktop sidebar; this only fixes the mobile More tab failing to light on those routes.
+- **Missing nav-registry defaults** — `lib/nav-registry-defaults.ts`: added 4 slot defaults so they become admin-editable (label + icon) instead of rendering hardcoded fallbacks: `customer.home-subnav.overview` (Overview / LayoutDashboard), `customer.home-subnav.checklist` (Checklist / ClipboardList), `admin.sidebar.editorial-review` (Editorial review / Newspaper), `admin.sidebar.papic-sampler` (Papic sampler / Camera). Each copies the shape/labels/icons from its hardcoded source (`lib/customer-menu.ts`, `ADMIN_NAV_GROUPS`).
+- **Stale registry route field** — `lib/nav-registry-defaults.ts`: `public.site-nav.real-stories` recorded `route: "/weddings"` (the live href is `/realstories`; `app/weddings/` doesn't exist — only a 301 redirect). Corrected the `route` field to `/realstories`.
+- **Dead registry defaults removed** — `lib/nav-registry-defaults.ts`: deleted the orphan `customer.bottom-nav.design` default (Design folded into Studio; `/design` redirects; no menu emits 'design') and the 19 dead `customer.studio.*` defaults under area `studio-addon-hub`. Verified by grep: `getNavArea()` (the only consumer of that area) has **zero call sites**, the add-ons hub renders from `lib/add-ons-catalog.ts`, and neither `customer.studio.*` nor `customer.bottom-nav.design` is referenced anywhere outside the defaults file. (`getNavArea` itself left in place — out of scope; now provably unused.)
+- **Admin Patiktok doorway** — `app/admin/_components/admin-sidebar.tsx`: `/admin/patiktok` existed as a page but had no nav entry (orphan doorway). Added a `patiktok` item to `ADMIN_NAV_GROUPS` in the **Platform** group next to `recaps` (icon `Film`, added to the lucide imports), mirroring the sibling content leaves. (`/admin/queues` legacy alias left alone.)
+
+Self-reviewed (no local `node_modules` → no typecheck/lint here; CI gates). Structural checks on the defaults file pass: 186 unique slot keys, balanced braces, all new lucide names (`LayoutDashboard`, `ClipboardList`, `Newspaper`, `Camera`, `Film`) are in the `nav-icons.ts` allowlist, enum/icon-consistency constraints from `nav-registry-defaults.test.ts` satisfied.
+
+SPEC IMPACT: None (nav configuration only — hrefs, activeMatch arrays, registry data, route metadata; no SKU/schema/pricing/behavior change).
+
+> ⚠ Owner note: before the admin override DB is relied on, confirm no `nav_slot_override` row references the deleted `customer.studio.*` / `customer.bottom-nav.design` keys (the resolver silently ignores orphan overrides — not a runtime bug, but a saved admin rename/hide on those would quietly no-op). Mirrors the pre-delete check done for PR #1581.
+
+---
+
+## 2026-06-19 · feat(save-the-date): view counter — unique-per-day, couple + HQ surfaces
+
+Owner: "add view count for the save the date (can be tallied for data)." Scope locked with the owner: **unique per day** · **couple + HQ** · **Save-the-Date phase only**.
+
+- **migration `20270128231476`** — `event_std_views(event_id, view_date, views, updated_at)` daily rollup (PK `(event_id, view_date)`, FK→`events(event_id)` cascade) + RLS (members read via `current_event_ids()` / admins; **no write policy** — writes are service-role only) + `record_std_view(p_event_id, p_date)` SECURITY DEFINER atomic-increment RPC. **Applied to prod** (out-of-band statement-by-statement + ledger row, around a parallel-session ledger-drift migration `20270128090927` left untouched). Privacy-first: the DB holds **only aggregate counts — no per-device data, no PII** (RA 10173).
+- **`lib/std-views.ts`** — `manilaToday()` (YYYY-MM-DD day buckets in Asia/Manila), the dedup-cookie parse/serialize (a small httpOnly `{slug:'YYYY-MM-DD'}` map, pruned to 50), and `summarizeStdViews()` (total / today / last-7).
+- **`app/api/std/view/route.ts`** (POST, nodejs) — the beacon endpoint. Cookie-dedups to one count per device per day; re-resolves the event + **re-checks the lifecycle phase server-side** (a forged POST can't count a non-STD page); **excludes the couple's/coordinators' own visits** (detects a signed-in host via the request's auth cookie); counts via the atomic RPC on the service-role client. Always returns 200 — a beacon never errors the page.
+- **`app/[slug]/_components/std-view-beacon.tsx`** — a silent `'use client'` island that fires one `keepalive` POST on mount.
+- **`app/[slug]/page.tsx`** — mounts `<StdViewBeacon>` in BOTH render paths (PublicLanding + InvitationSite), gated on `showSaveTheDate` (STD phase only). Owner-exclusion lives in the route, so no extra auth/queries on the hot public render.
+- **couple surface** — the STD builder (`studio/save-the-date/page.tsx`) shows **total · last 7 days · today** (read via the couple session under RLS).
+- **HQ surface** — the admin events list (`admin/events/page.tsx`) gains an **all-time "STD views"** column (aggregated via the service-role admin client).
+
+Verified: `pnpm typecheck` clean (resolves against the repo's hoisted node_modules). Lint runs in CI (the fresh worktree has no local `next` binary). No browser verify — beacon/counter not headlessly checkable; owner can watch the builder + admin numbers move.
+
+SPEC IMPACT: 0024 Save-the-Date gains a privacy-first view counter (new `event_std_views` table + `/api/std/view` beacon). Data/analytics only; STD stays free; no SKU/pricing/gating change. Will log in `DECISION_LOG.md`.
+
+---
+
+## 2026-06-19 · feat(save-the-date): film accent follows the Mood Board, with a manual override
+
+Owner: "yes moodboard is good and also manual color." The Save-the-Date film's "Add to calendar" button + accent marks were a hardcoded mulberry (`lib/std-themes.ts` SHARED). The accent now **defaults to the couple's Mood-Board palette** (so the film is on-brand with the rest of their wedding site), with a **manual hex override** the couple sets in the builder. Resolution order: `events.std_film_accent_hex` (manual) → `stdAccentFromPalette(role_palette)` (deep, button-legible Mood-Board accent) → brand mulberry.
+
+- **migration `20270128195377`** — `events.std_film_accent_hex text` (nullable; null = follow Mood Board → mulberry). Applied to prod.
+- **`lib/site-palette.ts`** — `stdAccentFromPalette()` (boldest swatch, darkened to AA 4.5 vs white so light button text reads; mirrors the site `cta` role) + `readableTextOn()` (contrast-safe button text: prefers the film's cream/ink tokens, escalates to pure black/white when a bold manual accent leaves both under AA — verified e.g. red #ff0000 → #000 at 5.25:1).
+- **`save-the-date-film.tsx`** — new optional `accentHex` prop. When set: the button uses inline `style` (Tailwind JIT can't emit a runtime hex) with derived contrast-safe text; the beat-1 divider + monogram text-initials follow the accent ONLY when no legibility tone is active (with a photo background, tone wins for readability). `accentHex` null → the original mulberry classes (full back-compat).
+- **`save-the-date.tsx` + `[slug]/page.tsx`** — thread the resolved accent (`stdAccentColor(event)`) through `SaveTheDateView` → film at BOTH public invocations (PublicLanding + InvitationSite); `std_film_accent_hex` added to the SELECT + `EventRow`.
+- **builder** (`studio/save-the-date/{page.tsx,actions.ts,_components/StdBuilderClient.tsx}`) — Step-1 "Accent colour" control (reuses the exported `ColorRow`: swatch + picker + "From your Mood Board" + Reset). Saved via `filmAccentColor` (validated `#rrggbb` → null); live preview recolours instantly. The Mood-Board default is shown beneath the picker.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. 3-lens adversarial review (correctness PASS; contrast lens caught the manual-accent AA gap, fixed above). Visual check on the PR's Vercel preview (local preview server is a different checkout).
+
+SPEC IMPACT: 0024 Save-the-Date — the film accent is no longer fixed mulberry; it inherits the Mood Board with a manual override. Presentation/data only; no SKU/pricing/gating change (STD stays free). Will log in `DECISION_LOG.md`.
+## 2026-06-19 · fix(std): clamp Save-the-Date film volume fades to [0,1] (crashed on WebKit + Facebook in-app browser)
+
+Production Sentry error on the couple website (`/[slug]`, e.g. `/cale-ice`): an uncaught `DOMException` from the auto-playing Save-the-Date content film. The audio↔video crossfade's linear ramp `vol = m0 + (target - m0) * p` (plus some in-app webviews' imprecise `.volume` read-back) could land a hair over `1.0` (Sentry saw `1.00243`). The HTML media spec rejects any volume outside `[0,1]`: **Chrome desktop silently clamps** (so it never surfaced locally), but **WebKit throws `IndexSizeError: The index is not in the allowed range`** and **Chromium/Facebook's in-app browser throws `Failed to set the 'volume' property … outside the range [0,1]`** — Sentry grouped both under one issue (same minified frame `r` in chunk `68896`) because WebKit's generic `IndexSizeError` text hid the real cause. Thrown inside a `requestAnimationFrame` tick, so it didn't white-screen the page, but it logged on every affected guest visit.
+
+- **`apps/web/app/[slug]/_components/save-the-date-film.tsx`** — added a module-scope `setVol(el, v)` helper that clamps to `[0,1]` (`v<0?0:v>1?1:v`) and no-ops on a null element, and routed all six volume writes through it: the two crossfade ramps (music + video), the start-silent `setVol(v,0)`, and the audio-unlock blip save/restore (`setVol(a,0)` / `setVol(a,vol)` ×2). Fade timing and audible result are identical — the only change is that an out-of-range value is pinned to the boundary instead of throwing. `p` was already clamped (`Math.min(1, dt/700)`); this guards the float/read-back overshoot the clamp on `p` can't catch.
+
+No behavior change on engines that already clamped; eliminates the throw on the strict ones. Typecheck passes locally (`tsc --noEmit`, clean); no node_modules in the worktree so lint/build are gated by CI required checks.
+
+SPEC IMPACT: None. Pure client-side defensive bugfix — no schema, migration, pricing/SKU, branding, or corpus surface touched.
+## 2026-06-19 · ui(std/website): replace the "Play music" pill with an icon-only mute toggle
+
+Owner ask: the floating "Play music" pill on the Save-the-Date / couple website (bottom-left) wasn't the right affordance — a mute icon reads more clearly. Swapped the labeled pill for a compact, icon-only circular toggle using the universal speaker glyph: `Volume2` when sound is on (tap to mute), `VolumeX` when muted/not-started (tap to play). Same position, same translucent-cream/terracotta styling, same tap-to-start behavior (browser autoplay still never force-plays). Shared component, so it updates both render sites on `/[slug]` (save-the-date view + main view).
+
+- **`apps/web/app/[slug]/_components/background-music.tsx`** — dropped the `Music`/`Pause` icons + the `Play music`/`Pause music` text span; now renders an `h-11 w-11` icon-only button toggling `Volume2` ⇄ `VolumeX`. `aria-pressed` retained; `aria-label` switches between "Mute background music" / "Play background music"; added a matching `title` tooltip. Doc comment updated to describe the speaker-on ⇄ muted toggle.
+
+SPEC IMPACT: None. Pure presentational refinement of an existing control; no SKU, schema, branding, or copy-of-record change. (Corpus 0024 STD docs describe the music control only at the feature level, not the icon.)
+
+## 2026-06-19 · fix(regions): one DB-backed canonical source collapses 4 incompatible PH-region spellings (fallback-safe)
+
+Owner-approved 2026-06-19. Four region vocabularies had drifted across the app and silently disagreed: V1 onboarding hyphen slugs (`c-visayas`, `n-mindanao`, `cagayan`, `abroad`) in `events.region`; V2 match-criteria underscore slugs (`central_visayas`, `outside_ph`); V3 PSGC codes (`VII`, `NCR`) in `vendor_profiles.hq_region`; V4 wedding-cities `cagayan-valley`; plus hand-maintained burn bands over three of those. This adds one canonical source (`public.regions` + `public.wedding_destinations`) and a single resolver every consumer reads through, with a built-in static fallback so behavior is **identical when the DB tables are absent/empty** (which they are this cycle — the orchestrator applies the migration separately).
+
+- **MIGRATION `supabase/migrations/20270128395443_regions_canonical_source.sql`** (additive, idempotent) — two new tables. `public.regions` = one canonical row per region (slug = the V1 hyphen slug, `aliases[]` absorbs every other spelling, `psgc_code`/`burn_band`/`centroid`/`sort_order`/`is_scopable`). `public.wedding_destinations` = the curated city carousel keyed to `regions.slug` (`city_aliases` seeded EMPTY — a follow-up backfills it). RLS at CREATE TABLE time: public read, admin write. Prefix allocator-sourced (`pnpm migration:new`) — unique + non-round; passes the timestamp guard.
+- **NEW `apps/web/lib/region-source.ts`** — the single resolver. Synchronous (consumers resolve regions inside sync `.filter()`/`.map()` callbacks and client-component render), client-bundle-safe (references no server module). Exposes `resolveRegion` (accepts ANY of the 4 vocabularies via slug/psgc/aliases), `regionBySlug`, `regionByPsgc`, `allRegions` (sorted), `regionLabel`, `regionDescriptor`, `regionCentroid`, `regionBurnBand`, `regionSlugForCity`. Backed by a built-in STATIC table mirroring the migration seed (itself derived from the existing consts), so on any DB miss it falls back and never breaks. DB hydration is dependency-injected (`hydrateRegionsFromRows`) so the module never imports `@/lib/supabase/server` / `next/headers`. No current caller invokes hydration — the static fallback is the live path this cycle.
+- **`apps/web/lib/v2/region-token-burn.ts`** — `regionBurnTokens()` resolves `burn_band` via `resolveRegion(region)` instead of the hand-maintained `REGION_TO_BAND`. `BURN_BAND_REGIONS` + `TOKEN_PRICE_PHP` + `BURN_CEILING_TOKENS` stay exported (deprecation comment). Pure, never-throws, `DEFAULT_BURN_BAND=1` floor preserved.
+- **`apps/web/lib/regions.ts`** — `regionForCity()` reads `wedding_destinations.city_aliases` (via `regionSlugForCity` → PSGC code) first, falling back to the frozen `CITY_TO_REGION` Map. Return contract unchanged (still a PSGC code). `PH_REGIONS` + `TOP_DESTINATIONS` + `CITY_TO_REGION` kept exported; header note marks the DB tables as the new canonical source + these consts as the compat shim. (`city_aliases` empty this cycle → Map fallback is the live path.)
+- **`apps/web/lib/match-criteria.ts`** — `REGION_OPTIONS` (value=canonical slug, label=display_label) + `ALLOWED_REGIONS` derived from `allRegions()`. `ALLOWED_REGIONS` accepts BOTH canonical hyphen slugs AND every legacy spelling (underscore variants, PSGC codes, `cagayan-valley`, `outside_ph`) so existing `events.region` rows stay valid.
+- **`apps/web/app/dashboard/[eventId]/actions.ts`** — `updateEventMatchCriteria` region validation now `resolveRegion(regionStr)` and **normalizes the stored value to the canonical hyphen slug** so new writes converge; existing rows still validate. Dropped the now-unused `ALLOWED_REGIONS` import.
+- **`apps/web/app/dashboard/[eventId]/details/_components/details-form.tsx`** — normalizes `initialRegion` to its canonical slug via `resolveRegion` in the `useState` initializer so the `<select>` preselects regardless of which of the 4 vocabularies the row was written in.
+- **`apps/web/app/onboarding/wedding/actions.ts`** — replaced the inline `ONBOARDING_REGION_TO_PSGC` map + `onboardingRegionToPsgc()` body with `resolveRegion(region)` → `psgc_code` (null when `is_scopable=false`/`abroad`/unknown). `events.region` still stores the canonical hyphen slug; no data migration of existing rows.
+- **`apps/web/app/onboarding/wedding/_components/onboarding-shell.tsx`** — `REGLABEL` built from `allRegions()` (canonical slug → display_label) instead of a hand-maintained literal; the three lookup sites are unchanged. Recap labels are now the fuller canonical labels (e.g. "Ilocos Region" vs "Ilocos", "Outside the Philippines" vs "Outside the PH") — cosmetic, still accurate.
+- **DEFERRED `apps/web/app/onboarding/wedding/_data/wedding-cities.ts`** — left reading its TS literals (header note added). It's the last/riskiest consumer: `CITIES`/`TOP30`/`cityByKey`/`resolvePick`/`REGION_CENTROID` are consumed synchronously inside two client-component carousels (onboarding-shell, location-step) at render time, and `wedding_destinations` rows aren't verified live yet (`city_aliases` empty). A DB cutover here would need an async fetch from a sync client render path — outside the fallback guarantees — so it's deferred to a follow-up PR (server-side props hydrated from `public.wedding_destinations`, TS literals kept as the offline fallback). `resolvePick` still returns the canonical region slug.
+
+Behavior note: the Personalization region dropdown order changes (PSGC-numeric via `sort_order` rather than the old curated order) and gains NIR (Negros Island Region), which was missing from the old `REGION_OPTIONS`. No typecheck run locally (no node_modules); CI gates typecheck + lint + build.
+
+SPEC IMPACT: Flag, do not edit corpus. Corpus region docs (e.g. iteration 0006 / 0015 region references, `Taxonomy_Events_Faiths_Completeness_Audit`) may still reference the old per-surface spellings; the live code now treats the hyphen slug as canonical with all other spellings as aliases. Owner to decide if/when the corpus region tables are re-synced to the canonical `public.regions` vocabulary. No locked-SKU / branding / schema-rename surfaces touched (two NEW additive tables only).
+
+## 2026-06-19 · fix(vendors): "what do you offer" picker reflects live admin-taxonomy labels (display-only; storage/validation untouched)
+
+The vendor service/category picker rendered category labels from the in-code `VENDOR_CATEGORY_LABEL` constant only, so an admin renaming a taxonomy tile (e.g. "Photo & Video") never flowed through to the labels a vendor sees. Fix makes the DISPLAY label follow the live admin taxonomy while keeping the stored WIRE vocabulary (the 30 `VENDOR_CATEGORIES` enum keys) and all validation byte-for-byte unchanged — fully backward-compatible, no migration.
+
+- **`apps/web/lib/vendor-category-taxonomy.ts`** — added pure helper `labelForVendorCategory(cat, tax)` = `tax.tileLabel[primaryTileForVendorCategory(cat)] ?? VENDOR_CATEGORY_LABEL[cat]`. Fallback-safe by construction: exempt (bucket C) categories have no anchor tile → in-code literal; and `getTaxonomy()` itself falls back to `lib/taxonomy.ts` when the DB is unseeded. `tilesForVendorCategory`/`primaryTileForVendorCategory` are unchanged.
+- **`apps/web/app/vendor-dashboard/services/actions.ts`** — NO functional change to `parseCategory`; added a clarifying comment that the submitted `category` is the wire/stored enum key (NOT a tile key), anchored to the DB tree via `VENDOR_CATEGORY_CANONICAL` + `validateVendorCategoryMapping`. Still validates against `VENDOR_CATEGORIES`.
+- **`apps/web/app/vendor-dashboard/services/page.tsx`** — `await getTaxonomy()` (try/catch → degrades to in-code labels) and a `labelFor(cat)` helper feeding the three picker labels (left-column list, "Add:" heading, title placeholder). The `<input name="category">` value stays the enum key; `VENDOR_CATEGORIES`/`SERVICE_GROUPS` iteration order unchanged.
+- **`apps/web/app/vendor-dashboard/_components/services-picker.tsx`** — accepts optional `labels?: Record<string,string>`; renders `labels?.[cat] ?? VENDOR_CATEGORY_LABEL[cat]`; checkbox VALUE stays the enum key. Omitting the prop renders exactly as before.
+- **`apps/web/app/vendor-dashboard/profile/page.tsx`** — `await getTaxonomy()` (try/catch) → passes `labels={Object.fromEntries(VENDOR_CATEGORIES.map(c => [c, labelForVendorCategory(c, tax)]))}` into `<ServicesPicker/>`.
+- `apps/web/app/admin/taxonomy/page.tsx` already renders `validateVendorCategoryMapping(getTaxonomy())` as a drift warning banner — no change needed.
+
+NOTE for owner: because the label resolves to each category's PRIMARY anchor tile, sibling categories that share a tile (e.g. `photographer` + `videographer` → `photo_video`; `makeup_artist` + `hair_stylist` → `hmua`) will display the SAME tile label once the DB diverges from the in-code per-category names. The picker rows stay distinct (distinct enum values); only the visible text collapses. This is exactly the spec'd helper formula; flagging in case per-category labels are preferred.
+
+SPEC IMPACT: None. Display-only; stored vocabulary + validation (`VENDOR_CATEGORIES`/`CATEGORY_SET`/`parseCategory`) and the canonical anchoring map are unchanged. No schema, no migration, no corpus edit required.
+
+## 2026-06-19 · fix(vendors): locked vendor now stamped as the couple's #1 pick (`selection_match_rank = 1`)
+
+When a couple locks/contracts a vendor (`finalizeVendor`, the `status='contracted'` lock transition), the generic lock-write previously updated only `{status, updated_at}` — it never set `selection_match_rank`. As a result the locked vendor (which IS the couple's chosen pick for that leaf category) was never marked as the recommended #1 pick, so two downstream features stayed dormant:
+
+- The vendor-side **"From Your Vendors" editorial-media** feature (`lib/editorial-vendor-media.ts` → `findRecommendedEventVendorId`) — gates strictly on `event_vendors.selection_match_rank = 1`, so it returned `null` and the vendor could never submit editorial photos/clips.
+- The editorial **#1-match stat** (`app/[slug]/_components/editorial/data.ts` `firstPick` counter) — counts `selection_match_rank = 1` rows, so it always read 0.
+
+Fix (owner-approved 2026-06-19):
+
+- **`app/dashboard/[eventId]/vendors/actions.ts`** — in `finalizeVendor`'s generic lock write, also set `selection_match_rank: 1` on the row. Idempotent (always set on the lock transition) and scoped to the lock transition (guarded by the `already_locked` short-circuit on `CONFIRMED_VENDOR_STATUSES` and the money-status precondition). Single-column additive write; no behavior change to the slot-path lock (handled inside `acquire_service_time_slot`).
+
+SPEC IMPACT: None. (No schema change — `selection_match_rank` already exists on `event_vendors`; this only populates it on the lock path. No corpus edit needed.)
 ## 2026-06-19 · feat(studio): Vector Monogram Studio "takes up the space" — full two-column desktop workspace + large live preview
 
 Owner: "we want this vector studio to open — make it take up the space, not just a small preview." The studio was a fixed ~430px-wide card with a 300px-tall canvas, dwarfed on a desktop page. Now it opens into a real workspace when it has room, on BOTH surfaces that share the editor (public `/monogram` + the couple dashboard studio at `/dashboard/[eventId]/monogram`).

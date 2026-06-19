@@ -21,6 +21,8 @@ import {
   displayServiceLabel,
   formatPhp,
 } from '@/lib/vendors';
+import { getTaxonomy } from '@/lib/taxonomy-db';
+import { labelForVendorCategory } from '@/lib/vendor-category-taxonomy';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { Field } from '@/app/_components/forms/field';
 import {
@@ -148,6 +150,21 @@ export default async function VendorServicesPage({ searchParams }: Props) {
       ? (search.add as VendorCategory)
       : null;
 
+  // Live admin-taxonomy DISPLAY labels for the category picker. Storage +
+  // validation are unchanged — only the human-readable label follows whatever
+  // an admin set on each anchor tile (labelForVendorCategory falls back to the
+  // in-code VENDOR_CATEGORY_LABEL per category). getTaxonomy() is itself
+  // fallback-safe (lib/taxonomy.ts when the DB is unseeded), so this is safe
+  // before any migration. A taxonomy hiccup degrades to the in-code label.
+  let tax: Awaited<ReturnType<typeof getTaxonomy>> | null = null;
+  try {
+    tax = await getTaxonomy();
+  } catch {
+    tax = null;
+  }
+  const labelFor = (cat: VendorCategory): string =>
+    tax ? labelForVendorCategory(cat, tax) : VENDOR_CATEGORY_LABEL[cat];
+
   return (
     <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
       <header className="space-y-3">
@@ -221,7 +238,7 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                                 : 'text-ink/75 hover:bg-ink/[0.04]'
                           }`}
                         >
-                          <span>{VENDOR_CATEGORY_LABEL[cat]}</span>
+                          <span>{labelFor(cat)}</span>
                           {count > 0 ? (
                             <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
                               {count} added
@@ -251,7 +268,7 @@ export default async function VendorServicesPage({ searchParams }: Props) {
               className="space-y-3 rounded-2xl border border-terracotta/30 bg-cream p-5"
             >
               <h2 className="text-base font-semibold text-ink">
-                Add: {VENDOR_CATEGORY_LABEL[addCategory]}
+                Add: {labelFor(addCategory)}
               </h2>
               <form action={createVendorService} className="space-y-4">
                 <input type="hidden" name="category" value={addCategory} />
@@ -265,7 +282,7 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                     name="title"
                     type="text"
                     maxLength={80}
-                    placeholder={VENDOR_CATEGORY_LABEL[addCategory]}
+                    placeholder={labelFor(addCategory)}
                     className="input-field"
                   />
                 </Field>

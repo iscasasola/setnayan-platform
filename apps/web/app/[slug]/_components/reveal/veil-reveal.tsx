@@ -496,7 +496,12 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
           const k = pCling[i]!;
           pPos[i]!.set(px[k]! + P.ox, py[k]! + P.oy, pz[k]! + 0.02);
           const sp = Math.hypot(px[k]! - qx[k]!, py[k]! - qy[k]!, pz[k]! - qz[k]!);
-          if (sp > 0.045 || (shaking && (sp > 0.012 || rnd() < 0.2))) {
+          // Release clingers once the veil LIFTS (owner 2026-06-19 "why are the
+          // petals aligned on the top") — otherwise they ride the cloth up to the
+          // pinned crown and end up stuck in a line along the top edge. As the
+          // veil rises they let go and fall naturally. (Plus the existing
+          // shake-loose-on-lower + fast-cloth detaches.)
+          if (lift > 0.5 || sp > 0.045 || (shaking && (sp > 0.012 || rnd() < 0.2))) {
             pCling[i] = -1;
             petalParams(P, 'feather');
             pVel[i]!.set((rnd() * 2 - 1) * 0.2, -0.05 - rnd() * 0.18, (rnd() * 2 - 1) * 0.15);

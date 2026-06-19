@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-18 · fix(profile): include vendor media in the RA 10173 data export
+
+The data-export endpoint claimed "vendor portfolio + media uploads (R2 wiring not yet built)" in its `not_included` list — but that's stale: `vendor_profiles.portfolio_r2_keys` ships live, and the raw keys were already in the payload (via `select('*')`), just as un-resolvable `r2://` refs. Additive fix, no new tables:
+
+- **`api/profile/export/route.ts`** — resolves the vendor's logo + `portfolio_r2_keys` to usable URLs (`displayUrlsForStoredAssets`) under `vendor_portfolio_media`, and includes the vendor's own day-of `editorial_vendor_media` (still/boomerang, resolved) under `vendor_submitted_media` — both via RLS-enforced reads, so a vendor only exports their OWN media. Raw `r2://` keys stay in the payload as the durable record; a `media_note` flags that resolved links are presigned/time-limited.
+- Corrected `not_included` to drop the stale portfolio line (now included) and keep the genuine gaps: the API-access audit log (no user-scoped access-log table in V1) + payment records (0034).
+
+tsc 0 · ESLint clean. Compliance-relevant (RA 10173 right-to-portability). The audit-log half stays a separate task (needs a new table + request instrumentation).
+
+SPEC IMPACT iter 0025 — completes the vendor-media half of the data export. → CHANGELOG.
+
 ## 2026-06-19 · fix(ci): repair two advisory guards left stale by the Studio route rename (PR pending, auto-merge)
 
 The `add-ons` → `studio` route rename (PR #1815) added route redirects but missed two guard configs that hardcode the old paths, so `lint papic keep-permanent` and `lint retired strings` were **failing on `main`** (baseline) and on every open PR. **No actual bug** — verified the keep-permanent logic is intact at the new path (`studio/papic/actions.ts:141` still calls `makeSamplerPermanent` + `cancelSamplerExpiryWarnings`); only the guards' paths were stale.

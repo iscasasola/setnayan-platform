@@ -55,6 +55,17 @@ const config: Config = {
         // The slot names stay semantic ("accent / surface / ink / cta") not
         // literal — see CLAUDE.md 2026-05-30 row for the unification rationale.
         cream: 'rgb(var(--color-cream) / <alpha-value>)',
+        // `paper` — surface slot used widely in dashboard editors
+        // (`bg-paper` rows, `text-paper` on dark CTAs like the Build button).
+        // It only ever existed as the `--m-paper` CSS var, NEVER as a Tailwind
+        // color token, so `bg-paper` / `text-paper` / `border-paper` resolved to
+        // NOTHING and broke those surfaces — most visibly the Build tab's primary
+        // [Build] button rendered as a blank dark box (its `text-paper` label +
+        // icon inherited the ambient ink color → invisible on `bg-ink`). Same
+        // failure class as the `burgundy` slot below. Aliased to the canonical
+        // cream surface channel (same Warm Alabaster value; flips correctly in
+        // dark mode) so `<alpha-value>` modifiers like `text-paper/70` work too.
+        paper: 'rgb(var(--color-cream) / <alpha-value>)',
         ink: {
           DEFAULT: 'rgb(var(--color-ink) / <alpha-value>)',
           soft: 'rgb(var(--ink-soft) / <alpha-value>)',

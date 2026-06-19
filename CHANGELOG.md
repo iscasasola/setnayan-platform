@@ -14,6 +14,37 @@ Owner follow-ups to the App Store copy pass: (1) bring Panood's bespoke detail p
 Verified: `pnpm typecheck` clean · `lib/add-ons-detail.test.ts` 3/3 · no migration.
 
 SPEC IMPACT: None (copy/voice only; aligns with the locked public-surface-hygiene rule). See `DECISION_LOG.md` 2026-06-19.
+## 2026-06-19 · feat(std): slower petals + subtle "Created at SETNAYAN" mark
+
+Owner: "the petals need to fall slower" + "on the lower part add Created at SETNAYAN (subtle branding only)".
+
+- **Slower petals.** Dialled the veil-reveal petal gravity down ~0.6× across all three behaviours (feather −1.4→−0.85, rotate −2.7→−1.6, straight −3.6→−2.2) so they drift down more gently.
+- **No top-aligned petals.** Clingers now **release and fall** once the veil lifts (`lift > 0.5`) instead of riding the cloth up to the pinned crown and lining up along the top edge (owner 2026-06-19 "why are the petals aligned on the top").
+- **Subtle branding.** A tiny "Created at SETNAYAN" mark at the lower edge of the Save-the-Date film — mono, uppercase, `tracking-[0.3em]`, `opacity-35`, tone-aware colour, `pointer-events-none`. Lives in the outer container (not the scaled stage) so it stays small + consistent; hidden behind the full-screen video overlay. (Distinct from the removed prominent "Powered by Setnayan" footer.)
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` + `0024_Veil_Reveal_Spec` — petals fall ~0.6× slower; a subtle "Created at SETNAYAN" mark sits at the film's lower edge. See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · fix(std): music holds during the video + resumes (never restarts)
+
+Owner: "the music should only continue after the video plays. it should not start over from the beginning."
+
+The crossfade left the music PLAYING silently (volume 0) under the video — so a `loop`-ed track looped back toward 0 during a long clip and sounded like it restarted afterwards. Now the music **pauses** (holds its exact position) once it fades out entering the video beat, and **resumes from there** when the film returns to the closing screen (`play()` never resets `currentTime`, and we never touch it). The video keeps its own audio + the ~700ms crossfade both ways; only the music's hold/resume changed.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the soundtrack pauses for the video and continues from where it left off (no restart). See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · fix(theme): register missing `paper` Tailwind color token — Build tab's [Build] button was a blank dark box (PR pending, auto-merge)
+
+Owner reported the Build tab ("Build your plan") showed no buttons for the build action — just a dark rectangle. Root cause: `paper` was used as a Tailwind color (`bg-paper` rows, `text-paper` on dark CTAs) across **21 files**, but it only ever existed as the `--m-paper` CSS variable — it was **never registered as a Tailwind color token** in `tailwind.config.ts`. So `bg-paper` / `text-paper` / `border-paper` compiled to **nothing**. On the Build button (`bg-ink text-paper` + Hammer icon), the dark `bg-ink` rendered but the `text-paper` label + `currentColor` icon inherited the ambient ink color → invisible on dark = blank box. This is the identical failure class the config already documents for the `burgundy` slot.
+
+- **`apps/web/tailwind.config.ts`** — added `paper: 'rgb(var(--color-cream) / <alpha-value>)'` aliased to the canonical cream surface channel (same Warm Alabaster value; flips correctly in dark mode), so `bg-paper` / `text-paper` / `border-paper` resolve and `<alpha-value>` modifiers like the existing `text-paper/70` (vendor subscription cycle toggle) work too. One-line, follows the `burgundy`→`mulberry` back-compat precedent in the same file.
+
+Verified at the CSS layer (Tailwind compile, before/after): original config emitted **no** `.text-paper`/`.bg-paper`/`.border-paper` rules; with the fix all three emit, plus `.text-paper/70` → `color: rgb(var(--color-cream) / 0.7)`. `.text-paper` resolves to alabaster on light / obsidian on dark, so the Build label + icon are now visible on the dark button. No migration.
+
+SPEC IMPACT: None (repo-side theme-token bug fix; no product, pricing, or spec change). Fixes the same latent gap for the other 20 files using `*-paper` (admin pricing/subscriptions/token pages, several build/details dashboard editors).
 
 ## 2026-06-19 · copy(studio): App Store detail pages rewritten to sell stories + results (PR pending, auto-merge)
 

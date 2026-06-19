@@ -180,6 +180,56 @@ export async function POST(req: Request) {
         // never let a notification failure affect the guest's send
       }
     });
+  } else if (voiceDepth === 'flash' && state === 'flagged') {
+    // Flagged Flash: a held Flash caption is never wall-eligible (the DB CHECK
+    // backstops), so without a nudge it would sit in the queue and the couple
+    // would never know. This is exactly the kwento_flagged type's intended
+    // signal — registered since 2026-06-15 but emitted nowhere until now.
+    // Debounced like the Story path so a flurry of flagged Flashes during a
+    // live reception can't spam the couple's tray. In-app/push only — never
+    // emailed (kwento_flagged is off the email allowlist).
+    after(async () => {
+      try {
+        const { data: evt } = await admin
+          .from('events')
+          .select('last_kwento_notify_at')
+          .eq('event_id', session.event_id)
+          .maybeSingle();
+
+        const lastNotify = evt?.last_kwento_notify_at
+          ? new Date(evt.last_kwento_notify_at as string).getTime()
+          : 0;
+        if (Date.now() - lastNotify < STORY_NOTIFY_DEBOUNCE_MS) return;
+
+        // Stamp the debounce BEFORE sending to prevent a race between concurrent requests.
+        await admin
+          .from('events')
+          .update({ last_kwento_notify_at: new Date().toISOString() })
+          .eq('event_id', session.event_id);
+
+        const { data: members } = await admin
+          .from('event_members')
+          .select('user_id')
+          .eq('event_id', session.event_id)
+          .eq('member_type', 'couple');
+
+        const seen = new Set<string>();
+        for (const m of (members ?? []) as Array<{ user_id?: string }>) {
+          const uid = m.user_id;
+          if (!uid || seen.has(uid)) continue;
+          seen.add(uid);
+          await emitNotification({
+            userId: uid,
+            type: 'kwento_flagged',
+            title: 'A guest story needs your okay before it appears',
+            body: 'One of your guests wrote a caption that our filter held for review. Take a look to approve or hide it.',
+            relatedUrl: `/dashboard/${session.event_id}/studio/papic/moderation`,
+          });
+        }
+      } catch {
+        // never let a notification failure affect the guest's send
+      }
+    });
   } else if (voiceDepth === 'story' && state === 'clean') {
     // Clean Story: no email — surfaces in the review queue without inbox noise.
     // Batched notification fires only on flagged (above).

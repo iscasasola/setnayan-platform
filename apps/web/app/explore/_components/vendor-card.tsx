@@ -266,7 +266,7 @@ export function VendorCard({
     <article
       className={`flex h-full flex-col gap-3 rounded-2xl border bg-cream p-4 transition-shadow hover:shadow-md ${
         isDemoCard
-          ? 'border-amber-300 ring-1 ring-amber-200/70'
+          ? 'border-warn-300 ring-1 ring-warn-200/70'
           : isComingSoon
             ? 'border-dashed border-ink/20 opacity-90'
             : 'border-ink/10'
@@ -298,7 +298,7 @@ export function VendorCard({
             </h2>
             {isDemoCard ? (
               <span
-                className="shrink-0 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-amber-800"
+                className="shrink-0 inline-flex items-center gap-1 rounded-full bg-warn-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-warn-800"
                 title="Synthetic vendor — visible only to admins in demo mode."
               >
                 <Sparkles className="h-3 w-3" strokeWidth={2} aria-hidden />
@@ -393,7 +393,7 @@ export function VendorCard({
           `starting_price_php` light up. */}
       {priceLine ? (
         <p className={`font-mono text-xs ${
-          isDemoCard ? 'text-amber-800/90' : 'text-ink/70'
+          isDemoCard ? 'text-warn-800/90' : 'text-ink/70'
         }`}>
           {priceLine}
         </p>
@@ -415,7 +415,7 @@ export function VendorCard({
         <li className="inline-flex items-center gap-1">
           <Star
             className={`h-3.5 w-3.5 ${
-              rating > 0 ? 'fill-amber-400 text-amber-500' : 'text-ink/25'
+              rating > 0 ? 'fill-warn-400 text-warn-500' : 'text-ink/25'
             }`}
             strokeWidth={1.75}
           />
@@ -593,7 +593,7 @@ function ActivityBadges({
     <ul className="flex flex-wrap gap-1.5">
       {showResponsive && avgResponseMinutes !== null ? (
         <li
-          className="inline-flex items-center gap-1 rounded-full border border-emerald-300/50 bg-emerald-50 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-emerald-900"
+          className="inline-flex items-center gap-1 rounded-full border border-success-300/50 bg-success-50 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-success-900"
           title="This vendor has a fast median response time and was active recently."
         >
           <Clock className="h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />
@@ -603,7 +603,7 @@ function ActivityBadges({
         </li>
       ) : isInactive ? (
         <li
-          className="inline-flex items-center gap-1 rounded-full border border-amber-300/50 bg-amber-50 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-amber-900"
+          className="inline-flex items-center gap-1 rounded-full border border-warn-300/50 bg-warn-50 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-warn-900"
           title="This vendor hasn't logged in recently. Messages may take longer than usual."
         >
           <AlertCircle className="h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />

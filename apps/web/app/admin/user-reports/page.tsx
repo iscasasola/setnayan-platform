@@ -44,8 +44,8 @@ const STATUS_LABEL: Record<ReportRow['status'], string> = {
   dismissed: 'Dismissed',
 };
 const STATUS_TONE: Record<ReportRow['status'], string> = {
-  open: 'bg-amber-100 text-amber-900',
-  actioned: 'bg-emerald-100 text-emerald-800',
+  open: 'bg-warn-100 text-warn-900',
+  actioned: 'bg-success-100 text-success-800',
   dismissed: 'bg-ink/10 text-ink/60',
 };
 
@@ -313,7 +313,7 @@ export default async function AdminUserReportsPage({
                         <input type="hidden" name="report_id" value={r.report_id} />
                         <input type="hidden" name="action" value="escalate" />
                         <SubmitButton
-                          className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-900 hover:bg-amber-100"
+                          className="inline-flex items-center gap-1.5 rounded-md border border-warn-300 bg-warn-50 px-3 py-1.5 text-xs font-medium text-warn-900 hover:bg-warn-100"
                           pendingLabel="Escalating…"
                         >
                           <ArrowUpRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Escalate
@@ -332,7 +332,7 @@ export default async function AdminUserReportsPage({
                     </div>
                   )}
                   {r.status !== 'open' && (
-                    <p className="inline-flex items-center gap-1.5 pt-1 text-xs font-medium text-emerald-700">
+                    <p className="inline-flex items-center gap-1.5 pt-1 text-xs font-medium text-success-700">
                       <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Resolved
                     </p>
                   )}

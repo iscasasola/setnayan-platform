@@ -90,7 +90,7 @@ export function PlaylistPickRow({
   }
 
   const rowTint = isBannedSlot
-    ? 'border-rose-200/60 bg-white/80'
+    ? 'border-danger-200/60 bg-white/80'
     : 'border-ink/10 bg-white';
 
   if (editing) {
@@ -162,14 +162,14 @@ export function PlaylistPickRow({
       <Music
         aria-hidden
         className={`mt-0.5 h-3.5 w-3.5 flex-shrink-0 ${
-          isBannedSlot ? 'text-rose-700/60' : 'text-ink/40'
+          isBannedSlot ? 'text-danger-700/60' : 'text-ink/40'
         }`}
         strokeWidth={2}
       />
       <div className="min-w-0 flex-1">
         <p
           className={`truncate text-sm font-medium ${
-            isBannedSlot ? 'text-rose-900' : 'text-ink'
+            isBannedSlot ? 'text-danger-900' : 'text-ink'
           }`}
         >
           {pick.song_label}
@@ -177,7 +177,7 @@ export function PlaylistPickRow({
         {pick.artist ? (
           <p
             className={`truncate text-xs ${
-              isBannedSlot ? 'text-rose-900/65' : 'text-ink/65'
+              isBannedSlot ? 'text-danger-900/65' : 'text-ink/65'
             }`}
           >
             {pick.artist}
@@ -186,7 +186,7 @@ export function PlaylistPickRow({
         {pick.notes ? (
           <p
             className={`mt-0.5 truncate text-[11px] italic ${
-              isBannedSlot ? 'text-rose-900/55' : 'text-ink/55'
+              isBannedSlot ? 'text-danger-900/55' : 'text-ink/55'
             }`}
           >
             {pick.notes}
@@ -210,7 +210,7 @@ export function PlaylistPickRow({
           type="button"
           onClick={handleDelete}
           aria-label={`Remove ${pick.song_label}`}
-          className="text-ink/35 transition-colors hover:text-rose-700"
+          className="text-ink/35 transition-colors hover:text-danger-700"
         >
           <Trash2
             aria-hidden

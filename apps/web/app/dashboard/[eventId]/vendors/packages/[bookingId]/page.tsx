@@ -135,7 +135,7 @@ export default async function PackageBookingPage({ params }: Props) {
       {/* Status pill */}
       <div className="mt-4 flex items-center gap-2">
         {isLocked ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-emerald-800">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-success-100 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-success-800">
             <BookmarkCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             Locked
           </span>
@@ -144,7 +144,7 @@ export default async function PackageBookingPage({ params }: Props) {
             Released
           </span>
         ) : (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-amber-900">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-warn-100 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-warn-900">
             Considering
           </span>
         )}
@@ -164,7 +164,7 @@ export default async function PackageBookingPage({ params }: Props) {
             typedBooking.remaining_consumable_centavos > 0) ? (
             <div className="flex items-center justify-between">
               <dt className="text-ink/70">Consumable budget</dt>
-              <dd className="font-mono text-base text-emerald-800">
+              <dd className="font-mono text-base text-success-800">
                 {formatCentavosPhp(typedBooking.remaining_consumable_centavos)}
               </dd>
             </div>
@@ -173,7 +173,7 @@ export default async function PackageBookingPage({ params }: Props) {
         {pkg.is_consumable_flexible &&
         typedBooking.remaining_consumable_centavos >
           pkg.consumable_budget_centavos ? (
-          <p className="mt-3 rounded-lg bg-emerald-50/60 px-3 py-2 text-xs text-emerald-900">
+          <p className="mt-3 rounded-lg bg-success-50/60 px-3 py-2 text-xs text-success-900">
             You{'’'}ve freed up{' '}
             <span className="font-semibold">
               {formatCentavosPhp(
@@ -200,11 +200,11 @@ export default async function PackageBookingPage({ params }: Props) {
               return (
                 <li
                   key={item.item_id}
-                  className="flex items-start gap-3 rounded-lg border border-emerald-200/50 bg-emerald-50/30 p-3"
+                  className="flex items-start gap-3 rounded-lg border border-success-200/50 bg-success-50/30 p-3"
                 >
                   <BookmarkCheck
                     aria-hidden
-                    className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700"
+                    className="mt-0.5 h-4 w-4 shrink-0 text-success-700"
                     strokeWidth={2}
                   />
                   <div className="min-w-0 flex-1">
@@ -229,7 +229,7 @@ export default async function PackageBookingPage({ params }: Props) {
                         value={typedBooking.booking_id}
                       />
                       <input type="hidden" name="item_id" value={item.item_id} />
-                      <SubmitButton pendingLabel="Removing…" className="inline-flex min-h-[44px] items-center gap-1 rounded-md border border-ink/15 bg-cream px-2.5 py-1.5 text-xs text-ink/70 transition-colors hover:border-rose-300 hover:text-rose-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-500">Remove</SubmitButton>
+                      <SubmitButton pendingLabel="Removing…" className="inline-flex min-h-[44px] items-center gap-1 rounded-md border border-ink/15 bg-cream px-2.5 py-1.5 text-xs text-ink/70 transition-colors hover:border-danger-300 hover:text-danger-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger-500">Remove</SubmitButton>
                     </form>
                   ) : null}
                 </li>
@@ -262,7 +262,7 @@ export default async function PackageBookingPage({ params }: Props) {
                   </p>
                   {item.replacement_value_centavos > 0 &&
                   pkg.is_consumable_flexible ? (
-                    <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-emerald-700">
+                    <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-success-700">
                       +{formatCentavosPhp(item.replacement_value_centavos)} in
                       consumable budget
                     </p>
@@ -305,7 +305,7 @@ export default async function PackageBookingPage({ params }: Props) {
               name="booking_id"
               value={typedBooking.booking_id}
             />
-            <SubmitButton pendingLabel="Releasing…" className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-lg border border-rose-300/60 bg-cream px-4 py-2 text-sm font-medium text-rose-800 transition-colors hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-500">Release this package</SubmitButton>
+            <SubmitButton pendingLabel="Releasing…" className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-lg border border-danger-300/60 bg-cream px-4 py-2 text-sm font-medium text-danger-800 transition-colors hover:bg-danger-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger-500">Release this package</SubmitButton>
           </form>
         ) : null}
       </section>

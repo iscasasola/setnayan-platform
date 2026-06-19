@@ -235,15 +235,15 @@ function AllLockedVariant() {
         </h2>
       </header>
 
-      <article className="flex flex-col gap-5 rounded-2xl border-2 border-emerald-300/50 bg-emerald-50/40 p-6 sm:p-8">
+      <article className="flex flex-col gap-5 rounded-2xl border-2 border-success-300/50 bg-success-50/40 p-6 sm:p-8">
         <header className="flex items-start justify-between gap-3">
-          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/50 bg-emerald-100/60 px-3 py-1">
+          <div className="inline-flex items-center gap-2 rounded-full border border-success-400/50 bg-success-100/60 px-3 py-1">
             <Sparkles
               aria-hidden
-              className="h-3.5 w-3.5 text-emerald-700"
+              className="h-3.5 w-3.5 text-success-700"
               strokeWidth={2}
             />
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-emerald-800">
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-success-800">
               All locked
             </span>
           </div>
@@ -260,7 +260,7 @@ function AllLockedVariant() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 text-xs text-emerald-800/80">
+        <div className="flex items-center gap-2 text-xs text-success-800/80">
           <CheckCircle2
             aria-hidden
             className="h-4 w-4"
@@ -289,22 +289,22 @@ type Palette = {
 
 const STATUS_PALETTE: Record<TodaysTaskStatus, Palette> = {
   overdue: {
-    border: 'border-rose-300/60',
-    bg: 'bg-rose-50/50',
-    pillBorder: 'border-rose-400/60',
-    pillBg: 'bg-rose-100/60',
+    border: 'border-danger-300/60',
+    bg: 'bg-danger-50/50',
+    pillBorder: 'border-danger-400/60',
+    pillBg: 'bg-danger-100/60',
     pillIcon: AlertCircle,
-    pillIconColor: 'text-rose-700',
-    pillTextColor: 'text-rose-800',
+    pillIconColor: 'text-danger-700',
+    pillTextColor: 'text-danger-800',
   },
   due_this_week: {
-    border: 'border-amber-300/60',
-    bg: 'bg-amber-50/50',
-    pillBorder: 'border-amber-400/60',
-    pillBg: 'bg-amber-100/60',
+    border: 'border-warn-300/60',
+    bg: 'bg-warn-50/50',
+    pillBorder: 'border-warn-400/60',
+    pillBg: 'bg-warn-100/60',
     pillIcon: Clock,
-    pillIconColor: 'text-amber-700',
-    pillTextColor: 'text-amber-800',
+    pillIconColor: 'text-warn-700',
+    pillTextColor: 'text-warn-800',
   },
   next_up: {
     border: 'border-terracotta/40',

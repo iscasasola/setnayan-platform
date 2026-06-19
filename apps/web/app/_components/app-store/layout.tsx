@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ArrowLeft, Check, ChevronRight, Star } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { StudioCardDemo, RICH_DEMO_SLUGS, type DemoFrame } from './studio-card-demo';
 import type { ReactNode } from 'react';
 
 // Shared App Store-style detail layout. Used by:
@@ -93,6 +94,10 @@ export type AppStoreLayoutProps = {
   stats?: StatTile[];
   justLaunchedChip?: string | null;
   preview?: PreviewItem[];
+  /** Auto-playing on-card demo. When present, plays instead of the glyph rail. */
+  demo?: DemoFrame[];
+  /** Feature slug — enables high-fidelity native demo scenes when registered. */
+  demoSlug?: string;
   samples?: SampleItem[];
   // Optional "What's included" bullet list, rendered right under About.
   highlights?: Highlights;
@@ -118,6 +123,8 @@ export function AppStoreLayout({
   stats,
   justLaunchedChip,
   preview,
+  demo,
+  demoSlug,
   samples,
   highlights,
   description,
@@ -162,7 +169,7 @@ export function AppStoreLayout({
                   hero.statusPill.tone === 'accent'
                     ? 'inline-flex items-center rounded-full bg-terracotta/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta'
                     : hero.statusPill.tone === 'success'
-                      ? 'inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-900'
+                      ? 'inline-flex items-center rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-900'
                       : 'inline-flex items-center rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55'
                 }
               >
@@ -182,8 +189,13 @@ export function AppStoreLayout({
         <StatCarousel stats={stats} justLaunchedChip={justLaunchedChip ?? null} />
       ) : null}
 
-      {/* Preview */}
-      {preview && preview.length > 0 ? (
+      {/* Preview — the auto-playing demo (what it does + how to operate it)
+          when present, otherwise the static glyph rail. */}
+      {(demo && demo.length > 0) || (demoSlug && RICH_DEMO_SLUGS.includes(demoSlug)) ? (
+        <Section title="Preview" id="preview">
+          <StudioCardDemo frames={demo ?? []} slug={demoSlug} />
+        </Section>
+      ) : preview && preview.length > 0 ? (
         <Section title="Preview" id="preview">
           <HorizontalRail>
             {preview.map((item, i) => (
@@ -306,7 +318,7 @@ export function AppStoreLayout({
               </p>
             </div>
             {reviews.avgRating !== null ? (
-              <span className="flex items-center gap-0.5 text-amber-500">
+              <span className="flex items-center gap-0.5 text-warn-500">
                 {[1, 2, 3, 4, 5].map((s) => (
                   <Star
                     key={s}
@@ -389,7 +401,7 @@ export function AppStoreLayout({
             <ul className="space-y-1 text-sm text-ink/75">
               {dataLinked.notLinked.map((item) => (
                 <li key={item} className="flex gap-2">
-                  <span aria-hidden className="text-emerald-600/70">
+                  <span aria-hidden className="text-success-600/70">
                     ○
                   </span>
                   {item}
@@ -474,7 +486,7 @@ function StatCarousel({
             <div className="mt-0.5 flex items-baseline gap-1">
               <p className="text-xl font-semibold tracking-tight text-ink">{s.value}</p>
               {typeof s.starFill === 'number' ? (
-                <span className="flex items-center text-amber-500">
+                <span className="flex items-center text-warn-500">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <Star
                       key={star}

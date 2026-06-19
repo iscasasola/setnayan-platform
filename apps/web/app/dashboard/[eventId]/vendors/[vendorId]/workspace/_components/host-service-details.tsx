@@ -137,7 +137,7 @@ export function HostServiceDetails({
       </p>
 
       {err ? (
-        <p role="alert" className="mt-3 text-[11px] text-rose-900">
+        <p role="alert" className="mt-3 text-[11px] text-danger-900">
           {err}
         </p>
       ) : null}
@@ -155,7 +155,7 @@ export function HostServiceDetails({
           {pending ? 'Saving…' : 'Save details'}
         </button>
         {saved ? (
-          <span className="inline-flex items-center gap-1 text-xs text-emerald-800">
+          <span className="inline-flex items-center gap-1 text-xs text-success-800">
             <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.2} />
             Saved — your card and Compare are up to date.
           </span>

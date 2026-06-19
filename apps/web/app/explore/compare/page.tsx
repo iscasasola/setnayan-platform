@@ -305,7 +305,7 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
         {hasDemoContent ? (
           <div
             role="status"
-            className="mb-6 flex items-start gap-3 rounded-xl border border-amber-300/60 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+            className="mb-6 flex items-start gap-3 rounded-xl border border-warn-300/60 bg-warn-50 px-4 py-3 text-sm text-warn-900"
           >
             <FlaskConical
               aria-hidden
@@ -318,7 +318,7 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
                 {demoRows.length === 1 ? 'demo vendor' : 'demo vendors'} in this
                 comparison
               </p>
-              <p className="mt-0.5 text-xs text-amber-900/80">
+              <p className="mt-0.5 text-xs text-warn-900/80">
                 Pricing + Package Inclusions rows below show synthetic test
                 data. Real vendor pricing stays gated per the 2026-05-16
                 hide-prices lock. Demo data cleanup deadline: Dec 1, 2026.
@@ -435,7 +435,7 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
                           aria-hidden
                           className={
                             rating > 0
-                              ? 'h-3.5 w-3.5 fill-amber-400 text-amber-500'
+                              ? 'h-3.5 w-3.5 fill-warn-400 text-warn-500'
                               : 'h-3.5 w-3.5 text-ink/25'
                           }
                           strokeWidth={1.75}
@@ -607,7 +607,7 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
                       className="border-b border-ink/5 px-3 py-3 align-top"
                     >
                       {visibility === 'verified' ? (
-                        <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-800">
+                        <span className="inline-flex items-center rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-800">
                           ✓ Verified
                         </span>
                       ) : (

@@ -100,7 +100,7 @@ export function UnlockCategoriesList({
                       </p>
                     </div>
                     {d ? (
-                      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-2 text-[13px] font-medium text-emerald-700">
+                      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-success-50 px-3 py-2 text-[13px] font-medium text-success-700">
                         <Check className="h-4 w-4" aria-hidden />
                         Added
                       </span>
@@ -127,7 +127,7 @@ export function UnlockCategoriesList({
                         : "It's in your plan. Open it on your Services page to inquire."}
                     </p>
                   )}
-                  {err && <p className="mt-2 text-[13px] text-rose-600">{err}</p>}
+                  {err && <p className="mt-2 text-[13px] text-danger-600">{err}</p>}
                 </li>
               );
             })}

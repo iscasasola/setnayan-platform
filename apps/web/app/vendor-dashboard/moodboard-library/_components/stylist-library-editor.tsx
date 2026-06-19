@@ -305,7 +305,7 @@ export function StylistLibraryEditor({ initialAssets }: { initialAssets: Stylist
                   type="button"
                   onClick={handleDelete}
                   disabled={isPending}
-                  className="rounded-md border border-rose-500 px-3 py-1.5 text-sm font-medium text-rose-600 disabled:opacity-50"
+                  className="rounded-md border border-danger-500 px-3 py-1.5 text-sm font-medium text-danger-600 disabled:opacity-50"
                 >
                   Delete
                 </button>

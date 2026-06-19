@@ -119,7 +119,7 @@ export function CeremonyTypeModal({ eventId, currentValue, onClose }: Props) {
         </div>
 
         {error ? (
-          <div className="mx-6 mb-2 rounded-md bg-rose-50 px-3 py-2 text-xs text-rose-800 ring-1 ring-inset ring-rose-200">
+          <div className="mx-6 mb-2 rounded-md bg-danger-50 px-3 py-2 text-xs text-danger-800 ring-1 ring-inset ring-danger-200">
             {error}
           </div>
         ) : null}

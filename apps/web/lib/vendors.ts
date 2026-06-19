@@ -126,11 +126,11 @@ export const VENDOR_STATUS_LABEL: Record<VendorStatus, string> = {
 
 export const VENDOR_STATUS_TONE: Record<VendorStatus, string> = {
   considering: 'bg-ink/5 text-ink/70',
-  shortlisted: 'bg-amber-100 text-amber-900',
+  shortlisted: 'bg-warn-100 text-warn-900',
   contracted: 'bg-sky-100 text-sky-800',
   deposit_paid: 'bg-violet-100 text-violet-800',
-  delivered: 'bg-emerald-100 text-emerald-800',
-  complete: 'bg-emerald-200 text-emerald-900',
+  delivered: 'bg-success-100 text-success-800',
+  complete: 'bg-success-200 text-success-900',
 };
 
 export type EventVendorRow = {

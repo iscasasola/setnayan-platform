@@ -157,7 +157,7 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
           role="status"
           className={`rounded-xl border px-4 py-3 text-sm ${
             uploadNotice.tone === 'ok'
-              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+              ? 'border-success-200 bg-success-50 text-success-800'
               : 'border-terracotta/30 bg-terracotta/10 text-terracotta-700'
           }`}
         >
@@ -219,7 +219,7 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
               owns ? (
                 <>
                   <h2 className="inline-flex items-center gap-2 text-lg font-semibold tracking-tight">
-                    <Check aria-hidden className="h-4 w-4 text-emerald-600" strokeWidth={2.5} />
+                    <Check aria-hidden className="h-4 w-4 text-success-600" strokeWidth={2.5} />
                     Your monogram blooms in
                   </h2>
                   <p className="max-w-prose text-sm text-ink/65">

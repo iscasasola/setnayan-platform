@@ -121,6 +121,64 @@ const config: Config = {
         'accent-soft': 'var(--accent-soft)',
         surface: 'var(--surface)',
         'surface-soft': 'var(--surface-soft)',
+        // ─────────────────────────────────────────────────────────────────
+        // SEMANTIC STATUS FAMILIES (Wave-3 token swap · 2026-06-19)
+        // ─────────────────────────────────────────────────────────────────
+        // The app had ~2,600 untokenized `emerald` / `amber` / `rose` Tailwind
+        // utility hits forming a de-facto status palette. They are now swapped
+        // to these canonical, brand-derived families so success/warn/danger
+        // states read as ONE intentional system instead of stock Tailwind
+        // colors. Full 50→950 ramps (every shade the old utilities referenced
+        // is defined here — an undefined shade would break the build).
+        //
+        // Hues are anchored to the locked Clean Editorial palette (globals.css
+        // `--m-*` tokens) so they sit beside the brand, not jarring against it:
+        //   - `success` ← sage green     (--m-sage #C5D2BD / --m-sage-deep #4F6B4A)
+        //   - `warn`    ← champagne gold  (--m-orange #C5A059 / --m-orange-2 #A88340)
+        //                  (50–400 reuse the existing terracotta gold ladder verbatim)
+        //   - `danger`  ← blush/terracotta(--m-blush #F4D7C9 / --m-blush-deep #B65A3A)
+        // Raw hex (not CSS-vars) — these are status accents, not themed
+        // surfaces, and read correctly on both alabaster (light) and obsidian
+        // (dark) backgrounds, same as the terracotta/mulberry ladders above.
+        success: {
+          50: '#f3f7f1',
+          100: '#e3ece0',
+          200: '#c5d2bd', // --m-sage
+          300: '#a3b89a',
+          400: '#7d9873',
+          500: '#5f7d55',
+          600: '#4f6b4a', // --m-sage-deep
+          700: '#41573d',
+          800: '#364632',
+          900: '#2c392a',
+          950: '#172013',
+        },
+        warn: {
+          50: '#fbf7ec',
+          100: '#f4ecd8',
+          200: '#e8d8b0',
+          300: '#dbc488',
+          400: '#cdb160',
+          500: '#c5a059', // --m-orange
+          600: '#a88340', // --m-orange-2
+          700: '#856633',
+          800: '#6c5125',
+          900: '#4d3a1b',
+          950: '#2e2210',
+        },
+        danger: {
+          50: '#fdf4f0',
+          100: '#f4d7c9', // --m-blush
+          200: '#eab8a2',
+          300: '#dd9477',
+          400: '#cd7252',
+          500: '#bf5d3f',
+          600: '#b65a3a', // --m-blush-deep
+          700: '#974930',
+          800: '#783b28',
+          900: '#5f3021',
+          950: '#34170f',
+        },
       },
       fontFamily: {
         // Brand typography wired via `next/font/google` in `app/layout.tsx`

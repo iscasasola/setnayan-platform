@@ -516,7 +516,7 @@ function ActionQueueTile({
       href={href}
       className={`block rounded-xl border p-4 transition-colors ${
         hasWork
-          ? 'border-amber-300/60 bg-amber-50/60 hover:bg-amber-50'
+          ? 'border-warn-300/60 bg-warn-50/60 hover:bg-warn-50'
           : 'border-ink/10 bg-cream/80 hover:bg-ink/[0.03]'
       }`}
     >
@@ -524,14 +524,14 @@ function ActionQueueTile({
         <div className="flex items-center gap-1.5">
           {hasWork ? (
             <AlertTriangle
-              className="h-3.5 w-3.5 shrink-0 text-amber-700"
+              className="h-3.5 w-3.5 shrink-0 text-warn-700"
               strokeWidth={2}
               aria-hidden
             />
           ) : null}
           <span
             className={`m-mono text-[10px] uppercase tracking-[0.15em] ${
-              hasWork ? 'text-amber-800' : 'text-ink/55'
+              hasWork ? 'text-warn-800' : 'text-ink/55'
             }`}
           >
             {label}
@@ -540,19 +540,19 @@ function ActionQueueTile({
         <ArrowRight
           aria-hidden
           className={`h-3.5 w-3.5 shrink-0 ${
-            hasWork ? 'text-amber-700' : 'text-ink/35'
+            hasWork ? 'text-warn-700' : 'text-ink/35'
           }`}
         />
       </div>
       <p
         className={`text-3xl font-semibold tracking-tight tabular-nums ${
-          hasWork ? 'text-amber-900' : 'text-ink'
+          hasWork ? 'text-warn-900' : 'text-ink'
         }`}
         style={{ fontFamily: 'var(--m-display)' }}
       >
         {value === null ? '—' : value}
       </p>
-      <p className={`mt-1 text-xs ${hasWork ? 'text-amber-800/80' : 'text-ink/55'}`}>
+      <p className={`mt-1 text-xs ${hasWork ? 'text-warn-800/80' : 'text-ink/55'}`}>
         {sub}
       </p>
     </Link>

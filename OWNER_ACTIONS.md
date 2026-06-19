@@ -1076,7 +1076,17 @@ findings.
 
 ---
 
-## Face auto-tagging — host the model on R2 (DEFERRED, activates the feature)
+## ✅ DONE (activated 2026-06-19) — Face auto-tagging is LIVE on production
+
+**✅ Activated 2026-06-19.** The 7 model files are hosted on R2 `setnayan-media/face-models/`, `NEXT_PUBLIC_FACE_MODEL_URL` is set in Vercel Production (`https://pub-37d64fe618584c2981a88610a55dd439.r2.dev/face-models`), and production was redeployed. Verified: files serve HTTP 200 with CORS allowing `www.setnayan.com`, and the real-face demo against the live matcher confirmed correct tagging (same-person 0.40–0.47, different-person 0.79–0.90, zero false-positive tags). The steps below are retained for reference / re-hosting only.
+
+- **Off-switch (instantly reversible, no data touched):** `vercel env rm NEXT_PUBLIC_FACE_MODEL_URL production` then redeploy → the whole pipeline goes dormant again.
+- **Re-host in one command:** `pnpm host:face-models -- --activate` (apps/web; needs R2 creds in env).
+- **Two open follow-ups (don't affect safety):** (1) the r2.dev public host is rate-limited — connect a custom domain (e.g. `media.setnayan.com`) to the bucket before a packed live event; (2) there's no "remove tag / not me" control yet, so a rare false positive can't be corrected — a small hardening if wanted.
+
+---
+
+### Reference — how it was hosted (DONE above)
 
 Face auto-tagging (guests' faces matched to their RSVP selfie so the gallery
 auto-tags them) is **built and validated** but ships **dormant** — it does
@@ -1088,6 +1098,22 @@ face-api.js (public-domain weights + MIT, validated on real faces 2026-06-17:
 same-person distance 0.40–0.47 vs different-person 0.79–0.90). **No cloud face
 API, no per-photo fee; faces never leave the guest's phone — only a tiny numeric
 fingerprint reaches our server.**
+
+**Fast path — one command** (does steps 1–3 below for you). From `apps/web`, with
+your R2 creds exported (grab them from the Cloudflare R2 dashboard — they're
+"Sensitive" in Vercel and can't be pulled):
+
+```bash
+R2_ACCOUNT_ID=… R2_ACCESS_KEY_ID=… R2_SECRET_ACCESS_KEY=… \
+R2_BUCKET_MEDIA=setnayan-media R2_PUBLIC_URL=https://<your-r2-public-host> \
+pnpm host:face-models -- --activate
+```
+
+It downloads the model + lib from the CDN, uploads them to the public media
+bucket under `face-models/`, then sets `NEXT_PUBLIC_FACE_MODEL_URL` + redeploys.
+Drop `--activate` to host the files but flip the switch yourself (Vercel
+dashboard → Settings → Environment Variables); add `--upload-only` to just host.
+Then do the real-device check below. The manual equivalent:
 
 To turn it on:
 1. Download the 3 face-api.js model sets (detector + landmarks + recognition):

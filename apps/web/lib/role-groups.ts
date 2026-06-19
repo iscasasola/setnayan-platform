@@ -118,14 +118,14 @@ export function importanceGroupOf(roles: GuestRole[]): RoleGroup | 'guest' {
 
 // Tailwind tint per role group. Cream/ink/terracotta-aligned palette.
 export const ROLE_GROUP_CHIP: Record<RoleGroup | 'guest', string> = {
-  couple: 'bg-rose-100 text-rose-900 ring-1 ring-rose-200',
+  couple: 'bg-danger-100 text-danger-900 ring-1 ring-danger-200',
   // VIP family tint — deeper rose to read as kin-of-couple, distinct
   // from the wedding-party terracotta tone.
-  vip_family: 'bg-rose-200/70 text-rose-950 ring-1 ring-rose-300',
+  vip_family: 'bg-danger-200/70 text-danger-950 ring-1 ring-danger-300',
   wedding_party: 'bg-terracotta/10 text-terracotta-700 ring-1 ring-terracotta/20',
   principal_sponsors: 'bg-violet-100 text-violet-800 ring-1 ring-violet-200',
-  secondary_sponsors: 'bg-amber-100 text-amber-900 ring-1 ring-amber-200',
-  bearers_flower_girl: 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-200',
+  secondary_sponsors: 'bg-warn-100 text-warn-900 ring-1 ring-warn-200',
+  bearers_flower_girl: 'bg-success-100 text-success-800 ring-1 ring-success-200',
   officiants: 'bg-sky-100 text-sky-800 ring-1 ring-sky-200',
   other_roles: 'bg-ink/10 text-ink/70 ring-1 ring-ink/15',
   guest: 'bg-ink/[0.06] text-ink/60 ring-1 ring-ink/10',

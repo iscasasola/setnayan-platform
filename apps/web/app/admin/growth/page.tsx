@@ -50,7 +50,7 @@ export default async function AdminGrowthPage({ searchParams }: Props) {
             Growth &amp; Population
           </h1>
           {stats.demo ? (
-            <span className="rounded-full border border-amber-300/70 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-800">
+            <span className="rounded-full border border-warn-300/70 bg-warn-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-warn-800">
               Illustrative demo data
             </span>
           ) : null}

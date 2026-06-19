@@ -215,7 +215,7 @@ export default async function VendorSeatPlanPage({ params }: Props) {
           ) : null}
           {plan.service_entrance ? (
             <span
-              className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-700 px-1.5 py-0.5 text-[9px] font-medium text-cream"
+              className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full bg-success-700 px-1.5 py-0.5 text-[9px] font-medium text-cream"
               style={{
                 left: `${plan.service_entrance.x}%`,
                 top: `${plan.service_entrance.y}%`,

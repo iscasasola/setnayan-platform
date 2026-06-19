@@ -124,7 +124,7 @@ export default async function PatiktokBoothDashboard({
       {overageQueued ? (
         <p
           role="status"
-          className="inline-flex items-center gap-2 rounded-2xl border border-emerald-300/70 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+          className="inline-flex items-center gap-2 rounded-2xl border border-success-300/70 bg-success-50 px-4 py-3 text-sm text-success-900"
         >
           <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           Overage queued — your 40-video allotment just grew by +10. Keep
@@ -171,7 +171,7 @@ function CapacityStrip({
     <section
       className={`space-y-3 rounded-2xl border p-5 ${
         overCap
-          ? 'border-amber-300/70 bg-amber-50/80'
+          ? 'border-warn-300/70 bg-warn-50/80'
           : 'border-ink/10 bg-cream'
       }`}
     >
@@ -192,8 +192,8 @@ function CapacityStrip({
         <span
           className={
             overCap
-              ? 'inline-flex items-center gap-1.5 rounded-full bg-amber-200/60 px-2.5 py-1 text-[11px] font-medium text-amber-900'
-              : 'inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-medium text-emerald-900'
+              ? 'inline-flex items-center gap-1.5 rounded-full bg-warn-200/60 px-2.5 py-1 text-[11px] font-medium text-warn-900'
+              : 'inline-flex items-center gap-1.5 rounded-full bg-success-100 px-2.5 py-1 text-[11px] font-medium text-success-900'
           }
         >
           {overCap ? (
@@ -220,13 +220,13 @@ function CapacityStrip({
             value={PATIKTOK_OVERAGE_PHP}
           />
           <SubmitButton
-            className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-amber-900 px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-amber-950 disabled:opacity-70"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-warn-900 px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-warn-950 disabled:opacity-70"
             pendingLabel="Submitting…"
           >
             <ShoppingCart className="h-4 w-4" strokeWidth={1.75} />
             Buy +10 videos · {formatPhp(PATIKTOK_OVERAGE_PHP)}
           </SubmitButton>
-          <p className="text-[11px] text-amber-900/85">
+          <p className="text-[11px] text-warn-900/85">
             One-tap purchase · apply-then-pay · same payment rails as the
             base SKU. Stack as many +10 blocks as the event needs.
           </p>
@@ -356,12 +356,12 @@ function RecordCTA({
 
 function OperatorTips() {
   return (
-    <section className="space-y-3 rounded-2xl border border-amber-200/60 bg-amber-50/60 p-4">
-      <p className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-900">
+    <section className="space-y-3 rounded-2xl border border-warn-200/60 bg-warn-50/60 p-4">
+      <p className="inline-flex items-center gap-1.5 text-sm font-medium text-warn-900">
         <Sparkles className="h-4 w-4" strokeWidth={1.75} />
         Operator tips
       </p>
-      <ul className="ml-4 list-disc space-y-1 text-sm text-amber-900/85">
+      <ul className="ml-4 list-disc space-y-1 text-sm text-warn-900/85">
         <li>
           Re-scan the printed Patiktok QR if the phone runs out of battery —
           token is persistent for the event-day pack window.
@@ -381,7 +381,7 @@ function OperatorTips() {
           not a hard stop.
         </li>
       </ul>
-      <p className="inline-flex items-center gap-1.5 text-[11px] text-amber-900/65">
+      <p className="inline-flex items-center gap-1.5 text-[11px] text-warn-900/65">
         <QrCode className="h-3 w-3" strokeWidth={1.75} />
         Printable booth QR — TODO(0017-phase4.2): mint per-booth session
         token + email a print-ready PDF.

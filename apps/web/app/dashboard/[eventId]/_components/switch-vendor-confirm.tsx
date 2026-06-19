@@ -130,7 +130,7 @@ export function SwitchVendorConfirm({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium text-rose-700/80 transition-colors hover:bg-rose-50/60 hover:text-rose-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-400"
+          className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium text-danger-700/80 transition-colors hover:bg-danger-50/60 hover:text-danger-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger-400"
         >
           Switch vendor →
         </button>
@@ -148,7 +148,7 @@ export function SwitchVendorConfirm({
             if (e.target === dialogRef.current) setOpen(false);
           }}
         >
-          <div className="relative w-full max-w-md rounded-2xl border border-amber-200/60 bg-cream p-5 shadow-xl sm:p-6">
+          <div className="relative w-full max-w-md rounded-2xl border border-warn-200/60 bg-cream p-5 shadow-xl sm:p-6">
             <button
               type="button"
               aria-label="Close"
@@ -184,7 +184,7 @@ export function SwitchVendorConfirm({
                   Starting Compare again with fresh considering picks
                 </li>
               </ul>
-              <p className="text-amber-900">
+              <p className="text-warn-900">
                 This is a high-stakes change. Are you sure?
               </p>
             </div>
@@ -192,7 +192,7 @@ export function SwitchVendorConfirm({
             {errMsg ? (
               <p
                 role="alert"
-                className="mt-3 rounded-md border border-rose-300/50 bg-rose-50/60 px-3 py-2 text-xs text-rose-900"
+                className="mt-3 rounded-md border border-danger-300/50 bg-danger-50/60 px-3 py-2 text-xs text-danger-900"
               >
                 {errMsg}
               </p>
@@ -212,7 +212,7 @@ export function SwitchVendorConfirm({
                 type="button"
                 onClick={handleConfirm}
                 disabled={pending}
-                className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-rose-300 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-900 transition-colors hover:bg-rose-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-400 disabled:opacity-60"
+                className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-danger-300 bg-danger-50 px-4 py-2 text-sm font-semibold text-danger-900 transition-colors hover:bg-danger-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger-400 disabled:opacity-60"
               >
                 {pending ? (
                   <>

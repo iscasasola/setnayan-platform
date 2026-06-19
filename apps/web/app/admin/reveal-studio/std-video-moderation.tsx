@@ -67,7 +67,7 @@ export function StdVideoModeration({ initial }: { initial: PendingStdVideo[] }) 
       </div>
 
       {error ? (
-        <p className="mb-3 rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+        <p className="mb-3 rounded-md border border-danger-300 bg-danger-50 px-3 py-2 text-sm text-danger-700">
           {error}
         </p>
       ) : null}
@@ -83,8 +83,8 @@ export function StdVideoModeration({ initial }: { initial: PendingStdVideo[] }) 
               <span
                 className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
                   row.status === 'rejected'
-                    ? 'bg-rose-100 text-rose-700'
-                    : 'bg-amber-100 text-amber-700'
+                    ? 'bg-danger-100 text-danger-700'
+                    : 'bg-warn-100 text-warn-700'
                 }`}
               >
                 {row.status === 'rejected' ? 'Rejected' : 'Pending'}
@@ -112,7 +112,7 @@ export function StdVideoModeration({ initial }: { initial: PendingStdVideo[] }) 
                 type="button"
                 disabled={pending && busyId === row.eventId}
                 onClick={() => decide(row.eventId, 'approved')}
-                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-success-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-success-700 disabled:opacity-50"
               >
                 <Check aria-hidden className="h-4 w-4" strokeWidth={2.5} />
                 Approve
@@ -121,7 +121,7 @@ export function StdVideoModeration({ initial }: { initial: PendingStdVideo[] }) 
                 type="button"
                 disabled={pending && busyId === row.eventId}
                 onClick={() => decide(row.eventId, 'rejected')}
-                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-rose-300 bg-white px-3 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 disabled:opacity-50"
+                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-danger-300 bg-white px-3 py-2 text-sm font-semibold text-danger-700 transition hover:bg-danger-50 disabled:opacity-50"
               >
                 <X aria-hidden className="h-4 w-4" strokeWidth={2.5} />
                 Reject

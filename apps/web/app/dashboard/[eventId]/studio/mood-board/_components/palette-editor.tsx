@@ -121,7 +121,7 @@ export function PaletteEditor({ eventId, initial, visibleKeys, saveAction }: Pro
         </div>
         <div className="flex items-center gap-3">
           {savedAt ? (
-            <span className="inline-flex items-center gap-1 text-xs text-emerald-700">
+            <span className="inline-flex items-center gap-1 text-xs text-success-700">
               <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2} />
               Saved {new Date(savedAt).toLocaleTimeString()}
             </span>
@@ -190,10 +190,10 @@ function PaletteFamily({
                 <span
                   className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
                     belowMin
-                      ? 'bg-amber-100 text-amber-900'
+                      ? 'bg-warn-100 text-warn-900'
                       : colors.length === 0
                         ? 'bg-ink/5 text-ink/50'
-                        : 'bg-emerald-100 text-emerald-800'
+                        : 'bg-success-100 text-success-800'
                   }`}
                 >
                   {colors.length} / {limits.min}–{limits.max}
@@ -224,7 +224,7 @@ function PaletteFamily({
                         type="button"
                         onClick={() => onRemove(key, i)}
                         aria-label={`Remove color ${c}`}
-                        className="rounded-md p-1 text-ink/40 hover:bg-ink/5 hover:text-rose-700"
+                        className="rounded-md p-1 text-ink/40 hover:bg-ink/5 hover:text-danger-700"
                       >
                         <X className="h-3.5 w-3.5" strokeWidth={2} />
                       </button>
@@ -246,7 +246,7 @@ function PaletteFamily({
               </ul>
 
               {belowMin ? (
-                <p className="inline-flex items-center gap-1 text-xs text-amber-900">
+                <p className="inline-flex items-center gap-1 text-xs text-warn-900">
                   <AlertTriangle className="h-3.5 w-3.5" strokeWidth={2} />
                   Below the suggested minimum of {limits.min} — you can still save, but the
                   palette will feel sparse.

@@ -22,6 +22,8 @@
  * /studio/panood (the 2026-05-17 pilot). The hub links Panood straight there.
  */
 
+import type { DemoFrame } from '@/app/_components/app-store/studio-card-demo';
+
 export type DetailPreview = {
   /** Small eyebrow over the frame — "The reveal", "By morning". */
   context?: string;
@@ -48,6 +50,10 @@ export type AddOnDetail = {
   highlights: string[];
   /** Preview rail frames — captioned as the result the couple sees. */
   preview: DetailPreview[];
+  /** Auto-playing on-card demo (StudioCardDemo). When present, the card plays
+   *  this — what it does + how to operate it — instead of the static glyph rail.
+   *  Frames take a real app screenshot (`image`) or a styled fallback tint. */
+  demo?: DemoFrame[];
 };
 
 export const ADD_ON_DETAILS: Record<string, AddOnDetail> = {
@@ -246,6 +252,28 @@ export const ADD_ON_DETAILS: Record<string, AddOnDetail> = {
       { context: 'They shoot', glyph: '◉', caption: 'Friends capture the night, freely.', aspect: '9/16' },
       { context: 'Tagged', glyph: '⌗', caption: 'The right people are found in a second.', aspect: '9/16' },
       { context: 'By morning', glyph: '▦', caption: 'It’s all waiting in your gallery.' },
+    ],
+    demo: [
+      {
+        caption: 'A friend’s phone becomes a candid camera.',
+        hint: 'Tap to shoot — no app to install.',
+        accent: '#2a2118',
+      },
+      {
+        caption: 'Every shot lands in your gallery, instantly.',
+        hint: 'You never lift a finger — it just fills up.',
+        accent: '#1f2622',
+      },
+      {
+        caption: 'The right people are found automatically.',
+        hint: 'Or scan a guest’s QR to tag — no typing.',
+        accent: '#241f2a',
+      },
+      {
+        caption: 'Each guest finds the photos they’re in.',
+        hint: '“Photos of you” fills through the day — theirs to keep.',
+        accent: '#2a1f24',
+      },
     ],
   },
 

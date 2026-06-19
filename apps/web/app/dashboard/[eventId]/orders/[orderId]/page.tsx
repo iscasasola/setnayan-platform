@@ -117,7 +117,7 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
       {flash ? (
         <p
           role="status"
-          className="rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+          className="rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800"
         >
           {flash}
         </p>
@@ -144,9 +144,9 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
       {resubmitRequested ? (
         <div
           role="alert"
-          className="space-y-2 rounded-2xl border border-amber-300/60 bg-amber-50 p-5 text-amber-900"
+          className="space-y-2 rounded-2xl border border-warn-300/60 bg-warn-50 p-5 text-warn-900"
         >
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-amber-900/70">
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-warn-900/70">
             Please upload your payment again
           </p>
           <p className="text-sm">
@@ -154,16 +154,16 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
             Here&rsquo;s what the Setnayan team flagged:
           </p>
           {resubmitRequested.notice ? (
-            <p className="whitespace-pre-wrap rounded-md bg-white/70 p-3 text-sm text-amber-900">
+            <p className="whitespace-pre-wrap rounded-md bg-white/70 p-3 text-sm text-warn-900">
               {resubmitRequested.notice}
             </p>
           ) : null}
-          <p className="text-xs text-amber-900/85">
+          <p className="text-xs text-warn-900/85">
             Use the &ldquo;Log a payment&rdquo; form below to send a corrected screenshot or
             reference number &mdash; you don&rsquo;t need to create a new order.
           </p>
           {resubmitRequested.reviewedAt ? (
-            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-amber-900/60">
+            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-warn-900/60">
               Requested {resubmitRequested.reviewedAt.slice(0, 10)}
             </p>
           ) : null}
@@ -230,7 +230,7 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="order_id" value={orderId} />
             <SubmitButton
-              className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-rose-700 disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-danger-700 disabled:opacity-60"
               pendingLabel="Cancelling…"
             >
               <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -241,14 +241,14 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
       </header>
 
       {receipt ? (
-        <section className="space-y-2 rounded-2xl border border-emerald-300/60 bg-emerald-50/60 p-5">
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-emerald-900">
+        <section className="space-y-2 rounded-2xl border border-success-300/60 bg-success-50/60 p-5">
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-success-900">
             Transaction receipt issued
           </p>
-          <p className="text-base font-semibold text-emerald-900">
+          <p className="text-base font-semibold text-success-900">
             {formatReceiptNumber(receipt.or_serial, receipt.issued_at)}
           </p>
-          <p className="text-sm text-emerald-900/85">
+          <p className="text-sm text-success-900/85">
             App-issued transaction receipt &mdash; generated when payment was matched.
             Not a BIR Official Receipt; the BIR OR (where applicable) is issued by
             Setnayan separately. Open the transaction receipt below to print or save
@@ -258,7 +258,7 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
             href={`/receipts/${receipt.receipt_id}`}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-2 rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-cream hover:bg-emerald-800"
+            className="inline-flex items-center gap-2 rounded-md bg-success-700 px-4 py-2 text-sm font-medium text-cream hover:bg-success-800"
           >
             <ExternalLink aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             Open receipt
@@ -511,7 +511,7 @@ function Stat({
           tone === 'warn'
             ? 'text-terracotta-700'
             : tone === 'good'
-              ? 'text-emerald-700'
+              ? 'text-success-700'
               : tone === 'muted'
                 ? 'text-ink/55'
                 : 'text-ink'

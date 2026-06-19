@@ -409,7 +409,7 @@ function BlockCard({ eventId, block }: { eventId: string; block: ScheduleBlockRo
         <span
           className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
             block.is_public
-              ? 'bg-emerald-100 text-emerald-800'
+              ? 'bg-success-100 text-success-800'
               : 'bg-ink/5 text-ink/55'
           }`}
         >
@@ -462,7 +462,7 @@ function BlockCard({ eventId, block }: { eventId: string; block: ScheduleBlockRo
           <SubmitButton
             aria-label="Delete block"
             pendingLabel=""
-            className="rounded-md p-1.5 text-ink/40 hover:bg-ink/5 hover:text-rose-700 disabled:opacity-60"
+            className="rounded-md p-1.5 text-ink/40 hover:bg-ink/5 hover:text-danger-700 disabled:opacity-60"
           >
             <Trash2 className="h-4 w-4" strokeWidth={1.75} />
           </SubmitButton>

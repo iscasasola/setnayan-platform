@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { emitNotification } from '@/lib/notification-emit';
 
 /**
  * Vendor Payout dispatcher (spec corpus lock 2026-05-16).
@@ -67,9 +68,9 @@ export const PAYOUT_STAGE_LABEL: Record<PayoutStage, string> = {
 };
 
 export const PAYOUT_STAGE_TONE: Record<PayoutStage, string> = {
-  immediate_full: 'bg-emerald-100 text-emerald-800',
+  immediate_full: 'bg-success-100 text-success-800',
   stage_1_confirm: 'bg-blue-100 text-blue-800',
-  stage_2_event_start: 'bg-amber-100 text-amber-800',
+  stage_2_event_start: 'bg-warn-100 text-warn-800',
   stage_3_event_end: 'bg-purple-100 text-purple-800',
 };
 
@@ -521,7 +522,7 @@ export async function markPayoutPaid(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const { data: row, error: readErr } = await adminClient
     .from('vendor_payouts')
-    .select('payout_id, audit_log, paid_at')
+    .select('payout_id, audit_log, paid_at, vendor_profile_id, vendor_net_centavos, amount_centavos, payout_stage')
     .eq('payout_id', args.payoutId)
     .maybeSingle();
   if (readErr) return { ok: false, error: readErr.message };
@@ -555,6 +556,25 @@ export async function markPayoutPaid(
     .eq('payout_id', args.payoutId);
   if (updErr) return { ok: false, error: updErr.message };
 
+  // Cross-account signal (Phase B · 2026-06-19): tell the vendor their money
+  // moved. Best-effort — a failed notify never rolls back the released payout.
+  const r = row as {
+    vendor_profile_id?: string | null;
+    vendor_net_centavos?: number | null;
+    amount_centavos?: number | null;
+  };
+  const amountCentavos =
+    r.vendor_net_centavos ?? r.amount_centavos ?? null;
+  await notifyVendorPayout(adminClient, {
+    vendorProfileId: r.vendor_profile_id ?? null,
+    title: `Payout released${
+      amountCentavos != null ? ` · ${formatCentavosPhp(amountCentavos)}` : ''
+    }`,
+    body:
+      'Your payout has been marked paid and disbursed to your account. ' +
+      'Form 2307 (BIR withholding) is issued quarterly.',
+  });
+
   return { ok: true };
 }
 
@@ -572,7 +592,7 @@ export async function holdPayout(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const { data: row, error: readErr } = await adminClient
     .from('vendor_payouts')
-    .select('audit_log')
+    .select('audit_log, vendor_profile_id')
     .eq('payout_id', args.payoutId)
     .maybeSingle();
   if (readErr) return { ok: false, error: readErr.message };
@@ -600,7 +620,49 @@ export async function holdPayout(
     .eq('payout_id', args.payoutId);
   if (updErr) return { ok: false, error: updErr.message };
 
+  // Cross-account signal (Phase B · 2026-06-19): tell the vendor a payout was
+  // held + why, so it's not silent. Best-effort — never blocks the hold.
+  await notifyVendorPayout(adminClient, {
+    vendorProfileId:
+      (row as { vendor_profile_id?: string | null }).vendor_profile_id ?? null,
+    title: 'A payout was placed on hold',
+    body: `Reason: ${args.reason}. Reach the Setnayan team if you have questions.`,
+  });
+
   return { ok: true };
+}
+
+/**
+ * Resolve a vendor_profile's owning user_id and emit a `vendor_payout_update`
+ * notification to them. Centralized so markPayoutPaid + holdPayout share one
+ * lookup. Fully best-effort: a missing profile, unclaimed vendor (user_id
+ * NULL), or notify failure is swallowed — payout money-movement must never be
+ * rolled back by a notification side-effect.
+ */
+async function notifyVendorPayout(
+  adminClient: SupabaseClient,
+  args: { vendorProfileId: string | null; title: string; body: string },
+): Promise<void> {
+  try {
+    if (!args.vendorProfileId) return;
+    const { data: profile } = await adminClient
+      .from('vendor_profiles')
+      .select('user_id')
+      .eq('vendor_profile_id', args.vendorProfileId)
+      .maybeSingle();
+    const vendorUserId = (profile as { user_id?: string | null } | null)
+      ?.user_id;
+    if (!vendorUserId) return;
+    await emitNotification({
+      userId: vendorUserId,
+      type: 'vendor_payout_update',
+      title: args.title,
+      body: args.body,
+      relatedUrl: '/vendor-dashboard/earnings',
+    });
+  } catch (e) {
+    console.error('[payouts] vendor payout notify failed:', e);
+  }
 }
 
 /**

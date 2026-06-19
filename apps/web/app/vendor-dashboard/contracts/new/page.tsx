@@ -49,7 +49,7 @@ export default async function NewVendorContractPage() {
       </header>
 
       {eventOptions.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-amber-300/60 bg-amber-50 p-6 text-sm text-amber-900">
+        <div className="rounded-2xl border border-dashed border-warn-300/60 bg-warn-50 p-6 text-sm text-warn-900">
           You need to be in conversation with a couple before uploading a
           contract. Open a chat with a couple from your{' '}
           <Link href="/vendor-dashboard/messages" className="font-medium underline">

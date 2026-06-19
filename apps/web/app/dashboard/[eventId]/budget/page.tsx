@@ -322,7 +322,7 @@ function SummaryStat({
           tone === 'warn'
             ? 'text-terracotta-700'
             : tone === 'good'
-              ? 'text-emerald-700'
+              ? 'text-success-700'
               : 'text-ink'
         }`}
       >
@@ -409,7 +409,7 @@ function StatTile({
           tone === 'warn'
             ? 'text-terracotta-700'
             : tone === 'good'
-              ? 'text-emerald-700'
+              ? 'text-success-700'
               : 'text-ink'
         }`}
       >

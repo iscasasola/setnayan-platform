@@ -1,6 +1,7 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
+import { sendVendorGhostWarningEmail } from '@/lib/vendor-email-triggers';
 
 /**
  * Login-driven ghosting check (owner directive 2026-06-07 — NO cron).
@@ -105,6 +106,48 @@ export async function runLoginGhostingCheck(
             body: 'Couples are waiting to hear from you. Answering keeps your response rate high — one answer covers all your services for that wedding.',
             relatedUrl: '/vendor-dashboard/messages',
           });
+        }
+
+        // Confirmed-booking ghost warning (Phase B · 2026-06-19): revive the
+        // previously-dead sendVendorGhostWarningEmail. Detect any confirmed
+        // booking whose event is within the next 7 days — the vendor needs to
+        // confirm they're ready. The login gate above already bounds this to
+        // once per login, so we don't re-warn on every page load. Best-effort.
+        // events.event_date is a DATE — compare against date-only strings so
+        // the 7-day window is inclusive on both ends with no timestamp
+        // boundary ambiguity.
+        const todayDate = loginTs.toISOString().slice(0, 10);
+        const sevenDaysOutDate = new Date(
+          loginTs.getTime() + 7 * 24 * 3600 * 1000,
+        )
+          .toISOString()
+          .slice(0, 10);
+        const { data: confirmed } = await admin
+          .from('event_vendors')
+          .select(
+            'event_id, vendor_profile_id, status, event:events!inner(event_id, event_date)',
+          )
+          .in('vendor_profile_id', vpIds)
+          .in('status', ['contracted', 'deposit_paid'])
+          .gte('event.event_date', todayDate)
+          .lte('event.event_date', sevenDaysOutDate);
+        const upcoming = (confirmed ?? []) as Array<{
+          event_id: string | null;
+          vendor_profile_id: string | null;
+        }>;
+        // De-dup per (vendor_profile, event) so a multi-service vendor on one
+        // wedding gets a single warning for that event.
+        const warnedKeys = new Set<string>();
+        for (const row of upcoming) {
+          const eventId = row.event_id;
+          const vpId = row.vendor_profile_id;
+          if (!eventId || !vpId) continue;
+          const key = `${vpId}:${eventId}`;
+          if (warnedKeys.has(key)) continue;
+          warnedKeys.add(key);
+          await sendVendorGhostWarningEmail(vpId, eventId).catch((e) =>
+            console.error('[ghosting] vendor ghost-warning email failed:', e),
+          );
         }
       }
     }

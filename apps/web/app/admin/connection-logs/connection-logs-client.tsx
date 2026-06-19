@@ -59,12 +59,12 @@ const TYPE_META: Record<
 > = {
   BUTTON_FAIL: {
     label: 'Broken Button',
-    badge: 'bg-rose-100 text-rose-800 border-rose-200',
+    badge: 'bg-danger-100 text-danger-800 border-danger-200',
     Icon: MousePointerClick,
   },
   SUPABASE_SAVE_ERROR: {
     label: 'Supabase Error',
-    badge: 'bg-amber-100 text-amber-800 border-amber-200',
+    badge: 'bg-warn-100 text-warn-800 border-warn-200',
     Icon: Database,
   },
   BLANK_FALLBACK: {
@@ -237,7 +237,7 @@ export function ConnectionLogsClient({
           </div>
           <span
             className={`inline-block h-2.5 w-2.5 rounded-full ${
-              live ? 'animate-pulse bg-emerald-500' : 'bg-[#C5A059]/40'
+              live ? 'animate-pulse bg-success-500' : 'bg-[#C5A059]/40'
             }`}
             aria-hidden="true"
           />
@@ -404,7 +404,7 @@ function LogRow({
             onClick={onResolve}
             disabled={pending}
             title="Mark resolved — moves to the archive"
-            className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800 transition hover:bg-emerald-100 disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-full border border-success-200 bg-success-50 px-2.5 py-1 text-xs font-medium text-success-800 transition hover:bg-success-100 disabled:opacity-50"
           >
             <Check className="h-3.5 w-3.5" aria-hidden="true" />
             Resolve
@@ -420,7 +420,7 @@ function EmptyState({ tab }: { tab: 'active' | 'resolved' }) {
     <div className="m-card flex flex-col items-center justify-center gap-3 px-6 py-14 text-center">
       {tab === 'active' ? (
         <>
-          <Check className="h-8 w-8 text-emerald-500" aria-hidden="true" />
+          <Check className="h-8 w-8 text-success-500" aria-hidden="true" />
           <p className="text-base font-medium text-[#1E2229]">All clear</p>
           <p className="max-w-md text-sm leading-relaxed text-[#5B5B5B]">
             No active faults right now. New broken buttons, failed saves, or blank
@@ -520,7 +520,7 @@ function JsonTree({ data, depth = 0 }: { data: unknown; depth?: number }) {
   if (data === undefined) return <span className="text-[#5B5B5B]">undefined</span>;
 
   const t = typeof data;
-  if (t === 'string') return <span className="text-emerald-700">&quot;{data as string}&quot;</span>;
+  if (t === 'string') return <span className="text-success-700">&quot;{data as string}&quot;</span>;
   if (t === 'number') return <span className="text-sky-700">{String(data)}</span>;
   if (t === 'boolean') return <span className="text-violet-700">{String(data)}</span>;
 

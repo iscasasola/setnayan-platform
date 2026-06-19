@@ -88,12 +88,12 @@ export function VendorOfferService({
         {pending ? 'Adding…' : 'Add'}
       </button>
       {state.kind === 'done' ? (
-        <span className="inline-flex items-center gap-1 text-xs text-emerald-700">
+        <span className="inline-flex items-center gap-1 text-xs text-success-700">
           <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           Offered
         </span>
       ) : state.kind === 'error' ? (
-        <span className="inline-flex items-center gap-1 text-xs text-rose-700">
+        <span className="inline-flex items-center gap-1 text-xs text-danger-700">
           <AlertCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           {state.message}
         </span>

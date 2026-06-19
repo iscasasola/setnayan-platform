@@ -143,7 +143,7 @@ export default async function FindMyTablePage({ params }: Props) {
           {targetTable ? (
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               You&rsquo;re at{' '}
-              <span className="text-emerald-700">{targetTable.table_label}</span>
+              <span className="text-success-700">{targetTable.table_label}</span>
             </h1>
           ) : (
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">

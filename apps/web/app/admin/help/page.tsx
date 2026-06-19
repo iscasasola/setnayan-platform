@@ -22,9 +22,9 @@ type HelpMessageRow = {
 };
 
 const STATUS_TONE: Record<HelpMessageRow['status'], string> = {
-  new: 'bg-rose-100 text-rose-800',
-  in_progress: 'bg-amber-100 text-amber-900',
-  closed: 'bg-emerald-100 text-emerald-800',
+  new: 'bg-danger-100 text-danger-800',
+  in_progress: 'bg-warn-100 text-warn-900',
+  closed: 'bg-success-100 text-success-800',
 };
 
 const STATUS_LABEL: Record<HelpMessageRow['status'], string> = {
@@ -126,7 +126,7 @@ export default async function AdminHelpPage({ searchParams }: Props) {
               </p>
 
               {m.admin_notes ? (
-                <p className="rounded-md bg-amber-50/60 p-3 text-xs text-amber-900">
+                <p className="rounded-md bg-warn-50/60 p-3 text-xs text-warn-900">
                   <span className="font-mono text-[10px] uppercase tracking-[0.15em]">
                     Admin notes
                   </span>

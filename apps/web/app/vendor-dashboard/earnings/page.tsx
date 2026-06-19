@@ -252,7 +252,7 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
           </span>
         </div>
 
-        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+        <p className="rounded-md border border-warn-200 bg-warn-50 px-3 py-2 text-xs text-warn-900">
           {/* Retired 2026-05-28 V2 cutover: Setnayan Pay routed payments retire.
               Rows below are historical only — bookings closed before V2 cutover
               that still settled through Setnayan-as-rails. New bookings settle
@@ -264,21 +264,21 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
 
         <div className="grid gap-3 sm:grid-cols-3">
           <PayoutKpi
-            tone="bg-amber-100 text-amber-800"
+            tone="bg-warn-100 text-warn-800"
             icon={<Clock3 className="h-4 w-4" />}
             label="Pending (legacy)"
             value={formatCentavosPhp(pendingCentavos)}
             help={`${payouts.filter((r) => !r.paid_at && !r.on_hold).length} stage(s)`}
           />
           <PayoutKpi
-            tone="bg-emerald-100 text-emerald-800"
+            tone="bg-success-100 text-success-800"
             icon={<CheckCircle2 className="h-4 w-4" />}
             label="Released (legacy)"
             value={formatCentavosPhp(paidCentavos)}
             help={`${payouts.filter((r) => !!r.paid_at).length} stage(s)`}
           />
           <PayoutKpi
-            tone="bg-rose-100 text-rose-800"
+            tone="bg-danger-100 text-danger-800"
             icon={<Wallet className="h-4 w-4" />}
             label="On hold"
             value={formatCentavosPhp(onHoldCentavos)}
@@ -307,15 +307,15 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
                           {PAYOUT_STAGE_LABEL[stage]}
                         </span>
                         {row.paid_at ? (
-                          <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-800">
+                          <span className="rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-800">
                             Paid
                           </span>
                         ) : row.on_hold ? (
-                          <span className="rounded-full bg-rose-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-rose-800">
+                          <span className="rounded-full bg-danger-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-danger-800">
                             On hold
                           </span>
                         ) : (
-                          <span className="rounded-full bg-amber-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-amber-800">
+                          <span className="rounded-full bg-warn-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-warn-800">
                             Scheduled
                           </span>
                         )}
@@ -333,7 +333,7 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
                         Scheduled {formatTimestamp(row.scheduled_at)}
                       </p>
                       {row.hold_reason ? (
-                        <p className="text-xs text-rose-800">
+                        <p className="text-xs text-danger-800">
                           <span className="font-medium">Hold:</span> {row.hold_reason}
                         </p>
                       ) : null}

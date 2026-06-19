@@ -63,11 +63,11 @@ type VendorFakeFlagRow = {
 };
 
 const SIGNAL_BADGE_TONE: Record<SelfReviewSignal, string> = {
-  owner_self: 'bg-rose-200 text-rose-900',
-  team_member: 'bg-rose-200 text-rose-900',
-  payment_match: 'bg-amber-200 text-amber-900',
-  device_match: 'bg-amber-200 text-amber-900',
-  household_match: 'bg-amber-200 text-amber-900',
+  owner_self: 'bg-danger-200 text-danger-900',
+  team_member: 'bg-danger-200 text-danger-900',
+  payment_match: 'bg-warn-200 text-warn-900',
+  device_match: 'bg-warn-200 text-warn-900',
+  household_match: 'bg-warn-200 text-warn-900',
 };
 
 const SIGNAL_LABEL_SHORT: Record<SelfReviewSignal, string> = {
@@ -85,7 +85,7 @@ const DECISION_LABEL: Record<NonNullable<AppealRow['decision']>, string> = {
 };
 
 const DECISION_TONE: Record<NonNullable<AppealRow['decision']>, string> = {
-  override_published: 'bg-emerald-100 text-emerald-800',
+  override_published: 'bg-success-100 text-success-800',
   rejected: 'bg-ink/10 text-ink/60',
   escalated: 'bg-violet-100 text-violet-800',
 };
@@ -281,7 +281,7 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
       {flash ? (
         <p
           role="status"
-          className="mb-6 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+          className="mb-6 rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800"
         >
           {flash}
         </p>
@@ -294,10 +294,10 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
             id="vendor-fake-flags-heading"
             className="inline-flex items-center gap-2 text-lg font-semibold tracking-tight"
           >
-            <Flag aria-hidden className="h-4 w-4 text-rose-700" strokeWidth={1.75} />
+            <Flag aria-hidden className="h-4 w-4 text-danger-700" strokeWidth={1.75} />
             Vendor fake-review flags
             {fakeFlags.length > 0 ? (
-              <span className="ml-1 inline-flex h-5 items-center rounded-full bg-rose-600 px-2 font-mono text-[10px] text-white">
+              <span className="ml-1 inline-flex h-5 items-center rounded-full bg-danger-600 px-2 font-mono text-[10px] text-white">
                 {fakeFlags.length}
               </span>
             ) : null}
@@ -329,7 +329,7 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
               id="self-review-appeals-heading"
               className="inline-flex items-center gap-2 text-lg font-semibold tracking-tight"
             >
-              <ShieldOff aria-hidden className="h-4 w-4 text-rose-700" strokeWidth={1.75} />
+              <ShieldOff aria-hidden className="h-4 w-4 text-danger-700" strokeWidth={1.75} />
               Self-review appeals
             </h2>
             <p className="text-xs text-ink/55">
@@ -344,7 +344,7 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
         </header>
 
         {appealError ? (
-          <p className="rounded-md border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+          <p className="rounded-md border border-danger-300 bg-danger-50 px-4 py-3 text-sm text-danger-800">
             Review appeals couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment or check Sentry for the full detail.
           </p>
         ) : null}
@@ -388,7 +388,7 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
             id="override-history-heading"
             className="inline-flex items-center gap-2 text-lg font-semibold tracking-tight"
           >
-            <Flag aria-hidden className="h-4 w-4 text-emerald-700" strokeWidth={1.75} />
+            <Flag aria-hidden className="h-4 w-4 text-success-700" strokeWidth={1.75} />
             Admin override-published reviews
           </h2>
           <p className="text-xs text-ink/55">
@@ -404,9 +404,9 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
             {flaggedReviews.map((r) => (
               <li
                 key={r.review_id}
-                className="space-y-1 rounded-xl border border-emerald-200/70 bg-emerald-50/40 p-3 text-xs text-ink/70"
+                className="space-y-1 rounded-xl border border-success-200/70 bg-success-50/40 p-3 text-xs text-ink/70"
               >
-                <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-emerald-900">
+                <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-success-900">
                   {r.public_id} · {r.rating_overall}★ · {r.created_at.slice(0, 10)}
                 </p>
                 {r.body ? <p className="text-sm text-ink">&ldquo;{r.body}&rdquo;</p> : null}
@@ -543,12 +543,12 @@ function AppealCard({
       </div>
 
       {payloadRating !== null || payloadBody ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 text-xs">
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-amber-900">
+        <div className="rounded-lg border border-warn-200 bg-warn-50/60 p-3 text-xs">
+          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-warn-900">
             Would-be review payload
           </p>
           {payloadRating !== null ? (
-            <p className="mt-1 text-sm text-amber-950">
+            <p className="mt-1 text-sm text-warn-950">
               {payloadRating}★ overall
             </p>
           ) : null}
@@ -563,7 +563,7 @@ function AppealCard({
       {!decided ? (
         <div className="flex flex-col gap-3 border-t border-ink/10 pt-3 sm:flex-row sm:items-start">
           {isHardSignal ? (
-            <div className="flex-1 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-900">
+            <div className="flex-1 rounded-lg border border-danger-200 bg-danger-50 p-3 text-xs text-danger-900">
               <strong>Override-publish is disabled for {SIGNAL_LABEL_SHORT[appeal.matched_signal]}.</strong>{' '}
               Owners and team members can never review the vendor they run — the trigger
               refuses even with bypass. Reject or escalate this appeal.
@@ -635,7 +635,7 @@ function AppealCard({
 
 function VendorFakeFlagCard({ flag }: { flag: VendorFakeFlagRow }) {
   return (
-    <li className="space-y-3 rounded-xl border border-rose-200/60 bg-rose-50/30 p-4">
+    <li className="space-y-3 rounded-xl border border-danger-200/60 bg-danger-50/30 p-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-0.5">
           <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
@@ -648,7 +648,7 @@ function VendorFakeFlagCard({ flag }: { flag: VendorFakeFlagRow }) {
             ) : null}
           </p>
         </div>
-        <span className="rounded-full bg-rose-200 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-rose-900">
+        <span className="rounded-full bg-danger-200 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-danger-900">
           Pending
         </span>
       </header>
@@ -671,8 +671,8 @@ function VendorFakeFlagCard({ flag }: { flag: VendorFakeFlagRow }) {
         </div>
       ) : null}
 
-      <div className="rounded-lg border border-rose-200 bg-white/60 p-3 text-xs">
-        <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-rose-900">
+      <div className="rounded-lg border border-danger-200 bg-white/60 p-3 text-xs">
+        <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-danger-900">
           Vendor reason
         </p>
         <p className="mt-1 whitespace-pre-wrap text-sm text-ink/80">{flag.reason}</p>
@@ -695,9 +695,9 @@ function VendorFakeFlagCard({ flag }: { flag: VendorFakeFlagRow }) {
             Dismiss flag
           </SubmitButton>
         </form>
-        <div className="flex-1 rounded-lg border border-amber-200 bg-amber-50/60 p-3 text-xs text-amber-900">
+        <div className="flex-1 rounded-lg border border-warn-200 bg-warn-50/60 p-3 text-xs text-warn-900">
           <p className="font-medium">To escalate:</p>
-          <p className="mt-0.5 text-amber-800">
+          <p className="mt-0.5 text-warn-800">
             Use the self-review override-publish queue — reject or override-publish
             the underlying review from there. Create an appeal row manually if needed.
           </p>

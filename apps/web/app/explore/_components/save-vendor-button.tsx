@@ -51,9 +51,9 @@ export function SaveVendorButton({
       : 'inline-flex items-center justify-center gap-2 rounded-md border px-4 py-2 text-sm font-medium transition-colors';
 
   const stateClasses = isSaved
-    ? 'border-emerald-300/60 bg-emerald-50 text-emerald-900'
+    ? 'border-success-300/60 bg-success-50 text-success-900'
     : isError
-      ? 'border-rose-300/60 bg-rose-50 text-rose-900'
+      ? 'border-danger-300/60 bg-danger-50 text-danger-900'
       : 'border-ink/15 bg-cream text-ink/80 hover:border-terracotta/50 hover:text-terracotta';
 
   return (

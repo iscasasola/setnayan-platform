@@ -193,11 +193,11 @@ export default function ApiV1ReferencePage() {
               </span>
               <code className="font-mono text-sm text-ink">{endpoint.path}</code>
               {endpoint.auth === 'public' ? (
-                <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-emerald-900">
+                <span className="rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-success-900">
                   Public
                 </span>
               ) : (
-                <span className="rounded-full bg-amber-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-amber-900">
+                <span className="rounded-full bg-warn-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-warn-900">
                   Bearer
                 </span>
               )}

@@ -132,17 +132,17 @@ export default async function PhotoDeliveryPage({ params, searchParams }: Props)
       <aside
         role="note"
         aria-label="30-day post-download compression rule"
-        className="rounded-2xl border border-amber-300/60 bg-amber-50/70 p-4 text-sm text-amber-950 sm:p-5"
+        className="rounded-2xl border border-warn-300/60 bg-warn-50/70 p-4 text-sm text-warn-950 sm:p-5"
       >
         <div className="flex items-start gap-3">
-          <span className="mt-0.5 inline-flex h-8 w-8 flex-none items-center justify-center rounded-full bg-amber-200/80 text-amber-900">
+          <span className="mt-0.5 inline-flex h-8 w-8 flex-none items-center justify-center rounded-full bg-warn-200/80 text-warn-900">
             <ShieldCheck aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           </span>
           <div className="space-y-1.5">
             <p className="font-semibold tracking-tight">
               30-day window for full-resolution originals
             </p>
-            <p className="text-amber-900/85">
+            <p className="text-warn-900/85">
               Once photos land in your Drive, you have <span className="font-mono font-semibold">30 days</span> to
               copy or back up the originals if you want them elsewhere. After
               that, Setnayan compresses the Drive originals to web-quality
@@ -243,7 +243,7 @@ function SyncModeSection({
       {justSet ? (
         <p
           role="status"
-          className="inline-flex items-center gap-1.5 rounded-md bg-emerald-100/80 px-3 py-1.5 text-xs font-medium text-emerald-950"
+          className="inline-flex items-center gap-1.5 rounded-md bg-success-100/80 px-3 py-1.5 text-xs font-medium text-success-950"
         >
           <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Saved — {justSet === 'manual_release' ? 'Review then release' : 'Sync live during the event'}

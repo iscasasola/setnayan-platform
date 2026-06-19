@@ -174,7 +174,7 @@ export function BlockTimeEditor({
           Cancel
         </button>
         {errorMessage ? (
-          <span className="text-xs text-rose-700">{errorMessage}</span>
+          <span className="text-xs text-danger-700">{errorMessage}</span>
         ) : null}
       </div>
     </form>

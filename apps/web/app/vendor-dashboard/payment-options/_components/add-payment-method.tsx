@@ -249,14 +249,14 @@ export function AddPaymentMethod({ vendorProfileId, isPro }: Props) {
                   <span>{cls.reason}</span>
                 </span>
               ) : cls.allowlisted ? (
-                <span className="flex items-start gap-1.5 text-xs text-emerald-700">
+                <span className="flex items-start gap-1.5 text-xs text-success-700">
                   <CheckCircle2 aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2} />
                   <span>
                     {cls.domain} is recognised — this shows to clients right away.
                   </span>
                 </span>
               ) : (
-                <span className="flex items-start gap-1.5 text-xs text-amber-700">
+                <span className="flex items-start gap-1.5 text-xs text-warn-700">
                   <AlertTriangle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2} />
                   <span>{cls.reason}</span>
                 </span>

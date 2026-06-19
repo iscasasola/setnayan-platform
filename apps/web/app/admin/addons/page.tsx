@@ -446,7 +446,7 @@ function StatusPills({
           Inactive
         </span>
       ) : (
-        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-emerald-700">
+        <span className="rounded-full bg-success-100 px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-success-700">
           Active
         </span>
       )}
@@ -508,15 +508,15 @@ function Dot({
     ? tone === 'ink'
       ? 'bg-ink'
       : tone === 'amber'
-        ? 'bg-amber-500'
-        : 'bg-emerald-600'
+        ? 'bg-warn-500'
+        : 'bg-success-600'
     : 'bg-transparent';
   const borderClass =
     tone === 'ink'
       ? 'border-ink/45'
       : tone === 'amber'
-        ? 'border-amber-500/60'
-        : 'border-emerald-600/55';
+        ? 'border-warn-500/60'
+        : 'border-success-600/55';
   return (
     <span
       aria-hidden
@@ -634,9 +634,9 @@ function EligibilityDetail({
     return (
       // Per CLAUDE.md 2026-05-23 5-sweep audit (Sweep 5) — polite brand voice,
       // no `feature_policy` schema name in admin-facing copy.
-      <div className="mt-5 rounded-lg border border-amber-300/60 bg-amber-50/80 p-4">
-        <p className="text-sm font-medium text-amber-900">No policy set</p>
-        <p className="mt-1 text-sm text-amber-900/85">
+      <div className="mt-5 rounded-lg border border-warn-300/60 bg-warn-50/80 p-4">
+        <p className="text-sm font-medium text-warn-900">No policy set</p>
+        <p className="mt-1 text-sm text-warn-900/85">
           No eligibility policy is set for this SKU yet. By default it&apos;s
           purchasable across all account types. Seed a policy when you want to
           lock it down.
@@ -675,7 +675,7 @@ function EligibilityDetail({
             <span
               className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] ${
                 r.enabled
-                  ? 'bg-emerald-100 text-emerald-700'
+                  ? 'bg-success-100 text-success-700'
                   : 'bg-ink/10 text-ink/60'
               }`}
             >

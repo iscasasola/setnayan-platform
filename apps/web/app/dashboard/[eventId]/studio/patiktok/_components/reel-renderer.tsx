@@ -199,7 +199,7 @@ export function ReelRenderer({
             <a
               href={previewUrl}
               download="patiktok-reel.mp4"
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-emerald-700 px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-emerald-800"
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-success-700 px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-success-800"
             >
               <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               Download reel
@@ -233,7 +233,7 @@ export function ReelRenderer({
         <div className="space-y-2">
           <p
             role="alert"
-            className="inline-flex items-start gap-2 rounded-xl border border-rose-300/70 bg-rose-50 px-3 py-2 text-sm text-rose-900"
+            className="inline-flex items-start gap-2 rounded-xl border border-danger-300/70 bg-danger-50 px-3 py-2 text-sm text-danger-900"
           >
             <AlertTriangle aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
             {errorMsg}

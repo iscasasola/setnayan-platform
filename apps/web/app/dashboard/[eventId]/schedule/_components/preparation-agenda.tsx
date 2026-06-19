@@ -133,7 +133,7 @@ function PreparationRow({ eventId, item }: { eventId: string; item: PreparationI
         </span>
         <span
           className={`mt-0.5 font-mono text-[9px] uppercase tracking-[0.16em] ${
-            overdue ? 'text-rose-600' : 'text-terracotta'
+            overdue ? 'text-danger-600' : 'text-terracotta'
           }`}
         >
           {relativeTag(item.daysFromNow)}
@@ -284,7 +284,7 @@ function iconFor(source: PreparationSource): LucideIcon {
 function iconStylesFor(source: PreparationSource): string {
   switch (source) {
     case 'payment':
-      return 'bg-amber-100 text-amber-700';
+      return 'bg-warn-100 text-warn-700';
     case 'paperwork':
       return 'bg-blue-50 text-blue-700';
     case 'meeting':
@@ -300,7 +300,7 @@ function iconStylesFor(source: PreparationSource): string {
 function containerStylesFor(source: PreparationSource): string {
   switch (source) {
     case 'payment':
-      return 'border-amber-200/70 bg-amber-50/40';
+      return 'border-warn-200/70 bg-warn-50/40';
     case 'paperwork':
       return 'border-blue-200/70 bg-blue-50/30';
     case 'manual':
@@ -313,7 +313,7 @@ function containerStylesFor(source: PreparationSource): string {
 function chipStylesFor(source: PreparationSource): string {
   switch (source) {
     case 'payment':
-      return 'bg-amber-100 text-amber-800';
+      return 'bg-warn-100 text-warn-800';
     case 'paperwork':
       return 'bg-blue-100 text-blue-800';
     case 'meeting':

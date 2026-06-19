@@ -19,6 +19,16 @@ No migration: `vendor_disputes` already exists (migration `20260516210000_vendor
 > ⚠ Owner note: the demotion chain now fires reliably **only** for the disputes that link an order or payout (the CHECK requires one). For purely off-platform vendor bookings (no order, no payout) the `vendor_disputes` insert no-ops by design, so those won't accrue toward auto-demotion. If off-platform completion non-deliveries should also count, that needs a schema change (e.g. an `event_vendor_id` column + relaxed CHECK on `vendor_disputes`) — flagged, not silently changed. Separately, the pre-existing `writeAudit` in `app/admin/completions/actions.ts` inserts a `metadata` column that `admin_audit_log` doesn't have (latent silent-failure inside its own try/catch); left untouched to stay in scope.
 
 SPEC IMPACT: 0006 Vendors / 0023 Admin Console dispute governance — `resolveDispute` is now state-guarded + audited, and the completion-handshake non-delivery flow (couple report + admin uphold) now feeds the demotion cron via `vendor_disputes` rows. No SKU/pricing change. Will log in `DECISION_LOG.md`.
+## 2026-06-19 · ux(std): remove the Save-the-Date content-film mute toggle (owner)
+
+The content film rendered a small translucent mute toggle (bottom-right, `Music`⇄`VolumeX`) as the "lone escape" for its auto-playing soundtrack. Because the film plays *underneath* the sheer veil reveal, the button bled through the veil and showed over the opening. Owner asked to remove it entirely (2026-06-19) — accepting that the soundtrack now has no off-switch.
+
+- **`apps/web/app/[slug]/_components/save-the-date-film.tsx`**: deleted the mute `<button>` block (was gated on `content.musicUrl || content.videoUrl`), the `toggleMute` handler, and the now-unused `lucide-react` `Music`/`VolumeX` import. Replaced `const [muted, setMuted] = useState(false)` with a stable `const muted = false` (no toggle path remains) — the 13 remaining `muted` reads in the audio/video-gating effects are unchanged, so the `<audio loop muted={muted}>` element still auto-plays with sound. No other transport chrome existed to touch.
+
+SPEC IMPACT: None — UI removal only; no schema, pricing, or product-surface change. Note for the owner: the film's auto-playing soundtrack now has **no guest-facing mute** on any phase (accessibility/UX trade-off acknowledged per the 2026-06-19 decision); the separate couple-landing `BackgroundMusic` opt-in control (RSVP/Event phases) is untouched.
+
+---
+
 ## 2026-06-19 · fix(std): close the NaN gap in the Save-the-Date volume clamp (+ correct the root-cause comment)
 
 Follow-up hardening to the earlier volume-clamp fix, after an adversarial root-cause review of the `/[slug]` Save-the-Date `IndexSizeError`. Two findings drove this:

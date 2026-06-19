@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · fix(qa): mechanical design-audit cleanups — global-error palette + nested `<main>` landmark
+
+Two safe, self-contained no-decision cleanups from the design audit (the other audit items — money-formatter consolidation and FormFlash de-duplication — were intentionally SKIPPED because there is no canonical `lib/money.ts` to consolidate into and no byte-identical inline FormFlash duplicate; both would have sprawled across files owned by parallel agents and changed visual/behavioral output):
+
+- **`apps/web/app/global-error.tsx`** — swapped the root error boundary's off-canon colors to Clean Editorial values: background `#FFFFFF` → `#FBFBFA` (Warm Alabaster), text `#050505` → `#1E2229` (Deep Obsidian), and the four subtle `rgba(5, 5, 5, …)` text tints → `rgba(30, 34, 41, …)`. The Mulberry CTA `#5C2542` and white-on-Mulberry button text are unchanged (WCAG AAA). Deleted the stale `2026-05-22 brand pivot: Facebook white` comment. (Inline hex literals are required here — this boundary renders outside Tailwind's pipeline.) Did NOT touch any emerald/amber/rose status colors (separate reviewed PR).
+- **`apps/web/app/dashboard/[eventId]/layout.tsx`** — fixed a duplicate `<main>` landmark: `SidebarShell` already wraps its children in the single `<main>` (`_components/nav/sidebar-shell.tsx`), and this layout nested a second `<main>` around the page content. Converted the inner element to a `<div>` with the identical className (`mx-auto w-full px-4 py-6 sm:px-6 lg:px-8`) — no visual change, valid HTML, one landmark.
+
+Self-reviewed by reading the diff (fresh worktree has no node_modules; CI gates typecheck/lint). Color literals confirmed against `apps/web/app/globals.css` `--m-*` tokens. No migration.
+
+SPEC IMPACT: None.
+
 ## 2026-06-19 · fix(pwa/monogram): /monogram (+ other public routes) were stale-cached as "guest slugs" → Vector Studio stuck loading
 
 Owner: the Monogram Vector Studio (`/monogram`) was stuck on "Loading the typeface…". Diagnosis: the service worker's `isDayOfGuestNavigation` RESERVED set was **out of sync with the app routes** — it listed only a handful, so single-segment PUBLIC pages (`monogram`, `about`, `explore`, `features`, `our-story`, `download`, `how-it-works`, `privacy`, `terms`, `realstories`, `forgot-password`, `reset-password`, `waitlist`) were mistaken for guest slugs and stale-cached (SWR). The owner got an **old `/monogram` build** that hung. (Fonts + page are live on prod — verified HTTP 200 — so it was a caching/serve issue, not missing assets.)

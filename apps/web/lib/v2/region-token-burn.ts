@@ -23,14 +23,13 @@
  *   1 (₱100) — Bicol · E.Visayas · Zamboanga · SOCCSKSARGEN ·
  *              Caraga · BARMM                                       (~₱415-475)
  *
- * Keys are the onboarding region slugs that actually land in events.region
- * (see ONBOARDING_REGION_TO_PSGC in lib/regions.ts: 'ncr' · 'calabarzon' ·
- * 'c-visayas' · 'w-visayas' · 'c-luzon' · 'ilocos' · 'cagayan' · 'bicol' ·
- * 'mimaropa' · 'e-visayas' · 'zamboanga' · 'n-mindanao' · 'davao' ·
- * 'soccsksargen' · 'caraga' · 'barmm' · 'car' · 'abroad'). The underscore
- * variants used by lib/match-criteria.ts and the PSGC codes used by
- * vendor_profiles.hq_region are aliased too, so the lookup is robust to the
- * known region-slug drift across those three vocabularies.
+ * Region resolution is now delegated to the canonical region source
+ * (lib/region-source · public.regions.burn_band), keyed on the onboarding
+ * hyphen slugs that land in events.region ('ncr' · 'calabarzon' · 'c-visayas' ·
+ * 'c-luzon' · … · 'abroad'). The underscore variants (lib/match-criteria.ts)
+ * and the PSGC codes (vendor_profiles.hq_region) are aliased there too, so the
+ * burn lookup is robust to the known region-slug drift across all four
+ * vocabularies — that's the whole point of the 2026-06-19 canonical-source fix.
  *
  * WHAT THIS MODULE DOES NOT DO (activation is a separate go-live)
  * --------------------------------------------------------------
@@ -39,14 +38,17 @@
  *   "economically inert" in the pilot by design; wiring the real
  *   consume_vendor_assets(vendor, regionBurnTokens(event.region)) call is
  *   a deliberate post-pilot activation that needs owner sign-off.
- * • Does NOT read the DB · pure function of a region slug, never throws.
- * • region→band SHOULD migrate to an admin-editable table when activated
- *   (re-band a region only when a wage order crosses a threshold); this
- *   constant is the V1 source of truth until then.
+ * • Pure function of a region slug, never throws (region-source's resolver is
+ *   sync + never-throw; on a DB miss it falls back to its static band table).
+ * • region→band now lives in public.regions.burn_band (admin-editable when the
+ *   region table gets an editor); region-source hydrates from it, and the
+ *   static fallback in region-source is the V1 source of truth until then.
  *
  * Cross-references: DECISION_LOG 2026-06-05 · Token_Economy_Flow_Map_2026-06-01.html
- * · CLAUDE-CODE-BRIEF-v2.1 § 2.4 · lib/regions.ts ONBOARDING_REGION_TO_PSGC.
+ * · CLAUDE-CODE-BRIEF-v2.1 § 2.4 · lib/region-source.ts (canonical region source).
  */
+
+import { resolveRegion } from '@/lib/region-source';
 
 /** Flat price of one vendor token, in pesos (owner-locked "₱100, no more 250"). */
 export const TOKEN_PRICE_PHP = 100;
@@ -57,11 +59,14 @@ export const BURN_CEILING_TOKENS = 3;
 export type BurnBand = 1 | 2 | 3;
 
 /**
- * Human-editable source of truth: which region slugs sit in each burn band.
- * Onboarding slugs (events.region) first, then the underscore variants
- * (lib/match-criteria.ts) and PSGC codes (vendor_profiles.hq_region) as
- * aliases. When the burn economy activates, this should move to an
- * admin-editable table; until then it is the canonical mapping.
+ * @deprecated Burn bands are now resolved through the canonical region source
+ * (lib/region-source.ts · public.regions.burn_band), which absorbs every
+ * spelling. This const is kept ONLY for lineage / any direct importer; new code
+ * should call `regionBurnTokens()` (which reads region-source) instead.
+ *
+ * Human-editable source of truth (pre-fix): which region slugs sit in each burn
+ * band. Onboarding slugs (events.region) first, then the underscore variants
+ * (lib/match-criteria.ts) and PSGC codes (vendor_profiles.hq_region) as aliases.
  */
 export const BURN_BAND_REGIONS: Readonly<Record<BurnBand, readonly string[]>> = {
   3: ['ncr', 'calabarzon', 'c-luzon', 'central_luzon', 'IV-A', 'III'],
@@ -83,22 +88,17 @@ export const BURN_BAND_REGIONS: Readonly<Record<BurnBand, readonly string[]>> = 
  */
 export const DEFAULT_BURN_BAND: BurnBand = 1;
 
-// Derived reverse lookup: region slug (lowercased) → band. Built once at load.
-const REGION_TO_BAND = new Map<string, BurnBand>();
-for (const [band, regions] of Object.entries(BURN_BAND_REGIONS)) {
-  for (const slug of regions) {
-    REGION_TO_BAND.set(slug.toLowerCase(), Number(band) as BurnBand);
-  }
-}
-
 /**
  * Tokens a vendor burns to answer an inquiry for a wedding in `region`.
- * `region` is events.region (an onboarding slug). Unknown / null /
- * 'abroad' resolve to DEFAULT_BURN_BAND (1). Never throws.
+ * `region` is events.region (an onboarding slug), but resolution now goes
+ * through the canonical region source, so ANY of the four spellings (hyphen
+ * slug · underscore variant · PSGC code · 'cagayan-valley') resolves correctly.
+ * Unknown / null / 'abroad' resolve to DEFAULT_BURN_BAND (1). Pure · never
+ * throws (region-source's resolver never throws; on a DB miss it falls back to
+ * the static band table).
  */
 export function regionBurnTokens(region: string | null | undefined): BurnBand {
-  if (!region) return DEFAULT_BURN_BAND;
-  return REGION_TO_BAND.get(region.trim().toLowerCase()) ?? DEFAULT_BURN_BAND;
+  return resolveRegion(region)?.burn_band ?? DEFAULT_BURN_BAND;
 }
 
 /** Peso cost of answering an inquiry for a wedding in `region` (tokens × ₱100). */

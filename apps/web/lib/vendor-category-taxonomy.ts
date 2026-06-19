@@ -31,7 +31,7 @@
  * RUNTIME check against the live DB snapshot — it catches an admin deleting or
  * re-keying a tile the couple-side still points to, which types alone can't see.
  */
-import type { VendorCategory } from './vendors';
+import { VENDOR_CATEGORY_LABEL, type VendorCategory } from './vendors';
 import type { WeddingTile } from './taxonomy';
 import type { TaxonomySnapshot } from './taxonomy-db';
 
@@ -124,6 +124,35 @@ export function primaryTileForVendorCategory(
   if (m.kind === 'tile') return m.tile;
   if (m.kind === 'tiles') return m.tiles[0] ?? null;
   return null;
+}
+
+/**
+ * The DISPLAY label for a couple/vendor-side category, sourced live from the
+ * admin taxonomy. The stored vocabulary is UNCHANGED — this only swaps the
+ * human-readable text shown in the picker so a vendor sees the same label an
+ * admin set on the tile (e.g. an admin renames the "Photo & Video" tile and the
+ * picker follows). Resolution order, fallback-safe by construction:
+ *
+ *   1. the live tile label of the category's PRIMARY anchor tile
+ *      (`tax.tileLabel[primaryTileForVendorCategory(cat)]`), when present;
+ *   2. otherwise the in-code `VENDOR_CATEGORY_LABEL[cat]` literal.
+ *
+ * Exempt (bucket C) categories have no anchor tile → always fall back to the
+ * literal. Because `getTaxonomy()` itself falls back to the lib/taxonomy.ts
+ * constant when the DB is unseeded, this is safe to call before any migration:
+ * with no DB edits it returns the same labels as today.
+ *
+ * NOTE: this is purely cosmetic. It does NOT touch the WIRE/stored vocabulary —
+ * the `<input name="category">` value and parseCategory/CATEGORY_SET validation
+ * still use the legacy VendorCategory enum key.
+ */
+export function labelForVendorCategory(
+  category: VendorCategory,
+  tax: TaxonomySnapshot,
+): string {
+  const tile = primaryTileForVendorCategory(category);
+  const dbLabel = tile ? tax.tileLabel[tile] : undefined;
+  return dbLabel ?? VENDOR_CATEGORY_LABEL[category];
 }
 
 export type VendorCategoryDrift = {

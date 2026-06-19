@@ -64,6 +64,7 @@ import {
   type OnboardingState,
 } from '../types';
 import { FAITH_REGISTRY, FAITH_LABELS } from '@/lib/faith-registry';
+import { allRegions } from '@/lib/region-source';
 import { cityByKey } from '../_data/wedding-cities';
 import { LocationStep } from './location-step';
 import type { OnboardingPricing, OnboardingBundleVM } from './onboarding-pricing';
@@ -319,13 +320,16 @@ function effectiveBudgetPesos(band: string, amount: number | null, pax: number):
   return bandHi(b.med, pax);
 }
 
-/* ── region labels (prototype REGLABEL) — region key → display label for the screen-13 recap ── */
-const REGLABEL: Record<string, string> = {
-  ncr: 'Metro Manila', calabarzon: 'CALABARZON', 'c-visayas': 'Central Visayas', 'w-visayas': 'Western Visayas',
-  'c-luzon': 'Central Luzon', ilocos: 'Ilocos', cagayan: 'Cagayan Valley', bicol: 'Bicol', mimaropa: 'MIMAROPA',
-  'e-visayas': 'Eastern Visayas', zamboanga: 'Zamboanga', 'n-mindanao': 'Northern Mindanao', davao: 'Davao',
-  soccsksargen: 'SOCCSKSARGEN', caraga: 'Caraga', barmm: 'BARMM', car: 'Cordillera · CAR', abroad: 'Outside the PH',
-};
+/* ── region labels (recap) — region key → display label for the screen-13 recap.
+   Now sourced from the CANONICAL region source (lib/region-source) instead of a
+   hand-maintained literal: built once from allRegions() keyed by canonical slug,
+   so the recap label always matches the picker + validator vocabulary. Reads the
+   static fallback table when the DB is empty (this cycle), so it's identical to
+   the prior literal. The three lookup sites below (REGLABEL[rk] ?? …) are
+   unchanged — this stays an indexable Record<string,string>. ── */
+const REGLABEL: Record<string, string> = Object.fromEntries(
+  allRegions().map((r) => [r.slug, r.display_label]),
+);
 /* Region picker (REGNUG / REGION_TOP / REGION_MORE) retired 2026-06-04 — replaced by the
    Top-30 location step (location-step.tsx). REGLABEL above is kept for the recap label. */
 

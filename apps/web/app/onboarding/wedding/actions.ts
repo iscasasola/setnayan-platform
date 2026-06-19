@@ -19,6 +19,7 @@ import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 import { canonicalServicesForTile, canonicalServicesForFolder } from '@/lib/vendor-counts';
 import { PICK_TO_GROUP } from '@/lib/onboarding-availability';
 import { regionForCity } from '@/lib/regions';
+import { resolveRegion } from '@/lib/region-source';
 import { PERMISSION_TEMPLATES, type RoleSubtype } from '@/lib/event-moderators';
 import { ALLOWED_CEREMONY_VALUES } from '@/lib/faith-registry';
 
@@ -110,39 +111,19 @@ const RECEPTION_TO_VENUE_TYPE: Record<string, string> = {
   setting_resort: 'resort',
 };
 
-// Onboarding region slug (screen-6 · onboarding-shell REGLABEL keys) → PSGC
-// region code (vendor_profiles.hq_region · lib/regions.ts PH_REGIONS). The
-// shell's own slug set ('c-visayas', 'n-mindanao', 'abroad' …) differs from
-// match-criteria.ts REGION_OPTIONS, so this map is keyed to what the wizard
-// actually stores in state.region. `abroad` → null = no region scope (couple
-// marrying overseas · show the full pool). Unknown slug → null (no scope) so a
-// future region addition degrades to "everywhere" rather than zero results.
-const ONBOARDING_REGION_TO_PSGC: Record<string, string> = {
-  ncr: 'NCR',
-  calabarzon: 'IV-A',
-  'c-visayas': 'VII',
-  'w-visayas': 'VI',
-  'c-luzon': 'III',
-  ilocos: 'I',
-  cagayan: 'II',
-  bicol: 'V',
-  mimaropa: 'IV-B',
-  'e-visayas': 'VIII',
-  zamboanga: 'IX',
-  'n-mindanao': 'X',
-  davao: 'XI',
-  soccsksargen: 'XII',
-  caraga: 'XIII',
-  barmm: 'BARMM',
-  car: 'CAR',
-  // abroad → (absent) → null → no region scope
-};
-
-/** Onboarding region slug → PSGC code, or null when the couple has no
- *  region-scopable pick (unset · `abroad` · unrecognized slug). */
+/** Onboarding region slug → PSGC code (vendor_profiles.hq_region), or null when
+ *  the couple has no region-scopable pick (unset · `abroad` / non-scopable ·
+ *  unrecognized slug). Resolves through the canonical region source
+ *  (lib/region-source), which absorbs all four spellings — the shell's hyphen
+ *  slugs ('c-visayas', 'n-mindanao'), the underscore variants, the PSGC codes,
+ *  and 'cagayan-valley'. `abroad` (is_scopable = false) → null = no region scope
+ *  (couple marrying overseas · show the full pool). Unknown slug → null so a
+ *  future region addition degrades to "everywhere" rather than zero results —
+ *  same degradation as the old inline map. Never throws. */
 function onboardingRegionToPsgc(region: string | null | undefined): string | null {
-  if (!region) return null;
-  return ONBOARDING_REGION_TO_PSGC[region] ?? null;
+  const resolved = resolveRegion(region);
+  if (!resolved || !resolved.is_scopable) return null;
+  return resolved.psgc_code;
 }
 
 // Picker key (53 fine taxonomy services, screen-9) → PLAN_GROUP id (26 planning

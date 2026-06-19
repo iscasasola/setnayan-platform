@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · feat(std): manual ceremony venue + single date on the date beat
+
+Two owner film-content fixes.
+
+- **Ceremony venue — manual entry added.** The film's ceremony beat only auto-filled from a FINALIZED on-platform ceremony booking (`religious_venue`/`church_fees`); a couple who booked off-platform had no way to set it, so the slide never showed ("where is the ceremony venue — add it"). Added `events.std_film_ceremony_name` (migration `20270127000000`, applied) — the manual fallback paralleling the reception's `std_film_venue_name`. New editable "Ceremony venue" input in the Save-the-Date builder Content step (was a read-only booking display); the live page + builder resolve `ceremony = finalized booking ?? std_film_ceremony_name`. The ceremony slide (beat 4) renders whenever a ceremony venue resolves.
+- **Date shown once.** The date beat rendered BOTH the compact `MM.DD.YY` and the long-form "December 16, 2026" (the date appeared twice). Now it shows the **long-form as the single hero** (the compact is only a fallback when there's no long form).
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. Migration `20270127000000` applied to prod (ledger clean, single pending).
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — ceremony venue now has a manual fallback (not booking-only); the date beat shows one date. See `DECISION_LOG.md` 2026-06-19.
+
 ## 2026-06-19 · fix(monogram): the Monogram Maker page 500'd in production for every couple (same PR #1798)
 
 Owner reported the maker page (`/dashboard/[eventId]/monogram`) showing **"Something on our end didn't work"** (a Server Components render error, message hidden in prod). Reproduced it in a local **production build** (dev was lenient and rendered fine): the real error was

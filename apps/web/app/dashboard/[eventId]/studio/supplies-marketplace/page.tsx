@@ -138,9 +138,9 @@ export default async function SuppliesMarketplacePage({ params }: Props) {
         </div>
       </header>
 
-      <section className="space-y-3 rounded-2xl border border-amber-200/60 bg-amber-50/60 p-4 sm:p-5">
-        <p className="text-sm font-medium text-amber-900">How it works</p>
-        <ol className="ml-5 list-decimal space-y-1.5 text-sm text-amber-900/90">
+      <section className="space-y-3 rounded-2xl border border-warn-200/60 bg-warn-50/60 p-4 sm:p-5">
+        <p className="text-sm font-medium text-warn-900">How it works</p>
+        <ol className="ml-5 list-decimal space-y-1.5 text-sm text-warn-900/90">
           <li>Browse the catalog and add what you need to your cart.</li>
           <li>
             Tap <span className="font-medium">Checkout via Orders</span> to hand off

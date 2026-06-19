@@ -87,7 +87,7 @@ export default async function AddOnDetailPage({ params }: Props) {
   const cta = isPending ? (
     <Link
       href={`/dashboard/${eventId}/orders`}
-      className="inline-flex items-center gap-2 rounded-full border border-amber-300/70 bg-amber-50 px-5 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-100"
+      className="inline-flex items-center gap-2 rounded-full border border-warn-300/70 bg-warn-50 px-5 py-2 text-sm font-semibold text-warn-900 hover:bg-warn-100"
     >
       <Clock3 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
       Pending review
@@ -160,6 +160,8 @@ export default async function AddOnDetailPage({ params }: Props) {
         cta,
       }}
       preview={preview}
+      demo={detail.demo}
+      demoSlug={addon}
       highlights={{ title: "What you'll have", items: detail.highlights }}
       description={{
         paragraphs: detail.paragraphs,

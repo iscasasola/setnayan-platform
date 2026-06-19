@@ -133,7 +133,7 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
       </div>
 
       {search.notice === 'send_failed' || search.notice === 'respond_failed' ? (
-        <p role="alert" className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 print:hidden">
+        <p role="alert" className="rounded-lg bg-warn-50 px-3 py-2 text-sm text-warn-900 print:hidden">
           That didn&rsquo;t go through — refresh and try again.
         </p>
       ) : null}
@@ -246,7 +246,7 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
             <input type="hidden" name="response" value="accepted" />
             <button
               type="submit"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-success-700 px-4 py-2 text-sm font-medium text-white"
             >
               <CheckCircle2 aria-hidden className="h-4 w-4" /> Accept proposal
             </button>

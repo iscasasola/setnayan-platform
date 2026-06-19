@@ -121,10 +121,10 @@ export function RecommendedVendorRow({
       : `Also doing your ${sourceGroupLabel}`;
 
   return (
-    <div className="flex items-start gap-3 rounded-lg border border-amber-200/70 bg-amber-50/50 px-3 py-2.5">
+    <div className="flex items-start gap-3 rounded-lg border border-warn-200/70 bg-warn-50/50 px-3 py-2.5">
       {/* Avatar — vendor logo if available, else initials on amber */}
       {isOptimizableUrl(vendorLogoUrl) ? (
-        <span className="inline-flex h-9 w-9 shrink-0 overflow-hidden rounded-md border border-amber-200/50 bg-cream">
+        <span className="inline-flex h-9 w-9 shrink-0 overflow-hidden rounded-md border border-warn-200/50 bg-cream">
           <Image
             src={vendorLogoUrl}
             alt=""
@@ -137,7 +137,7 @@ export function RecommendedVendorRow({
       ) : (
         <span
           aria-hidden
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-amber-100 font-mono text-xs font-semibold text-amber-900"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-warn-100 font-mono text-xs font-semibold text-warn-900"
         >
           {initials}
         </span>
@@ -145,7 +145,7 @@ export function RecommendedVendorRow({
 
       <div className="min-w-0 flex-1 space-y-0.5">
         <p className="truncate text-sm font-medium text-ink">{vendorName}</p>
-        <p className="flex items-center gap-1 truncate font-mono text-[10px] uppercase tracking-[0.12em] text-amber-800/80">
+        <p className="flex items-center gap-1 truncate font-mono text-[10px] uppercase tracking-[0.12em] text-warn-800/80">
           <Sparkles aria-hidden className="h-2.5 w-2.5" strokeWidth={2} />
           <span className="truncate">{sourceSubLine}</span>
         </p>
@@ -155,7 +155,7 @@ export function RecommendedVendorRow({
               type="button"
               onClick={() => submit('considering')}
               disabled={pending}
-              className="inline-flex min-h-[44px] items-center gap-1 rounded-md border border-amber-300/60 bg-cream px-2.5 py-1 text-[11px] font-medium text-amber-900 transition-colors hover:bg-amber-100 disabled:opacity-60"
+              className="inline-flex min-h-[44px] items-center gap-1 rounded-md border border-warn-300/60 bg-cream px-2.5 py-1 text-[11px] font-medium text-warn-900 transition-colors hover:bg-warn-100 disabled:opacity-60"
             >
               Consider
             </button>
@@ -163,24 +163,24 @@ export function RecommendedVendorRow({
               type="button"
               onClick={() => submit('contracted')}
               disabled={pending}
-              className="inline-flex min-h-[44px] items-center gap-1 rounded-md border border-emerald-300/60 bg-cream px-2.5 py-1 text-[11px] font-medium text-emerald-800 transition-colors hover:bg-emerald-100 disabled:opacity-60"
+              className="inline-flex min-h-[44px] items-center gap-1 rounded-md border border-success-300/60 bg-cream px-2.5 py-1 text-[11px] font-medium text-success-800 transition-colors hover:bg-success-100 disabled:opacity-60"
             >
               <BookmarkCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
               Lock too
             </button>
           </div>
         ) : mode === 'added' ? (
-          <p className="flex items-center gap-1 pt-0.5 text-[11px] text-emerald-800">
+          <p className="flex items-center gap-1 pt-0.5 text-[11px] text-success-800">
             <Check aria-hidden className="h-3 w-3" strokeWidth={2} />
             Added — find them in this card.
           </p>
         ) : mode === 'locked' ? (
-          <p className="flex items-center gap-1 pt-0.5 text-[11px] text-emerald-800">
+          <p className="flex items-center gap-1 pt-0.5 text-[11px] text-success-800">
             <BookmarkCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
             Locked.
           </p>
         ) : (
-          <p className="flex items-center gap-1 pt-0.5 text-[11px] text-rose-800">
+          <p className="flex items-center gap-1 pt-0.5 text-[11px] text-danger-800">
             <AlertCircle aria-hidden className="h-3 w-3" strokeWidth={2} />
             {errorMsg ?? 'Something went wrong.'}
           </p>

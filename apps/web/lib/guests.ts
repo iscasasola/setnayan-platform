@@ -508,7 +508,7 @@ export const TEAM_SIDE_LABELS: Record<GuestGroupTeamSide, string> = {
 // the sidebar group row tint, the per-guest GroupChipList chip on the
 // table, and any future team_side chrome.
 export const TEAM_SIDE_CHIP: Record<GuestGroupTeamSide, string> = {
-  bride: 'bg-rose-100 text-rose-800 ring-1 ring-rose-200',
+  bride: 'bg-danger-100 text-danger-800 ring-1 ring-danger-200',
   groom: 'bg-sky-100 text-sky-800 ring-1 ring-sky-200',
   // Amethyst (purple) — distinct from bride's rose + groom's sky.
   // Replaces the prior amber treatment so "Both sides" reads as a

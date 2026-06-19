@@ -170,7 +170,7 @@ function IdleState({
       {disconnectedFlash ? (
         <p
           role="status"
-          className="inline-flex items-center gap-1.5 rounded-md bg-emerald-100/80 px-3 py-1.5 text-xs font-medium text-emerald-950"
+          className="inline-flex items-center gap-1.5 rounded-md bg-success-100/80 px-3 py-1.5 text-xs font-medium text-success-950"
         >
           <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Drive disconnected. The files Setnayan wrote to your Drive are still yours.
@@ -294,7 +294,7 @@ function ConnectedState({
       {releaseStartedFlash && !releaseError ? (
         <p
           role="status"
-          className="inline-flex items-center gap-1.5 rounded-md bg-emerald-100/80 px-3 py-1.5 text-xs font-medium text-emerald-950"
+          className="inline-flex items-center gap-1.5 rounded-md bg-success-100/80 px-3 py-1.5 text-xs font-medium text-success-950"
         >
           <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           {alreadyComplete
@@ -305,28 +305,28 @@ function ConnectedState({
 
       <section
         aria-label="Connected Drive folder"
-        className="rounded-2xl border border-emerald-300/60 bg-emerald-50/70 p-4 sm:p-5"
+        className="rounded-2xl border border-success-300/60 bg-success-50/70 p-4 sm:p-5"
       >
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex items-start gap-3">
-            <span className="mt-0.5 inline-flex h-9 w-9 flex-none items-center justify-center rounded-full bg-emerald-200/80 text-emerald-900">
+            <span className="mt-0.5 inline-flex h-9 w-9 flex-none items-center justify-center rounded-full bg-success-200/80 text-success-900">
               <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             </span>
             <div className="space-y-1">
-              <p className="text-sm font-semibold text-emerald-950">
+              <p className="text-sm font-semibold text-success-950">
                 Drive connected
               </p>
-              <p className="text-xs text-emerald-900/80">
+              <p className="text-xs text-success-900/80">
                 Folder:{' '}
-                <span className="font-mono text-emerald-950">{folderName}</span>
+                <span className="font-mono text-success-950">{folderName}</span>
               </p>
               {accountEmail ? (
-                <p className="text-xs text-emerald-900/80">
+                <p className="text-xs text-success-900/80">
                   Account: <span className="font-mono">{accountEmail}</span>
                 </p>
               ) : null}
               {accountMismatch ? (
-                <p className="text-xs text-emerald-900/80">
+                <p className="text-xs text-success-900/80">
                   Not your sign-in ({loginEmail}) — that&rsquo;s fine.{' '}
                   <Link
                     href={`/api/oauth/photo-delivery/start?event_id=${encodeURIComponent(eventId)}&switch=1`}
@@ -343,7 +343,7 @@ function ConnectedState({
             <input type="hidden" name="event_id" value={eventId} />
             <SubmitButton
               pendingLabel="Disconnecting…"
-              className="inline-flex items-center gap-1.5 rounded-md border border-emerald-300/70 bg-cream/60 px-3 py-1.5 text-xs font-medium text-emerald-950 hover:bg-cream"
+              className="inline-flex items-center gap-1.5 rounded-md border border-success-300/70 bg-cream/60 px-3 py-1.5 text-xs font-medium text-success-950 hover:bg-cream"
             >
               <Unlink2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
               Disconnect
@@ -403,15 +403,15 @@ function ConnectedState({
       ) : null}
 
       {isComplete ? (
-        <section className="space-y-3 rounded-2xl border border-emerald-300/60 bg-emerald-50/70 p-5">
+        <section className="space-y-3 rounded-2xl border border-success-300/60 bg-success-50/70 p-5">
           <header className="space-y-1">
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-emerald-900/70">
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-success-900/70">
               Delivery complete{completedAt ? ` · ${formatCompletedAt(completedAt)}` : ''}
             </p>
-            <h3 className="text-base font-semibold text-emerald-950">
+            <h3 className="text-base font-semibold text-success-950">
               All photos are in your Drive
             </h3>
-            <p className="text-sm text-emerald-900/85">
+            <p className="text-sm text-success-900/85">
               {job
                 ? `${job.uploaded_files.toLocaleString('en-US')} files · ${formatBytes(job.uploaded_bytes)} delivered.`
                 : 'Your folder is ready.'}{' '}
@@ -424,7 +424,7 @@ function ConnectedState({
                 href={driveFolderUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-medium text-cream transition hover:bg-emerald-800"
+                className="inline-flex items-center gap-1.5 rounded-md bg-success-700 px-3 py-1.5 text-xs font-medium text-cream transition hover:bg-success-800"
               >
                 <ArrowUpRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
                 Open in Drive
@@ -434,7 +434,7 @@ function ConnectedState({
               <input type="hidden" name="event_id" value={eventId} />
               <SubmitButton
                 pendingLabel="Releasing…"
-                className="inline-flex items-center gap-1.5 rounded-md border border-emerald-300/70 bg-cream/60 px-3 py-1.5 text-xs font-medium text-emerald-950 hover:bg-cream"
+                className="inline-flex items-center gap-1.5 rounded-md border border-success-300/70 bg-cream/60 px-3 py-1.5 text-xs font-medium text-success-950 hover:bg-cream"
               >
                 <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                 Re-deliver new photos

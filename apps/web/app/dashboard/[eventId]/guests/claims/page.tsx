@@ -103,7 +103,7 @@ export default async function GuestClaimsPage({ params }: Props) {
                     </p>
                   </div>
                   {c.status === 'otp_sent' ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-warn-50 px-2.5 py-1 text-xs font-medium text-warn-700">
                       <Clock className="h-3 w-3" /> verifying by email
                     </span>
                   ) : (

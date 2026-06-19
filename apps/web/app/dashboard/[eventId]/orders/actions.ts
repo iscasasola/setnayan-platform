@@ -8,6 +8,7 @@ import { uploadPublicAsset } from '@/lib/storage';
 import { sendEmail } from '@/lib/email';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
+import { notifyAdminsOrderAwaitingReconciliation } from '@/lib/order-admin-notify';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -130,6 +131,19 @@ export async function createOrder(formData: FormData) {
     });
     throw new Error(error?.message ?? 'Could not create order');
   }
+
+  // Admin confirmation (best-effort · Notification Foundation Phase B) — fan
+  // out to every admin/internal/team user that a new order is in the
+  // /admin/payments reconciliation queue so the 24-hr SLA starts on submit,
+  // not on the next time someone opens the queue. The self-comp branch above
+  // returns before reaching here, so comp grants (which skip payment-pending)
+  // correctly never fire this. Fail-soft: never blocks the order.
+  await notifyAdminsOrderAwaitingReconciliation({
+    orderId: data.order_id as string,
+    description: trimmedDesc,
+    amountPhp: requestedTotalPhp,
+    referenceCode,
+  });
 
   // Wire payment instructions email · iteration 0034 apply-then-pay manual
   // reconciliation flow (CLAUDE.md 2026-05-12 lock · System_Wiring_Map RED #2

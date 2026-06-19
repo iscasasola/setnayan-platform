@@ -29,9 +29,9 @@ type Props = {
 };
 
 const STATUS_TONE: Record<BranchStatus, string> = {
-  active: 'bg-emerald-100 text-emerald-800',
-  pending_payment: 'bg-amber-100 text-amber-800',
-  expired: 'bg-rose-100 text-rose-800',
+  active: 'bg-success-100 text-success-800',
+  pending_payment: 'bg-warn-100 text-warn-800',
+  expired: 'bg-danger-100 text-danger-800',
   cancelled: 'bg-ink/10 text-ink/55',
 };
 const STATUS_LABEL: Record<BranchStatus, string> = {
@@ -103,7 +103,7 @@ export default async function VendorBranchesPage({ searchParams }: Props) {
       {search.created ? (
         <p
           role="status"
-          className="rounded-md border border-amber-300/60 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+          className="rounded-md border border-warn-300/60 bg-warn-50 px-4 py-3 text-sm text-warn-900"
         >
           Branch added. Pay {peso(BRANCH_FEE_PHP)} using reference{' '}
           <span className="font-mono font-semibold">{decodeURIComponent(search.created)}</span> — it
@@ -113,7 +113,7 @@ export default async function VendorBranchesPage({ searchParams }: Props) {
       {search.renewed ? (
         <p
           role="status"
-          className="rounded-md border border-amber-300/60 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+          className="rounded-md border border-warn-300/60 bg-warn-50 px-4 py-3 text-sm text-warn-900"
         >
           Renewal started. Pay {peso(BRANCH_FEE_PHP)} using reference{' '}
           <span className="font-mono font-semibold">{decodeURIComponent(search.renewed)}</span> — the
@@ -123,7 +123,7 @@ export default async function VendorBranchesPage({ searchParams }: Props) {
       {search.cancelled ? (
         <p
           role="status"
-          className="rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+          className="rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800"
         >
           Branch cancelled.
         </p>
@@ -232,8 +232,8 @@ async function EnterpriseBody({
 
       {/* How to pay — only when something is pending */}
       {hasPending ? (
-        <section className="space-y-2 rounded-2xl border border-amber-200/70 bg-amber-50/50 p-5">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-amber-900/70">
+        <section className="space-y-2 rounded-2xl border border-warn-200/70 bg-warn-50/50 p-5">
+          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-warn-900/70">
             How to pay
           </h2>
           <p className="text-sm text-ink/75">
@@ -314,7 +314,7 @@ async function EnterpriseBody({
                         <input type="hidden" name="channel" value="bdo" />
                         <button
                           type="submit"
-                          className="inline-flex h-9 items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 text-xs font-medium text-amber-900 hover:border-amber-500"
+                          className="inline-flex h-9 items-center gap-1.5 rounded-md border border-warn-300 bg-warn-50 px-3 text-xs font-medium text-warn-900 hover:border-warn-500"
                         >
                           <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
                           Renew · {peso(BRANCH_FEE_PHP)}

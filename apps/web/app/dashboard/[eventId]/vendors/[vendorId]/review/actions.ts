@@ -13,6 +13,107 @@ import {
   type SelfReviewSignal,
 } from '@/lib/self-review-gate';
 
+/**
+ * Open a vendor_disputes row so the demotion cron has input (cross-account QA,
+ * 2026-06-19). Before this, `vendor_disputes` was orphaned for INSERT — the
+ * couple-side completion→non-delivery flow flipped `event_vendors.completion_status`
+ * to 'disputed' but never wrote a `vendor_disputes` row, so the 30-day
+ * demote-to-coming_soon cron (api/admin/cron/dispute-counter) had nothing to
+ * count and the chain was severed.
+ *
+ * Constraints honored:
+ *  • vendor_disputes.vendor_profile_id is NOT NULL + FK → vendor_profiles. We
+ *    resolve it from event_vendors.marketplace_vendor_id; if the booking is an
+ *    off-platform/manual vendor with no marketplace profile we SKIP (there's
+ *    nothing for the cron to demote and the FK would reject anyway).
+ *  • CHECK (payout_id IS NOT NULL OR order_id IS NOT NULL): we link the most
+ *    recent matching order when one exists. When neither an order nor a payout
+ *    is on file (the common case — vendor money is off-platform), the insert
+ *    can't satisfy the CHECK, so the whole helper is fail-soft: the caller's
+ *    completion write must always commit regardless.
+ *  • Idempotent: re-reporting the same event+vendor must not stack duplicate
+ *    open disputes. vendor_disputes has no event_id column, so we dedupe on the
+ *    linked order_id when present, else on (vendor_profile_id, opened_by, open).
+ *
+ * Returns void; never throws — wrapped fail-soft by design.
+ */
+async function openCompletionDispute(
+  admin: ReturnType<typeof createAdminClient>,
+  args: {
+    eventId: string;
+    vendorId: string; // event_vendors.vendor_id (the UUID PK)
+    openedByUserId: string | null;
+    category: 'no_show' | 'quality_issue';
+    description: string;
+  },
+): Promise<void> {
+  try {
+    // 1. Resolve the marketplace vendor_profile_id for this booking.
+    const { data: evRow } = await admin
+      .from('event_vendors')
+      .select('marketplace_vendor_id')
+      .eq('event_id', args.eventId)
+      .eq('vendor_id', args.vendorId)
+      .maybeSingle();
+    const vendorProfileId =
+      (evRow as { marketplace_vendor_id: string | null } | null)
+        ?.marketplace_vendor_id ?? null;
+    if (!vendorProfileId) return; // off-platform vendor — nothing to demote.
+
+    // 2. Find a linked order for the CHECK (payout_id OR order_id). orders.vendor_profile_id
+    //    is usually NULL today (couple-side orders rarely pin a vendor), so this
+    //    may be null — in which case the insert below will fail the CHECK and be
+    //    swallowed by the outer catch. That's acceptable: the demotion chain is
+    //    re-armed for the orders that DO link a vendor, and is a no-op (logged)
+    //    otherwise, while the caller's completion write always commits.
+    const { data: orderRow } = await admin
+      .from('orders')
+      .select('order_id')
+      .eq('event_id', args.eventId)
+      .eq('vendor_profile_id', vendorProfileId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const orderId = (orderRow as { order_id: string } | null)?.order_id ?? null;
+
+    // 3. Idempotency — don't stack duplicate OPEN disputes for the same booking.
+    let dedupe = admin
+      .from('vendor_disputes')
+      .select('dispute_id')
+      .eq('vendor_profile_id', vendorProfileId)
+      .eq('status', 'open');
+    dedupe = orderId
+      ? dedupe.eq('order_id', orderId)
+      : args.openedByUserId
+        ? dedupe.eq('opened_by_user_id', args.openedByUserId).eq('category', args.category)
+        : dedupe.eq('category', args.category);
+    const { data: existing } = await dedupe.limit(1).maybeSingle();
+    if (existing) return; // already an open dispute for this booking.
+
+    // 4. Insert. counts_toward_demotion=true so the cron's rolling window picks
+    //    it up (status defaults to 'open'). order_id only when found.
+    const { error: insErr } = await admin.from('vendor_disputes').insert({
+      vendor_profile_id: vendorProfileId,
+      order_id: orderId,
+      opened_by_user_id: args.openedByUserId,
+      category: args.category,
+      description: args.description,
+      counts_toward_demotion: true,
+    });
+    if (insErr) {
+      // eslint-disable-next-line no-console
+      console.error(
+        `[openCompletionDispute] insert skipped (event_id=${args.eventId} vendor_id=${args.vendorId}):`,
+        insErr.message,
+      );
+    }
+  } catch (e) {
+    // Fail-soft — the caller's completion write is the primary action.
+    // eslint-disable-next-line no-console
+    console.error('[openCompletionDispute] failed (non-fatal):', e);
+  }
+}
+
 /** Star-rated axes submitted by StarRatingInput (1–5 continuous). */
 const STAR_AXES: ReadonlyArray<ReviewAxis> = [
   'overall',
@@ -327,6 +428,19 @@ export async function coupleReportNonDelivery(formData: FormData) {
     .eq('event_id', eventId)
     .eq('vendor_id', vendorId)
     .neq('completion_status', 'confirmed'); // can't dispute an already-confirmed delivery
+
+  // Re-arm the demotion chain (cross-account QA, 2026-06-19): also open a
+  // vendor_disputes row so the 30-day dispute-counter cron can see it. The
+  // helper is idempotent + fail-soft, so a repeat report or an off-platform
+  // vendor is a safe no-op and never blocks the completion write above.
+  await openCompletionDispute(admin, {
+    eventId,
+    vendorId,
+    openedByUserId: user.id,
+    category: 'no_show',
+    description:
+      'Couple reported non-delivery via the completion handshake — the service was not delivered.',
+  });
 
   revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/review`);
   redirect(`/dashboard/${eventId}/vendors/${vendorId}/review`);

@@ -37,10 +37,10 @@ const STATUS_LABEL: Record<ManpowerGigStatus, string> = {
 };
 
 const STATUS_STYLE: Record<ManpowerGigStatus, string> = {
-  pending: 'bg-amber-50 text-amber-900 ring-amber-300/40',
-  accepted: 'bg-emerald-50 text-emerald-900 ring-emerald-300/40',
+  pending: 'bg-warn-50 text-warn-900 ring-warn-300/40',
+  accepted: 'bg-success-50 text-success-900 ring-success-300/40',
   completed: 'bg-slate-100 text-slate-800 ring-slate-300/40',
-  cancelled: 'bg-rose-50 text-rose-900 ring-rose-300/40',
+  cancelled: 'bg-danger-50 text-danger-900 ring-danger-300/40',
 };
 
 export default async function VendorManpowerPage() {

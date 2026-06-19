@@ -141,17 +141,17 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
       </header>
 
       {search.done === 'approved' && (
-        <div className="mb-6 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+        <div className="mb-6 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
           ✓ Payment confirmed, plan activated, and bundle tokens credited.
         </div>
       )}
       {search.done === 'rejected' && (
-        <div className="mb-6 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <div className="mb-6 rounded-md border border-warn-200 bg-warn-50 px-4 py-3 text-sm text-warn-900">
           Order marked rejected. No tier change was made.
         </div>
       )}
       {search.error && (
-        <div className="mb-6 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+        <div className="mb-6 rounded-md border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-900">
           {search.error}
         </div>
       )}
@@ -228,7 +228,7 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
                       />
                       <SubmitButton
                         pendingLabel="Rejecting…"
-                        className="rounded-md border border-rose-300 px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-50"
+                        className="rounded-md border border-danger-300 px-3 py-1.5 text-xs font-medium text-danger-700 hover:bg-danger-50"
                       >
                         Reject
                       </SubmitButton>
@@ -275,7 +275,7 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
                       className={
                         'rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ' +
                         (paid
-                          ? 'bg-emerald-100 text-emerald-800'
+                          ? 'bg-success-100 text-success-800'
                           : 'bg-ink/5 text-ink/55')
                       }
                     >

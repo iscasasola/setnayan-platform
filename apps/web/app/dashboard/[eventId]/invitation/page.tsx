@@ -131,7 +131,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
       {reissuedGuestId ? (
         <p
           role="status"
-          className="rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+          className="rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800"
         >
           Token rotated. The previously-printed QR for this guest is now invalid — reprint
           and re-send their card.
@@ -203,7 +203,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
           </p>
         ) : null}
         {monoSaved ? (
-          <p role="status" className="mt-3 text-xs text-emerald-700">
+          <p role="status" className="mt-3 text-xs text-success-700">
             Monogram saved. Every guest&rsquo;s QR + invitation page now uses your new branding.
           </p>
         ) : null}
@@ -252,7 +252,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
           </p>
         ) : null}
         {slugSaved ? (
-          <p role="status" className="mt-2 text-xs text-emerald-700">
+          <p role="status" className="mt-2 text-xs text-success-700">
             Slug saved.
           </p>
         ) : null}

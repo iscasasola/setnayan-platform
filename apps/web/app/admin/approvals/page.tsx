@@ -110,7 +110,7 @@ export default async function AdminApprovalsPage() {
       </header>
 
       {adminCount !== null && adminCount < 2 ? (
-        <div className="mb-8 rounded-xl border border-amber-300/60 bg-amber-50/60 p-4 text-sm text-amber-900">
+        <div className="mb-8 rounded-xl border border-warn-300/60 bg-warn-50/60 p-4 text-sm text-warn-900">
           <strong>Four-eyes needs at least two admins.</strong> There{' '}
           {adminCount === 1 ? 'is currently 1 admin' : 'are currently 0 admins'} on
           the platform. The first additional admin is provisioned outside this
@@ -235,7 +235,7 @@ export default async function AdminApprovalsPage() {
                           <SubmitButton
                             formAction={approveRequest}
                             pendingLabel="Approving…"
-                            className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-emerald-700"
+                            className="rounded-md bg-success-600 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-success-700"
                           >
                             ✓ Approve &amp; execute
                           </SubmitButton>
@@ -289,7 +289,7 @@ export default async function AdminApprovalsPage() {
                       <span
                         className={
                           r.status === 'approved'
-                            ? 'rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700'
+                            ? 'rounded-md bg-success-50 px-2 py-0.5 text-[11px] font-bold text-success-700'
                             : 'rounded-md bg-terracotta-50 px-2 py-0.5 text-[11px] font-bold text-terracotta-700'
                         }
                       >

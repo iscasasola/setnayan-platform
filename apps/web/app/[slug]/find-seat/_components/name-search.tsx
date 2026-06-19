@@ -134,7 +134,7 @@ function MatchCard({ match }: { match: SeatMatch }) {
     <li className="overflow-hidden rounded-xl border border-ink/10 bg-white shadow-sm">
       <div className="flex items-center justify-between gap-3 px-4 py-3">
         <span className="text-sm text-ink/80">{match.display_name}</span>
-        <span className="shrink-0 rounded-md bg-emerald-50 px-2.5 py-1 text-sm font-semibold text-emerald-700">
+        <span className="shrink-0 rounded-md bg-success-50 px-2.5 py-1 text-sm font-semibold text-success-700">
           {match.table_label}
         </span>
       </div>

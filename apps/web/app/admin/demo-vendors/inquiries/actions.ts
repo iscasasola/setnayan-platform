@@ -21,6 +21,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isAdminProfile } from '@/lib/demo-mode';
 import { fetchThreadById } from '@/lib/chat';
+import { emitNotification } from '@/lib/notification-emit';
+import type { NotificationType } from '@/lib/notifications';
 
 async function assertAdmin(): Promise<void> {
   const supabase = await createClient();
@@ -43,6 +45,7 @@ type DemoThread = {
   event_id: string;
   vendor_profile_id: string;
   inquiry_status: 'pending' | 'accepted' | 'declined';
+  vendor_business_name: string;
 };
 
 // Load a thread via service-role + assert its vendor is a DEMO vendor.
@@ -51,10 +54,11 @@ async function loadDemoThread(admin: SupabaseClient, threadId: string): Promise<
   if (!thread) throw new Error('Thread not found');
   const { data: vendor } = await admin
     .from('vendor_profiles')
-    .select('is_demo')
+    .select('is_demo, business_name')
     .eq('vendor_profile_id', thread.vendor_profile_id)
     .maybeSingle();
-  if (!(vendor as { is_demo: boolean } | null)?.is_demo) {
+  const vendorRow = vendor as { is_demo: boolean; business_name: string | null } | null;
+  if (!vendorRow?.is_demo) {
     throw new Error('Not a demo vendor — the responder is demo-only.');
   }
   return {
@@ -62,7 +66,50 @@ async function loadDemoThread(admin: SupabaseClient, threadId: string): Promise<
     event_id: thread.event_id,
     vendor_profile_id: thread.vendor_profile_id,
     inquiry_status: thread.inquiry_status,
+    vendor_business_name: vendorRow.business_name?.trim() || 'A vendor',
   };
+}
+
+/**
+ * Cross-account notify fan-out (Notification Foundation · Phase B · 2026-06-20).
+ *
+ * The demo/marketplace founder vendor is unclaimed (`user_id = NULL`), so when
+ * the team role-plays its responses from /admin the couple got NOTHING in their
+ * tray — every accept/decline/reply was silent. This mirrors
+ * chat-actions.ts → notifyCoupleOfInquiryOutcome / notifyOtherParty: fan out
+ * over every couple-type event_member and deep-link them to their own messages
+ * thread (the couple-side `/dashboard/[eventId]/messages/[threadId]` route,
+ * NOT the /vendor-dashboard one).
+ *
+ * Best-effort: emitNotification already fails soft, and the whole fan-out is
+ * wrapped so a notify error can never roll back the admin action that landed.
+ */
+async function notifyCoupleMembers(
+  admin: SupabaseClient,
+  thread: DemoThread,
+  notice: { type: NotificationType; title: string; body: string; relatedUrl?: string },
+): Promise<void> {
+  try {
+    const { data: members } = await admin
+      .from('event_members')
+      .select('user_id')
+      .eq('event_id', thread.event_id)
+      .eq('member_type', 'couple');
+    const relatedUrl =
+      notice.relatedUrl ?? `/dashboard/${thread.event_id}/messages/${thread.thread_id}`;
+    for (const m of (members ?? []) as Array<{ user_id: string }>) {
+      if (!m.user_id) continue;
+      await emitNotification({
+        userId: m.user_id,
+        type: notice.type,
+        title: notice.title,
+        body: notice.body,
+        relatedUrl,
+      });
+    }
+  } catch (e) {
+    console.error('[demo-vendors] couple notify fan-out failed:', e);
+  }
 }
 
 function threadIdFrom(formData: FormData): string {
@@ -89,6 +136,13 @@ export async function adminAcceptInquiry(formData: FormData): Promise<void> {
     if (error) throw new Error(error.message);
     // The reveal_vendor_name_on_accept trigger stamps name_revealed_at so the
     // couple now sees the demo vendor's real (seeded) name.
+    // Notify the couple their inquiry was accepted — mirrors the real
+    // vendor-side acceptInquiry → inquiry_accepted emit (chat-actions.ts).
+    await notifyCoupleMembers(admin, thread, {
+      type: 'inquiry_accepted',
+      title: `${thread.vendor_business_name} accepted your inquiry`,
+      body: 'Your chat is open — send a message to keep planning together.',
+    });
   }
   revalidateThread(threadId);
 }
@@ -113,6 +167,17 @@ export async function adminDeclineInquiry(formData: FormData): Promise<void> {
       })
       .eq('thread_id', threadId);
     if (error) throw new Error(error.message);
+    // Notify the couple their inquiry was declined — mirrors the real
+    // vendor-side declineInquiry → inquiry_declined emit (chat-actions.ts):
+    // no vendor name leak, surface the reason if given, point at alternatives.
+    await notifyCoupleMembers(admin, thread, {
+      type: 'inquiry_declined',
+      title: 'A vendor declined your inquiry',
+      body: reason
+        ? `Why: “${reason}” — browse similar vendors to keep your options open.`
+        : 'They are not available — browse similar vendors to keep your options open.',
+      relatedUrl: `/dashboard/${thread.event_id}/vendors`,
+    });
   }
   revalidateThread(threadId);
 }
@@ -136,5 +201,13 @@ export async function adminReplyAsVendor(formData: FormData): Promise<void> {
     body: body.slice(0, 4000),
   });
   if (error) throw new Error(error.message);
+  // Notify the couple of the new (admin-as-demo-vendor) reply — mirrors the
+  // vendor-sender branch of chat-actions.ts → notifyOtherParty (chat_message,
+  // 140-char preview, deep-link to the couple's own thread).
+  await notifyCoupleMembers(admin, thread, {
+    type: 'chat_message',
+    title: `New message from ${thread.vendor_business_name}`,
+    body: body.slice(0, 140),
+  });
   revalidateThread(threadId);
 }

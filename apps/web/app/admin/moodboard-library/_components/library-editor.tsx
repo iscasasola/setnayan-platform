@@ -461,7 +461,7 @@ export function LibraryEditor({ initialAssets }: Props) {
                     type="button"
                     onClick={handleApprove}
                     disabled={isPending}
-                    className="rounded-md border border-emerald-600 px-3 py-1.5 text-sm font-medium text-emerald-700 disabled:opacity-50"
+                    className="rounded-md border border-success-600 px-3 py-1.5 text-sm font-medium text-success-700 disabled:opacity-50"
                   >
                     Publish
                   </button>
@@ -480,7 +480,7 @@ export function LibraryEditor({ initialAssets }: Props) {
                   type="button"
                   onClick={handleDelete}
                   disabled={isPending}
-                  className="rounded-md border border-rose-500 px-3 py-1.5 text-sm font-medium text-rose-600 disabled:opacity-50"
+                  className="rounded-md border border-danger-500 px-3 py-1.5 text-sm font-medium text-danger-600 disabled:opacity-50"
                 >
                   Delete
                 </button>

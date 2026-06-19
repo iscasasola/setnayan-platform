@@ -43,8 +43,8 @@ export function DayOfFaceEnroll({
 
   if (phase === 'done') {
     return (
-      <section className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 text-center shadow-sm sm:p-6">
-        <Check aria-hidden className="mx-auto h-7 w-7 text-emerald-600" strokeWidth={1.75} />
+      <section className="rounded-2xl border border-success-200 bg-success-50/60 p-5 text-center shadow-sm sm:p-6">
+        <Check aria-hidden className="mx-auto h-7 w-7 text-success-600" strokeWidth={1.75} />
         <h2 className="mt-2 text-lg font-semibold tracking-tight text-ink">
           You&rsquo;re set
         </h2>

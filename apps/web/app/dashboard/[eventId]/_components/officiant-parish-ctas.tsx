@@ -92,7 +92,7 @@ export function OfficiantParishCTAs({
          *  directive button-height parity. */}
         <span
           role="status"
-          className="inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-md border border-emerald-300/60 bg-emerald-50 px-3 text-xs font-medium text-emerald-900"
+          className="inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-md border border-success-300/60 bg-success-50 px-3 text-xs font-medium text-success-900"
         >
           <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           Added to plan
@@ -182,7 +182,7 @@ export function OfficiantParishCTAs({
           </button>
         </div>
         {errorMsg ? (
-          <p className="flex items-center gap-1 font-mono text-[10px] text-rose-700">
+          <p className="flex items-center gap-1 font-mono text-[10px] text-danger-700">
             <AlertCircle aria-hidden className="h-3 w-3" strokeWidth={2} />
             {errorMsg}
           </p>
@@ -195,13 +195,13 @@ export function OfficiantParishCTAs({
   if (ceremonyVenueName !== null) {
     return (
       <div className="mt-auto space-y-2.5">
-        <div className="flex items-start gap-2 rounded-md border border-emerald-300/40 bg-emerald-50/50 px-2.5 py-2">
+        <div className="flex items-start gap-2 rounded-md border border-success-300/40 bg-success-50/50 px-2.5 py-2">
           <Church
             aria-hidden
-            className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-700"
+            className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success-700"
             strokeWidth={1.75}
           />
-          <p className="text-[11px] leading-snug text-emerald-900">
+          <p className="text-[11px] leading-snug text-success-900">
             Your officiant typically comes from{' '}
             <strong className="font-semibold">{ceremonyVenueName}</strong>. Ask
             the parish secretary for clergy availability + contact.
@@ -235,13 +235,13 @@ export function OfficiantParishCTAs({
   // ── State B — ceremony venue NOT locked ─────────────────────────
   return (
     <div className="mt-auto space-y-2.5">
-      <div className="flex items-start gap-2 rounded-md border border-amber-300/50 bg-amber-50/60 px-2.5 py-2">
+      <div className="flex items-start gap-2 rounded-md border border-warn-300/50 bg-warn-50/60 px-2.5 py-2">
         <AlertCircle
           aria-hidden
-          className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-700"
+          className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warn-700"
           strokeWidth={2}
         />
-        <p className="text-[11px] leading-snug text-amber-900">
+        <p className="text-[11px] leading-snug text-warn-900">
           Lock your ceremony venue first — most Filipino couples get their
           officiant from the parish where they&rsquo;re getting married. Once
           locked, we&rsquo;ll suggest officiants from there.

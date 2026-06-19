@@ -9,6 +9,33 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 `OWNER_ACTIONS.md` had grown to 1,120 lines of history; the actual go-live gate was buried. Added a top-of-file **🚀 LAUNCH NOW** summary distilling the launch boundary verified this session: the code is launch-complete, and only **4 owner-config items** gate publicly accepting vendors (crypto secrets · business identity + payment accounts · R2 CORS + public host · `dpo@` mailbox — ~1 hr total). Marks the now-resolved items (migrations caught up, build not wedged, **vendor verification works via manual review**, web push live) and the deferred-with-fallback ones (Resend email, social login, AI paywall). The detailed phases below are unchanged.
 
 SPEC IMPACT None — owner-facing checklist clarity only.
+## 2026-06-18 · feat(seo/a11y): structured-data + metadata + a11y completeness on public pages
+
+Verified, additive quality wins from a public-surface audit (4-agent sweep) — no design/copy/pricing changes:
+
+- **`/help`** — added `alternates.canonical` + `openGraph` (it had title+description only; a ~90-article surface with no canonical/share-card).
+- **`/how-it-works`** — added `openGraph` (it had canonical + hreflang but no share card).
+- **Homepage WebSite JSON-LD** — added a `SearchAction` `potentialAction` (the Google sitelinks search box, pointed at `/explore?q=`) + `url` on the `SoftwareApplication` node.
+- **`_sections.tsx`** — `aria-hidden` on a decorative arrow SVG (removes screen-reader noise).
+
+Skipped audit false-positives after cross-checking: `/features` already emits JSON-LD via `_PageBody`; the `<img>`→next/image swap on `/explore/compare` (a dynamic vendor URL not in `remotePatterns` would break the image); the HeroScrub change (heavily-iterated, flagged colliding); the `/tl` `<html lang>` fix (touches the critical root layout — flagged for owner).
+
+tsc 0 · ESLint clean. Pure additive `<head>`/JSON-LD/ARIA — zero layout/behavior change.
+
+⚠ Surfaced, not changed: the `/pricing` page shows **stale availability labels** (e.g. Save-the-Date Cinematic Openings ₱799 marked "Coming Soon" though it shipped; Patiktok marked "In Build" though its render pipeline now exists). Prices + availability are owner-managed + mid-reconciliation — owner to reconcile.
+
+SPEC IMPACT None — SEO/accessibility hardening on existing public pages.
+
+## 2026-06-20 · revert(std): restore the Save-the-Date film mute toggle (it was the wrong icon)
+## 2026-06-20 · ux(std): stop the couple background-music speaker from bleeding over the veil reveal
+
+Follow-up to the 2026-06-19 film-mute removal. The actual speaker-with-✕ icon the owner saw on the veil was the couple-website **background-music player** (`background-music.tsx`), not the film's mute — its default (not-yet-playing) state renders a `VolumeX`. That floating control is gated only on `bgMusicUrl`, with **no phase check**, so it rendered during the Save-the-Date phase too and sat under the sheer veil, showing through the reveal.
+
+- **`apps/web/app/[slug]/page.tsx`** (both render paths — anonymous + identified-guest, ~lines 1421 & 1928): changed `{bgMusicUrl ? <BackgroundMusic …/> : null}` → `{bgMusicUrl && !showSaveTheDate ? <BackgroundMusic …/> : null}`. The player now renders only on the live wedding-site phases (RSVP / Event / Editorial), never during the Save-the-Date veil reveal. The STD film owns audio during that phase, so nothing is lost. `showSaveTheDate` is already in scope at both sites.
+
+SPEC IMPACT: None — conditional-render guard only; no schema, pricing, or product-surface change. The `BackgroundMusic` component and the couple's opt-in background-music feature are untouched on every other phase.
+
+---
 
 ## 2026-06-19 · fix(ci): repair two advisory guards left stale by the Studio route rename (PR pending, auto-merge)
 
@@ -22,11 +49,11 @@ Verified: both guards run green locally (`retired-strings` 0 violations / 1117 f
 SPEC IMPACT: None (CI guard config only).
 ## 2026-06-19 · ux(std): remove the Save-the-Date content-film mute toggle (owner)
 
-The content film rendered a small translucent mute toggle (bottom-right, `Music`⇄`VolumeX`) as the "lone escape" for its auto-playing soundtrack. Because the film plays *underneath* the sheer veil reveal, the button bled through the veil and showed over the opening. Owner asked to remove it entirely (2026-06-19) — accepting that the soundtrack now has no off-switch.
+Reverts #1843. The owner's "remove this" pointed at a **speaker-with-✕** icon on the veil; with the full screenshot it became clear that's the bottom-LEFT couple background-music player (handled separately by gating it off during the STD phase), **not** the film's mute. The bottom-RIGHT music-note control is the film's mute — "the one that works" — and the owner wants it kept. #1843 had removed it.
 
-- **`apps/web/app/[slug]/_components/save-the-date-film.tsx`**: deleted the mute `<button>` block (was gated on `content.musicUrl || content.videoUrl`), the `toggleMute` handler, and the now-unused `lucide-react` `Music`/`VolumeX` import. Replaced `const [muted, setMuted] = useState(false)` with a stable `const muted = false` (no toggle path remains) — the 13 remaining `muted` reads in the audio/video-gating effects are unchanged, so the `<audio loop muted={muted}>` element still auto-plays with sound. No other transport chrome existed to touch.
+- **`git revert -m 1` of #1843's merge** (`15af5828`): restores in `apps/web/app/[slug]/_components/save-the-date-film.tsx` the `Music`/`VolumeX` import, the `const [muted, setMuted] = useState(false)` state, the `toggleMute` handler, and the bottom-right mute `<button>` (gated on `content.musicUrl || content.videoUrl`). Clean revert, no conflicts.
 
-SPEC IMPACT: None — UI removal only; no schema, pricing, or product-surface change. Note for the owner: the film's auto-playing soundtrack now has **no guest-facing mute** on any phase (accessibility/UX trade-off acknowledged per the 2026-06-19 decision); the separate couple-landing `BackgroundMusic` opt-in control (RSVP/Event phases) is untouched.
+SPEC IMPACT: None — restores prior UI behavior. Net state across the two open changes: the **left** background-music speaker no longer renders during the veil (#1845), the **right** film mute is back. No schema/pricing/surface change.
 
 ---
 
@@ -65,6 +92,17 @@ Two payout-safety fixes. Files: `lib/payouts.ts`, `app/admin/payments/actions.ts
 Self-reviewed against TS strict (no local `node_modules` → no typecheck/lint here; CI gates). New symbols all used; `service_key`/`event_id`/`on_hold`/`hold_reason`/`audit_log`/`paid_at` are pre-existing columns.
 
 SPEC IMPACT: None (payout-safety bug fix + new admin reversal action; no SKU/pricing/schema change — the vendor payout model + the branch ₱999 add-on are both already locked in the corpus). Behavioral note for the corpus payout section: branch/vendor-pays-Setnayan orders never generate a vendor payout, and held payouts now have an admin release path.
+## 2026-06-19 · fix(lint): re-point two repo-health guards after the /add-ons → /studio route rename
+
+The route rename (`7724deaa`) moved files but two **advisory** lint guards still referenced the old `add-ons/` paths, leaving them RED on `main`:
+
+- **`scripts/lint-papic-keep-permanent.mjs`** — check #3 pointed at `app/dashboard/[eventId]/add-ons/papic/actions.ts` → "FILE MISSING". **Verified the Papic keep-permanent wiring SURVIVED the move** (not a regression): `studio/papic/actions.ts:141` still calls `await makeSamplerPermanent(eventId)`, and the other 5 chain sites are unchanged. So this was purely a stale path — re-pointed to `…/studio/papic/actions.ts` (+ the chain-doc comment). Guard green (6 sites intact).
+- **`.retired-strings.json`** — the "Custom Monogram Pack" exception's `allow_paths` still listed `…/add-ons/panood/setup/page.tsx`; the page moved to `…/studio/panood/setup/page.tsx`. Updated the path (preserves the documented exception pending the spec-vs-code reconciliation). Guard green (0 violations, 1119 files scanned).
+
+No TypeScript touched (only a `.mjs` guard + a `.json` allow-list), so `tsc` is unaffected.
+
+SPEC IMPACT: None — CI tooling only; no product surface, schema, or copy change.
+
 ## 2026-06-19 · fix(onboarding): events.together_since no longer commits NULL when entered in the love stage
 
 The dedicated `togetherSince` OnboardingState field has no UI input — the "together since" YEAR the couple types during the love stage only ever writes to `state.loveStory.together_since` (the `love_spark` screen). At commit, `buildCommitPayload` sourced the top-level `events.together_since` column solely from the empty dedicated state, so it committed `NULL` even when the couple supplied a year (the value survived only inside the `love_story` JSONB blob).
@@ -284,6 +322,17 @@ Fix (`save-the-date-film.tsx`): unlock the `<audio>` on the guest's **first real
 Verified: `pnpm typecheck` clean. (iOS audio can't be exercised headlessly — owner verifies on a phone.) No migration.
 
 SPEC IMPACT: iter 0024 Save-the-Date — mobile soundtrack-on-lift fix. See `DECISION_LOG.md` 2026-06-19.
+## 2026-06-19 · fix(hosts): "Could not send invitation: NEXT_REDIRECT" — couples couldn't add hosts (PR pending, auto-merge)
+
+Owner: *"i cannot add hosts. something went wrong."*
+
+Root cause: `inviteHost` in `app/dashboard/[eventId]/hosts/actions.ts` called the success `redirect(…?invite_sent=1&token=…)` **inside** a `try`. Next implements `redirect()` by throwing a `NEXT_REDIRECT` error, so the surrounding `catch (e)` swallowed it and re-redirected to `?invite_error=${e.message}` = `NEXT_REDIRECT`. The hosts page then rendered **"Could not send invitation: NEXT_REDIRECT"** on *every* invite — including ones that actually inserted the row. The same masking hid genuine DB/validation errors. Latent since the feature shipped (commit `e23f96e9`, 2026-05-24); surfaced now that the multi-host invite flow was exercised.
+
+Fix: re-throw Next's control-flow error in the catch — `if (isRedirectError(e)) throw e;` — before the `invite_error` fallback. Matches the existing convention in `app/signup/actions.ts`. Now the success redirect lands on `?invite_sent=1` (couple sees the share link), and only real failures (Forbidden, bad email/role, DB errors) surface their actual message.
+
+Verified: change mirrors the proven `isRedirectError` pattern already in `signup/actions.ts`; import path resolves against the installed Next 15.5.18 (`next/dist/client/components/redirect-error`). Relying on CI typecheck + build (auto-merge gate). No migration.
+
+SPEC IMPACT: None — restores the already-specced multi-host invite (iter 0048) to working order; no behavior/pricing/schema change.
 
 ## 2026-06-19 · feat(std): press-to-glow on the Save-the-Date + admin Reveal Studio control (PR pending, auto-merge)
 
@@ -938,6 +987,15 @@ The couple can now pick **No Reveal** in the Save-the-Date opening picker — th
 Verified: `pnpm typecheck` + `pnpm lint` clean.
 
 SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — "No Reveal" is the explicit free baseline in the opening picker (reveals = premium filter on top). No schema change (reuses `events.std_reveal_template` = `'none'`).
+## 2026-06-18 · fix(std): a wedding with no date set is now in the Save-the-Date phase (so the STD actually shows)
+
+A couple rendered their Save-the-Date and the live page showed the generic RSVP-phase landing instead. Root cause: `getLifecyclePhase()` returned `'rsvp'` for a **null `event_date`**, and the STD film only renders in the `'save_the_date'` phase — so any wedding without a finalized date skipped the Save-the-Date entirely.
+
+`lib/invitation-widgets.ts`: a null `event_date` now maps to `'save_the_date'` (was `'rsvp'`). A couple with no finalized date is at the very start of the lifecycle (the announcement stage) — consistent with the future-date split (the farther out the wedding, the earlier the phase; no date = farthest = Save-the-Date). Only the live couple page (`app/[slug]/page.tsx`) consumes this version; the dashboard uses the separate `day-of-mode` `getLifecyclePhase` (unaffected).
+
+Verified: `pnpm typecheck` + `pnpm lint` clean; no test pins the old default.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the Save-the-Date is the lifecycle's first phase, including before a date is set. Aligns with the date-as-output philosophy. No schema change.
 
 ## 2026-06-18 · fix(std): the veil stays on top — it's a persistent layer over the playing film, not a one-shot gate
 
@@ -960,6 +1018,17 @@ Per owner decision (Option B), Panood collapses to **one per-day SKU = the catal
 `app/dashboard/[eventId]/add-ons/panood/page.tsx` only. `pnpm typecheck` + `pnpm lint` clean. The dropped V1 keys still linger harmlessly in `lib/add-on-stats.ts` / `lib/subscriptions.ts` / the legacy `lib/sku-catalog.ts` mirror (they handle historical orders; the mirror cleanup is PR3).
 
 SPEC IMPACT: iter 0011 (Panood) is now a single per-day SKU priced from the admin catalog (Annual + AI media SKUs retired from the buy flow). **Next — PR3:** replace the remaining display-only hardcodes (`lib/wizard.ts` copy, Papic display figures, `/pricing` branch line) + delete retired Boosted-Ads prices. DECISION_LOG row added.
+## 2026-06-18 · fix(std): preview veil is controllable (drag/double-tap) + Save-the-Date save no longer fails (missing prod columns)
+
+Two builder bugs reported on a live couple Save-the-Date builder:
+
+1. **Couldn't control the veil in the preview** — `veil-reveal.tsx` only attached the pointer listeners `if (!autoplay)`, and the preview passes `autoplay`, so drag + double-tap were dead. Now the listeners attach **always**; the preview keeps its hands-free auto-demo (`startAuto`) AND is controllable — a swipe/double-tap cleanly overrides the demo (`setLift`/`doRevealAuto` clear `auto`/`locked`; the gesture handlers never gated on them). Live page unchanged.
+
+2. **"Cannot save the details"** — the save hard-failed with `column "std_film_date" does not exist`. The migration `20270122468502_std_film_content_snapshot.sql` (adds `std_film_date` / `std_film_venue_name` / `std_film_venue_city` / `std_film_story`) was **never applied to prod**; the page's SELECT of those columns silently failed → `event` came back null (builder ran degraded) and the save UPDATE errored. **Applied the migration to prod** (idempotent `ADD COLUMN IF NOT EXISTS`) + recorded the ledger row `20270122468502`. Verified the action's UPDATE now succeeds. No code change for this one — the migration just hadn't been pushed.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: None — bug fixes (gesture-listener gating + applying an existing-but-unpushed migration).
 
 ## 2026-06-18 · fix(std): couple opening picker honours the admin "allowed openings" map
 

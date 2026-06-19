@@ -115,7 +115,7 @@ export function PakantaMusicForm({ eventId, initial, pricePhp }: Props) {
       />
 
       {error ? (
-        <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>
+        <p className="rounded-lg bg-danger-50 px-3 py-2 text-sm text-danger-700">{error}</p>
       ) : null}
 
       <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:items-center sm:justify-end">
@@ -163,7 +163,7 @@ function Field({
 }) {
   const base =
     'mt-1 w-full rounded-lg border bg-cream px-3 py-2 text-sm text-ink placeholder:text-ink/35 focus:outline-none focus:ring-2 focus:ring-mulberry/40';
-  const borderCls = error ? 'border-rose-400' : 'border-ink/15';
+  const borderCls = error ? 'border-danger-400' : 'border-ink/15';
   return (
     <label className="block">
       <span className="text-sm font-medium text-ink/80">
@@ -187,7 +187,7 @@ function Field({
           className={`${base} ${borderCls}`}
         />
       )}
-      {error ? <span className="mt-1 block text-xs text-rose-600">{error}</span> : null}
+      {error ? <span className="mt-1 block text-xs text-danger-600">{error}</span> : null}
     </label>
   );
 }

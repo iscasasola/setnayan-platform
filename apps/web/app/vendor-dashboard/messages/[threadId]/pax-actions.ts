@@ -15,6 +15,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { emitNotification } from '@/lib/notification-emit';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveLivePax, computeAddedPaxSurcharge } from '@/lib/pax';
 
@@ -139,6 +140,45 @@ async function writeAudit(
   }
 }
 
+// Notify every couple member that the vendor confirmed a guest-count-driven
+// cost change (best-effort — the booking total already moved; a failed notify
+// must never roll it back). The couple→vendor cost change was previously
+// silent: event_vendors is the couple's table but the WRITE happens on the
+// vendor side, so without this the couple's total moved with no signal.
+async function notifyCoupleOfSurchargeChange(
+  r: Resolved,
+  newTotal: number,
+): Promise<void> {
+  try {
+    const { data: vendor } = await r.admin
+      .from('vendor_profiles')
+      .select('business_name')
+      .eq('vendor_profile_id', r.vendorProfileId)
+      .maybeSingle();
+    const vendorName = vendor?.business_name?.trim() || 'Your vendor';
+    const delta = r.target - r.applied;
+    const direction =
+      delta > 0 ? 'increased' : delta < 0 ? 'decreased' : 'updated';
+    const { data: members } = await r.admin
+      .from('event_members')
+      .select('user_id')
+      .eq('event_id', r.eventId)
+      .eq('member_type', 'couple');
+    for (const m of members ?? []) {
+      if (!m.user_id) continue;
+      await emitNotification({
+        userId: m.user_id,
+        type: 'pax_surcharge_changed',
+        title: `${vendorName} ${direction} a guest-count charge`,
+        body: `Based on ${r.livePax} guests, the booking total is now ₱${newTotal.toLocaleString('en-PH')}.`,
+        relatedUrl: `/dashboard/${r.eventId}/budget`,
+      });
+    }
+  } catch (e) {
+    console.error('[pax] couple surcharge notify failed:', e);
+  }
+}
+
 /** Apply the live-pax surcharge to the booking total (the vendor confirmed). */
 export async function acceptPaxSurcharge(formData: FormData): Promise<void> {
   const r = await resolve(formData);
@@ -154,6 +194,7 @@ export async function acceptPaxSurcharge(formData: FormData): Promise<void> {
     })
     .eq('vendor_id', r.eventVendorId);
   await writeAudit(r, 'accept', r.target, newTotal);
+  await notifyCoupleOfSurchargeChange(r, newTotal);
   revalidate(r.threadId);
 }
 

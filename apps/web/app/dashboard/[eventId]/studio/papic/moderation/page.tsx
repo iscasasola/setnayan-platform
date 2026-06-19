@@ -221,7 +221,7 @@ export default async function PapicModerationPage({
       </header>
 
       {notice && (
-        <p className="inline-flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+        <p className="inline-flex items-center gap-2 rounded-md border border-success-200 bg-success-50 px-3 py-2 text-sm text-success-800">
           <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={2} />
           {notice}
         </p>
@@ -276,7 +276,7 @@ export default async function PapicModerationPage({
                     </span>
                   )}
                   {isReported && (
-                    <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-amber-500/90 px-2 py-0.5 text-[10px] font-medium text-white">
+                    <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-warn-500/90 px-2 py-0.5 text-[10px] font-medium text-white">
                       <Flag aria-hidden className="h-3 w-3" strokeWidth={2} /> Reported
                     </span>
                   )}
@@ -329,7 +329,7 @@ export default async function PapicModerationPage({
                     </select>
                     <SubmitButton
                       pendingLabel="Reporting…"
-                      className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-900 hover:bg-amber-100"
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-warn-300 bg-warn-50 px-3 py-1.5 text-xs font-medium text-warn-900 hover:bg-warn-100"
                     >
                       <Flag aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Report
                     </SubmitButton>
@@ -396,9 +396,9 @@ export default async function PapicModerationPage({
       )}
 
       {screenedRows.length > 0 && (
-        <section className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50/50 p-5">
+        <section className="space-y-3 rounded-2xl border border-warn-200 bg-warn-50/50 p-5">
           <h2 className="flex items-center gap-2 text-sm font-semibold tracking-tight text-ink/80">
-            <ShieldAlert className="h-4 w-4 text-amber-600" strokeWidth={1.75} />
+            <ShieldAlert className="h-4 w-4 text-warn-600" strokeWidth={1.75} />
             Filtered by the content screen
           </h2>
           <p className="max-w-2xl text-xs text-ink/60">
@@ -431,7 +431,7 @@ export default async function PapicModerationPage({
                         Preview unavailable
                       </div>
                     )}
-                    <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-amber-500/90 px-2 py-0.5 text-[10px] font-medium text-white">
+                    <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-warn-500/90 px-2 py-0.5 text-[10px] font-medium text-white">
                       <ShieldAlert aria-hidden className="h-3 w-3" strokeWidth={2} />{' '}
                       {s.isClip ? 'Filtered clip' : 'Filtered'}
                     </span>
@@ -442,7 +442,7 @@ export default async function PapicModerationPage({
                     <input type="hidden" name="id" value={s.id} />
                     <SubmitButton
                       pendingLabel="Approving…"
-                      className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-800 hover:bg-emerald-100"
+                      className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-success-300 bg-success-50 px-2.5 py-1.5 text-xs font-medium text-success-800 hover:bg-success-100"
                     >
                       <Eye aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Approve — show this photo
                     </SubmitButton>

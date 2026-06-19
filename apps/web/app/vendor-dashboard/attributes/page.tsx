@@ -194,12 +194,12 @@ export default async function VendorAttributesPage({ searchParams }: Props) {
         </div>
       ) : null}
       {savedService && missingFields.length === 0 ? (
-        <div role="status" className="mb-5 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+        <div role="status" className="mb-5 rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800">
           Saved attributes for <span className="font-medium">{savedService}</span>.
         </div>
       ) : null}
       {savedService && missingFields.length > 0 ? (
-        <div role="status" className="mb-5 rounded-md border border-amber-300/60 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <div role="status" className="mb-5 rounded-md border border-warn-300/60 bg-warn-50 px-4 py-3 text-sm text-warn-900">
           Saved <span className="font-medium">{savedService}</span> — but your listing
           won&rsquo;t surface in the marketplace yet. Still missing for the visibility gate:{' '}
           <span className="font-mono text-xs">{missingFields.join(', ')}</span>.
@@ -327,12 +327,12 @@ function ServiceForm({
             <>
               <CompletenessBadge value={completeness} />
               {meetsVisibility ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-700">
+                <span className="inline-flex items-center gap-1 rounded-full bg-success-50 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-700">
                   <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={2} />
                   listing-ready
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-amber-800">
+                <span className="inline-flex items-center gap-1 rounded-full bg-warn-50 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-warn-800">
                   <ChevronDown aria-hidden className="h-3 w-3" strokeWidth={2} />
                   visibility gate not met
                 </span>
@@ -371,9 +371,9 @@ function ServiceForm({
 function CompletenessBadge({ value }: { value: number }) {
   const tone =
     value >= 80
-      ? 'bg-emerald-100 text-emerald-800'
+      ? 'bg-success-100 text-success-800'
       : value >= 40
-        ? 'bg-amber-100 text-amber-800'
+        ? 'bg-warn-100 text-warn-800'
         : 'bg-ink/10 text-ink/70';
   return (
     <span

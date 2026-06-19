@@ -6,12 +6,12 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
 import {
-  BRANCH_FEE_PHP,
   BRANCH_LABEL_MAX,
   BRANCH_CITY_MAX,
   BRANCH_RADIUS_MIN_KM,
   BRANCH_RADIUS_MAX_KM,
   branchServiceKey,
+  fetchBranchFeePhp,
 } from '@/lib/vendor-branches';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -70,10 +70,11 @@ async function requireBranchManager() {
 }
 
 /**
- * Start a ₱999 apply-then-pay charge for a branch (reused by create + renew):
+ * Start the apply-then-pay charge for a branch (reused by create + renew):
  * an `orders` row (event_id NULL = vendor subscription) + a pending `payments`
  * row so it lands in /admin/payments. Returns the reference code, or an error
- * tag so the caller can clean up. Price is passed explicitly (no catalog SKU).
+ * tag so the caller can clean up. The fee is resolved server-side from the
+ * admin-managed catalog by the caller (falls back to ₱999) and passed in here.
  */
 async function startBranchPayment(
   supabase: SupabaseClient,
@@ -82,6 +83,7 @@ async function startBranchPayment(
   branchId: string,
   label: string,
   channel: 'bdo' | 'gcash',
+  feePhp: number,
 ): Promise<{ referenceCode: string } | { error: true }> {
   const referenceCode = generateReferenceCode();
   const { data: orderRow, error: oErr } = await supabase
@@ -92,7 +94,7 @@ async function startBranchPayment(
       vendor_profile_id: vendorProfileId,
       service_key: branchServiceKey(branchId),
       description: `Additional Branch — ${label}`,
-      requested_total_php: BRANCH_FEE_PHP,
+      requested_total_php: feePhp,
       status: 'submitted',
       reference_code: referenceCode,
     })
@@ -104,7 +106,7 @@ async function startBranchPayment(
   const { error: pErr } = await supabase.from('payments').insert({
     order_id: orderId,
     user_id: userId,
-    amount_php: BRANCH_FEE_PHP,
+    amount_php: feePhp,
     channel,
     reference_number: null,
     screenshot_url: null,
@@ -157,8 +159,18 @@ export async function createBranch(formData: FormData) {
   if (bErr || !branchRow) fail('Could not create the branch. Please try again.');
   const branchId = (branchRow as { branch_id: string }).branch_id;
 
-  // 2) Apply-then-pay charge.
-  const res = await startBranchPayment(supabase, userId, vendorProfileId, branchId, label, channel);
+  // 2) Apply-then-pay charge. Price comes from the admin-managed catalog
+  //    (falls back to the ₱999 literal if the SKU row is missing).
+  const feePhp = await fetchBranchFeePhp(supabase);
+  const res = await startBranchPayment(
+    supabase,
+    userId,
+    vendorProfileId,
+    branchId,
+    label,
+    channel,
+    feePhp,
+  );
   if ('error' in res) {
     // Roll back the branch so we don't leave an orphan with no order.
     await supabase.from('vendor_branches').delete().eq('branch_id', branchId);
@@ -193,7 +205,16 @@ export async function renewBranch(formData: FormData) {
   }
   const label = (branch as { branch_label: string }).branch_label;
 
-  const res = await startBranchPayment(supabase, userId, vendorProfileId, branchId, label, channel);
+  const feePhp = await fetchBranchFeePhp(supabase);
+  const res = await startBranchPayment(
+    supabase,
+    userId,
+    vendorProfileId,
+    branchId,
+    label,
+    channel,
+    feePhp,
+  );
   if ('error' in res) fail('Could not start the renewal payment. Please try again.');
 
   revalidatePath('/vendor-dashboard/branches');

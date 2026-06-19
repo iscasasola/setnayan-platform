@@ -91,6 +91,7 @@ import {
   type PaperworkRow,
 } from '@/lib/paperwork';
 import { AuspiciousChip } from './_components/auspicious-chip';
+import { SetDateNudge } from './_components/set-date-nudge';
 import { EventCountdownHeader } from './_components/event-countdown-header';
 import { countUnlockedCategories, pickTodaysOneThing } from '@/lib/todays-one-thing';
 import { TodaysOneThing } from './_components/todays-one-thing';
@@ -1634,6 +1635,13 @@ export default async function EventHomePage({
         totalLockable={totalLockableCategories}
         now={now}
       />
+
+      {/* Set-your-date nudge — date-as-output keeps onboarding's event_date NULL,
+       *  but the couple still needs a clear, low-friction way to lock the date
+       *  later so the date-gated public website lifecycle (Save-the-Date / Event
+       *  / Editorial) can launch. Renders ONLY when no date is set; dismissible
+       *  per-event; links to the existing /date-selection governed surface. */}
+      {!event.event_date ? <SetDateNudge eventId={eventId} /> : null}
 
       {/* Today's one thing — the single highest-priority next action (owner
        *  REVIVED 2026-06-13). Headspace-pattern single-focus card sitting above

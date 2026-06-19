@@ -16,6 +16,17 @@ export const metadata = {
   title: 'Help & support',
   description:
     'Step-by-step guides for couples, vendors, guests, and admins using Setnayan. Pick your role tile or send us a message.',
+  alternates: { canonical: '/help' },
+  openGraph: {
+    type: 'website',
+    url: '/help',
+    title: 'Help & support · Setnayan',
+    description:
+      'Step-by-step guides for couples, vendors, guests, and admins using Setnayan. Pick your role tile or send us a message.',
+    siteName: 'Setnayan',
+    locale: 'en_PH',
+    images: [{ url: '/brand/og-card.webp', width: 1200, height: 630 }],
+  },
 };
 
 const FAQ_JSONLD = {
@@ -153,7 +164,7 @@ export default async function HelpPage({ searchParams }: Props) {
           {search.submitted ? (
             <p
               role="status"
-              className="mt-6 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+              className="mt-6 rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-900"
             >
               Thanks — we got your message (ref{' '}
               <span className="font-mono">{search.submitted}</span>). We&rsquo;ll get back to

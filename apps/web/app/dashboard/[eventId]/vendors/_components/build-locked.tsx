@@ -153,10 +153,10 @@ export function BuildLocked({
             {lockedRows.map((r, i) => (
               <li
                 key={`${r.group}-${r.name}-${i}`}
-                className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50/60 px-4 py-3"
+                className="flex items-center justify-between gap-3 rounded-xl border border-success-200 bg-success-50/60 px-4 py-3"
               >
                 <span className="flex min-w-0 items-center gap-2.5">
-                  <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" strokeWidth={1.75} aria-hidden />
+                  <CheckCircle2 className="h-5 w-5 shrink-0 text-success-600" strokeWidth={1.75} aria-hidden />
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-semibold text-ink">{r.name}</span>
                     <span className="block font-mono text-[10px] uppercase tracking-[0.1em] text-ink/45">

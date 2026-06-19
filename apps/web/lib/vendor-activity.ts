@@ -19,6 +19,15 @@ import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { profileCompletion } from '@/lib/vendor-profile';
 import type { VendorProfileRow } from '@/lib/vendor-profile';
+import {
+  sendVendorUnderReviewEmail,
+  sendVendorSlowResponseEmail,
+} from '@/lib/vendor-email-triggers';
+
+// Quality edge-trigger thresholds (0022 § quality). Crossing BELOW these for
+// the first time fires the corresponding previously-dead email exactly once.
+const UNDER_REVIEW_BAYESIAN_THRESHOLD = 3.0; // avg rating floor
+const SLOW_RESPONSE_RATE_THRESHOLD = 50; // % of inquiries replied to
 
 // ---------------------------------------------------------------------------
 // Types
@@ -209,6 +218,23 @@ function profileCompletenessPct(profile: VendorProfileRow | null): number {
  */
 export async function recomputeVendorActivityStats(vendorProfileId: string): Promise<void> {
   const supabase = createAdminClient();
+
+  // Snapshot the PRIOR stats so we can edge-trigger the quality emails
+  // (under-review + slow-response) only on the first downward crossing,
+  // never re-spamming on every recompute while the metric stays low.
+  // Best-effort: a missing row (first recompute) leaves prior values null,
+  // which the edge-checks below treat as "no prior crossing" → won't fire.
+  const { data: priorStats } = await supabase
+    .from('vendor_activity_stats')
+    .select('review_avg_bayesian, response_rate_pct')
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  const priorBayesian =
+    (priorStats as { review_avg_bayesian?: number | null } | null)
+      ?.review_avg_bayesian ?? null;
+  const priorResponseRate =
+    (priorStats as { response_rate_pct?: number | null } | null)
+      ?.response_rate_pct ?? null;
 
   // -----------------------------------------------------------------------
   // 1. Fetch all needed data in parallel
@@ -445,6 +471,47 @@ export async function recomputeVendorActivityStats(vendorProfileId: string): Pro
     throw new Error(
       `vendor-activity: upsert failed for ${vendorProfileId}: ${upsertError.message}`,
     );
+  }
+
+  // -----------------------------------------------------------------------
+  // 10. Quality edge-trigger emails (Phase B · 2026-06-19)
+  // -----------------------------------------------------------------------
+  // Revive the two previously-dead quality senders. Both fire ONLY on the
+  // first DOWNWARD crossing of the threshold — i.e. the prior value was at/
+  // above the floor (or unknown but with reviews/threads present) and the new
+  // value dropped below. This edge-trigger (not level-trigger) prevents
+  // re-emailing the vendor on every recompute while the metric stays low.
+  //
+  // Each send is wrapped so a delivery failure never propagates out of the
+  // recompute (already a background-enrichment path).
+  try {
+    // Under-review: Bayesian avg dropped below 3.0. Require at least one review
+    // so a brand-new vendor (bayesian seeded at the prior mean) isn't flagged.
+    const crossedUnderReview =
+      reviewCount > 0 &&
+      bayesianAvg < UNDER_REVIEW_BAYESIAN_THRESHOLD &&
+      (priorBayesian == null || priorBayesian >= UNDER_REVIEW_BAYESIAN_THRESHOLD);
+    if (crossedUnderReview) {
+      await sendVendorUnderReviewEmail(vendorProfileId).catch((e) =>
+        console.error('[vendor-activity] under-review email failed:', e),
+      );
+    }
+
+    // Slow-response: response rate dropped below 50%. Require at least one
+    // thread (responseRatePct is 0 with no threads — not a real "slow" signal).
+    const crossedSlowResponse =
+      totalThreads > 0 &&
+      responseRatePct < SLOW_RESPONSE_RATE_THRESHOLD &&
+      (priorResponseRate == null ||
+        priorResponseRate >= SLOW_RESPONSE_RATE_THRESHOLD);
+    if (crossedSlowResponse) {
+      await sendVendorSlowResponseEmail(vendorProfileId, responseRatePct).catch(
+        (e) => console.error('[vendor-activity] slow-response email failed:', e),
+      );
+    }
+  } catch (e) {
+    // Edge-trigger emails are strictly best-effort enrichment.
+    console.error('[vendor-activity] quality edge-trigger emails failed:', e);
   }
 }
 

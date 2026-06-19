@@ -450,7 +450,7 @@ export function InlineCheckoutDrawer({
                   {submitResult && submitResult.ok === false ? (
                     <p
                       role="alert"
-                      className="rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-800"
+                      className="rounded-lg bg-danger-50 px-3 py-2 text-xs text-danger-800"
                     >
                       {submitResult.reason}
                     </p>
@@ -544,14 +544,14 @@ function VoucherBlock({
   // Applied state · show code + discount + Remove.
   if (applied && voucherResult) {
     return (
-      <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
+      <div className="space-y-2 rounded-lg border border-success-200 bg-success-50 px-4 py-3">
         <div className="flex items-center justify-between gap-3">
           <div className="space-y-0.5">
-            <p className="flex items-center gap-2 text-xs font-semibold text-emerald-900">
+            <p className="flex items-center gap-2 text-xs font-semibold text-success-900">
               <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={2} />
               Code applied · {voucherResult.code}
             </p>
-            <p className="font-mono text-xs text-emerald-800/80">
+            <p className="font-mono text-xs text-success-800/80">
               {voucherResult.discount_php} off · final total{' '}
               {voucherResult.final_php}
             </p>
@@ -559,7 +559,7 @@ function VoucherBlock({
           <button
             type="button"
             onClick={onRemove}
-            className="rounded-full p-1 text-emerald-800/60 hover:bg-emerald-100 hover:text-emerald-900"
+            className="rounded-full p-1 text-success-800/60 hover:bg-success-100 hover:text-success-900"
             aria-label="Remove voucher"
           >
             <X aria-hidden className="h-4 w-4" strokeWidth={2} />
@@ -605,7 +605,7 @@ function VoucherBlock({
         </button>
       </div>
       {rejected && voucherResult?.reason ? (
-        <p role="alert" className="text-xs text-rose-800">
+        <p role="alert" className="text-xs text-danger-800">
           {voucherResult.reason}
         </p>
       ) : (
@@ -671,7 +671,7 @@ function PaymentDetailsBlock({
 
   if (!hasInfo) {
     return (
-      <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+      <div className="rounded-lg border border-warn-200 bg-warn-50 px-4 py-3 text-xs text-warn-900">
         Bank account details will follow via separate email · our team will
         reach out within the day.
       </div>
@@ -728,10 +728,10 @@ function SubmitSuccess({
 }) {
   return (
     <div className="space-y-4 text-center">
-      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100">
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-success-100">
         <CheckCircle2
           aria-hidden
-          className="h-6 w-6 text-emerald-700"
+          className="h-6 w-6 text-success-700"
           strokeWidth={2}
         />
       </div>

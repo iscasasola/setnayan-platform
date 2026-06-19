@@ -51,8 +51,8 @@ type AttentionRow = EventVendorRow & {
 };
 
 const STATUS_TONE: Record<string, string> = {
-  disputed: 'bg-rose-100 text-rose-800',
-  awaiting_vendor: 'bg-amber-100 text-amber-900',
+  disputed: 'bg-danger-100 text-danger-800',
+  awaiting_vendor: 'bg-warn-100 text-warn-900',
   vendor_marked: 'bg-sky-100 text-sky-800',
 };
 
@@ -262,7 +262,7 @@ function CompletionsTable({
                 <td className="px-3 py-3 align-top">
                   <div className="flex flex-col gap-2">
                     <details className="min-w-[13rem]">
-                      <summary className="cursor-pointer select-none text-xs font-medium text-emerald-700">
+                      <summary className="cursor-pointer select-none text-xs font-medium text-success-700">
                         Force-complete
                       </summary>
                       <form action={forceCompleteVendor} className="mt-2 space-y-2">
@@ -282,7 +282,7 @@ function CompletionsTable({
                     </details>
                     {r.reason === 'disputed' ? (
                       <details className="min-w-[13rem]">
-                        <summary className="cursor-pointer select-none text-xs font-medium text-rose-700">
+                        <summary className="cursor-pointer select-none text-xs font-medium text-danger-700">
                           Uphold non-delivery
                         </summary>
                         <form action={upholdNonDelivery} className="mt-2 space-y-2">

@@ -2214,7 +2214,7 @@ export function SeatingEditor({
                       </span>
                       <span
                         className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${
-                          full ? 'bg-emerald-100 text-emerald-700' : 'bg-ink/5 text-ink/50'
+                          full ? 'bg-success-100 text-success-700' : 'bg-ink/5 text-ink/50'
                         }`}
                       >
                         {full ? 'Filled' : 'Open'}
@@ -2224,7 +2224,7 @@ export function SeatingEditor({
                       type="button"
                       onClick={() => requestRemoveTable(t)}
                       aria-label={`Delete ${t.table_label}`}
-                      className="rounded p-1 text-ink/30 opacity-0 transition hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100"
+                      className="rounded p-1 text-ink/30 opacity-0 transition hover:bg-danger-50 hover:text-danger-600 group-hover:opacity-100"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
@@ -2760,7 +2760,7 @@ export function SeatingEditor({
               <button
                 type="button"
                 onClick={() => unseat(pickedGuest.guest_id)}
-                className="inline-flex items-center gap-1 rounded-md border border-ink/15 bg-cream px-2 py-1 text-xs text-ink hover:border-rose-400 hover:text-rose-600"
+                className="inline-flex items-center gap-1 rounded-md border border-ink/15 bg-cream px-2 py-1 text-xs text-ink hover:border-danger-400 hover:text-danger-600"
               >
                 <UserMinus className="h-3.5 w-3.5" /> Unseat
               </button>
@@ -2817,12 +2817,12 @@ export function SeatingEditor({
         ) : null}
 
         {notice ? (
-          <div className="flex items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <div className="flex items-center gap-3 rounded-xl border border-warn-300 bg-warn-50 px-3 py-2 text-sm text-warn-900">
             <span className="min-w-0 flex-1">{notice}</span>
             <button
               type="button"
               onClick={() => setNotice(null)}
-              className="rounded-md p-1 text-amber-700 hover:bg-amber-100"
+              className="rounded-md p-1 text-warn-700 hover:bg-warn-100"
               aria-label="Dismiss"
             >
               <X className="h-4 w-4" />
@@ -2940,7 +2940,7 @@ export function SeatingEditor({
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={removeDanceFloor}
                 aria-label="Remove dance floor"
-                className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-rose-600"
+                className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-danger-600"
               >
                 <X className="h-3 w-3" />
               </button>
@@ -3039,7 +3039,7 @@ export function SeatingEditor({
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={removeCocktailArea}
                 aria-label="Remove cocktail area"
-                className="pointer-events-auto absolute -right-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-rose-600"
+                className="pointer-events-auto absolute -right-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-danger-600"
               >
                 <X className="h-3 w-3" />
               </button>
@@ -3115,7 +3115,7 @@ export function SeatingEditor({
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={removeEntrance}
                 aria-label="Remove entrance"
-                className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-rose-600"
+                className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-danger-600"
               >
                 <X className="h-3 w-3" />
               </button>
@@ -3143,7 +3143,7 @@ export function SeatingEditor({
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={removeServiceDoor}
                 aria-label="Remove service entrance"
-                className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-rose-600"
+                className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-danger-600"
               >
                 <X className="h-3 w-3" />
               </button>
@@ -3184,7 +3184,7 @@ export function SeatingEditor({
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={() => removeBooth(b.booth_id)}
                   aria-label={`Remove ${b.label}`}
-                  className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-rose-600"
+                  className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-danger-600"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -3276,7 +3276,7 @@ export function SeatingEditor({
                     onPointerDown={(e) => e.stopPropagation()}
                     onClick={() => removeSign(s.sign_id)}
                     aria-label={`Remove ${s.label} sign`}
-                    className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-rose-600"
+                    className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-danger-600"
                   >
                     <X className="h-3 w-3" />
                   </button>
@@ -3418,7 +3418,7 @@ export function SeatingEditor({
                         }}
                         aria-label={`Restore seat ${i + 1}`}
                         title="Restore this chair"
-                        className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-ink/30 text-ink/35 transition hover:border-emerald-500 hover:text-emerald-600"
+                        className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-ink/30 text-ink/35 transition hover:border-success-500 hover:text-success-600"
                         style={{ left: cx, top: cy, width: CHAIR_PX, height: CHAIR_PX }}
                       >
                         <Plus className="mx-auto h-1/2 w-1/2" />
@@ -3484,7 +3484,7 @@ export function SeatingEditor({
                           }}
                           aria-label={`Delete seat ${i + 1}`}
                           title="Delete this chair"
-                          className="absolute -right-1 -top-1 z-20 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/40 shadow-sm transition hover:border-rose-400 hover:text-rose-600"
+                          className="absolute -right-1 -top-1 z-20 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/40 shadow-sm transition hover:border-danger-400 hover:text-danger-600"
                         >
                           <X className="h-2.5 w-2.5" />
                         </button>
@@ -3751,7 +3751,7 @@ export function SeatingEditor({
                         type="button"
                         onClick={() => requestRemoveTable(st)}
                         aria-label="Delete table"
-                        className="flex h-11 items-center gap-1.5 rounded-xl border border-ink/15 px-3 text-sm font-medium text-ink/70 hover:border-rose-400 hover:text-rose-600"
+                        className="flex h-11 items-center gap-1.5 rounded-xl border border-ink/15 px-3 text-sm font-medium text-ink/70 hover:border-danger-400 hover:text-danger-600"
                       >
                         <Trash2 className="h-5 w-5" /> Delete
                       </button>
@@ -3917,7 +3917,7 @@ export function SeatingEditor({
                   type="button"
                   onClick={() => requestRemoveTable(st)}
                   aria-label="Delete table"
-                  className="rounded-lg p-1.5 text-ink/50 hover:bg-rose-50 hover:text-rose-600"
+                  className="rounded-lg p-1.5 text-ink/50 hover:bg-danger-50 hover:text-danger-600"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -4010,7 +4010,7 @@ export function SeatingEditor({
                           </span>
                           <span
                             className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                              full ? 'bg-emerald-100 text-emerald-700' : 'bg-ink/5 text-ink/55'
+                              full ? 'bg-success-100 text-success-700' : 'bg-ink/5 text-ink/55'
                             }`}
                           >
                             {seated.length}/{cap}
@@ -4021,7 +4021,7 @@ export function SeatingEditor({
                           type="button"
                           onClick={() => requestRemoveTable(t)}
                           aria-label={`Delete ${t.table_label}`}
-                          className="rounded p-1 text-ink/30 hover:bg-rose-50 hover:text-rose-600"
+                          className="rounded p-1 text-ink/30 hover:bg-danger-50 hover:text-danger-600"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -4077,7 +4077,7 @@ export function SeatingEditor({
                               {g.dietary_restrictions ? (
                                 <span
                                   title={`Dietary: ${g.dietary_restrictions}`}
-                                  className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800"
+                                  className="shrink-0 rounded-full bg-warn-100 px-1.5 py-0.5 text-[10px] font-semibold text-warn-800"
                                 >
                                   diet
                                 </span>
@@ -4086,7 +4086,7 @@ export function SeatingEditor({
                                 type="button"
                                 onClick={() => unseat(g.guest_id)}
                                 aria-label={`Unseat ${g.name}`}
-                                className="inline-flex items-center gap-1 rounded-md border border-ink/15 px-2 py-1 text-[11px] text-ink/70 hover:border-rose-400 hover:text-rose-600"
+                                className="inline-flex items-center gap-1 rounded-md border border-ink/15 px-2 py-1 text-[11px] text-ink/70 hover:border-danger-400 hover:text-danger-600"
                               >
                                 <UserMinus className="h-3.5 w-3.5" /> Unseat
                               </button>
@@ -4185,7 +4185,7 @@ export function SeatingEditor({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-2 flex items-center gap-2">
-              <Trash2 className="h-5 w-5 text-rose-600" />
+              <Trash2 className="h-5 w-5 text-danger-600" />
               <h3 className="text-lg font-semibold text-ink">
                 Delete {confirmDelete.link_group_label ?? confirmDelete.table_label}?
               </h3>
@@ -4209,7 +4209,7 @@ export function SeatingEditor({
                   removeTable(confirmDelete.table_id);
                   setConfirmDelete(null);
                 }}
-                className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-lg bg-rose-600 px-3 text-sm font-semibold text-cream hover:bg-rose-700 md:h-auto md:flex-none md:py-1.5"
+                className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-lg bg-danger-600 px-3 text-sm font-semibold text-cream hover:bg-danger-700 md:h-auto md:flex-none md:py-1.5"
               >
                 <Trash2 className="h-4 w-4" /> Delete table
               </button>
@@ -4233,9 +4233,9 @@ function Section({ label, children }: { label: string; children: React.ReactNode
 function Pill({ children, tone = 'default' }: { children: React.ReactNode; tone?: 'default' | 'warn' | 'ok' }) {
   const cls =
     tone === 'warn'
-      ? 'bg-amber-100 text-amber-800'
+      ? 'bg-warn-100 text-warn-800'
       : tone === 'ok'
-        ? 'bg-emerald-100 text-emerald-700'
+        ? 'bg-success-100 text-success-700'
         : 'bg-ink/5 text-ink/65';
   return <li className={`rounded-full px-2.5 py-1 font-medium ${cls}`}>{children}</li>;
 }
@@ -4480,7 +4480,7 @@ function SeatPeoplePanel({
             </button>
           ))}
         </div>
-        <span className={`shrink-0 text-[11px] ${free === 0 ? 'text-rose-600' : 'text-ink/55'}`}>
+        <span className={`shrink-0 text-[11px] ${free === 0 ? 'text-danger-600' : 'text-ink/55'}`}>
           {seated}/{cap} · {free} free
         </span>
       </div>
@@ -4521,13 +4521,13 @@ function SeatPeoplePanel({
                     {g.dietary_restrictions ? (
                       <span
                         title={`Dietary: ${g.dietary_restrictions}`}
-                        className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800"
+                        className="shrink-0 rounded-full bg-warn-100 px-1.5 py-0.5 text-[10px] font-semibold text-warn-800"
                       >
                         diet
                       </span>
                     ) : null}
                     {here ? (
-                      <span className="shrink-0 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-700">
+                      <span className="shrink-0 rounded-full bg-success-100 px-1.5 py-0.5 text-[10px] text-success-700">
                         here
                       </span>
                     ) : g.seated_table_id ? (

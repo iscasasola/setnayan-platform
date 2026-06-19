@@ -42,8 +42,8 @@ import {
  */
 const VENDOR_STATUS_CARD_TONE: Record<VerificationState, string> = {
   unverified: 'bg-ink/5 text-ink/75 border-ink/15',
-  pending_review: 'bg-amber-50 text-amber-900 border-amber-300',
-  verified: 'bg-emerald-50 text-emerald-900 border-emerald-300',
+  pending_review: 'bg-warn-50 text-warn-900 border-warn-300',
+  verified: 'bg-success-50 text-success-900 border-success-300',
   demoted: 'bg-terracotta/10 text-terracotta-700 border-terracotta/30',
   rejected: 'bg-terracotta/10 text-terracotta-700 border-terracotta/30',
 };
@@ -103,9 +103,9 @@ export function VerificationStatusCard({
  */
 const ADMIN_STATE_PILL_TONE: Record<VerificationState, string> = {
   unverified: 'bg-ink/5 text-ink/65',
-  pending_review: 'bg-amber-50 text-amber-900',
-  verified: 'bg-emerald-100 text-emerald-800',
-  demoted: 'bg-amber-100 text-amber-900',
+  pending_review: 'bg-warn-50 text-warn-900',
+  verified: 'bg-success-100 text-success-800',
+  demoted: 'bg-warn-100 text-warn-900',
   rejected: 'bg-terracotta/10 text-terracotta-700',
 };
 

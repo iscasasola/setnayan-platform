@@ -187,7 +187,7 @@ export function AccountSwitcher({ data, currentEventName }: Props) {
               <span
                 className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider ${
                   ed.status === 'published'
-                    ? 'bg-emerald-100 text-emerald-700'
+                    ? 'bg-success-100 text-success-700'
                     : 'bg-ink/10 text-ink/50'
                 }`}
               >
@@ -316,7 +316,7 @@ export function AccountSwitcher({ data, currentEventName }: Props) {
                       <span
                         className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider ${
                           ev.role === 'couple'
-                            ? 'bg-amber-100 text-amber-700'
+                            ? 'bg-warn-100 text-warn-700'
                             : 'bg-ink/10 text-ink/55'
                         }`}
                       >
@@ -707,7 +707,7 @@ export function AccountSwitcherStandalone({ data }: Props) {
                                   {ev.event_date ? (<><span aria-hidden>·</span><span>{formatEventDate(ev.event_date)}</span></>) : null}
                                 </span>
                               </span>
-                              <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider ${ev.role === 'couple' ? 'bg-amber-100 text-amber-700' : 'bg-ink/10 text-ink/55'}`}>
+                              <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider ${ev.role === 'couple' ? 'bg-warn-100 text-warn-700' : 'bg-ink/10 text-ink/55'}`}>
                                 {ev.role === 'couple' ? 'Organizing' : 'Attending'}
                               </span>
                             </Link>
@@ -785,7 +785,7 @@ export function AccountSwitcherStandalone({ data }: Props) {
                                 <div className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-ink/85">
                                   <Newspaper aria-hidden className="h-4 w-4 shrink-0 text-terracotta/60" strokeWidth={1.5} />
                                   <span className="min-w-0 flex-1 truncate">{ed.event_display_name}</span>
-                                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase ${ed.status === 'published' ? 'bg-emerald-100 text-emerald-700' : 'bg-ink/10 text-ink/50'}`}>{ed.status}</span>
+                                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase ${ed.status === 'published' ? 'bg-success-100 text-success-700' : 'bg-ink/10 text-ink/50'}`}>{ed.status}</span>
                                 </div>
                               </li>
                             ))}

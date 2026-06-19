@@ -244,8 +244,8 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
           role="status"
           className={`rounded-xl border px-4 py-3 text-sm ${
             notice.tone === 'ok'
-              ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
-              : 'border-amber-200 bg-amber-50 text-amber-900'
+              ? 'border-success-200 bg-success-50 text-success-900'
+              : 'border-warn-200 bg-warn-50 text-warn-900'
           }`}
         >
           {notice.text}
@@ -361,7 +361,7 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
                                 ? 'bg-ink/10 text-ink/55'
                                 : c.kind === 'full'
                                   ? 'bg-terracotta/20 text-terracotta'
-                                  : 'bg-amber-100 text-amber-900'
+                                  : 'bg-warn-100 text-warn-900'
                             }`}
                           >
                             {poolTag(c.pool.label)} {c.kind === 'closed' ? '✕' : `${c.consumed}/${c.pool.capacity}`}
@@ -414,7 +414,7 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
                     } else if (consumed > 0) {
                       cls = full
                         ? 'border-terracotta/40 bg-terracotta/15'
-                        : 'border-amber-300 bg-amber-50';
+                        : 'border-warn-300 bg-warn-50';
                       badge = `${consumed}/${activePool.capacity}`;
                     }
                     return (

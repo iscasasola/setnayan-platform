@@ -137,14 +137,14 @@ export default async function DemoModeAdminPage({ searchParams }: Props) {
           <span
             className={
               isOn
-                ? 'inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-800'
+                ? 'inline-flex items-center gap-1.5 rounded-full bg-success-100 px-3 py-1 text-xs font-medium text-success-800'
                 : 'inline-flex items-center gap-1.5 rounded-full bg-ink/10 px-3 py-1 text-xs font-medium text-ink/60'
             }
           >
             <span
               aria-hidden
               className={`h-1.5 w-1.5 rounded-full ${
-                isOn ? 'bg-emerald-600' : 'bg-ink/30'
+                isOn ? 'bg-success-600' : 'bg-ink/30'
               }`}
             />
             {isOn ? 'Demo mode is ON' : 'Demo mode is OFF'}
@@ -216,14 +216,14 @@ export default async function DemoModeAdminPage({ searchParams }: Props) {
         </ul>
       </section>
 
-      <section className="mt-6 space-y-2 rounded-xl border border-amber-200/60 bg-amber-50/60 p-5 text-sm text-amber-900">
+      <section className="mt-6 space-y-2 rounded-xl border border-warn-200/60 bg-warn-50/60 p-5 text-sm text-warn-900">
         <div className="flex items-center gap-2">
           <ShieldCheck
-            className="h-4 w-4 text-amber-700"
+            className="h-4 w-4 text-warn-700"
             strokeWidth={1.75}
             aria-hidden
           />
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-amber-700">
+          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-warn-700">
             Cleanup deadline
           </h2>
         </div>

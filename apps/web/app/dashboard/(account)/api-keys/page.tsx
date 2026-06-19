@@ -70,12 +70,12 @@ export default async function ApiKeysPage({ searchParams }: Props) {
       ) : null}
 
       {justCreated ? (
-        <section className="mb-6 space-y-3 rounded-2xl border border-emerald-300/60 bg-emerald-50/80 p-5">
+        <section className="mb-6 space-y-3 rounded-2xl border border-success-300/60 bg-success-50/80 p-5">
           <div className="space-y-1">
-            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-emerald-900">
+            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-success-900">
               Save this key now
             </p>
-            <p className="text-sm text-emerald-900">
+            <p className="text-sm text-success-900">
               This is the only time we&rsquo;ll show the full value. Store it in your secrets
               manager — if you lose it, revoke and create a new one.
             </p>
@@ -184,14 +184,14 @@ export default async function ApiKeysPage({ searchParams }: Props) {
                 </div>
                 <div className="flex items-center gap-2">
                   {k.revoked_at ? (
-                    <span className="rounded-full bg-rose-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-rose-800">
+                    <span className="rounded-full bg-danger-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-danger-800">
                       Revoked
                     </span>
                   ) : (
                     <form action={revokeApiKey}>
                       <input type="hidden" name="api_key_id" value={k.api_key_id} />
                       <SubmitButton
-                        className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-rose-100 hover:text-rose-700 disabled:opacity-60"
+                        className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-danger-100 hover:text-danger-700 disabled:opacity-60"
                         pendingLabel="Revoking…"
                       >
                         <ShieldOff className="h-3.5 w-3.5" strokeWidth={1.75} />

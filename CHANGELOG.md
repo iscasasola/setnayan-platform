@@ -4,6 +4,25 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-19 · fix(notifications): email allowlist + branded gating + 10 new types (Notification Foundation · Phase A)
+
+The keystone "Notification Foundation" fix that later emit-fix PRs (Phase B) depend on. Three changes, all in the additive/email-reducing direction (auto-merge safe):
+
+1. **Email allowlist (the bug fix).** `lib/notification-emit.ts` `emitNotification()` previously emailed the recipient on **every** notification type whenever `RESEND_API_KEY` was set, using one generic untemplated plaintext body — so couples + vendors got a spammy email for every in-app signal (kwento flash counts, informational badges, etc.). 0028 only ever specified email for the transactional set. Added a new `EMAIL_ENABLED_TYPES` Set (mirroring the existing `PUSH_ENABLED_TYPES`); email now fires **only** for types in it. Everything else stays in-app/push-only. Gating to an allowlist can only **reduce** sends, so it's backward-safe. The in-app notification INSERT is unchanged — it still fires for **all** types.
+2. **Branded email rendering.** When an allowlisted type emails, it now renders via the existing `renderBrandedEmail()` (`lib/email-template.ts`) and sends multipart `html` + `text` (HTML-capable clients get the Setnayan-styled template; the rest fall back to the existing plaintext). One shared branded layout covers every allowlisted type, so no per-type renderer was needed.
+3. **`order_paid` apostrophe fix.** `app/admin/payments/actions.ts` — the `order_paid` body shipped the literal HTML entity `We&apos;ll` into a plaintext email. Replaced with a real apostrophe (`We'll`).
+
+Also adds **ten new notification types** — registered now (TS union + `NOTIFICATION_TYPE_LABEL` + `NOTIFICATION_TYPE_TONE` in `lib/notifications.ts`, and the Postgres `public.notification_type` enum via migration) so Phase-B PRs can wire `emitNotification()` at their action sites. **Phase A emits none of them**, so it's safe to land before the migration is applied (no code path INSERTs a brand-new type yet): `vendor_status_change`, `vendor_payout_update`, `dispute_resolved`, `vendor_review_reply`, `schedule_suggestion`, `pax_surcharge_changed`, `vendor_joined`, `editorial_decision`, `showcase_featured`, `guest_claim_rejected`. Two of these (`vendor_status_change`, `dispute_resolved`) are transactional and join the email allowlist now.
+
+- **`supabase/migrations/20270129155743_add_notification_types.sql`** — bare (no BEGIN/COMMIT) `ALTER TYPE … ADD VALUE IF NOT EXISTS` ×10, matching the `20260907000000_notification_types_cross_actor_signals.sql` pattern. Idempotent. Orchestrator applies to the DB.
+- **`apps/web/lib/notification-emit.ts`** — `EMAIL_ENABLED_TYPES` Set + allowlist gate + `renderBrandedEmail` html.
+- **`apps/web/lib/notifications.ts`** — 10 new types added to union + label + tone maps.
+- **`apps/web/app/admin/payments/actions.ts`** — `&apos;` → `'` in the `order_paid` body.
+
+Not in scope (Phase B, separate PRs): wiring the dead vendor-quality email senders, and adding `emitNotification()` calls at action sites for the new types.
+
+SPEC IMPACT: Aligns the email channel to the 0028 transactional notification spec (which only ever specified email for the transactional set — the prior all-types behavior was a code regression, not a spec change). Ten new notification types added to the schema. **Flagging, not editing the corpus** per the 2026-06-07 source-of-truth flip (code is canonical; log notable decisions in `DECISION_LOG.md`). No pricing/SKU surface touched.
+
 ## 2026-06-19 · fix(std): close the NaN gap in the Save-the-Date volume clamp (+ correct the root-cause comment)
 
 Follow-up hardening to the earlier volume-clamp fix, after an adversarial root-cause review of the `/[slug]` Save-the-Date `IndexSizeError`. Two findings drove this:

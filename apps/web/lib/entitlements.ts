@@ -112,7 +112,7 @@ export async function checkOrderActive(
  *
  * WHY (PR4 dead-unlock repair, 2026-06-15): a bundle purchase lands as a SINGLE
  * orders row keyed service_key='GUIDED_PACK' | 'MEDIA_PACK' (see
- * app/dashboard/[eventId]/add-ons/bundle/page.tsx — "no member-SKU
+ * app/dashboard/[eventId]/studio/bundle/page.tsx — "no member-SKU
  * decomposition"). So checkOrderOwnership(eventId, 'PANOOD_SYSTEM') is FALSE for
  * a couple who bought the Media Pack, even though the bundle includes it. The
  * old fan-out lived only in the DEAD DB fn verify_and_activate_manual_payment()

@@ -1,7 +1,7 @@
 /**
  * Color-recolor engine — shared by the admin Color Range Manipulator
  * (app/admin/moodboard-library) and the couple-facing Recolor Studio
- * (app/dashboard/[eventId]/add-ons/mood-board).
+ * (app/dashboard/[eventId]/studio/mood-board).
  *
  * Pure + DOM-free so it is unit-testable and runs identically in either
  * component. The browser components own the Canvas plumbing; this module owns

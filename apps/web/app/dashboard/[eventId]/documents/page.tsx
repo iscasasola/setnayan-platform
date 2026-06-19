@@ -452,7 +452,7 @@ function CreationsSection({
         <SectionEmpty
           message="No Setnayan creations yet. Design a monogram from the YOUR PLAN section on Home."
           ctaLabel="Browse add-ons"
-          href={`/dashboard/${eventId}/add-ons`}
+          href={`/dashboard/${eventId}/studio`}
         />
       ) : (
         <ul className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-white">

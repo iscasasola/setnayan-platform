@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
         photo_delivery_status: 'idle',
       })
       .eq('event_id', eventId);
-    const target = new URL(`/dashboard/${eventId}/add-ons/papic`, req.url);
+    const target = new URL(`/dashboard/${eventId}/studio/papic`, req.url);
     target.searchParams.set('drive_disconnected', '1');
     return NextResponse.redirect(target);
   }
@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
       .eq('event_id', eventId),
   ]);
 
-  const target = new URL(`/dashboard/${eventId}/add-ons/papic`, req.url);
+  const target = new URL(`/dashboard/${eventId}/studio/papic`, req.url);
   target.searchParams.set('drive_disconnected', '1');
   return NextResponse.redirect(target);
 }

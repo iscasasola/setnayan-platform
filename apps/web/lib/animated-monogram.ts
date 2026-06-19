@@ -21,7 +21,7 @@ import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
  *     drawn live." The standalone stroke-trace draw-on reveal applied to the
  *     event's AUTO-GENERATED text monogram (no upload, no video background).
  *     Drives the animated render on the V2 catalog surfaces (landing-page hero
- *     + the /add-ons/animated-monogram detail page).
+ *     + the /studio/animated-monogram detail page).
  *   • monogram_hero_upgrade (₱1,999 · iteration 0004 "Monogram Hero") — a
  *     WIDGET upgrade on the hero_monogram invitation widget that ALSO does a
  *     trace, but bundles a custom video/photo BACKGROUND + SVG/PNG-upload via

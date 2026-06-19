@@ -13,7 +13,7 @@
 
 import { useState, useTransition } from 'react';
 import { Check, Sparkles } from 'lucide-react';
-import { chooseRevealTemplate } from '@/app/dashboard/[eventId]/add-ons/save-the-date/actions';
+import { chooseRevealTemplate } from '@/app/dashboard/[eventId]/studio/save-the-date/actions';
 import {
   REVEAL_LIBRARY,
   NO_REVEAL,

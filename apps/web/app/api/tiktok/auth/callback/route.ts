@@ -28,7 +28,7 @@ function redirectWithError(
   reason: string,
 ): NextResponse {
   const target = eventId
-    ? new URL(`/dashboard/${eventId}/add-ons/patiktok`, origin)
+    ? new URL(`/dashboard/${eventId}/studio/patiktok`, origin)
     : new URL('/dashboard', origin);
   target.searchParams.set('tiktok_error', reason);
   return NextResponse.redirect(target);
@@ -125,7 +125,7 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const target = new URL(`/dashboard/${eventId}/add-ons/patiktok`, url);
+  const target = new URL(`/dashboard/${eventId}/studio/patiktok`, url);
   target.searchParams.set('tiktok_connected', '1');
   return NextResponse.redirect(target);
 }

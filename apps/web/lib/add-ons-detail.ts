@@ -2,7 +2,7 @@
  * add-ons-detail.ts — App Store-style detail content for every couple-side
  * in-app service.
  *
- * The Studio hub (/dashboard/[eventId]/add-ons) lists each feature as an App
+ * The Studio hub (/dashboard/[eventId]/studio) lists each feature as an App
  * Store row; tapping a row opens its detail page (./[addon]/about) — the
  * iOS App Store-style info surface. This module is the single source of that
  * copy.
@@ -19,7 +19,7 @@
  *   • Preview frames describe what the couple SEES/FEELS — never faked screens.
  *
  * Panood is intentionally ABSENT: it ships its own bespoke App Store detail at
- * /add-ons/panood (the 2026-05-17 pilot). The hub links Panood straight there.
+ * /studio/panood (the 2026-05-17 pilot). The hub links Panood straight there.
  */
 
 export type DetailPreview = {

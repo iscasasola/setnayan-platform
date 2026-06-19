@@ -4,7 +4,7 @@ import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 // Shared App Store-style detail layout. Used by:
-//   • Customer add-on detail (apps/web/app/dashboard/[eventId]/add-ons/[addon]/page.tsx)
+//   • Customer add-on detail (apps/web/app/dashboard/[eventId]/studio/[addon]/page.tsx)
 //   • Vendor service detail (apps/web/app/explore/[slug]/services/[serviceId]/page.tsx)
 //     — fan-out planned after the 2026-05-17 Panood pilot ships.
 //

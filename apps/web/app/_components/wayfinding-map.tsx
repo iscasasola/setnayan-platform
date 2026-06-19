@@ -21,7 +21,7 @@ import {
  * to the target table.
  *
  * Shared by:
- *   • the couple's preview (/dashboard/[eventId]/add-ons/indoor-blueprint)
+ *   • the couple's preview (/dashboard/[eventId]/studio/indoor-blueprint)
  *   • the guest's find-my-table view (/[slug]/find-my-table)
  *
  * 'use client' only because it draws an interactive-free but

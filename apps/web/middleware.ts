@@ -17,11 +17,17 @@ const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // `/dashboard/<eventId>/services` and `/dashboard/<eventId>/services/<rest>`
-// were renamed to `/add-ons` 2026-05-14. Keep the old paths working as a
+// were renamed to `/studio` 2026-05-14. Keep the old paths working as a
 // permanent redirect so bookmarks, deep links from older emails, and any
 // indexed URLs survive.
 const LEGACY_SERVICES_RE =
   /^\/dashboard\/([^/]+)\/services(\/.*)?$/;
+
+// `/dashboard/<eventId>/add-ons[/<rest>]` was renamed to `/studio` 2026-06-19
+// so the URL matches the "Studio" branding. Permanent redirect so QR codes,
+// bookmarks, older emails, and any indexed deep links survive the rename.
+const LEGACY_ADDONS_RE =
+  /^\/dashboard\/([^/]+)\/add-ons(\/.*)?$/;
 
 
 // Wildcard vendor subdomain support · owner directive 2026-05-28.
@@ -141,7 +147,19 @@ export async function middleware(request: NextRequest) {
     const eventId = legacyMatch[1];
     const rest = legacyMatch[2] ?? '';
     return NextResponse.redirect(
-      new URL(`/dashboard/${eventId}/add-ons${rest}${search}`, request.url),
+      new URL(`/dashboard/${eventId}/studio${rest}${search}`, request.url),
+      308,
+    );
+  }
+
+  // Legacy /add-ons → /studio (the 2026-06-19 Studio-URL rename). 308 permanent
+  // + method-preserving; carries subpaths + query so old detail/QR links land.
+  const addonsMatch = pathname.match(LEGACY_ADDONS_RE);
+  if (addonsMatch) {
+    const eventId = addonsMatch[1];
+    const rest = addonsMatch[2] ?? '';
+    return NextResponse.redirect(
+      new URL(`/dashboard/${eventId}/studio${rest}${search}`, request.url),
       308,
     );
   }

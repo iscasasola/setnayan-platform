@@ -174,9 +174,9 @@ export function buildCustomerNavGroups(
           // light the Studio tab on mobile (site-editor + /monogram).
           key: 'studio',
           label: 'Studio',
-          href: `${base}/add-ons`,
+          href: `${base}/studio`,
           icon: Sparkles,
-          matchPrefix: `${base}/add-ons`,
+          matchPrefix: `${base}/studio`,
           children: [
             {
               key: 'website',
@@ -188,9 +188,9 @@ export function buildCustomerNavGroups(
             {
               key: 'mood-board',
               label: 'Mood Board',
-              href: `${base}/add-ons/mood-board`,
+              href: `${base}/studio/mood-board`,
               icon: Palette,
-              matchPrefix: `${base}/add-ons/mood-board`,
+              matchPrefix: `${base}/studio/mood-board`,
             },
             {
               key: 'monogram',

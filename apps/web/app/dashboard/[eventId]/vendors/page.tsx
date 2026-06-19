@@ -523,12 +523,12 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // hasn't purchased Setnayan AI, prompt the unlock at the TOP of the shortlist,
   // where the ranked match is felt. Dormant until SETNAYAN_AI_PAYWALL_ENABLED=true
   // (shouldOfferSetnayanAiPurchase returns false while the paywall is off → no
-  // banner today). Links to the /add-ons/setnayan-ai buy page (catalog price +
+  // banner today). Links to the /studio/setnayan-ai buy page (catalog price +
   // checkout). Renders in both the takeover shortlist slot and the bare return.
   const aiOffer = shouldOfferSetnayanAiPurchase(ev);
   const aiOfferBanner = aiOffer ? (
     <Link
-      href={`/dashboard/${eventId}/add-ons/setnayan-ai`}
+      href={`/dashboard/${eventId}/studio/setnayan-ai`}
       className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-mulberry/25 bg-mulberry/5 px-4 py-3 transition-colors hover:bg-mulberry/10"
     >
       <span className="text-sm text-ink/80">

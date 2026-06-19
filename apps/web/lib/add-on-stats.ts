@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Aggregate stats that drive the App Store-style stat carousel on the
-// add-on detail page (apps/web/app/dashboard/[eventId]/add-ons/[addon]/page.tsx).
+// add-on detail page (apps/web/app/dashboard/[eventId]/studio/[addon]/page.tsx).
 //
 // Cheap reads — three indexed COUNT/AVG queries against `orders` +
 // `feature_reviews` + `events`. No materialized views in V1; if the

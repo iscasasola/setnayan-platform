@@ -16,5 +16,5 @@ export default async function DesignHubPage({
   params: Promise<{ eventId: string }>;
 }) {
   const { eventId } = await params;
-  redirect(`/dashboard/${eventId}/add-ons`);
+  redirect(`/dashboard/${eventId}/studio`);
 }

@@ -30,7 +30,7 @@ import {
 //     shared cron refresh worker (/api/cron/oauth-refresh) can sweep
 //     these tokens uniformly once it's extended to know about the new
 //     provider value (follow-up; not in this PR).
-//   - Redirects back to /dashboard/[eventId]/add-ons/photo-delivery
+//   - Redirects back to /dashboard/[eventId]/studio/photo-delivery
 //     with ?connected=1 or ?error=<reason>.
 
 export const runtime = 'nodejs';
@@ -44,7 +44,7 @@ function redirectWithError(
   reason: string,
 ): NextResponse {
   const target = eventId
-    ? new URL(`/dashboard/${eventId}/add-ons/photo-delivery`, origin)
+    ? new URL(`/dashboard/${eventId}/studio/photo-delivery`, origin)
     : new URL('/dashboard', origin);
   target.searchParams.set('error', reason);
   return NextResponse.redirect(target);
@@ -196,7 +196,7 @@ export async function GET(req: NextRequest) {
   }
 
   const target = new URL(
-    `/dashboard/${eventId}/add-ons/photo-delivery`,
+    `/dashboard/${eventId}/studio/photo-delivery`,
     url,
   );
   target.searchParams.set('connected', '1');

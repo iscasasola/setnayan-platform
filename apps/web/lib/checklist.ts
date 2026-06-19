@@ -636,12 +636,12 @@ export function checklistItemHref(eventId: string, key: string | null): string |
     final_headcount: `${base}/guests`,
     thank_you_notes: `${base}/guests`,
     // Invitations
-    save_the_dates: `${base}/add-ons/save-the-date`,
+    save_the_dates: `${base}/studio/save-the-date`,
     order_invitations: `${base}/invitation`,
     invitations: `${base}/invitation`,
     // Design
-    lock_theme: `${base}/add-ons/mood-board`,
-    mood_board: `${base}/add-ons/mood-board`,
+    lock_theme: `${base}/studio/mood-board`,
+    mood_board: `${base}/studio/mood-board`,
     choose_favours: `${base}/design`,
     monogram: `${base}/monogram`,
     // Schedule

@@ -250,7 +250,7 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
   return (
     <section className="space-y-6">
       <Link
-        href={`/dashboard/${eventId}/add-ons`}
+        href={`/dashboard/${eventId}/studio`}
         className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
@@ -401,7 +401,7 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
                     guest lands.
                   </p>
                   <Link
-                    href={`/dashboard/${eventId}/add-ons/animated-monogram`}
+                    href={`/dashboard/${eventId}/studio/animated-monogram`}
                     className="mt-1 inline-flex items-center gap-1.5 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-700"
                   >
                     <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
@@ -433,7 +433,7 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
                   moment a guest lands on your wedding website.
                 </p>
                 <Link
-                  href={`/dashboard/${eventId}/add-ons/animated-monogram`}
+                  href={`/dashboard/${eventId}/studio/animated-monogram`}
                   className="mt-1 inline-flex items-center gap-1.5 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-700"
                 >
                   <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />

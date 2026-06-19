@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
   const config = getTiktokOAuthConfig();
   if (!config.ready) {
     const target = new URL(
-      `/dashboard/${eventId}/add-ons/patiktok`,
+      `/dashboard/${eventId}/studio/patiktok`,
       req.url,
     );
     target.searchParams.set('tiktok_error', 'not_configured');

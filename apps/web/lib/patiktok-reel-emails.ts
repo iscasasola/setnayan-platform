@@ -47,7 +47,7 @@ export async function sendPatiktokReelReadyEmail(input: {
     if (!to) return;
     const name = ((userRow?.display_name as string | null) ?? '').trim();
 
-    const link = `${APP_URL}/dashboard/${input.eventId}/add-ons/patiktok`;
+    const link = `${APP_URL}/dashboard/${input.eventId}/studio/patiktok`;
     const reel = (input.templateName ?? '').trim() || 'Patiktok reel';
     const subject = 'Your Patiktok reel is ready 🎬';
     const text =

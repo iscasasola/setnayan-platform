@@ -2,7 +2,7 @@
  * add-ons-catalog.ts — canonical list of Setnayan in-app service add-ons.
  *
  * Single source of truth extracted 2026-06-03 so the add-ons launcher grid
- * (/dashboard/[eventId]/add-ons) and the Services tab vendor page
+ * (/dashboard/[eventId]/studio) and the Services tab vendor page
  * (/dashboard/[eventId]/vendors) can both import it without duplication.
  *
  * Each entry's `poster` field drives the cinema-style animated poster card in
@@ -34,7 +34,7 @@ import {
   CalendarClock,
   type LucideIcon,
 } from 'lucide-react';
-import type { PosterStyle } from '@/app/dashboard/[eventId]/add-ons/_components/service-poster';
+import type { PosterStyle } from '@/app/dashboard/[eventId]/studio/_components/service-poster';
 import type { PlanGroupId } from '@/lib/wedding-plan-groups';
 
 export type AddOnStatus = 'live' | 'web_v1' | 'coming_soon';
@@ -58,7 +58,7 @@ export type InAppServiceCategory = PlanGroupId | 'digital_services' | 'tool';
 
 /**
  * Which Studio section this add-on falls under on the couple-side Studio hub
- * (/dashboard/[eventId]/add-ons). Independent of `category` (which drives the
+ * (/dashboard/[eventId]/studio). Independent of `category` (which drives the
  * Services/vendors-tab placement). The 4 sections ARE Studio's docked sub-nav
  * (owner-locked 2026-06-17 customer-menu redesign — Studio absorbed Design):
  *   • setnayan_ai → info gathered → personalized outputs (AI planner · playlist)
@@ -88,7 +88,7 @@ export type AddOnEntry = {
   cta: string;
   poster: PosterStyle;
   /**
-   * Job-to-be-done grouping for the Studio hub (/dashboard/[eventId]/add-ons).
+   * Job-to-be-done grouping for the Studio hub (/dashboard/[eventId]/studio).
    * Additive — the Services tab ignores this field. See StudioGroup.
    */
   studioGroup: StudioGroup;
@@ -116,35 +116,35 @@ export type AddOnEntry = {
 /**
  * Resolve the href for a given add-on key + event ID.
  *
- * A few keys don't live under /add-ons/<key>:
+ * A few keys don't live under /studio/<key>:
  *   • orders            → /orders (the order history surface).
  *   • animated-monogram → /monogram, the couple's Monogram MAKER (the free
  *     design hub — lettered lockups · Cipher Studio · Setnayan-AI Bespoke ·
  *     upload). The Studio card's label/CTA promise "design your monogram", so
  *     it must open the maker, not the paid Animated-Monogram buy page. The
  *     maker itself funnels to that paid upgrade (its "See the Animated
- *     Monogram" CTAs → /add-ons/animated-monogram), so the SKU page stays
+ *     Monogram" CTAs → /studio/animated-monogram), so the SKU page stays
  *     reachable as the upsell. (Fix 2026-06-18 — the maker was unreachable
  *     from Studio; only the buy wall showed.)
  */
 export function addOnHref(key: string, eventId: string): string {
   if (key === 'orders') return `/dashboard/${eventId}/orders`;
   if (key === 'animated-monogram') return `/dashboard/${eventId}/monogram`;
-  return `/dashboard/${eventId}/add-ons/${key}`;
+  return `/dashboard/${eventId}/studio/${key}`;
 }
 
 /**
  * Where the Studio hub's App Store row points — the feature's detail/info page.
  *
- * Default → the catalog-driven App Store detail at /add-ons/<key>/about
+ * Default → the catalog-driven App Store detail at /studio/<key>/about
  * (content lives in add-ons-detail.ts). Panood is the exception: its own
- * surface at /add-ons/panood IS already a bespoke App Store detail (the
+ * surface at /studio/panood IS already a bespoke App Store detail (the
  * 2026-05-17 pilot), so the hub links straight there rather than to a
  * duplicate /about page.
  */
 export function appStoreDetailHref(key: string, eventId: string): string {
-  if (key === 'panood') return `/dashboard/${eventId}/add-ons/panood`;
-  return `/dashboard/${eventId}/add-ons/${key}/about`;
+  if (key === 'panood') return `/dashboard/${eventId}/studio/panood`;
+  return `/dashboard/${eventId}/studio/${key}/about`;
 }
 
 export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
@@ -275,7 +275,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   {
     // Pakanta — a custom song written for the couple. The song is composed
     // from the onboarding love story (lib/pakanta-brief.ts); the page only
-    // collects the music top-up. Couple surface: /add-ons/pakanta.
+    // collects the music top-up. Couple surface: /studio/pakanta.
     key: 'pakanta',
     label: 'Pakanta',
     Icon: Music,
@@ -507,7 +507,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
 /**
  * A free core planning tool surfaced in the Studio hub's "Plan & organize"
  * group. These deep-link to existing couple-sidebar routes (Guests / Seating /
- * Budget / Schedule) rather than to an /add-ons/[feature] detail page.
+ * Budget / Schedule) rather than to an /studio/[feature] detail page.
  *
  * Kept SEPARATE from ADD_ONS on purpose — these are first-class sidebar
  * surfaces, not in-app *services*, so they must NOT appear in the

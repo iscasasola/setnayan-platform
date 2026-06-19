@@ -835,6 +835,48 @@ export function SaveTheDateFilm({
     return () => window.removeEventListener('std-go-fullscreen', onGoFs);
   }, [preview, content.musicUrl, muted]);
 
+  // iOS audio unlock (fixes "music didn't play when the veil lifted" on mobile).
+  // The lift play() above fires inside a SYNTHETIC 'std-go-fullscreen' event,
+  // which iOS Safari does NOT count as a user gesture → it silently blocks the
+  // soundtrack on phones. So unlock the element on the guest's FIRST REAL touch:
+  // a capture-phase listener (fires even though the veil's grab-zone owns the
+  // gesture) does a trusted play→pause, which marks the <audio> user-activated.
+  // The real lift play() (start() on 'std-reveal-done' + onGoFs) then works with
+  // no gesture. We rewind + mute the unlock blip so the music still BEGINS on the
+  // lift, not on the grab.
+  useEffect(() => {
+    if (preview || !content.musicUrl) return;
+    const unlock = () => {
+      const a = audioRef.current;
+      if (!a) return; // element not mounted yet — let a later touch retry
+      window.removeEventListener('pointerdown', unlock, true);
+      window.removeEventListener('touchstart', unlock, true);
+      // Already playing (no-reveal grace path) → just make sure it keeps going.
+      if (playingRef.current) {
+        if (!muted) a.play().catch(() => {});
+        return;
+      }
+      // Under the veil: silently unlock, then pause + rewind so it starts fresh
+      // on the lift. volume 0 during the play→pause so there's no audible blip.
+      const vol = a.volume;
+      a.volume = 0;
+      const finish = () => {
+        a.pause();
+        a.currentTime = 0;
+        a.volume = vol;
+      };
+      const p = a.play();
+      if (p && typeof p.then === 'function') p.then(finish).catch(() => { a.volume = vol; });
+      else finish();
+    };
+    window.addEventListener('pointerdown', unlock, { capture: true, passive: true });
+    window.addEventListener('touchstart', unlock, { capture: true, passive: true });
+    return () => {
+      window.removeEventListener('pointerdown', unlock, true);
+      window.removeEventListener('touchstart', unlock, true);
+    };
+  }, [preview, content.musicUrl, muted]);
+
   // The Save-the-Date is the whole full-screen experience (no chrome, no page
   // beneath in this phase) — the film holds on its closing beat; there's no
   // dismiss. (owner 2026-06-19)

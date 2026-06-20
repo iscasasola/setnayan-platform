@@ -4,7 +4,7 @@ import Image from 'next/image';
 import { Newspaper, ArrowRight, ArrowUpRight } from 'lucide-react';
 import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
 import {
-  ALL_BLOG_ARTICLES,
+  publishedBlogArticles,
   BLOG_NUGGETS,
   blogCategoriesInUse,
   blogCategoryLabel,
@@ -149,14 +149,17 @@ export default async function BlogIndexPage({ searchParams }: Props) {
 
   const categories = blogCategoriesInUse();
 
+  // Public list = only articles whose publishedAt has arrived; future-dated
+  // drip articles stay hidden from the index until their day.
+  const all = publishedBlogArticles();
   const visible = activeCategory
-    ? ALL_BLOG_ARTICLES.filter((a) => a.category === activeCategory)
-    : ALL_BLOG_ARTICLES;
+    ? all.filter((a) => a.category === activeCategory)
+    : all;
 
   // Cover hero only on the unfiltered view: the pinned featured article, else newest.
   const featured = activeCategory
     ? undefined
-    : ALL_BLOG_ARTICLES.find((a) => a.featured) ?? ALL_BLOG_ARTICLES[0];
+    : all.find((a) => a.featured) ?? all[0];
   const remaining = featured
     ? visible.filter((a) => a.slug !== featured.slug)
     : visible;
@@ -172,7 +175,7 @@ export default async function BlogIndexPage({ searchParams }: Props) {
     url: `${SITE_URL}/blog`,
     inLanguage: 'en-PH',
     publisher: { '@type': 'Organization', '@id': `${SITE_URL}/#organization` },
-    blogPost: ALL_BLOG_ARTICLES.map((a) => ({
+    blogPost: all.map((a) => ({
       '@type': 'BlogPosting',
       headline: a.title,
       url: `${SITE_URL}/blog/${a.slug}`,

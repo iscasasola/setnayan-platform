@@ -14,7 +14,7 @@
 //   response shape changes, so stale schemas don't survive a deploy
 //   (spec § 9.4).
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { get, set, del } from 'idb-keyval';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
@@ -26,6 +26,8 @@ import { DeferredObservability } from './_components/deferred-observability';
 import { GlobalHaptics } from './_components/global-haptics';
 import { PostHogProvider } from './_components/posthog-provider';
 import { ThemeProvider, type ThemeMode } from './_components/theme-provider';
+import { ToastProvider } from './_components/toast/toast-provider';
+import { ToastFromParams } from './_components/toast/toast-from-params';
 
 const PERSIST_KEY = 'setnayan-query-cache';
 const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days — spec § 3.1
@@ -160,7 +162,14 @@ export function Providers({
             "Ready ✓" completion. Route-level loading still uses skeletons.
           */}
           <LoaderOverlayProvider>
-            <BrandProvider markUrl={brandMarkUrl}>{children}</BrandProvider>
+            <BrandProvider markUrl={brandMarkUrl}>
+              <ToastProvider>
+                {children}
+                <Suspense fallback={null}>
+                  <ToastFromParams />
+                </Suspense>
+              </ToastProvider>
+            </BrandProvider>
           </LoaderOverlayProvider>
         </PostHogProvider>
         {/*

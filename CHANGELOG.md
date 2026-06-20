@@ -16,6 +16,22 @@ Part of the 2-step-down program (`Usability_2Step_Remediation_Program_2026-06-20
 Verified: `tsc --noEmit` clean across the project (0 errors). Required CI (typecheck + lint + build) + Vercel preview are the gate; the search is interactive on the public `/help` preview for an owner eyeball.
 
 SPEC IMPACT: iteration 0029 (Help Center) — search now matches the long-standing spec/metadata promise. Logged in `DECISION_LOG.md` (incl. the marketing-ads drift). No schema/SKU change.
+## 2026-06-20 · feat(ux): couple self-serve simplification — budget + guests (Wave 2 slice)
+
+2-step-down program (`Usability_2Step_Remediation_Program_2026-06-20.md`, Wave 2) — the two crowded couple surfaces, default-then-disclose + never-dead-empty + clearer labels. Both bank 3→2.
+
+**Budget** (`budget/page.tsx` + `_components/vendor-itemization-card.tsx`):
+- The page showed the word **"Remaining" twice meaning two different things** (budget headroom = target − committed, vs unpaid balance = itemized − paid). Relabeled rather than deleted (both numbers are real): top strip → **"Budget left"**, itemization strip → **"Still to pay"**. Removes the same-word collision with zero data loss.
+- The always-open **5-field payment-log form** (the page's busiest input) is now **default-then-disclose** behind a `<details>` "Log a payment" trigger, matching the existing "Add an extra" disclosure pattern in the same card.
+- The **"no contracted vendor yet" empty state read as broken** ("Per-vendor budget tracking *unlocks*…"). Reframed to "you're still choosing vendors — exactly where you should be; itemized costs appear here once you contract one." (Per-line price chips skipped — line items are already visually grouped "From the vendor's catalog" vs "Your own additions".)
+
+**Guests** (`guests/page.tsx` + `_components/quick-add-sheet.tsx`):
+- The desktop header led with **four equal add buttons**. Now the bulk paths (**Import CSV**, **Quick add list**) tuck behind one **"More ways"** `<details>` disclosure; the single primary **"+ Add guest"** quick-add leads. (Mobile carousel unchanged.)
+- The **empty state** pointed a brand-new couple at the heavy detailed `/guests/new` form. It now leads with the **one-tap quick-add sheet** (`OpenQuickAddButton` gained an optional `label` prop), with "or use the full form" kept as a secondary link. (The single-field/display-name-split change touches the add data model — deferred.)
+
+Verified: `tsc --noEmit` clean across the project (0 errors). Required CI (typecheck + lint + build) + Vercel preview are the gate.
+
+SPEC IMPACT: UX simplification on iterations 0007 (budget) + 0001 (guests); no schema/SKU change. Logged in `DECISION_LOG.md`.
 
 ## 2026-06-20 · feat(join): accountless guest self-join via event QR (Lola Remedios — deferred HIGH)
 

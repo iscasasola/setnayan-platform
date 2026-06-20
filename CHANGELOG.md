@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-21 · feat(ux): presentation primitives — redesign PR 1/N (foundation)
+
+First step of the "arrangement & presentation" redesign (`Responsive_and_Mobile_UI_Ruleset_2026-06-21`). Purely **additive** CSS — establishes the shared building blocks the per-surface PRs adopt, so no existing surface changes yet. (Onboarding is excluded from the whole redesign — owner is working it in parallel.)
+
+- **DESK-1 — define `--sidebar-width`.** `sidebar-shell.tsx` consumed `var(--sidebar-width, 16rem)` but the token was never defined (always fell back). Now an explicit `:root` token (same 16rem → zero visual change, now themeable). Closes audit §9.7.
+- **ROW-1 / DIR-3 — `.m-row-scroll` + `.m-no-scrollbar`.** The canonical horizontal "peek" scroller for browsing a peer set (recent / suggested / gallery): `scroll-snap` x-mandatory with the next item's edge visible, scrollbar hidden. Replaces the per-surface re-rolls the audit found; surfaces migrate to it as they're touched.
+- **VIS-21 — `.m-img-overlay` (+ `-top`).** Gradient-scrim utility for text-over-photo so captions never sit on a flat full-screen scrim that flattens the image. Ink tint (#1E2229) matches the shadow ramp, on-palette.
+
+Already present and reused (no change): `.m-card` + `.m-shadow-*` ramp (CARD-1 / VIS-13), `.m-section` fluid spacing (SIZE-3), `.m-h-xl/lg/md` with the −2.5% tracking + 1.04 line-height tightening (VIS-9/10).
+
+Verified: `globals.css` braces balanced, `pnpm typecheck` exit 0, `pnpm lint` exit 0. CSS compiles via the CI production build.
+
+SPEC IMPACT: None (additive presentation primitives mirroring the ratified ruleset; no SKU/schema/pricing/public-claim change).
+
 ## 2026-06-21 · feat(ux): global UX foundation — Wave 1 of the responsive ruleset
 
 First, lowest-risk slice of the ratified `Responsive_and_Mobile_UI_Ruleset_2026-06-21` (global laws every surface inherits; no locked-template surgery). Four safe, self-contained wins:

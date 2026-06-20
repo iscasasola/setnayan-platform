@@ -5,7 +5,12 @@ import { ConfirmDialog } from './confirm-dialog';
 
 type Props = {
   action: (formData: FormData) => void | Promise<void>;
-  message: string;
+  /**
+   * Dialog body. A plain string is the common case; pass a `ReactNode` when the
+   * confirmation needs structure — a before/after diff, a post preview, the
+   * channels a publish will hit. Rendered into `<ConfirmDialog body>`.
+   */
+  message: ReactNode;
   /**
    * Optional dialog title. Defaults to "Confirm action". Pass a more specific
    * verb-phrase ("Retire this asset?", "Delete entirely?") so the dialog

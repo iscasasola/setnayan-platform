@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-20 · feat(ux): Wave 1 — confirm-guards + consequence-on-button across 6 admin/vendor surfaces
+
+First cross-cutting wave of the 2-step-down program (`Usability_2Step_Remediation_Program_2026-06-20.md`, lever A). Every irreversible/cascade action on these surfaces was firing on a single click — a stray tap could publish to live social, hard-delete an account, free a sold date, or unfeature a story. Now they confirm with a specific title + plain-English consequence.
+
+- **`app/_components/confirm-form.tsx`** — prereq: widened `message` from `string` → `ReactNode` so a confirm body can carry a post preview / diff (the underlying `ConfirmDialog.body` was already `ReactNode`).
+- **`admin/social-queue`** — wrapped **Post now** + both **Pull** (scheduled + failed) in `ConfirmForm`; Post-now dialog shows the post's first line + the channels it will hit, and the button itself now reads **"Post now → Facebook + Instagram"** (computed from `enabled && configured`, threaded as a `channels` prop to `ScheduledPostCard`). These publish/retract to live external social — the highest-severity gap.
+- **`admin/users`** — moved the 3 destructive ops (force sign-out, delete, blacklist) behind a collapsed **"Danger zone"** `<details>` so they can't be hit next to the safe everyday actions; gave every guarded action a specific `title`/`confirmLabel` (was the default "Confirm action"); unblacklist marked non-destructive.
+- **`admin/real-stories`** — Feature/Unfeature now confirm (split into two dialogs with the right consequence copy); added **Cover / Most-loved #n** position chips so the bare numeric rank reads in plain English.
+- **`vendor/services`** — Delete-service (was a raw one-click trash) now confirms and names the cascade (bundle links + time slots).
+- **`vendor/clients` + `vendor/calendar`** — the "Remove" outside-client / block action (frees a sold date) now confirms with "their date opens back up"; fixed the 3 dead client-hub empty states to point at Bookings / the calendar.
+
+Verified: `tsc --noEmit` clean across the whole project (0 errors); grep-confirmed 0 raw `<form>` left on the guarded actions. Required CI (typecheck + lint + build) + Vercel preview are the gate (pnpm worktree — full lint/build can't run cross-worktree locally), auto-merge armed.
+
+SPEC IMPACT: UX hardening across iterations 0023 (admin) + 0022 (vendor); no schema/SKU/pricing change. Logged as a `DECISION_LOG.md` row + tracked in `Usability_2Step_Remediation_Program_2026-06-20.md` (Wave 1).
 ## 2026-06-20 · feat(help): instant search on the Help Center + marketing-ads spec-drift flag (Wave 2 slice)
 
 Part of the 2-step-down program (`Usability_2Step_Remediation_Program_2026-06-20.md`, Wave 2). The Help Center promised full-text search in its metadata/spec but shipped without it — the audit's single biggest discoverability gap (~63 articles found only by self-selecting a role tile + scanning).

@@ -159,6 +159,14 @@ function parseOnTimeRating(raw: FormDataEntryValue | null): number {
  * BEFORE INSERT trigger refuses with SELF_REVIEW_BLOCKED, we route back to
  * the review URL with `?blocked=<signal>` so the page renders the disabled
  * + appeal flow instead of a generic error.
+ *
+ * "Host" = the couple OR a delegated coordinator. The host ★ review is the
+ * event's verdict on the vendor; the coordinator acts on the couple's behalf.
+ * We admit both with the canonical `.in('member_type', ['couple','coordinator'])`
+ * membership check used verbatim by the sibling host-side actions
+ * (coupleConfirmReceived / coupleReportNonDelivery). The DB-level RLS
+ * (current_couple_or_coordinator_event_ids) is the real gate; this fails fast
+ * with a clean redirect for non-members instead of bubbling an RLS error.
  */
 export async function submitCoupleReview(formData: FormData) {
   const eventId = formData.get('event_id');
@@ -195,6 +203,17 @@ export async function submitCoupleReview(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  // Host gate — the couple OR a delegated coordinator of THIS event may submit
+  // the host review. Matches the sibling handshake actions verbatim.
+  const { data: membership } = await supabase
+    .from('event_members')
+    .select('member_type')
+    .eq('event_id', eventId)
+    .eq('user_id', user.id)
+    .in('member_type', ['couple', 'coordinator'])
+    .maybeSingle();
+  if (!membership) redirect(`/dashboard/${eventId}`);
 
   try {
     await createReview(supabase, {

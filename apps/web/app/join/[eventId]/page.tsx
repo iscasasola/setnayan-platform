@@ -126,19 +126,33 @@ export default async function JoinPage({ params, searchParams }: Props) {
               <p className="text-sm text-ink/70">Use the name the couple would have on their list.</p>
             </div>
             <div className="space-y-1.5">
-              <label htmlFor="role" className="block text-sm font-medium text-ink">
-                Your role
-              </label>
-              <select id="role" name="role" required defaultValue="guest" className="input-field">
-                {SELECTABLE_ROLES.map((r) => (
-                  <option key={r} value={r}>
-                    {ROLE_LABELS[r]}
-                  </option>
-                ))}
-              </select>
+              <span className="block text-sm font-medium text-ink">Your role</span>
               <p className="text-sm text-ink/70">
-                Pick &ldquo;Guest&rdquo; if your role isn&rsquo;t listed. The couple can refine it later.
+                You&rsquo;re joining as a <span className="font-medium text-ink">Guest</span> — right for
+                almost everyone.
               </p>
+              {/* The 18 ceremonial roles tuck behind a disclosure so Guest is one
+                  tap; the hidden select still submits its default "guest" when
+                  the details stay collapsed. */}
+              <details className="group">
+                <summary className="inline-flex cursor-pointer items-center gap-1 text-sm font-medium text-terracotta underline-offset-2 hover:underline">
+                  My role is special — sponsor, bearer, entourage…
+                </summary>
+                <select
+                  name="role"
+                  required
+                  defaultValue="guest"
+                  className="input-field mt-2"
+                  aria-label="Your role"
+                >
+                  {SELECTABLE_ROLES.map((r) => (
+                    <option key={r} value={r}>
+                      {ROLE_LABELS[r]}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-ink/55">The couple can refine it later.</p>
+              </details>
             </div>
             <SubmitButton className="button-primary w-full" pendingLabel="Adding you…">
               Add me to the guest list
@@ -241,19 +255,30 @@ export default async function JoinPage({ params, searchParams }: Props) {
           </p>
         </div>
         <div className="space-y-1.5">
-          <label htmlFor="role" className="block text-sm font-medium text-ink">
-            Your role
-          </label>
-          <select id="role" name="role" required defaultValue="guest" className="input-field">
-            {SELECTABLE_ROLES.map((r) => (
-              <option key={r} value={r}>
-                {ROLE_LABELS[r]}
-              </option>
-            ))}
-          </select>
+          <span className="block text-sm font-medium text-ink">Your role</span>
           <p className="text-sm text-ink/70">
-            Pick &ldquo;Guest&rdquo; if your role isn&rsquo;t listed. The couple can refine it later.
+            You&rsquo;re joining as a <span className="font-medium text-ink">Guest</span> — right for
+            almost everyone.
           </p>
+          <details className="group">
+            <summary className="inline-flex cursor-pointer items-center gap-1 text-sm font-medium text-terracotta underline-offset-2 hover:underline">
+              My role is special — sponsor, bearer, entourage…
+            </summary>
+            <select
+              name="role"
+              required
+              defaultValue="guest"
+              className="input-field mt-2"
+              aria-label="Your role"
+            >
+              {SELECTABLE_ROLES.map((r) => (
+                <option key={r} value={r}>
+                  {ROLE_LABELS[r]}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-ink/55">The couple can refine it later.</p>
+          </details>
         </div>
         <SubmitButton className="button-primary w-full sm:w-auto" pendingLabel="Checking…">
           Continue

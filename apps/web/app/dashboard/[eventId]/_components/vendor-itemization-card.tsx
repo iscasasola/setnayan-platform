@@ -537,10 +537,17 @@ function PaymentSection({
         </ul>
       )}
 
-      <form
-        action={logPayment}
-        className="grid grid-cols-2 gap-2 border-t border-ink/10 pt-3 sm:grid-cols-4"
-      >
+      {/* Default-then-disclose: the 5-field log stays out of the way until the
+          host actually has a payment to record (it's the page's busiest form). */}
+      <details className="group border-t border-ink/10 pt-3">
+        <summary className="flex cursor-pointer items-center gap-1.5 text-xs font-medium text-success-700 hover:text-success-800">
+          <Plus aria-hidden className="h-3 w-3" strokeWidth={2} />
+          Log a payment
+        </summary>
+        <form
+          action={logPayment}
+          className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4"
+        >
         <input type="hidden" name="event_id" value={eventId} />
         <input type="hidden" name="vendor_id" value={vendorId} />
         <select
@@ -618,7 +625,8 @@ function PaymentSection({
           <Plus className="h-3.5 w-3.5" strokeWidth={2} />
           Log
         </SubmitButton>
-      </form>
+        </form>
+      </details>
     </section>
   );
 }

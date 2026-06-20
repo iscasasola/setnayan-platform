@@ -46,8 +46,14 @@ export const metadata = {
   alternates: { canonical: '/tour/vendors' },
 };
 
-/** Friendly category groups for the tour. Each maps to the canonical_services the
- *  matcher scopes on (same value space as VENDOR_PICK_TASK_CANONICAL_SERVICES). */
+/** Friendly category groups for the tour. `canonicalServices` are the LEAF
+ *  taxonomy slugs the matcher scopes on — it does `overlaps('services', …)`
+ *  against vendor_profiles.services, which (for both real and demo vendors)
+ *  holds leaf slugs like 'photography', NOT coarse 'photographer'. So these
+ *  MUST be leaf slugs from canonical_service_taxonomy, or the bucket comes back
+ *  empty. (Setnayan has no reception-venue marketplace category — no venue tile
+ *  in the taxonomy — so the tour leads with the categories the marketplace
+ *  actually carries.) */
 const TOUR_CATEGORIES: Array<{
   id: string;
   label: string;
@@ -55,16 +61,10 @@ const TOUR_CATEGORIES: Array<{
   canonicalServices: string[];
 }> = [
   {
-    id: 'venue',
-    label: 'Reception venue',
-    blurb: 'Where the celebration happens — ranked closest-fit first.',
-    canonicalServices: ['venue'],
-  },
-  {
     id: 'photo',
     label: 'Photo & video',
     blurb: 'The team that captures the day, start to finish.',
-    canonicalServices: ['photographer', 'videographer'],
+    canonicalServices: ['photography', 'videography'],
   },
   {
     id: 'catering',
@@ -76,19 +76,25 @@ const TOUR_CATEGORIES: Array<{
     id: 'beauty',
     label: 'Hair & makeup',
     blurb: 'The glam team for the couple and the entourage.',
-    canonicalServices: ['makeup_artist', 'hair_stylist'],
+    canonicalServices: ['bridal_hair_stylist', 'bridal_hmua'],
   },
   {
     id: 'music',
-    label: 'Music & entertainment',
+    label: 'Music & hosting',
     blurb: 'Bands, DJs, and emcees to set the mood.',
-    canonicalServices: ['band_dj', 'host_emcee', 'string_quartet'],
+    canonicalServices: ['dj', 'live_band', 'host_emcee'],
   },
   {
     id: 'styling',
-    label: 'Styling & florals',
-    blurb: 'Décor, flowers, and the look that ties it all together.',
-    canonicalServices: ['reception_decor', 'florist'],
+    label: 'Florals & styling',
+    blurb: 'Flowers and the look that ties it all together.',
+    canonicalServices: ['garden_wedding_florist'],
+  },
+  {
+    id: 'cake',
+    label: 'Cake & sweets',
+    blurb: 'The centrepiece dessert and the sweet table.',
+    canonicalServices: ['wedding_cake'],
   },
 ];
 

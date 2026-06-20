@@ -140,8 +140,8 @@ export async function Hero() {
             <Link href="/onboarding/wedding" className="m-btn m-btn-primary m-btn-lg">
               Start planning <span className="text-[var(--m-orange-3)]">· free</span>
             </Link>
-            <Link href="#bakit-setnayan" className="m-btn m-btn-ghost m-btn-lg">
-              See how it works ↓
+            <Link href="/tour" className="m-btn m-btn-ghost m-btn-lg">
+              See a real wedding →
             </Link>
           </div>
           <div className="m-mono text-xs text-[var(--m-slate-2)] mt-6 flex gap-3.5 flex-wrap items-center">

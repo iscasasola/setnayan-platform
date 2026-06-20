@@ -120,6 +120,20 @@ export async function VendorHero() {
               Book a 15-min demo →
             </Link>
           </div>
+          <p style={{ marginTop: 14, fontSize: 13.5, color: 'var(--m-slate)' }}>
+            Curious what couples see?{' '}
+            <Link
+              href="/tour"
+              style={{
+                color: 'var(--m-mulberry)',
+                fontWeight: 500,
+                textDecoration: 'underline',
+                textUnderlineOffset: 2,
+              }}
+            >
+              Walk through a real wedding →
+            </Link>
+          </p>
           <div
             className="m-mono"
             style={{

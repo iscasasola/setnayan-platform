@@ -49,9 +49,9 @@ BEGIN
       ('videographer'::vendor_category,'videography','Alon Films','Manila','Cinematic Highlight',9000000),
       ('videographer'::vendor_category,'videography','Kislap Motion','Davao','Same-Day Edit',13500000),
       ('videographer'::vendor_category,'videography','Haraya Cinema','Cebu','Feature Film',16000000),
-      ('catering'::vendor_category,'catering','Hain Catering','Manila','Plated · 150 pax',135000000),
-      ('catering'::vendor_category,'catering','Salu-Salo Kitchen','Pampanga','Buffet · 200 pax',160000000),
-      ('catering'::vendor_category,'catering','Kamayan Feast','Cebu','Filipino Spread · 150 pax',120000000),
+      ('catering'::vendor_category,'catering','Hain Catering','Manila','Plated · 150 pax',33000000),
+      ('catering'::vendor_category,'catering','Salu-Salo Kitchen','Pampanga','Buffet · 200 pax',38000000),
+      ('catering'::vendor_category,'catering','Kamayan Feast','Cebu','Filipino Spread · 150 pax',27000000),
       ('florist'::vendor_category,'garden_wedding_florist','Bulaklak & Co.','Manila','Ceremony + Reception',7500000),
       ('florist'::vendor_category,'garden_wedding_florist','Sampaguita Blooms','Tagaytay','Garden Full Florals',9800000),
       ('florist'::vendor_category,'garden_wedding_florist','Hardin Florals','Cavite','Bridal + Entourage',6500000),
@@ -120,4 +120,51 @@ BEGIN
     '["Full coordination","Host / emcee","Lights & sound","Photo + video","Bridal car"]'::jsonb,TRUE,TRUE,v_batch);
   INSERT INTO public.event_vendors (event_id, category, vendor_name, marketplace_vendor_id, status)
   VALUES (v_event,'planner_coordinator','Buong Kasal Co.',v_vp,'considering');
+END $$;
+
+-- ===== BLOCK 4: makeup_artist (HMUA) vendors =====
+-- The original seed shipped hair (bridal_hair_stylist) but no makeup, so the
+-- public tour's "Hair & makeup" bucket was half-empty. The makeup leaf slug in
+-- canonical_service_taxonomy is `bridal_hmua` (tile 'hmua'); the matcher does
+-- overlaps('services', …) on that leaf, so services MUST be ['bridal_hmua'].
+-- Self-contained + idempotent: clears prior makeup demo vendors for this batch
+-- (by their bridal_hmua service) then re-inserts. Apply as its own db query call.
+DO $$
+DECLARE
+  v_event uuid;
+  v_batch uuid := 'a1a1a1a1-0000-4000-8000-000000000a01';
+  r record; v_vp uuid;
+BEGIN
+  SELECT event_id INTO v_event FROM public.events WHERE slug='maria-and-jose';
+  IF v_event IS NULL THEN RAISE EXCEPTION 'Maria & Jose event not found'; END IF;
+
+  -- idempotent: drop any prior makeup demo vendors (identified by the bridal_hmua
+  -- service under this batch) + their shortlist links, then re-insert.
+  DELETE FROM public.event_vendors
+   WHERE event_id=v_event
+     AND marketplace_vendor_id IN (
+       SELECT vp.vendor_profile_id FROM public.vendor_profiles vp
+       WHERE vp.demo_batch_id=v_batch AND vp.services @> ARRAY['bridal_hmua']::text[]);
+  DELETE FROM public.vendor_services
+   WHERE demo_batch_id=v_batch AND category='bridal_hmua';
+  DELETE FROM public.vendor_profiles
+   WHERE demo_batch_id=v_batch AND services @> ARRAY['bridal_hmua']::text[];
+
+  FOR r IN
+    SELECT * FROM (VALUES
+      ('Mukha Artistry','Manila','Bride + Entourage HMUA',4500000),
+      ('Ganda Beauty Co.','Cebu','Bride + 4 Entourage',2800000),
+      ('Kutis Glow Makeup','Tagaytay','Bride Only HMUA',1500000)
+    ) AS t(biz, city, pkg, price)
+  LOOP
+    INSERT INTO public.vendor_profiles (business_name, business_slug, tagline, location_city, services, public_visibility, is_demo, demo_batch_id)
+    VALUES (r.biz, 'mj-mua-'||lower(regexp_replace(r.biz,'[^a-z0-9]+','-','gi')), 'Sample vendor · Maria & Jose', r.city, ARRAY['bridal_hmua']::text[], 'verified', TRUE, v_batch)
+    RETURNING vendor_profile_id INTO v_vp;
+
+    INSERT INTO public.vendor_services (vendor_profile_id, category, title, starts_at_centavos, starting_price_php, package_inclusions, is_active, is_demo, demo_batch_id)
+    VALUES (v_vp, 'bridal_hmua', r.pkg, r.price, (r.price/100)::int, '[]'::jsonb, TRUE, TRUE, v_batch);
+
+    INSERT INTO public.event_vendors (event_id, category, vendor_name, marketplace_vendor_id, status)
+    VALUES (v_event, 'makeup_artist'::vendor_category, r.biz, v_vp, 'considering');
+  END LOOP;
 END $$;

@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-21 · fix(std): Save-the-Date film no longer hangs on the uploaded-video beat
+
+Reported on `www.setnayan.com/cale-ice`: the couple's uploaded video "sometimes hangs in the center even on strong internet."
+
+Root cause — an autoplay-policy block, **not** buffering. The film's video beat (`save-the-date-film.tsx`) holds on `dur: Infinity` and only advances when the `<video>` fires `ended`. The clip is **unmuted** (the couple's keepsake), so `v.play()` requires recent user activation. By the time the film auto-advances into that beat (~30s of text beats after the reveal-lift), the activation is gone — and on iOS Safari a `play()` fired outside a gesture handler is blocked regardless; the no-reveal grace path and an auto-completing reveal never had a gesture at all. The rejected promise was swallowed by `.catch(() => {})`, so the clip froze on its first frame (centered, `object-contain` on black) and the film never advanced. Device/path-dependent → "sometimes."
+
+- `apps/web/app/[slug]/_components/save-the-date-film.tsx`: on an unmuted `v.play()` rejection, **retry muted** (always permitted by every engine) so the clip plays, fires `ended`, and the film advances — preserving the owner's "video autoplays, no clicking" intent without the hang. The soundtrack is kept playing under the now-silent clip (un-duck via `crossfade(1, 0)` + resume) so the beat isn't dead air.
+- Added an `error` listener (guarded to the active video beat so an early preload error can't jump a text beat) and a muted-retry-failure fallback — both advance off the `Infinity` beat so a mid-play decode/network error can't strand the guest either.
+- Corrected the effect's header comment, which wrongly asserted "the reveal gesture already granted the page media playback" (the exact false assumption behind the bug).
+
+Verified: `tsc --noEmit` clean for the file. Not browser-reproduced (autoplay-policy + real uploaded clip + reveal + ~30s of beats isn't reliably reproducible headless) — owner to confirm on the live page.
+
+SPEC IMPACT: None (robustness fix; the spec's "video autoplays then advances to the calendar close" behavior is unchanged — this makes it hold under the autoplay policy across iOS/desktop/no-reveal paths).
+
 ## 2026-06-21 · chore(home): remove dead layout helpers + unused imports from couple event-home
 
 Dead-code cleanup of `apps/web/app/dashboard/[eventId]/page.tsx` left behind by the 2026-06-04 "home is a cockpit, not a catalog" decluttering. The helpers/components below were defined or imported but never rendered (confirmed: zero `<Tag` JSX usages, repo-wide grep for real `import` statements).

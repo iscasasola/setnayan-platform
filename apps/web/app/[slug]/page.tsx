@@ -1023,6 +1023,9 @@ type EventRow = {
   std_film_ceremony_name?: string | null;
   // Manual STD film accent hex override (null = follow Mood Board → mulberry).
   std_film_accent_hex?: string | null;
+  // TRUE only for the Maria & Jose public-tour sample event. Used to suppress the
+  // Save-the-Date view beacon so tour traffic never inflates the sample's stats.
+  is_sample?: boolean | null;
   // JSONB column populated by the host via /dashboard/[eventId]/website/photo-moments.
   // Shape: { intro_copy: string, moments: [{ time_label, title, note, mode }] }.
   // Unknown / empty shapes degrade gracefully in PhotoMomentsWidget — the

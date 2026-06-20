@@ -36,7 +36,7 @@ const FAMILY_LABEL: Record<TourSwatchGroup['family'], string> = {
 /** Parse #RRGGBB → [r,g,b] (0-255). Returns null for anything malformed. */
 function hexToRgb(hex: string): [number, number, number] | null {
   const m = /^#([0-9a-f]{6})$/i.exec(hex.trim());
-  if (!m) return null;
+  if (!m || !m[1]) return null;
   const n = parseInt(m[1], 16);
   return [(n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff];
 }

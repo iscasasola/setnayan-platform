@@ -25,6 +25,7 @@ import {
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
 import { isTrueNameTier, tierCaps } from '@/lib/vendor-tier-caps';
+import { experienceTier } from '@/lib/vendor-experience';
 import { fetchVendorServices, type VendorServiceRow } from '@/lib/vendor-services';
 import { fetchUserEvents } from '@/lib/events';
 import { resolveLivePax } from '@/lib/pax';
@@ -466,7 +467,7 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
   const limit = reviewsPage * REVIEWS_PAGE_SIZE;
 
   const admin = createAdminClient();
-  const [reviewStats, reviews, allServices, vendorPackages, recommendingCouples] = await Promise.all([
+  const [reviewStats, reviews, allServices, vendorPackages, recommendingCouples, finalizedBookingCount] = await Promise.all([
     fetchReviewStats(admin, vendor.vendor_profile_id),
     fetchReviewsForVendorWithCouple(admin, vendor.vendor_profile_id, { limit, offset: 0 }),
     fetchVendorServices(admin, vendor.vendor_profile_id),
@@ -479,7 +480,25 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
     // "Recommended by N couples" trust signal (Event Lifecycle Menu §6.3).
     // Distinct events with a completion-gated recommendation; 0 → not rendered.
     countVendorRecommendingCouples(admin, vendor.vendor_profile_id),
+    // Experience tier badge (Vendor_Quality_Rating_System §5) — finalized
+    // bookings that flowed through Setnayan. Best-effort single read: missing
+    // row / unapplied table → null → "New to Setnayan". Never blocks the page.
+    (async (): Promise<number | null> => {
+      const { data, error } = await admin
+        .from('vendor_activity_stats')
+        .select('finalized_booking_count')
+        .eq('vendor_profile_id', vendor.vendor_profile_id)
+        .maybeSingle();
+      if (error) {
+        console.warn('[v/[slug]] vendor_activity_stats fetch failed', error.message);
+        return null;
+      }
+      return (data as { finalized_booking_count: number | null } | null)?.finalized_booking_count ?? null;
+    })(),
   ]);
+  // Spec §5 experience tier — surfaced as a subtle hero badge. We render the
+  // tier even for "New to Setnayan" on the profile (honest, not negative).
+  const expTier = experienceTier(finalizedBookingCount);
   const hasMore = reviewStats.total_count > reviews.length;
   const activeServices = allServices.filter((s) => s.is_active);
 
@@ -929,6 +948,22 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
             {vendor.tagline ? (
               <p className="text-base text-ink/70">{vendor.tagline}</p>
             ) : null}
+            {/* Experience tier badge (Vendor_Quality_Rating_System §5) — a
+                subtle violet chip stating how many finalized bookings flowed
+                through Setnayan. The profile keeps the honest "New to Setnayan"
+                tier (unlike the dense explore card, which suppresses it). Same
+                violet tokens as the explore card's experience chip so the badge
+                reads identically across surfaces. */}
+            <p
+              className="inline-flex w-fit items-center gap-1 rounded-full border border-violet-300/50 bg-violet-50 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-violet-900"
+              title={
+                finalizedBookingCount && finalizedBookingCount > 0
+                  ? `${finalizedBookingCount} finalized event${finalizedBookingCount === 1 ? '' : 's'} through Setnayan.`
+                  : 'New to Setnayan — many excellent vendors are.'
+              }
+            >
+              {expTier.longLabel}
+            </p>
             <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-ink/60">
               {vendor.location_city ? (
                 <span className="inline-flex items-center gap-1">

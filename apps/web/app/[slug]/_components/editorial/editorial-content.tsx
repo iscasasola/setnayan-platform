@@ -445,10 +445,19 @@ function VendorRow({ v }: { v: EditorialData['vendors'][number] }): ReactElement
         {v.category ? (
           <span className="block font-mono text-[8px] uppercase tracking-[0.06em] text-ink/45">
             {prettyCategory(v.category)}
-            {v.isFirstPick ? ' · #1 match' : ''}
           </span>
         ) : null}
       </span>
+      {/* #1 MATCH credit — the vendor the couple chose was Setnayan's top
+          recommendation for that category (selection_match_rank = 1). A subtle
+          mulberry pill keeps it editorial, distinct from the terracotta tier
+          badge. Replaces the old inline "· #1 match" caption so the credit
+          reads as a proper badge instead of buried metadata. */}
+      {v.isFirstPick ? (
+        <span className="shrink-0 rounded-full border border-mulberry/40 bg-mulberry/5 px-1.5 py-0.5 font-mono text-[7px] uppercase tracking-[0.12em] text-mulberry">
+          #1 Match
+        </span>
+      ) : null}
       {v.tier === 'pro' || v.tier === 'enterprise' ? (
         <span className="shrink-0 rounded-full border border-terracotta/40 px-1.5 py-0.5 font-mono text-[7px] uppercase tracking-[0.12em] text-terracotta">
           {v.tier}

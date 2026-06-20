@@ -59,6 +59,7 @@ import { MapPin, Navigation, Sparkles, Star, ExternalLink, Zap, Clock, AlertCirc
 
 import { displayServiceLabel, formatPhp, resolveVendorDisplayName, VENDOR_PLACEHOLDER_PHOTO } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
+import { experienceTier } from '@/lib/vendor-experience';
 import { formatStarRating } from '@/lib/reviews';
 import { haversineKm, formatDistanceKm } from '@/lib/distance';
 import { parseVisibility, isBookable } from '@/lib/vendor-visibility';
@@ -578,16 +579,13 @@ function ActivityBadges({
     lastActiveAt !== null &&
     now - Date.parse(lastActiveAt) > LOW_ACTIVITY_THRESHOLD_MS;
 
-  // Experience tier from finalized bookings.
-  let experienceTier: string | null = null;
-  if (finalizedBookingCount !== null && finalizedBookingCount > 0) {
-    if (finalizedBookingCount >= 200) experienceTier = 'Elite';
-    else if (finalizedBookingCount >= 51) experienceTier = 'Expert';
-    else if (finalizedBookingCount >= 11) experienceTier = 'Experienced';
-    else experienceTier = 'Established';
-  }
+  // Experience tier from finalized bookings (spec §5 · shared helper). The
+  // dense card suppresses the "New" tier — the VendorBadgeRow already carries
+  // a `new` badge — so only 1+ booking tiers surface a chip here.
+  const tier = experienceTier(finalizedBookingCount);
+  const experienceLabel = tier.isNew ? null : tier.label;
 
-  if (!showResponsive && !isInactive && !experienceTier) return null;
+  if (!showResponsive && !isInactive && !experienceLabel) return null;
 
   return (
     <ul className="flex flex-wrap gap-1.5">
@@ -610,12 +608,12 @@ function ActivityBadges({
           Low recent activity
         </li>
       ) : null}
-      {experienceTier ? (
+      {experienceLabel ? (
         <li
           className="inline-flex items-center gap-1 rounded-full border border-violet-300/50 bg-violet-50 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-violet-900"
           title={`${finalizedBookingCount} finalized events through Setnayan.`}
         >
-          {experienceTier}
+          {experienceLabel}
         </li>
       ) : null}
     </ul>

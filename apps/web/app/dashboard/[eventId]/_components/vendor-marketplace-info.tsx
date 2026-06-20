@@ -225,23 +225,26 @@ export async function fetchMarketplaceReviews(
         created_at: string;
       }>;
 
-      // Resolve display names — keep this best-effort. A missing users row
-      // surfaces as "Verified couple".
-      const userIds = Array.from(
-        new Set(baseReviews.map((r) => r.couple_user_id).filter((id): id is string => !!id)),
+      // Attribute each review to the EVENT's couple (events.display_name), never
+      // to whoever physically submitted it — a delegated coordinator submitting
+      // the host review must not leak their personal name. Best-effort: a
+      // missing/blank event display name surfaces as "Verified couple".
+      const eventIds = Array.from(
+        new Set(baseReviews.map((r) => r.event_id).filter((id): id is string => !!id)),
       );
-      const nameById = new Map<string, string | null>();
-      if (userIds.length > 0) {
+      const nameByEvent = new Map<string, string | null>();
+      if (eventIds.length > 0) {
         try {
-          const usersRes = await supabase
-            .from('users')
-            .select('user_id, display_name')
-            .in('user_id', userIds);
-          if (!usersRes.error) {
-            for (const row of usersRes.data ?? []) {
-              nameById.set(
-                row.user_id as string,
-                (row.display_name as string | null) ?? null,
+          const eventsRes = await supabase
+            .from('events')
+            .select('event_id, display_name')
+            .in('event_id', eventIds);
+          if (!eventsRes.error) {
+            for (const row of eventsRes.data ?? []) {
+              const name = (row.display_name as string | null) ?? null;
+              nameByEvent.set(
+                row.event_id as string,
+                name && name.trim().length > 0 ? name : null,
               );
             }
           }
@@ -252,7 +255,7 @@ export async function fetchMarketplaceReviews(
 
       reviews = baseReviews.map((r) => ({
         ...r,
-        couple_display_name: r.couple_user_id ? (nameById.get(r.couple_user_id) ?? null) : null,
+        couple_display_name: nameByEvent.get(r.event_id) ?? null,
       }));
     }
   } catch (e) {

@@ -8,9 +8,14 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 Investigated a Sentry `IndexSizeError` (DOMException code 1) on `/[slug]` (Mobile Safari, vercel-production, reported via the `/cale-ice` event). Root cause of the **live** crash — the `HTMLMediaElement.volume` setter throwing on an out-of-range crossfade value — was **already fixed the night before** (PRs #1831 + #1841 · `setVol` finite-guard + `[0,1]` clamp in `save-the-date-film.tsx`, in `origin/main` since 2026-06-19 ~22:58 +08). The alerting event was a **pre-fix occurrence**; nothing further needed there. This PR closes the one remaining latent path in the same crash family, found while tracing:
 
-- `lib/reveal-config.ts` `mergeEffects()` read the 7 admin reveal-effect sliders with `num()` (finiteness only, **no range clamp**) — unlike its sibling `mergeTouchGlow()`, which already `clamp(…, 0, 100)`s. A persisted out-of-range value (e.g. a negative `petalSize`) would drive the petal/butterfly `ctx.ellipse()` radius **negative** in `reveal-particles.tsx` → `IndexSizeError`, crashing the public Save-the-Date page in *every* browser. Each of the 7 sliders is now `clamp(…, 0, 100)` (parity with `mergeTouchGlow`), so a bad DB value can never reach a canvas radius.
+`lib/reveal-config.ts` read the admin Reveal-Studio JSONB sliders with `num()` (finiteness only, **no range clamp**) — unlike `mergeTouchGlow()`, which already `clamp()`s. A persisted out-of-range value (e.g. a negative `petalSize`) would drive the petal/butterfly `ctx.ellipse()` / `ctx.arc()` radius **negative** in `reveal-particles.tsx` → `IndexSizeError`, crashing the public Save-the-Date page in *every* browser. Both reader paths are now clamped:
 
-Defense-in-depth (the Reveal Studio UI already clamps slider input on the write side); not browser-observable without injecting malformed config, so verified by type/lint + CI rather than a preview screenshot. Not built locally (pnpm monorepo — node_modules can't be cross-linked between worktrees); required CI checks (typecheck + lint + build) + Vercel preview are the gate, auto-merge armed.
+- `mergeEffects()` — all 7 effect sliders → `clamp(…, 0, 100)`.
+- `mergeLook()` (VeilLook) — all 17 knobs → `clamp()` to each field's real Reveal-Studio `SliderDef` min/max (`logoSize` 2–30, `tilePx` 40–400, `folds` 4–30, `feather` 2–8, `reaches` 0–30, `topValance` 0–70, the rest 0–100).
+- Removed the now-dead `num()` helper (no remaining callers).
+- Added `lib/reveal-config.test.ts` (Node `tsx --test`): asserts out-of-range values clamp to the bound, valid configs pass through unchanged, and non-finite/missing/nullish configs fall back to the locked defaults.
+
+Behavior is identical for valid configs (current production rows are all in range); this is defense-in-depth — the Reveal-Studio UI already clamps on the write side. Verified by the new unit test + type/lint + CI, not a preview screenshot (not browser-observable without injecting malformed config). Not built locally (pnpm monorepo — node_modules can't be cross-linked between worktrees); required CI checks (typecheck + lint + unit tests + build) + Vercel preview are the gate, auto-merge armed.
 
 SPEC IMPACT: None (defensive code hardening; no SKU / schema / pricing / branding change).
 

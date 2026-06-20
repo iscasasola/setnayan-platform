@@ -174,9 +174,6 @@ export const DEFAULT_REVEAL_CONFIG: RevealStudioConfig = {
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
-function num(v: unknown, fallback: number): number {
-  return typeof v === 'number' && Number.isFinite(v) ? v : fallback;
-}
 function bool(v: unknown, fallback: boolean): boolean {
   return typeof v === 'boolean' ? v : fallback;
 }
@@ -195,23 +192,28 @@ function mergeLook(raw: unknown): VeilLook {
   const r = (raw ?? {}) as Record<string, unknown>;
   const d = DEFAULT_VEIL_LOOK;
   return {
-    tilePx: num(r.tilePx, d.tilePx),
-    logoSize: num(r.logoSize, d.logoSize),
-    logoOpacity: num(r.logoOpacity, d.logoOpacity),
-    topValance: num(r.topValance, d.topValance),
-    reaches: num(r.reaches, d.reaches),
-    wind: num(r.wind, d.wind),
-    folds: num(r.folds, d.folds),
-    fullness: num(r.fullness, d.fullness),
-    weight: num(r.weight, d.weight),
-    trail: num(r.trail, d.trail),
-    floatUp: num(r.floatUp, d.floatUp),
-    feather: num(r.feather, d.feather),
-    bounce: num(r.bounce, d.bounce),
-    petalsDensity: num(r.petalsDensity, d.petalsDensity),
-    liftPk: num(r.liftPk, d.liftPk),
-    hold: num(r.hold, d.hold),
-    stretch: num(r.stretch, d.stretch),
+    // Clamp each knob to its Reveal-Studio SliderDef range
+    // (app/admin/reveal-studio/studio.tsx). `num()` only checked finiteness — an
+    // out-of-range persisted JSONB value can corrupt the veil sim and, via the
+    // shared petal/density knobs, feed a negative Canvas2D radius → IndexSizeError
+    // on the public Save-the-Date page. Parity with mergeEffects / mergeTouchGlow.
+    tilePx: clamp(r.tilePx, d.tilePx, 40, 400),
+    logoSize: clamp(r.logoSize, d.logoSize, 2, 30),
+    logoOpacity: clamp(r.logoOpacity, d.logoOpacity, 0, 100),
+    topValance: clamp(r.topValance, d.topValance, 0, 70),
+    reaches: clamp(r.reaches, d.reaches, 0, 30),
+    wind: clamp(r.wind, d.wind, 0, 100),
+    folds: clamp(r.folds, d.folds, 4, 30),
+    fullness: clamp(r.fullness, d.fullness, 0, 100),
+    weight: clamp(r.weight, d.weight, 0, 100),
+    trail: clamp(r.trail, d.trail, 0, 100),
+    floatUp: clamp(r.floatUp, d.floatUp, 0, 100),
+    feather: clamp(r.feather, d.feather, 2, 8),
+    bounce: clamp(r.bounce, d.bounce, 0, 100),
+    petalsDensity: clamp(r.petalsDensity, d.petalsDensity, 0, 100),
+    liftPk: clamp(r.liftPk, d.liftPk, 0, 100),
+    hold: clamp(r.hold, d.hold, 0, 100),
+    stretch: clamp(r.stretch, d.stretch, 0, 100),
   };
 }
 

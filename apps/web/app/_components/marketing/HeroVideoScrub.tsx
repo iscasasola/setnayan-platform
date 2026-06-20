@@ -364,6 +364,21 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
               {ctaText}
             </Link>
           </div>
+          <div style={{ marginTop: 14 }}>
+            <Link
+              href="/tour"
+              className="m-mono"
+              style={{
+                fontSize: 12,
+                letterSpacing: '.06em',
+                color: 'rgba(255,255,255,.85)',
+                textDecoration: 'underline',
+                textUnderlineOffset: 3,
+              }}
+            >
+              or see a real wedding first →
+            </Link>
+          </div>
           <div
             className="m-mono"
             style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--m-orange-3)', marginTop: 18 }}

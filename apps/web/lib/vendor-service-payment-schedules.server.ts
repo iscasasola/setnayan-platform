@@ -9,10 +9,13 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
+  computeStepper,
   rowToCoupleFacing,
   type CoupleFacingScheduleItem,
   type PaymentScheduleItemRow,
+  type PaymentSeqState,
   type PlanInstance,
+  type PlanProgress,
 } from '@/lib/vendor-service-payment-schedules';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 
@@ -102,6 +105,129 @@ export async function fetchPlanForCouple(opts: {
   const raw = (data as { instances_json: unknown }).instances_json;
   if (!Array.isArray(raw)) return [];
   return (raw as PlanInstance[]).slice().sort((a, b) => a.seq - b.seq);
+}
+
+/**
+ * The full per-booking PLAN PROGRESS for the couple's stepper (Phase 2 PR-D):
+ * the frozen installments folded with the couple's logged payments (matched by
+ * schedule_instance_seq) into per-installment states (due / pending / paid),
+ * plus the plan-level cleared_at.
+ *
+ * Couple-scoped by RLS: both event_vendor_payment_plan and event_vendor_payments
+ * are gated to event members (current_event_ids()), so the couple's own
+ * authedClient reads both directly — no admin escalation.
+ *
+ * Returns { steps: null, clearedAt: null } when there's no frozen plan (booking
+ * not locked / pre-PR-B). steps = [] for a locked-but-no-schedule booking.
+ */
+export async function fetchPlanProgressForCouple(opts: {
+  authedClient: SupabaseClient;
+  eventId: string;
+  eventVendorId: string;
+}): Promise<PlanProgress> {
+  const { authedClient, eventId, eventVendorId } = opts;
+
+  const { data: planRow } = await authedClient
+    .from('event_vendor_payment_plan')
+    .select('instances_json, cleared_at')
+    .eq('event_id', eventId)
+    .eq('event_vendor_id', eventVendorId)
+    .maybeSingle();
+  if (!planRow) return { steps: null, clearedAt: null };
+
+  const raw = (planRow as { instances_json: unknown }).instances_json;
+  const instances: PlanInstance[] = Array.isArray(raw) ? (raw as PlanInstance[]) : [];
+  const clearedAt = (planRow as { cleared_at: string | null }).cleared_at ?? null;
+
+  // The couple's logged payments on this booking (couple-RLS) — only the seq +
+  // confirmation flag matter for the stepper.
+  const { data: payRows } = await authedClient
+    .from('event_vendor_payments')
+    .select('schedule_instance_seq, vendor_confirmed_at')
+    .eq('event_id', eventId)
+    .eq('vendor_id', eventVendorId);
+  const payments: PaymentSeqState[] = ((payRows ?? []) as Array<{
+    schedule_instance_seq: number | null;
+    vendor_confirmed_at: string | null;
+  }>).map((p) => ({
+    schedule_instance_seq: p.schedule_instance_seq,
+    vendor_confirmed: p.vendor_confirmed_at != null,
+  }));
+
+  return { steps: computeStepper(instances, payments), clearedAt };
+}
+
+/**
+ * The vendor-side read of a booking's PLAN PROGRESS for the thread stepper +
+ * "Mark payment cleared" gate (Phase 2 PR-D). event_vendor_payment_plan +
+ * event_vendor_payments are both couple-RLS'd, so this mirrors
+ * fetchPendingVendorPayments: prove the CALLING VENDOR owns the booking (its
+ * marketplace_vendor_id === the caller's vendor_profile_id), THEN admin-read the
+ * plan + payments. Returns one entry per booking of the vendor's on this event
+ * that carries a frozen plan; bookings with no plan are omitted.
+ */
+export async function fetchPlanProgressForVendor(opts: {
+  adminClient: SupabaseClient;
+  eventId: string;
+  vendorProfileId: string;
+}): Promise<Array<PlanProgress & { eventVendorId: string; vendorLabel: string }>> {
+  const { adminClient, eventId, vendorProfileId } = opts;
+
+  // 1. The vendor's bookings on this event (ownership-scoped).
+  const { data: bookings } = await adminClient
+    .from('event_vendors')
+    .select('vendor_id, vendor_name')
+    .eq('event_id', eventId)
+    .eq('marketplace_vendor_id', vendorProfileId);
+  const evRows = (bookings ?? []) as Array<{ vendor_id: string; vendor_name: string | null }>;
+  if (evRows.length === 0) return [];
+  const eventVendorIds = evRows.map((b) => b.vendor_id).filter(Boolean);
+
+  // 2. Frozen plans on those bookings.
+  const { data: plans } = await adminClient
+    .from('event_vendor_payment_plan')
+    .select('event_vendor_id, instances_json, cleared_at')
+    .eq('event_id', eventId)
+    .in('event_vendor_id', eventVendorIds);
+  const planRows = (plans ?? []) as Array<{
+    event_vendor_id: string;
+    instances_json: unknown;
+    cleared_at: string | null;
+  }>;
+  if (planRows.length === 0) return [];
+
+  // 3. All logged payments on those bookings (seq + confirm flag).
+  const { data: payRows } = await adminClient
+    .from('event_vendor_payments')
+    .select('vendor_id, schedule_instance_seq, vendor_confirmed_at')
+    .in('vendor_id', eventVendorIds);
+  const paymentsByVendor = new Map<string, PaymentSeqState[]>();
+  for (const p of (payRows ?? []) as Array<{
+    vendor_id: string;
+    schedule_instance_seq: number | null;
+    vendor_confirmed_at: string | null;
+  }>) {
+    const list = paymentsByVendor.get(p.vendor_id) ?? [];
+    list.push({
+      schedule_instance_seq: p.schedule_instance_seq,
+      vendor_confirmed: p.vendor_confirmed_at != null,
+    });
+    paymentsByVendor.set(p.vendor_id, list);
+  }
+
+  const nameByVendor = new Map(evRows.map((b) => [b.vendor_id, b.vendor_name]));
+
+  return planRows.map((plan) => {
+    const instances: PlanInstance[] = Array.isArray(plan.instances_json)
+      ? (plan.instances_json as PlanInstance[])
+      : [];
+    return {
+      eventVendorId: plan.event_vendor_id,
+      vendorLabel: nameByVendor.get(plan.event_vendor_id)?.trim() || 'this booking',
+      steps: computeStepper(instances, paymentsByVendor.get(plan.event_vendor_id) ?? []),
+      clearedAt: plan.cleared_at,
+    };
+  });
 }
 
 /** One couple-logged payment awaiting the vendor's confirmation. */

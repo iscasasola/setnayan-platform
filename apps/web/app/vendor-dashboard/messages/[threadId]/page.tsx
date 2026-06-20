@@ -13,9 +13,14 @@ import { fetchThreadInterests } from '@/lib/thread-interests';
 import { fetchVendorServices } from '@/lib/vendor-services';
 import { isCanonicalService, VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
 import { resolveLivePax, fetchVendorPaxProposals } from '@/lib/pax';
-import { fetchPendingVendorPayments } from '@/lib/vendor-service-payment-schedules.server';
+import {
+  fetchPendingVendorPayments,
+  fetchPlanProgressForVendor,
+} from '@/lib/vendor-service-payment-schedules.server';
+import { canClearPlan } from '@/lib/vendor-service-payment-schedules';
+import { PaymentPlanStepper } from '@/app/_components/payment-plan-stepper';
 import { acceptPaxSurcharge, declinePaxSurcharge } from './pax-actions';
-import { confirmVendorPayment } from './pay-confirm-actions';
+import { confirmVendorPayment, clearVendorPaymentPlan } from './pay-confirm-actions';
 import {
   VendorOfferService,
   type VendorOfferOption,
@@ -118,6 +123,24 @@ export default async function VendorThreadPage({ params }: Props) {
   } catch (e) {
     console.error('[vendor-thread] fetchPendingVendorPayments threw', e);
     pendingPayments = [];
+  }
+
+  // Phase 2 PR-D — the PLAN PROGRESS for this vendor's bookings on the event:
+  // the frozen installments + per-installment states + cleared flag. Drives the
+  // vendor-side stepper + the "Mark payment cleared" gate (enabled only when
+  // every installment is vendor-confirmed, or the booking has no schedule).
+  // Admin-read after the thread-ownership gate (same model as pendingPayments).
+  // Best-effort: a failure degrades to no progress card.
+  let planProgress: Awaited<ReturnType<typeof fetchPlanProgressForVendor>> = [];
+  try {
+    planProgress = await fetchPlanProgressForVendor({
+      adminClient: paxAdmin,
+      eventId: thread.event_id,
+      vendorProfileId: profile.vendor_profile_id,
+    });
+  } catch (e) {
+    console.error('[vendor-thread] fetchPlanProgressForVendor threw', e);
+    planProgress = [];
   }
 
   const peso = (n: number) =>
@@ -249,6 +272,63 @@ export default async function VendorThreadPage({ params }: Props) {
           </div>
         </div>
       ))}
+
+      {/* Payment plan progress + clear (Phase 2 PR-D) — one card per booking of
+          this vendor's that carries a frozen plan. The stepper shows each
+          installment's state (due → pending → paid); "Mark payment cleared"
+          enables only when every installment is confirmed (or the booking has
+          no schedule). The DB guard (clear_vendor_payment_plan) re-checks
+          ownership + the gate; success notifies the couple (payment_cleared). */}
+      {planProgress.map((p) => {
+        const cleared = p.clearedAt != null;
+        const steps = p.steps ?? [];
+        const canClear = canClearPlan(steps);
+        return (
+          <div
+            key={p.eventVendorId}
+            className="rounded-xl border border-ink/10 bg-cream p-4"
+          >
+            <p className="text-sm font-semibold text-ink">
+              Payment plan — {p.vendorLabel}
+            </p>
+            <div className="mt-3">
+              <PaymentPlanStepper steps={steps} clearedAt={p.clearedAt} />
+            </div>
+            {!cleared ? (
+              <>
+                <div className="mt-3">
+                  <form action={clearVendorPaymentPlan}>
+                    <input
+                      type="hidden"
+                      name="event_vendor_id"
+                      value={p.eventVendorId}
+                    />
+                    <input type="hidden" name="thread_id" value={threadId} />
+                    <SubmitButton
+                      pendingLabel="Clearing…"
+                      disabled={!canClear}
+                      className="inline-flex h-9 items-center rounded-lg bg-success-700 px-4 text-sm font-medium text-cream hover:bg-success-800 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Mark payment cleared
+                    </SubmitButton>
+                  </form>
+                </div>
+                {!canClear ? (
+                  <p className="mt-2 text-xs text-ink/55">
+                    Confirm every installment above before you can mark the plan
+                    cleared.
+                  </p>
+                ) : (
+                  <p className="mt-2 text-xs text-ink/55">
+                    All installments confirmed — mark the plan cleared to let the
+                    couple know nothing more is owed.
+                  </p>
+                )}
+              </>
+            ) : null}
+          </div>
+        );
+      })}
 
       <ChatPrivacyNotice />
 

@@ -11,6 +11,7 @@ import {
   type ProposalLineItem,
   type ProposalTokenKey,
 } from '@/lib/vendor-proposals';
+import { resolveVendorCategory } from '@/lib/vendor-packages';
 
 /**
  * Proposal auto-fill — Vendor Portal data-link program ③ (corpus
@@ -291,11 +292,33 @@ export async function respondToProposal(formData: FormData) {
   const publicId = String(formData.get('public_id') ?? '');
   const response = String(formData.get('response') ?? '');
 
+  // On accept, resolve the coarse VendorCategory in TS so the RPC can stamp it
+  // on a fresh event_vendors row (the case where the couple accepts before ever
+  // Saving the vendor — there's no row yet to read the category from). The
+  // proposal's line_items store the canonical_service as `detail` with
+  // underscores swapped for spaces at create time (createProposal:171), so we
+  // reverse that to recover the key. Decline passes NULL.
+  let coarseCategory: string | null = null;
+  if (response === 'accepted') {
+    const { data: proposal } = await supabase
+      .from('vendor_proposals')
+      .select('line_items')
+      .eq('proposal_id', proposalId)
+      .maybeSingle();
+    const items = (proposal?.line_items ?? []) as ProposalLineItem[];
+    const firstDetail = items[0]?.detail;
+    if (firstDetail) {
+      coarseCategory = resolveVendorCategory(firstDetail.replace(/ /g, '_'));
+    }
+  }
+
   // SECURITY DEFINER RPC validates couple/delegate membership + the
-  // sent/viewed → accepted/declined transition.
+  // sent/viewed → accepted/declined transition, and (on accept) upserts the
+  // couple's priced event_vendors shortlist pick.
   const { error } = await supabase.rpc('respond_vendor_proposal', {
     p_proposal_id: proposalId,
     p_response: response,
+    p_coarse_category: coarseCategory,
   });
 
   revalidatePath(`/proposals/${publicId}`);

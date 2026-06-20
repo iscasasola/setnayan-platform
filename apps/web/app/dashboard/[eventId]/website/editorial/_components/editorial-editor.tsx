@@ -9,6 +9,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ArrowUpRight } from 'lucide-react';
 import { saveEditorial, type EditorialEditorInput } from '../actions';
 import type { EditorialSections } from '@/app/[slug]/_components/editorial/data';
@@ -52,27 +53,48 @@ export function EditorialEditor({
   slug: string | null;
   initial: EditorialEditorInput;
 }) {
+  const router = useRouter();
   const [form, setForm] = useState<EditorialEditorInput>(initial);
   const [phase, setPhase] = useState<'idle' | 'saving' | 'done' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
+  // Unsaved-changes flag, so opening a sub-editor can save first — kills the old
+  // "save your text here first, then open one" footgun where typed words were lost.
+  const [dirty, setDirty] = useState(false);
 
-  const set = <K extends keyof EditorialEditorInput>(k: K, v: EditorialEditorInput[K]) =>
+  const set = <K extends keyof EditorialEditorInput>(k: K, v: EditorialEditorInput[K]) => {
     setForm((f) => ({ ...f, [k]: v }));
-  const toggle = (k: keyof EditorialSections) =>
+    setDirty(true);
+  };
+  const toggle = (k: keyof EditorialSections) => {
     setForm((f) => ({ ...f, sections: { ...f.sections, [k]: !f.sections[k] } }));
+    setDirty(true);
+  };
 
-  const onSave = async (publish: boolean) => {
+  const persist = async (publish: boolean): Promise<boolean> => {
     setPhase('saving');
     setError(null);
     try {
       const r = await saveEditorial(eventId, { ...form, publish });
       if (!r.ok) throw new Error(r.error);
-      set('publish', publish);
+      // Direct setForm (not `set`) so the publish flag doesn't re-mark dirty.
+      setForm((f) => ({ ...f, publish }));
+      setDirty(false);
       setPhase('done');
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save.');
       setPhase('error');
+      return false;
     }
+  };
+  const onSave = (publish: boolean) => {
+    void persist(publish);
+  };
+  // Save the couple's words as a draft BEFORE navigating into a sub-editor, so
+  // nothing typed here is lost. Only navigates if the save succeeds.
+  const openPiece = async (href: string) => {
+    const ok = await persist(false);
+    if (ok) router.push(href);
   };
 
   const card = 'rounded-2xl border border-ink/10 bg-cream/40 p-5 sm:p-6';
@@ -85,7 +107,8 @@ export function EditorialEditor({
       <section className={card}>
         <h2 className="font-display text-lg italic text-ink">What goes in</h2>
         <p className="mt-0.5 text-sm text-ink/60">
-          The pieces below have their own editors. Save your text here first, then open one.
+          The pieces below have their own editors. Open any — we&rsquo;ll save your words
+          here first, so nothing&rsquo;s lost.
         </p>
         <div className="mt-4 grid gap-2.5 sm:grid-cols-3">
           {[
@@ -93,7 +116,20 @@ export function EditorialEditor({
             { href: `/dashboard/${eventId}/website/our-photos`, label: 'Photos', sub: 'The gallery' },
             { href: `/dashboard/${eventId}/website/special-message`, label: 'Thank-you note', sub: 'From the couple' },
           ].map((l) => (
-            <Link key={l.href} href={l.href} className={linkCard}>
+            <Link
+              key={l.href}
+              href={l.href}
+              className={linkCard}
+              onClick={(e) => {
+                // Plain click with unsaved words → save a draft first, then go,
+                // so nothing typed here is lost. Modifier-clicks (open in a new
+                // tab/window) pass through — this tab keeps its state.
+                if (dirty && e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
+                  e.preventDefault();
+                  void openPiece(l.href);
+                }
+              }}
+            >
               <span>
                 <span className="block font-medium text-ink">{l.label}</span>
                 <span className="block text-xs text-ink/55">{l.sub}</span>

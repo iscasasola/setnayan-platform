@@ -99,8 +99,11 @@ export async function fetchPreferenceMatches(
   const prefMap = await getEventPreferences(admin, eventId);
   const coupleDims = new Map<string, Set<string>>();
   for (const svc of canonicalServices) {
-    const payload = prefMap[svc];
-    if (payload) mergeDimensions(coupleDims, payload as Record<string, unknown>);
+    // prefMap[svc] is the saved requirements template; the matcher reads only
+    // its facet dimensions (attribute_payload) — special_request / auto_send are
+    // not match signals (Phase 1b PR-1).
+    const pref = prefMap[svc];
+    if (pref) mergeDimensions(coupleDims, pref.attribute_payload as Record<string, unknown>);
   }
   const totalDimensions = coupleDims.size;
   if (totalDimensions === 0) return out; // couple expressed nothing → no-op

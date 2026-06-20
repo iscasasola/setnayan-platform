@@ -15,25 +15,15 @@
  * = events.estimated_budget_centavos.
  */
 import { createClient } from './supabase/server';
+import { BUDGET_BANDS_FALLBACK, type BudgetBand } from './budget-bands-shared';
 
-/** One budget feel-band. `med` is the per-head median in PESOS (0 = no_limit). */
-export type BudgetBand = { value: string; label: string; tag: string; med: number };
-
-/**
- * In-code fallback — IDENTICAL to the onboarding-shell BUDGET_BANDS literal that
- * this module replaces (essentials med 2000 … luxury 15000, no_limit 0). Used
- * whenever the DB read errors or returns no rows, so the onboarding never breaks
- * even before the migration is applied (fallback-safe → mergeable pre-migration).
- */
-export const BUDGET_BANDS_FALLBACK: BudgetBand[] = [
-  { value: 'essentials', label: 'Essentials', tag: 'Lean & intentional', med: 2000 },
-  { value: 'simple', label: 'Simple', tag: 'Comfortable', med: 3500 },
-  { value: 'classic', label: 'Classic', tag: 'The sweet spot', med: 5000 },
-  { value: 'elevated', label: 'Elevated', tag: 'Polished', med: 7500 },
-  { value: 'premium', label: 'Premium', tag: 'Entry luxury', med: 11000 },
-  { value: 'luxury', label: 'Luxury', tag: 'No-compromise', med: 15000 },
-  { value: 'no_limit', label: 'No limit', tag: 'No ceiling', med: 0 },
-];
+// Re-exported so existing server-side importers of '@/lib/budget-bands' keep the
+// same API (type + fallback). The client-safe definitions now live in
+// budget-bands-shared.ts so CLIENT components import them from there WITHOUT
+// pulling in the server-only Supabase client imported above (which had reached
+// the client/pages bundle and broken the production build).
+export { BUDGET_BANDS_FALLBACK } from './budget-bands-shared';
+export type { BudgetBand } from './budget-bands-shared';
 
 type BandRow = {
   band_slug: string;

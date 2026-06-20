@@ -73,7 +73,7 @@ import { SongBankStep } from './song-bank-step';
 import { OnboardingMusic } from './onboarding-music';
 import { REFINEMENTS_BY_KEY, REFINEMENTS_DATA, type RefineLeaf, type RefineOption } from '../_data/refinements';
 import { type OnboardingPickChip } from '@/lib/onboarding-refinements';
-import { type BudgetBand, BUDGET_BANDS_FALLBACK } from '@/lib/budget-bands';
+import { type BudgetBand, BUDGET_BANDS_FALLBACK } from '@/lib/budget-bands-shared';
 import {
   weaveStory,
   masthead as weaveMasthead,

@@ -73,6 +73,12 @@ export function SubscriptionCards({
         {cards.map((card) => {
           const webPrice = card.price;
           const displayPrice = native ? mobileSrp(webPrice) : webPrice;
+          // Small-unit framing (owner-directed): show the SAME admin-set price
+          // broken down per day/week so the headline reads lighter. Pure
+          // derivation of displayPrice — not a separate price. 28-day block ÷ 28
+          // (÷4 wk); annual ÷ 365 (÷52 wk).
+          const perDay = Math.round(displayPrice / (cycle === 'monthly' ? 28 : 365));
+          const perWeek = Math.round(displayPrice / (cycle === 'monthly' ? 4 : 52));
           return (
             <section
               key={card.sku}
@@ -103,6 +109,9 @@ export function SubscriptionCards({
                   {' '}
                   / {cycle === 'monthly' ? '28 days' : 'year'}
                 </span>
+              </p>
+              <p className="mt-0.5 text-xs text-ink/55">
+                ≈ ₱{NUMBER.format(perDay)}/day · ₱{NUMBER.format(perWeek)}/week
               </p>
               {native && (
                 <p className="mt-0.5 text-xs text-ink/50">

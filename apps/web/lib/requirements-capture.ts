@@ -102,6 +102,86 @@ export async function isPersistableCanonicalService(
 }
 
 /**
+ * The couple's saved requirements template for one leaf category, as it lives
+ * in `event_vendor_preferences` (the ONLY source for auto carry-forward). This
+ * is the de-Set'd, serializable shape the client composer holds and the server
+ * action accepts.
+ */
+export type SavedRequirementsTemplate = {
+  /** Checked facet picks: field key → selected option values. */
+  payload: Record<string, string[]>;
+  /** Freeform "anything specific?" note. */
+  specialRequest: string;
+  /** Carry-forward flag (`event_vendor_preferences.auto_send`). */
+  autoSend: boolean;
+};
+
+/**
+ * The requirements payload shape the inquiry server action accepts.
+ * (Matches `startServiceInquiry({ requirements })`.)
+ */
+export type RequirementsActionInput = {
+  payload: Record<string, string[]>;
+  specialRequest: string | null;
+  autoSend: boolean;
+};
+
+/**
+ * Phase 1b PR-5 — AI-gated auto carry-forward. Build the requirements payload
+ * for an inquiry SOLELY from the couple's own saved template
+ * (`event_vendor_preferences`). This is the carry-forward source-of-truth and
+ * the PRIVACY BOUNDARY (owner-locked 2026-06-20): the auto-attached
+ * requirements come ONLY from the couple's saved row — NEVER from a vendor's
+ * proposal / quote / message or any other vendor-authored table.
+ *
+ * Pure + total: a null/empty template degrades to an empty payload (no facets,
+ * no note) with autoSend carried through, so the caller can decide whether
+ * there's anything to send. It re-sanitizes the saved shape (string keys →
+ * arrays of non-empty strings) defensively even though the row is the couple's
+ * own.
+ */
+export function buildAutoCarryForwardRequirements(
+  saved: SavedRequirementsTemplate | null | undefined,
+): RequirementsActionInput {
+  const payload: Record<string, string[]> = {};
+  const rawPayload = saved?.payload;
+  if (rawPayload && typeof rawPayload === 'object') {
+    for (const [key, values] of Object.entries(rawPayload)) {
+      if (!key || !Array.isArray(values)) continue;
+      const picks = Array.from(
+        new Set(values.map((v) => String(v).trim()).filter((v) => v.length > 0)),
+      );
+      if (picks.length > 0) payload[key] = picks;
+    }
+  }
+  const note = typeof saved?.specialRequest === 'string' ? saved.specialRequest.trim() : '';
+  return {
+    payload,
+    specialRequest: note.length > 0 ? note : null,
+    autoSend: saved?.autoSend === true,
+  };
+}
+
+/**
+ * Should the Inquire click SKIP the pop-up and auto-send the saved
+ * requirements? True only when ALL of:
+ *   • Setnayan AI is active for the event (auto carry-forward = the AI value),
+ *   • the couple has a saved template for THIS category, AND
+ *   • that template's auto_send flag is on.
+ *
+ * The FIRST inquiry (couple fills + checks "auto-send") always shows the
+ * pop-up because no saved row exists yet at render time — only SUBSEQUENT
+ * same-category inquiries satisfy this. AI OFF, auto_send=false, or no saved
+ * row → false → the pop-up shows (pre-filled from the row if present).
+ */
+export function shouldAutoCarryForward(
+  aiActive: boolean,
+  saved: SavedRequirementsTemplate | null | undefined,
+): boolean {
+  return aiActive === true && saved != null && saved.autoSend === true;
+}
+
+/**
  * Build the "What we're looking for" block appended to the inquiry message
  * body so the vendor sees the couple's requirements on first contact.
  * Returns '' when there's nothing to show (no checked facets, no note).

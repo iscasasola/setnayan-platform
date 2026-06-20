@@ -421,6 +421,15 @@ export async function acceptInquiry(formData: FormData) {
   const returnTo = formData.get('return_to');
   if (typeof threadId !== 'string') throw new Error('Invalid input');
 
+  // Expected token/tier failures below redirect back with ?error= (the toast
+  // bridge surfaces it inline) instead of throwing to the error boundary.
+  const back =
+    typeof returnTo === 'string' && returnTo.startsWith('/')
+      ? returnTo
+      : `/vendor-dashboard/messages/${threadId}`;
+  const fail = (msg: string): never =>
+    redirect(`${back}${back.includes('?') ? '&' : '?'}error=1&msg=${encodeURIComponent(msg)}`);
+
   const { supabase, thread } = await loadVendorThreadForActor(threadId);
 
   if (thread.inquiry_status !== 'accepted') {
@@ -446,21 +455,19 @@ export async function acceptInquiry(formData: FormData) {
     });
     if (burnErr) {
       if (/TIER_FREE_NO_INAPP/.test(burnErr.message)) {
-        throw new Error(
-          'Get your account verified to start receiving and answering couples in the app.',
-        );
+        fail('Get your account verified to start receiving and answering couples in the app.');
       }
       if (/VERIFIED_WEEKLY_LIMIT/.test(burnErr.message)) {
-        throw new Error(
+        fail(
           'You’ve answered your 10 inquiries for this week. Upgrade to Pro for unlimited inquiries, or come back next week.',
         );
       }
       if (/INSUFFICIENT_WALLET_BALANCES/.test(burnErr.message)) {
-        throw new Error(
+        fail(
           'You need tokens to accept this inquiry. Top up your token balance, then try again — one unlock covers all your services for this event.',
         );
       }
-      throw new Error(burnErr.message);
+      fail('Could not accept right now — please try again in a moment.');
     }
 
     const { error } = await supabase

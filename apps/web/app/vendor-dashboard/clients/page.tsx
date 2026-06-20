@@ -11,6 +11,7 @@ import {
 } from '@/lib/vendor-schedule';
 import { importExternalClient, removeBlock } from '../calendar/actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { ConfirmForm } from '@/app/_components/confirm-form';
 
 export const metadata = { title: 'Clients · Vendor' };
 
@@ -127,8 +128,15 @@ export default async function VendorClientsPage({ searchParams }: Props) {
         <h2 className="text-lg font-semibold">Booked via Setnayan</h2>
         {bookedByEvent.size === 0 ? (
           <p className="mt-2 text-sm text-ink/55">
-            No booked clients holding schedule slots yet. Bookings appear here the
-            moment a couple&rsquo;s downpayment is recorded.
+            No booked clients yet — one lands here the moment a couple&rsquo;s
+            downpayment is recorded. New leads are waiting in{' '}
+            <Link
+              href="/vendor-dashboard/bookings"
+              className="font-medium text-terracotta underline"
+            >
+              Bookings
+            </Link>
+            ; reply quickly to turn them into bookings.
           </p>
         ) : (
           <ul className="mt-3 divide-y divide-ink/10">
@@ -175,7 +183,10 @@ export default async function VendorClientsPage({ searchParams }: Props) {
           .
         </p>
         {accepted.length === 0 ? (
-          <p className="mt-2 text-sm text-ink/55">No open conversations right now.</p>
+          <p className="mt-2 text-sm text-ink/55">
+            No accepted inquiries yet. Accept a lead from Bookings and the
+            conversation shows up here.
+          </p>
         ) : (
           <ul className="mt-3 divide-y divide-ink/10">
             {accepted.map((t) => (
@@ -211,8 +222,15 @@ export default async function VendorClientsPage({ searchParams }: Props) {
         </div>
         {externals.length === 0 ? (
           <p className="mt-2 text-sm text-ink/55">
-            No imported clients yet. Import one below so the app never
-            double-books a date you sold outside Setnayan.
+            No imported clients yet. Sold a date outside Setnayan? Import it below
+            (or check your{' '}
+            <Link
+              href="/vendor-dashboard/calendar"
+              className="font-medium text-terracotta underline"
+            >
+              calendar
+            </Link>
+            ) so the app never double-books that day.
           </p>
         ) : (
           <ul className="mt-3 divide-y divide-ink/10">
@@ -232,13 +250,18 @@ export default async function VendorClientsPage({ searchParams }: Props) {
                     <p className="mt-0.5 text-xs text-ink/45">{b.clientNote}</p>
                   ) : null}
                 </div>
-                <form action={removeBlock}>
+                <ConfirmForm
+                  action={removeBlock}
+                  title="Remove this outside client?"
+                  confirmLabel="Remove"
+                  message="Their date opens back up — that day becomes bookable on Setnayan again."
+                >
                   <input type="hidden" name="return_to" value="clients" />
                   <input type="hidden" name="block_id" value={b.blockId} />
                   <SubmitButton pendingLabel="Removing…" className="text-sm text-ink/55 underline hover:text-ink">
                     Remove
                   </SubmitButton>
-                </form>
+                </ConfirmForm>
               </li>
             ))}
           </ul>

@@ -24,6 +24,7 @@ import {
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import { labelForVendorCategory } from '@/lib/vendor-category-taxonomy';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { ConfirmForm } from '@/app/_components/confirm-form';
 import { Field } from '@/app/_components/forms/field';
 import {
   createVendorService,
@@ -463,7 +464,18 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                           )}
                         </button>
                       </form>
-                      <form action={deleteVendorService}>
+                      <ConfirmForm
+                        action={deleteVendorService}
+                        title="Delete this service?"
+                        confirmLabel="Delete service"
+                        message={`Deleting "${
+                          svc.title?.trim() || displayServiceLabel(svc.category)
+                        }" removes it from your listings, along with any "comes with" bundle links${
+                          (slotsByService.get(svc.vendor_service_id)?.length ?? 0) > 0
+                            ? ' and all its time slots'
+                            : ''
+                        }. This can't be undone.`}
+                      >
                         <input
                           type="hidden"
                           name="vendor_service_id"
@@ -476,7 +488,7 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                         >
                           <Trash2 className="h-4 w-4" strokeWidth={1.75} />
                         </button>
-                      </form>
+                      </ConfirmForm>
                     </div>
                   </div>
                   <form action={updateVendorService} className="space-y-3">

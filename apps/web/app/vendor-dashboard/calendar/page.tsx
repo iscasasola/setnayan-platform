@@ -19,6 +19,7 @@ import {
   updatePoolCapacity,
 } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { ConfirmForm } from '@/app/_components/confirm-form';
 
 export const metadata = { title: 'Calendar · Vendor' };
 
@@ -589,13 +590,18 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
                         {blk.source === 'external_client' && blk.clientContact ? ` · ${blk.clientContact}` : ''}
                       </p>
                     </div>
-                    <form action={removeBlock}>
+                    <ConfirmForm
+                      action={removeBlock}
+                      title="Remove this block?"
+                      confirmLabel="Remove"
+                      message="Their date opens back up — that day becomes bookable on Setnayan again."
+                    >
                       {returnFields}
                       <input type="hidden" name="block_id" value={blk.blockId} />
                       <SubmitButton pendingLabel="Removing…" className="text-sm text-ink/55 underline hover:text-ink">
                         Remove
                       </SubmitButton>
-                    </form>
+                    </ConfirmForm>
                   </li>
                 ))}
               </ul>

@@ -18,6 +18,17 @@ Couple impact: self-joined guests appear on the dashboard guest list immediately
 Type contracts verified (`await headers()`, `scan_events` shape, JoinShell accepts the extra `slug`). Not built locally (pnpm worktree node_modules can't be cross-linked); required CI (typecheck + lint + build) is the gate, auto-merge armed.
 
 SPEC IMPACT: closes the deferred `/join` HIGH in `Guest_Legibility_Audit_2026-06-20.md` (status updated). Privacy note: anyone holding the event's single shared QR token can add a name + view the `/[slug]` page (gated for private events by the cookie) — mitigated by the token gate + `self_joined` tag + ceiling + couple delete; a couple-facing "disable self-join" toggle is a possible follow-up. Logged in `DECISION_LOG.md`.
+## 2026-06-20 · ci(guest): "lint guest legibility" guardrail — stops tiny text regressing on guest surfaces
+
+The 2026-06-20 "Lola Remedios" audit found the dominant guest-facing failure was 7–11px load-bearing text. #1872/#1873 fixed the worst; this guard stops it coming back (the owner-approved "contrast/min-size lint").
+
+- **`apps/web/scripts/lint-guest-legibility.mjs`** (new, pure node — no install, mirrors the existing `lint-retired-strings`/`lint-nav-icon-source` guards): scans guest-facing source (`app/[slug]/**`, `app/join/**`, + shared guest components `save-photo-button` / `wayfinding-map`) for `text-[<=11px]` Tailwind classes and fails on any count that exceeds a committed **ratcheting baseline**. 12px / `text-xs`+ pass (the accepted small-label floor); pixel-literals below it are the smell. The per-file-count baseline is edit-stable (line shifts don't trip it) and one-directional — Pass-B fixes only lower it. Escape hatches: a `legibility-ok` line comment for genuinely decorative cases, or `pnpm lint:legibility -- --update-baseline` (committed diff is reviewed). Emits GitHub `::error` annotations; self-tested to fail on a new `text-[8px]` and pass after removal.
+- **`apps/web/.guest-legibility-baseline.json`** (new): snapshot of the current tail — 79 accepted occurrences across 12 files (mostly decorative `font-mono` eyebrows; `[slug]/page.tsx` 21 and `editorial-content.tsx` 25 are the biggest Pass-B targets).
+- **`apps/web/package.json`**: `lint:legibility` script.
+- **`.github/workflows/ci.yml`**: new `lint guest legibility` job (checkout + node 22 + run), alongside the sibling lint guards.
+
+SPEC IMPACT: enforces `Guest_Legibility_Floor_2026-06-20.md` §6 (the proposed code guardrail) — now built. Pass B (fixing the 79 baselined items) remains and shrinks the baseline as it lands. Logged in `DECISION_LOG.md`.
+
 ## 2026-06-20 · feat(vendor): payment schedule defined at service-create (Vendor Transaction Lifecycle Phase 2 · PR-A)
 
 Lets a vendor, when creating/editing a service, define a PAYMENT SCHEDULE — a downpayment plus payment 1…X — as a reusable template on the service. Each installment carries a label, an amount (a % of the total OR a fixed ₱), and an optional anchored due date ("after booking is locked" / "before the event" + a number of days). Additive — no behaviour change to any existing flow; the schedule is OPTIONAL (a service may carry none). Couples can read it (a server helper is exposed); rendering on the couple workspace is PR-B.

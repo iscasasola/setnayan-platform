@@ -95,7 +95,7 @@ export function PostHeroReveal({ children }: { children: ReactNode }) {
             alignItems: 'center',
             gap: 8,
             padding: '12px 22px',
-            borderRadius: 999,
+            borderRadius: 'var(--m-r-full)',
             background: 'rgba(251,251,250,.92)',
             color: '#1E2229',
             border: '1px solid rgba(255,255,255,.5)',

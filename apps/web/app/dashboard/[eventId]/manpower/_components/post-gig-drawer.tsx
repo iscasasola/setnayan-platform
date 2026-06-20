@@ -30,7 +30,7 @@ export function PostGigDrawer({ eventId }: { eventId: string }) {
             background: 'var(--m-orange)',
             color: 'white',
             padding: '10px 18px',
-            borderRadius: 'var(--m-radius-md)',
+            borderRadius: 'var(--m-r-md)',
             fontSize: '14px',
             fontWeight: 500,
           }}
@@ -141,7 +141,7 @@ export function PostGigDrawer({ eventId }: { eventId: string }) {
                   background: 'var(--m-orange)',
                   color: 'white',
                   padding: '8px 16px',
-                  borderRadius: 'var(--m-radius-md)',
+                  borderRadius: 'var(--m-r-md)',
                   fontSize: '14px',
                   fontWeight: 500,
                 }}

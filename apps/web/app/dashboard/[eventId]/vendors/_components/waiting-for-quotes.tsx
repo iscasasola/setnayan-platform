@@ -59,7 +59,7 @@ const WFQ_CSS = `
 .wfq .wfq-hd .wfq-i{color:var(--mulberry)}
 .wfq .wfq-list{display:flex;flex-direction:column;gap:7px}
 .wfq .wfq-row{display:flex;align-items:center;gap:11px;background:var(--card);
-  border:0.5px solid var(--line);border-radius:13px;padding:11px 13px;
+  border:0.5px solid var(--line);border-radius: var(--m-r-md);padding:11px 13px;
   text-decoration:none;color:inherit;transition:transform .13s cubic-bezier(.2,.7,.2,1),box-shadow .3s var(--ease)}
 .wfq .wfq-row:active{transform:scale(.99)}
 .wfq .wfq-row:hover{box-shadow:0 8px 22px -18px rgba(30,34,41,.4)}
@@ -69,7 +69,7 @@ const WFQ_CSS = `
 .wfq .wfq-sub{font-family:var(--mono);font-size:9px;letter-spacing:.04em;color:var(--ink-soft)}
 .wfq .wfq-rt{display:flex;align-items:center;gap:8px;flex:0 0 auto}
 .wfq .wfq-wait{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;
-  color:var(--mulberry);background:rgba(92,37,66,.08);border-radius:999px;padding:4px 9px;white-space:nowrap}
+  color:var(--mulberry);background:rgba(92,37,66,.08);border-radius: var(--m-r-full);padding:4px 9px;white-space:nowrap}
 .wfq .wfq-chev{color:var(--ink-soft);flex:0 0 auto}
 .wfq a:focus-visible{outline:2px solid var(--mulberry);outline-offset:2px}
 html.dark .wfq{--ink:#FBFBFA;--ink-soft:#B6B9BE;--line:rgba(251,251,250,.16);--card:#2A2E36}

@@ -22,7 +22,7 @@ export default function OnboardingLoading() {
         {/* Brand wordmark. */}
         <Sk className="h-6 w-32 rounded-md" />
         {/* Phone-frame card. */}
-        <Sk className="h-[520px] max-h-[70dvh] w-full rounded-[28px]" />
+        <Sk className="h-[520px] max-h-[70dvh] w-full rounded-2xl" />
         {/* Progress dots. */}
         <div className="flex gap-2">
           {Array.from({ length: 3 }).map((_, i) => (

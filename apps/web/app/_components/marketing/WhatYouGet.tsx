@@ -146,7 +146,7 @@ export function WhatYouGet() {
                         transform: `rotate(${CHAOS_TILT[i]}deg)`,
                         background: 'rgba(255,255,255,.03)',
                         border: '1px solid rgba(255,255,255,.08)',
-                        borderRadius: 12,
+                        borderRadius: 'var(--m-r-md)',
                         padding: '10px 14px',
                         display: 'grid',
                         gridTemplateColumns: '128px 1fr',
@@ -217,7 +217,7 @@ export function WhatYouGet() {
               <div
                 style={{
                   background: 'var(--m-paper)',
-                  borderRadius: 18,
+                  borderRadius: 'var(--m-r-lg)',
                   padding: 22,
                   boxShadow:
                     '0 24px 80px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.06), 0 0 60px rgba(197,160,89,.18)',
@@ -251,7 +251,7 @@ export function WhatYouGet() {
                       style={{
                         width: 6,
                         height: 6,
-                        borderRadius: 999,
+                        borderRadius: 'var(--m-r-full)',
                         background: 'var(--m-sage-deep)',
                         display: 'inline-block',
                       }}
@@ -272,7 +272,7 @@ export function WhatYouGet() {
                       style={{
                         background: 'var(--m-paper-2)',
                         border: '1px solid var(--m-line)',
-                        borderRadius: 12,
+                        borderRadius: 'var(--m-r-md)',
                         padding: '11px 10px',
                       }}
                     >
@@ -326,7 +326,7 @@ export function WhatYouGet() {
                   <div
                     style={{
                       height: 7,
-                      borderRadius: 999,
+                      borderRadius: 'var(--m-r-full)',
                       background: 'var(--m-ivory)',
                       overflow: 'hidden',
                     }}
@@ -335,7 +335,7 @@ export function WhatYouGet() {
                       style={{
                         width: '62%',
                         height: '100%',
-                        borderRadius: 999,
+                        borderRadius: 'var(--m-r-full)',
                         background: 'var(--m-orange)',
                       }}
                     />
@@ -473,7 +473,7 @@ export function WhatYouGet() {
                           textTransform: 'uppercase',
                           color: 'var(--m-ink)',
                           background: 'var(--m-orange-3)',
-                          borderRadius: 999,
+                          borderRadius: 'var(--m-r-full)',
                           padding: '3px 8px',
                         }}
                       >

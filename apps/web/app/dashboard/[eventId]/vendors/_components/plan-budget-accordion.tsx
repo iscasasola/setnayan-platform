@@ -202,7 +202,7 @@ const PBA_CSS = `
 .pbacc .intro-grid{display:flex;flex-direction:column;gap:10px}
 .pbacc .irow3{display:flex;gap:10px}
 .pbacc .irow3 .ibox{flex:1;min-width:0}
-.pbacc .ibox{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 15px}
+.pbacc .ibox{background:var(--card);border:1px solid var(--line);border-radius: var(--m-r-md);padding:12px 15px}
 .pbacc .ik{font-family:var(--mono);font-size:8.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-soft)}
 .pbacc .iv{font-family:var(--serif);font-style:italic;font-weight:600;font-size:19px;line-height:1.15;color:var(--ink);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* deadline list box */
@@ -241,7 +241,7 @@ const PBA_CSS = `
 .pbacc .intro-lead{font-family:var(--sans);font-size:14px;line-height:1.55;color:var(--ink-soft)}
 .pbacc .intro-steps{display:flex;flex-direction:column;gap:12px;margin-top:4px}
 .pbacc .istep{display:flex;align-items:center;gap:12px}
-.pbacc .istep-n{flex:0 0 auto;width:27px;height:27px;border-radius:999px;background:rgba(92,37,66,.08);color:var(--mulberry);font-family:var(--serif);font-style:italic;font-weight:600;font-size:15px;display:flex;align-items:center;justify-content:center}
+.pbacc .istep-n{flex:0 0 auto;width:27px;height:27px;border-radius: var(--m-r-full);background:rgba(92,37,66,.08);color:var(--mulberry);font-family:var(--serif);font-style:italic;font-weight:600;font-size:15px;display:flex;align-items:center;justify-content:center}
 .pbacc .istep-h{font-family:var(--sans);font-weight:700;font-size:13.5px;color:var(--ink);line-height:1.15}
 .pbacc .istep-d{font-family:var(--mono);font-size:9px;letter-spacing:.04em;color:var(--ink-soft);margin-top:1px}
 /* Cover — populated state: a budget progress bar (owner 2026-06-01). Tracks
@@ -253,21 +253,21 @@ const PBA_CSS = `
 .pbacc .intro-meter .pm-v.ok{color:#2e7d4f}
 .pbacc .intro-meter .pm-v.near{color:var(--gold-deep)}
 .pbacc .intro-meter .pm-v.over{color:#b23b34}
-.pbacc .intro-meter .pm-track{height:7px;border-radius:999px;background:rgba(30,34,41,.07);overflow:hidden}
-.pbacc .intro-meter .pm-fill{height:100%;border-radius:999px;background:var(--gold);transition:width .6s var(--ease)}
+.pbacc .intro-meter .pm-track{height:7px;border-radius: var(--m-r-full);background:rgba(30,34,41,.07);overflow:hidden}
+.pbacc .intro-meter .pm-fill{height:100%;border-radius: var(--m-r-full);background:var(--gold);transition:width .6s var(--ease)}
 .pbacc .intro-meter .pm-fill.ok{background:#7fd49a}
 .pbacc .intro-meter .pm-fill.near{background:var(--gold)}
 .pbacc .intro-meter .pm-fill.over{background:#ef9a9a}
 
 /* ---- Category sticky stacking head + body ---- */
-.pbacc .cat{margin:0 0 10px;background:var(--card);border:0.5px solid var(--line);border-radius:14px;position:relative;transition:box-shadow .35s var(--ease),border-color .35s var(--ease)}
+.pbacc .cat{margin:0 0 10px;background:var(--card);border:0.5px solid var(--line);border-radius: var(--m-r-md);position:relative;transition:box-shadow .35s var(--ease),border-color .35s var(--ease)}
 .pbacc .cat.open{box-shadow:0 8px 22px -12px rgba(30,34,41,.42);border-color:rgba(30,34,41,.18)}
 /* Separated cards (owner 2026-06-10): each folder renders as its OWN .cat card
    (full-width, vertical gap between them) — not a flush pile. Only the OPEN
    card's head is sticky (it pins below the app header while its children scroll);
    collapsed heads are static. scroll-margin-top clears the app header + one
    pinned head so a folder anchor (#folder-*) jump lands just below it. */
-.pbacc .cat-head{position:relative;z-index:1;width:100%;min-height:var(--head-h);background:transparent;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 18px;border:0;border-radius:14px;text-align:left;transition:background .3s var(--ease);scroll-margin-top:calc(var(--pba-header-offset) + var(--topbar-h) + 10px)}
+.pbacc .cat-head{position:relative;z-index:1;width:100%;min-height:var(--head-h);background:transparent;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 18px;border:0;border-radius: var(--m-r-md);text-align:left;transition:background .3s var(--ease);scroll-margin-top:calc(var(--pba-header-offset) + var(--topbar-h) + 10px)}
 /* The cat-head is now a single-open toggle <button> (owner 2026-06-09) — reset
    the UA button chrome so it keeps the sticky label look. */
 .pbacc button.cat-head{appearance:none;-webkit-appearance:none;cursor:pointer;font:inherit;margin:0}
@@ -283,7 +283,7 @@ const PBA_CSS = `
 .pbacc .cat-head.active .nm{color:var(--mulberry)}
 .pbacc .cat-head.active .chev{transform:rotate(180deg);color:var(--mulberry)}
 .pbacc .cat-body{position:relative;padding:6px 0 12px;background:var(--card);border-radius:0 0 14px 14px}
-.pbacc .cat.open .cat-body::before{content:'';position:absolute;left:18px;top:0;bottom:12px;width:2px;background:rgba(92,37,66,.18);border-radius:2px;pointer-events:none}
+.pbacc .cat.open .cat-body::before{content:'';position:absolute;left:18px;top:0;bottom:12px;width:2px;background:rgba(92,37,66,.18);border-radius: var(--m-r-xs);pointer-events:none}
 .pbacc .cat-body .leaf-head{padding-left:30px}
 .pbacc .cat-empty{font-family:var(--serif);font-style:italic;font-size:14px;color:var(--ink-soft);padding:6px 20px 4px}
 
@@ -299,13 +299,13 @@ const PBA_CSS = `
 .pbacc .leaf-head .lh-nm{font-family:var(--serif);font-style:italic;font-size:16px;font-weight:600;color:var(--ink);letter-spacing:.01em;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pbacc .leaf.open > .leaf-head .lh-nm{color:var(--mulberry)}
 .pbacc .leaf-head .lh-right{display:flex;align-items:center;gap:9px;flex:0 0 auto}
-.pbacc .lh-count{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:#fff;background:var(--mulberry);border-radius:999px;padding:3px 9px;font-weight:600;min-width:22px;text-align:center}
+.pbacc .lh-count{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:#fff;background:var(--mulberry);border-radius: var(--m-r-full);padding:3px 9px;font-weight:600;min-width:22px;text-align:center}
 .pbacc .lh-svc{color:var(--gold-deep);font-size:13px;line-height:1}
 .pbacc .lh-zero{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-deep)}
 /* Category-satisfaction badge (2026-06-12) — an empty category another
    committed pick "comes with". */
 .pbacc .lh-cov{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:#2f6f4e}
-.pbacc .cov-note{display:flex;align-items:flex-start;gap:8px;margin:0 20px 8px;padding:10px 14px;border:1px solid rgba(47,111,78,.25);border-radius:12px;background:rgba(47,111,78,.06);font-size:12.5px;line-height:1.5;color:#2f6f4e}
+.pbacc .cov-note{display:flex;align-items:flex-start;gap:8px;margin:0 20px 8px;padding:10px 14px;border:1px solid rgba(47,111,78,.25);border-radius: var(--m-r-md);background:rgba(47,111,78,.06);font-size:12.5px;line-height:1.5;color:#2f6f4e}
 .pbacc .lh-chev{font-size:19px;color:var(--ink-soft);line-height:1;transition:transform .2s var(--ease);display:inline-block}
 .pbacc .leaf.open > .leaf-head .lh-chev{transform:rotate(90deg);color:var(--gold-deep)}
 .pbacc .leaf-body{padding-bottom:6px;animation:pba-leafrise .26s var(--ease) both}
@@ -318,7 +318,7 @@ const PBA_CSS = `
 .pbacc .child-name .cn{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft)}
 
 /* dependency nudge (Setnayan AI §4B) — soft sequencing hint per category */
-.pbacc .dep-nudge{display:flex;align-items:flex-start;gap:7px;margin:0 20px 9px;padding:8px 11px;border-radius:11px;border:1px solid;font-family:var(--sans,system-ui);font-size:11.5px;line-height:1.32}
+.pbacc .dep-nudge{display:flex;align-items:flex-start;gap:7px;margin:0 20px 9px;padding:8px 11px;border-radius: var(--m-r-md);border:1px solid;font-family:var(--sans,system-ui);font-size:11.5px;line-height:1.32}
 .pbacc .dep-nudge .di{flex:0 0 auto;font-size:12px;line-height:1.3}
 .pbacc .dep-nudge.blocked{color:var(--gold-deep);background:rgba(197,160,89,.08);border-color:rgba(197,160,89,.32)}
 .pbacc .dep-nudge.blocked.soft{color:var(--ink-soft);background:rgba(30,34,41,.035);border-color:rgba(30,34,41,.1)}
@@ -326,7 +326,7 @@ const PBA_CSS = `
 .pbacc .dep-nudge strong{font-weight:600}
 
 /* deadline chip */
-.pbacc .chip{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:3px 8px;font-family:var(--mono);font-size:8px;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+.pbacc .chip{display:inline-flex;align-items:center;gap:4px;border-radius: var(--m-r-full);padding:3px 8px;font-family:var(--mono);font-size:8px;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
 .pbacc .chip.locked{color:var(--gold-deep);background:rgba(197,160,89,.16)}
 .pbacc .chip.over{color:#b23b34;background:rgba(178,59,52,.1)}
 .pbacc .chip.soon{color:var(--gold-deep);background:rgba(197,160,89,.16)}
@@ -358,7 +358,7 @@ const PBA_CSS = `
    card and the Find / Add-manually cards. Not a snap target. */
 .pbacc .rail-end{flex:0 0 1px;align-self:stretch;min-height:120px;margin:0 2px;background:linear-gradient(to bottom,transparent 8%,var(--line) 50%,transparent 92%);scroll-snap-align:none}
 .pbacc .card{position:relative;flex:0 0 min(300px, calc(100vw - 96px));scroll-snap-align:center;display:flex;flex-direction:column}
-.pbacc .v{position:relative;display:flex;flex-direction:column;flex:1 1 auto;min-height:300px;background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;text-decoration:none;color:inherit;transition:border-color .35s var(--ease),box-shadow .35s var(--ease)}
+.pbacc .v{position:relative;display:flex;flex-direction:column;flex:1 1 auto;min-height:300px;background:var(--card);border:1px solid var(--line);border-radius: var(--m-r-lg);overflow:hidden;text-decoration:none;color:inherit;transition:border-color .35s var(--ease),box-shadow .35s var(--ease)}
 .pbacc .v:hover{box-shadow:0 10px 30px -18px rgba(0,0,0,.4)}
 .pbacc .v .img{height:158px;flex:0 0 158px;background:linear-gradient(135deg,#3a3f47,#565b63);display:flex;align-items:center;justify-content:center;position:relative}
 .pbacc .v .img img{width:100%;height:100%;object-fit:cover}
@@ -366,11 +366,11 @@ const PBA_CSS = `
 /* hero overlays — %match (bottom-left) + price (bottom-right) ride on the photo,
    clear of the remove-× (top-left) and ★Chosen (top-right) corners */
 .pbacc .v .img .hero-scrim{position:absolute;inset:auto 0 0 0;height:56%;background:linear-gradient(to top,rgba(18,20,24,.6),transparent);z-index:1;pointer-events:none}
-.pbacc .v .img .hmatch{position:absolute;left:10px;bottom:10px;z-index:2;font-family:var(--mono);font-size:8px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;padding:4px 8px;border-radius:999px;background:rgba(255,255,255,.93);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+.pbacc .v .img .hmatch{position:absolute;left:10px;bottom:10px;z-index:2;font-family:var(--mono);font-size:8px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;padding:4px 8px;border-radius: var(--m-r-full);background:rgba(255,255,255,.93);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
 .pbacc .v .img .hmatch.strong{color:#2e7d4f}
 .pbacc .v .img .hmatch.good{color:var(--gold-deep)}
 .pbacc .v .img .hmatch.fair{color:var(--ink-soft)}
-.pbacc .v .img .hprice{position:absolute;right:10px;bottom:10px;z-index:2;font-family:var(--serif);font-style:italic;font-weight:600;font-size:16px;color:#fff;padding:3px 11px;border-radius:9px;background:rgba(18,20,24,.62);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+.pbacc .v .img .hprice{position:absolute;right:10px;bottom:10px;z-index:2;font-family:var(--serif);font-style:italic;font-weight:600;font-size:16px;color:#fff;padding:3px 11px;border-radius: var(--m-r-sm);background:rgba(18,20,24,.62);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
 .pbacc .v .meta{padding:13px 15px 15px;flex:1 1 auto;display:flex;flex-direction:column}
 .pbacc .v .vn{font-family:var(--sans);font-weight:700;font-size:15px;color:var(--ink)}
 .pbacc .v .dist{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--ink-soft);margin-top:2px}
@@ -378,7 +378,7 @@ const PBA_CSS = `
 .pbacc .v .stars{color:var(--gold);font-size:15px;letter-spacing:2px;margin-top:9px}
 .pbacc .v .stars .rcount{font-family:var(--mono);font-size:8px;letter-spacing:.03em;color:var(--ink-soft);margin-left:6px;vertical-align:1px}
 .pbacc .v .badges{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
-.pbacc .bdg{font-family:var(--mono);font-size:7.5px;letter-spacing:.07em;text-transform:uppercase;padding:3px 7px;border-radius:999px;background:rgba(30,34,41,.06);color:var(--ink-soft);white-space:nowrap}
+.pbacc .bdg{font-family:var(--mono);font-size:7.5px;letter-spacing:.07em;text-transform:uppercase;padding:3px 7px;border-radius: var(--m-r-full);background:rgba(30,34,41,.06);color:var(--ink-soft);white-space:nowrap}
 .pbacc .bdg.verified{color:#2e7d4f;background:rgba(46,125,79,.1)}
 .pbacc .bdg.setnayan{color:var(--mulberry);background:rgba(92,37,66,.1)}
 .pbacc .bdg.rec{color:var(--gold-deep);background:rgba(197,160,89,.16)}
@@ -391,7 +391,7 @@ const PBA_CSS = `
 /* "👀 N also eyeing your date" — an interest/in-demand cue, NOT an error. Gentle
    gold (not the overdue/danger red it used to share) so it reads as gentle
    social proof, never alarming. Aggregate-only + never fabricated (model §6a). */
-.pbacc .v .eyeing{margin-top:9px;font-family:var(--mono);font-size:9px;letter-spacing:.02em;color:var(--gold-deep);background:rgba(197,160,89,.12);border-radius:6px;padding:3px 7px;display:inline-block}
+.pbacc .v .eyeing{margin-top:9px;font-family:var(--mono);font-size:9px;letter-spacing:.02em;color:var(--gold-deep);background:rgba(197,160,89,.12);border-radius: var(--m-r-sm);padding:3px 7px;display:inline-block}
 /* "+₱X for Y guests over the Z-guest package" — the pax surcharge already
    baked into the price, surfaced so the couple isn't blindsided later in
    Costing. Quiet mono footnote (no alarm tint), shown only when a surcharge
@@ -399,27 +399,27 @@ const PBA_CSS = `
 .pbacc .v .paxnote{margin-top:7px;font-family:var(--mono);font-size:9px;letter-spacing:.02em;color:var(--ink-soft);line-height:1.4}
 /* chosen state — gold border + glow + corner badge */
 .pbacc .card.chosen .v{border:3px solid var(--gold);box-shadow:0 0 0 3px rgba(197,160,89,.32)}
-.pbacc .pcorner{position:absolute;top:10px;right:10px;z-index:3;font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:var(--mulberry);border-radius:999px;padding:5px 9px;box-shadow:0 2px 10px rgba(0,0,0,.28)}
+.pbacc .pcorner{position:absolute;top:10px;right:10px;z-index:3;font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:var(--mulberry);border-radius: var(--m-r-full);padding:5px 9px;box-shadow:0 2px 10px rgba(0,0,0,.28)}
 /* remove × (top-left), hidden once chosen */
-.pbacc .vx{position:absolute;top:10px;left:10px;z-index:4;min-width:26px;height:26px;padding:0 8px;border:0;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:rgba(30,34,41,.5);color:#fff;font-family:var(--sans);font-size:16px;line-height:1;cursor:pointer;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);transition:background .2s var(--ease)}
+.pbacc .vx{position:absolute;top:10px;left:10px;z-index:4;min-width:26px;height:26px;padding:0 8px;border:0;border-radius: var(--m-r-full);display:inline-flex;align-items:center;justify-content:center;background:rgba(30,34,41,.5);color:#fff;font-family:var(--sans);font-size:16px;line-height:1;cursor:pointer;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);transition:background .2s var(--ease)}
 .pbacc .vx.armed{font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;background:var(--mulberry)}
-.pbacc .vx-keep{position:absolute;top:10px;left:62px;z-index:4;height:26px;padding:0 10px;border:0;border-radius:999px;background:rgba(30,34,41,.5);color:#fff;font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
+.pbacc .vx-keep{position:absolute;top:10px;left:62px;z-index:4;height:26px;padding:0 10px;border:0;border-radius: var(--m-r-full);background:rgba(30,34,41,.5);color:#fff;font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
 /* lock CTA */
 .pbacc .lockbar{margin-top:10px;padding:0 1px}
-.pbacc .lockbtn{width:100%;border:0;border-radius:11px;background:var(--mulberry);color:#fff;font-family:var(--sans);font-weight:700;font-size:12.5px;padding:11px;cursor:pointer;transition:background .2s var(--ease)}
+.pbacc .lockbtn{width:100%;border:0;border-radius: var(--m-r-md);background:var(--mulberry);color:#fff;font-family:var(--sans);font-weight:700;font-size:12.5px;padding:11px;cursor:pointer;transition:background .2s var(--ease)}
 .pbacc .lockbtn:active{background:var(--mulberry-deep)}
 .pbacc .lockbtn:disabled{opacity:.6;cursor:default}
-.pbacc .changebtn{width:100%;border:1px solid color-mix(in srgb,var(--mulberry) 45%,transparent);border-radius:11px;background:transparent;color:var(--mulberry);font-family:var(--sans);font-weight:600;font-size:11.5px;padding:9px;cursor:pointer;transition:background .2s var(--ease)}
+.pbacc .changebtn{width:100%;border:1px solid color-mix(in srgb,var(--mulberry) 45%,transparent);border-radius: var(--m-r-md);background:transparent;color:var(--mulberry);font-family:var(--sans);font-weight:600;font-size:11.5px;padding:9px;cursor:pointer;transition:background .2s var(--ease)}
 .pbacc .changebtn:active{background:color-mix(in srgb,var(--mulberry) 9%,transparent)}
 .pbacc .changebtn:disabled{opacity:.6;cursor:default}
 /* dashed find-more card */
 .pbacc .add{flex:0 0 132px;scroll-snap-align:center;display:flex;text-decoration:none}
-.pbacc .add .inner{flex:1;min-height:191px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:7px;background:rgba(92,37,66,.05);border:1.5px dashed rgba(92,37,66,.4);border-radius:18px;color:var(--mulberry)}
+.pbacc .add .inner{flex:1;min-height:191px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:7px;background:rgba(92,37,66,.05);border:1.5px dashed rgba(92,37,66,.4);border-radius: var(--m-r-lg);color:var(--mulberry)}
 .pbacc .add .plus{font-size:26px;line-height:1;font-weight:300}
 .pbacc .add.add-manual .plus{font-size:19px;font-weight:400}
 .pbacc .add .at{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;line-height:1.4}
 /* empty child — slim one-line row */
-.pbacc .empty-child{display:flex;align-items:center;gap:10px;margin:0 20px 8px;padding:11px 14px;border:1.5px dashed rgba(92,37,66,.3);border-radius:12px;background:rgba(92,37,66,.03);text-decoration:none;color:inherit}
+.pbacc .empty-child{display:flex;align-items:center;gap:10px;margin:0 20px 8px;padding:11px 14px;border:1.5px dashed rgba(92,37,66,.3);border-radius: var(--m-r-md);background:rgba(92,37,66,.03);text-decoration:none;color:inherit}
 .pbacc .empty-child .ep{font-size:17px;color:var(--mulberry);font-weight:300;line-height:1}
 .pbacc .empty-child .en{font-family:var(--sans);font-size:13.5px;font-weight:600;color:var(--mulberry)}
 .pbacc .empty-child .eh{margin-left:auto;font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:#b8b4ac}
@@ -443,7 +443,7 @@ const PBA_CSS = `
 
 /* ---- Compare (like-for-like; read-only — never sets the pick) ---- */
 .pbacc .cn-right{display:flex;align-items:center;gap:8px}
-.pbacc .cmpbtn{display:inline-flex;align-items:center;gap:4px;border:1px solid rgba(92,37,66,.4);background:rgba(92,37,66,.06);color:var(--mulberry);border-radius:999px;padding:4px 10px;font-family:var(--mono);font-size:8px;letter-spacing:.08em;text-transform:uppercase;font-weight:500;cursor:pointer;white-space:nowrap;transition:background .2s var(--ease)}
+.pbacc .cmpbtn{display:inline-flex;align-items:center;gap:4px;border:1px solid rgba(92,37,66,.4);background:rgba(92,37,66,.06);color:var(--mulberry);border-radius: var(--m-r-full);padding:4px 10px;font-family:var(--mono);font-size:8px;letter-spacing:.08em;text-transform:uppercase;font-weight:500;cursor:pointer;white-space:nowrap;transition:background .2s var(--ease)}
 .pbacc .cmpbtn:active{background:rgba(92,37,66,.14)}
 .pbacc .cmpsheet{position:fixed;inset:0;z-index:90;background:var(--paper);display:flex;flex-direction:column;animation:cmpup .3s var(--ease)}
 @keyframes cmpup{from{transform:translateY(100%)}to{transform:none}}
@@ -452,7 +452,7 @@ const PBA_CSS = `
 .pbacc .cmptitle{display:flex;flex-direction:column;gap:3px;min-width:0}
 .pbacc .cmpcat{font-family:var(--serif);font-style:italic;font-size:22px;color:var(--ink);line-height:1}
 .pbacc .cmpsub{font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)}
-.pbacc .cmpclose{border:none;background:rgba(30,34,41,.06);color:var(--ink);width:32px;height:32px;border-radius:999px;font-size:15px;cursor:pointer;flex:0 0 auto}
+.pbacc .cmpclose{border:none;background:rgba(30,34,41,.06);color:var(--ink);width:32px;height:32px;border-radius: var(--m-r-full);font-size:15px;cursor:pointer;flex:0 0 auto}
 .pbacc .cmpbody{flex:1;overflow:auto}
 .pbacc .cmptable{width:100%;border-collapse:collapse;font-family:var(--sans)}
 .pbacc .cmptable tr{border-bottom:1px solid var(--line-soft)}
@@ -486,10 +486,10 @@ const PBA_CSS = `
 /* Unlock-more-categories affordance — under the recap (has picks) and in the
    empty-state cover (no picks). Owner 2026-06-02: keep the Vendors page to the
    categories the couple is shopping; this is the door to add the rest. */
-.pbacc .catunlock{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:16px;padding:15px 18px;border-radius:16px;border:1.5px solid var(--gold);background:transparent;color:var(--ink);font-family:var(--sans);font-size:14px;font-weight:600;text-decoration:none;cursor:pointer;transition:background .15s ease,border-color .15s ease}
+.pbacc .catunlock{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:16px;padding:15px 18px;border-radius: var(--m-r-md);border:1.5px solid var(--gold);background:transparent;color:var(--ink);font-family:var(--sans);font-size:14px;font-weight:600;text-decoration:none;cursor:pointer;transition:background .15s ease,border-color .15s ease}
 .pbacc .catunlock:hover{background:rgba(197,160,89,0.12);border-color:var(--gold-deep)}
 .pbacc .catunlock .cu-ico{font-size:17px;line-height:1;color:var(--gold-deep)}
-.pbacc .endcard{display:flex;flex-direction:column;align-items:center;text-align:center;gap:7px;background:var(--mulberry);color:#fff;border-radius:22px;padding:24px 22px 22px}
+.pbacc .endcard{display:flex;flex-direction:column;align-items:center;text-align:center;gap:7px;background:var(--mulberry);color:#fff;border-radius: var(--m-r-lg);padding:24px 22px 22px}
 .pbacc .end-eyebrow{font-family:var(--mono);font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.6)}
 .pbacc .end-h{font-family:var(--serif);font-style:italic;font-weight:600;font-size:26px;line-height:1.05;color:#fff;margin:2px 0}
 .pbacc .end-line{font-family:var(--sans);font-size:11.5px;line-height:1.5;color:rgba(255,255,255,.8);max-width:280px}
@@ -556,9 +556,9 @@ html.dark .pbacc .cmprow-price td{color:#C99DB0}
    vanishes after the first pick; (3) .pba-coach + .lockhint = one-time first-run
    coachmark + point-of-action Lock helper, shown only while the couple has
    shortlisted but locked nothing, dismissible (localStorage 'pba_coach_v1'). */
-.pbacc .intro-next{display:flex;align-items:center;gap:12px;padding:13px 15px;border-radius:16px;background:rgba(92,37,66,.06);border:1px solid rgba(92,37,66,.22);text-decoration:none;color:inherit}
+.pbacc .intro-next{display:flex;align-items:center;gap:12px;padding:13px 15px;border-radius: var(--m-r-md);background:rgba(92,37,66,.06);border:1px solid rgba(92,37,66,.22);text-decoration:none;color:inherit}
 .pbacc .intro-next.calm{background:var(--card);border-color:var(--line)}
-.pbacc .intro-next .nx-ico{flex:0 0 auto;width:34px;height:34px;border-radius:999px;background:var(--mulberry);color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;line-height:1}
+.pbacc .intro-next .nx-ico{flex:0 0 auto;width:34px;height:34px;border-radius: var(--m-r-full);background:var(--mulberry);color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;line-height:1}
 .pbacc .intro-next.calm .nx-ico{background:rgba(92,37,66,.12);color:var(--mulberry)}
 .pbacc .intro-next .nx-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
 .pbacc .intro-next .nx-k{font-family:var(--mono);font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--mulberry)}
@@ -569,17 +569,17 @@ html.dark .pbacc .cmprow-price td{color:#C99DB0}
 .pbacc .intro-next.calm .nx-go{display:none}
 .pbacc .intro-loop{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:0 4px}
 .pbacc .intro-loop .lp{display:flex;align-items:center;gap:6px;min-width:0}
-.pbacc .intro-loop .lp-n{flex:0 0 auto;width:18px;height:18px;border-radius:999px;background:rgba(92,37,66,.1);color:var(--mulberry);font-family:var(--mono);font-size:9px;font-weight:600;display:flex;align-items:center;justify-content:center}
+.pbacc .intro-loop .lp-n{flex:0 0 auto;width:18px;height:18px;border-radius: var(--m-r-full);background:rgba(92,37,66,.1);color:var(--mulberry);font-family:var(--mono);font-size:9px;font-weight:600;display:flex;align-items:center;justify-content:center}
 .pbacc .intro-loop .lp-t{font-family:var(--mono);font-size:9px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft);white-space:nowrap}
 .pbacc .intro-loop .lp-sep{flex:0 0 auto;color:var(--ink-soft);opacity:.45;font-size:11px}
-.pbacc .pba-coach{position:relative;margin:14px 18px 2px;padding:14px 42px 14px 15px;border-radius:16px;background:rgba(197,160,89,.1);border:1px solid rgba(197,160,89,.4);animation:pba-rise .5s var(--ease) both}
+.pbacc .pba-coach{position:relative;margin:14px 18px 2px;padding:14px 42px 14px 15px;border-radius: var(--m-r-md);background:rgba(197,160,89,.1);border:1px solid rgba(197,160,89,.4);animation:pba-rise .5s var(--ease) both}
 .pbacc .pba-coach .pc-k{font-family:var(--mono);font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-deep)}
 .pbacc .pba-coach .pc-h{font-family:var(--serif);font-style:italic;font-weight:600;font-size:16px;color:var(--ink);margin:2px 0 9px;line-height:1.2}
 .pbacc .pba-coach .pc-list{display:flex;flex-direction:column;gap:7px}
 .pbacc .pba-coach .pc-row{display:flex;gap:8px;font-family:var(--sans);font-size:12.5px;line-height:1.42;color:var(--ink-soft)}
 .pbacc .pba-coach .pc-b{flex:0 0 auto;font-weight:700;color:var(--mulberry)}
-.pbacc .pba-coach .pc-x{position:absolute;top:9px;right:9px;width:25px;height:25px;border:0;border-radius:999px;background:rgba(30,34,41,.07);color:var(--ink-soft);font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
-.pbacc .lockhint{margin-top:7px;font-family:var(--mono);font-size:8.5px;line-height:1.5;letter-spacing:.015em;color:var(--gold-deep);background:rgba(197,160,89,.1);border-radius:8px;padding:7px 9px}
+.pbacc .pba-coach .pc-x{position:absolute;top:9px;right:9px;width:25px;height:25px;border:0;border-radius: var(--m-r-full);background:rgba(30,34,41,.07);color:var(--ink-soft);font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.pbacc .lockhint{margin-top:7px;font-family:var(--mono);font-size:8.5px;line-height:1.5;letter-spacing:.015em;color:var(--gold-deep);background:rgba(197,160,89,.1);border-radius: var(--m-r-sm);padding:7px 9px}
 html.dark .pbacc .intro-next .nx-k,
 html.dark .pbacc .intro-next.calm .nx-ico,
 html.dark .pbacc .intro-next .nx-go,
@@ -587,9 +587,9 @@ html.dark .pbacc .intro-loop .lp-n,
 html.dark .pbacc .pba-coach .pc-b{color:#C99DB0}
 html.dark .pbacc .pba-coach{background:rgba(197,160,89,.14);border-color:rgba(197,160,89,.45)}
 html.dark .pbacc .lockhint{background:rgba(197,160,89,.14)}
-.pbacc .review-cta{display:block;margin-top:7px;font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;text-align:center;color:var(--mulberry);background:rgba(149,53,83,.08);border-radius:8px;padding:7px 9px;transition:background .18s var(--ease);text-decoration:none}
+.pbacc .review-cta{display:block;margin-top:7px;font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;text-align:center;color:var(--mulberry);background:rgba(149,53,83,.08);border-radius: var(--m-r-sm);padding:7px 9px;transition:background .18s var(--ease);text-decoration:none}
 .pbacc .review-cta:hover,.pbacc .review-cta:focus{background:rgba(149,53,83,.15)}
-.pbacc .review-done{display:block;margin-top:7px;font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;text-align:center;color:#2f6f4e;background:rgba(47,111,78,.08);border-radius:8px;padding:7px 9px}
+.pbacc .review-done{display:block;margin-top:7px;font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;text-align:center;color:#2f6f4e;background:rgba(47,111,78,.08);border-radius: var(--m-r-sm);padding:7px 9px}
 html.dark .pbacc .review-cta{background:rgba(149,53,83,.16)}
 html.dark .pbacc .review-cta:hover,.pbacc .review-cta:focus{background:rgba(149,53,83,.24)}
 
@@ -607,8 +607,8 @@ html.dark .pbacc .review-cta:hover,.pbacc .review-cta:focus{background:rgba(149,
 .pbacc .svc-motion{mix-blend-mode:screen}
 .pbacc .svc-scrim{background:linear-gradient(to top,rgba(18,16,14,.92) 4%,rgba(18,16,14,.5) 44%,rgba(18,16,14,.08) 80%)}
 .pbacc .svc-top{position:absolute;top:12px;left:12px;right:12px;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:8px}
-.pbacc .svc-badge{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:#fff;background:rgba(92,37,66,.62);border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:4px 9px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
-.pbacc .svc-pill{font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:rgba(255,255,255,.18);border-radius:999px;padding:4px 8px;white-space:nowrap;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.pbacc .svc-badge{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:#fff;background:rgba(92,37,66,.62);border:1px solid rgba(255,255,255,.22);border-radius: var(--m-r-full);padding:4px 9px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.pbacc .svc-pill{font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:rgba(255,255,255,.18);border-radius: var(--m-r-full);padding:4px 8px;white-space:nowrap;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .pbacc .svc-body{position:absolute;left:0;right:0;bottom:0;z-index:2;padding:14px 16px 16px}
 .pbacc .svc-name{font-family:var(--serif);font-style:italic;font-weight:600;font-size:21px;line-height:1.08;color:#fff}
 .pbacc .svc-blurb{font-family:var(--sans);font-size:11px;line-height:1.4;color:rgba(255,255,255,.82);margin-top:5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -627,14 +627,14 @@ html.dark .pbacc .ds-tag{color:#C99DB0}
 .pbacc .tools-tag{font-family:var(--mono);font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft);margin:0 2px 11px}
 .pbacc .tools-row{display:flex;gap:9px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
 .pbacc .tools-row::-webkit-scrollbar{display:none}
-.pbacc .tool{flex:0 0 auto;display:inline-flex;align-items:center;gap:9px;padding:10px 13px;border-radius:13px;border:1px solid var(--line);background:var(--card);text-decoration:none;color:var(--ink)}
+.pbacc .tool{flex:0 0 auto;display:inline-flex;align-items:center;gap:9px;padding:10px 13px;border-radius: var(--m-r-md);border:1px solid var(--line);background:var(--card);text-decoration:none;color:var(--ink)}
 .pbacc .tool:hover{border-color:rgba(92,37,66,.35)}
-.pbacc .tool-ico{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:9px;background:rgba(92,37,66,.08);color:var(--mulberry)}
+.pbacc .tool-ico{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius: var(--m-r-sm);background:rgba(92,37,66,.08);color:var(--mulberry)}
 html.dark .pbacc .tool-ico{color:#C99DB0;background:rgba(201,157,176,.14)}
 .pbacc .tool-tx{display:flex;flex-direction:column;line-height:1.2}
 .pbacc .tool-nm{font-family:var(--sans);font-weight:600;font-size:13px;color:var(--ink)}
 .pbacc .tool-cta{font-family:var(--mono);font-size:8px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft);margin-top:2px}
-.pbacc .tools-all{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;padding:0 16px;border-radius:13px;border:1.5px dashed rgba(92,37,66,.4);background:transparent;color:var(--mulberry);font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;white-space:nowrap}
+.pbacc .tools-all{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;padding:0 16px;border-radius: var(--m-r-md);border:1.5px dashed rgba(92,37,66,.4);background:transparent;color:var(--mulberry);font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;white-space:nowrap}
 html.dark .pbacc .tools-all{color:#C99DB0}
 .pbacc .tool,.pbacc .tools-all{transition:transform .13s cubic-bezier(.2,.7,.2,1),border-color .2s var(--ease)}
 .pbacc .tool:active,.pbacc .tools-all:active{transform:scale(.97)}

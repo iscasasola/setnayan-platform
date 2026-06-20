@@ -22,7 +22,7 @@ const pesoFromPhp = (php: number | null) =>
 const LOCKED = new Set(['contracted', 'deposit_paid', 'delivered', 'complete']);
 
 const LOCK_BTN_CLASS =
-  'mt-2 inline-flex w-full items-center justify-center rounded-[10px] bg-mulberry px-3 py-2.5 text-[12.5px] font-semibold text-cream transition-colors hover:bg-mulberry-700 disabled:opacity-60';
+  'mt-2 inline-flex w-full items-center justify-center rounded-md bg-mulberry px-3 py-2.5 text-[12.5px] font-semibold text-cream transition-colors hover:bg-mulberry-700 disabled:opacity-60';
 
 /** The committed anchors shown as summary tiles atop the locked list (prototype
  *  `.lock-sum`). Date label + region come from the event; budget + committed come

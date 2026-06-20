@@ -348,7 +348,7 @@ export function AccountSwitcher({ data, currentEventName }: Props) {
                   aria-selected={activeTab === key}
                   type="button"
                   onClick={() => setActiveTab(key)}
-                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-[10px] px-2 py-1.5 text-xs font-medium transition-colors ${
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
                     activeTab === key
                       ? 'bg-[var(--m-paper)] text-ink shadow-sm'
                       : 'text-ink/55 hover:text-ink/80'
@@ -725,7 +725,7 @@ export function AccountSwitcherStandalone({ data }: Props) {
                         { key: 'favorites', label: 'Favorites', Icon: Heart },
                         { key: 'editorials', label: 'Editorials', Icon: Newspaper },
                       ] as const).map(({ key, label, Icon }) => (
-                        <button key={key} role="tab" aria-selected={activeTab === key} type="button" onClick={() => setActiveTab(key)} className={`flex flex-1 items-center justify-center gap-1.5 rounded-[10px] px-2 py-1.5 text-xs font-medium transition-colors ${activeTab === key ? 'bg-[var(--m-paper)] text-ink shadow-sm' : 'text-ink/55 hover:text-ink/80'}`}>
+                        <button key={key} role="tab" aria-selected={activeTab === key} type="button" onClick={() => setActiveTab(key)} className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${activeTab === key ? 'bg-[var(--m-paper)] text-ink shadow-sm' : 'text-ink/55 hover:text-ink/80'}`}>
                           <Icon aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                           {label}
                         </button>

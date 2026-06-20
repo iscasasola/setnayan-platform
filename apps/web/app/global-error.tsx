@@ -128,7 +128,7 @@ export default function GlobalError({ error, reset }: Props) {
                 fontWeight: 500,
                 letterSpacing: '0.025em',
                 border: 'none',
-                borderRadius: '2px',
+                borderRadius: 'var(--m-r-xs)',
                 cursor: 'pointer',
               }}
             >
@@ -148,7 +148,7 @@ export default function GlobalError({ error, reset }: Props) {
                 fontWeight: 500,
                 letterSpacing: '0.025em',
                 border: '1px solid rgba(30, 34, 41, 0.2)',
-                borderRadius: '2px',
+                borderRadius: 'var(--m-r-xs)',
                 textDecoration: 'none',
                 display: 'inline-flex',
                 alignItems: 'center',

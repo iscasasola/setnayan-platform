@@ -403,10 +403,10 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
             {/* Loading pill — visible while buffering */}
             <div
               ref={loadingContentRef}
-              style={{ transition: 'opacity .4s ease', display: 'flex', alignItems: 'center', gap: 8, background: '#1E2229', borderRadius: 999, padding: '8px 18px 8px 14px', position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', whiteSpace: 'nowrap' }}
+              style={{ transition: 'opacity .4s ease', display: 'flex', alignItems: 'center', gap: 8, background: '#1E2229', borderRadius: 'var(--m-r-full)', padding: '8px 18px 8px 14px', position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', whiteSpace: 'nowrap' }}
             >
               <span className="m-mono" style={{ fontSize: 9, letterSpacing: '.2em', color: 'rgba(255,255,255,.5)', textTransform: 'uppercase' }}>Loading</span>
-              <div style={{ width: 100, height: 2, background: 'rgba(255,255,255,.15)', borderRadius: 1, overflow: 'hidden' }}>
+              <div style={{ width: 100, height: 2, background: 'rgba(255,255,255,.15)', borderRadius: 'var(--m-r-xs)', overflow: 'hidden' }}>
                 <div ref={barRef} style={{ height: '100%', background: '#C9A96E', transformOrigin: 'left', transform: 'scaleX(0)', transition: 'transform .25s linear' }} />
               </div>
             </div>
@@ -414,7 +414,7 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
             {/* Ready pill — fades in on reveal() */}
             <div
               ref={readyPromptRef}
-              style={{ opacity: 0, transition: 'opacity .5s ease', display: 'flex', alignItems: 'center', gap: 10, background: '#1E2229', borderRadius: 999, padding: '9px 22px 9px 16px', position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', whiteSpace: 'nowrap' }}
+              style={{ opacity: 0, transition: 'opacity .5s ease', display: 'flex', alignItems: 'center', gap: 10, background: '#1E2229', borderRadius: 'var(--m-r-full)', padding: '9px 22px 9px 16px', position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', whiteSpace: 'nowrap' }}
             >
               <span style={{ fontSize: 15, color: '#C9A96E', animation: 'stn-nudge-up 1.4s ease-in-out infinite', display: 'inline-block' }}>&#8593;</span>
               <span className="m-mono" style={{ fontSize: 10, letterSpacing: '.24em', color: '#C9A96E', textTransform: 'uppercase' }}>Scroll up</span>

@@ -88,7 +88,7 @@ export function AccordionBuildButton({
   if (isBuildPick) {
     return (
       <div className="mt-2.5 flex items-center gap-2">
-        <span className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-[10px] border border-mulberry/30 bg-mulberry/5 px-3 py-2 text-[12.5px] font-semibold text-mulberry">
+        <span className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border border-mulberry/30 bg-mulberry/5 px-3 py-2 text-[12.5px] font-semibold text-mulberry">
           <Check className="h-3.5 w-3.5" strokeWidth={2.2} aria-hidden />
           In your build
         </span>
@@ -96,7 +96,7 @@ export function AccordionBuildButton({
           type="button"
           onClick={unpin}
           disabled={isPending}
-          className="rounded-[10px] border border-ink/15 px-3 py-2 text-[12px] font-medium text-ink/55 hover:text-ink disabled:opacity-50"
+          className="rounded-md border border-ink/15 px-3 py-2 text-[12px] font-medium text-ink/55 hover:text-ink disabled:opacity-50"
         >
           {isPending ? '…' : 'Remove'}
         </button>
@@ -108,7 +108,7 @@ export function AccordionBuildButton({
   // An inquiry the vendor hasn't priced yet shows a disabled note instead.
   if (!priced) {
     return (
-      <div className="mt-2.5 flex items-center justify-center gap-1.5 rounded-[10px] border border-dashed border-ink/20 px-3 py-2.5 text-[11.5px] font-medium text-ink/45">
+      <div className="mt-2.5 flex items-center justify-center gap-1.5 rounded-md border border-dashed border-ink/20 px-3 py-2.5 text-[11.5px] font-medium text-ink/45">
         <Clock className="h-3.5 w-3.5" strokeWidth={1.9} aria-hidden />
         Waiting for the vendor&rsquo;s price
       </div>
@@ -128,7 +128,7 @@ export function AccordionBuildButton({
             pin();
           }
         }}
-        className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-[10px] bg-terracotta px-3 py-2.5 text-[12.5px] font-semibold text-cream transition-colors hover:bg-terracotta-600 disabled:opacity-60"
+        className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-terracotta px-3 py-2.5 text-[12.5px] font-semibold text-cream transition-colors hover:bg-terracotta-600 disabled:opacity-60"
       >
         <Hammer className="h-3.5 w-3.5" strokeWidth={1.9} aria-hidden />
         {isPending ? 'Adding…' : 'Add to build'}
@@ -168,7 +168,7 @@ export function AccordionBuildButton({
                   <button
                     type="button"
                     onClick={() => setConfirm(false)}
-                    className="flex-1 rounded-[10px] border border-ink/15 px-3 py-2.5 text-[13px] font-medium text-ink/70 hover:bg-ink/5"
+                    className="flex-1 rounded-md border border-ink/15 px-3 py-2.5 text-[13px] font-medium text-ink/70 hover:bg-ink/5"
                   >
                     Cancel
                   </button>
@@ -176,7 +176,7 @@ export function AccordionBuildButton({
                     type="button"
                     onClick={pin}
                     disabled={isPending}
-                    className="flex-1 rounded-[10px] border border-ink/15 px-3 py-2.5 text-[13px] font-medium text-ink/70 hover:bg-ink/5 disabled:opacity-60"
+                    className="flex-1 rounded-md border border-ink/15 px-3 py-2.5 text-[13px] font-medium text-ink/70 hover:bg-ink/5 disabled:opacity-60"
                   >
                     Add both
                   </button>
@@ -184,7 +184,7 @@ export function AccordionBuildButton({
                     type="button"
                     onClick={pin}
                     disabled={isPending}
-                    className="flex-1 rounded-[10px] bg-terracotta px-3 py-2.5 text-[13px] font-semibold text-cream hover:bg-terracotta-600 disabled:opacity-60"
+                    className="flex-1 rounded-md bg-terracotta px-3 py-2.5 text-[13px] font-semibold text-cream hover:bg-terracotta-600 disabled:opacity-60"
                   >
                     {isPending ? '…' : 'Replace'}
                   </button>

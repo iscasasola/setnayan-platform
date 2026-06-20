@@ -37,6 +37,21 @@ const config: Config = {
       '2xl': '1536px',
     },
     extend: {
+      // Single radius source of truth — every `rounded-*` class resolves to the
+      // --m-r-* token scale in globals.css (Approach B "softer corners", owner-
+      // locked 2026-06-20 · UI_UX_Polish_Remediation_2026-06-20.md). Do NOT add
+      // arbitrary rounded-[Npx] — the lint:radius guard forbids it.
+      borderRadius: {
+        none: '0px',
+        sm: 'var(--m-r-xs)', // 4
+        DEFAULT: 'var(--m-r-sm)', // 8
+        md: 'var(--m-r-sm)', // 8
+        lg: 'var(--m-r-md)', // 14
+        xl: 'var(--m-r-md)', // 14
+        '2xl': 'var(--m-r-lg)', // 22
+        '3xl': 'var(--m-r-xl)', // 36
+        full: 'var(--m-r-full)', // 999
+      },
       colors: {
         // Themeable surface tokens — values resolve at runtime from CSS vars
         // defined in globals.css per mode. Light mode = Clean Editorial

@@ -729,7 +729,7 @@ function TravelPill({ index, colW }: { index: number; colW: number }) {
           right: 0,
           marginInline: 'auto',
           width: 'min(52px, calc(100% - 8px))',
-          borderRadius: 999,
+          borderRadius: 'var(--m-r-full)',
           background: 'rgba(30, 34, 41, 0.15)', // --m-ink @ 15% — bolder so the active tab reads at a glance
         }}
       />
@@ -771,7 +771,7 @@ function PressFlash({
           // identically across 3/4/5/6-tab bars. Centered via translate.
           width: 'min(64px, calc(100% - 2px))',
           height: 90,
-          borderRadius: 999,
+          borderRadius: 'var(--m-r-full)',
           background: 'rgba(255, 255, 255, 0.95)',
           filter: 'blur(12px)',
           opacity: 0,

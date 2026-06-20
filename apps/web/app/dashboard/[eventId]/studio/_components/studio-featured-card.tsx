@@ -48,7 +48,7 @@ export function StudioFeaturedCard({
           </span>
           <span
             aria-hidden
-            className="inline-flex h-11 w-11 items-center justify-center rounded-[14px] bg-white/15 text-cream backdrop-blur-sm"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-white/15 text-cream backdrop-blur-sm"
           >
             <Icon className="h-5 w-5" strokeWidth={1.75} />
           </span>

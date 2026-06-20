@@ -124,7 +124,7 @@ export async function Hero() {
               place, free from the day you start.
             </span>
           </p>
-          <div className="mt-4 hidden sm:inline-flex items-center gap-3 px-3.5 py-2.5 rounded-[10px] bg-[var(--m-ivory)] border border-[var(--m-line)] max-w-[560px]">
+          <div className="mt-4 hidden sm:inline-flex items-center gap-3 px-3.5 py-2.5 rounded-md bg-[var(--m-ivory)] border border-[var(--m-line)] max-w-[560px]">
             <span className="w-[7px] h-[7px] rounded-full bg-[var(--m-orange)] shrink-0" />
             <div className="text-[13px] text-[var(--m-ink)] leading-snug">
               <strong className="font-medium">Wedding today. Every celebration tomorrow.</strong>{' '}
@@ -254,7 +254,7 @@ function HeroCollage() {
                 </div>
               ))}
             </div>
-            <div className="p-3.5 bg-[var(--m-ivory)] rounded-[10px]">
+            <div className="p-3.5 bg-[var(--m-ivory)] rounded-md">
               <div className="m-label-mono text-[9px]">Next up</div>
               <div className="font-[var(--font-display,var(--font-sans))] font-bold text-[17px] text-[var(--m-ink)] uppercase mt-1">
                 Send invites to 47 pending guests
@@ -586,7 +586,7 @@ export function PersonalSite() {
               style={{
                 width: 320,
                 height: 640,
-                borderRadius: 36,
+                borderRadius: 'var(--m-r-xl)',
                 boxShadow: 'var(--m-shadow-lg)',
                 border: '8px solid var(--m-ink)',
               }}

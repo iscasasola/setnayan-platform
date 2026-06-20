@@ -143,7 +143,7 @@ export function EventTypePhotoPicker({ types, onSelect, initialIndex = 0, classN
               aria-label={t.label}
               onClick={() => onTap(i)}
               style={{ width: 'var(--cw)' }}
-              className={`group relative aspect-[4/5] shrink-0 snap-center snap-always overflow-hidden rounded-[22px] text-left transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 focus-visible:ring-offset-cream ${
+              className={`group relative aspect-[4/5] shrink-0 snap-center snap-always overflow-hidden rounded-2xl text-left transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 focus-visible:ring-offset-cream ${
                 isActive
                   ? 'scale-100 opacity-100 shadow-[0_18px_48px_rgba(30,34,41,0.26)]'
                   : 'scale-[0.9] opacity-50 shadow-[0_10px_30px_rgba(30,34,41,0.16)]'

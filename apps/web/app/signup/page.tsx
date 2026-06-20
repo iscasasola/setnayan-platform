@@ -115,7 +115,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
           width: '100%',
           maxWidth: 960,
           background: 'var(--m-paper)',
-          borderRadius: 18,
+          borderRadius: 'var(--m-r-lg)',
           overflow: 'hidden',
           border: '1px solid var(--m-line)',
           boxShadow: '0 30px 60px -25px rgba(45,48,56,0.18)',
@@ -241,7 +241,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
               style={{
                 margin: 0,
                 padding: '10px 12px',
-                borderRadius: 8,
+                borderRadius: 'var(--m-r-sm)',
                 border: '1px solid var(--m-orange-3)',
                 background: 'var(--m-orange-4)',
                 color: 'var(--m-orange-2)',
@@ -258,7 +258,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
               style={{
                 margin: 0,
                 padding: '10px 12px',
-                borderRadius: 8,
+                borderRadius: 'var(--m-r-sm)',
                 border: '1px solid var(--m-line)',
                 background: 'var(--m-paper-2)',
                 color: 'var(--m-ink)',
@@ -340,7 +340,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
                   gap: 4,
                   padding: 3,
                   background: 'var(--m-paper-2)',
-                  borderRadius: 999,
+                  borderRadius: 'var(--m-r-full)',
                   border: '1px solid var(--m-line)',
                 }}
               >
@@ -367,7 +367,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
               data-couple-only
               style={{
                 padding: '10px 12px',
-                borderRadius: 8,
+                borderRadius: 'var(--m-r-sm)',
                 border: '1px solid var(--m-line)',
                 background: 'var(--m-paper-2)',
               }}
@@ -508,7 +508,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
                 background: 'var(--m-orange)',
                 color: 'var(--m-paper)',
                 border: 'none',
-                borderRadius: 999,
+                borderRadius: 'var(--m-r-full)',
                 fontFamily: 'inherit',
                 cursor: 'pointer',
                 fontWeight: 500,
@@ -608,7 +608,7 @@ function AccountTypeOption({
         flex: 1,
         position: 'relative',
         padding: '8px 14px',
-        borderRadius: 999,
+        borderRadius: 'var(--m-r-full)',
         fontSize: 12,
         textAlign: 'center',
         cursor: 'pointer',
@@ -689,7 +689,7 @@ function FormField({
           padding: '10px 12px',
           background: 'var(--m-paper-2)',
           border: '1px solid var(--m-line)',
-          borderRadius: 8,
+          borderRadius: 'var(--m-r-sm)',
           fontSize: 13,
           fontFamily: 'inherit',
           color: 'var(--m-ink)',

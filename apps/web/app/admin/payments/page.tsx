@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { isRequestPlatform } from '@/lib/request-platform';
 import { sweepLapsedSubscriptions } from '@/lib/subscriptions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { ConfirmForm } from '@/app/_components/confirm-form';
 import {
   ORDER_STATUS_LABEL,
   ORDER_STATUS_TONE,
@@ -408,7 +409,14 @@ function PaymentsList({ payments }: { payments: PaymentJoined[] }) {
 
             {p.status === 'pending' ? (
               <div className="space-y-2 border-t border-ink/10 pt-3">
-                <form action={approvePayment} className="space-y-2">
+                <ConfirmForm
+                  action={approvePayment}
+                  title="Approve this payment?"
+                  confirmLabel="Approve · matched"
+                  destructive={false}
+                  message="This marks the payment matched (and, if checked, the order paid) — it issues the receipt, unlocks the couple's purchase, and releases the vendor payout. Approve only after you've confirmed the transfer in the bank/GCash inbox."
+                  className="space-y-2"
+                >
                   <input type="hidden" name="payment_id" value={p.payment_id} />
                   <input
                     name="admin_notes"
@@ -430,7 +438,7 @@ function PaymentsList({ payments }: { payments: PaymentJoined[] }) {
                   >
                     Approve · matched
                   </SubmitButton>
-                </form>
+                </ConfirmForm>
                 {/*
                   Day 3 of the voucher + inline-checkout sprint (CLAUDE.md
                   2026-05-29 Day 3 row): "Request resubmit" middle path. Use
@@ -457,7 +465,13 @@ function PaymentsList({ payments }: { payments: PaymentJoined[] }) {
                     Request resubmit
                   </SubmitButton>
                 </form>
-                <form action={rejectPayment} className="space-y-2">
+                <ConfirmForm
+                  action={rejectPayment}
+                  title="Reject this payment?"
+                  confirmLabel="Reject"
+                  message="This rejects the payment and CANCELS the linked order — the couple loses any access it unlocked and is notified with your reason. For a 'needs more proof' case use Request resubmit instead."
+                  className="space-y-2"
+                >
                   <input type="hidden" name="payment_id" value={p.payment_id} />
                   <input
                     name="admin_notes"
@@ -470,7 +484,7 @@ function PaymentsList({ payments }: { payments: PaymentJoined[] }) {
                   >
                     Reject
                   </SubmitButton>
-                </form>
+                </ConfirmForm>
               </div>
             ) : p.order && (p.order.status === 'paid' || p.order.status === 'fulfilled') ? (
               <RefundForm
@@ -553,7 +567,13 @@ function RefundForm({
       <summary className="cursor-pointer text-xs font-medium text-violet-800 hover:text-violet-900">
         Record a refund for order {orderPublicId}
       </summary>
-      <form action={refundOrder} className="mt-2 space-y-2">
+      <ConfirmForm
+        action={refundOrder}
+        title="Record this refund?"
+        confirmLabel="Record refund · notify couple"
+        message="This permanently marks the order refunded, revokes any access it granted, writes an audit row, and notifies the couple. Send the reverse transfer first — this can't be undone here."
+        className="mt-2 space-y-2"
+      >
         <input type="hidden" name="order_id" value={orderId} />
         <label className="block space-y-1">
           <span className="block font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
@@ -603,7 +623,7 @@ function RefundForm({
         >
           Record refund · notify couple
         </SubmitButton>
-      </form>
+      </ConfirmForm>
     </details>
   );
 }

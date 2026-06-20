@@ -3,6 +3,7 @@ import { Wallet, Clock3, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { ConfirmForm } from '@/app/_components/confirm-form';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import {
   PAYOUT_STAGE_LABEL,
@@ -379,7 +380,14 @@ function PayoutCard({ row }: { row: PayoutRow }) {
 
       {!isPaid ? (
         <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-ink/10 pt-3">
-          <form action={markPayoutPaidAction} className="flex flex-wrap items-center gap-2">
+          <ConfirmForm
+            action={markPayoutPaidAction}
+            title="Mark this payout as paid?"
+            confirmLabel="Mark paid"
+            destructive={false}
+            message="This records the vendor's payout as sent (rail + reference) and emails them a payment confirmation. Do this only after the money has actually left your account."
+            className="flex flex-wrap items-center gap-2"
+          >
             <input type="hidden" name="payout_id" value={row.payout_id} />
             <select
               name="payment_method"
@@ -399,9 +407,15 @@ function PayoutCard({ row }: { row: PayoutRow }) {
             <SubmitButton className="button-primary h-8 px-3 text-xs">
               Mark paid
             </SubmitButton>
-          </form>
+          </ConfirmForm>
           {!isHeld ? (
-            <form action={holdPayoutAction} className="flex flex-wrap items-center gap-2">
+            <ConfirmForm
+              action={holdPayoutAction}
+              title="Place this payout on hold?"
+              confirmLabel="Place on hold"
+              message="This freezes the vendor's pending payout. There's no automatic release in V1 — it stays held until you lift it manually."
+              className="flex flex-wrap items-center gap-2"
+            >
               <input type="hidden" name="payout_id" value={row.payout_id} />
               <input
                 name="reason"
@@ -412,7 +426,7 @@ function PayoutCard({ row }: { row: PayoutRow }) {
               <SubmitButton className="button-secondary h-8 px-3 text-xs">
                 Place on hold
               </SubmitButton>
-            </form>
+            </ConfirmForm>
           ) : null}
         </div>
       ) : null}

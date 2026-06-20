@@ -57,7 +57,6 @@ function tagErrorMessage(error: string): string {
 type Props = {
   token: string;
   seatIndex: number;
-  isFreeSampler?: boolean;
   initialPhotos: number;
   initialClips: number;
   /** null = uncapped (paid seat); a number = the free-sampler per-seat cap. */
@@ -85,7 +84,6 @@ function pickClipMime(): string {
 export function PapicSeatCapture({
   token,
   seatIndex,
-  isFreeSampler = false,
   initialPhotos,
   initialClips,
   photoCap = null,
@@ -97,6 +95,7 @@ export function PapicSeatCapture({
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const clipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clipStartRef = useRef<number>(0);
 
   const [ready, setReady] = useState(false);
   const [camError, setCamError] = useState(false);
@@ -168,16 +167,16 @@ export function PapicSeatCapture({
   }, []);
 
   // Presign + PUT a blob to R2; returns the stored r2:// ref (or throws).
+  // The server derives the bucket + event/seat-scoped object prefix from the
+  // seat token (and verifies the caller is the seat's claimer) — the client
+  // never chooses where seat captures land.
   const uploadBlob = useCallback(
     async (blob: Blob, contentType: string, ext: string): Promise<string> => {
       const presignRes = await fetch('/api/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          bucket: 'media',
-          pathPrefix: isFreeSampler
-            ? `papic-sampler/seat-${seatIndex}`
-            : `papic/seat-${seatIndex}`,
+          papicSeatToken: token,
           filename: `papic-${Date.now()}.${ext}`,
           contentType,
           sizeBytes: blob.size,
@@ -197,7 +196,7 @@ export function PapicSeatCapture({
       if (!putRes.ok) throw new Error('put');
       return r2Ref;
     },
-    [isFreeSampler, seatIndex],
+    [token],
   );
 
   // Grab the current video frame as a JPEG blob (the photo body, or a clip's
@@ -299,7 +298,7 @@ export function PapicSeatCapture({
   }, [busy, recording, ready, photoFull, grabFrame, uploadBlob, token, photoCap, photos, flash, armTagging, autoTagFromBlob]);
 
   const finishClip = useCallback(
-    async (clipBlob: Blob, mime: string) => {
+    async (clipBlob: Blob, mime: string, durationMs: number) => {
       setBusy(true);
       setSaveError(null);
       try {
@@ -314,10 +313,21 @@ export function PapicSeatCapture({
             posterRef = undefined; // poster is best-effort; clip still lands
           }
         }
-        const result = await recordSeatCapture(token, clipRef, 'clip', posterRef);
+        const result = await recordSeatCapture(
+          token,
+          clipRef,
+          'clip',
+          posterRef,
+          durationMs,
+        );
         if (!result.ok) {
           if (result.error === 'sampler_clip_cap') {
             setClips(clipCap ?? clips);
+            return;
+          }
+          if (result.error === 'clip_too_long') {
+            // Server 5s guard tripped (rare — the client timer caps it first).
+            setSaveError('Clips are capped at 5 seconds — give it another go.');
             return;
           }
           throw new Error(result.error);
@@ -369,11 +379,13 @@ export function PapicSeatCapture({
     };
     recorder.onstop = () => {
       setRecording(false);
+      const durationMs = clipStartRef.current ? Date.now() - clipStartRef.current : 0;
       const blob = new Blob(chunksRef.current, { type: mime });
       chunksRef.current = [];
-      if (blob.size > 0) void finishClip(blob, mime);
+      if (blob.size > 0) void finishClip(blob, mime, durationMs);
     };
     recorderRef.current = recorder;
+    clipStartRef.current = Date.now();
     recorder.start();
     setRecording(true);
     // Hard 5-second cap — auto-stop. Not configurable (corpus constraint).

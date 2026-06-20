@@ -41,6 +41,32 @@ export const PAPIC_SEATS_SERVICE_KEY = 'PAPIC_SEATS';
 export const PAPIC_SEATS_PRICE_PHP = 2999; // v2.1 brief § 5 · ₱2,999
 
 /**
+ * Login-free seat claim flag (owner-gated · 2026-06-21).
+ *
+ * When ON, a friend claims a seat WITHOUT signing in: claimPapicSeat mints a
+ * Supabase NATIVE anonymous session (a real auth.uid()) on the claim POST, so
+ * every existing claimer-keyed RLS policy/RPC keeps working unchanged. The
+ * friend's whole experience becomes scan QR → one "Start shooting" tap →
+ * camera. (The tap can't be zero — claim happens on a POST, never on the GET
+ * page load, so a chat-app link-preview bot can't silently claim the seat.)
+ *
+ * Default OFF. Going live needs the SAME three owner actions anon onboarding
+ * needs (they share the native-anon-session machinery):
+ *   1. Enable `enable_anonymous_sign_ins` in the Supabase Auth dashboard.
+ *   2. Apply migration 20270205204166 (null-email-tolerant auth-user trigger —
+ *      anonymous users have no email; the pre-existing trigger would crash the
+ *      NOT NULL insert into public.users).
+ *   …then set NEXT_PUBLIC_PAPIC_SEAT_ANON_ENABLED=true.
+ *
+ * A SIBLING flag (not anonOnboardingEnabled) so login-free seat claim can flip
+ * independently of anon onboarding. NEXT_PUBLIC_ so the claim page (server
+ * component) and the claim action read the SAME flag — one source of truth.
+ */
+export function papicSeatAnonEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_PAPIC_SEAT_ANON_ENABLED === 'true';
+}
+
+/**
  * One owned PAPIC_SEATS order provisions this many paparazzi seats. The V2
  * pass is the five-seat pass (the V1 3-seat tier was dropped in the merge).
  */

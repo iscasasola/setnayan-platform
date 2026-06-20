@@ -12,6 +12,7 @@ import {
   rowToCoupleFacing,
   type CoupleFacingScheduleItem,
   type PaymentScheduleItemRow,
+  type PlanInstance,
 } from '@/lib/vendor-service-payment-schedules';
 
 /**
@@ -65,4 +66,39 @@ export async function fetchScheduleForCouple(opts: {
     .order('seq', { ascending: true });
 
   return ((rows ?? []) as PaymentScheduleItemRow[]).map(rowToCoupleFacing);
+}
+
+/**
+ * The frozen per-booking PAYMENT PLAN (Phase 2 PR-B) for the couple's
+ * workspace. finalizeVendor snapshots the booked service's schedule into
+ * event_vendor_payment_plan at lock; this reads it back for display.
+ *
+ * Couple-scoped by RLS: the host-select policy on event_vendor_payment_plan
+ * gates the row to event members (current_event_ids()), so the couple's own
+ * `authedClient` is sufficient — no admin escalation needed (the plan is the
+ * couple's own booking, unlike the schedule template which lives behind owner
+ * RLS on the vendor side).
+ *
+ * Returns:
+ *   • null  → no plan row yet (booking not locked, or pre-PR-B booking).
+ *   • []    → a plan exists but the service had no schedule → render the
+ *             direct-pay fallback.
+ *   • [...] → the frozen installments, seq-ordered.
+ */
+export async function fetchPlanForCouple(opts: {
+  authedClient: SupabaseClient;
+  eventId: string;
+  eventVendorId: string;
+}): Promise<PlanInstance[] | null> {
+  const { authedClient, eventId, eventVendorId } = opts;
+  const { data } = await authedClient
+    .from('event_vendor_payment_plan')
+    .select('instances_json')
+    .eq('event_id', eventId)
+    .eq('event_vendor_id', eventVendorId)
+    .maybeSingle();
+  if (!data) return null;
+  const raw = (data as { instances_json: unknown }).instances_json;
+  if (!Array.isArray(raw)) return [];
+  return (raw as PlanInstance[]).slice().sort((a, b) => a.seq - b.seq);
 }

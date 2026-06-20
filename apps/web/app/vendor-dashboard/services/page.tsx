@@ -27,6 +27,11 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { Field } from '@/app/_components/forms/field';
 import {
+  fetchOwnSchedulesByService,
+  rowToDraft,
+} from '@/lib/vendor-service-payment-schedules';
+import { PaymentScheduleEditor } from './_components/payment-schedule-editor';
+import {
   createVendorService,
   proposeCategory,
   updateVendorService,
@@ -123,6 +128,12 @@ export default async function VendorServicesPage({ searchParams }: Props) {
   const slotsByService = await fetchVendorTimeSlotsByService(
     supabase,
     profile.vendor_profile_id,
+  );
+  // Payment schedules (Vendor Transaction Lifecycle Phase 2 · PR-A): each
+  // service's installment template, pre-loaded for the per-service editor.
+  const scheduleRowsByService = await fetchOwnSchedulesByService(
+    supabase,
+    serviceIdList,
   );
   const branches =
     tier === 'enterprise'
@@ -680,6 +691,15 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                     serviceId={svc.vendor_service_id}
                     slots={slotsByService.get(svc.vendor_service_id) ?? []}
                     canPlot={canPlotSlots}
+                  />
+                  {/* Payment schedule — its own server action (replace-all set),
+                      so it's a SIBLING of the edit form, never nested. Client
+                      editor: add/remove/reorder installments. Optional. */}
+                  <PaymentScheduleEditor
+                    serviceId={svc.vendor_service_id}
+                    initial={(scheduleRowsByService.get(svc.vendor_service_id) ?? []).map(
+                      rowToDraft,
+                    )}
                   />
                 </li>
               ))}

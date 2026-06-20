@@ -1,5 +1,17 @@
 import 'server-only';
 
+// Curiosity-hook captions for the 78 scheduled-drip articles, co-located with
+// their article batch modules. Spread into JOURNAL_SOCIAL_HOOKS below; any slug
+// without an entry still falls back to its excerpt (see sweepJournalArticles).
+import { HOOKS_CAPTURE } from '@/lib/blog-batches/capture-coverage';
+import { HOOKS_STYLING } from '@/lib/blog-batches/food-styling';
+import { HOOKS_GUESTS } from '@/lib/blog-batches/guests-paper';
+import { HOOKS_MONEY } from '@/lib/blog-batches/money-legal';
+import { HOOKS_RITUALS } from '@/lib/blog-batches/rituals-symbols';
+import { HOOKS_REGIONAL } from '@/lib/blog-batches/regional-faith';
+import { HOOKS_SEASON } from '@/lib/blog-batches/seasonal-rainy';
+import { HOOKS_DECNEWS } from '@/lib/blog-batches/december-news';
+
 /**
  * Teaser captions for the Journal → Facebook auto-syndication sweep
  * (lib/social/flush.ts · sweepJournalArticles). One curiosity-hook line per
@@ -18,6 +30,14 @@ import 'server-only';
  * add its slug here.
  */
 export const JOURNAL_SOCIAL_HOOKS: Record<string, string> = {
+  ...HOOKS_CAPTURE,
+  ...HOOKS_STYLING,
+  ...HOOKS_GUESTS,
+  ...HOOKS_MONEY,
+  ...HOOKS_RITUALS,
+  ...HOOKS_REGIONAL,
+  ...HOOKS_SEASON,
+  ...HOOKS_DECNEWS,
   'free-printable-wedding-checklist-philippines':
     "Planning a Filipino wedding and not sure where to begin? We made a free, printable checklist that takes you from “yes” to “I do” — every step, none of the overwhelm. ✨",
   'what-to-do-12-months-before-your-philippine-wedding':

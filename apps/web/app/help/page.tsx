@@ -1,11 +1,12 @@
 import Link from 'next/link';
-import { HelpCircle, MessageSquare, Mail, Heart, Briefcase, Mailbox, Shield } from 'lucide-react';
+import { MessageSquare, Mail, Heart, Briefcase, Mailbox, Shield } from 'lucide-react';
 import { HELP_TOPICS, HELP_ROLES, type HelpRole } from '@/lib/help';
 import { createClient } from '@/lib/supabase/server';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { Field } from '@/app/_components/forms/field';
 import { Logo } from '@/app/_components/logo';
 import { submitHelpMessage } from './actions';
+import { HelpSearch } from './_components/help-search';
 
 // SEO/GEO Bucket 8 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — 1hr Vercel
 // edge cache so static marketing routes serve Google's crawl rate-limit
@@ -206,46 +207,13 @@ export default async function HelpPage({ searchParams }: Props) {
             </nav>
 
             <div className="space-y-10">
-              {visibleTopics.length === 0 ? (
-                <p className="rounded-xl border border-ink/10 bg-cream p-6 text-sm text-ink/65">
-                  No articles for this role yet. Send us a message below and we&rsquo;ll get back
-                  to you.
-                </p>
-              ) : null}
-              {visibleTopics.map((topic) => (
-                <section key={topic.key} id={topic.key} className="scroll-mt-6 space-y-4">
-                  <div className="flex items-center gap-2">
-                    <HelpCircle
-                      aria-hidden
-                      className="h-4 w-4 text-terracotta"
-                      strokeWidth={1.75}
-                    />
-                    <h2 className="text-xl font-semibold tracking-tight">{topic.label}</h2>
-                  </div>
-                  <ul className="space-y-3">
-                    {topic.articles.map((a) => (
-                      <li
-                        key={a.slug}
-                        id={a.slug}
-                        className="scroll-mt-6 rounded-xl border border-ink/10 bg-cream p-4"
-                      >
-                        {/* Title links to the article's own indexable page
-                            (/help/[slug]) so crawlers discover the per-article
-                            URLs from the hub; the answer stays inline here. */}
-                        <h3 className="text-base font-semibold text-ink">
-                          <Link
-                            href={`/help/${a.slug}`}
-                            className="underline-offset-4 hover:text-terracotta hover:underline"
-                          >
-                            {a.title}
-                          </Link>
-                        </h3>
-                        <p className="mt-1 text-sm text-ink/70">{a.body}</p>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ))}
+              {/* Client-side instant search over the role-filtered corpus —
+                  closes the metadata-vs-reality "no search" gap. Empty box keeps
+                  the topic-grouped list (anchor ids preserved for the sidebar +
+                  /help#slug deep links); typing filters to a flat result list.
+                  The FAQPage JSON-LD above is server-rendered from the full
+                  corpus and is unaffected. */}
+              <HelpSearch topics={visibleTopics} />
 
               <section id="contact" className="scroll-mt-6 space-y-4">
                 <div className="flex items-center gap-2">

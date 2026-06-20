@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { loadShowcaseCandidatesForAdmin } from '@/lib/showcase-db';
 import { setShowcaseFeatured, setShowcaseRank } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { ConfirmForm } from '@/app/_components/confirm-form';
 
 export const metadata = { title: 'Real Stories · Admin' };
 // Top-level admin-client DB read — keep this route dynamic (same rationale as
@@ -172,52 +173,82 @@ export default async function AdminRealStoriesPage({
                       </td>
                       <td className="px-4 py-3 align-top">
                         {r.featured ? (
-                          <form
-                            action={setShowcaseRank}
-                            className="flex items-center gap-2"
-                          >
-                            <input
-                              type="hidden"
-                              name="event_id"
-                              value={r.eventId}
-                            />
-                            <input
-                              name="rank"
-                              type="number"
-                              min={0}
-                              max={9999}
-                              defaultValue={r.featureRank ?? ''}
-                              placeholder="—"
-                              aria-label={`Order for ${r.coupleNames} (lower shows first)`}
-                              className={INPUT}
-                            />
-                            <SubmitButton pendingLabel="Saving…" className={BTN_SECONDARY}>
-                              Save
-                            </SubmitButton>
-                          </form>
+                          <div className="space-y-1.5">
+                            {/* Plain-English meaning of the numeric rank, so an
+                                admin knows rank 0 = the hero cover and 1–3 fill
+                                the "Most loved" slots on the public page. */}
+                            <div className="text-[11px] font-medium uppercase tracking-wide">
+                              {r.featureRank == null ? (
+                                <span className="text-ink/45">Unranked</span>
+                              ) : r.featureRank === 0 ? (
+                                <span className="rounded-full bg-terracotta/15 px-2 py-0.5 text-terracotta-700">
+                                  Cover
+                                </span>
+                              ) : r.featureRank <= 3 ? (
+                                <span className="rounded-full bg-mulberry/10 px-2 py-0.5 text-mulberry">
+                                  Most loved #{r.featureRank}
+                                </span>
+                              ) : (
+                                <span className="text-ink/45">Featured · rank {r.featureRank}</span>
+                              )}
+                            </div>
+                            <form
+                              action={setShowcaseRank}
+                              className="flex items-center gap-2"
+                            >
+                              <input
+                                type="hidden"
+                                name="event_id"
+                                value={r.eventId}
+                              />
+                              <input
+                                name="rank"
+                                type="number"
+                                min={0}
+                                max={9999}
+                                defaultValue={r.featureRank ?? ''}
+                                placeholder="—"
+                                aria-label={`Order for ${r.coupleNames} (0 = cover, 1–3 = most loved, lower shows first)`}
+                                className={INPUT}
+                              />
+                              <SubmitButton pendingLabel="Saving…" className={BTN_SECONDARY}>
+                                Save
+                              </SubmitButton>
+                            </form>
+                          </div>
                         ) : (
                           <span className="text-xs text-ink/45">—</span>
                         )}
                       </td>
                       <td className="px-4 py-3 align-top text-right">
-                        <form action={setShowcaseFeatured}>
-                          <input
-                            type="hidden"
-                            name="event_id"
-                            value={r.eventId}
-                          />
-                          <input
-                            type="hidden"
-                            name="feature"
-                            value={r.featured ? '0' : '1'}
-                          />
-                          <SubmitButton
-                            pendingLabel="Updating…"
-                            className={r.featured ? BTN_SECONDARY : BTN_PRIMARY}
+                        {r.featured ? (
+                          <ConfirmForm
+                            action={setShowcaseFeatured}
+                            title="Remove from Real Stories?"
+                            confirmLabel="Unfeature"
+                            message="This wedding stays published at its own page, but drops off the public Real Stories index. The cover and order reshuffle automatically; the couple isn't notified."
                           >
-                            {r.featured ? 'Unfeature' : 'Feature'}
-                          </SubmitButton>
-                        </form>
+                            <input type="hidden" name="event_id" value={r.eventId} />
+                            <input type="hidden" name="feature" value="0" />
+                            <SubmitButton pendingLabel="Updating…" className={BTN_SECONDARY}>
+                              Unfeature
+                            </SubmitButton>
+                          </ConfirmForm>
+                        ) : (
+                          <ConfirmForm
+                            action={setShowcaseFeatured}
+                            title="Feature on Real Stories?"
+                            confirmLabel="Feature"
+                            destructive={false}
+                            message="This wedding goes live on the public Real Stories page and the couple is notified. You can set its order next."
+                          >
+                            <input type="hidden" name="event_id" value={r.eventId} />
+                            <input type="hidden" name="feature" value="1" />
+                            <SubmitButton pendingLabel="Updating…" className={BTN_PRIMARY}>
+                              Feature
+                            </SubmitButton>
+                          </ConfirmForm>
+                        )}
                       </td>
                     </tr>
                   );

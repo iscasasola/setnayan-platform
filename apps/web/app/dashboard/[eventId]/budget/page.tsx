@@ -9,6 +9,8 @@ import { resolveAllocationInputs } from '@/lib/budget-allocation-data';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { fetchPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
+import { fetchPlanForCouple } from '@/lib/vendor-service-payment-schedules.server';
+import type { PlanInstance } from '@/lib/vendor-service-payment-schedules';
 import { BudgetSetter } from './_components/budget-setter';
 import { BudgetAllocationPlanner } from './_components/budget-allocation-planner';
 import { VendorItemizationCard } from '../_components/vendor-itemization-card';
@@ -134,6 +136,28 @@ export default async function BudgetPage({ params }: Props) {
   );
   const directPayByVendor = new Map<string, CoupleFacingMethod[]>(directPayEntries);
 
+  // Per-booking PAYMENT PLAN installments (Phase 2 PR-B/PR-C). Couple-RLS-
+  // scoped, so the authed client reads event_vendor_payment_plan directly.
+  // null = not locked / pre-PR-B; [] = locked, no schedule; [...] = render the
+  // installment dropdown in the log-payment form. Fetched in parallel; a single
+  // failure degrades that vendor to null (dropdown hidden) rather than failing
+  // the page. s.vendor.vendor_id IS the event_vendors.vendor_id the plan keys on.
+  const planEntries = await Promise.all(
+    finalizedVendors.map(async (s): Promise<[string, PlanInstance[] | null]> => {
+      try {
+        const plan = await fetchPlanForCouple({
+          authedClient: supabase,
+          eventId,
+          eventVendorId: s.vendor.vendor_id,
+        });
+        return [s.vendor.vendor_id, plan];
+      } catch {
+        return [s.vendor.vendor_id, null];
+      }
+    }),
+  );
+  const installmentsByVendor = new Map<string, PlanInstance[] | null>(planEntries);
+
   return (
     <section className="space-y-6">
       {/* id targets for the Budget docked sub-nav (lib/customer-menu.ts anchor
@@ -228,6 +252,7 @@ export default async function BudgetPage({ params }: Props) {
                   eventId={eventId}
                   variant="card"
                   directPayMethods={directPayByVendor.get(s.vendor.vendor_id) ?? []}
+                  installments={installmentsByVendor.get(s.vendor.vendor_id) ?? null}
                 />
               </li>
             ))}
@@ -281,7 +306,7 @@ function BudgetSummaryStrip({
           hint={committedPhp > 0 ? 'Paid + signed vendors' : 'Nothing committed yet'}
         />
         <SummaryStat
-          label={remainingPhp !== null && remainingPhp < 0 ? 'Over target' : 'Remaining'}
+          label={remainingPhp !== null && remainingPhp < 0 ? 'Over target' : 'Budget left'}
           value={remainingPhp !== null ? formatPhp(Math.abs(remainingPhp)) : '—'}
           tone={
             remainingPhp === null
@@ -375,7 +400,7 @@ function StatsStrip({
       <StatTile label="Total budget" value={formatPhp(totals.budget)} />
       <StatTile label="Paid so far" value={formatPhp(totals.paid)} />
       <StatTile
-        label="Remaining"
+        label="Still to pay"
         value={formatPhp(totals.remaining)}
         tone={totals.remaining > 0 ? 'warn' : 'good'}
       />
@@ -445,9 +470,9 @@ function NoFinalizedVendors({ eventId }: { eventId: string }) {
   return (
     <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center">
       <p className="text-sm text-ink/65">
-        Per-vendor budget tracking unlocks once you contract a vendor. Keep
-        shortlisting — your committed line items will land here as you lock
-        them in.
+        You&rsquo;re still choosing vendors — exactly where you should be at this
+        stage. The moment you contract one, its itemized costs and payments show
+        up here on their own. Keep shortlisting from your vendors.
       </p>
       <div className="mt-4">
         <Link href={`/dashboard/${eventId}/vendors`} className="button-primary">

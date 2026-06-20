@@ -57,6 +57,15 @@ import { HostServiceDetails } from './_components/host-service-details';
 import { fetchVendorBudgetSummary } from '@/lib/budget';
 import { fetchPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
+import {
+  fetchPlanForCouple,
+  fetchPlanProgressForCouple,
+} from '@/lib/vendor-service-payment-schedules.server';
+import type {
+  PlanInstance,
+  PlanProgress,
+} from '@/lib/vendor-service-payment-schedules';
+import { PaymentPlanStepper } from '@/app/_components/payment-plan-stepper';
 // First-party Setnayan-service order-and-pay (owner directive 2026-06-04):
 // reuse the SAME apply-then-pay surface the add-on SKUs use (InlineCheckoutDrawer
 // + platform_settings receiving accounts), with a Setnayan admin accepting the
@@ -184,6 +193,7 @@ function formatPaymentDate(iso: string): string {
     timeZone: 'Asia/Manila',
   }).format(d);
 }
+
 
 // Defense-in-depth: contract file URLs + vendor logo URLs are vendor-controlled.
 // Only allow http(s) so a stored `javascript:` / `data:` URL can't execute when
@@ -387,6 +397,38 @@ export default async function VendorWorkspacePage({ params }: Props) {
     });
   } catch {
     directPayMethods = [];
+  }
+
+  // Per-booking PAYMENT PLAN (Phase 2 PR-B) — the installments frozen at lock
+  // from the booked service's schedule template. Couple-RLS-scoped (the plan is
+  // the couple's own booking), so the authed client reads it directly. null =
+  // not locked / pre-PR-B; [] = locked but no schedule (direct-pay fallback);
+  // [...] = render the installment list above the how-to-pay sheet. Best-effort.
+  let paymentPlan: PlanInstance[] | null = null;
+  try {
+    paymentPlan = await fetchPlanForCouple({
+      authedClient: supabase,
+      eventId,
+      eventVendorId: ev.vendor_id,
+    });
+  } catch {
+    paymentPlan = null;
+  }
+
+  // Per-booking PLAN PROGRESS (Phase 2 PR-D) — the same frozen installments
+  // folded with the couple's logged payments into per-installment states
+  // (due / pending / paid), plus the plan-level cleared_at. Drives the progress
+  // STEPPER that replaces the flat PR-B installment list. Couple-RLS read (both
+  // tables are the couple's own). Best-effort.
+  let planProgress: PlanProgress = { steps: null, clearedAt: null };
+  try {
+    planProgress = await fetchPlanProgressForCouple({
+      authedClient: supabase,
+      eventId,
+      eventVendorId: ev.vendor_id,
+    });
+  } catch {
+    planProgress = { steps: null, clearedAt: null };
   }
 
   const contracts = (contractsRes.data ?? []) as Array<{
@@ -896,12 +938,42 @@ export default async function VendorWorkspacePage({ params }: Props) {
             </h3>
           </header>
 
+          {/*
+            Payment plan PROGRESS STEPPER (Phase 2 PR-D — replaces the flat
+            PR-B installment list). When the booked service carried a payment
+            schedule, finalizeVendor froze it into a per-booking plan at lock.
+            The stepper folds those installments with the couple's logged
+            payments into per-installment states (due → pending → paid) and
+            crowns the list with a "cleared" banner once the vendor settles the
+            whole plan. When there's no plan yet (not locked / pre-PR-B) the
+            stepper is omitted and the existing direct-pay UI below carries the
+            "pay the vendor directly" guidance, unchanged. A locked-but-no-
+            schedule booking ([] steps) still renders the banner once cleared.
+          */}
+          {planProgress.steps !== null &&
+          (planProgress.steps.length > 0 || planProgress.clearedAt) ? (
+            <div className="space-y-2 rounded-lg border border-ink/10 bg-white/60 p-4">
+              <p className="text-xs font-semibold text-ink">Payment plan</p>
+              {planProgress.steps.length > 0 ? (
+                <p className="text-[11px] text-ink/55">
+                  {displayName} set up this plan. Pay each installment using the
+                  methods below; {displayName} confirms each as received.
+                </p>
+              ) : null}
+              <PaymentPlanStepper
+                steps={planProgress.steps}
+                clearedAt={planProgress.clearedAt}
+              />
+            </div>
+          ) : null}
+
           {vendorBudgetSummary ? (
             <VendorItemizationCard
               summary={vendorBudgetSummary}
               eventId={eventId}
               variant="embed"
               directPayMethods={directPayMethods}
+              installments={paymentPlan}
             />
           ) : (
             <p className="text-xs text-ink/55">

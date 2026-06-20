@@ -42,6 +42,87 @@ Public-surface SEO pass (1 of N — "update website + SEO + GEO" workstream from
 - `app/explore/compare/page.tsx` — completed metadata: added `alternates.canonical` + `openGraph` (was title + description only).
 
 SPEC IMPACT: None (SEO metadata/sitemap only; no SKU / schema / pricing / branding change).
+## 2026-06-20 · feat(db): sample-event + demo-service flags (Maria & Jose foundation, Phase 1)
+
+Foundation migration for the planned "Maria & Jose" public sample/showcase experience. Additive, idempotent, RLS-unchanged. Migration file only — **not yet applied to prod** (applied deliberately via `supabase db push` when the seed is ready).
+
+- `migration 20270203791173_sample_event_and_demo_service_flags.sql`:
+  - `events.is_sample` (BOOLEAN, default FALSE) — marks the canonical showcase event so it's excluded from real-event stats + never billed, and drives the curated-tour entry.
+  - `vendor_services.is_demo` + `vendor_services.demo_batch_id` — **the owner requirement** ("the vendors here AND the services here will be marked as demo"). Until now a service was demo *only by its parent vendor*; this flags the service directly (mirrors `vendor_profiles.is_demo`) so exclusion/cleanup can key on the service itself. **Backfills** is_demo + demo_batch_id onto every existing demo vendor's services.
+  - Partial indexes on both new boolean flags.
+
+Next in Phase 1: populate Maria & Jose (guests/seating/budget/mood board/Papic) + attach demo vendors+services across every category. Then Phase 2 = the curated 5-stop public tour (owner-chosen over a full sandbox, to avoid exposing rough edges).
+
+SPEC IMPACT: None yet (schema only; the sample-event feature spec lands as the build progresses). Logged in `DECISION_LOG.md`: sample-event/demo-service-flag foundation + curated-tour direction.
+
+First cross-cutting wave of the 2-step-down program (`Usability_2Step_Remediation_Program_2026-06-20.md`, lever A). Every irreversible/cascade action on these surfaces was firing on a single click — a stray tap could publish to live social, hard-delete an account, free a sold date, or unfeature a story. Now they confirm with a specific title + plain-English consequence.
+
+- **`app/_components/confirm-form.tsx`** — prereq: widened `message` from `string` → `ReactNode` so a confirm body can carry a post preview / diff (the underlying `ConfirmDialog.body` was already `ReactNode`).
+- **`admin/social-queue`** — wrapped **Post now** + both **Pull** (scheduled + failed) in `ConfirmForm`; Post-now dialog shows the post's first line + the channels it will hit, and the button itself now reads **"Post now → Facebook + Instagram"** (computed from `enabled && configured`, threaded as a `channels` prop to `ScheduledPostCard`). These publish/retract to live external social — the highest-severity gap.
+- **`admin/users`** — moved the 3 destructive ops (force sign-out, delete, blacklist) behind a collapsed **"Danger zone"** `<details>` so they can't be hit next to the safe everyday actions; gave every guarded action a specific `title`/`confirmLabel` (was the default "Confirm action"); unblacklist marked non-destructive.
+- **`admin/real-stories`** — Feature/Unfeature now confirm (split into two dialogs with the right consequence copy); added **Cover / Most-loved #n** position chips so the bare numeric rank reads in plain English.
+- **`vendor/services`** — Delete-service (was a raw one-click trash) now confirms and names the cascade (bundle links + time slots).
+- **`vendor/clients` + `vendor/calendar`** — the "Remove" outside-client / block action (frees a sold date) now confirms with "their date opens back up"; fixed the 3 dead client-hub empty states to point at Bookings / the calendar.
+
+Verified: `tsc --noEmit` clean across the whole project (0 errors); grep-confirmed 0 raw `<form>` left on the guarded actions. Required CI (typecheck + lint + build) + Vercel preview are the gate (pnpm worktree — full lint/build can't run cross-worktree locally), auto-merge armed.
+
+SPEC IMPACT: UX hardening across iterations 0023 (admin) + 0022 (vendor); no schema/SKU/pricing change. Logged as a `DECISION_LOG.md` row + tracked in `Usability_2Step_Remediation_Program_2026-06-20.md` (Wave 1).
+## 2026-06-20 · feat(help): instant search on the Help Center + marketing-ads spec-drift flag (Wave 2 slice)
+
+Part of the 2-step-down program (`Usability_2Step_Remediation_Program_2026-06-20.md`, Wave 2). The Help Center promised full-text search in its metadata/spec but shipped without it — the audit's single biggest discoverability gap (~63 articles found only by self-selecting a role tile + scanning).
+
+- **`app/help/_components/help-search.tsx`** (new, `'use client'`) — instant in-memory filter over the existing 68-article corpus (`ALL_HELP_ARTICLES` shape `{slug,title,body}`). No fetch, no index, no dependency. Matches title + body + topic label. Empty box renders the same topic-grouped list with `id` anchors preserved (sidebar nav + `/help#slug` deep links still work); typing shows a flat, in-context result list; a real "no matches → message the team" state replaces the previously-unreachable empty branch.
+- **`app/help/page.tsx`** — mounts `<HelpSearch topics={visibleTopics} />` in place of the server-rendered article list (role filter still applies server-side); dropped the now-unused `HelpCircle` import; the FAQPage JSON-LD is untouched (server-rendered from the full corpus, so SEO/GEO is preserved).
+
+**Spec drift surfaced (no code):** the program's `vendor/marketing-ads` item (diff 3, "Boosted + Sponsored, being-redesigned banner, per-week pricing, unverified gate disables Start") describes a surface that **does not exist in shipped code** — there is no boosted-ads/sponsored vendor dashboard route. The closest surface, `/vendor-dashboard/subscription` (Pro/Enterprise), is already clean: no banner, no gate, DB-driven pricing from `vendor_billing_catalog`. That program row should be retired or re-scoped; not touched here.
+
+Verified: `tsc --noEmit` clean across the project (0 errors). Required CI (typecheck + lint + build) + Vercel preview are the gate; the search is interactive on the public `/help` preview for an owner eyeball.
+
+SPEC IMPACT: iteration 0029 (Help Center) — search now matches the long-standing spec/metadata promise. Logged in `DECISION_LOG.md` (incl. the marketing-ads drift). No schema/SKU change.
+## 2026-06-20 · feat(ux): couple self-serve simplification — budget + guests (Wave 2 slice)
+
+2-step-down program (`Usability_2Step_Remediation_Program_2026-06-20.md`, Wave 2) — the two crowded couple surfaces, default-then-disclose + never-dead-empty + clearer labels. Both bank 3→2.
+
+**Budget** (`budget/page.tsx` + `_components/vendor-itemization-card.tsx`):
+- The page showed the word **"Remaining" twice meaning two different things** (budget headroom = target − committed, vs unpaid balance = itemized − paid). Relabeled rather than deleted (both numbers are real): top strip → **"Budget left"**, itemization strip → **"Still to pay"**. Removes the same-word collision with zero data loss.
+- The always-open **5-field payment-log form** (the page's busiest input) is now **default-then-disclose** behind a `<details>` "Log a payment" trigger, matching the existing "Add an extra" disclosure pattern in the same card.
+- The **"no contracted vendor yet" empty state read as broken** ("Per-vendor budget tracking *unlocks*…"). Reframed to "you're still choosing vendors — exactly where you should be; itemized costs appear here once you contract one." (Per-line price chips skipped — line items are already visually grouped "From the vendor's catalog" vs "Your own additions".)
+
+**Guests** (`guests/page.tsx` + `_components/quick-add-sheet.tsx`):
+- The desktop header led with **four equal add buttons**. Now the bulk paths (**Import CSV**, **Quick add list**) tuck behind one **"More ways"** `<details>` disclosure; the single primary **"+ Add guest"** quick-add leads. (Mobile carousel unchanged.)
+- The **empty state** pointed a brand-new couple at the heavy detailed `/guests/new` form. It now leads with the **one-tap quick-add sheet** (`OpenQuickAddButton` gained an optional `label` prop), with "or use the full form" kept as a secondary link. (The single-field/display-name-split change touches the add data model — deferred.)
+
+Verified: `tsc --noEmit` clean across the project (0 errors). Required CI (typecheck + lint + build) + Vercel preview are the gate.
+
+SPEC IMPACT: UX simplification on iterations 0007 (budget) + 0001 (guests); no schema/SKU change. Logged in `DECISION_LOG.md`.
+
+## 2026-06-20 · feat(join): accountless guest self-join via event QR (Lola Remedios — deferred HIGH)
+
+Owner: "yes we allow this" — let an older guest who scans the event QR add themselves WITHOUT creating an account (the 1 HIGH deferred from the guest-legibility audit). Previously `/join/[eventId]` hard-walled behind sign-in/create-account before a guest could do anything.
+
+Design (from a Plan-agent investigation, in `Guest_Legibility_Audit_2026-06-20.md`): **route accountless joiners into the existing `guests` table + `setnayan_guest_session` cookie — the SAME mechanism `/[slug]/redeem` already uses — NOT into `event_members`.** Zero RLS changes, zero migration. `event_members` stays account-only (its `member_can_self_join` policy + `user_id NOT NULL` are untouched); the QR token + signed cookie are the authorization (admin-client write, same as redeem).
+
+- **`apps/web/app/join/[eventId]/actions.ts`** — new `selfJoinAction`: re-validates the join token (mandatory — the only gate), requires the event to have a public `slug` (else falls back to sign-in), is idempotent via `readGuestSession()` (no duplicate row on re-submit), enforces a `SELF_JOIN_CEILING` (1000) sanity cap on `self_joined`-tagged rows, inserts a `guests` row (couple's quick-add shape + `custom_tags:['self_joined']`, name split best-effort), signs the guest cookie via `setGuestSession()`, records a best-effort `scan_events` row (`entry:'self_join'`), and redirects to `/[slug]` where the guest RSVPs through the existing widget. Signed-in `joinEventAction` (event_members + privacy claim flow) is unchanged.
+- **`apps/web/app/join/[eventId]/page.tsx`** — removed the anonymous account-wall. Anonymous + event has a slug → render the name/role picker posting to `selfJoinAction` (+ "Have an account? Sign in" link, + skip-to-page if already self-joined on this device). Anonymous + no slug yet → keep the sign-in/create wall (nowhere public to land otherwise). Added `slug` to the event select; hoisted `errorMessage`; added `join_closed`/`join_failed` copy.
+
+Couple impact: self-joined guests appear on the dashboard guest list immediately (tagged `self_joined` for review/removal) and count toward RSVP/lifecycle. They get no account/dashboard access and no notifications (no email captured) — by design.
+
+Type contracts verified (`await headers()`, `scan_events` shape, JoinShell accepts the extra `slug`). Not built locally (pnpm worktree node_modules can't be cross-linked); required CI (typecheck + lint + build) is the gate, auto-merge armed.
+
+SPEC IMPACT: closes the deferred `/join` HIGH in `Guest_Legibility_Audit_2026-06-20.md` (status updated). Privacy note: anyone holding the event's single shared QR token can add a name + view the `/[slug]` page (gated for private events by the cookie) — mitigated by the token gate + `self_joined` tag + ceiling + couple delete; a couple-facing "disable self-join" toggle is a possible follow-up. Logged in `DECISION_LOG.md`.
+## 2026-06-20 · feat(seating): "Build my seating" — one-tap starting draft from the guest list
+
+Takes the couple Seating editor off a blank canvas — the `USABILITY_DIFFICULTY_HEATMAP_2026-06-18.md` rated it the hardest couple surface (diff 5), and the owner's "make everything ≤3" goal picked this as the biggest customer win. Auto Arrange already existed but is *disabled until tables exist*, so a couple first had to manually conjure the right number/types of tables before any power tool unlocked. This adds the missing "draft, don't blank" step.
+
+- **`lib/seating.ts`** — new pure `recommendTableSet(guests)`: recommends a table SET from the guest list — one Sweetheart for the couple + `ceil(non-declined ÷ 10)` round-10 tables (uniform — the PH reception workhorse), capped at 60. Sizing counts everyone not declined (attending + pending), since a floor is built before all RSVPs land.
+- **`actions.ts`** — new gated `buildSeatingDraft()`: recommend the set → insert the tables → lay them out stage-out (server-side `computeAutoLayout` against a nominal canvas; positions are percent so they render at any size) → seat the confirmed-attending by role tier (`computeAutoSeat`). Guarded to a truly empty floor (never clobbers an in-progress plan); reuses the exact lock-assert + `auto_seat_last_used_at` stamp as Auto Arrange. No migration — reuses `event_tables` + `event_seat_assignments`.
+- **`seating-editor.tsx`** — the empty-canvas text ("Add a table from the sidebar…") becomes a "Build my seating" CTA that says what it'll do (counts the couple's guests), gated on the editor lock like every other edit; the success notice teaches the next gesture (drag a table / tap a guest then a chair). Two secondary empty-states point at it.
+- **`seating-logic.spec.ts`** — 7 `recommendTableSet` cases (per-10 sizing + labels, pending counted, declined excluded, couple→Sweetheart, single-guest floor, the 60-table cap).
+
+Verified: `tsc --noEmit` clean across the whole project (0 errors); `recommendTableSet` exercised at runtime (9/9). Required CI (typecheck + lint + build) + Vercel preview are the gate (pnpm monorepo — full lint/build can't run cross-worktree locally), auto-merge armed.
+
+SPEC IMPACT: new UX affordance on iteration 0008 (seating). Corpus is archive per the AS-BUILT flip; logged as a row in `DECISION_LOG.md`. Honors the locked 0008 table catalog (no new types) and the seat-plan-stays-free principle (deterministic, zero-cost — no AI, no R2).
+## 2026-06-20 · ci(guest): "lint guest legibility" guardrail — stops tiny text regressing on guest surfaces
 
 The 2026-06-20 "Lola Remedios" audit found the dominant guest-facing failure was 7–11px load-bearing text. #1872/#1873 fixed the worst; this guard stops it coming back (the owner-approved "contrast/min-size lint").
 

@@ -37,6 +37,10 @@ import {
   releaseSchedulePools,
   resolvePoolIdsForService,
 } from '@/lib/schedule-pools';
+import {
+  computePlanInstances,
+  type PaymentScheduleItemRow,
+} from '@/lib/vendor-service-payment-schedules';
 
 function isValidCategory(value: unknown): value is VendorCategory {
   return typeof value === 'string' && (VENDOR_CATEGORIES as readonly string[]).includes(value);
@@ -542,7 +546,7 @@ export async function finalizeVendor(
   // marketplace link being non-null.
   const { data: targetVendor, error: targetErr } = await supabase
     .from('event_vendors')
-    .select('vendor_id, category, status, vendor_name, marketplace_vendor_id, manual_vendor_id, service_id')
+    .select('vendor_id, category, status, vendor_name, marketplace_vendor_id, manual_vendor_id, service_id, total_cost_php')
     .eq('event_id', eventId)
     .eq('vendor_id', vendorId)
     .maybeSingle();
@@ -829,7 +833,7 @@ export async function finalizeVendor(
       await Promise.all([
         supabase
           .from('events')
-          .select('wedding_date')
+          .select('event_date')
           .eq('event_id', eventId)
           .maybeSingle(),
         supabase
@@ -845,7 +849,7 @@ export async function finalizeVendor(
       return { status: 'error', message: vpErr.message };
     }
 
-    const weddingDate = eventRow?.wedding_date as string | null | undefined;
+    const weddingDate = eventRow?.event_date as string | null | undefined;
     const limit = (vendorProfileRow?.max_soft_holds_per_date as number | undefined) ?? null;
 
     // Skip the check when the event has no wedding date, OR when the
@@ -866,7 +870,7 @@ export async function finalizeVendor(
       const { data: sameDateEvents, error: sdeErr } = await supabase
         .from('events')
         .select('event_id')
-        .eq('wedding_date', weddingDate);
+        .eq('event_date', weddingDate);
       if (sdeErr) {
         return { status: 'error', message: sdeErr.message };
       }
@@ -1070,6 +1074,113 @@ export async function finalizeVendor(
         e,
       );
     }
+  }
+
+  // ----------------------------------------------------------------------
+  // Payment-plan SNAPSHOT (Vendor Transaction Lifecycle · Phase 2 · PR-B).
+  //
+  // At lock, freeze the booked service's PAYMENT SCHEDULE TEMPLATE (PR-A's
+  // vendor_service_payment_schedules) into a CONCRETE per-booking plan in
+  // event_vendor_payment_plan, then tell the couple their payment info is
+  // ready (payment_info_sent). The couple's workspace renders the plan
+  // alongside the existing "how to pay" (PR-B render).
+  //
+  // Resolution (computePlanInstances, pure):
+  //   • amount: percent → total_cost_php * percent_bps / 10000; fixed →
+  //     amount_centavos / 100. A percent installment with NO total snapshots
+  //     amount_php:null + retains percent_bps so it resolves later.
+  //   • due_date: on_lock → lock date + offset; before_event → event_date -
+  //     offset (null when the event has no/tentative date).
+  //
+  // A service with NO schedule still gets a plan row (empty instances) so the
+  // couple sees "pay the vendor directly" via the existing methods.
+  //
+  // Best-effort + fully fail-soft — wrapped exactly like the booking_confirmed
+  // emit + the audit inserts: a snapshot error must NEVER roll back the lock.
+  // Only marketplace vendors carry a schedule (off-platform / manual vendors
+  // have no vendor_services rows), so the snapshot is gated on the marketplace
+  // link — but we still create an empty plan for them so the workspace render
+  // has a consistent read.
+  // ----------------------------------------------------------------------
+  try {
+    const planAdmin = createAdminClient();
+
+    // Pull the booking total + event date for the resolution inputs.
+    const [{ data: evRow }, { data: eventRow }] = await Promise.all([
+      planAdmin
+        .from('event_vendors')
+        .select('total_cost_php')
+        .eq('event_id', eventId)
+        .eq('vendor_id', vendorId)
+        .maybeSingle(),
+      planAdmin
+        .from('events')
+        .select('event_date')
+        .eq('event_id', eventId)
+        .maybeSingle(),
+    ]);
+    const totalCostPhp =
+      (evRow as { total_cost_php: number | null } | null)?.total_cost_php ?? null;
+    const eventDateIso =
+      (eventRow as { event_date: string | null } | null)?.event_date ?? null;
+    const lockDateIso = new Date().toISOString().slice(0, 10);
+
+    // Read the booked service's schedule template (seq-ordered). Off-platform /
+    // serviceless bookings → no rows → empty plan (direct-pay fallback).
+    let scheduleRows: PaymentScheduleItemRow[] = [];
+    if (targetVendor.service_id) {
+      const { data: rows } = await planAdmin
+        .from('vendor_service_payment_schedules')
+        .select('*')
+        .eq('vendor_service_id', targetVendor.service_id)
+        .order('seq', { ascending: true });
+      scheduleRows = (rows ?? []) as PaymentScheduleItemRow[];
+    }
+
+    const instances = computePlanInstances({
+      scheduleRows,
+      totalCostPhp,
+      lockDateIso,
+      eventDateIso,
+    });
+
+    // Upsert one plan row per (event, event_vendor) — re-locking refreshes it.
+    const { error: planErr } = await planAdmin
+      .from('event_vendor_payment_plan')
+      .upsert(
+        {
+          event_id: eventId,
+          event_vendor_id: vendorId,
+          instances_json: instances,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'event_id,event_vendor_id' },
+      );
+    if (planErr) {
+      console.error(
+        `[finalizeVendor] payment-plan snapshot upsert failed for vendor_id=${vendorId} event_id=${eventId}:`,
+        planErr.message,
+      );
+    } else {
+      // Tell the COUPLE (the acting host) their payment info is ready. Deep-link
+      // to the per-vendor workspace Payments section.
+      await emitNotification({
+        userId: user.id,
+        type: 'payment_info_sent',
+        title: 'Your payment info is ready',
+        body:
+          instances.length > 0
+            ? `Your booking is locked. We've prepared the payment plan for ${targetVendor.vendor_name as string} — open the workspace to see each payment and how to pay.`
+            : `Your booking with ${targetVendor.vendor_name as string} is locked. Open the workspace to see how to pay them directly.`,
+        relatedUrl: `/dashboard/${eventId}/vendors/${vendorId}/workspace#payments`,
+      });
+    }
+  } catch (e) {
+    // Fail-soft — the lock already succeeded; never roll it back.
+    console.error(
+      `[finalizeVendor] payment-plan snapshot failed for vendor_id=${vendorId} event_id=${eventId}:`,
+      e,
+    );
   }
 
   // ----------------------------------------------------------------------

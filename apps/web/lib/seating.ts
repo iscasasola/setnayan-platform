@@ -787,6 +787,49 @@ export function computeAutoSeat(
 }
 
 // ---------------------------------------------------------------------------
+// "Build my seating" starting draft (UX north-star — draft, don't blank; owner
+// goal 2026-06-20 to take the seating editor off a blank canvas). Pure: from the
+// guest list, recommend a SET of tables that seats everyone — one Sweetheart for
+// the couple, then enough round tables for the rest. The couple edits the
+// result; nothing here is irreversible. Sizing counts everyone NOT declined
+// (attending + still-pending) because a couple builds the floor before every
+// RSVP is in; computeAutoSeat then seats only the confirmed-attending, leaving
+// the ready tables for the rest. Uniform round_10 — the PH reception workhorse
+// coordinators standardise on, so a draft reads as one clean rental order.
+// ---------------------------------------------------------------------------
+
+export type RecommendedTable = { type: TableType; capacity: number; label: string };
+
+// The default round-table size for a generated draft, and a safety cap so a
+// runaway guest import can't spawn hundreds of tables.
+export const DRAFT_ROUND_TYPE: TableType = 'round_10';
+const DRAFT_ROUND_SEATS = 10;
+const DRAFT_MAX_ROUND_TABLES = 60;
+
+const COUPLE_ROLES = new Set(['bride', 'groom']);
+
+export type RecommendGuest = Pick<AutoSeatGuest, 'role' | 'rsvp_status'>;
+
+export function recommendTableSet(guests: ReadonlyArray<RecommendGuest>): RecommendedTable[] {
+  // Everyone we should reserve a chair for: not explicitly declined. The couple
+  // (bride/groom) get the Sweetheart, so they're excluded from the round count.
+  const toSeat = guests.filter(
+    (g) => g.rsvp_status !== 'declined' && !COUPLE_ROLES.has(g.role),
+  ).length;
+
+  // The couple's Sweetheart, front-and-centre: computeAutoLayout pins it at the
+  // stage and computeAutoSeat reserves it — always present for a wedding draft.
+  const out: RecommendedTable[] = [{ type: 'sweetheart_2', capacity: 2, label: 'Sweetheart' }];
+
+  const roundCount =
+    toSeat > 0 ? Math.min(DRAFT_MAX_ROUND_TABLES, Math.ceil(toSeat / DRAFT_ROUND_SEATS)) : 0;
+  for (let i = 0; i < roundCount; i++) {
+    out.push({ type: DRAFT_ROUND_TYPE, capacity: DRAFT_ROUND_SEATS, label: `Table ${i + 1}` });
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
 // Auto Arrange (iteration 0008 expansion, owner-directed 2026-06-13). One
 // click = three deterministic steps, all pure sorting logic (zero AI calls,
 // zero per-run cost):

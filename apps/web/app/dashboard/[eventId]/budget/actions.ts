@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { emitNotification } from '@/lib/notification-emit';
 
 // Hard upper bound on the budget setter (₱100,000,000 = 10_000_000_000
 // centavos). Captures real-world Filipino wedding budgets without
@@ -261,6 +263,18 @@ export async function logPayment(formData: FormData) {
   // 20260820000000_vendor_payment_methods.sql (nullable TEXT).
   const proofR2Key = nullIfBlank(formData.get('proof_r2_key'));
 
+  // Optional installment attribution (Phase 2 PR-C) — when the booking has a
+  // frozen payment plan (event_vendor_payment_plan.instances_json), the host can
+  // tie this payment to a specific installment by its `seq`. NULL = a generic
+  // payment not attributed to any installment. Column added by migration
+  // 20270202160006_event_vendor_payment_confirm.sql (nullable INT).
+  const seqRaw = formData.get('schedule_instance_seq');
+  let scheduleInstanceSeq: number | null = null;
+  if (typeof seqRaw === 'string' && seqRaw.length > 0) {
+    const parsed = Number.parseInt(seqRaw, 10);
+    if (Number.isInteger(parsed) && parsed >= 0) scheduleInstanceSeq = parsed;
+  }
+
   const { error } = await supabase.from('event_vendor_payments').insert({
     event_id: eventId,
     vendor_id: vendorId,
@@ -271,8 +285,51 @@ export async function logPayment(formData: FormData) {
     reference: nullIfBlank(formData.get('reference')),
     notes,
     proof_r2_key: proofR2Key,
+    schedule_instance_seq: scheduleInstanceSeq,
   });
   if (error) throw new Error(error.message);
+
+  // Phase 2 PR-C — notify the VENDOR a payment was logged against their
+  // booking so they can confirm receipt in the thread. Best-effort: a failed
+  // notify must never roll back the recorded payment. Resolve the booking's
+  // marketplace vendor owner via the admin client (the couple can't read
+  // vendor_profiles); off-platform/manual vendors (no marketplace_vendor_id)
+  // have no vendor account to notify, so this quietly no-ops.
+  try {
+    const admin = createAdminClient();
+    const { data: ev } = await admin
+      .from('event_vendors')
+      .select('marketplace_vendor_id, vendor_name')
+      .eq('vendor_id', vendorId)
+      .maybeSingle();
+    if (ev?.marketplace_vendor_id) {
+      const { data: vp } = await admin
+        .from('vendor_profiles')
+        .select('user_id')
+        .eq('vendor_profile_id', ev.marketplace_vendor_id)
+        .maybeSingle();
+      const { data: thread } = await admin
+        .from('chat_threads')
+        .select('thread_id')
+        .eq('event_id', eventId)
+        .eq('vendor_profile_id', ev.marketplace_vendor_id)
+        .maybeSingle();
+      if (vp?.user_id) {
+        const proofLine = proofR2Key ? ' A receipt is attached.' : '';
+        await emitNotification({
+          userId: vp.user_id,
+          type: 'payment_logged',
+          title: 'A couple logged a payment',
+          body: `The couple recorded a ₱${amount.toLocaleString('en-PH')} payment.${proofLine} Confirm it was received.`,
+          relatedUrl: thread?.thread_id
+            ? `/vendor-dashboard/messages/${thread.thread_id}`
+            : '/vendor-dashboard/messages',
+        });
+      }
+    }
+  } catch (e) {
+    console.error('[budget] payment_logged notify failed:', e);
+  }
 
   // Revalidate both /budget AND the workspace page — the embedded
   // VendorItemizationCard on the workspace surface needs the new payment

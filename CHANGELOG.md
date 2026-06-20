@@ -4,7 +4,15 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-20 · feat(join): accountless guest self-join via event QR (Lola Remedios — deferred HIGH)
+## 2026-06-20 · feat(marketing): homepage narrative leads with the differentiator (owner-chosen)
+
+Public-surface pass (4 of N — "lead with the media layer" verdict). The `FeaturesNarrative` step-through buried the proven differentiators (Papic + Setnayan AI) in panel 2 behind the free-tools panel — the exact table-stakes ground incumbents occupy. Owner chose "reorder — differentiator leads" (over keeping free-first). Reordered to **Overview → Premium (the moat) → Free tools → Marketplace**:
+
+- `app/_components/marketing/FeaturesNarrative.tsx` — swapped the `step===1`/`step===2` render (Premium now leads), fixed each panel's `StepDots current` to match its new step (0/1/2/3 preserved), rotated the three `NextBtn` labels so transitions read ("See what sets us apart" → "See what's free" → "Meet the vendors"), reframed the Overview intro to lead with the moat ("A live guest photo gallery, an AI that finds your vendors — the things other planners don't have. Plus everything you need to plan, free."), reframed the premium panel eyebrow/heading ("What others don't have" / "Where Setnayan goes further"), reframed the free panel eyebrow ("And the everyday planning? All free"), and reordered both paid arrays (`PAID_FEATURES`, `OVERVIEW_PAID`) so the two proven differentiators lead. Free-first value preserved — the premium panel's "the planning always stays free" line tees up the free panel that follows.
+
+Verified the reorder invariants statically (render order, StepDots 0–3 once each, label rotation). **NOT auto-merged** — homepage + stateful flow that can't run in the worktree, so it needs an owner eyeball on the Vercel preview before merge.
+
+SPEC IMPACT: None (homepage copy/ordering; no SKU / schema / pricing / branding change).
 
 Owner: "yes we allow this" — let an older guest who scans the event QR add themselves WITHOUT creating an account (the 1 HIGH deferred from the guest-legibility audit). Previously `/join/[eventId]` hard-walled behind sign-in/create-account before a guest could do anything.
 

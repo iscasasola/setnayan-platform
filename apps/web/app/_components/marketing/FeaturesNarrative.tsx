@@ -3,8 +3,12 @@
 /**
  * FeaturesNarrative — the post-hero step-through experience.
  *
- * "Sixteen features. One home." → eight free tools → eight paid →
- * vendor marketplace → link to Our Story.
+ * "Sixteen features. One home." → the premium differentiators (Papic + AI lead) →
+ * eight free tools → vendor marketplace → link to Our Story.
+ *
+ * Order: differentiator-leads (owner 2026-06-20). Overview teases the moat, the
+ * premium panel (step 1) leads with what incumbents lack, then the free tools
+ * (step 2), then the marketplace.
  *
  * Four panels, each advancing on button click. The section re-anchors
  * itself to the viewport top when the user advances so the panel always
@@ -33,8 +37,8 @@ const OVERVIEW_FREE = [
 ];
 const OVERVIEW_PAID = [
   'Setnayan AI',
-  'Monogram',
   'Papic',
+  'Monogram',
   'Panood',
   'Pakanta',
   'Contracts',
@@ -105,16 +109,16 @@ const PAID_FEATURES: Array<{ icon: string; name: string; line: string; tag: stri
     tag: 'Planning',
   },
   {
-    icon: '◈',
-    name: 'Animated Monogram',
-    line: 'An AI-crafted living mark that lives across every surface of your wedding.',
-    tag: 'Identity',
-  },
-  {
     icon: '⊙',
     name: 'Papic',
     line: 'Friends and family become your photo crew — QR-tagged, real-time gallery.',
     tag: 'Capture',
+  },
+  {
+    icon: '◈',
+    name: 'Animated Monogram',
+    line: 'An AI-crafted living mark that lives across every surface of your wedding.',
+    tag: 'Identity',
   },
   {
     icon: '▷',
@@ -277,8 +281,8 @@ function PanelOverview({ onNext }: { onNext: () => void }) {
           className="text-center"
           style={{ color: 'rgba(251,251,250,.62)', fontSize: 'clamp(1rem, 2.4vw, 1.15rem)', lineHeight: 1.65, maxWidth: 540, marginBottom: 52 }}
         >
-          Eight are free from the moment you sign up. Eight more transform your wedding into
-          something your guests will never forget. All on one platform.
+          A live guest photo gallery, an AI that finds your vendors — the things other planners
+          don&rsquo;t have. Plus everything you need to plan, free. All on one platform.
         </p>
 
         {/* The 14-tile preview: 6 bright (free) + 8 dimmer (paid) */}
@@ -327,13 +331,13 @@ function PanelOverview({ onNext }: { onNext: () => void }) {
           ))}
         </div>
 
-        <NextBtn onClick={onNext} label="See what's free" dark />
+        <NextBtn onClick={onNext} label="See what sets us apart" dark />
       </div>
     </div>
   );
 }
 
-// ─── Panel 1 — Free tools ──────────────────────────────────────────────────
+// ─── Free tools · renders at step 2 (differentiator leads) ──────────────────────────────────────────────────
 function PanelFree({ onNext }: { onNext: () => void }) {
   return (
     <div
@@ -348,13 +352,13 @@ function PanelFree({ onNext }: { onNext: () => void }) {
         className="mx-auto w-full"
         style={{ maxWidth: 1100, padding: '64px 20px 80px', flex: 1, display: 'flex', flexDirection: 'column' }}
       >
-        <StepDots total={4} current={1} />
+        <StepDots total={4} current={2} />
 
         <div
           className="m-mono text-center"
           style={{ fontSize: 11, letterSpacing: '.24em', textTransform: 'uppercase', color: 'var(--m-orange-2)', marginBottom: 16 }}
         >
-          Free · no card needed
+          And the everyday planning? All free
         </div>
 
         <h2
@@ -433,14 +437,14 @@ function PanelFree({ onNext }: { onNext: () => void }) {
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 48 }}>
-          <NextBtn onClick={onNext} label="Now see the premium layer" />
+          <NextBtn onClick={onNext} label="Meet the vendors" />
         </div>
       </div>
     </div>
   );
 }
 
-// ─── Panel 2 — Paid features ───────────────────────────────────────────────
+// ─── Premium features · renders at step 1 (differentiator leads) ───────────────────────────────────────────────
 function PanelPremium({ onNext }: { onNext: () => void }) {
   return (
     <div
@@ -455,20 +459,20 @@ function PanelPremium({ onNext }: { onNext: () => void }) {
         className="mx-auto w-full"
         style={{ maxWidth: 1100, padding: '64px 20px 80px', flex: 1, display: 'flex', flexDirection: 'column' }}
       >
-        <StepDots total={4} current={2} />
+        <StepDots total={4} current={1} />
 
         <div
           className="m-mono text-center"
           style={{ fontSize: 11, letterSpacing: '.24em', textTransform: 'uppercase', color: 'var(--m-mulberry)', marginBottom: 16 }}
         >
-          Premium · when you&rsquo;re ready
+          What others don&rsquo;t have
         </div>
 
         <h2
           className="m-serif italic text-center"
           style={{ fontSize: 'clamp(2rem, 5.5vw, 3.4rem)', lineHeight: 1.08, maxWidth: 680, margin: '0 auto', marginBottom: 12 }}
         >
-          Eight tools that set the day apart.
+          Where Setnayan goes further.
         </h2>
 
         <p
@@ -543,7 +547,7 @@ function PanelPremium({ onNext }: { onNext: () => void }) {
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 48 }}>
-          <NextBtn onClick={onNext} label="Meet the vendors" />
+          <NextBtn onClick={onNext} label="See what's free" />
         </div>
       </div>
     </div>
@@ -716,9 +720,12 @@ export function FeaturesNarrative() {
         transition: 'opacity 0.26s ease',
       }}
     >
+      {/* Differentiator leads (owner 2026-06-20): Overview → Premium (the moat) →
+          Free tools → Marketplace. Each panel's StepDots `current` + NextBtn label
+          reflect this order. */}
       {step === 0 && <PanelOverview onNext={advance} />}
-      {step === 1 && <PanelFree onNext={advance} />}
-      {step === 2 && <PanelPremium onNext={advance} />}
+      {step === 1 && <PanelPremium onNext={advance} />}
+      {step === 2 && <PanelFree onNext={advance} />}
       {step === 3 && <PanelMarketplace />}
     </div>
   );

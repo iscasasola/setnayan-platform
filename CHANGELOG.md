@@ -4,7 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-20 · feat(marketing): /setnayan-ai landing page — the planning-intelligence differentiator
+## 2026-06-20 · feat(marketing): /why-setnayan comparison/GEO page — the citable differentiation frame
+
+Public-surface pass (5 of N — final piece of the "lead with the media layer" verdict). The differentiation-vs-incumbents frame previously lived only in `llms.txt` (AI-engine-only) with no human-visible, indexable, citable page. This adds it.
+
+- **New `app/why-setnayan/page.tsx`** — server-static page, `/monogram`/`/papic` pattern. **Framed as "three apps' worth in one"** (a planning app + a photo app + a vendor directory), NOT a competitor scorecard — names **no** competitor and makes no blanket claim about a named rival (public-surface hygiene + legal safety). Sections: hero → "what you'd otherwise juggle" → "what Setnayan brings together" → "the part no one else has" (cross-links `/papic` + `/setnayan-ai`) → FAQ → CTA. Benefits-only; no hardcoded prices (0% commission + free-to-plan are stated facts). Emits **WebPage** + **FAQPage** JSON-LD.
+- Registered `/why-setnayan` in `NAV_ROUTES` + sitemap (priority 0.7); route count 21→22.
+
+Note: the `hreflang` extension (the other P1 SEO item) is **deferred** — it should only point to `/tl/*` alternates that exist, and those exist for `/about`, `/how-it-works`, `/features` only. Extending hreflang to the rest requires creating their Taglish editions first; pointing hreflang at non-existent `/tl/*` URLs would be worse than omitting it.
+
+Not built locally (pnpm worktree node_modules); required CI + Vercel PR preview are the surface.
+
+SPEC IMPACT: None (new public marketing page; no SKU / schema / pricing / branding change).
 
 Public-surface pass (3 of N — "lead with the media layer"). Setnayan AI is the second proven differentiator incumbents lack, and it had no indexable, citable landing page.
 

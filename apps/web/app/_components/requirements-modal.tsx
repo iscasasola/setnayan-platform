@@ -25,6 +25,7 @@
 import type { ReactNode, RefObject } from 'react';
 import { AlertCircle, Check, MessageCircle, X } from 'lucide-react';
 import { humanizeFacet, type RequirementField } from '@/lib/requirements-capture';
+import { useEscapeKey } from '@/lib/use-escape-key';
 
 /** CTA lifecycle so the footer button reflects submit/sent state. */
 export type RequirementsModalPhase = 'idle' | 'submitting' | 'sent' | 'error';
@@ -90,6 +91,7 @@ export function RequirementsModal({
   dialogRef,
 }: RequirementsModalProps) {
   const sent = phase === 'sent';
+  useEscapeKey(onClose, !isSubmitting); // Escape-to-dismiss (suspended mid-send)
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"

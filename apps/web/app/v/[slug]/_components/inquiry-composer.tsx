@@ -285,10 +285,10 @@ export function InquiryComposer({
         return;
       }
       if (result.status === 'no_event') {
-        setModal({
-          kind: 'error',
-          message: 'Create your event first, then send an inquiry.',
-        });
+        // No event yet — take them to create one instead of dead-ending on a
+        // message with no path forward; they return here after.
+        const next = encodeURIComponent(window.location.pathname + window.location.search);
+        window.location.href = `/onboarding/wedding?next=${next}`;
         return;
       }
       setModal({ kind: 'error', message: result.message ?? 'Could not send inquiry.' });
@@ -335,10 +335,9 @@ export function InquiryComposer({
         return;
       }
       if (result.status === 'no_event') {
-        setAutoState({
-          kind: 'error',
-          message: 'Create your event first, then send an inquiry.',
-        });
+        // No event yet — take them to create one instead of dead-ending.
+        const next = encodeURIComponent(window.location.pathname + window.location.search);
+        window.location.href = `/onboarding/wedding?next=${next}`;
         return;
       }
       setAutoState({

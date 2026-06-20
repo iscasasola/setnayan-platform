@@ -79,7 +79,7 @@ export default async function PakantaPage({ params }: Props) {
 
   const skuRecord = await formatV2Sku(SKU_CODE).catch(() => null);
   const pricePhp = skuRecord?.price_php ?? null;
-  const settings = await fetchPlatformSettings();
+  const settings = await fetchPlatformSettings(supabase);
 
   return (
     <section className="mx-auto w-full max-w-2xl space-y-6 px-4 py-6 sm:px-6">

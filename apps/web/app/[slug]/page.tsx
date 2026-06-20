@@ -2125,11 +2125,13 @@ function InvitationSite({
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success-500" />
                 Photos of you — so far
               </p>
-              <p className="text-xs text-ink/55">
-                {guestLiveGallery.total.toLocaleString()} tagged
+              <p className="text-sm text-ink/70">
+                {guestLiveGallery.total.toLocaleString()} so far
               </p>
             </div>
-            <div className="mt-4 grid grid-cols-4 gap-1.5 sm:gap-2">
+            {/* 3-up (not 4-up) so the photos — and the readable "Not me" control —
+                are big enough for an older guest (Guest Legibility Floor). */}
+            <div className="mt-4 grid grid-cols-3 gap-2">
               {guestLiveGallery.photos.map((p) => (
                 <figure
                   key={p.id}
@@ -2140,26 +2142,27 @@ function InvitationSite({
                   <img src={p.url} alt="" loading="lazy" className="h-full w-full object-cover" />
                   {/* "Not me" — drop a wrong auto-face guess of yourself on this
                       one shot (you stay enrolled for the rest). Auto-tags only;
-                      a photographer's QR tag can't be removed here. */}
+                      a photographer's QR tag can't be removed here. A real
+                      ≥44px labelled control, legible over the photo. */}
                   <form
                     action={removeMyTag.bind(null, event.event_id, p.sourceTable, p.id)}
-                    className="absolute right-1 top-1"
+                    className="absolute right-1.5 top-1.5"
                   >
                     <SubmitButton
-                      className="inline-flex items-center gap-0.5 rounded-full bg-ink/55 px-1.5 py-0.5 text-[9px] font-medium text-cream backdrop-blur-sm transition hover:bg-ink/80 focus-visible:bg-ink/80"
-                      pendingLabel="…"
+                      className="inline-flex min-h-[44px] items-center gap-1 rounded-full bg-ink/65 px-3 text-sm font-semibold text-cream shadow-sm backdrop-blur-sm transition hover:bg-ink/80 focus-visible:bg-ink/80"
+                      pendingLabel="Removing…"
                     >
-                      <X aria-hidden className="h-2.5 w-2.5" strokeWidth={2.5} />
+                      <X aria-hidden className="h-4 w-4" strokeWidth={2.5} />
                       Not me
                     </SubmitButton>
                   </form>
                 </figure>
               ))}
             </div>
-            <p className="mt-3 text-xs text-ink/55">
-              More arrive as the day unfolds — and everything tagged to you is yours to
+            <p className="mt-3 text-sm text-ink/70">
+              More arrive as the day unfolds — and every photo of you is yours to
               keep after the celebration. Tap <span className="font-medium">Not me</span> on
-              any shot that isn&rsquo;t you.
+              any photo that isn&rsquo;t you.
             </p>
           </section>
         ) : null}
@@ -2183,7 +2186,7 @@ function InvitationSite({
               className="mx-auto mt-6 inline-block rounded-xl bg-white p-3 shadow-sm"
               dangerouslySetInnerHTML={{ __html: qrSvg }}
             />
-            <p className="mt-4 break-all font-mono text-[10px] uppercase tracking-[0.1em] text-ink/40">
+            <p className="mt-4 break-all font-mono text-xs tracking-[0.05em] text-ink/55">
               {invitationUrl}
             </p>
             {/* Indoor Blueprint entry point — pure navigation (no DB query on

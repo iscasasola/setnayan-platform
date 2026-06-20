@@ -108,7 +108,7 @@ export function NameSearch({
             ))}
           </ul>
         ) : touched && !loading ? (
-          <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-4 text-center text-sm text-ink/55">
+          <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-4 text-center text-base text-ink/80">
             No match yet. Try your name as the couple would have listed it, or ask
             a host to check the seating signs at the venue.
           </p>
@@ -132,11 +132,15 @@ function MatchCard({ match }: { match: SeatMatch }) {
 
   return (
     <li className="overflow-hidden rounded-xl border border-ink/10 bg-white shadow-sm">
-      <div className="flex items-center justify-between gap-3 px-4 py-3">
-        <span className="text-sm text-ink/80">{match.display_name}</span>
-        <span className="shrink-0 rounded-md bg-success-50 px-2.5 py-1 text-sm font-semibold text-success-700">
+      {/* The table label is the WHOLE point of the finder — render it as the
+          largest, most unmistakable element on screen (Guest Legibility Floor:
+          a job-to-be-done leads on legibility, not subtlety). */}
+      <div className="px-4 py-5 text-center">
+        <p className="text-base text-ink/80">{match.display_name}</p>
+        <p className="mt-3 text-sm font-medium text-ink/60">Your table</p>
+        <p className="mt-0.5 text-4xl font-bold leading-tight text-success-700">
           {match.table_label}
-        </span>
+        </p>
       </div>
 
       {video ? (

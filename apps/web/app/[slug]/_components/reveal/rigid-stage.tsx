@@ -408,8 +408,10 @@ export function RigidStage({
               fallbackSeed={fallbackSeed}
             />
           </button>
+          {/* Gating instruction — legible for older guests (matches the veil
+              hint pattern, #1872): ≥16px, full cream on a soft scrim pill. */}
           <span
-            className={`pointer-events-none font-mono text-[11px] uppercase tracking-[0.28em] text-cream/85 transition-opacity duration-300 ${
+            className={`pointer-events-none rounded-full bg-black/35 px-4 py-2 font-mono text-base uppercase tracking-[0.16em] text-cream backdrop-blur-[2px] [text-shadow:0_1px_8px_rgba(0,0,0,0.7)] transition-opacity duration-300 ${
               pickedUp ? 'opacity-0' : 'opacity-100'
             }`}
           >
@@ -418,15 +420,17 @@ export function RigidStage({
         </div>
       ) : null}
 
-      {/* once sealed-off → scroll cue, until the open gets going (live only) */}
+      {/* once sealed-off → open cue, kept visible until the open is meaningfully
+          committed (not 0.12) so an elder who hesitates isn't stranded with the
+          reveal half-open and no instruction. Legible pill, plain phone wording. */}
       {sealGone && !autoPlay ? (
         <div
-          className={`pointer-events-none absolute inset-x-0 bottom-12 text-center transition-opacity duration-500 ${
-            progress > 0.12 ? 'opacity-0' : 'opacity-100'
+          className={`pointer-events-none absolute inset-x-0 bottom-16 flex justify-center transition-opacity duration-500 ${
+            progress > 0.5 ? 'opacity-0' : 'opacity-100'
           }`}
         >
-          <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-cream/90 [text-shadow:0_1px_6px_rgba(0,0,0,0.55)]">
-            Scroll to open ↑
+          <p className="rounded-full bg-black/35 px-6 py-3 font-mono text-base uppercase tracking-[0.16em] text-cream backdrop-blur-[2px] [text-shadow:0_1px_8px_rgba(0,0,0,0.7)]">
+            Swipe up to open ↑
           </p>
         </div>
       ) : null}

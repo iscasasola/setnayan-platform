@@ -6,10 +6,12 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { emitNotification } from '@/lib/notification-emit';
 import { isEmailConfigured, sendEmail } from '@/lib/email';
+import { renderBrandedEmail } from '@/lib/email-template';
 import type { KwentoMomentKey } from '@/lib/kwento-moments';
 import { KWENTO_MOMENT_BY_KEY } from '@/lib/kwento-moments';
 
 const MAX_NUDGES = 3;
+const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/+$/, '');
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -137,7 +139,7 @@ async function dispatchNudgeEmail(
         .maybeSingle(),
       admin
         .from('events')
-        .select('display_name, event_date')
+        .select('display_name, event_date, slug')
         .eq('event_id', eventId)
         .maybeSingle(),
     ]);
@@ -146,6 +148,11 @@ async function dispatchNudgeEmail(
 
     const guestName = (guest.display_name as string) || (guest.first_name as string) || 'Guest';
     const coupleName = (event?.display_name as string) || 'the couple';
+    // The one job of this email is "go add your story" — it MUST carry a link to
+    // the couple's page (Guest Legibility Floor: the job must be reachable from
+    // the inbox). Falls back to the Setnayan home if the slug isn't published.
+    const slug = (event?.slug as string) || null;
+    const pageUrl = slug ? `${APP_URL}/${slug}` : APP_URL;
 
     const subject =
       variant === 'assigned'
@@ -154,11 +161,28 @@ async function dispatchNudgeEmail(
 
     const text =
       variant === 'assigned'
-        ? `Hi ${guestName},\n\n${coupleName} would love to hear your story of the ${moment.label}.\n\nHead to their Setnayan page to add your message — it'll become part of their living wedding memory.\n\nSetnayan`
-        : `Hi ${guestName},\n\n${coupleName} wanted to remind you — they'd still love to hear your story of the ${moment.label}.\n\nYour words mean more than you know.\n\nSetnayan`;
+        ? `Hi ${guestName},\n\n${coupleName} would love to hear your story of the ${moment.label}.\n\nAdd your message here — it'll become part of their living wedding memory:\n${pageUrl}\n\nSetnayan`
+        : `Hi ${guestName},\n\n${coupleName} wanted to remind you — they'd still love to hear your story of the ${moment.label}.\n\nAdd your message here:\n${pageUrl}\n\nYour words mean more than you know.\n\nSetnayan`;
+
+    const html = renderBrandedEmail({
+      heading: variant === 'assigned' ? 'Share your story' : 'A gentle reminder',
+      paragraphs:
+        variant === 'assigned'
+          ? [
+              `Hi ${guestName},`,
+              `${coupleName} would love to hear your story of the ${moment.label}. It'll become part of their living wedding memory.`,
+            ]
+          : [
+              `Hi ${guestName},`,
+              `${coupleName} wanted to remind you — they'd still love to hear your story of the ${moment.label}. Your words mean more than you know.`,
+            ],
+      ctaLabel: 'Add my message',
+      ctaHref: pageUrl,
+      footnote: `Or open this link: ${pageUrl}`,
+    });
 
     if (await isEmailConfigured()) {
-      await sendEmail({ to: guest.email as string, subject, text });
+      await sendEmail({ to: guest.email as string, subject, text, html });
     }
 
     // In-app notification if the guest has a linked account

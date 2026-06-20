@@ -152,7 +152,7 @@ function applyTextTone(theme: StdTheme, tone: 'light' | 'dark' | null): StdTheme
       outerFg: 'text-[#fbf7f0]',
       accentText: 'text-[#fbf7f0]',
       subtleText: 'text-white/75',
-      labelCls: 'font-mono text-[10px] uppercase tracking-[0.3em] text-white/80',
+      labelCls: 'font-mono text-sm uppercase tracking-[0.18em] text-white/90',
       scrubFill: 'bg-white',
     };
   }
@@ -161,7 +161,7 @@ function applyTextTone(theme: StdTheme, tone: 'light' | 'dark' | null): StdTheme
     outerFg: 'text-[#211d18]',
     accentText: 'text-[#211d18]',
     subtleText: 'text-black/65',
-    labelCls: 'font-mono text-[10px] uppercase tracking-[0.3em] text-black/70',
+    labelCls: 'font-mono text-sm uppercase tracking-[0.18em] text-black/80',
     scrubFill: 'bg-black/70',
   };
 }
@@ -536,7 +536,7 @@ export function SaveTheDateFilm({
               {...(content.icsHref
                 ? { download: content.icsFilename }
                 : { target: '_blank', rel: 'noopener noreferrer' })}
-              className={`inline-flex items-center gap-2 rounded-full ${accentBtnCls} px-6 py-3 text-[13px] font-semibold shadow`}
+              className={`inline-flex items-center gap-2 rounded-full ${accentBtnCls} px-6 py-3 text-base font-semibold shadow`}
               style={accentBtnStyle}
             >
               Add to calendar
@@ -552,6 +552,19 @@ export function SaveTheDateFilm({
   const [idx, setIdx] = useState(0);
   const [playing, setPlaying] = useState(false); // starts paused; unblocks on reveal-done
   const [muted, setMuted] = useState(false);
+  // Has the guest ever advanced by hand? Drives the "Swipe up to continue" hint
+  // (Guest Legibility Floor: a gesture is never the only way — it needs a visible
+  // instruction). The hint shows at the start + on the held video beat, and fades
+  // once the guest has moved through it once. (A hint, not chrome — owner kept the
+  // "just the texts" film; this matches the approved veil hint pattern.)
+  const [advanced, setAdvanced] = useState(false);
+  const advancedRef = useRef(false);
+  const markAdvanced = () => {
+    if (!advancedRef.current) {
+      advancedRef.current = true;
+      setAdvanced(true);
+    }
+  };
 
   const stageRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -730,6 +743,7 @@ export function SaveTheDateFilm({
   // Scrub to an adjacent beat (clamped) and switch to MANUAL — the deliberate
   // scroll/swipe takes control, so auto-advance stops where the guest landed.
   const stepBeat = (dir: number) => {
+    markAdvanced();
     const target = Math.max(0, Math.min(N - 1, idxRef.current + dir));
     goRef.current(target);
     if (playingRef.current) {
@@ -827,6 +841,7 @@ export function SaveTheDateFilm({
     const r = stageRef.current?.getBoundingClientRect();
     const x = r ? e.clientX - r.left : 0;
     const w = r?.width ?? 1;
+    markAdvanced();
     if (x < w * 0.34) {
       goRef.current(idxRef.current - 1);
     } else {
@@ -963,10 +978,24 @@ export function SaveTheDateFilm({
             type="button"
             onClick={toggleMute}
             aria-label={muted ? 'Unmute sound' : 'Mute sound'}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-current/5 opacity-50 transition-opacity hover:opacity-80"
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-current/10 opacity-75 transition-opacity hover:opacity-100"
           >
-            {muted ? <VolumeX aria-hidden className="h-4 w-4" /> : <Music aria-hidden className="h-4 w-4" />}
+            {muted ? <VolumeX aria-hidden className="h-5 w-5" /> : <Music aria-hidden className="h-5 w-5" />}
           </button>
+        </div>
+      ) : null}
+
+      {/* "Swipe up to continue" hint — the ONLY cue that this auto-playing film
+          is scrubbable (Guest Legibility Floor: a gesture needs a visible
+          instruction so an elder is never stranded). Shows at the start and on
+          the held video beat — which never auto-advances — and fades once the
+          guest has moved through it by hand. A hint pill matching the approved
+          veil pattern, not the transport chrome the owner removed. */}
+      {playing && !preview && idx !== N - 1 && (!advanced || idx === videoSlideIndex) ? (
+        <div className="pointer-events-none absolute inset-x-0 bottom-16 z-20 flex justify-center">
+          <p className="rounded-full bg-black/35 px-6 py-3 font-mono text-base uppercase tracking-[0.16em] text-cream backdrop-blur-[2px] [text-shadow:0_1px_8px_rgba(0,0,0,0.7)]">
+            Swipe up to continue ↑
+          </p>
         </div>
       ) : null}
 

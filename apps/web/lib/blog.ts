@@ -693,7 +693,7 @@ const CORE_BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
       {
         type: 'cta',
         text: 'Browse 100+ real Philippine wedding venues by city, with capacity and day-rate details.',
-        href: '/venues',
+        href: '/explore',
         label: 'Explore venues',
       },
     ],

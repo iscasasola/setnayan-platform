@@ -110,7 +110,7 @@ export const REAL_WEDDINGS: ReadonlyArray<RealWedding> = [
       },
     ],
     team: [
-      { role: 'Venue', href: '/venues' },
+      { role: 'Venue', href: '/explore' },
       { role: 'Catering', href: '/explore' },
       { role: 'Photography & Video', href: '/explore' },
       { role: 'Coordination', href: '/explore' },
@@ -157,7 +157,7 @@ export const REAL_WEDDINGS: ReadonlyArray<RealWedding> = [
       },
     ],
     team: [
-      { role: 'Venue', href: '/venues' },
+      { role: 'Venue', href: '/explore' },
       { role: 'Catering', href: '/explore' },
       { role: 'Photography & Video', href: '/explore' },
       { role: 'Coordination', href: '/explore' },
@@ -202,7 +202,7 @@ export const REAL_WEDDINGS: ReadonlyArray<RealWedding> = [
       },
     ],
     team: [
-      { role: 'Venue', href: '/venues' },
+      { role: 'Venue', href: '/explore' },
       { role: 'Catering', href: '/explore' },
       { role: 'Photography & Video', href: '/explore' },
       { role: 'Coordination', href: '/explore' },
@@ -247,7 +247,7 @@ export const REAL_WEDDINGS: ReadonlyArray<RealWedding> = [
       },
     ],
     team: [
-      { role: 'Venue', href: '/venues' },
+      { role: 'Venue', href: '/explore' },
       { role: 'Catering', href: '/explore' },
       { role: 'Photography & Video', href: '/explore' },
       { role: 'Coordination', href: '/explore' },
@@ -292,7 +292,7 @@ export const REAL_WEDDINGS: ReadonlyArray<RealWedding> = [
       },
     ],
     team: [
-      { role: 'Venue', href: '/venues' },
+      { role: 'Venue', href: '/explore' },
       { role: 'Catering', href: '/explore' },
       { role: 'Photography & Video', href: '/explore' },
       { role: 'Coordination', href: '/explore' },
@@ -339,7 +339,7 @@ export const REAL_WEDDINGS: ReadonlyArray<RealWedding> = [
       },
     ],
     team: [
-      { role: 'Venue', href: '/venues' },
+      { role: 'Venue', href: '/explore' },
       { role: 'Catering', href: '/explore' },
       { role: 'Photography & Video', href: '/explore' },
       { role: 'Coordination', href: '/explore' },
@@ -386,7 +386,7 @@ export const REAL_WEDDINGS: ReadonlyArray<RealWedding> = [
       },
     ],
     team: [
-      { role: 'Venue', href: '/venues' },
+      { role: 'Venue', href: '/explore' },
       { role: 'Catering', href: '/explore' },
       { role: 'Photography & Video', href: '/explore' },
       { role: 'Coordination', href: '/explore' },
@@ -476,7 +476,7 @@ export const REAL_WEDDINGS: ReadonlyArray<RealWedding> = [
       },
     ],
     team: [
-      { role: 'Venue', href: '/venues' },
+      { role: 'Venue', href: '/explore' },
       { role: 'Catering', href: '/explore' },
       { role: 'Photography & Video', href: '/explore' },
       { role: 'Programme Coordination', href: '/explore' },

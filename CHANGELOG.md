@@ -23,6 +23,19 @@ Owner go-live (3 steps, shared with anon onboarding): enable `enable_anonymous_s
 SPEC IMPACT: Reverses the iteration-0012 "friend signs in to claim a seat" contract → login-free claim via a native anonymous session (honors the original 0012 "wedding-scoped ephemeral session tokens — not username/password" intent). Logged at the bottom of `DECISION_LOG.md`.
 
 ---
+## 2026-06-21 · fix(nav): account-switcher "Hosts" 404 + sibling `/venues` dead links
+
+The account switcher's **Hosts** action linked to `/dashboard/hosts` — a path with no static route, so Next routes it into the `[eventId]` segment (`eventId="hosts"`), the event lookup fails, and the user gets a **404** when opening Hosts. Reported as "adding host to events is causing error." The real Hosts page is event-scoped at `/dashboard/[eventId]/hosts`.
+
+- `apps/web/app/_components/account-switcher/account-switcher.tsx`: both panel variants (`AccountSwitcher` mobile sheet + `AccountSwitcherStandalone` desktop drawer) now derive an event-scoped `hostsHref` from `data.events` — the user's primary OWNED event (`role === 'couple'`), falling back to the first owned event. When the user organizes no event the Hosts item is **hidden** (a guest-only account has no hosts to manage) rather than linking to a 404.
+- Comprehensive same-class sweep (every literal nav target vs the real route tree + `next.config` redirects): the only other live 404s were content links to a non-existent public `/venues` route — fixed to `/explore` (matching their own sibling credit links):
+  - `apps/web/lib/blog.ts` — blog CTA "Explore venues".
+  - `apps/web/lib/real-weddings.ts` — all 8 "Venue" credits.
+- Noted, not changed: orphan `routes.venues` helper in `lib/routes.ts` (zero callers; points at the same 404 — optional future cleanup).
+
+Verified: `tsc --noEmit` clean; route-tree analysis confirms the `/dashboard/<word>` collision class now has no remaining offenders (other scan hits were regex flags, asset paths, test fixtures, `robots.ts` rules, the `/weddings`→`/realstories` redirect, the `/vendors` 308→200 redirect, and the intentional `/maria-and-jose` sample slug).
+
+SPEC IMPACT: None (routing bug fix; no SKU, schema, or spec surface change).
 
 ## 2026-06-20 · feat(db): sample-event + demo-service flags (Maria & Jose foundation, Phase 1)
 

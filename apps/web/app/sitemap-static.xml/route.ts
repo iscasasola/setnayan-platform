@@ -3,7 +3,7 @@
  *
  * SEO/GEO Bucket 3 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row).
  *
- * Carries the 17 curated public marketing routes — the highest-authority
+ * Carries the 19 curated public marketing routes — the highest-authority
  * pages on the site. Each row gets a hardcoded MEANINGFUL lastmod that
  * reflects when the page's content last materially changed (NOT today's
  * build time). This is the honest fix for the freshness-fraud signal in
@@ -80,6 +80,15 @@ const STATIC_ROUTES: ReadonlyArray<{
   // /about — brand/entity page (SEO/GEO, 2026-06-13). Canonical "what is
   // Setnayan" surface for AI grounding; fixes the previously-dead footer link.
   { path: '/about', lastmod: '2026-06-13', changefreq: 'monthly', priority: '0.7' },
+
+  // /our-story — brand-narrative + media-layer story page. Real metadata +
+  // AboutPage JSON-LD, but was in NO sitemap before (added 2026-06-20).
+  { path: '/our-story', lastmod: '2026-06-18', changefreq: 'monthly', priority: '0.7' },
+
+  // /monogram — FREE no-signup monogram maker (top-of-funnel lead-gen tool,
+  // WebApplication JSON-LD). High-intent organic target; was in NO sitemap
+  // before (added 2026-06-20).
+  { path: '/monogram', lastmod: '2026-06-19', changefreq: 'monthly', priority: '0.7' },
 
   // /waitlist — pre-launch surface. Updated when pilot/launch dates shift.
   { path: '/waitlist', lastmod: '2026-05-28', changefreq: 'weekly', priority: '0.7' },

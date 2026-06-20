@@ -4,7 +4,14 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-20 · ci(guest): "lint guest legibility" guardrail — stops tiny text regressing on guest surfaces
+## 2026-06-20 · seo: sitemap coverage for /our-story + /monogram, complete /explore/compare metadata
+
+Public-surface SEO pass (1 of N — "update website + SEO + GEO" workstream from the demand-research verdict). Closes two crawl-coverage gaps found in the public-surface audit:
+
+- `app/sitemap-static.xml/route.ts` — added `/our-story` (brand-narrative / media-layer story, AboutPage JSON-LD) and `/monogram` (FREE no-signup monogram maker, WebApplication JSON-LD, top-of-funnel lead-gen) to `STATIC_ROUTES`. Both are real public, indexable pages with full metadata + JSON-LD but were in **no** sitemap. Honest `lastmod` anchored to each page's last content-change (`git log %cs`): /our-story 2026-06-18, /monogram 2026-06-19. Route count comment 17→19.
+- `app/explore/compare/page.tsx` — completed metadata: added `alternates.canonical` + `openGraph` (was title + description only).
+
+SPEC IMPACT: None (SEO metadata/sitemap only; no SKU / schema / pricing / branding change).
 
 The 2026-06-20 "Lola Remedios" audit found the dominant guest-facing failure was 7–11px load-bearing text. #1872/#1873 fixed the worst; this guard stops it coming back (the owner-approved "contrast/min-size lint").
 

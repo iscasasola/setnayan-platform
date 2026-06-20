@@ -4,6 +4,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { relativeTime } from '@/lib/activity';
 import { resolveDispute } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { ConfirmForm } from '@/app/_components/confirm-form';
 
 export const metadata = { title: 'Disputes · Admin' };
 
@@ -464,7 +465,13 @@ function DisputesTable({
                       <summary className="cursor-pointer select-none text-xs font-medium text-terracotta">
                         Resolve
                       </summary>
-                      <form action={resolveDispute} className="mt-2 space-y-2">
+                      <ConfirmForm
+                        action={resolveDispute}
+                        title="Apply this resolution?"
+                        confirmLabel="Apply resolution"
+                        message="This adjudicates the dispute — the decision is final, is recorded in the audit log, and notifies whoever opened it. It binds their next step (e.g. the agreed refund, reschedule, or substitute)."
+                        className="mt-2 space-y-2"
+                      >
                         <input type="hidden" name="dispute_id" value={r.dispute_id} />
                         <select
                           name="resolution"
@@ -490,7 +497,7 @@ function DisputesTable({
                         <SubmitButton pendingLabel="Applying…" className="button-secondary text-xs">
                           Apply resolution
                         </SubmitButton>
-                      </form>
+                      </ConfirmForm>
                     </details>
                   ) : (
                     <span

@@ -23,6 +23,14 @@ export const metadata = {
   title: 'Compare vendors — Setnayan',
   description:
     'Side-by-side comparison of up to 2 saved Filipino wedding vendors.',
+  alternates: { canonical: '/explore/compare' },
+  openGraph: {
+    title: 'Compare Filipino wedding vendors — Setnayan',
+    description:
+      'Side-by-side comparison of up to 2 saved Filipino wedding vendors.',
+    url: '/explore/compare',
+    type: 'website',
+  },
 };
 
 export const dynamic = 'force-dynamic';

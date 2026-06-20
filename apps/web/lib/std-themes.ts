@@ -61,7 +61,7 @@ export type StdTheme = {
 const SHARED = {
   outerBg: 'bg-cream',
   outerFg: 'text-ink',
-  labelCls: 'font-mono text-[10px] uppercase tracking-[0.3em] text-terracotta',
+  labelCls: 'font-mono text-sm uppercase tracking-[0.18em] text-terracotta',
   accentText: 'text-mulberry',
   accentBg: 'bg-mulberry',
   accentBgHover: 'hover:bg-mulberry-600',

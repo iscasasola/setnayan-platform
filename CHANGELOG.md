@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-20 · fix(guest): elder-legibility HIGH fixes across guest surfaces ("Lola Remedios" pass A)
+
+Acts on the 12 HIGH findings from the first guest-legibility audit (`Guest_Legibility_Audit_2026-06-20.md`), against the floor in `Guest_Legibility_Floor_2026-06-20.md`. The dominant failure was load-bearing text/controls at 7–14px in wide-tracked uppercase mono — the thing the guest most needs was the smallest thing on screen.
+
+- **Seat finding** — `find-seat/_components/name-search.tsx`: the table label (the whole payoff) was 14px in a chip next to the name; now it's the hero — `text-4xl font-bold` on its own line under "Your table". Dead-end "No match yet" copy 14px/ink-55 → `text-base`/ink-80. `_components/wayfinding-map.tsx`: target table label 9px→`text-xs`, "You're here" badge 7px wide-uppercase → 11px plain bold, "Entrance" 8px→11px, "Stage/Head" tracking tightened. (The find-my-table page already shows the number at `text-2xl/3xl`, so the map is orientation.)
+- **Save-the-Date film** — `save-the-date-film.tsx`: added a "Swipe up to continue ↑" hint pill (16px, scrim, matches the approved veil pattern; a hint, NOT the transport chrome the owner removed) — shows at the start and on the held video beat (which never auto-advances, the silent dead-end), fades after the guest's first manual advance (`advanced` flag set in `stepBeat` + tap-step). Mute toggle 32px/opacity-50 → 44px/opacity-75, icon 16→20px. "Add to calendar" CTA 13px→`text-base`. Beat captions (`std-themes.ts` + both `applyTextTone` tones) 10px/0.3em → `text-sm`/0.18em.
+- **Rigid openings** — `reveal/rigid-stage.tsx`: seal-gate instruction ("Drag the seal away") and open cue 11px/cream-85 → 16px full-cream on a scrim pill; "Scroll to open" → "Swipe up to open" (phone wording); open cue now stays visible until progress > 0.5 (was 0.12) so a hesitating guest isn't stranded.
+- **Papic guest gallery** — `[slug]/page.tsx`: photo grid 4-up→3-up (bigger photos + room); "Not me" correction 9px chip / sub-44px → 44px labelled pill; "{n} tagged" → "{n} so far" at `text-sm`; helper copy `text-sm`, "tagged" deglossed to "photo of you"; invitation URL 10px→`text-xs`. `_components/save-photo-button.tsx`: icon-only ~20px dot (sr-only label) → 44px labelled "Save" pill on a scrim (shared by couple gallery + guest day-of wall).
+- **QR join/verify** — `join/[eventId]/verify/page.tsx`: OTP recovery links (~17px bare text) → full-width `min-h-[44px]` bordered buttons, recovery-email link contrast ink-60→ink-80. `join/[eventId]/page.tsx`: name/role helper text 12px/ink-50 → `text-sm`/ink-70, deglossed "match you to their guest list" → "find you on their guest list". **The `/join` account wall (HIGH flow) is NOT changed here** — accountless join needs a different membership/RLS model (`event_members.user_id` is required), so it's a separate product decision, flagged for the owner.
+- **Kwento story email** — `dashboard/[eventId]/alaala/assignments/actions.ts`: the assignment/nudge email was plain-text with NO link — the one job (go add your story) was unreachable from the inbox. Now selects `events.slug`, builds `${APP_URL}/${slug}`, sends a branded HTML half via `renderBrandedEmail()` ("Add my message" CTA) and puts the URL in the plain-text body too.
+
+Type contracts verified against `renderBrandedEmail`/`sendEmail`. Not built locally (pnpm monorepo — node_modules can't be cross-linked between worktrees); required CI checks (typecheck + lint + build) + Vercel preview are the gate, auto-merge armed.
+
+SPEC IMPACT: implements `Guest_Legibility_Floor_2026-06-20.md` + clears most HIGH rows in `Guest_Legibility_Audit_2026-06-20.md`. The `/join` accountless-join decision is deferred to its own PR. Logged in `DECISION_LOG.md`.
+
 ## 2026-06-20 · fix(std): veil reveal instruction is legible for older guests
 
 Owner: "for the unlock of veil, the text at the bottom should be visible. so old people can understand the app." The "Lift the veil ↑ / or double-tap to lift it for you" hint was set at `text-[11px]` / `text-[9px]` in cream with only a soft text-shadow — tiny, wide-tracked uppercase, and washed out when the veil colour was light/ivory (cream-on-cream). Hard for older wedding guests to read.

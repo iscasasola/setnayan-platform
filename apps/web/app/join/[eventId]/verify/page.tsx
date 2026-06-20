@@ -106,14 +106,23 @@ export default async function VerifyPage({ params, searchParams }: Props) {
         </SubmitButton>
       </form>
 
-      <div className="mt-6 flex flex-col gap-2 text-sm">
+      {/* Recovery actions — the hardest things to hit at the exact moment the
+          code didn't arrive. Give them real ≥44px, full-width hit areas with
+          readable contrast (Guest Legibility Floor), not bare 17px text links. */}
+      <div className="mt-6 flex flex-col gap-2 text-base">
         <form action={resendClaimOtpAction.bind(null, eventId, token)}>
-          <SubmitButton pendingLabel="Resending…" className="text-terracotta underline-offset-2 hover:underline">
+          <SubmitButton
+            pendingLabel="Resending…"
+            className="flex min-h-[44px] w-full items-center justify-center rounded-xl border border-ink/15 px-4 py-2.5 font-medium text-terracotta transition hover:bg-terracotta/5"
+          >
             Didn&rsquo;t get a code? Resend it
           </SubmitButton>
         </form>
         <form action={requestCoupleReviewAction.bind(null, eventId, token)}>
-          <SubmitButton pendingLabel="Requesting…" className="text-ink/60 underline-offset-2 hover:underline">
+          <SubmitButton
+            pendingLabel="Requesting…"
+            className="flex min-h-[44px] w-full items-center justify-center rounded-xl border border-ink/15 px-4 py-2.5 font-medium text-ink/80 transition hover:bg-ink/5"
+          >
             Can&rsquo;t access that email? Ask the couple to confirm you
           </SubmitButton>
         </form>

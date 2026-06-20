@@ -144,8 +144,8 @@ export default async function JoinPage({ params, searchParams }: Props) {
       ) : null}
 
       <p className="text-base text-ink/70">
-        Welcome, <span className="font-medium text-ink">{user.email}</span>. Tell us who
-        you are so the couple can match you to their guest list.
+        Welcome, <span className="font-medium text-ink">{user.email}</span>. Tell us your
+        name so the couple can find you on their guest list.
       </p>
 
       <form action={action} className="mt-6 space-y-4">
@@ -163,7 +163,7 @@ export default async function JoinPage({ params, searchParams }: Props) {
             autoComplete="name"
             className="input-field"
           />
-          <p className="text-xs text-ink/50">
+          <p className="text-sm text-ink/70">
             Use the name the couple would have on their list.
           </p>
         </div>
@@ -178,7 +178,7 @@ export default async function JoinPage({ params, searchParams }: Props) {
               </option>
             ))}
           </select>
-          <p className="text-xs text-ink/50">
+          <p className="text-sm text-ink/70">
             Pick &ldquo;Guest&rdquo; if your role isn&rsquo;t listed. The couple can refine it later.
           </p>
         </div>

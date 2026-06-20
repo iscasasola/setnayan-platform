@@ -25,6 +25,7 @@ import { fetchActiveCeremonyTypes } from '@/lib/religion-readiness';
 import { fetchV2CustomerCatalog, fetchV2BundleCatalog } from '@/lib/v2-catalog';
 import { fetchOnboardingBgMusicUrl } from '@/lib/platform-settings';
 import { getOnboardingRefinements, getOnboardingTiles } from '@/lib/onboarding-refinements';
+import { getBudgetBands } from '@/lib/budget-bands';
 import { hiddenOnboardingExtraCats } from '@/lib/onboarding-availability';
 import { OnboardingShell } from './_components/onboarding-shell';
 import { buildOnboardingPricing } from './_components/onboarding-pricing';
@@ -77,7 +78,7 @@ export default async function OnboardingWeddingPage({
   // Fetch the active wedding religions alongside auth so the faith picker can
   // gate on the launch status (admin /admin/wedding-types flips these). Returns
   // null on any read error → the shell falls back to its built-in soon flags.
-  const [userRes, activeFaiths, customerSkus, bundles, bgMusicUrl, refinements, hiddenCats, dynamicTiles] = await Promise.all([
+  const [userRes, activeFaiths, customerSkus, bundles, bgMusicUrl, refinements, hiddenCats, dynamicTiles, budgetBands] = await Promise.all([
     supabase.auth.getUser(),
     fetchActiveCeremonyTypes(supabase),
     fetchV2CustomerCatalog(),
@@ -94,6 +95,9 @@ export default async function OnboardingWeddingPage({
     // Taxonomy-driven PICK step (2026-06-17): tier-2 tiles scoped to weddings from
     // service_categories. [] on error → shell falls back to static PICK_GROUPS_FALLBACK.
     getOnboardingTiles('wedding'),
+    // Admin-tunable budget feel-bands (owner 2026-06-19, screen 9). DB-first,
+    // falls back to BUDGET_BANDS_FALLBACK on any read error/empty.
+    getBudgetBands(),
   ]);
   const user = userRes.data.user;
   // Build the onboarding pricing view-model from the live admin catalog. No
@@ -113,6 +117,7 @@ export default async function OnboardingWeddingPage({
       refinements={refinements}
       hiddenCats={hiddenCats}
       dynamicTiles={dynamicTiles}
+      budgetBands={budgetBands}
     />
   );
 }

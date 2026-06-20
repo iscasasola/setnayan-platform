@@ -74,6 +74,7 @@ import { SongBankStep } from './song-bank-step';
 import { OnboardingMusic } from './onboarding-music';
 import { REFINEMENTS_BY_KEY, REFINEMENTS_DATA, type RefineLeaf, type RefineOption } from '../_data/refinements';
 import { type OnboardingPickChip } from '@/lib/onboarding-refinements';
+import { type BudgetBand, BUDGET_BANDS_FALLBACK } from '@/lib/budget-bands-shared';
 import {
   weaveStory,
   masthead as weaveMasthead,
@@ -283,24 +284,19 @@ const PAXTIERS = [
 ];
 const paxTierFor = (n: number) => PAXTIERS.find((x) => n <= x.max) ?? PAXTIERS[PAXTIERS.length - 1]!;
 
-/* ── budget feel-band ladder (prototype buildBudget B{} + budgetTier) ── */
-const BUDGET_BANDS: { value: string; label: string; tag: string; med: number }[] = [
-  { value: 'essentials', label: 'Essentials', tag: 'Lean & intentional', med: 2000 },
-  { value: 'simple', label: 'Simple', tag: 'Comfortable', med: 3500 },
-  { value: 'classic', label: 'Classic', tag: 'The sweet spot', med: 5000 },
-  { value: 'elevated', label: 'Elevated', tag: 'Polished', med: 7500 },
-  { value: 'premium', label: 'Premium', tag: 'Entry luxury', med: 11000 },
-  { value: 'luxury', label: 'Luxury', tag: 'No-compromise', med: 15000 },
-  { value: 'no_limit', label: 'No limit', tag: 'No ceiling', med: 0 },
-];
+/* ── budget feel-band ladder (prototype buildBudget B{} + budgetTier) ──
+   The BUDGET_BANDS literal moved to a DB-backed prop (owner 2026-06-19): the bands
+   now come from budget_band_config via getBudgetBands(), DB-first with
+   BUDGET_BANDS_FALLBACK as the in-code fallback. Because the band ladder is no
+   longer a module-level const, the helpers that read it (PRICED_BANDS,
+   budgetFloor, budgetCeiling, nearestBand, effectiveBudgetPesos) are derived
+   INSIDE the component from the `budgetBands` prop — see OnboardingShell. */
 const budgetTierBand = (band: string) =>
   band === 'essentials' || band === 'simple' ? 'lean' : band === 'premium' || band === 'luxury' || band === 'no_limit' ? 'lavish' : 'mid';
 
 /* ── budget AMOUNT math (owner 2026-06-02: text box + line picker + min-floor + max-of-range) ──
-   Per-head median × pax, ±20%, rounded to the nearest ₱50k. Floor = the essentials low
-   (the recommended-lowest for that guest count — the text box can't go below it).
-   Ceiling = the luxury high. nolimit has no amount (med 0). */
-const PRICED_BANDS = BUDGET_BANDS.filter((b) => b.med > 0);
+   Per-head median × pax, ±20%, rounded to the nearest ₱50k. These are pure (no band
+   array dependency), so they stay module-scope; the band-aware helpers live in-component. */
 const round50k = (n: number) => Math.round(n / 50000) * 50000;
 const bandLo = (med: number, pax: number) => round50k(med * 0.8 * pax);
 const bandHi = (med: number, pax: number) => {
@@ -309,23 +305,8 @@ const bandHi = (med: number, pax: number) => {
   if (z <= a) z = a + 50000;
   return z;
 };
-const budgetFloor = (pax: number) => bandLo(2000, pax); // essentials low = recommended floor
-const budgetCeiling = (pax: number) => bandHi(15000, pax); // luxury high
-const nearestBand = (amount: number, pax: number) =>
-  PRICED_BANDS.reduce(
-    (best, b) => (Math.abs(b.med * pax - amount) < Math.abs(best.med * pax - amount) ? b : best),
-    PRICED_BANDS[2] ?? PRICED_BANDS[0]!,
-  );
 const fmtPeso = (n: number) =>
   n >= 1e6 ? `₱${(n / 1e6).toFixed(2).replace(/\.?0+$/, '')}M` : `₱${Math.round(n / 1000)}K`;
-/* the working-budget value the couple effectively chose: their typed/dragged amount,
-   else the current band's MAX for the pax (the "set to max of the range chosen" default). */
-function effectiveBudgetPesos(band: string, amount: number | null, pax: number): number | null {
-  if (band === 'no_limit') return null;
-  if (typeof amount === 'number' && amount > 0) return amount;
-  const b = PRICED_BANDS.find((x) => x.value === band) ?? PRICED_BANDS[2] ?? PRICED_BANDS[0]!;
-  return bandHi(b.med, pax);
-}
 
 /* ── region labels (recap) — region key → display label for the screen-13 recap.
    Now sourced from the CANONICAL region source (lib/region-source) instead of a
@@ -1504,6 +1485,7 @@ export function OnboardingShell({
   refinements = REFINEMENTS_DATA,
   hiddenCats = [],
   dynamicTiles = [],
+  budgetBands = BUDGET_BANDS_FALLBACK,
 }: {
   authed: boolean;
   resume: boolean;
@@ -1544,10 +1526,57 @@ export function OnboardingShell({
    * shell falls back to the static PICK_GROUPS_FALLBACK unchanged.
    */
   dynamicTiles?: OnboardingPickChip[];
+  /**
+   * Admin-tunable budget feel-bands (owner 2026-06-19, screen 9) — fetched
+   * server-side via getBudgetBands() in page.tsx (DB-first, falls back to
+   * BUDGET_BANDS_FALLBACK). Drives the budget step's bands + amount math.
+   * Defaults to the in-code fallback so the shell renders without the prop.
+   */
+  budgetBands?: BudgetBand[];
 }) {
   const router = useRouter();
   const [state, setState] = useState<OnboardingState>(EMPTY_ONBOARDING_STATE);
   const [hydrated, setHydrated] = useState(false);
+
+  /* ── budget feel-band ladder (DB-backed prop · owner 2026-06-19) ────────────
+     The band ladder now arrives as the `budgetBands` prop (DB-first via
+     getBudgetBands, falling back to BUDGET_BANDS_FALLBACK). All band-aware budget
+     helpers are derived from it INSIDE the component so an admin edit at
+     /admin/budget-planner propagates with no code change. Behaviour is identical
+     to the old module-level consts; only the source of the bands moved. */
+  const BUDGET_BANDS = budgetBands;
+  const PRICED_BANDS = useMemo(() => BUDGET_BANDS.filter((b) => b.med > 0), [BUDGET_BANDS]);
+  // Floor = the essentials low (recommended-lowest for this pax); ceiling = the
+  // luxury high. Per-head medians come from the bands (fallback 2000 / 15000 if a
+  // band is missing — never invents below/above the known ladder).
+  const budgetFloor = useCallback(
+    (p: number) => bandLo(BUDGET_BANDS.find((b) => b.value === 'essentials')?.med ?? 2000, p),
+    [BUDGET_BANDS],
+  );
+  const budgetCeiling = useCallback(
+    (p: number) => bandHi(BUDGET_BANDS.find((b) => b.value === 'luxury')?.med ?? 15000, p),
+    [BUDGET_BANDS],
+  );
+  const nearestBand = useCallback(
+    (amount: number, p: number) =>
+      PRICED_BANDS.reduce(
+        (best, b) => (Math.abs(b.med * p - amount) < Math.abs(best.med * p - amount) ? b : best),
+        PRICED_BANDS[2] ?? PRICED_BANDS[0]!,
+      ),
+    [PRICED_BANDS],
+  );
+  /* the working-budget value the couple effectively chose: their typed/dragged
+     amount, else the current band's MAX for the pax (the "set to max of the
+     range chosen" default). */
+  const effectiveBudgetPesos = useCallback(
+    (band: string, amount: number | null, p: number): number | null => {
+      if (band === 'no_limit') return null;
+      if (typeof amount === 'number' && amount > 0) return amount;
+      const b = PRICED_BANDS.find((x) => x.value === band) ?? PRICED_BANDS[2] ?? PRICED_BANDS[0]!;
+      return bandHi(b.med, p);
+    },
+    [PRICED_BANDS],
+  );
 
   /* ── Taxonomy-driven PICK step (2026-06-17) ────────────────────────────────
      `pickGroups` merges the static PICK_GROUPS_FALLBACK with any NEW tiles from
@@ -2376,7 +2405,7 @@ export function OnboardingShell({
       const clamped = Math.max(budgetFloorV, Math.min(budgetCeilingV, Math.round(raw)));
       applyBudget(nearestBand(clamped, pax).value, clamped);
     },
-    [applyBudget, budgetFloorV, budgetCeilingV, pax],
+    [applyBudget, budgetFloorV, budgetCeilingV, pax, nearestBand],
   );
   /* Text-box buffer: free typing while focused, clamp-to-floor on commit (blur/Enter)
      so the box "won't accept anything lower than the recommended floor" without
@@ -2839,7 +2868,7 @@ export function OnboardingShell({
       togetherSince:
         (s.togetherSince.trim() || s.loveStory.together_since.trim()) || null,
     }),
-    [],
+    [effectiveBudgetPesos],
   );
 
   const handleFinish = useCallback(async (purchase = false, bundleOverride?: 'essentials' | 'complete' | null, addonSlugOverride?: string) => {

@@ -76,6 +76,46 @@ export async function updateLeafBenchmark(formData: FormData): Promise<AdminActi
   return { ok: true };
 }
 
+/**
+ * Update one onboarding budget feel-band (budget_band_config). The band_slug is
+ * a read-only key; the admin edits label, tag, the per-head median (entered in
+ * PESOS, stored as centavos), and is_active. Owner 2026-06-19.
+ *
+ * The per-head median is the only money field — pesos × 100 → centavos, never a
+ * lossy round on the way back to pesos in the UI. A blank/invalid median clears
+ * to 0 (the "no ceiling" no_limit convention; never invents a price).
+ */
+export async function updateBudgetBand(formData: FormData): Promise<AdminActionResult> {
+  const { supabase } = await requireAdmin();
+  const bandSlug = String(formData.get('band_slug') ?? '').trim();
+  if (!bandSlug) return { ok: false, error: 'Missing band.' };
+
+  const label = String(formData.get('label') ?? '').trim();
+  if (!label) return { ok: false, error: 'Label is required.' };
+  const tag = String(formData.get('tag') ?? '').trim();
+
+  // Per-head median entered in PESOS → stored centavos. parsePhp returns null on
+  // blank/invalid; for a median that means "0" (no amount), matching no_limit.
+  const medianPesos = parsePhp(formData.get('per_head_median_pesos'));
+  const perHeadMedianCentavos = medianPesos == null ? 0 : medianPesos * 100;
+  const isActive = formData.get('is_active') != null;
+
+  const { error } = await supabase
+    .from('budget_band_config')
+    .update({
+      label,
+      tag,
+      per_head_median_centavos: perHeadMedianCentavos,
+      is_active: isActive,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('band_slug', bandSlug);
+
+  if (error) return { ok: false, error: error.message };
+  revalidatePath('/admin/budget-planner');
+  return { ok: true };
+}
+
 /** Update the engine knobs (the singleton config row). */
 export async function updateAllocationConfig(formData: FormData): Promise<AdminActionResult> {
   const { supabase } = await requireAdmin();

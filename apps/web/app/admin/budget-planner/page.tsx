@@ -5,7 +5,7 @@ import {
   fetchAllocationAggregates,
   type BenchmarkRow,
 } from '@/lib/budget-allocation-data';
-import { updateLeafBenchmark, updateAllocationConfig } from './actions';
+import { updateLeafBenchmark, updateAllocationConfig, updateBudgetBand } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Budget Planner' };
@@ -28,6 +28,17 @@ export const metadata = { title: 'Budget Planner' };
  * Gating: relies on the /admin layout gate; the server actions also call
  * requireAdmin. Rendered defensively regardless.
  */
+
+// Onboarding budget feel-band row (budget_band_config). The onboarding screen-9
+// ladder; per_head_median_centavos × pax = the couple's estimated budget.
+type BudgetBandRow = {
+  band_slug: string;
+  label: string;
+  tag: string | null;
+  per_head_median_centavos: number | string;
+  is_active: boolean;
+  sort_order: number;
+};
 
 // Engine-config row shape (singleton, config_key='default').
 type ConfigRow = {
@@ -55,7 +66,11 @@ export default async function AdminBudgetPlannerPage() {
   // client — the couples-own RLS on budget_allocation_decisions blocks the
   // authed admin from raw rows by design.
   const admin = createAdminClient();
-  const [benchmarkRes, configRes, agg] = await Promise.all([
+  const [bandRes, benchmarkRes, configRes, agg] = await Promise.all([
+    supabase
+      .from('budget_band_config')
+      .select('band_slug,label,tag,per_head_median_centavos,is_active,sort_order')
+      .order('sort_order', { ascending: true }),
     supabase
       .from('budget_leaf_benchmarks')
       .select(
@@ -70,6 +85,7 @@ export default async function AdminBudgetPlannerPage() {
     fetchAllocationAggregates(admin),
   ]);
 
+  const budgetBands = (bandRes.data ?? []) as BudgetBandRow[];
   const benchmarks = (benchmarkRes.data ?? []) as BenchmarkRow[];
   const configRow = (configRes.data as ConfigRow | null) ?? null;
   const config = {
@@ -96,6 +112,52 @@ export default async function AdminBudgetPlannerPage() {
           invented — leave a field blank to clear it.
         </p>
       </header>
+
+      {/* ── 0. Budget bands (onboarding) ─────────────────────────────────── */}
+      <section className="mb-12">
+        <h2 className="mb-1 text-base font-semibold tracking-tight">
+          Budget bands (onboarding) ({budgetBands.length})
+        </h2>
+        <p className="mb-3 text-sm text-ink/60">
+          The feel-band ladder couples pick from on the onboarding budget screen.
+          The per-head median (₱ per guest) × their guest count sets the estimated
+          budget. Edit the label, tag, or median; leave the median blank to clear
+          it to ₱0 (the &ldquo;No limit&rdquo; convention). If this table is empty
+          the onboarding uses the built-in fallback ladder.
+        </p>
+        <div className="overflow-hidden rounded-2xl border border-ink/10">
+          {budgetBands.length === 0 ? (
+            <div className="p-8 text-center">
+              <p className="text-sm text-ink/60">
+                No bands in budget_band_config yet — onboarding falls back to the
+                built-in ladder until this table is seeded.
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* Column header strip — desktop only. */}
+              <div className="hidden border-b border-ink/10 bg-cream px-4 py-2 sm:grid sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)_auto_auto] sm:items-center sm:gap-3">
+                <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                  Band · label
+                </span>
+                <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                  Tag
+                </span>
+                <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                  Per-head median (₱)
+                </span>
+                <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                  Active
+                </span>
+                <span className="sr-only">Save</span>
+              </div>
+              {budgetBands.map((row) => (
+                <BudgetBandRowForm key={row.band_slug} row={row} />
+              ))}
+            </>
+          )}
+        </div>
+      </section>
 
       {/* ── 1. Benchmark seeding ─────────────────────────────────────────── */}
       <section className="mb-12">
@@ -336,6 +398,84 @@ export default async function AdminBudgetPlannerPage() {
         )}
       </section>
     </div>
+  );
+}
+
+/**
+ * One onboarding budget feel-band as an inline edit form. band_slug is shown
+ * read-only (it's the PK + the onboarding contract key); the admin edits label,
+ * tag, the per-head median (shown in PESOS = centavos/100), and is_active. Posts
+ * independently to updateBudgetBand. is_active checkbox absent on submit = false.
+ */
+function BudgetBandRowForm({ row }: { row: BudgetBandRow }) {
+  const medianPesos = Number(row.per_head_median_centavos) / 100;
+  return (
+    <form
+      action={async (fd: FormData) => {
+        'use server';
+        await updateBudgetBand(fd);
+      }}
+      className="grid grid-cols-1 gap-3 border-b border-ink/5 p-4 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)_auto_auto] sm:items-center"
+    >
+      <input type="hidden" name="band_slug" value={row.band_slug} />
+      <div className="min-w-0">
+        <code className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+          {row.band_slug}
+        </code>
+        <label className="mt-1 block">
+          <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55 sm:hidden">
+            Label
+          </span>
+          <input
+            name="label"
+            type="text"
+            defaultValue={row.label}
+            required
+            className="input-field mt-1 w-full sm:mt-0"
+          />
+        </label>
+      </div>
+      <label className="block">
+        <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55 sm:hidden">
+          Tag
+        </span>
+        <input
+          name="tag"
+          type="text"
+          defaultValue={row.tag ?? ''}
+          placeholder="—"
+          className="input-field mt-1 w-full sm:mt-0"
+        />
+      </label>
+      <label className="block">
+        <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55 sm:hidden">
+          Per-head median (₱)
+        </span>
+        <input
+          name="per_head_median_pesos"
+          type="text"
+          inputMode="numeric"
+          defaultValue={medianPesos > 0 ? medianPesos : ''}
+          placeholder="—"
+          className="input-field mt-1 w-full sm:mt-0"
+        />
+      </label>
+      <label className="flex items-center gap-2 sm:justify-center">
+        <input
+          name="is_active"
+          type="checkbox"
+          defaultChecked={row.is_active}
+          className="h-4 w-4 rounded border-ink/30"
+        />
+        <span className="text-sm text-ink/70 sm:hidden">Active</span>
+      </label>
+      <SubmitButton
+        className="rounded-md bg-terracotta px-3 py-1.5 text-xs font-medium text-cream hover:bg-terracotta/90 sm:px-4 sm:py-2 sm:text-sm"
+        pendingLabel="Saving…"
+      >
+        Save
+      </SubmitButton>
+    </form>
   );
 }
 

@@ -16,6 +16,20 @@ Takes the couple Seating editor off a blank canvas — the `USABILITY_DIFFICULTY
 Verified: `tsc --noEmit` clean across the whole project (0 errors); `recommendTableSet` exercised at runtime (9/9). Required CI (typecheck + lint + build) + Vercel preview are the gate (pnpm monorepo — full lint/build can't run cross-worktree locally), auto-merge armed.
 
 SPEC IMPACT: new UX affordance on iteration 0008 (seating). Corpus is archive per the AS-BUILT flip; logged as a row in `DECISION_LOG.md`. Honors the locked 0008 table catalog (no new types) and the seat-plan-stays-free principle (deterministic, zero-cost — no AI, no R2).
+## 2026-06-20 · fix(std): clamp reveal-effect sliders to [0,100] — close the last IndexSizeError path on the public Save-the-Date
+
+Investigated a Sentry `IndexSizeError` (DOMException code 1) on `/[slug]` (Mobile Safari, vercel-production, reported via the `/cale-ice` event). Root cause of the **live** crash — the `HTMLMediaElement.volume` setter throwing on an out-of-range crossfade value — was **already fixed the night before** (PRs #1831 + #1841 · `setVol` finite-guard + `[0,1]` clamp in `save-the-date-film.tsx`, in `origin/main` since 2026-06-19 ~22:58 +08). The alerting event was a **pre-fix occurrence**; nothing further needed there. This PR closes the one remaining latent path in the same crash family, found while tracing:
+
+`lib/reveal-config.ts` read the admin Reveal-Studio JSONB sliders with `num()` (finiteness only, **no range clamp**) — unlike `mergeTouchGlow()`, which already `clamp()`s. A persisted out-of-range value (e.g. a negative `petalSize`) would drive the petal/butterfly `ctx.ellipse()` / `ctx.arc()` radius **negative** in `reveal-particles.tsx` → `IndexSizeError`, crashing the public Save-the-Date page in *every* browser. Both reader paths are now clamped:
+
+- `mergeEffects()` — all 7 effect sliders → `clamp(…, 0, 100)`.
+- `mergeLook()` (VeilLook) — all 17 knobs → `clamp()` to each field's real Reveal-Studio `SliderDef` min/max (`logoSize` 2–30, `tilePx` 40–400, `folds` 4–30, `feather` 2–8, `reaches` 0–30, `topValance` 0–70, the rest 0–100).
+- Removed the now-dead `num()` helper (no remaining callers).
+- Added `lib/reveal-config.test.ts` (Node `tsx --test`): asserts out-of-range values clamp to the bound, valid configs pass through unchanged, and non-finite/missing/nullish configs fall back to the locked defaults.
+
+Behavior is identical for valid configs (current production rows are all in range); this is defense-in-depth — the Reveal-Studio UI already clamps on the write side. Verified by the new unit test + type/lint + CI, not a preview screenshot (not browser-observable without injecting malformed config). Not built locally (pnpm monorepo — node_modules can't be cross-linked between worktrees); required CI checks (typecheck + lint + unit tests + build) + Vercel preview are the gate, auto-merge armed.
+
+SPEC IMPACT: None (defensive code hardening; no SKU / schema / pricing / branding change).
 
 ## 2026-06-20 · fix(guest): elder-legibility HIGH fixes across guest surfaces ("Lola Remedios" pass A)
 

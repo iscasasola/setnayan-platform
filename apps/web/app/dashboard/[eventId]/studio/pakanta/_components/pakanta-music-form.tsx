@@ -7,12 +7,16 @@ import {
   savePakantaIntake,
   type PakantaIntakeResponses,
 } from '../../../pakanta-actions';
+import type { ComponentProps } from 'react';
+import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 
 type Props = {
   eventId: string;
   /** Existing draft responses (the couple can come back and edit). */
   initial: Partial<PakantaIntakeResponses> | null;
   pricePhp: number;
+  /** Platform BDO/GCash settings the in-page checkout drawer renders. */
+  settings: ComponentProps<typeof InlineCheckoutDrawer>['settings'];
 };
 
 type FieldKey = keyof PakantaIntakeResponses;
@@ -23,13 +27,15 @@ type FieldKey = keyof PakantaIntakeResponses;
  * the page — so this form only asks the four things the love story doesn't
  * carry (what they call each other, each side's favourite singer, the music
  * type) plus two optional "anything else" boxes. [Save for later] stores a
- * draft; [Continue to payment] saves + forwards to the orders flow.
+ * draft; [Continue to payment] saves the brief then reveals the in-page
+ * InlineCheckoutDrawer (the retired /orders/new redirect is gone).
  */
-export function PakantaMusicForm({ eventId, initial, pricePhp }: Props) {
+export function PakantaMusicForm({ eventId, initial, pricePhp, settings }: Props) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [readyToPay, setReadyToPay] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<
     Partial<Record<FieldKey, string>>
   >({});
@@ -49,7 +55,9 @@ export function PakantaMusicForm({ eventId, initial, pricePhp }: Props) {
         if (res.fieldErrors) setFieldErrors(res.fieldErrors);
         return;
       }
-      if (res.redirectTo) router.push(res.redirectTo);
+      // Brief saved (status=purchase_pending). For a purchase, reveal the
+      // in-page checkout drawer instead of the retired /orders/new redirect.
+      if (intent === 'purchase') setReadyToPay(true);
       else router.refresh();
     });
   }
@@ -118,6 +126,12 @@ export function PakantaMusicForm({ eventId, initial, pricePhp }: Props) {
         <p className="rounded-lg bg-danger-50 px-3 py-2 text-sm text-danger-700">{error}</p>
       ) : null}
 
+      {readyToPay ? (
+        <p className="rounded-lg bg-mulberry/5 px-3 py-2 text-sm text-mulberry">
+          Your music notes are saved. Complete payment to start your song.
+        </p>
+      ) : null}
+
       <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:items-center sm:justify-end">
         <button
           type="button"
@@ -127,18 +141,30 @@ export function PakantaMusicForm({ eventId, initial, pricePhp }: Props) {
         >
           Save for later
         </button>
-        <button
-          type="submit"
-          disabled={pending}
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-white hover:bg-mulberry/90 disabled:opacity-50"
-        >
-          {pending ? (
-            <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
-          ) : (
-            <Music aria-hidden className="h-4 w-4" />
-          )}
-          Continue to payment · ₱{pricePhp.toLocaleString('en-PH')}
-        </button>
+        {readyToPay ? (
+          <InlineCheckoutDrawer
+            eventId={eventId}
+            serviceKey="PAKANTA"
+            displayName="Pakanta · Your wedding song"
+            originalPriceCentavos={String(Math.round(pricePhp * 100))}
+            settings={settings}
+            triggerLabel={`Pay · ₱${pricePhp.toLocaleString('en-PH')}`}
+            triggerClassName="inline-flex items-center justify-center gap-2 rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-white hover:bg-mulberry/90"
+          />
+        ) : (
+          <button
+            type="submit"
+            disabled={pending}
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-white hover:bg-mulberry/90 disabled:opacity-50"
+          >
+            {pending ? (
+              <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
+            ) : (
+              <Music aria-hidden className="h-4 w-4" />
+            )}
+            Continue to payment · ₱{pricePhp.toLocaleString('en-PH')}
+          </button>
+        )}
       </div>
     </form>
   );

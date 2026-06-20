@@ -4,6 +4,7 @@ import { ArrowLeft, Music, Heart, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
 import {
   composePakantaBrief,
   type LoveStoryBlob,
@@ -78,6 +79,7 @@ export default async function PakantaPage({ params }: Props) {
 
   const skuRecord = await formatV2Sku(SKU_CODE).catch(() => null);
   const pricePhp = skuRecord?.price_php ?? null;
+  const settings = await fetchPlatformSettings();
 
   return (
     <section className="mx-auto w-full max-w-2xl space-y-6 px-4 py-6 sm:px-6">
@@ -141,7 +143,7 @@ export default async function PakantaPage({ params }: Props) {
 
       {/* The music top-up — the only thing the love story doesn't carry. */}
       {pricePhp != null ? (
-        <PakantaMusicForm eventId={eventId} initial={responses} pricePhp={pricePhp} />
+        <PakantaMusicForm eventId={eventId} initial={responses} pricePhp={pricePhp} settings={settings} />
       ) : (
         <p className="text-sm text-ink/65">
           Pricing loads from your catalog &mdash; please refresh in a moment.

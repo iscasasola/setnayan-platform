@@ -31,6 +31,11 @@ import { followVendor } from '@/lib/follow-actions';
 import { sendChatMessage } from '@/lib/chat-actions';
 import { recordThreadInterests, type InterestSeed } from '@/lib/thread-interests';
 import { resolveLivePax } from '@/lib/pax';
+import { setEventPreference } from '@/lib/event-preferences';
+import {
+  buildRequirementsBlock,
+  isPersistableCanonicalService,
+} from '@/lib/requirements-capture';
 
 const INQUIRY_BODY =
   "Hi! We're planning our wedding and would love to hear about your " +
@@ -51,6 +56,20 @@ export async function startServiceInquiry(input: {
   initialCategoryKey: string | null;
   /** Extra standalone services the couple opted into → source='couple_added'. */
   alsoServiceIds: string[];
+  /**
+   * Phase 1b PR-3 — per-category requirements capture. The couple's checked
+   * facets keyed by the canonical_service_schemas field key (multi_select →
+   * string[]), plus a freeform note and the carry-forward flag. All optional;
+   * a couple that captures nothing sends a plain inquiry exactly as before.
+   */
+  requirements?: {
+    /** Checked facet picks: field key → selected option values. */
+    payload?: Record<string, string[]>;
+    /** Freeform "anything specific?" note. */
+    specialRequest?: string | null;
+    /** "Auto-send to my next inquiries" → event_vendor_preferences.auto_send. */
+    autoSend?: boolean;
+  };
 }): Promise<StartServiceInquiryResult> {
   const vendorProfileId = String(input.vendorProfileId ?? '').trim();
   const initialServiceId = String(input.initialServiceId ?? '').trim();
@@ -107,6 +126,38 @@ export async function startServiceInquiry(input: {
     return { status: 'error', message: 'That service is no longer available.' };
   }
 
+  // ── Phase 1b PR-3 · per-category requirements ──────────────────────────────
+  // The leaf the couple inquired on. This is the FK target for
+  // event_vendor_preferences.canonical_service: it equals vendor_services.category
+  // (~1:1 with canonical_service_schemas), preferring the explicit categoryKey the
+  // composer sent, else the validated owned service's category. A handful of legacy
+  // categories have no schema row → the persist below FK-checks + gracefully skips.
+  const requirementCanonicalService =
+    input.initialCategoryKey?.trim() || ownedById.get(initialServiceId) || null;
+
+  // Sanitize the checkbox payload: keep only string keys → arrays of non-empty
+  // strings. Forged/odd shapes degrade to {} rather than poisoning the JSONB.
+  const requirementPayload: Record<string, string[]> = {};
+  const rawPayload = input.requirements?.payload;
+  if (rawPayload && typeof rawPayload === 'object') {
+    for (const [key, values] of Object.entries(rawPayload)) {
+      if (!key || !Array.isArray(values)) continue;
+      const picks = Array.from(
+        new Set(values.map((v) => String(v).trim()).filter((v) => v.length > 0)),
+      );
+      if (picks.length > 0) requirementPayload[key] = picks;
+    }
+  }
+  const requirementSpecialRequest =
+    typeof input.requirements?.specialRequest === 'string'
+      ? input.requirements.specialRequest.trim()
+      : '';
+  const requirementAutoSend = input.requirements?.autoSend === true;
+  const requirementsBlock = buildRequirementsBlock(
+    requirementPayload,
+    requirementSpecialRequest || null,
+  );
+
   // follow → upsert thread → first message (best-effort message). Mirrors the
   // canonical inquiry pattern in unlock-category.ts.
   try {
@@ -157,7 +208,10 @@ export async function startServiceInquiry(input: {
     try {
       const msg = new FormData();
       msg.set('thread_id', threadId);
-      msg.set('body', INQUIRY_BODY);
+      // Append the couple's captured requirements so the vendor sees what
+      // they're looking for on first contact (a dedicated vendor "Their
+      // requirements" panel is a later slice — body-append suffices here).
+      msg.set('body', `${INQUIRY_BODY}${requirementsBlock}`);
       await sendChatMessage(msg);
     } catch {
       /* best-effort — the thread + interests stand even if the note fails */
@@ -260,6 +314,34 @@ export async function startServiceInquiry(input: {
   } catch {
     /* best-effort — thread + interests already landed; service-id list can
        be reconstructed from thread_service_interests if the column is missing */
+  }
+
+  // Persist the couple's saved requirements template for this category so it
+  // pre-fills next time + (when auto_send) can carry forward. Best-effort:
+  //  · only when there's something to save (facets / note / auto-send), and
+  //  · only when the leaf maps to a real canonical_service_schemas row (the FK
+  //    target) — an unmappable legacy category gracefully SKIPS the save while
+  //    the inquiry above already went through untouched.
+  const hasRequirements =
+    Object.keys(requirementPayload).length > 0 ||
+    requirementSpecialRequest.length > 0 ||
+    requirementAutoSend;
+  if (hasRequirements && requirementCanonicalService) {
+    try {
+      const persistable = await isPersistableCanonicalService(
+        admin,
+        requirementCanonicalService,
+      );
+      if (persistable) {
+        await setEventPreference(admin, eventId, requirementCanonicalService, requirementPayload, {
+          specialRequest: requirementSpecialRequest || null,
+          autoSend: requirementAutoSend,
+        });
+      }
+    } catch {
+      /* best-effort — the inquiry already sent + carries the requirements in
+         its body; failing to save the reusable template never blocks it */
+    }
   }
 
   revalidatePath(`/dashboard/${eventId}/messages/${threadId}`);

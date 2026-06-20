@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useIsDesktop } from '@/lib/use-responsive';
 
 /**
  * DesktopRedirect — the /dashboard/[eventId]/more landing is a mobile-only
@@ -17,25 +18,17 @@ import { useRouter } from 'next/navigation';
  * (`/dashboard/[eventId]`), not a static path.
  *
  * Client-side because the breakpoint is a viewport property the server can't
- * read. `router.replace` keeps the dead /more URL out of history.
+ * read. `useIsDesktop()` (SYS-1 shared hook) stays live, so this also fires if
+ * the viewport crosses into `lg` while the page is open (rotate / resize).
+ * `router.replace` keeps the dead /more URL out of history.
  */
 export function DesktopRedirect({ to }: { to: string }) {
   const router = useRouter();
+  const isDesktop = useIsDesktop();
 
   useEffect(() => {
-    const mql = window.matchMedia('(min-width: 1024px)');
-    if (mql.matches) {
-      router.replace(to);
-      return;
-    }
-    // If the viewport crosses into lg while the page is open (rotate /
-    // resize), redirect then too so the user never sits on a blank page.
-    const onChange = (e: MediaQueryListEvent) => {
-      if (e.matches) router.replace(to);
-    };
-    mql.addEventListener('change', onChange);
-    return () => mql.removeEventListener('change', onChange);
-  }, [router, to]);
+    if (isDesktop) router.replace(to);
+  }, [isDesktop, router, to]);
 
   return null;
 }

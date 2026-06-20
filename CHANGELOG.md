@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-21 · feat(ux): global UX foundation — Wave 1 of the responsive ruleset
+
+First, lowest-risk slice of the ratified `Responsive_and_Mobile_UI_Ruleset_2026-06-21` (global laws every surface inherits; no locked-template surgery). Four safe, self-contained wins:
+
+- **SYS-1 — shared breakpoint/motion hook.** New `apps/web/lib/use-responsive.ts` exports `BREAKPOINTS` (mirrors the Tailwind screens), `useMediaQuery`, `useIsDesktop`/`useIsMobile` (default `lg` = 1024, the master switch), and `usePrefersReducedMotion`. The audit found ~16 inlined `matchMedia` copies + scattered magic numbers; this is the single source of truth they migrate to. Migrated the first two consumers off inline `matchMedia('(min-width:1024px)')`: the couple + vendor `/more` `desktop-redirect.tsx` (behavior-identical — the hook stays live on resize/rotate).
+- **A11Y-1 — global keyboard focus ring.** `globals.css` now paints a 2px Mulberry `:focus-visible` outline on every interactive element (links, custom buttons, `role=tab|button|menuitem|switch|link`, `summary`, focusable `[tabindex]`) — previously only `.btn`/`.btn-secondary` had one (WCAG 2.4.7 gap). Uses `:where()` (zero specificity) so components with their own focus styles override it cleanly; `:focus-visible` keeps it keyboard-only.
+- **PWA-1 — theme-color reconcile.** The app shipped three different near-whites: viewport `themeColor` `#FFFFFF`, manifest `theme_color`/`background_color` `#FAF7F2`, and the actual painted surface `--m-paper`/`bg-cream` `#FBFBFA`. Unified all to `#FBFBFA` (the real surface) so the standalone-PWA status bar + splash match the page with no seam.
+- **NAV-4 — touch target.** Marketing hamburger raised from `w-10 h-10` (40px) to `w-11 h-11` (44px), meeting the WCAG/Apple 44px floor.
+
+Deferred to later waves (flagged in the ruleset): A11Y-2 skip-to-content link (per-surface `<main>` targeting), the CARD-1 codemod, SIZE-3 fluid spacing, and the Wave-3 nav reroster (≤5 pill + broken-out action + Notion "More") which edits the lint-locked BottomNav template.
+
+Verified: `pnpm typecheck` exit 0, `pnpm lint` exit 0 (no findings in touched files).
+
+SPEC IMPACT: None (UX foundation; mirrors the already-ratified ruleset doc — no SKU, schema, pricing, or public-surface claim change).
+
 ## 2026-06-21 · fix(std): Save-the-Date film no longer hangs on the uploaded-video beat
 
 Reported on `www.setnayan.com/cale-ice`: the couple's uploaded video "sometimes hangs in the center even on strong internet."

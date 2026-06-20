@@ -21,7 +21,7 @@ export function MobileMenu({ links }: { links: Array<{ label: string; href: stri
         aria-label={open ? 'Close menu' : 'Open menu'}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center justify-center w-10 h-10 rounded-full border border-[var(--m-line)] bg-[var(--m-paper)] text-[var(--m-ink)]"
+        className="flex items-center justify-center w-11 h-11 rounded-full border border-[var(--m-line)] bg-[var(--m-paper)] text-[var(--m-ink)]"
       >
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
           {open ? (

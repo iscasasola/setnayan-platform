@@ -355,12 +355,18 @@ export async function submitReviewAppeal(formData: FormData) {
 }
 
 /**
- * Couple-side completion handshake (Event Lifecycle Menu §6.1). After the
- * vendor marks the service complete, the couple either confirms they received
+ * Host-side completion handshake (Event Lifecycle Menu §6.1). After the
+ * vendor marks the service complete, the host either confirms they received
  * everything — which unlocks the review + galleries — or reports a problem,
- * which freezes the gate (a non-delivery dispute) until it resolves. Both
- * verify couple ownership of the event, then write via the admin client (the
- * completion columns have no couple-update RLS path) and are idempotent.
+ * which freezes the gate (a non-delivery dispute) until it resolves.
+ *
+ * "Host" = the couple OR a delegated coordinator (lifecycle spec: "Couple
+ * (host) / Coordinator — either may drive; coordinator is the delegated host").
+ * We admit both with the canonical `.in('member_type', ['couple','coordinator'])`
+ * event-membership check used verbatim by the sibling host-side actions
+ * (setEventCeremonyType / updateEventBasics / closeOutTheDay). Both then write
+ * via the admin client (the completion columns have no host-update RLS path)
+ * and are idempotent. Scope stays tight to genuine members of THIS event.
  */
 export async function coupleConfirmReceived(formData: FormData) {
   const eventId = formData.get('event_id');
@@ -378,7 +384,7 @@ export async function coupleConfirmReceived(formData: FormData) {
     .select('member_type')
     .eq('event_id', eventId)
     .eq('user_id', user.id)
-    .eq('member_type', 'couple')
+    .in('member_type', ['couple', 'coordinator'])
     .maybeSingle();
   if (!membership) redirect(`/dashboard/${eventId}`);
 
@@ -461,6 +467,13 @@ export async function coupleConfirmReceived(formData: FormData) {
   redirect(`/dashboard/${eventId}/vendors/${vendorId}/review`);
 }
 
+/**
+ * Host-side non-delivery report — the other branch of the §6.1 handshake.
+ * Admits the couple OR a delegated coordinator via the same canonical
+ * `.in('member_type', ['couple','coordinator'])` membership check (lifecycle
+ * spec: "coordinator is the delegated host"). Writes via the admin client and
+ * is idempotent (can't dispute an already-confirmed delivery).
+ */
 export async function coupleReportNonDelivery(formData: FormData) {
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
@@ -477,7 +490,7 @@ export async function coupleReportNonDelivery(formData: FormData) {
     .select('member_type')
     .eq('event_id', eventId)
     .eq('user_id', user.id)
-    .eq('member_type', 'couple')
+    .in('member_type', ['couple', 'coordinator'])
     .maybeSingle();
   if (!membership) redirect(`/dashboard/${eventId}`);
 

@@ -127,7 +127,21 @@ export type NotificationType =
   | 'vendor_joined'
   | 'editorial_decision'
   | 'showcase_featured'
-  | 'guest_claim_rejected';
+  | 'guest_claim_rejected'
+  // Added 2026-06-20 (Vendor Transaction Lifecycle · Phase 2 · PR-B) alongside
+  // migration 20270202160005_event_vendor_payment_plan.sql. The four
+  // payment-lifecycle signals. PR-B emits ONLY payment_info_sent (couple, at
+  // lock — "your payment info is ready"); payment_logged / payment_confirmed /
+  // payment_cleared are registered now so PR-C/D just emit at their action
+  // sites (DB enum + TS union already in place). Recipients:
+  //   payment_info_sent  → couple: booking locked + payment plan ready to view
+  //   payment_logged     → vendor: couple logged a payment against an installment
+  //   payment_confirmed  → couple: vendor confirmed a logged payment
+  //   payment_cleared    → couple: the full payment plan is settled
+  | 'payment_info_sent'
+  | 'payment_logged'
+  | 'payment_confirmed'
+  | 'payment_cleared';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   chat_message: 'New message',
@@ -171,6 +185,11 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   editorial_decision: 'Editorial decision',
   showcase_featured: 'Featured in the showcase',
   guest_claim_rejected: 'Guest request declined',
+  // Phase 2 PR-B (2026-06-20) — payment-lifecycle labels. Concise tray copy.
+  payment_info_sent: 'Payment info ready',
+  payment_logged: 'Payment logged',
+  payment_confirmed: 'Payment confirmed',
+  payment_cleared: 'Payment plan settled',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -250,6 +269,17 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   // A declined guest request is a soft negative → muted ink, matching
   // inquiry_declined (the other "your request was declined, no leak" type).
   guest_claim_rejected: 'bg-ink/10 text-ink/70',
+  // Phase 2 PR-B (2026-06-20) — payment-lifecycle tones.
+  // "Your payment plan is ready" = an informational, positive next-step → sky
+  // (matches chat_message / the informational register).
+  payment_info_sent: 'bg-sky-100 text-sky-800',
+  // A logged payment awaiting the vendor's confirm = action-needed → amber.
+  payment_logged: 'bg-warn-100 text-warn-900',
+  // A confirmed payment = a positive money-in confirmation → emerald
+  // (matches order_paid / vendor_tokens_credited).
+  payment_confirmed: 'bg-success-100 text-success-800',
+  // The whole plan settled = the strongest positive close → emerald.
+  payment_cleared: 'bg-success-200 text-success-900',
 };
 
 export type NotificationRow = {

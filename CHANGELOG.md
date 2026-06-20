@@ -18,6 +18,18 @@ First cross-cutting wave of the 2-step-down program (`Usability_2Step_Remediatio
 Verified: `tsc --noEmit` clean across the whole project (0 errors); grep-confirmed 0 raw `<form>` left on the guarded actions. Required CI (typecheck + lint + build) + Vercel preview are the gate (pnpm worktree — full lint/build can't run cross-worktree locally), auto-merge armed.
 
 SPEC IMPACT: UX hardening across iterations 0023 (admin) + 0022 (vendor); no schema/SKU/pricing change. Logged as a `DECISION_LOG.md` row + tracked in `Usability_2Step_Remediation_Program_2026-06-20.md` (Wave 1).
+## 2026-06-20 · feat(help): instant search on the Help Center + marketing-ads spec-drift flag (Wave 2 slice)
+
+Part of the 2-step-down program (`Usability_2Step_Remediation_Program_2026-06-20.md`, Wave 2). The Help Center promised full-text search in its metadata/spec but shipped without it — the audit's single biggest discoverability gap (~63 articles found only by self-selecting a role tile + scanning).
+
+- **`app/help/_components/help-search.tsx`** (new, `'use client'`) — instant in-memory filter over the existing 68-article corpus (`ALL_HELP_ARTICLES` shape `{slug,title,body}`). No fetch, no index, no dependency. Matches title + body + topic label. Empty box renders the same topic-grouped list with `id` anchors preserved (sidebar nav + `/help#slug` deep links still work); typing shows a flat, in-context result list; a real "no matches → message the team" state replaces the previously-unreachable empty branch.
+- **`app/help/page.tsx`** — mounts `<HelpSearch topics={visibleTopics} />` in place of the server-rendered article list (role filter still applies server-side); dropped the now-unused `HelpCircle` import; the FAQPage JSON-LD is untouched (server-rendered from the full corpus, so SEO/GEO is preserved).
+
+**Spec drift surfaced (no code):** the program's `vendor/marketing-ads` item (diff 3, "Boosted + Sponsored, being-redesigned banner, per-week pricing, unverified gate disables Start") describes a surface that **does not exist in shipped code** — there is no boosted-ads/sponsored vendor dashboard route. The closest surface, `/vendor-dashboard/subscription` (Pro/Enterprise), is already clean: no banner, no gate, DB-driven pricing from `vendor_billing_catalog`. That program row should be retired or re-scoped; not touched here.
+
+Verified: `tsc --noEmit` clean across the project (0 errors). Required CI (typecheck + lint + build) + Vercel preview are the gate; the search is interactive on the public `/help` preview for an owner eyeball.
+
+SPEC IMPACT: iteration 0029 (Help Center) — search now matches the long-standing spec/metadata promise. Logged in `DECISION_LOG.md` (incl. the marketing-ads drift). No schema/SKU change.
 ## 2026-06-20 · feat(ux): couple self-serve simplification — budget + guests (Wave 2 slice)
 
 2-step-down program (`Usability_2Step_Remediation_Program_2026-06-20.md`, Wave 2) — the two crowded couple surfaces, default-then-disclose + never-dead-empty + clearer labels. Both bank 3→2.

@@ -82,6 +82,13 @@ export function AccountSwitcher({ data, currentEventName }: Props) {
     router.push(href);
   }
 
+  // Hosts is event-scoped (/dashboard/[eventId]/hosts) — no /dashboard/hosts
+  // route exists. Target the user's primary OWNED event (role 'couple'),
+  // falling back to the first owned event; null when they organize none.
+  const ownedEvents = data.events.filter((e) => e.role === 'couple');
+  const hostsEvent = ownedEvents.find((e) => e.is_primary) ?? ownedEvents[0] ?? null;
+  const hostsHref = hostsEvent ? `/dashboard/${hostsEvent.event_id}/hosts` : null;
+
   // Context rail: which console tabs to show
   const showShop = data.context.hasVendor;
   const showHQ = data.context.isAdmin;
@@ -370,14 +377,16 @@ export function AccountSwitcher({ data, currentEventName }: Props) {
 
             {/* 2×2 grid on mobile, full-width list on desktop */}
             <div className="mt-2 grid grid-cols-2 gap-1 lg:grid-cols-1">
-              <button
-                type="button"
-                onClick={() => navigate('/dashboard/hosts')}
-                className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-ink/80 hover:bg-terracotta/10 hover:text-ink"
-              >
-                <Users aria-hidden className="h-4 w-4 shrink-0 text-ink/50" strokeWidth={1.75} />
-                Hosts
-              </button>
+              {hostsHref ? (
+                <button
+                  type="button"
+                  onClick={() => navigate(hostsHref)}
+                  className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-ink/80 hover:bg-terracotta/10 hover:text-ink"
+                >
+                  <Users aria-hidden className="h-4 w-4 shrink-0 text-ink/50" strokeWidth={1.75} />
+                  Hosts
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={() => navigate('/dashboard/profile')}
@@ -581,6 +590,13 @@ export function AccountSwitcherStandalone({ data }: Props) {
     close();
     router.push(href);
   }
+
+  // Hosts is event-scoped (/dashboard/[eventId]/hosts) — no /dashboard/hosts
+  // route exists. Target the user's primary OWNED event (role 'couple'),
+  // falling back to the first owned event; null when they organize none.
+  const ownedEvents = data.events.filter((e) => e.role === 'couple');
+  const hostsEvent = ownedEvents.find((e) => e.is_primary) ?? ownedEvents[0] ?? null;
+  const hostsHref = hostsEvent ? `/dashboard/${hostsEvent.event_id}/hosts` : null;
 
   const initial = data.email?.charAt(0).toUpperCase() ?? '?';
   const showShop = data.context.hasVendor;
@@ -800,7 +816,7 @@ export function AccountSwitcherStandalone({ data }: Props) {
                     <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45">Account</span>
                     <div className="mt-2 space-y-0.5">
                       {[
-                        { label: 'Hosts', Icon: Users, href: '/dashboard/hosts' },
+                        ...(hostsHref ? [{ label: 'Hosts', Icon: Users, href: hostsHref }] : []),
                         { label: 'Profile', Icon: UserCircle, href: '/dashboard/profile' },
                         { label: 'Settings', Icon: Settings, href: '/dashboard/profile#settings' },
                       ].map(({ label, Icon, href }) => (

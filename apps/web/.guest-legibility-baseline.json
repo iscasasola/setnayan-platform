@@ -1,7 +1,7 @@
 {
   "apps/web/app/_components/wayfinding-map.tsx": 4,
   "apps/web/app/[slug]/_components/countdown.tsx": 1,
-  "apps/web/app/[slug]/_components/editorial/editorial-content.tsx": 25,
+  "apps/web/app/[slug]/_components/editorial/editorial-content.tsx": 26,
   "apps/web/app/[slug]/_components/guest-hub-card.tsx": 12,
   "apps/web/app/[slug]/_components/save-the-date-film.tsx": 1,
   "apps/web/app/[slug]/_components/schedule-widget.tsx": 3,

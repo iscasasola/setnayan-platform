@@ -26,6 +26,7 @@ import {
 import { VerificationStateBadge } from '@/app/_components/verification/verification-status-card';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
+import { BadgeCheck } from 'lucide-react';
 import {
   approveApplication,
   approveVendor,
@@ -34,7 +35,9 @@ import {
   rejectApplication,
   rejectVendor,
   setApplicationInReview,
+  verifyVendorExperience,
 } from './actions';
+import { vendorExperienceEnabled } from '@/lib/vendor-experience';
 
 export const metadata = { title: 'Verification queue · Admin' };
 
@@ -92,6 +95,8 @@ type ApplicationRow = {
     location_city: string | null;
     verification_state: VerificationState;
     demotion_count: number;
+    inBusinessSinceYear: number | null;
+    experienceVerifiedAt: string | null;
   };
 };
 
@@ -278,6 +283,23 @@ async function ApplicationsSurface({
 
   const apps = (appData ?? []) as Omit<ApplicationRow, 'vendor'>[];
   const vendorIds = Array.from(new Set(apps.map((a) => a.vendor_profile_id)));
+  // Declared experience (flag + schema gated; soft-probe degrades on 42703 so a
+  // pre-migration DB never breaks the queue). Keyed by vendor_profile_id.
+  const expMap: Record<string, { year: number | null; verifiedAt: string | null }> = {};
+  if (vendorExperienceEnabled() && vendorIds.length > 0) {
+    const { data: expRows } = await admin
+      .from('vendor_profiles')
+      .select('vendor_profile_id, in_business_since_year, experience_verified_at')
+      .in('vendor_profile_id', vendorIds)
+      .then((r) => (r.error ? { data: null } : r));
+    for (const v of (expRows ?? []) as Array<{ vendor_profile_id: string; in_business_since_year?: number | null; experience_verified_at?: string | null }>) {
+      expMap[v.vendor_profile_id] = {
+        year: v.in_business_since_year ?? null,
+        verifiedAt: v.experience_verified_at ?? null,
+      };
+    }
+  }
+
   let vendorMap: Record<string, ApplicationRow['vendor']> = {};
   if (vendorIds.length > 0) {
     const { data: vendorData } = await admin
@@ -298,6 +320,8 @@ async function ApplicationsSurface({
           location_city: v.location_city ?? null,
           verification_state: parseVerificationState(v.verification_state),
           demotion_count: (v.demotion_count as number | null) ?? 0,
+          inBusinessSinceYear: expMap[v.vendor_profile_id]?.year ?? null,
+          experienceVerifiedAt: expMap[v.vendor_profile_id]?.verifiedAt ?? null,
         },
       ]),
     );
@@ -324,6 +348,8 @@ async function ApplicationsSurface({
       location_city: v.location_city ?? null,
       verification_state: parseVerificationState(v.verification_state),
       demotion_count: (v.demotion_count as number | null) ?? 0,
+      inBusinessSinceYear: null,
+      experienceVerifiedAt: null,
     }));
   }
 
@@ -341,6 +367,8 @@ async function ApplicationsSurface({
       location_city: null,
       verification_state: 'unverified',
       demotion_count: 0,
+      inBusinessSinceYear: null,
+      experienceVerifiedAt: null,
     },
   }));
 
@@ -573,6 +601,40 @@ function ApplicationCard({ application }: { application: ApplicationRow }) {
           })}
         </ul>
       </details>
+
+      {vendorExperienceEnabled() && application.vendor.inBusinessSinceYear != null ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-ink/10 bg-cream/60 px-3 py-2 text-xs">
+          <span className="text-ink/75">
+            Declared:{' '}
+            <span className="font-medium text-ink">
+              in business since {application.vendor.inBusinessSinceYear}
+            </span>{' '}
+            — confirm against the DTI document above.
+          </span>
+          {application.vendor.experienceVerifiedAt ? (
+            <span className="inline-flex items-center gap-1 font-medium text-success-700">
+              <BadgeCheck aria-hidden className="h-4 w-4" strokeWidth={2} />
+              Experience verified
+            </span>
+          ) : (
+            <ConfirmForm
+              action={verifyVendorExperience}
+              title="Confirm this vendor's experience?"
+              confirmLabel="Confirm — matches DTI"
+              destructive={false}
+              message={`Marks "in business since ${application.vendor.inBusinessSinceYear}" as verified against their DTI registration — a verified experience badge then shows on their card.`}
+            >
+              <input type="hidden" name="vendor_profile_id" value={application.vendor.vendor_profile_id} />
+              <SubmitButton
+                pendingLabel="Verifying…"
+                className="inline-flex h-9 items-center rounded-md border border-ink/20 px-3 text-xs text-ink/70 hover:bg-ink/5"
+              >
+                Confirm — matches DTI
+              </SubmitButton>
+            </ConfirmForm>
+          )}
+        </div>
+      ) : null}
 
       <ActionRow application={application} />
     </article>

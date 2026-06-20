@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
+import { vendorExperienceEnabled } from '@/lib/vendor-experience';
 import { geocodeNominatim } from '@/lib/geo';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 
@@ -240,6 +241,41 @@ export async function saveVendorProfile(formData: FormData) {
     );
   }
 
+  // Declared experience (service-card trust signal) — flag-gated + schema-
+  // dependent, so we only read/write these columns when the feature is live
+  // (NEXT_PUBLIC_VENDOR_EXPERIENCE_ENABLED, flipped AFTER the migration applies).
+  // Changing the declared YEAR invalidates any prior admin DTI-verification (the
+  // confirmed year no longer matches), so we clear it → the badge falls back to
+  // "self-reported" until an admin re-confirms.
+  let experienceFields: Record<string, unknown> = {};
+  if (vendorExperienceEnabled()) {
+    const yearRaw = formData.get('in_business_since_year');
+    let in_business_since_year: number | null = null;
+    if (typeof yearRaw === 'string' && yearRaw.trim()) {
+      const y = Number(yearRaw.trim());
+      if (Number.isInteger(y) && y >= 1900 && y <= 2100) in_business_since_year = y;
+    }
+    const wedRaw = formData.get('weddings_done_approx');
+    let weddings_done_approx: number | null = null;
+    if (typeof wedRaw === 'string' && wedRaw.trim()) {
+      const w = Number(wedRaw.trim());
+      if (Number.isInteger(w) && w >= 0) weddings_done_approx = Math.min(w, 100000);
+    }
+    const { data: prior } = await supabase
+      .from('vendor_profiles')
+      .select('in_business_since_year')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    const priorYear = (prior as { in_business_since_year?: number | null } | null)?.in_business_since_year ?? null;
+    experienceFields = {
+      in_business_since_year,
+      weddings_done_approx,
+      ...(priorYear !== in_business_since_year
+        ? { experience_verified_at: null, experience_verified_by: null }
+        : {}),
+    };
+  }
+
   const payload = {
     business_name: nonBlank(formData.get('business_name'), 128),
     business_slug,
@@ -273,6 +309,7 @@ export async function saveVendorProfile(formData: FormData) {
     // willing to take same-day / day-of jobs → surfaces in the couple's Day-of
     // Get-help shortlist (verified + paid tier only). Default off.
     same_day_available: formData.get('same_day_available') === 'on',
+    ...experienceFields,
     updated_at: new Date().toISOString(),
   };
 

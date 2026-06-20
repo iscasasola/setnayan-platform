@@ -8,13 +8,17 @@ import { SeatingLockError } from './seating-lock-error';
 import {
   BOOTH_CATALOG,
   TABLE_TYPE_CATALOG,
+  computeAutoLayout,
   computeAutoSeat,
   effectiveCapacity,
   fetchAssignments,
   fetchFloorPlan,
   fetchTables,
+  recommendTableSet,
   removedSeatSet,
   roleTier,
+  shapeHintFor,
+  tableGeometry,
   type AutoSeatGuest,
   type BoothType,
   type TableType,
@@ -1262,4 +1266,124 @@ export async function autoArrange(formData: FormData): Promise<{ seated: number 
   await refreshSeatingLock(supabase, lockId);
   revalidatePath(`/dashboard/${eventId}/seating`);
   return { seated: rows.length };
+}
+
+// "Build my seating" — generate a complete, editable starting draft from the
+// guest list in one tap (UX goal 2026-06-20: draft, don't blank). Deterministic
+// + zero-cost, the same family as Auto Arrange: recommend a table SET, create
+// it, lay it out stage-out, and seat the confirmed guests by role tier. Guarded
+// to a truly empty floor so it can never clobber an in-progress plan.
+export async function buildSeatingDraft(
+  formData: FormData,
+): Promise<{ tables: number; seated: number }> {
+  const eventId = formData.get('event_id');
+  if (typeof eventId !== 'string' || eventId.length === 0) {
+    throw new Error('Invalid input');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const lockId = lockIdFrom(formData);
+  await assertSeatingLockHeld(supabase, eventId, lockId);
+
+  const [existing, guests, floorPlan, memberships] = await Promise.all([
+    fetchTables(supabase, eventId),
+    fetchGuestsByEvent(supabase, eventId),
+    fetchFloorPlan(supabase, eventId),
+    fetchGroupMembershipsByEvent(supabase, eventId),
+  ]);
+
+  // Guard: only ever build onto a blank floor — never clobber existing tables.
+  if (existing.length > 0) {
+    await refreshSeatingLock(supabase, lockId);
+    return { tables: 0, seated: 0 };
+  }
+
+  const recommended = recommendTableSet(
+    guests.map((g) => ({ role: g.role, rsvp_status: g.rsvp_status })),
+  );
+  // No guests yet → nothing to size a floor from; the CTA stays a no-op.
+  if (recommended.length <= 1) {
+    await refreshSeatingLock(supabase, lockId);
+    return { tables: 0, seated: 0 };
+  }
+
+  // Create the table set (positions filled in below, once we have real ids).
+  const { error: insErr } = await supabase.from('event_tables').insert(
+    recommended.map((t, i) => ({
+      event_id: eventId,
+      table_label: t.label,
+      table_type: t.type,
+      capacity: t.capacity,
+      sort_order: i,
+    })),
+  );
+  if (insErr) throw new Error(insErr.message);
+
+  // Re-read to get the generated ids, then lay them out stage-out. Positions are
+  // percent of the canvas, so a nominal server-side rect renders correctly at
+  // any real canvas size — the same stub-rect path the unit tests exercise.
+  const tables = await fetchTables(supabase, eventId);
+  const layout = computeAutoLayout({
+    tables,
+    floorPlan,
+    rect: { width: 1000, height: 680 },
+    footprintOf: (t) => tableGeometry(shapeHintFor(t.table_type), t.capacity).box,
+  });
+  for (const t of tables) {
+    const p = layout[t.table_id];
+    if (!p) continue;
+    const { error } = await supabase
+      .from('event_tables')
+      .update({ x_pos: Math.max(0, Math.min(100, p.x)), y_pos: Math.max(0, Math.min(100, p.y)) })
+      .eq('table_id', t.table_id)
+      .eq('event_id', eventId);
+    if (error) throw new Error(error.message);
+  }
+
+  // Seat the confirmed-attending guests by role-tier ring against the new
+  // layout (same pure logic as Auto Arrange / autoSeatGuests). A fresh floor has
+  // no prior assignments, so pass an empty set.
+  const positioned = tables.map((t) =>
+    layout[t.table_id] ? { ...t, x_pos: layout[t.table_id]!.x, y_pos: layout[t.table_id]!.y } : t,
+  );
+  const autoSeatGuestList: AutoSeatGuest[] = guests.map((g) => ({
+    guest_id: g.guest_id,
+    role: g.role,
+    group_category: g.group_category,
+    rsvp_status: g.rsvp_status,
+    plus_one_of_guest_id: g.plus_one_of_guest_id,
+    last_name: g.last_name,
+    first_name: g.first_name,
+    group_id: memberships.get(g.guest_id)?.[0] ?? null,
+    seating_priority: g.seating_priority ?? null,
+  }));
+  const rows = computeAutoSeat(positioned, autoSeatGuestList, [], {
+    x: floorPlan.stage_x,
+    y: floorPlan.stage_y,
+  });
+  if (rows.length > 0) {
+    const { error } = await supabase.from('event_seat_assignments').insert(
+      rows.map((r) => ({
+        event_id: eventId,
+        table_id: r.table_id,
+        guest_id: r.guest_id,
+        seat_number: r.seat_number,
+      })),
+    );
+    if (error) throw new Error(error.message);
+  }
+
+  await refreshSeatingLock(supabase, lockId);
+  // Mirror Auto Arrange's adoption stamp for the admin lead-scoring signal.
+  await supabase
+    .from('events')
+    .update({ auto_seat_last_used_at: new Date().toISOString() })
+    .eq('event_id', eventId);
+  revalidatePath(`/dashboard/${eventId}/seating`);
+  return { tables: tables.length, seated: rows.length };
 }

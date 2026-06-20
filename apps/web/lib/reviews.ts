@@ -109,32 +109,41 @@ export async function countReviewsForVendor(
 }
 
 /**
- * Resolve display names for a set of couple_user_ids. Falls back to null when
- * the user has been deleted (couple_user_id is then null after the ON DELETE
- * SET NULL cascade) or hasn't set a display name. Caller renders "Verified
- * couple" in either case.
+ * Resolve the *couple* display name for a set of EVENT ids. A vendor_reviews
+ * row is the host's verdict, attributed to the event/couple — never to the
+ * individual who physically submitted it (which may be a delegated coordinator,
+ * whose personal name must never surface publicly). We therefore key off
+ * `event_id` → `events.display_name` (the same "Maria & Juan" couple label the
+ * rest of the app uses), NOT `couple_user_id` → `users.display_name`.
+ *
+ * Falls back to null when the event has no display name; the caller renders
+ * "Verified couple" in that case.
  */
 export async function resolveCoupleDisplayNames(
   supabase: SupabaseClient,
-  userIds: ReadonlyArray<string | null>,
+  eventIds: ReadonlyArray<string | null>,
 ): Promise<Map<string, string | null>> {
-  const ids = Array.from(new Set(userIds.filter((id): id is string => !!id)));
+  const ids = Array.from(new Set(eventIds.filter((id): id is string => !!id)));
   if (ids.length === 0) return new Map();
   const { data, error } = await supabase
-    .from('users')
-    .select('user_id, display_name')
-    .in('user_id', ids);
+    .from('events')
+    .select('event_id, display_name')
+    .in('event_id', ids);
   if (error) return new Map();
   const m = new Map<string, string | null>();
   for (const row of data ?? []) {
-    m.set(row.user_id as string, (row.display_name as string | null) ?? null);
+    const name = (row.display_name as string | null) ?? null;
+    m.set(row.event_id as string, name && name.trim().length > 0 ? name : null);
   }
   return m;
 }
 
 /**
- * Same as fetchReviewsForVendor but also resolves couple display names via a
- * follow-up lookup. Reviews from deleted users surface as "Verified couple".
+ * Same as fetchReviewsForVendor but also resolves the couple display name via a
+ * follow-up lookup. Attribution is to the EVENT's couple (events.display_name),
+ * never the submitter — so a coordinator who submits the host review on the
+ * couple's behalf never leaks their personal name. Events with no display name
+ * surface as "Verified couple".
  */
 export async function fetchReviewsForVendorWithCouple(
   supabase: SupabaseClient,
@@ -145,11 +154,11 @@ export async function fetchReviewsForVendorWithCouple(
   if (reviews.length === 0) return [];
   const names = await resolveCoupleDisplayNames(
     supabase,
-    reviews.map((r) => r.couple_user_id),
+    reviews.map((r) => r.event_id),
   );
   return reviews.map((r) => ({
     ...r,
-    couple_display_name: r.couple_user_id ? (names.get(r.couple_user_id) ?? null) : null,
+    couple_display_name: names.get(r.event_id) ?? null,
   }));
 }
 

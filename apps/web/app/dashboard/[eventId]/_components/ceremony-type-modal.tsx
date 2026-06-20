@@ -25,6 +25,7 @@ import {
   type CeremonyTypeKey,
 } from '@/app/_components/ceremony-type-radio-group';
 import { setEventCeremonyType } from '../actions';
+import { useEscapeKey } from '@/lib/use-escape-key';
 
 type Props = {
   eventId: string;
@@ -53,6 +54,10 @@ export function CeremonyTypeModal({ eventId, currentValue, onClose }: Props) {
   const [selected, setSelected] = useState<CeremonyTypeKey | null>(initial);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  // Escape-to-dismiss (audit: this modal was missing it); suspended mid-submit,
+  // matching the click-outside + close-button !pending guard.
+  useEscapeKey(onClose, !pending);
 
   function handleSave() {
     if (!selected) return;

@@ -11,6 +11,7 @@ import {
   X,
 } from 'lucide-react';
 import { formatPhp } from '@/lib/orders';
+import { useEscapeKey } from '@/lib/use-escape-key';
 import {
   SUPPLY_CATEGORIES,
   SUPPLY_PRODUCTS,
@@ -340,6 +341,7 @@ function CartDrawer({
   onBump: (slug: string, delta: number) => void;
   onRemove: (slug: string) => void;
 }) {
+  useEscapeKey(onClose); // Escape-to-dismiss
   return (
     <div
       role="dialog"

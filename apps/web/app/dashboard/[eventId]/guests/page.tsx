@@ -404,18 +404,28 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         </div>
         <div className="hidden flex-col gap-2 self-start lg:flex lg:flex-row lg:items-center lg:self-auto">
           {joinUrl ? <ShareDropdown joinUrl={joinUrl} /> : null}
-          <Link
-            href={`/dashboard/${eventId}/guests/import`}
-            className="button-secondary"
-          >
-            Import CSV
-          </Link>
-          <Link
-            href={`/dashboard/${eventId}/guests/quick`}
-            className="button-secondary"
-          >
-            Quick add list
-          </Link>
+          {/* The bulk-entry paths (CSV import, rapid list) are real but rarely
+              the first move — tuck them behind one "More ways" disclosure so the
+              header leads with the single primary add, not four equal buttons. */}
+          <details className="group relative">
+            <summary className="button-secondary cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+              More ways
+            </summary>
+            <div className="absolute right-0 z-20 mt-1 flex w-48 flex-col gap-0.5 rounded-lg border border-ink/10 bg-cream p-1 shadow-lg">
+              <Link
+                href={`/dashboard/${eventId}/guests/import`}
+                className="rounded-md px-3 py-2 text-sm text-ink/80 hover:bg-terracotta/10 hover:text-terracotta-700"
+              >
+                Import CSV
+              </Link>
+              <Link
+                href={`/dashboard/${eventId}/guests/quick`}
+                className="rounded-md px-3 py-2 text-sm text-ink/80 hover:bg-terracotta/10 hover:text-terracotta-700"
+              >
+                Quick add list
+              </Link>
+            </div>
+          </details>
           <OpenQuickAddButton />
         </div>
       </header>
@@ -1242,9 +1252,15 @@ function EmptyState({ hasGuests, eventId }: { hasGuests: boolean; eventId: strin
       <p className="text-base text-ink/70">
         No guests yet. Start by adding the couple&rsquo;s first invite.
       </p>
-      <div className="mt-4">
-        <Link href={`/dashboard/${eventId}/guests/new`} className="button-primary">
-          + Add your first guest
+      {/* Lead with the one-tap quick-add sheet (name + side, done) — the heavy
+          detailed form stays one click away for power users. */}
+      <div className="mt-4 flex flex-col items-center gap-2">
+        <OpenQuickAddButton label="+ Add your first guest" />
+        <Link
+          href={`/dashboard/${eventId}/guests/new`}
+          className="text-xs text-ink/55 underline underline-offset-2 hover:text-ink"
+        >
+          or use the full form
         </Link>
       </div>
     </div>

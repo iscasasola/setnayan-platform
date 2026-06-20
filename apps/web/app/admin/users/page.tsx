@@ -416,48 +416,66 @@ function UsersTable({
                             Reset password
                           </SubmitButton>
                         </form>
-                        <ConfirmForm
-                          action={forceSignOutUser}
-                          message={`Force sign-out ${u.email ?? 'this user'}? They are signed out on EVERY device immediately — use for compromised accounts. Their data is untouched; they can log back in.`}
-                        >
-                          <input type="hidden" name="user_id" value={u.user_id} />
-                          <SubmitButton
-                            title="Revoke every session for this user (compromised-account remedy). Audit-logged."
-                            className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-warn-100 hover:text-warn-900 disabled:opacity-60"
-                            pendingLabel="Signing out…"
-                          >
-                            <LogOut className="h-3 w-3" strokeWidth={2} />
-                            Force sign-out
-                          </SubmitButton>
-                        </ConfirmForm>
-                        <ConfirmForm
-                          action={deleteUser}
-                          message={`Hard-delete ${u.email ?? 'this user'}? Their auth identity is gone; all related data cascade-deletes; the EMAIL is freed for re-signup (e.g., switching from vendor to customer). Not reversible from this page.`}
-                        >
-                          <input type="hidden" name="user_id" value={u.user_id} />
-                          <SubmitButton
-                            title="Delete the user. The email is freed for re-signup."
-                            className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-danger-100 hover:text-danger-900 disabled:opacity-60"
-                            pendingLabel="Deleting…"
-                          >
-                            <Trash2 className="h-3 w-3" strokeWidth={2} />
-                            Delete
-                          </SubmitButton>
-                        </ConfirmForm>
-                        <ConfirmForm
-                          action={blacklistUser}
-                          message={`Blacklist ${u.email ?? 'this user'}? The user is hard-deleted AND the email is permanently blocked from signing up again. Reverse via the Blacklisted filter → Unblacklist.`}
-                        >
-                          <input type="hidden" name="user_id" value={u.user_id} />
-                          <SubmitButton
-                            title="Delete the user AND permanently block this email from re-registering."
-                            className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-danger-200 hover:text-danger-900 disabled:opacity-60"
-                            pendingLabel="…"
-                          >
-                            <Ban className="h-3 w-3" strokeWidth={2} />
-                            Blacklist
-                          </SubmitButton>
-                        </ConfirmForm>
+                        {/* Irreversible/destructive ops live behind a collapsed
+                            "Danger zone" so they can't be fired by a stray click
+                            next to the safe everyday actions. Each still confirms
+                            with a specific title + consequence. */}
+                        <details className="group/danger">
+                          <summary className="inline-flex cursor-pointer list-none items-center gap-1 rounded-md bg-danger-100 px-2 py-1 text-xs font-medium text-danger-900 hover:bg-danger-200">
+                            Danger zone
+                            <ChevronDown className="h-3 w-3" strokeWidth={2} />
+                          </summary>
+                          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                            <ConfirmForm
+                              action={forceSignOutUser}
+                              title="Revoke all sessions?"
+                              confirmLabel="Sign out everywhere"
+                              message={`Force sign-out ${u.email ?? 'this user'}? They are signed out on EVERY device immediately — use for compromised accounts. Their data is untouched; they can log back in.`}
+                            >
+                              <input type="hidden" name="user_id" value={u.user_id} />
+                              <SubmitButton
+                                title="Revoke every session for this user (compromised-account remedy). Audit-logged."
+                                className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-warn-100 hover:text-warn-900 disabled:opacity-60"
+                                pendingLabel="Signing out…"
+                              >
+                                <LogOut className="h-3 w-3" strokeWidth={2} />
+                                Force sign-out
+                              </SubmitButton>
+                            </ConfirmForm>
+                            <ConfirmForm
+                              action={deleteUser}
+                              title="Hard-delete this account?"
+                              confirmLabel="Delete permanently"
+                              message={`Hard-delete ${u.email ?? 'this user'}? Their auth identity is gone; all related data cascade-deletes; the EMAIL is freed for re-signup (e.g., switching from vendor to customer). Not reversible from this page.`}
+                            >
+                              <input type="hidden" name="user_id" value={u.user_id} />
+                              <SubmitButton
+                                title="Delete the user. The email is freed for re-signup."
+                                className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-danger-100 hover:text-danger-900 disabled:opacity-60"
+                                pendingLabel="Deleting…"
+                              >
+                                <Trash2 className="h-3 w-3" strokeWidth={2} />
+                                Delete
+                              </SubmitButton>
+                            </ConfirmForm>
+                            <ConfirmForm
+                              action={blacklistUser}
+                              title="Blacklist this email?"
+                              confirmLabel="Blacklist & delete"
+                              message={`Blacklist ${u.email ?? 'this user'}? The user is hard-deleted AND the email is permanently blocked from signing up again. Reverse via the Blacklisted filter → Unblacklist.`}
+                            >
+                              <input type="hidden" name="user_id" value={u.user_id} />
+                              <SubmitButton
+                                title="Delete the user AND permanently block this email from re-registering."
+                                className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-danger-200 hover:text-danger-900 disabled:opacity-60"
+                                pendingLabel="…"
+                              >
+                                <Ban className="h-3 w-3" strokeWidth={2} />
+                                Blacklist
+                              </SubmitButton>
+                            </ConfirmForm>
+                          </div>
+                        </details>
                         <Link
                           href={buildToggleHref({
                             q,
@@ -558,6 +576,9 @@ function BlacklistTable({ rows }: { rows: BlacklistRow[] }) {
                 <td className="px-3 py-3">
                   <ConfirmForm
                     action={unblacklistEmail}
+                    title="Allow signup again?"
+                    confirmLabel="Unblacklist"
+                    destructive={false}
                     message={`Remove ${b.email} from the blacklist? This email will be able to sign up again.`}
                   >
                     <input type="hidden" name="blacklist_id" value={b.id} />
@@ -792,6 +813,8 @@ function GrantCard({ grant, revoked }: { grant: CompGrantRow; revoked: boolean }
         {!revoked ? (
           <ConfirmForm
             action={revokeCompGrant}
+            title="Revoke this grant?"
+            confirmLabel="Revoke"
             message={`Revoke comp grant ${grant.public_id}? This stops future uses but doesn't refund any order that's already used it. Reason is required.`}
             className="shrink-0"
           >

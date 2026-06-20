@@ -17,6 +17,19 @@
 // prices inside article bodies (they drift); the only Setnayan money facts used
 // are the durable ones — free planning workspace, 0% commission.
 
+// Scheduled editorial drip (2026-H2). 78 future-dated articles, authored in
+// per-theme batch modules and concatenated into BLOG_ARTICLES below. Each
+// module only `import type`s from this file, so there is no runtime import
+// cycle (the type import is erased at compile time).
+import { ARTICLES_CAPTURE } from '@/lib/blog-batches/capture-coverage';
+import { ARTICLES_STYLING } from '@/lib/blog-batches/food-styling';
+import { ARTICLES_GUESTS } from '@/lib/blog-batches/guests-paper';
+import { ARTICLES_MONEY } from '@/lib/blog-batches/money-legal';
+import { ARTICLES_RITUALS } from '@/lib/blog-batches/rituals-symbols';
+import { ARTICLES_REGIONAL } from '@/lib/blog-batches/regional-faith';
+import { ARTICLES_SEASON } from '@/lib/blog-batches/seasonal-rainy';
+import { ARTICLES_DECNEWS } from '@/lib/blog-batches/december-news';
+
 export type BlogCategoryKey =
   | 'planning'
   | 'vendors'
@@ -76,7 +89,7 @@ export type BlogArticle = {
   blocks: BlogBlock[];
 };
 
-export const BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
+const CORE_BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
   {
     slug: 'free-printable-wedding-checklist-philippines',
     cover: '/blog/checklist-cover.webp',
@@ -798,6 +811,26 @@ export const BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
 ];
 
 // ───────────────────────────────────────────────────────────────────────────
+// The single registry every consumer reads. The 10 hand-written core articles
+// first, then the 78 scheduled-drip articles (2026-H2 batches, future-dated
+// Mon/Wed/Fri 2026-06-22 → 2026-12-18). The Facebook sweep
+// (lib/social/flush.ts) and the public surface both gate on publishedAt, so a
+// future-dated article stays invisible until its day — see
+// publishedBlogArticles() below.
+// ───────────────────────────────────────────────────────────────────────────
+export const BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
+  ...CORE_BLOG_ARTICLES,
+  ...ARTICLES_CAPTURE,
+  ...ARTICLES_STYLING,
+  ...ARTICLES_GUESTS,
+  ...ARTICLES_MONEY,
+  ...ARTICLES_RITUALS,
+  ...ARTICLES_REGIONAL,
+  ...ARTICLES_SEASON,
+  ...ARTICLES_DECNEWS,
+];
+
+// ───────────────────────────────────────────────────────────────────────────
 // Helpers — parallel to lib/help.ts so the routes read the same way.
 //
 // Unlike the help corpus, blog posts carry real per-article dates, so the
@@ -859,6 +892,33 @@ export const ALL_BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [...BLOG_ARTICLES].
   (a, b) => (a.publishedAt < b.publishedAt ? 1 : -1),
 );
 
+/** Today's date in PH wall-clock (UTC+8, no DST) as 'YYYY-MM-DD' — matches the
+ *  +08:00 convention the Facebook sweep uses, so the public blog reveals an
+ *  article the same calendar day FB teases it. */
+function phToday(): string {
+  return new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+/**
+ * The PUBLIC view of the blog: articles whose publishedAt has arrived. The 78
+ * scheduled-drip articles carry future dates, so they stay hidden from the
+ * /blog index, the sitemap, and the category chips until their day — the blog
+ * reveals on schedule and the sitemap never advertises a future lastmod.
+ *
+ * Evaluated against the current date each call. The /blog index + sitemap
+ * render on demand (dynamic / hourly-ISR), so a future article surfaces on its
+ * own PH date with no redeploy. (If these routes were ever statically exported,
+ * the cutoff would fall back to build time — still correct, just deploy-paced.)
+ *
+ * Deliberately NOT used by generateStaticParams or findBlogArticle: every slug
+ * stays reachable so a Facebook teaser posted on the article's day (the sweep
+ * gates on the same publishedAt at runtime) always resolves, never 404s.
+ */
+export function publishedBlogArticles(): BlogArticle[] {
+  const today = phToday();
+  return ALL_BLOG_ARTICLES.filter((a) => a.publishedAt <= today);
+}
+
 export function findBlogArticle(slug: string): BlogArticle | undefined {
   return BLOG_ARTICLES.find((a) => a.slug === slug);
 }
@@ -870,8 +930,9 @@ export function blogCategoryLabel(key: BlogCategoryKey): string {
 /** Categories with at least one published article — the index renders only
  *  these as filter chips so an empty category never shows a dead filter. */
 export function blogCategoriesInUse(): BlogCategory[] {
+  const published = publishedBlogArticles();
   return BLOG_CATEGORIES.filter((c) =>
-    BLOG_ARTICLES.some((a) => a.category === c.key),
+    published.some((a) => a.category === c.key),
   );
 }
 
@@ -879,10 +940,13 @@ export function blogCategoriesInUse(): BlogCategory[] {
 export function relatedBlogArticles(slug: string, limit = 3): BlogArticle[] {
   const current = findBlogArticle(slug);
   if (!current) return [];
-  const sameCategory = ALL_BLOG_ARTICLES.filter(
+  // "Keep reading" only points at already-published articles, so an early-viewed
+  // future article never links to an even-more-future one.
+  const published = publishedBlogArticles();
+  const sameCategory = published.filter(
     (a) => a.slug !== slug && a.category === current.category,
   );
-  const others = ALL_BLOG_ARTICLES.filter(
+  const others = published.filter(
     (a) => a.slug !== slug && a.category !== current.category,
   );
   return [...sameCategory, ...others].slice(0, limit);

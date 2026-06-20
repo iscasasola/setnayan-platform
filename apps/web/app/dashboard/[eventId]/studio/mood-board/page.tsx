@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchGuestsByEvent } from '@/lib/guests';
 import { roleGroupOf, type RoleGroup } from '@/lib/role-groups';
 import { sanitizeRolePalette, type PaletteKey } from '@/lib/mood-board';
+import { seedPaletteFromFeel } from '@/lib/feel-palettes';
 import type { ColorRangeSlot } from '@/lib/color-recolor';
 import type { ReceptionDesign } from '@/lib/reception-scene';
 import { saveRolePalette } from './actions';
@@ -72,7 +73,7 @@ export default async function MoodBoardPage({ params }: Props) {
     supabase
       .from('events')
       .select(
-        'event_id, display_name, role_palette, mood_board_updated_at, reception_design',
+        'event_id, display_name, role_palette, mood_board_updated_at, reception_design, mood_feel_key',
       )
       .eq('event_id', eventId)
       .maybeSingle(),
@@ -140,6 +141,21 @@ export default async function MoodBoardPage({ params }: Props) {
   if (presentRoleGroups.has('secondary_sponsors')) visibleKeys.add('secondary_sponsors');
   if (presentRoleGroups.has('bearers_flower_girl')) visibleKeys.add('bearers_flower_girl');
   if (presentRoleGroups.has('officiants')) visibleKeys.add('officiants');
+
+  // Draft, don't blank: when the couple has NO saved palette yet but picked a
+  // wedding "feel" in onboarding, pre-fill the editor with a starter palette
+  // derived from that feel. Display-only — the existing Save action remains the
+  // ONLY path that writes role_palette; seeded values aren't persisted until the
+  // couple explicitly saves.
+  const seededPalette =
+    Object.keys(palette).length === 0
+      ? seedPaletteFromFeel(
+          (event as { mood_feel_key?: string | null }).mood_feel_key,
+          Array.from(visibleKeys),
+        )
+      : {};
+  const isSeeded = Object.keys(seededPalette).length > 0;
+  const initialPalette = isSeeded ? seededPalette : palette;
 
   // ── one representative figure per attire subtype (first wins) ───────────
   const figureBySubtype: Record<string, { url: string; label: string }> = {};
@@ -249,7 +265,8 @@ export default async function MoodBoardPage({ params }: Props) {
 
       <PaletteEditor
         eventId={eventId}
-        initial={palette}
+        initial={initialPalette}
+        seeded={isSeeded}
         visibleKeys={Array.from(visibleKeys)}
         saveAction={saveRolePalette}
       />

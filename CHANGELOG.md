@@ -13,6 +13,61 @@ Public-surface pass (4 of N — "lead with the media layer" verdict). The `Featu
 Verified the reorder invariants statically (render order, StepDots 0–3 once each, label rotation). **NOT auto-merged** — homepage + stateful flow that can't run in the worktree, so it needs an owner eyeball on the Vercel preview before merge.
 
 SPEC IMPACT: None (homepage copy/ordering; no SKU / schema / pricing / branding change).
+## 2026-06-20 · feat(db): sample-event + demo-service flags (Maria & Jose foundation, Phase 1)
+
+Foundation migration for the planned "Maria & Jose" public sample/showcase experience. Additive, idempotent, RLS-unchanged. Migration file only — **not yet applied to prod** (applied deliberately via `supabase db push` when the seed is ready).
+
+- `migration 20270203791173_sample_event_and_demo_service_flags.sql`:
+  - `events.is_sample` (BOOLEAN, default FALSE) — marks the canonical showcase event so it's excluded from real-event stats + never billed, and drives the curated-tour entry.
+  - `vendor_services.is_demo` + `vendor_services.demo_batch_id` — **the owner requirement** ("the vendors here AND the services here will be marked as demo"). Until now a service was demo *only by its parent vendor*; this flags the service directly (mirrors `vendor_profiles.is_demo`) so exclusion/cleanup can key on the service itself. **Backfills** is_demo + demo_batch_id onto every existing demo vendor's services.
+  - Partial indexes on both new boolean flags.
+
+Next in Phase 1: populate Maria & Jose (guests/seating/budget/mood board/Papic) + attach demo vendors+services across every category. Then Phase 2 = the curated 5-stop public tour (owner-chosen over a full sandbox, to avoid exposing rough edges).
+
+SPEC IMPACT: None yet (schema only; the sample-event feature spec lands as the build progresses). Logged in `DECISION_LOG.md`: sample-event/demo-service-flag foundation + curated-tour direction.
+
+First cross-cutting wave of the 2-step-down program (`Usability_2Step_Remediation_Program_2026-06-20.md`, lever A). Every irreversible/cascade action on these surfaces was firing on a single click — a stray tap could publish to live social, hard-delete an account, free a sold date, or unfeature a story. Now they confirm with a specific title + plain-English consequence.
+
+- **`app/_components/confirm-form.tsx`** — prereq: widened `message` from `string` → `ReactNode` so a confirm body can carry a post preview / diff (the underlying `ConfirmDialog.body` was already `ReactNode`).
+- **`admin/social-queue`** — wrapped **Post now** + both **Pull** (scheduled + failed) in `ConfirmForm`; Post-now dialog shows the post's first line + the channels it will hit, and the button itself now reads **"Post now → Facebook + Instagram"** (computed from `enabled && configured`, threaded as a `channels` prop to `ScheduledPostCard`). These publish/retract to live external social — the highest-severity gap.
+- **`admin/users`** — moved the 3 destructive ops (force sign-out, delete, blacklist) behind a collapsed **"Danger zone"** `<details>` so they can't be hit next to the safe everyday actions; gave every guarded action a specific `title`/`confirmLabel` (was the default "Confirm action"); unblacklist marked non-destructive.
+- **`admin/real-stories`** — Feature/Unfeature now confirm (split into two dialogs with the right consequence copy); added **Cover / Most-loved #n** position chips so the bare numeric rank reads in plain English.
+- **`vendor/services`** — Delete-service (was a raw one-click trash) now confirms and names the cascade (bundle links + time slots).
+- **`vendor/clients` + `vendor/calendar`** — the "Remove" outside-client / block action (frees a sold date) now confirms with "their date opens back up"; fixed the 3 dead client-hub empty states to point at Bookings / the calendar.
+
+Verified: `tsc --noEmit` clean across the whole project (0 errors); grep-confirmed 0 raw `<form>` left on the guarded actions. Required CI (typecheck + lint + build) + Vercel preview are the gate (pnpm worktree — full lint/build can't run cross-worktree locally), auto-merge armed.
+
+SPEC IMPACT: UX hardening across iterations 0023 (admin) + 0022 (vendor); no schema/SKU/pricing change. Logged as a `DECISION_LOG.md` row + tracked in `Usability_2Step_Remediation_Program_2026-06-20.md` (Wave 1).
+## 2026-06-20 · feat(help): instant search on the Help Center + marketing-ads spec-drift flag (Wave 2 slice)
+
+Part of the 2-step-down program (`Usability_2Step_Remediation_Program_2026-06-20.md`, Wave 2). The Help Center promised full-text search in its metadata/spec but shipped without it — the audit's single biggest discoverability gap (~63 articles found only by self-selecting a role tile + scanning).
+
+- **`app/help/_components/help-search.tsx`** (new, `'use client'`) — instant in-memory filter over the existing 68-article corpus (`ALL_HELP_ARTICLES` shape `{slug,title,body}`). No fetch, no index, no dependency. Matches title + body + topic label. Empty box renders the same topic-grouped list with `id` anchors preserved (sidebar nav + `/help#slug` deep links still work); typing shows a flat, in-context result list; a real "no matches → message the team" state replaces the previously-unreachable empty branch.
+- **`app/help/page.tsx`** — mounts `<HelpSearch topics={visibleTopics} />` in place of the server-rendered article list (role filter still applies server-side); dropped the now-unused `HelpCircle` import; the FAQPage JSON-LD is untouched (server-rendered from the full corpus, so SEO/GEO is preserved).
+
+**Spec drift surfaced (no code):** the program's `vendor/marketing-ads` item (diff 3, "Boosted + Sponsored, being-redesigned banner, per-week pricing, unverified gate disables Start") describes a surface that **does not exist in shipped code** — there is no boosted-ads/sponsored vendor dashboard route. The closest surface, `/vendor-dashboard/subscription` (Pro/Enterprise), is already clean: no banner, no gate, DB-driven pricing from `vendor_billing_catalog`. That program row should be retired or re-scoped; not touched here.
+
+Verified: `tsc --noEmit` clean across the project (0 errors). Required CI (typecheck + lint + build) + Vercel preview are the gate; the search is interactive on the public `/help` preview for an owner eyeball.
+
+SPEC IMPACT: iteration 0029 (Help Center) — search now matches the long-standing spec/metadata promise. Logged in `DECISION_LOG.md` (incl. the marketing-ads drift). No schema/SKU change.
+## 2026-06-20 · feat(ux): couple self-serve simplification — budget + guests (Wave 2 slice)
+
+2-step-down program (`Usability_2Step_Remediation_Program_2026-06-20.md`, Wave 2) — the two crowded couple surfaces, default-then-disclose + never-dead-empty + clearer labels. Both bank 3→2.
+
+**Budget** (`budget/page.tsx` + `_components/vendor-itemization-card.tsx`):
+- The page showed the word **"Remaining" twice meaning two different things** (budget headroom = target − committed, vs unpaid balance = itemized − paid). Relabeled rather than deleted (both numbers are real): top strip → **"Budget left"**, itemization strip → **"Still to pay"**. Removes the same-word collision with zero data loss.
+- The always-open **5-field payment-log form** (the page's busiest input) is now **default-then-disclose** behind a `<details>` "Log a payment" trigger, matching the existing "Add an extra" disclosure pattern in the same card.
+- The **"no contracted vendor yet" empty state read as broken** ("Per-vendor budget tracking *unlocks*…"). Reframed to "you're still choosing vendors — exactly where you should be; itemized costs appear here once you contract one." (Per-line price chips skipped — line items are already visually grouped "From the vendor's catalog" vs "Your own additions".)
+
+**Guests** (`guests/page.tsx` + `_components/quick-add-sheet.tsx`):
+- The desktop header led with **four equal add buttons**. Now the bulk paths (**Import CSV**, **Quick add list**) tuck behind one **"More ways"** `<details>` disclosure; the single primary **"+ Add guest"** quick-add leads. (Mobile carousel unchanged.)
+- The **empty state** pointed a brand-new couple at the heavy detailed `/guests/new` form. It now leads with the **one-tap quick-add sheet** (`OpenQuickAddButton` gained an optional `label` prop), with "or use the full form" kept as a secondary link. (The single-field/display-name-split change touches the add data model — deferred.)
+
+Verified: `tsc --noEmit` clean across the project (0 errors). Required CI (typecheck + lint + build) + Vercel preview are the gate.
+
+SPEC IMPACT: UX simplification on iterations 0007 (budget) + 0001 (guests); no schema/SKU change. Logged in `DECISION_LOG.md`.
+
+## 2026-06-20 · feat(join): accountless guest self-join via event QR (Lola Remedios — deferred HIGH)
 
 Owner: "yes we allow this" — let an older guest who scans the event QR add themselves WITHOUT creating an account (the 1 HIGH deferred from the guest-legibility audit). Previously `/join/[eventId]` hard-walled behind sign-in/create-account before a guest could do anything.
 

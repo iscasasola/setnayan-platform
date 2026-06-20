@@ -30,14 +30,14 @@ import { findDuplicates, norm, TAG } from '@/lib/guest-dedupe';
 /* ------------------------------------------------------------------ */
 const OPEN_EVENT = 'setnayan:quick-add-open';
 
-export function OpenQuickAddButton() {
+export function OpenQuickAddButton({ label = '+ Add guest' }: { label?: string } = {}) {
   return (
     <button
       type="button"
       className="button-primary"
       onClick={() => window.dispatchEvent(new CustomEvent(OPEN_EVENT))}
     >
-      + Add guest
+      {label}
     </button>
   );
 }

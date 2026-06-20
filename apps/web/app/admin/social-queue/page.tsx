@@ -1,6 +1,7 @@
 import { after } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { FormFlash } from '@/app/_components/forms/form-flash';
+import { ConfirmForm } from '@/app/_components/confirm-form';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { runSocialFlush } from '@/lib/social/flush';
 import { isFacebookConfigured } from '@/lib/social/facebook';
@@ -501,7 +502,15 @@ export default async function AdminSocialQueuePage({ searchParams }: Props) {
         <ul className="grid gap-3 sm:grid-cols-2">
           {scheduledPosts.map((p) => (
             <li key={p.post_id}>
-              <ScheduledPostCard post={p} now={now} />
+              <ScheduledPostCard
+                post={p}
+                now={now}
+                channels={[
+                  settings.facebook_enabled && fbConfigured ? 'Facebook' : null,
+                  settings.instagram_enabled && igConfigured ? 'Instagram' : null,
+                  settings.tiktok_enabled && ttConfigured ? 'TikTok' : null,
+                ].filter((c): c is string => c !== null)}
+              />
             </li>
           ))}
         </ul>
@@ -541,7 +550,12 @@ export default async function AdminSocialQueuePage({ searchParams }: Props) {
                         Retry
                       </SubmitButton>
                     </form>
-                    <form action={pullSocialPost}>
+                    <ConfirmForm
+                      action={pullSocialPost}
+                      title="Stop this post?"
+                      confirmLabel="Pull"
+                      message="This failed post won't be retried or recomposed. You can't undo a pull."
+                    >
                       <input type="hidden" name="post_id" value={p.post_id} />
                       <SubmitButton
                         pendingLabel="Pulling…"
@@ -549,7 +563,7 @@ export default async function AdminSocialQueuePage({ searchParams }: Props) {
                       >
                         Pull
                       </SubmitButton>
-                    </form>
+                    </ConfirmForm>
                   </div>
                 </article>
               </li>
@@ -1291,7 +1305,17 @@ function TikTokManualPanel({ posts }: { posts: SocialPostRow[] }) {
 // Scheduled post card
 // ---------------------------------------------------------------------------
 
-function ScheduledPostCard({ post, now }: { post: SocialPostRow; now: number }) {
+function ScheduledPostCard({
+  post,
+  now,
+  channels,
+}: {
+  post: SocialPostRow;
+  now: number;
+  // The channels this post will actually hit (enabled AND configured),
+  // computed by the parent so the button can name them before you click.
+  channels: string[];
+}) {
   const publishing = post.status === 'publishing';
   const gateAt = post.publish_after ? new Date(post.publish_after).getTime() : null;
   const gateFuture = gateAt !== null && gateAt > now;
@@ -1354,7 +1378,12 @@ function ScheduledPostCard({ post, now }: { post: SocialPostRow; now: number }) 
           </details>
 
           <div className="flex flex-wrap items-center gap-2 border-t border-ink/10 pt-3">
-            <form action={pullSocialPost}>
+            <ConfirmForm
+              action={pullSocialPost}
+              title="Stop this post?"
+              confirmLabel="Pull"
+              message="This post won't be published and the sweep won't recompose it. You can't undo a pull."
+            >
               <input type="hidden" name="post_id" value={post.post_id} />
               <SubmitButton
                 pendingLabel="Pulling…"
@@ -1362,16 +1391,34 @@ function ScheduledPostCard({ post, now }: { post: SocialPostRow; now: number }) 
               >
                 Pull
               </SubmitButton>
-            </form>
+            </ConfirmForm>
             {/* Post-now skips the hold window but NEVER the content gate —
                 a couple's event-date + 7d is not overridable. */}
             {!gateFuture ? (
-              <form action={postSocialPostNow}>
+              <ConfirmForm
+                action={postSocialPostNow}
+                title="Publish this post now?"
+                confirmLabel="Post now"
+                destructive={false}
+                message={
+                  <span>
+                    Posts immediately to{' '}
+                    <span className="font-medium">
+                      {channels.length ? channels.join(' + ') : 'no active channels'}
+                    </span>{' '}
+                    and clears the 48-hour pull window. The content gate (event date + 7
+                    days) still applies.
+                    <span className="mt-2 block rounded border border-ink/10 bg-ink/[0.03] px-2 py-1 text-ink/70">
+                      “{firstLine(post.body) || post.title || 'Untitled post'}”
+                    </span>
+                  </span>
+                }
+              >
                 <input type="hidden" name="post_id" value={post.post_id} />
                 <SubmitButton pendingLabel="Posting…" className="button-primary h-9 px-3 text-xs">
-                  Post now
+                  {channels.length ? `Post now → ${channels.join(' + ')}` : 'Post now'}
                 </SubmitButton>
-              </form>
+              </ConfirmForm>
             ) : null}
           </div>
         </>

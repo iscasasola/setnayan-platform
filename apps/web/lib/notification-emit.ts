@@ -79,6 +79,16 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   'dispute_resolved',
   // New vendor/couple message (the canonical "new_vendor_message").
   'chat_message',
+  // Payment lifecycle (Phase 2 PR-B, 2026-06-20). The transactional money
+  // signals the couple should get an email for: their payment plan is ready
+  // (info_sent), a payment was confirmed by the vendor, and the plan cleared.
+  // payment_logged is deliberately EXCLUDED — it's the vendor-facing
+  // "couple logged a payment" nudge (in-app/push register), not a transactional
+  // email to the couple. PR-B emits payment_info_sent now; the other two are
+  // wired by PR-C/D, but belong on the allowlist up front.
+  'payment_info_sent',
+  'payment_confirmed',
+  'payment_cleared',
 ]);
 
 export type EmitNotificationArgs = {

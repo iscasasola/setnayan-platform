@@ -9,8 +9,10 @@ import {
   APPLICATION_FEE_CENTAVOS,
   APPLICATION_TYPES,
   DOC_SLOTS,
+  VENDOR_DOC_SLOTS,
   addBusinessDays,
   countCompleteSlots,
+  countCompleteVendorSlots,
   type ApplicationType,
   type DocUploadMap,
 } from '@/lib/vendor-verification';
@@ -237,17 +239,18 @@ export async function submitApplication(formData: FormData): Promise<void> {
     );
   }
 
-  // V1 launch-soft gate: vendor can submit with a minimum of the 8 upload
-  // slots filled. The 4 external/manual slots (Persona, Google Meet,
-  // SMS/email OTP, AMLC) are admin-flipped post-submit. Once integrations
+  // V1 launch-soft gate: the vendor submits once all of THEIR items (the
+  // VENDOR_DOC_SLOTS uploads) are filled. The 4 external/manual slots (Persona,
+  // Google Meet, SMS/email OTP, AMLC) are admin-flipped post-submit — counting
+  // them here is what produced the deceptive "8 of 12" gate. Once integrations
   // ship, the gate moves to "12-doc complete required".
   const uploads = (app.doc_uploads ?? {}) as DocUploadMap;
-  const completeCount = countCompleteSlots(uploads);
-  const REQUIRED_TO_SUBMIT = 8;
+  const completeCount = countCompleteVendorSlots(uploads);
+  const REQUIRED_TO_SUBMIT = VENDOR_DOC_SLOTS.length;
   if (completeCount < REQUIRED_TO_SUBMIT) {
     redirect(
       `/vendor-dashboard/verify?error=${encodeURIComponent(
-        `Submit at least ${REQUIRED_TO_SUBMIT} of the 12 checklist items to start review (currently ${completeCount}).`,
+        `Finish all ${REQUIRED_TO_SUBMIT} of your items to start review (currently ${completeCount} of ${REQUIRED_TO_SUBMIT}). The other 4 checklist items are ones our team runs for you.`,
       )}`,
     );
   }

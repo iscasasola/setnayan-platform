@@ -137,13 +137,16 @@ export function addOnHref(key: string, eventId: string): string {
  * Where the Studio hub's App Store row points — the feature's detail/info page.
  *
  * Default → the catalog-driven App Store detail at /studio/<key>/about
- * (content lives in add-ons-detail.ts). Panood is the exception: its own
- * surface at /studio/panood IS already a bespoke App Store detail (the
- * 2026-05-17 pilot), so the hub links straight there rather than to a
- * duplicate /about page.
+ * (content lives in add-ons-detail.ts). Two exceptions link straight to their
+ * own surface instead of an /about page:
+ *   • panood — its /studio/panood IS already a bespoke App Store detail (the
+ *     2026-05-17 pilot).
+ *   • supplies-marketplace — has no add-ons-detail.ts entry, so an /about link
+ *     404s; its /studio/supplies-marketplace surface is the real destination.
  */
 export function appStoreDetailHref(key: string, eventId: string): string {
   if (key === 'panood') return `/dashboard/${eventId}/studio/panood`;
+  if (key === 'supplies-marketplace') return `/dashboard/${eventId}/studio/supplies-marketplace`;
   return `/dashboard/${eventId}/studio/${key}/about`;
 }
 

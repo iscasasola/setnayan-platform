@@ -64,17 +64,17 @@ const CSS = `
 .tsl .rail{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding:0 4px 8px;scrollbar-width:none}
 .tsl .rail::-webkit-scrollbar{display:none}
 .tsl .card{position:relative;flex:0 0 min(280px, calc(100vw - 80px));scroll-snap-align:start;display:flex;flex-direction:column}
-.tsl .v{position:relative;display:flex;flex-direction:column;flex:1 1 auto;min-height:300px;background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;transition:box-shadow .35s var(--ease)}
+.tsl .v{position:relative;display:flex;flex-direction:column;flex:1 1 auto;min-height:300px;background:var(--card);border:1px solid var(--line);border-radius:var(--m-r-lg);overflow:hidden;transition:box-shadow .35s var(--ease)}
 .tsl .v:hover{box-shadow:0 10px 30px -18px rgba(0,0,0,.4)}
 .tsl .v .img{height:158px;flex:0 0 158px;background:linear-gradient(135deg,#3a3f47,#565b63);display:flex;align-items:center;justify-content:center;position:relative}
 .tsl .v .img img{width:100%;height:100%;object-fit:cover}
 .tsl .v .img .ini{font-family:var(--serif);font-style:italic;font-size:30px;color:rgba(255,255,255,.7)}
 .tsl .v .img .hero-scrim{position:absolute;inset:auto 0 0 0;height:56%;background:linear-gradient(to top,rgba(18,20,24,.6),transparent);z-index:1;pointer-events:none}
-.tsl .v .img .hmatch{position:absolute;left:10px;bottom:10px;z-index:2;font-family:var(--mono);font-size:8px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;padding:4px 8px;border-radius:999px;background:rgba(255,255,255,.93);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+.tsl .v .img .hmatch{position:absolute;left:10px;bottom:10px;z-index:2;font-family:var(--mono);font-size:8px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;padding:4px 8px;border-radius:var(--m-r-full);background:rgba(255,255,255,.93);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
 .tsl .v .img .hmatch.strong{color:#2e7d4f}
 .tsl .v .img .hmatch.good{color:var(--gold-deep)}
 .tsl .v .img .hmatch.fair{color:var(--ink-soft)}
-.tsl .v .img .hprice{position:absolute;right:10px;bottom:10px;z-index:2;font-family:var(--serif);font-style:italic;font-weight:600;font-size:16px;color:#fff;padding:3px 11px;border-radius:8px;background:rgba(18,20,24,.62);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+.tsl .v .img .hprice{position:absolute;right:10px;bottom:10px;z-index:2;font-family:var(--serif);font-style:italic;font-weight:600;font-size:16px;color:#fff;padding:3px 11px;border-radius:var(--m-r-sm);background:rgba(18,20,24,.62);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
 .tsl .v .meta{padding:13px 15px 15px;flex:1 1 auto;display:flex;flex-direction:column}
 .tsl .v .vn{font-family:var(--sans);font-weight:700;font-size:15px;color:var(--ink)}
 .tsl .v .dist{display:flex;align-items:center;gap:4px;font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--ink-soft);margin-top:3px}
@@ -82,7 +82,7 @@ const CSS = `
 .tsl .v .stars{color:var(--gold);font-size:15px;letter-spacing:2px;margin-top:9px}
 .tsl .v .stars .rcount{font-family:var(--mono);font-size:8px;letter-spacing:.03em;color:var(--ink-soft);margin-left:6px;vertical-align:1px}
 .tsl .v .badges{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
-.tsl .bdg{display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:7.5px;letter-spacing:.07em;text-transform:uppercase;padding:3px 7px;border-radius:999px;background:rgba(30,34,41,.06);color:var(--ink-soft);white-space:nowrap}
+.tsl .bdg{display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:7.5px;letter-spacing:.07em;text-transform:uppercase;padding:3px 7px;border-radius:var(--m-r-full);background:rgba(30,34,41,.06);color:var(--ink-soft);white-space:nowrap}
 .tsl .bdg.verified{color:#2e7d4f;background:rgba(46,125,79,.1)}
 .tsl .bdg.setnayan{color:var(--mulberry);background:rgba(92,37,66,.1)}
 .tsl .v .price{font-family:var(--serif);font-style:italic;font-weight:600;font-size:21px;color:var(--ink);margin-top:auto;padding-top:7px}

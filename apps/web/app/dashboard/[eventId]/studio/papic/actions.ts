@@ -273,6 +273,19 @@ export async function reissuePapicSeat(formData: FormData) {
     );
   }
 
+  // Reissue hands the seat to a NEW friend — reset the per-seat capture caps so
+  // they start clean. Mark the prior claimer's captures superseded (excluded
+  // from the new claimer's per-seat count + free-sampler cap) WITHOUT deleting
+  // them: every photo still belongs to the event and still appears in the
+  // couple's gallery (untagged-/superseded-still-delivered). Best-effort and
+  // result-ignored — the token is already rotated, so a stamping hiccup (or a
+  // pre-migration DB without superseded_at) must not fail the reissue.
+  await supabase
+    .from('papic_photos')
+    .update({ superseded_at: new Date().toISOString() })
+    .eq('paparazzi_seat_id', seatId)
+    .is('superseded_at', null);
+
   revalidatePath(`/dashboard/${eventId}/studio/papic/crew`);
   redirect(`/dashboard/${eventId}/studio/papic/crew?seat_set=reissued`);
 }

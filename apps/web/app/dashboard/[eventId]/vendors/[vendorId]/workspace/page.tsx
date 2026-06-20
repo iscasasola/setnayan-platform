@@ -983,6 +983,7 @@ export default async function VendorWorkspacePage({ params }: Props) {
               eventId={eventId}
               variant="embed"
               directPayMethods={directPayMethods}
+              installments={paymentPlan}
             />
           ) : (
             <p className="text-xs text-ink/55">

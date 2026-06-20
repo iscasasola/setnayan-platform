@@ -58,6 +58,12 @@ export async function createOrder(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+  // Anon-draft money floor: an order can't be owned by a placeholder identity
+  // (charge, BIR receipt, refund contactability). Route anonymous buyers to
+  // /signup (convert-in-place) and bring them back to this event afterwards.
+  if (user.is_anonymous) {
+    redirect(`/signup?next=${encodeURIComponent(`/dashboard/${eventId}`)}`);
+  }
 
   // Decision 1 (CLAUDE.md 2026-05-15) — § 3.1a Self-purchase confirm.
   // The new-order page injects `self_purchase_action` when the user is a

@@ -631,7 +631,14 @@ export async function commitOnboardingWedding(
   // committed user-scoped RLS context (after() would lose the cookie session it reads via
   // auth.getUser()). Best-effort: an inquiry failure must NEVER fail the commit (event +
   // membership already saved; the couple can inquire from the dashboard any time).
-  if (payload.sendTopInquiries) {
+  // Anon-draft: an anonymous couple's picks are HELD, not dispatched. Sending an
+  // inquiry opens a two-way vendor thread the vendor may burn a token to answer,
+  // and the reply would bounce to the placeholder email — so we never fan out for
+  // an anon user. The picks persist in events.style_preferences (interested_categories
+  // above), so once they secure their account they can send from the dashboard.
+  // (unlockCategoryWithInquiry also self-guards, but skipping the loop avoids
+  // firing N no-op calls.) Dormant unless anon-draft is live.
+  if (payload.sendTopInquiries && !user.is_anonymous) {
     const perCategory = Math.max(1, Math.min(5, Math.round(payload.inquiriesPerCategory ?? 3)));
     const groupIds = Array.from(
       new Set(

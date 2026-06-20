@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 import { CONCIERGE_ENABLED } from '@/lib/concierge';
 import { fetchUserEvents } from '@/lib/events';
 import { restartTour } from '@/lib/tour-actions';
@@ -431,7 +432,14 @@ export default async function ProfilePage({ searchParams }: Props) {
       </section>
 
       <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Row label="Email" value={profile?.email ?? user.email ?? '—'} />
+        <Row
+          label="Email"
+          value={
+            isPlaceholderEmail(profile?.email ?? user.email)
+              ? 'Not secured yet — add an email to keep your plan'
+              : (profile?.email ?? user.email ?? '—')
+          }
+        />
         <Row label="Account ID" value={profile?.public_id ?? '—'} mono />
         <Row label="Account type" value={profile?.account_type ?? '—'} />
         <Row label="Locale" value={profile?.locale ?? '—'} />

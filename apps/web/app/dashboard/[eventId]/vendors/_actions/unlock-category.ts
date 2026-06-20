@@ -48,6 +48,7 @@ export type UnlockCategoryResult =
   | { status: 'already_active' }
   | { status: 'no_vendor' }
   | { status: 'not_signed_in' }
+  | { status: 'not_secured' }
   | { status: 'not_a_member' }
   | { status: 'invalid_group' }
   | { status: 'error'; message: string };
@@ -86,6 +87,12 @@ export async function unlockCategoryWithInquiry(input: {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { status: 'not_signed_in' };
+  // Anon-draft guard: block an anonymous user from fanning a chat message out
+  // to vendors (vendors burn tokens to answer; replies would bounce to the
+  // placeholder email). Require securing the account first. The onboarding
+  // commit fan-out skips this call for anon users, so this guard is the
+  // belt-and-suspenders floor for the dashboard "Add category" path.
+  if (user.is_anonymous) return { status: 'not_secured' };
 
   // Membership gate — events RLS restricts the read to members.
   const { data: ev } = await supabase

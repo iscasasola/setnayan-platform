@@ -18,6 +18,7 @@ export type SendInviteResult =
       ok: false;
       code:
         | 'NOT_AUTHENTICATED'
+        | 'NOT_SECURED'
         | 'VENDOR_NOT_FOUND'
         | 'ALREADY_LINKED'
         | 'INVALID_EMAIL'
@@ -70,6 +71,16 @@ export async function sendVendorInvite(formData: FormData): Promise<SendInviteRe
       ok: false,
       code: 'NOT_AUTHENTICATED',
       message: 'Sign in to invite vendors.',
+    };
+  }
+  // Anon-draft guard: inviting a vendor emails them and pulls them into a thread
+  // where the couple identity would degrade to a placeholder. Require securing
+  // the account first.
+  if (user.is_anonymous) {
+    return {
+      ok: false,
+      code: 'NOT_SECURED',
+      message: 'Secure your account first to invite vendors.',
     };
   }
 

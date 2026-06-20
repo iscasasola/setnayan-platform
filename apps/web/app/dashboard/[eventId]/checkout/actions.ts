@@ -227,6 +227,9 @@ export type SubmitOrderResult =
   | {
       ok: false;
       reason: string;
+      /** Anon-draft: set when the order was blocked because the user hasn't
+       *  secured their account yet — the drawer routes them to /signup. */
+      needsAccount?: true;
     };
 
 export async function submitOrderAction(
@@ -269,6 +272,17 @@ export async function submitOrderAction(
   } = await supabase.auth.getUser();
   if (!user) {
     return { ok: false, reason: 'Please sign in to submit your order.' };
+  }
+  // Anon-draft money floor: an order ties a real PHP charge, a BIR receipt, and
+  // refund contactability to the buyer — none of which work under a placeholder
+  // identity. Block anonymous users and signal the drawer to route them to
+  // /signup (convert-in-place keeps their event + cart context).
+  if (user.is_anonymous) {
+    return {
+      ok: false,
+      reason: 'Create your account to complete this purchase — your plan stays exactly as it is.',
+      needsAccount: true,
+    };
   }
 
   // ---- Catalog is the single source of truth for the charged price ----

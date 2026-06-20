@@ -21,3 +21,18 @@
 export function anonOnboardingEnabled(): boolean {
   return process.env.NEXT_PUBLIC_ANON_ONBOARDING_ENABLED === 'true';
 }
+
+/**
+ * Domain stamped onto the placeholder email the auth-user trigger gives an
+ * anonymous user (`anon+<uuid>@anon.setnayan.local`). Non-routable by design.
+ */
+export const ANON_EMAIL_DOMAIN = '@anon.setnayan.local';
+
+/**
+ * True when an email is the non-routable placeholder an anonymous user carries
+ * until they secure their account. Used to (a) suppress outbound transactional
+ * email that would bounce, and (b) avoid rendering the ugly placeholder in the UI.
+ */
+export function isPlaceholderEmail(email: string | null | undefined): boolean {
+  return !!email && email.endsWith(ANON_EMAIL_DOMAIN);
+}

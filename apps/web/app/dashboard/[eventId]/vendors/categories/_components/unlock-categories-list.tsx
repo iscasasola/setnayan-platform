@@ -56,6 +56,11 @@ export function UnlockCategoriesList({
           ...e,
           [groupId]: 'No vendors in this category yet — check back soon.',
         }));
+      } else if (res.status === 'not_secured') {
+        // Anon-draft: securing the account opens the vendor thread. Convert in
+        // place (same uid + event), returning to this page afterward.
+        const next = encodeURIComponent(window.location.pathname + window.location.search);
+        window.location.href = `/signup?next=${next}`;
       } else if (res.status === 'not_signed_in' || res.status === 'not_a_member') {
         setErrs((e) => ({ ...e, [groupId]: 'Please sign in again.' }));
       } else {

@@ -57,6 +57,8 @@ import { HostServiceDetails } from './_components/host-service-details';
 import { fetchVendorBudgetSummary } from '@/lib/budget';
 import { fetchPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
+import { fetchPlanForCouple } from '@/lib/vendor-service-payment-schedules.server';
+import type { PlanInstance } from '@/lib/vendor-service-payment-schedules';
 // First-party Setnayan-service order-and-pay (owner directive 2026-06-04):
 // reuse the SAME apply-then-pay surface the add-on SKUs use (InlineCheckoutDrawer
 // + platform_settings receiving accounts), with a Setnayan admin accepting the
@@ -177,6 +179,22 @@ function formatMeetingDate(iso: string): string {
 
 function formatPaymentDate(iso: string): string {
   const d = new Date(iso);
+  return new Intl.DateTimeFormat('en-PH', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'Asia/Manila',
+  }).format(d);
+}
+
+// A frozen payment-plan due_date is a DATE-ONLY string (YYYY-MM-DD). Parse it
+// as a fixed civil date (anchor at UTC noon) so the en-PH render never shifts a
+// day across the +08:00 boundary the way `new Date('YYYY-MM-DD')` (UTC
+// midnight) can. Returns null for an unparseable string.
+function formatPlanDueDate(isoDate: string | null): string | null {
+  if (!isoDate) return null;
+  const d = new Date(`${isoDate}T12:00:00Z`);
+  if (Number.isNaN(d.getTime())) return null;
   return new Intl.DateTimeFormat('en-PH', {
     month: 'short',
     day: 'numeric',
@@ -387,6 +405,22 @@ export default async function VendorWorkspacePage({ params }: Props) {
     });
   } catch {
     directPayMethods = [];
+  }
+
+  // Per-booking PAYMENT PLAN (Phase 2 PR-B) — the installments frozen at lock
+  // from the booked service's schedule template. Couple-RLS-scoped (the plan is
+  // the couple's own booking), so the authed client reads it directly. null =
+  // not locked / pre-PR-B; [] = locked but no schedule (direct-pay fallback);
+  // [...] = render the installment list above the how-to-pay sheet. Best-effort.
+  let paymentPlan: PlanInstance[] | null = null;
+  try {
+    paymentPlan = await fetchPlanForCouple({
+      authedClient: supabase,
+      eventId,
+      eventVendorId: ev.vendor_id,
+    });
+  } catch {
+    paymentPlan = null;
   }
 
   const contracts = (contractsRes.data ?? []) as Array<{
@@ -895,6 +929,53 @@ export default async function VendorWorkspacePage({ params }: Props) {
               Payments
             </h3>
           </header>
+
+          {/*
+            Payment plan (Phase 2 PR-B). When the booked service carried a
+            payment schedule, finalizeVendor froze it into a per-booking plan at
+            lock. Render the installments here — label · amount · due date —
+            ABOVE the itemization card + how-to-pay sheet. When there's no plan
+            yet (not locked / pre-PR-B) or the service had no schedule (empty
+            plan), this collapses and the existing direct-pay UI carries the
+            "pay the vendor directly" guidance, unchanged. The pay-confirm flow
+            is PR-C — this is display-only.
+          */}
+          {paymentPlan && paymentPlan.length > 0 ? (
+            <div className="space-y-2 rounded-lg border border-ink/10 bg-white/60 p-4">
+              <p className="text-xs font-semibold text-ink">Payment plan</p>
+              <p className="text-[11px] text-ink/55">
+                {displayName} set up this plan. Pay each installment using the
+                methods below.
+              </p>
+              <ul className="divide-y divide-ink/5">
+                {paymentPlan.map((inst) => {
+                  const amount = formatPHP(inst.amount_php);
+                  const due = formatPlanDueDate(inst.due_date);
+                  return (
+                    <li
+                      key={inst.seq}
+                      className="flex items-baseline justify-between gap-3 py-2"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-medium text-ink">
+                          {inst.label}
+                        </p>
+                        <p className="text-[11px] text-ink/50">
+                          {due ? `Due ${due}` : 'No fixed due date'}
+                        </p>
+                      </div>
+                      <p className="shrink-0 text-xs font-semibold tabular-nums text-ink">
+                        {amount ??
+                          (inst.amount_kind === 'percent' && inst.percent_bps != null
+                            ? `${Math.round(inst.percent_bps / 100)}% of total`
+                            : 'Amount TBD')}
+                      </p>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ) : null}
 
           {vendorBudgetSummary ? (
             <VendorItemizationCard

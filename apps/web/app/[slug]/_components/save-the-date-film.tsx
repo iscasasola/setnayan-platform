@@ -662,8 +662,9 @@ export function SaveTheDateFilm({
   }, [N]);
 
   // Video beat — AUTOPLAY + audio CROSSFADE (owner 2026-06-19). The video plays
-  // by itself when its beat is active (the reveal gesture already granted the
-  // page media playback). The soundtrack CROSSFADES to the video's audio as it
+  // by itself when its beat is active — with sound when the page still has user
+  // activation, else muted (the fallback below keeps it from hanging). The
+  // soundtrack CROSSFADES to the video's audio as it
   // plays, then crossfades back to the music when the film returns to the
   // closing screen. On the video's natural end the film advances to the calendar
   // close. The whole experience is already full screen (Fullscreen API on the
@@ -704,7 +705,39 @@ export function SaveTheDateFilm({
         setVol(v, 0); // start silent, fade up
       }
       v.muted = muted || preview;
-      if (playing) v.play().catch(() => {}); else v.pause();
+      if (playing) {
+        // Autoplay-with-SOUND needs recent user activation. By the time the film
+        // auto-advances into this beat (~30s of text beats after the reveal-lift),
+        // that activation is gone — and on iOS Safari a play() fired outside a
+        // gesture handler is blocked regardless. The no-reveal grace path and an
+        // auto-completing reveal never had a gesture at all. So an UNMUTED play()
+        // REJECTS; because the beat holds on dur:Infinity and ONLY 'ended'
+        // advances it, the film would HANG on the frozen first frame forever —
+        // the reported "hangs in the center even on strong internet" (it's the
+        // autoplay policy, not buffering). MUTED autoplay is always permitted, so
+        // on rejection retry muted: the clip plays, fires 'ended', and the film
+        // advances. We keep the soundtrack playing under the now-silent clip so
+        // the beat isn't dead air.
+        const attempt = v.play();
+        if (attempt && typeof attempt.then === 'function') {
+          attempt.catch(() => {
+            v.muted = true;
+            v.play().catch(() => {
+              // Even muted playback failed (decode/network) — don't strand the
+              // guest on the Infinity beat; advance to the closing screen.
+              if (idxRef.current === videoSlideIdxRef.current) {
+                goRef.current(videoSlideIdxRef.current + 1);
+              }
+            });
+            if (a && content.musicUrl && !muted) {
+              a.play().catch(() => {});
+              crossfade(1, 0); // undo the duck — keep the music as the beat's audio
+            }
+          });
+        }
+      } else {
+        v.pause();
+      }
       crossfade(0, 1, true); // music fades out → PAUSES (holds position); video fades in
     } else {
       // Resume the music FROM WHERE IT PAUSED — play() never resets currentTime,
@@ -719,10 +752,20 @@ export function SaveTheDateFilm({
 
     // Natural end → return to the closing screen (the crossfade-back fires there).
     const onEnded = () => goRef.current(videoSlideIdxRef.current + 1);
+    // A mid-play decode/network error must NOT strand the film on the Infinity
+    // video beat either — advance, but ONLY while this beat is active (the clip
+    // preloads from mount, so an early load error must not jump a text beat).
+    const onError = () => {
+      if (idxRef.current === videoSlideIdxRef.current) {
+        goRef.current(videoSlideIdxRef.current + 1);
+      }
+    };
     v.addEventListener('ended', onEnded);
+    v.addEventListener('error', onError);
     return () => {
       cancelAnimationFrame(fade);
       v.removeEventListener('ended', onEnded);
+      v.removeEventListener('error', onError);
     };
   }, [idx, playing, muted, videoSlideIndex, content.musicUrl, preview]);
 

@@ -245,7 +245,12 @@ export default async function VendorVerifyPage({ searchParams }: Props) {
       ) : null}
 
       {isRejected && application ? (
-        <RejectedCard application={application} />
+        <>
+          <RejectedCard application={application} />
+          {/* A rejected vendor must be able to try again — ensureDraftApplication
+              creates a fresh draft (no draft exists post-rejection). */}
+          <StartApplicationCard recommended={recommended} />
+        </>
       ) : null}
     </section>
   );

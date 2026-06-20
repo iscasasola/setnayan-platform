@@ -28,6 +28,30 @@
  * the profile so the count is honest.
  */
 
+/**
+ * Declared + DTI-verified experience feature flag (2026-06-20). Gates the
+ * vendor-declared "in business since YYYY / weddings done" fields, the admin
+ * DTI-verify control, and the card display. Schema-dependent (new vendor_profiles
+ * columns via migration 20270209420471), so this is flipped ON only AFTER that
+ * migration is applied — otherwise the gated reads/writes would hit missing
+ * columns. Default OFF.
+ */
+export function vendorExperienceEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_VENDOR_EXPERIENCE_ENABLED === 'true';
+}
+
+/**
+ * Compute whole years in business from a declared start year. Returns null when
+ * unset or implausible. Uses the provided "now" year so callers stay testable.
+ */
+export function yearsInBusiness(
+  sinceYear: number | null | undefined,
+  nowYear: number,
+): number | null {
+  if (sinceYear == null || sinceYear < 1900 || sinceYear > nowYear) return null;
+  return nowYear - sinceYear;
+}
+
 export type ExperienceTierKey = 'new' | 'established' | 'experienced' | 'expert' | 'elite';
 
 export type ExperienceTier = {

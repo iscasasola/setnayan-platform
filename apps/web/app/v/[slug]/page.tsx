@@ -2,7 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { Mail, Phone, Globe, MapPin, Star, Sparkles, Heart } from 'lucide-react';
+import { Mail, Phone, Globe, MapPin, Star, Sparkles, Heart, BadgeCheck } from 'lucide-react';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
@@ -25,7 +25,7 @@ import {
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
 import { isTrueNameTier, tierCaps } from '@/lib/vendor-tier-caps';
-import { experienceTier } from '@/lib/vendor-experience';
+import { experienceTier, vendorExperienceEnabled, yearsInBusiness } from '@/lib/vendor-experience';
 import { fetchVendorServices, type VendorServiceRow } from '@/lib/vendor-services';
 import { fetchUserEvents } from '@/lib/events';
 import { resolveLivePax } from '@/lib/pax';
@@ -499,6 +499,28 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
   // Spec §5 experience tier — surfaced as a subtle hero badge. We render the
   // tier even for "New to Setnayan" on the profile (honest, not negative).
   const expTier = experienceTier(finalizedBookingCount);
+
+  // Declared + DTI-verified experience (flag + schema gated; soft-probe degrades
+  // on 42703 so a pre-migration DB never breaks the profile). Sits alongside the
+  // Setnayan-native tier so the card reads credible at launch.
+  let declaredExp: { years: number | null; weddings: number | null; verified: boolean } | null = null;
+  if (vendorExperienceEnabled()) {
+    const { data: exp } = await admin
+      .from('vendor_profiles')
+      .select('in_business_since_year, weddings_done_approx, experience_verified_at')
+      .eq('vendor_profile_id', vendor.vendor_profile_id)
+      .maybeSingle()
+      .then((r) => (r.error ? { data: null } : r));
+    const e = exp as
+      | { in_business_since_year?: number | null; weddings_done_approx?: number | null; experience_verified_at?: string | null }
+      | null;
+    const years = yearsInBusiness(e?.in_business_since_year ?? null, new Date().getFullYear());
+    const weddings = e?.weddings_done_approx ?? null;
+    if (years != null || weddings != null) {
+      declaredExp = { years, weddings, verified: !!e?.experience_verified_at };
+    }
+  }
+
   const hasMore = reviewStats.total_count > reviews.length;
   const activeServices = allServices.filter((s) => s.is_active);
 
@@ -964,6 +986,25 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
             >
               {expTier.longLabel}
             </p>
+            {declaredExp ? (
+              <p
+                className="inline-flex w-fit items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-2.5 py-0.5 text-[11px] text-ink/70"
+                title={
+                  declaredExp.verified
+                    ? 'Years in business verified against the vendor’s DTI registration.'
+                    : 'Self-reported by the vendor.'
+                }
+              >
+                {declaredExp.years != null ? <span className="font-medium text-ink">{declaredExp.years} yrs in business</span> : null}
+                {declaredExp.years != null && declaredExp.weddings != null ? <span aria-hidden>·</span> : null}
+                {declaredExp.weddings != null ? <span>{declaredExp.weddings}+ weddings</span> : null}
+                {declaredExp.verified ? (
+                  <BadgeCheck aria-hidden className="h-3.5 w-3.5 text-success-700" strokeWidth={2} />
+                ) : (
+                  <span className="text-ink/40">· self-reported</span>
+                )}
+              </p>
+            ) : null}
             <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-ink/60">
               {vendor.location_city ? (
                 <span className="inline-flex items-center gap-1">

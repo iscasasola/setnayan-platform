@@ -13,6 +13,7 @@ import {
   type VerificationState,
 } from '@/lib/vendor-verification';
 import { notifyVendorStatusChange } from '@/lib/vendor-status-notify';
+import { vendorExperienceEnabled } from '@/lib/vendor-experience';
 
 /**
  * Server actions backing the admin Verification Queue. Two surfaces share
@@ -234,6 +235,39 @@ export async function archiveVendor(formData: FormData) {
   revalidatePath('/admin/vendors');
   revalidatePath('/explore');
   redirect('/admin/verify?archived=1');
+}
+
+/**
+ * Confirm a vendor's declared "in business since YYYY" against the DTI
+ * registration document already in their verification checklist. Stamps
+ * experience_verified_at + the confirming admin, which flips the card badge
+ * from "self-reported" to a verified trust check. Flag + schema gated
+ * (NEXT_PUBLIC_VENDOR_EXPERIENCE_ENABLED + migration 20270209420471). The
+ * declared year auto-unverifies on the vendor's next change (saveVendorProfile).
+ */
+export async function verifyVendorExperience(formData: FormData) {
+  const actor = await requireAdmin();
+  if (!vendorExperienceEnabled()) {
+    redirect('/admin/verify?error=Experience+verification+is+not+enabled');
+  }
+  const vendorProfileId = readFormString(formData, 'vendor_profile_id');
+  if (!vendorProfileId) throw new Error('Missing vendor_profile_id.');
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('vendor_profiles')
+    .update({
+      experience_verified_at: new Date().toISOString(),
+      experience_verified_by: actor.user_id,
+    })
+    .eq('vendor_profile_id', vendorProfileId);
+  if (error) {
+    redirect(`/admin/verify?error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath('/admin/verify');
+  revalidatePath('/explore');
+  redirect('/admin/verify?exp_verified=1');
 }
 
 // ---------------------------------------------------------------------------

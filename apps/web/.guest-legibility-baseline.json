@@ -1,0 +1,14 @@
+{
+  "apps/web/app/_components/wayfinding-map.tsx": 4,
+  "apps/web/app/[slug]/_components/countdown.tsx": 1,
+  "apps/web/app/[slug]/_components/editorial/editorial-content.tsx": 25,
+  "apps/web/app/[slug]/_components/guest-hub-card.tsx": 12,
+  "apps/web/app/[slug]/_components/save-the-date-film.tsx": 1,
+  "apps/web/app/[slug]/_components/schedule-widget.tsx": 3,
+  "apps/web/app/[slug]/find-my-table/page.tsx": 2,
+  "apps/web/app/[slug]/find-seat/page.tsx": 2,
+  "apps/web/app/[slug]/page.tsx": 21,
+  "apps/web/app/[slug]/recap/page.tsx": 6,
+  "apps/web/app/[slug]/welcome/page.tsx": 1,
+  "apps/web/app/join/[eventId]/success/page.tsx": 1
+}

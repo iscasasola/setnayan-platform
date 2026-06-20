@@ -8,7 +8,6 @@ import {
   displayServiceLabel,
   type VendorCategory,
 } from '@/lib/vendors';
-import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { ServiceWizard } from '../../_components/service-wizard';
 
 export const metadata = { title: 'Add a service · Setnayan' };
@@ -52,19 +51,6 @@ export default async function NewServicePage({
     ),
   ).map((c) => ({ value: c, label: displayServiceLabel(c as VendorCategory) }));
 
-  // Tier → daily-capacity ceiling for the availability step.
-  const { data: tierRow } = await supabase
-    .from('vendor_profiles')
-    .select('tier_state, is_founder')
-    .eq('vendor_profile_id', profile.vendor_profile_id)
-    .maybeSingle();
-  const tierRowTyped = tierRow as
-    | { tier_state?: string | null; is_founder?: boolean | null }
-    | null;
-  const baseCaps = tierCaps(asVendorTier(tierRowTyped?.tier_state));
-  const slotsPerDay =
-    tierRowTyped?.is_founder === true ? Infinity : baseCaps.slotsPerDay;
-
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6">
       <Link
@@ -82,8 +68,7 @@ export default async function NewServicePage({
         categoryValue={cat}
         categoryLabel={displayServiceLabel(cat)}
         otherCategories={otherCategories}
-        branches={[]}
-        slotsPerDay={slotsPerDay === Infinity ? 99 : slotsPerDay}
+        vendorProfileId={profile.vendor_profile_id}
       />
     </div>
   );

@@ -137,6 +137,18 @@ function parseExclusivePerk(formData: FormData): string | null {
 }
 
 /**
+ * Parse the service cover photo (the <FileUpload name="primary_photo_r2_key">
+ * R2 key). Returns null when blank — allowed for drafts; required to publish
+ * (gated in commitVendorService). Feeds vendor_services.primary_photo_r2_key,
+ * which the explore + public cards already render (logo/placeholder fallback).
+ */
+function parsePrimaryPhoto(formData: FormData): string | null {
+  const raw = formData.get('primary_photo_r2_key');
+  if (typeof raw !== 'string' || raw.trim().length === 0) return null;
+  return raw.trim();
+}
+
+/**
  * Recommended lead time in months (Setnayan AI §4, vendor-owned 2026-06-16): a
  * non-negative number, fractional allowed (0.5 ≈ 2 weeks). Blank → null = no
  * recommended lead → no last-minute range → always bookable. The START of this
@@ -819,9 +831,17 @@ export async function commitVendorService(formData: FormData) {
       discount_expires_at: discount.discount_expires_at,
       discount_conditions_md: discount.discount_conditions_md,
       exclusive_perk_text: parseExclusivePerk(formData),
+      primary_photo_r2_key: parsePrimaryPhoto(formData),
     };
   } catch (e) {
     return back((e as Error).message);
+  }
+
+  // Publish gate (owner 2026-06-20 "the card needs a photo"): a live service
+  // card must carry a real cover photo. Drafts can save without one. The perk
+  // gate is re-checked inside the RPC; the photo gate lives here in TS.
+  if (publish && !fields.primary_photo_r2_key) {
+    return back('Add a cover photo before publishing — drafts can save without one.');
   }
 
   // ---- Tier caps on CREATE only (a new row can introduce a new leaf/parent) ----

@@ -1,52 +1,52 @@
 'use client';
 
-import { useMemo, useState, type Dispatch, type SetStateAction } from 'react';
-import { ArrowLeft, ArrowRight, Check, Plus, Trash2, Lock } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { ArrowLeft, ArrowRight, Check, Lock } from 'lucide-react';
 import { Field } from '@/app/_components/forms/field';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { FileUpload } from '@/app/_components/file-upload';
 import { commitVendorService } from '../actions';
 
 /**
  * ServiceWizard — the guided "create a service" flow (vendor Services builder
  * redesign, owner 2026-06-20). One <form> posting to commitVendorService (the
  * single atomic save). All step sections live in the DOM (so every field
- * submits); only the active one is shown. 3 answers publish (category · price ·
- * perk); links / availability / payment are optional steps. Time-slots stay on
- * the legacy card (Enterprise + booking-lock) — this flow sets daily_capacity.
+ * submits); only the active one is shown.
+ *
+ * The listing is the MENU; the per-couple price/terms are negotiated in the
+ * inquiry (owner 2026-06-20). Two things the listing does NOT carry anymore:
+ *   • Availability/limits live on a CALENDAR the vendor names + assigns
+ *     services to (owner 2026-06-20 "the calendar has the limits, not the
+ *     service") — not a per-service field here.
+ *   • Payment plans are offered during negotiation (owner 2026-06-20), not
+ *     declared on the listing.
+ * So the card is simple: a photo + category/title → from-price → perk →
+ * comes-with. Publish needs a category (route), a PHOTO, and a perk; price is
+ * optional (quote-on-request).
  */
 
 type OtherCategory = { value: string; label: string };
-type Branch = { branch_id: string; label: string };
-
-type ScheduleRow = {
-  label: string;
-  kind: 'percent' | 'fixed';
-  value: string;
-  anchor: '' | 'on_lock' | 'before_event';
-  offset: string;
-};
 
 export function ServiceWizard({
   categoryValue,
   categoryLabel,
   otherCategories,
-  branches,
-  slotsPerDay,
+  vendorProfileId,
 }: {
   categoryValue: string;
   categoryLabel: string;
   otherCategories: OtherCategory[];
-  branches: Branch[];
-  slotsPerDay: number;
+  vendorProfileId: string;
 }) {
   const [step, setStep] = useState(0);
   const [title, setTitle] = useState('');
   const [price, setPrice] = useState('');
   const [perk, setPerk] = useState('');
   const [linkCount, setLinkCount] = useState(0);
-  const [rows, setRows] = useState<ScheduleRow[]>([]);
+  const [photoKey, setPhotoKey] = useState('');
 
-  // Step sequence — optional steps prune out when they don't apply.
+  // Step sequence — the links step prunes out when the vendor has no other
+  // categories to bundle.
   const steps = useMemo(() => {
     const s: { id: string; label: string }[] = [
       { id: 'what', label: 'What you offer' },
@@ -54,8 +54,6 @@ export function ServiceWizard({
       { id: 'perk', label: 'Setnayan Exclusive' },
     ];
     if (otherCategories.length > 0) s.push({ id: 'links', label: "What's included" });
-    s.push({ id: 'when', label: 'Availability' });
-    s.push({ id: 'pay', label: 'Payment plan' });
     s.push({ id: 'review', label: 'Review & publish' });
     return s;
   }, [otherCategories.length]);
@@ -63,7 +61,9 @@ export function ServiceWizard({
   const clamped = Math.min(step, steps.length - 1);
   const activeId = steps[clamped]?.id ?? 'what';
   const isLast = clamped === steps.length - 1;
-  const canPublish = perk.trim().length > 0;
+  const hasPhoto = photoKey.trim().length > 0;
+  const hasPerk = perk.trim().length > 0;
+  const canPublish = hasPhoto && hasPerk;
 
   const show = (id: string) => (activeId === id ? {} : { hidden: true });
 
@@ -89,7 +89,7 @@ export function ServiceWizard({
         ))}
       </ol>
 
-      {/* 1 · What you offer */}
+      {/* 1 · What you offer — category + cover photo + title */}
       <section {...show('what')} className="space-y-3">
         <div>
           <p className="text-xs font-medium uppercase tracking-[0.12em] text-ink/45">Category</p>
@@ -99,6 +99,21 @@ export function ServiceWizard({
           </p>
           <p className="mt-1 text-sm text-ink/55">This is what you&rsquo;re listing. Pick a different one from the Services page if it&rsquo;s wrong.</p>
         </div>
+        <Field
+          label="Cover photo"
+          htmlFor="primary_photo_r2_key"
+          help="Couples see this on your service card — it's the first thing they notice. PNG, JPEG, or WebP up to 5 MB. Required to publish."
+        >
+          <FileUpload
+            bucket="media"
+            pathPrefix={`vendors/${vendorProfileId}/services`}
+            name="primary_photo_r2_key"
+            onChange={(v) => setPhotoKey(typeof v === 'string' ? v : '')}
+            maxSizeMB={5}
+            acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
+            variant="square"
+          />
+        </Field>
         <Field label="Listing title (optional)" htmlFor="title">
           <input
             id="title"
@@ -127,6 +142,7 @@ export function ServiceWizard({
             className="input-field"
           />
         </Field>
+        <p className="text-xs text-ink/55">A &ldquo;from&rdquo; price. The real number is quoted in each couple&rsquo;s inquiry.</p>
         <Field label="Crew size (optional)" htmlFor="crew_size">
           <input id="crew_size" name="crew_size" type="number" min={0} step={1} className="input-field" />
         </Field>
@@ -210,50 +226,27 @@ export function ServiceWizard({
         </section>
       ) : null}
 
-      {/* 5 · Availability (capacity + branch) */}
-      <section {...show('when')} className="space-y-3">
-        {slotsPerDay > 0 ? (
-          <Field label="Bookings you can take per day" htmlFor="daily_capacity">
-            <input id="daily_capacity" name="daily_capacity" type="number" min={1} max={slotsPerDay} step={1} placeholder="Leave blank for no limit" className="input-field" />
-          </Field>
-        ) : (
-          <p className="rounded-lg border border-ink/10 bg-cream px-3 py-2 text-sm text-ink/55">
-            Daily booking limits are a paid-plan feature. You can still publish — couples just won&rsquo;t see a per-day cap.
-          </p>
-        )}
-        {branches.length > 0 ? (
-          <Field label="Branch (optional)" htmlFor="branch_id">
-            <select id="branch_id" name="branch_id" defaultValue="" className="input-field">
-              <option value="">Main / unassigned</option>
-              {branches.map((b) => (
-                <option key={b.branch_id} value={b.branch_id}>{b.label}</option>
-              ))}
-            </select>
-          </Field>
-        ) : null}
-      </section>
-
-      {/* 6 · Payment plan (installments) */}
-      <section {...show('pay')} className="space-y-2">
-        <p className="text-sm font-medium text-ink">Payment plan (optional)</p>
-        <p className="text-sm text-ink/55">Set a downpayment + installments couples will see. Skip it to keep things simple.</p>
-        <ScheduleEditor rows={rows} setRows={setRows} />
-      </section>
-
-      {/* 7 · Review & publish */}
+      {/* 5 · Review & publish */}
       <section {...show('review')} className="space-y-3">
         <p className="text-sm font-medium text-ink">Review</p>
         <dl className="space-y-1.5 rounded-lg border border-ink/10 bg-cream p-4 text-sm">
           <Recap k="Category" v={categoryLabel} />
+          <Recap k="Cover photo" v={hasPhoto ? 'Added' : '— none yet (required to publish)'} />
           {title ? <Recap k="Title" v={title} /> : null}
           <Recap k="Price" v={price ? `₱${price}` : 'Quote on request'} />
           <Recap k="Setnayan Exclusive" v={perk || '— not set (required to publish)'} />
           {linkCount > 0 ? <Recap k="Comes with" v={`${linkCount} service${linkCount === 1 ? '' : 's'}`} /> : null}
-          {rows.length > 0 ? <Recap k="Payment plan" v={`${rows.length} installment${rows.length === 1 ? '' : 's'}`} /> : null}
         </dl>
+        <p className="text-xs text-ink/55">
+          Availability is set on your <span className="font-medium text-ink">Calendar</span>, and payment terms are agreed in each couple&rsquo;s inquiry — so this listing stays simple.
+        </p>
         {!canPublish ? (
           <p className="rounded-md bg-warn-50 px-3 py-2 text-xs text-warn-900">
-            Add a Setnayan Exclusive perk (step 3) to publish — or save as a draft for now.
+            {!hasPhoto && !hasPerk
+              ? 'Add a cover photo (step 1) and a Setnayan Exclusive (step 3) to publish — or save as a draft for now.'
+              : !hasPhoto
+                ? 'Add a cover photo (step 1) to publish — or save as a draft for now.'
+                : 'Add a Setnayan Exclusive (step 3) to publish — or save as a draft for now.'}
           </p>
         ) : null}
         <div className="flex flex-wrap gap-2">
@@ -309,60 +302,6 @@ function Recap({ k, v }: { k: string; v: string }) {
     <div className="flex justify-between gap-3">
       <dt className="text-ink/55">{k}</dt>
       <dd className="text-right font-medium text-ink">{v}</dd>
-    </div>
-  );
-}
-
-/** Lightweight installment editor — emits the same item_* field names the
- *  legacy payment-schedule action + commitVendorService's parser read. */
-function ScheduleEditor({
-  rows,
-  setRows,
-}: {
-  rows: ScheduleRow[];
-  setRows: Dispatch<SetStateAction<ScheduleRow[]>>;
-}) {
-  const update = (i: number, patch: Partial<ScheduleRow>) =>
-    setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
-
-  return (
-    <div className="space-y-2">
-      {rows.map((r, i) => (
-        <div key={i} className="grid grid-cols-1 gap-2 rounded-lg border border-ink/10 p-3 sm:grid-cols-[1fr_auto_auto_auto_auto]">
-          <input
-            name="item_label"
-            value={r.label}
-            onChange={(e) => update(i, { label: e.target.value })}
-            maxLength={80}
-            placeholder={i === 0 ? 'Downpayment' : `Payment ${i}`}
-            className="input-field"
-          />
-          <select name="item_amount_kind" value={r.kind} onChange={(e) => update(i, { kind: e.target.value as ScheduleRow['kind'] })} className="input-field">
-            <option value="percent">%</option>
-            <option value="fixed">₱</option>
-          </select>
-          <input name="item_value" value={r.value} onChange={(e) => update(i, { value: e.target.value })} type="number" min={0} step={1} placeholder="0" className="input-field w-24" />
-          <select name="item_due_anchor" value={r.anchor} onChange={(e) => update(i, { anchor: e.target.value as ScheduleRow['anchor'] })} className="input-field">
-            <option value="">No due date</option>
-            <option value="on_lock">After booking</option>
-            <option value="before_event">Before event</option>
-          </select>
-          <div className="flex items-center gap-1">
-            <input name="item_due_offset_days" value={r.offset} onChange={(e) => update(i, { offset: e.target.value })} type="number" min={0} step={1} placeholder="days" className="input-field w-20" aria-label="Days" />
-            <button type="button" onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))} aria-label="Remove installment" className="rounded-md p-2 text-ink/45 hover:bg-ink/5">
-              <Trash2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            </button>
-          </div>
-        </div>
-      ))}
-      <button
-        type="button"
-        onClick={() => setRows((rs) => [...rs, { label: '', kind: 'percent', value: '', anchor: '', offset: '' }])}
-        className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 hover:bg-ink/5"
-      >
-        <Plus aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        Add an installment
-      </button>
     </div>
   );
 }

@@ -17,6 +17,32 @@ Builds on PR-A. When a couple LOCKS a marketplace vendor, `finalizeVendor` now f
 Typecheck + lint pass locally (apps/web; lint warnings are all pre-existing, in untouched files). Scope = the plan table + enum + notifications registration + `finalizeVendor` snapshot + couple workspace render ONLY — no vendor-accept / cleared (PR-C/D). Auto-merge armed; required CI checks + Vercel preview are the gate.
 
 SPEC IMPACT: `02_Specifications/Vendor_Transaction_Lifecycle_2026-06-20.md` Phase 2 PR-B (lock snapshots the schedule into a per-booking plan + couple workspace render + payment_info_sent). Plan is the concrete per-booking freeze of PR-A's template; vendor-accept / cleared records land in PR-C/D.
+## 2026-06-20 · feat(join): accountless guest self-join via event QR (Lola Remedios — deferred HIGH)
+
+Owner: "yes we allow this" — let an older guest who scans the event QR add themselves WITHOUT creating an account (the 1 HIGH deferred from the guest-legibility audit). Previously `/join/[eventId]` hard-walled behind sign-in/create-account before a guest could do anything.
+
+Design (from a Plan-agent investigation, in `Guest_Legibility_Audit_2026-06-20.md`): **route accountless joiners into the existing `guests` table + `setnayan_guest_session` cookie — the SAME mechanism `/[slug]/redeem` already uses — NOT into `event_members`.** Zero RLS changes, zero migration. `event_members` stays account-only (its `member_can_self_join` policy + `user_id NOT NULL` are untouched); the QR token + signed cookie are the authorization (admin-client write, same as redeem).
+
+- **`apps/web/app/join/[eventId]/actions.ts`** — new `selfJoinAction`: re-validates the join token (mandatory — the only gate), requires the event to have a public `slug` (else falls back to sign-in), is idempotent via `readGuestSession()` (no duplicate row on re-submit), enforces a `SELF_JOIN_CEILING` (1000) sanity cap on `self_joined`-tagged rows, inserts a `guests` row (couple's quick-add shape + `custom_tags:['self_joined']`, name split best-effort), signs the guest cookie via `setGuestSession()`, records a best-effort `scan_events` row (`entry:'self_join'`), and redirects to `/[slug]` where the guest RSVPs through the existing widget. Signed-in `joinEventAction` (event_members + privacy claim flow) is unchanged.
+- **`apps/web/app/join/[eventId]/page.tsx`** — removed the anonymous account-wall. Anonymous + event has a slug → render the name/role picker posting to `selfJoinAction` (+ "Have an account? Sign in" link, + skip-to-page if already self-joined on this device). Anonymous + no slug yet → keep the sign-in/create wall (nowhere public to land otherwise). Added `slug` to the event select; hoisted `errorMessage`; added `join_closed`/`join_failed` copy.
+
+Couple impact: self-joined guests appear on the dashboard guest list immediately (tagged `self_joined` for review/removal) and count toward RSVP/lifecycle. They get no account/dashboard access and no notifications (no email captured) — by design.
+
+Type contracts verified (`await headers()`, `scan_events` shape, JoinShell accepts the extra `slug`). Not built locally (pnpm worktree node_modules can't be cross-linked); required CI (typecheck + lint + build) is the gate, auto-merge armed.
+
+SPEC IMPACT: closes the deferred `/join` HIGH in `Guest_Legibility_Audit_2026-06-20.md` (status updated). Privacy note: anyone holding the event's single shared QR token can add a name + view the `/[slug]` page (gated for private events by the cookie) — mitigated by the token gate + `self_joined` tag + ceiling + couple delete; a couple-facing "disable self-join" toggle is a possible follow-up. Logged in `DECISION_LOG.md`.
+## 2026-06-20 · feat(seating): "Build my seating" — one-tap starting draft from the guest list
+
+Takes the couple Seating editor off a blank canvas — the `USABILITY_DIFFICULTY_HEATMAP_2026-06-18.md` rated it the hardest couple surface (diff 5), and the owner's "make everything ≤3" goal picked this as the biggest customer win. Auto Arrange already existed but is *disabled until tables exist*, so a couple first had to manually conjure the right number/types of tables before any power tool unlocked. This adds the missing "draft, don't blank" step.
+
+- **`lib/seating.ts`** — new pure `recommendTableSet(guests)`: recommends a table SET from the guest list — one Sweetheart for the couple + `ceil(non-declined ÷ 10)` round-10 tables (uniform — the PH reception workhorse), capped at 60. Sizing counts everyone not declined (attending + pending), since a floor is built before all RSVPs land.
+- **`actions.ts`** — new gated `buildSeatingDraft()`: recommend the set → insert the tables → lay them out stage-out (server-side `computeAutoLayout` against a nominal canvas; positions are percent so they render at any size) → seat the confirmed-attending by role tier (`computeAutoSeat`). Guarded to a truly empty floor (never clobbers an in-progress plan); reuses the exact lock-assert + `auto_seat_last_used_at` stamp as Auto Arrange. No migration — reuses `event_tables` + `event_seat_assignments`.
+- **`seating-editor.tsx`** — the empty-canvas text ("Add a table from the sidebar…") becomes a "Build my seating" CTA that says what it'll do (counts the couple's guests), gated on the editor lock like every other edit; the success notice teaches the next gesture (drag a table / tap a guest then a chair). Two secondary empty-states point at it.
+- **`seating-logic.spec.ts`** — 7 `recommendTableSet` cases (per-10 sizing + labels, pending counted, declined excluded, couple→Sweetheart, single-guest floor, the 60-table cap).
+
+Verified: `tsc --noEmit` clean across the whole project (0 errors); `recommendTableSet` exercised at runtime (9/9). Required CI (typecheck + lint + build) + Vercel preview are the gate (pnpm monorepo — full lint/build can't run cross-worktree locally), auto-merge armed.
+
+SPEC IMPACT: new UX affordance on iteration 0008 (seating). Corpus is archive per the AS-BUILT flip; logged as a row in `DECISION_LOG.md`. Honors the locked 0008 table catalog (no new types) and the seat-plan-stays-free principle (deterministic, zero-cost — no AI, no R2).
 ## 2026-06-20 · ci(guest): "lint guest legibility" guardrail — stops tiny text regressing on guest surfaces
 
 The 2026-06-20 "Lola Remedios" audit found the dominant guest-facing failure was 7–11px load-bearing text. #1872/#1873 fixed the worst; this guard stops it coming back (the owner-approved "contrast/min-size lint").

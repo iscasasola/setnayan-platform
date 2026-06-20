@@ -81,7 +81,7 @@ function isLockupStyle(s: string | null | undefined): s is LockupStyle {
 // static twins are pixel-geometry siblings.
 const LOCKUP_VIEWBOX: Record<LockupStyle, string> = {
   bar: '6 14 120 70',
-  duo: '18 18 66 62',
+  duo: '10 18 82 62',
   script: '8 6 168 90',
   infinity: '18 8 164 76',
 };
@@ -572,8 +572,8 @@ function LockupAnimated({
     if (style === 'duo') {
       return (
         <>
-          <text x={42} y={72} fontSize={66} {...g}>{a}</text>
-          <text x={58} y={72} fontSize={66} {...g}>{b}</text>
+          <text x={34} y={72} fontSize={66} {...g}>{a}</text>
+          <text x={68} y={72} fontSize={66} {...g}>{b}</text>
         </>
       );
     }

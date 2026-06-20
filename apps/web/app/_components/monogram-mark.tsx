@@ -93,9 +93,9 @@ export function MonogramMark(props: Props) {
   // duo — two serif capitals pulled close / lightly overlapping, no divider.
   if (style === 'duo') {
     return (
-      <svg viewBox="18 18 66 62" {...common}>
-        <text x={42} y={72} fontSize={66} {...g}>{a}</text>
-        <text x={58} y={72} fontSize={66} {...g}>{b}</text>
+      <svg viewBox="10 18 82 62" {...common}>
+        <text x={34} y={72} fontSize={66} {...g}>{a}</text>
+        <text x={68} y={72} fontSize={66} {...g}>{b}</text>
       </svg>
     );
   }

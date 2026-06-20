@@ -364,10 +364,10 @@ function lockupMarkSvg(opts: {
   }
   if (style === 'duo') {
     return {
-      viewBox: '18 18 66 62',
+      viewBox: '10 18 82 62',
       inner:
-        `<text x="42" y="72" font-size="66" ${g}>${A}</text>` +
-        `<text x="58" y="72" font-size="66" ${g}>${B}</text>`,
+        `<text x="34" y="72" font-size="66" ${g}>${A}</text>` +
+        `<text x="68" y="72" font-size="66" ${g}>${B}</text>`,
     };
   }
   if (style === 'script') {

@@ -705,3 +705,54 @@ test.describe('booth catalog', () => {
     expect(types).not.toContain('unassigned');
   });
 });
+
+// --- "Build my seating" draft sizing (draft, don't blank) ---------------------
+
+import { recommendTableSet, type RecommendGuest } from '../../lib/seating';
+
+function mkRG(n: number, rsvp: string, role = 'guest'): RecommendGuest[] {
+  return Array.from({ length: n }, () => ({ role, rsvp_status: rsvp }));
+}
+
+test.describe('recommendTableSet', () => {
+  test('no guests → just the couple’s Sweetheart, no round tables', () => {
+    expect(recommendTableSet([])).toEqual([
+      { type: 'sweetheart_2', capacity: 2, label: 'Sweetheart' },
+    ]);
+  });
+
+  test('sizes one round_10 per 10 not-declined heads, labelled Table 1..n', () => {
+    const set = recommendTableSet(mkRG(25, 'attending'));
+    expect(set[0]).toEqual({ type: 'sweetheart_2', capacity: 2, label: 'Sweetheart' });
+    const rounds = set.slice(1);
+    expect(rounds).toHaveLength(3); // ceil(25 / 10)
+    expect(rounds.every((t) => t.type === 'round_10' && t.capacity === 10)).toBe(true);
+    expect(rounds.map((t) => t.label)).toEqual(['Table 1', 'Table 2', 'Table 3']);
+  });
+
+  test('pending guests are sized for (a floor is built before RSVPs are in)', () => {
+    expect(recommendTableSet(mkRG(10, 'pending'))).toHaveLength(2); // sweetheart + 1 round
+  });
+
+  test('declined guests are excluded from the count', () => {
+    // 10 attending size one round table; the 40 declined add nothing.
+    expect(recommendTableSet([...mkRG(10, 'attending'), ...mkRG(40, 'declined')])).toHaveLength(2);
+  });
+
+  test('the couple (bride/groom) take the Sweetheart, not a round seat', () => {
+    expect(
+      recommendTableSet([
+        { role: 'bride', rsvp_status: 'attending' },
+        { role: 'groom', rsvp_status: 'attending' },
+      ]),
+    ).toEqual([{ type: 'sweetheart_2', capacity: 2, label: 'Sweetheart' }]);
+  });
+
+  test('a single not-declined guest still gets one round table', () => {
+    expect(recommendTableSet(mkRG(1, 'attending'))).toHaveLength(2);
+  });
+
+  test('caps round tables so a runaway import can’t spawn hundreds', () => {
+    expect(recommendTableSet(mkRG(5000, 'attending')).slice(1)).toHaveLength(60);
+  });
+});

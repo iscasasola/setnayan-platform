@@ -3,7 +3,7 @@
  *
  * SEO/GEO Bucket 3 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row).
  *
- * Carries the 20 curated public marketing routes — the highest-authority
+ * Carries the 21 curated public marketing routes — the highest-authority
  * pages on the site. Each row gets a hardcoded MEANINGFUL lastmod that
  * reflects when the page's content last materially changed (NOT today's
  * build time). This is the honest fix for the freshness-fraud signal in
@@ -94,6 +94,11 @@ const STATIC_ROUTES: ReadonlyArray<{
   // + FAQPage JSON-LD). New 2026-06-20 "lead with the media layer" pass; the
   // SEO/GEO surface for "wedding photo sharing Philippines".
   { path: '/papic', lastmod: '2026-06-20', changefreq: 'monthly', priority: '0.8' },
+
+  // /setnayan-ai — planning-intelligence differentiator landing page
+  // (SoftwareApplication + FAQPage JSON-LD). New 2026-06-20; the SEO/GEO surface
+  // for "AI wedding planner Philippines" / vendor matchmaking.
+  { path: '/setnayan-ai', lastmod: '2026-06-20', changefreq: 'monthly', priority: '0.8' },
 
   // /waitlist — pre-launch surface. Updated when pilot/launch dates shift.
   { path: '/waitlist', lastmod: '2026-05-28', changefreq: 'weekly', priority: '0.7' },

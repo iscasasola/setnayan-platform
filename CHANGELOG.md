@@ -4,7 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-20 · feat(marketing): /papic landing page — lead with the media-layer differentiator
+## 2026-06-20 · feat(marketing): /setnayan-ai landing page — the planning-intelligence differentiator
+
+Public-surface pass (3 of N — "lead with the media layer"). Setnayan AI is the second proven differentiator incumbents lack, and it had no indexable, citable landing page.
+
+- **New `app/setnayan-ai/page.tsx`** — server-static marketing page, same `/monogram`/`/papic` pattern. Benefits-only copy, **no hardcoded price** (links to `/pricing`). **Accuracy guardrail honored** (locked "Setnayan AI definition"): described as **deterministic matchmaking + planning, NOT an LLM chatbot** — copy says "finds your fit / a ranked shortlist / matchmaking, not a chatbot", never "chatbot/conversation/generative". Framing per the locked free-vs-AI boundary: planning tools are free, Setnayan AI is the upgrade that does the finding. Hero echoes the homepage promise ("Say it once. Find your perfect fit.") which the AI is the answer to. Emits **SoftwareApplication** (featureList) + **FAQPage** JSON-LD.
+- Registered `/setnayan-ai` in `NAV_ROUTES` + sitemap (priority 0.8); route count 20→21.
+
+Not built locally (pnpm worktree node_modules); required CI + Vercel PR preview are the surface.
+
+SPEC IMPACT: None (new marketing page; Setnayan AI SKU/pricing unchanged, live in /pricing + catalog).
 
 Public-surface pass (2 of N — "lead with the media layer" from the demand-research verdict). Papic (guest photo gallery) is one of the two proven differentiators incumbents lack (BridalPod has no gallery; the ₱699 "photo wall" apps have no per-guest sorting or reels) — and it had **no indexable, citable landing page**. This is that page.
 

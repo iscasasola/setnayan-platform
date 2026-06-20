@@ -46,6 +46,7 @@ const NAV_ROUTES = new Set<string>([
   '/explore',
   '/monogram',
   '/papic',
+  '/setnayan-ai',
   '/tl/about',
   '/tl/how-it-works',
 ]);

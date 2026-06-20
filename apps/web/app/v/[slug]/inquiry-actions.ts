@@ -58,6 +58,13 @@ export async function startServiceInquiry(input: {
   /** Extra standalone services the couple opted into → source='couple_added'. */
   alsoServiceIds: string[];
   /**
+   * Bundle nudge (2026-06-20): the couple opted into "ask for ONE bundle price"
+   * for the initial + also-added services. When set (and they added ≥1 extra),
+   * the first inquiry message explicitly asks the vendor for a combined bundle
+   * quote, so the vendor knows to price the services as one deal.
+   */
+  requestBundleQuote?: boolean;
+  /**
    * Phase 1b PR-3 — per-category requirements capture. The couple's checked
    * facets keyed by the canonical_service_schemas field key (multi_select →
    * string[]), plus a freeform note and the carry-forward flag. All optional;
@@ -218,7 +225,14 @@ export async function startServiceInquiry(input: {
       // Append the couple's captured requirements so the vendor sees what
       // they're looking for on first contact (a dedicated vendor "Their
       // requirements" panel is a later slice — body-append suffices here).
-      msg.set('body', `${INQUIRY_BODY}${requirementsBlock}`);
+      // Bundle nudge: when the couple opted into a single bundle price AND
+      // added ≥1 extra service, say so explicitly so the vendor prices the set
+      // as one deal (the thread interests already list which services).
+      const bundleAsk =
+        input.requestBundleQuote && input.alsoServiceIds.length > 0
+          ? '\n\nWe’d love to book a few of your services together — could you send us one bundle price?'
+          : '';
+      msg.set('body', `${INQUIRY_BODY}${requirementsBlock}${bundleAsk}`);
       await sendChatMessage(msg);
     } catch {
       /* best-effort — the thread + interests stand even if the note fails */

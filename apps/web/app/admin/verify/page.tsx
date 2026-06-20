@@ -25,6 +25,7 @@ import {
 } from '@/lib/vendor-verification';
 import { VerificationStateBadge } from '@/app/_components/verification/verification-status-card';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { ConfirmForm } from '@/app/_components/confirm-form';
 import {
   approveApplication,
   approveVendor,
@@ -603,7 +604,13 @@ function ActionRow({ application }: { application: ApplicationRow }) {
       ) : null}
 
       {isPendingOrReview ? (
-        <form action={approveApplication}>
+        <ConfirmForm
+          action={approveApplication}
+          title="Approve this application?"
+          confirmLabel="Approve → Verified"
+          destructive={false}
+          message="Approving flips this vendor to Verified — their public listing goes live, the verified badge appears, Pro/Enterprise unlock, and they're notified."
+        >
           <input
             type="hidden"
             name="application_id"
@@ -616,7 +623,7 @@ function ActionRow({ application }: { application: ApplicationRow }) {
           >
             Approve → Verified
           </SubmitButton>
-        </form>
+        </ConfirmForm>
       ) : null}
 
       {isPendingOrReview ? (
@@ -869,24 +876,40 @@ function VerifyCard({ vendor }: { vendor: VendorVisibilityRow }) {
 
       <div className="mt-auto flex flex-wrap items-center gap-2 pt-2">
         {visibility !== 'verified' ? (
-          <form action={approveVendor}>
+          <ConfirmForm
+            action={approveVendor}
+            title="Make this vendor public?"
+            confirmLabel="Approve → Verified"
+            destructive={false}
+            message="This makes the vendor publicly bookable on the marketplace (visibility → Verified) and notifies them."
+          >
             <input type="hidden" name="vendor_profile_id" value={vendor.vendor_profile_id} />
             <SubmitButton pendingLabel="Approving…" className="button-primary h-9 px-3 text-xs">
               Approve → Verified
             </SubmitButton>
-          </form>
+          </ConfirmForm>
         ) : null}
         {visibility !== 'hidden' ? (
-          <form action={rejectVendor}>
+          <ConfirmForm
+            action={rejectVendor}
+            title="Hide this vendor?"
+            confirmLabel="Reject → Hidden"
+            message="This hides the vendor from marketplace browse — couples can no longer find them. Reversible by approving again later."
+          >
             <input type="hidden" name="vendor_profile_id" value={vendor.vendor_profile_id} />
             <input type="hidden" name="reject_to" value="hidden" />
             <SubmitButton pendingLabel="Hiding…" className="button-secondary h-9 px-3 text-xs">
               Reject → Hidden
             </SubmitButton>
-          </form>
+          </ConfirmForm>
         ) : null}
         {visibility !== 'archived' ? (
-          <form action={archiveVendor}>
+          <ConfirmForm
+            action={archiveVendor}
+            title="Archive this vendor?"
+            confirmLabel="Archive"
+            message="This archives the vendor — permanently removed from marketplace browse."
+          >
             <input type="hidden" name="vendor_profile_id" value={vendor.vendor_profile_id} />
             <SubmitButton
               pendingLabel="Archiving…"
@@ -894,7 +917,7 @@ function VerifyCard({ vendor }: { vendor: VendorVisibilityRow }) {
             >
               Archive
             </SubmitButton>
-          </form>
+          </ConfirmForm>
         ) : null}
       </div>
 

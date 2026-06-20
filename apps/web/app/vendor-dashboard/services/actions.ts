@@ -18,6 +18,13 @@ import {
   SLOT_CAPACITY_MAX,
   SLOT_TIME_RE,
 } from '@/lib/vendor-time-slots';
+import {
+  MAX_SCHEDULE_ITEMS,
+  pctToBps,
+  phpToCentavos,
+  type AmountKind,
+  type DueAnchor,
+} from '@/lib/vendor-service-payment-schedules';
 
 const CATEGORY_SET: ReadonlySet<string> = new Set(VENDOR_CATEGORIES);
 
@@ -548,6 +555,162 @@ export async function setServiceLinks(formData: FormData) {
       display_order: i,
     }));
     const ins = await supabase.from('vendor_service_links').insert(rows);
+    if (ins.error) {
+      return redirect(
+        `/vendor-dashboard/services?error=${encodeURIComponent(ins.error.message)}`,
+      );
+    }
+  }
+
+  revalidatePath('/vendor-dashboard/services');
+  redirect('/vendor-dashboard/services?saved=1');
+}
+
+/**
+ * Vendor Transaction Lifecycle · Phase 2 · PR-A — define/replace a service's
+ * PAYMENT SCHEDULE (downpayment + payment 1…X). The schedule is a reusable
+ * TEMPLATE on the service; couples read it for display (PR-B renders it). It is
+ * OPTIONAL — submitting zero installments clears the schedule.
+ *
+ * The client editor submits parallel arrays (one entry per installment):
+ *   item_label[] · item_amount_kind[] · item_value[] · item_due_anchor[] ·
+ *   item_due_offset_days[]
+ * Order in the arrays IS the order — seq is assigned 0..N here (0 = the first /
+ * downpayment row), NOT trusted from the client.
+ *
+ * Persisted as a replace-all set: clear the service's rows, re-insert. Both
+ * writes are owner-scoped (RLS + explicit vendor_profile_id filter), mirroring
+ * setServiceLinks. The anchor service's ownership is re-checked here too.
+ */
+export async function setServicePaymentSchedule(formData: FormData) {
+  const { supabase, profile } = await ensureProfile();
+
+  const serviceId = formData.get('vendor_service_id');
+  if (typeof serviceId !== 'string' || serviceId.length === 0) {
+    return redirect('/vendor-dashboard/services?error=Missing+service+id');
+  }
+
+  // Ownership: the service must belong to THIS vendor profile.
+  const { data: svc } = await supabase
+    .from('vendor_services')
+    .select('vendor_service_id')
+    .eq('vendor_service_id', serviceId)
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .maybeSingle();
+  if (!svc) {
+    return redirect('/vendor-dashboard/services?error=Service+not+found');
+  }
+
+  // Parse the parallel arrays into validated draft rows. Any malformed row
+  // aborts the whole save (the schedule is replaced atomically-enough; we don't
+  // want to half-apply it).
+  const labels = formData.getAll('item_label');
+  const kinds = formData.getAll('item_amount_kind');
+  const values = formData.getAll('item_value');
+  const anchors = formData.getAll('item_due_anchor');
+  const offsets = formData.getAll('item_due_offset_days');
+
+  type Insert = {
+    vendor_service_id: string;
+    vendor_profile_id: string;
+    seq: number;
+    label: string;
+    amount_kind: AmountKind;
+    percent_bps: number | null;
+    amount_centavos: number | null;
+    due_anchor: DueAnchor | null;
+    due_offset_days: number | null;
+  };
+  const rows: Insert[] = [];
+
+  try {
+    const n = labels.length;
+    if (n > MAX_SCHEDULE_ITEMS) {
+      throw new Error(`A schedule can have up to ${MAX_SCHEDULE_ITEMS} installments.`);
+    }
+    for (let i = 0; i < n; i++) {
+      const label = typeof labels[i] === 'string' ? (labels[i] as string).trim() : '';
+      if (label.length === 0 || label.length > 80) {
+        throw new Error('Each installment needs a label (up to 80 characters).');
+      }
+
+      const kindRaw = kinds[i];
+      if (kindRaw !== 'percent' && kindRaw !== 'fixed') {
+        throw new Error('Each installment must be a percent or a fixed amount.');
+      }
+      const amount_kind: AmountKind = kindRaw;
+
+      const valueRaw = typeof values[i] === 'string' ? (values[i] as string).trim() : '';
+      const value = Number(valueRaw);
+      if (valueRaw.length === 0 || !Number.isFinite(value) || value < 0) {
+        throw new Error('Each installment needs a non-negative amount.');
+      }
+
+      let percent_bps: number | null = null;
+      let amount_centavos: number | null = null;
+      if (amount_kind === 'percent') {
+        if (!Number.isInteger(value) || value > 100) {
+          throw new Error('A percentage must be a whole number between 0 and 100.');
+        }
+        percent_bps = pctToBps(value);
+      } else {
+        if (!Number.isInteger(value)) {
+          throw new Error('A fixed amount must be a whole peso figure.');
+        }
+        amount_centavos = phpToCentavos(value);
+      }
+
+      // Due date is optional. Blank anchor → no anchored due date.
+      const anchorRaw = anchors[i];
+      let due_anchor: DueAnchor | null = null;
+      let due_offset_days: number | null = null;
+      if (anchorRaw === 'on_lock' || anchorRaw === 'before_event') {
+        due_anchor = anchorRaw;
+        const offRaw = typeof offsets[i] === 'string' ? (offsets[i] as string).trim() : '';
+        if (offRaw.length > 0) {
+          const off = Number(offRaw);
+          if (!Number.isInteger(off) || off < 0) {
+            throw new Error('Due-date days must be a non-negative whole number.');
+          }
+          due_offset_days = off;
+        } else {
+          due_offset_days = 0;
+        }
+      }
+
+      rows.push({
+        vendor_service_id: serviceId,
+        vendor_profile_id: profile.vendor_profile_id,
+        seq: i, // order in the submitted arrays IS the order
+        label: label.slice(0, 80),
+        amount_kind,
+        percent_bps,
+        amount_centavos,
+        due_anchor,
+        due_offset_days,
+      });
+    }
+  } catch (e) {
+    return redirect(
+      `/vendor-dashboard/services?error=${encodeURIComponent((e as Error).message)}`,
+    );
+  }
+
+  // Replace the service's schedule. Both writes are owner-scoped (RLS + explicit
+  // profile filter), same as setServiceLinks.
+  const del = await supabase
+    .from('vendor_service_payment_schedules')
+    .delete()
+    .eq('vendor_service_id', serviceId)
+    .eq('vendor_profile_id', profile.vendor_profile_id);
+  if (del.error) {
+    return redirect(
+      `/vendor-dashboard/services?error=${encodeURIComponent(del.error.message)}`,
+    );
+  }
+
+  if (rows.length > 0) {
+    const ins = await supabase.from('vendor_service_payment_schedules').insert(rows);
     if (ins.error) {
       return redirect(
         `/vendor-dashboard/services?error=${encodeURIComponent(ins.error.message)}`,

@@ -281,7 +281,7 @@ function BudgetSummaryStrip({
           hint={committedPhp > 0 ? 'Paid + signed vendors' : 'Nothing committed yet'}
         />
         <SummaryStat
-          label={remainingPhp !== null && remainingPhp < 0 ? 'Over target' : 'Remaining'}
+          label={remainingPhp !== null && remainingPhp < 0 ? 'Over target' : 'Budget left'}
           value={remainingPhp !== null ? formatPhp(Math.abs(remainingPhp)) : '—'}
           tone={
             remainingPhp === null
@@ -375,7 +375,7 @@ function StatsStrip({
       <StatTile label="Total budget" value={formatPhp(totals.budget)} />
       <StatTile label="Paid so far" value={formatPhp(totals.paid)} />
       <StatTile
-        label="Remaining"
+        label="Still to pay"
         value={formatPhp(totals.remaining)}
         tone={totals.remaining > 0 ? 'warn' : 'good'}
       />
@@ -445,9 +445,9 @@ function NoFinalizedVendors({ eventId }: { eventId: string }) {
   return (
     <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center">
       <p className="text-sm text-ink/65">
-        Per-vendor budget tracking unlocks once you contract a vendor. Keep
-        shortlisting — your committed line items will land here as you lock
-        them in.
+        You&rsquo;re still choosing vendors — exactly where you should be at this
+        stage. The moment you contract one, its itemized costs and payments show
+        up here on their own. Keep shortlisting from your vendors.
       </p>
       <div className="mt-4">
         <Link href={`/dashboard/${eventId}/vendors`} className="button-primary">

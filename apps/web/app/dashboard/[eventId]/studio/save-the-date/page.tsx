@@ -30,6 +30,7 @@ import {
   STD_PREMIUM_OPENINGS_SERVICE_KEY,
 } from '@/lib/std-openings';
 import { StdBuilderClient } from './_components/StdBuilderClient';
+import { LaunchStdButton } from './_components/launch-std-button';
 
 // 2026-06-19 — builder redesign: the 5-step builder (1 Background [+ theme:
 // fonts/colours] · 2 Content · 3 Video/Gallery · 4 Music · 5 Opening/reveal) +
@@ -62,7 +63,7 @@ export default async function SaveTheDatePage({ params }: Props) {
   const { data: event } = await supabase
     .from('events')
     .select(
-      'public_id, slug, display_name, event_date, venue_name, venue_address, love_story, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_film_date, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_story, std_film_accent_hex, std_background, std_media, our_photos, site_bg_music_enabled, site_bg_music_r2_key, landing_page_hero_image_url, date_candidates, date_mode',
+      'public_id, slug, display_name, event_date, venue_name, venue_address, love_story, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_film_date, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_story, std_film_accent_hex, std_background, std_media, our_photos, site_bg_music_enabled, site_bg_music_r2_key, landing_page_hero_image_url, date_candidates, date_mode, landing_page_visibility, std_launched_at',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -337,6 +338,15 @@ export default async function SaveTheDatePage({ params }: Props) {
         veilLook={revealConfig.veil}
         effectLook={revealConfig.effects}
         allowedTemplates={revealConfig.templates}
+      />
+
+      {/* Launch — private until the couple goes live (owner 2026-06-20) */}
+      <LaunchStdButton
+        eventId={eventId}
+        slug={event?.slug ?? null}
+        initialLaunched={
+          Boolean(event?.std_launched_at) || event?.landing_page_visibility === 'public'
+        }
       />
 
       {/* Wax seal */}

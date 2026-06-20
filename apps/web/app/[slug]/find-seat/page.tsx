@@ -1,7 +1,8 @@
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, MapPin } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { canViewSlugEvent } from '@/lib/slug-access';
 import { Logo } from '@/app/_components/logo';
 import { NameSearch } from './_components/name-search';
 
@@ -39,11 +40,19 @@ export default async function FindSeatPage({ params }: Props) {
 
   const { data: event } = await admin
     .from('events')
-    .select('event_id, display_name, slug, venue_name, event_type, event_date')
+    .select('event_id, display_name, slug, venue_name, event_type, event_date, landing_page_visibility')
     .ilike('slug', slug)
     .maybeSingle();
 
   if (!event || event.event_type !== 'wedding') notFound();
+
+  // Visibility gate (owner 2026-06-20): don't leak a private (pre-launch) page's
+  // couple data through this sub-route. Strangers on a private page bounce to
+  // /[slug] (the lock screen); by the wedding day the page is launched → public
+  // → everyone passes, so the day-of QR seat-finder is unaffected.
+  if (!(await canViewSlugEvent(event.event_id, event.landing_page_visibility))) {
+    redirect(`/${slug}`);
+  }
 
   // Publication gate — only a published seating pack is searchable. Degrade to
   // "not posted yet" on a missing/legacy floor-plan table rather than crashing.

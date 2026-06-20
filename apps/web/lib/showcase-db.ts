@@ -139,6 +139,11 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
         'slug, display_name, event_date, venue_name, venue_address, monogram_color, landing_page_hero_image_url, landing_page_hero_video_r2_key, showcase_featured_at, showcase_feature_rank',
       )
       .eq('event_type', 'wedding')
+      // Defense-in-depth (owner 2026-06-20 private-by-default): never surface a
+      // page the couple kept private — even if they consented to the showcase,
+      // a private page must not leak its canonical /[slug] into /realstories or
+      // the sitemap.
+      .neq('landing_page_visibility', 'private')
       .in('event_id', eventIds)
       .lte('event_date', cutoff)
       .not('slug', 'is', null)
@@ -260,6 +265,10 @@ export async function loadShowcaseCandidatesForAdmin(
         'event_id, slug, display_name, event_date, venue_name, venue_address, showcase_featured_at, showcase_feature_rank',
       )
       .eq('event_type', 'wedding')
+      // Private pages aren't featurable (they'd never render in the public
+      // showcase anyway — see loadPublishedShowcases) — keep them out of the
+      // admin candidate queue too.
+      .neq('landing_page_visibility', 'private')
       .in('event_id', eventIds)
       .lte('event_date', cutoff)
       .not('slug', 'is', null)

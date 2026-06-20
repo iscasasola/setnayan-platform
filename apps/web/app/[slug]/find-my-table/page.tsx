@@ -1,8 +1,9 @@
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, DoorOpen, MapPin } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readGuestSession } from '@/lib/guest-session';
+import { canViewSlugEvent } from '@/lib/slug-access';
 import { Logo } from '@/app/_components/logo';
 import {
   DEFAULT_ENTRANCE,
@@ -49,11 +50,18 @@ export default async function FindMyTablePage({ params }: Props) {
 
   const { data: event } = await admin
     .from('events')
-    .select('event_id, display_name, slug, venue_name, event_type, event_date')
+    .select('event_id, display_name, slug, venue_name, event_type, event_date, landing_page_visibility')
     .ilike('slug', slug)
     .maybeSingle();
 
   if (!event || event.event_type !== 'wedding') notFound();
+
+  // Visibility gate (owner 2026-06-20): a stranger guessing a private (pre-launch)
+  // slug must not even see the couple's name in the sign-in prompt. Bounce them
+  // to /[slug] (the lock screen). Cookie-bearing guests + hosts pass through.
+  if (!(await canViewSlugEvent(event.event_id, event.landing_page_visibility))) {
+    redirect(`/${slug}`);
+  }
 
   // Guest must be signed in for THIS event (the redeem flow sets the cookie).
   const session = await readGuestSession();

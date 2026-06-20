@@ -172,7 +172,10 @@ export async function generateMetadata({ params }: Pick<Props, 'params'>) {
   if (!event) notFound();
   if (event.event_type !== 'wedding') notFound();
 
-  const visibility = (event.landing_page_visibility ?? 'public') as
+  // Private by default (owner 2026-06-20): a wedding page is private until the
+  // couple LAUNCHES their Save-the-Date (which flips this to 'public'). NULL /
+  // legacy rows coalesce to 'private' so they fail safe, not open.
+  const visibility = (event.landing_page_visibility ?? 'private') as
     | 'public'
     | 'unlisted'
     | 'private';
@@ -491,7 +494,10 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // redeem handler that writes the cookie), so a guest landing with their
   // personal link is automatically allowed even on a private event — they
   // come back through here without `?invite=` and the cookie matches.
-  const visibility = (event.landing_page_visibility ?? 'public') as
+  // Private by default (owner 2026-06-20): a wedding page is private until the
+  // couple LAUNCHES their Save-the-Date (which flips this to 'public'). NULL /
+  // legacy rows coalesce to 'private' so they fail safe, not open.
+  const visibility = (event.landing_page_visibility ?? 'private') as
     | 'public'
     | 'unlisted'
     | 'private';

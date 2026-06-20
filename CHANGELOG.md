@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-21 · chore(home): remove dead layout helpers + unused imports from couple event-home
+
+Dead-code cleanup of `apps/web/app/dashboard/[eventId]/page.tsx` left behind by the 2026-06-04 "home is a cockpit, not a catalog" decluttering. The helpers/components below were defined or imported but never rendered (confirmed: zero `<Tag` JSX usages, repo-wide grep for real `import` statements).
+
+- Deleted three unused local functions from `page.tsx`: `WelcomeHeader`, `StageStrip`, `NavGrid` (−183 lines incl. their imports).
+- Removed three unused imports from `page.tsx`: `YourPlanSection`, `PlanningGroups`, `MarketplaceTeaseStrip`.
+- Deleted the two component source files that were imported only by `page.tsx` and reference no sibling subtree: `_components/your-plan-section.tsx` (−273) and `_components/marketplace-tease-strip.tsx` (−221).
+- **Deferred (not in this change):** `_components/planning-groups.tsx` is also imported only by `page.tsx`, but it is a 1,502-line surface pulling 7 sub-components that are each imported by nothing else (`directions-buttons`, `plan-card-ctas`, `officiant-parish-ctas`, `plan-card-compare`, `plan-card-lock`, `recommended-vendor-row`, `switch-vendor-confirm`). Deleting it cascades to ~2,500 dead lines of a former central planning surface — surfaced for a deliberate decision rather than bundled into a "trivial dead-code" change. Its import line is already removed from `page.tsx`, so it is now unreferenced on disk.
+- **Left in place (still referenced or per task scope):** `EventMetaLine` import (task said keep; note it is only referenced in a comment now), and the `Stage` type / `STAGES` const / `currentStage` / `stage` / `TILES` identifiers (`Stage`/`currentStage` are still live via the `currentStage()` call at the date-stage computation; `STAGES`/`TILES`/`stage` are now orphaned-but-tolerated by lint — flagged for an optional follow-up).
+
+Net: 677 deletions, 0 additions across 3 files. No behavior change (none of the removed code rendered). Verified: `pnpm typecheck` exit 0, `pnpm lint` exit 0 (only pre-existing warnings in unrelated files).
+
+SPEC IMPACT: None (dead-code removal, no behavior change).
+
 ## 2026-06-21 · fix(nav): account-switcher "Hosts" 404 + sibling `/venues` dead links
 
 The account switcher's **Hosts** action linked to `/dashboard/hosts` — a path with no static route, so Next routes it into the `[eventId]` segment (`eventId="hosts"`), the event lookup fails, and the user gets a **404** when opening Hosts. Reported as "adding host to events is causing error." The real Hosts page is event-scoped at `/dashboard/[eventId]/hosts`.

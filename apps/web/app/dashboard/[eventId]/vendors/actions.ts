@@ -833,7 +833,7 @@ export async function finalizeVendor(
       await Promise.all([
         supabase
           .from('events')
-          .select('wedding_date')
+          .select('event_date')
           .eq('event_id', eventId)
           .maybeSingle(),
         supabase
@@ -849,7 +849,7 @@ export async function finalizeVendor(
       return { status: 'error', message: vpErr.message };
     }
 
-    const weddingDate = eventRow?.wedding_date as string | null | undefined;
+    const weddingDate = eventRow?.event_date as string | null | undefined;
     const limit = (vendorProfileRow?.max_soft_holds_per_date as number | undefined) ?? null;
 
     // Skip the check when the event has no wedding date, OR when the
@@ -870,7 +870,7 @@ export async function finalizeVendor(
       const { data: sameDateEvents, error: sdeErr } = await supabase
         .from('events')
         .select('event_id')
-        .eq('wedding_date', weddingDate);
+        .eq('event_date', weddingDate);
       if (sdeErr) {
         return { status: 'error', message: sdeErr.message };
       }

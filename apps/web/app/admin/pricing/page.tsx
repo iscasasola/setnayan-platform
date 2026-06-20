@@ -3,6 +3,7 @@ import { Plus } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { ConfirmForm } from '@/app/_components/confirm-form';
 import { saveAllPricing, createBundle } from './actions';
 import { SETNAYAN_PAY_FEE_PCT } from '@/lib/vendor-earnings';
 import {
@@ -272,7 +273,13 @@ export default async function AdminPricingPage({ searchParams }: Props) {
         </div>
       )}
 
-      <form action={saveAllPricing}>
+      <ConfirmForm
+        action={saveAllPricing}
+        title="Save these prices live?"
+        confirmLabel="Save all changes"
+        destructive={false}
+        message="Saving ships these prices LIVE to the public catalog right away — only the rows you changed get written. Double-check the values before you confirm."
+      >
         {/* ─── Customer SKUs ─────────────────────────────────────────── */}
         <section className="mb-10">
           <h2 className="mb-3 text-base font-semibold tracking-tight">
@@ -453,7 +460,7 @@ export default async function AdminPricingPage({ searchParams }: Props) {
             </SubmitButton>
           </div>
         </div>
-      </form>
+      </ConfirmForm>
 
       {/* ─── Create a bundle (its own form — HTML forms can't nest) ──── */}
       <section id="create-bundle" className="mb-10 scroll-mt-24">
@@ -464,8 +471,12 @@ export default async function AdminPricingPage({ searchParams }: Props) {
           A bundle is a name + a price (its <span className="italic">code</span> is generated from
           the name). It appears in the Bundles section above, ready to fine-tune.
         </p>
-        <form
+        <ConfirmForm
           action={createBundle}
+          title="Create this bundle?"
+          confirmLabel="Add bundle"
+          destructive={false}
+          message="This creates a new live bundle product — it appears on the public /pricing and /for-vendors pages right away."
           className="rounded-2xl border border-ink/10 bg-paper p-4 sm:p-5"
         >
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_10rem]">
@@ -515,7 +526,7 @@ export default async function AdminPricingPage({ searchParams }: Props) {
               <Plus aria-hidden className="h-4 w-4" strokeWidth={2} /> Add bundle
             </SubmitButton>
           </div>
-        </form>
+        </ConfirmForm>
       </section>
 
       <div className="rounded-2xl border border-warn-300/60 bg-warn-50/80 p-5">

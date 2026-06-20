@@ -45,6 +45,7 @@ import {
 } from './_components/inquiry-composer';
 import { fetchRequirementFields, type RequirementField } from '@/lib/requirements-capture';
 import { getEventPreference } from '@/lib/event-preferences';
+import { isSetnayanAiActive } from '@/lib/setnayan-ai';
 import { NavLinksRow } from '@/app/_components/nav-links';
 import {
   fetchReviewsForVendorWithCouple,
@@ -664,6 +665,28 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
       : requirementCategoryKey
     : null;
 
+  // Phase 1b PR-5 · AI-gated auto carry-forward. Resolve whether Setnayan AI is
+  // active for THIS couple's event so the composer can SKIP the pop-up and
+  // auto-send the saved requirements when (AI ON + saved row + auto_send=true).
+  // Auto carry-forward is the Setnayan AI value (owner-locked free-vs-AI
+  // boundary); the FREE tier keeps save-template + manual pre-fill (PR-3/PR-4).
+  // Focused, fail-soft select — `fetchUserEvents` is a shared React-cached query
+  // that doesn't carry the gate columns, so we read them directly here keyed by
+  // the resolved coupleEventId. A missing column / error → aiActive=false → the
+  // pop-up shows (the conservative, unchanged behavior). Only worth the round
+  // trip when the composer will actually render for a signed-in couple.
+  let aiActive = false;
+  if (showInquiryComposer && coupleEventId) {
+    const { data: aiEventRow } = await supabase
+      .from('events')
+      .select('planning_mode, setnayan_ai_active')
+      .eq('event_id', coupleEventId)
+      .maybeSingle();
+    aiActive = isSetnayanAiActive(
+      aiEventRow as { planning_mode?: string | null; setnayan_ai_active?: boolean | null } | null,
+    );
+  }
+
   // GEO Phase G4 (2026-05-28) — LocalBusiness JSON-LD lets AI answer engines
   // (ChatGPT-User · OAI-SearchBot · PerplexityBot · ClaudeBot — allowlisted
   // via robots.txt per CLAUDE.md 2026-05-14 SEO playbook) extract the
@@ -1202,6 +1225,11 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
               requirementsFields={requirementsFields}
               savedRequirements={savedRequirements}
               categoryLabel={requirementCategoryLabel}
+              // Phase 1b PR-5 — auto carry-forward gate (Setnayan AI value).
+              // When AI is ON and the saved row has auto_send=true, the
+              // composer skips the pop-up and sends the saved requirements
+              // directly. False → unchanged pop-up flow.
+              aiActive={aiActive}
               // The exact count startServiceInquiry will snapshot onto this
               // inquiry — surfaced read-only so the couple can fix a stale
               // estimate before it reaches the vendor.

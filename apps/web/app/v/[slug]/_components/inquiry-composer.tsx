@@ -3,9 +3,20 @@
 /**
  * InquiryComposer — inquiry pop-up for the public vendor profile.
  *
- * Behaviour (owner directive 2026-06-17 + Phase 1b PR-3 2026-06-20):
- *   • Tapping "Inquire" ALWAYS opens a bottom-sheet on mobile / centered dialog
- *     on desktop BEFORE the inquiry is sent. The pop-up shows:
+ * Behaviour (owner directive 2026-06-17 + Phase 1b PR-3 2026-06-20 +
+ * PR-5 auto carry-forward 2026-06-20):
+ *   • Auto carry-forward (Setnayan AI value): when AI is ON for the event AND
+ *     the couple already has a saved requirements row for this category with
+ *     auto_send=true, tapping "Inquire" SKIPS the pop-up entirely and sends the
+ *     saved requirements straight through, with a calm inline note that their
+ *     saved [category] preferences were included automatically by Setnayan AI.
+ *     The FIRST inquiry (where they fill + check auto-send) still shows the
+ *     pop-up — only SUBSEQUENT same-category inquiries auto-send. The
+ *     carry-forward payload is sourced SOLELY from the couple's own saved row
+ *     (event_vendor_preferences) — never from any vendor-authored content.
+ *   • Otherwise (AI OFF / auto_send=false / no saved row): tapping "Inquire"
+ *     ALWAYS opens a bottom-sheet on mobile / centered dialog on desktop BEFORE
+ *     the inquiry is sent. The pop-up shows:
  *       – (multi-service only) the clicked service pre-checked + locked, the
  *         vendor's price-included links, and the vendor's other services as
  *         optional "also ask about" checkboxes.
@@ -28,9 +39,14 @@
 import { useMemo, useRef, useState, useTransition, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Check, MessageCircle, MessageSquare, Users } from 'lucide-react';
+import { Check, MessageCircle, MessageSquare, Sparkles, Users } from 'lucide-react';
 import { startServiceInquiry, type StartServiceInquiryResult } from '../inquiry-actions';
-import { type RequirementField } from '@/lib/requirements-capture';
+import {
+  type RequirementField,
+  type RequirementsActionInput,
+  buildAutoCarryForwardRequirements,
+  shouldAutoCarryForward,
+} from '@/lib/requirements-capture';
 import {
   RequirementsModal,
   type RequirementsModalPhase,
@@ -82,6 +98,14 @@ type Props = {
    */
   categoryLabel?: string | null;
   /**
+   * Phase 1b PR-5 — is Setnayan AI active for this couple's event? Auto
+   * carry-forward (skip the pop-up + auto-send the saved requirements) is the
+   * Setnayan AI value and only fires when this is true AND the saved row has
+   * auto_send=true. When false the pop-up always shows (FREE tier keeps
+   * save-template + manual pre-fill from PR-3/PR-4). Default false.
+   */
+  aiActive?: boolean;
+  /**
    * Live headcount (Adaptive Pax Pricing Phase 3) — surfaced read-only so
    * the couple can correct a stale estimate before the vendor quotes against
    * it. null → pill not rendered.
@@ -110,6 +134,17 @@ type ModalState =
   | { kind: 'sent' }
   | { kind: 'error'; message: string };
 
+/**
+ * Phase 1b PR-5 — state for the inline auto carry-forward flow (pop-up skipped).
+ * Lives outside ModalState so the auto path never opens the modal; it drives a
+ * small calm confirmation rendered in place of the Inquire button.
+ */
+type AutoCarryState =
+  | { kind: 'idle' }
+  | { kind: 'sending' }
+  | { kind: 'sent'; threadHref: string }
+  | { kind: 'error'; message: string };
+
 export function InquiryComposer({
   vendorProfileId,
   vendorLabel,
@@ -119,6 +154,7 @@ export function InquiryComposer({
   requirementsFields = [],
   savedRequirements = null,
   categoryLabel,
+  aiActive = false,
   inquiryPax,
   guestEditHref,
   existingThreadId,
@@ -138,6 +174,14 @@ export function InquiryComposer({
     savedRequirements?.specialRequest ?? '',
   );
   const [autoSend, setAutoSend] = useState<boolean>(savedRequirements?.autoSend ?? false);
+
+  // ── Auto carry-forward (Phase 1b PR-5) ─────────────────────────────────────
+  // The gate: Setnayan AI ON + a saved row for this category with auto_send=true.
+  // When true the Inquire click skips the pop-up and sends the SAVED template
+  // straight through. `savedRequirements` is the couple's own event_vendor_-
+  // preferences row (the only source) — never any vendor-authored content.
+  const autoCarry = shouldAutoCarryForward(aiActive, savedRequirements);
+  const [autoState, setAutoState] = useState<AutoCarryState>({ kind: 'idle' });
 
   const alsoById = useMemo(
     () => new Map(alsoOptions.map((s) => [s.vendorServiceId, s])),
@@ -194,8 +238,19 @@ export function InquiryComposer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modal.kind]);
 
+  function inFlight() {
+    return (
+      pending ||
+      modal.kind === 'submitting' ||
+      modal.kind === 'sent' ||
+      autoState.kind === 'sending' ||
+      autoState.kind === 'sent'
+    );
+  }
+
+  // Modal "Send inquiry" CTA — sends the CURRENT form state (manual / edited).
   async function submit() {
-    if (pending || modal.kind === 'submitting' || modal.kind === 'sent') return;
+    if (inFlight()) return;
     const alsoServiceIds = Array.from(checked).filter((id) => alsoById.has(id));
     const payload: Record<string, string[]> = {};
     for (const [key, set] of Object.entries(reqPayload)) {
@@ -234,6 +289,66 @@ export function InquiryComposer({
       }
       setModal({ kind: 'error', message: result.message ?? 'Could not send inquiry.' });
     });
+  }
+
+  // Phase 1b PR-5 — auto carry-forward path. Skips the pop-up entirely: builds
+  // the inquiry requirements SOLELY from the couple's saved template
+  // (`savedRequirements` = their event_vendor_preferences row · the privacy
+  // boundary) and sends directly, then shows a calm inline confirmation. Does
+  // NOT navigate away so the "included automatically" note stays visible; a
+  // "View thread" link is offered instead.
+  async function autoInquire() {
+    if (inFlight()) return;
+    const carry: RequirementsActionInput = buildAutoCarryForwardRequirements(savedRequirements);
+    setAutoState({ kind: 'sending' });
+    startTransition(async () => {
+      const result: StartServiceInquiryResult = await startServiceInquiry({
+        vendorProfileId,
+        initialServiceId: initial.vendorServiceId,
+        initialCategoryKey: initial.categoryKey,
+        // Auto-send carries only the saved per-category requirements — it never
+        // auto-opts into the vendor's other "also ask about" services.
+        alsoServiceIds: [],
+        requirements: carry,
+      });
+      if (result.status === 'ok') {
+        setAutoState({
+          kind: 'sent',
+          threadHref: `/dashboard/${result.eventId}/messages/${result.threadId}`,
+        });
+        // Refresh so the page re-renders into its "existing thread" state on
+        // next visit, without yanking the couple off the confirmation now.
+        router.refresh();
+        return;
+      }
+      if (result.status === 'not_signed_in') {
+        const next = encodeURIComponent(window.location.pathname + window.location.search);
+        window.location.href = `/login?next=${next}`;
+        return;
+      }
+      if (result.status === 'no_event') {
+        setAutoState({
+          kind: 'error',
+          message: 'Create your event first, then send an inquiry.',
+        });
+        return;
+      }
+      setAutoState({
+        kind: 'error',
+        message: result.message ?? 'Could not send inquiry.',
+      });
+    });
+  }
+
+  // The Inquire button's click: auto-send when the gate is on, else open the
+  // pop-up. (The existing-thread "Update what you're looking for" affordance
+  // always opens the pop-up — an explicit edit intent is never auto-fired.)
+  function onInquireClick() {
+    if (autoCarry) {
+      void autoInquire();
+    } else {
+      setModal({ kind: 'open' });
+    }
   }
 
   const isSubmitting = modal.kind === 'submitting' || pending;
@@ -399,28 +514,76 @@ export function InquiryComposer({
     );
   }
 
+  // ── Auto carry-forward CONFIRMATION (Phase 1b PR-5) ────────────────────────
+  // The pop-up was skipped; the saved requirements were attached + sent. Show a
+  // calm inline note attributing the auto-fill to Setnayan AI + a thread link.
+  if (autoState.kind === 'sent') {
+    return (
+      <div className="space-y-2 rounded-xl border border-terracotta/30 bg-terracotta/5 p-4">
+        <p className="flex items-start gap-2 text-sm text-ink">
+          <Sparkles
+            aria-hidden
+            className="mt-0.5 h-4 w-4 shrink-0 text-terracotta"
+            strokeWidth={1.75}
+          />
+          <span>
+            Inquiry sent to{' '}
+            <span className="font-semibold">{vendorLabel}</span>. Setnayan AI
+            included your saved {categoryName} preferences automatically.
+          </span>
+        </p>
+        <Link
+          href={autoState.threadHref}
+          className="inline-flex h-10 items-center gap-2 rounded-md bg-mulberry px-4 text-sm font-semibold text-cream hover:bg-mulberry-600"
+        >
+          <MessageSquare aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          View thread
+        </Link>
+      </div>
+    );
+  }
+
+  const isAutoSending = autoState.kind === 'sending';
+
   // ── Main CTA (no existing thread) ─────────────────────────────────────────
   return (
     <>
       {/* Trigger button — shown inline on the vendor profile "Get in touch" section */}
       <button
         type="button"
-        onClick={() => setModal({ kind: 'open' })}
-        disabled={isSubmitting}
+        onClick={onInquireClick}
+        disabled={isSubmitting || isAutoSending}
         className="inline-flex h-11 items-center gap-2 rounded-md bg-mulberry px-5 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600 disabled:cursor-default disabled:opacity-90"
       >
-        {isSubmitting ? (
+        {isSubmitting || isAutoSending ? (
           <>
             <span className="h-4 w-4 animate-spin rounded-full border-2 border-cream border-t-transparent" aria-hidden />
             Sending…
           </>
         ) : (
           <>
-            <MessageCircle aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            {autoCarry ? (
+              <Sparkles aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            ) : (
+              <MessageCircle aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            )}
             {`Inquire with ${vendorLabel}`}
           </>
         )}
       </button>
+
+      {/* Auto carry-forward hint — sets expectation that saved prefs go along. */}
+      {autoCarry && autoState.kind === 'idle' ? (
+        <p className="mt-2 flex items-center gap-1.5 text-xs text-ink/55">
+          <Sparkles aria-hidden className="h-3.5 w-3.5 text-terracotta" strokeWidth={1.75} />
+          Your saved {categoryName} preferences will be included automatically.
+        </p>
+      ) : null}
+
+      {/* Auto carry-forward error (rare) — inline, non-blocking. */}
+      {autoState.kind === 'error' ? (
+        <p className="mt-2 text-xs text-danger-700">{autoState.message}</p>
+      ) : null}
 
       {modal.kind !== 'closed' ? (
         <RequirementsModal

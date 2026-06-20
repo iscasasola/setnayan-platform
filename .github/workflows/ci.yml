@@ -220,6 +220,26 @@ jobs:
       - name: Lint papic keep-permanent
         run: node apps/web/scripts/lint-papic-keep-permanent.mjs
 
+  lint-guest-legibility:
+    name: lint guest legibility
+    runs-on: ubuntu-latest
+    # Guards the Guest Legibility Floor (02_Specifications/Guest_Legibility_Floor
+    # _2026-06-20.md). After the 2026-06-20 "Lola Remedios" audit found the
+    # dominant guest-facing failure was 7-11px load-bearing text (illegible to an
+    # older guest), this fails when a guest-facing file (app/[slug], app/join, +
+    # the shared guest components) introduces NEW text-[<=11px] beyond the
+    # committed ratcheting baseline. Pure node, no install. See
+    # apps/web/scripts/lint-guest-legibility.mjs.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Lint guest legibility
+        run: node apps/web/scripts/lint-guest-legibility.mjs
+
   migration-timestamp-guard:
     name: migration timestamp guard
     runs-on: ubuntu-latest

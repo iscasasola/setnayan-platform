@@ -26,14 +26,6 @@ type ScheduleRow = {
   offset: string;
 };
 
-const DISCOUNT_OPTS = [
-  { v: 'early_booking', l: 'Early booking' },
-  { v: 'off_peak', l: 'Off-peak' },
-  { v: 'bundle', l: 'Bundle' },
-  { v: 'promo', l: 'Limited-time promo' },
-  { v: 'returning', l: 'Returning client' },
-];
-
 export function ServiceWizard({
   categoryValue,
   categoryLabel,
@@ -135,40 +127,33 @@ export function ServiceWizard({
             className="input-field"
           />
         </Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Crew size (optional)" htmlFor="crew_size">
-            <input id="crew_size" name="crew_size" type="number" min={0} step={1} className="input-field" />
-          </Field>
-          <Field label="Per extra guest (₱, optional)" htmlFor="added_pax_price_php">
-            <input id="added_pax_price_php" name="added_pax_price_php" type="number" min={0} step={1} className="input-field" />
-          </Field>
-        </div>
+        <Field label="Crew size (optional)" htmlFor="crew_size">
+          <input id="crew_size" name="crew_size" type="number" min={0} step={1} className="input-field" />
+        </Field>
         <label className="flex items-center gap-2 text-sm text-ink/75">
           <input type="checkbox" name="crew_meal_required" className="h-4 w-4 accent-terracotta" />
           Crew meal required
         </label>
         <details className="rounded-lg border border-ink/10 p-3">
-          <summary className="cursor-pointer text-sm font-medium text-ink/75">Add a discount (optional)</summary>
+          <summary className="cursor-pointer text-sm font-medium text-ink/75">Pricing rules (advanced) — optional</summary>
           <div className="mt-3 space-y-3">
-            <Field label="Discount type" htmlFor="discount_type">
-              <select id="discount_type" name="discount_type" defaultValue="" className="input-field">
-                <option value="">None</option>
-                {DISCOUNT_OPTS.map((o) => (
-                  <option key={o.v} value={o.v}>{o.l}</option>
-                ))}
-              </select>
+            <p className="text-xs text-ink/55">
+              Starting points the platform uses — the real numbers are set in each couple&rsquo;s inquiry. Skip these and you can still publish.
+            </p>
+            <Field label="Per extra guest (₱)" htmlFor="added_pax_price_php">
+              <input id="added_pax_price_php" name="added_pax_price_php" type="number" min={0} step={1} className="input-field" />
             </Field>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Amount" htmlFor="discount_value">
-                <input id="discount_value" name="discount_value" type="number" min={0} step="any" className="input-field" />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <Field label="Recommended lead (months)" htmlFor="recommended_lead_time_months">
+                <input id="recommended_lead_time_months" name="recommended_lead_time_months" type="number" min={0} step="0.5" className="input-field" />
               </Field>
-              <Field label="Expires (promo only)" htmlFor="discount_expires_at">
-                <input id="discount_expires_at" name="discount_expires_at" type="date" className="input-field" />
+              <Field label="Last-minute ends (months)" htmlFor="last_minute_end_months">
+                <input id="last_minute_end_months" name="last_minute_end_months" type="number" min={0} step={1} className="input-field" />
+              </Field>
+              <Field label="Last-minute surcharge (%)" htmlFor="last_minute_surcharge_pct">
+                <input id="last_minute_surcharge_pct" name="last_minute_surcharge_pct" type="number" min={0} max={100} step={1} className="input-field" />
               </Field>
             </div>
-            <Field label="Conditions (optional)" htmlFor="discount_conditions_md">
-              <input id="discount_conditions_md" name="discount_conditions_md" maxLength={1000} className="input-field" />
-            </Field>
           </div>
         </details>
       </section>
@@ -225,7 +210,7 @@ export function ServiceWizard({
         </section>
       ) : null}
 
-      {/* 5 · Availability (capacity + last-minute + branch) */}
+      {/* 5 · Availability (capacity + branch) */}
       <section {...show('when')} className="space-y-3">
         {slotsPerDay > 0 ? (
           <Field label="Bookings you can take per day" htmlFor="daily_capacity">
@@ -246,20 +231,6 @@ export function ServiceWizard({
             </select>
           </Field>
         ) : null}
-        <details className="rounded-lg border border-ink/10 p-3">
-          <summary className="cursor-pointer text-sm font-medium text-ink/75">Last-minute bookings (optional)</summary>
-          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <Field label="Recommended lead (months)" htmlFor="recommended_lead_time_months">
-              <input id="recommended_lead_time_months" name="recommended_lead_time_months" type="number" min={0} step="0.5" className="input-field" />
-            </Field>
-            <Field label="Last-minute ends (months)" htmlFor="last_minute_end_months">
-              <input id="last_minute_end_months" name="last_minute_end_months" type="number" min={0} step={1} className="input-field" />
-            </Field>
-            <Field label="Surcharge (%)" htmlFor="last_minute_surcharge_pct">
-              <input id="last_minute_surcharge_pct" name="last_minute_surcharge_pct" type="number" min={0} max={100} step={1} className="input-field" />
-            </Field>
-          </div>
-        </details>
       </section>
 
       {/* 6 · Payment plan (installments) */}

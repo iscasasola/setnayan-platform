@@ -1,9 +1,10 @@
 import { cache } from 'react';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { Camera, Quote, Sparkles } from 'lucide-react';
 import { Logo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { canViewSlugEvent } from '@/lib/slug-access';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { buildSitePaletteVars } from '@/lib/site-palette';
 import { isRecapPublished, assembleRecapModel, type RecapModel } from '@/lib/auto-recap';
@@ -31,7 +32,7 @@ const fetchEvent = cache(async (slug: string) => {
   const admin = createAdminClient();
   const { data } = await admin
     .from('events')
-    .select('event_id, slug, display_name, event_type, role_palette')
+    .select('event_id, slug, display_name, event_type, role_palette, landing_page_visibility')
     .ilike('slug', slug)
     .maybeSingle();
   return data;
@@ -66,6 +67,14 @@ export default async function RecapPage({ params }: { params: Promise<{ slug: st
   const { slug } = await params;
   const event = await fetchEvent(slug);
   if (!event || event.event_type !== 'wedding') notFound();
+
+  // Visibility gate (owner 2026-06-20): don't leak a private page's couple name
+  // via the recap (incl. the "not ready" stand-in). A published recap lives on
+  // a launched (public) page, so this only blocks strangers on a page the couple
+  // kept/made private; cookie-guests + hosts pass.
+  if (!(await canViewSlugEvent(event.event_id, event.landing_page_visibility))) {
+    redirect(`/${slug}`);
+  }
 
   const themeVars = buildSitePaletteVars(sanitizeRolePalette(event.role_palette));
   const wrapStyle = themeVars ? (themeVars as React.CSSProperties) : undefined;

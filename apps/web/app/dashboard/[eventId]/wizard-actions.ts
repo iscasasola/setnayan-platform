@@ -1010,11 +1010,14 @@ export async function completeCreateWebsiteTask(
 
   const validVisibility = ['public', 'unlisted', 'private'] as const;
   type Visibility = (typeof validVisibility)[number];
+  // Private by default (owner 2026-06-20): completing the website wizard without
+  // an explicit choice lands PRIVATE, matching the DB default — the page goes
+  // public only when the couple launches their Save-the-Date.
   const visibility: Visibility = (validVisibility as readonly string[]).includes(
     visibilityRaw as string,
   )
     ? (visibilityRaw as Visibility)
-    : 'public';
+    : 'private';
 
   const slug = slugRaw.trim().toLowerCase();
   if (!/^[a-z0-9-]{3,32}$/.test(slug)) {

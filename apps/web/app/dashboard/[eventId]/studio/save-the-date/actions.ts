@@ -273,6 +273,44 @@ export async function saveInvitationLaunchDate(formData: FormData): Promise<void
   redirect(`/dashboard/${eventId}/studio/save-the-date?std=saved#touches`);
 }
 
+/**
+ * launchSaveTheDate — the couple's deliberate "go live" action.
+ *
+ * Owner ruling 2026-06-20: the wedding's public /[slug] page is PRIVATE by
+ * default (migration 20270206705422) and becomes public ONLY when the couple
+ * launches their Save-the-Date. This is that moment: it flips
+ * landing_page_visibility → 'public' and stamps std_launched_at. Before this,
+ * strangers see the <PrivateLanding> lock screen; the couple (host) and invited
+ * guests (personal-link cookie) could already view it. After this, it's the
+ * full public page, indexable, with a rich share card.
+ *
+ * Returns a result (invoked from the studio launch button via a transition) so
+ * the button can show the "launched" state without a navigation. Idempotent —
+ * re-launching just re-stamps + re-publishes.
+ */
+export async function launchSaveTheDate(
+  eventId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  if (!eventId) return { ok: false, error: 'missing-event' };
+  const supabase = await requireCouple(eventId);
+  const { data: ev, error } = await supabase
+    .from('events')
+    .update({
+      landing_page_visibility: 'public',
+      std_launched_at: new Date().toISOString(),
+    })
+    .eq('event_id', eventId)
+    .select('slug')
+    .single();
+  if (error || !ev) return { ok: false, error: 'db-error' };
+  // Flip the PUBLIC page out of its cached private state — the dashboard-only
+  // revalidate() helper below never touches /[slug], so without this the page
+  // could keep serving the lock screen after launch.
+  if (ev.slug) revalidatePath(`/${ev.slug as string}`);
+  revalidate(eventId);
+  return { ok: true };
+}
+
 export async function saveStdContent(formData: FormData): Promise<void> {
   const eventId = String(formData.get('event_id') ?? '').trim();
   if (!eventId) throw new Error('Missing event_id');

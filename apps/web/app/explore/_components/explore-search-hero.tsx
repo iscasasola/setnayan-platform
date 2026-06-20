@@ -116,6 +116,16 @@ export function ExploreSearchHero({
             ))}
           </div>
         ) : null}
+
+        <p className="mt-6 text-[13px] text-[color:var(--m-slate)]">
+          Not sure where to start?{' '}
+          <Link
+            href="/tour"
+            className="font-medium text-[color:var(--m-mulberry)] underline decoration-[color:var(--m-mulberry)]/30 underline-offset-2 transition-colors hover:decoration-[color:var(--m-mulberry)]"
+          >
+            Walk through a real wedding →
+          </Link>
+        </p>
       </div>
     </section>
   );

@@ -28,16 +28,13 @@
 import { useMemo, useRef, useState, useTransition, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import {
-  AlertCircle,
-  Check,
-  MessageCircle,
-  MessageSquare,
-  Users,
-  X,
-} from 'lucide-react';
+import { Check, MessageCircle, MessageSquare, Users } from 'lucide-react';
 import { startServiceInquiry, type StartServiceInquiryResult } from '../inquiry-actions';
-import { humanizeFacet, type RequirementField } from '@/lib/requirements-capture';
+import { type RequirementField } from '@/lib/requirements-capture';
+import {
+  RequirementsModal,
+  type RequirementsModalPhase,
+} from '@/app/_components/requirements-modal';
 
 export type InquiryComposerService = {
   vendorServiceId: string;
@@ -240,6 +237,114 @@ export function InquiryComposer({
   }
 
   const isSubmitting = modal.kind === 'submitting' || pending;
+  // Map the composer's richer ModalState onto the shared modal's CTA lifecycle.
+  const modalPhase: RequirementsModalPhase =
+    modal.kind === 'submitting'
+      ? 'submitting'
+      : modal.kind === 'sent'
+        ? 'sent'
+        : modal.kind === 'error'
+          ? 'error'
+          : 'idle';
+  const sent = modal.kind === 'sent';
+
+  // The inquiry-only context block rendered ABOVE the requirements core: the
+  // headcount pill, the locked "Inquiring about" pick, "Comes with" linked
+  // services, and "Also ask about" optional services. Passed to the shared
+  // RequirementsModal as `topSlot` — the shortlist edit surface omits this.
+  const inquiryTopSlot = (
+    <>
+      {/* Pax pill */}
+      {typeof inquiryPax === 'number' && inquiryPax > 0 ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-ink/10 bg-cream/70 px-3 py-2">
+          <span className="inline-flex items-center gap-1.5 text-sm text-ink/80">
+            <Users aria-hidden className="h-3.5 w-3.5 text-ink/55" strokeWidth={1.75} />
+            Headcount for this inquiry:
+            <span className="font-semibold text-ink">{inquiryPax}</span>
+          </span>
+          {guestEditHref ? (
+            <Link
+              href={guestEditHref}
+              className="ml-auto font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-mulberry underline-offset-2 hover:underline"
+            >
+              Edit
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
+
+      {/* Initial service — pre-checked, locked */}
+      <fieldset className="space-y-2">
+        <legend className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/50">
+          Inquiring about
+        </legend>
+        <div className="flex items-center gap-2 rounded-lg border border-terracotta/50 bg-terracotta/5 px-3 py-2">
+          <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-terracotta bg-terracotta">
+            <Check aria-hidden className="h-2.5 w-2.5 text-cream" strokeWidth={3} />
+          </div>
+          <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
+            {initial.label}
+          </span>
+          <span className="font-mono text-[11px] text-ink/55">{initial.priceLabel}</span>
+        </div>
+      </fieldset>
+
+      {/* Linked services — read-only ✓ included */}
+      {linked.length > 0 ? (
+        <div className="space-y-1.5">
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/50">
+            Comes with
+          </p>
+          <ul className="flex flex-wrap gap-1.5">
+            {linked.map((l, i) => (
+              <li
+                key={`${l.label}-${i}`}
+                className="inline-flex items-center gap-1 rounded-full border border-success-300/60 bg-success-50 px-2.5 py-0.5 text-[12px] text-success-900"
+              >
+                <Check aria-hidden className="h-3 w-3" strokeWidth={2.25} />
+                {l.label}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {/* Also-ask checkboxes (multi-service vendors only) */}
+      {hasAlsoOptions ? (
+        <fieldset className="space-y-2">
+          <legend className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/50">
+            Also ask about
+          </legend>
+          <ul className="space-y-1.5">
+            {alsoOptions.map((s) => {
+              const on = checked.has(s.vendorServiceId);
+              return (
+                <li key={s.vendorServiceId}>
+                  <label
+                    className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-colors ${
+                      on
+                        ? 'border-terracotta/50 bg-terracotta/5 text-ink'
+                        : 'border-ink/10 bg-cream/80 text-ink/80 hover:border-terracotta/40'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      onChange={() => toggle(s.vendorServiceId)}
+                      disabled={isSubmitting || sent}
+                      className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+                    />
+                    <span className="min-w-0 flex-1 truncate">{s.label}</span>
+                    <span className="font-mono text-[11px] text-ink/55">{s.priceLabel}</span>
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+        </fieldset>
+      ) : null}
+    </>
+  );
 
   // ── Existing-thread state ──────────────────────────────────────────────────
   if (existingThreadId && existingThreadHref) {
@@ -269,11 +374,9 @@ export function InquiryComposer({
 
         {modal.kind !== 'closed' ? (
           <RequirementsModal
-            vendorLabel={vendorLabel}
-            initial={initial}
-            linked={linked}
-            alsoOptions={alsoOptions}
-            hasAlsoOptions={hasAlsoOptions}
+            title={`Inquire with ${vendorLabel}`}
+            subtitle="Tell them what you’re looking for."
+            topSlot={inquiryTopSlot}
             requirementsFields={requirementsFields}
             reqPayload={reqPayload}
             toggleFacet={toggleFacet}
@@ -282,12 +385,11 @@ export function InquiryComposer({
             autoSend={autoSend}
             setAutoSend={setAutoSend}
             categoryName={categoryName}
-            inquiryPax={inquiryPax}
-            guestEditHref={guestEditHref}
-            checked={checked}
-            toggle={toggle}
-            modal={modal}
+            submitLabel="Send inquiry"
+            sentLabel="Inquiry sent"
+            phase={modalPhase}
             isSubmitting={isSubmitting}
+            errorMessage={modal.kind === 'error' ? modal.message : null}
             onClose={closeModal}
             onSubmit={submit}
             dialogRef={dialogRef}
@@ -322,11 +424,9 @@ export function InquiryComposer({
 
       {modal.kind !== 'closed' ? (
         <RequirementsModal
-          vendorLabel={vendorLabel}
-          initial={initial}
-          linked={linked}
-          alsoOptions={alsoOptions}
-          hasAlsoOptions={hasAlsoOptions}
+          title={`Inquire with ${vendorLabel}`}
+          subtitle="Tell them what you’re looking for."
+          topSlot={inquiryTopSlot}
           requirementsFields={requirementsFields}
           reqPayload={reqPayload}
           toggleFacet={toggleFacet}
@@ -335,12 +435,11 @@ export function InquiryComposer({
           autoSend={autoSend}
           setAutoSend={setAutoSend}
           categoryName={categoryName}
-          inquiryPax={inquiryPax}
-          guestEditHref={guestEditHref}
-          checked={checked}
-          toggle={toggle}
-          modal={modal}
+          submitLabel="Send inquiry"
+          sentLabel="Inquiry sent"
+          phase={modalPhase}
           isSubmitting={isSubmitting}
+          errorMessage={modal.kind === 'error' ? modal.message : null}
           onClose={closeModal}
           onSubmit={submit}
           dialogRef={dialogRef}
@@ -358,307 +457,4 @@ function seedReqPayload(saved: SavedRequirements | null): Record<string, Set<str
     if (Array.isArray(values)) out[key] = new Set(values.filter((v) => typeof v === 'string'));
   }
   return out;
-}
-
-type RequirementsModalProps = {
-  vendorLabel: string;
-  initial: InquiryComposerService & { categoryKey: string | null };
-  linked: { label: string }[];
-  alsoOptions: InquiryComposerService[];
-  hasAlsoOptions: boolean;
-  requirementsFields: RequirementField[];
-  reqPayload: Record<string, Set<string>>;
-  toggleFacet: (fieldKey: string, option: string) => void;
-  specialRequest: string;
-  setSpecialRequest: (v: string) => void;
-  autoSend: boolean;
-  setAutoSend: (v: boolean) => void;
-  categoryName: string;
-  inquiryPax?: number | null;
-  guestEditHref?: string | null;
-  checked: Set<string>;
-  toggle: (id: string) => void;
-  modal: ModalState;
-  isSubmitting: boolean;
-  onClose: () => void;
-  onSubmit: () => void;
-  dialogRef: React.RefObject<HTMLDivElement | null>;
-};
-
-function RequirementsModal({
-  vendorLabel,
-  initial,
-  linked,
-  alsoOptions,
-  hasAlsoOptions,
-  requirementsFields,
-  reqPayload,
-  toggleFacet,
-  specialRequest,
-  setSpecialRequest,
-  autoSend,
-  setAutoSend,
-  categoryName,
-  inquiryPax,
-  guestEditHref,
-  checked,
-  toggle,
-  modal,
-  isSubmitting,
-  onClose,
-  onSubmit,
-  dialogRef,
-}: RequirementsModalProps) {
-  const sent = modal.kind === 'sent';
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="inquiry-modal-title"
-    >
-      {/* Translucent backdrop — click closes */}
-      <button
-        type="button"
-        aria-label="Close"
-        onClick={onClose}
-        className="absolute inset-0 bg-ink/40 backdrop-blur-sm"
-      />
-
-      {/* Modal panel */}
-      <div
-        ref={dialogRef}
-        className="relative z-10 flex max-h-[90vh] w-full flex-col overflow-hidden rounded-t-3xl border border-ink/10 bg-cream shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] sm:max-h-[85vh] sm:w-full sm:max-w-lg sm:rounded-2xl sm:shadow-[0_30px_80px_-40px_rgba(26,26,26,0.4)]"
-      >
-        {/* Header */}
-        <div className="flex items-start justify-between gap-3 border-b border-ink/10 px-5 py-4">
-          <div>
-            <p
-              id="inquiry-modal-title"
-              className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta"
-            >
-              Inquire with {vendorLabel}
-            </p>
-            <p className="mt-0.5 text-sm text-ink/70">
-              Tell them what you&rsquo;re looking for.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink/55 hover:bg-ink/5 hover:text-ink"
-          >
-            <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-          </button>
-        </div>
-
-        {/* Body — scrollable */}
-        <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
-          {/* Pax pill */}
-          {typeof inquiryPax === 'number' && inquiryPax > 0 ? (
-            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-ink/10 bg-cream/70 px-3 py-2">
-              <span className="inline-flex items-center gap-1.5 text-sm text-ink/80">
-                <Users aria-hidden className="h-3.5 w-3.5 text-ink/55" strokeWidth={1.75} />
-                Headcount for this inquiry:
-                <span className="font-semibold text-ink">{inquiryPax}</span>
-              </span>
-              {guestEditHref ? (
-                <Link
-                  href={guestEditHref}
-                  className="ml-auto font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-mulberry underline-offset-2 hover:underline"
-                >
-                  Edit
-                </Link>
-              ) : null}
-            </div>
-          ) : null}
-
-          {/* Initial service — pre-checked, locked */}
-          <fieldset className="space-y-2">
-            <legend className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/50">
-              Inquiring about
-            </legend>
-            <div className="flex items-center gap-2 rounded-lg border border-terracotta/50 bg-terracotta/5 px-3 py-2">
-              <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-terracotta bg-terracotta">
-                <Check aria-hidden className="h-2.5 w-2.5 text-cream" strokeWidth={3} />
-              </div>
-              <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
-                {initial.label}
-              </span>
-              <span className="font-mono text-[11px] text-ink/55">{initial.priceLabel}</span>
-            </div>
-          </fieldset>
-
-          {/* Linked services — read-only ✓ included */}
-          {linked.length > 0 ? (
-            <div className="space-y-1.5">
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/50">
-                Comes with
-              </p>
-              <ul className="flex flex-wrap gap-1.5">
-                {linked.map((l, i) => (
-                  <li
-                    key={`${l.label}-${i}`}
-                    className="inline-flex items-center gap-1 rounded-full border border-success-300/60 bg-success-50 px-2.5 py-0.5 text-[12px] text-success-900"
-                  >
-                    <Check aria-hidden className="h-3 w-3" strokeWidth={2.25} />
-                    {l.label}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-
-          {/* Also-ask checkboxes (multi-service vendors only) */}
-          {hasAlsoOptions ? (
-            <fieldset className="space-y-2">
-              <legend className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/50">
-                Also ask about
-              </legend>
-              <ul className="space-y-1.5">
-                {alsoOptions.map((s) => {
-                  const on = checked.has(s.vendorServiceId);
-                  return (
-                    <li key={s.vendorServiceId}>
-                      <label
-                        className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-colors ${
-                          on
-                            ? 'border-terracotta/50 bg-terracotta/5 text-ink'
-                            : 'border-ink/10 bg-cream/80 text-ink/80 hover:border-terracotta/40'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={on}
-                          onChange={() => toggle(s.vendorServiceId)}
-                          disabled={isSubmitting || sent}
-                          className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
-                        />
-                        <span className="min-w-0 flex-1 truncate">{s.label}</span>
-                        <span className="font-mono text-[11px] text-ink/55">{s.priceLabel}</span>
-                      </label>
-                    </li>
-                  );
-                })}
-              </ul>
-            </fieldset>
-          ) : null}
-
-          {/* ── Per-category requirements (Phase 1b PR-3) ──────────────────── */}
-          {requirementsFields.length > 0 ? (
-            <div className="space-y-4 rounded-xl border border-ink/10 bg-cream/60 p-4">
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
-                What we&rsquo;re looking for
-              </p>
-              {requirementsFields.map((field) => {
-                const selected = reqPayload[field.key] ?? new Set<string>();
-                return (
-                  <fieldset key={field.key} className="space-y-2">
-                    <legend className="block text-sm font-medium text-ink/80">{field.label}</legend>
-                    <div className="flex flex-wrap gap-2">
-                      {field.options.map((opt) => {
-                        const on = selected.has(opt);
-                        return (
-                          <label
-                            key={opt}
-                            className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition ${
-                              on
-                                ? 'border-terracotta bg-terracotta/10 text-terracotta-700'
-                                : 'border-ink/15 bg-cream text-ink/75 hover:border-ink/30'
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={on}
-                              onChange={() => toggleFacet(field.key, opt)}
-                              disabled={isSubmitting || sent}
-                              className="h-3.5 w-3.5 rounded border-ink/25 text-terracotta focus:ring-terracotta/40"
-                            />
-                            <span>{humanizeFacet(opt)}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </fieldset>
-                );
-              })}
-            </div>
-          ) : null}
-
-          {/* Special request free-text */}
-          <div className="space-y-1.5">
-            <label
-              htmlFor="inquiry-special-request"
-              className="block text-sm font-medium text-ink/80"
-            >
-              Special request
-            </label>
-            <textarea
-              id="inquiry-special-request"
-              value={specialRequest}
-              onChange={(e) => setSpecialRequest(e.target.value)}
-              disabled={isSubmitting || sent}
-              maxLength={2000}
-              rows={3}
-              placeholder="Anything specific you'd like this vendor to know?"
-              className="input-field w-full"
-            />
-          </div>
-
-          {/* Keep + auto-send affordance */}
-          <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-ink/10 bg-cream/70 px-3 py-2.5">
-            <input
-              type="checkbox"
-              checked={autoSend}
-              onChange={(e) => setAutoSend(e.target.checked)}
-              disabled={isSubmitting || sent}
-              className="mt-0.5 h-4 w-4 rounded border-ink/25 text-terracotta focus:ring-terracotta/40"
-            />
-            <span className="text-sm text-ink/80">
-              Keep this to reuse for other {categoryName} inquiries
-              <span className="mt-0.5 block text-xs text-ink/55">
-                We&rsquo;ll auto-fill these for your next {categoryName} vendor.
-              </span>
-            </span>
-          </label>
-
-          {/* Error */}
-          {modal.kind === 'error' ? (
-            <p className="flex items-center gap-1.5 text-xs text-danger-700">
-              <AlertCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-              {modal.message}
-            </p>
-          ) : null}
-        </div>
-
-        {/* Footer CTA */}
-        <div className="border-t border-ink/10 px-5 py-4 pb-[max(env(safe-area-inset-bottom),16px)]">
-          <button
-            type="button"
-            onClick={onSubmit}
-            disabled={isSubmitting || sent}
-            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-mulberry px-5 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600 disabled:cursor-default disabled:opacity-90"
-          >
-            {sent ? (
-              <>
-                <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
-                Inquiry sent
-              </>
-            ) : isSubmitting ? (
-              <>
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-cream border-t-transparent" aria-hidden />
-                Sending…
-              </>
-            ) : (
-              <>
-                <MessageCircle aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                Send inquiry
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 }

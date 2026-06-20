@@ -216,7 +216,7 @@ export function GigCard({
                 background: 'var(--m-orange)',
                 color: 'white',
                 padding: '8px 16px',
-                borderRadius: 'var(--m-radius-md)',
+                borderRadius: 'var(--m-r-md)',
                 fontSize: '14px',
                 fontWeight: 500,
               }}
@@ -243,7 +243,7 @@ export function GigCard({
               background: 'var(--m-orange)',
               color: 'white',
               padding: '8px 14px',
-              borderRadius: 'var(--m-radius-md)',
+              borderRadius: 'var(--m-r-md)',
               fontSize: '13px',
               fontWeight: 500,
             }}

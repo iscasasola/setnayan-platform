@@ -151,7 +151,7 @@ function BuildControls({ eventId, hasUnlocked }: { eventId: string; hasUnlocked:
           type="button"
           onClick={reset}
           disabled={pending}
-          className="inline-flex items-center justify-center gap-1.5 rounded-[10px] border border-danger-300 px-3 py-2.5 text-[12.5px] font-semibold text-danger-700 hover:bg-danger-50 disabled:opacity-60"
+          className="inline-flex items-center justify-center gap-1.5 rounded-md border border-danger-300 px-3 py-2.5 text-[12.5px] font-semibold text-danger-700 hover:bg-danger-50 disabled:opacity-60"
         >
           {pending ? 'Resetting…' : 'Tap to confirm reset'}
         </button>
@@ -159,7 +159,7 @@ function BuildControls({ eventId, hasUnlocked }: { eventId: string; hasUnlocked:
         <button
           type="button"
           onClick={() => setConfirm(true)}
-          className="inline-flex items-center justify-center gap-1.5 rounded-[10px] border border-ink/15 px-3 py-2.5 text-[12.5px] font-medium text-ink/70 hover:bg-ink/5"
+          className="inline-flex items-center justify-center gap-1.5 rounded-md border border-ink/15 px-3 py-2.5 text-[12.5px] font-medium text-ink/70 hover:bg-ink/5"
         >
           <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.9} aria-hidden /> Reset
         </button>
@@ -172,7 +172,7 @@ function BuildControls({ eventId, hasUnlocked }: { eventId: string; hasUnlocked:
         // the couple in Build, where the lock section is.
         onClick={() => goToBuildTab('build')}
         disabled={!hasUnlocked}
-        className="inline-flex items-center justify-center gap-1.5 rounded-[10px] bg-mulberry px-3 py-2.5 text-[12.5px] font-semibold text-cream transition-colors hover:bg-mulberry-700 disabled:opacity-50"
+        className="inline-flex items-center justify-center gap-1.5 rounded-md bg-mulberry px-3 py-2.5 text-[12.5px] font-semibold text-cream transition-colors hover:bg-mulberry-700 disabled:opacity-50"
       >
         <LockIcon className="h-3.5 w-3.5" strokeWidth={1.9} aria-hidden /> Lock your build
       </button>

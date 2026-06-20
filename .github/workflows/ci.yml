@@ -240,6 +240,24 @@ jobs:
       - name: Lint guest legibility
         run: node apps/web/scripts/lint-guest-legibility.mjs
 
+  lint-radius:
+    name: lint radius tokens
+    runs-on: ubuntu-latest
+    # Keeps corner radii on the single --m-r-* token scale (owner-locked
+    # "softer corners" 2026-06-20). Fails on any ad-hoc rounded-[Npx] /
+    # border-radius:Npx / borderRadius:N that bypasses the tokens. Tree is
+    # clean at landing; this blocks NEW drift. Not yet a required check —
+    # owner promotes via branch protection. See apps/web/scripts/lint-radius.mjs.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Lint radius tokens
+        run: RADIUS_LINT_STRICT=1 node apps/web/scripts/lint-radius.mjs
+
   migration-timestamp-guard:
     name: migration timestamp guard
     runs-on: ubuntu-latest

@@ -51,7 +51,7 @@ export function StudioAppRow({ href, label, blurb, Icon, gradient, pill }: Props
     <>
       <span
         aria-hidden
-        className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-[16px] text-cream shadow-[inset_0_1px_1px_rgba(255,255,255,0.18)]"
+        className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-lg text-cream shadow-[inset_0_1px_1px_rgba(255,255,255,0.18)]"
         style={{ background: gradient }}
       >
         <Icon className="h-6 w-6" strokeWidth={1.75} />

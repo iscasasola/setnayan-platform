@@ -563,7 +563,7 @@ export function VendorPricingMatrix({
           z-index: 5;
           background: var(--m-paper);
           border: 1px solid var(--m-line);
-          border-radius: 14px;
+          border-radius: var(--m-r-md);
           padding: 10px;
           box-shadow: 0 6px 20px -12px rgba(30, 34, 41, 0.25);
         }
@@ -581,7 +581,7 @@ export function VendorPricingMatrix({
           border: 1px solid var(--m-line);
           background: var(--m-paper);
           color: var(--m-slate);
-          border-radius: 9px;
+          border-radius: var(--m-r-sm);
           padding: 9px 4px;
           font-size: 11px;
           font-weight: 500;
@@ -599,7 +599,7 @@ export function VendorPricingMatrix({
         .m-tier-banner {
           margin-top: 10px;
           padding: 12px 14px;
-          border-radius: 10px;
+          border-radius: var(--m-r-sm);
           background: var(--m-paper-2);
         }
         .m-tier-banner.is-ink {

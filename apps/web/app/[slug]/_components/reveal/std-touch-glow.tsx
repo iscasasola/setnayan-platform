@@ -163,7 +163,7 @@ function GlowBlob({
         height: diameter,
         marginLeft: -diameter / 2,
         marginTop: -diameter / 2,
-        borderRadius: '9999px',
+        borderRadius: 'var(--m-r-full)',
         background: `radial-gradient(circle, ${color} 0%, transparent 70%)`,
         mixBlendMode: 'screen',
         pointerEvents: 'none',

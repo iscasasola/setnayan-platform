@@ -158,7 +158,7 @@ export function OurStoryManifesto() {
                   style={{
                     background: e.now ? 'rgba(197,160,89,.08)' : 'rgba(255,255,255,.03)',
                     border: e.now ? '1px solid rgba(197,160,89,.45)' : '1px solid rgba(255,255,255,.08)',
-                    borderRadius: 16,
+                    borderRadius: 'var(--m-r-md)',
                     padding: '22px 22px 24px',
                     boxShadow: e.now ? '0 0 60px rgba(197,160,89,.16)' : 'none',
                   }}

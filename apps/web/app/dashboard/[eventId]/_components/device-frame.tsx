@@ -79,13 +79,13 @@ export function DeviceFrame({
       <div className="mx-auto flex w-full flex-col items-center" style={{ maxWidth: 560 }}>
         {/* lid */}
         <div
-          className="relative rounded-t-[18px] rounded-b-[5px] border-2 border-[#3a3a3e] bg-[#1b1b1d] px-[10px] pb-[12px] pt-[10px]"
+          className="relative rounded-t-2xl rounded-b-sm border-2 border-[#3a3a3e] bg-[#1b1b1d] px-[10px] pb-[12px] pt-[10px]"
           style={{ width: '93%' }}
         >
           {/* notch */}
-          <div className="absolute left-1/2 top-[4px] z-30 h-[12px] w-[60px] -translate-x-1/2 rounded-b-[8px] bg-[#0a0a0c]" />
+          <div className="absolute left-1/2 top-[4px] z-30 h-[12px] w-[60px] -translate-x-1/2 rounded-b-md bg-[#0a0a0c]" />
           <div
-            className="relative w-full overflow-hidden rounded-[5px] bg-[#161210]"
+            className="relative w-full overflow-hidden rounded-sm bg-[#161210]"
             style={{ aspectRatio: '16 / 10' }}
           >
             {children}
@@ -94,13 +94,13 @@ export function DeviceFrame({
         </div>
         {/* base / hinge lip */}
         <div
-          className="relative h-[13px] w-full rounded-b-[11px]"
+          className="relative h-[13px] w-full rounded-b-lg"
           style={{
             background: 'linear-gradient(#c2c4c9, #a6a8ad)',
             boxShadow: 'inset 0 2px 2px rgba(255,255,255,0.45)',
           }}
         >
-          <div className="absolute left-1/2 top-0 h-[6px] w-[96px] -translate-x-1/2 rounded-b-[7px] bg-[#9a9ca1]" />
+          <div className="absolute left-1/2 top-0 h-[6px] w-[96px] -translate-x-1/2 rounded-b-md bg-[#9a9ca1]" />
         </div>
       </div>
     );
@@ -110,13 +110,13 @@ export function DeviceFrame({
   return (
     <div className="mx-auto w-full" style={{ maxWidth: 232 }}>
       <div
-        className="relative w-full rounded-[44px] bg-[#0a0a0c] p-[10px]"
+        className="relative w-full rounded-3xl bg-[#0a0a0c] p-[10px]"
         style={{ boxShadow: '0 0 0 2px #2a2a2e, 0 18px 40px rgba(0,0,0,0.28)' }}
       >
         {/* dynamic island */}
-        <div className="absolute left-1/2 top-[22px] z-30 h-[22px] w-[74px] -translate-x-1/2 rounded-[13px] bg-[#0a0a0c]" />
+        <div className="absolute left-1/2 top-[22px] z-30 h-[22px] w-[74px] -translate-x-1/2 rounded-lg bg-[#0a0a0c]" />
         <div
-          className="relative w-full overflow-hidden rounded-[34px] bg-[#161210]"
+          className="relative w-full overflow-hidden rounded-3xl bg-[#161210]"
           style={{ aspectRatio: '9 / 19.5' }}
         >
           {children}

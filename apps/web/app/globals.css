@@ -271,7 +271,7 @@
   align-items: center;
   gap: 2px;
   padding: 3px;
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   background: color-mix(in srgb, var(--m-ink) 5%, transparent);
   border: 0.5px solid var(--m-line);
 }
@@ -285,7 +285,7 @@
   padding: 0 10px;
   border: 0;
   background: transparent;
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   color: var(--m-slate);
   font-size: 13px;
   font-weight: 500;

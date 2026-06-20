@@ -1253,7 +1253,7 @@ export function StudioCardDemo({
         <figcaption className="text-center">
           <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-terracotta">{label}</p>
         </figcaption>
-        <div className="w-[244px] overflow-hidden rounded-[30px] border-[7px] border-ink bg-ink">
+        <div className="w-[244px] overflow-hidden rounded-3xl border-[7px] border-ink bg-ink">
           <div className="relative aspect-[9/19] w-full bg-ink">
             {/* Decorative, captions baked in — no <track> needed. */}
             {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
@@ -1289,7 +1289,7 @@ export function StudioCardDemo({
         {hint ? <p className="mt-1 text-xs text-ink/60">{hint}</p> : null}
       </figcaption>
 
-      <div className="w-[244px] overflow-hidden rounded-[30px] border-[7px] border-ink bg-ink">
+      <div className="w-[244px] overflow-hidden rounded-3xl border-[7px] border-ink bg-ink">
         <div key={idx} className="relative aspect-[9/19] w-full bg-ink animate-[studioDemoFade_.32s_ease]">
           {richF ? (
             richF.image ? (

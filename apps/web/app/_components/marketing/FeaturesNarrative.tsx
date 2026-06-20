@@ -177,7 +177,7 @@ function StepDots({ total, current }: { total: number; current: number }) {
           style={{
             width: i === current ? 20 : 6,
             height: 6,
-            borderRadius: 999,
+            borderRadius: 'var(--m-r-full)',
             background:
               i === current
                 ? 'var(--m-orange)'
@@ -211,7 +211,7 @@ function NextBtn({
         alignItems: 'center',
         gap: 10,
         padding: '14px 28px',
-        borderRadius: 999,
+        borderRadius: 'var(--m-r-full)',
         border: dark ? '1px solid rgba(255,255,255,.18)' : '1px solid var(--m-line)',
         background: dark ? 'rgba(255,255,255,.06)' : 'var(--m-paper)',
         color: dark ? '#FBFBFA' : 'var(--m-ink)',
@@ -297,7 +297,7 @@ function PanelOverview({ onNext }: { onNext: () => void }) {
               key={name}
               style={{
                 padding: '9px 16px',
-                borderRadius: 10,
+                borderRadius: 'var(--m-r-sm)',
                 background: 'rgba(197,160,89,.16)',
                 border: '1px solid rgba(197,160,89,.32)',
                 color: 'var(--m-orange-3)',
@@ -314,7 +314,7 @@ function PanelOverview({ onNext }: { onNext: () => void }) {
               key={name}
               style={{
                 padding: '9px 16px',
-                borderRadius: 10,
+                borderRadius: 'var(--m-r-sm)',
                 background: 'rgba(255,255,255,.04)',
                 border: '1px solid rgba(255,255,255,.1)',
                 color: 'rgba(251,251,250,.48)',
@@ -403,7 +403,7 @@ function PanelFree({ onNext }: { onNext: () => void }) {
                       textTransform: 'uppercase',
                       color: 'var(--m-ink)',
                       background: 'var(--m-orange-3)',
-                      borderRadius: 999,
+                      borderRadius: 'var(--m-r-full)',
                       padding: '3px 8px',
                       whiteSpace: 'nowrap',
                     }}
@@ -492,7 +492,7 @@ function PanelPremium({ onNext }: { onNext: () => void }) {
                 flexDirection: 'column',
                 gap: 10,
                 border: '1px solid var(--m-line)',
-                borderRadius: 14,
+                borderRadius: 'var(--m-r-md)',
                 background: 'var(--m-paper)',
               }}
             >
@@ -501,7 +501,7 @@ function PanelPremium({ onNext }: { onNext: () => void }) {
                   style={{
                     width: 36,
                     height: 36,
-                    borderRadius: 10,
+                    borderRadius: 'var(--m-r-sm)',
                     background: 'var(--m-paper-2)',
                     border: '1px solid var(--m-line)',
                     display: 'flex',
@@ -524,7 +524,7 @@ function PanelPremium({ onNext }: { onNext: () => void }) {
                     color: 'var(--m-mulberry)',
                     background: 'var(--m-mulberry-4)',
                     border: '1px solid var(--m-mulberry-3)',
-                    borderRadius: 999,
+                    borderRadius: 'var(--m-r-full)',
                     padding: '3px 8px',
                     whiteSpace: 'nowrap',
                   }}
@@ -610,7 +610,7 @@ function PanelMarketplace() {
               key={cat}
               style={{
                 padding: '9px 16px',
-                borderRadius: 999,
+                borderRadius: 'var(--m-r-full)',
                 background: 'rgba(255,255,255,.05)',
                 border: '1px solid rgba(255,255,255,.12)',
                 color: 'rgba(251,251,250,.72)',

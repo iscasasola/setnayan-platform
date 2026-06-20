@@ -4,44 +4,6 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-20 · feat(marketing): /why-setnayan comparison/GEO page — the citable differentiation frame
-
-Public-surface pass (5 of N — final piece of the "lead with the media layer" verdict). The differentiation-vs-incumbents frame previously lived only in `llms.txt` (AI-engine-only) with no human-visible, indexable, citable page. This adds it.
-
-- **New `app/why-setnayan/page.tsx`** — server-static page, `/monogram`/`/papic` pattern. **Framed as "three apps' worth in one"** (a planning app + a photo app + a vendor directory), NOT a competitor scorecard — names **no** competitor and makes no blanket claim about a named rival (public-surface hygiene + legal safety). Sections: hero → "what you'd otherwise juggle" → "what Setnayan brings together" → "the part no one else has" (cross-links `/papic` + `/setnayan-ai`) → FAQ → CTA. Benefits-only; no hardcoded prices (0% commission + free-to-plan are stated facts). Emits **WebPage** + **FAQPage** JSON-LD.
-- Registered `/why-setnayan` in `NAV_ROUTES` + sitemap (priority 0.7); route count 21→22.
-
-Note: the `hreflang` extension (the other P1 SEO item) is **deferred** — it should only point to `/tl/*` alternates that exist, and those exist for `/about`, `/how-it-works`, `/features` only. Extending hreflang to the rest requires creating their Taglish editions first; pointing hreflang at non-existent `/tl/*` URLs would be worse than omitting it.
-
-Not built locally (pnpm worktree node_modules); required CI + Vercel PR preview are the surface.
-
-SPEC IMPACT: None (new public marketing page; no SKU / schema / pricing / branding change).
-
-Public-surface pass (3 of N — "lead with the media layer"). Setnayan AI is the second proven differentiator incumbents lack, and it had no indexable, citable landing page.
-
-- **New `app/setnayan-ai/page.tsx`** — server-static marketing page, same `/monogram`/`/papic` pattern. Benefits-only copy, **no hardcoded price** (links to `/pricing`). **Accuracy guardrail honored** (locked "Setnayan AI definition"): described as **deterministic matchmaking + planning, NOT an LLM chatbot** — copy says "finds your fit / a ranked shortlist / matchmaking, not a chatbot", never "chatbot/conversation/generative". Framing per the locked free-vs-AI boundary: planning tools are free, Setnayan AI is the upgrade that does the finding. Hero echoes the homepage promise ("Say it once. Find your perfect fit.") which the AI is the answer to. Emits **SoftwareApplication** (featureList) + **FAQPage** JSON-LD.
-- Registered `/setnayan-ai` in `NAV_ROUTES` + sitemap (priority 0.8); route count 20→21.
-
-Not built locally (pnpm worktree node_modules); required CI + Vercel PR preview are the surface.
-
-SPEC IMPACT: None (new marketing page; Setnayan AI SKU/pricing unchanged, live in /pricing + catalog).
-
-Public-surface pass (2 of N — "lead with the media layer" from the demand-research verdict). Papic (guest photo gallery) is one of the two proven differentiators incumbents lack (BridalPod has no gallery; the ₱699 "photo wall" apps have no per-guest sorting or reels) — and it had **no indexable, citable landing page**. This is that page.
-
-- **New `app/papic/page.tsx`** — server-static marketing landing page in the `/monogram` design pattern. Sells benefits only (public-surface hygiene), quotes **no price** (admin-managed + provisional — links to `/pricing` instead). Sections: hero → 3-step "how it works" → "not a shared photo dump" comparison → "two ways to run it" (5 Seats vs Guest) → visible FAQ → CTA. Emits **`SoftwareApplication`** (with `featureList` naming the moat for AI answer engines) + **`FAQPage`** JSON-LD.
-- `app/_components/marketing/site-chrome.tsx` — registered `/papic` in `NAV_ROUTES` so the persistent SiteChrome nav renders.
-- `app/sitemap-static.xml/route.ts` — added `/papic` (priority 0.8); route count 19→20.
-
-The interactive guest tooling at `/papic/guest` is untouched; this claims the previously-free `/papic` root. Not built locally (pnpm worktree node_modules can't be cross-linked); required CI (typecheck + lint + build) + the Vercel PR preview are the verification surface.
-
-SPEC IMPACT: None (new public marketing page; no SKU / schema / pricing / branding change — Papic SKU + pricing live in `/pricing` + the catalog, unchanged).
-
-Public-surface SEO pass (1 of N — "update website + SEO + GEO" workstream from the demand-research verdict). Closes two crawl-coverage gaps found in the public-surface audit:
-
-- `app/sitemap-static.xml/route.ts` — added `/our-story` (brand-narrative / media-layer story, AboutPage JSON-LD) and `/monogram` (FREE no-signup monogram maker, WebApplication JSON-LD, top-of-funnel lead-gen) to `STATIC_ROUTES`. Both are real public, indexable pages with full metadata + JSON-LD but were in **no** sitemap. Honest `lastmod` anchored to each page's last content-change (`git log %cs`): /our-story 2026-06-18, /monogram 2026-06-19. Route count comment 17→19.
-- `app/explore/compare/page.tsx` — completed metadata: added `alternates.canonical` + `openGraph` (was title + description only).
-
-SPEC IMPACT: None (SEO metadata/sitemap only; no SKU / schema / pricing / branding change).
 ## 2026-06-20 · feat(db): sample-event + demo-service flags (Maria & Jose foundation, Phase 1)
 
 Foundation migration for the planned "Maria & Jose" public sample/showcase experience. Additive, idempotent, RLS-unchanged. Migration file only — **not yet applied to prod** (applied deliberately via `supabase db push` when the seed is ready).

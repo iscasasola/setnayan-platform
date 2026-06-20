@@ -41,7 +41,10 @@ import { SaveVendorButton } from '@/app/explore/_components/save-vendor-button';
 import {
   InquiryComposer,
   type InquiryComposerService,
+  type SavedRequirements,
 } from './_components/inquiry-composer';
+import { fetchRequirementFields, type RequirementField } from '@/lib/requirements-capture';
+import { getEventPreference } from '@/lib/event-preferences';
 import { NavLinksRow } from '@/app/_components/nav-links';
 import {
   fetchReviewsForVendorWithCouple,
@@ -623,6 +626,44 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
       ? await resolveLivePax(supabase, coupleEventId)
       : null;
 
+  // Phase 1b PR-3 · per-category requirements capture. The initial pick's
+  // category IS the canonical_service (vendor_services.category ≈ 1:1 with
+  // canonical_service_schemas). Load the leaf's multi_select facets (checkbox
+  // groups) + the couple's previously saved template for THIS (event, category)
+  // so the pop-up pre-fills. Both fail-soft to empty/null — the pop-up still
+  // shows the special-request box and the inquiry still sends. Only the
+  // multi_select facets are surfaced (couple-facing requirements), so a leaf
+  // with no facet schema simply shows the note box. admin client reads the
+  // public schema; the host-scoped client reads the couple's own pref row.
+  const requirementCategoryKey =
+    showInquiryComposer && composerInitial ? composerInitial.category : null;
+  const [requirementsFields, savedRequirements]: [
+    RequirementField[],
+    SavedRequirements | null,
+  ] = requirementCategoryKey && coupleEventId
+    ? await Promise.all([
+        fetchRequirementFields(admin, requirementCategoryKey),
+        getEventPreference(supabase, coupleEventId, requirementCategoryKey).then((p) =>
+          p
+            ? {
+                payload: Object.fromEntries(
+                  Object.entries(p.attribute_payload ?? {})
+                    .filter(([, v]) => Array.isArray(v))
+                    .map(([k, v]) => [k, (v as unknown[]).filter((x): x is string => typeof x === 'string')]),
+                ),
+                specialRequest: p.special_request ?? '',
+                autoSend: p.auto_send ?? false,
+              }
+            : null,
+        ),
+      ])
+    : [[], null];
+  const requirementCategoryLabel = requirementCategoryKey
+    ? isCanonicalService(requirementCategoryKey)
+      ? displayServiceLabel(requirementCategoryKey)
+      : requirementCategoryKey
+    : null;
+
   // GEO Phase G4 (2026-05-28) — LocalBusiness JSON-LD lets AI answer engines
   // (ChatGPT-User · OAI-SearchBot · PerplexityBot · ClaudeBot — allowlisted
   // via robots.txt per CLAUDE.md 2026-05-14 SEO playbook) extract the
@@ -1157,6 +1198,10 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
                 (label) => ({ label }),
               )}
               alsoOptions={composerAlso}
+              // Phase 1b PR-3 — per-category requirements capture (core/FREE).
+              requirementsFields={requirementsFields}
+              savedRequirements={savedRequirements}
+              categoryLabel={requirementCategoryLabel}
               // The exact count startServiceInquiry will snapshot onto this
               // inquiry — surfaced read-only so the couple can fix a stale
               // estimate before it reaches the vendor.

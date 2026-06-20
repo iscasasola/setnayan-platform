@@ -219,13 +219,17 @@ function mergeEffects(raw: unknown): RevealEffectsLook {
   const r = (raw ?? {}) as Record<string, unknown>;
   const d = DEFAULT_EFFECTS_LOOK;
   return {
-    butterflySize: num(r.butterflySize, d.butterflySize),
-    butterflyCount: num(r.butterflyCount, d.butterflyCount),
-    butterflySpeed: num(r.butterflySpeed, d.butterflySpeed),
-    petalSize: num(r.petalSize, d.petalSize),
-    petalDensity: num(r.petalDensity, d.petalDensity),
-    petalFall: num(r.petalFall, d.petalFall),
-    shadow: num(r.shadow, d.shadow),
+    // Clamp every 0–100 slider (parity with mergeTouchGlow). A persisted
+    // out-of-range value would drive the petal/butterfly ellipse radius
+    // negative in reveal-particles → IndexSizeError crashing the public
+    // Save-the-Date page. `num()` only checks finiteness, not range.
+    butterflySize: clamp(r.butterflySize, d.butterflySize, 0, 100),
+    butterflyCount: clamp(r.butterflyCount, d.butterflyCount, 0, 100),
+    butterflySpeed: clamp(r.butterflySpeed, d.butterflySpeed, 0, 100),
+    petalSize: clamp(r.petalSize, d.petalSize, 0, 100),
+    petalDensity: clamp(r.petalDensity, d.petalDensity, 0, 100),
+    petalFall: clamp(r.petalFall, d.petalFall, 0, 100),
+    shadow: clamp(r.shadow, d.shadow, 0, 100),
   };
 }
 

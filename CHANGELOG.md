@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-20 · fix(std): clamp reveal-effect sliders to [0,100] — close the last IndexSizeError path on the public Save-the-Date
+
+Investigated a Sentry `IndexSizeError` (DOMException code 1) on `/[slug]` (Mobile Safari, vercel-production, reported via the `/cale-ice` event). Root cause of the **live** crash — the `HTMLMediaElement.volume` setter throwing on an out-of-range crossfade value — was **already fixed the night before** (PRs #1831 + #1841 · `setVol` finite-guard + `[0,1]` clamp in `save-the-date-film.tsx`, in `origin/main` since 2026-06-19 ~22:58 +08). The alerting event was a **pre-fix occurrence**; nothing further needed there. This PR closes the one remaining latent path in the same crash family, found while tracing:
+
+- `lib/reveal-config.ts` `mergeEffects()` read the 7 admin reveal-effect sliders with `num()` (finiteness only, **no range clamp**) — unlike its sibling `mergeTouchGlow()`, which already `clamp(…, 0, 100)`s. A persisted out-of-range value (e.g. a negative `petalSize`) would drive the petal/butterfly `ctx.ellipse()` radius **negative** in `reveal-particles.tsx` → `IndexSizeError`, crashing the public Save-the-Date page in *every* browser. Each of the 7 sliders is now `clamp(…, 0, 100)` (parity with `mergeTouchGlow`), so a bad DB value can never reach a canvas radius.
+
+Defense-in-depth (the Reveal Studio UI already clamps slider input on the write side); not browser-observable without injecting malformed config, so verified by type/lint + CI rather than a preview screenshot. Not built locally (pnpm monorepo — node_modules can't be cross-linked between worktrees); required CI checks (typecheck + lint + build) + Vercel preview are the gate, auto-merge armed.
+
+SPEC IMPACT: None (defensive code hardening; no SKU / schema / pricing / branding change).
+
 ## 2026-06-20 · fix(guest): elder-legibility HIGH fixes across guest surfaces ("Lola Remedios" pass A)
 
 Acts on the 12 HIGH findings from the first guest-legibility audit (`Guest_Legibility_Audit_2026-06-20.md`), against the floor in `Guest_Legibility_Floor_2026-06-20.md`. The dominant failure was load-bearing text/controls at 7–14px in wide-tracked uppercase mono — the thing the guest most needs was the smallest thing on screen.

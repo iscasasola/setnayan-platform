@@ -65,12 +65,9 @@ import { BuildSummary } from './_components/build-summary';
 import { BuildLocked } from './_components/build-locked';
 import { BuildCompare, type CompareDatesInfo } from './_components/build-compare';
 import { type SavedPlanBuild, type PlanBuildSnapshot } from './build-actions';
-import { VendorAvailabilityIntersection } from '../_components/vendor-availability-intersection';
 import {
   getAvailableDaysForVendorSet,
-  getCommonAvailableDays,
   rangeFromPrecision,
-  formatDayKey,
 } from '@/lib/vendor-availability';
 import { formatEventDateWithPrecision, type EventDatePrecision } from '@/lib/events';
 
@@ -718,27 +715,10 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       totalPhp: planPicks.reduce((s, p) => s + (p.costPhp ?? 0), 0),
       picks: planPicks,
     };
-    // Available dates for the locked team — reuse the event-home intersection
-    // (fires only at year/month precision with >=1 confirmed vendor). Fails silent
-    // → the Lock tab just renders without the dates panel.
-    const lockAvailability = await (async () => {
-      const eventDate = ev?.event_date ?? null;
-      if (!eventDate || (matchPrecision !== 'year' && matchPrecision !== 'month')) return null;
-      const range = rangeFromPrecision(eventDate, matchPrecision);
-      if (!range) return null;
-      try {
-        const avail = await getCommonAvailableDays(supabase, eventId, range.start, range.end);
-        if (avail.confirmedVendorCount <= 0) return null;
-        return {
-          availableDays: avail.availableDays.map(formatDayKey),
-          confirmedVendorCount: avail.confirmedVendorCount,
-          windowLabel: formatEventDateWithPrecision(eventDate, matchPrecision).replace(/^Sometime in /, ''),
-          totalDaysInRange: avail.totalDaysInRange,
-        };
-      } catch {
-        return null;
-      }
-    })();
+    // (The "available dates for the locked team" panel was retired 2026-06-20
+    // with "Build absorbs Lock" — PR2: the standalone Lock tab is gone and its
+    // vendor-availability-intersection extra went with it. The per-BUILD date
+    // intersection below still powers Compare.)
     // Compare §4 (takeover spec) — available wedding dates PER BUILD
     // (2026-06-12): the day-intersection of each saved build's CONNECTED
     // vendors' calendars inside the couple's year/month window. The spec
@@ -876,17 +856,33 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         };
       });
 
+    // "Build absorbs Lock" 2026-06-20 (PR2 · Vendor_Transaction_Lifecycle_2026-06-20.md):
+    // the standalone Lock tab is gone. The 3-state assembler AND the lock surface
+    // (`BuildLocked` — "Ready to lock" finalize CTAs + the read-only "Locked in"
+    // list) now stack in the SAME Build tab, so the couple assembles and locks in
+    // one place. `BuildLocked` self-handles its empty state.
     const buildSlot = (
-      <Build3StateControl
-        eventId={eventId}
-        anchors={buildAnchors}
-        dimensionStates={{
-          [DIM_DATE]: stateOf(DIM_DATE),
-          [DIM_BUDGET]: stateOf(DIM_BUDGET),
-          [DIM_LOCATION]: stateOf(DIM_LOCATION),
-        }}
-        taxonomyRows={taxonomyRows}
-      />
+      <div className="space-y-6">
+        <Build3StateControl
+          eventId={eventId}
+          anchors={buildAnchors}
+          dimensionStates={{
+            [DIM_DATE]: stateOf(DIM_DATE),
+            [DIM_BUDGET]: stateOf(DIM_BUDGET),
+            [DIM_LOCATION]: stateOf(DIM_LOCATION),
+          }}
+          taxonomyRows={taxonomyRows}
+        />
+        <BuildLocked
+          model={model}
+          eventId={eventId}
+          summary={{
+            dateLabel: buildAnchors.date.iso ? buildAnchors.date.label : null,
+            budgetPhp: buildAnchors.budget.php,
+            region: buildAnchors.location.region,
+          }}
+        />
+      </div>
     );
     return (
       <ServicesTakeover
@@ -903,22 +899,6 @@ export default async function VendorsPage({ params, searchParams }: Props) {
             savedBuilds={savedBuilds}
             availability={compareAvailability}
           />
-        }
-        lockSlot={
-          <div className="space-y-4">
-            <BuildLocked
-              model={model}
-              eventId={eventId}
-              summary={{
-                dateLabel: buildAnchors.date.iso ? buildAnchors.date.label : null,
-                budgetPhp: buildAnchors.budget.php,
-                region: buildAnchors.location.region,
-              }}
-            />
-            {lockAvailability ? (
-              <VendorAvailabilityIntersection eventId={eventId} {...lockAvailability} />
-            ) : null}
-          </div>
         }
       />
     );

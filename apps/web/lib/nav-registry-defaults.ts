@@ -899,18 +899,11 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     customRef: null,
     sortOrder: 3,
   },
-  {
-    key: "customer.budget-subnav.lock",
-    scope: "customer",
-    area: "budget-build-subnav",
-    route: "/dashboard/[eventId]/budget?tab=lock",
-    label: "Lock",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Lock",
-    customRef: null,
-    sortOrder: 4,
-  },
+  // (The "customer.budget-subnav.lock" slot was removed 2026-06-20 — "Build
+  // absorbs Lock" PR2: the standalone Lock tab is gone; the lock surface now
+  // lives inside the Build tab, so its sub-nav child + slot default went too.
+  // customer-menu.ts derives the Explore children from BUDGET_BUILD_TABS, which
+  // no longer includes 'lock'.)
   // Studio docked sub-nav — the 4 sections of the /add-ons hub (customer-menu
   // redesign 2026-06-17). The mobile <SubNav> overlays these admin overrides on
   // its code defaults (lib/customer-menu.ts child.slotKey).

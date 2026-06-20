@@ -185,17 +185,23 @@ export function RevealOverlay({
             setOpen(true);
           }}
         />
+        {/* Legible instruction (owner 2026-06-20 "the text at the bottom should
+            be visible so old people can understand the app"): larger type, full
+            contrast, and a soft dark scrim so cream text never washes out on a
+            light/ivory veil. Still fades once the veil is lifted. */}
         <div
-          className={`pointer-events-none absolute inset-x-0 bottom-10 text-center transition-opacity duration-500 ${
+          className={`pointer-events-none absolute inset-x-0 bottom-16 flex justify-center transition-opacity duration-500 ${
             open ? 'opacity-0' : 'opacity-100'
           }`}
         >
-          <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-cream/90 [text-shadow:0_1px_6px_rgba(0,0,0,0.55)]">
-            Lift the veil ↑
-          </p>
-          <p className="mt-1.5 font-mono text-[9px] uppercase tracking-[0.22em] text-cream/60 [text-shadow:0_1px_6px_rgba(0,0,0,0.55)]">
-            or double-tap to lift it for you
-          </p>
+          <div className="rounded-full bg-black/35 px-6 py-3 text-center backdrop-blur-[2px]">
+            <p className="font-mono text-base uppercase tracking-[0.22em] text-cream [text-shadow:0_1px_8px_rgba(0,0,0,0.7)]">
+              Lift the veil ↑
+            </p>
+            <p className="mt-1.5 font-mono text-sm uppercase tracking-[0.16em] text-cream/85 [text-shadow:0_1px_8px_rgba(0,0,0,0.7)]">
+              or double-tap to lift it for you
+            </p>
+          </div>
         </div>
       </div>
     );

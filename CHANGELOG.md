@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-20 · fix(std): veil reveal instruction is legible for older guests
+
+Owner: "for the unlock of veil, the text at the bottom should be visible. so old people can understand the app." The "Lift the veil ↑ / or double-tap to lift it for you" hint was set at `text-[11px]` / `text-[9px]` in cream with only a soft text-shadow — tiny, wide-tracked uppercase, and washed out when the veil colour was light/ivory (cream-on-cream). Hard for older wedding guests to read.
+
+- **`apps/web/app/[slug]/_components/reveal/reveal-overlay.tsx`** (veil branch only) — bumped the primary line to `text-base` (16px) at full `text-cream`, the secondary to `text-sm` (14px) at `text-cream/85`, tightened the tracking slightly for readability at the larger size, and wrapped both lines in a soft dark scrim pill (`bg-black/35` + `backdrop-blur-[2px]`, rounded) so the cream text never washes out regardless of the couple's veil colour. Stronger shadow (`0_1px_8px_rgba(0,0,0,0.7)`). Nudged up `bottom-10`→`bottom-16` to clear the home-indicator safe area. Still fades to `opacity-0` once the veil is lifted (`open`). Rigid openings (envelope/doors) untouched — they have no bottom hint.
+
+CSS-only legibility change; no logic, no schema. Not built locally (fresh worktree has no `node_modules`); required CI checks + Vercel preview are the verification gate, auto-merge armed.
+
+SPEC IMPACT: `0024_save_the_date/0024_Veil_Reveal_Spec_2026-06-17.md` — instruction-text legibility (size + contrast scrim) for accessibility. Minor; noted in the spec.
+
 ## 2026-06-20 · feat(proposals): accepting a vendor proposal posts a priced shortlist pick (Phase 1 PR3)
 
 Confirmed bug: when a couple **Accepts** a `vendor_proposals` row, `respond_vendor_proposal` only flipped `status='accepted'` ("Accepting is a SIGNAL, not a booking" — `20261208006000_vendor_proposals.sql:13`; the live body is the concurrency-guarded one in `20261209000000_concurrency_guards.sql`). Nothing wrote a priced `event_vendors` row, so the couple's Build/Compare tabs showed nothing after acceptance. The only price-writer was the manual QuoteBridge "Log as service price" button (kept as a fallback — untouched).

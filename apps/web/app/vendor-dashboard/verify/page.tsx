@@ -8,8 +8,9 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import {
   APPLICATION_TYPE_LABEL,
-  DOC_SLOTS,
-  countCompleteSlots,
+  VENDOR_DOC_SLOTS,
+  ADMIN_DOC_SLOTS,
+  countCompleteVendorSlots,
   fetchLatestApplication,
   formatPhpCentavos,
   formatSlaCountdown,
@@ -111,8 +112,11 @@ export default async function VendorVerifyPage({ searchParams }: Props) {
     verificationState,
     lastVerifiedAt,
   );
-  const completeCount = countCompleteSlots(docMap);
-  const totalSlots = DOC_SLOTS.length;
+  // Vendor-facing progress counts ONLY the vendor's own items (8), not all 12 —
+  // the other 4 are admin-run and flip on our side after submit. Counting
+  // against 12 made a finished application read as a stuck "8 of 12 · 67%".
+  const completeCount = countCompleteVendorSlots(docMap);
+  const totalSlots = VENDOR_DOC_SLOTS.length;
   const hasDraft = application?.status === 'draft';
   const isPending = application?.status === 'pending_review';
   const isInReview = application?.status === 'in_review';
@@ -131,7 +135,8 @@ export default async function VendorVerifyPage({ searchParams }: Props) {
           Verification
         </h1>
         <p className="max-w-prose text-base text-ink/65">
-          Submit the 12-item checklist below to flip your profile to{' '}
+          Upload your {VENDOR_DOC_SLOTS.length} items below — our team runs the
+          other {ADMIN_DOC_SLOTS.length} — to flip your profile to{' '}
           <span className="font-medium">Verified</span> on the marketplace.
           Verified vendors unlock Pro Vendor and Enterprise subscriptions
           and the verified badge on every listing.
@@ -346,29 +351,52 @@ function DocChecklist({
   vendorProfileId: string;
   seedDisplayUrls: Record<string, string>;
 }) {
+  const cardFor = (slot: DocSlot) => (
+    <li key={slot.key}>
+      <VendorDocSlotCard
+        slot={slot}
+        applicationId={applicationId}
+        docMap={docMap}
+        vendorProfileId={vendorProfileId}
+        seedDisplayUrls={seedDisplayUrls}
+      />
+    </li>
+  );
   return (
-    <section className="space-y-4">
-      <h2 className="text-xl font-semibold">12-document checklist</h2>
-      <p className="text-sm text-ink/65">
-        Uploads land in the secure{' '}
-        <span className="font-mono">setnayan-vendor-verification</span> R2
-        bucket. 90-day rolling retention for raw uploads; 7-year retention for
-        the verification audit trail (BIR § 235).
-      </p>
-      <ul className="grid gap-3 lg:grid-cols-2">
-        {DOC_SLOTS.map((slot) => (
-          <li key={slot.key}>
-            <VendorDocSlotCard
-              slot={slot}
-              applicationId={applicationId}
-              docMap={docMap}
-              vendorProfileId={vendorProfileId}
-              seedDisplayUrls={seedDisplayUrls}
-            />
-          </li>
-        ))}
-      </ul>
-    </section>
+    <div className="space-y-6">
+      {/* Split so the vendor sees their finishable items apart from the four the
+          team runs — that's what turns the old "8 of 12" stuck-feeling into a
+          clean "your 8" they can actually complete. */}
+      <section className="space-y-4">
+        <div className="space-y-1">
+          <h2 className="text-xl font-semibold">
+            Your items to upload ({VENDOR_DOC_SLOTS.length})
+          </h2>
+          <p className="text-sm text-ink/65">
+            These are yours to provide — finishing all {VENDOR_DOC_SLOTS.length} is
+            everything you need to do before submitting. Uploads land in the secure{' '}
+            <span className="font-mono">setnayan-vendor-verification</span> R2
+            bucket (90-day raw retention; 7-year audit trail per BIR § 235).
+          </p>
+        </div>
+        <ul className="grid gap-3 lg:grid-cols-2">{VENDOR_DOC_SLOTS.map(cardFor)}</ul>
+      </section>
+
+      <section className="space-y-4">
+        <div className="space-y-1">
+          <h2 className="text-xl font-semibold">
+            We handle this ({ADMIN_DOC_SLOTS.length})
+          </h2>
+          <p className="text-sm text-ink/65">
+            The Setnayan team runs these for you — an ID-liveness check, a short
+            video call, your phone &amp; email confirmation, and a sanctions
+            screening. They flip to complete on our side after you submit; nothing
+            here counts against your progress above.
+          </p>
+        </div>
+        <ul className="grid gap-3 lg:grid-cols-2">{ADMIN_DOC_SLOTS.map(cardFor)}</ul>
+      </section>
+    </div>
   );
 }
 
@@ -532,7 +560,7 @@ function SubmitCard({
   completeCount: number;
   totalSlots: number;
 }) {
-  const REQUIRED_TO_SUBMIT = 8;
+  const REQUIRED_TO_SUBMIT = totalSlots;
   const eligible = completeCount >= REQUIRED_TO_SUBMIT;
   return (
     <article className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
@@ -544,12 +572,11 @@ function SubmitCard({
           Hand it off to Setnayan staff
         </h2>
         <p className="mt-1 text-sm text-ink/65">
-          Submit at least <span className="font-medium">8</span> of the{' '}
-          <span className="font-medium">{totalSlots}</span> items (the four
-          remaining slots — Persona ID liveness, Google Meet, SMS/email OTP,
-          AMLC screening — are admin-run and complete after submission).
-          Setnayan SLA is <span className="font-medium">3–5 business days</span>
-          .
+          Submit once all <span className="font-medium">{totalSlots}</span> of
+          your items are uploaded. The four admin-run slots — ID liveness, the
+          video call, SMS/email confirmation, and AMLC screening — complete on
+          our side after you submit. Setnayan SLA is{' '}
+          <span className="font-medium">3–5 business days</span>.
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-3">

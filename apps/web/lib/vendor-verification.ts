@@ -288,6 +288,28 @@ export function isSlotComplete(slotKey: string, v: DocUpload): boolean {
   return typeof (v as { r2_key?: string }).r2_key === 'string';
 }
 
+// The slots the VENDOR fills themselves vs the four the Setnayan team runs
+// (ID liveness, the video call, phone/email confirmation, AMLC screening).
+// The vendor's progress + submit gate count against VENDOR_DOC_SLOTS only — the
+// admin-run four flip on our side after submit. Counting the vendor against all
+// 12 made a finished application read as "8 of 12 · 67%" (the deceptively-stuck
+// denominator the usability audit flagged).
+export const VENDOR_DOC_SLOTS: readonly DocSlot[] = DOC_SLOTS.filter(
+  (s) => s.kind === 'upload',
+);
+export const ADMIN_DOC_SLOTS: readonly DocSlot[] = DOC_SLOTS.filter(
+  (s) => s.kind !== 'upload',
+);
+
+/** How many of the vendor's own items (VENDOR_DOC_SLOTS) are complete. */
+export function countCompleteVendorSlots(uploads: DocUploadMap): number {
+  let count = 0;
+  for (const slot of VENDOR_DOC_SLOTS) {
+    if (isSlotComplete(slot.key, uploads?.[slot.key])) count++;
+  }
+  return count;
+}
+
 // ---------------------------------------------------------------------------
 // SLA helpers
 //

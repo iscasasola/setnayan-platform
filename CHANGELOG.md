@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-21 · feat(onboarding): experience-persona reorientation — the quiz derives the plan (flag-gated · PR pending, auto-merge)
+
+Owner reframe: the onboarding's job shifts from *"which vendors do you need?"* to *"what experience do you want to create?"* — memorable for the couple, their guests, or both — and that experience then **derives** the in-app services to surface and the vendor/service filtering. Owner picked the boldest shape: **experience fully derives the plan** (no manual 53-tile picker), a **full persona quiz**, built into the real flow. Shipped **flag-gated** (`NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED`, default OFF) so the live funnel is byte-identical until the owner flips it.
+
+- **New 5-axis experience quiz + persona reveal** (`exp_for_whom · exp_feel · exp_energy · exp_roots · exp_effort · exp_reveal`), inserted after `budget`, before the venue intro. Same `.screen/.stack[data-single]/.opt` markup as `role`/`kind` (prototype-direct port). Flag ON → `buildSequence` drops the legacy picker chain (`aigate` + `team_basics`/`refine_basic`/`team_extras`/`refine_extras` + `songs`/`mood`); flag OFF → the `exp_*` screens are filtered out entirely.
+- **Deterministic resolver + derive** (`app/onboarding/wedding/_data/experience-personas.ts`): the 5 answers resolve (weighted overlap, `for_whom` dominant — no LLM) to one of 6 named personas — **Keepsake · Big Celebration · Best of Both · Intimate Romance · Modern Statement · Rooted Tradition** — each deriving vendor categories (essentials + effort-scaled extras) + signature in-app Setnayan services + palette feel + per-leaf refinement seeds. Admin-tunable data shape (no logic baked into copy).
+- **Plugs into the existing matcher with zero matcher changes:** the derived `refinements` feed the deterministic matcher's 30% Refinement dimension; `picks` feed `interested_categories` + the recommended-services seed; `prefs.feel` → `mood_feel_key` + `basic_moodboard`. `buildCommitPayload` already maps all of these, so deriving into state is sufficient.
+- **New persisted intent** (`events.experience_persona` · `experience_for_whom` · `experience_axes` jsonb · migration `20270208703382`): additive/nullable/idempotent, RLS-unchanged. The commit **guards** these columns behind the same flag, so the insert never references them before the migration is applied — safe to merge flag-OFF regardless of DB state.
+- Files: `lib/experience-quiz.ts` (flag) · `_data/experience-personas.ts` (axes/personas/resolver/derive) · `app/onboarding/wedding/types.ts` (`experienceAxes` + `experiencePersona` state) · `_components/onboarding-shell.tsx` (FLOW_IDS swap, `buildSequence`, `canContinue`, `NEXT_LABEL_BY_ID`, derive effect, render) · `actions.ts` (guarded columns).
+
+⚠ Owner sign-off: persona NAMES + quiz copy are first-draft (easy to tune — all in one data module). Going live needs (1) apply migration `20270208703382`, (2) set `NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED=true`.
+
+SPEC IMPACT: iteration 0016 (Setnayan AI / step-by-step plan builder) — onboarding reorients from vendor-needs assessment to experience-first; logged at the bottom of `DECISION_LOG.md`. No SKU/pricing change (the derived in-app services map to existing keys).
+
 ## 2026-06-21 · fix(nav): account-switcher "Hosts" 404 + sibling `/venues` dead links
 
 The account switcher's **Hosts** action linked to `/dashboard/hosts` — a path with no static route, so Next routes it into the `[eventId]` segment (`eventId="hosts"`), the event lookup fails, and the user gets a **404** when opening Hosts. Reported as "adding host to events is causing error." The real Hosts page is event-scoped at `/dashboard/[eventId]/hosts`.

@@ -55,6 +55,7 @@ import {
 import { signInWithGoogle } from '@/app/auth/oauth-actions';
 import { signUp } from '@/app/signup/actions';
 import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
+import { experienceQuizEnabled } from '@/lib/experience-quiz';
 import {
   EMPTY_ONBOARDING_STATE,
   ONBOARDING_DRAFT_KEY,
@@ -73,6 +74,7 @@ import { MonoLockup, type MonoDesign } from './mono-lockup';
 import { SongBankStep } from './song-bank-step';
 import { OnboardingMusic } from './onboarding-music';
 import { REFINEMENTS_BY_KEY, REFINEMENTS_DATA, type RefineLeaf, type RefineOption } from '../_data/refinements';
+import { EXP_AXES, EXP_PERSONA_BY_KEY, resolvePersona, derivePlanFromPersona, type ExpAxisId, type ExpForWhom } from '../_data/experience-personas';
 import { type OnboardingPickChip } from '@/lib/onboarding-refinements';
 import { type BudgetBand, BUDGET_BANDS_FALLBACK } from '@/lib/budget-bands-shared';
 import {
@@ -121,7 +123,15 @@ import { SDLoader } from '@/components/sd-loader';
    anchor to the real wedding year. The old single `love_met` (which crammed the Spark
    AND the Almost onto one page) is split into `love_spark` + `love_almost` so each page
    is ONE clearly-titled story (owner 2026-06-08 — "set each page to be 1 story"). */
-const FLOW_IDS = ['welcome','role','kind','faith','name','date','love_intro','love_spark','love_almost','love_proposal','love_milestones','love_tone','love_preview','alaala_promise','region','pax','budget','team_intro','reception_setting','find','team_payoff','aigate','team_basics','refine_basic','team_extras','refine_extras','songs','mood','account','congrats','plan','bundle','services','summary'] as const;
+/* Experience-persona reorientation (iteration 0016 · flag-gated · owner 2026-06-21):
+   the 5-axis experience quiz (exp_for_whom…exp_effort) + the persona reveal (exp_reveal)
+   are inserted RIGHT AFTER budget, BEFORE team_intro (which is the venue intro). When
+   NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED is ON, buildSequence drops the legacy picker chain
+   (aigate + team_basics/refine_basic/team_extras/refine_extras + songs/mood) and the
+   persona DERIVES picks/refinements/feel/services on the reveal. When OFF, the exp_*
+   screens are filtered out and the flow is byte-identical to today. Order: the couple
+   designs the EXPERIENCE first, then locks the venue (team_intro → reception_setting → find). */
+const FLOW_IDS = ['welcome','role','kind','faith','name','date','love_intro','love_spark','love_almost','love_proposal','love_milestones','love_tone','love_preview','alaala_promise','region','pax','budget','exp_for_whom','exp_feel','exp_energy','exp_roots','exp_effort','exp_reveal','team_intro','reception_setting','find','team_payoff','aigate','team_basics','refine_basic','team_extras','refine_extras','songs','mood','account','congrats','plan','bundle','services','summary'] as const;
 type ScreenId = typeof FLOW_IDS[number];
 /* The love collection screens dropped when the couple skips the stage (love_intro,
    the gate, always stays). */
@@ -145,11 +155,23 @@ const SONG_PICK_CATS: ReadonlySet<string> = new Set(['live_band', 'orchestra', '
 // "secure your plan" nudge instead of a signup gate. Module-level so every
 // buildSequence call site reads the same value. NEXT_PUBLIC_* → inlined at build.
 const ANON_DRAFT_ENABLED = anonOnboardingEnabled();
+// Experience-persona reorientation (0016 · flag-gated · owner 2026-06-21). ON → the
+// exp_* experience quiz + reveal run and the legacy manual-picker chain is dropped (the
+// persona DERIVES the plan); OFF → exp_* are filtered out and the flow is byte-identical
+// to today. Module-level so every buildSequence call site reads the same value.
+const EXPERIENCE_QUIZ_ENABLED = experienceQuizEnabled();
+const EXP_SCREENS: ReadonlySet<ScreenId> = new Set(['exp_for_whom', 'exp_feel', 'exp_energy', 'exp_roots', 'exp_effort', 'exp_reveal']);
+// The manual "dream team" picker chain the experience quiz REPLACES when the flag is on
+// (the persona derives picks/refinements/feel/services instead of the couple hand-picking
+// 53 tiles + per-leaf refinements + music + palette).
+const LEGACY_PICKER_SCREENS: ReadonlySet<ScreenId> = new Set(['aigate', 'team_basics', 'refine_basic', 'team_extras', 'refine_extras', 'songs', 'mood']);
 function buildSequence(kind: OnboardingState['kind'], authed: boolean, loveSkipped: boolean, ai: boolean | null, picks: string[]): ScreenId[] {
   const hasMusician = picks.some((p) => SONG_PICK_CATS.has(p));
   const hasStylist = picks.includes('stylist');
   return FLOW_IDS.filter((id) =>
     !(id === 'faith' && kind === 'civil') &&        // Civil skips the faith screen
+    !(EXP_SCREENS.has(id) && !EXPERIENCE_QUIZ_ENABLED) &&         // exp_* experience quiz only when the flag is ON
+    !(EXPERIENCE_QUIZ_ENABLED && LEGACY_PICKER_SCREENS.has(id)) && // flag ON drops the manual picker chain (the persona derives it)
     !(id === 'account' && (authed || ANON_DRAFT_ENABLED)) &&  // signed-in users — and, with anon-draft on, everyone — skip the account gate
     !(loveSkipped && LOVE_SKIPPABLE.has(id)) &&     // "Add it later" drops the 5 love collection screens
     !(ai !== true && TEAM_AI_ONLY.has(id)) &&       // team_basics/team_extras/songs/mood only when the couple opted into AI matching (aigate=Yes)
@@ -185,6 +207,9 @@ const NEXT_LABEL_BY_ID: Record<ScreenId, string> = {
   // CHROME CTA label for a refine screen is computed dynamically ("Next service" mid-queue,
   // "Continue" on the last leaf) in the `nextLabel` derivation, never read from here.
   refine_basic:'Continue', refine_extras:'Continue',
+  // Experience-persona quiz (0016 · flag-gated). Each axis advances with Continue;
+  // exp_effort leads into the reveal; exp_reveal continues on to reception_setting.
+  exp_for_whom:'Continue', exp_feel:'Continue', exp_energy:'Continue', exp_roots:'Continue', exp_effort:'See my plan', exp_reveal:'Continue',
 };
 /* Which screens show a Skip button. Skippable: team_extras · songs · mood · find · the
    à-la-carte services review — they sort/refine, never gate. The love collection screens
@@ -2014,6 +2039,33 @@ export function OnboardingShell({
     }));
   }, [activeId, state.servicesSeeded, state.picks]);
 
+  /* Experience-persona derive (0016 · flag-gated · owner 2026-06-21). On entering the
+     reveal, resolve the persona from the 5 axes and derive the WHOLE plan — picks +
+     refinements + palette feel + signature in-app services. Deterministic + idempotent
+     (re-runs only when an axis answer changes), so going back to edit an answer re-derives.
+     pickerTouched is latched so applyBudgetHighlight can't re-seed picks over the derived
+     set. The legacy 53-tile picker is dropped from the flow when the flag is on — the persona
+     IS the plan; the existing commit already reads picks/refinements/feel/interestedServices. */
+  useEffect(() => {
+    if (!EXPERIENCE_QUIZ_ENABLED || activeId !== 'exp_reveal') return;
+    const axes = state.experienceAxes;
+    if (EXP_AXES.some((a) => !axes[a.id])) return; // wait until all 5 axes are answered
+    const personaKey = resolvePersona(axes);
+    const plan = derivePlanFromPersona(personaKey, axes);
+    setState((s) => {
+      if (s.experiencePersona === personaKey && s.picks.length > 0) return s; // already derived for this persona
+      return {
+        ...s,
+        experiencePersona: personaKey,
+        picks: plan.picks,
+        pickerTouched: true,
+        refinements: plan.refinements,
+        interestedServices: Array.from(new Set([...plan.services, ...s.interestedServices])),
+        prefs: { ...s.prefs, feel: plan.feel },
+      };
+    });
+  }, [activeId, state.experienceAxes]);
+
   /* picker card tap — toggles the pick (multi); latches pickerTouched. */
   const pickChip = (cat: string) => {
     setState((s) => {
@@ -2210,6 +2262,11 @@ export function OnboardingShell({
   // No faith is pre-selected — the couple picks their tradition on the faith screen
   // (owner 2026-06-05: no prefilled onboarding values).
   const selectKind = (k: OnboardingKind) => patch({ kind: k, faith: [] });
+
+  /* Experience-quiz axis pick (0016) — store the answer; the persona resolves on the reveal.
+     setState (not patch) so the nested experienceAxes object merges instead of replacing. */
+  const selectExp = (axis: ExpAxisId, key: string) =>
+    setState((s) => ({ ...s, experienceAxes: { ...s.experienceAxes, [axis]: key } }));
 
   const selectFaith = (f: OnboardingFaith) => {
     if (kind === 'mixed') {
@@ -2472,6 +2529,18 @@ export function OnboardingShell({
       case 'love_milestones':
       case 'love_tone':
       case 'love_preview':
+        return true;
+      // Experience-persona quiz (0016) — each axis must be answered before Continue
+      // (the persona resolves from all 5); the reveal is read-only.
+      case 'exp_for_whom':
+      case 'exp_feel':
+      case 'exp_energy':
+      case 'exp_roots':
+      case 'exp_effort': {
+        const axisId = activeId.slice(4) as ExpAxisId; // strip the 'exp_' prefix
+        return state.experienceAxes[axisId] != null;
+      }
+      case 'exp_reveal':
         return true;
       default:
         return true;
@@ -2848,6 +2917,12 @@ export function OnboardingShell({
       // 3 projectable leaves ALSO ride prefs via the projection above). Projection onto
       // prefs landed PR-4 (live in patchRefine + idempotent in stylePreferences above).
       refinements: s.refinements,
+      // Experience-persona profile (0016 · flag-gated) — the resolved persona + the
+      // for-whom axis + the raw 5-axis answers. The derived picks/refinements/feel/
+      // services already ride the fields above; these carry the intent for the columns.
+      experiencePersona: s.experiencePersona,
+      experienceForWhom: (s.experienceAxes.for_whom as 'couple' | 'guests' | 'both' | undefined) ?? null,
+      experienceAxes: s.experienceAxes as Record<string, string>,
       // BYO vendors (screen-12 "Add your own vendor" sheet) — off-platform contacts
       // the couple typed in. Persisted at commit as event_vendors 'considering'
       // freeform rows so they show on the dashboard Services tab.
@@ -3875,6 +3950,67 @@ export function OnboardingShell({
               service/vendor-shaped copy — no song / editorial / pricing leak. ════════ */}
 
           {/* TEAM_INTRO — education: the reception is home base (prototype s1edu). */}
+          {/* ════ EXPERIENCE QUIZ (iteration 0016 · flag-gated · owner 2026-06-21) ════
+              5 single-pick axes (for_whom · feel · energy · roots · effort) rendered with
+              the SAME .screen/.stack[data-single]/.opt markup as role/kind. The persona
+              resolves + the plan derives on exp_reveal (see the derive effect). These
+              sections are filtered out of the sequence entirely when the flag is OFF. */}
+          {EXP_AXES.map((axis) => {
+            const picked = state.experienceAxes[axis.id] ?? null;
+            return (
+              <section key={axis.id} className={`screen${activeId === `exp_${axis.id}` ? ' active' : ''}`} id={`screen-exp-${axis.id}`}>
+                <div className="viewzone">
+                  <div className="eyebrow">{axis.eyebrow}</div>
+                  <h1 className="q">{axis.question}</h1>
+                  <p className="sub">{axis.sub}</p>
+                </div>
+                <div className="tapzone">
+                  <div className="stack" data-single="">
+                    {axis.options.map((o) => (
+                      // key includes the selection so the card remounts on re-pick → .sn-bounce replays.
+                      <div
+                        key={picked === o.key ? `${o.key}-sel-${picked}` : o.key}
+                        className={`opt${sel(picked === o.key)}${picked === o.key ? ' sn-bounce' : ''}`}
+                        onClick={() => selectExp(axis.id, o.key)}
+                      >
+                        <div className="otrow"><div className="ot">{o.title}</div><span className="check" /></div>
+                        <div className="od">{o.desc}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </section>
+            );
+          })}
+
+          {/* EXPERIENCE REVEAL (0016) — the resolved persona + the plan it derived. The derive
+              effect has already written picks/refinements/feel/interestedServices into state;
+              this screen just shows the couple what their answers built. */}
+          <section className={`screen${activeId === 'exp_reveal' ? ' active' : ''}`} id="screen-exp-reveal">
+            {activeId === 'exp_reveal' && (() => {
+              const persona = state.experiencePersona ? EXP_PERSONA_BY_KEY[state.experiencePersona] : null;
+              const forWhom = state.experienceAxes.for_whom as ExpForWhom | undefined;
+              const focusLabel = forWhom === 'couple' ? 'You two' : forWhom === 'guests' ? 'Your guests' : forWhom === 'both' ? 'Both' : '—';
+              return (
+                <>
+                  <div className="viewzone">
+                    <div className="loveglyph">{'✶'}</div>
+                    <div className="eyebrow">Your experience</div>
+                    <h1 className="q" style={{ fontSize: 30 }}>{persona ? `You’re a ${persona.name} couple.` : 'Your plan is ready.'}</h1>
+                    {persona && <p className="sub" style={{ marginBottom: 10 }}>{persona.tagline}</p>}
+                    <div className="statstrip">
+                      <div className="stat"><b>{state.picks.length}</b><span>vendors<br />lined up</span></div>
+                      <div className="stat"><b>{state.interestedServices.length}</b><span>Setnayan<br />add-ons</span></div>
+                      <div className="stat"><b>{focusLabel}</b><span>built<br />around</span></div>
+                    </div>
+                    <div className="note mul" style={{ marginTop: 12 }}><span>✦</span><div>We{'’'}ve lined up your vendors and the Setnayan touches that fit {persona ? <>a <b>{persona.name}</b></> : 'your'} wedding. You can fine-tune anything later.</div></div>
+                  </div>
+                  <div className="tapzone" />
+                </>
+              );
+            })()}
+          </section>
+
           <section className={`screen${activeId === 'team_intro' ? ' active' : ''}`} id="screen-team-intro">
             <div className="viewzone">
               <div className="loveglyph">{'⛬'}</div>

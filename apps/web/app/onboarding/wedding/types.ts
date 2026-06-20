@@ -17,6 +17,7 @@
  */
 
 import type { FaithKey } from '@/lib/faith-registry';
+import type { ExpAxisId } from './_data/experience-personas';
 
 /** Role on the event — Bride / Groom / Someone helping (parent/planner/entourage). */
 export type OnboardingRole = 'bride' | 'groom' | 'helper';
@@ -168,6 +169,21 @@ export interface OnboardingState {
    * fork. Default null is treated as "not yet AI" (fork OFF) until tapped.
    */
   ai: boolean | null;
+
+  /**
+   * Experience-quiz answers (iteration 0016 · the experience-first reorientation ·
+   * flag-gated by NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED). The 5 axes
+   * (for_whom/feel/energy/roots/effort) resolve to `experiencePersona`, which
+   * DERIVES picks + refinements + prefs.feel + interestedServices on the reveal
+   * screen — replacing the manual 53-tile picker when the flag is on. Rides
+   * events.experience_axes (JSONB). Empty {} when the flag is off (no exp screens).
+   */
+  experienceAxes: Partial<Record<ExpAxisId, string>>;
+  /**
+   * Resolved experience persona slug (keepsake / big_celebration / …); null until
+   * the reveal derives it. Rides events.experience_persona; drives the derived plan.
+   */
+  experiencePersona: string | null;
 
   /**
    * Per-leaf refinement picks (the "what kind of {service}?" passes · Dream Team
@@ -431,6 +447,8 @@ export const EMPTY_ONBOARDING_STATE: OnboardingState = {
     feel: null,
   },
   ai: null,
+  experienceAxes: {},
+  experiencePersona: null,
   refinements: {},
   shortlist: [],
   byoVendors: [],

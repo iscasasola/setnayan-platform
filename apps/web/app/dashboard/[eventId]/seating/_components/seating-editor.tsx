@@ -78,6 +78,7 @@ import {
   assignGroup,
   assignGuest,
   autoArrange,
+  buildSeatingDraft,
   createTable,
   deleteTable,
   linkTables,
@@ -737,6 +738,31 @@ export function SeatingEditor({
         res.seated > 0
           ? `Auto-arranged: ${tables.length} tables in priority order, ${nextBooths.length} booth${nextBooths.length === 1 ? '' : 's'} ${boothWhere}, ${res.seated} guest${res.seated === 1 ? '' : 's'} seated.`
           : `Auto-arranged: ${tables.length} tables in priority order${nextBooths.length > 0 ? ` and ${nextBooths.length} booth${nextBooths.length === 1 ? '' : 's'} ${boothWhere}` : ''}. Everyone attending is already seated.`,
+      );
+    });
+  };
+
+  // "Build my seating" — one tap turns a blank floor into a full, editable draft
+  // (UX goal: draft, don't blank). The server action recommends a table set from
+  // the guest list, lays it out stage-out, and seats the confirmed guests; then
+  // the page revalidates and the draft paints. Gated like every other edit.
+  const buildDraft = () => {
+    if (!canEdit) return; // view-only: someone else holds the editor lock.
+    if (tables.length > 0) return; // guard: only ever builds onto a blank floor.
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
+    startTransition(async () => {
+      const res = await runGated(() => buildSeatingDraft(fd));
+      if (!res) return; // lock lost — runGated already dropped us to view-only.
+      if (res.tables === 0) {
+        setNotice('Add your guests first — then “Build my seating” lays out the whole floor for you.');
+        return;
+      }
+      setNotice(
+        res.seated > 0
+          ? `Built a starting floor: ${res.tables} tables placed and ${res.seated} confirmed guest${res.seated === 1 ? '' : 's'} seated by role. Drag a table to move it, or tap a guest then a chair to reseat — nothing’s locked in.`
+          : `Built a starting floor: ${res.tables} tables placed. As guests confirm, tap Auto Arrange to seat them — or drag them in yourself.`,
       );
     });
   };
@@ -2169,7 +2195,9 @@ export function SeatingEditor({
         {/* Tables */}
         <Section label={`Tables · ${tables.length}`}>
           {tables.length === 0 ? (
-            <p className="px-1 py-2 text-xs text-ink/45">No tables yet — add one above.</p>
+            <p className="px-1 py-2 text-xs text-ink/45">
+              No tables yet — tap “Build my seating” on the floor, or add one above.
+            </p>
           ) : (
             <ul className="space-y-1">
               {tables.map((t) => {
@@ -3286,8 +3314,34 @@ export function SeatingEditor({
           ))}
 
           {tables.length === 0 ? (
-            <div className="absolute inset-0 flex items-center justify-center text-sm text-ink/40">
-              Add a table from the sidebar to start your floor plan.
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
+              {(() => {
+                const draftable = guests.filter(
+                  (g) => g.rsvp_status !== 'declined' && g.role !== 'bride' && g.role !== 'groom',
+                ).length;
+                return (
+                  <div className="pointer-events-auto max-w-sm rounded-2xl border border-ink/12 bg-cream/95 p-6 text-center shadow-sm">
+                    <Sparkles className="mx-auto h-6 w-6 text-terracotta" strokeWidth={1.75} />
+                    <h3 className="mt-2 text-base font-semibold text-ink">
+                      Start with a draft, not a blank floor
+                    </h3>
+                    <p className="mt-1 text-sm text-ink/60">
+                      {draftable > 0
+                        ? `We’ll place tables for your ${draftable} guest${draftable === 1 ? '' : 's'} and seat everyone who’s confirmed — by role, nearest the stage. Then drag anything to make it yours.`
+                        : 'Add your guests first and we’ll lay out the whole floor for you in one tap.'}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={buildDraft}
+                      disabled={!canEdit || isPending || draftable === 0}
+                      className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-terracotta px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-600 disabled:opacity-50"
+                    >
+                      <Sparkles className="h-4 w-4" /> Build my seating
+                    </button>
+                    <p className="mt-2 text-xs text-ink/40">or add a table yourself from the sidebar</p>
+                  </div>
+                );
+              })()}
             </div>
           ) : null}
 
@@ -3965,7 +4019,7 @@ export function SeatingEditor({
           <div className="space-y-2">
             {tables.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-ink/20 bg-cream p-8 text-center text-sm text-ink/50">
-                No tables yet — add one from the panel above to start seating.
+                No tables yet — tap “Build my seating” on the Map, or add one from the panel above.
               </div>
             ) : (
               <ul className="space-y-2">

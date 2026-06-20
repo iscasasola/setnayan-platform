@@ -3,9 +3,10 @@ import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { joinEventAction } from './actions';
+import { joinEventAction, selfJoinAction } from './actions';
 import { JoinShell, InvalidTokenScreen } from './_components/join-shell';
 import { ROLE_LABELS, type GuestRole } from '@/lib/guests';
+import { readGuestSession } from '@/lib/guest-session';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 
 export const metadata = { title: 'Join event' };
@@ -36,6 +37,8 @@ const ROLE_ERROR: Record<string, string> = {
   invalid_role: 'Please pick a valid role.',
   missing_name: 'Please enter your name so the couple can find you on their list.',
   already_member: "You're already on this event's guest list.",
+  join_closed: 'This event has reached its sign-up limit. Please ask the couple to add you.',
+  join_failed: "Something went wrong adding you. Please try again, or ask the couple.",
 };
 
 type Props = {
@@ -69,7 +72,7 @@ export default async function JoinPage({ params, searchParams }: Props) {
 
   const { data: event } = await admin
     .from('events')
-    .select('event_id, public_id, display_name, event_date, venue_name')
+    .select('event_id, public_id, display_name, event_date, venue_name, slug')
     .eq('event_id', eventId)
     .maybeSingle();
 
@@ -77,13 +80,84 @@ export default async function JoinPage({ params, searchParams }: Props) {
     return <InvalidTokenScreen />;
   }
 
-  // 2. Auth check — if not signed in, ask them to.
+  const errorMessage = errorKey ? (ROLE_ERROR[errorKey] ?? errorKey) : null;
+
+  // 2. Auth check.
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // 2a. Not signed in → ACCOUNTLESS join (owner 2026-06-20 "yes we allow this").
+  //     An older guest who scans the event QR can add themselves with just a
+  //     name — no account — reusing the same guest-cookie flow as /[slug]/redeem
+  //     (selfJoinAction). It only lands somewhere if the event has a public page,
+  //     so when there's no slug yet we fall back to the sign-in/create wall.
   if (!user) {
+    const slug = (event.slug as string | null) ?? null;
+    if (slug) {
+      // Already self-joined on this device → skip the form, go to the page.
+      const session = await readGuestSession();
+      if (session && session.event_id === eventId) {
+        redirect(`/${slug}`);
+      }
+      const selfAction = selfJoinAction.bind(null, eventId, token);
+      return (
+        <JoinShell event={event}>
+          {errorMessage ? <FormFlash tone="error">{errorMessage}</FormFlash> : null}
+          <p className="text-base text-ink/70">
+            Add yourself to {event.display_name ? <span className="font-medium text-ink">{event.display_name}</span> : 'this event'} — just your
+            name, no account needed.
+          </p>
+          <form action={selfAction} className="mt-6 space-y-4">
+            <div className="space-y-1.5">
+              <label htmlFor="name" className="block text-sm font-medium text-ink">
+                Your full name
+              </label>
+              <input
+                id="name"
+                name="name"
+                type="text"
+                required
+                placeholder="e.g. Maria Santos"
+                autoComplete="name"
+                className="input-field"
+              />
+              <p className="text-sm text-ink/70">Use the name the couple would have on their list.</p>
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="role" className="block text-sm font-medium text-ink">
+                Your role
+              </label>
+              <select id="role" name="role" required defaultValue="guest" className="input-field">
+                {SELECTABLE_ROLES.map((r) => (
+                  <option key={r} value={r}>
+                    {ROLE_LABELS[r]}
+                  </option>
+                ))}
+              </select>
+              <p className="text-sm text-ink/70">
+                Pick &ldquo;Guest&rdquo; if your role isn&rsquo;t listed. The couple can refine it later.
+              </p>
+            </div>
+            <SubmitButton className="button-primary w-full" pendingLabel="Adding you…">
+              Add me to the guest list
+            </SubmitButton>
+          </form>
+          <p className="mt-4 text-sm text-ink/60">
+            Have an account?{' '}
+            <Link
+              className="font-medium text-terracotta underline-offset-2 hover:underline"
+              href={`/login?next=${encodeURIComponent(`/join/${eventId}?token=${token}`)}`}
+            >
+              Sign in
+            </Link>{' '}
+            instead.
+          </p>
+        </JoinShell>
+      );
+    }
+    // No public page yet → fall back to the account wall.
     return (
       <JoinShell event={event}>
         <p className="text-base text-ink/70">
@@ -132,7 +206,6 @@ export default async function JoinPage({ params, searchParams }: Props) {
     [metaFirst, metaLast].filter(Boolean).join(' ') ??
     '';
 
-  const errorMessage = errorKey ? (ROLE_ERROR[errorKey] ?? errorKey) : null;
   const action = joinEventAction.bind(null, eventId, token);
 
   return (

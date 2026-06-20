@@ -1,9 +1,8 @@
-# CHANGELOG.md is an append-only log (newest entry prepended under the "---"
-# header) and is touched by nearly every PR. With the default merge driver any
-# two concurrent PRs conflict by construction — every parallel session spent
-# today hand-resolving keep-both conflicts. merge=union keeps BOTH sides'
-# added lines instead of conflicting, which is exactly the keep-both
-# resolution we apply manually. Safe ONLY because the file is append-only by
-# contract (entries are never edited in place); do NOT extend this to files
-# that get in-place edits (STATUS.md is refreshed in place — excluded).
+# PRIMARY conflict fix: per-PR changelog FRAGMENTS in changelog.d/ (one unique
+# file per PR → PRs can't collide on the log; see changelog.d/README.md). Feature
+# PRs no longer edit CHANGELOG.md directly. This union driver is kept as
+# belt-and-suspenders: GitHub's auto-merge ignores .gitattributes merge drivers,
+# so union only helps LOCAL merges (the collected CHANGELOG.md + any stray direct
+# edit). Safe ONLY because the file is append-only (entries are never edited in
+# place); do NOT extend union to in-place-edited files (STATUS.md is excluded).
 CHANGELOG.md merge=union

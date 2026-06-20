@@ -9,6 +9,7 @@ import { sendEmail } from '@/lib/email';
 import { isEmailBlacklisted } from '@/lib/blacklist';
 import { captureEvent } from '@/lib/analytics';
 import { safeNext } from '@/lib/auth';
+import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
 
 function parseAccountType(raw: FormDataEntryValue | null): 'customer' | 'vendor' {
   const value = raw ? String(raw) : '';
@@ -68,6 +69,99 @@ export async function signUp(formData: FormData) {
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
   const supabase = await createClient();
+
+  // ── Anon-draft convert-in-place (flag-gated · 2026-06-20) ────────────────
+  // If the visitor already has a Supabase NATIVE anonymous session (they
+  // finished onboarding without an account and we minted one in
+  // commitOnboardingWedding), DON'T signUp() — that would create a brand-new
+  // uid and orphan the event they already saved. Instead attach this email +
+  // password to the SAME anonymous uid via the admin API, flipping it to a
+  // permanent, email-confirmed account. The event_members row already points at
+  // this uid, so their plan is preserved with zero claim/merge. Anon-draft
+  // users are always couples (they came through wedding onboarding), so we pin
+  // account_type=customer here and overwrite the trigger's placeholder email on
+  // their public.users row.
+  if (anonOnboardingEnabled()) {
+    const {
+      data: { user: existingUser },
+    } = await supabase.auth.getUser();
+    if (existingUser?.is_anonymous) {
+      let admin: ReturnType<typeof createAdminClient>;
+      try {
+        admin = createAdminClient();
+      } catch {
+        return redirect(
+          `/signup?error=server_config_error&next=${encodeURIComponent(next)}`,
+        );
+      }
+      const userId = existingUser.id;
+      const { error: convertError } = await admin.auth.admin.updateUserById(userId, {
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { account_type: 'customer' },
+      });
+      if (convertError) {
+        return redirect(
+          `/signup?error=${encodeURIComponent(convertError.message)}&next=${encodeURIComponent(next)}`,
+        );
+      }
+      // Overwrite the placeholder email on the public.users row the trigger
+      // created at anon sign-in (account_type already 'customer'). Best-effort:
+      // the auth account is already converted, so a failure here doesn't block
+      // the user — it just leaves a stale placeholder email to reconcile.
+      const { error: profileError } = await admin
+        .from('users')
+        .update({
+          email,
+          account_type: 'customer',
+          ...(publicSummaryConsent
+            ? { public_summary_consent_at: new Date().toISOString() }
+            : {}),
+        })
+        .eq('user_id', userId);
+      if (profileError) {
+        console.warn('[signup/convert] public.users email update failed:', profileError.message);
+      }
+
+      void captureEvent({
+        distinctId: userId,
+        event: 'signup_completed',
+        properties: { account_type: 'customer', via: 'anon_convert' },
+      }).catch(() => {
+        /* telemetry never blocks */
+      });
+      void sendEmail({
+        to: email,
+        subject: 'Your Setnayan plan is secured',
+        text: [
+          `Your Setnayan account is set — your wedding plan is now saved to it.`,
+          ``,
+          `Sign in any time, on any device:`,
+          `${appUrl}/login`,
+          ``,
+          `Need help? ${appUrl}/help`,
+          ``,
+          `—`,
+          `Set na 'yan.`,
+        ].join('\n'),
+      }).catch(() => {
+        /* welcome email is best-effort */
+      });
+
+      // Honor the "stay signed in" checkbox before sending them to re-login as
+      // their now-permanent self (a fresh login issues a token with
+      // is_anonymous=false, the cleanest way to drop the anonymous claim).
+      if (!remember) {
+        const cookieStore = await cookies();
+        downgradeSupabaseCookiesToSessionOnly(cookieStore);
+      }
+      return redirect(
+        `/login?ready=${encodeURIComponent(email)}&next=${encodeURIComponent(next)}`,
+      );
+    }
+  }
+
   const { data, error } = await supabase.auth.signUp({
     email,
     password,

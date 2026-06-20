@@ -6,6 +6,7 @@ import { runLoginGhostingCheck } from '@/lib/ghosting';
 import { GuidedTour } from '@/app/_components/guided-tour';
 import { completeTour } from '@/lib/tour-actions';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { SecureAccountBanner } from './_components/secure-account-banner';
 
 /**
  * Root dashboard layout — shared by BOTH the account route group `(account)`
@@ -123,6 +124,9 @@ export default async function DashboardLayout({
       className="app-surface min-h-dvh"
       style={{ background: 'var(--m-paper)' }}
     >
+      {/* Anon-draft safety net: only renders for a Supabase anonymous principal
+          (their plan isn't yet tied to an email). Vanishes on convert. */}
+      {user.is_anonymous ? <SecureAccountBanner /> : null}
       {children}
       {!(profile?.tour_seen_keys ?? []).includes('couple_welcome_v1') ? (
         <GuidedTour tourKey="couple_welcome_v1" completeAction={completeTour} />

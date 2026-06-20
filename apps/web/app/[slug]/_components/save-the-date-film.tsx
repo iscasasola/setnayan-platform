@@ -32,7 +32,7 @@
 
 import type * as React from 'react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
-import { Music, VolumeX } from 'lucide-react';
+import { Music, Volume2, VolumeX } from 'lucide-react';
 import { type StdFilmContent } from '@/lib/save-the-date-content';
 import { STD_THEMES, resolveStdTheme, type StdTheme, type StdThemeId } from '@/lib/std-themes';
 import { readableTextOn } from '@/lib/site-palette';
@@ -552,6 +552,11 @@ export function SaveTheDateFilm({
   const [idx, setIdx] = useState(0);
   const [playing, setPlaying] = useState(false); // starts paused; unblocks on reveal-done
   const [muted, setMuted] = useState(false);
+  // The autoplay policy forced the couple's clip to play MUTED (no recent user
+  // gesture by the time the film reaches the video beat — see the video effect).
+  // The clip still plays + advances; this just surfaces a one-tap "Tap for sound"
+  // control over it so the guest CAN hear the couple's own audio if they want.
+  const [videoSoundBlocked, setVideoSoundBlocked] = useState(false);
   // Has the guest ever advanced by hand? Drives the "Swipe up to continue" hint
   // (Guest Legibility Floor: a gesture is never the only way — it needs a visible
   // instruction). The hint shows at the start + on the held video beat, and fades
@@ -577,6 +582,9 @@ export function SaveTheDateFilm({
   // close over once-built effects).
   const videoSlideIdxRef = useRef(-1);
   videoSlideIdxRef.current = videoSlideIndex;
+  // The music↔video crossfade RAF id, held in a ref so the "Tap for sound"
+  // handler (outside the effect) can cancel an in-flight fade before it unmutes.
+  const videoFadeRef = useRef(0);
 
   // Uniform fit-to-screen scale (owner 2026-06-19). The container is measured;
   // the BASE_W×BASE_H stage is transform-scaled by `fitScale` to the largest
@@ -680,9 +688,8 @@ export function SaveTheDateFilm({
     // position and resumes from there afterwards — it must never restart from
     // the beginning (owner 2026-06-19), which a still-playing `loop`-ed track
     // would do by looping back to 0 during a long clip.
-    let fade = 0;
     const crossfade = (musicTo: number, videoTo: number, pauseMusicAtEnd = false) => {
-      cancelAnimationFrame(fade);
+      cancelAnimationFrame(videoFadeRef.current);
       const m0 = a?.volume ?? 1;
       const v0 = v.volume;
       const t0 = performance.now();
@@ -691,18 +698,19 @@ export function SaveTheDateFilm({
         setVol(a, m0 + (musicTo - m0) * p);
         setVol(v, v0 + (videoTo - v0) * p);
         if (p < 1) {
-          fade = requestAnimationFrame(tick);
+          videoFadeRef.current = requestAnimationFrame(tick);
         } else if (pauseMusicAtEnd && a) {
           a.pause(); // hold the song's position; it resumes here after the video
         }
       };
-      fade = requestAnimationFrame(tick);
+      videoFadeRef.current = requestAnimationFrame(tick);
     };
 
     if (onVideo) {
       if (!prevOnVideoRef.current) {
         try { v.currentTime = 0; } catch { /* not seekable yet — plays from 0 */ }
         setVol(v, 0); // start silent, fade up
+        setVideoSoundBlocked(false); // fresh beat — the catch below re-flags if blocked
       }
       v.muted = muted || preview;
       if (playing) {
@@ -722,6 +730,9 @@ export function SaveTheDateFilm({
         if (attempt && typeof attempt.then === 'function') {
           attempt.catch(() => {
             v.muted = true;
+            // Surface the one-tap "Tap for sound" control (a gesture CAN unmute) —
+            // unless the guest has globally muted, in which case they want silence.
+            if (!muted) setVideoSoundBlocked(true);
             v.play().catch(() => {
               // Even muted playback failed (decode/network) — don't strand the
               // guest on the Infinity beat; advance to the closing screen.
@@ -763,7 +774,7 @@ export function SaveTheDateFilm({
     v.addEventListener('ended', onEnded);
     v.addEventListener('error', onError);
     return () => {
-      cancelAnimationFrame(fade);
+      cancelAnimationFrame(videoFadeRef.current);
       v.removeEventListener('ended', onEnded);
       v.removeEventListener('error', onError);
     };
@@ -909,6 +920,24 @@ export function SaveTheDateFilm({
       if (videoElRef.current) videoElRef.current.muted = next || preview;
       return next;
     });
+  };
+
+  // "Tap for sound" — the couple's clip auto-played MUTED because the browser
+  // blocked autoplay-with-sound (no recent gesture). This handler runs from the
+  // guest's tap (a gesture), so unmuting a clip that's already playing IS allowed:
+  // give it its own audio and duck the soundtrack under it. We pause the music so
+  // it HOLDS its position and resumes after the clip (matching the crossfade
+  // design) instead of restarting.
+  const enableVideoSound = () => {
+    const v = videoElRef.current;
+    if (!v) return;
+    cancelAnimationFrame(videoFadeRef.current); // stop any in-flight music↔video fade
+    v.muted = false;
+    setVol(v, 1);
+    const a = audioRef.current;
+    if (a) { setVol(a, 0); a.pause(); }
+    v.play().catch(() => {}); // already playing — just ensures audible playback
+    setVideoSoundBlocked(false);
   };
 
   // Scroll-to-scrub — a WINDOW wheel listener (not the stage) so a mouse/trackpad
@@ -1196,6 +1225,23 @@ export function SaveTheDateFilm({
             preload="auto"
             className="h-full w-full object-contain"
           />
+
+          {/* "Tap for sound" — shows only when the clip had to auto-play MUTED
+              (autoplay policy) and the guest hasn't globally muted. One tap is a
+              user gesture, so it unmutes the couple's own audio. pointer-events
+              re-enabled on the button alone; the rest of the overlay stays
+              pass-through so the film's scrub/hold gestures still reach the stage
+              beneath. Hidden the instant sound is on or the beat ends. */}
+          {videoSoundBlocked && !muted && idx === videoSlideIndex ? (
+            <button
+              type="button"
+              onClick={enableVideoSound}
+              className="pointer-events-auto absolute bottom-10 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-white/15 px-5 py-3 font-mono text-sm uppercase tracking-[0.16em] text-white backdrop-blur-md transition hover:bg-white/25"
+            >
+              <Volume2 aria-hidden className="h-5 w-5" />
+              Tap for sound
+            </button>
+          ) : null}
         </div>
       ) : null}
     </>

@@ -4,7 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-20 · seo: sitemap coverage for /our-story + /monogram, complete /explore/compare metadata
+## 2026-06-20 · feat(marketing): /papic landing page — lead with the media-layer differentiator
+
+Public-surface pass (2 of N — "lead with the media layer" from the demand-research verdict). Papic (guest photo gallery) is one of the two proven differentiators incumbents lack (BridalPod has no gallery; the ₱699 "photo wall" apps have no per-guest sorting or reels) — and it had **no indexable, citable landing page**. This is that page.
+
+- **New `app/papic/page.tsx`** — server-static marketing landing page in the `/monogram` design pattern. Sells benefits only (public-surface hygiene), quotes **no price** (admin-managed + provisional — links to `/pricing` instead). Sections: hero → 3-step "how it works" → "not a shared photo dump" comparison → "two ways to run it" (5 Seats vs Guest) → visible FAQ → CTA. Emits **`SoftwareApplication`** (with `featureList` naming the moat for AI answer engines) + **`FAQPage`** JSON-LD.
+- `app/_components/marketing/site-chrome.tsx` — registered `/papic` in `NAV_ROUTES` so the persistent SiteChrome nav renders.
+- `app/sitemap-static.xml/route.ts` — added `/papic` (priority 0.8); route count 19→20.
+
+The interactive guest tooling at `/papic/guest` is untouched; this claims the previously-free `/papic` root. Not built locally (pnpm worktree node_modules can't be cross-linked); required CI (typecheck + lint + build) + the Vercel PR preview are the verification surface.
+
+SPEC IMPACT: None (new public marketing page; no SKU / schema / pricing / branding change — Papic SKU + pricing live in `/pricing` + the catalog, unchanged).
 
 Public-surface SEO pass (1 of N — "update website + SEO + GEO" workstream from the demand-research verdict). Closes two crawl-coverage gaps found in the public-surface audit:
 

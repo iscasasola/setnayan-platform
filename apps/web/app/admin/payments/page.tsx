@@ -4,6 +4,7 @@ import { isRequestPlatform } from '@/lib/request-platform';
 import { sweepLapsedSubscriptions } from '@/lib/subscriptions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
+import { InboxMatcher, type MatcherPayment } from './_components/inbox-matcher';
 import {
   ORDER_STATUS_LABEL,
   ORDER_STATUS_TONE,
@@ -311,15 +312,30 @@ function PaymentsList({ payments }: { payments: PaymentJoined[] }) {
       </div>
     );
   }
+  // Lightweight rows for the paste-and-match helper. Keep only the fields the
+  // matcher needs (no screenshot URLs / notes) so the client bundle stays small.
+  const matcherRows: MatcherPayment[] = payments.map((p) => ({
+    payment_id: p.payment_id,
+    reference_code: p.order?.reference_code ?? null,
+    amount_php: p.amount_php,
+    label: p.user?.email ?? p.order?.public_id ?? '—',
+    orderPublicId: p.order?.public_id ?? null,
+  }));
   return (
-    <ul className="space-y-3">
+    <>
+      <InboxMatcher payments={matcherRows} />
+      <ul className="space-y-3">
       {payments.map((p) => {
         const matchesRef =
           !!p.reference_number &&
           !!p.order?.reference_code &&
           p.reference_number.toUpperCase().includes(p.order.reference_code.toUpperCase());
         return (
-          <li key={p.payment_id} className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
+          <li
+            key={p.payment_id}
+            id={`payment-${p.payment_id}`}
+            className="scroll-mt-20 space-y-3 rounded-xl border border-ink/10 bg-cream p-4"
+          >
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0 space-y-0.5">
                 <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
@@ -530,7 +546,8 @@ function PaymentsList({ payments }: { payments: PaymentJoined[] }) {
           </li>
         );
       })}
-    </ul>
+      </ul>
+    </>
   );
 }
 

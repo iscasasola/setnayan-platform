@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-20 · fix(explore): vendor Save resolves the real category — no more "MISC" (Phase 1 PR1)
+
+Confirmed bug: clicking **Save** on a marketplace vendor created an `event_vendors` row with `category='misc'` whenever the vendor's `vendor_profiles.services[]` held leaf/canonical taxonomy strings (the common case) instead of coarse `vendor_category` enum values. `coerceCategory` in `apps/web/app/explore/actions.ts` only did a direct enum match (`VENDOR_CATEGORIES.includes(...)`) and fell straight through to `'misc'` — so e.g. `services=['photography']` never matched `'photographer'` and the vendor showed up as **MISC** in the editorial "Team Behind the Day" and was mis-filed in the planner.
+
+- **Fix:** added a second pass in `coerceCategory` that runs each `services[]` string through the existing leaf→coarse map `resolveVendorCategory()` (`apps/web/lib/vendor-packages.ts`, e.g. `photography→photographer`, `cake_desserts→cake_maker`) and returns the first result that isn't `'misc'`. Resolution order is now: direct-enum-match → `resolveVendorCategory(services)` → `'misc'`. One new import; no behavior change for rows that already stored a coarse enum value.
+- **Scope held tight:** the explore search-category threading (search-context → … ) was evaluated and **skipped** — `SaveVendorButton` has 4 call sites including the public `/v/[slug]` profile page that has no browse-category context, so threading it is not the "small change" the brief allowed. Step 1 is the core fix and lands alone. Build/Lock/proposal files untouched (those are PR2/PR3).
+
+Not built locally (fresh worktree has no `node_modules`); required CI checks (typecheck + lint + production build + Lighthouse + Vercel preview) are the verification gate, auto-merge armed.
+
+SPEC IMPACT: `02_Specifications/Vendor_Transaction_Lifecycle_2026-06-20.md` Phase 1 PR1 — corrects the vendor-Save category derivation. Logged to `DECISION_LOG.md`.
+
 ## 2026-06-20 · feat(for-vendors): interactive "we step back at your door" scenario for the personal-touch skeptic
 
 Owner ask — convert the relationship-first vendor who says *"I value the personal touch; that's why I don't use online apps."* Added a new section to `/for-vendors`: a 6-beat click-through story built around one peer protagonist (**Marco**, an explicitly-labelled ILLUSTRATIVE composite) that **validates his premise first**, names the one true cost (couples message ten suppliers at once and book whoever replied first — not whoever's best), then shows the turn — Setnayan **filters → matches → walks one well-matched couple to his door → STEPS BACK**. He keeps the meeting, his price, his contract, the money (0% commission, paid-direct). Copy is research-backed (objection-handling frameworks + narrative-transportation + PH market: *tiwala* / *walang namamagitan* / "magkano?" ghost-quotes).

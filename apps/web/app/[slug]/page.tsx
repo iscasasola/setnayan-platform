@@ -157,7 +157,7 @@ const fetchEventBySlug = cache(async (slug: string) => {
   const { data } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_accent_hex',
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_accent_hex, is_sample',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -1023,6 +1023,9 @@ type EventRow = {
   std_film_ceremony_name?: string | null;
   // Manual STD film accent hex override (null = follow Mood Board → mulberry).
   std_film_accent_hex?: string | null;
+  // TRUE only for the Maria & Jose public-tour sample event. Used to suppress the
+  // Save-the-Date view beacon so tour traffic never inflates the sample's stats.
+  is_sample?: boolean | null;
   // JSONB column populated by the host via /dashboard/[eventId]/website/photo-moments.
   // Shape: { intro_copy: string, moments: [{ time_label, title, note, mode }] }.
   // Unknown / empty shapes degrade gracefully in PhotoMomentsWidget — the
@@ -1407,7 +1410,7 @@ function PublicLanding({
   return (
     <InvitationShell backdrop={backdrop} rolePalette={event.role_palette} fullBleed={showSaveTheDate && stdFilm}>
       <GuestPreload eventSlug={event.slug} />
-      {showSaveTheDate ? <StdViewBeacon slug={event.slug} /> : null}
+      {showSaveTheDate && !event.is_sample ? <StdViewBeacon slug={event.slug} /> : null}
       <RevealOverlayServer
         enabled={showSaveTheDate}
         monogram={revealMonogram(event.display_name)}
@@ -1914,7 +1917,7 @@ function InvitationSite({
   return (
     <InvitationShell backdrop={backdrop} rolePalette={event.role_palette} fullBleed={showSaveTheDate && stdFilm}>
       <GuestPreload eventSlug={event.slug} />
-      {showSaveTheDate ? <StdViewBeacon slug={event.slug} /> : null}
+      {showSaveTheDate && !event.is_sample ? <StdViewBeacon slug={event.slug} /> : null}
       <RevealOverlayServer
         enabled={showSaveTheDate}
         monogram={revealMonogram(event.display_name)}

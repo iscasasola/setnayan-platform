@@ -26,10 +26,10 @@ export const metadata = {
 
 const STOPS: Array<{ n: number; title: string; blurb: string; href: string; live: boolean }> = [
   { n: 1, title: 'The invitation', blurb: 'A cinematic Save-the-Date that announces the date.', href: '/maria-and-jose', live: true },
-  { n: 2, title: 'The vendors', blurb: 'How Setnayan AI shortlists the team that fits.', href: '/tour/vendors', live: false },
-  { n: 3, title: 'The seating', blurb: 'Every guest finds their table.', href: '/tour/seating', live: false },
-  { n: 4, title: 'The budget', blurb: 'Every peso tracked, every deadline in view.', href: '/tour/budget', live: false },
-  { n: 5, title: 'The gallery', blurb: 'The day, captured by everyone.', href: '/tour/gallery', live: false },
+  { n: 2, title: 'The vendors', blurb: 'How Setnayan AI shortlists the team that fits.', href: '/tour/vendors', live: true },
+  { n: 3, title: 'The seating', blurb: 'Every guest finds their table.', href: '/tour/seating', live: true },
+  { n: 4, title: 'The budget', blurb: 'Every peso tracked, every deadline in view.', href: '/tour/budget', live: true },
+  { n: 5, title: 'The gallery', blurb: 'The day, captured by everyone.', href: '/tour/gallery', live: true },
 ];
 
 export default async function TourIntroPage() {

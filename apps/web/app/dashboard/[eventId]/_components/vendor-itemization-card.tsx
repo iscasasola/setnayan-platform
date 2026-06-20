@@ -63,6 +63,7 @@ import { VENDOR_CATEGORY_LABEL, VENDOR_STATUS_LABEL, VENDOR_STATUS_TONE } from '
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import type { PlanInstance } from '@/lib/vendor-service-payment-schedules';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { ConfirmForm } from '@/app/_components/confirm-form';
 import { FileUpload } from '@/app/_components/file-upload';
 import { VendorDirectPay } from '@/app/dashboard/[eventId]/_components/vendor-direct-pay';
 import {
@@ -358,7 +359,12 @@ function LineItemSection({
                   <span className="font-mono text-sm font-semibold text-ink">
                     {formatPhp(li.amount_php)}
                   </span>
-                  <form action={deleteLineItem}>
+                  <ConfirmForm
+                    action={deleteLineItem}
+                    title="Delete this line item?"
+                    message="It’s removed from this vendor’s budget — you can add it back anytime."
+                    confirmLabel="Delete"
+                  >
                     <input type="hidden" name="event_id" value={eventId} />
                     <input type="hidden" name="line_item_id" value={li.line_item_id} />
                     <SubmitButton
@@ -368,7 +374,7 @@ function LineItemSection({
                     >
                       <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
                     </SubmitButton>
-                  </form>
+                  </ConfirmForm>
                 </div>
               </li>
             ))}
@@ -399,7 +405,7 @@ function LineItemSection({
             <input
               name="amount_php"
               type="number"
-              min={0}
+              min={0.01}
               step="0.01"
               required
               placeholder="Amount"
@@ -443,7 +449,7 @@ function LineItemSection({
             <input
               name="amount_php"
               type="number"
-              min={0}
+              min={0.01}
               step="0.01"
               required
               placeholder="Amount"
@@ -535,7 +541,12 @@ function PaymentSection({
                   <span className="font-mono text-sm font-semibold text-success-900">
                     {formatPhp(p.amount_php)}
                   </span>
-                  <form action={deletePayment}>
+                  <ConfirmForm
+                    action={deletePayment}
+                    title="Remove this logged payment?"
+                    message="The running total updates — log it again if you remove it by mistake."
+                    confirmLabel="Delete"
+                  >
                     <input type="hidden" name="event_id" value={eventId} />
                     <input type="hidden" name="payment_id" value={p.payment_id} />
                     <SubmitButton
@@ -545,7 +556,7 @@ function PaymentSection({
                     >
                       <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
                     </SubmitButton>
-                  </form>
+                  </ConfirmForm>
                 </div>
               </li>
             );
@@ -618,7 +629,7 @@ function PaymentSection({
         <input
           name="amount_php"
           type="number"
-          min={0}
+          min={0.01}
           step="0.01"
           required
           placeholder="Amount paid"

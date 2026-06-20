@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, ExternalLink, Trash2, Send } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { FileUpload } from '@/app/_components/file-upload';
+import { CopyButton } from '@/app/_components/copy-button';
 import { createClient } from '@/lib/supabase/server';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import {
@@ -276,12 +277,14 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
             or GCash to the merchant account
             {hasMerchantPaymentInfo(settings)
               ? ' below.'
-              : ' (details emailed once your order is confirmed).'}
+              : ' (details emailed once your order is confirmed).'}{' '}
+            <CopyButton value={String(totals.headlineTotal)} label="Copy amount" />
           </li>
           <li>
             Include the reference code{' '}
             <span className="font-mono text-terracotta-700">{order.reference_code}</span> in
-            the transfer notes so we can match your payment automatically.
+            the transfer notes so we can match your payment automatically.{' '}
+            <CopyButton value={order.reference_code} label="Copy code" />
           </li>
           <li>Take a screenshot of the receipt and log it below.</li>
         </ul>
@@ -299,9 +302,12 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
                   </p>
                 ) : null}
                 {settings.bdo_account_number ? (
-                  <p className="break-all font-mono text-sm text-ink">
-                    {settings.bdo_account_number}
-                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="break-all font-mono text-sm text-ink">
+                      {settings.bdo_account_number}
+                    </p>
+                    <CopyButton value={settings.bdo_account_number} label="Copy" />
+                  </div>
                 ) : null}
                 {settings.bdo_qr_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -325,9 +331,12 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
                   </p>
                 ) : null}
                 {settings.gcash_number ? (
-                  <p className="break-all font-mono text-sm text-ink">
-                    {settings.gcash_number}
-                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="break-all font-mono text-sm text-ink">
+                      {settings.gcash_number}
+                    </p>
+                    <CopyButton value={settings.gcash_number} label="Copy" />
+                  </div>
                 ) : null}
                 {settings.gcash_qr_url ? (
                   // eslint-disable-next-line @next/next/no-img-element

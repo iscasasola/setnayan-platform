@@ -15,9 +15,12 @@ type Props = {
   initial: RolePalette;
   visibleKeys: PaletteKey[];
   saveAction: (formData: FormData) => Promise<void>;
+  /** True when `initial` is a draft seeded from the couple's onboarding feel
+   *  (not their saved palette) — surfaces a "suggested, not yet saved" hint. */
+  seeded?: boolean;
 };
 
-export function PaletteEditor({ eventId, initial, visibleKeys, saveAction }: Props) {
+export function PaletteEditor({ eventId, initial, visibleKeys, saveAction, seeded }: Props) {
   const visibleSet = new Set(visibleKeys);
   const inView = (key: PaletteKey) => visibleSet.has(key);
 
@@ -77,6 +80,14 @@ export function PaletteEditor({ eventId, initial, visibleKeys, saveAction }: Pro
   return (
     <form action={handleSubmit} className="space-y-5">
       <input type="hidden" name="event_id" value={eventId} />
+
+      {seeded ? (
+        <p className="rounded-lg border border-terracotta/25 bg-terracotta/[0.06] px-3 py-2 text-sm text-ink/75">
+          Starting colours from your wedding feel — tweak them, then{' '}
+          <span className="font-medium">Save palette</span> to keep. Nothing is
+          saved until you do.
+        </p>
+      ) : null}
 
       <PaletteFamily
         title="Venue"

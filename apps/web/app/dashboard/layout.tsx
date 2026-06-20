@@ -7,6 +7,7 @@ import { GuidedTour } from '@/app/_components/guided-tour';
 import { completeTour } from '@/lib/tour-actions';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { SecureAccountBanner } from './_components/secure-account-banner';
+import { dispatchPendingInquiries } from '@/lib/pending-inquiries';
 
 /**
  * Root dashboard layout — shared by BOTH the account route group `(account)`
@@ -118,6 +119,15 @@ export default async function DashboardLayout({
   // once per login inside the helper. Couple side: nudge if their inquiries
   // sit unanswered.
   after(() => runLoginGhostingCheck(user.id, 'couple'));
+
+  // Anon-draft: the moment a converted couple lands here authenticated +
+  // NON-anonymous, replay the vendor inquiries they held during anonymous
+  // onboarding (no-op when there's no held intent). Skipped while still
+  // anonymous — the SecureAccountBanner nudges them to convert first. Runs
+  // post-response (after()) so it never blocks the dashboard render; idempotent.
+  if (!user.is_anonymous) {
+    after(() => dispatchPendingInquiries(user.id));
+  }
 
   return (
     <div

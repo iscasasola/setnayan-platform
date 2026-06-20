@@ -319,6 +319,18 @@ export async function commitOnboardingWedding(
   const slug = await generateUniqueSlug(admin, displayName);
   const now = new Date().toISOString();
 
+  // Anon-draft: an anonymous couple's inquiry fan-out is SKIPPED at commit (the
+  // reply would bounce to their placeholder email + a vendor could burn a token
+  // on a ghost). When they opted into "reach my matches", we stash the intent
+  // here so it auto-dispatches the instant they secure their account — the
+  // dashboard's first authenticated load replays it (lib/pending-inquiries.ts).
+  // The picks themselves live in style_preferences.interested_categories below;
+  // this flag just carries the per-category count + the consent signal.
+  const pendingInquiryDispatch =
+    user.is_anonymous && payload.sendTopInquiries
+      ? { perCategory: Math.max(1, Math.min(5, Math.round(payload.inquiriesPerCategory ?? 3))) }
+      : null;
+
   // Normalize the onboarding date capture into the v2 columns.
   const dateMode = payload.dateMode === 'window' ? 'window' : 'specific';
   const candidates =
@@ -403,6 +415,9 @@ export async function commitOnboardingWedding(
         // Dream Team chapter — per-leaf refinement detail (additive · DISPLAY +
         // future vendor-match). Empty {} until the refine passes ship (PR-4).
         refinements: payload.refinements ?? {},
+        // Anon-draft deferred inquiry intent — present only for an anon couple
+        // who opted into matches; cleared by lib/pending-inquiries once dispatched.
+        ...(pendingInquiryDispatch ? { pending_inquiry_dispatch: pendingInquiryDispatch } : {}),
       },
     })
     // events.id is BIGSERIAL (internal) — every FK + the dashboard route use

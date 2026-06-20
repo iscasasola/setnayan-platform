@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { resolvePrimaryHostEvent, recomputeReceptionAnchor } from '@/lib/events';
 import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
+import { resolveVendorCategory } from '@/lib/vendor-packages';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 
 // Iteration 0041 — email capture for Coming-Soon event_type interest.
@@ -99,14 +100,30 @@ export type SaveVendorResult =
   | { status: 'error'; message: string };
 
 function coerceCategory(services: ReadonlyArray<string>): VendorCategory {
-  // vendor_profiles.services is `text[]` mixing canonical_service taxonomy
-  // strings + raw vendor_category enum values. Pick the first entry that
-  // matches a known enum value; fall back to 'misc' if nothing maps.
+  // vendor_profiles.services is `text[]` that in practice holds leaf /
+  // canonical_service taxonomy strings (e.g. 'photography', 'cake_desserts'),
+  // and occasionally a raw vendor_category enum value.
+  //
+  // Pass 1 — direct enum match. Handles the rare row that already stores a
+  // coarse `vendor_category` enum value.
   for (const s of services) {
     if (VENDOR_CATEGORIES.includes(s as VendorCategory)) {
       return s as VendorCategory;
     }
   }
+  // Pass 2 — leaf → coarse mapping. The common case: 'photography' →
+  // 'photographer', 'cake_desserts' → 'cake_maker'. resolveVendorCategory
+  // returns 'misc' for anything unmapped, so take the first entry that maps
+  // to a real category. Without this pass the leaf strings never matched the
+  // enum check above and every save fell through to 'misc' (the "MISC" bug in
+  // the editorial "Team Behind the Day").
+  for (const s of services) {
+    const resolved = resolveVendorCategory(s);
+    if (resolved !== 'misc') {
+      return resolved;
+    }
+  }
+  // Nothing mapped — generic Misc bucket.
   return 'misc';
 }
 

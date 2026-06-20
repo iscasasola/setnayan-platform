@@ -13,7 +13,9 @@ import { fetchThreadInterests } from '@/lib/thread-interests';
 import { fetchVendorServices } from '@/lib/vendor-services';
 import { isCanonicalService, VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
 import { resolveLivePax, fetchVendorPaxProposals } from '@/lib/pax';
+import { fetchPendingVendorPayments } from '@/lib/vendor-service-payment-schedules.server';
 import { acceptPaxSurcharge, declinePaxSurcharge } from './pax-actions';
+import { confirmVendorPayment } from './pay-confirm-actions';
 import {
   VendorOfferService,
   type VendorOfferOption,
@@ -101,6 +103,23 @@ export default async function VendorThreadPage({ params }: Props) {
     livePax,
     paxAtInquiry: thread.pax_at_inquiry,
   });
+
+  // Phase 2 PR-C — couple-logged payments on this vendor's bookings awaiting
+  // confirmation. event_vendor_payments is couple-RLS'd, so this admin-reads
+  // them AFTER the thread-ownership gate above (profile owns this thread). Each
+  // becomes an Accept card. Best-effort: a failure degrades to no cards.
+  let pendingPayments: Awaited<ReturnType<typeof fetchPendingVendorPayments>> = [];
+  try {
+    pendingPayments = await fetchPendingVendorPayments({
+      adminClient: paxAdmin,
+      eventId: thread.event_id,
+      vendorProfileId: profile.vendor_profile_id,
+    });
+  } catch (e) {
+    console.error('[vendor-thread] fetchPendingVendorPayments threw', e);
+    pendingPayments = [];
+  }
+
   const peso = (n: number) =>
     `₱${Math.abs(Math.round(n)).toLocaleString('en-PH')}`;
 
@@ -180,6 +199,56 @@ export default async function VendorThreadPage({ params }: Props) {
           </div>
         );
       })}
+
+      {/* Pending payment confirms (Phase 2 PR-C) — the couple logged an
+          off-platform payment (with optional proof) against this booking.
+          Nothing on the couple's side is "received" until the vendor taps
+          Confirm — the DB guard (confirm_vendor_payment) re-checks ownership. */}
+      {pendingPayments.map((p) => (
+        <div
+          key={p.paymentId}
+          className="rounded-xl border border-success-700/30 bg-success-50/60 p-4"
+        >
+          <p className="text-sm font-semibold text-ink">
+            The couple logged a {peso(p.amountPhp)} payment
+          </p>
+          <p className="mt-1 text-sm text-ink/70">
+            {p.installmentLabel ? `For ${p.installmentLabel} · ` : ''}
+            Paid {p.paidAt}
+            {p.method ? ` · ${p.method}` : ''}
+            {p.reference ? ` · ref ${p.reference}` : ''}.
+            {p.notes ? ` “${p.notes}”` : ''}
+          </p>
+          {p.proofUrl ? (
+            <p className="mt-1.5 text-sm">
+              <a
+                href={p.proofUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-mulberry underline hover:text-mulberry-600"
+              >
+                View attached receipt
+              </a>
+            </p>
+          ) : null}
+          <p className="mt-2 text-xs text-ink/55">
+            Setnayan never holds this money — confirm only what you actually
+            received.
+          </p>
+          <div className="mt-3">
+            <form action={confirmVendorPayment}>
+              <input type="hidden" name="payment_id" value={p.paymentId} />
+              <input type="hidden" name="thread_id" value={threadId} />
+              <SubmitButton
+                pendingLabel="Confirming…"
+                className="inline-flex h-9 items-center rounded-lg bg-success-700 px-4 text-sm font-medium text-cream hover:bg-success-800"
+              >
+                Confirm received
+              </SubmitButton>
+            </form>
+          </div>
+        </div>
+      ))}
 
       <ChatPrivacyNotice />
 

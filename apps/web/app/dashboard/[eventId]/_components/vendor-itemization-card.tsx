@@ -61,6 +61,7 @@ import {
 } from '@/lib/budget';
 import { VENDOR_CATEGORY_LABEL, VENDOR_STATUS_LABEL, VENDOR_STATUS_TONE } from '@/lib/vendors';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
+import type { PlanInstance } from '@/lib/vendor-service-payment-schedules';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { FileUpload } from '@/app/_components/file-upload';
 import { VendorDirectPay } from '@/app/dashboard/[eventId]/_components/vendor-direct-pay';
@@ -89,6 +90,15 @@ export type VendorItemizationCardProps = {
    * VendorDirectPay block renders a quiet "coordinate in chat" hint.
    */
   directPayMethods?: CoupleFacingMethod[];
+  /**
+   * The booking's frozen PAYMENT PLAN installments (Phase 2 PR-B/PR-C),
+   * fetched server-side by the caller from event_vendor_payment_plan. When
+   * present + non-empty, the log-payment form surfaces an optional "which
+   * installment?" dropdown (label · amount · due) that sets
+   * schedule_instance_seq. null/[] = no plan → the dropdown is hidden and the
+   * host logs a generic payment, exactly as before.
+   */
+  installments?: PlanInstance[] | null;
 };
 
 export function VendorItemizationCard({
@@ -96,6 +106,7 @@ export function VendorItemizationCard({
   eventId,
   variant = 'card',
   directPayMethods = [],
+  installments = null,
 }: VendorItemizationCardProps) {
   const {
     vendor,
@@ -137,6 +148,7 @@ export function VendorItemizationCard({
           vendorId={vendor.vendor_id}
           vendorName={vendor.vendor_name}
           directPayMethods={directPayMethods}
+          installments={installments}
         />
       </div>
     </>
@@ -465,6 +477,7 @@ function PaymentSection({
   vendorId,
   vendorName,
   directPayMethods,
+  installments,
 }: {
   payments: PaymentRow[];
   lineItems: LineItemRow[];
@@ -473,8 +486,11 @@ function PaymentSection({
   vendorId: string;
   vendorName: string;
   directPayMethods: CoupleFacingMethod[];
+  installments?: PlanInstance[] | null;
 }) {
   const hasVendorControlled = vendorControlledItems.length > 0;
+  const planInstallments = installments ?? [];
+  const hasInstallments = planInstallments.length > 0;
   return (
     <section className="space-y-3 p-5">
       {/* Off-platform direct-pay surface — the vendor's published payment
@@ -537,12 +553,40 @@ function PaymentSection({
         </ul>
       )}
 
-      <form
-        action={logPayment}
-        className="grid grid-cols-2 gap-2 border-t border-ink/10 pt-3 sm:grid-cols-4"
-      >
+      {/* Default-then-disclose: the 5-field log stays out of the way until the
+          host actually has a payment to record (it's the page's busiest form). */}
+      <details className="group border-t border-ink/10 pt-3">
+        <summary className="flex cursor-pointer items-center gap-1.5 text-xs font-medium text-success-700 hover:text-success-800">
+          <Plus aria-hidden className="h-3 w-3" strokeWidth={2} />
+          Log a payment
+        </summary>
+        <form
+          action={logPayment}
+          className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4"
+        >
         <input type="hidden" name="event_id" value={eventId} />
         <input type="hidden" name="vendor_id" value={vendorId} />
+        {/* Optional installment attribution (Phase 2 PR-C). Only shown when the
+            booking has a frozen payment plan — sets schedule_instance_seq so the
+            vendor sees WHICH installment this payment is for when they confirm.
+            "Not tied to an installment" = leave NULL (a generic payment). */}
+        {hasInstallments ? (
+          <select
+            name="schedule_instance_seq"
+            defaultValue=""
+            aria-label="Which installment?"
+            className="input-field col-span-2 h-9 py-0 text-xs sm:col-span-4"
+          >
+            <option value="">Not tied to an installment</option>
+            {planInstallments.map((inst) => (
+              <option key={inst.seq} value={inst.seq}>
+                {inst.label}
+                {inst.amount_php != null ? ` · ${formatPhp(inst.amount_php)}` : ''}
+                {inst.due_date ? ` · due ${inst.due_date}` : ''}
+              </option>
+            ))}
+          </select>
+        ) : null}
         <select
           name="line_item_id"
           defaultValue=""
@@ -618,7 +662,8 @@ function PaymentSection({
           <Plus className="h-3.5 w-3.5" strokeWidth={2} />
           Log
         </SubmitButton>
-      </form>
+        </form>
+      </details>
     </section>
   );
 }

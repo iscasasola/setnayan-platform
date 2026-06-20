@@ -1,11 +1,18 @@
 'use server';
 
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { processGuestClaim } from '@/lib/guest-claim-flow';
 import { MAX_NAME_LENGTH } from '@/lib/guest-claim';
+import { readGuestSession, setGuestSession } from '@/lib/guest-session';
 import type { GuestRole } from '@/lib/guests';
+
+// Sanity ceiling on accountless self-joins per event. The QR token is the real
+// gate; this just bounds runaway spam (the couple reviews/deletes the
+// `self_joined`-tagged rows). Generous — weddings rarely exceed it.
+const SELF_JOIN_CEILING = 1000;
 
 const VALID_ROLES: GuestRole[] = [
   'guest',
@@ -164,4 +171,128 @@ export async function joinEventAction(eventId: string, token: string, formData: 
   // guest-list enumeration oracle — the /verify screen renders identically for
   // either status and the code form is always shown.
   return redirect(`/join/${eventId}/verify?token=${encodeURIComponent(token)}`);
+}
+
+/**
+ * ACCOUNTLESS self-join (owner 2026-06-20 "yes we allow this" — let an older
+ * guest who scans the event QR add themselves WITHOUT making an account).
+ *
+ * This reuses the SAME guest-cookie mechanism as `/[slug]/redeem` (System 1):
+ * create a `guests` row via the admin client and sign the `setnayan_guest_session`
+ * cookie — the joiner is then exactly like a personal-link redeemer and RSVPs
+ * through the existing widget on `/[slug]`. It does NOT touch `event_members`
+ * (which stays account-only) or any RLS — the QR token + cookie are the auth.
+ * Self-joined rows are tagged `self_joined` so the couple can review/remove them.
+ */
+export async function selfJoinAction(eventId: string, token: string, formData: FormData) {
+  const role = String(formData.get('role') ?? '') as GuestRole;
+  const presentedName = String(formData.get('name') ?? '').trim().slice(0, MAX_NAME_LENGTH);
+
+  if (!VALID_ROLES.includes(role)) {
+    return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=invalid_role`);
+  }
+  if (!presentedName) {
+    return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=missing_name`);
+  }
+
+  const admin = createAdminClient();
+
+  // 1. Re-validate the token — this is the ONLY gate (no RLS on the admin write),
+  //    so it must be mandatory and identical to the page/joinEventAction check.
+  const { data: tokenRow } = await admin
+    .from('event_join_tokens')
+    .select('event_id, revoked_at, expires_at')
+    .eq('event_id', eventId)
+    .eq('token', token)
+    .maybeSingle();
+
+  const tokenValid =
+    !!tokenRow &&
+    !tokenRow.revoked_at &&
+    (!tokenRow.expires_at || new Date(tokenRow.expires_at) > new Date());
+
+  if (!tokenValid) {
+    return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=invalid_token`);
+  }
+
+  // 2. The accountless guest lands on the public `/[slug]` page to RSVP — so it
+  //    only makes sense when a slug exists. (The page only offers this path when
+  //    there is one; guard anyway and fall back to the sign-in route.)
+  const { data: event } = await admin
+    .from('events')
+    .select('slug')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const slug = (event?.slug as string | null) ?? null;
+  if (!slug) {
+    return redirect(`/login?next=${encodeURIComponent(`/join/${eventId}?token=${token}`)}`);
+  }
+
+  // 3. Idempotent: already self-joined on this device → straight to the page,
+  //    no duplicate row (the guest-session cookie is the dedup key).
+  const existingSession = await readGuestSession();
+  if (existingSession && existingSession.event_id === eventId) {
+    return redirect(`/${slug}`);
+  }
+
+  // 4. Sanity ceiling on self-joins for this event.
+  const { count } = await admin
+    .from('guests')
+    .select('guest_id', { count: 'exact', head: true })
+    .eq('event_id', eventId)
+    .contains('custom_tags', ['self_joined'])
+    .is('deleted_at', null);
+  if ((count ?? 0) >= SELF_JOIN_CEILING) {
+    return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=join_closed`);
+  }
+
+  // 5. Create the guest row (admin) — same minimal shape the couple's quick-add
+  //    uses, tagged `self_joined`. Split the name best-effort; couple can refine.
+  const parts = presentedName.split(/\s+/);
+  const firstName = parts[0] ?? presentedName;
+  const lastName = parts.slice(1).join(' ');
+
+  const { data: inserted, error } = await admin
+    .from('guests')
+    .insert({
+      event_id: eventId,
+      first_name: firstName,
+      last_name: lastName,
+      side: 'both',
+      group_category: 'other',
+      role,
+      rsvp_status: 'pending',
+      meal_preference: 'no_preference',
+      invited_to_blocks: ['ceremony', 'reception'],
+      custom_tags: ['self_joined'],
+    })
+    .select('guest_id, qr_token')
+    .single();
+
+  if (error || !inserted) {
+    return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=join_failed`);
+  }
+
+  // 6. Sign the guest-session cookie — now identical to a /[slug]/redeem guest.
+  await setGuestSession({
+    guest_id: inserted.guest_id as string,
+    event_id: eventId,
+    qr_token: inserted.qr_token as string,
+  });
+
+  // 7. Best-effort scan record for triage (mirrors redeem; failures don't block).
+  const h = await headers();
+  const xff = h.get('x-forwarded-for') ?? '';
+  const ipFull = xff.split(',')[0]?.trim() ?? '';
+  const ipAnon = ipFull ? ipFull.split('.').slice(0, 3).join('.') + '.0' : null;
+  await admin.from('scan_events').insert({
+    event_id: eventId,
+    guest_id: inserted.guest_id as string,
+    source: 'browser',
+    user_agent: h.get('user-agent') ?? null,
+    ip_anon: ipAnon,
+    context: { entry: 'self_join' },
+  });
+
+  return redirect(`/${slug}`);
 }

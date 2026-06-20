@@ -18,6 +18,49 @@ Verified: `tsc --noEmit` clean (0 errors) · `next lint` (no new warnings) · `l
 
 SPEC IMPACT: editorial content only — no schema, pricing, or product-surface change. Extends iteration 0038 (Editorial). Per the AS-BUILT flip the corpus is the archive; logged as a row in `DECISION_LOG.md` (3×/week journal drip through 2026-12-18; FB cadence stays governed at ≤3/day by the existing social governor).
 
+## 2026-06-20 · feat(help): instant search on the Help Center + marketing-ads spec-drift flag (Wave 2 slice)
+
+Part of the 2-step-down program (`Usability_2Step_Remediation_Program_2026-06-20.md`, Wave 2). The Help Center promised full-text search in its metadata/spec but shipped without it — the audit's single biggest discoverability gap (~63 articles found only by self-selecting a role tile + scanning).
+
+- **`app/help/_components/help-search.tsx`** (new, `'use client'`) — instant in-memory filter over the existing 68-article corpus (`ALL_HELP_ARTICLES` shape `{slug,title,body}`). No fetch, no index, no dependency. Matches title + body + topic label. Empty box renders the same topic-grouped list with `id` anchors preserved (sidebar nav + `/help#slug` deep links still work); typing shows a flat, in-context result list; a real "no matches → message the team" state replaces the previously-unreachable empty branch.
+- **`app/help/page.tsx`** — mounts `<HelpSearch topics={visibleTopics} />` in place of the server-rendered article list (role filter still applies server-side); dropped the now-unused `HelpCircle` import; the FAQPage JSON-LD is untouched (server-rendered from the full corpus, so SEO/GEO is preserved).
+
+**Spec drift surfaced (no code):** the program's `vendor/marketing-ads` item (diff 3, "Boosted + Sponsored, being-redesigned banner, per-week pricing, unverified gate disables Start") describes a surface that **does not exist in shipped code** — there is no boosted-ads/sponsored vendor dashboard route. The closest surface, `/vendor-dashboard/subscription` (Pro/Enterprise), is already clean: no banner, no gate, DB-driven pricing from `vendor_billing_catalog`. That program row should be retired or re-scoped; not touched here.
+
+Verified: `tsc --noEmit` clean across the project (0 errors). Required CI (typecheck + lint + build) + Vercel preview are the gate; the search is interactive on the public `/help` preview for an owner eyeball.
+
+SPEC IMPACT: iteration 0029 (Help Center) — search now matches the long-standing spec/metadata promise. Logged in `DECISION_LOG.md` (incl. the marketing-ads drift). No schema/SKU change.
+## 2026-06-20 · feat(ux): couple self-serve simplification — budget + guests (Wave 2 slice)
+
+2-step-down program (`Usability_2Step_Remediation_Program_2026-06-20.md`, Wave 2) — the two crowded couple surfaces, default-then-disclose + never-dead-empty + clearer labels. Both bank 3→2.
+
+**Budget** (`budget/page.tsx` + `_components/vendor-itemization-card.tsx`):
+- The page showed the word **"Remaining" twice meaning two different things** (budget headroom = target − committed, vs unpaid balance = itemized − paid). Relabeled rather than deleted (both numbers are real): top strip → **"Budget left"**, itemization strip → **"Still to pay"**. Removes the same-word collision with zero data loss.
+- The always-open **5-field payment-log form** (the page's busiest input) is now **default-then-disclose** behind a `<details>` "Log a payment" trigger, matching the existing "Add an extra" disclosure pattern in the same card.
+- The **"no contracted vendor yet" empty state read as broken** ("Per-vendor budget tracking *unlocks*…"). Reframed to "you're still choosing vendors — exactly where you should be; itemized costs appear here once you contract one." (Per-line price chips skipped — line items are already visually grouped "From the vendor's catalog" vs "Your own additions".)
+
+**Guests** (`guests/page.tsx` + `_components/quick-add-sheet.tsx`):
+- The desktop header led with **four equal add buttons**. Now the bulk paths (**Import CSV**, **Quick add list**) tuck behind one **"More ways"** `<details>` disclosure; the single primary **"+ Add guest"** quick-add leads. (Mobile carousel unchanged.)
+- The **empty state** pointed a brand-new couple at the heavy detailed `/guests/new` form. It now leads with the **one-tap quick-add sheet** (`OpenQuickAddButton` gained an optional `label` prop), with "or use the full form" kept as a secondary link. (The single-field/display-name-split change touches the add data model — deferred.)
+
+Verified: `tsc --noEmit` clean across the project (0 errors). Required CI (typecheck + lint + build) + Vercel preview are the gate.
+
+SPEC IMPACT: UX simplification on iterations 0007 (budget) + 0001 (guests); no schema/SKU change. Logged in `DECISION_LOG.md`.
+
+## 2026-06-20 · feat(join): accountless guest self-join via event QR (Lola Remedios — deferred HIGH)
+
+Owner: "yes we allow this" — let an older guest who scans the event QR add themselves WITHOUT creating an account (the 1 HIGH deferred from the guest-legibility audit). Previously `/join/[eventId]` hard-walled behind sign-in/create-account before a guest could do anything.
+
+Design (from a Plan-agent investigation, in `Guest_Legibility_Audit_2026-06-20.md`): **route accountless joiners into the existing `guests` table + `setnayan_guest_session` cookie — the SAME mechanism `/[slug]/redeem` already uses — NOT into `event_members`.** Zero RLS changes, zero migration. `event_members` stays account-only (its `member_can_self_join` policy + `user_id NOT NULL` are untouched); the QR token + signed cookie are the authorization (admin-client write, same as redeem).
+
+- **`apps/web/app/join/[eventId]/actions.ts`** — new `selfJoinAction`: re-validates the join token (mandatory — the only gate), requires the event to have a public `slug` (else falls back to sign-in), is idempotent via `readGuestSession()` (no duplicate row on re-submit), enforces a `SELF_JOIN_CEILING` (1000) sanity cap on `self_joined`-tagged rows, inserts a `guests` row (couple's quick-add shape + `custom_tags:['self_joined']`, name split best-effort), signs the guest cookie via `setGuestSession()`, records a best-effort `scan_events` row (`entry:'self_join'`), and redirects to `/[slug]` where the guest RSVPs through the existing widget. Signed-in `joinEventAction` (event_members + privacy claim flow) is unchanged.
+- **`apps/web/app/join/[eventId]/page.tsx`** — removed the anonymous account-wall. Anonymous + event has a slug → render the name/role picker posting to `selfJoinAction` (+ "Have an account? Sign in" link, + skip-to-page if already self-joined on this device). Anonymous + no slug yet → keep the sign-in/create wall (nowhere public to land otherwise). Added `slug` to the event select; hoisted `errorMessage`; added `join_closed`/`join_failed` copy.
+
+Couple impact: self-joined guests appear on the dashboard guest list immediately (tagged `self_joined` for review/removal) and count toward RSVP/lifecycle. They get no account/dashboard access and no notifications (no email captured) — by design.
+
+Type contracts verified (`await headers()`, `scan_events` shape, JoinShell accepts the extra `slug`). Not built locally (pnpm worktree node_modules can't be cross-linked); required CI (typecheck + lint + build) is the gate, auto-merge armed.
+
+SPEC IMPACT: closes the deferred `/join` HIGH in `Guest_Legibility_Audit_2026-06-20.md` (status updated). Privacy note: anyone holding the event's single shared QR token can add a name + view the `/[slug]` page (gated for private events by the cookie) — mitigated by the token gate + `self_joined` tag + ceiling + couple delete; a couple-facing "disable self-join" toggle is a possible follow-up. Logged in `DECISION_LOG.md`.
 ## 2026-06-20 · feat(seating): "Build my seating" — one-tap starting draft from the guest list
 
 Takes the couple Seating editor off a blank canvas — the `USABILITY_DIFFICULTY_HEATMAP_2026-06-18.md` rated it the hardest couple surface (diff 5), and the owner's "make everything ≤3" goal picked this as the biggest customer win. Auto Arrange already existed but is *disabled until tables exist*, so a couple first had to manually conjure the right number/types of tables before any power tool unlocked. This adds the missing "draft, don't blank" step.

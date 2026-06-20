@@ -424,6 +424,7 @@ export async function deleteVendor(formData: FormData) {
 export type FinalizeVendorResult =
   | { status: 'ok'; vendorId: string; lockedStatus: string }
   | { status: 'not_signed_in' }
+  | { status: 'not_secured' }
   | { status: 'not_found' }
   | { status: 'already_locked'; vendorId: string }
   | {
@@ -536,6 +537,12 @@ export async function finalizeVendor(
   } = await supabase.auth.getUser();
   if (!user) {
     return { status: 'not_signed_in' };
+  }
+  // Anon-draft guard: locking a vendor emits booking_confirmed to that vendor.
+  // An anon couple can't reach here without first inquiring (already gated), so
+  // this is defense-in-depth — secure the account before contracting a vendor.
+  if (user.is_anonymous) {
+    return { status: 'not_secured' };
   }
 
   // Read the target vendor and any already-locked siblings in one trip.

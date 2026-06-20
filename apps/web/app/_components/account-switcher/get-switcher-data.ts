@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 
 /**
  * Data shape returned by `getSwitcherData` — everything the AccountSwitcher
@@ -239,7 +240,9 @@ export async function getSwitcherData(userId: string): Promise<SwitcherData> {
   return {
     userId,
     displayName: profile?.display_name ?? null,
-    email: profile?.email ?? '',
+    // Anon-draft: hide the non-routable placeholder email from the switcher
+    // (it would read "anon+<uuid>@…"); the dashboard banner carries the secure CTA.
+    email: isPlaceholderEmail(profile?.email) ? '' : (profile?.email ?? ''),
     photoUrl: photoUrl ?? null,
     events,
     gallery,

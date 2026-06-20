@@ -45,6 +45,7 @@ const INQUIRY_BODY =
 export type StartServiceInquiryResult =
   | { status: 'ok'; threadId: string; eventId: string; isExisting: boolean }
   | { status: 'not_signed_in' }
+  | { status: 'not_secured' }
   | { status: 'no_event' }
   | { status: 'error'; message: string };
 
@@ -82,6 +83,12 @@ export async function startServiceInquiry(input: {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { status: 'not_signed_in' };
+  // Anon-draft guard: an anonymous user is technically "signed in" (real uid),
+  // but sending an inquiry opens a two-way vendor thread the vendor may burn a
+  // token to answer — and the reply would email the placeholder address and
+  // bounce. Require securing the account first (convert-in-place keeps the same
+  // uid + event, so nothing is lost). Dormant unless anon-draft is live.
+  if (user.is_anonymous) return { status: 'not_secured' };
 
   // Primary event — the public-profile composer targets the couple's single
   // active event. Multi-event hosts pick the event explicitly on the dashboard.

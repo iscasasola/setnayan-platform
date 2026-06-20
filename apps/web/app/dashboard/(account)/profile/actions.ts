@@ -158,6 +158,11 @@ export async function requestAccountDeletion(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+  // Anon-draft: an anonymous user has no permanent account to delete — filing a
+  // deletion request would just add admin-queue noise for a throwaway. To
+  // discard an unsecured plan they simply abandon it; route them to secure
+  // instead so the deletion flow only ever runs for real accounts.
+  if (user.is_anonymous) redirect('/signup?next=%2Fdashboard%2Fprofile');
 
   // Insert under the user's own session — RLS policy `adr_user_insert_own`
   // enforces user_id = auth.uid(), so the request is provably self-filed.

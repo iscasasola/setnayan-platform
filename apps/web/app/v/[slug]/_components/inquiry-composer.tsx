@@ -275,9 +275,13 @@ export function InquiryComposer({
         router.push(`/dashboard/${result.eventId}/messages/${result.threadId}`);
         return;
       }
-      if (result.status === 'not_signed_in') {
+      if (result.status === 'not_signed_in' || result.status === 'not_secured') {
         const next = encodeURIComponent(window.location.pathname + window.location.search);
-        window.location.href = `/login?next=${next}`;
+        // Anon-draft: an anonymous couple (not_secured) must CREATE an account to
+        // convert in place before opening a vendor thread; a signed-out visitor
+        // goes to login. Either way they return here afterward.
+        const dest = result.status === 'not_secured' ? '/signup' : '/login';
+        window.location.href = `${dest}?next=${next}`;
         return;
       }
       if (result.status === 'no_event') {
@@ -321,9 +325,13 @@ export function InquiryComposer({
         router.refresh();
         return;
       }
-      if (result.status === 'not_signed_in') {
+      if (result.status === 'not_signed_in' || result.status === 'not_secured') {
         const next = encodeURIComponent(window.location.pathname + window.location.search);
-        window.location.href = `/login?next=${next}`;
+        // Anon-draft: an anonymous couple (not_secured) must CREATE an account to
+        // convert in place before opening a vendor thread; a signed-out visitor
+        // goes to login. Either way they return here afterward.
+        const dest = result.status === 'not_secured' ? '/signup' : '/login';
+        window.location.href = `${dest}?next=${next}`;
         return;
       }
       if (result.status === 'no_event') {

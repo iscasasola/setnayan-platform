@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { isEmailConfigured, sendEmail } from '@/lib/email';
 import { renderBrandedEmail } from '@/lib/email-template';
 import { isWebPushConfigured, sendWebPush } from '@/lib/web-push';
+import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 import type { NotificationType } from '@/lib/notifications';
 
 // Web Push is wired at the same funnel as email but kept deliberately MINIMAL:
@@ -147,7 +148,11 @@ export async function emitNotification(args: EmitNotificationArgs): Promise<void
         .select('email')
         .eq('user_id', userId)
         .maybeSingle();
-      if (recipient?.email) {
+      // Anon-draft: skip the send when the recipient is still anonymous — their
+      // address is the non-routable placeholder (anon+<uuid>@anon.setnayan.local)
+      // and Resend would bounce. The in-app notification row already landed
+      // above, so they see it the moment they secure their account (same uid).
+      if (recipient?.email && !isPlaceholderEmail(recipient.email)) {
         const appUrl =
           process.env.NEXT_PUBLIC_APP_URL ??
           'https://setnayan-platform-web.vercel.app';

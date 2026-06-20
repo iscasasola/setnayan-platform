@@ -398,6 +398,17 @@ export function InlineCheckoutDrawer({
                     }
                     startSubmitTransition(async () => {
                       const result = await submitOrderAction(fd);
+                      // Anon-draft: the order was blocked because the buyer
+                      // hasn't secured their account. Route to /signup (convert
+                      // in place) with a return path back to this page so they
+                      // land right where they left off, plan intact.
+                      if (!result.ok && result.needsAccount) {
+                        const next = encodeURIComponent(
+                          window.location.pathname + window.location.search,
+                        );
+                        window.location.href = `/signup?next=${next}`;
+                        return;
+                      }
                       setSubmitResult(result);
                       if (!result.ok) {
                         void trackFailure({

@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-20 · feat(join): accountless guest self-join via event QR (Lola Remedios — deferred HIGH)
+
+Owner: "yes we allow this" — let an older guest who scans the event QR add themselves WITHOUT creating an account (the 1 HIGH deferred from the guest-legibility audit). Previously `/join/[eventId]` hard-walled behind sign-in/create-account before a guest could do anything.
+
+Design (from a Plan-agent investigation, in `Guest_Legibility_Audit_2026-06-20.md`): **route accountless joiners into the existing `guests` table + `setnayan_guest_session` cookie — the SAME mechanism `/[slug]/redeem` already uses — NOT into `event_members`.** Zero RLS changes, zero migration. `event_members` stays account-only (its `member_can_self_join` policy + `user_id NOT NULL` are untouched); the QR token + signed cookie are the authorization (admin-client write, same as redeem).
+
+- **`apps/web/app/join/[eventId]/actions.ts`** — new `selfJoinAction`: re-validates the join token (mandatory — the only gate), requires the event to have a public `slug` (else falls back to sign-in), is idempotent via `readGuestSession()` (no duplicate row on re-submit), enforces a `SELF_JOIN_CEILING` (1000) sanity cap on `self_joined`-tagged rows, inserts a `guests` row (couple's quick-add shape + `custom_tags:['self_joined']`, name split best-effort), signs the guest cookie via `setGuestSession()`, records a best-effort `scan_events` row (`entry:'self_join'`), and redirects to `/[slug]` where the guest RSVPs through the existing widget. Signed-in `joinEventAction` (event_members + privacy claim flow) is unchanged.
+- **`apps/web/app/join/[eventId]/page.tsx`** — removed the anonymous account-wall. Anonymous + event has a slug → render the name/role picker posting to `selfJoinAction` (+ "Have an account? Sign in" link, + skip-to-page if already self-joined on this device). Anonymous + no slug yet → keep the sign-in/create wall (nowhere public to land otherwise). Added `slug` to the event select; hoisted `errorMessage`; added `join_closed`/`join_failed` copy.
+
+Couple impact: self-joined guests appear on the dashboard guest list immediately (tagged `self_joined` for review/removal) and count toward RSVP/lifecycle. They get no account/dashboard access and no notifications (no email captured) — by design.
+
+Type contracts verified (`await headers()`, `scan_events` shape, JoinShell accepts the extra `slug`). Not built locally (pnpm worktree node_modules can't be cross-linked); required CI (typecheck + lint + build) is the gate, auto-merge armed.
+
+SPEC IMPACT: closes the deferred `/join` HIGH in `Guest_Legibility_Audit_2026-06-20.md` (status updated). Privacy note: anyone holding the event's single shared QR token can add a name + view the `/[slug]` page (gated for private events by the cookie) — mitigated by the token gate + `self_joined` tag + ceiling + couple delete; a couple-facing "disable self-join" toggle is a possible follow-up. Logged in `DECISION_LOG.md`.
+
 ## 2026-06-20 · fix(std): clamp reveal-effect sliders to [0,100] — close the last IndexSizeError path on the public Save-the-Date
 
 Investigated a Sentry `IndexSizeError` (DOMException code 1) on `/[slug]` (Mobile Safari, vercel-production, reported via the `/cale-ice` event). Root cause of the **live** crash — the `HTMLMediaElement.volume` setter throwing on an out-of-range crossfade value — was **already fixed the night before** (PRs #1831 + #1841 · `setVol` finite-guard + `[0,1]` clamp in `save-the-date-film.tsx`, in `origin/main` since 2026-06-19 ~22:58 +08). The alerting event was a **pre-fix occurrence**; nothing further needed there. This PR closes the one remaining latent path in the same crash family, found while tracing:

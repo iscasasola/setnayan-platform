@@ -89,6 +89,11 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   'payment_info_sent',
   'payment_confirmed',
   'payment_cleared',
+  // Vendor lifecycle Phase 3→4 spine (2026-06-20). The couple confirming a
+  // vendor's service is a transactional close-of-booking signal that also
+  // invites the vendor to add a moment to the couple's editorial — worth an
+  // email (same booking-relationship register as booking_confirmed / review_received).
+  'completion_accepted',
 ]);
 
 export type EmitNotificationArgs = {

@@ -4,7 +4,7 @@ import { ArrowLeft, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { findRecommendedEventVendorId } from '@/lib/editorial-vendor-media';
+import { getEditorialEligibility } from '@/lib/editorial-vendor-media';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { EditorialMediaStudio, type ExistingMedia } from './_components/editorial-media-studio';
 
@@ -32,7 +32,10 @@ export default async function VendorEditorialMediaPage({
   if (!profile) redirect('/vendor-dashboard');
 
   const admin = createAdminClient();
-  const eventVendorId = await findRecommendedEventVendorId(admin, eventId, profile.vendor_profile_id);
+  const eligibility = await getEditorialEligibility(admin, eventId, profile.vendor_profile_id);
+  // Hard gate (matches the submit action): only show the upload studio when the
+  // booking is the couple's recommended pick AND confirmed complete.
+  const eventVendorId = eligibility.eligible ? eligibility.eventVendorId : null;
 
   const { data: ev } = await admin
     .from('events')
@@ -91,6 +94,19 @@ export default async function VendorEditorialMediaPage({
 
       {eventVendorId ? (
         <EditorialMediaStudio eventId={eventId} existing={existing} />
+      ) : eligibility.isRecommendedPick ? (
+        // Recommended pick, but the service isn't confirmed complete yet —
+        // Stage-10 gate. Show a clear pending/locked state, not "unavailable".
+        <div className="rounded-2xl border border-ink/10 bg-cream p-6">
+          <h2 className="text-lg font-semibold">
+            {eligibility.isDisputed ? 'On hold for this event' : 'Almost there'}
+          </h2>
+          <p className="mt-2 text-sm text-ink/65">
+            {eligibility.isDisputed
+              ? `${eventName} reported a problem with the delivery. Once that’s sorted out, you’ll be able to add a photo or a 5-second clip to their story.`
+              : `Once ${eventName} marks your service complete, you can add a photo or a 5-second clip to their story. Mark your service complete on the event brief, then confirm with them.`}
+          </p>
+        </div>
       ) : (
         <div className="rounded-2xl border border-ink/10 bg-cream p-6">
           <h2 className="text-lg font-semibold">Not available for this event yet</h2>

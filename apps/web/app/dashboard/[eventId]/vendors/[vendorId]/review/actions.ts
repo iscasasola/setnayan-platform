@@ -383,7 +383,12 @@ export async function coupleConfirmReceived(formData: FormData) {
   if (!membership) redirect(`/dashboard/${eventId}`);
 
   const admin = createAdminClient();
-  await admin
+  // .select() so we learn whether a row actually flipped (it returns [] on the
+  // idempotent re-run / not-yet-marked-complete cases) AND grab the booking's
+  // marketplace_vendor_id + vendor_name in the same round-trip — both feed the
+  // vendor-side notify + score recompute below, which must fire ONCE, on the
+  // real first confirm only.
+  const { data: confirmedRows } = await admin
     .from('event_vendors')
     .update({
       customer_confirmed_received_at: new Date().toISOString(),
@@ -392,7 +397,65 @@ export async function coupleConfirmReceived(formData: FormData) {
     .eq('event_id', eventId)
     .eq('vendor_id', vendorId)
     .not('service_marked_complete_at', 'is', null) // only after the vendor marked complete
-    .is('customer_confirmed_received_at', null); // idempotent
+    .is('customer_confirmed_received_at', null) // idempotent
+    .select('marketplace_vendor_id, vendor_name');
+
+  const confirmed = (confirmedRows ?? [])[0] as
+    | { marketplace_vendor_id: string | null; vendor_name: string | null }
+    | undefined;
+
+  // Only on the real first confirm: tell the VENDOR (the other side of the
+  // handshake — they previously only learned by reopening the brief) and refresh
+  // their quality scores so the finalized booking counts. Off-platform vendors
+  // (no marketplace profile) have no user/profile to reach — safely skipped.
+  if (confirmed?.marketplace_vendor_id) {
+    const marketplaceVendorId = confirmed.marketplace_vendor_id;
+
+    // completion_accepted → vendor (best-effort, fail-soft). The couple can't
+    // read the vendor's user_id by RLS, so resolve it with the admin client —
+    // same vendor-resolution pattern as submitCoupleReview's review_received.
+    try {
+      const [{ data: profileRow }, { data: eventRow }] = await Promise.all([
+        admin
+          .from('vendor_profiles')
+          .select('user_id')
+          .eq('vendor_profile_id', marketplaceVendorId)
+          .maybeSingle(),
+        admin.from('events').select('display_name').eq('event_id', eventId).maybeSingle(),
+      ]);
+      const vendorUserId = (profileRow as { user_id: string | null } | null)?.user_id ?? null;
+      if (vendorUserId) {
+        const coupleName =
+          (eventRow as { display_name: string | null } | null)?.display_name ?? 'The couple';
+        await emitNotification({
+          userId: vendorUserId,
+          type: 'completion_accepted',
+          title: `${coupleName} confirmed your service`,
+          body: `${coupleName} confirmed they received everything — add a moment to their story.`,
+          relatedUrl: `/vendor-dashboard/clients/${eventId}/editorial-media`,
+        });
+      }
+    } catch (e) {
+      // Fail-soft — the confirm already committed; never block the couple.
+      // eslint-disable-next-line no-console
+      console.error(
+        `[coupleConfirmReceived] completion_accepted notify failed for marketplace_vendor_id=${marketplaceVendorId} event_id=${eventId}:`,
+        e,
+      );
+    }
+
+    // Refresh the vendor's quality scores so the finalized booking is reflected
+    // (Vendor_Quality_Rating_System §5). Fire-and-forget via after() — the
+    // wrapper never throws, so a recompute hiccup can't affect the confirm.
+    try {
+      const { triggerVendorActivityRecompute } = (await import('@/lib/vendor-activity')) as {
+        triggerVendorActivityRecompute: (id: string) => Promise<void>;
+      };
+      after(() => triggerVendorActivityRecompute(marketplaceVendorId));
+    } catch {
+      // vendor-activity unavailable — scores refresh on the next trigger.
+    }
+  }
 
   revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/review`);
   redirect(`/dashboard/${eventId}/vendors/${vendorId}/review`);

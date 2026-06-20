@@ -11,13 +11,14 @@ import {
   Martini,
   MessageSquarePlus,
   Palette,
+  Sparkles,
   Users,
   UtensilsCrossed,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { findRecommendedEventVendorId } from '@/lib/editorial-vendor-media';
+import { getEditorialEligibility } from '@/lib/editorial-vendor-media';
 import { blockRelevance, deriveCallTime } from '@/lib/vendor-timeline';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { suggestScheduleChange, vendorMarkServiceComplete } from './actions';
@@ -185,9 +186,11 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
   if (error || !data) redirect('/vendor-dashboard/clients');
   const brief = data as Brief;
 
-  // "From your vendors" editorial-media entry — surfaced only to the couple's
+  // "From your vendors" editorial-media entry — surfaced to the couple's
   // RECOMMENDED pick (event_vendors.selection_match_rank = 1) for a category.
-  const recommendedEventVendorId = await findRecommendedEventVendorId(
+  // The active card opens only AFTER completion is confirmed (Stage-10 gate);
+  // before that the recommended pick sees a locked "once they confirm" state.
+  const editorialEligibility = await getEditorialEligibility(
     createAdminClient(),
     eventId,
     profile.vendor_profile_id,
@@ -316,9 +319,11 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
         </p>
       </header>
 
-      {/* "From your vendors" — recommended pick only. They add day-of photos +
+      {/* "From your vendors" — recommended pick only. The active card opens after
+          completion is confirmed (Stage-10 gate); before that the recommended
+          pick sees a locked "once they confirm" state. They add day-of photos +
           boomerang clips to the couple's editorial. */}
-      {recommendedEventVendorId ? (
+      {editorialEligibility.eligible ? (
         <Link
           href={`/vendor-dashboard/clients/${eventId}/editorial-media`}
           className="flex items-center justify-between gap-4 rounded-2xl border border-terracotta/30 bg-terracotta/[0.05] p-4 transition hover:bg-terracotta/[0.08] sm:p-6"
@@ -332,6 +337,18 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
           </span>
           <span className="shrink-0 text-sm font-semibold text-terracotta">Open →</span>
         </Link>
+      ) : editorialEligibility.isRecommendedPick ? (
+        <div className="flex items-start gap-3 rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+          <Sparkles aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-ink/30" strokeWidth={1.75} />
+          <span>
+            <span className="block text-lg font-semibold">Add to their editorial ✨</span>
+            <span className="mt-0.5 block text-sm text-ink/65">
+              {editorialEligibility.isDisputed
+                ? `${brief.event.display_name ?? 'The couple'} reported a problem with the delivery. Once that’s sorted out, you can add a photo or a 5-second clip to their story.`
+                : `Once ${brief.event.display_name ?? 'the couple'} marks your service complete, you can add a photo or a 5-second clip to their story — credited to you on their front-page editorial.`}
+            </span>
+          </span>
+        </div>
       ) : null}
 
       {/* Completion handshake (Event Lifecycle Menu §6.1) — the vendor marks the

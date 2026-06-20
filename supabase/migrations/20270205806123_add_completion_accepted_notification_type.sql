@@ -1,0 +1,21 @@
+-- add completion accepted notification type
+-- ============================================================================
+-- 20270205806123_add_completion_accepted_notification_type.sql
+-- Vendor lifecycle Phase 3→4 spine (2026-06-20).
+--
+-- Adds one new value to public.notification_type so the couple-side completion
+-- handshake can tell the VENDOR their service was confirmed received:
+--   • completion_accepted — the couple (or the admin/auto-confirm path)
+--     confirmed the vendor's service as received → the vendor is invited to add
+--     a moment to the couple's editorial. Fired from coupleConfirmReceived()
+--     (vendors/[vendorId]/review/actions.ts); deep-links the vendor to their
+--     editorial-media page for that event.
+--
+-- ALTER TYPE … ADD VALUE IF NOT EXISTS is idempotent and re-run safe. ADD VALUE
+-- cannot run inside an explicit transaction block, so this migration is
+-- intentionally bare (no BEGIN/COMMIT). Matches the pattern in
+-- 20270129155743_add_notification_types.sql and
+-- 20260907000000_notification_types_cross_actor_signals.sql.
+-- ============================================================================
+
+ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'completion_accepted';

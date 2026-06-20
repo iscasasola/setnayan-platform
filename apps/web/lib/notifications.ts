@@ -141,7 +141,16 @@ export type NotificationType =
   | 'payment_info_sent'
   | 'payment_logged'
   | 'payment_confirmed'
-  | 'payment_cleared';
+  | 'payment_cleared'
+  // Added 2026-06-20 (Vendor lifecycle Phase 3→4 spine) alongside migration
+  // 20270205806123_add_completion_accepted_notification_type.sql. Fired
+  // (vendor-recipient) from vendors/[vendorId]/review/actions.ts →
+  // coupleConfirmReceived() once the couple confirms they received the vendor's
+  // service. Closes the other side of the completion handshake: before this the
+  // vendor only learned of a confirmation by happening to reopen the event
+  // brief. Deep-links to their editorial-media page, so the confirmation
+  // doubles as the invite to add a moment to the couple's story.
+  | 'completion_accepted';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   chat_message: 'New message',
@@ -190,6 +199,8 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   payment_logged: 'Payment logged',
   payment_confirmed: 'Payment confirmed',
   payment_cleared: 'Payment plan settled',
+  // Vendor lifecycle Phase 3→4 spine (2026-06-20).
+  completion_accepted: 'Service confirmed',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -280,6 +291,9 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   payment_confirmed: 'bg-success-100 text-success-800',
   // The whole plan settled = the strongest positive close → emerald.
   payment_cleared: 'bg-success-200 text-success-900',
+  // The couple confirmed receipt = a positive close to the booking + an invite
+  // to add a moment to their story → emerald (matches booking_confirmed).
+  completion_accepted: 'bg-success-200 text-success-900',
 };
 
 export type NotificationRow = {

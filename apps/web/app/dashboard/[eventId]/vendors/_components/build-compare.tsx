@@ -205,7 +205,11 @@ export function BuildCompare({
         return;
       }
       router.refresh();
-      goToBuildTab(destination);
+      // "Build absorbs Lock" 2026-06-20 (PR2): the standalone Lock tab is gone —
+      // the lock action + locked list now live in Build. The per-column "lock"
+      // button keeps its "Lock" confirm-label intent but lands the couple on the
+      // Build tab (where they confirm), not the removed Lock tab.
+      goToBuildTab(destination === 'lock' ? 'build' : destination);
     });
   }
 

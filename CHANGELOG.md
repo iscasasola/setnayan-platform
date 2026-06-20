@@ -14,6 +14,20 @@ Confirmed bug: clicking **Save** on a marketplace vendor created an `event_vendo
 Not built locally (fresh worktree has no `node_modules`); required CI checks (typecheck + lint + production build + Lighthouse + Vercel preview) are the verification gate, auto-merge armed.
 
 SPEC IMPACT: `02_Specifications/Vendor_Transaction_Lifecycle_2026-06-20.md` Phase 1 PR1 — corrects the vendor-Save category derivation. Logged to `DECISION_LOG.md`.
+## 2026-06-20 · refactor(vendors): Build absorbs Lock — remove the standalone Lock tab, fold the lock surface into Build (Phase 1 PR2)
+
+Owner decision (Vendor Transaction Lifecycle Phase 1): the couple's `/vendors` takeover no longer has a separate fifth "Lock" sub-tab. The lock ACTION and the locked-service DISPLAY now live inside the **Build** tab, so the whole assemble → lock loop happens in one place. Tabs go Summary · Shortlist · Build · Compare · ~~Lock~~ → Summary · Shortlist · Build · Compare. UI-only; no schema, no migration, no SKU/pricing change, and `finalizeVendor` is untouched (still status-driven, called by `AccordionLockButton` exactly as before).
+
+- **`apps/web/lib/budget-build.ts`** — dropped `'lock'` from `BUDGET_BUILD_TABS` (now the 4-tab union) + removed the `lock:` `TAB_META` entry and the now-unused `Lock` lucide import. The desktop nav strip, the docked mobile sub-nav, and the customer menu tree all iterate this const, so the Lock tab disappears everywhere automatically.
+- **`apps/web/app/dashboard/[eventId]/vendors/_components/services-takeover.tsx`** — removed the `lockSlot` prop (signature + props type) and the `lock` entry in the slots record; refreshed the header doc comment.
+- **`apps/web/app/dashboard/[eventId]/vendors/page.tsx`** — composed `<BuildLocked>` (the existing "Ready to lock" finalize CTAs + read-only "Locked in" list) below `<Build3StateControl>` inside the **Build** slot, reusing the component verbatim. Deleted the old `lockSlot` JSX block and its `lockAvailability` computation; the now-orphaned `VendorAvailabilityIntersection` import + the `getCommonAvailableDays` / `formatDayKey` helpers were dropped (the standalone Lock-tab availability panel went with the tab). `BuildLocked` self-handles its empty state, so Build stays clean when nothing is built yet.
+- **`apps/web/app/dashboard/[eventId]/vendors/_components/build-compare.tsx`** — Compare's per-column "lock" button kept its label + "Lock" confirm-copy but now routes `goToBuildTab(destination === 'lock' ? 'build' : destination)` (was jumping to the removed Lock tab).
+- **`apps/web/app/dashboard/[eventId]/vendors/_components/build-picks-list.tsx`** — the in-Build "Lock your build" button was `goToBuildTab('lock')` (a dead no-op once the tab is gone — NOT in the original map; found by the `goToBuildTab` caller sweep); routed to `'build'`.
+- **`apps/web/lib/nav-registry-defaults.ts`** — removed the orphaned `customer.budget-subnav.lock` `NAV_SLOT_DEFAULTS` entry so the menu-name/icon registry SSOT stays in sync with the menu tree (which no longer emits a lock child).
+
+Dangling-reference sweep clean: no `goToBuildTab` caller targets a `'lock'` tab; the remaining `'lock'` strings are the intentional Compare confirm-label union and the `finalizeVendor` status check (`actions.ts:1258`, deliberately untouched). Not built locally (fresh worktree has no `node_modules`); required CI checks (typecheck + lint incl. the nav-registry-defaults integrity test + production build + Lighthouse + Vercel preview) are the verification gate, auto-merge armed.
+
+SPEC IMPACT: `Vendor_Transaction_Lifecycle_2026-06-20.md` Phase 1 PR2 — Build absorbs Lock; the standalone Lock tab is removed and locked services now display in Build. Also touches iter 0000 (nav/menu registry — one customer sub-nav slot removed). → logged in `DECISION_LOG.md`.
 
 ## 2026-06-20 · feat(for-vendors): interactive "we step back at your door" scenario for the personal-touch skeptic
 

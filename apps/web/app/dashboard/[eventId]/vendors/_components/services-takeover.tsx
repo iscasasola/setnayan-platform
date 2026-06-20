@@ -8,10 +8,11 @@
  *   - a `<style>` hides the global top bar on MOBILE only (desktop keeps it for
  *     the EventSwitcher + notifications; the takeover is full-screen on mobile).
  *   - the global 5-tab bottom nav stays VISIBLE at the screen bottom
- *     (nav-everywhere 2026-06-13). This surface's own 5-tab section nav
- *     (Summary · Shortlist · Build · Compare · Lock) is a STICKY HEADER at the
+ *     (nav-everywhere 2026-06-13). This surface's own section nav
+ *     (Summary · Shortlist · Build · Compare) is a STICKY HEADER at the
  *     top of the page body — above the panel — so it never double-stacks the
- *     global nav. On desktop the tabs render as a top strip instead.
+ *     global nav. On desktop the tabs render as a top strip instead. (The
+ *     standalone Lock tab was absorbed into Build 2026-06-20 — PR2.)
  *
  * The old floating focus-mode "back X" (top-left) was REMOVED 2026-06-15
  * (nav-surfaces follow-up to #1470): the global journey bottom nav is always
@@ -19,7 +20,7 @@
  *
  * Phase 1 (this PR): the SHELL only. Shortlist renders today's Services
  * experience (the `PlanBudgetAccordion`, passed as `shortlistSlot`); the other
- * tabs are stubs that Phases 2–5 fill (Build engine, Compare, Summary, Lock).
+ * tabs are stubs that Phases 2–5 fill (Build engine + lock, Compare, Summary).
  * Entirely behind `BUDGET_BUILD_ENABLED` — off in production until the owner flips it.
  */
 
@@ -50,7 +51,6 @@ export function ServicesTakeover({
   shortlistSlot,
   buildSlot,
   compareSlot,
-  lockSlot,
   initialTab = 'shortlist',
 }: {
   eventId: string;
@@ -58,7 +58,6 @@ export function ServicesTakeover({
   shortlistSlot?: ReactNode;
   buildSlot?: ReactNode;
   compareSlot?: ReactNode;
-  lockSlot?: ReactNode;
   initialTab?: BudgetBuildTab;
 }) {
   const [tab, setTab] = useState<BudgetBuildTab>(initialTab);
@@ -106,7 +105,6 @@ export function ServicesTakeover({
     shortlist: shortlistSlot,
     build: buildSlot,
     compare: compareSlot,
-    lock: lockSlot,
   };
   const active = slots[tab];
 

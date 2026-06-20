@@ -166,7 +166,11 @@ function BuildControls({ eventId, hasUnlocked }: { eventId: string; hasUnlocked:
       )}
       <button
         type="button"
-        onClick={() => goToBuildTab('lock')}
+        // "Build absorbs Lock" 2026-06-20 (PR2): the standalone Lock tab is gone —
+        // the lock surface (Ready-to-lock CTAs + Locked-in list) now renders below
+        // the assembler in the SAME Build tab. This "Lock your build" button keeps
+        // the couple in Build, where the lock section is.
+        onClick={() => goToBuildTab('build')}
         disabled={!hasUnlocked}
         className="inline-flex items-center justify-center gap-1.5 rounded-[10px] bg-mulberry px-3 py-2.5 text-[12.5px] font-semibold text-cream transition-colors hover:bg-mulberry-700 disabled:opacity-50"
       >

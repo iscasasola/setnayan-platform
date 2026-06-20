@@ -40,7 +40,8 @@ import {
   PLAN_GROUPS,
   type EventVendorRowInput,
 } from '@/lib/wedding-plan-groups';
-import { canonicalServicesForFolder } from '@/lib/vendor-counts';
+import { canonicalServicesForFolder, canonicalServicesForTile } from '@/lib/vendor-counts';
+import { getEventPreferences } from '@/lib/event-preferences';
 import type { WeddingFolder } from '@/lib/taxonomy';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { PlanBudgetAccordion, type VendorReviewStatus } from './_components/plan-budget-accordion';
@@ -652,6 +653,35 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     taxonomy,
     eventId,
   });
+
+  // Phase 1b PR-4 · per-category "saved request" icons. Load the couple's saved
+  // event_vendor_preferences rows (one query, host-RLS scoped) and resolve, per
+  // shortlist TILE, the leaf canonical_service that carries a saved template (if
+  // any). The Shortlist surface renders at tile grain (~53 tiles roll up ~200
+  // canonicals), but preferences key on canonical_service — so for each tile we
+  // pick the FIRST of its rolled-up canonicals that has a saved row. The icon
+  // shows only for those tiles; tapping it opens the view/edit modal for that
+  // canonical (fetched lazily via loadCategoryRequirements). Fail-soft: a read
+  // error degrades to no icons (the surface is unaffected). Core/FREE.
+  const savedRequirementCanonicalByTile: Record<string, string> = await (async () => {
+    const out: Record<string, string> = {};
+    try {
+      const prefs = await getEventPreferences(supabase, eventId);
+      const savedKeys = new Set(Object.keys(prefs));
+      if (savedKeys.size === 0) return out;
+      for (const folder of shortlistFolders) {
+        for (const tile of folder.tiles) {
+          const canonicals = canonicalServicesForTile(tile.tile);
+          const withSaved = canonicals.find((c) => savedKeys.has(c));
+          if (withSaved) out[tile.tile] = withSaved;
+        }
+      }
+    } catch {
+      /* fail-soft — no icons rather than a broken shortlist */
+    }
+    return out;
+  })();
+
   const shortlistContent = (
     <>
       {aiOfferBanner}
@@ -660,6 +690,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         folders={shortlistFolders}
         eventId={eventId}
         initialOpenTile={sp.open ?? null}
+        savedRequirementCanonicalByTile={savedRequirementCanonicalByTile}
       />
     </>
   );

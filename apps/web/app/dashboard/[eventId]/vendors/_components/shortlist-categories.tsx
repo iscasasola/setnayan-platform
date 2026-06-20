@@ -22,13 +22,31 @@
  * machinery. Pill / rounded / frosted language matches the app nav + sn-seg menus.
  */
 
-import { useState } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, ChevronDown, Star, MapPin, BadgeCheck, Sparkles, Pencil } from 'lucide-react';
+import {
+  Search,
+  ChevronDown,
+  Star,
+  MapPin,
+  BadgeCheck,
+  Sparkles,
+  Pencil,
+  SlidersHorizontal,
+} from 'lucide-react';
 import { formatPhp } from '@/lib/vendors';
 import { NewManualVendorModal } from '@/app/dashboard/[eventId]/_components/new-manual-vendor-modal';
 import type { ShortlistFolder, ShortlistVendor } from '@/lib/shortlist-taxonomy';
+import {
+  RequirementsModal,
+  type RequirementsModalPhase,
+} from '@/app/_components/requirements-modal';
+import type { RequirementField } from '@/lib/requirements-capture';
+import {
+  loadCategoryRequirements,
+  saveCategoryRequirements,
+} from '../requirements-actions';
 
 const SLCAT_CSS = `
 .slcat{--paper:var(--m-paper,#FBFBFA);--ink:var(--m-ink,#1E2229);--ink-soft:#4F535B;
@@ -66,6 +84,10 @@ const SLCAT_CSS = `
 .slcat .cat.open .cat-nm{color:var(--mulberry)}
 .slcat .cat-rt{display:flex;align-items:center;gap:9px;flex:0 0 auto}
 .slcat .cat-count{font-family:var(--mono);font-size:9.5px;letter-spacing:.04em;color:#fff;background:var(--mulberry);border-radius: var(--m-r-full);padding:3px 9px;font-weight:600;min-width:21px;text-align:center}
+/* "saved request" icon — view/edit the couple's saved requirements for this leaf */
+.slcat .cat-req{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;flex:0 0 auto;border:1px solid rgba(92,37,66,.3);background:rgba(92,37,66,.07);color:var(--mulberry);border-radius: var(--m-r-full);cursor:pointer;transition:background .18s var(--ease),transform .12s cubic-bezier(.2,.7,.2,1)}
+.slcat .cat-req:hover{background:rgba(92,37,66,.13)}
+.slcat .cat-req:active{transform:scale(.94)}
 .slcat .cat-chev{color:var(--ink-soft);transition:transform .22s var(--ease);flex:0 0 auto}
 .slcat .cat.open .cat-chev{transform:rotate(180deg);color:var(--mulberry)}
 .slcat .cat-body{padding:2px 0 12px;animation:slcat-rise .22s var(--ease) both}
@@ -110,6 +132,8 @@ const SLCAT_CSS = `
 
 html.dark .slcat{--paper:#1E2229;--ink:#FBFBFA;--ink-soft:#B6B9BE;--line:rgba(251,251,250,.16);--line-soft:rgba(251,251,250,.1);--card:#2A2E36}
 html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dark .slcat .act.find>*,html.dark .slcat .fr.find .fr-i,html.dark .slcat .fr.find .fr-t,html.dark .slcat .vc .bdg.setnayan{color:#C99DB0}
+html.dark .slcat .cat-req{border-color:rgba(201,157,176,.4);background:rgba(201,157,176,.12);color:#C99DB0}
+html.dark .slcat .cat-req:hover{background:rgba(201,157,176,.2)}
 `;
 
 function initials(name: string): string {
@@ -170,6 +194,7 @@ export function ShortlistCategories({
   folders,
   eventId,
   initialOpenTile = null,
+  savedRequirementCanonicalByTile = {},
 }: {
   folders: ShortlistFolder[];
   eventId: string;
@@ -180,6 +205,13 @@ export function ShortlistCategories({
    * fall back to the collapsed default.
    */
   initialOpenTile?: string | null;
+  /**
+   * Phase 1b PR-4 — tile → the leaf canonical_service that carries a SAVED
+   * event_vendor_preferences row (resolved server-side). A tile present here
+   * shows the "saved request" icon; tapping it opens the view/edit modal for
+   * that canonical. Absent → no icon (no saved request for that category).
+   */
+  savedRequirementCanonicalByTile?: Record<string, string>;
 }) {
   const router = useRouter();
   // The folder that holds the deep-linked tile (if any) — used to pre-open it.
@@ -202,6 +234,123 @@ export function ShortlistCategories({
   );
   // The category whose "Add manually" modal is open (every category has Find + Add).
   const [manual, setManual] = useState<{ category: string; label: string } | null>(null);
+
+  // ── Per-category requirements view/edit modal (Phase 1b PR-4) ──────────────
+  // The leaf whose saved-request modal is open: its canonical_service (the key
+  // event_vendor_preferences rows on) + a human label for the header/copy.
+  const [reqTarget, setReqTarget] = useState<{ canonicalService: string; label: string } | null>(
+    null,
+  );
+  const [reqLoading, setReqLoading] = useState(false);
+  const [reqFields, setReqFields] = useState<RequirementField[]>([]);
+  const [reqPayload, setReqPayload] = useState<Record<string, Set<string>>>({});
+  const [reqSpecial, setReqSpecial] = useState('');
+  const [reqAutoSend, setReqAutoSend] = useState(false);
+  const [reqPhase, setReqPhase] = useState<RequirementsModalPhase>('idle');
+  const [reqError, setReqError] = useState<string | null>(null);
+  const [reqSaving, startReqSave] = useTransition();
+  const reqDialogRef = useRef<HTMLDivElement>(null);
+
+  function closeReqModal() {
+    setReqTarget(null);
+    setReqLoading(false);
+    setReqFields([]);
+    setReqPayload({});
+    setReqSpecial('');
+    setReqAutoSend(false);
+    setReqPhase('idle');
+    setReqError(null);
+  }
+
+  // Open the saved-request modal for a leaf and lazily load its fields + the
+  // couple's saved template (the icon only surfaces when a row exists, so this
+  // pre-fills from it). Fail-soft: a load error shows the note box anyway.
+  function openReqModal(canonicalService: string, label: string) {
+    setReqTarget({ canonicalService, label });
+    setReqLoading(true);
+    setReqPhase('idle');
+    setReqError(null);
+    setReqFields([]);
+    setReqPayload({});
+    setReqSpecial('');
+    setReqAutoSend(false);
+    void loadCategoryRequirements(eventId, canonicalService)
+      .then((res) => {
+        if (res.status !== 'ok') {
+          setReqError(res.message);
+          return;
+        }
+        setReqFields(res.fields);
+        const seeded: Record<string, Set<string>> = {};
+        if (res.saved?.payload) {
+          for (const [k, values] of Object.entries(res.saved.payload)) {
+            seeded[k] = new Set(values.filter((v) => typeof v === 'string'));
+          }
+        }
+        setReqPayload(seeded);
+        setReqSpecial(res.saved?.specialRequest ?? '');
+        setReqAutoSend(res.saved?.autoSend ?? false);
+      })
+      .catch(() => setReqError('Could not load your saved request.'))
+      .finally(() => setReqLoading(false));
+  }
+
+  function toggleReqFacet(fieldKey: string, option: string) {
+    setReqPayload((prev) => {
+      const next = { ...prev };
+      const set = new Set(next[fieldKey] ?? []);
+      if (set.has(option)) set.delete(option);
+      else set.add(option);
+      next[fieldKey] = set;
+      return next;
+    });
+  }
+
+  function submitReqModal() {
+    if (!reqTarget || reqSaving || reqPhase === 'submitting' || reqPhase === 'sent') return;
+    const payload: Record<string, string[]> = {};
+    for (const [key, set] of Object.entries(reqPayload)) {
+      const picks = Array.from(set);
+      if (picks.length > 0) payload[key] = picks;
+    }
+    setReqPhase('submitting');
+    setReqError(null);
+    startReqSave(async () => {
+      const res = await saveCategoryRequirements(eventId, reqTarget.canonicalService, {
+        payload,
+        specialRequest: reqSpecial.trim() || null,
+        autoSend: reqAutoSend,
+      });
+      if (res.status === 'ok') {
+        setReqPhase('sent');
+        // Refresh so the icon reflects the new state (added/kept/cleared), then
+        // close shortly after the "Saved" confirmation.
+        router.refresh();
+        window.setTimeout(closeReqModal, 700);
+        return;
+      }
+      setReqPhase('error');
+      setReqError(res.message);
+    });
+  }
+
+  // ESC closes the requirements modal + locks body scroll while open.
+  useEffect(() => {
+    if (!reqTarget) return;
+    const handle = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeReqModal();
+    };
+    window.addEventListener('keydown', handle);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', handle);
+      document.body.style.overflow = prev;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reqTarget]);
+
+  const reqIsSubmitting = reqSaving || reqPhase === 'submitting';
 
   return (
     <div className="slcat">
@@ -233,22 +382,46 @@ export function ShortlistCategories({
               <div className="fold-body">
                 {folder.tiles.map((t) => {
                   const tileOpen = openTile === t.tile;
+                  // Phase 1b PR-4 — the leaf canonical with a saved requirements
+                  // row for this tile (if any) drives the "saved request" icon.
+                  const savedCanonical = savedRequirementCanonicalByTile[t.tile] ?? null;
                   return (
                     <div key={t.tile} className={`cat${tileOpen ? ' open' : ''}`}>
-                      <button
-                        type="button"
-                        className="cat-head"
-                        aria-expanded={tileOpen}
-                        onClick={() => setOpenTile(tileOpen ? null : t.tile)}
-                      >
-                        <span className="cat-nm">{t.label}</span>
-                        <span className="cat-rt">
-                          {t.vendors.length > 0 ? (
-                            <span className="cat-count">{t.vendors.length}</span>
-                          ) : null}
-                          <ChevronDown className="cat-chev" size={16} strokeWidth={1.75} aria-hidden />
-                        </span>
-                      </button>
+                      {/* The category head is a tap target to expand. The
+                          "saved request" icon sits beside it as its OWN button
+                          (not nested in the head button — buttons can't nest). */}
+                      <div className="cat-head-row" style={{ display: 'flex', alignItems: 'center' }}>
+                        <button
+                          type="button"
+                          className="cat-head"
+                          aria-expanded={tileOpen}
+                          onClick={() => setOpenTile(tileOpen ? null : t.tile)}
+                          style={{ flex: 1, minWidth: 0 }}
+                        >
+                          <span className="cat-nm">{t.label}</span>
+                          <span className="cat-rt">
+                            {t.vendors.length > 0 ? (
+                              <span className="cat-count">{t.vendors.length}</span>
+                            ) : null}
+                            <ChevronDown className="cat-chev" size={16} strokeWidth={1.75} aria-hidden />
+                          </span>
+                        </button>
+                        {savedCanonical ? (
+                          <button
+                            type="button"
+                            className="cat-req"
+                            style={{ marginLeft: 8, marginRight: 2 }}
+                            aria-label={`View or edit your saved request for ${t.label}`}
+                            title={`Your saved request for ${t.label}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openReqModal(savedCanonical, t.label);
+                            }}
+                          >
+                            <SlidersHorizontal size={15} strokeWidth={1.85} aria-hidden />
+                          </button>
+                        ) : null}
+                      </div>
                       {tileOpen ? (
                         <div className="cat-body">
                           {t.vendors.length > 0 ? (
@@ -313,6 +486,53 @@ export function ShortlistCategories({
             router.refresh();
           }}
         />
+      ) : null}
+
+      {/* Per-category saved-request view/edit modal (Phase 1b PR-4) */}
+      {reqTarget ? (
+        reqLoading ? (
+          // Lightweight loading shell while fields + saved template resolve.
+          <div
+            className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Loading your saved request for ${reqTarget.label}`}
+          >
+            <button
+              type="button"
+              aria-label="Close"
+              onClick={closeReqModal}
+              className="absolute inset-0 bg-ink/40 backdrop-blur-sm"
+            />
+            <div className="relative z-10 flex w-full items-center justify-center rounded-t-3xl border border-ink/10 bg-cream px-5 py-10 sm:w-full sm:max-w-lg sm:rounded-2xl">
+              <span
+                className="h-6 w-6 animate-spin rounded-full border-2 border-mulberry border-t-transparent"
+                aria-hidden
+              />
+            </div>
+          </div>
+        ) : (
+          <RequirementsModal
+            title={`${reqTarget.label} request`}
+            subtitle="Review or update what you’re looking for."
+            requirementsFields={reqFields}
+            reqPayload={reqPayload}
+            toggleFacet={toggleReqFacet}
+            specialRequest={reqSpecial}
+            setSpecialRequest={setReqSpecial}
+            autoSend={reqAutoSend}
+            setAutoSend={setReqAutoSend}
+            categoryName={reqTarget.label}
+            submitLabel="Save"
+            sentLabel="Saved"
+            phase={reqPhase}
+            isSubmitting={reqIsSubmitting}
+            errorMessage={reqError}
+            onClose={closeReqModal}
+            onSubmit={submitReqModal}
+            dialogRef={reqDialogRef}
+          />
+        )
       ) : null}
     </div>
   );

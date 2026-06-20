@@ -57,8 +57,15 @@ import { HostServiceDetails } from './_components/host-service-details';
 import { fetchVendorBudgetSummary } from '@/lib/budget';
 import { fetchPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
-import { fetchPlanForCouple } from '@/lib/vendor-service-payment-schedules.server';
-import type { PlanInstance } from '@/lib/vendor-service-payment-schedules';
+import {
+  fetchPlanForCouple,
+  fetchPlanProgressForCouple,
+} from '@/lib/vendor-service-payment-schedules.server';
+import type {
+  PlanInstance,
+  PlanProgress,
+} from '@/lib/vendor-service-payment-schedules';
+import { PaymentPlanStepper } from '@/app/_components/payment-plan-stepper';
 // First-party Setnayan-service order-and-pay (owner directive 2026-06-04):
 // reuse the SAME apply-then-pay surface the add-on SKUs use (InlineCheckoutDrawer
 // + platform_settings receiving accounts), with a Setnayan admin accepting the
@@ -187,21 +194,6 @@ function formatPaymentDate(iso: string): string {
   }).format(d);
 }
 
-// A frozen payment-plan due_date is a DATE-ONLY string (YYYY-MM-DD). Parse it
-// as a fixed civil date (anchor at UTC noon) so the en-PH render never shifts a
-// day across the +08:00 boundary the way `new Date('YYYY-MM-DD')` (UTC
-// midnight) can. Returns null for an unparseable string.
-function formatPlanDueDate(isoDate: string | null): string | null {
-  if (!isoDate) return null;
-  const d = new Date(`${isoDate}T12:00:00Z`);
-  if (Number.isNaN(d.getTime())) return null;
-  return new Intl.DateTimeFormat('en-PH', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    timeZone: 'Asia/Manila',
-  }).format(d);
-}
 
 // Defense-in-depth: contract file URLs + vendor logo URLs are vendor-controlled.
 // Only allow http(s) so a stored `javascript:` / `data:` URL can't execute when
@@ -421,6 +413,22 @@ export default async function VendorWorkspacePage({ params }: Props) {
     });
   } catch {
     paymentPlan = null;
+  }
+
+  // Per-booking PLAN PROGRESS (Phase 2 PR-D) — the same frozen installments
+  // folded with the couple's logged payments into per-installment states
+  // (due / pending / paid), plus the plan-level cleared_at. Drives the progress
+  // STEPPER that replaces the flat PR-B installment list. Couple-RLS read (both
+  // tables are the couple's own). Best-effort.
+  let planProgress: PlanProgress = { steps: null, clearedAt: null };
+  try {
+    planProgress = await fetchPlanProgressForCouple({
+      authedClient: supabase,
+      eventId,
+      eventVendorId: ev.vendor_id,
+    });
+  } catch {
+    planProgress = { steps: null, clearedAt: null };
   }
 
   const contracts = (contractsRes.data ?? []) as Array<{
@@ -931,49 +939,31 @@ export default async function VendorWorkspacePage({ params }: Props) {
           </header>
 
           {/*
-            Payment plan (Phase 2 PR-B). When the booked service carried a
-            payment schedule, finalizeVendor froze it into a per-booking plan at
-            lock. Render the installments here — label · amount · due date —
-            ABOVE the itemization card + how-to-pay sheet. When there's no plan
-            yet (not locked / pre-PR-B) or the service had no schedule (empty
-            plan), this collapses and the existing direct-pay UI carries the
-            "pay the vendor directly" guidance, unchanged. The pay-confirm flow
-            is PR-C — this is display-only.
+            Payment plan PROGRESS STEPPER (Phase 2 PR-D — replaces the flat
+            PR-B installment list). When the booked service carried a payment
+            schedule, finalizeVendor froze it into a per-booking plan at lock.
+            The stepper folds those installments with the couple's logged
+            payments into per-installment states (due → pending → paid) and
+            crowns the list with a "cleared" banner once the vendor settles the
+            whole plan. When there's no plan yet (not locked / pre-PR-B) the
+            stepper is omitted and the existing direct-pay UI below carries the
+            "pay the vendor directly" guidance, unchanged. A locked-but-no-
+            schedule booking ([] steps) still renders the banner once cleared.
           */}
-          {paymentPlan && paymentPlan.length > 0 ? (
+          {planProgress.steps !== null &&
+          (planProgress.steps.length > 0 || planProgress.clearedAt) ? (
             <div className="space-y-2 rounded-lg border border-ink/10 bg-white/60 p-4">
               <p className="text-xs font-semibold text-ink">Payment plan</p>
-              <p className="text-[11px] text-ink/55">
-                {displayName} set up this plan. Pay each installment using the
-                methods below.
-              </p>
-              <ul className="divide-y divide-ink/5">
-                {paymentPlan.map((inst) => {
-                  const amount = formatPHP(inst.amount_php);
-                  const due = formatPlanDueDate(inst.due_date);
-                  return (
-                    <li
-                      key={inst.seq}
-                      className="flex items-baseline justify-between gap-3 py-2"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-xs font-medium text-ink">
-                          {inst.label}
-                        </p>
-                        <p className="text-[11px] text-ink/50">
-                          {due ? `Due ${due}` : 'No fixed due date'}
-                        </p>
-                      </div>
-                      <p className="shrink-0 text-xs font-semibold tabular-nums text-ink">
-                        {amount ??
-                          (inst.amount_kind === 'percent' && inst.percent_bps != null
-                            ? `${Math.round(inst.percent_bps / 100)}% of total`
-                            : 'Amount TBD')}
-                      </p>
-                    </li>
-                  );
-                })}
-              </ul>
+              {planProgress.steps.length > 0 ? (
+                <p className="text-[11px] text-ink/55">
+                  {displayName} set up this plan. Pay each installment using the
+                  methods below; {displayName} confirms each as received.
+                </p>
+              ) : null}
+              <PaymentPlanStepper
+                steps={planProgress.steps}
+                clearedAt={planProgress.clearedAt}
+              />
             </div>
           ) : null}
 

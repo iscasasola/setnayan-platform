@@ -189,6 +189,84 @@ export function computePlanInstances(opts: {
     });
 }
 
+// ===========================================================================
+// Per-installment PROGRESS STEPPER (Phase 2 PR-D).
+//
+// The frozen plan (instances_json) describes WHAT is owed; the couple's logged
+// payments (event_vendor_payments, joined by schedule_instance_seq) describe
+// WHAT has moved. These pure helpers fold the two into a per-installment state
+// the couple + vendor steppers render. No I/O — the server fetchers below shape
+// the inputs.
+//
+//   • 'due'     — no payment logged against this installment seq yet.
+//   • 'pending' — a payment is logged but the vendor hasn't confirmed it.
+//   • 'paid'    — a payment for this seq is vendor-confirmed.
+// Plus the plan-level `cleared_at` = the whole booking is settled.
+// ===========================================================================
+
+/** One installment's settlement state for the stepper. */
+export type InstallmentState = 'due' | 'pending' | 'paid';
+
+/** A plan installment enriched with its current settlement state. */
+export type StepperInstallment = PlanInstance & { state: InstallmentState };
+
+/**
+ * The minimal payment shape the stepper needs: which installment a payment is
+ * attributed to (seq) + whether the vendor has confirmed it.
+ */
+export type PaymentSeqState = {
+  schedule_instance_seq: number | null;
+  vendor_confirmed: boolean;
+};
+
+/**
+ * Fold a plan + its payments into per-installment states.
+ *
+ * For each plan installment (by seq): 'paid' if ANY payment with that seq is
+ * vendor-confirmed, else 'pending' if ANY payment with that seq is logged
+ * (unconfirmed), else 'due'. Pure + total.
+ */
+export function computeStepper(
+  instances: PlanInstance[],
+  payments: PaymentSeqState[],
+): StepperInstallment[] {
+  const confirmedSeqs = new Set<number>();
+  const loggedSeqs = new Set<number>();
+  for (const p of payments) {
+    if (p.schedule_instance_seq == null) continue;
+    loggedSeqs.add(p.schedule_instance_seq);
+    if (p.vendor_confirmed) confirmedSeqs.add(p.schedule_instance_seq);
+  }
+  return [...instances]
+    .sort((a, b) => a.seq - b.seq)
+    .map((inst): StepperInstallment => ({
+      ...inst,
+      state: confirmedSeqs.has(inst.seq)
+        ? 'paid'
+        : loggedSeqs.has(inst.seq)
+          ? 'pending'
+          : 'due',
+    }));
+}
+
+/**
+ * Whether the vendor may mark the whole plan cleared: every installment must be
+ * 'paid' (vendor-confirmed). An empty plan (no formal schedule) is vacuously
+ * clearable at the vendor's discretion — mirrors the DB guard's gate exactly.
+ */
+export function canClearPlan(steps: StepperInstallment[]): boolean {
+  if (steps.length === 0) return true;
+  return steps.every((s) => s.state === 'paid');
+}
+
+/** The full per-booking plan progress: installments + states + cleared flag. */
+export type PlanProgress = {
+  /** null = no frozen plan (not locked / pre-PR-B). */
+  steps: StepperInstallment[] | null;
+  /** Set when the whole plan has been marked cleared by the vendor. */
+  clearedAt: string | null;
+};
+
 /** Map a stored row to the human-unit draft shape the editor renders. */
 export function rowToDraft(row: PaymentScheduleItemRow): ScheduleItemDraft {
   return {

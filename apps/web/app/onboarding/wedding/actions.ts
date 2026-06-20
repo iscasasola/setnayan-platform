@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
 import {
   syncEventSongPicks,
   fetchSongBankCurated,
@@ -247,11 +248,31 @@ export async function commitOnboardingWedding(
   payload: OnboardingCommitPayload,
 ): Promise<OnboardingCommitResult> {
   const supabase = await createClient();
-  const {
+  let {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return { ok: false, error: 'not_authenticated' };
+    // Anon-draft onboarding (flag-gated · 2026-06-20): rather than bounce an
+    // account-less visitor to the signup wall, mint a Supabase NATIVE anonymous
+    // session here. The returned user has a real auth.uid(), so the event +
+    // event_members insert below — and every downstream RLS policy — work
+    // unchanged. The visitor lands in their dashboard with the plan saved; a
+    // "secure your plan" banner converts the SAME uid to a permanent account
+    // later (app/signup/actions.ts). signInAnonymously() sets the sb-* session
+    // cookies via the SSR client (we're in a server action, so cookie writes
+    // land). Requires Supabase `enable_anonymous_sign_ins` + the null-email
+    // trigger migration — both owner go-live steps; until then the flag stays
+    // OFF and we fall through to the unchanged not_authenticated contract.
+    if (anonOnboardingEnabled()) {
+      const { data: anon, error: anonError } = await supabase.auth.signInAnonymously();
+      if (anonError || !anon.user) {
+        console.error('[commitOnboardingWedding] anon sign-in failed:', anonError?.message);
+        return { ok: false, error: 'not_authenticated' };
+      }
+      user = anon.user;
+    } else {
+      return { ok: false, error: 'not_authenticated' };
+    }
   }
 
   // -- Map onboarding kind/faith → events.ceremony_type / secondary --

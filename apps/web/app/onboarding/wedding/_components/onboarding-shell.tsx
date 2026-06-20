@@ -54,6 +54,7 @@ import {
 } from '../actions';
 import { signInWithGoogle } from '@/app/auth/oauth-actions';
 import { signUp } from '@/app/signup/actions';
+import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
 import {
   EMPTY_ONBOARDING_STATE,
   ONBOARDING_DRAFT_KEY,
@@ -137,12 +138,18 @@ const TEAM_AI_ONLY: ReadonlySet<ScreenId> = new Set(['team_basics','refine_basic
    Stylist/Decorator (mood IS that refinement now). Both still ride the AI gate above; picks
    are known by these screens (they follow team_basics/team_extras in the flow). */
 const SONG_PICK_CATS: ReadonlySet<string> = new Set(['live_band', 'orchestra', 'wedding_singer']);
+// Anon-draft onboarding (flag-gated · 2026-06-20): when ON, NOBODY hits the
+// mid-flow account wall — account-less visitors finish and the commit action
+// mints a Supabase anonymous session, dropping them in the dashboard with a
+// "secure your plan" nudge instead of a signup gate. Module-level so every
+// buildSequence call site reads the same value. NEXT_PUBLIC_* → inlined at build.
+const ANON_DRAFT_ENABLED = anonOnboardingEnabled();
 function buildSequence(kind: OnboardingState['kind'], authed: boolean, loveSkipped: boolean, ai: boolean | null, picks: string[]): ScreenId[] {
   const hasMusician = picks.some((p) => SONG_PICK_CATS.has(p));
   const hasStylist = picks.includes('stylist');
   return FLOW_IDS.filter((id) =>
     !(id === 'faith' && kind === 'civil') &&        // Civil skips the faith screen
-    !(id === 'account' && authed) &&                // signed-in users skip the account gate
+    !(id === 'account' && (authed || ANON_DRAFT_ENABLED)) &&  // signed-in users — and, with anon-draft on, everyone — skip the account gate
     !(loveSkipped && LOVE_SKIPPABLE.has(id)) &&     // "Add it later" drops the 5 love collection screens
     !(ai !== true && TEAM_AI_ONLY.has(id)) &&       // team_basics/team_extras/songs/mood only when the couple opted into AI matching (aigate=Yes)
     !(id === 'songs' && !hasMusician) &&            // songs only when a Band / Orchestra / Wedding Singer is picked
@@ -2960,10 +2967,19 @@ export function OnboardingShell({
         // persist effect from re-writing it. The overlay stays up, then we navigate.
         goToDashboard(res.eventId, purchase);
       } else if (res.error === 'not_authenticated') {
-        // Session lost mid-flow — drop the overlay + bounce to the account gate.
         setFinishing(false);
-        setCommitError('Please create your account to save your plan.');
-        goToId('account');
+        if (ANON_DRAFT_ENABLED) {
+          // Anon-draft is on but the server couldn't mint an anonymous session
+          // (Supabase enable_anonymous_sign_ins not flipped, or the null-email
+          // trigger migration not applied yet). The account gate has been
+          // dropped from the sequence, so there's nowhere to bounce — surface
+          // an inline retry instead of stranding them.
+          setCommitError('Something went wrong saving your plan. Please try again.');
+        } else {
+          // Session lost mid-flow — drop the overlay + bounce to the account gate.
+          setCommitError('Please create your account to save your plan.');
+          goToId('account');
+        }
       } else {
         // Surface the error + let them retry — don't strand them on the overlay.
         setFinishing(false);

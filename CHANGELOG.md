@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-20 · feat(seating): "Build my seating" — one-tap starting draft from the guest list
+
+Takes the couple Seating editor off a blank canvas — the `USABILITY_DIFFICULTY_HEATMAP_2026-06-18.md` rated it the hardest couple surface (diff 5), and the owner's "make everything ≤3" goal picked this as the biggest customer win. Auto Arrange already existed but is *disabled until tables exist*, so a couple first had to manually conjure the right number/types of tables before any power tool unlocked. This adds the missing "draft, don't blank" step.
+
+- **`lib/seating.ts`** — new pure `recommendTableSet(guests)`: recommends a table SET from the guest list — one Sweetheart for the couple + `ceil(non-declined ÷ 10)` round-10 tables (uniform — the PH reception workhorse), capped at 60. Sizing counts everyone not declined (attending + pending), since a floor is built before all RSVPs land.
+- **`actions.ts`** — new gated `buildSeatingDraft()`: recommend the set → insert the tables → lay them out stage-out (server-side `computeAutoLayout` against a nominal canvas; positions are percent so they render at any size) → seat the confirmed-attending by role tier (`computeAutoSeat`). Guarded to a truly empty floor (never clobbers an in-progress plan); reuses the exact lock-assert + `auto_seat_last_used_at` stamp as Auto Arrange. No migration — reuses `event_tables` + `event_seat_assignments`.
+- **`seating-editor.tsx`** — the empty-canvas text ("Add a table from the sidebar…") becomes a "Build my seating" CTA that says what it'll do (counts the couple's guests), gated on the editor lock like every other edit; the success notice teaches the next gesture (drag a table / tap a guest then a chair). Two secondary empty-states point at it.
+- **`seating-logic.spec.ts`** — 7 `recommendTableSet` cases (per-10 sizing + labels, pending counted, declined excluded, couple→Sweetheart, single-guest floor, the 60-table cap).
+
+Verified: `tsc --noEmit` clean across the whole project (0 errors); `recommendTableSet` exercised at runtime (9/9). Required CI (typecheck + lint + build) + Vercel preview are the gate (pnpm monorepo — full lint/build can't run cross-worktree locally), auto-merge armed.
+
+SPEC IMPACT: new UX affordance on iteration 0008 (seating). Corpus is archive per the AS-BUILT flip; logged as a row in `DECISION_LOG.md`. Honors the locked 0008 table catalog (no new types) and the seat-plan-stays-free principle (deterministic, zero-cost — no AI, no R2).
 ## 2026-06-20 · ci(guest): "lint guest legibility" guardrail — stops tiny text regressing on guest surfaces
 
 The 2026-06-20 "Lola Remedios" audit found the dominant guest-facing failure was 7–11px load-bearing text. #1872/#1873 fixed the worst; this guard stops it coming back (the owner-approved "contrast/min-size lint").

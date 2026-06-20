@@ -4,7 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-20 · feat(ux): Wave 1 — confirm-guards + consequence-on-button across 6 admin/vendor surfaces
+## 2026-06-20 · feat(db): sample-event + demo-service flags (Maria & Jose foundation, Phase 1)
+
+Foundation migration for the planned "Maria & Jose" public sample/showcase experience. Additive, idempotent, RLS-unchanged. Migration file only — **not yet applied to prod** (applied deliberately via `supabase db push` when the seed is ready).
+
+- `migration 20270203791173_sample_event_and_demo_service_flags.sql`:
+  - `events.is_sample` (BOOLEAN, default FALSE) — marks the canonical showcase event so it's excluded from real-event stats + never billed, and drives the curated-tour entry.
+  - `vendor_services.is_demo` + `vendor_services.demo_batch_id` — **the owner requirement** ("the vendors here AND the services here will be marked as demo"). Until now a service was demo *only by its parent vendor*; this flags the service directly (mirrors `vendor_profiles.is_demo`) so exclusion/cleanup can key on the service itself. **Backfills** is_demo + demo_batch_id onto every existing demo vendor's services.
+  - Partial indexes on both new boolean flags.
+
+Next in Phase 1: populate Maria & Jose (guests/seating/budget/mood board/Papic) + attach demo vendors+services across every category. Then Phase 2 = the curated 5-stop public tour (owner-chosen over a full sandbox, to avoid exposing rough edges).
+
+SPEC IMPACT: None yet (schema only; the sample-event feature spec lands as the build progresses). Logged in `DECISION_LOG.md`: sample-event/demo-service-flag foundation + curated-tour direction.
 
 First cross-cutting wave of the 2-step-down program (`Usability_2Step_Remediation_Program_2026-06-20.md`, lever A). Every irreversible/cascade action on these surfaces was firing on a single click — a stray tap could publish to live social, hard-delete an account, free a sold date, or unfeature a story. Now they confirm with a specific title + plain-English consequence.
 

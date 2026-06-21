@@ -39,6 +39,7 @@ import { STD_THEMES, resolveStdTheme, type StdTheme, type StdThemeId } from '@/l
 import { readableTextOn } from '@/lib/site-palette';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
+import { BespokeMonogramMotion } from '@/app/_components/bespoke-monogram-motion';
 import { type MonogramConfig } from '@/lib/monogram';
 import type { MonogramMotionKey } from '@/lib/monogram-motion';
 
@@ -92,9 +93,6 @@ const FILM_ANIM_CSS = `
 @media (prefers-reduced-motion: reduce) {
   .std-anim { animation: none !important; }
 }
-    .std-mono-bloom { opacity: 0; transform: scale(0.92); animation: std-mono-bloom 1.15s cubic-bezier(0.16,1,0.3,1) 0.1s forwards; }
-    @keyframes std-mono-bloom { to { opacity: 1; transform: scale(1); } }
-    @media (prefers-reduced-motion: reduce) { .std-mono-bloom { opacity: 1; transform: none; animation: none; } }
 `;
 
 // The film is composed at ONE fixed logical size (a portrait "design canvas")
@@ -230,18 +228,27 @@ function FilmMonogram({
         : 'drop-shadow(0 1px 3px rgba(0,0,0,0.16))';
   const contrastInk = tone === 'light' ? '#FBFBFA' : tone === 'dark' ? '#1E2229' : null;
 
-  // 1 · uploaded / monogram-lab SVG — a BARE mark (no cream circle). The Motion
-  //     Library needs letterform strokes, so a bespoke mark gets a one-shot bloom
-  //     ENTRANCE (gated on ownership) that REPLAYS each time the beat is shown via
-  //     the monoReplayKey remount, plus the contrast glow.
+  // 1 · uploaded / monogram-lab SVG — a BARE mark (no cream circle). For an
+  //     Animated Monogram owner the couple's CHOSEN motion plays ON the mark via
+  //     BespokeMonogramMotion (whole-mark signatures; the glyph-level library
+  //     needs letterforms) — keyed by monoReplayKey so it replays when the beat is
+  //     shown (owner 2026-06-22 "play according to the settings created"). Non-
+  //     owners get the static mark. Contrast glow either way.
   if (svg) {
+    if (animatedMonogram) {
+      return (
+        <BespokeMonogramMotion
+          key={monoReplayKey}
+          svg={svg}
+          motion={animatedMonogram}
+          sizeCls={sizeCls}
+          glow={glow}
+          color={contrastInk ?? lockup?.monogram?.color ?? '#5C2542'}
+        />
+      );
+    }
     return (
-      <span
-        key={monoReplayKey}
-        aria-hidden
-        className={`${sizeCls} inline-flex items-center justify-center${animatedMonogram ? ' std-mono-bloom' : ''}`}
-        style={{ filter: glow }}
-      >
+      <span aria-hidden className={`${sizeCls} inline-flex items-center justify-center`} style={{ filter: glow }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={bespokeSvgToDataUri(svg)} alt="" className="h-full w-full object-contain" />
       </span>

@@ -9,7 +9,7 @@
  */
 
 import dynamic from 'next/dynamic';
-import type { Lab3DTable, Lab3DFloor, Lab3DGuest } from '@/lib/seating-3d';
+import type { Lab3DTable, Lab3DFloor, Lab3DGuest, Lab3DMonogram } from '@/lib/seating-3d';
 
 const SeatingLab3D = dynamic(() => import('./seating-lab-3d'), {
   ssr: false,
@@ -30,7 +30,7 @@ type Props = {
   floor: Lab3DFloor;
   guests: Lab3DGuest[];
   paletteHexes: string[];
-  coupleNames: string | null;
+  monogram: Lab3DMonogram;
   me: { id: string; name: string };
 };
 

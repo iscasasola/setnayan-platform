@@ -1,165 +1,214 @@
 /**
- * onboarding-desktop.css — editorial desktop canvas (owner 2026-06-13).
+ * onboarding-desktop.css — editorial desktop canvas (owner 2026-06-21 · two-pane).
  *
  * This is NOT part of the locked prototype port (onboarding.css mirrors the
- * prototype one-for-one and must not be hand-tweaked). It is a desktop-only
- * enrichment layered on top: it shows the OnboardingDesktopAside beside the
- * phone frame and centers the pair. Everything is scoped under `.onbw` and gated
- * behind min-width:1024px, so mobile + tablet (where the phone IS the whole
- * experience) are byte-for-byte unchanged.
+ * prototype one-for-one and must not be hand-tweaked). It is a DESKTOP-ONLY
+ * (>=1024px) enrichment layered on top.
  *
- * The phone frame itself (.onbw .phone — 430×880, port-as-is lock 2026-06-02) is
- * never restyled here; we only adjust the parent layout and add the aside.
+ * 2026-06-21 redesign (owner-approved): on desktop the onboarding becomes a TRUE
+ * two-pane editorial questionnaire — a widened editorial sheet whose question
+ * screens flip to [ imagery / eyebrow / question  LEFT ] · [ answers RIGHT ].
+ * This deliberately UN-PINS the locked 430px phone frame ON DESKTOP ONLY (the
+ * 2026-06-02 port-as-is lock); mobile + tablet (<1024px) stay byte-for-byte the
+ * locked phone prototype — nothing below 1024px is touched here.
+ *
+ * Scope rules (hard-locked):
+ *   • EVERY rule lives inside `@media (min-width:1024px)` (or the existing short-
+ *     desktop `and (max-height:940px)` block). Nothing below 1024px may change.
+ *   • The `.btn`/`.btn-primary` are never restyled (button-preservation lock); the
+ *     persistent `.bottom` CTA keeps its placement/behaviour as desktop chrome.
+ *   • Only existing tokens are used (--gold, --gold-deep, --ink, --ink-soft,
+ *     --serif, --sans, --mono, --m-*). Clean Editorial only.
+ *
+ * The two-pane grid is OPT-IN BY SCREEN ID (the .onb-twopane list below), never a
+ * blanket `.screen.active` rule — so a screen that special-cases its own layout
+ * (full-bleed hero, photo covers, carousels, calendars, custom persona markup,
+ * the RefineStep .prefstep wrapper, …) can never be accidentally flipped. Every
+ * other screen renders SINGLE-COLUMN-WIDE: its content is centred + capped in the
+ * wide sheet so it doesn't look lost.
  */
 
-/* Hidden by default — the aside only exists on desktop. */
+/* The old desktop aside is gone (OnboardingDesktopAside removed 2026-06-21); keep
+   this hidden in case any stale markup lingers. */
 .onbw .onb-aside {
   display: none;
 }
 
 @media (min-width: 1024px) {
-  /* Lay the canvas out as a centered pair: [editorial aside] · [phone card].
-     align-items:center vertically centers the 880px card on tall screens; the
-     pair stays horizontally centered with stone breathing room on either side. */
+  /* ── Canvas: top-align + centre the widened sheet with stone breathing room. ── */
   .onbw {
-    align-items: center;
-    gap: clamp(40px, 5vw, 96px);
+    align-items: flex-start;
+    justify-content: center;
     padding: 32px;
   }
 
-  /* Pin the locked frame to its 430px width in the flex row. The prototype sets
-     `.phone { width:100%; max-width:430px }`; inside this flex pair that
-     width:100% flex-basis could let the card SHRINK below 430px on narrower
-     desktops. flex:0 0 430px + width:430px hold the card at exactly its locked
-     width (visually identical to today) — a layout safeguard, NOT a restyle. */
+  /* ── Un-pin + widen the locked frame into an editorial SHEET (desktop only). ──
+     The prototype's radius/border/background are inherited from onboarding.css;
+     here we override ONLY width / height / margin so the sheet spans the canvas
+     instead of the 430px phone. flex:0 0 auto stops it flex-shrinking. */
   .onbw .phone {
-    flex: 0 0 430px;
-    width: 430px;
-  }
-
-  .onbw .onb-aside {
-    display: flex;
-    align-items: center;
-    /* Match the card height so the editorial column reads centered against the
-       phone (the 880px mirrors .onbw .phone's desktop height in onboarding.css —
-       kept in sync there). */
-    height: 880px;
-    max-width: 408px;
-    flex: 0 1 408px;
-  }
-
-  .onbw .onb-aside-inner {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .onbw .onb-aside-mark {
-    display: inline-flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 30px;
-  }
-  .onbw .onb-aside-mark svg {
-    width: 40px;
-    height: 40px;
-    display: block;
     flex: 0 0 auto;
-  }
-  .onbw .onb-aside-wm {
-    font-family: var(--mono);
-    font-size: 14px;
-    letter-spacing: 0.34em;
-    color: var(--gold-deep);
-    font-weight: 500;
+    width: min(1180px, calc(100vw - 96px));
+    max-width: none;
+    height: min(880px, calc(100vh - 64px));
+    margin: 0 auto;
   }
 
-  .onbw .onb-aside-eyebrow {
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: var(--ink-faint);
-    margin-bottom: 16px;
+  /* The body stays the single scroller; .top (sticky) + .bottom (pinned) span the
+     full sheet width as desktop chrome. Give the body roomy editorial padding. */
+  .onbw .body {
+    padding: clamp(24px, 3vw, 48px);
   }
 
-  .onbw .onb-aside-h {
-    font-family: var(--serif);
-    font-weight: 600;
-    font-size: clamp(34px, 3vw, 46px);
-    line-height: 1.07;
-    letter-spacing: -0.01em;
-    color: var(--ink);
-    margin-bottom: 18px;
-  }
-
-  .onbw .onb-aside-sub {
-    font-family: var(--sans);
-    font-size: 16px;
-    line-height: 1.55;
-    color: var(--ink-soft);
-    max-width: 34ch;
-    margin-bottom: 32px;
-  }
-
-  .onbw .onb-aside-list {
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 13px;
-    margin-bottom: 36px;
-    padding: 0;
-  }
-  .onbw .onb-aside-list li {
-    display: flex;
+  /* ── TWO-PANE FLIP (opt-in by id) — imagery/eyebrow/question LEFT, answers RIGHT.
+     Applies only to the simple question+options screens that share the
+     .viewzone + .tapzone + .stack/.chips + .opt/.chip skeleton. ── */
+  .onbw .onb-twopane.screen.active {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.82fr);
+    gap: clamp(40px, 4vw, 72px);
     align-items: center;
-    gap: 11px;
-    font-family: var(--sans);
-    font-size: 14.5px;
-    color: var(--ink);
   }
-  .onbw .onb-aside-tick {
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    background: var(--gold-wash);
-    color: var(--gold-deep);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex: 0 0 auto;
+  /* The viewzone is no longer a stacked block — it's the left grid column. */
+  .onbw .onb-twopane.screen.active .viewzone {
+    flex: none;
   }
-  .onbw .onb-aside-tick svg {
-    width: 12px;
-    height: 12px;
+  /* The answers column. The mobile thumb-dock uses margin-top:auto to push the
+     tapzone to the bottom of the scroller — that MUST be reset inside the grid or
+     the answers slam to the bottom of the row. Cap + centre so the column reads
+     as a calm answer panel, not a stretched form. */
+  .onbw .onb-twopane.screen.active .tapzone {
+    margin-top: 0;
+    align-self: center;
+    max-width: 480px;
+    width: 100%;
   }
 
-  .onbw .onb-aside-sig {
-    font-family: var(--serif);
-    font-style: italic;
-    font-size: 20px;
-    color: var(--gold-deep);
+  /* ── Editorial type — the question becomes a magazine headline on the left. ── */
+  .onbw .onb-twopane .q {
+    font-size: clamp(34px, 3.2vw, 52px);
+    line-height: 1.08;
   }
-  .onbw .onb-aside-sig::before {
-    content: '';
-    display: block;
-    width: 34px;
-    height: 1px;
-    background: var(--line-2);
-    margin-bottom: 14px;
+
+  /* ── Editorial imagery — the hero figures grow into a tall left-column image.
+     These are the figure classes confirmed in the shell markup:
+       .rolephoto  (#screen-role)      .kindphoto  (#screen-kind)
+       .faithphoto (#screen-faith)
+     The experience axes/dials carry no figure (eyebrow + .q only) — the headline
+     simply owns the left column, which reads cleanly. .welcomehero + .refine-hero
+     belong to SINGLE-COLUMN screens, so they're sized in their own blocks below. */
+  .onbw .onb-twopane .rolephoto,
+  .onbw .onb-twopane .kindphoto,
+  .onbw .onb-twopane .faithphoto {
+    min-height: clamp(360px, 46vh, 560px);
+    height: auto;
+  }
+
+  /* ── SINGLE-COLUMN-WIDE — every screen NOT in the two-pane list. Its content is
+     centred + capped in the wide sheet so it doesn't float in 1180px of width.
+     We don't change the prototype's internal flex direction (the screens stay
+     flex columns); we only cap + centre the column and re-centre the active
+     screen horizontally. ── */
+  .onbw .screen.active:not(.onb-twopane) {
+    align-items: center;
+  }
+  /* Cap the readable column for single-column screens. The blocks that own a
+     full-width control (calendar / carousels / vendor results / persona markup)
+     opt OUT of this cap in their own rules below so they can breathe wider. */
+  .onbw .screen.active:not(.onb-twopane) > .viewzone,
+  .onbw .screen.active:not(.onb-twopane) > .tapzone,
+  .onbw .screen.active:not(.onb-twopane) > .welcome,
+  .onbw .screen.active:not(.onb-twopane) > .stack,
+  .onbw .screen.active:not(.onb-twopane) > .eyebrow,
+  .onbw .screen.active:not(.onb-twopane) > .q,
+  .onbw .screen.active:not(.onb-twopane) > .prefstep,
+  .onbw .screen.active:not(.onb-twopane) > form {
+    width: 100%;
+    max-width: 560px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  /* Single-column screens keep their thumb-dock reset too (their tapzone is a
+     content panel here, not a bottom-pinned dock). */
+  .onbw .screen.active:not(.onb-twopane) > .tapzone {
+    margin-top: 0;
+  }
+
+  /* Screens whose primary control is a wide photo/result column want more room
+     than the 560px text cap — give them a comfortable wide canvas instead.
+     region (city carousel) · find (venue results) · pax/budget/mood (photo
+     covers) · team_basics/team_extras (pick carousels) · songs · congrats
+     (full website recap) · the RefineStep screens (reception/refine_*). */
+  .onbw #screen-region .viewzone,
+  .onbw #screen-region .tapzone,
+  .onbw #screen-pax .viewzone,
+  .onbw #screen-pax .tapzone,
+  .onbw #screen-budget .viewzone,
+  .onbw #screen-budget .tapzone,
+  .onbw #screen-mood .viewzone,
+  .onbw #screen-mood .tapzone,
+  .onbw #screen-team-basics .viewzone,
+  .onbw #screen-team-basics .tapzone,
+  .onbw #screen-team-extras .viewzone,
+  .onbw #screen-team-extras .tapzone,
+  .onbw #screen-songs .viewzone,
+  .onbw #screen-songs .tapzone,
+  .onbw #screen-find,
+  .onbw #screen-congrats .viewzone,
+  .onbw .screen.active .prefstep {
+    max-width: 720px;
+  }
+
+  /* The full-frame photo-cover screens (pax/budget/mood) read best with a taller
+     hero on desktop — let the figure grow without breaking its internal layout. */
+  .onbw #screen-pax .paxphoto,
+  .onbw #screen-budget .budgetphoto,
+  .onbw #screen-mood .feelphoto,
+  .onbw #screen-team-basics .styhero {
+    min-height: clamp(320px, 40vh, 480px);
+  }
+  /* The RefineStep main photo, the welcome full-bleed hero. */
+  .onbw .refine-hero {
+    min-height: clamp(300px, 36vh, 440px);
+    height: auto;
+  }
+  .onbw .welcomescreen.active {
+    align-items: stretch;
+  }
+  .onbw .welcomehero {
+    min-height: clamp(420px, 56vh, 640px);
+    height: auto;
+  }
+
+  /* ── Hover / focus affordances (desktop only). The prototype already sets the
+     :hover gold border on .opt/.chip/.pcard; here we add the missing keyboard
+     focus rings + a slightly stronger desktop pcard hover lift. ── */
+  .onbw .opt:hover,
+  .onbw .chip:hover {
+    border-color: var(--gold);
+  }
+  .onbw .opt:focus-visible,
+  .onbw .chip:focus-visible,
+  .onbw .pcard:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+  }
+  .onbw .pcard:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--m-shadow-lg);
   }
 }
 
-/* Short desktop viewports (< 940px tall): the 880px card + 32px padding can't
-   fit, so fall back to top-aligned + scroll instead of clipping the card's top
-   bar / bottom CTA. The aside drops its fixed height so it doesn't force scroll
-   on its own. */
+/* Short desktop viewports (<= 940px tall): the tall widened sheet + 32px padding
+   can't fit, so fall back to height:auto + page scroll instead of clipping the
+   sticky top / pinned CTA. Retargeted from the old 880px aside-pair layout to the
+   new sheet. */
 @media (min-width: 1024px) and (max-height: 940px) {
   .onbw {
     align-items: flex-start;
     overflow-y: auto;
   }
-  .onbw .onb-aside {
+  .onbw .phone {
     height: auto;
-    align-self: center;
   }
 }

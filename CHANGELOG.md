@@ -19,6 +19,36 @@ Display-only — no seating/placement algorithm change (Phase 2 = priority weigh
 SPEC IMPACT: Iteration 0008 (linked-table behaviour) — extends the 2026-06-21 grouping with a combined seat count in the editor lists. Logged in DECISION_LOG.
 
 ---
+## 2026-06-22 · feat(integrations): Setnayan-AI paywall is now a no-redeploy DB toggle (Integration Console PR1, AI slice)
+
+Completes PR1 of the Integration Activation Console — the email slice already shipped (`platform_integration_secrets` + `resolveResendConfig` + `/admin/integrations`); the **AI-paywall half had not**, so monetizing/un-monetizing Setnayan AI still required a Vercel env change + redeploy.
+
+- **Migration `20270209911535_ai_paywall_flag_db_toggle.sql`** — adds tri-state `platform_settings.setnayan_ai_paywall_enabled BOOLEAN` (NULL = defer to env · TRUE = on · FALSE = off). Idempotent `ADD COLUMN IF NOT EXISTS`. Non-secret feature flag → world-readable `platform_settings`, **not** the secrets table.
+- **`lib/integration-config.ts`** — new `resolveSetnayanAiPaywallEnabled()` (DB-first / env-fallback, uncached so a flip takes effect on the next request).
+- **`lib/setnayan-ai.ts`** — `isSetnayanAiActive()` + `shouldOfferSetnayanAiPurchase()` take an OPTIONAL resolved-paywall arg defaulting to the env-only read; the leaf predicate **stays synchronous** (design caveat). `isSetnayanAiPaywallEnabled()` kept as the sync env fallback.
+- **6 server call sites threaded** — `dashboard/[eventId]/page.tsx`, `studio/setnayan-ai/page.tsx`, `vendors/page.tsx`, `vendors/build-3state-actions.ts`, `vendors/_actions/category-search.ts`, `v/[slug]/page.tsx` now `await resolveSetnayanAiPaywallEnabled()` and pass it in. The synthetic `tour/vendors` site is left on the env default (always-on demo).
+- **`/admin/integrations`** — new "Setnayan AI — paywall" card (effective/source readout + ON/OFF/use-env select) → `setAiPaywall` action.
+
+**Live behavior unchanged today:** the column ships NULL, so the resolver falls back to `SETNAYAN_AI_PAYWALL_ENABLED`, which is **OFF/parked in prod** — the ₱3,999 flip is parked for the holistic pricing pass (DECISION_LOG 2026-06-22), so Setnayan AI stays **free for every event**. Nothing live changes. This console is now the **no-redeploy mechanism to perform that parked flip** when the owner is ready (replacing `vercel env add SETNAYAN_AI_PAYWALL_ENABLED + redeploy`).
+
+⚠ **Deliberate deviation from the 2026-06-16 design (flagged for owner):** the design said the paywall resolver should be **OR-wins**. OR-wins is not a clean toggle — it can never turn the paywall OFF from the console once the env flag is set to `true`. Shipped as **DB-first / env-fallback** instead (tri-state), giving a real on/off toggle, matching the email slice's resolver, and byte-identical while the column is NULL.
+
+tsc 0 · `next lint` clean (only pre-existing warnings) · `migration:check` green. CI prod build is the gate. Migration applies via `supabase db query` (single idempotent ALTER) — code degrades gracefully (env fallback) if the column is absent.
+
+SPEC IMPACT DECISION_LOG row (2026-06-22): Integration Console PR1 AI-paywall slice shipped; paywall flag resolver = DB-first/env-fallback (supersedes design's OR-wins). Updates memory `project_setnayan_integration_activation_console` (PR1 now fully done).
+
+---
+## 2026-06-22 · feat(onboarding): experience-persona reveal → editorial titles + dead-copy purge (flag-gated OFF)
+
+Tuning pass on the experience-persona onboarding (PR #1937, flag `NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED`, default OFF) — owner reserved the persona NAMES + reveal copy for sign-off; this session the owner picked the **editorial-titles** direction.
+
+- **6 persona names → editorial titles** (`…/onboarding/wedding/_data/experience-personas.ts`): Keepsake → **The Keepsake** · Big Celebration → **The Grand Celebration** · Best of Both → **The Best of Both** · Intimate Romance → **Intimate & In Love** · Modern Statement → **The Modern Statement** · Rooted Tradition → **Rooted in Tradition**. Keys + resolver + every derived mapping (picks/services/feel/refinements) unchanged — display-string only.
+- **Reveal reframed** (`onboarding-shell.tsx` · `exp_reveal`): the old `"You’re a {name} couple — {helpHead}"` headline fought several names grammatically and hard-coded the article `a` (an a/an bug on "Intimate…"). Now the NAME stands alone as the serif hero, the persona **tagline** is surfaced beneath it (it was defined but never rendered), and the help-dial outcome ("Here’s your complete plan." / "Here are your options." / "Your canvas is ready.") becomes a gold kicker under the stat strip. Styling via inline design tokens — the locked `onboarding.css` is untouched.
+- **Dead first-draft "nugget" copy purged**: every axis/dial `sub` line (7) was defined but never rendered after the 2026-06-22 "clear question, clear answer" pass; removed the data + the `sub` type field so the stale side-notes can’t be re-surfaced.
+
+Flag-gated OFF → prod byte-identical until the owner flips the flag. tsc 0 · `next lint` clean (one pre-existing, unrelated `authed`-dep warning). No schema/SKU change.
+
+SPEC IMPACT iter 0016 (persona naming = owner-signed-off branding) → corpus DECISION_LOG + memory `project_setnayan_experience_persona_onboarding`.
 
 ## 2026-06-22 · fix(monogram): animation "Delay" is now a start-to-start stagger
 

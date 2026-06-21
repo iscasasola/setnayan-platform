@@ -7,7 +7,8 @@ import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { eventOwnsSku } from '@/lib/entitlements';
-import { isSetnayanAiActive, isSetnayanAiPaywallEnabled } from '@/lib/setnayan-ai';
+import { isSetnayanAiActive } from '@/lib/setnayan-ai';
+import { resolveSetnayanAiPaywallEnabled } from '@/lib/integration-config';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 
 export const metadata = { title: 'Setnayan AI · Setnayan' };
@@ -72,8 +73,10 @@ export default async function SetnayanAiPage({ params }: Props) {
     .maybeSingle();
   if (!event) redirect(`/dashboard/${eventId}`);
 
-  const active = isSetnayanAiActive(event);
-  const paywallOn = isSetnayanAiPaywallEnabled();
+  // DB-first paywall flag (Integration Activation Console — flips without a
+  // redeploy); env-fallback when unset. Resolved once, threaded into the gate.
+  const paywallOn = await resolveSetnayanAiPaywallEnabled();
+  const active = isSetnayanAiActive(event, paywallOn);
 
   // "Owns" = the entitlement is stamped OR a SETNAYAN_AI order (à-la-carte OR a
   // GUIDED_PACK/MEDIA_PACK bundle that includes it) is in flight (submitted /

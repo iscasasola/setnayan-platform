@@ -13,6 +13,7 @@ import { UnreadMessagesBadge } from '@/app/_components/unread-messages-badge';
 import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
 import { CustomerSidebar } from './_components/customer-sidebar';
 import { CustomerBottomNav } from './_components/customer-bottom-nav';
+import { CustomerNavFab } from './_components/customer-nav-fab';
 import { CustomerSectionSubnav } from './_components/customer-section-subnav';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
@@ -330,6 +331,10 @@ export default async function EventLayout({ children, params }: Props) {
           BottomNav primitive. Sits outside SidebarShell so it doesn't
           inherit the desktop sidebar offset. */}
       <CustomerBottomNav eventId={eventId} phase={phase} navSlots={navSlots} />
+      {/* NAV-2 broken-out primary action (the Shazam satellite) — a SIBLING of
+          the locked BottomNav pill, never a 7th tab. Floats above the pill's
+          right end, hides when the docked SubNav is up + in the After phase. */}
+      <CustomerNavFab eventId={eventId} phase={phase} />
       {/* ONE docked section sub-nav for all 6 menus (owner 2026-06-17 "sub nav
           are child menus of the 6 menus"). Reads the canonical tree in
           lib/customer-menu.ts and renders whichever menu's CHILDREN belong to the

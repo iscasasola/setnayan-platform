@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-21 · feat(nav): broken-out action satellite (NAV-2) — couple doorway
+
+Second step of the nav reroster (`Responsive_and_Mobile_UI_Ruleset_2026-06-21` · NAV-2) — the Shazam-style "broken-out" primary action. The **locked `bottom-nav.tsx` template is untouched** (`lint:botnav` ✓); the action is a separate floating sibling, never a 7th tab, never a fork.
+
+- **New primitive `app/_components/nav/nav-fab.tsx`** — `NavFab`: a fixed, `lg:hidden`, ≥56px **Mulberry** circle that floats above the right end of the pill, anchored off the bar's published `--sn-bottomnav-h` (so the gap is constant at any tab count). Hides whenever the docked SubNav is up (`useSubNavDocked`) to avoid sharing that band. Reduced-motion-safe. *(The locked pill is full-width, so the literal Shazam "beside the pill" needs a template edit — this floats **above** the pill instead, the standard FAB pattern, fully additive.)* Filename has no `bottom-nav` substring so the delegation guard doesn't flag it.
+- **New wrapper `customer-nav-fab.tsx`** + mounted in the couple layout as a sibling of `CustomerBottomNav`. Action = **Add guest** → `/guests/new` (the couple's most-repeated planning action; doesn't duplicate a pill tab). Hidden in the `after` phase. Client wrapper holds the Lucide icon (same Server→Client boundary pattern as `CustomerBottomNav`).
+
+Verified: `pnpm typecheck` 0 · `pnpm lint` 0 · `pnpm lint:botnav` ✓ (template integrity + delegation intact).
+
+PROVISIONAL / deferred: the per-doorway **action choice** is owner-tunable (a phase-aware Day-of variant — e.g. check-in/scan — is a follow-up), and the **vendor + admin FABs** are not wired here because their single dominant action is a genuine product call (the ruleset says the FAB is absent when a surface has no clear dominant action). Also still pending: NAV-5 Notion "More" rebuild + the lint hardening (≤5 count + frosted-fill guard).
+
+SPEC IMPACT: Nav architecture — adds the broken-out action (couple doorway). No SKU/schema/pricing/public-claim change.
+
 ## 2026-06-21 · chore(home): remove dead `Checklist` function from couple event-home
 
 Follow-up dead-code cleanup of `apps/web/app/dashboard/[eventId]/page.tsx`, same class as the helpers removed in #1939. The local `function Checklist(...)` (~95 lines) was never rendered — confirmed by grep (`<Checklist` has zero JSX usages; the live, rendered component is the *different* `ChecklistAsync`, untouched).

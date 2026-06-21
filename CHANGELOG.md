@@ -42,8 +42,10 @@ Owner: *"on studio … the website is composed of 4 parts — Save the Date, RSV
 - **One shared data loader** `_data.ts` (`loadSiteEditorData`) backs the combined editor **and** all three phase editors, so the couple-membership gate, the register-to-use gate, and the fetched prop shape are identical across all four. The combined `page.tsx` was slimmed to call it.
 - **Routing:** `addOnHref` / `appStoreDetailHref` send the three parts → `/site-editor/[eventId]/<phase>` and "Whole website" → `/site-editor/[eventId]` (no `/about` interstitial — these are free editing tools the couple revisits). `/studio/[addon]` mirrors the same-key redirect so a direct hit / old bookmark lands in the editor.
 - **Editorial cards fixed:** "Create editorial" + "Pick photos" now link their already-shipped editors (`website/editorial`, `website/our-photos`) — they were stale "coming soon"; reviews + thank-you stay honest coming-soon.
+- **Website hub handoff:** the "Your page through time" section at `/dashboard/[eventId]/website` now gives each of the four parts an **Edit** action into its own editor (+ a secondary **Preview**) — so the overview hub connects to the new per-part editors, not just the public previews.
+- **Invariant test updated:** `add-ons-detail.test.ts` learned a shared `OPENS_OWN_SURFACE` exception set (panood · seating · supplies + the four website parts) — these open their editor directly, so they're exempt from the "every hub feature has `/studio/about` detail content / routes under `/studio/about`" guards.
 
-tsc 0 · `next lint` clean (only pre-existing, unrelated warnings). No schema change; CI production build + the Vercel preview are the runtime gate.
+tsc 0 · `next lint` clean (only pre-existing, unrelated warnings) · `test:unit` 345/345. No schema change; CI production build + the Vercel preview are the runtime gate.
 
 SPEC IMPACT: iter 0021 (Studio surface) + the website's four lifecycle parts (0002 RSVP/landing · 0024 Save the Date · 0031 day-of Event · 0038 Editorial) → CHANGELOG + DECISION_LOG.
 

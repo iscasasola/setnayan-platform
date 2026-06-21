@@ -11,6 +11,8 @@ import {
   ChevronDown,
   ChevronUp,
   GripVertical,
+  Lock,
+  LockOpen,
   ClipboardList,
   DoorOpen,
   Eye,
@@ -70,11 +72,13 @@ import {
   TABLE_TYPE_LABEL,
   shapeHintFor,
   tableGeometry,
+  relaxLowestPriorityRule,
   type BoothType,
   type EventTableRow,
   type TableDisplayUnit,
   type PriorityOrder,
   type KeepApartRule,
+  type AutoSeatGuest,
   type FloorBoothRow,
   type FloorPlanRow,
   type FloorSignRow,
@@ -89,7 +93,9 @@ import {
   buildSeatingDraft,
   createTable,
   deleteTable,
+  lockAndFill,
   removeSeatingConstraint,
+  toggleSeatLock,
   linkTables,
   publishSeating,
   saveBooths,
@@ -134,6 +140,9 @@ export type SeatingGuest = {
   rsvp_status: string;
   seated_table_id: string | null;
   seat_number: number | null;
+  // Smart seat-plan Phase 4: this guest's seat is locked (pinned) — lock-and-fill
+  // keeps it fixed and seats everyone else around it.
+  seat_locked: boolean;
   // Role taxonomy (0001) — drives the popup's "Role" picker tab via roleTier().
   role: string;
   group_category: string;
@@ -176,7 +185,8 @@ type GuestSeatOp =
   | { type: 'seat'; guestId: string; tableId: string; seat: number | null }
   | { type: 'unseat'; guestId: string }
   | { type: 'seatGroup'; ids: string[]; tableId: string }
-  | { type: 'priority'; guestId: string; value: number | null };
+  | { type: 'priority'; guestId: string; value: number | null }
+  | { type: 'lock'; guestId: string; locked: boolean };
 
 // Default placement for an un-positioned table — shared with the PDF + day-of
 // map (lib/seating) so the layout matches everywhere.
@@ -208,6 +218,10 @@ export function SeatingEditor({
       case 'priority':
         return state.map((g) =>
           g.guest_id === op.guestId ? { ...g, seating_priority: op.value } : g,
+        );
+      case 'lock':
+        return state.map((g) =>
+          g.guest_id === op.guestId ? { ...g, seat_locked: op.locked } : g,
         );
       case 'seatGroup': {
         const set = new Set(op.ids);
@@ -915,6 +929,79 @@ export function SeatingEditor({
     startTransition(async () => {
       await runGated(() => removeSeatingConstraint(fd));
     });
+  };
+
+  // Smart seat-plan Phase 4 — lock-and-fill + live keep-apart explainability.
+  // A guest's link-group "same table" unit key (null when unseated).
+  const unitOfGuestId = (gid: string): string | null => {
+    const g = guestsById.get(gid);
+    if (!g?.seated_table_id) return null;
+    const t = tables.find((x) => x.table_id === g.seated_table_id);
+    return t ? t.link_group_id ?? t.table_id : null;
+  };
+  // A rule is LIVE-violated when both guests currently share a unit (computed
+  // from the current seating, so it updates as the couple moves people).
+  const isRuleViolated = (r: KeepApartRule): boolean => {
+    const ua = unitOfGuestId(r.guest_a_id);
+    return ua != null && ua === unitOfGuestId(r.guest_b_id);
+  };
+  const violatedRules = keepApart.filter(isRuleViolated);
+  const lockedCount = guests.filter((g) => g.seat_locked).length;
+
+  const toggleLock = (g: SeatingGuest) => {
+    if (!canEdit || !g.seated_table_id) return;
+    const next = !g.seat_locked;
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
+    fd.set('guest_id', g.guest_id);
+    fd.set('locked', String(next));
+    startTransition(async () => {
+      applyGuestOpt({ type: 'lock', guestId: g.guest_id, locked: next });
+      await runGated(() => toggleSeatLock(fd));
+    });
+  };
+
+  const [confirmFill, setConfirmFill] = useState(false);
+  const runFillAroundLocked = () => {
+    setConfirmFill(false);
+    if (!canEdit) return;
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
+    startTransition(async () => {
+      const res = await runGated(() => lockAndFill(fd));
+      if (!res) return;
+      const keepApartNote =
+        res.totalRules > 0
+          ? ` Honored ${res.satisfiedRules}/${res.totalRules} keep-apart rule${res.totalRules === 1 ? '' : 's'}${
+              res.unsatisfiedRules > 0 ? ` — couldn't separate ${res.unsatisfiedRules}.` : '.'
+            }`
+          : '';
+      setNotice(
+        `Filled around ${lockedCount} locked seat${lockedCount === 1 ? '' : 's'}: ${res.seated} guest${
+          res.seated === 1 ? '' : 's'
+        } re-seated.` + keepApartNote,
+      );
+    });
+  };
+
+  // One-tap relax: drop the lowest-priority rule among those currently violated.
+  const relaxLowest = () => {
+    if (!canEdit || violatedRules.length === 0) return;
+    const asAuto: AutoSeatGuest[] = guests.map((g) => ({
+      guest_id: g.guest_id,
+      role: g.role,
+      group_category: g.group_category,
+      rsvp_status: g.rsvp_status,
+      plus_one_of_guest_id: null,
+      last_name: '',
+      first_name: '',
+      group_id: g.group_id,
+      seating_priority: g.seating_priority,
+    }));
+    const rule = relaxLowestPriorityRule(violatedRules, asAuto, priorityOrder);
+    if (rule) removeKeepApart(rule);
   };
 
   // Publish the seating pack + open the printable sign sheets. The print route
@@ -2753,32 +2840,54 @@ export function SeatingEditor({
           </p>
           {keepApart.length > 0 ? (
             <ul className="mb-2 space-y-1">
-              {keepApart.map((r) => (
-                <li
-                  key={`${r.guest_a_id}|${r.guest_b_id}`}
-                  className="flex items-center gap-2 rounded-lg border border-ink/10 px-2 py-1.5"
-                >
-                  <Unlink className="h-3.5 w-3.5 shrink-0 text-mulberry/70" aria-hidden />
-                  <span className="min-w-0 flex-1 truncate text-sm text-ink">
-                    <span className="font-medium">{guestsById.get(r.guest_a_id)?.name ?? 'Guest'}</span>
-                    <span className="text-ink/45"> can&apos;t sit with </span>
-                    <span className="font-medium">{guestsById.get(r.guest_b_id)?.name ?? 'Guest'}</span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => removeKeepApart(r)}
-                    disabled={!canEdit}
-                    aria-label="Remove keep-apart rule"
-                    className="rounded p-1 text-ink/30 hover:bg-danger-50 hover:text-danger-600 disabled:opacity-30"
+              {keepApart.map((r) => {
+                const violated = isRuleViolated(r);
+                return (
+                  <li
+                    key={`${r.guest_a_id}|${r.guest_b_id}`}
+                    className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 ${
+                      violated ? 'border-danger-300 bg-danger-50' : 'border-ink/10'
+                    }`}
                   >
-                    <Minus className="h-3.5 w-3.5" />
-                  </button>
-                </li>
-              ))}
+                    <Unlink
+                      className={`h-3.5 w-3.5 shrink-0 ${violated ? 'text-danger-600' : 'text-mulberry/70'}`}
+                      aria-hidden
+                    />
+                    <span className="min-w-0 flex-1 truncate text-sm text-ink">
+                      <span className="font-medium">{guestsById.get(r.guest_a_id)?.name ?? 'Guest'}</span>
+                      <span className="text-ink/45"> can&apos;t sit with </span>
+                      <span className="font-medium">{guestsById.get(r.guest_b_id)?.name ?? 'Guest'}</span>
+                      {violated ? (
+                        <span className="ml-1 text-[10px] font-semibold uppercase tracking-wide text-danger-600">
+                          · seated together
+                        </span>
+                      ) : null}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeKeepApart(r)}
+                      disabled={!canEdit}
+                      aria-label="Remove keep-apart rule"
+                      className="rounded p-1 text-ink/30 hover:bg-danger-50 hover:text-danger-600 disabled:opacity-30"
+                    >
+                      <Minus className="h-3.5 w-3.5" />
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <p className="px-1 pb-1.5 text-[11px] text-ink/40">No keep-apart rules yet.</p>
           )}
+          {violatedRules.length > 0 && canEdit ? (
+            <button
+              type="button"
+              onClick={relaxLowest}
+              className="mb-2 inline-flex items-center gap-1 rounded-lg border border-ink/15 bg-cream px-2.5 py-1.5 text-[11px] font-medium text-ink/80 hover:border-terracotta"
+            >
+              <Unlink className="h-3.5 w-3.5" /> Relax the lowest-priority rule
+            </button>
+          ) : null}
           {canEdit ? <KeepApartAdder guests={guests} onAdd={addKeepApart} /> : null}
         </Section>
       </aside>
@@ -3057,6 +3166,21 @@ export function SeatingEditor({
             >
               <Sparkles className="h-3.5 w-3.5" /> Auto Arrange
             </button>
+            {lockedCount > 0 ? (
+              <button
+                type="button"
+                onClick={() => setConfirmFill(true)}
+                disabled={isPending || !canEdit}
+                title={
+                  !canEdit
+                    ? 'View only — someone else is editing this seat plan'
+                    : 'Keep locked seats, re-seat everyone else around them'
+                }
+                className="inline-flex items-center gap-1.5 rounded-lg border border-mulberry/40 bg-cream px-3 py-1.5 text-xs font-semibold text-mulberry hover:bg-mulberry/5 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Lock className="h-3.5 w-3.5" /> Fill around {lockedCount} locked
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -4575,6 +4699,24 @@ export function SeatingEditor({
                               ) : null}
                               <button
                                 type="button"
+                                onClick={() => toggleLock(g)}
+                                disabled={!canEdit}
+                                aria-label={g.seat_locked ? `Unlock ${g.name}'s seat` : `Lock ${g.name}'s seat`}
+                                title={g.seat_locked ? 'Locked — “Fill around locked” keeps this seat' : 'Lock this seat'}
+                                className={`inline-flex items-center rounded-md border px-1.5 py-1 text-[11px] disabled:opacity-30 ${
+                                  g.seat_locked
+                                    ? 'border-mulberry/40 bg-mulberry/10 text-mulberry'
+                                    : 'border-ink/15 text-ink/45 hover:border-mulberry/40 hover:text-mulberry'
+                                }`}
+                              >
+                                {g.seat_locked ? (
+                                  <Lock className="h-3.5 w-3.5" />
+                                ) : (
+                                  <LockOpen className="h-3.5 w-3.5" />
+                                )}
+                              </button>
+                              <button
+                                type="button"
                                 onClick={() => unseat(g.guest_id)}
                                 aria-label={`Unseat ${g.name}`}
                                 className="inline-flex items-center gap-1 rounded-md border border-ink/15 px-2 py-1 text-[11px] text-ink/70 hover:border-danger-400 hover:text-danger-600"
@@ -4657,6 +4799,41 @@ export function SeatingEditor({
                 className="inline-flex items-center gap-1.5 rounded-lg bg-mulberry px-3 py-1.5 text-sm font-semibold text-cream hover:bg-mulberry-600"
               >
                 <Sparkles className="h-4 w-4" /> Auto Arrange
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Fill-around-locked confirm (smart seat-plan Phase 4) — it CLEARS unlocked
+          seats and re-seats around the locked ones, so it asks first. */}
+      {confirmFill ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/40 p-4" onClick={() => setConfirmFill(false)}>
+          <div className="w-full max-w-sm rounded-2xl border border-ink/10 bg-cream p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-2 flex items-center gap-2">
+              <Lock className="h-5 w-5 text-mulberry" />
+              <h3 className="text-lg font-semibold text-ink">Fill around locked seats</h3>
+            </div>
+            <p className="text-sm text-ink/70">
+              Your <span className="font-semibold">{lockedCount}</span> locked seat
+              {lockedCount === 1 ? '' : 's'} stay exactly where they are. Everyone else is{' '}
+              <span className="font-semibold">un-seated and re-seated</span> around them, by priority
+              {keepApart.length > 0 ? ' and your keep-apart rules' : ''}.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmFill(false)}
+                className="rounded-lg border border-ink/15 bg-cream px-3 py-1.5 text-sm text-ink hover:bg-ink/5"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={runFillAroundLocked}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-mulberry px-3 py-1.5 text-sm font-semibold text-cream hover:bg-mulberry-600"
+              >
+                <Lock className="h-4 w-4" /> Fill the rest
               </button>
             </div>
           </div>

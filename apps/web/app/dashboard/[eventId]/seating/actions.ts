@@ -589,6 +589,123 @@ export async function removeSeatingConstraint(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
+// Pin/unpin a seated guest (smart seat-plan · Phase 4 lock-and-fill). A locked
+// seat is fixed: lockAndFill (and any future solve) seats everyone else around
+// it. Lock-gated like every seating mutation.
+export async function toggleSeatLock(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const guestId = formData.get('guest_id');
+  if (
+    typeof eventId !== 'string' ||
+    eventId.length === 0 ||
+    typeof guestId !== 'string' ||
+    !UUID_RE.test(guestId)
+  ) {
+    throw new Error('Invalid input');
+  }
+  const locked = formData.get('locked') === 'true';
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+
+  const { error } = await supabase
+    .from('event_seat_assignments')
+    .update({ locked })
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId);
+  if (error) throw new Error(error.message);
+
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
+  revalidatePath(`/dashboard/${eventId}/seating`);
+}
+
+// Lock-and-fill (smart seat-plan · Phase 4): keep every LOCKED seat exactly where
+// it is, clear the rest, and re-seat everyone around the locked ones — honouring
+// the saved priority order + keep-apart rules. "Lock the head table, fill the
+// rest." Returns the keep-apart outcome so the editor can report it.
+export async function lockAndFill(
+  formData: FormData,
+): Promise<{ seated: number; totalRules: number; satisfiedRules: number; unsatisfiedRules: number }> {
+  const eventId = formData.get('event_id');
+  if (typeof eventId !== 'string' || eventId.length === 0) {
+    throw new Error('Invalid input');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const lockId = lockIdFrom(formData);
+  await assertSeatingLockHeld(supabase, eventId, lockId);
+
+  const [tables, assignments, guests, floorPlan, memberships, constraints] = await Promise.all([
+    fetchTables(supabase, eventId),
+    fetchAssignments(supabase, eventId),
+    fetchGuestsByEvent(supabase, eventId),
+    fetchFloorPlan(supabase, eventId),
+    fetchGroupMembershipsByEvent(supabase, eventId),
+    fetchSeatingConstraints(supabase, eventId),
+  ]);
+
+  // Keep locked seats; clear everyone else so the solver re-seats around them.
+  const lockedAssignments = assignments.filter((a) => a.locked);
+  const { error: delErr } = await supabase
+    .from('event_seat_assignments')
+    .delete()
+    .eq('event_id', eventId)
+    .eq('locked', false);
+  if (delErr) throw new Error(delErr.message);
+
+  const autoSeatGuestList: AutoSeatGuest[] = guests.map((g) => ({
+    guest_id: g.guest_id,
+    role: g.role,
+    group_category: g.group_category,
+    rsvp_status: g.rsvp_status,
+    plus_one_of_guest_id: g.plus_one_of_guest_id,
+    last_name: g.last_name,
+    first_name: g.first_name,
+    group_id: memberships.get(g.guest_id)?.[0] ?? null,
+    seating_priority: g.seating_priority ?? null,
+  }));
+
+  const solved = solveSeatPlan({
+    tables,
+    guests: autoSeatGuestList,
+    assignments: lockedAssignments, // locked = fixed context the solver fills around
+    stage: { x: floorPlan.stage_x, y: floorPlan.stage_y },
+    priorityOrder: floorPlan.priority_order,
+    constraints,
+    groupMembers: memberships,
+  });
+  if (solved.assignments.length > 0) {
+    const { error } = await supabase.from('event_seat_assignments').insert(
+      solved.assignments.map((r) => ({
+        event_id: eventId,
+        table_id: r.table_id,
+        guest_id: r.guest_id,
+        seat_number: r.seat_number,
+      })),
+    );
+    if (error) throw new Error(error.message);
+  }
+
+  await refreshSeatingLock(supabase, lockId);
+  revalidatePath(`/dashboard/${eventId}/seating`);
+  return {
+    seated: solved.assignments.length,
+    totalRules: solved.totalRules,
+    satisfiedRules: solved.satisfiedCount,
+    unsatisfiedRules: solved.violations.length,
+  };
+}
+
 export async function updateTablePosition(formData: FormData) {
   const eventId = formData.get('event_id');
   const tableId = formData.get('table_id');

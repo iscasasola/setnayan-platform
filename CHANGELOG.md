@@ -16,6 +16,21 @@ Verified: `pnpm typecheck` 0 · `pnpm lint` 0 · `pnpm lint:botnav` ✓ (templat
 PROVISIONAL / deferred: the per-doorway **action choice** is owner-tunable (a phase-aware Day-of variant — e.g. check-in/scan — is a follow-up), and the **vendor + admin FABs** are not wired here because their single dominant action is a genuine product call (the ruleset says the FAB is absent when a surface has no clear dominant action). Also still pending: NAV-5 Notion "More" rebuild + the lint hardening (≤5 count + frosted-fill guard).
 
 SPEC IMPACT: Nav architecture — adds the broken-out action (couple doorway). No SKU/schema/pricing/public-claim change.
+## 2026-06-21 · fix(studio): every Studio feature button now lands somewhere usable (no more "coming soon" dead-ends)
+
+**Owner ask:** after the App Store detail-route fix, "check the rest of Studio — all pages must have somewhere to go. Let the button open it, or go to the paywall if it must be purchased first; if it's a free service, let it open."
+
+**Audit (all 15 visible Studio features across Setnayan AI · Website · Capture · Branding).** 13 already land correctly: each opens its real functional surface, and every *paid* one gates usage behind the canonical `InlineCheckoutDrawer` paywall on that surface (papic, panood, patiktok, save-the-date premium openings, setnayan-ai, animated-monogram→/monogram, custom-qr-guest, indoor-blueprint, pakanta), while the free ones open straight through (mood-board, led, photo-delivery, playlist). **Two were dead-ends** — `landing-page` and `music-creator` have no Studio surface of their own, so their "Open" button hit the `[addon]` catch-all "coming soon" placeholder.
+
+**Fix — point the two no-surface features at their real homes:**
+- `landing-page` → `/dashboard/[eventId]/website` (the wedding-website hub — a real, free surface that hands off to the site editor).
+- `music-creator` → `/dashboard/[eventId]/studio/pakanta` (Pakanta — its own detail copy already frames it as "generate a custom score — Pakanta"; Pakanta carries its own paywall).
+- Wired in `addOnHref()` (`lib/add-ons-catalog.ts`) so the detail-page "Open" button links straight there, and in `SHIPPED_REDIRECTS` (`studio/[addon]/page.tsx`) so any direct hit / old bookmark to `/studio/landing-page` or `/studio/music-creator` redirects too. Removed both stale "coming soon" placeholder entries from `ADD_ON_META`.
+
+**Flagged for owner (not changed):** `music-creator` overlaps `pakanta` (and partly the free `playlist`) — it now routes to Pakanta, but you may want to retire the tile or give it a distinct scope (a free reel-music picker doesn't exist yet). `led` opens freely with no SKU wired (effectively free today); fine unless it's meant to be a paid Live-Background SKU. `photo-delivery`'s Drive connect shows an in-surface "coming soon" until `GOOGLE_DRIVE_OAUTH_CLIENT_ID` is set.
+
+SPEC IMPACT: None (routing/wiring fix; no product, pricing, or schema change — all prices still render live from the admin catalog).
+
 ## 2026-06-21 · feat(seating): linked tables group as ONE (Keynote-style move + rotate) + full-screen editor
 
 Owner ask: "when we link seats, they will be grouped as one now. so when we rotate a table, it rotates as one… think of it like how Keynote groups shapes. and break apart will unlink them." Plus: "the page still doesn't look clean for seat plan creation… [the Seating title + description + Walkthrough link] we can remove this and spread the whole content to the screen."

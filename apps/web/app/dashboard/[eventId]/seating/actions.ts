@@ -809,9 +809,18 @@ export async function linkTables(formData: FormData) {
   if (!a || !b) throw new Error('Table not found');
 
   const groupId = a.link_group_id ?? b.link_group_id ?? crypto.randomUUID();
-  // The unit keeps the FIRST table's identity (its existing unit label, else
-  // its own label) — tap the head table first, then the extension.
-  const label = a.link_group_label ?? a.table_label;
+  // A linked unit gets its OWN combined name (not silently the first table's),
+  // joining the two sides — e.g. "Table 3 & Table 4". Couples can rename the
+  // unit afterward (renaming any member renames the whole unit). De-duped when
+  // re-linking the same unit; capped to the rename limit.
+  const aLabel = a.link_group_label ?? a.table_label;
+  const bLabel = b.link_group_label ?? b.table_label;
+  const label =
+    a.link_group_id && a.link_group_id === b.link_group_id
+      ? aLabel
+      : aLabel === bLabel
+        ? aLabel
+        : `${aLabel} & ${bLabel}`.slice(0, 64);
   const memberIds = new Set<string>([tableA, tableB]);
   for (const t of tables) {
     if (t.link_group_id && (t.link_group_id === a.link_group_id || t.link_group_id === b.link_group_id)) {

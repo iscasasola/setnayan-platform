@@ -15,6 +15,16 @@ Owner: *"remove the padding and fill the blank space — remove … Monogram mak
 tsc 0 · `next lint` clean. No schema/SKU change.
 
 SPEC IMPACT iter 0037 (monogram) — Monogram Maker is studio-only + full-width; cosmetic, no behavior change → corpus DECISION_LOG (2026-06-22).
+## 2026-06-22 · fix(seating): linked tables move as ONE (no tailing) + a combined unit name
+
+Owner feedback on the shipped linked-table grouping: "the linked tables will have a new table name. we do not want the other table tailing the other table. we want them to move as one."
+
+- **Tailing fixed** (`…/seating/_components/seating-editor.tsx`). The rigid group-translate already moved every member by the same delta each frame, but each table element carries `transition: left/top 140ms ease` and that ease was disabled (`transition: none`) **only for the grabbed table** — so the linked member eased 140ms behind and visibly *tailed*. Now a `dragGroupId` memo marks every member of the dragged unit as "dragging," so the whole unit gets `transition: none` + the raised z-index and moves in true lockstep. (Rotate keeps its smooth ease — only the reported move-as-one was tailing.)
+- **Combined unit name** (`…/seating/actions.ts` `linkTables`). Linking no longer silently adopts the first table's name; the unit gets its **own combined name** — `"{A} & {B}"` (e.g. "Table 3 & Table 4"), de-duped when re-linking the same unit and capped at 64 chars. Couples can still rename the unit from any member. The link notice copy updated to match.
+
+No schema change. tsc 0; `next lint` clean. CI build is the gate.
+
+SPEC IMPACT: Iteration 0008 (linked-table behaviour) — refines the 2026-06-21 grouping. Logged in DECISION_LOG.
 
 ---
 
@@ -63,6 +73,21 @@ Owner build-out of the 3D seat-plan experience (flag-gated lab) + "add seatplan 
 No schema change. RSVP→seat *rules* in the canonical 2D engine (auto-hold pending, auto-free on decline, auto-reserve +1, caterer tentative counts) remain a separate, load-bearing follow-up. tsc 0; `next lint` clean; the add-ons-detail unit tests pass. CI build is the gate.
 
 SPEC IMPACT: Iteration 0008 (3D experience) + 0021 Studio surface (now lists the seat plan). The Studio card is a **user-visible** addition (not flag-gated); the 3D destination is flag-gated. Logged in DECISION_LOG.
+## 2026-06-21 · feat(studio): the website's 4 parts are 4 Studio cards + standalone editors
+
+Owner: *"on studio … the website is composed of 4 parts — Save the Date, RSVP, Event and Editorial. we want one for each … separate the content of the landing page. show the other 3 along with the save the date."* Chose **separate editor pages** (not just tabs) **+ keep a combined card**.
+
+- **Studio "Website" section now lists all four parts as their own cards** (`lib/add-ons-catalog.ts`): Save the Date (featured, unchanged) + new **RSVP · Event · Editorial** rows — all free, each with its own icon/poster — plus the existing catch-all relabeled **"Whole website"** (the combined editor). The `StudioGroup` doc-comment already promised this set ("website → Save the Date · RSVP · Event · Editorial"); the catalog now matches it.
+- **Three standalone full-screen editors** at `/site-editor/[eventId]/{rsvp,event,editorial}` — each is the same machinery as ONE tab of the combined editor via a new exported `PhaseEditor` (live per-phase preview + that phase's existing cards + the inline hero/backdrop sheets), minus the tab nav; ✕ returns to Studio (its launch point). Reuses every card builder + sheet already in `site-editor.tsx` (zero duplication) through a new shared `useInlineEditState` hook.
+- **One shared data loader** `_data.ts` (`loadSiteEditorData`) backs the combined editor **and** all three phase editors, so the couple-membership gate, the register-to-use gate, and the fetched prop shape are identical across all four. The combined `page.tsx` was slimmed to call it.
+- **Routing:** `addOnHref` / `appStoreDetailHref` send the three parts → `/site-editor/[eventId]/<phase>` and "Whole website" → `/site-editor/[eventId]` (no `/about` interstitial — these are free editing tools the couple revisits). `/studio/[addon]` mirrors the same-key redirect so a direct hit / old bookmark lands in the editor.
+- **Editorial cards fixed:** "Create editorial" + "Pick photos" now link their already-shipped editors (`website/editorial`, `website/our-photos`) — they were stale "coming soon"; reviews + thank-you stay honest coming-soon.
+- **Website hub handoff:** the "Your page through time" section at `/dashboard/[eventId]/website` now gives each of the four parts an **Edit** action into its own editor (+ a secondary **Preview**) — so the overview hub connects to the new per-part editors, not just the public previews.
+- **Invariant test updated:** `add-ons-detail.test.ts` learned a shared `OPENS_OWN_SURFACE` exception set (panood · seating · supplies + the four website parts) — these open their editor directly, so they're exempt from the "every hub feature has `/studio/about` detail content / routes under `/studio/about`" guards.
+
+tsc 0 · `next lint` clean (only pre-existing, unrelated warnings) · `test:unit` 345/345. No schema change; CI production build + the Vercel preview are the runtime gate.
+
+SPEC IMPACT: iter 0021 (Studio surface) + the website's four lifecycle parts (0002 RSVP/landing · 0024 Save the Date · 0031 day-of Event · 0038 Editorial) → CHANGELOG + DECISION_LOG.
 
 ---
 

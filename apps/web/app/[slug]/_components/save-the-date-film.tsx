@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * SaveTheDateFilm — the continuous, self-playing, scrubbable Save-the-Date
+ * SaveTheDateFilm — the continuous, self-playing Save-the-Date
  * "film" (PR4 content layer · 0024_Save_the_Date_Content_and_Customization_2026-06-17.md).
  *
  * Renders full-screen (fixed inset-0 z-[50]) so it sits under the RevealOverlay
@@ -17,12 +17,11 @@
  *   everything; on end it advances) OR the photo gallery · 9 add-to-calendar.
  * Beats whose data is missing (no date, one venue, no video) are simply skipped.
  *
- * Interaction (owner 2026-06-21): the film auto-plays through the text beats;
- * PRESS pauses and RELEASE continues; a deliberate vertical DRAG scrubs to an
- * adjacent beat (still auto-playing). Scrolling does NOT move the film. No
- * tap-to-step, no chrome — just the texts.
- * The video beat plays the clip; press pauses it, release resumes, a swipe scrubs
- * past. Music auto-plays (the reveal-lift gesture has already unlocked audio).
+ * Interaction (owner 2026-06-22): the film auto-plays through the text beats;
+ * PRESS pauses and RELEASE continues — that's the whole interaction. No scrub,
+ * no scroll, no tap-to-step, no chrome — just the texts, auto-playing.
+ * The video beat plays the clip; press pauses it, release resumes.
+ * Music auto-plays (the reveal-lift gesture has already unlocked audio).
  *
  * theme system: pass themeId to pick the display FONT (the 5 ids map to fonts;
  * colours come from the Step-1 background + legibility tone).
@@ -40,7 +39,9 @@ import { STD_THEMES, resolveStdTheme, type StdTheme, type StdThemeId } from '@/l
 import { readableTextOn } from '@/lib/site-palette';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
+import { BespokeMonogramMotion } from '@/app/_components/bespoke-monogram-motion';
 import { type MonogramConfig } from '@/lib/monogram';
+import type { MonogramMotionKey } from '@/lib/monogram-motion';
 
 /**
  * Set an <audio>/<video> volume safely. The HTML spec requires the setter to
@@ -76,8 +77,8 @@ type Slide = {
  * Per-beat entrance keyframes — one distinct motion per piece of information so
  * each beat reveals its own way (bloom · rise · zoom · slide-in L/R · breathe ·
  * blur-in · pop · soft-rise). Injected once via a <style> tag in the film; the
- * active slide applies its `anim` inline (so it re-fires on every visit, forward
- * or scrubbed back). `both` fill-mode holds the final resting state.
+ * active slide applies its `anim` inline (so it re-fires each time the beat is
+ * shown). `both` fill-mode holds the final resting state.
  */
 const FILM_ANIM_CSS = `
 @keyframes stdBloom { from { opacity: 0; transform: scale(.62); filter: blur(6px); } to { opacity: 1; transform: scale(1); filter: blur(0); } }
@@ -106,11 +107,6 @@ const BASE_W = 440;
 const BASE_H = 780;
 const FIT_MIN = 0.6;
 const FIT_MAX = 2.3;
-// Dragging BACK to re-read holds that beat for its normal dwell PLUS
-// this bonus before auto-play pulls forward again — a deliberate re-read isn't
-// yanked off after the standard ~4s (owner 2026-06-21). Forward skips keep the
-// normal dwell.
-const REREAD_DWELL_BONUS_MS = 4000;
 // The video↔content cross-dissolve duration (owner 2026-06-21 "smoother crossfade
 // between the video and the website"). ONE value drives BOTH the audio crossfade
 // (equal-power ramp) AND the full-screen clip overlay's opacity fade, so sound and
@@ -193,6 +189,9 @@ function FilmMonogram({
   textStyle,
   lockup,
   lockupScaleCls,
+  animatedMonogram,
+  monoReplayKey,
+  tone,
 }: {
   svg?: string | null;
   text: string;
@@ -207,28 +206,73 @@ function FilmMonogram({
   /** Fixed Tailwind scale class for the 80px HeroMonogram so it fills this beat
    *  (the stage's transform-scale handles all responsiveness — no breakpoints). */
   lockupScaleCls: string;
+  /** Paid Animated Monogram motion, or false. Truthy → the lockup animates + a
+   *  bespoke mark gets a one-shot bloom entrance. */
+  animatedMonogram: MonogramMotionKey | false;
+  /** Changes when the active beat changes OR the film first starts — remounts the
+   *  mark so its entrance REPLAYS at the moment its beat is shown, not at load. */
+  monoReplayKey: string;
+  /** Legibility tone over the background — recolours frameless lockup ink + sets the glow. */
+  tone: 'light' | 'dark' | null;
 }) {
-  // 1 · uploaded / monogram-lab mark wins (bypasses the onboarding logo).
+  // Contrast (owner: "the colour of the logo will vary on the background … make
+  // sure the logo will be visible"). A soft tone-glow lifts ANY mark off the bg;
+  // a FRAMELESS lockup (bar/duo/script/infinity) also recolours its ink to the
+  // bg tone (those marks sit directly on the background, unlike the cream-circle
+  // + bespoke renders which carry their own backing).
+  const glow =
+    tone === 'light'
+      ? 'drop-shadow(0 0 11px rgba(255,255,255,0.5))'
+      : tone === 'dark'
+        ? 'drop-shadow(0 2px 6px rgba(0,0,0,0.32))'
+        : 'drop-shadow(0 1px 3px rgba(0,0,0,0.16))';
+  const contrastInk = tone === 'light' ? '#FBFBFA' : tone === 'dark' ? '#1E2229' : null;
+
+  // 1 · uploaded / monogram-lab SVG — a BARE mark (no cream circle). For an
+  //     Animated Monogram owner the couple's CHOSEN motion plays ON the mark via
+  //     BespokeMonogramMotion (whole-mark signatures; the glyph-level library
+  //     needs letterforms) — keyed by monoReplayKey so it replays when the beat is
+  //     shown (owner 2026-06-22 "play according to the settings created"). Non-
+  //     owners get the static mark. Contrast glow either way.
   if (svg) {
+    if (animatedMonogram) {
+      return (
+        <BespokeMonogramMotion
+          key={monoReplayKey}
+          svg={svg}
+          motion={animatedMonogram}
+          sizeCls={sizeCls}
+          glow={glow}
+          color={contrastInk ?? lockup?.monogram?.color ?? '#5C2542'}
+        />
+      );
+    }
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={bespokeSvgToDataUri(svg)} alt="" className={`${sizeCls} object-contain`} />
+      <span aria-hidden className={`${sizeCls} inline-flex items-center justify-center`} style={{ filter: glow }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={bespokeSvgToDataUri(svg)} alt="" className="h-full w-full object-contain" />
+      </span>
     );
   }
-  // 2 · else the couple's onboarding lockup (their real chosen design).
+  // 2 · the couple's onboarding lockup — animate the chosen motion (the paid
+  //     Animated Monogram), re-keyed so it plays once each time this beat shows.
   if (lockup) {
+    const style = (lockup.design as { monogram_style?: string | null } | null)?.monogram_style ?? null;
+    const frameless = style === 'bar' || style === 'duo' || style === 'script' || style === 'infinity';
+    const monogram = frameless && contrastInk ? { ...lockup.monogram, color: contrastInk } : lockup.monogram;
     return (
-      <div aria-hidden className={`inline-flex origin-center items-center justify-center ${lockupScaleCls}`}>
+      <div aria-hidden className={`inline-flex origin-center items-center justify-center ${lockupScaleCls}`} style={{ filter: glow }}>
         <HeroMonogram
+          key={monoReplayKey}
           event={lockup.design}
-          monogram={lockup.monogram}
-          animatedMonogram={false}
+          monogram={monogram}
+          animatedMonogram={animatedMonogram}
           bespokeSvg={null}
         />
       </div>
     );
   }
-  // 3 · last-resort initials in the film's own font (safety net).
+  // 3 · last-resort initials (safety net) — unchanged.
   return (
     <div className={textCls} style={textStyle}>
       {text}
@@ -245,8 +289,11 @@ export function SaveTheDateFilm({
   tone = null,
   lockup = null,
   accentHex = null,
+  animatedMonogram = false,
 }: {
   content: StdFilmContent;
+  /** Paid Animated Monogram motion, or false. */
+  animatedMonogram?: MonogramMotionKey | false;
   /** Theme override (the display font). Defaults to 'default' (Cormorant). */
   themeId?: StdThemeId;
   /** The film's accent colour (button + accent marks) as a `#rrggbb` hex —
@@ -320,12 +367,23 @@ export function SaveTheDateFilm({
   // reaches the video beat, not on every re-render while it plays.
   const prevOnVideoRef = useRef(false);
 
+  // Active beat + "film has started" — declared ABOVE the slides so each beat's
+  // node can key its monogram on `monoReplayKey`. That key changes when the
+  // active beat changes OR when the film first starts (reveal-done), so the
+  // opening Animated-Monogram REMOUNTS — and its one-shot entrance REPLAYS — at
+  // the moment its beat is actually shown, not back at page-load under the veil.
+  const [idx, setIdx] = useState(0);
+  const [started, setStarted] = useState(false); // flips true when the film first starts (reveal-done) so the opening monogram replays when it's actually shown
+  const monoReplayKey = String(idx) + '-' + String(started);
+
   const slides: Slide[] = [];
 
   // 1 — monogram / logo
   slides.push({
     key: 'monogram',
-    dur: 4000,
+    // The Animated Monogram's lockup/bloom entrance runs ~2.5s; give beat 1 room
+    // to play it fully then dwell before advancing. Static mark keeps the 4s beat.
+    dur: animatedMonogram ? 6500 : 4000,
     anim: ANIM.bloom,
     node: (
       <div className="flex flex-col items-center gap-3">
@@ -338,6 +396,9 @@ export function SaveTheDateFilm({
           sizeCls="h-36 w-36"
           textCls={`${theme.fontCls} text-7xl font-medium ${accentMarkCls}`}
           textStyle={accentMarkStyle}
+          animatedMonogram={animatedMonogram}
+          monoReplayKey={monoReplayKey}
+          tone={tone}
         />
         <div className={`h-px w-10 ${dividerCls} opacity-40`} style={dividerStyle} />
       </div>
@@ -436,6 +497,9 @@ export function SaveTheDateFilm({
           sizeCls="h-16 w-16"
           textCls={`${theme.fontCls} text-3xl font-medium ${accentMarkCls}`}
           textStyle={accentMarkStyle}
+          animatedMonogram={animatedMonogram}
+          monoReplayKey={monoReplayKey}
+          tone={tone}
         />
         <p className={`${theme.fontCls} text-4xl font-medium italic leading-tight`}>
           We can&rsquo;t wait to
@@ -541,6 +605,9 @@ export function SaveTheDateFilm({
           sizeCls="h-24 w-24"
           textCls={`${theme.fontCls} text-4xl font-medium ${accentMarkCls}`}
           textStyle={accentMarkStyle}
+          animatedMonogram={animatedMonogram}
+          monoReplayKey={monoReplayKey}
+          tone={tone}
         />
         <p className={LABEL}>Save the date</p>
         {content.dateLabel ? (
@@ -568,7 +635,7 @@ export function SaveTheDateFilm({
 
   const N = slides.length;
   const videoSlideIndex = hasVideo ? slides.findIndex((s) => s.key === 'video') : -1;
-  const [idx, setIdx] = useState(0);
+  // (idx + started declared above the slides so each monogram beat can key on monoReplayKey.)
   const [playing, setPlaying] = useState(false); // starts paused; unblocks on reveal-done
   const [muted, setMuted] = useState(false);
   // The autoplay policy forced the couple's clip to play MUTED (no recent user
@@ -630,6 +697,7 @@ export function SaveTheDateFilm({
     if (preview) {
       playingRef.current = true;
       setPlaying(true);
+      setStarted(true);
       startRef.current = performance.now();
       return;
     }
@@ -637,6 +705,7 @@ export function SaveTheDateFilm({
       if (playingRef.current) return;
       playingRef.current = true;
       setPlaying(true);
+      setStarted(true);
       startRef.current = performance.now();
       if (!muted && audioRef.current) audioRef.current.play().catch(() => {});
       // One-time "press & hold to pause" cue — a beat after the film begins, then
@@ -785,7 +854,7 @@ export function SaveTheDateFilm({
       if (idxRef.current > videoSlideIdxRef.current || muted || preview) {
         v.pause();
       } else if (v.paused) {
-        // RE-WARM if a prior mute or backward-scrub left the clip paused before its
+        // RE-WARM if a prior mute or off-beat pause left the clip paused before its
         // beat — restart it silent + looping so its audio is ready to ramp on the
         // beat. Best-effort: succeeds on desktop/Android; iOS off-gesture rejects →
         // the beat's own "Tap for sound" fallback still holds (no hang).
@@ -799,7 +868,7 @@ export function SaveTheDateFilm({
 
     // Natural end → return to the closing screen (the crossfade-back fires there).
     // Guard like onError below: ONLY the clip's own beat may advance on 'ended'.
-    // Warm-play sets loop=false on the beat, but a scrub could leave it playing
+    // Warm-play sets loop=false on the beat, but the clip can still be playing
     // off-beat — its natural end must NOT yank the film forward from a text beat.
     const onEnded = () => {
       if (idxRef.current === videoSlideIdxRef.current) goRef.current(videoSlideIdxRef.current + 1);
@@ -840,32 +909,14 @@ export function SaveTheDateFilm({
     };
   }, [idx, videoSlideIndex]);
 
-  // Interaction model (owner 2026-06-21): PRESS pauses, RELEASE continues; a
-  // deliberate vertical DRAG scrubs through the beats (still auto-playing).
-  // Scrolling does NOT move the film. No tap-to-step. The press also unlocks
-  // audio (browsers need a gesture).
-  const downXRef = useRef(0);
-  const downYRef = useRef(0);
+  // Interaction model (owner 2026-06-22): PRESS pauses, RELEASE continues — the
+  // whole interaction. No scrub, no scroll, no tap-to-step. The press also
+  // unlocks audio (browsers need a gesture).
 
   // A tap that lands on a real control (Add to calendar · play · mute) must reach
-  // THAT button, not be swallowed as a film scrub/pause.
+  // THAT button, not be swallowed as a film press/pause.
   const hitControl = (e: React.PointerEvent) =>
     Boolean((e.target as HTMLElement | null)?.closest?.('button, a'));
-
-  // Scrub to an adjacent beat (clamped) WITHOUT leaving auto-play — a swipe is a
-  // navigation nudge (skip ahead / swipe back to re-read), NOT a pause, so the
-  // film keeps auto-advancing from wherever the guest lands (owner 2026-06-21
-  // "when they swipe, auto play must still continue"). goRef.current() resets the
-  // per-beat dwell timer, so the landed beat gets its full duration before the
-  // player moves on. Pause stays available via press-and-hold.
-  const stepBeat = (dir: number) => {
-    const target = Math.max(0, Math.min(N - 1, idxRef.current + dir));
-    goRef.current(target);
-    // Re-read hold: a BACKWARD scrub gets a longer dwell so auto-play doesn't yank
-    // the guest off the beat they returned to. goRef set startRef=now; pushing it
-    // into the future extends the hold; forward skips keep the normal dwell.
-    if (dir < 0) startRef.current = performance.now() + REREAD_DWELL_BONUS_MS;
-  };
 
   // Auto-play to FULL SCREEN (owner 2026-06-19). Browsers REQUIRE a user gesture
   // for the Fullscreen API, so we fire it on the first gesture: the reveal-lift
@@ -886,8 +937,6 @@ export function SaveTheDateFilm({
   const onPointerDown = (e: React.PointerEvent) => {
     if (hitControl(e)) return;
     requestFilmFullscreen(); // first stage gesture → true full screen (no-reveal path)
-    downXRef.current = e.clientX;
-    downYRef.current = e.clientY;
     // Stir the veil's petals at the press point — the controls RUN the petals, not
     // just hold the film (owner 2026-06-21 "the controls will run the petals and
     // veil"). The veil (z-60) listens for 'std-veil-poke' and bounces the nearest
@@ -912,8 +961,7 @@ export function SaveTheDateFilm({
     // PRESS = PAUSE (owner 2026-06-21 "tap just pauses; releasing will continue").
     // On the video beat that pauses the CLIP directly (the film holds there, so
     // its `playing` flag is left alone); on a text beat it stops the auto-advance
-    // and stamps pauseAt so the beat keeps its full dwell when it resumes. A swipe
-    // (detected on release) overrides this to scrub instead.
+    // and stamps pauseAt so the beat keeps its full dwell when it resumes.
     if (idxRef.current === videoSlideIdxRef.current) {
       videoElRef.current?.pause();
       pauseAtRef.current = 0;
@@ -926,23 +974,10 @@ export function SaveTheDateFilm({
 
   const onPointerUp = (e: React.PointerEvent) => {
     if (hitControl(e)) return;
-    const dx = e.clientX - downXRef.current;
-    const dy = e.clientY - downYRef.current;
-    // Vertical swipe = SCRUB to an adjacent beat (up → next, down → back); the film
-    // keeps auto-playing (stepBeat resets the dwell). This overrides the press-
-    // pause — the guest is navigating, not pausing.
-    if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 30) {
-      stepBeat(dy < 0 ? 1 : -1);
-      if (!playingRef.current) {
-        playingRef.current = true;
-        setPlaying(true);
-      }
-      pauseAtRef.current = 0;
-      return;
-    }
-    // RELEASE (tap or hold) = CONTINUE. On the video beat, resume the clip; on a
-    // text beat, resume the auto-advance and credit the paused span back to the
-    // beat's dwell so it isn't cut short. No tap-to-step (owner 2026-06-21).
+    // RELEASE (tap or hold) = CONTINUE — the only release behavior (no scrub,
+    // owner 2026-06-22). On the video beat, resume the clip; on a text beat,
+    // resume the auto-advance and credit the paused span back to the beat's dwell
+    // so it isn't cut short.
     if (idxRef.current === videoSlideIdxRef.current) {
       videoElRef.current?.play().catch(() => {});
     } else {
@@ -987,11 +1022,10 @@ export function SaveTheDateFilm({
     setVideoSoundBlocked(false);
   };
 
-  // (Desktop SCROLL no longer scrubs the film — owner 2026-06-21 "transition of
-  // text still moves with scrolling … that should not work anymore." The film
-  // auto-plays; press-and-hold pauses and release resumes, and a deliberate
-  // vertical drag still scrubs. The old window 'wheel' listener that advanced
-  // beats on every mouse/trackpad scroll was removed.)
+  // (The film does NOT scrub — owner 2026-06-21/22. Scroll never moves it (the
+  // window 'wheel' listener was removed) and neither does a drag; it just
+  // auto-plays, with press-and-hold to pause / release to continue. No manual
+  // beat navigation at all.)
 
   // On the reveal-lift gesture the veil dispatches 'std-go-fullscreen'
   // SYNCHRONOUSLY from its lift tap (a user gesture), so both the Fullscreen API
@@ -1103,10 +1137,10 @@ export function SaveTheDateFilm({
       ) : null}
 
       {/* Chrome removed (owner 2026-06-19): NO stories scrub bars, NO transport
-          controls — just the texts. The film auto-plays; the guest scrubs by
-          a deliberate vertical drag, and PRESSES to pause / releases to continue
-          (owner 2026-06-21). The lone exception is a single subtle mute, since the
-          soundtrack auto-plays and needs an escape. */}
+          controls — just the texts. The film auto-plays; the guest PRESSES to
+          pause / releases to continue (owner 2026-06-22 — no scrub at all). The
+          lone exception is a single subtle mute, since the soundtrack auto-plays
+          and needs an escape. */}
       {content.musicUrl || content.videoUrl ? (
         <div className="absolute bottom-5 right-4 z-20" onClick={(e) => e.stopPropagation()}>
           <button
@@ -1126,7 +1160,7 @@ export function SaveTheDateFilm({
           DIFFERENT, one-time cue: "press and hold to pause", since the film has no
           transport chrome and pausing would otherwise be undiscoverable. It fades
           after a few seconds and never returns. pointer-events-none so it never
-          blocks a scrub or hold. */}
+          blocks a press or hold. */}
       {!preview ? (
         <div
           className={`pointer-events-none absolute inset-x-0 bottom-16 z-20 flex justify-center transition-opacity duration-700 ${
@@ -1140,7 +1174,7 @@ export function SaveTheDateFilm({
       ) : null}
 
       {/* Slides — each beat plays its OWN entrance animation when it becomes
-          active (re-fires on every visit, forward or scrubbed back). The
+          active (re-fires each time the beat is shown). The
           animation rides the full-screen slide box, so the centred content
           rises / blooms / slides as one. */}
       <div className="absolute inset-0">
@@ -1341,7 +1375,7 @@ export function SaveTheDateFilm({
               (autoplay policy) and the guest hasn't globally muted. One tap is a
               user gesture, so it unmutes the couple's own audio. pointer-events
               re-enabled on the button alone; the rest of the overlay stays
-              pass-through so the film's scrub/hold gestures still reach the stage
+              pass-through so the film's press/hold gestures still reach the stage
               beneath. Hidden the instant sound is on or the beat ends. */}
           {videoSoundBlocked && !muted && idx === videoSlideIndex ? (
             <button

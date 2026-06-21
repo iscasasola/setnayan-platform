@@ -6,12 +6,10 @@ import { registerGatesEnabled } from '@/lib/register-gates';
 import { getCurrentUser } from '@/lib/auth';
 import { resolveMonogram } from '@/lib/monogram';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
-import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { BespokeMonogramMark } from '@/app/_components/bespoke-monogram-mark';
 import { FeatureUsCard } from '@/app/dashboard/[eventId]/_components/feature-us-card';
 import { VectorStudio } from './studio';
 import { sanitizeStudioConfig } from '@/lib/monogram-studio-shared';
-import { MonogramUploadCard } from './upload-card';
 import { MonogramDraftRestore } from './draft-restore';
 
 export const metadata = { title: 'Monogram Maker · Setnayan' };
@@ -21,12 +19,13 @@ export const maxDuration = 60;
 /**
  * /dashboard/[eventId]/monogram — the couple's standalone Monogram Maker.
  *
- * Two ways to set the wedding mark: the **Vector Studio** (compose it from
- * scratch — real font outlines, boolean interlock, a mirrored pen) or **Upload
- * your own**. Both persist `events.monogram_custom_svg` (+ a re-editable
- * `monogram_studio_config` for the studio), the single canonical mark every
- * surface reads — chrome switcher, QR centre, landing hero, save-the-date. The
- * free static mark is never gated.
+ * The wedding mark is set ONE way: the **Vector Studio** — compose it from
+ * scratch with real font outlines, boolean interlock, and a mirrored pen (owner
+ * 2026-06-21 "make the vector monogram the only screen for the monogram"; the
+ * earlier "upload your own" path is retired here). It persists
+ * `events.monogram_custom_svg` (+ a re-editable `monogram_studio_config`), the
+ * single canonical mark every surface reads — chrome switcher, QR centre,
+ * landing hero, save-the-date. The free static mark is never gated.
  *
  * The "How it animates" section upsells the paid ANIMATED_MONOGRAM SKU
  * (₱2,499 · gated via orders, not a column): when owned, the couple's mark
@@ -38,19 +37,7 @@ type Props = {
   searchParams: Promise<{
     studio?: string;
     studio_error?: string;
-    upload?: string;
   }>;
-};
-
-// Customer-safe status lines for the "upload your own monogram" flow.
-const UPLOAD_NOTICES: Record<string, { tone: 'ok' | 'error'; text: string }> = {
-  ok: { tone: 'ok', text: 'Your monogram is uploaded — it’s now your mark everywhere.' },
-  removed: { tone: 'ok', text: 'Removed your upload — back to your Setnayan mark.' },
-  empty: { tone: 'error', text: 'Please choose a file to upload.' },
-  too_big: { tone: 'error', text: 'That file is too large — please use one under 4 MB.' },
-  bad_type: { tone: 'error', text: 'Please upload a PNG, JPG, or SVG image.' },
-  bad_svg: { tone: 'error', text: 'We couldn’t read that SVG — try a PNG/JPG instead.' },
-  bad_image: { tone: 'error', text: 'We couldn’t read that image — please try another file.' },
 };
 
 // Customer-safe status lines for the vector studio's redirect flags.
@@ -80,7 +67,7 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
   const { data: event } = await supabase
     .from('events')
     .select(
-      'event_id, display_name, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_motion_key, monogram_uploaded_svg, monogram_custom_svg, monogram_custom_generation_id, monogram_studio_config',
+      'event_id, display_name, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_motion_key, monogram_custom_svg, monogram_custom_generation_id, monogram_studio_config',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -89,27 +76,18 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
   const owns = await eventAnimatedMonogramActive(supabase, eventId).catch(() => false);
   const monogram = resolveMonogram(event);
 
-  // The couple's own UPLOAD outranks the studio mark (owner rule 2026-06-15).
-  // `customSvg` is the EFFECTIVE custom mark every downstream surface reads, so
-  // the upload wins on the maker preview + the Feature-Us flow just like it does
-  // in the chrome icon + website hero.
-  const uploadedSvg =
-    typeof event.monogram_uploaded_svg === 'string' && event.monogram_uploaded_svg.trim()
-      ? event.monogram_uploaded_svg
-      : null;
+  // `customSvg` is the EFFECTIVE custom mark every downstream surface reads — the
+  // Vector Studio mark (the only way to set one here). Drives the maker preview +
+  // the Feature-Us flow just like the chrome icon + website hero.
   const customSvg =
-    uploadedSvg ??
-    (typeof event.monogram_custom_svg === 'string' && event.monogram_custom_svg
+    typeof event.monogram_custom_svg === 'string' && event.monogram_custom_svg
       ? event.monogram_custom_svg
-      : null);
-  const uploadedDataUri = uploadedSvg ? bespokeSvgToDataUri(uploadedSvg) : null;
-  const uploadNotice = UPLOAD_NOTICES[sp.upload ?? ''] ?? null;
+      : null;
 
-  // ── Vector studio state (the from-scratch composer). hasStudio = the
-  // EFFECTIVE mark is this studio's (re-editable config present, a custom svg
-  // exists, and no upload overrides it).
+  // ── Vector studio state (the from-scratch composer). hasStudio = a saved
+  // studio mark exists (re-editable config present + a custom svg).
   const studioConfig = sanitizeStudioConfig(event.monogram_studio_config);
-  const hasStudio = Boolean(studioConfig && event.monogram_custom_svg && !uploadedSvg);
+  const hasStudio = Boolean(studioConfig && event.monogram_custom_svg);
   const studioNotice = STUDIO_NOTICES[sp.studio_error ?? ''] ?? STUDIO_NOTICES[sp.studio ?? ''] ?? null;
 
   // ── Social Sharing & Featuring Program (migration 20261203000000) — the
@@ -153,30 +131,13 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
           Your wedding monogram
         </h1>
         <p className="max-w-prose text-base text-ink/65">
-          Design your mark from scratch in the Vector Studio, or upload your own.
-          It shows on your wedding website, your QR codes, and across your
-          dashboard.
+          Design your mark from scratch in the Vector Studio. It shows on your
+          wedding website, your QR codes, and across your dashboard.
         </p>
       </header>
 
-      {uploadNotice ? (
-        <p
-          role="status"
-          className={`rounded-xl border px-4 py-3 text-sm ${
-            uploadNotice.tone === 'ok'
-              ? 'border-success-200 bg-success-50 text-success-800'
-              : 'border-terracotta/30 bg-terracotta/10 text-terracotta-700'
-          }`}
-        >
-          {uploadNotice.text}
-        </p>
-      ) : null}
-
       {/* ── Carry-through: restore a mark designed on the free public studio (pre-signup) ── */}
       <MonogramDraftRestore eventId={eventId} hasCustomMark={Boolean(customSvg)} />
-
-      {/* ── Upload your own (overrides everything below · owner rule 2026-06-15) ── */}
-      <MonogramUploadCard eventId={eventId} activeDataUri={uploadedDataUri} />
 
       {/* ── Vector studio — compose the mark from scratch (real outlines · booleans · pen · symbols) ── */}
       <VectorStudio

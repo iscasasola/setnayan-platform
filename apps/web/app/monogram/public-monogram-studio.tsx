@@ -90,15 +90,26 @@ export function PublicMonogramStudio() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
     let alive = true;
     let api: StudioApi | null = null;
+    // The editor DOM is built imperatively here (NOT via React
+    // dangerouslySetInnerHTML) so React never owns or re-touches this subtree.
+    // Under StrictMode's mount→unmount→mount (and HMR remounts), a React-owned
+    // innerHTML could be re-injected out from under the imperative paper.js
+    // engine — the engine then drove a DETACHED node while the on-screen editor
+    // sat stuck on "Loading the typeface…" forever (start() ran, but on the wrong
+    // DOM). Owning the markup here makes the mount idempotent: cleanup wipes it,
+    // the next mount rebuilds clean, and the engine always binds to the exact
+    // nodes that are visible. (owner 2026-06-19 "it is not loading properly".)
+    root.innerHTML = STUDIO_HTML;
     // Safety net: if the engine/typeface never finishes (a hung dynamic import or
     // font fetch — e.g. a stale cached build), don't sit on "Loading the
-    // typeface…" forever. Surface a clear refresh prompt instead. (owner
-    // 2026-06-19 "it is not loading properly".)
+    // typeface…" forever. Surface a clear refresh prompt instead.
     const failTimer = window.setTimeout(() => {
       if (!alive || apiRef.current) return;
-      const load = rootRef.current?.querySelector<HTMLElement>('#load');
+      const load = root.querySelector<HTMLElement>('#load');
       if (load) {
         load.classList.remove('off');
         load.textContent = 'Still loading — please refresh the page.';
@@ -111,22 +122,20 @@ export function PublicMonogramStudio() {
           import('paperjs-offset'),
           import('opentype.js'),
         ]);
-        if (!alive || !rootRef.current) return;
+        if (!alive) return;
         const paper: any = (paperMod as any).default ?? paperMod;
         const off: any = offsetMod as any;
         const PaperOffset = off.PaperOffset ?? off.default?.PaperOffset ?? off.default ?? off;
         const ot: any = otMod as any;
         const opentype = ot.parse ? ot : (ot.default ?? ot);
-        api = mountStudio({ root: rootRef.current, paper, opentype, PaperOffset, initialConfig: null }) as StudioApi;
+        api = mountStudio({ root, paper, opentype, PaperOffset, initialConfig: null }) as StudioApi;
         apiRef.current = api;
         setReady(true);
         window.clearTimeout(failTimer);
       } catch {
         window.clearTimeout(failTimer);
-        if (rootRef.current) {
-          const load = rootRef.current.querySelector<HTMLElement>('#load');
-          if (load) load.textContent = 'Could not start the studio — please refresh.';
-        }
+        const load = root.querySelector<HTMLElement>('#load');
+        if (load) load.textContent = 'Could not start the studio — please refresh.';
       }
     })();
     return () => {
@@ -138,6 +147,7 @@ export function PublicMonogramStudio() {
         /* noop */
       }
       apiRef.current = null;
+      root.innerHTML = '';
     };
   }, []);
 
@@ -202,7 +212,9 @@ export function PublicMonogramStudio() {
   return (
     <div className="vsroot">
       <style dangerouslySetInnerHTML={{ __html: STUDIO_CSS }} />
-      <div ref={rootRef} className="vs" dangerouslySetInnerHTML={{ __html: STUDIO_HTML }} />
+      {/* The editor markup is injected imperatively by the effect (see above), so
+          React leaves this container empty and never re-touches the subtree. */}
+      <div ref={rootRef} className="vs" />
 
       {error ? <p className="mt-3 text-center text-sm text-[#9B3B2E]">{error}</p> : null}
 

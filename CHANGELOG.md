@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-21 · fix(monogram): Vector Studio reliably mounts + becomes the only monogram screen
+
+Owner: *"vector studio is not working. make it work on the studio monogram. and make the vector monogram the only screen for the monogram. and make it work."*
+
+**Root cause (the "not working" / stuck-on-"Loading the typeface…").** The Vector Studio is an imperative paper.js/opentype.js engine driving an editor DOM that was injected via React `dangerouslySetInnerHTML`. Under React StrictMode's mount→unmount→mount (dev) and HMR remounts, React could re-inject that subtree *out from under* the engine: the engine's `start()` ran and drew its monogram — but onto a **detached** canvas node — while the on-screen editor kept React's pristine markup, so the loading overlay never cleared and the canvas stayed at the default 300×150 forever. Reproduced on the public `/monogram` studio: overlay never hid, `ro` stayed "Loading…", canvas never resized — yet the boot callback + `start()` both completed (on the wrong DOM). The owner's earlier 15s `failTimer` (2026-06-19) was a band-aid over this race, not a fix.
+
+- **Fix — the effect owns the editor DOM.** Both wrappers (`app/monogram/public-monogram-studio.tsx` + `app/dashboard/[eventId]/monogram/studio.tsx`) now set `root.innerHTML = STUDIO_HTML` imperatively in the effect (and wipe it on cleanup) instead of via React `dangerouslySetInnerHTML`. React no longer owns or re-touches the subtree, so the mount is idempotent under StrictMode/HMR: cleanup wipes, the next mount rebuilds clean, and the engine always binds to the exact nodes that are on screen. The `<div ref>` is left empty for React. (`lib/monogram-studio/engine.ts` + `markup.ts` unchanged.)
+- **Verified end-to-end** on `/monogram` (dev, StrictMode on): overlay hides, `ro` → live hint, canvas sets up at full res (1032×1360 @2×), monogram richly painted; interaction works (name change re-derives letters; selecting the Yeseva font switches + reloads + repaints).
+- **Vector Studio is now the ONLY monogram screen** (`app/dashboard/[eventId]/monogram/page.tsx`): removed the "Upload your own" card + its notices/derived state, simplified `customSvg` to the studio mark, updated header copy. Deleted the now-orphaned `upload-card.tsx`. The upload **server actions** (`actions.ts`) and the downstream `monogram_uploaded_svg` **resolution** (`lib/events.ts`, wax-seal) are left intact — any couple who already uploaded keeps their mark; only the input surface is retired. ⚠ Reverses the 2026-06-15 "upload outranks the studio mark" lock (owner-authorized this session).
+
+tsc 0 · `next lint` clean (changed files). No schema/migration, no SKU/pricing change.
+
+SPEC IMPACT iter 0037 (monogram) — upload input surface retired, Vector Studio is the sole maker → logged in corpus DECISION_LOG (2026-06-21).
+
+---
+
 ## 2026-06-21 · feat(seating): 3D lab becomes a real editor — edits persist + Sims build-camera
 
 Owner: "yes do that pattern same as Sims" — make 3D editing real (writes the same plan as 2D) with a build-camera that snaps top-down while arranging. Follows the read-only spike (already merged). Still flag-gated (`NEXT_PUBLIC_SEATING_3D`, 404 when off).

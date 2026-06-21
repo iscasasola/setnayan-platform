@@ -65,8 +65,30 @@ export function VectorStudio({
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
     let alive = true;
     let api: StudioApi | null = null;
+    // The editor DOM is built imperatively here (NOT via React
+    // dangerouslySetInnerHTML) so React never owns or re-touches this subtree.
+    // Under StrictMode's mount→unmount→mount (and HMR remounts), a React-owned
+    // innerHTML could be re-injected out from under the imperative paper.js
+    // engine — the engine then drove a DETACHED node while the on-screen editor
+    // sat stuck on "Loading the typeface…" forever (start() ran, but on the wrong
+    // DOM). Owning the markup here makes the mount idempotent: cleanup wipes it,
+    // the next mount rebuilds clean, and the engine always binds to the exact
+    // nodes that are visible.
+    root.innerHTML = STUDIO_HTML;
+    // Safety net: if the engine/typeface never finishes (a hung dynamic import or
+    // font fetch), don't sit on "Loading the typeface…" forever.
+    const failTimer = window.setTimeout(() => {
+      if (!alive || apiRef.current) return;
+      const load = root.querySelector<HTMLElement>('#load');
+      if (load) {
+        load.classList.remove('off');
+        load.textContent = 'Still loading — please refresh the page.';
+      }
+    }, 15000);
     (async () => {
       try {
         const [paperMod, offsetMod, otMod] = await Promise.all([
@@ -74,30 +96,32 @@ export function VectorStudio({
           import('paperjs-offset'),
           import('opentype.js'),
         ]);
-        if (!alive || !rootRef.current) return;
+        if (!alive) return;
         const paper: any = (paperMod as any).default ?? paperMod;
         const off: any = offsetMod as any;
         const PaperOffset = off.PaperOffset ?? off.default?.PaperOffset ?? off.default ?? off;
         const ot: any = otMod as any;
         const opentype = ot.parse ? ot : (ot.default ?? ot);
-        api = mountStudio({ root: rootRef.current, paper, opentype, PaperOffset, initialConfig, initialNames }) as StudioApi;
+        api = mountStudio({ root, paper, opentype, PaperOffset, initialConfig, initialNames }) as StudioApi;
         apiRef.current = api;
         setReady(true);
+        window.clearTimeout(failTimer);
       } catch {
-        if (rootRef.current) {
-          const load = rootRef.current.querySelector<HTMLElement>('#load');
-          if (load) load.textContent = 'Could not start the studio.';
-        }
+        window.clearTimeout(failTimer);
+        const load = root.querySelector<HTMLElement>('#load');
+        if (load) load.textContent = 'Could not start the studio.';
       }
     })();
     return () => {
       alive = false;
+      window.clearTimeout(failTimer);
       try {
         api?.destroy();
       } catch {
         /* noop */
       }
       apiRef.current = null;
+      root.innerHTML = '';
     };
     // Mount once — initialConfig is the first-render value (re-edit a saved mark).
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -167,7 +191,9 @@ export function VectorStudio({
         </div>
       ) : null}
 
-      <div ref={rootRef} className="vs" dangerouslySetInnerHTML={{ __html: STUDIO_HTML }} />
+      {/* The editor markup is injected imperatively by the effect (see above), so
+          React leaves this container empty and never re-touches the subtree. */}
+      <div ref={rootRef} className="vs" />
 
       {exportError ? <p className="text-sm text-terracotta-700">{exportError}</p> : null}
 

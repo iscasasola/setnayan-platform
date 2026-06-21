@@ -151,9 +151,14 @@ export function VectorStudio({
   return (
     <section
       id="vector-studio"
-      className="vsroot scroll-mt-24 space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-7"
+      className="vsroot vs-fill scroll-mt-24 space-y-4"
     >
       <style dangerouslySetInnerHTML={{ __html: STUDIO_CSS }} />
+      {/* Dashboard-only: let the studio frame fill the full width of the maker
+          page (no centered 1040px cap) so it uses the space instead of leaving a
+          large blank gutter. Scoped to `.vs-fill` so the public /monogram studio
+          (centered, marketing) is untouched. Mobile keeps the centred card. */}
+      <style dangerouslySetInnerHTML={{ __html: '@container (min-width:760px){.vsroot.vs-fill .vs .frame{max-width:none;}}' }} />
 
       <header className="space-y-1.5">
         <p className="inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.18em] text-terracotta">

@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-21 · feat(boundary): register-to-use gate on the public /monogram studio (flag-gated · parked)
+
+First slice of the locked **free/login/paid boundary** gates. New flag `NEXT_PUBLIC_REGISTER_GATES_ENABLED` (`lib/register-gates.ts`, default OFF). When ON, the public marketing-site monogram studio (`/monogram`) — today a free no-login lead magnet — becomes a **register wall**: the studio is replaced by a "Create your free account to design" card (→ `/signup?next=/monogram`, with a "Sign in" link → `/login?next=/monogram`), and the eyebrow/sub copy flip from "no sign-up" to "create an account." Owner 2026-06-21: *"Login to use it too — maximum capture; every visitor registers first."*
+
+Gated at the **page level** (build-time `NEXT_PUBLIC` flag), so the page stays statically rendered and the studio component is untouched. OFF (default) → the free no-login studio exactly as today. `tsc` 0 · `lint` 0 (no warnings). Parked.
+
+This establishes the register-gate flag + pattern. **Remaining gate surfaces (follow-ups, same flag):** in-app monogram studio + website builder (register-to-use), planning-PDF downloads (register-to-download) — all reuse `user.is_anonymous` + the existing `SecureAccountBanner` / `/signup?next=` convert-in-place flow.
+
+SPEC IMPACT: iteration 0037 (monogram) public surface — the locked boundary "creating your public identity needs an account"; logged in `DECISION_LOG.md`. No SKU/price change (still free — just register).
+
 ## 2026-06-21 · feat(onboarding): strip the in-onboarding paywall tail — onboarding ends free (flag-gated · parked)
 
 Locked decision "**no paywall in onboarding**" (2026-06-21). When `NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED` is ON, `buildSequence` now also drops the monetization tail — `plan` (the Setnayan AI upsell), `bundle` (Essentials/Complete), `services` (à-la-carte carousel), `summary` (purchase). The flow ends **free** on `congrats` (the dashboard-bloom reveal), whose chrome CTA now reads **"Go to my dashboard"** and commits via `handleFinish(false)` straight to the dashboard — the chrome Continue commits on the last screen when the flag is on, `go(1)` otherwise. The persona's derived in-app services are still stored in `style_preferences.interested_services` for the **dashboard** to surface — they're just no longer sold during onboarding.

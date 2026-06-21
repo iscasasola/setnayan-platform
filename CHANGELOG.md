@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-21 · fix(studio): Save-the-Date "About" page no longer collides with the builder route
+
+The Studio tile for Save-the-Date links (via `appStoreDetailHref('save-the-date')`) to `/studio/save-the-date/about`. But Save-the-Date owns a *literal* route folder (`studio/save-the-date/` — the builder + `loading.tsx`), which in Next.js **shadows** the dynamic `studio/[addon]/about` route. So that path fell through to the builder, and via client-side navigation the static/dynamic collision threw the branded error boundary (the `Reference: …` 500 the owner hit on `/studio/save-the-date/about`). Every other feature's About page works because they reach `[addon]/about`; `save-the-date` did not.
+
+- Extracted the App Store detail render from `studio/[addon]/about/page.tsx` into a shared `studio/_components/addon-detail-view.tsx` (no behavior change — `[addon]/about` now delegates to it).
+- Added an **explicit** `studio/save-the-date/about/page.tsx` that reuses the shared view with the add-on fixed to `save-the-date`. An explicit literal route is collision-proof — it always wins over the shadowed dynamic fallback, so the About page renders reliably on both hard load and client navigation.
+
+Verified locally (dev, signed in as the owner on a real event): `/studio/save-the-date/about` now renders the App Store About page (hero "The first time they feel your wedding.") instead of the builder; `/studio/papic/about` (dynamic route) and `/studio/save-the-date` (builder) still render correctly. `pnpm typecheck` exit 0; `next lint` clean for the changed files.
+
+Follow-up (not in this PR): other features that own a literal route folder (animated-monogram, custom-qr-guest, mood-board, photo-delivery, setnayan-ai, …) have the same shadowing, so their `/about` links resolve to the feature surface rather than the App Store detail. Harmless today (the tile still opens the feature) but worth a class fix.
+
+SPEC IMPACT: None (routing bug fix; no SKU, schema, or pricing change).
+
+---
+
 ## 2026-06-21 · chore(home): remove dead `Checklist` function from couple event-home
 
 Follow-up dead-code cleanup of `apps/web/app/dashboard/[eventId]/page.tsx`, same class as the helpers removed in #1939. The local `function Checklist(...)` (~95 lines) was never rendered — confirmed by grep (`<Checklist` has zero JSX usages; the live, rendered component is the *different* `ChecklistAsync`, untouched).

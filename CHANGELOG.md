@@ -4,18 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-21 · feat(nav): redesign the admin "More" into grouped sections
+## 2026-06-21 · feat(ux): vendor calendar legibility — redesign PR 3/N (DIR-2, safe half)
 
-The "make the More menu nicer + reorganize" pass (owner 2026-06-21). The admin `/more` overflow was a single FLAT card grid; the vendor `/more` was already a labeled, section-grouped grid (`VendorMobileLanding`). This brings admin up to the same design so both doorways' "More" read consistently.
+Per-surface pass on the vendor calendar (`vendor-dashboard/calendar/page.tsx`). The audit flagged its `grid-cols-7` month views as cramped on phones with **9–10px** day-cell text.
 
-- **`mobile-landing-grid.tsx`** (shared admin renderer) gains an optional `groups` prop — labeled sections, each a mono eyebrow header + its own card grid. The flat `items` path stays for the other landings (`/admin/directory`, `/admin/money`); `groups` wins when given. Card rendering extracted to a `LandingCard` helper.
-- **`admin/more/page.tsx`** now renders two sections — **Insights** (Insights hub · Growth · Intelligence · Funnels · Operations & Hiring · Connection logs · Offline daemon — mirroring the desktop sidebar Insights group 1:1) and **Platform** (the existing settings/content surfaces). The single "Insights" card added in the ≤5 reroster is expanded into its full group.
+- **DIR-2 (legibility half) — raise day-cell text to the 11px floor.** The three sub-11px chip/label sizes (`text-[9px]` ×2 in the all-pools view, `text-[10px]` ×1 in the per-pool view) → `text-[11px]`. Cells already carry `min-h-16` and `truncate`, so they grow gracefully. The **day-state semantics and the semantic state colors** (closed / full / available) are left **exactly** as shipped (per the verifier's "keep day-state exactly" flag).
 
-Both "More" menus are now grouped, labeled, `.m-card`-based, Clean Editorial. (Per-card counts + a search box are the heavier follow-up; deferred.)
+Deferred + flagged for owner: the *other* DIR-2 half — replacing the 7-column month grid with a mobile week-scroller / agenda below `lg` — is a larger reshape that touches the shared day-state layout, so it's surfaced separately rather than bundled into a legibility fix.
 
-Verified: `pnpm typecheck` 0 · `pnpm lint` 0.
+Verified: `pnpm typecheck` exit 0, `pnpm lint` exit 0.
 
-SPEC IMPACT: Nav presentation — admin "More" grouped to match vendor. No SKU/schema/pricing change.
+SPEC IMPACT: None (text-size legibility; no day-state, booking, SKU, schema, or pricing change).
 ## 2026-06-21 · feat(seating): 3D seating lab — flag-gated R3F prototype (Sims build + walk-to-seat)
 
 Owner direction: make the seat plan feel "like a game where you move things around," explored via React Three Fiber (Next.js shell + React/Three engine, the SSR golden rule). This is a **flag-gated, READ-ONLY prototype** on a throwaway route — it does not touch the 2D editor and never persists.

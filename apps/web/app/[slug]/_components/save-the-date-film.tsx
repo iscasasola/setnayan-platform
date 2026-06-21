@@ -109,6 +109,11 @@ const FIT_MAX = 2.3;
 // yanked off after the standard ~4s (owner 2026-06-21). Forward skips keep the
 // normal dwell.
 const REREAD_DWELL_BONUS_MS = 4000;
+// The video↔content cross-dissolve duration (owner 2026-06-21 "smoother crossfade
+// between the video and the website"). ONE value drives BOTH the audio crossfade
+// (equal-power ramp) AND the full-screen clip overlay's opacity fade, so sound and
+// picture dissolve together — up from the old unsynced 700ms audio / 500ms visual.
+const VIDEO_FADE_MS = 850;
 
 const EASE = 'cubic-bezier(.2,.8,.2,1)';
 const ANIM = {
@@ -695,9 +700,15 @@ export function SaveTheDateFilm({
       const v0 = v.volume;
       const t0 = performance.now();
       const tick = (now: number) => {
-        const p = Math.min(1, (now - t0) / 700);
-        setVol(a, m0 + (musicTo - m0) * p);
-        setVol(v, v0 + (videoTo - v0) * p);
+        const p = Math.min(1, (now - t0) / VIDEO_FADE_MS);
+        // Equal-power crossfade: the channel fading OUT follows cos, fading IN
+        // follows sin (cos²+sin²=1), so perceived loudness stays CONSTANT — no
+        // mid-dissolve dip a linear amplitude ramp has — and the ramp eases in/out
+        // rather than a linear ramp's abrupt onset/offset.
+        const fadeOut = Math.cos((p * Math.PI) / 2); // 1 → 0
+        const fadeIn = Math.sin((p * Math.PI) / 2); // 0 → 1
+        setVol(a, musicTo <= m0 ? musicTo + (m0 - musicTo) * fadeOut : m0 + (musicTo - m0) * fadeIn);
+        setVol(v, videoTo <= v0 ? videoTo + (v0 - videoTo) * fadeOut : v0 + (videoTo - v0) * fadeIn);
         if (p < 1) {
           videoFadeRef.current = requestAnimationFrame(tick);
         } else if (pauseMusicAtEnd && a) {
@@ -709,6 +720,7 @@ export function SaveTheDateFilm({
 
     if (onVideo) {
       if (!prevOnVideoRef.current) {
+        v.loop = false; // was looping while warm — let it END so the film advances
         try { v.currentTime = 0; } catch { /* not seekable yet — plays from 0 */ }
         setVol(v, 0); // start silent, fade up
         setVideoSoundBlocked(false); // fresh beat — the catch below re-flags if blocked
@@ -758,12 +770,31 @@ export function SaveTheDateFilm({
         a.play().catch(() => {});
       }
       crossfade(1, 0); // video fades out, music fades back up from its held position
-      v.pause();
+      // Keep the clip WARM (playing, silent) BEFORE its beat so its audio can ramp
+      // in on the beat without a fresh (iOS-blocked) play(); only PAUSE it once
+      // we're PAST the beat (clip done) or sound is off. See the unlock above.
+      if (idxRef.current > videoSlideIdxRef.current || muted || preview) {
+        v.pause();
+      } else if (v.paused) {
+        // RE-WARM if a prior mute or backward-scrub left the clip paused before its
+        // beat — restart it silent + looping so its audio is ready to ramp on the
+        // beat. Best-effort: succeeds on desktop/Android; iOS off-gesture rejects →
+        // the beat's own "Tap for sound" fallback still holds (no hang).
+        v.muted = false;
+        v.loop = true;
+        setVol(v, 0);
+        v.play().catch(() => {});
+      }
     }
     prevOnVideoRef.current = onVideo;
 
     // Natural end → return to the closing screen (the crossfade-back fires there).
-    const onEnded = () => goRef.current(videoSlideIdxRef.current + 1);
+    // Guard like onError below: ONLY the clip's own beat may advance on 'ended'.
+    // Warm-play sets loop=false on the beat, but a scrub could leave it playing
+    // off-beat — its natural end must NOT yank the film forward from a text beat.
+    const onEnded = () => {
+      if (idxRef.current === videoSlideIdxRef.current) goRef.current(videoSlideIdxRef.current + 1);
+    };
     // A mid-play decode/network error must NOT strand the film on the Infinity
     // video beat either — advance, but ONLY while this beat is active (the clip
     // preloads from mount, so an early load error must not jump a text beat).
@@ -1028,31 +1059,29 @@ export function SaveTheDateFilm({
         }
       }
 
-      // ── Couple's clip <video> — prime it for AUDIBLE autoplay so the music
-      // CROSSFADES to its sound by itself on the video beat (owner 2026-06-21
-      // "the video's audio does not auto crossfade when the video plays"). iOS
-      // only lets a <video> play WITH sound if it was played audibly inside a
-      // user gesture; by the time the film auto-advances to the clip (~30s after
-      // the lift) that credit is spent, so the unmuted play() at the beat is
-      // blocked → the clip falls back to MUTED and the soundtrack never ducks.
-      // An UNMUTED play→pause at volume 0 (silent, and invisible — the overlay
-      // is opacity-0 off-beat) inside this same first touch grants the element
-      // audible activation, so the later autoplay-with-sound succeeds and the
-      // crossfade fires automatically. "Tap for sound" stays as the fallback for
-      // any browser where the prime doesn't take. Mirrors the <audio> unlock.
-      if (v && !muted) {
-        const vmuted = v.muted;
-        const vvol = v.volume;
+      // ── Couple's clip <video> — keep it WARM so its audio auto-crossfades in
+      // on the video beat (owner 2026-06-21 "the video's audio does not auto
+      // crossfade"). iOS only lets a <video> play WITH sound if a tap started it;
+      // by the time the film reaches the clip (~30s after the lift) that credit
+      // is spent, so a fresh unmuted play() at the beat is BLOCKED. The earlier
+      // play→pause prime failed for exactly that reason: once paused, the beat
+      // needed a blocked re-play. So instead START the clip playing right here —
+      // unmuted, volume 0 (silent), looping, still invisible (opacity-0 off-beat)
+      // — and LEAVE it playing. A media element kept running from a user gesture
+      // retains its audio rights, so the beat only RAMPS its volume up (the
+      // crossfade), never a fresh play()/unmute. This is exactly why the
+      // soundtrack <audio> already auto-plays — it runs continuously from here.
+      // loop=true stops it ending+pausing before its beat (the beat sets
+      // loop=false so 'ended' still advances). "Tap for sound" stays the fallback
+      // if iOS won't keep it warm (e.g. Low Power Mode pauses background video).
+      // Skip if the first touch lands while ALREADY on the video beat (no-reveal
+      // grace path): there the beat owns the clip (loop=false, audible play), and
+      // setting loop=true here would suppress 'ended' → the Infinity beat hangs.
+      if (v && !muted && idxRef.current !== videoSlideIdxRef.current) {
         v.muted = false;
+        v.loop = true;
         setVol(v, 0);
-        const finishV = () => {
-          try { v.pause(); v.currentTime = 0; } catch { /* not seekable yet */ }
-          v.muted = vmuted;
-          setVol(v, vvol);
-        };
-        const pv = v.play();
-        if (pv && typeof pv.then === 'function') pv.then(finishV).catch(() => { v.muted = vmuted; setVol(v, vvol); });
-        else finishV();
+        v.play().catch(() => { /* not ready/blocked — the beat's own play() still tries */ });
       }
     };
     window.addEventListener('pointerdown', unlock, { capture: true, passive: true });
@@ -1255,9 +1284,10 @@ export function SaveTheDateFilm({
           orchestration effect plays it + crossfades the music. */}
       {hasVideo ? (
         <div
-          className={`pointer-events-none fixed inset-0 z-[70] flex items-center justify-center bg-black transition-opacity duration-500 ${
+          className={`pointer-events-none fixed inset-0 z-[70] flex items-center justify-center bg-black transition-opacity ease-in-out ${
             idx === videoSlideIndex ? 'opacity-100' : 'opacity-0'
           }`}
+          style={{ transitionDuration: `${VIDEO_FADE_MS}ms` }} // synced to the audio crossfade
           aria-hidden={idx !== videoSlideIndex}
         >
           {/* eslint-disable-next-line jsx-a11y/media-has-caption -- couple-uploaded keepsake clip, no caption track */}

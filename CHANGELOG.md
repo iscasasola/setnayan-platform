@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-22 · fix(seo): structured data no longer frames Setnayan AI (+ premium layer) as free
+
+Public human-readable copy already presents Setnayan AI as a paid ₱3,999 one-time/event upgrade (`/pricing`, `public/llms.txt`, marketing sections, `/about`), but three machine-readable blocks that Google + AI answer engines ingest as canonical framed the premium layer as free, no-price features:
+
+- **`app/page.tsx`** SoftwareApplication JSON-LD — `description` reframed "add the moments that set the day apart" → "add **optional paid upgrades** … each priced individually in PHP"; `featureList` now marks the five premium entries (Papic · Panood · Setnayan AI · Pakanta · Animated Monogram) **`(paid add-on)`**, completing the existing `(free)` convention on the baseline tools. (The block's `offers` node already declared `price 0` + "premium services priced individually" — this aligns the prose with it.)
+- **`app/layout.tsx`** Organization JSON-LD `description` — same "optional paid upgrades … each priced individually in PHP" reframe.
+- **`lib/wedding-essentials.ts`** + **`lib/officiant-auto-resolve.ts`** — stale `₱1,499` doc-comments (the retired price) made **price-agnostic** ("paid Setnayan AI") rather than swapped to ₱3,999, so they can't re-stale when the holistic pricing pass moves the number (per the admin-managed-prices rule — prices live in the catalog, never hardcoded in code).
+
+No live price/SKU/flow change — structured-data + comment hygiene. Deliberately did NOT bake the literal ₱3,999 into the JSON-LD (it's catalog/admin-managed + subject to the holistic pass); the fix makes the **paid status** explicit, which is the actual mis-signal engines were reading. Should land before any Setnayan AI paywall flip given engine cache/ingest lag.
+
+tsc 0 · `next lint` clean · `lint:retired` clean (0 retired strings) · production build green.
+
+SPEC IMPACT: None (public-surface hygiene; no SKU/price change). Aligns with the public-surface-hygiene rule + DECISION_LOG 2026-06-22 / `Pricing_Collection_2026-06-14.md` §8 item #2 (copy precondition).
 ## 2026-06-22 · fix(orders): self-comp orders now provision flag-backed SKU entitlements
 
 `createSelfCompOrder` (vendor/admin self-comp at checkout) inserts an order straight at `status='paid'` but never ran the SKU activation dispatcher — so a self-comped **flag-backed** SKU (today `SETNAYAN_AI` → `events.setnayan_ai_active`; also concierge / vendor-branch) landed *owned-but-unprovisioned*: ownership checks count the paid order so the buy CTA is suppressed, yet the feature gate reads the never-stamped flag as false and the capability stays dark. Admin `approvePayment` was the **only** caller of `activateOrderSku`.

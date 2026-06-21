@@ -7,13 +7,13 @@
  *
  *   - Free DIY couples see 7 always-visible Wedding Essentials on the
  *     Today tab (the canonical free planning surface).
- *   - Paid Setnayan AI ₱1,499 couples see the full 65-card guided
+ *   - Paid Setnayan AI couples see the full 65-card guided
  *     wizard substrate (WizardHero · iteration 0016 · CLAUDE.md
  *     2026-05-23 row 6).
  *   - The marketplace + Compare drawer + Lock flow is the SAME for
  *     both tiers — only the guided wizard intelligence (hard-floor
  *     scheduler · religion-adaptive copy · prereq enforcement ·
- *     coordinator-scheduled meetings) is gated behind ₱1,499.
+ *     coordinator-scheduled meetings) is gated behind paid Setnayan AI.
  *
  * The 7 essentials reduce 65 wizard cards + 22 plan groups down to the
  * non-negotiable minimum for a Filipino wedding. Couples who want

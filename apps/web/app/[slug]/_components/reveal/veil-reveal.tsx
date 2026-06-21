@@ -1030,14 +1030,21 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
         if (lastAspect === 0) { lastAspect = aspect; return; } // baseline first obs
         if (Math.abs(aspect - lastAspect) < 0.1) return; // address bar / fullscreen — re-fit only
         lastAspect = aspect;
+        // Once the veil is LIFTED (or animating up), the running film shows beneath
+        // it — a cloth rebuild would re-drape and momentarily re-COVER the film,
+        // which reads as a RESET. So once lifted, NEVER rebuild on a rotate /
+        // fullscreen transfer: cheapResize already re-fit the renderer, so the
+        // lifted valance just carries on as-is (owner 2026-06-21 "when it transfers
+        // to full screen or changes orientation it should continue as is and not
+        // reset"). Only rebuild the drape while the veil still COVERS the page.
+        if (liftTarget >= 1 || revealedRef.current) return;
         if (roFull) window.clearTimeout(roFull);
         roFull = window.setTimeout(() => {
-          // Capture the lift INTENT before applyView resets it: a completed lift
-          // (revealedRef) OR one still animating up (liftTarget>=1) — restoring the
-          // latter covers the in-progress case the old revealedRef-only guard missed.
-          const keepLifted = liftTarget >= 1 || revealedRef.current;
-          applyView(); // rebuilds cloth to the new aspect + re-drapes (lift→0)
-          if (keepLifted) liftTarget = 1; // a rotate must NOT re-cover a lifted veil
+          // Re-check at fire time: if the guest LIFTED during the 240ms debounce,
+          // skip the rebuild so a stale covered-state resize can't re-drape over
+          // the now-running film.
+          if (liftTarget >= 1 || revealedRef.current) return;
+          applyView();
         }, 240);
       });
       ro.observe(cv);

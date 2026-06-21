@@ -4,18 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-21 · feat(seating): swap guests / swap tables in 3D — reassign seats + animate
+## 2026-06-21 · feat(seating): swap guests / swap tables in 3D — animated Play-mode what-if (preview, not yet persisted)
 
-Owner: "can we swap guests and it will animate that they left their seats and changed places? or swapping tables, will make all the guests change tables?" — yes, both.
+Owner: "can we swap guests and it will animate that they left their seats and changed places? or swapping tables, will make all the guests change tables?" — yes, both, as a **Play-mode what-if preview**.
 
 In the flag-gated 3D lab (`…/seating/lab/_components/seating-lab-3d.tsx`, Play mode):
-- **Swap two guests** — tap a seated guest in the list, then another → both reassigned (`assignGuest`, lock-gated, persisted to `event_seat_assignments` → mirrors into 2D) and **two avatars walk** from their old chairs to the new ones (steering around tables) and sit.
-- **Swap two tables** — "Swap two tables" arms a pick mode; tap two tables → **every occupant** reassigned to the mirror seat in the other table + all animate at once.
-- **Mechanics:** the swap IS the seat-assignment change (the truth); the walk is the animation. `moveGuestTo` persists via `assignGuest` + spawns a `MoverToken`; `movingGuests` (derived from the mover list) hides the static seat token while a guest is mid-flight; `onMoverDone` commits the new seat to local state + retires the mover. canEdit-gated through the same lock; lost-lock handled by the existing `persist` (notifyLost + refresh). Unseated guests still walk-in from the entrance; the RSVP colours from the previous PR ride along on the moving tokens.
+- **Swap two guests** — tap a seated guest in the list, then another → **two avatars walk** from their old chairs to the new ones (steering around tables) and sit.
+- **Swap two tables** — "Swap two tables" arms a pick mode; tap two tables → **every occupant** moves to the other table, all animating at once, packed into valid (in-capacity, non-removed) chairs (seat-what-fits).
+- **Mechanics:** `moveGuestTo` spawns a `MoverToken`; `movingGuests` (derived from the mover list) hides the static seat token mid-flight; `onMoverDone` updates **local** `seats` state + retires the mover. Unseated guests still walk in from the entrance; RSVP colours ride along on the moving tokens.
 
-Adversarial 4-dimension review (persistence, animation↔state, edge-correctness, R3F) → findings folded in. No schema change (reuses `assignGuest` + the lock). Honest v1 notes: many simultaneous walkers (table swap) path around tables but can pass through each other (collision-avoidance is polish); and the deeper canonical-2D-engine RSVP rules remain the separate follow-up. tsc 0; `next lint` clean. CI build is the gate.
+⚠ **Deliberately NOT persisted (adversarial review, 4 dims → 3 HIGH).** A swap is two seat reassignments, and `event_seat_assignments` has only `UNIQUE(event_id, guest_id)` — **no** unique on `(table_id, seat_number)` — so two non-atomic `assignGuest` upserts can double-book a chair / corrupt the *shared* table (read by the 2D editor + print pack) on a partial failure, and a cross-capacity table-swap could write phantom seat indices. Rather than ship that, swaps stay a **local visualization** (consistent with the locked "Play = what-if / Build = real editing" model). **Real persistence is the documented follow-up: a single atomic swap RPC (`swap_seat_assignments`, SECURITY DEFINER, lock-asserted, both UPDATEs in one transaction) + a `(event_id, table_id, seat_number)` partial-unique guard.** The fix also resolves the lower findings (seat-what-fits handles the cross-capacity/removed-seat cases; declined guests are skipped). Build-mode edits (move/rotate/delete/add) still persist as before.
 
-SPEC IMPACT: Iteration 0008 (3D experience). The swap writes the same `event_seat_assignments` the 2D editor uses — one data model. Logged in DECISION_LOG.
+No schema change. tsc 0; `next lint` clean. CI build is the gate.
+
+SPEC IMPACT: Iteration 0008 (3D experience) — swap is a non-persisting preview today; atomic-persist RPC flagged as the follow-up. Logged in DECISION_LOG.
 
 ---
 

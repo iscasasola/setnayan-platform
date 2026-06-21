@@ -30,7 +30,6 @@ import * as THREE from 'three';
 import { useSeatingLock } from '@/app/dashboard/[eventId]/seating/_components/use-seating-lock';
 import { SeatingLockError } from '@/app/dashboard/[eventId]/seating/seating-lock-error';
 import {
-  assignGuest,
   createTable,
   deleteTable,
   updateTablePosition,
@@ -425,8 +424,13 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
     setMovers((prev) => prev.filter((m) => m.gid !== gid));
   }, []);
 
-  // Reassign guest `gid` to (toTableId, toSeat): persist (lock-gated) + fly a
-  // token from its current seat to the new one.
+  // Move guest `gid` to (toTableId, toSeat) as a LOCAL Play-mode preview — fly
+  // a token from its current seat to the new one and (on arrival) update local
+  // `seats`. NOT persisted: a swap is two reassignments and persisting them
+  // non-atomically (two assignGuest upserts, no seat-collision constraint) can
+  // corrupt the SHARED event_seat_assignments table on a partial failure. Real
+  // persistence needs an atomic swap RPC + seat-what-fits — the documented
+  // follow-up. So swaps stay a what-if preview here; Build-mode edits persist.
   const moveGuestTo = useCallback(
     (gid: string, fromWorld: Vec2, toTableId: string, toSeat: number) => {
       const g = guestById.get(gid);
@@ -443,24 +447,16 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
         ...prev,
         { gid, color: style.color, opacity: style.opacity, path, target: { tableId: toTableId, seatNumber: toSeat } },
       ]);
-      const fd = new FormData();
-      fd.set('event_id', eventId);
-      fd.set('lock_id', lock.lockId ?? '');
-      fd.set('table_id', toTableId);
-      fd.set('guest_id', gid);
-      fd.set('seat_number', String(toSeat));
-      void persist(() => assignGuest(fd));
     },
-    [guestById, tablesById, tables, seats, room, eventId, lock.lockId, persist],
+    [guestById, tablesById, tables, seats, room],
   );
 
   const swapGuests = useCallback(
     (a: string, b: string) => {
-      if (!canEdit) {
-        setNotice('You don’t have edit access — a 2D editor may be open.');
-        return;
-      }
       if (a === b || movingGuests.has(a) || movingGuests.has(b)) return;
+      const ga = guestById.get(a);
+      const gb = guestById.get(b);
+      if (!ga || !gb || !guestTokenStyle(ga) || !guestTokenStyle(gb)) return; // skip declined
       const A = seatWorldOf(a);
       const B = seatWorldOf(b);
       if (!A || !B) return;
@@ -468,39 +464,54 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
       moveGuestTo(a, A.world, B.seat.tableId, B.seat.seatNumber);
       moveGuestTo(b, B.world, A.seat.tableId, A.seat.seatNumber);
     },
-    [canEdit, movingGuests, seatWorldOf, moveGuestTo],
+    [movingGuests, guestById, seatWorldOf, moveGuestTo],
   );
 
   const swapTables = useCallback(
     (t1: string, t2: string) => {
-      if (!canEdit) {
-        setNotice('You don’t have edit access — a 2D editor may be open.');
-        return;
-      }
-      if (t1 === t2 || !tablesById.get(t1) || !tablesById.get(t2)) return;
-      const occ = (tid: string) => {
-        const m = new Map<number, string>();
-        for (const [gid, s] of seats) if (s.tableId === tid && !movingGuests.has(gid)) m.set(s.seatNumber, gid);
-        return m;
+      const T1 = tablesById.get(t1);
+      const T2 = tablesById.get(t2);
+      if (t1 === t2 || !T1 || !T2) return;
+      // Occupants of a table (skip mid-flight + declined), in seat order.
+      const occList = (tid: string) => {
+        const pairs: { seat: number; gid: string }[] = [];
+        for (const [gid, s] of seats) {
+          if (s.tableId !== tid || movingGuests.has(gid)) continue;
+          const g = guestById.get(gid);
+          if (!g || !guestTokenStyle(g)) continue;
+          pairs.push({ seat: s.seatNumber, gid });
+        }
+        return pairs.sort((x, y) => x.seat - y.seat).map((p) => p.gid);
       };
-      const o1 = occ(t1);
-      const o2 = occ(t2);
-      const maxc = Math.max(tablesById.get(t1)!.capacity, tablesById.get(t2)!.capacity);
+      // Pack incoming guests into the destination's valid (non-removed, in-
+      // capacity) chairs — seat-what-fits, so no token lands on a phantom seat
+      // (handles differing capacities / deleted chairs). Overflow stays put.
+      const fit = (dest: LiveTable, incoming: string[]) => {
+        const removed = new Set(dest.removedSeats.filter((i) => Number.isInteger(i) && i >= 0 && i < dest.capacity));
+        const out: { gid: string; seat: number }[] = [];
+        let seat = 0;
+        for (const gid of incoming) {
+          while (seat < dest.capacity && removed.has(seat)) seat++;
+          if (seat >= dest.capacity) break;
+          out.push({ gid, seat });
+          seat++;
+        }
+        return out;
+      };
+      const into2 = fit(T2, occList(t1));
+      const into1 = fit(T1, occList(t2));
+      if (!into2.length && !into1.length) return;
       setMode('play');
-      for (let i = 0; i < maxc; i++) {
-        const g1 = o1.get(i);
-        const g2 = o2.get(i);
-        if (g1) {
-          const w = seatWorldOf(g1);
-          if (w) moveGuestTo(g1, w.world, t2, i);
-        }
-        if (g2) {
-          const w = seatWorldOf(g2);
-          if (w) moveGuestTo(g2, w.world, t1, i);
-        }
+      for (const { gid, seat } of into2) {
+        const w = seatWorldOf(gid);
+        if (w) moveGuestTo(gid, w.world, t2, seat);
+      }
+      for (const { gid, seat } of into1) {
+        const w = seatWorldOf(gid);
+        if (w) moveGuestTo(gid, w.world, t1, seat);
       }
     },
-    [canEdit, tablesById, seats, movingGuests, seatWorldOf, moveGuestTo],
+    [tablesById, seats, movingGuests, guestById, seatWorldOf, moveGuestTo],
   );
 
   const onTableDown = useCallback(
@@ -1256,6 +1267,9 @@ function Hud({
             >
               {tableSwapArmed ? 'Tap two tables to swap…' : 'Swap two tables'}
             </button>
+            <p className="mb-2 text-[10px] leading-snug text-white/45">
+              Swaps are a what-if preview — not saved yet.
+            </p>
             <div className="-mr-1 flex-1 space-y-1 overflow-y-auto pr-1">
               {guests.length === 0 ? (
                 <p className="text-xs text-white/55">No guests yet.</p>

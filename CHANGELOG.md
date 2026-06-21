@@ -4,17 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-21 · feat(ux): complete the canonical marketing heading scale (VIS-9/10)
+## 2026-06-21 · feat(ux): vendor calendar legibility — redesign PR 3/N (DIR-2, safe half)
 
-Marketing type-system follow-up. Looked at the live state (the audit was stale — many PRs since): the marketing pages are already reasonably consistent (`tracking-tight`, sensible sizes); the real gap is that the homepage's fluid `.m-h-*` scale **only covered hero sizes**, so section/sub headings on the other pages had no shared fluid tier to adopt (each hand-rolled `text-3xl sm:text-4xl` steps).
+Per-surface pass on the vendor calendar (`vendor-dashboard/calendar/page.tsx`). The audit flagged its `grid-cols-7` month views as cramped on phones with **9–10px** day-cell text.
 
-- Added `.m-h-sm` (section h2 · `clamp(1.875rem, 4.5vw, 2.25rem)` = 30→36px) and `.m-h-xs` (sub/card-title · 22→26px) to `globals.css`, completing the `.m-h-*` family downward with the same clamp + tracking/line-height tightening. `.m-h-sm` matches the dominant section-h2 endpoints, so adopting it is a **no-size-change swap** — just adds fluidity between the steps + the VIS-9 tightening.
+- **DIR-2 (legibility half) — raise day-cell text to the 11px floor.** The three sub-11px chip/label sizes (`text-[9px]` ×2 in the all-pools view, `text-[10px]` ×1 in the per-pool view) → `text-[11px]`. Cells already carry `min-h-16` and `truncate`, so they grow gracefully. The **day-state semantics and the semantic state colors** (closed / full / available) are left **exactly** as shipped (per the verifier's "keep day-state exactly" flag).
 
-**Additive only — no live page changed.** Marketing section headings migrate to these incrementally (reviewed on the Vercel preview, since it's the public conversion surface and each page has tuned heading treatments a blind sweep would flatten). A full blind unification was deliberately NOT done — low user-facing value, real conversion-regression risk.
+Deferred + flagged for owner: the *other* DIR-2 half — replacing the 7-column month grid with a mobile week-scroller / agenda below `lg` — is a larger reshape that touches the shared day-state layout, so it's surfaced separately rather than bundled into a legibility fix.
 
-Verified: braces balanced · `pnpm typecheck` 0 · `pnpm lint` 0.
+Verified: `pnpm typecheck` exit 0, `pnpm lint` exit 0.
 
-SPEC IMPACT: None (additive heading utilities; no live surface changed).
+SPEC IMPACT: None (text-size legibility; no day-state, booking, SKU, schema, or pricing change).
 ## 2026-06-21 · feat(seating): 3D seating lab — flag-gated R3F prototype (Sims build + walk-to-seat)
 
 Owner direction: make the seat plan feel "like a game where you move things around," explored via React Three Fiber (Next.js shell + React/Three engine, the SSR golden rule). This is a **flag-gated, READ-ONLY prototype** on a throwaway route — it does not touch the 2D editor and never persists.

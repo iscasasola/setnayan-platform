@@ -4,6 +4,26 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-21 · feat(seating): linked tables group as ONE (Keynote-style move + rotate) + full-screen editor
+
+Owner ask: "when we link seats, they will be grouped as one now. so when we rotate a table, it rotates as one… think of it like how Keynote groups shapes. and break apart will unlink them." Plus: "the page still doesn't look clean for seat plan creation… [the Seating title + description + Walkthrough link] we can remove this and spread the whole content to the screen."
+
+**What changed (all in `apps/web/app/dashboard/[eventId]/seating/`):**
+
+1. **Group-as-one geometry** (`_components/seating-editor.tsx`). Tables sharing a `link_group_id` now behave as one rigid unit on the floor:
+   - **Move as one** — dragging any member translates the whole unit (delta clamped so no member leaves the board); internal chain/align snap is skipped (the unit is already assembled). All members are marked dirty on drop.
+   - **Rotate as one** — every rotate path (the ±15°/Flip buttons, the desktop drag rotate-handle, and the two-finger twist gesture) now orbits each member around the unit's shared centroid AND spins each member's own angle by the same delta. Math goes through a px round-trip (`groupSnap` → `rotatePoint` → back to %) so a non-square canvas can't shear the unit. New helpers: `groupMemberIds`, `groupSnap`, `applyGroupRotation`, `persistGroupTransform`, `rotateGroupBy`.
+   - **Coherent persistence** — a group rotate persists positions *and* angles together (rotation already persisted instantly; the orbit it induces must too, or the unit would reload deformed). A group move persists on Save like any move.
+   - **Break apart** — the existing unlink, relabeled throughout ("Break apart"/"Group with another table"); link/unlink notices + the in-progress banner now describe move/rotate-as-one. `actions.ts` `linkTables`/`unlinkTable` are unchanged in behavior (still just set/clear `link_group_id`); only comments updated to record the new editor semantics + the owner authorization.
+
+2. **Full-screen layout cleanup** (`page.tsx`). Removed the hero `<h1>Seating</h1>` + the long description paragraph so the editor canvas fills the screen. The reserved→seated summary sits left; the Walkthrough-videos link became an icon-only button pinned upper-right (title/aria-label carry the meaning) so it stays out of the editor's way — kept, not orphaned. Page heading retained screen-reader-only for a11y/SEO. (Kept the `Video` icon rather than a route/compass "tour" glyph to avoid clashing with the separate Driver.js guided tour.)
+
+No schema/migration and no server-action behavior change — link grouping already existed as identity+QR; this adds client-side rigid-body geometry on top of it. typecheck clean (only pre-existing unrelated `paper`/`archiver` module errors); `next lint` clean on all three files.
+
+SPEC IMPACT: **Iteration 0008 (seating).** Reverses the 2026-06-10 "linked unit = identity + QR only, seating math/position stay per-table" lock → linked units now also move + rotate as one rigid body (owner-authorized 2026-06-21). Logged at the bottom of the corpus `DECISION_LOG.md`. Seating math (who sits where / capacity) still stays per-table.
+
+---
+
 ## 2026-06-21 · feat(boundary): register-to-use gates on the in-app monogram studio + website builder (flag-gated · parked)
 
 Extends the register-gate boundary (same `NEXT_PUBLIC_REGISTER_GATES_ENABLED` flag) to the two **in-app public-identity surfaces**. When ON, an anonymous (unsecured) couple who opens the **monogram studio** (`/dashboard/[eventId]/monogram`) or the **website builder** (`/site-editor/[eventId]`) is redirected to `/signup?next=<surface>` to create a free account first — the signup flow converts the same anon session in place and returns them. One-line server-side gate after the existing `!user` redirect in each page, reading `user.is_anonymous` (the same field the dashboard's `SecureAccountBanner` already uses). OFF (default) → no gate, unchanged.

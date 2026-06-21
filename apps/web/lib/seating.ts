@@ -120,6 +120,26 @@ export async function fetchAssignments(
   return (data ?? []) as SeatAssignmentRow[];
 }
 
+// Keep-apart rules for an event (smart seat-plan · Phase 3). Couple-private via
+// RLS. Graceful-degrade: a read error (or not-yet-migrated table) yields no
+// rules so auto-seat still runs (it just won't separate anyone). Returned as
+// KeepApartRule pairs; solveSeatPlan expands them to whole groups at solve time.
+export async function fetchSeatingConstraints(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<KeepApartRule[]> {
+  const { data, error } = await supabase
+    .from('event_seating_constraints')
+    .select('guest_a_id,guest_b_id')
+    .eq('event_id', eventId)
+    .eq('kind', 'keep_apart');
+  if (error) return [];
+  return (data ?? []).map((r) => {
+    const row = r as { guest_a_id: string; guest_b_id: string };
+    return { guest_a_id: row.guest_a_id, guest_b_id: row.guest_b_id };
+  });
+}
+
 // Per-event floor-plan markers (stage + single entrance door). All coords are
 // percent (0–100) of the editor canvas. Defaults match the DB defaults so the
 // editor renders sensibly before the row exists.
@@ -905,6 +925,237 @@ export function computeAutoSeat(
     result.push({ guest_id: g.guest_id, table_id: table.table_id, seat_number: seat });
   }
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// Constraint-aware solver (smart seat-plan · Phase 3). Honours KEEP-APART rules:
+// two guests — and, group-aware, their whole custom groups — that must never
+// share a table. HARD constraint. The solver warm-starts from computeAutoSeat
+// (so the Phase-2 priority + stage weighting carry through), then runs a
+// DETERMINISTIC greedy repair: relocate a violating guest to the stage-closest
+// conflict-free table that has a free seat. It always returns a best-effort plan
+// plus the residual violations (graceful degrade — never throws, never empty).
+// Deterministic BY CONSTRUCTION (fixed orderings, no Math.random) so the same
+// input always yields the same plan — no per-render randomness.
+//
+// "Same table" is LINK-GROUP aware: linked tables are ONE pool (Phase 1), so two
+// keep-apart guests must not share a link-group unit, not merely a table_id.
+// Only the guests computeAutoSeat newly seats are MOVABLE; pre-existing
+// assignments are fixed context (they count toward occupancy + conflicts but are
+// never moved — Phase 4 adds explicit per-seat locking).
+// ---------------------------------------------------------------------------
+
+export type KeepApartRule = { guest_a_id: string; guest_b_id: string };
+
+export type SolveInput = {
+  tables: EventTableRow[];
+  guests: AutoSeatGuest[];
+  assignments: SeatAssignmentRow[];
+  stage?: { x: number; y: number };
+  priorityOrder?: PriorityOrder | null;
+  constraints: KeepApartRule[];
+  // guest_id -> custom group_ids (from fetchGroupMembershipsByEvent). A keep-apart
+  // pair expands to BOTH guests' whole groups at solve time (group-aware).
+  groupMembers?: Map<string, string[]>;
+};
+
+export type SolveResult = {
+  // Placements for the newly-seated (movable) guests — same contract as
+  // computeAutoSeat's return (the caller inserts these).
+  assignments: AutoSeatRow[];
+  // Rules still unsatisfiable after best-effort repair (e.g. only one big table fits both).
+  violations: KeepApartRule[];
+  satisfiedCount: number;
+  totalRules: number;
+};
+
+export function solveSeatPlan(input: SolveInput): SolveResult {
+  const {
+    tables,
+    guests,
+    assignments,
+    stage = STAGE_POINT,
+    priorityOrder = null,
+    constraints,
+    groupMembers = new Map<string, string[]>(),
+  } = input;
+
+  // Warm start (priority + stage aware; ignores constraints). No rules → done.
+  const warm = computeAutoSeat(tables, guests, assignments, stage, priorityOrder);
+  const totalRules = constraints.length;
+  if (totalRules === 0) {
+    return { assignments: warm, violations: [], satisfiedCount: 0, totalRules: 0 };
+  }
+
+  // Units (link-group pools) + capacity + table→unit map, and a stage-ranked
+  // unit order so relocations prefer the best remaining seats.
+  const units = groupTablesIntoUnits(tables);
+  const unitByKey = new Map(units.map((u) => [u.key, u] as const));
+  const unitCap = new Map(units.map((u) => [u.key, u.capacity] as const));
+  const unitKeyOfTable = new Map<string, string>();
+  for (const u of units) for (const m of u.members) unitKeyOfTable.set(m.table_id, u.key);
+  const seen = new Set<string>();
+  const unitOrder: string[] = [];
+  for (const r of rankTablesByStage(tables, stage)) {
+    const uk = unitKeyOfTable.get(r.table.table_id);
+    if (uk && !seen.has(uk)) {
+      seen.add(uk);
+      unitOrder.push(uk);
+    }
+  }
+
+  // Per-table occupied seats (removed pre-marked), seeded from fixed + warm.
+  const occupied = new Map<string, Set<number>>();
+  for (const t of tables) occupied.set(t.table_id, removedSeatSet(t.removed_seats, t.capacity));
+  // guest → seat; movable = the warm-seated set; the rest (pre-existing) are fixed.
+  const seatOf = new Map<string, { table_id: string; seat_number: number }>();
+  const movable = new Set<string>();
+  const unitGuests = new Map<string, Set<string>>();
+  const addToUnit = (uKey: string, gid: string) => {
+    const s = unitGuests.get(uKey) ?? new Set<string>();
+    s.add(gid);
+    unitGuests.set(uKey, s);
+  };
+  const seatGuest = (gid: string, tableId: string, seat: number, isMovable: boolean) => {
+    seatOf.set(gid, { table_id: tableId, seat_number: seat });
+    occupied.get(tableId)?.add(seat);
+    const uk = unitKeyOfTable.get(tableId);
+    if (uk) addToUnit(uk, gid);
+    if (isMovable) movable.add(gid);
+  };
+  for (const a of assignments) {
+    if (a.seat_number !== null && unitKeyOfTable.has(a.table_id)) {
+      seatGuest(a.guest_id, a.table_id, a.seat_number, false);
+    }
+  }
+  for (const r of warm) seatGuest(r.guest_id, r.table_id, r.seat_number, true);
+
+  const unitOfGuest = (gid: string): string | undefined => {
+    const s = seatOf.get(gid);
+    return s ? unitKeyOfTable.get(s.table_id) : undefined;
+  };
+
+  // Forbidden unordered guest pairs (group-expanded). group → members first.
+  const membersByGroup = new Map<string, string[]>();
+  for (const [gid, groupsOfG] of groupMembers) {
+    for (const grp of groupsOfG) {
+      const arr = membersByGroup.get(grp) ?? [];
+      arr.push(gid);
+      membersByGroup.set(grp, arr);
+    }
+  }
+  const expand = (gid: string): Set<string> => {
+    const set = new Set<string>([gid]);
+    for (const grp of groupMembers.get(gid) ?? []) {
+      for (const m of membersByGroup.get(grp) ?? []) set.add(m);
+    }
+    return set;
+  };
+  const pairKey = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`);
+  const forbidden = new Set<string>();
+  for (const rule of constraints) {
+    const A = expand(rule.guest_a_id);
+    const B = expand(rule.guest_b_id);
+    for (const x of A) for (const y of B) if (x !== y) forbidden.add(pairKey(x, y));
+  }
+
+  const conflictAt = (gid: string, uKey: string): boolean => {
+    for (const other of unitGuests.get(uKey) ?? []) {
+      if (other !== gid && forbidden.has(pairKey(gid, other))) return true;
+    }
+    return false;
+  };
+  const freeSeatInUnit = (uKey: string): { table_id: string; seat: number } | null => {
+    const u = unitByKey.get(uKey);
+    if (!u) return null;
+    for (const m of u.members) {
+      const occ = occupied.get(m.table_id)!;
+      for (let s = 0; s < m.capacity; s++) if (!occ.has(s)) return { table_id: m.table_id, seat: s };
+    }
+    return null;
+  };
+  // Lower-priority guests move first (preserve VIP stage placement): higher tier
+  // RANK number = lower priority = cheaper to move. Tie-break by guest_id.
+  const guestById = new Map(guests.map((g) => [g.guest_id, g] as const));
+  const tierRank = resolvePriorityRank(priorityOrder);
+  const moveCost = (gid: string): number => {
+    const g = guestById.get(gid);
+    const tier = g ? guestTier(g.role, g.group_category, g.seating_priority) : 4;
+    return tierRank[tier];
+  };
+
+  // Deterministic greedy repair: each pass fixes at most one violated pair then
+  // re-evaluates (no thrashing). Bounded so it always terminates. BEST-EFFORT,
+  // not optimal — it relocates a *violating* guest to a conflict-free table but
+  // never backtracks an innocent "anchor" guest, so a rare satisfiable layout can
+  // still be reported as a violation (e.g. the only conflict-free table is full
+  // of unrelated guests a swap would free). That's a quality limit, not a
+  // correctness bug: the result is always valid, fully seated, and the violation
+  // list is accurate. A future pass could add swaps / simulated annealing.
+  const maxPasses = Math.min(1000, movable.size * 4 + constraints.length + 1);
+  for (let pass = 0; pass < maxPasses; pass++) {
+    const violated = [...forbidden]
+      .filter((k) => {
+        const i = k.indexOf('|');
+        const a = k.slice(0, i);
+        const b = k.slice(i + 1);
+        const ua = unitOfGuest(a);
+        return ua != null && ua === unitOfGuest(b);
+      })
+      .sort();
+    if (violated.length === 0) break;
+    let moved = false;
+    for (const k of violated) {
+      const i = k.indexOf('|');
+      const pair = [k.slice(0, i), k.slice(i + 1)];
+      const movers = pair
+        .filter((x) => movable.has(x))
+        .sort((x, y) => moveCost(y) - moveCost(x) || (x < y ? -1 : 1));
+      let did = false;
+      for (const mover of movers) {
+        const from = unitOfGuest(mover);
+        for (const uKey of unitOrder) {
+          if (uKey === from) continue;
+          if ((unitGuests.get(uKey)?.size ?? 0) >= (unitCap.get(uKey) ?? 0)) continue;
+          if (conflictAt(mover, uKey)) continue;
+          const slot = freeSeatInUnit(uKey);
+          if (!slot) continue;
+          const old = seatOf.get(mover)!;
+          occupied.get(old.table_id)!.delete(old.seat_number);
+          if (from) unitGuests.get(from)?.delete(mover);
+          seatGuest(mover, slot.table_id, slot.seat, true);
+          did = true;
+          moved = true;
+          break;
+        }
+        if (did) break;
+      }
+      if (did) break; // re-evaluate from a clean slate next pass
+    }
+    if (!moved) break; // stuck — remaining violations are unavoidable
+  }
+
+  const outAssignments: AutoSeatRow[] = [...movable].map((gid) => {
+    const s = seatOf.get(gid)!;
+    return { guest_id: gid, table_id: s.table_id, seat_number: s.seat_number };
+  });
+  // A rule is violated iff ANY of its expanded pairs is still co-seated.
+  const violations = constraints.filter((rule) => {
+    const A = expand(rule.guest_a_id);
+    const B = expand(rule.guest_b_id);
+    for (const x of A) {
+      const ux = unitOfGuest(x);
+      if (ux == null) continue;
+      for (const y of B) if (x !== y && unitOfGuest(y) === ux) return true;
+    }
+    return false;
+  });
+  return {
+    assignments: outAssignments,
+    violations,
+    satisfiedCount: totalRules - violations.length,
+    totalRules,
+  };
 }
 
 // ---------------------------------------------------------------------------

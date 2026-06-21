@@ -74,6 +74,7 @@ import {
   type EventTableRow,
   type TableDisplayUnit,
   type PriorityOrder,
+  type KeepApartRule,
   type FloorBoothRow,
   type FloorPlanRow,
   type FloorSignRow,
@@ -81,12 +82,14 @@ import {
   type TableType,
 } from '@/lib/seating';
 import {
+  addSeatingConstraint,
   assignGroup,
   assignGuest,
   autoArrange,
   buildSeatingDraft,
   createTable,
   deleteTable,
+  removeSeatingConstraint,
   linkTables,
   publishSeating,
   saveBooths,
@@ -157,6 +160,8 @@ type Props = {
   floorPlan: FloorPlanRow;
   booths: FloorBoothRow[];
   signs: FloorSignRow[];
+  // Keep-apart rules (smart seat-plan Phase 3) — couple-private guest pairs.
+  constraints: KeepApartRule[];
   // Who I am, for live presence (cursors + "editing Table N" rings).
   me: { id: string; name: string };
 };
@@ -185,6 +190,7 @@ export function SeatingEditor({
   floorPlan,
   booths: boothsProp,
   signs: signsProp,
+  constraints: constraintsProp,
   me,
 }: Props) {
   // Optimistic overlays: a seat/unseat/delete shows immediately, then the
@@ -779,10 +785,20 @@ export function SeatingEditor({
       setDirty(new Set());
       setBoothsDirty(false);
       const boothWhere = venueScaled ? 'on the perimeter' : 'behind the tables';
+      // Keep-apart outcome (Phase 3) — only when rules exist.
+      const keepApartNote =
+        res.totalRules > 0
+          ? ` Honored ${res.satisfiedRules}/${res.totalRules} keep-apart rule${res.totalRules === 1 ? '' : 's'}${
+              res.unsatisfiedRules > 0
+                ? ` — couldn't separate ${res.unsatisfiedRules} (not enough room; try more tables).`
+                : '.'
+            }`
+          : '';
       setNotice(
-        res.seated > 0
+        (res.seated > 0
           ? `Auto-arranged: ${tables.length} tables in priority order, ${nextBooths.length} booth${nextBooths.length === 1 ? '' : 's'} ${boothWhere}, ${res.seated} guest${res.seated === 1 ? '' : 's'} seated.`
-          : `Auto-arranged: ${tables.length} tables in priority order${nextBooths.length > 0 ? ` and ${nextBooths.length} booth${nextBooths.length === 1 ? '' : 's'} ${boothWhere}` : ''}. Everyone attending is already seated.`,
+          : `Auto-arranged: ${tables.length} tables in priority order${nextBooths.length > 0 ? ` and ${nextBooths.length} booth${nextBooths.length === 1 ? '' : 's'} ${boothWhere}` : ''}. Everyone attending is already seated.`) +
+          keepApartNote,
       );
     });
   };
@@ -868,6 +884,38 @@ export function SeatingEditor({
     persistPriority(next);
   };
   const movePriorityTier = (index: number, dir: -1 | 1) => reorderPriorityTo(index, index + dir);
+
+  // Keep-apart rules (smart seat-plan Phase 3) — couple-private guest pairs the
+  // solver separates onto different tables (group-aware). Optimistic local list
+  // seeded from props; add/remove persist via the lock-gated actions.
+  const [keepApart, setKeepApart] = useState<KeepApartRule[]>(constraintsProp);
+  const sameRule = (x: KeepApartRule, a: string, b: string) =>
+    (x.guest_a_id === a && x.guest_b_id === b) || (x.guest_a_id === b && x.guest_b_id === a);
+  const addKeepApart = (aId: string, bId: string) => {
+    if (!canEdit || !aId || !bId || aId === bId) return;
+    if (keepApart.some((r) => sameRule(r, aId, bId))) return; // already a rule (either order)
+    setKeepApart((prev) => [...prev, { guest_a_id: aId, guest_b_id: bId }]);
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
+    fd.set('guest_a_id', aId);
+    fd.set('guest_b_id', bId);
+    startTransition(async () => {
+      await runGated(() => addSeatingConstraint(fd));
+    });
+  };
+  const removeKeepApart = (rule: KeepApartRule) => {
+    if (!canEdit) return;
+    setKeepApart((prev) => prev.filter((r) => !sameRule(r, rule.guest_a_id, rule.guest_b_id)));
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
+    fd.set('guest_a_id', rule.guest_a_id);
+    fd.set('guest_b_id', rule.guest_b_id);
+    startTransition(async () => {
+      await runGated(() => removeSeatingConstraint(fd));
+    });
+  };
 
   // Publish the seating pack + open the printable sign sheets. The print route
   // reads live data so the pack works immediately; publishSeating stamps the
@@ -2694,6 +2742,44 @@ export function SeatingEditor({
               </li>
             ))}
           </ul>
+        </Section>
+
+        {/* Seating Guide — keep-apart rules (smart seat-plan Phase 3). Couple-
+            private: Auto Arrange seats these pairs (and their whole groups) at
+            different tables. */}
+        <Section label="Seating Guide">
+          <p className="px-1 pb-1.5 text-[11px] text-ink/50">
+            Keep guests apart — Auto Arrange seats them at different tables (their whole groups too). Only you see this.
+          </p>
+          {keepApart.length > 0 ? (
+            <ul className="mb-2 space-y-1">
+              {keepApart.map((r) => (
+                <li
+                  key={`${r.guest_a_id}|${r.guest_b_id}`}
+                  className="flex items-center gap-2 rounded-lg border border-ink/10 px-2 py-1.5"
+                >
+                  <Unlink className="h-3.5 w-3.5 shrink-0 text-mulberry/70" aria-hidden />
+                  <span className="min-w-0 flex-1 truncate text-sm text-ink">
+                    <span className="font-medium">{guestsById.get(r.guest_a_id)?.name ?? 'Guest'}</span>
+                    <span className="text-ink/45"> can&apos;t sit with </span>
+                    <span className="font-medium">{guestsById.get(r.guest_b_id)?.name ?? 'Guest'}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeKeepApart(r)}
+                    disabled={!canEdit}
+                    aria-label="Remove keep-apart rule"
+                    className="rounded p-1 text-ink/30 hover:bg-danger-50 hover:text-danger-600 disabled:opacity-30"
+                  >
+                    <Minus className="h-3.5 w-3.5" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="px-1 pb-1.5 text-[11px] text-ink/40">No keep-apart rules yet.</p>
+          )}
+          {canEdit ? <KeepApartAdder guests={guests} onAdd={addKeepApart} /> : null}
         </Section>
       </aside>
 
@@ -4639,6 +4725,57 @@ function Section({ label, children }: { label: string; children: React.ReactNode
     <div>
       <p className="mb-1 px-1 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">{label}</p>
       {children}
+    </div>
+  );
+}
+
+// Two-guest picker for adding a keep-apart rule (smart seat-plan Phase 3). Native
+// <select>s so it works on touch + desktop + keyboard alike. Owns its own draft
+// selection; commits via onAdd then resets.
+function KeepApartAdder({
+  guests,
+  onAdd,
+}: {
+  guests: SeatingGuest[];
+  onAdd: (a: string, b: string) => void;
+}) {
+  const [a, setA] = useState('');
+  const [b, setB] = useState('');
+  const sorted = useMemo(() => [...guests].sort((x, y) => x.name.localeCompare(y.name)), [guests]);
+  const selCls = 'min-w-0 flex-1 rounded-lg border border-ink/15 bg-cream px-2 py-1.5 text-sm text-ink';
+  return (
+    <div className="space-y-1.5 rounded-lg border border-dashed border-ink/15 p-2">
+      <select aria-label="First guest" value={a} onChange={(e) => setA(e.target.value)} className={selCls}>
+        <option value="">Guest…</option>
+        {sorted.map((g) => (
+          <option key={g.guest_id} value={g.guest_id}>
+            {g.name}
+          </option>
+        ))}
+      </select>
+      <div className="flex items-center gap-1.5">
+        <span className="shrink-0 text-[11px] text-ink/45">can&apos;t sit with</span>
+        <select aria-label="Second guest" value={b} onChange={(e) => setB(e.target.value)} className={selCls}>
+          <option value="">Guest…</option>
+          {sorted.map((g) => (
+            <option key={g.guest_id} value={g.guest_id}>
+              {g.name}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          disabled={!a || !b || a === b}
+          onClick={() => {
+            onAdd(a, b);
+            setA('');
+            setB('');
+          }}
+          className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-mulberry px-2.5 py-1.5 text-xs font-medium text-cream hover:bg-mulberry-600 disabled:opacity-40"
+        >
+          <Plus className="h-3.5 w-3.5" /> Add
+        </button>
+      </div>
     </div>
   );
 }

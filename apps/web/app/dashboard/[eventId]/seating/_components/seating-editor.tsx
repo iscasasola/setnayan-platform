@@ -9,6 +9,8 @@ import {
   CakeSlice,
   Camera,
   ChevronDown,
+  ChevronUp,
+  GripVertical,
   ClipboardList,
   DoorOpen,
   Eye,
@@ -53,6 +55,7 @@ import {
   clampBoothToPerimeter,
   computeAutoLayout,
   freeBoothSlots,
+  defaultPriorityOrder,
   defaultTablePosition,
   effectiveCapacity,
   groupTablesIntoUnits,
@@ -70,6 +73,7 @@ import {
   type BoothType,
   type EventTableRow,
   type TableDisplayUnit,
+  type PriorityOrder,
   type FloorBoothRow,
   type FloorPlanRow,
   type FloorSignRow,
@@ -87,6 +91,7 @@ import {
   publishSeating,
   saveBooths,
   saveFloorPlan,
+  savePriorityOrder,
   saveSigns,
   seatRoleAtTable,
   setGuestSeatingPriority,
@@ -824,6 +829,45 @@ export function SeatingEditor({
       await runGated(() => setGuestSeatingPriority(fd));
     });
   };
+
+  // Smart seat-plan Phase 2 — the couple's seating-priority tier order (who Auto
+  // Arrange seats nearest the stage). Seeded from the saved order (or the locked
+  // default); reorder persists via savePriorityOrder. Reorder works two ways so
+  // it's usable on every device: HTML5 drag for desktop pointers (the requested
+  // "drag to reorder") + up/down buttons for touch / keyboard / a11y (HTML5 drag
+  // doesn't fire on touch, and the seat plan is mobile-used).
+  const [priorityOrder, setPriorityOrder] = useState<PriorityOrder>(
+    () => floorPlan.priority_order ?? defaultPriorityOrder(),
+  );
+  const [dragTierIndex, setDragTierIndex] = useState<number | null>(null);
+  const persistPriority = (next: PriorityOrder) => {
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
+    fd.set('priority_order', JSON.stringify(next));
+    startTransition(async () => {
+      await runGated(() => savePriorityOrder(fd));
+    });
+  };
+  const reorderPriorityTo = (from: number, to: number) => {
+    if (
+      !canEdit ||
+      from === to ||
+      from < 0 ||
+      from >= priorityOrder.length ||
+      to < 0 ||
+      to >= priorityOrder.length
+    ) {
+      return;
+    }
+    const next = priorityOrder.slice();
+    const [moved] = next.splice(from, 1);
+    if (!moved) return;
+    next.splice(to, 0, moved);
+    setPriorityOrder(next); // optimistic — the list reflows instantly
+    persistPriority(next);
+  };
+  const movePriorityTier = (index: number, dir: -1 | 1) => reorderPriorityTo(index, index + dir);
 
   // Publish the seating pack + open the printable sign sheets. The print route
   // reads live data so the pack works immediately; publishSeating stamps the
@@ -2594,6 +2638,63 @@ export function SeatingEditor({
             </ul>
           </Section>
         ) : null}
+
+        {/* Seating Priority (smart seat-plan Phase 2). The order decides who Auto
+            Arrange seats nearest the stage. Drag to reorder on desktop; the
+            up/down arrows do the same on touch / keyboard. */}
+        <Section label="Seating Priority">
+          <p className="px-1 pb-1.5 text-[11px] text-ink/50">
+            Who sits nearest the stage. Drag to reorder — Auto Arrange fills these tiers top to bottom.
+          </p>
+          <ul className="space-y-1">
+            {priorityOrder.map((t, i) => (
+              <li
+                key={t.tier}
+                draggable={canEdit}
+                onDragStart={() => setDragTierIndex(i)}
+                onDragOver={(e) => {
+                  if (dragTierIndex !== null) e.preventDefault();
+                }}
+                onDrop={() => {
+                  if (dragTierIndex !== null) reorderPriorityTo(dragTierIndex, i);
+                  setDragTierIndex(null);
+                }}
+                onDragEnd={() => setDragTierIndex(null)}
+                className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 ${
+                  dragTierIndex === i
+                    ? 'border-mulberry/40 bg-mulberry/5'
+                    : 'border-ink/10'
+                } ${canEdit ? 'cursor-grab active:cursor-grabbing' : ''}`}
+              >
+                <GripVertical className="h-3.5 w-3.5 shrink-0 text-ink/30" aria-hidden />
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink/5 text-[10px] font-semibold text-ink/60">
+                  {i + 1}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-sm text-ink">{t.label}</span>
+                <div className="flex shrink-0 items-center">
+                  <button
+                    type="button"
+                    onClick={() => movePriorityTier(i, -1)}
+                    disabled={i === 0 || !canEdit}
+                    aria-label={`Move ${t.label} up`}
+                    className="rounded p-1 text-ink/40 hover:bg-ink/5 disabled:opacity-30"
+                  >
+                    <ChevronUp className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => movePriorityTier(i, 1)}
+                    disabled={i === priorityOrder.length - 1 || !canEdit}
+                    aria-label={`Move ${t.label} down`}
+                    className="rounded p-1 text-ink/40 hover:bg-ink/5 disabled:opacity-30"
+                  >
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Section>
       </aside>
 
       {/* ---------------- Canvas ---------------- */}

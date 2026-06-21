@@ -7,7 +7,16 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { groupTablesIntoUnits, type EventTableRow } from './seating';
+import {
+  groupTablesIntoUnits,
+  computeAutoSeat,
+  defaultPriorityOrder,
+  parsePriorityOrder,
+  resolvePriorityRank,
+  type EventTableRow,
+  type AutoSeatGuest,
+  type PriorityOrder,
+} from './seating';
 
 // Checked index access — the repo typechecks with noUncheckedIndexedAccess, so a
 // bare units[i] is T | undefined. Asserts presence and returns the element.
@@ -107,4 +116,83 @@ test('a mix of linked and unlinked tables yields one unit per link group plus si
     units.map((u) => u.label),
     ['Table 1', 'Sponsors', 'Table 5'],
   );
+});
+
+// ---------------------------------------------------------------------------
+// Smart seat-plan · Phase 2 — draggable seating priority order. Load-bearing
+// invariant: the tier order decides who fills the stage-closest tables first;
+// null = the default 1→2→3→4 fill (back-compatible).
+// ---------------------------------------------------------------------------
+
+function guest(over: Partial<AutoSeatGuest> & Pick<AutoSeatGuest, 'guest_id'>): AutoSeatGuest {
+  return {
+    role: 'friend',
+    group_category: 'friends',
+    rsvp_status: 'attending',
+    plus_one_of_guest_id: null,
+    last_name: over.guest_id,
+    first_name: over.guest_id,
+    group_id: null,
+    seating_priority: null,
+    ...over,
+  };
+}
+
+test('defaultPriorityOrder lists the 4 role tiers, highest first, with canonical labels', () => {
+  const order = defaultPriorityOrder();
+  assert.deepEqual(
+    order.map((o) => o.tier),
+    [1, 2, 3, 4],
+  );
+  assert.equal(order[0]?.label, 'Family & principal sponsors');
+});
+
+test('parsePriorityOrder keeps valid reorders, de-dupes, and rejects junk', () => {
+  // Reorder + dedupe; labels are re-derived (input labels ignored).
+  const parsed = parsePriorityOrder([{ tier: 2, label: 'whatever' }, { tier: 1 }, { tier: 2 }]);
+  assert.deepEqual(parsed?.map((o) => o.tier), [2, 1]);
+  assert.equal(parsed?.[0]?.label, 'Entourage'); // canonical, not "whatever"
+  // Malformed / empty → null (callers fall back to the default).
+  assert.equal(parsePriorityOrder(null), null);
+  assert.equal(parsePriorityOrder('nope'), null);
+  assert.equal(parsePriorityOrder([{ tier: 9 }, {}]), null);
+  assert.equal(parsePriorityOrder([]), null);
+});
+
+test('resolvePriorityRank: null → default ranks; a reorder flips them; missing tiers fall to the end', () => {
+  assert.deepEqual(resolvePriorityRank(null), { 1: 0, 2: 1, 3: 2, 4: 3 });
+  const order: PriorityOrder = [
+    { tier: 2, label: 'Entourage' },
+    { tier: 1, label: 'Family & principal sponsors' },
+  ];
+  // 2 and 1 ranked first (0,1); the unlisted 3,4 keep a stable tail (2,3).
+  assert.deepEqual(resolvePriorityRank(order), { 2: 0, 1: 1, 3: 2, 4: 3 });
+});
+
+test('computeAutoSeat: the priority order decides who gets the stage-closest table', () => {
+  const stage = { x: 50, y: 8 };
+  // One seat per table so the first-seated guest takes the nearer table.
+  const near = tbl({ table_id: 'near', capacity: 1, x_pos: 50, y_pos: 15 });
+  const far = tbl({ table_id: 'far', capacity: 1, x_pos: 50, y_pos: 90 });
+  // Tier set by the explicit seating_priority override (independent of role).
+  const a = guest({ guest_id: 'a', seating_priority: 1 }); // tier 1
+  const b = guest({ guest_id: 'b', seating_priority: 2 }); // tier 2
+  const tableOf = (rows: ReturnType<typeof computeAutoSeat>, id: string) =>
+    rows.find((r) => r.guest_id === id)?.table_id;
+
+  // Default order (1→2): tier-1 'a' takes the near table.
+  const def = computeAutoSeat([near, far], [a, b], [], stage, null);
+  assert.equal(tableOf(def, 'a'), 'near');
+  assert.equal(tableOf(def, 'b'), 'far');
+
+  // Reordered (tier 2 first): now tier-2 'b' takes the near table.
+  const reordered: PriorityOrder = [
+    { tier: 2, label: 'Entourage' },
+    { tier: 1, label: 'Family & principal sponsors' },
+    { tier: 3, label: 'Extended family' },
+    { tier: 4, label: 'Friends & others' },
+  ];
+  const re = computeAutoSeat([near, far], [a, b], [], stage, reordered);
+  assert.equal(tableOf(re, 'b'), 'near');
+  assert.equal(tableOf(re, 'a'), 'far');
 });

@@ -7,11 +7,19 @@
  * shared util so the Live Wall + Recap 3D/render surfaces can inherit the same
  * one-true-path mark later.
  *
- * It renders the EXACT same mark the QR centers / hero / save-the-date show —
- * `monogramOverlaySvg` (a self-contained cream-plate + accent-ring + initials/
- * lockup badge) — so the 3D scene never grows a second monogram render ladder.
- * Because that badge carries its own contrast, the mark reads on ANY floor hue
- * without surface-luminance branching.
+ * It composes the couple's CANONICAL mark the same way the QR centers / hero /
+ * save-the-date do — `monogramOverlaySvg` (a self-contained cream-plate +
+ * accent-ring + initials/lockup badge) — so the 3D scene never grows a second
+ * monogram render ladder. Because that badge carries its own contrast, the mark
+ * reads on ANY floor hue without surface-luminance branching.
+ *
+ * Face fidelity: the BESPOKE/uploaded SVG renders pixel-exact. The LETTERED
+ * lockup/initials use the couple's chosen FACE only as far as an isolated <img>
+ * rasterization allows — next/font web fonts (loaded behind CSS vars) aren't
+ * available there, so the typeface degrades to its category-correct SYSTEM
+ * fallback (serif vs script). Pixel-exact lettered parity would need an inlined
+ * base64 @font-face — a deliberate followup (and the seam the Live Wall / Recap
+ * reuse will want too).
  *
  * Client-only: uses Image + <canvas> + WebGL, none of which exist during SSR.
  * Never import this from a server path.
@@ -27,20 +35,40 @@ export type { MonogramTextureSource };
 const VIEWBOX = 512;
 
 /**
+ * Drop `var(--…)` tokens from a font-family stack. The couple's chosen face is a
+ * next/font web font exposed only as a hashed @font-face behind a CSS var
+ * (`var(--font-display), 'Cormorant Garamond', Georgia, serif`). Inside a
+ * standalone <img> SVG rasterization that var is UNDEFINED, and a bare
+ * unresolved leading var() is invalid-at-computed-value → it poisons the WHOLE
+ * font-family (the named + generic tail is discarded → UA default). Stripping
+ * the var() leaves the stack's VALID named → generic tail, which rasterizes
+ * category-correct (serif faces → Georgia/serif, script faces → Snell Roundhand/
+ * cursive) using system fonts. Returns undefined when nothing remains, so
+ * monogramOverlaySvg falls to its own (var-free) default. */
+function stripFontVars(ff: string | undefined): string | undefined {
+  if (!ff) return ff;
+  const cleaned = ff
+    .replace(/var\([^)]*\)\s*,?\s*/g, '')
+    .replace(/^[\s,]+/, '')
+    .trim();
+  return cleaned || undefined;
+}
+
+/**
  * The mark as a same-origin SVG data-URI (safe to draw into a canvas — a data
  * URI never taints, so the resulting CanvasTexture is readable).
  */
 export function monogramSourceToDataUri(src: MonogramTextureSource): string {
   if (src.kind === 'svg') return bespokeSvgToDataUri(src.svg);
   // monogramOverlaySvg returns FRAGMENT children (it's normally injected into a
-  // QR's <svg>), so wrap it in a full document for an <img>. Inline a CONCRETE
-  // serif: CSS-var font stacks (var(--font-display)) do NOT resolve inside an
-  // <img> rasterization, so the lockup/initials would otherwise fall to the
-  // browser default face.
-  const inner = monogramOverlaySvg({ viewBoxSize: VIEWBOX, monogram: src.monogram });
+  // QR's <svg>), so wrap it in a full document for an <img>. Strip the CSS-var
+  // font tokens so the chosen face degrades to its category-correct system
+  // fallback during rasterization (see stripFontVars). NO blanket <style>
+  // override — that would flatten every couple's face to one family.
+  const monogram = { ...src.monogram, fontFamily: stripFontVars(src.monogram.fontFamily) };
+  const inner = monogramOverlaySvg({ viewBoxSize: VIEWBOX, monogram });
   const doc =
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${VIEWBOX} ${VIEWBOX}" width="${VIEWBOX}" height="${VIEWBOX}">` +
-    `<style>text{font-family:Georgia,'Times New Roman',ui-serif,serif}</style>` +
     inner +
     `</svg>`;
   return `data:image/svg+xml;utf8,${encodeURIComponent(doc)}`;

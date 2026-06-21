@@ -769,9 +769,13 @@ function RoomShell({
       made?.dispose();
     };
   }, [monogram]);
-  // ~1.35 m medallion at the default 18×12 room; scales with the room so it
-  // clears the table ring. World origin is the floor centre for ANY board (free
-  // or venue-sized), sidestepping the off-floor-sprawl caveat.
+  // The texture PLANE is min(room.w, room.d) * 0.42 (~5 m at the default 18×12),
+  // but the overlay badge fills only its centre ~27% — so the VISIBLE medallion
+  // is ~1.35 m; the rest of the plane is transparent (alphaTest discards it, so
+  // it never occludes tables or the floor). Centred on world origin = the floor
+  // centre AND the Play-mode camera's focal point, on ANY board (free or venue-
+  // sized) — so it lands ON a centred dance floor when one is enabled (the
+  // intended "monogram on the dance floor" look).
   const medSize = Math.min(room.w, room.d) * 0.42;
 
   return (

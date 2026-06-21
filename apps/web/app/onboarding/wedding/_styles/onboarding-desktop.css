@@ -50,7 +50,7 @@
     flex: 0 0 auto;
     width: min(1180px, calc(100vw - 96px));
     max-width: none;
-    height: min(880px, calc(100vh - 64px));
+    height: min(1040px, calc(100vh - 48px));
     margin: 0 auto;
   }
 
@@ -65,43 +65,58 @@
      .viewzone + .tapzone + .stack/.chips + .opt/.chip skeleton. ── */
   .onbw .onb-twopane.screen.active {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 0.82fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr);
     gap: clamp(40px, 4vw, 72px);
-    align-items: center;
+    align-items: stretch;          /* fill the sheet height — occupy the space */
   }
-  /* The viewzone is no longer a stacked block — it's the left grid column. */
+  /* LEFT column: eyebrow + question at top, the image FILLS the rest (full height).
+     justify-content:center handles the image-less experience axes/dials — their
+     headline centres in the column instead of clinging to the top. */
   .onbw .onb-twopane.screen.active .viewzone {
-    flex: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 0;
   }
-  /* The answers column. The mobile thumb-dock uses margin-top:auto to push the
-     tapzone to the bottom of the scroller — that MUST be reset inside the grid or
-     the answers slam to the bottom of the row. Cap + centre so the column reads
-     as a calm answer panel, not a stretched form. */
+  /* The hero figure grows to fill the left column top-to-bottom (the image inside
+     is absolute-inset object-cover, so it fills the figure automatically). */
+  .onbw .onb-twopane.screen.active .rolephoto,
+  .onbw .onb-twopane.screen.active .kindphoto,
+  .onbw .onb-twopane.screen.active .faithphoto {
+    flex: 1 1 auto;
+    min-height: 240px;
+    height: auto;
+    margin-top: clamp(14px, 2vh, 26px);
+  }
+  /* RIGHT column: answers stacked as ROWS, filling the column height. The mobile
+     thumb-dock (margin-top:auto) is reset; max-width cap removed so each option is
+     a full-width row; the stack flips from role/kind's single shared row to a
+     column (one option per row). */
   .onbw .onb-twopane.screen.active .tapzone {
     margin-top: 0;
-    align-self: center;
-    max-width: 480px;
+    align-self: stretch;
+    max-width: none;
     width: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .onbw .onb-twopane.screen.active .tapzone .stack {
+    flex-direction: column;
+    gap: 12px;
+  }
+  /* role/kind set their .stack to a ROW via an #id rule (onboarding.css line 139,
+     higher specificity than a class selector) — override with an id-inclusive
+     selector so their options stack as full-width rows in the right column too. */
+  .onbw #screen-role.onb-twopane.screen.active .tapzone .stack,
+  .onbw #screen-kind.onb-twopane.screen.active .tapzone .stack {
+    flex-direction: column;
   }
 
   /* ── Editorial type — the question becomes a magazine headline on the left. ── */
   .onbw .onb-twopane .q {
     font-size: clamp(34px, 3.2vw, 52px);
     line-height: 1.08;
-  }
-
-  /* ── Editorial imagery — the hero figures grow into a tall left-column image.
-     These are the figure classes confirmed in the shell markup:
-       .rolephoto  (#screen-role)      .kindphoto  (#screen-kind)
-       .faithphoto (#screen-faith)
-     The experience axes/dials carry no figure (eyebrow + .q only) — the headline
-     simply owns the left column, which reads cleanly. .welcomehero + .refine-hero
-     belong to SINGLE-COLUMN screens, so they're sized in their own blocks below. */
-  .onbw .onb-twopane .rolephoto,
-  .onbw .onb-twopane .kindphoto,
-  .onbw .onb-twopane .faithphoto {
-    min-height: clamp(360px, 46vh, 560px);
-    height: auto;
   }
 
   /* ── SINGLE-COLUMN-WIDE — every screen NOT in the two-pane list. Its content is
@@ -207,8 +222,5 @@
   .onbw {
     align-items: flex-start;
     overflow-y: auto;
-  }
-  .onbw .phone {
-    height: auto;
   }
 }

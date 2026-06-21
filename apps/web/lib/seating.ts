@@ -162,6 +162,10 @@ export type FloorPlanRow = {
   venue_length_m: number | null;
   // When the couple last published the seating pack (stamped table QR sheets).
   published_at: string | null;
+  // Smart seat-plan Phase 2: the couple's draggable seating-priority tier order
+  // (who fills the stage-closest tables first). null = the locked default
+  // (defaultPriorityOrder()), which reproduces the historical hardcoded fill.
+  priority_order: PriorityOrder | null;
 };
 
 export const DEFAULT_FLOOR_PLAN: FloorPlanRow = {
@@ -194,6 +198,7 @@ export const DEFAULT_FLOOR_PLAN: FloorPlanRow = {
   venue_width_m: null,
   venue_length_m: null,
   published_at: null,
+  priority_order: null,
 };
 
 export async function fetchFloorPlan(
@@ -203,7 +208,7 @@ export async function fetchFloorPlan(
   const { data, error } = await supabase
     .from('event_floor_plan')
     .select(
-      'stage_x,stage_y,stage_w,stage_h,entrance_enabled,entrance_x,entrance_y,dance_enabled,dance_x,dance_y,dance_w,dance_h,service_entrance_enabled,service_entrance_x,service_entrance_y,cocktail_enabled,cocktail_x,cocktail_y,cocktail_w,cocktail_h,cocktail_label,cocktail_width_m,cocktail_length_m,cocktail_schedule_block_id,cocktail_vendor_edit,cocktail_linked,venue_width_m,venue_length_m,published_at',
+      'stage_x,stage_y,stage_w,stage_h,entrance_enabled,entrance_x,entrance_y,dance_enabled,dance_x,dance_y,dance_w,dance_h,service_entrance_enabled,service_entrance_x,service_entrance_y,cocktail_enabled,cocktail_x,cocktail_y,cocktail_w,cocktail_h,cocktail_label,cocktail_width_m,cocktail_length_m,cocktail_schedule_block_id,cocktail_vendor_edit,cocktail_linked,venue_width_m,venue_length_m,published_at,priority_order',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -252,6 +257,7 @@ export async function fetchFloorPlan(
     venue_width_m: data.venue_width_m === null ? null : Number(data.venue_width_m),
     venue_length_m: data.venue_length_m === null ? null : Number(data.venue_length_m),
     published_at: (data as { published_at?: string | null }).published_at ?? null,
+    priority_order: parsePriorityOrder((data as { priority_order?: unknown }).priority_order),
   };
 }
 
@@ -723,6 +729,60 @@ function tierOf(g: AutoSeatGuest): 1 | 2 | 3 | 4 {
   return guestTier(g.role, g.group_category, g.seating_priority);
 }
 
+// ---------------------------------------------------------------------------
+// Seating priority order (smart seat-plan · Phase 2). The couple DRAGS to
+// reorder the role tiers; the order decides who fills the stage-closest tables
+// first (computeAutoSeat fills tier by tier into a stage-ranked pool, so the
+// tier sequence IS the VIP-near-stage weighting). Persisted as
+// event_floor_plan.priority_order (JSONB); null = the default below, which
+// reproduces the historical hardcoded 1→2→3→4 fill (back-compatible).
+// ---------------------------------------------------------------------------
+export type PriorityTier = { tier: 1 | 2 | 3 | 4; label: string };
+export type PriorityOrder = PriorityTier[];
+
+// The locked default order — highest priority (nearest the stage) first.
+export function defaultPriorityOrder(): PriorityOrder {
+  return ([1, 2, 3, 4] as const).map((tier) => ({ tier, label: ROLE_TIER_LABELS[tier] }));
+}
+
+// Validate a JSONB value read from the DB into a clean PriorityOrder: keep only
+// well-formed, de-duplicated tiers 1–4 and always re-derive the label from
+// ROLE_TIER_LABELS (storage carries the ORDER; labels stay canonical). Returns
+// null for anything malformed/empty so callers fall back to the default.
+export function parsePriorityOrder(raw: unknown): PriorityOrder | null {
+  if (!Array.isArray(raw)) return null;
+  const out: PriorityOrder = [];
+  const seen = new Set<number>();
+  for (const item of raw) {
+    const t = (item as { tier?: unknown } | null)?.tier;
+    if ((t === 1 || t === 2 || t === 3 || t === 4) && !seen.has(t)) {
+      seen.add(t);
+      out.push({ tier: t, label: ROLE_TIER_LABELS[t] });
+    }
+  }
+  return out.length > 0 ? out : null;
+}
+
+// Map each role tier to a numeric rank (0 = highest priority = nearest the
+// stage) from a possibly-reordered priority list. Tiers absent from the list
+// keep a stable fallback after the listed ones. null/empty → the default order.
+export function resolvePriorityRank(
+  order: PriorityOrder | null | undefined,
+): Record<1 | 2 | 3 | 4, number> {
+  const list = order && order.length > 0 ? order : defaultPriorityOrder();
+  const rank: Record<1 | 2 | 3 | 4, number> = { 1: 0, 2: 0, 3: 0, 4: 0 };
+  const seen = new Set<number>();
+  let r = 0;
+  for (const { tier } of list) {
+    if (!seen.has(tier)) {
+      rank[tier] = r++;
+      seen.add(tier);
+    }
+  }
+  for (const t of [1, 2, 3, 4] as const) if (!seen.has(t)) rank[t] = r++;
+  return rank;
+}
+
 // Default stage anchor (top-centre) when the event has no saved floor plan.
 const STAGE_POINT = { x: 50, y: 8 };
 
@@ -741,6 +801,9 @@ export function computeAutoSeat(
   guests: AutoSeatGuest[],
   assignments: SeatAssignmentRow[],
   stage: { x: number; y: number } = STAGE_POINT,
+  // Smart seat-plan Phase 2: the couple's draggable tier order. null = the
+  // default 1→2→3→4 fill (back-compatible — all existing callers omit it).
+  priorityOrder: PriorityOrder | null = null,
 ): AutoSeatRow[] {
   const assignedGuestIds = new Set(assignments.map((a) => a.guest_id));
 
@@ -783,7 +846,11 @@ export function computeAutoSeat(
 
   const nameKey = (g: AutoSeatGuest) => `${g.last_name} ${g.first_name}`.toLowerCase();
   const ordered: AutoSeatGuest[] = [];
-  for (const tier of [1, 2, 3, 4] as const) {
+  // Fill tiers in the couple's chosen priority order (highest first → fills the
+  // stage-closest tables first). Default order = 1→2→3→4.
+  const rank = resolvePriorityRank(priorityOrder);
+  const tierSequence = ([1, 2, 3, 4] as const).slice().sort((a, b) => rank[a] - rank[b]);
+  for (const tier of tierSequence) {
     const list = byTier[tier];
     const plusOnesBy = new Map<string, AutoSeatGuest[]>();
     const primaries: AutoSeatGuest[] = [];

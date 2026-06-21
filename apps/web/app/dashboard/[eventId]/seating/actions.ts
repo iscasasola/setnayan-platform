@@ -14,6 +14,7 @@ import {
   fetchAssignments,
   fetchFloorPlan,
   fetchTables,
+  parsePriorityOrder,
   recommendTableSet,
   removedSeatSet,
   roleTier,
@@ -21,6 +22,7 @@ import {
   tableGeometry,
   type AutoSeatGuest,
   type BoothType,
+  type PriorityOrder,
   type TableType,
 } from '@/lib/seating';
 
@@ -321,11 +323,15 @@ export async function autoSeatGuests(formData: FormData) {
     seating_priority: g.seating_priority ?? null,
   }));
 
-  // Anchor the role-tier rings on where the couple actually placed the stage.
-  const rows = computeAutoSeat(tables, autoSeatGuestList, assignments, {
-    x: floorPlan.stage_x,
-    y: floorPlan.stage_y,
-  });
+  // Anchor the role-tier rings on where the couple actually placed the stage,
+  // and fill tiers in the couple's saved priority order (Phase 2; null = default).
+  const rows = computeAutoSeat(
+    tables,
+    autoSeatGuestList,
+    assignments,
+    { x: floorPlan.stage_x, y: floorPlan.stage_y },
+    floorPlan.priority_order,
+  );
   if (rows.length > 0) {
     const { error } = await supabase.from('event_seat_assignments').insert(
       rows.map((r) => ({
@@ -451,6 +457,49 @@ export async function saveFloorPlan(formData: FormData) {
       cocktail_linked: cocktailLinked,
       venue_width_m: venueWidth,
       venue_length_m: venueLength,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'event_id' },
+  );
+  if (error) throw new Error(error.message);
+
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
+  revalidatePath(`/dashboard/${eventId}/seating`);
+}
+
+// Save the couple's draggable seating-priority tier order (smart seat-plan
+// Phase 2). Upserts just the priority_order column on the per-event floor-plan
+// singleton (other columns keep their DB defaults / existing values). The client
+// value is re-validated server-side via parsePriorityOrder — never trusted — and
+// stored as a clean PriorityOrder, or null when empty/malformed (→ the default
+// order). Lock-gated like every seating mutation.
+export async function savePriorityOrder(formData: FormData) {
+  const eventId = formData.get('event_id');
+  if (typeof eventId !== 'string' || eventId.length === 0) {
+    throw new Error('Invalid input');
+  }
+  const raw = formData.get('priority_order');
+  let parsed: PriorityOrder | null = null;
+  if (typeof raw === 'string' && raw.length > 0) {
+    try {
+      parsed = parsePriorityOrder(JSON.parse(raw));
+    } catch {
+      parsed = null;
+    }
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+
+  const { error } = await supabase.from('event_floor_plan').upsert(
+    {
+      event_id: eventId,
+      priority_order: parsed,
       updated_at: new Date().toISOString(),
     },
     { onConflict: 'event_id' },

@@ -33,6 +33,26 @@ Verified: `pnpm typecheck` exit 0 · `pnpm lint` exit 0 · `pnpm test:unit` (Pha
 Deferred to follow-up PRs (blueprinted by the same workflow): the **broken-out Mulberry action satellite** (NAV-2 — a new sibling `nav-fab.tsx`, never a 7th tab/fork), the **Notion-style More** rebuild (NAV-5), and **lint hardening** (a ≤5 count assertion + protecting the frosted-fill token — both currently unguarded).
 
 SPEC IMPACT: Nav architecture — vendor/admin mobile pills drop to ≤5; supersedes the 2026-06-15 6-tab rosters. Logged in the corpus `DECISION_LOG.md`. No SKU/schema/pricing/public-claim change.
+## 2026-06-21 · fix(studio): un-shadow the App Store detail route — every "Learn more" / feature link was 404ing
+
+**Symptom (owner report):** on the Studio hub (`/dashboard/[eventId]/studio`) every "Learn more"/About link and every featured card was dead — clicking a feature went nowhere. Only `landing-page`, `music-creator`, and `panood` worked.
+
+**Root cause — Next.js route shadowing (single cause, not "everything's unwired").** The hub links each feature to its App Store detail page via `appStoreDetailHref()`, which returned `/studio/<key>/about`. But most features also own a static `app/dashboard/[eventId]/studio/<key>/` folder (papic, save-the-date, setnayan-ai, animated-monogram, led, mood-board, photo-delivery, custom-qr-guest, indoor-blueprint, patiktok, pakanta, playlist…). In the App Router a **literal** path segment beats the `[addon]` **dynamic** sibling and routing does **not** backtrack — so `/studio/papic/about` matched the static `papic/` folder, found no `about` child, and 404'd. Every feature with its own folder (11 of 14 visible, including all four flagships) was dead; only the three without a static folder resolved. The author had already hit this for two keys and band-aided them in `appStoreDetailHref` (the "an /about link 404s" comment) without realizing it was systemic.
+
+**Fix — move the detail route out from under the dynamic shadow.** Relocated `studio/[addon]/about/page.tsx` → `studio/about/[addon]/page.tsx` and pointed `appStoreDetailHref` at `/studio/about/<key>`. The literal `about` segment can't be shadowed by any feature key, so all 14 detail pages now resolve; the "Open" CTA on each detail page already pointed at the real feature surface via `addOnHref()`, so it works once the detail page is reachable. Panood + supplies-marketplace keep their existing straight-to-surface special-cases.
+
+**Reconciled with PR #1956 (parallel session, merged mid-flight).** #1956 fixed the same shadowing bug for Save-the-Date *only*, with a narrower strategy: keep links at the shadowed `/studio/<key>/about` and add an explicit per-key `<key>/about/page.tsx` inside each static folder (extracting the renderer into a shared `_components/addon-detail-view.tsx`). This relocated route supersedes that approach — one dynamic route under `/studio/about/<key>` fixes all 11 shadowed keys instead of one-wrapper-per-folder. Kept #1956's shared `addon-detail-view.tsx` (the relocated route mounts it); **removed the now-orphaned `studio/save-the-date/about/page.tsx`** (nothing links to `/studio/save-the-date/about` anymore) and corrected its comments so future sessions don't keep adding per-key about pages.
+
+- `apps/web/lib/add-ons-catalog.ts` — `appStoreDetailHref` now returns `/studio/about/<key>`; expanded the doc comment to explain the shadowing trap.
+- `apps/web/app/dashboard/[eventId]/studio/about/[addon]/page.tsx` — relocated detail page; mounts the shared `AddOnDetailView`.
+- `apps/web/app/dashboard/[eventId]/studio/save-the-date/about/page.tsx` — **deleted** (superseded orphan from #1956).
+- `apps/web/app/dashboard/[eventId]/studio/_components/addon-detail-view.tsx` — comment updated to describe the relocated-route mount point.
+- `apps/web/lib/add-ons-detail.test.ts` — added a regression guard asserting every detail href routes under the literal `/studio/about/` segment (fails the build if a key ever regresses to the shadowed shape); refreshed the path comment.
+- `apps/web/app/_components/app-store/layout.tsx`, `apps/web/lib/add-ons-detail.ts` — stale-path comment refreshes.
+
+No content/pricing/schema change — every visible feature already had authored detail content; prices still render live from `platform_retail_catalog_v2`.
+
+SPEC IMPACT: None (routing bugfix; no product, pricing, or schema change).
 
 ## 2026-06-21 · chore(home): remove dead `Checklist` function from couple event-home
 

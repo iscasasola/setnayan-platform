@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-22 · ux(monogram): Monogram Maker is studio-only + the Vector Studio fills the page
+
+Owner: *"remove the padding and fill the blank space — remove … Monogram maker / Your wedding monogram / Design your mark from scratch … / The outer padding."* Follow-up to the studio-only reduction now that the fix is live.
+
+- **Removed the page header** (`app/dashboard/[eventId]/monogram/page.tsx`) — the "Monogram maker" eyebrow + "Your wedding monogram" `<h1>` + the description. The Vector Studio's own header now carries the title + instructions, so the studio IS the page (the back-to-add-ons link stays).
+- **Removed the outer card chrome** (`studio.tsx`): the Vector Studio `<section>` dropped `rounded-2xl border bg-cream p-5 sm:p-7` — the studio's own framed card is the surface now, so there's no cream padding ring around it.
+- **The studio fills the width** on desktop: a `vs-fill` class + scoped `@container (min-width:760px){.vsroot.vs-fill .vs .frame{max-width:none}}` removes the centered **1040px** cap that left a large blank gutter in the wide dashboard content area. **Scoped to the dashboard** — the public `/monogram` marketing studio (centered) is untouched; mobile keeps the centred card. Verified the fill mechanism in-browser: in a forced 1700px container the frame went from 1040px-capped (350px side gap) to filling the full 1700px (0 gap).
+
+tsc 0 · `next lint` clean. No schema/SKU change.
+
+SPEC IMPACT iter 0037 (monogram) — Monogram Maker is studio-only + full-width; cosmetic, no behavior change → corpus DECISION_LOG (2026-06-22).
+
+---
+
 ## 2026-06-21 · fix(monogram): Vector Studio reliably mounts (prod race) + becomes the only monogram screen
 
 Owner: *"vector studio is not working… make the vector monogram the only screen for the monogram. and make it work."* — reported still broken on **live production** (dashboard `/dashboard/<id>/monogram`, stuck on "Loading the typeface…", blank canvas, but the names field showed the couple's real name).

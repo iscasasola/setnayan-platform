@@ -95,18 +95,9 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
         Back to add-ons
       </Link>
 
-      <header className="space-y-2">
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-          Monogram maker
-        </p>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          Your wedding monogram
-        </h1>
-        <p className="max-w-prose text-base text-ink/65">
-          Design your mark from scratch in the Vector Studio. It shows on your
-          wedding website, your QR codes, and across your dashboard.
-        </p>
-      </header>
+      {/* Page header removed (owner 2026-06-22 "remove … Monogram maker / Your
+          wedding monogram / Design your mark from scratch…") — the Vector Studio's
+          own header carries the title + instructions, so the studio IS the page. */}
 
       {/* ── Carry-through: restore a mark designed on the free public studio (pre-signup) ── */}
       <MonogramDraftRestore eventId={eventId} hasCustomMark={Boolean(customSvg)} />

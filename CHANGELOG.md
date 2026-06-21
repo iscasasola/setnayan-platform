@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-21 · feat(nav): broken-out action (NAV-2) — vendor + admin doorways
+
+Owner-picked actions (2026-06-21) extend the broken-out Mulberry satellite to the other two doorways, reusing the `NavFab` primitive (locked `bottom-nav.tsx` still untouched; `lint:botnav` ✓):
+
+- **Vendor** → **Check inquiries** (`/vendor-dashboard/bookings`, the pipeline where new couple inquiries land). New `vendor-nav-fab.tsx`, mounted in the vendor layout. `bookings` is in the role-scoped keys, so every vendor role reaches it.
+- **Admin** → **Payment requests** (`/admin/payments`, which defaults to the `pending` reconciliation queue — the couples' submitted payment proofs awaiting the 24-hr-SLA review). New `admin-nav-fab.tsx`, mounted in the admin layout.
+
+Both are siblings of the pill (never a tab), float above its right end off `--sn-bottomnav-h`, and hide when a docked SubNav is up. The broken-out action is now live on all three primary doorways (couple = Add guest · vendor = Check inquiries · admin = Payment requests).
+
+Verified: `pnpm typecheck` 0 · `pnpm lint` 0 · `pnpm lint:botnav` ✓.
+
+SPEC IMPACT: Nav architecture — broken-out action on vendor + admin. No SKU/schema/pricing change.
+
 ## 2026-06-21 · feat(nav): broken-out action satellite (NAV-2) — couple doorway
 
 Second step of the nav reroster (`Responsive_and_Mobile_UI_Ruleset_2026-06-21` · NAV-2) — the Shazam-style "broken-out" primary action. The **locked `bottom-nav.tsx` template is untouched** (`lint:botnav` ✓); the action is a separate floating sibling, never a 7th tab, never a fork.

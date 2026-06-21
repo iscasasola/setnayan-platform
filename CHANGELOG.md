@@ -4,21 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-22 · feat(seating): linked tables show a combined seat count in the editor lists (smart seat-plan · Phase 1)
+## 2026-06-22 · fix(orders): self-comp orders now provision flag-backed SKU entitlements
 
-Owner "what's next" — smart seat-plan Phase 1: *a linked unit also gets a new (combined) seat count, not just a combined name; the caterer counts the unit once; the seater treats the unit as one pool for display.* Builds on the linked-table grouping PRs #1963/#1984.
+`createSelfCompOrder` (vendor/admin self-comp at checkout) inserts an order straight at `status='paid'` but never ran the SKU activation dispatcher — so a self-comped **flag-backed** SKU (today `SETNAYAN_AI` → `events.setnayan_ai_active`; also concierge / vendor-branch) landed *owned-but-unprovisioned*: ownership checks count the paid order so the buy CTA is suppressed, yet the feature gate reads the never-stamped flag as false and the capability stays dark. Admin `approvePayment` was the **only** caller of `activateOrderSku`.
 
-**The gap.** Linking already shared a `link_group_id` + combined name and the canvas already moves a unit as one — but the editor's two **list** surfaces (the "Tables" panel + the "Tables & Meals" caterer cards) still iterated raw tables, so a joined unit appeared as **two rows with the same name and separate per-table counts** ("Table 3 & 4 · 5/10" *and* "Table 3 & 4 · 3/10") — confusing, and it never showed the unit's real pooled seat count. (The printable caterer artifacts — the `…/seating/print` pack and the `…/seating/caterer` meal-count report — already grouped linked tables into one unit, so those were correct; only the in-editor lists drifted.)
+- **`app/dashboard/[eventId]/orders/actions.ts`** — after the paid order insert in `createSelfCompOrder`, call `activateOrderSku({ admin, orderId, eventId, serviceKey: args.serviceKey ?? '', actorUserId })`, mirroring `approvePayment`. The hook is non-fatal + idempotent by contract; a null `serviceKey` (ad-hoc self-comp) resolves to `''` → no registered hook → no-op. Fixes every entitlement-gated SKU self-comped this way, not just AI.
 
-- **New shared helper** `groupTablesIntoUnits()` + `TableDisplayUnit` type in `apps/web/lib/seating.ts`. Collapses tables sharing a `link_group_id` into one display unit whose `capacity` is the **sum of each member's `effectiveCapacity`** (removed chairs already excluded) — so the count is the unit's real pooled seats. Unlinked tables are one-member units. Mirrors the print route's existing per-unit grouping, centralized for reuse by Phase 2/3. Unit-tested in `apps/web/lib/seating.test.ts` (4 cases: unlinked singles, linked-collapse, removed-seat math, mixed sets) — `tsx --test` green.
-- **Both editor lists now map over `displayUnits`** (`…/seating/_components/seating-editor.tsx`): one row/card per unit, the combined name + a combined `filled/capacity` ("Table 3 & 4 · 8/20 seats" · "2 tables joined"), seated guests across all members listed together (sorted by name, like the caterer report). The canvas still draws each physical table separately — only the lists collapse.
-- **Unit-aware interactions:** tapping a unit row highlights **every member** on the canvas (`highlightGroupId`, mirrors the existing `dragGroupId` lockstep). "Seat here" on a joined unit overflows into the next member with a free chair (`firstFreeSeat`). The list-row delete acts on the **whole unit** — `confirmDelete` generalized to `{ label, members[] }` (one member for the canvas per-table popups, all members for a joined-unit row) with copy that reads "the N joined tables are removed." Section header counts now read the unit count.
+**Currently latent in prod** because the Setnayan-AI paywall is parked OFF (the new DB toggle defaults to env-OFF), so `setnayan_ai_active` is inert today — but this is a real correctness bug that must land **before** the paywall is ever flipped on. No paywall flip performed.
 
-Display-only — no seating/placement algorithm change (Phase 2 = priority weighting, Phase 3 = keep-apart solver). No schema/SKU change. The seat plan stays a free couple tool (≈₱0/event). Worktree has no node_modules → `tsx --test` ran green via the home checkout; CI typecheck+lint+build is the gate + the Vercel preview is the visual check.
+Found via the 2026-06-22 paywall flip de-risk pass (DECISION_LOG 2026-06-22). tsc 0 · `next lint` clean on the changed file · `lint:entitlement-gates` clean. CI prod build is the gate.
 
-SPEC IMPACT: Iteration 0008 (linked-table behaviour) — extends the 2026-06-21 grouping with a combined seat count in the editor lists. Logged in DECISION_LOG.
+SPEC IMPACT: None (no SKU / price / flow change — a provisioning-correctness fix). Already recorded in the corpus 2026-06-22: DECISION_LOG row + `Pricing_Collection_2026-06-14.md` §8 item #4 (precondition #3 BUG_FOUND).
 
 ---
+
 ## 2026-06-22 · feat(integrations): Setnayan-AI paywall is now a no-redeploy DB toggle (Integration Console PR1, AI slice)
 
 Completes PR1 of the Integration Activation Console — the email slice already shipped (`platform_integration_secrets` + `resolveResendConfig` + `/admin/integrations`); the **AI-paywall half had not**, so monetizing/un-monetizing Setnayan AI still required a Vercel env change + redeploy.

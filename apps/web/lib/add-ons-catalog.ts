@@ -32,6 +32,9 @@ import {
   LayoutGrid,
   Wallet,
   CalendarClock,
+  MailCheck,
+  PartyPopper,
+  Newspaper,
   type LucideIcon,
 } from 'lucide-react';
 import type { PosterStyle } from '@/app/dashboard/[eventId]/studio/_components/service-poster';
@@ -130,6 +133,29 @@ export type AddOnEntry = {
 export function addOnHref(key: string, eventId: string): string {
   if (key === 'orders') return `/dashboard/${eventId}/orders`;
   if (key === 'animated-monogram') return `/dashboard/${eventId}/monogram`;
+  // Features that don't own a Studio surface of their own open their real home
+  // rather than a "coming soon" stub — so every Studio button lands somewhere
+  // usable. landing-page → the wedding-website hub; music-creator → Pakanta
+  // (its own detail copy already frames it as "generate a custom score —
+  // Pakanta"). Both destinations handle their own free-use / paywall.
+  if (key === 'landing-page') return `/dashboard/${eventId}/website`;
+  if (key === 'music-creator') return `/dashboard/${eventId}/studio/pakanta`;
+  // Seat plan opens its real editor (the couple-sidebar route). When the 3D
+  // experience is enabled it opens the 3D lab instead; NEXT_PUBLIC_* vars are
+  // inlined server-side, and the Studio hub is a server component.
+  if (key === 'seating') {
+    return process.env.NEXT_PUBLIC_SEATING_3D === 'true'
+      ? `/dashboard/${eventId}/seating/lab`
+      : `/dashboard/${eventId}/seating`;
+  }
+  // The three website "parts" (RSVP · Event · Editorial) open the full-screen
+  // editor jumped straight to that phase — its own top-level route so it escapes
+  // the dashboard chrome, exactly like the combined editor. Save the Date keeps
+  // its own builder (/studio/save-the-date via the default below). See the
+  // matching `appStoreDetailHref` branches + /site-editor/[eventId]/<phase>.
+  if (key === 'rsvp' || key === 'event' || key === 'editorial') {
+    return `/site-editor/${eventId}/${key}`;
+  }
   return `/dashboard/${eventId}/studio/${key}`;
 }
 
@@ -153,6 +179,17 @@ export function addOnHref(key: string, eventId: string): string {
 export function appStoreDetailHref(key: string, eventId: string): string {
   if (key === 'panood') return `/dashboard/${eventId}/studio/panood`;
   if (key === 'supplies-marketplace') return `/dashboard/${eventId}/studio/supplies-marketplace`;
+  // Seat plan has no /about detail page — the Studio row opens the editor
+  // directly (flag-aware via addOnHref).
+  if (key === 'seating') return addOnHref('seating', eventId);
+  // Website parts — the Studio card opens its editor directly (no /about
+  // interstitial): the three phase editors, and the combined "Whole website"
+  // card → the full-screen editor on its overview tab. These are free editing
+  // tools the couple revisits often; an info page would just add a tap.
+  if (key === 'landing-page') return `/site-editor/${eventId}`;
+  if (key === 'rsvp' || key === 'event' || key === 'editorial') {
+    return `/site-editor/${eventId}/${key}`;
+  }
   return `/dashboard/${eventId}/studio/about/${key}`;
 }
 
@@ -218,16 +255,85 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
       iconBadgeClass: 'bg-warn-100/20 text-warn-100',
     },
   },
+  // The three other "parts" of the couple's website (the 4-path lifecycle ·
+  // lib/invitation-widgets.ts). Each is its OWN Studio card + its own editor
+  // page — separating the content the way couples think about it (Save the Date ·
+  // RSVP · Event · Editorial), instead of one catch-all "website" entry. All
+  // free; each opens the full-screen editor jumped to that phase (addOnHref /
+  // appStoreDetailHref → /site-editor/[eventId]/<phase>).
+  {
+    key: 'rsvp',
+    label: 'RSVP',
+    Icon: MailCheck,
+    iteration: '0002',
+    status: 'live',
+    category: 'tool',
+    blurb:
+      'The run-up page — your invitation, the RSVP form, and every detail guests need.',
+    cta: 'Edit your RSVP page',
+    studioGroup: 'website',
+    tier: 'free',
+    poster: {
+      motion: 'drift',
+      baseBackground:
+        'linear-gradient(135deg, #3A1E2E 0%, #6E3A55 50%, #A8617F 100%)',
+      motionBackground:
+        'radial-gradient(circle at 55% 45%, #FFD4E4 0%, transparent 55%)',
+      iconBadgeClass: 'bg-pink-100/15 text-pink-100',
+    },
+  },
+  {
+    key: 'event',
+    label: 'Event',
+    Icon: PartyPopper,
+    iteration: '0031',
+    status: 'live',
+    category: 'tool',
+    blurb:
+      'The wedding day itself — the live, day-of page guests open at the venue.',
+    cta: 'Edit your event-day page',
+    studioGroup: 'website',
+    tier: 'free',
+    poster: {
+      motion: 'pulse',
+      baseBackground:
+        'linear-gradient(135deg, #2E2410 0%, #6E5320 50%, #B8902E 100%)',
+      motionBackground:
+        'radial-gradient(circle at 50% 50%, #FFE9B0 0%, transparent 55%)',
+      iconBadgeClass: 'bg-warn-100/20 text-warn-100',
+    },
+  },
+  {
+    key: 'editorial',
+    label: 'Editorial',
+    Icon: Newspaper,
+    iteration: '0038',
+    status: 'live',
+    category: 'tool',
+    blurb:
+      'After the day — your wedding as a story, with the gallery and a thank-you.',
+    cta: 'Edit your editorial',
+    studioGroup: 'website',
+    tier: 'free',
+    poster: {
+      motion: 'scan',
+      baseBackground:
+        'radial-gradient(circle at 40% 40%, #2A2A2E 0%, #121214 80%)',
+      motionBackground:
+        'linear-gradient(90deg, transparent 0%, rgba(245, 240, 232, 0.55) 50%, transparent 100%)',
+      iconBadgeClass: 'bg-cream/20 text-cream',
+    },
+  },
   {
     key: 'landing-page',
-    label: 'Landing Page',
+    label: 'Whole website',
     Icon: Globe2,
     iteration: '0002',
     status: 'web_v1',
     category: 'tool',
     blurb:
-      'One beautiful page behind every QR you share — your story, your colors.',
-    cta: 'Customize',
+      'All four parts in one place — settings, RSVP, event day, and editorial.',
+    cta: 'Open the editor',
     studioGroup: 'website',
     tier: 'free',
     poster: {
@@ -509,6 +615,30 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
       motionBackground:
         'radial-gradient(circle at 50% 50%, #F4C8E0 0%, transparent 55%)',
       iconBadgeClass: 'bg-fuchsia-100/15 text-fuchsia-50',
+    },
+  },
+  {
+    // Free core planning tool, surfaced on the Studio hub (owner ask
+    // 2026-06-21). Nested under `branding` to match the existing layout-tool
+    // precedent (indoor-blueprint + mood-board live here) without touching the
+    // owner-locked 4-section sub-nav. Its href is flag-aware — see addOnHref.
+    key: 'seating',
+    label: 'Seat Plan',
+    Icon: LayoutGrid,
+    iteration: '0008',
+    status: 'web_v1',
+    category: 'tool',
+    blurb: 'Lay out your tables and seat every guest with drag-and-drop.',
+    cta: 'Open seat plan',
+    studioGroup: 'branding',
+    tier: 'free',
+    poster: {
+      motion: 'drift',
+      baseBackground:
+        'linear-gradient(135deg, #1F2A3D 0%, #2E4063 50%, #44608F 100%)',
+      motionBackground:
+        'radial-gradient(circle at 50% 50%, #BFD4F0 0%, transparent 55%)',
+      iconBadgeClass: 'bg-sky-100/15 text-sky-50',
     },
   },
 ];

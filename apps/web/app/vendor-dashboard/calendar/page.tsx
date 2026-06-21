@@ -1,18 +1,22 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { CalendarDays, Lock, UserPlus, Users } from 'lucide-react';
+import { CalendarDays, CalendarPlus, Lock, UserPlus, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import {
   fetchVendorBlocks,
   fetchVendorPoolBookings,
   fetchVendorPools,
+  fetchVendorServicesForPicker,
   type CalendarBlockEntry,
+  type CalendarServiceOption,
   type PoolBookingEntry,
   type SchedulePool,
 } from '@/lib/vendor-schedule';
 import {
   addManualBlock,
+  createCalendar,
+  editCalendar,
   importExternalClient,
   removeBlock,
   reassignCategoryPool,
@@ -55,9 +59,11 @@ const NOTICES: Record<string, { tone: 'ok' | 'warn'; text: string }> = {
   capacity_saved: { tone: 'ok', text: 'Daily capacity saved.' },
   capacity_clamped: { tone: 'warn', text: 'Saved at your plan’s maximum bookings-per-day. Upgrade to raise the ceiling.' },
   pool_saved: { tone: 'ok', text: 'Schedule assignment saved.' },
+  calendar_created: { tone: 'ok', text: 'Calendar created. Assign services + set its limit any time.' },
+  calendar_saved: { tone: 'ok', text: 'Calendar saved.' },
   no_tokens: { tone: 'warn', text: 'Not enough tokens — importing an outside client costs 1 token. Top up under Tokens.' },
   bad_dates: { tone: 'warn', text: 'Those dates don’t work — check the start and end date.' },
-  bad_name: { tone: 'warn', text: 'The client needs a name.' },
+  bad_name: { tone: 'warn', text: 'Give it a name first.' },
   bad_pool: { tone: 'warn', text: 'Pick which schedule this belongs to.' },
   bad_capacity: { tone: 'warn', text: 'Capacity must be a whole number of at least 1.' },
   save_failed: { tone: 'warn', text: 'That didn’t save — try again.' },
@@ -150,10 +156,19 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
 
-  const [pools, bookings, blocks] = await Promise.all([
+  // Named Calendars: vendor names calendars + picks which services each covers.
+  // LIVE by default (2026-06-21); kill-switch NEXT_PUBLIC_NAMED_CALENDARS_ENABLED=false
+  // reverts to today's auto per-category schedules.
+  const namedCalendars =
+    process.env.NEXT_PUBLIC_NAMED_CALENDARS_ENABLED !== 'false';
+
+  const [pools, bookings, blocks, services] = await Promise.all([
     fetchVendorPools(supabase, profile.vendor_profile_id),
     fetchVendorPoolBookings(supabase, profile.vendor_profile_id),
     fetchVendorBlocks(supabase, profile.vendor_profile_id),
+    namedCalendars
+      ? fetchVendorServicesForPicker(supabase, profile.vendor_profile_id)
+      : Promise.resolve([] as CalendarServiceOption[]),
   ]);
 
   const now = new Date();
@@ -197,6 +212,78 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
     </>
   );
 
+  // ── Named Calendars render helpers (flag on) ──────────────────────────────
+  const servicePicker = (preselected: Set<string>) =>
+    services.length > 0 ? (
+      <fieldset className="grid gap-1.5 sm:grid-cols-2">
+        <legend className="mb-1 text-sm font-medium">Services on this calendar</legend>
+        {services.map((s) => (
+          <label
+            key={s.serviceId}
+            className="flex items-center gap-2 rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-sm"
+          >
+            <input
+              type="checkbox"
+              name="service_ids"
+              value={s.serviceId}
+              defaultChecked={preselected.has(s.serviceId)}
+              className="h-4 w-4 accent-terracotta"
+            />
+            <span className="min-w-0 flex-1 truncate">{s.label}</span>
+            {s.poolId && !preselected.has(s.serviceId) ? (
+              <span className="shrink-0 text-[10px] text-ink/45">on another calendar</span>
+            ) : null}
+          </label>
+        ))}
+      </fieldset>
+    ) : (
+      <p className="text-sm text-ink/55">
+        Post a service first — then you can assign it to a calendar here.
+      </p>
+    );
+
+  const createCalendarForm = (
+    <details className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+      <summary className="cursor-pointer text-base font-semibold">
+        <CalendarPlus aria-hidden className="mr-1 inline h-4 w-4" /> Create a calendar
+      </summary>
+      <p className="mt-2 text-sm text-ink/65">
+        Name a calendar (e.g. &ldquo;Main Team&rdquo;), set how many bookings it can take per
+        day, and pick which of your services it covers. A service lives on one calendar
+        at a time — the calendar holds the limit, not the service.
+      </p>
+      <form action={createCalendar} className="mt-3 grid gap-3">
+        <input type="hidden" name="return_month" value={month} />
+        <input
+          type="text"
+          name="calendar_name"
+          required
+          maxLength={80}
+          placeholder="Calendar name (e.g. Main Team)"
+          className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm"
+        />
+        <label className="flex items-center gap-2 text-sm text-ink/75">
+          Bookings per day
+          <input
+            type="number"
+            name="capacity"
+            min={1}
+            max={50}
+            defaultValue={1}
+            className="w-24 rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm"
+          />
+        </label>
+        {servicePicker(new Set())}
+        <SubmitButton
+          pendingLabel="Creating…"
+          className="justify-self-start rounded-lg bg-ink px-4 py-1.5 text-sm font-medium text-cream"
+        >
+          Create calendar
+        </SubmitButton>
+      </form>
+    </details>
+  );
+
   const gridNav = (
     <div className="mb-4 flex items-center justify-between">
       <Link
@@ -233,10 +320,21 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
         </span>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Calendar</h1>
         <p className="max-w-prose text-base text-ink/65">
-          One schedule per service category — services in the same category share a
-          schedule; a new category gets its own. &ldquo;All schedules&rdquo; shows your whole
-          business on one calendar. Couples only ever see &ldquo;unavailable&rdquo; — never
-          who or why.
+          {namedCalendars ? (
+            <>
+              Create calendars, name them, and pick which services each one covers — the
+              calendar holds the daily limit. &ldquo;All schedules&rdquo; shows your whole
+              business on one calendar. Couples only ever see &ldquo;unavailable&rdquo; — never
+              who or why.
+            </>
+          ) : (
+            <>
+              One schedule per service category — services in the same category share a
+              schedule; a new category gets its own. &ldquo;All schedules&rdquo; shows your whole
+              business on one calendar. Couples only ever see &ldquo;unavailable&rdquo; — never
+              who or why.
+            </>
+          )}
         </p>
       </header>
 
@@ -262,18 +360,30 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
       ) : null}
 
       {pools.length === 0 ? (
-        <div className="rounded-2xl border border-ink/10 bg-cream p-8 text-center">
-          <p className="text-ink/70">
-            Post a service first — each service category you offer gets its own
-            schedule here automatically.
-          </p>
-          <Link
-            href="/vendor-dashboard/services"
-            className="mt-3 inline-block font-medium text-terracotta underline"
-          >
-            Go to Services
-          </Link>
-        </div>
+        namedCalendars ? (
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-ink/10 bg-cream p-6 text-center">
+              <p className="text-ink/70">
+                No calendars yet. Create one below — name it, set its daily limit, and
+                pick which services it covers.
+              </p>
+            </div>
+            {createCalendarForm}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-ink/10 bg-cream p-8 text-center">
+            <p className="text-ink/70">
+              Post a service first — each service category you offer gets its own
+              schedule here automatically.
+            </p>
+            <Link
+              href="/vendor-dashboard/services"
+              className="mt-3 inline-block font-medium text-terracotta underline"
+            >
+              Go to Services
+            </Link>
+          </div>
+        )
       ) : (
         <>
           {/* View tabs — universal first, then one per independent schedule */}
@@ -307,6 +417,9 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
               );
             })}
           </nav>
+
+          {/* Named Calendars: create a new calendar (flag on) */}
+          {namedCalendars ? createCalendarForm : null}
 
           {/* ── UNIVERSAL GRID — every schedule stacked per day ── */}
           {isAllView ? (
@@ -347,7 +460,7 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
                     >
                       <span className="text-xs font-medium">{day}</span>
                       {allClosed ? (
-                        <span className="mt-0.5 block rounded bg-ink/10 px-1 text-[9px] font-semibold text-ink/55">
+                        <span className="mt-0.5 block rounded bg-ink/10 px-1 text-[11px] font-semibold text-ink/55">
                           Closed
                         </span>
                       ) : (
@@ -357,7 +470,7 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
                             title={`${c.pool.label}: ${
                               c.kind === 'closed' ? 'closed' : `${c.consumed}/${c.pool.capacity} booked`
                             }`}
-                            className={`mt-0.5 block truncate rounded px-1 text-[9px] font-semibold leading-tight ${
+                            className={`mt-0.5 block truncate rounded px-1 text-[11px] font-semibold leading-tight ${
                               c.kind === 'closed'
                                 ? 'bg-ink/10 text-ink/55'
                                 : c.kind === 'full'
@@ -425,7 +538,7 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
                       >
                         <span className="text-xs font-medium">{day}</span>
                         {badge ? (
-                          <span className="mt-0.5 block text-[10px] font-semibold leading-tight">
+                          <span className="mt-0.5 block text-[11px] font-semibold leading-tight">
                             {badge}
                           </span>
                         ) : null}
@@ -440,32 +553,73 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
                 </p>
               </div>
 
-              {/* Capacity — per-pool only */}
-              <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
-                <h3 className="text-base font-semibold">Daily capacity — {activePool.label}</h3>
-                <p className="mt-1 text-sm text-ink/65">
-                  How many bookings this team can serve on one date. Unlimited
-                  inquiries stay open until a date is fully booked.
-                </p>
-                <form action={updatePoolCapacity} className="mt-3 flex items-center gap-2">
-                  {returnFields}
-                  <input type="hidden" name="pool_id" value={activePool.poolId} />
-                  <input
-                    type="number"
-                    name="capacity"
-                    min={1}
-                    max={50}
-                    defaultValue={activePool.capacity}
-                    className="w-24 rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm"
-                  />
-                  <SubmitButton
-                    pendingLabel="Saving…"
-                    className="rounded-lg bg-ink px-4 py-1.5 text-sm font-medium text-cream"
-                  >
-                    Save
-                  </SubmitButton>
-                </form>
-              </div>
+              {/* Named Calendars: edit the calendar (name + limit + services).
+                  Flag off: the per-pool daily-capacity editor only. */}
+              {namedCalendars ? (
+                <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+                  <h3 className="text-base font-semibold">Edit {activePool.label}</h3>
+                  <p className="mt-1 text-sm text-ink/65">
+                    Rename this calendar, set its daily limit, and choose which services it
+                    covers. Unchecking a service moves it back to its category schedule.
+                  </p>
+                  <form action={editCalendar} className="mt-3 grid gap-3">
+                    <input type="hidden" name="return_month" value={month} />
+                    <input type="hidden" name="pool_id" value={activePool.poolId} />
+                    <input
+                      type="text"
+                      name="calendar_name"
+                      required
+                      maxLength={80}
+                      defaultValue={activePool.calendarName ?? activePool.label}
+                      className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm"
+                    />
+                    <label className="flex items-center gap-2 text-sm text-ink/75">
+                      Bookings per day
+                      <input
+                        type="number"
+                        name="capacity"
+                        min={1}
+                        max={50}
+                        defaultValue={activePool.capacity}
+                        className="w-24 rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm"
+                      />
+                    </label>
+                    {servicePicker(new Set(activePool.serviceIds))}
+                    <SubmitButton
+                      pendingLabel="Saving…"
+                      className="justify-self-start rounded-lg bg-ink px-4 py-1.5 text-sm font-medium text-cream"
+                    >
+                      Save calendar
+                    </SubmitButton>
+                  </form>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+                  <h3 className="text-base font-semibold">Daily capacity — {activePool.label}</h3>
+                  <p className="mt-1 text-sm text-ink/65">
+                    How many bookings this team can serve on one date. Unlimited
+                    inquiries stay open until a date is fully booked.
+                  </p>
+                  <form action={updatePoolCapacity} className="mt-3 flex items-center gap-2">
+                    {returnFields}
+                    <input type="hidden" name="pool_id" value={activePool.poolId} />
+                    <input
+                      type="number"
+                      name="capacity"
+                      min={1}
+                      max={50}
+                      defaultValue={activePool.capacity}
+                      className="w-24 rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm"
+                    />
+                    <SubmitButton
+                      pendingLabel="Saving…"
+                      className="rounded-lg bg-ink px-4 py-1.5 text-sm font-medium text-cream"
+                    >
+                      Save
+                    </SubmitButton>
+                  </form>
+                </div>
+              )}
             </>
           ) : null}
 
@@ -608,7 +762,10 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
             )}
           </div>
 
-          {/* Merge / split categories */}
+          {/* Merge / split categories — legacy model. Under Named Calendars this
+              is replaced by the per-calendar service picker (createCalendar /
+              editCalendar above), so it's hidden when the flag is on. */}
+          {!namedCalendars ? (
           <details className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
             <summary className="cursor-pointer text-base font-semibold">
               <Users aria-hidden className="mr-1 inline h-4 w-4" /> Which categories share this team?
@@ -646,6 +803,7 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
               )}
             </ul>
           </details>
+          ) : null}
         </>
       )}
     </section>

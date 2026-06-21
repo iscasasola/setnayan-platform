@@ -65,8 +65,39 @@ export function VectorStudio({
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    // Idempotency guard — never inject two engines into one live root.
+    if (apiRef.current) return;
     let alive = true;
     let api: StudioApi | null = null;
+    // The editor DOM is built imperatively here (NOT via React
+    // dangerouslySetInnerHTML) so React never owns or re-touches this subtree.
+    //
+    // Why this matters in PRODUCTION (not just dev StrictMode): when the markup
+    // was a `dangerouslySetInnerHTML={{ __html: STUDIO_HTML }}` prop, React's
+    // reconciler re-applies that prop whenever its object reference changes — and
+    // an inline `{{ __html }}` literal is a NEW object every render. So an
+    // ordinary re-render (e.g. this effect's own setReady(true)) re-set the
+    // host's innerHTML, re-creating the #cv/#load/#names nodes. The engine's
+    // async boot (a font fetch) then resolved against the now-DETACHED nodes it
+    // had captured — hiding a detached overlay + drawing on a detached canvas,
+    // so the VISIBLE editor sat stuck on "Loading the typeface…" with a blank
+    // canvas while the name still wrote to the surviving input. Owning the markup
+    // imperatively removes the subtree from React's vdom entirely, so no re-render
+    // can clobber the engine's nodes. (The engine also self-guards its async
+    // callbacks via a `destroyed` flag for the unmount-mid-fetch case.)
+    root.innerHTML = STUDIO_HTML;
+    // Safety net: if the engine/typeface never finishes (a hung dynamic import or
+    // font fetch), don't sit on "Loading the typeface…" forever.
+    const failTimer = window.setTimeout(() => {
+      if (!alive || apiRef.current) return;
+      const load = root.querySelector<HTMLElement>('#load');
+      if (load) {
+        load.classList.remove('off');
+        load.textContent = 'Still loading — please refresh the page.';
+      }
+    }, 15000);
     (async () => {
       try {
         const [paperMod, offsetMod, otMod] = await Promise.all([
@@ -74,30 +105,32 @@ export function VectorStudio({
           import('paperjs-offset'),
           import('opentype.js'),
         ]);
-        if (!alive || !rootRef.current) return;
+        if (!alive) return;
         const paper: any = (paperMod as any).default ?? paperMod;
         const off: any = offsetMod as any;
         const PaperOffset = off.PaperOffset ?? off.default?.PaperOffset ?? off.default ?? off;
         const ot: any = otMod as any;
         const opentype = ot.parse ? ot : (ot.default ?? ot);
-        api = mountStudio({ root: rootRef.current, paper, opentype, PaperOffset, initialConfig, initialNames }) as StudioApi;
+        api = mountStudio({ root, paper, opentype, PaperOffset, initialConfig, initialNames }) as StudioApi;
         apiRef.current = api;
         setReady(true);
+        window.clearTimeout(failTimer);
       } catch {
-        if (rootRef.current) {
-          const load = rootRef.current.querySelector<HTMLElement>('#load');
-          if (load) load.textContent = 'Could not start the studio.';
-        }
+        window.clearTimeout(failTimer);
+        const load = root.querySelector<HTMLElement>('#load');
+        if (load) load.textContent = 'Could not start the studio.';
       }
     })();
     return () => {
       alive = false;
+      window.clearTimeout(failTimer);
       try {
         api?.destroy();
       } catch {
         /* noop */
       }
       apiRef.current = null;
+      root.innerHTML = '';
     };
     // Mount once — initialConfig is the first-render value (re-edit a saved mark).
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -167,7 +200,9 @@ export function VectorStudio({
         </div>
       ) : null}
 
-      <div ref={rootRef} className="vs" dangerouslySetInnerHTML={{ __html: STUDIO_HTML }} />
+      {/* The editor markup is injected imperatively by the effect (see above), so
+          React leaves this container empty and never re-touches the subtree. */}
+      <div ref={rootRef} className="vs" />
 
       {exportError ? <p className="text-sm text-terracotta-700">{exportError}</p> : null}
 

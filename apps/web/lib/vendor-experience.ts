@@ -32,12 +32,11 @@
  * Declared + DTI-verified experience feature flag (2026-06-20). Gates the
  * vendor-declared "in business since YYYY / weddings done" fields, the admin
  * DTI-verify control, and the card display. Schema-dependent (new vendor_profiles
- * columns via migration 20270209420471), so this is flipped ON only AFTER that
- * migration is applied — otherwise the gated reads/writes would hit missing
- * columns. Default OFF.
+ * columns via migration 20270209420471, applied 2026-06-21) — now LIVE by default.
+ * Kill-switch retained: set NEXT_PUBLIC_VENDOR_EXPERIENCE_ENABLED=false to disable.
  */
 export function vendorExperienceEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_VENDOR_EXPERIENCE_ENABLED === 'true';
+  return process.env.NEXT_PUBLIC_VENDOR_EXPERIENCE_ENABLED !== 'false';
 }
 
 /**

@@ -894,6 +894,29 @@ html.subnav-docked [data-shell-main] {
     letter-spacing: -0.02em;
     font-weight: 400;
   }
+  /*
+   * Section + sub tiers (VIS-9/VIS-10 · Responsive_and_Mobile_UI_Ruleset). The
+   * `.m-h-xl/lg/md` family only covered HERO sizes; marketing section/sub
+   * headings had no shared fluid tier, so each page hand-rolled `text-3xl
+   * sm:text-4xl` steps. These two complete the scale DOWNWARD with the same
+   * fluid clamp + tracking/line-height tightening. `.m-h-sm` matches the
+   * dominant section-h2 endpoints (30px→36px) so adopting it is a no-size-change
+   * swap — it just adds fluidity between the steps + the tightening. Marketing
+   * section headings migrate to these incrementally (reviewed on the preview,
+   * since it's the public conversion surface).
+   */
+  .m-h-sm {
+    font-size: clamp(1.875rem, 4.5vw, 2.25rem);
+    line-height: 1.1;
+    letter-spacing: -0.015em;
+    font-weight: 500;
+  }
+  .m-h-xs {
+    font-size: clamp(1.375rem, 3.5vw, 1.625rem);
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    font-weight: 500;
+  }
 
   /*
    * Horizontal "peek" scroller (ROW-1 / DIR-3 · Responsive_and_Mobile_UI_Ruleset).
@@ -1517,4 +1540,91 @@ html[data-sn-boot] #sn-init-splash.sn-boot-done {
   .wall-tile-new {
     animation: none;
   }
+}
+
+/*
+ * Mobile bottom-nav carousel page-slide (NAV · 2026-06-21).
+ *
+ * `NavSlideController` (a global client interceptor) drives a directional View
+ * Transition on a mobile bottom-nav tab tap, setting `html[data-sn-nav-dir]` to
+ * `fwd` (tab to the right → content exits LEFT, new enters from RIGHT) or `back`
+ * (tab to the left → reverse) just before `document.startViewTransition`.
+ *
+ * Only the named content `<main>` (`.sn-vt-page` → `view-transition-name:sn-page`)
+ * slides; everything else (the fixed pill, sidebar, sticky top bar) lives in the
+ * `root` snapshot, which we freeze (`animation:none`) so the chrome stays put.
+ *
+ * The slide ONLY fires when the controller actually calls `startViewTransition`
+ * — i.e. mobile + motion-allowed + VT-supported + a real top-level-tab change.
+ * Desktop, reduced-motion, unsupported browsers, sub-pages and back/forward
+ * never set the attribute / never start a transition, so they swap instantly.
+ * (Reduced-motion is gated in JS before any transition starts, so no CSS guard
+ * is needed here.) These pseudos must stay at the top level — not in @layer.
+ */
+.sn-vt-page {
+  view-transition-name: sn-page;
+}
+
+::view-transition-group(sn-page) {
+  overflow: clip; /* clip the off-screen layer so the slide can't scroll the page */
+}
+/* Freeze the chrome: the fixed pill / sidebar / top bar are all in `root`. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+::view-transition-old(sn-page),
+::view-transition-new(sn-page) {
+  animation-duration: 320ms;
+  animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  animation-fill-mode: both;
+}
+html[data-sn-nav-dir='fwd']::view-transition-old(sn-page) {
+  animation-name: sn-vt-out-left;
+}
+html[data-sn-nav-dir='fwd']::view-transition-new(sn-page) {
+  animation-name: sn-vt-in-right;
+}
+html[data-sn-nav-dir='back']::view-transition-old(sn-page) {
+  animation-name: sn-vt-out-right;
+}
+html[data-sn-nav-dir='back']::view-transition-new(sn-page) {
+  animation-name: sn-vt-in-left;
+}
+@keyframes sn-vt-out-left {
+  to {
+    transform: translateX(-100%);
+  }
+}
+@keyframes sn-vt-in-right {
+  from {
+    transform: translateX(100%);
+  }
+}
+@keyframes sn-vt-out-right {
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes sn-vt-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+}
+
+/*
+ * Broken-out action (NavFab) in the bottom-nav ROW (owner-tuned 2026-06-22).
+ *
+ * When a doorway's FAB is mounted it sets `data-sn-fab` on <html> and renders a
+ * 56px circle fixed at `right:14px` in the bar row. This shrinks the locked
+ * pill's right inset so it ends just before the circle (14px inset + 56px circle
+ * + 8px gap = 78px), giving the Shazam "isolated button beside the pill" layout.
+ *
+ * Scoped to the nav's existing `aria-label="Primary navigation"` marker — the
+ * locked `bottom-nav.tsx` is read, NOT edited (this selector out-specifies the
+ * Tailwind `right-[14px]` class, so no `!important`). No FAB → no attr → the pill
+ * keeps its full-width `right:14px`.
+ */
+html[data-sn-fab] nav[aria-label='Primary navigation'] {
+  right: 78px;
 }

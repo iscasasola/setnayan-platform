@@ -351,3 +351,158 @@ export async function renderRealStoryOgJpeg(
   });
   return sharp(Buffer.from(svg)).jpeg({ quality: 86 }).toBuffer();
 }
+
+// ── Couple monogram card ──────────────────────────────────────────────────────
+// The share card for a couple's OWN /[slug] page while they have NO published
+// editorial (the invitation / Save-the-Date phase). Mirrors the page hero — their
+// monogram mark + names + date on cream — so a shared invitation shows THEM, not
+// the generic brand image (owner 2026-06-21 "why is the cover photo … not the look
+// of the page with the logo").
+
+const MULBERRY = '#5C2542';
+
+export type CoupleMonogramCardInput = {
+  /** "Cale & Ice" */
+  coupleNames: string;
+  /** Human date, e.g. "December 18, 2026" (uppercased on the card). */
+  dateLabel: string;
+  /** Explicit monogram-text override (events.monogram_text); null → derive initials. */
+  monogramText: string | null;
+  /** Monogram colour (events.monogram_color); null/invalid → brand mulberry. */
+  monogramColor: string | null;
+};
+
+/** Two-letter monogram from the couple's names, e.g. "Cale & Ice" → "CI". */
+function monogramInitials(names: string, override: string | null): string {
+  if (override && override.trim()) return override.trim().slice(0, 3).toUpperCase();
+  const parts = (names ?? '')
+    .split(/\s*&\s*|\s+and\s+/i)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const a = parts[0]?.charAt(0) ?? '';
+  const b = parts[1]?.charAt(0) ?? '';
+  return (a && b ? a + b : (names ?? '').trim().charAt(0) || '·').toUpperCase();
+}
+
+function monogramCardTree(input: CoupleMonogramCardInput): VNode {
+  const mono =
+    input.monogramColor && /^#[0-9a-fA-F]{6}$/.test(input.monogramColor.trim())
+      ? input.monogramColor.trim()
+      : MULBERRY;
+  const initials = monogramInitials(input.coupleNames, input.monogramText);
+  return el(
+    'div',
+    {
+      width: `${OG_WIDTH}px`,
+      height: `${OG_HEIGHT}px`,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: '54px 64px',
+      backgroundColor: CREAM,
+      fontFamily: 'Cardo',
+    },
+    [
+      // Header — mirrors the page chrome.
+      el(
+        'div',
+        {
+          fontFamily: 'Poppins',
+          fontWeight: 500,
+          fontSize: '16px',
+          letterSpacing: '5px',
+          color: INK_FAINT,
+        },
+        'SETNAYAN · INVITATION',
+      ),
+      // Center — monogram mark + gold rule + names + date.
+      el(
+        'div',
+        {
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '16px',
+        },
+        [
+          el(
+            'div',
+            {
+              fontFamily: 'Cardo',
+              fontWeight: 600,
+              fontSize: '156px',
+              lineHeight: '1',
+              letterSpacing: '6px',
+              paddingLeft: '6px', // optical centring for the tracking
+              color: mono,
+            },
+            initials,
+          ),
+          el('div', { width: '78px', height: '2px', backgroundColor: GOLD }),
+          el(
+            'div',
+            {
+              fontFamily: 'Cardo',
+              fontWeight: 600,
+              fontSize: '66px',
+              lineHeight: '1',
+              color: INK,
+              textAlign: 'center',
+            },
+            clamp(input.coupleNames, 40),
+          ),
+          input.dateLabel
+            ? el(
+                'div',
+                {
+                  fontFamily: 'Poppins',
+                  fontWeight: 500,
+                  fontSize: '22px',
+                  letterSpacing: '5px',
+                  color: INK_FAINT,
+                },
+                input.dateLabel.toUpperCase(),
+              )
+            : el('div', { display: 'flex' }),
+        ],
+      ),
+      // Footer — wordmark + url.
+      el(
+        'div',
+        {
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '8px',
+        },
+        [
+          wordmark(),
+          el(
+            'div',
+            {
+              fontFamily: 'Poppins',
+              fontSize: '15px',
+              letterSpacing: '1px',
+              color: INK_FAINT,
+            },
+            'www.setnayan.com',
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
+/** Render the couple's monogram OG card → JPEG (1200×630). Never throws on a
+ *  layout edge — the caller falls back to the static brand image. */
+export async function renderCoupleMonogramOgJpeg(
+  input: CoupleMonogramCardInput,
+): Promise<Buffer> {
+  const svg = await satori(monogramCardTree(input) as unknown as React.ReactNode, {
+    width: OG_WIDTH,
+    height: OG_HEIGHT,
+    fonts: SATORI_FONTS,
+  });
+  return sharp(Buffer.from(svg)).jpeg({ quality: 90 }).toBuffer();
+}

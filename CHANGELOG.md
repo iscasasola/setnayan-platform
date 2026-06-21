@@ -4,6 +4,190 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-22 · fix(seating): linked tables move as ONE (no tailing) + a combined unit name
+
+Owner feedback on the shipped linked-table grouping: "the linked tables will have a new table name. we do not want the other table tailing the other table. we want them to move as one."
+
+- **Tailing fixed** (`…/seating/_components/seating-editor.tsx`). The rigid group-translate already moved every member by the same delta each frame, but each table element carries `transition: left/top 140ms ease` and that ease was disabled (`transition: none`) **only for the grabbed table** — so the linked member eased 140ms behind and visibly *tailed*. Now a `dragGroupId` memo marks every member of the dragged unit as "dragging," so the whole unit gets `transition: none` + the raised z-index and moves in true lockstep. (Rotate keeps its smooth ease — only the reported move-as-one was tailing.)
+- **Combined unit name** (`…/seating/actions.ts` `linkTables`). Linking no longer silently adopts the first table's name; the unit gets its **own combined name** — `"{A} & {B}"` (e.g. "Table 3 & Table 4"), de-duped when re-linking the same unit and capped at 64 chars. Couples can still rename the unit from any member. The link notice copy updated to match.
+
+No schema change. tsc 0; `next lint` clean. CI build is the gate.
+
+SPEC IMPACT: Iteration 0008 (linked-table behaviour) — refines the 2026-06-21 grouping. Logged in DECISION_LOG.
+
+---
+
+## 2026-06-21 · fix(monogram): Vector Studio reliably mounts (prod race) + becomes the only monogram screen
+
+Owner: *"vector studio is not working… make the vector monogram the only screen for the monogram. and make it work."* — reported still broken on **live production** (dashboard `/dashboard/<id>/monogram`, stuck on "Loading the typeface…", blank canvas, but the names field showed the couple's real name).
+
+**Root cause (production-valid — NOT dev-only StrictMode).** The Vector Studio is an imperative paper.js/opentype.js engine whose editor DOM was injected via React `dangerouslySetInnerHTML={{ __html: STUDIO_HTML }}`. React's reconciler re-applies that prop whenever its **object reference** changes — and an inline `{{ __html }}` literal is a **new object every render** — so an ordinary re-render (this effect's own `setReady(true)`) re-set the host's `innerHTML`, **re-creating the `#cv`/`#load`/`#names` nodes**. The engine's `mountStudio()` returns synchronously but boots in an **async font fetch** (`loadFont('cardo')`) whose callback fires *after* that `setReady` re-render, so it ran `start()`/`applyConfig()` against the now-**detached** nodes it had captured: it hid a detached overlay + drew on a detached canvas (visible overlay stuck on "Loading the typeface…", canvas blank) while the name write landed on the surviving input (so the real name still showed — the exact reported paradox). This reproduces in `next build`/`next start` — no StrictMode double-invoke required. (Root-caused via a 7-agent parallel investigation + synthesis; the reconciler behavior was traced to `react-dom` `updateProperties` gating `dangerouslySetInnerHTML` on reference-inequality with no content guard.)
+
+- **Fix — the effect owns the editor DOM.** Both wrappers (`app/monogram/public-monogram-studio.tsx` + `app/dashboard/[eventId]/monogram/studio.tsx`) now set `root.innerHTML = STUDIO_HTML` imperatively in the effect (wiped on cleanup) instead of via `dangerouslySetInnerHTML`; the `<div ref>` is left empty so React has **no vdom children to reconcile** and never re-touches the subtree. The engine always binds to the on-screen nodes.
+- **Hardening (engine self-guards the unmount-mid-fetch case).** `lib/monogram-studio/engine.ts` gains a `destroyed` flag set first in `destroy()`; `loadFont` bails its async callbacks when destroyed, so a font fetch that resolves *after* a route nav away (an ordinary prod unmount) can never run `start()`/`applyConfig()` on a torn-down DOM — closing the residual race the wrapper fix alone leaves open. Plus an idempotency guard (`if (apiRef.current) return`) in both wrappers so a double-fire can't inject two engines.
+- **Verified in a real PRODUCTION build** (`next build` + `next start`, no StrictMode): `/monogram` mounts cleanly — overlay hidden, canvas at full res (1032×1360 @2×), monogram painted (26k+ non-bg samples), interactions repaint (name change re-derives letters; Yeseva font switches + reloads + repaints); a route nav away+back re-boots cleanly.
+- **Vector Studio is now the ONLY monogram screen** (`app/dashboard/[eventId]/monogram/page.tsx`): removed the "Upload your own" card **and** the Feature-Us opt-in **and** the paid "How it animates" upsell that sat below the studio (+ their now-unused imports / `owns` / `marketing_share_consents` query). Deleted the orphaned `upload-card.tsx`. Upload **server actions** + the downstream `monogram_uploaded_svg` **resolution** are kept so any couple who already uploaded still renders; only the input surface is retired. The Animated Monogram SKU stays discoverable from the Studio add-ons hub. ⚠ Reverses the 2026-06-15 "upload outranks the studio mark" lock (owner-authorized).
+
+**Deferred hardening (documented, lower-value / higher-risk):** per-instance `paper.PaperScope()` (the engine mutates the global paper singleton — only matters for two *simultaneous* live studios, impossible on one route once the `destroyed` guard lands; the engine is `@ts-nocheck` ported-verbatim so an engine-wide `paper.*`→`scope.*` rewrite is deferred to avoid injecting bugs into verified logic); a 0-size-host first-paint retry (not observed — the prod build paints correctly); and a public-page SSR skeleton (the editor markup is no longer server-rendered → ~100–200 ms blank-until-hydration on the force-static `/monogram` lead-magnet; acceptable for a JS-required tool, dashboard unaffected).
+
+tsc 0 · `next lint` clean · production build green. No schema/migration, no SKU/pricing change.
+
+SPEC IMPACT iter 0037 (monogram) — upload input surface retired, page reduced to studio-only, Vector Studio is the sole maker → logged in corpus DECISION_LOG (2026-06-21).
+## 2026-06-21 · feat(seating): swap guests / swap tables in 3D — reassign seats + animate
+
+Owner: "can we swap guests and it will animate that they left their seats and changed places? or swapping tables, will make all the guests change tables?" — yes, both.
+
+In the flag-gated 3D lab (`…/seating/lab/_components/seating-lab-3d.tsx`, Play mode):
+- **Swap two guests** — tap a seated guest in the list, then another → both reassigned (`assignGuest`, lock-gated, persisted to `event_seat_assignments` → mirrors into 2D) and **two avatars walk** from their old chairs to the new ones (steering around tables) and sit.
+- **Swap two tables** — "Swap two tables" arms a pick mode; tap two tables → **every occupant** reassigned to the mirror seat in the other table + all animate at once.
+- **Mechanics:** the swap IS the seat-assignment change (the truth); the walk is the animation. `moveGuestTo` persists via `assignGuest` + spawns a `MoverToken`; `movingGuests` (derived from the mover list) hides the static seat token while a guest is mid-flight; `onMoverDone` commits the new seat to local state + retires the mover. canEdit-gated through the same lock; lost-lock handled by the existing `persist` (notifyLost + refresh). Unseated guests still walk-in from the entrance; the RSVP colours from the previous PR ride along on the moving tokens.
+
+Adversarial 4-dimension review (persistence, animation↔state, edge-correctness, R3F) → findings folded in. No schema change (reuses `assignGuest` + the lock). Honest v1 notes: many simultaneous walkers (table swap) path around tables but can pass through each other (collision-avoidance is polish); and the deeper canonical-2D-engine RSVP rules remain the separate follow-up. tsc 0; `next lint` clean. CI build is the gate.
+
+SPEC IMPACT: Iteration 0008 (3D experience). The swap writes the same `event_seat_assignments` the 2D editor uses — one data model. Logged in DECISION_LOG.
+
+---
+
+## 2026-06-21 · feat(seating): 3D furniture + RSVP-coloured seats, and a Seat Plan card in Studio
+
+Owner build-out of the 3D seat-plan experience (flag-gated lab) + "add seatplan on studio also."
+
+**3D lab — real furniture + RSVP seats** (`lib/seating-3d.ts`, `…/seating/lab/page.tsx`, `…/seating/lab/_components/seating-lab-3d.tsx`):
+- `TableMesh` now renders **real furniture** — chairs (seat + backrest, oriented to face the table), a **draped tablecloth** (skirt-to-floor + top) with a bare-table fallback, and an optional **centerpiece**; palette-driven, with HUD toggles for Tablecloths / Centerpieces ("if requested").
+- **Seated guests render coloured by RSVP** — confirmed = solid (side-tinted), pending/maybe = translucent amber (held but tentative), declined = not rendered (seat freed). A **+1 reserved ghost seat** is held beside any `plus_one_allowed` guest whose +1 isn't already seated. Computed in a `seatedByTable` memo from the live assignments + each guest's `rsvp_status`/`side`/plus-one. New lib: `RsvpStatus`, `seatStatusOf`, `SIDE_COLOR`/`TENTATIVE_COLOR`/`PLUS_ONE_COLOR`; `Lab3DGuest` extended; `page.tsx` maps the fields. An RSVP legend in the HUD.
+
+**Studio hub — Seat Plan card** (`lib/add-ons-catalog.ts`, `lib/add-ons-detail.test.ts`):
+- Added a free **"Seat Plan"** card to the couple's Studio hub. Its href is **flag-aware** (`addOnHref`) — opens the 3D lab when `NEXT_PUBLIC_SEATING_3D==='true'`, else the normal 2D editor — and `appStoreDetailHref` routes it straight to the editor (no `/about` page, like panood/supplies). Nested under `branding` to match the existing layout-tool precedent (indoor-blueprint, mood-board) **without touching the owner-locked 4-section Studio sub-nav**. The two catalog invariant tests get a matching `seating` exemption (it owns its surface). ⚠ Surfaced: the old "Plan & organize" free-tools strip is dead code — the App-Store rewrite silently dropped *all four* core tools (Guests/Seating/Budget/Schedule) from Studio; this restores **Seating** per the ask (offer to restore the other three).
+
+No schema change. RSVP→seat *rules* in the canonical 2D engine (auto-hold pending, auto-free on decline, auto-reserve +1, caterer tentative counts) remain a separate, load-bearing follow-up. tsc 0; `next lint` clean; the add-ons-detail unit tests pass. CI build is the gate.
+
+SPEC IMPACT: Iteration 0008 (3D experience) + 0021 Studio surface (now lists the seat plan). The Studio card is a **user-visible** addition (not flag-gated); the 3D destination is flag-gated. Logged in DECISION_LOG.
+## 2026-06-21 · feat(studio): the website's 4 parts are 4 Studio cards + standalone editors
+
+Owner: *"on studio … the website is composed of 4 parts — Save the Date, RSVP, Event and Editorial. we want one for each … separate the content of the landing page. show the other 3 along with the save the date."* Chose **separate editor pages** (not just tabs) **+ keep a combined card**.
+
+- **Studio "Website" section now lists all four parts as their own cards** (`lib/add-ons-catalog.ts`): Save the Date (featured, unchanged) + new **RSVP · Event · Editorial** rows — all free, each with its own icon/poster — plus the existing catch-all relabeled **"Whole website"** (the combined editor). The `StudioGroup` doc-comment already promised this set ("website → Save the Date · RSVP · Event · Editorial"); the catalog now matches it.
+- **Three standalone full-screen editors** at `/site-editor/[eventId]/{rsvp,event,editorial}` — each is the same machinery as ONE tab of the combined editor via a new exported `PhaseEditor` (live per-phase preview + that phase's existing cards + the inline hero/backdrop sheets), minus the tab nav; ✕ returns to Studio (its launch point). Reuses every card builder + sheet already in `site-editor.tsx` (zero duplication) through a new shared `useInlineEditState` hook.
+- **One shared data loader** `_data.ts` (`loadSiteEditorData`) backs the combined editor **and** all three phase editors, so the couple-membership gate, the register-to-use gate, and the fetched prop shape are identical across all four. The combined `page.tsx` was slimmed to call it.
+- **Routing:** `addOnHref` / `appStoreDetailHref` send the three parts → `/site-editor/[eventId]/<phase>` and "Whole website" → `/site-editor/[eventId]` (no `/about` interstitial — these are free editing tools the couple revisits). `/studio/[addon]` mirrors the same-key redirect so a direct hit / old bookmark lands in the editor.
+- **Editorial cards fixed:** "Create editorial" + "Pick photos" now link their already-shipped editors (`website/editorial`, `website/our-photos`) — they were stale "coming soon"; reviews + thank-you stay honest coming-soon.
+- **Website hub handoff:** the "Your page through time" section at `/dashboard/[eventId]/website` now gives each of the four parts an **Edit** action into its own editor (+ a secondary **Preview**) — so the overview hub connects to the new per-part editors, not just the public previews.
+- **Invariant test updated:** `add-ons-detail.test.ts` learned a shared `OPENS_OWN_SURFACE` exception set (panood · seating · supplies + the four website parts) — these open their editor directly, so they're exempt from the "every hub feature has `/studio/about` detail content / routes under `/studio/about`" guards.
+
+tsc 0 · `next lint` clean (only pre-existing, unrelated warnings) · `test:unit` 345/345. No schema change; CI production build + the Vercel preview are the runtime gate.
+
+SPEC IMPACT: iter 0021 (Studio surface) + the website's four lifecycle parts (0002 RSVP/landing · 0024 Save the Date · 0031 day-of Event · 0038 Editorial) → CHANGELOG + DECISION_LOG.
+
+---
+
+## 2026-06-21 · feat(seating): 3D lab becomes a real editor — edits persist + Sims build-camera
+
+Owner: "yes do that pattern same as Sims" — make 3D editing real (writes the same plan as 2D) with a build-camera that snaps top-down while arranging. Follows the read-only spike (already merged). Still flag-gated (`NEXT_PUBLIC_SEATING_3D`, 404 when off).
+
+- **Edits persist through the SAME single-editor lock + server actions as 2D** (`apps/web/app/dashboard/[eventId]/seating/lab/_components/seating-lab-3d.tsx`): drag → `updateTablePosition`, rotate (selection HUD ±15°) → `updateTableRotation`, delete → `deleteTable`, add → `createTable` + `router.refresh`. The lab acquires `useSeatingLock` on mount and is **view-only** (with a recovery/take-over button) when a 2D editor holds the lock — so 3D and 2D never write at once, and a 3D change mirrors into 2D.
+- **Sims build-camera** (`CameraRig`): Build mode eases to near-top-down with a tight polar clamp (precise placement); Play mode eases to a cinematic orbit. OrbitControls is parked (`camBusy`) during the tween so input + ease don't fight.
+- Selection HUD: rotate / delete a selected table; "+ Add table". `me` (id + name) now threads page → loader → component for the lock label.
+
+**Adversarial review (5 dimensions, 23 agents) → 12 verified findings, all fixed:**
+- **HIGH (lock-safety):** `persist()` swallowed the lost-lock error and kept `canEdit` true. Now matches the 2D editor — `isLockLost(err)` → `lock.notifyLost()` (drops to view-only at once) + reconciling `router.refresh()`; other errors surface without a misleading re-acquire.
+- **MEDIUM (write-path race):** the prop-sync effect blind-replaced local state on `router.refresh`, clobbering in-flight optimistic moves → now **merges new rows by id** (never overwrites a local edit).
+- **MEDIUM (data fidelity):** drag-commit clamped to `[2,98]%` unconditionally, collapsing free-board (no venue size) layouts → now **venue-aware** (free board keeps the wide range).
+- **LOW (×9, all addressed):** ghost selection persisting from Play → Build (no select in Play + clear on mode flip); camera lerp ending short (snap-to-target); `persist` unstable dep (stabilised on `notifyLost`/`router`); false "someone's editing in 2D" copy + a missing solo-recovery button (neutral copy + always-available recovery/take-over). Documented a known v1 limit: a free board doesn't yet fit-frame widely-spread tables (off-floor render) — fit-transform is the follow-up.
+
+tsc 0; `next lint` clean. CI production build is the gate. No schema change (reuses the canonical lock + actions).
+
+SPEC IMPACT: None to the shipped 2D editor (additive, flag-off; uses its existing lock + actions). The "3D + 2D = one data model, 3D edits persist" decision is logged in `DECISION_LOG.md`; the as-built doc `0008_Seating_AS_BUILT_2026-06-21.md` §13 invariants still hold.
+
+---
+
+## 2026-06-21 · feat(ux): vendor calendar legibility — redesign PR 3/N (DIR-2, safe half)
+
+Per-surface pass on the vendor calendar (`vendor-dashboard/calendar/page.tsx`). The audit flagged its `grid-cols-7` month views as cramped on phones with **9–10px** day-cell text.
+
+- **DIR-2 (legibility half) — raise day-cell text to the 11px floor.** The three sub-11px chip/label sizes (`text-[9px]` ×2 in the all-pools view, `text-[10px]` ×1 in the per-pool view) → `text-[11px]`. Cells already carry `min-h-16` and `truncate`, so they grow gracefully. The **day-state semantics and the semantic state colors** (closed / full / available) are left **exactly** as shipped (per the verifier's "keep day-state exactly" flag).
+
+Deferred + flagged for owner: the *other* DIR-2 half — replacing the 7-column month grid with a mobile week-scroller / agenda below `lg` — is a larger reshape that touches the shared day-state layout, so it's surfaced separately rather than bundled into a legibility fix.
+
+Verified: `pnpm typecheck` exit 0, `pnpm lint` exit 0.
+
+SPEC IMPACT: None (text-size legibility; no day-state, booking, SKU, schema, or pricing change).
+## 2026-06-21 · feat(seating): 3D seating lab — flag-gated R3F prototype (Sims build + walk-to-seat)
+
+Owner direction: make the seat plan feel "like a game where you move things around," explored via React Three Fiber (Next.js shell + React/Three engine, the SSR golden rule). This is a **flag-gated, READ-ONLY prototype** on a throwaway route — it does not touch the 2D editor and never persists.
+
+- **Route** `app/dashboard/[eventId]/seating/lab/page.tsx` — server component gated by `NEXT_PUBLIC_SEATING_3D` (404 when off, so it doesn't exist for users by default). Reads the couple's REAL tables / floor plan / guests / mood-board palette. No writes.
+- **`lib/seating-3d.ts`** — pure (no three.js) data→3D math: percent→world mapping, per-shape table + chair geometry, seat-world lookup, obstacle-avoiding path steering, palette resolution. Safe to import on the server (the page only uses its types + helpers).
+- **`_components/seating-lab-loader.tsx`** — the `dynamic(() => import('./seating-lab-3d'), { ssr: false })` client wrapper (the same proven pattern the Save-the-Date veil reveal uses).
+- **`_components/seating-lab-3d.tsx`** — the R3F scene: real tables + chairs in 3D, mood-palette-driven lighting/materials with a live switcher, **Build mode** (tap-select, drag-to-slide with game-feel, "+ Add table" → tap floor to drop), **Play mode** (tap a guest → an avatar walks from the entrance, steering around tables, to their chair and sits), glassmorphism floating HUD.
+- New deps: `@react-three/fiber@^9.6` + `@react-three/drei@^10.7` (React 19-compatible). `three@0.184` + `@types/three` were already present (the reveal uses raw three.js).
+- **Adversarial multi-agent review (6 dimensions, 32 agents) → 8 verified findings, all fixed:** OrbitControls eating the armed tap-to-drop on touch (`enabled={!draggingId && !addArmed}`); drag soft-lock on `pointercancel`/blur (added handlers); R3F synthetic-click-after-drag deselecting/dropping (`e.delta > 4` guard); table rotation sign mismatch between rendered chairs and the walk target (`rotateLocal` rewritten to match the +Y group rotation); null `x_pos/y_pos` tables stacking at the corner (grid fallback via `defaultTablePosition`, matching 2D); `sendGuest` ignoring removed chairs (seed occupancy with `removedSeats`, scan real capacity); perf (DPR→[1,1.5], ContactShadows 1024→512, shared chair/pedestal geometry). Instancing + GLTF + post-processing are the documented v2.
+
+Verified: tsc 0, `next lint` clean on all four files. The production build (R3F client bundle) is CI's required gate — no local env here; R3F is client-only + dynamically imported so it never runs on the server.
+
+SPEC IMPACT: None to the shipped seat plan (additive, flag-off prototype). Captured in the corpus `0008_Seating_AS_BUILT_2026-06-21.md` lineage + DECISION_LOG.
+
+---
+
+## 2026-06-21 · feat(nav): broken-out action (NAV-2) — vendor + admin doorways
+
+Owner-picked actions (2026-06-21) extend the broken-out Mulberry satellite to the other two doorways, reusing the `NavFab` primitive (locked `bottom-nav.tsx` still untouched; `lint:botnav` ✓):
+
+- **Vendor** → **Check inquiries** (`/vendor-dashboard/bookings`, the pipeline where new couple inquiries land). New `vendor-nav-fab.tsx`, mounted in the vendor layout. `bookings` is in the role-scoped keys, so every vendor role reaches it.
+- **Admin** → **Payment requests** (`/admin/payments`, which defaults to the `pending` reconciliation queue — the couples' submitted payment proofs awaiting the 24-hr-SLA review). New `admin-nav-fab.tsx`, mounted in the admin layout.
+
+Both are siblings of the pill (never a tab), float above its right end off `--sn-bottomnav-h`, and hide when a docked SubNav is up. The broken-out action is now live on all three primary doorways (couple = Add guest · vendor = Check inquiries · admin = Payment requests).
+
+Verified: `pnpm typecheck` 0 · `pnpm lint` 0 · `pnpm lint:botnav` ✓.
+
+SPEC IMPACT: Nav architecture — broken-out action on vendor + admin. No SKU/schema/pricing change.
+
+## 2026-06-21 · feat(nav): broken-out action satellite (NAV-2) — couple doorway
+
+Second step of the nav reroster (`Responsive_and_Mobile_UI_Ruleset_2026-06-21` · NAV-2) — the Shazam-style "broken-out" primary action. The **locked `bottom-nav.tsx` template is untouched** (`lint:botnav` ✓); the action is a separate floating sibling, never a 7th tab, never a fork.
+
+- **New primitive `app/_components/nav/nav-fab.tsx`** — `NavFab`: a fixed, `lg:hidden`, ≥56px **Mulberry** circle that floats above the right end of the pill, anchored off the bar's published `--sn-bottomnav-h` (so the gap is constant at any tab count). Hides whenever the docked SubNav is up (`useSubNavDocked`) to avoid sharing that band. Reduced-motion-safe. *(The locked pill is full-width, so the literal Shazam "beside the pill" needs a template edit — this floats **above** the pill instead, the standard FAB pattern, fully additive.)* Filename has no `bottom-nav` substring so the delegation guard doesn't flag it.
+- **New wrapper `customer-nav-fab.tsx`** + mounted in the couple layout as a sibling of `CustomerBottomNav`. Action = **Add guest** → `/guests/new` (the couple's most-repeated planning action; doesn't duplicate a pill tab). Hidden in the `after` phase. Client wrapper holds the Lucide icon (same Server→Client boundary pattern as `CustomerBottomNav`).
+
+Verified: `pnpm typecheck` 0 · `pnpm lint` 0 · `pnpm lint:botnav` ✓ (template integrity + delegation intact).
+
+PROVISIONAL / deferred: the per-doorway **action choice** is owner-tunable (a phase-aware Day-of variant — e.g. check-in/scan — is a follow-up), and the **vendor + admin FABs** are not wired here because their single dominant action is a genuine product call (the ruleset says the FAB is absent when a surface has no clear dominant action). Also still pending: NAV-5 Notion "More" rebuild + the lint hardening (≤5 count + frosted-fill guard).
+
+SPEC IMPACT: Nav architecture — adds the broken-out action (couple doorway). No SKU/schema/pricing/public-claim change.
+## 2026-06-21 · fix(studio): every Studio feature button now lands somewhere usable (no more "coming soon" dead-ends)
+
+**Owner ask:** after the App Store detail-route fix, "check the rest of Studio — all pages must have somewhere to go. Let the button open it, or go to the paywall if it must be purchased first; if it's a free service, let it open."
+
+**Audit (all 15 visible Studio features across Setnayan AI · Website · Capture · Branding).** 13 already land correctly: each opens its real functional surface, and every *paid* one gates usage behind the canonical `InlineCheckoutDrawer` paywall on that surface (papic, panood, patiktok, save-the-date premium openings, setnayan-ai, animated-monogram→/monogram, custom-qr-guest, indoor-blueprint, pakanta), while the free ones open straight through (mood-board, led, photo-delivery, playlist). **Two were dead-ends** — `landing-page` and `music-creator` have no Studio surface of their own, so their "Open" button hit the `[addon]` catch-all "coming soon" placeholder.
+
+**Fix — point the two no-surface features at their real homes:**
+- `landing-page` → `/dashboard/[eventId]/website` (the wedding-website hub — a real, free surface that hands off to the site editor).
+- `music-creator` → `/dashboard/[eventId]/studio/pakanta` (Pakanta — its own detail copy already frames it as "generate a custom score — Pakanta"; Pakanta carries its own paywall).
+- Wired in `addOnHref()` (`lib/add-ons-catalog.ts`) so the detail-page "Open" button links straight there, and in `SHIPPED_REDIRECTS` (`studio/[addon]/page.tsx`) so any direct hit / old bookmark to `/studio/landing-page` or `/studio/music-creator` redirects too. Removed both stale "coming soon" placeholder entries from `ADD_ON_META`.
+
+**Flagged for owner (not changed):** `music-creator` overlaps `pakanta` (and partly the free `playlist`) — it now routes to Pakanta, but you may want to retire the tile or give it a distinct scope (a free reel-music picker doesn't exist yet). `led` opens freely with no SKU wired (effectively free today); fine unless it's meant to be a paid Live-Background SKU. `photo-delivery`'s Drive connect shows an in-surface "coming soon" until `GOOGLE_DRIVE_OAUTH_CLIENT_ID` is set.
+
+SPEC IMPACT: None (routing/wiring fix; no product, pricing, or schema change — all prices still render live from the admin catalog).
+
+## 2026-06-21 · feat(seating): linked tables group as ONE (Keynote-style move + rotate) + full-screen editor
+
+Owner ask: "when we link seats, they will be grouped as one now. so when we rotate a table, it rotates as one… think of it like how Keynote groups shapes. and break apart will unlink them." Plus: "the page still doesn't look clean for seat plan creation… [the Seating title + description + Walkthrough link] we can remove this and spread the whole content to the screen."
+
+**What changed (all in `apps/web/app/dashboard/[eventId]/seating/`):**
+
+1. **Group-as-one geometry** (`_components/seating-editor.tsx`). Tables sharing a `link_group_id` now behave as one rigid unit on the floor:
+   - **Move as one** — dragging any member translates the whole unit (delta clamped so no member leaves the board); internal chain/align snap is skipped (the unit is already assembled). All members are marked dirty on drop.
+   - **Rotate as one** — every rotate path (the ±15°/Flip buttons, the desktop drag rotate-handle, and the two-finger twist gesture) now orbits each member around the unit's shared centroid AND spins each member's own angle by the same delta. Math goes through a px round-trip (`groupSnap` → `rotatePoint` → back to %) so a non-square canvas can't shear the unit. New helpers: `groupMemberIds`, `groupSnap`, `applyGroupRotation`, `persistGroupTransform`, `rotateGroupBy`.
+   - **Coherent persistence** — a group rotate persists positions *and* angles together (rotation already persisted instantly; the orbit it induces must too, or the unit would reload deformed). A group move persists on Save like any move.
+   - **Break apart** — the existing unlink, relabeled throughout ("Break apart"/"Group with another table"); link/unlink notices + the in-progress banner now describe move/rotate-as-one. `actions.ts` `linkTables`/`unlinkTable` are unchanged in behavior (still just set/clear `link_group_id`); only comments updated to record the new editor semantics + the owner authorization.
+
+2. **Full-screen layout cleanup** (`page.tsx`). Removed the hero `<h1>Seating</h1>` + the long description paragraph so the editor canvas fills the screen. The reserved→seated summary sits left; the Walkthrough-videos link became an icon-only button pinned upper-right (title/aria-label carry the meaning) so it stays out of the editor's way — kept, not orphaned. Page heading retained screen-reader-only for a11y/SEO. (Kept the `Video` icon rather than a route/compass "tour" glyph to avoid clashing with the separate Driver.js guided tour.)
+
+No schema/migration and no server-action behavior change — link grouping already existed as identity+QR; this adds client-side rigid-body geometry on top of it. typecheck clean (only pre-existing unrelated `paper`/`archiver` module errors); `next lint` clean on all three files.
+
+SPEC IMPACT: **Iteration 0008 (seating).** Reverses the 2026-06-10 "linked unit = identity + QR only, seating math/position stay per-table" lock → linked units now also move + rotate as one rigid body (owner-authorized 2026-06-21). Logged at the bottom of the corpus `DECISION_LOG.md`. Seating math (who sits where / capacity) still stays per-table.
+
+---
+
 ## 2026-06-21 · feat(boundary): register-to-use gates on the in-app monogram studio + website builder (flag-gated · parked)
 
 Extends the register-gate boundary (same `NEXT_PUBLIC_REGISTER_GATES_ENABLED` flag) to the two **in-app public-identity surfaces**. When ON, an anonymous (unsecured) couple who opens the **monogram studio** (`/dashboard/[eventId]/monogram`) or the **website builder** (`/site-editor/[eventId]`) is redirected to `/signup?next=<surface>` to create a free account first — the signup flow converts the same anon session in place and returns them. One-line server-side gate after the existing `!user` redirect in each page, reading `user.is_anonymous` (the same field the dashboard's `SecureAccountBanner` already uses). OFF (default) → no gate, unchanged.

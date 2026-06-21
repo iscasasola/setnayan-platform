@@ -70,8 +70,16 @@ export function mountStudio(opts) {
     keyHandler = null,
     resizeObs = null,
     sizeRaf = 0;
+  // Set true by destroy(). Every async font callback bails on it so a fetch
+  // that resolves AFTER the component unmounted (e.g. a route nav away+back
+  // before the boot fetch finishes) can never run start()/applyConfig against a
+  // torn-down or replaced DOM — the very race that left the studio stuck on
+  // "Loading the typeface…". Centralised here so all three loadFont call sites
+  // (boot · applyConfig font · font-chip click) are covered at once.
+  let destroyed = false;
 
   function loadFont(key, cb) {
+    if (destroyed) return;
     if (cache[key]) {
       cb(cache[key]);
       return;
@@ -81,6 +89,7 @@ export function mountStudio(opts) {
         return r.arrayBuffer();
       })
       .then(function (buf) {
+        if (destroyed) return;
         try {
           const f = opentype.parse(buf);
           cache[key] = f;
@@ -90,6 +99,7 @@ export function mountStudio(opts) {
         }
       })
       .catch(function () {
+        if (destroyed) return;
         cb(null);
       });
   }
@@ -1716,6 +1726,7 @@ export function mountStudio(opts) {
   }
 
   function destroy() {
+    destroyed = true;
     try {
       if (view) view.onFrame = null;
     } catch (e) {}

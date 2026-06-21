@@ -16,6 +16,7 @@ test('every available hub feature has App Store detail content', () => {
       VISIBLE_GROUPS.has(a.studioGroup) &&
       a.status !== 'coming_soon' &&
       a.key !== 'panood' &&
+      a.key !== 'seating' && // routes straight to the seat-plan editor (no /about page)
       !addOnDetail(a.key),
   ).map((a) => a.key);
   assert.deepEqual(missing, [], `add-ons missing detail content: ${missing.join(', ')}`);
@@ -41,7 +42,7 @@ test('detail links route under /studio/about (never shadowed by a feature folder
   // their own surfaces, not an /about page (see appStoreDetailHref).
   const eventId = 'EVT';
   const offenders = ADD_ONS.filter(
-    (a) => a.key !== 'panood' && a.key !== 'supplies-marketplace',
+    (a) => a.key !== 'panood' && a.key !== 'supplies-marketplace' && a.key !== 'seating',
   )
     .map((a) => appStoreDetailHref(a.key, eventId))
     .filter((href) => !href.includes('/studio/about/'));

@@ -1541,3 +1541,73 @@ html[data-sn-boot] #sn-init-splash.sn-boot-done {
     animation: none;
   }
 }
+
+/*
+ * Mobile bottom-nav carousel page-slide (NAV · 2026-06-21).
+ *
+ * `NavSlideController` (a global client interceptor) drives a directional View
+ * Transition on a mobile bottom-nav tab tap, setting `html[data-sn-nav-dir]` to
+ * `fwd` (tab to the right → content exits LEFT, new enters from RIGHT) or `back`
+ * (tab to the left → reverse) just before `document.startViewTransition`.
+ *
+ * Only the named content `<main>` (`.sn-vt-page` → `view-transition-name:sn-page`)
+ * slides; everything else (the fixed pill, sidebar, sticky top bar) lives in the
+ * `root` snapshot, which we freeze (`animation:none`) so the chrome stays put.
+ *
+ * The slide ONLY fires when the controller actually calls `startViewTransition`
+ * — i.e. mobile + motion-allowed + VT-supported + a real top-level-tab change.
+ * Desktop, reduced-motion, unsupported browsers, sub-pages and back/forward
+ * never set the attribute / never start a transition, so they swap instantly.
+ * (Reduced-motion is gated in JS before any transition starts, so no CSS guard
+ * is needed here.) These pseudos must stay at the top level — not in @layer.
+ */
+.sn-vt-page {
+  view-transition-name: sn-page;
+}
+
+::view-transition-group(sn-page) {
+  overflow: clip; /* clip the off-screen layer so the slide can't scroll the page */
+}
+/* Freeze the chrome: the fixed pill / sidebar / top bar are all in `root`. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+::view-transition-old(sn-page),
+::view-transition-new(sn-page) {
+  animation-duration: 320ms;
+  animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  animation-fill-mode: both;
+}
+html[data-sn-nav-dir='fwd']::view-transition-old(sn-page) {
+  animation-name: sn-vt-out-left;
+}
+html[data-sn-nav-dir='fwd']::view-transition-new(sn-page) {
+  animation-name: sn-vt-in-right;
+}
+html[data-sn-nav-dir='back']::view-transition-old(sn-page) {
+  animation-name: sn-vt-out-right;
+}
+html[data-sn-nav-dir='back']::view-transition-new(sn-page) {
+  animation-name: sn-vt-in-left;
+}
+@keyframes sn-vt-out-left {
+  to {
+    transform: translateX(-100%);
+  }
+}
+@keyframes sn-vt-in-right {
+  from {
+    transform: translateX(100%);
+  }
+}
+@keyframes sn-vt-out-right {
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes sn-vt-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+}

@@ -137,6 +137,14 @@ export function addOnHref(key: string, eventId: string): string {
   // Pakanta"). Both destinations handle their own free-use / paywall.
   if (key === 'landing-page') return `/dashboard/${eventId}/website`;
   if (key === 'music-creator') return `/dashboard/${eventId}/studio/pakanta`;
+  // Seat plan opens its real editor (the couple-sidebar route). When the 3D
+  // experience is enabled it opens the 3D lab instead; NEXT_PUBLIC_* vars are
+  // inlined server-side, and the Studio hub is a server component.
+  if (key === 'seating') {
+    return process.env.NEXT_PUBLIC_SEATING_3D === 'true'
+      ? `/dashboard/${eventId}/seating/lab`
+      : `/dashboard/${eventId}/seating`;
+  }
   return `/dashboard/${eventId}/studio/${key}`;
 }
 
@@ -160,6 +168,9 @@ export function addOnHref(key: string, eventId: string): string {
 export function appStoreDetailHref(key: string, eventId: string): string {
   if (key === 'panood') return `/dashboard/${eventId}/studio/panood`;
   if (key === 'supplies-marketplace') return `/dashboard/${eventId}/studio/supplies-marketplace`;
+  // Seat plan has no /about detail page — the Studio row opens the editor
+  // directly (flag-aware via addOnHref).
+  if (key === 'seating') return addOnHref('seating', eventId);
   return `/dashboard/${eventId}/studio/about/${key}`;
 }
 
@@ -516,6 +527,30 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
       motionBackground:
         'radial-gradient(circle at 50% 50%, #F4C8E0 0%, transparent 55%)',
       iconBadgeClass: 'bg-fuchsia-100/15 text-fuchsia-50',
+    },
+  },
+  {
+    // Free core planning tool, surfaced on the Studio hub (owner ask
+    // 2026-06-21). Nested under `branding` to match the existing layout-tool
+    // precedent (indoor-blueprint + mood-board live here) without touching the
+    // owner-locked 4-section sub-nav. Its href is flag-aware — see addOnHref.
+    key: 'seating',
+    label: 'Seat Plan',
+    Icon: LayoutGrid,
+    iteration: '0008',
+    status: 'web_v1',
+    category: 'tool',
+    blurb: 'Lay out your tables and seat every guest with drag-and-drop.',
+    cta: 'Open seat plan',
+    studioGroup: 'branding',
+    tier: 'free',
+    poster: {
+      motion: 'drift',
+      baseBackground:
+        'linear-gradient(135deg, #1F2A3D 0%, #2E4063 50%, #44608F 100%)',
+      motionBackground:
+        'radial-gradient(circle at 50% 50%, #BFD4F0 0%, transparent 55%)',
+      iconBadgeClass: 'bg-sky-100/15 text-sky-50',
     },
   },
 ];

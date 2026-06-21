@@ -58,6 +58,25 @@ export async function saveResendConfig(formData: FormData): Promise<void> {
   redirect('/admin/integrations?saved=1');
 }
 
+export async function setAiPaywall(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const admin = createAdminClient();
+
+  // Tri-state, NON-secret feature flag → world-readable platform_settings (NOT
+  // the secrets table). 'env' clears the column (NULL) so the resolver defers to
+  // SETNAYAN_AI_PAYWALL_ENABLED; 'on'/'off' override env. resolveSetnayanAi-
+  // PaywallEnabled() reads this DB-first and takes effect on the next request.
+  const mode = formData.get('mode');
+  const value = mode === 'on' ? true : mode === 'off' ? false : null;
+  await admin
+    .from('platform_settings')
+    .update({ setnayan_ai_paywall_enabled: value })
+    .eq('id', 1);
+
+  revalidatePath('/admin/integrations');
+  redirect('/admin/integrations?saved=1');
+}
+
 export async function clearResendKey(): Promise<void> {
   await requireAdmin();
   const admin = createAdminClient();

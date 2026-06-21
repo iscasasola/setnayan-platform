@@ -65,3 +65,42 @@ export async function isResendConfigured(): Promise<boolean> {
   const { apiKey } = await resolveResendConfig();
   return Boolean(apiKey);
 }
+
+// ── Setnayan-AI paywall flag ────────────────────────────────────────────────
+//
+// DB-first / env-fallback resolver for the Setnayan-AI paywall, so the owner can
+// flip monetization ON/OFF from /admin/integrations WITHOUT a Vercel env change
+// + redeploy.
+//
+// platform_settings.setnayan_ai_paywall_enabled is TRI-STATE:
+//   • NULL  → defer to the SETNAYAN_AI_PAYWALL_ENABLED env var (today's source
+//             of truth). Byte-identical to the pre-console behavior.
+//   • TRUE  → paywall on  (DB overrides env).
+//   • FALSE → paywall off (DB overrides env).
+//
+// This DELIBERATELY supersedes the 2026-06-16 design's "OR-wins" rule: OR-wins
+// is not a clean toggle (it can never turn the paywall OFF from the console once
+// the env flag is set to true). DB-first gives a real tri-state on/off toggle
+// and matches the email slice's resolver. The ₱3,999 flip is currently PARKED
+// (env OFF → AI free) pending the holistic pricing pass (DECISION_LOG 2026-06-22);
+// when the owner is ready, this console flips it with no redeploy.
+//
+// UNCACHED on purpose (same reasoning as resolveResendConfig): a flip the owner
+// just made must take effect on the next request, so this does NOT route through
+// unstable_cache. The leaf predicate in lib/setnayan-ai.ts stays SYNCHRONOUS —
+// callers await this once and thread the resolved boolean in.
+export async function resolveSetnayanAiPaywallEnabled(): Promise<boolean> {
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from('platform_settings')
+      .select('setnayan_ai_paywall_enabled')
+      .eq('id', 1)
+      .maybeSingle();
+    const dbVal = data?.setnayan_ai_paywall_enabled as boolean | null | undefined;
+    if (typeof dbVal === 'boolean') return dbVal;
+  } catch {
+    // DB unreachable / column absent (pre-migration) → env fallback below.
+  }
+  return process.env.SETNAYAN_AI_PAYWALL_ENABLED === 'true';
+}

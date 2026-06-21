@@ -26,6 +26,7 @@ import { buildPlanBudgetModel, type VendorEnrichment } from '@/lib/vendors-plan-
 import Link from 'next/link';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import { isSetnayanAiActive, shouldOfferSetnayanAiPurchase } from '@/lib/setnayan-ai';
+import { resolveSetnayanAiPaywallEnabled } from '@/lib/integration-config';
 import {
   BUDGET_BUILD_TABS,
   isBudgetBuildEnabled,
@@ -461,7 +462,10 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // collapses to a slim "you're driving" bar, the accordion drops the
   // per-candidate "% match" pills, AND the "👀 eyeing your date" nudge is
   // suppressed (generic browse). One governing gate: lib/setnayan-ai.
-  const aiActive = isSetnayanAiActive(ev);
+  // Paywall flag is DB-first/env-fallback (Integration Activation Console);
+  // resolved once and threaded into both gates on this surface.
+  const paywallEnabled = await resolveSetnayanAiPaywallEnabled();
+  const aiActive = isSetnayanAiActive(ev, paywallEnabled);
 
   // DB-driven category headers (owner 2026-06-09 — "taxonomy applies to all 5
   // menus"): the 10 folder labels/order/slugs come from `service_categories`
@@ -523,7 +527,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // (shouldOfferSetnayanAiPurchase returns false while the paywall is off → no
   // banner today). Links to the /studio/setnayan-ai buy page (catalog price +
   // checkout). Renders in both the takeover shortlist slot and the bare return.
-  const aiOffer = shouldOfferSetnayanAiPurchase(ev);
+  const aiOffer = shouldOfferSetnayanAiPurchase(ev, paywallEnabled);
   const aiOfferBanner = aiOffer ? (
     <Link
       href={`/dashboard/${eventId}/studio/setnayan-ai`}

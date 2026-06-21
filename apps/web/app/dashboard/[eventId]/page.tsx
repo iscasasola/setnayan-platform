@@ -19,6 +19,7 @@ import { countUnread } from '@/lib/notifications';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { isSetnayanAiActive } from '@/lib/setnayan-ai';
+import { resolveSetnayanAiPaywallEnabled } from '@/lib/integration-config';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { sweepLapsedSubscriptions } from '@/lib/subscriptions';
@@ -1571,6 +1572,7 @@ export default async function EventHomePage({
   // feed stay. Default 'guided' (and any unknown value) keeps everything on.
   const planningManual = !isSetnayanAiActive(
     event as { planning_mode?: string | null; setnayan_ai_active?: boolean | null },
+    await resolveSetnayanAiPaywallEnabled(),
   );
 
   return (

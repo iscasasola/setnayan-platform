@@ -67,17 +67,26 @@ export function VectorStudio({
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
+    // Idempotency guard — never inject two engines into one live root.
+    if (apiRef.current) return;
     let alive = true;
     let api: StudioApi | null = null;
     // The editor DOM is built imperatively here (NOT via React
     // dangerouslySetInnerHTML) so React never owns or re-touches this subtree.
-    // Under StrictMode's mount→unmount→mount (and HMR remounts), a React-owned
-    // innerHTML could be re-injected out from under the imperative paper.js
-    // engine — the engine then drove a DETACHED node while the on-screen editor
-    // sat stuck on "Loading the typeface…" forever (start() ran, but on the wrong
-    // DOM). Owning the markup here makes the mount idempotent: cleanup wipes it,
-    // the next mount rebuilds clean, and the engine always binds to the exact
-    // nodes that are visible.
+    //
+    // Why this matters in PRODUCTION (not just dev StrictMode): when the markup
+    // was a `dangerouslySetInnerHTML={{ __html: STUDIO_HTML }}` prop, React's
+    // reconciler re-applies that prop whenever its object reference changes — and
+    // an inline `{{ __html }}` literal is a NEW object every render. So an
+    // ordinary re-render (e.g. this effect's own setReady(true)) re-set the
+    // host's innerHTML, re-creating the #cv/#load/#names nodes. The engine's
+    // async boot (a font fetch) then resolved against the now-DETACHED nodes it
+    // had captured — hiding a detached overlay + drawing on a detached canvas,
+    // so the VISIBLE editor sat stuck on "Loading the typeface…" with a blank
+    // canvas while the name still wrote to the surviving input. Owning the markup
+    // imperatively removes the subtree from React's vdom entirely, so no re-render
+    // can clobber the engine's nodes. (The engine also self-guards its async
+    // callbacks via a `destroyed` flag for the unmount-mid-fetch case.)
     root.innerHTML = STUDIO_HTML;
     // Safety net: if the engine/typeface never finishes (a hung dynamic import or
     // font fetch), don't sit on "Loading the typeface…" forever.

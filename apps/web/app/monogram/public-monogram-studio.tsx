@@ -92,17 +92,25 @@ export function PublicMonogramStudio() {
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
+    // Idempotency guard — never inject two engines into one live root.
+    if (apiRef.current) return;
     let alive = true;
     let api: StudioApi | null = null;
     // The editor DOM is built imperatively here (NOT via React
     // dangerouslySetInnerHTML) so React never owns or re-touches this subtree.
-    // Under StrictMode's mount→unmount→mount (and HMR remounts), a React-owned
-    // innerHTML could be re-injected out from under the imperative paper.js
-    // engine — the engine then drove a DETACHED node while the on-screen editor
-    // sat stuck on "Loading the typeface…" forever (start() ran, but on the wrong
-    // DOM). Owning the markup here makes the mount idempotent: cleanup wipes it,
-    // the next mount rebuilds clean, and the engine always binds to the exact
-    // nodes that are visible. (owner 2026-06-19 "it is not loading properly".)
+    //
+    // Why this matters in PRODUCTION (not just dev StrictMode): when the markup
+    // was a `dangerouslySetInnerHTML={{ __html: STUDIO_HTML }}` prop, React's
+    // reconciler re-applies that prop whenever its object reference changes — and
+    // an inline `{{ __html }}` literal is a NEW object every render. So an
+    // ordinary re-render (e.g. this effect's own setReady(true)) re-set the
+    // host's innerHTML, re-creating the #cv/#load/#names nodes; the engine's
+    // async font boot then resolved against the now-DETACHED nodes — leaving the
+    // VISIBLE editor stuck on "Loading the typeface…" with a blank canvas.
+    // Owning the markup imperatively removes the subtree from React's vdom, so no
+    // re-render can clobber the engine's nodes. (The engine also self-guards its
+    // async callbacks via a `destroyed` flag for the unmount-mid-fetch case.)
+    // (owner 2026-06-19 "it is not loading properly".)
     root.innerHTML = STUDIO_HTML;
     // Safety net: if the engine/typeface never finishes (a hung dynamic import or
     // font fetch — e.g. a stale cached build), don't sit on "Loading the

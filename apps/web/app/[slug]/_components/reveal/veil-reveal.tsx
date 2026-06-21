@@ -346,6 +346,9 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
     // each petal only rolls once when it first crosses the veil (owner 2026-06-19:
     // "it can cling but only 30% of the petals, and only if the petals hit the veil").
     const pTested = new Int8Array(NP);
+    // Bounce-off-text cooldown — set when a falling petal deflects off the central
+    // text region, cleared once it clears the band, so each descent bounces once.
+    const pTextBounced = new Int8Array(NP);
     const pdum = new THREE.Object3D();
     let colDirty = true;
     let petalsSeeded = false;
@@ -356,6 +359,7 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       pPar[pi] = {} as PP;
       pCling[pi] = -1;
       pTested[pi] = 0;
+      pTextBounced[pi] = 0;
     }
     const petalParams = (P: PP, ty: string) => {
       // Fall speed dialled DOWN ~0.6× (owner 2026-06-19 "petals need to fall
@@ -399,6 +403,7 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       pRot[i]!.set(rnd() * 6.28, rnd() * 6.28, rnd() * 6.28);
       pCling[i] = -1;
       pTested[i] = 0;
+      pTextBounced[i] = 0;
       petals.setColorAt(i, petalColor());
       colDirty = true;
     };
@@ -551,6 +556,24 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
             if (clingCount < clingCap && rnd() < 0.3) {
               clingNear(i);
               clingCount++;
+            }
+          }
+          // Bounce off the on-screen TEXT (owner 2026-06-21 "can they also bounce
+          // when they hit the texts?"). Once the veil is up + the film's text is
+          // showing, a FALLING petal that enters the central text band is deflected
+          // UP + OUT, as if the names/date are solid. One bounce per descent
+          // (pTextBounced clears when it climbs back above the band) so petals dot
+          // around the words instead of jittering in place.
+          if (lift > 0.85 && Math.abs(pPos[i]!.z - frontZ) < 0.5) {
+            const inText =
+              pPos[i]!.y < vh * 0.32 &&
+              pPos[i]!.y > -vh * 0.32 &&
+              Math.abs(pPos[i]!.x) < vw * 0.55;
+            if (inText && !pTextBounced[i] && pVel[i]!.y < 0) {
+              pTextBounced[i] = 1;
+              bouncePetal(i, 0, pPos[i]!.y); // up + away from centre, off the words
+            } else if (!inText && pPos[i]!.y > vh * 0.36) {
+              pTextBounced[i] = 0; // climbed clear of the band → can bounce again
             }
           }
           if (pPos[i]!.y < -vh * 1.45) {
@@ -1014,6 +1037,14 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       window.addEventListener('pointerup', release);
       window.addEventListener('pointercancel', onCancel);
     }
+    // A press on the FILM beneath (z-50) dispatches 'std-veil-poke' with the screen
+    // point — knock the nearby petals so the controls STIR the petals, not just
+    // hold the film (owner 2026-06-21 "the controls will run the petals and veil").
+    const onPoke = (e: Event) => {
+      const d = (e as CustomEvent<{ x: number; y: number }>).detail;
+      if (petalsSeeded && d) bounceAt(d.x, d.y);
+    };
+    window.addEventListener('std-veil-poke', onPoke as EventListener);
 
     // ── Resize / rotate — cheap re-fit immediately (no stretch), full rebuild debounced.
     let roFrame = 0;
@@ -1087,6 +1118,7 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', release);
       window.removeEventListener('pointercancel', onCancel);
+      window.removeEventListener('std-veil-poke', onPoke as EventListener);
       geo?.dispose();
       mat.dispose();
       mat.alphaMap?.dispose();

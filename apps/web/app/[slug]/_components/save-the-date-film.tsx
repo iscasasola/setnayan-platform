@@ -875,6 +875,17 @@ export function SaveTheDateFilm({
     requestFilmFullscreen(); // first stage gesture → true full screen (no-reveal path)
     downXRef.current = e.clientX;
     downYRef.current = e.clientY;
+    // Stir the veil's petals at the press point — the controls RUN the petals, not
+    // just hold the film (owner 2026-06-21 "the controls will run the petals and
+    // veil"). The veil (z-60) listens for 'std-veil-poke' and bounces the nearest
+    // petal; harmless no-op when no reveal/petals are mounted.
+    try {
+      window.dispatchEvent(
+        new CustomEvent('std-veil-poke', { detail: { x: e.clientX, y: e.clientY } }),
+      );
+    } catch {
+      /* noop */
+    }
     // Unlock the soundtrack on the gesture — but NOT while on the video beat
     // (there the music stays ducked; the video effect owns it).
     if (

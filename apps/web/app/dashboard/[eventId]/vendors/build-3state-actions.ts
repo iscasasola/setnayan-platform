@@ -34,6 +34,7 @@ import {
 } from '@/lib/build-requote-nudge';
 import { computeCompatScore } from '@/lib/compat-score';
 import { isSetnayanAiActive } from '@/lib/setnayan-ai';
+import { resolveSetnayanAiPaywallEnabled } from '@/lib/integration-config';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 import { replacesSiblingsOnPin } from '@/lib/build-pick-rules';
@@ -217,6 +218,7 @@ export async function runBuild3State(input: { eventId: string }): Promise<RunBui
   // app-wide lib/setnayan-ai.ts so this surface agrees with every other one.
   const aiActive = isSetnayanAiActive(
     evRes.data as { planning_mode?: string | null; setnayan_ai_active?: boolean | null },
+    await resolveSetnayanAiPaywallEnabled(),
   );
   const rankMode: BuildRankMode = aiActive ? 'compat' : 'cheapest';
   const evLat = (evRes.data.venue_latitude as number | null) ?? null;

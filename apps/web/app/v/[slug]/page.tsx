@@ -47,6 +47,7 @@ import {
 import { fetchRequirementFields, type RequirementField } from '@/lib/requirements-capture';
 import { getEventPreference } from '@/lib/event-preferences';
 import { isSetnayanAiActive } from '@/lib/setnayan-ai';
+import { resolveSetnayanAiPaywallEnabled } from '@/lib/integration-config';
 import { NavLinksRow } from '@/app/_components/nav-links';
 import {
   fetchReviewsForVendorWithCouple,
@@ -725,6 +726,7 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
       .maybeSingle();
     aiActive = isSetnayanAiActive(
       aiEventRow as { planning_mode?: string | null; setnayan_ai_active?: boolean | null } | null,
+      await resolveSetnayanAiPaywallEnabled(),
     );
   }
 

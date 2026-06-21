@@ -6,10 +6,11 @@ import {
   KeyRound,
   Mail,
   ShieldAlert,
+  Sparkles,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { saveResendConfig, clearResendKey } from './actions';
+import { saveResendConfig, clearResendKey, setAiPaywall } from './actions';
 import { TestResendButton } from './_components/test-resend-button';
 
 // Integration Activation Console — PR1 (email slice).
@@ -52,7 +53,7 @@ export default async function AdminIntegrationsPage({
       .maybeSingle(),
     admin
       .from('platform_settings')
-      .select('resend_from_address')
+      .select('resend_from_address, setnayan_ai_paywall_enabled')
       .eq('id', 1)
       .maybeSingle(),
   ]);
@@ -71,6 +72,20 @@ export default async function AdminIntegrationsPage({
     : envHasKey
       ? 'Environment variable (Vercel)'
       : 'Not configured';
+
+  // Setnayan AI paywall — tri-state (NULL = defer to env). Effective value is
+  // DB-first / env-fallback, mirroring resolveSetnayanAiPaywallEnabled().
+  const paywallDb =
+    (settingsRes.data?.setnayan_ai_paywall_enabled as boolean | null | undefined) ??
+    null;
+  const paywallEnvOn = process.env.SETNAYAN_AI_PAYWALL_ENABLED === 'true';
+  const paywallEffectiveOn =
+    typeof paywallDb === 'boolean' ? paywallDb : paywallEnvOn;
+  const paywallMode = paywallDb === true ? 'on' : paywallDb === false ? 'off' : 'env';
+  const paywallSource =
+    paywallDb === null
+      ? `Environment default (env says ${paywallEnvOn ? 'ON' : 'OFF'})`
+      : 'Set here (database)';
 
   return (
     <section className="space-y-6">
@@ -191,6 +206,63 @@ export default async function AdminIntegrationsPage({
             </form>
           ) : null}
         </div>
+      </section>
+
+      {/* Setnayan AI paywall card */}
+      <section className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="inline-flex items-center gap-1.5 text-lg font-semibold tracking-tight">
+            <Sparkles aria-hidden className="h-5 w-5 text-mulberry" strokeWidth={1.75} />
+            Setnayan AI — paywall
+          </h2>
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ${
+              paywallEffectiveOn
+                ? 'bg-emerald-100 text-emerald-900'
+                : 'bg-ink/10 text-ink/70'
+            }`}
+          >
+            {paywallEffectiveOn ? 'On — couples pay to unlock' : 'Off — free for everyone'}
+          </span>
+        </div>
+
+        <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
+          When ON, Setnayan AI (the ranked match, % fit, proximity sort, deadlines)
+          requires a purchased per-event unlock. When OFF, the full intelligence is
+          free during launch. Takes effect on the next request — no redeploy.
+        </p>
+
+        <dl className="grid grid-cols-1 gap-1 text-sm sm:grid-cols-[140px_1fr]">
+          <dt className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">Effective</dt>
+          <dd className="text-ink/80">{paywallEffectiveOn ? 'On' : 'Off'}</dd>
+          <dt className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">Source</dt>
+          <dd className="text-ink/80">{paywallSource}</dd>
+        </dl>
+
+        <form action={setAiPaywall} className="space-y-3 border-t border-ink/10 pt-4">
+          <label className="block">
+            <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+              Paywall
+            </span>
+            <select
+              name="mode"
+              defaultValue={paywallMode}
+              className="mt-1 w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm outline-none focus:border-terracotta/50"
+            >
+              <option value="env">
+                Use environment default (env says {paywallEnvOn ? 'ON' : 'OFF'})
+              </option>
+              <option value="on">On — require a purchase to unlock</option>
+              <option value="off">Off — free for everyone</option>
+            </select>
+          </label>
+          <button
+            type="submit"
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
+          >
+            Save
+          </button>
+        </form>
       </section>
 
       <p

@@ -41,6 +41,7 @@ import {
 } from '@/lib/taxonomy-filters';
 import { computeCompatScore } from '@/lib/compat-score';
 import { isSetnayanAiActive } from '@/lib/setnayan-ai';
+import { resolveSetnayanAiPaywallEnabled } from '@/lib/integration-config';
 import {
   monthsToWedding,
   lastMinuteZone,
@@ -229,6 +230,7 @@ export async function searchCategoryVendors(input: {
   // so every surface agrees (owner 2026-06-08: "govern now, monetize next").
   const aiActive = isSetnayanAiActive(
     ev as { planning_mode?: string | null; setnayan_ai_active?: boolean | null },
+    await resolveSetnayanAiPaywallEnabled(),
   );
   const assistOff = !aiActive;
 

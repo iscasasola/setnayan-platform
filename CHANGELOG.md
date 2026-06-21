@@ -58,6 +58,32 @@ Owner reframe: the onboarding's job shifts from *"which vendors do you need?"* t
 ⚠ Owner sign-off: persona NAMES + quiz copy are first-draft (easy to tune — all in one data module). Going live needs (1) apply migration `20270208703382`, (2) set `NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED=true`.
 
 SPEC IMPACT: iteration 0016 (Setnayan AI / step-by-step plan builder) — onboarding reorients from vendor-needs assessment to experience-first; logged at the bottom of `DECISION_LOG.md`. No SKU/pricing change (the derived in-app services map to existing keys).
+## 2026-06-21 · chore(nav): lint-guard the locked BottomNav frosted fill (NAV-9 hardening)
+
+The redesign verifier found that `scripts/lint-bottom-nav.mjs` protected the bar's tuning knobs + animation hooks + aria-label, but **not** its frosted-paper fill — so an edit could silently change or strip `rgba(248, 246, 240, 0.92)` (the `--m-paper-2` @ 92% surface the locked white press-light reads against) and the guard would still pass, leaving the press bloom invisible.
+
+- Added `'rgba(248, 246, 240, 0.92)'` to `REQUIRED_MARKERS`. The integrity check already does `canonicalSrc.includes(marker)` for every entry, so this one line pins the fill — any future edit to it now fails the build with the existing owner-lock message.
+
+Verified: `pnpm lint:botnav` ✓ (the literal exists at `bottom-nav.tsx:684`, so the guard passes today and protects it going forward).
+
+Deferred (needs owner sign-off — NOT done here): the **≤5 tab-count assertion** half of NAV-1/NAV-9 hardening. A reliable build-time ≤5 guard requires lowering the template's own `Math.min(items.length, 6)` clamp to 5 — which is an edit to the owner-locked `bottom-nav.tsx` AND would disagree with the accordion path's "6 fixed top-level menus" contract until reconciled. Surfaced rather than silently changed.
+
+SPEC IMPACT: None (lint-guard hardening on the owner-locked template; no behavior change).
+
+## 2026-06-21 · fix(studio): Save-the-Date "About" page no longer collides with the builder route
+
+The Studio tile for Save-the-Date links (via `appStoreDetailHref('save-the-date')`) to `/studio/save-the-date/about`. But Save-the-Date owns a *literal* route folder (`studio/save-the-date/` — the builder + `loading.tsx`), which in Next.js **shadows** the dynamic `studio/[addon]/about` route. So that path fell through to the builder, and via client-side navigation the static/dynamic collision threw the branded error boundary (the `Reference: …` 500 the owner hit on `/studio/save-the-date/about`). Every other feature's About page works because they reach `[addon]/about`; `save-the-date` did not.
+
+- Extracted the App Store detail render from `studio/[addon]/about/page.tsx` into a shared `studio/_components/addon-detail-view.tsx` (no behavior change — `[addon]/about` now delegates to it).
+- Added an **explicit** `studio/save-the-date/about/page.tsx` that reuses the shared view with the add-on fixed to `save-the-date`. An explicit literal route is collision-proof — it always wins over the shadowed dynamic fallback, so the About page renders reliably on both hard load and client navigation.
+
+Verified locally (dev, signed in as the owner on a real event): `/studio/save-the-date/about` now renders the App Store About page (hero "The first time they feel your wedding.") instead of the builder; `/studio/papic/about` (dynamic route) and `/studio/save-the-date` (builder) still render correctly. `pnpm typecheck` exit 0; `next lint` clean for the changed files.
+
+Follow-up (not in this PR): other features that own a literal route folder (animated-monogram, custom-qr-guest, mood-board, photo-delivery, setnayan-ai, …) have the same shadowing, so their `/about` links resolve to the feature surface rather than the App Store detail. Harmless today (the tile still opens the feature) but worth a class fix.
+
+SPEC IMPACT: None (routing bug fix; no SKU, schema, or pricing change).
+
+---
 ## 2026-06-21 · feat(nav): vendor + admin bottom nav → ≤5 tabs (redesign Wave 3 · NAV-1)
 
 First step of the ratified nav reroster (`Responsive_and_Mobile_UI_Ruleset_2026-06-21` · NAV-1). Drops the vendor and admin mobile pills from **6 tabs to 5** by demoting one destination each into "More". **Supersedes the 2026-06-15 owner-picked 6-tab rosters** (owner re-authorized via the redesign "do all / keep going"). The locked `bottom-nav.tsx` template is **NOT touched** — it is fully data-driven by the `items` array length, so passing 5 items instead of 6 just works (verified by a 3-agent read-only map of the owner-locked nav area).
@@ -73,6 +99,26 @@ Verified: `pnpm typecheck` exit 0 · `pnpm lint` exit 0 · `pnpm test:unit` (Pha
 Deferred to follow-up PRs (blueprinted by the same workflow): the **broken-out Mulberry action satellite** (NAV-2 — a new sibling `nav-fab.tsx`, never a 7th tab/fork), the **Notion-style More** rebuild (NAV-5), and **lint hardening** (a ≤5 count assertion + protecting the frosted-fill token — both currently unguarded).
 
 SPEC IMPACT: Nav architecture — vendor/admin mobile pills drop to ≤5; supersedes the 2026-06-15 6-tab rosters. Logged in the corpus `DECISION_LOG.md`. No SKU/schema/pricing/public-claim change.
+## 2026-06-21 · fix(studio): un-shadow the App Store detail route — every "Learn more" / feature link was 404ing
+
+**Symptom (owner report):** on the Studio hub (`/dashboard/[eventId]/studio`) every "Learn more"/About link and every featured card was dead — clicking a feature went nowhere. Only `landing-page`, `music-creator`, and `panood` worked.
+
+**Root cause — Next.js route shadowing (single cause, not "everything's unwired").** The hub links each feature to its App Store detail page via `appStoreDetailHref()`, which returned `/studio/<key>/about`. But most features also own a static `app/dashboard/[eventId]/studio/<key>/` folder (papic, save-the-date, setnayan-ai, animated-monogram, led, mood-board, photo-delivery, custom-qr-guest, indoor-blueprint, patiktok, pakanta, playlist…). In the App Router a **literal** path segment beats the `[addon]` **dynamic** sibling and routing does **not** backtrack — so `/studio/papic/about` matched the static `papic/` folder, found no `about` child, and 404'd. Every feature with its own folder (11 of 14 visible, including all four flagships) was dead; only the three without a static folder resolved. The author had already hit this for two keys and band-aided them in `appStoreDetailHref` (the "an /about link 404s" comment) without realizing it was systemic.
+
+**Fix — move the detail route out from under the dynamic shadow.** Relocated `studio/[addon]/about/page.tsx` → `studio/about/[addon]/page.tsx` and pointed `appStoreDetailHref` at `/studio/about/<key>`. The literal `about` segment can't be shadowed by any feature key, so all 14 detail pages now resolve; the "Open" CTA on each detail page already pointed at the real feature surface via `addOnHref()`, so it works once the detail page is reachable. Panood + supplies-marketplace keep their existing straight-to-surface special-cases.
+
+**Reconciled with PR #1956 (parallel session, merged mid-flight).** #1956 fixed the same shadowing bug for Save-the-Date *only*, with a narrower strategy: keep links at the shadowed `/studio/<key>/about` and add an explicit per-key `<key>/about/page.tsx` inside each static folder (extracting the renderer into a shared `_components/addon-detail-view.tsx`). This relocated route supersedes that approach — one dynamic route under `/studio/about/<key>` fixes all 11 shadowed keys instead of one-wrapper-per-folder. Kept #1956's shared `addon-detail-view.tsx` (the relocated route mounts it); **removed the now-orphaned `studio/save-the-date/about/page.tsx`** (nothing links to `/studio/save-the-date/about` anymore) and corrected its comments so future sessions don't keep adding per-key about pages.
+
+- `apps/web/lib/add-ons-catalog.ts` — `appStoreDetailHref` now returns `/studio/about/<key>`; expanded the doc comment to explain the shadowing trap.
+- `apps/web/app/dashboard/[eventId]/studio/about/[addon]/page.tsx` — relocated detail page; mounts the shared `AddOnDetailView`.
+- `apps/web/app/dashboard/[eventId]/studio/save-the-date/about/page.tsx` — **deleted** (superseded orphan from #1956).
+- `apps/web/app/dashboard/[eventId]/studio/_components/addon-detail-view.tsx` — comment updated to describe the relocated-route mount point.
+- `apps/web/lib/add-ons-detail.test.ts` — added a regression guard asserting every detail href routes under the literal `/studio/about/` segment (fails the build if a key ever regresses to the shadowed shape); refreshed the path comment.
+- `apps/web/app/_components/app-store/layout.tsx`, `apps/web/lib/add-ons-detail.ts` — stale-path comment refreshes.
+
+No content/pricing/schema change — every visible feature already had authored detail content; prices still render live from `platform_retail_catalog_v2`.
+
+SPEC IMPACT: None (routing bugfix; no product, pricing, or schema change).
 
 ## 2026-06-21 · chore(home): remove dead `Checklist` function from couple event-home
 

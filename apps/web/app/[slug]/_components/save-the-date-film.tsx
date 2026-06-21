@@ -104,6 +104,11 @@ const BASE_W = 440;
 const BASE_H = 780;
 const FIT_MIN = 0.6;
 const FIT_MAX = 2.3;
+// Swiping/scrolling BACK to re-read holds that beat for its normal dwell PLUS
+// this bonus before auto-play pulls forward again — a deliberate re-read isn't
+// yanked off after the standard ~4s (owner 2026-06-21). Forward skips keep the
+// normal dwell.
+const REREAD_DWELL_BONUS_MS = 4000;
 
 const EASE = 'cubic-bezier(.2,.8,.2,1)';
 const ANIM = {
@@ -557,19 +562,10 @@ export function SaveTheDateFilm({
   // The clip still plays + advances; this just surfaces a one-tap "Tap for sound"
   // control over it so the guest CAN hear the couple's own audio if they want.
   const [videoSoundBlocked, setVideoSoundBlocked] = useState(false);
-  // Has the guest ever advanced by hand? Drives the "Swipe up to continue" hint
-  // (Guest Legibility Floor: a gesture is never the only way — it needs a visible
-  // instruction). The hint shows at the start + on the held video beat, and fades
-  // once the guest has moved through it once. (A hint, not chrome — owner kept the
-  // "just the texts" film; this matches the approved veil hint pattern.)
-  const [advanced, setAdvanced] = useState(false);
-  const advancedRef = useRef(false);
-  const markAdvanced = () => {
-    if (!advancedRef.current) {
-      advancedRef.current = true;
-      setAdvanced(true);
-    }
-  };
+  // One-time "press & hold to pause" hint (shown a beat after the film starts,
+  // then fades for good). The film has no transport chrome, so this is the lone
+  // cue that a guest can hold to linger on a beat. Set by start(); see render.
+  const [showHoldHint, setShowHoldHint] = useState(false);
 
   const stageRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -629,6 +625,11 @@ export function SaveTheDateFilm({
       setPlaying(true);
       startRef.current = performance.now();
       if (!muted && audioRef.current) audioRef.current.play().catch(() => {});
+      // One-time "press & hold to pause" cue — a beat after the film begins, then
+      // it fades for good (start() is one-time-guarded above). The film has no
+      // other chrome, so this is the lone hint that a guest can hold to linger.
+      window.setTimeout(() => setShowHoldHint(true), 1600);
+      window.setTimeout(() => setShowHoldHint(false), 6400);
     };
     window.addEventListener('std-reveal-done', start, { once: true });
     // No-reveal path only: start after a grace once we know no reveal armed.
@@ -794,16 +795,19 @@ export function SaveTheDateFilm({
   const hitControl = (e: React.PointerEvent) =>
     Boolean((e.target as HTMLElement | null)?.closest?.('button, a'));
 
-  // Scrub to an adjacent beat (clamped) and switch to MANUAL — the deliberate
-  // scroll/swipe takes control, so auto-advance stops where the guest landed.
+  // Scrub to an adjacent beat (clamped) WITHOUT leaving auto-play — a swipe is a
+  // navigation nudge (skip ahead / swipe back to re-read), NOT a pause, so the
+  // film keeps auto-advancing from wherever the guest lands (owner 2026-06-21
+  // "when they swipe, auto play must still continue"). goRef.current() resets the
+  // per-beat dwell timer, so the landed beat gets its full duration before the
+  // player moves on. Pause stays available via press-and-hold.
   const stepBeat = (dir: number) => {
-    markAdvanced();
     const target = Math.max(0, Math.min(N - 1, idxRef.current + dir));
     goRef.current(target);
-    if (playingRef.current) {
-      playingRef.current = false;
-      setPlaying(false);
-    }
+    // Re-read hold: a BACKWARD scrub gets a longer dwell so auto-play doesn't yank
+    // the guest off the beat they returned to. goRef set startRef=now; pushing it
+    // into the future extends the hold; forward skips keep the normal dwell.
+    if (dir < 0) startRef.current = performance.now() + REREAD_DWELL_BONUS_MS;
   };
 
   // Auto-play to FULL SCREEN (owner 2026-06-19). Browsers REQUIRE a user gesture
@@ -895,7 +899,6 @@ export function SaveTheDateFilm({
     const r = stageRef.current?.getBoundingClientRect();
     const x = r ? e.clientX - r.left : 0;
     const w = r?.width ?? 1;
-    markAdvanced();
     if (x < w * 0.34) {
       goRef.current(idxRef.current - 1);
     } else {
@@ -942,8 +945,9 @@ export function SaveTheDateFilm({
 
   // Scroll-to-scrub — a WINDOW wheel listener (not the stage) so a mouse/trackpad
   // scroll anywhere scrubs, even over the cream desktop margins beside the
-  // centred stage. Down = forward, up = back; debounced to one beat per flick;
-  // switches to manual (auto-advance stops where the guest lands). Live only.
+  // centred stage. Down = forward, up = back; debounced to one beat per flick.
+  // Auto-play CONTINUES after a scroll-scrub (owner 2026-06-21) — scrolling
+  // navigates, it never pauses the film. Live only.
   useEffect(() => {
     if (preview) return;
     let last = 0;
@@ -953,8 +957,10 @@ export function SaveTheDateFilm({
       last = now;
       const dir = e.deltaY > 0 ? 1 : -1;
       goRef.current(Math.max(0, Math.min(N - 1, idxRef.current + dir)));
-      playingRef.current = false;
-      setPlaying(false);
+      // No setPlaying(false) — the player keeps auto-advancing. A BACKWARD scroll
+      // (re-read) gets a longer dwell before it pulls forward again; goRef.current()
+      // reset the dwell timer for forward skips.
+      if (dir < 0) startRef.current = performance.now() + REREAD_DWELL_BONUS_MS;
     };
     window.addEventListener('wheel', onWheel, { passive: true });
     return () => window.removeEventListener('wheel', onWheel);
@@ -993,29 +999,61 @@ export function SaveTheDateFilm({
   // no gesture. We rewind + mute the unlock blip so the music still BEGINS on the
   // lift, not on the grab.
   useEffect(() => {
-    if (preview || !content.musicUrl) return;
+    if (preview || (!content.musicUrl && !content.videoUrl)) return;
     const unlock = () => {
       const a = audioRef.current;
-      if (!a) return; // element not mounted yet — let a later touch retry
+      const v = videoElRef.current;
+      if (!a && !v) return; // nothing mounted yet — let a later touch retry
       window.removeEventListener('pointerdown', unlock, true);
       window.removeEventListener('touchstart', unlock, true);
-      // Already playing (no-reveal grace path) → just make sure it keeps going.
-      if (playingRef.current) {
-        if (!muted) a.play().catch(() => {});
-        return;
+
+      // ── Soundtrack <audio> unlock (original behaviour).
+      if (a) {
+        if (playingRef.current) {
+          // Already playing (no-reveal grace path) → just keep it going.
+          if (!muted) a.play().catch(() => {});
+        } else {
+          // Under the veil: silently unlock, then pause + rewind so it starts
+          // fresh on the lift. volume 0 during the play→pause so there's no blip.
+          const vol = a.volume;
+          setVol(a, 0);
+          const finish = () => {
+            a.pause();
+            a.currentTime = 0;
+            setVol(a, vol);
+          };
+          const p = a.play();
+          if (p && typeof p.then === 'function') p.then(finish).catch(() => { setVol(a, vol); });
+          else finish();
+        }
       }
-      // Under the veil: silently unlock, then pause + rewind so it starts fresh
-      // on the lift. volume 0 during the play→pause so there's no audible blip.
-      const vol = a.volume;
-      setVol(a, 0);
-      const finish = () => {
-        a.pause();
-        a.currentTime = 0;
-        setVol(a, vol);
-      };
-      const p = a.play();
-      if (p && typeof p.then === 'function') p.then(finish).catch(() => { setVol(a, vol); });
-      else finish();
+
+      // ── Couple's clip <video> — prime it for AUDIBLE autoplay so the music
+      // CROSSFADES to its sound by itself on the video beat (owner 2026-06-21
+      // "the video's audio does not auto crossfade when the video plays"). iOS
+      // only lets a <video> play WITH sound if it was played audibly inside a
+      // user gesture; by the time the film auto-advances to the clip (~30s after
+      // the lift) that credit is spent, so the unmuted play() at the beat is
+      // blocked → the clip falls back to MUTED and the soundtrack never ducks.
+      // An UNMUTED play→pause at volume 0 (silent, and invisible — the overlay
+      // is opacity-0 off-beat) inside this same first touch grants the element
+      // audible activation, so the later autoplay-with-sound succeeds and the
+      // crossfade fires automatically. "Tap for sound" stays as the fallback for
+      // any browser where the prime doesn't take. Mirrors the <audio> unlock.
+      if (v && !muted) {
+        const vmuted = v.muted;
+        const vvol = v.volume;
+        v.muted = false;
+        setVol(v, 0);
+        const finishV = () => {
+          try { v.pause(); v.currentTime = 0; } catch { /* not seekable yet */ }
+          v.muted = vmuted;
+          setVol(v, vvol);
+        };
+        const pv = v.play();
+        if (pv && typeof pv.then === 'function') pv.then(finishV).catch(() => { v.muted = vmuted; setVol(v, vvol); });
+        else finishV();
+      }
     };
     window.addEventListener('pointerdown', unlock, { capture: true, passive: true });
     window.addEventListener('touchstart', unlock, { capture: true, passive: true });
@@ -1023,7 +1061,7 @@ export function SaveTheDateFilm({
       window.removeEventListener('pointerdown', unlock, true);
       window.removeEventListener('touchstart', unlock, true);
     };
-  }, [preview, content.musicUrl, muted]);
+  }, [preview, content.musicUrl, content.videoUrl, muted]);
 
   // The Save-the-Date is the whole full-screen experience (no chrome, no page
   // beneath in this phase) — the film holds on its closing beat; there's no
@@ -1057,16 +1095,21 @@ export function SaveTheDateFilm({
         </div>
       ) : null}
 
-      {/* "Swipe up to continue" hint — the ONLY cue that this auto-playing film
-          is scrubbable (Guest Legibility Floor: a gesture needs a visible
-          instruction so an elder is never stranded). Shows at the start and on
-          the held video beat — which never auto-advances — and fades once the
-          guest has moved through it by hand. A hint pill matching the approved
-          veil pattern, not the transport chrome the owner removed. */}
-      {playing && !preview && idx !== N - 1 && (!advanced || idx === videoSlideIndex) ? (
-        <div className="pointer-events-none absolute inset-x-0 bottom-16 z-20 flex justify-center">
-          <p className="rounded-full bg-black/35 px-6 py-3 font-mono text-base uppercase tracking-[0.16em] text-cream backdrop-blur-[2px] [text-shadow:0_1px_8px_rgba(0,0,0,0.7)]">
-            Swipe up to continue ↑
+      {/* The film carries no "swipe up to continue" cue — it duplicated the veil's
+          "Lift the veil ↑ / or double-tap" swipe-up pill, so the two were
+          consolidated into that single pill (owner 2026-06-21). What remains is a
+          DIFFERENT, one-time cue: "press and hold to pause", since the film has no
+          transport chrome and pausing would otherwise be undiscoverable. It fades
+          after a few seconds and never returns. pointer-events-none so it never
+          blocks a scrub or hold. */}
+      {!preview ? (
+        <div
+          className={`pointer-events-none absolute inset-x-0 bottom-16 z-20 flex justify-center transition-opacity duration-700 ${
+            showHoldHint ? 'opacity-100' : 'opacity-0'
+          }`}
+        >
+          <p className="rounded-full bg-black/35 px-5 py-2.5 font-mono text-sm uppercase tracking-[0.16em] text-cream/90 backdrop-blur-[2px] [text-shadow:0_1px_8px_rgba(0,0,0,0.7)]">
+            Press and hold to pause
           </p>
         </div>
       ) : null}

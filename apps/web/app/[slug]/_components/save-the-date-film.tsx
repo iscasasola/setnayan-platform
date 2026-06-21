@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * SaveTheDateFilm — the continuous, self-playing, scrubbable Save-the-Date
+ * SaveTheDateFilm — the continuous, self-playing Save-the-Date
  * "film" (PR4 content layer · 0024_Save_the_Date_Content_and_Customization_2026-06-17.md).
  *
  * Renders full-screen (fixed inset-0 z-[50]) so it sits under the RevealOverlay
@@ -17,12 +17,11 @@
  *   everything; on end it advances) OR the photo gallery · 9 add-to-calendar.
  * Beats whose data is missing (no date, one venue, no video) are simply skipped.
  *
- * Interaction (owner 2026-06-21): the film auto-plays through the text beats;
- * PRESS pauses and RELEASE continues; a deliberate vertical DRAG scrubs to an
- * adjacent beat (still auto-playing). Scrolling does NOT move the film. No
- * tap-to-step, no chrome — just the texts.
- * The video beat plays the clip; press pauses it, release resumes, a swipe scrubs
- * past. Music auto-plays (the reveal-lift gesture has already unlocked audio).
+ * Interaction (owner 2026-06-22): the film auto-plays through the text beats;
+ * PRESS pauses and RELEASE continues — that's the whole interaction. No scrub,
+ * no scroll, no tap-to-step, no chrome — just the texts, auto-playing.
+ * The video beat plays the clip; press pauses it, release resumes.
+ * Music auto-plays (the reveal-lift gesture has already unlocked audio).
  *
  * theme system: pass themeId to pick the display FONT (the 5 ids map to fonts;
  * colours come from the Step-1 background + legibility tone).
@@ -76,8 +75,8 @@ type Slide = {
  * Per-beat entrance keyframes — one distinct motion per piece of information so
  * each beat reveals its own way (bloom · rise · zoom · slide-in L/R · breathe ·
  * blur-in · pop · soft-rise). Injected once via a <style> tag in the film; the
- * active slide applies its `anim` inline (so it re-fires on every visit, forward
- * or scrubbed back). `both` fill-mode holds the final resting state.
+ * active slide applies its `anim` inline (so it re-fires each time the beat is
+ * shown). `both` fill-mode holds the final resting state.
  */
 const FILM_ANIM_CSS = `
 @keyframes stdBloom { from { opacity: 0; transform: scale(.62); filter: blur(6px); } to { opacity: 1; transform: scale(1); filter: blur(0); } }
@@ -106,11 +105,6 @@ const BASE_W = 440;
 const BASE_H = 780;
 const FIT_MIN = 0.6;
 const FIT_MAX = 2.3;
-// Dragging BACK to re-read holds that beat for its normal dwell PLUS
-// this bonus before auto-play pulls forward again — a deliberate re-read isn't
-// yanked off after the standard ~4s (owner 2026-06-21). Forward skips keep the
-// normal dwell.
-const REREAD_DWELL_BONUS_MS = 4000;
 // The video↔content cross-dissolve duration (owner 2026-06-21 "smoother crossfade
 // between the video and the website"). ONE value drives BOTH the audio crossfade
 // (equal-power ramp) AND the full-screen clip overlay's opacity fade, so sound and
@@ -785,7 +779,7 @@ export function SaveTheDateFilm({
       if (idxRef.current > videoSlideIdxRef.current || muted || preview) {
         v.pause();
       } else if (v.paused) {
-        // RE-WARM if a prior mute or backward-scrub left the clip paused before its
+        // RE-WARM if a prior mute or off-beat pause left the clip paused before its
         // beat — restart it silent + looping so its audio is ready to ramp on the
         // beat. Best-effort: succeeds on desktop/Android; iOS off-gesture rejects →
         // the beat's own "Tap for sound" fallback still holds (no hang).
@@ -799,7 +793,7 @@ export function SaveTheDateFilm({
 
     // Natural end → return to the closing screen (the crossfade-back fires there).
     // Guard like onError below: ONLY the clip's own beat may advance on 'ended'.
-    // Warm-play sets loop=false on the beat, but a scrub could leave it playing
+    // Warm-play sets loop=false on the beat, but the clip can still be playing
     // off-beat — its natural end must NOT yank the film forward from a text beat.
     const onEnded = () => {
       if (idxRef.current === videoSlideIdxRef.current) goRef.current(videoSlideIdxRef.current + 1);
@@ -840,32 +834,14 @@ export function SaveTheDateFilm({
     };
   }, [idx, videoSlideIndex]);
 
-  // Interaction model (owner 2026-06-21): PRESS pauses, RELEASE continues; a
-  // deliberate vertical DRAG scrubs through the beats (still auto-playing).
-  // Scrolling does NOT move the film. No tap-to-step. The press also unlocks
-  // audio (browsers need a gesture).
-  const downXRef = useRef(0);
-  const downYRef = useRef(0);
+  // Interaction model (owner 2026-06-22): PRESS pauses, RELEASE continues — the
+  // whole interaction. No scrub, no scroll, no tap-to-step. The press also
+  // unlocks audio (browsers need a gesture).
 
   // A tap that lands on a real control (Add to calendar · play · mute) must reach
-  // THAT button, not be swallowed as a film scrub/pause.
+  // THAT button, not be swallowed as a film press/pause.
   const hitControl = (e: React.PointerEvent) =>
     Boolean((e.target as HTMLElement | null)?.closest?.('button, a'));
-
-  // Scrub to an adjacent beat (clamped) WITHOUT leaving auto-play — a swipe is a
-  // navigation nudge (skip ahead / swipe back to re-read), NOT a pause, so the
-  // film keeps auto-advancing from wherever the guest lands (owner 2026-06-21
-  // "when they swipe, auto play must still continue"). goRef.current() resets the
-  // per-beat dwell timer, so the landed beat gets its full duration before the
-  // player moves on. Pause stays available via press-and-hold.
-  const stepBeat = (dir: number) => {
-    const target = Math.max(0, Math.min(N - 1, idxRef.current + dir));
-    goRef.current(target);
-    // Re-read hold: a BACKWARD scrub gets a longer dwell so auto-play doesn't yank
-    // the guest off the beat they returned to. goRef set startRef=now; pushing it
-    // into the future extends the hold; forward skips keep the normal dwell.
-    if (dir < 0) startRef.current = performance.now() + REREAD_DWELL_BONUS_MS;
-  };
 
   // Auto-play to FULL SCREEN (owner 2026-06-19). Browsers REQUIRE a user gesture
   // for the Fullscreen API, so we fire it on the first gesture: the reveal-lift
@@ -886,8 +862,6 @@ export function SaveTheDateFilm({
   const onPointerDown = (e: React.PointerEvent) => {
     if (hitControl(e)) return;
     requestFilmFullscreen(); // first stage gesture → true full screen (no-reveal path)
-    downXRef.current = e.clientX;
-    downYRef.current = e.clientY;
     // Stir the veil's petals at the press point — the controls RUN the petals, not
     // just hold the film (owner 2026-06-21 "the controls will run the petals and
     // veil"). The veil (z-60) listens for 'std-veil-poke' and bounces the nearest
@@ -912,8 +886,7 @@ export function SaveTheDateFilm({
     // PRESS = PAUSE (owner 2026-06-21 "tap just pauses; releasing will continue").
     // On the video beat that pauses the CLIP directly (the film holds there, so
     // its `playing` flag is left alone); on a text beat it stops the auto-advance
-    // and stamps pauseAt so the beat keeps its full dwell when it resumes. A swipe
-    // (detected on release) overrides this to scrub instead.
+    // and stamps pauseAt so the beat keeps its full dwell when it resumes.
     if (idxRef.current === videoSlideIdxRef.current) {
       videoElRef.current?.pause();
       pauseAtRef.current = 0;
@@ -926,23 +899,10 @@ export function SaveTheDateFilm({
 
   const onPointerUp = (e: React.PointerEvent) => {
     if (hitControl(e)) return;
-    const dx = e.clientX - downXRef.current;
-    const dy = e.clientY - downYRef.current;
-    // Vertical swipe = SCRUB to an adjacent beat (up → next, down → back); the film
-    // keeps auto-playing (stepBeat resets the dwell). This overrides the press-
-    // pause — the guest is navigating, not pausing.
-    if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 30) {
-      stepBeat(dy < 0 ? 1 : -1);
-      if (!playingRef.current) {
-        playingRef.current = true;
-        setPlaying(true);
-      }
-      pauseAtRef.current = 0;
-      return;
-    }
-    // RELEASE (tap or hold) = CONTINUE. On the video beat, resume the clip; on a
-    // text beat, resume the auto-advance and credit the paused span back to the
-    // beat's dwell so it isn't cut short. No tap-to-step (owner 2026-06-21).
+    // RELEASE (tap or hold) = CONTINUE — the only release behavior (no scrub,
+    // owner 2026-06-22). On the video beat, resume the clip; on a text beat,
+    // resume the auto-advance and credit the paused span back to the beat's dwell
+    // so it isn't cut short.
     if (idxRef.current === videoSlideIdxRef.current) {
       videoElRef.current?.play().catch(() => {});
     } else {
@@ -987,11 +947,10 @@ export function SaveTheDateFilm({
     setVideoSoundBlocked(false);
   };
 
-  // (Desktop SCROLL no longer scrubs the film — owner 2026-06-21 "transition of
-  // text still moves with scrolling … that should not work anymore." The film
-  // auto-plays; press-and-hold pauses and release resumes, and a deliberate
-  // vertical drag still scrubs. The old window 'wheel' listener that advanced
-  // beats on every mouse/trackpad scroll was removed.)
+  // (The film does NOT scrub — owner 2026-06-21/22. Scroll never moves it (the
+  // window 'wheel' listener was removed) and neither does a drag; it just
+  // auto-plays, with press-and-hold to pause / release to continue. No manual
+  // beat navigation at all.)
 
   // On the reveal-lift gesture the veil dispatches 'std-go-fullscreen'
   // SYNCHRONOUSLY from its lift tap (a user gesture), so both the Fullscreen API
@@ -1103,10 +1062,10 @@ export function SaveTheDateFilm({
       ) : null}
 
       {/* Chrome removed (owner 2026-06-19): NO stories scrub bars, NO transport
-          controls — just the texts. The film auto-plays; the guest scrubs by
-          a deliberate vertical drag, and PRESSES to pause / releases to continue
-          (owner 2026-06-21). The lone exception is a single subtle mute, since the
-          soundtrack auto-plays and needs an escape. */}
+          controls — just the texts. The film auto-plays; the guest PRESSES to
+          pause / releases to continue (owner 2026-06-22 — no scrub at all). The
+          lone exception is a single subtle mute, since the soundtrack auto-plays
+          and needs an escape. */}
       {content.musicUrl || content.videoUrl ? (
         <div className="absolute bottom-5 right-4 z-20" onClick={(e) => e.stopPropagation()}>
           <button
@@ -1126,7 +1085,7 @@ export function SaveTheDateFilm({
           DIFFERENT, one-time cue: "press and hold to pause", since the film has no
           transport chrome and pausing would otherwise be undiscoverable. It fades
           after a few seconds and never returns. pointer-events-none so it never
-          blocks a scrub or hold. */}
+          blocks a press or hold. */}
       {!preview ? (
         <div
           className={`pointer-events-none absolute inset-x-0 bottom-16 z-20 flex justify-center transition-opacity duration-700 ${
@@ -1140,7 +1099,7 @@ export function SaveTheDateFilm({
       ) : null}
 
       {/* Slides — each beat plays its OWN entrance animation when it becomes
-          active (re-fires on every visit, forward or scrubbed back). The
+          active (re-fires each time the beat is shown). The
           animation rides the full-screen slide box, so the centred content
           rises / blooms / slides as one. */}
       <div className="absolute inset-0">
@@ -1341,7 +1300,7 @@ export function SaveTheDateFilm({
               (autoplay policy) and the guest hasn't globally muted. One tap is a
               user gesture, so it unmutes the couple's own audio. pointer-events
               re-enabled on the button alone; the rest of the overlay stays
-              pass-through so the film's scrub/hold gestures still reach the stage
+              pass-through so the film's press/hold gestures still reach the stage
               beneath. Hidden the instant sound is on or the beat ends. */}
           {videoSoundBlocked && !muted && idx === videoSlideIndex ? (
             <button

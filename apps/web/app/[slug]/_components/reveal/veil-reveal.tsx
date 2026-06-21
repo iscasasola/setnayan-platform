@@ -346,6 +346,9 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
     // each petal only rolls once when it first crosses the veil (owner 2026-06-19:
     // "it can cling but only 30% of the petals, and only if the petals hit the veil").
     const pTested = new Int8Array(NP);
+    // Bounce-off-text cooldown — set when a falling petal deflects off the central
+    // text region, cleared once it clears the band, so each descent bounces once.
+    const pTextBounced = new Int8Array(NP);
     const pdum = new THREE.Object3D();
     let colDirty = true;
     let petalsSeeded = false;
@@ -356,6 +359,7 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       pPar[pi] = {} as PP;
       pCling[pi] = -1;
       pTested[pi] = 0;
+      pTextBounced[pi] = 0;
     }
     const petalParams = (P: PP, ty: string) => {
       // Fall speed dialled DOWN ~0.6× (owner 2026-06-19 "petals need to fall
@@ -399,6 +403,7 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       pRot[i]!.set(rnd() * 6.28, rnd() * 6.28, rnd() * 6.28);
       pCling[i] = -1;
       pTested[i] = 0;
+      pTextBounced[i] = 0;
       petals.setColorAt(i, petalColor());
       colDirty = true;
     };
@@ -433,6 +438,24 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
         // Always start ABOVE the top and stagger upward so the shower rains in
         // FROM THE TOP — never scattered across mid-screen/bottom (owner 2026-06-18).
         pPos[i]!.y = vh * (1.05 + rnd() * 1.9);
+      }
+      // Guarantee a visible share of the shower STICKS to the veil (owner 2026-06-21
+      // "we want at least 10% of the petals to stick"). The in-fall collision below
+      // only clings while lift < 0.45, but a manual swipe lifts the veil faster than
+      // petals fall from above-screen to the cloth — so it caught ~none. So cling
+      // ~20% of the active petals onto scattered FRONT cloth points right at seed
+      // time: they're visibly caught on the fabric and ride up + shake/release as
+      // the veil rises, exactly like an in-fall clinger.
+      const aN = Math.round((NP * cfgRef.current.petalsDensity) / 100);
+      const stickN = Math.min(aN, Math.max(1, Math.round(aN * 0.2)));
+      for (let i = 0; i < stickN; i++) {
+        const k = cols + Math.floor(rnd() * (N - cols));
+        petalParams(pPar[i]!, 'cling');
+        pCling[i] = k;
+        pPar[i]!.ox = (rnd() * 2 - 1) * 0.04; // tiny scatter off the exact grid point
+        pPar[i]!.oy = (rnd() * 2 - 1) * 0.04;
+        pTested[i] = 1; // this petal's cling for this fall is already resolved
+        pPos[i]!.set(px[k]! + pPar[i]!.ox, py[k]! + pPar[i]!.oy, pz[k]! + 0.02);
       }
     };
     const parkAll = () => {
@@ -496,12 +519,14 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
           const k = pCling[i]!;
           pPos[i]!.set(px[k]! + P.ox, py[k]! + P.oy, pz[k]! + 0.02);
           const sp = Math.hypot(px[k]! - qx[k]!, py[k]! - qy[k]!, pz[k]! - qz[k]!);
-          // Release clingers once the veil LIFTS (owner 2026-06-19 "why are the
-          // petals aligned on the top") — otherwise they ride the cloth up to the
-          // pinned crown and end up stuck in a line along the top edge. As the
-          // veil rises they let go and fall naturally. (Plus the existing
-          // shake-loose-on-lower + fast-cloth detaches.)
-          if (lift > 0.5 || sp > 0.045 || (shaking && (sp > 0.012 || rnd() < 0.2))) {
+          // Clingers STICK to the veil and ride it up (owner 2026-06-21 "we want at
+          // least 10% of the petals to stick"), then RELEASE at the half-lift so
+          // they fall away naturally BEFORE reaching the pinned crown — that keeps
+          // them off the top line (owner 2026-06-19 "why are the petals aligned on
+          // the top"). Lowering/shaking still shakes them loose. (Dropped the old
+          // fast-cloth `sp` detach, which peeled every clinger off the instant a
+          // quick swipe started moving the cloth.)
+          if (lift > 0.5 || (shaking && (sp > 0.012 || rnd() < 0.2))) {
             pCling[i] = -1;
             petalParams(P, 'feather');
             pVel[i]!.set((rnd() * 2 - 1) * 0.2, -0.05 - rnd() * 0.18, (rnd() * 2 - 1) * 0.15);
@@ -531,6 +556,24 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
             if (clingCount < clingCap && rnd() < 0.3) {
               clingNear(i);
               clingCount++;
+            }
+          }
+          // Bounce off the on-screen TEXT (owner 2026-06-21 "can they also bounce
+          // when they hit the texts?"). Once the veil is up + the film's text is
+          // showing, a FALLING petal that enters the central text band is deflected
+          // UP + OUT, as if the names/date are solid. One bounce per descent
+          // (pTextBounced clears when it climbs back above the band) so petals dot
+          // around the words instead of jittering in place.
+          if (lift > 0.85 && Math.abs(pPos[i]!.z - frontZ) < 0.5) {
+            const inText =
+              pPos[i]!.y < vh * 0.32 &&
+              pPos[i]!.y > -vh * 0.32 &&
+              Math.abs(pPos[i]!.x) < vw * 0.55;
+            if (inText && !pTextBounced[i] && pVel[i]!.y < 0) {
+              pTextBounced[i] = 1;
+              bouncePetal(i, 0, pPos[i]!.y); // up + away from centre, off the words
+            } else if (!inText && pPos[i]!.y > vh * 0.36) {
+              pTextBounced[i] = 0; // climbed clear of the band → can bounce again
             }
           }
           if (pPos[i]!.y < -vh * 1.45) {
@@ -994,6 +1037,14 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       window.addEventListener('pointerup', release);
       window.addEventListener('pointercancel', onCancel);
     }
+    // A press on the FILM beneath (z-50) dispatches 'std-veil-poke' with the screen
+    // point — knock the nearby petals so the controls STIR the petals, not just
+    // hold the film (owner 2026-06-21 "the controls will run the petals and veil").
+    const onPoke = (e: Event) => {
+      const d = (e as CustomEvent<{ x: number; y: number }>).detail;
+      if (petalsSeeded && d) bounceAt(d.x, d.y);
+    };
+    window.addEventListener('std-veil-poke', onPoke as EventListener);
 
     // ── Resize / rotate — cheap re-fit immediately (no stretch), full rebuild debounced.
     let roFrame = 0;
@@ -1010,16 +1061,41 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       setRepeat();
     };
     let ro: ResizeObserver | null = null;
+    let lastAspect = 0;
     if (window.ResizeObserver) {
       ro = new ResizeObserver(() => {
         if (roFrame) cancelAnimationFrame(roFrame);
-        roFrame = requestAnimationFrame(cheapResize);
+        roFrame = requestAnimationFrame(cheapResize); // always: cheap re-fit, no reset
+        const cw = cv.clientWidth || W;
+        const ch = cv.clientHeight || H;
+        if (ch < 2) return;
+        const aspect = cw / ch;
+        // Only a genuine ASPECT change (rotate) needs the full cloth rebuild, and
+        // that rebuild re-drapes the cloth → RESETS the lift. A height-only resize
+        // must NOT rebuild: on mobile the address bar collapses the instant the
+        // guest swipes UP to lift, firing a resize MID-lift — the old code then
+        // re-draped and the veil snapped back, never completing the swipe (owner
+        // 2026-06-21 "the screen goes full screen and the veil resets did not
+        // complete the swipe up"). Entering true fullscreen (iPad/desktop) is the
+        // same minor height change. cheapResize above already re-fits those.
+        if (lastAspect === 0) { lastAspect = aspect; return; } // baseline first obs
+        if (Math.abs(aspect - lastAspect) < 0.1) return; // address bar / fullscreen — re-fit only
+        lastAspect = aspect;
+        // Once the veil is LIFTED (or animating up), the running film shows beneath
+        // it — a cloth rebuild would re-drape and momentarily re-COVER the film,
+        // which reads as a RESET. So once lifted, NEVER rebuild on a rotate /
+        // fullscreen transfer: cheapResize already re-fit the renderer, so the
+        // lifted valance just carries on as-is (owner 2026-06-21 "when it transfers
+        // to full screen or changes orientation it should continue as is and not
+        // reset"). Only rebuild the drape while the veil still COVERS the page.
+        if (liftTarget >= 1 || revealedRef.current) return;
         if (roFull) window.clearTimeout(roFull);
         roFull = window.setTimeout(() => {
-          applyView(); // rebuilds cloth to the new aspect + re-drapes (lift→0)
-          // ...but if the guest had already lifted the veil (revealed the film),
-          // a rotate must NOT re-cover it — lerp it straight back to revealed.
-          if (revealedRef.current) liftTarget = 1;
+          // Re-check at fire time: if the guest LIFTED during the 240ms debounce,
+          // skip the rebuild so a stale covered-state resize can't re-drape over
+          // the now-running film.
+          if (liftTarget >= 1 || revealedRef.current) return;
+          applyView();
         }, 240);
       });
       ro.observe(cv);
@@ -1042,6 +1118,7 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', release);
       window.removeEventListener('pointercancel', onCancel);
+      window.removeEventListener('std-veil-poke', onPoke as EventListener);
       geo?.dispose();
       mat.dispose();
       mat.alphaMap?.dispose();

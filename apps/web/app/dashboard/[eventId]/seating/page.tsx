@@ -101,34 +101,35 @@ export default async function SeatingPage({ params }: Props) {
   const toSeatCount = reservedCount - seatedCount;
 
   return (
-    <section className="space-y-5">
-      <header className="space-y-1">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Seating</h1>
-        <p className="max-w-prose text-base text-ink/65">
-          Lay out your reception, then seat each guest in a chair. Group colours flow from your guest
-          list, and <span className="font-medium text-ink/80">Auto Arrange</span> builds the whole
-          floor in one click — tables fan out from the stage by priority, vendor booths anchor to the
-          walls, and guests fill in tier by tier.
-        </p>
+    <section className="space-y-3">
+      {/* The hero title + description were removed so the editor canvas fills
+          the screen (owner request 2026-06-21). Heading kept screen-reader-only
+          for a11y/SEO; the reserved→seated summary sits left and walkthrough
+          access is a single icon button pinned upper-right. */}
+      <h1 className="sr-only">Seating chart</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {/* Reserved → seated. RSVP confirmation holds a guest's place; this is
+            the couple's view of how many reserved guests still need a chair. */}
+        {reservedCount > 0 ? (
+          <div className="flex items-stretch divide-x divide-ink/10 overflow-hidden rounded-xl border border-ink/10 bg-white/70">
+            <SeatStat label="Reserved" value={reservedCount} hint="confirmed attending" />
+            <SeatStat label="Seated" value={seatedCount} hint="in a chair" />
+            <SeatStat label="To seat" value={toSeatCount} highlight={toSeatCount > 0} />
+          </div>
+        ) : (
+          <span aria-hidden />
+        )}
+        {/* Walkthrough videos — icon-only so it stays out of the editor's way
+            (owner request 2026-06-21). Title/aria-label carry the meaning. */}
         <Link
           href={`/dashboard/${eventId}/seating/walkthrough`}
-          className="inline-flex w-fit items-center gap-1.5 rounded-lg border border-ink/12 bg-white px-3 py-1.5 text-sm font-medium text-ink/75 shadow-sm transition-colors hover:border-terracotta/40 hover:text-ink"
+          title="Walkthrough videos"
+          aria-label="Walkthrough videos"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-ink/12 bg-white text-terracotta shadow-sm transition-colors hover:border-terracotta/40 hover:bg-terracotta/5"
         >
-          <Video className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-          Walkthrough videos
-          <span aria-hidden className="text-ink/40">→</span>
+          <Video className="h-[18px] w-[18px]" strokeWidth={1.75} />
         </Link>
-      </header>
-
-      {/* Reserved → seated. RSVP confirmation holds a guest's place; this is
-          the couple's view of how many reserved guests still need a chair. */}
-      {reservedCount > 0 ? (
-        <div className="flex items-stretch divide-x divide-ink/10 overflow-hidden rounded-xl border border-ink/10 bg-white/70">
-          <SeatStat label="Reserved" value={reservedCount} hint="confirmed attending" />
-          <SeatStat label="Seated" value={seatedCount} hint="in a chair" />
-          <SeatStat label="To seat" value={toSeatCount} highlight={toSeatCount > 0} />
-        </div>
-      ) : null}
+      </div>
 
       <DayOfEditingBanner eventDate={eventDate} />
 

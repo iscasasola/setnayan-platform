@@ -896,11 +896,9 @@ export function SeatingEditor({
     });
   };
 
-  // Link two tables into one named unit / dissolve a unit (identity + QR only —
-  // seating math stays per-table; the print pack emits ONE sign per unit).
-  // A successful link is visually quiet (the joined table just adopts the
-  // unit's name — it doesn't move), so say what happened in the notice bar;
-  // without it a working link reads as "nothing happened".
+  // Link two tables into one grouped unit / break a unit apart. Grouped tables
+  // share a name + ONE printed QR sign AND behave as one on the floor — they
+  // move and rotate together (Keynote-style). Seating math stays per-table.
   const doLinkTables = (fromId: string, toId: string) => {
     setLinkingFrom(null);
     if (!canEdit) return;
@@ -915,7 +913,7 @@ export function SeatingEditor({
       try {
         await linkTables(fd);
         setNotice(
-          `Linked — “${toLabel}” is now part of “${fromLabel}”: one name, one printed QR sign. They stay separate tables on the floor, so drag them side-by-side if you want them touching. Use the unlink button to undo.`,
+          `Grouped — “${toLabel}” is now part of “${fromLabel}”: one name, one printed QR sign, and they move and rotate together as one unit. Use Break apart to separate them.`,
         );
       } catch (err) {
         if (!handleLockLost(err)) {
@@ -933,10 +931,10 @@ export function SeatingEditor({
     startTransition(async () => {
       try {
         await unlinkTable(fd);
-        setNotice('Unlinked — every table in that unit is back to its own name and QR sign.');
+        setNotice('Broken apart — every table in that unit is independent again, with its own name and QR sign.');
       } catch (err) {
         if (!handleLockLost(err)) {
-          setNotice(`Couldn't unlink the table — please try again.`);
+          setNotice(`Couldn't break the unit apart — please try again.`);
         }
       }
     });
@@ -945,18 +943,31 @@ export function SeatingEditor({
   // The table's current orientation (optimistic override → row default).
   const rotationOf = (t: EventTableRow) => rotById[t.table_id] ?? t.rotation_deg ?? 0;
 
+  // Frozen geometry of a linked unit at gesture-start (see groupSnap below) —
+  // carried on the rotate refs so a continuous twist rotates the WHOLE unit.
+  type GroupSnap = {
+    cx: number;
+    cy: number;
+    rectW: number;
+    rectH: number;
+    pts: { id: string; px: number; py: number; rot0: number }[];
+  };
+
   // --- continuous rotation (two-finger twist + the desktop rotate handle) ----
   // Two-finger: first finger starts a table drag; when a SECOND finger lands,
   // the drag converts into a rotate gesture (Δangle between the two pointers).
   // A ~6° dead-zone stops an intended pinch from nudging the table. The live
   // angle previews via rotById (same optimistic path the rotate buttons use)
-  // and commits once on release.
+  // and commits once on release. When the grabbed table belongs to a linked
+  // unit the gesture rotates the whole unit (snap captured at grab time).
   const rotateGestureRef = useRef<{
     tableId: string;
     startAngle: number;
     startRot: number;
     latched: boolean;
     latest: number;
+    members: string[];
+    snap: GroupSnap | null;
   } | null>(null);
   // Desktop fallback: a handle above the selected table dragged in a circle.
   // cx/cy = the table centre in client coords, frozen at handle-grab.
@@ -967,6 +978,8 @@ export function SeatingEditor({
     startAngle: number;
     startRot: number;
     latest: number;
+    members: string[];
+    snap: GroupSnap | null;
   } | null>(null);
   // Serpentine chain snap may rotate the dragged wedge mid-drag (the joint
   // dictates the angle); the final angle commits once on release.
@@ -993,10 +1006,114 @@ export function SeatingEditor({
     });
   };
 
+  // --- linked-table grouping (Keynote-style "group as one") ----------------
+  // Tables sharing a link_group_id are ONE unit: dragging moves them together
+  // and rotating spins the whole unit around its shared centre (each member
+  // orbits the centroid AND turns on its own axis by the same angle). "Break
+  // apart" (unlink) dissolves the unit back into independent tables.
+  const groupMemberIds = (tableId: string): string[] => {
+    const t = tables.find((x) => x.table_id === tableId);
+    if (!t?.link_group_id) return t ? [t.table_id] : [];
+    return tables.filter((x) => x.link_group_id === t.link_group_id).map((x) => x.table_id);
+  };
+
+  // Freeze a unit's geometry at gesture-start: every member's position in
+  // canvas PIXELS (grab-time canvas size) plus the unit centroid. A continuous
+  // rotate then maps absolute angle → absolute layout with no frame-to-frame
+  // drift. Percentages can't rotate directly — a non-square canvas would shear
+  // them — hence the px round-trip.
+  const groupSnap = (memberIds: string[], rect: DOMRect): GroupSnap => {
+    const pts = memberIds.map((id) => {
+      const idx = tables.findIndex((x) => x.table_id === id);
+      const t = tables[idx];
+      const p = positions[id] ?? defaultGrid(idx, tables.length, !venueScaled);
+      return {
+        id,
+        px: (p.x / 100) * rect.width,
+        py: (p.y / 100) * rect.height,
+        rot0: t ? rotationOf(t) : 0,
+      };
+    });
+    const cx = pts.reduce((s, p) => s + p.px, 0) / pts.length;
+    const cy = pts.reduce((s, p) => s + p.py, 0) / pts.length;
+    return { cx, cy, rectW: rect.width, rectH: rect.height, pts };
+  };
+
+  // Apply an absolute rotation `deltaDeg` from a snapshot → optimistic
+  // positions + per-table angles. Returns the next maps for persistence.
+  const applyGroupRotation = (snap: GroupSnap, deltaDeg: number) => {
+    const nextPos: Record<string, LocalPos> = {};
+    const nextRot: Record<string, number> = {};
+    for (const p of snap.pts) {
+      const r = rotatePoint({ x: p.px - snap.cx, y: p.py - snap.cy }, deltaDeg);
+      nextPos[p.id] = {
+        x: ((snap.cx + r.x) / snap.rectW) * 100,
+        y: ((snap.cy + r.y) / snap.rectH) * 100,
+      };
+      nextRot[p.id] = normDeg(p.rot0 + deltaDeg);
+    }
+    setPositions((pp) => ({ ...pp, ...nextPos }));
+    setRotById((m) => ({ ...m, ...nextRot }));
+    return { nextPos, nextRot };
+  };
+
+  // Persist a whole unit's new positions + angles together. Rotation already
+  // persists instantly (unlike position, which waits for Save) — so the orbit
+  // it induces must persist too, or the unit would reload deformed (angles
+  // saved, positions not). Persisted members drop out of the pending-Save set.
+  const persistGroupTransform = (
+    nextPos: Record<string, LocalPos>,
+    nextRot: Record<string, number>,
+  ) => {
+    if (!canEdit) return;
+    const lockId = lock.lockId ?? '';
+    const ids = Object.keys(nextRot);
+    startTransition(async () => {
+      await runGated(async () => {
+        for (const id of ids) {
+          const fr = new FormData();
+          fr.set('event_id', eventId);
+          fr.set('lock_id', lockId);
+          fr.set('table_id', id);
+          fr.set('rotation_deg', String(nextRot[id]));
+          await updateTableRotation(fr);
+          const fp = new FormData();
+          fp.set('event_id', eventId);
+          fp.set('lock_id', lockId);
+          fp.set('table_id', id);
+          fp.set('x_pos', String(nextPos[id]!.x));
+          fp.set('y_pos', String(nextPos[id]!.y));
+          await updateTablePosition(fp);
+        }
+      });
+    });
+    setDirty((s) => {
+      const n = new Set(s);
+      ids.forEach((id) => n.delete(id));
+      return n;
+    });
+  };
+
+  // Rotate a whole unit by a discrete step (the ±15° / Flip buttons).
+  const rotateGroupBy = (memberIds: string[], deltaDeg: number) => {
+    if (!canEdit || !deltaDeg) return;
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect || rect.width === 0 || rect.height === 0) return;
+    const snap = groupSnap(memberIds, rect);
+    const { nextPos, nextRot } = applyGroupRotation(snap, deltaDeg);
+    persistGroupTransform(nextPos, nextRot);
+  };
+
   // Rotate a table by `delta` degrees (or to an absolute angle). Snaps to 15°,
   // updates instantly, persists. Rotation is what lets wedges/banquets connect.
+  // A linked table rotates its whole unit around the shared centre.
   const rotateTable = (t: EventTableRow, delta: number, absolute = false) => {
     if (!canEdit) return;
+    const members = groupMemberIds(t.table_id);
+    if (members.length > 1 && !absolute) {
+      rotateGroupBy(members, delta);
+      return;
+    }
     const base = absolute ? 0 : rotationOf(t);
     const next = ((Math.round((base + delta) / 15) * 15) % 360 + 360) % 360;
     setRotById((m) => ({ ...m, [t.table_id]: next }));
@@ -1348,12 +1465,16 @@ export function SeatingEditor({
       if (!t) return;
       pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
       canvasRef.current?.setPointerCapture(e.pointerId);
+      const members = groupMemberIds(d.id);
+      const rect = canvasRef.current?.getBoundingClientRect();
       rotateGestureRef.current = {
         tableId: d.id,
         startAngle: angleDeg(first.x, first.y, e.clientX, e.clientY),
         startRot: rotationOf(t),
         latched: false,
         latest: rotationOf(t),
+        members,
+        snap: members.length > 1 && rect && rect.width > 0 ? groupSnap(members, rect) : null,
       };
       // The drag is over — the gesture is now a rotation.
       dragRef.current = null;
@@ -1409,7 +1530,12 @@ export function SeatingEditor({
       const next = snapDeg(rg.startRot + delta, 15);
       if (next !== rg.latest) {
         rg.latest = next;
-        setRotById((m) => ({ ...m, [rg.tableId]: next }));
+        if (rg.snap) {
+          // Linked unit → orbit + spin every member from the frozen snapshot.
+          applyGroupRotation(rg.snap, next - rg.startRot);
+        } else {
+          setRotById((m) => ({ ...m, [rg.tableId]: next }));
+        }
       }
       return;
     }
@@ -1428,6 +1554,35 @@ export function SeatingEditor({
       const x = Math.max(lo, Math.min(hi, (((sx - panRef.current.x) / zoomRef.current) / rect.width) * 100));
       const y = Math.max(lo, Math.min(hi, (((sy - panRef.current.y) / zoomRef.current) / rect.height) * 100));
       if (d.kind === 'table') {
+        // Linked unit → move every member as ONE rigid block (Keynote-style):
+        // the whole unit translates by the grabbed table's delta, with no
+        // internal chaining/align snap (the unit is already assembled). The
+        // delta is clamped so no member leaves the board, keeping it rigid.
+        const unit = groupMemberIds(d.id);
+        if (unit.length > 1) {
+          const posOf = (id: string) => {
+            const i = tables.findIndex((t) => t.table_id === id);
+            return positions[id] ?? defaultGrid(i, tables.length, !venueScaled);
+          };
+          const prev = posOf(d.id);
+          let dx = x - prev.x;
+          let dy = y - prev.y;
+          for (const id of unit) {
+            const mp = posOf(id);
+            dx = Math.max(lo - mp.x, Math.min(hi - mp.x, dx));
+            dy = Math.max(lo - mp.y, Math.min(hi - mp.y, dy));
+          }
+          setPositions((p) => {
+            const n = { ...p };
+            for (const id of unit) {
+              const mp = p[id] ?? posOf(id);
+              n[id] = { x: mp.x + dx, y: mp.y + dy };
+            }
+            return n;
+          });
+          guidesRef.current = { x: null, y: null };
+          return;
+        }
         // Table chaining: when dragging near a same-family table's connection
         // point, magnet them together — serpentine tips chain into an
         // S / circle (position + rotation), banquet/family-head ends join
@@ -1613,7 +1768,14 @@ export function SeatingEditor({
     const rg = rotateGestureRef.current;
     if (rg) {
       rotateGestureRef.current = null;
-      if (rg.latched && rg.latest !== rg.startRot) commitRotation(rg.tableId, rg.latest);
+      if (rg.latched && rg.latest !== rg.startRot) {
+        if (rg.snap) {
+          const { nextPos, nextRot } = applyGroupRotation(rg.snap, rg.latest - rg.startRot);
+          persistGroupTransform(nextPos, nextRot);
+        } else {
+          commitRotation(rg.tableId, rg.latest);
+        }
+      }
     }
     const d = dragRef.current;
     dragRef.current = null;
@@ -1623,7 +1785,13 @@ export function SeatingEditor({
     serpSnapRotRef.current = null;
     if (d?.moved) {
       if (d.kind === 'table') {
-        setDirty((s) => new Set(s).add(d.id));
+        // A linked unit moved as one — every member's position changed.
+        const moved = groupMemberIds(d.id);
+        setDirty((s) => {
+          const n = new Set(s);
+          moved.forEach((id) => n.add(id));
+          return n;
+        });
         // The chain snap rotated the wedge to fit the joint — persist it once.
         if (serpRot && serpRot.id === d.id) {
           const t = tables.find((x) => x.table_id === d.id);
@@ -2827,11 +2995,11 @@ export function SeatingEditor({
           <div className="flex items-center gap-3 rounded-xl border border-terracotta/40 bg-terracotta/5 px-3 py-2 text-sm">
             <Link2 className="h-4 w-4 shrink-0 text-terracotta-700" />
             <span className="min-w-0 flex-1 truncate">
-              Linking{' '}
+              Grouping{' '}
               <span className="font-semibold text-ink">
                 {tableLabelById.get(linkingFrom) ?? 'table'}
               </span>{' '}
-              — tap another table to combine them into one named table.
+              — tap another table to group them into one unit that moves and rotates together.
             </span>
             <button
               type="button"
@@ -3725,7 +3893,8 @@ export function SeatingEditor({
                         <button
                           type="button"
                           onClick={() => doUnlink(st.table_id)}
-                          aria-label="Unlink this combined table"
+                          aria-label="Break apart this grouped unit"
+                          title="Break apart — split this grouped unit back into separate tables"
                           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-ink/15 text-mulberry hover:bg-mulberry/10"
                         >
                           <Unlink className="h-5 w-5" />
@@ -3737,7 +3906,8 @@ export function SeatingEditor({
                             setLinkingFrom(st.table_id);
                             setHighlightId(null);
                           }}
-                          aria-label="Link with another table"
+                          aria-label="Group with another table"
+                          title="Group with another table — tap the other table next; they'll move and rotate as one"
                           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-ink/15 text-ink/60 hover:bg-ink/5"
                         >
                           <Link2 className="h-5 w-5" />
@@ -3849,6 +4019,7 @@ export function SeatingEditor({
                   e.stopPropagation();
                   e.preventDefault();
                   (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                  const members = groupMemberIds(st.table_id);
                   handleRotRef.current = {
                     tableId: st.table_id,
                     cx: rect.left + cx,
@@ -3856,6 +4027,8 @@ export function SeatingEditor({
                     startAngle: angleDeg(rect.left + cx, rect.top + cy, e.clientX, e.clientY),
                     startRot: rotationOf(st),
                     latest: rotationOf(st),
+                    members,
+                    snap: members.length > 1 ? groupSnap(members, rect) : null,
                   };
                 }}
                 onPointerMove={(e) => {
@@ -3867,13 +4040,25 @@ export function SeatingEditor({
                   const next = snapDeg(h.startRot + delta, e.shiftKey ? 1 : 15);
                   if (next !== h.latest) {
                     h.latest = next;
-                    setRotById((m) => ({ ...m, [h.tableId]: next }));
+                    if (h.snap) {
+                      // Linked unit → orbit + spin every member as one.
+                      applyGroupRotation(h.snap, next - h.startRot);
+                    } else {
+                      setRotById((m) => ({ ...m, [h.tableId]: next }));
+                    }
                   }
                 }}
                 onPointerUp={(e) => {
                   const h = handleRotRef.current;
                   handleRotRef.current = null;
-                  if (h && h.latest !== h.startRot) commitRotation(h.tableId, h.latest);
+                  if (h && h.latest !== h.startRot) {
+                    if (h.snap) {
+                      const { nextPos, nextRot } = applyGroupRotation(h.snap, h.latest - h.startRot);
+                      persistGroupTransform(nextPos, nextRot);
+                    } else {
+                      commitRotation(h.tableId, h.latest);
+                    }
+                  }
                   e.stopPropagation();
                 }}
                 onPointerCancel={() => {
@@ -3922,7 +4107,8 @@ export function SeatingEditor({
                   <button
                     type="button"
                     onClick={() => doUnlink(st.table_id)}
-                    title="Unlink this combined table"
+                    aria-label="Break apart this grouped unit"
+                    title="Break apart — split this grouped unit back into separate tables"
                     className="rounded-lg p-1.5 text-mulberry hover:bg-mulberry/10"
                   >
                     <Unlink className="h-4 w-4" />
@@ -3934,7 +4120,8 @@ export function SeatingEditor({
                       setLinkingFrom(st.table_id);
                       setHighlightId(null);
                     }}
-                    title="Link with another table — tap the other table next"
+                    aria-label="Group with another table"
+                    title="Group with another table — tap the other table next; they'll move and rotate as one"
                     className="rounded-lg p-1.5 text-ink/60 hover:bg-ink/5"
                   >
                     <Link2 className="h-4 w-4" />

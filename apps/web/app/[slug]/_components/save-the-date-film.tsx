@@ -17,10 +17,11 @@
  *   everything; on end it advances) OR the photo gallery · 9 add-to-calendar.
  * Beats whose data is missing (no date, one venue, no video) are simply skipped.
  *
- * Interaction: the film auto-plays through the text beats; press-and-hold pauses,
- * a tap on the left third steps back, the right third advances. No chrome — just
- * the texts. The video beat holds until the guest presses play (or scrubs past).
- * Music auto-plays (the reveal-lift gesture has already unlocked audio).
+ * Interaction (owner 2026-06-21): the film auto-plays through the text beats;
+ * PRESS pauses and RELEASE continues; a vertical swipe / mouse-wheel scrubs to an
+ * adjacent beat (still auto-playing). No tap-to-step, no chrome — just the texts.
+ * The video beat plays the clip; press pauses it, release resumes, a swipe scrubs
+ * past. Music auto-plays (the reveal-lift gesture has already unlocked audio).
  *
  * theme system: pass themeId to pick the display FONT (the 5 ids map to fonts;
  * colours come from the Step-1 background + legibility tone).
@@ -109,6 +110,11 @@ const FIT_MAX = 2.3;
 // yanked off after the standard ~4s (owner 2026-06-21). Forward skips keep the
 // normal dwell.
 const REREAD_DWELL_BONUS_MS = 4000;
+// The video↔content cross-dissolve duration (owner 2026-06-21 "smoother crossfade
+// between the video and the website"). ONE value drives BOTH the audio crossfade
+// (equal-power ramp) AND the full-screen clip overlay's opacity fade, so sound and
+// picture dissolve together — up from the old unsynced 700ms audio / 500ms visual.
+const VIDEO_FADE_MS = 850;
 
 const EASE = 'cubic-bezier(.2,.8,.2,1)';
 const ANIM = {
@@ -300,6 +306,10 @@ export function SaveTheDateFilm({
   // calendar close. Declared above the slides so the beat can bind the ref; the
   // play handler + end/fullscreen wiring live in the effect below.
   const videoElRef = useRef<HTMLVideoElement | null>(null);
+  // A muted, blurred, scaled copy of the same clip that fills the viewport behind
+  // the contained clip (the "blurred fill" — no crop, no black bars on an aspect
+  // mismatch). Decorative; played only on the video beat (effect below).
+  const videoBgRef = useRef<HTMLVideoElement | null>(null);
   const hasVideo = Boolean(content.videoUrl);
   // "Was on the video beat last render" — so the orchestration resets the clip
   // to its start (and silences it for the fade-up) only when the guest FIRST
@@ -695,9 +705,15 @@ export function SaveTheDateFilm({
       const v0 = v.volume;
       const t0 = performance.now();
       const tick = (now: number) => {
-        const p = Math.min(1, (now - t0) / 700);
-        setVol(a, m0 + (musicTo - m0) * p);
-        setVol(v, v0 + (videoTo - v0) * p);
+        const p = Math.min(1, (now - t0) / VIDEO_FADE_MS);
+        // Equal-power crossfade: the channel fading OUT follows cos, fading IN
+        // follows sin (cos²+sin²=1), so perceived loudness stays CONSTANT — no
+        // mid-dissolve dip a linear amplitude ramp has — and the ramp eases in/out
+        // rather than a linear ramp's abrupt onset/offset.
+        const fadeOut = Math.cos((p * Math.PI) / 2); // 1 → 0
+        const fadeIn = Math.sin((p * Math.PI) / 2); // 0 → 1
+        setVol(a, musicTo <= m0 ? musicTo + (m0 - musicTo) * fadeOut : m0 + (musicTo - m0) * fadeIn);
+        setVol(v, videoTo <= v0 ? videoTo + (v0 - videoTo) * fadeOut : v0 + (videoTo - v0) * fadeIn);
         if (p < 1) {
           videoFadeRef.current = requestAnimationFrame(tick);
         } else if (pauseMusicAtEnd && a) {
@@ -709,6 +725,7 @@ export function SaveTheDateFilm({
 
     if (onVideo) {
       if (!prevOnVideoRef.current) {
+        v.loop = false; // was looping while warm — let it END so the film advances
         try { v.currentTime = 0; } catch { /* not seekable yet — plays from 0 */ }
         setVol(v, 0); // start silent, fade up
         setVideoSoundBlocked(false); // fresh beat — the catch below re-flags if blocked
@@ -758,12 +775,31 @@ export function SaveTheDateFilm({
         a.play().catch(() => {});
       }
       crossfade(1, 0); // video fades out, music fades back up from its held position
-      v.pause();
+      // Keep the clip WARM (playing, silent) BEFORE its beat so its audio can ramp
+      // in on the beat without a fresh (iOS-blocked) play(); only PAUSE it once
+      // we're PAST the beat (clip done) or sound is off. See the unlock above.
+      if (idxRef.current > videoSlideIdxRef.current || muted || preview) {
+        v.pause();
+      } else if (v.paused) {
+        // RE-WARM if a prior mute or backward-scrub left the clip paused before its
+        // beat — restart it silent + looping so its audio is ready to ramp on the
+        // beat. Best-effort: succeeds on desktop/Android; iOS off-gesture rejects →
+        // the beat's own "Tap for sound" fallback still holds (no hang).
+        v.muted = false;
+        v.loop = true;
+        setVol(v, 0);
+        v.play().catch(() => {});
+      }
     }
     prevOnVideoRef.current = onVideo;
 
     // Natural end → return to the closing screen (the crossfade-back fires there).
-    const onEnded = () => goRef.current(videoSlideIdxRef.current + 1);
+    // Guard like onError below: ONLY the clip's own beat may advance on 'ended'.
+    // Warm-play sets loop=false on the beat, but a scrub could leave it playing
+    // off-beat — its natural end must NOT yank the film forward from a text beat.
+    const onEnded = () => {
+      if (idxRef.current === videoSlideIdxRef.current) goRef.current(videoSlideIdxRef.current + 1);
+    };
     // A mid-play decode/network error must NOT strand the film on the Infinity
     // video beat either — advance, but ONLY while this beat is active (the clip
     // preloads from mount, so an early load error must not jump a text beat).
@@ -781,12 +817,20 @@ export function SaveTheDateFilm({
     };
   }, [idx, playing, muted, videoSlideIndex, content.musicUrl, preview]);
 
-  // Press-and-hold pauses; a quick tap on left/right steps; a vertical swipe or
-  // a mouse-wheel SCROLLS through the beats (owner 2026-06-19: "auto play or
-  // scrubbed via scroll to go back to information"). The gesture also unlocks
-  // audio (browser requires user gesture).
-  const holdRef = useRef<number | null>(null);
-  const wasHoldRef = useRef(false);
+  // Blurred ambient fill — play the decorative backdrop copy only while the video
+  // beat is on screen (it's muted, so autoplay is always allowed; no warm-play or
+  // sync needed — the heavy blur hides any drift from the foreground clip).
+  useEffect(() => {
+    if (preview) return;
+    const bg = videoBgRef.current;
+    if (!bg) return;
+    if (idx === videoSlideIndex) bg.play().catch(() => {});
+    else bg.pause();
+  }, [idx, videoSlideIndex, preview]);
+
+  // Interaction model (owner 2026-06-21): PRESS pauses, RELEASE continues; a
+  // vertical swipe / mouse-wheel SCRUBS through the beats (still auto-playing).
+  // No tap-to-step. The press also unlocks audio (browsers need a gesture).
   const downXRef = useRef(0);
   const downYRef = useRef(0);
 
@@ -831,7 +875,17 @@ export function SaveTheDateFilm({
     requestFilmFullscreen(); // first stage gesture → true full screen (no-reveal path)
     downXRef.current = e.clientX;
     downYRef.current = e.clientY;
-    wasHoldRef.current = false;
+    // Stir the veil's petals at the press point — the controls RUN the petals, not
+    // just hold the film (owner 2026-06-21 "the controls will run the petals and
+    // veil"). The veil (z-60) listens for 'std-veil-poke' and bounces the nearest
+    // petal; harmless no-op when no reveal/petals are mounted.
+    try {
+      window.dispatchEvent(
+        new CustomEvent('std-veil-poke', { detail: { x: e.clientX, y: e.clientY } }),
+      );
+    } catch {
+      /* noop */
+    }
     // Unlock the soundtrack on the gesture — but NOT while on the video beat
     // (there the music stays ducked; the video effect owns it).
     if (
@@ -842,73 +896,50 @@ export function SaveTheDateFilm({
     ) {
       audioRef.current.play().catch(() => {});
     }
-    holdRef.current = window.setTimeout(() => {
-      wasHoldRef.current = true;
-      if (playingRef.current) {
-        playingRef.current = false;
-        setPlaying(false);
-        pauseAtRef.current = performance.now();
-      }
-    }, 240);
+    // PRESS = PAUSE (owner 2026-06-21 "tap just pauses; releasing will continue").
+    // On the video beat that pauses the CLIP directly (the film holds there, so
+    // its `playing` flag is left alone); on a text beat it stops the auto-advance
+    // and stamps pauseAt so the beat keeps its full dwell when it resumes. A swipe
+    // (detected on release) overrides this to scrub instead.
+    if (idxRef.current === videoSlideIdxRef.current) {
+      videoElRef.current?.pause();
+      pauseAtRef.current = 0;
+    } else if (playingRef.current) {
+      playingRef.current = false;
+      setPlaying(false);
+      pauseAtRef.current = performance.now();
+    }
   };
 
   const onPointerUp = (e: React.PointerEvent) => {
     if (hitControl(e)) return;
-    if (holdRef.current) window.clearTimeout(holdRef.current);
-    if (wasHoldRef.current) {
+    const dx = e.clientX - downXRef.current;
+    const dy = e.clientY - downYRef.current;
+    // Vertical swipe = SCRUB to an adjacent beat (up → next, down → back); the film
+    // keeps auto-playing (stepBeat resets the dwell). This overrides the press-
+    // pause — the guest is navigating, not pausing.
+    if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 30) {
+      stepBeat(dy < 0 ? 1 : -1);
       if (!playingRef.current) {
-        startRef.current += performance.now() - pauseAtRef.current;
         playingRef.current = true;
         setPlaying(true);
       }
+      pauseAtRef.current = 0;
       return;
     }
-    const dx = e.clientX - downXRef.current;
-    const dy = e.clientY - downYRef.current;
-    // Vertical swipe = SCROLL-scrub (up → next, down → back) into manual mode.
-    if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 30) {
-      stepBeat(dy < 0 ? 1 : -1);
-      return;
-    }
-    // On the VIDEO beat a tap controls the video — never steps the film, so a tap
-    // can't leave the video (owner 2026-06-19). Tapping the paused / not-yet-
-    // playing clip plays it FULL SCREEN (the tap is the gesture, so iOS allows
-    // play()); tapping while it plays pauses it. Moving on is still a vertical
-    // swipe-scrub (handled just above) or the video's natural end.
+    // RELEASE (tap or hold) = CONTINUE. On the video beat, resume the clip; on a
+    // text beat, resume the auto-advance and credit the paused span back to the
+    // beat's dwell so it isn't cut short. No tap-to-step (owner 2026-06-21).
     if (idxRef.current === videoSlideIdxRef.current) {
-      const v = videoElRef.current;
-      if (v) {
-        if (v.paused) {
-          requestFilmFullscreen();
-          if (!playingRef.current) {
-            playingRef.current = true;
-            setPlaying(true);
-          }
-          v.play().catch(() => {});
-        } else {
-          v.pause();
-          if (playingRef.current) {
-            playingRef.current = false;
-            setPlaying(false);
-          }
-        }
-      }
-      return;
-    }
-    // Horizontal tap = a quick nudge that keeps the film auto-playing.
-    const r = stageRef.current?.getBoundingClientRect();
-    const x = r ? e.clientX - r.left : 0;
-    const w = r?.width ?? 1;
-    if (x < w * 0.34) {
-      goRef.current(idxRef.current - 1);
+      videoElRef.current?.play().catch(() => {});
     } else {
-      const next = idxRef.current + 1;
-      goRef.current(next < N ? next : 0);
+      if (pauseAtRef.current) startRef.current += performance.now() - pauseAtRef.current;
+      if (!playingRef.current) {
+        playingRef.current = true;
+        setPlaying(true);
+      }
     }
-    if (!playingRef.current) {
-      playingRef.current = true;
-      setPlaying(true);
-    }
+    pauseAtRef.current = 0;
   };
 
   const toggleMute = () => {
@@ -1028,31 +1059,29 @@ export function SaveTheDateFilm({
         }
       }
 
-      // ── Couple's clip <video> — prime it for AUDIBLE autoplay so the music
-      // CROSSFADES to its sound by itself on the video beat (owner 2026-06-21
-      // "the video's audio does not auto crossfade when the video plays"). iOS
-      // only lets a <video> play WITH sound if it was played audibly inside a
-      // user gesture; by the time the film auto-advances to the clip (~30s after
-      // the lift) that credit is spent, so the unmuted play() at the beat is
-      // blocked → the clip falls back to MUTED and the soundtrack never ducks.
-      // An UNMUTED play→pause at volume 0 (silent, and invisible — the overlay
-      // is opacity-0 off-beat) inside this same first touch grants the element
-      // audible activation, so the later autoplay-with-sound succeeds and the
-      // crossfade fires automatically. "Tap for sound" stays as the fallback for
-      // any browser where the prime doesn't take. Mirrors the <audio> unlock.
-      if (v && !muted) {
-        const vmuted = v.muted;
-        const vvol = v.volume;
+      // ── Couple's clip <video> — keep it WARM so its audio auto-crossfades in
+      // on the video beat (owner 2026-06-21 "the video's audio does not auto
+      // crossfade"). iOS only lets a <video> play WITH sound if a tap started it;
+      // by the time the film reaches the clip (~30s after the lift) that credit
+      // is spent, so a fresh unmuted play() at the beat is BLOCKED. The earlier
+      // play→pause prime failed for exactly that reason: once paused, the beat
+      // needed a blocked re-play. So instead START the clip playing right here —
+      // unmuted, volume 0 (silent), looping, still invisible (opacity-0 off-beat)
+      // — and LEAVE it playing. A media element kept running from a user gesture
+      // retains its audio rights, so the beat only RAMPS its volume up (the
+      // crossfade), never a fresh play()/unmute. This is exactly why the
+      // soundtrack <audio> already auto-plays — it runs continuously from here.
+      // loop=true stops it ending+pausing before its beat (the beat sets
+      // loop=false so 'ended' still advances). "Tap for sound" stays the fallback
+      // if iOS won't keep it warm (e.g. Low Power Mode pauses background video).
+      // Skip if the first touch lands while ALREADY on the video beat (no-reveal
+      // grace path): there the beat owns the clip (loop=false, audible play), and
+      // setting loop=true here would suppress 'ended' → the Infinity beat hangs.
+      if (v && !muted && idxRef.current !== videoSlideIdxRef.current) {
         v.muted = false;
+        v.loop = true;
         setVol(v, 0);
-        const finishV = () => {
-          try { v.pause(); v.currentTime = 0; } catch { /* not seekable yet */ }
-          v.muted = vmuted;
-          setVol(v, vvol);
-        };
-        const pv = v.play();
-        if (pv && typeof pv.then === 'function') pv.then(finishV).catch(() => { v.muted = vmuted; setVol(v, vvol); });
-        else finishV();
+        v.play().catch(() => { /* not ready/blocked — the beat's own play() still tries */ });
       }
     };
     window.addEventListener('pointerdown', unlock, { capture: true, passive: true });
@@ -1079,8 +1108,8 @@ export function SaveTheDateFilm({
 
       {/* Chrome removed (owner 2026-06-19): NO stories scrub bars, NO transport
           controls — just the texts. The film auto-plays; the guest scrubs by
-          scrolling / vertical-swiping (or tapping the left/right thirds) and
-          holds to pause. The lone exception is a single subtle mute, since the
+          scrolling / vertical-swiping, and PRESSES to pause / releases to continue
+          (owner 2026-06-21). The lone exception is a single subtle mute, since the
           soundtrack auto-plays and needs an escape. */}
       {content.musicUrl || content.videoUrl ? (
         <div className="absolute bottom-5 right-4 z-20" onClick={(e) => e.stopPropagation()}>
@@ -1182,7 +1211,19 @@ export function SaveTheDateFilm({
     },
     onPointerDown,
     onPointerUp,
-    onPointerCancel: () => { if (holdRef.current) window.clearTimeout(holdRef.current); },
+    onPointerCancel: () => {
+      // A cancelled press (lost pointer) must CONTINUE, never strand the film paused.
+      if (idxRef.current === videoSlideIdxRef.current) {
+        videoElRef.current?.play().catch(() => {});
+      } else {
+        if (pauseAtRef.current) startRef.current += performance.now() - pauseAtRef.current;
+        if (!playingRef.current) {
+          playingRef.current = true;
+          setPlaying(true);
+        }
+      }
+      pauseAtRef.current = 0;
+    },
   };
 
   // The fixed-size design canvas, uniformly scaled to fit its container. Every
@@ -1249,24 +1290,46 @@ export function SaveTheDateFilm({
 
       {/* FULL-SCREEN video overlay (owner 2026-06-19 "why is the video not full
           screen"). The couple's clip takes over the whole viewport on its beat —
-          on top of everything (z-[70], above the reveal/veil) — autoplays
-          object-contain on black, then fades out as the film advances to the
+          on top of everything (z-[70], above the reveal/veil) — FILLING the screen
+          (owner 2026-06-21 "video must be full screen") via a blurred-fill: the
+          real clip object-contain (whole frame, no crop) over a blurred, scaled
+          copy of itself, so an aspect mismatch reads as a soft cinematic fill, not
+          black bars. Then fades out as the film advances to the
           calendar close. videoElRef binds here on the live page; the
           orchestration effect plays it + crossfades the music. */}
       {hasVideo ? (
         <div
-          className={`pointer-events-none fixed inset-0 z-[70] flex items-center justify-center bg-black transition-opacity duration-500 ${
+          className={`pointer-events-none fixed inset-0 z-[70] flex items-center justify-center bg-black transition-opacity ease-in-out ${
             idx === videoSlideIndex ? 'opacity-100' : 'opacity-0'
           }`}
+          style={{ transitionDuration: `${VIDEO_FADE_MS}ms` }} // synced to the audio crossfade
           aria-hidden={idx !== videoSlideIndex}
         >
+          {/* Blurred ambient FILL — a scaled, blurred, muted copy of the SAME clip
+              fills the whole viewport behind the contained clip, so an aspect
+              mismatch (portrait screen + landscape clip, or the reverse) reads as a
+              soft cinematic fill instead of black bars — WITHOUT cropping the
+              couple's frame (owner 2026-06-21). One rule covers both orientations.
+              Muted + decorative; the effect above plays it only on the beat. */}
+          {/* eslint-disable-next-line jsx-a11y/media-has-caption -- decorative blurred backdrop, no caption track */}
+          <video
+            ref={videoBgRef}
+            src={content.videoUrl ?? undefined}
+            playsInline
+            muted
+            loop
+            preload="auto"
+            aria-hidden
+            className="absolute inset-0 h-full w-full scale-110 object-cover blur-2xl brightness-[0.6]"
+          />
+          {/* The real clip, WHOLE frame visible (object-contain) over the fill. */}
           {/* eslint-disable-next-line jsx-a11y/media-has-caption -- couple-uploaded keepsake clip, no caption track */}
           <video
             ref={videoElRef}
             src={content.videoUrl ?? undefined}
             playsInline
             preload="auto"
-            className="h-full w-full object-contain"
+            className="relative h-full w-full object-contain"
           />
 
           {/* "Tap for sound" — shows only when the clip had to auto-play MUTED

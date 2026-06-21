@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-21 · feat(nav): redesign the admin "More" into grouped sections
+
+The "make the More menu nicer + reorganize" pass (owner 2026-06-21). The admin `/more` overflow was a single FLAT card grid; the vendor `/more` was already a labeled, section-grouped grid (`VendorMobileLanding`). This brings admin up to the same design so both doorways' "More" read consistently.
+
+- **`mobile-landing-grid.tsx`** (shared admin renderer) gains an optional `groups` prop — labeled sections, each a mono eyebrow header + its own card grid. The flat `items` path stays for the other landings (`/admin/directory`, `/admin/money`); `groups` wins when given. Card rendering extracted to a `LandingCard` helper.
+- **`admin/more/page.tsx`** now renders two sections — **Insights** (Insights hub · Growth · Intelligence · Funnels · Operations & Hiring · Connection logs · Offline daemon — mirroring the desktop sidebar Insights group 1:1) and **Platform** (the existing settings/content surfaces). The single "Insights" card added in the ≤5 reroster is expanded into its full group.
+
+Both "More" menus are now grouped, labeled, `.m-card`-based, Clean Editorial. (Per-card counts + a search box are the heavier follow-up; deferred.)
+
+Verified: `pnpm typecheck` 0 · `pnpm lint` 0.
+
+SPEC IMPACT: Nav presentation — admin "More" grouped to match vendor. No SKU/schema/pricing change.
+
 ## 2026-06-21 · feat(seating): linked tables group as ONE (Keynote-style move + rotate) + full-screen editor
 
 Owner ask: "when we link seats, they will be grouped as one now. so when we rotate a table, it rotates as one… think of it like how Keynote groups shapes. and break apart will unlink them." Plus: "the page still doesn't look clean for seat plan creation… [the Seating title + description + Walkthrough link] we can remove this and spread the whole content to the screen."

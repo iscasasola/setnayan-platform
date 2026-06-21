@@ -22,6 +22,11 @@
 
 import {
   BarChart3,
+  LineChart,
+  Radar,
+  TrendingUp,
+  Bug,
+  WifiOff,
   Settings,
   Compass,
   Tag,
@@ -40,19 +45,62 @@ import { MobileLandingGrid, type LandingItem } from '../_components/mobile-landi
 
 export const metadata = { title: 'More · Admin' };
 
-const PLATFORM_ITEMS: LandingItem[] = [
+// Insights group — demoted from its dedicated bottom-nav tab in the 2026-06-21
+// ≤5 reroster, and (2026-06-21 "More" redesign) expanded into its own labeled
+// section here, mirroring the desktop sidebar Insights group (key 'funnels') 1:1.
+const INSIGHTS_ITEMS: LandingItem[] = [
   {
-    // Insights demoted from its dedicated bottom-nav tab in the 2026-06-21 <=5
-    // reroster — folded back into More on mobile so the analytics surfaces stay
-    // reachable (desktop keeps the full sidebar Insights group). /admin/insights
-    // is the landing that fans out to growth / funnels / intelligence / etc.
-    key: 'insights',
+    key: 'insights-pulse',
     label: 'Insights',
     href: '/admin/insights',
     icon: BarChart3,
-    description:
-      'The daily analytics pulse — growth, funnels, intelligence, operations & hiring, connection logs, and the offline daemon.',
+    description: 'The daily analytics pulse — the hub for the surfaces below.',
   },
+  {
+    key: 'growth',
+    label: 'Growth',
+    href: '/admin/growth',
+    icon: LineChart,
+    description: 'Sign-ups, activation, and revenue trends over time.',
+  },
+  {
+    key: 'intelligence',
+    label: 'Intelligence',
+    href: '/admin/intelligence',
+    icon: Radar,
+    description: 'Market and competitor signals worth acting on.',
+  },
+  {
+    key: 'funnels',
+    label: 'Funnels',
+    href: '/admin/funnels',
+    icon: BarChart3,
+    description: 'Where couples and vendors drop off, step by step.',
+  },
+  {
+    key: 'operations-hiring',
+    label: 'Operations & Hiring',
+    href: '/admin/operations-hiring',
+    icon: TrendingUp,
+    description: 'Team capacity and hiring signals against demand.',
+  },
+  {
+    key: 'connection-logs',
+    label: 'Connection logs',
+    href: '/admin/connection-logs',
+    icon: Bug,
+    description: 'Integration and webhook health at a glance.',
+  },
+  {
+    key: 'offline',
+    label: 'Offline daemon',
+    href: '/admin/offline',
+    icon: WifiOff,
+    description: 'Background jobs and the offline sync worker status.',
+  },
+];
+
+const PLATFORM_ITEMS: LandingItem[] = [
   {
     key: 'settings',
     label: 'Settings',
@@ -174,8 +222,11 @@ export default function AdminMoreLanding() {
   return (
     <MobileLandingGrid
       title="More"
-      subtitle="Content, taxonomy, and platform settings."
-      items={PLATFORM_ITEMS}
+      subtitle="Insights, content, and platform settings."
+      groups={[
+        { label: 'Insights', items: INSIGHTS_ITEMS },
+        { label: 'Platform', items: PLATFORM_ITEMS },
+      ]}
     />
   );
 }

@@ -416,6 +416,16 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     stdVideoIsLive(stdMedia) && stdMedia.videoKey
       ? await displayUrlForStoredAsset(stdMedia.videoKey)
       : null;
+  // The video's poster frame (client-extracted on upload). Resolved ONLY in
+  // "fit to screen" mode (std_media.fit === 'fit'), where the full-screen video
+  // beat fills the letterbox bars with a BLURRED STILL of it — a 2nd <video> for
+  // that backdrop won't play on iOS (one-video-at-a-time), so a static image is
+  // the iOS-safe fill (owner 2026-06-21 "still black screens on top and bottom").
+  // "fill" (the default) needs no poster: the clip plays object-cover, edge-to-edge.
+  const stdVideoPosterUrl =
+    stdVideoUrl && stdMedia.fit === 'fit' && stdMedia.posterKey
+      ? await displayUrlForStoredAsset(stdMedia.posterKey)
+      : null;
 
   // Save-the-Date ceremony + reception venues (0024 · 2026-06-19). AUTO-FILLED
   // from the couple's FINALIZED vendor bookings (event_vendors); the reception
@@ -735,6 +745,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         stdBackground={stdBackground}
         stdBackgroundUrl={stdBackgroundUrl}
         stdVideoUrl={stdVideoUrl}
+        stdVideoPosterUrl={stdVideoPosterUrl}
         stdVenues={stdVenues}
         heroPhotoUrl={heroPhotoUrl}
         heroVideoUrl={heroVideoUrl}
@@ -764,6 +775,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         stdBackground={stdBackground}
         stdBackgroundUrl={stdBackgroundUrl}
         stdVideoUrl={stdVideoUrl}
+        stdVideoPosterUrl={stdVideoPosterUrl}
         stdVenues={stdVenues}
         heroPhotoUrl={heroPhotoUrl}
         heroVideoUrl={heroVideoUrl}
@@ -800,6 +812,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         stdBackground={stdBackground}
         stdBackgroundUrl={stdBackgroundUrl}
         stdVideoUrl={stdVideoUrl}
+        stdVideoPosterUrl={stdVideoPosterUrl}
         stdVenues={stdVenues}
         heroPhotoUrl={heroPhotoUrl}
         heroVideoUrl={heroVideoUrl}
@@ -937,6 +950,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         stdBackground={stdBackground}
         stdBackgroundUrl={stdBackgroundUrl}
         stdVideoUrl={stdVideoUrl}
+        stdVideoPosterUrl={stdVideoPosterUrl}
         stdVenues={stdVenues}
         heroPhotoUrl={heroPhotoUrl}
         heroVideoUrl={heroVideoUrl}
@@ -1294,6 +1308,7 @@ function PublicLanding({
   stdBackground,
   stdBackgroundUrl,
   stdVideoUrl,
+  stdVideoPosterUrl,
   stdVenues,
   heroPhotoUrl,
   heroVideoUrl,
@@ -1322,6 +1337,9 @@ function PublicLanding({
   /** Presigned URL of the couple's NSFW-approved closing video (stdVideoIsLive),
    *  or null → the gallery beat shows. Resolved once at the top-level page. */
   stdVideoUrl?: string | null;
+  /** Poster still of that video — fills the full-screen letterbox bars with a
+   *  blurred image, since iOS won't play a 2nd <video> for that backdrop. */
+  stdVideoPosterUrl?: string | null;
   /** Auto-filled ceremony + reception venue names (finalized bookings ?? manual
    *  ?? event) + reception city, for the STD film's venue beats. */
   stdVenues?: { ceremony: string | null; reception: string | null; receptionCity: string | null };
@@ -1483,6 +1501,7 @@ function PublicLanding({
           lockup={stdLockupFor(event)}
           musicUrl={bgMusicUrl}
           videoUrl={stdVideoUrl}
+          videoPosterUrl={stdVideoPosterUrl}
           ceremonyVenue={stdVenues?.ceremony ?? null}
           receptionVenue={stdVenues?.reception ?? null}
           receptionCity={stdVenues?.receptionCity ?? null}
@@ -1774,6 +1793,7 @@ function InvitationSite({
   stdBackground,
   stdBackgroundUrl,
   stdVideoUrl,
+  stdVideoPosterUrl,
   stdVenues,
   heroPhotoUrl,
   heroVideoUrl,
@@ -1815,6 +1835,9 @@ function InvitationSite({
   /** Presigned URL of the couple's NSFW-approved closing video (stdVideoIsLive),
    *  or null → the gallery beat shows. Resolved once at the top-level page. */
   stdVideoUrl?: string | null;
+  /** Poster still of that video — fills the full-screen letterbox bars with a
+   *  blurred image, since iOS won't play a 2nd <video> for that backdrop. */
+  stdVideoPosterUrl?: string | null;
   /** Auto-filled ceremony + reception venue names (finalized bookings ?? manual
    *  ?? event) + reception city, for the STD film's venue beats. */
   stdVenues?: { ceremony: string | null; reception: string | null; receptionCity: string | null };
@@ -2045,6 +2068,7 @@ function InvitationSite({
             lockup={stdLockupFor(event)}
             musicUrl={bgMusicUrl}
             videoUrl={stdVideoUrl}
+            videoPosterUrl={stdVideoPosterUrl}
             ceremonyVenue={stdVenues?.ceremony ?? null}
             receptionVenue={stdVenues?.reception ?? null}
             receptionCity={stdVenues?.receptionCity ?? null}

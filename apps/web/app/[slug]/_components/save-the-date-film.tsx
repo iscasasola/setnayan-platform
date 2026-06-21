@@ -18,8 +18,9 @@
  * Beats whose data is missing (no date, one venue, no video) are simply skipped.
  *
  * Interaction (owner 2026-06-21): the film auto-plays through the text beats;
- * PRESS pauses and RELEASE continues; a vertical swipe / mouse-wheel scrubs to an
- * adjacent beat (still auto-playing). No tap-to-step, no chrome — just the texts.
+ * PRESS pauses and RELEASE continues; a deliberate vertical DRAG scrubs to an
+ * adjacent beat (still auto-playing). Scrolling does NOT move the film. No
+ * tap-to-step, no chrome — just the texts.
  * The video beat plays the clip; press pauses it, release resumes, a swipe scrubs
  * past. Music auto-plays (the reveal-lift gesture has already unlocked audio).
  *
@@ -105,7 +106,7 @@ const BASE_W = 440;
 const BASE_H = 780;
 const FIT_MIN = 0.6;
 const FIT_MAX = 2.3;
-// Swiping/scrolling BACK to re-read holds that beat for its normal dwell PLUS
+// Dragging BACK to re-read holds that beat for its normal dwell PLUS
 // this bonus before auto-play pulls forward again — a deliberate re-read isn't
 // yanked off after the standard ~4s (owner 2026-06-21). Forward skips keep the
 // normal dwell.
@@ -306,11 +307,14 @@ export function SaveTheDateFilm({
   // calendar close. Declared above the slides so the beat can bind the ref; the
   // play handler + end/fullscreen wiring live in the effect below.
   const videoElRef = useRef<HTMLVideoElement | null>(null);
-  // A muted, blurred, scaled copy of the same clip that fills the viewport behind
-  // the contained clip (the "blurred fill" — no crop, no black bars on an aspect
-  // mismatch). Decorative; played only on the video beat (effect below).
-  const videoBgRef = useRef<HTMLVideoElement | null>(null);
   const hasVideo = Boolean(content.videoUrl);
+  // The video's poster still — present ONLY in "fit to screen" mode (resolved
+  // upstream when std_media.fit === 'fit'), where it fills the letterbox bars with
+  // a BLURRED IMAGE behind the object-contain clip. A still (not a 2nd <video>)
+  // because iOS plays one video at a time, so a video backdrop stayed BLACK on
+  // iPhone (owner 2026-06-21). Absent — "fill", the DEFAULT — means the clip is
+  // object-cover, edge-to-edge (a slight crop, never black bars).
+  const videoPosterUrl = content.videoPosterUrl ?? null;
   // "Was on the video beat last render" — so the orchestration resets the clip
   // to its start (and silences it for the fade-up) only when the guest FIRST
   // reaches the video beat, not on every re-render while it plays.
@@ -817,17 +821,6 @@ export function SaveTheDateFilm({
     };
   }, [idx, playing, muted, videoSlideIndex, content.musicUrl, preview]);
 
-  // Blurred ambient fill — play the decorative backdrop copy only while the video
-  // beat is on screen (it's muted, so autoplay is always allowed; no warm-play or
-  // sync needed — the heavy blur hides any drift from the foreground clip).
-  useEffect(() => {
-    if (preview) return;
-    const bg = videoBgRef.current;
-    if (!bg) return;
-    if (idx === videoSlideIndex) bg.play().catch(() => {});
-    else bg.pause();
-  }, [idx, videoSlideIndex, preview]);
-
   // Tell the veil's petals whether on-screen TEXT is present, so a petal resting on
   // it can CRAWL down and only FALL once the words are gone (owner 2026-06-21 "if
   // the text disappears … it will fall"). Cleared on every beat change (the words
@@ -848,8 +841,9 @@ export function SaveTheDateFilm({
   }, [idx, videoSlideIndex]);
 
   // Interaction model (owner 2026-06-21): PRESS pauses, RELEASE continues; a
-  // vertical swipe / mouse-wheel SCRUBS through the beats (still auto-playing).
-  // No tap-to-step. The press also unlocks audio (browsers need a gesture).
+  // deliberate vertical DRAG scrubs through the beats (still auto-playing).
+  // Scrolling does NOT move the film. No tap-to-step. The press also unlocks
+  // audio (browsers need a gesture).
   const downXRef = useRef(0);
   const downYRef = useRef(0);
 
@@ -993,28 +987,11 @@ export function SaveTheDateFilm({
     setVideoSoundBlocked(false);
   };
 
-  // Scroll-to-scrub — a WINDOW wheel listener (not the stage) so a mouse/trackpad
-  // scroll anywhere scrubs, even over the cream desktop margins beside the
-  // centred stage. Down = forward, up = back; debounced to one beat per flick.
-  // Auto-play CONTINUES after a scroll-scrub (owner 2026-06-21) — scrolling
-  // navigates, it never pauses the film. Live only.
-  useEffect(() => {
-    if (preview) return;
-    let last = 0;
-    const onWheel = (e: WheelEvent) => {
-      const now = performance.now();
-      if (now - last < 360 || Math.abs(e.deltaY) < 14) return;
-      last = now;
-      const dir = e.deltaY > 0 ? 1 : -1;
-      goRef.current(Math.max(0, Math.min(N - 1, idxRef.current + dir)));
-      // No setPlaying(false) — the player keeps auto-advancing. A BACKWARD scroll
-      // (re-read) gets a longer dwell before it pulls forward again; goRef.current()
-      // reset the dwell timer for forward skips.
-      if (dir < 0) startRef.current = performance.now() + REREAD_DWELL_BONUS_MS;
-    };
-    window.addEventListener('wheel', onWheel, { passive: true });
-    return () => window.removeEventListener('wheel', onWheel);
-  }, [preview, N]);
+  // (Desktop SCROLL no longer scrubs the film — owner 2026-06-21 "transition of
+  // text still moves with scrolling … that should not work anymore." The film
+  // auto-plays; press-and-hold pauses and release resumes, and a deliberate
+  // vertical drag still scrubs. The old window 'wheel' listener that advanced
+  // beats on every mouse/trackpad scroll was removed.)
 
   // On the reveal-lift gesture the veil dispatches 'std-go-fullscreen'
   // SYNCHRONOUSLY from its lift tap (a user gesture), so both the Fullscreen API
@@ -1127,7 +1104,7 @@ export function SaveTheDateFilm({
 
       {/* Chrome removed (owner 2026-06-19): NO stories scrub bars, NO transport
           controls — just the texts. The film auto-plays; the guest scrubs by
-          scrolling / vertical-swiping, and PRESSES to pause / releases to continue
+          a deliberate vertical drag, and PRESSES to pause / releases to continue
           (owner 2026-06-21). The lone exception is a single subtle mute, since the
           soundtrack auto-plays and needs an escape. */}
       {content.musicUrl || content.videoUrl ? (
@@ -1309,13 +1286,20 @@ export function SaveTheDateFilm({
 
       {/* FULL-SCREEN video overlay (owner 2026-06-19 "why is the video not full
           screen"). The couple's clip takes over the whole viewport on its beat —
-          on top of everything (z-[70], above the reveal/veil) — FILLING the screen
-          (owner 2026-06-21 "video must be full screen") via a blurred-fill: the
-          real clip object-contain (whole frame, no crop) over a blurred, scaled
-          copy of itself, so an aspect mismatch reads as a soft cinematic fill, not
-          black bars. Then fades out as the film advances to the
-          calendar close. videoElRef binds here on the live page; the
-          orchestration effect plays it + crossfades the music. */}
+          on top of everything (z-[70], above the reveal/veil). Two play modes the
+          couple picks in the builder (std_media.fit · owner 2026-06-21 "an option
+          how the video plays, fit to screen or fill"):
+          • FILL (the DEFAULT) — object-cover, edge-to-edge; no poster is resolved,
+            so there's no backdrop and a slight crop instead of black bars.
+          • FIT TO SCREEN — object-contain (whole frame) over a blurred, scaled
+            copy of the clip's POSTER STILL (an <img>, NOT a 2nd <video> — iOS plays
+            one video at a time, so a video backdrop stayed BLACK on iPhone: owner
+            2026-06-21 "still black screens on top and bottom"). If a fit-mode clip
+            has no poster, it falls back to object-cover so the bars are never black.
+          `videoPosterUrl` is set upstream only for fit-mode, so its presence is what
+          selects contain-vs-cover below. Then fades out as the film advances to the
+          calendar close. videoElRef binds here on the live page; the orchestration
+          effect plays it + crossfades the music. */}
       {hasVideo ? (
         <div
           className={`pointer-events-none fixed inset-0 z-[70] flex items-center justify-center bg-black transition-opacity ease-in-out ${
@@ -1324,31 +1308,33 @@ export function SaveTheDateFilm({
           style={{ transitionDuration: `${VIDEO_FADE_MS}ms` }} // synced to the audio crossfade
           aria-hidden={idx !== videoSlideIndex}
         >
-          {/* Blurred ambient FILL — a scaled, blurred, muted copy of the SAME clip
-              fills the whole viewport behind the contained clip, so an aspect
+          {/* Blurred ambient FILL — a scaled, blurred copy of the clip's POSTER
+              STILL fills the whole viewport behind the contained clip, so an aspect
               mismatch (portrait screen + landscape clip, or the reverse) reads as a
               soft cinematic fill instead of black bars — WITHOUT cropping the
-              couple's frame (owner 2026-06-21). One rule covers both orientations.
-              Muted + decorative; the effect above plays it only on the beat. */}
-          {/* eslint-disable-next-line jsx-a11y/media-has-caption -- decorative blurred backdrop, no caption track */}
-          <video
-            ref={videoBgRef}
-            src={content.videoUrl ?? undefined}
-            playsInline
-            muted
-            loop
-            preload="auto"
-            aria-hidden
-            className="absolute inset-0 h-full w-full scale-110 object-cover blur-2xl brightness-[0.6]"
-          />
-          {/* The real clip, WHOLE frame visible (object-contain) over the fill. */}
+              couple's frame. An <img>, not a 2nd <video>: iOS plays only one video
+              at a time, so a video backdrop never played on iPhone and the bars
+              stayed black (owner 2026-06-21). A heavily-blurred still is
+              indistinguishable from a blurred video here, and works everywhere. */}
+          {videoPosterUrl ? (
+            <img
+              src={videoPosterUrl}
+              alt=""
+              aria-hidden
+              className="absolute inset-0 h-full w-full scale-110 object-cover blur-2xl brightness-[0.6]"
+            />
+          ) : null}
+          {/* The real clip — WHOLE frame visible (object-contain) over the blurred
+              poster fill. With no poster to fill the bars, fall back to object-cover
+              so the clip fills the screen (a slight crop) rather than show black
+              bars (owner 2026-06-21 "shouldn't have black screens top and bottom"). */}
           {/* eslint-disable-next-line jsx-a11y/media-has-caption -- couple-uploaded keepsake clip, no caption track */}
           <video
             ref={videoElRef}
             src={content.videoUrl ?? undefined}
             playsInline
             preload="auto"
-            className="relative h-full w-full object-contain"
+            className={`relative h-full w-full ${videoPosterUrl ? 'object-contain' : 'object-cover'}`}
           />
 
           {/* "Tap for sound" — shows only when the clip had to auto-play MUTED

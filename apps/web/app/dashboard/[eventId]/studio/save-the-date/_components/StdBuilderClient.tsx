@@ -72,6 +72,8 @@ type Props = {
   initialMedia: StdMedia;
   /** Presigned URL for the saved uploaded video (if media.type === 'video'). */
   initialVideoUrl?: string | null;
+  /** Resolved poster still of the SAVED video → the preview's blurred fill. */
+  initialPosterUrl?: string | null;
   /** How many photos the couple has (the gallery option's content count). */
   galleryCount?: number;
   /** Raw std_film_* snapshot values — null means not yet set (falls back to live event data). */
@@ -122,6 +124,7 @@ export function StdBuilderClient({
   initialUploadUrl,
   initialMedia,
   initialVideoUrl,
+  initialPosterUrl,
   galleryCount,
   initialFilmDate,
   dateOptions = [],
@@ -235,6 +238,7 @@ export function StdBuilderClient({
       videoKey: payload.videoKey,
       posterKey: payload.posterKey,
       nsfw: 'pending',
+      fit: media.fit ?? 'fill', // preserve the couple's play-mode across re-upload
     });
   };
 
@@ -332,8 +336,16 @@ export function StdBuilderClient({
       // Preview the chosen closing media: the uploaded video (when picked) plays
       // as the video island beat; otherwise the gallery beat shows.
       videoUrl: media.type === 'video' ? videoPreviewUrl : null,
+      // Poster for the full-screen video beat's blurred fill — only in FIT mode
+      // (media.fit === 'fit') AND for the SAVED video (a fresh local-blob upload
+      // has no matching poster URL yet → object-cover until saved). "fill" (the
+      // default) resolves no poster, so the preview plays object-cover edge-to-edge.
+      videoPosterUrl:
+        media.type === 'video' && media.fit === 'fit' && videoPreviewUrl === initialVideoUrl
+          ? (initialPosterUrl ?? null)
+          : null,
     };
-  }, [initialContent, filmDate, venueName, venueCity, ceremonyName, filmStory, launchDate, dateIso, media.type, videoPreviewUrl, effects.music, musicPreviewUrl]);
+  }, [initialContent, filmDate, venueName, venueCity, ceremonyName, filmStory, launchDate, dateIso, media.type, media.fit, videoPreviewUrl, initialVideoUrl, initialPosterUrl, effects.music, musicPreviewUrl]);
 
   // Autofill — pull the couple's event details into EVERY film field at once so
   // the Information step shows all the real values, ready to fine-tune. Client-

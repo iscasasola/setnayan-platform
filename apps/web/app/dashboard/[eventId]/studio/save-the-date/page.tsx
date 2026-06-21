@@ -115,6 +115,11 @@ export default async function SaveTheDatePage({ params }: Props) {
     stdMedia.type === 'video' && stdMedia.videoKey
       ? await displayUrlForStoredAsset(stdMedia.videoKey)
       : null;
+  // Poster still of the saved video → the preview film's blurred letterbox fill.
+  const stdMediaPosterUrl =
+    stdMedia.type === 'video' && stdMedia.posterKey
+      ? await displayUrlForStoredAsset(stdMedia.posterKey)
+      : null;
 
   const [ownsOpenings, openingsSku, settings, revealConfig] = await Promise.all([
     eventOwnsStdOpenings(supabase, eventId),
@@ -317,6 +322,7 @@ export default async function SaveTheDatePage({ params }: Props) {
         initialUploadUrl={stdBackgroundUploadUrl}
         initialMedia={stdMedia}
         initialVideoUrl={stdMediaVideoUrl}
+        initialPosterUrl={stdMediaPosterUrl}
         galleryCount={ourPhotoUrls.length}
         initialFilmDate={stdDate}
         dateOptions={dateOptions}

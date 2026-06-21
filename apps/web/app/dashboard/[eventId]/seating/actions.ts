@@ -774,10 +774,14 @@ export async function updateTableLabel(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
-// Link two tables into ONE named unit (identity + QR only — owner-locked
-// 2026-06-10): members share link_group_id + link_group_label, render with the
-// shared name, and the print pack emits ONE QR sign for the unit. Seating math
-// stays per-table. Linking into an existing unit merges the groups.
+// Link two tables into ONE grouped unit: members share link_group_id +
+// link_group_label, render under the shared name, and the print pack emits ONE
+// QR sign for the unit. Linking into an existing unit merges the groups.
+// Owner-authorized 2026-06-21 ("group as one, like Keynote") to upgrade the
+// prior 2026-06-10 identity-only lock: the EDITOR now also moves and rotates a
+// linked unit as one rigid body (positions/angles still persist per-table via
+// updateTablePosition / updateTableRotation — no schema change). Seating math
+// (who sits where, capacity) stays per-table.
 export async function linkTables(formData: FormData) {
   const eventId = formData.get('event_id');
   const tableA = formData.get('table_id_a');
@@ -826,8 +830,9 @@ export async function linkTables(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
-// Dissolve a linked unit (from any member): every member returns to its own
-// name + its own QR sign.
+// Break a grouped unit apart (from any member): every member becomes an
+// independent table again with its own name + QR sign, and moves/rotates on
+// its own. Positions/angles are left where they are.
 export async function unlinkTable(formData: FormData) {
   const eventId = formData.get('event_id');
   const tableId = formData.get('table_id');

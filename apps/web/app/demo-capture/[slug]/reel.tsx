@@ -13,7 +13,7 @@ import { RICH_SCENES } from '@/app/_components/app-store/studio-card-demo';
 const STEP_MS = 3000; // mirrors ADVANCE_MS in studio-card-demo.tsx
 
 export function DemoCaptureReel({ slug }: { slug: string }) {
-  const scenes = RICH_SCENES[slug];
+  const scenes = RICH_SCENES[slug as keyof typeof RICH_SCENES];
   const [i, setI] = useState(0);
 
   useEffect(() => {

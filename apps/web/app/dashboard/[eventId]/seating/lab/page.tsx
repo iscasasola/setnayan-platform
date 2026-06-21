@@ -17,11 +17,12 @@ export const metadata = { title: 'Seating · 3D lab (prototype)' };
 type Props = { params: Promise<{ eventId: string }> };
 
 /**
- * 3D seating lab — a flag-gated, READ-ONLY prototype that renders the couple's
- * real plan as a navigable 3D room ("Sims build" + walk-to-seat). Gated by
- * `NEXT_PUBLIC_SEATING_3D`; off → 404 (the route doesn't exist for users). It
- * never writes — drags/drops live in client state only. See the as-built doc
- * `0008_Seating_AS_BUILT_2026-06-21.md` for the contract this prototype reads.
+ * 3D seating lab — a flag-gated 3D editor that renders the couple's real plan
+ * as a navigable 3D room ("Sims build" + walk-to-seat). Gated by
+ * `NEXT_PUBLIC_SEATING_3D`; off → 404 (the route doesn't exist for users).
+ * Edits (move / rotate / delete / add) persist through the SAME single-editor
+ * lock + server actions as the 2D editor, so 3D and 2D share one plan. See the
+ * as-built doc `0008_Seating_AS_BUILT_2026-06-21.md` for the data contract.
  */
 export default async function SeatingLabPage({ params }: Props) {
   if (process.env.NEXT_PUBLIC_SEATING_3D !== 'true') notFound();
@@ -108,6 +109,14 @@ export default async function SeatingLabPage({ params }: Props) {
         guests={guests}
         paletteHexes={paletteHexes}
         coupleNames={null}
+        me={{
+          id: user.id,
+          name:
+            (user.user_metadata?.display_name as string | undefined) ||
+            (user.user_metadata?.full_name as string | undefined) ||
+            user.email?.split('@')[0] ||
+            'Someone',
+        }}
       />
     </section>
   );

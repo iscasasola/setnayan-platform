@@ -31,6 +31,7 @@ type Props = {
   guests: Lab3DGuest[];
   paletteHexes: string[];
   coupleNames: string | null;
+  me: { id: string; name: string };
 };
 
 export function SeatingLabLoader(props: Props) {

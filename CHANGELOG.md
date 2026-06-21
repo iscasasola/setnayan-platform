@@ -4,6 +4,26 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-21 · feat(seating): 3D lab becomes a real editor — edits persist + Sims build-camera
+
+Owner: "yes do that pattern same as Sims" — make 3D editing real (writes the same plan as 2D) with a build-camera that snaps top-down while arranging. Follows the read-only spike (already merged). Still flag-gated (`NEXT_PUBLIC_SEATING_3D`, 404 when off).
+
+- **Edits persist through the SAME single-editor lock + server actions as 2D** (`apps/web/app/dashboard/[eventId]/seating/lab/_components/seating-lab-3d.tsx`): drag → `updateTablePosition`, rotate (selection HUD ±15°) → `updateTableRotation`, delete → `deleteTable`, add → `createTable` + `router.refresh`. The lab acquires `useSeatingLock` on mount and is **view-only** (with a recovery/take-over button) when a 2D editor holds the lock — so 3D and 2D never write at once, and a 3D change mirrors into 2D.
+- **Sims build-camera** (`CameraRig`): Build mode eases to near-top-down with a tight polar clamp (precise placement); Play mode eases to a cinematic orbit. OrbitControls is parked (`camBusy`) during the tween so input + ease don't fight.
+- Selection HUD: rotate / delete a selected table; "+ Add table". `me` (id + name) now threads page → loader → component for the lock label.
+
+**Adversarial review (5 dimensions, 23 agents) → 12 verified findings, all fixed:**
+- **HIGH (lock-safety):** `persist()` swallowed the lost-lock error and kept `canEdit` true. Now matches the 2D editor — `isLockLost(err)` → `lock.notifyLost()` (drops to view-only at once) + reconciling `router.refresh()`; other errors surface without a misleading re-acquire.
+- **MEDIUM (write-path race):** the prop-sync effect blind-replaced local state on `router.refresh`, clobbering in-flight optimistic moves → now **merges new rows by id** (never overwrites a local edit).
+- **MEDIUM (data fidelity):** drag-commit clamped to `[2,98]%` unconditionally, collapsing free-board (no venue size) layouts → now **venue-aware** (free board keeps the wide range).
+- **LOW (×9, all addressed):** ghost selection persisting from Play → Build (no select in Play + clear on mode flip); camera lerp ending short (snap-to-target); `persist` unstable dep (stabilised on `notifyLost`/`router`); false "someone's editing in 2D" copy + a missing solo-recovery button (neutral copy + always-available recovery/take-over). Documented a known v1 limit: a free board doesn't yet fit-frame widely-spread tables (off-floor render) — fit-transform is the follow-up.
+
+tsc 0; `next lint` clean. CI production build is the gate. No schema change (reuses the canonical lock + actions).
+
+SPEC IMPACT: None to the shipped 2D editor (additive, flag-off; uses its existing lock + actions). The "3D + 2D = one data model, 3D edits persist" decision is logged in `DECISION_LOG.md`; the as-built doc `0008_Seating_AS_BUILT_2026-06-21.md` §13 invariants still hold.
+
+---
+
 ## 2026-06-21 · feat(ux): vendor calendar legibility — redesign PR 3/N (DIR-2, safe half)
 
 Per-surface pass on the vendor calendar (`vendor-dashboard/calendar/page.tsx`). The audit flagged its `grid-cols-7` month views as cramped on phones with **9–10px** day-cell text.

@@ -1,24 +1,51 @@
 'use client';
 
 /**
- * seating-lab-3d — the flag-gated 3D seating PROTOTYPE (React Three Fiber).
+ * seating-lab-3d — the flag-gated 3D seating editor (React Three Fiber).
  *
- * What it proves: the couple's REAL plan rendered as a navigable 3D room, with
- * "Sims" build interactions (tap to select, drag to slide with game-feel weight,
- * tap-to-drop a new table) and the walk-to-seat payoff (pick a guest → an avatar
- * walks from the entrance, steering around tables, to their chair and sits).
- * Mood-board palette drives the lighting + materials, with a live switcher.
+ * The couple's REAL plan rendered as a navigable 3D room with "Sims" build
+ * interactions: tap to select, drag to slide with game-feel weight, rotate +
+ * delete a selected table, add a table — and a walk-to-seat payoff (pick a
+ * guest → an avatar walks from the entrance, around tables, to their chair).
  *
- * Read-only: nothing here persists. Drags/drops are local React state only.
- * Performance: DPR capped, fake contact shadows (no per-mesh shadow maps),
- * lightweight waypoint steering instead of a NavMesh. Those + true GLTF models +
- * post-processing are the documented v2 upgrades.
+ * EDITS PERSIST: move / rotate / delete / add go through the SAME single-editor
+ * lock + server actions as the 2D editor (one data model), so a change in 3D
+ * mirrors into 2D and vice-versa. The lab acquires the seating lock on mount
+ * and drops to view-only if a 2D editor holds it. A "build camera" snaps the
+ * view near top-down while arranging (Sims-style) and frees to a cinematic
+ * orbit in Play mode. Mood-board palette drives lighting + materials.
+ *
+ * Performance: DPR capped, fake contact shadows, lightweight waypoint steering.
+ * GLTF furniture + NavMesh + instancing + post-processing are the v2 upgrades.
+ * Known v1 limit: a FREE board (no venue size) maps 0–100% onto a fixed room,
+ * so widely-spread tables (percent > 100) can render off the visible floor —
+ * a fit-frame transform (like the 2D editor's) is the documented follow-up.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Canvas, useFrame, type ThreeEvent } from '@react-three/fiber';
+import { useRouter } from 'next/navigation';
+import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { OrbitControls, Grid, ContactShadows } from '@react-three/drei';
 import * as THREE from 'three';
+import { useSeatingLock } from '@/app/dashboard/[eventId]/seating/_components/use-seating-lock';
+import { SeatingLockError } from '@/app/dashboard/[eventId]/seating/seating-lock-error';
+import {
+  createTable,
+  deleteTable,
+  updateTablePosition,
+  updateTableRotation,
+} from '@/app/dashboard/[eventId]/seating/actions';
+
+// A server action's lock guard throws SeatingLockError, but the class identity
+// is lost across the RSC boundary — match defensively (instanceof → code →
+// message), exactly as the 2D editor does, so a peer takeover is detected.
+function isLockLost(err: unknown): boolean {
+  if (err instanceof SeatingLockError) return true;
+  if (typeof err !== 'object' || err === null) return false;
+  const e = err as { code?: unknown; message?: unknown };
+  if (e.code === 'seating_lock_not_held') return true;
+  return typeof e.message === 'string' && e.message.includes('locked by someone else on this event');
+}
 import {
   type Lab3DTable,
   type Lab3DFloor,
@@ -43,13 +70,12 @@ type Props = {
   guests: Lab3DGuest[];
   paletteHexes: string[];
   coupleNames: string | null;
+  me: { id: string; name: string };
 };
 
-type LiveTable = Lab3DTable & { isNew?: boolean };
+type LiveTable = Lab3DTable;
 type SeatRef = { tableId: string; seatNumber: number };
 type WalkerState = { name: string; path: Vec2[]; tableId: string } | null;
-
-let NEW_SEQ = 0;
 
 // Shared GPU buffers reused by every chair across every table (module-level
 // constants are never disposed by R3F — safe to share). The big draw-call
@@ -57,7 +83,8 @@ let NEW_SEQ = 0;
 const CHAIR_GEO = new THREE.BoxGeometry(0.34, 0.5, 0.34);
 const PEDESTAL_GEO = new THREE.CylinderGeometry(0.12, 0.16, 0.72, 12);
 
-export default function SeatingLab3D({ tables: initialTables, floor, guests, paletteHexes }: Props) {
+export default function SeatingLab3D({ eventId, tables: initialTables, floor, guests, paletteHexes, me }: Props) {
+  const router = useRouter();
   const room = useMemo(() => roomSize(floor), [floor]);
   const [mode, setMode] = useState<'build' | 'play'>('build');
   const [paletteKey, setPaletteKey] = useState('mood');
@@ -66,12 +93,56 @@ export default function SeatingLab3D({ tables: initialTables, floor, guests, pal
     return DEMO_PALETTES.find((p) => p.key === paletteKey)?.palette ?? resolvePalette(paletteHexes);
   }, [paletteKey, paletteHexes]);
 
+  // Single-editor lock — the SAME one the 2D editor uses, so 3D and 2D never
+  // write at once. Acquire on mount; canEdit is false (view-only) until granted.
+  const lock = useSeatingLock(eventId, me.name, null);
+  const canEdit = lock.status === 'editing';
+  const acquireLock = lock.acquire;
+  const notifyLost = lock.notifyLost;
+  useEffect(() => {
+    acquireLock();
+  }, [acquireLock]);
+
   const [tables, setTables] = useState<LiveTable[]>(initialTables);
+  // Reconcile with the server snapshot by MERGING new rows in (not blind
+  // replace) — so a router.refresh (from add, or a lost-lock recovery) can't
+  // clobber an in-flight optimistic move/rotation. Deleted/peer changes
+  // reconcile on a full reload; while the lab holds the lock it's the only
+  // writer, so add-the-new-row is sufficient.
+  useEffect(() => {
+    setTables((prev) => {
+      const known = new Set(prev.map((t) => t.id));
+      const added = initialTables.filter((t) => !known.has(t.id));
+      return added.length ? [...prev, ...added] : prev;
+    });
+  }, [initialTables]);
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [addArmed, setAddArmed] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [camBusy, setCamBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const [walker, setWalker] = useState<WalkerState>(null);
   const [arrived, setArrived] = useState<string | null>(null);
+
+  // Run a write action. A lost lock (peer took over) drops us to view-only at
+  // once (notifyLost) + reconciles the optimistic 3D state with the server; any
+  // OTHER error is surfaced without a misleading "lost access" re-acquire.
+  const persist = useCallback(
+    async (fn: () => Promise<unknown>) => {
+      try {
+        await fn();
+      } catch (err) {
+        if (isLockLost(err)) {
+          notifyLost();
+          setNotice('Editing was taken over — your last change wasn’t saved.');
+          router.refresh();
+        } else {
+          setNotice('Couldn’t save that change — please try again.');
+        }
+      }
+    },
+    [notifyLost, router],
+  );
 
   // Local seat map (starts from the real assignments). The walk demo assigns
   // unseated guests into the first free chair — locally, never persisted.
@@ -98,10 +169,24 @@ export default function SeatingLab3D({ tables: initialTables, floor, guests, pal
     dragRef.current = null;
     setDraggingId(null);
     if (!d) return;
-    const xPct = Math.max(2, Math.min(98, (d.x / room.w + 0.5) * 100));
-    const yPct = Math.max(2, Math.min(98, (d.z / room.d + 0.5) * 100));
+    // Venue-sized rooms store 0–100% (clamp to the walls); the free auto-grow
+    // board legitimately exceeds 0–100, so don't collapse it into the box.
+    const freeBoard = !(floor.venueWidthM && floor.venueLengthM);
+    const lo = freeBoard ? -200 : 2;
+    const hi = freeBoard ? 600 : 98;
+    const xPct = Math.max(lo, Math.min(hi, (d.x / room.w + 0.5) * 100));
+    const yPct = Math.max(lo, Math.min(hi, (d.z / room.d + 0.5) * 100));
     setTables((prev) => prev.map((t) => (t.id === d.id ? { ...t, xPct, yPct } : t)));
-  }, [room]);
+    if (canEdit) {
+      const fd = new FormData();
+      fd.set('event_id', eventId);
+      fd.set('lock_id', lock.lockId ?? '');
+      fd.set('table_id', d.id);
+      fd.set('x_pos', String(xPct));
+      fd.set('y_pos', String(yPct));
+      void persist(() => updateTablePosition(fd));
+    }
+  }, [room, floor, canEdit, eventId, lock.lockId, persist]);
 
   useEffect(() => {
     // Commit on pointerup AND on interruptions (pointercancel / window blur):
@@ -123,16 +208,22 @@ export default function SeatingLab3D({ tables: initialTables, floor, guests, pal
 
   const onTableDown = useCallback(
     (id: string) => {
+      if (mode !== 'build') return; // no selection in Play (avoids a ghost carry-over)
       setSelectedId(id);
-      if (mode !== 'build') return;
+      if (!canEdit) return; // view-only: select to inspect, but don't drag
       const t = tablesById.get(id);
       if (!t) return;
       const w = pctToWorld(t.xPct, t.yPct, room);
       dragRef.current = { id, x: w.x, z: w.z };
       setDraggingId(id);
     },
-    [mode, room, tablesById],
+    [mode, canEdit, room, tablesById],
   );
+
+  // Clear any selection when leaving Build so it doesn't linger into Play.
+  useEffect(() => {
+    if (mode === 'play') setSelectedId(null);
+  }, [mode]);
 
   const onFloorMove = useCallback(
     (e: ThreeEvent<PointerEvent>) => {
@@ -145,39 +236,63 @@ export default function SeatingLab3D({ tables: initialTables, floor, guests, pal
 
   const onFloorClick = useCallback(
     (e: ThreeEvent<MouseEvent>) => {
-      // R3F fires this native `click` even after a drag (orbit OR table move),
-      // which would deselect / drop a stray table. `e.delta` is the pointer's
-      // pixel travel since pointerdown — ignore anything that actually moved.
+      // R3F fires this native `click` even after a drag (orbit OR table move).
+      // `e.delta` is the pointer's pixel travel — ignore anything that moved.
       if (e.delta > 4) return;
-      if (mode !== 'build' || !addArmed) {
-        if (mode === 'build') setSelectedId(null);
-        return;
-      }
-      const xPct = Math.max(2, Math.min(98, (e.point.x / room.w + 0.5) * 100));
-      const yPct = Math.max(2, Math.min(98, (e.point.z / room.d + 0.5) * 100));
-      NEW_SEQ += 1;
-      const id = `new-${NEW_SEQ}`;
-      setTables((prev) => [
-        ...prev,
-        {
-          id,
-          label: `Table ${prev.length + 1}`,
-          type: 'round_10',
-          shape: 'round',
-          capacity: 10,
-          removedSeats: [],
-          xPct,
-          yPct,
-          rotationDeg: 0,
-          linkGroupId: null,
-          isNew: true,
-        },
-      ]);
-      setSelectedId(id);
-      setAddArmed(false);
+      if (mode === 'build') setSelectedId(null);
     },
-    [mode, addArmed, room],
+    [mode],
   );
+
+  // Add a table → createTable (lock-gated), then refresh so the new row (with
+  // its real id) flows in. It lands at the 2D grid-default spot; drag to place
+  // (which persists). Dropping at the exact tapped point needs createTable to
+  // accept a position — a documented follow-up, not done here.
+  const addTable = useCallback(() => {
+    if (!canEdit) {
+      setNotice('You don’t have edit access — a 2D editor may be open.');
+      return;
+    }
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
+    fd.set('table_label', `Table ${tables.length + 1}`);
+    fd.set('table_type', 'round_10');
+    fd.set('capacity', '10');
+    void persist(async () => {
+      await createTable(fd);
+      router.refresh();
+    });
+  }, [canEdit, eventId, lock.lockId, tables.length, persist, router]);
+
+  const rotateSelected = useCallback(
+    (delta: number) => {
+      if (!selectedId || !canEdit) return;
+      const cur = tablesById.get(selectedId);
+      if (!cur) return;
+      const next = (((Math.round((cur.rotationDeg + delta) / 15) * 15) % 360) + 360) % 360;
+      setTables((prev) => prev.map((t) => (t.id === selectedId ? { ...t, rotationDeg: next } : t)));
+      const fd = new FormData();
+      fd.set('event_id', eventId);
+      fd.set('lock_id', lock.lockId ?? '');
+      fd.set('table_id', selectedId);
+      fd.set('rotation_deg', String(next));
+      void persist(() => updateTableRotation(fd));
+    },
+    [selectedId, canEdit, tablesById, eventId, lock.lockId, persist],
+  );
+
+  const deleteSelected = useCallback(() => {
+    if (!selectedId || !canEdit) return;
+    const id = selectedId;
+    setTables((prev) => prev.filter((t) => t.id !== id));
+    setSelectedId(null);
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
+    fd.set('table_id', id);
+    void persist(() => deleteTable(fd));
+  }, [selectedId, canEdit, eventId, lock.lockId, persist]);
 
   // Pick a guest → walk to their seat (seating them in the first free chair if
   // they have none), steering around the other tables.
@@ -261,7 +376,7 @@ export default function SeatingLab3D({ tables: initialTables, floor, guests, pal
             selected={selectedId === t.id}
             dragging={draggingId === t.id}
             dragRef={dragRef}
-            interactive={mode === 'build'}
+            interactive={mode === 'build' && canEdit}
             onDown={onTableDown}
           />
         ))}
@@ -286,14 +401,16 @@ export default function SeatingLab3D({ tables: initialTables, floor, guests, pal
           />
         ) : null}
 
+        <CameraRig mode={mode} room={room} onBusy={setCamBusy} />
         <OrbitControls
           makeDefault
-          enabled={!draggingId && !addArmed}
+          enabled={!draggingId && !camBusy}
           enableDamping
           dampingFactor={0.08}
           minDistance={6}
           maxDistance={room.d * 3}
-          maxPolarAngle={Math.PI / 2 - 0.04}
+          minPolarAngle={mode === 'build' ? 0.05 : 0.18}
+          maxPolarAngle={mode === 'build' ? 0.62 : Math.PI / 2 - 0.04}
           target={[0, 0.5, 0]}
         />
       </Canvas>
@@ -301,8 +418,14 @@ export default function SeatingLab3D({ tables: initialTables, floor, guests, pal
       <Hud
         mode={mode}
         setMode={setMode}
-        addArmed={addArmed}
-        setAddArmed={setAddArmed}
+        canEdit={canEdit}
+        lockStatus={lock.status}
+        onTakeOver={lock.acquire}
+        notice={notice}
+        onDismissNotice={() => setNotice(null)}
+        onAddTable={addTable}
+        onRotate={rotateSelected}
+        onDelete={deleteSelected}
         paletteKey={paletteKey}
         setPaletteKey={setPaletteKey}
         guests={guests}
@@ -316,6 +439,44 @@ export default function SeatingLab3D({ tables: initialTables, floor, guests, pal
       />
     </div>
   );
+}
+
+/* --------------------------- Sims build camera --------------------------- */
+
+// Build mode eases the camera to a near-top-down angle (precise placement,
+// Sims-style); Play mode eases to a lower cinematic orbit. While easing,
+// `onBusy(true)` parks OrbitControls so the user input and the tween don't
+// fight; the per-mode polar clamps on OrbitControls keep the user within range.
+function CameraRig({
+  mode,
+  room,
+  onBusy,
+}: {
+  mode: 'build' | 'play';
+  room: { w: number; d: number };
+  onBusy: (b: boolean) => void;
+}) {
+  const { camera } = useThree();
+  const target = useRef(new THREE.Vector3());
+  const easing = useRef(false);
+  useEffect(() => {
+    if (mode === 'build') target.current.set(0, room.d * 1.9, room.d * 0.3);
+    else target.current.set(0, room.d * 1.05 + 6, room.d * 0.95 + 6);
+    easing.current = true;
+    onBusy(true);
+  }, [mode, room, onBusy]);
+  useFrame((_, dt) => {
+    if (!easing.current) return;
+    camera.position.lerp(target.current, Math.min(1, dt * 3.2));
+    camera.lookAt(0, 0.5, 0);
+    if (camera.position.distanceTo(target.current) < 0.06) {
+      camera.position.copy(target.current); // deterministic final composition
+      camera.lookAt(0, 0.5, 0);
+      easing.current = false;
+      onBusy(false);
+    }
+  });
+  return null;
 }
 
 /* ----------------------------- Scene meshes ----------------------------- */
@@ -571,8 +732,14 @@ function Walker({
 function Hud({
   mode,
   setMode,
-  addArmed,
-  setAddArmed,
+  canEdit,
+  lockStatus,
+  onTakeOver,
+  notice,
+  onDismissNotice,
+  onAddTable,
+  onRotate,
+  onDelete,
   paletteKey,
   setPaletteKey,
   guests,
@@ -586,8 +753,14 @@ function Hud({
 }: {
   mode: 'build' | 'play';
   setMode: (m: 'build' | 'play') => void;
-  addArmed: boolean;
-  setAddArmed: (v: boolean) => void;
+  canEdit: boolean;
+  lockStatus: string;
+  onTakeOver: () => void;
+  notice: string | null;
+  onDismissNotice: () => void;
+  onAddTable: () => void;
+  onRotate: (delta: number) => void;
+  onDelete: () => void;
   paletteKey: string;
   setPaletteKey: (k: string) => void;
   guests: Lab3DGuest[];
@@ -619,28 +792,55 @@ function Hud({
             </button>
           ))}
         </div>
-        <div className={`pointer-events-auto px-3 py-1.5 text-[11px] font-medium uppercase tracking-wider text-white/80 ${glass}`}>
-          Prototype · not saved
+        <div className={`pointer-events-auto px-3 py-1.5 text-[11px] font-medium uppercase tracking-wider ${glass} ${canEdit ? 'text-white/80' : 'text-amber-200'}`}>
+          {canEdit ? 'Editing · saves to 2D' : lockStatus === 'acquiring' ? 'Connecting…' : 'View only'}
         </div>
       </div>
+
+      {/* Save-error / view-only notice */}
+      {notice ? (
+        <div className={`pointer-events-auto absolute left-1/2 top-16 flex -translate-x-1/2 items-center gap-3 px-4 py-2 text-sm text-amber-100 ${glass}`}>
+          <span>{notice}</span>
+          <button type="button" onClick={onDismissNotice} className="text-white/60 hover:text-white">✕</button>
+        </div>
+      ) : null}
 
       {/* Left: guest list (Play) or build controls (Build) */}
       <div className="absolute bottom-4 left-4 top-20 flex w-64 flex-col gap-3">
         {mode === 'build' ? (
           <div className={`p-3 ${glass}`}>
             <p className="mb-2 text-sm font-medium">Build</p>
-            <button
-              type="button"
-              onClick={() => setAddArmed(!addArmed)}
-              className={`mb-2 w-full rounded-xl px-3 py-2 text-sm font-medium transition ${
-                addArmed ? 'bg-white text-ink' : 'bg-white/10 text-white hover:bg-white/20'
-              }`}
-            >
-              {addArmed ? 'Tap the floor to drop a table' : '+ Add a table'}
-            </button>
+            {!canEdit ? (
+              <div className="mb-2 rounded-xl bg-amber-400/15 p-2.5 text-xs leading-relaxed text-amber-100">
+                {lockStatus === 'acquiring' ? 'Connecting…' : 'Viewing only — another editor may be open.'}
+                {lockStatus !== 'acquiring' ? (
+                  <button type="button" onClick={onTakeOver} className="mt-1.5 block w-full rounded-lg bg-white/90 px-2 py-1.5 font-medium text-ink hover:bg-white">
+                    {lockStatus === 'stale_takeover_available' ? 'Take over editing' : 'Start editing'}
+                  </button>
+                ) : null}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={onAddTable}
+                className="mb-2 w-full rounded-xl bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/20"
+              >
+                + Add a table
+              </button>
+            )}
+            {selectedLabel ? (
+              <div className="mb-2 rounded-xl bg-white/[0.06] p-2.5">
+                <p className="mb-1.5 truncate text-xs font-medium text-white/85">{selectedLabel}</p>
+                <div className="flex items-center gap-1.5">
+                  <button type="button" disabled={!canEdit} onClick={() => onRotate(-15)} aria-label="Rotate left" className="flex-1 rounded-lg bg-white/10 py-1.5 text-sm text-white hover:bg-white/20 disabled:opacity-40">⟲</button>
+                  <button type="button" disabled={!canEdit} onClick={() => onRotate(15)} aria-label="Rotate right" className="flex-1 rounded-lg bg-white/10 py-1.5 text-sm text-white hover:bg-white/20 disabled:opacity-40">⟳</button>
+                  <button type="button" disabled={!canEdit} onClick={onDelete} className="flex-1 rounded-lg bg-danger-500/30 py-1.5 text-sm text-white hover:bg-danger-500/50 disabled:opacity-40">Delete</button>
+                </div>
+              </div>
+            ) : null}
             <p className="text-xs leading-relaxed text-white/70">
-              Drag a table to slide it. {selectedLabel ? `Selected: ${selectedLabel}. ` : ''}Drag empty
-              space to orbit · scroll to zoom.
+              {canEdit ? 'Tap a table to select · drag to slide it. ' : ''}Drag empty space to orbit ·
+              scroll to zoom.
             </p>
             <p className="mt-2 text-[11px] text-white/50">{tableCount} tables</p>
           </div>

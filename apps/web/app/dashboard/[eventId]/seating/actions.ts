@@ -13,12 +13,14 @@ import {
   effectiveCapacity,
   fetchAssignments,
   fetchFloorPlan,
+  fetchSeatingConstraints,
   fetchTables,
   parsePriorityOrder,
   recommendTableSet,
   removedSeatSet,
   roleTier,
   shapeHintFor,
+  solveSeatPlan,
   tableGeometry,
   type AutoSeatGuest,
   type BoothType,
@@ -504,6 +506,83 @@ export async function savePriorityOrder(formData: FormData) {
     },
     { onConflict: 'event_id' },
   );
+  if (error) throw new Error(error.message);
+
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
+  revalidatePath(`/dashboard/${eventId}/seating`);
+}
+
+// Keep-apart constraints (smart seat-plan · Phase 3). Couple-private rules that
+// two guests must never share a table; the solver expands each to both guests'
+// groups at solve time. Lock-gated like every seating mutation; RLS keeps them
+// couple-only. Guest ids are validated as UUIDs before use in any filter.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export async function addSeatingConstraint(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const a = formData.get('guest_a_id');
+  const b = formData.get('guest_b_id');
+  if (
+    typeof eventId !== 'string' ||
+    eventId.length === 0 ||
+    typeof a !== 'string' ||
+    typeof b !== 'string' ||
+    !UUID_RE.test(a) ||
+    !UUID_RE.test(b) ||
+    a === b
+  ) {
+    throw new Error('Invalid input');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+
+  const { error } = await supabase
+    .from('event_seating_constraints')
+    .insert({ event_id: eventId, kind: 'keep_apart', guest_a_id: a, guest_b_id: b });
+  // 23505 = the unordered-pair unique index → the rule already exists (in either
+  // direction); adding it again is an idempotent no-op, not an error.
+  if (error && error.code !== '23505') throw new Error(error.message);
+
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
+  revalidatePath(`/dashboard/${eventId}/seating`);
+}
+
+export async function removeSeatingConstraint(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const a = formData.get('guest_a_id');
+  const b = formData.get('guest_b_id');
+  if (
+    typeof eventId !== 'string' ||
+    eventId.length === 0 ||
+    typeof a !== 'string' ||
+    typeof b !== 'string' ||
+    !UUID_RE.test(a) ||
+    !UUID_RE.test(b)
+  ) {
+    throw new Error('Invalid input');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+
+  // Delete the rule regardless of which order the pair was stored in. Both ids
+  // are UUID-validated above, so the PostgREST or-filter is injection-safe.
+  const { error } = await supabase
+    .from('event_seating_constraints')
+    .delete()
+    .eq('event_id', eventId)
+    .or(`and(guest_a_id.eq.${a},guest_b_id.eq.${b}),and(guest_a_id.eq.${b},guest_b_id.eq.${a})`);
   if (error) throw new Error(error.message);
 
   await refreshSeatingLock(supabase, lockIdFrom(formData));
@@ -1241,7 +1320,9 @@ export async function setGuestSeatingPriority(formData: FormData) {
 // anchors, then run the deterministic role-tier auto-seat against the NEW
 // positions so "nearest the stage" means the layout that was just made.
 // Seating stays idempotent (already-seated guests never move).
-export async function autoArrange(formData: FormData): Promise<{ seated: number }> {
+export async function autoArrange(
+  formData: FormData,
+): Promise<{ seated: number; totalRules: number; satisfiedRules: number; unsatisfiedRules: number }> {
   const eventId = formData.get('event_id');
   const positionsRaw = formData.get('positions');
   if (typeof eventId !== 'string' || eventId.length === 0 || typeof positionsRaw !== 'string') {
@@ -1265,12 +1346,13 @@ export async function autoArrange(formData: FormData): Promise<{ seated: number 
   const lockId = lockIdFrom(formData);
   await assertSeatingLockHeld(supabase, eventId, lockId);
 
-  const [tables, assignments, guests, floorPlan, memberships] = await Promise.all([
+  const [tables, assignments, guests, floorPlan, memberships, constraints] = await Promise.all([
     fetchTables(supabase, eventId),
     fetchAssignments(supabase, eventId),
     fetchGuestsByEvent(supabase, eventId),
     fetchFloorPlan(supabase, eventId),
     fetchGroupMembershipsByEvent(supabase, eventId),
+    fetchSeatingConstraints(supabase, eventId),
   ]);
 
   // Persist positions — only for tables that really belong to this event, with
@@ -1310,10 +1392,26 @@ export async function autoArrange(formData: FormData): Promise<{ seated: number 
     group_id: memberships.get(g.guest_id)?.[0] ?? null,
     seating_priority: g.seating_priority ?? null,
   }));
-  const rows = computeAutoSeat(arrangedTables, autoSeatGuestList, assignments, {
-    x: floorPlan.stage_x,
-    y: floorPlan.stage_y,
-  });
+  // Honour the couple's saved priority order (Phase 2) and, when keep-apart
+  // rules exist, run the constraint-aware solver (Phase 3) instead of the plain
+  // seater. Both consume the same stage + priority; the solver adds graceful
+  // keep-apart separation. No rules → identical to the priority-only path.
+  const stage = { x: floorPlan.stage_x, y: floorPlan.stage_y };
+  const solved =
+    constraints.length > 0
+      ? solveSeatPlan({
+          tables: arrangedTables,
+          guests: autoSeatGuestList,
+          assignments,
+          stage,
+          priorityOrder: floorPlan.priority_order,
+          constraints,
+          groupMembers: memberships,
+        })
+      : null;
+  const rows =
+    solved?.assignments ??
+    computeAutoSeat(arrangedTables, autoSeatGuestList, assignments, stage, floorPlan.priority_order);
   if (rows.length > 0) {
     const { error } = await supabase.from('event_seat_assignments').insert(
       rows.map((r) => ({
@@ -1328,7 +1426,13 @@ export async function autoArrange(formData: FormData): Promise<{ seated: number 
 
   await refreshSeatingLock(supabase, lockId);
   revalidatePath(`/dashboard/${eventId}/seating`);
-  return { seated: rows.length };
+  // Surface keep-apart outcome so the editor can show "honored X/Y rules".
+  return {
+    seated: rows.length,
+    totalRules: solved?.totalRules ?? 0,
+    satisfiedRules: solved?.satisfiedCount ?? 0,
+    unsatisfiedRules: solved?.violations.length ?? 0,
+  };
 }
 
 // "Build my seating" — generate a complete, editable starting draft from the

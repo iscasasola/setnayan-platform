@@ -10,12 +10,14 @@ import assert from 'node:assert/strict';
 import {
   groupTablesIntoUnits,
   computeAutoSeat,
+  solveSeatPlan,
   defaultPriorityOrder,
   parsePriorityOrder,
   resolvePriorityRank,
   type EventTableRow,
   type AutoSeatGuest,
   type PriorityOrder,
+  type KeepApartRule,
 } from './seating';
 
 // Checked index access — the repo typechecks with noUncheckedIndexedAccess, so a
@@ -195,4 +197,131 @@ test('computeAutoSeat: the priority order decides who gets the stage-closest tab
   const re = computeAutoSeat([near, far], [a, b], [], stage, reordered);
   assert.equal(tableOf(re, 'b'), 'near');
   assert.equal(tableOf(re, 'a'), 'far');
+});
+
+// ---------------------------------------------------------------------------
+// Smart seat-plan · Phase 3 — keep-apart constraint solver (solveSeatPlan).
+// Load-bearing invariants: keep-apart is HARD + GROUP-AWARE + LINK-GROUP-AWARE;
+// the solver degrades gracefully (best-effort + violations, never throws) and is
+// deterministic.
+// ---------------------------------------------------------------------------
+
+const STAGE = { x: 50, y: 8 };
+// Link-group unit key the solver uses for "same table" (linked tables = 1 pool).
+const unitKey = (tables: EventTableRow[], tableId: string) => {
+  const t = tables.find((x) => x.table_id === tableId);
+  return t?.link_group_id ?? tableId;
+};
+const seatTableOf = (rows: { guest_id: string; table_id: string }[], id: string) =>
+  rows.find((r) => r.guest_id === id)?.table_id;
+
+test('solveSeatPlan with no rules returns the plain warm-start (back-compatible)', () => {
+  const tables = [tbl({ table_id: 't1', capacity: 10, x_pos: 50, y_pos: 15 })];
+  const guests = [guest({ guest_id: 'a' }), guest({ guest_id: 'b' })];
+  const warm = computeAutoSeat(tables, guests, [], STAGE, null);
+  const res = solveSeatPlan({ tables, guests, assignments: [], stage: STAGE, constraints: [] });
+  assert.deepEqual(res.assignments, warm);
+  assert.equal(res.totalRules, 0);
+  assert.deepEqual(res.violations, []);
+});
+
+test('solveSeatPlan separates a keep-apart pair onto different tables (satisfiable)', () => {
+  // Two roomy tables; warm-start co-seats both at the nearer one → the solver moves one.
+  const tables = [
+    tbl({ table_id: 'near', capacity: 10, x_pos: 50, y_pos: 15 }),
+    tbl({ table_id: 'far', capacity: 10, x_pos: 50, y_pos: 90 }),
+  ];
+  const guests = [guest({ guest_id: 'a' }), guest({ guest_id: 'b' })];
+  const constraints: KeepApartRule[] = [{ guest_a_id: 'a', guest_b_id: 'b' }];
+  const res = solveSeatPlan({ tables, guests, assignments: [], stage: STAGE, constraints });
+  assert.notEqual(seatTableOf(res.assignments, 'a'), seatTableOf(res.assignments, 'b'));
+  assert.deepEqual(res.violations, []);
+  assert.equal(res.satisfiedCount, 1);
+  assert.equal(res.totalRules, 1);
+});
+
+test('solveSeatPlan is GROUP-AWARE: a pair rule separates both guests whole groups', () => {
+  const tables = [
+    tbl({ table_id: 'near', capacity: 10, x_pos: 50, y_pos: 15 }),
+    tbl({ table_id: 'far', capacity: 10, x_pos: 50, y_pos: 90 }),
+  ];
+  // A,A2 in group G1; B,B2 in group G2. Rule is only on (a,b).
+  const guests = [
+    guest({ guest_id: 'a', group_id: 'G1' }),
+    guest({ guest_id: 'a2', group_id: 'G1' }),
+    guest({ guest_id: 'b', group_id: 'G2' }),
+    guest({ guest_id: 'b2', group_id: 'G2' }),
+  ];
+  const groupMembers = new Map<string, string[]>([
+    ['a', ['G1']],
+    ['a2', ['G1']],
+    ['b', ['G2']],
+    ['b2', ['G2']],
+  ]);
+  const constraints: KeepApartRule[] = [{ guest_a_id: 'a', guest_b_id: 'b' }];
+  const res = solveSeatPlan({ tables, guests, assignments: [], stage: STAGE, constraints, groupMembers });
+  // No G1 member may share a unit with any G2 member — even though only (a,b) was a rule.
+  const g1 = ['a', 'a2'];
+  const g2 = ['b', 'b2'];
+  for (const x of g1) {
+    for (const y of g2) {
+      assert.notEqual(
+        unitKey(tables, seatTableOf(res.assignments, x)!),
+        unitKey(tables, seatTableOf(res.assignments, y)!),
+        `${x} and ${y} must not share a table`,
+      );
+    }
+  }
+  assert.deepEqual(res.violations, []);
+});
+
+test('solveSeatPlan is LINK-GROUP-AWARE: keep-apart guests never share a linked unit', () => {
+  // Two linked tables (one pool) + one separate table. Warm-start co-seats both
+  // in the linked unit; the solver must move one to the unlinked table — putting
+  // them on the two linked member tables would NOT satisfy the rule.
+  const tables = [
+    tbl({ table_id: 'L1', capacity: 2, x_pos: 48, y_pos: 15, link_group_id: 'L', link_group_label: 'Joined' }),
+    tbl({ table_id: 'L2', capacity: 2, x_pos: 52, y_pos: 15, link_group_id: 'L', link_group_label: 'Joined' }),
+    tbl({ table_id: 'solo', capacity: 10, x_pos: 50, y_pos: 90 }),
+  ];
+  const guests = [guest({ guest_id: 'a' }), guest({ guest_id: 'b' })];
+  const constraints: KeepApartRule[] = [{ guest_a_id: 'a', guest_b_id: 'b' }];
+  const res = solveSeatPlan({ tables, guests, assignments: [], stage: STAGE, constraints });
+  assert.notEqual(
+    unitKey(tables, seatTableOf(res.assignments, 'a')!),
+    unitKey(tables, seatTableOf(res.assignments, 'b')!),
+  );
+  assert.deepEqual(res.violations, []);
+});
+
+test('solveSeatPlan degrades gracefully when over-constrained (best-effort + violations, no throw)', () => {
+  // One 2-seat table, two keep-apart guests: impossible to separate.
+  const tables = [tbl({ table_id: 'only', capacity: 2, x_pos: 50, y_pos: 15 })];
+  const guests = [guest({ guest_id: 'a' }), guest({ guest_id: 'b' })];
+  const constraints: KeepApartRule[] = [{ guest_a_id: 'a', guest_b_id: 'b' }];
+  const res = solveSeatPlan({ tables, guests, assignments: [], stage: STAGE, constraints });
+  assert.equal(res.assignments.length, 2); // everyone still seated
+  assert.equal(res.violations.length, 1);
+  assert.equal(res.satisfiedCount, 0);
+  assert.equal(res.totalRules, 1);
+});
+
+test('solveSeatPlan is deterministic — same input yields an identical plan', () => {
+  const tables = [
+    tbl({ table_id: 'near', capacity: 4, x_pos: 50, y_pos: 15 }),
+    tbl({ table_id: 'far', capacity: 4, x_pos: 50, y_pos: 90 }),
+  ];
+  const guests = [
+    guest({ guest_id: 'a' }),
+    guest({ guest_id: 'b' }),
+    guest({ guest_id: 'c' }),
+    guest({ guest_id: 'd' }),
+  ];
+  const constraints: KeepApartRule[] = [
+    { guest_a_id: 'a', guest_b_id: 'b' },
+    { guest_a_id: 'c', guest_b_id: 'd' },
+  ];
+  const r1 = solveSeatPlan({ tables, guests, assignments: [], stage: STAGE, constraints });
+  const r2 = solveSeatPlan({ tables, guests, assignments: [], stage: STAGE, constraints });
+  assert.deepEqual(r1, r2);
 });

@@ -14,6 +14,7 @@ import {
   fetchAssignments,
   fetchBooths,
   fetchFloorPlan,
+  fetchSeatingConstraints,
   fetchSigns,
   fetchTables,
   groupColorFor,
@@ -33,7 +34,7 @@ export default async function SeatingPage({ params }: Props) {
   if (!user) redirect('/login');
   const supabase = await createClient();
 
-  const [tables, assignments, guests, groupsRaw, memberships, floorPlan, booths, signs, eventRow] =
+  const [tables, assignments, guests, groupsRaw, memberships, floorPlan, booths, signs, eventRow, constraints] =
     await Promise.all([
       fetchTables(supabase, eventId),
       fetchAssignments(supabase, eventId),
@@ -44,6 +45,7 @@ export default async function SeatingPage({ params }: Props) {
       fetchBooths(supabase, eventId),
       fetchSigns(supabase, eventId),
       supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle(),
+      fetchSeatingConstraints(supabase, eventId),
     ]);
   const eventDate = (eventRow.data?.event_date as string | null) ?? null;
 
@@ -141,6 +143,7 @@ export default async function SeatingPage({ params }: Props) {
         floorPlan={floorPlan}
         booths={booths}
         signs={signs}
+        constraints={constraints}
         me={{
           id: user.id,
           name:

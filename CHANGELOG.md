@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-21 · chore(nav): lint-guard the locked BottomNav frosted fill (NAV-9 hardening)
+
+The redesign verifier found that `scripts/lint-bottom-nav.mjs` protected the bar's tuning knobs + animation hooks + aria-label, but **not** its frosted-paper fill — so an edit could silently change or strip `rgba(248, 246, 240, 0.92)` (the `--m-paper-2` @ 92% surface the locked white press-light reads against) and the guard would still pass, leaving the press bloom invisible.
+
+- Added `'rgba(248, 246, 240, 0.92)'` to `REQUIRED_MARKERS`. The integrity check already does `canonicalSrc.includes(marker)` for every entry, so this one line pins the fill — any future edit to it now fails the build with the existing owner-lock message.
+
+Verified: `pnpm lint:botnav` ✓ (the literal exists at `bottom-nav.tsx:684`, so the guard passes today and protects it going forward).
+
+Deferred (needs owner sign-off — NOT done here): the **≤5 tab-count assertion** half of NAV-1/NAV-9 hardening. A reliable build-time ≤5 guard requires lowering the template's own `Math.min(items.length, 6)` clamp to 5 — which is an edit to the owner-locked `bottom-nav.tsx` AND would disagree with the accordion path's "6 fixed top-level menus" contract until reconciled. Surfaced rather than silently changed.
+
+SPEC IMPACT: None (lint-guard hardening on the owner-locked template; no behavior change).
+
 ## 2026-06-21 · fix(studio): Save-the-Date "About" page no longer collides with the builder route
 
 The Studio tile for Save-the-Date links (via `appStoreDetailHref('save-the-date')`) to `/studio/save-the-date/about`. But Save-the-Date owns a *literal* route folder (`studio/save-the-date/` — the builder + `loading.tsx`), which in Next.js **shadows** the dynamic `studio/[addon]/about` route. So that path fell through to the builder, and via client-side navigation the static/dynamic collision threw the branded error boundary (the `Reference: …` 500 the owner hit on `/studio/save-the-date/about`). Every other feature's About page works because they reach `[addon]/about`; `save-the-date` did not.

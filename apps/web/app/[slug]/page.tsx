@@ -738,6 +738,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     return (
       <PublicLanding
         event={event}
+        monogram={monogram}
         animatedMonogram={animatedMonogram}
         reason={inviteError === 'invalid_token' ? 'invalid_invite' : null}
         dayOfPhase={dayOfPhase}
@@ -769,6 +770,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     return (
       <PublicLanding
         event={event}
+        monogram={monogram}
         animatedMonogram={animatedMonogram}
         reason="wrong_event"
         dayOfPhase={dayOfPhase}
@@ -807,6 +809,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     return (
       <PublicLanding
         event={event}
+        monogram={monogram}
         animatedMonogram={animatedMonogram}
         reason="invalid_invite"
         dayOfPhase={dayOfPhase}
@@ -1304,6 +1307,7 @@ function HeroBackgroundMedia({
 
 function PublicLanding({
   event,
+  monogram,
   animatedMonogram,
   reason,
   dayOfPhase,
@@ -1327,10 +1331,17 @@ function PublicLanding({
   bespokeSvg,
 }: {
   event: EventRow;
+  // The couple's resolved mark (resolveMonogram) — feeds the anonymous hero's
+  // HeroMonogram so the highest-traffic shared-link open shows the SAME mark as
+  // the signed-in InvitationSite / PrivateLanding hero (owner 2026-06-22
+  // animated-logo rollout — this path showed plain initials with no mark).
+  monogram: MonogramConfig;
   // The chosen Motion Library signature when the event owns the paid
   // ANIMATED_MONOGRAM upgrade, or false → static hero circle. Threaded into
-  // the STD film's monogram beats. Mirrors InvitationSite's prop.
-  animatedMonogram?: MonogramMotionKey | false;
+  // the hero monogram + the STD film's monogram beats. Required (all 3 call
+  // sites pass it) so it can feed HeroMonogram, which needs a non-optional
+  // value. Mirrors InvitationSite's / PrivateLanding's prop.
+  animatedMonogram: MonogramMotionKey | false;
   reason?: 'invalid_invite' | 'wrong_event' | null;
   dayOfPhase: DayOfPhase;
   // Website lifecycle-phase engine (Increment C · flag-dark). When
@@ -1382,9 +1393,11 @@ function PublicLanding({
   liveWall?: LiveWallData | null;
   /** Panood Watch-Live — non-null only during the live window when PANOOD_SYSTEM is active + a watch URL is staged. */
   watchLive?: WatchLiveData | null;
-  /** Sanitized bespoke monogram SVG (uploaded ?? Cipher) — feeds the STD film's
-   *  monogram beats. null → the film uses text initials. */
-  bespokeSvg?: string | null;
+  /** Sanitized bespoke monogram SVG (uploaded ?? Cipher) — feeds the anonymous
+   *  hero's HeroMonogram + the STD film's monogram beats. Required (all call
+   *  sites pass it) so HeroMonogram, which needs a non-optional value, can
+   *  consume it. null → text initials. Mirrors InvitationSite / PrivateLanding. */
+  bespokeSvg: string | null;
 }) {
   // Public-safe hideable widgets in the host's display order. The 6
   // types below all carry event-level data (no per-guest fields) so
@@ -1474,6 +1487,18 @@ function PublicLanding({
             <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
               You&rsquo;re invited
             </p>
+            {/* The couple's mark — mirrors InvitationSite's hero so the anonymous
+                shared-link open shows the SAME monogram (animated when the paid
+                upgrade is owned), not just plain initials. */}
+            <div className="flex justify-center">
+              <HeroMonogram
+                event={event}
+                monogram={monogram}
+                animatedMonogram={animatedMonogram}
+                bespokeSvg={bespokeSvg}
+                shadow
+              />
+            </div>
             {/* Italic serif treatment for the couple's display name —
                 structural typography enhancement from v2.1 guest-microsite
                 template (CLAUDE.md 2026-05-28 row 11 guest-microsite port,
@@ -1531,6 +1556,17 @@ function PublicLanding({
             <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
               You&rsquo;re invited
             </p>
+            {/* The couple's mark — mirrors InvitationSite's cream-on-cream hero so
+                the anonymous shared-link open shows the SAME monogram (animated
+                when the paid upgrade is owned), not just plain initials. */}
+            <div className="flex justify-center">
+              <HeroMonogram
+                event={event}
+                monogram={monogram}
+                animatedMonogram={animatedMonogram}
+                bespokeSvg={bespokeSvg}
+              />
+            </div>
             {/* Italic serif treatment — see comment on the heroPhotoUrl
                 branch above. Same structural typography enhancement from
                 v2.1 template; couple palette tokens unchanged. */}

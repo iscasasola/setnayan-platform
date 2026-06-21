@@ -199,28 +199,32 @@ export default async function WebsiteHubPage({
               Your page through time
             </p>
             <p className="max-w-prose text-sm text-ink/70">
-              Your page changes as the day nears — guests always see the phase
-              that fits the date. Preview each one here.
+              Your page has four parts — guests always see the one that fits the
+              date. Edit each part on its own, or preview how it looks.
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <PhasePreview
-              href={`${publicLandingUrl}?phase=save_the_date`}
+            <PhasePart
+              editHref={`/dashboard/${eventId}/studio/save-the-date`}
+              previewHref={`${publicLandingUrl}?phase=save_the_date`}
               title="Save the Date"
               blurb="Far out — the announcement. Countdown + add-to-calendar."
             />
-            <PhasePreview
-              href={`${publicLandingUrl}?phase=rsvp`}
+            <PhasePart
+              editHref={`/site-editor/${eventId}/rsvp`}
+              previewHref={`${publicLandingUrl}?phase=rsvp`}
               title="RSVP"
               blurb="The run-up — your invitation and the RSVP form."
             />
-            <PhasePreview
-              href={`${publicLandingUrl}?phase=event`}
+            <PhasePart
+              editHref={`/site-editor/${eventId}/event`}
+              previewHref={`${publicLandingUrl}?phase=event`}
               title="Event"
               blurb="The wedding day — the live, day-of page."
             />
-            <PhasePreview
-              href={`${publicLandingUrl}?phase=editorial`}
+            <PhasePart
+              editHref={`/site-editor/${eventId}/editorial`}
+              previewHref={`${publicLandingUrl}?phase=editorial`}
               title="Editorial"
               blurb="After — the recap, gallery, and thank-you."
             />
@@ -268,37 +272,46 @@ function QuickLink({
 }
 
 /**
- * Phase-preview chip — an external link to the public page with a forced
- * `?phase=` param. Only the signed-in host sees the forced phase (the page's
- * preview gate checks the viewer's own session), so these are safe to render.
+ * Phase part card — one of the four website parts (Save the Date · RSVP · Event
+ * · Editorial). The primary action opens that part's OWN editor (Save the Date →
+ * its builder; the other three → the full-screen site editor jumped to that
+ * phase — the same destinations as the Studio cards). The secondary "Preview"
+ * opens the public page with a host-gated `?phase=` override (the page checks the
+ * viewer's own session, so it's safe to render).
  */
-function PhasePreview({
-  href,
+function PhasePart({
+  editHref,
+  previewHref,
   title,
   blurb,
 }: {
-  href: string;
+  editHref: string;
+  previewHref: string;
   title: string;
   blurb: string;
 }) {
   return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="group flex items-start gap-3 rounded-xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/40 hover:bg-white/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-    >
+    <div className="flex flex-col rounded-xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/40">
       <span className="min-w-0 flex-1 space-y-1">
-        <span className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-          {title}
-          <ArrowUpRight
-            aria-hidden
-            className="h-3.5 w-3.5 shrink-0 opacity-50 transition-opacity group-hover:opacity-100"
-            strokeWidth={1.75}
-          />
-        </span>
+        <span className="block text-sm font-semibold text-ink">{title}</span>
         <span className="block text-xs text-ink/65">{blurb}</span>
       </span>
-    </a>
+      <div className="mt-3 flex items-center gap-2">
+        <Link
+          href={editHref}
+          className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg bg-mulberry px-3 text-xs font-semibold text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry"
+        >
+          <Pencil aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Edit
+        </Link>
+        <a
+          href={previewHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg border border-ink/20 px-3 text-xs font-medium text-ink/75 transition-colors hover:border-ink/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+        >
+          <ArrowUpRight aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Preview
+        </a>
+      </div>
+    </div>
   );
 }

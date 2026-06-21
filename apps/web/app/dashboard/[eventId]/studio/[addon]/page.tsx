@@ -92,6 +92,13 @@ async function isInternalAdmin(): Promise<boolean> {
 
 export default async function AddOnDetailPage({ params }: Props) {
   const { eventId, addon } = await params;
+  // The three website-part keys live in the full-screen editor (a top-level
+  // route OUTSIDE /dashboard), so they can't be expressed via SHIPPED_REDIRECTS
+  // (which prefixes /dashboard/[eventId]/). Mirror addOnHref()'s same-key branch
+  // so a direct hit / old bookmark to /studio/<phase> lands in the editor.
+  if (addon === 'rsvp' || addon === 'event' || addon === 'editorial') {
+    redirect(`/site-editor/${eventId}/${addon}`);
+  }
   const shipped = SHIPPED_REDIRECTS[addon];
   if (shipped) redirect(`/dashboard/${eventId}/${shipped}`);
   const meta = ADD_ON_META[addon];

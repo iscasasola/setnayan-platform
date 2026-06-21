@@ -16,6 +16,17 @@ Noted, not changed (out of scope): the data chain that *fed* the dead `Checklist
 Net: ~100 deletions, 0 additions, no behavior change (none of the removed code rendered). Verified: `pnpm typecheck` exit 0, `pnpm lint` exit 0.
 
 SPEC IMPACT: None (dead-code removal, no behavior change).
+## 2026-06-21 · feat(ux): Couple Home cockpit — redesign PR 2/N (marketplace doorway)
+
+Per-surface pass on the couple event-home (`dashboard/[eventId]/page.tsx`). Home is already the owner-approved 5-beat single-column cockpit (countdown · next-action · needs-you · recent-activity · one marketplace doorway), so it was largely on-spec already — the one *live* presentation gap was the marketplace doorway (beat 5):
+
+- **CARD-1 + VIS-11 — modernize the "Browse your matched services" doorway.** Replaced the hand-rolled `rounded-2xl border border-dashed border-ink/15 bg-cream/60` chrome with the canonical `.m-card` primitive (gaining its built-in hover-lift), and swapped the legacy **terracotta** accent on the chevron chip for Clean Editorial **mulberry** (`bg-mulberry/10 text-mulberry`), aligning it with the palette lock.
+
+Verified: `pnpm typecheck` exit 0, `pnpm lint` exit 0. Vertical rhythm left untouched (the beats self-space; the layout wrapper adds no `space-y`, so a rhythm wrapper would double-space).
+
+Noted, not changed (flagged for a separate task): the local `Checklist` function in this file (~line 1754) is **dead** (never rendered — same class as the helpers removed in #1939) and holds the file's only other `terracotta` references. Out of scope for a presentation PR; spun off separately.
+
+SPEC IMPACT: None (presentation only — palette alignment on one Home card; no SKU/schema/pricing/public-claim change).
 
 ## 2026-06-21 · feat(ux): presentation primitives — redesign PR 1/N (foundation)
 

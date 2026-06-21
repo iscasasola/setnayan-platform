@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { activateOrderSku } from '@/lib/sku-activation';
 import { uploadPublicAsset } from '@/lib/storage';
 import { sendEmail } from '@/lib/email';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
@@ -349,7 +350,24 @@ async function createSelfCompOrder(args: {
     throw new Error(orderInsert.error?.message ?? 'Could not create comp order.');
   }
 
-  return { orderId: orderInsert.data.order_id as string };
+  const orderId = orderInsert.data.order_id as string;
+
+  // Run the SKU's activation hook so a self-comped flag-backed SKU (e.g.
+  // SETNAYAN_AI's events.setnayan_ai_active boolean) is actually PROVISIONED,
+  // not merely owned. This path flips an order straight to 'paid', so without
+  // it ownership checks suppress the buy CTA while the feature gate stays dark.
+  // Mirrors admin approvePayment — the only other path that pays an order.
+  // Non-fatal + idempotent by contract (activateOrderSku never throws); a null
+  // serviceKey (ad-hoc self-comp) resolves to '' → no registered hook → no-op.
+  await activateOrderSku({
+    admin,
+    orderId,
+    eventId: args.eventId,
+    serviceKey: args.serviceKey ?? '',
+    actorUserId: args.userId,
+  });
+
+  return { orderId };
 }
 
 export async function cancelOrder(formData: FormData) {

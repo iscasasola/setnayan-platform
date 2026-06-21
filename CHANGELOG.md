@@ -23,6 +23,17 @@ Generalizes the Integration Activation Console into a **data-driven registry** s
 tsc 0 · `next lint` clean (only pre-existing warnings) · `migration:check` green. CI prod build is the gate.
 
 SPEC IMPACT DECISION_LOG row (2026-06-22) + updates memory `project_setnayan_integration_activation_console` (PR2 shipped; PR3/PR4 scoped). No spec/SKU change.
+## 2026-06-22 · fix(orders): self-comp orders now provision flag-backed SKU entitlements
+
+`createSelfCompOrder` (vendor/admin self-comp at checkout) inserts an order straight at `status='paid'` but never ran the SKU activation dispatcher — so a self-comped **flag-backed** SKU (today `SETNAYAN_AI` → `events.setnayan_ai_active`; also concierge / vendor-branch) landed *owned-but-unprovisioned*: ownership checks count the paid order so the buy CTA is suppressed, yet the feature gate reads the never-stamped flag as false and the capability stays dark. Admin `approvePayment` was the **only** caller of `activateOrderSku`.
+
+- **`app/dashboard/[eventId]/orders/actions.ts`** — after the paid order insert in `createSelfCompOrder`, call `activateOrderSku({ admin, orderId, eventId, serviceKey: args.serviceKey ?? '', actorUserId })`, mirroring `approvePayment`. The hook is non-fatal + idempotent by contract; a null `serviceKey` (ad-hoc self-comp) resolves to `''` → no registered hook → no-op. Fixes every entitlement-gated SKU self-comped this way, not just AI.
+
+**Currently latent in prod** because the Setnayan-AI paywall is parked OFF (the new DB toggle defaults to env-OFF), so `setnayan_ai_active` is inert today — but this is a real correctness bug that must land **before** the paywall is ever flipped on. No paywall flip performed.
+
+Found via the 2026-06-22 paywall flip de-risk pass (DECISION_LOG 2026-06-22). tsc 0 · `next lint` clean on the changed file · `lint:entitlement-gates` clean. CI prod build is the gate.
+
+SPEC IMPACT: None (no SKU / price / flow change — a provisioning-correctness fix). Already recorded in the corpus 2026-06-22: DECISION_LOG row + `Pricing_Collection_2026-06-14.md` §8 item #4 (precondition #3 BUG_FOUND).
 
 ---
 

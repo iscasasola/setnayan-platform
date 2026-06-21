@@ -3,7 +3,7 @@
  * in-app service.
  *
  * The Studio hub (/dashboard/[eventId]/studio) lists each feature as an App
- * Store row; tapping a row opens its detail page (./[addon]/about) — the
+ * Store row; tapping a row opens its detail page (./about/[addon]) — the
  * iOS App Store-style info surface. This module is the single source of that
  * copy.
  *

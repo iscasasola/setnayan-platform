@@ -20,6 +20,7 @@
 import Link from 'next/link';
 import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
 import { PublicMonogramStudio } from './public-monogram-studio';
+import { registerGatesEnabled } from '@/lib/register-gates';
 
 export const dynamic = 'force-static';
 export const revalidate = 3600;
@@ -83,23 +84,50 @@ const STEPS = [
 ];
 
 export default function PublicMonogramPage() {
+  // Register-gate (flag-gated · owner 2026-06-21 "Login to use it too — maximum capture;
+  // every visitor registers first"): when ON, the public studio becomes a register wall —
+  // every visitor creates a free account to design. Build-time NEXT_PUBLIC flag, so the
+  // page stays statically rendered. OFF (default) → the free no-login studio, unchanged.
+  const gated = registerGatesEnabled();
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
       <main className="mx-auto w-full max-w-6xl px-5 pb-20 pt-10 sm:pt-14">
         <header className="mx-auto max-w-2xl text-center">
-          <p className="font-mono text-xs uppercase tracking-[0.22em] text-[#8C6932]">Free · no sign-up</p>
+          <p className="font-mono text-xs uppercase tracking-[0.22em] text-[#8C6932]">{gated ? 'Free · create an account' : 'Free · no sign-up'}</p>
           <h1 className="mt-3 font-serif text-4xl leading-tight tracking-tight text-[#1E2229] sm:text-5xl">
             Make your wedding monogram
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-base text-[#5F5E5A] sm:text-lg">
             Two initials, your way — real vector outlines you can interlock, frame, and colour. Design it here for
-            free and download it crisp. No account needed.
+            free{gated ? ' — create your free account to start.' : ' and download it crisp. No account needed.'}
           </p>
         </header>
 
         <section className="mt-9" aria-label="Monogram studio">
-          <PublicMonogramStudio />
+          {gated ? (
+            <div className="mx-auto max-w-md rounded-3xl border border-[#C5A059]/40 bg-[#FBF6EA] px-6 py-12 text-center">
+              <h2 className="font-serif text-2xl text-[#1E2229] sm:text-3xl">Create your free account to design</h2>
+              <p className="mx-auto mt-3 max-w-sm text-base text-[#5F5E5A]">
+                Your monogram becomes your wedding&rsquo;s mark — saved to your account so you can refine it, download it,
+                and use it everywhere. It&rsquo;s free.
+              </p>
+              <Link
+                href="/signup?next=/monogram"
+                className="mt-6 inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-[#5C2542] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
+              >
+                Create my free account
+              </Link>
+              <p className="mt-4 text-sm text-[#5F5E5A]">
+                Already have one?{' '}
+                <Link href="/login?next=/monogram" className="font-semibold text-[#5C2542] underline">
+                  Sign in
+                </Link>
+              </p>
+            </div>
+          ) : (
+            <PublicMonogramStudio />
+          )}
         </section>
 
         <section className="mx-auto mt-16 max-w-3xl">

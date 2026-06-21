@@ -1710,10 +1710,13 @@ export default async function EventHomePage({
       </Suspense>
 
       {/* One calm doorway into the matched marketplace — replaces the CTA that
-       *  used to live inside the removed recap card. */}
+       *  used to live inside the removed recap card. Redesign (2026-06-21):
+       *  adopts the canonical `.m-card` primitive (CARD-1) with its built-in
+       *  hover-lift, and swaps the legacy terracotta accent for Clean Editorial
+       *  mulberry (VIS-11 / palette lock). */}
       <Link
         href={`/dashboard/${eventId}/vendors`}
-        className="flex items-center justify-between gap-3 rounded-2xl border border-dashed border-ink/15 bg-cream/60 px-4 py-4 transition-colors hover:bg-cream"
+        className="m-card flex items-center justify-between gap-3 px-4 py-4"
       >
         <span>
           <span className="block text-sm font-semibold text-ink">
@@ -1723,7 +1726,7 @@ export default async function EventHomePage({
             Matched to your date, venue &amp; style
           </span>
         </span>
-        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-terracotta/10 text-terracotta">
+        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-mulberry/10 text-mulberry">
           <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         </span>
       </Link>

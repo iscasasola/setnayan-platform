@@ -104,8 +104,8 @@ export default async function SeatingPage({ params }: Props) {
     <section className="space-y-3">
       {/* The hero title + description were removed so the editor canvas fills
           the screen (owner request 2026-06-21). Heading kept screen-reader-only
-          for a11y/SEO; the reserved→seated summary and walkthrough access move
-          into one compact tool-bar row above the editor. */}
+          for a11y/SEO; the reserved→seated summary sits left and walkthrough
+          access is a single icon button pinned upper-right. */}
       <h1 className="sr-only">Seating chart</h1>
       <div className="flex flex-wrap items-center justify-between gap-3">
         {/* Reserved → seated. RSVP confirmation holds a guest's place; this is
@@ -119,13 +119,15 @@ export default async function SeatingPage({ params }: Props) {
         ) : (
           <span aria-hidden />
         )}
+        {/* Walkthrough videos — icon-only so it stays out of the editor's way
+            (owner request 2026-06-21). Title/aria-label carry the meaning. */}
         <Link
           href={`/dashboard/${eventId}/seating/walkthrough`}
-          className="inline-flex w-fit items-center gap-1.5 rounded-lg border border-ink/12 bg-white px-3 py-1.5 text-sm font-medium text-ink/75 shadow-sm transition-colors hover:border-terracotta/40 hover:text-ink"
+          title="Walkthrough videos"
+          aria-label="Walkthrough videos"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-ink/12 bg-white text-terracotta shadow-sm transition-colors hover:border-terracotta/40 hover:bg-terracotta/5"
         >
-          <Video className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-          Walkthrough videos
-          <span aria-hidden className="text-ink/40">→</span>
+          <Video className="h-[18px] w-[18px]" strokeWidth={1.75} />
         </Link>
       </div>
 

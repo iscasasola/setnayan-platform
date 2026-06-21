@@ -17,6 +17,24 @@ export type SchedulePool = {
   label: string;
   capacity: number;
   categories: string[];
+  /** Named Calendars (flag): the vendor-entered calendar name, null for an
+   *  auto category pool not yet named. */
+  calendarName: string | null;
+  /** TRUE when the vendor explicitly created this calendar (vs an auto
+   *  per-category pool). */
+  isVendorCreated: boolean;
+  /** vendor_service_ids explicitly assigned to this calendar (Named Calendars
+   *  membership). Empty for a pure category pool. */
+  serviceIds: string[];
+};
+
+/** A vendor service shaped for the calendar service-picker (Named Calendars). */
+export type CalendarServiceOption = {
+  serviceId: string;
+  label: string;
+  /** The calendar (pool) this service is currently assigned to, or null when
+   *  it still falls back to its category pool. */
+  poolId: string | null;
 };
 
 export type PoolBookingEntry = {
@@ -96,11 +114,23 @@ export async function fetchVendorPools(
     }
   }
 
-  // 3. Read back pools + mappings.
-  const [{ data: pools }, { data: cats }] = await Promise.all([
+  // 3. Read back pools + mappings. Named Calendars (flag): also read the
+  //    vendor-entered name, the vendor-created marker, and explicit
+  //    service→calendar memberships.
+  const namedCalendars =
+    process.env.NEXT_PUBLIC_NAMED_CALENDARS_ENABLED === 'true';
+  // Rollout contract: the Phase A migration (which adds calendar_name /
+  // is_vendor_created / vendor_schedule_calendar_services) is applied BEFORE the
+  // flag is flipped. So the new columns + membership table are read ONLY when the
+  // flag is on — flag-off selects exactly today's columns and never touches the
+  // new table, keeping the page safe on a pre-migration DB.
+  const poolCols = namedCalendars
+    ? 'pool_id, pool_label, calendar_name, is_vendor_created, daily_booking_capacity, is_active'
+    : 'pool_id, pool_label, daily_booking_capacity, is_active';
+  const [{ data: pools }, { data: cats }, { data: members }] = await Promise.all([
     supabase
       .from('vendor_schedule_pools')
-      .select('pool_id, pool_label, daily_booking_capacity, is_active')
+      .select(poolCols)
       .eq('vendor_profile_id', vendorProfileId)
       .eq('is_active', true)
       .order('created_at', { ascending: true }),
@@ -108,6 +138,15 @@ export async function fetchVendorPools(
       .from('vendor_schedule_pool_categories')
       .select('category_key, pool_id')
       .eq('vendor_profile_id', vendorProfileId),
+    // Membership read — flag-on only; soft-probe degrades to [] if the table is
+    // somehow still absent.
+    namedCalendars
+      ? supabase
+          .from('vendor_schedule_calendar_services')
+          .select('vendor_service_id, pool_id')
+          .eq('vendor_profile_id', vendorProfileId)
+          .then((r) => (r.error ? { data: [] as { vendor_service_id: string; pool_id: string }[] } : r))
+      : Promise.resolve({ data: [] as { vendor_service_id: string; pool_id: string }[] }),
   ]);
 
   const byPool = new Map<string, string[]>();
@@ -116,29 +155,94 @@ export async function fetchVendorPools(
     list.push(row.category_key);
     byPool.set(row.pool_id, list);
   }
+  const servicesByPool = new Map<string, string[]>();
+  for (const row of (members ?? []) as { vendor_service_id: string; pool_id: string }[]) {
+    const list = servicesByPool.get(row.pool_id) ?? [];
+    list.push(row.vendor_service_id);
+    servicesByPool.set(row.pool_id, list);
+  }
 
-  return ((pools ?? []) as {
+  return ((pools ?? []) as unknown as {
     pool_id: string;
     pool_label: string;
+    calendar_name: string | null;
+    is_vendor_created: boolean | null;
     daily_booking_capacity: number;
   }[])
     .map((p) => {
       const cats2 = (byPool.get(p.pool_id) ?? []).sort();
+      const serviceIds = servicesByPool.get(p.pool_id) ?? [];
+      const categoryLabel =
+        cats2.length > 0
+          ? cats2.map(humanizeCategory).join(' · ')
+          : humanizeCategory(p.pool_label || 'Schedule');
       return {
         poolId: p.pool_id,
-        // Merged pools read as "Photo Video · Same Day Edit"; single-category
-        // pools read as the category name.
+        // Named Calendars (flag on): the vendor's own name wins. Otherwise the
+        // merged-category label ("Photo Video · Same Day Edit").
         label:
-          cats2.length > 0
-            ? cats2.map(humanizeCategory).join(' · ')
-            : humanizeCategory(p.pool_label || 'Schedule'),
+          namedCalendars && p.calendar_name && p.calendar_name.trim().length > 0
+            ? p.calendar_name.trim()
+            : categoryLabel,
         capacity: p.daily_booking_capacity,
         categories: cats2,
+        calendarName: p.calendar_name ?? null,
+        isVendorCreated: p.is_vendor_created === true,
+        serviceIds,
       };
     })
-    // Orphaned pools (no categories — e.g. after a merge moved them away)
-    // stay out of the UI; their booking history remains in the tables.
-    .filter((p) => p.categories.length > 0);
+    // Flag off: orphaned pools (no categories — e.g. after a merge moved them
+    // away) stay out of the UI; their booking history remains in the tables.
+    // Flag on: keep vendor-created calendars + any pool that holds assigned
+    // services, even with no category rows.
+    .filter((p) =>
+      namedCalendars
+        ? p.categories.length > 0 || p.serviceIds.length > 0 || p.isVendorCreated
+        : p.categories.length > 0,
+    );
+}
+
+/**
+ * The vendor's active services shaped for the Named Calendars service-picker:
+ * a human label + which calendar each is currently assigned to (null = still on
+ * its category pool). Soft-probes the membership table so it degrades cleanly
+ * pre-migration.
+ */
+export async function fetchVendorServicesForPicker(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+): Promise<CalendarServiceOption[]> {
+  const [{ data: services }, { data: members }] = await Promise.all([
+    supabase
+      .from('vendor_services')
+      .select('vendor_service_id, title, category')
+      .eq('vendor_profile_id', vendorProfileId)
+      .eq('is_active', true)
+      .order('created_at', { ascending: true }),
+    supabase
+      .from('vendor_schedule_calendar_services')
+      .select('vendor_service_id, pool_id')
+      .eq('vendor_profile_id', vendorProfileId)
+      .then((r) => (r.error ? { data: [] as { vendor_service_id: string; pool_id: string }[] } : r)),
+  ]);
+  const poolByService = new Map(
+    ((members ?? []) as { vendor_service_id: string; pool_id: string }[]).map((m) => [
+      m.vendor_service_id,
+      m.pool_id,
+    ]),
+  );
+  return ((services ?? []) as {
+    vendor_service_id: string;
+    title: string | null;
+    category: string | null;
+  }[]).map((s) => ({
+    serviceId: s.vendor_service_id,
+    label:
+      s.title && s.title.trim().length > 0
+        ? s.title.trim()
+        : humanizeCategory(s.category || 'Service'),
+    poolId: poolByService.get(s.vendor_service_id) ?? null,
+  }));
 }
 
 /**

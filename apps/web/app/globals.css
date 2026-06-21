@@ -894,6 +894,29 @@ html.subnav-docked [data-shell-main] {
     letter-spacing: -0.02em;
     font-weight: 400;
   }
+  /*
+   * Section + sub tiers (VIS-9/VIS-10 · Responsive_and_Mobile_UI_Ruleset). The
+   * `.m-h-xl/lg/md` family only covered HERO sizes; marketing section/sub
+   * headings had no shared fluid tier, so each page hand-rolled `text-3xl
+   * sm:text-4xl` steps. These two complete the scale DOWNWARD with the same
+   * fluid clamp + tracking/line-height tightening. `.m-h-sm` matches the
+   * dominant section-h2 endpoints (30px→36px) so adopting it is a no-size-change
+   * swap — it just adds fluidity between the steps + the tightening. Marketing
+   * section headings migrate to these incrementally (reviewed on the preview,
+   * since it's the public conversion surface).
+   */
+  .m-h-sm {
+    font-size: clamp(1.875rem, 4.5vw, 2.25rem);
+    line-height: 1.1;
+    letter-spacing: -0.015em;
+    font-weight: 500;
+  }
+  .m-h-xs {
+    font-size: clamp(1.375rem, 3.5vw, 1.625rem);
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    font-weight: 500;
+  }
 
   /*
    * Horizontal "peek" scroller (ROW-1 / DIR-3 · Responsive_and_Mobile_UI_Ruleset).

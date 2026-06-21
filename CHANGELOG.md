@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-21 · feat(ux): complete the canonical marketing heading scale (VIS-9/10)
+
+Marketing type-system follow-up. Looked at the live state (the audit was stale — many PRs since): the marketing pages are already reasonably consistent (`tracking-tight`, sensible sizes); the real gap is that the homepage's fluid `.m-h-*` scale **only covered hero sizes**, so section/sub headings on the other pages had no shared fluid tier to adopt (each hand-rolled `text-3xl sm:text-4xl` steps).
+
+- Added `.m-h-sm` (section h2 · `clamp(1.875rem, 4.5vw, 2.25rem)` = 30→36px) and `.m-h-xs` (sub/card-title · 22→26px) to `globals.css`, completing the `.m-h-*` family downward with the same clamp + tracking/line-height tightening. `.m-h-sm` matches the dominant section-h2 endpoints, so adopting it is a **no-size-change swap** — just adds fluidity between the steps + the VIS-9 tightening.
+
+**Additive only — no live page changed.** Marketing section headings migrate to these incrementally (reviewed on the Vercel preview, since it's the public conversion surface and each page has tuned heading treatments a blind sweep would flatten). A full blind unification was deliberately NOT done — low user-facing value, real conversion-regression risk.
+
+Verified: braces balanced · `pnpm typecheck` 0 · `pnpm lint` 0.
+
+SPEC IMPACT: None (additive heading utilities; no live surface changed).
+
 ## 2026-06-21 · fix(studio): Save-the-Date "About" page no longer collides with the builder route
 
 The Studio tile for Save-the-Date links (via `appStoreDetailHref('save-the-date')`) to `/studio/save-the-date/about`. But Save-the-Date owns a *literal* route folder (`studio/save-the-date/` — the builder + `loading.tsx`), which in Next.js **shadows** the dynamic `studio/[addon]/about` route. So that path fell through to the builder, and via client-side navigation the static/dynamic collision threw the branded error boundary (the `Reference: …` 500 the owner hit on `/studio/save-the-date/about`). Every other feature's About page works because they reach `[addon]/about`; `save-the-date` did not.

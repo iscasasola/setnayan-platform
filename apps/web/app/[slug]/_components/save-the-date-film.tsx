@@ -41,6 +41,7 @@ import { readableTextOn } from '@/lib/site-palette';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
 import { type MonogramConfig } from '@/lib/monogram';
+import type { MonogramMotionKey } from '@/lib/monogram-motion';
 
 /**
  * Set an <audio>/<video> volume safely. The HTML spec requires the setter to
@@ -92,6 +93,9 @@ const FILM_ANIM_CSS = `
 @media (prefers-reduced-motion: reduce) {
   .std-anim { animation: none !important; }
 }
+    .std-mono-bloom { opacity: 0; transform: scale(0.92); animation: std-mono-bloom 1.15s cubic-bezier(0.16,1,0.3,1) 0.1s forwards; }
+    @keyframes std-mono-bloom { to { opacity: 1; transform: scale(1); } }
+    @media (prefers-reduced-motion: reduce) { .std-mono-bloom { opacity: 1; transform: none; animation: none; } }
 `;
 
 // The film is composed at ONE fixed logical size (a portrait "design canvas")
@@ -193,6 +197,9 @@ function FilmMonogram({
   textStyle,
   lockup,
   lockupScaleCls,
+  animatedMonogram,
+  monoReplayKey,
+  tone,
 }: {
   svg?: string | null;
   text: string;
@@ -207,28 +214,64 @@ function FilmMonogram({
   /** Fixed Tailwind scale class for the 80px HeroMonogram so it fills this beat
    *  (the stage's transform-scale handles all responsiveness — no breakpoints). */
   lockupScaleCls: string;
+  /** Paid Animated Monogram motion, or false. Truthy → the lockup animates + a
+   *  bespoke mark gets a one-shot bloom entrance. */
+  animatedMonogram: MonogramMotionKey | false;
+  /** Changes when the active beat changes OR the film first starts — remounts the
+   *  mark so its entrance REPLAYS at the moment its beat is shown, not at load. */
+  monoReplayKey: string;
+  /** Legibility tone over the background — recolours frameless lockup ink + sets the glow. */
+  tone: 'light' | 'dark' | null;
 }) {
-  // 1 · uploaded / monogram-lab mark wins (bypasses the onboarding logo).
+  // Contrast (owner: "the colour of the logo will vary on the background … make
+  // sure the logo will be visible"). A soft tone-glow lifts ANY mark off the bg;
+  // a FRAMELESS lockup (bar/duo/script/infinity) also recolours its ink to the
+  // bg tone (those marks sit directly on the background, unlike the cream-circle
+  // + bespoke renders which carry their own backing).
+  const glow =
+    tone === 'light'
+      ? 'drop-shadow(0 0 11px rgba(255,255,255,0.5))'
+      : tone === 'dark'
+        ? 'drop-shadow(0 2px 6px rgba(0,0,0,0.32))'
+        : 'drop-shadow(0 1px 3px rgba(0,0,0,0.16))';
+  const contrastInk = tone === 'light' ? '#FBFBFA' : tone === 'dark' ? '#1E2229' : null;
+
+  // 1 · uploaded / monogram-lab SVG — a BARE mark (no cream circle). The Motion
+  //     Library needs letterform strokes, so a bespoke mark gets a one-shot bloom
+  //     ENTRANCE (gated on ownership) that REPLAYS each time the beat is shown via
+  //     the monoReplayKey remount, plus the contrast glow.
   if (svg) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={bespokeSvgToDataUri(svg)} alt="" className={`${sizeCls} object-contain`} />
+      <span
+        key={monoReplayKey}
+        aria-hidden
+        className={`${sizeCls} inline-flex items-center justify-center${animatedMonogram ? ' std-mono-bloom' : ''}`}
+        style={{ filter: glow }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={bespokeSvgToDataUri(svg)} alt="" className="h-full w-full object-contain" />
+      </span>
     );
   }
-  // 2 · else the couple's onboarding lockup (their real chosen design).
+  // 2 · the couple's onboarding lockup — animate the chosen motion (the paid
+  //     Animated Monogram), re-keyed so it plays once each time this beat shows.
   if (lockup) {
+    const style = (lockup.design as { monogram_style?: string | null } | null)?.monogram_style ?? null;
+    const frameless = style === 'bar' || style === 'duo' || style === 'script' || style === 'infinity';
+    const monogram = frameless && contrastInk ? { ...lockup.monogram, color: contrastInk } : lockup.monogram;
     return (
-      <div aria-hidden className={`inline-flex origin-center items-center justify-center ${lockupScaleCls}`}>
+      <div aria-hidden className={`inline-flex origin-center items-center justify-center ${lockupScaleCls}`} style={{ filter: glow }}>
         <HeroMonogram
+          key={monoReplayKey}
           event={lockup.design}
-          monogram={lockup.monogram}
-          animatedMonogram={false}
+          monogram={monogram}
+          animatedMonogram={animatedMonogram}
           bespokeSvg={null}
         />
       </div>
     );
   }
-  // 3 · last-resort initials in the film's own font (safety net).
+  // 3 · last-resort initials (safety net) — unchanged.
   return (
     <div className={textCls} style={textStyle}>
       {text}
@@ -245,8 +288,11 @@ export function SaveTheDateFilm({
   tone = null,
   lockup = null,
   accentHex = null,
+  animatedMonogram = false,
 }: {
   content: StdFilmContent;
+  /** Paid Animated Monogram motion, or false. */
+  animatedMonogram?: MonogramMotionKey | false;
   /** Theme override (the display font). Defaults to 'default' (Cormorant). */
   themeId?: StdThemeId;
   /** The film's accent colour (button + accent marks) as a `#rrggbb` hex —
@@ -320,12 +366,23 @@ export function SaveTheDateFilm({
   // reaches the video beat, not on every re-render while it plays.
   const prevOnVideoRef = useRef(false);
 
+  // Active beat + "film has started" — declared ABOVE the slides so each beat's
+  // node can key its monogram on `monoReplayKey`. That key changes when the
+  // active beat changes OR when the film first starts (reveal-done), so the
+  // opening Animated-Monogram REMOUNTS — and its one-shot entrance REPLAYS — at
+  // the moment its beat is actually shown, not back at page-load under the veil.
+  const [idx, setIdx] = useState(0);
+  const [started, setStarted] = useState(false); // flips true when the film first starts (reveal-done) so the opening monogram replays when it's actually shown
+  const monoReplayKey = String(idx) + '-' + String(started);
+
   const slides: Slide[] = [];
 
   // 1 — monogram / logo
   slides.push({
     key: 'monogram',
-    dur: 4000,
+    // The Animated Monogram's lockup/bloom entrance runs ~2.5s; give beat 1 room
+    // to play it fully then dwell before advancing. Static mark keeps the 4s beat.
+    dur: animatedMonogram ? 6500 : 4000,
     anim: ANIM.bloom,
     node: (
       <div className="flex flex-col items-center gap-3">
@@ -338,6 +395,9 @@ export function SaveTheDateFilm({
           sizeCls="h-36 w-36"
           textCls={`${theme.fontCls} text-7xl font-medium ${accentMarkCls}`}
           textStyle={accentMarkStyle}
+          animatedMonogram={animatedMonogram}
+          monoReplayKey={monoReplayKey}
+          tone={tone}
         />
         <div className={`h-px w-10 ${dividerCls} opacity-40`} style={dividerStyle} />
       </div>
@@ -436,6 +496,9 @@ export function SaveTheDateFilm({
           sizeCls="h-16 w-16"
           textCls={`${theme.fontCls} text-3xl font-medium ${accentMarkCls}`}
           textStyle={accentMarkStyle}
+          animatedMonogram={animatedMonogram}
+          monoReplayKey={monoReplayKey}
+          tone={tone}
         />
         <p className={`${theme.fontCls} text-4xl font-medium italic leading-tight`}>
           We can&rsquo;t wait to
@@ -541,6 +604,9 @@ export function SaveTheDateFilm({
           sizeCls="h-24 w-24"
           textCls={`${theme.fontCls} text-4xl font-medium ${accentMarkCls}`}
           textStyle={accentMarkStyle}
+          animatedMonogram={animatedMonogram}
+          monoReplayKey={monoReplayKey}
+          tone={tone}
         />
         <p className={LABEL}>Save the date</p>
         {content.dateLabel ? (
@@ -568,7 +634,7 @@ export function SaveTheDateFilm({
 
   const N = slides.length;
   const videoSlideIndex = hasVideo ? slides.findIndex((s) => s.key === 'video') : -1;
-  const [idx, setIdx] = useState(0);
+  // (idx + started declared above the slides so each monogram beat can key on monoReplayKey.)
   const [playing, setPlaying] = useState(false); // starts paused; unblocks on reveal-done
   const [muted, setMuted] = useState(false);
   // The autoplay policy forced the couple's clip to play MUTED (no recent user
@@ -630,6 +696,7 @@ export function SaveTheDateFilm({
     if (preview) {
       playingRef.current = true;
       setPlaying(true);
+      setStarted(true);
       startRef.current = performance.now();
       return;
     }
@@ -637,6 +704,7 @@ export function SaveTheDateFilm({
       if (playingRef.current) return;
       playingRef.current = true;
       setPlaying(true);
+      setStarted(true);
       startRef.current = performance.now();
       if (!muted && audioRef.current) audioRef.current.play().catch(() => {});
       // One-time "press & hold to pause" cue — a beat after the film begins, then

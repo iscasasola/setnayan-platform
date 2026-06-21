@@ -738,6 +738,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     return (
       <PublicLanding
         event={event}
+        animatedMonogram={animatedMonogram}
         reason={inviteError === 'invalid_token' ? 'invalid_invite' : null}
         dayOfPhase={dayOfPhase}
         phasesEnabled={phasesEnabled}
@@ -768,6 +769,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     return (
       <PublicLanding
         event={event}
+        animatedMonogram={animatedMonogram}
         reason="wrong_event"
         dayOfPhase={dayOfPhase}
         phasesEnabled={phasesEnabled}
@@ -805,6 +807,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     return (
       <PublicLanding
         event={event}
+        animatedMonogram={animatedMonogram}
         reason="invalid_invite"
         dayOfPhase={dayOfPhase}
         phasesEnabled={phasesEnabled}
@@ -1301,6 +1304,7 @@ function HeroBackgroundMedia({
 
 function PublicLanding({
   event,
+  animatedMonogram,
   reason,
   dayOfPhase,
   phasesEnabled,
@@ -1323,6 +1327,10 @@ function PublicLanding({
   bespokeSvg,
 }: {
   event: EventRow;
+  // The chosen Motion Library signature when the event owns the paid
+  // ANIMATED_MONOGRAM upgrade, or false → static hero circle. Threaded into
+  // the STD film's monogram beats. Mirrors InvitationSite's prop.
+  animatedMonogram?: MonogramMotionKey | false;
   reason?: 'invalid_invite' | 'wrong_event' | null;
   dayOfPhase: DayOfPhase;
   // Website lifecycle-phase engine (Increment C · flag-dark). When
@@ -1494,6 +1502,7 @@ function PublicLanding({
           publicId={event.public_id}
           loveStory={event.love_story}
           showTextHero={!hasHeroMedia}
+          animatedMonogram={animatedMonogram}
           film={stdFilm}
           background={stdBackground}
           backgroundImageUrl={stdBackgroundUrl}
@@ -2061,6 +2070,7 @@ function InvitationSite({
             publicId={event.public_id}
             loveStory={event.love_story}
             showTextHero={false}
+            animatedMonogram={animatedMonogram}
             film={stdFilm}
             background={stdBackground}
             backgroundImageUrl={stdBackgroundUrl}

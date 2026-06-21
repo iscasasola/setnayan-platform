@@ -1,8 +1,12 @@
 import { type NextRequest } from 'next/server';
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { formatEventDate } from '@/lib/events';
 import { loadEditorialData } from '@/app/[slug]/_components/editorial/data';
-import { renderRealStoryOgJpeg } from '@/lib/social/realstory-card';
+import {
+  renderRealStoryOgJpeg,
+  renderCoupleMonogramOgJpeg,
+} from '@/lib/social/realstory-card';
 
 /**
  * GET /api/og/realstory-slug/[slug] — the Open Graph share card for a REAL
@@ -12,10 +16,11 @@ import { renderRealStoryOgJpeg } from '@/lib/social/realstory-card';
  * hero photo when published, with the white-type scrim — deep-linking to the
  * editorial.
  *
- * Gate: renders ONLY when the event has a PUBLISHED editorial (`data.published`);
- * otherwise it 302s to the static brand card. So during the invitation/event
- * phases (or for any non-editorial page) a share falls back to the brand image,
- * and the editorial card appears the moment the couple's story goes live. The
+ * Card per phase: a PUBLISHED editorial → the editorial card (hero photo +
+ * scrim); otherwise → the couple's own MONOGRAM card (their mark + names + date
+ * on cream, mirroring their /[slug] hero), so a shared invitation always shows
+ * THEM, and the editorial card takes over the moment their story goes live. Only
+ * a missing event / render failure 302s to the static brand image. The
  * RA 10173 public-showcase consent gates the /realstories INDEX, not the couple
  * sharing their OWN public page, so it isn't required here.
  *
@@ -48,25 +53,44 @@ export async function GET(
     const admin = createAdminClient();
     const { data: ev } = await admin
       .from('events')
-      .select('event_id')
+      .select('event_id, display_name, event_date, monogram_text, monogram_color')
       .eq('slug', slug)
       .maybeSingle();
-    const eventId = (ev as { event_id?: string } | null)?.event_id;
-    if (!eventId) return Response.redirect(DEFAULT_OG, 302);
+    const event = ev as {
+      event_id?: string;
+      display_name?: string | null;
+      event_date?: string | null;
+      monogram_text?: string | null;
+      monogram_color?: string | null;
+    } | null;
+    if (!event?.event_id) return Response.redirect(DEFAULT_OG, 302);
 
-    const data = await loadEditorialData(eventId);
-    if (!data || !data.published) return Response.redirect(DEFAULT_OG, 302);
+    // A PUBLISHED editorial → the editorial card (hero photo + scrim).
+    const data = await loadEditorialData(event.event_id);
+    if (data?.published) {
+      const descriptor = data.venueCity
+        ? `A wedding in ${data.venueCity}`
+        : 'A Setnayan Real Story';
+      const jpeg = await renderRealStoryOgJpeg({
+        coupleNames: data.displayName,
+        descriptor,
+        dateLabel: data.eventDateFormatted ?? '',
+        palette: data.monogramColor ? [data.monogramColor] : [],
+        isSample: false,
+        heroPhotoUrl: data.heroPhotoUrl,
+      });
+      return jpegResponse(jpeg);
+    }
 
-    const descriptor = data.venueCity
-      ? `A wedding in ${data.venueCity}`
-      : 'A Setnayan Real Story';
-    const jpeg = await renderRealStoryOgJpeg({
-      coupleNames: data.displayName,
-      descriptor,
-      dateLabel: data.eventDateFormatted ?? '',
-      palette: data.monogramColor ? [data.monogramColor] : [],
-      isSample: false,
-      heroPhotoUrl: data.heroPhotoUrl,
+    // Otherwise (invitation / Save-the-Date phase, no editorial yet) → the
+    // couple's own MONOGRAM card, mirroring their /[slug] hero, so a shared
+    // invitation shows THEIR mark + names + date — not the generic brand image
+    // (owner 2026-06-21 "why is the cover photo … not the look of the page").
+    const jpeg = await renderCoupleMonogramOgJpeg({
+      coupleNames: event.display_name ?? '',
+      dateLabel: event.event_date ? formatEventDate(event.event_date) : '',
+      monogramText: event.monogram_text ?? null,
+      monogramColor: event.monogram_color ?? null,
     });
     return jpegResponse(jpeg);
   } catch {

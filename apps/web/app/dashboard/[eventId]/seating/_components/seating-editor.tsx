@@ -913,7 +913,7 @@ export function SeatingEditor({
       try {
         await linkTables(fd);
         setNotice(
-          `Grouped — “${toLabel}” is now part of “${fromLabel}”: one name, one printed QR sign, and they move and rotate together as one unit. Use Break apart to separate them.`,
+          `Grouped — “${fromLabel}” and “${toLabel}” are now one unit “${fromLabel} & ${toLabel}” that moves and rotates together, with one printed QR sign. Rename it from any member; Break apart to separate them.`,
         );
       } catch (err) {
         if (!handleLockLost(err)) {
@@ -2316,6 +2316,15 @@ export function SeatingEditor({
     [tables],
   );
 
+  // The link_group_id of the table currently being dragged (null when none /
+  // ungrouped). Drives the rigid-move render: every member of the dragged unit
+  // gets the no-transition + raised-z treatment, so the linked table moves in
+  // lockstep instead of easing 140ms behind (the "tailing" bug).
+  const dragGroupId = useMemo(
+    () => (dragId ? tables.find((t) => t.table_id === dragId)?.link_group_id ?? null : null),
+    [dragId, tables],
+  );
+
   return (
     <div className="grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
       {/* ---------------- Sidebar ---------------- */}
@@ -3522,7 +3531,11 @@ export function SeatingEditor({
             const filled = occ.filter(Boolean).length;
             const halo = dominantColor(occ, colorFor);
             const highlighted = highlightId === t.table_id;
-            const dragging = dragId === t.table_id;
+            // The whole linked unit drags as one: treat every member of the
+            // dragged unit as "dragging" so none of them eases (tails) behind.
+            const dragging =
+              dragId === t.table_id ||
+              (dragGroupId != null && t.link_group_id === dragGroupId);
             // Linked tables render under the UNIT's name (number when it has one).
             const displayLabel = t.link_group_label ?? t.table_label;
             const num = displayLabel.match(/\d+/)?.[0] ?? '';

@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-22 · fix(seating): linked tables move as ONE (no tailing) + a combined unit name
+
+Owner feedback on the shipped linked-table grouping: "the linked tables will have a new table name. we do not want the other table tailing the other table. we want them to move as one."
+
+- **Tailing fixed** (`…/seating/_components/seating-editor.tsx`). The rigid group-translate already moved every member by the same delta each frame, but each table element carries `transition: left/top 140ms ease` and that ease was disabled (`transition: none`) **only for the grabbed table** — so the linked member eased 140ms behind and visibly *tailed*. Now a `dragGroupId` memo marks every member of the dragged unit as "dragging," so the whole unit gets `transition: none` + the raised z-index and moves in true lockstep. (Rotate keeps its smooth ease — only the reported move-as-one was tailing.)
+- **Combined unit name** (`…/seating/actions.ts` `linkTables`). Linking no longer silently adopts the first table's name; the unit gets its **own combined name** — `"{A} & {B}"` (e.g. "Table 3 & Table 4"), de-duped when re-linking the same unit and capped at 64 chars. Couples can still rename the unit from any member. The link notice copy updated to match.
+
+No schema change. tsc 0; `next lint` clean. CI build is the gate.
+
+SPEC IMPACT: Iteration 0008 (linked-table behaviour) — refines the 2026-06-21 grouping. Logged in DECISION_LOG.
+
+---
+
 ## 2026-06-21 · fix(monogram): Vector Studio reliably mounts (prod race) + becomes the only monogram screen
 
 Owner: *"vector studio is not working… make the vector monogram the only screen for the monogram. and make it work."* — reported still broken on **live production** (dashboard `/dashboard/<id>/monogram`, stuck on "Loading the typeface…", blank canvas, but the names field showed the couple's real name).

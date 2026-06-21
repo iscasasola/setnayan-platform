@@ -9,16 +9,16 @@
  * conditionally signed off) re-cut it to a 4-tab spine (Home · Work ·
  * Directory · More).
  *
- * NAV TUNE 2026-06-15 (owner-approved this session — "6 tabs, keep 'Work'"):
- * the strip grows back to 6 tabs so the daily money + analytics surfaces are
- * one tap, not two levels deep in More:
- *   Home · Work · Directory · Money · Insights · More
- * This re-promotes Money + Insights to dedicated tabs (reversing the
- * 2026-06-08 "fold Money/Insights into More" call) but KEEPS the 'Work'
- * rename (the old 'Queues' label stays retired). Money carries the config
+ * NAV TUNE 2026-06-15 / 2026-06-21 (<=5 reroster): the strip is 5 tabs —
+ *   Home · Work · Directory · Money · More
+ * The 2026-06-15 tune had re-promoted Money + Insights to dedicated tabs (a
+ * 6-tab strip); the 2026-06-21 ratified ruleset caps the pill at <=5, so
+ * Insights is demoted back into More (its /admin/insights landing is now a
+ * More overflow card + folded into the More activeMatch). Money KEEPS its tab.
+ * The 'Work' rename (old 'Queues' retired) stays. Money carries the config
  * surfaces only — the act-now money QUEUES (Payments · Payouts · Token sales)
- * stay in Work. /admin/money is now a real card-grid landing (no longer a
- * redirect to /admin/more); /admin/insights is new.
+ * stay in Work. /admin/money is a real card-grid landing; /admin/insights
+ * remains a real landing, now reached via More.
  *
  * The desktop sidebar (admin-sidebar.tsx) exposes 6 groups: Home · Work
  * (key 'queues') · Directory · Insights (key 'funnels') · Money & Catalog
@@ -51,7 +51,7 @@
  * Symmetric with admin-sidebar.tsx. Caught + fixed 2026-05-29.
  */
 
-import { Home, ListChecks, Users, DollarSign, BarChart3, Menu } from 'lucide-react';
+import { Home, ListChecks, Users, DollarSign, Menu } from 'lucide-react';
 import { BottomNav } from '@/app/_components/nav/bottom-nav';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import type { BottomNavItem } from '@/app/_components/nav/types';
@@ -133,14 +133,19 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     ],
   },
   {
-    // NAV TUNE 2026-06-15 — Insights re-promoted to a dedicated tab (the
-    // daily analytics pulse). Landing at /admin/insights mirrors the desktop
-    // sidebar Insights group (key 'funnels').
-    key: 'insights',
-    label: 'Insights',
-    href: '/admin/insights',
-    icon: BarChart3,
+    key: 'more',
+    label: 'More',
+    href: '/admin/more',
+    icon: Menu,
+    // NAV TUNE 2026-06-15 / 2026-06-21 — More carries the Platform group + the
+    // Insights group (Insights demoted from its dedicated tab in the <=5
+    // reroster; Money still its own tab). Every route is enumerated so none
+    // goes "unlit" on mobile per [[feedback_setnayan_orphan_prevention]].
     activeMatch: [
+      '/admin/more',
+      // Insights group (demoted from its dedicated tab in the 2026-06-21 <=5
+      // reroster; folded into More on mobile — /admin/insights is the landing,
+      // also reached via the More overflow card).
       '/admin/insights',
       '/admin/growth',
       '/admin/intelligence',
@@ -148,19 +153,6 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/admin/operations-hiring',
       '/admin/connection-logs',
       '/admin/offline',
-    ],
-  },
-  {
-    key: 'more',
-    label: 'More',
-    href: '/admin/more',
-    icon: Menu,
-    // NAV TUNE 2026-06-15 — More now carries the Platform group ONLY (Insights
-    // + Money moved to their own tabs above). Every Platform route is
-    // enumerated so none goes "unlit" on mobile per
-    // [[feedback_setnayan_orphan_prevention]].
-    activeMatch: [
-      '/admin/more',
       // Platform group (note: /admin/settings also covers
       // /admin/settings/payment-methods + /admin/settings/demo-mode)
       '/admin/settings',

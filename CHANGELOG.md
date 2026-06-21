@@ -58,6 +58,22 @@ Owner reframe: the onboarding's job shifts from *"which vendors do you need?"* t
 ⚠ Owner sign-off: persona NAMES + quiz copy are first-draft (easy to tune — all in one data module). Going live needs (1) apply migration `20270208703382`, (2) set `NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED=true`.
 
 SPEC IMPACT: iteration 0016 (Setnayan AI / step-by-step plan builder) — onboarding reorients from vendor-needs assessment to experience-first; logged at the bottom of `DECISION_LOG.md`. No SKU/pricing change (the derived in-app services map to existing keys).
+## 2026-06-21 · feat(nav): vendor + admin bottom nav → ≤5 tabs (redesign Wave 3 · NAV-1)
+
+First step of the ratified nav reroster (`Responsive_and_Mobile_UI_Ruleset_2026-06-21` · NAV-1). Drops the vendor and admin mobile pills from **6 tabs to 5** by demoting one destination each into "More". **Supersedes the 2026-06-15 owner-picked 6-tab rosters** (owner re-authorized via the redesign "do all / keep going"). The locked `bottom-nav.tsx` template is **NOT touched** — it is fully data-driven by the `items` array length, so passing 5 items instead of 6 just works (verified by a 3-agent read-only map of the owner-locked nav area).
+
+**Vendor** (`vendor-bottom-nav.tsx`): pill is now `Home · Bookings · Calendar · Messages · More` — **Website** demoted. Removed the unused `Globe` import. Added `/vendor-dashboard/website` to the More tab's `activeMatch` so it lights "More" on mobile (orphan-prevention); it was already a `/more` card + sidebar item (reachability confirmed).
+
+**Admin** (`admin-bottom-nav.tsx`): pill is now `Home · Work · Directory · Money · More` — **Insights** demoted. Removed the unused `BarChart3` import. Folded the 7 Insights routes (`/admin/insights` + growth/intelligence/funnels/operations-hiring/connection-logs/offline) into the More `activeMatch`. **Critically**, Insights was NOT in `/admin/more` (it would have been orphaned on mobile) — added an Insights card to `admin/more/page.tsx` → `/admin/insights` (the landing that fans out to all 7 analytics surfaces). Desktop sidebars keep their full Insights/Website groups (unchanged).
+
+**Registry** (`nav-registry-defaults.ts`): pruned the two now-orphaned defaults `vendor.bottom-nav.website` + `admin.bottom-nav.insights` so `/admin/menus` doesn't expose phantom editable tabs.
+
+Verified: `pnpm typecheck` exit 0 · `pnpm lint` exit 0 · `pnpm test:unit` (Phase-9 nav-registry integrity) **344/344 pass**. `lint:botnav` unaffected (the canonical template + its 7 markers are untouched).
+
+Deferred to follow-up PRs (blueprinted by the same workflow): the **broken-out Mulberry action satellite** (NAV-2 — a new sibling `nav-fab.tsx`, never a 7th tab/fork), the **Notion-style More** rebuild (NAV-5), and **lint hardening** (a ≤5 count assertion + protecting the frosted-fill token — both currently unguarded).
+
+SPEC IMPACT: Nav architecture — vendor/admin mobile pills drop to ≤5; supersedes the 2026-06-15 6-tab rosters. Logged in the corpus `DECISION_LOG.md`. No SKU/schema/pricing/public-claim change.
+
 ## 2026-06-21 · chore(home): remove dead `Checklist` function from couple event-home
 
 Follow-up dead-code cleanup of `apps/web/app/dashboard/[eventId]/page.tsx`, same class as the helpers removed in #1939. The local `function Checklist(...)` (~95 lines) was never rendered — confirmed by grep (`<Checklist` has zero JSX usages; the live, rendered component is the *different* `ChecklistAsync`, untouched).

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, Check, Sparkles, ArrowRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { registerGatesEnabled } from '@/lib/register-gates';
 import { getCurrentUser } from '@/lib/auth';
 import { resolveMonogram } from '@/lib/monogram';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
@@ -68,6 +69,12 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
 
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+  // Register-to-use gate (flag-gated · owner 2026-06-21): the monogram is a public-identity
+  // surface — an anonymous (unsecured) couple must create a free account to design it. The
+  // signup flow converts the SAME anon session in place, then returns here. OFF → no gate.
+  if (registerGatesEnabled() && user.is_anonymous) {
+    redirect(`/signup?next=${encodeURIComponent(`/dashboard/${eventId}/monogram`)}`);
+  }
   const supabase = await createClient();
 
   const { data: event } = await supabase

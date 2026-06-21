@@ -15,6 +15,240 @@ Deferred + flagged for owner: the *other* DIR-2 half — replacing the 7-column 
 Verified: `pnpm typecheck` exit 0, `pnpm lint` exit 0.
 
 SPEC IMPACT: None (text-size legibility; no day-state, booking, SKU, schema, or pricing change).
+## 2026-06-21 · feat(seating): 3D seating lab — flag-gated R3F prototype (Sims build + walk-to-seat)
+
+Owner direction: make the seat plan feel "like a game where you move things around," explored via React Three Fiber (Next.js shell + React/Three engine, the SSR golden rule). This is a **flag-gated, READ-ONLY prototype** on a throwaway route — it does not touch the 2D editor and never persists.
+
+- **Route** `app/dashboard/[eventId]/seating/lab/page.tsx` — server component gated by `NEXT_PUBLIC_SEATING_3D` (404 when off, so it doesn't exist for users by default). Reads the couple's REAL tables / floor plan / guests / mood-board palette. No writes.
+- **`lib/seating-3d.ts`** — pure (no three.js) data→3D math: percent→world mapping, per-shape table + chair geometry, seat-world lookup, obstacle-avoiding path steering, palette resolution. Safe to import on the server (the page only uses its types + helpers).
+- **`_components/seating-lab-loader.tsx`** — the `dynamic(() => import('./seating-lab-3d'), { ssr: false })` client wrapper (the same proven pattern the Save-the-Date veil reveal uses).
+- **`_components/seating-lab-3d.tsx`** — the R3F scene: real tables + chairs in 3D, mood-palette-driven lighting/materials with a live switcher, **Build mode** (tap-select, drag-to-slide with game-feel, "+ Add table" → tap floor to drop), **Play mode** (tap a guest → an avatar walks from the entrance, steering around tables, to their chair and sits), glassmorphism floating HUD.
+- New deps: `@react-three/fiber@^9.6` + `@react-three/drei@^10.7` (React 19-compatible). `three@0.184` + `@types/three` were already present (the reveal uses raw three.js).
+- **Adversarial multi-agent review (6 dimensions, 32 agents) → 8 verified findings, all fixed:** OrbitControls eating the armed tap-to-drop on touch (`enabled={!draggingId && !addArmed}`); drag soft-lock on `pointercancel`/blur (added handlers); R3F synthetic-click-after-drag deselecting/dropping (`e.delta > 4` guard); table rotation sign mismatch between rendered chairs and the walk target (`rotateLocal` rewritten to match the +Y group rotation); null `x_pos/y_pos` tables stacking at the corner (grid fallback via `defaultTablePosition`, matching 2D); `sendGuest` ignoring removed chairs (seed occupancy with `removedSeats`, scan real capacity); perf (DPR→[1,1.5], ContactShadows 1024→512, shared chair/pedestal geometry). Instancing + GLTF + post-processing are the documented v2.
+
+Verified: tsc 0, `next lint` clean on all four files. The production build (R3F client bundle) is CI's required gate — no local env here; R3F is client-only + dynamically imported so it never runs on the server.
+
+SPEC IMPACT: None to the shipped seat plan (additive, flag-off prototype). Captured in the corpus `0008_Seating_AS_BUILT_2026-06-21.md` lineage + DECISION_LOG.
+
+---
+
+## 2026-06-21 · feat(nav): broken-out action (NAV-2) — vendor + admin doorways
+
+Owner-picked actions (2026-06-21) extend the broken-out Mulberry satellite to the other two doorways, reusing the `NavFab` primitive (locked `bottom-nav.tsx` still untouched; `lint:botnav` ✓):
+
+- **Vendor** → **Check inquiries** (`/vendor-dashboard/bookings`, the pipeline where new couple inquiries land). New `vendor-nav-fab.tsx`, mounted in the vendor layout. `bookings` is in the role-scoped keys, so every vendor role reaches it.
+- **Admin** → **Payment requests** (`/admin/payments`, which defaults to the `pending` reconciliation queue — the couples' submitted payment proofs awaiting the 24-hr-SLA review). New `admin-nav-fab.tsx`, mounted in the admin layout.
+
+Both are siblings of the pill (never a tab), float above its right end off `--sn-bottomnav-h`, and hide when a docked SubNav is up. The broken-out action is now live on all three primary doorways (couple = Add guest · vendor = Check inquiries · admin = Payment requests).
+
+Verified: `pnpm typecheck` 0 · `pnpm lint` 0 · `pnpm lint:botnav` ✓.
+
+SPEC IMPACT: Nav architecture — broken-out action on vendor + admin. No SKU/schema/pricing change.
+
+## 2026-06-21 · feat(nav): broken-out action satellite (NAV-2) — couple doorway
+
+Second step of the nav reroster (`Responsive_and_Mobile_UI_Ruleset_2026-06-21` · NAV-2) — the Shazam-style "broken-out" primary action. The **locked `bottom-nav.tsx` template is untouched** (`lint:botnav` ✓); the action is a separate floating sibling, never a 7th tab, never a fork.
+
+- **New primitive `app/_components/nav/nav-fab.tsx`** — `NavFab`: a fixed, `lg:hidden`, ≥56px **Mulberry** circle that floats above the right end of the pill, anchored off the bar's published `--sn-bottomnav-h` (so the gap is constant at any tab count). Hides whenever the docked SubNav is up (`useSubNavDocked`) to avoid sharing that band. Reduced-motion-safe. *(The locked pill is full-width, so the literal Shazam "beside the pill" needs a template edit — this floats **above** the pill instead, the standard FAB pattern, fully additive.)* Filename has no `bottom-nav` substring so the delegation guard doesn't flag it.
+- **New wrapper `customer-nav-fab.tsx`** + mounted in the couple layout as a sibling of `CustomerBottomNav`. Action = **Add guest** → `/guests/new` (the couple's most-repeated planning action; doesn't duplicate a pill tab). Hidden in the `after` phase. Client wrapper holds the Lucide icon (same Server→Client boundary pattern as `CustomerBottomNav`).
+
+Verified: `pnpm typecheck` 0 · `pnpm lint` 0 · `pnpm lint:botnav` ✓ (template integrity + delegation intact).
+
+PROVISIONAL / deferred: the per-doorway **action choice** is owner-tunable (a phase-aware Day-of variant — e.g. check-in/scan — is a follow-up), and the **vendor + admin FABs** are not wired here because their single dominant action is a genuine product call (the ruleset says the FAB is absent when a surface has no clear dominant action). Also still pending: NAV-5 Notion "More" rebuild + the lint hardening (≤5 count + frosted-fill guard).
+
+SPEC IMPACT: Nav architecture — adds the broken-out action (couple doorway). No SKU/schema/pricing/public-claim change.
+## 2026-06-21 · fix(studio): every Studio feature button now lands somewhere usable (no more "coming soon" dead-ends)
+
+**Owner ask:** after the App Store detail-route fix, "check the rest of Studio — all pages must have somewhere to go. Let the button open it, or go to the paywall if it must be purchased first; if it's a free service, let it open."
+
+**Audit (all 15 visible Studio features across Setnayan AI · Website · Capture · Branding).** 13 already land correctly: each opens its real functional surface, and every *paid* one gates usage behind the canonical `InlineCheckoutDrawer` paywall on that surface (papic, panood, patiktok, save-the-date premium openings, setnayan-ai, animated-monogram→/monogram, custom-qr-guest, indoor-blueprint, pakanta), while the free ones open straight through (mood-board, led, photo-delivery, playlist). **Two were dead-ends** — `landing-page` and `music-creator` have no Studio surface of their own, so their "Open" button hit the `[addon]` catch-all "coming soon" placeholder.
+
+**Fix — point the two no-surface features at their real homes:**
+- `landing-page` → `/dashboard/[eventId]/website` (the wedding-website hub — a real, free surface that hands off to the site editor).
+- `music-creator` → `/dashboard/[eventId]/studio/pakanta` (Pakanta — its own detail copy already frames it as "generate a custom score — Pakanta"; Pakanta carries its own paywall).
+- Wired in `addOnHref()` (`lib/add-ons-catalog.ts`) so the detail-page "Open" button links straight there, and in `SHIPPED_REDIRECTS` (`studio/[addon]/page.tsx`) so any direct hit / old bookmark to `/studio/landing-page` or `/studio/music-creator` redirects too. Removed both stale "coming soon" placeholder entries from `ADD_ON_META`.
+
+**Flagged for owner (not changed):** `music-creator` overlaps `pakanta` (and partly the free `playlist`) — it now routes to Pakanta, but you may want to retire the tile or give it a distinct scope (a free reel-music picker doesn't exist yet). `led` opens freely with no SKU wired (effectively free today); fine unless it's meant to be a paid Live-Background SKU. `photo-delivery`'s Drive connect shows an in-surface "coming soon" until `GOOGLE_DRIVE_OAUTH_CLIENT_ID` is set.
+
+SPEC IMPACT: None (routing/wiring fix; no product, pricing, or schema change — all prices still render live from the admin catalog).
+
+## 2026-06-21 · feat(seating): linked tables group as ONE (Keynote-style move + rotate) + full-screen editor
+
+Owner ask: "when we link seats, they will be grouped as one now. so when we rotate a table, it rotates as one… think of it like how Keynote groups shapes. and break apart will unlink them." Plus: "the page still doesn't look clean for seat plan creation… [the Seating title + description + Walkthrough link] we can remove this and spread the whole content to the screen."
+
+**What changed (all in `apps/web/app/dashboard/[eventId]/seating/`):**
+
+1. **Group-as-one geometry** (`_components/seating-editor.tsx`). Tables sharing a `link_group_id` now behave as one rigid unit on the floor:
+   - **Move as one** — dragging any member translates the whole unit (delta clamped so no member leaves the board); internal chain/align snap is skipped (the unit is already assembled). All members are marked dirty on drop.
+   - **Rotate as one** — every rotate path (the ±15°/Flip buttons, the desktop drag rotate-handle, and the two-finger twist gesture) now orbits each member around the unit's shared centroid AND spins each member's own angle by the same delta. Math goes through a px round-trip (`groupSnap` → `rotatePoint` → back to %) so a non-square canvas can't shear the unit. New helpers: `groupMemberIds`, `groupSnap`, `applyGroupRotation`, `persistGroupTransform`, `rotateGroupBy`.
+   - **Coherent persistence** — a group rotate persists positions *and* angles together (rotation already persisted instantly; the orbit it induces must too, or the unit would reload deformed). A group move persists on Save like any move.
+   - **Break apart** — the existing unlink, relabeled throughout ("Break apart"/"Group with another table"); link/unlink notices + the in-progress banner now describe move/rotate-as-one. `actions.ts` `linkTables`/`unlinkTable` are unchanged in behavior (still just set/clear `link_group_id`); only comments updated to record the new editor semantics + the owner authorization.
+
+2. **Full-screen layout cleanup** (`page.tsx`). Removed the hero `<h1>Seating</h1>` + the long description paragraph so the editor canvas fills the screen. The reserved→seated summary sits left; the Walkthrough-videos link became an icon-only button pinned upper-right (title/aria-label carry the meaning) so it stays out of the editor's way — kept, not orphaned. Page heading retained screen-reader-only for a11y/SEO. (Kept the `Video` icon rather than a route/compass "tour" glyph to avoid clashing with the separate Driver.js guided tour.)
+
+No schema/migration and no server-action behavior change — link grouping already existed as identity+QR; this adds client-side rigid-body geometry on top of it. typecheck clean (only pre-existing unrelated `paper`/`archiver` module errors); `next lint` clean on all three files.
+
+SPEC IMPACT: **Iteration 0008 (seating).** Reverses the 2026-06-10 "linked unit = identity + QR only, seating math/position stay per-table" lock → linked units now also move + rotate as one rigid body (owner-authorized 2026-06-21). Logged at the bottom of the corpus `DECISION_LOG.md`. Seating math (who sits where / capacity) still stays per-table.
+
+---
+
+## 2026-06-21 · feat(boundary): register-to-use gates on the in-app monogram studio + website builder (flag-gated · parked)
+
+Extends the register-gate boundary (same `NEXT_PUBLIC_REGISTER_GATES_ENABLED` flag) to the two **in-app public-identity surfaces**. When ON, an anonymous (unsecured) couple who opens the **monogram studio** (`/dashboard/[eventId]/monogram`) or the **website builder** (`/site-editor/[eventId]`) is redirected to `/signup?next=<surface>` to create a free account first — the signup flow converts the same anon session in place and returns them. One-line server-side gate after the existing `!user` redirect in each page, reading `user.is_anonymous` (the same field the dashboard's `SecureAccountBanner` already uses). OFF (default) → no gate, unchanged.
+
+Remaining boundary gate: planning-PDF downloads (register-to-download). `tsc` 0 · `lint` 0 (no warnings). Parked.
+
+SPEC IMPACT: iterations 0037 (monogram) + couple-website — the locked boundary "creating your public identity needs an account." No SKU/price change (still free — just register).
+
+## 2026-06-21 · feat(boundary): register-to-use gate on the public /monogram studio (flag-gated · parked)
+
+First slice of the locked **free/login/paid boundary** gates. New flag `NEXT_PUBLIC_REGISTER_GATES_ENABLED` (`lib/register-gates.ts`, default OFF). When ON, the public marketing-site monogram studio (`/monogram`) — today a free no-login lead magnet — becomes a **register wall**: the studio is replaced by a "Create your free account to design" card (→ `/signup?next=/monogram`, with a "Sign in" link → `/login?next=/monogram`), and the eyebrow/sub copy flip from "no sign-up" to "create an account." Owner 2026-06-21: *"Login to use it too — maximum capture; every visitor registers first."*
+
+Gated at the **page level** (build-time `NEXT_PUBLIC` flag), so the page stays statically rendered and the studio component is untouched. OFF (default) → the free no-login studio exactly as today. `tsc` 0 · `lint` 0 (no warnings). Parked.
+
+This establishes the register-gate flag + pattern. **Remaining gate surfaces (follow-ups, same flag):** in-app monogram studio + website builder (register-to-use), planning-PDF downloads (register-to-download) — all reuse `user.is_anonymous` + the existing `SecureAccountBanner` / `/signup?next=` convert-in-place flow.
+
+SPEC IMPACT: iteration 0037 (monogram) public surface — the locked boundary "creating your public identity needs an account"; logged in `DECISION_LOG.md`. No SKU/price change (still free — just register).
+
+## 2026-06-21 · feat(onboarding): strip the in-onboarding paywall tail — onboarding ends free (flag-gated · parked)
+
+Locked decision "**no paywall in onboarding**" (2026-06-21). When `NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED` is ON, `buildSequence` now also drops the monetization tail — `plan` (the Setnayan AI upsell), `bundle` (Essentials/Complete), `services` (à-la-carte carousel), `summary` (purchase). The flow ends **free** on `congrats` (the dashboard-bloom reveal), whose chrome CTA now reads **"Go to my dashboard"** and commits via `handleFinish(false)` straight to the dashboard — the chrome Continue commits on the last screen when the flag is on, `go(1)` otherwise. The persona's derived in-app services are still stored in `style_preferences.interested_services` for the **dashboard** to surface — they're just no longer sold during onboarding.
+
+- New `PAYWALL_SCREENS` set (`plan`/`bundle`/`services`/`summary`) + a flag-gated `buildSequence` filter; new `isLastScreen` terminal-commit on the chrome CTA.
+- **Behavior note:** the free auto-inquiry opt-in that lived on the dropped `plan` screen now uses defaults (guidance ON, top-inquiries OFF); that opt-in moves to the dashboard (follow-up).
+- Flag OFF → byte-identical (the tail + summary-terminal behave exactly as today). `tsc` 0. Parked (auto-merge OFF).
+
+SPEC IMPACT: iteration 0016 / 0034 — the "no paywall in onboarding" ruling (monetization relocates to the dashboard, not removed); logged in `DECISION_LOG.md`. No SKU/price change.
+
+## 2026-06-21 · feat(onboarding): intent dials — help level + sourcing on the experience flow (flag-gated · parked)
+
+Extends the parked experience-persona PR (#1937) with the two planning **dials** locked in the boundary design session:
+
+- **Dial 1 — help level** (`exp_help`): *build it all for me · give me options · I'll look myself*.
+- **Dial 2 — sourcing** (`exp_source`): *find on Setnayan · bring my own · both*.
+
+Inserted after the 5 experience axes, before `exp_reveal`, so the reveal reflects them. Single-pick screens, same `.screen/.stack[data-single]/.opt` markup as the axes; `EXP_DIALS` data lives alongside the personas (admin-tunable shape). New state `helpLevel` + `vendorSourcing`; the reveal **headline reflects the help level** ("here's your complete plan" / "here are your options" / "your canvas is ready") and adds a **sourcing line**. Captured into `events.experience_axes` JSONB at commit (no migration). Flag-gated via `EXP_SCREENS` (default OFF) — flow byte-identical when off.
+
+Part of the experience-first onboarding build (owner greenlit 2026-06-21). Remaining slices: strip the in-onboarding paywall tail (bundles/services → dashboard) · register-to-use gates (monogram, website) · register-to-download (planning PDFs) · no-login (anon-draft) posture. `tsc` 0 · `lint` 0. **Parked — auto-merge OFF, prototype-first review.**
+
+SPEC IMPACT: iteration 0016 — the intent dials from the locked free/login/paid boundary; logged in `DECISION_LOG.md`. No SKU/pricing change.
+
+## 2026-06-21 · feat(onboarding): experience-persona reorientation — the quiz derives the plan (flag-gated · PR pending, auto-merge)
+
+Owner reframe: the onboarding's job shifts from *"which vendors do you need?"* to *"what experience do you want to create?"* — memorable for the couple, their guests, or both — and that experience then **derives** the in-app services to surface and the vendor/service filtering. Owner picked the boldest shape: **experience fully derives the plan** (no manual 53-tile picker), a **full persona quiz**, built into the real flow. Shipped **flag-gated** (`NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED`, default OFF) so the live funnel is byte-identical until the owner flips it.
+
+- **New 5-axis experience quiz + persona reveal** (`exp_for_whom · exp_feel · exp_energy · exp_roots · exp_effort · exp_reveal`), inserted after `budget`, before the venue intro. Same `.screen/.stack[data-single]/.opt` markup as `role`/`kind` (prototype-direct port). Flag ON → `buildSequence` drops the legacy picker chain (`aigate` + `team_basics`/`refine_basic`/`team_extras`/`refine_extras` + `songs`/`mood`); flag OFF → the `exp_*` screens are filtered out entirely.
+- **Deterministic resolver + derive** (`app/onboarding/wedding/_data/experience-personas.ts`): the 5 answers resolve (weighted overlap, `for_whom` dominant — no LLM) to one of 6 named personas — **Keepsake · Big Celebration · Best of Both · Intimate Romance · Modern Statement · Rooted Tradition** — each deriving vendor categories (essentials + effort-scaled extras) + signature in-app Setnayan services + palette feel + per-leaf refinement seeds. Admin-tunable data shape (no logic baked into copy).
+- **Plugs into the existing matcher with zero matcher changes:** the derived `refinements` feed the deterministic matcher's 30% Refinement dimension; `picks` feed `interested_categories` + the recommended-services seed; `prefs.feel` → `mood_feel_key` + `basic_moodboard`. `buildCommitPayload` already maps all of these, so deriving into state is sufficient.
+- **New persisted intent** (`events.experience_persona` · `experience_for_whom` · `experience_axes` jsonb · migration `20270208703382`): additive/nullable/idempotent, RLS-unchanged. The commit **guards** these columns behind the same flag, so the insert never references them before the migration is applied — safe to merge flag-OFF regardless of DB state.
+- Files: `lib/experience-quiz.ts` (flag) · `_data/experience-personas.ts` (axes/personas/resolver/derive) · `app/onboarding/wedding/types.ts` (`experienceAxes` + `experiencePersona` state) · `_components/onboarding-shell.tsx` (FLOW_IDS swap, `buildSequence`, `canContinue`, `NEXT_LABEL_BY_ID`, derive effect, render) · `actions.ts` (guarded columns).
+
+⚠ Owner sign-off: persona NAMES + quiz copy are first-draft (easy to tune — all in one data module). Going live needs (1) apply migration `20270208703382`, (2) set `NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED=true`.
+
+SPEC IMPACT: iteration 0016 (Setnayan AI / step-by-step plan builder) — onboarding reorients from vendor-needs assessment to experience-first; logged at the bottom of `DECISION_LOG.md`. No SKU/pricing change (the derived in-app services map to existing keys).
+## 2026-06-21 · fix(studio): App Store About pages crashed in prod (server import of a `'use client'` data export)
+
+Every Studio "About" page whose feature has no `demo` frames threw the branded error boundary (`Reference: 3349409504`) in production — e.g. `/studio/about/animated-monogram`, `/studio/about/save-the-date`. (Surfaced once PR #1954 un-shadowed the About route so the pages actually render; before that they fell through to the feature builder and the crash never ran. Only `papic` escaped, because its `detail.demo` short-circuits the `||` past the bug.)
+
+**Root cause.** `app/_components/app-store/layout.tsx` is a SERVER component, but it imported `RICH_DEMO_SLUGS` from `studio-card-demo.tsx`, which is a `'use client'` module. When a server component imports a **data** export from a client module, Next.js gives it a client-reference proxy — not the array — so `RICH_DEMO_SLUGS.includes(demoSlug)` threw `includes is not a function` and crashed the render. Dev masked it (non-fatal overlay, page still 200'd); the production build threw it fatally.
+
+**Fix.** Moved the slug list to a new server-safe module `app/_components/app-store/rich-demo-slugs.ts` (plain `.ts`, no `'use client'`) and import it there from both the server layout and the client demo component.
+
+- `rich-demo-slugs.ts` — `RICH_DEMO_SLUGS` (+ `RichDemoSlug` type, + `isRichDemoSlug()` membership helper).
+- `layout.tsx` — imports `isRichDemoSlug` from the server-safe module (no longer imports any data from the client module; still imports the `StudioCardDemo` component + `DemoFrame` type, which is fine across the boundary).
+- `studio-card-demo.tsx` — `RICH_SCENES` is now typed `Record<RichDemoSlug, RichFrame[]>` so the scene map and the slug list can't drift (compile error if they do); removed its `RICH_DEMO_SLUGS = Object.keys(...)` export.
+
+Verified with a real `next build` + `next start` (NOT just dev, which had hidden it): the About pages render the App Store detail instead of crashing. typecheck clean.
+
+SPEC IMPACT: None (rendering bug fix; no product, pricing, or schema change).
+
+---
+
+## 2026-06-21 · chore(nav): lint-guard the locked BottomNav frosted fill (NAV-9 hardening)
+
+The redesign verifier found that `scripts/lint-bottom-nav.mjs` protected the bar's tuning knobs + animation hooks + aria-label, but **not** its frosted-paper fill — so an edit could silently change or strip `rgba(248, 246, 240, 0.92)` (the `--m-paper-2` @ 92% surface the locked white press-light reads against) and the guard would still pass, leaving the press bloom invisible.
+
+- Added `'rgba(248, 246, 240, 0.92)'` to `REQUIRED_MARKERS`. The integrity check already does `canonicalSrc.includes(marker)` for every entry, so this one line pins the fill — any future edit to it now fails the build with the existing owner-lock message.
+
+Verified: `pnpm lint:botnav` ✓ (the literal exists at `bottom-nav.tsx:684`, so the guard passes today and protects it going forward).
+
+Deferred (needs owner sign-off — NOT done here): the **≤5 tab-count assertion** half of NAV-1/NAV-9 hardening. A reliable build-time ≤5 guard requires lowering the template's own `Math.min(items.length, 6)` clamp to 5 — which is an edit to the owner-locked `bottom-nav.tsx` AND would disagree with the accordion path's "6 fixed top-level menus" contract until reconciled. Surfaced rather than silently changed.
+
+SPEC IMPACT: None (lint-guard hardening on the owner-locked template; no behavior change).
+
+## 2026-06-21 · fix(studio): Save-the-Date "About" page no longer collides with the builder route
+
+The Studio tile for Save-the-Date links (via `appStoreDetailHref('save-the-date')`) to `/studio/save-the-date/about`. But Save-the-Date owns a *literal* route folder (`studio/save-the-date/` — the builder + `loading.tsx`), which in Next.js **shadows** the dynamic `studio/[addon]/about` route. So that path fell through to the builder, and via client-side navigation the static/dynamic collision threw the branded error boundary (the `Reference: …` 500 the owner hit on `/studio/save-the-date/about`). Every other feature's About page works because they reach `[addon]/about`; `save-the-date` did not.
+
+- Extracted the App Store detail render from `studio/[addon]/about/page.tsx` into a shared `studio/_components/addon-detail-view.tsx` (no behavior change — `[addon]/about` now delegates to it).
+- Added an **explicit** `studio/save-the-date/about/page.tsx` that reuses the shared view with the add-on fixed to `save-the-date`. An explicit literal route is collision-proof — it always wins over the shadowed dynamic fallback, so the About page renders reliably on both hard load and client navigation.
+
+Verified locally (dev, signed in as the owner on a real event): `/studio/save-the-date/about` now renders the App Store About page (hero "The first time they feel your wedding.") instead of the builder; `/studio/papic/about` (dynamic route) and `/studio/save-the-date` (builder) still render correctly. `pnpm typecheck` exit 0; `next lint` clean for the changed files.
+
+Follow-up (not in this PR): other features that own a literal route folder (animated-monogram, custom-qr-guest, mood-board, photo-delivery, setnayan-ai, …) have the same shadowing, so their `/about` links resolve to the feature surface rather than the App Store detail. Harmless today (the tile still opens the feature) but worth a class fix.
+
+SPEC IMPACT: None (routing bug fix; no SKU, schema, or pricing change).
+
+---
+## 2026-06-21 · feat(nav): vendor + admin bottom nav → ≤5 tabs (redesign Wave 3 · NAV-1)
+
+First step of the ratified nav reroster (`Responsive_and_Mobile_UI_Ruleset_2026-06-21` · NAV-1). Drops the vendor and admin mobile pills from **6 tabs to 5** by demoting one destination each into "More". **Supersedes the 2026-06-15 owner-picked 6-tab rosters** (owner re-authorized via the redesign "do all / keep going"). The locked `bottom-nav.tsx` template is **NOT touched** — it is fully data-driven by the `items` array length, so passing 5 items instead of 6 just works (verified by a 3-agent read-only map of the owner-locked nav area).
+
+**Vendor** (`vendor-bottom-nav.tsx`): pill is now `Home · Bookings · Calendar · Messages · More` — **Website** demoted. Removed the unused `Globe` import. Added `/vendor-dashboard/website` to the More tab's `activeMatch` so it lights "More" on mobile (orphan-prevention); it was already a `/more` card + sidebar item (reachability confirmed).
+
+**Admin** (`admin-bottom-nav.tsx`): pill is now `Home · Work · Directory · Money · More` — **Insights** demoted. Removed the unused `BarChart3` import. Folded the 7 Insights routes (`/admin/insights` + growth/intelligence/funnels/operations-hiring/connection-logs/offline) into the More `activeMatch`. **Critically**, Insights was NOT in `/admin/more` (it would have been orphaned on mobile) — added an Insights card to `admin/more/page.tsx` → `/admin/insights` (the landing that fans out to all 7 analytics surfaces). Desktop sidebars keep their full Insights/Website groups (unchanged).
+
+**Registry** (`nav-registry-defaults.ts`): pruned the two now-orphaned defaults `vendor.bottom-nav.website` + `admin.bottom-nav.insights` so `/admin/menus` doesn't expose phantom editable tabs.
+
+Verified: `pnpm typecheck` exit 0 · `pnpm lint` exit 0 · `pnpm test:unit` (Phase-9 nav-registry integrity) **344/344 pass**. `lint:botnav` unaffected (the canonical template + its 7 markers are untouched).
+
+Deferred to follow-up PRs (blueprinted by the same workflow): the **broken-out Mulberry action satellite** (NAV-2 — a new sibling `nav-fab.tsx`, never a 7th tab/fork), the **Notion-style More** rebuild (NAV-5), and **lint hardening** (a ≤5 count assertion + protecting the frosted-fill token — both currently unguarded).
+
+SPEC IMPACT: Nav architecture — vendor/admin mobile pills drop to ≤5; supersedes the 2026-06-15 6-tab rosters. Logged in the corpus `DECISION_LOG.md`. No SKU/schema/pricing/public-claim change.
+## 2026-06-21 · fix(studio): un-shadow the App Store detail route — every "Learn more" / feature link was 404ing
+
+**Symptom (owner report):** on the Studio hub (`/dashboard/[eventId]/studio`) every "Learn more"/About link and every featured card was dead — clicking a feature went nowhere. Only `landing-page`, `music-creator`, and `panood` worked.
+
+**Root cause — Next.js route shadowing (single cause, not "everything's unwired").** The hub links each feature to its App Store detail page via `appStoreDetailHref()`, which returned `/studio/<key>/about`. But most features also own a static `app/dashboard/[eventId]/studio/<key>/` folder (papic, save-the-date, setnayan-ai, animated-monogram, led, mood-board, photo-delivery, custom-qr-guest, indoor-blueprint, patiktok, pakanta, playlist…). In the App Router a **literal** path segment beats the `[addon]` **dynamic** sibling and routing does **not** backtrack — so `/studio/papic/about` matched the static `papic/` folder, found no `about` child, and 404'd. Every feature with its own folder (11 of 14 visible, including all four flagships) was dead; only the three without a static folder resolved. The author had already hit this for two keys and band-aided them in `appStoreDetailHref` (the "an /about link 404s" comment) without realizing it was systemic.
+
+**Fix — move the detail route out from under the dynamic shadow.** Relocated `studio/[addon]/about/page.tsx` → `studio/about/[addon]/page.tsx` and pointed `appStoreDetailHref` at `/studio/about/<key>`. The literal `about` segment can't be shadowed by any feature key, so all 14 detail pages now resolve; the "Open" CTA on each detail page already pointed at the real feature surface via `addOnHref()`, so it works once the detail page is reachable. Panood + supplies-marketplace keep their existing straight-to-surface special-cases.
+
+**Reconciled with PR #1956 (parallel session, merged mid-flight).** #1956 fixed the same shadowing bug for Save-the-Date *only*, with a narrower strategy: keep links at the shadowed `/studio/<key>/about` and add an explicit per-key `<key>/about/page.tsx` inside each static folder (extracting the renderer into a shared `_components/addon-detail-view.tsx`). This relocated route supersedes that approach — one dynamic route under `/studio/about/<key>` fixes all 11 shadowed keys instead of one-wrapper-per-folder. Kept #1956's shared `addon-detail-view.tsx` (the relocated route mounts it); **removed the now-orphaned `studio/save-the-date/about/page.tsx`** (nothing links to `/studio/save-the-date/about` anymore) and corrected its comments so future sessions don't keep adding per-key about pages.
+
+- `apps/web/lib/add-ons-catalog.ts` — `appStoreDetailHref` now returns `/studio/about/<key>`; expanded the doc comment to explain the shadowing trap.
+- `apps/web/app/dashboard/[eventId]/studio/about/[addon]/page.tsx` — relocated detail page; mounts the shared `AddOnDetailView`.
+- `apps/web/app/dashboard/[eventId]/studio/save-the-date/about/page.tsx` — **deleted** (superseded orphan from #1956).
+- `apps/web/app/dashboard/[eventId]/studio/_components/addon-detail-view.tsx` — comment updated to describe the relocated-route mount point.
+- `apps/web/lib/add-ons-detail.test.ts` — added a regression guard asserting every detail href routes under the literal `/studio/about/` segment (fails the build if a key ever regresses to the shadowed shape); refreshed the path comment.
+- `apps/web/app/_components/app-store/layout.tsx`, `apps/web/lib/add-ons-detail.ts` — stale-path comment refreshes.
+
+No content/pricing/schema change — every visible feature already had authored detail content; prices still render live from `platform_retail_catalog_v2`.
+
+SPEC IMPACT: None (routing bugfix; no product, pricing, or schema change).
+
+## 2026-06-21 · chore(home): remove dead `Checklist` function from couple event-home
+
+Follow-up dead-code cleanup of `apps/web/app/dashboard/[eventId]/page.tsx`, same class as the helpers removed in #1939. The local `function Checklist(...)` (~95 lines) was never rendered — confirmed by grep (`<Checklist` has zero JSX usages; the live, rendered component is the *different* `ChecklistAsync`, untouched).
+
+- Deleted the dead `Checklist` function (it also held the file's last legacy `terracotta` color references).
+- Removed the 7 imports it was the **sole** consumer of (each verified to appear only at its import + inside `Checklist`): `CheckCircle2`, `Circle` (lucide-react); `STEPS`, `plannerProgress`, `type StepStatus` (`@/lib/planner`); `toggleJourneyStep` (`./actions`); `SubmitButton` (`@/app/_components/submit-button`).
+
+Noted, not changed (out of scope): the data chain that *fed* the dead `Checklist` — `stepStatuses` (computed but now unused) → `resolveStepStatuses` → `manualSteps` → `fetchManualStepCompletions` — is now fully dead too, but gutting it touches the main component's `Promise.all` data-fetch, so it's left for a separate, more careful pass. It remains valid and lint-tolerated.
+
+Net: ~100 deletions, 0 additions, no behavior change (none of the removed code rendered). Verified: `pnpm typecheck` exit 0, `pnpm lint` exit 0.
+
+SPEC IMPACT: None (dead-code removal, no behavior change).
+## 2026-06-21 · feat(ux): Couple Home cockpit — redesign PR 2/N (marketplace doorway)
+
+Per-surface pass on the couple event-home (`dashboard/[eventId]/page.tsx`). Home is already the owner-approved 5-beat single-column cockpit (countdown · next-action · needs-you · recent-activity · one marketplace doorway), so it was largely on-spec already — the one *live* presentation gap was the marketplace doorway (beat 5):
+
+- **CARD-1 + VIS-11 — modernize the "Browse your matched services" doorway.** Replaced the hand-rolled `rounded-2xl border border-dashed border-ink/15 bg-cream/60` chrome with the canonical `.m-card` primitive (gaining its built-in hover-lift), and swapped the legacy **terracotta** accent on the chevron chip for Clean Editorial **mulberry** (`bg-mulberry/10 text-mulberry`), aligning it with the palette lock.
+
+Verified: `pnpm typecheck` exit 0, `pnpm lint` exit 0. Vertical rhythm left untouched (the beats self-space; the layout wrapper adds no `space-y`, so a rhythm wrapper would double-space).
+
+Noted, not changed (flagged for a separate task): the local `Checklist` function in this file (~line 1754) is **dead** (never rendered — same class as the helpers removed in #1939) and holds the file's only other `terracotta` references. Out of scope for a presentation PR; spun off separately.
+
+SPEC IMPACT: None (presentation only — palette alignment on one Home card; no SKU/schema/pricing/public-claim change).
 
 ## 2026-06-21 · feat(ux): presentation primitives — redesign PR 1/N (foundation)
 

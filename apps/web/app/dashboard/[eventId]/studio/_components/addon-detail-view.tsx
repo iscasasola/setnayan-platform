@@ -12,29 +12,36 @@ import {
   type PreviewItem,
 } from '@/app/_components/app-store/layout';
 
-// Catalog-driven App Store-style detail page for every couple-side in-app
-// service (the fan-out of the 2026-05-17 Panood pilot — owner 2026-06-19
-// "Studio should look like the App Store so we can see info on each feature").
+// Shared App Store-style detail renderer for couple-side in-app services.
+//
+// Mounted once, by the catalog-driven route studio/about/[addon]/page.tsx. That
+// route lives under the LITERAL `about` segment (not studio/[addon]/about) on
+// purpose: most features own their own literal folder (studio/papic/,
+// studio/save-the-date/, …), and a literal segment shadows the [addon] dynamic
+// sibling without backtracking — so studio/<key>/about would 404 / fall through
+// to the feature's own builder. Routing every detail page under
+// studio/about/<key> keeps it clear of every feature folder. See
+// appStoreDetailHref() in lib/add-ons-catalog.ts.
 //
 // One renderer, content per feature in lib/add-ons-detail.ts. Pricing renders
 // LIVE from the admin catalog (platform_retail_catalog_v2) by serviceKey — this
-// page is never a price source (owner: "admin pricing controls all prices").
+// view is never a price source (owner: "admin pricing controls all prices").
 // The primary CTA hands off to the feature's own functional surface, which
 // already owns the buy / launch flow.
 
-export const dynamic = 'force-dynamic';
-
-type Props = { params: Promise<{ eventId: string; addon: string }> };
-
-export async function generateMetadata({ params }: Props) {
-  const { addon } = await params;
+/** Metadata title for an add-on's About page. */
+export function addOnAboutTitle(addon: string): string {
   const entry = ADD_ONS.find((a) => a.key === addon);
-  return { title: entry ? `${entry.label} · Setnayan` : 'Studio · Setnayan' };
+  return entry ? `${entry.label} · Setnayan` : 'Studio · Setnayan';
 }
 
-export default async function AddOnDetailPage({ params }: Props) {
-  const { eventId, addon } = await params;
-
+export async function AddOnDetailView({
+  eventId,
+  addon,
+}: {
+  eventId: string;
+  addon: string;
+}) {
   const entry = ADD_ONS.find((a) => a.key === addon);
   const detail = addOnDetail(addon);
   // Panood owns a bespoke detail page; coming-soon features and anything

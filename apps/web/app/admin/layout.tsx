@@ -12,6 +12,7 @@ import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
 import { DoorwaySidebarHeader } from '@/app/_components/nav/doorway-sidebar-header';
 import { AdminSidebar } from './_components/admin-sidebar';
 import { AdminBottomNav } from './_components/admin-bottom-nav';
+import { AdminNavFab } from './_components/admin-nav-fab';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
@@ -142,6 +143,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           BottomNav primitive. Sits outside SidebarShell so it doesn't
           inherit the desktop sidebar offset. */}
       <AdminBottomNav navSlots={navSlots} />
+      {/* NAV-2 broken-out action — Payment requests (a sibling of the pill,
+          never a tab). Hides itself when a docked SubNav is up. */}
+      <AdminNavFab />
       {!(profile?.tour_seen_keys ?? []).includes('admin_welcome_v1') ? (
         <GuidedTour tourKey="admin_welcome_v1" completeAction={completeTour} />
       ) : null}

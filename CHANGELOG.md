@@ -58,6 +58,24 @@ Owner reframe: the onboarding's job shifts from *"which vendors do you need?"* t
 ⚠ Owner sign-off: persona NAMES + quiz copy are first-draft (easy to tune — all in one data module). Going live needs (1) apply migration `20270208703382`, (2) set `NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED=true`.
 
 SPEC IMPACT: iteration 0016 (Setnayan AI / step-by-step plan builder) — onboarding reorients from vendor-needs assessment to experience-first; logged at the bottom of `DECISION_LOG.md`. No SKU/pricing change (the derived in-app services map to existing keys).
+## 2026-06-21 · fix(studio): App Store About pages crashed in prod (server import of a `'use client'` data export)
+
+Every Studio "About" page whose feature has no `demo` frames threw the branded error boundary (`Reference: 3349409504`) in production — e.g. `/studio/about/animated-monogram`, `/studio/about/save-the-date`. (Surfaced once PR #1954 un-shadowed the About route so the pages actually render; before that they fell through to the feature builder and the crash never ran. Only `papic` escaped, because its `detail.demo` short-circuits the `||` past the bug.)
+
+**Root cause.** `app/_components/app-store/layout.tsx` is a SERVER component, but it imported `RICH_DEMO_SLUGS` from `studio-card-demo.tsx`, which is a `'use client'` module. When a server component imports a **data** export from a client module, Next.js gives it a client-reference proxy — not the array — so `RICH_DEMO_SLUGS.includes(demoSlug)` threw `includes is not a function` and crashed the render. Dev masked it (non-fatal overlay, page still 200'd); the production build threw it fatally.
+
+**Fix.** Moved the slug list to a new server-safe module `app/_components/app-store/rich-demo-slugs.ts` (plain `.ts`, no `'use client'`) and import it there from both the server layout and the client demo component.
+
+- `rich-demo-slugs.ts` — `RICH_DEMO_SLUGS` (+ `RichDemoSlug` type, + `isRichDemoSlug()` membership helper).
+- `layout.tsx` — imports `isRichDemoSlug` from the server-safe module (no longer imports any data from the client module; still imports the `StudioCardDemo` component + `DemoFrame` type, which is fine across the boundary).
+- `studio-card-demo.tsx` — `RICH_SCENES` is now typed `Record<RichDemoSlug, RichFrame[]>` so the scene map and the slug list can't drift (compile error if they do); removed its `RICH_DEMO_SLUGS = Object.keys(...)` export.
+
+Verified with a real `next build` + `next start` (NOT just dev, which had hidden it): the About pages render the App Store detail instead of crashing. typecheck clean.
+
+SPEC IMPACT: None (rendering bug fix; no product, pricing, or schema change).
+
+---
+
 ## 2026-06-21 · chore(nav): lint-guard the locked BottomNav frosted fill (NAV-9 hardening)
 
 The redesign verifier found that `scripts/lint-bottom-nav.mjs` protected the bar's tuning knobs + animation hooks + aria-label, but **not** its frosted-paper fill — so an edit could silently change or strip `rgba(248, 246, 240, 0.92)` (the `--m-paper-2` @ 92% surface the locked white press-light reads against) and the guard would still pass, leaving the press bloom invisible.

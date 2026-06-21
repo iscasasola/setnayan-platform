@@ -5,6 +5,12 @@ import {
   Play, Pause, Users, Check, ChevronUp, Music, QrCode, Download,
   Printer, Cloud, ShieldCheck, MapPin, Sparkles, Star, Globe,
 } from 'lucide-react';
+// Slug list lives in a SERVER-SAFE module (NOT this 'use client' file) so the
+// server-rendered App Store layout can read the real array — importing a data
+// export from a 'use client' module on the server yields a client-reference
+// proxy, not the value (the 3349409504 crash). Server + client both import the
+// list from rich-demo-slugs.ts; do NOT re-export it from here.
+import { type RichDemoSlug } from './rich-demo-slugs';
 
 const MULB = 'var(--m-mulberry, #5C2542)';
 const GOLD = '#C5A059';
@@ -1168,7 +1174,10 @@ const PLAYLIST_SCENES: RichFrame[] = [
   },
 ];
 
-export const RICH_SCENES: Record<string, RichFrame[]> = {
+// Typed against RICH_DEMO_SLUGS so the slug list (server-safe, in
+// rich-demo-slugs.ts) and the scene map can't drift — add/remove a scene without
+// updating the list and this is a compile error.
+export const RICH_SCENES: Record<RichDemoSlug, RichFrame[]> = {
   papic: PAPIC_SCENES,
   'save-the-date': SAVE_THE_DATE_SCENES,
   'animated-monogram': ANIMATED_MONOGRAM_SCENES,
@@ -1186,8 +1195,10 @@ export const RICH_SCENES: Record<string, RichFrame[]> = {
 };
 
 /** Slugs that have a built-in native demo — lets the layout render the demo
- *  section even when a feature has no image/data `demo` frames yet. */
-export const RICH_DEMO_SLUGS = Object.keys(RICH_SCENES);
+ *  section even when a feature has no image/data `demo` frames yet. The list
+ *  itself lives in the server-safe rich-demo-slugs.ts (imported above) so the
+ *  server-rendered App Store layout can read it without crashing on the
+ *  client-module boundary. */
 
 /** Optional hosted MP4 + poster per slug. When present, the card PREFERS the
  *  looping video (the four scenes, captions baked in) over the live animated
@@ -1230,7 +1241,7 @@ export function StudioCardDemo({
   label?: string;
 }) {
   const media = slug ? RICH_MEDIA[slug] : undefined;
-  const rich = slug ? RICH_SCENES[slug] : undefined;
+  const rich = slug ? RICH_SCENES[slug as keyof typeof RICH_SCENES] : undefined;
   const useRich = Boolean(rich && rich.length > 0);
   const count = useRich ? rich!.length : frames.length;
 

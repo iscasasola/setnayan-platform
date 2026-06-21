@@ -1,7 +1,12 @@
 import Link from 'next/link';
 import { ArrowLeft, Check, ChevronRight, Star } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { StudioCardDemo, RICH_DEMO_SLUGS, type DemoFrame } from './studio-card-demo';
+import { StudioCardDemo, type DemoFrame } from './studio-card-demo';
+// RICH_DEMO_SLUGS comes from a SERVER-SAFE module, NOT from the 'use client'
+// studio-card-demo above: importing a data export from a client module into this
+// SERVER component yields a client-reference proxy whose .includes() is "not a
+// function" — the 3349409504 crash on every About page with no `demo` frames.
+import { isRichDemoSlug } from './rich-demo-slugs';
 import type { ReactNode } from 'react';
 
 // Shared App Store-style detail layout. Used by:
@@ -191,7 +196,7 @@ export function AppStoreLayout({
 
       {/* Preview — the auto-playing demo (what it does + how to operate it)
           when present, otherwise the static glyph rail. */}
-      {(demo && demo.length > 0) || (demoSlug && RICH_DEMO_SLUGS.includes(demoSlug)) ? (
+      {(demo && demo.length > 0) || isRichDemoSlug(demoSlug) ? (
         <Section title="Preview" id="preview">
           <StudioCardDemo frames={demo ?? []} slug={demoSlug} />
         </Section>

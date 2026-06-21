@@ -74,7 +74,7 @@ import { MonoLockup, type MonoDesign } from './mono-lockup';
 import { SongBankStep } from './song-bank-step';
 import { OnboardingMusic } from './onboarding-music';
 import { REFINEMENTS_BY_KEY, REFINEMENTS_DATA, type RefineLeaf, type RefineOption } from '../_data/refinements';
-import { EXP_AXES, EXP_PERSONA_BY_KEY, resolvePersona, derivePlanFromPersona, type ExpAxisId, type ExpForWhom } from '../_data/experience-personas';
+import { EXP_AXES, EXP_DIALS, EXP_PERSONA_BY_KEY, resolvePersona, derivePlanFromPersona, type ExpAxisId, type ExpForWhom } from '../_data/experience-personas';
 import { type OnboardingPickChip } from '@/lib/onboarding-refinements';
 import { type BudgetBand, BUDGET_BANDS_FALLBACK } from '@/lib/budget-bands-shared';
 import {
@@ -131,7 +131,7 @@ import { SDLoader } from '@/components/sd-loader';
    persona DERIVES picks/refinements/feel/services on the reveal. When OFF, the exp_*
    screens are filtered out and the flow is byte-identical to today. Order: the couple
    designs the EXPERIENCE first, then locks the venue (team_intro → reception_setting → find). */
-const FLOW_IDS = ['welcome','role','kind','faith','name','date','love_intro','love_spark','love_almost','love_proposal','love_milestones','love_tone','love_preview','alaala_promise','region','pax','budget','exp_for_whom','exp_feel','exp_energy','exp_roots','exp_effort','exp_reveal','team_intro','reception_setting','find','team_payoff','aigate','team_basics','refine_basic','team_extras','refine_extras','songs','mood','account','congrats','plan','bundle','services','summary'] as const;
+const FLOW_IDS = ['welcome','role','kind','faith','name','date','love_intro','love_spark','love_almost','love_proposal','love_milestones','love_tone','love_preview','alaala_promise','region','pax','budget','exp_for_whom','exp_feel','exp_energy','exp_roots','exp_effort','exp_help','exp_source','exp_reveal','team_intro','reception_setting','find','team_payoff','aigate','team_basics','refine_basic','team_extras','refine_extras','songs','mood','account','congrats','plan','bundle','services','summary'] as const;
 type ScreenId = typeof FLOW_IDS[number];
 /* The love collection screens dropped when the couple skips the stage (love_intro,
    the gate, always stays). */
@@ -160,7 +160,7 @@ const ANON_DRAFT_ENABLED = anonOnboardingEnabled();
 // persona DERIVES the plan); OFF → exp_* are filtered out and the flow is byte-identical
 // to today. Module-level so every buildSequence call site reads the same value.
 const EXPERIENCE_QUIZ_ENABLED = experienceQuizEnabled();
-const EXP_SCREENS: ReadonlySet<ScreenId> = new Set(['exp_for_whom', 'exp_feel', 'exp_energy', 'exp_roots', 'exp_effort', 'exp_reveal']);
+const EXP_SCREENS: ReadonlySet<ScreenId> = new Set(['exp_for_whom', 'exp_feel', 'exp_energy', 'exp_roots', 'exp_effort', 'exp_help', 'exp_source', 'exp_reveal']);
 // The manual "dream team" picker chain the experience quiz REPLACES when the flag is on
 // (the persona derives picks/refinements/feel/services instead of the couple hand-picking
 // 53 tiles + per-leaf refinements + music + palette).
@@ -209,7 +209,8 @@ const NEXT_LABEL_BY_ID: Record<ScreenId, string> = {
   refine_basic:'Continue', refine_extras:'Continue',
   // Experience-persona quiz (0016 · flag-gated). Each axis advances with Continue;
   // exp_effort leads into the reveal; exp_reveal continues on to reception_setting.
-  exp_for_whom:'Continue', exp_feel:'Continue', exp_energy:'Continue', exp_roots:'Continue', exp_effort:'See my plan', exp_reveal:'Continue',
+  exp_for_whom:'Continue', exp_feel:'Continue', exp_energy:'Continue', exp_roots:'Continue', exp_effort:'Continue',
+  exp_help:'Continue', exp_source:'See my plan', exp_reveal:'Continue',
 };
 /* Which screens show a Skip button. Skippable: team_extras · songs · mood · find · the
    à-la-carte services review — they sort/refine, never gate. The love collection screens
@@ -2268,6 +2269,10 @@ export function OnboardingShell({
   const selectExp = (axis: ExpAxisId, key: string) =>
     setState((s) => ({ ...s, experienceAxes: { ...s.experienceAxes, [axis]: key } }));
 
+  /* Intent dials (0016) — help level + vendor sourcing; captured after the quiz, before the reveal. */
+  const selectHelp = (k: OnboardingState['helpLevel']) => patch({ helpLevel: k });
+  const selectSource = (k: OnboardingState['vendorSourcing']) => patch({ vendorSourcing: k });
+
   const selectFaith = (f: OnboardingFaith) => {
     if (kind === 'mixed') {
       setState((s) => {
@@ -2540,6 +2545,10 @@ export function OnboardingShell({
         const axisId = activeId.slice(4) as ExpAxisId; // strip the 'exp_' prefix
         return state.experienceAxes[axisId] != null;
       }
+      case 'exp_help':
+        return state.helpLevel != null;
+      case 'exp_source':
+        return state.vendorSourcing != null;
       case 'exp_reveal':
         return true;
       default:
@@ -2922,7 +2931,7 @@ export function OnboardingShell({
       // services already ride the fields above; these carry the intent for the columns.
       experiencePersona: s.experiencePersona,
       experienceForWhom: (s.experienceAxes.for_whom as 'couple' | 'guests' | 'both' | undefined) ?? null,
-      experienceAxes: s.experienceAxes as Record<string, string>,
+      experienceAxes: { ...s.experienceAxes, ...(s.helpLevel ? { help: s.helpLevel } : {}), ...(s.vendorSourcing ? { source: s.vendorSourcing } : {}) } as Record<string, string>,
       // BYO vendors (screen-12 "Add your own vendor" sheet) — off-platform contacts
       // the couple typed in. Persisted at commit as event_vendors 'considering'
       // freeform rows so they show on the dashboard Services tab.
@@ -3983,6 +3992,35 @@ export function OnboardingShell({
             );
           })}
 
+          {/* EXPERIENCE DIALS (0016) — help level + vendor sourcing; single-pick like the axes
+              but driven by state.helpLevel / state.vendorSourcing. Flag-gated via EXP_SCREENS. */}
+          {EXP_DIALS.map((dial) => {
+            const picked = dial.id === 'help' ? state.helpLevel : state.vendorSourcing;
+            return (
+              <section key={dial.id} className={`screen${activeId === `exp_${dial.id}` ? ' active' : ''}`} id={`screen-exp-${dial.id}`}>
+                <div className="viewzone">
+                  <div className="eyebrow">{dial.eyebrow}</div>
+                  <h1 className="q">{dial.question}</h1>
+                  <p className="sub">{dial.sub}</p>
+                </div>
+                <div className="tapzone">
+                  <div className="stack" data-single="">
+                    {dial.options.map((o) => (
+                      <div
+                        key={picked === o.key ? `${o.key}-sel-${picked}` : o.key}
+                        className={`opt${sel(picked === o.key)}${picked === o.key ? ' sn-bounce' : ''}`}
+                        onClick={() => (dial.id === 'help' ? selectHelp(o.key as OnboardingState['helpLevel']) : selectSource(o.key as OnboardingState['vendorSourcing']))}
+                      >
+                        <div className="otrow"><div className="ot">{o.title}</div><span className="check" /></div>
+                        <div className="od">{o.desc}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </section>
+            );
+          })}
+
           {/* EXPERIENCE REVEAL (0016) — the resolved persona + the plan it derived. The derive
               effect has already written picks/refinements/feel/interestedServices into state;
               this screen just shows the couple what their answers built. */}
@@ -3991,19 +4029,23 @@ export function OnboardingShell({
               const persona = state.experiencePersona ? EXP_PERSONA_BY_KEY[state.experiencePersona] : null;
               const forWhom = state.experienceAxes.for_whom as ExpForWhom | undefined;
               const focusLabel = forWhom === 'couple' ? 'You two' : forWhom === 'guests' ? 'Your guests' : forWhom === 'both' ? 'Both' : '—';
+              const help = state.helpLevel ?? 'build';
+              const helpHead = help === 'options' ? 'here are your options.' : help === 'self' ? 'your canvas is ready.' : 'here’s your complete plan.';
+              const source = state.vendorSourcing ?? 'setnayan';
+              const sourceLine = source === 'byo' ? 'Your own vendors, organized with our tools.' : source === 'both' ? 'Your vendors, alongside our matches.' : 'From verified Setnayan vendors near your venue.';
               return (
                 <>
                   <div className="viewzone">
                     <div className="loveglyph">{'✶'}</div>
                     <div className="eyebrow">Your experience</div>
-                    <h1 className="q" style={{ fontSize: 30 }}>{persona ? `You’re a ${persona.name} couple.` : 'Your plan is ready.'}</h1>
+                    <h1 className="q" style={{ fontSize: 30 }}>{persona ? `You’re a ${persona.name} couple — ${helpHead}` : 'Your plan is ready.'}</h1>
                     {persona && <p className="sub" style={{ marginBottom: 10 }}>{persona.tagline}</p>}
                     <div className="statstrip">
                       <div className="stat"><b>{state.picks.length}</b><span>vendors<br />lined up</span></div>
                       <div className="stat"><b>{state.interestedServices.length}</b><span>Setnayan<br />add-ons</span></div>
                       <div className="stat"><b>{focusLabel}</b><span>built<br />around</span></div>
                     </div>
-                    <div className="note mul" style={{ marginTop: 12 }}><span>✦</span><div>We{'’'}ve lined up your vendors and the Setnayan touches that fit {persona ? <>a <b>{persona.name}</b></> : 'your'} wedding. You can fine-tune anything later.</div></div>
+                    <div className="note mul" style={{ marginTop: 12 }}><span>✦</span><div>We{'’'}ve lined up your vendors and the Setnayan touches that fit {persona ? <>a <b>{persona.name}</b></> : 'your'} wedding. {sourceLine} You can fine-tune anything later.</div></div>
                   </div>
                   <div className="tapzone" />
                 </>

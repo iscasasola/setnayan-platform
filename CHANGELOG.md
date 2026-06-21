@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-21 · feat(onboarding): intent dials — help level + sourcing on the experience flow (flag-gated · parked)
+
+Extends the parked experience-persona PR (#1937) with the two planning **dials** locked in the boundary design session:
+
+- **Dial 1 — help level** (`exp_help`): *build it all for me · give me options · I'll look myself*.
+- **Dial 2 — sourcing** (`exp_source`): *find on Setnayan · bring my own · both*.
+
+Inserted after the 5 experience axes, before `exp_reveal`, so the reveal reflects them. Single-pick screens, same `.screen/.stack[data-single]/.opt` markup as the axes; `EXP_DIALS` data lives alongside the personas (admin-tunable shape). New state `helpLevel` + `vendorSourcing`; the reveal **headline reflects the help level** ("here's your complete plan" / "here are your options" / "your canvas is ready") and adds a **sourcing line**. Captured into `events.experience_axes` JSONB at commit (no migration). Flag-gated via `EXP_SCREENS` (default OFF) — flow byte-identical when off.
+
+Part of the experience-first onboarding build (owner greenlit 2026-06-21). Remaining slices: strip the in-onboarding paywall tail (bundles/services → dashboard) · register-to-use gates (monogram, website) · register-to-download (planning PDFs) · no-login (anon-draft) posture. `tsc` 0 · `lint` 0. **Parked — auto-merge OFF, prototype-first review.**
+
+SPEC IMPACT: iteration 0016 — the intent dials from the locked free/login/paid boundary; logged in `DECISION_LOG.md`. No SKU/pricing change.
+
 ## 2026-06-21 · feat(onboarding): experience-persona reorientation — the quiz derives the plan (flag-gated · PR pending, auto-merge)
 
 Owner reframe: the onboarding's job shifts from *"which vendors do you need?"* to *"what experience do you want to create?"* — memorable for the couple, their guests, or both — and that experience then **derives** the in-app services to surface and the vendor/service filtering. Owner picked the boldest shape: **experience fully derives the plan** (no manual 53-tile picker), a **full persona quiz**, built into the real flow. Shipped **flag-gated** (`NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED`, default OFF) so the live funnel is byte-identical until the owner flips it.

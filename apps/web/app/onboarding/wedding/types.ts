@@ -186,6 +186,15 @@ export interface OnboardingState {
   experiencePersona: string | null;
 
   /**
+   * Intent dials (0016 · flag-gated). helpLevel = how much we do (build-it-all /
+   * give-options / look-myself); vendorSourcing = where vendors come from
+   * (Setnayan / bring-my-own / both). Captured after the 5 experience axes, before
+   * the reveal. Folded into events.experience_axes (JSONB) at commit.
+   */
+  helpLevel: 'build' | 'options' | 'self' | null;
+  vendorSourcing: 'setnayan' | 'byo' | 'both' | null;
+
+  /**
    * Per-leaf refinement picks (the "what kind of {service}?" passes · Dream Team
    * chapter · additive). leafKey (a PICK_GROUPS category key — 'ceremony',
    * 'catering', 'photo_video', 'live_band', …) → selected option labels (multi).
@@ -449,6 +458,8 @@ export const EMPTY_ONBOARDING_STATE: OnboardingState = {
   ai: null,
   experienceAxes: {},
   experiencePersona: null,
+  helpLevel: null,
+  vendorSourcing: null,
   refinements: {},
   shortlist: [],
   byoVendors: [],

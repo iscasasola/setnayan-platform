@@ -106,6 +106,35 @@ export const EXP_AXES: ExpAxis[] = [
   },
 ];
 
+/** Intent dials (0016) — captured after the 5 experience axes, before the reveal.
+ *  Same single-pick shape as the axes; they shape PRESENTATION (how assertive the
+ *  plan is + where vendors come from), NOT the persona resolve. */
+export type ExpDialId = 'help' | 'source';
+export const EXP_DIALS: { id: ExpDialId; eyebrow: string; question: string; sub: string; options: ExpOption[] }[] = [
+  {
+    id: 'help',
+    eyebrow: 'How we’ll help',
+    question: 'How much do you want us to do?',
+    sub: 'You can change this anytime.',
+    options: [
+      { key: 'build', title: 'Build it all for me', desc: 'Hand me a complete plan I can explore and swap.' },
+      { key: 'options', title: 'Give me options', desc: 'Show me a curated shortlist for each — I’ll choose.' },
+      { key: 'self', title: 'I’ll look myself', desc: 'Just open everything up; I want to browse.' },
+    ],
+  },
+  {
+    id: 'source',
+    eyebrow: 'Your vendors',
+    question: 'Where should your vendors come from?',
+    sub: 'Mix and match — nothing’s locked.',
+    options: [
+      { key: 'setnayan', title: 'Find them on Setnayan', desc: 'Match me with verified vendors near my venue.' },
+      { key: 'byo', title: 'I’m bringing my own', desc: 'I have my vendors — organize them with your tools.' },
+      { key: 'both', title: 'Both', desc: 'My vendors, alongside your matches.' },
+    ],
+  },
+];
+
 /** Every wedding gets these essentials regardless of persona (PICK_GROUPS keys). */
 export const EXP_ESSENTIAL_PICKS: readonly string[] = ['reception', 'ceremony', 'coordinator', 'catering', 'photo_video', 'hmua'];
 

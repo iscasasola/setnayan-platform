@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-21 · feat(ux): vendor calendar legibility — redesign PR 3/N (DIR-2, safe half)
+
+Per-surface pass on the vendor calendar (`vendor-dashboard/calendar/page.tsx`). The audit flagged its `grid-cols-7` month views as cramped on phones with **9–10px** day-cell text.
+
+- **DIR-2 (legibility half) — raise day-cell text to the 11px floor.** The three sub-11px chip/label sizes (`text-[9px]` ×2 in the all-pools view, `text-[10px]` ×1 in the per-pool view) → `text-[11px]`. Cells already carry `min-h-16` and `truncate`, so they grow gracefully. The **day-state semantics and the semantic state colors** (closed / full / available) are left **exactly** as shipped (per the verifier's "keep day-state exactly" flag).
+
+Deferred + flagged for owner: the *other* DIR-2 half — replacing the 7-column month grid with a mobile week-scroller / agenda below `lg` — is a larger reshape that touches the shared day-state layout, so it's surfaced separately rather than bundled into a legibility fix.
+
+Verified: `pnpm typecheck` exit 0, `pnpm lint` exit 0.
+
+SPEC IMPACT: None (text-size legibility; no day-state, booking, SKU, schema, or pricing change).
+
 ## 2026-06-21 · feat(ux): presentation primitives — redesign PR 1/N (foundation)
 
 First step of the "arrangement & presentation" redesign (`Responsive_and_Mobile_UI_Ruleset_2026-06-21`). Purely **additive** CSS — establishes the shared building blocks the per-surface PRs adopt, so no existing surface changes yet. (Onboarding is excluded from the whole redesign — owner is working it in parallel.)

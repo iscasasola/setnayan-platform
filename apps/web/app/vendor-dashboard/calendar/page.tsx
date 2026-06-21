@@ -347,7 +347,7 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
                     >
                       <span className="text-xs font-medium">{day}</span>
                       {allClosed ? (
-                        <span className="mt-0.5 block rounded bg-ink/10 px-1 text-[9px] font-semibold text-ink/55">
+                        <span className="mt-0.5 block rounded bg-ink/10 px-1 text-[11px] font-semibold text-ink/55">
                           Closed
                         </span>
                       ) : (
@@ -357,7 +357,7 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
                             title={`${c.pool.label}: ${
                               c.kind === 'closed' ? 'closed' : `${c.consumed}/${c.pool.capacity} booked`
                             }`}
-                            className={`mt-0.5 block truncate rounded px-1 text-[9px] font-semibold leading-tight ${
+                            className={`mt-0.5 block truncate rounded px-1 text-[11px] font-semibold leading-tight ${
                               c.kind === 'closed'
                                 ? 'bg-ink/10 text-ink/55'
                                 : c.kind === 'full'
@@ -425,7 +425,7 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
                       >
                         <span className="text-xs font-medium">{day}</span>
                         {badge ? (
-                          <span className="mt-0.5 block text-[10px] font-semibold leading-tight">
+                          <span className="mt-0.5 block text-[11px] font-semibold leading-tight">
                             {badge}
                           </span>
                         ) : null}

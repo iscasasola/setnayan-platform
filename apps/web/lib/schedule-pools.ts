@@ -114,6 +114,38 @@ export async function resolvePoolIdsForService(
 }
 
 /**
+ * Resolve the schedule pool for a vendor CATEGORY (no specific service).
+ *
+ * Used by the PACKAGE-booking path: lockPackage cascade-creates one
+ * event_vendors row per package item, each carrying a `category` but NO
+ * `service_id` (items map canonical_service → category, not to a vendor_service
+ * row). Those rows therefore can't go through resolvePoolIdsForService — and
+ * historically that meant the white→BOOKED capacity gate in updateVendorStatus
+ * (which requires service_id) silently skipped them, so a packaged booking
+ * consumed no capacity and could overbook a full date. A booked package must
+ * consume capacity like any other booking (owner "bundles lock every pool they
+ * span", 2026-06-20), so the deposit transition resolves by category instead.
+ *
+ * Flag-agnostic: category→pool is the same in both calendar modes
+ * (resolve_schedule_pool is the shared category resolver; named-calendar
+ * membership keys on service_id, which a package row doesn't have). Returns []
+ * when the category has no pool (resolver's junk-pool guard) — degrade open,
+ * same as any unpooled / off-platform booking.
+ */
+export async function resolvePoolIdsForCategory(
+  supabase: SupabaseClient,
+  marketplaceVendorId: string,
+  category: string | null | undefined,
+): Promise<string[]> {
+  if (!category) return [];
+  const { data } = await supabase.rpc('resolve_schedule_pool', {
+    p_vendor_profile_id: marketplaceVendorId,
+    p_category_key: category,
+  });
+  return typeof data === 'string' && data.length > 0 ? [data] : [];
+}
+
+/**
  * Multi-pool all-or-nothing atomic acquire. Relays the RPC envelope; any
  * transport error surfaces as { status:'error' } so the caller can decide
  * whether to degrade open or block.

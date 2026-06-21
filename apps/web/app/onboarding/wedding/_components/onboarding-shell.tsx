@@ -21,8 +21,8 @@
  *   - faith adapts to kind (single-pick Religious · pick-2 Mixed · note for Civil)
  *   - name screen: live monogram from the couple's names + Frame/Font cyclers
  *   - date screen: 2-mode calendar (specific 1-4 dates within a 90-day cluster ·
- *     flexible window ≤30 days) + the why-this-date nugget
- *   - region screen: top-5 + "Somewhere else" expand + 13 more + per-region nugget
+ *     flexible window ≤30 days)
+ *   - region screen: top-5 + "Somewhere else" expand + 13 more
  *   - pax screen: slider (10-500) + always-on exact box (any number) + tier photo
  *   - budget screen: feel-band chips + a look photo keyed to pax-tier × band
  *   - picker screen: 53 services grouped by the 10 parents + sticky preview +
@@ -42,7 +42,6 @@ import '../_styles/onboarding.css';
 // Desktop-only editorial canvas around the locked phone frame (owner 2026-06-13).
 // Layered ON TOP of the prototype CSS — see onboarding-desktop.css header.
 import '../_styles/onboarding-desktop.css';
-import { OnboardingDesktopAside } from './desktop-aside';
 // Phase-5 cutover: the lazy DB commit + the existing auth server actions reused
 // at the account gate (no new auth code — same OAuth/signup the marketing site uses).
 import {
@@ -593,7 +592,6 @@ function RefineStep({
   hideProgress = false,
   eyebrow: eyebrowProp,
   title: titleProp,
-  subtitle: subtitleProp,
 }: {
   scope?: 'basic' | 'extras';
   queue?: string[];
@@ -604,10 +602,9 @@ function RefineStep({
   onToggle: (leaf: string, optKey: string) => void;
   /** Standalone (non-queue) use — hides the "Service N of M" progress + dots. */
   hideProgress?: boolean;
-  /** Override eyebrow / title / sub for a standalone screen (reception, mood). */
+  /** Override eyebrow / title for a standalone screen (reception, mood). */
   eyebrow?: string;
   title?: string;
-  subtitle?: string;
 }) {
   const leaf = leafData.key;
   // Ceremony is faith-adaptive: resolve its options from ceremonyOptsFor + reuse the /prefs photos.
@@ -617,8 +614,6 @@ function RefineStep({
       : leafData.options;
   const eyebrow = eyebrowProp ?? (scope === 'basic' ? 'Refine your essentials' : 'Refine the extras you love');
   const title = titleProp ?? `What kind of ${leafData.label.toLowerCase()}?`;
-  const subtitle =
-    subtitleProp ?? `${leafData.description ? leafData.description + ' ' : ''}Pick the ones that feel like you — we’ll match the rest.`;
   return (
     <div className="prefstep refinestep">
       <div className="viewzone">
@@ -636,7 +631,6 @@ function RefineStep({
         ) : null}
         <div className="eyebrow">{eyebrow}</div>
         <h1 className="q">{title}</h1>
-        <p className="sub">{subtitle}</p>
       </div>
       <div className="tapzone">
         <Rail className="car refine-rail">
@@ -773,7 +767,6 @@ const MAXSPAN = 29;
 const MAXMULTI = 4;
 const CLUSTER = 90;
 const M_FULL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-const DOW_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const keyOf = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 const toISO = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const fromISO = (s: string) => {
@@ -783,11 +776,10 @@ const fromISO = (s: string) => {
 const fmtFull = (d: Date) => `${M_FULL[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
 const fmtShort = (d: Date) => `${(M_FULL[d.getMonth()] ?? '').slice(0, 3)} ${d.getDate()}`;
 const daysBetween = (a: Date, b: Date) => Math.round((b.getTime() - a.getTime()) / DAY);
-const seasonOf = (m: number) => (m >= 6 && m <= 9 ? 'rainy' : m >= 2 && m <= 4 ? 'dry' : 'cool-and-clear');
 
 /* ── predicted demand "heat" (deterministic · cold-start-safe · spec Date-Aligner §L.1).
-   Stacks the same calendar signals the why-nugget already reads (peak month · weekday ·
-   repeating/symbolic) into a 0–4 tier. This is the PREDICTED half only — the observed
+   Stacks the calendar signals (peak month · weekday ·
+   repeating/symbolic) into a 0–4 tier driving the cell colour ramp. This is the PREDICTED half only — the observed
    inquiry/relative-to-supply escalation (§L.2) is deferred until the marketplace has
    inquiry data (founder-only today → it would be dead code). Mirrors the verified
    prototype Hot_Date_Heat_Calendar_Prototype_2026-06-09.html. */
@@ -804,17 +796,6 @@ function heatTier(d: Date): 0 | 1 | 2 | 3 | 4 {
   if (dow === 6 && m + 1 === n) s += 1; // Saturday + repeating combo
   return s <= 0 ? 0 : s <= 2 ? 1 : s === 3 ? 2 : s <= 5 ? 3 : 4;
 }
-const DEMAND_LABEL = ['Open', 'Quiet', 'Popular', 'In-demand', 'Hottest'] as const;
-const flamesFor = (t: number) => (t >= 3 ? '🔥' : ''); // single restrained accent on the hot tiers; the 1–4 gradient lives in the cell colour ramp
-const demandOf = (tier: number) => ({ tier, label: DEMAND_LABEL[tier]!, flames: flamesFor(tier) });
-
-type WhyView = {
-  tone: 'good' | 'note';
-  title: string;
-  reasons: [string, string][];
-  more: string;
-  demand?: { tier: number; label: string; flames: string };
-} | null;
 
 /** Fade-in hero image (prototype setHero: add `loaded` on load; gradient shows on error/missing). */
 function HeroImg({ src, alt = '' }: { src: string; alt?: string }) {
@@ -994,97 +975,8 @@ function DateCalendar({
     cells.push({ d, cur, cls, disabled });
   }
 
-  /* ── derived: readout + why-nugget (prototype updatePick) ── */
-  const dateReasons = (d: Date): WhyView => {
-    const dow = d.getDay();
-    const m = d.getMonth();
-    const n = d.getDate();
-    const r: [string, string][] = [];
-    let note = false;
-    if (dow === 6) r.push(['Saturday', 'the day most Filipino weddings are held.']);
-    else if (dow === 5) r.push(['Friday', 'Venus’s day — the day for love.']);
-    else if (dow === 0) r.push(['Sunday', 'intimate, and vendors often cost a little less.']);
-    else r.push(['A weekday', 'lower vendor rates and easier venue booking.']);
-    if (m === 11) {
-      r.push(['December', 'peak season — family’s home for the holidays, so lock vendors early.']);
-      note = true;
-    } else if (m >= 6 && m <= 9) {
-      r.push(['Rainy / typhoon window', 'lush and dramatic, but plan a wet-weather backup.']);
-      note = true;
-    } else if (m >= 2 && m <= 4) r.push(['Dry season', 'outdoor-friendly — just mind the summer heat.']);
-    else r.push(['Cool, clear months', 'comfortable for an outdoor celebration.']);
-    if (n === 8 || n === 18 || n === 28) r.push([`The ${n}th`, 'a number of prosperity in Chinese-Filipino tradition.']);
-    else if (n === 4 || n === 14 || n === 24) {
-      r.push([`The ${n}th`, 'some families avoid 4 — worth a quick word with the elders.']);
-      note = true;
-    }
-    return {
-      tone: note ? 'note' : 'good',
-      title: note ? '✦ A few things to note' : '✦ Why this date works',
-      reasons: r.slice(0, 3),
-      more: 'See all 5 layers — liturgical · numerology · folklore · weather · astrology — with Setnayan Concierge →',
-      demand: demandOf(heatTier(d)),
-    };
-  };
-  const rangeReasons = (a: Date, b: Date): WhyView => {
-    const r: [string, string][] = [];
-    let note = false;
-    let sat = 0;
-    let peakTier = 0;
-    const mid = new Date(a.getTime() + (b.getTime() - a.getTime()) / 2);
-    for (let t = a.getTime(); t <= b.getTime(); t += DAY) {
-      const dd = new Date(t);
-      if (dd.getDay() === 6) sat++;
-      peakTier = Math.max(peakTier, heatTier(dd));
-    }
-    r.push(['We lock the date, not you', 'we pick the day in this window every chosen vendor is free — nobody’s double-booked.']);
-    if (sat > 0) r.push([`${sat} Saturday${sat > 1 ? 's' : ''} in here`, 'the prime wedding days — best shot your shortlist lines up.']);
-    const mm = mid.getMonth();
-    if (mm === 11) {
-      r.push(['Crosses December', 'peak — a wider window helps you land popular vendors.']);
-      note = true;
-    } else if (mm >= 6 && mm <= 9) {
-      r.push(['Rainy-season window', 'flexibility lets us dodge the worst weather too.']);
-      note = true;
-    } else r.push(['Good-weather window', 'comfortable months — easy on outdoor plans.']);
-    return {
-      tone: note ? 'note' : 'good',
-      title: '✦ Why a flexible window works',
-      reasons: r.slice(0, 3),
-      more: 'As you shortlist vendors, your day settles on the date they’re all open inside this window.',
-      demand: demandOf(peakTier),
-    };
-  };
-  const commonReasons = (ds: Date[]): WhyView => {
-    const r: [string, string][] = [];
-    let note = false;
-    const dows = ds.map((d) => d.getDay());
-    const months = ds.map((d) => d.getMonth());
-    const nums = ds.map((d) => d.getDate());
-    const allSame = <T,>(a: T[]) => a.every((x) => x === a[0]);
-    const span = daysBetween(ds[0]!, ds[ds.length - 1]!);
-    if (allSame(dows))
-      r.push([`All ${DOW_FULL[dows[0]!]}s`, dows[0] === 6 ? 'the prime wedding day — vendors’ busiest slot, so options really help.' : 'one weekday pattern — easier for a vendor to hold one of them.']);
-    else if (dows.every((x) => x === 0 || x === 6)) r.push(['All weekends', 'the days most vendors work — best odds your shortlist lines up.']);
-    if (allSame(months)) r.push([`All in ${M_FULL[months[0]!]}`, 'one month to staff — a vendor only needs one open slot in it.']);
-    else if (allSame(ds.map((d) => seasonOf(d.getMonth())))) {
-      const s = seasonOf(ds[0]!.getMonth());
-      r.push([`All in the ${s} season`, s === 'rainy' ? 'plan a wet-weather backup — but vendors book easier off-peak.' : 'consistent weather across your options.']);
-    }
-    if (allSame(nums) && [8, 18, 28].includes(nums[0]!)) r.push([`All land on the ${nums[0]}th`, 'a prosperity number in Chinese-Filipino tradition.']);
-    r.push([`${span === 0 ? 'same' : `within ${span}`} days`, 'tight enough that one vendor’s calendar can cover them — as schedules fill, we lock the one they all share.']);
-    if (months.includes(11)) note = true;
-    return {
-      tone: note ? 'note' : 'good',
-      title: '✦ What your dates share',
-      reasons: r.slice(0, 3),
-      more: 'As vendors book up, your day settles on whichever of these stays open for all of them.',
-      demand: demandOf(Math.max(...ds.map(heatTier))),
-    };
-  };
 
   let pickHtml: ReactNode;
-  let why: WhyView = null;
   let warn: string | null = null;
   if (mode === 'specific') {
     if (multi.length === 0) {
@@ -1097,7 +989,6 @@ function DateCalendar({
           <span className="addhint">· or add up to 3 nearby</span>
         </>
       );
-      why = dateReasons(sorted[0]!);
     } else {
       const lk = multi.length >= MAXMULTI;
       pickHtml = (
@@ -1106,7 +997,6 @@ function DateCalendar({
           <span className="addhint">· {lk ? '4 set' : `add ${MAXMULTI - multi.length} more`}</span>
         </>
       );
-      why = commonReasons(sorted);
       if (lk) warn = '4 dates set — tap one to swap.';
     }
   } else if (!rEnd) {
@@ -1123,7 +1013,6 @@ function DateCalendar({
         <span className="addhint">· we find the shared date</span>
       </>
     );
-    why = rangeReasons(rStart, rEnd);
   }
 
   const setRangeMsg =
@@ -1133,26 +1022,10 @@ function DateCalendar({
 
   return (
     <>
-      {/* viewzone — title + the "why these dates" nugget sits up top, above the calendar (owner 2026-06-05) */}
+      {/* viewzone — title only; the "why these dates" nugget was removed (owner 2026-06-21: clear question, clear answer, no side notes) */}
       <div className="viewzone">
         <div className="eyebrow">Your wedding</div>
         <h1 className="q">When{'’'}s the big day?</h1>
-        {why && (
-          <div className="whydate">
-            <div className="whead">
-              <span className={`wtone ${why.tone}`}>{why.title}</span>
-              {why.demand && why.demand.tier > 0 && (
-                <span className={`wdemand d${why.demand.tier}`}>
-                  {why.demand.flames && <span className="wflame">{why.demand.flames}</span>}
-                  {why.demand.label}
-                </span>
-              )}
-            </div>
-            <div className="wsum">
-              <b>{why.reasons[0]?.[0]}</b> — {why.reasons[0]?.[1]} <span className="wmore">{why.more}</span>
-            </div>
-          </div>
-        )}
       </div>
       <div className="tapzone">
         <div className="calpick">{pickHtml}</div>
@@ -2418,8 +2291,6 @@ export function OnboardingShell({
     const other = v === 'me' ? b : v === 'them' ? g : '';
     return other ? `${other} — how did it actually feel right then?` : 'How did you actually feel right then?';
   })();
-  // S1 whose-turn cue, pre-filled from the groom name (neutral default).
-  const sparkTurn = state.groomFirstName.trim() ? `${state.groomFirstName.trim()}, you noticed first` : 'The spark';
 
   /* ── pax ── */
   const pax = state.pax ?? 150;
@@ -2637,8 +2508,6 @@ export function OnboardingShell({
   const teamMatched = venues?.length ?? 0;
   const teamShortlisted = state.shortlist.length;
   const teamHoursSaved = Math.max(8, Math.round(teamMatched * 2.8));
-  const VENUE_POOL_TOTAL = 312;
-  const teamVenuePool = Math.max(VENUE_POOL_TOTAL, teamMatched);
   const starStr = (r: number) => {
     const full = Math.max(0, Math.min(5, Math.round(r)));
     return '★★★★★'.slice(0, full) + '☆☆☆☆☆'.slice(0, 5 - full);
@@ -3135,9 +3004,6 @@ export function OnboardingShell({
 
   return (
     <div className="onbw">
-      {/* Desktop-only editorial canvas (≥1024px) beside the phone frame. Hidden
-          on mobile + tablet; the phone frame below is byte-for-byte unchanged. */}
-      <OnboardingDesktopAside />
       {/* Blocking completion overlay — covers the whole viewport so the customer
           can't touch anything while we create the event + preload the dashboard
           (owner 2026-06-02). Stays up until the dashboard navigation swaps in. */}
@@ -3263,11 +3129,10 @@ export function OnboardingShell({
           </section>
 
           {/* 2 ROLE */}
-          <section className={`screen${activeId === 'role' ? ' active' : ''}`} id="screen-role">
+          <section className={`screen onb-twopane${activeId === 'role' ? ' active' : ''}`} id="screen-role">
             <div className="viewzone">
               <div className="eyebrow">About you</div>
               <h1 className="q">Who are you in this wedding?</h1>
-              <p className="sub">This account is just you {'—'} your partner can join as a co-host anytime.</p>
               <figure className="rolephoto">
                 <HeroImg src={ASSET('role')} />
                 <figcaption className="rolecap">
@@ -3293,11 +3158,10 @@ export function OnboardingShell({
           </section>
 
           {/* 3 KIND */}
-          <section className={`screen${activeId === 'kind' ? ' active' : ''}`} id="screen-kind">
+          <section className={`screen onb-twopane${activeId === 'kind' ? ' active' : ''}`} id="screen-kind">
             <div className="viewzone">
               <div className="eyebrow">Your wedding</div>
               <h1 className="q">What kind of wedding?</h1>
-              <p className="sub">This shapes your timeline, your paperwork, and which vendors we show.</p>
               <figure className="kindphoto">
                 <HeroImg src={ASSET(kindPhoto.img)} />
                 <figcaption className="kindcap">
@@ -3323,14 +3187,13 @@ export function OnboardingShell({
           </section>
 
           {/* 4 FAITH — adaptive */}
-          <section className={`screen${activeId === 'faith' ? ' active' : ''}`} id="screen-faith">
+          <section className={`screen onb-twopane${activeId === 'faith' ? ' active' : ''}`} id="screen-faith">
             <div className="viewzone">
               <div className="eyebrow">
                 {faithView.eyebrow}
                 {faithView.mode === 'mixed' && <span className="tag new">Interfaith</span>}
               </div>
               <h1 className="q">{faithView.h1}</h1>
-              <p className="sub">{faithView.sub}</p>
               <figure className="faithphoto">
                 <HeroImg src={ASSET(faithView.photo.img)} />
                 <figcaption className="faithcap">
@@ -3339,14 +3202,7 @@ export function OnboardingShell({
               </figure>
             </div>
             <div className="tapzone">
-              {faithView.mode === 'civil' ? (
-                <div className="note">
-                  <span>{'✦'}</span>
-                  <div>
-                    <b>Civil ceremony</b> {'—'} no religious tradition to set. We{'’'}ll skip this step in the real flow.
-                  </div>
-                </div>
-              ) : (
+              {faithView.mode === 'civil' ? null : (
                 <div className="chips" {...(faithView.mode === 'religious' ? { 'data-single': '' } : { 'data-max': '2' })}>
                   {FAITH_CHIPS.map((c) => {
                     // Gate on the launch status when we have it (admin
@@ -3505,7 +3361,6 @@ export function OnboardingShell({
               <div className="loveglyph">{'♡'}</div>
               <div className="eyebrow">Your wedding website</div>
               <h1 className="q">How did the two of you happen?</h1>
-              <p className="sub">Tell it like you{'’'}d tell a friend over coffee — we{'’'}ll write it onto your page and read it back to you. Two minutes, mostly tapping.</p>
               <div className="duet">
                 <span className="vpill muted"><span className="dot her" />{loveDuetBride}</span>
                 <span className="vpill muted"><span className="dot" />{loveDuetGroom}</span>
@@ -3523,7 +3378,6 @@ export function OnboardingShell({
             <div className="viewzone">
               <div className="eyebrow">Your love story · 1 of 4 · how you met</div>
               <h1 className="q">How you two met</h1>
-              <p className="sub">{sparkTurn} — what{'’'}s the very first thing you noticed about each other?</p>
               {/* the Spark stem */}
               <div className="stem">
                 <span className="stem-pre">The first thing I noticed was{'…'}</span>
@@ -3569,7 +3423,6 @@ export function OnboardingShell({
             <div className="viewzone">
               <div className="eyebrow">Your love story · 2 of 4 · the almost</div>
               <h1 className="q">The almost</h1>
-              <p className="sub">Every story has an almost — it{'’'}s what makes the ending land. If yours was easy, skip it.</p>
               <div className="stem tight">
                 <span className="stem-pre">There was a moment we almost didn{'’'}t make it because{'…'}</span>
                 <textarea
@@ -3609,7 +3462,6 @@ export function OnboardingShell({
             <div className="viewzone">
               <div className="eyebrow">Your love story · 3 of 4 · the yes</div>
               <h1 className="q">The proposal</h1>
-              <p className="sub">Where it happened, how it felt, who asked.</p>
               <div className="sparkchips">
                 {[
                   { prop: 'beach', label: 'Beach' },
@@ -3663,7 +3515,6 @@ export function OnboardingShell({
             <div className="viewzone">
               <div className="eyebrow">Your love story · 4 of 4 · the little things</div>
               <h1 className="q">The stuff only you two would know.</h1>
-              <p className="sub" style={{ marginBottom: 12 }}>Tap what{'’'}s yours. Skip the rest.</p>
               <div className="lovetiles">
                 {([
                   { k: 'song' as const, ic: '🎵', lbl: 'Our song', ph: 'the song that was always playing' },
@@ -3751,7 +3602,6 @@ export function OnboardingShell({
             <div className="viewzone">
               <div className="eyebrow">Your love story · the voice</div>
               <h1 className="q">How should it sound?</h1>
-              <p className="sub" style={{ marginBottom: 14 }}>Same story, your voice — change it anytime.</p>
               <div className="sitecard" style={{ marginBottom: 14 }}>
                 <div className="sc-inner" style={{ padding: '18px 18px' }}>
                   <div className="sc-pull" style={{ fontSize: 20, margin: 0 }} dangerouslySetInnerHTML={{ __html: tonePreviewHtml }} />
@@ -3775,7 +3625,6 @@ export function OnboardingShell({
             <div className="viewzone">
               <div className="eyebrow">Your love story · the reveal</div>
               <h1 className="q">Here{'’'}s the two of you.</h1>
-              <p className="sub" style={{ marginBottom: 14 }}>This is how it{'’'}ll read on your wedding page.</p>
               <div className="sitecard">
                 <div className="sc-inner">
                   <div className="sc-masthead" dangerouslySetInnerHTML={{ __html: lovePreviewMasthead }} />
@@ -3792,7 +3641,7 @@ export function OnboardingShell({
             </div>
           </section>
 
-          {/* 6 DATE — 2-mode calendar + why-this-date nugget (DateCalendar owns its viewzone title + nugget) */}
+          {/* 6 DATE — 2-mode calendar (DateCalendar owns its viewzone title) */}
           <section className={`screen${activeId === 'date' ? ' active' : ''}`}>
             <DateCalendar
               mode={state.dateMode}
@@ -3810,18 +3659,10 @@ export function OnboardingShell({
             <div className="viewzone">
               <div className="eyebrow">Our promise</div>
               <h1 className="q">Your day, kept alive.</h1>
-              <p className="sub">
-                Everything you just shared {'—'} and everything that happens on the day {'—'} we keep
-                as your <em>Alaala</em>: the moments you{'’'}ll be too busy to see, the people who
-                can{'’'}t be there, the stories your guests tell. A living memory, not a frozen album.
-              </p>
-              <p className="sub" style={{ opacity: 0.72, marginTop: 8 }}>
-                And we stay out of the way. The day is yours to live {'—'} we just quietly remember it.
-              </p>
             </div>
           </section>
 
-          {/* 7 REGION — top-5 + Somewhere-else expand + 13 more + nugget */}
+          {/* 7 REGION — top-5 + Somewhere-else expand + 13 more */}
           <section className={`screen${activeId === 'region' ? ' active' : ''}`} id="screen-region">
             <LocationStep
               value={state.places}
@@ -3836,7 +3677,6 @@ export function OnboardingShell({
             <div className="viewzone">
               <div className="eyebrow">The day</div>
               <h1 className="q">How many guests?</h1>
-              <p className="sub">Your starting headcount, shared with vendors — be as specific as you can for the best matches.</p>
               <figure className="paxphoto" data-tier={state.pax == null ? 'none' : paxTier.t}>
                 <HeroImg src={state.pax == null ? '' : ASSET(`pax/${paxTier.t}`)} />
                 <figcaption className="paxcap">
@@ -3888,7 +3728,6 @@ export function OnboardingShell({
             <div className="viewzone">
               <div className="eyebrow">The day</div>
               <h1 className="q">Your working budget?</h1>
-              <p className="sub">Set your number — we{'’'}ll show the feel it buys for ~{pax} guests.</p>
               <figure className="budgetphoto budgetphoto--compact" data-band={budgetSet ? budgetView.dataBand : 'none'}>
                 <HeroImg src={budgetSet ? ASSET(budgetView.img) : ''} />
                 <figcaption className="budgetcap">
@@ -3980,11 +3819,10 @@ export function OnboardingShell({
           {EXP_AXES.map((axis) => {
             const picked = state.experienceAxes[axis.id] ?? null;
             return (
-              <section key={axis.id} className={`screen${activeId === `exp_${axis.id}` ? ' active' : ''}`} id={`screen-exp-${axis.id}`}>
+              <section key={axis.id} className={`screen onb-twopane${activeId === `exp_${axis.id}` ? ' active' : ''}`} id={`screen-exp-${axis.id}`}>
                 <div className="viewzone">
                   <div className="eyebrow">{axis.eyebrow}</div>
                   <h1 className="q">{axis.question}</h1>
-                  <p className="sub">{axis.sub}</p>
                 </div>
                 <div className="tapzone">
                   <div className="stack" data-single="">
@@ -4010,11 +3848,10 @@ export function OnboardingShell({
           {EXP_DIALS.map((dial) => {
             const picked = dial.id === 'help' ? state.helpLevel : state.vendorSourcing;
             return (
-              <section key={dial.id} className={`screen${activeId === `exp_${dial.id}` ? ' active' : ''}`} id={`screen-exp-${dial.id}`}>
+              <section key={dial.id} className={`screen onb-twopane${activeId === `exp_${dial.id}` ? ' active' : ''}`} id={`screen-exp-${dial.id}`}>
                 <div className="viewzone">
                   <div className="eyebrow">{dial.eyebrow}</div>
                   <h1 className="q">{dial.question}</h1>
-                  <p className="sub">{dial.sub}</p>
                 </div>
                 <div className="tapzone">
                   <div className="stack" data-single="">
@@ -4044,21 +3881,17 @@ export function OnboardingShell({
               const focusLabel = forWhom === 'couple' ? 'You two' : forWhom === 'guests' ? 'Your guests' : forWhom === 'both' ? 'Both' : '—';
               const help = state.helpLevel ?? 'build';
               const helpHead = help === 'options' ? 'here are your options.' : help === 'self' ? 'your canvas is ready.' : 'here’s your complete plan.';
-              const source = state.vendorSourcing ?? 'setnayan';
-              const sourceLine = source === 'byo' ? 'Your own vendors, organized with our tools.' : source === 'both' ? 'Your vendors, alongside our matches.' : 'From verified Setnayan vendors near your venue.';
               return (
                 <>
                   <div className="viewzone">
                     <div className="loveglyph">{'✶'}</div>
                     <div className="eyebrow">Your experience</div>
                     <h1 className="q" style={{ fontSize: 30 }}>{persona ? `You’re a ${persona.name} couple — ${helpHead}` : 'Your plan is ready.'}</h1>
-                    {persona && <p className="sub" style={{ marginBottom: 10 }}>{persona.tagline}</p>}
                     <div className="statstrip">
                       <div className="stat"><b>{state.picks.length}</b><span>vendors<br />lined up</span></div>
                       <div className="stat"><b>{state.interestedServices.length}</b><span>Setnayan<br />add-ons</span></div>
                       <div className="stat"><b>{focusLabel}</b><span>built<br />around</span></div>
                     </div>
-                    <div className="note mul" style={{ marginTop: 12 }}><span>✦</span><div>We{'’'}ve lined up your vendors and the Setnayan touches that fit {persona ? <>a <b>{persona.name}</b></> : 'your'} wedding. {sourceLine} You can fine-tune anything later.</div></div>
                   </div>
                   <div className="tapzone" />
                 </>
@@ -4071,8 +3904,6 @@ export function OnboardingShell({
               <div className="loveglyph">{'⛬'}</div>
               <div className="eyebrow">Your venue</div>
               <h1 className="q">Let{'’'}s start with your reception.</h1>
-              <p className="sub">Your reception venue is home base. Once we know <i>where</i> you{'’'}re celebrating, we match every other vendor by who can actually get there.</p>
-              <div className="note mul"><span>✦</span><div>Lock your venue and it becomes your <b>home base</b>. We sort every caterer, photographer &amp; stylist by <b>who can get there</b> — far ones flagged <b>{'“'}travel fee may apply.{'”'}</b></div></div>
             </div>
             <div className="tapzone" />
           </section>
@@ -4101,7 +3932,6 @@ export function OnboardingShell({
                   hideProgress
                   eyebrow="Reception"
                   title="What setting do you love?"
-                  subtitle="Pick one or two — we’ll lead with venues that match."
                 />
               ) : null;
             })()}
@@ -4115,7 +3945,6 @@ export function OnboardingShell({
             <div className="viewzone">
               <div className="eyebrow">Your essentials</div>
               <h1 className="q">Your basic services.</h1>
-              <p className="sub">The must-haves. Tap the ones you still need {'—'} we{'’'}ll match each.</p>
               <figure className="styhero" style={{ backgroundImage: `url(${PICKER_ASSET(basicFocus)})` }}>
                 <figcaption className="styhcap">
                   <span className="bft">{PICK_LABEL[basicFocus] ?? basicFocus}</span>
@@ -4166,7 +3995,6 @@ export function OnboardingShell({
             <div className="viewzone">
               <div className="eyebrow">The extras</div>
               <h1 className="q">The extras you love.</h1>
-              <p className="sub">Everything that turns a wedding into <i>your</i> wedding. Tap a category to browse {'—'} pick any.</p>
             </div>
             <div className="tapzone">
               <div className="exscroll">
@@ -4236,7 +4064,6 @@ export function OnboardingShell({
             <div className="viewzone">
               <div className="eyebrow">Music</div>
               <h1 className="q">Your songs</h1>
-              <p className="sub">Browse the top 100, search for any song, or check your playlist. Pick at least 10 {'—'} we{'’'}ll build the rest.</p>
             </div>
             <div className="tapzone">
               <SongBankStep
@@ -4269,7 +4096,6 @@ export function OnboardingShell({
                 <div className="viewzone">
                   <div className="eyebrow">Your overall feel</div>
                   <h1 className="q">Set the mood</h1>
-                  <p className="sub">Pick the look you love {'—'} see it in its colors. It guides your stylist, florist, cake &amp; gown.</p>
                   {FEELS[feel] ? (
                     <figure className="feelphoto">
                       <HeroImg src={PREFS_ASSET(`feel_${feel}_${budgetTier}`)} />
@@ -4363,7 +4189,6 @@ export function OnboardingShell({
           <section className={`screen${activeId === 'find' ? ' active' : ''}`} id="screen-find">
             <div className="eyebrow">Find your first vendor</div>
             <h1 className="q" style={{ fontSize: 30 }}>{findHeading}</h1>
-            <p className="sub">Sorted for you: your style first, then everyone who can host you. <b>Tap one to shortlist.</b></p>
             {venuesLoading && (
               <div className="vskel-wrap" aria-live="polite" aria-busy="true">
                 <div className="grouplbl">★ Finding the best venues for you…</div>
@@ -4437,7 +4262,6 @@ export function OnboardingShell({
                     </>
                   )}
                   <div className="removednote">🚫 <span>Venues that can’t fit your guest count, aren’t free on your date, or don’t match your ceremony aren’t shown — change those details to see more.</span></div>
-                  <div className="note mul"><span>✦</span><div>Your venue is your <b>home base</b>. Every other vendor — caterer, florist, photographer — is then sorted by <b>who can reach it</b>; ones outside their service area still appear, flagged <b>“travel fee may apply.”</b></div></div>
                 </>
               );
             })()}
@@ -4459,16 +4283,13 @@ export function OnboardingShell({
             <div className="viewzone">
               <div className="eyebrow">The payoff</div>
               <h1 className="q" style={{ fontSize: 30 }}>Look how far you are.</h1>
-              <p className="sub" style={{ marginBottom: 10 }}>Out of <b>{teamVenuePool}</b> reception venues, we found you <b>{teamMatched}</b> to start.</p>
               <div className="statstrip">
                 <div className="stat"><b>{teamMatched}</b><span>venues<br />matched</span></div>
                 <div className="stat"><b>~{teamHoursSaved}</b><span>hours<br />saved</span></div>
                 <div className="stat"><b>{teamShortlisted}</b><span>on your<br />shortlist</span></div>
               </div>
             </div>
-            <div className="tapzone">
-              <div className="note mul" style={{ marginTop: 0, marginBottom: 0 }}><span>✦</span><div>This is just your reception. Next, <b>Setnayan AI</b> can match every other vendor the same way.</div></div>
-            </div>
+            <div className="tapzone" />
           </section>
 
           {/* AIGATE — the AI offer · TWO in-screen CTAs (Yes / No thanks) · chrome Continue
@@ -4478,11 +4299,6 @@ export function OnboardingShell({
             <div className="viewzone">
               <div className="eyebrow">Setnayan AI <span className="tag new">New</span></div>
               <h1 className="q">You did the venue. Let us do the rest.</h1>
-              <div className="note mul" style={{ marginTop: 2, marginBottom: 14 }}>
-                <span>✦</span>
-                <div>You just matched <b>{teamMatched}</b> {teamMatched === 1 ? 'venue' : 'venues'} in a few taps — and saved about <b>~{teamHoursSaved} hours</b> already. Let Setnayan do that for every other vendor too.</div>
-              </div>
-              <p className="sub" style={{ marginBottom: 13 }}>Finding one venue took a few taps. You still need a caterer, photographer, coordinator and more — <b>we match every one</b> the same way.</p>
               <div className="aibenefits">
                 <div className="aibene"><div className="ic">✓</div><div className="tx"><b>Verified vendors, matched to you</b><span>Region · date · guest count · budget · venue · style — checked all at once, every vendor confirmed real.</span></div></div>
                 <div className="aibene"><div className="ic">⚡</div><div className="tx"><b>Tuned to your taste</b><span>One quick {'“'}what kind?{'”'} per service narrows it to exactly your style.</span></div></div>
@@ -4569,7 +4385,6 @@ export function OnboardingShell({
           <section className={`screen${activeId === 'plan' ? ' active' : ''}`} id="screen-plan">
             <div className="eyebrow">Your plan</div>
             <h1 className="q" style={{ fontSize: 31, lineHeight: 1.08 }}><span>{coupleDisplay}</span></h1>
-            <p className="sub" style={{ marginTop: -3 }}>Your wedding, planned.</p>
             <FreeValueSlider tools={savings.breakdown} money={savings.money} hours={savings.hours} active={activeId === 'plan'} />
             <div className="grouplbl">The part that did the work</div>
             <div className="aikeep">
@@ -4627,7 +4442,6 @@ export function OnboardingShell({
                   <>
                     <div className="eyebrow">Make it unforgettable</div>
                     <h1 className="q" style={{ fontSize: 29, lineHeight: 1.06 }}>Two ways to make it unforgettable.</h1>
-                    <p className="sub">Pick the bundle that fits your day — or keep planning free.</p>
                     <div className="plan-skip"><u onClick={() => { patch({ selectedBundle: null }); go(1); }}>I&apos;ll pick à la carte instead</u></div>
                   </>
                 );
@@ -4674,7 +4488,6 @@ export function OnboardingShell({
                 <>
                   <div className="eyebrow">Make it unforgettable</div>
                   <h1 className="q" style={{ fontSize: 29, lineHeight: 1.06 }}>Two ways to make it unforgettable.</h1>
-                  <p className="sub">Pick the bundle that fits your day — or keep planning free.</p>
                   <div className="bdl-cards">
                     {eB && card('essentials', eB)}
                     {cB && card('complete', cB)}
@@ -4689,7 +4502,6 @@ export function OnboardingShell({
           <section className={`screen${activeId === 'services' ? ' active' : ''}`} id="screen-services">
             <div className="eyebrow">Boost &amp; enhance your wedding</div>
             <h1 className="q" style={{ fontSize: 29, lineHeight: 1.06 }}>Make it unforgettable</h1>
-            <p className="sub">Optional add-ons — each one a tool, priced honestly. Add what you love.</p>
             {(() => {
               const fk = focusedService || INAPP_KEYS[0]!;
               const p = pricing.svc[fk] ?? { set: 0, out: 0, label: '', isPax: false, buildStatus: 'not_built' as const };
@@ -4734,7 +4546,6 @@ export function OnboardingShell({
           <section className={`screen${activeId === 'summary' ? ' active' : ''}`} id="screen-services-summary">
             <div className="eyebrow">Your picks</div>
             <h1 className="q" style={{ fontSize: 28, lineHeight: 1.08 }}>Services you&apos;re interested in</h1>
-            <p className="sub" style={{ marginBottom: 12 }}>Pay only when you&apos;re ready — no charge yet.</p>
             {/* Grand total — the climactic "what you saved, and how fast" stat (owner 2026-06-05). */}
             <div className="svc-grand">
               <div className="svc-grand-h"><CountUp value={grandMoney} prefix="₱" active={activeId === 'summary'} /> <span className="svc-grand-and">·</span> <CountUp value={savings.hours} suffix=" hrs" active={activeId === 'summary'} /></div>

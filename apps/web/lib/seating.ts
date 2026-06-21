@@ -412,6 +412,60 @@ export function effectiveCapacity(capacity: number, removedSeats: number[] | nul
   return capacity - removedSeatSet(removedSeats, capacity).size;
 }
 
+// The minimal table shape the display-unit grouping needs. EventTableRow
+// satisfies it; render-only literals can too.
+type LinkableTable = Pick<
+  EventTableRow,
+  | 'table_id'
+  | 'table_label'
+  | 'table_type'
+  | 'capacity'
+  | 'removed_seats'
+  | 'link_group_id'
+  | 'link_group_label'
+>;
+
+// A display unit collapses linked tables (sharing link_group_id) into ONE entry
+// so list/summary surfaces show a joined set as a single pooled table — combined
+// name + combined seat count — while the canvas keeps drawing each physical
+// table separately. Mirrors the print route's per-unit grouping, adding the
+// summed capacity ("Table 3 & 4 · 20 seats"). Unlinked tables are one-member
+// units. `capacity` is the sum of each member's effectiveCapacity (removed
+// chairs already excluded) so the caterer counts the unit's real seats once.
+export type TableDisplayUnit<T extends LinkableTable = EventTableRow> = {
+  key: string; // link_group_id, or table_id for an unlinked table
+  label: string; // link_group_label of the unit, else the lead table's label
+  lead: T; // first member in iteration order — owns the QR, anchors row actions
+  members: T[]; // 1 for an unlinked table; N for a joined unit
+  isLinked: boolean; // true when the lead carries a link_group_id
+  capacity: number; // Σ effectiveCapacity across members (removed chairs excluded)
+};
+
+// Group tables into display units. Preserves first-seen order, so callers should
+// pass tables already sorted (fetchTables returns them by sort_order, created_at).
+export function groupTablesIntoUnits<T extends LinkableTable>(tables: T[]): TableDisplayUnit<T>[] {
+  const byKey = new Map<string, TableDisplayUnit<T>>();
+  for (const t of tables) {
+    const key = t.link_group_id ?? t.table_id;
+    const cap = effectiveCapacity(t.capacity, t.removed_seats);
+    const existing = byKey.get(key);
+    if (existing) {
+      existing.members.push(t);
+      existing.capacity += cap;
+    } else {
+      byKey.set(key, {
+        key,
+        label: t.link_group_label ?? t.table_label,
+        lead: t,
+        members: [t],
+        isLinked: t.link_group_id != null,
+        capacity: cap,
+      });
+    }
+  }
+  return [...byKey.values()];
+}
+
 export function tableGeometry(shape: TableShapeHint, capacity: number): TableGeometry {
   const n = Math.max(1, capacity);
 

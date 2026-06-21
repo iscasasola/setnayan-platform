@@ -4,6 +4,60 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-21 · feat(boundary): register-to-use gates on the in-app monogram studio + website builder (flag-gated · parked)
+
+Extends the register-gate boundary (same `NEXT_PUBLIC_REGISTER_GATES_ENABLED` flag) to the two **in-app public-identity surfaces**. When ON, an anonymous (unsecured) couple who opens the **monogram studio** (`/dashboard/[eventId]/monogram`) or the **website builder** (`/site-editor/[eventId]`) is redirected to `/signup?next=<surface>` to create a free account first — the signup flow converts the same anon session in place and returns them. One-line server-side gate after the existing `!user` redirect in each page, reading `user.is_anonymous` (the same field the dashboard's `SecureAccountBanner` already uses). OFF (default) → no gate, unchanged.
+
+Remaining boundary gate: planning-PDF downloads (register-to-download). `tsc` 0 · `lint` 0 (no warnings). Parked.
+
+SPEC IMPACT: iterations 0037 (monogram) + couple-website — the locked boundary "creating your public identity needs an account." No SKU/price change (still free — just register).
+
+## 2026-06-21 · feat(boundary): register-to-use gate on the public /monogram studio (flag-gated · parked)
+
+First slice of the locked **free/login/paid boundary** gates. New flag `NEXT_PUBLIC_REGISTER_GATES_ENABLED` (`lib/register-gates.ts`, default OFF). When ON, the public marketing-site monogram studio (`/monogram`) — today a free no-login lead magnet — becomes a **register wall**: the studio is replaced by a "Create your free account to design" card (→ `/signup?next=/monogram`, with a "Sign in" link → `/login?next=/monogram`), and the eyebrow/sub copy flip from "no sign-up" to "create an account." Owner 2026-06-21: *"Login to use it too — maximum capture; every visitor registers first."*
+
+Gated at the **page level** (build-time `NEXT_PUBLIC` flag), so the page stays statically rendered and the studio component is untouched. OFF (default) → the free no-login studio exactly as today. `tsc` 0 · `lint` 0 (no warnings). Parked.
+
+This establishes the register-gate flag + pattern. **Remaining gate surfaces (follow-ups, same flag):** in-app monogram studio + website builder (register-to-use), planning-PDF downloads (register-to-download) — all reuse `user.is_anonymous` + the existing `SecureAccountBanner` / `/signup?next=` convert-in-place flow.
+
+SPEC IMPACT: iteration 0037 (monogram) public surface — the locked boundary "creating your public identity needs an account"; logged in `DECISION_LOG.md`. No SKU/price change (still free — just register).
+
+## 2026-06-21 · feat(onboarding): strip the in-onboarding paywall tail — onboarding ends free (flag-gated · parked)
+
+Locked decision "**no paywall in onboarding**" (2026-06-21). When `NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED` is ON, `buildSequence` now also drops the monetization tail — `plan` (the Setnayan AI upsell), `bundle` (Essentials/Complete), `services` (à-la-carte carousel), `summary` (purchase). The flow ends **free** on `congrats` (the dashboard-bloom reveal), whose chrome CTA now reads **"Go to my dashboard"** and commits via `handleFinish(false)` straight to the dashboard — the chrome Continue commits on the last screen when the flag is on, `go(1)` otherwise. The persona's derived in-app services are still stored in `style_preferences.interested_services` for the **dashboard** to surface — they're just no longer sold during onboarding.
+
+- New `PAYWALL_SCREENS` set (`plan`/`bundle`/`services`/`summary`) + a flag-gated `buildSequence` filter; new `isLastScreen` terminal-commit on the chrome CTA.
+- **Behavior note:** the free auto-inquiry opt-in that lived on the dropped `plan` screen now uses defaults (guidance ON, top-inquiries OFF); that opt-in moves to the dashboard (follow-up).
+- Flag OFF → byte-identical (the tail + summary-terminal behave exactly as today). `tsc` 0. Parked (auto-merge OFF).
+
+SPEC IMPACT: iteration 0016 / 0034 — the "no paywall in onboarding" ruling (monetization relocates to the dashboard, not removed); logged in `DECISION_LOG.md`. No SKU/price change.
+
+## 2026-06-21 · feat(onboarding): intent dials — help level + sourcing on the experience flow (flag-gated · parked)
+
+Extends the parked experience-persona PR (#1937) with the two planning **dials** locked in the boundary design session:
+
+- **Dial 1 — help level** (`exp_help`): *build it all for me · give me options · I'll look myself*.
+- **Dial 2 — sourcing** (`exp_source`): *find on Setnayan · bring my own · both*.
+
+Inserted after the 5 experience axes, before `exp_reveal`, so the reveal reflects them. Single-pick screens, same `.screen/.stack[data-single]/.opt` markup as the axes; `EXP_DIALS` data lives alongside the personas (admin-tunable shape). New state `helpLevel` + `vendorSourcing`; the reveal **headline reflects the help level** ("here's your complete plan" / "here are your options" / "your canvas is ready") and adds a **sourcing line**. Captured into `events.experience_axes` JSONB at commit (no migration). Flag-gated via `EXP_SCREENS` (default OFF) — flow byte-identical when off.
+
+Part of the experience-first onboarding build (owner greenlit 2026-06-21). Remaining slices: strip the in-onboarding paywall tail (bundles/services → dashboard) · register-to-use gates (monogram, website) · register-to-download (planning PDFs) · no-login (anon-draft) posture. `tsc` 0 · `lint` 0. **Parked — auto-merge OFF, prototype-first review.**
+
+SPEC IMPACT: iteration 0016 — the intent dials from the locked free/login/paid boundary; logged in `DECISION_LOG.md`. No SKU/pricing change.
+
+## 2026-06-21 · feat(onboarding): experience-persona reorientation — the quiz derives the plan (flag-gated · PR pending, auto-merge)
+
+Owner reframe: the onboarding's job shifts from *"which vendors do you need?"* to *"what experience do you want to create?"* — memorable for the couple, their guests, or both — and that experience then **derives** the in-app services to surface and the vendor/service filtering. Owner picked the boldest shape: **experience fully derives the plan** (no manual 53-tile picker), a **full persona quiz**, built into the real flow. Shipped **flag-gated** (`NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED`, default OFF) so the live funnel is byte-identical until the owner flips it.
+
+- **New 5-axis experience quiz + persona reveal** (`exp_for_whom · exp_feel · exp_energy · exp_roots · exp_effort · exp_reveal`), inserted after `budget`, before the venue intro. Same `.screen/.stack[data-single]/.opt` markup as `role`/`kind` (prototype-direct port). Flag ON → `buildSequence` drops the legacy picker chain (`aigate` + `team_basics`/`refine_basic`/`team_extras`/`refine_extras` + `songs`/`mood`); flag OFF → the `exp_*` screens are filtered out entirely.
+- **Deterministic resolver + derive** (`app/onboarding/wedding/_data/experience-personas.ts`): the 5 answers resolve (weighted overlap, `for_whom` dominant — no LLM) to one of 6 named personas — **Keepsake · Big Celebration · Best of Both · Intimate Romance · Modern Statement · Rooted Tradition** — each deriving vendor categories (essentials + effort-scaled extras) + signature in-app Setnayan services + palette feel + per-leaf refinement seeds. Admin-tunable data shape (no logic baked into copy).
+- **Plugs into the existing matcher with zero matcher changes:** the derived `refinements` feed the deterministic matcher's 30% Refinement dimension; `picks` feed `interested_categories` + the recommended-services seed; `prefs.feel` → `mood_feel_key` + `basic_moodboard`. `buildCommitPayload` already maps all of these, so deriving into state is sufficient.
+- **New persisted intent** (`events.experience_persona` · `experience_for_whom` · `experience_axes` jsonb · migration `20270208703382`): additive/nullable/idempotent, RLS-unchanged. The commit **guards** these columns behind the same flag, so the insert never references them before the migration is applied — safe to merge flag-OFF regardless of DB state.
+- Files: `lib/experience-quiz.ts` (flag) · `_data/experience-personas.ts` (axes/personas/resolver/derive) · `app/onboarding/wedding/types.ts` (`experienceAxes` + `experiencePersona` state) · `_components/onboarding-shell.tsx` (FLOW_IDS swap, `buildSequence`, `canContinue`, `NEXT_LABEL_BY_ID`, derive effect, render) · `actions.ts` (guarded columns).
+
+⚠ Owner sign-off: persona NAMES + quiz copy are first-draft (easy to tune — all in one data module). Going live needs (1) apply migration `20270208703382`, (2) set `NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED=true`.
+
+SPEC IMPACT: iteration 0016 (Setnayan AI / step-by-step plan builder) — onboarding reorients from vendor-needs assessment to experience-first; logged at the bottom of `DECISION_LOG.md`. No SKU/pricing change (the derived in-app services map to existing keys).
 ## 2026-06-21 · fix(studio): App Store About pages crashed in prod (server import of a `'use client'` data export)
 
 Every Studio "About" page whose feature has no `demo` frames threw the branded error boundary (`Reference: 3349409504`) in production — e.g. `/studio/about/animated-monogram`, `/studio/about/save-the-date`. (Surfaced once PR #1954 un-shadowed the About route so the pages actually render; before that they fell through to the feature builder and the crash never ran. Only `papic` escaped, because its `detail.demo` short-circuits the `||` past the bug.)

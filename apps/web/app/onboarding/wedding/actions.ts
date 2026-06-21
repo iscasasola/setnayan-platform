@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
+import { experienceQuizEnabled } from '@/lib/experience-quiz';
 import {
   syncEventSongPicks,
   fetchSongBankCurated,
@@ -238,6 +239,18 @@ export type OnboardingCommitPayload = {
   storyLanguage: string | null;
   specialMessage: string | null;
   togetherSince: string | null;
+  /**
+   * Experience-persona profile (iteration 0016 · flag-gated). The resolved persona
+   * slug + the for-whom axis + the raw 5-axis answers. Persisted to events.
+   * experience_persona / experience_for_whom / experience_axes — but ONLY when
+   * NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED is on (the commit GUARDS the columns so the
+   * insert never references them before migration 20270207000000 is applied). The
+   * derived picks/refinements/feel/services already ride the existing payload fields
+   * (picks/refinements/moodFeelKey/interestedServices) — this just adds the intent.
+   */
+  experiencePersona: string | null;
+  experienceForWhom: 'couple' | 'guests' | 'both' | null;
+  experienceAxes: Record<string, string>;
 };
 
 export type OnboardingCommitResult =
@@ -401,6 +414,17 @@ export async function commitOnboardingWedding(
       story_language: payload.storyLanguage ?? null,
       special_message: payload.specialMessage ?? null,
       together_since: payload.togetherSince ?? null,
+      // Experience-persona profile (iteration 0016 · flag-gated). GUARDED by the flag
+      // so the insert only references these columns when the experience quiz is live —
+      // keeps the commit safe to ship before migration 20270207000000 is applied (OFF →
+      // the keys are absent, so PostgREST never touches the not-yet-existing columns).
+      ...(experienceQuizEnabled()
+        ? {
+            experience_persona: payload.experiencePersona,
+            experience_for_whom: payload.experienceForWhom,
+            experience_axes: payload.experienceAxes ?? {},
+          }
+        : {}),
       // Display-only style blob for the Home "Personalized for you" card
       // (migration 20260724000000). NOT vendor matching — see the payload doc.
       style_preferences: {

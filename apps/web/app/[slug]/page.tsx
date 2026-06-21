@@ -208,9 +208,10 @@ export async function generateMetadata({ params }: Pick<Props, 'params'>) {
       siteName: 'Setnayan',
       locale: 'en_PH',
       // Share card: the editorial card (couple's hero photo + scrim) once their
-      // story is published, else the brand card — the route decides per the
-      // `published` gate, so a shared link previews richly in every phase.
-      // See app/api/og/realstory-slug/[slug]/route.ts.
+      // story is published, else the couple's monogram card (their mark + names +
+      // date, mirroring the page hero) — so a shared link always previews as the
+      // couple; only a missing event / render failure falls back to the brand
+      // image. See app/api/og/realstory-slug/[slug]/route.ts.
       images: [
         {
           url: `${siteUrl}/api/og/realstory-slug/${event.slug}`,

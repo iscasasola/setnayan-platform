@@ -12,6 +12,7 @@ import { VendorSidebar } from './_components/vendor-sidebar';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { isMusicVendor } from '@/lib/songs';
 import { VendorBottomNav } from './_components/vendor-bottom-nav';
+import { VendorNavFab } from './_components/vendor-nav-fab';
 import { resolveVendorRole } from '@/lib/vendor-role';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { PushNotificationRegistrar } from './_components/push-notification-registrar';
@@ -148,6 +149,9 @@ export default async function VendorDashboardLayout({
           BottomNav primitive. Sits outside SidebarShell so it doesn't
           inherit the desktop sidebar offset. */}
       <VendorBottomNav role={vendorRole} navSlots={navSlots} />
+      {/* NAV-2 broken-out action — Check inquiries (a sibling of the pill,
+          never a tab). Hides itself when a docked SubNav is up. */}
+      <VendorNavFab />
       {/* Push notification opt-in banner. Client-only; renders null once the
           vendor has granted push permission or dismissed the prompt. */}
       <PushNotificationRegistrar />

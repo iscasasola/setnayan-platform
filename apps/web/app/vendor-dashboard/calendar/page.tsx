@@ -156,10 +156,11 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
 
-  // Named Calendars (flag): vendor names calendars + picks which services each
-  // covers. OFF → today's auto per-category schedules, unchanged.
+  // Named Calendars: vendor names calendars + picks which services each covers.
+  // LIVE by default (2026-06-21); kill-switch NEXT_PUBLIC_NAMED_CALENDARS_ENABLED=false
+  // reverts to today's auto per-category schedules.
   const namedCalendars =
-    process.env.NEXT_PUBLIC_NAMED_CALENDARS_ENABLED === 'true';
+    process.env.NEXT_PUBLIC_NAMED_CALENDARS_ENABLED !== 'false';
 
   const [pools, bookings, blocks, services] = await Promise.all([
     fetchVendorPools(supabase, profile.vendor_profile_id),

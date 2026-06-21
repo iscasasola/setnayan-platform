@@ -46,14 +46,15 @@ export async function resolvePoolIdsForService(
   marketplaceVendorId: string,
   serviceId: string,
 ): Promise<string[]> {
-  // Named Calendars rework (owner 2026-06-20, flag-gated): when ON, a service's
-  // OWN pool comes from its named-calendar membership (service-level) instead of
-  // its category. Bundle "comes with" legs stay CATEGORY-resolved in both modes
-  // so a bundle's lock footprint never silently narrows. After the Phase A
-  // backfill, a service's calendar pool == its category pool, so flag-on returns
-  // the SAME pool_ids as flag-off — the acquire RPC downstream is identical.
+  // Named Calendars rework (owner 2026-06-20): a service's OWN pool comes from
+  // its named-calendar membership (service-level) instead of its category. Bundle
+  // "comes with" legs stay CATEGORY-resolved so a bundle's lock footprint never
+  // silently narrows. LIVE by default (Phase A migration 20270209750853 applied +
+  // backfilled 2026-06-21, conservation check = 0 orphans), so a service's
+  // calendar pool == its category pool → identical pool_ids + acquire downstream.
+  // Kill-switch: NEXT_PUBLIC_NAMED_CALENDARS_ENABLED=false reverts to category pools.
   const namedCalendars =
-    process.env.NEXT_PUBLIC_NAMED_CALENDARS_ENABLED === 'true';
+    process.env.NEXT_PUBLIC_NAMED_CALENDARS_ENABLED !== 'false';
 
   const poolIds = new Set<string>();
 

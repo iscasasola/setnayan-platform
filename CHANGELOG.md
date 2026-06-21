@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-22 · feat(seating): linked tables show a combined seat count in the editor lists (smart seat-plan · Phase 1)
+
+Owner "what's next" — smart seat-plan Phase 1: *a linked unit also gets a new (combined) seat count, not just a combined name; the caterer counts the unit once; the seater treats the unit as one pool for display.* Builds on the linked-table grouping PRs #1963/#1984.
+
+**The gap.** Linking already shared a `link_group_id` + combined name and the canvas already moves a unit as one — but the editor's two **list** surfaces (the "Tables" panel + the "Tables & Meals" caterer cards) still iterated raw tables, so a joined unit appeared as **two rows with the same name and separate per-table counts** ("Table 3 & 4 · 5/10" *and* "Table 3 & 4 · 3/10") — confusing, and it never showed the unit's real pooled seat count. (The printable caterer artifacts — the `…/seating/print` pack and the `…/seating/caterer` meal-count report — already grouped linked tables into one unit, so those were correct; only the in-editor lists drifted.)
+
+- **New shared helper** `groupTablesIntoUnits()` + `TableDisplayUnit` type in `apps/web/lib/seating.ts`. Collapses tables sharing a `link_group_id` into one display unit whose `capacity` is the **sum of each member's `effectiveCapacity`** (removed chairs already excluded) — so the count is the unit's real pooled seats. Unlinked tables are one-member units. Mirrors the print route's existing per-unit grouping, centralized for reuse by Phase 2/3. Unit-tested in `apps/web/lib/seating.test.ts` (4 cases: unlinked singles, linked-collapse, removed-seat math, mixed sets) — `tsx --test` green.
+- **Both editor lists now map over `displayUnits`** (`…/seating/_components/seating-editor.tsx`): one row/card per unit, the combined name + a combined `filled/capacity` ("Table 3 & 4 · 8/20 seats" · "2 tables joined"), seated guests across all members listed together (sorted by name, like the caterer report). The canvas still draws each physical table separately — only the lists collapse.
+- **Unit-aware interactions:** tapping a unit row highlights **every member** on the canvas (`highlightGroupId`, mirrors the existing `dragGroupId` lockstep). "Seat here" on a joined unit overflows into the next member with a free chair (`firstFreeSeat`). The list-row delete acts on the **whole unit** — `confirmDelete` generalized to `{ label, members[] }` (one member for the canvas per-table popups, all members for a joined-unit row) with copy that reads "the N joined tables are removed." Section header counts now read the unit count.
+
+Display-only — no seating/placement algorithm change (Phase 2 = priority weighting, Phase 3 = keep-apart solver). No schema/SKU change. The seat plan stays a free couple tool (≈₱0/event). Worktree has no node_modules → `tsx --test` ran green via the home checkout; CI typecheck+lint+build is the gate + the Vercel preview is the visual check.
+
+SPEC IMPACT: Iteration 0008 (linked-table behaviour) — extends the 2026-06-21 grouping with a combined seat count in the editor lists. Logged in DECISION_LOG.
+
+---
+
 ## 2026-06-22 · fix(monogram): animation "Delay" is now a start-to-start stagger
 
 Owner: *"the delay means how many seconds after one element starts. not after it finishes."* The Vector Studio's reveal "Delay" (`animDelay`) was added to a duration-derived spread — `step = (D·0.6)/(n−1) + DL` (handwriting) / `stag = (D·0.55)/(n−1) + DL` (droplet) — so each letter only began past the previous one's draw window, and the spacing also drifted with letter count. Now the per-element stagger is **just the delay**: `step = DL` / `stag = DL`, so a letter starts exactly `delay` seconds after the previous letter **starts** (delay 0 → all draw together; the per-letter draw duration still comes from the Speed slider, independently). `lib/monogram-studio/engine.ts` (the two `play()` presets; trace animates all-at-once so it's unaffected) + relabeled the slider "Delay · before next letter" → "Delay · between letter starts" in `markup.ts`. Applies to both the dashboard Vector Studio and the public `/monogram`.

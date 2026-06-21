@@ -55,6 +55,7 @@ import {
   freeBoothSlots,
   defaultTablePosition,
   effectiveCapacity,
+  groupTablesIntoUnits,
   guestTier,
   removedSeatSet,
   roleTier,
@@ -68,6 +69,7 @@ import {
   tableGeometry,
   type BoothType,
   type EventTableRow,
+  type TableDisplayUnit,
   type FloorBoothRow,
   type FloorPlanRow,
   type FloorSignRow,
@@ -465,7 +467,11 @@ export function SeatingEditor({
   }, [lockHolderPeerHeartbeat]);
   const [showAddTable, setShowAddTable] = useState(false);
   const [confirmAuto, setConfirmAuto] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState<EventTableRow | null>(null);
+  // A pending delete carries every table it removes: one member for a per-table
+  // delete (canvas popups), all members for a joined-unit delete (list rows).
+  const [confirmDelete, setConfirmDelete] = useState<{ label: string; members: EventTableRow[] } | null>(
+    null,
+  );
   // The spatial chair canvas can't hold many tables on a phone, so small
   // screens default to a scrollable table-card list (0008 spec's mobile
   // surface). Both views are available on both platforms via the toggle.
@@ -593,6 +599,33 @@ export function SeatingEditor({
   const totalCapacity = tables.reduce((acc, t) => acc + t.capacity, 0);
   const unseatedCount = guests.length - seatedCount;
 
+  // Linked tables collapse into ONE display unit (combined name + summed seats)
+  // for the panel + caterer lists, so a joined set reads as a single pooled
+  // table ("Table 3 & 4 · 20 seats") and the caterer counts it once. The canvas
+  // still draws each physical table separately — only the lists collapse.
+  const displayUnits = useMemo(() => groupTablesIntoUnits(tables), [tables]);
+  // Raw seat array (with nulls) across every member of a unit — feeds the filled
+  // count + dominant colour the same way occupantsFor does for a single table.
+  const unitOcc = (u: TableDisplayUnit): (SeatingGuest | null)[] =>
+    u.members.flatMap((m) => occupantsFor(m));
+  // First member of a unit with an open, non-removed chair — so "Seat here" on a
+  // joined unit overflows into the next table. null when the whole unit is full.
+  const firstFreeSeat = (u: TableDisplayUnit): { tableId: string; seat: number } | null => {
+    for (const m of u.members) {
+      const removed = removedSeatSet(m.removed_seats, m.capacity);
+      const occ = occupantsFor(m);
+      const seat = occ.findIndex((g, i) => g === null && !removed.has(i));
+      if (seat >= 0) return { tableId: m.table_id, seat };
+    }
+    return null;
+  };
+  // Tapping a unit row highlights its lead; light up every member of that link
+  // group on the canvas so the whole joined unit reads as one (mirrors dragGroup).
+  const highlightGroupId = useMemo(
+    () => (highlightId ? tables.find((t) => t.table_id === highlightId)?.link_group_id ?? null : null),
+    [highlightId, tables],
+  );
+
   // Run a lock-gated server action and react to a lost-lock signal. After a
   // takeover, the client still believes canEdit===true until the <=30s heartbeat
   // returns 'lost'; in that window a gated action throws SeatingLockError. Rather
@@ -668,7 +701,14 @@ export function SeatingEditor({
   const seatedAt = (tableId: string) => guests.filter((g) => g.seated_table_id === tableId).length;
   const requestRemoveTable = (t: EventTableRow) => {
     if (seatedAt(t.table_id) === 0) removeTable(t.table_id);
-    else setConfirmDelete(t);
+    else setConfirmDelete({ label: t.link_group_label ?? t.table_label, members: [t] });
+  };
+  // List rows act on the whole display unit: an unlinked table is one member; a
+  // joined unit removes every member (each cascades its own seat assignments).
+  const requestRemoveUnit = (u: TableDisplayUnit) => {
+    const seated = u.members.reduce((n, m) => n + seatedAt(m.table_id), 0);
+    if (seated === 0) u.members.forEach((m) => removeTable(m.table_id));
+    else setConfirmDelete({ label: u.label, members: u.members });
   };
 
   // Every table's current %-position (saved spot, else its default-grid home) —
@@ -2370,25 +2410,25 @@ export function SeatingEditor({
         ) : null}
 
         {/* Tables */}
-        <Section label={`Tables · ${tables.length}`}>
-          {tables.length === 0 ? (
+        <Section label={`Tables · ${displayUnits.length}`}>
+          {displayUnits.length === 0 ? (
             <p className="px-1 py-2 text-xs text-ink/45">
               No tables yet — tap “Build my seating” on the floor, or add one above.
             </p>
           ) : (
             <ul className="space-y-1">
-              {tables.map((t) => {
-                const occ = occupantsFor(t);
+              {displayUnits.map((u) => {
+                const occ = unitOcc(u);
                 const filled = occ.filter(Boolean).length;
-                const cap = effectiveCapacity(t.capacity, t.removed_seats);
+                const cap = u.capacity;
                 const full = filled >= cap;
                 return (
                   <li
-                    key={t.table_id}
+                    key={u.key}
                     className={`group flex items-center gap-2 rounded-lg border px-2 py-1.5 ${
                       pickedGroupId
                         ? 'cursor-pointer border-mulberry/30 ring-1 ring-mulberry/20 hover:bg-mulberry/5'
-                        : highlightId === t.table_id
+                        : highlightId === u.lead.table_id
                           ? 'border-terracotta bg-terracotta/5'
                           : 'border-transparent hover:bg-ink/[0.03]'
                     }`}
@@ -2397,8 +2437,8 @@ export function SeatingEditor({
                       type="button"
                       onClick={() =>
                         pickedGroupId
-                          ? seatGroupAt(t.table_id)
-                          : setHighlightId((id) => (id === t.table_id ? null : t.table_id))
+                          ? seatGroupAt(u.lead.table_id)
+                          : setHighlightId((id) => (id === u.lead.table_id ? null : u.lead.table_id))
                       }
                       className="flex min-w-0 flex-1 items-center gap-2 text-left"
                     >
@@ -2408,13 +2448,16 @@ export function SeatingEditor({
                       />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-medium text-ink">
-                          {t.link_group_id ? (
+                          {u.isLinked ? (
                             <Link2 className="mr-1 inline h-3 w-3 text-mulberry/70" />
                           ) : null}
-                          {t.link_group_label ?? t.table_label}
+                          {u.label}
                         </span>
                         <span className="block text-[11px] text-ink/50">
-                          {filled}/{cap} · {TABLE_TYPE_LABEL[t.table_type]}
+                          {filled}/{cap} {cap === 1 ? 'seat' : 'seats'} ·{' '}
+                          {u.members.length > 1
+                            ? `${u.members.length} tables joined`
+                            : TABLE_TYPE_LABEL[u.lead.table_type]}
                         </span>
                       </span>
                       <span
@@ -2427,8 +2470,8 @@ export function SeatingEditor({
                     </button>
                     <button
                       type="button"
-                      onClick={() => requestRemoveTable(t)}
-                      aria-label={`Delete ${t.table_label}`}
+                      onClick={() => requestRemoveUnit(u)}
+                      aria-label={`Delete ${u.label}`}
                       className="rounded p-1 text-ink/30 opacity-0 transition hover:bg-danger-50 hover:text-danger-600 group-hover:opacity-100"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -3530,7 +3573,9 @@ export function SeatingEditor({
             const occ = occupantsFor(t);
             const filled = occ.filter(Boolean).length;
             const halo = dominantColor(occ, colorFor);
-            const highlighted = highlightId === t.table_id;
+            const highlighted =
+              highlightId === t.table_id ||
+              (highlightGroupId != null && t.link_group_id === highlightGroupId);
             // The whole linked unit drags as one: treat every member of the
             // dragged unit as "dragging" so none of them eases (tails) behind.
             const dragging =
@@ -4223,18 +4268,19 @@ export function SeatingEditor({
               </div>
             ) : (
               <ul className="space-y-2">
-                {tables.map((t) => {
-                  const occ = occupantsFor(t);
-                  const seated = occ.filter((g): g is SeatingGuest => g !== null);
-                  const removed = removedSeatSet(t.removed_seats, t.capacity);
-                  const cap = effectiveCapacity(t.capacity, t.removed_seats);
+                {displayUnits.map((u) => {
+                  const occ = unitOcc(u);
+                  const seated = occ
+                    .filter((g): g is SeatingGuest => g !== null)
+                    .sort((a, b) => a.name.localeCompare(b.name));
+                  const cap = u.capacity;
                   const full = seated.length >= cap;
-                  const free = occ.findIndex((g, i) => g === null && !removed.has(i));
-                  const expanded = expandedCards.has(t.table_id);
+                  const freeSeat = firstFreeSeat(u);
+                  const expanded = expandedCards.has(u.key);
                   const halo = dominantColor(occ, colorFor);
                   const open = cap - seated.length;
                   return (
-                    <li key={t.table_id} className="overflow-hidden rounded-xl border border-ink/10 bg-cream">
+                    <li key={u.key} className="overflow-hidden rounded-xl border border-ink/10 bg-cream">
                       <div className="flex items-center gap-2 p-3">
                         <span
                           className="h-3 w-3 shrink-0 rounded-full"
@@ -4244,10 +4290,10 @@ export function SeatingEditor({
                           type="button"
                           onClick={() =>
                             pickedGroupId
-                              ? seatGroupAt(t.table_id)
+                              ? seatGroupAt(u.lead.table_id)
                               : setExpandedCards((s) => {
                                   const n = new Set(s);
-                                  n.has(t.table_id) ? n.delete(t.table_id) : n.add(t.table_id);
+                                  n.has(u.key) ? n.delete(u.key) : n.add(u.key);
                                   return n;
                                 })
                           }
@@ -4255,12 +4301,16 @@ export function SeatingEditor({
                         >
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-sm font-semibold text-ink">
-                              {t.link_group_id ? (
+                              {u.isLinked ? (
                                 <Link2 className="mr-1 inline h-3 w-3 text-mulberry/70" />
                               ) : null}
-                              {t.link_group_label ?? t.table_label}
+                              {u.label}
                             </span>
-                            <span className="block text-[11px] text-ink/55">{TABLE_TYPE_LABEL[t.table_type]}</span>
+                            <span className="block text-[11px] text-ink/55">
+                              {u.members.length > 1
+                                ? `${u.members.length} tables joined`
+                                : TABLE_TYPE_LABEL[u.lead.table_type]}
+                            </span>
                           </span>
                           <span
                             className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
@@ -4273,8 +4323,8 @@ export function SeatingEditor({
                         </button>
                         <button
                           type="button"
-                          onClick={() => requestRemoveTable(t)}
-                          aria-label={`Delete ${t.table_label}`}
+                          onClick={() => requestRemoveUnit(u)}
+                          aria-label={`Delete ${u.label}`}
                           className="rounded p-1 text-ink/30 hover:bg-danger-50 hover:text-danger-600"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -4300,7 +4350,7 @@ export function SeatingEditor({
                         {pickedId && !full ? (
                           <button
                             type="button"
-                            onClick={() => place(t.table_id, free >= 0 ? free : null)}
+                            onClick={() => freeSeat && place(freeSeat.tableId, freeSeat.seat)}
                             className="ml-auto inline-flex items-center gap-1 rounded-lg bg-terracotta px-2.5 py-1 text-xs font-medium text-cream hover:bg-terracotta-600"
                           >
                             <Armchair className="h-3.5 w-3.5" /> Seat here
@@ -4309,7 +4359,7 @@ export function SeatingEditor({
                         {pickedGroupId && !full ? (
                           <button
                             type="button"
-                            onClick={() => seatGroupAt(t.table_id)}
+                            onClick={() => seatGroupAt(u.lead.table_id)}
                             className="ml-auto inline-flex items-center gap-1 rounded-lg bg-mulberry px-2.5 py-1 text-xs font-medium text-cream hover:bg-mulberry-600"
                           >
                             <Armchair className="h-3.5 w-3.5" /> Seat group here
@@ -4438,36 +4488,44 @@ export function SeatingEditor({
             style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="mb-2 flex items-center gap-2">
-              <Trash2 className="h-5 w-5 text-danger-600" />
-              <h3 className="text-lg font-semibold text-ink">
-                Delete {confirmDelete.link_group_label ?? confirmDelete.table_label}?
-              </h3>
-            </div>
-            <p className="text-sm text-ink/70">
-              <span className="font-semibold">{seatedAt(confirmDelete.table_id)}</span> seated{' '}
-              {seatedAt(confirmDelete.table_id) === 1 ? 'guest' : 'guests'} will go back to{' '}
-              <span className="font-semibold">Unseated</span>, and the table is removed from the plan.
-            </p>
-            <div className="mt-4 flex gap-2 md:justify-end">
-              <button
-                type="button"
-                onClick={() => setConfirmDelete(null)}
-                className="h-11 flex-1 rounded-lg border border-ink/15 bg-cream px-3 text-sm text-ink hover:bg-ink/5 md:h-auto md:flex-none md:py-1.5"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  removeTable(confirmDelete.table_id);
-                  setConfirmDelete(null);
-                }}
-                className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-lg bg-danger-600 px-3 text-sm font-semibold text-cream hover:bg-danger-700 md:h-auto md:flex-none md:py-1.5"
-              >
-                <Trash2 className="h-4 w-4" /> Delete table
-              </button>
-            </div>
+            {(() => {
+              const seatedTotal = confirmDelete.members.reduce((n, m) => n + seatedAt(m.table_id), 0);
+              const joined = confirmDelete.members.length > 1;
+              return (
+                <>
+                  <div className="mb-2 flex items-center gap-2">
+                    <Trash2 className="h-5 w-5 text-danger-600" />
+                    <h3 className="text-lg font-semibold text-ink">Delete {confirmDelete.label}?</h3>
+                  </div>
+                  <p className="text-sm text-ink/70">
+                    <span className="font-semibold">{seatedTotal}</span> seated{' '}
+                    {seatedTotal === 1 ? 'guest' : 'guests'} will go back to{' '}
+                    <span className="font-semibold">Unseated</span>, and the{' '}
+                    {joined ? `${confirmDelete.members.length} joined tables are` : 'table is'} removed from
+                    the plan.
+                  </p>
+                  <div className="mt-4 flex gap-2 md:justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDelete(null)}
+                      className="h-11 flex-1 rounded-lg border border-ink/15 bg-cream px-3 text-sm text-ink hover:bg-ink/5 md:h-auto md:flex-none md:py-1.5"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        confirmDelete.members.forEach((m) => removeTable(m.table_id));
+                        setConfirmDelete(null);
+                      }}
+                      className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-lg bg-danger-600 px-3 text-sm font-semibold text-cream hover:bg-danger-700 md:h-auto md:flex-none md:py-1.5"
+                    >
+                      <Trash2 className="h-4 w-4" /> {joined ? 'Delete unit' : 'Delete table'}
+                    </button>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       ) : null}

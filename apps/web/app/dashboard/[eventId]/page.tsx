@@ -11,8 +11,6 @@ import {
   FileSignature,
   UserPlus,
   AlertTriangle,
-  CheckCircle2,
-  Circle,
   QrCode,
   HardHat,
   type LucideIcon,
@@ -60,18 +58,14 @@ import { ConciergeBanner } from './_components/concierge-banner';
 // features (pakanta, mood board, the 9-step journey) still import them.
 import { getLocale, makeT, type TranslationKey } from '@/lib/i18n';
 import {
-  STEPS,
   fetchManualStepCompletions,
-  plannerProgress,
   resolveStepStatuses,
-  type StepStatus,
 } from '@/lib/planner';
 import { getLifecyclePhase } from '@/lib/day-of-mode';
 import { fetchScheduleBlocks } from '@/lib/schedule';
 import { fetchTables, type EventTableRow } from '@/lib/seating';
 import { DayOfModeGrid } from './_components/day-of-mode/grid';
 import { findSameDayVendors, type SameDayVendor } from '@/lib/same-day-vendors';
-import { toggleJourneyStep } from './actions';
 import { EventDayPrepCta } from '@/app/_components/event-day-prep-cta';
 import { AutoPreloadOnEventDay } from '@/app/_components/auto-preload-on-event-day';
 // Finder-column scaffolding (EventHomeSplitView + EventHomeDetailPane +
@@ -127,7 +121,6 @@ import type { VendorCategory } from '@/lib/vendors';
 // enrichment pipeline below. setnayan-media is the canonical bucket for
 // vendor portfolio + service media.
 import { R2_BUCKETS, r2PublicUrl } from '@/lib/r2';
-import { SubmitButton } from '@/app/_components/submit-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -1741,102 +1734,6 @@ function isWeddingBeyondConciergeCap(activatedIso: string, weddingIso: string): 
   const cap = new Date(activated);
   cap.setMonth(cap.getMonth() + 24);
   return wedding.getTime() > cap.getTime();
-}
-
-function Checklist({
-  eventId,
-  statuses,
-  tr,
-}: {
-  eventId: string;
-  statuses: StepStatus[];
-  tr: (key: TranslationKey) => string;
-}) {
-  const progress = plannerProgress(statuses);
-  const byKey = new Map(statuses.map((s) => [s.key, s]));
-  return (
-    <div
-      className="space-y-4 rounded-2xl border p-5"
-      style={{
-        background: 'var(--m-paper)',
-        borderColor: 'var(--m-line)',
-        boxShadow: 'var(--m-shadow-sm)',
-      }}
-    >
-      <div className="flex items-center justify-between">
-        <h2
-          className="font-mono text-[11px] uppercase tracking-[0.2em]"
-          style={{ color: 'var(--m-slate-3)' }}
-        >
-          {tr('section.concierge')}
-        </h2>
-        <span
-          className="font-mono text-sm font-semibold"
-          style={{ color: 'var(--m-orange-2)' }}
-        >
-          {progress.done}/{progress.total}
-        </span>
-      </div>
-      <div
-        className="h-1 w-full overflow-hidden rounded-full"
-        style={{ background: 'var(--m-line-soft)' }}
-      >
-        <span
-          className="block h-full rounded-full transition-all"
-          style={{ width: `${progress.pct}%`, background: 'var(--m-orange)' }}
-        />
-      </div>
-      <ul className="space-y-5 pt-1">
-        {STEPS.map((step) => {
-          const status = byKey.get(step.key);
-          const done = status?.completed ?? false;
-          return (
-            <li key={step.key} className="flex items-start gap-3">
-              {step.source === 'manual' ? (
-                <form action={toggleJourneyStep}>
-                  <input type="hidden" name="event_id" value={eventId} />
-                  <input type="hidden" name="step_key" value={step.key} />
-                  <input type="hidden" name="action" value={done ? 'uncomplete' : 'complete'} />
-                  <SubmitButton
-                    pendingLabel="…"
-                    aria-label={done ? `Mark ${step.label} not done` : `Mark ${step.label} done`}
-                    className="mt-0.5 flex-none text-terracotta"
-                  >
-                    {done ? (
-                      <CheckCircle2 className="h-5 w-5" strokeWidth={2} />
-                    ) : (
-                      <Circle className="h-5 w-5" style={{ color: 'var(--m-line)' }} strokeWidth={1.75} />
-                    )}
-                  </SubmitButton>
-                </form>
-              ) : (
-                <span aria-hidden className="mt-0.5 flex-none">
-                  {done ? (
-                    <CheckCircle2 className="h-5 w-5 text-terracotta" strokeWidth={2} />
-                  ) : (
-                    <Circle className="h-5 w-5" style={{ color: 'var(--m-line)' }} strokeWidth={1.75} />
-                  )}
-                </span>
-              )}
-              <Link href={step.href(eventId)} className="group flex flex-1 flex-col gap-0.5">
-                <span
-                  className={`text-base leading-snug transition-colors group-hover:text-terracotta ${
-                    done ? 'line-through' : ''
-                  }`}
-                  style={{ color: done ? 'var(--m-slate-3)' : 'var(--m-ink)' }}
-                >
-                  {step.label}
-                </span>
-                <span className="text-sm leading-relaxed" style={{ color: 'var(--m-slate-3)' }}>
-                  {step.hint}
-                </span>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
 }
 
 // ActivityFeed moved to ./_components/activity-feed.tsx as part of

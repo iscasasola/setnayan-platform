@@ -130,6 +130,13 @@ export type AddOnEntry = {
 export function addOnHref(key: string, eventId: string): string {
   if (key === 'orders') return `/dashboard/${eventId}/orders`;
   if (key === 'animated-monogram') return `/dashboard/${eventId}/monogram`;
+  // Features that don't own a Studio surface of their own open their real home
+  // rather than a "coming soon" stub — so every Studio button lands somewhere
+  // usable. landing-page → the wedding-website hub; music-creator → Pakanta
+  // (its own detail copy already frames it as "generate a custom score —
+  // Pakanta"). Both destinations handle their own free-use / paywall.
+  if (key === 'landing-page') return `/dashboard/${eventId}/website`;
+  if (key === 'music-creator') return `/dashboard/${eventId}/studio/pakanta`;
   return `/dashboard/${eventId}/studio/${key}`;
 }
 

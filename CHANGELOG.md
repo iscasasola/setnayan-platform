@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-22 · fix(monogram): animation "Delay" is now a start-to-start stagger
+
+Owner: *"the delay means how many seconds after one element starts. not after it finishes."* The Vector Studio's reveal "Delay" (`animDelay`) was added to a duration-derived spread — `step = (D·0.6)/(n−1) + DL` (handwriting) / `stag = (D·0.55)/(n−1) + DL` (droplet) — so each letter only began past the previous one's draw window, and the spacing also drifted with letter count. Now the per-element stagger is **just the delay**: `step = DL` / `stag = DL`, so a letter starts exactly `delay` seconds after the previous letter **starts** (delay 0 → all draw together; the per-letter draw duration still comes from the Speed slider, independently). `lib/monogram-studio/engine.ts` (the two `play()` presets; trace animates all-at-once so it's unaffected) + relabeled the slider "Delay · before next letter" → "Delay · between letter starts" in `markup.ts`. Applies to both the dashboard Vector Studio and the public `/monogram`.
+
+tsc 0 · `next lint` clean. No schema/SKU change.
+
+SPEC IMPACT None (animation-timing semantics only).
+
+---
+
 ## 2026-06-22 · fix(seating): linked tables move as ONE (no tailing) + a combined unit name
 
 Owner feedback on the shipped linked-table grouping: "the linked tables will have a new table name. we do not want the other table tailing the other table. we want them to move as one."

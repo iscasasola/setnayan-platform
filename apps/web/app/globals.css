@@ -4,6 +4,36 @@
 
 @layer base {
   /*
+   * A11Y-1 (Responsive_and_Mobile_UI_Ruleset_2026-06-21) — one global keyboard
+   * focus ring for EVERY interactive element. Before this, focus-visible rings
+   * lived only on `.btn` / `.btn-secondary`, so links, custom-styled buttons,
+   * tabs and menu items had no visible focus indicator (WCAG 2.4.7 gap).
+   *
+   * `:where(...)` carries ZERO specificity, so any component that already
+   * styles its own focus (e.g. `.btn`'s ring) overrides this with no conflict.
+   * `:focus-visible` (not `:focus`) keeps it keyboard-only — mouse/touch taps
+   * never paint a ring. The outline follows each element's own border-radius in
+   * modern engines, so we don't set radius here (that would reshape the
+   * element). Mulberry = the brand focus colour (`--color-mulberry`).
+   */
+  :where(
+    a[href],
+    button,
+    [role='button'],
+    [role='tab'],
+    [role='menuitem'],
+    [role='switch'],
+    [role='link'],
+    summary,
+    [tabindex]:not([tabindex='-1'])
+  ):focus-visible {
+    outline: 2px solid rgb(var(--color-mulberry));
+    outline-offset: 2px;
+  }
+}
+
+@layer base {
+  /*
    * Theme system — Clean Editorial unification 2026-05-30 (CLAUDE.md
    * decision-log). Supersedes 2026-05-22 Facebook palette across app chrome.
    *
@@ -655,6 +685,14 @@ html.subnav-docked [data-shell-main] {
   --m-shadow-sm: 0 1px 2px rgba(30,34,41,.05), 0 1px 1px rgba(30,34,41,.04);
   --m-shadow-md: 0 8px 24px -10px rgba(30,34,41,.18), 0 2px 6px -2px rgba(30,34,41,.08);
   --m-shadow-lg: 0 40px 80px -30px rgba(30,34,41,.28), 0 10px 30px -8px rgba(30,34,41,.10);
+
+  /*
+   * Desktop sidebar rail width (DESK-1 · Responsive_and_Mobile_UI_Ruleset).
+   * `sidebar-shell.tsx` consumed `var(--sidebar-width, 16rem)` but the token was
+   * never defined — it always fell back to 16rem. Defining it here makes the
+   * value explicit + themeable (same 16rem, so zero visual change).
+   */
+  --sidebar-width: 16rem;
 }
 
 /*
@@ -855,6 +893,61 @@ html.subnav-docked [data-shell-main] {
     line-height: 1.06;
     letter-spacing: -0.02em;
     font-weight: 400;
+  }
+
+  /*
+   * Horizontal "peek" scroller (ROW-1 / DIR-3 · Responsive_and_Mobile_UI_Ruleset).
+   * The canonical mobile pattern for browsing a peer set (recent / suggested /
+   * gallery): scroll-snap horizontally with the next item's edge visible so the
+   * row reads as scrollable. Pair children with `shrink-0`; add `.m-no-scrollbar`
+   * to hide the bar. Replaces the per-surface re-rolls the audit found.
+   */
+  .m-row-scroll {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: 16px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .m-row-scroll > * {
+    scroll-snap-align: start;
+    flex: 0 0 auto;
+  }
+  .m-no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .m-no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /*
+   * Image overlay (VIS-21 · Responsive_and_Mobile_UI_Ruleset). Text over a photo
+   * never uses a flat full-screen scrim that flattens the image — put this on an
+   * absolutely-positioned layer above the <img> and below the caption. The
+   * gradient keeps the photo visible up top and converges into a readable band
+   * behind the text. Default is bottom-anchored; flip with `.m-img-overlay-top`.
+   * Ink (#1E2229) matches the shadow tint, so it stays on-palette.
+   */
+  .m-img-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to top,
+      rgba(30, 34, 41, 0.72) 0%,
+      rgba(30, 34, 41, 0.32) 34%,
+      rgba(30, 34, 41, 0) 62%
+    );
+    pointer-events: none;
+  }
+  .m-img-overlay-top {
+    background: linear-gradient(
+      to bottom,
+      rgba(30, 34, 41, 0.72) 0%,
+      rgba(30, 34, 41, 0.32) 34%,
+      rgba(30, 34, 41, 0) 62%
+    );
   }
 
   /* Photo placeholder — diagonal stripes in cool alabaster tone (was warm cream #EFE6D2/#F4ECDB) */

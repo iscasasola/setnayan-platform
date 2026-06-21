@@ -77,17 +77,21 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
   // Per-kind counts so the capture UI can show "N/8 photos" + "M/2 clips" and
   // enforce the free-sampler caps client-side (the server re-checks in
   // recordSeatCapture). Paid seats are uncapped (caps passed as null below).
+  // superseded_at IS NULL scopes the count to the CURRENT claimer — a reissued
+  // seat starts clean (prior captures stay in the couple gallery, uncounted).
   const [{ count: photoCount }, { count: clipCount }] = await Promise.all([
     supabase
       .from('papic_photos')
       .select('photo_id', { count: 'exact', head: true })
       .eq('paparazzi_seat_id', seat.seat_id)
-      .eq('photo_type', 'photo'),
+      .eq('photo_type', 'photo')
+      .is('superseded_at', null),
     supabase
       .from('papic_photos')
       .select('photo_id', { count: 'exact', head: true })
       .eq('paparazzi_seat_id', seat.seat_id)
-      .eq('photo_type', 'clip'),
+      .eq('photo_type', 'clip')
+      .is('superseded_at', null),
   ]);
 
   const isSampler = Boolean(seat.is_free_sampler);
@@ -97,7 +101,6 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
       <PapicSeatCapture
         token={token}
         seatIndex={seat.seat_index as number}
-        isFreeSampler={isSampler}
         initialPhotos={photoCount ?? 0}
         initialClips={clipCount ?? 0}
         photoCap={isSampler ? PAPIC_SAMPLER_PHOTO_CAP : null}

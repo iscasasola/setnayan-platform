@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { enqueueDriveCopy, runDriveCopyBatch } from '@/lib/drive-copy';
 import { screenCapture } from '@/lib/nsfw-screen';
 import { ingestToWall } from '@/lib/live-wall';
@@ -13,7 +14,14 @@ import {
   PAPIC_SAMPLER_PHOTO_CAP,
   PAPIC_SAMPLER_CLIP_CAP,
   PAPIC_SAMPLER_RETENTION_DAYS,
+  eventOwnsPapicSeats,
+  papicSeatAnonEnabled,
 } from '@/lib/papic-seats';
+
+// Server-side 5-second clip cap (corpus constraint · not configurable). The
+// client enforces 5s with a recorder timer; this tolerance (5.5s) absorbs
+// MediaRecorder stop latency while still rejecting clips that are clearly long.
+const CLIP_MAX_MS_SERVER_TOLERANCE = 5_500;
 
 // Papic · paparazzo (claimer) actions — the public photo-crew surface.
 //
@@ -39,9 +47,40 @@ type SeatClaimStatus =
   | string;
 
 /**
- * Claim the seat a token points at for the signed-in friend. Calls the
- * SECURITY DEFINER papic_claim_seat() RPC and routes to the capture surface
- * on success, or back to the claim page with a state on taken/invalid.
+ * Resolve whether a claim token points at a CLAIMABLE seat — without an account.
+ * Runs on the admin client because an unauthenticated visitor can't read
+ * paparazzi_seats under RLS. Returns only a verdict (never seat data), and is
+ * used solely to decide whether to mint a login-free anonymous session, so an
+ * invalid/taken/reissued (or bot-prefetched) link never leaks an orphan anon
+ * identity. Graceful-degrade: a missing/legacy table reads as 'invalid'.
+ */
+async function seatClaimability(
+  token: string,
+): Promise<'claimable' | 'taken' | 'invalid'> {
+  try {
+    const admin = createAdminClient();
+    const { data: seat, error } = await admin
+      .from('paparazzi_seats')
+      .select('claimer_user_id, revoked_at')
+      .eq('claim_qr_token', token)
+      .maybeSingle();
+    if (error || !seat) return 'invalid';
+    if (seat.revoked_at) return 'invalid';
+    if (seat.claimer_user_id) return 'taken';
+    return 'claimable';
+  } catch {
+    return 'invalid';
+  }
+}
+
+/**
+ * Claim the seat a token points at and route to the capture surface. When the
+ * login-free flag is ON, a friend with no account never sees a login wall: we
+ * mint a Supabase NATIVE anonymous session (a real auth.uid()) right here — but
+ * ONLY after confirming the token is a claimable seat, so a stale/taken/
+ * prefetched link can't leak an orphan anon row. The minted uid satisfies the
+ * authenticated-only papic_claim_seat() RPC and every claimer-keyed RLS policy
+ * downstream, so nothing else changes. Flag OFF → unchanged /login bounce.
  */
 export async function claimPapicSeat(formData: FormData) {
   const rawToken = formData.get('token');
@@ -49,11 +88,26 @@ export async function claimPapicSeat(formData: FormData) {
   if (!token) redirect('/dashboard');
 
   const supabase = await createClient();
-  const {
+  let {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    redirect(`/login?next=${encodeURIComponent(`/papic/claim/${token}`)}`);
+    if (papicSeatAnonEnabled()) {
+      const claimability = await seatClaimability(token);
+      if (claimability === 'taken') redirect(`/papic/claim/${token}?state=taken`);
+      if (claimability !== 'claimable') {
+        redirect(`/papic/claim/${token}?state=invalid`);
+      }
+      const { data: anon, error: anonError } =
+        await supabase.auth.signInAnonymously();
+      if (anonError || !anon.user) {
+        console.error('[claimPapicSeat] anon sign-in failed:', anonError?.message);
+        redirect(`/papic/claim/${token}?state=error`);
+      }
+      user = anon.user;
+    } else {
+      redirect(`/login?next=${encodeURIComponent(`/papic/claim/${token}`)}`);
+    }
   }
 
   const { data, error } = await supabase.rpc('papic_claim_seat', {
@@ -103,12 +157,28 @@ export async function recordSeatCapture(
   r2ObjectKey: string,
   kind: 'photo' | 'clip' = 'photo',
   posterR2Key?: string,
+  durationMs?: number,
 ): Promise<RecordSeatCaptureResult> {
   const cleanToken = token?.trim();
   const cleanKey = r2ObjectKey?.trim();
   // Poster frame (clips only) — the NSFW screen's image proxy for the video.
   const cleanPoster = kind === 'clip' ? posterR2Key?.trim() || null : null;
   if (!cleanToken || !cleanKey) return { ok: false, error: 'missing_input' };
+
+  // Server-side 5-second clip cap (defense-in-depth · corpus hard constraint).
+  // The client enforces it with a recorder timer, but the 5s cap must not rely
+  // on the browser alone: a measured duration over the tolerance is rejected
+  // here. Spoofable by a hostile direct caller, but raises the bar beyond
+  // "client setTimeout only"; the tight per-object byte ceiling on the upload
+  // presign (api/upload, papic seat branch) is the backstop against long clips.
+  if (
+    kind === 'clip' &&
+    typeof durationMs === 'number' &&
+    Number.isFinite(durationMs) &&
+    durationMs > CLIP_MAX_MS_SERVER_TOLERANCE
+  ) {
+    return { ok: false, error: 'clip_too_long' };
+  }
 
   const supabase = await createClient();
   const {
@@ -135,17 +205,40 @@ export async function recordSeatCapture(
   }
   if (seat.revoked_at) return { ok: false, error: 'revoked' };
 
+  // Entitlement re-check (paid seats only). A claimed seat must not keep
+  // accepting captures forever if the event's PAPIC_SEATS order was cancelled /
+  // refunded / lapsed. Mirrors the guest disposable-camera path, which gates
+  // every insert on ownership. Free-sampler seats are FREE — never gated.
+  //
+  // Read on the ADMIN client, not the friend's session: a claimer (esp. an
+  // anonymous one) is NOT an event member, so the orders RLS read would return
+  // nothing under their session and wrongly block every capture. Fail-OPEN on a
+  // config/transient error (admin client unavailable) — a refunded event still
+  // capturing is far better than the camera breaking for a paying couple.
+  if (!seat.is_free_sampler) {
+    let owned = true;
+    try {
+      const admin = createAdminClient();
+      owned = await eventOwnsPapicSeats(admin, seat.event_id as string);
+    } catch {
+      owned = true; // fail-open — never break the camera on an entitlement read
+    }
+    if (!owned) return { ok: false, error: 'not_owned' };
+  }
+
   // Free Papic sampler — per-seat caps (8 photos + 2 clips) + 30-day expiry.
   // Paid/normal seats are uncapped and permanent (expires_at stays null). The
   // count-then-check is fine here: one claimer = one phone per seat, so there's
-  // effectively no concurrency on a single seat's shutter.
+  // effectively no concurrency on a single seat's shutter. superseded_at IS NULL
+  // scopes the count to the CURRENT claimer — a reissued seat starts clean.
   let expiresAt: string | null = null;
   if (seat.is_free_sampler) {
     const { count: usedOfKind } = await supabase
       .from('papic_photos')
       .select('photo_id', { count: 'exact', head: true })
       .eq('paparazzi_seat_id', seat.seat_id)
-      .eq('photo_type', kind === 'clip' ? 'clip' : 'photo');
+      .eq('photo_type', kind === 'clip' ? 'clip' : 'photo')
+      .is('superseded_at', null);
     const cap = kind === 'clip' ? PAPIC_SAMPLER_CLIP_CAP : PAPIC_SAMPLER_PHOTO_CAP;
     if ((usedOfKind ?? 0) >= cap) {
       return { ok: false, error: kind === 'clip' ? 'sampler_clip_cap' : 'sampler_photo_cap' };
@@ -264,7 +357,8 @@ export async function recordSeatCapture(
   const { count } = await supabase
     .from('papic_photos')
     .select('photo_id', { count: 'exact', head: true })
-    .eq('paparazzi_seat_id', seat.seat_id);
+    .eq('paparazzi_seat_id', seat.seat_id)
+    .is('superseded_at', null);
 
   // photoId rides back so the capture UI can offer "tag who's in it" on the
   // shot just saved (tagSeatCapture below). Null only in the degraded path

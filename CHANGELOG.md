@@ -58,6 +58,87 @@ Owner reframe: the onboarding's job shifts from *"which vendors do you need?"* t
 ⚠ Owner sign-off: persona NAMES + quiz copy are first-draft (easy to tune — all in one data module). Going live needs (1) apply migration `20270208703382`, (2) set `NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED=true`.
 
 SPEC IMPACT: iteration 0016 (Setnayan AI / step-by-step plan builder) — onboarding reorients from vendor-needs assessment to experience-first; logged at the bottom of `DECISION_LOG.md`. No SKU/pricing change (the derived in-app services map to existing keys).
+## 2026-06-21 · chore(home): remove dead `Checklist` function from couple event-home
+
+Follow-up dead-code cleanup of `apps/web/app/dashboard/[eventId]/page.tsx`, same class as the helpers removed in #1939. The local `function Checklist(...)` (~95 lines) was never rendered — confirmed by grep (`<Checklist` has zero JSX usages; the live, rendered component is the *different* `ChecklistAsync`, untouched).
+
+- Deleted the dead `Checklist` function (it also held the file's last legacy `terracotta` color references).
+- Removed the 7 imports it was the **sole** consumer of (each verified to appear only at its import + inside `Checklist`): `CheckCircle2`, `Circle` (lucide-react); `STEPS`, `plannerProgress`, `type StepStatus` (`@/lib/planner`); `toggleJourneyStep` (`./actions`); `SubmitButton` (`@/app/_components/submit-button`).
+
+Noted, not changed (out of scope): the data chain that *fed* the dead `Checklist` — `stepStatuses` (computed but now unused) → `resolveStepStatuses` → `manualSteps` → `fetchManualStepCompletions` — is now fully dead too, but gutting it touches the main component's `Promise.all` data-fetch, so it's left for a separate, more careful pass. It remains valid and lint-tolerated.
+
+Net: ~100 deletions, 0 additions, no behavior change (none of the removed code rendered). Verified: `pnpm typecheck` exit 0, `pnpm lint` exit 0.
+
+SPEC IMPACT: None (dead-code removal, no behavior change).
+## 2026-06-21 · feat(ux): Couple Home cockpit — redesign PR 2/N (marketplace doorway)
+
+Per-surface pass on the couple event-home (`dashboard/[eventId]/page.tsx`). Home is already the owner-approved 5-beat single-column cockpit (countdown · next-action · needs-you · recent-activity · one marketplace doorway), so it was largely on-spec already — the one *live* presentation gap was the marketplace doorway (beat 5):
+
+- **CARD-1 + VIS-11 — modernize the "Browse your matched services" doorway.** Replaced the hand-rolled `rounded-2xl border border-dashed border-ink/15 bg-cream/60` chrome with the canonical `.m-card` primitive (gaining its built-in hover-lift), and swapped the legacy **terracotta** accent on the chevron chip for Clean Editorial **mulberry** (`bg-mulberry/10 text-mulberry`), aligning it with the palette lock.
+
+Verified: `pnpm typecheck` exit 0, `pnpm lint` exit 0. Vertical rhythm left untouched (the beats self-space; the layout wrapper adds no `space-y`, so a rhythm wrapper would double-space).
+
+Noted, not changed (flagged for a separate task): the local `Checklist` function in this file (~line 1754) is **dead** (never rendered — same class as the helpers removed in #1939) and holds the file's only other `terracotta` references. Out of scope for a presentation PR; spun off separately.
+
+SPEC IMPACT: None (presentation only — palette alignment on one Home card; no SKU/schema/pricing/public-claim change).
+
+## 2026-06-21 · feat(ux): presentation primitives — redesign PR 1/N (foundation)
+
+First step of the "arrangement & presentation" redesign (`Responsive_and_Mobile_UI_Ruleset_2026-06-21`). Purely **additive** CSS — establishes the shared building blocks the per-surface PRs adopt, so no existing surface changes yet. (Onboarding is excluded from the whole redesign — owner is working it in parallel.)
+
+- **DESK-1 — define `--sidebar-width`.** `sidebar-shell.tsx` consumed `var(--sidebar-width, 16rem)` but the token was never defined (always fell back). Now an explicit `:root` token (same 16rem → zero visual change, now themeable). Closes audit §9.7.
+- **ROW-1 / DIR-3 — `.m-row-scroll` + `.m-no-scrollbar`.** The canonical horizontal "peek" scroller for browsing a peer set (recent / suggested / gallery): `scroll-snap` x-mandatory with the next item's edge visible, scrollbar hidden. Replaces the per-surface re-rolls the audit found; surfaces migrate to it as they're touched.
+- **VIS-21 — `.m-img-overlay` (+ `-top`).** Gradient-scrim utility for text-over-photo so captions never sit on a flat full-screen scrim that flattens the image. Ink tint (#1E2229) matches the shadow ramp, on-palette.
+
+Already present and reused (no change): `.m-card` + `.m-shadow-*` ramp (CARD-1 / VIS-13), `.m-section` fluid spacing (SIZE-3), `.m-h-xl/lg/md` with the −2.5% tracking + 1.04 line-height tightening (VIS-9/10).
+
+Verified: `globals.css` braces balanced, `pnpm typecheck` exit 0, `pnpm lint` exit 0. CSS compiles via the CI production build.
+
+SPEC IMPACT: None (additive presentation primitives mirroring the ratified ruleset; no SKU/schema/pricing/public-claim change).
+
+## 2026-06-21 · feat(ux): global UX foundation — Wave 1 of the responsive ruleset
+
+First, lowest-risk slice of the ratified `Responsive_and_Mobile_UI_Ruleset_2026-06-21` (global laws every surface inherits; no locked-template surgery). Four safe, self-contained wins:
+
+- **SYS-1 — shared breakpoint/motion hook.** New `apps/web/lib/use-responsive.ts` exports `BREAKPOINTS` (mirrors the Tailwind screens), `useMediaQuery`, `useIsDesktop`/`useIsMobile` (default `lg` = 1024, the master switch), and `usePrefersReducedMotion`. The audit found ~16 inlined `matchMedia` copies + scattered magic numbers; this is the single source of truth they migrate to. Migrated the first two consumers off inline `matchMedia('(min-width:1024px)')`: the couple + vendor `/more` `desktop-redirect.tsx` (behavior-identical — the hook stays live on resize/rotate).
+- **A11Y-1 — global keyboard focus ring.** `globals.css` now paints a 2px Mulberry `:focus-visible` outline on every interactive element (links, custom buttons, `role=tab|button|menuitem|switch|link`, `summary`, focusable `[tabindex]`) — previously only `.btn`/`.btn-secondary` had one (WCAG 2.4.7 gap). Uses `:where()` (zero specificity) so components with their own focus styles override it cleanly; `:focus-visible` keeps it keyboard-only.
+- **PWA-1 — theme-color reconcile.** The app shipped three different near-whites: viewport `themeColor` `#FFFFFF`, manifest `theme_color`/`background_color` `#FAF7F2`, and the actual painted surface `--m-paper`/`bg-cream` `#FBFBFA`. Unified all to `#FBFBFA` (the real surface) so the standalone-PWA status bar + splash match the page with no seam.
+- **NAV-4 — touch target.** Marketing hamburger raised from `w-10 h-10` (40px) to `w-11 h-11` (44px), meeting the WCAG/Apple 44px floor.
+
+Deferred to later waves (flagged in the ruleset): A11Y-2 skip-to-content link (per-surface `<main>` targeting), the CARD-1 codemod, SIZE-3 fluid spacing, and the Wave-3 nav reroster (≤5 pill + broken-out action + Notion "More") which edits the lint-locked BottomNav template.
+
+Verified: `pnpm typecheck` exit 0, `pnpm lint` exit 0 (no findings in touched files).
+
+SPEC IMPACT: None (UX foundation; mirrors the already-ratified ruleset doc — no SKU, schema, pricing, or public-surface claim change).
+
+## 2026-06-21 · fix(std): Save-the-Date film no longer hangs on the uploaded-video beat
+
+Reported on `www.setnayan.com/cale-ice`: the couple's uploaded video "sometimes hangs in the center even on strong internet."
+
+Root cause — an autoplay-policy block, **not** buffering. The film's video beat (`save-the-date-film.tsx`) holds on `dur: Infinity` and only advances when the `<video>` fires `ended`. The clip is **unmuted** (the couple's keepsake), so `v.play()` requires recent user activation. By the time the film auto-advances into that beat (~30s of text beats after the reveal-lift), the activation is gone — and on iOS Safari a `play()` fired outside a gesture handler is blocked regardless; the no-reveal grace path and an auto-completing reveal never had a gesture at all. The rejected promise was swallowed by `.catch(() => {})`, so the clip froze on its first frame (centered, `object-contain` on black) and the film never advanced. Device/path-dependent → "sometimes."
+
+- `apps/web/app/[slug]/_components/save-the-date-film.tsx`: on an unmuted `v.play()` rejection, **retry muted** (always permitted by every engine) so the clip plays, fires `ended`, and the film advances — preserving the owner's "video autoplays, no clicking" intent without the hang. The soundtrack is kept playing under the now-silent clip (un-duck via `crossfade(1, 0)` + resume) so the beat isn't dead air.
+- **"Tap for sound" control** (follow-up): when the clip had to fall back to muted, a one-tap pill appears over the full-screen video (the only thing visible on that beat — the global mute button sits behind the opaque z-70 overlay). One tap is a user gesture, so `enableVideoSound()` unmutes the couple's own audio and ducks the soundtrack under it. Gated on `videoSoundBlocked && !muted && idx === videoSlideIndex`; resets per beat-entry; the crossfade RAF id moved to `videoFadeRef` so the handler can cancel an in-flight fade before unmuting. Guests still get the couple's audio on the blocked paths (iOS / no-reveal) without re-introducing a required click on the happy path.
+- Added an `error` listener (guarded to the active video beat so an early preload error can't jump a text beat) and a muted-retry-failure fallback — both advance off the `Infinity` beat so a mid-play decode/network error can't strand the guest either.
+- Corrected the effect's header comment, which wrongly asserted "the reveal gesture already granted the page media playback" (the exact false assumption behind the bug).
+
+Verified: `tsc --noEmit` clean for the file. Not browser-reproduced (autoplay-policy + real uploaded clip + reveal + ~30s of beats isn't reliably reproducible headless) — owner to confirm on the live page.
+
+SPEC IMPACT: None (robustness fix; the spec's "video autoplays then advances to the calendar close" behavior is unchanged — this makes it hold under the autoplay policy across iOS/desktop/no-reveal paths).
+
+## 2026-06-21 · chore(home): remove dead layout helpers + unused imports from couple event-home
+
+Dead-code cleanup of `apps/web/app/dashboard/[eventId]/page.tsx` left behind by the 2026-06-04 "home is a cockpit, not a catalog" decluttering. The helpers/components below were defined or imported but never rendered (confirmed: zero `<Tag` JSX usages, repo-wide grep for real `import` statements).
+
+- Deleted three unused local functions from `page.tsx`: `WelcomeHeader`, `StageStrip`, `NavGrid` (−183 lines incl. their imports).
+- Removed three unused imports from `page.tsx`: `YourPlanSection`, `PlanningGroups`, `MarketplaceTeaseStrip`.
+- Deleted the two component source files that were imported only by `page.tsx` and reference no sibling subtree: `_components/your-plan-section.tsx` (−273) and `_components/marketplace-tease-strip.tsx` (−221).
+- **Deferred (not in this change):** `_components/planning-groups.tsx` is also imported only by `page.tsx`, but it is a 1,502-line surface pulling 7 sub-components that are each imported by nothing else (`directions-buttons`, `plan-card-ctas`, `officiant-parish-ctas`, `plan-card-compare`, `plan-card-lock`, `recommended-vendor-row`, `switch-vendor-confirm`). Deleting it cascades to ~2,500 dead lines of a former central planning surface — surfaced for a deliberate decision rather than bundled into a "trivial dead-code" change. Its import line is already removed from `page.tsx`, so it is now unreferenced on disk.
+- **Left in place (still referenced or per task scope):** `EventMetaLine` import (task said keep; note it is only referenced in a comment now), and the `Stage` type / `STAGES` const / `currentStage` / `stage` / `TILES` identifiers (`Stage`/`currentStage` are still live via the `currentStage()` call at the date-stage computation; `STAGES`/`TILES`/`stage` are now orphaned-but-tolerated by lint — flagged for an optional follow-up).
+
+Net: 677 deletions, 0 additions across 3 files. No behavior change (none of the removed code rendered). Verified: `pnpm typecheck` exit 0, `pnpm lint` exit 0 (only pre-existing warnings in unrelated files).
+
+SPEC IMPACT: None (dead-code removal, no behavior change).
 
 ## 2026-06-21 · fix(nav): account-switcher "Hosts" 404 + sibling `/venues` dead links
 

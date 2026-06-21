@@ -137,6 +137,18 @@ function parseExclusivePerk(formData: FormData): string | null {
 }
 
 /**
+ * Parse the service cover photo (the <FileUpload name="primary_photo_r2_key">
+ * R2 key). Returns null when blank — allowed for drafts; required to publish
+ * (gated in commitVendorService). Feeds vendor_services.primary_photo_r2_key,
+ * which the explore + public cards already render (logo/placeholder fallback).
+ */
+function parsePrimaryPhoto(formData: FormData): string | null {
+  const raw = formData.get('primary_photo_r2_key');
+  if (typeof raw !== 'string' || raw.trim().length === 0) return null;
+  return raw.trim();
+}
+
+/**
  * Recommended lead time in months (Setnayan AI §4, vendor-owned 2026-06-16): a
  * non-negative number, fractional allowed (0.5 ≈ 2 weeks). Blank → null = no
  * recommended lead → no last-minute range → always bookable. The START of this
@@ -720,6 +732,269 @@ export async function setServicePaymentSchedule(formData: FormData) {
 
   revalidatePath('/vendor-dashboard/services');
   redirect('/vendor-dashboard/services?saved=1');
+}
+
+/**
+ * commitVendorService — the guided "create a service" flow's SINGLE save.
+ *
+ * Validates EVERYTHING in TypeScript (reusing the same parse* helpers the legacy
+ * per-form actions use — single source of truth, no SQL/TS drift), then calls
+ * ONE atomic RPC (`save_vendor_service`, migration 20270208451790) that writes
+ * the vendor_services row + replace-all links + replace-all payment schedule in
+ * a single transaction. Replaces the four-independent-save-buttons footgun for
+ * the wizard path (the legacy card keeps its own actions per owner 2026-06-20).
+ *
+ * vendor_service_id present → UPDATE (edit); absent → INSERT (create, with the
+ * create-only tier-cap pre-check). `publish=true` flips is_active on (gated to a
+ * non-empty perk, re-enforced in the RPC). Time-slots are NOT handled here —
+ * they keep addServiceTimeSlot/deleteServiceTimeSlot (Enterprise + booking lock).
+ */
+export async function commitVendorService(formData: FormData) {
+  const { supabase, profile } = await ensureProfile();
+  const back = (msg: string) =>
+    redirect(`/vendor-dashboard/services?error=${encodeURIComponent(msg)}`);
+
+  const idRaw = formData.get('vendor_service_id');
+  const serviceId =
+    typeof idRaw === 'string' && idRaw.length > 0 ? idRaw : null;
+  const isCreate = serviceId === null;
+  const publish = formData.get('publish') === 'true';
+
+  // ---- Tier + caps (read once) ----
+  const { data: tierRow } = await supabase
+    .from('vendor_profiles')
+    .select('tier_state, is_founder')
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .maybeSingle();
+  const tierRowTyped = tierRow as
+    | { tier_state?: string | null; is_founder?: boolean | null }
+    | null;
+  const baseCaps = tierCaps(asVendorTier(tierRowTyped?.tier_state));
+  const caps =
+    tierRowTyped?.is_founder === true
+      ? { ...baseCaps, parentCategories: Infinity, servicesPerLeaf: Infinity }
+      : baseCaps;
+
+  // ---- Parse the vendor_services fields (reuse the legacy helpers) ----
+  let category: VendorCategory;
+  let fields: Record<string, unknown>;
+  try {
+    // On edit the category is immutable; read it from the existing row instead
+    // of trusting the form. On create it comes from the chosen category step.
+    if (isCreate) {
+      category = parseCategory(formData.get('category'));
+    } else {
+      const { data: row } = await supabase
+        .from('vendor_services')
+        .select('category')
+        .eq('vendor_service_id', serviceId)
+        .eq('vendor_profile_id', profile.vendor_profile_id)
+        .maybeSingle();
+      const existingCat = (row as { category?: string } | null)?.category;
+      if (!existingCat) return back('Service not found.');
+      category = existingCat as VendorCategory;
+    }
+
+    const titleRaw = formData.get('title');
+    const title =
+      typeof titleRaw === 'string' && titleRaw.trim().length > 0
+        ? titleRaw.trim().slice(0, 80)
+        : null;
+    const discount = parseDiscountFields(formData);
+    const branch_id = await resolveBranchId(
+      supabase,
+      profile.vendor_profile_id,
+      formData.get('branch_id'),
+    );
+
+    fields = {
+      category,
+      title,
+      starting_price_php: parseInt0OrNull(formData.get('starting_price_php')),
+      added_pax_price_php: parseInt0OrNull(formData.get('added_pax_price_php')),
+      crew_size: parseInt0OrNull(formData.get('crew_size')),
+      crew_meal_required: formData.get('crew_meal_required') === 'on',
+      branch_id,
+      recommended_lead_time_months: parseLeadTimeMonthsOrNull(
+        formData.get('recommended_lead_time_months'),
+      ),
+      last_minute_end_months: parseInt0OrNull(formData.get('last_minute_end_months')),
+      last_minute_surcharge_pct: parseSurchargePctOrNull(
+        formData.get('last_minute_surcharge_pct'),
+      ),
+      daily_capacity: parseDailyCapacityOrThrow(
+        formData.get('daily_capacity'),
+        caps.slotsPerDay,
+      ),
+      discount_type: discount.discount_type,
+      discount_value: discount.discount_value,
+      discount_expires_at: discount.discount_expires_at,
+      discount_conditions_md: discount.discount_conditions_md,
+      exclusive_perk_text: parseExclusivePerk(formData),
+      primary_photo_r2_key: parsePrimaryPhoto(formData),
+    };
+  } catch (e) {
+    return back((e as Error).message);
+  }
+
+  // Publish gate (owner 2026-06-20 "the card needs a photo"): a live service
+  // card must carry a real cover photo. Drafts can save without one. The perk
+  // gate is re-checked inside the RPC; the photo gate lives here in TS.
+  if (publish && !fields.primary_photo_r2_key) {
+    return back('Add a cover photo before publishing — drafts can save without one.');
+  }
+
+  // ---- Tier caps on CREATE only (a new row can introduce a new leaf/parent) ----
+  if (isCreate) {
+    const { data: existingRows } = await supabase
+      .from('vendor_services')
+      .select('category')
+      .eq('vendor_profile_id', profile.vendor_profile_id);
+    const existing = (existingRows ?? []) as { category: VendorCategory }[];
+
+    if (caps.servicesPerLeaf !== Infinity) {
+      const inLeaf = existing.filter((r) => r.category === category).length;
+      if (inLeaf >= caps.servicesPerLeaf) {
+        return back(
+          `Your plan allows ${caps.servicesPerLeaf} service${caps.servicesPerLeaf === 1 ? '' : 's'} per category. Upgrade to add more here.`,
+        );
+      }
+    }
+    const newParents = parentsOfCategory(category);
+    if (caps.parentCategories !== Infinity && newParents.length > 0) {
+      const existingParents = new Set(
+        existing.flatMap((r) => parentsOfCategory(r.category)),
+      );
+      const introducesNew = newParents.some((p) => !existingParents.has(p));
+      const wouldBe = new Set(existingParents);
+      newParents.forEach((p) => wouldBe.add(p));
+      if (introducesNew && wouldBe.size > caps.parentCategories) {
+        return back(
+          `Your plan covers ${caps.parentCategories} categor${caps.parentCategories === 1 ? 'y' : 'ies'}. Upgrade to list under more.`,
+        );
+      }
+    }
+  }
+
+  // ---- "Comes with" links: keep only categories this vendor actually offers ----
+  const { data: ownRows } = await supabase
+    .from('vendor_services')
+    .select('category')
+    .eq('vendor_profile_id', profile.vendor_profile_id);
+  const offered = new Set(
+    ((ownRows ?? []) as { category: string }[])
+      .map((r) => r.category)
+      .filter((c) => c !== category),
+  );
+  const links = Array.from(
+    new Set(
+      formData
+        .getAll('linked')
+        .filter((v): v is string => typeof v === 'string')
+        .filter((c) => offered.has(c)),
+    ),
+  )
+    .slice(0, 6)
+    .map((c, i) => ({
+      linked_canonical_service: c,
+      linked_label: displayServiceLabel(c as VendorCategory),
+      display_order: i,
+    }));
+
+  // ---- Payment schedule rows (reuse the legacy parsing shape) ----
+  let schedule: Array<Record<string, unknown>>;
+  try {
+    schedule = parseScheduleRows(formData);
+  } catch (e) {
+    return back((e as Error).message);
+  }
+
+  // ---- ONE atomic write ----
+  const { data: savedId, error } = await supabase.rpc('save_vendor_service', {
+    p_vendor_profile_id: profile.vendor_profile_id,
+    p_service_id: serviceId,
+    p_fields: fields,
+    p_links: links,
+    p_schedule: schedule,
+    p_publish: publish,
+  });
+  if (error) return back(error.message);
+
+  revalidatePath('/vendor-dashboard/services');
+  redirect(`/vendor-dashboard/services?saved=1#service-${savedId ?? ''}`);
+}
+
+/**
+ * Parse the wizard's installment rows (same field names the legacy
+ * payment-schedule editor submits) into the RPC's schedule jsonb shape — WITHOUT
+ * the service/profile ids (the RPC fills those). Mirrors setServicePaymentSchedule.
+ */
+function parseScheduleRows(formData: FormData): Array<Record<string, unknown>> {
+  const labels = formData.getAll('item_label');
+  const kinds = formData.getAll('item_amount_kind');
+  const values = formData.getAll('item_value');
+  const anchors = formData.getAll('item_due_anchor');
+  const offsets = formData.getAll('item_due_offset_days');
+  const rows: Array<Record<string, unknown>> = [];
+  const n = labels.length;
+  if (n > MAX_SCHEDULE_ITEMS) {
+    throw new Error(`A schedule can have up to ${MAX_SCHEDULE_ITEMS} installments.`);
+  }
+  for (let i = 0; i < n; i++) {
+    const label = typeof labels[i] === 'string' ? (labels[i] as string).trim() : '';
+    if (label.length === 0 || label.length > 80) {
+      throw new Error('Each installment needs a label (up to 80 characters).');
+    }
+    const kindRaw = kinds[i];
+    if (kindRaw !== 'percent' && kindRaw !== 'fixed') {
+      throw new Error('Each installment must be a percent or a fixed amount.');
+    }
+    const amount_kind = kindRaw as AmountKind;
+    const valueRaw = typeof values[i] === 'string' ? (values[i] as string).trim() : '';
+    const value = Number(valueRaw);
+    if (valueRaw.length === 0 || !Number.isFinite(value) || value < 0) {
+      throw new Error('Each installment needs a non-negative amount.');
+    }
+    let percent_bps: number | null = null;
+    let amount_centavos: number | null = null;
+    if (amount_kind === 'percent') {
+      if (!Number.isInteger(value) || value > 100) {
+        throw new Error('A percentage must be a whole number between 0 and 100.');
+      }
+      percent_bps = pctToBps(value);
+    } else {
+      if (!Number.isInteger(value)) {
+        throw new Error('A fixed amount must be a whole peso figure.');
+      }
+      amount_centavos = phpToCentavos(value);
+    }
+    const anchorRaw = anchors[i];
+    let due_anchor: DueAnchor | null = null;
+    let due_offset_days: number | null = null;
+    if (anchorRaw === 'on_lock' || anchorRaw === 'before_event') {
+      due_anchor = anchorRaw;
+      const offRaw = typeof offsets[i] === 'string' ? (offsets[i] as string).trim() : '';
+      if (offRaw.length > 0) {
+        const off = Number(offRaw);
+        if (!Number.isInteger(off) || off < 0) {
+          throw new Error('Due-date days must be a non-negative whole number.');
+        }
+        due_offset_days = off;
+      } else {
+        due_offset_days = 0;
+      }
+    }
+    rows.push({
+      seq: i,
+      label: label.slice(0, 80),
+      amount_kind,
+      percent_bps,
+      amount_centavos,
+      due_anchor,
+      due_offset_days,
+    });
+  }
+  return rows;
 }
 
 export async function toggleVendorServiceActive(formData: FormData) {

@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
-import { AlertTriangle, KeyRound, MonitorSmartphone } from 'lucide-react';
+import { AlertTriangle, KeyRound, MonitorSmartphone, BadgeCheck } from 'lucide-react';
+import { vendorExperienceEnabled } from '@/lib/vendor-experience';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sweepLapsedSubscriptions } from '@/lib/subscriptions';
@@ -227,6 +228,9 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
         canCustomSlug: boolean;
         socialFeatureOptOut: boolean;
         sameDayAvailable: boolean;
+        expSinceYear: number | null;
+        expWeddings: number | null;
+        expVerifiedAt: string | null;
       }
     | { ok: false; message: string };
   try {
@@ -271,6 +275,26 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
     const sameDayAvailable = Boolean(
       (sameDayRow as { same_day_available?: boolean | null } | null)?.same_day_available,
     );
+
+    // Declared experience (flag + schema gated; soft-probe degrades on 42703 so
+    // a pre-migration DB never breaks the page). Only read when the feature is on.
+    let expSinceYear: number | null = null;
+    let expWeddings: number | null = null;
+    let expVerifiedAt: string | null = null;
+    if (vendorExperienceEnabled()) {
+      const { data: expRow } = await supabase
+        .from('vendor_profiles')
+        .select('in_business_since_year, weddings_done_approx, experience_verified_at')
+        .eq('user_id', user.id)
+        .maybeSingle()
+        .then((r) => (r.error ? { data: null } : r));
+      const e = expRow as
+        | { in_business_since_year?: number | null; weddings_done_approx?: number | null; experience_verified_at?: string | null }
+        | null;
+      expSinceYear = e?.in_business_since_year ?? null;
+      expWeddings = e?.weddings_done_approx ?? null;
+      expVerifiedAt = e?.experience_verified_at ?? null;
+    }
     const portfolioCap = caps.portfolioPhotos;
     const portfolioMax = Number.isFinite(portfolioCap) ? portfolioCap : 999;
     // Phase C #4 — a custom website slug is PRO/ENTERPRISE only. Advisory UI;
@@ -329,6 +353,9 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
       canCustomSlug,
       socialFeatureOptOut,
       sameDayAvailable,
+      expSinceYear,
+      expWeddings,
+      expVerifiedAt,
     };
   } catch (err) {
     // Log so Sentry's nodejs runtime hook picks it up. The thrown Error
@@ -380,6 +407,9 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
     canCustomSlug,
     socialFeatureOptOut,
     sameDayAvailable,
+    expSinceYear,
+    expWeddings,
+    expVerifiedAt,
   } = loaderState;
   const completion = profileCompletion(profile);
   const pct = completion.total === 0 ? 0 : Math.round((completion.done / completion.total) * 100);
@@ -562,6 +592,54 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
             className="input-field"
           />
         </Field>
+
+        {vendorExperienceEnabled() ? (
+          <div className="space-y-3 rounded-lg border border-ink/10 p-4">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-medium text-ink">Your experience</p>
+              {expVerifiedAt ? (
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-success-700">
+                  <BadgeCheck aria-hidden className="h-4 w-4" strokeWidth={2} />
+                  Verified
+                </span>
+              ) : (
+                <span className="text-xs text-ink/45">Self-reported</span>
+              )}
+            </div>
+            <p className="text-xs text-ink/55">
+              Shown on your card so couples see you&rsquo;re established. We confirm your
+              &ldquo;in business since&rdquo; year against your DTI registration during verification.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="In business since (year)" htmlFor="in_business_since_year">
+                <input
+                  id="in_business_since_year"
+                  name="in_business_since_year"
+                  type="number"
+                  min={1900}
+                  max={new Date().getFullYear()}
+                  defaultValue={expSinceYear ?? ''}
+                  placeholder="2017"
+                  className="input-field"
+                />
+              </Field>
+              <Field label="Approx. weddings done" htmlFor="weddings_done_approx">
+                <input
+                  id="weddings_done_approx"
+                  name="weddings_done_approx"
+                  type="number"
+                  min={0}
+                  defaultValue={expWeddings ?? ''}
+                  placeholder="240"
+                  className="input-field"
+                />
+              </Field>
+            </div>
+            {expVerifiedAt ? (
+              <p className="text-xs text-ink/45">Changing your &ldquo;since&rdquo; year will need us to re-verify it.</p>
+            ) : null}
+          </div>
+        ) : null}
 
         <Field
           label="Logo"

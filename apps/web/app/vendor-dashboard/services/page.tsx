@@ -162,6 +162,12 @@ export default async function VendorServicesPage({ searchParams }: Props) {
       ? (search.add as VendorCategory)
       : null;
 
+  // Guided "create a service" wizard (Services builder redesign). Flag-gated so
+  // the rewire is inert until the owner applies the save_vendor_service migration
+  // (20270208451790) + sets NEXT_PUBLIC_SERVICE_WIZARD_ENABLED=true. OFF → the
+  // left-rail picker keeps opening the legacy inline ?add= form (unchanged).
+  const wizardEnabled = process.env.NEXT_PUBLIC_SERVICE_WIZARD_ENABLED === 'true';
+
   // Live admin-taxonomy DISPLAY labels for the category picker. Storage +
   // validation are unchanged — only the human-readable label follows whatever
   // an admin set on each anchor tile (labelForVendorCategory falls back to the
@@ -241,7 +247,11 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                     return (
                       <li key={cat}>
                         <Link
-                          href={`/vendor-dashboard/services?add=${cat}#add-${cat}`}
+                          href={
+                            wizardEnabled
+                              ? `/vendor-dashboard/services/new/${cat}`
+                              : `/vendor-dashboard/services?add=${cat}#add-${cat}`
+                          }
                           className={`flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
                             addCategory === cat
                               ? 'bg-ink/10 text-ink'

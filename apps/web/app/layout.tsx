@@ -394,12 +394,16 @@ const organizationJsonLd = {
   //   ],
 };
 
-// Light-locked 2026-06-04 (owner: "just always keep it light theme"). A single
-// white theme-color so iOS Safari + Android Chrome tint the URL bar to match the
-// always-light app — no `prefers-color-scheme: dark` variant, so a device in OS
-// dark mode no longer gets a dark chrome that mismatches the light page.
+// Light-locked 2026-06-04 (owner: "just always keep it light theme"). One
+// theme-color matching the always-light app surface — Warm Alabaster #FBFBFA
+// (== `--m-paper` / `bg-cream`, and now == the PWA manifest) so iOS Safari +
+// Android Chrome tint the URL bar to the page with no seam. No
+// `prefers-color-scheme: dark` variant, so a device in OS dark mode no longer
+// gets a dark chrome that mismatches the light page.
+// PWA-1 (2026-06-21): was #FFFFFF (pure white) while the manifest was #FAF7F2
+// and the painted surface is #FBFBFA — three near-whites reconciled to one.
 export const viewport: Viewport = {
-  themeColor: '#FFFFFF',
+  themeColor: '#FBFBFA',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,

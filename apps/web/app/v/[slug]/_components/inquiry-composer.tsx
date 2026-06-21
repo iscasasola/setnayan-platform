@@ -174,6 +174,9 @@ export function InquiryComposer({
     savedRequirements?.specialRequest ?? '',
   );
   const [autoSend, setAutoSend] = useState<boolean>(savedRequirements?.autoSend ?? false);
+  // Bundle nudge (flag-gated): default ON so adding extra services nudges a
+  // single bundle quote; the couple can opt out.
+  const [wantBundle, setWantBundle] = useState<boolean>(true);
 
   // ── Auto carry-forward (Phase 1b PR-5) ─────────────────────────────────────
   // The gate: Setnayan AI ON + a saved row for this category with auto_send=true.
@@ -188,6 +191,9 @@ export function InquiryComposer({
     [alsoOptions],
   );
   const hasAlsoOptions = alsoOptions.length > 0;
+  // Proactive bundle nudge (flag-gated · NEXT_PUBLIC inlined at build).
+  const bundleNudge = process.env.NEXT_PUBLIC_BUNDLE_NUDGE_ENABLED === 'true';
+  const anyAlsoChecked = alsoOptions.some((s) => checked.has(s.vendorServiceId));
   const categoryName = (categoryLabel ?? '').trim() || 'this category';
 
   function toggle(id: string) {
@@ -264,6 +270,7 @@ export function InquiryComposer({
         initialServiceId: initial.vendorServiceId,
         initialCategoryKey: initial.categoryKey,
         alsoServiceIds,
+        requestBundleQuote: bundleNudge && wantBundle && alsoServiceIds.length > 0,
         requirements: {
           payload,
           specialRequest: specialRequest.trim() || null,
@@ -431,12 +438,24 @@ export function InquiryComposer({
         </div>
       ) : null}
 
-      {/* Also-ask checkboxes (multi-service vendors only) */}
+      {/* Also-ask checkboxes (multi-service vendors only). Bundle nudge (flag)
+          reframes this into a proactive "add these for one bundle price" ask. */}
       {hasAlsoOptions ? (
         <fieldset className="space-y-2">
-          <legend className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/50">
-            Also ask about
-          </legend>
+          {bundleNudge ? (
+            <div className="rounded-lg border border-mulberry/25 bg-mulberry/[0.04] px-3 py-2">
+              <p className="text-sm font-medium text-ink">
+                {vendorLabel} also offers these
+              </p>
+              <p className="text-xs text-ink/60">
+                Add any that fit your day and ask for <span className="font-medium text-ink">one bundle price</span> — often cheaper than booking separately.
+              </p>
+            </div>
+          ) : (
+            <legend className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/50">
+              Also ask about
+            </legend>
+          )}
           <ul className="space-y-1.5">
             {alsoOptions.map((s) => {
               const on = checked.has(s.vendorServiceId);
@@ -463,6 +482,18 @@ export function InquiryComposer({
               );
             })}
           </ul>
+          {bundleNudge && anyAlsoChecked ? (
+            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-mulberry/30 bg-mulberry/5 px-3 py-2.5 text-sm text-ink">
+              <input
+                type="checkbox"
+                checked={wantBundle}
+                onChange={() => setWantBundle((v) => !v)}
+                disabled={isSubmitting || sent}
+                className="h-4 w-4 rounded border-ink/30 text-mulberry focus:ring-mulberry"
+              />
+              <span>Ask {vendorLabel} for <span className="font-medium">one bundle price</span> for everything above</span>
+            </label>
+          ) : null}
         </fieldset>
       ) : null}
     </>

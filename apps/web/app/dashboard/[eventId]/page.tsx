@@ -11,8 +11,6 @@ import {
   FileSignature,
   UserPlus,
   AlertTriangle,
-  CheckCircle2,
-  Circle,
   QrCode,
   HardHat,
   type LucideIcon,
@@ -60,22 +58,16 @@ import { ConciergeBanner } from './_components/concierge-banner';
 // features (pakanta, mood board, the 9-step journey) still import them.
 import { getLocale, makeT, type TranslationKey } from '@/lib/i18n';
 import {
-  STEPS,
   fetchManualStepCompletions,
-  plannerProgress,
   resolveStepStatuses,
-  type StepStatus,
 } from '@/lib/planner';
 import { getLifecyclePhase } from '@/lib/day-of-mode';
 import { fetchScheduleBlocks } from '@/lib/schedule';
 import { fetchTables, type EventTableRow } from '@/lib/seating';
 import { DayOfModeGrid } from './_components/day-of-mode/grid';
 import { findSameDayVendors, type SameDayVendor } from '@/lib/same-day-vendors';
-import { toggleJourneyStep } from './actions';
 import { EventDayPrepCta } from '@/app/_components/event-day-prep-cta';
 import { AutoPreloadOnEventDay } from '@/app/_components/auto-preload-on-event-day';
-import { PlanningGroups } from './_components/planning-groups';
-import { MarketplaceTeaseStrip } from './_components/marketplace-tease-strip';
 // Finder-column scaffolding (EventHomeSplitView + EventHomeDetailPane +
 // CardSelectable + ?card=<id> URL state) retired 2026-05-23 per owner
 // directive — event home renders as a single column on every
@@ -120,7 +112,6 @@ import {
   ActivityFeedAsync,
   ActivityFeedSkeleton,
 } from './_components/activity-feed-async';
-import { YourPlanSection } from './_components/your-plan-section';
 import { getConfirmedVendorCount, isEventDateInPast } from '@/lib/events';
 import type { VendorCategory } from '@/lib/vendors';
 // Finalized-card-service-photo refinement (2026-05-22) — resolve
@@ -130,7 +121,6 @@ import type { VendorCategory } from '@/lib/vendors';
 // enrichment pipeline below. setnayan-media is the canonical bucket for
 // vendor portfolio + service media.
 import { R2_BUCKETS, r2PublicUrl } from '@/lib/r2';
-import { SubmitButton } from '@/app/_components/submit-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -1713,10 +1703,13 @@ export default async function EventHomePage({
       </Suspense>
 
       {/* One calm doorway into the matched marketplace — replaces the CTA that
-       *  used to live inside the removed recap card. */}
+       *  used to live inside the removed recap card. Redesign (2026-06-21):
+       *  adopts the canonical `.m-card` primitive (CARD-1) with its built-in
+       *  hover-lift, and swaps the legacy terracotta accent for Clean Editorial
+       *  mulberry (VIS-11 / palette lock). */}
       <Link
         href={`/dashboard/${eventId}/vendors`}
-        className="flex items-center justify-between gap-3 rounded-2xl border border-dashed border-ink/15 bg-cream/60 px-4 py-4 transition-colors hover:bg-cream"
+        className="m-card flex items-center justify-between gap-3 px-4 py-4"
       >
         <span>
           <span className="block text-sm font-semibold text-ink">
@@ -1726,7 +1719,7 @@ export default async function EventHomePage({
             Matched to your date, venue &amp; style
           </span>
         </span>
-        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-terracotta/10 text-terracotta">
+        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-mulberry/10 text-mulberry">
           <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         </span>
       </Link>
@@ -1741,282 +1734,6 @@ function isWeddingBeyondConciergeCap(activatedIso: string, weddingIso: string): 
   const cap = new Date(activated);
   cap.setMonth(cap.getMonth() + 24);
   return wedding.getTime() > cap.getTime();
-}
-
-function WelcomeHeader({ eventName }: { eventName: string }) {
-  // Task #65 (2026-05-22) — date + countdown + ceremony type live in
-  // <EventMetaLine> immediately below (rendered as a sibling in the page
-  // composition). 2026-05-22 (owner directive) — the time-of-day greeting
-  // line previously rendered beneath the event name was removed; header now
-  // carries only the event-name display so the welcome strip stays the
-  // single source of "who and what" without duplicating the "when" three
-  // times across the page. See _components/event-meta-line.tsx.
-  //
-  // v2.1 visual overlay (2026-05-28) — couple-dashboard.jsx template's
-  // `.display` typeface renders the couple's names as uppercase Saira
-  // Condensed at 44px. We adopt the `.m-display-tight` utility from
-  // globals.css (Saira Condensed 700 · uppercase via toUpperCase()) so
-  // the welcome header gets the v2.1 keynote treatment without changing
-  // the underlying event-name data shape. The eventName itself stays —
-  // .toUpperCase() is the typographic transform, not a content rename.
-  // 2026-05-28 deep-fix — eyebrow above the heading uses sienna so the
-  // welcome strip reads like the template's "Good evening, …" rail.
-  // .m-display-tight class is already present (Saira Condensed 700) from
-  // the shallow PR #576 overlay; deep-fix adds the eyebrow + .m-mono on
-  // a thin sub-rule beneath to match the template's typographic rhythm.
-  return (
-    <header className="space-y-1.5">
-      <p
-        className="m-eyebrow font-mono text-[10px] uppercase tracking-[0.22em]"
-        style={{ color: 'var(--m-orange-2)' }}
-      >
-        Your wedding
-      </p>
-      <h1
-        className="m-display-tight text-3xl uppercase sm:text-[44px]"
-        style={{ letterSpacing: '-0.005em', color: 'var(--m-ink)' }}
-      >
-        {eventName.toUpperCase()}
-      </h1>
-    </header>
-  );
-}
-
-function StageStrip({ stage }: { stage: Stage['key'] }) {
-  const foundIndex = STAGES.findIndex((s) => s.key === stage);
-  const activeIndex = foundIndex >= 0 ? foundIndex : 0;
-  const activeLabel = STAGES[activeIndex]?.label ?? STAGES[0]?.label ?? '';
-  // v2.1 deep-fix (2026-05-28) — stage strip pills swap from terracotta
-  // semantic class to sienna --m-orange (active) + --m-orange-3 (done) +
-  // --m-line-soft (pending), matching couple-dashboard.jsx template's
-  // 6-phase rail in CoupleTopbar. Phase count + labels + activeIndex math
-  // all stay untouched — pure inline-style color overlay so the SHIPPED
-  // STAGES lookup + stage prop semantics carry through.
-  return (
-    <div className="space-y-2">
-      <ol className="flex w-full items-center gap-1.5" aria-label="Wedding stage progress">
-        {STAGES.map((s, i) => {
-          const done = i < activeIndex;
-          const isActive = i === activeIndex;
-          const fill = isActive
-            ? 'var(--m-orange)'
-            : done
-              ? 'var(--m-orange-3)'
-              : 'var(--m-line-soft)';
-          return (
-            <li key={s.key} className="flex flex-1 items-center gap-1.5">
-              <span
-                aria-current={isActive ? 'step' : undefined}
-                aria-label={s.label}
-                className="block h-1.5 flex-1 rounded-full transition-colors"
-                style={{ background: fill }}
-              />
-            </li>
-          );
-        })}
-      </ol>
-      {/* 2026-05-30 contrast lift (owner: "text are unreadable") —
-       *  swapped --m-slate-3 (#898D94 · 3.07:1 on Alabaster · fails
-       *  WCAG AA) → --m-slate (#4F535B · 7.40:1 · passes AAA). Same
-       *  visual hierarchy (eyebrow muted, active label full ink) just
-       *  bumped above the WCAG threshold. */}
-      <p
-        className="m-eyebrow font-mono text-[11px] uppercase tracking-[0.2em]"
-        style={{ color: 'var(--m-slate)' }}
-      >
-        Stage {activeIndex + 1} of {STAGES.length} ·{' '}
-        <span style={{ color: 'var(--m-ink)' }}>{activeLabel}</span>
-      </p>
-    </div>
-  );
-}
-
-function NavGrid({
-  eventId,
-  stats,
-  unreadCount,
-  tr,
-}: {
-  eventId: string;
-  stats: { total: number; attending: number; pending: number };
-  unreadCount: number;
-  tr: (key: TranslationKey) => string;
-}) {
-  // v2.1 deep-fix (2026-05-28) — TILES grid chrome adopts template's
-  // card pattern: --m-paper background, --m-line border, sienna-tinted
-  // icon chip (--m-orange-4 bg + --m-orange-2 fg), --m-shadow-sm rest +
-  // --m-shadow-md hover. The 14-tile TILES lookup + section.plan
-  // translation key + tile.href(eventId) navigation + stats counter
-  // logic + notifications badge all stay untouched — pure styling
-  // refresh per [[feedback_setnayan_button_preservation]].
-  return (
-    <div className="space-y-3">
-      <h2
-        className="m-eyebrow font-mono text-[11px] uppercase tracking-[0.2em]"
-        style={{ color: 'var(--m-slate-3)' }}
-      >
-        {tr('section.plan')}
-      </h2>
-      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-        {TILES.map((tile) => {
-          const { Icon } = tile;
-          const counter =
-            tile.key === 'guests' && stats.total > 0
-              ? `${stats.attending}/${stats.total} attending`
-              : tile.key === 'guests' && stats.pending > 0
-                ? `${stats.pending} pending`
-                : tile.key === 'notifications' && unreadCount > 0
-                  ? `${unreadCount} unread`
-                  : null;
-          const showBadge = tile.key === 'notifications' && unreadCount > 0;
-          return (
-            <li key={tile.key}>
-              <Link
-                href={tile.href(eventId)}
-                className="group flex h-full flex-col gap-2 rounded-xl border p-3 transition-all sm:gap-3 sm:p-4"
-                style={{
-                  background: 'var(--m-paper)',
-                  borderColor: 'var(--m-line)',
-                  boxShadow: 'var(--m-shadow-sm)',
-                }}
-              >
-                <span
-                  className="relative inline-flex h-8 w-8 items-center justify-center rounded-lg sm:h-10 sm:w-10"
-                  style={{
-                    background: 'var(--m-orange-4)',
-                    color: 'var(--m-orange-2)',
-                  }}
-                >
-                  <Icon aria-hidden className="h-4 w-4 sm:h-5 sm:w-5" strokeWidth={1.75} />
-                  {showBadge ? (
-                    <span
-                      className="absolute -right-1 -top-1 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full px-1 font-mono text-[9px] font-semibold"
-                      style={{
-                        background: 'var(--m-orange)',
-                        color: 'var(--m-paper)',
-                      }}
-                    >
-                      {unreadCount > 9 ? '9+' : unreadCount}
-                    </span>
-                  ) : null}
-                </span>
-                <span
-                  className="text-xs font-semibold sm:text-sm"
-                  style={{ color: 'var(--m-ink)' }}
-                >
-                  {tr(tile.labelKey)}
-                </span>
-                {counter ? (
-                  <span
-                    className="text-[10px] sm:text-xs"
-                    style={{ color: 'var(--m-slate-3)' }}
-                  >
-                    {counter}
-                  </span>
-                ) : null}
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
-}
-
-function Checklist({
-  eventId,
-  statuses,
-  tr,
-}: {
-  eventId: string;
-  statuses: StepStatus[];
-  tr: (key: TranslationKey) => string;
-}) {
-  const progress = plannerProgress(statuses);
-  const byKey = new Map(statuses.map((s) => [s.key, s]));
-  return (
-    <div
-      className="space-y-4 rounded-2xl border p-5"
-      style={{
-        background: 'var(--m-paper)',
-        borderColor: 'var(--m-line)',
-        boxShadow: 'var(--m-shadow-sm)',
-      }}
-    >
-      <div className="flex items-center justify-between">
-        <h2
-          className="font-mono text-[11px] uppercase tracking-[0.2em]"
-          style={{ color: 'var(--m-slate-3)' }}
-        >
-          {tr('section.concierge')}
-        </h2>
-        <span
-          className="font-mono text-sm font-semibold"
-          style={{ color: 'var(--m-orange-2)' }}
-        >
-          {progress.done}/{progress.total}
-        </span>
-      </div>
-      <div
-        className="h-1 w-full overflow-hidden rounded-full"
-        style={{ background: 'var(--m-line-soft)' }}
-      >
-        <span
-          className="block h-full rounded-full transition-all"
-          style={{ width: `${progress.pct}%`, background: 'var(--m-orange)' }}
-        />
-      </div>
-      <ul className="space-y-5 pt-1">
-        {STEPS.map((step) => {
-          const status = byKey.get(step.key);
-          const done = status?.completed ?? false;
-          return (
-            <li key={step.key} className="flex items-start gap-3">
-              {step.source === 'manual' ? (
-                <form action={toggleJourneyStep}>
-                  <input type="hidden" name="event_id" value={eventId} />
-                  <input type="hidden" name="step_key" value={step.key} />
-                  <input type="hidden" name="action" value={done ? 'uncomplete' : 'complete'} />
-                  <SubmitButton
-                    pendingLabel="…"
-                    aria-label={done ? `Mark ${step.label} not done` : `Mark ${step.label} done`}
-                    className="mt-0.5 flex-none text-terracotta"
-                  >
-                    {done ? (
-                      <CheckCircle2 className="h-5 w-5" strokeWidth={2} />
-                    ) : (
-                      <Circle className="h-5 w-5" style={{ color: 'var(--m-line)' }} strokeWidth={1.75} />
-                    )}
-                  </SubmitButton>
-                </form>
-              ) : (
-                <span aria-hidden className="mt-0.5 flex-none">
-                  {done ? (
-                    <CheckCircle2 className="h-5 w-5 text-terracotta" strokeWidth={2} />
-                  ) : (
-                    <Circle className="h-5 w-5" style={{ color: 'var(--m-line)' }} strokeWidth={1.75} />
-                  )}
-                </span>
-              )}
-              <Link href={step.href(eventId)} className="group flex flex-1 flex-col gap-0.5">
-                <span
-                  className={`text-base leading-snug transition-colors group-hover:text-terracotta ${
-                    done ? 'line-through' : ''
-                  }`}
-                  style={{ color: done ? 'var(--m-slate-3)' : 'var(--m-ink)' }}
-                >
-                  {step.label}
-                </span>
-                <span className="text-sm leading-relaxed" style={{ color: 'var(--m-slate-3)' }}>
-                  {step.hint}
-                </span>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
 }
 
 // ActivityFeed moved to ./_components/activity-feed.tsx as part of

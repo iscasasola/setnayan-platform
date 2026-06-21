@@ -36,6 +36,7 @@ import {
   acquireSchedulePools,
   releaseSchedulePools,
   resolvePoolIdsForService,
+  resolvePoolIdsForCategory,
 } from '@/lib/schedule-pools';
 import {
   computePlanInstances,
@@ -229,7 +230,7 @@ export async function updateVendorStatus(formData: FormData) {
   // the white→BOOKED capacity transition for the schedule-pool gate.
   const { data: prev } = await supabase
     .from('event_vendors')
-    .select('status, vendor_name, marketplace_vendor_id, service_id')
+    .select('status, vendor_name, marketplace_vendor_id, service_id, category')
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId)
     .maybeSingle();
@@ -247,6 +248,7 @@ export async function updateVendorStatus(formData: FormData) {
     vendor_name?: string;
     marketplace_vendor_id?: string | null;
     service_id?: string | null;
+    category?: string | null;
   } | null;
   const wasConsuming = prevRow?.status
     ? DOWNPAID_STATUSES.has(prevRow.status)
@@ -256,13 +258,25 @@ export async function updateVendorStatus(formData: FormData) {
     !wasConsuming
     && willConsume
     && prevRow?.marketplace_vendor_id
-    && prevRow.service_id
+    && (prevRow.service_id || prevRow.category)
   ) {
-    const poolIds = await resolvePoolIdsForService(
-      supabase,
-      prevRow.marketplace_vendor_id,
-      prevRow.service_id,
-    );
+    // Resolve by service when this row picked a specific service; else by
+    // category. The category path closes the PACKAGE bypass: lockPackage
+    // cascade-rows carry a category but no service_id, so the service-only gate
+    // used to skip them and a packaged booking consumed no capacity (could
+    // overbook a full date). A booked package now consumes capacity like any
+    // other booking (owner "bundles lock every pool they span").
+    const poolIds = prevRow.service_id
+      ? await resolvePoolIdsForService(
+          supabase,
+          prevRow.marketplace_vendor_id,
+          prevRow.service_id,
+        )
+      : await resolvePoolIdsForCategory(
+          supabase,
+          prevRow.marketplace_vendor_id,
+          prevRow.category,
+        );
     if (poolIds.length > 0) {
       const acq = await acquireSchedulePools(supabase, eventId, vendorId, poolIds);
       if (acq.status === 'full') {

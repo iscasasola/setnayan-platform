@@ -14,13 +14,14 @@ import {
 
 // Shared App Store-style detail renderer for couple-side in-app services.
 //
-// Extracted from studio/[addon]/about/page.tsx so that a feature which owns a
-// LITERAL route folder (e.g. studio/save-the-date/ — builder + loading.tsx)
-// can mount an EXPLICIT studio/<key>/about page reusing the exact same render.
-// A literal folder shadows the dynamic /studio/[addon]/about route, so without
-// an explicit child the deeper /about path falls through to the builder (and,
-// via client-side navigation, throws). The explicit literal route reclaims the
-// path and is collision-proof. See studio/save-the-date/about/page.tsx.
+// Mounted once, by the catalog-driven route studio/about/[addon]/page.tsx. That
+// route lives under the LITERAL `about` segment (not studio/[addon]/about) on
+// purpose: most features own their own literal folder (studio/papic/,
+// studio/save-the-date/, …), and a literal segment shadows the [addon] dynamic
+// sibling without backtracking — so studio/<key>/about would 404 / fall through
+// to the feature's own builder. Routing every detail page under
+// studio/about/<key> keeps it clear of every feature folder. See
+// appStoreDetailHref() in lib/add-ons-catalog.ts.
 //
 // One renderer, content per feature in lib/add-ons-detail.ts. Pricing renders
 // LIVE from the admin catalog (platform_retail_catalog_v2) by serviceKey — this

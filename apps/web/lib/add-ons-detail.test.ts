@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ADD_ONS } from './add-ons-catalog';
+import { ADD_ONS, appStoreDetailHref } from './add-ons-catalog';
 import { ADD_ON_DETAILS, addOnDetail } from './add-ons-detail';
 
 // The Studio hub renders the four visible sections (Setnayan AI · Website ·
 // Capture · Branding). Every available feature in those sections links to its
-// App Store detail page at /studio/<key>/about — EXCEPT Panood, which has its
+// App Store detail page at /studio/about/<key> — EXCEPT Panood, which has its
 // own bespoke detail surface. This guard fails the build if a hub row would
 // point at a detail page that has no authored content (a 404 for the couple).
 const VISIBLE_GROUPS = new Set(['setnayan_ai', 'website', 'capture', 'branding']);
@@ -29,6 +29,27 @@ test('detail entries are well-formed and not Panood', () => {
     assert.ok(d.highlights.length > 0, `${key}: needs at least one highlight`);
     assert.ok(d.preview.length > 0, `${key}: needs at least one preview frame`);
   }
+});
+
+test('detail links route under /studio/about (never shadowed by a feature folder)', () => {
+  // A literal /studio/<key>/about is SHADOWED by the feature's own static
+  // /studio/<key> folder — in Next.js a literal path segment beats the [addon]
+  // dynamic sibling and routing does not backtrack, so /studio/papic/about 404s.
+  // The detail route therefore lives under the literal /studio/about/<key>
+  // segment, which no feature key can shadow. This guard fails the build if a
+  // detail href ever regresses to the shadowed shape. Panood + supplies link to
+  // their own surfaces, not an /about page (see appStoreDetailHref).
+  const eventId = 'EVT';
+  const offenders = ADD_ONS.filter(
+    (a) => a.key !== 'panood' && a.key !== 'supplies-marketplace',
+  )
+    .map((a) => appStoreDetailHref(a.key, eventId))
+    .filter((href) => !href.includes('/studio/about/'));
+  assert.deepEqual(
+    offenders,
+    [],
+    `detail hrefs not under /studio/about (would be shadowed → 404): ${offenders.join(', ')}`,
+  );
 });
 
 test('no detail key is orphaned from the catalog', () => {

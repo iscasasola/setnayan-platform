@@ -5,10 +5,11 @@
  * 'Work'"). The 2026-06-08 ops redesign had crammed three desktop groups —
  * Insights · Money & Catalog · Platform — into a single 3-section accordion
  * here, because the mobile strip was a 4-tab spine. The owner re-promoted
- * Money + Insights to their own bottom-nav tabs (/admin/money + /admin/
- * insights), so More now carries ONLY the Platform group — a flat card grid
- * (same renderer as /admin/directory + /admin/money + /admin/insights), no
- * accordion. The retired AdminMoreAccordion (more-landing.tsx) is removed.
+ * Money + Insights to their own bottom-nav tabs; the 2026-06-21 <=5 reroster
+ * then demoted Insights BACK into More (Money keeps its tab), so More now
+ * carries the Platform group + an Insights card (-> /admin/insights) — a flat
+ * card grid (same renderer as /admin/directory + /admin/money), no accordion.
+ * The retired AdminMoreAccordion (more-landing.tsx) is removed.
  *
  * Mirrors the desktop sidebar's Platform group (key 'content') 1:1 per
  * [[feedback_setnayan_orphan_prevention]]; items lifted verbatim from the old
@@ -20,6 +21,7 @@
  */
 
 import {
+  BarChart3,
   Settings,
   Compass,
   Tag,
@@ -39,6 +41,18 @@ import { MobileLandingGrid, type LandingItem } from '../_components/mobile-landi
 export const metadata = { title: 'More · Admin' };
 
 const PLATFORM_ITEMS: LandingItem[] = [
+  {
+    // Insights demoted from its dedicated bottom-nav tab in the 2026-06-21 <=5
+    // reroster — folded back into More on mobile so the analytics surfaces stay
+    // reachable (desktop keeps the full sidebar Insights group). /admin/insights
+    // is the landing that fans out to growth / funnels / intelligence / etc.
+    key: 'insights',
+    label: 'Insights',
+    href: '/admin/insights',
+    icon: BarChart3,
+    description:
+      'The daily analytics pulse — growth, funnels, intelligence, operations & hiring, connection logs, and the offline daemon.',
+  },
   {
     key: 'settings',
     label: 'Settings',

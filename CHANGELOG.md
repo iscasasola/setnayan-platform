@@ -16,6 +16,62 @@ Both "More" menus are now grouped, labeled, `.m-card`-based, Clean Editorial. (P
 Verified: `pnpm typecheck` 0 · `pnpm lint` 0.
 
 SPEC IMPACT: Nav presentation — admin "More" grouped to match vendor. No SKU/schema/pricing change.
+## 2026-06-21 · feat(seating): 3D seating lab — flag-gated R3F prototype (Sims build + walk-to-seat)
+
+Owner direction: make the seat plan feel "like a game where you move things around," explored via React Three Fiber (Next.js shell + React/Three engine, the SSR golden rule). This is a **flag-gated, READ-ONLY prototype** on a throwaway route — it does not touch the 2D editor and never persists.
+
+- **Route** `app/dashboard/[eventId]/seating/lab/page.tsx` — server component gated by `NEXT_PUBLIC_SEATING_3D` (404 when off, so it doesn't exist for users by default). Reads the couple's REAL tables / floor plan / guests / mood-board palette. No writes.
+- **`lib/seating-3d.ts`** — pure (no three.js) data→3D math: percent→world mapping, per-shape table + chair geometry, seat-world lookup, obstacle-avoiding path steering, palette resolution. Safe to import on the server (the page only uses its types + helpers).
+- **`_components/seating-lab-loader.tsx`** — the `dynamic(() => import('./seating-lab-3d'), { ssr: false })` client wrapper (the same proven pattern the Save-the-Date veil reveal uses).
+- **`_components/seating-lab-3d.tsx`** — the R3F scene: real tables + chairs in 3D, mood-palette-driven lighting/materials with a live switcher, **Build mode** (tap-select, drag-to-slide with game-feel, "+ Add table" → tap floor to drop), **Play mode** (tap a guest → an avatar walks from the entrance, steering around tables, to their chair and sits), glassmorphism floating HUD.
+- New deps: `@react-three/fiber@^9.6` + `@react-three/drei@^10.7` (React 19-compatible). `three@0.184` + `@types/three` were already present (the reveal uses raw three.js).
+- **Adversarial multi-agent review (6 dimensions, 32 agents) → 8 verified findings, all fixed:** OrbitControls eating the armed tap-to-drop on touch (`enabled={!draggingId && !addArmed}`); drag soft-lock on `pointercancel`/blur (added handlers); R3F synthetic-click-after-drag deselecting/dropping (`e.delta > 4` guard); table rotation sign mismatch between rendered chairs and the walk target (`rotateLocal` rewritten to match the +Y group rotation); null `x_pos/y_pos` tables stacking at the corner (grid fallback via `defaultTablePosition`, matching 2D); `sendGuest` ignoring removed chairs (seed occupancy with `removedSeats`, scan real capacity); perf (DPR→[1,1.5], ContactShadows 1024→512, shared chair/pedestal geometry). Instancing + GLTF + post-processing are the documented v2.
+
+Verified: tsc 0, `next lint` clean on all four files. The production build (R3F client bundle) is CI's required gate — no local env here; R3F is client-only + dynamically imported so it never runs on the server.
+
+SPEC IMPACT: None to the shipped seat plan (additive, flag-off prototype). Captured in the corpus `0008_Seating_AS_BUILT_2026-06-21.md` lineage + DECISION_LOG.
+
+---
+
+## 2026-06-21 · feat(nav): broken-out action (NAV-2) — vendor + admin doorways
+
+Owner-picked actions (2026-06-21) extend the broken-out Mulberry satellite to the other two doorways, reusing the `NavFab` primitive (locked `bottom-nav.tsx` still untouched; `lint:botnav` ✓):
+
+- **Vendor** → **Check inquiries** (`/vendor-dashboard/bookings`, the pipeline where new couple inquiries land). New `vendor-nav-fab.tsx`, mounted in the vendor layout. `bookings` is in the role-scoped keys, so every vendor role reaches it.
+- **Admin** → **Payment requests** (`/admin/payments`, which defaults to the `pending` reconciliation queue — the couples' submitted payment proofs awaiting the 24-hr-SLA review). New `admin-nav-fab.tsx`, mounted in the admin layout.
+
+Both are siblings of the pill (never a tab), float above its right end off `--sn-bottomnav-h`, and hide when a docked SubNav is up. The broken-out action is now live on all three primary doorways (couple = Add guest · vendor = Check inquiries · admin = Payment requests).
+
+Verified: `pnpm typecheck` 0 · `pnpm lint` 0 · `pnpm lint:botnav` ✓.
+
+SPEC IMPACT: Nav architecture — broken-out action on vendor + admin. No SKU/schema/pricing change.
+
+## 2026-06-21 · feat(nav): broken-out action satellite (NAV-2) — couple doorway
+
+Second step of the nav reroster (`Responsive_and_Mobile_UI_Ruleset_2026-06-21` · NAV-2) — the Shazam-style "broken-out" primary action. The **locked `bottom-nav.tsx` template is untouched** (`lint:botnav` ✓); the action is a separate floating sibling, never a 7th tab, never a fork.
+
+- **New primitive `app/_components/nav/nav-fab.tsx`** — `NavFab`: a fixed, `lg:hidden`, ≥56px **Mulberry** circle that floats above the right end of the pill, anchored off the bar's published `--sn-bottomnav-h` (so the gap is constant at any tab count). Hides whenever the docked SubNav is up (`useSubNavDocked`) to avoid sharing that band. Reduced-motion-safe. *(The locked pill is full-width, so the literal Shazam "beside the pill" needs a template edit — this floats **above** the pill instead, the standard FAB pattern, fully additive.)* Filename has no `bottom-nav` substring so the delegation guard doesn't flag it.
+- **New wrapper `customer-nav-fab.tsx`** + mounted in the couple layout as a sibling of `CustomerBottomNav`. Action = **Add guest** → `/guests/new` (the couple's most-repeated planning action; doesn't duplicate a pill tab). Hidden in the `after` phase. Client wrapper holds the Lucide icon (same Server→Client boundary pattern as `CustomerBottomNav`).
+
+Verified: `pnpm typecheck` 0 · `pnpm lint` 0 · `pnpm lint:botnav` ✓ (template integrity + delegation intact).
+
+PROVISIONAL / deferred: the per-doorway **action choice** is owner-tunable (a phase-aware Day-of variant — e.g. check-in/scan — is a follow-up), and the **vendor + admin FABs** are not wired here because their single dominant action is a genuine product call (the ruleset says the FAB is absent when a surface has no clear dominant action). Also still pending: NAV-5 Notion "More" rebuild + the lint hardening (≤5 count + frosted-fill guard).
+
+SPEC IMPACT: Nav architecture — adds the broken-out action (couple doorway). No SKU/schema/pricing/public-claim change.
+## 2026-06-21 · fix(studio): every Studio feature button now lands somewhere usable (no more "coming soon" dead-ends)
+
+**Owner ask:** after the App Store detail-route fix, "check the rest of Studio — all pages must have somewhere to go. Let the button open it, or go to the paywall if it must be purchased first; if it's a free service, let it open."
+
+**Audit (all 15 visible Studio features across Setnayan AI · Website · Capture · Branding).** 13 already land correctly: each opens its real functional surface, and every *paid* one gates usage behind the canonical `InlineCheckoutDrawer` paywall on that surface (papic, panood, patiktok, save-the-date premium openings, setnayan-ai, animated-monogram→/monogram, custom-qr-guest, indoor-blueprint, pakanta), while the free ones open straight through (mood-board, led, photo-delivery, playlist). **Two were dead-ends** — `landing-page` and `music-creator` have no Studio surface of their own, so their "Open" button hit the `[addon]` catch-all "coming soon" placeholder.
+
+**Fix — point the two no-surface features at their real homes:**
+- `landing-page` → `/dashboard/[eventId]/website` (the wedding-website hub — a real, free surface that hands off to the site editor).
+- `music-creator` → `/dashboard/[eventId]/studio/pakanta` (Pakanta — its own detail copy already frames it as "generate a custom score — Pakanta"; Pakanta carries its own paywall).
+- Wired in `addOnHref()` (`lib/add-ons-catalog.ts`) so the detail-page "Open" button links straight there, and in `SHIPPED_REDIRECTS` (`studio/[addon]/page.tsx`) so any direct hit / old bookmark to `/studio/landing-page` or `/studio/music-creator` redirects too. Removed both stale "coming soon" placeholder entries from `ADD_ON_META`.
+
+**Flagged for owner (not changed):** `music-creator` overlaps `pakanta` (and partly the free `playlist`) — it now routes to Pakanta, but you may want to retire the tile or give it a distinct scope (a free reel-music picker doesn't exist yet). `led` opens freely with no SKU wired (effectively free today); fine unless it's meant to be a paid Live-Background SKU. `photo-delivery`'s Drive connect shows an in-surface "coming soon" until `GOOGLE_DRIVE_OAUTH_CLIENT_ID` is set.
+
+SPEC IMPACT: None (routing/wiring fix; no product, pricing, or schema change — all prices still render live from the admin catalog).
 
 ## 2026-06-21 · feat(seating): linked tables group as ONE (Keynote-style move + rotate) + full-screen editor
 

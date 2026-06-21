@@ -55,29 +55,20 @@ const ADD_ON_META: Record<
     blurb:
       'Wedding-day supplies + favors from vetted Filipino suppliers — souvenirs, tokens, sponsor gifts, ceremony props — direct-to-venue with logistics quoted up front.',
   },
-  // Coming-soon placeholders so contextual CTAs land on a polite page instead
-  // of a 404. The listing-level tiles for these stay status='coming_soon' on
-  // /add-ons (unclickable) per owner direction 2026-05-20. NOTE: once a feature
-  // ships, move its slug to SHIPPED_REDIRECTS below (don't leave a stale
-  // "coming soon" stub pointing away from the live surface).
-  'music-creator': {
-    iteration: 'Iteration 0036',
-    title: 'Music Creator',
-    blurb:
-      'Pick from Setnayan-owned tracks or generate a custom score for your event reels — Pakanta. Coming back soon.',
-  },
-  'landing-page': {
-    iteration: 'Iteration 0002',
-    title: 'Landing Page',
-    blurb:
-      'Customize the public landing page guests see when they scan your QR or open your link — beyond the default invitation surface. Coming back soon.',
-  },
+  // No-surface features (landing-page · music-creator) used to live here as
+  // "coming soon" stubs; they now redirect to their real home via
+  // SHIPPED_REDIRECTS below, so every Studio button lands somewhere usable.
 };
 
-// Add-on slugs whose feature has since shipped — any old contextual CTA or
-// bookmark redirects to the live surface instead of a stale "coming soon" stub.
+// Add-on slugs whose feature now has a real home — any contextual CTA, Studio
+// detail "Open" button, or old bookmark redirects to the live surface instead
+// of a stale "coming soon" stub. (Owner 2026-06-21: every Studio button must
+// land somewhere usable — open the service, or its paywall.) Keep this in sync
+// with the same-key branches in addOnHref() (lib/add-ons-catalog.ts).
 const SHIPPED_REDIRECTS: Record<string, string> = {
   'monogram-creator': 'monogram', // Monogram Maker (iteration 0037) is live
+  'landing-page': 'website', // → the wedding-website hub
+  'music-creator': 'studio/pakanta', // → Pakanta (the realized music feature)
 };
 
 type Props = {

@@ -1611,3 +1611,20 @@ html[data-sn-nav-dir='back']::view-transition-new(sn-page) {
     transform: translateX(-100%);
   }
 }
+
+/*
+ * Broken-out action (NavFab) in the bottom-nav ROW (owner-tuned 2026-06-22).
+ *
+ * When a doorway's FAB is mounted it sets `data-sn-fab` on <html> and renders a
+ * 56px circle fixed at `right:14px` in the bar row. This shrinks the locked
+ * pill's right inset so it ends just before the circle (14px inset + 56px circle
+ * + 8px gap = 78px), giving the Shazam "isolated button beside the pill" layout.
+ *
+ * Scoped to the nav's existing `aria-label="Primary navigation"` marker — the
+ * locked `bottom-nav.tsx` is read, NOT edited (this selector out-specifies the
+ * Tailwind `right-[14px]` class, so no `!important`). No FAB → no attr → the pill
+ * keeps its full-width `right:14px`.
+ */
+html[data-sn-fab] nav[aria-label='Primary navigation'] {
+  right: 78px;
+}

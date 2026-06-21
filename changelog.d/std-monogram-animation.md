@@ -1,0 +1,13 @@
+## 2026-06-22 · fix(std): the paid Animated Monogram now actually animates on the Save-the-Date (plays once per beat + contrast-safe)
+
+Owner: "I created an animated monogram, and the animation is not showing on the save the date" + "the monogram will play once then will continue the count before the next slide" + "the colour of the logo will also vary on the background and make sure the logo will be visible."
+
+Root cause: `page.tsx` resolved the ownership-gated motion (`animatedMonogram: MonogramMotionKey | false`) but never threaded it into the STD, and the content film's `FilmMonogram` hard-coded `<HeroMonogram animatedMonogram={false}>`. So the mark was always static.
+
+- **Threaded** `animatedMonogram` from `page.tsx` → `SaveTheDateView` → `SaveTheDateFilm` → `FilmMonogram` (both the anonymous and guest STD paths), and removed the hard-coded `false`. The lockup now animates via `AnimatedMonogramHero`; a bespoke SVG gets a one-shot bloom entrance (`std-mono-bloom`, the motion library needs glyph strokes so the mark gets a container-level entrance instead).
+- **Plays once, when shown** (not at page load). The film's slides are all mounted, so a mark animation would otherwise fire under the hidden reveal and be over before the beat shows. Added a `started` flag (flips true when the film first starts on reveal-done) and a `monoReplayKey = idx + "-" + started`; each mark is keyed by it, so it **remounts → replays** the moment its beat is shown and on each later monogram beat — but **not** on pause/resume. The opening monogram beat's dwell extends to 6.5s when animated so the animation finishes, then the beat counts on to the next slide.
+- **Contrast-safe colour.** A tone-aware glow lifts every mark off the background; a **frameless** lockup (bar/duo/script/infinity) recolours its ink to the background tone (light on dark, dark on light) — only when the background actually forces a legibility tone (photo/dark bg), so a designed theme background keeps the couple's colour. Cream-circle / bespoke renders carry their own backing and keep their ink.
+
+Verified: `tsc --noEmit` exit 0; adversarial review (replay timing + hook order, contrast across render paths, threading completeness + marketing-hero/non-owner regressions). `HeroMonogram` is unchanged. The on-device look + per-motion feel are owner-verified (the reveal→film→beat sequence + the paid SKU can't be exercised in the sandbox).
+
+SPEC IMPACT: iter 0024 + 0037 — the Animated Monogram's chosen motion plays on the STD content film (once per monogram beat, contrast-safe), not just the marketing hero. → DECISION_LOG row.

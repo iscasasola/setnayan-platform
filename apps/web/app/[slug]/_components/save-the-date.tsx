@@ -25,6 +25,7 @@ import { OurStory } from './our-story';
 import { SaveTheDateFilm, type StdLockup } from './save-the-date-film';
 import { StdBackgroundLayer } from './std-background-layer';
 import { resolveStdLegibility, type StdBackground } from '@/lib/std-backgrounds';
+import type { MonogramMotionKey } from '@/lib/monogram-motion';
 
 type Props = {
   displayName: string;
@@ -65,6 +66,8 @@ type Props = {
   /** Poster still of that video — the film uses it for the iOS-safe blurred
    *  letterbox fill behind the contained clip (a 2nd <video> won't play on iOS). */
   videoPosterUrl?: string | null;
+  /** The paid Animated Monogram motion (resolved + ownership-gated upstream), or false. */
+  animatedMonogram?: MonogramMotionKey | false;
   /** Presigned photo URLs for the film's closing gallery beat — film only (P2). */
   galleryUrls?: string[];
   /** When the full invitation goes live (events.std_invitation_launch_date) — film only (P3). */
@@ -98,6 +101,7 @@ export function SaveTheDateView({
   musicUrl,
   videoUrl,
   videoPosterUrl,
+  animatedMonogram,
   galleryUrls,
   launchDateIso,
   themeId,
@@ -148,6 +152,7 @@ export function SaveTheDateView({
           tone={background ? resolveStdLegibility(background).tone : null}
           lockup={lockup ?? null}
           accentHex={accentHex ?? null}
+          animatedMonogram={animatedMonogram ?? false}
         />
       </section>
     );

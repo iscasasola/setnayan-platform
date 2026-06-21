@@ -165,6 +165,13 @@ const EXP_SCREENS: ReadonlySet<ScreenId> = new Set(['exp_for_whom', 'exp_feel', 
 // (the persona derives picks/refinements/feel/services instead of the couple hand-picking
 // 53 tiles + per-leaf refinements + music + palette).
 const LEGACY_PICKER_SCREENS: ReadonlySet<ScreenId> = new Set(['aigate', 'team_basics', 'refine_basic', 'team_extras', 'refine_extras', 'songs', 'mood']);
+// Paywall tail dropped from onboarding when the flag is ON (owner 2026-06-21 "no paywall in
+// onboarding"): the Setnayan AI upsell (`plan`), the bundle offer, the à-la-carte services
+// carousel + the purchase summary all move to the dashboard. Onboarding then ends FREE on
+// `congrats` (the dashboard-bloom reveal) → "Go to my dashboard". The persona's derived
+// services are still STORED (style_preferences.interested_services) for the dashboard to
+// surface — they're just not sold here.
+const PAYWALL_SCREENS: ReadonlySet<ScreenId> = new Set(['plan', 'bundle', 'services', 'summary']);
 function buildSequence(kind: OnboardingState['kind'], authed: boolean, loveSkipped: boolean, ai: boolean | null, picks: string[]): ScreenId[] {
   const hasMusician = picks.some((p) => SONG_PICK_CATS.has(p));
   const hasStylist = picks.includes('stylist');
@@ -172,6 +179,7 @@ function buildSequence(kind: OnboardingState['kind'], authed: boolean, loveSkipp
     !(id === 'faith' && kind === 'civil') &&        // Civil skips the faith screen
     !(EXP_SCREENS.has(id) && !EXPERIENCE_QUIZ_ENABLED) &&         // exp_* experience quiz only when the flag is ON
     !(EXPERIENCE_QUIZ_ENABLED && LEGACY_PICKER_SCREENS.has(id)) && // flag ON drops the manual picker chain (the persona derives it)
+    !(EXPERIENCE_QUIZ_ENABLED && PAYWALL_SCREENS.has(id)) &&       // flag ON drops the in-onboarding paywall tail (moves to the dashboard)
     !(id === 'account' && (authed || ANON_DRAFT_ENABLED)) &&  // signed-in users — and, with anon-draft on, everyone — skip the account gate
     !(loveSkipped && LOVE_SKIPPABLE.has(id)) &&     // "Add it later" drops the 5 love collection screens
     !(ai !== true && TEAM_AI_ONLY.has(id)) &&       // team_basics/team_extras/songs/mood only when the couple opted into AI matching (aigate=Yes)
@@ -2564,7 +2572,12 @@ export function OnboardingShell({
      flourish via NEXT_LABEL_BY_ID (PR-3 — the retired prefs sub-stepper supplied it before).
      PR-4: a refine screen's CHROME CTA reads "Next service" while there are more queued
      leaves in the pass, then "Continue" on the last leaf (go() walks refineIdx, then steps). */
-  const nextLabel = REFINE_SCREENS.has(activeId)
+  /* When the flag is ON the paywall tail (plan/bundle/services/summary) is dropped, so the LAST
+     screen (congrats) is the free terminal — its chrome CTA commits → dashboard, not advance. */
+  const isLastScreen = stepClamped === seq.length - 1;
+  const nextLabel = isLastScreen && EXPERIENCE_QUIZ_ENABLED
+    ? 'Go to my dashboard'
+    : REFINE_SCREENS.has(activeId)
     ? (refinePosClamped < activeRefineQueue.length - 1 ? 'Next service' : 'Continue')
     : (NEXT_LABEL_BY_ID[activeId] ?? 'Continue');
 
@@ -4790,6 +4803,9 @@ export function OnboardingShell({
               type="button"
               onClick={() => {
                 if (!canContinue || committing) return;
+                // Flag ON: the paywall tail is gone, so the last screen (congrats) is the free
+                // terminal — commit straight to the dashboard instead of advancing.
+                if (isLastScreen && EXPERIENCE_QUIZ_ENABLED) { void handleFinish(false); return; }
                 go(1);
               }}
               disabled={!canContinue || committing}

@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-21 · feat(onboarding): strip the in-onboarding paywall tail — onboarding ends free (flag-gated · parked)
+
+Locked decision "**no paywall in onboarding**" (2026-06-21). When `NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED` is ON, `buildSequence` now also drops the monetization tail — `plan` (the Setnayan AI upsell), `bundle` (Essentials/Complete), `services` (à-la-carte carousel), `summary` (purchase). The flow ends **free** on `congrats` (the dashboard-bloom reveal), whose chrome CTA now reads **"Go to my dashboard"** and commits via `handleFinish(false)` straight to the dashboard — the chrome Continue commits on the last screen when the flag is on, `go(1)` otherwise. The persona's derived in-app services are still stored in `style_preferences.interested_services` for the **dashboard** to surface — they're just no longer sold during onboarding.
+
+- New `PAYWALL_SCREENS` set (`plan`/`bundle`/`services`/`summary`) + a flag-gated `buildSequence` filter; new `isLastScreen` terminal-commit on the chrome CTA.
+- **Behavior note:** the free auto-inquiry opt-in that lived on the dropped `plan` screen now uses defaults (guidance ON, top-inquiries OFF); that opt-in moves to the dashboard (follow-up).
+- Flag OFF → byte-identical (the tail + summary-terminal behave exactly as today). `tsc` 0. Parked (auto-merge OFF).
+
+SPEC IMPACT: iteration 0016 / 0034 — the "no paywall in onboarding" ruling (monetization relocates to the dashboard, not removed); logged in `DECISION_LOG.md`. No SKU/price change.
+
 ## 2026-06-21 · feat(onboarding): intent dials — help level + sourcing on the experience flow (flag-gated · parked)
 
 Extends the parked experience-persona PR (#1937) with the two planning **dials** locked in the boundary design session:

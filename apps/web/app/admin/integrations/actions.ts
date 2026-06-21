@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { encryptToken } from '@/lib/encryption';
+import { getSecretIntegration } from '@/lib/integrations/registry';
 
 // Integration Activation Console — PR1 (email slice) · server actions.
 //
@@ -75,6 +76,49 @@ export async function setAiPaywall(formData: FormData): Promise<void> {
 
   revalidatePath('/admin/integrations');
   redirect('/admin/integrations?saved=1');
+}
+
+// ── Registry-driven "simple secret" integrations (PR2) ──────────────────────
+//
+// Generic save/clear for any integration in SECRET_INTEGRATIONS. The form posts
+// `integration_id`; we resolve it against the registry (the column ALLOWLIST) so
+// an arbitrary id can never write a non-registered column. The key is encrypted
+// before storage and never echoed back (blank field = keep current).
+
+export async function saveIntegrationSecret(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const id = formData.get('integration_id');
+  const def = typeof id === 'string' ? getSecretIntegration(id) : undefined;
+  if (!def) throw new Error('Unknown integration');
+
+  const secretRaw = formData.get('secret');
+  if (typeof secretRaw === 'string' && secretRaw.trim()) {
+    const admin = createAdminClient();
+    const enc = encryptToken(secretRaw.trim());
+    await admin
+      .from('platform_integration_secrets')
+      .update({ [def.secretColumn]: enc, updated_at: new Date().toISOString() })
+      .eq('id', 1);
+  }
+
+  revalidatePath('/admin/integrations');
+  redirect('/admin/integrations?saved=1');
+}
+
+export async function clearIntegrationSecret(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const id = formData.get('integration_id');
+  const def = typeof id === 'string' ? getSecretIntegration(id) : undefined;
+  if (!def) throw new Error('Unknown integration');
+
+  const admin = createAdminClient();
+  await admin
+    .from('platform_integration_secrets')
+    .update({ [def.secretColumn]: null, updated_at: new Date().toISOString() })
+    .eq('id', 1);
+
+  revalidatePath('/admin/integrations');
+  redirect('/admin/integrations?cleared=1');
 }
 
 export async function clearResendKey(): Promise<void> {

@@ -73,12 +73,21 @@ export default async function SeatingLabPage({ params }: Props) {
   const seatByGuest = new Map(assignments.map((a) => [a.guest_id, a]));
   const guests: Lab3DGuest[] = guestsRaw.map((g) => {
     const seat = seatByGuest.get(g.guest_id);
+    const rsvp = (['attending', 'pending', 'maybe', 'declined'] as const).includes(
+      g.rsvp_status as 'attending' | 'pending' | 'maybe' | 'declined',
+    )
+      ? (g.rsvp_status as 'attending' | 'pending' | 'maybe' | 'declined')
+      : 'pending';
     return {
       id: g.guest_id,
       name: guestDisplayName(g),
       seatedTableId: seat?.table_id ?? null,
       seatNumber: seat?.seat_number ?? null,
       tier: guestTier(g.role, g.group_category, g.seating_priority),
+      rsvp,
+      side: g.side,
+      plusOneAllowed: Boolean(g.plus_one_allowed),
+      plusOneOfGuestId: g.plus_one_of_guest_id ?? null,
     };
   });
 

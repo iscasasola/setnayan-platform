@@ -39,13 +39,38 @@ export type Lab3DFloor = {
   published: boolean;
 };
 
+export type RsvpStatus = 'attending' | 'pending' | 'maybe' | 'declined';
+
 export type Lab3DGuest = {
   id: string;
   name: string;
   seatedTableId: string | null;
   seatNumber: number | null;
   tier: 1 | 2 | 3 | 4;
+  rsvp: RsvpStatus;
+  side: 'bride' | 'groom' | 'both';
+  /** Couple allowed this guest a +1 (a held seat beside them). */
+  plusOneAllowed: boolean;
+  /** When this row IS someone's +1, the primary guest's id (else null). */
+  plusOneOfGuestId: string | null;
 };
+
+/** How a guest's RSVP maps to a seat's treatment. */
+export type SeatStatus = 'confirmed' | 'tentative' | 'hidden';
+export function seatStatusOf(rsvp: RsvpStatus): SeatStatus {
+  if (rsvp === 'attending') return 'confirmed'; // solid seat
+  if (rsvp === 'declined') return 'hidden'; // seat is freed
+  return 'tentative'; // pending | maybe → held, but shown tentative
+}
+
+// Semantic seat colours (palette-independent so status reads clearly).
+export const SIDE_COLOR: Record<'bride' | 'groom' | 'both', string> = {
+  bride: '#c66b8d',
+  groom: '#5b86c9',
+  both: '#5aa97a',
+};
+export const TENTATIVE_COLOR = '#d8a53e'; // pending / maybe
+export const PLUS_ONE_COLOR = '#cfd4dd'; // reserved +1 (ghost)
 
 export type Lab3DPalette = {
   ambient: string;

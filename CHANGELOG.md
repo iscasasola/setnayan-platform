@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-21 · feat(seating): 3D furniture + RSVP-coloured seats, and a Seat Plan card in Studio
+
+Owner build-out of the 3D seat-plan experience (flag-gated lab) + "add seatplan on studio also."
+
+**3D lab — real furniture + RSVP seats** (`lib/seating-3d.ts`, `…/seating/lab/page.tsx`, `…/seating/lab/_components/seating-lab-3d.tsx`):
+- `TableMesh` now renders **real furniture** — chairs (seat + backrest, oriented to face the table), a **draped tablecloth** (skirt-to-floor + top) with a bare-table fallback, and an optional **centerpiece**; palette-driven, with HUD toggles for Tablecloths / Centerpieces ("if requested").
+- **Seated guests render coloured by RSVP** — confirmed = solid (side-tinted), pending/maybe = translucent amber (held but tentative), declined = not rendered (seat freed). A **+1 reserved ghost seat** is held beside any `plus_one_allowed` guest whose +1 isn't already seated. Computed in a `seatedByTable` memo from the live assignments + each guest's `rsvp_status`/`side`/plus-one. New lib: `RsvpStatus`, `seatStatusOf`, `SIDE_COLOR`/`TENTATIVE_COLOR`/`PLUS_ONE_COLOR`; `Lab3DGuest` extended; `page.tsx` maps the fields. An RSVP legend in the HUD.
+
+**Studio hub — Seat Plan card** (`lib/add-ons-catalog.ts`, `lib/add-ons-detail.test.ts`):
+- Added a free **"Seat Plan"** card to the couple's Studio hub. Its href is **flag-aware** (`addOnHref`) — opens the 3D lab when `NEXT_PUBLIC_SEATING_3D==='true'`, else the normal 2D editor — and `appStoreDetailHref` routes it straight to the editor (no `/about` page, like panood/supplies). Nested under `branding` to match the existing layout-tool precedent (indoor-blueprint, mood-board) **without touching the owner-locked 4-section Studio sub-nav**. The two catalog invariant tests get a matching `seating` exemption (it owns its surface). ⚠ Surfaced: the old "Plan & organize" free-tools strip is dead code — the App-Store rewrite silently dropped *all four* core tools (Guests/Seating/Budget/Schedule) from Studio; this restores **Seating** per the ask (offer to restore the other three).
+
+No schema change. RSVP→seat *rules* in the canonical 2D engine (auto-hold pending, auto-free on decline, auto-reserve +1, caterer tentative counts) remain a separate, load-bearing follow-up. tsc 0; `next lint` clean; the add-ons-detail unit tests pass. CI build is the gate.
+
+SPEC IMPACT: Iteration 0008 (3D experience) + 0021 Studio surface (now lists the seat plan). The Studio card is a **user-visible** addition (not flag-gated); the 3D destination is flag-gated. Logged in DECISION_LOG.
+
+---
+
 ## 2026-06-21 · feat(seating): 3D lab becomes a real editor — edits persist + Sims build-camera
 
 Owner: "yes do that pattern same as Sims" — make 3D editing real (writes the same plan as 2D) with a build-camera that snaps top-down while arranging. Follows the read-only spike (already merged). Still flag-gated (`NEXT_PUBLIC_SEATING_3D`, 404 when off).

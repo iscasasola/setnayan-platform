@@ -192,6 +192,7 @@ function FilmMonogram({
   animatedMonogram,
   monoReplayKey,
   tone,
+  accentHex,
 }: {
   svg?: string | null;
   text: string;
@@ -212,21 +213,23 @@ function FilmMonogram({
   /** Changes when the active beat changes OR the film first starts — remounts the
    *  mark so its entrance REPLAYS at the moment its beat is shown, not at load. */
   monoReplayKey: string;
-  /** Legibility tone over the background — recolours frameless lockup ink + sets the glow. */
+  /** Legibility tone over the background — sets the visibility glow. */
   tone: 'light' | 'dark' | null;
+  /** The couple's accent = the CTA BUTTON colour. The logo ink uses THIS, not the
+   *  monogram's own colour (owner 2026-06-22 "the logo colour will be same as button
+   *  colour … do not follow the colour from monogram. we will bypass it"). */
+  accentHex: string | null;
 }) {
-  // Contrast (owner: "the colour of the logo will vary on the background … make
-  // sure the logo will be visible"). A soft tone-glow lifts ANY mark off the bg;
-  // a FRAMELESS lockup (bar/duo/script/infinity) also recolours its ink to the
-  // bg tone (those marks sit directly on the background, unlike the cream-circle
-  // + bespoke renders which carry their own backing).
+  // The logo ink = the couple's ACCENT (the CTA button colour), NOT the monogram's
+  // own colour (owner 2026-06-22). A soft tone-glow still lifts the mark off the
+  // background so it stays legible on any background.
+  const inkColor = accentHex ?? '#5C2542';
   const glow =
     tone === 'light'
       ? 'drop-shadow(0 0 11px rgba(255,255,255,0.5))'
       : tone === 'dark'
         ? 'drop-shadow(0 2px 6px rgba(0,0,0,0.32))'
         : 'drop-shadow(0 1px 3px rgba(0,0,0,0.16))';
-  const contrastInk = tone === 'light' ? '#FBFBFA' : tone === 'dark' ? '#1E2229' : null;
 
   // 1 · uploaded / monogram-lab SVG — a BARE mark (no cream circle). For an
   //     Animated Monogram owner the couple's CHOSEN motion plays ON the mark via
@@ -243,7 +246,7 @@ function FilmMonogram({
           motion={animatedMonogram}
           sizeCls={sizeCls}
           glow={glow}
-          color={contrastInk ?? lockup?.monogram?.color ?? '#5C2542'}
+          color={inkColor}
         />
       );
     }
@@ -257,15 +260,17 @@ function FilmMonogram({
   // 2 · the couple's onboarding lockup — animate the chosen motion (the paid
   //     Animated Monogram), re-keyed so it plays once each time this beat shows.
   if (lockup) {
-    const style = (lockup.design as { monogram_style?: string | null } | null)?.monogram_style ?? null;
-    const frameless = style === 'bar' || style === 'duo' || style === 'script' || style === 'infinity';
-    const monogram = frameless && contrastInk ? { ...lockup.monogram, color: contrastInk } : lockup.monogram;
+    // The logo uses the button/accent colour for EVERY lockup style — bypass the
+    // monogram's own colour AND the design's curated ink (owner 2026-06-22) via
+    // HeroMonogram's inkOverride (a plain `color` override on monogram is ignored,
+    // since HeroMonogram re-resolves ink from the design columns).
     return (
       <div aria-hidden className={`inline-flex origin-center items-center justify-center ${lockupScaleCls}`} style={{ filter: glow }}>
         <HeroMonogram
           key={monoReplayKey}
           event={lockup.design}
-          monogram={monogram}
+          monogram={lockup.monogram}
+          inkOverride={inkColor}
           animatedMonogram={animatedMonogram}
           bespokeSvg={null}
         />
@@ -392,13 +397,14 @@ export function SaveTheDateFilm({
           svg={content.monogramSvg}
           text={content.monogram}
           lockup={lockup}
-          lockupScaleCls="scale-[1.8]"
-          sizeCls="h-36 w-36"
+          lockupScaleCls="scale-[2.7]"
+          sizeCls="h-[13.5rem] w-[13.5rem]"
           textCls={`${theme.fontCls} text-7xl font-medium ${accentMarkCls}`}
           textStyle={accentMarkStyle}
           animatedMonogram={animatedMonogram}
           monoReplayKey={monoReplayKey}
           tone={tone}
+          accentHex={accentHex}
         />
         <div className={`h-px w-10 ${dividerCls} opacity-40`} style={dividerStyle} />
       </div>
@@ -493,13 +499,14 @@ export function SaveTheDateFilm({
           svg={content.monogramSvg}
           text={content.monogram}
           lockup={lockup}
-          lockupScaleCls="scale-[0.9]"
-          sizeCls="h-16 w-16"
+          lockupScaleCls="scale-[1.35]"
+          sizeCls="h-24 w-24"
           textCls={`${theme.fontCls} text-3xl font-medium ${accentMarkCls}`}
           textStyle={accentMarkStyle}
           animatedMonogram={animatedMonogram}
           monoReplayKey={monoReplayKey}
           tone={tone}
+          accentHex={accentHex}
         />
         <p className={`${theme.fontCls} text-4xl font-medium italic leading-tight`}>
           We can&rsquo;t wait to
@@ -601,13 +608,14 @@ export function SaveTheDateFilm({
           svg={content.monogramSvg}
           text={content.monogram}
           lockup={lockup}
-          lockupScaleCls="scale-[1.1]"
-          sizeCls="h-24 w-24"
+          lockupScaleCls="scale-[1.65]"
+          sizeCls="h-36 w-36"
           textCls={`${theme.fontCls} text-4xl font-medium ${accentMarkCls}`}
           textStyle={accentMarkStyle}
           animatedMonogram={animatedMonogram}
           monoReplayKey={monoReplayKey}
           tone={tone}
+          accentHex={accentHex}
         />
         <p className={LABEL}>Save the date</p>
         {content.dateLabel ? (

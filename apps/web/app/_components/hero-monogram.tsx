@@ -44,6 +44,7 @@ export function HeroMonogram({
   animatedMonogram,
   bespokeSvg,
   shadow,
+  inkOverride,
 }: {
   // Only the design columns are needed; a narrow shape keeps this reusable.
   event: {
@@ -55,13 +56,22 @@ export function HeroMonogram({
   animatedMonogram: MonogramMotionKey | false;
   bespokeSvg: string | null;
   shadow?: boolean;
+  /** Force the mark INK to this colour, overriding the design's curated ink AND
+   *  the monogram colour (e.g. the STD film forces the couple's CTA-button accent
+   *  — owner 2026-06-22). The infinity ∞ gold gradient is independent and stays.
+   *  The marketing hero omits this, so it's unchanged. */
+  inkOverride?: string | null;
 }) {
+  // The mark ink: an explicit override wins over the design's curated ink + the
+  // monogram colour, so a caller can force e.g. the button accent.
+  const markColor = inkOverride ?? monogram.color;
+
   // 1 · bespoke / Cipher custom mark wins over everything.
   if (bespokeSvg) {
     return (
       <BespokeMonogramMark
         svg={bespokeSvg}
-        color={monogram.color}
+        color={markColor}
         size="md"
         shadow={shadow}
         entrance={Boolean(animatedMonogram)}
@@ -70,7 +80,7 @@ export function HeroMonogram({
   }
 
   const design = resolveMonogramDesign(event);
-  const ink = design?.color ?? monogram.color;
+  const ink = inkOverride ?? design?.color ?? monogram.color;
 
   // 2 · paid animation — plays the chosen motion on the couple's real lockup
   // (bar/duo/script/infinity). For those four, ink = the lockup color (mulberry)
@@ -88,7 +98,7 @@ export function HeroMonogram({
     return (
       <AnimatedMonogramHero
         text={monogram.text}
-        color={lockupStyle ? ink : monogram.color}
+        color={lockupStyle ? ink : markColor}
         fontFamily={design?.fontFamily ?? monogram.fontFamily}
         fontStyle={design?.fontStyle ?? monogram.fontStyle}
         lockupStyle={lockupStyle}
@@ -175,7 +185,7 @@ export function HeroMonogram({
         design ? '' : ' font-serif italic'
       }${shadow ? ' shadow-sm' : ''}`}
       style={{
-        borderColor: monogram.color,
+        borderColor: markColor,
         color: ink,
         ...(design
           ? {

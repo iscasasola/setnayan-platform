@@ -1010,16 +1010,34 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       setRepeat();
     };
     let ro: ResizeObserver | null = null;
+    let lastAspect = 0;
     if (window.ResizeObserver) {
       ro = new ResizeObserver(() => {
         if (roFrame) cancelAnimationFrame(roFrame);
-        roFrame = requestAnimationFrame(cheapResize);
+        roFrame = requestAnimationFrame(cheapResize); // always: cheap re-fit, no reset
+        const cw = cv.clientWidth || W;
+        const ch = cv.clientHeight || H;
+        if (ch < 2) return;
+        const aspect = cw / ch;
+        // Only a genuine ASPECT change (rotate) needs the full cloth rebuild, and
+        // that rebuild re-drapes the cloth → RESETS the lift. A height-only resize
+        // must NOT rebuild: on mobile the address bar collapses the instant the
+        // guest swipes UP to lift, firing a resize MID-lift — the old code then
+        // re-draped and the veil snapped back, never completing the swipe (owner
+        // 2026-06-21 "the screen goes full screen and the veil resets did not
+        // complete the swipe up"). Entering true fullscreen (iPad/desktop) is the
+        // same minor height change. cheapResize above already re-fits those.
+        if (lastAspect === 0) { lastAspect = aspect; return; } // baseline first obs
+        if (Math.abs(aspect - lastAspect) < 0.1) return; // address bar / fullscreen — re-fit only
+        lastAspect = aspect;
         if (roFull) window.clearTimeout(roFull);
         roFull = window.setTimeout(() => {
+          // Capture the lift INTENT before applyView resets it: a completed lift
+          // (revealedRef) OR one still animating up (liftTarget>=1) — restoring the
+          // latter covers the in-progress case the old revealedRef-only guard missed.
+          const keepLifted = liftTarget >= 1 || revealedRef.current;
           applyView(); // rebuilds cloth to the new aspect + re-drapes (lift→0)
-          // ...but if the guest had already lifted the veil (revealed the film),
-          // a rotate must NOT re-cover it — lerp it straight back to revealed.
-          if (revealedRef.current) liftTarget = 1;
+          if (keepLifted) liftTarget = 1; // a rotate must NOT re-cover a lifted veil
         }, 240);
       });
       ro.observe(cv);

@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-21 · feat(seating): 3D seating lab — flag-gated R3F prototype (Sims build + walk-to-seat)
+
+Owner direction: make the seat plan feel "like a game where you move things around," explored via React Three Fiber (Next.js shell + React/Three engine, the SSR golden rule). This is a **flag-gated, READ-ONLY prototype** on a throwaway route — it does not touch the 2D editor and never persists.
+
+- **Route** `app/dashboard/[eventId]/seating/lab/page.tsx` — server component gated by `NEXT_PUBLIC_SEATING_3D` (404 when off, so it doesn't exist for users by default). Reads the couple's REAL tables / floor plan / guests / mood-board palette. No writes.
+- **`lib/seating-3d.ts`** — pure (no three.js) data→3D math: percent→world mapping, per-shape table + chair geometry, seat-world lookup, obstacle-avoiding path steering, palette resolution. Safe to import on the server (the page only uses its types + helpers).
+- **`_components/seating-lab-loader.tsx`** — the `dynamic(() => import('./seating-lab-3d'), { ssr: false })` client wrapper (the same proven pattern the Save-the-Date veil reveal uses).
+- **`_components/seating-lab-3d.tsx`** — the R3F scene: real tables + chairs in 3D, mood-palette-driven lighting/materials with a live switcher, **Build mode** (tap-select, drag-to-slide with game-feel, "+ Add table" → tap floor to drop), **Play mode** (tap a guest → an avatar walks from the entrance, steering around tables, to their chair and sits), glassmorphism floating HUD.
+- New deps: `@react-three/fiber@^9.6` + `@react-three/drei@^10.7` (React 19-compatible). `three@0.184` + `@types/three` were already present (the reveal uses raw three.js).
+- **Adversarial multi-agent review (6 dimensions, 32 agents) → 8 verified findings, all fixed:** OrbitControls eating the armed tap-to-drop on touch (`enabled={!draggingId && !addArmed}`); drag soft-lock on `pointercancel`/blur (added handlers); R3F synthetic-click-after-drag deselecting/dropping (`e.delta > 4` guard); table rotation sign mismatch between rendered chairs and the walk target (`rotateLocal` rewritten to match the +Y group rotation); null `x_pos/y_pos` tables stacking at the corner (grid fallback via `defaultTablePosition`, matching 2D); `sendGuest` ignoring removed chairs (seed occupancy with `removedSeats`, scan real capacity); perf (DPR→[1,1.5], ContactShadows 1024→512, shared chair/pedestal geometry). Instancing + GLTF + post-processing are the documented v2.
+
+Verified: tsc 0, `next lint` clean on all four files. The production build (R3F client bundle) is CI's required gate — no local env here; R3F is client-only + dynamically imported so it never runs on the server.
+
+SPEC IMPACT: None to the shipped seat plan (additive, flag-off prototype). Captured in the corpus `0008_Seating_AS_BUILT_2026-06-21.md` lineage + DECISION_LOG.
+
+---
+
 ## 2026-06-21 · feat(nav): broken-out action (NAV-2) — vendor + admin doorways
 
 Owner-picked actions (2026-06-21) extend the broken-out Mulberry satellite to the other two doorways, reusing the `NavFab` primitive (locked `bottom-nav.tsx` still untouched; `lint:botnav` ✓):

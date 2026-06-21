@@ -86,6 +86,7 @@ export default async function SeatingPage({ params }: Props) {
       rsvp_status: g.rsvp_status,
       seated_table_id: seat?.table_id ?? null,
       seat_number: seat?.seat_number ?? null,
+      seat_locked: seat?.locked ?? false,
       role: g.role,
       group_category: g.group_category,
       meal_preference: g.meal_preference,

@@ -80,6 +80,10 @@ export type SeatAssignmentRow = {
   table_id: string;
   guest_id: string;
   seat_number: number | null;
+  // Smart seat-plan Phase 4 lock-and-fill: a pinned hand-placed seat the solver
+  // never moves. Optional on the type so pre-migration reads + render-only
+  // literals don't need it; fetchAssignments coalesces to false.
+  locked?: boolean;
 };
 
 export async function fetchTables(
@@ -114,10 +118,14 @@ export async function fetchAssignments(
 ): Promise<SeatAssignmentRow[]> {
   const { data, error } = await supabase
     .from('event_seat_assignments')
-    .select('assignment_id,table_id,guest_id,seat_number')
+    .select('assignment_id,table_id,guest_id,seat_number,locked')
     .eq('event_id', eventId);
   if (error) throw new Error(`fetchAssignments failed: ${error.message}`);
-  return (data ?? []) as SeatAssignmentRow[];
+  // Coalesce locked → false so a pre-migration read never yields undefined.
+  return (data ?? []).map((a) => ({
+    ...(a as SeatAssignmentRow),
+    locked: (a as SeatAssignmentRow).locked ?? false,
+  }));
 }
 
 // Keep-apart rules for an event (smart seat-plan · Phase 3). Couple-private via
@@ -1156,6 +1164,44 @@ export function solveSeatPlan(input: SolveInput): SolveResult {
     satisfiedCount: totalRules - violations.length,
     totalRules,
   };
+}
+
+// Pick the keep-apart rule to RELAX (drop) when the couple accepts that a
+// constraint can't be honoured (smart seat-plan · Phase 4 explainability). Keeps
+// the separations that protect the most important guests: drops the rule whose
+// LOWER-priority guest (the more expendable of its two) is the lowest-ranked
+// overall. Deterministic — ties break on the canonical guest-pair key. Pass the
+// VIOLATED rules to relax only what actually failed. Returns null for an empty list.
+export function relaxLowestPriorityRule(
+  rules: KeepApartRule[],
+  guests: AutoSeatGuest[],
+  priorityOrder?: PriorityOrder | null,
+): KeepApartRule | null {
+  if (rules.length === 0) return null;
+  const rank = resolvePriorityRank(priorityOrder);
+  const byId = new Map(guests.map((g) => [g.guest_id, g] as const));
+  const rankOf = (id: string): number => {
+    const g = byId.get(id);
+    return g ? rank[guestTier(g.role, g.group_category, g.seating_priority)] : 99;
+  };
+  // The rule's "expendability" = its more-expendable guest's rank (higher number
+  // = lower priority). Drop the most-expendable rule (max), keeping rules that
+  // guard high-priority guests. Tie-break on a stable canonical pair key.
+  const expendability = (r: KeepApartRule) => Math.max(rankOf(r.guest_a_id), rankOf(r.guest_b_id));
+  const keyOf = (r: KeepApartRule) =>
+    r.guest_a_id < r.guest_b_id
+      ? `${r.guest_a_id}|${r.guest_b_id}`
+      : `${r.guest_b_id}|${r.guest_a_id}`;
+  let chosen = rules[0]!;
+  let chosenScore = expendability(chosen);
+  for (const r of rules) {
+    const s = expendability(r);
+    if (s > chosenScore || (s === chosenScore && keyOf(r) < keyOf(chosen))) {
+      chosen = r;
+      chosenScore = s;
+    }
+  }
+  return chosen;
 }
 
 // ---------------------------------------------------------------------------

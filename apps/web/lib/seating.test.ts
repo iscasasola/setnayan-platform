@@ -11,6 +11,7 @@ import {
   groupTablesIntoUnits,
   computeAutoSeat,
   solveSeatPlan,
+  relaxLowestPriorityRule,
   defaultPriorityOrder,
   parsePriorityOrder,
   resolvePriorityRank,
@@ -324,4 +325,31 @@ test('solveSeatPlan is deterministic — same input yields an identical plan', (
   const r1 = solveSeatPlan({ tables, guests, assignments: [], stage: STAGE, constraints });
   const r2 = solveSeatPlan({ tables, guests, assignments: [], stage: STAGE, constraints });
   assert.deepEqual(r1, r2);
+});
+
+// ---------------------------------------------------------------------------
+// Smart seat-plan · Phase 4 — relax (explainability). relaxLowestPriorityRule
+// drops the rule guarding the least-important guest, keeping VIP separations.
+// ---------------------------------------------------------------------------
+
+test('relaxLowestPriorityRule drops the rule guarding the least-important guest', () => {
+  const guests = [
+    guest({ guest_id: 'a', seating_priority: 1 }), // VIP
+    guest({ guest_id: 'b', seating_priority: 1 }), // VIP
+    guest({ guest_id: 'c', seating_priority: 4 }), // low priority
+    guest({ guest_id: 'd', seating_priority: 4 }), // low priority
+  ];
+  const rules: KeepApartRule[] = [
+    { guest_a_id: 'a', guest_b_id: 'b' }, // protects two VIPs — keep
+    { guest_a_id: 'c', guest_b_id: 'd' }, // two low-priority — most expendable
+  ];
+  assert.deepEqual(relaxLowestPriorityRule(rules, guests, null), { guest_a_id: 'c', guest_b_id: 'd' });
+  // A mixed rule (one VIP, one low) is more expendable than an all-VIP rule.
+  const mixed: KeepApartRule[] = [
+    { guest_a_id: 'a', guest_b_id: 'b' },
+    { guest_a_id: 'a', guest_b_id: 'c' },
+  ];
+  assert.deepEqual(relaxLowestPriorityRule(mixed, guests, null), { guest_a_id: 'a', guest_b_id: 'c' });
+  // Empty → null.
+  assert.equal(relaxLowestPriorityRule([], guests, null), null);
 });

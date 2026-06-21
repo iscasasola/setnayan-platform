@@ -76,6 +76,20 @@ test('combined capacity excludes removed chairs across every member', () => {
   assert.equal(at(units, 0).capacity, 17); // (10-2) + (10-1)
 });
 
+test('empty input yields no units; a lone table carrying a link_group_id is a 1-member linked unit', () => {
+  assert.deepEqual(groupTablesIntoUnits([]), []);
+  // A degenerate link group with a single member still reports isLinked (the
+  // lead carries a link_group_id) but counts as one table's worth of seats.
+  const units = groupTablesIntoUnits([
+    tbl({ table_id: 'solo', capacity: 10, link_group_id: 'g9', link_group_label: 'Head Table' }),
+  ]);
+  assert.equal(units.length, 1);
+  assert.equal(at(units, 0).isLinked, true);
+  assert.equal(at(units, 0).members.length, 1);
+  assert.equal(at(units, 0).label, 'Head Table');
+  assert.equal(at(units, 0).capacity, 10);
+});
+
 test('a mix of linked and unlinked tables yields one unit per link group plus singles', () => {
   const units = groupTablesIntoUnits([
     tbl({ table_id: 'a', table_label: 'Table 1' }),

@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-21 · chore(home): remove dead `Checklist` function from couple event-home
+
+Follow-up dead-code cleanup of `apps/web/app/dashboard/[eventId]/page.tsx`, same class as the helpers removed in #1939. The local `function Checklist(...)` (~95 lines) was never rendered — confirmed by grep (`<Checklist` has zero JSX usages; the live, rendered component is the *different* `ChecklistAsync`, untouched).
+
+- Deleted the dead `Checklist` function (it also held the file's last legacy `terracotta` color references).
+- Removed the 7 imports it was the **sole** consumer of (each verified to appear only at its import + inside `Checklist`): `CheckCircle2`, `Circle` (lucide-react); `STEPS`, `plannerProgress`, `type StepStatus` (`@/lib/planner`); `toggleJourneyStep` (`./actions`); `SubmitButton` (`@/app/_components/submit-button`).
+
+Noted, not changed (out of scope): the data chain that *fed* the dead `Checklist` — `stepStatuses` (computed but now unused) → `resolveStepStatuses` → `manualSteps` → `fetchManualStepCompletions` — is now fully dead too, but gutting it touches the main component's `Promise.all` data-fetch, so it's left for a separate, more careful pass. It remains valid and lint-tolerated.
+
+Net: ~100 deletions, 0 additions, no behavior change (none of the removed code rendered). Verified: `pnpm typecheck` exit 0, `pnpm lint` exit 0.
+
+SPEC IMPACT: None (dead-code removal, no behavior change).
+
 ## 2026-06-21 · feat(ux): presentation primitives — redesign PR 1/N (foundation)
 
 First step of the "arrangement & presentation" redesign (`Responsive_and_Mobile_UI_Ruleset_2026-06-21`). Purely **additive** CSS — establishes the shared building blocks the per-surface PRs adopt, so no existing surface changes yet. (Onboarding is excluded from the whole redesign — owner is working it in parallel.)

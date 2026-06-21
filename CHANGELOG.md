@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-22 · feat(onboarding): experience-persona reveal → editorial titles + dead-copy purge (flag-gated OFF)
+
+Tuning pass on the experience-persona onboarding (PR #1937, flag `NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED`, default OFF) — owner reserved the persona NAMES + reveal copy for sign-off; this session the owner picked the **editorial-titles** direction.
+
+- **6 persona names → editorial titles** (`…/onboarding/wedding/_data/experience-personas.ts`): Keepsake → **The Keepsake** · Big Celebration → **The Grand Celebration** · Best of Both → **The Best of Both** · Intimate Romance → **Intimate & In Love** · Modern Statement → **The Modern Statement** · Rooted Tradition → **Rooted in Tradition**. Keys + resolver + every derived mapping (picks/services/feel/refinements) unchanged — display-string only.
+- **Reveal reframed** (`onboarding-shell.tsx` · `exp_reveal`): the old `"You’re a {name} couple — {helpHead}"` headline fought several names grammatically and hard-coded the article `a` (an a/an bug on "Intimate…"). Now the NAME stands alone as the serif hero, the persona **tagline** is surfaced beneath it (it was defined but never rendered), and the help-dial outcome ("Here’s your complete plan." / "Here are your options." / "Your canvas is ready.") becomes a gold kicker under the stat strip. Styling via inline design tokens — the locked `onboarding.css` is untouched.
+- **Dead first-draft "nugget" copy purged**: every axis/dial `sub` line (7) was defined but never rendered after the 2026-06-22 "clear question, clear answer" pass; removed the data + the `sub` type field so the stale side-notes can’t be re-surfaced.
+
+Flag-gated OFF → prod byte-identical until the owner flips the flag. tsc 0 · `next lint` clean (one pre-existing, unrelated `authed`-dep warning). No schema/SKU change.
+
+SPEC IMPACT iter 0016 (persona naming = owner-signed-off branding) → corpus DECISION_LOG + memory `project_setnayan_experience_persona_onboarding`.
+
 ## 2026-06-22 · fix(monogram): animation "Delay" is now a start-to-start stagger
 
 Owner: *"the delay means how many seconds after one element starts. not after it finishes."* The Vector Studio's reveal "Delay" (`animDelay`) was added to a duration-derived spread — `step = (D·0.6)/(n−1) + DL` (handwriting) / `stag = (D·0.55)/(n−1) + DL` (droplet) — so each letter only began past the previous one's draw window, and the spacing also drifted with letter count. Now the per-element stagger is **just the delay**: `step = DL` / `stag = DL`, so a letter starts exactly `delay` seconds after the previous letter **starts** (delay 0 → all draw together; the per-letter draw duration still comes from the Speed slider, independently). `lib/monogram-studio/engine.ts` (the two `play()` presets; trace animates all-at-once so it's unaffected) + relabeled the slider "Delay · before next letter" → "Delay · between letter starts" in `markup.ts`. Applies to both the dashboard Vector Studio and the public `/monogram`.

@@ -828,6 +828,25 @@ export function SaveTheDateFilm({
     else bg.pause();
   }, [idx, videoSlideIndex, preview]);
 
+  // Tell the veil's petals whether on-screen TEXT is present, so a petal resting on
+  // it can CRAWL down and only FALL once the words are gone (owner 2026-06-21 "if
+  // the text disappears … it will fall"). Cleared on every beat change (the words
+  // swap out) — the petals fall through during the cross-fade — then set true once
+  // the new beat has settled. Stays false on the video beat (no text surface).
+  // Runs in the builder preview too, so the couple sees the crawl while authoring.
+  useEffect(() => {
+    const w = window as Window & { __stdTextShowing?: boolean };
+    w.__stdTextShowing = false;
+    if (idx === videoSlideIndex) return; // video beat = no text surface
+    const t = window.setTimeout(() => {
+      w.__stdTextShowing = true;
+    }, 520);
+    return () => {
+      clearTimeout(t);
+      w.__stdTextShowing = false;
+    };
+  }, [idx, videoSlideIndex]);
+
   // Interaction model (owner 2026-06-21): PRESS pauses, RELEASE continues; a
   // vertical swipe / mouse-wheel SCRUBS through the beats (still auto-playing).
   // No tap-to-step. The press also unlocks audio (browsers need a gesture).

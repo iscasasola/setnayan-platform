@@ -3880,18 +3880,31 @@ export function OnboardingShell({
               const forWhom = state.experienceAxes.for_whom as ExpForWhom | undefined;
               const focusLabel = forWhom === 'couple' ? 'You two' : forWhom === 'guests' ? 'Your guests' : forWhom === 'both' ? 'Both' : '—';
               const help = state.helpLevel ?? 'build';
-              const helpHead = help === 'options' ? 'here are your options.' : help === 'self' ? 'your canvas is ready.' : 'here’s your complete plan.';
+              const helpHead = help === 'options' ? 'Here are your options.' : help === 'self' ? 'Your canvas is ready.' : 'Here’s your complete plan.';
               return (
                 <>
                   <div className="viewzone">
                     <div className="loveglyph">{'✶'}</div>
                     <div className="eyebrow">Your experience</div>
-                    <h1 className="q" style={{ fontSize: 30 }}>{persona ? `You’re a ${persona.name} couple — ${helpHead}` : 'Your plan is ready.'}</h1>
+                    {/* Editorial-title reveal (owner 2026-06-22): the persona NAME stands alone as
+                        the hero, its tagline beneath, and the help dial outcome as a gold kicker —
+                        replaces the old "You’re a {name} couple" frame (clunky + an a/an bug). */}
+                    <h1 className="q" style={{ fontSize: 32 }}>{persona ? persona.name : 'Your plan is ready.'}</h1>
+                    {persona && (
+                      <p style={{ fontFamily: 'var(--sans)', fontSize: 13.5, lineHeight: 1.5, color: 'var(--ink-soft)', margin: '4px 0 0', maxWidth: 360 }}>
+                        {persona.tagline}
+                      </p>
+                    )}
                     <div className="statstrip">
                       <div className="stat"><b>{state.picks.length}</b><span>vendors<br />lined up</span></div>
                       <div className="stat"><b>{state.interestedServices.length}</b><span>Setnayan<br />add-ons</span></div>
                       <div className="stat"><b>{focusLabel}</b><span>built<br />around</span></div>
                     </div>
+                    {persona && (
+                      <p style={{ fontFamily: 'var(--sans)', fontSize: 12.5, fontWeight: 600, color: 'var(--gold-deep)', margin: '12px 0 0' }}>
+                        {helpHead}
+                      </p>
+                    )}
                   </div>
                   <div className="tapzone" />
                 </>

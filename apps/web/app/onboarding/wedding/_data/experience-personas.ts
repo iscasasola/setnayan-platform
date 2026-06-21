@@ -44,7 +44,6 @@ export type ExpAxis = {
   id: ExpAxisId;
   eyebrow: string;
   question: string;
-  sub: string;
   options: ExpOption[];
 };
 
@@ -53,7 +52,6 @@ export const EXP_AXES: ExpAxis[] = [
     id: 'for_whom',
     eyebrow: 'Your experience',
     question: 'What would make the day unforgettable?',
-    sub: 'There’s no wrong answer — it just tells us where to focus.',
     options: [
       { key: 'couple', title: 'Our private memory', desc: 'A day we’ll relive forever — the film, the song, the keepsakes.' },
       { key: 'guests', title: 'Our guests’ experience', desc: 'Everyone leaves saying it was the best wedding they’ve been to.' },
@@ -64,7 +62,6 @@ export const EXP_AXES: ExpAxis[] = [
     id: 'feel',
     eyebrow: 'The scale',
     question: 'How big does it feel?',
-    sub: 'The mood you want the moment you walk in.',
     options: [
       { key: 'intimate', title: 'Intimate & personal', desc: 'Closest family and dearest friends — warm and unhurried.' },
       { key: 'midsize', title: 'Mid-size & warm', desc: 'A full room of the people you love, still personal.' },
@@ -75,7 +72,6 @@ export const EXP_AXES: ExpAxis[] = [
     id: 'energy',
     eyebrow: 'The energy',
     question: 'What’s the energy of the day?',
-    sub: 'How you want it to feel from start to finish.',
     options: [
       { key: 'calm', title: 'Calm & romantic', desc: 'Soft, sentimental, unhurried moments.' },
       { key: 'lively', title: 'Joyful & lively', desc: 'Music, dancing, and a packed dance floor.' },
@@ -86,7 +82,6 @@ export const EXP_AXES: ExpAxis[] = [
     id: 'roots',
     eyebrow: 'The style',
     question: 'Where does your wedding lean?',
-    sub: 'How traditional or modern it feels.',
     options: [
       { key: 'tradition', title: 'Rooted in tradition', desc: 'Faith, family, and Filipino heritage at the heart.' },
       { key: 'modern', title: 'Modern & fresh', desc: 'Clean, current, and design-forward.' },
@@ -97,7 +92,6 @@ export const EXP_AXES: ExpAxis[] = [
     id: 'effort',
     eyebrow: 'The plan',
     question: 'How much do you want to do?',
-    sub: 'We’ll size your plan to match — you can always add more later.',
     options: [
       { key: 'simple', title: 'Keep it simple', desc: 'The essentials, beautifully done.' },
       { key: 'balanced', title: 'A balanced plan', desc: 'The essentials plus a few special touches.' },
@@ -110,12 +104,11 @@ export const EXP_AXES: ExpAxis[] = [
  *  Same single-pick shape as the axes; they shape PRESENTATION (how assertive the
  *  plan is + where vendors come from), NOT the persona resolve. */
 export type ExpDialId = 'help' | 'source';
-export const EXP_DIALS: { id: ExpDialId; eyebrow: string; question: string; sub: string; options: ExpOption[] }[] = [
+export const EXP_DIALS: { id: ExpDialId; eyebrow: string; question: string; options: ExpOption[] }[] = [
   {
     id: 'help',
     eyebrow: 'How we’ll help',
     question: 'How much do you want us to do?',
-    sub: 'You can change this anytime.',
     options: [
       { key: 'build', title: 'Build it all for me', desc: 'Hand me a complete plan I can explore and swap.' },
       { key: 'options', title: 'Give me options', desc: 'Show me a curated shortlist for each — I’ll choose.' },
@@ -126,7 +119,6 @@ export const EXP_DIALS: { id: ExpDialId; eyebrow: string; question: string; sub:
     id: 'source',
     eyebrow: 'Your vendors',
     question: 'Where should your vendors come from?',
-    sub: 'Mix and match — nothing’s locked.',
     options: [
       { key: 'setnayan', title: 'Find them on Setnayan', desc: 'Match me with verified vendors near my venue.' },
       { key: 'byo', title: 'I’m bringing my own', desc: 'I have my vendors — organize them with your tools.' },
@@ -140,9 +132,9 @@ export const EXP_ESSENTIAL_PICKS: readonly string[] = ['reception', 'ceremony', 
 
 export type ExpPersona = {
   key: string;
-  /** Couple-facing display name ("…couple"). */
+  /** Couple-facing editorial title — the hero line on the reveal (e.g. "The Grand Celebration"). */
   name: string;
-  /** One-line couple-facing identity shown on the reveal. */
+  /** One-line couple-facing descriptor rendered beneath the title on the reveal. */
   tagline: string;
   /** The persona's primary for-whom (fallback when the answer is missing). */
   forWhom: ExpForWhom;
@@ -162,7 +154,7 @@ export type ExpPersona = {
 export const EXP_PERSONAS: ExpPersona[] = [
   {
     key: 'keepsake',
-    name: 'Keepsake',
+    name: 'The Keepsake',
     tagline: 'A wedding built to be relived — your film, your song, your forever keepsakes.',
     forWhom: 'couple',
     ideal: { for_whom: ['couple'], feel: ['intimate', 'midsize'], energy: ['calm', 'refined'], roots: ['modern', 'blend'], effort: ['balanced', 'simple'] },
@@ -173,7 +165,7 @@ export const EXP_PERSONAS: ExpPersona[] = [
   },
   {
     key: 'big_celebration',
-    name: 'Big Celebration',
+    name: 'The Grand Celebration',
     tagline: 'The wedding everyone talks about — packed dance floor, every guest part of the night.',
     forWhom: 'guests',
     ideal: { for_whom: ['guests'], feel: ['grand', 'midsize'], energy: ['lively'], roots: ['modern', 'blend'], effort: ['allout', 'balanced'] },
@@ -184,7 +176,7 @@ export const EXP_PERSONAS: ExpPersona[] = [
   },
   {
     key: 'best_of_both',
-    name: 'Best of Both',
+    name: 'The Best of Both',
     tagline: 'A day you’ll treasure and your guests will never forget — beautifully balanced.',
     forWhom: 'both',
     ideal: { for_whom: ['both'], feel: ['midsize', 'grand'], energy: ['lively', 'refined'], roots: ['blend'], effort: ['balanced', 'allout'] },
@@ -195,7 +187,7 @@ export const EXP_PERSONAS: ExpPersona[] = [
   },
   {
     key: 'intimate_romance',
-    name: 'Intimate Romance',
+    name: 'Intimate & In Love',
     tagline: 'Small, soft, and deeply personal — every detail close to the heart.',
     forWhom: 'both',
     ideal: { for_whom: ['both', 'couple'], feel: ['intimate'], energy: ['calm'], roots: ['blend', 'tradition'], effort: ['simple', 'balanced'] },
@@ -206,7 +198,7 @@ export const EXP_PERSONAS: ExpPersona[] = [
   },
   {
     key: 'modern_statement',
-    name: 'Modern Statement',
+    name: 'The Modern Statement',
     tagline: 'Clean, current, and design-forward — a wedding that looks like no one else’s.',
     forWhom: 'couple',
     ideal: { for_whom: ['couple', 'guests'], feel: ['midsize', 'grand'], energy: ['refined'], roots: ['modern'], effort: ['allout', 'balanced'] },
@@ -217,7 +209,7 @@ export const EXP_PERSONAS: ExpPersona[] = [
   },
   {
     key: 'rooted_tradition',
-    name: 'Rooted Tradition',
+    name: 'Rooted in Tradition',
     tagline: 'Faith, family, and heritage at the heart — and far-away loved ones brought close.',
     forWhom: 'guests',
     ideal: { for_whom: ['guests', 'both'], feel: ['midsize', 'grand'], energy: ['calm', 'refined'], roots: ['tradition'], effort: ['balanced', 'simple'] },

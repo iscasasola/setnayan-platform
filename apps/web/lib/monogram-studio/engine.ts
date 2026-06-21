@@ -812,7 +812,9 @@ export function mountStudio(opts) {
       });
       const nn = recs.length;
       const dur = nn > 1 ? D * 0.45 : D;
-      const stag = (nn > 1 ? (D * 0.55) / (nn - 1) : 0) + DL;
+      // Delay = seconds AFTER one element STARTS before the next starts (a pure
+      // start-to-start stagger), not after it finishes. DL=0 → all start together.
+      const stag = DL;
       view.onFrame = function (ev) {
         try {
           if (t0 === null) t0 = ev.time;
@@ -892,7 +894,9 @@ export function mountStudio(opts) {
       nib.visible = false;
       const nn2 = recs.length;
       const per = nn2 > 1 ? D * 0.4 : D;
-      const step = (nn2 > 1 ? (D * 0.6) / (nn2 - 1) : 0) + DL;
+      // Delay = seconds AFTER one letter STARTS before the next starts (a pure
+      // start-to-start stagger), not after it finishes. DL=0 → all draw together.
+      const step = DL;
       view.onFrame = function (ev) {
         try {
           if (t0 === null) t0 = ev.time;

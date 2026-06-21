@@ -195,7 +195,7 @@ export const STUDIO_HTML = `
       <div class="animbody">
         <div class="row"><button type="button" class="tg on" data-an="handwriting">Handwriting</button><button type="button" class="tg" data-an="trace">Trace</button><button type="button" class="tg" data-an="droplet">Droplet</button><button type="button" class="mini play" id="play">Play</button></div>
         <div><div class="lab2"><span>Speed · drawing pace</span><span id="dur_v">6.0s</span></div><div class="gaprow"><span class="ro">Fast</span><input type="range" id="dur" min="10" max="150" step="5" value="60"><span class="ro">Slow</span></div></div>
-        <div><div class="lab2"><span>Delay · before next letter</span><span id="dl_v">0.3s</span></div><div class="gaprow"><span class="ro">0s</span><input type="range" id="dl" min="0" max="20" step="1" value="3"><span class="ro">2s</span></div></div>
+        <div><div class="lab2"><span>Delay · between letter starts</span><span id="dl_v">0.3s</span></div><div class="gaprow"><span class="ro">0s</span><input type="range" id="dl" min="0" max="20" step="1" value="3"><span class="ro">2s</span></div></div>
         <div><div class="lab2"><span>Smoothness</span><span id="sm_v">90%</span></div><div class="gaprow"><span class="ro">Linear</span><input type="range" id="smooth" min="0" max="100" step="1" value="90"><span class="ro">Silky</span></div></div>
       </div>
     </div>

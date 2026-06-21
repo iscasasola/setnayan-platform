@@ -125,6 +125,7 @@ export default async function VendorMoreLanding() {
         subtitle="Every vendor surface, one tap away. Tabs at the bottom cover the daily driver — the rest live here."
         groups={groups}
         descriptions={DESCRIPTIONS}
+        searchable
       />
     </>
   );

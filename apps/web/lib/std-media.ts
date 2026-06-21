@@ -24,6 +24,13 @@ export type StdMedia = {
   posterKey?: string | null;
   /** NSFW screening status of the uploaded video. */
   nsfw?: StdNsfwStatus;
+  /**
+   * How the video plays on the full-screen beat (owner 2026-06-21 "an option how
+   * the video plays, fit to screen or fill"):
+   *  • 'fill' (DEFAULT) — object-cover, edge-to-edge; a slight crop, never bars.
+   *  • 'fit'  — object-contain (whole frame) over a blurred poster fill.
+   */
+  fit?: 'fill' | 'fit';
 };
 
 /** Parse + validate events.std_media → a safe StdMedia (falls back to gallery). */
@@ -35,7 +42,9 @@ export function resolveStdMedia(raw: unknown): StdMedia {
         o.nsfw === 'approved' || o.nsfw === 'rejected' ? o.nsfw : 'pending';
       const posterKey =
         typeof o.posterKey === 'string' && o.posterKey ? o.posterKey : null;
-      return { type: 'video', videoKey: o.videoKey, posterKey, nsfw };
+      // Default 'fill' so legacy rows (no fit key) keep filling the screen.
+      const fit: 'fill' | 'fit' = o.fit === 'fit' ? 'fit' : 'fill';
+      return { type: 'video', videoKey: o.videoKey, posterKey, nsfw, fit };
     }
   }
   return { type: 'gallery' };

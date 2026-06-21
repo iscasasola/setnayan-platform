@@ -61,6 +61,9 @@ export type StdFilmContent = {
    * page this is set ONLY when the video is NSFW-approved (stdVideoIsLive).
    */
   videoUrl?: string | null;
+  /** Poster still of the closing video — for the blurred letterbox fill behind
+   *  the contained clip on the full-screen video beat (iOS-safe, no 2nd video). */
+  videoPosterUrl?: string | null;
   /** Presigned photo URLs for the closing gallery beat; empty → no gallery beat. */
   gallery?: string[];
   /** Formatted invitation-launch date for the close beat; null → no reminder line. */
@@ -91,6 +94,8 @@ export type ResolveStdFilmInput = {
   musicUrl?: string | null;
   /** Presigned URL of the couple's NSFW-approved closing video — resolved server-side. */
   videoUrl?: string | null;
+  /** Poster still of that video — resolved server-side; blurred letterbox fill. */
+  videoPosterUrl?: string | null;
   /** Presigned photo URLs for the closing gallery — resolved server-side. */
   galleryUrls?: string[];
 };
@@ -184,6 +189,7 @@ export function resolveStdFilmContent(input: ResolveStdFilmInput): StdFilmConten
     icsFilename: `${input.displayName.replace(/[^\w-]+/g, '-')}-save-the-date.ics`,
     musicUrl: input.musicUrl ?? null,
     videoUrl: input.videoUrl ?? null,
+    videoPosterUrl: input.videoPosterUrl ?? null,
     gallery: (input.galleryUrls ?? [])
       .filter((u): u is string => typeof u === 'string' && u.length > 0)
       .slice(0, MAX_GALLERY),

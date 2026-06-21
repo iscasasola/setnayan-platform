@@ -202,6 +202,7 @@ export async function saveAllStdContent(
         videoKey: incoming.videoKey,
         posterKey,
         nsfw,
+        fit: incoming.fit ?? 'fill',
       };
       if (nsfw === 'pending' && posterKey) {
         screenAfterSave = { videoKey: incoming.videoKey, posterR2Key: posterKey };

@@ -191,8 +191,9 @@ export function InquiryComposer({
     [alsoOptions],
   );
   const hasAlsoOptions = alsoOptions.length > 0;
-  // Proactive bundle nudge (flag-gated · NEXT_PUBLIC inlined at build).
-  const bundleNudge = process.env.NEXT_PUBLIC_BUNDLE_NUDGE_ENABLED === 'true';
+  // Proactive bundle nudge — LIVE by default (2026-06-21); kill-switch:
+  // NEXT_PUBLIC_BUNDLE_NUDGE_ENABLED=false (NEXT_PUBLIC inlined at build).
+  const bundleNudge = process.env.NEXT_PUBLIC_BUNDLE_NUDGE_ENABLED !== 'false';
   const anyAlsoChecked = alsoOptions.some((s) => checked.has(s.vendorServiceId));
   const categoryName = (categoryLabel ?? '').trim() || 'this category';
 

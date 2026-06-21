@@ -162,11 +162,11 @@ export default async function VendorServicesPage({ searchParams }: Props) {
       ? (search.add as VendorCategory)
       : null;
 
-  // Guided "create a service" wizard (Services builder redesign). Flag-gated so
-  // the rewire is inert until the owner applies the save_vendor_service migration
-  // (20270208451790) + sets NEXT_PUBLIC_SERVICE_WIZARD_ENABLED=true. OFF → the
-  // left-rail picker keeps opening the legacy inline ?add= form (unchanged).
-  const wizardEnabled = process.env.NEXT_PUBLIC_SERVICE_WIZARD_ENABLED === 'true';
+  // Guided "create a service" wizard (Services builder redesign). LIVE by default
+  // (migration 20270208451790 applied 2026-06-21); the left-rail picker opens the
+  // wizard. Kill-switch retained: set NEXT_PUBLIC_SERVICE_WIZARD_ENABLED=false to
+  // fall back to the legacy inline ?add= form.
+  const wizardEnabled = process.env.NEXT_PUBLIC_SERVICE_WIZARD_ENABLED !== 'false';
 
   // Live admin-taxonomy DISPLAY labels for the category picker. Storage +
   // validation are unchanged — only the human-readable label follows whatever

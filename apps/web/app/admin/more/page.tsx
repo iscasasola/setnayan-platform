@@ -223,6 +223,7 @@ export default function AdminMoreLanding() {
     <MobileLandingGrid
       title="More"
       subtitle="Insights, content, and platform settings."
+      searchable
       groups={[
         { label: 'Insights', items: INSIGHTS_ITEMS },
         { label: 'Platform', items: PLATFORM_ITEMS },

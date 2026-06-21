@@ -12,7 +12,7 @@
  */
 
 import { useRef } from 'react';
-import { Check, Images, Film } from 'lucide-react';
+import { Check, Images, Film, Maximize2, Minimize2 } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
 import type { StdMedia } from '@/lib/std-media';
 
@@ -220,6 +220,7 @@ export function StdMediaPicker({
               videoKey: value.videoKey ?? null,
               posterKey: value.posterKey ?? null,
               nsfw: value.nsfw,
+              fit: value.fit ?? 'fill',
             })
           }
           className={`relative flex flex-col items-center gap-1.5 rounded-xl border p-4 text-center transition-colors ${
@@ -249,6 +250,45 @@ export function StdMediaPicker({
             onChange={(v) => handleVideoChange(typeof v === 'string' ? v : null)}
             help="MP4/MOV/WebM, up to 200 MB."
           />
+          {/* Play mode — fill (default) vs fit-to-screen — owner 2026-06-21
+              "give them an option how the video plays … place a toggle next to
+              upload video". Shows once a video exists. Writes std_media.fit. */}
+          {value.videoKey ? (
+            <div className="space-y-1.5 rounded-xl border border-ink/10 bg-white/60 p-2.5">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[11px] font-medium text-ink/70">How the video plays</span>
+                <div className="inline-flex rounded-xl border border-ink/15 bg-cream p-0.5">
+                  {(
+                    [
+                      { id: 'fill', label: 'Fill', Icon: Maximize2 },
+                      { id: 'fit', label: 'Fit to screen', Icon: Minimize2 },
+                    ] as const
+                  ).map(({ id, label, Icon }) => {
+                    const active = (value.fit ?? 'fill') === id;
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => onChange({ ...value, fit: id })}
+                        className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
+                          active ? 'bg-mulberry text-cream' : 'text-ink/60 hover:text-ink'
+                        }`}
+                      >
+                        <Icon aria-hidden className="h-3 w-3" strokeWidth={2} />
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <p className="text-[11px] text-ink/45">
+                {(value.fit ?? 'fill') === 'fill'
+                  ? 'Fills the screen edge-to-edge — the sides or top/bottom may be trimmed.'
+                  : 'Shows your whole frame, with a soft blurred fill around it.'}
+              </p>
+            </div>
+          ) : null}
           {value.videoKey ? (
             <p className="text-[11px] font-medium">
               {value.nsfw === 'approved' ? (

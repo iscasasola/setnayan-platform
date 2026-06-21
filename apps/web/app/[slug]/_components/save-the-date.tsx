@@ -62,6 +62,9 @@ type Props = {
   /** Presigned URL of the couple's NSFW-approved closing video — film only (PR-B).
    *  Set only when stdVideoIsLive; plays as the locked video island beat. */
   videoUrl?: string | null;
+  /** Poster still of that video — the film uses it for the iOS-safe blurred
+   *  letterbox fill behind the contained clip (a 2nd <video> won't play on iOS). */
+  videoPosterUrl?: string | null;
   /** Presigned photo URLs for the film's closing gallery beat — film only (P2). */
   galleryUrls?: string[];
   /** When the full invitation goes live (events.std_invitation_launch_date) — film only (P3). */
@@ -94,6 +97,7 @@ export function SaveTheDateView({
   lockup,
   musicUrl,
   videoUrl,
+  videoPosterUrl,
   galleryUrls,
   launchDateIso,
   themeId,
@@ -129,6 +133,7 @@ export function SaveTheDateView({
       publicId,
       musicUrl,
       videoUrl,
+      videoPosterUrl,
       galleryUrls,
     });
     return (

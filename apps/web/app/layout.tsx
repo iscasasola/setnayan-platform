@@ -25,6 +25,7 @@ import { DemoModeBanner } from './_components/demo-mode-banner';
 import { OfflineDaemonMount } from './_components/offline-daemon-mount';
 import { PilotModeBanner } from './_components/pilot-mode-banner';
 import { NavProgress } from './_components/nav-progress';
+import { NavSlideController } from './_components/nav/nav-slide-controller';
 import { AppInitSplash } from './_components/app-init-splash';
 import { SiteChrome } from './_components/marketing/site-chrome';
 import { getNavSlotMap } from '@/lib/nav-registry';
@@ -521,6 +522,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             their own loading.tsx, and any added later). Pure client → no
             static-generation impact. See _components/nav-progress.tsx. */}
         <NavProgress />
+        {/* Mobile bottom-nav carousel page-slide (NAV · 2026-06-21). Global
+            client interceptor; drives a directional View Transition on top-level
+            tab taps. No-op on desktop / reduced-motion / unsupported browsers,
+            and never touches the locked BottomNav. See nav-slide-controller.tsx. */}
+        <NavSlideController />
         <PilotModeBanner />
         {/*
           DemoModeBanner is admin-only (the server component itself

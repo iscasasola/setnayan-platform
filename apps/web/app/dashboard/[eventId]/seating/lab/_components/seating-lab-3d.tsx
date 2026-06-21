@@ -30,6 +30,7 @@ import * as THREE from 'three';
 import { useSeatingLock } from '@/app/dashboard/[eventId]/seating/_components/use-seating-lock';
 import { SeatingLockError } from '@/app/dashboard/[eventId]/seating/seating-lock-error';
 import {
+  assignGuest,
   createTable,
   deleteTable,
   updateTablePosition,
@@ -61,6 +62,10 @@ import {
   steerPath,
   resolvePalette,
   DEMO_PALETTES,
+  seatStatusOf,
+  SIDE_COLOR,
+  TENTATIVE_COLOR,
+  PLUS_ONE_COLOR,
 } from '@/lib/seating-3d';
 
 type Props = {
@@ -80,8 +85,31 @@ type WalkerState = { name: string; path: Vec2[]; tableId: string } | null;
 // Shared GPU buffers reused by every chair across every table (module-level
 // constants are never disposed by R3F — safe to share). The big draw-call
 // collapse (one InstancedMesh per shape) is the documented v2 upgrade.
-const CHAIR_GEO = new THREE.BoxGeometry(0.34, 0.5, 0.34);
 const PEDESTAL_GEO = new THREE.CylinderGeometry(0.12, 0.16, 0.72, 12);
+// Real-furniture parts (shared buffers): a chair = seat + backrest; a seated
+// guest = body + head; a centerpiece = vase + bloom. Instancing is the v2 win.
+const CHAIR_SEAT_GEO = new THREE.BoxGeometry(0.42, 0.07, 0.42);
+const CHAIR_BACK_GEO = new THREE.BoxGeometry(0.42, 0.44, 0.06);
+const TOKEN_BODY_GEO = new THREE.CylinderGeometry(0.13, 0.15, 0.4, 10);
+const TOKEN_HEAD_GEO = new THREE.SphereGeometry(0.12, 12, 12);
+const VASE_GEO = new THREE.CylinderGeometry(0.085, 0.12, 0.24, 10);
+const BLOOM_GEO = new THREE.IcosahedronGeometry(0.2, 0);
+
+/** Per-seat token treatment computed from a guest's RSVP (see lib seatStatusOf). */
+type SeatToken = { color: string; opacity: number };
+
+/** A guest's token colour/opacity, or null when their seat is freed (declined). */
+function guestTokenStyle(g: Lab3DGuest): SeatToken | null {
+  const status = seatStatusOf(g.rsvp);
+  if (status === 'hidden') return null;
+  return {
+    color: status === 'confirmed' ? SIDE_COLOR[g.side] : TENTATIVE_COLOR,
+    opacity: status === 'confirmed' ? 1 : 0.62,
+  };
+}
+
+// A guest token animating between seats during a swap / table-swap.
+type Mover = { gid: string; color: string; opacity: number; path: Vec2[]; target: SeatRef };
 
 export default function SeatingLab3D({ eventId, tables: initialTables, floor, guests, paletteHexes, me }: Props) {
   const router = useRouter();
@@ -123,6 +151,15 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
   const [notice, setNotice] = useState<string | null>(null);
   const [walker, setWalker] = useState<WalkerState>(null);
   const [arrived, setArrived] = useState<string | null>(null);
+  const [showCloth, setShowCloth] = useState(true);
+  const [showAccents, setShowAccents] = useState(true);
+  // Swap state: in-flight movers, the selected guest awaiting a swap partner,
+  // and (table-swap) the first picked table.
+  const [movers, setMovers] = useState<Mover[]>([]);
+  const movingGuests = useMemo(() => new Set(movers.map((m) => m.gid)), [movers]);
+  const [swapSelId, setSwapSelId] = useState<string | null>(null);
+  const [tableSwapArmed, setTableSwapArmed] = useState(false);
+  const [tableSwapFirst, setTableSwapFirst] = useState<string | null>(null);
 
   // Run a write action. A lost lock (peer took over) drops us to view-only at
   // once (notifyLost) + reconciles the optimistic 3D state with the server; any
@@ -163,6 +200,51 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
   }, [floor, room]);
 
   const tablesById = useMemo(() => new Map(tables.map((t) => [t.id, t])), [tables]);
+  const guestById = useMemo(() => new Map(guests.map((g) => [g.id, g])), [guests]);
+
+  // Per-table, per-seat token treatment from each seated guest's RSVP, plus a
+  // ghost "+1 reserved" seat beside any guest the couple allowed a +1 whose +1
+  // isn't already a seated row. Declined guests aren't rendered (seat freed).
+  const seatedByTable = useMemo(() => {
+    const out = new Map<string, Map<number, SeatToken>>();
+    const slot = (tid: string) => {
+      let m = out.get(tid);
+      if (!m) {
+        m = new Map();
+        out.set(tid, m);
+      }
+      return m;
+    };
+    const plusOneSeated = new Set<string>(); // primaries whose +1 is already seated
+    for (const [gid, s] of seats) {
+      const g = guestById.get(gid);
+      if (!g) continue;
+      if (g.plusOneOfGuestId) plusOneSeated.add(g.plusOneOfGuestId);
+      if (movingGuests.has(gid)) continue; // mid-swap → drawn by its mover instead
+      const style = guestTokenStyle(g);
+      if (!style) continue; // declined → freed seat
+      slot(s.tableId).set(s.seatNumber, style);
+    }
+    for (const [gid, s] of seats) {
+      const g = guestById.get(gid);
+      if (!g || !g.plusOneAllowed || plusOneSeated.has(gid) || seatStatusOf(g.rsvp) === 'hidden') continue;
+      const t = tablesById.get(s.tableId);
+      if (!t) continue;
+      const occ = slot(s.tableId);
+      const removed = new Set(t.removedSeats);
+      let chosen = -1;
+      for (let d = 1; d <= t.capacity && chosen < 0; d++) {
+        for (const cand of [s.seatNumber + d, s.seatNumber - d]) {
+          if (cand >= 0 && cand < t.capacity && !removed.has(cand) && !occ.has(cand)) {
+            chosen = cand;
+            break;
+          }
+        }
+      }
+      if (chosen >= 0) occ.set(chosen, { color: PLUS_ONE_COLOR, opacity: 0.4 });
+    }
+    return out;
+  }, [seats, guestById, tablesById, movingGuests]);
 
   const commitDrag = useCallback(() => {
     const d = dragRef.current;
@@ -205,20 +287,6 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
       window.removeEventListener('blur', up);
     };
   }, [commitDrag]);
-
-  const onTableDown = useCallback(
-    (id: string) => {
-      if (mode !== 'build') return; // no selection in Play (avoids a ghost carry-over)
-      setSelectedId(id);
-      if (!canEdit) return; // view-only: select to inspect, but don't drag
-      const t = tablesById.get(id);
-      if (!t) return;
-      const w = pctToWorld(t.xPct, t.yPct, room);
-      dragRef.current = { id, x: w.x, z: w.z };
-      setDraggingId(id);
-    },
-    [mode, canEdit, room, tablesById],
-  );
 
   // Clear any selection when leaving Build so it doesn't linger into Play.
   useEffect(() => {
@@ -334,6 +402,154 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
     [seats, tables, tablesById, room, entranceWorld],
   );
 
+  // --- swap-with-animation: reassign seats (persist) + animate the change ----
+  const seatWorldOf = useCallback(
+    (gid: string): { world: Vec2; seat: SeatRef } | null => {
+      const s = seats.get(gid);
+      if (!s) return null;
+      const t = tablesById.get(s.tableId);
+      if (!t) return null;
+      return { world: seatWorld(t, s.seatNumber, room), seat: s };
+    },
+    [seats, tablesById, room],
+  );
+
+  // A mover finished its walk → commit the new seat locally (the DB write
+  // already fired at swap-start) and retire the mover.
+  const onMoverDone = useCallback((gid: string, target: SeatRef) => {
+    setSeats((prev) => {
+      const n = new Map(prev);
+      n.set(gid, target);
+      return n;
+    });
+    setMovers((prev) => prev.filter((m) => m.gid !== gid));
+  }, []);
+
+  // Reassign guest `gid` to (toTableId, toSeat): persist (lock-gated) + fly a
+  // token from its current seat to the new one.
+  const moveGuestTo = useCallback(
+    (gid: string, fromWorld: Vec2, toTableId: string, toSeat: number) => {
+      const g = guestById.get(gid);
+      const t = tablesById.get(toTableId);
+      if (!g || !t) return;
+      const end = seatWorld(t, toSeat, room);
+      const fromTableId = seats.get(gid)?.tableId;
+      const obstacles = tables
+        .filter((tb) => tb.id !== toTableId && tb.id !== fromTableId)
+        .map((tb) => ({ c: pctToWorld(tb.xPct, tb.yPct, room), r: tableAvoidR(tb) }));
+      const path = steerPath(fromWorld, end, obstacles, 0.2);
+      const style = guestTokenStyle(g) ?? { color: SIDE_COLOR[g.side], opacity: 1 };
+      setMovers((prev) => [
+        ...prev,
+        { gid, color: style.color, opacity: style.opacity, path, target: { tableId: toTableId, seatNumber: toSeat } },
+      ]);
+      const fd = new FormData();
+      fd.set('event_id', eventId);
+      fd.set('lock_id', lock.lockId ?? '');
+      fd.set('table_id', toTableId);
+      fd.set('guest_id', gid);
+      fd.set('seat_number', String(toSeat));
+      void persist(() => assignGuest(fd));
+    },
+    [guestById, tablesById, tables, seats, room, eventId, lock.lockId, persist],
+  );
+
+  const swapGuests = useCallback(
+    (a: string, b: string) => {
+      if (!canEdit) {
+        setNotice('You don’t have edit access — a 2D editor may be open.');
+        return;
+      }
+      if (a === b || movingGuests.has(a) || movingGuests.has(b)) return;
+      const A = seatWorldOf(a);
+      const B = seatWorldOf(b);
+      if (!A || !B) return;
+      setMode('play');
+      moveGuestTo(a, A.world, B.seat.tableId, B.seat.seatNumber);
+      moveGuestTo(b, B.world, A.seat.tableId, A.seat.seatNumber);
+    },
+    [canEdit, movingGuests, seatWorldOf, moveGuestTo],
+  );
+
+  const swapTables = useCallback(
+    (t1: string, t2: string) => {
+      if (!canEdit) {
+        setNotice('You don’t have edit access — a 2D editor may be open.');
+        return;
+      }
+      if (t1 === t2 || !tablesById.get(t1) || !tablesById.get(t2)) return;
+      const occ = (tid: string) => {
+        const m = new Map<number, string>();
+        for (const [gid, s] of seats) if (s.tableId === tid && !movingGuests.has(gid)) m.set(s.seatNumber, gid);
+        return m;
+      };
+      const o1 = occ(t1);
+      const o2 = occ(t2);
+      const maxc = Math.max(tablesById.get(t1)!.capacity, tablesById.get(t2)!.capacity);
+      setMode('play');
+      for (let i = 0; i < maxc; i++) {
+        const g1 = o1.get(i);
+        const g2 = o2.get(i);
+        if (g1) {
+          const w = seatWorldOf(g1);
+          if (w) moveGuestTo(g1, w.world, t2, i);
+        }
+        if (g2) {
+          const w = seatWorldOf(g2);
+          if (w) moveGuestTo(g2, w.world, t1, i);
+        }
+      }
+    },
+    [canEdit, tablesById, seats, movingGuests, seatWorldOf, moveGuestTo],
+  );
+
+  const onTableDown = useCallback(
+    (id: string) => {
+      // Table-swap pick mode (Play): first tap arms a table, second swaps them.
+      if (tableSwapArmed) {
+        if (!tableSwapFirst) {
+          setTableSwapFirst(id);
+          return;
+        }
+        if (tableSwapFirst !== id) swapTables(tableSwapFirst, id);
+        setTableSwapFirst(null);
+        setTableSwapArmed(false);
+        return;
+      }
+      if (mode !== 'build') return; // no selection in Play (avoids a ghost carry-over)
+      setSelectedId(id);
+      if (!canEdit) return; // view-only: select to inspect, but don't drag
+      const t = tablesById.get(id);
+      if (!t) return;
+      const w = pctToWorld(t.xPct, t.yPct, room);
+      dragRef.current = { id, x: w.x, z: w.z };
+      setDraggingId(id);
+    },
+    [tableSwapArmed, tableSwapFirst, swapTables, mode, canEdit, room, tablesById],
+  );
+
+  // A guest-list tap: an UNSEATED guest walks in; a SEATED guest enters or
+  // completes a swap selection.
+  const onGuestTap = useCallback(
+    (g: Lab3DGuest) => {
+      if (!seats.has(g.id)) {
+        sendGuest(g);
+        return;
+      }
+      if (swapSelId === g.id) {
+        setSwapSelId(null);
+        return;
+      }
+      if (swapSelId) {
+        swapGuests(swapSelId, g.id);
+        setSwapSelId(null);
+        return;
+      }
+      setSwapSelId(g.id);
+    },
+    [seats, sendGuest, swapSelId, swapGuests],
+  );
+
   const seatedCount = useMemo(() => {
     const ids = new Set<string>();
     for (const [gid, s] of seats) if (tablesById.has(s.tableId)) ids.add(gid);
@@ -378,6 +594,9 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
             dragRef={dragRef}
             interactive={mode === 'build' && canEdit}
             onDown={onTableDown}
+            showCloth={showCloth}
+            showAccents={showAccents}
+            seated={seatedByTable.get(t.id)}
           />
         ))}
 
@@ -400,6 +619,10 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
             onArrive={() => setArrived(walker.name)}
           />
         ) : null}
+
+        {movers.map((m) => (
+          <MoverToken key={m.gid} mover={m} onDone={onMoverDone} />
+        ))}
 
         <CameraRig mode={mode} room={room} onBusy={setCamBusy} />
         <OrbitControls
@@ -426,12 +649,22 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
         onAddTable={addTable}
         onRotate={rotateSelected}
         onDelete={deleteSelected}
+        showCloth={showCloth}
+        setShowCloth={setShowCloth}
+        showAccents={showAccents}
+        setShowAccents={setShowAccents}
         paletteKey={paletteKey}
         setPaletteKey={setPaletteKey}
         guests={guests}
         seats={seats}
         seatedCount={seatedCount}
-        onSendGuest={sendGuest}
+        onGuestTap={onGuestTap}
+        swapSelId={swapSelId}
+        tableSwapArmed={tableSwapArmed}
+        onToggleTableSwap={() => {
+          setTableSwapFirst(null);
+          setTableSwapArmed((v) => !v);
+        }}
         walker={walker}
         arrived={arrived}
         selectedLabel={selectedId ? tablesById.get(selectedId)?.label ?? null : null}
@@ -581,6 +814,9 @@ function TableMesh({
   dragRef,
   interactive,
   onDown,
+  showCloth,
+  showAccents,
+  seated,
 }: {
   table: LiveTable;
   room: { w: number; d: number };
@@ -590,11 +826,30 @@ function TableMesh({
   dragRef: React.MutableRefObject<{ id: string; x: number; z: number } | null>;
   interactive: boolean;
   onDown: (id: string) => void;
+  showCloth: boolean;
+  showAccents: boolean;
+  seated: Map<number, SeatToken> | undefined;
 }) {
   const ref = useRef<THREE.Group>(null);
   const dims = useMemo(() => tableDims(table.shape, table.capacity), [table.shape, table.capacity]);
   const chairs = useMemo(() => chairLocalPositions(table.shape, table.capacity), [table.shape, table.capacity]);
   const home = useMemo(() => pctToWorld(table.xPct, table.yPct, room), [table.xPct, table.yPct, room]);
+  // Share materials by reference (one per table, not one per chair/token) — the
+  // cheap pre-instancing win. Full InstancedMesh is the documented v2 collapse.
+  const chairMat = useMemo(
+    () => new THREE.MeshStandardMaterial({ color: palette.wall, roughness: 0.7 }),
+    [palette.wall],
+  );
+  const tokenMats = useRef<Map<string, THREE.MeshStandardMaterial>>(new Map());
+  const tokenMat = (color: string, opacity: number) => {
+    const key = `${color}|${opacity}`;
+    let m = tokenMats.current.get(key);
+    if (!m) {
+      m = new THREE.MeshStandardMaterial({ color, roughness: 0.5, transparent: opacity < 1, opacity });
+      tokenMats.current.set(key, m);
+    }
+    return m;
+  };
 
   useFrame((_, delta) => {
     const g = ref.current;
@@ -620,36 +875,86 @@ function TableMesh({
     onDown(table.id);
   };
 
-  const topColor = selected ? palette.accent : palette.table;
+  const clothColor = selected ? palette.accent : palette.table;
+  const halfW = dims.round ? dims.w / 2 : dims.w / 2;
+  const halfD = dims.round ? dims.w / 2 : dims.d / 2;
 
   return (
     <group ref={ref} position={[home.x, 0, home.z]} onPointerDown={handleDown}>
-      {/* Tabletop */}
-      {dims.round ? (
-        <mesh position={[0, 0.74, 0]} castShadow>
-          <cylinderGeometry args={[dims.w / 2, dims.w / 2, 0.08, 36]} />
-          <meshStandardMaterial color={topColor} roughness={0.35} metalness={0.05} />
-        </mesh>
+      {/* Table: a draped tablecloth (skirt to the floor + top) when cloth is on,
+          else a bare top + pedestal. */}
+      {showCloth ? (
+        dims.round ? (
+          <group>
+            <mesh position={[0, 0.37, 0]}>
+              <cylinderGeometry args={[dims.w / 2, dims.w / 2 + 0.04, 0.74, 32]} />
+              <meshStandardMaterial color={clothColor} roughness={0.85} />
+            </mesh>
+            <mesh position={[0, 0.745, 0]}>
+              <cylinderGeometry args={[dims.w / 2, dims.w / 2, 0.04, 32]} />
+              <meshStandardMaterial color={clothColor} roughness={0.85} />
+            </mesh>
+          </group>
+        ) : (
+          <group>
+            <mesh position={[0, 0.37, 0]}>
+              <boxGeometry args={[dims.w, 0.74, dims.d]} />
+              <meshStandardMaterial color={clothColor} roughness={0.85} />
+            </mesh>
+            <mesh position={[0, 0.745, 0]}>
+              <boxGeometry args={[dims.w + 0.04, 0.04, dims.d + 0.04]} />
+              <meshStandardMaterial color={clothColor} roughness={0.85} />
+            </mesh>
+          </group>
+        )
       ) : (
-        <mesh position={[0, 0.74, 0]} castShadow>
-          <boxGeometry args={[dims.w, 0.08, dims.d]} />
-          <meshStandardMaterial color={topColor} roughness={0.35} metalness={0.05} />
-        </mesh>
+        <group>
+          <mesh position={[0, 0.74, 0]} castShadow>
+            {dims.round ? (
+              <cylinderGeometry args={[dims.w / 2, dims.w / 2, 0.08, 36]} />
+            ) : (
+              <boxGeometry args={[dims.w, 0.08, dims.d]} />
+            )}
+            <meshStandardMaterial color={clothColor} roughness={0.35} metalness={0.05} />
+          </mesh>
+          <mesh position={[0, 0.37, 0]} geometry={PEDESTAL_GEO} material={chairMat} />
+        </group>
       )}
-      {/* Pedestal (shared geometry) */}
-      <mesh position={[0, 0.37, 0]} geometry={PEDESTAL_GEO}>
-        <meshStandardMaterial color={palette.wall} roughness={0.6} />
-      </mesh>
-      {/* Chairs (shared geometry across every chair + table) */}
-      {chairs.map((c, i) => (
-        <mesh key={i} position={[c.x, 0.26, c.z]} geometry={CHAIR_GEO}>
-          <meshStandardMaterial color={palette.wall} roughness={0.7} />
-        </mesh>
-      ))}
+
+      {/* Centerpiece accent (toggle) */}
+      {showAccents ? (
+        <group position={[0, 0.78, 0]}>
+          <mesh geometry={VASE_GEO} position={[0, 0.12, 0]}>
+            <meshStandardMaterial color={palette.accent} roughness={0.5} metalness={0.12} />
+          </mesh>
+          <mesh geometry={BLOOM_GEO} position={[0, 0.34, 0]}>
+            <meshStandardMaterial color="#6f9b6a" roughness={0.7} />
+          </mesh>
+        </group>
+      ) : null}
+
+      {/* Chairs (seat + backrest, oriented to face the table) + seated guests */}
+      {chairs.map((c, i) => {
+        const ang = Math.atan2(c.x, c.z);
+        const tok = seated?.get(i);
+        return (
+          <group key={i} position={[c.x, 0, c.z]} rotation={[0, ang, 0]}>
+            <mesh geometry={CHAIR_SEAT_GEO} position={[0, 0.46, 0]} material={chairMat} />
+            <mesh geometry={CHAIR_BACK_GEO} position={[0, 0.69, 0.19]} material={chairMat} />
+            {tok ? (
+              <group position={[0, 0, -0.04]}>
+                <mesh geometry={TOKEN_BODY_GEO} position={[0, 0.7, 0]} material={tokenMat(tok.color, tok.opacity)} />
+                <mesh geometry={TOKEN_HEAD_GEO} position={[0, 1.0, 0]} material={tokenMat(tok.color, tok.opacity)} />
+              </group>
+            ) : null}
+          </group>
+        );
+      })}
+
       {/* Selection ring */}
       {selected ? (
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
-          <ringGeometry args={[dims.round ? dims.w / 2 + 0.7 : Math.max(dims.w, dims.d) / 2 + 0.7, dims.round ? dims.w / 2 + 0.9 : Math.max(dims.w, dims.d) / 2 + 0.9, 40]} />
+          <ringGeometry args={[Math.max(halfW, halfD) + 0.7, Math.max(halfW, halfD) + 0.9, 40]} />
           <meshBasicMaterial color={palette.accent} side={THREE.DoubleSide} transparent opacity={0.9} />
         </mesh>
       ) : null}
@@ -727,6 +1032,55 @@ function Walker({
   );
 }
 
+// A guest token walking between seats during a swap. Colour = the guest's RSVP
+// treatment; calls onDone(gid, target) once it reaches the destination chair.
+function MoverToken({ mover, onDone }: { mover: Mover; onDone: (gid: string, target: SeatRef) => void }) {
+  const ref = useRef<THREE.Group>(null);
+  const idx = useRef(0);
+  const done = useRef(false);
+  const t = useRef(0);
+  const start = mover.path[0] ?? { x: 0, z: 0 };
+  useFrame((_, delta) => {
+    const g = ref.current;
+    if (!g) return;
+    t.current += delta;
+    const path = mover.path;
+    if (done.current || idx.current >= path.length - 1) {
+      if (!done.current) {
+        done.current = true;
+        onDone(mover.gid, mover.target);
+      }
+      return;
+    }
+    const next = path[idx.current + 1]!;
+    const dx = next.x - g.position.x;
+    const dz = next.z - g.position.z;
+    const dist = Math.hypot(dx, dz);
+    const step = 2.6 * delta;
+    if (dist <= step) {
+      g.position.x = next.x;
+      g.position.z = next.z;
+      idx.current += 1;
+    } else {
+      g.position.x += (dx / dist) * step;
+      g.position.z += (dz / dist) * step;
+      g.rotation.y = Math.atan2(dx, dz);
+    }
+    g.position.y = Math.abs(Math.sin(t.current * 9)) * 0.07;
+  });
+  const transparent = mover.opacity < 1;
+  return (
+    <group ref={ref} position={[start.x, 0, start.z]}>
+      <mesh geometry={TOKEN_BODY_GEO} position={[0, 0.62, 0]}>
+        <meshStandardMaterial color={mover.color} roughness={0.5} transparent={transparent} opacity={mover.opacity} emissive={mover.color} emissiveIntensity={0.22} />
+      </mesh>
+      <mesh geometry={TOKEN_HEAD_GEO} position={[0, 0.92, 0]}>
+        <meshStandardMaterial color={mover.color} roughness={0.5} transparent={transparent} opacity={mover.opacity} />
+      </mesh>
+    </group>
+  );
+}
+
 /* -------------------------------- HUD (2D) -------------------------------- */
 
 function Hud({
@@ -740,12 +1094,19 @@ function Hud({
   onAddTable,
   onRotate,
   onDelete,
+  showCloth,
+  setShowCloth,
+  showAccents,
+  setShowAccents,
   paletteKey,
   setPaletteKey,
   guests,
   seats,
   seatedCount,
-  onSendGuest,
+  onGuestTap,
+  swapSelId,
+  tableSwapArmed,
+  onToggleTableSwap,
   walker,
   arrived,
   selectedLabel,
@@ -761,12 +1122,19 @@ function Hud({
   onAddTable: () => void;
   onRotate: (delta: number) => void;
   onDelete: () => void;
+  showCloth: boolean;
+  setShowCloth: (v: boolean) => void;
+  showAccents: boolean;
+  setShowAccents: (v: boolean) => void;
   paletteKey: string;
   setPaletteKey: (k: string) => void;
   guests: Lab3DGuest[];
   seats: Map<string, SeatRef>;
   seatedCount: number;
-  onSendGuest: (g: Lab3DGuest) => void;
+  onGuestTap: (g: Lab3DGuest) => void;
+  swapSelId: string | null;
+  tableSwapArmed: boolean;
+  onToggleTableSwap: () => void;
   walker: WalkerState;
   arrived: string | null;
   selectedLabel: string | null;
@@ -797,11 +1165,38 @@ function Hud({
         </div>
       </div>
 
+      {/* Decor toggles — apply tablecloths + centerpieces "if requested" */}
+      <div className="pointer-events-auto absolute left-1/2 top-4 flex -translate-x-1/2 gap-1.5">
+        <button
+          type="button"
+          onClick={() => setShowCloth(!showCloth)}
+          className={`rounded-xl border border-white/15 px-3 py-1.5 text-sm font-medium backdrop-blur-md transition ${showCloth ? 'bg-white text-ink' : 'bg-white/10 text-white/75 hover:bg-white/20'}`}
+        >
+          Tablecloths
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowAccents(!showAccents)}
+          className={`rounded-xl border border-white/15 px-3 py-1.5 text-sm font-medium backdrop-blur-md transition ${showAccents ? 'bg-white text-ink' : 'bg-white/10 text-white/75 hover:bg-white/20'}`}
+        >
+          Centerpieces
+        </button>
+      </div>
+
       {/* Save-error / view-only notice */}
       {notice ? (
         <div className={`pointer-events-auto absolute left-1/2 top-16 flex -translate-x-1/2 items-center gap-3 px-4 py-2 text-sm text-amber-100 ${glass}`}>
           <span>{notice}</span>
           <button type="button" onClick={onDismissNotice} className="text-white/60 hover:text-white">✕</button>
+        </div>
+      ) : null}
+
+      {/* RSVP seat legend (hidden while a walker toast is showing) */}
+      {!walker ? (
+        <div className={`pointer-events-none absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-3 px-3 py-2 text-[11px] text-white/85 ${glass}`}>
+          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: SIDE_COLOR.both }} />Confirmed</span>
+          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: TENTATIVE_COLOR }} />Pending / maybe</span>
+          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: PLUS_ONE_COLOR, opacity: 0.5 }} />+1 held</span>
         </div>
       ) : null}
 
@@ -847,23 +1242,39 @@ function Hud({
         ) : (
           <div className={`flex min-h-0 flex-1 flex-col p-3 ${glass}`}>
             <p className="mb-1 text-sm font-medium">Guests</p>
-            <p className="mb-2 text-[11px] text-white/60">{seatedCount} seated · tap to walk them in</p>
+            <p className="mb-2 text-[11px] text-white/60">
+              {swapSelId
+                ? 'Tap another seated guest to swap'
+                : `${seatedCount} seated · tap two to swap, or an empty one to walk in`}
+            </p>
+            <button
+              type="button"
+              onClick={onToggleTableSwap}
+              className={`mb-2 w-full rounded-xl border border-white/15 px-3 py-1.5 text-sm font-medium transition ${
+                tableSwapArmed ? 'bg-white text-ink' : 'bg-white/10 text-white/85 hover:bg-white/20'
+              }`}
+            >
+              {tableSwapArmed ? 'Tap two tables to swap…' : 'Swap two tables'}
+            </button>
             <div className="-mr-1 flex-1 space-y-1 overflow-y-auto pr-1">
               {guests.length === 0 ? (
                 <p className="text-xs text-white/55">No guests yet.</p>
               ) : (
                 guests.map((g) => {
                   const seated = seats.has(g.id);
+                  const selected = swapSelId === g.id;
                   return (
                     <button
                       key={g.id}
                       type="button"
-                      onClick={() => onSendGuest(g)}
-                      className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-sm text-white/90 transition hover:bg-white/15"
+                      onClick={() => onGuestTap(g)}
+                      className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-sm text-white/90 transition ${
+                        selected ? 'bg-white/25 ring-1 ring-white/50' : 'hover:bg-white/15'
+                      }`}
                     >
                       <span className="truncate">{g.name}</span>
                       <span className={`ml-2 shrink-0 text-[10px] ${seated ? 'text-white/55' : 'text-white/40'}`}>
-                        {seated ? 'seated' : 'walk'}
+                        {selected ? 'swap?' : seated ? 'seated' : 'walk'}
                       </span>
                     </button>
                   );

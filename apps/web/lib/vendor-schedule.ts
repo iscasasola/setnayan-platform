@@ -117,8 +117,10 @@ export async function fetchVendorPools(
   // 3. Read back pools + mappings. Named Calendars (flag): also read the
   //    vendor-entered name, the vendor-created marker, and explicit
   //    service→calendar memberships.
+  // LIVE by default (Phase A migration applied 2026-06-21); kill-switch
+  // NEXT_PUBLIC_NAMED_CALENDARS_ENABLED=false reverts to category pools.
   const namedCalendars =
-    process.env.NEXT_PUBLIC_NAMED_CALENDARS_ENABLED === 'true';
+    process.env.NEXT_PUBLIC_NAMED_CALENDARS_ENABLED !== 'false';
   // Rollout contract: the Phase A migration (which adds calendar_name /
   // is_vendor_created / vendor_schedule_calendar_services) is applied BEFORE the
   // flag is flipped. So the new columns + membership table are read ONLY when the

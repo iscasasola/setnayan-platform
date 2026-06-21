@@ -23,10 +23,13 @@
 
 import Link from 'next/link';
 import type { NavItem } from '@/app/_components/nav/types';
+import { MoreSearch } from '@/app/_components/more-search';
 
 type LandingItem = NavItem & {
   /** 1-line description rendered below the label on the landing card. */
   description: string;
+  /** Optional badge count (e.g. unread) shown top-right of the card. */
+  count?: number;
 };
 
 /** A labeled section for the grouped ("More") layout. */
@@ -44,15 +47,18 @@ type Props = {
   items?: LandingItem[];
   /** Labeled sections (the redesigned /admin/more layout). Wins over `items`. */
   groups?: LandingGroup[];
+  /** Show a client filter input that searches cards by label (the /more layout). */
+  searchable?: boolean;
 };
 
 function LandingCard({ item }: { item: LandingItem }) {
   const Icon = item.icon;
+  const count = item.count ?? 0;
   return (
-    <li>
+    <li data-more-card data-more-label={item.label}>
       <Link
         href={item.href}
-        className="m-card flex h-full items-start gap-3 p-4 transition-colors hover:bg-[var(--m-paper)]"
+        className="m-card relative flex h-full items-start gap-3 p-4 transition-colors hover:bg-[var(--m-paper)]"
         style={{ color: 'var(--m-ink)' }}
       >
         <span
@@ -74,19 +80,28 @@ function LandingCard({ item }: { item: LandingItem }) {
             {item.description}
           </span>
         </span>
+        {count > 0 ? (
+          <span
+            className="absolute right-3 top-3 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full px-1.5 font-mono text-[11px] font-semibold"
+            style={{ background: 'var(--m-mulberry)', color: '#fff' }}
+            aria-label={`${count} new`}
+          >
+            {count > 99 ? '99+' : count}
+          </span>
+        ) : null}
       </Link>
     </li>
   );
 }
 
-export function MobileLandingGrid({ title, subtitle, items, groups }: Props) {
+export function MobileLandingGrid({ title, subtitle, items, groups, searchable }: Props) {
   // Normalize to sections: explicit `groups` win; else a single unlabeled
   // section from the flat `items` (backward-compatible with directory/money).
   const sections: LandingGroup[] = groups ?? (items ? [{ label: '', items }] : []);
   const isEmpty = sections.every((s) => s.items.length === 0);
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 lg:hidden">
+    <div data-more-root className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 lg:hidden">
       <header className="mb-6 space-y-2">
         <p className="m-label-mono" style={{ color: 'var(--m-slate-2)' }}>
           Admin
@@ -99,28 +114,42 @@ export function MobileLandingGrid({ title, subtitle, items, groups }: Props) {
         </p>
       </header>
 
+      {searchable && !isEmpty ? <MoreSearch placeholder="Search settings & insights" /> : null}
+
       {isEmpty ? (
         <div className="m-card p-8 text-center text-sm" style={{ color: 'var(--m-slate)' }}>
           Nothing here yet. The surfaces in this section appear once their
           features ship.
         </div>
       ) : (
-        <div className="space-y-7">
-          {sections.map((section, i) => (
-            <section key={section.label || i} className="space-y-3">
-              {section.label ? (
-                <h2 className="m-label-mono" style={{ color: 'var(--m-slate-2)' }}>
-                  {section.label}
-                </h2>
-              ) : null}
-              <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {section.items.map((item) => (
-                  <LandingCard key={item.key} item={item} />
-                ))}
-              </ul>
-            </section>
-          ))}
-        </div>
+        <>
+          <div className="space-y-7">
+            {sections.map((section, i) => (
+              <section key={section.label || i} data-more-section className="space-y-3">
+                {section.label ? (
+                  <h2 className="m-label-mono" style={{ color: 'var(--m-slate-2)' }}>
+                    {section.label}
+                  </h2>
+                ) : null}
+                <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {section.items.map((item) => (
+                    <LandingCard key={item.key} item={item} />
+                  ))}
+                </ul>
+              </section>
+            ))}
+          </div>
+          {searchable ? (
+            <p
+              data-more-empty
+              hidden
+              className="m-card p-8 text-center text-sm"
+              style={{ color: 'var(--m-slate)' }}
+            >
+              No matches — try a different search.
+            </p>
+          ) : null}
+        </>
       )}
     </div>
   );

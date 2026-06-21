@@ -34,6 +34,7 @@
 
 import Link from 'next/link';
 import type { NavGroup } from '@/app/_components/nav/types';
+import { MoreSearch } from '@/app/_components/more-search';
 
 type Props = {
   /** Page heading rendered above the grid. */
@@ -49,11 +50,13 @@ type Props = {
    * config below covers every key).
    */
   descriptions: Record<string, string>;
+  /** Show a client filter input that searches cards by label. */
+  searchable?: boolean;
 };
 
-export function VendorMobileLanding({ title, subtitle, groups, descriptions }: Props) {
+export function VendorMobileLanding({ title, subtitle, groups, descriptions, searchable }: Props) {
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 lg:hidden">
+    <div data-more-root className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 lg:hidden">
       <header className="mb-6 space-y-2">
         <p className="m-label-mono" style={{ color: 'var(--m-slate-2)' }}>
           Vendor
@@ -66,9 +69,15 @@ export function VendorMobileLanding({ title, subtitle, groups, descriptions }: P
         </p>
       </header>
 
+      {searchable ? <MoreSearch placeholder="Search your tools" /> : null}
+
       <div className="flex flex-col gap-6">
         {groups.map((group) => (
-          <section key={group.key} aria-labelledby={`more-group-${group.key}`}>
+          <section
+            key={group.key}
+            data-more-section
+            aria-labelledby={`more-group-${group.key}`}
+          >
             <h2
               id={`more-group-${group.key}`}
               className="m-label-mono mb-2 px-1"
@@ -81,7 +90,7 @@ export function VendorMobileLanding({ title, subtitle, groups, descriptions }: P
                 const Icon = item.icon;
                 const description = descriptions[item.key];
                 return (
-                  <li key={item.key}>
+                  <li key={item.key} data-more-card data-more-label={item.label}>
                     <Link
                       href={item.href}
                       className="m-card flex h-full items-start gap-3 p-4 transition-colors hover:bg-[var(--m-paper)]"
@@ -122,6 +131,17 @@ export function VendorMobileLanding({ title, subtitle, groups, descriptions }: P
           </section>
         ))}
       </div>
+
+      {searchable ? (
+        <p
+          data-more-empty
+          hidden
+          className="m-card mt-5 p-8 text-center text-sm"
+          style={{ color: 'var(--m-slate)' }}
+        >
+          No matches — try a different search.
+        </p>
+      ) : null}
     </div>
   );
 }

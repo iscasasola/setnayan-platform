@@ -1,5 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { registerGatesEnabled } from '@/lib/register-gates';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { computeGuestStats, fetchGuestsByEvent } from '@/lib/guests';
 import { buildEventLandingUrl, renderEventLandingQrSvg } from '@/lib/qr';
@@ -47,6 +48,11 @@ export default async function SiteEditorPage({
 
   const user = await getCurrentUser();
   if (!user) redirect(loginRedirectPath(`/site-editor/${eventId}`));
+  // Register-to-use gate (flag-gated · owner 2026-06-21): the website is a public-identity
+  // surface — an anonymous couple must secure a free account to build/publish it. OFF → no gate.
+  if (registerGatesEnabled() && user.is_anonymous) {
+    redirect(`/signup?next=${encodeURIComponent(`/site-editor/${eventId}`)}`);
+  }
 
   const supabase = await createClient();
 

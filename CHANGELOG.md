@@ -4,6 +4,14 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-21 · feat(boundary): register-to-use gates on the in-app monogram studio + website builder (flag-gated · parked)
+
+Extends the register-gate boundary (same `NEXT_PUBLIC_REGISTER_GATES_ENABLED` flag) to the two **in-app public-identity surfaces**. When ON, an anonymous (unsecured) couple who opens the **monogram studio** (`/dashboard/[eventId]/monogram`) or the **website builder** (`/site-editor/[eventId]`) is redirected to `/signup?next=<surface>` to create a free account first — the signup flow converts the same anon session in place and returns them. One-line server-side gate after the existing `!user` redirect in each page, reading `user.is_anonymous` (the same field the dashboard's `SecureAccountBanner` already uses). OFF (default) → no gate, unchanged.
+
+Remaining boundary gate: planning-PDF downloads (register-to-download). `tsc` 0 · `lint` 0 (no warnings). Parked.
+
+SPEC IMPACT: iterations 0037 (monogram) + couple-website — the locked boundary "creating your public identity needs an account." No SKU/price change (still free — just register).
+
 ## 2026-06-21 · feat(boundary): register-to-use gate on the public /monogram studio (flag-gated · parked)
 
 First slice of the locked **free/login/paid boundary** gates. New flag `NEXT_PUBLIC_REGISTER_GATES_ENABLED` (`lib/register-gates.ts`, default OFF). When ON, the public marketing-site monogram studio (`/monogram`) — today a free no-login lead magnet — becomes a **register wall**: the studio is replaced by a "Create your free account to design" card (→ `/signup?next=/monogram`, with a "Sign in" link → `/login?next=/monogram`), and the eyebrow/sub copy flip from "no sign-up" to "create an account." Owner 2026-06-21: *"Login to use it too — maximum capture; every visitor registers first."*

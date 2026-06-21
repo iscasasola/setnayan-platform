@@ -10,13 +10,30 @@ import { ADD_ON_DETAILS, addOnDetail } from './add-ons-detail';
 // point at a detail page that has no authored content (a 404 for the couple).
 const VISIBLE_GROUPS = new Set(['setnayan_ai', 'website', 'capture', 'branding']);
 
+// Hub features that open their OWN surface directly instead of a
+// /studio/about/<key> detail page — so they need no authored detail content and
+// their detail href intentionally does NOT route under /studio/about:
+//   • panood / supplies-marketplace — bespoke feature surfaces
+//   • seating — opens the seat-plan editor
+//   • rsvp / event / editorial / landing-page — the website parts open the
+//     full-screen site editor (the four-part split, 2026-06-21). Save the Date
+//     is NOT here: it keeps its /studio/about detail page.
+const OPENS_OWN_SURFACE = new Set([
+  'panood',
+  'supplies-marketplace',
+  'seating',
+  'rsvp',
+  'event',
+  'editorial',
+  'landing-page',
+]);
+
 test('every available hub feature has App Store detail content', () => {
   const missing = ADD_ONS.filter(
     (a) =>
       VISIBLE_GROUPS.has(a.studioGroup) &&
       a.status !== 'coming_soon' &&
-      a.key !== 'panood' &&
-      a.key !== 'seating' && // routes straight to the seat-plan editor (no /about page)
+      !OPENS_OWN_SURFACE.has(a.key) &&
       !addOnDetail(a.key),
   ).map((a) => a.key);
   assert.deepEqual(missing, [], `add-ons missing detail content: ${missing.join(', ')}`);
@@ -38,12 +55,11 @@ test('detail links route under /studio/about (never shadowed by a feature folder
   // dynamic sibling and routing does not backtrack, so /studio/papic/about 404s.
   // The detail route therefore lives under the literal /studio/about/<key>
   // segment, which no feature key can shadow. This guard fails the build if a
-  // detail href ever regresses to the shadowed shape. Panood + supplies link to
-  // their own surfaces, not an /about page (see appStoreDetailHref).
+  // detail href ever regresses to the shadowed shape. The OPENS_OWN_SURFACE
+  // features (Panood + supplies + seating + the website parts) link to their
+  // own surfaces, not an /about page (see appStoreDetailHref).
   const eventId = 'EVT';
-  const offenders = ADD_ONS.filter(
-    (a) => a.key !== 'panood' && a.key !== 'supplies-marketplace' && a.key !== 'seating',
-  )
+  const offenders = ADD_ONS.filter((a) => !OPENS_OWN_SURFACE.has(a.key))
     .map((a) => appStoreDetailHref(a.key, eventId))
     .filter((href) => !href.includes('/studio/about/'));
   assert.deepEqual(

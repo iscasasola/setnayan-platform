@@ -218,7 +218,11 @@ export function SidebarShell({ sidebar, sidebarHeader, sidebarFooter, topBar, ch
           ) : null}
 
           {/* Main scroll area. Caller controls inner max-width / padding. */}
-          <main className="lg:pl-[var(--shell-main-offset)]">{children}</main>
+          {/* `sn-vt-page` → `view-transition-name: sn-page`: during the mobile
+              bottom-nav carousel slide (NavSlideController) ONLY this content
+              <main> slides; the fixed pill / sidebar / top bar stay in `root`,
+              which the CSS freezes. Inert when no View Transition is running. */}
+          <main className="sn-vt-page lg:pl-[var(--shell-main-offset)]">{children}</main>
         </div>
       </div>
     </div>

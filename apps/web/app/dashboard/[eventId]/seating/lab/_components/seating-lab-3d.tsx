@@ -61,6 +61,10 @@ import {
   steerPath,
   resolvePalette,
   DEMO_PALETTES,
+  seatStatusOf,
+  SIDE_COLOR,
+  TENTATIVE_COLOR,
+  PLUS_ONE_COLOR,
 } from '@/lib/seating-3d';
 
 type Props = {
@@ -80,8 +84,18 @@ type WalkerState = { name: string; path: Vec2[]; tableId: string } | null;
 // Shared GPU buffers reused by every chair across every table (module-level
 // constants are never disposed by R3F — safe to share). The big draw-call
 // collapse (one InstancedMesh per shape) is the documented v2 upgrade.
-const CHAIR_GEO = new THREE.BoxGeometry(0.34, 0.5, 0.34);
 const PEDESTAL_GEO = new THREE.CylinderGeometry(0.12, 0.16, 0.72, 12);
+// Real-furniture parts (shared buffers): a chair = seat + backrest; a seated
+// guest = body + head; a centerpiece = vase + bloom. Instancing is the v2 win.
+const CHAIR_SEAT_GEO = new THREE.BoxGeometry(0.42, 0.07, 0.42);
+const CHAIR_BACK_GEO = new THREE.BoxGeometry(0.42, 0.44, 0.06);
+const TOKEN_BODY_GEO = new THREE.CylinderGeometry(0.13, 0.15, 0.4, 10);
+const TOKEN_HEAD_GEO = new THREE.SphereGeometry(0.12, 12, 12);
+const VASE_GEO = new THREE.CylinderGeometry(0.085, 0.12, 0.24, 10);
+const BLOOM_GEO = new THREE.IcosahedronGeometry(0.2, 0);
+
+/** Per-seat token treatment computed from a guest's RSVP (see lib seatStatusOf). */
+type SeatToken = { color: string; opacity: number };
 
 export default function SeatingLab3D({ eventId, tables: initialTables, floor, guests, paletteHexes, me }: Props) {
   const router = useRouter();
@@ -123,6 +137,8 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
   const [notice, setNotice] = useState<string | null>(null);
   const [walker, setWalker] = useState<WalkerState>(null);
   const [arrived, setArrived] = useState<string | null>(null);
+  const [showCloth, setShowCloth] = useState(true);
+  const [showAccents, setShowAccents] = useState(true);
 
   // Run a write action. A lost lock (peer took over) drops us to view-only at
   // once (notifyLost) + reconciles the optimistic 3D state with the server; any
@@ -163,6 +179,53 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
   }, [floor, room]);
 
   const tablesById = useMemo(() => new Map(tables.map((t) => [t.id, t])), [tables]);
+  const guestById = useMemo(() => new Map(guests.map((g) => [g.id, g])), [guests]);
+
+  // Per-table, per-seat token treatment from each seated guest's RSVP, plus a
+  // ghost "+1 reserved" seat beside any guest the couple allowed a +1 whose +1
+  // isn't already a seated row. Declined guests aren't rendered (seat freed).
+  const seatedByTable = useMemo(() => {
+    const out = new Map<string, Map<number, SeatToken>>();
+    const slot = (tid: string) => {
+      let m = out.get(tid);
+      if (!m) {
+        m = new Map();
+        out.set(tid, m);
+      }
+      return m;
+    };
+    const plusOneSeated = new Set<string>(); // primaries whose +1 is already seated
+    for (const [gid, s] of seats) {
+      const g = guestById.get(gid);
+      if (!g) continue;
+      if (g.plusOneOfGuestId) plusOneSeated.add(g.plusOneOfGuestId);
+      const status = seatStatusOf(g.rsvp);
+      if (status === 'hidden') continue; // declined → freed seat
+      slot(s.tableId).set(s.seatNumber, {
+        color: status === 'confirmed' ? SIDE_COLOR[g.side] : TENTATIVE_COLOR,
+        opacity: status === 'confirmed' ? 1 : 0.62,
+      });
+    }
+    for (const [gid, s] of seats) {
+      const g = guestById.get(gid);
+      if (!g || !g.plusOneAllowed || plusOneSeated.has(gid) || seatStatusOf(g.rsvp) === 'hidden') continue;
+      const t = tablesById.get(s.tableId);
+      if (!t) continue;
+      const occ = slot(s.tableId);
+      const removed = new Set(t.removedSeats);
+      let chosen = -1;
+      for (let d = 1; d <= t.capacity && chosen < 0; d++) {
+        for (const cand of [s.seatNumber + d, s.seatNumber - d]) {
+          if (cand >= 0 && cand < t.capacity && !removed.has(cand) && !occ.has(cand)) {
+            chosen = cand;
+            break;
+          }
+        }
+      }
+      if (chosen >= 0) occ.set(chosen, { color: PLUS_ONE_COLOR, opacity: 0.4 });
+    }
+    return out;
+  }, [seats, guestById, tablesById]);
 
   const commitDrag = useCallback(() => {
     const d = dragRef.current;
@@ -378,6 +441,9 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
             dragRef={dragRef}
             interactive={mode === 'build' && canEdit}
             onDown={onTableDown}
+            showCloth={showCloth}
+            showAccents={showAccents}
+            seated={seatedByTable.get(t.id)}
           />
         ))}
 
@@ -426,6 +492,10 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
         onAddTable={addTable}
         onRotate={rotateSelected}
         onDelete={deleteSelected}
+        showCloth={showCloth}
+        setShowCloth={setShowCloth}
+        showAccents={showAccents}
+        setShowAccents={setShowAccents}
         paletteKey={paletteKey}
         setPaletteKey={setPaletteKey}
         guests={guests}
@@ -581,6 +651,9 @@ function TableMesh({
   dragRef,
   interactive,
   onDown,
+  showCloth,
+  showAccents,
+  seated,
 }: {
   table: LiveTable;
   room: { w: number; d: number };
@@ -590,11 +663,30 @@ function TableMesh({
   dragRef: React.MutableRefObject<{ id: string; x: number; z: number } | null>;
   interactive: boolean;
   onDown: (id: string) => void;
+  showCloth: boolean;
+  showAccents: boolean;
+  seated: Map<number, SeatToken> | undefined;
 }) {
   const ref = useRef<THREE.Group>(null);
   const dims = useMemo(() => tableDims(table.shape, table.capacity), [table.shape, table.capacity]);
   const chairs = useMemo(() => chairLocalPositions(table.shape, table.capacity), [table.shape, table.capacity]);
   const home = useMemo(() => pctToWorld(table.xPct, table.yPct, room), [table.xPct, table.yPct, room]);
+  // Share materials by reference (one per table, not one per chair/token) — the
+  // cheap pre-instancing win. Full InstancedMesh is the documented v2 collapse.
+  const chairMat = useMemo(
+    () => new THREE.MeshStandardMaterial({ color: palette.wall, roughness: 0.7 }),
+    [palette.wall],
+  );
+  const tokenMats = useRef<Map<string, THREE.MeshStandardMaterial>>(new Map());
+  const tokenMat = (color: string, opacity: number) => {
+    const key = `${color}|${opacity}`;
+    let m = tokenMats.current.get(key);
+    if (!m) {
+      m = new THREE.MeshStandardMaterial({ color, roughness: 0.5, transparent: opacity < 1, opacity });
+      tokenMats.current.set(key, m);
+    }
+    return m;
+  };
 
   useFrame((_, delta) => {
     const g = ref.current;
@@ -620,36 +712,86 @@ function TableMesh({
     onDown(table.id);
   };
 
-  const topColor = selected ? palette.accent : palette.table;
+  const clothColor = selected ? palette.accent : palette.table;
+  const halfW = dims.round ? dims.w / 2 : dims.w / 2;
+  const halfD = dims.round ? dims.w / 2 : dims.d / 2;
 
   return (
     <group ref={ref} position={[home.x, 0, home.z]} onPointerDown={handleDown}>
-      {/* Tabletop */}
-      {dims.round ? (
-        <mesh position={[0, 0.74, 0]} castShadow>
-          <cylinderGeometry args={[dims.w / 2, dims.w / 2, 0.08, 36]} />
-          <meshStandardMaterial color={topColor} roughness={0.35} metalness={0.05} />
-        </mesh>
+      {/* Table: a draped tablecloth (skirt to the floor + top) when cloth is on,
+          else a bare top + pedestal. */}
+      {showCloth ? (
+        dims.round ? (
+          <group>
+            <mesh position={[0, 0.37, 0]}>
+              <cylinderGeometry args={[dims.w / 2, dims.w / 2 + 0.04, 0.74, 32]} />
+              <meshStandardMaterial color={clothColor} roughness={0.85} />
+            </mesh>
+            <mesh position={[0, 0.745, 0]}>
+              <cylinderGeometry args={[dims.w / 2, dims.w / 2, 0.04, 32]} />
+              <meshStandardMaterial color={clothColor} roughness={0.85} />
+            </mesh>
+          </group>
+        ) : (
+          <group>
+            <mesh position={[0, 0.37, 0]}>
+              <boxGeometry args={[dims.w, 0.74, dims.d]} />
+              <meshStandardMaterial color={clothColor} roughness={0.85} />
+            </mesh>
+            <mesh position={[0, 0.745, 0]}>
+              <boxGeometry args={[dims.w + 0.04, 0.04, dims.d + 0.04]} />
+              <meshStandardMaterial color={clothColor} roughness={0.85} />
+            </mesh>
+          </group>
+        )
       ) : (
-        <mesh position={[0, 0.74, 0]} castShadow>
-          <boxGeometry args={[dims.w, 0.08, dims.d]} />
-          <meshStandardMaterial color={topColor} roughness={0.35} metalness={0.05} />
-        </mesh>
+        <group>
+          <mesh position={[0, 0.74, 0]} castShadow>
+            {dims.round ? (
+              <cylinderGeometry args={[dims.w / 2, dims.w / 2, 0.08, 36]} />
+            ) : (
+              <boxGeometry args={[dims.w, 0.08, dims.d]} />
+            )}
+            <meshStandardMaterial color={clothColor} roughness={0.35} metalness={0.05} />
+          </mesh>
+          <mesh position={[0, 0.37, 0]} geometry={PEDESTAL_GEO} material={chairMat} />
+        </group>
       )}
-      {/* Pedestal (shared geometry) */}
-      <mesh position={[0, 0.37, 0]} geometry={PEDESTAL_GEO}>
-        <meshStandardMaterial color={palette.wall} roughness={0.6} />
-      </mesh>
-      {/* Chairs (shared geometry across every chair + table) */}
-      {chairs.map((c, i) => (
-        <mesh key={i} position={[c.x, 0.26, c.z]} geometry={CHAIR_GEO}>
-          <meshStandardMaterial color={palette.wall} roughness={0.7} />
-        </mesh>
-      ))}
+
+      {/* Centerpiece accent (toggle) */}
+      {showAccents ? (
+        <group position={[0, 0.78, 0]}>
+          <mesh geometry={VASE_GEO} position={[0, 0.12, 0]}>
+            <meshStandardMaterial color={palette.accent} roughness={0.5} metalness={0.12} />
+          </mesh>
+          <mesh geometry={BLOOM_GEO} position={[0, 0.34, 0]}>
+            <meshStandardMaterial color="#6f9b6a" roughness={0.7} />
+          </mesh>
+        </group>
+      ) : null}
+
+      {/* Chairs (seat + backrest, oriented to face the table) + seated guests */}
+      {chairs.map((c, i) => {
+        const ang = Math.atan2(c.x, c.z);
+        const tok = seated?.get(i);
+        return (
+          <group key={i} position={[c.x, 0, c.z]} rotation={[0, ang, 0]}>
+            <mesh geometry={CHAIR_SEAT_GEO} position={[0, 0.46, 0]} material={chairMat} />
+            <mesh geometry={CHAIR_BACK_GEO} position={[0, 0.69, 0.19]} material={chairMat} />
+            {tok ? (
+              <group position={[0, 0, -0.04]}>
+                <mesh geometry={TOKEN_BODY_GEO} position={[0, 0.7, 0]} material={tokenMat(tok.color, tok.opacity)} />
+                <mesh geometry={TOKEN_HEAD_GEO} position={[0, 1.0, 0]} material={tokenMat(tok.color, tok.opacity)} />
+              </group>
+            ) : null}
+          </group>
+        );
+      })}
+
       {/* Selection ring */}
       {selected ? (
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
-          <ringGeometry args={[dims.round ? dims.w / 2 + 0.7 : Math.max(dims.w, dims.d) / 2 + 0.7, dims.round ? dims.w / 2 + 0.9 : Math.max(dims.w, dims.d) / 2 + 0.9, 40]} />
+          <ringGeometry args={[Math.max(halfW, halfD) + 0.7, Math.max(halfW, halfD) + 0.9, 40]} />
           <meshBasicMaterial color={palette.accent} side={THREE.DoubleSide} transparent opacity={0.9} />
         </mesh>
       ) : null}
@@ -740,6 +882,10 @@ function Hud({
   onAddTable,
   onRotate,
   onDelete,
+  showCloth,
+  setShowCloth,
+  showAccents,
+  setShowAccents,
   paletteKey,
   setPaletteKey,
   guests,
@@ -761,6 +907,10 @@ function Hud({
   onAddTable: () => void;
   onRotate: (delta: number) => void;
   onDelete: () => void;
+  showCloth: boolean;
+  setShowCloth: (v: boolean) => void;
+  showAccents: boolean;
+  setShowAccents: (v: boolean) => void;
   paletteKey: string;
   setPaletteKey: (k: string) => void;
   guests: Lab3DGuest[];
@@ -797,11 +947,38 @@ function Hud({
         </div>
       </div>
 
+      {/* Decor toggles — apply tablecloths + centerpieces "if requested" */}
+      <div className="pointer-events-auto absolute left-1/2 top-4 flex -translate-x-1/2 gap-1.5">
+        <button
+          type="button"
+          onClick={() => setShowCloth(!showCloth)}
+          className={`rounded-xl border border-white/15 px-3 py-1.5 text-sm font-medium backdrop-blur-md transition ${showCloth ? 'bg-white text-ink' : 'bg-white/10 text-white/75 hover:bg-white/20'}`}
+        >
+          Tablecloths
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowAccents(!showAccents)}
+          className={`rounded-xl border border-white/15 px-3 py-1.5 text-sm font-medium backdrop-blur-md transition ${showAccents ? 'bg-white text-ink' : 'bg-white/10 text-white/75 hover:bg-white/20'}`}
+        >
+          Centerpieces
+        </button>
+      </div>
+
       {/* Save-error / view-only notice */}
       {notice ? (
         <div className={`pointer-events-auto absolute left-1/2 top-16 flex -translate-x-1/2 items-center gap-3 px-4 py-2 text-sm text-amber-100 ${glass}`}>
           <span>{notice}</span>
           <button type="button" onClick={onDismissNotice} className="text-white/60 hover:text-white">✕</button>
+        </div>
+      ) : null}
+
+      {/* RSVP seat legend (hidden while a walker toast is showing) */}
+      {!walker ? (
+        <div className={`pointer-events-none absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-3 px-3 py-2 text-[11px] text-white/85 ${glass}`}>
+          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: SIDE_COLOR.both }} />Confirmed</span>
+          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: TENTATIVE_COLOR }} />Pending / maybe</span>
+          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: PLUS_ONE_COLOR, opacity: 0.5 }} />+1 held</span>
         </div>
       ) : null}
 

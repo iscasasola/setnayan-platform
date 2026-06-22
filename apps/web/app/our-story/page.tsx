@@ -15,8 +15,12 @@
 import Link from 'next/link';
 import { OurStoryManifesto } from '@/app/_components/marketing/OurStory';
 import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
+import { fetchAlaalaOrbClips } from '@/lib/alaala-orb';
 
-export const dynamic = 'force-static';
+// ISR (was force-static): the Alaala orb is now fed by consented + couple-
+// approved Papic clips resolved at render. Hourly revalidate keeps the page
+// near-static while new showcase clips appear without a redeploy. The orb
+// graceful-degrades to its CSS-gradient cold-start when the feed is empty.
 export const revalidate = 3600;
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
@@ -74,7 +78,12 @@ const aboutPageJsonLd = {
   about: { '@type': 'Organization', '@id': `${SITE_URL}/#organization` },
 };
 
-export default function OurStoryPage() {
+export default async function OurStoryPage() {
+  // Consented + couple-approved Papic clips for the memory orb. Best-effort —
+  // [] (cold-start) keeps the orb on its CSS-gradient skin and never blocks the
+  // page render.
+  const orbClips = await fetchAlaalaOrbClips();
+
   return (
     <>
       <script
@@ -86,7 +95,7 @@ export default function OurStoryPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(aboutPageJsonLd) }}
       />
       <main className="bg-[var(--m-paper)] text-[var(--m-ink)]">
-        <OurStoryManifesto />
+        <OurStoryManifesto clips={orbClips} />
 
         {/* "What Setnayan is" — a plain-language description of the product and
             the features behind the Google scopes. This is the page Google's

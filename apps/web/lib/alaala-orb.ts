@@ -1,0 +1,105 @@
+import 'server-only';
+import { cache } from 'react';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
+
+/**
+ * Alaala memory-orb feed — the consumer half of the Papic → Alaala flywheel.
+ *
+ * The orb (apps/web/app/_components/marketing/AlaalaOrb.tsx) crossfades real
+ * Papic CLIPS inside a warm sphere; until this fetcher existed it had no
+ * producer and cold-started FOREVER. This resolves the playable clips for it.
+ *
+ * OWNER-LOCKED GATE (memory project_setnayan_alaala_orb_video_consent): a clip
+ * reaches a PUBLIC showcase surface ONLY when BOTH are true —
+ *   • consent_to_public            (the guest consented to public sharing)
+ *   • couple_approved_for_showcase (the couple picked it for the orb)
+ * Cold-start (no clip clears both gates yet) → [] → the orb keeps its existing
+ * CSS-gradient skin. Nothing here throws; every failure degrades to [].
+ *
+ * Surface scoping: the brand /our-story manifesto has no event in context, so
+ * the orb there draws from the curated SHOWCASE events (events.is_sample) —
+ * the same trust boundary the public no-login tour uses. The two consent gates
+ * are the real guarantee; is_sample just keeps the marketing orb pointed at
+ * the curated couples rather than every wedding. Read through the admin
+ * (service-role) client because the surface is anonymous, mirroring every
+ * other public recap/editorial fetcher.
+ *
+ * The clip's `r2_object_key` holds an `r2://bucket/key` ref (papic capture
+ * writes it that way); displayUrlForStoredAsset presigns it to a short-lived
+ * GET URL the <video src> can play.
+ */
+
+// Keep the orb light — a handful of clips crossfade plenty. Reading a few more
+// than we render leaves headroom if a presign returns null for a stray row.
+const ORB_CLIP_LIMIT = 12;
+
+/**
+ * Resolve presigned, playable clip URLs for the public Alaala showcase orb.
+ *
+ * @param opts.eventIds  Restrict to these events (e.g. one couple's own page).
+ *                       Omit → draw from the curated showcase (events.is_sample).
+ * @param opts.limit     Max clips to return (default {@link ORB_CLIP_LIMIT}).
+ */
+export const fetchAlaalaOrbClips = cache(async function fetchAlaalaOrbClips(
+  opts: { eventIds?: string[]; limit?: number } = {},
+): Promise<string[]> {
+  const limit = Math.max(1, Math.min(opts.limit ?? ORB_CLIP_LIMIT, 50));
+
+  let admin: ReturnType<typeof createAdminClient>;
+  try {
+    admin = createAdminClient();
+  } catch {
+    return [];
+  }
+
+  // Resolve the event scope. Explicit ids win; otherwise the curated showcase.
+  let eventIds = opts.eventIds?.filter((id) => typeof id === 'string' && id.length > 0) ?? null;
+  if (!eventIds) {
+    try {
+      const { data, error } = await admin
+        .from('events')
+        .select('event_id')
+        .eq('is_sample', true)
+        .eq('event_type', 'wedding');
+      if (error) return [];
+      eventIds = (data ?? [])
+        .map((r) => (r as { event_id?: string }).event_id)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0);
+    } catch {
+      return [];
+    }
+  }
+  if (eventIds.length === 0) return [];
+
+  // The two-gate query. BOTH consent gates true + clip + non-hidden + NSFW-clean
+  // (never 'unscreened' or a *_blocked verdict on a public surface). Newest
+  // first. Graceful-degrade: a missing column (pre-migration) → [], orb stays
+  // cold rather than crashing the marketing page.
+  let rows: Array<{ r2_object_key: string | null }>;
+  try {
+    const { data, error } = await admin
+      .from('papic_photos')
+      .select('r2_object_key, captured_at')
+      .in('event_id', eventIds)
+      .eq('photo_type', 'clip')
+      .eq('consent_to_public', true)
+      .eq('couple_approved_for_showcase', true)
+      .is('hidden_at', null)
+      .eq('moderation_state', 'clean')
+      .order('captured_at', { ascending: false })
+      .limit(limit);
+    if (error) return [];
+    rows = (data ?? []) as Array<{ r2_object_key: string | null }>;
+  } catch {
+    return [];
+  }
+
+  const refs = rows
+    .map((r) => r.r2_object_key)
+    .filter((k): k is string => typeof k === 'string' && k.trim().length > 0);
+  if (refs.length === 0) return [];
+
+  const urls = await Promise.all(refs.map((ref) => displayUrlForStoredAsset(ref)));
+  return urls.filter((u): u is string => Boolean(u));
+});

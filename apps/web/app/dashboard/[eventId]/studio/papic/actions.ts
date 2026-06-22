@@ -289,3 +289,65 @@ export async function reissuePapicSeat(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/studio/papic/crew`);
   redirect(`/dashboard/${eventId}/studio/papic/crew?seat_set=reissued`);
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// Alaala showcase orb — couple-approval toggle (producer half of the feed).
+//
+// The memory orb on the public /our-story manifesto crossfades Papic clips,
+// but ONLY ones that have cleared BOTH consent gates (owner-locked rule
+// project_setnayan_alaala_orb_video_consent):
+//   • consent_to_public            — the guest consented (set by the guest-
+//                                    consent flow; a follow-up — see the
+//                                    page note + CHANGELOG).
+//   • couple_approved_for_showcase — the couple picked the clip → THIS action.
+//
+// This is the couple's gate. It flips couple_approved_for_showcase on one of
+// their event's clips under the couple's own RLS session (papic_photos_couple
+// _full permits the UPDATE). The orb stays cold until a clip clears both gates,
+// so approving alone won't surface anything until guest consent also lands —
+// that's the locked cold-start behaviour, preserved.
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Toggle whether one of the couple's Papic CLIPS is approved for the public
+ * Alaala showcase orb. `approve` carries the desired state ('1' = approve);
+ * idempotent. Scoped to (event_id, photo_id) under the couple's session.
+ */
+export async function setClipShowcaseApproval(formData: FormData) {
+  const result = await getCoupleEventId(formData.get('event_id'));
+  if (!result.ok) {
+    redirect(result.redirectTo);
+  }
+  const { eventId } = result;
+
+  const rawPhotoId = formData.get('photo_id');
+  const photoId = typeof rawPhotoId === 'string' ? rawPhotoId.trim() : '';
+  if (!photoId) {
+    redirect(`/dashboard/${eventId}/studio/papic?showcase_error=missing_photo`);
+  }
+  const approve = formData.get('approve') === '1';
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('papic_photos')
+    .update({ couple_approved_for_showcase: approve })
+    .eq('photo_id', photoId)
+    .eq('event_id', eventId)
+    .eq('photo_type', 'clip');
+
+  if (error) {
+    redirect(
+      `/dashboard/${eventId}/studio/papic?showcase_error=${encodeURIComponent(
+        error.message.slice(0, 64),
+      )}`,
+    );
+  }
+
+  // Refresh the gallery (couple) + the public manifesto orb (ISR) so the change
+  // shows on the next render of either surface.
+  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  revalidatePath('/our-story');
+  redirect(
+    `/dashboard/${eventId}/studio/papic?showcase_set=${approve ? 'approved' : 'removed'}`,
+  );
+}

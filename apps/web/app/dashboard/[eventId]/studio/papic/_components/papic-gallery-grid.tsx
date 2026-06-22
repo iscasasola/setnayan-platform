@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Play, Download } from 'lucide-react';
+import { Play, Download, Sparkles } from 'lucide-react';
 import type { GalleryPhoto, GalleryTagSource } from '@/lib/papic-gallery';
 import { SavePhotoButton } from '@/app/_components/save-photo-button';
+import { setClipShowcaseApproval } from '../actions';
 
 // Real Papic gallery grid — the couple's captured photos + clips with working
 // filter chips. Server-fetched (presigned thumbnails) and passed in; this only
@@ -90,6 +91,16 @@ export function PapicGalleryGrid({
         </a>
       ) : null}
 
+      {eventId && photos.some((p) => p.kind === 'clip') ? (
+        <p className="flex items-start gap-1.5 text-xs text-ink/55">
+          <Sparkles aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-terracotta" strokeWidth={2} />
+          <span>
+            Tap the <span className="font-medium text-ink/70">sparkle</span> on a clip to add it to your public
+            memory orb. It only goes live once the guest in it has also consented to public sharing.
+          </span>
+        </p>
+      ) : null}
+
       {shown.length === 0 ? (
         <p className="text-sm text-ink/55">No photos in this view yet.</p>
       ) : (
@@ -119,6 +130,14 @@ export function PapicGalleryGrid({
                     <span className="sr-only">Video clip</span>
                   </span>
                 )}
+                {eventId && p.kind === 'clip' ? (
+                  <ShowcaseToggle
+                    eventId={eventId}
+                    photoId={p.id}
+                    approved={Boolean(p.showcaseApproved)}
+                    consented={Boolean(p.showcaseConsent)}
+                  />
+                ) : null}
                 {p.url ? (
                   <SavePhotoButton url={p.url} filename={`setnayan-photo-${p.id}.jpg`} />
                 ) : null}
@@ -139,5 +158,52 @@ export function PapicGalleryGrid({
         </ul>
       )}
     </>
+  );
+}
+
+/**
+ * Showcase toggle for one clip — the couple's gate for the public Alaala memory
+ * orb (/our-story). Approving sets couple_approved_for_showcase; the clip only
+ * actually surfaces on the orb once the GUEST has also consented to public
+ * sharing (consent_to_public — a separate gate, set by the guest-consent flow).
+ * So an approved-but-not-yet-consented clip shows a "waiting on guest" hint
+ * rather than implying it's already live.
+ */
+function ShowcaseToggle({
+  eventId,
+  photoId,
+  approved,
+  consented,
+}: {
+  eventId: string;
+  photoId: string;
+  approved: boolean;
+  consented: boolean;
+}) {
+  const live = approved && consented;
+  const title = !approved
+    ? 'Add this clip to your public memory orb'
+    : live
+      ? 'On your public memory orb — tap to remove'
+      : 'Approved — waiting on guest consent before it shows';
+  return (
+    <form action={setClipShowcaseApproval} className="absolute left-1 top-1">
+      <input type="hidden" name="event_id" value={eventId} />
+      <input type="hidden" name="photo_id" value={photoId} />
+      <input type="hidden" name="approve" value={approved ? '0' : '1'} />
+      <button
+        type="submit"
+        title={title}
+        aria-pressed={approved}
+        aria-label={title}
+        className={
+          approved
+            ? `inline-flex items-center justify-center rounded-full p-1 text-cream ring-1 ring-white/70 ${live ? 'bg-terracotta' : 'bg-warn-400'}`
+            : 'inline-flex items-center justify-center rounded-full bg-black/45 p-1 text-cream/85 ring-1 ring-white/40 hover:bg-black/65'
+        }
+      >
+        <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2} />
+      </button>
+    </form>
   );
 }

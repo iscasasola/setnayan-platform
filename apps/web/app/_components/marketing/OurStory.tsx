@@ -72,7 +72,11 @@ const KEPT: Array<{ mock: FeatureMockKind; eyebrow: string; title: string; line:
 // ─────────────────────────────────────────────────────────────────────────────
 // FULL PAGE BODY
 // ─────────────────────────────────────────────────────────────────────────────
-export function OurStoryManifesto() {
+// `clips` are presigned, playable Papic clip URLs that have cleared BOTH consent
+// gates (guest consent + couple showcase approval), resolved server-side by
+// lib/alaala-orb.ts and passed in by the /our-story page. Empty (cold-start, no
+// consented clip yet) → the orb keeps its CSS-gradient skin.
+export function OurStoryManifesto({ clips = [] }: { clips?: string[] }) {
   return (
     <section className="text-[var(--m-ink)]">
       {/* ───────────────────────────────────────────────────────────────
@@ -85,9 +89,13 @@ export function OurStoryManifesto() {
         <div className="relative mx-auto max-w-[1100px] px-5 pt-16 pb-12 sm:px-8 sm:pt-20 lg:px-14">
           {/* ── ACT 1 HERO: Orb + Alaala proposition ── */}
           <div className="flex flex-col items-center gap-10 lg:flex-row lg:items-center lg:gap-16 lg:pb-4">
-            {/* Orb — responsive size; cold-start renders CSS gradient skin */}
+            {/* Orb — responsive size; fed consented + couple-approved Papic
+                clips when any exist, else cold-start CSS gradient skin */}
             <div className="flex flex-shrink-0 justify-center">
-              <AlaalaOrb className="h-[260px] w-[260px] sm:h-[310px] sm:w-[310px] lg:h-[370px] lg:w-[370px]" />
+              <AlaalaOrb
+                clips={clips}
+                className="h-[260px] w-[260px] sm:h-[310px] sm:w-[310px] lg:h-[370px] lg:w-[370px]"
+              />
             </div>
 
             {/* Text — "Alaala / living memory / proposition" */}

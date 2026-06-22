@@ -64,34 +64,40 @@ function setVol(el: HTMLMediaElement | null, v: number) {
 }
 
 /**
- * Reliably SILENCE a WARM (off-beat, invisible) clip, and report whether its
- * volume is programmatically controllable.
+ * iOS / iPadOS (WebKit) detection. iOS treats `HTMLMediaElement.volume` as
+ * read-only (system volume only) AND won't unmute a clip off a user gesture — so
+ * the clip's audio can't be volume-ramped or auto-unmuted there; the video beat
+ * keeps it MUTED and offers "Tap for sound" instead. We detect by platform, NOT
+ * by the "write volume 0, read it back" probe: iOS can echo back the value you
+ * set (looking controllable) while ignoring it for actual output — a false
+ * positive that left the warm clip UNMUTED + audible ("the video music plays when
+ * the veil is up"). Includes iPadOS, which reports a desktop "Macintosh" UA but is
+ * touch-capable.
+ */
+function isIOSWebKit(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  if (/iPad|iPhone|iPod/.test(ua)) return true;
+  return /Macintosh/.test(ua) && (navigator.maxTouchPoints ?? 0) > 1;
+}
+
+/**
+ * SILENCE a WARM (off-beat, invisible) clip, and report whether its audio can be
+ * ramped in on its beat. The clip is kept PLAYING before its beat so it buffers
+ * ahead — but it must be INAUDIBLE the whole time.
  *
- * The film keeps the couple's clip PLAYING (unmuted, `volume = 0`, looping,
- * invisible) before its beat. This is load-bearing for PLAYBACK, not just audio:
- * a clip kept *unmuted* is treated by the browser as active media and **buffers
- * ahead** while the text beats play, so a heavy clip (e.g. a 45s/25 Mbps phone
- * export) is already buffered when its beat arrives. MUTING it lets the browser
- * throttle/suspend that background buffering → the clip reaches its beat
- * unbuffered → a long stall then repeated re-buffering pauses. (Regression caught
- * 2026-06-22: an over-zealous "always mute the warm clip" broke playback that had
- * been smooth. Do NOT mute a controllable-volume warm clip — `volume = 0` already
- * silences it AND keeps it buffering.)
- *
- * iOS Safari is the exception: it treats `HTMLMediaElement.volume` as read-only
- * (system volume only) — the `0` write is ignored and an unmuted clip plays at
- * FULL volume under the soundtrack ("video + background music at the veil lift").
- * There `volume = 0` can't silence, so we MUST fall back to `muted`. We detect the
- * case by writing 0 and reading it back: if it stuck (desktop/Android) keep it
- * unmuted (silent + buffering); if it didn't (iOS) mute. The returned flag lets
- * the video beat pick the smooth crossfade (controllable) vs "Tap for sound" (iOS).
+ * We ALWAYS `muted = true`: `muted` is the only silence honored on EVERY platform.
+ * `volume = 0` alone is NOT enough — iOS ignores volume writes, so an unmuted warm
+ * clip plays at full volume under the soundtrack (the repeatedly-reported "video
+ * music plays while the veil is up / before the video"). We set `volume = 0` too,
+ * as a belt on platforms that honor it, but `muted` is the guarantee. The on-beat
+ * path unmutes it again when the clip actually shows (desktop) or keeps it muted +
+ * "Tap for sound" (iOS). Returns false on iOS so the beat picks that path.
  */
 function silenceWarmClip(v: HTMLVideoElement): boolean {
-  v.muted = false;
-  setVol(v, 0);
-  const controllable = v.volume <= 0.01;
-  if (!controllable) v.muted = true; // iOS only — volume:0 didn't silence it
-  return controllable;
+  v.muted = true; // always — the only silence iOS honors; never leave it audible
+  setVol(v, 0); // belt for platforms that honor volume
+  return !isIOSWebKit();
 }
 
 type Slide = {
@@ -907,26 +913,22 @@ export function SaveTheDateFilm({
         crossfade(0, 1, true); // music fades out → PAUSES (holds position); video fades in
       }
     } else {
-      // Off the video beat, the clip must never be audible — but it's kept WARM
-      // (playing, unmuted, volume 0, invisible) BEFORE its beat so it BUFFERS AHEAD
-      // (a muted background clip gets its buffering throttled — see silenceWarmClip).
-      // So we do NOT blanket-mute here: silencing is volume 0 on desktop/Android
-      // (silent AND still buffering) and `muted` only on iOS (handled in
-      // silenceWarmClip / the re-warm below). The only place we hard-mute is the
-      // PAST-the-beat pause branch, where the clip is done and buffering no longer
-      // matters — that also clears any unmute left over from an on-beat "Tap for
-      // sound" so a later tap can't replay its audio.
+      // Off the video beat the clip must be SILENT. It's kept WARM (playing,
+      // looping, invisible) BEFORE its beat so it buffers ahead — but ALWAYS muted
+      // (silenceWarmClip): `muted` is the only silence iOS honors, so the warm clip
+      // never plays audibly under the soundtrack ("video music plays while the veil
+      // is up"). `v.muted = true` here too, every off-beat run, so an unmute left
+      // over from an on-beat "Tap for sound" can't replay its audio on a later tap.
+      v.muted = true;
       // Resume the music FROM WHERE IT PAUSED — play() never resets currentTime,
       // and we never touch a.currentTime, so it continues, never restarts.
       if (content.musicUrl && a && !preview && playing && !muted) {
         a.play().catch(() => {});
       }
       crossfade(1, 0); // video fades out, music fades back up from its held position
-      // Keep the clip WARM (playing, silent) BEFORE its beat so its audio can ramp
-      // in on the beat without a fresh (iOS-blocked) play(); only PAUSE it once
-      // we're PAST the beat (clip done) or sound is off. See the unlock above.
+      // Keep the clip WARM (playing, MUTED) BEFORE its beat so it buffers; PAUSE it
+      // once we're PAST the beat (clip done) or sound is globally off.
       if (idxRef.current > videoSlideIdxRef.current || muted || preview) {
-        v.muted = true; // past the beat / globally muted — silence + pause (buffering moot now)
         v.pause();
       } else if (v.paused) {
         // RE-WARM if a prior mute or off-beat pause left the clip paused before its

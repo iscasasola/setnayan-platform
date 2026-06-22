@@ -186,8 +186,8 @@ export default async function AdminSocialQueuePage({ searchParams }: Props) {
   // Fire-and-forget AFTER the response; 10-min throttled; never throws.
   after(() => runSocialFlush().catch(() => {}));
 
-  const fbConfigured = isFacebookConfigured();
-  const igConfigured = isInstagramConfigured();
+  const fbConfigured = await isFacebookConfigured();
+  const igConfigured = await isInstagramConfigured();
   const ttConfigured = isTikTokConfigured();
 
   // ── Autopilot switchboard (single row) ──────────────────────────────────

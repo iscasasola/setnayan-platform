@@ -1,4 +1,5 @@
 import 'server-only';
+import { resolveMetaConfig } from '@/lib/integration-config';
 
 /**
  * apps/web/lib/social/instagram.ts
@@ -40,9 +41,13 @@ export type InstagramPostResult =
   | { ok: true; externalId: string; postUrl: string }
   | { ok: false; error: string };
 
-/** True once the owner has pasted IG_USER_ID + the Page token (Vercel env). */
-export function isInstagramConfigured(): boolean {
-  return Boolean(process.env.META_PAGE_ACCESS_TOKEN && process.env.IG_USER_ID);
+/**
+ * True once the IG Business id + Page token are set (Integration Console DB or
+ * Vercel env). Async (DB-first); byte-identical to the env check when DB empty.
+ */
+export async function isInstagramConfigured(): Promise<boolean> {
+  const { igUserId, accessToken } = await resolveMetaConfig();
+  return Boolean(accessToken && igUserId);
 }
 
 /** One Graph POST with a shared timeout; returns parsed JSON or a typed error. */
@@ -96,8 +101,7 @@ export async function postToInstagramFeed({
   imageUrl: string;
   caption: string;
 }): Promise<InstagramPostResult> {
-  const igUserId = process.env.IG_USER_ID;
-  const accessToken = process.env.META_PAGE_ACCESS_TOKEN;
+  const { igUserId, accessToken } = await resolveMetaConfig();
   if (!igUserId || !accessToken) {
     return {
       ok: false,

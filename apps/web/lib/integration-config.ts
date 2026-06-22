@@ -242,3 +242,56 @@ export async function resolveOAuthClientConfig(
     redirectUri: redirectUri || process.env[spec.redirectUriEnv] || '',
   };
 }
+
+// ── Meta (Facebook + Instagram) publishing config (PR4a) ────────────────────
+//
+// DB-first / env-fallback resolver for the Meta credential. ONE Page access
+// token (encrypted) authorizes BOTH Facebook + Instagram; pageId + igUserId are
+// non-secret config. UNCACHED. ⚠ This feeds the LIVE auto-publish path — when the
+// DB columns are empty it returns the META_* env values, byte-identical to the
+// pre-console behavior, so live posting is unaffected.
+export interface MetaConfig {
+  pageId: string;
+  accessToken: string;
+  igUserId: string;
+}
+
+export async function resolveMetaConfig(): Promise<MetaConfig> {
+  let accessToken = '';
+  let pageId = '';
+  let igUserId = '';
+  try {
+    const admin = createAdminClient();
+    const [secretRes, settingsRes] = await Promise.all([
+      admin
+        .from('platform_integration_secrets')
+        .select('meta_page_access_token_enc')
+        .eq('id', 1)
+        .maybeSingle(),
+      admin
+        .from('platform_settings')
+        .select('meta_page_id, ig_user_id')
+        .eq('id', 1)
+        .maybeSingle(),
+    ]);
+    const enc = (secretRes.data as Record<string, unknown> | null)
+      ?.meta_page_access_token_enc as string | null | undefined;
+    if (enc) {
+      try {
+        accessToken = decryptToken(enc);
+      } catch {
+        // bad ciphertext / rotated key → env fallback below
+      }
+    }
+    const s = settingsRes.data as Record<string, unknown> | null;
+    pageId = ((s?.meta_page_id as string | null) ?? '').trim();
+    igUserId = ((s?.ig_user_id as string | null) ?? '').trim();
+  } catch {
+    // DB unreachable / columns absent (pre-migration) → env fallback below.
+  }
+  return {
+    accessToken: accessToken || process.env.META_PAGE_ACCESS_TOKEN || '',
+    pageId: pageId || process.env.META_PAGE_ID || '',
+    igUserId: igUserId || process.env.IG_USER_ID || '',
+  };
+}

@@ -14,7 +14,11 @@ import { saveResendConfig, clearResendKey, setAiPaywall } from './actions';
 import { TestResendButton } from './_components/test-resend-button';
 import { SecretCard } from './_components/secret-card';
 import { OAuthCard } from './_components/oauth-card';
-import { SECRET_INTEGRATIONS, OAUTH_INTEGRATIONS } from '@/lib/integrations/registry';
+import {
+  SECRET_INTEGRATIONS,
+  OAUTH_INTEGRATIONS,
+  SOCIAL_INTEGRATIONS,
+} from '@/lib/integrations/registry';
 import { getSecretPresenceMap } from '@/lib/integration-config';
 
 // Integration Activation Console.
@@ -137,13 +141,14 @@ export default async function AdminIntegrationsPage({
           email now falls back to the Vercel env (if set).
         </p>
       ) : null}
-      {error === 'invalid_redirect_uri' ? (
+      {error === 'invalid_config' ? (
         <p
           role="alert"
           className="inline-flex items-center gap-2 rounded-2xl border border-rose-300/70 bg-rose-50 px-4 py-3 text-sm text-rose-900"
         >
-          <ShieldAlert aria-hidden className="h-4 w-4" strokeWidth={1.75} /> A redirect URI
-          must be a valid http(s) URL — nothing was saved. Check the value and try again.
+          <ShieldAlert aria-hidden className="h-4 w-4" strokeWidth={1.75} /> A field had an
+          invalid value (redirect URIs must be http(s) URLs; IDs must be numeric) — nothing
+          was saved. Check the values and try again.
         </p>
       ) : null}
 
@@ -311,6 +316,37 @@ export default async function AdminIntegrationsPage({
             OAuth integrations
           </h2>
           {OAUTH_INTEGRATIONS.map((intg) => {
+            const fields = intg.configFields.map((field) => {
+              const dbVal = ((oauthSettings?.[field.column] as string | null) ?? '').trim();
+              const envVal = process.env[field.env] ?? '';
+              return {
+                column: field.column,
+                label: field.label,
+                placeholder: field.placeholder,
+                value: dbVal || envVal,
+                fromEnv: !dbVal && Boolean(envVal),
+              };
+            });
+            return (
+              <OAuthCard
+                key={intg.id}
+                integration={intg}
+                secretInDb={secretPresence[intg.secretColumn] ?? false}
+                secretInEnv={Boolean(process.env[intg.secretEnv])}
+                fields={fields}
+              />
+            );
+          })}
+        </section>
+      ) : null}
+
+      {/* Social-publish credentials (PR4a) — Meta is the LIVE auto-publish path */}
+      {SOCIAL_INTEGRATIONS.length > 0 ? (
+        <section className="space-y-4">
+          <h2 className="text-sm font-mono uppercase tracking-[0.18em] text-ink/45">
+            Social publishing
+          </h2>
+          {SOCIAL_INTEGRATIONS.map((intg) => {
             const fields = intg.configFields.map((field) => {
               const dbVal = ((oauthSettings?.[field.column] as string | null) ?? '').trim();
               const envVal = process.env[field.env] ?? '';

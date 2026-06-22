@@ -133,8 +133,8 @@ export async function runSocialFlush(): Promise<void> {
     // until the owner completes OAuth + the Content Posting API audit, ttLive
     // is false and the TikTok leg is simply skipped — the assisted-manual panel
     // in /admin/social-queue is what works (Phase C).
-    const fbLive = settings.facebook_enabled && isFacebookConfigured();
-    const igLive = settings.instagram_enabled && isInstagramConfigured();
+    const fbLive = settings.facebook_enabled && (await isFacebookConfigured());
+    const igLive = settings.instagram_enabled && (await isInstagramConfigured());
     const ttLive = settings.tiktok_enabled && isTikTokConfigured();
     if (settings.autopublish_enabled && (fbLive || igLive || ttLive)) {
       await dispatchDuePosts(admin, now, {

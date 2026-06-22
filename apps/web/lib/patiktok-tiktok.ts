@@ -27,6 +27,8 @@
  */
 
 import 'server-only';
+import { resolveOAuthClientConfig } from '@/lib/integration-config';
+import { OAUTH_SPECS } from '@/lib/integrations/registry';
 
 const TIKTOK_AUTHORIZE_URL = 'https://www.tiktok.com/v2/auth/authorize/';
 const TIKTOK_TOKEN_URL = 'https://open.tiktokapis.com/v2/oauth/token/';
@@ -35,24 +37,25 @@ const TIKTOK_USERINFO_URL = 'https://open.tiktokapis.com/v2/user/info/';
 const SPEC_SCOPES = ['user.info.basic', 'video.upload', 'video.publish'] as const;
 
 export type PatiktokTiktokConfigStatus =
-  | { ready: true; clientKey: string; redirectUri: string }
+  | { ready: true; clientKey: string; clientSecret: string; redirectUri: string }
   | { ready: false; missing: ReadonlyArray<string> };
 
 /**
- * Read the TikTok OAuth config from env. Returns a status object that lets
- * routes / UI surface a clear "TikTok not yet configured — owner action
- * required" message rather than throwing at request time.
+ * Read the TikTok OAuth config (DB-first via the Integration Activation Console,
+ * env-fallback). Byte-identical when the DB is empty (resolves to TIKTOK_* env).
+ * The ready shape now carries `clientSecret` so the token-exchange callback uses
+ * the RESOLVED secret instead of re-reading process.env directly.
  */
-export function getTiktokOAuthConfig(): PatiktokTiktokConfigStatus {
-  const clientKey = process.env.TIKTOK_CLIENT_KEY ?? '';
-  const clientSecret = process.env.TIKTOK_CLIENT_SECRET ?? '';
-  const redirectUri = process.env.TIKTOK_OAUTH_REDIRECT_URI ?? '';
+export async function getTiktokOAuthConfig(): Promise<PatiktokTiktokConfigStatus> {
+  // OAUTH_SPECS.tiktok maps clientId→clientKey for TikTok's naming.
+  const { clientId: clientKey, clientSecret, redirectUri } =
+    await resolveOAuthClientConfig(OAUTH_SPECS.tiktok);
   const missing: string[] = [];
   if (!clientKey) missing.push('TIKTOK_CLIENT_KEY');
   if (!clientSecret) missing.push('TIKTOK_CLIENT_SECRET');
   if (!redirectUri) missing.push('TIKTOK_OAUTH_REDIRECT_URI');
   if (missing.length > 0) return { ready: false, missing };
-  return { ready: true, clientKey, redirectUri };
+  return { ready: true, clientKey, clientSecret, redirectUri };
 }
 
 export function buildAuthorizeUrl(input: {

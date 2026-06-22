@@ -252,7 +252,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   // disabled with a "coming soon" caption underneath. The Setnayan-R2 option
   // still works. Decouples shipping the V1 surface from the owner-side Google
   // Cloud verified-app review (1-4 wk window).
-  const driveConfig = getDriveOAuthConfig();
+  const driveConfig = await getDriveOAuthConfig();
   const driveOAuthReady = driveConfig.ready;
 
   const papicSeatsPricePhp = papicSeatsSku?.price_php ?? PAPIC_SEATS_PRICE_PHP;

@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
   }
 
   // --- Graceful fallback: 503 when GOOGLE_DRIVE_OAUTH_* env vars missing ---
-  const config = getDriveOAuthConfig();
+  const config = await getDriveOAuthConfig();
   if (!config.ready) {
     return NextResponse.json(
       {

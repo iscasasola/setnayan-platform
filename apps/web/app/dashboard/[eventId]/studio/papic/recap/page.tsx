@@ -73,7 +73,7 @@ export default async function CoupleRecapPage({
     .is('revoked_at', null)
     .maybeSingle();
   const showDriveNudge =
-    recapHasContent && !recapDriveGrant && getDriveOAuthConfig().ready;
+    recapHasContent && !recapDriveGrant && (await getDriveOAuthConfig()).ready;
 
   return (
     <main className="mx-auto w-full max-w-2xl space-y-6 px-4 py-8 sm:px-6">

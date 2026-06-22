@@ -51,3 +51,58 @@ export const SECRET_INTEGRATIONS: readonly SecretIntegrationDef[] = [
 export function getSecretIntegration(id: string): SecretIntegrationDef | undefined {
   return SECRET_INTEGRATIONS.find((i) => i.id === id);
 }
+
+// ── OAuth client-config specs (PR3) ─────────────────────────────────────────
+//
+// One spec per CONSUMER of an OAuth client config: the column on
+// platform_integration_secrets holding the encrypted client secret, the
+// platform_settings columns for the (non-secret) client id/key + redirect URI,
+// and the env var each falls back to. Column names mirror migration
+// 20270212398962 and are the single source of truth for both the resolvers
+// (lib/integration-config.ts) and the PR3b console cards.
+//
+// Google Drive is SHARED: `drivePapic` and `drivePhotoDelivery` use the SAME
+// secret + client-id columns but DIFFERENT redirect-URI columns/envs.
+export interface OAuthResolveSpec {
+  secretColumn: string;
+  secretEnv: string;
+  clientIdColumn: string;
+  clientIdEnv: string;
+  redirectUriColumn: string;
+  redirectUriEnv: string;
+}
+
+export const OAUTH_SPECS = {
+  youtube: {
+    secretColumn: 'youtube_oauth_client_secret_enc',
+    secretEnv: 'YOUTUBE_OAUTH_CLIENT_SECRET',
+    clientIdColumn: 'youtube_oauth_client_id',
+    clientIdEnv: 'YOUTUBE_OAUTH_CLIENT_ID',
+    redirectUriColumn: 'youtube_oauth_redirect_uri',
+    redirectUriEnv: 'YOUTUBE_OAUTH_REDIRECT_URI',
+  },
+  drivePapic: {
+    secretColumn: 'google_drive_oauth_client_secret_enc',
+    secretEnv: 'GOOGLE_DRIVE_OAUTH_CLIENT_SECRET',
+    clientIdColumn: 'google_drive_oauth_client_id',
+    clientIdEnv: 'GOOGLE_DRIVE_OAUTH_CLIENT_ID',
+    redirectUriColumn: 'google_drive_oauth_redirect_uri',
+    redirectUriEnv: 'GOOGLE_DRIVE_OAUTH_REDIRECT_URI',
+  },
+  drivePhotoDelivery: {
+    secretColumn: 'google_drive_oauth_client_secret_enc',
+    secretEnv: 'GOOGLE_DRIVE_OAUTH_CLIENT_SECRET',
+    clientIdColumn: 'google_drive_oauth_client_id',
+    clientIdEnv: 'GOOGLE_DRIVE_OAUTH_CLIENT_ID',
+    redirectUriColumn: 'photo_delivery_oauth_redirect_uri',
+    redirectUriEnv: 'PHOTO_DELIVERY_OAUTH_REDIRECT_URI',
+  },
+  tiktok: {
+    secretColumn: 'tiktok_client_secret_enc',
+    secretEnv: 'TIKTOK_CLIENT_SECRET',
+    clientIdColumn: 'tiktok_client_key',
+    clientIdEnv: 'TIKTOK_CLIENT_KEY',
+    redirectUriColumn: 'tiktok_oauth_redirect_uri',
+    redirectUriEnv: 'TIKTOK_OAUTH_REDIRECT_URI',
+  },
+} satisfies Record<string, OAuthResolveSpec>;

@@ -52,7 +52,7 @@ export async function getEventYoutubeAccessToken(
     return grant.access_token as string;
   }
 
-  const cfg = getYoutubeOAuthConfig();
+  const cfg = await getYoutubeOAuthConfig();
   if (!cfg.ready) return null;
 
   try {

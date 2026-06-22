@@ -1,36 +1,40 @@
-import { Music, Sparkles, Heart } from 'lucide-react';
+import { Music, Sparkles, Heart, CheckCircle2 } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { relativeTime } from '@/lib/activity';
+import { ACTIVE_STATUSES, eventSkuActive, BUNDLE_CHILD_SKUS } from '@/lib/entitlements';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import {
   composePakantaBrief,
   type LoveStoryBlob,
   type PakantaResponses,
   type StoryTone,
 } from '@/lib/pakanta-brief';
+import { PakantaDeliver } from './pakanta-deliver';
 
 export const metadata = { title: 'Pakanta queue · Admin' };
 
 /**
- * /admin/pakanta — the back-office Pakanta songwriting queue.
+ * /admin/pakanta — the back-office Pakanta songwriting + DELIVERY queue.
  *
- * The schema (20260626000000_iteration_0036_pakanta_intake_drafts.sql) was
- * built for exactly this: "Admins read all rows so the back-office Pakanta
- * queue can scan for new intakes." This page renders, for each couple who has
- * a Pakanta intake, the SONG BRIEF auto-composed from their ONBOARDING love
- * story (events.love_story) + their Pakanta music preferences
- * (pakanta_intake_drafts.responses) — see lib/pakanta-brief.ts. The music team
- * copies the brief into Suno to write the custom song; no re-interview, because
- * the love story was already told once in onboarding.
+ * The queue lists every couple the music team must write a song for, then lets
+ * them UPLOAD the finished song right on the row. The candidate set is the UNION
+ * of two sources, so a BUNDLE buyer with no intake draft is never invisible:
+ *   1. Events with an APPROVED order granting PAKANTA — a direct PAKANTA order
+ *      OR a bundle (MEDIA_PACK) that includes it. We seed candidates from
+ *      orders, then confirm each with the bundle-aware eventSkuActive() gate.
+ *   2. Events with a pakanta_intake_drafts row (the brief-collection surface).
+ *
+ * For each candidate we compose the SONG BRIEF from the ONBOARDING love story
+ * (events.love_story) + any Pakanta music preferences (draft.responses) — see
+ * lib/pakanta-brief.ts — and show the delivery state from the events.
+ * pakanta_song_* columns. The music team copies the brief into Suno, writes the
+ * song, and uploads it; the finished song auto-plays on the couple's site.
  *
  * Auth is enforced at the layout level (apps/web/app/admin/layout.tsx
  * notFound()s non-admins). Reads go through createAdminClient() (service role),
- * matching /admin/account-deletions + /admin/disputes.
- *
- * Phase 2 (separate PR) ships the couple-facing collection surface that writes
- * these draft rows (the retired wizard's intake form was deleted in #1320);
- * until then this queue lists any existing/legacy drafts and composes each
- * brief from whatever love-story + responses are present.
+ * matching /admin/account-deletions + /admin/disputes. Every read of the new
+ * pakanta_song_* columns graceful-degrades (42703/42P01 → not-delivered).
  */
 
 type DraftRow = {
@@ -46,62 +50,170 @@ type EventLite = {
   display_name: string | null;
   love_story: LoveStoryBlob;
   story_tone: StoryTone;
+  pakanta_song_r2_key: string | null;
+  pakanta_song_status: 'in_production' | 'ready' | null;
+  pakanta_song_filename: string | null;
+  pakanta_song_adopted_as_site_music: boolean | null;
 };
 
-const STATUS_LABEL: Record<DraftRow['status'], { label: string; cls: string }> = {
-  draft: { label: 'Draft (not ordered)', cls: 'bg-ink/5 text-ink/60' },
-  purchase_pending: { label: 'Purchase pending', cls: 'bg-warn-100 text-warn-800' },
+type RowStatus = 'delivered' | 'approved' | 'purchased' | 'purchase_pending' | 'draft';
+
+const STATUS_LABEL: Record<RowStatus, { label: string; cls: string }> = {
+  delivered: { label: 'Delivered ✓', cls: 'bg-success-100 text-success-800' },
+  approved: { label: 'Approved — write the song', cls: 'bg-success-100 text-success-800' },
   purchased: { label: 'Purchased — write the song', cls: 'bg-success-100 text-success-800' },
+  purchase_pending: { label: 'Purchase pending', cls: 'bg-warn-100 text-warn-800' },
+  draft: { label: 'Draft (not ordered)', cls: 'bg-ink/5 text-ink/60' },
 };
+
+// The bundle codes that grant PAKANTA (MEDIA_PACK / "Complete"). Derived from the
+// canonical BUNDLE_CHILD_SKUS so a re-bundle never silently drops a buyer here.
+const BUNDLES_GRANTING_PAKANTA = (
+  Object.entries(BUNDLE_CHILD_SKUS) as Array<[string, ReadonlyArray<string>]>
+)
+  .filter(([, children]) => children.includes('PAKANTA'))
+  .map(([bundleKey]) => bundleKey);
+const ORDER_KEYS_FOR_PAKANTA = ['PAKANTA', ...BUNDLES_GRANTING_PAKANTA];
 
 export default async function AdminPakantaPage() {
   const admin = createAdminClient();
-
-  let drafts: DraftRow[] = [];
   let queryError: string | null = null;
 
-  const { data: draftData, error: draftErr } = await admin
-    .from('pakanta_intake_drafts')
-    .select('draft_id,event_id,responses,status,updated_at')
-    .order('updated_at', { ascending: false })
-    .limit(200);
-  if (draftErr) {
-    logQueryError('AdminPakantaPage (drafts)', draftErr, {}, 'graceful_degrade');
-    queryError = draftErr.message;
-  }
-  drafts = (draftData ?? []) as DraftRow[];
-
-  // Resolve the event (couple names + love story + tone) behind each draft in
-  // one IN query — matches the lookup style on /admin/account-deletions.
-  const eventIds = Array.from(new Set(drafts.map((d) => d.event_id)));
-  const eventsById = new Map<string, EventLite>();
-  if (eventIds.length > 0) {
-    const { data: eventsData, error: eventsErr } = await admin
-      .from('events')
-      .select('event_id,display_name,love_story,story_tone')
-      .in('event_id', eventIds);
-    if (eventsErr) {
-      logQueryError('AdminPakantaPage (events)', eventsErr, {}, 'graceful_degrade');
+  // ── Source 1: events with an APPROVED order granting PAKANTA (direct OR a
+  // bundle). Seed candidate event_ids from active-status orders for any granting
+  // key, then confirm each with the bundle-aware gate below. Graceful-degrade.
+  const orderEventIds = new Set<string>();
+  {
+    const { data: orderData, error: orderErr } = await admin
+      .from('orders')
+      .select('event_id,service_key,status')
+      .in('service_key', ORDER_KEYS_FOR_PAKANTA)
+      .in('status', Array.from(ACTIVE_STATUSES))
+      .limit(500);
+    if (orderErr) {
+      logQueryError('AdminPakantaPage (orders)', orderErr, {}, 'graceful_degrade');
     }
-    for (const e of (eventsData ?? []) as EventLite[]) eventsById.set(e.event_id, e);
+    for (const o of (orderData ?? []) as Array<{ event_id: string | null }>) {
+      if (o.event_id) orderEventIds.add(o.event_id);
+    }
   }
 
-  // Compose a brief per draft, newest first; purchased/pending float to the top.
-  const rows = drafts
-    .map((d) => {
-      const ev = eventsById.get(d.event_id);
-      const brief = composePakantaBrief({
-        coupleNames: ev?.display_name ?? 'The couple',
-        loveStory: ev?.love_story ?? null,
-        storyTone: ev?.story_tone ?? null,
-        responses: d.responses ?? null,
+  // ── Source 2: intake drafts (brief-collection). Keyed for brief composition.
+  const draftsByEvent = new Map<string, DraftRow>();
+  {
+    const { data: draftData, error: draftErr } = await admin
+      .from('pakanta_intake_drafts')
+      .select('draft_id,event_id,responses,status,updated_at')
+      .order('updated_at', { ascending: false })
+      .limit(200);
+    if (draftErr) {
+      logQueryError('AdminPakantaPage (drafts)', draftErr, {}, 'graceful_degrade');
+      queryError = draftErr.message;
+    }
+    for (const d of (draftData ?? []) as DraftRow[]) {
+      // Newest-first ordering means the first row per event is the latest.
+      if (!draftsByEvent.has(d.event_id)) draftsByEvent.set(d.event_id, d);
+    }
+  }
+
+  // Candidate event set = order-granted ∪ has-a-draft. Resolve each event's
+  // names + love story + delivery state. pakanta_song_* graceful-degrades.
+  const candidateIds = Array.from(new Set([...orderEventIds, ...draftsByEvent.keys()]));
+  const eventsById = new Map<string, EventLite>();
+  if (candidateIds.length > 0) {
+    let { data: eventsData, error: eventsErr } = await admin
+      .from('events')
+      .select(
+        'event_id,display_name,love_story,story_tone,pakanta_song_r2_key,pakanta_song_status,pakanta_song_filename,pakanta_song_adopted_as_site_music',
+      )
+      .in('event_id', candidateIds);
+    if (eventsErr) {
+      // New columns may not exist on this environment yet — retry without them.
+      logQueryError('AdminPakantaPage (events delivery cols)', eventsErr, {}, 'graceful_degrade');
+      const fallback = await admin
+        .from('events')
+        .select('event_id,display_name,love_story,story_tone')
+        .in('event_id', candidateIds);
+      eventsData = fallback.data as typeof eventsData;
+      if (fallback.error) {
+        logQueryError('AdminPakantaPage (events)', fallback.error, {}, 'graceful_degrade');
+      }
+    }
+    for (const e of (eventsData ?? []) as Partial<EventLite>[]) {
+      if (!e.event_id) continue;
+      eventsById.set(e.event_id, {
+        event_id: e.event_id,
+        display_name: e.display_name ?? null,
+        love_story: e.love_story ?? null,
+        story_tone: e.story_tone ?? null,
+        pakanta_song_r2_key: e.pakanta_song_r2_key ?? null,
+        pakanta_song_status: e.pakanta_song_status ?? null,
+        pakanta_song_filename: e.pakanta_song_filename ?? null,
+        pakanta_song_adopted_as_site_music: e.pakanta_song_adopted_as_site_music ?? null,
       });
-      return { draft: d, brief };
-    })
+    }
+  }
+
+  // Confirm the entitlement per candidate (bundle-aware, admin-approved) and
+  // build a render row per EVENT. Resolve a preview URL for delivered songs.
+  const rows = (
+    await Promise.all(
+      candidateIds.map(async (eventId) => {
+        const ev = eventsById.get(eventId);
+        const draft = draftsByEvent.get(eventId) ?? null;
+
+        // An event with an order seed must clear the active-entitlement gate to
+        // appear (a refunded bundle drops out). Draft-only events still show so
+        // the team sees in-progress briefs.
+        const cameFromOrder = orderEventIds.has(eventId);
+        const active = cameFromOrder ? await eventSkuActive(admin, eventId, 'PAKANTA') : false;
+        if (cameFromOrder && !active && !draft) return null;
+
+        const brief = composePakantaBrief({
+          coupleNames: ev?.display_name ?? 'The couple',
+          loveStory: ev?.love_story ?? null,
+          storyTone: ev?.story_tone ?? null,
+          responses: draft?.responses ?? null,
+        });
+
+        const delivered = ev?.pakanta_song_status === 'ready' && !!ev?.pakanta_song_r2_key;
+        const previewUrl = delivered
+          ? await displayUrlForStoredAsset(ev?.pakanta_song_r2_key).catch(() => null)
+          : null;
+
+        const status: RowStatus = delivered
+          ? 'delivered'
+          : active
+            ? 'approved'
+            : draft
+              ? draft.status === 'purchased'
+                ? 'purchased'
+                : draft.status === 'purchase_pending'
+                  ? 'purchase_pending'
+                  : 'draft'
+              : 'approved';
+
+        return {
+          eventId,
+          brief,
+          status,
+          updatedAt: draft?.updated_at ?? null,
+          delivered,
+          previewUrl,
+          deliveredFilename: ev?.pakanta_song_filename ?? null,
+          adopted: ev?.pakanta_song_adopted_as_site_music === true,
+          // Only let the team deliver when the entitlement is actually active —
+          // a draft-only (unpaid) row shows the brief but no upload control.
+          canDeliver: active,
+        };
+      }),
+    )
+  )
+    .filter((r): r is NonNullable<typeof r> => r !== null)
     .sort((a, b) => {
-      const rank = (s: DraftRow['status']) =>
-        s === 'purchased' ? 0 : s === 'purchase_pending' ? 1 : 2;
-      return rank(a.draft.status) - rank(b.draft.status);
+      const rank = (s: RowStatus) =>
+        s === 'approved' || s === 'purchased' ? 0 : s === 'delivered' ? 1 : s === 'purchase_pending' ? 2 : 3;
+      return rank(a.status) - rank(b.status);
     });
 
   return (
@@ -130,19 +242,20 @@ export default async function AdminPakantaPage() {
       {rows.length === 0 ? (
         <div className="rounded-xl border border-ink/10 bg-cream p-8 text-center">
           <Sparkles aria-hidden className="mx-auto mb-3 h-8 w-8 text-ink/30" strokeWidth={1.5} />
-          <p className="text-sm font-medium text-ink">No Pakanta intakes yet.</p>
+          <p className="text-sm font-medium text-ink">No Pakanta orders yet.</p>
           <p className="mx-auto mt-1 max-w-md text-sm text-ink/60">
-            When a couple orders Pakanta, their brief — built from the onboarding love story —
-            appears here for the music team.
+            When a couple buys Pakanta (on its own or inside a bundle), their brief — built from
+            the onboarding love story — appears here for the music team to write and deliver.
           </p>
         </div>
       ) : (
         <ul className="space-y-5">
-          {rows.map(({ draft, brief }) => {
-            const status = STATUS_LABEL[draft.status];
+          {rows.map((row) => {
+            const { eventId, brief } = row;
+            const status = STATUS_LABEL[row.status];
             return (
               <li
-                key={draft.draft_id}
+                key={eventId}
                 className="rounded-xl border border-ink/10 bg-white p-5 shadow-sm"
               >
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -155,7 +268,9 @@ export default async function AdminPakantaPage() {
                     >
                       {status.label}
                     </span>
-                    <span className="text-xs text-ink/45">{relativeTime(draft.updated_at)}</span>
+                    {row.updatedAt ? (
+                      <span className="text-xs text-ink/45">{relativeTime(row.updatedAt)}</span>
+                    ) : null}
                   </div>
                 </div>
 
@@ -238,6 +353,28 @@ export default async function AdminPakantaPage() {
                     {brief.copyBlock}
                   </pre>
                 </details>
+
+                {/* Delivered-song preview (when a finished song is on file). */}
+                {row.delivered && row.previewUrl ? (
+                  <div className="mt-4 rounded-xl border border-success-200 bg-success-50 p-4">
+                    <p className="mb-2 inline-flex items-center gap-1.5 text-sm font-medium text-success-800">
+                      <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={2} />
+                      Delivered{row.deliveredFilename ? ` — ${row.deliveredFilename}` : ''}
+                      {row.adopted ? ' · playing on their site' : ' · couple kept their own song'}
+                    </p>
+                    {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                    <audio controls preload="none" src={row.previewUrl} className="w-full" />
+                  </div>
+                ) : null}
+
+                {/* Upload the finished song — only on an active (paid+approved) row. */}
+                {row.canDeliver ? (
+                  <PakantaDeliver
+                    eventId={eventId}
+                    alreadyDelivered={row.delivered}
+                    deliveredFilename={row.deliveredFilename}
+                  />
+                ) : null}
               </li>
             );
           })}

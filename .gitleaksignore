@@ -1,0 +1,6 @@
+# gitleaks false-positive allowlist (fingerprints only — one per line).
+#
+# The generic-api-key rule flags the DB column `pakanta_song_r2_key` in the
+# Pakanta admin delivery queue. It is an R2 object-key reference (a storage
+# path for the delivered song MP3), NOT a credential — no secret is present.
+c2d6f7e76835edd3d5f0c6b58b34034fe7f61418:apps/web/app/admin/pakanta/page.tsx:generic-api-key:149

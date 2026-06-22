@@ -17,6 +17,12 @@ type Props = {
   pricePhp: number;
   /** Platform BDO/GCash settings the in-page checkout drawer renders. */
   settings: ComponentProps<typeof InlineCheckoutDrawer>['settings'];
+  /**
+   * The couple ALREADY paid (Pakanta is active / in production). Hides the
+   * payment CTA + checkout drawer — they can still refine their music notes
+   * while the song is being written, but must never be asked to pay again.
+   */
+  paid?: boolean;
 };
 
 type FieldKey = keyof PakantaIntakeResponses;
@@ -30,7 +36,7 @@ type FieldKey = keyof PakantaIntakeResponses;
  * draft; [Continue to payment] saves the brief then reveals the in-page
  * InlineCheckoutDrawer (the retired /orders/new redirect is gone).
  */
-export function PakantaMusicForm({ eventId, initial, pricePhp, settings }: Props) {
+export function PakantaMusicForm({ eventId, initial, pricePhp, settings, paid = false }: Props) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const [pending, startTransition] = useTransition();
@@ -67,7 +73,7 @@ export function PakantaMusicForm({ eventId, initial, pricePhp, settings }: Props
       ref={formRef}
       onSubmit={(e) => {
         e.preventDefault();
-        submit('purchase');
+        submit(paid ? 'skip' : 'purchase');
       }}
       className="space-y-4 rounded-xl border border-ink/10 bg-white p-5 shadow-sm"
     >
@@ -126,32 +132,15 @@ export function PakantaMusicForm({ eventId, initial, pricePhp, settings }: Props
         <p className="rounded-lg bg-danger-50 px-3 py-2 text-sm text-danger-700">{error}</p>
       ) : null}
 
-      {readyToPay ? (
+      {readyToPay && !paid ? (
         <p className="rounded-lg bg-mulberry/5 px-3 py-2 text-sm text-mulberry">
           Your music notes are saved. Complete payment to start your song.
         </p>
       ) : null}
 
-      <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:items-center sm:justify-end">
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() => submit('skip')}
-          className="rounded-lg px-4 py-2 text-sm font-medium text-ink/70 hover:bg-ink/5 disabled:opacity-50"
-        >
-          Save for later
-        </button>
-        {readyToPay ? (
-          <InlineCheckoutDrawer
-            eventId={eventId}
-            serviceKey="PAKANTA"
-            displayName="Pakanta · Your wedding song"
-            originalPriceCentavos={String(Math.round(pricePhp * 100))}
-            settings={settings}
-            triggerLabel={`Pay · ₱${pricePhp.toLocaleString('en-PH')}`}
-            triggerClassName="inline-flex items-center justify-center gap-2 rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-white hover:bg-mulberry/90"
-          />
-        ) : (
+      {paid ? (
+        /* Already paid (in production): save-only — no payment CTA. */
+        <div className="flex justify-end pt-1">
           <button
             type="submit"
             disabled={pending}
@@ -162,10 +151,45 @@ export function PakantaMusicForm({ eventId, initial, pricePhp, settings }: Props
             ) : (
               <Music aria-hidden className="h-4 w-4" />
             )}
-            Continue to payment · ₱{pricePhp.toLocaleString('en-PH')}
+            Save my music notes
           </button>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:items-center sm:justify-end">
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => submit('skip')}
+            className="rounded-lg px-4 py-2 text-sm font-medium text-ink/70 hover:bg-ink/5 disabled:opacity-50"
+          >
+            Save for later
+          </button>
+          {readyToPay ? (
+            <InlineCheckoutDrawer
+              eventId={eventId}
+              serviceKey="PAKANTA"
+              displayName="Pakanta · Your wedding song"
+              originalPriceCentavos={String(Math.round(pricePhp * 100))}
+              settings={settings}
+              triggerLabel={`Pay · ₱${pricePhp.toLocaleString('en-PH')}`}
+              triggerClassName="inline-flex items-center justify-center gap-2 rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-white hover:bg-mulberry/90"
+            />
+          ) : (
+            <button
+              type="submit"
+              disabled={pending}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-white hover:bg-mulberry/90 disabled:opacity-50"
+            >
+              {pending ? (
+                <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
+              ) : (
+                <Music aria-hidden className="h-4 w-4" />
+              )}
+              Continue to payment · ₱{pricePhp.toLocaleString('en-PH')}
+            </button>
+          )}
+        </div>
+      )}
     </form>
   );
 }

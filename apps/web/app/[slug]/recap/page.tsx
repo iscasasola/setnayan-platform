@@ -8,6 +8,12 @@ import { canViewSlugEvent } from '@/lib/slug-access';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { buildSitePaletteVars } from '@/lib/site-palette';
 import { isRecapPublished, assembleRecapModel, type RecapModel } from '@/lib/auto-recap';
+import {
+  resolveEventMonogram,
+  HERO_MONOGRAM_COLUMNS,
+  type HeroMonogramData,
+} from '@/lib/hero-monogram-data';
+import { HeroMonogram } from '@/app/_components/hero-monogram';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
 
 /**
@@ -32,7 +38,9 @@ const fetchEvent = cache(async (slug: string) => {
   const admin = createAdminClient();
   const { data } = await admin
     .from('events')
-    .select('event_id, slug, display_name, event_type, role_palette, landing_page_visibility')
+    .select(
+      `event_id, slug, event_type, role_palette, landing_page_visibility, ${HERO_MONOGRAM_COLUMNS}`,
+    )
     .ilike('slug', slug)
     .maybeSingle();
   return data;
@@ -105,6 +113,11 @@ export default async function RecapPage({ params }: { params: Promise<{ slug: st
   const model = await assembleRecapModel(event.event_id);
   if (!model) notFound();
 
+  // The couple's canonical mark for the recap hero — resolved exactly like the
+  // public wedding-site hero (animates when they own the paid ANIMATED_MONOGRAM).
+  // Admin client: the recap is publicly viewable, so the viewer may be anonymous.
+  const mono = await resolveEventMonogram(createAdminClient(), event.event_id, event);
+
   const shareUrl = `${SITE_URL}/${event.slug}/recap`;
   const shareImage = `${SITE_URL}/api/og/recap/${event.slug}`;
 
@@ -112,7 +125,7 @@ export default async function RecapPage({ params }: { params: Promise<{ slug: st
     <main className="min-h-dvh bg-cream text-ink" style={wrapStyle}>
       <RecapHeader />
       <article className="mx-auto w-full max-w-3xl px-4 pb-16 pt-8 sm:px-6">
-        <RecapHero model={model} />
+        <RecapHero model={model} mono={mono} />
         <RecapStats model={model} />
         <RecapPrologue model={model} />
         {model.dayChapters.map((ch, i) => (
@@ -156,7 +169,7 @@ function RecapFooter() {
 
 // ── sections ────────────────────────────────────────────────────────────────
 
-function RecapHero({ model }: { model: RecapModel }) {
+function RecapHero({ model, mono }: { model: RecapModel; mono: HeroMonogramData | null }) {
   const meta = [model.eventDateFormatted, model.venueLabel].filter(Boolean).join(' · ');
   if (model.heroUrl) {
     return (
@@ -167,6 +180,22 @@ function RecapHero({ model }: { model: RecapModel }) {
         <div aria-hidden className="absolute inset-0 bg-gradient-to-b from-ink/30 via-ink/45 to-ink/80" />
         <div className="relative space-y-3 px-6 py-16 sm:py-24">
           <p className="font-mono text-xs uppercase tracking-[0.25em] text-cream/85">The Recap</p>
+          {/* The mark on a cream lozenge so it reads on the DARK photo overlay
+              (couple-coloured marks would otherwise sink into the ink gradient).
+              FREE-WIDTH (not a fixed circle) so the wide bar/duo/script/infinity
+              lockups don't spill off the backing onto the dark overlay. */}
+          {mono ? (
+            <div className="flex justify-center">
+              <span className="inline-flex items-center justify-center rounded-full bg-cream/95 px-6 py-4 shadow-lg">
+                <HeroMonogram
+                  event={mono.design}
+                  monogram={mono.monogram}
+                  animatedMonogram={mono.animatedMonogram}
+                  bespokeSvg={mono.bespokeSvg}
+                />
+              </span>
+            </div>
+          ) : null}
           <h1 className="font-display text-5xl font-medium italic tracking-tight text-cream sm:text-6xl">
             {model.coupleNames}
           </h1>
@@ -177,12 +206,26 @@ function RecapHero({ model }: { model: RecapModel }) {
   }
   return (
     <div className="mb-8 space-y-3 text-center">
-      <span
-        className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border-2 border-gold font-display text-2xl text-mulberry"
-        style={{ color: model.monogramColor }}
-      >
-        {model.monogramText}
-      </span>
+      {/* On the cream body the mark renders bare (legible) — replaces the old
+          hand-rolled gold-circle initials with the couple's REAL chosen mark. */}
+      {mono ? (
+        <div className="flex justify-center">
+          <HeroMonogram
+            event={mono.design}
+            monogram={mono.monogram}
+            animatedMonogram={mono.animatedMonogram}
+            bespokeSvg={mono.bespokeSvg}
+            shadow
+          />
+        </div>
+      ) : (
+        <span
+          className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border-2 border-gold font-display text-2xl text-mulberry"
+          style={{ color: model.monogramColor }}
+        >
+          {model.monogramText}
+        </span>
+      )}
       <p className="font-mono text-xs uppercase tracking-[0.25em] text-terracotta">The Recap</p>
       <h1 className="font-display text-5xl font-medium italic tracking-tight sm:text-6xl">
         {model.coupleNames}

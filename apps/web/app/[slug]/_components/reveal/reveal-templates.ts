@@ -12,7 +12,8 @@ export type RevealTemplate =
   | 'two-flap-vertical'
   | 'two-flap-horizontal'
   | 'church-doors'
-  | 'veil-sheer';
+  | 'veil-sheer'
+  | 'gold-monogram';
 
 /**
  * The FREE choice — no opening reveal at all; the content film plays straight
@@ -55,6 +56,8 @@ export const REVEAL_ALIASES: Record<string, RevealTemplate> = {
   doors: 'church-doors',
   veil: 'veil-sheer',
   'veil-sheer': 'veil-sheer',
+  'gold-monogram': 'gold-monogram',
+  gold: 'gold-monogram',
 };
 
 /**
@@ -105,5 +108,12 @@ export const REVEAL_LIBRARY: ReadonlyArray<{
     family: 'veil',
     blurb: 'A soft, sheer veil lifts and floats away, uncovering your film beneath.',
     motion: 'Veil lifts away',
+  },
+  {
+    id: 'gold-monogram',
+    label: 'Gold monogram turn',
+    family: 'rigid',
+    blurb: 'Your monogram turns into view in flowing gold, catching the light as it faces forward.',
+    motion: 'Turns into the light',
   },
 ];

@@ -149,6 +149,14 @@ const FIT_MAX = 2.3;
 // (equal-power ramp) AND the full-screen clip overlay's opacity fade, so sound and
 // picture dissolve together — up from the old unsynced 700ms audio / 500ms visual.
 const VIDEO_FADE_MS = 850;
+// Cut over to the closing screen this many seconds BEFORE the clip's true end, so
+// its final frame is never held on screen during the crossfade. A phone clip often
+// ends on an unflattering frame (camera lowering, a hard stop), and 'ended' would
+// otherwise FREEZE that last frame for the whole VIDEO_FADE_MS dissolve. Trimming a
+// hair early lets the clip dissolve out mid-motion instead. ~0.3s ≈ the last ~9
+// frames at 30fps — comfortably more than 'timeupdate' granularity so it always
+// lands before the very end. (owner 2026-06-23 "avoid the last couple of frames".)
+const CLIP_TAIL_TRIM_S = 0.3;
 
 const EASE = 'cubic-bezier(.2,.8,.2,1)';
 const ANIM = {
@@ -1046,6 +1054,19 @@ export function SaveTheDateFilm({
     const onEnded = () => {
       if (idxRef.current === videoSlideIdxRef.current) goRef.current(videoSlideIdxRef.current + 1);
     };
+    // CUT EARLY: advance to the close ~CLIP_TAIL_TRIM_S before the clip's true end,
+    // so its final frame is never the one held through the crossfade. Once advanced,
+    // the off-beat branch PAUSES the clip — so it freezes a hair early and dissolves
+    // out instead of holding (and freezing on) the unflattering last frame. Only on
+    // the clip's own beat; 'ended' below stays the fallback for very short clips.
+    const onTimeUpdate = () => {
+      if (idxRef.current !== videoSlideIdxRef.current) return;
+      const d = v.duration;
+      if (Number.isFinite(d) && d > 1 && d - v.currentTime <= CLIP_TAIL_TRIM_S) {
+        v.removeEventListener('timeupdate', onTimeUpdate);
+        goRef.current(videoSlideIdxRef.current + 1);
+      }
+    };
     // A mid-play decode/network error must NOT strand the film on the Infinity
     // video beat either — advance, but ONLY while this beat is active (the clip
     // preloads from mount, so an early load error must not jump a text beat).
@@ -1056,10 +1077,12 @@ export function SaveTheDateFilm({
     };
     v.addEventListener('ended', onEnded);
     v.addEventListener('error', onError);
+    v.addEventListener('timeupdate', onTimeUpdate);
     return () => {
       cancelAnimationFrame(videoFadeRef.current);
       v.removeEventListener('ended', onEnded);
       v.removeEventListener('error', onError);
+      v.removeEventListener('timeupdate', onTimeUpdate);
       if (clipRevealTimerRef.current) { clearTimeout(clipRevealTimerRef.current); clipRevealTimerRef.current = 0; }
     };
   }, [idx, playing, muted, videoSlideIndex, content.musicUrl, preview]);

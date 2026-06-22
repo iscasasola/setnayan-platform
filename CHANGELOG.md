@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-22 · feat(privacy): user account-access page — Phase 3d (RA 10173 right-to-know + force-end)
+
+The data-subject side of the takeover model: a couple can see who from the team accessed their account and **end any active visit themselves**. Stacks on the Phase-3 scaffold (#2058).
+
+- **Migration `20270216158910_account_privacy_subject_access.sql`** — additive couple-scoped RLS (existing admin-only policies untouched; RLS is OR'd): subject SELECT on `admin_data_access_log` (`accessed_user_id = auth.uid()`) + on `admin_takeover_sessions` (`target_user_id = auth.uid()`); a tightly-fenced subject UPDATE on `admin_takeover_sessions` that can ONLY force-end their own OPEN session (`USING target=me AND ended_at IS NULL`, `WITH CHECK target=me AND ended_by='user_force_end' AND ended_at IS NOT NULL`).
+- **`app/dashboard/(account)/account-access/page.tsx`** (new) — "Account access": team visits to your account (force-end button on any active one) + when your account was viewed. Reads via the couple's own RLS-gated client.
+- **`app/dashboard/(account)/account-access/actions.ts`** — `forceEndTakeover`: the couple ends their own open session via their RLS client; audited (service client) + tagged with the session id.
+
+Stacks on `claude/admin-takeover-phase3` (#2058) — needs `admin_takeover_sessions`. No prod-apply (RLS migration applies at merge, with the Phase-3 review). tsc 0 · `next lint` clean · build EXIT 0 (`/dashboard/account-access` in the route table). **Draft.**
+
+SPEC IMPACT: Recorded — `Admin_Account_Access_Model_2026-06-22.md` §10. No SKU/price change.
+
+---
+
 ## 2026-06-22 · feat(admin): account takeover governance scaffold — admin account-access model Phase 3 (FLAG-GATED OFF · draft)
 
 Phase 3 of the owner-locked admin account-access model (`Admin_Account_Access_Model_2026-06-22.md` §4/§5/§10 · DECISION_LOG 2026-06-22) — the gated **account-takeover / "complete bypass"** capability. The single highest-risk admin power. Shipped as a **DRAFT PR, FLAG-GATED OFF**: prod is byte-identical until the owner reviews the scaffold and flips the master switch. This PR builds the **safe governance scaffold** (table + flag + two-admin start/approve/end + notifications + audit wiring); the actual in-browser session-swap is deliberately **left as the remaining flag-gated step for owner review**.

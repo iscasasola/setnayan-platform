@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { eventSkuActive } from '@/lib/entitlements';
 import { findLedTemplate, LED_LOOP_OPTIONS } from '@/lib/led-background';
 
 // 0005 LED Background Maker — save draft.
@@ -84,6 +85,16 @@ export async function POST(req: NextRequest) {
   }
 
   const admin = createAdminClient();
+
+  // Entitlement gate — the LED Background Maker is the paid LIVE_BACKGROUND SKU.
+  // Mirror the editor page so an unowned couple can't persist a draft via a
+  // direct POST (defense-in-depth: the page hides the editor, this guards the
+  // write). Bundle-aware + admin-approved (eventSkuActive), read with the admin
+  // client (event-level fact; orders RLS is purchaser-scoped). Graceful-degrades
+  // to not-owned on a missing orders table (42P01/42703).
+  if (!(await eventSkuActive(admin, eventId, 'LIVE_BACKGROUND'))) {
+    return NextResponse.json({ error: 'not_entitled' }, { status: 403 });
+  }
 
   // Look for an existing default config (the partial unique index allows
   // exactly one is_default=TRUE row per event). If found, update in place;

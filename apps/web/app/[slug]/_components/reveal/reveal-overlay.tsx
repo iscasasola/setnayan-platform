@@ -220,7 +220,7 @@ export function RevealOverlay({
   return (
     <div className="fixed inset-0 z-[60] overflow-hidden">
       {template === 'gold-monogram' ? (
-        <GoldMonogramReveal markSvg={markSvg} monogram={monogram} onDone={onOpened} />
+        <GoldMonogramReveal markSvg={markSvg} monogram={monogram} dials={eventEffects?.gold} onDone={onOpened} />
       ) : template === 'two-flap-vertical' ||
         template === 'two-flap-horizontal' ||
         template === 'church-doors' ? (

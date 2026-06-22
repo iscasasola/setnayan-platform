@@ -17,6 +17,44 @@
  * envelopes (owner-locked 2026-06-18).
  */
 
+/**
+ * Gold-monogram opening DIALS (owner 2026-06-22) — the couple mixes-and-matches
+ * three independent channels for the 'gold-monogram' reveal:
+ *   buildUp — how the mark FORMS (trace each element · assemble · grow · float-land)
+ *   move    — its 3D CHARACTER (turn medallion · hover · swing · pop)
+ *   accent  — the finishing flourish (shimmer · sparkle · ember · foil flash · rays · engrave)
+ * Composed by GoldMonogramReveal on nested wrappers so the three never collide.
+ * Styling INSIDE the already-unlocked ₱799 opening — not a gate.
+ */
+export type GoldBuildUp = 'trace' | 'assemble' | 'grow' | 'float-land';
+export type GoldMove = 'turn' | 'hover' | 'swing' | 'pop';
+export type GoldAccent =
+  | 'shimmer'
+  | 'sparkle'
+  | 'ember-rise'
+  | 'foil-flash'
+  | 'light-rays'
+  | 'engrave';
+export type GoldRevealDials = { buildUp: GoldBuildUp; move: GoldMove; accent: GoldAccent };
+
+export const GOLD_BUILDUPS: readonly GoldBuildUp[] = ['trace', 'assemble', 'grow', 'float-land'];
+export const GOLD_MOVES: readonly GoldMove[] = ['turn', 'hover', 'swing', 'pop'];
+export const GOLD_ACCENTS: readonly GoldAccent[] = [
+  'shimmer',
+  'sparkle',
+  'ember-rise',
+  'foil-flash',
+  'light-rays',
+  'engrave',
+];
+
+/** Default = the premium headline: each element inks itself, turns in, catches the light. */
+export const DEFAULT_GOLD_DIALS: GoldRevealDials = {
+  buildUp: 'trace',
+  move: 'turn',
+  accent: 'shimmer',
+};
+
 export type RevealEffects = {
   butterflies: boolean;
   petals: boolean;
@@ -26,20 +64,39 @@ export type RevealEffects = {
   veilColor: string | null;
   /** Petal colour override (hex). Null → inherit the Mood Board palette. */
   petalColor: string | null;
+  /** The 3 dials for the gold-monogram opening (ignored by other openings). */
+  gold: GoldRevealDials;
 };
 
-/** NULL/legacy → petals on, music on, colours inherit the Mood Board, butterflies off. */
+/** NULL/legacy → petals on, music on, colours inherit the Mood Board, butterflies off,
+ *  gold dials at their premium defaults. */
 export const DEFAULT_REVEAL_EFFECTS: RevealEffects = {
   butterflies: false,
   petals: true,
   music: true,
   veilColor: null,
   petalColor: null,
+  gold: DEFAULT_GOLD_DIALS,
 };
 
 /** A 3/6-digit hex (#rgb / #rrggbb) or null — anything else coerces to null. */
 function coerceHex(v: unknown): string | null {
   return typeof v === 'string' && /^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(v) ? v : null;
+}
+
+/** Coerce a value against a closed allowed-set, falling back to a default. */
+function coerceEnum<T extends string>(v: unknown, allowed: readonly T[], fallback: T): T {
+  return typeof v === 'string' && (allowed as readonly string[]).includes(v) ? (v as T) : fallback;
+}
+
+/** Validate/default the 3 gold dials from raw JSON — never throws, always complete. */
+export function resolveGoldDials(raw: unknown): GoldRevealDials {
+  const o = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+  return {
+    buildUp: coerceEnum(o.buildUp, GOLD_BUILDUPS, DEFAULT_GOLD_DIALS.buildUp),
+    move: coerceEnum(o.move, GOLD_MOVES, DEFAULT_GOLD_DIALS.move),
+    accent: coerceEnum(o.accent, GOLD_ACCENTS, DEFAULT_GOLD_DIALS.accent),
+  };
 }
 
 export function resolveRevealEffects(raw: unknown): RevealEffects {
@@ -52,6 +109,7 @@ export function resolveRevealEffects(raw: unknown): RevealEffects {
       music: typeof o.music === 'boolean' ? o.music : DEFAULT_REVEAL_EFFECTS.music,
       veilColor: coerceHex(o.veilColor),
       petalColor: coerceHex(o.petalColor),
+      gold: resolveGoldDials(o.gold),
     };
   }
   return { ...DEFAULT_REVEAL_EFFECTS };

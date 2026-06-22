@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revokeAllSessions } from '@/lib/force-logout';
+import { emitNotification } from '@/lib/notification-emit';
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -635,4 +636,65 @@ export async function revokeCompGrant(formData: FormData) {
   }
 
   revalidatePath('/admin/users');
+}
+
+/**
+ * Admin-initiated, MANUAL "ask this couple for a review" (admin account-access
+ * model PR 3 · DECISION_LOG 2026-06-22). Deliberately NOT automatic — the admin
+ * opens an account, decides to ask, and clicks. Emits a `review_request`
+ * notification (in-app bell; not on the email allowlist) pointing the couple at
+ * their event-scoped review page. Audit-logged. Fails soft on the notification.
+ */
+export async function requestCoupleReview(formData: FormData) {
+  const { adminUserId } = await requireAdmin();
+  const targetUserId = formData.get('user_id');
+  if (typeof targetUserId !== 'string' || targetUserId.length === 0) {
+    throw new Error('Pick a user to request a review from.');
+  }
+  if (targetUserId === adminUserId) {
+    redirect('/admin/users?error=You+cannot+request+a+review+from+your+own+account');
+  }
+
+  const admin = createAdminClient();
+
+  // The review surface is event-scoped — resolve the couple's wedding event.
+  const { data: membership } = await admin
+    .from('event_members')
+    .select('event_id')
+    .eq('user_id', targetUserId)
+    .eq('member_type', 'couple')
+    .limit(1)
+    .maybeSingle();
+
+  if (!membership?.event_id) {
+    redirect(
+      `/admin/users?expand=${encodeURIComponent(targetUserId)}&error=${encodeURIComponent('That account has no wedding event yet — nothing to review.')}`,
+    );
+  }
+  const eventId = membership.event_id as string;
+
+  // In-app bell only (review_request isn't on the email allowlist). Fails soft —
+  // a notification hiccup never throws out of the admin action.
+  await emitNotification({
+    userId: targetUserId,
+    type: 'review_request',
+    title: 'We’d love your review',
+    body: 'The Setnayan Team would love to hear how Setnayan is helping with your wedding — it only takes a moment.',
+    relatedUrl: `/dashboard/${eventId}/review`,
+  });
+
+  const { error: auditErr } = await admin.from('admin_audit_log').insert({
+    action: 'request_couple_review',
+    target_id: targetUserId,
+    actor_user_id: adminUserId,
+    metadata: { event_id: eventId },
+  });
+  if (auditErr) {
+    console.error('[requestCoupleReview] audit log insert failed', auditErr.message);
+  }
+
+  revalidatePath('/admin/users');
+  redirect(
+    `/admin/users?expand=${encodeURIComponent(targetUserId)}&grant_banner=${encodeURIComponent('Review request sent — the couple will be asked to share their Setnayan experience.')}`,
+  );
 }

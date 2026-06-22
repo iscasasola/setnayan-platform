@@ -12,6 +12,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { autoInviteCoordinator } from '@/lib/coordinator-grant';
 import { emitNotification } from '@/lib/notification-emit';
 import { uploadPublicAsset } from '@/lib/storage';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
@@ -230,7 +231,7 @@ export async function updateVendorStatus(formData: FormData) {
   // the white→BOOKED capacity transition for the schedule-pool gate.
   const { data: prev } = await supabase
     .from('event_vendors')
-    .select('status, vendor_name, marketplace_vendor_id, service_id, category')
+    .select('status, vendor_name, marketplace_vendor_id, service_id, category, contact_email')
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId)
     .maybeSingle();
@@ -249,6 +250,7 @@ export async function updateVendorStatus(formData: FormData) {
     marketplace_vendor_id?: string | null;
     service_id?: string | null;
     category?: string | null;
+    contact_email?: string | null;
   } | null;
   const wasConsuming = prevRow?.status
     ? DOWNPAID_STATUSES.has(prevRow.status)
@@ -316,6 +318,31 @@ export async function updateVendorStatus(formData: FormData) {
   // Best-effort: the visible status change already succeeded.
   if (wasConsuming && !willConsume) {
     await releaseSchedulePools(supabase, vendorId, 'status_downgrade');
+  }
+
+  // Coordinator auto-grant (owner 2026-06-22): the FIRST time a planner_coordinator
+  // booking reaches a downpaid/booked state, auto-invite the coordinator with host
+  // (full planning, no money) access — the same delegate the manual "Promote your
+  // coordinator" creates, fired automatically on the downpayment milestone. The
+  // coordinator still activates it via the /host/accept link, so access is never
+  // granted without their acceptance. Idempotent (skips an existing invite) and
+  // best-effort: a failed invite never rolls back the booking-status change.
+  if (
+    !wasConsuming
+    && willConsume
+    && prevRow?.category === 'planner_coordinator'
+    && prevRow?.contact_email
+  ) {
+    try {
+      await autoInviteCoordinator(createAdminClient(), {
+        eventId,
+        email: prevRow.contact_email,
+        displayLabel: prevRow.vendor_name ?? null,
+        invitedByUserId: user.id,
+      });
+    } catch {
+      // best-effort — never block the booking-status write on the auto-invite.
+    }
   }
 
   // Phase-2 review-request emit: the moment a vendor's service is marked

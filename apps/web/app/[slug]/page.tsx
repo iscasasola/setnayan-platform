@@ -11,7 +11,8 @@ import { ROLE_LABELS, type GuestRole } from '@/lib/guests';
 import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
 import { resolveMonogram, type MonogramConfig } from '@/lib/monogram';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
-import { eventPapicGuestActive } from '@/lib/papic-guest';
+import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
+import { PapicGuestCapture } from '@/app/papic/guest/_components/papic-guest-capture';
 import { eventOwnsPapicSeats } from '@/lib/papic-seats';
 import { eventSkuActive } from '@/lib/entitlements';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
@@ -64,11 +65,7 @@ import type { WallTile } from '@/lib/live-wall-logic';
 import { getGuestLiveGallery, type GuestLiveGallery } from '@/lib/guest-live-gallery';
 import { parseYouTubeVideoId, youTubeEmbedUrl } from '@/lib/panood-watch';
 import { GuestHubCard, pickNextScheduleBlock, type GuestHubData } from './_components/guest-hub-card';
-import {
-  eventOwnsIndoorBlueprint,
-  fetchEntrance,
-  type EntrancePos,
-} from '@/lib/indoor-blueprint';
+import { fetchEntrance, type EntrancePos } from '@/lib/indoor-blueprint';
 import { fetchTables, type EventTableRow } from '@/lib/seating';
 import { YourSeatBlock } from './_components/your-seat-block';
 
@@ -898,6 +895,45 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     }
   }
 
+  // Inline Papic guest camera (PAPIC_GUEST) — mount the SAME capture surface the
+  // standalone /papic/guest route uses, but in-context on this guest's own
+  // landing page so the camera auto-shows when the couple owns the paid pack (no
+  // tap-out required). Gated on the active (admin-approved) entitlement +
+  // guest-session identity. Resolve the same data the route does: the per-guest
+  // 150-credit quota, the one-time UGC-terms flag, and the block short-circuit.
+  // If the guest is blocked, mirror the route and DON'T mount the camera (the
+  // floating CTA / route remains as the QR-scan fallback). Admin reads, all
+  // gated so the anonymous public path never touches this.
+  let papicGuest:
+    | { initialRemaining: number; total: number; termsAccepted: boolean }
+    | null = null;
+  if (papicGuestActive) {
+    const [quota, { data: ugcRow }, { data: blockRow }] = await Promise.all([
+      fetchGuestQuota(admin, event.event_id, guest.guest_id),
+      admin
+        .from('guests')
+        .select('ugc_terms_accepted_at')
+        .eq('guest_id', guest.guest_id)
+        .maybeSingle(),
+      admin
+        .from('event_blocked_users')
+        .select('id')
+        .eq('event_id', event.event_id)
+        .eq('blocked_guest_id', guest.guest_id)
+        .maybeSingle(),
+    ]);
+    if (!blockRow) {
+      papicGuest = {
+        initialRemaining: quota.remaining,
+        total: quota.total,
+        termsAccepted: Boolean(
+          (ugcRow as { ugc_terms_accepted_at?: string | null } | null)
+            ?.ugc_terms_accepted_at,
+        ),
+      };
+    }
+  }
+
   // Guest Hub Card — seat assignment for THIS guest only (one targeted query;
   // the hub card needs the table label without loading the full floor plan).
   // Graceful-degrade: if the join fails or no assignment exists, tableLabel
@@ -957,7 +993,15 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     | { tables: EventTableRow[]; entrance: EntrancePos; targetTableId: string }
     | null = null;
   if (guestTableId && guestTableLabel) {
-    const ownsIndoorBlueprint = await eventOwnsIndoorBlueprint(admin, event.event_id);
+    // Paid-only ACTIVE gate (admin-approved) — the inline wayfinding map shows
+    // only after the Setnayan team verifies the Indoor Blueprint payment, not on
+    // a still-pending order. Mirrors the eventSkuActive handshake every other
+    // paid feature on this page uses (LIVE_WALL / PANOOD_SYSTEM / PAPIC_GUEST).
+    const ownsIndoorBlueprint = await eventSkuActive(
+      admin,
+      event.event_id,
+      'INDOOR_BLUEPRINT',
+    );
     if (ownsIndoorBlueprint) {
       try {
         const [seatTables, seatEntrance] = await Promise.all([
@@ -1005,6 +1049,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         needsFaceEnroll={needsFaceEnroll}
         guestHubData={guestHubData}
         seatMap={seatMap}
+        papicGuest={papicGuest}
       />
       {papicGuestActive && (
         <Link
@@ -1888,6 +1933,7 @@ function InvitationSite({
   needsFaceEnroll,
   guestHubData,
   seatMap,
+  papicGuest,
 }: {
   event: EventRow;
   guest: GuestRow;
@@ -1957,6 +2003,14 @@ function InvitationSite({
     tables: EventTableRow[];
     entrance: EntrancePos;
     targetTableId: string;
+  } | null;
+  /** Inline Papic guest camera (PAPIC_GUEST) — non-null only when the event owns
+   *  the active (admin-approved) pack and this guest isn't blocked. Mounts the
+   *  same capture surface as the standalone /papic/guest route, in-context. */
+  papicGuest: {
+    initialRemaining: number;
+    total: number;
+    termsAccepted: boolean;
   } | null;
 }) {
   const sideLabel =
@@ -2240,6 +2294,23 @@ function InvitationSite({
             them. Self-hides once enrolled; QR-scan tagging is the fallback. */}
         {needsFaceEnroll ? (
           <DayOfFaceEnroll context={isLive ? 'day_of' : 'pre_event'} />
+        ) : null}
+
+        {/* Inline Papic guest camera — auto-shown in-context when the couple owns
+            the active (admin-approved) PAPIC_GUEST pack, so an identified guest
+            can shoot candids without leaving their landing page. Same surface as
+            the standalone /papic/guest route (still live as the QR-scan fallback +
+            the floating CTA). papicGuest is non-null only behind the active gate +
+            an unblocked guest, resolved on the page. */}
+        {papicGuest ? (
+          <PapicGuestCapture
+            guestName={guest.first_name}
+            eventName={event.display_name}
+            initialRemaining={papicGuest.initialRemaining}
+            total={papicGuest.total}
+            termsAccepted={papicGuest.termsAccepted}
+            needsFaceEnroll={needsFaceEnroll}
+          />
         ) : null}
 
         {/* Per-guest LIVE gallery — "photos of you, so far". The personalized

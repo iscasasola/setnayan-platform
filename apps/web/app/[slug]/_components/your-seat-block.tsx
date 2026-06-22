@@ -24,7 +24,7 @@ export function YourSeatBlock({ tableLabel, venueName, tables, entrance, targetT
   return (
     <section className="rounded-2xl border border-ink/10 bg-cream p-5 shadow-sm sm:p-6">
       <header className="space-y-1.5 text-center">
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
+        <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
           Your seat
         </p>
         <h2 className="text-xl font-semibold tracking-tight text-ink sm:text-2xl">

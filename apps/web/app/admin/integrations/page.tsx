@@ -14,10 +14,12 @@ import { saveResendConfig, clearResendKey, setAiPaywall } from './actions';
 import { TestResendButton } from './_components/test-resend-button';
 import { SecretCard } from './_components/secret-card';
 import { OAuthCard } from './_components/oauth-card';
+import { MayaCard } from './_components/maya-card';
 import {
   SECRET_INTEGRATIONS,
   OAUTH_INTEGRATIONS,
   SOCIAL_INTEGRATIONS,
+  MAYA_INTEGRATION,
 } from '@/lib/integrations/registry';
 import { getSecretPresenceMap } from '@/lib/integration-config';
 
@@ -370,6 +372,29 @@ export default async function AdminIntegrationsPage({
           })}
         </section>
       ) : null}
+
+      {/* Payments (PR4c) — Maya: 2-secret bespoke card */}
+      <section className="space-y-4">
+        <h2 className="text-sm font-mono uppercase tracking-[0.18em] text-ink/45">
+          Payments
+        </h2>
+        <MayaCard
+          publicInDb={secretPresence[MAYA_INTEGRATION.publicKeyColumn] ?? false}
+          secretInDb={secretPresence[MAYA_INTEGRATION.secretKeyColumn] ?? false}
+          publicInEnv={Boolean(process.env[MAYA_INTEGRATION.publicKeyEnv])}
+          secretInEnv={Boolean(process.env[MAYA_INTEGRATION.secretKeyEnv])}
+          endpointValue={
+            ((oauthSettings?.[MAYA_INTEGRATION.endpointColumn] as string | null) ?? '').trim() ||
+            process.env[MAYA_INTEGRATION.endpointEnv] ||
+            ''
+          }
+          endpointFromEnv={
+            !((oauthSettings?.[MAYA_INTEGRATION.endpointColumn] as string | null) ?? '').trim() &&
+            Boolean(process.env[MAYA_INTEGRATION.endpointEnv])
+          }
+          statusApproved={process.env.NEXT_PUBLIC_MAYA_STATUS === 'APPROVED'}
+        />
+      </section>
 
       <p
         className="inline-flex items-start gap-2 rounded-2xl border border-amber-200/70 bg-amber-50/60 px-4 py-3 text-xs text-amber-900/90"

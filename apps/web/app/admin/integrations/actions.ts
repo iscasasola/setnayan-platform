@@ -8,6 +8,7 @@ import { encryptToken } from '@/lib/encryption';
 import {
   getSecretIntegration,
   getOAuthIntegration,
+  MAYA_INTEGRATION,
 } from '@/lib/integrations/registry';
 
 // Integration Activation Console — PR1 (email slice) · server actions.
@@ -203,6 +204,75 @@ export async function clearResendKey(): Promise<void> {
     .update({
       resend_api_key_enc: null,
       last_verified_at: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', 1);
+  revalidatePath('/admin/integrations');
+  redirect('/admin/integrations?cleared=1');
+}
+
+// ── Maya / PayMaya (PR4c) — bespoke 2-secret integration ────────────────────
+//
+// Maya needs TWO secrets (public + secret key form one Basic-auth pair) + one
+// config (checkout endpoint), so it can't use the single-secret saveOAuthConfig.
+// Each key is encrypted + written only when a non-blank value is entered (blank =
+// keep current); the endpoint is non-secret config (blank = clear → env fallback).
+
+export async function saveMayaConfig(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const admin = createAdminClient();
+
+  // Non-secret config → platform_settings. Written UNCONDITIONALLY each save
+  // (blank = NULL = env fallback) — same prefill-keep contract as the OAuth /
+  // Resend config fields: the card prefills the field with the resolved value, so
+  // a normal re-save preserves it; only a deliberately-blanked field clears it.
+  const endpointRaw = formData.get('maya_checkout_endpoint');
+  const endpoint =
+    typeof endpointRaw === 'string' && endpointRaw.trim() ? endpointRaw.trim() : null;
+  if (endpoint) {
+    let ok = false;
+    try {
+      const u = new URL(endpoint);
+      ok = u.protocol === 'https:' || u.protocol === 'http:';
+    } catch {
+      ok = false;
+    }
+    if (!ok) redirect('/admin/integrations?error=invalid_config');
+  }
+  await admin
+    .from('platform_settings')
+    .update({ [MAYA_INTEGRATION.endpointColumn]: endpoint })
+    .eq('id', 1);
+
+  // Secrets → encrypt + write only the keys that were entered.
+  const secretPatch: Record<string, string> = {};
+  const pubRaw = formData.get('maya_public_api_key');
+  if (typeof pubRaw === 'string' && pubRaw.trim()) {
+    secretPatch[MAYA_INTEGRATION.publicKeyColumn] = encryptToken(pubRaw.trim());
+  }
+  const secRaw = formData.get('maya_secret_api_key');
+  if (typeof secRaw === 'string' && secRaw.trim()) {
+    secretPatch[MAYA_INTEGRATION.secretKeyColumn] = encryptToken(secRaw.trim());
+  }
+  if (Object.keys(secretPatch).length > 0) {
+    await admin
+      .from('platform_integration_secrets')
+      .update({ ...secretPatch, updated_at: new Date().toISOString() })
+      .eq('id', 1);
+  }
+
+  revalidatePath('/admin/integrations');
+  redirect('/admin/integrations?saved=1');
+}
+
+export async function clearMayaSecrets(): Promise<void> {
+  await requireAdmin();
+  const admin = createAdminClient();
+  await admin
+    .from('platform_integration_secrets')
+    .update({
+      [MAYA_INTEGRATION.publicKeyColumn]: null,
+      [MAYA_INTEGRATION.secretKeyColumn]: null,
       updated_at: new Date().toISOString(),
     })
     .eq('id', 1);

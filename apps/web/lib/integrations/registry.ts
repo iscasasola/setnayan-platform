@@ -289,8 +289,28 @@ export function getOAuthIntegration(id: string): OAuthIntegrationDef | undefined
   return CREDENTIAL_INTEGRATIONS.find((i) => i.id === id);
 }
 
+// ── Maya / PayMaya payments (PR4c) ──────────────────────────────────────────
+//
+// Maya breaks the single-secret card shape: it needs TWO secrets (the public +
+// secret key form one HTTP Basic-auth pair) + one config (checkout endpoint), so
+// it has a bespoke card (MayaCard) + action (saveMayaConfig). This metadata is
+// the column allowlist for that action + the presence map. The build-time
+// activation gate (NEXT_PUBLIC_MAYA_STATUS) is NOT here — it stays redeploy-gated.
+export const MAYA_INTEGRATION = {
+  id: 'maya',
+  label: 'Maya — automated checkout',
+  publicKeyColumn: 'maya_public_api_key_enc',
+  publicKeyEnv: 'MAYA_PUBLIC_API_KEY',
+  secretKeyColumn: 'maya_secret_api_key_enc',
+  secretKeyEnv: 'MAYA_SECRET_API_KEY',
+  endpointColumn: 'maya_checkout_endpoint',
+  endpointEnv: 'MAYA_CHECKOUT_ENDPOINT',
+} as const;
+
 /** All secret columns across every registry — for the console presence map. */
 export const ALL_SECRET_COLUMNS: readonly string[] = [
   ...SECRET_INTEGRATIONS.map((i) => i.secretColumn),
   ...CREDENTIAL_INTEGRATIONS.map((i) => i.secretColumn),
+  MAYA_INTEGRATION.publicKeyColumn,
+  MAYA_INTEGRATION.secretKeyColumn,
 ];

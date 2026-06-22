@@ -326,3 +326,69 @@ export async function resolveTikTokAccessToken(): Promise<string | null> {
   }
   return process.env.TIKTOK_ACCESS_TOKEN || null;
 }
+
+// ── Maya / PayMaya checkout credentials (PR4c) ──────────────────────────────
+//
+// DB-first / env-fallback resolver for Maya's Basic-auth credential pair + the
+// checkout base URL. BOTH keys are secrets (the "public" key is a server-only
+// merchant credential). UNCACHED; byte-identical to the env reads when the DB
+// columns are empty. The build-time activation gate (NEXT_PUBLIC_MAYA_STATUS)
+// is NOT resolved here — it stays redeploy-gated.
+const MAYA_CHECKOUT_ENDPOINT_DEFAULT =
+  'https://pg-sandbox.paymaya.com/checkout/v1/checkouts';
+
+export interface MayaConfig {
+  publicKey: string;
+  secretKey: string;
+  checkoutEndpoint: string;
+}
+
+export async function resolveMayaConfig(): Promise<MayaConfig> {
+  let publicKey = '';
+  let secretKey = '';
+  let checkoutEndpoint = '';
+  try {
+    const admin = createAdminClient();
+    const [secretRes, settingsRes] = await Promise.all([
+      admin
+        .from('platform_integration_secrets')
+        .select('maya_public_api_key_enc, maya_secret_api_key_enc')
+        .eq('id', 1)
+        .maybeSingle(),
+      admin
+        .from('platform_settings')
+        .select('maya_checkout_endpoint')
+        .eq('id', 1)
+        .maybeSingle(),
+    ]);
+    const sec = secretRes.data as Record<string, unknown> | null;
+    const pubEnc = sec?.maya_public_api_key_enc as string | null | undefined;
+    const secEnc = sec?.maya_secret_api_key_enc as string | null | undefined;
+    if (pubEnc) {
+      try {
+        publicKey = decryptToken(pubEnc);
+      } catch {
+        /* bad ciphertext → env fallback */
+      }
+    }
+    if (secEnc) {
+      try {
+        secretKey = decryptToken(secEnc);
+      } catch {
+        /* bad ciphertext → env fallback */
+      }
+    }
+    const set = settingsRes.data as Record<string, unknown> | null;
+    checkoutEndpoint = ((set?.maya_checkout_endpoint as string | null) ?? '').trim();
+  } catch {
+    // DB unreachable / columns absent → env fallback below.
+  }
+  return {
+    publicKey: publicKey || process.env.MAYA_PUBLIC_API_KEY || '',
+    secretKey: secretKey || process.env.MAYA_SECRET_API_KEY || '',
+    checkoutEndpoint:
+      checkoutEndpoint ||
+      process.env.MAYA_CHECKOUT_ENDPOINT ||
+      MAYA_CHECKOUT_ENDPOINT_DEFAULT,
+  };
+}

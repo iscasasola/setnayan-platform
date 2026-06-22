@@ -1,3 +1,6 @@
+import { redirect } from 'next/navigation';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { eventSkuActive } from '@/lib/entitlements';
 import {
   AddOnDetailView,
   addOnAboutTitle,
@@ -23,5 +26,22 @@ export async function generateMetadata({ params }: Props) {
 
 export default async function AddOnDetailPage({ params }: Props) {
   const { eventId, addon } = await params;
+
+  // 2026-06-22 · A couple who already PAID for Patiktok shouldn't land on the
+  // marketing/about interstitial — deep-link them straight to the working booth
+  // (the operator dashboard). Scoped to Patiktok only; every other feature keeps
+  // its About page. Bundle-aware admin-approved gate (eventSkuActive covers a
+  // direct PATIKTOK_COMPILER order AND the MEDIA_PACK bundle; refund/cancel
+  // releases it). Admin client because orders RLS is purchaser-scoped — a co-
+  // host who didn't place the order is still an owner. Graceful-degrade on a
+  // missing/legacy orders table (42P01 / 42703 → not active) falls through to
+  // the About page rather than crashing.
+  if (
+    addon === 'patiktok' &&
+    (await eventSkuActive(createAdminClient(), eventId, 'PATIKTOK_COMPILER'))
+  ) {
+    redirect(`/dashboard/${eventId}/studio/patiktok/booth`);
+  }
+
   return <AddOnDetailView eventId={eventId} addon={addon} />;
 }

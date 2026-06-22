@@ -18,6 +18,8 @@ import {
   XCircle,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { eventSkuActive } from '@/lib/entitlements';
 import { presignDisplayUrl } from '@/lib/uploads';
 import { isR2Configured, R2_BUCKETS } from '@/lib/r2';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -161,6 +163,23 @@ export default async function PatiktokGallery({
   // per-tier below. Cheaper to fetch once at page level than per TierCard.
   const settings = await fetchPlatformSettings(supabase);
 
+  // 2026-06-22 · Paid owners land on their working booth, not a buy page.
+  // Resolve admin-APPROVED ownership ONCE via the shared bundle-aware reader
+  // (lib/entitlements.eventSkuActive — covers a direct PATIKTOK_COMPILER order
+  // AND the MEDIA_PACK bundle that includes it; refund/cancel/lapse releases
+  // it). Read with the ADMIN client: orders RLS is purchaser-scoped, so a
+  // co-host member who didn't personally place the order would otherwise see
+  // the buy tiers. Graceful-degrade on a missing/legacy orders table (42P01 /
+  // 42703 → false) keeps pre-bootstrap DBs on the buy view rather than
+  // crashing. When active we HIDE the PricingTiers buy block and promote the
+  // booth launch + Your renders to the top; when inactive the buy-tiers view
+  // is unchanged. Mirrors the custom-qr-guest auto-show gate (PR #2019).
+  const patiktokActive = await eventSkuActive(
+    createAdminClient(),
+    eventId,
+    'PATIKTOK_COMPILER',
+  );
+
   return (
     <section className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -252,14 +271,37 @@ export default async function PatiktokGallery({
         </p>
       ) : null}
 
-      <PricingTiers
-        eventId={eventId}
-        couplePurchasable
-        tiktokGrant={tiktokGrant}
-        settings={settings}
-      />
-
-      <YourRenders jobs={jobs} eventId={eventId} downloadUrls={downloadUrls} />
+      {patiktokActive ? (
+        <>
+          {/*
+            Owned (admin-approved PATIKTOK_COMPILER, directly or via MEDIA_PACK):
+            the buy tiers are hidden and the working surface — booth launch + the
+            couple's renders — is promoted to the top. The booth (operator
+            dashboard) is the primary destination; YourRenders sits right under
+            it so finished reels are one tap from the landing.
+          */}
+          <BoothLaunchPanel eventId={eventId} />
+          <YourRenders
+            jobs={jobs}
+            eventId={eventId}
+            downloadUrls={downloadUrls}
+          />
+        </>
+      ) : (
+        <>
+          <PricingTiers
+            eventId={eventId}
+            couplePurchasable
+            tiktokGrant={tiktokGrant}
+            settings={settings}
+          />
+          <YourRenders
+            jobs={jobs}
+            eventId={eventId}
+            downloadUrls={downloadUrls}
+          />
+        </>
+      )}
 
       <HowItWorks />
 
@@ -293,6 +335,35 @@ export default async function PatiktokGallery({
         </Link>{' '}
         — describe the vibe + reference TikTok link and our team will quote.
       </p>
+    </section>
+  );
+}
+
+function BoothLaunchPanel({ eventId }: { eventId: string }) {
+  return (
+    <section className="space-y-4 rounded-2xl border border-mulberry/20 bg-mulberry/5 p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <p className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-mulberry-700">
+            <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Patiktok is yours
+          </p>
+          <h2 className="text-lg font-semibold tracking-tight">
+            Your booth is ready to run
+          </h2>
+          <p className="max-w-prose text-sm text-ink/70">
+            Open the operator dashboard to pick your primary + backup templates,
+            track live submissions, and start recording your guests.
+          </p>
+        </div>
+        <Link
+          href={`/dashboard/${eventId}/studio/patiktok/booth`}
+          className="inline-flex items-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
+        >
+          <Film aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          Open booth dashboard
+        </Link>
+      </div>
     </section>
   );
 }

@@ -566,6 +566,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb: 'Your name and monogram, twenty feet tall on the stage screen.',
     cta: 'Choose template',
     studioGroup: 'branding',
+    serviceKey: 'LIVE_BACKGROUND',
     poster: {
       motion: 'pulse',
       baseBackground:

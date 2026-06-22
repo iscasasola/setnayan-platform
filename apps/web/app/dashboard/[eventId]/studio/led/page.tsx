@@ -1,16 +1,49 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Sparkles, Tv, Usb } from 'lucide-react';
+import { ArrowLeft, Check, Sparkles, Tv, Usb } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { eventSkuActive } from '@/lib/entitlements';
+import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { formatPhp } from '@/lib/orders';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import {
   LED_DEFAULT_LOOP_SECONDS,
   LED_TEMPLATES,
   findLedTemplate,
 } from '@/lib/led-background';
-import { LedBackgroundMaker } from './_components/led-background-maker';
+import { LedBackgroundMaker, type LedInitialConfig } from './_components/led-background-maker';
 
 export const metadata = { title: 'LED Background Maker · Setnayan' };
+
+/**
+ * /dashboard/[eventId]/studio/led — the 0005 LED Background Maker, gated on the
+ * paid LIVE_BACKGROUND SKU.
+ *
+ * The 8K LED-wall loop generator is a PAID couple service. Until 2026-06-22 the
+ * editor rendered for ANY logged-in couple (no entitlement gate at all — the
+ * accidental "free" state). This page now mirrors the sibling studio add-ons
+ * (animated-monogram / custom-qr-guest):
+ *   • Owned (a paid LIVE_BACKGROUND order exists, admin-approved — direct OR via
+ *     the Complete/MEDIA_PACK bundle) → render the editor exactly as before,
+ *     restoring the couple's last saved draft.
+ *   • Unowned → the marketing surface + InlineCheckoutDrawer buy CTA. The editor
+ *     never renders and we never hard-error — the couple sees what they get and
+ *     can buy in one step.
+ *
+ * The gate uses the bundle-aware, admin-approved eventSkuActive() reader (the
+ * handshake gate — feature unlocks only AFTER payment is verified). It reads with
+ * the ADMIN client because ownership is an EVENT-level fact but orders RLS is
+ * purchaser-scoped, so a co-host member who didn't personally place the order
+ * would otherwise be wrongly shown the buy CTA. eventSkuActive graceful-degrades
+ * on a missing/legacy orders table (42P01 / 42703 → treated as not-owned), so a
+ * pre-bootstrap database surfaces the buy CTA rather than crashing. The save
+ * route (/api/led-background/save) enforces the same gate so an unowned couple
+ * can't persist a draft via a direct POST.
+ */
+
+const SKU_CODE = 'LIVE_BACKGROUND';
 
 type Props = { params: Promise<{ eventId: string }> };
 
@@ -28,27 +61,13 @@ export default async function LedBackgroundPage({ params }: Props) {
     .eq('event_id', eventId)
     .maybeSingle();
 
-  // Load the couple's existing default config (if any) so reopening the
-  // editor restores their last draft. Service role since led_background_configs
-  // has no couple-readable RLS policy yet (PR 1 shipped RLS-on / no-policies).
+  // THE GATE — admin-approved, bundle-aware ownership (eventSkuActive). Read with
+  // the admin client: ownership is an event-level fact, but orders RLS is
+  // purchaser-scoped, so the user client would deny a co-host member who didn't
+  // place the order and wrongly route them to the buy CTA. Graceful-degrades to
+  // not-owned on a missing orders table.
   const admin = createAdminClient();
-  const { data: existingConfig } = await admin
-    .from('led_background_configs')
-    .select('config_id, template_id, config_json')
-    .eq('event_id', eventId)
-    .eq('is_default', true)
-    .maybeSingle();
-  const draftTemplate =
-    findLedTemplate((existingConfig?.template_id as string) ?? '') ?? null;
-  const draftConfigJson = (existingConfig?.config_json ?? {}) as Record<string, unknown>;
-  const initialConfig = existingConfig
-    ? {
-        configId: existingConfig.config_id as string,
-        templateSlug: draftTemplate?.slug ?? LED_TEMPLATES[0]!.slug,
-        loopSeconds: Number(draftConfigJson.loop_duration_s ?? LED_DEFAULT_LOOP_SECONDS),
-        photoPoolEnabled: Boolean(draftConfigJson.photo_pool_enabled),
-      }
-    : null;
+  const owns = await eventSkuActive(admin, eventId, SKU_CODE);
 
   return (
     <section className="space-y-6">
@@ -118,12 +137,151 @@ export default async function LedBackgroundPage({ params }: Props) {
         </ul>
       </header>
 
-      <LedBackgroundMaker
-        eventId={eventId}
-        coupleName={event?.display_name ?? ''}
-        templates={LED_TEMPLATES}
-        initialConfig={initialConfig}
-      />
+      {owns ? (
+        <OwnedEditor eventId={eventId} coupleName={event?.display_name ?? ''} />
+      ) : (
+        <UnownedView
+          eventId={eventId}
+          displayName={event?.display_name ?? null}
+          supabase={supabase}
+        />
+      )}
+    </section>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Owned — the couple has a paid (admin-approved) LIVE_BACKGROUND order. Render
+// the editor as before, restoring their last saved draft.
+// ─────────────────────────────────────────────────────────────────────────
+
+async function OwnedEditor({
+  eventId,
+  coupleName,
+}: {
+  eventId: string;
+  coupleName: string;
+}) {
+  // Load the couple's existing default config (if any) so reopening the
+  // editor restores their last draft. Service role since led_background_configs
+  // has no couple-readable RLS policy yet (PR 1 shipped RLS-on / no-policies).
+  const admin = createAdminClient();
+  const { data: existingConfig } = await admin
+    .from('led_background_configs')
+    .select('config_id, template_id, config_json')
+    .eq('event_id', eventId)
+    .eq('is_default', true)
+    .maybeSingle();
+  const draftTemplate =
+    findLedTemplate((existingConfig?.template_id as string) ?? '') ?? null;
+  const draftConfigJson = (existingConfig?.config_json ?? {}) as Record<string, unknown>;
+  const initialConfig: LedInitialConfig | null = existingConfig
+    ? {
+        configId: existingConfig.config_id as string,
+        templateSlug: draftTemplate?.slug ?? LED_TEMPLATES[0]!.slug,
+        loopSeconds: Number(draftConfigJson.loop_duration_s ?? LED_DEFAULT_LOOP_SECONDS),
+        photoPoolEnabled: Boolean(draftConfigJson.photo_pool_enabled),
+      }
+    : null;
+
+  return (
+    <LedBackgroundMaker
+      eventId={eventId}
+      coupleName={coupleName}
+      templates={LED_TEMPLATES}
+      initialConfig={initialConfig}
+    />
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Unowned — the marketing surface. What you get + the InlineCheckoutDrawer buy
+// CTA (the same buy surface every other studio add-on uses). No editor.
+// ─────────────────────────────────────────────────────────────────────────
+
+type SupabaseLike = Awaited<ReturnType<typeof createClient>>;
+
+async function UnownedView({
+  eventId,
+  displayName,
+  supabase,
+}: {
+  eventId: string;
+  displayName: string | null;
+  supabase: SupabaseLike;
+}) {
+  // Price comes ONLY from the admin V2 catalog (owner rule 2026-06-14 — no
+  // hardcoded price). null when the catalog row is unreadable (e.g. no
+  // service-role key in CI / pre-seed) → the buy block degrades gracefully
+  // below rather than inventing a number. In prod the row is always seeded.
+  const [skuRecord, settings] = await Promise.all([
+    formatV2Sku(SKU_CODE).catch(() => null),
+    fetchPlatformSettings(supabase),
+  ]);
+  const pricePhp = skuRecord?.price_php ?? null;
+
+  return (
+    <section className="rounded-2xl border border-ink/10 bg-cream p-5">
+      <header className="space-y-1">
+        <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+          What you get
+        </p>
+        <h2 className="text-xl font-semibold tracking-tight">
+          Your monogram, twenty feet tall on the stage screen
+        </h2>
+        <p className="max-w-prose text-sm text-ink/60">
+          Unlock the LED Background Maker to design a seamless 8K loop for your
+          venue&rsquo;s wall &mdash; pick a motif, set your loop length, and we
+          deliver a venue-ready USB master.
+        </p>
+      </header>
+
+      <ul className="mt-4 space-y-2 text-sm text-ink/70">
+        <li className="flex items-start gap-2">
+          <Sparkles aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
+          10 motion-graphics templates &mdash; Filipino heritage, glamour,
+          cinematic, minimal.
+        </li>
+        <li className="flex items-start gap-2">
+          <Tv aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
+          A seamless 7680&times;4320 H.264 master loop that fills your full
+          5-hour reception.
+        </li>
+        <li className="flex items-start gap-2">
+          <Usb aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
+          Venue-ready USB delivery &mdash; your LED tech plays it offline, no
+          venue Wi-Fi needed.
+        </li>
+        <li className="flex items-start gap-2">
+          <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
+          Optional Photo Pool blend of your engagement photos behind the
+          monogram.
+        </li>
+      </ul>
+
+      {pricePhp != null ? (
+        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-ink/65">
+            One price for your wedding ·{' '}
+            <span className="font-mono text-base text-ink">{formatPhp(pricePhp)}</span>
+          </p>
+          <div className="sm:w-auto">
+            <InlineCheckoutDrawer
+              eventId={eventId}
+              serviceKey={SKU_CODE}
+              displayName={`LED Background${displayName ? ` · ${displayName}` : ''}`}
+              originalPriceCentavos={String(Math.round(pricePhp * 100))}
+              settings={settings}
+              triggerLabel="Unlock the LED Background Maker"
+              triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70 sm:w-auto"
+            />
+          </div>
+        </div>
+      ) : (
+        <p className="mt-5 text-sm text-ink/65">
+          Pricing loads from your catalog &mdash; please refresh in a moment.
+        </p>
+      )}
     </section>
   );
 }

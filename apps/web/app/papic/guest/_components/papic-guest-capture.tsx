@@ -12,6 +12,7 @@ import {
   X,
   ScanLine,
   Users,
+  Globe,
 } from 'lucide-react';
 import { DayOfFaceEnroll } from '@/app/[slug]/_components/day-of-face-enroll';
 import { makeQrDetector } from '@/lib/qr-scan';
@@ -79,6 +80,12 @@ export function PapicGuestCapture({
   const [camError, setCamError] = useState(false);
   const [busy, setBusy] = useState(false);
   const [remaining, setRemaining] = useState(initialRemaining);
+  // Public-sharing opt-in (Alaala orb gate · RA 10173). OFF by default and never
+  // pre-checked: when ON, each shot this guest captures is sent with
+  // share_publicly so the server sets consent_to_public on their own row — one
+  // of the two gates the public showcase needs (the couple's approval is the
+  // other). A persistent per-session preference, so the guest sets it once.
+  const [sharePublicly, setSharePublicly] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [blocked, setBlocked] = useState(false);
@@ -219,6 +226,9 @@ export function PapicGuestCapture({
     try {
       const form = new FormData();
       form.append('file', blob, `papic-${Date.now()}.jpg`);
+      // Public-sharing consent for THIS shot (Alaala orb gate). Only sent when
+      // the guest opted in; the server sets consent_to_public from it.
+      if (sharePublicly) form.append('share_publicly', '1');
       // FACE auto-tag: detect faces + compute their 128-d descriptors ON-DEVICE
       // (lazy-imported face-api.js) from the frame we just froze, and send ONLY
       // the tiny vectors — the face IMAGE never leaves the phone. The server
@@ -287,7 +297,7 @@ export function PapicGuestCapture({
     } finally {
       setBusy(false);
     }
-  }, [busy, ready, exhausted, accepted, blocked]);
+  }, [busy, ready, exhausted, accepted, blocked, sharePublicly]);
 
   // ---- scan-to-tag ---------------------------------------------------------
 
@@ -755,6 +765,31 @@ export function PapicGuestCapture({
             ? 'Your camera is all used up — enjoy the celebration.'
             : 'Every photo lands in the couple’s gallery in real time.'}
         </p>
+
+        {/* Public-sharing opt-in (Alaala orb gate · RA 10173). Explicit, never
+            pre-checked, default OFF. When ON, the shots this guest captures are
+            sent with share_publicly so the couple MAY feature them publicly
+            (the couple still has to approve each one — both gates required). */}
+        {!exhausted ? (
+          <label className="mx-auto flex max-w-sm items-start gap-2.5 rounded-xl border border-cream/15 bg-cream/5 px-3.5 py-2.5 text-xs text-cream/80">
+            <input
+              type="checkbox"
+              checked={sharePublicly}
+              onChange={(e) => setSharePublicly(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-mulberry"
+            />
+            <span className="inline-flex flex-col gap-0.5">
+              <span className="inline-flex items-center gap-1.5 font-medium text-cream/90">
+                <Globe aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+                Let the couple feature my clips on their wedding page
+              </span>
+              <span className="text-cream/55">
+                Optional. Your photos always reach the couple either way — this just
+                lets them share the ones you take publicly. You can leave it off.
+              </span>
+            </span>
+          </label>
+        ) : null}
 
         {/* Scan-to-tag — the QR fallback so this shot reaches the right guest's
             "Photos of you." Offered after a capture; opens a scanner on the live

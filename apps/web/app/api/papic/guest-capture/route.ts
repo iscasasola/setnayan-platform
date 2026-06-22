@@ -50,6 +50,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'uploads_unavailable' }, { status: 503 });
   }
 
+  // GUEST public-sharing opt-in (Alaala orb gate · RA 10173 explicit consent).
+  // The capture UI sends 'share_publicly' = '1' ONLY when the guest ticked the
+  // opt-in for THIS shot; absent/anything-else → false. This sets
+  // consent_to_public on the row this guest captures (their own recording) —
+  // one of the two gates the public showcase requires (the other is the
+  // couple's approval). Default OFF: a missing flag never opts a guest in.
+  const sharePublicly = form.get('share_publicly') === '1';
+
   // Optional on-device face descriptors (best-effort) — the phone detected faces
   // + computed their 128-d vectors and sent only those; the face IMAGE stayed on
   // the device. Parsed defensively: a malformed/oversized field just disables
@@ -119,10 +127,22 @@ export async function POST(req: Request) {
   }
   const r2Ref = `r2://${R2_BUCKETS.media}/${key}`;
 
-  const { data, error } = await admin.rpc('papic_record_guest_capture', {
+  // Record the capture, carrying the guest's public-share consent on the row.
+  // Graceful-degrade: if the 3-arg RPC (consent param) isn't deployed yet, retry
+  // the original 2-arg signature so the capture still records — the opt-in just
+  // can't persist until the migration lands. Default OFF means a degraded path
+  // never silently shares a guest's media.
+  let { data, error } = await admin.rpc('papic_record_guest_capture', {
     p_guest_id: session.guest_id,
     p_r2_object_key: r2Ref,
+    p_consent_to_public: sharePublicly,
   });
+  if (error && /p_consent_to_public|function .*papic_record_guest_capture/i.test(error.message ?? '')) {
+    ({ data, error } = await admin.rpc('papic_record_guest_capture', {
+      p_guest_id: session.guest_id,
+      p_r2_object_key: r2Ref,
+    }));
+  }
   if (error) {
     return NextResponse.json({ error: 'record_failed' }, { status: 500 });
   }

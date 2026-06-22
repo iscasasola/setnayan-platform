@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-22 · feat(gifts): admin comp-grant fulfillment bridge + "early wedding gift" notification (PR 1 of 3)
+
+Makes admin gifts ACTUALLY unlock the feature — the missing half since gifting was first described. `issueCompGrant` recorded a `comp_grants` row but created no order and never called `activateOrderSku`, so a gifted flag-backed SKU (e.g. `SETNAYAN_AI` → `events.setnayan_ai_active`) was owned-but-dark: the couple "had" it, the feature stayed off. Same class as the vendor self-comp bug fixed in #1999, on the admin path.
+
+- **`lib/comp-fulfillment.ts`** (new) — `fulfillCompGrant()`: resolves the couple's event(s) (via `event_members`, couple role), and for each gifted SKU on each event creates a ₱0 paid comp order + runs its activation hook (mirrors `createSelfCompOrder`). `specific_skus` → the listed SKUs; `all_services` → the active V2 customer catalog. Non-fatal per SKU. Returns gifted feature titles for the notice. Plus `giftNotificationBody()`.
+- **`app/admin/users/actions.ts`** — `issueCompGrant` now calls `fulfillCompGrant` after recording the grant + audit, then drops an **`'early wedding gift from the Setnayan Team'`** notification via `emitNotification` (non-fatal; never rolls back the grant).
+- **`lib/notifications.ts`** — new `'gift'` `NotificationType` (+ LABEL + TONE map entries). **Not** in the email/push allowlists — in-app bell + the reveal pop-up (PR 2) are the delight, not an inbox.
+- **Migration `20270213450358_gift_notification_type.sql`** — `ALTER TYPE notification_type ADD VALUE 'gift'`. Applied to prod + ledger row (pipeline still blocked by the unrelated unmerged parallel migration). Idempotent.
+
+PR 1 of the gift experience (PR 2 = reveal pop-up · PR 3 = `feature_reviews` ask). tsc 0 · `next lint` clean on changed files. **Opened with auto-merge OFF for code review** (money/entitlement path).
+
+SPEC IMPACT: Recorded — `Admin_Account_Access_Model_2026-06-22.md` + DECISION_LOG 2026-06-22. Resolves the long-flagged "admin gift doesn't activate" gap. No price/SKU change.
+
+---
+
 ## 2026-06-22 · feat(admin): data-access log — admin account-access model Phase 1a
 
 RA 10173 "right to know who accessed my data" substrate for the admin account-access model (`Admin_Account_Access_Model_2026-06-22.md` · DECISION_LOG 2026-06-22). Records which admin VIEWED which account's data (distinct from `admin_audit_log`, which records admin write ACTIONS).

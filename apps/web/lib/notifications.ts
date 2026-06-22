@@ -6,6 +6,11 @@ import {
 } from '@/lib/supabase/error-detect';
 
 export type NotificationType =
+  // Added 2026-06-22 — admin "early wedding gift" (comp-grant fulfillment).
+  // Fired from issueCompGrant after a gifted SKU is activated. In-app bell +
+  // the gift reveal pop-up (PR2); intentionally NOT in EMAIL/PUSH allowlists —
+  // the reveal is the delight, not an inbox.
+  | 'gift'
   | 'chat_message'
   | 'order_quoted'
   | 'order_paid'
@@ -153,6 +158,7 @@ export type NotificationType =
   | 'completion_accepted';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
+  gift: 'An early wedding gift',
   chat_message: 'New message',
   order_quoted: 'Order quoted',
   order_paid: 'Order paid',
@@ -204,6 +210,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
+  gift: 'bg-warn-100 text-warn-900',
   chat_message: 'bg-sky-100 text-sky-800',
   order_quoted: 'bg-warn-100 text-warn-900',
   order_paid: 'bg-success-200 text-success-900',

@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import type { SwitcherData } from './get-switcher-data';
 import { formatEventDate } from '@/lib/events';
+import { EventMonogram } from '@/app/_components/event-monogram';
 
 type Tab = 'gallery' | 'favorites' | 'editorials';
 
@@ -298,10 +299,9 @@ export function AccountSwitcher({ data, currentEventName }: Props) {
                       onClick={close}
                       className="flex items-center gap-2.5 rounded-xl px-2 py-2 text-sm text-ink/85 hover:bg-terracotta/10"
                     >
-                      {/* Event monogram initial */}
-                      <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-terracotta/15 text-xs font-semibold text-terracotta-700">
-                        {ev.display_name.charAt(0).toUpperCase()}
-                      </span>
+                      {/* The couple's REAL mark (EventMonogram cascade), not a
+                          generic first-initial — matches the chrome chip + hero. */}
+                      <EventMonogram event={ev} size="md" />
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-1">
                           {ev.is_primary ? (
@@ -710,9 +710,9 @@ export function AccountSwitcherStandalone({ data }: Props) {
                         {data.events.map((ev) => (
                           <li key={ev.event_id}>
                             <Link href={`/dashboard/${ev.event_id}`} onClick={close} className="flex items-center gap-2.5 rounded-xl px-2 py-2 text-sm text-ink/85 hover:bg-terracotta/10">
-                              <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-terracotta/15 text-xs font-semibold text-terracotta-700">
-                                {ev.display_name.charAt(0).toUpperCase()}
-                              </span>
+                              {/* The couple's REAL mark (EventMonogram cascade),
+                                  not a generic first-initial. */}
+                              <EventMonogram event={ev} size="md" />
                               <span className="min-w-0 flex-1">
                                 <span className="flex items-center gap-1">
                                   {ev.is_primary ? <span aria-label="Primary" className="text-terracotta">★</span> : null}

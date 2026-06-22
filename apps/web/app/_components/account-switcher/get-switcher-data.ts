@@ -18,6 +18,15 @@ export type SwitcherEvent = {
   is_primary: boolean;
   /** 'couple' when the user owns the event; 'guest' when attending */
   role: 'couple' | 'guest';
+  // Monogram design columns — so the switcher rows render the couple's REAL
+  // mark (EventMonogram) instead of a generic first-initial (owner-locked
+  // "show the custom mark everywhere" 2026-06-15).
+  monogram_text: string | null;
+  monogram_color: string | null;
+  monogram_font_key: string | null;
+  monogram_style: string | null;
+  monogram_frame_key: string | null;
+  monogram_custom_svg: string | null;
 };
 
 export type SwitcherGallery = {
@@ -124,7 +133,9 @@ export async function getSwitcherData(userId: string): Promise<SwitcherData> {
     const eventIds = memberships.map((m) => m.event_id);
     const { data: eventRows, error: eventsErr } = await supabase
       .from('events')
-      .select('event_id, display_name, event_type, event_date, is_primary, archived')
+      .select(
+        'event_id, display_name, event_type, event_date, is_primary, archived, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key, monogram_custom_svg',
+      )
       .in('event_id', eventIds)
       .eq('archived', false)
       .order('is_primary', { ascending: false })
@@ -147,6 +158,12 @@ export async function getSwitcherData(userId: string): Promise<SwitcherData> {
       event_date: ev.event_date as string | null,
       is_primary: (ev.is_primary as boolean) ?? false,
       role: membershipMap.get(ev.event_id as string) === 'couple' ? 'couple' : 'guest',
+      monogram_text: (ev.monogram_text as string | null) ?? null,
+      monogram_color: (ev.monogram_color as string | null) ?? null,
+      monogram_font_key: (ev.monogram_font_key as string | null) ?? null,
+      monogram_style: (ev.monogram_style as string | null) ?? null,
+      monogram_frame_key: (ev.monogram_frame_key as string | null) ?? null,
+      monogram_custom_svg: (ev.monogram_custom_svg as string | null) ?? null,
     }));
   }
 

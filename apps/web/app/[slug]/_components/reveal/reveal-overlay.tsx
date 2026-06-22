@@ -35,6 +35,7 @@ import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 import { FourFlapEnvelope } from './four-flap';
 import { RigidReveal } from './rigid-reveal';
+import { GoldMonogramReveal } from '@/app/_components/gold-monogram-reveal';
 import { isVeilTemplate, NO_REVEAL, REVEAL_ALIASES, type RevealTemplate } from './reveal-templates';
 import type { WaxSealConfig } from '@/lib/wax-seal/types';
 import type { RevealStudioConfig, RevealTemplateId } from '@/lib/reveal-config';
@@ -218,9 +219,11 @@ export function RevealOverlay({
   const rigidEffect = eventEffects ? rigidEffectFor(template, eventEffects) : null;
   return (
     <div className="fixed inset-0 z-[60] overflow-hidden">
-      {template === 'two-flap-vertical' ||
-      template === 'two-flap-horizontal' ||
-      template === 'church-doors' ? (
+      {template === 'gold-monogram' ? (
+        <GoldMonogramReveal markSvg={markSvg} monogram={monogram} onDone={onOpened} />
+      ) : template === 'two-flap-vertical' ||
+        template === 'two-flap-horizontal' ||
+        template === 'church-doors' ? (
         <RigidReveal
           variant={template}
           markSvg={markSvg}

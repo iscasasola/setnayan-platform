@@ -17,6 +17,7 @@
 import dynamic from 'next/dynamic';
 import { FourFlapEnvelope } from '@/app/[slug]/_components/reveal/four-flap';
 import { RigidReveal } from '@/app/[slug]/_components/reveal/rigid-reveal';
+import { GoldMonogramReveal } from '@/app/_components/gold-monogram-reveal';
 import {
   isVeilTemplate,
   type RevealTemplate,
@@ -85,6 +86,9 @@ export function RevealPreview({
         features={{ petals: effects?.petals ?? true, logo: true, music: false }}
       />
     );
+  }
+  if (template === 'gold-monogram') {
+    return <GoldMonogramReveal markSvg={markSvg} monogram={monogram} onDone={onDone} autoplay loop />;
   }
   const effect = effects ? rigidEffectFor(template, effects) : null;
   if (

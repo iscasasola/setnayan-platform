@@ -14,11 +14,13 @@ import {
   deleteUser,
   forceSignOutUser,
   issueCompGrant,
+  requestAccountFix,
   resetUserPassword,
   revokeCompGrant,
   toggleTeamMember,
   unblacklistEmail,
 } from './actions';
+import { ACCOUNT_FIX_FIELDS } from '@/lib/account-fix';
 import {
   describeScope,
   describeSource,
@@ -66,6 +68,11 @@ type Props = {
      * a successful redirect. Cleared on the next navigation.
      */
     grant_banner?: string;
+    /**
+     * Transient banner copy populated by requestAccountFix on a successful
+     * redirect (consent-to-fix · Phase 2). Cleared on the next navigation.
+     */
+    fix_banner?: string;
     /** Transient flags from forceSignOutUser redirects. */
     signed_out?: string;
     error?: string;
@@ -80,6 +87,7 @@ export default async function AdminUsersPage({ searchParams }: Props) {
   const forEmail = search.for_email ?? null;
   const expandUserId = search.expand ?? null;
   const grantBanner = search.grant_banner ?? null;
+  const fixBanner = search.fix_banner ?? null;
 
   const admin = createAdminClient();
 
@@ -130,11 +138,35 @@ export default async function AdminUsersPage({ searchParams }: Props) {
   // user shows up in the current list — protects against stale ?expand
   // params after a filter change).
   let expandedGrants: CompGrantRow[] = [];
+  // Events the expanded user is a COUPLE member of — powers the event-scoped
+  // field dropdown in the consent-to-fix form (correct an event's name/date).
+  let expandedEvents: { event_id: string; display_name: string }[] = [];
   if (expandUserId && userRows.some((u) => u.user_id === expandUserId)) {
     try {
       expandedGrants = await fetchCompGrantsForUser(admin, expandUserId);
     } catch {
       expandedGrants = [];
+    }
+    try {
+      const { data: memberships } = await admin
+        .from('event_members')
+        .select('events:event_id ( event_id, display_name )')
+        .eq('user_id', expandUserId)
+        .eq('member_type', 'couple');
+      // Supabase types the embedded `events` relation as an array; normalize to
+      // the single related row (a membership has exactly one event).
+      expandedEvents = (
+        (memberships ?? []) as unknown as {
+          events: { event_id: string; display_name: string } | { event_id: string; display_name: string }[] | null;
+        }[]
+      )
+        .map((m) => {
+          const ev = Array.isArray(m.events) ? m.events[0] : m.events;
+          return ev ? { event_id: ev.event_id, display_name: ev.display_name } : null;
+        })
+        .filter((e): e is { event_id: string; display_name: string } => e !== null);
+    } catch {
+      expandedEvents = [];
     }
     // RA 10173 access trail (admin account-access model Phase 1a): record —
     // post-response, non-fatal — that this admin opened this account's detail.
@@ -168,6 +200,15 @@ export default async function AdminUsersPage({ searchParams }: Props) {
           className="mb-6 rounded-2xl border border-success-300/60 bg-success-50/80 px-5 py-4"
         >
           <p className="text-sm text-success-900">{grantBanner}</p>
+        </section>
+      ) : null}
+
+      {fixBanner ? (
+        <section
+          role="status"
+          className="mb-6 rounded-2xl border border-warn-300/60 bg-warn-50/80 px-5 py-4"
+        >
+          <p className="text-sm text-warn-900">{fixBanner}</p>
         </section>
       ) : null}
 
@@ -279,6 +320,7 @@ export default async function AdminUsersPage({ searchParams }: Props) {
           filter={filter}
           expandUserId={expandUserId}
           expandedGrants={expandedGrants}
+          expandedEvents={expandedEvents}
         />
       )}
       <MiniTour tourKey="admin_users_v1" />
@@ -311,12 +353,14 @@ function UsersTable({
   filter,
   expandUserId,
   expandedGrants,
+  expandedEvents,
 }: {
   rows: UserRow[];
   q: string;
   filter: Filter;
   expandUserId: string | null;
   expandedGrants: CompGrantRow[];
+  expandedEvents: { event_id: string; display_name: string }[];
 }) {
   return (
     <div className="overflow-x-auto rounded-xl border border-ink/10">
@@ -537,6 +581,7 @@ function UsersTable({
                         userId={u.user_id}
                         userEmail={u.email}
                         grants={expandedGrants}
+                        events={expandedEvents}
                       />
                     </td>
                   </tr>,
@@ -630,14 +675,17 @@ function CompGrantsPanel({
   userId,
   userEmail,
   grants,
+  events,
 }: {
   userId: string;
   userEmail: string | null;
   grants: CompGrantRow[];
+  events: { event_id: string; display_name: string }[];
 }) {
   const active = grants.filter((g) => g.revoked_at === null);
   const revoked = grants.filter((g) => g.revoked_at !== null);
   return (
+    <div className="space-y-6">
     <div className="grid gap-6 md:grid-cols-2">
       <div>
         <h3 className="mb-3 text-sm font-semibold text-ink">
@@ -780,6 +828,139 @@ function CompGrantsPanel({
           </SubmitButton>
         </form>
       </div>
+    </div>
+
+    <AccountFixForm userId={userId} userEmail={userEmail} events={events} />
+    </div>
+  );
+}
+
+/**
+ * Request a fix (consent-to-fix · Admin account-access model Phase 2 CORE).
+ *
+ * The admin proposes a correction to a low-risk, couple-editable field (the
+ * account name, or an event's name/date). NOTHING is written here — the form
+ * submits to requestAccountFix(), which inserts a pending account_fix_requests
+ * row + notifies the couple. The change lands only when the couple approves it
+ * from /dashboard/account-fixes.
+ *
+ * The field dropdown is driven off ACCOUNT_FIX_FIELDS (lib/account-fix.ts), the
+ * single allowlist source of truth. We render the table+key as the option value
+ * so the action can re-validate against the same map. Event-scoped fields
+ * (events:*) need an event picked from the user's couple events.
+ */
+function AccountFixForm({
+  userId,
+  userEmail,
+  events,
+}: {
+  userId: string;
+  userEmail: string | null;
+  events: { event_id: string; display_name: string }[];
+}) {
+  const fieldEntries = Object.entries(ACCOUNT_FIX_FIELDS);
+  return (
+    <div className="rounded-xl border border-warn-200 bg-warn-50/50 p-4">
+      <h3 className="mb-1 text-sm font-semibold text-ink">
+        Request a fix for {userEmail ?? 'this user'}
+      </h3>
+      <p className="mb-3 max-w-prose text-xs text-ink/60">
+        Propose a correction. Nothing changes on the account until the user
+        approves it from their Account fix requests page — the approval is the
+        recorded consent (RA 10173).
+      </p>
+      <form action={requestAccountFix} className="space-y-3">
+        <input type="hidden" name="user_id" value={userId} />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label
+              htmlFor={`fix-field-${userId}`}
+              className="mb-1 block text-xs font-medium text-ink/70"
+            >
+              Field
+            </label>
+            <select
+              id={`fix-field-${userId}`}
+              name="field_ref"
+              required
+              className="input-field"
+              defaultValue=""
+            >
+              <option value="" disabled>
+                Pick a field…
+              </option>
+              {fieldEntries.map(([ref, def]) => (
+                <option key={ref} value={ref}>
+                  {def.label} {def.scope === 'event' ? '(event)' : '(account)'}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label
+              htmlFor={`fix-event-${userId}`}
+              className="mb-1 block text-xs font-medium text-ink/70"
+            >
+              Event (only for event fields)
+            </label>
+            <select
+              id={`fix-event-${userId}`}
+              name="event_id"
+              className="input-field"
+              defaultValue=""
+              disabled={events.length === 0}
+            >
+              <option value="">
+                {events.length === 0 ? 'No events' : '— none —'}
+              </option>
+              {events.map((e) => (
+                <option key={e.event_id} value={e.event_id}>
+                  {e.display_name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div>
+          <label
+            htmlFor={`fix-value-${userId}`}
+            className="mb-1 block text-xs font-medium text-ink/70"
+          >
+            Proposed value
+          </label>
+          <input
+            id={`fix-value-${userId}`}
+            name="proposed_value"
+            required
+            placeholder="The corrected value (for dates use YYYY-MM-DD)"
+            className="input-field"
+          />
+        </div>
+        <div>
+          <label
+            htmlFor={`fix-reason-${userId}`}
+            className="mb-1 block text-xs font-medium text-ink/70"
+          >
+            Reason
+          </label>
+          <textarea
+            id={`fix-reason-${userId}`}
+            name="reason"
+            rows={2}
+            required
+            minLength={10}
+            placeholder="Why this fix · shown to the user + logged to admin_audit_log."
+            className="input-field"
+          />
+        </div>
+        <SubmitButton
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-warn-600 px-3 py-1.5 text-sm font-medium text-cream hover:bg-warn-700 disabled:opacity-60"
+          pendingLabel="Requesting…"
+        >
+          <ShieldCheck className="h-3.5 w-3.5" strokeWidth={2} />
+          Request fix
+        </SubmitButton>
+      </form>
     </div>
   );
 }

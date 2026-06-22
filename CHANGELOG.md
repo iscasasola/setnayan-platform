@@ -4,6 +4,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-22 · feat(admin): consent-to-fix — admin account-access model Phase 2 (CORE)
+
+The "request the user to allow us to fix their account" flow from the admin account-access model (`Admin_Account_Access_Model_2026-06-22.md` §1 tier-2, §3 consent-to-fix rows, §8, §9). An admin can PROPOSE a correction to a low-risk, couple-editable field; **nothing changes until the user approves it** from their own surface. The approval row IS the RA 10173 lawful-basis record.
+
+- **Migration `20270214750443_add_fix_requested_notification_type.sql`** — `ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'fix_requested'` (idempotent, bare per the ADD-VALUE-can't-run-in-a-txn pattern).
+- **Migration `20270215037580_account_fix_requests_consent_to_fix.sql`** — new `account_fix_requests` table (target_user_id, event_id, target_table+field_key+field_label, current/proposed value, requested_by, status pending/approved/declined/applied/cancelled, reason, consent_at, resolved_at) + RLS: admins INSERT + read; the **target couple** SELECT + UPDATE their OWN rows (`target_user_id = auth.uid()` OR event-scoped via `current_couple_event_ids()`). Idempotent.
+- **`lib/account-fix.ts`** (new) — the field ALLOWLIST (`ACCOUNT_FIX_FIELDS`, keyed `table:key`) + `coerceFixValue()`. Single source of truth: only `users.display_name`, `events.display_name`, `events.event_date` are proposable in Phase 2 CORE — a write to an arbitrary column is impossible. Validated at propose AND apply.
+- **`lib/notifications.ts`** — `fix_requested` added to the `NotificationType` union + `NOTIFICATION_TYPE_LABEL` + `NOTIFICATION_TYPE_TONE` (both exhaustive Records).
+- **`app/admin/users/actions.ts`** — `requestAccountFix()` (allowlist-validated propose → insert pending row → `emitNotification('fix_requested')` → `admin_audit_log`) + `cancelAccountFix()` (withdraw a still-pending proposal). Blocked on internal (§10a) accounts + self; event-scoped fixes verify couple-membership of the event.
+- **`app/admin/users/page.tsx`** — a "Request a fix" form in the expanded user panel (field dropdown driven off the allowlist; event picker for event-scoped fields, fed by the user's couple events) + a `fix_banner` success surface.
+- **`app/dashboard/(account)/account-fixes/page.tsx` + `actions.ts`** (new) — the couple's Approve / Decline surface. **Approve applies the change via the couple's OWN RLS-gated `createClient()`** (the write stays fenced by `users.user_owns_row` / `events.couple_can_update_event`), then flips the row to `applied` + stamps `consent_at`; Decline goes terminal `declined`. Both write a first-class `admin_audit_log` row with `actor = the user` (the consent record).
+
+Verified: `tsc` 0 · `next lint` clean on all changed files · `lint:chat-guard` / `lint:retired` / `lint:navicon` / `lint:email-links` (relatedUrl `/dashboard/account-fixes` resolves) / `lint:botnav` / `lint:radius` all green · `next build` EXIT 0 (route `/dashboard/account-fixes` builds). **Migrations NOT applied to prod** (owner/reviewer applies post-review per the blocked auto-apply pipeline).
+
+DEFERRED Phase-2 sub-pieces (NOT in this PR, by scope): DB-enforced two-admin triggers on money/orders/refunds/`payment_receiving_accounts`/admin-promotion (§4 mustFix #1) — this is why the money/identity/payout consent-to-fix rows from §3 are intentionally OFF the allowlist; handler-lane RBAC; the §10b weekly pool sub-cap.
+
+SPEC IMPACT: Recorded in `Admin_Account_Access_Model_2026-06-22.md` (§10 Phase-2 progress) + DECISION_LOG 2026-06-22. No SKU/price change; additive consent + notification substrate.
+
 ## 2026-06-22 · feat(admin): data-access log — admin account-access model Phase 1a
 
 RA 10173 "right to know who accessed my data" substrate for the admin account-access model (`Admin_Account_Access_Model_2026-06-22.md` · DECISION_LOG 2026-06-22). Records which admin VIEWED which account's data (distinct from `admin_audit_log`, which records admin write ACTIONS).

@@ -255,6 +255,82 @@ export function stdAccentFromPalette(palette: RolePalette | null | undefined): s
   return toHex(ensureContrast(base, WHITE, 4.5));
 }
 
+// ── LED Background palette (0005 × 0010) ──────────────────────────────────────
+// The LED Background Maker (0005) recolours its template gradient FROM the
+// couple's Mood Board (0010), so the venue's stage wall reads as THEIR wedding —
+// in lockstep with the Save-the-Date reveal + branded QR, which already pull
+// from the same pool. Each template ships a hardcoded `[bg, accent1, accent2]`
+// fallback (lib/led-background.ts); we map the Mood-Board pool onto those three
+// slots WITHOUT flattening the template's character:
+//   • bg     — kept at the TEMPLATE'S tone. A dark template (monogram-on-black)
+//              keeps a dark base; a light one keeps a light base. We tint that
+//              base toward the couple's deepest swatch (dark templates) or
+//              lightest swatch (light templates) so even the backdrop carries a
+//              whisper of their hue, never washing out the monogram.
+//   • accent1 — the couple's BOLDEST (most colourful) swatch — the dominant glow.
+//   • accent2 — their next-distinct colourful swatch, or a lightened lift of the
+//              bold one when the palette is single-hued, so the two radial blooms
+//              stay visually separable.
+// This is DECOR, not legible UI — no WCAG floor is imposed (the LED wall carries
+// no body text), but the bg→accent separation keeps the gradient from muddying.
+// Returns null when the palette is too thin to recolour → the caller keeps the
+// template's hardcoded palette (the existing look).
+
+/** Blend `c` toward `target` by `amount` (0 = c unchanged, 1 = target). */
+function mix(c: RGB, target: RGB, amount: number): RGB {
+  return {
+    r: c.r + (target.r - c.r) * amount,
+    g: c.g + (target.g - c.g) * amount,
+    b: c.b + (target.b - c.b) * amount,
+  };
+}
+
+const BLACK: RGB = { r: 0, g: 0, b: 0 };
+
+/**
+ * Recolour a template's `[bg, accent1, accent2]` gradient slots from the
+ * couple's Mood Board. Returns a `[#bg, #accent1, #accent2]` hex triple, or null
+ * when the palette can't contribute colour (caller falls back to the template's
+ * hardcoded palette).
+ *
+ * `templatePalette` is the template's own `[bg, accent1, accent2]` — its `bg`
+ * sets the tone (dark vs light) we preserve.
+ */
+export function ledPaletteFromMoodBoard(
+  palette: RolePalette | null | undefined,
+  templatePalette: readonly [string, string, string],
+): [string, string, string] | null {
+  const pool = palettePool(palette);
+  if (pool.length === 0) return null;
+
+  const colorful = [...pool].filter((c) => chroma(c) >= 0.08).sort((a, b) => chroma(b) - chroma(a));
+  // Need at least one swatch with real hue to make the recolour feel intentional;
+  // an all-grey palette would just mud the template — keep the hardcoded one.
+  const bold = colorful[0];
+  if (!bold) return null;
+
+  const templateBg = hexToRgb(templatePalette[0]) ?? DEFAULTS.ink;
+  const lightTemplate = luminance(templateBg) >= 0.4;
+
+  // bg — keep the template's tone, tinted toward the couple's deepest (dark
+  // templates) or lightest (light templates) swatch so even the base reads on-brand.
+  const deepest = [...pool].sort((a, b) => luminance(a) - luminance(b))[0]!;
+  const lightest = [...pool].sort((a, b) => luminance(b) - luminance(a))[0]!;
+  const bg = lightTemplate ? mix(templateBg, lightest, 0.35) : mix(templateBg, deepest, 0.45);
+
+  // accent1 — the boldest swatch (the dominant glow).
+  const accent1 = bold;
+
+  // accent2 — the next swatch that's visibly distinct from accent1; else a
+  // lightened lift of the bold one so the two radial blooms stay separable.
+  const distinct = colorful
+    .slice(1)
+    .find((c) => Math.abs(luminance(c) - luminance(bold)) > 0.08 || chroma(c) < chroma(bold) * 0.7);
+  const accent2 = distinct ?? mix(bold, lightTemplate ? BLACK : WHITE, 0.4);
+
+  return [toHex(bg), toHex(accent1), toHex(accent2)];
+}
+
 /**
  * Pick the readable foreground for text sitting ON a given accent background —
  * so ANY couple-chosen accent keeps its button text legible (WCAG). Prefers the

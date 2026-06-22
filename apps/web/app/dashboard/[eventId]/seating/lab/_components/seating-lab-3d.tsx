@@ -52,6 +52,7 @@ import {
   type Lab3DFloor,
   type Lab3DGuest,
   type Lab3DPalette,
+  type Lab3DMonogram,
   type Vec2,
   roomSize,
   pctToWorld,
@@ -67,6 +68,7 @@ import {
   TENTATIVE_COLOR,
   PLUS_ONE_COLOR,
 } from '@/lib/seating-3d';
+import { svgToMonogramTexture } from '@/lib/svg-monogram-texture';
 
 type Props = {
   eventId: string;
@@ -74,7 +76,9 @@ type Props = {
   floor: Lab3DFloor;
   guests: Lab3DGuest[];
   paletteHexes: string[];
-  coupleNames: string | null;
+  /** The couple's canonical mark — rendered as a medallion on the floor centre
+   *  (the Play-mode camera's focal point). null → no mark. */
+  monogram: Lab3DMonogram;
   me: { id: string; name: string };
 };
 
@@ -111,7 +115,7 @@ function guestTokenStyle(g: Lab3DGuest): SeatToken | null {
 // A guest token animating between seats during a swap / table-swap.
 type Mover = { gid: string; color: string; opacity: number; path: Vec2[]; target: SeatRef };
 
-export default function SeatingLab3D({ eventId, tables: initialTables, floor, guests, paletteHexes, me }: Props) {
+export default function SeatingLab3D({ eventId, tables: initialTables, floor, guests, paletteHexes, monogram, me }: Props) {
   const router = useRouter();
   const room = useMemo(() => roomSize(floor), [floor]);
   const [mode, setMode] = useState<'build' | 'play'>('build');
@@ -571,7 +575,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
         <hemisphereLight intensity={0.45} color={palette.ambient} groundColor={palette.floor} />
         <directionalLight position={[room.w * 0.5, room.d + 8, room.d * 0.4]} intensity={1.15} color="#fff6ea" />
 
-        <RoomShell room={room} floor={floor} palette={palette} buildMode={mode === 'build'} />
+        <RoomShell room={room} floor={floor} palette={palette} buildMode={mode === 'build'} monogram={monogram} />
 
         <ContactShadows
           position={[0, 0.01, 0]}
@@ -719,11 +723,13 @@ function RoomShell({
   floor,
   palette,
   buildMode,
+  monogram,
 }: {
   room: { w: number; d: number };
   floor: Lab3DFloor;
   palette: Lab3DPalette;
   buildMode: boolean;
+  monogram: Lab3DMonogram;
 }) {
   const stage = pctToWorld(floor.stage.xPct, floor.stage.yPct, room);
   const stageW = Math.max(1.5, (floor.stage.wPct / 100) * room.w);
@@ -735,6 +741,42 @@ function RoomShell({
   const danceW = Math.max(1.5, (floor.dance.wPct / 100) * room.w);
   const danceD = Math.max(1.5, (floor.dance.hPct / 100) * room.d);
   const wallH = 1.1;
+
+  // The couple's mark on the floor centre (the Play-mode camera's focal point —
+  // CameraRig lookAt 0,0.5,0). Rasterized once from the canonical SVG mark; the
+  // manually-created CanvasTexture is NOT auto-disposed by R3F, so we dispose it
+  // on unmount / source change, and a `live` flag drops a late async resolve.
+  // Keyed on `monogram` ONLY (not palette) — the mark carries its own contrast,
+  // so the palette switcher never re-rasterizes or orphans a texture.
+  const [monoTex, setMonoTex] = useState<THREE.CanvasTexture | null>(null);
+  useEffect(() => {
+    if (!monogram) {
+      setMonoTex(null);
+      return;
+    }
+    let live = true;
+    let made: THREE.CanvasTexture | null = null;
+    svgToMonogramTexture(monogram).then((tex) => {
+      if (live) {
+        made = tex;
+        setMonoTex(tex);
+      } else {
+        tex?.dispose();
+      }
+    });
+    return () => {
+      live = false;
+      made?.dispose();
+    };
+  }, [monogram]);
+  // The texture PLANE is min(room.w, room.d) * 0.42 (~5 m at the default 18×12),
+  // but the overlay badge fills only its centre ~27% — so the VISIBLE medallion
+  // is ~1.35 m; the rest of the plane is transparent (alphaTest discards it, so
+  // it never occludes tables or the floor). Centred on world origin = the floor
+  // centre AND the Play-mode camera's focal point, on ANY board (free or venue-
+  // sized) — so it lands ON a centred dance floor when one is enabled (the
+  // intended "monogram on the dance floor" look).
+  const medSize = Math.min(room.w, room.d) * 0.42;
 
   return (
     <group>
@@ -787,6 +829,25 @@ function RoomShell({
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[dance.x, 0.02, dance.z]}>
           <planeGeometry args={[danceW, danceD]} />
           <meshStandardMaterial color={palette.accent} roughness={0.25} metalness={0.2} transparent opacity={0.4} />
+        </mesh>
+      ) : null}
+
+      {/* Couple's monogram — a medallion on the floor centre (the Play-mode
+          camera's focal point). Unlit + toneMapped:false so the mark reads true
+          (like projected light, not lit vinyl); raycast off so it never steals
+          the drag/deselect pointer (the invisible catcher owns that); y=0.022
+          clears the floor / contact-shadow / grid / dance-floor y-stack. Rendered
+          only once the texture has rasterized (async, fails to null). */}
+      {monoTex ? (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.022, 0]} raycast={() => null}>
+          <planeGeometry args={[medSize, medSize]} />
+          <meshBasicMaterial
+            map={monoTex}
+            transparent
+            alphaTest={0.01}
+            depthWrite={false}
+            toneMapped={false}
+          />
         </mesh>
       ) : null}
 

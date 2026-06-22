@@ -13,7 +13,23 @@
  * world Z (depth). Up is +Y.
  */
 
+import type { MonogramConfig } from '@/lib/monogram';
+
 export type ShapeHint = 'round' | 'long_banquet' | 'family_head' | 'sweetheart' | 'serpentine';
+
+/**
+ * The couple's CANONICAL mark for a 3D surface — their bespoke/uploaded SVG, or
+ * the resolved lockup/initials config (the renderer's `monogramOverlaySvg`
+ * branches lockup-vs-initials, so one config covers both). Pure data; the WebGL
+ * rasterizer lives in lib/svg-monogram-texture (svgToMonogramTexture). The
+ * `import type` above is erased at compile, so this lib stays runtime-dependency
+ * free. */
+export type MonogramTextureSource =
+  | { kind: 'svg'; svg: string }
+  | { kind: 'config'; monogram: MonogramConfig };
+
+/** The seating-lab monogram prop: a source, or null → no mark rendered. */
+export type Lab3DMonogram = MonogramTextureSource | null;
 
 export type Lab3DTable = {
   id: string;

@@ -22,6 +22,7 @@
  * once, not 40 times.
  */
 import type { CSSProperties, ReactNode } from 'react';
+import { LoadingActivity } from '@/components/loading-activity';
 
 /* ------------------------------------------------------------------ *
  * Primitives
@@ -65,6 +66,7 @@ export function Screen({
   return (
     <section aria-busy="true" aria-live="polite" className={className}>
       <span className="sr-only">{label}…</span>
+      <LoadingActivity />
       {children}
     </section>
   );

@@ -4195,6 +4195,11 @@ export function OnboardingShell({
                 <u>Use email instead</u>
               </div>
             )}
+            <div className="ghost" style={{ marginTop: 4 }}>
+              <a href={`/login?next=${encodeURIComponent(RESUME_NEXT)}`} style={{ color: 'inherit' }}>
+                Already have an account? <u>Sign in</u>
+              </a>
+            </div>
           </section>
 
           {/* 12 FIND FIRST VENDOR — REAL reception venues from the marketplace

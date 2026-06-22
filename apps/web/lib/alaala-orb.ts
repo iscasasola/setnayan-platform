@@ -28,6 +28,14 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
  * The clip's `r2_object_key` holds an `r2://bucket/key` ref (papic capture
  * writes it that way); displayUrlForStoredAsset presigns it to a short-lived
  * GET URL the <video src> can play.
+ *
+ * PRODUCER (Option A · owner-chosen): the feed reads GUEST-RECORDED clips from
+ * `papic_guest_captures` (media_type='clip'). That's the path with a real
+ * consent producer — the guest who RECORDS the clip is the one who appears in
+ * it, so their capture-time opt-in IS consent_to_public (the cleanest chain).
+ * The old papic_photos (paparazzi seat) read had no consent producer: a seat
+ * clip is shot BY the photographer, so consent_to_public there could never be
+ * set by the depicted guest. The guest-capture read replaces it.
  */
 
 // Keep the orb light — a handful of clips crossfade plenty. Reading a few more
@@ -72,17 +80,19 @@ export const fetchAlaalaOrbClips = cache(async function fetchAlaalaOrbClips(
   }
   if (eventIds.length === 0) return [];
 
-  // The two-gate query. BOTH consent gates true + clip + non-hidden + NSFW-clean
-  // (never 'unscreened' or a *_blocked verdict on a public surface). Newest
-  // first. Graceful-degrade: a missing column (pre-migration) → [], orb stays
-  // cold rather than crashing the marketing page.
+  // The two-gate query over GUEST-RECORDED clips. BOTH consent gates true +
+  // media_type='clip' + non-hidden + NSFW-clean (never 'unscreened' or a
+  // *_blocked verdict on a public surface). Newest first. Graceful-degrade: a
+  // missing column (pre-migration) → [], orb stays cold rather than crashing the
+  // marketing page. We presign the clip's own r2_object_key (the video) — the
+  // poster_r2_key is only the moderation proxy, not what the orb plays.
   let rows: Array<{ r2_object_key: string | null }>;
   try {
     const { data, error } = await admin
-      .from('papic_photos')
+      .from('papic_guest_captures')
       .select('r2_object_key, captured_at')
       .in('event_id', eventIds)
-      .eq('photo_type', 'clip')
+      .eq('media_type', 'clip')
       .eq('consent_to_public', true)
       .eq('couple_approved_for_showcase', true)
       .is('hidden_at', null)

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Play, Download, Sparkles } from 'lucide-react';
 import type { GalleryPhoto, GalleryTagSource } from '@/lib/papic-gallery';
 import { SavePhotoButton } from '@/app/_components/save-photo-button';
-import { setClipShowcaseApproval } from '../actions';
+import { setClipShowcaseApproval, setGuestClipShowcaseApproval } from '../actions';
 
 // Real Papic gallery grid — the couple's captured photos + clips with working
 // filter chips. Server-fetched (presigned thumbnails) and passed in; this only
@@ -134,6 +134,7 @@ export function PapicGalleryGrid({
                   <ShowcaseToggle
                     eventId={eventId}
                     photoId={p.id}
+                    source={p.source}
                     approved={Boolean(p.showcaseApproved)}
                     consented={Boolean(p.showcaseConsent)}
                   />
@@ -172,11 +173,14 @@ export function PapicGalleryGrid({
 function ShowcaseToggle({
   eventId,
   photoId,
+  source,
   approved,
   consented,
 }: {
   eventId: string;
   photoId: string;
+  /** seat clips flip papic_photos; guest clips flip papic_guest_captures. */
+  source: 'seat' | 'guest';
   approved: boolean;
   consented: boolean;
 }) {
@@ -186,8 +190,12 @@ function ShowcaseToggle({
     : live
       ? 'On your public memory orb — tap to remove'
       : 'Approved — waiting on guest consent before it shows';
+  // Route to the table-matched approval action. Guest-recorded clips (Option A,
+  // the real consent producer) flip papic_guest_captures; seat clips flip
+  // papic_photos.
+  const action = source === 'guest' ? setGuestClipShowcaseApproval : setClipShowcaseApproval;
   return (
-    <form action={setClipShowcaseApproval} className="absolute left-1 top-1">
+    <form action={action} className="absolute left-1 top-1">
       <input type="hidden" name="event_id" value={eventId} />
       <input type="hidden" name="photo_id" value={photoId} />
       <input type="hidden" name="approve" value={approved ? '0' : '1'} />

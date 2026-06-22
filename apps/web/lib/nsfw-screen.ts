@@ -220,17 +220,39 @@ export async function screenCapture(opts: {
     const admin = createAdminClient();
     const idColumn = TABLE_ID_COLUMN[opts.table];
 
+    // papic_photos flags clips via photo_type; papic_guest_captures via
+    // media_type (Option A — guest-recorded clips). Both are the screen's signal
+    // to classify the POSTER frame, not the video bytes.
     const selectCols =
       opts.table === 'papic_photos'
         ? `${idColumn}, moderation_state, photo_type`
-        : `${idColumn}, moderation_state`;
-    const { data: row, error: rowError } = await admin
-      .from(opts.table)
-      .select(selectCols)
-      .eq('r2_object_key', opts.r2ObjectKey)
-      .maybeSingle();
-    if (rowError || !row) return; // row gone / pre-migration env — nothing to do
-    const record = row as unknown as Record<string, unknown>;
+        : `${idColumn}, moderation_state, media_type`;
+    let row: Record<string, unknown> | null = null;
+    {
+      const { data, error: rowError } = await admin
+        .from(opts.table)
+        .select(selectCols)
+        .eq('r2_object_key', opts.r2ObjectKey)
+        .maybeSingle();
+      if (rowError) {
+        // A pre-migration guest-captures env (no media_type column) fails the
+        // select — retry without it so the photo path still screens. Clips on
+        // that env stay 'unscreened' (excluded from guest surfaces) until the
+        // migration lands.
+        if (opts.table === 'papic_guest_captures') {
+          const { data: retry } = await admin
+            .from(opts.table)
+            .select(`${idColumn}, moderation_state`)
+            .eq('r2_object_key', opts.r2ObjectKey)
+            .maybeSingle();
+          row = (retry as Record<string, unknown> | null) ?? null;
+        }
+      } else {
+        row = (data as Record<string, unknown> | null) ?? null;
+      }
+    }
+    if (!row) return; // row gone / pre-migration env — nothing to do
+    const record = row;
     if (record.moderation_state !== 'unscreened') return; // already decided
 
     // Clips: swap the classification target to the poster frame. Queried
@@ -238,9 +260,12 @@ export async function screenCapture(opts: {
     // migration degrades to clip-skip without disturbing the photo path.
     let classifyRef = opts.r2ObjectKey;
     let bytes = opts.bytes;
-    if (opts.table === 'papic_photos' && record.photo_type === 'clip') {
+    const isClip =
+      (opts.table === 'papic_photos' && record.photo_type === 'clip') ||
+      (opts.table === 'papic_guest_captures' && record.media_type === 'clip');
+    if (isClip) {
       const { data: posterRow, error: posterError } = await admin
-        .from('papic_photos')
+        .from(opts.table)
         .select('poster_r2_key')
         .eq('r2_object_key', opts.r2ObjectKey)
         .maybeSingle();

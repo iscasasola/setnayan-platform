@@ -18,15 +18,20 @@ export type GalleryPhoto = {
   id: string;
   url: string | null;
   kind: 'photo' | 'clip';
+  // Which capture table the row lives in. The showcase-approval toggle routes
+  // to the matching action: seat clips flip papic_photos, guest clips flip
+  // papic_guest_captures. (Photos never carry a showcase gate.)
+  source: 'seat' | 'guest';
   tagged: boolean;
   tagSource: GalleryTagSource;
   capturedAt: string;
-  // Alaala showcase orb gates (papic_photos clips only; guest captures leave
-  // these undefined). `showcaseApproved` is the COUPLE gate the gallery toggle
-  // flips; `showcaseConsent` is the GUEST gate (set by the guest-consent flow —
-  // a follow-up; defaults false). The orb surfaces a clip only when BOTH are
-  // true, so the gallery can show the couple whether their approved clip is
-  // actually live or still waiting on guest consent.
+  // Alaala showcase orb gates (CLIPS only — both seat clips AND guest clips now
+  // carry them; photos leave these undefined). `showcaseApproved` is the COUPLE
+  // gate the gallery toggle flips; `showcaseConsent` is the GUEST gate. For
+  // GUEST clips the guest sets consent at capture time (Option A); for SEAT
+  // clips the appearing-guest consent is a separate follow-up. The orb surfaces
+  // a clip only when BOTH are true, so the gallery can show the couple whether
+  // their approved clip is live or still waiting on consent.
   showcaseApproved?: boolean;
   showcaseConsent?: boolean;
 };
@@ -57,7 +62,9 @@ export async function fetchPapicGallery(
       .limit(GALLERY_LIMIT),
     supabase
       .from('papic_guest_captures')
-      .select('capture_id, r2_object_key, captured_at, hidden_at, moderation_state')
+      .select(
+        'capture_id, r2_object_key, poster_r2_key, media_type, captured_at, hidden_at, moderation_state, consent_to_public, couple_approved_for_showcase',
+      )
       .eq('event_id', eventId)
       .order('captured_at', { ascending: false })
       .limit(GALLERY_LIMIT),
@@ -110,6 +117,7 @@ export async function fetchPapicGallery(
         (isClip ? (r.poster_r2_key as string | null) : (r.r2_object_key as string | null)) ??
         (r.r2_object_key as string | null),
       kind: isClip ? 'clip' : 'photo',
+      source: 'seat',
       tagged: Boolean(tagSrc),
       tagSource: mapTagSource(tagSrc),
       capturedAt: r.captured_at as string,
@@ -121,14 +129,24 @@ export async function fetchPapicGallery(
   });
 
   const guestPhotos: Pre[] = visibleGuest.map((r) => {
+    // Guest captures are photos by default; a guest-RECORDED 5s clip carries
+    // media_type='clip' (Option A). Clips show their poster frame as the
+    // thumbnail; photos show the object itself. The showcase gates ride on guest
+    // clips just like seat clips — the GUEST sets consent at capture time.
+    const isClip = (r.media_type as string | undefined) === 'clip';
     const tagSrc = tagSourceByKey.get(`papic_guest_captures:${r.capture_id as string}`);
     return {
       id: r.capture_id as string,
-      ref: r.r2_object_key as string | null,
-      kind: 'photo',
+      ref:
+        (isClip ? (r.poster_r2_key as string | null) : (r.r2_object_key as string | null)) ??
+        (r.r2_object_key as string | null),
+      kind: isClip ? 'clip' : 'photo',
+      source: 'guest',
       tagged: Boolean(tagSrc),
       tagSource: mapTagSource(tagSrc),
       capturedAt: r.captured_at as string,
+      showcaseApproved: isClip ? Boolean(r.couple_approved_for_showcase) : undefined,
+      showcaseConsent: isClip ? Boolean(r.consent_to_public) : undefined,
     };
   });
 

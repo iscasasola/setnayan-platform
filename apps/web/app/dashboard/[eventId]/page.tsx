@@ -15,7 +15,7 @@ import {
   HardHat,
   type LucideIcon,
 } from 'lucide-react';
-import { countUnread } from '@/lib/notifications';
+import { countUnread, fetchOwnNotifications } from '@/lib/notifications';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { isSetnayanAiActive } from '@/lib/setnayan-ai';
@@ -43,6 +43,7 @@ import {
   type ConciergeStatus,
 } from '@/lib/concierge';
 import { ConciergeBanner } from './_components/concierge-banner';
+import { GiftReveal, type GiftRevealData } from './_components/gift-reveal';
 // TodaysOneThing single-focus hero (./_components/todays-one-thing.tsx) +
 // the lib helpers (pickTodaysOneThing / countUnlockedCategories at
 // @/lib/todays-one-thing) are LIVE again on event-home as of 2026-06-13
@@ -349,6 +350,23 @@ export default async function EventHomePage({
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const supabase = await createClient();
+
+  // PR 2 gift reveal: surface the most recent UNREAD "early wedding gift"
+  // notification (dropped by the comp-grant fulfillment bridge in PR 1) once,
+  // here on the dashboard the couple lands on. The unread bell is the backstop
+  // if they navigate away before opening it. Non-fatal: a fetch failure → no
+  // reveal, home renders unchanged.
+  const giftNotice = (await fetchOwnNotifications(supabase, user.id).catch(() => [])).find(
+    (n) => n.type === 'gift' && !n.read_at,
+  );
+  const giftReveal: GiftRevealData | null = giftNotice
+    ? {
+        notificationId: giftNotice.notification_id,
+        title: giftNotice.title,
+        body: giftNotice.body,
+        relatedUrl: giftNotice.related_url,
+      }
+    : null;
 
   // Lazy expiry sweep at the top of any Concierge-surfacing page (no-cron
   // architecture per CLAUDE.md 2026-05-14 / PR #47). Fire-and-forget; failures
@@ -1584,6 +1602,7 @@ export default async function EventHomePage({
     // already saw inline. Single-column mirrors the same content
     // density mobile hosts already enjoy.
     <>
+      <GiftReveal gift={giftReveal} />
       <EventDayPrepCta eventId={eventId} eventDate={event.event_date} />
       <AutoPreloadOnEventDay eventId={eventId} eventDate={event.event_date} />
       {dayOfActive ? (

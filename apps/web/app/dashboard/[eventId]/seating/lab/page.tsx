@@ -11,6 +11,7 @@ import {
 } from '@/lib/seating';
 import { shapeHintFor, type Lab3DTable, type Lab3DFloor, type Lab3DGuest, type Lab3DMonogram } from '@/lib/seating-3d';
 import { resolveMonogram } from '@/lib/monogram';
+import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { SeatingLabLoader } from './_components/seating-lab-loader';
 
 export const metadata = { title: 'Seating · 3D lab (prototype)' };
@@ -140,6 +141,12 @@ export default async function SeatingLabPage({ params }: Props) {
       : { kind: 'config', monogram: resolveMonogram(event) }
     : null;
 
+  // Paid ANIMATED_MONOGRAM gate — when owned, the floor medallion blooms in as
+  // the Play-mode camera settles (free events keep the static mark, so the
+  // seat-plan tool stays free). A missing orders table/column resolves to false
+  // (no bloom); other read errors propagate, matching the codebase pattern.
+  const ownsAnimatedMonogram = await eventAnimatedMonogramActive(supabase, eventId);
+
   return (
     <section className="space-y-3">
       <SeatingLabLoader
@@ -149,6 +156,7 @@ export default async function SeatingLabPage({ params }: Props) {
         guests={guests}
         paletteHexes={paletteHexes}
         monogram={monogram}
+        animatedMonogram={ownsAnimatedMonogram}
         me={{
           id: user.id,
           name:

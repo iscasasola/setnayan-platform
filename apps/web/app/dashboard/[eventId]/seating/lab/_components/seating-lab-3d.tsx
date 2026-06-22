@@ -79,6 +79,10 @@ type Props = {
   /** The couple's canonical mark — rendered as a medallion on the floor centre
    *  (the Play-mode camera's focal point). null → no mark. */
   monogram: Lab3DMonogram;
+  /** Couple owns the paid ANIMATED_MONOGRAM → the floor mark blooms in as the
+   *  Play-mode camera settles. Free events render the static mark (the seat-plan
+   *  tool stays free). */
+  animatedMonogram: boolean;
   me: { id: string; name: string };
 };
 
@@ -115,7 +119,7 @@ function guestTokenStyle(g: Lab3DGuest): SeatToken | null {
 // A guest token animating between seats during a swap / table-swap.
 type Mover = { gid: string; color: string; opacity: number; path: Vec2[]; target: SeatRef };
 
-export default function SeatingLab3D({ eventId, tables: initialTables, floor, guests, paletteHexes, monogram, me }: Props) {
+export default function SeatingLab3D({ eventId, tables: initialTables, floor, guests, paletteHexes, monogram, animatedMonogram, me }: Props) {
   const router = useRouter();
   const room = useMemo(() => roomSize(floor), [floor]);
   const [mode, setMode] = useState<'build' | 'play'>('build');
@@ -575,7 +579,15 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
         <hemisphereLight intensity={0.45} color={palette.ambient} groundColor={palette.floor} />
         <directionalLight position={[room.w * 0.5, room.d + 8, room.d * 0.4]} intensity={1.15} color="#fff6ea" />
 
-        <RoomShell room={room} floor={floor} palette={palette} buildMode={mode === 'build'} monogram={monogram} />
+        <RoomShell
+          room={room}
+          floor={floor}
+          palette={palette}
+          buildMode={mode === 'build'}
+          monogram={monogram}
+          animatedMonogram={animatedMonogram}
+          playSettled={mode === 'play' && !camBusy}
+        />
 
         <ContactShadows
           position={[0, 0.01, 0]}
@@ -718,18 +730,99 @@ function CameraRig({
 
 /* ----------------------------- Scene meshes ----------------------------- */
 
+/**
+ * FloorMonogram — the couple's mark medallion on the floor centre. STATIC for
+ * free events; for paid ANIMATED_MONOGRAM owners it BLOOMS in (opacity 0.25→1 +
+ * scale 0.9→1, ease-out cubic, ~0.6s) each time the Play-mode camera finishes
+ * its ease — the `playSettled` rising edge — i.e. the cinematic reveal beat.
+ * The texture is built once upstream (never re-rasterized per frame; we only
+ * tween the material opacity + mesh scale). Unlit + toneMapped:false so the
+ * mark reads true (projected-light, not lit vinyl); raycast off so it never
+ * steals the drag/deselect pointer. Honors prefers-reduced-motion (stays full,
+ * no tween). PR2 of the 3D-monogram rollout (the static medallion shipped #1998).
+ */
+const FLOOR_BLOOM_MS = 600;
+function FloorMonogram({
+  tex,
+  size,
+  animate,
+  playSettled,
+}: {
+  tex: THREE.CanvasTexture;
+  size: number;
+  animate: boolean;
+  playSettled: boolean;
+}) {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const matRef = useRef<THREE.MeshBasicMaterial>(null);
+  // Bloom progress: >=1 = idle/full (also the static free-event state); [0,1) =
+  // animating in. Starts idle so the mark is present immediately in build mode.
+  const t = useRef(1);
+  const prevSettled = useRef(false);
+  const reduced = useRef(false);
+  useEffect(() => {
+    reduced.current =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }, []);
+  // Rising-edge detection + seed live INSIDE useFrame (not a passive effect) so
+  // the seed and the tween share one rAF timeline — no effect-vs-frame race that
+  // could flash a full-bright frame before the bloom starts.
+  useFrame((_, dt) => {
+    const m = matRef.current;
+    const mesh = meshRef.current;
+    if (!m || !mesh) return;
+    // playSettled false→true (owners, motion allowed) → begin a bloom.
+    if (playSettled !== prevSettled.current) {
+      prevSettled.current = playSettled;
+      if (animate && playSettled && !reduced.current) {
+        t.current = 0;
+        m.opacity = 0.25;
+        mesh.scale.setScalar(0.9);
+      }
+    }
+    if (t.current >= 1) {
+      if (m.opacity !== 1) m.opacity = 1;
+      if (mesh.scale.x !== 1) mesh.scale.setScalar(1);
+      return;
+    }
+    t.current = Math.min(1, t.current + (dt * 1000) / FLOOR_BLOOM_MS);
+    const e = 1 - Math.pow(1 - t.current, 3); // ease-out cubic
+    m.opacity = 0.25 + 0.75 * e;
+    mesh.scale.setScalar(0.9 + 0.1 * e);
+  });
+  return (
+    <mesh ref={meshRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.022, 0]} raycast={() => null}>
+      <planeGeometry args={[size, size]} />
+      <meshBasicMaterial
+        ref={matRef}
+        map={tex}
+        transparent
+        alphaTest={0.01}
+        depthWrite={false}
+        toneMapped={false}
+      />
+    </mesh>
+  );
+}
+
 function RoomShell({
   room,
   floor,
   palette,
   buildMode,
   monogram,
+  animatedMonogram,
+  playSettled,
 }: {
   room: { w: number; d: number };
   floor: Lab3DFloor;
   palette: Lab3DPalette;
   buildMode: boolean;
   monogram: Lab3DMonogram;
+  animatedMonogram: boolean;
+  playSettled: boolean;
 }) {
   const stage = pctToWorld(floor.stage.xPct, floor.stage.yPct, room);
   const stageW = Math.max(1.5, (floor.stage.wPct / 100) * room.w);
@@ -833,22 +926,16 @@ function RoomShell({
       ) : null}
 
       {/* Couple's monogram — a medallion on the floor centre (the Play-mode
-          camera's focal point). Unlit + toneMapped:false so the mark reads true
-          (like projected light, not lit vinyl); raycast off so it never steals
-          the drag/deselect pointer (the invisible catcher owns that); y=0.022
-          clears the floor / contact-shadow / grid / dance-floor y-stack. Rendered
-          only once the texture has rasterized (async, fails to null). */}
+          camera's focal point). When the couple owns the paid ANIMATED_MONOGRAM
+          it BLOOMS in (opacity + scale) as the Play camera settles; otherwise
+          it's a static mark. See FloorMonogram. */}
       {monoTex ? (
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.022, 0]} raycast={() => null}>
-          <planeGeometry args={[medSize, medSize]} />
-          <meshBasicMaterial
-            map={monoTex}
-            transparent
-            alphaTest={0.01}
-            depthWrite={false}
-            toneMapped={false}
-          />
-        </mesh>
+        <FloorMonogram
+          tex={monoTex}
+          size={medSize}
+          animate={animatedMonogram}
+          playSettled={playSettled}
+        />
       ) : null}
 
       {/* Entrance marker (the walk spawn point) */}

@@ -111,6 +111,33 @@ export async function resolveSetnayanAiPaywallEnabled(): Promise<boolean> {
   return process.env.SETNAYAN_AI_PAYWALL_ENABLED === 'true';
 }
 
+// DB-level two-admin enforcement flag (Admin Account-Access Model §4 / Phase 2b).
+// Read by the admin /admin/integrations toggle UI to render the current state and
+// by callers that want to know whether the DB triggers are live. The ENFORCEMENT
+// itself lives entirely in the DB triggers (lib of record =
+// public.two_admin_enforcement_enabled()); this resolver is the read-side mirror
+// so the console shows the truth. FAILS OFF on any error — identical posture to
+// the SQL resolver and to resolveSetnayanAiPaywallEnabled: a flag-read failure
+// must never surface as "enforcement on" in the UI. Env fallback defaults OFF
+// (TWO_ADMIN_ENFORCEMENT_ENABLED must be the literal 'true' to read on) so the
+// system is inert until the owner deliberately flips it. UNCACHED so an owner
+// flip takes effect on the next request.
+export async function resolveTwoAdminEnforcementEnabled(): Promise<boolean> {
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from('platform_settings')
+      .select('two_admin_enforcement_enabled')
+      .eq('id', 1)
+      .maybeSingle();
+    const dbVal = data?.two_admin_enforcement_enabled as boolean | null | undefined;
+    if (typeof dbVal === 'boolean') return dbVal;
+  } catch {
+    // DB unreachable / column absent (pre-migration) → env fallback below.
+  }
+  return process.env.TWO_ADMIN_ENFORCEMENT_ENABLED === 'true';
+}
+
 // ── Registry-driven "simple secret" integrations (PR2) ──────────────────────
 //
 // Generic DB-first / env-fallback resolver for any integration in

@@ -23,7 +23,7 @@
  *
  * The chosen key persists as `events.monogram_motion_key`
  * (20261111000000_event_monogram_motion.sql; gold/molten added by
- * 20270127000000_monogram_motion_gold_molten.sql). NULL means 'draw' so every
+ * 20270218317492_monogram_motion_gold_molten.sql). NULL means 'draw' so every
  * pre-library Animated Monogram keeps its exact original render. WHICH
  * animation plays is a free choice; WHETHER the monogram animates at all stays
  * gated by ANIMATED_MONOGRAM order ownership (lib/animated-monogram.ts).

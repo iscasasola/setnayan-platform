@@ -230,6 +230,7 @@ function FilmMonogram({
   monoReplayKey,
   tone,
   accentHex,
+  active = false,
 }: {
   svg?: string | null;
   text: string;
@@ -256,6 +257,11 @@ function FilmMonogram({
    *  monogram's own colour (owner 2026-06-22 "the logo colour will be same as button
    *  colour … do not follow the colour from monogram. we will bypass it"). */
   accentHex: string | null;
+  /** Is THIS beat the currently-shown slide? The film mounts every beat at once
+   *  (inactive ones just opacity-0), so a live WebGL motion (molten) is gated to
+   *  the active beat — only one molten context exists at a time; hidden beats
+   *  degrade to the CSS Gold Turn. Default false → safe (no shader while hidden). */
+  active?: boolean;
 }) {
   // The logo ink = the couple's ACCENT (the CTA button colour), NOT the monogram's
   // own colour (owner 2026-06-22). A soft tone-glow still lifts the mark off the
@@ -283,7 +289,7 @@ function FilmMonogram({
           inkOverride={inkColor}
           animatedMonogram={animatedMonogram}
           bespokeSvg={svg ?? null}
-          allowWebgl
+          allowWebgl={active}
         />
       </div>
     );
@@ -463,6 +469,7 @@ export function SaveTheDateFilm({
           monoReplayKey={monoReplayKey}
           tone={tone}
           accentHex={accentHex}
+          active={idx === 0}
         />
         <div className={`h-px w-10 ${dividerCls} opacity-40`} style={dividerStyle} />
       </div>
@@ -547,6 +554,7 @@ export function SaveTheDateFilm({
   }
 
   // 6 — the closing sentiment
+  const sentimentIdx = slides.length; // this beat's slide index (gates molten WebGL to the active beat)
   slides.push({
     key: 'sentiment',
     dur: 4600,
@@ -565,6 +573,7 @@ export function SaveTheDateFilm({
           monoReplayKey={monoReplayKey}
           tone={tone}
           accentHex={accentHex}
+          active={idx === sentimentIdx}
         />
         <p className={`${theme.fontCls} text-4xl font-medium italic leading-tight`}>
           We can&rsquo;t wait to
@@ -656,6 +665,7 @@ export function SaveTheDateFilm({
 
   // 9 — add to calendar (terminal beat; holds indefinitely). The ICS / Google
   // link carries both the wedding date and the invitation-launch reminder.
+  const closeIdx = slides.length; // this beat's slide index (gates molten WebGL to the active beat)
   slides.push({
     key: 'close',
     dur: Infinity,
@@ -674,6 +684,7 @@ export function SaveTheDateFilm({
           monoReplayKey={monoReplayKey}
           tone={tone}
           accentHex={accentHex}
+          active={idx === closeIdx}
         />
         <p className={LABEL}>Save the date</p>
         {content.dateLabel ? (

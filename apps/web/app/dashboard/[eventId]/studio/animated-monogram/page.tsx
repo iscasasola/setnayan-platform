@@ -6,6 +6,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { resolveMonogram } from '@/lib/monogram';
 import { eventOwnsAnimatedMonogram } from '@/lib/animated-monogram';
 import { AnimatedMonogramHero } from '@/app/_components/animated-monogram-hero';
+import { HeroMonogram } from '@/app/_components/hero-monogram';
 import {
   MONOGRAM_MOTIONS,
   resolveMonogramMotion,
@@ -229,18 +230,38 @@ function OwnedView({
           Live preview
         </p>
         <div className="mt-6 flex justify-center">
-          {/* key forces a remount so the chosen motion replays each page visit */}
-          <AnimatedMonogramHero
-            key={`owned-${monogram.text}-${monogram.style ?? ''}-${motion}`}
-            text={monogram.text}
-            color={lockupColor(monogram)}
-            fontFamily={monogram.fontFamily}
-            fontStyle={monogram.fontStyle}
-            lockupStyle={monogram.style}
-            letterSpacing={monogram.letterSpacing}
-            size="lg"
-            motion={motion}
-          />
+          {/* key forces a remount so the chosen motion replays each page visit.
+              Gold Turn / Molten Gold are whole-mark gold motions → route through
+              HeroMonogram (allowWebgl) like the live hero + the Animate picker, so
+              the preview matches what ships (AnimatedMonogramHero only knows the 6
+              CSS signatures + would show 'draw' for gold/molten). */}
+          {motion === 'gold' || motion === 'molten' ? (
+            <span
+              key={`owned-${monogram.text}-${motion}`}
+              className="inline-flex"
+              style={{ width: 120, height: 120 }}
+            >
+              <HeroMonogram
+                event={{ monogram_style: monogram.style ?? null, monogram_font_key: null, monogram_frame_key: null }}
+                monogram={monogram}
+                animatedMonogram={motion}
+                bespokeSvg={null}
+                allowWebgl
+              />
+            </span>
+          ) : (
+            <AnimatedMonogramHero
+              key={`owned-${monogram.text}-${monogram.style ?? ''}-${motion}`}
+              text={monogram.text}
+              color={lockupColor(monogram)}
+              fontFamily={monogram.fontFamily}
+              fontStyle={monogram.fontStyle}
+              lockupStyle={monogram.style}
+              letterSpacing={monogram.letterSpacing}
+              size="lg"
+              motion={motion}
+            />
+          )}
         </div>
         <p className="mt-5 text-sm text-ink/60">
           This is exactly how it animates on your wedding website&rsquo;s hero.
@@ -335,18 +356,36 @@ async function UnownedView({
               <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2} />
               Upgrade
             </span>
-            {/* key remounts the component so the motion replays on each render */}
-            <AnimatedMonogramHero
-              key={`preview-${monogram.text}-${monogram.style ?? ''}-${motion}`}
-              text={monogram.text}
-              color={lockupColor(monogram)}
-              fontFamily={monogram.fontFamily}
-              fontStyle={monogram.fontStyle}
-              lockupStyle={monogram.style}
-              letterSpacing={monogram.letterSpacing}
-              size="md"
-              motion={motion}
-            />
+            {/* key remounts the component so the motion replays on each render.
+                Gold/Molten → HeroMonogram (matches the live hero + picker; the CSS
+                AnimatedMonogramHero would show 'draw' for them). */}
+            {motion === 'gold' || motion === 'molten' ? (
+              <span
+                key={`preview-${monogram.text}-${motion}`}
+                className="inline-flex"
+                style={{ width: 96, height: 96 }}
+              >
+                <HeroMonogram
+                  event={{ monogram_style: monogram.style ?? null, monogram_font_key: null, monogram_frame_key: null }}
+                  monogram={monogram}
+                  animatedMonogram={motion}
+                  bespokeSvg={null}
+                  allowWebgl
+                />
+              </span>
+            ) : (
+              <AnimatedMonogramHero
+                key={`preview-${monogram.text}-${monogram.style ?? ''}-${motion}`}
+                text={monogram.text}
+                color={lockupColor(monogram)}
+                fontFamily={monogram.fontFamily}
+                fontStyle={monogram.fontStyle}
+                lockupStyle={monogram.style}
+                letterSpacing={monogram.letterSpacing}
+                size="md"
+                motion={motion}
+              />
+            )}
             <p className="text-sm font-medium text-ink">
               Animated — your {motionLabel} motion
             </p>

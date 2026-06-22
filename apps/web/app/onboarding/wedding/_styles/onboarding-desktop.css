@@ -254,6 +254,40 @@
     min-height: clamp(300px, 36vh, 440px);
     height: auto;
   }
+
+  /* Reception (the RefineStep venue-setting step) — its tall 4:3 hero + the option
+     carousel stack ~700px, overflowing a laptop. Two-pane it like the rest: hero +
+     headline LEFT (the hero fills the column), the option carousel RIGHT. Scoped to
+     #screen-reception-setting (other RefineStep uses are dropped in the flag-on flow);
+     id specificity beats the `.prefstep` 720px cap + the `.refine-hero` min-height.
+     Mobile (<1024) keeps the locked single-column RefineStep. */
+  .onbw #screen-reception-setting .prefstep.refinestep {
+    max-width: none;
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: clamp(32px, 3vw, 56px);
+    align-items: stretch;
+    height: 100%;
+  }
+  .onbw #screen-reception-setting .prefstep .viewzone {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 0;
+  }
+  .onbw #screen-reception-setting .refine-hero {
+    flex: 1 1 auto;
+    min-height: 220px;
+    height: auto;
+    margin-top: 0;
+  }
+  .onbw #screen-reception-setting .prefstep .tapzone {
+    margin-top: 0;
+    align-self: center;
+    min-width: 0;
+    width: 100%;
+  }
   .onbw .welcomescreen.active {
     align-items: stretch;
   }

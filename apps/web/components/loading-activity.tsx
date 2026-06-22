@@ -323,6 +323,7 @@ function QuickPick({ page }: { page: PageKey }) {
   );
 
   const current = picks[idx];
+  if (!current) return null;
 
   return (
     <div className="flex h-full w-full items-center justify-center px-6">

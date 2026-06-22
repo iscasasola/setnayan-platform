@@ -220,6 +220,25 @@ jobs:
       - name: Lint papic keep-permanent
         run: node apps/web/scripts/lint-papic-keep-permanent.mjs
 
+  lint-admin-chat-guard:
+    name: lint admin chat-guard
+    runs-on: ubuntu-latest
+    # Privacy invariant (admin account-access model, 2026-06-22): the admin
+    # surface may NEVER read couple↔vendor chat bodies, thread attachments, or
+    # raw face vectors. Chat RLS is participant-only; the service-role admin
+    # client bypasses it, so this guard fails the build if any app/admin/** file
+    # (outside the demo-vendors allow-list) reads chat content or face vectors.
+    # Backs the published trust promise. See apps/web/scripts/lint-admin-chat-guard.mjs.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Lint admin chat-guard
+        run: node apps/web/scripts/lint-admin-chat-guard.mjs
+
   lint-guest-legibility:
     name: lint guest legibility
     runs-on: ubuntu-latest

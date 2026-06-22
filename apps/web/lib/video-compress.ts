@@ -20,18 +20,25 @@
  * optimisation, never a gate.
  */
 
-// Target: fit within 1080p, H.264 high/yuv420p + AAC, faststart for progressive
-// playback. CRF 27 @ veryfast ≈ 2–4 Mbps for typical content → a ~25 Mbps/135 MB
-// clip drops to ~15–30 MB with no visible quality loss at phone/laptop sizes.
-const TARGET_LONG_EDGE = 1080;
-const CRF = '27';
-const PRESET = 'veryfast';
-const AUDIO_BITRATE = '128k';
+// QUALITY-FIRST (owner 2026-06-22 "keep full resolution, ~60–90 MB"): preserve the
+// couple's ORIGINAL resolution up to 4K (no downscale for ≤4K, both orientations),
+// H.264 high/yuv420p + AAC, faststart. CRF 21 is visually transparent (the encode
+// is indistinguishable from the source on any screen); a MAXRATE cap keeps even a
+// 4K clip from spiking past a streamable bitrate. This only trims the source's
+// WASTEFUL over-bitrate (e.g. a 25 Mbps phone export → ~half) — it does NOT reduce
+// resolution, so "high res" is preserved on large/4K screens. (The aggressive
+// 1080p/CRF-27 variant the owner rejected lives in git history.)
+const LONG_EDGE_CAP = 3840; // 4K long edge — keep original resolution up to here
+const CRF = '21'; // visually transparent
+const MAXRATE = '16M'; // cap spikes so even 4K stays streamable
+const BUFSIZE = '32M';
+const PRESET = 'veryfast'; // ffmpeg.wasm is single-thread; veryfast keeps it tolerable
+const AUDIO_BITRATE = '192k'; // high-quality audio to match the quality-first target
 
-// Don't bother compressing clips that are already light enough to stream well —
-// re-encoding only wastes the couple's time + battery and can soften quality.
-const SKIP_BELOW_BYTES = 15 * 1024 * 1024; // 15 MB
-const SKIP_BELOW_BITRATE = 6_000_000; // 6 Mbps
+// Don't re-encode clips already light + efficient enough to stream well — it only
+// wastes the couple's time/battery and can't improve an already-good source.
+const SKIP_BELOW_BYTES = 12 * 1024 * 1024; // 12 MB
+const SKIP_BELOW_BITRATE = 8_000_000; // 8 Mbps — already a streamable, high-quality rate
 
 // Pinned core version (matches @ffmpeg/ffmpeg 0.12.x). UMD single-thread build.
 const CORE_BASE = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
@@ -115,17 +122,21 @@ export async function compressVideoForWeb(
     const outName = 'out.mp4';
     await ffmpeg.writeFile(inName, await fetchFile(file));
 
-    // Downscale to fit within 1080p (keep aspect), force even dimensions (H.264),
-    // re-encode H.264/AAC, faststart so it plays progressively.
+    // Keep the ORIGINAL resolution up to a 4K long edge (only downscale a >4K
+    // source; preserves ≤4K in BOTH orientations — min(cap,iw)+min(cap,ih)+decrease
+    // caps the longer side), force even dimensions (H.264). Re-encode H.264/AAC at a
+    // visually-transparent CRF with a maxrate cap, faststart for progressive play.
     const code = await ffmpeg.exec([
       '-i', inName,
       '-vf',
-      `scale='min(${TARGET_LONG_EDGE * 2},iw)':'min(${TARGET_LONG_EDGE},ih)':force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2`,
+      `scale='min(${LONG_EDGE_CAP},iw)':'min(${LONG_EDGE_CAP},ih)':force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2`,
       '-c:v', 'libx264',
       '-profile:v', 'high',
       '-pix_fmt', 'yuv420p',
       '-preset', PRESET,
       '-crf', CRF,
+      '-maxrate', MAXRATE,
+      '-bufsize', BUFSIZE,
       '-c:a', 'aac',
       '-b:a', AUDIO_BITRATE,
       '-movflags', '+faststart',

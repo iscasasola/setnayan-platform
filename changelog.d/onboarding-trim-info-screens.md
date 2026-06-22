@@ -6,10 +6,13 @@ the onboarding sequence so it runs question→question. **Reversible** — empty
 `REMOVED_INFO_SCREENS` set to restore every screen; the JSX sections are left in place (just never
 become active).
 
-Removed from the flow (owner picked all): `welcome` · `alaala_promise` ("Our promise · Your day,
-kept alive.") · `team_intro` ("Let's start with your reception.") · `team_payoff` ("Look how far
-you are.") · `love_preview` ("Here's the two of you.") · `exp_reveal` (the "You're [persona]…"
-payoff). The data-collecting questions and `congrats` (the finish/commit) stay.
+Removed from the flow (owner picked all): the no-input interstitials — `welcome` · `alaala_promise`
+("Our promise · Your day, kept alive.") · `team_intro` ("Let's start with your reception.") ·
+`team_payoff` ("Look how far you are.") · `exp_reveal` (the "You're [persona]…" payoff) — **and the
+whole love-story sub-flow** (owner "trim it": `love_intro` fork + its 5 questions + `love_preview`).
+The remaining data-collecting questions and `congrats` (the finish/commit) stay. ⚠ The love story
+seeds the website editorial + the Pakanta song — it's removed from ONBOARDING for now (collect it
+elsewhere or restore when we replan). All reversible — empty `REMOVED_SCREENS` to restore.
 
 - **Persona derive re-wired** (`onboarding-shell.tsx`): the experience-quiz plan derive used to run
   on entering `exp_reveal`. With that screen gone, the effect now fires the moment the 5 quiz

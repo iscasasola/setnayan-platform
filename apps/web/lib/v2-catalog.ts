@@ -102,7 +102,7 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
   PABATI:              'live',     // video guestbook end-to-end: gated day-of card + 5s guest recorder + recap section · collector exists · 2026-06-22
 
   // Not built · catalog-only · no fulfillment yet
-  PAKANTA:               'not_built',
+  PAKANTA:               'live',       // custom-song delivery end-to-end: intake + admin upload → auto-plays on the couple's site (PR #2038) · 2026-06-22
   PAPIC_ADDON_STORIES:   'not_built',
   PAPIC_ADDON_THANK_YOU: 'not_built',
   SDE:                   'live',       // crew-rendered film delivered via admin upload (PR #2031), auto-shows on day-of page + recap

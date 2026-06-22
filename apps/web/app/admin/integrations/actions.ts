@@ -124,15 +124,17 @@ export async function clearIntegrationSecret(formData: FormData): Promise<void> 
   redirect('/admin/integrations?cleared=1');
 }
 
-// ── OAuth client config (PR3b) ──────────────────────────────────────────────
+// ── Credentialed integration config (PR3b · OAuth clients + PR4a · social) ──
 //
-// Save an OAuth integration's client config from the console: the encrypted
-// client SECRET (platform_integration_secrets) + non-secret config fields
+// Save a credentialed integration's config from the console: the encrypted
+// SECRET (platform_integration_secrets) + non-secret config fields
 // (platform_settings). Both the integration id and every config column are
-// validated against the OAUTH_INTEGRATIONS allowlist, so a form value can never
-// write an unregistered column. The secret is only written when a new value is
-// entered (blank = keep current); config fields write their value or NULL (blank
-// = clear → resolver falls back to env).
+// validated against the CREDENTIAL_INTEGRATIONS allowlist (OAuth clients +
+// social-publish credentials), so a form value can never write an unregistered
+// column. The secret is only written when a new value is entered (blank = keep
+// current); config fields write their value or NULL (blank = clear → resolver
+// falls back to env). Per-field `validate` (url / numeric) rejects a malformed
+// value before persisting — these flow into live OAuth redirects + Graph URLs.
 
 export async function saveOAuthConfig(formData: FormData): Promise<void> {
   await requireAdmin();
@@ -142,13 +144,11 @@ export async function saveOAuthConfig(formData: FormData): Promise<void> {
   const admin = createAdminClient();
 
   // Non-secret config → platform_settings. Columns come ONLY from the registry.
-  // Redirect URIs are validated as http(s) URLs before persisting (they become a
-  // live OAuth `redirect_uri`) — invalid input redirects to a banner, no write.
   const patch: Record<string, string | null> = {};
   for (const field of def.configFields) {
     const raw = formData.get(field.column);
     const val = typeof raw === 'string' && raw.trim() ? raw.trim() : null;
-    if (val && field.column.includes('redirect_uri')) {
+    if (val && field.validate === 'url') {
       let ok = false;
       try {
         const u = new URL(val);
@@ -156,7 +156,10 @@ export async function saveOAuthConfig(formData: FormData): Promise<void> {
       } catch {
         ok = false;
       }
-      if (!ok) redirect('/admin/integrations?error=invalid_redirect_uri');
+      if (!ok) redirect('/admin/integrations?error=invalid_config');
+    }
+    if (val && field.validate === 'numeric' && !/^\d+$/.test(val)) {
+      redirect('/admin/integrations?error=invalid_config');
     }
     patch[field.column] = val;
   }

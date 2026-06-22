@@ -122,13 +122,23 @@ export interface OAuthConfigField {
   env: string;
   label: string;
   placeholder: string;
+  /**
+   * Save-time validation for this field's value (the value flows into a live
+   * OAuth redirect or a Graph API URL path, so a malformed save is rejected
+   * before it persists). 'url' = http(s) absolute URL; 'numeric' = digits only.
+   */
+  validate?: 'url' | 'numeric';
 }
 
+// "Credentialed" integration: one encrypted SECRET + N non-secret CONFIG text
+// fields. Used for the OAuth clients (PR3b) AND for social-publish credentials
+// like Meta (PR4a) — the config fields are just labelled differently (redirect
+// URIs vs Page/IG ids); the card + actions are shape-identical.
 export interface OAuthIntegrationDef {
-  id: 'youtube' | 'google_drive' | 'tiktok';
+  id: string;
   label: string;
   category: 'video' | 'storage' | 'social';
-  /** platform_integration_secrets column holding the encrypted client secret. */
+  /** platform_integration_secrets column holding the encrypted secret. */
   secretColumn: string;
   secretEnv: string;
   secretLabel: string;
@@ -156,6 +166,7 @@ export const OAUTH_INTEGRATIONS: readonly OAuthIntegrationDef[] = [
         env: 'YOUTUBE_OAUTH_REDIRECT_URI',
         label: 'Redirect URI',
         placeholder: 'https://www.setnayan.com/api/oauth/youtube/callback',
+        validate: 'url',
       },
     ],
     guidance:
@@ -180,12 +191,14 @@ export const OAUTH_INTEGRATIONS: readonly OAuthIntegrationDef[] = [
         env: 'GOOGLE_DRIVE_OAUTH_REDIRECT_URI',
         label: 'Papic redirect URI',
         placeholder: 'https://www.setnayan.com/api/oauth/drive/callback',
+        validate: 'url',
       },
       {
         column: 'photo_delivery_oauth_redirect_uri',
         env: 'PHOTO_DELIVERY_OAUTH_REDIRECT_URI',
         label: 'Photo Delivery redirect URI',
         placeholder: 'https://www.setnayan.com/api/oauth/photo-delivery/callback',
+        validate: 'url',
       },
     ],
     guidance:
@@ -210,6 +223,7 @@ export const OAUTH_INTEGRATIONS: readonly OAuthIntegrationDef[] = [
         env: 'TIKTOK_OAUTH_REDIRECT_URI',
         label: 'Redirect URI',
         placeholder: 'https://www.setnayan.com/api/tiktok/auth/callback',
+        validate: 'url',
       },
     ],
     guidance:
@@ -217,13 +231,55 @@ export const OAUTH_INTEGRATIONS: readonly OAuthIntegrationDef[] = [
   },
 ];
 
-/** Lookup by id; undefined for an unknown id (the generic actions reject those). */
+// ── Social-publish credentials (PR4a) ───────────────────────────────────────
+//
+// Same card/action shape as the OAuth clients (secret + config fields), but a
+// LIVE social-publish credential rather than an OAuth client. Meta's ONE Page
+// access token authorizes BOTH Facebook + Instagram; its config fields are the
+// (non-secret) Page id + IG Business account id. resolveMetaConfig() reads these
+// DB-first / env-fallback.
+export const SOCIAL_INTEGRATIONS: readonly OAuthIntegrationDef[] = [
+  {
+    id: 'meta',
+    label: 'Facebook + Instagram — auto-publish',
+    category: 'social',
+    secretColumn: 'meta_page_access_token_enc',
+    secretEnv: 'META_PAGE_ACCESS_TOKEN',
+    secretLabel: 'Page access token',
+    configFields: [
+      {
+        column: 'meta_page_id',
+        env: 'META_PAGE_ID',
+        label: 'Facebook Page ID',
+        placeholder: 'numeric Page id',
+        validate: 'numeric',
+      },
+      {
+        column: 'ig_user_id',
+        env: 'IG_USER_ID',
+        label: 'Instagram Business account ID',
+        placeholder: 'numeric IG Business id (optional — FB-only if blank)',
+        validate: 'numeric',
+      },
+    ],
+    guidance:
+      'Meta Business → System User token with pages_manage_posts + instagram_content_publish. The SAME token authorizes both Facebook and Instagram. ⚠ This is the LIVE auto-publish path — a wrong token stops posting.',
+  },
+];
+
+/** OAuth clients + social-publish credentials — the union the console manages. */
+export const CREDENTIAL_INTEGRATIONS: readonly OAuthIntegrationDef[] = [
+  ...OAUTH_INTEGRATIONS,
+  ...SOCIAL_INTEGRATIONS,
+];
+
+/** Lookup by id across all credentialed integrations; undefined when unknown. */
 export function getOAuthIntegration(id: string): OAuthIntegrationDef | undefined {
-  return OAUTH_INTEGRATIONS.find((i) => i.id === id);
+  return CREDENTIAL_INTEGRATIONS.find((i) => i.id === id);
 }
 
-/** All secret columns across BOTH registries — for the console presence map. */
+/** All secret columns across every registry — for the console presence map. */
 export const ALL_SECRET_COLUMNS: readonly string[] = [
   ...SECRET_INTEGRATIONS.map((i) => i.secretColumn),
-  ...OAUTH_INTEGRATIONS.map((i) => i.secretColumn),
+  ...CREDENTIAL_INTEGRATIONS.map((i) => i.secretColumn),
 ];

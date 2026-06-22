@@ -31,6 +31,7 @@ import {
 } from '@/lib/std-openings';
 import { StdBuilderClient } from './_components/StdBuilderClient';
 import { LaunchStdButton } from './_components/launch-std-button';
+import { FeatureUsCard } from '@/app/dashboard/[eventId]/_components/feature-us-card';
 
 // 2026-06-19 — builder redesign: the 5-step builder (1 Background [+ theme:
 // fonts/colours] · 2 Content · 3 Video/Gallery · 4 Music · 5 Opening/reveal) +
@@ -213,6 +214,32 @@ export default async function SaveTheDatePage({ params }: Props) {
       ? event.std_invitation_launch_date.slice(0, 10)
       : '';
 
+  // Launched = the couple has taken their Save-the-Date live. Only then is it a
+  // finished, shareable creation, so the Feature-Us opt-in appears only after
+  // launch (and the app-side publish gate still holds it until after the
+  // wedding).
+  const stdLaunched =
+    Boolean(event?.std_launched_at) || event?.landing_page_visibility === 'public';
+
+  // ── Social Sharing & Featuring Program (migration 20261203000000) — the live
+  // (un-revoked) consent row for THIS event's singular Save-the-Date, so the
+  // opt-in card flips to its "already allowed" state. artifact_ref='' keys on
+  // the event's singular save_the_date. RLS couple policy scopes the read;
+  // degrade to null on a drifted DB (the table may post-date this deploy).
+  const { data: stdShareConsent } = stdLaunched
+    ? await supabase
+        .from('marketing_share_consents')
+        .select('consent_id, credit_mode')
+        .eq('event_id', eventId)
+        .eq('artifact_type', 'save_the_date')
+        .eq('artifact_ref', '')
+        .is('revoked_at', null)
+        .order('consented_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+        .then((r) => (r.error ? { data: null } : r))
+    : { data: null };
+
 
   return (
     <section className="space-y-8">
@@ -350,10 +377,22 @@ export default async function SaveTheDatePage({ params }: Props) {
       <LaunchStdButton
         eventId={eventId}
         slug={event?.slug ?? null}
-        initialLaunched={
-          Boolean(event?.std_launched_at) || event?.landing_page_visibility === 'public'
-        }
+        initialLaunched={stdLaunched}
       />
+
+      {/* ── Feature-us opt-in (Social Sharing Program) — once the couple has
+          taken their Save-the-Date live it's a finished, shareable creation.
+          Opt-in, default off; the app-side gate still holds it until after the
+          wedding. ── */}
+      {stdLaunched ? (
+        <FeatureUsCard
+          eventId={eventId}
+          artifactType="save_the_date"
+          artifactRef=""
+          alreadyConsented={stdShareConsent ?? null}
+          revalidatePath={`/dashboard/${eventId}/studio/save-the-date`}
+        />
+      ) : null}
 
       {/* Wax seal */}
       <div className="pt-2">

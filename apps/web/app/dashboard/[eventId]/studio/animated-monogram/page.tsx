@@ -16,6 +16,7 @@ import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
+import { FeatureUsCard } from '@/app/dashboard/[eventId]/_components/feature-us-card';
 
 export const metadata = { title: 'Animated Monogram · Setnayan' };
 
@@ -92,6 +93,28 @@ export default async function AnimatedMonogramPage({ params }: Props) {
 
   const owns = await eventOwnsAnimatedMonogram(supabase, eventId);
   const monogram = resolveMonogram(event);
+
+  // ── Social Sharing & Featuring Program (migration 20261203000000) — the live
+  // (un-revoked) consent row for THIS event's singular monogram, so the
+  // Feature-Us card under the finished animation flips to its "already allowed"
+  // state. artifact_ref='' keys on the event's singular monogram (the maker
+  // page is studio-only per owner 2026-06-21, so this paid surface — where the
+  // finished, shareable monogram is shown — is where the opt-in lives). RLS
+  // couple policy scopes the read; degrade to null on a drifted DB (the table
+  // may post-date this deploy).
+  const { data: shareConsent } = owns
+    ? await supabase
+        .from('marketing_share_consents')
+        .select('consent_id, credit_mode')
+        .eq('event_id', eventId)
+        .eq('artifact_type', 'monogram')
+        .eq('artifact_ref', '')
+        .is('revoked_at', null)
+        .order('consented_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+        .then((r) => (r.error ? { data: null } : r))
+    : { data: null };
   // The couple's chosen Motion Library signature (lib/monogram-motion.ts ·
   // picked in the Monogram Maker · NULL → 'draw'). Both previews below play
   // the real motion so the page shows exactly what guests would see.
@@ -144,6 +167,7 @@ export default async function AnimatedMonogramPage({ params }: Props) {
           eventId={eventId}
           motion={motion}
           motionLabel={motionLabel}
+          shareConsent={shareConsent ?? null}
         />
       ) : (
         <UnownedView
@@ -170,12 +194,15 @@ function OwnedView({
   eventId,
   motion,
   motionLabel,
+  shareConsent,
 }: {
   monogram: ReturnType<typeof resolveMonogram>;
   publicLandingUrl: string | null;
   eventId: string;
   motion: MonogramMotionKey;
   motionLabel: string;
+  /** The live (revoked_at IS NULL) monogram consent row, or null. */
+  shareConsent: { consent_id: string; credit_mode: string } | null;
 }) {
   return (
     <>
@@ -219,6 +246,18 @@ function OwnedView({
           This is exactly how it animates on your wedding website&rsquo;s hero.
         </p>
       </section>
+
+      {/* ── Feature-us opt-in (Social Sharing Program) — the finished, paid
+          monogram is a shareable creation; this is the surface where it's shown
+          (the Monogram Maker is studio-only per owner 2026-06-21). Opt-in,
+          default off; only postable after the wedding (gate is app-side). ── */}
+      <FeatureUsCard
+        eventId={eventId}
+        artifactType="monogram"
+        artifactRef=""
+        alreadyConsented={shareConsent}
+        revalidatePath={`/dashboard/${eventId}/studio/animated-monogram`}
+      />
 
       <p className="text-xs text-ink/50">
         Want different initials or a different motion? Pick from all six

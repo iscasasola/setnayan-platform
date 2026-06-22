@@ -6,7 +6,7 @@ import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { findPatiktokTemplate } from '@/lib/patiktok';
-import { presignDisplayUrl } from '@/lib/uploads';
+import { presignDisplayUrl, displayUrlForStoredAsset } from '@/lib/uploads';
 import { isR2Configured, R2_BUCKETS } from '@/lib/r2';
 import { sendPatiktokReelReadyEmail } from '@/lib/patiktok-reel-emails';
 
@@ -234,9 +234,53 @@ export async function claimPatiktokRenderJob(jobId: string): Promise<{
     })),
   );
 
-  // Resolve music (may be null — owned catalogue isn't ingested yet).
+  // Resolve the reel's backing track.
+  //
+  // PRIORITY — the couple's delivered Pakanta song (0036). When
+  // `events.pakanta_song_r2_key` is non-null the couple owns a delivered, paid
+  // Pakanta song; that song becomes the backing track for every Setnayan render
+  // at their wedding, reels included. Presign it (R2 ref → working GET URL) and
+  // hand it to the renderer in the same `musicUrl` slot it already consumes.
+  //
+  // FALLBACK — the chosen `patiktok_music_tracks` catalogue track (if any). Used
+  // only when the couple has no Pakanta song yet.
+  //
+  // Graceful-degrade: the column is applied to prod, but if it's missing
+  // (42703) or the table is gone (42P01) we behave exactly as before
+  // (catalogue-only). RLS lets the event member read their own event row.
   let musicUrl: string | null = null;
-  if (job.music_track_slug) {
+
+  let pakantaSongKey: string | null = null;
+  try {
+    const { data: eventRow, error: eventErr } = await supabase
+      .from('events')
+      .select('pakanta_song_r2_key')
+      .eq('event_id', job.event_id)
+      .maybeSingle();
+    // 42703 = undefined_column, 42P01 = undefined_table — treat as "no song".
+    if (eventErr && eventErr.code !== '42703' && eventErr.code !== '42P01') {
+      throw new Error(eventErr.message);
+    }
+    pakantaSongKey =
+      (eventRow?.pakanta_song_r2_key as string | null | undefined) ?? null;
+  } catch (err) {
+    // Defensive: a PostgREST schema-cache miss can surface the missing column
+    // as a thrown error rather than an error code. Don't fail the render —
+    // fall through to the catalogue path.
+    const code = (err as { code?: string } | null)?.code;
+    if (code && code !== '42703' && code !== '42P01') throw err;
+    pakantaSongKey = null;
+  }
+
+  if (pakantaSongKey) {
+    // displayUrlForStoredAsset handles both `r2://bucket/key` refs and legacy
+    // URLs, and returns null when storage can't presign — in which case we fall
+    // back to the catalogue track below.
+    musicUrl = await displayUrlForStoredAsset(pakantaSongKey);
+  }
+
+  // Catalogue fallback (may also be null — owned catalogue isn't ingested yet).
+  if (!musicUrl && job.music_track_slug) {
     const { data: track } = await supabase
       .from('patiktok_music_tracks')
       .select('source_url')

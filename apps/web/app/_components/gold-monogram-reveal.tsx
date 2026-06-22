@@ -91,7 +91,7 @@ export function GoldMonogramReveal({
     // callers gating on completion never hang.
     if (autoplay) {
       if (reduced.current) finish();
-      else if (!loop) window.setTimeout(finish, 2000);
+      else if (!loop) window.setTimeout(finish, 1450);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -108,7 +108,7 @@ export function GoldMonogramReveal({
     }
     setRevealing(true);
     if (reduced.current) finish();
-    else window.setTimeout(finish, 2000);
+    else window.setTimeout(finish, 1450);
   };
 
   const idle = !autoplay && !revealing;
@@ -150,10 +150,10 @@ export function GoldMonogramReveal({
       100% { transform: rotateY(0deg) scale(1); }
     }
     @keyframes ${sc}Glint {
-      0%,40% { background-position:130% 0; opacity:0; }
-      55% { opacity:1; }
-      62% { background-position:50% 0; }
-      82% { opacity:.85; }
+      0%,60% { background-position:130% 0; opacity:0; }
+      75% { opacity:1; }
+      88% { background-position:50% 0; opacity:1; }
+      96% { opacity:.85; }
       100% { background-position:-130% 0; opacity:0; }
     }
     @keyframes gmrPulse { 0%,100%{opacity:.4} 50%{opacity:.85} }

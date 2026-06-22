@@ -25,6 +25,7 @@ import {
 } from '@/lib/reveal-config';
 import { FourFlapEnvelope } from '@/app/[slug]/_components/reveal/four-flap';
 import { RigidReveal } from '@/app/[slug]/_components/reveal/rigid-reveal';
+import { GoldMonogramReveal } from '@/app/_components/gold-monogram-reveal';
 import { StdTouchGlow } from '@/app/[slug]/_components/reveal/std-touch-glow';
 import { saveRevealStudio } from './actions';
 
@@ -48,6 +49,7 @@ const TEMPLATE_LABELS: Record<RevealTemplateId, string> = {
   'two-flap-horizontal': 'Two-flap · top open',
   'church-doors': 'Church doors',
   'veil-sheer': 'Sheer bridal veil',
+  'gold-monogram': 'Gold monogram turn',
 };
 
 type SliderDef = { key: keyof VeilLook; label: string; min: number; max: number; step?: number };
@@ -493,6 +495,15 @@ export function RevealStudio({ initial }: { initial: RevealStudioConfig }) {
               autoPlay
               effect="butterflies"
               effectLook={draft.effects}
+            />
+          ) : previewTpl === 'gold-monogram' ? (
+            <GoldMonogramReveal
+              key={previewKey}
+              markSvg={null}
+              monogram="M & J"
+              onDone={() => window.setTimeout(redrapePreview, 1800)}
+              autoplay
+              loop
             />
           ) : (
             <RigidReveal

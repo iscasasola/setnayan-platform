@@ -1146,25 +1146,16 @@ export function SaveTheDateFilm({
       window.removeEventListener('pointerdown', unlock, true);
       window.removeEventListener('touchstart', unlock, true);
 
-      // ── Soundtrack <audio> unlock (original behaviour).
-      if (a) {
-        if (playingRef.current) {
-          // Already playing (no-reveal grace path) → just keep it going.
-          if (!muted) a.play().catch(() => {});
-        } else {
-          // Under the veil: silently unlock, then pause + rewind so it starts
-          // fresh on the lift. volume 0 during the play→pause so there's no blip.
-          const vol = a.volume;
-          setVol(a, 0);
-          const finish = () => {
-            a.pause();
-            a.currentTime = 0;
-            setVol(a, vol);
-          };
-          const p = a.play();
-          if (p && typeof p.then === 'function') p.then(finish).catch(() => { setVol(a, vol); });
-          else finish();
-        }
+      // ── Soundtrack <audio>: START it playing from this trusted touch and KEEP
+      // it playing (it's MUTED via `muted={muted || !started}`, so it's silent
+      // under the veil). This mirrors the warm-clip pattern: a play→pause→replay
+      // PRIME is iOS-blocked (once paused, the lift's replay is refused — the same
+      // lesson the clip already learned), so we hold it RUNNING to bank the iOS
+      // audio credit. start() flips `started` true at the lift, which unmutes the
+      // already-playing element (allowed off-gesture) → the music auto-starts the
+      // moment the veil is up, on iOS and desktop alike.
+      if (a && !muted) {
+        a.play().catch(() => {});
       }
 
       // ── Couple's clip <video> — keep it WARM so its audio auto-crossfades in
@@ -1215,7 +1206,15 @@ export function SaveTheDateFilm({
       <style dangerouslySetInnerHTML={{ __html: FILM_ANIM_CSS }} />
 
       {content.musicUrl ? (
-        <audio ref={audioRef} src={content.musicUrl} loop muted={muted} />
+        // preload="auto" so the in-gesture play() resolves immediately instead of
+        // stalling on a fetch (iOS drops the gesture credit if play() must buffer
+        // first). muted={muted || !started}: the track is kept PLAYING but MUTED
+        // from the first touch (banking iOS audio credit) and only becomes audible
+        // when the film actually starts (`started` flips true at the veil lift) —
+        // an already-playing element can be unmuted off-gesture, which is how the
+        // music auto-starts on iOS where a fresh off-gesture play() is blocked.
+        // eslint-disable-next-line jsx-a11y/media-has-caption
+        <audio ref={audioRef} src={content.musicUrl} loop preload="auto" muted={muted || !started} />
       ) : null}
 
       {/* Chrome removed (owner 2026-06-19): NO stories scrub bars, NO transport

@@ -13,16 +13,11 @@ import {
   ShieldCheck,
   User,
   Plus,
-  Image,
-  Heart,
-  Newspaper,
   ChevronDown,
 } from 'lucide-react';
 import type { SwitcherData } from './get-switcher-data';
 import { formatEventDate } from '@/lib/events';
 import { EventMonogram } from '@/app/_components/event-monogram';
-
-type Tab = 'gallery' | 'favorites' | 'editorials';
 
 type Props = {
   data: SwitcherData;
@@ -55,7 +50,6 @@ type Props = {
 export function AccountSwitcher({ data, currentEventName }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<Tab>('gallery');
   const [mounted, setMounted] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
 
@@ -97,116 +91,6 @@ export function AccountSwitcher({ data, currentEventName }: Props) {
 
   // ─── Inner panel content ────────────────────────────────────────────────
 
-  function renderTabContent() {
-    if (activeTab === 'gallery') {
-      if (data.gallery.length === 0) {
-        return (
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <Image aria-hidden className="mb-2 h-8 w-8 text-ink/25" strokeWidth={1.5} />
-            <p className="text-sm text-ink/50">No photos yet</p>
-            <p className="mt-1 text-xs text-ink/35">
-              Photos will appear here after your event
-            </p>
-          </div>
-        );
-      }
-      return (
-        <div className="grid grid-cols-3 gap-1.5">
-          {data.gallery.map((album) => (
-            <div
-              key={album.event_id}
-              className="flex flex-col items-center gap-1"
-            >
-              <div className="flex aspect-square w-full items-center justify-center rounded-xl bg-terracotta/10">
-                <Image aria-hidden className="h-6 w-6 text-terracotta/60" strokeWidth={1.5} />
-              </div>
-              <p className="truncate text-center text-[10px] text-ink/60">
-                {album.photo_count > 0 ? `${album.photo_count} photos` : 'No photos yet'}
-              </p>
-              <p className="truncate text-center text-[10px] font-medium text-ink/80">
-                {album.event_display_name}
-              </p>
-            </div>
-          ))}
-        </div>
-      );
-    }
-
-    if (activeTab === 'favorites') {
-      if (data.favorites.length === 0) {
-        return (
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <Heart aria-hidden className="mb-2 h-8 w-8 text-ink/25" strokeWidth={1.5} />
-            <p className="text-sm text-ink/50">No saved vendors yet</p>
-            <p className="mt-1 text-xs text-ink/35">
-              Vendors you save will appear here
-            </p>
-          </div>
-        );
-      }
-      return (
-        <ul className="space-y-1">
-          {data.favorites.map((fav) => (
-            <li key={fav.vendor_profile_id}>
-              <Link
-                href={`/vendors/${fav.vendor_profile_id}`}
-                onClick={close}
-                className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-ink/85 hover:bg-terracotta/10"
-              >
-                {fav.logo_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={fav.logo_url}
-                    alt=""
-                    className="h-8 w-8 shrink-0 rounded-full object-cover"
-                  />
-                ) : (
-                  <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-terracotta/15 text-xs font-medium text-terracotta-700">
-                    {fav.business_name.charAt(0).toUpperCase()}
-                  </span>
-                )}
-                <span className="min-w-0 truncate font-medium">{fav.business_name}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      );
-    }
-
-    // editorials
-    if (data.editorials.length === 0) {
-      return (
-        <div className="flex flex-col items-center justify-center py-8 text-center">
-          <Newspaper aria-hidden className="mb-2 h-8 w-8 text-ink/25" strokeWidth={1.5} />
-          <p className="text-sm text-ink/50">No editorial pages yet</p>
-          <p className="mt-1 text-xs text-ink/35">
-            Your wedding editorial will appear here
-          </p>
-        </div>
-      );
-    }
-    return (
-      <ul className="space-y-1">
-        {data.editorials.map((ed) => (
-          <li key={ed.editorial_id}>
-            <div className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-ink/85">
-              <Newspaper aria-hidden className="h-4 w-4 shrink-0 text-terracotta/60" strokeWidth={1.5} />
-              <span className="min-w-0 flex-1 truncate">{ed.event_display_name}</span>
-              <span
-                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider ${
-                  ed.status === 'published'
-                    ? 'bg-success-100 text-success-700'
-                    : 'bg-ink/10 text-ink/50'
-                }`}
-              >
-                {ed.status}
-              </span>
-            </div>
-          </li>
-        ))}
-      </ul>
-    );
-  }
 
   function renderPanel() {
     return (
@@ -243,41 +127,18 @@ export function AccountSwitcher({ data, currentEventName }: Props) {
 
         {/* Scrollable interior */}
         <div className="flex-1 overflow-y-auto">
-          {/* ── 1. User header ─────────────────────────────────── */}
-          <div className="flex items-center gap-3 px-4 pb-3 pt-4">
-            <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-ink/15 bg-cream text-lg font-semibold text-ink/80">
-              {data.photoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={data.photoUrl} alt="" className="h-full w-full object-cover" />
-              ) : (
-                initial
-              )}
-            </span>
-            <div className="min-w-0 flex-1">
-              {data.displayName ? (
-                <p className="truncate text-sm font-semibold text-ink">
-                  {data.displayName}
-                </p>
-              ) : null}
-              <p className="truncate text-xs text-ink/55">{data.email}</p>
-            </div>
-          </div>
-
-          {/* ── 2. Events section ──────────────────────────────── */}
-          <div className="border-t border-ink/10 px-4 pt-3 pb-2">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45">
-                Events
-              </span>
-              <Link
-                href="/dashboard/create-event"
-                onClick={close}
-                className="inline-flex items-center gap-1 rounded-full border border-dashed border-terracotta/50 px-2.5 py-0.5 text-xs font-medium text-terracotta-700 hover:bg-terracotta/10"
-              >
-                <Plus aria-hidden className="h-3 w-3" strokeWidth={2.5} />
-                Add
-              </Link>
-            </div>
+          {/* ── Events — the only content (couples). Prominent "Add event" leads the
+                 section so the core action is the first, biggest target (owner 2026-06-22:
+                 events on top, no user header, add-event more accessible). ── */}
+          <div className="px-4 pt-4 pb-2">
+            <Link
+              href="/dashboard/create-event"
+              onClick={close}
+              className="mb-2.5 flex w-full items-center justify-center gap-2 rounded-xl bg-terracotta px-3 py-2.5 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-700"
+            >
+              <Plus aria-hidden className="h-4 w-4" strokeWidth={2.5} />
+              Add event
+            </Link>
 
             {data.events.length === 0 ? (
               <p className="py-2 text-center text-xs text-ink/40">
@@ -336,86 +197,7 @@ export function AccountSwitcher({ data, currentEventName }: Props) {
             )}
           </div>
 
-          {/* ── 3. Tabs: Gallery | Favorites | Editorials ─────── */}
-          <div className="border-t border-ink/10 px-4 pt-3 pb-1">
-            <div
-              role="tablist"
-              className="mb-3 flex gap-0.5 rounded-xl bg-ink/5 p-0.5"
-            >
-              {(
-                [
-                  { key: 'gallery', label: 'Gallery', Icon: Image },
-                  { key: 'favorites', label: 'Favorites', Icon: Heart },
-                  { key: 'editorials', label: 'Editorials', Icon: Newspaper },
-                ] as const
-              ).map(({ key, label, Icon }) => (
-                <button
-                  key={key}
-                  role="tab"
-                  aria-selected={activeTab === key}
-                  type="button"
-                  onClick={() => setActiveTab(key)}
-                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
-                    activeTab === key
-                      ? 'bg-[var(--m-paper)] text-ink shadow-sm'
-                      : 'text-ink/55 hover:text-ink/80'
-                  }`}
-                >
-                  <Icon aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                  {label}
-                </button>
-              ))}
-            </div>
-            <div role="tabpanel">{renderTabContent()}</div>
-          </div>
-
-          {/* ── 4. Profile actions ─────────────────────────────── */}
-          <div className="border-t border-ink/10 px-4 pt-3 pb-2">
-            <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45">
-              Account
-            </span>
-
-            {/* 2×2 grid on mobile, full-width list on desktop */}
-            <div className="mt-2 grid grid-cols-2 gap-1 lg:grid-cols-1">
-              {hostsHref ? (
-                <button
-                  type="button"
-                  onClick={() => navigate(hostsHref)}
-                  className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-ink/80 hover:bg-terracotta/10 hover:text-ink"
-                >
-                  <Users aria-hidden className="h-4 w-4 shrink-0 text-ink/50" strokeWidth={1.75} />
-                  Hosts
-                </button>
-              ) : null}
-              <button
-                type="button"
-                onClick={() => navigate('/dashboard/profile')}
-                className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-ink/80 hover:bg-terracotta/10 hover:text-ink"
-              >
-                <UserCircle aria-hidden className="h-4 w-4 shrink-0 text-ink/50" strokeWidth={1.75} />
-                Profile
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate('/dashboard/profile#settings')}
-                className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-ink/80 hover:bg-terracotta/10 hover:text-ink"
-              >
-                <Settings aria-hidden className="h-4 w-4 shrink-0 text-ink/50" strokeWidth={1.75} />
-                Settings
-              </button>
-              <form action="/auth/sign-out" method="post">
-                <button
-                  type="submit"
-                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 hover:text-red-700"
-                >
-                  <LogOut aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} />
-                  Sign out
-                </button>
-              </form>
-            </div>
-          </div>
-
-          {/* ── 5. Context rail ────────────────────────────────── */}
+          {/* ── Console rail (account-style) — vendor / Setnayan-team only ── */}
           {showContextRail ? (
             <div className="border-t border-ink/10 px-4 pt-3 pb-2">
               <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45">
@@ -462,6 +244,30 @@ export function AccountSwitcher({ data, currentEventName }: Props) {
               </div>
             </div>
           ) : null}
+
+          {/* Slim account footer — identity actions (Profile · Settings · Sign out) live
+              HERE, not mixed into the events/console switching above (the two-corner
+              pattern). Hosts shows only when there's a co-host context. */}
+          <div className="border-t border-ink/10 px-4 py-2.5">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+              {hostsHref ? (
+                <button type="button" onClick={() => navigate(hostsHref)} className="inline-flex items-center gap-1 text-ink/60 hover:text-terracotta-700">
+                  <Users aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Hosts
+                </button>
+              ) : null}
+              <button type="button" onClick={() => navigate('/dashboard/profile')} className="inline-flex items-center gap-1 text-ink/60 hover:text-terracotta-700">
+                <UserCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Profile
+              </button>
+              <button type="button" onClick={() => navigate('/dashboard/profile#settings')} className="inline-flex items-center gap-1 text-ink/60 hover:text-terracotta-700">
+                <Settings aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Settings
+              </button>
+              <form action="/auth/sign-out" method="post" className="ml-auto">
+                <button type="submit" className="inline-flex items-center gap-1 text-red-600 hover:text-red-700">
+                  <LogOut aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Sign out
+                </button>
+              </form>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -567,7 +373,6 @@ export function AccountSwitcherIconTrigger({
 export function AccountSwitcherStandalone({ data }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<Tab>('gallery');
   const [mounted, setMounted] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
 
@@ -671,35 +476,12 @@ export function AccountSwitcherStandalone({ data }: Props) {
               >
                 <div className="flex-1 overflow-y-auto">
 
-                  {/* User header */}
-                  <div className="flex items-center gap-3 px-4 pb-3 pt-5">
-                    <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-ink/15 bg-cream text-lg font-semibold text-ink/80">
-                      {data.photoUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={data.photoUrl} alt="" className="h-full w-full object-cover" />
-                      ) : (
-                        initial
-                      )}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      {data.displayName ? (
-                        <p className="truncate text-sm font-semibold text-ink">
-                          {data.displayName}
-                        </p>
-                      ) : null}
-                      <p className="truncate text-xs text-ink/55">{data.email}</p>
-                    </div>
-                  </div>
-
-                  {/* Events */}
-                  <div className="border-t border-ink/10 px-4 pt-3 pb-2">
-                    <div className="mb-2 flex items-center justify-between">
-                      <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45">Events</span>
-                      <Link href="/dashboard/create-event" onClick={close} className="inline-flex items-center gap-1 rounded-full border border-dashed border-terracotta/50 px-2.5 py-0.5 text-xs font-medium text-terracotta-700 hover:bg-terracotta/10">
-                        <Plus aria-hidden className="h-3 w-3" strokeWidth={2.5} />
-                        Add
-                      </Link>
-                    </div>
+                  {/* Events — the only content (couples). Prominent "Add event" leads. */}
+                  <div className="px-4 pt-5 pb-2">
+                    <Link href="/dashboard/create-event" onClick={close} className="mb-2.5 flex w-full items-center justify-center gap-2 rounded-xl bg-terracotta px-3 py-2.5 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-700">
+                      <Plus aria-hidden className="h-4 w-4" strokeWidth={2.5} />
+                      Add event
+                    </Link>
                     {data.events.length === 0 ? (
                       <p className="py-2 text-center text-xs text-ink/40">
                         No events yet —{' '}
@@ -733,108 +515,7 @@ export function AccountSwitcherStandalone({ data }: Props) {
                     )}
                   </div>
 
-                  {/* Tabs */}
-                  <div className="border-t border-ink/10 px-4 pt-3 pb-1">
-                    <div role="tablist" className="mb-3 flex gap-0.5 rounded-xl bg-ink/5 p-0.5">
-                      {([
-                        { key: 'gallery', label: 'Gallery', Icon: Image },
-                        { key: 'favorites', label: 'Favorites', Icon: Heart },
-                        { key: 'editorials', label: 'Editorials', Icon: Newspaper },
-                      ] as const).map(({ key, label, Icon }) => (
-                        <button key={key} role="tab" aria-selected={activeTab === key} type="button" onClick={() => setActiveTab(key)} className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${activeTab === key ? 'bg-[var(--m-paper)] text-ink shadow-sm' : 'text-ink/55 hover:text-ink/80'}`}>
-                          <Icon aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                    <div role="tabpanel">
-                      {activeTab === 'gallery' && (
-                        data.gallery.length === 0 ? (
-                          <div className="flex flex-col items-center justify-center py-8 text-center">
-                            <Image aria-hidden className="mb-2 h-8 w-8 text-ink/25" strokeWidth={1.5} />
-                            <p className="text-sm text-ink/50">No photos yet</p>
-                          </div>
-                        ) : (
-                          <div className="grid grid-cols-3 gap-1.5">
-                            {data.gallery.map((album) => (
-                              <div key={album.event_id} className="flex flex-col items-center gap-1">
-                                <div className="flex aspect-square w-full items-center justify-center rounded-xl bg-terracotta/10">
-                                  <Image aria-hidden className="h-6 w-6 text-terracotta/60" strokeWidth={1.5} />
-                                </div>
-                                <p className="text-center text-[10px] text-ink/60">{album.photo_count > 0 ? `${album.photo_count} photos` : 'No photos yet'}</p>
-                              </div>
-                            ))}
-                          </div>
-                        )
-                      )}
-                      {activeTab === 'favorites' && (
-                        data.favorites.length === 0 ? (
-                          <div className="flex flex-col items-center justify-center py-8 text-center">
-                            <Heart aria-hidden className="mb-2 h-8 w-8 text-ink/25" strokeWidth={1.5} />
-                            <p className="text-sm text-ink/50">No saved vendors yet</p>
-                          </div>
-                        ) : (
-                          <ul className="space-y-1">
-                            {data.favorites.map((fav) => (
-                              <li key={fav.vendor_profile_id}>
-                                <Link href={`/vendors/${fav.vendor_profile_id}`} onClick={close} className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-ink/85 hover:bg-terracotta/10">
-                                  <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-terracotta/15 text-xs font-medium text-terracotta-700">
-                                    {fav.business_name.charAt(0).toUpperCase()}
-                                  </span>
-                                  <span className="min-w-0 truncate font-medium">{fav.business_name}</span>
-                                </Link>
-                              </li>
-                            ))}
-                          </ul>
-                        )
-                      )}
-                      {activeTab === 'editorials' && (
-                        data.editorials.length === 0 ? (
-                          <div className="flex flex-col items-center justify-center py-8 text-center">
-                            <Newspaper aria-hidden className="mb-2 h-8 w-8 text-ink/25" strokeWidth={1.5} />
-                            <p className="text-sm text-ink/50">No editorial pages yet</p>
-                          </div>
-                        ) : (
-                          <ul className="space-y-1">
-                            {data.editorials.map((ed) => (
-                              <li key={ed.editorial_id}>
-                                <div className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-ink/85">
-                                  <Newspaper aria-hidden className="h-4 w-4 shrink-0 text-terracotta/60" strokeWidth={1.5} />
-                                  <span className="min-w-0 flex-1 truncate">{ed.event_display_name}</span>
-                                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase ${ed.status === 'published' ? 'bg-success-100 text-success-700' : 'bg-ink/10 text-ink/50'}`}>{ed.status}</span>
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
-                        )
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Profile actions */}
-                  <div className="border-t border-ink/10 px-4 pt-3 pb-2">
-                    <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45">Account</span>
-                    <div className="mt-2 space-y-0.5">
-                      {[
-                        ...(hostsHref ? [{ label: 'Hosts', Icon: Users, href: hostsHref }] : []),
-                        { label: 'Profile', Icon: UserCircle, href: '/dashboard/profile' },
-                        { label: 'Settings', Icon: Settings, href: '/dashboard/profile#settings' },
-                      ].map(({ label, Icon, href }) => (
-                        <button key={label} type="button" onClick={() => navigate(href)} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-ink/80 hover:bg-terracotta/10 hover:text-ink">
-                          <Icon aria-hidden className="h-4 w-4 shrink-0 text-ink/50" strokeWidth={1.75} />
-                          {label}
-                        </button>
-                      ))}
-                      <form action="/auth/sign-out" method="post">
-                        <button type="submit" className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 hover:text-red-700">
-                          <LogOut aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} />
-                          Sign out
-                        </button>
-                      </form>
-                    </div>
-                  </div>
-
-                  {/* Context rail */}
+                  {/* Console rail (account-style) — vendor / Setnayan-team only */}
                   {showContextRail ? (
                     <div className="border-t border-ink/10 px-4 pt-3 pb-4">
                       <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45">Switch to</span>
@@ -862,6 +543,28 @@ export function AccountSwitcherStandalone({ data }: Props) {
                       </div>
                     </div>
                   ) : null}
+
+                  {/* Slim account footer — Profile · Settings · Sign out (two-corner). */}
+                  <div className="border-t border-ink/10 px-4 py-2.5">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                      {hostsHref ? (
+                        <button type="button" onClick={() => navigate(hostsHref)} className="inline-flex items-center gap-1 text-ink/60 hover:text-terracotta-700">
+                          <Users aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Hosts
+                        </button>
+                      ) : null}
+                      <button type="button" onClick={() => navigate('/dashboard/profile')} className="inline-flex items-center gap-1 text-ink/60 hover:text-terracotta-700">
+                        <UserCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Profile
+                      </button>
+                      <button type="button" onClick={() => navigate('/dashboard/profile#settings')} className="inline-flex items-center gap-1 text-ink/60 hover:text-terracotta-700">
+                        <Settings aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Settings
+                      </button>
+                      <form action="/auth/sign-out" method="post" className="ml-auto">
+                        <button type="submit" className="inline-flex items-center gap-1 text-red-600 hover:text-red-700">
+                          <LogOut aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Sign out
+                        </button>
+                      </form>
+                    </div>
+                  </div>
                 </div>
               </div>
             </>,

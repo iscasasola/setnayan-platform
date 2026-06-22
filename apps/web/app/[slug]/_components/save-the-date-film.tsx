@@ -77,16 +77,19 @@ function setVol(el: HTMLMediaElement | null, v: number) {
  * invisibly, UNDER the soundtrack — the reported "video AND background music play
  * at the same time the veil goes up" bug.
  *
- * So: try `volume = 0`, then read it back. If it didn't stick (iOS), fall back to
- * `muted = true` — the only silence iOS honors. Returns true when volume IS
- * controllable (the beat can crossfade the clip's audio in) and false when it is
- * not (the beat must use the muted + "Tap for sound" path instead).
+ * So we ALWAYS `muted = true` the warm clip, on every platform — a clip left
+ * unmuted while it plays invisibly off-beat is the whole leak surface (iOS plays
+ * it at full volume; even on desktop a stray volume bump would leak it — "keep
+ * tapping and the video's audio eventually plays"). The on-beat path unmutes it
+ * again (instant on desktop; iOS uses the muted + "Tap for sound" fallback), so
+ * muting here costs nothing. We still detect whether `volume` is controllable
+ * (write 0, read it back) and return it, so the video beat can pick the smooth
+ * crossfade (desktop/Android) vs the "Tap for sound" path (iOS).
  */
 function silenceWarmClip(v: HTMLVideoElement): boolean {
-  v.muted = false;
   setVol(v, 0);
   const controllable = v.volume <= 0.01;
-  if (!controllable) v.muted = true;
+  v.muted = true; // always — the warm clip must be SILENT while it plays off-beat
   return controllable;
 }
 
@@ -903,6 +906,12 @@ export function SaveTheDateFilm({
         crossfade(0, 1, true); // music fades out → PAUSES (holds position); video fades in
       }
     } else {
+      // INVARIANT: off the video beat, the clip must never be audible. It's kept
+      // WARM (playing, looping, invisible) before its beat and may be left unmuted
+      // by an on-beat "Tap for sound", so mute it on EVERY off-beat run — this is
+      // the hard guard behind "keep tapping and the video's audio eventually
+      // plays". The on-beat branch unmutes it again when it's actually showing.
+      v.muted = true;
       // Resume the music FROM WHERE IT PAUSED — play() never resets currentTime,
       // and we never touch a.currentTime, so it continues, never restarts.
       if (content.musicUrl && a && !preview && playing && !muted) {

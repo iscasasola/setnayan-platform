@@ -32,6 +32,14 @@ const PUSH_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   // exists in the NotificationType enum + is emitted on accept; this only adds
   // the push channel — no schema change.
   'inquiry_accepted',
+  // admin_takeover_started (2026-06-22 · Account-Access Model Phase 3): "a
+  // Setnayan team member is accessing your account" is the single highest-signal,
+  // time-sensitive account event there is — exactly what this allowlist exists
+  // for. The user must learn the instant it begins so they can [Force end] /
+  // [Activity log]. Push-enabled in addition to in-app + email. NB: dormant in
+  // prod — takeover ships flag-gated OFF, so nothing emits this until the owner
+  // enables it post-review.
+  'admin_takeover_started',
 ]);
 
 // ---------------------------------------------------------------------------
@@ -95,6 +103,14 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   // invites the vendor to add a moment to the couple's editorial — worth an
   // email (same booking-relationship register as booking_confirmed / review_received).
   'completion_accepted',
+  // Admin Account-Access Model · Phase 3 takeover (2026-06-22). Both are
+  // transactional account-access notices the target user must get by email, not
+  // just in-app: the start notice ("a team member is accessing your account",
+  // with the [Force end]/[Activity log] route) and the end-of-session change
+  // report (every audited action). Same account-security register as
+  // security_alert. Dormant in prod until the owner enables takeover.
+  'admin_takeover_started',
+  'admin_takeover_change_report',
 ]);
 
 export type EmitNotificationArgs = {

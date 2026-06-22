@@ -150,7 +150,21 @@ export type NotificationType =
   // vendor only learned of a confirmation by happening to reopen the event
   // brief. Deep-links to their editorial-media page, so the confirmation
   // doubles as the invite to add a moment to the couple's story.
-  | 'completion_accepted';
+  | 'completion_accepted'
+  // Added 2026-06-22 (Admin Account-Access Model · Phase 3 takeover) alongside
+  // migration 20270215974993_add_admin_takeover_notification_types.sql. The two
+  // target-user-facing signals of a logged, two-admin-gated account takeover:
+  //   admin_takeover_started       → user: "A Setnayan team member is accessing
+  //                                  your account." Fired on session START from
+  //                                  app/admin/users/takeover-actions.ts.
+  //   admin_takeover_change_report → user: the list of changes made during the
+  //                                  session. Fired on session END.
+  // Both are on EMAIL_ENABLED_TYPES (notification-emit.ts) so the user also gets
+  // a branded email. The whole capability ships FLAG-GATED OFF
+  // (platform_settings.admin_takeover_enabled) — no code path emits these in
+  // prod until the owner enables takeover post-review.
+  | 'admin_takeover_started'
+  | 'admin_takeover_change_report';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   chat_message: 'New message',
@@ -201,6 +215,9 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   payment_cleared: 'Payment plan settled',
   // Vendor lifecycle Phase 3→4 spine (2026-06-20).
   completion_accepted: 'Service confirmed',
+  // Admin Account-Access Model · Phase 3 takeover (2026-06-22).
+  admin_takeover_started: 'Account access in progress',
+  admin_takeover_change_report: 'Account access report',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -294,6 +311,13 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   // The couple confirmed receipt = a positive close to the booking + an invite
   // to add a moment to their story → emerald (matches booking_confirmed).
   completion_accepted: 'bg-success-200 text-success-900',
+  // Admin Account-Access Model · Phase 3 takeover (2026-06-22). A staff member
+  // accessing your account is the alarm register — the user must read it as
+  // "look at this now" → rose, matching security_alert / dispute_filed.
+  admin_takeover_started: 'bg-danger-100 text-danger-800',
+  // The change report is the after-the-fact account of what happened — neutral
+  // informational "here's what was done" → sky, matching the info register.
+  admin_takeover_change_report: 'bg-sky-100 text-sky-800',
 };
 
 export type NotificationRow = {

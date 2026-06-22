@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { type ReactNode } from 'react';
-import { Search, ShieldCheck, Sparkle, MailCheck, Trash2, Ban, KeyRound, Undo2, Gift, ChevronDown, ChevronUp, XCircle, LogOut } from 'lucide-react';
+import { Search, ShieldCheck, ShieldAlert, Sparkle, MailCheck, Trash2, Ban, KeyRound, Undo2, Gift, ChevronDown, ChevronUp, XCircle, LogOut } from 'lucide-react';
 import { after } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
@@ -492,6 +492,19 @@ function UsersTable({
                                 Blacklist
                               </SubmitButton>
                             </ConfirmForm>
+                            {/* Account-Access Model Phase 3 — takeover console.
+                                A plain LINK (fires no action). The console is
+                                FLAG-GATED OFF: with takeover disabled it shows a
+                                "not enabled" notice and exposes nothing. Two-admin
+                                to start, user-notified, change-reported. */}
+                            <Link
+                              href={`/admin/users/${u.user_id}/takeover`}
+                              title="Phase 3 account-access (takeover) console — two-admin, notified, audited. Flag-gated OFF."
+                              className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-danger-100 hover:text-danger-900"
+                            >
+                              <ShieldAlert className="h-3 w-3" strokeWidth={2} />
+                              Account access
+                            </Link>
                           </div>
                         </details>
                         <Link

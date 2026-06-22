@@ -24,7 +24,12 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { isApprovalActionType, type ApprovalActionType } from '@/lib/admin-approvals';
+import {
+  isApprovalActionType,
+  isGenericExecutableActionType,
+  GENERIC_EXECUTABLE_ACTION_TYPES,
+  type ApprovalActionType,
+} from '@/lib/admin-approvals';
 
 async function requireAdmin(): Promise<{ userId: string }> {
   const supabase = await createClient();
@@ -177,14 +182,29 @@ export async function approveRequest(formData: FormData) {
     .eq('status', 'pending')
     .gt('expires_at', nowIso)
     .neq('initiated_by', userId)
+    // Only the privilege-grant types are executed by THIS generic action.
+    // Self-contained flows (approve_vendor_partnership, start_account_takeover)
+    // are confirmed from their own surface — scoping the claim here means this
+    // page can never claim+strand one (executeApproved would throw on them).
+    .in('action_type', [...GENERIC_EXECUTABLE_ACTION_TYPES])
     .select('approval_id, action_type, target_user_id, initiated_by')
     .maybeSingle();
 
   if (claimErr) throw new Error(`Could not approve: ${claimErr.message}`);
   if (!claimed) {
     throw new Error(
-      'Could not approve — the request was already decided, has expired, or you initiated it (a different admin must approve).',
+      'Could not approve — the request was already decided, has expired, you initiated it, or it must be confirmed from its own surface (a different admin must approve).',
     );
+  }
+  // Belt-and-suspenders: executeApproved only knows the generic grants.
+  if (!isGenericExecutableActionType(claimed.action_type)) {
+    // Roll the claim back so the request can still be decided from its surface.
+    await admin
+      .from('admin_approval_requests')
+      .update({ status: 'pending', decided_by: null, decided_at: null })
+      .eq('approval_id', approvalId)
+      .eq('status', 'approved');
+    throw new Error('This request type is not executable here.');
   }
 
   try {

@@ -523,6 +523,14 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         icon: Video,
       },
       {
+        // Same-Day Edit delivery — upload each couple's finished SDE film; it
+        // auto-publishes to their day-of page + recap the moment it lands.
+        key: 'sde',
+        label: 'Same-Day Edit',
+        href: '/admin/sde',
+        icon: Film,
+      },
+      {
         key: 'reveal-studio',
         label: 'Reveal Studio',
         href: '/admin/reveal-studio',

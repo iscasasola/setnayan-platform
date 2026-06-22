@@ -1,7 +1,7 @@
 import { cache } from 'react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { Camera, Quote, Sparkles } from 'lucide-react';
+import { Camera, Clapperboard, Quote, Sparkles } from 'lucide-react';
 import { Logo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { canViewSlugEvent } from '@/lib/slug-access';
@@ -126,6 +126,9 @@ export default async function RecapPage({ params }: { params: Promise<{ slug: st
       <RecapHeader />
       <article className="mx-auto w-full max-w-3xl px-4 pb-16 pt-8 sm:px-6">
         <RecapHero model={model} mono={mono} />
+        {model.sdeFilmUrl ? (
+          <SdeFilm url={model.sdeFilmUrl} poster={model.sdeFilmPosterUrl} />
+        ) : null}
         <RecapStats model={model} />
         <RecapPrologue model={model} />
         {model.dayChapters.map((ch, i) => (
@@ -232,6 +235,34 @@ function RecapHero({ model, mono }: { model: RecapModel; mono: HeroMonogramData 
       </h1>
       {meta ? <p className="text-base text-ink/60">{meta}</p> : null}
     </div>
+  );
+}
+
+function SdeFilm({ url, poster }: { url: string; poster: string | null }) {
+  return (
+    <section className="mb-10">
+      <div className="mb-3">
+        <h2 className="flex items-center gap-2 font-display text-2xl text-mulberry">
+          <Clapperboard aria-hidden className="h-5 w-5 text-gold" strokeWidth={1.75} />
+          The Same-Day Edit
+        </h2>
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/50">
+          The film of their day
+        </p>
+      </div>
+      <div className="overflow-hidden rounded-2xl border border-ink/10 bg-ink shadow-sm">
+        {/* presigned URL → raw <video> (controlled, tap-to-watch). */}
+        {/* eslint-disable-next-line jsx-a11y/media-has-caption -- crew-delivered keepsake film, no caption track */}
+        <video
+          src={url}
+          poster={poster ?? undefined}
+          controls
+          playsInline
+          preload="metadata"
+          className="aspect-video w-full bg-ink object-contain"
+        />
+      </div>
+    </section>
   );
 }
 

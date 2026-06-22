@@ -15,6 +15,7 @@ import { TestResendButton } from './_components/test-resend-button';
 import { SecretCard } from './_components/secret-card';
 import { OAuthCard } from './_components/oauth-card';
 import { MayaCard } from './_components/maya-card';
+import { BuildTimeStatus } from './_components/build-time-status';
 import {
   SECRET_INTEGRATIONS,
   OAUTH_INTEGRATIONS,
@@ -393,6 +394,55 @@ export default async function AdminIntegrationsPage({
             Boolean(process.env[MAYA_INTEGRATION.endpointEnv])
           }
           statusApproved={process.env.NEXT_PUBLIC_MAYA_STATUS === 'APPROVED'}
+        />
+      </section>
+
+      {/* Build-time & env-only (PR4d) — read-only; these can't be DB-flipped */}
+      <section className="space-y-4">
+        <h2 className="text-sm font-mono uppercase tracking-[0.18em] text-ink/45">
+          Build-time &amp; env-only
+        </h2>
+        <BuildTimeStatus
+          items={[
+            {
+              label: 'R2 media public host (R2_PUBLIC_URL)',
+              present: Boolean(process.env.R2_PUBLIC_URL),
+              value: process.env.R2_PUBLIC_URL ?? '',
+              note: 'Consumed at build time by next/image remotePatterns — changing the host needs a redeploy.',
+            },
+            {
+              label: 'VAPID public key (NEXT_PUBLIC_VAPID_PUBLIC_KEY)',
+              present: Boolean(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY),
+              note: 'Web-push — inlined into the client bundle at build time + paired with the private key.',
+            },
+            {
+              label: 'VAPID private key (VAPID_PRIVATE_KEY)',
+              present: Boolean(process.env.VAPID_PRIVATE_KEY),
+            },
+            {
+              label: 'VAPID subject (VAPID_SUBJECT)',
+              present: Boolean(process.env.VAPID_SUBJECT),
+              value: process.env.VAPID_SUBJECT ?? '(default mailto:hello@setnayan.com)',
+            },
+            {
+              label: 'Encryption key (ENCRYPTION_KEY)',
+              present: Boolean(process.env.ENCRYPTION_KEY),
+              note: 'Decrypts every stored integration secret + OAuth tokens — never rotate casually.',
+            },
+            {
+              label: 'Supabase service-role key (SUPABASE_SERVICE_ROLE_KEY)',
+              present: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+              note: 'Bootstrap — the DB read itself depends on it.',
+            },
+            {
+              label: 'R2 access key id (R2_ACCESS_KEY_ID)',
+              present: Boolean(process.env.R2_ACCESS_KEY_ID),
+            },
+            {
+              label: 'R2 secret access key (R2_SECRET_ACCESS_KEY)',
+              present: Boolean(process.env.R2_SECRET_ACCESS_KEY),
+            },
+          ]}
         />
       </section>
 

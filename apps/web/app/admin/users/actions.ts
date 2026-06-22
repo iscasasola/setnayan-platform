@@ -5,6 +5,8 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revokeAllSessions } from '@/lib/force-logout';
+import { emitNotification } from '@/lib/notification-emit';
+import { coerceFixValue, lookupFixField } from '@/lib/account-fix';
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -632,6 +634,237 @@ export async function revokeCompGrant(formData: FormData) {
   });
   if (auditErr) {
     console.error('[revokeCompGrant] audit log insert failed', auditErr.message);
+  }
+
+  revalidatePath('/admin/users');
+}
+
+/**
+ * Request a fix (consent-to-fix). Admin account-access model · Phase 2 CORE.
+ * Admin_Account_Access_Model_2026-06-22.md §1 (tier 2), §3 (consent-to-fix),
+ * §8 (the approval row IS the RA 10173 lawful-basis record), §9 (trust promise).
+ *
+ * What this does: the admin PROPOSES a correction to a low-risk, couple-editable
+ * field (the couple's name, or an event's name/date). NOTHING is written to the
+ * user's account here — this only inserts an account_fix_requests row in status
+ * 'pending' and notifies the couple. The change lands ONLY when the couple
+ * approves it from their own surface (applyAccountFix / declineAccountFix in
+ * app/dashboard/account-fixes/actions.ts).
+ *
+ * Why an allowlist: we never let an admin propose a write to an arbitrary
+ * column. target_table + field_key are validated against ACCOUNT_FIX_FIELDS
+ * (lib/account-fix.ts). The money/identity/payout consent-to-fix rows from §3 —
+ * which also need a DB-enforced two-admin gate — are intentionally NOT in the
+ * allowlist and so cannot be proposed through this surface yet (deferred).
+ *
+ * Safety guards
+ * -------------
+ *   - Admin role required.
+ *   - Field must be in the allowlist; proposed value is coerced/validated.
+ *   - Cannot propose a fix to an internal (§ 10a) account.
+ *   - For an event-scoped field, event_id is required + verified to belong to
+ *     the target user (couple membership).
+ *   - Audit-logged to admin_audit_log; couple notified (fix_requested).
+ */
+export async function requestAccountFix(formData: FormData) {
+  const { adminUserId } = await requireAdmin();
+
+  const targetUserId = formData.get('user_id');
+  // The admin form sends a single `field_ref` of the shape "<table>:<key>"
+  // (e.g. "events:event_date") — the same key ACCOUNT_FIX_FIELDS is keyed on.
+  // Split it back into table + key here so the allowlist lookup re-validates
+  // both halves at once.
+  const fieldRefRaw = formData.get('field_ref');
+  const eventIdRaw = formData.get('event_id');
+  const proposedRaw = formData.get('proposed_value');
+  const reasonRaw = formData.get('reason');
+
+  if (typeof targetUserId !== 'string' || targetUserId.length === 0) {
+    throw new Error('Pick a user to request a fix for.');
+  }
+  if (targetUserId === adminUserId) {
+    throw new Error('Edit your own account from your profile page, not here.');
+  }
+  if (typeof fieldRefRaw !== 'string' || !fieldRefRaw.includes(':')) {
+    throw new Error('Pick a field to fix.');
+  }
+  if (typeof proposedRaw !== 'string' || proposedRaw.trim().length === 0) {
+    throw new Error('Enter the corrected value you are proposing.');
+  }
+
+  const sep = fieldRefRaw.indexOf(':');
+  const tableRaw = fieldRefRaw.slice(0, sep);
+  const fieldKeyRaw = fieldRefRaw.slice(sep + 1);
+  const field = lookupFixField(tableRaw, fieldKeyRaw);
+  if (!field) {
+    throw new Error(
+      'That field is not eligible for consent-to-fix. Only the account name and event name/date can be proposed in this phase.',
+    );
+  }
+  // Throws a user-readable error on bad input (empty / wrong date format / too long).
+  const proposedValue = coerceFixValue(field, proposedRaw);
+
+  // A short rationale is required so the couple (and the audit trail) sees WHY.
+  if (typeof reasonRaw !== 'string' || reasonRaw.trim().length < 10) {
+    throw new Error('Write a short reason (at least 10 characters) for the fix.');
+  }
+  const reason = reasonRaw.trim();
+
+  const admin = createAdminClient();
+
+  // Verify the target exists + isn't internal.
+  const { data: target, error: targetErr } = await admin
+    .from('users')
+    .select('user_id, is_internal, email, display_name')
+    .eq('user_id', targetUserId)
+    .maybeSingle();
+  if (targetErr) throw new Error(`Target lookup failed: ${targetErr.message}`);
+  if (!target) throw new Error('Target user not found.');
+  if (target.is_internal) {
+    throw new Error('Internal accounts (§ 10a) are not editable via consent-to-fix.');
+  }
+
+  // Resolve the event when the field is event-scoped, capture the current value
+  // for the proposal snapshot, and verify the event belongs to the target.
+  let eventId: string | null = null;
+  let currentValue: string | null = null;
+
+  if (field.scope === 'event') {
+    if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) {
+      throw new Error('Pick the event whose detail you are correcting.');
+    }
+    // The event must be one the target user is a COUPLE member of — never let
+    // an admin scope a fix to an unrelated event.
+    const { data: membership } = await admin
+      .from('event_members')
+      .select('event_id')
+      .eq('event_id', eventIdRaw)
+      .eq('user_id', targetUserId)
+      .eq('member_type', 'couple')
+      .maybeSingle();
+    if (!membership) {
+      throw new Error('That event does not belong to this user.');
+    }
+    eventId = eventIdRaw;
+
+    const { data: ev } = await admin
+      .from('events')
+      .select(field.column)
+      .eq('event_id', eventId)
+      .maybeSingle();
+    const evRow = ev as Record<string, unknown> | null;
+    const raw = evRow ? evRow[field.column] : null;
+    currentValue = raw == null ? null : String(raw);
+  } else {
+    // user-scoped: snapshot the current value off the users row.
+    const targetRow = target as Record<string, unknown>;
+    const raw = targetRow[field.column];
+    currentValue = raw == null ? null : String(raw);
+  }
+
+  // Insert the proposal (status defaults to 'pending'). basis is recorded on
+  // the row implicitly: a pending proposal awaiting the user's approval. The
+  // approval timestamp (consent_at) lands when the couple approves.
+  const { data: inserted, error: insertErr } = await admin
+    .from('account_fix_requests')
+    .insert({
+      target_user_id: targetUserId,
+      event_id: eventId,
+      target_table: field.table,
+      field_key: field.key,
+      field_label: field.label,
+      current_value: currentValue,
+      proposed_value: proposedValue,
+      requested_by: adminUserId,
+      reason,
+    })
+    .select('id')
+    .single();
+  if (insertErr) {
+    throw new Error(`Fix request insert failed: ${insertErr.message}`);
+  }
+
+  // Audit — mandatory per § 9.1 admin discipline.
+  const { error: auditErr } = await admin.from('admin_audit_log').insert({
+    action: 'account_fix_requested',
+    target_table: 'account_fix_requests',
+    target_id: inserted.id,
+    actor_user_id: adminUserId,
+    metadata: {
+      target_user_id: targetUserId,
+      target_email: target.email ?? null,
+      field_table: field.table,
+      field_key: field.key,
+      field_label: field.label,
+      event_id: eventId,
+      before_value: currentValue,
+      proposed_value: proposedValue,
+      reason_preview: reason.slice(0, 120),
+    },
+  });
+  if (auditErr) {
+    console.error('[requestAccountFix] audit log insert failed', auditErr.message);
+  }
+
+  // Notify the couple — they must approve before anything lands. Fire-and-forget
+  // (a failed notification never rolls back the proposal that already inserted).
+  await emitNotification({
+    userId: targetUserId,
+    type: 'fix_requested',
+    title: `We'd like to fix “${field.label}” on your account`,
+    body: `Setnayan staff propose changing ${field.label} to “${proposedValue}”. Nothing changes until you approve it.`,
+    relatedUrl: '/dashboard/account-fixes',
+  });
+
+  revalidatePath('/admin/users');
+  redirect(
+    `/admin/users?expand=${encodeURIComponent(targetUserId)}&fix_banner=${encodeURIComponent(
+      `Fix proposed for ${target.email ?? 'the user'} — awaiting their approval. Nothing changes until they say yes.`,
+    )}`,
+  );
+}
+
+/**
+ * Withdraw (cancel) a still-pending fix proposal. Admin-only. Idempotent on the
+ * row: cancelling an already-resolved proposal is rejected (the couple may have
+ * already approved/declined it). Audit-logged.
+ */
+export async function cancelAccountFix(formData: FormData) {
+  const { adminUserId } = await requireAdmin();
+  const fixId = formData.get('fix_id');
+  if (typeof fixId !== 'string' || fixId.length === 0) {
+    throw new Error('Pick a fix request to withdraw.');
+  }
+
+  const admin = createAdminClient();
+  const { data: existing, error: readErr } = await admin
+    .from('account_fix_requests')
+    .select('id, status, target_user_id')
+    .eq('id', fixId)
+    .maybeSingle();
+  if (readErr) throw new Error(`Fix request lookup failed: ${readErr.message}`);
+  if (!existing) throw new Error('Fix request not found.');
+  if (existing.status !== 'pending') {
+    throw new Error(`This fix request is already ${existing.status} and cannot be withdrawn.`);
+  }
+
+  const now = new Date().toISOString();
+  const { error: updateErr } = await admin
+    .from('account_fix_requests')
+    .update({ status: 'cancelled', resolved_at: now })
+    .eq('id', fixId)
+    .eq('status', 'pending'); // guard against a race with the couple approving
+  if (updateErr) throw new Error(`Withdraw failed: ${updateErr.message}`);
+
+  const { error: auditErr } = await admin.from('admin_audit_log').insert({
+    action: 'account_fix_cancelled',
+    target_table: 'account_fix_requests',
+    target_id: fixId,
+    actor_user_id: adminUserId,
+    metadata: { target_user_id: existing.target_user_id },
+  });
+  if (auditErr) {
+    console.error('[cancelAccountFix] audit log insert failed', auditErr.message);
   }
 
   revalidatePath('/admin/users');

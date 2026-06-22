@@ -150,7 +150,19 @@ export type NotificationType =
   // vendor only learned of a confirmation by happening to reopen the event
   // brief. Deep-links to their editorial-media page, so the confirmation
   // doubles as the invite to add a moment to the couple's story.
-  | 'completion_accepted';
+  | 'completion_accepted'
+  // Added 2026-06-22 (Admin account-access model · Phase 2 · consent-to-fix)
+  // alongside migration 20270214750443_add_fix_requested_notification_type.sql.
+  // Fired (target-recipient · couple/customer) from requestAccountFix()
+  // (app/admin/users/actions.ts) right after an account_fix_requests row is
+  // inserted. Setnayan staff spotted something to correct on the account (a
+  // typo'd name, a wrong event date) and are ASKING permission before anything
+  // lands — the consent-to-fix tier from Admin_Account_Access_Model_2026-06-22.md
+  // §3. Deep-links the couple to /dashboard/account-fixes where they Approve
+  // (the change then applies) or Decline (nothing changes). Nothing is edited
+  // until the user approves; the approval row IS the RA 10173 lawful-basis
+  // record (§8).
+  | 'fix_requested';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   chat_message: 'New message',
@@ -201,6 +213,9 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   payment_cleared: 'Payment plan settled',
   // Vendor lifecycle Phase 3→4 spine (2026-06-20).
   completion_accepted: 'Service confirmed',
+  // Admin account-access model · Phase 2 (2026-06-22). Staff are asking the
+  // couple's permission to correct something — phrased as a polite request.
+  fix_requested: 'Permission to fix your account',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -294,6 +309,11 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   // The couple confirmed receipt = a positive close to the booking + an invite
   // to add a moment to their story → emerald (matches booking_confirmed).
   completion_accepted: 'bg-success-200 text-success-900',
+  // Admin account-access model · Phase 2 (2026-06-22). A request that needs the
+  // couple's okay before anything happens = action-needed → amber (same
+  // register as guest_claim_pending / review_request). Reads as "we need your
+  // permission", never as an alarm.
+  fix_requested: 'bg-warn-100 text-warn-900',
 };
 
 export type NotificationRow = {

@@ -1,0 +1,23 @@
+-- add fix requested notification type
+-- ============================================================================
+-- Admin account-access model — Phase 2 (consent-to-fix).
+-- Admin_Account_Access_Model_2026-06-22.md §3 (action catalog · consent-to-fix
+-- tier) + §6 (notifications: account_field_edit_request).
+--
+-- Adds one new value to public.notification_type so the admin "Request a fix"
+-- flow can tell the COUPLE/customer that staff have proposed a correction to
+-- their account and need their permission before anything lands:
+--   • fix_requested — fired (target-recipient) from requestAccountFix()
+--     (app/admin/users/actions.ts) right after an account_fix_requests row is
+--     inserted. Deep-links the couple to /dashboard/account-fixes where they
+--     Approve (the change then applies) or Decline (nothing changes). The
+--     approval row IS the RA 10173 lawful-basis record for the edit.
+--
+-- ALTER TYPE … ADD VALUE IF NOT EXISTS is idempotent and re-run safe. ADD VALUE
+-- cannot run inside an explicit transaction block, so this migration is
+-- intentionally bare (no BEGIN/COMMIT). Matches the pattern in
+-- 20270205806123_add_completion_accepted_notification_type.sql and
+-- 20270129155743_add_notification_types.sql.
+-- ============================================================================
+
+ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'fix_requested';

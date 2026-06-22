@@ -82,7 +82,9 @@
      is absolute-inset object-cover, so it fills the figure automatically). */
   .onbw .onb-twopane.screen.active .rolephoto,
   .onbw .onb-twopane.screen.active .kindphoto,
-  .onbw .onb-twopane.screen.active .faithphoto {
+  .onbw .onb-twopane.screen.active .faithphoto,
+  .onbw .onb-twopane.screen.active .paxphoto,
+  .onbw .onb-twopane.screen.active .budgetphoto {
     flex: 1 1 auto;
     min-height: 240px;
     height: auto;
@@ -177,10 +179,6 @@
      (full website recap) · the RefineStep screens (reception/refine_*). */
   .onbw #screen-region .viewzone,
   .onbw #screen-region .tapzone,
-  .onbw #screen-pax .viewzone,
-  .onbw #screen-pax .tapzone,
-  .onbw #screen-budget .viewzone,
-  .onbw #screen-budget .tapzone,
   .onbw #screen-mood .viewzone,
   .onbw #screen-mood .tapzone,
   .onbw #screen-team-basics .viewzone,

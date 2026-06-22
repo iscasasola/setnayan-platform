@@ -3248,7 +3248,7 @@ export function OnboardingShell({
           </section>
 
           {/* 5 NAME — live monogram + Frame/Font cyclers + bride/groom */}
-          <section className={`screen${activeId === 'name' ? ' active' : ''}`} id="screen-name">
+          <section className={`screen onb-twopane${activeId === 'name' ? ' active' : ''}`} id="screen-name">
             <div className="viewzone">
               <div className="eyebrow">Your wedding</div>
               <h1 className="q">The two of you.</h1>
@@ -3691,7 +3691,7 @@ export function OnboardingShell({
           </section>
 
           {/* 8 PAX — slider + exact box + tier photo */}
-          <section className={`screen${activeId === 'pax' ? ' active' : ''}`} id="screen-pax">
+          <section className={`screen onb-twopane${activeId === 'pax' ? ' active' : ''}`} id="screen-pax">
             <div className="viewzone">
               <div className="eyebrow">The day</div>
               <h1 className="q">How many guests?</h1>
@@ -3742,7 +3742,7 @@ export function OnboardingShell({
           </section>
 
           {/* 9 BUDGET — feel-band chips + a look photo keyed to pax-tier × band */}
-          <section className={`screen${activeId === 'budget' ? ' active' : ''}`} id="screen-budget">
+          <section className={`screen onb-twopane${activeId === 'budget' ? ' active' : ''}`} id="screen-budget">
             <div className="viewzone">
               <div className="eyebrow">The day</div>
               <h1 className="q">Your working budget?</h1>

@@ -442,9 +442,24 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
                             {budgetLevel ? 'Hide budget' : 'Allow budget view'}
                           </button>
                         </form>
-                        <form action={removeHost}>
+                        <form action={removeHost} className="flex items-center gap-1.5">
                           <input type="hidden" name="event_id" value={eventId} />
                           <input type="hidden" name="moderator_id" value={row.moderator_id} />
+                          <select
+                            name="reason"
+                            required
+                            defaultValue=""
+                            aria-label="Reason for removing this coordinator"
+                            className="rounded border border-ink/15 bg-cream px-1.5 py-1 text-[11px] text-ink"
+                          >
+                            <option value="" disabled>
+                              Reason…
+                            </option>
+                            <option value="no_longer_availing">No longer availing their services</option>
+                            <option value="abuse_misuse">Abuse / misuse</option>
+                            <option value="new_coordinator">We have a new coordinator</option>
+                            <option value="other">Other</option>
+                          </select>
                           <button
                             type="submit"
                             className="text-[11px] text-terracotta-700 underline hover:text-terracotta"

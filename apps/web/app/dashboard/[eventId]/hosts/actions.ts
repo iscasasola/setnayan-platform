@@ -256,6 +256,21 @@ export async function removeHost(formData: FormData) {
   const eventId = rawEventId as string;
   const moderatorId = rawModeratorId as string;
 
+  // Why the couple is removing this coordinator (owner 2026-06-22: capture the
+  // reason; 'abuse_misuse' is an admin signal). Falls back to the generic value
+  // if the form omits it.
+  const rawReason = formData.get('reason');
+  const ALLOWED_REASONS = new Set([
+    'no_longer_availing',
+    'abuse_misuse',
+    'new_coordinator',
+    'other',
+  ]);
+  const reason =
+    typeof rawReason === 'string' && ALLOWED_REASONS.has(rawReason)
+      ? rawReason
+      : 'removed_by_couple';
+
   const callerId = await requireCoupleMembership(eventId);
 
   const admin = createAdminClient();
@@ -276,7 +291,7 @@ export async function removeHost(formData: FormData) {
     .from('event_moderators')
     .update({
       removed_at: new Date().toISOString(),
-      removal_reason: 'removed_by_couple',
+      removal_reason: reason,
       invitation_token: null,
     })
     .eq('moderator_id', moderatorId)

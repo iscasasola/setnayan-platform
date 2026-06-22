@@ -271,19 +271,23 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
       {seats.length === 0 ? (
         <div className="rounded-2xl border border-ink/10 bg-surface p-7 text-center">
           <UserPlus aria-hidden className="mx-auto h-7 w-7 text-terracotta" strokeWidth={1.75} />
-          <h2 className="mt-3 text-xl font-semibold tracking-tight">Set up your {seatTotal} seats</h2>
+          <h2 className="mt-3 text-xl font-semibold tracking-tight">Top up your {seatTotal} seats</h2>
           <p className="mx-auto mt-2 max-w-prose text-sm text-ink/65">
-            Create your {seatTotal} photo-crew seats. Each gets its own claim link you
-            can hand to a friend.
+            Your {seatTotal} photo-crew seats are set up automatically the moment your
+            order is approved. If any are missing, tap below to fill them in — each
+            gets its own claim link you can hand to a friend.
           </p>
+          {/* Idempotent top-up: provisionPapicSeats only inserts the missing seat
+              indexes (ON CONFLICT DO NOTHING), so this is now a SAFE fallback, not a
+              required first step — seats already exist post-approval. */}
           <form action={provisionPapicSeats} className="mt-5">
             <input type="hidden" name="event_id" value={eventId} />
             <SubmitButton
-              pendingLabel="Setting up…"
+              pendingLabel="Filling in…"
               className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600"
             >
               <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
-              Set up my {seatTotal} seats
+              Fill in my {seatTotal} seats
             </SubmitButton>
           </form>
         </div>

@@ -85,9 +85,14 @@ export default async function LaunchHubPage({ params }: Props) {
     {
       key: 'papic',
       name: 'Papic — candid capture',
-      blurb: 'Hand shooter seats to friends so the day is caught from every angle.',
+      // When owned, the 5 seats are already provisioned on payment approval — say
+      // so, so the day-of host knows the links are READY to hand out (no setup
+      // step), not something still to configure.
+      blurb: ownsPapic
+        ? 'Your photo crew is ready — share these 5 seat links so the day is caught from every angle.'
+        : 'Hand shooter seats to friends so the day is caught from every angle.',
       owned: ownsPapic,
-      launchLabel: 'Hand out seats',
+      launchLabel: 'Share the 5 links',
       launchHref: `${base}/studio/papic/crew`,
       addHref: `${base}/studio/papic`,
       Icon: Camera,

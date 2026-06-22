@@ -5,6 +5,7 @@ import { branchIdFromServiceKey } from '@/lib/vendor-branches';
 import { BUNDLE_CHILD_SKUS, eventSkuActive } from '@/lib/entitlements';
 import { makeSamplerPermanent } from '@/lib/papic-sampler';
 import { cancelSamplerExpiryWarnings } from '@/lib/papic-sampler-emails';
+import { provisionPapicSeatsAdmin } from '@/lib/papic-seats';
 
 /**
  * apps/web/lib/sku-activation.ts
@@ -81,15 +82,37 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   },
 
   // 'PAPIC_SEATS' → paid Papic upgrade. Ownership reads off orders.status (no
-  // stored unlock flag), but the upgrade must honor the locked "upgrade =
-  // permanent" sampler rule: clear the 30-day expiry on any already-captured
-  // free-sampler photos so they're kept forever, and cancel the now-wrong
-  // expiry-warning emails. Also fires for bundle buyers via activateBundleChildren
-  // (Papic is a MEDIA_PACK child). Idempotent (no rows to flip → no-op) + non-fatal.
+  // stored unlock flag). On approval the hook does THREE things, each fault-
+  // isolated so one failing must not block the others (the file's "every hook is
+  // non-fatal" contract):
+  //   1. PROVISION the 5 paparazzi seats so the feature is READY with no manual
+  //      "Set up your seats" step (owner-locked: the approval IS the activation).
+  //      provisionPapicSeatsAdmin is idempotent (top-up of missing indexes only)
+  //      so re-approval / a couple who already self-served via /crew is safe.
+  //   2. Honor the locked "upgrade = permanent" sampler rule — clear the 30-day
+  //      expiry on any already-captured free-sampler photos so they're kept
+  //      forever.
+  //   3. Cancel the now-wrong sampler expiry-warning emails.
+  // Each is best-effort (provisionPapicSeatsAdmin/makeSamplerPermanent never
+  // throw); the try/catch around #2/#3 is belt-and-suspenders so a future throw
+  // in one can't starve the rest. Also fires for bundle buyers via
+  // activateBundleChildren (Papic is a MEDIA_PACK child).
   PAPIC_SEATS: async (ctx) => {
     if (!ctx.eventId) return;
-    await makeSamplerPermanent(ctx.eventId);
-    await cancelSamplerExpiryWarnings(ctx.eventId);
+    const eventId = ctx.eventId;
+    // 1. Materialize the seats — the no-manual-step half of the feature.
+    try {
+      await provisionPapicSeatsAdmin(ctx.admin, eventId);
+    } catch (e) {
+      console.error('[sku-activation] PAPIC_SEATS seat provisioning threw (non-fatal):', e);
+    }
+    // 2. + 3. Keep sampler photos forever + stop the expiry warnings.
+    try {
+      await makeSamplerPermanent(eventId);
+      await cancelSamplerExpiryWarnings(eventId);
+    } catch (e) {
+      console.error('[sku-activation] PAPIC_SEATS sampler-permanence threw (non-fatal):', e);
+    }
   },
 
   // Bundle activation (bundle-buyer dead-flag repair) — fan the bundle's

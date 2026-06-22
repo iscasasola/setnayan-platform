@@ -458,7 +458,7 @@ async function ensureFreshAccessToken(input: {
     return grant.access_token as string;
   }
 
-  const cfg = getDriveOAuthConfig();
+  const cfg = await getDriveOAuthConfig();
   if (!cfg.ready) return null;
 
   try {

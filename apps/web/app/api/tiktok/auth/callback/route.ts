@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
   }
 
   // 2. Config check
-  const config = getTiktokOAuthConfig();
+  const config = await getTiktokOAuthConfig();
   if (!config.ready) {
     return redirectWithError(url, eventId, 'not_configured');
   }
@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
     token = await exchangeCodeForToken({
       code,
       clientKey: config.clientKey,
-      clientSecret: process.env.TIKTOK_CLIENT_SECRET ?? '',
+      clientSecret: config.clientSecret,
       redirectUri: config.redirectUri,
     });
   } catch (e) {

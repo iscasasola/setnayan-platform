@@ -149,7 +149,7 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
   // When YOUTUBE_OAUTH_CLIENT_ID is unset the Connect CTA renders as a
   // disabled "coming soon" placeholder. This lets the page ship safely
   // before the owner finishes Google Cloud verified-app review (1-4wk).
-  const oauthConfig = getYoutubeOAuthConfig();
+  const oauthConfig = await getYoutubeOAuthConfig();
   const oauthReady = oauthConfig.ready;
 
   const setup = mockPanoodSetup();

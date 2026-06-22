@@ -104,7 +104,7 @@ export async function GET(req: NextRequest) {
 
   // 2. Config sanity-check (should never fail if /start succeeded, but
   //    defend against rotation between start + callback).
-  const config = getDriveOAuthConfig();
+  const config = await getDriveOAuthConfig();
   if (!config.ready) {
     return redirectWithError(url, eventId, 'not_configured', returnTo);
   }

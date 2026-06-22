@@ -4,6 +4,7 @@ import { decryptToken } from '@/lib/encryption';
 import {
   SECRET_INTEGRATIONS,
   type SecretIntegrationDef,
+  type OAuthResolveSpec,
 } from '@/lib/integrations/registry';
 
 // Integration Activation Console — PR1 (email slice).
@@ -180,4 +181,65 @@ export async function getSecretPresenceMap(): Promise<Record<string, boolean>> {
     // leave all-false
   }
   return map;
+}
+
+// ── OAuth client config (PR3) ───────────────────────────────────────────────
+//
+// DB-first / env-fallback resolver for an OAuth integration's client config:
+// the encrypted client SECRET from platform_integration_secrets + the non-secret
+// client ID/KEY + REDIRECT URI from platform_settings, each falling back to its
+// env var. Returns resolved strings ('' when neither DB nor env has a value);
+// the provider's get*OAuthConfig() helper applies its own missing-check on top,
+// so the public { ready } shape is byte-identical when the DB is empty.
+//
+// UNCACHED so a value saved from the console takes effect on the next request.
+// Column names are NOT user-controlled (they come from the static OAUTH_SPECS
+// registry), so the dynamic .select()/access is safe. Both selects pass a
+// `string`-typed argument (not a template-literal type) to avoid the PostgREST
+// select-string parser error on the untyped admin client.
+export interface OAuthClientResolved {
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+}
+
+export async function resolveOAuthClientConfig(
+  spec: OAuthResolveSpec,
+): Promise<OAuthClientResolved> {
+  let clientSecret = '';
+  let clientId = '';
+  let redirectUri = '';
+  try {
+    const admin = createAdminClient();
+    const secretCol: string = spec.secretColumn;
+    const settingsCols: string = `${spec.clientIdColumn}, ${spec.redirectUriColumn}`;
+    const [secretRes, settingsRes] = await Promise.all([
+      admin
+        .from('platform_integration_secrets')
+        .select(secretCol)
+        .eq('id', 1)
+        .maybeSingle(),
+      admin.from('platform_settings').select(settingsCols).eq('id', 1).maybeSingle(),
+    ]);
+    const enc = (secretRes.data as Record<string, unknown> | null)?.[
+      spec.secretColumn
+    ] as string | null | undefined;
+    if (enc) {
+      try {
+        clientSecret = decryptToken(enc);
+      } catch {
+        // bad ciphertext / rotated key → env fallback below
+      }
+    }
+    const s = settingsRes.data as Record<string, unknown> | null;
+    clientId = ((s?.[spec.clientIdColumn] as string | null) ?? '').trim();
+    redirectUri = ((s?.[spec.redirectUriColumn] as string | null) ?? '').trim();
+  } catch {
+    // DB unreachable / columns absent (pre-migration) → env fallback below.
+  }
+  return {
+    clientId: clientId || process.env[spec.clientIdEnv] || '',
+    clientSecret: clientSecret || process.env[spec.secretEnv] || '',
+    redirectUri: redirectUri || process.env[spec.redirectUriEnv] || '',
+  };
 }

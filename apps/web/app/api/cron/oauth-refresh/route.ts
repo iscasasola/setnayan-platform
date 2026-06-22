@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
     let failReason: string | null = null;
 
     if (provider === 'youtube') {
-      const config = getYoutubeOAuthConfig();
+      const config = await getYoutubeOAuthConfig();
       if (!config.ready) {
         skipReason = 'youtube_oauth_not_configured';
       } else {
@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
         }
       }
     } else if (provider === 'drive') {
-      const config = getDriveOAuthConfig();
+      const config = await getDriveOAuthConfig();
       if (!config.ready) {
         skipReason = 'drive_oauth_not_configured';
       } else {

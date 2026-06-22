@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const config = getTiktokOAuthConfig();
+  const config = await getTiktokOAuthConfig();
   if (!config.ready) {
     const target = new URL(
       `/dashboard/${eventId}/studio/patiktok`,

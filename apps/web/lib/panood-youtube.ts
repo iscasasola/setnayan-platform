@@ -29,6 +29,8 @@
  */
 
 import 'server-only';
+import { resolveOAuthClientConfig } from '@/lib/integration-config';
+import { OAUTH_SPECS } from '@/lib/integrations/registry';
 
 const GOOGLE_AUTHORIZE_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
@@ -58,10 +60,12 @@ export type PanoodYoutubeConfigStatus =
  * (verified-app review 1-4wk), every Connect CTA degrades to a "coming
  * soon" placeholder.
  */
-export function getYoutubeOAuthConfig(): PanoodYoutubeConfigStatus {
-  const clientId = process.env.YOUTUBE_OAUTH_CLIENT_ID ?? '';
-  const clientSecret = process.env.YOUTUBE_OAUTH_CLIENT_SECRET ?? '';
-  const redirectUri = process.env.YOUTUBE_OAUTH_REDIRECT_URI ?? '';
+export async function getYoutubeOAuthConfig(): Promise<PanoodYoutubeConfigStatus> {
+  // DB-first (Integration Activation Console), env-fallback. Byte-identical when
+  // the DB is empty: all three values resolve to their YOUTUBE_OAUTH_* env vars.
+  const { clientId, clientSecret, redirectUri } = await resolveOAuthClientConfig(
+    OAUTH_SPECS.youtube,
+  );
   const missing: string[] = [];
   if (!clientId) missing.push('YOUTUBE_OAUTH_CLIENT_ID');
   if (!clientSecret) missing.push('YOUTUBE_OAUTH_CLIENT_SECRET');

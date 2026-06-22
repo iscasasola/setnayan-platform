@@ -99,6 +99,8 @@ export default async function PhotoDeliveryPage({ params, searchParams }: Props)
   const alreadyCompleteFlash = search.already_complete === '1';
   const releaseErrorMsg = search.release_error ?? null;
   const disconnectedFlash = search.disconnected === '1';
+  // getPhotoDeliveryOAuthConfig is now async (DB-first) — resolve before render.
+  const photoDeliveryOauthReady = (await getPhotoDeliveryOAuthConfig()).ready;
 
   return (
     <section className="space-y-6">
@@ -176,7 +178,7 @@ export default async function PhotoDeliveryPage({ params, searchParams }: Props)
         releaseStartedFlash={releaseStartedFlash}
         alreadyComplete={alreadyCompleteFlash}
         disconnectedFlash={disconnectedFlash}
-        oauthReady={getPhotoDeliveryOAuthConfig().ready}
+        oauthReady={photoDeliveryOauthReady}
         needsReauth={needsReauth}
         loginEmail={user.email ?? null}
         job={

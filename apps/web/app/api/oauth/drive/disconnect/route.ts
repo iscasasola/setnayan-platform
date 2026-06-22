@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
   // We only call Google when env is configured. If not, we still flip
   // revoked_at locally — that's the source of truth for whether we'll
   // ever use this token again.
-  const config = getDriveOAuthConfig();
+  const config = await getDriveOAuthConfig();
   if (config.ready) {
     await revokeDriveToken(grant.refresh_token as string);
   }

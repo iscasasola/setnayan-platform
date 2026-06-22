@@ -1,4 +1,6 @@
 import 'server-only';
+import { resolveOAuthClientConfig } from '@/lib/integration-config';
+import { OAUTH_SPECS } from '@/lib/integrations/registry';
 
 // Iteration 0009 Photo Delivery — Drive-specific helpers that piggyback on
 // the Papic (0012) OAuth primitives in apps/web/lib/papic-drive.ts.
@@ -26,10 +28,12 @@ export type PhotoDeliveryOAuthConfigStatus =
  * route can render the graceful-fallback 503 + "coming soon" UI used by
  * the Papic flow.
  */
-export function getPhotoDeliveryOAuthConfig(): PhotoDeliveryOAuthConfigStatus {
-  const clientId = process.env.GOOGLE_DRIVE_OAUTH_CLIENT_ID ?? '';
-  const clientSecret = process.env.GOOGLE_DRIVE_OAUTH_CLIENT_SECRET ?? '';
-  const redirectUri = process.env.PHOTO_DELIVERY_OAUTH_REDIRECT_URI ?? '';
+export async function getPhotoDeliveryOAuthConfig(): Promise<PhotoDeliveryOAuthConfigStatus> {
+  // DB-first (Integration Activation Console), env-fallback. Shares Papic's
+  // client id/secret; only the redirect URI (PHOTO_DELIVERY_*) differs.
+  const { clientId, clientSecret, redirectUri } = await resolveOAuthClientConfig(
+    OAUTH_SPECS.drivePhotoDelivery,
+  );
   const missing: string[] = [];
   if (!clientId) missing.push('GOOGLE_DRIVE_OAUTH_CLIENT_ID');
   if (!clientSecret) missing.push('GOOGLE_DRIVE_OAUTH_CLIENT_SECRET');

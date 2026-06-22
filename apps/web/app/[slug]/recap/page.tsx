@@ -246,7 +246,7 @@ function SdeFilm({ url, poster }: { url: string; poster: string | null }) {
           <Clapperboard aria-hidden className="h-5 w-5 text-gold" strokeWidth={1.75} />
           The Same-Day Edit
         </h2>
-        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/50">
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/50">
           The film of their day
         </p>
       </div>

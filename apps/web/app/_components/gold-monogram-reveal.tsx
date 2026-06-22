@@ -46,8 +46,6 @@ import {
 
 const GOLD_BG =
   'linear-gradient(135deg, #6f5320 0%, #a88340 26%, #e4c77e 50%, #f6e6ad 56%, #a88340 74%, #6f5320 100%)';
-const SWEEP_BG =
-  'linear-gradient(100deg, transparent 38%, rgba(255,247,224,0.95) 50%, transparent 62%)';
 const GOLD_A = '#A88340';
 const GOLD_MID = '#E4C77E';
 
@@ -156,6 +154,13 @@ export function GoldMonogramReveal({
   const idle = !autoplay && !revealing;
   const animate = revealing && !reduced.current;
   const fill = loop ? 'infinite' : 'both';
+  // SHIMMER = the GOLD ITSELF catches the light (the gradient's bright band sweeps
+  // through the mark — owner 2026-06-22 "the shimmer on the exact logo", the first
+  // sample's look), NOT a white band over a mask. Applied to the mark's own fill:
+  // an animated SVG gradient (inline glyphs) / a swept background-position
+  // (silhouette). The masked overlays are reserved for the distinct light EVENTS
+  // (foil-flash press · engrave rake).
+  const goldShimmer = accent === 'shimmer';
 
   // ── MOVE keyframes (own .grk-move transform) ───────────────────────────────
   const MOVE_KF: Record<GoldMove, string> = {
@@ -203,11 +208,8 @@ export function GoldMonogramReveal({
   let accentRule = '';
   let accentNode: React.ReactNode = null;
   let behindNode: React.ReactNode = null;
-  if (accent === 'shimmer' || accent === 'foil-flash' || accent === 'engrave') {
-    if (accent === 'shimmer') {
-      accentRule = `.${sc} .grk-over{${maskCss};background-image:${SWEEP_BG};background-size:260% 100%;background-position:130% 0;opacity:0;animation:${sc}-ac ${settleMs}ms ease-in-out ${fill}}
-        @keyframes ${sc}-ac{0%,55%{background-position:130% 0;opacity:0}72%{opacity:1}86%{background-position:50% 0;opacity:1}100%{background-position:-130% 0;opacity:0}}`;
-    } else if (accent === 'foil-flash') {
+  if (accent === 'foil-flash' || accent === 'engrave') {
+    if (accent === 'foil-flash') {
       accentRule = `.${sc} .grk-over{${maskCss};background:rgba(255,247,222,.95);opacity:0;animation:${sc}-ac ${settleMs}ms ease-out ${fill}}
         @keyframes ${sc}-ac{0%,60%{opacity:0}72%{opacity:.95}88%{opacity:0}100%{opacity:0}}`;
     } else {
@@ -258,6 +260,15 @@ export function GoldMonogramReveal({
       : `.${sc} .grk-build{opacity:.25}`
     : '';
 
+  // SHIMMER on a bespoke SILHOUETTE: sweep the gold background-position so the
+  // GOLD_BG bright band travels through the mark (the inline-glyph tier shimmers
+  // via the animated SVG gradient below instead). Continuous, like the first sample.
+  const shimmerRule =
+    goldShimmer && animate && bespoke
+      ? `.${sc} .grk-sil{background-size:300% 100%;animation:${sc}-shim 3.4s ease-in-out infinite}
+         @keyframes ${sc}-shim{0%{background-position:0% 0}50%{background-position:100% 0}100%{background-position:0% 0}}`
+      : '';
+
   const css = `
     .${sc}{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
       background:radial-gradient(120% 90% at 50% 32%,#2b2638 0%,#14111c 58%,#0a0810 100%);
@@ -275,7 +286,7 @@ export function GoldMonogramReveal({
     .${sc} .grk-prompt{position:absolute;bottom:11%;left:0;right:0;text-align:center;font-family:ui-sans-serif,system-ui,sans-serif;font-size:13px;letter-spacing:.28em;text-transform:uppercase;color:rgba(255,246,222,.72);animation:${sc}-pulse 2.4s ease-in-out infinite}
     @keyframes ${sc}-pulse{0%,100%{opacity:.4}50%{opacity:.85}}
     ${idleRule}
-    ${animate ? `${MOVE_KF[move]} ${moveRule} ${swingOrigin} ${buildRule} ${accentRule}` : ''}
+    ${animate ? `${MOVE_KF[move]} ${moveRule} ${swingOrigin} ${buildRule} ${accentRule} ${shimmerRule}` : ''}
     @media (prefers-reduced-motion: reduce){
       .${sc} .grk-move,.${sc} .grk-build,.${sc} .grk-el{animation:none!important;transform:none!important;opacity:1!important}
       .${sc} .grk-el{stroke-dashoffset:0!important;fill-opacity:1!important}
@@ -306,9 +317,30 @@ export function GoldMonogramReveal({
               <svg className="grk-mk" viewBox={`0 0 ${W} 180`} aria-hidden="true">
                 <defs>
                   <linearGradient id={`${sc}-g`} x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0" stopColor={GOLD_A} />
-                    <stop offset="0.5" stopColor={GOLD_MID} />
-                    <stop offset="1" stopColor={GOLD_A} />
+                    {goldShimmer ? (
+                      <>
+                        <stop offset="0" stopColor="#7a5d22" />
+                        <stop offset="0.42" stopColor={GOLD_A} />
+                        <stop offset="0.5" stopColor="#fff6d4" />
+                        <stop offset="0.58" stopColor={GOLD_A} />
+                        <stop offset="1" stopColor="#7a5d22" />
+                        {animate ? (
+                          <animateTransform
+                            attributeName="gradientTransform"
+                            type="translate"
+                            values="-1 0;1 0;-1 0"
+                            dur="3.4s"
+                            repeatCount="indefinite"
+                          />
+                        ) : null}
+                      </>
+                    ) : (
+                      <>
+                        <stop offset="0" stopColor={GOLD_A} />
+                        <stop offset="0.5" stopColor={GOLD_MID} />
+                        <stop offset="1" stopColor={GOLD_A} />
+                      </>
+                    )}
                   </linearGradient>
                 </defs>
                 {glyphs.map((ch, i) => (

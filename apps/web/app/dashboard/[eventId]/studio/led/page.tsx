@@ -4,6 +4,7 @@ import { ArrowLeft, Check, Sparkles, Tv, Usb } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventSkuActive } from '@/lib/entitlements';
+import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
@@ -57,9 +58,17 @@ export default async function LedBackgroundPage({ params }: Props) {
 
   const { data: event } = await supabase
     .from('events')
-    .select('display_name')
+    .select('display_name, role_palette')
     .eq('event_id', eventId)
     .maybeSingle();
+
+  // The couple's Mood Board palette (0010) — the LED gradient recolours FROM it
+  // so the stage wall reads as THEIR wedding, in lockstep with the Save-the-Date
+  // reveal + branded QR which pull from the same `events.role_palette` producer.
+  // sanitizeRolePalette is the shared helper those siblings use (drops invalid
+  // hexes, clamps, upper-cases). Empty {} when the couple hasn't built a board →
+  // the maker keeps each template's hardcoded palette.
+  const moodPalette = sanitizeRolePalette(event?.role_palette);
 
   // THE GATE — admin-approved, bundle-aware ownership (eventSkuActive). Read with
   // the admin client: ownership is an event-level fact, but orders RLS is
@@ -138,7 +147,11 @@ export default async function LedBackgroundPage({ params }: Props) {
       </header>
 
       {owns ? (
-        <OwnedEditor eventId={eventId} coupleName={event?.display_name ?? ''} />
+        <OwnedEditor
+          eventId={eventId}
+          coupleName={event?.display_name ?? ''}
+          moodPalette={moodPalette}
+        />
       ) : (
         <UnownedView
           eventId={eventId}
@@ -158,9 +171,11 @@ export default async function LedBackgroundPage({ params }: Props) {
 async function OwnedEditor({
   eventId,
   coupleName,
+  moodPalette,
 }: {
   eventId: string;
   coupleName: string;
+  moodPalette: RolePalette;
 }) {
   // Load the couple's existing default config (if any) so reopening the
   // editor restores their last draft. Service role since led_background_configs
@@ -190,6 +205,7 @@ async function OwnedEditor({
       coupleName={coupleName}
       templates={LED_TEMPLATES}
       initialConfig={initialConfig}
+      moodPalette={moodPalette}
     />
   );
 }

@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventSkuActive } from '@/lib/entitlements';
 import { findLedTemplate, LED_LOOP_OPTIONS } from '@/lib/led-background';
+import { sanitizeRolePalette } from '@/lib/mood-board';
+import { ledPaletteFromMoodBoard } from '@/lib/site-palette';
 
 // 0005 LED Background Maker — save draft.
 //
@@ -30,6 +32,10 @@ type SaveBody = {
   template_slug?: string;
   loop_duration_s?: number;
   photo_pool_enabled?: boolean;
+  // The editor sends the gradient palette it resolved for the preview, but the
+  // route re-resolves authoritatively from events.role_palette (below) and does
+  // NOT trust this value — accepted only so the payload shape is documented.
+  palette?: unknown;
 };
 
 const VALID_LOOP_SECONDS = new Set(
@@ -63,7 +69,8 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
-  if (!findLedTemplate(templateSlug)) {
+  const template = findLedTemplate(templateSlug);
+  if (!template) {
     return NextResponse.json({ error: 'unknown_template_slug' }, { status: 400 });
   }
   if (!VALID_LOOP_SECONDS.has(loopSeconds)) {
@@ -96,6 +103,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'not_entitled' }, { status: 403 });
   }
 
+  // Resolve the gradient palette server-side (authoritative — don't trust the
+  // client's `palette`): recolour the template FROM the couple's Mood Board
+  // (events.role_palette · 0010) when it contributes colour, else the
+  // template's hardcoded `[bg, accent1, accent2]`. This is the same producer
+  // the Save-the-Date reveal + branded QR read from, so the LED recolours in
+  // lockstep with the rest of their branded surfaces. Persisting it into
+  // config_json means the render uses THEIR colours rather than deferring to a
+  // not-built template defaults.json. Graceful-degrades to the template default
+  // on a missing role_palette column (42703) — pre-migration DBs still save.
+  const { data: eventRow } = await admin
+    .from('events')
+    .select('role_palette')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const moodPalette = sanitizeRolePalette(eventRow?.role_palette);
+  const palette =
+    ledPaletteFromMoodBoard(moodPalette, template.palette) ?? template.palette;
+
   // Look for an existing default config (the partial unique index allows
   // exactly one is_default=TRUE row per event). If found, update in place;
   // otherwise insert a fresh row.
@@ -110,9 +135,13 @@ export async function POST(req: NextRequest) {
     template_id: templateSlug,
     loop_duration_s: loopSeconds,
     photo_pool_enabled: photoPool,
-    // Other spec fields (palette, effect_intensity, animation_speed, overlay,
-    // aspect_ratio, show_couple_names, show_date) default at render time
-    // from the template's defaults.json until PR 2b adds editor controls.
+    // The resolved gradient palette [bg, accent1, accent2] — the couple's Mood
+    // Board recolour when one applies, else the template default. The render
+    // pipeline reads this instead of a not-built template defaults.json. Other
+    // spec fields (effect_intensity, animation_speed, overlay, aspect_ratio,
+    // show_couple_names, show_date) still default at render time until PR 2b
+    // adds editor controls.
+    palette,
   };
 
   if (existing) {

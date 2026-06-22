@@ -15,6 +15,19 @@ RA 10173 "right to know who accessed my data" substrate for the admin account-ac
 Phase 1a of the model. Next: Phase 1b = audit-log immutability (a trigger blocking UPDATE/DELETE even for the service-role client — RLS already denies admin mutation, so a REVOKE alone is insufficient); Phase 1c = the read-only consolidated user/vendor page. tsc 0 · `next lint` clean on changed files.
 
 SPEC IMPACT: Recorded in `Admin_Account_Access_Model_2026-06-22.md` + DECISION_LOG 2026-06-22 + memory `project_setnayan_admin_account_access_model`. No SKU/price change; additive audit substrate.
+## 2026-06-22 · feat(privacy): admin chat-guard CI lint — Phase 0 of the admin account-access model
+
+First build of the owner-locked admin account-access model (`Admin_Account_Access_Model_2026-06-22.md` · DECISION_LOG 2026-06-22). The model's privacy invariant: the admin surface may **never** read couple↔vendor chat bodies, thread attachments, or raw face vectors — not even inside an account takeover. This is the guard behind the published trust promise.
+
+- **`apps/web/scripts/lint-admin-chat-guard.mjs`** (new) — fails the build if any `app/admin/**` file (outside the `demo-vendors/**` allow-list) references `fetchMessages` / `chat_messages` / `chat_attachments` / `face_enrollments` / `vector_blob`. A deliberate, reviewed exception (e.g. the future force-majeure snippet RPC) is opted in per-line with `// chat-guard-allow: <reason>`, which surfaces in the diff.
+- **`.github/workflows/ci.yml`** — new `lint-admin-chat-guard` job (mirrors the sibling lint-* guards).
+- **`apps/web/package.json`** — `lint:chat-guard` script.
+
+WHY a lint guard, not RLS: chat row-level security is **already participant-only** — there is no admin grant to tighten (verified 2026-06-22). The only way admin code could read chat content is the service-role client (`createAdminClient()` bypasses RLS), so the guard fences the admin surface. Verified: passes clean on current code (only `app/admin/demo-vendors/inquiries/**`, `is_demo`-gated, reads chat — allow-listed); catches an injected violation; honors the per-line allow-marker.
+
+This is Phase 0 (lowest-risk, no migration). Phases 1–3 (read-only consolidated access page + immutable audit · consent-to-fix tier + DB-enforced two-admin · account-takeover with notification) are sequenced in the design doc; takeover (Phase 3) is owner-review-gated before prod.
+
+SPEC IMPACT: Recorded — new design doc `Admin_Account_Access_Model_2026-06-22.md` + DECISION_LOG 2026-06-22 + memory `project_setnayan_admin_account_access_model`. No SKU/price/runtime-behavior change (build-time guard only).
 
 ---
 

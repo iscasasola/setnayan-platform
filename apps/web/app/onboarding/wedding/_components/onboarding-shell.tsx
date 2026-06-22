@@ -2546,7 +2546,6 @@ export function OnboardingShell({
   })();
   const recapWhere = REGLABEL[state.region ?? 'ncr'] ?? 'Philippines';
   const recapGuests = state.pax != null ? String(state.pax) : '—';
-  const shortlistCount = state.shortlist.length;
   /* live per-couple savings — replaces the hardcoded demo strip (owner 2026-06-02) */
   const savings = computeOnboardingSavings(state, new Date());
 
@@ -2583,24 +2582,7 @@ export function OnboardingShell({
   const recapReception = state.prefs.reception.length
     ? state.prefs.reception.map((k) => RECEPTION_SETTINGS.find((x) => x[2] === k)?.[1] ?? k).join(', ')
     : null;
-  const recapCeremony = state.prefs.ceremony
-    ? (ceremonyOptsFor(state.faith).find((x) => x[2] === state.prefs.ceremony)?.[1] ?? null)
-    : null;
-  const recapCatering = (() => {
-    const parts = state.prefs.cuisine.map((k) => CUISINE_OPTS.find((x) => x[2] === k)?.[1] ?? k);
-    if (state.prefs.serviceStyle) parts.push(state.prefs.serviceStyle);
-    if (state.prefs.dietary.includes('halal')) parts.push('Halal');
-    if (state.prefs.dietary.includes('alcohol_free')) parts.push('Alcohol-free');
-    return parts.length ? parts.join(' · ') : null;
-  })();
-  const recapPV = (() => {
-    const parts = state.prefs.pvLook.map((k) => PV_LOOKS.find((x) => x[2] === k)?.[1] ?? k);
-    if (state.prefs.pvNeed) parts.push(state.prefs.pvNeed);
-    if (state.prefs.pvIncluded.length) parts.push(state.prefs.pvIncluded.join(', '));
-    return parts.length ? parts.join(' · ') : null;
-  })();
   const recapMood = state.prefs.feel ? (FEELLBL[state.prefs.feel] ?? cap(state.prefs.feel)) : null;
-  const recapSongs = state.prefs.music.length ? `${state.prefs.music.length} song${state.prefs.music.length === 1 ? '' : 's'}` : null;
   /* countdown anchor — the nearest picked date (earliest candidate · window start) */
   const earliestDateISO =
     state.dateMode === 'window'
@@ -4358,6 +4340,10 @@ export function OnboardingShell({
             <div className="viewzone">
               <div className="eyebrow">You did the hard part</div>
               <div className="dash-site">
+                {/* Two-pane (owner 2026-06-22): hero + countdown LEFT, recap + share RIGHT on desktop
+                    so the finish fits a laptop without scrolling; `.dash-col-*` are plain blocks, so
+                    on mobile (<1024) they simply stack — the single-column compact card. */}
+                <div className="dash-col dash-col-l">
                 {/* HERO — the live monogram + initials/names + the identity headline */}
                 <div className="dash-sec dash-hero">
                   {monoReady ? (
@@ -4380,6 +4366,8 @@ export function OnboardingShell({
                     <WeddingCountdown iso={earliestDateISO} active={activeId === 'congrats'} />
                   </div>
                 ) : null}
+                </div>
+                <div className="dash-col dash-col-r">
                 {/* OUR LOVE STORY — woven in the couple's chosen voice (COVERT: titled only "Our Love
                     Story"). Omitted gracefully if the love stage was skipped or left empty. */}
                 {bloomStoryProse ? (
@@ -4391,21 +4379,19 @@ export function OnboardingShell({
                 {/* THE RECAP — "here's your wedding", every captured answer */}
                 <div className="dash-sec">
                   <div className="dash-eb">Your Wedding</div>
+                  {/* Compacted to the essential, non-redundant facts so the whole congrats card
+                      fits one screen (owner 2026-06-22). The per-service rows (Reception/Ceremony/
+                      Catering/Photo&Video) + Song list + Shortlisted are dropped — they're already
+                      covered by the "Services" line (and live in full on the dashboard). The short
+                      rows flow into a 2-column grid on desktop; Services spans full width. */}
                   <div className="recap tight">
-                    <div className="recapline"><span className="rk">Wedding</span><span className="rv">{coupleDisplay}{isHelper ? <span className="rv-sub"> · you’re helping plan</span> : null}</span></div>
                     {recapType ? <div className="recapline"><span className="rk">Type</span><span className="rv">{recapType}</span></div> : null}
                     <div className="recapline"><span className="rk">Date</span><span className="rv">{recapDate}</span></div>
                     <div className="recapline"><span className="rk">Where</span><span className="rv">{recapLocations ?? recapWhere}</span></div>
                     <div className="recapline"><span className="rk">Guests</span><span className="rv">{recapGuests}</span></div>
                     {recapBudget ? <div className="recapline"><span className="rk">Budget</span><span className="rv">{recapBudget}</span></div> : null}
-                    {recapServices ? <div className="recapline col"><span className="rk">Services</span><span className="rv">{recapServices}</span></div> : null}
-                    {recapReception ? <div className="recapline"><span className="rk">Reception</span><span className="rv">{recapReception}</span></div> : null}
-                    {recapCeremony ? <div className="recapline"><span className="rk">Ceremony</span><span className="rv">{recapCeremony}</span></div> : null}
-                    {recapCatering ? <div className="recapline col"><span className="rk">Catering</span><span className="rv">{recapCatering}</span></div> : null}
-                    {recapPV ? <div className="recapline col"><span className="rk">Photo &amp; Video</span><span className="rv">{recapPV}</span></div> : null}
                     {recapMood ? <div className="recapline"><span className="rk">Mood board</span><span className="rv">{recapMood}</span></div> : null}
-                    {recapSongs ? <div className="recapline"><span className="rk">Song list</span><span className="rv">{recapSongs}</span></div> : null}
-                    <div className="recapline"><span className="rk">Shortlisted</span><span className="rv">{shortlistCount} {shortlistCount === 1 ? 'venue' : 'venues'}</span></div>
+                    {recapServices ? <div className="recapline col"><span className="rk">Services</span><span className="rv">{recapServices}</span></div> : null}
                   </div>
                 </div>
                 {/* SHARE footer — covert, website-framed (display-only; the real link lives on the dashboard) */}
@@ -4415,6 +4401,7 @@ export function OnboardingShell({
                     <span className="dash-shbtn">your page <span className="lnk">setnayan.com/{coupleSlug}</span></span>
                   </div>
                   <div className="dash-guests">{state.pax != null ? `${state.pax} guests` : 'Your guests'} will see this page</div>
+                </div>
                 </div>
               </div>
             </div>

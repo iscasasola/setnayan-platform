@@ -894,6 +894,36 @@
 .onbw .dash-shbtn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:1px solid var(--line-2);background:var(--surface);border-radius: var(--m-r-md);padding:13px;font-family:var(--sans);font-size:13.5px;font-weight:600;color:var(--ink);}
 .onbw .dash-shbtn .lnk{font-family:var(--mono);font-size:11px;letter-spacing:.02em;color:var(--gold-deep);font-weight:500;}
 .onbw .dash-guests{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft);text-align:center;}
+/* Congrats fit (owner 2026-06-22 "make it fit on both desktop and mobile") — the
+   redundant per-service recap rows were dropped in the markup; here we tighten the
+   hero / sections / recap / share so the whole "it already exists" card fits one
+   screen on phone AND laptop. Scoped to #screen-congrats so nothing else moves. */
+.onbw #screen-congrats .dash-hero{padding:15px 16px 13px;}
+.onbw #screen-congrats .dash-head{font-size:18px;line-height:1.2;}
+.onbw #screen-congrats .dash-sec{padding:12px 16px;}
+.onbw #screen-congrats .dash-count{padding-top:8px;padding-bottom:8px;}
+.onbw #screen-congrats .dash-eb{margin-bottom:7px;}
+.onbw #screen-congrats .recap.tight{padding:6px 14px;}
+.onbw #screen-congrats .recap.tight .recapline{padding:4.5px 0;}
+.onbw #screen-congrats .dash-shrow{gap:7px;margin-bottom:7px;}
+.onbw #screen-congrats .dash-shbtn{padding:10px;font-size:12.5px;}
+/* The couple is named three ways in the hero (the monogram, the "cnames" line, and the
+   headline's surnames) — drop the redundant cnames line on every viewport. */
+.onbw #screen-congrats .dash-cnames{display:none;}
+/* Mobile (single column) is the tight case — the share footer was being clipped, so
+   shrink the hero a touch more here. Desktop keeps its full hero (it has room in the
+   two-pane left column). */
+@media (max-width:1023px){
+  .onbw #screen-congrats .dash-mono{transform:scale(.78);transform-origin:center;margin:-10px 0 -8px;}
+  .onbw #screen-congrats .dash-head{font-size:16px;line-height:1.18;}
+  .onbw #screen-congrats .dash-hero{padding:12px 16px 10px;}
+  .onbw #screen-congrats .dash-count{padding-top:6px;padding-bottom:6px;}
+  .onbw #screen-congrats .recapline.col .rv{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+  .onbw #screen-congrats .dash-shbtn{padding:8px 10px;font-size:12px;}
+  .onbw #screen-congrats .dash-share{padding-top:8px;padding-bottom:8px;}
+  .onbw #screen-congrats .dash-shrow{margin-bottom:0;}
+  .onbw #screen-congrats .dash-guests{display:none;}
+}
 
 /* NO-SCROLL TIGHTENING — love_met (Spark + Almost, the densest screen) stays within the
    ~665px frame. Compresses spacing/sizes only; no content cut. */

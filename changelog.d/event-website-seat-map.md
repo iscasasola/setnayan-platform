@@ -1,0 +1,3 @@
+## 2026-06-22 · feat(website): "Your seat" inline wayfinding map on the event page
+Surfaces the guest's entrance→table map directly on the couple's event website (in InvitationSite, below the Guest Hub card) instead of only behind the /[slug]/find-my-table tap. Renders only when the guest has an assigned table AND the couple owns the Indoor Blueprint SKU; reuses WayfindingMap + fetchTables/fetchEntrance + eventOwnsIndoorBlueprint. No new query for non-owning events (gated before the fetch). No pricing change — the map stays the paid Indoor Blueprint surface, now also shown inline.
+SPEC IMPACT: 0008 seating / 0002 event landing — paid map now surfaces inline on the event website (presentation only; same SKU gate).

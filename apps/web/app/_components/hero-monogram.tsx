@@ -45,6 +45,7 @@ export function HeroMonogram({
   bespokeSvg,
   shadow,
   inkOverride,
+  plate,
 }: {
   // Only the design columns are needed; a narrow shape keeps this reusable.
   event: {
@@ -61,6 +62,15 @@ export function HeroMonogram({
    *  — owner 2026-06-22). The infinity ∞ gold gradient is independent and stays.
    *  The marketing hero omits this, so it's unchanged. */
   inkOverride?: string | null;
+  /** Render on a DARK surface (recap photo-hero overlay · the venue Live Wall).
+   *  Adds a cream backing to ONLY the otherwise-bare branches — the lockup (3)
+   *  and framed (4) marks — so they read on dark. The self-backing branches
+   *  (bespoke · animated · legacy circle) already carry their own cream disc, so
+   *  they ignore this — which is why callers pass `plate` instead of wrapping the
+   *  whole component in a cream lozenge (that double-backed the self-disc
+   *  branches into a faint cream-on-cream ring). Default off → light surfaces
+   *  (public hero · editorial · recap cream body) are unchanged. */
+  plate?: boolean;
 }) {
   // The mark ink: an explicit override wins over the design's curated ink + the
   // monogram colour, so a caller can force e.g. the button accent.
@@ -124,8 +134,10 @@ export function HeroMonogram({
       return (
         <span
           aria-hidden
-          className="inline-flex"
-          style={shadow ? { filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.18))' } : undefined}
+          className={
+            plate ? 'inline-flex items-center justify-center rounded-full bg-cream px-5 py-4 shadow-lg' : 'inline-flex'
+          }
+          style={!plate && shadow ? { filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.18))' } : undefined}
         >
           <MonogramMark
             style={markStyle}
@@ -148,7 +160,9 @@ export function HeroMonogram({
     return (
       <span
         aria-hidden
-        className={`relative inline-flex items-center justify-center${shadow ? ' drop-shadow-sm' : ''}`}
+        className={`relative inline-flex items-center justify-center${shadow ? ' drop-shadow-sm' : ''}${
+          plate ? ' rounded-full bg-cream' : ''
+        }`}
         style={{
           width: HERO_PX,
           height: HERO_PX,

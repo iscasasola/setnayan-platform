@@ -145,17 +145,18 @@ export function WallProjection({
     return (
       <main className="flex min-h-screen flex-col items-center justify-center bg-ink px-8 text-center text-cream">
         <p className="font-mono text-xs uppercase tracking-[0.4em] text-terracotta">Setnayan · Papic</p>
-        {/* The couple's mark on a cream lozenge (so it reads on the dark venue
-            screen) — the branded standby before the collage goes live. FREE-WIDTH
-            (not a fixed circle) so the wide bar/duo/script/infinity lockups don't
-            spill off the backing; padding gives it projector presence. */}
+        {/* The couple's mark — the branded standby before the collage goes live.
+            `plate` backs the otherwise-bare lockup/framed marks so they read on
+            the dark venue screen; the self-disc branches (bespoke/animated/legacy)
+            keep their own cream circle — one backing each, no double-ring. */}
         {mono ? (
-          <span className="mt-8 mb-2 inline-flex items-center justify-center rounded-full bg-cream/95 px-8 py-5 shadow-2xl">
+          <span className="mt-8 mb-2 inline-flex justify-center">
             <HeroMonogram
               event={mono.design}
               monogram={mono.monogram}
               animatedMonogram={mono.animatedMonogram}
               bespokeSvg={mono.bespokeSvg}
+              plate
             />
           </span>
         ) : null}

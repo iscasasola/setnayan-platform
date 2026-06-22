@@ -13,11 +13,14 @@ import {
   ScanLine,
   Users,
   Globe,
+  Video,
+  Square,
 } from 'lucide-react';
 import { DayOfFaceEnroll } from '@/app/[slug]/_components/day-of-face-enroll';
 import { makeQrDetector } from '@/lib/qr-scan';
 
 const TAG_CAP = 10; // max tags per photo (corpus hard cap · mirrored server-side)
+const MAX_CLIP_MS = 5000; // 5-SECOND HARD CAP — corpus lock, mirrored route + RPC.
 
 /** Friendly, guest-facing copy for a tag failure. The camera never breaks on a
  *  tag miss — these just steer the next scan. */
@@ -49,8 +52,16 @@ function tagErrorMessage(error: string): string {
 // session cookie, PUTs to R2 server-side, and records the capture through the
 // quota-enforcing papic_record_guest_capture RPC. The response carries the
 // authoritative `remaining` credit count, so the client never owns the cap —
-// it just reflects what the server returns. Photos only; 5-second clips are a
-// documented follow-up (the media bucket's MIME allow-list is image-only).
+// it just reflects what the server returns.
+//
+// PHOTO + CLIP (Option A): a mode toggle adds a "record a 5-second clip" path.
+// In clip mode the stream also grabs audio and a MediaRecorder records with a
+// HARD 5000ms client stop (the corpus 5s cap, re-clamped server-side) plus a
+// poster frame (first frame to a canvas, JPEG — the NSFW-screen proxy). The
+// clip + poster + duration POST to the SAME route with media_type=clip. Guest
+// clips the guest opts to share publicly (sharePublicly) AND the couple later
+// approves feed the public Alaala memory orb — the cleanest consent chain (the
+// guest records AND consents to their own clip).
 
 type Props = {
   guestName: string;
@@ -75,11 +86,24 @@ export function PapicGuestCapture({
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  // Clip recorder (Option A) — mirrors pabati-prompt.tsx.
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const startedAtRef = useRef<number>(0);
+  const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const posterBlobRef = useRef<Blob | null>(null);
 
   const [ready, setReady] = useState(false);
   const [camError, setCamError] = useState(false);
   const [busy, setBusy] = useState(false);
   const [remaining, setRemaining] = useState(initialRemaining);
+  // Capture mode: 'photo' (the default JPEG path) | 'clip' (a 5s video). The
+  // toggle re-acquires the stream — clip mode needs audio, photo mode doesn't.
+  const [mode, setMode] = useState<'photo' | 'clip'>('photo');
+  // Clip recording phase + elapsed (for the 5s countdown ring).
+  const [recording, setRecording] = useState(false);
+  const [recElapsed, setRecElapsed] = useState(0);
   // Public-sharing opt-in (Alaala orb gate · RA 10173). OFF by default and never
   // pre-checked: when ON, each shot this guest captures is sent with
   // share_publicly so the server sets consent_to_public on their own row — one
@@ -165,11 +189,13 @@ export function PapicGuestCapture({
     // cleanup re-acquires the rear stream when enrolling flips back off.
     if (!accepted || blocked || enrolling) return;
     let cancelled = false;
+    setReady(false);
     async function start() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: { ideal: 'environment' } },
-          audio: false,
+          // Clip mode records sound; photo mode never opens the mic.
+          audio: mode === 'clip',
         });
         if (cancelled) {
           stream.getTracks().forEach((t) => t.stop());
@@ -178,6 +204,7 @@ export function PapicGuestCapture({
         streamRef.current = stream;
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
+          videoRef.current.muted = true; // never echo the guest's own mic in clip mode
           await videoRef.current.play().catch(() => {});
         }
         setReady(true);
@@ -190,7 +217,7 @@ export function PapicGuestCapture({
       cancelled = true;
       streamRef.current?.getTracks().forEach((t) => t.stop());
     };
-  }, [accepted, blocked, enrolling]);
+  }, [accepted, blocked, enrolling, mode]);
 
   const capture = useCallback(async () => {
     if (busy || !ready || exhausted || !accepted || blocked) return;
@@ -298,6 +325,191 @@ export function PapicGuestCapture({
       setBusy(false);
     }
   }, [busy, ready, exhausted, accepted, blocked, sharePublicly]);
+
+  // Stop any in-flight recording + clear its timers when the component unmounts
+  // or the mode flips away from clip (the camera effect re-acquires the stream).
+  useEffect(() => {
+    return () => {
+      if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
+      if (tickRef.current) clearInterval(tickRef.current);
+      const rec = recorderRef.current;
+      if (rec && rec.state !== 'inactive') {
+        try {
+          rec.stop();
+        } catch {
+          /* already stopped */
+        }
+      }
+    };
+  }, [mode]);
+
+  // ---- clip recording (Option A · mirrors pabati-prompt.tsx) ----------------
+
+  // After a capture saves (photo OR clip), wire up the Kwento + scan-to-tag
+  // affordances anchored on the new capture id. Shared so both paths behave the
+  // same. Photos open the Flash prompt; clips skip it (the moment is recorded).
+  const onSavedCapture = useCallback((captureId: string, openFlash: boolean) => {
+    setJustSaved(true);
+    setTimeout(() => setJustSaved(false), 900);
+    setKwentoCaptureId(captureId);
+    setKwentoFlashText('');
+    setKwentoStoryText('');
+    setKwentoConsent(false);
+    setKwentoPhase(openFlash ? 'flash' : 'idle');
+    setFlashCountdown(5);
+    setKwentoError(null);
+    setSentMessageId(null);
+    setDeletePhase('idle');
+    setLastCaptureId(captureId);
+    setTagging(false);
+    setTagCount(0);
+    setTaggedNames([]);
+    setTagNotice(null);
+    lastScanRef.current = '';
+  }, []);
+
+  // Draw the current frame to the hidden canvas → JPEG poster (the NSFW proxy).
+  const grabPoster = useCallback(async (): Promise<Blob | null> => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return null;
+    const w = video.videoWidth;
+    const h = video.videoHeight;
+    if (!w || !h) return null;
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    ctx.drawImage(video, 0, 0, w, h);
+    return new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+  }, []);
+
+  const uploadClip = useCallback(
+    async (clip: Blob, durationMs: number) => {
+      setBusy(true);
+      setSaveError(null);
+      try {
+        const form = new FormData();
+        form.append('media_type', 'clip');
+        form.append('file', clip, `papic-${Date.now()}.mp4`);
+        if (posterBlobRef.current) {
+          form.append('poster', posterBlobRef.current, `papic-${Date.now()}.jpg`);
+        }
+        form.append('duration_ms', String(Math.min(durationMs, MAX_CLIP_MS)));
+        // Same public-sharing opt-in as photos (Alaala orb gate). Only sent when
+        // the guest opted in; the server sets consent_to_public from it.
+        if (sharePublicly) form.append('share_publicly', '1');
+
+        const res = await fetch('/api/papic/guest-capture', { method: 'POST', body: form });
+        const json = (await res.json().catch(() => ({}))) as {
+          status?: string;
+          remaining?: number;
+          error?: string;
+          captureId?: string | null;
+        };
+
+        if (res.status === 409 || json.status === 'quota_exhausted') {
+          setRemaining(0);
+          setSaveError(null);
+          return;
+        }
+        if (json.status === 'blocked') {
+          setBlocked(true);
+          setSaveError(null);
+          return;
+        }
+        if (json.status === 'terms_required') {
+          setAccepted(false);
+          setSaveError(null);
+          return;
+        }
+        if (!res.ok || json.status !== 'ok') {
+          throw new Error(json.error ?? 'record');
+        }
+
+        setRemaining(
+          typeof json.remaining === 'number' ? json.remaining : (r) => Math.max(0, r - 1),
+        );
+        // Clips skip the Flash prompt (the moment's already captured as video).
+        if (json.captureId) onSavedCapture(json.captureId, false);
+      } catch {
+        setSaveError("That clip didn't save — check your signal and try again.");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [sharePublicly, onSavedCapture],
+  );
+
+  const stopRecording = useCallback(() => {
+    if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
+    if (tickRef.current) clearInterval(tickRef.current);
+    const rec = recorderRef.current;
+    if (rec && rec.state !== 'inactive') {
+      try {
+        rec.stop();
+      } catch {
+        /* already stopped */
+      }
+    }
+  }, []);
+
+  const startRecording = useCallback(async () => {
+    if (!ready || exhausted || busy || recording || !accepted || blocked) return;
+    const stream = streamRef.current;
+    if (!stream) return;
+
+    // Grab the poster frame up front (first frame) for the NSFW screen.
+    posterBlobRef.current = await grabPoster();
+
+    chunksRef.current = [];
+    let mimeType = '';
+    if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported) {
+      if (MediaRecorder.isTypeSupported('video/mp4')) mimeType = 'video/mp4';
+      else if (MediaRecorder.isTypeSupported('video/webm')) mimeType = 'video/webm';
+    }
+    let rec: MediaRecorder;
+    try {
+      rec = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+    } catch {
+      setSaveError('Recording isn’t supported on this browser — try another phone.');
+      return;
+    }
+    recorderRef.current = rec;
+
+    rec.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) chunksRef.current.push(e.data);
+    };
+    rec.onstop = () => {
+      setRecording(false);
+      const durationMs = Math.min(Date.now() - startedAtRef.current, MAX_CLIP_MS);
+      const type = rec.mimeType || mimeType || 'video/mp4';
+      const clip = new Blob(chunksRef.current, { type });
+      chunksRef.current = [];
+      if (clip.size === 0) {
+        setSaveError('That recording came back empty — try again.');
+        return;
+      }
+      void uploadClip(clip, durationMs);
+    };
+
+    startedAtRef.current = Date.now();
+    setRecElapsed(0);
+    setSaveError(null);
+    try {
+      rec.start();
+    } catch {
+      setSaveError('Couldn’t start recording — try again.');
+      return;
+    }
+    setRecording(true);
+
+    // HARD 5-second stop — the corpus cap (route + RPC clamp too).
+    stopTimerRef.current = setTimeout(stopRecording, MAX_CLIP_MS);
+    tickRef.current = setInterval(() => {
+      setRecElapsed(Math.min(MAX_CLIP_MS, Date.now() - startedAtRef.current));
+    }, 100);
+  }, [ready, exhausted, busy, recording, accepted, blocked, grabPoster, uploadClip, stopRecording]);
 
   // ---- scan-to-tag ---------------------------------------------------------
 
@@ -724,6 +936,21 @@ export function PapicGuestCapture({
             <Loader2 aria-hidden className="h-6 w-6 animate-spin text-cream/70" strokeWidth={2} />
           </div>
         )}
+        {recording && (
+          <>
+            <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-terracotta/90 px-2.5 py-1 text-xs font-semibold text-cream">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-cream" />
+              REC
+            </span>
+            {/* 5-second countdown as a bottom progress bar. */}
+            <div className="absolute inset-x-0 bottom-0 h-1.5 bg-cream/20">
+              <div
+                className="h-full bg-terracotta transition-[width] duration-100 ease-linear"
+                style={{ width: `${Math.round((recElapsed / MAX_CLIP_MS) * 100)}%` }}
+              />
+            </div>
+          </>
+        )}
         {justSaved && (
           <div className="absolute inset-0 flex items-center justify-center bg-cream/15">
             <span className="inline-flex items-center gap-2 rounded-full bg-ink/70 px-4 py-2 text-sm font-medium text-cream">
@@ -744,26 +971,95 @@ export function PapicGuestCapture({
 
       <div className="space-y-3 px-4 pb-8 pt-4">
         {saveError && <p className="text-center text-xs text-cream/80">{saveError}</p>}
+
+        {/* Photo / Clip mode toggle (Option A). Hidden while exhausted, tagging,
+            or mid-record (no swapping the stream out from under a recording). */}
+        {!exhausted && !tagging && !recording ? (
+          <div className="mx-auto flex w-fit items-center gap-1 rounded-full bg-cream/10 p-1" role="tablist" aria-label="Capture mode">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === 'photo'}
+              onClick={() => setMode('photo')}
+              className={
+                mode === 'photo'
+                  ? 'inline-flex items-center gap-1.5 rounded-full bg-cream px-3.5 py-1.5 text-xs font-medium text-ink'
+                  : 'inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium text-cream/70 hover:text-cream'
+              }
+            >
+              <Camera aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+              Photo
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === 'clip'}
+              onClick={() => setMode('clip')}
+              className={
+                mode === 'clip'
+                  ? 'inline-flex items-center gap-1.5 rounded-full bg-cream px-3.5 py-1.5 text-xs font-medium text-ink'
+                  : 'inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium text-cream/70 hover:text-cream'
+              }
+            >
+              <Video aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+              5s clip
+            </button>
+          </div>
+        ) : null}
+
         <div className="flex items-center justify-center">
-          <button
-            type="button"
-            onClick={capture}
-            disabled={busy || !ready || exhausted || tagging}
-            aria-label="Take a photo"
-            className="flex items-center justify-center rounded-full border-4 border-cream/80 bg-cream/10 transition active:scale-95 disabled:opacity-40"
-            style={{ height: '4.5rem', width: '4.5rem' }}
-          >
-            {busy ? (
-              <Loader2 aria-hidden className="h-7 w-7 animate-spin text-cream" strokeWidth={2} />
+          {mode === 'clip' ? (
+            recording ? (
+              <button
+                type="button"
+                onClick={stopRecording}
+                aria-label="Stop recording"
+                className="flex items-center justify-center rounded-full border-4 border-cream/80 bg-terracotta/30 transition active:scale-95"
+                style={{ height: '4.5rem', width: '4.5rem' }}
+              >
+                <Square aria-hidden className="h-6 w-6 text-cream" strokeWidth={2.5} />
+              </button>
             ) : (
-              <Camera aria-hidden className="h-7 w-7 text-cream" strokeWidth={1.75} />
-            )}
-          </button>
+              <button
+                type="button"
+                onClick={() => void startRecording()}
+                disabled={busy || !ready || exhausted || tagging}
+                aria-label="Record a 5-second clip"
+                className="flex items-center justify-center rounded-full border-4 border-cream/80 bg-cream/10 transition active:scale-95 disabled:opacity-40"
+                style={{ height: '4.5rem', width: '4.5rem' }}
+              >
+                {busy ? (
+                  <Loader2 aria-hidden className="h-7 w-7 animate-spin text-cream" strokeWidth={2} />
+                ) : (
+                  <Video aria-hidden className="h-7 w-7 text-cream" strokeWidth={1.75} />
+                )}
+              </button>
+            )
+          ) : (
+            <button
+              type="button"
+              onClick={capture}
+              disabled={busy || !ready || exhausted || tagging}
+              aria-label="Take a photo"
+              className="flex items-center justify-center rounded-full border-4 border-cream/80 bg-cream/10 transition active:scale-95 disabled:opacity-40"
+              style={{ height: '4.5rem', width: '4.5rem' }}
+            >
+              {busy ? (
+                <Loader2 aria-hidden className="h-7 w-7 animate-spin text-cream" strokeWidth={2} />
+              ) : (
+                <Camera aria-hidden className="h-7 w-7 text-cream" strokeWidth={1.75} />
+              )}
+            </button>
+          )}
         </div>
         <p className="text-center text-xs text-cream/60">
           {exhausted
             ? 'Your camera is all used up — enjoy the celebration.'
-            : 'Every photo lands in the couple’s gallery in real time.'}
+            : mode === 'clip'
+              ? recording
+                ? `Recording… ${Math.ceil((MAX_CLIP_MS - recElapsed) / 1000)}s left`
+                : 'Tap to record up to 5 seconds. It lands in the couple’s gallery.'
+              : 'Every photo lands in the couple’s gallery in real time.'}
         </p>
 
         {/* Public-sharing opt-in (Alaala orb gate · RA 10173). Explicit, never

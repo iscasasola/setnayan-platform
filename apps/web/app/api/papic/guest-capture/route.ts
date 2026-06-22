@@ -22,6 +22,12 @@ import { screenCapture } from '@/lib/nsfw-screen';
 export const runtime = 'nodejs';
 
 const MAX_BYTES = 12_000_000; // 12 MB — a phone JPEG is well under this
+// A 5-second 1080p phone clip is comfortably under this; oversized uploads are
+// rejected before any R2 round-trip.
+const MAX_CLIP_BYTES = 25_000_000; // ~25 MB
+// 5-SECOND HARD CAP — corpus lock, not configurable. The route rejects a client
+// that stamps a longer duration; the RPC ALSO clamps with LEAST(ms,5000).
+const MAX_CLIP_MS = 5000;
 
 export async function POST(req: Request) {
   const session = await readGuestSession();
@@ -36,18 +42,62 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'bad_request' }, { status: 400 });
   }
 
+  // media_type: 'photo' (default · JPEG path) | 'clip' (a guest-recorded ≤5s
+  // video — Option A, the path that feeds the Alaala orb). The branch governs
+  // the MIME allow-list, size cap, R2 key, and the poster/duration the clip
+  // carries. An absent/unknown value → 'photo' so the original path is exact.
+  const mediaType = form.get('media_type') === 'clip' ? 'clip' : 'photo';
+  const isClip = mediaType === 'clip';
+
   const file = form.get('file');
   if (!(file instanceof File)) {
     return NextResponse.json({ error: 'no_file' }, { status: 400 });
   }
-  if (!file.type.startsWith('image/')) {
-    return NextResponse.json({ error: 'bad_type' }, { status: 415 });
-  }
-  if (file.size > MAX_BYTES) {
-    return NextResponse.json({ error: 'too_large' }, { status: 413 });
+  if (isClip) {
+    if (!file.type.startsWith('video/')) {
+      return NextResponse.json({ error: 'bad_type' }, { status: 415 });
+    }
+    if (file.size > MAX_CLIP_BYTES) {
+      return NextResponse.json({ error: 'too_large' }, { status: 413 });
+    }
+  } else {
+    if (!file.type.startsWith('image/')) {
+      return NextResponse.json({ error: 'bad_type' }, { status: 415 });
+    }
+    if (file.size > MAX_BYTES) {
+      return NextResponse.json({ error: 'too_large' }, { status: 413 });
+    }
   }
   if (!isR2Configured()) {
     return NextResponse.json({ error: 'uploads_unavailable' }, { status: 503 });
+  }
+
+  // Clip extras (clip path only): the client-stamped duration (5s hard cap, also
+  // re-clamped in the RPC) and the poster frame — the NSFW-screen proxy (nsfwjs
+  // is image-only; we never classify the video bytes). A posterless clip stays
+  // 'unscreened' (excluded from guest surfaces structurally).
+  let durationMs: number | null = null;
+  let posterBytes: Uint8Array | undefined;
+  if (isClip) {
+    const durRaw = form.get('duration_ms');
+    if (typeof durRaw === 'string' && durRaw.length > 0) {
+      const parsed = Number.parseInt(durRaw, 10);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        if (parsed > MAX_CLIP_MS) {
+          return NextResponse.json({ error: 'too_long' }, { status: 400 });
+        }
+        durationMs = parsed;
+      }
+    }
+    const posterFile = form.get('poster');
+    if (
+      posterFile instanceof File &&
+      posterFile.type.startsWith('image/') &&
+      posterFile.size > 0 &&
+      posterFile.size <= 5_000_000
+    ) {
+      posterBytes = new Uint8Array(await posterFile.arrayBuffer());
+    }
   }
 
   // GUEST public-sharing opt-in (Alaala orb gate · RA 10173 explicit consent).
@@ -114,34 +164,68 @@ export async function POST(req: Request) {
   }
 
   const bytes = new Uint8Array(await file.arrayBuffer());
-  const key = `papic/guest/${session.guest_id}/papic-${Date.now()}.jpg`;
+  const stamp = Date.now();
+  // Clip → .mp4 (video/mp4); photo → .jpg (image/jpeg). The poster (if present)
+  // rides a sibling .jpg key so the NSFW screen + clip thumbnail can find it.
+  const key = isClip
+    ? `papic/guest/${session.guest_id}/papic-${stamp}.mp4`
+    : `papic/guest/${session.guest_id}/papic-${stamp}.jpg`;
   try {
     await r2Upload({
       bucket: R2_BUCKETS.media,
       key,
       body: bytes,
-      contentType: 'image/jpeg',
+      contentType: isClip ? 'video/mp4' : 'image/jpeg',
     });
   } catch {
     return NextResponse.json({ error: 'upload_failed' }, { status: 502 });
   }
   const r2Ref = `r2://${R2_BUCKETS.media}/${key}`;
 
-  // Record the capture, carrying the guest's public-share consent on the row.
-  // Graceful-degrade: if the 3-arg RPC (consent param) isn't deployed yet, retry
-  // the original 2-arg signature so the capture still records — the opt-in just
-  // can't persist until the migration lands. Default OFF means a degraded path
-  // never silently shares a guest's media.
+  // Upload the clip's poster frame (best-effort). A failed/absent poster just
+  // leaves the clip 'unscreened' (excluded from guest surfaces) — it never fails
+  // the capture.
+  let posterRef: string | null = null;
+  if (isClip && posterBytes) {
+    const posterKey = `papic/guest/${session.guest_id}/papic-${stamp}-poster.jpg`;
+    try {
+      await r2Upload({
+        bucket: R2_BUCKETS.media,
+        key: posterKey,
+        body: posterBytes,
+        contentType: 'image/jpeg',
+      });
+      posterRef = `r2://${R2_BUCKETS.media}/${posterKey}`;
+    } catch {
+      posterRef = null;
+    }
+  }
+
+  // Record the capture, carrying the guest's public-share consent + (for clips)
+  // media_type + duration + poster on the row. Graceful-degrade: if the extended
+  // RPC isn't deployed yet, retry the 3-arg then the 2-arg signature so the
+  // capture still records — clip extras just can't persist until the migration
+  // lands (a degraded clip records as a photo-typed row, never silently shared).
   let { data, error } = await admin.rpc('papic_record_guest_capture', {
     p_guest_id: session.guest_id,
     p_r2_object_key: r2Ref,
     p_consent_to_public: sharePublicly,
+    p_media_type: mediaType,
+    p_duration_ms: durationMs,
+    p_poster_r2_key: posterRef,
   });
-  if (error && /p_consent_to_public|function .*papic_record_guest_capture/i.test(error.message ?? '')) {
+  if (error && /p_media_type|p_duration_ms|p_poster_r2_key|function .*papic_record_guest_capture/i.test(error.message ?? '')) {
     ({ data, error } = await admin.rpc('papic_record_guest_capture', {
       p_guest_id: session.guest_id,
       p_r2_object_key: r2Ref,
+      p_consent_to_public: sharePublicly,
     }));
+    if (error && /p_consent_to_public|function .*papic_record_guest_capture/i.test(error.message ?? '')) {
+      ({ data, error } = await admin.rpc('papic_record_guest_capture', {
+        p_guest_id: session.guest_id,
+        p_r2_object_key: r2Ref,
+      }));
+    }
   }
   if (error) {
     return NextResponse.json({ error: 'record_failed' }, { status: 500 });
@@ -178,10 +262,15 @@ export async function POST(req: Request) {
     // projects), THEN the wall gate. The capture RPC doesn't return the row
     // id, so resolve it by the (unique) r2 ref before ingesting.
     after(async () => {
+      // screenCapture classifies the image proxy: photo bytes directly, or — for
+      // a clip — it swaps to the row's poster_r2_key and reads that from R2 (the
+      // video bytes are never classified). So we hand it the photo bytes; for a
+      // clip the helper resolves the poster on its own. A posterless clip stays
+      // 'unscreened' (excluded from guest surfaces).
       await screenCapture({
         table: 'papic_guest_captures',
         r2ObjectKey: r2Ref,
-        bytes,
+        bytes: isClip ? undefined : bytes,
       }).catch(() => {});
       try {
         if (captureId) {
@@ -231,8 +320,8 @@ export async function POST(req: Request) {
         files: [
           {
             r2ObjectKey: r2Ref,
-            fileName: key.split('/').pop() || 'papic.jpg',
-            mimeType: 'image/jpeg',
+            fileName: key.split('/').pop() || (isClip ? 'papic.mp4' : 'papic.jpg'),
+            mimeType: isClip ? 'video/mp4' : 'image/jpeg',
             sourceTable: 'papic_photos',
           },
         ],

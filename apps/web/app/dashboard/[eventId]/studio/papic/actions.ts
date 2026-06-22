@@ -351,3 +351,56 @@ export async function setClipShowcaseApproval(formData: FormData) {
     `/dashboard/${eventId}/studio/papic?showcase_set=${approve ? 'approved' : 'removed'}`,
   );
 }
+
+/**
+ * Toggle whether one of the couple's GUEST-RECORDED clips is approved for the
+ * public Alaala showcase orb (Option A — the producer half the orb feed reads).
+ *
+ * Mirrors setClipShowcaseApproval but for papic_guest_captures: the GUEST sets
+ * consent_to_public at capture time (their own recording → the cleanest
+ * consent); THIS action is the couple's approval gate. Both gates required
+ * before the clip surfaces, so approving alone won't light the orb until the
+ * guest also opted in — the locked cold-start, preserved.
+ *
+ * Unlike the seat-clip toggle, the couple has only a READ policy on
+ * papic_guest_captures (papic_guest_captures_couple_read) — no couple UPDATE
+ * policy. So the write goes through the admin client AFTER the app-level couple
+ * check (the same pattern setPapicStorageR2/Drive use to update events), scoped
+ * to (capture_id, event_id) so a forged call can't touch another event's clip.
+ */
+export async function setGuestClipShowcaseApproval(formData: FormData) {
+  const result = await getCoupleEventId(formData.get('event_id'));
+  if (!result.ok) {
+    redirect(result.redirectTo);
+  }
+  const { eventId } = result;
+
+  const rawCaptureId = formData.get('photo_id');
+  const captureId = typeof rawCaptureId === 'string' ? rawCaptureId.trim() : '';
+  if (!captureId) {
+    redirect(`/dashboard/${eventId}/studio/papic?showcase_error=missing_photo`);
+  }
+  const approve = formData.get('approve') === '1';
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('papic_guest_captures')
+    .update({ couple_approved_for_showcase: approve })
+    .eq('capture_id', captureId)
+    .eq('event_id', eventId)
+    .eq('media_type', 'clip');
+
+  if (error) {
+    redirect(
+      `/dashboard/${eventId}/studio/papic?showcase_error=${encodeURIComponent(
+        error.message.slice(0, 64),
+      )}`,
+    );
+  }
+
+  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  revalidatePath('/our-story');
+  redirect(
+    `/dashboard/${eventId}/studio/papic?showcase_set=${approve ? 'approved' : 'removed'}`,
+  );
+}

@@ -29,7 +29,9 @@ import { composeCopy } from '@/app/[slug]/_components/editorial/compose';
 import { bucketMoments } from '@/lib/kwento-magazine';
 import { getWallSnapshot } from '@/lib/live-wall';
 import { eventSkuActive } from '@/lib/entitlements';
-import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { displayUrlForStoredAsset, presignDisplayUrl } from '@/lib/uploads';
+import { isR2Configured, R2_BUCKETS, type R2BucketName } from '@/lib/r2';
+import { parseYouTubeVideoId, youTubeEmbedUrl } from '@/lib/panood-watch';
 
 export type RecapStatus = 'draft' | 'published' | 'unpublished';
 
@@ -74,6 +76,14 @@ export type RecapModel = {
   sdeFilmUrl: string | null;
   /** Presigned poster still for that film, or null → video first-frame. */
   sdeFilmPosterUrl: string | null;
+  /** Presigned MP4 URLs of the day's finished Patiktok reels (status='completed'
+   *  + output_object_key) — empty unless at least one reel has rendered. Capped
+   *  to a handful so the recap stays a highlight, not a dump. */
+  reelUrls: string[];
+  /** youtube-nocookie embed URL of the Panood livestream REPLAY — non-null only
+   *  when the event holds PANOOD (active) AND the couple staged a valid watch
+   *  URL. Shown in the recap window as the post-event replay. */
+  panoodEmbedUrl: string | null;
 };
 
 export type RecapCardData = {
@@ -252,6 +262,74 @@ export async function assembleRecapModel(eventId: string): Promise<RecapModel | 
     sdeFilmPosterUrl = null;
   }
 
+  // The day's Patiktok reels (iteration 0017). Same auto-show shape as the SDE
+  // film: when the booth/couple rendered reels client-side and the finalize
+  // action stamped status='completed' + output_object_key (a bare R2 key in the
+  // bucket recorded in output_bucket, default setnayan-media), the recap closes
+  // its media body with them. Presigned at read (the stored output_url presign
+  // expires). Best-effort + graceful-degrade: a pre-migration column (42703 /
+  // 42P01) or any trouble → no reels, never throws.
+  let reelUrls: string[] = [];
+  try {
+    if (isR2Configured()) {
+      const admin = createAdminClient();
+      const { data, error } = await admin
+        .from('patiktok_render_jobs')
+        .select('output_bucket, output_object_key, completed_at')
+        .eq('event_id', eventId)
+        .eq('status', 'completed')
+        .not('output_object_key', 'is', null)
+        .order('completed_at', { ascending: false })
+        .limit(6);
+      if (!error && data) {
+        const rows = data as {
+          output_bucket?: string | null;
+          output_object_key?: string | null;
+        }[];
+        const knownBuckets: string[] = Object.values(R2_BUCKETS);
+        const signed = await Promise.all(
+          rows
+            .filter((r) => typeof r.output_object_key === 'string' && r.output_object_key)
+            .map((r) => {
+              const bucket: R2BucketName = knownBuckets.includes(r.output_bucket ?? '')
+                ? (r.output_bucket as R2BucketName)
+                : R2_BUCKETS.media;
+              return presignDisplayUrl(bucket, r.output_object_key as string).catch(() => null);
+            }),
+        );
+        reelUrls = signed.filter((u): u is string => Boolean(u));
+      }
+    }
+  } catch {
+    reelUrls = [];
+  }
+
+  // Panood livestream REPLAY (iteration 0011). The day-of page embeds the
+  // broadcast only inside the LIVE window; the recap is the post-event home for
+  // the REPLAY. When the event holds PANOOD (active) AND the couple staged a
+  // valid watch URL (events.panood_watch_url, normalize-or-rejected at save),
+  // embed it via youtube-nocookie. Best-effort + graceful-degrade: a
+  // pre-migration column (42703 / 42P01), an unparsable URL, or any trouble →
+  // no embed, never throws.
+  let panoodEmbedUrl: string | null = null;
+  try {
+    const admin = createAdminClient();
+    if (await eventSkuActive(admin, eventId, 'PANOOD_SYSTEM')) {
+      const { data, error } = await admin
+        .from('events')
+        .select('panood_watch_url')
+        .eq('event_id', eventId)
+        .maybeSingle();
+      if (!error && data) {
+        const watchUrl = (data as { panood_watch_url?: string | null }).panood_watch_url ?? null;
+        const videoId = watchUrl ? parseYouTubeVideoId(watchUrl) : null;
+        if (videoId) panoodEmbedUrl = youTubeEmbedUrl(videoId);
+      }
+    }
+  } catch {
+    panoodEmbedUrl = null;
+  }
+
   const curatedPhotoUrls = editorial.galleryPhotos ?? [];
   const heroUrl =
     dayChapters[0]?.photoUrls[0] ?? curatedPhotoUrls[0] ?? editorial.heroPhotoUrl ?? null;
@@ -286,6 +364,8 @@ export async function assembleRecapModel(eventId: string): Promise<RecapModel | 
     heroUrl,
     sdeFilmUrl,
     sdeFilmPosterUrl,
+    reelUrls,
+    panoodEmbedUrl,
   };
 }
 

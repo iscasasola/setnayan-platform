@@ -1680,7 +1680,7 @@ function PublicLanding({
       {bgMusicUrl && !showSaveTheDate ? <BackgroundMusic src={bgMusicUrl} /> : null}
       {/* When a hero photo/video is uploaded, render a full-bleed banner.
           Otherwise fall back to the centered text-only treatment. */}
-      {hasHeroMedia && !showEditorialPlaceholder ? (
+      {hasHeroMedia && !showEditorialPlaceholder && !showSaveTheDate ? (
         <div className="relative -mx-4 mb-8 overflow-hidden rounded-2xl text-center sm:-mx-0">
           <HeroBackgroundMedia videoUrl={heroVideoUrl} photoUrl={heroPhotoUrl} />
           <div
@@ -2296,7 +2296,7 @@ function InvitationSite({
             treatment. Gated on hero widget visibility — always-on by default
             (editor blocks hiding), but the gate exists so V1.1 can let
             exhibitions / private weddings drop the hero entirely if needed. */}
-        {!showEditorialPlaceholder && heroShouldRender && hasHeroMedia ? (
+        {!showEditorialPlaceholder && heroShouldRender && hasHeroMedia && !showSaveTheDate ? (
           <section className="relative -mx-4 overflow-hidden rounded-2xl text-center sm:-mx-0">
             {/* Full-bleed video (Increment B) or photo. */}
             <HeroBackgroundMedia videoUrl={heroVideoUrl} photoUrl={heroPhotoUrl} />
@@ -2333,7 +2333,7 @@ function InvitationSite({
               <hr className="mx-auto mt-6 w-24 border-t border-ink/30" />
             </div>
           </section>
-        ) : !showEditorialPlaceholder && heroShouldRender ? (
+        ) : !showEditorialPlaceholder && heroShouldRender && !showSaveTheDate ? (
           <section className="text-center">
             <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
               You are invited

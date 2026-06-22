@@ -171,18 +171,25 @@ const LEGACY_PICKER_SCREENS: ReadonlySet<ScreenId> = new Set(['aigate', 'team_ba
 // services are still STORED (style_preferences.interested_services) for the dashboard to
 // surface — they're just not sold here.
 const PAYWALL_SCREENS: ReadonlySet<ScreenId> = new Set(['plan', 'bundle', 'services', 'summary']);
-// Owner 2026-06-22 ("the steps like this, the information only, can we remove them for now"):
-// the pure no-input interstitials — brand/transition moments + the persona reveal — are
-// filtered OUT of the flow so it runs question→question. REVERSIBLE: empty this set to
-// restore every screen. The persona derive that used to run on `exp_reveal` now fires when
-// the 5 quiz answers complete (see the derive effect), so dropping the reveal screen doesn't
-// break the derived plan. The JSX sections stay in place (just never become active).
-const REMOVED_INFO_SCREENS: ReadonlySet<ScreenId> = new Set(['welcome', 'love_preview', 'alaala_promise', 'exp_reveal', 'team_intro', 'team_payoff']);
+// Owner 2026-06-22 ("the steps like this, the information only, can we remove them for now" +
+// "trim it" — also drop the love-story arc; a fuller replan is pending): screens filtered OUT of
+// the flow so it runs question→question. REVERSIBLE — empty this set to restore every screen.
+// Two groups:
+//   • pure no-input interstitials: welcome · alaala_promise · team_intro · team_payoff · exp_reveal
+//   • the love-story sub-flow: love_intro (the "tell it / add it later" fork) + its 5 questions +
+//     love_preview. ⚠ love_story seeds the website editorial + the Pakanta song — it's removed from
+//     ONBOARDING for now; collect it elsewhere (dashboard) or restore here when we replan.
+// The persona derive that used to run on `exp_reveal` now fires when the 5 quiz answers complete
+// (see the derive effect). JSX sections stay in place (just never become active).
+const REMOVED_SCREENS: ReadonlySet<ScreenId> = new Set([
+  'welcome', 'alaala_promise', 'team_intro', 'team_payoff', 'exp_reveal',
+  'love_intro', 'love_spark', 'love_almost', 'love_proposal', 'love_milestones', 'love_tone', 'love_preview',
+]);
 function buildSequence(kind: OnboardingState['kind'], authed: boolean, loveSkipped: boolean, ai: boolean | null, picks: string[]): ScreenId[] {
   const hasMusician = picks.some((p) => SONG_PICK_CATS.has(p));
   const hasStylist = picks.includes('stylist');
   return FLOW_IDS.filter((id) =>
-    !REMOVED_INFO_SCREENS.has(id) &&                // owner 2026-06-22 — info-only steps removed for now
+    !REMOVED_SCREENS.has(id) &&                     // owner 2026-06-22 — info-only steps + love-story arc removed for now
     !(id === 'faith' && kind === 'civil') &&        // Civil skips the faith screen
     !(EXP_SCREENS.has(id) && !EXPERIENCE_QUIZ_ENABLED) &&         // exp_* experience quiz only when the flag is ON
     !(EXPERIENCE_QUIZ_ENABLED && LEGACY_PICKER_SCREENS.has(id)) && // flag ON drops the manual picker chain (the persona derives it)
@@ -3652,8 +3659,11 @@ export function OnboardingShell({
             </div>
           </section>
 
-          {/* 6 DATE — 2-mode calendar (DateCalendar owns its viewzone title) */}
-          <section className={`screen${activeId === 'date' ? ' active' : ''}`}>
+          {/* 6 DATE — 2-mode calendar (DateCalendar owns its viewzone title). onb-twopane:
+              DateCalendar renders the standard .viewzone + .tapzone skeleton, so on desktop the
+              headline goes LEFT and the toggle+calendar fill the RIGHT column (was a narrow
+              centred column in a wide sheet). Mobile (<1024) unaffected. */}
+          <section className={`screen onb-twopane${activeId === 'date' ? ' active' : ''}`} id="screen-date">
             <DateCalendar
               mode={state.dateMode}
               candidates={state.dateCandidates}

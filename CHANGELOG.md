@@ -2566,32 +2566,6 @@ Generate: `npx web-push generate-vapid-keys`
 3. No existing review for `(vendor_profile_id, event_id, couple_user_id)`
 
 **SPEC IMPACT:** `0006_vendors_management` — review entry point on vendor cards (§ review CTA). `02_Specifications/Vendor_Quality_Rating_System_2026-06-17.md` — couple-side submit flow (§ 5 couple submit). On_time binary rule (Yes=5/No=1) matches `vendor_reviews` DB constraint; no schema change needed.
-## 2026-06-17 · feat(vendor-quality): VendorStatsPanel — vendor-facing performance dashboard
-
-**Context:** Follow-on to the `vendor_activity_stats` migration (PR #1650, table in prod) and `lib/vendor-activity.ts` score-recomputation module (PR #1653, unmerged branch). This PR adds the vendor-facing UI surface so vendors can see their own performance metrics and act on improvement nudges.
-
-**What shipped:**
-
-- **New server component** `apps/web/app/vendor-dashboard/_components/vendor-stats-panel.tsx`
-  - Fetches `vendor_activity_stats` via a single `.maybeSingle()` query (LEFT JOIN semantics — graceful null if no stats row yet).
-  - Renders 6 metric cards: Response Rate · Avg Reply Time · Review Score · Booking Completion · Inquiry→Booking · Experience Badge.
-  - Quality Score rendered as a full-width color-coded progress bar (0–100, green ≥75 / amber ≥50 / terracotta <50).
-  - Experience badge tiers: New (<5) · Established (5–14) · Experienced (15–29) · Expert (30–49) · Elite (50+) with "X more until next tier" label.
-  - Review score shows Bayesian + raw + count; shows "—" when no reviews yet.
-  - Avg reply time shows "—" when `avg_response_minutes === 0` (stubbed pending `vendor_first_reply_at` migration).
-  - `platform_health_score` is intentionally not surfaced (HQ-internal).
-  - 3 conditional improvement nudges: low response rate → enable push; zero reviews → ask couples; incomplete profile (<70%) → add photos/descriptions.
-  - Anonymous benchmark placeholder: "Benchmark data coming soon" (percentile calc needs seeded aggregate data).
-  - Graceful empty state: "Calculating your performance stats…" with descriptive copy if no stats row exists.
-
-- **Modified** `apps/web/app/vendor-dashboard/page.tsx`
-  - Added `vendorProfileId: string | null` to `LoaderState` type (threaded from both the profile-exists and no-profile branches).
-  - `VendorStatsPanel` inserted between "Upcoming events" strip and "Recent activity" placeholder — only rendered when `profileExists && vendorProfileId`.
-  - `createClient()` called again after the loaderState guard (memoized per-request, zero extra overhead) to supply the supabase instance to the panel.
-
-**Files:** `apps/web/app/vendor-dashboard/_components/vendor-stats-panel.tsx` (new) · `apps/web/app/vendor-dashboard/page.tsx` (modified)
-
-**SPEC IMPACT:** Corpus `0022_vendor_dashboard/` + `Vendor_Quality_Rating_System_2026-06-17.md` — the VendorStatsPanel is the vendor-facing surface for the quality/rating system spec. No schema changes. No new SKUs. `platform_health_score` deliberately excluded per spec (HQ-only column).
 
 ---
 

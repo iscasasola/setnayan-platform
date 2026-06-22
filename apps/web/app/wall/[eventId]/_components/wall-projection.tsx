@@ -21,6 +21,8 @@ import {
   reconcileTiles,
   type WallTile,
 } from '@/lib/live-wall-logic';
+import { HeroMonogram } from '@/app/_components/hero-monogram';
+import type { HeroMonogramData } from '@/lib/hero-monogram-data';
 
 const NUDGE_POLL_MS = 12_000;
 const FULL_SWEEP_MS = 60_000;
@@ -32,9 +34,14 @@ type Conn = 'live' | 'reconnecting' | 'offline';
 export function WallProjection({
   eventId,
   initial,
+  mono,
 }: {
   eventId: string;
   initial: WallSnapshot;
+  /** The couple's mark (resolved server-side), or null. Shown on the teaser
+   *  standby screen so the venue screen carries their identity before the
+   *  collage takes over. */
+  mono: HeroMonogramData | null;
 }) {
   const [tiles, setTiles] = useState<WallTile[]>(initial.tiles);
   const [count, setCount] = useState(initial.count);
@@ -138,6 +145,21 @@ export function WallProjection({
     return (
       <main className="flex min-h-screen flex-col items-center justify-center bg-ink px-8 text-center text-cream">
         <p className="font-mono text-xs uppercase tracking-[0.4em] text-terracotta">Setnayan · Papic</p>
+        {/* The couple's mark on a cream medallion (so it reads on the dark venue
+            screen), scaled up for projector distance — the branded standby before
+            the collage goes live. */}
+        {mono ? (
+          <span className="mt-8 mb-2 inline-flex h-32 w-32 items-center justify-center rounded-full bg-cream/95 shadow-2xl">
+            <span className="inline-flex scale-125">
+              <HeroMonogram
+                event={mono.design}
+                monogram={mono.monogram}
+                animatedMonogram={mono.animatedMonogram}
+                bespokeSvg={mono.bespokeSvg}
+              />
+            </span>
+          </span>
+        ) : null}
         <h1 className="mt-6 text-5xl font-semibold tracking-tight">
           {initial.displayName ?? 'The celebration'}
         </h1>

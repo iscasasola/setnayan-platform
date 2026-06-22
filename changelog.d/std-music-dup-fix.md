@@ -15,3 +15,19 @@ Net: no platform ever plays the clip's audio and the soundtrack simultaneously. 
 No schema changes. No SKU changes. Client-only logic in one component.
 
 SPEC IMPACT: `0024_save_the_date/` — content-film audio behavior clarified: the keepsake clip's audio auto-crossfades only where the browser allows programmatic volume control (desktop/Android); iOS falls back to a muted clip under the soundtrack with a one-tap "Tap for sound". (Reference/history only — code is canonical per the 2026-06-07 ground-truth flip.)
+
+---
+
+## 2026-06-22 · perf(std): serve a screen-sized Save-the-Date background, not the full-res upload
+
+Same `/cale-ice` report — the **background image loads slowly**. Root cause: the Step-1 "upload" background is the couple's ORIGINAL photo straight from R2 (cale-ice's is a **4.2 MB / 4460×2509** Nikon JPEG), drawn full-bleed behind the film via a low-priority CSS `background-image`. The browser streamed all ~4 MB to display it at ~400–1200 px wide on a phone.
+
+`next/image` is not an option here: the codebase deliberately uses raw elements for presigned R2 URLs (the optimizer caches on the URL, and our presigned URLs rotate every render — see `app/[slug]/page.tsx` "raw <img> because the URLs are presigned"). Also the SDK serves virtual-hosted hosts (`<bucket>.<acct>.r2.cloudflarestorage.com`) that aren't in `next.config` `remotePatterns`.
+
+**Fix:** new server-only `lib/std-bg-image.ts` → `displayUrlForStdBackground()`. It DERIVES a screen-sized WebP (1600 px wide, q72, EXIF-rotated) ONCE and caches it back in R2 next to the original (key suffix `__stdbg-w1600.webp`, `Cache-Control: immutable`), then presigns + serves that. Generation is lazy + idempotent (first view pays a one-time GET→resize→PUT; later views/guests just HEAD the cached variant) and **fails open to the original** on any error (R2 down in dev/preview, un-decodable source) so the background never breaks. `app/[slug]/page.tsx` calls it for the `upload` kind instead of `displayUrlForStoredAsset`. ~4 MB → a few hundred KB, identical full-bleed look. Cost-optimal vs. next/image (no per-render transform; one derived object per event, R2 egress free).
+
+`realistic` backgrounds (local pre-optimized `/std/backgrounds/*.webp`) and `plain`/`paper` are unaffected. The builder preview still uses the original (single-user editing surface). Uses `sharp` (already a `serverExternalPackages` dep) + `transformToByteArray` (established in `lib/drive-upload.ts`).
+
+No schema changes. No SKU changes.
+
+SPEC IMPACT: `0024_save_the_date/` — Step-1 upload backgrounds are now served as a cached, screen-sized WebP variant rather than the raw original. (Reference/history only.)

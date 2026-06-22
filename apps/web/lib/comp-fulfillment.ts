@@ -1,6 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { activateOrderSku } from '@/lib/sku-activation';
+import { eventSkuActive } from '@/lib/entitlements';
 import { fetchV2CustomerCatalog } from '@/lib/v2-catalog';
 
 /**
@@ -112,9 +113,18 @@ export async function fulfillCompGrant(
       : catalog.map((s) => s.service_code);
   if (serviceKeys.length === 0) return { eventCount: eventIds.length, serviceKeys: [], titles: [] };
 
+  // Track only the SKUs we NEWLY provisioned (across events) — already-owned
+  // SKUs are skipped (no duplicate paid order on a re-issued grant), and the
+  // "early wedding gift" notice should name only what actually unlocked.
+  const provisioned = new Set<string>();
+  let orderCount = 0;
   for (const eventId of eventIds) {
     for (const serviceKey of serviceKeys) {
       try {
+        // Idempotency guard: bundle-/refund-aware ownership check. If the event
+        // already owns this SKU (prior buy or prior gift), skip — re-issuing a
+        // grant must not pile up duplicate ₱0 paid orders.
+        if (await eventSkuActive(admin, eventId, serviceKey)) continue;
         await fulfillOne(admin, {
           eventId,
           userId: args.targetUserId,
@@ -122,14 +132,21 @@ export async function fulfillCompGrant(
           grantId: args.grantId,
           actorUserId: args.actorUserId,
         });
+        provisioned.add(serviceKey);
+        orderCount += 1;
       } catch (e) {
         console.error(`[comp-fulfillment] fulfill threw (${serviceKey}) — non-fatal:`, e);
       }
     }
   }
 
-  const titles = serviceKeys.map((k) => titleByCode.get(k) ?? k);
-  return { eventCount: eventIds.length, serviceKeys, titles };
+  console.log(
+    `[comp-fulfillment] grant ${args.grantId}: ${orderCount} order(s) provisioned across ${eventIds.length} event(s) for ${args.targetUserId}`,
+  );
+
+  const newlyKeys = Array.from(provisioned);
+  const titles = newlyKeys.map((k) => titleByCode.get(k) ?? k);
+  return { eventCount: eventIds.length, serviceKeys: newlyKeys, titles };
 }
 
 /** Warm one-line body for the "early wedding gift" notification. */

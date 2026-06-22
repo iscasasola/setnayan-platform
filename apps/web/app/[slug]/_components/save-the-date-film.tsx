@@ -854,24 +854,24 @@ export function SaveTheDateFilm({
         setVol(v, 0); // start silent, fade up
         setVideoSoundBlocked(false); // fresh beat — the catch below re-flags if blocked
       }
-      // iOS Safari can't ramp the clip's volume (system-volume only) and silently
-      // ignores an off-gesture unmute — so neither the crossfade nor an auto-unmute
-      // can give the clip its own audio here. Rather than pause the soundtrack into
-      // dead air (the music can't fade, only pause), keep the clip MUTED, let the
-      // soundtrack stay the beat's audio, and surface "Tap for sound" (a tap CAN
-      // unmute + duck — see enableVideoSound). Controllability was detected at
-      // warm-play; null (warm-play never ran) falls through to the crossfade path,
-      // whose own catch handles a blocked unmuted play().
+      // iOS Safari can't RAMP volume (system-volume only), so there's no SMOOTH
+      // crossfade here — but the clip's audio still TAKES OVER. The clip has been
+      // kept WARM (playing) from the lift gesture, so it can be UNMUTED off-gesture
+      // — the exact mechanism that now auto-plays the soundtrack on iOS (#2077). So
+      // unmute the clip and HARD-DUCK the soundtrack (pause it now — a volume ramp
+      // is a no-op on iOS and would leave both audible for ~700ms). No "Tap for
+      // sound": the clip carries its own audio the instant its beat arrives, and
+      // the off-beat branch resumes the music after the clip. (controllable===null,
+      // i.e. warm-play never ran, falls to the crossfade path below whose catch
+      // still surfaces "Tap for sound" if a fresh unmuted play() is truly blocked.)
       if (playing && !preview && !muted && videoVolCtlRef.current === false) {
-        v.muted = true;
+        v.muted = false; // active warm clip → off-gesture unmute is honored on iOS
+        setVol(v, 1); // no-op on iOS (read-only volume); desktop never reaches here
         v.play().catch(() => {
           if (idxRef.current === videoSlideIdxRef.current) goRef.current(videoSlideIdxRef.current + 1);
         });
-        setVideoSoundBlocked(true);
-        if (a && content.musicUrl) {
-          a.play().catch(() => {});
-          crossfade(1, 0); // keep the music as the beat's audio — never duck into dead air
-        }
+        setVideoSoundBlocked(false); // clip carries its own audio now — no tap needed
+        if (a) a.pause(); // hard-duck the soundtrack; off-beat branch resumes it after
       } else {
         v.muted = muted || preview;
         if (playing) {

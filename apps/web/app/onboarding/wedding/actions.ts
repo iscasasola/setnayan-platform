@@ -302,9 +302,10 @@ export async function commitOnboardingWedding(
     );
     secondary = sec ?? null;
   } else {
-    // religious — faith[0]; only 'catholic' is an active ceremony_type today
-    // (INC/Christian/Muslim/Cultural ship as Coming Soon, not yet selectable
-    // as a committed ceremony_type per iteration 0043).
+    // religious — faith[0] is preserved verbatim when it's any ALLOWED_CEREMONIES
+    // value (the guard below only falls back to 'catholic' for an unknown/missing
+    // pick). Selectability is gated upstream by the picker via each faith's
+    // wedding_type launch status (Coming Soon faiths aren't offered), not here.
     const primary = payload.faith[0];
     ceremonyType =
       primary && (ALLOWED_CEREMONIES as readonly string[]).includes(primary)

@@ -207,7 +207,7 @@ export async function saveVendorProfile(formData: FormData) {
     business_slug = parseSlug(formData.get('business_slug'));
   } catch (e) {
     return redirect(
-      `/vendor-dashboard?error=${encodeURIComponent((e as Error).message)}`,
+      `/vendor-dashboard/profile?error=${encodeURIComponent((e as Error).message)}`,
     );
   }
 
@@ -235,7 +235,7 @@ export async function saveVendorProfile(formData: FormData) {
   const currentSlug = tierRowTyped?.business_slug ?? null;
   if (!caps.customWebsiteName && business_slug !== currentSlug) {
     return redirect(
-      `/vendor-dashboard?error=${encodeURIComponent(
+      `/vendor-dashboard/profile?error=${encodeURIComponent(
         'A custom website address is a Pro feature. Upgrade to change your slug.',
       )}`,
     );
@@ -320,7 +320,7 @@ export async function saveVendorProfile(formData: FormData) {
 
   if (error) {
     return redirect(
-      `/vendor-dashboard?error=${encodeURIComponent(error.message)}`,
+      `/vendor-dashboard/profile?error=${encodeURIComponent(error.message)}`,
     );
   }
 
@@ -345,8 +345,8 @@ export async function saveVendorProfile(formData: FormData) {
     }
   }
 
-  revalidatePath('/vendor-dashboard');
-  redirect('/vendor-dashboard?saved=1');
+  revalidatePath('/vendor-dashboard/profile');
+  redirect('/vendor-dashboard/profile?saved=1');
 }
 
 /**

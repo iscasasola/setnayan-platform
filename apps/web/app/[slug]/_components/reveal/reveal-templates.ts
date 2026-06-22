@@ -12,9 +12,10 @@ export type RevealTemplate =
   | 'two-flap-vertical'
   | 'two-flap-horizontal'
   | 'church-doors'
-  | 'veil-sheer'
-  | 'gold-monogram'
-  | 'molten-monogram';
+  | 'veil-sheer';
+// 'gold-monogram' + 'molten-monogram' were RETIRED as openings 2026-06-22 — they
+// are now monogram-editor ANIMATIONS (the 'gold'/'molten' motion keys in
+// lib/monogram-motion.ts, played by HeroMonogram), not reveal openings.
 
 /**
  * The FREE choice — no opening reveal at all; the content film plays straight
@@ -57,11 +58,6 @@ export const REVEAL_ALIASES: Record<string, RevealTemplate> = {
   doors: 'church-doors',
   veil: 'veil-sheer',
   'veil-sheer': 'veil-sheer',
-  'gold-monogram': 'gold-monogram',
-  gold: 'gold-monogram',
-  'molten-monogram': 'molten-monogram',
-  molten: 'molten-monogram',
-  lava: 'molten-monogram',
 };
 
 /**
@@ -112,19 +108,5 @@ export const REVEAL_LIBRARY: ReadonlyArray<{
     family: 'veil',
     blurb: 'A soft, sheer veil lifts and floats away, uncovering your film beneath.',
     motion: 'Veil lifts away',
-  },
-  {
-    id: 'gold-monogram',
-    label: 'Gold monogram turn',
-    family: 'rigid',
-    blurb: 'Your monogram turns into view in flowing gold, catching the light as it faces forward.',
-    motion: 'Turns into the light',
-  },
-  {
-    id: 'molten-monogram',
-    label: 'Molten gold monogram',
-    family: 'rigid',
-    blurb: 'Your monogram pours in as glowing molten gold, then cools and hardens into solid, gleaming metal.',
-    motion: 'Molten gold hardens',
   },
 ];

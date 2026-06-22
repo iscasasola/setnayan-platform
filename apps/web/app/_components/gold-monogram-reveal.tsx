@@ -90,6 +90,7 @@ export function GoldMonogramReveal({
   onDone,
   autoplay = false,
   loop = false,
+  inline = false,
   className,
 }: {
   /** Couple's uploaded/Cipher SVG mark (gold SILHOUETTE when present). */
@@ -104,6 +105,10 @@ export function GoldMonogramReveal({
   autoplay?: boolean;
   /** Loop the entrance forever (ambient/preview). Default false = once → settle. */
   loop?: boolean;
+  /** INLINE monogram-animation mode (the 'gold' motion key): transparent, in-flow,
+   *  sized to the parent, ambient loop — no dark stage, no key-glow, no tap prompt,
+   *  no gesture, never fires onDone. (Default false = the full-screen reveal.) */
+  inline?: boolean;
   className?: string;
 }) {
   const sc = `grk-${useId().replace(/[:]/g, '')}`;
@@ -116,7 +121,7 @@ export function GoldMonogramReveal({
   // on a bespoke silhouette they relocate to a whole-mark fallback on .grk-build.
   const perElement = !bespoke && (buildUp === 'trace' || buildUp === 'assemble');
 
-  const [revealing, setRevealing] = useState(autoplay);
+  const [revealing, setRevealing] = useState(autoplay || inline);
   const reduced = useRef(false);
   const doneRef = useRef(false);
   // settleMs = when the ENTRANCE finishes (→ onDone → the film). For per-element
@@ -140,7 +145,7 @@ export function GoldMonogramReveal({
       typeof window !== 'undefined' &&
       typeof window.matchMedia === 'function' &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (autoplay) {
+    if (autoplay && !inline) {
       if (reduced.current) finish();
       else if (!loop) window.setTimeout(finish, settleMs);
     }
@@ -159,9 +164,9 @@ export function GoldMonogramReveal({
     else window.setTimeout(finish, settleMs);
   };
 
-  const idle = !autoplay && !revealing;
+  const idle = !inline && !autoplay && !revealing;
   const animate = revealing && !reduced.current;
-  const fill = loop ? 'infinite' : 'both';
+  const fill = loop || inline ? 'infinite' : 'both';
   // SHIMMER = the GOLD ITSELF catches the light (the gradient's bright band sweeps
   // through the mark — owner 2026-06-22 "the shimmer on the exact logo", the first
   // sample's look), NOT a white band over a mask. Applied to the mark's own fill:
@@ -278,13 +283,13 @@ export function GoldMonogramReveal({
       : '';
 
   const css = `
-    .${sc}{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-      background:radial-gradient(120% 90% at 50% 32%,#2b2638 0%,#14111c 58%,#0a0810 100%);
+    .${sc}{${inline ? 'position:relative;width:100%;height:100%;' : 'position:absolute;inset:0;'}display:flex;align-items:center;justify-content:center;
+      ${inline ? '' : 'background:radial-gradient(120% 90% at 50% 32%,#2b2638 0%,#14111c 58%,#0a0810 100%);'}
       cursor:${idle ? 'pointer' : 'default'};-webkit-tap-highlight-color:transparent}
     .${sc} .grk-key{position:absolute;top:-32%;left:50%;width:62%;height:84%;transform:translateX(-50%);
       background:radial-gradient(50% 50% at 50% 50%,rgba(255,240,205,.18),transparent 70%);pointer-events:none}
-    .${sc} .grk-persp{position:relative;perspective:1100px;display:flex;align-items:center;justify-content:center}
-    .${sc} .grk-move{position:relative;width:min(46vmin,300px);height:min(46vmin,300px);display:flex;align-items:center;justify-content:center;transform-style:preserve-3d;backface-visibility:hidden;will-change:transform}
+    .${sc} .grk-persp{position:relative;perspective:1100px;display:flex;align-items:center;justify-content:center;${inline ? 'width:100%;height:100%;' : ''}}
+    .${sc} .grk-move{position:relative;width:${inline ? '100%' : 'min(46vmin,300px)'};height:${inline ? '100%' : 'min(46vmin,300px)'};display:flex;align-items:center;justify-content:center;transform-style:preserve-3d;backface-visibility:hidden;will-change:transform}
     .${sc} .grk-build{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;will-change:transform,opacity}
     .${sc} .grk-mk{width:100%;height:100%;object-fit:contain;display:block}
     .${sc} .grk-sil{position:absolute;inset:0;background-image:${GOLD_BG};${maskCss}}
@@ -314,7 +319,7 @@ export function GoldMonogramReveal({
       aria-label={idle ? 'Open your Save the Date' : undefined}
       onKeyDown={idle ? (e) => { if (e.key === 'Enter' || e.key === ' ') onTap(); } : undefined}
     >
-      <span aria-hidden className="grk-key" />
+      {inline ? null : <span aria-hidden className="grk-key" />}
       <div className="grk-persp">
         <div aria-hidden className="grk-move">
           <div className="grk-build">

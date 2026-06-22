@@ -268,6 +268,27 @@ function FilmMonogram({
         ? 'drop-shadow(0 2px 6px rgba(0,0,0,0.32))'
         : 'drop-shadow(0 1px 3px rgba(0,0,0,0.16))';
 
+  // 0 · Gold Turn / Molten Gold — the whole-mark gold animations. HeroMonogram
+  //     renders these for EVERY mark kind (bespoke svg → gold silhouette ·
+  //     lockup/letters → gold glyphs), so one branch covers them all. The film
+  //     beat is the single big surface that hosts molten's live WebGL → allowWebgl
+  //     (one context; the film replaces the hero view, never co-mounted).
+  if (animatedMonogram === 'gold' || animatedMonogram === 'molten') {
+    return (
+      <div aria-hidden className={`inline-flex origin-center items-center justify-center ${lockupScaleCls}`} style={{ filter: glow }}>
+        <HeroMonogram
+          key={monoReplayKey}
+          event={lockup?.design ?? { monogram_style: null, monogram_font_key: null, monogram_frame_key: null }}
+          monogram={lockup?.monogram ?? { text, color: inkColor }}
+          inkOverride={inkColor}
+          animatedMonogram={animatedMonogram}
+          bespokeSvg={svg ?? null}
+          allowWebgl
+        />
+      </div>
+    );
+  }
+
   // 1 · uploaded / monogram-lab SVG — a BARE mark (no cream circle). For an
   //     Animated Monogram owner the couple's CHOSEN motion plays ON the mark via
   //     BespokeMonogramMotion (whole-mark signatures; the glyph-level library

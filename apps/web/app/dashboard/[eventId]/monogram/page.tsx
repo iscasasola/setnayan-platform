@@ -5,7 +5,10 @@ import { createClient } from '@/lib/supabase/server';
 import { registerGatesEnabled } from '@/lib/register-gates';
 import { getCurrentUser } from '@/lib/auth';
 import { resolveMonogram } from '@/lib/monogram';
+import { resolveMonogramMotion } from '@/lib/monogram-motion';
+import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { VectorStudio } from './studio';
+import { MonogramAnimatePicker } from './animate-picker';
 import { sanitizeStudioConfig } from '@/lib/monogram-studio-shared';
 import { MonogramDraftRestore } from './draft-restore';
 
@@ -63,7 +66,7 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
   const { data: event } = await supabase
     .from('events')
     .select(
-      'event_id, display_name, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_motion_key, monogram_custom_svg, monogram_studio_config',
+      'event_id, display_name, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_studio_config',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -84,6 +87,10 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
   const studioConfig = sanitizeStudioConfig(event.monogram_studio_config);
   const hasStudio = Boolean(studioConfig && event.monogram_custom_svg);
   const studioNotice = STUDIO_NOTICES[sp.studio_error ?? ''] ?? STUDIO_NOTICES[sp.studio ?? ''] ?? null;
+
+  // ── Animate side: the chosen motion + whether it plays (ANIMATED_MONOGRAM gate).
+  const currentMotion = resolveMonogramMotion(event.monogram_motion_key);
+  const ownsAnimated = await eventAnimatedMonogramActive(supabase, eventId);
 
   return (
     <section className="space-y-6">
@@ -121,6 +128,26 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
         initialNames={monogram.text}
         hasStudio={hasStudio}
         notice={studioNotice}
+      />
+
+      {/* ── Animate side (owner 2026-06-22 "this is monogram animation … from the
+          monogram editor, the animate side") — pick the motion (incl. Gold Turn +
+          Molten Gold); it plays wherever the mark shows once Animated Monogram is
+          unlocked. ── */}
+      <MonogramAnimatePicker
+        eventId={eventId}
+        currentMotion={currentMotion}
+        owns={ownsAnimated}
+        buyHref={`/dashboard/${eventId}/studio/animated-monogram`}
+        preview={{
+          design: {
+            monogram_style: event.monogram_style ?? null,
+            monogram_font_key: event.monogram_font_key ?? null,
+            monogram_frame_key: event.monogram_frame_key ?? null,
+          },
+          monogram,
+          bespokeSvg: customSvg,
+        }}
       />
     </section>
   );

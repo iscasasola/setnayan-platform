@@ -48,7 +48,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     events: [],
     gallery: [],
     favorites: [],
-    editorials: [],
     context: { hasVendor: false, vendorName: null, isAdmin: true },
   };
 

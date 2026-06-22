@@ -41,13 +41,6 @@ export type SwitcherFavorite = {
   logo_url: string | null;
 };
 
-export type SwitcherEditorial = {
-  editorial_id: string;
-  event_id: string;
-  event_display_name: string;
-  status: string;
-};
-
 export type SwitcherContext = {
   hasVendor: boolean;
   /** Business name of the first vendor profile (for sub-label in context rail) */
@@ -63,7 +56,6 @@ export type SwitcherData = {
   events: SwitcherEvent[];
   gallery: SwitcherGallery[];
   favorites: SwitcherFavorite[];
-  editorials: SwitcherEditorial[];
   context: SwitcherContext;
 };
 
@@ -215,34 +207,6 @@ export async function getSwitcherData(userId: string): Promise<SwitcherData> {
     // vendor_favorites may not exist yet — degrade to empty
   }
 
-  // Editorials: event_editorial rows for the user's events (graceful degrade)
-  let editorials: SwitcherEditorial[] = [];
-  if (events.length > 0) {
-    try {
-      const { data: edRows, error: edErr } = await supabase
-        .from('event_editorial')
-        .select('editorial_id, event_id, status')
-        .in('event_id', events.map((e) => e.event_id))
-        .limit(10);
-
-      if (!edErr && edRows) {
-        const eventNameMap = new Map(events.map((ev) => [ev.event_id, ev.display_name]));
-        editorials = (edRows as Array<{
-          editorial_id: string;
-          event_id: string;
-          status: string;
-        }>).map((row) => ({
-          editorial_id: row.editorial_id,
-          event_id: row.event_id,
-          event_display_name: eventNameMap.get(row.event_id) ?? 'Event',
-          status: row.status,
-        }));
-      }
-    } catch {
-      // event_editorial may not exist yet — degrade to empty
-    }
-  }
-
   // Presign profile photo
   const photoUrl = await displayUrlForStoredAsset(
     profile?.profile_photo_url ?? null,
@@ -264,7 +228,6 @@ export async function getSwitcherData(userId: string): Promise<SwitcherData> {
     events,
     gallery,
     favorites,
-    editorials,
     context,
   };
   } catch (err) {
@@ -277,7 +240,6 @@ export async function getSwitcherData(userId: string): Promise<SwitcherData> {
       events: [],
       gallery: [],
       favorites: [],
-      editorials: [],
       context: { hasVendor: false, vendorName: null, isAdmin: false },
     };
   }

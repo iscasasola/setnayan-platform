@@ -147,7 +147,6 @@ export default async function EventLayout({ children, params }: Props) {
     events: [],
     gallery: [],
     favorites: [],
-    editorials: [],
     context: { hasVendor: false, vendorName: null, isAdmin: false },
   };
   const [

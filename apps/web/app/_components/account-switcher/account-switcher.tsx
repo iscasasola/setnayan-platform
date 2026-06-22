@@ -31,16 +31,15 @@ type Props = {
  * Trigger: avatar pill in the app header (top-left on mobile, icon-rail on
  * desktop). Opens a bottom sheet on mobile / side drawer on desktop.
  *
- * Panel sections (top → bottom):
- *   1. User header: avatar · display name · email
- *   2. Events section: scroll of events the user organises OR attends
- *   3. Three tabs: Gallery | Favorites | Editorials
- *   4. Profile actions: Hosts · Profile · Settings · Sign out
- *   5. Context rail (conditional):
+ * Panel sections (top → bottom) — events-first redesign (owner 2026-06-22):
+ *   1. Events: a prominent "Add event" button + the events the user organises
+ *      OR attends (active ★ first). The only content couples need.
+ *   2. Context rail (conditional) — vendor / Setnayan-team only:
  *       – hidden for plain users (no vendor, not admin)
  *       – [User | Shop] for vendor accounts
  *       – [User | HQ] for admin-only accounts
  *       – [User | Shop | HQ] for admin + vendor accounts
+ *   3. Slim footer: Profile · Settings · Sign out (+ Hosts when co-hosting)
  *
  * Motion:
  *   – Mobile: bottom sheet slides up (translateY 100% → 0) + backdrop fades in

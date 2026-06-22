@@ -51,7 +51,6 @@ export default async function VendorDashboardLayout({
     events: [],
     gallery: [],
     favorites: [],
-    editorials: [],
     context: { hasVendor: true, vendorName: null, isAdmin: false },
   };
 

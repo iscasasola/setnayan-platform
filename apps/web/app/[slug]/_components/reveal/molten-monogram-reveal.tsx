@@ -188,7 +188,10 @@ const FRAG = /* glsl */ `
     float n = fbm(buv + 2.5 * r);
 
     // ── pour: lava rises to fill the mark from the bottom up ──
-    float fillLine = uFill * 1.12 - 0.06;
+    // Overshoot so at uFill=1 the line clears muv.y=1 by a full smoothstep
+    // half-width — the whole mark (incl. a full-bleed square mark's top edge) is
+    // uniformly opaque at rest, no hairline of leftover transparency.
+    float fillLine = uFill * 1.22 - 0.07;
     float filled = 1.0 - smoothstep(fillLine - 0.07, fillLine + 0.07, muv.y);
     float dy = (muv.y - fillLine) / 0.05;
     float crest = exp(-dy * dy) * (1.0 - uCool) * filled; // bright molten crest at the rising fill line
@@ -372,7 +375,12 @@ export default function MoltenMonogramReveal({
       last = now;
       t += dt;
       uniforms.uTime.value = t;
-      const p = loopRef.current ? (t % DUR) / DUR : Math.min(1, t / DUR);
+      // Live = once. Loop (preview/studio) holds the hardened gold a beat before
+      // wrapping so it doesn't snap straight back to molten each cycle.
+      const LOOP_HOLD = 1.4;
+      const p = loopRef.current
+        ? Math.min(1, (t % (DUR + LOOP_HOLD)) / DUR)
+        : Math.min(1, t / DUR);
       uniforms.uProg.value = p;
       uniforms.uFill.value = ss(0.0, 0.3, p);
       uniforms.uCool.value = ss(0.3, 0.85, p);

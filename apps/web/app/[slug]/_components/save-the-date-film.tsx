@@ -778,11 +778,46 @@ export function SaveTheDateFilm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preview]);
 
-  // True until the soundtrack's one-time ENTRANCE fade-in has run, so the video
-  // effect can ramp that first music rise over 3s (a smooth entrance) instead of
-  // the snappy VIDEO_FADE_MS used for video↔music transitions. (owner 2026-06-22
-  // "3 second fade in".)
+  // TRUE only while the one-time 3s ENTRANCE fade-in is in flight, so the video
+  // effect's crossfade leaves the music volume alone and the entrance owns it.
+  const musicEnteringRef = useRef(false);
+  // One-shot guard so the entrance fade runs exactly once.
   const musicEnteredRef = useRef(false);
+
+  // 3-SECOND MUSIC FADE-IN — runs the moment the film starts (the veil lift /
+  // `started`), INDEPENDENT of whether the film has a video beat. (The earlier
+  // version lived inside the video effect, which early-returns when there's no
+  // video — so a music-only / photo-gallery Save-the-Date had its soundtrack
+  // primed to volume 0 and never ramped back up = silent on desktop. This effect
+  // fixes that.) element.volume ramp works on desktop/Android; iOS locks volume
+  // (system-only) so there it just starts cleanly at the lift (no gradual ramp) —
+  // and since iOS ignores the volume-0 prime too, the music is never stuck silent.
+  useEffect(() => {
+    if (!started || preview || muted || musicEnteredRef.current) return;
+    const a = audioRef.current;
+    if (!a) return;
+    musicEnteredRef.current = true;
+    musicEnteringRef.current = true;
+    const FADE_MS = 3000;
+    const t0 = performance.now();
+    setVol(a, 0);
+    let raf = 0;
+    const tick = (now: number) => {
+      const p = Math.min(1, (now - t0) / FADE_MS);
+      setVol(a, p * p); // ease-in for a gentle, natural entrance
+      if (p < 1) {
+        raf = requestAnimationFrame(tick);
+      } else {
+        setVol(a, 1);
+        musicEnteringRef.current = false;
+      }
+    };
+    raf = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(raf);
+      musicEnteringRef.current = false;
+    };
+  }, [started, preview, muted]);
 
   // RAF player — advances timed slides. The video beat (dur Infinity) holds on
   // a timer; it autoplays and the video effect advances it on 'ended'.
@@ -842,7 +877,12 @@ export function SaveTheDateFilm({
         // rather than a linear ramp's abrupt onset/offset.
         const fadeOut = Math.cos((p * Math.PI) / 2); // 1 → 0
         const fadeIn = Math.sin((p * Math.PI) / 2); // 0 → 1
-        setVol(a, musicTo <= m0 ? musicTo + (m0 - musicTo) * fadeOut : m0 + (musicTo - m0) * fadeIn);
+        // While the dedicated 3s ENTRANCE fade owns the music (musicEnteringRef),
+        // don't let this crossfade also write the music volume — they'd fight and
+        // the 850ms ramp would win, collapsing the 3s entrance to a fast rise.
+        if (!musicEnteringRef.current) {
+          setVol(a, musicTo <= m0 ? musicTo + (m0 - musicTo) * fadeOut : m0 + (musicTo - m0) * fadeIn);
+        }
         setVol(v, videoTo <= v0 ? videoTo + (v0 - videoTo) * fadeOut : v0 + (videoTo - v0) * fadeIn);
         if (p < 1) {
           videoFadeRef.current = requestAnimationFrame(tick);
@@ -928,20 +968,14 @@ export function SaveTheDateFilm({
       v.muted = true;
       // Resume the music FROM WHERE IT PAUSED — play() never resets currentTime,
       // and we never touch a.currentTime, so it continues, never restarts.
-      const musicAudible = Boolean(content.musicUrl && a && !preview && playing && !muted);
-      if (musicAudible && a) {
+      if (content.musicUrl && a && !preview && playing && !muted) {
         a.play().catch(() => {});
       }
-      // The FIRST audible music rise (the entrance, when the film starts at the veil
-      // lift) eases in over 3s; later rises (resuming after the video) use the snappy
-      // VIDEO_FADE_MS. Force volume 0 at the entrance so the 3s ramp starts clean.
-      let musicRiseMs = VIDEO_FADE_MS;
-      if (musicAudible && !musicEnteredRef.current) {
-        musicEnteredRef.current = true;
-        musicRiseMs = 3000;
-        if (a) setVol(a, 0);
-      }
-      crossfade(1, 0, false, musicRiseMs); // video fades out, music fades up (3s entrance / snappy resume)
+      // Video fades out, music fades back up (the snappy VIDEO_FADE_MS used for
+      // video↔music transitions). The one-time 3s ENTRANCE fade is owned by the
+      // dedicated `started` effect above (which runs even with no video beat), and
+      // while it's in flight the crossfade leaves the music alone (musicEnteringRef).
+      crossfade(1, 0);
       // Keep the clip WARM (playing, MUTED) BEFORE its beat so it buffers; PAUSE it
       // once we're PAST the beat (clip done) or sound is globally off.
       if (idxRef.current > videoSlideIdxRef.current || muted || preview) {

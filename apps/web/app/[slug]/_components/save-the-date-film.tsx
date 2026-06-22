@@ -688,6 +688,12 @@ export function SaveTheDateFilm({
   // The clip still plays + advances; this just surfaces a one-tap "Tap for sound"
   // control over it so the guest CAN hear the couple's own audio if they want.
   const [videoSoundBlocked, setVideoSoundBlocked] = useState(false);
+  // The clip is kept WARM (playing/looping, hidden) before its beat, so it sits at
+  // a random MIDDLE frame. Don't reveal the full-screen clip overlay until it has
+  // SEEKED back to frame 0 at its beat — otherwise the crossfade shows ~1s of a
+  // mid-clip frame before it jumps to the top (owner 2026-06-22). The website/film
+  // stays visible through the brief seek, then the clip crossfades in from frame 0.
+  const [clipReady, setClipReady] = useState(false);
   // One-time "press & hold to pause" hint (shown a beat after the film starts,
   // then fades for good). The film has no transport chrome, so this is the lone
   // cue that a guest can hold to linger on a beat. Set by start(); see render.
@@ -695,6 +701,8 @@ export function SaveTheDateFilm({
 
   const stageRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  // Fallback timer to reveal the clip even if its 'seeked' never fires.
+  const clipRevealTimerRef = useRef(0);
   const idxRef = useRef(0);
   const playingRef = useRef(false);
   const startRef = useRef(0);
@@ -856,9 +864,25 @@ export function SaveTheDateFilm({
     if (onVideo) {
       if (!prevOnVideoRef.current) {
         v.loop = false; // was looping while warm — let it END so the film advances
-        try { v.currentTime = 0; } catch { /* not seekable yet — plays from 0 */ }
-        setVol(v, 0); // start silent, fade up
         setVideoSoundBlocked(false); // fresh beat — the catch below re-flags if blocked
+        // The warm clip is at a random MIDDLE frame. Seek to the TOP and keep the
+        // overlay HIDDEN until that seek lands ('seeked'), so the crossfade reveals
+        // frame 0 — never a mid-clip flash. Fallback timer reveals anyway if the
+        // seek is instant / 'seeked' never fires, so it can't get stuck hidden.
+        setClipReady(false);
+        const reveal = () => {
+          if (clipRevealTimerRef.current) { clearTimeout(clipRevealTimerRef.current); clipRevealTimerRef.current = 0; }
+          setClipReady(true);
+        };
+        v.addEventListener('seeked', reveal, { once: true });
+        clipRevealTimerRef.current = window.setTimeout(reveal, 700);
+        try {
+          if (v.currentTime > 0.05) v.currentTime = 0; // seek to top (fires 'seeked')
+          else reveal(); // already at the top → no seek event coming, reveal now
+        } catch {
+          reveal(); // not seekable yet — plays from 0 anyway
+        }
+        setVol(v, 0); // start silent, fade up
       }
       // iOS Safari can't RAMP volume (system-volume only), so there's no SMOOTH
       // crossfade here — but the clip's audio still TAKES OVER. The clip has been
@@ -981,6 +1005,7 @@ export function SaveTheDateFilm({
       cancelAnimationFrame(videoFadeRef.current);
       v.removeEventListener('ended', onEnded);
       v.removeEventListener('error', onError);
+      if (clipRevealTimerRef.current) { clearTimeout(clipRevealTimerRef.current); clipRevealTimerRef.current = 0; }
     };
   }, [idx, playing, muted, videoSlideIndex, content.musicUrl, preview]);
 
@@ -1435,10 +1460,10 @@ export function SaveTheDateFilm({
       {hasVideo ? (
         <div
           className={`pointer-events-none fixed inset-0 z-[70] flex items-center justify-center bg-black transition-opacity ease-in-out ${
-            idx === videoSlideIndex ? 'opacity-100' : 'opacity-0'
+            idx === videoSlideIndex && clipReady ? 'opacity-100' : 'opacity-0'
           }`}
           style={{ transitionDuration: `${VIDEO_FADE_MS}ms` }} // synced to the audio crossfade
-          aria-hidden={idx !== videoSlideIndex}
+          aria-hidden={idx !== videoSlideIndex || !clipReady}
         >
           {/* Blurred ambient FILL — a scaled, blurred copy of the clip's POSTER
               STILL fills the whole viewport behind the contained clip, so an aspect

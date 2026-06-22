@@ -2,9 +2,9 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { requireHandler } from '@/lib/handler-lane';
 import { emitNotification } from '@/lib/notification-emit';
 import { formatPhp } from '@/lib/orders';
 import { computeVatFromBase } from '@/lib/receipts';
@@ -39,22 +39,13 @@ import { appendLedger } from '@/lib/ledger';
 // nothing else references them).
 import { activateOrderSku, deactivateOrderSku } from '@/lib/sku-activation';
 
+// Lane-aware admin gate (handler-lane RBAC, Phase 2c). Delegates to
+// requireHandler('payments'): identical to the old admin-or-403 check while the
+// kill-switch is OFF; once enabled, a handler scoped to verification/disputes is
+// rejected here. Return shape ({ userId }) unchanged.
 async function requireAdmin(): Promise<{ userId: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  const { data: me } = await supabase
-    .from('users')
-    .select('is_internal, is_team_member, account_type')
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (!(me?.is_internal || me?.is_team_member || me?.account_type === 'admin')) {
-    throw new Error('Forbidden');
-  }
-  return { userId: user.id };
+  const { userId } = await requireHandler('payments');
+  return { userId };
 }
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {

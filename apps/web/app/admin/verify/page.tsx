@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { assertHandlerLaneOrRedirect } from '@/lib/handler-lane';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { displayServiceLabel } from '@/lib/vendors';
 import { FormFlash } from '@/app/_components/forms/form-flash';
@@ -116,6 +117,9 @@ type ApplicationRow = {
  * Per 0023 § 3.2 + 0006 § Vendor Verification flow + decision log 2026-05-16.
  */
 export default async function AdminVerifyPage({ searchParams }: Props) {
+  // Handler-lane RBAC (Phase 2c): fence a scoped handler out of this queue.
+  // Inert while platform_settings.handler_lane_rbac_enforced is OFF.
+  await assertHandlerLaneOrRedirect('verification');
   const search = await searchParams;
   const surface = search.surface === 'visibility' ? 'visibility' : 'applications';
 

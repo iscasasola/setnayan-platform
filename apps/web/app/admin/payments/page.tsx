@@ -1,5 +1,6 @@
 import { ExternalLink } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { assertHandlerLaneOrRedirect } from '@/lib/handler-lane';
 import { isRequestPlatform } from '@/lib/request-platform';
 import { sweepLapsedSubscriptions } from '@/lib/subscriptions';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -77,6 +78,9 @@ type OrderJoined = {
 };
 
 export default async function AdminPaymentsPage({ searchParams }: Props) {
+  // Handler-lane RBAC (Phase 2c): fence a scoped handler out of this queue.
+  // Inert while platform_settings.handler_lane_rbac_enforced is OFF.
+  await assertHandlerLaneOrRedirect('payments');
   const search = await searchParams;
   const filter = (search.filter ?? 'pending') as Filter;
   // Optional platform filter (web | ios | android) — orthogonal to the status

@@ -66,6 +66,9 @@ import { getLifecyclePhase } from '@/lib/day-of-mode';
 import { fetchScheduleBlocks } from '@/lib/schedule';
 import { fetchTables, type EventTableRow } from '@/lib/seating';
 import { DayOfModeGrid } from './_components/day-of-mode/grid';
+import type { PabatiClipThumb } from './_components/day-of-mode/video-guestbook-card';
+import { eventPabatiActive, fetchPabatiQuota } from '@/lib/pabati';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { findSameDayVendors, type SameDayVendor } from '@/lib/same-day-vendors';
 import { EventDayPrepCta } from '@/app/_components/event-day-prep-cta';
 import { AutoPreloadOnEventDay } from '@/app/_components/auto-preload-on-event-day';
@@ -1353,6 +1356,16 @@ export default async function EventHomePage({
   let dayOfHeadTable: EventTableRow | null = null;
   let dayOfNearbyTables: EventTableRow[] = [];
   let dayOfSameDayVendors: SameDayVendor[] = [];
+  // PABATI video guestbook — auto-show on the day-of grid ONLY when the event
+  // owns the active (admin-approved, bundle-aware) pack. Resolved server-side so
+  // the client grid stays a client component. adminClient because the clip read
+  // sits behind RLS (the couple's own membership would also work, but the day-of
+  // count is a public-summary number — admin keeps it simple + consistent with
+  // the route's read path).
+  let dayOfPabatiActive = false;
+  let dayOfPabatiClips: PabatiClipThumb[] = [];
+  let dayOfPabatiUsed = 0;
+  let dayOfPabatiTotal = 0;
   if (dayOfActive) {
     const [blocksRes, tablesRes, sameDayRes] = await Promise.all([
       fetchScheduleBlocks(supabase, eventId).catch(() => []),
@@ -1374,6 +1387,46 @@ export default async function EventHomePage({
     // a single "head table" by picking the first family_head_* row found.
     dayOfHeadTable = tables.find((t) => t.table_type.startsWith('family_head_')) ?? null;
     dayOfNearbyTables = tables.filter((t) => t.table_id !== dayOfHeadTable?.table_id).slice(0, 6);
+
+    // PABATI — gate first; only fetch clips + quota when the pack is active so a
+    // non-owner pays no query cost. Best-effort: any read error leaves the card
+    // hidden / empty rather than crashing the day-of grid.
+    try {
+      dayOfPabatiActive = await eventPabatiActive(adminClient, eventId);
+      if (dayOfPabatiActive) {
+        const [quota, clipsRes] = await Promise.all([
+          fetchPabatiQuota(adminClient, eventId),
+          // Latest clean, non-hidden greetings for the thumbnail strip. Excludes
+          // nsfw_blocked + unscreened (fail-closed, same as every guest surface)
+          // and couple-hidden rows.
+          adminClient
+            .from('pabati_clips')
+            .select('clip_id, r2_object_key')
+            .eq('event_id', eventId)
+            .eq('moderation_state', 'clean')
+            .is('hidden_at', null)
+            .order('captured_at', { ascending: false })
+            .limit(6),
+        ]);
+        dayOfPabatiUsed = quota.used;
+        dayOfPabatiTotal = quota.total;
+        const clipRows = (clipsRes.data ?? []) as Array<{
+          clip_id: string;
+          r2_object_key: string | null;
+        }>;
+        dayOfPabatiClips = await Promise.all(
+          clipRows.map(async (r) => ({
+            id: r.clip_id,
+            url: r.r2_object_key
+              ? await displayUrlForStoredAsset(r.r2_object_key).catch(() => null)
+              : null,
+          })),
+        );
+      }
+    } catch {
+      dayOfPabatiActive = false;
+      dayOfPabatiClips = [];
+    }
   }
 
   // Task #39 (2026-05-22) — vendor calendar intersection. Renders only at
@@ -1599,6 +1652,10 @@ export default async function EventHomePage({
           headTable={dayOfHeadTable}
           nearbyTables={dayOfNearbyTables}
           sameDayVendors={dayOfSameDayVendors}
+          pabatiActive={dayOfPabatiActive}
+          pabatiClips={dayOfPabatiClips}
+          pabatiUsed={dayOfPabatiUsed}
+          pabatiTotal={dayOfPabatiTotal}
         />
       ) : null}
 

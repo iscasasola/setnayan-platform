@@ -935,22 +935,36 @@ export function SaveTheDateFilm({
         v.loop = false; // was looping while warm — let it END so the film advances
         setVideoSoundBlocked(false); // fresh beat — the catch below re-flags if blocked
         // The warm clip is at a random MIDDLE frame. Seek to the TOP and keep the
-        // overlay HIDDEN until that seek lands ('seeked'), so the crossfade reveals
-        // frame 0 — never a mid-clip flash. Fallback timer reveals anyway if the
-        // seek is instant / 'seeked' never fires, so it can't get stuck hidden.
+        // overlay HIDDEN until the frame ACTUALLY ON SCREEN is the start — so the
+        // crossfade always reveals frame 0, never a stray mid-clip frame.
+        //
+        // We gate on requestVideoFrameCallback (the PRESENTED frame's mediaTime),
+        // NOT 'seeked'. 'seeked' fires when the seek operation completes, but the
+        // compositor can still paint the OLD frame for a tick afterwards — that one
+        // leaked tick is the "I still see a bit before it starts from the beginning"
+        // the owner reported. rVFC only fires once a real frame is composited, and we
+        // wait until that frame is at the very start before revealing. The clip keeps
+        // PLAYING throughout (never paused), so iPhone audio + buffering are untouched.
         setClipReady(false);
         const reveal = () => {
           if (clipRevealTimerRef.current) { clearTimeout(clipRevealTimerRef.current); clipRevealTimerRef.current = 0; }
           setClipReady(true);
         };
-        v.addEventListener('seeked', reveal, { once: true });
-        clipRevealTimerRef.current = window.setTimeout(reveal, 700);
-        try {
-          if (v.currentTime > 0.05) v.currentTime = 0; // seek to top (fires 'seeked')
-          else reveal(); // already at the top → no seek event coming, reveal now
-        } catch {
-          reveal(); // not seekable yet — plays from 0 anyway
+        try { v.currentTime = 0; } catch { /* not seekable yet — plays from 0 anyway */ }
+        const rv = v as HTMLVideoElement & {
+          requestVideoFrameCallback?: (cb: (now: number, meta: { mediaTime: number }) => void) => number;
+        };
+        if (typeof rv.requestVideoFrameCallback === 'function') {
+          const onFrame = (_now: number, meta: { mediaTime: number }) => {
+            if (idxRef.current !== videoSlideIdxRef.current) return; // left the beat
+            if (meta.mediaTime <= 0.08) reveal(); // the start is now ON SCREEN → show it
+            else rv.requestVideoFrameCallback!(onFrame); // still on an old frame — keep waiting
+          };
+          rv.requestVideoFrameCallback(onFrame);
+        } else {
+          v.addEventListener('seeked', reveal, { once: true }); // older browsers
         }
+        clipRevealTimerRef.current = window.setTimeout(reveal, 1200); // last-resort safety
         setVol(v, 0); // start silent, fade up
       }
       // iOS Safari can't RAMP volume (system-volume only), so there's no SMOOTH

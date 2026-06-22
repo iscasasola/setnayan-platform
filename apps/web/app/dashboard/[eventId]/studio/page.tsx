@@ -9,7 +9,9 @@ import { formatPhp } from '@/lib/orders';
 import { StudioAppRow, type RowPill } from './_components/studio-app-row';
 import { StudioFeaturedCard } from './_components/studio-featured-card';
 import { StudioSectionTabs } from './_components/studio-section-tabs';
+import { dismissRecommendation, recommendFeature } from './recommend-actions';
 import { createClient } from '@/lib/supabase/server';
+import Link from 'next/link';
 
 // The cinema-poster card (service-poster.tsx) still owns the `PosterStyle`
 // type that the catalog + Services tab consume, so it is intentionally kept.
@@ -85,6 +87,65 @@ export default async function StudioPage({ params }: Props) {
     }
   }
 
+  // ── Coordinator "recommend a feature" (owner 2026-06-22) ──────────────────
+  // Who's looking: the couple, or a booked coordinator (event delegate)? The
+  // layout already admits only these two; mirror its role test (couple member,
+  // else an accepted non-removed moderator row). A coordinator gets per-feature
+  // "Recommend to couple" controls; the couple gets a "Your coordinator
+  // suggests" strip. Recommendations (+statuses) are read under RLS — the
+  // coordinator and couple each only see their own event's rows.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  let isCoordinator = false;
+  if (user) {
+    const { data: membership } = await supabase
+      .from('event_members')
+      .select('member_type')
+      .eq('event_id', eventId)
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (!membership || membership.member_type !== 'couple') {
+      const { data: moderator } = await supabase
+        .from('event_moderators')
+        .select('moderator_id')
+        .eq('event_id', eventId)
+        .eq('user_id', user.id)
+        .not('accepted_at', 'is', null)
+        .is('removed_at', null)
+        .maybeSingle();
+      isCoordinator = Boolean(moderator);
+    }
+  }
+
+  const { data: recRows } = await supabase
+    .from('coordinator_feature_recommendations')
+    .select('addon_key, status, note')
+    .eq('event_id', eventId);
+  const recByKey = new Map<string, { status: string; note: string | null }>();
+  for (const r of recRows ?? []) {
+    recByKey.set(r.addon_key as string, {
+      status: r.status as string,
+      note: (r.note as string | null) ?? null,
+    });
+  }
+
+  // An add-on is "owned" once a non-cancelled order is paid/fulfilled.
+  function isOwned(entry: AddOnEntry): boolean {
+    const s = entry.serviceKey ? orderStatusMap.get(entry.serviceKey) : null;
+    return s === 'paid' || s === 'fulfilled';
+  }
+  // Only real, buyable, not-yet-owned add-ons can be recommended — a free,
+  // coming-soon, or already-owned feature has nothing for the couple to buy.
+  function isRecommendable(entry: AddOnEntry): boolean {
+    return (
+      entry.status !== 'coming_soon'
+      && entry.tier !== 'free'
+      && Boolean(entry.serviceKey)
+      && !isOwned(entry)
+    );
+  }
+
   // Resolve the App Store-style pill (price/status) for an entry.
   function pillFor(entry: AddOnEntry): RowPill {
     if (entry.status === 'coming_soon') return { text: 'Soon', tone: 'soon' };
@@ -97,6 +158,53 @@ export default async function StudioPage({ params }: Props) {
     const price = entry.serviceKey ? priceMap.get(entry.serviceKey) : null;
     return { text: price ?? 'Get', tone: 'price' };
   }
+
+  // Coordinator's per-feature control: "Recommend" → "Suggested ✓" once sent,
+  // or a muted "Dismissed" if the couple has already passed on it (a dismissed
+  // suggestion is never re-sent, so the coordinator can't nag). Null for the
+  // couple and for non-recommendable features.
+  function coordinatorControl(entry: AddOnEntry) {
+    if (!isCoordinator || !isRecommendable(entry)) return null;
+    const rec = recByKey.get(entry.key);
+    if (rec?.status === 'pending') {
+      return (
+        <span className="inline-flex items-center rounded-full bg-success-100 px-3 py-1 text-xs font-bold text-success-900">
+          Suggested ✓
+        </span>
+      );
+    }
+    if (rec && rec.status !== 'pending') {
+      return <span className="text-xs font-medium text-ink/40">Dismissed</span>;
+    }
+    return (
+      <form action={recommendFeature}>
+        <input type="hidden" name="event_id" value={eventId} />
+        <input type="hidden" name="addon_key" value={entry.key} />
+        <button
+          type="submit"
+          className="rounded-full border border-terracotta/40 bg-terracotta/5 px-3 py-1 text-xs font-bold text-terracotta-700 transition-colors hover:bg-terracotta/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
+        >
+          Recommend
+        </button>
+      </form>
+    );
+  }
+
+  // The couple's digest: every pending, still-buyable suggestion the
+  // coordinator has made, shown as a strip at the top of the hub.
+  const entryByKey = new Map(ADD_ONS.map((a) => [a.key, a] as const));
+  const coupleSuggestions = isCoordinator
+    ? []
+    : (recRows ?? [])
+        .filter((r) => r.status === 'pending')
+        .map((r) => ({
+          entry: entryByKey.get(r.addon_key as string),
+          note: (r.note as string | null) ?? null,
+        }))
+        .filter(
+          (x): x is { entry: AddOnEntry; note: string | null } =>
+            Boolean(x.entry) && isRecommendable(x.entry as AddOnEntry),
+        );
 
   const tabs = SECTIONS.map((s) => ({ id: s.anchor, label: s.label }));
 
@@ -115,6 +223,54 @@ export default async function StudioPage({ params }: Props) {
           it does. New ones light up as they ship.
         </p>
       </header>
+
+      {coupleSuggestions.length > 0 ? (
+        <div className="rounded-2xl border border-terracotta/30 bg-terracotta/[0.04] p-5 sm:p-6">
+          <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-terracotta-600">
+            Your coordinator suggests
+          </p>
+          <ul className="mt-3 space-y-3">
+            {coupleSuggestions.map(({ entry, note }) => {
+              const Icon = entry.Icon;
+              return (
+                <li key={entry.key} className="flex items-center gap-3">
+                  <span
+                    aria-hidden
+                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-cream"
+                    style={{ background: entry.poster.baseBackground }}
+                  >
+                    <Icon className="h-5 w-5" strokeWidth={1.75} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[15px] font-semibold text-ink">
+                      {entry.label}
+                    </span>
+                    <span className="mt-0.5 line-clamp-2 block text-[13px] leading-snug text-ink/60">
+                      {note ? `“${note}”` : entry.blurb}
+                    </span>
+                  </span>
+                  <Link
+                    href={appStoreDetailHref(entry.key, eventId)}
+                    className="shrink-0 rounded-full bg-terracotta px-3.5 py-1 text-xs font-bold text-cream transition-colors hover:bg-terracotta-700"
+                  >
+                    View
+                  </Link>
+                  <form action={dismissRecommendation}>
+                    <input type="hidden" name="event_id" value={eventId} />
+                    <input type="hidden" name="addon_key" value={entry.key} />
+                    <button
+                      type="submit"
+                      className="shrink-0 rounded-full px-2.5 py-1 text-xs font-medium text-ink/45 transition-colors hover:text-ink/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
+                    >
+                      Dismiss
+                    </button>
+                  </form>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
 
       {/* Alaala — the pillar framing. The memory features (capture · website &
           story · music) are the pieces of the couple's living memory. */}
@@ -152,15 +308,20 @@ export default async function StudioPage({ params }: Props) {
             <h2 className="text-2xl font-semibold tracking-tight text-ink">{label}</h2>
 
             {featured ? (
-              <StudioFeaturedCard
-                href={appStoreDetailHref(featured.key, eventId)}
-                eyebrow={label}
-                label={featured.label}
-                tagline={addOnDetail(featured.key)?.tagline ?? featured.blurb}
-                Icon={featured.Icon}
-                gradient={featured.poster.baseBackground}
-                pillText={pillFor(featured)?.text ?? 'Open'}
-              />
+              <div className="space-y-2">
+                <StudioFeaturedCard
+                  href={appStoreDetailHref(featured.key, eventId)}
+                  eyebrow={label}
+                  label={featured.label}
+                  tagline={addOnDetail(featured.key)?.tagline ?? featured.blurb}
+                  Icon={featured.Icon}
+                  gradient={featured.poster.baseBackground}
+                  pillText={pillFor(featured)?.text ?? 'Open'}
+                />
+                {coordinatorControl(featured) ? (
+                  <div className="flex justify-end">{coordinatorControl(featured)}</div>
+                ) : null}
+              </div>
             ) : null}
 
             {rows.length > 0 ? (
@@ -176,6 +337,7 @@ export default async function StudioPage({ params }: Props) {
                       Icon={addon.Icon}
                       gradient={addon.poster.baseBackground}
                       pill={pillFor(addon)}
+                      trailing={coordinatorControl(addon)}
                     />
                   );
                 })}

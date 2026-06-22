@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ChevronRight, type LucideIcon } from 'lucide-react';
+import { type ReactNode } from 'react';
 
 /**
  * StudioAppRow — an iOS App Store-style list row for the Studio hub.
@@ -9,6 +10,10 @@ import { ChevronRight, type LucideIcon } from 'lucide-react';
  * WHOLE row is one tap target → the feature's App Store detail page (single
  * link, no nested interactive elements). The pill is a visual price/status
  * indicator styled like the App Store GET button, not a separate action.
+ *
+ * `trailing` (optional) renders an interactive control — e.g. a coordinator's
+ * "Recommend to couple" button — as a SIBLING of the link, never nested inside
+ * it, so the row stays a single clean tap target while the control is its own.
  *
  * Server component — Links only, no client JS.
  */
@@ -26,6 +31,8 @@ type Props = {
   /** The feature's poster gradient — becomes the app-icon tile background. */
   gradient: string;
   pill: RowPill;
+  /** Optional interactive control rendered beside (not inside) the row link. */
+  trailing?: ReactNode;
 };
 
 function PillEl({ pill }: { pill: NonNullable<RowPill> }) {
@@ -46,7 +53,7 @@ function PillEl({ pill }: { pill: NonNullable<RowPill> }) {
   );
 }
 
-export function StudioAppRow({ href, label, blurb, Icon, gradient, pill }: Props) {
+export function StudioAppRow({ href, label, blurb, Icon, gradient, pill, trailing }: Props) {
   const inner = (
     <>
       <span
@@ -73,25 +80,27 @@ export function StudioAppRow({ href, label, blurb, Icon, gradient, pill }: Props
 
   if (!href) {
     return (
-      <li>
+      <li className="flex items-center">
         <div
           aria-disabled="true"
-          className="flex items-center gap-3.5 px-4 py-3 opacity-70 sm:px-5"
+          className="flex flex-1 items-center gap-3.5 px-4 py-3 opacity-70 sm:px-5"
         >
           {inner}
         </div>
+        {trailing ? <div className="flex shrink-0 items-center pr-4">{trailing}</div> : null}
       </li>
     );
   }
 
   return (
-    <li>
+    <li className="flex items-center">
       <Link
         href={href}
-        className="flex items-center gap-3.5 px-4 py-3 transition-colors hover:bg-ink/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta sm:px-5"
+        className="flex flex-1 items-center gap-3.5 px-4 py-3 transition-colors hover:bg-ink/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta sm:px-5"
       >
         {inner}
       </Link>
+      {trailing ? <div className="flex shrink-0 items-center pr-4">{trailing}</div> : null}
     </li>
   );
 }

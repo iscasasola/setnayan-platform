@@ -58,7 +58,6 @@ export default async function AccountDashboardLayout({
     events: [],
     gallery: [],
     favorites: [],
-    editorials: [],
     context: { hasVendor: false, vendorName: null, isAdmin: false },
   };
   const [{ unreadCount }, switcherData, navSlots] = await Promise.all([

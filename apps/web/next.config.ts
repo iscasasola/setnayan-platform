@@ -340,4 +340,14 @@ export default withSentryConfig(nextConfig, {
   disableLogger: true,
   // Vercel cron monitors are off — we'll opt in per-cron later if needed.
   automaticVercelMonitors: false,
+  // Don't generate full source maps until a SENTRY_AUTH_TOKEN exists to upload
+  // them. Without the token the maps can't reach Sentry anyway, so emitting
+  // them is pure wasted build work (a real memory + time cost on the #1258 OOM-
+  // prone build). `disable` is keyed off the token, so this self-re-enables the
+  // moment the owner provisions one; `deleteSourcemapsAfterUpload` then keeps
+  // the maps out of the deployed bundle once upload is live.
+  sourcemaps: {
+    disable: !process.env.SENTRY_AUTH_TOKEN,
+    deleteSourcemapsAfterUpload: true,
+  },
 });

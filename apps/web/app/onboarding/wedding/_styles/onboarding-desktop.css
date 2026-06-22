@@ -217,6 +217,30 @@
     height: clamp(150px, 26vh, 300px);
   }
 
+  /* Congrats two-pane (owner 2026-06-22 "make it fit + look better"): hero + countdown
+     LEFT, recap + share RIGHT, so the tall finish card splits across the width and fits
+     a laptop. Mobile (<1024) stacks the two columns (.dash-col-* are plain blocks). */
+  .onbw #screen-congrats .dash-site {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: stretch;
+  }
+  .onbw #screen-congrats .dash-col-l {
+    border-right: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+  }
+  .onbw #screen-congrats .dash-col-l .dash-hero {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .onbw #screen-congrats .dash-col-l .dash-sec:last-child,
+  .onbw #screen-congrats .dash-col-r .dash-sec:last-child {
+    border-bottom: 0;
+  }
+
   /* The full-frame photo-cover screens (pax/budget/mood) read best with a taller
      hero on desktop — let the figure grow without breaking its internal layout. */
   .onbw #screen-pax .paxphoto,

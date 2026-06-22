@@ -265,6 +265,17 @@ export const SOCIAL_INTEGRATIONS: readonly OAuthIntegrationDef[] = [
     guidance:
       'Meta Business → System User token with pages_manage_posts + instagram_content_publish. The SAME token authorizes both Facebook and Instagram. ⚠ This is the LIVE auto-publish path — a wrong token stops posting.',
   },
+  {
+    id: 'tiktok_social',
+    label: 'TikTok — auto-publish',
+    category: 'social',
+    secretColumn: 'tiktok_access_token_enc',
+    secretEnv: 'TIKTOK_ACCESS_TOKEN',
+    secretLabel: 'Account access token',
+    configFields: [],
+    guidance:
+      'The Setnayan TikTok account user access token (path B auto-publish). Distinct from the TikTok OAuth client above (per-couple Patiktok). Dormant until a token is set AND the Content-Posting-API audit clears.',
+  },
 ];
 
 /** OAuth clients + social-publish credentials — the union the console manages. */

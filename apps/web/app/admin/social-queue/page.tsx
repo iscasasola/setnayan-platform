@@ -188,7 +188,7 @@ export default async function AdminSocialQueuePage({ searchParams }: Props) {
 
   const fbConfigured = await isFacebookConfigured();
   const igConfigured = await isInstagramConfigured();
-  const ttConfigured = isTikTokConfigured();
+  const ttConfigured = await isTikTokConfigured();
 
   // ── Autopilot switchboard (single row) ──────────────────────────────────
   const { data: settingsData, error: settingsErr } = await admin

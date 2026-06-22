@@ -295,3 +295,34 @@ export async function resolveMetaConfig(): Promise<MetaConfig> {
     igUserId: igUserId || process.env.IG_USER_ID || '',
   };
 }
+
+// ── TikTok social-publish access token (PR4b) ───────────────────────────────
+//
+// DB-first / env-fallback resolver for the master-account TikTok access token
+// (path B auto-publish). Single secret, no config. UNCACHED. Byte-identical to
+// the env read when the DB column is empty. Distinct from the OAuth client
+// secret (resolveOAuthClientConfig with OAUTH_SPECS.tiktok).
+export async function resolveTikTokAccessToken(): Promise<string | null> {
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from('platform_integration_secrets')
+      .select('tiktok_access_token_enc')
+      .eq('id', 1)
+      .maybeSingle();
+    const enc = (data as Record<string, unknown> | null)?.tiktok_access_token_enc as
+      | string
+      | null
+      | undefined;
+    if (enc) {
+      try {
+        return decryptToken(enc);
+      } catch {
+        // bad ciphertext / rotated key → env fallback below
+      }
+    }
+  } catch {
+    // DB unreachable / column absent → env fallback below.
+  }
+  return process.env.TIKTOK_ACCESS_TOKEN || null;
+}

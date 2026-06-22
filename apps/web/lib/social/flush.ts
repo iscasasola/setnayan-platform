@@ -135,7 +135,7 @@ export async function runSocialFlush(): Promise<void> {
     // in /admin/social-queue is what works (Phase C).
     const fbLive = settings.facebook_enabled && (await isFacebookConfigured());
     const igLive = settings.instagram_enabled && (await isInstagramConfigured());
-    const ttLive = settings.tiktok_enabled && isTikTokConfigured();
+    const ttLive = settings.tiktok_enabled && (await isTikTokConfigured());
     if (settings.autopublish_enabled && (fbLive || igLive || ttLive)) {
       await dispatchDuePosts(admin, now, {
         facebook: fbLive,

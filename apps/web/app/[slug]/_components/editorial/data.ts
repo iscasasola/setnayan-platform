@@ -48,6 +48,18 @@ export const LUX_PER_GUEST = 3000;
 export const TIME_SAVED_PER_VENDOR_HOURS = 6;
 export const TIME_SAVED_BASE_HOURS = 8;
 
+/**
+ * How many of the day's Papic captures to pull into the editorial gallery (the
+ * most-recent N clean, non-hidden photos). Capped so a heavily-shot wedding
+ * (thousands of captures) doesn't presign+ship a giant payload — the gallery is
+ * a representative spread, not the full album (the full album lives in the
+ * couple's gallery surface). The renderer shows only the first ~9 anyway.
+ */
+export const EDITORIAL_PAPIC_GALLERY_CAP = 24;
+
+/** How many Papic captures to back the "10 moments" / photo-essay spread. */
+export const EDITORIAL_PAPIC_ESSAY_CAP = 10;
+
 /** Display labels for in-app Setnayan service_keys (the "Powered by Setnayan"
  * strip). Unknown keys fall back to prettyServiceKey(). */
 const SERVICE_LABELS: Record<string, string> = {
@@ -247,9 +259,22 @@ export type EditorialData = {
   // In-app Setnayan services the couple availed (paid `orders`), as display
   // labels — drives the "Powered by Setnayan" strip.
   servicesAvailed: string[];
-  // Shared photos from the day (events.our_photos), resolved to display URLs —
-  // the editorial photo gallery.
+  // Shared photos from the day, resolved to display URLs — the editorial photo
+  // gallery. UNION of the couple's manual uploads (events.our_photos) and a
+  // recent slice of the day's clean Papic captures (papic_photos), so a couple
+  // who shot the day with Papic gets a real gallery even with zero manual
+  // uploads. Falls back to our_photos exactly as before when Papic is empty.
   galleryPhotos: string[];
+  // "The 10 moments" / photo-essay spread. Display URLs auto-filled from the
+  // day's clean Papic captures when the curated event_editorial.essay_photo_ids
+  // list is empty (the normal case — it has no writer yet). A best-effort spread,
+  // not a per-moment mapping. Empty when there are no Papic photos.
+  essayPhotos: string[];
+  // The couple's song for the recap. When the delivered Pakanta song is present
+  // (events.pakanta_song_r2_key), `url` is its presigned audio URL and `label`
+  // credits it as "their song". Otherwise `url` is null and `label` falls back
+  // to the free-text love_story.anchors.song (a typed title, never playable).
+  song: { url: string | null; label: string | null };
   // Live Photo Wall (events.photo_wall_photos), resolved to display URLs.
   // Only surfaced when photoWallActive is true (LIVE_WALL SKU activated).
   photoWallPhotos: string[];
@@ -405,13 +430,31 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     const { data, error } = await admin
       .from('events')
       .select(
-        'event_id, slug, display_name, event_date, venue_name, venue_address, monogram_text, monogram_color, love_story, special_message, together_since, story_tone, story_language, landing_page_hero_image_url, landing_page_hero_video_r2_key, our_photos, photo_wall_photos',
+        'event_id, slug, display_name, event_date, venue_name, venue_address, monogram_text, monogram_color, love_story, special_message, together_since, story_tone, story_language, landing_page_hero_image_url, landing_page_hero_video_r2_key, our_photos, photo_wall_photos, pakanta_song_r2_key',
       )
       .eq('event_id', eventId)
       .maybeSingle();
     if (!error && data) event = data as Record<string, unknown>;
   } catch {
     event = null;
+  }
+  // `pakanta_song_r2_key` is a recently-applied column whose writer PR may still
+  // be merging. If the select above failed only because the column is missing
+  // (PostgREST 42703 / column-does-not-exist), retry WITHOUT it so the whole
+  // editorial still loads — the song block degrades to the typed anchor.
+  if (!event) {
+    try {
+      const { data } = await admin
+        .from('events')
+        .select(
+          'event_id, slug, display_name, event_date, venue_name, venue_address, monogram_text, monogram_color, love_story, special_message, together_since, story_tone, story_language, landing_page_hero_image_url, landing_page_hero_video_r2_key, our_photos, photo_wall_photos',
+        )
+        .eq('event_id', eventId)
+        .maybeSingle();
+      if (data) event = data as Record<string, unknown>;
+    } catch {
+      event = null;
+    }
   }
   if (!event) return null;
 
@@ -610,6 +653,52 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     photos = null;
   }
 
+  // 5b. The day's Papic captures (best-effort, shared by hero + gallery +
+  // essay). Clean, non-hidden, type 'photo' only (never a clip), most-recent
+  // first. PUBLIC surface → moderation-withheld captures are excluded (same
+  // verdict set as the photo COUNT above). A missing table/column (pre-Papic
+  // event, 42P01/42703) degrades to an empty list → every consumer falls back
+  // to its prior source exactly as before.
+  type PapicRow = { photoId: string; key: string };
+  let papicRows: PapicRow[] = [];
+  try {
+    const { data: rows, error } = await admin
+      .from('papic_photos')
+      .select('photo_id, r2_object_key')
+      .eq('event_id', eventId)
+      .eq('photo_type', 'photo')
+      .is('hidden_at', null)
+      .not(
+        'moderation_state',
+        'in',
+        '("nsfw_blocked","consent_withheld","faceblock_withheld")',
+      )
+      .order('captured_at', { ascending: false })
+      .limit(EDITORIAL_PAPIC_GALLERY_CAP);
+    if (!error && Array.isArray(rows)) {
+      papicRows = (rows as Array<Record<string, unknown>>)
+        .map((r) => ({ photoId: asString(r.photo_id), key: asString(r.r2_object_key) }))
+        .filter((r): r is PapicRow => Boolean(r.photoId && r.key));
+    }
+  } catch {
+    papicRows = [];
+  }
+
+  // Presign the Papic captures once; reused by gallery + essay (and the hero
+  // auto-pick reads from the same ordered list).
+  const papicUrlByPhotoId = new Map<string, string>();
+  if (papicRows.length > 0) {
+    const urls = await Promise.all(papicRows.map((r) => displayUrlForStoredAsset(r.key)));
+    papicRows.forEach((r, i) => {
+      const u = urls[i];
+      if (u) papicUrlByPhotoId.set(r.photoId, u);
+    });
+  }
+  // Ordered list of presigned Papic photo URLs (most-recent first), de-duped.
+  const papicGalleryUrls = papicRows
+    .map((r) => papicUrlByPhotoId.get(r.photoId))
+    .filter((u): u is string => Boolean(u));
+
   // 6. Hero photo (OPTIONAL). Resolve event_editorial.hero_photo_id → R2 key →
   // presigned URL. Skips silently on any error.
   let heroPhotoUrl: string | null = null;
@@ -640,9 +729,50 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
       heroPhotoUrl = null;
     }
   }
-  // Fallback: if no curated editorial hero photo, reuse the couple's website
-  // hero image so the editorial still leads with a photo. displayUrlForStoredAsset
-  // passes plain/relative URLs through unchanged.
+  // Fallback A — AUTO-PICK from the day. When the couple never curated an
+  // editorial hero (the normal case — hero_photo_id has no writer yet), lead
+  // the recap with a REPRESENTATIVE Papic capture rather than only the website
+  // hero. Deterministic pick: the most-tagged clean photo (the one with the
+  // most people in it reads as the cover), tie-broken by recency (papicRows is
+  // already most-recent-first). Read-time only — no writer, no migration. A
+  // missing tags table (42P01) → fall through to the first/most-recent capture.
+  if (!heroPhotoUrl && papicRows.length > 0) {
+    let heroKey: string | null = papicRows[0]?.photoId ?? null; // default: most recent
+    try {
+      const photoIds = papicRows.map((r) => r.photoId);
+      const { data: tagRows, error } = await admin
+        .from('photo_tags')
+        .select('source_id')
+        .eq('event_id', eventId)
+        .eq('source_table', 'papic_photos')
+        .in('source_id', photoIds);
+      if (!error && Array.isArray(tagRows) && tagRows.length > 0) {
+        const counts = new Map<string, number>();
+        for (const t of tagRows as Array<Record<string, unknown>>) {
+          const id = asString(t.source_id);
+          if (id) counts.set(id, (counts.get(id) ?? 0) + 1);
+        }
+        // Pick the max-tagged photo, scanning papicRows in recency order so
+        // ties resolve to the most recent — a stable, deterministic choice.
+        let best = heroKey;
+        let bestCount = best ? counts.get(best) ?? 0 : -1;
+        for (const r of papicRows) {
+          const c = counts.get(r.photoId) ?? 0;
+          if (c > bestCount) {
+            bestCount = c;
+            best = r.photoId;
+          }
+        }
+        heroKey = best;
+      }
+    } catch {
+      // tags unavailable → keep the most-recent default
+    }
+    if (heroKey) heroPhotoUrl = papicUrlByPhotoId.get(heroKey) ?? null;
+  }
+  // Fallback B: still no hero → reuse the couple's website hero image so the
+  // editorial still leads with a photo. displayUrlForStoredAsset passes
+  // plain/relative URLs through unchanged.
   if (!heroPhotoUrl) {
     heroPhotoUrl = await displayUrlForStoredAsset(
       asString((event as Record<string, unknown>).landing_page_hero_image_url),
@@ -665,9 +795,18 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
         (r): r is string => typeof r === 'string' && r.trim().length > 0,
       )
     : [];
-  const galleryPhotos = (
+  const manualGalleryPhotos = (
     await Promise.all(galleryRefs.map((ref) => displayUrlForStoredAsset(ref)))
   ).filter((u): u is string => Boolean(u));
+  // UNION the couple's manual uploads (lead, kept first) with a recent slice of
+  // the day's clean Papic captures. A couple who shot the day with Papic gets a
+  // real gallery even with zero manual uploads; one who uploaded manually keeps
+  // those first and gains the day's candids after. De-dup by URL. When
+  // papicGalleryUrls is empty this collapses to manualGalleryPhotos — exactly
+  // today's behaviour.
+  const galleryPhotos = Array.from(
+    new Set([...manualGalleryPhotos, ...papicGalleryUrls]),
+  );
 
   // 6c. Live Photo Wall (events.photo_wall_photos → display URLs), surfaced
   // only when the couple availed the LIVE_WALL SKU. Same resolver as the
@@ -872,6 +1011,87 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     vendorsWeLoved = [];
   }
 
+  // ── The 10 moments / photo-essay spread ─────────────────────────────────────
+  // Prefer the curated event_editorial.essay_photo_ids when present (resolve
+  // each id → Papic key → presigned URL). It has no writer yet, so the normal
+  // case is empty → best-effort auto-fill from the day's Papic captures (a
+  // reasonable spread, capped). Read-time only — no per-moment mapping.
+  let essayPhotos: string[] = [];
+  const essayIdsRaw = (editorial as Record<string, unknown> | null)?.essay_photo_ids;
+  const essayIds = Array.isArray(essayIdsRaw)
+    ? (essayIdsRaw as unknown[])
+        .map((v) => asString(v))
+        .filter((v): v is string => Boolean(v))
+    : [];
+  if (essayIds.length > 0) {
+    // Resolve curated picks in their chosen order. Reuse the already-presigned
+    // gallery map where it overlaps; presign any ids outside the gallery slice.
+    const missing = essayIds.filter((id) => !papicUrlByPhotoId.has(id));
+    if (missing.length > 0) {
+      try {
+        const { data: rows } = await admin
+          .from('papic_photos')
+          .select('photo_id, r2_object_key')
+          .eq('event_id', eventId)
+          .in('photo_id', missing)
+          .not(
+            'moderation_state',
+            'in',
+            '("nsfw_blocked","consent_withheld","faceblock_withheld")',
+          )
+          .is('hidden_at', null);
+        for (const r of (rows ?? []) as Array<Record<string, unknown>>) {
+          const id = asString(r.photo_id);
+          const key = asString(r.r2_object_key);
+          if (!id || !key) continue;
+          const u = await displayUrlForStoredAsset(key);
+          if (u) papicUrlByPhotoId.set(id, u);
+        }
+      } catch {
+        // leave unresolved ids out
+      }
+    }
+    essayPhotos = essayIds
+      .map((id) => papicUrlByPhotoId.get(id))
+      .filter((u): u is string => Boolean(u));
+  }
+  if (essayPhotos.length === 0) {
+    // Auto-fill: a spread of the day's captures. Spaced across the recency-
+    // ordered set when there are more captures than slots, so the essay isn't
+    // just the same first few photos the gallery leads with.
+    if (papicGalleryUrls.length <= EDITORIAL_PAPIC_ESSAY_CAP) {
+      essayPhotos = papicGalleryUrls.slice(0, EDITORIAL_PAPIC_ESSAY_CAP);
+    } else {
+      const step = papicGalleryUrls.length / EDITORIAL_PAPIC_ESSAY_CAP;
+      const spread: string[] = [];
+      for (let i = 0; i < EDITORIAL_PAPIC_ESSAY_CAP; i += 1) {
+        const u = papicGalleryUrls[Math.floor(i * step)];
+        if (u && !spread.includes(u)) spread.push(u);
+      }
+      essayPhotos = spread;
+    }
+  }
+
+  // ── Their song ──────────────────────────────────────────────────────────────
+  // Prefer the DELIVERED Pakanta song (events.pakanta_song_r2_key) — presign it
+  // so the recap plays/credits the couple's actual song. The column is read by
+  // name above (with a column-missing retry on the event select); if it's
+  // absent the value is simply undefined here. Fall back to the typed
+  // love_story.anchors.song title (never playable) when no delivered song.
+  const pakantaKey = asString((event as Record<string, unknown>).pakanta_song_r2_key);
+  let songUrl: string | null = null;
+  if (pakantaKey) {
+    try {
+      songUrl = await displayUrlForStoredAsset(pakantaKey);
+    } catch {
+      songUrl = null;
+    }
+  }
+  const songLabel = songUrl
+    ? asString(loveStory.anchors?.song) ?? 'Their wedding song'
+    : asString(loveStory.anchors?.song);
+  const song = { url: songUrl, label: songLabel };
+
   return {
     displayName,
     firstNames: deriveFirstNames(displayName),
@@ -906,6 +1126,8 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     reviews,
     servicesAvailed,
     galleryPhotos,
+    essayPhotos,
+    song,
     photoWallPhotos,
     photoWallActive,
     pabatiClips,
@@ -1089,6 +1311,12 @@ function mariaAndJuan(): EditorialData {
       '/realstories/maria-juan-g2.jpg',
       '/realstories/maria-juan-g3.jpg',
     ],
+    essayPhotos: [
+      '/realstories/maria-juan-g1.jpg',
+      '/realstories/maria-juan-g2.jpg',
+      '/realstories/maria-juan-g3.jpg',
+    ],
+    song: { url: null, label: 'their kundiman' },
     photoWallPhotos: [],
     photoWallActive: false,
     pabatiClips: [],
@@ -1176,6 +1404,12 @@ function jackAndJill(): EditorialData {
       '/realstories/jack-jill-g2.jpg',
       '/realstories/jack-jill-g3.jpg',
     ],
+    essayPhotos: [
+      '/realstories/jack-jill-g1.jpg',
+      '/realstories/jack-jill-g2.jpg',
+      '/realstories/jack-jill-g3.jpg',
+    ],
+    song: { url: null, label: 'their road-trip anthem' },
     photoWallPhotos: [],
     photoWallActive: false,
     pabatiClips: [],
@@ -1263,6 +1497,12 @@ function johnAndJane(): EditorialData {
       '/realstories/john-jane-g2.jpg',
       '/realstories/john-jane-g3.jpg',
     ],
+    essayPhotos: [
+      '/realstories/john-jane-g1.jpg',
+      '/realstories/john-jane-g2.jpg',
+      '/realstories/john-jane-g3.jpg',
+    ],
+    song: { url: null, label: 'their slow song' },
     photoWallPhotos: [],
     photoWallActive: false,
     pabatiClips: [],
@@ -1351,6 +1591,12 @@ function peterAndMary(): EditorialData {
       '/realstories/peter-mary-g2.jpg',
       '/realstories/peter-mary-g3.jpg',
     ],
+    essayPhotos: [
+      '/realstories/peter-mary-g1.jpg',
+      '/realstories/peter-mary-g2.jpg',
+      '/realstories/peter-mary-g3.jpg',
+    ],
+    song: { url: null, label: 'their parents’ favourite' },
     photoWallPhotos: [],
     photoWallActive: false,
     pabatiClips: [],
@@ -1439,6 +1685,12 @@ function jackAndRose(): EditorialData {
       '/realstories/jack-rose-g2.jpg',
       '/realstories/jack-rose-g3.jpg',
     ],
+    essayPhotos: [
+      '/realstories/jack-rose-g1.jpg',
+      '/realstories/jack-rose-g2.jpg',
+      '/realstories/jack-rose-g3.jpg',
+    ],
+    song: { url: null, label: 'their rainy-day record' },
     photoWallPhotos: [],
     photoWallActive: false,
     pabatiClips: [],

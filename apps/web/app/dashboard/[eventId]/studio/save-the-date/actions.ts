@@ -12,6 +12,7 @@ import { resolveStdBackground, type StdBackground } from '@/lib/std-backgrounds'
 import { resolveStdMedia, type StdMedia } from '@/lib/std-media';
 import { screenStdVideo } from '@/lib/nsfw-screen';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { fanOutSaveTheDateEmails } from '@/lib/save-the-date-emails';
 
 /**
  * Server actions for the Save-the-Date builder (0024 PR4 · P4).
@@ -309,6 +310,13 @@ export async function launchSaveTheDate(
   // could keep serving the lock screen after launch.
   if (ev.slug) revalidatePath(`/${ev.slug as string}`);
   revalidate(eventId);
+  // Augment the shared-link "pull" model with an opt-out-able PUSH: actively
+  // email each guest who has an email address their save-the-date. Cron-free
+  // (Next 15 after() — runs after the response), best-effort (never blocks the
+  // launch or throws), and idempotent (per-guest guests.std_sent_at guards a
+  // re-launch from re-spamming). Guests WITHOUT an email are simply skipped —
+  // the shared join link stays their fallback.
+  after(() => fanOutSaveTheDateEmails(eventId).catch(() => {}));
   return { ok: true };
 }
 

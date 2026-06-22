@@ -249,7 +249,7 @@ export function StdMediaPicker({
             initialDisplayUrls={value.videoKey && videoUrl ? { [value.videoKey]: videoUrl } : {}}
             onFilePicked={handleFilePicked}
             onChange={(v) => handleVideoChange(typeof v === 'string' ? v : null)}
-            help="MP4/MOV/WebM. Big files are fine — we automatically optimize your video for fast, smooth playback."
+            help="MP4/MOV/WebM. Big files are fine — we optimize your video for smooth playback while keeping its full resolution (up to 4K). Large/4K clips take a little longer to process."
           />
           {/* Play mode — fill (default) vs fit-to-screen — owner 2026-06-21
               "give them an option how the video plays … place a toggle next to

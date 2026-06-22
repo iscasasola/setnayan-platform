@@ -88,7 +88,7 @@ export function RevealPreview({
     );
   }
   if (template === 'gold-monogram') {
-    return <GoldMonogramReveal markSvg={markSvg} monogram={monogram} onDone={onDone} autoplay loop />;
+    return <GoldMonogramReveal markSvg={markSvg} monogram={monogram} dials={effects?.gold} onDone={onDone} autoplay loop />;
   }
   const effect = effects ? rigidEffectFor(template, effects) : null;
   if (

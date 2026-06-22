@@ -1,7 +1,10 @@
 import Link from 'next/link';
 import { type ReactNode } from 'react';
 import { Search, ShieldCheck, Sparkle, MailCheck, Trash2, Ban, KeyRound, Undo2, Gift, ChevronDown, ChevronUp, XCircle, LogOut } from 'lucide-react';
+import { after } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
+import { logAdminDataAccess } from '@/lib/admin-data-access';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { MiniTour } from '@/app/_components/mini-tour';
@@ -133,6 +136,21 @@ export default async function AdminUsersPage({ searchParams }: Props) {
     } catch {
       expandedGrants = [];
     }
+    // RA 10173 access trail (admin account-access model Phase 1a): record —
+    // post-response, non-fatal — that this admin opened this account's detail.
+    // Never blocks render; logging failures are swallowed by the helper.
+    const viewedUserId = expandUserId;
+    after(async () => {
+      const supabase = await createClient();
+      const {
+        data: { user: actingAdmin },
+      } = await supabase.auth.getUser();
+      await logAdminDataAccess(admin, {
+        adminUserId: actingAdmin?.id ?? null,
+        accessedUserId: viewedUserId,
+        surface: 'admin_users_detail',
+      });
+    });
   }
 
   return (

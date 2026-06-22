@@ -22,6 +22,7 @@ import { loadEditorialData, type EditorialData } from './data';
 import { composeCopy, type ComposedCopy } from './compose';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import {
   resolveEventMonogram,
   HERO_MONOGRAM_COLUMNS,
@@ -104,6 +105,21 @@ export async function EditorialContent({
     mono = await resolveEventMonogram(admin, eventId, monoRow);
   } catch {
     mono = null;
+  }
+
+  // Paid COUPLE_WEBSITE_PRO perk (₱3,999) — when ACTIVE (admin-approved), the
+  // editorial sheds the freemium "Powered by Setnayan" colophon watermark
+  // (the masthead sign-off below), matching the wedding site + recap. The
+  // "Powered by Setnayan" SERVICE-CREDITS strip (SetnayanExperience chip row)
+  // is CONTENT, not a watermark, and is intentionally NOT gated. Best-effort +
+  // wrapped to keep this component's "never throws" contract → false (keep the
+  // watermark) on any error. eventCoupleWebsiteProActive already
+  // graceful-degrades on orders-table drift; the catch guards the rest.
+  let hideWatermark = false;
+  try {
+    hideWatermark = await eventCoupleWebsiteProActive(createAdminClient(), eventId);
+  } catch {
+    hideWatermark = false;
   }
 
   return (
@@ -287,7 +303,7 @@ export async function EditorialContent({
         ) : null}
 
         {/* Colophon / cross-phase links --------------------------------------- */}
-        <Colophon names={data.displayName} city={data.venueCity} />
+        <Colophon names={data.displayName} city={data.venueCity} hideWatermark={hideWatermark} />
       </article>
     </div>
   );
@@ -985,7 +1001,18 @@ function SetnayanExperience({ services }: { services: string[] }): ReactElement 
   );
 }
 
-function Colophon({ names, city }: { names: string; city: string | null }): ReactElement {
+function Colophon({
+  names,
+  city,
+  hideWatermark = false,
+}: {
+  names: string;
+  city: string | null;
+  /** Paid COUPLE_WEBSITE_PRO perk — drop the masthead "Powered by Setnayan"
+   *  watermark when the event owns the active upgrade. The cross-phase links +
+   *  couple names stay; only the freemium credit line goes. */
+  hideWatermark?: boolean;
+}): ReactElement {
   return (
     <footer className="mt-7 border-t-[3px] border-double border-ink pt-3 text-center">
       <div className="flex flex-wrap justify-center gap-5 font-mono text-[9px] uppercase tracking-[0.1em]">
@@ -1000,7 +1027,7 @@ function Colophon({ names, city }: { names: string; city: string | null }): Reac
         </a>
       </div>
       <p className="mt-3 font-serif text-sm italic text-ink/45">
-        Powered by Setnayan{city ? ` · ${city}` : ''} · {names}
+        {hideWatermark ? names : <>Powered by Setnayan{city ? ` · ${city}` : ''} · {names}</>}
       </p>
     </footer>
   );

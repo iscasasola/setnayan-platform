@@ -4,6 +4,7 @@ import { notFound, redirect } from 'next/navigation';
 import { Camera, Clapperboard, Quote, Sparkles } from 'lucide-react';
 import { Logo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { buildSitePaletteVars } from '@/lib/site-palette';
@@ -87,6 +88,15 @@ export default async function RecapPage({ params }: { params: Promise<{ slug: st
   const themeVars = buildSitePaletteVars(sanitizeRolePalette(event.role_palette));
   const wrapStyle = themeVars ? (themeVars as React.CSSProperties) : undefined;
 
+  // Paid COUPLE_WEBSITE_PRO perk (₱3,999) — when ACTIVE (admin-approved), the
+  // recap sheds the freemium "Powered by Setnayan · setnayan.com" footer
+  // watermark, matching the wedding site. Admin client (public/anonymous
+  // viewer); graceful-degrades to false (= keep the watermark) on any error.
+  const hideWatermark = await eventCoupleWebsiteProActive(
+    createAdminClient(),
+    event.event_id,
+  );
+
   if (!(await isRecapPublished(event.event_id))) {
     return (
       <main className="min-h-dvh bg-cream text-ink" style={wrapStyle}>
@@ -105,7 +115,7 @@ export default async function RecapPage({ params }: { params: Promise<{ slug: st
             Open their page
           </Link>
         </div>
-        <RecapFooter />
+        <RecapFooter hideWatermark={hideWatermark} />
       </main>
     );
   }
@@ -161,11 +171,14 @@ function RecapHeader() {
   );
 }
 
-function RecapFooter() {
+function RecapFooter({ hideWatermark = false }: { hideWatermark?: boolean }) {
   return (
     <footer className="border-t border-ink/10 px-4 py-8 text-center">
       <p className="font-serif text-lg italic text-terracotta">A living memory.</p>
-      <p className="mt-3 text-xs text-ink/50">Powered by Setnayan · setnayan.com</p>
+      {/* Paid COUPLE_WEBSITE_PRO perk — drop the freemium watermark when active. */}
+      {hideWatermark ? null : (
+        <p className="mt-3 text-xs text-ink/50">Powered by Setnayan · setnayan.com</p>
+      )}
     </footer>
   );
 }

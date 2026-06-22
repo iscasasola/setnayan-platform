@@ -11,6 +11,7 @@ import { ROLE_LABELS, type GuestRole } from '@/lib/guests';
 import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
 import { resolveMonogram, type MonogramConfig } from '@/lib/monogram';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
+import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
 import { PapicGuestCapture } from '@/app/papic/guest/_components/papic-guest-capture';
 import { eventPabatiActive, fetchPabatiQuota } from '@/lib/pabati';
@@ -366,6 +367,16 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     ? resolveMonogramMotion(event.monogram_motion_key)
     : false;
 
+  // Paid COUPLE_WEBSITE_PRO upgrade (₱3,999 · the single website-Pro unlock).
+  // V1 perk: when ACTIVE (admin-approved), the couple's wedding site sheds the
+  // freemium "Powered by Setnayan · setnayan.com" footer watermark. Resolved
+  // once here via the admin client (anonymous public path, no RLS session) and
+  // threaded into every render branch as a plain boolean → the InvitationShell
+  // footer drops the watermark line. Graceful-degrades to `false` (= keep the
+  // watermark, the safe default) on any orders-table shape error — see
+  // lib/couple-website-pro.ts. The free baseline website keeps the watermark.
+  const proWatermarkHidden = await eventCoupleWebsiteProActive(admin, event.event_id);
+
   // Setnayan-AI bespoke monogram (Phase 2 of the monogram overhaul). When the
   // couple applied a bespoke mark (events.monogram_custom_svg — sanitized at
   // generation time, lib/bespoke-monogram-engine.ts), it REPLACES the
@@ -570,6 +581,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
           monogram={monogram}
           animatedMonogram={animatedMonogram}
           bespokeSvg={bespokeSvg}
+          proWatermarkHidden={proWatermarkHidden}
         />
       );
     }
@@ -830,6 +842,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         sdeFilm={sdeFilm}
         sdeOwnedPending={sdeOwnedPending}
         bespokeSvg={bespokeSvg}
+        proWatermarkHidden={proWatermarkHidden}
       />
     );
   }
@@ -864,6 +877,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         sdeFilm={sdeFilm}
         sdeOwnedPending={sdeOwnedPending}
         bespokeSvg={bespokeSvg}
+        proWatermarkHidden={proWatermarkHidden}
       />
     );
   }
@@ -905,6 +919,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         sdeFilm={sdeFilm}
         sdeOwnedPending={sdeOwnedPending}
         bespokeSvg={bespokeSvg}
+        proWatermarkHidden={proWatermarkHidden}
       />
     );
   }
@@ -1135,6 +1150,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         seatMap={seatMap}
         papicGuest={papicGuest}
         pabati={pabati}
+        proWatermarkHidden={proWatermarkHidden}
       />
       {papicGuestActive && (
         <Link
@@ -1341,9 +1357,15 @@ function InvitationShell({
   backdrop,
   rolePalette,
   fullBleed = false,
+  hideWatermark = false,
 }: {
   children: React.ReactNode;
   backdrop?: React.ReactNode;
+  // Paid COUPLE_WEBSITE_PRO perk (₱3,999) — when the event owns the ACTIVE
+  // upgrade, drop the freemium "Powered by Setnayan · setnayan.com" footer
+  // watermark. Resolved once at the top-level page (eventCoupleWebsiteProActive)
+  // + threaded through each render branch. Defaults false → free site keeps it.
+  hideWatermark?: boolean;
   // Couple's mood-board palette (events.role_palette). When present + themeable,
   // it overrides the --color-* tokens for THIS subtree only, re-skinning every
   // cream/ink/terracotta/mulberry class on the couple site (all four phases).
@@ -1416,9 +1438,11 @@ function InvitationShell({
         >
           See you soon.
         </p>
-        <p className={`mt-3 text-xs ${backdrop ? 'text-cream/55' : 'text-ink/50'}`}>
-          Powered by Setnayan · setnayan.com
-        </p>
+        {hideWatermark ? null : (
+          <p className={`mt-3 text-xs ${backdrop ? 'text-cream/55' : 'text-ink/50'}`}>
+            Powered by Setnayan · setnayan.com
+          </p>
+        )}
       </footer>
     </main>
   );
@@ -1496,6 +1520,7 @@ function PublicLanding({
   sdeFilm,
   sdeOwnedPending,
   bespokeSvg,
+  proWatermarkHidden,
 }: {
   event: EventRow;
   // The couple's resolved mark (resolveMonogram) — feeds the anonymous hero's
@@ -1569,6 +1594,10 @@ function PublicLanding({
    *  sites pass it) so HeroMonogram, which needs a non-optional value, can
    *  consume it. null → text initials. Mirrors InvitationSite / PrivateLanding. */
   bespokeSvg: string | null;
+  /** Paid COUPLE_WEBSITE_PRO perk — drop the "Powered by Setnayan" footer
+   *  watermark when the event owns the active upgrade. Resolved once at the
+   *  top-level page (eventCoupleWebsiteProActive). */
+  proWatermarkHidden: boolean;
 }) {
   // Public-safe hideable widgets in the host's display order. The 6
   // types below all carry event-level data (no per-guest fields) so
@@ -1625,7 +1654,12 @@ function PublicLanding({
 
   const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
   return (
-    <InvitationShell backdrop={backdrop} rolePalette={event.role_palette} fullBleed={showSaveTheDate && stdFilm}>
+    <InvitationShell
+      backdrop={backdrop}
+      rolePalette={event.role_palette}
+      fullBleed={showSaveTheDate && stdFilm}
+      hideWatermark={proWatermarkHidden}
+    >
       <GuestPreload eventSlug={event.slug} />
       {showSaveTheDate && !event.is_sample ? <StdViewBeacon slug={event.slug} /> : null}
       <RevealOverlayServer
@@ -1946,6 +1980,7 @@ function PrivateLanding({
   monogram,
   animatedMonogram,
   bespokeSvg,
+  proWatermarkHidden,
 }: {
   event: EventRow;
   monogram: MonogramConfig;
@@ -1956,9 +1991,12 @@ function PrivateLanding({
   // The applied Setnayan-AI bespoke mark (sanitized SVG) — wins over the
   // typographic circle when present. See [slug]/page.tsx resolution.
   bespokeSvg: string | null;
+  /** Paid COUPLE_WEBSITE_PRO perk — drop the "Powered by Setnayan" footer
+   *  watermark when the event owns the active upgrade. */
+  proWatermarkHidden: boolean;
 }) {
   return (
-    <InvitationShell rolePalette={event.role_palette}>
+    <InvitationShell rolePalette={event.role_palette} hideWatermark={proWatermarkHidden}>
       <div className="space-y-8 text-center">
         <div className="flex justify-center">
           <HeroMonogram
@@ -2037,6 +2075,7 @@ function InvitationSite({
   seatMap,
   papicGuest,
   pabati,
+  proWatermarkHidden,
 }: {
   event: EventRow;
   guest: GuestRow;
@@ -2126,6 +2165,10 @@ function InvitationSite({
     initialRemaining: number;
     total: number;
   } | null;
+  /** Paid COUPLE_WEBSITE_PRO perk — drop the "Powered by Setnayan" footer
+   *  watermark when the event owns the active upgrade. Resolved once at the
+   *  top-level page (eventCoupleWebsiteProActive). */
+  proWatermarkHidden: boolean;
 }) {
   const sideLabel =
     guest.side === 'both'
@@ -2199,7 +2242,12 @@ function InvitationSite({
 
   const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
   return (
-    <InvitationShell backdrop={backdrop} rolePalette={event.role_palette} fullBleed={showSaveTheDate && stdFilm}>
+    <InvitationShell
+      backdrop={backdrop}
+      rolePalette={event.role_palette}
+      fullBleed={showSaveTheDate && stdFilm}
+      hideWatermark={proWatermarkHidden}
+    >
       <GuestPreload eventSlug={event.slug} />
       {showSaveTheDate && !event.is_sample ? <StdViewBeacon slug={event.slug} /> : null}
       <RevealOverlayServer

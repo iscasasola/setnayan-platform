@@ -33,6 +33,7 @@ import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
 import { GuestPreload } from './_components/guest-preload';
 import { StdViewBeacon } from './_components/std-view-beacon';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { displayUrlForStdBackground } from '@/lib/std-bg-image';
 import { BackgroundMusic } from './_components/background-music';
 import { EditorialContent } from './_components/editorial/editorial-content';
 import { SaveTheDateView } from './_components/save-the-date';
@@ -409,7 +410,11 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     stdBackground.kind === 'realistic'
       ? realisticBgSrc(stdBackground.value)
       : stdBackground.kind === 'upload'
-        ? await displayUrlForStoredAsset(stdBackground.value)
+        ? // Serve a screen-sized WebP variant (cached in R2), not the couple's
+          // full-resolution original — the full-bleed CSS background otherwise
+          // streams multiple MB and loads slowly on phones. Falls back to the
+          // original on any error. See lib/std-bg-image.
+          await displayUrlForStdBackground(stdBackground.value)
         : null;
 
   // Step-3 Save-the-Date media (events.std_media). The couple's closing beat is

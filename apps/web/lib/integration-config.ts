@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { decryptToken } from '@/lib/encryption';
 import {
   SECRET_INTEGRATIONS,
+  ALL_SECRET_COLUMNS,
   type SecretIntegrationDef,
   type OAuthResolveSpec,
 } from '@/lib/integrations/registry';
@@ -163,7 +164,7 @@ export async function resolveOpenAiKey(): Promise<string | null> {
  */
 export async function getSecretPresenceMap(): Promise<Record<string, boolean>> {
   const map: Record<string, boolean> = {};
-  for (const def of SECRET_INTEGRATIONS) map[def.secretColumn] = false;
+  for (const col of ALL_SECRET_COLUMNS) map[col] = false;
   try {
     const admin = createAdminClient();
     const { data } = await admin
@@ -173,9 +174,7 @@ export async function getSecretPresenceMap(): Promise<Record<string, boolean>> {
       .maybeSingle();
     const row = data as Record<string, unknown> | null;
     if (row) {
-      for (const def of SECRET_INTEGRATIONS) {
-        map[def.secretColumn] = Boolean(row[def.secretColumn]);
-      }
+      for (const col of ALL_SECRET_COLUMNS) map[col] = Boolean(row[col]);
     }
   } catch {
     // leave all-false

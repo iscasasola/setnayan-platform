@@ -5,7 +5,10 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { encryptToken } from '@/lib/encryption';
-import { getSecretIntegration } from '@/lib/integrations/registry';
+import {
+  getSecretIntegration,
+  getOAuthIntegration,
+} from '@/lib/integrations/registry';
 
 // Integration Activation Console — PR1 (email slice) · server actions.
 //
@@ -109,6 +112,74 @@ export async function clearIntegrationSecret(formData: FormData): Promise<void> 
   await requireAdmin();
   const id = formData.get('integration_id');
   const def = typeof id === 'string' ? getSecretIntegration(id) : undefined;
+  if (!def) throw new Error('Unknown integration');
+
+  const admin = createAdminClient();
+  await admin
+    .from('platform_integration_secrets')
+    .update({ [def.secretColumn]: null, updated_at: new Date().toISOString() })
+    .eq('id', 1);
+
+  revalidatePath('/admin/integrations');
+  redirect('/admin/integrations?cleared=1');
+}
+
+// ── OAuth client config (PR3b) ──────────────────────────────────────────────
+//
+// Save an OAuth integration's client config from the console: the encrypted
+// client SECRET (platform_integration_secrets) + non-secret config fields
+// (platform_settings). Both the integration id and every config column are
+// validated against the OAUTH_INTEGRATIONS allowlist, so a form value can never
+// write an unregistered column. The secret is only written when a new value is
+// entered (blank = keep current); config fields write their value or NULL (blank
+// = clear → resolver falls back to env).
+
+export async function saveOAuthConfig(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const id = formData.get('oauth_id');
+  const def = typeof id === 'string' ? getOAuthIntegration(id) : undefined;
+  if (!def) throw new Error('Unknown integration');
+  const admin = createAdminClient();
+
+  // Non-secret config → platform_settings. Columns come ONLY from the registry.
+  // Redirect URIs are validated as http(s) URLs before persisting (they become a
+  // live OAuth `redirect_uri`) — invalid input redirects to a banner, no write.
+  const patch: Record<string, string | null> = {};
+  for (const field of def.configFields) {
+    const raw = formData.get(field.column);
+    const val = typeof raw === 'string' && raw.trim() ? raw.trim() : null;
+    if (val && field.column.includes('redirect_uri')) {
+      let ok = false;
+      try {
+        const u = new URL(val);
+        ok = u.protocol === 'https:' || u.protocol === 'http:';
+      } catch {
+        ok = false;
+      }
+      if (!ok) redirect('/admin/integrations?error=invalid_redirect_uri');
+    }
+    patch[field.column] = val;
+  }
+  await admin.from('platform_settings').update(patch).eq('id', 1);
+
+  // Client secret → encrypted, only if a new value was entered.
+  const secretRaw = formData.get('client_secret');
+  if (typeof secretRaw === 'string' && secretRaw.trim()) {
+    const enc = encryptToken(secretRaw.trim());
+    await admin
+      .from('platform_integration_secrets')
+      .update({ [def.secretColumn]: enc, updated_at: new Date().toISOString() })
+      .eq('id', 1);
+  }
+
+  revalidatePath('/admin/integrations');
+  redirect('/admin/integrations?saved=1');
+}
+
+export async function clearOAuthSecret(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const id = formData.get('oauth_id');
+  const def = typeof id === 'string' ? getOAuthIntegration(id) : undefined;
   if (!def) throw new Error('Unknown integration');
 
   const admin = createAdminClient();

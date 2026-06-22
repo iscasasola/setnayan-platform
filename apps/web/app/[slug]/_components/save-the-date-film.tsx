@@ -150,13 +150,13 @@ const FIT_MAX = 2.3;
 // picture dissolve together — up from the old unsynced 700ms audio / 500ms visual.
 const VIDEO_FADE_MS = 850;
 // Cut over to the closing screen this many seconds BEFORE the clip's true end, so
-// its final frame is never held on screen during the crossfade. A phone clip often
-// ends on an unflattering frame (camera lowering, a hard stop), and 'ended' would
-// otherwise FREEZE that last frame for the whole VIDEO_FADE_MS dissolve. Trimming a
-// hair early lets the clip dissolve out mid-motion instead. ~0.3s ≈ the last ~9
-// frames at 30fps — comfortably more than 'timeupdate' granularity so it always
-// lands before the very end. (owner 2026-06-23 "avoid the last couple of frames".)
-const CLIP_TAIL_TRIM_S = 0.3;
+// neither its final frames NOR its trailing audio are ever shown/heard. A phone clip
+// often ends on an unflattering frame + stray sound (camera lowering, a hard stop),
+// and 'ended' would FREEZE that last frame for the whole VIDEO_FADE_MS dissolve. The
+// cut is frame-precise (driven by requestVideoFrameCallback, see the video effect),
+// so this trim lands exactly — 0.5s reliably clears the ending. (owner 2026-06-23
+// "still a bit of sound from the ending … still a bit showing".) Single tunable knob.
+const CLIP_TAIL_TRIM_S = 0.5;
 
 const EASE = 'cubic-bezier(.2,.8,.2,1)';
 const ANIM = {
@@ -955,10 +955,22 @@ export function SaveTheDateFilm({
           requestVideoFrameCallback?: (cb: (now: number, meta: { mediaTime: number }) => void) => number;
         };
         if (typeof rv.requestVideoFrameCallback === 'function') {
+          // ONE per-frame loop owns both ends of the clip, frame-precise:
+          //  • REVEAL once the presented frame is at the START (no leaked mid-clip frame).
+          //  • CUT to the close once the presented frame is within CLIP_TAIL_TRIM_S of the
+          //    END, so the clip's final frames AND its trailing audio are never shown/heard.
+          // (The 'timeupdate' tail-cut below only ticks ~4×/s, so its cut point was sloppy —
+          // the "shorter but still a bit" the owner reported; this is exact.)
+          let revealed = false;
           const onFrame = (_now: number, meta: { mediaTime: number }) => {
-            if (idxRef.current !== videoSlideIdxRef.current) return; // left the beat
-            if (meta.mediaTime <= 0.08) reveal(); // the start is now ON SCREEN → show it
-            else rv.requestVideoFrameCallback!(onFrame); // still on an old frame — keep waiting
+            if (idxRef.current !== videoSlideIdxRef.current) return; // left the beat → stop
+            if (!revealed && meta.mediaTime <= 0.08) { reveal(); revealed = true; }
+            const d = v.duration;
+            if (Number.isFinite(d) && d > 1 && d - meta.mediaTime <= CLIP_TAIL_TRIM_S) {
+              goRef.current(videoSlideIdxRef.current + 1); // cut before the ending
+              return; // advancing → stop the loop (off-beat branch pauses the clip)
+            }
+            rv.requestVideoFrameCallback!(onFrame);
           };
           rv.requestVideoFrameCallback(onFrame);
         } else {
@@ -1068,11 +1080,12 @@ export function SaveTheDateFilm({
     const onEnded = () => {
       if (idxRef.current === videoSlideIdxRef.current) goRef.current(videoSlideIdxRef.current + 1);
     };
-    // CUT EARLY: advance to the close ~CLIP_TAIL_TRIM_S before the clip's true end,
-    // so its final frame is never the one held through the crossfade. Once advanced,
-    // the off-beat branch PAUSES the clip — so it freezes a hair early and dissolves
-    // out instead of holding (and freezing on) the unflattering last frame. Only on
-    // the clip's own beat; 'ended' below stays the fallback for very short clips.
+    // CUT EARLY (FALLBACK): on browsers without requestVideoFrameCallback, advance to
+    // the close ~CLIP_TAIL_TRIM_S before the clip's true end so its ending isn't
+    // held/heard. On rVFC browsers the frame-precise loop above already does this
+    // (and fires first); this 'timeupdate' path only ticks ~4×/s so it's the coarse
+    // fallback. Guarded to the clip's own beat; harmless if the rVFC loop wins (the
+    // idx check short-circuits). 'ended' below is the last fallback for short clips.
     const onTimeUpdate = () => {
       if (idxRef.current !== videoSlideIdxRef.current) return;
       const d = v.duration;

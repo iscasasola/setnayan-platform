@@ -3659,8 +3659,11 @@ export function OnboardingShell({
             </div>
           </section>
 
-          {/* 6 DATE — 2-mode calendar (DateCalendar owns its viewzone title) */}
-          <section className={`screen${activeId === 'date' ? ' active' : ''}`}>
+          {/* 6 DATE — 2-mode calendar (DateCalendar owns its viewzone title). onb-twopane:
+              DateCalendar renders the standard .viewzone + .tapzone skeleton, so on desktop the
+              headline goes LEFT and the toggle+calendar fill the RIGHT column (was a narrow
+              centred column in a wide sheet). Mobile (<1024) unaffected. */}
+          <section className={`screen onb-twopane${activeId === 'date' ? ' active' : ''}`} id="screen-date">
             <DateCalendar
               mode={state.dateMode}
               candidates={state.dateCandidates}

@@ -23,13 +23,26 @@
  *       tag its audit row with takeover_session_id (design §5.3). Exported so a
  *       future impersonation surface can wire it.
  *
- * WHAT THIS DOES NOT BUILD (the remaining flag-gated step for owner review):
- *   • The actual in-browser SESSION SWAP (issuing a scoped impersonation JWT /
- *     cookie so the admin sees the app AS the user). That is the single
- *     highest-risk piece and a Supabase-auth-config concern (short admin JWT
- *     TTL + a session-revocation path) — deliberately left for owner review.
- *     `startedTakeoverSessionFor()` returns the open session so the swap can be
- *     layered on top WITHOUT changing any of the governance guarantees here.
+ * PHASE 3b (this work) — the scoped SESSION SWAP, on top of the scaffold:
+ *   • enterActAs        — the acting admin mints a scoped, signed, 1h-TTL
+ *       "act-as" cookie bound to the OPEN session (lib/admin-actas-context.ts).
+ *       It does NOT impersonate the target's Supabase JWT — the admin stays
+ *       logged in as themselves; the cookie is a re-validated CLAIM that scopes
+ *       a read-leaning view of the target's OWN account + the consent-to-fix
+ *       correction path. Audited via recordTakeoverAction.
+ *   • exitActAs         — drops the cookie (the session stays open; this just
+ *       leaves the scoped view). Audited.
+ *   • proposeActAsFieldFix — the in-session consent-to-fix correction: queues an
+ *       account_field_edits row the TARGET must approve (or an enforcement basis
+ *       applies) before it lands. No silent write to the user's own data.
+ *   The cookie stops working the instant the session ends (admin end, the
+ *   user's force-end from #2068, or the ~8h backstop) — resolveActAsContext
+ *   re-reads session state on every request. See lib/admin-actas-context.ts.
+ *
+ * WHAT THIS STILL DOES NOT BUILD (deferred for owner review):
+ *   • Full write-impersonation against arbitrary target tables. The act-as
+ *     surface is intentionally read-leaning + consent-gated for corrections,
+ *     NOT a blanket "write anything as the user" power. See the PR body.
  *
  * PRIVACY INVARIANT (must-fix #7, enforced by lint-admin-chat-guard): NOTHING
  * here reads chat message bodies, thread attachments, raw behavioral data, or
@@ -52,6 +65,11 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { assertTakeoverEnabled } from '@/lib/admin-takeover-config';
+import {
+  mintActAsCookie,
+  clearActAsCookie,
+  resolveActAsContext,
+} from '@/lib/admin-actas-context';
 import { emitNotification } from '@/lib/notification-emit';
 
 type AdminClient = ReturnType<typeof createAdminClient>;
@@ -474,6 +492,227 @@ export async function endTakeover(formData: FormData) {
     },
   });
 
+  // Drop any act-as cookie this admin holds — ending the session must also
+  // leave the scoped view. (The cookie is already inert after the row is
+  // closed, since resolveActAsContext re-reads ended_at; this just tidies up.)
+  await clearActAsCookie();
+
   revalidatePath(`/admin/users/${ended.target_user_id}/takeover`);
   redirect(`/admin/users/${encodeURIComponent(ended.target_user_id)}/takeover?takeover=ended`);
+}
+
+// ===========================================================================
+// PHASE 3b — the scoped SESSION SWAP ("act as the user")
+//
+// enterActAs / exitActAs manage the signed act-as cookie (lib/admin-actas-
+// context.ts). proposeActAsFieldFix is the in-session consent-to-fix correction
+// — it NEVER writes the user's own data silently; it queues an
+// account_field_edits row the target must approve.
+//
+// All three assertTakeoverEnabled() first → inert with the flag off.
+// ===========================================================================
+
+/**
+ * ENTER act-as. The acting admin mints a scoped, signed, 1h-TTL cookie bound to
+ * the OPEN session for `target_user_id`. Hard guards before minting:
+ *   • flag ON (assertTakeoverEnabled),
+ *   • caller is an admin,
+ *   • a session is OPEN for the target, and the CALLER is its acting admin
+ *     (the four-eyes acting admin — the confirming admin does NOT get the
+ *     cookie, only the initiator who was recorded as admin_user_id).
+ * The mint is audited + tagged with the session id.
+ */
+export async function enterActAs(formData: FormData) {
+  await assertTakeoverEnabled();
+  const { userId } = await requireAdmin();
+
+  const targetUserId = readString(formData, 'target_user_id');
+  if (!targetUserId) throw new Error('Missing target_user_id');
+
+  const admin = createAdminClient();
+
+  // The session must be OPEN, not expired, for this target.
+  const { data: session } = await admin
+    .from('admin_takeover_sessions')
+    .select('session_id, target_user_id, admin_user_id, ended_at, expires_at')
+    .eq('target_user_id', targetUserId)
+    .is('ended_at', null)
+    .gt('expires_at', new Date().toISOString())
+    .maybeSingle();
+
+  if (!session) {
+    redirect(
+      `/admin/users/${encodeURIComponent(targetUserId)}/takeover?takeover_error=${encodeURIComponent(
+        'No open session for this account. Start one first (two-admin).',
+      )}`,
+    );
+  }
+
+  // Only the session's ACTING admin can act as the user. The confirming
+  // (second) admin authorized the start; the acting admin is the one recorded
+  // in admin_user_id. This keeps "who acted" unambiguous in the change report.
+  if (session.admin_user_id !== userId) {
+    redirect(
+      `/admin/users/${encodeURIComponent(targetUserId)}/takeover?takeover_error=${encodeURIComponent(
+        'Only the acting admin who initiated this session can act as the user.',
+      )}`,
+    );
+  }
+
+  await mintActAsCookie({
+    kind: 'admin_actas',
+    session_id: session.session_id,
+    target_user_id: session.target_user_id,
+    admin_user_id: userId,
+  });
+
+  await recordTakeoverAction({
+    sessionId: session.session_id,
+    action: 'actas_entered',
+    targetUserId: session.target_user_id,
+    actorAdminId: userId,
+    reason: 'Admin entered the scoped act-as view.',
+  });
+
+  revalidatePath(`/admin/users/${targetUserId}/takeover`);
+  redirect(`/admin/users/${encodeURIComponent(targetUserId)}/takeover?takeover=actas_on`);
+}
+
+/**
+ * EXIT act-as. Drops the cookie and leaves the scoped view. The takeover SESSION
+ * stays open (end it with endTakeover) — this only stops the admin's browser
+ * from being scoped to the target. Audited if a context is resolvable.
+ */
+export async function exitActAs(formData: FormData) {
+  await assertTakeoverEnabled();
+  const { userId } = await requireAdmin();
+  const targetUserId = readString(formData, 'target_user_id');
+
+  // Best-effort audit against the live context (if still valid) before clearing.
+  const ctx = await resolveActAsContext();
+  if (ctx && ctx.adminUserId === userId) {
+    await recordTakeoverAction({
+      sessionId: ctx.sessionId,
+      action: 'actas_exited',
+      targetUserId: ctx.targetUserId,
+      actorAdminId: userId,
+      reason: 'Admin left the scoped act-as view (session still open).',
+    });
+  }
+
+  await clearActAsCookie();
+
+  if (targetUserId) {
+    revalidatePath(`/admin/users/${targetUserId}/takeover`);
+    redirect(`/admin/users/${encodeURIComponent(targetUserId)}/takeover?takeover=actas_off`);
+  }
+  redirect('/admin/users?takeover=actas_off');
+}
+
+/**
+ * In-session CONSENT-TO-FIX correction (design §3 — "consent-to-fix"). This is
+ * the safe shape of "fix the couple's account during a takeover": the admin
+ * PROPOSES an edit to one of the target's own fields; the change is queued in
+ * account_field_edits with status='awaiting_user' and lands ONLY after the
+ * target approves (or, for an enforcement basis, with that basis recorded). It
+ * NEVER writes the user's data directly here.
+ *
+ * Requires an ACTIVE, valid act-as context for the target (resolveActAsContext
+ * re-validates the open session). The proposal is tagged with the session id so
+ * it shows up in the change report + the user's Privacy page.
+ *
+ * Scoped to a small allow-list of LOW-RISK personal fields. V1 ships only
+ * `display_name` (the sole personal column that exists on public.users today —
+ * verified against the base schema). Money / KYC / identity-doc fields are NOT
+ * proposable here — those carry their own two-admin gate per the action catalog
+ * and are out of scope for this read-leaning surface (see the PR body). The set
+ * is the single place to widen as more personal columns + their consent paths
+ * land.
+ */
+const ACTAS_FIXABLE_FIELDS = new Set(['display_name']);
+
+export async function proposeActAsFieldFix(formData: FormData) {
+  await assertTakeoverEnabled();
+  const { userId } = await requireAdmin();
+
+  const ctx = await resolveActAsContext();
+  if (!ctx) {
+    redirect('/admin/users?takeover_error=No+active+act-as+session.');
+  }
+  // The acting admin in the cookie must be the caller (defense in depth).
+  if (ctx.adminUserId !== userId) {
+    redirect('/admin/users?takeover_error=Act-as+session+belongs+to+another+admin.');
+  }
+
+  const fieldKey = readString(formData, 'field_key');
+  const afterValue = readString(formData, 'after_value');
+  if (!ACTAS_FIXABLE_FIELDS.has(fieldKey)) {
+    redirect(
+      `/admin/users/${encodeURIComponent(ctx.targetUserId)}/takeover?takeover_error=${encodeURIComponent(
+        'That field is not correctable from the act-as view.',
+      )}`,
+    );
+  }
+  if (afterValue.length === 0 || afterValue.length > 500) {
+    redirect(
+      `/admin/users/${encodeURIComponent(ctx.targetUserId)}/takeover?takeover_error=${encodeURIComponent(
+        'Provide a corrected value (1–500 characters).',
+      )}`,
+    );
+  }
+
+  const admin = createAdminClient();
+
+  // Capture the current value for a clean before/after (best-effort). Only the
+  // allow-listed, non-sensitive column(s) are ever read here.
+  const { data: before } = await admin
+    .from('users')
+    .select('display_name')
+    .eq('user_id', ctx.targetUserId)
+    .maybeSingle();
+  const beforeValue =
+    (before as Record<string, unknown> | null)?.[fieldKey] ?? null;
+
+  // Queue the consent-to-fix edit. The account_field_edits table (design §4)
+  // gates it behind the target's approval. If the table isn't present yet
+  // (it lands with the Phase-2 consent-to-fix work), fail loudly rather than
+  // silently writing the user's data.
+  const { error: insErr } = await admin.from('account_field_edits').insert({
+    target_user_id: ctx.targetUserId,
+    proposed_by_admin_id: userId,
+    field_key: fieldKey,
+    before_value: { value: beforeValue },
+    after_value: { value: afterValue },
+    basis: 'user_consent',
+    status: 'awaiting_user',
+    takeover_session_id: ctx.sessionId,
+  });
+  if (insErr) {
+    redirect(
+      `/admin/users/${encodeURIComponent(ctx.targetUserId)}/takeover?takeover_error=${encodeURIComponent(
+        'Could not queue the correction: ' + insErr.message,
+      )}`,
+    );
+  }
+
+  await recordTakeoverAction({
+    sessionId: ctx.sessionId,
+    action: 'actas_field_fix_proposed',
+    targetUserId: ctx.targetUserId,
+    actorAdminId: userId,
+    reason: `Proposed correction to ${fieldKey} (awaiting user consent).`,
+    metadata: { field_key: fieldKey },
+  });
+
+  // Notify the target that a correction is awaiting their approval.
+  await emitNotification({
+    userId: ctx.targetUserId,
+    type: 'account_field_edit_request',
+    title: 'A correction to your account is awaiting your approval',
+    body: `A Setnayan team member proposed a correction to your ${fieldKey.replace(/_/g, ' ')}. Review and approve or decline it from your account.`,
+    relatedUrl: '/dashboard/account-access',
+  });
+
+  revalidatePath(`/admin/users/${ctx.targetUserId}/takeover`);
+  redirect(`/admin/users/${encodeURIComponent(ctx.targetUserId)}/takeover?takeover=fix_proposed`);
 }

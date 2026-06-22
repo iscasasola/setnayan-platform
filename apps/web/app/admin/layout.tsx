@@ -11,6 +11,7 @@ import { completeTour } from '@/lib/tour-actions';
 import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
 import { DoorwaySidebarHeader } from '@/app/_components/nav/doorway-sidebar-header';
 import { AdminSidebar } from './_components/admin-sidebar';
+import { ActAsBanner } from './_components/act-as-banner';
 import { AdminBottomNav } from './_components/admin-bottom-nav';
 import { AdminNavFab } from './_components/admin-nav-fab';
 import { getNavSlotMap } from '@/lib/nav-registry';
@@ -134,6 +135,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         sidebar={<AdminSidebar navSlots={navSlots} />}
         topBar={topBar}
       >
+        {/* Phase 3b act-as banner. Renders nothing unless an act-as cookie is
+            present + its session is still open (zero DB work in the universal
+            flag-OFF case). Sticky so it follows the admin through every page. */}
+        <ActAsBanner />
         {/* Pad the bottom on mobile so BottomNav doesn't cover the last
             row of content. SidebarShell already handles the desktop
             sidebar offset via its lg:pl-[var(--shell-main-offset)] math. */}

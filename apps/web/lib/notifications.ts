@@ -164,7 +164,15 @@ export type NotificationType =
   // (platform_settings.admin_takeover_enabled) — no code path emits these in
   // prod until the owner enables takeover post-review.
   | 'admin_takeover_started'
-  | 'admin_takeover_change_report';
+  | 'admin_takeover_change_report'
+  // Added 2026-06-22 (Admin Account-Access Model · Phase 3b act-as). The
+  // consent-to-fix signal: a Setnayan team member proposed a correction to one
+  // of the user's own fields during a takeover; it lands only after the user
+  // approves it from /dashboard/account-access. In-app only (not on
+  // EMAIL_ENABLED_TYPES) — it's a low-urgency "you have something to review",
+  // not an alarm. Migration
+  // 20270217048054_add_account_field_edit_notification_type.sql.
+  | 'account_field_edit_request';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   chat_message: 'New message',
@@ -218,6 +226,8 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   // Admin Account-Access Model · Phase 3 takeover (2026-06-22).
   admin_takeover_started: 'Account access in progress',
   admin_takeover_change_report: 'Account access report',
+  // Admin Account-Access Model · Phase 3b consent-to-fix (2026-06-22).
+  account_field_edit_request: 'Correction awaiting your approval',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -318,6 +328,9 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   // The change report is the after-the-fact account of what happened — neutral
   // informational "here's what was done" → sky, matching the info register.
   admin_takeover_change_report: 'bg-sky-100 text-sky-800',
+  // A correction awaiting your approval is an action item, not an alarm →
+  // amber/warn, matching the "needs your attention" register.
+  account_field_edit_request: 'bg-warn-100 text-warn-800',
 };
 
 export type NotificationRow = {

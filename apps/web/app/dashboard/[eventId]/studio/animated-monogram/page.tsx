@@ -154,9 +154,9 @@ export default async function AnimatedMonogramPage({ params }: Props) {
         </h1>
         <p className="max-w-prose text-base text-ink/65">
           Your monogram already opens your wedding website. This upgrade makes
-          it move — pick from six motion signatures (Drawn, Foil, Bloom,
-          Editorial, Halo, Stardust) and it plays the moment a guest lands on
-          your page.
+          it move — pick from eight motion signatures (Drawn, Foil, Bloom,
+          Editorial, Halo, Stardust, Gold Turn, Molten Gold) and it plays the
+          moment a guest lands on your page.
         </p>
       </header>
 
@@ -260,7 +260,7 @@ function OwnedView({
       />
 
       <p className="text-xs text-ink/50">
-        Want different initials or a different motion? Pick from all six
+        Want different initials or a different motion? Pick from all eight
         signatures in your{' '}
         <Link
           href={`/dashboard/${eventId}/monogram`}
@@ -311,7 +311,7 @@ async function UnownedView({
           <p className="max-w-prose text-sm text-ink/60">
             Same initials, same colours — straight from your monogram. The
             upgrade makes it move instead of just appearing, in the motion you
-            pick from the six-signature library.
+            pick from the eight-signature library.
           </p>
         </header>
 
@@ -351,7 +351,7 @@ async function UnownedView({
               Animated — your {motionLabel} motion
             </p>
             <p className="text-xs text-ink/55">
-              One of six signatures — pick yours in the Monogram Maker.
+              One of eight signatures — pick yours in the Monogram Maker.
             </p>
           </div>
         </div>

@@ -35,17 +35,17 @@ import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 import { FourFlapEnvelope } from './four-flap';
 import { RigidReveal } from './rigid-reveal';
-import { GoldMonogramReveal } from '@/app/_components/gold-monogram-reveal';
 import { isVeilTemplate, NO_REVEAL, REVEAL_ALIASES, type RevealTemplate } from './reveal-templates';
 import type { WaxSealConfig } from '@/lib/wax-seal/types';
 import type { RevealStudioConfig, RevealTemplateId } from '@/lib/reveal-config';
 import { rigidEffectFor, type RevealEffects } from '@/lib/std-reveal-effects';
 
+// NOTE: the gold-monogram + molten-monogram openings were RETIRED here (owner
+// 2026-06-22 "this is monogram animation, not a reveal") — they now live ONLY as
+// monogram-editor animation choices (the 'gold'/'molten' motion keys), played by
+// HeroMonogram on the surfaces that show the mark (incl. the film's monogram
+// beat that this opening uncovers). The five envelope/veil openings remain.
 const VeilReveal = dynamic(() => import('./veil-reveal'), { ssr: false });
-// Molten is a real WebGL shader (three.js) like the veil — lazy + ssr:false so
-// three.js stays out of the main couple-site bundle. (GoldMonogramReveal above is
-// pure CSS, so it's a safe static import; this one must NOT be.)
-const MoltenMonogramReveal = dynamic(() => import('./molten-monogram-reveal'), { ssr: false });
 
 export type { RevealTemplate } from './reveal-templates';
 export type { WaxSealConfig } from '@/lib/wax-seal/types';
@@ -223,11 +223,7 @@ export function RevealOverlay({
   const rigidEffect = eventEffects ? rigidEffectFor(template, eventEffects) : null;
   return (
     <div className="fixed inset-0 z-[60] overflow-hidden">
-      {template === 'molten-monogram' ? (
-        <MoltenMonogramReveal markSvg={markSvg} monogram={monogram} onDone={onOpened} />
-      ) : template === 'gold-monogram' ? (
-        <GoldMonogramReveal markSvg={markSvg} monogram={monogram} dials={eventEffects?.gold} onDone={onOpened} />
-      ) : template === 'two-flap-vertical' ||
+      {template === 'two-flap-vertical' ||
         template === 'two-flap-horizontal' ||
         template === 'church-doors' ? (
         <RigidReveal

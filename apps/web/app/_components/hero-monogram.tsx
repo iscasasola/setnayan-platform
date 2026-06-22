@@ -8,6 +8,8 @@ import {
 import { MonogramMark, type MonogramMarkStyle } from '@/app/_components/monogram-mark';
 import { AnimatedMonogramHero } from '@/app/_components/animated-monogram-hero';
 import { BespokeMonogramMark } from '@/app/_components/bespoke-monogram-mark';
+import { GoldMonogramReveal } from '@/app/_components/gold-monogram-reveal';
+import { MoltenMonogramInline } from '@/app/_components/molten-monogram-inline';
 
 /**
  * HeroMonogram — the couple's mark on their PUBLIC landing page hero.
@@ -46,6 +48,7 @@ export function HeroMonogram({
   shadow,
   inkOverride,
   plate,
+  allowWebgl = false,
 }: {
   // Only the design columns are needed; a narrow shape keeps this reusable.
   event: {
@@ -57,6 +60,12 @@ export function HeroMonogram({
   animatedMonogram: MonogramMotionKey | false;
   bespokeSvg: string | null;
   shadow?: boolean;
+  /** Permit the WebGL 'molten' motion to render LIVE here. Only large, never
+   *  co-mounted surfaces (the STD film monogram beat · the editor preview) pass
+   *  true — one WebGL context at a time. Everywhere else (default false) a
+   *  'molten' pick degrades to the CSS Gold Turn so chrome/thumbnails never spin
+   *  up shaders or exhaust the browser's WebGL context cap. */
+  allowWebgl?: boolean;
   /** Force the mark INK to this colour, overriding the design's curated ink AND
    *  the monogram colour (e.g. the STD film forces the couple's CTA-button accent
    *  — owner 2026-06-22). The infinity ∞ gold gradient is independent and stays.
@@ -76,8 +85,14 @@ export function HeroMonogram({
   // monogram colour, so a caller can force e.g. the button accent.
   const markColor = inkOverride ?? monogram.color;
 
-  // 1 · bespoke / Cipher custom mark wins over everything.
-  if (bespokeSvg) {
+  // The whole-mark gold animations (Gold Turn · Molten Gold) render the couple's
+  // mark — bespoke silhouette OR lettered glyphs — in flowing gold, so they cover
+  // both in ONE component and must run BEFORE the bespoke short-circuit below.
+  const goldMotion = animatedMonogram === 'gold' || animatedMonogram === 'molten';
+
+  // 1 · bespoke / Cipher custom mark wins over everything — EXCEPT gold/molten,
+  // which consume the same bespoke SVG (as their gold silhouette) in branch 2.
+  if (bespokeSvg && !goldMotion) {
     return (
       <BespokeMonogramMark
         svg={bespokeSvg}
@@ -86,6 +101,22 @@ export function HeroMonogram({
         shadow={shadow}
         entrance={Boolean(animatedMonogram)}
       />
+    );
+  }
+
+  // 2a · Gold Turn (CSS) / Molten Gold (WebGL) — the whole-mark premium motions.
+  // Molten renders live only where allowWebgl (one context at a time); otherwise
+  // it degrades to the CSS Gold Turn — still gold + animated, safe everywhere.
+  if (goldMotion) {
+    const useMolten = animatedMonogram === 'molten' && allowWebgl;
+    return (
+      <span aria-hidden className="inline-flex" style={{ width: HERO_PX, height: HERO_PX }}>
+        {useMolten ? (
+          <MoltenMonogramInline markSvg={bespokeSvg} monogram={monogram.text} lowRes />
+        ) : (
+          <GoldMonogramReveal markSvg={bespokeSvg} monogram={monogram.text} inline />
+        )}
+      </span>
     );
   }
 

@@ -46,6 +46,10 @@ type Props = {
   lowRes?: boolean;
   /** Loop forever (ambient chooser/studio preview). Default false = once → settle. */
   loop?: boolean;
+  /** INLINE monogram-animation mode (the 'molten' motion key): transparent
+   *  background, in-flow sized to the parent, ambient loop, never fires onDone.
+   *  (Default false = the full-screen reveal over a dark stage.) */
+  inline?: boolean;
 };
 
 /** Molten → hardened, in seconds. */
@@ -225,13 +229,15 @@ export default function MoltenMonogramReveal({
   onDone,
   lowRes = false,
   loop = false,
+  inline = false,
 }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const onDoneRef = useRef(onDone);
   onDoneRef.current = onDone;
   const doneRef = useRef(false);
-  const loopRef = useRef(loop);
-  loopRef.current = loop;
+  // Inline (the 'molten' monogram-animation): always an ambient loop, never finish.
+  const loopRef = useRef(loop || inline);
+  loopRef.current = loop || inline;
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -399,9 +405,13 @@ export default function MoltenMonogramReveal({
   return (
     <div
       ref={mountRef}
-      className="absolute inset-0"
+      className={inline ? 'relative h-full w-full' : 'absolute inset-0'}
       style={{
-        background: 'radial-gradient(120% 90% at 50% 32%, #2b2638 0%, #14111c 58%, #0a0810 100%)',
+        // Inline = transparent (the canvas composites over the surface like any
+        // other monogram mark); full-screen reveal = its own dark stage.
+        background: inline
+          ? 'transparent'
+          : 'radial-gradient(120% 90% at 50% 32%, #2b2638 0%, #14111c 58%, #0a0810 100%)',
         touchAction: 'none',
       }}
       aria-hidden

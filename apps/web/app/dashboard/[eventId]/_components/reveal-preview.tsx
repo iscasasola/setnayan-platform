@@ -17,7 +17,6 @@
 import dynamic from 'next/dynamic';
 import { FourFlapEnvelope } from '@/app/[slug]/_components/reveal/four-flap';
 import { RigidReveal } from '@/app/[slug]/_components/reveal/rigid-reveal';
-import { GoldMonogramReveal } from '@/app/_components/gold-monogram-reveal';
 import {
   isVeilTemplate,
   type RevealTemplate,
@@ -29,14 +28,10 @@ import {
 } from '@/lib/std-reveal-effects';
 import type { RevealEffectsLook, VeilLook } from '@/lib/reveal-config';
 
+// gold/molten retired as reveal openings 2026-06-22 (now monogram-editor motions).
 const VeilReveal = dynamic(() => import('@/app/[slug]/_components/reveal/veil-reveal'), {
   ssr: false,
 });
-// Molten is real WebGL (three.js) — lazy + ssr:false like the veil.
-const MoltenMonogramReveal = dynamic(
-  () => import('@/app/[slug]/_components/reveal/molten-monogram-reveal'),
-  { ssr: false },
-);
 
 const noop = () => {};
 
@@ -91,12 +86,6 @@ export function RevealPreview({
         features={{ petals: effects?.petals ?? true, logo: true, music: false }}
       />
     );
-  }
-  if (template === 'gold-monogram') {
-    return <GoldMonogramReveal markSvg={markSvg} monogram={monogram} dials={effects?.gold} onDone={onDone} autoplay loop />;
-  }
-  if (template === 'molten-monogram') {
-    return <MoltenMonogramReveal markSvg={markSvg} monogram={monogram} onDone={onDone} lowRes loop />;
   }
   const effect = effects ? rigidEffectFor(template, effects) : null;
   if (

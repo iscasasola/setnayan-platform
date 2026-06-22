@@ -21,6 +21,13 @@ import { type ReactElement, type ReactNode } from 'react';
 import { loadEditorialData, type EditorialData } from './data';
 import { composeCopy, type ComposedCopy } from './compose';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
+import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  resolveEventMonogram,
+  HERO_MONOGRAM_COLUMNS,
+  type HeroMonogramData,
+} from '@/lib/hero-monogram-data';
+import { HeroMonogram } from '@/app/_components/hero-monogram';
 
 const SHARE_SITE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
@@ -82,6 +89,23 @@ export async function EditorialContent({
   // wedding's number within that cycle.
   const editionLeft = `Vol. ${toRoman(editionVolume(data.eventDate))} · No. ${data.editionNo ?? 1}`;
 
+  // The couple's canonical mark for the masthead — resolved like the public hero
+  // (animates iff they own the paid ANIMATED_MONOGRAM). Best-effort + wrapped so
+  // this component keeps its "never throws" contract; null → the text-circle
+  // fallback below. Admin client: the editorial is publicly viewable.
+  let mono: HeroMonogramData | null = null;
+  try {
+    const admin = createAdminClient();
+    const { data: monoRow } = await admin
+      .from('events')
+      .select(HERO_MONOGRAM_COLUMNS)
+      .eq('event_id', eventId)
+      .maybeSingle();
+    mono = await resolveEventMonogram(admin, eventId, monoRow);
+  } catch {
+    mono = null;
+  }
+
   return (
     <div className="min-h-screen bg-[#e7e2d6] px-3 py-6 text-ink sm:px-4 sm:py-10">
       <article className="mx-auto max-w-5xl border border-ink/10 bg-cream px-5 py-7 shadow-[0_30px_70px_-30px_rgba(30,34,41,0.45)] sm:px-10 sm:py-9">
@@ -92,7 +116,21 @@ export async function EditorialContent({
 
         {/* Masthead ------------------------------------------------------------ */}
         <header className="py-3 text-center">
-          <Monogram text={data.monogramText} color={data.monogramColor} />
+          {/* The couple's REAL mark (bare — the masthead sits on cream, so it
+              reads without a backing), replacing the local initials-circle.
+              Falls back to the text-circle when no mark resolves. */}
+          {mono ? (
+            <div className="flex justify-center">
+              <HeroMonogram
+                event={mono.design}
+                monogram={mono.monogram}
+                animatedMonogram={mono.animatedMonogram}
+                bespokeSvg={mono.bespokeSvg}
+              />
+            </div>
+          ) : (
+            <Monogram text={data.monogramText} color={data.monogramColor} />
+          )}
           <p className="mt-3 font-mono text-[9px] uppercase tracking-[0.34em] text-terracotta">
             Set na &rsquo;yan &middot; Commemorative Edition
           </p>

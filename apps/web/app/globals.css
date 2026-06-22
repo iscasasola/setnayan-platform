@@ -1628,3 +1628,54 @@ html[data-sn-nav-dir='back']::view-transition-new(sn-page) {
 html[data-sn-fab] nav[aria-label='Primary navigation'] {
   right: 78px;
 }
+
+/*
+ * Arrival bloom — the day-of "you've checked in" delight on the guest's seat
+ * pass (check-in → bloom, 2026-06-22). When a guest scans in at the door, their
+ * seat surface swaps the neutral "here's your table" copy for a warm greeting
+ * and plays a one-shot soft bloom: the card lifts + brightens once, then settles.
+ * A small delight, not a takeover — single iteration, ~0.9s, then still.
+ *
+ * `.sn-arrival-bloom` = the whole greeting card lifts/settles once on mount.
+ * `.sn-arrival-ring`  = a champagne halo behind the headline that blooms + fades.
+ *
+ * The global `prefers-reduced-motion: reduce` block above freezes both to their
+ * end-state instantly (animation-duration → 0.001ms, one iteration) — so a guest
+ * with reduced-motion set sees the warm copy with no movement, never a flash of
+ * the pre-bloom state. No `motion-safe:` opt-in needed; this is CSS keyframes.
+ */
+@keyframes sn-arrival-bloom {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  55% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1.012);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes sn-arrival-ring {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  45% {
+    opacity: 0.55;
+    transform: scale(1.04);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+.sn-arrival-bloom {
+  animation: sn-arrival-bloom 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.sn-arrival-ring {
+  transform-origin: center;
+  animation: sn-arrival-ring 1.1s ease-out both;
+}

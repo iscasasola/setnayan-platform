@@ -20,7 +20,14 @@
  */
 
 import Link from 'next/link';
-import { CalendarClock, CheckCircle2, ChevronDown, MapPin, UtensilsCrossed } from 'lucide-react';
+import {
+  CalendarClock,
+  CheckCircle2,
+  ChevronDown,
+  MapPin,
+  PartyPopper,
+  UtensilsCrossed,
+} from 'lucide-react';
 import type { ScheduleBlockRow } from '@/lib/schedule';
 
 // ---- Types from the parent page ------------------------------------------
@@ -43,6 +50,9 @@ export type GuestHubData = {
   slug: string;
   /** Whether the guest is a limited +1 (hides certain links). */
   isLimitedPlusOne: boolean;
+  /** True once this guest has scanned in at the door on the day-of (a
+   *  guest_checkins row exists). Flips the seat tile to a warm arrival state. */
+  arrived: boolean;
 };
 
 // ---- Helpers ---------------------------------------------------------------
@@ -148,7 +158,12 @@ export function pickNextScheduleBlock(
  * guest previously collapsed it.
  */
 export function GuestHubCard({ data }: { data: GuestHubData }) {
-  const { firstName, displayName, rsvpStatus, tableLabel, mealPreference, dietaryRestrictions, nextScheduleBlock, slug, isLimitedPlusOne } = data;
+  const { firstName, displayName, rsvpStatus, tableLabel, mealPreference, dietaryRestrictions, nextScheduleBlock, slug, isLimitedPlusOne, arrived } = data;
+  // Day-of arrival: once the guest has checked in at the door AND has a seat,
+  // the seat tile greets them by name with a gentle bloom instead of the
+  // neutral "Your seat" copy. Needs both — a checked-in guest with no assigned
+  // table still gets the normal "not yet assigned" tile.
+  const showArrival = arrived && Boolean(tableLabel);
   const rsvp = rsvpMeta(rsvpStatus);
   const meal = formatMeal(mealPreference);
   const restrictions = (dietaryRestrictions ?? '').trim();
@@ -231,17 +246,34 @@ export function GuestHubCard({ data }: { data: GuestHubData }) {
               ) : null}
             </div>
 
-            {/* Table assignment */}
-            <div className="flex flex-col gap-1 rounded-xl border border-ink/8 bg-cream p-3.5">
+            {/* Table assignment — blooms into a warm arrival greeting once the
+                guest has checked in at the door (showArrival). The CSS keyframe
+                is frozen by the global prefers-reduced-motion block. */}
+            <div
+              className={`flex flex-col gap-1 rounded-xl border p-3.5 ${
+                showArrival
+                  ? 'sn-arrival-bloom border-champagne-gold/40 bg-gradient-to-br from-cream to-champagne-gold/10'
+                  : 'border-ink/8 bg-cream'
+              }`}
+            >
               <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-ink/45">
-                Your seat
+                {showArrival ? 'You’ve arrived' : 'Your seat'}
               </span>
               <span className="flex items-center gap-1.5 text-sm font-medium text-ink">
-                <MapPin aria-hidden className="h-4 w-4 shrink-0 text-ink/40" strokeWidth={1.5} />
+                {showArrival ? (
+                  <PartyPopper aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
+                ) : (
+                  <MapPin aria-hidden className="h-4 w-4 shrink-0 text-ink/40" strokeWidth={1.5} />
+                )}
                 {tableLabel ?? (
                   <span className="text-ink/50">Not yet assigned</span>
                 )}
               </span>
+              {showArrival ? (
+                <span className="mt-0.5 text-xs text-emerald-700">
+                  Welcome, {firstName} — you&rsquo;re checked in.
+                </span>
+              ) : null}
               {tableLabel ? (
                 <Link
                   href={`/${slug}/find-my-table`}

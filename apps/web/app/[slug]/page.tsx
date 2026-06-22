@@ -1067,6 +1067,40 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     guestTableId = null;
   }
 
+  // Day-of arrival — has THIS guest scanned in at the door yet? A row in
+  // guest_checkins (written by the coordinator/kiosk check-in desk) is the
+  // signal. We only bother during the live/post window: before the wedding day
+  // there is nothing to arrive at, and the read would just be noise. When the
+  // guest has checked in, their seat surface (the GuestHubCard seat tile + the
+  // inline YourSeatBlock) blooms into a warm personal greeting instead of the
+  // neutral "here's your table" copy — closing the check-in → day-of-experience
+  // gap (until now check-in only fed the planner's "arrived" counter).
+  //
+  // Graceful-degrade: the table may not exist (42P01) or lack a column (42703)
+  // on installs that pre-date the check-in desk migration — fall back to the
+  // normal pre-arrival seat pass rather than failing the page.
+  let guestArrived = false;
+  if (dayOfPhase === 'live' || dayOfPhase === 'post') {
+    try {
+      const { data: checkinRow, error: checkinErr } = await admin
+        .from('guest_checkins')
+        .select('checked_in_at')
+        .eq('event_id', event.event_id)
+        .eq('guest_id', guest.guest_id)
+        .maybeSingle();
+      if (checkinErr) {
+        if (checkinErr.code !== '42P01' && checkinErr.code !== '42703') {
+          // Unexpected error — degrade quietly (no bloom) but don't crash.
+          guestArrived = false;
+        }
+      } else {
+        guestArrived = Boolean(checkinRow?.checked_in_at);
+      }
+    } catch {
+      guestArrived = false;
+    }
+  }
+
   const guestHubData: GuestHubData = {
     firstName: guest.first_name,
     displayName:
@@ -1080,6 +1114,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     slug,
     isLimitedPlusOne:
       guest.plus_one_of_guest_id !== null && guest.plus_one_mode === 'limited',
+    arrived: guestArrived,
   };
 
   // "Your seat" inline map — surface the entrance→table wayfinding map on the
@@ -2280,6 +2315,8 @@ function InvitationSite({
             tables={seatMap.tables}
             entrance={seatMap.entrance}
             targetTableId={seatMap.targetTableId}
+            firstName={guestHubData.firstName}
+            arrived={guestHubData.arrived}
           />
         ) : null}
 

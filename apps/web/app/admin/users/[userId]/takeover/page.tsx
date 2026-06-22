@@ -5,7 +5,15 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { resolveAdminTakeoverEnabled } from '@/lib/admin-takeover-config';
-import { initiateTakeover, confirmTakeover, endTakeover } from '../../takeover-actions';
+import { resolveActAsContext } from '@/lib/admin-actas-context';
+import {
+  initiateTakeover,
+  confirmTakeover,
+  endTakeover,
+  enterActAs,
+  exitActAs,
+  proposeActAsFieldFix,
+} from '../../takeover-actions';
 
 export const metadata = {
   title: 'Account access (takeover) · Admin',
@@ -83,6 +91,16 @@ export default async function AccountTakeoverPage({ params, searchParams }: Prop
     .gt('expires_at', nowIso)
     .maybeSingle();
 
+  // Is THIS admin currently in a live act-as for THIS target? (Phase 3b.) The
+  // resolver re-validates the open session on every call, so this reflects the
+  // real, revocable state — null the instant the session ends.
+  const actAs = enabled ? await resolveActAsContext() : null;
+  const actingAsThisTarget = Boolean(
+    actAs && actAs.targetUserId === userId && actAs.adminUserId === meId,
+  );
+  // Only the session's ACTING admin can enter act-as.
+  const meIsActingAdmin = Boolean(openSession && openSession.admin_user_id === meId);
+
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
       <Link
@@ -118,7 +136,13 @@ export default async function AccountTakeoverPage({ params, searchParams }: Prop
               ? 'Session started. The account holder has been notified.'
               : sp.takeover === 'ended'
                 ? 'Session ended. The account holder was sent a change report.'
-                : 'Done.'}
+                : sp.takeover === 'actas_on'
+                  ? 'Acting as the account holder. The scoped view is live and 1h-revalidated; everything you do is audited and reported.'
+                  : sp.takeover === 'actas_off'
+                    ? 'Left the act-as view. The session is still open until you end it.'
+                    : sp.takeover === 'fix_proposed'
+                      ? 'Correction proposed — it lands only after the account holder approves it from their account.'
+                      : 'Done.'}
         </div>
       ) : null}
 
@@ -165,12 +189,92 @@ export default async function AccountTakeoverPage({ params, searchParams }: Prop
               <dd className="text-ink">{openSession.reason}</dd>
             </div>
           </dl>
-          <p className="text-xs text-ink/55">
-            In-browser impersonation (the actual session swap) is intentionally{' '}
-            <strong>not</strong> wired in this scaffold — it is the remaining
-            flag-gated step left for owner review. Ending the session here sends
-            the account holder a change report of every audited in-session action.
-          </p>
+          {/* ── Phase 3b — the scoped act-as ("act as the user") controls. ── */}
+          {actingAsThisTarget ? (
+            <div className="space-y-4 rounded-lg border border-mulberry/30 bg-mulberry/5 p-4">
+              <p className="text-sm font-semibold text-mulberry">
+                You are acting as {targetName}.
+              </p>
+              <p className="text-xs text-ink/65">
+                This is a scoped, read-leaning view of the account holder&apos;s OWN
+                account — it does <strong>not</strong> impersonate their login, and
+                it can never read messages, attachments, behavioural data, or face
+                data. Corrections you make below are <strong>proposed</strong> and
+                land only after the account holder approves them. Everything is
+                audited and reported when the session ends. The view is re-checked
+                on every action and stops the instant the session ends (yours, the
+                account holder&apos;s force-end, or the safety backstop).
+              </p>
+
+              {/* Consent-to-fix correction (display_name only in V1). */}
+              <form className="space-y-2">
+                <input type="hidden" name="field_key" value="display_name" />
+                <label className="block text-sm">
+                  <span className="mb-1 block font-medium text-ink/80">
+                    Propose a corrected display name
+                  </span>
+                  <input
+                    name="after_value"
+                    required
+                    minLength={1}
+                    maxLength={500}
+                    placeholder="Corrected name…"
+                    className="w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
+                  />
+                </label>
+                <div className="flex flex-wrap items-center gap-3">
+                  <SubmitButton
+                    formAction={proposeActAsFieldFix}
+                    pendingLabel="Proposing…"
+                    className="rounded-md bg-mulberry px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-mulberry/90"
+                  >
+                    Propose correction (needs their OK)
+                  </SubmitButton>
+                  <span className="text-xs text-ink/55">
+                    Queued for the account holder to approve — never applied silently.
+                  </span>
+                </div>
+              </form>
+
+              <form>
+                <input type="hidden" name="target_user_id" value={userId} />
+                <SubmitButton
+                  formAction={exitActAs}
+                  pendingLabel="Leaving…"
+                  className="rounded-md border border-ink/20 bg-white px-4 py-2 text-sm font-bold text-ink transition-colors hover:bg-ink/5"
+                >
+                  Leave act-as view
+                </SubmitButton>
+              </form>
+            </div>
+          ) : meIsActingAdmin ? (
+            <div className="space-y-3 rounded-lg border border-ink/10 bg-ink/[0.02] p-4">
+              <p className="text-xs text-ink/65">
+                Enter a scoped <strong>act-as</strong> view of this account holder.
+                It does not impersonate their login or unlock private data — it
+                scopes a read-leaning view of their own account + a consent-to-fix
+                correction path. The view is signed with a 1h re-validation cap and
+                stops the instant the session ends.
+              </p>
+              <form>
+                <input type="hidden" name="target_user_id" value={userId} />
+                <SubmitButton
+                  formAction={enterActAs}
+                  pendingLabel="Entering…"
+                  className="rounded-md bg-mulberry px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-mulberry/90"
+                >
+                  Act as this account holder
+                </SubmitButton>
+              </form>
+            </div>
+          ) : (
+            <p className="text-xs text-ink/55">
+              Only the acting admin who started this session can act as the account
+              holder. Ending the session sends a change report of every audited
+              in-session action.
+            </p>
+          )}
+
           <form>
             <input type="hidden" name="session_id" value={openSession.session_id} />
             <SubmitButton

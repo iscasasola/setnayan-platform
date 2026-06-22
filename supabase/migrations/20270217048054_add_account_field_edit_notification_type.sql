@@ -1,0 +1,25 @@
+-- ============================================================================
+-- 20270217048054_add_account_field_edit_notification_type.sql
+--
+-- Admin Account-Access Model — Phase 3b (consent-to-fix) notification type.
+-- Adds one value to public.notification_type so the in-takeover correction flow
+-- can tell the TARGET user, in-app, that a Setnayan team member proposed a
+-- correction to one of their own fields that is awaiting their approval:
+--
+--   • account_field_edit_request — fired from proposeActAsFieldFix when an admin
+--       queues an account_field_edits row (status='awaiting_user'). In-app only
+--       (NOT on EMAIL_ENABLED_TYPES) — a low-urgency "you have something to
+--       review", deep-linking to /dashboard/account-access. Mirrors the design
+--       doc §6 template `account_field_edit_request`.
+--
+-- The whole capability ships FLAG-GATED OFF (platform_settings
+-- .admin_takeover_enabled) — no code path emits this in prod until the owner
+-- enables takeover post-review.
+--
+-- ALTER TYPE … ADD VALUE IF NOT EXISTS is idempotent + re-run safe. ADD VALUE
+-- cannot run inside an explicit transaction block, so this migration is
+-- intentionally BARE (no BEGIN/COMMIT). Matches the pattern in
+-- 20270215974993_add_admin_takeover_notification_types.sql.
+-- ============================================================================
+
+ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'account_field_edit_request';

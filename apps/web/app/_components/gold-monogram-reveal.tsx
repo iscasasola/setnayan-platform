@@ -111,7 +111,7 @@ export function GoldMonogramReveal({
   const { buildUp, move, accent } = d;
   const bespoke = Boolean(markSvg && markSvg.trim());
   const glyphs = bespoke ? [] : splitGlyphs(monogram);
-  const dataUri = `data:image/svg+xml;utf8,${encodeURIComponent(maskSvg(markSvg, splitGlyphs(monogram)))}`;
+  const dataUri = `data:image/svg+xml;utf8,${encodeURIComponent(maskSvg(markSvg, glyphs))}`;
   // Per-element build-ups only apply when the mark decomposes (inline glyphs);
   // on a bespoke silhouette they relocate to a whole-mark fallback on .grk-build.
   const perElement = !bespoke && (buildUp === 'trace' || buildUp === 'assemble');
@@ -119,7 +119,15 @@ export function GoldMonogramReveal({
   const [revealing, setRevealing] = useState(autoplay);
   const reduced = useRef(false);
   const doneRef = useRef(false);
-  const settleMs = Math.max(BUILD_MS[buildUp], MOVE_MS[move]) + 150;
+  // settleMs = when the ENTRANCE finishes (→ onDone → the film). For per-element
+  // trace/assemble the last glyph starts late (staggered), so cover that tail or
+  // the film starts before the final letters finish inking.
+  const staggerMs = buildUp === 'trace' ? 340 : 220;
+  const buildEnd = perElement
+    ? Math.round(BUILD_MS[buildUp] * (buildUp === 'trace' ? 0.66 : 0.8)) +
+      Math.max(0, glyphs.length - 1) * staggerMs
+    : BUILD_MS[buildUp];
+  const settleMs = Math.max(buildEnd, MOVE_MS[move]) + 150;
 
   const finish = () => {
     if (doneRef.current) return;
@@ -307,10 +315,10 @@ export function GoldMonogramReveal({
       onKeyDown={idle ? (e) => { if (e.key === 'Enter' || e.key === ' ') onTap(); } : undefined}
     >
       <span aria-hidden className="grk-key" />
-      {behindNode ? <span className="grk-behind">{behindNode}</span> : null}
       <div className="grk-persp">
         <div aria-hidden className="grk-move">
           <div className="grk-build">
+            {behindNode ? <span className="grk-behind">{behindNode}</span> : null}
             {bespoke ? (
               <span className="grk-sil" />
             ) : (
@@ -362,10 +370,10 @@ export function GoldMonogramReveal({
                 ))}
               </svg>
             )}
+            {accentNode}
           </div>
         </div>
       </div>
-      {accentNode}
       {idle ? <p className="grk-prompt">Tap to open</p> : null}
       <style dangerouslySetInnerHTML={{ __html: css }} />
     </div>

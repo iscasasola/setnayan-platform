@@ -21,6 +21,14 @@ export type GalleryPhoto = {
   tagged: boolean;
   tagSource: GalleryTagSource;
   capturedAt: string;
+  // Alaala showcase orb gates (papic_photos clips only; guest captures leave
+  // these undefined). `showcaseApproved` is the COUPLE gate the gallery toggle
+  // flips; `showcaseConsent` is the GUEST gate (set by the guest-consent flow —
+  // a follow-up; defaults false). The orb surfaces a clip only when BOTH are
+  // true, so the gallery can show the couple whether their approved clip is
+  // actually live or still waiting on guest consent.
+  showcaseApproved?: boolean;
+  showcaseConsent?: boolean;
 };
 
 const GALLERY_LIMIT = 120;
@@ -42,7 +50,7 @@ export async function fetchPapicGallery(
     supabase
       .from('papic_photos')
       .select(
-        'photo_id, r2_object_key, poster_r2_key, photo_type, captured_at, moderation_state, hidden_at, expires_at',
+        'photo_id, r2_object_key, poster_r2_key, photo_type, captured_at, moderation_state, hidden_at, expires_at, consent_to_public, couple_approved_for_showcase',
       )
       .eq('event_id', eventId)
       .order('captured_at', { ascending: false })
@@ -105,6 +113,10 @@ export async function fetchPapicGallery(
       tagged: Boolean(tagSrc),
       tagSource: mapTagSource(tagSrc),
       capturedAt: r.captured_at as string,
+      // Showcase gates ride only on real clips (the orb plays clips). Coerce to
+      // boolean; pre-migration rows (column absent) read undefined → false.
+      showcaseApproved: isClip ? Boolean(r.couple_approved_for_showcase) : undefined,
+      showcaseConsent: isClip ? Boolean(r.consent_to_public) : undefined,
     };
   });
 

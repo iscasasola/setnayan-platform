@@ -1155,12 +1155,13 @@ export async function seatRoleAtTable(
   const table = tables.find((t) => t.table_id === tableId);
   if (!table) throw new Error('Table not found');
 
-  // Eligible = attending, in this tier, not the couple, not already seated anywhere.
+  // Eligible = not declined (pending/maybe get held seats too, like Auto Arrange),
+  // in this tier, not the couple, not already seated anywhere.
   const seatedIds = new Set(assignments.map((a) => a.guest_id));
   const eligible = guests
     .filter(
       (g) =>
-        g.rsvp_status === 'attending' &&
+        g.rsvp_status !== 'declined' &&
         g.role !== 'bride' &&
         g.role !== 'groom' &&
         !seatedIds.has(g.guest_id) &&

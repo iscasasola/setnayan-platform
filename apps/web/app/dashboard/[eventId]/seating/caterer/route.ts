@@ -48,6 +48,12 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
   // The caterer counts ATTENDING guests only; unseated attendees still eat, so
   // they land in an explicit "Not seated yet" bucket rather than vanishing.
   const attending = guests.filter((g) => g.rsvp_status === 'attending');
+  // Tentative = pending/maybe replies. The couple now seats them too (held
+  // seats), so the caterer sees a confirmed-vs-tentative headcount; meal counts
+  // below stay on CONFIRMED guests only (what they actually cook for).
+  const tentativeCount = guests.filter(
+    (g) => g.rsvp_status === 'pending' || g.rsvp_status === 'maybe',
+  ).length;
   const tableOfGuest = new Map(assignments.map((a) => [a.guest_id, a.table_id]));
 
   // Linked tables report as ONE unit (same grouping as the print pack).
@@ -176,7 +182,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
 </head><body>
   <div class="toolbar">
     <a href="/dashboard/${esc(eventId)}/seating">← Back to seating</a>
-    <span style="color:var(--muted);font-size:12px;">Attending guests only · linked tables count as one</span>
+    <span style="color:var(--muted);font-size:12px;">Meal counts = confirmed guests${tentativeCount > 0 ? ` · ${tentativeCount} tentative (pending replies)` : ''} · linked tables count as one</span>
     <span>
       <a href="/dashboard/${esc(eventId)}/seating/caterer?format=csv">Download CSV</a>
       <button type="button" onclick="window.print()">Print / Save as PDF</button>
@@ -184,7 +190,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
   </div>
   <div class="doc"><section class="sheet">
     <h1>Caterer meal counts</h1>
-    <p class="sub">${esc(event.display_name || 'Wedding')}${dateStr ? ` · ${esc(dateStr)}` : ''} · ${attending.length} attending</p>
+    <p class="sub">${esc(event.display_name || 'Wedding')}${dateStr ? ` · ${esc(dateStr)}` : ''} · ${attending.length} confirmed${tentativeCount > 0 ? ` · ${tentativeCount} tentative` : ''}</p>
     <h2>Totals</h2>
     <table><tbody>${totalRows || '<tr><td class="meal">No attending guests yet.</td></tr>'}</tbody></table>
     <h2>Per table</h2>

@@ -353,3 +353,23 @@ test('relaxLowestPriorityRule drops the rule guarding the least-important guest'
   // Empty → null.
   assert.equal(relaxLowestPriorityRule([], guests, null), null);
 });
+
+// ---------------------------------------------------------------------------
+// RSVP→seat: the auto-seater holds a seat for everyone NOT declined (pending +
+// maybe get tentative seats) so the couple can plan the whole room before all
+// replies are in. Only declined guests are excluded.
+// ---------------------------------------------------------------------------
+
+test('computeAutoSeat seats pending/maybe (held) and excludes only declined', () => {
+  const tables = [tbl({ table_id: 't1', capacity: 10, x_pos: 50, y_pos: 15 })];
+  const guests = [
+    guest({ guest_id: 'att', rsvp_status: 'attending' }),
+    guest({ guest_id: 'pend', rsvp_status: 'pending' }),
+    guest({ guest_id: 'maybe', rsvp_status: 'maybe' }),
+    guest({ guest_id: 'dec', rsvp_status: 'declined' }),
+  ];
+  const seated = computeAutoSeat(tables, guests, [], { x: 50, y: 8 }, null)
+    .map((r) => r.guest_id)
+    .sort();
+  assert.deepEqual(seated, ['att', 'maybe', 'pend']); // declined left out, the rest held
+});

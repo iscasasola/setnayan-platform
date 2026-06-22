@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-22 · feat(admin): data-access log — admin account-access model Phase 1a
+
+RA 10173 "right to know who accessed my data" substrate for the admin account-access model (`Admin_Account_Access_Model_2026-06-22.md` · DECISION_LOG 2026-06-22). Records which admin VIEWED which account's data (distinct from `admin_audit_log`, which records admin write ACTIONS).
+
+- **Migration `20270212405352_admin_data_access_log.sql`** — new `admin_data_access_log` table (admin_user_id, accessed_user_id, surface, context, created_at) + index + RLS. Admin-read via `is_admin()`; NO write policy → append-only for every non-service role (service-role client writes it). **Applied to prod** statement-by-statement via `supabase db query` + ledger row (the auto-apply pipeline is currently blocked by an unrelated unmerged parallel migration — see DECISION_LOG 2026-06-22). Additive + idempotent.
+- **`lib/admin-data-access.ts`** — `logAdminDataAccess()`, NON-FATAL by contract (a logging failure never breaks the admin surface).
+- **`app/admin/users/page.tsx`** — when an admin opens a user's detail panel (`?expand=<id>`), logs the view via Next `after()` (post-response, never blocks render); resolves the acting admin via `createClient().auth.getUser()`.
+
+Phase 1a of the model. Next: Phase 1b = audit-log immutability (a trigger blocking UPDATE/DELETE even for the service-role client — RLS already denies admin mutation, so a REVOKE alone is insufficient); Phase 1c = the read-only consolidated user/vendor page. tsc 0 · `next lint` clean on changed files.
+
+SPEC IMPACT: Recorded in `Admin_Account_Access_Model_2026-06-22.md` + DECISION_LOG 2026-06-22 + memory `project_setnayan_admin_account_access_model`. No SKU/price change; additive audit substrate.
+
+---
+
 ## 2026-06-22 · feat(integrations): generalized secret registry + OpenAI moderation (Integration Console PR2)
 
 Generalizes the Integration Activation Console into a **data-driven registry** so adding a "simple secret" integration (one encrypted API key, DB-first / env-fallback) is a data change, not new boilerplate. First registry entry: **OpenAI moderation**.

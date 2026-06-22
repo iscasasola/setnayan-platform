@@ -811,7 +811,7 @@ export function SeatingEditor({
       setNotice(
         (res.seated > 0
           ? `Auto-arranged: ${tables.length} tables in priority order, ${nextBooths.length} booth${nextBooths.length === 1 ? '' : 's'} ${boothWhere}, ${res.seated} guest${res.seated === 1 ? '' : 's'} seated.`
-          : `Auto-arranged: ${tables.length} tables in priority order${nextBooths.length > 0 ? ` and ${nextBooths.length} booth${nextBooths.length === 1 ? '' : 's'} ${boothWhere}` : ''}. Everyone attending is already seated.`) +
+          : `Auto-arranged: ${tables.length} tables in priority order${nextBooths.length > 0 ? ` and ${nextBooths.length} booth${nextBooths.length === 1 ? '' : 's'} ${boothWhere}` : ''}. Everyone who hasn't declined already has a seat.`) +
           keepApartNote,
       );
     });
@@ -4685,6 +4685,14 @@ export function SeatingEditor({
                               <ChairAvatar guest={g} color={colorFor(g)} size={24} />
                               <span className="min-w-0 flex-1 truncate text-sm text-ink">
                                 {g.name}
+                                {g.rsvp_status !== 'attending' ? (
+                                  <span
+                                    title="Held — this guest hasn't confirmed yet"
+                                    className="ml-1.5 rounded-full bg-warn-100 px-1.5 py-0.5 text-[10px] font-semibold text-warn-800"
+                                  >
+                                    held
+                                  </span>
+                                ) : null}
                                 {g.meal_preference && g.meal_preference !== 'no_preference' ? (
                                   <span className="ml-1.5 text-[10px] text-ink/45">· {g.meal_preference}</span>
                                 ) : null}
@@ -4769,17 +4777,10 @@ export function SeatingEditor({
                   : 'tuck into a row behind the tables, out of the guests’ sightline (an open venue has no walls).'}
               </li>
               <li>
-                <span className="font-semibold text-ink/85">3 · Guests</span> —{' '}
-                {unseatedCount > 0 ? (
-                  <>
-                    the <span className="font-semibold">{unseatedCount}</span> unseated, attending{' '}
-                    {unseatedCount === 1 ? 'guest is' : 'guests are'} seated by priority tier, highest
-                    priority nearest the stage.
-                  </>
-                ) : (
-                  'everyone attending is already seated, so seats stay as they are.'
-                )}{' '}
-                No one you&rsquo;ve placed is moved; sweetheart tables are skipped.
+                <span className="font-semibold text-ink/85">3 · Guests</span> — every unseated guest who
+                hasn&rsquo;t declined is seated by priority tier, highest priority nearest the stage;
+                pending replies get a <span className="font-semibold">held</span> seat you can confirm
+                later. No one you&rsquo;ve placed is moved; sweetheart tables are skipped.
               </li>
             </ol>
             <p className="mt-2 text-xs text-ink/50">
@@ -5179,10 +5180,13 @@ function SeatPeoplePanel({
     })
     .slice(0, 60);
   const groupRows = groups.filter((g) => !ql || g.label.toLowerCase().includes(ql));
+  // Count of seatable (not-declined) unseated guests in a tier — matches the
+  // seatRoleAtTable action so the "Seat role tier here" button isn't disabled
+  // when a tier's only unseated members are pending/maybe (held).
   const tierCount = (tier: 1 | 2 | 3 | 4) =>
     guests.filter(
       (g) =>
-        g.rsvp_status === 'attending' &&
+        g.rsvp_status !== 'declined' &&
         !g.seated_table_id &&
         g.role !== 'bride' &&
         g.role !== 'groom' &&
@@ -5321,7 +5325,7 @@ function SeatPeoplePanel({
           ? 'Tap a person to seat them at the next open chair.'
           : tab === 'group'
             ? 'Seats the whole group here — whoever fits; the rest stay put.'
-            : 'Seats every unseated, attending guest of that role tier here.'}
+            : 'Seats every unseated guest of that role tier here (pending replies get a held seat).'}
       </p>
     </div>
   );

@@ -857,10 +857,14 @@ export function computeAutoSeat(
     .filter((r) => r.table.table_type !== 'sweetheart_2')
     .map((r) => r.table);
 
-  // Eligible: attending, not yet seated, not the couple themselves.
+  // Eligible: everyone NOT declined (so pending/maybe get a HELD seat too — the
+  // couple plans the whole room before every RSVP is in; pending seats firm up as
+  // replies land, declined are excluded), not yet seated, not the couple
+  // themselves. Matches recommendTableSet, which already sizes the floor for all
+  // non-declined guests, so the seater now fills the tables it built for.
   const eligible = guests.filter(
     (g) =>
-      g.rsvp_status === 'attending' &&
+      g.rsvp_status !== 'declined' &&
       !assignedGuestIds.has(g.guest_id) &&
       g.role !== 'bride' &&
       g.role !== 'groom',
@@ -1211,8 +1215,8 @@ export function relaxLowestPriorityRule(
 // the couple, then enough round tables for the rest. The couple edits the
 // result; nothing here is irreversible. Sizing counts everyone NOT declined
 // (attending + still-pending) because a couple builds the floor before every
-// RSVP is in; computeAutoSeat then seats only the confirmed-attending, leaving
-// the ready tables for the rest. Uniform round_10 — the PH reception workhorse
+// RSVP is in; computeAutoSeat seats the same non-declined set (pending get held
+// seats), so the floor and the seater agree. Uniform round_10 — the PH reception workhorse
 // coordinators standardise on, so a draft reads as one clean rental order.
 // ---------------------------------------------------------------------------
 

@@ -64,6 +64,13 @@ import type { WallTile } from '@/lib/live-wall-logic';
 import { getGuestLiveGallery, type GuestLiveGallery } from '@/lib/guest-live-gallery';
 import { parseYouTubeVideoId, youTubeEmbedUrl } from '@/lib/panood-watch';
 import { GuestHubCard, pickNextScheduleBlock, type GuestHubData } from './_components/guest-hub-card';
+import {
+  eventOwnsIndoorBlueprint,
+  fetchEntrance,
+  type EntrancePos,
+} from '@/lib/indoor-blueprint';
+import { fetchTables, type EventTableRow } from '@/lib/seating';
+import { YourSeatBlock } from './_components/your-seat-block';
 
 /** Panood Watch-Live data for the day-of page (PANOOD_SYSTEM owners only). */
 type WatchLiveData = { embedUrl: string; watchUrl: string };
@@ -897,6 +904,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // stays null and the card shows "Not yet assigned" — safe for every event
   // regardless of whether the seating editor has been used.
   let guestTableLabel: string | null = null;
+  let guestTableId: string | null = null;
   try {
     const { data: assignmentRow } = await admin
       .from('event_seat_assignments')
@@ -905,6 +913,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
       .eq('guest_id', guest.guest_id)
       .maybeSingle();
     if (assignmentRow?.table_id) {
+      guestTableId = assignmentRow.table_id as string;
       const { data: tableRow } = await admin
         .from('event_tables')
         .select('table_label, link_group_label')
@@ -922,6 +931,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   } catch {
     // Graceful degrade — seating tables may not exist yet on all installs.
     guestTableLabel = null;
+    guestTableId = null;
   }
 
   const guestHubData: GuestHubData = {
@@ -938,6 +948,30 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     isLimitedPlusOne:
       guest.plus_one_of_guest_id !== null && guest.plus_one_mode === 'limited',
   };
+
+  // "Your seat" inline map — surface the entrance→table wayfinding map on the
+  // event website itself, but only when the guest is seated AND the couple owns
+  // the paid Indoor Blueprint SKU. The free tier remains the table label in the
+  // Guest Hub card + the public /find-seat name-search finder.
+  let seatMap:
+    | { tables: EventTableRow[]; entrance: EntrancePos; targetTableId: string }
+    | null = null;
+  if (guestTableId && guestTableLabel) {
+    const ownsIndoorBlueprint = await eventOwnsIndoorBlueprint(admin, event.event_id);
+    if (ownsIndoorBlueprint) {
+      try {
+        const [seatTables, seatEntrance] = await Promise.all([
+          fetchTables(admin, event.event_id),
+          fetchEntrance(admin, event.event_id),
+        ]);
+        if (seatTables.length > 0) {
+          seatMap = { tables: seatTables, entrance: seatEntrance, targetTableId: guestTableId };
+        }
+      } catch {
+        seatMap = null;
+      }
+    }
+  }
 
   return (
     <>
@@ -970,6 +1004,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         guestLiveGallery={guestLiveGallery}
         needsFaceEnroll={needsFaceEnroll}
         guestHubData={guestHubData}
+        seatMap={seatMap}
       />
       {papicGuestActive && (
         <Link
@@ -1852,6 +1887,7 @@ function InvitationSite({
   guestLiveGallery,
   needsFaceEnroll,
   guestHubData,
+  seatMap,
 }: {
   event: EventRow;
   guest: GuestRow;
@@ -1917,6 +1953,11 @@ function InvitationSite({
   needsFaceEnroll?: boolean;
   /** Pre-assembled data bundle for the persistent GuestHubCard. */
   guestHubData: GuestHubData;
+  seatMap: {
+    tables: EventTableRow[];
+    entrance: EntrancePos;
+    targetTableId: string;
+  } | null;
 }) {
   const sideLabel =
     guest.side === 'both'
@@ -2015,6 +2056,16 @@ function InvitationSite({
             a glance on every return visit. Hidden from anonymous visitors
             (this branch only runs when a guest session is present). */}
         <GuestHubCard data={guestHubData} />
+
+        {seatMap ? (
+          <YourSeatBlock
+            tableLabel={guestHubData.tableLabel ?? 'your table'}
+            venueName={event.venue_name}
+            tables={seatMap.tables}
+            entrance={seatMap.entrance}
+            targetTableId={seatMap.targetTableId}
+          />
+        ) : null}
 
         {isLive ? (
           <DayOfBanner kind="live" />

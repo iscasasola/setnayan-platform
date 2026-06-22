@@ -1003,23 +1003,32 @@ html.subnav-docked [data-shell-main] {
  *      coarse` so desktop form density (intentional 14px inputs) is untouched,
  *      and left UNLAYERED on purpose so it outranks the Tailwind `text-sm`
  *      utility — unlayered CSS beats any @layer, including @layer utilities.
+ *      The `!important` is load-bearing: several fields (e.g. /login, /signup
+ *      FormFields) set `style={{ fontSize: 13 }}` INLINE, and an inline
+ *      declaration outranks every selector-based rule — layered or not — so
+ *      only `!important` lifts those to the 16px floor. Verified no input sets
+ *      an inline font-size ABOVE 16, so this only ever raises, never shrinks.
  *
  *   2. Double-tap-to-zoom + the legacy 300ms tap delay. `touch-action:
  *      manipulation` on the root removes both for the whole tree (touch-action
- *      intersects down through ancestors) while KEEPING pinch-zoom and panning.
+ *      intersects down through ancestors) while keeping panning.
  *
  *   3. Pull-to-refresh / rubber-band overscroll on the document scroller —
  *      `overscroll-behavior: none` stops the page bouncing like a web page.
  *
- * Deliberate pinch-zoom stays ENABLED (viewport `maximumScale: 5` in
- * app/layout.tsx) for WCAG 1.4.4 reflow/zoom — we only remove the zooms the
- * user never asked for, never the accessibility one.
+ * Pinch-zoom is now DISABLED app-wide for a native-app feel (owner directive
+ * 2026-06-15): viewport `maximumScale: 1` + `userScalable: false` covers
+ * Android + the iOS input focus-zoom, and <ZoomGuard/> (app/_components/
+ * zoom-guard.tsx) prevents WebKit `gesturestart` on iOS, which ignores the
+ * viewport meta. The seat-plan canvas re-permits gestures via [data-allow-zoom]
+ * (it owns its own pointer-event pan/pinch). ⚠ This trades away WCAG 1.4.4
+ * browser pinch-zoom by owner decision; OS-level Accessibility → Zoom remains.
  * ------------------------------------------------------------------------- */
 @media (pointer: coarse) {
   input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']),
   select,
   textarea {
-    font-size: 16px;
+    font-size: 16px !important;
   }
 }
 

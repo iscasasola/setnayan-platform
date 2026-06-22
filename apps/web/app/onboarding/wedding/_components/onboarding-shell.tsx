@@ -171,10 +171,18 @@ const LEGACY_PICKER_SCREENS: ReadonlySet<ScreenId> = new Set(['aigate', 'team_ba
 // services are still STORED (style_preferences.interested_services) for the dashboard to
 // surface — they're just not sold here.
 const PAYWALL_SCREENS: ReadonlySet<ScreenId> = new Set(['plan', 'bundle', 'services', 'summary']);
+// Owner 2026-06-22 ("the steps like this, the information only, can we remove them for now"):
+// the pure no-input interstitials — brand/transition moments + the persona reveal — are
+// filtered OUT of the flow so it runs question→question. REVERSIBLE: empty this set to
+// restore every screen. The persona derive that used to run on `exp_reveal` now fires when
+// the 5 quiz answers complete (see the derive effect), so dropping the reveal screen doesn't
+// break the derived plan. The JSX sections stay in place (just never become active).
+const REMOVED_INFO_SCREENS: ReadonlySet<ScreenId> = new Set(['welcome', 'love_preview', 'alaala_promise', 'exp_reveal', 'team_intro', 'team_payoff']);
 function buildSequence(kind: OnboardingState['kind'], authed: boolean, loveSkipped: boolean, ai: boolean | null, picks: string[]): ScreenId[] {
   const hasMusician = picks.some((p) => SONG_PICK_CATS.has(p));
   const hasStylist = picks.includes('stylist');
   return FLOW_IDS.filter((id) =>
+    !REMOVED_INFO_SCREENS.has(id) &&                // owner 2026-06-22 — info-only steps removed for now
     !(id === 'faith' && kind === 'civil') &&        // Civil skips the faith screen
     !(EXP_SCREENS.has(id) && !EXPERIENCE_QUIZ_ENABLED) &&         // exp_* experience quiz only when the flag is ON
     !(EXPERIENCE_QUIZ_ENABLED && LEGACY_PICKER_SCREENS.has(id)) && // flag ON drops the manual picker chain (the persona derives it)
@@ -217,7 +225,7 @@ const NEXT_LABEL_BY_ID: Record<ScreenId, string> = {
   // Experience-persona quiz (0016 · flag-gated). Each axis advances with Continue;
   // exp_effort leads into the reveal; exp_reveal continues on to reception_setting.
   exp_for_whom:'Continue', exp_feel:'Continue', exp_energy:'Continue', exp_roots:'Continue', exp_effort:'Continue',
-  exp_help:'Continue', exp_source:'See my plan', exp_reveal:'Continue',
+  exp_help:'Continue', exp_source:'Continue', exp_reveal:'Continue',
 };
 /* Which screens show a Skip button. Skippable: team_extras · songs · mood · find · the
    à-la-carte services review — they sort/refine, never gate. The love collection screens
@@ -1929,7 +1937,10 @@ export function OnboardingShell({
      set. The legacy 53-tile picker is dropped from the flow when the flag is on — the persona
      IS the plan; the existing commit already reads picks/refinements/feel/interestedServices. */
   useEffect(() => {
-    if (!EXPERIENCE_QUIZ_ENABLED || activeId !== 'exp_reveal') return;
+    // Fires as soon as the 5 quiz answers are complete (was gated to the `exp_reveal`
+    // screen, which the owner removed 2026-06-22 — so we derive on answer-complete instead).
+    // Idempotent + re-runs when an axis answer changes, so editing an answer re-derives.
+    if (!EXPERIENCE_QUIZ_ENABLED) return;
     const axes = state.experienceAxes;
     if (EXP_AXES.some((a) => !axes[a.id])) return; // wait until all 5 axes are answered
     const personaKey = resolvePersona(axes);
@@ -1946,7 +1957,7 @@ export function OnboardingShell({
         prefs: { ...s.prefs, feel: plan.feel },
       };
     });
-  }, [activeId, state.experienceAxes]);
+  }, [state.experienceAxes]);
 
   /* picker card tap — toggles the pick (multi); latches pickerTouched. */
   const pickChip = (cat: string) => {

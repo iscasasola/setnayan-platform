@@ -29,6 +29,41 @@ function safeFileName(name: string): string {
   return base.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80) || 'contract.pdf';
 }
 
+// Resolve the event_vendors booking a contract covers, by matching
+// (event_id, vendor_profile_id == marketplace_vendor_id). Returns the booking's
+// vendor_id (the event_vendors PK) or null when the couple hasn't booked this
+// vendor. Prefers the resolve_event_vendor_for_contract() RPC; falls back to a
+// direct query, then to null — so an unmigrated prod never breaks upload.
+async function resolveEventVendorId(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  eventId: string,
+  vendorProfileId: string,
+): Promise<string | null> {
+  try {
+    const { data, error } = await supabase.rpc('resolve_event_vendor_for_contract', {
+      p_event_id: eventId,
+      p_vendor_profile_id: vendorProfileId,
+    });
+    if (!error && typeof data === 'string') return data;
+  } catch {
+    /* RPC missing (pre-migration) — fall through to the direct query */
+  }
+  const { data, error } = await supabase
+    .from('event_vendors')
+    .select('vendor_id')
+    .eq('event_id', eventId)
+    .eq('marketplace_vendor_id', vendorProfileId)
+    .is('archived_at', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    // 42703 (column missing) / 42883 etc → graceful-degrade, link stays null.
+    return null;
+  }
+  return (data?.vendor_id as string | undefined) ?? null;
+}
+
 // ----------------------------------------------------------------------------
 // uploadVendorContract — vendor creates a draft contract row.
 // FormData fields:
@@ -80,6 +115,19 @@ export async function uploadVendorContract(formData: FormData) {
     );
   }
 
+  // Booking↔contract linkage. Resolve the event_vendors booking this contract
+  // covers — match on (event_id, marketplace_vendor_id == vendor_profile_id) —
+  // so the couple's booking surface can show its contract status and a signed
+  // contract can mark the booking. Best-effort: a contract may be uploaded
+  // before the couple has booked the vendor, in which case there's no row to
+  // link (event_vendor_id stays null and the booking simply has no contract).
+  // Graceful-degrade if the column/RPC isn't present yet (pre-migration prod).
+  const eventVendorId = await resolveEventVendorId(
+    supabase,
+    eventId,
+    profile.vendor_profile_id,
+  );
+
   // Push the PDF to R2. Key path: <vendor_profile_id>/<timestamp>_<rand>/<filename>
   const buffer = Buffer.from(await file.arrayBuffer());
   const stamp = Date.now();
@@ -100,23 +148,38 @@ export async function uploadVendorContract(formData: FormData) {
   }
 
   const admin = createAdminClient();
-  const { data, error } = await admin
+  const insertRow: Record<string, unknown> = {
+    vendor_profile_id: profile.vendor_profile_id,
+    event_id: eventId,
+    order_id: orderId,
+    uploaded_by_user_id: user.id,
+    title,
+    description,
+    file_url: fileUrl,
+    file_name: file.name.slice(0, 200),
+    file_size_bytes: file.size,
+    mime_type: 'application/pdf',
+    status: 'draft',
+  };
+  if (eventVendorId) insertRow.event_vendor_id = eventVendorId;
+
+  let { data, error } = await admin
     .from('vendor_contracts')
-    .insert({
-      vendor_profile_id: profile.vendor_profile_id,
-      event_id: eventId,
-      order_id: orderId,
-      uploaded_by_user_id: user.id,
-      title,
-      description,
-      file_url: fileUrl,
-      file_name: file.name.slice(0, 200),
-      file_size_bytes: file.size,
-      mime_type: 'application/pdf',
-      status: 'draft',
-    })
+    .insert(insertRow)
     .select('contract_id')
     .single();
+
+  // Graceful-degrade: if event_vendor_id isn't a column yet (42703 on
+  // pre-migration prod), retry without the linkage so contract upload never
+  // breaks. The booking simply won't show this contract until backfilled.
+  if (error && error.code === '42703' && 'event_vendor_id' in insertRow) {
+    delete insertRow.event_vendor_id;
+    ({ data, error } = await admin
+      .from('vendor_contracts')
+      .insert(insertRow)
+      .select('contract_id')
+      .single());
+  }
 
   if (error || !data) {
     console.error('[contracts] insert vendor_contract failed:', error?.message);

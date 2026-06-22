@@ -46,6 +46,8 @@ export type VendorContractRow = {
   public_id: string;
   vendor_profile_id: string;
   event_id: string;
+  /** Nullable FK to the event_vendors booking this contract covers (2026-06-22). */
+  event_vendor_id: string | null;
   order_id: string | null;
   uploaded_by_user_id: string;
   title: string;
@@ -133,6 +135,47 @@ export function statusLabel(status: ContractStatus): string {
       return 'Visible to couple';
     case 'cancelled':
       return 'Cancelled';
+  }
+}
+
+/**
+ * Derived booking↔contract state (2026-06-22).
+ *
+ * Summarizes a booking's linked contracts into one indicator the couple's
+ * vendor/booking surface can show. Under the upload-only scope there's no real
+ * signing, so the states map to the contract lifecycle the couple can observe:
+ *   - 'none'     — no (non-cancelled) contract for this booking
+ *   - 'draft'    — vendor has a draft but hasn't made it visible yet
+ *   - 'awaiting' — visible to the couple but not yet sealed (sent_for_signature)
+ *   - 'signed'   — fully_signed (forward-compat terminal)
+ * 'awaiting' wins over 'draft' wins over 'none'; 'signed' wins over all.
+ */
+export type BookingContractState = 'none' | 'draft' | 'awaiting' | 'signed';
+
+export function deriveBookingContractState(
+  statuses: ReadonlyArray<ContractStatus>,
+): BookingContractState {
+  let state: BookingContractState = 'none';
+  for (const s of statuses) {
+    if (s === 'fully_signed') return 'signed';
+    if (s === 'sent_for_signature') state = 'awaiting';
+    else if (s === 'draft' && state === 'none') state = 'draft';
+    // 'cancelled' contributes nothing.
+  }
+  return state;
+}
+
+/** Human-friendly label for a derived booking contract state. */
+export function bookingContractStateLabel(state: BookingContractState): string {
+  switch (state) {
+    case 'none':
+      return 'No contract yet';
+    case 'draft':
+      return 'Contract drafted';
+    case 'awaiting':
+      return 'Contract awaiting signature';
+    case 'signed':
+      return 'Contract signed';
   }
 }
 

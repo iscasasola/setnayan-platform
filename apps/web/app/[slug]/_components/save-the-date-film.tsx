@@ -778,6 +778,12 @@ export function SaveTheDateFilm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preview]);
 
+  // True until the soundtrack's one-time ENTRANCE fade-in has run, so the video
+  // effect can ramp that first music rise over 3s (a smooth entrance) instead of
+  // the snappy VIDEO_FADE_MS used for video↔music transitions. (owner 2026-06-22
+  // "3 second fade in".)
+  const musicEnteredRef = useRef(false);
+
   // RAF player — advances timed slides. The video beat (dur Infinity) holds on
   // a timer; it autoplays and the video effect advances it on 'ended'.
   useEffect(() => {
@@ -823,13 +829,13 @@ export function SaveTheDateFilm({
     // position and resumes from there afterwards — it must never restart from
     // the beginning (owner 2026-06-19), which a still-playing `loop`-ed track
     // would do by looping back to 0 during a long clip.
-    const crossfade = (musicTo: number, videoTo: number, pauseMusicAtEnd = false) => {
+    const crossfade = (musicTo: number, videoTo: number, pauseMusicAtEnd = false, durMs = VIDEO_FADE_MS) => {
       cancelAnimationFrame(videoFadeRef.current);
       const m0 = a?.volume ?? 1;
       const v0 = v.volume;
       const t0 = performance.now();
       const tick = (now: number) => {
-        const p = Math.min(1, (now - t0) / VIDEO_FADE_MS);
+        const p = Math.min(1, (now - t0) / durMs);
         // Equal-power crossfade: the channel fading OUT follows cos, fading IN
         // follows sin (cos²+sin²=1), so perceived loudness stays CONSTANT — no
         // mid-dissolve dip a linear amplitude ramp has — and the ramp eases in/out
@@ -922,10 +928,20 @@ export function SaveTheDateFilm({
       v.muted = true;
       // Resume the music FROM WHERE IT PAUSED — play() never resets currentTime,
       // and we never touch a.currentTime, so it continues, never restarts.
-      if (content.musicUrl && a && !preview && playing && !muted) {
+      const musicAudible = Boolean(content.musicUrl && a && !preview && playing && !muted);
+      if (musicAudible && a) {
         a.play().catch(() => {});
       }
-      crossfade(1, 0); // video fades out, music fades back up from its held position
+      // The FIRST audible music rise (the entrance, when the film starts at the veil
+      // lift) eases in over 3s; later rises (resuming after the video) use the snappy
+      // VIDEO_FADE_MS. Force volume 0 at the entrance so the 3s ramp starts clean.
+      let musicRiseMs = VIDEO_FADE_MS;
+      if (musicAudible && !musicEnteredRef.current) {
+        musicEnteredRef.current = true;
+        musicRiseMs = 3000;
+        if (a) setVol(a, 0);
+      }
+      crossfade(1, 0, false, musicRiseMs); // video fades out, music fades up (3s entrance / snappy resume)
       // Keep the clip WARM (playing, MUTED) BEFORE its beat so it buffers; PAUSE it
       // once we're PAST the beat (clip done) or sound is globally off.
       if (idxRef.current > videoSlideIdxRef.current || muted || preview) {
@@ -1155,6 +1171,7 @@ export function SaveTheDateFilm({
       // already-playing element (allowed off-gesture) → the music auto-starts the
       // moment the veil is up, on iOS and desktop alike.
       if (a && !muted) {
+        setVol(a, 0); // start at 0 so the lift unmute doesn't POP — the fade-in effect ramps it up
         a.play().catch(() => {});
       }
 

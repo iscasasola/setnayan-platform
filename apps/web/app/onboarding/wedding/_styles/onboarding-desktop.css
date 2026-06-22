@@ -191,6 +191,15 @@
     max-width: 720px;
   }
 
+  /* The accreting "your website is building" mirror ribbon (.mirror) sits in the top
+     chrome and eats ~70px of every step's vertical budget from the `name` screen on.
+     On desktop the two-pane layout already conveys progress, so hide it to keep each
+     step's bottom controls above Continue without scrolling (owner 2026-06-22 "trim it
+     on the question steps to win the space back"). Mobile (<1024) keeps the ribbon. */
+  .onbw .mirror {
+    display: none;
+  }
+
   /* ── WIDE-SCREEN region: fill the sheet width (more destinations visible) AND fit
      vertically so the search + Near me row sits above Continue without scrolling
      (owner 2026-06-22: "bottom elements above the continue button… don't need to

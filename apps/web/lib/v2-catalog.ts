@@ -99,9 +99,9 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
   PAPIC_SEATS:         'live',     // photo crew end-to-end: provision + claim + capture · PR #731 + migration 20260718000000 · 2026-06-01
   HIGH_RES_ARCHIVE:    'partial',  // 0009 photo delivery partial
   LIVE_BACKGROUND:     'partial',  // 0005 Pailaw engineering brief · code not verified
+  PABATI:              'live',     // video guestbook end-to-end: gated day-of card + 5s guest recorder + recap section · collector exists · 2026-06-22
 
   // Not built · catalog-only · no fulfillment yet
-  PABATI:                'not_built',
   PAKANTA:               'not_built',
   PAPIC_ADDON_STORIES:   'not_built',
   PAPIC_ADDON_THANK_YOU: 'not_built',

@@ -155,6 +155,7 @@ export type EditorialSections = {
   team: boolean;
   poweredBy: boolean;
   liveWall: boolean;
+  videoGuestbook: boolean;
   fromTheCouple: boolean;
   fromVendors: boolean;
   vendorsWeLoved: boolean;
@@ -167,6 +168,7 @@ export const EDITORIAL_SECTION_KEYS: ReadonlyArray<keyof EditorialSections> = [
   'team',
   'poweredBy',
   'liveWall',
+  'videoGuestbook',
   'fromTheCouple',
   'fromVendors',
   'vendorsWeLoved',
@@ -252,6 +254,10 @@ export type EditorialData = {
   // Only surfaced when photoWallActive is true (LIVE_WALL SKU activated).
   photoWallPhotos: string[];
   photoWallActive: boolean;
+  // Pabati video guestbook (pabati_clips → presigned clip URLs). Only surfaced
+  // when pabatiActive is true (PABATI SKU active). Clean, non-hidden clips only.
+  pabatiClips: string[];
+  pabatiActive: boolean;
   // Day-of media from the couple's recommended vendor (see VendorMediaItem).
   vendorMedia: VendorMediaItem[];
   // Section visibility from the editorial editor. Optional → a block shows
@@ -687,6 +693,39 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     }
   }
 
+  // 6c-bis. Pabati video guestbook (pabati_clips → presigned clip URLs),
+  // surfaced only when the couple availed the PABATI SKU. Mirrors the photo-wall
+  // gate: fetch FIRST (so an unowned event pays nothing on the gate read when
+  // there are no clips), then bundle-aware eventSkuActive('PABATI'). FAILS
+  // CLOSED — only moderation_state='clean' + non-hidden clips show (never
+  // 'unscreened' or '*_blocked'), so a posterless/unscreened greeting never
+  // projects on the public recap. Best-effort: a missing table yields [].
+  let pabatiClips: string[] = [];
+  let pabatiActive = false;
+  try {
+    const { data: clipRows } = await admin
+      .from('pabati_clips')
+      .select('r2_object_key, captured_at')
+      .eq('event_id', eventId)
+      .eq('moderation_state', 'clean')
+      .is('hidden_at', null)
+      .order('captured_at', { ascending: true });
+    const refs = ((clipRows ?? []) as Array<{ r2_object_key: string | null }>)
+      .map((r) => r.r2_object_key)
+      .filter((k): k is string => typeof k === 'string' && k.trim().length > 0);
+    if (refs.length > 0) {
+      pabatiClips = (
+        await Promise.all(refs.map((ref) => displayUrlForStoredAsset(ref)))
+      ).filter((u): u is string => Boolean(u));
+      if (pabatiClips.length > 0) {
+        pabatiActive = await eventSkuActive(admin, eventId, 'PABATI');
+      }
+    }
+  } catch {
+    pabatiClips = [];
+    pabatiActive = false;
+  }
+
   // 6d. "From Your Vendors" — day-of media the couple's RECOMMENDED vendor
   // submitted (editorial_vendor_media). Public surface, so it FAILS CLOSED:
   // only moderation_state='clean' shows (never 'unscreened' — third-party
@@ -869,6 +908,8 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     galleryPhotos,
     photoWallPhotos,
     photoWallActive,
+    pabatiClips,
+    pabatiActive,
     vendorMedia,
     sections: readSections(draftJson),
   };
@@ -1050,6 +1091,8 @@ function mariaAndJuan(): EditorialData {
     ],
     photoWallPhotos: [],
     photoWallActive: false,
+    pabatiClips: [],
+    pabatiActive: false,
     vendorMedia: [
       { vendorName: 'Goldenhour Photo + Film', category: 'Photography & Video', type: 'clip', stillUrl: '/realstories/maria-juan-v1.jpg', boomerangUrl: '/realstories/maria-juan-vclip.mp4', caption: 'The rings, in close' },
       { vendorName: 'Goldenhour Photo + Film', category: 'Photography & Video', type: 'photo', stillUrl: '/realstories/maria-juan-v2.jpg', boomerangUrl: null, caption: 'Caught laughing in the garden' },
@@ -1135,6 +1178,8 @@ function jackAndJill(): EditorialData {
     ],
     photoWallPhotos: [],
     photoWallActive: false,
+    pabatiClips: [],
+    pabatiActive: false,
     vendorMedia: [
       { vendorName: 'Saltwater Stories', category: 'Photography & Video', type: 'clip', stillUrl: '/realstories/jack-jill-v1.jpg', boomerangUrl: '/realstories/jack-jill-vclip.mp4', caption: 'Toes in the sand' },
       { vendorName: 'Saltwater Stories', category: 'Photography & Video', type: 'photo', stillUrl: '/realstories/jack-jill-v2.jpg', boomerangUrl: null, caption: 'Down the shoreline at sunset' },
@@ -1220,6 +1265,8 @@ function johnAndJane(): EditorialData {
     ],
     photoWallPhotos: [],
     photoWallActive: false,
+    pabatiClips: [],
+    pabatiActive: false,
     vendorMedia: [
       { vendorName: 'Skyline & Co.', category: 'Photography & Video', type: 'clip', stillUrl: '/realstories/john-jane-v1.jpg', boomerangUrl: '/realstories/john-jane-vclip.mp4', caption: 'A toast at blue hour' },
       { vendorName: 'Skyline & Co.', category: 'Photography & Video', type: 'photo', stillUrl: '/realstories/john-jane-v2.jpg', boomerangUrl: null, caption: 'Their first dance, up high' },
@@ -1306,6 +1353,8 @@ function peterAndMary(): EditorialData {
     ],
     photoWallPhotos: [],
     photoWallActive: false,
+    pabatiClips: [],
+    pabatiActive: false,
     vendorMedia: [
       { vendorName: 'Heirloom Photo + Film', category: 'Photography & Video', type: 'clip', stillUrl: '/realstories/peter-mary-v1.jpg', boomerangUrl: '/realstories/peter-mary-vclip.mp4', caption: 'The tables in bloom' },
       { vendorName: 'Heirloom Photo + Film', category: 'Photography & Video', type: 'photo', stillUrl: '/realstories/peter-mary-v2.jpg', boomerangUrl: null, caption: 'The whole table, raised' },
@@ -1392,6 +1441,8 @@ function jackAndRose(): EditorialData {
     ],
     photoWallPhotos: [],
     photoWallActive: false,
+    pabatiClips: [],
+    pabatiActive: false,
     vendorMedia: [
       { vendorName: 'Highland Frames', category: 'Photography & Video', type: 'clip', stillUrl: '/realstories/jack-rose-v1.jpg', boomerangUrl: '/realstories/jack-rose-vclip.mp4', caption: 'Greens in the mist' },
       { vendorName: 'Highland Frames', category: 'Photography & Video', type: 'photo', stillUrl: '/realstories/jack-rose-v2.jpg', boomerangUrl: null, caption: 'Just the two of them, in the fog' },

@@ -13,6 +13,8 @@ import { resolveMonogram, type MonogramConfig } from '@/lib/monogram';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
 import { PapicGuestCapture } from '@/app/papic/guest/_components/papic-guest-capture';
+import { eventPabatiActive, fetchPabatiQuota } from '@/lib/pabati';
+import { PabatiPrompt } from './_components/pabati-prompt';
 import { eventOwnsPapicSeats } from '@/lib/papic-seats';
 import { eventSkuActive } from '@/lib/entitlements';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
@@ -1002,6 +1004,18 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     }
   }
 
+  // Pabati video guestbook (PABATI) — auto-show the in-context guest recorder on
+  // this guest's own landing page when the couple owns the active (admin-
+  // approved, bundle-aware) pack. Gated on eventPabatiActive; the per-EVENT
+  // 300-clip quota drives the "N greetings left" display (the RPC is the real
+  // gate). Admin read, graceful so the anonymous public path is never touched.
+  const pabatiActive = await eventPabatiActive(admin, event.event_id);
+  let pabati: { initialRemaining: number; total: number } | null = null;
+  if (pabatiActive) {
+    const quota = await fetchPabatiQuota(admin, event.event_id);
+    pabati = { initialRemaining: quota.remaining, total: quota.total };
+  }
+
   // Guest Hub Card — seat assignment for THIS guest only (one targeted query;
   // the hub card needs the table label without loading the full floor plan).
   // Graceful-degrade: if the join fails or no assignment exists, tableLabel
@@ -1120,6 +1134,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         guestHubData={guestHubData}
         seatMap={seatMap}
         papicGuest={papicGuest}
+        pabati={pabati}
       />
       {papicGuestActive && (
         <Link
@@ -2021,6 +2036,7 @@ function InvitationSite({
   guestHubData,
   seatMap,
   papicGuest,
+  pabati,
 }: {
   event: EventRow;
   guest: GuestRow;
@@ -2102,6 +2118,13 @@ function InvitationSite({
     initialRemaining: number;
     total: number;
     termsAccepted: boolean;
+  } | null;
+  /** Inline Pabati video-greeting recorder (PABATI) — non-null only when the
+   *  event owns the active (admin-approved) pack. Mounts the guest recorder
+   *  in-context on this guest's landing page. */
+  pabati: {
+    initialRemaining: number;
+    total: number;
   } | null;
 }) {
   const sideLabel =
@@ -2408,6 +2431,21 @@ function InvitationSite({
             total={papicGuest.total}
             termsAccepted={papicGuest.termsAccepted}
             needsFaceEnroll={needsFaceEnroll}
+          />
+        ) : null}
+
+        {/* Inline Pabati recorder — auto-shown in-context when the couple owns
+            the active (admin-approved) PABATI pack, so this guest can leave a
+            5-second video greeting without leaving their landing page. Same
+            collector as the standalone /pabati/[eventId] share-link entry. The
+            per-EVENT 300-clip quota drives the "N left" display; the RPC is the
+            real gate. pabati is non-null only behind the active gate. */}
+        {pabati ? (
+          <PabatiPrompt
+            guestName={guest.first_name}
+            eventName={event.display_name}
+            initialRemaining={pabati.initialRemaining}
+            total={pabati.total}
           />
         ) : null}
 

@@ -785,6 +785,12 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
       const key = asString(o.service_key);
       if (!key || seen.has(key)) continue;
       seen.add(key);
+      // SDE only: it's a crew-DELIVERED film, not a self-serve unlock — list it
+      // as "availed" on the public editorial only once it's genuinely active
+      // (admin-approved, bundle-aware). A pending/unverified SDE order must not
+      // advertise a deliverable that hasn't been paid-confirmed. Other keys keep
+      // the "any live order" behaviour.
+      if (key === 'SDE' && !(await eventSkuActive(admin, eventId, 'SDE'))) continue;
       servicesAvailed.push(SERVICE_LABELS[key] ?? prettyServiceKey(key));
     }
     servicesAvailed.sort((a, b) => a.localeCompare(b));

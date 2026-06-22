@@ -28,6 +28,8 @@ import { loadEditorialData } from '@/app/[slug]/_components/editorial/data';
 import { composeCopy } from '@/app/[slug]/_components/editorial/compose';
 import { bucketMoments } from '@/lib/kwento-magazine';
 import { getWallSnapshot } from '@/lib/live-wall';
+import { eventSkuActive } from '@/lib/entitlements';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 
 export type RecapStatus = 'draft' | 'published' | 'unpublished';
 
@@ -66,6 +68,12 @@ export type RecapModel = {
   voices: RecapVoice[];
   totals: { photos: number; voices: number; guests: number | null };
   heroUrl: string | null;
+  /** Presigned MP4 URL of the crew-delivered Same-Day Edit film — non-null only
+   *  when the event holds SDE (active) AND the film has been delivered. The
+   *  recap page leads its photo body with this when present. */
+  sdeFilmUrl: string | null;
+  /** Presigned poster still for that film, or null → video first-frame. */
+  sdeFilmPosterUrl: string | null;
 };
 
 export type RecapCardData = {
@@ -210,6 +218,40 @@ export async function assembleRecapModel(eventId: string): Promise<RecapModel | 
 
   const voices = await loadPublicVoices(eventId);
 
+  // Same-Day Edit film (owner rule: a paid feature auto-shows the moment it
+  // exists). When the event holds SDE (active — admin-approved, bundle-aware)
+  // AND the crew has delivered it (sde_published_at + sde_video_r2_key), the
+  // recap leads with the finished film. Best-effort + graceful-degrade: a
+  // pre-migration column (42703/42P01) or any trouble → no film, never throws.
+  let sdeFilmUrl: string | null = null;
+  let sdeFilmPosterUrl: string | null = null;
+  try {
+    const admin = createAdminClient();
+    if (await eventSkuActive(admin, eventId, 'SDE')) {
+      const { data, error } = await admin
+        .from('events')
+        .select('sde_video_r2_key, sde_poster_r2_key, sde_published_at')
+        .eq('event_id', eventId)
+        .maybeSingle();
+      if (!error && data) {
+        const row = data as {
+          sde_video_r2_key?: string | null;
+          sde_poster_r2_key?: string | null;
+          sde_published_at?: string | null;
+        };
+        if (row.sde_published_at && row.sde_video_r2_key) {
+          sdeFilmUrl = await displayUrlForStoredAsset(row.sde_video_r2_key);
+          sdeFilmPosterUrl = row.sde_poster_r2_key
+            ? await displayUrlForStoredAsset(row.sde_poster_r2_key)
+            : null;
+        }
+      }
+    }
+  } catch {
+    sdeFilmUrl = null;
+    sdeFilmPosterUrl = null;
+  }
+
   const curatedPhotoUrls = editorial.galleryPhotos ?? [];
   const heroUrl =
     dayChapters[0]?.photoUrls[0] ?? curatedPhotoUrls[0] ?? editorial.heroPhotoUrl ?? null;
@@ -242,6 +284,8 @@ export async function assembleRecapModel(eventId: string): Promise<RecapModel | 
       guests: editorial.metrics.guests || null,
     },
     heroUrl,
+    sdeFilmUrl,
+    sdeFilmPosterUrl,
   };
 }
 

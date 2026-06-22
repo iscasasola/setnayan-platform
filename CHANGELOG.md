@@ -4,6 +4,25 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-22 · feat(integrations): generalized secret registry + OpenAI moderation (Integration Console PR2)
+
+Generalizes the Integration Activation Console into a **data-driven registry** so adding a "simple secret" integration (one encrypted API key, DB-first / env-fallback) is a data change, not new boilerplate. First registry entry: **OpenAI moderation**.
+
+- **Migration `20270210283954`** — adds `openai_api_key_enc` to the deny-by-default `platform_integration_secrets` table (AES-256-GCM). Idempotent; no RLS change. Applied to prod.
+- **`lib/integrations/registry.ts`** (new) — `SECRET_INTEGRATIONS` array; doubles as the **column allowlist** so the generic actions can never write an arbitrary column.
+- **`lib/integration-config.ts`** — generic `resolveIntegrationSecret(def)` (DB-first / env-fallback, uncached) + typed `resolveOpenAiKey()` + `getSecretPresenceMap()` (returns `{[col]: boolean}` — ciphertext never enters the console render tree).
+- **`lib/editorial-scan.ts`** — `runModeration` resolves the key DB-first; still **fails open** (no key → nothing flagged), byte-identical when the DB column is empty.
+- **`/admin/integrations`** — generic `saveIntegrationSecret` / `clearIntegrationSecret` actions (requireAdmin-gated, registry-validated, encrypted, never echoed) + a data-driven "More integrations" section rendering a `SecretCard` per registry entry.
+
+**Live-neutral:** column ships empty → resolver falls back to `OPENAI_API_KEY` env → behavior unchanged.
+
+**Reviewed** by a 4-lens adversarial workflow (security · byte-identical · build-time/`server-only` · correctness/UI): byte-identical and module-graph lenses passed clean; the two pass-with-nits findings (a `select('*')` ciphertext-in-render-tree footgun and stale header copy) are **fixed in this PR**.
+
+**Scope held tight (deliberate):** Recraft is offline-script-only (would break on `server-only`) → dropped. The dormant OAuth trio (YouTube / Google Drive / TikTok — needs a sync→async getter refactor) → **PR3**. The live/revenue/build-time set (Meta FB auto-publish, Maya payments, TikTok token, R2 public URL, VAPID) → **PR4**. Each becomes a registry entry on this proven pattern.
+
+tsc 0 · `next lint` clean (only pre-existing warnings) · `migration:check` green. CI prod build is the gate.
+
+SPEC IMPACT DECISION_LOG row (2026-06-22) + updates memory `project_setnayan_integration_activation_console` (PR2 shipped; PR3/PR4 scoped). No spec/SKU change.
 ## 2026-06-22 · fix(seo): structured data no longer frames Setnayan AI (+ premium layer) as free
 
 Public human-readable copy already presents Setnayan AI as a paid ₱3,999 one-time/event upgrade (`/pricing`, `public/llms.txt`, marketing sections, `/about`), but three machine-readable blocks that Google + AI answer engines ingest as canonical framed the premium layer as free, no-price features:

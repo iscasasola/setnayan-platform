@@ -1,6 +1,10 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { decryptToken } from '@/lib/encryption';
+import {
+  SECRET_INTEGRATIONS,
+  type SecretIntegrationDef,
+} from '@/lib/integrations/registry';
 
 // Integration Activation Console — PR1 (email slice).
 //
@@ -103,4 +107,77 @@ export async function resolveSetnayanAiPaywallEnabled(): Promise<boolean> {
     // DB unreachable / column absent (pre-migration) → env fallback below.
   }
   return process.env.SETNAYAN_AI_PAYWALL_ENABLED === 'true';
+}
+
+// ── Registry-driven "simple secret" integrations (PR2) ──────────────────────
+//
+// Generic DB-first / env-fallback resolver for any integration in
+// SECRET_INTEGRATIONS (lib/integrations/registry.ts) — one encrypted API key, no
+// extra config. Mirrors resolveResendConfig exactly: decrypt the registry's
+// secretColumn from the deny-by-default platform_integration_secrets singleton,
+// fall back to the registry's env var when unset/unreadable. UNCACHED so a key
+// the owner just saved takes effect on the next request. Byte-identical to the
+// pre-console behavior when the DB column is empty.
+export async function resolveIntegrationSecret(
+  def: SecretIntegrationDef,
+): Promise<string | null> {
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from('platform_integration_secrets')
+      .select(def.secretColumn)
+      .eq('id', 1)
+      .maybeSingle();
+    const enc = (data as Record<string, unknown> | null)?.[def.secretColumn] as
+      | string
+      | null
+      | undefined;
+    if (enc) {
+      try {
+        return decryptToken(enc);
+      } catch {
+        // Bad ciphertext or unset/rotated ENCRYPTION_KEY → fall back to env.
+      }
+    }
+  } catch {
+    // DB unreachable / column absent (pre-migration) → env fallback below.
+  }
+  return process.env[def.envFallback] || null;
+}
+
+/** OpenAI moderation key (DB-first, env-fallback to OPENAI_API_KEY). */
+export async function resolveOpenAiKey(): Promise<string | null> {
+  const def = SECRET_INTEGRATIONS.find((i) => i.id === 'openai');
+  if (!def) return process.env.OPENAI_API_KEY || null;
+  return resolveIntegrationSecret(def);
+}
+
+/**
+ * Presence map { [secretColumn]: hasStoredKey } for every registry integration.
+ * The encrypted values are read here but reduced to BOOLEANS before returning —
+ * the ciphertext never leaves this function, so the admin console can show
+ * per-integration status without holding any secret in its render tree
+ * (defense-in-depth against a future edit leaking the row to a client prop/log).
+ * UNCACHED; all-false on any error (DB unreachable / table absent).
+ */
+export async function getSecretPresenceMap(): Promise<Record<string, boolean>> {
+  const map: Record<string, boolean> = {};
+  for (const def of SECRET_INTEGRATIONS) map[def.secretColumn] = false;
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from('platform_integration_secrets')
+      .select('*')
+      .eq('id', 1)
+      .maybeSingle();
+    const row = data as Record<string, unknown> | null;
+    if (row) {
+      for (const def of SECRET_INTEGRATIONS) {
+        map[def.secretColumn] = Boolean(row[def.secretColumn]);
+      }
+    }
+  } catch {
+    // leave all-false
+  }
+  return map;
 }

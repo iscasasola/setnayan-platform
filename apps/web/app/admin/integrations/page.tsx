@@ -12,12 +12,16 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { saveResendConfig, clearResendKey, setAiPaywall } from './actions';
 import { TestResendButton } from './_components/test-resend-button';
+import { SecretCard } from './_components/secret-card';
+import { SECRET_INTEGRATIONS } from '@/lib/integrations/registry';
+import { getSecretPresenceMap } from '@/lib/integration-config';
 
-// Integration Activation Console — PR1 (email slice).
+// Integration Activation Console.
 //
-// Lets an admin set the Resend API key + from-address from the app (encrypted,
-// DB-first) so transactional email goes live WITHOUT a Vercel redeploy. PR1
-// ships email only; social / Recraft / R2 cards follow.
+// Lets an admin turn integrations on WITHOUT a Vercel redeploy: secrets stored
+// encrypted (DB-first, env-fallback), config + flags on platform_settings.
+// PR1 = email (Resend) + the Setnayan-AI paywall flag. PR2 = a data-driven
+// registry of "simple secret" integrations (OpenAI first; more follow).
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Integrations · Setnayan HQ' };
@@ -45,7 +49,7 @@ export default async function AdminIntegrationsPage({
   }
 
   const admin = createAdminClient();
-  const [secretRes, settingsRes] = await Promise.all([
+  const [secretRes, settingsRes, secretPresence] = await Promise.all([
     admin
       .from('platform_integration_secrets')
       .select('resend_api_key_enc, last_verified_at')
@@ -56,6 +60,10 @@ export default async function AdminIntegrationsPage({
       .select('resend_from_address, setnayan_ai_paywall_enabled')
       .eq('id', 1)
       .maybeSingle(),
+    // Registry secret presence as a { [column]: boolean } map — the ciphertext
+    // never enters this component's render tree (defense-in-depth: a future edit
+    // can't accidentally pass a secrets object to a client prop / log).
+    getSecretPresenceMap(),
   ]);
 
   const dbHasKey = Boolean(secretRes.data?.resend_api_key_enc);
@@ -102,8 +110,9 @@ export default async function AdminIntegrationsPage({
         </h1>
         <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
           Turn integrations on without a redeploy. Keys are stored encrypted; the
-          app reads them DB-first and falls back to the Vercel env. PR1 ships
-          email — social, Recraft, and R2 cards follow.
+          app reads them DB-first and falls back to the Vercel env. Live now:
+          email (Resend), the Setnayan&nbsp;AI paywall, and OpenAI moderation;
+          more integrations follow.
         </p>
       </header>
 
@@ -264,6 +273,23 @@ export default async function AdminIntegrationsPage({
           </button>
         </form>
       </section>
+
+      {/* Registry-driven "simple secret" integrations (PR2) */}
+      {SECRET_INTEGRATIONS.length > 0 ? (
+        <section className="space-y-4">
+          <h2 className="text-sm font-mono uppercase tracking-[0.18em] text-ink/45">
+            More integrations
+          </h2>
+          {SECRET_INTEGRATIONS.map((intg) => (
+            <SecretCard
+              key={intg.id}
+              integration={intg}
+              dbHasKey={secretPresence[intg.secretColumn] ?? false}
+              envHasKey={Boolean(process.env[intg.envFallback])}
+            />
+          ))}
+        </section>
+      ) : null}
 
       <p
         className="inline-flex items-start gap-2 rounded-2xl border border-amber-200/70 bg-amber-50/60 px-4 py-3 text-xs text-amber-900/90"

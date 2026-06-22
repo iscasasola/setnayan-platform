@@ -143,7 +143,8 @@ export default async function SeatingLabPage({ params }: Props) {
 
   // Paid ANIMATED_MONOGRAM gate — when owned, the floor medallion blooms in as
   // the Play-mode camera settles (free events keep the static mark, so the
-  // seat-plan tool stays free). Degrades to false on any read error → no bloom.
+  // seat-plan tool stays free). A missing orders table/column resolves to false
+  // (no bloom); other read errors propagate, matching the codebase pattern.
   const ownsAnimatedMonogram = await eventAnimatedMonogramActive(supabase, eventId);
 
   return (

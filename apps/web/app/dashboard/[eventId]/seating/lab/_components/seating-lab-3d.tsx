@@ -766,20 +766,22 @@ function FloorMonogram({
       typeof window.matchMedia === 'function' &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   }, []);
-  // Rising edge of playSettled → begin a bloom (owners only, motion allowed).
-  // Seed the start values here too, so there's no one-frame flash at full.
-  useEffect(() => {
-    if (animate && playSettled && !prevSettled.current && !reduced.current) {
-      t.current = 0;
-      if (matRef.current) matRef.current.opacity = 0.25;
-      if (meshRef.current) meshRef.current.scale.setScalar(0.9);
-    }
-    prevSettled.current = playSettled;
-  }, [animate, playSettled]);
+  // Rising-edge detection + seed live INSIDE useFrame (not a passive effect) so
+  // the seed and the tween share one rAF timeline — no effect-vs-frame race that
+  // could flash a full-bright frame before the bloom starts.
   useFrame((_, dt) => {
     const m = matRef.current;
     const mesh = meshRef.current;
     if (!m || !mesh) return;
+    // playSettled false→true (owners, motion allowed) → begin a bloom.
+    if (playSettled !== prevSettled.current) {
+      prevSettled.current = playSettled;
+      if (animate && playSettled && !reduced.current) {
+        t.current = 0;
+        m.opacity = 0.25;
+        mesh.scale.setScalar(0.9);
+      }
+    }
     if (t.current >= 1) {
       if (m.opacity !== 1) m.opacity = 1;
       if (mesh.scale.x !== 1) mesh.scale.setScalar(1);

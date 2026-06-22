@@ -13,7 +13,8 @@ export type RevealTemplate =
   | 'two-flap-horizontal'
   | 'church-doors'
   | 'veil-sheer'
-  | 'gold-monogram';
+  | 'gold-monogram'
+  | 'molten-monogram';
 
 /**
  * The FREE choice — no opening reveal at all; the content film plays straight
@@ -58,6 +59,9 @@ export const REVEAL_ALIASES: Record<string, RevealTemplate> = {
   'veil-sheer': 'veil-sheer',
   'gold-monogram': 'gold-monogram',
   gold: 'gold-monogram',
+  'molten-monogram': 'molten-monogram',
+  molten: 'molten-monogram',
+  lava: 'molten-monogram',
 };
 
 /**
@@ -115,5 +119,12 @@ export const REVEAL_LIBRARY: ReadonlyArray<{
     family: 'rigid',
     blurb: 'Your monogram turns into view in flowing gold, catching the light as it faces forward.',
     motion: 'Turns into the light',
+  },
+  {
+    id: 'molten-monogram',
+    label: 'Molten gold monogram',
+    family: 'rigid',
+    blurb: 'Your monogram pours in as glowing molten gold, then cools and hardens into solid, gleaming metal.',
+    motion: 'Molten gold hardens',
   },
 ];

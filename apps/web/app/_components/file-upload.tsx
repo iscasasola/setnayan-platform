@@ -107,6 +107,15 @@ export type FileUploadProps = {
    * untouched even when this is true.
    */
   watermark?: boolean;
+  /**
+   * Auto-compress uploaded VIDEOS to a streaming-friendly size in the browser
+   * (ffmpeg.wasm) before they go to R2. Phone exports are often ~25 Mbps / >100 MB
+   * — too heavy to stream, so the clip stalls on playback. With this on, a video
+   * is transcoded to ≤1080p H.264/AAC + faststart first. Best-effort: if the
+   * browser can't run it (or anything fails), the original uploads unchanged.
+   * Non-video files are untouched. Off by default — existing callers unaffected.
+   */
+  compressVideo?: boolean;
 };
 
 const DEFAULT_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
@@ -135,6 +144,10 @@ type InFlightItem = {
 
 function isImage(contentType: string): boolean {
   return contentType.startsWith('image/');
+}
+
+function isVideo(contentType: string): boolean {
+  return contentType.startsWith('video/');
 }
 
 function bytesToHuman(bytes: number): string {
@@ -205,6 +218,7 @@ export function FileUpload({
   disabled = false,
   variant = 'square',
   watermark = false,
+  compressVideo = false,
 }: FileUploadProps) {
   const inputId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -212,6 +226,9 @@ export function FileUpload({
   const [items, setItems] = useState<UploadedItem[]>([]);
   const [inFlight, setInFlight] = useState<InFlightItem[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // In-browser video optimisation (ffmpeg.wasm) runs BEFORE the upload; this
+  // surfaces a labelled progress bar while it works. null = not optimising.
+  const [optimizing, setOptimizing] = useState<{ label: string; pct: number } | null>(null);
   const isMountedRef = useRef(true);
 
   // We need to seed `items` from `currentValue` on mount AND any time
@@ -383,6 +400,35 @@ export function FileUpload({
         file = rawFile;
       }
     }
+
+    // --- Step 0b: compress video (if opted in and the file is a video) -----
+    // Done client-side before presign so the signed content-length matches the
+    // PUT body. Best-effort: compressVideoForWeb NEVER throws — it returns the
+    // original file on unsupported/failure, so the upload always proceeds.
+    if (compressVideo && isVideo(initialContentType)) {
+      try {
+        const { compressVideoForWeb } = await import('@/lib/video-compress');
+        setOptimizing({ label: 'Preparing video…', pct: 0 });
+        file = await compressVideoForWeb(file, {
+          onProgress: (p) => {
+            if (!isMountedRef.current) return;
+            const label =
+              p.phase === 'loading'
+                ? 'Loading optimizer…'
+                : p.phase === 'optimizing'
+                  ? 'Optimizing video…'
+                  : 'Preparing video…';
+            setOptimizing({ label, pct: Math.round(p.ratio * 100) });
+          },
+        });
+      } catch (err) {
+        console.warn('video compression failed; uploading original', err);
+        file = rawFile;
+      } finally {
+        if (isMountedRef.current) setOptimizing(null);
+      }
+    }
+
     const contentType = file.type || initialContentType;
 
     setInFlight((prev) => [
@@ -610,6 +656,24 @@ export function FileUpload({
           <AlertCircle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2} />
           <span>{error}</span>
         </p>
+      ) : null}
+
+      {optimizing ? (
+        <div className="space-y-1 rounded-xl border border-ink/10 bg-cream p-3" aria-live="polite">
+          <p className="flex items-center justify-between text-xs font-medium text-ink/75">
+            <span>{optimizing.label}</span>
+            <span className="font-mono text-[10px] text-ink/55">{optimizing.pct}%</span>
+          </p>
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink/10">
+            <div
+              className="h-full rounded-full bg-mulberry transition-[width] duration-200"
+              style={{ width: `${optimizing.pct}%` }}
+            />
+          </div>
+          <p className="text-[10px] text-ink/45">
+            Optimizing your video for fast, smooth playback — this happens once and may take a moment.
+          </p>
+        </div>
       ) : null}
 
       {(items.length > 0 || inFlight.length > 0) && (

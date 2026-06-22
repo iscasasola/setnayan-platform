@@ -786,13 +786,13 @@ export function SaveTheDateFilm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preview]);
 
-  // TRUE only while the one-time 3s ENTRANCE fade-in is in flight, so the video
+  // TRUE only while the one-time 1s ENTRANCE fade-in is in flight, so the video
   // effect's crossfade leaves the music volume alone and the entrance owns it.
   const musicEnteringRef = useRef(false);
   // One-shot guard so the entrance fade runs exactly once.
   const musicEnteredRef = useRef(false);
 
-  // 3-SECOND MUSIC FADE-IN — runs the moment the film starts (the veil lift /
+  // 1-SECOND MUSIC FADE-IN — runs the moment the film starts (the veil lift /
   // `started`), INDEPENDENT of whether the film has a video beat. (The earlier
   // version lived inside the video effect, which early-returns when there's no
   // video — so a music-only / photo-gallery Save-the-Date had its soundtrack
@@ -806,7 +806,7 @@ export function SaveTheDateFilm({
     if (!a) return;
     musicEnteredRef.current = true;
     musicEnteringRef.current = true;
-    const FADE_MS = 3000;
+    const FADE_MS = 1000;
     const t0 = performance.now();
     setVol(a, 0);
     let raf = 0;
@@ -885,9 +885,9 @@ export function SaveTheDateFilm({
         // rather than a linear ramp's abrupt onset/offset.
         const fadeOut = Math.cos((p * Math.PI) / 2); // 1 → 0
         const fadeIn = Math.sin((p * Math.PI) / 2); // 0 → 1
-        // While the dedicated 3s ENTRANCE fade owns the music (musicEnteringRef),
+        // While the dedicated 1s ENTRANCE fade owns the music (musicEnteringRef),
         // don't let this crossfade also write the music volume — they'd fight and
-        // the 850ms ramp would win, collapsing the 3s entrance to a fast rise.
+        // the 850ms ramp would win, collapsing the 1s entrance to a fast rise.
         if (!musicEnteringRef.current) {
           setVol(a, musicTo <= m0 ? musicTo + (m0 - musicTo) * fadeOut : m0 + (musicTo - m0) * fadeIn);
         }
@@ -996,7 +996,7 @@ export function SaveTheDateFilm({
         a.play().catch(() => {});
       }
       // Video fades out, music fades back up (the snappy VIDEO_FADE_MS used for
-      // video↔music transitions). The one-time 3s ENTRANCE fade is owned by the
+      // video↔music transitions). The one-time 1s ENTRANCE fade is owned by the
       // dedicated `started` effect above (which runs even with no video beat), and
       // while it's in flight the crossfade leaves the music alone (musicEnteringRef).
       crossfade(1, 0);

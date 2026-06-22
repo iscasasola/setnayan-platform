@@ -243,6 +243,26 @@ export async function EditorialContent({
           </>
         ) : null}
 
+        {/* Their song — plays the couple's DELIVERED Pakanta song when present;
+            otherwise credits the typed title. Rendered only when there's
+            something to surface (a playable song or a named title). ---------- */}
+        {data.song.url || data.song.label ? (
+          <>
+            <SectionRule title="Their Song" />
+            <TheirSong song={data.song} names={data.firstNames} />
+          </>
+        ) : null}
+
+        {/* The 10 moments — a photo-essay spread of the day's captures. Distinct
+            from the gallery grid below: a larger, paced spread. Auto-filled from
+            the day's Papic photos when the couple didn't curate one. ---------- */}
+        {isOn('gallery') && data.essayPhotos.length ? (
+          <>
+            <SectionRule title="Moments" />
+            <MomentsEssay photos={data.essayPhotos} names={data.firstNames} />
+          </>
+        ) : null}
+
         {/* Shared photos from the day ----------------------------------------- */}
         {isOn('gallery') && data.galleryPhotos.length ? (
           <>
@@ -802,6 +822,78 @@ function PhotoGallery({ photos, names }: { photos: string[]; names: string }): R
           ))}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * "Their Song" — the couple's wedding song. When the DELIVERED Pakanta song is
+ * present (`song.url`), it renders a slim audio player so the recap actually
+ * plays the couple's own song. When there's only a typed title (`song.label`
+ * with no url — the love_story.anchors.song fallback), it credits the title in
+ * an editorial line, no player. One of url/label is guaranteed by the caller.
+ */
+function TheirSong({
+  song,
+  names,
+}: {
+  song: EditorialData['song'];
+  names: string;
+}): ReactElement {
+  return (
+    <figure className="mx-auto mt-4 max-w-xl text-center">
+      {song.label ? (
+        <figcaption className="font-serif text-xl italic leading-snug text-ink/80 sm:text-2xl">
+          &ldquo;{song.label}&rdquo;
+        </figcaption>
+      ) : null}
+      <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.16em] text-ink/45">
+        {names}
+        {song.url ? ' · their wedding song' : ' · the song that follows them'}
+      </p>
+      {song.url ? (
+        // The delivered Pakanta song. Muted-by-default (no autoplay) — the recap
+        // is a quiet, scroll-paced read; the couple's guests press play.
+        // eslint-disable-next-line jsx-a11y/media-has-caption
+        <audio
+          controls
+          preload="none"
+          src={song.url}
+          aria-label={`${names} — their wedding song`}
+          className="mx-auto mt-3 w-full max-w-md"
+        />
+      ) : null}
+    </figure>
+  );
+}
+
+/**
+ * "Moments" — a paced photo-essay spread of the day. A larger, alternating
+ * layout (distinct from the dense gallery grid). Auto-filled from the day's
+ * Papic captures when the couple didn't curate `essay_photo_ids`.
+ */
+function MomentsEssay({ photos, names }: { photos: string[]; names: string }): ReactElement {
+  return (
+    <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+      {photos.slice(0, 9).map((url, i) => (
+        <figure
+          key={`${i}-${url.slice(0, 24)}`}
+          className={`relative overflow-hidden rounded-sm bg-ink/10 ${
+            // Let the first photo of each block of three breathe taller — a
+            // simple paced rhythm without a per-moment mapping.
+            i % 3 === 0 ? 'aspect-[3/4] row-span-2' : 'aspect-square'
+          }`}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={url}
+            alt={`${names} — a moment from the day`}
+            className="h-full w-full object-cover"
+            loading="lazy"
+            decoding="async"
+          />
+        </figure>
+      ))}
     </div>
   );
 }

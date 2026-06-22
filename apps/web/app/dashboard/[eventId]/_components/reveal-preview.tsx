@@ -32,6 +32,11 @@ import type { RevealEffectsLook, VeilLook } from '@/lib/reveal-config';
 const VeilReveal = dynamic(() => import('@/app/[slug]/_components/reveal/veil-reveal'), {
   ssr: false,
 });
+// Molten is real WebGL (three.js) — lazy + ssr:false like the veil.
+const MoltenMonogramReveal = dynamic(
+  () => import('@/app/[slug]/_components/reveal/molten-monogram-reveal'),
+  { ssr: false },
+);
 
 const noop = () => {};
 
@@ -89,6 +94,9 @@ export function RevealPreview({
   }
   if (template === 'gold-monogram') {
     return <GoldMonogramReveal markSvg={markSvg} monogram={monogram} dials={effects?.gold} onDone={onDone} autoplay loop />;
+  }
+  if (template === 'molten-monogram') {
+    return <MoltenMonogramReveal markSvg={markSvg} monogram={monogram} onDone={onDone} lowRes loop />;
   }
   const effect = effects ? rigidEffectFor(template, effects) : null;
   if (

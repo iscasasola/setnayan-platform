@@ -42,6 +42,10 @@ import type { RevealStudioConfig, RevealTemplateId } from '@/lib/reveal-config';
 import { rigidEffectFor, type RevealEffects } from '@/lib/std-reveal-effects';
 
 const VeilReveal = dynamic(() => import('./veil-reveal'), { ssr: false });
+// Molten is a real WebGL shader (three.js) like the veil — lazy + ssr:false so
+// three.js stays out of the main couple-site bundle. (GoldMonogramReveal above is
+// pure CSS, so it's a safe static import; this one must NOT be.)
+const MoltenMonogramReveal = dynamic(() => import('./molten-monogram-reveal'), { ssr: false });
 
 export type { RevealTemplate } from './reveal-templates';
 export type { WaxSealConfig } from '@/lib/wax-seal/types';
@@ -219,7 +223,9 @@ export function RevealOverlay({
   const rigidEffect = eventEffects ? rigidEffectFor(template, eventEffects) : null;
   return (
     <div className="fixed inset-0 z-[60] overflow-hidden">
-      {template === 'gold-monogram' ? (
+      {template === 'molten-monogram' ? (
+        <MoltenMonogramReveal markSvg={markSvg} monogram={monogram} onDone={onOpened} />
+      ) : template === 'gold-monogram' ? (
         <GoldMonogramReveal markSvg={markSvg} monogram={monogram} dials={eventEffects?.gold} onDone={onOpened} />
       ) : template === 'two-flap-vertical' ||
         template === 'two-flap-horizontal' ||

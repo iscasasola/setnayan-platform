@@ -30,6 +30,10 @@ import { StdTouchGlow } from '@/app/[slug]/_components/reveal/std-touch-glow';
 import { saveRevealStudio } from './actions';
 
 const VeilReveal = dynamic(() => import('@/app/[slug]/_components/reveal/veil-reveal'), { ssr: false });
+const MoltenMonogramReveal = dynamic(
+  () => import('@/app/[slug]/_components/reveal/molten-monogram-reveal'),
+  { ssr: false },
+);
 
 /** Which template the live preview shows (veil drives the veil sliders; the
  *  rigid ones drive the effect sliders so they can be calibrated in view). All
@@ -41,6 +45,8 @@ const PREVIEW_TPLS: Array<[PreviewTpl, string]> = [
   ['two-flap-vertical', 'Side'],
   ['two-flap-horizontal', 'Top'],
   ['church-doors', 'Doors'],
+  ['gold-monogram', 'Gold'],
+  ['molten-monogram', 'Molten'],
 ];
 
 const TEMPLATE_LABELS: Record<RevealTemplateId, string> = {
@@ -50,6 +56,7 @@ const TEMPLATE_LABELS: Record<RevealTemplateId, string> = {
   'church-doors': 'Church doors',
   'veil-sheer': 'Sheer bridal veil',
   'gold-monogram': 'Gold monogram turn',
+  'molten-monogram': 'Molten gold monogram',
 };
 
 type SliderDef = { key: keyof VeilLook; label: string; min: number; max: number; step?: number };
@@ -503,6 +510,15 @@ export function RevealStudio({ initial }: { initial: RevealStudioConfig }) {
               monogram="M & J"
               onDone={() => window.setTimeout(redrapePreview, 1800)}
               autoplay
+              loop
+            />
+          ) : previewTpl === 'molten-monogram' ? (
+            <MoltenMonogramReveal
+              key={previewKey}
+              markSvg={null}
+              monogram="M & J"
+              onDone={() => window.setTimeout(redrapePreview, 1800)}
+              lowRes
               loop
             />
           ) : (

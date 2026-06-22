@@ -19,6 +19,13 @@ export type SendEmailArgs = {
    * on our side. Omit for immediate send.
    */
   scheduledAt?: string;
+  /**
+   * Optional extra MIME headers, passed straight to Resend. Used for RFC 8058
+   * one-click unsubscribe on bulk/relationship sends (the Save-the-Date guest
+   * fan-out sets `List-Unsubscribe` + `List-Unsubscribe-Post`). Omit for plain
+   * transactional notifications.
+   */
+  headers?: Record<string, string>;
 };
 
 export type SendEmailResult =
@@ -61,6 +68,7 @@ export async function sendEmail(args: SendEmailArgs): Promise<SendEmailResult> {
       ...(args.html ? { html: args.html } : {}),
       replyTo: args.replyTo,
       ...(args.scheduledAt ? { scheduledAt: args.scheduledAt } : {}),
+      ...(args.headers ? { headers: args.headers } : {}),
     });
     if (error || !data) {
       console.error('[email] resend send failed:', error);

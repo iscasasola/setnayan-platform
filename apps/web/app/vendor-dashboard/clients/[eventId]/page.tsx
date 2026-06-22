@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   Church,
   Clock3,
+  FileText,
   LayoutGrid,
   Martini,
   MessageSquarePlus,
@@ -227,7 +228,7 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
   // Phase 3: live timeline rows (RLS booked-vendor read, locked D2 full
   // visibility) — block ids drive the Suggest forms — plus this org's own
   // suggestion history.
-  const [{ data: liveBlocks }, { data: mySuggestions }] = await Promise.all([
+  const [{ data: liveBlocks }, { data: mySuggestions }, contractRes] = await Promise.all([
     supabase
       .from('event_schedule_blocks')
       .select('block_id, label, block_type, start_at, end_at, location')
@@ -241,7 +242,17 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
       .eq('vendor_profile_id', profile.vendor_profile_id)
       .order('created_at', { ascending: false })
       .limit(10),
+    // Booking↔contract (2026-06-22): does this vendor already have a
+    // non-cancelled contract for this couple? Drives the CTA wording.
+    supabase
+      .from('vendor_contracts')
+      .select('contract_id')
+      .eq('event_id', eventId)
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .neq('status', 'cancelled')
+      .limit(1),
   ]);
+  const hasContract = (contractRes.data?.length ?? 0) > 0;
   const allBlocks = (liveBlocks ?? []) as LiveBlock[];
   const suggestions = (mySuggestions ?? []) as SuggestionRow[];
   const blockLabel = new Map(allBlocks.map((b) => [b.block_id, b.label]));
@@ -318,6 +329,35 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
           private.
         </p>
       </header>
+
+      {/* Booking↔contract CTA (2026-06-22) — start a contract straight from the
+          booking, pre-filled with this couple, instead of only from the
+          contracts tab's blank event picker. */}
+      <Link
+        href={
+          hasContract
+            ? '/vendor-dashboard/contracts'
+            : `/vendor-dashboard/contracts/new?event=${eventId}`
+        }
+        className="flex items-center justify-between gap-4 rounded-2xl border border-ink/15 bg-white p-4 transition hover:border-terracotta/40 hover:bg-terracotta/[0.04] sm:p-6"
+      >
+        <span className="flex items-start gap-3">
+          <FileText aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-terracotta" strokeWidth={1.75} />
+          <span>
+            <span className="block text-lg font-semibold">
+              {hasContract ? 'Manage your contract' : 'Create a contract'}
+            </span>
+            <span className="mt-0.5 block text-sm text-ink/65">
+              {hasContract
+                ? 'You already have a contract for this couple. Open it to review, send, or replace it.'
+                : 'Upload a PDF for this couple and keep a shared copy on file. We pre-fill the event for you.'}
+            </span>
+          </span>
+        </span>
+        <span className="shrink-0 text-sm font-semibold text-terracotta">
+          {hasContract ? 'Open →' : 'Start →'}
+        </span>
+      </Link>
 
       {/* "From your vendors" — recommended pick only. The active card opens after
           completion is confirmed (Stage-10 gate); before that the recommended

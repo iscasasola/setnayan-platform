@@ -10,7 +10,10 @@ import { formatFileSize, CONTRACT_MAX_BYTES } from '@/lib/contracts';
 
 export const metadata = { title: 'New contract · Vendor' };
 
-export default async function NewVendorContractPage() {
+type Props = { searchParams: Promise<{ event?: string }> };
+
+export default async function NewVendorContractPage({ searchParams }: Props) {
+  const { event: prefillEventId } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -29,6 +32,15 @@ export default async function NewVendorContractPage() {
         .map((t) => [t.event_id, { event_id: t.event_id, label: t.event!.display_name }]),
     ).values(),
   );
+
+  // Booking↔contract deep-link (2026-06-22): the vendor's per-client event
+  // brief links here with ?event=<id> to pre-select the couple. Only honor it
+  // when that event is actually one the vendor can contract with (it's in the
+  // thread-derived option list); otherwise fall back to the empty picker.
+  const defaultEventId =
+    prefillEventId && eventOptions.some((o) => o.event_id === prefillEventId)
+      ? prefillEventId
+      : '';
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-6">
@@ -68,7 +80,7 @@ export default async function NewVendorContractPage() {
               name="event_id"
               required
               className="input-field"
-              defaultValue=""
+              defaultValue={defaultEventId}
             >
               <option value="" disabled>
                 Pick an event…

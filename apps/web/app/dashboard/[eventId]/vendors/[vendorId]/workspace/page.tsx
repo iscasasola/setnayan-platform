@@ -102,6 +102,11 @@ import {
   fetchMarketplaceReviews,
 } from '../../../_components/vendor-marketplace-info';
 import { SubmitButton } from '@/app/_components/submit-button';
+import {
+  deriveBookingContractState,
+  bookingContractStateLabel,
+  type ContractStatus,
+} from '@/lib/contracts';
 
 export const metadata = { title: 'Service workspace · Setnayan' };
 
@@ -442,6 +447,14 @@ export default async function VendorWorkspacePage({ params }: Props) {
     sent_for_signature_at: string | null;
     fully_signed_at: string | null;
   }>;
+
+  // Booking↔contract derived indicator (2026-06-22). The couple's contract
+  // fetch above already excludes drafts (RLS + .neq('status','draft')), so from
+  // here this resolves to 'none' / 'awaiting' / 'signed' — an honest read of
+  // what the couple can actually see, derived from the linked contracts.
+  const contractState = deriveBookingContractState(
+    contracts.map((c) => c.status as ContractStatus),
+  );
 
   const meetings = (meetingsRes.data ?? []) as Array<{
     meeting_id: string;
@@ -1067,13 +1080,29 @@ export default async function VendorWorkspacePage({ params }: Props) {
               />
               Documents
             </h2>
-            <Link
-              href={`/dashboard/${eventId}/contracts`}
-              className="inline-flex items-center gap-1 text-[11px] font-medium text-terracotta-700 hover:text-terracotta-800"
-            >
-              <Upload aria-hidden className="h-3 w-3" strokeWidth={2} />
-              Manage
-            </Link>
+            <div className="flex items-center gap-2">
+              {/* Derived contract indicator (2026-06-22) — shows this booking's
+                  contract status at a glance, linking to the contract. */}
+              <span
+                className={[
+                  'inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em]',
+                  contractState === 'signed'
+                    ? 'bg-success-100 text-success-800'
+                    : contractState === 'awaiting'
+                      ? 'bg-success-50 text-success-700'
+                      : 'bg-ink/10 text-ink/60',
+                ].join(' ')}
+              >
+                {bookingContractStateLabel(contractState)}
+              </span>
+              <Link
+                href={`/dashboard/${eventId}/contracts`}
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-terracotta-700 hover:text-terracotta-800"
+              >
+                <Upload aria-hidden className="h-3 w-3" strokeWidth={2} />
+                Manage
+              </Link>
+            </div>
           </header>
 
           {!ev.marketplace_vendor_id ? (
@@ -1082,10 +1111,22 @@ export default async function VendorWorkspacePage({ params }: Props) {
               isn&rsquo;t connected yet, so files aren&rsquo;t available here.
             </p>
           ) : contracts.length === 0 ? (
-            <p className="text-xs text-ink/55">
-              No contracts uploaded yet. {displayName} can upload PDFs from
-              their dashboard for you to keep on file.
-            </p>
+            <div className="space-y-2">
+              <p className="text-xs text-ink/55">
+                No contracts uploaded yet. {displayName} can upload PDFs from
+                their dashboard for you to keep on file.
+              </p>
+              {/* Booking→contract (2026-06-22): couples can't upload contracts
+                  (vendors do), so the start-a-contract path is to ask the vendor
+                  in the thread. Deep-links straight to the conversation. */}
+              <Link
+                href={conversationHref}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-terracotta/30 bg-terracotta/[0.04] px-3 py-1.5 text-[11px] font-medium text-terracotta-700 transition hover:bg-terracotta/[0.08]"
+              >
+                <MessageCircle aria-hidden className="h-3 w-3" strokeWidth={2} />
+                Ask {displayName} for a contract
+              </Link>
+            </div>
           ) : (
             <ul className="space-y-2">
               {contracts.map((c) => {

@@ -731,25 +731,31 @@ function CameraRig({
 /* ----------------------------- Scene meshes ----------------------------- */
 
 /**
- * FloorMonogram — the couple's mark medallion on the floor centre. STATIC for
- * free events; for paid ANIMATED_MONOGRAM owners it BLOOMS in (opacity 0.25→1 +
- * scale 0.9→1, ease-out cubic, ~0.6s) each time the Play-mode camera finishes
- * its ease — the `playSettled` rising edge — i.e. the cinematic reveal beat.
- * The texture is built once upstream (never re-rasterized per frame; we only
- * tween the material opacity + mesh scale). Unlit + toneMapped:false so the
- * mark reads true (projected-light, not lit vinyl); raycast off so it never
- * steals the drag/deselect pointer. Honors prefers-reduced-motion (stays full,
- * no tween). PR2 of the 3D-monogram rollout (the static medallion shipped #1998).
+ * MonogramPlane — the couple's mark medallion on a scene plane (the floor centre
+ * = dance-floor decal, and the stage backdrop = altar sign — the two iconic
+ * wedding-monogram spots). STATIC for free events; for paid ANIMATED_MONOGRAM
+ * owners it BLOOMS in (opacity 0.25→1 + scale 0.9→1, ease-out cubic, ~0.6s) each
+ * time the Play-mode camera finishes its ease — the `playSettled` rising edge —
+ * i.e. the cinematic reveal beat. The texture is built once upstream (never
+ * re-rasterized per frame; we only tween the material opacity + mesh scale).
+ * Unlit + toneMapped:false so the mark reads true (projected-light, not lit
+ * vinyl); raycast off so it never steals the drag/deselect pointer. Honors
+ * prefers-reduced-motion (stays full, no tween). The static floor medallion
+ * shipped #1998; the bloom #2065; the stage backdrop is this PR.
  */
 const FLOOR_BLOOM_MS = 600;
-function FloorMonogram({
+function MonogramPlane({
   tex,
   size,
+  position,
+  rotation,
   animate,
   playSettled,
 }: {
   tex: THREE.CanvasTexture;
   size: number;
+  position: [number, number, number];
+  rotation: [number, number, number];
   animate: boolean;
   playSettled: boolean;
 }) {
@@ -793,7 +799,7 @@ function FloorMonogram({
     mesh.scale.setScalar(0.9 + 0.1 * e);
   });
   return (
-    <mesh ref={meshRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.022, 0]} raycast={() => null}>
+    <mesh ref={meshRef} rotation={rotation} position={position} raycast={() => null}>
       <planeGeometry args={[size, size]} />
       <meshBasicMaterial
         ref={matRef}
@@ -925,17 +931,35 @@ function RoomShell({
         </mesh>
       ) : null}
 
-      {/* Couple's monogram — a medallion on the floor centre (the Play-mode
-          camera's focal point). When the couple owns the paid ANIMATED_MONOGRAM
-          it BLOOMS in (opacity + scale) as the Play camera settles; otherwise
-          it's a static mark. See FloorMonogram. */}
+      {/* Couple's monogram on the two iconic wedding spots — the floor centre
+          (dance-floor decal · the Play-mode camera's focal point) AND the stage
+          backdrop (altar sign, a vertical plane just behind the stage, facing the
+          room/camera). Both BLOOM in together when the couple owns the paid
+          ANIMATED_MONOGRAM as the Play camera settles; otherwise static. The
+          backdrop reuses the same texture. See MonogramPlane. */}
       {monoTex ? (
-        <FloorMonogram
-          tex={monoTex}
-          size={medSize}
-          animate={animatedMonogram}
-          playSettled={playSettled}
-        />
+        <>
+          <MonogramPlane
+            tex={monoTex}
+            size={medSize}
+            position={[0, 0.022, 0]}
+            rotation={[-Math.PI / 2, 0, 0]}
+            animate={animatedMonogram}
+            playSettled={playSettled}
+          />
+          <MonogramPlane
+            tex={monoTex}
+            size={Math.min(stageW, 2.2)}
+            position={[
+              stage.x,
+              0.4 + Math.min(stageW, 2.2) / 2,
+              Math.max(stage.z - stageD / 2 - 0.05, -room.d / 2 + 0.1),
+            ]}
+            rotation={[0, 0, 0]}
+            animate={animatedMonogram}
+            playSettled={playSettled}
+          />
+        </>
       ) : null}
 
       {/* Entrance marker (the walk spawn point) */}

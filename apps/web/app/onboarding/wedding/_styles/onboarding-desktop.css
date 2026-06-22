@@ -177,8 +177,6 @@
      region (city carousel) · find (venue results) · pax/budget/mood (photo
      covers) · team_basics/team_extras (pick carousels) · songs · congrats
      (full website recap) · the RefineStep screens (reception/refine_*). */
-  .onbw #screen-region .viewzone,
-  .onbw #screen-region .tapzone,
   .onbw #screen-mood .viewzone,
   .onbw #screen-mood .tapzone,
   .onbw #screen-team-basics .viewzone,
@@ -191,6 +189,23 @@
   .onbw #screen-congrats .viewzone,
   .onbw .screen.active .prefstep {
     max-width: 720px;
+  }
+
+  /* ── WIDE-SCREEN region: fill the sheet width (more destinations visible) AND fit
+     vertically so the search + Near me row sits above Continue without scrolling
+     (owner 2026-06-22: "bottom elements above the continue button… don't need to
+     scroll"). The fixed-height destination cards are what overflows on a short laptop,
+     so their height is clamped to the viewport — they shrink with it, and the carousel
+     + search then fit. Holds no-scroll down to ~800px tall; below that the photo
+     carousel + the event-summary chrome are inherently taller than the window (the
+     "unless the design cannot make it scroll-less" case). Mobile (<1024) keeps the
+     locked card sizing. ── */
+  .onbw #screen-region .viewzone,
+  .onbw #screen-region .tapzone {
+    max-width: 1040px;
+  }
+  .onbw #screen-region .loccard {
+    height: clamp(150px, 26vh, 300px);
   }
 
   /* The full-frame photo-cover screens (pax/budget/mood) read best with a taller

@@ -63,6 +63,33 @@ function setVol(el: HTMLMediaElement | null, v: number) {
   el.volume = v < 0 ? 0 : v > 1 ? 1 : v;
 }
 
+/**
+ * Reliably SILENCE a WARM (off-beat, invisible) clip across every platform, and
+ * report whether its volume is programmatically controllable.
+ *
+ * The film keeps the couple's clip playing UNMUTED at `volume = 0` before its beat
+ * so its audio can ramp in via the crossfade on the beat (iOS won't let a fresh
+ * unmuted play() start off-gesture, but a clip kept running from a gesture retains
+ * its audio rights). That trick assumes `volume = 0` actually silences the clip —
+ * true on desktop/Android. But **iOS Safari treats `HTMLMediaElement.volume` as
+ * read-only** (the system volume is the only control): the write is ignored and
+ * the getter keeps returning 1. So an unmuted warm clip plays at FULL volume,
+ * invisibly, UNDER the soundtrack — the reported "video AND background music play
+ * at the same time the veil goes up" bug.
+ *
+ * So: try `volume = 0`, then read it back. If it didn't stick (iOS), fall back to
+ * `muted = true` — the only silence iOS honors. Returns true when volume IS
+ * controllable (the beat can crossfade the clip's audio in) and false when it is
+ * not (the beat must use the muted + "Tap for sound" path instead).
+ */
+function silenceWarmClip(v: HTMLVideoElement): boolean {
+  v.muted = false;
+  setVol(v, 0);
+  const controllable = v.volume <= 0.01;
+  if (!controllable) v.muted = true;
+  return controllable;
+}
+
 type Slide = {
   key: string;
   node: ReactNode;
@@ -670,6 +697,12 @@ export function SaveTheDateFilm({
   // The music↔video crossfade RAF id, held in a ref so the "Tap for sound"
   // handler (outside the effect) can cancel an in-flight fade before it unmutes.
   const videoFadeRef = useRef(0);
+  // Whether the clip <video>'s volume is programmatically controllable. iOS Safari
+  // ignores volume writes (system volume only) → false; detected during warm-play
+  // (silenceWarmClip) and read by the video beat to choose the audio path: a
+  // smooth crossfade where volume works (desktop/Android), or the muted + "Tap for
+  // sound" fallback where it doesn't (iOS). null until first detected.
+  const videoVolCtlRef = useRef<boolean | null>(null);
 
   // Uniform fit-to-screen scale (owner 2026-06-19). The container is measured;
   // the BASE_W×BASE_H stage is transform-scaled by `fitScale` to the largest
@@ -811,44 +844,64 @@ export function SaveTheDateFilm({
         setVol(v, 0); // start silent, fade up
         setVideoSoundBlocked(false); // fresh beat — the catch below re-flags if blocked
       }
-      v.muted = muted || preview;
-      if (playing) {
-        // Autoplay-with-SOUND needs recent user activation. By the time the film
-        // auto-advances into this beat (~30s of text beats after the reveal-lift),
-        // that activation is gone — and on iOS Safari a play() fired outside a
-        // gesture handler is blocked regardless. The no-reveal grace path and an
-        // auto-completing reveal never had a gesture at all. So an UNMUTED play()
-        // REJECTS; because the beat holds on dur:Infinity and ONLY 'ended'
-        // advances it, the film would HANG on the frozen first frame forever —
-        // the reported "hangs in the center even on strong internet" (it's the
-        // autoplay policy, not buffering). MUTED autoplay is always permitted, so
-        // on rejection retry muted: the clip plays, fires 'ended', and the film
-        // advances. We keep the soundtrack playing under the now-silent clip so
-        // the beat isn't dead air.
-        const attempt = v.play();
-        if (attempt && typeof attempt.then === 'function') {
-          attempt.catch(() => {
-            v.muted = true;
-            // Surface the one-tap "Tap for sound" control (a gesture CAN unmute) —
-            // unless the guest has globally muted, in which case they want silence.
-            if (!muted) setVideoSoundBlocked(true);
-            v.play().catch(() => {
-              // Even muted playback failed (decode/network) — don't strand the
-              // guest on the Infinity beat; advance to the closing screen.
-              if (idxRef.current === videoSlideIdxRef.current) {
-                goRef.current(videoSlideIdxRef.current + 1);
-              }
-            });
-            if (a && content.musicUrl && !muted) {
-              a.play().catch(() => {});
-              crossfade(1, 0); // undo the duck — keep the music as the beat's audio
-            }
-          });
+      // iOS Safari can't ramp the clip's volume (system-volume only) and silently
+      // ignores an off-gesture unmute — so neither the crossfade nor an auto-unmute
+      // can give the clip its own audio here. Rather than pause the soundtrack into
+      // dead air (the music can't fade, only pause), keep the clip MUTED, let the
+      // soundtrack stay the beat's audio, and surface "Tap for sound" (a tap CAN
+      // unmute + duck — see enableVideoSound). Controllability was detected at
+      // warm-play; null (warm-play never ran) falls through to the crossfade path,
+      // whose own catch handles a blocked unmuted play().
+      if (playing && !preview && !muted && videoVolCtlRef.current === false) {
+        v.muted = true;
+        v.play().catch(() => {
+          if (idxRef.current === videoSlideIdxRef.current) goRef.current(videoSlideIdxRef.current + 1);
+        });
+        setVideoSoundBlocked(true);
+        if (a && content.musicUrl) {
+          a.play().catch(() => {});
+          crossfade(1, 0); // keep the music as the beat's audio — never duck into dead air
         }
       } else {
-        v.pause();
+        v.muted = muted || preview;
+        if (playing) {
+          // Autoplay-with-SOUND needs recent user activation. By the time the film
+          // auto-advances into this beat (~30s of text beats after the reveal-lift),
+          // that activation is gone — and on iOS Safari a play() fired outside a
+          // gesture handler is blocked regardless. The no-reveal grace path and an
+          // auto-completing reveal never had a gesture at all. So an UNMUTED play()
+          // REJECTS; because the beat holds on dur:Infinity and ONLY 'ended'
+          // advances it, the film would HANG on the frozen first frame forever —
+          // the reported "hangs in the center even on strong internet" (it's the
+          // autoplay policy, not buffering). MUTED autoplay is always permitted, so
+          // on rejection retry muted: the clip plays, fires 'ended', and the film
+          // advances. We keep the soundtrack playing under the now-silent clip so
+          // the beat isn't dead air.
+          const attempt = v.play();
+          if (attempt && typeof attempt.then === 'function') {
+            attempt.catch(() => {
+              v.muted = true;
+              // Surface the one-tap "Tap for sound" control (a gesture CAN unmute) —
+              // unless the guest has globally muted, in which case they want silence.
+              if (!muted) setVideoSoundBlocked(true);
+              v.play().catch(() => {
+                // Even muted playback failed (decode/network) — don't strand the
+                // guest on the Infinity beat; advance to the closing screen.
+                if (idxRef.current === videoSlideIdxRef.current) {
+                  goRef.current(videoSlideIdxRef.current + 1);
+                }
+              });
+              if (a && content.musicUrl && !muted) {
+                a.play().catch(() => {});
+                crossfade(1, 0); // undo the duck — keep the music as the beat's audio
+              }
+            });
+          }
+        } else {
+          v.pause();
+        }
+        crossfade(0, 1, true); // music fades out → PAUSES (holds position); video fades in
       }
-      crossfade(0, 1, true); // music fades out → PAUSES (holds position); video fades in
     } else {
       // Resume the music FROM WHERE IT PAUSED — play() never resets currentTime,
       // and we never touch a.currentTime, so it continues, never restarts.
@@ -866,9 +919,10 @@ export function SaveTheDateFilm({
         // beat — restart it silent + looping so its audio is ready to ramp on the
         // beat. Best-effort: succeeds on desktop/Android; iOS off-gesture rejects →
         // the beat's own "Tap for sound" fallback still holds (no hang).
-        v.muted = false;
+        // silenceWarmClip mutes the clip outright where volume:0 is ignored (iOS),
+        // so it never plays audibly under the soundtrack while invisible.
         v.loop = true;
-        setVol(v, 0);
+        videoVolCtlRef.current = silenceWarmClip(v);
         v.play().catch(() => {});
       }
     }
@@ -1116,9 +1170,13 @@ export function SaveTheDateFilm({
       // grace path): there the beat owns the clip (loop=false, audible play), and
       // setting loop=true here would suppress 'ended' → the Infinity beat hangs.
       if (v && !muted && idxRef.current !== videoSlideIdxRef.current) {
-        v.muted = false;
         v.loop = true;
-        setVol(v, 0);
+        // Silence reliably: volume:0 where the browser honors it (desktop/Android),
+        // else muted (iOS, where volume writes are ignored — otherwise the warm,
+        // invisible clip plays at full volume UNDER the soundtrack the moment the
+        // veil lifts: the "video + background music at once" bug). Records whether
+        // the clip's volume is controllable so the video beat picks the right path.
+        videoVolCtlRef.current = silenceWarmClip(v);
         v.play().catch(() => { /* not ready/blocked — the beat's own play() still tries */ });
       }
     };

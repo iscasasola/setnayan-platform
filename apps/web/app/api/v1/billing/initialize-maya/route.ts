@@ -32,6 +32,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { resolveMayaConfig } from '@/lib/integration-config';
 
 const DEMO_MODE = process.env.SETNAYAN_DEMO_MODE === '1';
 const MAYA_APPROVED = process.env.NEXT_PUBLIC_MAYA_STATUS === 'APPROVED';
@@ -275,18 +276,22 @@ export async function POST(request: Request) {
     // ------------------------------------------------------------------------
     // BRANCH B · AUTOMATED_MAYA_API (pre-wired · live when approval lands)
     // ------------------------------------------------------------------------
-    const mayaPublicKey = process.env.MAYA_PUBLIC_API_KEY;
-    const mayaSecretKey = process.env.MAYA_SECRET_API_KEY;
+    // DB-first (Integration Activation Console), env-fallback. Byte-identical
+    // when the DB columns are empty. NEXT_PUBLIC_MAYA_STATUS (the build-time
+    // activation gate, checked above via MAYA_APPROVED) stays redeploy-gated.
+    const {
+      publicKey: mayaPublicKey,
+      secretKey: mayaSecretKey,
+      checkoutEndpoint: mayaCheckoutEndpoint,
+    } = await resolveMayaConfig();
     if (!mayaPublicKey || !mayaSecretKey) {
       return NextResponse.json(
-        { success: false, message: 'Maya API credentials missing despite NEXT_PUBLIC_MAYA_STATUS=APPROVED. Configure MAYA_PUBLIC_API_KEY + MAYA_SECRET_API_KEY.' },
+        { success: false, message: 'Maya API credentials missing despite NEXT_PUBLIC_MAYA_STATUS=APPROVED. Configure them in /admin/integrations or as MAYA_PUBLIC_API_KEY + MAYA_SECRET_API_KEY.' },
         { status: 503 },
       );
     }
 
     const returnBase = process.env.NEXT_PUBLIC_SETNAYAN_BASE_URL ?? 'https://www.setnayan.com';
-    const mayaCheckoutEndpoint = process.env.MAYA_CHECKOUT_ENDPOINT
-      ?? 'https://pg-sandbox.paymaya.com/checkout/v1/checkouts';
 
     const mayaPayload = {
       totalAmount: { value: finalCalculatedTotal.toFixed(2), currency: 'PHP' },

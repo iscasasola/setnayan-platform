@@ -31,6 +31,8 @@ type Props = {
   guests: Lab3DGuest[];
   paletteHexes: string[];
   monogram: Lab3DMonogram;
+  /** Couple owns the paid ANIMATED_MONOGRAM → the floor mark blooms on Play. */
+  animatedMonogram: boolean;
   me: { id: string; name: string };
 };
 

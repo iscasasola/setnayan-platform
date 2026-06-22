@@ -180,17 +180,21 @@ function RecapHero({ model, mono }: { model: RecapModel; mono: HeroMonogramData 
         <div aria-hidden className="absolute inset-0 bg-gradient-to-b from-ink/30 via-ink/45 to-ink/80" />
         <div className="relative space-y-3 px-6 py-16 sm:py-24">
           <p className="font-mono text-xs uppercase tracking-[0.25em] text-cream/85">The Recap</p>
-          {/* The mark on a cream medallion so it reads on the DARK photo overlay
-              (couple-coloured marks would otherwise sink into the ink gradient). */}
+          {/* The mark on a cream lozenge so it reads on the DARK photo overlay
+              (couple-coloured marks would otherwise sink into the ink gradient).
+              FREE-WIDTH (not a fixed circle) so the wide bar/duo/script/infinity
+              lockups don't spill off the backing onto the dark overlay. */}
           {mono ? (
-            <span className="mx-auto flex h-[5.5rem] w-[5.5rem] items-center justify-center rounded-full bg-cream/95 shadow-lg">
-              <HeroMonogram
-                event={mono.design}
-                monogram={mono.monogram}
-                animatedMonogram={mono.animatedMonogram}
-                bespokeSvg={mono.bespokeSvg}
-              />
-            </span>
+            <div className="flex justify-center">
+              <span className="inline-flex items-center justify-center rounded-full bg-cream/95 px-6 py-4 shadow-lg">
+                <HeroMonogram
+                  event={mono.design}
+                  monogram={mono.monogram}
+                  animatedMonogram={mono.animatedMonogram}
+                  bespokeSvg={mono.bespokeSvg}
+                />
+              </span>
+            </div>
           ) : null}
           <h1 className="font-display text-5xl font-medium italic tracking-tight text-cream sm:text-6xl">
             {model.coupleNames}

@@ -112,6 +112,27 @@
   .onbw #screen-kind.onb-twopane.screen.active .tapzone .stack {
     flex-direction: column;
   }
+  /* Faith renders its options as a horizontal scrolling pill row (`.chips`, not the
+     `.stack`/`.opt` every other option screen uses), so the two-pane row treatment
+     above misses it. id-inclusive override (beats the `#screen-faith .chips` flex-row
+     rule) lays the faith options out as full-width ROWS too — one per row — so desktop
+     is consistent with role/kind. Mobile (<1024) keeps its horizontal scroll row. */
+  .onbw #screen-faith.onb-twopane.screen.active .tapzone .chips {
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    overflow-x: visible;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .onbw #screen-faith.onb-twopane.screen.active .tapzone .chip {
+    width: 100%;
+    justify-content: flex-start;
+    text-align: left;
+    min-height: 0;
+    padding: 15px 18px;
+    font-size: 15px;
+  }
 
   /* ── Editorial type — the question becomes a magazine headline on the left. ── */
   .onbw .onb-twopane .q {

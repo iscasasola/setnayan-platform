@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventSkuActive } from '@/lib/entitlements';
+import { resolveEventMonogram, HERO_MONOGRAM_COLUMNS } from '@/lib/hero-monogram-data';
 import {
   getWallSnapshot,
   isWallSessionLive,
@@ -54,5 +55,15 @@ export default async function WallPage({ params }: Props) {
   }
 
   const snapshot = await getWallSnapshot(eventId);
-  return <WallProjection eventId={eventId} initial={snapshot} />;
+  // The couple's canonical mark for the venue screen — resolved exactly like the
+  // public hero (animates iff they own the paid ANIMATED_MONOGRAM). Serializable,
+  // so it crosses to the client projection as a prop. Best-effort: null → the
+  // wall renders mark-free.
+  const { data: monoRow } = await admin
+    .from('events')
+    .select(HERO_MONOGRAM_COLUMNS)
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const mono = await resolveEventMonogram(admin, eventId, monoRow);
+  return <WallProjection eventId={eventId} initial={snapshot} mono={mono} />;
 }

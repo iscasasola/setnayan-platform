@@ -18,6 +18,7 @@ import {
 } from '@/lib/vendor-profile';
 import { fetchVendorThreads } from '@/lib/chat';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
+import { VendorStatsPanel } from './_components/vendor-stats-panel';
 
 /**
  * /vendor-dashboard — vendor doorway HOME / Overview page.
@@ -98,6 +99,11 @@ type LoaderState =
       confirmedBookingsCount: number;
       tokenBalance: { purchased: number; earned: number };
       completion: { done: number; total: number; missing: string[] };
+      /** UUID of the vendor_profiles row. Null when no profile exists yet
+       *  (team-member view). Passed to VendorStatsPanel so it can query
+       *  vendor_activity_stats without needing the supabase client from
+       *  inside the try/catch scope. */
+      vendorProfileId: string | null;
     }
   | { ok: false; message: string };
 
@@ -184,6 +190,7 @@ export default async function VendorHomePage() {
         confirmedBookingsCount: 0,
         tokenBalance: { purchased: 0, earned: 0 },
         completion: profileCompletion(null),
+        vendorProfileId: null,
       };
     } else {
       // Expanded data fetch (2026-05-29 · Task #10).
@@ -267,6 +274,7 @@ export default async function VendorHomePage() {
           earned: walletRes.data?.earned_tokens ?? 0,
         },
         completion: profileCompletion(profile),
+        vendorProfileId: profile.vendor_profile_id,
       };
     }
   } catch (err) {
@@ -315,7 +323,13 @@ export default async function VendorHomePage() {
     confirmedBookingsCount,
     tokenBalance,
     completion,
+    vendorProfileId,
   } = loaderState;
+
+  // VendorStatsPanel needs a fresh supabase client for its own fetch.
+  // createClient() is memoized per-request (Next 15 cache semantics),
+  // so calling it again here incurs zero extra overhead.
+  const supabaseForStats = await createClient();
 
   const totalTokens = tokenBalance.purchased + tokenBalance.earned;
   const upcomingCount = upcomingThreads.length;
@@ -568,6 +582,20 @@ export default async function VendorHomePage() {
           </ul>
         )}
       </section>
+
+      {/* Performance stats panel (PR #1659 · 2026-06-17).
+       *  Shown only when the vendor has a profile — agent/no-profile
+       *  states don't have a vendor_profile_id to query against.
+       *  VendorStatsPanel is a server component that issues its own
+       *  vendor_activity_stats fetch; it degrades gracefully when no
+       *  stats row exists yet (e.g., brand-new vendors). */}
+      {profileExists && vendorProfileId ? (
+        <VendorStatsPanel
+          supabase={supabaseForStats}
+          vendorProfileId={vendorProfileId}
+          finalized_booking_count={completedStats.full_completed_count}
+        />
+      ) : null}
 
       {/* Recent activity placeholder */}
       <section>

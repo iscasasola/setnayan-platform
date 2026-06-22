@@ -4,6 +4,7 @@ import {
   APPROVAL_ACTIONS,
   approvalActionBadge,
   approvalActionLabel,
+  isGenericExecutableActionType,
 } from '@/lib/admin-approvals';
 import { requestPrivilegedGrant, approveRequest, rejectRequest } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -205,6 +206,10 @@ export default async function AdminApprovalsPage() {
           <ul className="space-y-3">
             {pending.map((r) => {
               const mine = r.initiated_by === meId;
+              // Self-contained flows (vendor partnership, account takeover)
+              // reuse this queue for the four-eyes record but are confirmed from
+              // their own surface — the generic execute path can't run them.
+              const decidableHere = isGenericExecutableActionType(r.action_type);
               return (
                 <li key={r.approval_id} className="m-card p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -226,7 +231,13 @@ export default async function AdminApprovalsPage() {
 
                     <form className="flex shrink-0 flex-col items-end gap-2">
                       <input type="hidden" name="approval_id" value={r.approval_id} />
-                      {mine ? (
+                      {!decidableHere ? (
+                        <p className="max-w-[220px] text-right text-xs text-ink/55">
+                          Confirmed from its own surface — a different admin
+                          decides it there (e.g. the user/takeover page or the
+                          vendor-partnerships queue).
+                        </p>
+                      ) : mine ? (
                         <p className="max-w-[200px] text-right text-xs text-terracotta-700">
                           You initiated this — a different admin must decide it.
                         </p>

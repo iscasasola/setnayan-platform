@@ -159,7 +159,7 @@ test.describe('geometry transforms', () => {
 // --- computeAutoSeat -------------------------------------------------------------
 
 test.describe('computeAutoSeat', () => {
-  test('seats only attending, unseated, non-couple guests', () => {
+  test('seats everyone not declined (pending get a held seat), excludes declined + couple', () => {
     const tables = [mkTable({ table_id: 't1', x_pos: 50, y_pos: 10 })];
     const guests = [
       mkGuest({ guest_id: 'attending' }),
@@ -169,7 +169,8 @@ test.describe('computeAutoSeat', () => {
       mkGuest({ guest_id: 'groom', role: 'groom' }),
     ];
     const rows = computeAutoSeat(tables, guests, [], STAGE);
-    expect(rows.map((r) => r.guest_id)).toEqual(['attending']);
+    // Pending now gets a held seat; only declined + the couple are excluded.
+    expect(rows.map((r) => r.guest_id).sort()).toEqual(['attending', 'pending']);
   });
 
   test('is idempotent — already-seated guests are never moved or duplicated', () => {

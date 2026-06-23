@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, Camera, Play, Plus } from 'lucide-react';
+import { ArrowRight, Camera, Play, Plus, Sparkles } from 'lucide-react';
 import { EventMonogram } from '@/app/_components/event-monogram';
 import { getPhotosAlbums, type Album } from '../_data/photos-albums';
 
@@ -16,6 +16,14 @@ const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').
   /\/+$/,
   '',
 );
+
+/** Parse an event_date string to its UTC year, or null if absent/invalid. */
+function parseEventYear(dateStr: string | null): number | null {
+  if (!dateStr) return null;
+  const t = new Date(dateStr).getTime();
+  if (!Number.isFinite(t)) return null;
+  return new Date(t).getUTCFullYear();
+}
 
 export async function PhotosTab({ userId }: { userId: string }) {
   const { albums, shareEvent } = await getPhotosAlbums(userId);
@@ -49,8 +57,67 @@ export async function PhotosTab({ userId }: { userId: string }) {
       )}`
     : null;
 
+  // "On this day" — owned events whose anniversary is TODAY (exact month/day).
+  // The memory home reaching out: no extra query, just event_date vs today.
+  const now = new Date();
+  const anniversaries = albums
+    .filter((a) => a.role === 'couple' && a.event.event_date)
+    .map((a) => {
+      const d = new Date(a.event.event_date as string);
+      return {
+        album: a,
+        yearsAgo: now.getUTCFullYear() - d.getUTCFullYear(),
+        isToday:
+          Number.isFinite(d.getTime()) &&
+          d.getUTCMonth() === now.getUTCMonth() &&
+          d.getUTCDate() === now.getUTCDate(),
+      };
+    })
+    .filter((x) => x.isToday && x.yearsAgo > 0)
+    .sort((a, b) => b.yearsAgo - a.yearsAgo);
+
+  // Timeline — group albums by event year (most recent first; undated last).
+  const byYear = new Map<string, Album[]>();
+  for (const a of albums) {
+    const y = parseEventYear(a.event.event_date);
+    const key = y !== null ? String(y) : 'Undated';
+    const arr = byYear.get(key);
+    if (arr) arr.push(a);
+    else byYear.set(key, [a]);
+  }
+  const years = [...byYear.keys()].sort((a, b) =>
+    a === 'Undated' ? 1 : b === 'Undated' ? -1 : Number(b) - Number(a),
+  );
+  const groupByYear = years.length > 1;
+
   return (
     <div className="space-y-6">
+      {/* "On this day" — anniversary nostalgia hook (the memory home reaching out) */}
+      {anniversaries.length > 0 ? (
+        <div className="space-y-2">
+          {anniversaries.map(({ album, yearsAgo }) => (
+            <Link
+              key={album.event.event_id}
+              href={`/dashboard/${album.event.event_id}/studio/papic`}
+              className="flex items-center gap-3 rounded-2xl border border-terracotta/20 bg-terracotta/5 p-4 transition-colors hover:bg-terracotta/10"
+            >
+              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-terracotta/15 text-terracotta">
+                <Sparkles aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-ink">
+                  {yearsAgo} {yearsAgo === 1 ? 'year' : 'years'} ago today
+                </p>
+                <p className="truncate text-xs text-ink/60">
+                  {album.event.display_name} — relive the day
+                </p>
+              </div>
+              <ArrowRight aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
+            </Link>
+          ))}
+        </div>
+      ) : null}
+
       {/* Facebook helper card */}
       <div className="rounded-2xl border border-ink/10 bg-white p-4 shadow-sm sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -80,12 +147,32 @@ export async function PhotosTab({ userId }: { userId: string }) {
         </div>
       </div>
 
-      {/* Album-per-event grid */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {albums.map((album) => (
-          <AlbumCard key={album.event.event_id} album={album} />
-        ))}
-      </div>
+      {/* Albums — grouped by year (a timeline) once events span multiple years */}
+      {groupByYear ? (
+        <div className="space-y-8">
+          {years.map((y) => (
+            <section key={y}>
+              <div className="mb-3 flex items-center gap-3">
+                <span className="font-mono text-xs uppercase tracking-[0.15em] text-ink/45">
+                  {y}
+                </span>
+                <span className="h-px flex-1 bg-ink/10" />
+              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {(byYear.get(y) ?? []).map((album) => (
+                  <AlbumCard key={album.event.event_id} album={album} />
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {albums.map((album) => (
+            <AlbumCard key={album.event.event_id} album={album} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

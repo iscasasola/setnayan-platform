@@ -8,32 +8,15 @@ import { processGuestClaim } from '@/lib/guest-claim-flow';
 import { MAX_NAME_LENGTH } from '@/lib/guest-claim';
 import { readGuestSession, setGuestSession } from '@/lib/guest-session';
 import type { GuestRole } from '@/lib/guests';
+import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 
 // Sanity ceiling on accountless self-joins per event. The QR token is the real
 // gate; this just bounds runaway spam (the couple reviews/deletes the
 // `self_joined`-tagged rows). Generous — weddings rarely exceed it.
 const SELF_JOIN_CEILING = 1000;
 
-const VALID_ROLES: GuestRole[] = [
-  'guest',
-  'maid_of_honor',
-  'matron_of_honor',
-  'best_man',
-  'bridesmaid',
-  'groomsman',
-  'principal_sponsor',
-  'candle_sponsor',
-  'veil_sponsor',
-  'cord_sponsor',
-  'coin_sponsor',
-  'ring_bearer',
-  'bible_bearer',
-  'coin_bearer',
-  'flower_girl',
-  'officiant',
-  'reader_lector',
-  'soloist_musician',
-];
+// Iteration 0053 P2: the self-claimable roles are per event type
+// (resolveRoleSetForEvent(eventId).selfClaimableRoles).
 
 export async function joinEventAction(eventId: string, token: string, formData: FormData) {
   const role = String(formData.get('role') ?? '') as GuestRole;
@@ -41,7 +24,8 @@ export async function joinEventAction(eventId: string, token: string, formData: 
   // attacker-supplied name (the client maxLength is non-authoritative).
   const presentedName = String(formData.get('name') ?? '').trim().slice(0, MAX_NAME_LENGTH);
 
-  if (!VALID_ROLES.includes(role)) {
+  const roleSet = await resolveRoleSetForEvent(eventId);
+  if (!roleSet.selfClaimableRoles.includes(role)) {
     return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=invalid_role`);
   }
   if (!presentedName) {
@@ -188,7 +172,8 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
   const role = String(formData.get('role') ?? '') as GuestRole;
   const presentedName = String(formData.get('name') ?? '').trim().slice(0, MAX_NAME_LENGTH);
 
-  if (!VALID_ROLES.includes(role)) {
+  const roleSet = await resolveRoleSetForEvent(eventId);
+  if (!roleSet.selfClaimableRoles.includes(role)) {
     return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=invalid_role`);
   }
   if (!presentedName) {

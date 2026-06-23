@@ -62,14 +62,20 @@ export default async function PaperworkPage({ params }: Props) {
   const [eventRes, rows] = await Promise.all([
     supabase
       .from('events')
-      .select('event_id, display_name, event_date, ceremony_type')
+      .select('event_id, display_name, event_date, ceremony_type, event_type')
       .eq('event_id', eventId)
       .maybeSingle(),
     fetchEventPaperwork(supabase, eventId),
   ]);
 
   const event = eventRes.data as
-    | { event_id: string; display_name: string; event_date: string | null; ceremony_type: string | null }
+    | {
+        event_id: string;
+        display_name: string;
+        event_date: string | null;
+        ceremony_type: string | null;
+        event_type: string | null;
+      }
     | null;
 
   if (!event) {
@@ -77,6 +83,38 @@ export default async function PaperworkPage({ params }: Props) {
     // — the dashboard layout's outer auth gate handles the broader
     // "wrong account" case, so this only fires on stale URLs.
     redirect('/dashboard');
+  }
+
+  // Iteration 0053 P4 Unit 1: the entire paperwork checklist below is the
+  // PH-marriage statutory pack ("Your wedding paperwork" — PSA/CENOMAR/license/
+  // Pre-Cana). Only marriage-profile events have it; 'wedding' is the only type
+  // with statutoryPackKey 'ph_marriage', so this direct check is the exact
+  // equivalent. Non-wedding events get a generic "no statutory paperwork" state
+  // and skip the wedding render entirely (wedding path byte-identical).
+  if (((event.event_type as string | null) ?? 'wedding') !== 'wedding') {
+    return (
+      <section className="space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <BackLink eventId={eventId} />
+        </div>
+        <header className="space-y-3">
+          <h1 className="font-display text-3xl italic tracking-tight text-ink sm:text-4xl">
+            Paperwork
+          </h1>
+          <p className="max-w-prose text-sm text-ink/65 sm:text-base">
+            This event type has no required government paperwork checklist. Track
+            your own documents and contracts under{' '}
+            <Link
+              href={`/dashboard/${eventId}/documents`}
+              className="font-medium text-terracotta-700 hover:text-terracotta-800"
+            >
+              Documents
+            </Link>
+            .
+          </p>
+        </header>
+      </section>
+    );
   }
 
   const ceremony = resolveCeremonyType(event.ceremony_type);

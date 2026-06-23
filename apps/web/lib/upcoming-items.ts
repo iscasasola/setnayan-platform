@@ -513,6 +513,11 @@ export type FetchUpcomingItemsInput = {
   remindersEnabled?: boolean;
   /** Maximum merged items returned. Defaults to 10. */
   limit?: number;
+  // Iteration 0053 P4 Unit 1: whether this event type has the PH-marriage
+  // statutory pack (profile.statutoryPackKey === 'ph_marriage'). Defaults TRUE
+  // (weddings byte-identical); a non-wedding passes false → no PSA/CENOMAR/
+  // marriage-license deadlines in the Home "Needs you" stream.
+  statutory?: boolean;
 };
 
 export type FetchUpcomingItemsResult = {
@@ -641,6 +646,7 @@ export async function fetchUpcomingItems(
   input: FetchUpcomingItemsInput,
 ): Promise<FetchUpcomingItemsResult> {
   const { supabase, eventId, eventDate, ceremonyType, now, remindersEnabled } = input;
+  const statutory = input.statutory ?? true;
   const limit = input.limit ?? 10;
 
   const [meetings, scheduleBlocks, vendorPayments, skuRenewals, recommendedDeadlines] =
@@ -655,8 +661,12 @@ export async function fetchUpcomingItems(
         : fetchRecommendedDeadlineItems(supabase, eventId, eventDate, now),
     ]);
 
-  // Source 5 — pure-computed, no fetch.
-  const documentDeadlines = buildDocumentDeadlines(eventId, eventDate, ceremonyType, now);
+  // Source 5 — pure-computed, no fetch. Iteration 0053 P4 Unit 1: PH-marriage
+  // statutory deadlines only for events whose profile has the statutory pack
+  // (weddings; statutory defaults TRUE → byte-identical). Non-weddings → none.
+  const documentDeadlines = statutory
+    ? buildDocumentDeadlines(eventId, eventDate, ceremonyType, now)
+    : [];
 
   const merged = [
     ...meetings,

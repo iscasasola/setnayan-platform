@@ -663,6 +663,12 @@ export type FetchPreparationInput = {
   eventDate: string | null;
   ceremonyType: string | null | undefined;
   now: Date;
+  // Iteration 0053 P4 Unit 1: whether this event type has a statutory
+  // (PH-marriage) prep pack. The caller derives it from the Event-Type Profile
+  // (profile.statutoryPackKey === 'ph_marriage'). Defaults TRUE so any caller
+  // that omits it keeps today's wedding behaviour byte-identical; a non-wedding
+  // event passes false → no PSA/CENOMAR/marriage-license milestones.
+  statutory?: boolean;
 };
 
 /**
@@ -677,7 +683,7 @@ export type FetchPreparationInput = {
 export async function fetchPreparationAgenda(
   input: FetchPreparationInput,
 ): Promise<PreparationAgenda> {
-  const { supabase, eventId, eventDate, ceremonyType, now } = input;
+  const { supabase, eventId, eventDate, ceremonyType, now, statutory = true } = input;
 
   const [payments, paperwork, meetings, manual] = await Promise.all([
     fetchPaymentItems(supabase, eventId, now),
@@ -687,7 +693,12 @@ export async function fetchPreparationAgenda(
     // when event_preparation_items doesn't exist yet (pre-migration deploy).
     fetchManualItems(supabase, eventId, now),
   ]);
-  const milestones = buildStatutoryMilestones(eventId, eventDate, ceremonyType, now);
+  // Iteration 0053 P4 Unit 1: PH-marriage statutory milestones only for events
+  // whose profile has the statutory pack (weddings). statutory defaults TRUE so
+  // weddings are byte-identical; non-weddings pass false → no milestones.
+  const milestones = statutory
+    ? buildStatutoryMilestones(eventId, eventDate, ceremonyType, now)
+    : [];
 
   const items = [
     ...payments,

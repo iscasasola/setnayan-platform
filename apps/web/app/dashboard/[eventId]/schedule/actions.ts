@@ -329,6 +329,19 @@ export async function seedDefaultScheduleBlocks(
   if (existingErr) throw new Error(existingErr.message);
   if (existing && existing.length > 0) return 0; // already seeded · skip
 
+  // Iteration 0053 P4 Unit 1 — defensive: this seed is wedding-shaped (a
+  // catholic-default ceremony + the Filipino reception spine). It is currently
+  // DEAD CODE (zero call sites), but guard on event_type so a future wiring can
+  // never inject a wedding timeline into a non-wedding event. No live change.
+  const { data: ev } = await supabase
+    .from('events')
+    .select('event_type')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (((ev as { event_type?: string | null } | null)?.event_type ?? 'wedding') !== 'wedding') {
+    return 0;
+  }
+
   // Admin client for the actual writes · bypasses RLS for the seed pass
   // (the membership check above already confirmed the host owns this event).
   const admin = createAdminClient();

@@ -10,6 +10,7 @@ import {
   type ScheduleBlockRow,
 } from '@/lib/schedule';
 import { fetchPreparationAgenda } from '@/lib/preparation';
+import { resolveProfile } from '@/lib/event-type-profile';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
   createScheduleBlock,
@@ -56,7 +57,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   const [eventRes, blocks, suggestionsRes] = await Promise.all([
     supabase
       .from('events')
-      .select('event_id, event_date, ceremony_type')
+      .select('event_id, event_date, ceremony_type, event_type')
       .eq('event_id', eventId)
       .maybeSingle(),
     fetchScheduleBlocks(supabase, eventId),
@@ -74,10 +75,20 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   ]);
   const openSuggestions = (suggestionsRes.data ?? []) as VendorSuggestion[];
   const eventRow = eventRes.data as
-    | { event_id: string; event_date: string | null; ceremony_type: string | null }
+    | {
+        event_id: string;
+        event_date: string | null;
+        ceremony_type: string | null;
+        event_type: string | null;
+      }
     | null;
   const eventDate = eventRow?.event_date ?? null;
   const ceremonyType = eventRow?.ceremony_type ?? null;
+  // Iteration 0053 P4 Unit 1: only marriage-profile events get PH statutory
+  // milestones in the agenda. Wedding → 'ph_marriage' → statutory true (byte-
+  // identical); non-wedding → null → no PSA/CENOMAR/marriage-license rows.
+  const profile = await resolveProfile(eventRow?.event_type ?? 'wedding');
+  const statutory = profile.statutoryPackKey === 'ph_marriage';
 
   const agenda = await fetchPreparationAgenda({
     supabase,
@@ -85,6 +96,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     eventDate,
     ceremonyType,
     now: new Date(),
+    statutory,
   });
 
   // Resolve the active view. Explicit `?view=` wins (bookmarkable). With no

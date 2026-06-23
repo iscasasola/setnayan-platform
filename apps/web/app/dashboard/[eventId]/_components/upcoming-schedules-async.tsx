@@ -27,6 +27,10 @@ type Props = {
   ceremonyType: string | null | undefined;
   userId: string;
   now: Date;
+  // Iteration 0053 P4 Unit 1: marriage-profile flag (statutoryPackKey ===
+  // 'ph_marriage'). Defaults TRUE → weddings byte-identical; non-weddings pass
+  // false → no statutory deadlines in the Home "Needs you" stream.
+  statutory?: boolean;
 };
 
 export async function UpcomingSchedulesAsync({
@@ -35,6 +39,7 @@ export async function UpcomingSchedulesAsync({
   ceremonyType,
   userId,
   now,
+  statutory = true,
 }: Props) {
   const supabase = await createClient();
   const { data: prefRow } = await supabase
@@ -52,6 +57,7 @@ export async function UpcomingSchedulesAsync({
         ceremonyType,
         now,
         remindersEnabled,
+        statutory,
         limit: 10,
       });
     } catch (caught) {

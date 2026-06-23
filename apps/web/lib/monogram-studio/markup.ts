@@ -12,7 +12,8 @@
 export const STUDIO_CSS = `
 .vsroot .vs{--paper:#FBFBFA;--ink:#1E2229;--ink-soft:#5F5E5A;--line:#E7E1D6;--line2:#D9D2C4;--gold:#C5A059;--gold-deep:#8C6932;--mulberry:#5C2542;font-family:'Manrope',system-ui,sans-serif;color:#1E2229;container-type:inline-size;}
 .vsroot .vs .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);}
-.vsroot .vs .frame{background:#ECE7DD;border-radius:18px;padding:16px;max-width:430px;margin:0 auto;}
+/* No beige inset frame — the studio fills its container edge-to-edge (owner 2026-06-23). */
+.vsroot .vs .frame{background:transparent;padding:0;max-width:none;margin:0;}
 .vsroot .vs .card{background:#FBFBFA;border:1px solid var(--line);border-radius:16px;overflow:hidden;}
 .vsroot .vs .top{display:flex;align-items:center;gap:9px;padding:12px 16px;border-bottom:1px solid var(--line);}
 .vsroot .vs .wm{font-family:'DM Mono',ui-monospace,monospace;font-size:12px;letter-spacing:.3em;font-weight:500;color:#1E2229;}
@@ -84,8 +85,8 @@ export const STUDIO_CSS = `
    the mark renders crisp and large, "taking up the space" instead of a small
    preview. Mobile (below the query) keeps the single-column stack untouched. */
 @container (min-width:760px){
-  .vsroot .vs .frame{max-width:1040px;padding:20px;}
-  .vsroot .vs .card{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,360px);grid-template-rows:auto clamp(460px,58vh,680px);grid-template-areas:"top top" "canvas panel";}
+  .vsroot .vs .frame{max-width:none;padding:0;}
+  .vsroot .vs .card{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,380px);grid-template-rows:auto clamp(460px,72vh,900px);grid-template-areas:"top top" "canvas panel";}
   .vsroot .vs .top{grid-area:top;}
   .vsroot .vs .sw2{grid-area:canvas;min-height:0;height:100%;border-right:1px solid var(--line);}
   .vsroot .vs canvas{height:100%;}

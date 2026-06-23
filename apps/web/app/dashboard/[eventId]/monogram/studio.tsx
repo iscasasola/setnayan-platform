@@ -151,7 +151,7 @@ export function VectorStudio({
   return (
     <section
       id="vector-studio"
-      className="vsroot scroll-mt-24 space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-7"
+      className="vsroot scroll-mt-24 space-y-4"
     >
       <style dangerouslySetInnerHTML={{ __html: STUDIO_CSS }} />
 

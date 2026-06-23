@@ -66,13 +66,13 @@ async function loadOwnedAlbum(
   const [seatRes, guestRes] = await Promise.all([
     supabase
       .from('papic_photos')
-      .select('r2_object_key, poster_r2_key, photo_type, captured_at, moderation_state, hidden_at, expires_at')
+      .select('r2_object_key, poster_r2_key, display_r2_key, thumb_r2_key, photo_type, captured_at, moderation_state, hidden_at, expires_at')
       .eq('event_id', eventId)
       .order('captured_at', { ascending: false })
       .limit(OWNED_SCAN_LIMIT),
     supabase
       .from('papic_guest_captures')
-      .select('r2_object_key, poster_r2_key, media_type, captured_at, moderation_state, hidden_at')
+      .select('r2_object_key, poster_r2_key, display_r2_key, thumb_r2_key, media_type, captured_at, moderation_state, hidden_at')
       .eq('event_id', eventId)
       .order('captured_at', { ascending: false })
       .limit(OWNED_SCAN_LIMIT),
@@ -93,9 +93,12 @@ async function loadOwnedAlbum(
     (r) => r.moderation_state !== 'nsfw_blocked' && !r.hidden_at,
   );
 
+  // Prefer the cheap thumb derivative for the album strip, then the existing
+  // poster (clips) / original (photos). Pre-migration rows fall back — no break.
   const seatRefs: ThumbRef[] = visibleSeat.map((r) => {
     const isClip = r.photo_type === 'clip';
     const key =
+      (r.thumb_r2_key as string | null) ??
       (isClip ? (r.poster_r2_key as string | null) : (r.r2_object_key as string | null)) ??
       (r.r2_object_key as string | null);
     return { key: key ?? '', isClip, capturedAt: r.captured_at as string };
@@ -103,6 +106,7 @@ async function loadOwnedAlbum(
   const guestRefs: ThumbRef[] = visibleGuest.map((r) => {
     const isClip = (r.media_type as string | undefined) === 'clip';
     const key =
+      (r.thumb_r2_key as string | null) ??
       (isClip ? (r.poster_r2_key as string | null) : (r.r2_object_key as string | null)) ??
       (r.r2_object_key as string | null);
     return { key: key ?? '', isClip, capturedAt: r.captured_at as string };

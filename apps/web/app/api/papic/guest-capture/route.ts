@@ -272,6 +272,27 @@ export async function POST(req: Request) {
         r2ObjectKey: r2Ref,
         bytes: isClip ? undefined : bytes,
       }).catch(() => {});
+      // Cheap display + thumbnail derivatives (best-effort, AFTER the screen)
+      // so guest/owner galleries serve compressed tiles instead of full-res
+      // originals. Dynamic import keeps the sharp/R2 cost off the shutter hot
+      // path; the module wraps everything (never throws). Clips have no
+      // transcode — derive the thumb from the poster.
+      if (captureId) {
+        try {
+          const { generatePhotoDerivatives, generateClipThumb } = await import(
+            '@/lib/papic-derivatives'
+          );
+          if (isClip) {
+            if (posterRef) {
+              await generateClipThumb(posterRef, 'papic_guest_captures', 'capture_id', captureId);
+            }
+          } else {
+            await generatePhotoDerivatives(r2Ref, 'papic_guest_captures', 'capture_id', captureId);
+          }
+        } catch {
+          // best-effort — derivatives never break a capture
+        }
+      }
       try {
         if (captureId) {
           // P2 FaceBlock bake sits between the screen and the wall gate: on

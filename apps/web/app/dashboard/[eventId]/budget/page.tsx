@@ -41,7 +41,7 @@ export default async function BudgetPage({ params }: Props) {
   const [eventRes, snapshot, paidOrdersRes, allocInputs] = await Promise.all([
     supabase
       .from('events')
-      .select('event_id, display_name, estimated_budget_centavos, region')
+      .select('event_id, display_name, estimated_budget_centavos, region, event_type')
       .eq('event_id', eventId)
       .maybeSingle(),
     fetchBudgetSnapshot(supabase, eventId),
@@ -62,8 +62,17 @@ export default async function BudgetPage({ params }: Props) {
         display_name: string;
         estimated_budget_centavos: number | null;
         region: string | null;
+        event_type: string | null;
       }
     | null;
+
+  // Iteration 0053 P4 Unit 2: the suggested budget SPLIT (wedding cost
+  // categories + benchmarks) is the wedding budget-taxonomy pack. 'wedding' is
+  // the only event type with a budget taxonomy (profile.budgetTaxonomyKey), so
+  // this is the exact equivalent of resolveProfile(event_type).budgetTaxonomyKey
+  // === 'wedding'. Wedding → true (split renders, byte-identical); non-wedding →
+  // false → generic budget (total + per-vendor itemization only, no split).
+  const isWeddingBudget = ((event?.event_type as string | null) ?? 'wedding') === 'wedding';
 
   // Defensive read — the column may not exist yet in production until
   // migration 20260604030000 lands. Treat undefined and null the same
@@ -200,26 +209,34 @@ export default async function BudgetPage({ params }: Props) {
        *  range per leaf) BEFORE the couple contracts anyone, complementing
        *  the per-vendor TRACKING below. The pure engine runs client-side for
        *  instant tilt feedback; inputs were resolved server-side above. */}
-      <div id="budget-allocate" className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6">
-        <div className="space-y-2">
-          <h2 className="font-display text-2xl italic text-ink/85 sm:text-3xl">
-            Suggested budget split
-          </h2>
-          <p className="max-w-prose text-sm text-ink/65">
-            A starting point from typical Filipino wedding costs — nudge anything;
-            it&rsquo;s a guide, not a rule.
-          </p>
-        </div>
+      {/* Iteration 0053 P4 Unit 2: the suggested split is the wedding budget
+       *  taxonomy (wedding cost categories + benchmarks). Only render it for
+       *  marriage-profile events; a non-wedding gets the generic budget (total
+       *  + per-vendor itemization below). allocInputs is still resolved above
+       *  for weddings — the Promise.all is unchanged so the wedding path is
+       *  byte-identical. */}
+      {isWeddingBudget ? (
+        <div id="budget-allocate" className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6">
+          <div className="space-y-2">
+            <h2 className="font-display text-2xl italic text-ink/85 sm:text-3xl">
+              Suggested budget split
+            </h2>
+            <p className="max-w-prose text-sm text-ink/65">
+              A starting point from typical Filipino wedding costs — nudge anything;
+              it&rsquo;s a guide, not a rule.
+            </p>
+          </div>
 
-        <BudgetAllocationPlanner
-          eventId={eventId}
-          budgetPhp={allocInputs.budgetPhp}
-          leaves={allocInputs.leaves}
-          config={allocInputs.config}
-          pax={allocInputs.pax}
-          region={event?.region ?? null}
-        />
-      </div>
+          <BudgetAllocationPlanner
+            eventId={eventId}
+            budgetPhp={allocInputs.budgetPhp}
+            leaves={allocInputs.leaves}
+            config={allocInputs.config}
+            pax={allocInputs.pax}
+            region={event?.region ?? null}
+          />
+        </div>
+      ) : null}
 
       {/* Existing per-vendor itemization + payment log — unchanged
        *  surface from before this PR. Heading added so the visual break

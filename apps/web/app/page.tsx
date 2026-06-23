@@ -40,9 +40,9 @@ import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
 // GEO Phase G2 (2026-05-28) — brand-first title + value-prop description.
 // Carried forward from prior page.tsx so AI answer engines + SERP cards
 // keep extracting the same brand + price + 0% commission signals. Pricing
-const HOME_TITLE = 'Setnayan · Filipino wedding planning + verified vendors';
+const HOME_TITLE = 'Setnayan · Plan your Filipino wedding free — keep it forever';
 const HOME_DESCRIPTION =
-  'Filipino-first wedding planning. Free to start. Verified vendor marketplace. 0% commission. Plan your whole wedding in one place.';
+  'Plan your whole Filipino wedding free — then keep every photo, video, and memory in one place, for life. Verified vendor marketplace, 0% commission.';
 
 export const metadata = {
   title: HOME_TITLE,

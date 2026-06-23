@@ -5,6 +5,7 @@ import { Camera, CircleSlash, Lock, MapPin, Sparkles, X } from 'lucide-react';
 import { Logo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { readGuestSession } from '@/lib/guest-session';
 import { formatEventDate } from '@/lib/events';
 import { ROLE_LABELS, type GuestRole } from '@/lib/guests';
@@ -187,7 +188,10 @@ export async function generateMetadata({ params }: Pick<Props, 'params'>) {
 
   const event = await fetchEventBySlug(slug);
   if (!event) notFound();
-  if (event.event_type !== 'wedding') notFound();
+  // Iteration 0053: the public couple website is the 'website' profile surface.
+  // Generic (non-wedding) profiles don't enable it, so non-weddings still 404 —
+  // byte-identical to the old `!== 'wedding'` gate, but now config-driven.
+  if (!surfaceEnabled(await resolveProfile(event.event_type), 'website')) notFound();
 
   // Private by default (owner 2026-06-20): a wedding page is private until the
   // couple LAUNCHES their Save-the-Date (which flips this to 'public'). NULL /
@@ -350,7 +354,12 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   const event = await fetchEventBySlug(slug);
 
   if (!event) notFound();
-  if (event.event_type !== 'wedding') notFound();
+  // Iteration 0053: the whole public couple website is the 'website' profile
+  // surface. Non-wedding (generic) profiles don't enable it → still notFound(),
+  // byte-identical to the old `!== 'wedding'` gate but now config-driven. The
+  // resolved profile is reused for the phase engine below.
+  const eventTypeProfile = await resolveProfile(event.event_type);
+  if (!surfaceEnabled(eventTypeProfile, 'website')) notFound();
 
   const monogram = resolveMonogram(event);
 
@@ -608,7 +617,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // wedding-only (non-weddings notFound() above), so the lifecycle is the
   // wedding website. The WEBSITE_PHASES_ENABLED env flag stays as an override
   // for any future non-wedding event types.
-  const phasesEnabled = isWebsitePhasesEnabled() || event.event_type === 'wedding';
+  const phasesEnabled = isWebsitePhasesEnabled() || surfaceEnabled(eventTypeProfile, 'website');
 
   // Date-driven phase by default. PREVIEW override: `?phase=rsvp|event|
   // editorial` shows any phase regardless of date (the live "event" phase is

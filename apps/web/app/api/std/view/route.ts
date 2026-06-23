@@ -19,6 +19,7 @@ import { cookies } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { getLifecyclePhase } from '@/lib/invitation-widgets';
+import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import {
   STD_VIEW_COOKIE,
   manilaToday,
@@ -60,8 +61,12 @@ export async function POST(req: Request) {
     .ilike('slug', slug)
     .maybeSingle();
 
-  // Only count real wedding pages that are actually in the Save-the-Date phase.
-  if (!event || event.event_type !== 'wedding') return ok;
+  // Only count pages whose profile enables the Save-the-Date surface, and only
+  // while they're actually in the Save-the-Date phase. (Iteration 0053: the STD
+  // beacon is the 'save_the_date' surface; generic profiles disable it, so a
+  // non-wedding page never counts — byte-identical to the old `!== 'wedding'`.)
+  if (!event) return ok;
+  if (!surfaceEnabled(await resolveProfile(event.event_type), 'save_the_date')) return ok;
   if (getLifecyclePhase(event.event_date) !== 'save_the_date') return ok;
 
   // Exclude the couple's / coordinators' OWN visits. The beacon carries the

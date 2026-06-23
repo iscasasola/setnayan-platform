@@ -4,6 +4,7 @@ import { notFound, redirect } from 'next/navigation';
 import { Camera, Clapperboard, Film, Quote, Radio, Sparkles } from 'lucide-react';
 import { Logo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { sanitizeRolePalette } from '@/lib/mood-board';
@@ -50,7 +51,13 @@ const fetchEvent = cache(async (slug: string) => {
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const event = await fetchEvent(slug);
-  if (!event || event.event_type !== 'wedding' || !(await isRecapPublished(event.event_id))) {
+  // Iteration 0053: recap is a public /[slug] page → the 'website' surface.
+  // Generic profiles disable it, so non-weddings keep the no-index stub (same as
+  // the old `!== 'wedding'`), now config-driven.
+  const websiteOn = event
+    ? surfaceEnabled(await resolveProfile(event.event_type), 'website')
+    : false;
+  if (!event || !websiteOn || !(await isRecapPublished(event.event_id))) {
     return { title: 'The Recap', robots: { index: false, follow: false } };
   }
   const title = `${event.display_name} — The Recap`;
@@ -75,7 +82,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function RecapPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const event = await fetchEvent(slug);
-  if (!event || event.event_type !== 'wedding') notFound();
+  if (!event) notFound();
+  // Iteration 0053: recap is a public /[slug] page → the 'website' surface
+  // (generic profiles disable it → non-weddings still notFound(), now config-driven).
+  if (!surfaceEnabled(await resolveProfile(event.event_type), 'website')) notFound();
 
   // Visibility gate (owner 2026-06-20): don't leak a private page's couple name
   // via the recap (incl. the "not ready" stand-in). A published recap lives on

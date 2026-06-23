@@ -824,6 +824,10 @@ export function computeAutoSeat(
   // Smart seat-plan Phase 2: the couple's draggable tier order. null = the
   // default 1→2→3→4 fill (back-compatible — all existing callers omit it).
   priorityOrder: PriorityOrder | null = null,
+  // Iteration 0053 P2: per-event-type role set. Default = wedding, so every
+  // existing caller is byte-identical; a generic event passes its set to tier
+  // host/vip→1, family→3 and to exclude the right principals (none).
+  roleSet: RoleSet = WEDDING_ROLE_SET,
 ): AutoSeatRow[] {
   const assignedGuestIds = new Set(assignments.map((a) => a.guest_id));
 
@@ -858,15 +862,14 @@ export function computeAutoSeat(
     (g) =>
       g.rsvp_status !== 'declined' &&
       !assignedGuestIds.has(g.guest_id) &&
-      g.role !== 'bride' &&
-      g.role !== 'groom',
+      !roleSet.coupleRoles.has(g.role),
   );
 
   // Order within each tier: cluster a custom group's members together, and
   // keep a guest's plus-one adjacent to its primary. Contiguous order → the
   // sequential fill below drops a group onto the same/neighbouring tables.
   const byTier: Record<1 | 2 | 3 | 4, AutoSeatGuest[]> = { 1: [], 2: [], 3: [], 4: [] };
-  for (const g of eligible) byTier[tierOf(g)].push(g);
+  for (const g of eligible) byTier[tierOf(g, roleSet)].push(g);
 
   const nameKey = (g: AutoSeatGuest) => `${g.last_name} ${g.first_name}`.toLowerCase();
   const ordered: AutoSeatGuest[] = [];
@@ -961,6 +964,8 @@ export type SolveInput = {
   // guest_id -> custom group_ids (from fetchGroupMembershipsByEvent). A keep-apart
   // pair expands to BOTH guests' whole groups at solve time (group-aware).
   groupMembers?: Map<string, string[]>;
+  // Iteration 0053 P2: per-event-type role set (omitted = wedding default).
+  roleSet?: RoleSet;
 };
 
 export type SolveResult = {
@@ -982,10 +987,11 @@ export function solveSeatPlan(input: SolveInput): SolveResult {
     priorityOrder = null,
     constraints,
     groupMembers = new Map<string, string[]>(),
+    roleSet = WEDDING_ROLE_SET,
   } = input;
 
   // Warm start (priority + stage aware; ignores constraints). No rules → done.
-  const warm = computeAutoSeat(tables, guests, assignments, stage, priorityOrder);
+  const warm = computeAutoSeat(tables, guests, assignments, stage, priorityOrder, roleSet);
   const totalRules = constraints.length;
   if (totalRules === 0) {
     return { assignments: warm, violations: [], satisfiedCount: 0, totalRules: 0 };
@@ -1084,7 +1090,7 @@ export function solveSeatPlan(input: SolveInput): SolveResult {
   const tierRank = resolvePriorityRank(priorityOrder);
   const moveCost = (gid: string): number => {
     const g = guestById.get(gid);
-    const tier = g ? guestTier(g.role, g.group_category, g.seating_priority) : 4;
+    const tier = g ? guestTier(g.role, g.group_category, g.seating_priority, roleSet) : 4;
     return tierRank[tier];
   };
 
@@ -1172,13 +1178,14 @@ export function relaxLowestPriorityRule(
   rules: KeepApartRule[],
   guests: AutoSeatGuest[],
   priorityOrder?: PriorityOrder | null,
+  roleSet: RoleSet = WEDDING_ROLE_SET,
 ): KeepApartRule | null {
   if (rules.length === 0) return null;
   const rank = resolvePriorityRank(priorityOrder);
   const byId = new Map(guests.map((g) => [g.guest_id, g] as const));
   const rankOf = (id: string): number => {
     const g = byId.get(id);
-    return g ? rank[guestTier(g.role, g.group_category, g.seating_priority)] : 99;
+    return g ? rank[guestTier(g.role, g.group_category, g.seating_priority, roleSet)] : 99;
   };
   // The rule's "expendability" = its more-expendable guest's rank (higher number
   // = lower priority). Drop the most-expendable rule (max), keeping rules that

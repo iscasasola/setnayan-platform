@@ -14,11 +14,17 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveMonogram, type MonogramConfig } from '@/lib/monogram';
 import { resolveMonogramMotion, type MonogramMotionKey } from '@/lib/monogram-motion';
+import { sanitizeStudioConfig } from '@/lib/monogram-studio-shared';
+import type { StudioAnim } from '@/app/_components/studio-reveal-player';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 
 /** Reusable SELECT column list for any page that resolves the hero monogram. */
 export const HERO_MONOGRAM_COLUMNS =
-  'display_name, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, monogram_motion_key';
+  'display_name, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, monogram_motion_key, monogram_studio_config';
+
+/** The reveal a BESPOKE mark plays when the couple hasn't tuned the studio panel
+ *  (the engine's own defaults: a 6s handwriting draw-on). */
+export const DEFAULT_STUDIO_ANIM: StudioAnim = { kind: 'handwriting', dur: 6, smooth: 0.9, delay: 0.3 };
 
 /** The event columns HERO_MONOGRAM_COLUMNS fetches. */
 export type HeroMonogramRow = {
@@ -31,9 +37,10 @@ export type HeroMonogramRow = {
   monogram_custom_svg: string | null;
   monogram_uploaded_svg: string | null;
   monogram_motion_key: string | null;
+  monogram_studio_config: unknown;
 };
 
-/** Serializable bundle of the four <HeroMonogram> inputs. */
+/** Serializable bundle of the <HeroMonogram> inputs. */
 export type HeroMonogramData = {
   /** The design columns HeroMonogram's `event` prop reads. */
   design: {
@@ -42,8 +49,13 @@ export type HeroMonogramData = {
     monogram_frame_key: string | null;
   };
   monogram: MonogramConfig;
-  /** The motion signature when the couple owns the paid ANIMATED_MONOGRAM, else false. */
+  /** The LETTERED-mark motion signature when the couple owns ANIMATED_MONOGRAM, else
+   *  false. Also the ownership gate signal (false ⇒ no animation on any mark). */
   animatedMonogram: MonogramMotionKey | false;
+  /** The BESPOKE-mark reveal designed in the studio "Animate the reveal" panel
+   *  (monogram_studio_config.anim), defaulted. HeroMonogram plays this via
+   *  StudioRevealPlayer for studio/uploaded marks when animatedMonogram is truthy. */
+  studioAnim: StudioAnim;
   /** Sanitized bespoke/uploaded SVG (uploaded outranks AI/Cipher), or null. */
   bespokeSvg: string | null;
 };
@@ -71,6 +83,11 @@ export async function resolveEventMonogram(
   const animatedMonogram: MonogramMotionKey | false = ownsAnimated
     ? resolveMonogramMotion(row.monogram_motion_key)
     : false;
+  // The bespoke reveal designed in the studio panel (config.anim), defaulted.
+  const studioCfg = sanitizeStudioConfig(row.monogram_studio_config);
+  const studioAnim: StudioAnim = studioCfg?.anim
+    ? { kind: studioCfg.anim.kind, dur: studioCfg.anim.dur, smooth: studioCfg.anim.smooth, delay: studioCfg.anim.delay }
+    : DEFAULT_STUDIO_ANIM;
   return {
     design: {
       monogram_style: row.monogram_style,
@@ -79,6 +96,7 @@ export async function resolveEventMonogram(
     },
     monogram: resolveMonogram(row),
     animatedMonogram,
+    studioAnim,
     bespokeSvg,
   };
 }

@@ -8,8 +8,7 @@ import {
 import { MonogramMark, type MonogramMarkStyle } from '@/app/_components/monogram-mark';
 import { AnimatedMonogramHero } from '@/app/_components/animated-monogram-hero';
 import { BespokeMonogramMark } from '@/app/_components/bespoke-monogram-mark';
-import { GoldMonogramReveal } from '@/app/_components/gold-monogram-reveal';
-import { MoltenMonogramInline } from '@/app/_components/molten-monogram-inline';
+import { StudioRevealPlayer, type StudioAnim } from '@/app/_components/studio-reveal-player';
 
 /**
  * HeroMonogram — the couple's mark on their PUBLIC landing page hero.
@@ -44,6 +43,7 @@ export function HeroMonogram({
   event,
   monogram,
   animatedMonogram,
+  studioAnim,
   bespokeSvg,
   shadow,
   inkOverride,
@@ -58,6 +58,11 @@ export function HeroMonogram({
   };
   monogram: MonogramConfig;
   animatedMonogram: MonogramMotionKey | false;
+  /** The BESPOKE-mark reveal designed in the studio "Animate the reveal" panel
+   *  (from resolveEventMonogram). When present + owned, a studio/uploaded mark plays
+   *  it via StudioRevealPlayer; omitted → the mark renders static. Lettered lockups
+   *  ignore this (they animate via animatedMonogram / AnimatedMonogramHero). */
+  studioAnim?: StudioAnim;
   bespokeSvg: string | null;
   shadow?: boolean;
   /** Permit the WebGL 'molten' motion to render LIVE here. Only large, never
@@ -85,38 +90,29 @@ export function HeroMonogram({
   // monogram colour, so a caller can force e.g. the button accent.
   const markColor = inkOverride ?? monogram.color;
 
-  // The whole-mark gold animations (Gold Turn · Molten Gold) render the couple's
-  // mark — bespoke silhouette OR lettered glyphs — in flowing gold, so they cover
-  // both in ONE component and must run BEFORE the bespoke short-circuit below.
-  const goldMotion = animatedMonogram === 'gold' || animatedMonogram === 'molten';
-
-  // 1 · bespoke / Cipher custom mark wins over everything — EXCEPT gold/molten,
-  // which consume the same bespoke SVG (as their gold silhouette) in branch 2.
-  if (bespokeSvg && !goldMotion) {
+  // 1 · bespoke / studio / uploaded custom mark wins over everything. When the
+  // couple OWNS Animated Monogram (animatedMonogram truthy = the ownership gate)
+  // and a reveal was designed in the studio panel, play it (StudioRevealPlayer:
+  // handwriting/trace/droplet draw-on · gold turn · molten). Otherwise the static
+  // mark (no animation). The chosen reveal — NOT monogram_motion_key — is the
+  // source for studio marks (owner 2026-06-23 unification).
+  if (bespokeSvg) {
+    if (animatedMonogram && studioAnim) {
+      return (
+        <span aria-hidden className="inline-flex" style={{ width: HERO_PX, height: HERO_PX }}>
+          <StudioRevealPlayer
+            svg={bespokeSvg}
+            monogram={monogram.text}
+            anim={studioAnim}
+            allowWebgl={allowWebgl}
+          />
+        </span>
+      );
+    }
+    // Owned but no studio reveal threaded here (a secondary surface) → the legacy
+    // bloom entrance; not owned → static. Never a regression for un-threaded callers.
     return (
-      <BespokeMonogramMark
-        svg={bespokeSvg}
-        color={markColor}
-        size="md"
-        shadow={shadow}
-        entrance={Boolean(animatedMonogram)}
-      />
-    );
-  }
-
-  // 2a · Gold Turn (CSS) / Molten Gold (WebGL) — the whole-mark premium motions.
-  // Molten renders live only where allowWebgl (one context at a time); otherwise
-  // it degrades to the CSS Gold Turn — still gold + animated, safe everywhere.
-  if (goldMotion) {
-    const useMolten = animatedMonogram === 'molten' && allowWebgl;
-    return (
-      <span aria-hidden className="inline-flex" style={{ width: HERO_PX, height: HERO_PX }}>
-        {useMolten ? (
-          <MoltenMonogramInline markSvg={bespokeSvg} monogram={monogram.text} lowRes />
-        ) : (
-          <GoldMonogramReveal markSvg={bespokeSvg} monogram={monogram.text} inline />
-        )}
-      </span>
+      <BespokeMonogramMark svg={bespokeSvg} color={markColor} size="md" shadow={shadow} entrance={Boolean(animatedMonogram)} />
     );
   }
 

@@ -19,6 +19,9 @@ import { PabatiPrompt } from './_components/pabati-prompt';
 import { eventOwnsPapicSeats } from '@/lib/papic-seats';
 import { eventSkuActive } from '@/lib/entitlements';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
+import { DEFAULT_STUDIO_ANIM } from '@/lib/hero-monogram-data';
+import { sanitizeStudioConfig } from '@/lib/monogram-studio-shared';
+import type { StudioAnim } from '@/app/_components/studio-reveal-player';
 import {
   resolveMonogramMotion,
   type MonogramMotionKey,
@@ -170,7 +173,7 @@ const fetchEventBySlug = cache(async (slug: string) => {
   const { data } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_accent_hex, is_sample',
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_accent_hex, is_sample',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -392,6 +395,16 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     (typeof event.monogram_custom_svg === 'string' && event.monogram_custom_svg
       ? event.monogram_custom_svg
       : null);
+
+  // The reveal the couple designed in the Vector Studio "Animate the reveal" panel
+  // (monogram_studio_config.anim) — the SOURCE for how the bespoke mark animates on
+  // the hero + the Save-the-Date film (owner 2026-06-23 unification). Defaulted when
+  // untuned; gated on ANIMATED_MONOGRAM ownership downstream (HeroMonogram).
+  const studioCfg = sanitizeStudioConfig(event.monogram_studio_config);
+  const studioAnim: StudioAnim =
+    studioCfg?.anim
+      ? { kind: studioCfg.anim.kind, dur: studioCfg.anim.dur, smooth: studioCfg.anim.smooth, delay: studioCfg.anim.delay }
+      : DEFAULT_STUDIO_ANIM;
 
   // Resolve the hero photo's display URL up-front so it's available to both
   // PublicLanding (anonymous browsers) and InvitationSite (guest-cookie
@@ -820,6 +833,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         event={event}
         monogram={monogram}
         animatedMonogram={animatedMonogram}
+        studioAnim={studioAnim}
         reason={inviteError === 'invalid_token' ? 'invalid_invite' : null}
         dayOfPhase={dayOfPhase}
         phasesEnabled={phasesEnabled}
@@ -855,6 +869,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         event={event}
         monogram={monogram}
         animatedMonogram={animatedMonogram}
+        studioAnim={studioAnim}
         reason="wrong_event"
         dayOfPhase={dayOfPhase}
         phasesEnabled={phasesEnabled}
@@ -897,6 +912,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         event={event}
         monogram={monogram}
         animatedMonogram={animatedMonogram}
+        studioAnim={studioAnim}
         reason="invalid_invite"
         dayOfPhase={dayOfPhase}
         phasesEnabled={phasesEnabled}
@@ -1158,6 +1174,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         invitationUrl={invitationUrl}
         monogram={monogram}
         animatedMonogram={animatedMonogram}
+        studioAnim={studioAnim}
         bespokeSvg={bespokeSvg}
         scheduleBlocks={scheduleBlocks}
         dayOfPhase={dayOfPhase}
@@ -1533,6 +1550,7 @@ function PublicLanding({
   event,
   monogram,
   animatedMonogram,
+  studioAnim,
   reason,
   dayOfPhase,
   phasesEnabled,
@@ -1569,6 +1587,8 @@ function PublicLanding({
   // sites pass it) so it can feed HeroMonogram, which needs a non-optional
   // value. Mirrors InvitationSite's / PrivateLanding's prop.
   animatedMonogram: MonogramMotionKey | false;
+  /** The bespoke-mark reveal designed in the studio panel — fed to the STD film. */
+  studioAnim: StudioAnim;
   reason?: 'invalid_invite' | 'wrong_event' | null;
   dayOfPhase: DayOfPhase;
   // Website lifecycle-phase engine (Increment C · flag-dark). When
@@ -1768,6 +1788,7 @@ function PublicLanding({
           loveStory={event.love_story}
           showTextHero={!hasHeroMedia}
           animatedMonogram={animatedMonogram}
+          studioAnim={studioAnim}
           film={stdFilm}
           background={stdBackground}
           backgroundImageUrl={stdBackgroundUrl}
@@ -2083,6 +2104,7 @@ function InvitationSite({
   invitationUrl,
   monogram,
   animatedMonogram,
+  studioAnim,
   bespokeSvg,
   scheduleBlocks,
   dayOfPhase,
@@ -2122,6 +2144,8 @@ function InvitationSite({
   // [slug]/page.tsx resolution + lib/animated-monogram.ts +
   // lib/monogram-motion.ts.
   animatedMonogram: MonogramMotionKey | false;
+  /** The bespoke-mark reveal designed in the studio panel — fed to the STD film. */
+  studioAnim: StudioAnim;
   // The applied Setnayan-AI bespoke mark (sanitized SVG) — wins over the
   // typographic circle in both hero branches when present.
   bespokeSvg: string | null;
@@ -2411,6 +2435,7 @@ function InvitationSite({
             loveStory={event.love_story}
             showTextHero={false}
             animatedMonogram={animatedMonogram}
+            studioAnim={studioAnim}
             film={stdFilm}
             background={stdBackground}
             backgroundImageUrl={stdBackgroundUrl}

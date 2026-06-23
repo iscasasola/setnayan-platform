@@ -60,7 +60,13 @@ const STROKE_STYLES = ['broad', 'pointed', 'monoline', 'brush'] as const;
 const MIRROR_MODES = ['off', 'v', 'h', '4'] as const;
 const SYM_KINDS = ['dot', 'ring', 'diamond', 'triangle', 'star', 'sparkle', 'heart', 'leaf'] as const;
 const CROSS_ACTIONS = ['cut', 'merge', 'delete'] as const;
-const ANIM_KINDS = ['handwriting', 'trace', 'droplet'] as const;
+// The reveal-animation kinds offered in the studio's "Animate the reveal" panel.
+// Exported so the live player (app/_components/studio-reveal-player.tsx) imports
+// the ONE allowlist. handwriting/trace/droplet = paper.js/SVG draw-on; gold =
+// flowing-gold turn (CSS GoldMonogramReveal); molten = WebGL MoltenMonogramReveal.
+// (owner 2026-06-23 — gold/molten are reveal KINDS in this panel, not a separate feature.)
+export const ANIM_KINDS = ['handwriting', 'trace', 'droplet', 'gold', 'molten'] as const;
+export type StudioAnimKind = (typeof ANIM_KINDS)[number];
 
 export type StudioLetterState = {
   tx: number;

@@ -155,6 +155,7 @@ export function WallProjection({
               event={mono.design}
               monogram={mono.monogram}
               animatedMonogram={mono.animatedMonogram}
+              studioAnim={mono.studioAnim}
               bespokeSvg={mono.bespokeSvg}
               plate
             />

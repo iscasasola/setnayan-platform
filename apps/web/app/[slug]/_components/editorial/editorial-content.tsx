@@ -141,6 +141,7 @@ export async function EditorialContent({
                 event={mono.design}
                 monogram={mono.monogram}
                 animatedMonogram={mono.animatedMonogram}
+                studioAnim={mono.studioAnim}
                 bespokeSvg={mono.bespokeSvg}
               />
             </div>

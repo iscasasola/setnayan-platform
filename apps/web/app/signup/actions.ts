@@ -10,6 +10,7 @@ import { isEmailBlacklisted } from '@/lib/blacklist';
 import { captureEvent } from '@/lib/analytics';
 import { safeNext } from '@/lib/auth';
 import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
+import { linkGuestSessionToUser } from '@/lib/link-guest-account';
 
 function parseAccountType(raw: FormDataEntryValue | null): 'customer' | 'vendor' {
   const value = raw ? String(raw) : '';
@@ -154,6 +155,22 @@ export async function signUp(formData: FormData) {
       }).catch(() => {
         /* welcome email is best-effort */
       });
+
+      // Persistent guest accounts (PR-E): if this browser also carries a signed
+      // guest session (the new couple attended someone else's wedding as a
+      // guest), link it so their tagged photos surface in their Account hub.
+      // Best-effort — the helper never throws. Awaited so the DB write lands
+      // before the redirect aborts the request.
+      const guestLink = await linkGuestSessionToUser(userId);
+      if (guestLink.linked) {
+        void captureEvent({
+          distinctId: userId,
+          event: 'guest_account_linked',
+          properties: { ref: 'guest' },
+        }).catch(() => {
+          /* telemetry never blocks */
+        });
+      }
 
       // Honor the "stay signed in" checkbox before sending them to re-login as
       // their now-permanent self (a fresh login issues a token with
@@ -350,6 +367,23 @@ export async function signUp(formData: FormData) {
             attributed_to_event_public_id: guestHostSrcEvent,
             ref: guestHostRef,
           },
+        }).catch(() => {
+          // Telemetry failure never blocks. Silent.
+        });
+      }
+
+      // Persistent guest accounts (PR-E): link a signed guest session (if any)
+      // to this brand-new account so the guest's tagged photos from the event
+      // they attended surface in their Account hub. Best-effort — the helper
+      // never throws. AWAITED (unlike the telemetry above) because it does a DB
+      // write that must land before the redirect tears down the request; only
+      // the no-PII PostHog event is fire-and-forget.
+      const guestLink = await linkGuestSessionToUser(data.user.id);
+      if (guestLink.linked) {
+        void captureEvent({
+          distinctId: data.user.id,
+          event: 'guest_account_linked',
+          properties: { ref: 'guest' },
         }).catch(() => {
           // Telemetry failure never blocks. Silent.
         });

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { joinEventAction, selfJoinAction } from './actions';
 import { JoinShell, InvalidTokenScreen } from './_components/join-shell';
@@ -11,26 +12,8 @@ import { FormFlash } from '@/app/_components/forms/form-flash';
 
 export const metadata = { title: 'Join event' };
 
-const SELECTABLE_ROLES: GuestRole[] = [
-  'guest',
-  'maid_of_honor',
-  'matron_of_honor',
-  'best_man',
-  'bridesmaid',
-  'groomsman',
-  'principal_sponsor',
-  'candle_sponsor',
-  'veil_sponsor',
-  'cord_sponsor',
-  'coin_sponsor',
-  'ring_bearer',
-  'bible_bearer',
-  'coin_bearer',
-  'flower_girl',
-  'officiant',
-  'reader_lector',
-  'soloist_musician',
-];
+// Iteration 0053 P2: self-claimable roles are per event type — see
+// roleSet.selfClaimableRoles below (wedding resolves to today's 18-role subset).
 
 const ROLE_ERROR: Record<string, string> = {
   invalid_token: 'This invite link is no longer valid. Ask the couple to send you a fresh one.',
@@ -51,6 +34,7 @@ export default async function JoinPage({ params, searchParams }: Props) {
   const search = await searchParams;
   const token = search.token ?? '';
   const errorKey = search.error ?? null;
+  const roleSet = await resolveRoleSetForEvent(eventId);
 
   // 1. Validate the token (admin client bypasses RLS).
   const admin = createAdminClient();
@@ -145,7 +129,7 @@ export default async function JoinPage({ params, searchParams }: Props) {
                   className="input-field mt-2"
                   aria-label="Your role"
                 >
-                  {SELECTABLE_ROLES.map((r) => (
+                  {roleSet.selfClaimableRoles.map((r) => (
                     <option key={r} value={r}>
                       {ROLE_LABELS[r]}
                     </option>
@@ -271,7 +255,7 @@ export default async function JoinPage({ params, searchParams }: Props) {
               className="input-field mt-2"
               aria-label="Your role"
             >
-              {SELECTABLE_ROLES.map((r) => (
+              {roleSet.selfClaimableRoles.map((r) => (
                 <option key={r} value={r}>
                   {ROLE_LABELS[r]}
                 </option>

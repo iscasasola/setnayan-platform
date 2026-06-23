@@ -20,6 +20,7 @@
 import { cache } from 'react';
 
 import { createClient } from './supabase/server';
+import { resolveRoleSet, type RoleSet } from './role-sets';
 
 export type ProfileSurface =
   | 'website'
@@ -199,3 +200,32 @@ export function surfaceEnabled(
 ): boolean {
   return profile.enabledSurfaces.includes(surface);
 }
+
+/**
+ * Server helper: the EventTypeProfile for an event id (fetches its event_type).
+ * A missing event / read error degrades to WEDDING_PROFILE so existing wedding
+ * flows are unaffected. Cached per request + per eventId. (Iteration 0053 P2.)
+ */
+export const resolveProfileByEvent = cache(
+  async (eventId: string): Promise<EventTypeProfile> => {
+    try {
+      const sb = await createClient();
+      const { data } = await sb
+        .from('events')
+        .select('event_type')
+        .eq('event_id', eventId)
+        .maybeSingle();
+      if (!data) return WEDDING_PROFILE;
+      return resolveProfile((data.event_type as string | null) ?? 'wedding');
+    } catch {
+      return WEDDING_PROFILE;
+    }
+  },
+);
+
+/** Server helper: the RoleSet for an event id (iteration 0053 Phase 2). */
+export const resolveRoleSetForEvent = cache(
+  async (eventId: string): Promise<RoleSet> => {
+    return resolveRoleSet((await resolveProfileByEvent(eventId)).roleSetKey);
+  },
+);

@@ -11,6 +11,7 @@ import {
   Users,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import {
   fetchGuestById,
   fetchSingletonRoleHolders,
@@ -64,33 +65,8 @@ export const metadata = { title: 'Guest detail' };
  *   - Any RLS or DB-level rule
  */
 
-const ROLE_OPTIONS: GuestRole[] = [
-  'guest',
-  'bride',
-  'groom',
-  // VIP family — owner directive 2026-05-23 PM (PR #424 lock).
-  'bride_parents',
-  'groom_parents',
-  'bride_immediate_family',
-  'groom_immediate_family',
-  'maid_of_honor',
-  'matron_of_honor',
-  'best_man',
-  'bridesmaid',
-  'groomsman',
-  'principal_sponsor',
-  'candle_sponsor',
-  'veil_sponsor',
-  'cord_sponsor',
-  'coin_sponsor',
-  'ring_bearer',
-  'bible_bearer',
-  'coin_bearer',
-  'flower_girl',
-  'officiant',
-  'reader_lector',
-  'soloist_musician',
-];
+// Iteration 0053 P2: the offered role list is per event type — see
+// roleSet.offeredRoles below (wedding resolves to today's 24-role list).
 const SIDE_OPTIONS: GuestSide[] = ['bride', 'groom', 'both'];
 const GROUP_OPTIONS: GuestGroupCategory[] = [
   'family',
@@ -173,8 +149,9 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
   // hide bride/groom from the role picker entirely — the couple is set at
   // event creation, never (re)assigned from the guest list.
   const isCouple = guest.role === 'bride' || guest.role === 'groom';
-  const availableRoles = ROLE_OPTIONS.filter(
-    (r) => r !== 'bride' && r !== 'groom' && !(r in singletonHolders),
+  const roleSet = await resolveRoleSetForEvent(eventId);
+  const availableRoles = roleSet.offeredRoles.filter(
+    (r) => !roleSet.coupleRoles.has(r) && !(r in singletonHolders),
   );
 
   // Pull the +1 guest row (if any) so the edit form can show the

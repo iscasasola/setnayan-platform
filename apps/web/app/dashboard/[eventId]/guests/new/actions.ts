@@ -14,34 +14,9 @@ import {
   type RsvpStatus,
 } from '@/lib/guests';
 import { normalizeGuestName } from '@/lib/guest-name';
+import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 
-const ROLE_VALUES: GuestRole[] = [
-  'guest',
-  'bride',
-  'groom',
-  // VIP family — owner directive 2026-05-23 PM (PR #424 lock).
-  'bride_parents',
-  'groom_parents',
-  'bride_immediate_family',
-  'groom_immediate_family',
-  'maid_of_honor',
-  'matron_of_honor',
-  'best_man',
-  'bridesmaid',
-  'groomsman',
-  'principal_sponsor',
-  'candle_sponsor',
-  'veil_sponsor',
-  'cord_sponsor',
-  'coin_sponsor',
-  'ring_bearer',
-  'bible_bearer',
-  'coin_bearer',
-  'flower_girl',
-  'officiant',
-  'reader_lector',
-  'soloist_musician',
-];
+// Iteration 0053 P2: the valid role set is per event type (resolveRoleSetForEvent).
 const SIDE_VALUES: GuestSide[] = ['bride', 'groom', 'both'];
 const GROUP_VALUES: GuestGroupCategory[] = [
   'family',
@@ -123,7 +98,8 @@ export async function createGuest(eventId: string, formData: FormData) {
   if (!GROUP_VALUES.includes(group_category)) {
     return redirect(`/dashboard/${eventId}/guests/new?error=missing_group`);
   }
-  if (!ROLE_VALUES.includes(role)) {
+  const roleSet = await resolveRoleSetForEvent(eventId);
+  if (!roleSet.offeredRoles.includes(role)) {
     return redirect(`/dashboard/${eventId}/guests/new?error=invalid_role`);
   }
   if (!RSVP_VALUES.includes(rsvp_status)) {

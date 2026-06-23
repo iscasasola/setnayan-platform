@@ -186,7 +186,9 @@ function DrawOnSvg({
     <div
       ref={ref}
       className={className}
-      style={{ width: '100%', height: '100%' }}
+      // `color` is the resolved fallback for any path whose fill is `currentColor`
+      // (paper.js normally emits a per-path fill, so this is belt-and-suspenders).
+      style={{ width: '100%', height: '100%', color: '#1E2229' }}
       aria-hidden
       dangerouslySetInnerHTML={svg ? { __html: svg } : undefined}
     />

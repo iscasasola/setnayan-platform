@@ -6,7 +6,6 @@ import { getCurrentUser } from '@/lib/auth';
 import { resolveMonogram } from '@/lib/monogram';
 import { eventOwnsAnimatedMonogram } from '@/lib/animated-monogram';
 import { AnimatedMonogramHero } from '@/app/_components/animated-monogram-hero';
-import { HeroMonogram } from '@/app/_components/hero-monogram';
 import {
   MONOGRAM_MOTIONS,
   resolveMonogramMotion,
@@ -155,9 +154,9 @@ export default async function AnimatedMonogramPage({ params }: Props) {
         </h1>
         <p className="max-w-prose text-base text-ink/65">
           Your monogram already opens your wedding website. This upgrade makes
-          it move — pick from eight motion signatures (Drawn, Foil, Bloom,
-          Editorial, Halo, Stardust, Gold Turn, Molten Gold) and it plays the
-          moment a guest lands on your page.
+          it move — pick from six motion signatures (Drawn, Foil, Bloom,
+          Editorial, Halo, Stardust) and it plays the moment a guest lands on
+          your page.
         </p>
       </header>
 
@@ -231,37 +230,20 @@ function OwnedView({
         </p>
         <div className="mt-6 flex justify-center">
           {/* key forces a remount so the chosen motion replays each page visit.
-              Gold Turn / Molten Gold are whole-mark gold motions → route through
-              HeroMonogram (allowWebgl) like the live hero + the Animate picker, so
-              the preview matches what ships (AnimatedMonogramHero only knows the 6
-              CSS signatures + would show 'draw' for gold/molten). */}
-          {motion === 'gold' || motion === 'molten' ? (
-            <span
-              key={`owned-${monogram.text}-${motion}`}
-              className="inline-flex"
-              style={{ width: 120, height: 120 }}
-            >
-              <HeroMonogram
-                event={{ monogram_style: monogram.style ?? null, monogram_font_key: null, monogram_frame_key: null }}
-                monogram={monogram}
-                animatedMonogram={motion}
-                bespokeSvg={null}
-                allowWebgl
-              />
-            </span>
-          ) : (
-            <AnimatedMonogramHero
-              key={`owned-${monogram.text}-${monogram.style ?? ''}-${motion}`}
-              text={monogram.text}
-              color={lockupColor(monogram)}
-              fontFamily={monogram.fontFamily}
-              fontStyle={monogram.fontStyle}
-              lockupStyle={monogram.style}
-              letterSpacing={monogram.letterSpacing}
-              size="lg"
-              motion={motion}
-            />
-          )}
+              Lettered motions (the 6 CSS signatures). Gold Turn / Molten Gold are
+              bespoke studio reveals (monogram_studio_config.anim) previewed in the
+              Vector Studio, not here. */}
+          <AnimatedMonogramHero
+            key={`owned-${monogram.text}-${monogram.style ?? ''}-${motion}`}
+            text={monogram.text}
+            color={lockupColor(monogram)}
+            fontFamily={monogram.fontFamily}
+            fontStyle={monogram.fontStyle}
+            lockupStyle={monogram.style}
+            letterSpacing={monogram.letterSpacing}
+            size="lg"
+            motion={motion}
+          />
         </div>
         <p className="mt-5 text-sm text-ink/60">
           This is exactly how it animates on your wedding website&rsquo;s hero.
@@ -281,7 +263,7 @@ function OwnedView({
       />
 
       <p className="text-xs text-ink/50">
-        Want different initials or a different motion? Pick from all eight
+        Want different initials or a different motion? Pick from all six
         signatures in your{' '}
         <Link
           href={`/dashboard/${eventId}/monogram`}
@@ -332,7 +314,7 @@ async function UnownedView({
           <p className="max-w-prose text-sm text-ink/60">
             Same initials, same colours — straight from your monogram. The
             upgrade makes it move instead of just appearing, in the motion you
-            pick from the eight-signature library.
+            pick from the six-signature library.
           </p>
         </header>
 
@@ -356,41 +338,23 @@ async function UnownedView({
               <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2} />
               Upgrade
             </span>
-            {/* key remounts the component so the motion replays on each render.
-                Gold/Molten → HeroMonogram (matches the live hero + picker; the CSS
-                AnimatedMonogramHero would show 'draw' for them). */}
-            {motion === 'gold' || motion === 'molten' ? (
-              <span
-                key={`preview-${monogram.text}-${motion}`}
-                className="inline-flex"
-                style={{ width: 96, height: 96 }}
-              >
-                <HeroMonogram
-                  event={{ monogram_style: monogram.style ?? null, monogram_font_key: null, monogram_frame_key: null }}
-                  monogram={monogram}
-                  animatedMonogram={motion}
-                  bespokeSvg={null}
-                  allowWebgl
-                />
-              </span>
-            ) : (
-              <AnimatedMonogramHero
-                key={`preview-${monogram.text}-${monogram.style ?? ''}-${motion}`}
-                text={monogram.text}
-                color={lockupColor(monogram)}
-                fontFamily={monogram.fontFamily}
-                fontStyle={monogram.fontStyle}
-                lockupStyle={monogram.style}
-                letterSpacing={monogram.letterSpacing}
-                size="md"
-                motion={motion}
-              />
-            )}
+            {/* key remounts the component so the motion replays on each render. */}
+            <AnimatedMonogramHero
+              key={`preview-${monogram.text}-${monogram.style ?? ''}-${motion}`}
+              text={monogram.text}
+              color={lockupColor(monogram)}
+              fontFamily={monogram.fontFamily}
+              fontStyle={monogram.fontStyle}
+              lockupStyle={monogram.style}
+              letterSpacing={monogram.letterSpacing}
+              size="md"
+              motion={motion}
+            />
             <p className="text-sm font-medium text-ink">
               Animated — your {motionLabel} motion
             </p>
             <p className="text-xs text-ink/55">
-              One of eight signatures — pick yours in the Monogram Maker.
+              One of six signatures — pick yours in the Monogram Maker.
             </p>
           </div>
         </div>

@@ -1732,6 +1732,12 @@ export default async function EventHomePage({
             ceremonyType={(event as { ceremony_type?: string | null }).ceremony_type ?? null}
             userId={user.id}
             now={now}
+            // Iteration 0053 P4 Unit 1: PH statutory deadlines only for marriage-
+            // profile events. 'wedding' is the only type with statutoryPackKey
+            // 'ph_marriage', so this is the exact equivalent of resolveProfile(
+            // event_type).statutoryPackKey === 'ph_marriage' — wedding → true
+            // (byte-identical), non-wedding → false (no marriage deadlines).
+            statutory={((event.event_type as string | null) ?? 'wedding') === 'wedding'}
           />
         </Suspense>
       ) : null}

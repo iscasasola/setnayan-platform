@@ -53,6 +53,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { ANY_OAUTH_ENABLED, OAuthButtonRow } from '@/app/_components/oauth-button-row';
 import { safeNext } from '@/lib/auth';
+import { readGuestSession } from '@/lib/guest-session';
 import { signUp } from './actions';
 
 export const metadata: Metadata = {
@@ -103,6 +104,11 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
       ? params.src_event
       : '';
   const loginHref = `/login${next !== '/' ? `?next=${encodeURIComponent(next)}` : ''}`;
+  // Persistent guest accounts (PR-E): if this browser carries a signed guest
+  // session, the signUp action will link the guest's tagged event photos to the
+  // new account. Surface a calm, generic reassurance — no event name lookup,
+  // no PII (the signed cookie is the only thing we read).
+  const hasGuestSession = (await readGuestSession()) !== null;
 
   const benefitBullets = [
     'Guest list + schedule · free',
@@ -248,6 +254,27 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
           >
             Create account
           </div>
+
+          {hasGuestSession ? (
+            <p
+              role="status"
+              style={{
+                margin: 0,
+                padding: '10px 12px',
+                borderRadius: 'var(--m-r-sm)',
+                border: '1px solid var(--m-line)',
+                background: 'var(--m-paper-2)',
+                color: 'var(--m-ink)',
+                fontSize: 13,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+              }}
+            >
+              <span style={{ color: 'var(--m-orange-2)', fontWeight: 600 }}>✓</span>
+              Your event photos will be saved to your new account.
+            </p>
+          ) : null}
 
           {errorMessage ? (
             <p

@@ -48,6 +48,12 @@ export async function signUp(formData: FormData) {
   // canonical HTML form contract note.
   const remember = String(formData.get('remember') ?? '') === 'on';
   const next = safeNext(formData.get('next'));
+  // Guest → host growth-loop attribution (no PII). Set by the guest-page CTA,
+  // carried through the form as hidden inputs. Only `ref=guest` with a present
+  // `src_event` (a public_id, text) is attributable.
+  const guestHostRef = String(formData.get('ref') ?? '') === 'guest' ? 'guest' : '';
+  const guestHostSrcEvent = String(formData.get('src_event') ?? '').trim();
+  const isGuestHostAttributed = guestHostRef === 'guest' && guestHostSrcEvent !== '';
   // Public Event Summary consent — couples only. Captured at signup per
   // CLAUDE.md decision-log rows 426 + 428 (2026-05-19) + the 8 RA 10173
   // safe-harbor guardrails. Vendors don't get this field (form hides it
@@ -333,6 +339,21 @@ export async function signUp(formData: FormData) {
       }).catch(() => {
         // Telemetry failure never blocks. Silent.
       });
+      // Guest → host growth-loop north-star metric. Only fired when the signup
+      // was attributed to a guest-page CTA. Best-effort, never blocks (the
+      // existing `void … .catch` pattern above).
+      if (isGuestHostAttributed) {
+        void captureEvent({
+          distinctId: data.user.id,
+          event: 'guest_to_host_signup',
+          properties: {
+            attributed_to_event_public_id: guestHostSrcEvent,
+            ref: guestHostRef,
+          },
+        }).catch(() => {
+          // Telemetry failure never blocks. Silent.
+        });
+      }
     }
     return redirect(
       `/login?ready=${encodeURIComponent(email)}&next=${encodeURIComponent(next)}`,

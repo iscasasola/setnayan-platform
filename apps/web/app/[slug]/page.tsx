@@ -34,6 +34,7 @@ import { CountdownWidget } from './_components/countdown';
 import { ScheduleWidget } from './_components/schedule-widget';
 import { fetchPublicScheduleBlocks, type ScheduleBlockRow } from '@/lib/schedule';
 import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
+import { GuestToHostCta } from '@/app/_components/guest-to-host-cta';
 import { NavLinksRow } from '@/app/_components/nav-links';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
 import { GuestPreload } from './_components/guest-preload';
@@ -2656,7 +2657,12 @@ function InvitationSite({
             load-bearing form: the editor blocks hiding it, but the gate
             below is the runtime enforcement point. */}
         {rsvpShouldRender ? (
-          <RsvpWidget guest={guest} eventId={event.event_id} limited={isLimitedPlusOne} />
+          <RsvpWidget
+            guest={guest}
+            eventId={event.event_id}
+            eventPublicId={event.public_id}
+            limited={isLimitedPlusOne}
+          />
         ) : null}
 
         {guest.photo_source === 'selfie' ? (
@@ -2793,7 +2799,13 @@ function HideableWidgetRender({
       return <PhotoMomentsWidget config={event.photo_moments_config} />;
 
     case 'your_photos':
-      return <YourPhotosWidget limited={isLimitedPlusOne} />;
+      return (
+        <YourPhotosWidget
+          limited={isLimitedPlusOne}
+          eventId={event.event_id}
+          eventPublicId={event.public_id}
+        />
+      );
 
     case 'special_message':
       return <SpecialMessageWidget text={event.special_message ?? null} />;
@@ -2994,10 +3006,12 @@ function Detail({
 function RsvpWidget({
   guest,
   eventId,
+  eventPublicId,
   limited,
 }: {
   guest: GuestRow;
   eventId: string;
+  eventPublicId: string;
   limited: boolean;
 }) {
   const action = submitRsvp.bind(null, eventId, guest.guest_id);
@@ -3022,10 +3036,19 @@ function RsvpWidget({
           couple seats them later). Show the reassurance whenever they're
           attending — this is the "your place is reserved" confirmation. */}
       {guest.rsvp_status === 'attending' ? (
-        <p className="flex items-center justify-center gap-2 rounded-lg border border-success-200 bg-success-50 px-3 py-2 text-center text-sm font-medium text-success-800">
-          <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-success-600" />
-          Your place is reserved — we can&rsquo;t wait to celebrate with you.
-        </p>
+        <>
+          <p className="flex items-center justify-center gap-2 rounded-lg border border-success-200 bg-success-50 px-3 py-2 text-center text-sm font-medium text-success-800">
+            <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-success-600" />
+            Your place is reserved — we can&rsquo;t wait to celebrate with you.
+          </p>
+          <GuestToHostCta
+            surface="rsvp_confirmation"
+            eventId={eventId}
+            eventPublicId={eventPublicId}
+            headline="Planning your own celebration?"
+            sub="Start free on Setnayan — no card needed."
+          />
+        </>
       ) : null}
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -3498,7 +3521,15 @@ function PhotoMomentModeBadge({ mode }: { mode: PhotoMomentMode }) {
   );
 }
 
-function YourPhotosWidget({ limited }: { limited: boolean }) {
+function YourPhotosWidget({
+  limited,
+  eventId,
+  eventPublicId,
+}: {
+  limited: boolean;
+  eventId: string;
+  eventPublicId: string;
+}) {
   return (
     <section className="space-y-4 rounded-xl border border-ink/10 bg-cream p-6">
       <header>
@@ -3533,6 +3564,14 @@ function YourPhotosWidget({ limited }: { limited: boolean }) {
           </p>
         </div>
       )}
+
+      <GuestToHostCta
+        surface="your_photos"
+        eventId={eventId}
+        eventPublicId={eventPublicId}
+        headline="Want this for your own day?"
+        sub="Capture every moment — start planning free."
+      />
     </section>
   );
 }

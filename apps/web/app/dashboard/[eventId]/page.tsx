@@ -1672,7 +1672,13 @@ export default async function EventHomePage({
        *  null in normal planning. */}
       <EventCountdownHeader
         eventId={eventId}
-        eventName={(event as { display_name?: string | null }).display_name ?? 'Your wedding'}
+        eventName={
+          (event as { display_name?: string | null }).display_name ??
+          // Iteration 0053 P4 Unit 3: fallback name when display_name is null.
+          (((event.event_type as string | null) ?? 'wedding') === 'wedding'
+            ? 'Your wedding'
+            : 'Your event')
+        }
         eventDate={event.event_date}
         eventDatePrecision={eventDatePrecision}
         dateMode={(event as { date_mode?: string | null }).date_mode ?? null}

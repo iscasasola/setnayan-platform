@@ -11,6 +11,7 @@ import {
 } from '@/lib/schedule';
 import { fetchPreparationAgenda } from '@/lib/preparation';
 import { resolveProfile } from '@/lib/event-type-profile';
+import { term } from '@/lib/event-term-copy';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
   createScheduleBlock,
@@ -116,8 +117,18 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Schedule</h1>
         <p className="max-w-prose text-base text-ink/65">
           {active === 'preparation'
-            ? 'Your run-up to the wedding — every dated step, gathered from your payments, paperwork, and vendor meetings, sorted by month. Read-only here; tap any item to manage it on its own page.'
-            : 'Build your wedding-day timeline. Public blocks show up on every guest’s invitation site with a live “happening now” highlight as the day unfolds. Drafts stay private until you flip them visible.'}
+            ? term(profile, {
+                wedding:
+                  'Your run-up to the wedding — every dated step, gathered from your payments, paperwork, and vendor meetings, sorted by month. Read-only here; tap any item to manage it on its own page.',
+                generic:
+                  'Your run-up to the event — every dated step, gathered from your payments, paperwork, and vendor meetings, sorted by month. Read-only here; tap any item to manage it on its own page.',
+              })
+            : term(profile, {
+                wedding:
+                  'Build your wedding-day timeline. Public blocks show up on every guest’s invitation site with a live “happening now” highlight as the day unfolds. Drafts stay private until you flip them visible.',
+                generic:
+                  'Build your event-day timeline. Public blocks show up on every guest’s invitation site with a live “happening now” highlight as the day unfolds. Drafts stay private until you flip them visible.',
+              })}
         </p>
         <ScheduleModeToggle active={active} prepCount={agenda.items.length} />
       </header>

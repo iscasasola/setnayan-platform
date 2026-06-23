@@ -13,6 +13,8 @@ import {
   XCircle,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { resolveProfile, resolveProfileByEvent } from '@/lib/event-type-profile';
+import { term } from '@/lib/event-term-copy';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchEventContracts, statusLabel as contractStatusLabel } from '@/lib/contracts';
 import {
@@ -31,7 +33,19 @@ import {
   type OrderStatus,
 } from '@/lib/orders';
 
-export const metadata = { title: 'Your wedding documents' };
+// Iteration 0053 P4 Unit 3: per-event-type page title. Wedding → byte-identical
+// 'Your wedding documents'; non-wedding → 'Your event documents'. Converted from
+// static `metadata` to `generateMetadata` so it can resolve the event's profile.
+export async function generateMetadata({ params }: Props) {
+  const { eventId } = await params;
+  const profile = await resolveProfileByEvent(eventId);
+  return {
+    title: term(profile, {
+      wedding: 'Your wedding documents',
+      generic: 'Your event documents',
+    }),
+  };
+}
 
 /**
  * /dashboard/[eventId]/documents · consolidated paper-artifact view.
@@ -78,7 +92,7 @@ export default async function EventDocumentsPage({ params }: Props) {
   const [eventRes, paperworkRows, contracts, allOrders] = await Promise.all([
     supabase
       .from('events')
-      .select('event_id, display_name, event_date, ceremony_type')
+      .select('event_id, display_name, event_date, ceremony_type, event_type')
       .eq('event_id', eventId)
       .maybeSingle(),
     fetchEventPaperwork(supabase, eventId).catch(() => []),
@@ -94,7 +108,10 @@ export default async function EventDocumentsPage({ params }: Props) {
     display_name: string;
     event_date: string | null;
     ceremony_type: string | null;
+    event_type: string | null;
   };
+  // Iteration 0053 P4 Unit 3: resolve the profile for per-event-type copy.
+  const profile = await resolveProfile(event.event_type ?? 'wedding');
 
   // Transaction receipts — joined per-order. Only fetch if there are
   // orders on this event (otherwise the IN clause would be empty).
@@ -171,7 +188,10 @@ export default async function EventDocumentsPage({ params }: Props) {
     <section className="space-y-8">
       <header className="space-y-1.5">
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          Your wedding documents
+          {term(profile, {
+            wedding: 'Your wedding documents',
+            generic: 'Your event documents',
+          })}
         </h1>
         <p className="max-w-prose text-base text-ink/65">
           Everything paper, all in one place — government paperwork, vendor

@@ -98,7 +98,7 @@ function DrawOnSvg({
       typeof window !== 'undefined' &&
       (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false);
     // Reduced motion / no animatable paths → leave the static filled mark.
-    if (reduced || !paths.length || typeof paths[0].getTotalLength !== 'function') return;
+    if (reduced || !paths.length || typeof paths[0]?.getTotalLength !== 'function') return;
 
     // eased() mirror: more `smooth` → softer in/out (the engine's smoothstep blend).
     const easing = smooth > 0.66 ? 'cubic-bezier(.45,.05,.25,1)' : smooth > 0.33 ? 'ease-in-out' : 'linear';

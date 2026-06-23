@@ -833,6 +833,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         event={event}
         monogram={monogram}
         animatedMonogram={animatedMonogram}
+        studioAnim={studioAnim}
         reason={inviteError === 'invalid_token' ? 'invalid_invite' : null}
         dayOfPhase={dayOfPhase}
         phasesEnabled={phasesEnabled}
@@ -868,6 +869,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         event={event}
         monogram={monogram}
         animatedMonogram={animatedMonogram}
+        studioAnim={studioAnim}
         reason="wrong_event"
         dayOfPhase={dayOfPhase}
         phasesEnabled={phasesEnabled}
@@ -910,6 +912,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         event={event}
         monogram={monogram}
         animatedMonogram={animatedMonogram}
+        studioAnim={studioAnim}
         reason="invalid_invite"
         dayOfPhase={dayOfPhase}
         phasesEnabled={phasesEnabled}
@@ -1171,6 +1174,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         invitationUrl={invitationUrl}
         monogram={monogram}
         animatedMonogram={animatedMonogram}
+        studioAnim={studioAnim}
         bespokeSvg={bespokeSvg}
         scheduleBlocks={scheduleBlocks}
         dayOfPhase={dayOfPhase}
@@ -1546,6 +1550,7 @@ function PublicLanding({
   event,
   monogram,
   animatedMonogram,
+  studioAnim,
   reason,
   dayOfPhase,
   phasesEnabled,
@@ -1582,6 +1587,8 @@ function PublicLanding({
   // sites pass it) so it can feed HeroMonogram, which needs a non-optional
   // value. Mirrors InvitationSite's / PrivateLanding's prop.
   animatedMonogram: MonogramMotionKey | false;
+  /** The bespoke-mark reveal designed in the studio panel — fed to the STD film. */
+  studioAnim: StudioAnim;
   reason?: 'invalid_invite' | 'wrong_event' | null;
   dayOfPhase: DayOfPhase;
   // Website lifecycle-phase engine (Increment C · flag-dark). When
@@ -2097,6 +2104,7 @@ function InvitationSite({
   invitationUrl,
   monogram,
   animatedMonogram,
+  studioAnim,
   bespokeSvg,
   scheduleBlocks,
   dayOfPhase,
@@ -2136,6 +2144,8 @@ function InvitationSite({
   // [slug]/page.tsx resolution + lib/animated-monogram.ts +
   // lib/monogram-motion.ts.
   animatedMonogram: MonogramMotionKey | false;
+  /** The bespoke-mark reveal designed in the studio panel — fed to the STD film. */
+  studioAnim: StudioAnim;
   // The applied Setnayan-AI bespoke mark (sanitized SVG) — wins over the
   // typographic circle in both hero branches when present.
   bespokeSvg: string | null;

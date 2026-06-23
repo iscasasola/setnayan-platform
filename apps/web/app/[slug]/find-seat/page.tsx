@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, MapPin } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { Logo } from '@/app/_components/logo';
 import { NameSearch } from './_components/name-search';
@@ -44,7 +45,11 @@ export default async function FindSeatPage({ params }: Props) {
     .ilike('slug', slug)
     .maybeSingle();
 
-  if (!event || event.event_type !== 'wedding') notFound();
+  if (!event) notFound();
+  // Iteration 0053: public guest pages under /[slug] are the 'website' surface.
+  // Non-wedding (generic) profiles don't enable it → still notFound() (same as
+  // the old `!== 'wedding'`), now config-driven.
+  if (!surfaceEnabled(await resolveProfile(event.event_type), 'website')) notFound();
 
   // Visibility gate (owner 2026-06-20): don't leak a private (pre-launch) page's
   // couple data through this sub-route. Strangers on a private page bounce to

@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Link2, X, ArrowRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { resolveProfileByEvent } from '@/lib/event-type-profile';
 import { getCurrentUser } from '@/lib/auth';
 import {
   computeGuestStats,
@@ -129,6 +130,8 @@ type Props = {
 export default async function GuestsPage({ params, searchParams }: Props) {
   const { eventId } = await params;
   const search = await searchParams;
+  // Per-event-type role set for the quick-add picker (iteration 0053 P2).
+  const eventTypeProfile = await resolveProfileByEvent(eventId);
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const supabase = await createClient();
@@ -638,6 +641,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         eventId={eventId}
         existingGuests={quickAddPool}
         groups={quickAddGroups}
+        roleSetKey={eventTypeProfile.roleSetKey}
       />
     </section>
   );

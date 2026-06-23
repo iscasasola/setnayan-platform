@@ -10,37 +10,12 @@ import {
   type GuestSide,
 } from '@/lib/guests';
 import { normalizeGuestName } from '@/lib/guest-name';
+import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 
-// Mirror of the role enum from new/actions.ts — kept local so this fast
-// path never imports the redirecting form action. Singletons (bride /
-// groom) stay in the list; the DB partial-unique index (migration
-// 20260531010000) guards a second one and we surface a friendly error.
-const ROLE_VALUES: GuestRole[] = [
-  'guest',
-  'bride',
-  'groom',
-  'bride_parents',
-  'groom_parents',
-  'bride_immediate_family',
-  'groom_immediate_family',
-  'maid_of_honor',
-  'matron_of_honor',
-  'best_man',
-  'bridesmaid',
-  'groomsman',
-  'principal_sponsor',
-  'candle_sponsor',
-  'veil_sponsor',
-  'cord_sponsor',
-  'coin_sponsor',
-  'ring_bearer',
-  'bible_bearer',
-  'coin_bearer',
-  'flower_girl',
-  'officiant',
-  'reader_lector',
-  'soloist_musician',
-];
+// Iteration 0053 P2: the valid role set is per event type — each action below
+// resolves it via resolveRoleSetForEvent(eventId) (wedding → the 24-role set;
+// singletons bride/groom stay offered, the DB partial-unique index guards a
+// second one and we surface a friendly error).
 const SIDE_VALUES: GuestSide[] = ['bride', 'groom', 'both'];
 
 export type QuickAddInput = {
@@ -96,7 +71,8 @@ export async function quickAddGuest(
   if (!SIDE_VALUES.includes(side)) {
     return { ok: false, error: 'Pick a side first.' };
   }
-  if (!ROLE_VALUES.includes(role)) {
+  const roleSet = await resolveRoleSetForEvent(eventId);
+  if (!roleSet.offeredRoles.includes(role)) {
     return { ok: false, error: 'That role isn’t valid.' };
   }
 
@@ -259,7 +235,8 @@ export async function addRoleToGuest(
   rawRole: string,
 ): Promise<QuickRoleResult> {
   const role = rawRole as GuestRole;
-  if (!ROLE_VALUES.includes(role)) {
+  const roleSet = await resolveRoleSetForEvent(eventId);
+  if (!roleSet.offeredRoles.includes(role)) {
     return { ok: false, error: 'That role isn’t valid.' };
   }
   if (SINGLETON_ROLES.includes(role)) {
@@ -324,7 +301,8 @@ export async function setGuestPrimaryRole(
   rawRole: string,
 ): Promise<QuickRoleResult> {
   const role = rawRole as GuestRole;
-  if (!ROLE_VALUES.includes(role)) {
+  const roleSet = await resolveRoleSetForEvent(eventId);
+  if (!roleSet.offeredRoles.includes(role)) {
     return { ok: false, error: 'That role isn’t valid.' };
   }
 

@@ -12,36 +12,12 @@ import type {
   GuestSide,
   RsvpStatus,
 } from '@/lib/guests';
+import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 
 const MAX_ROWS = 200;
 
-const ROLE_VALUES: GuestRole[] = [
-  'guest',
-  'bride',
-  'groom',
-  // VIP family — owner directive 2026-05-23 PM (PR #424 lock).
-  'bride_parents',
-  'groom_parents',
-  'bride_immediate_family',
-  'groom_immediate_family',
-  'maid_of_honor',
-  'matron_of_honor',
-  'best_man',
-  'bridesmaid',
-  'groomsman',
-  'principal_sponsor',
-  'candle_sponsor',
-  'veil_sponsor',
-  'cord_sponsor',
-  'coin_sponsor',
-  'ring_bearer',
-  'bible_bearer',
-  'coin_bearer',
-  'flower_girl',
-  'officiant',
-  'reader_lector',
-  'soloist_musician',
-];
+// Iteration 0053 P2: the valid role set is per event type — resolved once
+// (resolveRoleSetForEvent) before the row loop below.
 const SIDE_VALUES: GuestSide[] = ['bride', 'groom', 'both'];
 const GROUP_VALUES: GuestGroupCategory[] = [
   'family',
@@ -97,6 +73,7 @@ export async function importGuestsCsv(eventId: string, formData: FormData) {
   }
 
   // Validate + shape every row before writing anything.
+  const roleSet = await resolveRoleSetForEvent(eventId);
   const valid: Array<Record<string, unknown>> = [];
   const errors: string[] = [];
   // Keys seen so far this import — catches the same person listed twice in
@@ -136,7 +113,7 @@ export async function importGuestsCsv(eventId: string, formData: FormData) {
       );
       return;
     }
-    if (!ROLE_VALUES.includes(role)) {
+    if (!roleSet.offeredRoles.includes(role)) {
       errors.push(`Line ${lineNo}: invalid role "${row.role}"`);
       return;
     }

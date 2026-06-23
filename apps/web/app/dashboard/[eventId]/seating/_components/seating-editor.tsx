@@ -50,7 +50,6 @@ import {
 import {
   BOOTH_CATALOG,
   CHAIR_PX,
-  ROLE_TIER_LABELS,
   SIDE_COLORS,
   TABLE_FOOTPRINT_M,
   boothPerimeterSlots,
@@ -85,6 +84,7 @@ import {
   type TableShapeHint,
   type TableType,
 } from '@/lib/seating';
+import { resolveRoleSet, type RoleSet } from '@/lib/role-sets';
 import {
   addSeatingConstraint,
   assignGroup,
@@ -163,6 +163,9 @@ export type SeatingGroup = {
 
 type Props = {
   eventId: string;
+  // Iteration 0053 P4 Unit 6: the event's role-set key (string, RSC-serializable).
+  // The editor re-resolves it client-side to tier/label by the event type.
+  roleSetKey: string;
   tables: EventTableRow[];
   guests: SeatingGuest[];
   groups: SeatingGroup[];
@@ -194,6 +197,7 @@ const defaultGrid = defaultTablePosition;
 
 export function SeatingEditor({
   eventId,
+  roleSetKey,
   tables: tablesProp,
   guests: guestsProp,
   groups,
@@ -203,6 +207,10 @@ export function SeatingEditor({
   constraints: constraintsProp,
   me,
 }: Props) {
+  // Iteration 0053 P4 Unit 6: the event's role set drives seating tiers + labels.
+  // Pure client-safe lookup; wedding → WEDDING_ROLE_SET (byte-identical). Declared
+  // first so the priority-order useState initializer below can read it.
+  const roleSet = useMemo(() => resolveRoleSet(roleSetKey), [roleSetKey]);
   // Optimistic overlays: a seat/unseat/delete shows immediately, then the
   // server action revalidates and these reconcile to the authoritative data.
   const [guests, applyGuestOpt] = useOptimistic(guestsProp, (state: SeatingGuest[], op: GuestSeatOp) => {
@@ -867,7 +875,7 @@ export function SeatingEditor({
   // "drag to reorder") + up/down buttons for touch / keyboard / a11y (HTML5 drag
   // doesn't fire on touch, and the seat plan is mobile-used).
   const [priorityOrder, setPriorityOrder] = useState<PriorityOrder>(
-    () => floorPlan.priority_order ?? defaultPriorityOrder(),
+    () => floorPlan.priority_order ?? defaultPriorityOrder(roleSet),
   );
   const [dragTierIndex, setDragTierIndex] = useState<number | null>(null);
   const persistPriority = (next: PriorityOrder) => {
@@ -1000,7 +1008,7 @@ export function SeatingEditor({
       group_id: g.group_id,
       seating_priority: g.seating_priority,
     }));
-    const rule = relaxLowestPriorityRule(violatedRules, asAuto, priorityOrder);
+    const rule = relaxLowestPriorityRule(violatedRules, asAuto, priorityOrder, roleSet);
     if (rule) removeKeepApart(rule);
   };
 
@@ -1109,7 +1117,7 @@ export function SeatingEditor({
       const res = await runGated(() => seatRoleAtTable(fd));
       if (res && res.overflow > 0) {
         setNotice(
-          `${ROLE_TIER_LABELS[tier]}: seated ${res.seated} of ${res.requested} at ${t.table_label} — ${res.overflow} didn't fit. Pick another table for the rest.`,
+          `${roleSet.tierLabels[tier]}: seated ${res.seated} of ${res.requested} at ${t.table_label} — ${res.overflow} didn't fit. Pick another table for the rest.`,
         );
       }
     });
@@ -2677,6 +2685,7 @@ export function SeatingEditor({
                   tableLabel={g.seated_table_id ? tableLabelById.get(g.seated_table_id) ?? null : null}
                   onPick={() => setPickedId((id) => (id === g.guest_id ? null : g.guest_id))}
                   onCyclePriority={() => cyclePriority(g)}
+                  roleSet={roleSet}
                 />
               ))}
             </ul>
@@ -2762,6 +2771,7 @@ export function SeatingEditor({
                               }
                               onPick={() => setPickedId((id) => (id === g.guest_id ? null : g.guest_id))}
                               onCyclePriority={() => cyclePriority(g)}
+                              roleSet={roleSet}
                             />
                           ))
                         )}
@@ -4306,6 +4316,7 @@ export function SeatingEditor({
                         onSeatGuest={(gid) => seatGuestHere(st, gid)}
                         onSeatGroup={(grpId) => seatGroupMembers(grpId, st.table_id)}
                         onSeatTier={(tier) => seatTierHere(st, tier)}
+                        roleSet={roleSet}
                       />
                     ) : null}
                     <TableStylePicker
@@ -4558,6 +4569,7 @@ export function SeatingEditor({
                     onSeatGuest={(gid) => seatGuestHere(st, gid)}
                     onSeatGroup={(grpId) => seatGroupMembers(grpId, st.table_id)}
                     onSeatTier={(tier) => seatTierHere(st, tier)}
+                    roleSet={roleSet}
                   />
                 ) : null}
               </div>
@@ -5067,6 +5079,7 @@ function MemberRow({
   tableLabel,
   onPick,
   onCyclePriority,
+  roleSet,
 }: {
   guest: SeatingGuest;
   color: string;
@@ -5074,8 +5087,9 @@ function MemberRow({
   tableLabel: string | null;
   onPick: () => void;
   onCyclePriority: () => void;
+  roleSet: RoleSet;
 }) {
-  const tier = guestTier(guest.role, guest.group_category, guest.seating_priority);
+  const tier = guestTier(guest.role, guest.group_category, guest.seating_priority, roleSet);
   const overridden = guest.seating_priority !== null;
   return (
     <li className="flex items-center gap-1">
@@ -5099,7 +5113,7 @@ function MemberRow({
       <button
         type="button"
         onClick={onCyclePriority}
-        title={`Seating priority: ${ROLE_TIER_LABELS[tier]}${overridden ? ' (set by you — tap to cycle, back to auto after P4)' : ' (from their role — tap to override)'}`}
+        title={`Seating priority: ${roleSet.tierLabels[tier]}${overridden ? ' (set by you — tap to cycle, back to auto after P4)' : ' (from their role — tap to override)'}`}
         aria-label={`Seating priority P${tier}${overridden ? ', overridden' : ', from role'} — change`}
         className={`shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[9px] font-semibold tabular-nums transition ${
           overridden
@@ -5151,6 +5165,7 @@ function SeatPeoplePanel({
   onSeatGuest,
   onSeatGroup,
   onSeatTier,
+  roleSet,
 }: {
   table: EventTableRow;
   occ: (SeatingGuest | null)[];
@@ -5165,6 +5180,7 @@ function SeatPeoplePanel({
   onSeatGuest: (guestId: string) => void;
   onSeatGroup: (groupId: string) => void;
   onSeatTier: (tier: 1 | 2 | 3 | 4) => void;
+  roleSet: RoleSet;
 }) {
   const cap = effectiveCapacity(table.capacity, table.removed_seats);
   const seated = occ.filter(Boolean).length;
@@ -5190,7 +5206,7 @@ function SeatPeoplePanel({
         !g.seated_table_id &&
         g.role !== 'bride' &&
         g.role !== 'groom' &&
-        roleTier(g.role, g.group_category) === tier,
+        roleTier(g.role, g.group_category, roleSet) === tier,
     ).length;
 
   return (
@@ -5310,7 +5326,7 @@ function SeatPeoplePanel({
                   <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-mulberry/10 text-[10px] font-semibold text-mulberry">
                     {tier}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-sm text-ink">{ROLE_TIER_LABELS[tier]}</span>
+                  <span className="min-w-0 flex-1 truncate text-sm text-ink">{roleSet.tierLabels[tier]}</span>
                   <span className="shrink-0 text-[11px] text-ink/50">
                     {n} unseated
                   </span>

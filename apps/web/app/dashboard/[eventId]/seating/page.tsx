@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Video } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { getCurrentUser } from '@/lib/auth';
 import {
   fetchGuestsByEvent,
@@ -34,7 +35,7 @@ export default async function SeatingPage({ params }: Props) {
   if (!user) redirect('/login');
   const supabase = await createClient();
 
-  const [tables, assignments, guests, groupsRaw, memberships, floorPlan, booths, signs, eventRow, constraints] =
+  const [tables, assignments, guests, groupsRaw, memberships, floorPlan, booths, signs, eventRow, constraints, roleSet] =
     await Promise.all([
       fetchTables(supabase, eventId),
       fetchAssignments(supabase, eventId),
@@ -46,6 +47,8 @@ export default async function SeatingPage({ params }: Props) {
       fetchSigns(supabase, eventId),
       supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle(),
       fetchSeatingConstraints(supabase, eventId),
+      // Iteration 0053 P4 Unit 6: per-event-type role set for seating tiers/labels.
+      resolveRoleSetForEvent(eventId),
     ]);
   const eventDate = (eventRow.data?.event_date as string | null) ?? null;
 
@@ -138,6 +141,7 @@ export default async function SeatingPage({ params }: Props) {
 
       <SeatingEditor
         eventId={eventId}
+        roleSetKey={roleSet.key}
         tables={tables}
         guests={seatingGuests}
         groups={groups}

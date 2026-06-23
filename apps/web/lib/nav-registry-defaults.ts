@@ -214,6 +214,18 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 4,
   },
   {
+    key: "customer.account.library",
+    scope: "customer",
+    area: "customer-account",
+    route: "/dashboard/library",
+    label: "Library",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Sparkles",
+    customRef: null,
+    sortOrder: 5,
+  },
+  {
     key: "customer.sidebar.home",
     scope: "customer",
     area: "customer-sidebar",

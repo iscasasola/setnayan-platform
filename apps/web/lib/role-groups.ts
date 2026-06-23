@@ -49,6 +49,12 @@ const ROLE_TO_GROUP: Record<GuestRole, RoleGroup | 'guest'> = {
   officiant: 'officiants',
   reader_lector: 'officiants',
   soloist_musician: 'officiants',
+  // Generic (non-wedding) roles — iteration 0053 Phase 2. Neutral grouping;
+  // these only surface for non-wedding events.
+  host: 'other_roles',
+  vip: 'other_roles',
+  family: 'other_roles',
+  helper: 'other_roles',
 };
 
 export function roleGroupOf(role: GuestRole): RoleGroup | 'guest' {
@@ -87,6 +93,14 @@ export const ROLE_IMPORTANCE: readonly GuestRole[] = [
   'officiant',
   'reader_lector',
   'soloist_musician',
+  // Generic (non-wedding) roles — iteration 0053 Phase 2. Inserted BEFORE
+  // 'guest' so host/vip/family/helper rank above a plain guest for non-wedding
+  // events. Every wedding role keeps its index (0–22), so wedding importance
+  // ordering is byte-identical; 'guest' stays last among all roles.
+  'host',
+  'vip',
+  'family',
+  'helper',
   'guest',
 ];
 

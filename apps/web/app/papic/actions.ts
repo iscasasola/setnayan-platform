@@ -307,6 +307,28 @@ export async function recordSeatCapture(
     // the free sampler is a private "try it", not the day-of live wall, so it
     // stays self-contained (nothing to expire out of wall_feed either).
     await screenCapture({ table: 'papic_photos', r2ObjectKey: cleanKey }).catch(() => {});
+    // Cheap display + thumbnail derivatives (best-effort, AFTER the screen) so
+    // the gallery serves compressed tiles instead of full-res originals.
+    // Dynamic import keeps the sharp/R2 cost off the capture hot path. Never
+    // throws (the module wraps everything) — a missing thumb falls back to the
+    // original at read time. Clips have no transcode; derive the thumb from the
+    // poster.
+    if (insertedPhotoId) {
+      try {
+        const { generatePhotoDerivatives, generateClipThumb } = await import(
+          '@/lib/papic-derivatives'
+        );
+        if (kind === 'clip') {
+          if (cleanPoster) {
+            await generateClipThumb(cleanPoster, 'papic_photos', 'photo_id', insertedPhotoId);
+          }
+        } else {
+          await generatePhotoDerivatives(cleanKey, 'papic_photos', 'photo_id', insertedPhotoId);
+        }
+      } catch {
+        // best-effort — derivatives never break a capture
+      }
+    }
     if (insertedPhotoId && !seat.is_free_sampler) {
       // P2 FaceBlock bake between the screen and the wall gate: a FaceBlock
       // event requires the baked blur derivative before ingest admits the

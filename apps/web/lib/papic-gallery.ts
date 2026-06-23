@@ -55,7 +55,7 @@ export async function fetchPapicGallery(
     supabase
       .from('papic_photos')
       .select(
-        'photo_id, r2_object_key, poster_r2_key, photo_type, captured_at, moderation_state, hidden_at, expires_at, consent_to_public, couple_approved_for_showcase',
+        'photo_id, r2_object_key, poster_r2_key, display_r2_key, thumb_r2_key, photo_type, captured_at, moderation_state, hidden_at, expires_at, consent_to_public, couple_approved_for_showcase',
       )
       .eq('event_id', eventId)
       .order('captured_at', { ascending: false })
@@ -63,7 +63,7 @@ export async function fetchPapicGallery(
     supabase
       .from('papic_guest_captures')
       .select(
-        'capture_id, r2_object_key, poster_r2_key, media_type, captured_at, hidden_at, moderation_state, consent_to_public, couple_approved_for_showcase',
+        'capture_id, r2_object_key, poster_r2_key, display_r2_key, thumb_r2_key, media_type, captured_at, hidden_at, moderation_state, consent_to_public, couple_approved_for_showcase',
       )
       .eq('event_id', eventId)
       .order('captured_at', { ascending: false })
@@ -112,8 +112,12 @@ export async function fetchPapicGallery(
     const tagSrc = tagSourceByKey.get(`papic_photos:${r.photo_id as string}`);
     return {
       id: r.photo_id as string,
-      // Clips show their poster frame as the thumbnail; fall back to the object.
+      // Prefer the cheap thumb derivative for the tile, then display, then the
+      // existing poster (clips) / original (photos). Pre-migration rows have
+      // null derivatives and fall back to the original — no breakage.
       ref:
+        (r.thumb_r2_key as string | null) ??
+        (r.display_r2_key as string | null) ??
         (isClip ? (r.poster_r2_key as string | null) : (r.r2_object_key as string | null)) ??
         (r.r2_object_key as string | null),
       kind: isClip ? 'clip' : 'photo',
@@ -137,7 +141,12 @@ export async function fetchPapicGallery(
     const tagSrc = tagSourceByKey.get(`papic_guest_captures:${r.capture_id as string}`);
     return {
       id: r.capture_id as string,
+      // Prefer the cheap thumb derivative for the tile, then display, then the
+      // existing poster (clips) / original (photos). Pre-migration rows fall
+      // back to the original — no breakage.
       ref:
+        (r.thumb_r2_key as string | null) ??
+        (r.display_r2_key as string | null) ??
         (isClip ? (r.poster_r2_key as string | null) : (r.r2_object_key as string | null)) ??
         (r.r2_object_key as string | null),
       kind: isClip ? 'clip' : 'photo',

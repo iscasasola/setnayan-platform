@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ChevronDown, Trash2, X } from 'lucide-react';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { guestSelection, useGuestSelection } from './guest-selection-store';
+import { resolveRoleSet } from '@/lib/role-sets';
 import {
   bulkApplyRoleAndGroup,
   bulkSoftDeleteGuests,
@@ -83,6 +84,22 @@ export const BULK_ROLE_SECTIONS: RoleSection[] = [
 // is a tiered photo grid — the couple shares a 2-up row, special-role tiers
 // (VIP family → officiants) run 2-up, plain guests 3-up (`mobileCols`). Sections
 // render in ROLE_IMPORTANCE order and skip empty tiers.
+
+// Iteration 0053 P4 Unit 5: the bulk-assign role picker is per event type.
+// Wedding → the BULK_ROLE_SECTIONS above VERBATIM (byte-identical). A non-wedding
+// event → a simple set built from its profile's offered roles (resolveRoleSet is
+// a pure, client-safe lookup). Shared by the desktop SelectionBar + the mobile
+// Assign sheet so both pickers stay in lockstep.
+export function bulkRoleSectionsFor(roleSetKey: string | null | undefined): RoleSection[] {
+  if ((roleSetKey ?? 'wedding') === 'wedding') return BULK_ROLE_SECTIONS;
+  const offered = resolveRoleSet(roleSetKey).offeredRoles;
+  const nonGuest = offered.filter((r) => r !== 'guest');
+  const sections: RoleSection[] = [];
+  if (nonGuest.length > 0) sections.push({ label: 'Roles', roles: nonGuest });
+  sections.push({ label: 'Generic', roles: ['guest'] });
+  return sections;
+}
+
 type SectionGroup = RoleGroup | 'guest';
 
 const SECTION_CONFIG: {
@@ -379,6 +396,9 @@ type Props = {
   // control: 'importance' = role-tier sections (default), 'side' = group by the
   // couple's side, 'flat' = one uniform grid (name / rsvp / newest sorts).
   groupMode: GroupMode;
+  // Iteration 0053 P4 Unit 5: the event's role-set key, driving the bulk-assign
+  // picker sections. Optional (defaults to wedding → byte-identical).
+  roleSetKey?: string | null;
 };
 
 export function GuestListMultiselect({
@@ -390,7 +410,10 @@ export function GuestListMultiselect({
   currentGroupId,
   photoDisplayUrls,
   groupMode,
+  roleSetKey,
 }: Props) {
+  // Per-event-type bulk-assign sections (iteration 0053 P4 Unit 5).
+  const bulkRoleSections = bulkRoleSectionsFor(roleSetKey);
   // Selection lives in the shared external store so the mobile carousel's
   // Customize panel (a sibling component) shows the live count / select-all
   // and the desktop SelectionBar stay in lockstep (owner directive
@@ -461,6 +484,7 @@ export function GuestListMultiselect({
             onClear={() => guestSelection.clear()}
             showNewGroupForm={showNewGroupForm}
             setShowNewGroupForm={setShowNewGroupForm}
+            bulkRoleSections={bulkRoleSections}
           />
         </div>
       ) : null}
@@ -584,6 +608,7 @@ function SelectionBar({
   onClear,
   showNewGroupForm,
   setShowNewGroupForm,
+  bulkRoleSections,
 }: {
   eventId: string;
   count: number;
@@ -592,6 +617,7 @@ function SelectionBar({
   onClear: () => void;
   showNewGroupForm: boolean;
   setShowNewGroupForm: (v: boolean) => void;
+  bulkRoleSections: RoleSection[];
 }) {
   return (
     <div
@@ -622,6 +648,7 @@ function SelectionBar({
           onNewGroupClick={() => setShowNewGroupForm(true)}
           onClear={onClear}
           count={count}
+          bulkRoleSections={bulkRoleSections}
         />
 
         {/* Delete affordance · owner directive 2026-05-23. Separate
@@ -701,6 +728,7 @@ function BulkApplyForm({
   onNewGroupClick,
   onClear,
   count,
+  bulkRoleSections,
 }: {
   eventId: string;
   selectedIds: string[];
@@ -708,6 +736,7 @@ function BulkApplyForm({
   onNewGroupClick: () => void;
   onClear: () => void;
   count: number;
+  bulkRoleSections: RoleSection[];
 }) {
   // Track the group select so we can intercept the sentinel and clear
   // it from the form before submit (preventing the server from seeing
@@ -743,7 +772,7 @@ function BulkApplyForm({
           className="h-9 appearance-none rounded-md border border-ink/20 bg-cream px-3 pr-8 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
         >
           <option value="">Assign role…</option>
-          {BULK_ROLE_SECTIONS.map((section) => (
+          {bulkRoleSections.map((section) => (
             <optgroup key={section.label} label={section.label}>
               {section.roles.map((r) => (
                 <option key={r} value={r}>

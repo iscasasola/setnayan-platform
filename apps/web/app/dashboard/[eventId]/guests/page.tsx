@@ -572,6 +572,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           unsent={unsentCount}
           unseated={Math.max(0, stats.attending - seatedCount)}
           arrived={arrivedCount}
+          roleSetKey={eventTypeProfile.roleSetKey}
         />
       </Suspense>
 
@@ -631,6 +632,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
                       ? 'importance'
                       : 'flat'
               }
+              roleSetKey={eventTypeProfile.roleSetKey}
             />
           )}
         </div>

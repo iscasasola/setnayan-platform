@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import {
   GUEST_GROUP_TEAM_SIDES,
   SINGLETON_GUEST_ROLES,
@@ -16,7 +17,13 @@ import {
 // picker (GuestSide = 'bride' | 'groom' | 'both').
 const SIDE_VALUES: GuestSide[] = ['bride', 'groom', 'both'];
 
-const ROLE_VALUES: GuestRole[] = [
+// Iteration 0053 P4 Unit 5: the bulk-assignable role set is per event type.
+// For WEDDINGS we keep the exact pre-0053 list (BYTE-IDENTICAL — note it is the
+// historical 20-value set that, by a pre-existing quirk, includes bride/groom
+// but NOT the 4 VIP-family roles; we preserve that exactly rather than widen it
+// to the 24-value offeredRoles). For non-weddings we accept the generic
+// profile's offeredRoles. Resolved per-action via resolveRoleSetForEvent(eventId).
+const WEDDING_BULK_ROLE_VALUES: GuestRole[] = [
   'guest',
   'bride',
   'groom',
@@ -81,7 +88,10 @@ export async function bulkAssignGuestRole(
   const role = clean(formData.get('role')) as GuestRole;
   const guestIds = parseGuestIds(formData);
 
-  if (!ROLE_VALUES.includes(role)) {
+  const roleSet = await resolveRoleSetForEvent(eventId);
+  const allowedRoles =
+    roleSet.key === 'wedding' ? WEDDING_BULK_ROLE_VALUES : roleSet.offeredRoles;
+  if (!allowedRoles.includes(role)) {
     redirect(backToList(eventId, { error: 'invalid_role' }));
   }
   if (guestIds.length === 0) {
@@ -219,7 +229,10 @@ export async function bulkApplyRoleAndGroup(
   // ---- Role half ----
   if (rawRole) {
     const role = rawRole as GuestRole;
-    if (!ROLE_VALUES.includes(role)) {
+    const roleSet = await resolveRoleSetForEvent(eventId);
+    const allowedRoles =
+      roleSet.key === 'wedding' ? WEDDING_BULK_ROLE_VALUES : roleSet.offeredRoles;
+    if (!allowedRoles.includes(role)) {
       redirect(backToList(eventId, { error: 'invalid_role' }));
     }
     if (SINGLETON_GUEST_ROLES.includes(role) && guestIds.length > 1) {

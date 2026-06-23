@@ -34,7 +34,14 @@ export type GuestRole =
   | 'flower_girl'
   | 'officiant'
   | 'reader_lector'
-  | 'soloist_musician';
+  | 'soloist_musician'
+  // Generic (non-wedding) roles — iteration 0053 Phase 2. Additive enum values
+  // (migration 20270220984328) for the GENERIC profile's role set. All
+  // multi-instance (no singleton index). Only surface for non-wedding events.
+  | 'host'
+  | 'vip'
+  | 'family'
+  | 'helper';
 
 /**
  * Roles that may exist at most once per event. Enforced at the DB layer
@@ -199,6 +206,11 @@ export const ROLE_LABELS: Record<GuestRole, string> = {
   officiant: 'Officiant',
   reader_lector: 'Reader / Lector',
   soloist_musician: 'Soloist / Musician',
+  // Generic (non-wedding) roles — iteration 0053 Phase 2.
+  host: 'Host',
+  vip: 'VIP',
+  family: 'Family',
+  helper: 'Helper',
 };
 
 export const SIDE_LABELS: Record<GuestSide, string> = {

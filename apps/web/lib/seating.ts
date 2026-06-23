@@ -1,4 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+// Iteration 0053 Phase 2: the wedding seating-tier data now lives in
+// lib/role-sets.ts (single source). We import WEDDING_ROLE_SET as the DEFAULT
+// for every tier classifier so un-threaded callers behave exactly as before;
+// the RoleSet type is imported type-only so there is no runtime import cycle.
+import { WEDDING_ROLE_SET, type RoleSet } from './role-sets';
 
 // Catalog locked 2026-05-09 (CLAUDE.md decision log § "0008 Seating Chart
 // table catalog locked at 13 entries" + same-day "0008 serpentine geometry
@@ -674,32 +679,8 @@ export const SIDE_COLORS: Record<'bride' | 'groom' | 'both', string> = {
 // already-seated guests are never moved; the couple can re-run after edits.
 // ---------------------------------------------------------------------------
 
-const TIER1_ROLES = new Set<GuestRoleLike>([
-  'principal_sponsor',
-  'officiant',
-  'reader_lector',
-  'soloist_musician',
-  'bride_parents',
-  'groom_parents',
-  'bride_immediate_family',
-  'groom_immediate_family',
-]);
-
-const TIER2_ROLES = new Set<GuestRoleLike>([
-  'maid_of_honor',
-  'matron_of_honor',
-  'best_man',
-  'bridesmaid',
-  'groomsman',
-  'candle_sponsor',
-  'veil_sponsor',
-  'cord_sponsor',
-  'coin_sponsor',
-  'ring_bearer',
-  'bible_bearer',
-  'coin_bearer',
-  'flower_girl',
-]);
+// Tier role sets + labels moved to lib/role-sets.ts (WEDDING_ROLE_SET) — the
+// single source consumed below via the defaulted roleSet param.
 
 type GuestRoleLike = string;
 
@@ -726,20 +707,25 @@ export type AutoSeatRow = { guest_id: string; table_id: string; seat_number: num
 // the editor's "seat a role tier at this table" action can group guests without
 // re-deriving the role sets. 1 = family + principal sponsors (innermost), 2 =
 // entourage, 3 = extended family, 4 = everyone else.
-export function roleTier(role: string, groupCategory: string): 1 | 2 | 3 | 4 {
-  if (TIER1_ROLES.has(role)) return 1;
-  if (TIER2_ROLES.has(role)) return 2;
-  if (groupCategory === 'family') return 3;
+export function roleTier(
+  role: string,
+  groupCategory: string,
+  roleSet: RoleSet = WEDDING_ROLE_SET,
+): 1 | 2 | 3 | 4 {
+  if (roleSet.tier1Roles.has(role)) return 1;
+  if (roleSet.tier2Roles.has(role)) return 2;
+  // tier3Roles is EMPTY for weddings, so this collapses to the historical
+  // `groupCategory === 'family'` check (byte-identical); generic role sets use
+  // it to map e.g. 'family' to tier 3 without a group_category.
+  if (roleSet.tier3Roles.has(role) || groupCategory === 'family') return 3;
   return 4;
 }
 
 // Human labels for the four role tiers (the popup's "Role" picker tab).
-export const ROLE_TIER_LABELS: Record<1 | 2 | 3 | 4, string> = {
-  1: 'Family & principal sponsors',
-  2: 'Entourage',
-  3: 'Extended family',
-  4: 'Friends & others',
-};
+// Re-exported from WEDDING_ROLE_SET so there is one source of the wedding
+// labels; the values are unchanged.
+export const ROLE_TIER_LABELS: Record<1 | 2 | 3 | 4, string> =
+  WEDDING_ROLE_SET.tierLabels;
 
 // Override-aware tier: an explicit guests.seating_priority (1–4) wins; null /
 // undefined / out-of-range falls back to the role-derived tier. Exported so the
@@ -748,13 +734,14 @@ export function guestTier(
   role: string,
   groupCategory: string,
   override?: number | null,
+  roleSet: RoleSet = WEDDING_ROLE_SET,
 ): 1 | 2 | 3 | 4 {
   if (override === 1 || override === 2 || override === 3 || override === 4) return override;
-  return roleTier(role, groupCategory);
+  return roleTier(role, groupCategory, roleSet);
 }
 
-function tierOf(g: AutoSeatGuest): 1 | 2 | 3 | 4 {
-  return guestTier(g.role, g.group_category, g.seating_priority);
+function tierOf(g: AutoSeatGuest, roleSet: RoleSet = WEDDING_ROLE_SET): 1 | 2 | 3 | 4 {
+  return guestTier(g.role, g.group_category, g.seating_priority, roleSet);
 }
 
 // ---------------------------------------------------------------------------
@@ -769,15 +756,20 @@ export type PriorityTier = { tier: 1 | 2 | 3 | 4; label: string };
 export type PriorityOrder = PriorityTier[];
 
 // The locked default order — highest priority (nearest the stage) first.
-export function defaultPriorityOrder(): PriorityOrder {
-  return ([1, 2, 3, 4] as const).map((tier) => ({ tier, label: ROLE_TIER_LABELS[tier] }));
+export function defaultPriorityOrder(
+  roleSet: RoleSet = WEDDING_ROLE_SET,
+): PriorityOrder {
+  return ([1, 2, 3, 4] as const).map((tier) => ({ tier, label: roleSet.tierLabels[tier] }));
 }
 
 // Validate a JSONB value read from the DB into a clean PriorityOrder: keep only
 // well-formed, de-duplicated tiers 1–4 and always re-derive the label from
 // ROLE_TIER_LABELS (storage carries the ORDER; labels stay canonical). Returns
 // null for anything malformed/empty so callers fall back to the default.
-export function parsePriorityOrder(raw: unknown): PriorityOrder | null {
+export function parsePriorityOrder(
+  raw: unknown,
+  roleSet: RoleSet = WEDDING_ROLE_SET,
+): PriorityOrder | null {
   if (!Array.isArray(raw)) return null;
   const out: PriorityOrder = [];
   const seen = new Set<number>();
@@ -785,7 +777,7 @@ export function parsePriorityOrder(raw: unknown): PriorityOrder | null {
     const t = (item as { tier?: unknown } | null)?.tier;
     if ((t === 1 || t === 2 || t === 3 || t === 4) && !seen.has(t)) {
       seen.add(t);
-      out.push({ tier: t, label: ROLE_TIER_LABELS[t] });
+      out.push({ tier: t, label: roleSet.tierLabels[t] });
     }
   }
   return out.length > 0 ? out : null;

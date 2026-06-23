@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   User,
   Plus,
+  Sparkles,
   ChevronDown,
 } from 'lucide-react';
 import type { SwitcherData } from './get-switcher-data';
@@ -194,6 +195,20 @@ export function AccountSwitcher({ data, currentEventName }: Props) {
                 ))}
               </ul>
             )}
+          </div>
+
+          {/* Library — the cross-event hub (Photos & Videos · Saved Vendors ·
+              Editorials). Surfaced here so it's reachable on MOBILE, where the
+              switcher IS the account nav (the sidebar is desktop-only). */}
+          <div className="border-t border-ink/10 px-4 py-2">
+            <Link
+              href="/dashboard/library"
+              onClick={close}
+              className="flex items-center gap-2.5 rounded-xl px-2 py-2 text-sm font-medium text-ink/85 hover:bg-terracotta/10"
+            >
+              <Sparkles aria-hidden className="h-4 w-4 shrink-0 text-terracotta-700" strokeWidth={1.75} />
+              Library
+            </Link>
           </div>
 
           {/* ── Console rail (account-style) — vendor / Setnayan-team only ── */}
@@ -512,6 +527,18 @@ export function AccountSwitcherStandalone({ data }: Props) {
                         ))}
                       </ul>
                     )}
+                  </div>
+
+                  {/* Library — cross-event hub; reachable on mobile via the switcher. */}
+                  <div className="border-t border-ink/10 px-4 py-2">
+                    <Link
+                      href="/dashboard/library"
+                      onClick={close}
+                      className="flex items-center gap-2.5 rounded-xl px-2 py-2 text-sm font-medium text-ink/85 hover:bg-terracotta/10"
+                    >
+                      <Sparkles aria-hidden className="h-4 w-4 shrink-0 text-terracotta-700" strokeWidth={1.75} />
+                      Library
+                    </Link>
                   </div>
 
                   {/* Console rail (account-style) — vendor / Setnayan-team only */}

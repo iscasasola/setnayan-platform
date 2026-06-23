@@ -57,7 +57,7 @@ import { LiveSearch } from './live-search';
 import { quickAddGuest } from '../quick-add-actions';
 import { trackFailure } from '@/lib/telemetry/track-error';
 import { bulkApplyRoleAndGroup, createGuestGroup } from '../groups-actions';
-import { BULK_ROLE_SECTIONS } from './guest-list-multiselect';
+import { bulkRoleSectionsFor, type RoleSection } from './guest-list-multiselect';
 import { guestSelection, useGuestSelection } from './guest-selection-store';
 
 type Opt = { key: string; label: string };
@@ -98,6 +98,7 @@ export function MobileGuestCarousel({
   unsent = 0,
   unseated = 0,
   arrived = 0,
+  roleSetKey,
 }: {
   eventId: string;
   q: string;
@@ -125,8 +126,12 @@ export function MobileGuestCarousel({
   unsent?: number;
   unseated?: number;
   arrived?: number;
+  // Iteration 0053 P4 Unit 5: event's role-set key → bulk-assign picker sections.
+  roleSetKey?: string | null;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
+  // Per-event-type bulk-assign sections (shared with the desktop SelectionBar).
+  const bulkRoleSections = bulkRoleSectionsFor(roleSetKey);
   const [active, setActive] = useState(0);
   const [assignOpen, setAssignOpen] = useState(false);
   // Filter / sort bottom sheets opened from the search compose-bar icons
@@ -444,6 +449,7 @@ export function MobileGuestCarousel({
         onClose={() => setAssignOpen(false)}
         eventId={eventId}
         groups={groups}
+        bulkRoleSections={bulkRoleSections}
       />
 
       {/* Filter bottom sheet — opened from the compose-bar filter icon. Reuses
@@ -956,11 +962,13 @@ function AssignSheet({
   onClose,
   eventId,
   groups,
+  bulkRoleSections,
 }: {
   open: boolean;
   onClose: () => void;
   eventId: string;
   groups: Group[];
+  bulkRoleSections: RoleSection[];
 }) {
   const { ids: selectedIds } = useGuestSelection();
   const count = selectedIds.length;
@@ -1088,7 +1096,7 @@ function AssignSheet({
 
         {step === 'role' ? (
           <div className="space-y-3">
-            {BULK_ROLE_SECTIONS.map((section) => (
+            {bulkRoleSections.map((section) => (
               <div key={section.label}>
                 <h3 className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
                   {section.label}

@@ -107,39 +107,10 @@ export async function saveMonogram(formData: FormData): Promise<void> {
   revalidatePath(`/dashboard/${eventId}/monogram`);
 }
 
-/**
- * saveMonogramMotion — persist ONLY the chosen animation signature
- * (events.monogram_motion_key) from the editor's Animate side.
- *
- * Narrow on purpose: saveMonogram() above also rewrites monogram_text/color/
- * style/font/frame from the lettered-maker form, but the maker is studio-only now
- * and the Animate picker doesn't collect those — reusing saveMonogram would blank
- * the couple's mark. This touches the one column. resolveMonogramMotion coerces
- * unknown/missing to 'draw', so the column never stores an off-registry key (the
- * 8-key library incl. gold/molten — lib/monogram-motion.ts).
- */
-export async function saveMonogramMotion(formData: FormData): Promise<void> {
-  const eventId = String(formData.get('event_id') ?? '').trim();
-  if (!eventId) throw new Error('Missing event_id');
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  const motion = resolveMonogramMotion(String(formData.get('motion') ?? ''));
-
-  const { error } = await supabase
-    .from('events')
-    .update({ monogram_motion_key: motion })
-    .eq('event_id', eventId);
-  if (error) throw new Error(error.message);
-
-  // 'layout' so the chrome monogram refreshes too (mirrors saveMonogram).
-  revalidatePath(`/dashboard/${eventId}`, 'layout');
-  revalidatePath(`/dashboard/${eventId}/monogram`);
-}
+// saveMonogramMotion + the standalone MonogramAnimatePicker were RETIRED
+// 2026-06-23 — the reveal is chosen in the Vector Studio's "Animate the reveal"
+// panel (the single home), not a separate picker. The reveal-unification wires
+// that panel's choice (monogram_studio_config.anim) to the live surfaces.
 
 /* ── Upload your own monogram (owner rule 2026-06-15) ─────────────────────────
    A couple uploads THEIR OWN mark; it OVERRULES every Setnayan mark (the

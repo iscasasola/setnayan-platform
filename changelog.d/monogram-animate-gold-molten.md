@@ -12,7 +12,7 @@ two new MONOGRAM MOTIONS in the editor, and RETIRED as reveal openings.
   pure-CSS/SSR; gold is a composed CSS reveal, molten is a three.js shader — noted
   in the header. `resolveMonogramMotion` / `isMonogramMotionKey` derive
   automatically; default stays `draw`.
-- Migration `20270218317492_monogram_motion_gold_molten.sql`: widen
+- Migration `20270219143725_monogram_motion_gold_molten.sql`: widen
   `events_monogram_motion_key_check` to the 8 keys (drop+re-add, idempotent) +
   backfill `std_reveal_template` off the retired `gold-monogram`/`molten-monogram`
   openings. **Must be applied before a gold/molten pick can persist.**

@@ -5,10 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { registerGatesEnabled } from '@/lib/register-gates';
 import { getCurrentUser } from '@/lib/auth';
 import { resolveMonogram } from '@/lib/monogram';
-import { resolveMonogramMotion } from '@/lib/monogram-motion';
-import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { VectorStudio } from './studio';
-import { MonogramAnimatePicker } from './animate-picker';
 import { sanitizeStudioConfig } from '@/lib/monogram-studio-shared';
 import { MonogramDraftRestore } from './draft-restore';
 
@@ -88,10 +85,6 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
   const hasStudio = Boolean(studioConfig && event.monogram_custom_svg);
   const studioNotice = STUDIO_NOTICES[sp.studio_error ?? ''] ?? STUDIO_NOTICES[sp.studio ?? ''] ?? null;
 
-  // ── Animate side: the chosen motion + whether it plays (ANIMATED_MONOGRAM gate).
-  const currentMotion = resolveMonogramMotion(event.monogram_motion_key);
-  const ownsAnimated = await eventAnimatedMonogramActive(supabase, eventId);
-
   return (
     <section className="space-y-6">
       <Link
@@ -122,32 +115,16 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
           The Monogram maker page is now studio-only (owner 2026-06-21 "make the vector monogram the only
           screen for the monogram"); the Feature-Us opt-in + the paid Animated-Monogram upsell that used to
           sit below it were removed. The Animated Monogram stays discoverable from the Studio add-ons hub. ── */}
+      {/* The "Animate the reveal" panel lives INSIDE the Vector Studio (engine.ts
+          #animbox) — owner 2026-06-23 "improve THIS animate the reveal … not a
+          separate feature". The standalone MonogramAnimatePicker was retired; the
+          studio panel is the single home for choosing the reveal. */}
       <VectorStudio
         eventId={eventId}
         initialConfig={studioConfig}
         initialNames={monogram.text}
         hasStudio={hasStudio}
         notice={studioNotice}
-      />
-
-      {/* ── Animate side (owner 2026-06-22 "this is monogram animation … from the
-          monogram editor, the animate side") — pick the motion (incl. Gold Turn +
-          Molten Gold); it plays wherever the mark shows once Animated Monogram is
-          unlocked. ── */}
-      <MonogramAnimatePicker
-        eventId={eventId}
-        currentMotion={currentMotion}
-        owns={ownsAnimated}
-        buyHref={`/dashboard/${eventId}/studio/animated-monogram`}
-        preview={{
-          design: {
-            monogram_style: event.monogram_style ?? null,
-            monogram_font_key: event.monogram_font_key ?? null,
-            monogram_frame_key: event.monogram_frame_key ?? null,
-          },
-          monogram,
-          bespokeSvg: customSvg,
-        }}
       />
     </section>
   );

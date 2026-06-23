@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { fetchGuestsByEvent, fetchGroupMembershipsByEvent } from '@/lib/guests';
 import { SeatingLockError } from './seating-lock-error';
 import {
@@ -327,12 +328,15 @@ export async function autoSeatGuests(formData: FormData) {
 
   // Anchor the role-tier rings on where the couple actually placed the stage,
   // and fill tiers in the couple's saved priority order (Phase 2; null = default).
+  // Iteration 0053 P4 Unit 6: tier by the event's role set (wedding → identical).
+  const roleSet = await resolveRoleSetForEvent(eventId);
   const rows = computeAutoSeat(
     tables,
     autoSeatGuestList,
     assignments,
     { x: floorPlan.stage_x, y: floorPlan.stage_y },
     floorPlan.priority_order,
+    roleSet,
   );
   if (rows.length > 0) {
     const { error } = await supabase.from('event_seat_assignments').insert(
@@ -481,10 +485,12 @@ export async function savePriorityOrder(formData: FormData) {
     throw new Error('Invalid input');
   }
   const raw = formData.get('priority_order');
+  // Iteration 0053 P4 Unit 6: re-derive tier labels from the event's role set.
+  const roleSet = await resolveRoleSetForEvent(eventId);
   let parsed: PriorityOrder | null = null;
   if (typeof raw === 'string' && raw.length > 0) {
     try {
-      parsed = parsePriorityOrder(JSON.parse(raw));
+      parsed = parsePriorityOrder(JSON.parse(raw), roleSet);
     } catch {
       parsed = null;
     }
@@ -683,6 +689,8 @@ export async function lockAndFill(
     priorityOrder: floorPlan.priority_order,
     constraints,
     groupMembers: memberships,
+    // Iteration 0053 P4 Unit 6: tier by the event's role set (wedding → identical).
+    roleSet: await resolveRoleSetForEvent(eventId),
   });
   if (solved.assignments.length > 0) {
     const { error } = await supabase.from('event_seat_assignments').insert(
@@ -1157,6 +1165,8 @@ export async function seatRoleAtTable(
 
   // Eligible = not declined (pending/maybe get held seats too, like Auto Arrange),
   // in this tier, not the couple, not already seated anywhere.
+  // Iteration 0053 P4 Unit 6: tier by the event's role set (wedding → identical).
+  const roleSet = await resolveRoleSetForEvent(eventId);
   const seatedIds = new Set(assignments.map((a) => a.guest_id));
   const eligible = guests
     .filter(
@@ -1165,7 +1175,7 @@ export async function seatRoleAtTable(
         g.role !== 'bride' &&
         g.role !== 'groom' &&
         !seatedIds.has(g.guest_id) &&
-        roleTier(g.role, g.group_category) === tier,
+        roleTier(g.role, g.group_category, roleSet) === tier,
     )
     .sort((a, b) =>
       `${a.last_name} ${a.first_name}`
@@ -1515,6 +1525,8 @@ export async function autoArrange(
   // seater. Both consume the same stage + priority; the solver adds graceful
   // keep-apart separation. No rules → identical to the priority-only path.
   const stage = { x: floorPlan.stage_x, y: floorPlan.stage_y };
+  // Iteration 0053 P4 Unit 6: tier by the event's role set (wedding → identical).
+  const roleSet = await resolveRoleSetForEvent(eventId);
   const solved =
     constraints.length > 0
       ? solveSeatPlan({
@@ -1525,11 +1537,12 @@ export async function autoArrange(
           priorityOrder: floorPlan.priority_order,
           constraints,
           groupMembers: memberships,
+          roleSet,
         })
       : null;
   const rows =
     solved?.assignments ??
-    computeAutoSeat(arrangedTables, autoSeatGuestList, assignments, stage, floorPlan.priority_order);
+    computeAutoSeat(arrangedTables, autoSeatGuestList, assignments, stage, floorPlan.priority_order, roleSet);
   if (rows.length > 0) {
     const { error } = await supabase.from('event_seat_assignments').insert(
       rows.map((r) => ({
@@ -1647,10 +1660,18 @@ export async function buildSeatingDraft(
     group_id: memberships.get(g.guest_id)?.[0] ?? null,
     seating_priority: g.seating_priority ?? null,
   }));
-  const rows = computeAutoSeat(positioned, autoSeatGuestList, [], {
-    x: floorPlan.stage_x,
-    y: floorPlan.stage_y,
-  });
+  // Iteration 0053 P4 Unit 6: tier by the event's role set (wedding → identical).
+  // priorityOrder passed as null (this call's current effective default) so the
+  // roleSet 6th arg can be threaded without changing the draft's fill order.
+  const roleSet = await resolveRoleSetForEvent(eventId);
+  const rows = computeAutoSeat(
+    positioned,
+    autoSeatGuestList,
+    [],
+    { x: floorPlan.stage_x, y: floorPlan.stage_y },
+    null,
+    roleSet,
+  );
   if (rows.length > 0) {
     const { error } = await supabase.from('event_seat_assignments').insert(
       rows.map((r) => ({

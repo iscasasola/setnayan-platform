@@ -1,5 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchGuestsByEvent, guestDisplayName } from '@/lib/guests';
 import {
@@ -34,7 +35,7 @@ export default async function SeatingLabPage({ params }: Props) {
   if (!user) redirect('/login');
   const supabase = await createClient();
 
-  const [tablesRaw, assignments, guestsRaw, floorPlan, moodboard, eventRow] = await Promise.all([
+  const [tablesRaw, assignments, guestsRaw, floorPlan, moodboard, eventRow, roleSet] = await Promise.all([
     fetchTables(supabase, eventId),
     fetchAssignments(supabase, eventId),
     fetchGuestsByEvent(supabase, eventId),
@@ -56,6 +57,8 @@ export default async function SeatingLabPage({ params }: Props) {
       )
       .eq('event_id', eventId)
       .maybeSingle(),
+    // Iteration 0053 P4 Unit 6: per-event-type role set for the 3D tier annotation.
+    resolveRoleSetForEvent(eventId),
   ]);
 
   // Tables created but never dragged onto the spatial canvas have null
@@ -95,7 +98,7 @@ export default async function SeatingLabPage({ params }: Props) {
       name: guestDisplayName(g),
       seatedTableId: seat?.table_id ?? null,
       seatNumber: seat?.seat_number ?? null,
-      tier: guestTier(g.role, g.group_category, g.seating_priority),
+      tier: guestTier(g.role, g.group_category, g.seating_priority, roleSet),
       rsvp,
       side: g.side,
       plusOneAllowed: Boolean(g.plus_one_allowed),

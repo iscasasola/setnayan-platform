@@ -1,5 +1,5 @@
 -- =============================================================================
--- 20270127142537_monogram_motion_gold_molten.sql
+-- 20270219143725_monogram_motion_gold_molten.sql
 --
 -- Monogram Motion Library — add GOLD TURN + MOLTEN GOLD signatures
 -- Repo: setnayan-platform · owner 2026-06-22 "this is monogram animation".

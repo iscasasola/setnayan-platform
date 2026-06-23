@@ -6,14 +6,12 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import {
   Users,
-  UserCircle,
-  Settings,
   LogOut,
   Store,
   ShieldCheck,
   User,
   Plus,
-  Sparkles,
+  CircleUser,
   ChevronDown,
 } from 'lucide-react';
 import type { SwitcherData } from './get-switcher-data';
@@ -206,8 +204,8 @@ export function AccountSwitcher({ data, currentEventName }: Props) {
               onClick={close}
               className="flex items-center gap-2.5 rounded-xl px-2 py-2 text-sm font-medium text-ink/85 hover:bg-terracotta/10"
             >
-              <Sparkles aria-hidden className="h-4 w-4 shrink-0 text-terracotta-700" strokeWidth={1.75} />
-              Library
+              <CircleUser aria-hidden className="h-4 w-4 shrink-0 text-terracotta-700" strokeWidth={1.75} />
+              Account
             </Link>
           </div>
 
@@ -259,9 +257,9 @@ export function AccountSwitcher({ data, currentEventName }: Props) {
             </div>
           ) : null}
 
-          {/* Slim account footer — identity actions (Profile · Settings · Sign out) live
-              HERE, not mixed into the events/console switching above (the two-corner
-              pattern). Hosts shows only when there's a co-host context. */}
+          {/* Slim account footer — Sign out only. The switcher is for switching;
+              Profile & Settings now live in the Account hub. Hosts shows only
+              when there's a co-host context. */}
           <div className="border-t border-ink/10 px-4 py-2.5">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
               {hostsHref ? (
@@ -269,12 +267,6 @@ export function AccountSwitcher({ data, currentEventName }: Props) {
                   <Users aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Hosts
                 </button>
               ) : null}
-              <button type="button" onClick={() => navigate('/dashboard/profile')} className="inline-flex items-center gap-1 text-ink/60 hover:text-terracotta-700">
-                <UserCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Profile
-              </button>
-              <button type="button" onClick={() => navigate('/dashboard/profile#settings')} className="inline-flex items-center gap-1 text-ink/60 hover:text-terracotta-700">
-                <Settings aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Settings
-              </button>
               <form action="/auth/sign-out" method="post" className="ml-auto">
                 <button type="submit" className="inline-flex items-center gap-1 text-red-600 hover:text-red-700">
                   <LogOut aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Sign out
@@ -536,8 +528,8 @@ export function AccountSwitcherStandalone({ data }: Props) {
                       onClick={close}
                       className="flex items-center gap-2.5 rounded-xl px-2 py-2 text-sm font-medium text-ink/85 hover:bg-terracotta/10"
                     >
-                      <Sparkles aria-hidden className="h-4 w-4 shrink-0 text-terracotta-700" strokeWidth={1.75} />
-                      Library
+                      <CircleUser aria-hidden className="h-4 w-4 shrink-0 text-terracotta-700" strokeWidth={1.75} />
+                      Account
                     </Link>
                   </div>
 
@@ -570,7 +562,7 @@ export function AccountSwitcherStandalone({ data }: Props) {
                     </div>
                   ) : null}
 
-                  {/* Slim account footer — Profile · Settings · Sign out (two-corner). */}
+                  {/* Slim account footer — Sign out only (Profile & Settings live in the Account hub). */}
                   <div className="border-t border-ink/10 px-4 py-2.5">
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
                       {hostsHref ? (
@@ -578,12 +570,6 @@ export function AccountSwitcherStandalone({ data }: Props) {
                           <Users aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Hosts
                         </button>
                       ) : null}
-                      <button type="button" onClick={() => navigate('/dashboard/profile')} className="inline-flex items-center gap-1 text-ink/60 hover:text-terracotta-700">
-                        <UserCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Profile
-                      </button>
-                      <button type="button" onClick={() => navigate('/dashboard/profile#settings')} className="inline-flex items-center gap-1 text-ink/60 hover:text-terracotta-700">
-                        <Settings aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Settings
-                      </button>
                       <form action="/auth/sign-out" method="post" className="ml-auto">
                         <button type="submit" className="inline-flex items-center gap-1 text-red-600 hover:text-red-700">
                           <LogOut aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Sign out

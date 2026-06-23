@@ -6,27 +6,24 @@
  * (the market-default effect every template tool ships) with a motion
  * vocabulary the couple chooses from in the Monogram Maker.
  *
- * The first six signatures (draw·foil·bloom·editorial·halo·stardust) are
- * implemented in AnimatedMonogramHero (app/_components/animated-monogram-hero.tsx)
- * as pure SVG + CSS — no Lottie, no JS animation runtime, SSR-safe, and every one
- * collapses to the static painted monogram under `prefers-reduced-motion: reduce`.
+ * These six signatures (draw·foil·bloom·editorial·halo·stardust) are the LETTERED
+ * lockup motions, implemented in AnimatedMonogramHero
+ * (app/_components/animated-monogram-hero.tsx) as pure SVG + CSS — no Lottie, no
+ * JS runtime, SSR-safe, and every one collapses to the static painted monogram
+ * under `prefers-reduced-motion: reduce`.
  *
- * Two premium signatures join them (owner 2026-06-22 "this is monogram
- * animation"): GOLD ('gold', a flowing-gold turn — the composed-CSS
- * GoldMonogramReveal in inline mode) and MOLTEN ('molten', molten metal floods
- * the mark then hardens to gold — the WebGL MoltenMonogramReveal). These two are
- * NOT pure-CSS-SSR: gold is a composed CSS reveal; molten is a three.js shader
- * (lazy-loaded, ssr:false) that renders live on at most one large surface at a
- * time and falls back to a static gold mark elsewhere. They route through
- * HeroMonogram, not AnimatedMonogramHero. Both were previously Save-the-Date
- * reveal OPENINGS; they now live only as monogram animations.
+ * GOLD TURN + MOLTEN GOLD are NOT here — they are BESPOKE (studio/uploaded) mark
+ * reveals chosen in the Vector Studio "Animate the reveal" panel and stored in
+ * `monogram_studio_config.anim` (lib/monogram-studio-shared.ts ANIM_KINDS), not
+ * `monogram_motion_key` (owner 2026-06-23 unification). So the lettered library
+ * stays the six CSS signatures, matching the live `events_monogram_motion_key_check`
+ * constraint (which was never widened — gold/molten live in the studio jsonb).
  *
  * The chosen key persists as `events.monogram_motion_key`
- * (20261111000000_event_monogram_motion.sql; gold/molten added by
- * 20270219143725_monogram_motion_gold_molten.sql). NULL means 'draw' so every
- * pre-library Animated Monogram keeps its exact original render. WHICH
- * animation plays is a free choice; WHETHER the monogram animates at all stays
- * gated by ANIMATED_MONOGRAM order ownership (lib/animated-monogram.ts).
+ * (20261111000000_event_monogram_motion.sql). NULL means 'draw' so every
+ * pre-library Animated Monogram keeps its exact original render. WHICH animation
+ * plays is a free choice; WHETHER the monogram animates at all stays gated by
+ * ANIMATED_MONOGRAM order ownership (lib/animated-monogram.ts).
  */
 
 export type MonogramMotionKey =
@@ -35,9 +32,7 @@ export type MonogramMotionKey =
   | 'bloom'
   | 'editorial'
   | 'halo'
-  | 'stardust'
-  | 'gold'
-  | 'molten';
+  | 'stardust';
 
 export type MonogramMotion = {
   key: MonogramMotionKey;
@@ -91,21 +86,10 @@ export const MONOGRAM_MOTIONS: MonogramMotion[] = [
     description:
       'Tiny gold sparks twinkle around the circle as your initials fade in — a little celebration every time a guest arrives.',
   },
-  {
-    key: 'gold',
-    label: 'Gold Turn',
-    hint: 'Your mark turns in, in flowing gold',
-    description:
-      'Your monogram turns into view in flowing gold and catches the light as it settles forward — a polished metal medallion.',
-  },
-  {
-    key: 'molten',
-    label: 'Molten Gold',
-    hint: 'Molten metal floods the mark, then hardens',
-    description:
-      'Your monogram pours in as glowing molten gold, then cools, crusts over, and hardens into solid, gleaming metal.',
-  },
 ];
+// NOTE: Gold Turn + Molten Gold are NOT lettered motions — they're bespoke-mark
+// studio reveals (monogram_studio_config.anim / ANIM_KINDS), chosen in the Vector
+// Studio "Animate the reveal" panel. See lib/monogram-studio-shared.ts.
 
 export const MONOGRAM_MOTION_KEYS = MONOGRAM_MOTIONS.map((m) => m.key);
 

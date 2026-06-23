@@ -31,10 +31,12 @@ bloom (no regression). Molten stays one-context: live only on the film beat / st
 degrading to the CSS Gold Turn everywhere else.
 
 **Phase 4 — one source, split cleanly by mark family.** BESPOKE (studio/uploaded) marks read
-`config.anim` (the studio panel); LETTERED lockups keep `monogram_motion_key` +
-AnimatedMonogramHero (their glyph-level signatures). No second picker — the studio panel is the
-chooser for the marks it produces. `monogram_motion_key` is no longer a gold/molten write
-target (that CHECK-widen migration is now vestigial).
+`config.anim` (the studio panel · 5 kinds incl. gold/molten); LETTERED lockups keep
+`monogram_motion_key` + AnimatedMonogramHero (the **6** glyph-level CSS signatures). No second
+picker — the studio panel is the chooser for the marks it produces. gold/molten are studio-only:
+`MONOGRAM_MOTIONS`/`MonogramMotionKey` reverted to 6 keys (matching the live, never-widened
+`events_monogram_motion_key_check`), and the unapplied gold/molten CHECK-widen migration
+(`20270219143725`, 0 rows, not in the ledger) was DELETED — no migration needed.
 
 (Phase 5 — exact per-letter draw-on parity — deferred; the per-path approximation matches most
 marks.)

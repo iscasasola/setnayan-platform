@@ -1,12 +1,12 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Images, Heart, Newspaper } from 'lucide-react';
+import { ArrowLeft, Images, Heart, Newspaper, UserCircle, Settings } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { PhotosTab } from './_components/photos-tab';
 import { VendorsTab } from './_components/vendors-tab';
 import { EditorialsTab } from './_components/editorials-tab';
 
-export const metadata = { title: 'Library' };
+export const metadata = { title: 'Account' };
 
 /**
  * Library — the account-level, CROSS-EVENT hub. One sidebar entry, three tabs:
@@ -49,12 +49,28 @@ export default async function LibraryPage({
         Back to events
       </Link>
 
-      <header className="mb-6 space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Library</h1>
-        <p className="max-w-prose text-base text-ink/65">
-          Everything you&rsquo;ve collected across all your events — photos &amp; videos,
-          saved vendors, and the editorials you&rsquo;re part of.
-        </p>
+      <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Account</h1>
+          <p className="max-w-prose text-base text-ink/65">
+            Everything that&rsquo;s yours — your photos &amp; videos, saved vendors, and the
+            editorials you&rsquo;re part of, kept across all your events.
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2 text-sm">
+          <Link
+            href="/dashboard/profile"
+            className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 px-3 py-1.5 font-medium text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink"
+          >
+            <UserCircle aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Profile
+          </Link>
+          <Link
+            href="/dashboard/profile#settings"
+            className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 px-3 py-1.5 font-medium text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink"
+          >
+            <Settings aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Settings
+          </Link>
+        </div>
       </header>
 
       {/* Tab bar — plain links so the page stays a server component */}

@@ -7,6 +7,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { eventSkuActive } from '@/lib/entitlements';
+import { resolveProfileByEvent } from '@/lib/event-type-profile';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import {
   composePakantaBrief,
@@ -109,11 +110,15 @@ export default async function PakantaPage({ params }: Props) {
     .maybeSingle<{ responses: PakantaResponses }>();
   const responses = draft?.responses ?? null;
 
+  // Iteration 0053: frame the song brief by the event type ('couple' for a
+  // wedding → byte-identical; 'host' for other event types).
+  const profile = await resolveProfileByEvent(eventId);
   const brief = composePakantaBrief({
     coupleNames: event.display_name ?? '',
     loveStory: event.love_story ?? null,
     storyTone: event.story_tone ?? null,
     responses,
+    organizerNoun: profile.terminology.organizerNoun,
   });
 
   // The story half comes from onboarding — true when they finished the love

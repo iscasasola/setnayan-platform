@@ -4,6 +4,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { relativeTime } from '@/lib/activity';
 import { ACTIVE_STATUSES, eventSkuActive, BUNDLE_CHILD_SKUS } from '@/lib/entitlements';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { resolveProfile } from '@/lib/event-type-profile';
 import {
   composePakantaBrief,
   type LoveStoryBlob,
@@ -47,6 +48,7 @@ type DraftRow = {
 
 type EventLite = {
   event_id: string;
+  event_type: string | null;
   display_name: string | null;
   love_story: LoveStoryBlob;
   story_tone: StoryTone;
@@ -124,7 +126,7 @@ export default async function AdminPakantaPage() {
     let { data: eventsData, error: eventsErr } = await admin
       .from('events')
       .select(
-        'event_id,display_name,love_story,story_tone,pakanta_song_r2_key,pakanta_song_status,pakanta_song_filename,pakanta_song_adopted_as_site_music',
+        'event_id,event_type,display_name,love_story,story_tone,pakanta_song_r2_key,pakanta_song_status,pakanta_song_filename,pakanta_song_adopted_as_site_music',
       )
       .in('event_id', candidateIds);
     if (eventsErr) {
@@ -132,7 +134,7 @@ export default async function AdminPakantaPage() {
       logQueryError('AdminPakantaPage (events delivery cols)', eventsErr, {}, 'graceful_degrade');
       const fallback = await admin
         .from('events')
-        .select('event_id,display_name,love_story,story_tone')
+        .select('event_id,event_type,display_name,love_story,story_tone')
         .in('event_id', candidateIds);
       eventsData = fallback.data as typeof eventsData;
       if (fallback.error) {
@@ -143,6 +145,7 @@ export default async function AdminPakantaPage() {
       if (!e.event_id) continue;
       eventsById.set(e.event_id, {
         event_id: e.event_id,
+        event_type: e.event_type ?? null,
         display_name: e.display_name ?? null,
         love_story: e.love_story ?? null,
         story_tone: e.story_tone ?? null,
@@ -169,11 +172,18 @@ export default async function AdminPakantaPage() {
         const active = cameFromOrder ? await eventSkuActive(admin, eventId, 'PAKANTA') : false;
         if (cameFromOrder && !active && !draft) return null;
 
+        // Iteration 0053: frame the brief by the event type ('couple' for a
+        // wedding → byte-identical; 'host' etc. for other event types). The empty
+        // coupleNames fallback lets the composer apply its organizer-aware default
+        // ("The couple" for a wedding — unchanged).
+        const organizerNoun = (await resolveProfile(ev?.event_type ?? 'wedding'))
+          .terminology.organizerNoun;
         const brief = composePakantaBrief({
-          coupleNames: ev?.display_name ?? 'The couple',
+          coupleNames: ev?.display_name ?? '',
           loveStory: ev?.love_story ?? null,
           storyTone: ev?.story_tone ?? null,
           responses: draft?.responses ?? null,
+          organizerNoun,
         });
 
         const delivered = ev?.pakanta_song_status === 'ready' && !!ev?.pakanta_song_r2_key;

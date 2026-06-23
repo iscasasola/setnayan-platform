@@ -77,6 +77,12 @@ type SearchParams = Promise<{
   /** Pre-fill the email field — used by /vendor/claim/[token]?as=vendor flows
    *  per iteration 0006 § Invite-to-Setnayan, locked 2026-05-19. */
   prefill_email?: string;
+  /** Guest → host growth-loop attribution. Set by the guest-page CTA
+   *  (`/signup?ref=guest&src_event=<public_id>`). Carried through the form as
+   *  hidden inputs so the signUp action can fire the `guest_to_host_signup`
+   *  north-star event on a successful new-account creation. No PII. */
+  ref?: string;
+  src_event?: string;
 }>;
 
 export default async function SignupPage({ searchParams }: { searchParams: SearchParams }) {
@@ -88,6 +94,14 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
   const preselectVendor = params.as === 'vendor';
   const prefilledEmail =
     typeof params.prefill_email === 'string' ? params.prefill_email : '';
+  // Guest → host attribution. Only `ref=guest` is meaningful today; `src_event`
+  // is a public_id (text). Both are echoed into hidden form inputs so the
+  // signUp action can attribute the new account. No PII.
+  const refParam = params.ref === 'guest' ? 'guest' : '';
+  const srcEvent =
+    refParam === 'guest' && typeof params.src_event === 'string'
+      ? params.src_event
+      : '';
   const loginHref = `/login${next !== '/' ? `?next=${encodeURIComponent(next)}` : ''}`;
 
   const benefitBullets = [
@@ -308,6 +322,12 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
             className="[&:has(input[value='vendor']:checked)_[data-couple-only]]:hidden"
           >
             <input type="hidden" name="next" value={next} />
+            {/* Guest → host growth-loop attribution (no PII) — carried from the
+                guest-page CTA so signUp can fire `guest_to_host_signup`. */}
+            {refParam ? <input type="hidden" name="ref" value={refParam} /> : null}
+            {srcEvent ? (
+              <input type="hidden" name="src_event" value={srcEvent} />
+            ) : null}
 
             {/* Account-type pill toggle · matches template's segmented control.
                 DOM contract preserved (radio inputs with name='account_type'

@@ -176,10 +176,24 @@ export default async function BudgetPage({ params }: Props) {
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Budget</h1>
           <p className="max-w-prose text-base text-ink/65">
-            Set your total wedding budget. As you contract vendors, their published
-            pricing fills in below — for off-platform vendors, you enter line items
-            yourself. Export upcoming due dates as a `.ics` file your calendar app
-            can swallow.
+            {/* Iteration 0053 P4 Unit 3: wedding copy verbatim; non-wedding swaps
+                the one wedding word. JSX collapses whitespace, so the wedding
+                branch renders byte-identically. */}
+            {isWeddingBudget ? (
+              <>
+                Set your total wedding budget. As you contract vendors, their published
+                pricing fills in below — for off-platform vendors, you enter line items
+                yourself. Export upcoming due dates as a `.ics` file your calendar app
+                can swallow.
+              </>
+            ) : (
+              <>
+                Set your total event budget. As you contract vendors, their published
+                pricing fills in below — for off-platform vendors, you enter line items
+                yourself. Export upcoming due dates as a `.ics` file your calendar app
+                can swallow.
+              </>
+            )}
           </p>
         </div>
         <Link

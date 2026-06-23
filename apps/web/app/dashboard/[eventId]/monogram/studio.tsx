@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useFormStatus } from 'react-dom';
+import { useFormStatus, createPortal } from 'react-dom';
 import { Check, Undo2, Wand2 } from 'lucide-react';
 import type { StudioConfig } from '@/lib/monogram-studio-shared';
 import { mountStudio } from '@/lib/monogram-studio/engine';
 import { STUDIO_HTML, STUDIO_CSS } from '@/lib/monogram-studio/markup';
+import { GoldMonogramReveal } from '@/app/_components/gold-monogram-reveal';
+import { MoltenMonogramInline } from '@/app/_components/molten-monogram-inline';
 import { saveStudioAction, clearStudioAction } from './studio-actions';
 
 /**
@@ -63,6 +65,13 @@ export function VectorStudio({
   const cfgRef = useRef<HTMLInputElement>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  // gold/molten reveal preview — the engine can't render React components on its
+  // paper.js canvas, so it calls onPreviewKind and we portal the REAL shipping
+  // component (GoldMonogramReveal / MoltenMonogramInline) over the canvas. This is
+  // WYSIWYG with the live surfaces (same components). null = canvas kinds (no overlay).
+  const [previewKind, setPreviewKind] = useState<'gold' | 'molten' | null>(null);
+  const [previewSvg, setPreviewSvg] = useState<string | null>(null);
+  const [swEl, setSwEl] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -88,6 +97,8 @@ export function VectorStudio({
     // can clobber the engine's nodes. (The engine also self-guards its async
     // callbacks via a `destroyed` flag for the unmount-mid-fetch case.)
     root.innerHTML = STUDIO_HTML;
+    // The canvas wrapper (.sw2) is the portal host for the gold/molten overlay.
+    setSwEl(root.querySelector<HTMLElement>('.sw2'));
     // Safety net: if the engine/typeface never finishes (a hung dynamic import or
     // font fetch), don't sit on "Loading the typeface…" forever.
     const failTimer = window.setTimeout(() => {
@@ -111,7 +122,20 @@ export function VectorStudio({
         const PaperOffset = off.PaperOffset ?? off.default?.PaperOffset ?? off.default ?? off;
         const ot: any = otMod as any;
         const opentype = ot.parse ? ot : (ot.default ?? ot);
-        api = mountStudio({ root, paper, opentype, PaperOffset, initialConfig, initialNames }) as StudioApi;
+        api = mountStudio({
+          root,
+          paper,
+          opentype,
+          PaperOffset,
+          initialConfig,
+          initialNames,
+          // gold/molten → render the real React component over the canvas; null → clear it.
+          onPreviewKind: (kind: 'gold' | 'molten' | null, svg: string | null) => {
+            if (!alive) return;
+            setPreviewKind(kind);
+            setPreviewSvg(svg);
+          },
+        }) as StudioApi;
         apiRef.current = api;
         setReady(true);
         window.clearTimeout(failTimer);
@@ -203,6 +227,30 @@ export function VectorStudio({
       {/* The editor markup is injected imperatively by the effect (see above), so
           React leaves this container empty and never re-touches the subtree. */}
       <div ref={rootRef} className="vs" />
+
+      {/* Gold/Molten reveal preview — portaled over the paper.js canvas (.sw2) on
+          the reveal's own dark stage so the metal reads. The SAME shipping
+          components render here and on the live website (WYSIWYG). Selecting a
+          canvas kind (handwriting/trace/droplet) clears previewKind → overlay
+          unmounts → the canvas shows again. */}
+      {swEl && previewKind
+        ? createPortal(
+            <div
+              className="absolute inset-0 z-[5]"
+              style={{
+                background:
+                  'radial-gradient(120% 90% at 50% 32%, #2b2638 0%, #14111c 58%, #0a0810 100%)',
+              }}
+            >
+              {previewKind === 'gold' ? (
+                <GoldMonogramReveal markSvg={previewSvg} monogram={initialNames ?? 'M & J'} inline />
+              ) : (
+                <MoltenMonogramInline markSvg={previewSvg} monogram={initialNames ?? 'M & J'} />
+              )}
+            </div>,
+            swEl,
+          )
+        : null}
 
       {exportError ? <p className="text-sm text-terracotta-700">{exportError}</p> : null}
 

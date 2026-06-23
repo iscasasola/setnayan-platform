@@ -207,6 +207,7 @@ function RecapHero({ model, mono }: { model: RecapModel; mono: HeroMonogramData 
                 event={mono.design}
                 monogram={mono.monogram}
                 animatedMonogram={mono.animatedMonogram}
+                studioAnim={mono.studioAnim}
                 bespokeSvg={mono.bespokeSvg}
                 plate
               />
@@ -230,6 +231,7 @@ function RecapHero({ model, mono }: { model: RecapModel; mono: HeroMonogramData 
             event={mono.design}
             monogram={mono.monogram}
             animatedMonogram={mono.animatedMonogram}
+            studioAnim={mono.studioAnim}
             bespokeSvg={mono.bespokeSvg}
             shadow
           />

@@ -39,7 +39,7 @@ import { STD_THEMES, resolveStdTheme, type StdTheme, type StdThemeId } from '@/l
 import { readableTextOn } from '@/lib/site-palette';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
-import { BespokeMonogramMotion } from '@/app/_components/bespoke-monogram-motion';
+import { StudioRevealPlayer, type StudioAnim } from '@/app/_components/studio-reveal-player';
 import { type MonogramConfig } from '@/lib/monogram';
 import type { MonogramMotionKey } from '@/lib/monogram-motion';
 
@@ -235,6 +235,7 @@ function FilmMonogram({
   lockup,
   lockupScaleCls,
   animatedMonogram,
+  studioAnim,
   monoReplayKey,
   tone,
   accentHex,
@@ -256,6 +257,10 @@ function FilmMonogram({
   /** Paid Animated Monogram motion, or false. Truthy → the lockup animates + a
    *  bespoke mark gets a one-shot bloom entrance. */
   animatedMonogram: MonogramMotionKey | false;
+  /** The bespoke-mark reveal designed in the studio panel (config.anim). When the
+   *  beat shows a studio/uploaded mark + the couple owns Animated Monogram, the
+   *  chosen reveal plays via StudioRevealPlayer. */
+  studioAnim?: StudioAnim;
   /** Changes when the active beat changes OR the film first starts — remounts the
    *  mark so its entrance REPLAYS at the moment its beat is shown, not at load. */
   monoReplayKey: string;
@@ -282,44 +287,19 @@ function FilmMonogram({
         ? 'drop-shadow(0 2px 6px rgba(0,0,0,0.32))'
         : 'drop-shadow(0 1px 3px rgba(0,0,0,0.16))';
 
-  // 0 · Gold Turn / Molten Gold — the whole-mark gold animations. HeroMonogram
-  //     renders these for EVERY mark kind (bespoke svg → gold silhouette ·
-  //     lockup/letters → gold glyphs), so one branch covers them all. The film
-  //     beat is the single big surface that hosts molten's live WebGL → allowWebgl
-  //     (one context; the film replaces the hero view, never co-mounted).
-  if (animatedMonogram === 'gold' || animatedMonogram === 'molten') {
-    return (
-      <div aria-hidden className={`inline-flex origin-center items-center justify-center ${lockupScaleCls}`} style={{ filter: glow }}>
-        <HeroMonogram
-          key={monoReplayKey}
-          event={lockup?.design ?? { monogram_style: null, monogram_font_key: null, monogram_frame_key: null }}
-          monogram={lockup?.monogram ?? { text, color: inkColor }}
-          inkOverride={inkColor}
-          animatedMonogram={animatedMonogram}
-          bespokeSvg={svg ?? null}
-          allowWebgl={active}
-        />
-      </div>
-    );
-  }
-
-  // 1 · uploaded / monogram-lab SVG — a BARE mark (no cream circle). For an
-  //     Animated Monogram owner the couple's CHOSEN motion plays ON the mark via
-  //     BespokeMonogramMotion (whole-mark signatures; the glyph-level library
-  //     needs letterforms) — keyed by monoReplayKey so it replays when the beat is
-  //     shown (owner 2026-06-22 "play according to the settings created"). Non-
-  //     owners get the static mark. Contrast glow either way.
+  // 1 · BESPOKE mark (uploaded / studio) — play the reveal the couple DESIGNED in
+  //     the studio "Animate the reveal" panel (handwriting/trace/droplet draw-on ·
+  //     Gold Turn · Molten Gold), via StudioRevealPlayer. The film beat is the one
+  //     big surface that hosts molten's live WebGL → allowWebgl={active} gates it to
+  //     the visible beat (one context; hidden beats degrade to the CSS Gold Turn).
+  //     Re-keyed by monoReplayKey so it replays when the beat is shown. Non-owners
+  //     get the static mark. (owner 2026-06-23 unification)
   if (svg) {
-    if (animatedMonogram) {
+    if (animatedMonogram && studioAnim) {
       return (
-        <BespokeMonogramMotion
-          key={monoReplayKey}
-          svg={svg}
-          motion={animatedMonogram}
-          sizeCls={sizeCls}
-          glow={glow}
-          color={inkColor}
-        />
+        <span aria-hidden className={`${sizeCls} inline-flex items-center justify-center`} style={{ filter: glow }}>
+          <StudioRevealPlayer key={monoReplayKey} svg={svg} monogram={text} anim={studioAnim} allowWebgl={active} />
+        </span>
       );
     }
     return (
@@ -367,10 +347,14 @@ export function SaveTheDateFilm({
   lockup = null,
   accentHex = null,
   animatedMonogram = false,
+  studioAnim,
 }: {
   content: StdFilmContent;
   /** Paid Animated Monogram motion, or false. */
   animatedMonogram?: MonogramMotionKey | false;
+  /** The bespoke-mark reveal designed in the studio panel — plays on the monogram
+   *  beats for studio/uploaded marks (owner 2026-06-23 unification). */
+  studioAnim?: StudioAnim;
   /** Theme override (the display font). Defaults to 'default' (Cormorant). */
   themeId?: StdThemeId;
   /** The film's accent colour (button + accent marks) as a `#rrggbb` hex —
@@ -474,6 +458,7 @@ export function SaveTheDateFilm({
           textCls={`${theme.fontCls} text-7xl font-medium ${accentMarkCls}`}
           textStyle={accentMarkStyle}
           animatedMonogram={animatedMonogram}
+          studioAnim={studioAnim}
           monoReplayKey={monoReplayKey}
           tone={tone}
           accentHex={accentHex}
@@ -578,6 +563,7 @@ export function SaveTheDateFilm({
           textCls={`${theme.fontCls} text-3xl font-medium ${accentMarkCls}`}
           textStyle={accentMarkStyle}
           animatedMonogram={animatedMonogram}
+          studioAnim={studioAnim}
           monoReplayKey={monoReplayKey}
           tone={tone}
           accentHex={accentHex}
@@ -689,6 +675,7 @@ export function SaveTheDateFilm({
           textCls={`${theme.fontCls} text-4xl font-medium ${accentMarkCls}`}
           textStyle={accentMarkStyle}
           animatedMonogram={animatedMonogram}
+          studioAnim={studioAnim}
           monoReplayKey={monoReplayKey}
           tone={tone}
           accentHex={accentHex}

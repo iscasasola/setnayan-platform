@@ -41,6 +41,11 @@ export function mountStudio(opts) {
   const PaperOffset = opts.PaperOffset;
   const initialConfig = opts.initialConfig || null;
   const initialNames = opts.initialNames || null;
+  // gold/molten reveal kinds are React components (CSS GoldMonogramReveal /
+  // WebGL MoltenMonogramReveal), not paper.js — the host renders them in an
+  // overlay over <canvas id=cv>. play() calls this with (kind, svg) for gold/
+  // molten, and (null, null) to clear the overlay when a canvas kind plays.
+  const onPreviewKind = opts.onPreviewKind || function () {};
 
   const GOLD = '#C5A059';
   const CHECKER =
@@ -777,9 +782,18 @@ export function mountStudio(opts) {
     return p + (smoothstep(p) - p) * animSmooth;
   }
   function play(preset) {
-    if (animating || !view) return;
     preset = preset || anim;
+    // gold/molten are React components → hand off to the host overlay, never run
+    // the paper.js loop for them (it can't render a CSS turn or a WebGL shader).
+    if (preset === 'gold' || preset === 'molten') {
+      anim = preset;
+      const ex = getExport();
+      onPreviewKind(preset, ex && ex.svg ? ex.svg : null);
+      return;
+    }
+    if (animating || !view) return;
     anim = preset;
+    onPreviewKind(null, null); // a canvas kind → clear any React overlay
     sel = null;
     selPair = null;
     selSym = null;

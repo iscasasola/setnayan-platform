@@ -26,6 +26,7 @@ import { SaveTheDateFilm, type StdLockup } from './save-the-date-film';
 import { StdBackgroundLayer } from './std-background-layer';
 import { resolveStdLegibility, type StdBackground } from '@/lib/std-backgrounds';
 import type { MonogramMotionKey } from '@/lib/monogram-motion';
+import type { StudioAnim } from '@/app/_components/studio-reveal-player';
 
 type Props = {
   displayName: string;
@@ -68,6 +69,9 @@ type Props = {
   videoPosterUrl?: string | null;
   /** The paid Animated Monogram motion (resolved + ownership-gated upstream), or false. */
   animatedMonogram?: MonogramMotionKey | false;
+  /** The bespoke-mark reveal designed in the studio panel (config.anim) — plays on
+   *  the film's monogram beats for studio/uploaded marks (owner 2026-06-23). */
+  studioAnim?: StudioAnim;
   /** Presigned photo URLs for the film's closing gallery beat — film only (P2). */
   galleryUrls?: string[];
   /** When the full invitation goes live (events.std_invitation_launch_date) — film only (P3). */
@@ -102,6 +106,7 @@ export function SaveTheDateView({
   videoUrl,
   videoPosterUrl,
   animatedMonogram,
+  studioAnim,
   galleryUrls,
   launchDateIso,
   themeId,
@@ -153,6 +158,7 @@ export function SaveTheDateView({
           lockup={lockup ?? null}
           accentHex={accentHex ?? null}
           animatedMonogram={animatedMonogram ?? false}
+          studioAnim={studioAnim}
         />
       </section>
     );

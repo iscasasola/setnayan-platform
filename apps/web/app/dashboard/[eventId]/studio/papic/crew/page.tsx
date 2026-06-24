@@ -125,6 +125,18 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
           <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           Back to Papic
         </Link>
+        {seatError && (
+          <p
+            role="alert"
+            className="flex items-start gap-2 rounded-xl border border-rose-300/70 bg-rose-50 px-4 py-3 text-sm text-rose-900"
+          >
+            <CircleAlert aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
+            <span>
+              We couldn&rsquo;t start your free seats just now. Please try again —
+              if it keeps happening, contact support.
+            </span>
+          </p>
+        )}
         <div className="rounded-2xl border border-terracotta/30 bg-surface p-7 text-center">
           <Sparkles aria-hidden className="mx-auto h-7 w-7 text-terracotta" strokeWidth={1.75} />
           <h1 className="mt-3 text-2xl font-semibold tracking-tight">Try Papic free</h1>

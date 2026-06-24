@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { experienceQuizEnabled } from '@/lib/experience-quiz';
 import { createWeddingEvent } from '../actions';
 import { type EventTypeKey, type EventTypeRow } from './event-types';
 import { EventTypePhotoPicker } from './event-type-photo-picker';
@@ -48,6 +49,14 @@ export function EventTypePicker({ types }: { types: EventTypeRow[] }) {
       // its first screen returns to the dashboard, never "the old onboarding page".
       // (owner bug 2026-06-15)
       router.replace(type.onboardingHref);
+      return;
+    }
+    // Iteration 0053 Phase 3: non-wedding types route into the generic experience
+    // onboarding (/onboarding/[type]) when the experience-quiz flag is on; with it
+    // off the route 404s, so we fall back to the inline name form. Wedding never
+    // reaches here (its onboardingHref branch above is byte-identical / unchanged).
+    if (experienceQuizEnabled() && type.key !== 'wedding') {
+      router.replace(`/onboarding/${type.key}`);
       return;
     }
     setSelectedKey(type.key);

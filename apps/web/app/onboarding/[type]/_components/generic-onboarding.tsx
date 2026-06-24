@@ -20,6 +20,8 @@ import { resolvePersona } from '@/app/onboarding/wedding/_data/experience-person
 import { PH_REGIONS } from '@/lib/regions';
 import { commitOnboardingEvent } from '@/app/onboarding/_shared/commit-event';
 import type { GenericOnboardingPayload } from '@/lib/onboarding/types';
+import { deriveGenericPlan } from '@/lib/onboarding/generic-plan';
+import type { OnboardingPickChip } from '@/lib/onboarding-refinements';
 
 type Props = {
   eventType: string;
@@ -28,6 +30,8 @@ type Props = {
   organizerNoun: string;
   eventWord: string;
   flowKey: string;
+  /** The type's applicable taxonomy categories — drive the derived starter plan (PR3). */
+  tiles: OnboardingPickChip[];
   authed: boolean;
   anonEnabled: boolean;
   resume: boolean;
@@ -58,7 +62,7 @@ type ScreenId = (typeof SCREENS)[number];
 const DRAFT_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 export function GenericOnboarding(props: Props) {
-  const { eventType, label, emoji, eventWord, authed, resume } = props;
+  const { eventType, label, emoji, eventWord, tiles, authed, resume } = props;
   const router = useRouter();
   const draftKey = `setnayan_onboarding_generic_${eventType}_draft_v1`;
 
@@ -117,6 +121,8 @@ export function GenericOnboarding(props: Props) {
     [allAxesAnswered, axes],
   );
   const reveal = personaKey ? GENERIC_PERSONA_REVEAL[personaKey] : null;
+  // Starter plan derived from the type's taxonomy categories, sized by the effort axis.
+  const plan = useMemo(() => deriveGenericPlan(tiles, axes.effort), [tiles, axes.effort]);
 
   const canContinue = (() => {
     if (screen === 'name') return displayName.trim().length > 0;
@@ -156,8 +162,8 @@ export function GenericOnboarding(props: Props) {
       experienceForWhom:
         forWhom === 'couple' || forWhom === 'guests' || forWhom === 'both' ? forWhom : null,
       experienceAxes: axes,
-      // Per-type plan derivation (picks/services/refinements) lands in PR3's packs.
-      picks: [],
+      // Starter plan derived from the type's taxonomy (PR3) → interested_categories.
+      picks: plan.picks,
       interestedServices: [],
       refinements: {},
       basicMoodboard: null,
@@ -314,9 +320,30 @@ export function GenericOnboarding(props: Props) {
             <>
               <Title>{reveal.name}</Title>
               <p className="mx-auto mt-3 max-w-md text-ink/65">{reveal.tagline}</p>
-              <p className="mt-6 text-sm text-ink/50">
-                We’ll line up the right team and a starting look for your {label.toLowerCase()}.
-              </p>
+              {plan.labels.length > 0 ? (
+                <div className="mx-auto mt-7 max-w-md">
+                  <p className="mb-3 text-xs font-medium uppercase tracking-[0.18em] text-ink/45">
+                    We’ll line up
+                  </p>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {plan.labels.map((l) => (
+                      <span
+                        key={l}
+                        className="rounded-full border border-ink/12 bg-paper px-3 py-1.5 text-sm text-ink/80"
+                      >
+                        {l}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="mt-5 text-sm text-ink/50">
+                    You can add, swap, or remove any of these on your dashboard.
+                  </p>
+                </div>
+              ) : (
+                <p className="mt-6 text-sm text-ink/50">
+                  We’ll line up the right team and a starting look for your {label.toLowerCase()}.
+                </p>
+              )}
             </>
           ) : (
             <Title>Answer a few more to see your plan.</Title>

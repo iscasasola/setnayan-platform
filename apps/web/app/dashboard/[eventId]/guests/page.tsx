@@ -634,6 +634,11 @@ export default async function GuestsPage({ params, searchParams }: Props) {
               }
               roleSetKey={eventTypeProfile.roleSetKey}
               recentlyDeleted={search.bulk_deleted}
+              recentlyApplied={Boolean(
+                search.bulk_assigned ||
+                  search.bulk_grouped ||
+                  search.bulk_sided,
+              )}
             />
           )}
         </div>

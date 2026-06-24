@@ -3,15 +3,20 @@
 Two bugs in the desktop guest-list bulk-action bar (`guest-list-multiselect.tsx`),
 reported by owner after deleting 3 selected guests:
 
-- **Stale selection after delete** — the bulk-delete server action soft-deletes
-  then redirects to `?bulk_deleted=N` (a client-side nav). The list re-rendered
-  with the guests gone, but the module-singleton selection store (`guest-selection-store.ts`)
-  still held the now-dead IDs, so the floating `SelectionBar` stayed stuck on
-  "N selected / Delete N". Added a gated self-heal effect: when the
-  `?bulk_deleted` flag is present, prune the selection to guests that still
-  exist (so the bar empties + disappears). Gated on the flag + `allIds` so
-  ordinary filter/search navigation never drops a cross-view selection, and a
-  repeat delete with the same N still re-runs.
+- **Stale selection after a bulk action** — the bulk-delete/apply server actions
+  redirect to a `?bulk_*=N` success flag (a client-side nav). The list re-renders,
+  but the module-singleton selection store (`guest-selection-store.ts`) still held
+  the acted-on IDs, so the floating `SelectionBar` stayed stuck on
+  "N selected / Delete N". Added a gated reset effect keyed on the success flag +
+  `allIds` (fresh ref per server re-render, so it's the per-navigation trigger and
+  a repeat action with the same N re-runs):
+  - **Delete** prunes the selection to guests that still exist (deleted ones are
+    gone → bar empties + disappears).
+  - **Apply** (assign role/side/group, `?bulk_assigned|bulk_grouped|bulk_sided`)
+    clears the selection so the host isn't left with a stale bar after assigning.
+  Reads the live selection via a ref so it fires once per bulk-action navigation,
+  not on every re-select while a flag lingers in the URL; ordinary
+  filter/search/sort nav carries no flag, so cross-view selections are never touched.
 - **No "deleting…" feedback** — the Delete (and Apply) buttons were raw
   `<button type="submit">` with no in-flight state, so they looked idle from
   click until the redirect landed. Swapped both for the shared `<SubmitButton>`

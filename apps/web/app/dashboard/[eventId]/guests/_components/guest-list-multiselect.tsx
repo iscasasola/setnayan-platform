@@ -400,11 +400,14 @@ type Props = {
   // Iteration 0053 P4 Unit 5: the event's role-set key, driving the bulk-assign
   // picker sections. Optional (defaults to wedding → byte-identical).
   roleSetKey?: string | null;
-  // The `?bulk_deleted=N` flag from the server action's success redirect. When
-  // present we self-heal the (module-singleton) selection store by dropping any
-  // selected guest that no longer exists — otherwise the floating SelectionBar
-  // would keep showing "N selected / Delete N" with the just-deleted IDs.
+  // Success flags from the bulk-action redirects, used to reset the floating
+  // SelectionBar once the action lands (the selection store is a module
+  // singleton that the navigation alone doesn't clear). `recentlyDeleted` =
+  // the `?bulk_deleted=N` flag (delete prunes the gone guests); `recentlyApplied`
+  // = any of `?bulk_assigned|bulk_grouped|bulk_sided` (apply clears the bar so
+  // the host isn't left with a stale selection after assigning a role/side/group).
   recentlyDeleted?: string;
+  recentlyApplied?: boolean;
 };
 
 export function GuestListMultiselect({
@@ -418,6 +421,7 @@ export function GuestListMultiselect({
   groupMode,
   roleSetKey,
   recentlyDeleted,
+  recentlyApplied,
 }: Props) {
   // Per-event-type bulk-assign sections (iteration 0053 P4 Unit 5).
   const bulkRoleSections = bulkRoleSectionsFor(roleSetKey);
@@ -443,20 +447,33 @@ export function GuestListMultiselect({
     selectedIds.length > 0 && selectedIds.length === allIds.length;
   const someSelected = selectedIds.length > 0 && !allSelected;
 
-  // Self-heal the selection after a bulk delete. The server action soft-deletes
-  // then redirects to `?bulk_deleted=N` (a client-side nav), so this list re-
-  // renders without the removed guests — but the module-singleton selection
-  // store still holds their dead IDs, leaving the floating SelectionBar stuck
-  // on "N selected / Delete N". Drop any selected ID that's no longer in the
-  // list. Gated on the flag (and on `allIds`, which only changes on a server
-  // re-render) so ordinary filter/search navigation never prunes a selection,
-  // and so a second delete with the same N still re-runs.
+  // Keep the latest selection in a ref so the reset effect below can read it
+  // WITHOUT re-subscribing to every toggle. The reset must fire once per
+  // bulk-action navigation, not each time the host (re)selects a guest while a
+  // success flag still sits in the URL — otherwise Apply's clear would wipe a
+  // fresh selection the instant it's made.
+  const selectedIdsRef = useRef(selectedIds);
+  selectedIdsRef.current = selectedIds;
+
+  // Reset the floating SelectionBar after a completed bulk action. The server
+  // action soft-deletes / applies, then redirects here with a success flag
+  // (a client-side nav) + revalidates — but the module-singleton selection
+  // store still holds the acted-on IDs, so the bar would linger on
+  // "N selected / Delete N". `allIds` gets a fresh reference on every server
+  // re-render, so it's the per-navigation trigger (and makes a repeat action
+  // with the same N still re-run). Filter/search/sort nav carries no flag, so
+  // selections made there are never touched.
   useEffect(() => {
-    if (!recentlyDeleted || selectedIds.length === 0) return;
-    const present = new Set(allIds);
-    const pruned = selectedIds.filter((id) => present.has(id));
-    if (pruned.length !== selectedIds.length) guestSelection.setAll(pruned);
-  }, [recentlyDeleted, allIds, selectedIds]);
+    if (!recentlyApplied && !recentlyDeleted) return;
+    const cur = selectedIdsRef.current;
+    if (cur.length === 0) return;
+    // Which selected guests survive the action:
+    //   • Apply (role/side/group) — none; the host asked the bar to clear too.
+    //   • Delete — those still in the list (the removed ones are already gone).
+    const keep = recentlyApplied ? null : new Set(allIds);
+    const next = keep ? cur.filter((id) => keep.has(id)) : [];
+    if (next.length !== cur.length) guestSelection.setAll(next);
+  }, [recentlyApplied, recentlyDeleted, allIds]);
 
   // group_id → group, built once instead of per-card (the old table rebuilt
   // this Object.fromEntries inside every row's render).

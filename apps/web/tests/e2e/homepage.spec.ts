@@ -16,25 +16,26 @@ import { test, expect } from '@playwright/test';
  * convention, every assertion here references a real route + real copy
  * shipping on `origin/main`.
  *
- * Hero structure note (2026-06-13 premium redesign): the h1 is now the
- * emotional hook "Goodbye, Viber chaos." and the brand punchline
- * "Hello, Set na 'yan." renders as a styled display span (not a heading).
- * So the heading assertion targets the h1 copy, and the brand phrase
- * "Set na 'yan" is verified as text. The brand line uses a curly Unicode
- * apostrophe, so the text match keys on the unambiguous "Set na" prefix to
- * tolerate any apostrophe codepoint.
+ * Hero structure note (2026-06-24 memory-home repositioning · PR-H): the h1 is
+ * "Your wedding is one day." and the punchline "Keep it forever." renders as a
+ * styled display span (not a heading). The brand phrase "SET NA 'YAN" stays in
+ * the eyebrow above the headline, so the heading assertion targets the h1 copy
+ * and the brand phrase is still verified as text via a case-insensitive
+ * "Set na" match (tolerates the uppercase eyebrow + any apostrophe codepoint).
+ * (CI renders this keynote fallback because no hero video is published there.)
  */
 test.describe('Homepage', () => {
   test('renders with primary CTAs', async ({ page }) => {
     await page.goto('/');
 
-    // Hero headline — `_sections.tsx` ships the h1 "Goodbye, Viber chaos."
-    // (the emotional hook) with the brand line "Hello, Set na 'yan." rendered
-    // as a styled span beneath it.
+    // Hero headline — `_sections.tsx` ships the h1 "Your wedding is one day."
+    // with the punchline "Keep it forever." rendered as a styled span beneath.
     await expect(
-      page.getByRole('heading', { name: /Goodbye, Viber chaos/i }),
+      page.getByRole('heading', { name: /Your wedding is one day/i }),
     ).toBeVisible();
-    // Brand phrase still present (prefix match tolerates any apostrophe form).
+    // Punchline + brand phrase still present (eyebrow keeps "SET NA 'YAN").
+    // "forever." is its own styled span, so match that single text node.
+    await expect(page.getByText(/forever/i).first()).toBeVisible();
     await expect(page.getByText(/Set na/i).first()).toBeVisible();
 
     // Hero primary CTA — `_sections.tsx` ships "Start planning" → /signup.

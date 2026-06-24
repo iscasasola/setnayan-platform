@@ -55,12 +55,16 @@ import {
 // ─────────────────────────────────────────────────────────────────────
 // 3. Hero — "Set na 'yan." + HeroCollage dashboard mock
 // ─────────────────────────────────────────────────────────────────────
-export async function Hero() {
+export async function Hero({ forceKeynote = false }: { forceKeynote?: boolean } = {}) {
   // Owner-uploaded scroll-scrub video (admin /admin/hero-video). When a video
   // is published, it REPLACES the default hero; otherwise we fall back to the
   // headline + dashboard mock below. Homepage is force-static — publishing
   // calls revalidatePath('/') to rebuild with the new frames.
-  const heroVideo = await fetchPublishedHeroVideo();
+  //
+  // `forceKeynote` (set by ?hero=text on the homepage) skips the video so the
+  // text/keynote hero can be previewed even while a video is published — used
+  // to review hero-copy changes without unpublishing the live video.
+  const heroVideo = forceKeynote ? null : await fetchPublishedHeroVideo();
   if (heroVideo) {
     return (
       <HeroVideoScrub

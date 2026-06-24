@@ -149,7 +149,15 @@ const softwareAppJsonLd = {
   },
 };
 
-export default function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ hero?: string }>;
+}) {
+  // ?hero=text forces the text/keynote hero (skipping a published video) so a
+  // hero-copy change can be previewed without unpublishing the live video.
+  const { hero } = await searchParams;
+  const forceKeynote = hero === 'text';
   return (
     <>
       <script
@@ -161,7 +169,7 @@ export default function HomePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareAppJsonLd) }}
       />
       <main className="bg-[var(--m-paper)] text-[var(--m-ink)]">
-        <Hero />
+        <Hero forceKeynote={forceKeynote} />
         <PostHeroReveal>
           <FeaturesNarrative />
           <SiteFooter />

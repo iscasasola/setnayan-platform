@@ -11,7 +11,7 @@ import {
   ShieldCheck,
   User,
   Plus,
-  CircleUser,
+  LayoutGrid,
   ChevronDown,
 } from 'lucide-react';
 import type { SwitcherData } from './get-switcher-data';
@@ -204,8 +204,8 @@ export function AccountSwitcher({ data, currentEventName }: Props) {
               onClick={close}
               className="flex items-center gap-2.5 rounded-xl px-2 py-2 text-sm font-medium text-ink/85 hover:bg-terracotta/10"
             >
-              <CircleUser aria-hidden className="h-4 w-4 shrink-0 text-terracotta-700" strokeWidth={1.75} />
-              Account
+              <LayoutGrid aria-hidden className="h-4 w-4 shrink-0 text-terracotta-700" strokeWidth={1.75} />
+              Collection
             </Link>
           </div>
 
@@ -258,7 +258,7 @@ export function AccountSwitcher({ data, currentEventName }: Props) {
           ) : null}
 
           {/* Slim account footer — Sign out only. The switcher is for switching;
-              Profile & Settings now live in the Account hub. Hosts shows only
+              Profile & Settings now live in the Collection hub. Hosts shows only
               when there's a co-host context. */}
           <div className="border-t border-ink/10 px-4 py-2.5">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
@@ -528,8 +528,8 @@ export function AccountSwitcherStandalone({ data }: Props) {
                       onClick={close}
                       className="flex items-center gap-2.5 rounded-xl px-2 py-2 text-sm font-medium text-ink/85 hover:bg-terracotta/10"
                     >
-                      <CircleUser aria-hidden className="h-4 w-4 shrink-0 text-terracotta-700" strokeWidth={1.75} />
-                      Account
+                      <LayoutGrid aria-hidden className="h-4 w-4 shrink-0 text-terracotta-700" strokeWidth={1.75} />
+                      Collection
                     </Link>
                   </div>
 
@@ -562,7 +562,7 @@ export function AccountSwitcherStandalone({ data }: Props) {
                     </div>
                   ) : null}
 
-                  {/* Slim account footer — Sign out only (Profile & Settings live in the Account hub). */}
+                  {/* Slim account footer — Sign out only (Profile & Settings live in the Collection hub). */}
                   <div className="border-t border-ink/10 px-4 py-2.5">
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
                       {hostsHref ? (

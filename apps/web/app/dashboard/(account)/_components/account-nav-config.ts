@@ -21,7 +21,7 @@
  * AccountSidebar and any Server Component can import + call this.
  */
 
-import { CalendarHeart, CircleUser, Bell, Settings, Store, Plus } from 'lucide-react';
+import { CalendarHeart, LayoutGrid, Bell, Settings, Store, Plus } from 'lucide-react';
 import type { NavGroup } from '@/app/_components/nav/types';
 
 export function buildAccountNavGroups(): NavGroup[] {
@@ -41,12 +41,14 @@ export function buildAccountNavGroups(): NavGroup[] {
           matchPrefix: '__home__',
         },
         {
-          // Library — cross-event hub: Photos & Videos · Saved Vendors · Editorials,
-          // aggregated across every event the user hosts or attends.
+          // Collection — cross-event hub: Photos & Videos · Saved Vendors · Editorials,
+          // aggregated across every event the user hosts or attends. Labelled
+          // "Collection" (not "Account") so it no longer collides with the
+          // identity surface "Profile & Settings" below.
           key: 'library',
-          label: 'Account',
+          label: 'Collection',
           href: '/dashboard/library',
-          icon: CircleUser,
+          icon: LayoutGrid,
           matchPrefix: '/dashboard/library',
         },
         {

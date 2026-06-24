@@ -6,7 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 /**
  * Persistent guest accounts (PR-E) — link a signed guest session to a new
  * (or returning) Setnayan account so the guest's tagged photos from the
- * event they ATTENDED surface in their Account hub (/dashboard/library Photos
+ * event they ATTENDED surface in their Collection hub (/dashboard/library Photos
  * tab). The hub's "attended" path keys off `event_members.guest_id` keyed by
  * (event_id, user_id) — this helper creates exactly that membership row.
  *

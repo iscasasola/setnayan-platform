@@ -152,7 +152,7 @@ export async function ForVendorsDeepDive() {
           }}
         >
           Solo is a complete business: one category, one operator, the full
-          in-app suite. Pro and Enterprise don't unlock your craft — they expand
+          in-app suite. Pro and Enterprise don&rsquo;t unlock your craft — they expand
           it: more categories, more team, wider reach, and tools that scale as
           you grow. Every tool on the list is{' '}
           <em style={{ color: 'var(--m-ink)' }}>only possible because Setnayan</em>{' '}

@@ -14,6 +14,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { resolveOnboardingFlow } from '@/lib/onboarding/flow-config';
+import { getOnboardingTiles } from '@/lib/onboarding-refinements';
 import { experienceQuizEnabled } from '@/lib/experience-quiz';
 import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
 import { GenericOnboarding } from './_components/generic-onboarding';
@@ -51,9 +52,13 @@ export default async function GenericOnboardingPage({
   const flow = resolveOnboardingFlow(profile);
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // The type's applicable taxonomy categories (PR3) drive the experience-quiz's
+  // derived starter plan; getOnboardingTiles scopes to the type + degrades to [].
+  const [{ data: userData }, tiles] = await Promise.all([
+    supabase.auth.getUser(),
+    getOnboardingTiles(type),
+  ]);
+  const user = userData.user;
 
   return (
     <GenericOnboarding
@@ -63,6 +68,7 @@ export default async function GenericOnboardingPage({
       organizerNoun={profile.terminology.organizerNoun}
       eventWord={profile.terminology.eventWord}
       flowKey={flow.flowKey}
+      tiles={tiles}
       authed={!!user}
       anonEnabled={anonOnboardingEnabled()}
       resume={sp.resume === '1'}

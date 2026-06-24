@@ -50,11 +50,12 @@ type Props = {
   searchParams: Promise<{ ordered?: string; error?: string; cycle?: string }>;
 };
 
-type PaidTier = Extract<VendorTier, 'pro' | 'enterprise'>;
+type PaidTier = Extract<VendorTier, 'solo' | 'pro' | 'enterprise'>;
 
-const PAID_TIERS: PaidTier[] = ['pro', 'enterprise'];
+const PAID_TIERS: PaidTier[] = ['solo', 'pro', 'enterprise'];
 
 const TIER_PITCH: Record<PaidTier, string> = {
+  solo: 'For solo operators — one category, the full in-app suite, and unlimited inquiries.',
   pro: 'For growing studios — more reach, agents, and unlimited in-app inquiries.',
   enterprise: 'For multi-branch teams — unlimited everything, nationwide reach.',
 };
@@ -64,9 +65,13 @@ const TIER_PITCH: Record<PaidTier, string> = {
 function keyCapLines(tier: PaidTier): string[] {
   const c = TIER_CAPS[tier];
   const fin = (n: number) => (Number.isFinite(n) ? NUMBER.format(n) : 'Unlimited');
+  const agentLabel =
+    c.agentAccounts === 0
+      ? 'Solo operator · no agent seats'
+      : `${fin(c.agentAccounts)} agent seat${c.agentAccounts === 1 ? '' : 's'}`;
   return [
     `${fin(c.parentCategories)} listing categor${c.parentCategories === 1 ? 'y' : 'ies'}`,
-    `${fin(c.agentAccounts)} agent seat${c.agentAccounts === 1 ? '' : 's'}`,
+    agentLabel,
     `${Number.isFinite(c.serviceRadiusKm) ? `${fin(c.serviceRadiusKm)} km` : 'Nationwide'} reach`,
     `${fin(c.portfolioPhotos)} portfolio photos`,
     'Unlimited in-app inquiries',
@@ -128,7 +133,7 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
     new Date(tierExpiresAt).getTime() - now <= fourteenDaysMs &&
     new Date(tierExpiresAt).getTime() > now;
 
-  const isPaid = currentTier === 'pro' || currentTier === 'enterprise';
+  const isPaid = currentTier === 'solo' || currentTier === 'pro' || currentTier === 'enterprise';
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
@@ -151,13 +156,15 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
           >
             <Crown className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
             Current plan:{' '}
-            {currentTier === 'pro'
-              ? 'Pro'
-              : currentTier === 'enterprise'
-                ? 'Enterprise'
-                : currentTier === 'verified'
-                  ? 'Free · Verified'
-                  : 'Free'}
+            {currentTier === 'enterprise'
+              ? 'Enterprise'
+              : currentTier === 'pro'
+                ? 'Pro'
+                : currentTier === 'solo'
+                  ? 'Solo'
+                  : currentTier === 'verified'
+                    ? 'Free · Verified'
+                    : 'Free'}
             {currentCycle ? ` · ${currentCycle}` : ''}
           </span>
           {isPaid && tierExpiresAt && (
@@ -167,9 +174,7 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
               }
             >
               {expiresSoon ? 'Renews / expires soon — ' : ''}
-              {currentTier === 'pro' || currentTier === 'enterprise'
-                ? `active through ${fmtDate(tierExpiresAt)}`
-                : ''}
+              {isPaid ? `active through ${fmtDate(tierExpiresAt)}` : ''}
             </span>
           )}
         </div>
@@ -195,24 +200,28 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
       <div className="mt-5">
         <SubscriptionCards
           cycle={cycle}
-          cards={PAID_TIERS.map((tier) => {
+          cards={PAID_TIERS.flatMap((tier) => {
+            // Solo is monthly-only — skip it from the annual view.
+            if (tier === 'solo' && cycle === 'annual') return [];
             const sku = skuFor(tier, cycle);
             // Catalog price first; fall back to the code matrix only if the DB
             // read failed (e.g. CI with no service-role key).
             const price = priceBySku.get(sku) ?? TIER_PRICE_PHP[tier][cycle];
             const bundle = TIER_SUBSCRIPTION_BUNDLE_TOKENS[tier][cycle];
             const isCurrent = currentTier === tier && currentCycle === cycle;
-            return {
-              tier,
-              sku,
-              pitch: TIER_PITCH[tier],
-              price,
-              cycle,
-              bundleTokens: bundle,
-              capLines: keyCapLines(tier),
-              isCurrent,
-              isPaid,
-            } satisfies SubscriptionCardData;
+            return [
+              {
+                tier,
+                sku,
+                pitch: TIER_PITCH[tier],
+                price,
+                cycle,
+                bundleTokens: bundle,
+                capLines: keyCapLines(tier),
+                isCurrent,
+                isPaid,
+              } satisfies SubscriptionCardData,
+            ];
           })}
         />
       </div>

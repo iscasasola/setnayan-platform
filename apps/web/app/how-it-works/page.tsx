@@ -406,18 +406,18 @@ export default async function HowItWorksPage() {
                 <p className="font-mono text-[11px] uppercase tracking-[0.25em]">For vendors</p>
               </div>
               <h3 className="mt-2 text-lg font-semibold tracking-tight">
-                List your wedding business — free.
+                List your wedding business on Setnayan.
               </h3>
               <p className="mt-2 text-sm text-ink/70">
-                A free verified profile and in-app chat with couples. Pro at
-                {p.proMonthly} / 28 days unlocks 3 marketplace categories, a custom vendor slug,
-                advanced proposal builder, and editorial credits on the weddings you shoot.
+                Solo at {p.soloMonthly} / 28 days — one category, verified profile, full
+                in-app suite. Pro at {p.proMonthly} / 28 days scales reach with 3 categories,
+                3 agent seats, a custom slug, and the AI Proposal Builder.
               </p>
               <Link
                 href="/signup?as=vendor"
                 className="button-primary mt-4 inline-flex h-10 items-center px-5 text-sm"
               >
-                List your business — free
+                List your business
               </Link>
             </article>
           </div>

@@ -396,12 +396,12 @@ export default async function PricingPage() {
                 For vendors
               </p>
               <p className="mt-2 font-display text-2xl font-medium tracking-tight">
-                your-slug.setnayan.com
+                Sign up free · subscribe to go live
               </p>
               <p className="mt-3 text-sm leading-relaxed text-ink/65">
-                Your business landing page · portfolio · packages · inquiry
-                form · direct messaging. Verification is free — visible to
-                every couple browsing Setnayan.
+                Create your account and set up your profile at no cost. Solo
+                at ₱2,000/28d activates your marketplace presence — verified
+                profile, in-app chat, bid pipeline, and your vendor microsite.
               </p>
             </article>
           </div>
@@ -596,19 +596,23 @@ export default async function PricingPage() {
             </p>
           </div>
 
-          {/* Subscriptions · monthly + annual paired per tier */}
+          {/* Subscriptions · monthly + annual paired per tier (Solo / Pro / Enterprise) */}
           {vendorSubs.length > 0 ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {vendorSubs.map((sub) => {
                 const isPro = sub.sku_code.toLowerCase().includes('pro');
                 const seatsLine =
                   sub.max_sub_seats === null
-                    ? 'Unlimited sub-seats'
-                    : `${sub.max_sub_seats} sub-seats`;
+                    ? 'Unlimited agent seats'
+                    : sub.max_sub_seats === 0
+                    ? 'Solo operator · no agent seats'
+                    : `Up to ${sub.max_sub_seats} agent seats`;
                 const catsLine =
                   sub.max_categories === null
                     ? 'All categories'
-                    : `${sub.max_categories} category`;
+                    : sub.max_categories === 1
+                    ? '1 category'
+                    : `${sub.max_categories} categories`;
                 const annualDeal = annualFor(sub);
                 return (
                   <article
@@ -672,7 +676,7 @@ export default async function PricingPage() {
                           className="mt-0.5 h-4 w-4 shrink-0 text-terracotta"
                           strokeWidth={2}
                         />
-                        <span className="text-ink">Your free vendor site at slug.setnayan.com</span>
+                        <span className="text-ink">Verified profile + vendor microsite</span>
                       </li>
                     </ul>
                   </article>

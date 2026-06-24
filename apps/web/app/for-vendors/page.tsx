@@ -55,14 +55,14 @@ export const dynamic = 'force-dynamic';
 // hardcoded") — the Pro price comes from getVendorPrices().
 export async function generateMetadata() {
   const p = await getVendorPrices();
-  const title = `Setnayan for Vendors — Verified free + Pro · ${p.proMonthly}/28d`;
+  const title = `Setnayan for Vendors — Solo ${p.soloMonthly} · Pro ${p.proMonthly} · Enterprise ${p.enterpriseMonthly} / 28d`;
   return {
     title,
-    description: `Free verified profile + Pro tier ${p.proMonthly}/28d. 0% commission on bookings — we never touch the money. In-app chat, pipeline, reviews.`,
+    description: `Solo ${p.soloMonthly}/28d · Pro ${p.proMonthly}/28d · Enterprise ${p.enterpriseMonthly}/28d. 0% commission on bookings — we never touch the money. In-app chat, pipeline, reviews.`,
     alternates: { canonical: '/for-vendors' },
     openGraph: {
       title,
-      description: `Free verified profile + Pro tier ${p.proMonthly}/28d. 0% commission on bookings — we never touch the money.`,
+      description: `Solo ${p.soloMonthly}/28d · Pro ${p.proMonthly}/28d. 0% commission on bookings — we never touch the money.`,
       url: '/for-vendors',
       type: 'website',
       siteName: 'Setnayan',
@@ -70,7 +70,7 @@ export async function generateMetadata() {
     twitter: {
       card: 'summary_large_image',
       title,
-      description: `0% commission. Verified is free. Pro ${p.proMonthly}/28d.`,
+      description: `0% commission. Solo ${p.soloMonthly} · Pro ${p.proMonthly} · Enterprise ${p.enterpriseMonthly}/28d.`,
     },
   };
 }
@@ -80,7 +80,7 @@ const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com')
   '',
 );
 
-// Schema.org pricing — v2.1 4-tier vendor matrix (CLAUDE.md 2026-05-28 11th row)
+// Schema.org pricing — 3-tier vendor matrix (Solo / Pro / Enterprise · 2027-02-18)
 function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
   return {
   '@context': 'https://schema.org',
@@ -97,7 +97,7 @@ function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
       '@type': 'WebPage',
       '@id': `${SITE_URL}/for-vendors#webpage`,
       url: `${SITE_URL}/for-vendors`,
-      name: `Setnayan for vendors — Verified free + Pro · ${p.proMonthly}/28d`,
+      name: `Setnayan for vendors — Solo ${p.soloMonthly} · Pro ${p.proMonthly} · Enterprise ${p.enterpriseMonthly} / 28d`,
       isPartOf: { '@id': `${SITE_URL}/#website` },
       about: { '@id': `${SITE_URL}/#organization` },
       audience: {
@@ -108,29 +108,18 @@ function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
     },
     {
       '@type': 'Offer',
-      '@id': `${SITE_URL}/for-vendors#free-listing`,
-      name: 'Free vendor listing on Setnayan',
+      '@id': `${SITE_URL}/for-vendors#solo-vendor-subscription`,
+      name: 'Solo Vendor (28-day prepaid block)',
       description:
-        'Free verified business profile + in-app chat + pipeline + calendar + itemized receipts. 0% commission on every booking — Setnayan never touches the money between you and your couples.',
-      price: '0',
-      priceCurrency: 'PHP',
-      availability: 'https://schema.org/InStock',
-      seller: { '@id': `${SITE_URL}/#organization` },
-      url: `${SITE_URL}/signup?as=vendor`,
-    },
-    {
-      '@type': 'Offer',
-      '@id': `${SITE_URL}/for-vendors#verified-vendor`,
-      name: 'Verified Vendor · free verified badge',
-      description:
-        'Verification is free (₱0) — DTI · BIR · Mayor’s Permit · sample work checked by hand. Verified badge + ratings on profile + up to 10 free couple unlocks a week.',
-      price: '0',
+        '1 marketplace category · solo operator · verified profile + microsite + in-app chat + pipeline + calendar. Full in-app suite at the entry price. 0% commission — Setnayan never touches the money between you and your couples.',
+      price: String(p.num.soloMonthly),
       priceCurrency: 'PHP',
       priceSpecification: {
         '@type': 'UnitPriceSpecification',
-        price: '0',
+        price: String(p.num.soloMonthly),
         priceCurrency: 'PHP',
-        unitText: 'FREE',
+        billingDuration: 'P28D',
+        unitText: '28-DAY BLOCK',
       },
       availability: 'https://schema.org/InStock',
       seller: { '@id': `${SITE_URL}/#organization` },
@@ -278,6 +267,7 @@ export default async function ForVendorsPage() {
         <Voices />
         <FAQ
           vendorPrices={{
+            soloMonthly: p.soloMonthly,
             proMonthly: p.proMonthly,
             enterpriseMonthly: p.enterpriseMonthly,
             tokenUnit: p.tokenUnit,

@@ -35,7 +35,7 @@ const BENEFITS = [
   {
     tag: 'Lead capture',
     title: 'Couples find you, message you, book you — without leaving Setnayan.',
-    body: 'Show up in every couple’s vendor finder for your category. No third-party fees, no inboxes to juggle.',
+    body: "Show up in every couple's vendor finder for your category. No third-party fees, no inboxes to juggle.",
   },
   {
     tag: 'Calendar that means something',
@@ -55,7 +55,7 @@ const BENEFITS = [
   {
     tag: 'Crew-rate marketplace',
     title: 'Coming soon — list your crew, earn from every booking they take.',
-    body: 'Service captains, photographers, AV ops can opt into Setnayan’s crew rates. You earn a referral cut on every gig your team picks up.',
+    body: "Service captains, photographers, AV ops can opt into Setnayan's crew rates. You earn a referral cut on every gig your team picks up.",
   },
 ];
 
@@ -137,10 +137,10 @@ export async function ForVendorsDeepDive() {
         </p>
       </div>
 
-      {/* Free vs Pro intro */}
+      {/* Tier intro */}
       <div style={{ marginBottom: 14 }}>
         <div className="m-eyebrow" style={{ color: 'var(--m-slate-2)' }}>
-          Free is a whole business · paid tiers are for growing
+          Solo · Pro · Enterprise — one tier for every stage of your business
         </div>
         <div
           style={{
@@ -151,17 +151,16 @@ export async function ForVendorsDeepDive() {
             lineHeight: 1.5,
           }}
         >
-          Free isn’t a trial — it’s a complete business that already beats the
-          patchwork stack you use today (Kasal + Google Calendar + WhatsApp +
-          Wave). Pro and Enterprise don’t unlock your craft; they expand it —
-          more categories, more team, wider reach, and tools that scale as you
-          grow. Everything{' '}
-          <em style={{ color: 'var(--m-ink)' }}>only Setnayan can offer</em>,
-          because we have the couples, the data, and the ops team.
+          Solo is a complete business: one category, one operator, the full
+          in-app suite. Pro and Enterprise don&rsquo;t unlock your craft — they expand
+          it: more categories, more team, wider reach, and tools that scale as
+          you grow. Every tool on the list is{' '}
+          <em style={{ color: 'var(--m-ink)' }}>only possible because Setnayan</em>{' '}
+          has the couples, the data, and the ops team behind it.
         </div>
       </div>
 
-      {/* 4-tier matrix — desktop grid + mobile tier switcher */}
+      {/* 3-tier matrix — desktop grid + mobile tier switcher */}
       <VendorPricingMatrix prices={p} />
 
       {/* Why Pro is locked to Setnayan — 4 ecosystem reasons */}

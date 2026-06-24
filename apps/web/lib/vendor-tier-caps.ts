@@ -1,15 +1,15 @@
 /**
  * Vendor tier capability matrix — the SINGLE SOURCE OF TRUTH in code for the
- * owner-provided 4-tier grid (canonical: corpus `Vendor_Tier_Capability_Matrix_2026-06-07.md`).
+ * owner-provided tier grid.
  *
- * `tier_state` enum on vendor_profiles = free | verified | pro | enterprise.
- * Every per-tier gate (burn, counts, feature flags, name reveal, radius, …)
- * should read from TIER_CAPS so the matrix lives in exactly one place.
+ * `tier_state` enum on vendor_profiles = free | verified | solo | pro | enterprise.
+ * free + verified are legacy states kept for backward compatibility.
+ * The three marketed tiers are Solo (₱2,000/28d) · Pro (₱6,000/28d) · Enterprise (₱10,000/28d).
  *
  * Numeric caps use `Infinity` for "Unlimited" and `0` for "✗ / none".
  */
 
-export const VENDOR_TIERS = ['free', 'verified', 'pro', 'enterprise'] as const;
+export const VENDOR_TIERS = ['free', 'verified', 'solo', 'pro', 'enterprise'] as const;
 export type VendorTier = (typeof VENDOR_TIERS)[number];
 
 // Video calls REMOVED 2026-06-09 (owner). ChatLevel is text-only now — no
@@ -115,6 +115,31 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     customWebsiteName: false,
     inquireLink: true,
   },
+  // Solo — ₱2,000/28d entry-level paid tier (2027-02-18).
+  // One category, one operator. Real name shown day-1 (paid). Token-burn model
+  // same as Pro/Enterprise (inAppGated = true). No agent seats (truly solo).
+  solo: {
+    serviceRadiusKm: 20,
+    servicesPerLeaf: 3,
+    chat: 'chat',
+    parentCategories: 1,
+    agentAccounts: 0,
+    scheduling: 'hybrid',
+    marketplaceSearchable: true,
+    nameMode: 'true',
+    slotsPerDay: 1,
+    slotsTimeBounded: false,
+    inAppCustomersPerWeek: Infinity,
+    inAppGated: true,
+    importCustomerTokenCost: 1,
+    portfolioPhotos: 50,
+    editorialTagged: false,
+    reviewStarsCounted: true,
+    reviewCommentsViewable: false,
+    website: 'custom',
+    customWebsiteName: false,
+    inquireLink: true,
+  },
   pro: {
     serviceRadiusKm: 50,
     servicesPerLeaf: 5,
@@ -168,6 +193,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
 export const TIER_PRICE_PHP: Record<VendorTier, { monthly: number; annual: number }> = {
   free: { monthly: 0, annual: 0 },
   verified: { monthly: 0, annual: 0 },
+  solo: { monthly: 2000, annual: 0 },
   pro: { monthly: 6000, annual: 60000 },
   enterprise: { monthly: 10000, annual: 100000 },
 };
@@ -189,6 +215,7 @@ export const TIER_SUBSCRIPTION_BUNDLE_TOKENS: Record<
 > = {
   free: { monthly: 0, annual: 0 },
   verified: { monthly: 0, annual: 0 },
+  solo: { monthly: 2, annual: 0 },
   pro: { monthly: 5, annual: 50 },
   enterprise: { monthly: 10, annual: 100 },
 };
@@ -213,6 +240,7 @@ export function canBuyTokens(_tier: string | null | undefined): boolean {
 export const TIER_LABEL: Record<VendorTier, string> = {
   free: 'Free',
   verified: 'Free · Verified',
+  solo: 'Solo',
   pro: 'Pro',
   enterprise: 'Enterprise',
 };

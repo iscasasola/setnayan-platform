@@ -285,6 +285,14 @@ export default async function AdminEventTypesPage({ searchParams }: { searchPara
                       Scope categories →
                     </Link>
                   ) : null}
+                  {!retired ? (
+                    <Link
+                      href={`/admin/event-types/${r.event_type}/profile`}
+                      className="font-medium text-terracotta hover:underline"
+                    >
+                      Onboarding profile →
+                    </Link>
+                  ) : null}
                 </div>
 
                 <details className="mt-3">

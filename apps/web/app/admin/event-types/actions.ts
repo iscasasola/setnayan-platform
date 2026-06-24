@@ -436,3 +436,82 @@ export async function setFolderEventTypeOffered(formData: FormData) {
     `${changed} ${changed === 1 ? 'category' : 'categories'} ${offered ? 'offered to' : 'hidden from'} this event.`,
   );
 }
+
+/* ---- Onboarding profile (event_type_profiles · iteration 0053 Phase 3 · PR4) ---- */
+
+/** The 9 couple-facing surfaces a profile can enable (mirrors ALL_SURFACES in
+ *  lib/event-type-profile.ts). The editor renders a checkbox per surface. */
+const PROFILE_SURFACES = [
+  'website',
+  'save_the_date',
+  'rsvp',
+  'seating',
+  'budget',
+  'schedule',
+  'monogram',
+  'day_of',
+  'gallery',
+] as const;
+
+function profileRedirect(eventType: string, kind: 'ok' | 'error', msg: string): never {
+  const p = new URLSearchParams();
+  p.set(kind, msg);
+  redirect(`${BASE}/${eventType}/profile?${p.toString()}`);
+}
+
+/**
+ * Upsert an event type's onboarding/terminology profile (event_type_profiles).
+ * Terminology drives the per-type copy across the dashboard + the generic
+ * onboarding flow; enabled_surfaces gates which couple-facing surfaces apply;
+ * onboarding_flow_key + role_set_key wire the engine. The table's RLS already
+ * enforces is_admin() writes; requireAdmin is defense-in-depth. The partial
+ * upsert preserves the other pack keys (template/monogram/reveal/budget/
+ * schedule/statutory) on update — editing onboarding never wipes them.
+ */
+export async function upsertEventTypeProfile(formData: FormData) {
+  const user = await requireAdmin();
+  const key = String(formData.get('event_type') ?? '')
+    .trim()
+    .toLowerCase();
+  if (!KEY_RE.test(key)) {
+    redirect(`${BASE}?error=${encodeURIComponent('Bad event-type key.')}`);
+  }
+
+  const terminology = {
+    organizer_noun: cleanOptional(formData.get('organizer_noun'), 60),
+    person_a: cleanOptional(formData.get('person_a'), 60),
+    person_b: cleanOptional(formData.get('person_b'), 60),
+    seat_word: cleanOptional(formData.get('seat_word'), 60),
+    event_word: cleanOptional(formData.get('event_word'), 60),
+    vip_tier_label: cleanOptional(formData.get('vip_tier_label'), 80),
+  };
+  const enabled_surfaces = PROFILE_SURFACES.filter(
+    (s) => formData.get(`surface_${s}`) === 'on',
+  );
+  const onboarding_flow_key = cleanOptional(formData.get('onboarding_flow_key'), 60);
+  const role_set_key = cleanOptional(formData.get('role_set_key'), 60);
+
+  const row = { event_type: key, terminology, enabled_surfaces, onboarding_flow_key, role_set_key };
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('event_type_profiles')
+    .upsert(row, { onConflict: 'event_type' });
+  if (error) {
+    // 23503 = FK violation → the key isn't a known event_type_vocab row.
+    if (error.code === '23503') {
+      profileRedirect(key, 'error', `"${key}" is not a known event type.`);
+    }
+    profileRedirect(key, 'error', error.message);
+  }
+
+  await admin.from('admin_audit_log').insert({
+    action: 'event_types.profile_upsert',
+    target_table: 'event_type_profiles',
+    target_id: key,
+    after_json: row,
+    actor_user_id: user.id,
+  });
+  revalidateRosterSurfaces();
+  revalidatePath(`${BASE}/${key}/profile`);
+  profileRedirect(key, 'ok', 'Onboarding profile saved.');
+}

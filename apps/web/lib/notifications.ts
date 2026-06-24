@@ -150,7 +150,23 @@ export type NotificationType =
   // vendor only learned of a confirmation by happening to reopen the event
   // brief. Deep-links to their editorial-media page, so the confirmation
   // doubles as the invite to add a moment to the couple's story.
-  | 'completion_accepted';
+  | 'completion_accepted'
+  // Added 2026-06-24 alongside migration
+  // 20270221018919_add_order_reconciliation_notification_type.sql. Fired
+  // (admin/internal-recipient) from lib/order-admin-notify.ts (couple
+  // apply-then-pay orders) AND lib/subscription-purchase-notify.ts (vendor
+  // subscription purchases). Both previously borrowed
+  // 'vendor_token_purchase_pending', which made a couple's PHP order and a
+  // vendor subscription both render the badge "TOKEN PURCHASE AWAITING PAYMENT"
+  // (wrong — the customer token wallet is retired; a subscription isn't a token
+  // pack). Its own type lets the badge read "Awaiting reconciliation".
+  | 'order_awaiting_reconciliation'
+  // Added 2026-06-24 (same migration). Fired (vendor-recipient) from
+  // lib/subscription-purchase-notify.ts when a Pro/Enterprise plan goes live.
+  // Replaces the borrowed 'vendor_tokens_credited' so a plan activation no
+  // longer wears a "Tokens credited" badge (the body still mentions any bundled
+  // vendor tokens — those are real and stay).
+  | 'subscription_activated';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   chat_message: 'New message',
@@ -201,6 +217,12 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   payment_cleared: 'Payment plan settled',
   // Vendor lifecycle Phase 3→4 spine (2026-06-20).
   completion_accepted: 'Service confirmed',
+  // Admin reconciliation signal (2026-06-24) — couple orders + vendor
+  // subscriptions awaiting payment confirmation. NOT a token purchase; kept
+  // distinct from vendor_token_purchase_pending so the badge reads correctly.
+  order_awaiting_reconciliation: 'Awaiting reconciliation',
+  // Vendor subscription went live (2026-06-24). NOT "Tokens credited".
+  subscription_activated: 'Plan active',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -294,6 +316,12 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   // The couple confirmed receipt = a positive close to the booking + an invite
   // to add a moment to their story → emerald (matches booking_confirmed).
   completion_accepted: 'bg-success-200 text-success-900',
+  // A new paid order/subscription awaiting admin reconciliation = action-needed
+  // → amber (same register as the vendor_token_purchase_pending it replaces here).
+  order_awaiting_reconciliation: 'bg-warn-100 text-warn-900',
+  // A plan going live = a positive money-in confirmation → emerald (matches
+  // order_paid / the vendor_tokens_credited it replaces here).
+  subscription_activated: 'bg-success-200 text-success-900',
 };
 
 export type NotificationRow = {

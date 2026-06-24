@@ -1,6 +1,7 @@
 import { KeyRound } from 'lucide-react';
 import type { SecretIntegrationDef } from '@/lib/integrations/registry';
 import { saveIntegrationSecret, clearIntegrationSecret } from '../actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 // Integration Activation Console — PR2. Generic card for a registry "simple
 // secret" integration (one encrypted API key, DB-first / env-fallback). Renders
@@ -63,23 +64,23 @@ export function SecretCard({
             className="mt-1 w-full rounded-md border border-ink/15 bg-white px-3 py-2 font-mono text-sm outline-none focus:border-terracotta/50"
           />
         </label>
-        <button
-          type="submit"
+        <SubmitButton
+          pendingLabel="Saving…"
           className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
         >
           Save
-        </button>
+        </SubmitButton>
       </form>
 
       {dbHasKey ? (
         <form action={clearIntegrationSecret} className="border-t border-ink/10 pt-4">
           <input type="hidden" name="integration_id" value={integration.id} />
-          <button
-            type="submit"
+          <SubmitButton
+            pendingLabel="Clearing…"
             className="inline-flex items-center justify-center gap-2 rounded-md border border-ink/15 bg-cream px-4 py-2 text-sm font-medium text-ink/60 transition-colors hover:border-rose-300 hover:text-rose-700"
           >
             Clear saved key
-          </button>
+          </SubmitButton>
         </form>
       ) : null}
     </section>

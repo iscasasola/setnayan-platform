@@ -1,6 +1,7 @@
 import { KeyRound } from 'lucide-react';
 import type { OAuthIntegrationDef } from '@/lib/integrations/registry';
 import { saveOAuthConfig, clearOAuthSecret } from '../actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 // Integration Activation Console — PR3b. Generic card for an OAuth client:
 // one encrypted client secret + N non-secret config fields (client id/key +
@@ -92,23 +93,23 @@ export function OAuthCard({
           </label>
         ))}
 
-        <button
-          type="submit"
+        <SubmitButton
+          pendingLabel="Saving…"
           className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
         >
           Save
-        </button>
+        </SubmitButton>
       </form>
 
       {secretInDb ? (
         <form action={clearOAuthSecret} className="border-t border-ink/10 pt-4">
           <input type="hidden" name="oauth_id" value={integration.id} />
-          <button
-            type="submit"
+          <SubmitButton
+            pendingLabel="Clearing…"
             className="inline-flex items-center justify-center gap-2 rounded-md border border-ink/15 bg-cream px-4 py-2 text-sm font-medium text-ink/60 transition-colors hover:border-rose-300 hover:text-rose-700"
           >
             Clear saved secret
-          </button>
+          </SubmitButton>
         </form>
       ) : null}
     </section>

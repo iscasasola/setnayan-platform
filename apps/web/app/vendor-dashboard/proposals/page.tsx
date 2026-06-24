@@ -12,6 +12,7 @@ import {
   formatCentavos,
   type ProposalStatus,
 } from '@/lib/vendor-proposals';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { createProposal, deleteTemplate, saveTemplate } from './actions';
 
 export const metadata = { title: 'Proposals · Vendor' };
@@ -198,9 +199,9 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
                 <input type="date" name="valid_until" className="rounded-lg border border-ink/20 bg-white px-2 py-1.5" />
               </label>
             </div>
-            <button type="submit" className="justify-self-start rounded-lg bg-ink px-4 py-2 text-sm font-medium text-cream">
+            <SubmitButton pendingLabel="Creating…" className="justify-self-start rounded-lg bg-ink px-4 py-2 text-sm font-medium text-cream">
               Generate draft
-            </button>
+            </SubmitButton>
           </form>
         )}
       </div>
@@ -261,9 +262,9 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
                 </div>
                 <form action={deleteTemplate}>
                   <input type="hidden" name="template_id" value={t.template_id} />
-                  <button type="submit" aria-label={`Delete ${t.template_name}`} className="text-ink/40 hover:text-red-700">
+                  <SubmitButton pendingLabel="Removing…" aria-label={`Delete ${t.template_name}`} className="text-ink/40 hover:text-red-700">
                     <Trash2 aria-hidden className="h-4 w-4" />
-                  </button>
+                  </SubmitButton>
                 </form>
               </li>
             ))}
@@ -294,9 +295,9 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
                 ))}
               </select>
             ) : null}
-            <button type="submit" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
+            <SubmitButton pendingLabel="Saving…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
               Save template
-            </button>
+            </SubmitButton>
           </form>
           <div className="mt-3 rounded-lg bg-white/70 p-3">
             <p className="text-xs font-semibold text-ink/70">Merge tokens</p>

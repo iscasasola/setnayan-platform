@@ -3,6 +3,7 @@ import { Handshake, CheckCircle2, Clock } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { FormFlash } from '@/app/_components/forms/form-flash';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { submitPartnershipClaim } from '@/app/admin/vendor-partnerships/actions';
 
 export const metadata = { title: 'Partnerships · Vendor' };
@@ -241,12 +242,12 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
           </label>
 
           <div className="sm:col-span-2">
-            <button
-              type="submit"
+            <SubmitButton
+              pendingLabel="Submitting…"
               className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-ink/90"
             >
               Submit for review
-            </button>
+            </SubmitButton>
             <p className="mt-2 text-xs text-ink/45">
               Setnayan HQ will verify this with the other vendor before the badge goes live.
               False claims may result in your profile being flagged.

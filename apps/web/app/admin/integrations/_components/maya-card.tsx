@@ -1,5 +1,6 @@
 import { KeyRound, ShieldAlert } from 'lucide-react';
 import { saveMayaConfig, clearMayaSecrets } from '../actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 // Integration Activation Console — PR4c. Bespoke card for Maya/PayMaya: TWO
 // secrets (public + secret key form the Basic-auth pair) + one config (checkout
@@ -95,22 +96,22 @@ export function MayaCard({
             className="mt-1 w-full rounded-md border border-ink/15 bg-white px-3 py-2 font-mono text-xs outline-none focus:border-terracotta/50"
           />
         </label>
-        <button
-          type="submit"
+        <SubmitButton
+          pendingLabel="Saving…"
           className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
         >
           Save
-        </button>
+        </SubmitButton>
       </form>
 
       {publicInDb || secretInDb ? (
         <form action={clearMayaSecrets} className="border-t border-ink/10 pt-4">
-          <button
-            type="submit"
+          <SubmitButton
+            pendingLabel="Clearing…"
             className="inline-flex items-center justify-center gap-2 rounded-md border border-ink/15 bg-cream px-4 py-2 text-sm font-medium text-ink/60 transition-colors hover:border-rose-300 hover:text-rose-700"
           >
             Clear saved keys
-          </button>
+          </SubmitButton>
         </form>
       ) : null}
 

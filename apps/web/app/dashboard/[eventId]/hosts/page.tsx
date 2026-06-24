@@ -22,6 +22,7 @@ import {
   type RoleSubtype,
 } from '@/lib/event-moderators';
 import { inviteHost, revokeHostInvite, removeHost, setDelegateBudget } from './actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Hosts · Setnayan' };
 
@@ -282,12 +283,12 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
                   <input type="hidden" name="role_subtype" value="wedding_planner_external" />
                   <input type="hidden" name="delegate_kind" value="coordinator" />
                   <input type="hidden" name="display_label" value={c.vendor_name.slice(0, 80)} />
-                  <button
-                    type="submit"
+                  <SubmitButton
+                    pendingLabel="Inviting…"
                     className="rounded-md bg-terracotta px-3 py-1.5 text-xs font-semibold text-cream hover:bg-terracotta/90"
                   >
                     Invite as delegate
-                  </button>
+                  </SubmitButton>
                 </form>
               </li>
             ))}
@@ -340,13 +341,13 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
                   <form action={revokeHostInvite}>
                     <input type="hidden" name="event_id" value={eventId} />
                     <input type="hidden" name="moderator_id" value={row.moderator_id} />
-                    <button
-                      type="submit"
+                    <SubmitButton
+                      pendingLabel="Removing…"
                       className="inline-flex items-center gap-1 rounded-md border border-terracotta/30 bg-cream px-2.5 py-1 text-xs text-terracotta-700 hover:bg-terracotta/10"
                     >
                       <Trash2 aria-hidden className="h-3 w-3" strokeWidth={1.75} />
                       Revoke
-                    </button>
+                    </SubmitButton>
                   </form>
                 </div>
               </li>
@@ -435,12 +436,12 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
                             name="budget_grant"
                             value={budgetLevel ? 'off' : 'view'}
                           />
-                          <button
-                            type="submit"
+                          <SubmitButton
+                            pendingLabel="Saving…"
                             className="text-[11px] text-ink/55 underline hover:text-ink"
                           >
                             {budgetLevel ? 'Hide budget' : 'Allow budget view'}
-                          </button>
+                          </SubmitButton>
                         </form>
                         <form action={removeHost} className="flex items-center gap-1.5">
                           <input type="hidden" name="event_id" value={eventId} />
@@ -460,12 +461,12 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
                             <option value="new_coordinator">We have a new coordinator</option>
                             <option value="other">Other</option>
                           </select>
-                          <button
-                            type="submit"
+                          <SubmitButton
+                            pendingLabel="Removing…"
                             className="text-[11px] text-terracotta-700 underline hover:text-terracotta"
                           >
                             Remove
-                          </button>
+                          </SubmitButton>
                         </form>
                       </div>
                     ) : null}
@@ -599,9 +600,9 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
             </span>
           </label>
 
-          <button type="submit" className="button-primary h-11 px-5">
+          <SubmitButton pendingLabel="Inviting…" className="button-primary h-11 px-5">
             Send invitation
-          </button>
+          </SubmitButton>
         </form>
       </section>
     </section>

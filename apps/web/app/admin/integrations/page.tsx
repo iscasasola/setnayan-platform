@@ -11,6 +11,7 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { saveResendConfig, clearResendKey, setAiPaywall } from './actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { TestResendButton } from './_components/test-resend-button';
 import { SecretCard } from './_components/secret-card';
 import { OAuthCard } from './_components/oauth-card';
@@ -214,12 +215,12 @@ export default async function AdminIntegrationsPage({
             />
           </label>
           <div className="flex flex-wrap gap-2">
-            <button
-              type="submit"
+            <SubmitButton
+              pendingLabel="Saving…"
               className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
             >
               Save
-            </button>
+            </SubmitButton>
           </div>
         </form>
 
@@ -227,12 +228,12 @@ export default async function AdminIntegrationsPage({
           <TestResendButton />
           {dbHasKey ? (
             <form action={clearResendKey}>
-              <button
-                type="submit"
+              <SubmitButton
+                pendingLabel="Clearing…"
                 className="inline-flex items-center justify-center gap-2 rounded-md border border-ink/15 bg-cream px-4 py-2 text-sm font-medium text-ink/60 transition-colors hover:border-rose-300 hover:text-rose-700"
               >
                 Clear saved key
-              </button>
+              </SubmitButton>
             </form>
           ) : null}
         </div>
@@ -286,12 +287,12 @@ export default async function AdminIntegrationsPage({
               <option value="off">Off — free for everyone</option>
             </select>
           </label>
-          <button
-            type="submit"
+          <SubmitButton
+            pendingLabel="Saving…"
             className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
           >
             Save
-          </button>
+          </SubmitButton>
         </form>
       </section>
 

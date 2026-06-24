@@ -40,9 +40,9 @@ import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
 // GEO Phase G2 (2026-05-28) — brand-first title + value-prop description.
 // Carried forward from prior page.tsx so AI answer engines + SERP cards
 // keep extracting the same brand + price + 0% commission signals. Pricing
-const HOME_TITLE = 'Setnayan · Filipino wedding planning + verified vendors';
+const HOME_TITLE = 'Setnayan · Plan your Filipino wedding free — keep it forever';
 const HOME_DESCRIPTION =
-  'Filipino-first wedding planning. Free to start. Verified vendor marketplace. 0% commission. Plan your whole wedding in one place.';
+  'Plan your whole Filipino wedding free — then keep every photo, video, and memory in one place, for life. Verified vendor marketplace, 0% commission.';
 
 export const metadata = {
   title: HOME_TITLE,
@@ -149,7 +149,15 @@ const softwareAppJsonLd = {
   },
 };
 
-export default function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ hero?: string }>;
+}) {
+  // ?hero=text forces the text/keynote hero (skipping a published video) so a
+  // hero-copy change can be previewed without unpublishing the live video.
+  const { hero } = await searchParams;
+  const forceKeynote = hero === 'text';
   return (
     <>
       <script
@@ -161,7 +169,7 @@ export default function HomePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareAppJsonLd) }}
       />
       <main className="bg-[var(--m-paper)] text-[var(--m-ink)]">
-        <Hero />
+        <Hero forceKeynote={forceKeynote} />
         <PostHeroReveal>
           <FeaturesNarrative />
           <SiteFooter />

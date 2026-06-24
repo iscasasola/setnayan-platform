@@ -55,12 +55,16 @@ import {
 // ─────────────────────────────────────────────────────────────────────
 // 3. Hero — "Set na 'yan." + HeroCollage dashboard mock
 // ─────────────────────────────────────────────────────────────────────
-export async function Hero() {
+export async function Hero({ forceKeynote = false }: { forceKeynote?: boolean } = {}) {
   // Owner-uploaded scroll-scrub video (admin /admin/hero-video). When a video
   // is published, it REPLACES the default hero; otherwise we fall back to the
   // headline + dashboard mock below. Homepage is force-static — publishing
   // calls revalidatePath('/') to rebuild with the new frames.
-  const heroVideo = await fetchPublishedHeroVideo();
+  //
+  // `forceKeynote` (set by ?hero=text on the homepage) skips the video so the
+  // text/keynote hero can be previewed even while a video is published — used
+  // to review hero-copy changes without unpublishing the live video.
+  const heroVideo = forceKeynote ? null : await fetchPublishedHeroVideo();
   if (heroVideo) {
     return (
       <HeroVideoScrub
@@ -90,7 +94,7 @@ export async function Hero() {
               fontWeight: 400,
             }}
           >
-            Goodbye, Viber chaos.
+            Your wedding is one day.
           </h1>
           <div className="mt-2 sm:mt-3.5">
             <span
@@ -102,7 +106,7 @@ export async function Hero() {
                 lineHeight: 1.02,
               }}
             >
-              Hello, <span className="text-[var(--m-orange)]">Set na ‘yan.</span>
+              Keep it <span className="text-[var(--m-orange)]">forever.</span>
             </span>
           </div>
           <div className="mt-4 flex items-center gap-3.5">
@@ -111,16 +115,16 @@ export async function Hero() {
               <circle cx="50" cy="10" r="2" fill="var(--m-orange)" />
             </svg>
             <span className="m-serif italic text-[22px] text-[var(--m-slate)]">
-              <span className="text-[var(--m-ink)]">&ldquo;It&apos;s all set.&rdquo;</span> The whole wedding, in one app.
+              <span className="text-[var(--m-ink)]">&ldquo;It&apos;s all set.&rdquo;</span> And it stays that way.
             </span>
           </div>
           <p
             className="m-serif italic text-[var(--m-slate)] mt-5 sm:mt-8 max-w-[560px]"
             style={{ fontSize: 21, lineHeight: 1.65, textWrap: 'pretty' as 'pretty' }}
           >
-            Every guest leaves with their own photos and a personal memory reel.{' '}
+            Keep every photo, every video, every memory — in one place, for life.{' '}
             <span className="not-italic font-[var(--font-sans-marketing,var(--font-sans))] text-[17px] text-[var(--m-ink)]">
-              The planning that gets them there — guest list, verified vendors, seating, schedule — runs in one
+              The planning that gets you there — guest list, verified vendors, seating, schedule — runs in one
               place, free from the day you start.
             </span>
           </p>

@@ -1,9 +1,10 @@
 'use client';
 
-import { Fragment, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { ChevronDown, Trash2, X } from 'lucide-react';
 import { ConfirmForm } from '@/app/_components/confirm-form';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { guestSelection, useGuestSelection } from './guest-selection-store';
 import { resolveRoleSet } from '@/lib/role-sets';
 import {
@@ -399,6 +400,11 @@ type Props = {
   // Iteration 0053 P4 Unit 5: the event's role-set key, driving the bulk-assign
   // picker sections. Optional (defaults to wedding → byte-identical).
   roleSetKey?: string | null;
+  // The `?bulk_deleted=N` flag from the server action's success redirect. When
+  // present we self-heal the (module-singleton) selection store by dropping any
+  // selected guest that no longer exists — otherwise the floating SelectionBar
+  // would keep showing "N selected / Delete N" with the just-deleted IDs.
+  recentlyDeleted?: string;
 };
 
 export function GuestListMultiselect({
@@ -411,6 +417,7 @@ export function GuestListMultiselect({
   photoDisplayUrls,
   groupMode,
   roleSetKey,
+  recentlyDeleted,
 }: Props) {
   // Per-event-type bulk-assign sections (iteration 0053 P4 Unit 5).
   const bulkRoleSections = bulkRoleSectionsFor(roleSetKey);
@@ -435,6 +442,21 @@ export function GuestListMultiselect({
   const allSelected =
     selectedIds.length > 0 && selectedIds.length === allIds.length;
   const someSelected = selectedIds.length > 0 && !allSelected;
+
+  // Self-heal the selection after a bulk delete. The server action soft-deletes
+  // then redirects to `?bulk_deleted=N` (a client-side nav), so this list re-
+  // renders without the removed guests — but the module-singleton selection
+  // store still holds their dead IDs, leaving the floating SelectionBar stuck
+  // on "N selected / Delete N". Drop any selected ID that's no longer in the
+  // list. Gated on the flag (and on `allIds`, which only changes on a server
+  // re-render) so ordinary filter/search navigation never prunes a selection,
+  // and so a second delete with the same N still re-runs.
+  useEffect(() => {
+    if (!recentlyDeleted || selectedIds.length === 0) return;
+    const present = new Set(allIds);
+    const pruned = selectedIds.filter((id) => present.has(id));
+    if (pruned.length !== selectedIds.length) guestSelection.setAll(pruned);
+  }, [recentlyDeleted, allIds, selectedIds]);
 
   // group_id → group, built once instead of per-card (the old table rebuilt
   // this Object.fromEntries inside every row's render).
@@ -704,14 +726,17 @@ function BulkDeleteForm({
       {selectedIds.map((id) => (
         <input key={id} type="hidden" name="guest_ids[]" value={id} />
       ))}
-      <button
-        type="submit"
+      {/* SubmitButton (shared useFormStatus button) so the host gets a clear
+          "Removing…" + spinner + disabled state while the delete is in flight,
+          instead of a button that looks idle until the redirect lands. */}
+      <SubmitButton
+        pendingLabel="Removing…"
         className="inline-flex h-8 items-center gap-1.5 rounded-md border border-danger-300/60 bg-danger-50 px-3 text-xs font-medium text-danger-700 hover:border-danger-400 hover:bg-danger-100"
         aria-label={`Remove ${count} selected guest${count === 1 ? '' : 's'}`}
       >
         <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
         Delete {count}
-      </button>
+      </SubmitButton>
     </ConfirmForm>
   );
 }
@@ -866,13 +891,14 @@ function BulkApplyForm({
         />
       </div>
 
-      {/* Single Apply button at the end · owner directive */}
-      <button
-        type="submit"
+      {/* Single Apply button at the end · owner directive. SubmitButton gives
+          it the same in-flight "Applying…" + disabled feedback as Delete. */}
+      <SubmitButton
+        pendingLabel="Applying…"
         className="inline-flex h-9 items-center rounded-md bg-mulberry px-4 text-xs font-medium text-cream hover:bg-mulberry-600"
       >
         Apply
-      </button>
+      </SubmitButton>
 
       <button
         type="button"

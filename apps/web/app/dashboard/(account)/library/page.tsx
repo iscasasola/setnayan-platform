@@ -6,10 +6,10 @@ import { PhotosTab } from './_components/photos-tab';
 import { VendorsTab } from './_components/vendors-tab';
 import { EditorialsTab } from './_components/editorials-tab';
 
-export const metadata = { title: 'Account' };
+export const metadata = { title: 'Collection' };
 
 /**
- * Library — the account-level, CROSS-EVENT hub. One sidebar entry, three tabs:
+ * Collection — the account-level, CROSS-EVENT hub. One sidebar entry, three tabs:
  * Photos & Videos · Saved Vendors · Editorials. Each tab aggregates across every
  * event the user hosts or attends (replacing the old per-tab switcher sections
  * that were removed in the events-first switcher redesign). Tab state lives in
@@ -51,7 +51,7 @@ export default async function LibraryPage({
 
       <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2">
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Account</h1>
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Collection</h1>
           <p className="max-w-prose text-base text-ink/65">
             Everything that&rsquo;s yours — your photos &amp; videos, saved vendors, and the
             editorials you&rsquo;re part of, kept across all your events.

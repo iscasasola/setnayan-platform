@@ -4,6 +4,7 @@ import { ArrowLeft, CheckCircle2, Send, Trash2, XCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { PrintButton } from '@/components/print-button';
+import { SubmitButton } from '@/app/_components/submit-button';
 import {
   PROPOSAL_STATUS_LABEL,
   PROPOSAL_STATUS_TONE,
@@ -215,21 +216,21 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
           <form action={sendProposal}>
             <input type="hidden" name="proposal_id" value={proposal.proposal_id} />
             <input type="hidden" name="public_id" value={proposal.public_id} />
-            <button
-              type="submit"
+            <SubmitButton
+              pendingLabel="Sending…"
               className="inline-flex items-center gap-1.5 rounded-lg bg-ink px-4 py-2 text-sm font-medium text-cream"
             >
               <Send aria-hidden className="h-4 w-4" /> Send to couple
-            </button>
+            </SubmitButton>
           </form>
           <form action={deleteDraftProposal}>
             <input type="hidden" name="proposal_id" value={proposal.proposal_id} />
-            <button
-              type="submit"
+            <SubmitButton
+              pendingLabel="Removing…"
               className="inline-flex items-center gap-1.5 rounded-lg border border-ink/20 px-4 py-2 text-sm font-medium text-ink/70 hover:text-red-700"
             >
               <Trash2 aria-hidden className="h-4 w-4" /> Delete draft
-            </button>
+            </SubmitButton>
           </form>
           <p className="w-full text-xs text-ink/45">
             Sending freezes these numbers — RSVP changes after today won&rsquo;t alter this
@@ -244,23 +245,23 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
             <input type="hidden" name="proposal_id" value={proposal.proposal_id} />
             <input type="hidden" name="public_id" value={proposal.public_id} />
             <input type="hidden" name="response" value="accepted" />
-            <button
-              type="submit"
+            <SubmitButton
+              pendingLabel="Accepting…"
               className="inline-flex items-center gap-1.5 rounded-lg bg-success-700 px-4 py-2 text-sm font-medium text-white"
             >
               <CheckCircle2 aria-hidden className="h-4 w-4" /> Accept proposal
-            </button>
+            </SubmitButton>
           </form>
           <form action={respondToProposal}>
             <input type="hidden" name="proposal_id" value={proposal.proposal_id} />
             <input type="hidden" name="public_id" value={proposal.public_id} />
             <input type="hidden" name="response" value="declined" />
-            <button
-              type="submit"
+            <SubmitButton
+              pendingLabel="Declining…"
               className="inline-flex items-center gap-1.5 rounded-lg border border-ink/20 px-4 py-2 text-sm font-medium text-ink/70"
             >
               <XCircle aria-hidden className="h-4 w-4" /> Decline
-            </button>
+            </SubmitButton>
           </form>
           <p className="w-full text-xs text-ink/45">
             Accepting tells {businessName} you&rsquo;re going with this — it doesn&rsquo;t

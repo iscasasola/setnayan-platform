@@ -53,6 +53,7 @@ import {
 } from '../actions';
 import { signInWithGoogle } from '@/app/auth/oauth-actions';
 import { signUp } from '@/app/signup/actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
 import { experienceQuizEnabled } from '@/lib/experience-quiz';
 import {
@@ -4160,13 +4161,13 @@ export function OnboardingShell({
             <div className="stack">
               <form action={signInWithGoogle}>
                 <input type="hidden" name="next" value={RESUME_NEXT} />
-                <button
+                <SubmitButton
+                  pendingLabel="Redirecting…"
                   className="opt"
-                  type="submit"
                   style={{ width: '100%', font: 'inherit', cursor: 'pointer', textAlign: 'center', justifyContent: 'center' }}
                 >
                   <div className="ot" style={{ justifyContent: 'center', width: '100%' }}>Continue with Google</div>
-                </button>
+                </SubmitButton>
               </form>
             </div>
             {emailMode ? (
@@ -4191,7 +4192,7 @@ export function OnboardingShell({
                   placeholder="Create a password (8+ characters)"
                   style={{ fontFamily: 'var(--sans)', fontStyle: 'normal', fontSize: 15 }}
                 />
-                <button className="byo-send" type="submit">Create account</button>
+                <SubmitButton className="byo-send" pendingLabel="Creating account…">Create account</SubmitButton>
               </form>
             ) : (
               <div className="ghost" onClick={() => setEmailMode(true)} style={{ cursor: 'pointer' }}>

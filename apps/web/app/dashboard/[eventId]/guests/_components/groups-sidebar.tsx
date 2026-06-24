@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { MoreHorizontal, Plus, Users, X } from 'lucide-react';
 import { ConfirmForm } from '@/app/_components/confirm-form';
+import { SubmitButton } from '@/app/_components/submit-button';
 import {
   createGuestGroup,
   deleteGuestGroup,
@@ -232,12 +233,12 @@ function KebabMenu({
             destructive
             className="block"
           >
-            <button
-              type="submit"
+            <SubmitButton
+              pendingLabel="Removing…"
               className="block w-full px-3 py-1.5 text-left text-xs text-danger-700 hover:bg-danger-50"
             >
               Delete group
-            </button>
+            </SubmitButton>
           </ConfirmForm>
         </div>
       ) : null}
@@ -272,12 +273,12 @@ function NewGroupForm({
         autoFocus
       />
       <TeamSideSelect />
-      <button
-        type="submit"
+      <SubmitButton
+        pendingLabel="Creating…"
         className="inline-flex h-8 w-full items-center justify-center rounded-md bg-mulberry text-xs font-medium text-cream hover:bg-mulberry-600"
       >
         Create group
-      </button>
+      </SubmitButton>
     </form>
   );
 }
@@ -307,12 +308,12 @@ function EditGroupForm({
       />
       <TeamSideSelect defaultSide={group.team_side} />
       <div className="flex gap-1">
-        <button
-          type="submit"
+        <SubmitButton
+          pendingLabel="Saving…"
           className="inline-flex h-8 flex-1 items-center justify-center rounded-md bg-mulberry text-xs font-medium text-cream hover:bg-mulberry-600"
         >
           Save
-        </button>
+        </SubmitButton>
         <button
           type="button"
           onClick={onClose}

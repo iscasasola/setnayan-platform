@@ -11,6 +11,7 @@ import { StudioFeaturedCard } from './_components/studio-featured-card';
 import { StudioSectionTabs } from './_components/studio-section-tabs';
 import { dismissRecommendation, recommendFeature } from './recommend-actions';
 import { createClient } from '@/lib/supabase/server';
+import { SubmitButton } from '@/app/_components/submit-button';
 import Link from 'next/link';
 
 // The cinema-poster card (service-poster.tsx) still owns the `PosterStyle`
@@ -180,12 +181,12 @@ export default async function StudioPage({ params }: Props) {
       <form action={recommendFeature}>
         <input type="hidden" name="event_id" value={eventId} />
         <input type="hidden" name="addon_key" value={entry.key} />
-        <button
-          type="submit"
+        <SubmitButton
+          pendingLabel="Recommending…"
           className="rounded-full border border-terracotta/40 bg-terracotta/5 px-3 py-1 text-xs font-bold text-terracotta-700 transition-colors hover:bg-terracotta/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
         >
           Recommend
-        </button>
+        </SubmitButton>
       </form>
     );
   }
@@ -258,12 +259,12 @@ export default async function StudioPage({ params }: Props) {
                   <form action={dismissRecommendation}>
                     <input type="hidden" name="event_id" value={eventId} />
                     <input type="hidden" name="addon_key" value={entry.key} />
-                    <button
-                      type="submit"
+                    <SubmitButton
+                      pendingLabel="Dismissing…"
                       className="shrink-0 rounded-full px-2.5 py-1 text-xs font-medium text-ink/45 transition-colors hover:text-ink/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
                     >
                       Dismiss
-                    </button>
+                    </SubmitButton>
                   </form>
                 </li>
               );

@@ -223,6 +223,7 @@ export async function fetchV2VendorCatalog(): Promise<V2VendorSku[]> {
 export const getVendorPrices = cache(async () => {
   const rows = await fetchV2VendorCatalog();
   const price = (code: string) => rows.find((r) => r.sku_code === code)?.price_php ?? null;
+  const soloMo = price('solo_vendor_monthly');
   const proMo = price('pro_vendor_monthly');
   const proYr = price('pro_vendor_annual');
   const entMo = price('enterprise_vendor_monthly');
@@ -230,16 +231,11 @@ export const getVendorPrices = cache(async () => {
   const branch = price('vendor_branch_28day');
   const pack = rows.find((r) => r.offering_type === 'token_pack' && r.token_grant_count);
   const tokenUnit = pack && pack.token_grant_count ? pack.price_php / pack.token_grant_count : 100;
-  // formatPeso() returns the number only (no sign) — callers add ₱ themselves.
-  // These display strings are rendered bare by every consumer (matrix, FAQ,
-  // hero, how-it-works) and must include the ₱ to match the fallbacks + the
-  // hardcoded "₱0" Free/Verified prices. (The numeric `num.*` below is what the
-  // schema.org Offers use, so those stay sign-free.)
   const fmt = (n: number | null, fb: string) => (n == null ? fb : `₱${formatPeso(n)}`);
   const save = (mo: number | null, yr: number | null, fb: string) =>
     mo != null && yr != null ? `₱${formatPeso(mo * 13 - yr)}` : fb;
   return {
-    verified: '₱0',
+    soloMonthly: fmt(soloMo, '₱2,000'),
     proMonthly: fmt(proMo, '₱6,000'),
     proAnnual: fmt(proYr, '₱60,000'),
     proAnnualSave: save(proMo, proYr, '₱18,000'),
@@ -250,6 +246,7 @@ export const getVendorPrices = cache(async () => {
     tokenUnit: `₱${formatPeso(tokenUnit)}`,
     // Raw numbers for the schema.org JSON-LD Offers (need unformatted values).
     num: {
+      soloMonthly: soloMo ?? 2000,
       proMonthly: proMo ?? 6000,
       proAnnual: proYr ?? 60000,
       enterpriseMonthly: entMo ?? 10000,

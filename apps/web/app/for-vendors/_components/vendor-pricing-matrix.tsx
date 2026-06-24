@@ -1,24 +1,12 @@
 /**
- * VendorPricingMatrix · the v2.1 4-tier vendor matrix, responsive.
+ * VendorPricingMatrix · 3-tier vendor comparison matrix (Solo / Pro / Enterprise).
  *
- * WHY: split out of ForVendorsDeepDive (2026-06-15) so the dense comparison
- * matrix can adapt to phones. The matrix is 8 sections × ~35 feature rows ×
- * 4 tiers — on desktop that reads as a wide grid, but the old mobile fallback
- * (`overflow-x: auto` + `min-width: 760px`) forced a 760px-wide sideways scroll
- * on a ~380px phone: Pro/Enterprise (the columns we sell) sat off-screen and
- * the price header scrolled away after a few rows.
+ * 2027-02-18: replaced the old Free/Verified/Pro/Enterprise 4-tier layout with
+ * the new Solo/Pro/Enterprise structure. Free and Verified remain as legacy DB
+ * states but are no longer marketed.
  *
- * Owner-picked fix (2026-06-15): a tier SWITCHER on mobile. A sticky segmented
- * control (Free / Verified / Pro / Enterprise, default Pro) drives a single
- * 2-column layout — feature label + the selected tier's value. Zero horizontal
- * scroll; the tier + price stay pinned while you scan the full feature list.
- *
- * Desktop (≥1024px) renders the original 5-column grid VERBATIM — no visual
- * change. Which layout shows is pure CSS (`display`), so there is no
- * JS-breakpoint hydration mismatch; the only client state is the selected tier.
- *
- * Prices arrive pre-resolved from the server (getVendorPrices) as a prop so
- * this stays a thin client island over a server data fetch.
+ * Desktop (≥1024px): 4-column grid (feature label + 3 tier columns).
+ * Mobile (<1024px): tier switcher (3 pills, default Pro) + single column.
  */
 'use client';
 
@@ -30,11 +18,12 @@ type CellValue = string | boolean;
 interface MatrixSection {
   section: string;
   note: string;
-  rows: [string, CellValue, CellValue, CellValue, CellValue][];
+  rows: [string, CellValue, CellValue, CellValue][];
 }
 
 /** The fields of getVendorPrices() this component reads. */
 export interface VendorMatrixPrices {
+  soloMonthly: string;
   proMonthly: string;
   proAnnual: string;
   proAnnualSave: string;
@@ -43,105 +32,94 @@ export interface VendorMatrixPrices {
   enterpriseAnnualSave: string;
 }
 
+// Rows: [feature, Solo, Pro, Enterprise]
 const MATRIX_SECTIONS: MatrixSection[] = [
   {
     section: 'The basics · every tier',
-    note: 'Free already matches the best free vendor stack on the market.',
+    note: 'Every paying tier gets the full in-app suite from day one.',
     rows: [
-      ['Verified vendor profile + microsite', 'Free', 'Free', 'Free', 'Free'],
-      ['In-app chat (couple-initiated)', 'Free', 'Free', 'Free', 'Free'],
-      ['Pipeline · Bid → Chat → Quote → Accept', 'Free', 'Free', 'Free', 'Free'],
-      ['Create service packages', 'Free', 'Free', 'Free', 'Free'],
-      ['Photo portfolio', 'Up to 15', 'Unlimited', 'Unlimited', 'Unlimited'],
-      ['Calendar with .ics export', 'Free', 'Free', 'Free', 'Free'],
+      ['Verified vendor profile + microsite', true, true, true],
+      ['In-app chat (couple-initiated)', true, true, true],
+      ['Pipeline · Bid → Chat → Quote → Accept', true, true, true],
+      ['Create service packages', true, true, true],
+      ['Photo portfolio', '50 photos', 'Unlimited', 'Unlimited'],
+      ['Calendar with .ics export', true, true, true],
     ],
   },
   {
     section: '🪙 Bidding · the per-action engine',
-    note: 'Vendors spend tokens to accept couple inquiries; verified vendors get free couple unlocks every week.',
+    note: 'All paid tiers get unlimited couple unlocks. Inquiries burn region-banded tokens.',
     rows: [
-      ['Bids per week', 'Up to 10', 'Unlimited', 'Unlimited', 'Unlimited'],
-      ['Bidding token packs', 'Buy packs', 'Buy packs', 'Buy packs', 'Buy packs'],
-      ['Free couple unlocks per week', '—', 'Up to 10', 'Up to 10', 'Up to 10'],
+      ['Bids per week', 'Unlimited', 'Unlimited', 'Unlimited'],
+      ['Bidding token packs', true, true, true],
+      ['In-app couple inquiries', 'Unlimited', 'Unlimited', 'Unlimited'],
     ],
   },
   {
     section: '📡 Reach & visibility',
-    note: 'Boost radius scales by tier. Boost individual features for 7 days · 4–100 tokens each. Higher tiers also unlock a shareable bid link for social.',
+    note: 'Boost radius scales by tier. Boosters let you unlock individual features for 7 days.',
     rows: [
-      ['Boost radius', '10km', '20km', '50km', '100km'],
-      ['Boosters · 7-day feature unlocks · 4–100 tokens each', true, true, true, true],
-      ['Additional branch add-on', false, false, true, true],
-      ['Sharable bid link for social media', false, false, false, true],
+      ['Boost radius', '20km', '50km', '100km'],
+      ['Boosters · 7-day feature unlocks · 4–100 tokens each', true, true, true],
+      ['Additional branch add-on', false, true, true],
+      ['Sharable bid link for social media', false, false, true],
     ],
   },
   {
     section: '🌐 Your vendor surfaces',
-    note: 'From a profile to a full custom microsite with a bid button. Higher tiers get more polish.',
+    note: 'Every tier gets a custom microsite. Slug and Bid Button are Pro+.',
     rows: [
-      ['Public vendor website', '—', 'Website', 'Custom website', 'Custom website'],
-      ['Custom slug · setnayan.com/v/yourname', false, false, true, true],
-      ['Bid Button on your website', false, false, true, true],
-      ['Show star ratings on profile', false, true, true, true],
-      ['Show full reviews on profile', false, false, true, true],
+      ['Custom vendor website', true, true, true],
+      ['Custom slug · setnayan.com/v/yourname', false, true, true],
+      ['Bid Button on your website', false, true, true],
+      ['Show star ratings on profile', true, true, true],
+      ['Show full reviews on profile', false, true, true],
     ],
   },
   {
     section: '🗓 Schedule',
-    note: 'Manual on Free; Hybrid on Verified+ — pending bids show as white-marker holds, locked bids auto-block the date.',
+    note: 'Hybrid scheduling on all paid tiers. Multiple events per day unlocks on Pro+.',
     rows: [
-      ['Scheduling mode', 'Manual', 'Hybrid', 'Hybrid', 'Hybrid'],
-      ['Multiple events per day', false, false, true, true],
+      ['Scheduling mode', 'Hybrid', 'Hybrid', 'Hybrid'],
+      ['Multiple events per day', false, true, true],
     ],
   },
   {
     section: '📈 Grow & scale · Pro+',
-    note: "Tools that expand your business as it grows — never ones you need to run your craft. Editorial tagging that auto-builds your \"successful weddings\" collection, category toolkits, AI proposal drafts: automation, polish, and insight that put you in front of more couples and save you time as you scale.",
+    note: 'Tools that expand your business — editorial tagging, AI proposals, category toolkits, analytics.',
     rows: [
-      [
-        'Editorial Tagging · auto-featured in couples\' editorials',
-        false,
-        false,
-        true,
-        true,
-      ],
-      ['On Boarding Bundle Maker', false, false, true, true],
-      ['File sharing with couples', false, false, true, true],
-      ['Specialized Tools · per-category toolkit', false, false, true, true],
-      ['AI Proposal Builder', false, false, true, true],
-      ['Category benchmark analytics', false, false, true, true],
-      ['Demand pulse · what couples are searching', false, false, true, true],
-      ['Reverse-image portfolio theft monitoring', false, false, true, true],
-      ['Crew-rate marketplace', false, false, true, true],
-      ['Co-listing with Setnayan Productions', false, false, true, true],
+      ["Editorial Tagging · auto-featured in couples' editorials", false, true, true],
+      ['On Boarding Bundle Maker', false, true, true],
+      ['File sharing with couples', false, true, true],
+      ['Specialized Tools · per-category toolkit', false, true, true],
+      ['AI Proposal Builder', false, true, true],
+      ['Category benchmark analytics', false, true, true],
+      ['Demand pulse · what couples are searching', false, true, true],
+      ['Reverse-image portfolio theft monitoring', false, true, true],
+      ['Crew-rate marketplace', false, true, true],
+      ['Co-listing with Setnayan Productions', false, true, true],
     ],
   },
   {
-    section: '🏢 Scope (Enterprise difference)',
-    note: 'Pro is built for one team running one category. Enterprise opens it up — multiple categories, unlimited team accounts.',
+    section: '🏢 Scope',
+    note: 'Solo is one operator, one category. Pro adds 3 categories and 3 agent seats. Enterprise removes all limits.',
     rows: [
-      ['Categories you can list under', '1', '1', '1', 'Multiple'],
-      ['Team accounts', '1', '1', 'Up to 5', 'Unlimited'],
+      ['Categories you can list under', '1', '3', 'Multiple'],
+      ['Agent seats', '—', 'Up to 3', 'Unlimited'],
     ],
   },
   {
     section: '🤝 Ops + support',
-    note: 'Every vendor gets couple matchmaking. Pro+ adds priority support; Enterprise adds a quarterly review.',
+    note: 'Every tier gets couple matchmaking. Pro+ adds priority support; Enterprise adds a quarterly review.',
     rows: [
-      ['Couple matching', 'Free', 'Free', 'Priority', 'Priority'],
-      ['Priority support · sub-4h response', false, false, true, true],
-      ['Quarterly business review', false, false, false, true],
+      ['Couple matching', 'Standard', 'Priority', 'Priority'],
+      ['Priority support · sub-4h response', false, true, true],
+      ['Quarterly business review', false, false, true],
     ],
   },
 ];
 
-function MatrixCell({
-  value,
-  isPro,
-}: {
-  value: CellValue;
-  isPro: boolean;
-}): ReactNode {
+function MatrixCell({ value, isPro }: { value: CellValue; isPro: boolean }): ReactNode {
   if (typeof value === 'boolean') {
     if (value) {
       return (
@@ -163,23 +141,14 @@ function MatrixCell({
       );
     }
     return (
-      <span
-        className="m-mono"
-        style={{
-          color: 'var(--m-slate-3)',
-          fontSize: 12,
-        }}
-      >
+      <span className="m-mono" style={{ color: 'var(--m-slate-3)', fontSize: 12 }}>
         —
       </span>
     );
   }
   if (value === '—') {
     return (
-      <span
-        className="m-mono"
-        style={{ color: 'var(--m-slate-3)', fontSize: 12 }}
-      >
+      <span className="m-mono" style={{ color: 'var(--m-slate-3)', fontSize: 12 }}>
         —
       </span>
     );
@@ -204,32 +173,26 @@ interface TierMeta {
   unit: string;
   note: string;
   annual?: string;
-  /** Pro is the highlighted/dark column on desktop; mirror that on mobile. */
   ink: boolean;
 }
 
-export function VendorPricingMatrix({
-  prices,
-}: {
-  prices: VendorMatrixPrices;
-}) {
-  // Default to Pro (index 2) — the tier the page is built to sell.
-  const [tier, setTier] = useState(2);
+export function VendorPricingMatrix({ prices }: { prices: VendorMatrixPrices }) {
+  // Default to Pro (index 1) — the tier the page is built to sell.
+  const [tier, setTier] = useState(1);
 
   const tiers: TierMeta[] = [
-    { label: 'Free', price: '₱0', unit: '/ 28d', note: 'no card needed', ink: false },
     {
-      label: '✓ Verified',
-      price: '₱0',
-      unit: 'to start',
-      note: 'verified badge · free to get',
+      label: 'Solo',
+      price: prices.soloMonthly,
+      unit: '/ 28d',
+      note: '1 category · solo operator',
       ink: false,
     },
     {
       label: '★ Pro',
       price: prices.proMonthly,
       unit: '/ 28d',
-      note: '3 categories · 3 accounts',
+      note: '3 categories · 3 agent seats',
       annual: `or ${prices.proAnnual}/yr · save ${prices.proAnnualSave}`,
       ink: true,
     },
@@ -243,36 +206,25 @@ export function VendorPricingMatrix({
     },
   ];
   const active = tiers[tier];
-  // tier is always 0–3 and tiers has 4 entries, so this is unreachable —
-  // it just narrows away the `| undefined` from noUncheckedIndexedAccess.
   if (!active) return null;
 
   return (
     <>
       {/* ============================ DESKTOP ============================ */}
-      {/* Original 5-column grid · unchanged markup (≥1024px). */}
-      <div
-        className="m-card m-matrix-desktop"
-        style={{ padding: 0, overflow: 'hidden' }}
-      >
-        {/* Header row · 4 tiers */}
+      <div className="m-card m-matrix-desktop" style={{ padding: 0, overflow: 'hidden' }}>
+        {/* Header row */}
         <div
           className="m-matrix-row"
           style={{
             display: 'grid',
-            gridTemplateColumns: '1.7fr 1fr 1fr 1fr 1fr',
+            gridTemplateColumns: '1.7fr 1fr 1fr 1fr',
             background: 'var(--m-paper)',
           }}
         >
-          <div
-            style={{
-              padding: '22px 24px',
-              borderBottom: '1px solid var(--m-line)',
-            }}
-          >
+          <div style={{ padding: '22px 24px', borderBottom: '1px solid var(--m-line)' }}>
             <div className="m-label-mono">Capability</div>
           </div>
-          {/* FREE */}
+          {/* SOLO */}
           <div
             style={{
               padding: '22px 16px',
@@ -280,42 +232,13 @@ export function VendorPricingMatrix({
               borderLeft: '1px solid var(--m-line-soft)',
             }}
           >
-            <div className="m-label-mono">Free</div>
-            <div
-              className="m-display"
-              style={{ fontSize: 22, color: 'var(--m-ink)', marginTop: 4 }}
-            >
-              ₱0{' '}
+            <div className="m-label-mono">Solo</div>
+            <div className="m-display" style={{ fontSize: 22, color: 'var(--m-ink)', marginTop: 4 }}>
+              {prices.soloMonthly}{' '}
               <span style={{ fontSize: 12, color: 'var(--m-slate-2)' }}>/ 28d</span>
             </div>
-            <div
-              className="m-mono"
-              style={{ fontSize: 10, color: 'var(--m-slate-2)', marginTop: 4 }}
-            >
-              no card needed
-            </div>
-          </div>
-          {/* VERIFIED */}
-          <div
-            style={{
-              padding: '22px 16px',
-              borderBottom: '1px solid var(--m-line)',
-              borderLeft: '1px solid var(--m-line-soft)',
-            }}
-          >
-            <div className="m-label-mono">✓ Verified</div>
-            <div
-              className="m-display"
-              style={{ fontSize: 22, color: 'var(--m-ink)', marginTop: 4 }}
-            >
-              ₱0{' '}
-              <span style={{ fontSize: 12, color: 'var(--m-slate-2)' }}>to start</span>
-            </div>
-            <div
-              className="m-mono"
-              style={{ fontSize: 10, color: 'var(--m-slate-2)', marginTop: 4 }}
-            >
-              verified badge · free to get
+            <div className="m-mono" style={{ fontSize: 10, color: 'var(--m-slate-2)', marginTop: 4 }}>
+              1 category · solo operator
             </div>
           </div>
           {/* PRO (highlighted) */}
@@ -325,29 +248,17 @@ export function VendorPricingMatrix({
               borderBottom: '1px solid var(--m-line)',
               background: 'var(--m-ink)',
               color: 'var(--m-paper)',
-              position: 'relative',
             }}
           >
-            <div className="m-label-mono" style={{ color: 'var(--m-orange-3)' }}>
-              ★ Pro
-            </div>
-            <div
-              className="m-display"
-              style={{ fontSize: 22, color: 'var(--m-paper)', marginTop: 4 }}
-            >
+            <div className="m-label-mono" style={{ color: 'var(--m-orange-3)' }}>★ Pro</div>
+            <div className="m-display" style={{ fontSize: 22, color: 'var(--m-paper)', marginTop: 4 }}>
               {prices.proMonthly}{' '}
               <span style={{ fontSize: 12, color: 'var(--m-slate-4)' }}>/ 28d</span>
             </div>
-            <div
-              className="m-mono"
-              style={{ fontSize: 10, color: 'var(--m-slate-4)', marginTop: 4 }}
-            >
-              3 categories · 3 accounts
+            <div className="m-mono" style={{ fontSize: 10, color: 'var(--m-slate-4)', marginTop: 4 }}>
+              3 categories · 3 agent seats
             </div>
-            <div
-              className="m-mono"
-              style={{ fontSize: 10, color: 'var(--m-orange-3)', marginTop: 6 }}
-            >
+            <div className="m-mono" style={{ fontSize: 10, color: 'var(--m-orange-3)', marginTop: 6 }}>
               or {prices.proAnnual}/yr · save {prices.proAnnualSave}
             </div>
           </div>
@@ -360,23 +271,14 @@ export function VendorPricingMatrix({
             }}
           >
             <div className="m-label-mono">⬢ Enterprise</div>
-            <div
-              className="m-display"
-              style={{ fontSize: 22, color: 'var(--m-ink)', marginTop: 4 }}
-            >
+            <div className="m-display" style={{ fontSize: 22, color: 'var(--m-ink)', marginTop: 4 }}>
               {prices.enterpriseMonthly}{' '}
               <span style={{ fontSize: 12, color: 'var(--m-slate-2)' }}>/ 28d</span>
             </div>
-            <div
-              className="m-mono"
-              style={{ fontSize: 10, color: 'var(--m-slate-2)', marginTop: 4 }}
-            >
+            <div className="m-mono" style={{ fontSize: 10, color: 'var(--m-slate-2)', marginTop: 4 }}>
               all categories · unlimited team
             </div>
-            <div
-              className="m-mono"
-              style={{ fontSize: 10, color: 'var(--m-orange-2)', marginTop: 6 }}
-            >
+            <div className="m-mono" style={{ fontSize: 10, color: 'var(--m-orange-2)', marginTop: 6 }}>
               or {prices.enterpriseAnnual}/yr · save {prices.enterpriseAnnualSave}
             </div>
           </div>
@@ -388,7 +290,7 @@ export function VendorPricingMatrix({
               className="m-matrix-row"
               style={{
                 display: 'grid',
-                gridTemplateColumns: '1.7fr 1fr 1fr 1fr 1fr',
+                gridTemplateColumns: '1.7fr 1fr 1fr 1fr',
                 background: 'var(--m-paper-2)',
               }}
             >
@@ -404,14 +306,7 @@ export function VendorPricingMatrix({
                 >
                   {sec.section}
                 </div>
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: 'var(--m-slate-2)',
-                    marginTop: 4,
-                    lineHeight: 1.45,
-                  }}
-                >
+                <div style={{ fontSize: 12, color: 'var(--m-slate-2)', marginTop: 4, lineHeight: 1.45 }}>
                   {sec.note}
                 </div>
               </div>
@@ -424,7 +319,7 @@ export function VendorPricingMatrix({
                   className="m-matrix-row"
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: '1.7fr 1fr 1fr 1fr 1fr',
+                    gridTemplateColumns: '1.7fr 1fr 1fr 1fr',
                     borderTop: '1px solid var(--m-line-soft)',
                   }}
                 >
@@ -440,7 +335,7 @@ export function VendorPricingMatrix({
                     {feature}
                   </div>
                   {vals.map((v, ci) => {
-                    const isPro = ci === 2;
+                    const isPro = ci === 1; // Solo=0, Pro=1, Enterprise=2
                     return (
                       <div
                         key={ci}
@@ -448,9 +343,7 @@ export function VendorPricingMatrix({
                           padding: '14px 16px',
                           borderLeft:
                             '1px solid ' +
-                            (isPro
-                              ? 'rgba(255,255,255,0.08)'
-                              : 'var(--m-line-soft)'),
+                            (isPro ? 'rgba(255,255,255,0.08)' : 'var(--m-line-soft)'),
                           background: isPro ? 'var(--m-ink)' : 'var(--m-paper)',
                           color: isPro ? 'var(--m-paper)' : 'var(--m-slate)',
                           fontSize: 12,
@@ -470,14 +363,9 @@ export function VendorPricingMatrix({
       </div>
 
       {/* ============================ MOBILE ============================= */}
-      {/* Tier switcher (<1024px): sticky segmented control + single column. */}
       <div className="m-matrix-mobile">
         <div className="m-tier-switch">
-          <div
-            role="tablist"
-            aria-label="Choose a vendor tier to compare"
-            className="m-tier-pills"
-          >
+          <div role="tablist" aria-label="Choose a vendor tier to compare" className="m-tier-pills">
             {tiers.map((t, i) => (
               <button
                 key={t.label}
@@ -497,9 +385,7 @@ export function VendorPricingMatrix({
               <span className="m-tier-banner-unit">{active.unit}</span>
             </div>
             <div className="m-tier-banner-note">{active.note}</div>
-            {active.annual ? (
-              <div className="m-tier-banner-annual">{active.annual}</div>
-            ) : null}
+            {active.annual ? <div className="m-tier-banner-annual">{active.annual}</div> : null}
           </div>
         </div>
 
@@ -522,14 +408,7 @@ export function VendorPricingMatrix({
                 >
                   {sec.section}
                 </div>
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: 'var(--m-slate-2)',
-                    marginTop: 4,
-                    lineHeight: 1.45,
-                  }}
-                >
+                <div style={{ fontSize: 12, color: 'var(--m-slate-2)', marginTop: 4, lineHeight: 1.45 }}>
                   {sec.note}
                 </div>
               </div>
@@ -537,7 +416,6 @@ export function VendorPricingMatrix({
                 <div key={`m-${sec.section}-${ri}`} className="m-matrix-mobile-row">
                   <div className="m-matrix-mobile-feature">{row[0]}</div>
                   <div className="m-matrix-mobile-value">
-                    {/* Light background on mobile → never the dark-column styling. */}
                     <MatrixCell value={row[tier + 1] ?? false} isPro={false} />
                   </div>
                 </div>
@@ -548,7 +426,6 @@ export function VendorPricingMatrix({
       </div>
 
       <style>{`
-        /* Desktop matrix shows by default; mobile switcher hidden. */
         .m-matrix-mobile { display: none; }
 
         @media (max-width: 1023px) {
@@ -556,7 +433,6 @@ export function VendorPricingMatrix({
           .m-matrix-mobile { display: block; }
         }
 
-        /* Sticky tier control — pins just below the sticky site nav. */
         .m-tier-switch {
           position: sticky;
           top: 64px;
@@ -573,7 +449,7 @@ export function VendorPricingMatrix({
 
         .m-tier-pills {
           display: grid;
-          grid-template-columns: repeat(4, 1fr);
+          grid-template-columns: repeat(3, 1fr);
           gap: 4px;
         }
         .m-tier-pill {

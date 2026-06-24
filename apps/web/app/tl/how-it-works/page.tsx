@@ -389,19 +389,18 @@ export default async function HowItWorksPageTaglish() {
                 <p className="font-mono text-[11px] uppercase tracking-[0.25em]">Para sa vendors</p>
               </div>
               <h3 className="mt-2 text-lg font-semibold tracking-tight">
-                I-list ang wedding business mo — free.
+                I-list ang wedding business mo sa Setnayan.
               </h3>
               <p className="mt-2 text-sm text-ink/70">
-                Free verified profile at in-app chat with couples. Ang Pro sa
-                {p.proMonthly} / 28 days ay nag-a-unlock ng unlimited services,
-                custom slug + bid CTA sa profile mo, advanced proposal builder, at
-                editorial credits sa weddings na kuha mo.
+                Solo sa {p.soloMonthly} / 28 days — isang kategorya, verified profile, at buong
+                in-app suite. Ang Pro sa {p.proMonthly} / 28 days ay nag-e-expand ng reach mo: 3
+                kategorya, 3 agent seats, custom slug, at AI Proposal Builder.
               </p>
               <Link
                 href="/signup?as=vendor"
                 className="button-primary mt-4 inline-flex h-10 items-center px-5 text-sm"
               >
-                I-list ang business mo — free
+                I-list ang business mo
               </Link>
             </article>
           </div>

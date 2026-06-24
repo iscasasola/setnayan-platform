@@ -31,7 +31,7 @@ const MOBILE_SRP_MULTIPLIER = 1.5;
 const NUMBER = new Intl.NumberFormat('en-PH');
 
 export interface SubscriptionCardData {
-  tier: 'pro' | 'enterprise';
+  tier: 'solo' | 'pro' | 'enterprise';
   sku: string;
   pitch: string;
   price: number;          // DB / web price in PHP

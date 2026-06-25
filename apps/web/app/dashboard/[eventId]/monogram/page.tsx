@@ -8,6 +8,7 @@ import { resolveMonogram } from '@/lib/monogram';
 import { VectorStudio } from './studio';
 import { sanitizeStudioConfig } from '@/lib/monogram-studio-shared';
 import { MonogramDraftRestore } from './draft-restore';
+import { AnimatedMonogramUpgrade } from './animated-monogram-upgrade';
 
 export const metadata = { title: 'Monogram Maker · Setnayan' };
 
@@ -23,9 +24,12 @@ export const maxDuration = 60;
  * the single canonical mark every surface reads — chrome switcher, QR centre,
  * landing hero, save-the-date. The free static mark is never gated.
  *
- * The page is intentionally studio-only: the prior "upload your own" path, the
- * Feature-Us opt-in, and the paid Animated-Monogram upsell were all removed. The
- * Animated Monogram SKU stays discoverable from the Studio add-ons hub.
+ * MERGED surface (owner 2026-06-25 · informed reversal of 2026-06-21): the free
+ * Vector Studio and the paid Animated-Monogram upgrade now live on ONE screen —
+ * design your mark above, activate the draw-on animation in <AnimatedMonogramUpgrade>
+ * below. This also un-breaks the purchase: the Studio "Get" CTA already routes
+ * here, and the buy lives here again (the standalone /studio/animated-monogram
+ * page now redirects in). The prior "upload your own" path stays removed.
  */
 
 type Props = {
@@ -126,6 +130,10 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
         hasStudio={hasStudio}
         notice={studioNotice}
       />
+
+      {/* ── Paid Animated-Monogram upgrade, merged inline (owner 2026-06-25).
+          Owned → live confirmation + preview; unowned → before/after + buy. ── */}
+      <AnimatedMonogramUpgrade eventId={eventId} />
     </section>
   );
 }

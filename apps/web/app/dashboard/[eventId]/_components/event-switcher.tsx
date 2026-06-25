@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronDown, ShieldCheck, Store, User } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import { createPortal } from 'react-dom';
 import { formatEventDate } from '@/lib/events';
 import { EventMonogram, EmptyEventMonogram } from '@/app/_components/event-monogram';
@@ -148,6 +149,7 @@ export function EventSwitcher({
   const [editAsk, setEditAsk] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const sheetRef = useRef<HTMLDivElement | null>(null);
+  const monoConfirmRef = useRef<HTMLDivElement>(null);
   const longPressTimerRef = useRef<number | null>(null);
   const isLongPressFiredRef = useRef(false);
 
@@ -220,16 +222,14 @@ export function EventSwitcher({
     setOpen(true);
   };
 
-  // Esc closes the edit-monogram confirm (the switcher's own Esc handler is
-  // gated on `open`, which is false while only the confirm is up).
-  useEffect(() => {
-    if (!editAsk) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setEditAsk(false);
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [editAsk]);
+  // Esc-to-close + focus-in/trap/restore + scroll-lock for the edit-monogram
+  // confirm dialog, via the shared primitive. (The menu surfaces above are
+  // role="menu", not modal dialogs, so they keep their own keyboard model.)
+  useModalA11y({
+    open: editAsk,
+    onClose: () => setEditAsk(false),
+    containerRef: monoConfirmRef,
+  });
 
   // "Switch view" targets — every console the account can enter OTHER than
   // the one it's on (currentRole is implied by the surface). Lifted verbatim
@@ -563,10 +563,11 @@ export function EventSwitcher({
                 className="fixed inset-0 bg-ink/40"
               />
               <div
+                ref={monoConfirmRef}
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="sn-mono-edit-title"
-                className="relative z-[61] w-[min(20rem,calc(100vw-2rem))] rounded-2xl border border-ink/10 bg-cream p-5 text-center shadow-2xl"
+                className="relative z-[61] w-[min(20rem,calc(100vw-2rem))] rounded-2xl border border-ink/10 bg-cream p-5 text-center shadow-2xl focus:outline-none"
               >
                 <p id="sn-mono-edit-title" className="text-base font-semibold text-ink">
                   Do you want to edit your monogram?

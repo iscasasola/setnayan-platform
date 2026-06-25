@@ -7,6 +7,7 @@ import { AlertTriangle, BookmarkCheck, Clock, Loader2, RotateCcw, X } from 'luci
 import { PLAN_GROUPS, type PlanGroupId } from '@/lib/wedding-plan-groups';
 import { WEDDING_FOLDER_SLUG } from '@/lib/taxonomy';
 import { haptic } from '@/lib/haptics';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import {
   finalizeVendor,
   listLockTimeSlots,
@@ -120,21 +121,6 @@ export function AccordionLockButton({
     const t = setTimeout(() => setToast({ kind: 'hidden' }), remaining);
     return () => clearTimeout(t);
   }, [toast]);
-
-  // Escape closes an open exception / picker modal.
-  useEffect(() => {
-    if (
-      state.kind !== 'conflict' &&
-      state.kind !== 'soft_hold' &&
-      state.kind !== 'slot_select'
-    )
-      return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setState({ kind: 'idle' });
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [state.kind]);
 
   // First tap: if the booked service has time slots, open the picker; else
   // proceed straight to the one-tap lock. Keeps the happy path one-tap for the
@@ -381,11 +367,17 @@ function ExceptionModal({
   onSwitch: () => void;
   onDismiss: () => void;
 }) {
+  // Mounted only while open (parent renders `{cond && portal(<ExceptionModal …>)}`),
+  // so open is a constant true — mount = open, unmount runs the focus restore.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalA11y({ open: true, onClose: onDismiss, containerRef: dialogRef });
+
   return (
     <div
+      ref={dialogRef}
       role="alertdialog"
       aria-modal="true"
-      className="fixed inset-0 z-[100] flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm sm:items-center"
+      className="fixed inset-0 z-[100] flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm focus:outline-none sm:items-center"
       onClick={(e) => {
         if (e.target === e.currentTarget) onDismiss();
       }}
@@ -492,12 +484,18 @@ function SlotPickerModal({
   onConfirm: () => void;
   onDismiss: () => void;
 }) {
+  // Mounted only while open (parent renders `{cond && portal(<SlotPickerModal …>)}`),
+  // so open is a constant true — mount = open, unmount runs the focus restore.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalA11y({ open: true, onClose: onDismiss, containerRef: dialogRef });
+
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-label={`Pick a time slot for ${vendorName}`}
-      className="fixed inset-0 z-[100] flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm sm:items-center"
+      className="fixed inset-0 z-[100] flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm focus:outline-none sm:items-center"
       onClick={(e) => {
         if (e.target === e.currentTarget) onDismiss();
       }}

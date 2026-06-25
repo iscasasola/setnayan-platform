@@ -59,6 +59,7 @@ import { trackFailure } from '@/lib/telemetry/track-error';
 import { bulkApplyRoleAndGroup, createGuestGroup } from '../groups-actions';
 import { bulkRoleSectionsFor, type RoleSection } from './guest-list-multiselect';
 import { guestSelection, useGuestSelection } from './guest-selection-store';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 
 type Opt = { key: string; label: string };
 type Group = { group_id: string; label: string; member_count?: number };
@@ -141,6 +142,23 @@ export function MobileGuestCarousel({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
+
+  // Focus management for the two compose-bar bottom sheets (filter + sort).
+  // Each overlay carries its own ref + its own useModalA11y wired to its own
+  // open-state + close handler (focus trap, Esc-to-close, body-scroll-lock,
+  // focus-restore). Hooks run unconditionally — the overlays mount below.
+  const filterSheetRef = useRef<HTMLDivElement>(null);
+  useModalA11y({
+    open: filterSheet,
+    onClose: () => setFilterSheet(false),
+    containerRef: filterSheetRef,
+  });
+  const sortSheetRef = useRef<HTMLDivElement>(null);
+  useModalA11y({
+    open: sortSheet,
+    onClose: () => setSortSheet(false),
+    containerRef: sortSheetRef,
+  });
 
   // Belt-and-suspenders: after a bulk apply redirects back with a flash, make
   // sure the Assign sheet is closed (the apply handler already closes it +
@@ -457,7 +475,8 @@ export function MobileGuestCarousel({
           list updates live behind the sheet (owner directive 2026-06-03). */}
       {filterSheet ? (
         <div
-          className="fixed inset-0 z-50 lg:hidden"
+          ref={filterSheetRef}
+          className="fixed inset-0 z-50 focus:outline-none lg:hidden"
           role="dialog"
           aria-modal="true"
           aria-label="Filter guests"
@@ -558,7 +577,8 @@ export function MobileGuestCarousel({
       {/* Sort bottom sheet — opened from the compose-bar sort icon. */}
       {sortSheet ? (
         <div
-          className="fixed inset-0 z-50 lg:hidden"
+          ref={sortSheetRef}
+          className="fixed inset-0 z-50 focus:outline-none lg:hidden"
           role="dialog"
           aria-modal="true"
           aria-label="Sort guests"
@@ -976,6 +996,13 @@ function AssignSheet({
   const [newGroup, setNewGroup] = useState('');
   const [, startTransition] = useTransition();
 
+  // Focus management for the Assign bottom sheet (focus trap, Esc-to-close,
+  // body-scroll-lock, focus-restore). `open` is passed straight through so the
+  // hook tracks the parent's open-state even though the body early-returns null
+  // while closed (the hook must run unconditionally before any return).
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalA11y({ open, onClose, containerRef: dialogRef });
+
   // Reset to the menu each time the sheet opens.
   useEffect(() => {
     if (open) {
@@ -1030,7 +1057,8 @@ function AssignSheet({
 
   return (
     <div
-      className="fixed inset-0 z-50 lg:hidden"
+      ref={dialogRef}
+      className="fixed inset-0 z-50 focus:outline-none lg:hidden"
       role="dialog"
       aria-modal="true"
       aria-label="Assign to selected guests"

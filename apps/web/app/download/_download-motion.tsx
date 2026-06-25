@@ -152,7 +152,7 @@ function NavRow({ active = false }: { active?: boolean }) {
       {active && (
         <span className="absolute left-0 top-1/2 h-3.5 w-[2.5px] -translate-y-1/2 rounded-full bg-terracotta" />
       )}
-      <span className={`h-2.5 w-2.5 rounded-[5px] ${active ? 'bg-terracotta' : 'bg-ink/20'}`} />
+      <span className={`h-2.5 w-2.5 rounded-full ${active ? 'bg-terracotta' : 'bg-ink/20'}`} />
       <span className={`h-1.5 rounded-full ${active ? 'w-12 bg-ink/70' : 'w-10 bg-ink/25'}`} />
     </div>
   );
@@ -178,7 +178,7 @@ function GuestRow({ w }: { w: string }) {
 }
 
 function DockApp({ tone }: { tone: string }) {
-  return <span className={`h-7 w-7 rounded-[8px] ${tone}`} aria-hidden />;
+  return <span className={`h-7 w-7 rounded-md ${tone}`} aria-hidden />;
 }
 
 /**
@@ -282,7 +282,7 @@ export function AppWindowHero() {
         <span className="relative flex flex-col items-center">
           <span
             data-dock-icon
-            className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-ink shadow-[0_6px_14px_-4px_rgba(30,34,41,0.6)]"
+            className="flex h-9 w-9 items-center justify-center rounded-md bg-ink shadow-[0_6px_14px_-4px_rgba(30,34,41,0.6)]"
           >
             <Logo height={20} />
           </span>

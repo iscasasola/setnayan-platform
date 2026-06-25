@@ -140,12 +140,26 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
   }, [acquireLock]);
 
   const [tables, setTables] = useState<LiveTable[]>(initialTables);
-  // Reconcile with the server snapshot by MERGING new rows in (not blind
+  // When a save FAILS, the optimistic `tables` has already diverged from the DB
+  // (a move/rotate that the server rejected, or a delete the server kept). The
+  // merge-only reconcile below can't heal that — it never overwrites an existing
+  // row's position/rotation nor drops a server-absent row. So a failure arms a
+  // one-shot FULL re-hydration: the next `initialTables` snapshot blind-replaces
+  // local state (positions, rotations, AND membership) from the server truth.
+  const forceResyncRef = useRef(false);
+  // Reconcile with the server snapshot. NORMALLY merge new rows in (not a blind
   // replace) — so a router.refresh (from add, or a lost-lock recovery) can't
-  // clobber an in-flight optimistic move/rotation. Deleted/peer changes
-  // reconcile on a full reload; while the lab holds the lock it's the only
-  // writer, so add-the-new-row is sufficient.
+  // clobber an in-flight optimistic move/rotation. But when a save just failed
+  // (forceResyncRef armed) do a FULL replace: overwrite every row's
+  // position/rotation and drop rows the server no longer has, so the failed
+  // optimistic change is reverted to server truth. While the lab holds the lock
+  // it's the only writer, so add-the-new-row is otherwise sufficient.
   useEffect(() => {
+    if (forceResyncRef.current) {
+      forceResyncRef.current = false;
+      setTables(initialTables);
+      return;
+    }
     setTables((prev) => {
       const known = new Set(prev.map((t) => t.id));
       const added = initialTables.filter((t) => !known.has(t.id));
@@ -170,20 +184,25 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
   const [tableSwapFirst, setTableSwapFirst] = useState<string | null>(null);
 
   // Run a write action. A lost lock (peer took over) drops us to view-only at
-  // once (notifyLost) + reconciles the optimistic 3D state with the server; any
-  // OTHER error is surfaced without a misleading "lost access" re-acquire.
+  // once (notifyLost); any OTHER error is surfaced without a misleading "lost
+  // access" re-acquire. EITHER failure leaves the optimistic `tables` diverged
+  // from the DB (the move/rotate/delete that the server rejected is still shown
+  // locally), so both paths arm a one-shot FULL re-hydration and refresh the
+  // server snapshot — reverting the failed change to server truth (a bare
+  // router.refresh wouldn't, because the snapshot effect is merge-only).
   const persist = useCallback(
     async (fn: () => Promise<unknown>) => {
       try {
         await fn();
       } catch (err) {
+        forceResyncRef.current = true;
         if (isLockLost(err)) {
           notifyLost();
           setNotice('Editing was taken over — your last change wasn’t saved.');
-          router.refresh();
         } else {
           setNotice('Couldn’t save that change — please try again.');
         }
+        router.refresh();
       }
     },
     [notifyLost, router],
@@ -1359,7 +1378,7 @@ function Hud({
       {notice ? (
         <div className={`pointer-events-auto absolute left-1/2 top-16 flex -translate-x-1/2 items-center gap-3 px-4 py-2 text-sm text-amber-100 ${glass}`}>
           <span>{notice}</span>
-          <button type="button" onClick={onDismissNotice} className="text-white/60 hover:text-white">✕</button>
+          <button type="button" onClick={onDismissNotice} aria-label="Dismiss notice" className="text-white/60 hover:text-white"><span aria-hidden>✕</span></button>
         </div>
       ) : null}
 

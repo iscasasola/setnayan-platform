@@ -280,7 +280,10 @@ function WisdomCard({ page }: { page: PageKey }) {
           {tips.map((_, i) => (
             <button
               key={i}
+              type="button"
               onClick={() => advance(i)}
+              aria-label={`Go to tip ${i + 1}`}
+              aria-current={i === idx ? 'true' : undefined}
               className="rounded-full transition-all duration-200"
               style={{
                 height: 6,

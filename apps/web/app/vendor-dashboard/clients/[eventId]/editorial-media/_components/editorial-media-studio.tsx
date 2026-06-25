@@ -9,7 +9,7 @@
 // pipeline.
 // ============================================================================
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ImagePlus, Film, Trash2, Loader2 } from 'lucide-react';
 import {
@@ -68,7 +68,10 @@ function getVideoDuration(file: File): Promise<number> {
       resolve(Number.isFinite(v.duration) ? v.duration : MAX_CLIP_SECONDS);
       URL.revokeObjectURL(v.src);
     };
-    v.onerror = () => resolve(MAX_CLIP_SECONDS);
+    v.onerror = () => {
+      URL.revokeObjectURL(v.src);
+      resolve(MAX_CLIP_SECONDS);
+    };
     v.src = URL.createObjectURL(file);
   });
 }
@@ -171,9 +174,25 @@ export function EditorialMediaStudio({
   };
 
   const removeStaged = (key: string) =>
-    setStaged((s) => s.filter((x) => x.key !== key));
+    setStaged((s) => {
+      const item = s.find((x) => x.key === key);
+      if (item) URL.revokeObjectURL(item.previewUrl); // free the blob URL we created
+      return s.filter((x) => x.key !== key);
+    });
   const setCaption = (key: string, v: string) =>
     setStaged((s) => s.map((x) => (x.key === key ? { ...x, caption: v } : x)));
+
+  // Revoke any STILL-staged preview blob URLs on unmount (the visitor navigated
+  // away without submitting — onSubmit and removeStaged already revoke on their
+  // own paths). A ref keeps the cleanup current without re-subscribing each render.
+  const stagedRef = useRef(staged);
+  stagedRef.current = staged;
+  useEffect(
+    () => () => {
+      stagedRef.current.forEach((s) => URL.revokeObjectURL(s.previewUrl));
+    },
+    [],
+  );
 
   const onSubmit = async () => {
     if (!staged.length) return;

@@ -22,7 +22,7 @@
  * CANONICAL SOURCE = public.regions (added by 20270128395443_regions_canonical_source).
  * FALLBACK = the STATIC table below, derived from the same seed the migration
  * uses (which was itself lifted from lib/regions.ts PH_REGIONS, match-criteria
- * REGION_OPTIONS, region-token-burn BURN_BAND_REGIONS, and wedding-cities
+ * REGION_OPTIONS, the (now-removed) region-token-burn band map, and wedding-cities
  * REGION_CENTROID). The resolver is therefore ALWAYS usable, even when the DB
  * table is absent or empty — it behaves identically to the pre-fix consts.
  *

@@ -4,6 +4,7 @@ import * as Sentry from '@sentry/nextjs';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventOwnsPapicSeats } from '@/lib/papic-seats';
+import { eventSamplerIsKept } from '@/lib/papic-sampler';
 import { rateLimit } from '@/lib/rate-limit';
 import { R2_BUCKETS, isR2Configured, type R2BucketKey } from '@/lib/r2';
 import {
@@ -346,9 +347,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
     }
     bucketKey = 'media';
+    // A free-sampler seat normally writes under the EPHEMERAL `papic-sampler/`
+    // prefix (an R2 lifecycle rule reaps abandoned sampler bytes there). But once
+    // the event has CONVERTED (Drive connected / paid Papic owned), its shots are
+    // permanent — so they're born under `papic/`, where the lifecycle rule never
+    // threatens them (matching the convert-time relocation in makeSamplerPermanent).
+    // Fail-open to ephemeral: a kept-probe hiccup just defers the byte to the
+    // relocation sweep rather than silently stranding a kept couple's photo.
+    const ephemeral =
+      seat.is_free_sampler && !(await eventSamplerIsKept(seat.event_id).catch(() => false));
     // event-/seat-scoped, server-derived (sanitized — UUIDs only, but defensive).
     pathPrefix = sanitizePathPrefix(
-      `papic${seat.is_free_sampler ? '-sampler' : ''}/event-${seat.event_id}/seat-${seat.seat_id}`,
+      `papic${ephemeral ? '-sampler' : ''}/event-${seat.event_id}/seat-${seat.seat_id}`,
     );
     seatMode = true;
   } else {

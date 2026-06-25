@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
-import { formatPhp } from '@/lib/orders';
+import { formatPhp, orderGrossOwed } from '@/lib/orders';
 import { computeVatFromBase } from '@/lib/receipts';
 import { captureEvent } from '@/lib/analytics';
 import {
@@ -118,7 +118,7 @@ export async function approvePayment(formData: FormData) {
   // and so the PostHog `order_paid` event below has `service_key` to slice on.
   const { data: order } = await admin
     .from('orders')
-    .select('event_id, public_id, service_key')
+    .select('event_id, public_id, service_key, requested_total_php, confirmed_total_php, voucher_discount_centavos')
     .eq('order_id', payment.order_id)
     .maybeSingle();
 
@@ -149,6 +149,40 @@ export async function approvePayment(formData: FormData) {
   });
 
   if (promoteOrder) {
+    // SHORTFALL GUARD (2026-06-25): an order must not be marked fully 'paid'
+    // (which issues a receipt + fires vendor payouts) unless the MATCHED payments
+    // cover the gross owed — pre-VAT base + 12% VAT, net of any voucher. The
+    // payment above is matched either way; a short/partial transfer simply must
+    // NOT promote the order. The admin leaves "promote to paid" off to record it
+    // as partial, or re-runs once the balance is matched. Closes the audit's
+    // "short transfer silently passes on the happy path" gap.
+    const { data: orderPayments } = await admin
+      .from('payments')
+      .select('amount_php, status')
+      .eq('order_id', payment.order_id);
+    const matchedTotal = (orderPayments ?? [])
+      .filter((p) => p.status === 'matched')
+      .reduce((acc, p) => acc + Number(p.amount_php), 0);
+    if (order && order.requested_total_php != null) {
+      const owed = orderGrossOwed({
+        requestedTotalPhp: Number(order.requested_total_php),
+        confirmedTotalPhp:
+          order.confirmed_total_php != null ? Number(order.confirmed_total_php) : null,
+        voucherDiscountPhp:
+          order.voucher_discount_centavos != null
+            ? Number(order.voucher_discount_centavos) / 100
+            : 0,
+      });
+      const SHORTFALL_TOLERANCE_PHP = 1; // absorb centavo rounding across payments
+      if (matchedTotal < owed - SHORTFALL_TOLERANCE_PHP) {
+        throw new Error(
+          `Can't mark this order paid yet: matched payments total ${formatPhp(matchedTotal)}, ` +
+            `but ${formatPhp(owed)} is owed (incl. 12% VAT) — ${formatPhp(owed - matchedTotal)} short. ` +
+            `The payment is matched; leave "promote to paid" off to record it as partial, or promote once the balance is paid.`,
+        );
+      }
+    }
+
     // Capture the update result. If this silently failed we'd notify
     // the buyer "your order is paid" while the DB row still says
     // pending — and downstream payout / receipt logic would diverge.

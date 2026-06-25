@@ -372,6 +372,20 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
   // edits them. DB-only, so optimistic local state + a fire-and-forget persist.
   const [keepApart, setKeepApart] = useState<KeepApartRule[]>(keepApartProp);
   const [priorityOrder, setPriorityOrder] = useState<PriorityOrder>(priorityOrderProp);
+  // Re-sync rules from server truth whenever the props change (any router.refresh
+  // re-runs the loader). Without this the panel + dedup check go stale after a
+  // refresh; the lab is the sole writer so re-applying server truth is safe.
+  useEffect(() => {
+    setKeepApart(keepApartProp);
+    setPriorityOrder(priorityOrderProp);
+  }, [keepApartProp, priorityOrderProp]);
+  // Optimistic per-guest priority overlay — the chip cycles instantly without a
+  // router.refresh (which would otherwise churn the page). Cleared whenever fresh
+  // guest rows arrive (server truth then carries the persisted priority).
+  const [priorityOverride, setPriorityOverride] = useState<Map<string, number | null>>(() => new Map());
+  useEffect(() => {
+    setPriorityOverride((prev) => (prev.size ? new Map() : prev));
+  }, [guests]);
 
   // Live world-space drag target (avoids a React re-render every pointer move).
   const dragRef = useRef<{ id: string; x: number; z: number } | null>(null);
@@ -646,7 +660,15 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
       const label = raw.trim().slice(0, 64);
       const current = tablesById.get(selectedId)?.label ?? '';
       if (!label || label === current) return;
-      setTables((prev) => prev.map((t) => (t.id === selectedId ? { ...t, label } : t)));
+      // The server syncs the label across a linked unit, so optimistically apply
+      // it to every sibling sharing this table's link group (the merge effect is
+      // add-only and won't reconcile existing rows' labels).
+      const linkGroupId = tablesById.get(selectedId)?.linkGroupId ?? null;
+      setTables((prev) =>
+        prev.map((t) =>
+          t.id === selectedId || (linkGroupId && t.linkGroupId === linkGroupId) ? { ...t, label } : t,
+        ),
+      );
       const fd = new FormData();
       fd.set('event_id', eventId);
       fd.set('lock_id', lock.lockId ?? '');
@@ -764,7 +786,8 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
   // 2D-parity rules: reorder the tier priority the solver fills seats in.
   const reorderPriority = useCallback(
     (from: number, to: number) => {
-      if (!canEdit || to < 0 || to >= priorityOrder.length || from === to) return;
+      const n = priorityOrder.length;
+      if (!canEdit || from < 0 || from >= n || to < 0 || to >= n || from === to) return;
       const next = priorityOrder.slice();
       const [moved] = next.splice(from, 1);
       if (!moved) return;
@@ -779,22 +802,25 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
     [canEdit, priorityOrder, eventId, lock.lockId, persist],
   );
   // 2D-parity rules: cycle a guest's explicit priority (null→1→2→3→4→null).
-  // Raw priority lives in the guests prop, so refresh re-paints the chip.
+  // Optimistic via the local overlay — NO router.refresh (priority is display +
+  // solver-input only; a refresh would needlessly churn seats/tables).
   const cycleGuestPriority = useCallback(
     (guestId: string, current: number | null) => {
       if (!canEdit) return;
       const next = current === null ? 1 : current >= 4 ? null : current + 1;
+      setPriorityOverride((prev) => {
+        const m = new Map(prev);
+        m.set(guestId, next);
+        return m;
+      });
       const fd = new FormData();
       fd.set('event_id', eventId);
       fd.set('lock_id', lock.lockId ?? '');
       fd.set('guest_id', guestId);
       fd.set('priority', next === null ? '' : String(next));
-      void persist(async () => {
-        await setGuestSeatingPriority(fd);
-        router.refresh();
-      });
+      void persist(() => setGuestSeatingPriority(fd));
     },
-    [canEdit, eventId, lock.lockId, persist, router],
+    [canEdit, eventId, lock.lockId, persist],
   );
 
   // Pick a guest → walk to their seat (seating them in the first free chair if
@@ -1148,6 +1174,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
         onRemoveKeepApart={removeKeepApart}
         onReorderPriority={reorderPriority}
         onCyclePriority={cycleGuestPriority}
+        priorityOverride={priorityOverride}
         showCloth={showCloth}
         setShowCloth={setShowCloth}
         showAccents={showAccents}
@@ -1177,6 +1204,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
         }}
         walker={walker}
         arrived={arrived}
+        selectedId={selectedId}
         selectedLabel={selectedId ? tablesById.get(selectedId)?.label ?? null : null}
         selectedType={selectedId ? tablesById.get(selectedId)?.type ?? null : null}
         onChangeType={changeTableType}
@@ -2299,6 +2327,7 @@ function Hud({
   onRemoveKeepApart,
   onReorderPriority,
   onCyclePriority,
+  priorityOverride,
   showCloth,
   setShowCloth,
   showAccents,
@@ -2321,6 +2350,7 @@ function Hud({
   onToggleTableSwap,
   walker,
   arrived,
+  selectedId,
   selectedLabel,
   selectedType,
   onChangeType,
@@ -2350,6 +2380,7 @@ function Hud({
   onRemoveKeepApart: (rule: KeepApartRule) => void;
   onReorderPriority: (from: number, to: number) => void;
   onCyclePriority: (guestId: string, current: number | null) => void;
+  priorityOverride: Map<string, number | null>;
   showCloth: boolean;
   setShowCloth: (v: boolean) => void;
   showAccents: boolean;
@@ -2372,6 +2403,7 @@ function Hud({
   onToggleTableSwap: () => void;
   walker: WalkerState;
   arrived: string | null;
+  selectedId: string | null;
   selectedLabel: string | null;
   selectedType: string | null;
   onChangeType: (newType: string) => void;
@@ -2494,7 +2526,7 @@ function Hud({
             {selectedLabel ? (
               <div className="mb-2 rounded-xl bg-white/[0.06] p-2.5">
                 <input
-                  key={selectedLabel}
+                  key={selectedId}
                   defaultValue={selectedLabel}
                   disabled={!canEdit}
                   maxLength={64}
@@ -2627,6 +2659,8 @@ function Hud({
                   const seated = seats.has(g.id);
                   const selected = swapSelId === g.id;
                   const placing = placingGuestId === g.id;
+                  // Effective priority = optimistic overlay (if any) else server truth.
+                  const pr = priorityOverride.has(g.id) ? priorityOverride.get(g.id) ?? null : g.seatingPriority;
                   return (
                     <div
                       key={g.id}
@@ -2648,14 +2682,14 @@ function Hud({
                       {canEdit ? (
                         <button
                           type="button"
-                          onClick={() => onCyclePriority(g.id, g.seatingPriority)}
+                          onClick={() => onCyclePriority(g.id, pr)}
                           aria-label={`Seat-first priority for ${g.name}`}
                           title="Tap to set how early auto-seat places this guest"
                           className={`mr-1 shrink-0 rounded px-1 py-0.5 text-[10px] transition ${
-                            g.seatingPriority ? 'bg-white/20 text-white' : 'text-white/35 hover:text-white/70'
+                            pr ? 'bg-white/20 text-white' : 'text-white/35 hover:text-white/70'
                           }`}
                         >
-                          {g.seatingPriority ? `P${g.seatingPriority}` : '·'}
+                          {pr ? `P${pr}` : '·'}
                         </button>
                       ) : null}
                       {seated && canEdit ? (

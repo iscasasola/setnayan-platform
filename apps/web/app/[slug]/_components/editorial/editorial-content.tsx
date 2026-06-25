@@ -148,7 +148,7 @@ export async function EditorialContent({
           ) : (
             <Monogram text={data.monogramText} color={data.monogramColor} />
           )}
-          <p className="mt-3 font-mono text-[9px] uppercase tracking-[0.34em] text-terracotta">
+          <p className="mt-3 font-mono text-xs uppercase tracking-[0.34em] text-terracotta">
             Set na &rsquo;yan &middot; Commemorative Edition
           </p>
           <h1 className="mt-2 font-display text-4xl font-semibold leading-[0.96] tracking-tight sm:text-6xl">
@@ -180,7 +180,7 @@ export async function EditorialContent({
 
         {/* Lead headline + deck + byline -------------------------------------- */}
         <section className="py-5 text-center sm:py-6">
-          <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-mulberry">
+          <p className="font-mono text-xs uppercase tracking-[0.3em] text-mulberry">
             {copy.superKicker}
           </p>
           <h2 className="mx-auto mt-3 max-w-3xl font-display text-4xl font-bold leading-[0.95] tracking-tight sm:text-6xl">
@@ -191,7 +191,7 @@ export async function EditorialContent({
               {copy.deck}
             </p>
           ) : null}
-          <p className="mt-4 font-mono text-[9px] uppercase tracking-[0.16em] text-ink/45">
+          <p className="mt-4 font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
             {copy.byline}
             {data.eventDateFormatted ? ` · ${data.venueCity ?? ''}` : ''}
           </p>
@@ -336,7 +336,7 @@ function GracefulFallback(): ReactElement {
   return (
     <div className="flex min-h-[60vh] items-center justify-center bg-cream px-4 py-16 text-ink">
       <div className="mx-auto max-w-md space-y-3 rounded-2xl border border-ink/10 bg-cream/60 p-8 text-center">
-        <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-terracotta">
+        <p className="font-mono text-xs uppercase tracking-[0.3em] text-terracotta">
           The Editorial
         </p>
         <h2 className="font-display text-2xl italic tracking-tight">
@@ -370,7 +370,7 @@ function PhaseRibbon(): ReactElement {
   return (
     <nav
       aria-label="Site phases"
-      className="flex flex-wrap items-center justify-center gap-4 pb-3 font-mono text-[9px] uppercase tracking-[0.14em] text-ink/60"
+      className="flex flex-wrap items-center justify-center gap-4 pb-3 font-mono text-xs uppercase tracking-[0.14em] text-ink/60"
     >
       <a href="#" className="border-b border-terracotta pb-0.5 text-ink/60 no-underline">
         &larr; The Invitation (RSVP)
@@ -393,7 +393,7 @@ function EditionLine({
   right: ReactNode;
 }): ReactElement {
   return (
-    <div className="py-2 font-mono text-[9px] uppercase tracking-[0.1em] text-ink/65">
+    <div className="py-2 font-mono text-xs uppercase tracking-[0.1em] text-ink/65">
       {/* Desktop: one dateline row — Vol·No · City·Date · Share. */}
       <div className="hidden items-center justify-between text-left sm:flex">
         <span>{left}</span>
@@ -454,7 +454,7 @@ function HeroPhoto({
           decoding="async"
         />
       ) : null}
-      <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/70 to-transparent px-3 pb-2 pt-5 font-mono text-[9px] uppercase tracking-[0.08em] text-cream">
+      <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/70 to-transparent px-3 pb-2 pt-5 font-mono text-xs uppercase tracking-[0.08em] text-cream">
         {names}, from the celebration — captured on the day.
       </figcaption>
     </figure>
@@ -527,7 +527,7 @@ function VendorRow({ v }: { v: EditorialData['vendors'][number] }): ReactElement
           <span className="block truncate font-serif text-sm font-semibold leading-tight">{v.name}</span>
         )}
         {v.category ? (
-          <span className="block font-mono text-[8px] uppercase tracking-[0.06em] text-ink/45">
+          <span className="block font-mono text-xs uppercase tracking-[0.06em] text-ink/45">
             {prettyCategory(v.category)}
           </span>
         ) : null}
@@ -538,12 +538,12 @@ function VendorRow({ v }: { v: EditorialData['vendors'][number] }): ReactElement
           badge. Replaces the old inline "· #1 match" caption so the credit
           reads as a proper badge instead of buried metadata. */}
       {v.isFirstPick ? (
-        <span className="shrink-0 rounded-full border border-mulberry/40 bg-mulberry/5 px-1.5 py-0.5 font-mono text-[7px] uppercase tracking-[0.12em] text-mulberry">
+        <span className="shrink-0 rounded-full border border-mulberry/40 bg-mulberry/5 px-1.5 py-0.5 font-mono text-xs uppercase tracking-[0.12em] text-mulberry">
           #1 Match
         </span>
       ) : null}
       {v.tier === 'pro' || v.tier === 'enterprise' ? (
-        <span className="shrink-0 rounded-full border border-terracotta/40 px-1.5 py-0.5 font-mono text-[7px] uppercase tracking-[0.12em] text-terracotta">
+        <span className="shrink-0 rounded-full border border-terracotta/40 px-1.5 py-0.5 font-mono text-xs uppercase tracking-[0.12em] text-terracotta">
           {v.tier}
         </span>
       ) : null}
@@ -565,7 +565,7 @@ function TeamBehindTheDay({
 
   return (
     <div className="mt-5 border-t border-ink/15 pt-3">
-      <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.2em] text-ink/45">
+      <p className="mb-2 font-mono text-xs uppercase tracking-[0.2em] text-ink/45">
         The Team Behind the Day
       </p>
       <ul className="m-0 list-none p-0">
@@ -575,7 +575,7 @@ function TeamBehindTheDay({
       </ul>
       {collapsed.length ? (
         <details className="mt-2">
-          <summary className="cursor-pointer list-none font-mono text-[9px] uppercase tracking-[0.16em] text-terracotta hover:text-terracotta-700">
+          <summary className="cursor-pointer list-none font-mono text-xs uppercase tracking-[0.16em] text-terracotta hover:text-terracotta-700">
             + {collapsed.length} more {collapsed.length === 1 ? 'vendor' : 'vendors'}
           </summary>
           <ul className="m-0 mt-1 list-none p-0">
@@ -623,12 +623,12 @@ function VendorsWeLoved({
             {v.href ? (
               <a
                 href={v.href}
-                className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink underline-offset-2 hover:underline"
+                className="font-mono text-xs uppercase tracking-[0.12em] text-ink underline-offset-2 hover:underline"
               >
                 {v.businessName}
               </a>
             ) : (
-              <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink/70">
+              <span className="font-mono text-xs uppercase tracking-[0.12em] text-ink/70">
                 {v.businessName}
               </span>
             )}
@@ -646,7 +646,7 @@ function ByTheNumbers({ data }: { data: EditorialData }): ReactElement {
       <div className="bg-ink px-2 py-2 text-center font-display text-xl font-bold text-cream">
         By the Numbers
       </div>
-      <p className="px-2 pb-0.5 pt-2 text-center font-mono text-[8px] uppercase tracking-[0.2em] text-terracotta">
+      <p className="px-2 pb-0.5 pt-2 text-center font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
         Setnayan&rsquo;s hand in the day
       </p>
 
@@ -720,7 +720,7 @@ function Stat({
       </div>
       <div className="mt-1 font-serif text-[13.5px] leading-tight text-ink/70">{label}</div>
       {note ? (
-        <div className="mt-0.5 font-mono text-[7px] uppercase tracking-[0.18em] text-ink/40">
+        <div className="mt-0.5 font-mono text-xs uppercase tracking-[0.18em] text-ink/40">
           {note}
         </div>
       ) : null}
@@ -740,7 +740,7 @@ function StripCell({
   return (
     <div className={`px-1 py-2 ${last ? '' : 'border-r border-ink/15'}`}>
       <b className="block font-display text-lg font-bold leading-none">{value}</b>
-      <span className="font-mono text-[7px] uppercase tracking-[0.08em] text-ink/45">{label}</span>
+      <span className="font-mono text-xs uppercase tracking-[0.08em] text-ink/45">{label}</span>
     </div>
   );
 }
@@ -767,7 +767,7 @@ function FromTheCouple({
       <p className="m-0 font-display text-xl font-medium italic leading-snug text-ink sm:text-2xl">
         &ldquo;{message}&rdquo;
       </p>
-      <footer className="mt-3 font-mono text-[9px] uppercase tracking-[0.16em] text-ink/45">
+      <footer className="mt-3 font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
         &mdash; {attribution}
       </footer>
     </blockquote>
@@ -848,7 +848,7 @@ function TheirSong({
           &ldquo;{song.label}&rdquo;
         </figcaption>
       ) : null}
-      <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.16em] text-ink/45">
+      <p className="mt-1 font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
         {names}
         {song.url ? ' · their wedding song' : ' · the song that follows them'}
       </p>
@@ -910,7 +910,7 @@ function MomentsEssay({ photos, names }: { photos: string[]; names: string }): R
 function VendorMediaStrip({ items }: { items: EditorialData['vendorMedia'] }): ReactElement {
   return (
     <div className="mt-4 space-y-3">
-      <p className="text-center font-mono text-[9px] uppercase tracking-[0.16em] text-ink/45">
+      <p className="text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
         Captured by the couple&rsquo;s vendors
       </p>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -944,17 +944,17 @@ function VendorMediaStrip({ items }: { items: EditorialData['vendorMedia'] }): R
             )}
             <figcaption className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-ink/75 to-transparent px-2.5 pb-1.5 pt-6">
               <span className="min-w-0">
-                <span className="block truncate font-mono text-[8px] uppercase tracking-[0.08em] text-cream/90">
+                <span className="block truncate font-mono text-xs uppercase tracking-[0.08em] text-cream/90">
                   {m.vendorName}
                 </span>
                 {m.category ? (
-                  <span className="block truncate font-mono text-[7px] uppercase tracking-[0.06em] text-cream/55">
+                  <span className="block truncate font-mono text-xs uppercase tracking-[0.06em] text-cream/55">
                     {m.category}
                   </span>
                 ) : null}
               </span>
               {m.type === 'clip' ? (
-                <span className="flex-none font-mono text-[7px] uppercase tracking-[0.08em] text-cream/70">
+                <span className="flex-none font-mono text-xs uppercase tracking-[0.08em] text-cream/70">
                   ◆ loop
                 </span>
               ) : null}
@@ -982,7 +982,7 @@ function LivePhotoWall({
 }): ReactElement {
   return (
     <div className="mt-4">
-      <p className="mb-3 text-center font-mono text-[9px] uppercase tracking-[0.16em] text-ink/45">
+      <p className="mb-3 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
         Powered by Setnayan
         {typeof photoCount === 'number' && photoCount > 0
           ? ` · ${photoCount.toLocaleString('en-PH')} photos captured live`
@@ -1059,7 +1059,7 @@ function ReviewsWall({ reviews }: { reviews: EditorialData['reviews'] }): ReactE
           <blockquote className="font-serif text-base italic leading-snug text-ink/85">
             &ldquo;{r.quote}&rdquo;
           </blockquote>
-          <figcaption className="mt-2 font-mono text-[9px] uppercase tracking-[0.12em] text-ink/50">
+          <figcaption className="mt-2 font-mono text-xs uppercase tracking-[0.12em] text-ink/50">
             {r.stars ? (
               <span aria-hidden className="mr-1 text-terracotta">
                 {'★'.repeat(Math.max(1, Math.min(5, r.stars)))}
@@ -1085,7 +1085,7 @@ function SetnayanExperience({ services }: { services: string[] }): ReactElement 
       {services.map((s, i) => (
         <span
           key={i}
-          className="rounded-full border border-ink/15 bg-cream px-3 py-1 font-mono text-[9px] uppercase tracking-[0.1em] text-ink/70"
+          className="rounded-full border border-ink/15 bg-cream px-3 py-1 font-mono text-xs uppercase tracking-[0.1em] text-ink/70"
         >
           {s}
         </span>
@@ -1108,7 +1108,7 @@ function Colophon({
 }): ReactElement {
   return (
     <footer className="mt-7 border-t-[3px] border-double border-ink pt-3 text-center">
-      <div className="flex flex-wrap justify-center gap-5 font-mono text-[9px] uppercase tracking-[0.1em]">
+      <div className="flex flex-wrap justify-center gap-5 font-mono text-xs uppercase tracking-[0.1em]">
         <a href="#" className="border-b border-terracotta pb-0.5 text-ink no-underline">
           The Invitation (RSVP)
         </a>

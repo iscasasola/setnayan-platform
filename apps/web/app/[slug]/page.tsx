@@ -28,7 +28,13 @@ import {
   type MonogramMotionKey,
 } from '@/lib/monogram-motion';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { submitRsvp, withdrawFaceConsent, removeMyTag, claimAccountAction } from './actions';
+import {
+  submitRsvp,
+  withdrawFaceConsent,
+  removeMyTag,
+  claimAccountAction,
+  saveAttendedVendorAction,
+} from './actions';
 import { SelfieCapture } from './_components/selfie-capture';
 import { DayOfFaceEnroll } from './_components/day-of-face-enroll';
 import { CountdownWidget } from './_components/countdown';
@@ -74,6 +80,8 @@ import { SdeFilmBlock } from './_components/sde-film-block';
 import { getWallSnapshot } from '@/lib/live-wall';
 import type { WallTile } from '@/lib/live-wall-logic';
 import { getGuestLiveGallery, type GuestLiveGallery } from '@/lib/guest-live-gallery';
+import { fetchEventVendorCredits } from '@/lib/event-vendor-credits';
+import type { VendorCard } from '@/lib/vendor-cards';
 import { parseYouTubeVideoId, youTubeEmbedUrl } from '@/lib/panood-watch';
 import { GuestHubCard, pickNextScheduleBlock, type GuestHubData } from './_components/guest-hub-card';
 import { fetchEntrance, type EntrancePos } from '@/lib/indoor-blueprint';
@@ -162,6 +170,8 @@ type Props = {
     phase?: string;
     // PR4 P1 — per-visit preview of the auto-playing STD film while it bakes.
     film?: string;
+    // Invite/Join v2 — guest "save a vendor" result flash (ok/needs_account/error).
+    save?: string;
   }>;
 };
 
@@ -982,12 +992,14 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // Gated, admin read, graceful-degrade so the anonymous public path is untouched.
   const papicGuestActive = await eventPapicGuestActive(admin, event.event_id);
 
-  // Per-guest LIVE gallery (owner 2026-06-12: "the gallery must be on the
-  // on-the-day part") — the photos THIS guest is tagged in, arriving through
-  // the day. Live window only; guest-session-scoped; clean-screened captures
-  // only (see lib/guest-live-gallery.ts).
+  // Per-guest gallery (owner 2026-06-12: "the gallery must be on the on-the-day
+  // part") — the photos THIS guest is tagged in. Shown through the LIVE window
+  // AND the post-event grace (Invite/Join v2): a no-login guest keeps access
+  // until ~24h after the wedding (dayOfPhase 'post') so they can download, then
+  // it closes for them (account-holders keep theirs forever in the Collection
+  // hub). Guest-session-scoped; clean-screened captures only.
   const guestLiveGallery =
-    dayOfPhase === 'live'
+    dayOfPhase === 'live' || dayOfPhase === 'post'
       ? await getGuestLiveGallery(event.event_id, guest.guest_id)
       : null;
 
@@ -1188,6 +1200,30 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     data: { user: viewerAccount },
   } = await cookieScopedClient.auth.getUser();
 
+  // Invite/Join v2 — a no-login guest's photo access closes once the post-event
+  // grace ends (dayOfPhase leaves live/post, ~24h after the wedding). Past that,
+  // their gallery is closed and we nudge an account (the files persist on R2, so
+  // syncing restores them). eventIsPast disambiguates a post-event 'inactive'
+  // from the far-pre-event 'inactive'. Account-holders are never closed.
+  const eventIsPast = event.event_date
+    ? new Date(event.event_date).getTime() < Date.now()
+    : false;
+  const accountlessPhotosClosed =
+    !viewerAccount && eventIsPast && dayOfPhase !== 'live' && dayOfPhase !== 'post';
+
+  // Invite/Join v2 — "vendors who made this day": the couple's booked marketplace
+  // vendors, savable to a guest's own account for their future planning. Read
+  // server-side (a guest can't read event_vendors under RLS).
+  const eventVendorCredits = await fetchEventVendorCredits(event.event_id);
+  const saveFlash =
+    search.save === 'ok'
+      ? 'Saved to your account — find it in your Library for your own plans.'
+      : search.save === 'needs_account'
+        ? 'Make a free account (the box above) to save vendors for your future plans.'
+        : search.save === 'error'
+          ? 'Couldn’t save that just now — please try again.'
+          : null;
+
   return (
     <>
       <InvitationSite
@@ -1227,6 +1263,9 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         pabati={pabati}
         proWatermarkHidden={proWatermarkHidden}
         showClaimAccountCta={!viewerAccount}
+        accountlessPhotosClosed={accountlessPhotosClosed}
+        eventVendorCredits={eventVendorCredits}
+        saveFlash={saveFlash}
       />
       {papicGuestActive && (
         <Link
@@ -1473,11 +1512,11 @@ function InvitationShell({
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
           <span className="flex items-center gap-2 text-ink">
             <Logo height={28} />
-            <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/60">
+            <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/60">
               Setnayan
             </span>
           </span>
-          <span className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/50">
+          <span className="font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
             Invitation
           </span>
         </div>
@@ -1721,12 +1760,12 @@ function PublicLanding({
   // guest at the venue without a session cookie still sees "happening now".
   const dayOfBadge =
     dayOfPhase === 'live' ? (
-      <p className="inline-flex items-center gap-2 rounded-full bg-success-100 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-success-800">
+      <p className="inline-flex items-center gap-2 rounded-full bg-success-100 px-3 py-1 font-mono text-xs uppercase tracking-[0.15em] text-success-800">
         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success-600" />
         Happening now
       </p>
     ) : dayOfPhase === 'post' ? (
-      <p className="inline-flex rounded-full bg-ink/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/70">
+      <p className="inline-flex rounded-full bg-ink/10 px-3 py-1 font-mono text-xs uppercase tracking-[0.15em] text-ink/70">
         Thank you for celebrating
       </p>
     ) : null;
@@ -2158,6 +2197,9 @@ function InvitationSite({
   pabati,
   proWatermarkHidden,
   showClaimAccountCta,
+  accountlessPhotosClosed,
+  eventVendorCredits,
+  saveFlash,
 }: {
   event: EventRow;
   guest: GuestRow;
@@ -2257,6 +2299,15 @@ function InvitationSite({
    *  prompt (RSVP / Event / Editorial phases — never Save the Date). Computed at
    *  the page level: true only when there's no signed-in account for this viewer. */
   showClaimAccountCta: boolean;
+  /** Invite/Join v2: the no-login photo grace has ended (>~24h after the wedding)
+   *  for this accountless viewer — show the "photos closed, make an account to get
+   *  them back" state instead of the gallery. */
+  accountlessPhotosClosed: boolean;
+  /** Invite/Join v2: the couple's booked marketplace vendors ("vendors who made
+   *  this day"), each savable to the guest's own account for future planning. */
+  eventVendorCredits: VendorCard[];
+  /** Invite/Join v2: flash after a guest saves a vendor (ok / needs_account / error). */
+  saveFlash: string | null;
 }) {
   const sideLabel =
     guest.side === 'both'
@@ -2624,20 +2675,33 @@ function InvitationSite({
             half of the on-the-day gallery pair (the wall mirror above is the
             shared half): this guest's clean-screened tagged photos, arriving
             through the day. Personalization no competitor has. */}
-        {isLive && guestLiveGallery ? (
+        {(isLive || isPost) && guestLiveGallery ? (
           <section
-            aria-label="Photos of you so far"
+            aria-label="Photos of you"
             className="rounded-2xl border border-ink/10 bg-cream p-5 shadow-sm sm:p-6"
           >
             <div className="flex items-center justify-between gap-3">
               <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success-500" />
-                Photos of you — so far
+                {isLive ? (
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success-500" />
+                ) : null}
+                Photos of you{isLive ? ' — so far' : ''}
               </p>
               <p className="text-sm text-ink/70">
-                {guestLiveGallery.total.toLocaleString()} so far
+                {guestLiveGallery.total.toLocaleString()}
+                {isLive ? ' so far' : ''}
               </p>
             </div>
+            {/* Post-event grace (Invite/Join v2): a no-login guest can still save
+                their photos for ~24h after the wedding, then it closes — an
+                account keeps them forever. The claim-account box already sits near
+                the top of the page for accountless viewers. */}
+            {isPost && showClaimAccountCta ? (
+              <p className="mt-3 rounded-lg border border-warn-900/15 bg-warn-100 px-3 py-2 text-sm text-warn-900">
+                These close about a day after the wedding. Save the ones you want now —
+                or make a free account (the box near the top) to keep them forever.
+              </p>
+            ) : null}
             {/* 3-up (not 4-up) so the photos — and the readable "Not me" control —
                 are big enough for an older guest (Guest Legibility Floor). */}
             <div className="mt-4 grid grid-cols-3 gap-2">
@@ -2646,9 +2710,19 @@ function InvitationSite({
                   key={p.id}
                   className="group relative aspect-square overflow-hidden rounded-lg bg-ink/5"
                 >
-                  {/* Presigned 1h URL — raw <img> (optimizer would cache expiry). */}
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={p.url} alt="" loading="lazy" className="h-full w-full object-cover" />
+                  {/* Presigned URL — raw <img> (optimizer would cache expiry).
+                      Wrapped in a link so a tap opens the full-size image to save
+                      — the no-login download path during the grace window. */}
+                  <a
+                    href={p.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Open full size to save"
+                    className="block h-full w-full"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={p.url} alt="" loading="lazy" className="h-full w-full object-cover" />
+                  </a>
                   {/* "Not me" — drop a wrong auto-face guess of yourself on this
                       one shot (you stay enrolled for the rest). Auto-tags only;
                       a photographer's QR tag can't be removed here. A real
@@ -2669,10 +2743,112 @@ function InvitationSite({
               ))}
             </div>
             <p className="mt-3 text-sm text-ink/70">
-              More arrive as the day unfolds — and every photo of you is yours to
-              keep after the celebration. Tap <span className="font-medium">Not me</span> on
-              any photo that isn&rsquo;t you.
+              {isLive
+                ? 'More arrive as the day unfolds — and every photo of you is yours to keep after the celebration.'
+                : 'Tap any photo to open it full size and save it.'}{' '}
+              Tap <span className="font-medium">Not me</span> on any photo that isn&rsquo;t you.
             </p>
+          </section>
+        ) : null}
+
+        {/* Invite/Join v2 — the no-login photo grace has ended for this accountless
+            guest (>~24h after the wedding). Accurate regardless of how many photos
+            they had: the guest view is winding down; an account keeps everything. */}
+        {accountlessPhotosClosed ? (
+          <section
+            aria-label="Keep this event"
+            className="rounded-2xl border border-ink/10 bg-cream p-5 text-sm text-ink/70 shadow-sm sm:p-6"
+          >
+            <p className="font-medium text-ink">Keep this event for good</p>
+            <p className="mt-1">
+              The guest view winds down about a day after the wedding. Make a free
+              Setnayan account to keep your invite and your photos — on any device. Use the
+              &ldquo;Keep this on your phone&rdquo; box above to get a sign-in link.
+            </p>
+          </section>
+        ) : null}
+
+        {/* Invite/Join v2 — "vendors who made this day": the couple's booked
+            marketplace vendors, savable to a guest's OWN account so they carry to
+            the guest's future planning (the growth loop). RSVP / Event / Editorial
+            only (never Save the Date), and only when there are credited vendors. */}
+        {lifecyclePhase !== 'save_the_date' && eventVendorCredits.length > 0 ? (
+          <section
+            aria-label="Vendors who made this day"
+            className="rounded-2xl border border-ink/10 bg-cream p-5 shadow-sm sm:p-6"
+          >
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+              Vendors who made this day
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight">Loved a vendor? Keep them.</h2>
+            <p className="mt-1 text-sm text-ink/70">
+              Save any vendor here to your Setnayan account — they&rsquo;ll be waiting when you
+              plan your own celebration.
+            </p>
+            {saveFlash ? (
+              <p className="mt-3 rounded-lg border border-ink/10 bg-white px-3 py-2 text-sm text-ink/80">
+                {saveFlash}
+              </p>
+            ) : null}
+            <ul className="mt-4 space-y-2">
+              {eventVendorCredits.map((v) => (
+                <li
+                  key={v.vendorProfileId}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-white p-3"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    {v.logoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={v.logoUrl}
+                        alt=""
+                        className="h-10 w-10 shrink-0 rounded-full object-cover"
+                      />
+                    ) : (
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-terracotta/10 text-sm font-semibold text-terracotta">
+                        {v.displayName.trim().charAt(0).toUpperCase() || 'V'}
+                      </span>
+                    )}
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-ink">
+                        {v.businessSlug ? (
+                          <Link href={`/v/${v.businessSlug}`} className="hover:text-terracotta">
+                            {v.displayName}
+                          </Link>
+                        ) : (
+                          v.displayName
+                        )}
+                      </p>
+                      {v.categoryLabel ? (
+                        <p className="truncate text-sm text-ink/60">{v.categoryLabel}</p>
+                      ) : null}
+                    </div>
+                  </div>
+                  {showClaimAccountCta ? (
+                    <span className="shrink-0 text-xs text-ink/45">Account needed</span>
+                  ) : (
+                    <form
+                      action={saveAttendedVendorAction.bind(
+                        null,
+                        event.event_id,
+                        event.slug ?? '',
+                        v.vendorProfileId,
+                      )}
+                      className="shrink-0"
+                    >
+                      <SubmitButton className="button-secondary text-sm" pendingLabel="Saving…">
+                        Save
+                      </SubmitButton>
+                    </form>
+                  )}
+                </li>
+              ))}
+            </ul>
+            {showClaimAccountCta ? (
+              <p className="mt-3 text-sm text-ink/60">
+                Make a free account (the box near the top) to save these for your own plans.
+              </p>
+            ) : null}
           </section>
         ) : null}
 
@@ -2932,7 +3108,7 @@ function OurLoveStoryWidget({ config }: { config: unknown }) {
       </p>
       {howWeMet ? (
         <div className="text-center">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45">How we met</p>
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/45">How we met</p>
           <p className="mx-auto mt-1.5 max-w-prose whitespace-pre-line text-sm leading-relaxed text-ink/80">
             {howWeMet}
           </p>
@@ -2940,7 +3116,7 @@ function OurLoveStoryWidget({ config }: { config: unknown }) {
       ) : null}
       {proposal ? (
         <div className="text-center">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45">
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/45">
             The proposal{proposalSetting ? ` · ${proposalSetting}` : ''}
           </p>
           <p className="mx-auto mt-1.5 max-w-prose whitespace-pre-line text-sm leading-relaxed text-ink/80">
@@ -2955,7 +3131,7 @@ function OurLoveStoryWidget({ config }: { config: unknown }) {
               <span className="mt-1.5 h-2 w-2 flex-none rounded-full bg-terracotta" aria-hidden />
               <div>
                 {m.year ? (
-                  <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta">
+                  <p className="font-mono text-xs uppercase tracking-[0.15em] text-terracotta">
                     {m.year}
                   </p>
                 ) : null}
@@ -3055,7 +3231,7 @@ function Detail({
 }) {
   return (
     <div className={className}>
-      <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
+      <dt className="font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
         {label}
       </dt>
       <dd className="mt-0.5 text-base text-ink">{value}</dd>
@@ -3319,7 +3495,7 @@ function VenueWidget({ event }: { event: EventRow }) {
       <div className="overflow-hidden rounded-lg border border-ink/10">
         <div className="h-32 bg-gradient-to-br from-terracotta/30 via-warn-100 to-success-100" />
         <div className="space-y-3 bg-cream p-4">
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta">
+          <p className="font-mono text-xs uppercase tracking-[0.15em] text-terracotta">
             Ceremony &amp; Reception
           </p>
           <h3 className="text-xl font-semibold tracking-tight">
@@ -3434,7 +3610,7 @@ function DressCodeWidget({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {dos.length > 0 ? (
             <div className="space-y-2 rounded-lg border border-success-200 bg-success-50 p-4 text-sm text-success-900">
-              <p className="font-mono text-[10px] uppercase tracking-[0.15em]">Do</p>
+              <p className="font-mono text-xs uppercase tracking-[0.15em]">Do</p>
               <ul className="space-y-1">
                 {dos.map((row, i) => (
                   <li key={i}>· {row}</li>
@@ -3444,7 +3620,7 @@ function DressCodeWidget({
           ) : null}
           {donts.length > 0 ? (
             <div className="space-y-2 rounded-lg border border-danger-200 bg-danger-50 p-4 text-sm text-danger-900">
-              <p className="font-mono text-[10px] uppercase tracking-[0.15em]">
+              <p className="font-mono text-xs uppercase tracking-[0.15em]">
                 Don&rsquo;t
               </p>
               <ul className="space-y-1">
@@ -3541,7 +3717,7 @@ function PhotoMomentsWidget({ config }: { config: unknown }) {
           >
             <PhotoMomentModeBadge mode={m.mode} />
             {m.time_label.trim().length > 0 ? (
-              <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta">
+              <p className="font-mono text-xs uppercase tracking-[0.15em] text-terracotta">
                 {m.time_label}
               </p>
             ) : null}
@@ -3559,7 +3735,7 @@ function PhotoMomentsWidget({ config }: { config: unknown }) {
 function PhotoMomentModeBadge({ mode }: { mode: PhotoMomentMode }) {
   if (mode === 'camera_ok') {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-800">
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-success-100 px-2 py-0.5 font-mono text-xs uppercase tracking-[0.15em] text-success-800">
         <Camera aria-hidden className="h-3 w-3" strokeWidth={2} />
         Cameras welcome
       </span>
@@ -3567,14 +3743,14 @@ function PhotoMomentModeBadge({ mode }: { mode: PhotoMomentMode }) {
   }
   if (mode === 'papic_only') {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-xs uppercase tracking-[0.15em] text-terracotta-700">
         <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2} />
         Our paparazzo
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/70">
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-ink/5 px-2 py-0.5 font-mono text-xs uppercase tracking-[0.15em] text-ink/70">
       <CircleSlash aria-hidden className="h-3 w-3" strokeWidth={2} />
       Phone-down
     </span>
@@ -3651,7 +3827,7 @@ function DayOfBanner({ kind }: { kind: 'live' | 'post' }) {
           className="inline-flex h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-success-600"
         />
         <div className="flex-1">
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-success-800">
+          <p className="font-mono text-xs uppercase tracking-[0.15em] text-success-800">
             Live now
           </p>
           <p className="text-sm text-success-900">
@@ -3669,7 +3845,7 @@ function DayOfBanner({ kind }: { kind: 'live' | 'post' }) {
       aria-label="Post-event mode"
       className="rounded-xl border border-ink/10 bg-cream p-4 sm:p-5"
     >
-      <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+      <p className="font-mono text-xs uppercase tracking-[0.15em] text-ink/55">
         Thank you for celebrating
       </p>
       <p className="mt-1 text-sm text-ink/70">
@@ -3697,13 +3873,13 @@ function TierComparisonWidget({ limited }: { limited: boolean }) {
         </p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-2 rounded-lg border border-dashed border-ink/15 bg-cream p-5 opacity-55">
-            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
+            <p className="font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
               Public
             </p>
             <p className="text-sm text-ink/60">View invitation · RSVP · 3-day photo window</p>
           </div>
           <div className="space-y-2 rounded-lg border border-dashed border-terracotta/30 bg-cream p-5 opacity-55">
-            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta">
+            <p className="font-mono text-xs uppercase tracking-[0.15em] text-terracotta">
               Registered (locked for +1s)
             </p>
             <p className="text-sm text-ink/60">
@@ -3731,7 +3907,7 @@ function TierComparisonWidget({ limited }: { limited: boolean }) {
       </header>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="space-y-3 rounded-lg border border-ink/15 bg-cream p-5">
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
+          <p className="font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
             Public · As you are now
           </p>
           <p className="font-medium text-ink">Free · No sign-up needed</p>
@@ -3746,7 +3922,7 @@ function TierComparisonWidget({ limited }: { limited: boolean }) {
           </p>
         </div>
         <div className="space-y-3 rounded-lg border border-terracotta/40 bg-gradient-to-br from-terracotta/10 to-cream p-5">
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta">
+          <p className="font-mono text-xs uppercase tracking-[0.15em] text-terracotta">
             With Setnayan account
           </p>
           <p className="font-medium text-ink">Free · One-tap sign-up</p>

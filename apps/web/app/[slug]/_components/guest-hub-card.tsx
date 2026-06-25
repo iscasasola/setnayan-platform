@@ -202,7 +202,7 @@ export function GuestHubCard({ data }: { data: GuestHubData }) {
               <span className="font-serif text-base italic leading-snug text-ink">
                 Hi again, {firstName}.
               </span>
-              <span className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
+              <span className="mt-0.5 font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
                 Your invitation summary
               </span>
             </div>
@@ -228,7 +228,7 @@ export function GuestHubCard({ data }: { data: GuestHubData }) {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             {/* RSVP status */}
             <div className="flex flex-col gap-1 rounded-xl border border-ink/8 bg-cream p-3.5">
-              <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-ink/45">
+              <span className="font-mono text-xs uppercase tracking-[0.18em] text-ink/45">
                 RSVP
               </span>
               <span className="flex items-center gap-1.5 text-sm font-medium text-ink">
@@ -236,11 +236,11 @@ export function GuestHubCard({ data }: { data: GuestHubData }) {
                 {rsvp.label}
               </span>
               {rsvpStatus === 'attending' ? (
-                <span className="mt-0.5 text-[11px] text-success-700">
+                <span className="mt-0.5 text-xs text-success-700">
                   Your place is reserved.
                 </span>
               ) : rsvpStatus === 'pending' ? (
-                <span className="mt-0.5 text-[11px] text-warn-700">
+                <span className="mt-0.5 text-xs text-warn-700">
                   Please confirm you&apos;re coming.
                 </span>
               ) : null}
@@ -256,7 +256,7 @@ export function GuestHubCard({ data }: { data: GuestHubData }) {
                   : 'border-ink/8 bg-cream'
               }`}
             >
-              <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-ink/45">
+              <span className="font-mono text-xs uppercase tracking-[0.18em] text-ink/45">
                 {showArrival ? 'You’ve arrived' : 'Your seat'}
               </span>
               <span className="flex items-center gap-1.5 text-sm font-medium text-ink">
@@ -277,12 +277,12 @@ export function GuestHubCard({ data }: { data: GuestHubData }) {
               {tableLabel ? (
                 <Link
                   href={`/${slug}/find-my-table`}
-                  className="mt-0.5 text-[11px] text-terracotta underline-offset-2 hover:underline"
+                  className="mt-0.5 text-xs text-terracotta underline-offset-2 hover:underline"
                 >
                   See venue map →
                 </Link>
               ) : (
-                <span className="mt-0.5 text-[11px] text-ink/45">
+                <span className="mt-0.5 text-xs text-ink/45">
                   The couple will assign seats closer to the date.
                 </span>
               )}
@@ -290,7 +290,7 @@ export function GuestHubCard({ data }: { data: GuestHubData }) {
 
             {/* Meal + dietary */}
             <div className="flex flex-col gap-1 rounded-xl border border-ink/8 bg-cream p-3.5">
-              <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-ink/45">
+              <span className="font-mono text-xs uppercase tracking-[0.18em] text-ink/45">
                 Meal
               </span>
               <span className="flex items-center gap-1.5 text-sm font-medium text-ink">
@@ -298,7 +298,7 @@ export function GuestHubCard({ data }: { data: GuestHubData }) {
                 {meal ?? <span className="text-ink/50">No preference set</span>}
               </span>
               {restrictions ? (
-                <span className="mt-0.5 text-[11px] text-ink/60">
+                <span className="mt-0.5 text-xs text-ink/60">
                   Notes: {restrictions}
                 </span>
               ) : null}
@@ -314,7 +314,7 @@ export function GuestHubCard({ data }: { data: GuestHubData }) {
                 strokeWidth={1.5}
               />
               <div className="min-w-0">
-                <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-ink/50">
+                <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/50">
                   Coming up
                 </p>
                 <p className="mt-0.5 text-sm font-medium text-ink">
@@ -332,7 +332,7 @@ export function GuestHubCard({ data }: { data: GuestHubData }) {
 
           {/* Quick-nav links */}
           <div className="flex flex-wrap items-center gap-2 pt-0.5">
-            <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-ink/40">
+            <span className="font-mono text-xs uppercase tracking-[0.15em] text-ink/40">
               Quick links
             </span>
             <Link
@@ -353,7 +353,7 @@ export function GuestHubCard({ data }: { data: GuestHubData }) {
           </div>
 
           {/* Greeter */}
-          <p className="text-[11px] text-ink/40">
+          <p className="text-xs text-ink/40">
             Signed in as <span className="font-medium text-ink/60">{displayName}</span>
           </p>
         </div>

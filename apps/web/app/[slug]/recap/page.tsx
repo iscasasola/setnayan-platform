@@ -175,9 +175,9 @@ function RecapHeader() {
       <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
         <span className="flex items-center gap-2 text-ink">
           <Logo height={28} />
-          <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/60">Setnayan</span>
+          <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/60">Setnayan</span>
         </span>
-        <span className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/50">The Recap</span>
+        <span className="font-mono text-xs uppercase tracking-[0.15em] text-ink/50">The Recap</span>
       </div>
     </header>
   );
@@ -303,7 +303,7 @@ function RecapStats({ model }: { model: RecapModel }) {
       {items.map((it) => (
         <div key={it.label} className="text-center">
           <p className="font-display text-3xl text-mulberry">{it.n}</p>
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">{it.label}</p>
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">{it.label}</p>
         </div>
       ))}
     </div>
@@ -358,7 +358,7 @@ function ChapterBlock({ chapter }: { chapter: RecapModel['dayChapters'][number] 
     <section className="mb-12">
       <div className="mb-4">
         <h2 className="font-display text-2xl text-mulberry">{chapter.title}</h2>
-        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/50">
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/50">
           {[chapter.subtitle, chapter.whenLabel].filter(Boolean).join(' · ')}
         </p>
       </div>
@@ -375,7 +375,7 @@ function CuratedGallery({ urls }: { urls: string[] }) {
           <Camera aria-hidden className="h-5 w-5 text-gold" strokeWidth={1.75} />
           Their photos
         </h2>
-        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/50">
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/50">
           The moments they chose to share
         </p>
       </div>
@@ -454,7 +454,7 @@ function Voices({ voices }: { voices: RecapModel['voices'] }) {
           <Quote aria-hidden className="h-5 w-5 text-gold" strokeWidth={1.75} />
           Mga Boses
         </h2>
-        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/50">
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/50">
           The voices of their guests
         </p>
       </div>

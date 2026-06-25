@@ -106,8 +106,49 @@ export type Lab3DPalette = {
 
 export type Vec2 = { x: number; z: number };
 
-/** Default room footprint (metres) when no venue size is set. */
-export const DEFAULT_ROOM = { w: 18, d: 12 } as const;
+// Free-board default — MUST match the 2D editor's default venue (venue_width_m
+// ?? 20 · venue_length_m ?? 30 in seating-editor.tsx). When they drift, the stage
+// (and everything) scales differently between 2D and 3D — most visibly the stage
+// depth (owner 2026-06-26 bug: "stage didn't follow the 2D size").
+export const DEFAULT_ROOM = { w: 20, d: 30 } as const;
+
+/** A rectangular zone in world metres (stage / dance floor). */
+export type PlaceZone = { cx: number; cz: number; hw: number; hd: number };
+
+/** Does an avoidance disc (x,z,r) overlap a rect zone? (closest-point test) */
+function discOverlapsZone(x: number, z: number, r: number, zone: PlaceZone): boolean {
+  const dx = Math.max(Math.abs(x - zone.cx) - zone.hw, 0);
+  const dz = Math.max(Math.abs(z - zone.cz) - zone.hd, 0);
+  return Math.hypot(dx, dz) < r;
+}
+
+/**
+ * Placement rules (owner 2026-06-26): objects can't overlap each other · no
+ * tables on the dance floor · only a SWEETHEART table may sit on the stage.
+ * Pure — the editor calls this on drop and reverts + flags the reason if blocked.
+ * Footprints are modelled as discs; the −0.1 lets edges kiss without tripping.
+ */
+export function checkPlacement(
+  cand: { x: number; z: number; r: number; isTable: boolean; isSweetheart: boolean },
+  others: { x: number; z: number; r: number }[],
+  stage: PlaceZone | null,
+  dance: PlaceZone | null,
+): { ok: true } | { ok: false; reason: string } {
+  for (const o of others) {
+    if (Math.hypot(cand.x - o.x, cand.z - o.z) < cand.r + o.r - 0.1) {
+      return { ok: false, reason: 'Objects can’t overlap each other.' };
+    }
+  }
+  if (cand.isTable && dance && discOverlapsZone(cand.x, cand.z, cand.r, dance)) {
+    return { ok: false, reason: 'No tables on the dance floor.' };
+  }
+  if (stage && discOverlapsZone(cand.x, cand.z, cand.r, stage)) {
+    if (!(cand.isTable && cand.isSweetheart)) {
+      return { ok: false, reason: 'Only a sweetheart table can sit on the stage.' };
+    }
+  }
+  return { ok: true };
+}
 
 export function shapeHintFor(tableType: string): ShapeHint {
   if (tableType.startsWith('round')) return 'round';
@@ -129,6 +170,35 @@ export function roomSize(floor: Lab3DFloor): { w: number; d: number } {
     return { w: floor.venueWidthM, d: floor.venueLengthM };
   }
   return { w: DEFAULT_ROOM.w, d: DEFAULT_ROOM.d };
+}
+
+/**
+ * World-space bounding box of the placed tables (+ a footprint margin), with its
+ * centre and span. The "open canvas" lets tables sit far outside the default
+ * room (free-board pct can exceed 0–100), so this is how the camera knows how
+ * far to let you zoom out / what to frame — without a fixed venue rectangle.
+ * Empty board → falls back to the room itself. Pure.
+ */
+export function contentBounds(
+  tables: { xPct: number; yPct: number }[],
+  room: { w: number; d: number },
+): { minX: number; maxX: number; minZ: number; maxZ: number; cx: number; cz: number; span: number } {
+  if (tables.length === 0) {
+    return {
+      minX: -room.w / 2, maxX: room.w / 2, minZ: -room.d / 2, maxZ: room.d / 2,
+      cx: 0, cz: 0, span: Math.max(room.w, room.d),
+    };
+  }
+  const M = 2; // metre margin per table for its footprint + chairs
+  let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+  for (const t of tables) {
+    const p = pctToWorld(t.xPct, t.yPct, room);
+    minX = Math.min(minX, p.x - M);
+    maxX = Math.max(maxX, p.x + M);
+    minZ = Math.min(minZ, p.z - M);
+    maxZ = Math.max(maxZ, p.z + M);
+  }
+  return { minX, maxX, minZ, maxZ, cx: (minX + maxX) / 2, cz: (minZ + maxZ) / 2, span: Math.max(maxX - minX, maxZ - minZ) };
 }
 
 /** percent (0–100, origin top-left) → centred world metres (origin room centre). */
@@ -358,6 +428,76 @@ export function floorObstacles(
     });
   }
   return obs;
+}
+
+// ── Venue objects (whole-venue designer) ───────────────────────────────────
+// Placeable NON-seating elements so the 3D edit lays out the ENTIRE space, not
+// just guest tables (owner 2026-06-26). The CANONICAL kind list — keep the DB
+// CHECK in 20270224150000_event_scene_objects.sql in sync when extending. `w`/`d`
+// are the footprint (metres) used for the 3D mesh + the crowd avoidance disc.
+export type VenueObjectKind =
+  | 'arch'
+  | 'buffet'
+  | 'bar'
+  | 'cake_table'
+  | 'gift_table'
+  | 'registration'
+  | 'photo_booth'
+  | 'lounge'
+  | 'led_wall'
+  | 'plant';
+
+export const VENUE_OBJECT_CATALOG: ReadonlyArray<{
+  kind: VenueObjectKind;
+  label: string;
+  w: number;
+  d: number;
+}> = [
+  { kind: 'arch', label: 'Ceremony arch', w: 2.4, d: 0.6 },
+  { kind: 'buffet', label: 'Buffet station', w: 3.0, d: 0.9 },
+  { kind: 'bar', label: 'Bar', w: 2.5, d: 0.8 },
+  { kind: 'cake_table', label: 'Cake table', w: 1.2, d: 1.2 },
+  { kind: 'gift_table', label: 'Gift table', w: 1.6, d: 0.7 },
+  { kind: 'registration', label: 'Registration', w: 1.6, d: 0.7 },
+  { kind: 'photo_booth', label: 'Photo booth', w: 2.0, d: 2.0 },
+  { kind: 'lounge', label: 'Lounge', w: 2.5, d: 1.8 },
+  { kind: 'led_wall', label: 'LED wall', w: 4.0, d: 0.4 },
+  { kind: 'plant', label: 'Plant / greenery', w: 0.8, d: 0.8 },
+];
+
+const VENUE_OBJECT_DIMS: ReadonlyMap<string, { w: number; d: number }> = new Map(
+  VENUE_OBJECT_CATALOG.map((o) => [o.kind, { w: o.w, d: o.d }]),
+);
+
+/** Footprint (metres) for a venue-object kind; a 1×1 fallback for unknown kinds. */
+export function venueObjectDims(kind: string): { w: number; d: number } {
+  return VENUE_OBJECT_DIMS.get(kind) ?? { w: 1, d: 1 };
+}
+
+/** A placed venue object on the couple's percent canvas. */
+export type Lab3DSceneObject = {
+  id: string;
+  kind: VenueObjectKind;
+  label: string | null;
+  xPct: number;
+  yPct: number;
+  rotationDeg: number;
+};
+
+/**
+ * Avoidance discs for placed venue objects, so the walk-in crowd steers around
+ * the buffet / arch / bar just like it does tables. Merge into floorObstacles'
+ * output at the call site (objects don't get "skipped" the way a destination
+ * table does — a guest never walks INTO a buffet).
+ */
+export function sceneObjectObstacles(
+  objects: Lab3DSceneObject[],
+  room: { w: number; d: number },
+): { c: Vec2; r: number }[] {
+  return objects.map((o) => {
+    const dim = venueObjectDims(o.kind);
+    return { c: pctToWorld(o.xPct, o.yPct, room), r: Math.max(dim.w, dim.d) / 2 + 0.4 };
+  });
 }
 
 /**

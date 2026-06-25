@@ -25,6 +25,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useLineReveal } from '@/app/_components/marketing/_premium';
 
 type TagKind = 'app' | 'vendor' | 'door' | 'cost';
 type Beat = {
@@ -118,6 +119,9 @@ function HeartGlyph() {
 
 export function VendorDoorScenario() {
   const [i, setI] = useState(0);
+  // The section's static H2 gets a serif line-reveal on scroll-in (below the
+  // fold). Declared before the early return so the hook call order is stable.
+  const h2Ref = useLineReveal({ trigger: 'view' });
   const b = BEATS[i];
   // BEATS[i] is `Beat | undefined` under noUncheckedIndexedAccess; `i` is always
   // a valid index (setI clamps to 0..len-1), but narrow explicitly for tsc.
@@ -134,6 +138,7 @@ export function VendorDoorScenario() {
     >
       <div className="m-eyebrow">Illustrative scenario</div>
       <h2
+        ref={h2Ref as React.RefObject<HTMLHeadingElement>}
         className="m-serif"
         style={{
           fontSize: 'clamp(36px, 5vw, 64px)',
@@ -250,6 +255,27 @@ export function VendorDoorScenario() {
           >
             HIS DOOR
           </div>
+
+          {/* champagne arrival pulse — fires only on the final beat, when the
+              couple has reached the vendor's world (additive; off on reduced-motion). */}
+          {last && (
+            <div
+              className="scn-pulse"
+              aria-hidden="true"
+              style={{
+                position: 'absolute',
+                top: '55%',
+                left: `${b.pos}%`,
+                transform: 'translate(-50%, -50%)',
+                width: 44,
+                height: 44,
+                borderRadius: '50%',
+                border: '1.5px solid var(--m-orange)',
+                zIndex: 2,
+                pointerEvents: 'none',
+              }}
+            />
+          )}
 
           {/* the couple — travels left→right toward Marco, turns gold at the door */}
           <div
@@ -400,8 +426,15 @@ export function VendorDoorScenario() {
         .scn-couple { transition: left .7s cubic-bezier(.5,0,.2,1), color .5s, border-color .5s; }
         .scn-zone, .scn-noise { transition: opacity .45s; }
         .scn-stat-v { transition: color .4s; }
+        .scn-pulse { animation: scn-pulse 1.9s ease-out infinite; }
+        @keyframes scn-pulse {
+          0% { transform: translate(-50%, -50%) scale(1); opacity: .55; }
+          70% { opacity: 0; }
+          100% { transform: translate(-50%, -50%) scale(2.4); opacity: 0; }
+        }
         @media (prefers-reduced-motion: reduce) {
           .scn-couple, .scn-zone, .scn-noise, .scn-stat-v { transition: none; }
+          .scn-pulse { animation: none; opacity: 0; }
         }
       `}</style>
     </section>

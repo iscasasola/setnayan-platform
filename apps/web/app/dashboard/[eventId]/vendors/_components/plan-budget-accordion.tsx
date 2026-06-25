@@ -48,6 +48,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import { LoadingStatus } from '@/components/loading-status';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import { formatPhp } from '@/lib/vendors';
 import { formatDistanceKm } from '@/lib/distance';
 import { computeCompatScore, explainCompatScore } from '@/lib/compat-score';
@@ -1897,19 +1898,11 @@ function CompareSheet({
   child: AccordionChild;
   onClose: () => void;
 }) {
-  // Full-screen sheet: lock background scroll while open; Escape closes.
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => {
-      document.body.style.overflow = prev;
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [onClose]);
+  // Full-screen sheet: focus trap + Esc-to-close + scroll lock. Mounted only
+  // while open (parent renders `{compare && <CompareSheet/>}`), so `open` is
+  // constant true — mount = open, unmount runs the restore.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalA11y({ open: true, onClose, containerRef: dialogRef });
 
   // Same field extraction as VendorCardAtom so screen-name/real-name
   // resolution + enrichment stay identical to the cards.
@@ -1981,7 +1974,8 @@ function CompareSheet({
 
   return (
     <div
-      className="cmpsheet"
+      ref={dialogRef}
+      className="cmpsheet focus:outline-none"
       role="dialog"
       aria-modal="true"
       aria-label={`Compare ${child.label}`}

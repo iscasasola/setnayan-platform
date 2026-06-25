@@ -17,10 +17,11 @@
  * card carries the rail's coverflow `transform` (which would trap position:fixed).
  */
 
-import { useEffect, useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import { createPortal } from 'react-dom';
 import { Hammer, Check, X, Clock } from 'lucide-react';
 import { haptic } from '@/lib/haptics';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import { setBuildPick, removeBuildPick } from '../build-pick-actions';
 
 const peso = (php: number | null | undefined) =>
@@ -57,16 +58,10 @@ export function AccordionBuildButton({
 }) {
   const [confirm, setConfirm] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const dialogRef = useRef<HTMLDivElement>(null);
 
-  // Esc closes the replace popup.
-  useEffect(() => {
-    if (!confirm) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setConfirm(false);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [confirm]);
+  // Esc-to-close + focus trap + scroll lock for the replace popup.
+  useModalA11y({ open: confirm, onClose: () => setConfirm(false), containerRef: dialogRef });
 
   const pin = () => {
     haptic('confirm');
@@ -137,9 +132,10 @@ export function AccordionBuildButton({
       {confirm && existing
         ? portal(
             <div
+              ref={dialogRef}
               role="dialog"
               aria-modal="true"
-              className="fixed inset-0 z-[60] flex items-end justify-center bg-ink/45 p-0 sm:items-center sm:p-4"
+              className="fixed inset-0 z-[60] flex items-end justify-center bg-ink/45 p-0 focus:outline-none sm:items-center sm:p-4"
               onClick={(e) => {
                 if (e.target === e.currentTarget) setConfirm(false);
               }}

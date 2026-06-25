@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import { Send, X, Sparkles } from 'lucide-react';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import {
   sendVendorInvite,
   connectExistingVendorProfile,
@@ -32,6 +33,14 @@ export function InviteVendorButton({
   const [view, setView] = useState<ModalView>({ kind: 'closed' });
   const [email, setEmail] = useState(defaultEmail ?? '');
   const [pending, startTransition] = useTransition();
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  // Focus trap + Esc-to-close + scroll lock while the modal is open.
+  useModalA11y({
+    open: view.kind !== 'closed',
+    onClose: () => setView({ kind: 'closed' }),
+    containerRef: dialogRef,
+  });
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -91,9 +100,10 @@ export function InviteVendorButton({
 
       {view.kind !== 'closed' ? (
         <div
+          ref={dialogRef}
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/55 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/55 p-4 backdrop-blur-sm focus:outline-none"
         >
           <div className="w-full max-w-md rounded-xl bg-cream p-6 shadow-xl ring-1 ring-ink/10">
             <header className="flex items-start justify-between gap-3">

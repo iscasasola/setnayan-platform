@@ -23,8 +23,9 @@
  * Reuses updateVendorCosts (../../actions) — no new writer, no schema.
  */
 
-import { useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import { X, Receipt, Sparkles } from 'lucide-react';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import { updateVendorCosts } from '../../../actions';
 
 /** A candidate quote the couple can choose to log. */
@@ -89,6 +90,17 @@ export function QuoteBridge({
   const [sourceLabel, setSourceLabel] = useState('');
   const [pending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  // Focus trap + Esc-to-close + scroll lock. Esc is suspended mid-submit so an
+  // in-flight save can't be interrupted (matched the old inline guard).
+  useModalA11y({
+    open,
+    onClose: () => {
+      if (!pending) setOpen(false);
+    },
+    containerRef: dialogRef,
+  });
 
   const hasChat = showChatChip && chatAmountsPesos.length > 0;
   const hasProposals = proposalCandidates.length > 0;
@@ -227,13 +239,11 @@ export function QuoteBridge({
       {/* --- The money-safety gate: editable confirm modal --- */}
       {open ? (
         <div
+          ref={dialogRef}
           role="dialog"
           aria-modal="true"
           aria-labelledby="quote-bridge-heading"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/55 p-4 backdrop-blur-sm"
-          onKeyDown={(e) => {
-            if (e.key === 'Escape' && !pending) setOpen(false);
-          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/55 p-4 backdrop-blur-sm focus:outline-none"
         >
           <div className="w-full max-w-md rounded-xl bg-cream p-6 shadow-xl ring-1 ring-ink/10">
             <header className="flex items-start justify-between gap-3">

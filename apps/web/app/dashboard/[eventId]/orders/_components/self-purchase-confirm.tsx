@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AlertCircle, Wallet, Gift, X } from 'lucide-react';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 
 /**
  * Decision 1 (CLAUDE.md 2026-05-15) — § 3.1a Self-purchase confirm modal.
@@ -164,12 +165,19 @@ function SelfPurchaseModal({
   onCancel: () => void;
   onPick: (action: 'pay_full_price' | 'comp_for_myself') => void;
 }) {
+  // This modal only mounts while open, so mount === open. The shared primitive
+  // adds Esc-to-close, focus-in/trap, scroll-lock, and focus-restore on close —
+  // none of which this modal had before.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalA11y({ open: true, onClose: onCancel, containerRef: dialogRef });
+
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-labelledby="self-purchase-heading"
-      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 sm:items-center focus:outline-none"
     >
       <div className="w-full max-w-md rounded-2xl bg-cream p-6 shadow-2xl ring-1 ring-ink/10">
         <header className="flex items-start justify-between gap-3">

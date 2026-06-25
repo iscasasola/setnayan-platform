@@ -50,6 +50,8 @@ import {
   setGuestSeatingPriority,
   assignGroup,
   autoArrange,
+  linkTables,
+  unlinkTable,
 } from '@/app/dashboard/[eventId]/seating/actions';
 import { TABLE_TYPE_CATALOG, ROLE_TIER_LABELS, computeAutoLayout } from '@/lib/seating';
 import type { KeepApartRule, PriorityOrder, EventTableRow } from '@/lib/seating';
@@ -67,6 +69,7 @@ function isLockLost(err: unknown): boolean {
 import {
   type Lab3DTable,
   type Lab3DFloor,
+  reconcileGrouping,
   type Lab3DGuest,
   type Lab3DGroup,
   type Lab3DPalette,
@@ -300,9 +303,13 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
       return;
     }
     setTables((prev) => {
-      const known = new Set(prev.map((t) => t.id));
+      // Patch link-grouping from server truth onto known rows (link/unlink only
+      // mutates linkGroupId/label on existing rows; the add-only merge below
+      // would otherwise never reflect it), then add any brand-new tables.
+      const reconciled = reconcileGrouping(prev, initialTables);
+      const known = new Set(reconciled.map((t) => t.id));
       const added = initialTables.filter((t) => !known.has(t.id));
-      return added.length ? [...prev, ...added] : prev;
+      return added.length ? [...reconciled, ...added] : reconciled;
     });
   }, [initialTables]);
 
@@ -323,6 +330,8 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
   const [placingGuestId, setPlacingGuestId] = useState<string | null>(null);
   // "Seat a whole group" — armed group id; the next table tap seats its members.
   const [placingGroupId, setPlacingGroupId] = useState<string | null>(null);
+  // Link mode — armed table id; the next OTHER table tap links the two as a unit.
+  const [linkArmId, setLinkArmId] = useState<string | null>(null);
   const [arrived, setArrived] = useState<string | null>(null);
   const [showCloth, setShowCloth] = useState(true);
   const [showAccents, setShowAccents] = useState(true);
@@ -504,6 +513,29 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
         setNotice(verdict.reason);
         return;
       }
+    }
+
+    // Linked unit → translate every member by the same delta (move as one).
+    const groupId = dragged?.linkGroupId ?? null;
+    if (groupId && dragged) {
+      const ddx = xPct - dragged.xPct;
+      const ddy = yPct - dragged.yPct;
+      const members = tables.filter((t) => t.linkGroupId === groupId);
+      setTables((prev) =>
+        prev.map((t) => (t.linkGroupId === groupId ? { ...t, xPct: t.xPct + ddx, yPct: t.yPct + ddy } : t)),
+      );
+      if (canEdit) {
+        for (const m of members) {
+          const fd = new FormData();
+          fd.set('event_id', eventId);
+          fd.set('lock_id', lock.lockId ?? '');
+          fd.set('table_id', m.id);
+          fd.set('x_pos', String(m.xPct + ddx));
+          fd.set('y_pos', String(m.yPct + ddy));
+          void persist(() => updateTablePosition(fd));
+        }
+      }
+      return;
     }
 
     setTables((prev) => prev.map((t) => (t.id === d.id ? { ...t, xPct, yPct } : t)));
@@ -907,6 +939,54 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
     [canEdit, guests, eventId, lock.lockId, persist, router],
   );
 
+  // 2D-parity: link two tables into one unit (one QR + one name, moves together).
+  // Optimistic: stamp a shared temp group id + combined label on both, then the
+  // server assigns the real group and reconcileGrouping picks it up on refresh.
+  const doLink = useCallback(
+    (aId: string, bId: string) => {
+      if (!canEdit || aId === bId) return;
+      const a = tablesById.get(aId);
+      const b = tablesById.get(bId);
+      if (!a || !b) return;
+      const tempGroup = a.linkGroupId ?? `tmp-${aId}`;
+      const groupLabel = `${a.label} & ${b.label}`;
+      const groupMembers = new Set<string>([aId, bId]);
+      if (a.linkGroupId) tables.forEach((t) => t.linkGroupId === a.linkGroupId && groupMembers.add(t.id));
+      if (b.linkGroupId) tables.forEach((t) => t.linkGroupId === b.linkGroupId && groupMembers.add(t.id));
+      setTables((prev) =>
+        prev.map((t) => (groupMembers.has(t.id) ? { ...t, linkGroupId: tempGroup, label: groupLabel } : t)),
+      );
+      const fd = new FormData();
+      fd.set('event_id', eventId);
+      fd.set('lock_id', lock.lockId ?? '');
+      fd.set('table_id_a', aId);
+      fd.set('table_id_b', bId);
+      void persist(async () => {
+        await linkTables(fd);
+        router.refresh();
+      });
+      setNotice(`Linked — “${a.label}” and “${b.label}” move together with one printed QR.`);
+    },
+    [canEdit, tablesById, tables, eventId, lock.lockId, persist, router],
+  );
+  // 2D-parity: break a linked unit back into independent tables.
+  const breakApart = useCallback(() => {
+    if (!canEdit || !selectedId) return;
+    const t = tablesById.get(selectedId);
+    if (!t?.linkGroupId) return;
+    const groupId = t.linkGroupId;
+    setTables((prev) => prev.map((x) => (x.linkGroupId === groupId ? { ...x, linkGroupId: null } : x)));
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
+    fd.set('table_id', selectedId);
+    void persist(async () => {
+      await unlinkTable(fd);
+      router.refresh();
+    });
+    setNotice('Broken apart — each table is independent again, with its own name + QR.');
+  }, [canEdit, selectedId, tablesById, eventId, lock.lockId, persist, router]);
+
   // Pick a guest → walk to their seat (seating them in the first free chair if
   // they have none), steering around the other tables.
   // Seat a guest + walk them in. `preferredTableId` (from tap-to-place) restricts
@@ -1075,6 +1155,12 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
 
   const onTableDown = useCallback(
     (id: string) => {
+      // Link mode: first table is armed; tapping a different one links them.
+      if (linkArmId) {
+        if (linkArmId !== id) doLink(linkArmId, id);
+        setLinkArmId(null);
+        return;
+      }
       // Seat a whole picked group at the tapped table.
       if (placingGroupId) {
         seatGroupAt(id, placingGroupId);
@@ -1108,7 +1194,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
       dragRef.current = { id, x: w.x, z: w.z };
       setDraggingId(id);
     },
-    [placingGroupId, seatGroupAt, placingGuestId, guestById, sendGuest, tableSwapArmed, tableSwapFirst, swapTables, mode, canEdit, room, tablesById],
+    [linkArmId, doLink, placingGroupId, seatGroupAt, placingGuestId, guestById, sendGuest, tableSwapArmed, tableSwapFirst, swapTables, mode, canEdit, room, tablesById],
   );
 
   // A guest-list tap: an UNSEATED guest walks in; a SEATED guest enters or
@@ -1306,6 +1392,14 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
         selectedLabel={selectedId ? tablesById.get(selectedId)?.label ?? null : null}
         selectedType={selectedId ? tablesById.get(selectedId)?.type ?? null : null}
         onChangeType={changeTableType}
+        selectedLinked={selectedId ? Boolean(tablesById.get(selectedId)?.linkGroupId) : false}
+        linkArmed={linkArmId != null}
+        onArmLink={() => {
+          setPlacingGroupId(null);
+          setPlacingGuestId(null);
+          setLinkArmId(selectedId);
+        }}
+        onBreakApart={breakApart}
         onPublish={publishPlan}
         printHref={`/dashboard/${eventId}/seating/print`}
         tableCount={tables.length}
@@ -2457,6 +2551,10 @@ function Hud({
   selectedLabel,
   selectedType,
   onChangeType,
+  selectedLinked,
+  linkArmed,
+  onArmLink,
+  onBreakApart,
   onPublish,
   printHref,
   tableCount,
@@ -2515,6 +2613,10 @@ function Hud({
   selectedLabel: string | null;
   selectedType: string | null;
   onChangeType: (newType: string) => void;
+  selectedLinked: boolean;
+  linkArmed: boolean;
+  onArmLink: () => void;
+  onBreakApart: () => void;
   onPublish: () => void;
   printHref: string;
   tableCount: number;
@@ -2745,6 +2847,27 @@ function Hud({
                     </option>
                   ))}
                 </select>
+                {canEdit ? (
+                  selectedLinked ? (
+                    <button
+                      type="button"
+                      onClick={onBreakApart}
+                      className="mt-1.5 w-full rounded-lg bg-white/10 py-1.5 text-sm text-white transition hover:bg-white/20"
+                    >
+                      Break apart
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={onArmLink}
+                      className={`mt-1.5 w-full rounded-lg py-1.5 text-sm transition ${
+                        linkArmed ? 'bg-amber-400/30 text-white ring-1 ring-amber-300/60' : 'bg-white/10 text-white hover:bg-white/20'
+                      }`}
+                    >
+                      {linkArmed ? 'Tap another table to link…' : 'Link to another table'}
+                    </button>
+                  )
+                ) : null}
               </div>
             ) : null}
             <p className="text-xs leading-relaxed text-white/70">

@@ -407,6 +407,29 @@ export function firstFreeSeatAtTable(
 }
 
 /**
+ * Reconcile link-grouping from the server snapshot onto the lab's local tables.
+ * The merge-snapshot effect is otherwise ADD-ONLY (so it can't clobber in-flight
+ * position/rotation optimism), which means a link/unlink — which only mutates
+ * `linkGroupId`/`label` on EXISTING rows — would never reach the lab after a
+ * refresh. This patches just those two grouping fields from server truth while
+ * leaving every other field (position, rotation, …) untouched.
+ */
+export function reconcileGrouping<T extends { id: string; linkGroupId: string | null; label: string }>(
+  local: T[],
+  server: ReadonlyArray<{ id: string; linkGroupId: string | null; label: string }>,
+): T[] {
+  const byId = new Map(server.map((s) => [s.id, s]));
+  let changed = false;
+  const next = local.map((t) => {
+    const s = byId.get(t.id);
+    if (!s || (s.linkGroupId === t.linkGroupId && s.label === t.label)) return t;
+    changed = true;
+    return { ...t, linkGroupId: s.linkGroupId, label: s.label };
+  });
+  return changed ? next : local;
+}
+
+/**
  * Every fixed obstacle a walking avatar must clear, as avoidance discs (centre +
  * radius, world metres): each table EXCEPT the walker's destination, the stage,
  * and the dance floor when enabled. Centralised so the single walk path and the

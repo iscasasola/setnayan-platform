@@ -182,7 +182,22 @@ export function PapicSeatCapture({
           sizeBytes: blob.size,
         }),
       });
-      if (!presignRes.ok) throw new Error('presign');
+      if (!presignRes.ok) {
+        // The presign route now refuses to mint a URL once the free sampler seat
+        // is at its per-kind cap (record-/presign-layer leak fix). Surface that
+        // as the SAME cap signal recordSeatCapture returns, so the caller shows
+        // the celebratory "all used up" state instead of a scary save error.
+        let code: string | undefined;
+        try {
+          ({ code } = (await presignRes.json()) as { code?: string });
+        } catch {
+          // non-JSON body — fall through to the generic presign error
+        }
+        if (code === 'sampler_photo_cap' || code === 'sampler_clip_cap') {
+          throw new Error(code);
+        }
+        throw new Error('presign');
+      }
       const { uploadUrl, r2Ref } = (await presignRes.json()) as {
         uploadUrl?: string;
         r2Ref?: string;
@@ -290,7 +305,13 @@ export function PapicSeatCapture({
       flash();
       armTagging(result.photoId);
       if (result.photoId) void autoTagFromBlob(result.photoId, blob);
-    } catch {
+    } catch (err) {
+      // A cap hit thrown from the presign layer (seat already at cap) is a
+      // "full" success state, not a failure — mirror the recordSeatCapture path.
+      if (err instanceof Error && err.message === 'sampler_photo_cap') {
+        setPhotos(photoCap ?? photos);
+        return;
+      }
       setSaveError("That shot didn't save — check your signal and try again.");
     } finally {
       setBusy(false);
@@ -337,7 +358,13 @@ export function PapicSeatCapture({
         armTagging(result.photoId);
         // Clips: embed from the poster frame (the still proxy we already grabbed).
         if (result.photoId && poster) void autoTagFromBlob(result.photoId, poster);
-      } catch {
+      } catch (err) {
+        // Cap hit thrown from the presign layer (seat already at the clip cap)
+        // is a "full" success state, not a failure.
+        if (err instanceof Error && err.message === 'sampler_clip_cap') {
+          setClips(clipCap ?? clips);
+          return;
+        }
         setSaveError("That clip didn't save — check your signal and try again.");
       } finally {
         setBusy(false);

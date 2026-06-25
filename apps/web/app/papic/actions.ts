@@ -11,8 +11,6 @@ import { eventSamplerIsKept } from '@/lib/papic-sampler';
 import { parsePapicTagScan } from '@/lib/papic-tag';
 import { autoTagCapture } from '@/lib/face-match';
 import {
-  PAPIC_SAMPLER_PHOTO_CAP,
-  PAPIC_SAMPLER_CLIP_CAP,
   PAPIC_SAMPLER_RETENTION_DAYS,
   eventOwnsPapicSeats,
   papicSeatAnonEnabled,
@@ -227,22 +225,9 @@ export async function recordSeatCapture(
   }
 
   // Free Papic sampler — per-seat caps (8 photos + 2 clips) + 30-day expiry.
-  // Paid/normal seats are uncapped and permanent (expires_at stays null). The
-  // count-then-check is fine here: one claimer = one phone per seat, so there's
-  // effectively no concurrency on a single seat's shutter. superseded_at IS NULL
-  // scopes the count to the CURRENT claimer — a reissued seat starts clean.
+  // Paid/normal seats are uncapped and permanent (expires_at stays null).
   let expiresAt: string | null = null;
   if (seat.is_free_sampler) {
-    const { count: usedOfKind } = await supabase
-      .from('papic_photos')
-      .select('photo_id', { count: 'exact', head: true })
-      .eq('paparazzi_seat_id', seat.seat_id)
-      .eq('photo_type', kind === 'clip' ? 'clip' : 'photo')
-      .is('superseded_at', null);
-    const cap = kind === 'clip' ? PAPIC_SAMPLER_CLIP_CAP : PAPIC_SAMPLER_PHOTO_CAP;
-    if ((usedOfKind ?? 0) >= cap) {
-      return { ok: false, error: kind === 'clip' ? 'sampler_clip_cap' : 'sampler_photo_cap' };
-    }
     // "connect Drive OR upgrade = permanent": if the couple has ALREADY converted
     // (active Drive grant) these shots are born permanent (expires_at stays null);
     // otherwise they roll off in 30 days. The sample-THEN-convert ordering is
@@ -254,45 +239,89 @@ export async function recordSeatCapture(
         ).toISOString();
   }
 
-  const insertWithoutPoster = () =>
-    supabase
-      .from('papic_photos')
-      .insert({
-        event_id: seat.event_id,
-        paparazzi_seat_id: seat.seat_id,
-        r2_object_key: cleanKey,
-        photo_type: kind === 'clip' ? 'clip' : 'photo',
-        expires_at: expiresAt,
-      })
-      .select('photo_id')
-      .single();
+  let insertedPhotoId: string | null = null;
 
-  let { data: inserted, error: insertError } = cleanPoster
-    ? await supabase
+  if (seat.is_free_sampler) {
+    // RECORD-LAYER CAP (the core leak fix). Route the sampler INSERT through the
+    // atomic papic_sampler_insert_capture RPC: it locks the seat, counts the
+    // CURRENT (non-superseded) captures of this kind, and inserts ONLY when under
+    // cap — all in one transaction. So the (cap+1)th capture is IMPOSSIBLE to
+    // persist even under concurrent requests, which makes over-cap R2 bytes
+    // impossible to justify (the presign route already refuses the URL at cap).
+    // Replaces the old non-atomic count-then-insert. The per-kind caps (8 / 2)
+    // live in lib/papic-seats.ts as PAPIC_SAMPLER_PHOTO_CAP / _CLIP_CAP and are
+    // mirrored inside the RPC.
+    const { data: rpcData, error: rpcError } = await supabase.rpc(
+      'papic_sampler_insert_capture',
+      {
+        p_seat_id: seat.seat_id,
+        p_kind: kind === 'clip' ? 'clip' : 'photo',
+        p_r2_object_key: cleanKey,
+        p_poster_r2_key: cleanPoster,
+        p_expires_at: expiresAt,
+      },
+    );
+    if (rpcError) {
+      // Missing RPC (pre-migration · 42883 / PGRST202) → fall back to the direct
+      // insert below so a not-yet-migrated DB still records the capture. The
+      // presign-layer probe also fails open in that env, so behaviour matches the
+      // pre-fix path until the migration lands. Any other RPC error is surfaced.
+      if (rpcError.code !== '42883' && rpcError.code !== 'PGRST202') {
+        return { ok: false, error: rpcError.message.slice(0, 80) };
+      }
+    } else {
+      const r = (rpcData ?? {}) as { ok?: boolean; error?: string; photo_id?: string };
+      if (!r.ok) {
+        return { ok: false, error: r.error || 'sampler_cap' };
+      }
+      insertedPhotoId = (r.photo_id as string) ?? null;
+    }
+  }
+
+  // Paid/normal seats — and the pre-migration sampler fallback — use the direct
+  // insert. (When the RPC ran for a sampler seat, insertedPhotoId is already set
+  // and we skip this.)
+  if (insertedPhotoId === null) {
+    const insertWithoutPoster = () =>
+      supabase
         .from('papic_photos')
         .insert({
           event_id: seat.event_id,
           paparazzi_seat_id: seat.seat_id,
           r2_object_key: cleanKey,
-          photo_type: 'clip',
-          // The poster frame the NSFW screen classifies as the clip's proxy.
-          poster_r2_key: cleanPoster,
+          photo_type: kind === 'clip' ? 'clip' : 'photo',
           expires_at: expiresAt,
         })
         .select('photo_id')
-        .single()
-    : await insertWithoutPoster();
+        .single();
 
-  // Pre-migration env (poster_r2_key column absent → PostgREST PGRST204):
-  // retry without the poster — losing the screen proxy must never lose a clip.
-  if (insertError && cleanPoster && insertError.code === 'PGRST204') {
-    ({ data: inserted, error: insertError } = await insertWithoutPoster());
-  }
+    let { data: inserted, error: insertError } = cleanPoster
+      ? await supabase
+          .from('papic_photos')
+          .insert({
+            event_id: seat.event_id,
+            paparazzi_seat_id: seat.seat_id,
+            r2_object_key: cleanKey,
+            photo_type: 'clip',
+            // The poster frame the NSFW screen classifies as the clip's proxy.
+            poster_r2_key: cleanPoster,
+            expires_at: expiresAt,
+          })
+          .select('photo_id')
+          .single()
+      : await insertWithoutPoster();
 
-  if (insertError) {
-    return { ok: false, error: insertError.message.slice(0, 80) };
+    // Pre-migration env (poster_r2_key column absent → PostgREST PGRST204):
+    // retry without the poster — losing the screen proxy must never lose a clip.
+    if (insertError && cleanPoster && insertError.code === 'PGRST204') {
+      ({ data: inserted, error: insertError } = await insertWithoutPoster());
+    }
+
+    if (insertError) {
+      return { ok: false, error: insertError.message.slice(0, 80) };
+    }
+    insertedPhotoId = (inserted?.photo_id as string) ?? null;
   }
-  const insertedPhotoId = (inserted?.photo_id as string) ?? null;
 
   // Always-on NSFW screen (Apple 1.2 filter · corpus hard constraint) — runs in
   // the BACKGROUND with after() so the camera stays responsive. The bytes are

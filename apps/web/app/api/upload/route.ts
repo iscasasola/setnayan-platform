@@ -145,6 +145,13 @@ const MAX_FILENAME_LEN = 120;
 // attempt to balloon storage costs by chaining unbounded segments.
 const MAX_PATH_PREFIX_LEN = 256;
 
+// MediaRecorder appends `;codecs=…`; strip parameters to get the base MIME.
+// Used by the sampler-cap probe (it must decide photo-vs-clip before the main
+// content-type validation block runs further down).
+function baseContentTypeOf(raw: string | undefined): string {
+  return (typeof raw === 'string' ? raw : '').split(';')[0]?.trim() ?? '';
+}
+
 function sanitizeFilename(raw: string): string {
   // Strip any path components — only the basename matters in the object key.
   const base = raw.split(/[\\/]/).pop() ?? raw;
@@ -272,6 +279,70 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           { error: 'This Papic pack is no longer active.' },
           { status: 403 },
         );
+      }
+    }
+    // FREE-SAMPLER CAP — enforced at the PRESIGN layer, not just at record time.
+    // A sampler seat is capped at 8 photos + 2 clips (migration 20270103000000).
+    // If we minted a presigned URL here for an over-cap shot, the client could
+    // PUT the bytes to R2 and only get rejected at recordSeatCapture's INSERT —
+    // leaving ORPHAN BYTES no papic_photos row accounts for (R2 is Setnayan's
+    // only marginal per-couple cost). So refuse the URL the moment the seat is
+    // at cap: no URL ⇒ no unaccounted bytes. The atomic
+    // papic_sampler_insert_capture RPC at record time is the authoritative
+    // backstop against a presign-time race; this is the leak-prevention.
+    if (seat.is_free_sampler) {
+      // Anon-farming backstop — the per-user.id limiter above is weak for the
+      // sampler: login-free claim mints a FRESH anonymous user.id per leaked
+      // link, so an attacker rotates identities to dodge the per-user budget.
+      // Add a tighter PER-IP limit scoped to sampler presigns. The whole sampler
+      // ceiling is tiny (3 seats × (8 photos + 2 clips) = 30 captures/event), so
+      // a legitimate burst stays well under 40/min; this just blunts the "spin
+      // endless anon claimers from one host" farm. Best-effort / per-instance
+      // (same honest limitation as lib/rate-limit) — defense-in-depth. Scoped to
+      // sampler seats so a paid DSLR/camera-bridge burst is never throttled.
+      const ip =
+        request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+        request.headers.get('x-real-ip') ||
+        'unknown';
+      const samplerRl = rateLimit(`papic-sampler-upload:${ip}`, 40, 60_000);
+      if (!samplerRl.ok) {
+        return NextResponse.json(
+          { error: 'Too many uploads from this connection — give it a moment.' },
+          {
+            status: 429,
+            headers: {
+              'Retry-After': String(Math.ceil(samplerRl.retryAfterMs / 1000)),
+            },
+          },
+        );
+      }
+      const sampleKind = baseContentTypeOf(body.contentType).startsWith('video/')
+        ? 'clip'
+        : 'photo';
+      try {
+        const admin = createAdminClient();
+        const { data: remaining, error: capError } = await admin.rpc(
+          'papic_sampler_remaining',
+          { p_seat_id: seat.seat_id as string, p_kind: sampleKind },
+        );
+        // Fail-OPEN on a missing RPC / transient error (pre-migration DB, etc.)
+        // so a config hiccup never breaks the live sampler — the record-layer
+        // RPC still rejects over-cap inserts. But when the probe DOES answer and
+        // the seat is at cap, refuse the presign so no bytes reach R2.
+        if (!capError && typeof remaining === 'number' && remaining <= 0) {
+          return NextResponse.json(
+            {
+              error:
+                sampleKind === 'clip'
+                  ? 'Your free sampler clips are all used up.'
+                  : 'Your free sampler photos are all used up.',
+              code: sampleKind === 'clip' ? 'sampler_clip_cap' : 'sampler_photo_cap',
+            },
+            { status: 409 },
+          );
+        }
+      } catch {
+        // fail-open — never break the camera on a capacity-probe hiccup.
       }
     }
     bucketKey = 'media';

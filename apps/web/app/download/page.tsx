@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { Logo } from '@/app/_components/logo';
 import {
-  Apple,
   Download,
   Globe,
   ShieldAlert,
@@ -12,6 +11,7 @@ import {
 import { DESKTOP_RELEASE } from '@/lib/desktop-release';
 import { SiteHeader } from '@/app/_components/site-header';
 import { getNavSlotMap } from '@/lib/nav-registry';
+import { RevealGroup, LineRevealH1, ProvisionCard } from './_download-motion';
 
 // GEO Phase G5 (2026-05-28) — canonical URL + openGraph block added.
 // SEO/GEO Bucket 8 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — 1hr Vercel
@@ -57,20 +57,23 @@ export default async function DownloadPage() {
 
       <section className="border-b border-ink/5">
         <div className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[1.1fr,1fr] lg:px-8">
-          <div className="space-y-6">
-            <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
+          {/* Hero copy — demoted (quiet stagger rise); the H1 gets a single serif
+              line-reveal. The DownloadCard owns the page's signature, so nothing
+              here competes. */}
+          <RevealGroup className="space-y-6">
+            <p data-reveal-item className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
               Setnayan · macOS app · v{DESKTOP_RELEASE.version}
             </p>
-            <h1 className="text-4xl font-semibold tracking-tight text-ink sm:text-5xl">
+            <LineRevealH1 className="text-4xl font-semibold tracking-tight text-ink sm:text-5xl">
               Setnayan, on your Mac.
-            </h1>
-            <p className="max-w-prose text-lg text-ink/70">
+            </LineRevealH1>
+            <p data-reveal-item className="max-w-prose text-lg text-ink/70">
               The same Setnayan you know &mdash; guest lists, QR invitations, planner,
               seating &mdash; living in its own window with its own dock icon.
               Built for Apple Silicon.
             </p>
 
-            <div className="flex flex-wrap gap-3">
+            <div data-reveal-item className="flex flex-wrap gap-3">
               {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
               <a
                 href="/api/download/mac"
@@ -88,13 +91,19 @@ export default async function DownloadPage() {
               </Link>
             </div>
 
-            <p className="text-xs text-ink/55">
+            <p data-reveal-item className="text-xs text-ink/55">
               Apple Silicon (M1 / M2 / M3 / M4) only. Released{' '}
               {DESKTOP_RELEASE.publishedAt}.
             </p>
-          </div>
+          </RevealGroup>
 
-          <DownloadCard filename={mac.filename} sizeBytes={mac.sizeBytes} label={macDownloadLabel} />
+          <ProvisionCard
+            filename={mac.filename}
+            sizeBytes={mac.sizeBytes}
+            version={DESKTOP_RELEASE.version}
+            publishedAt={DESKTOP_RELEASE.publishedAt}
+            label={macDownloadLabel}
+          />
         </div>
       </section>
 
@@ -109,6 +118,7 @@ export default async function DownloadPage() {
             </h2>
           </div>
 
+          <RevealGroup stagger={0.07}>
           <ol className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Step
               n={1}
@@ -141,11 +151,13 @@ export default async function DownloadPage() {
               }
             />
           </ol>
+          </RevealGroup>
         </div>
       </section>
 
       <section className="border-b border-ink/5">
         <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
+          <RevealGroup stagger={0.12}>
           <div className="grid gap-8 lg:grid-cols-2">
             <Card
               Icon={ShieldAlert}
@@ -214,6 +226,7 @@ export default async function DownloadPage() {
               </p>
             </Card>
           </div>
+          </RevealGroup>
         </div>
       </section>
 
@@ -222,65 +235,8 @@ export default async function DownloadPage() {
   );
 }
 
-function DownloadCard({
-  filename,
-  sizeBytes,
-  label,
-}: {
-  filename: string;
-  sizeBytes: number;
-  label: string;
-}) {
-  return (
-    <div className="mx-auto w-full max-w-md self-center rounded-3xl border border-ink/10 bg-cream p-6 shadow-[0_30px_80px_-40px_rgba(26,26,26,0.25)]">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-terracotta text-cream">
-            <Apple aria-hidden className="h-6 w-6" strokeWidth={1.75} />
-          </span>
-          <div>
-            <p className="text-sm font-semibold text-ink">Setnayan.app</p>
-            <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
-              macOS &middot; Apple Silicon
-            </p>
-          </div>
-        </div>
-        <span className="rounded-full bg-terracotta/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
-          v{DESKTOP_RELEASE.version}
-        </span>
-      </div>
-
-      <dl className="mt-6 space-y-2 border-t border-ink/10 pt-4 text-sm">
-        <Row label="File">
-          <code className="font-mono text-xs text-ink/75">{filename}</code>
-        </Row>
-        <Row label="Size">{(sizeBytes / 1024 / 1024).toFixed(1)} MB</Row>
-        <Row label="Released">{DESKTOP_RELEASE.publishedAt}</Row>
-        <Row label="Verified by">SHA-256 + Tauri code signature</Row>
-      </dl>
-
-      {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-      <a
-        href="/api/download/mac"
-        className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream hover:bg-mulberry-600"
-      >
-        <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        {label}
-      </a>
-    </div>
-  );
-}
-
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-        {label}
-      </dt>
-      <dd className="text-right text-ink/80">{children}</dd>
-    </div>
-  );
-}
+// DownloadCard + Row moved to ./_download-motion.tsx (ProvisionCard) — the
+// self-provisioning client motion island. page.tsx stays a Server Component.
 
 function Step({
   n,
@@ -292,7 +248,7 @@ function Step({
   body: React.ReactNode;
 }) {
   return (
-    <li className="rounded-xl border border-ink/10 bg-cream p-5">
+    <li data-reveal-item className="rounded-xl border border-ink/10 bg-cream p-5">
       <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-terracotta/15 font-mono text-xs font-semibold text-terracotta-700">
         {n}
       </div>
@@ -318,7 +274,7 @@ function Card({
       ? 'border-warn-300/60 bg-warn-50/80'
       : 'border-ink/10 bg-cream';
   return (
-    <div className={`rounded-xl border p-6 ${toneClass}`}>
+    <div data-reveal-item className={`rounded-xl border p-6 ${toneClass}`}>
       <div className="mb-3 flex items-center gap-3">
         <span
           className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${

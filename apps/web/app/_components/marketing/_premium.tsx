@@ -407,3 +407,118 @@ export function useSettle(
 
   return scope;
 }
+
+/**
+ * useProvision — a card-scoped "signed artifact assembles itself" entrance. Attach
+ * the ref to a card; on IntersectionObserver enter (once) every `[data-provision-item]`
+ * row staggers up (opacity/y), and a single optional `[data-provision-rule]` (an SVG
+ * <line>/<path>) draws left-to-right via strokeDashoffset as the rows land — the one
+ * gold gesture. opacity-only (a11y tree intact), clearProps:transform so card hover
+ * survives, prefers-reduced-motion rests in the final state, SSR-safe useGSAP cleanup.
+ */
+export function useProvision(
+  opts: { stagger?: number; y?: number; threshold?: number; duration?: number } = {},
+) {
+  const { stagger = 0.08, y = 14, threshold = 0.3, duration = 0.6 } = opts;
+  const scope = useRef<HTMLElement>(null);
+
+  useGSAP(
+    () => {
+      const root = scope.current;
+      if (!root) return;
+
+      const items = gsap.utils.toArray<HTMLElement>('[data-provision-item]', root);
+      const rule = root.querySelector<SVGGeometryElement>('[data-provision-rule]');
+
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+      if (items.length) gsap.set(items, { opacity: 0, y });
+      let ruleLen = 0;
+      if (rule) {
+        ruleLen = rule.getTotalLength();
+        gsap.set(rule, { strokeDasharray: ruleLen, strokeDashoffset: ruleLen });
+      }
+
+      let played = false;
+      const play = () => {
+        if (played) return;
+        played = true;
+        if (items.length) {
+          gsap.to(items, {
+            opacity: 1,
+            y: 0,
+            duration,
+            ease: 'power3.out',
+            stagger,
+            delay: 0.1,
+            clearProps: 'transform',
+          });
+        }
+        if (rule && ruleLen) {
+          gsap.to(rule, { strokeDashoffset: 0, duration: 0.9, ease: 'power2.inOut', delay: 0.15 });
+        }
+      };
+
+      const io = new IntersectionObserver(
+        (entries) => {
+          if (entries[0]?.isIntersecting) {
+            play();
+            io.disconnect();
+          }
+        },
+        { threshold },
+      );
+      io.observe(root);
+
+      return () => io.disconnect();
+    },
+    { scope },
+  );
+
+  return scope;
+}
+
+/**
+ * useMagnetic — a desktop-only pointer-follow pull on a single element (a CTA). Attach
+ * the ref to the element; while the cursor is over it the element eases toward the
+ * pointer (transform only, via gsap.quickTo), snapping back on leave. No-ops entirely
+ * on coarse pointers / touch and under prefers-reduced-motion (matchMedia read inside
+ * the effect, never during render, so no hydration mismatch), and never intercepts the
+ * click. Degrades to a plain, fully-clickable element.
+ */
+export function useMagnetic(opts: { strength?: number } = {}) {
+  const { strength = 0.25 } = opts;
+  const ref = useRef<HTMLElement>(null);
+
+  useGSAP(
+    () => {
+      const el = ref.current;
+      if (!el) return;
+      if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+      const xTo = gsap.quickTo(el, 'x', { duration: 0.4, ease: 'power3.out' });
+      const yTo = gsap.quickTo(el, 'y', { duration: 0.4, ease: 'power3.out' });
+
+      const onMove = (e: PointerEvent) => {
+        const r = el.getBoundingClientRect();
+        xTo((e.clientX - (r.left + r.width / 2)) * strength);
+        yTo((e.clientY - (r.top + r.height / 2)) * strength);
+      };
+      const onLeave = () => {
+        xTo(0);
+        yTo(0);
+      };
+
+      el.addEventListener('pointermove', onMove);
+      el.addEventListener('pointerleave', onLeave);
+      return () => {
+        el.removeEventListener('pointermove', onMove);
+        el.removeEventListener('pointerleave', onLeave);
+      };
+    },
+    { scope: ref },
+  );
+
+  return ref;
+}

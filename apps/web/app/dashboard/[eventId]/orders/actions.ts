@@ -427,6 +427,21 @@ export async function logPayment(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  // Ownership guard (money bug-hunt 2026-06-26, #11): only log a payment against
+  // an order you're actually allowed to see. RLS (orders_owner_read) scopes this
+  // read to your own orders + your events' orders; a foreign order_id returns
+  // null → reject. Without this, the payments INSERT (whose RLS only checks
+  // payments.user_id = auth.uid()) let a user pin a payment row onto a
+  // stranger's order and pollute their reconciliation/order totals.
+  const { data: ownedOrder } = await supabase
+    .from('orders')
+    .select('order_id, event_id')
+    .eq('order_id', orderId)
+    .maybeSingle();
+  if (!ownedOrder || ownedOrder.event_id !== eventId) {
+    throw new Error('Order not found for this event');
+  }
+
   // Optional screenshot — TWO supported shapes:
   //
   //   (1) New flow (preferred): `<FileUpload name="screenshot_ref">` uploads

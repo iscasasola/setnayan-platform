@@ -63,6 +63,8 @@ import {
   serpentineChairs,
   seatWorld,
   floorObstacles,
+  pushOutOfDiscs,
+  separateAgents,
   steerPath,
   resolvePalette,
   DEMO_PALETTES,
@@ -268,6 +270,9 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
   const [camBusy, setCamBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [walker, setWalker] = useState<WalkerState>(null);
+  // Populate-Play: when set, the whole seated list walks in at once (mutually
+  // exclusive with the single `walker`).
+  const [crowd, setCrowd] = useState<CrowdAgent[] | null>(null);
   const [arrived, setArrived] = useState<string | null>(null);
   const [showCloth, setShowCloth] = useState(true);
   const [showAccents, setShowAccents] = useState(true);
@@ -520,10 +525,37 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
       const path = steerPath(entranceWorld, end, obstacles, 0.2);
       setMode('play');
       setArrived(null);
+      setCrowd(null); // a single walk-in supersedes any populated crowd
       setWalker({ name: g.name, path, tableId: seat.tableId });
     },
     [seats, tables, tablesById, room, entranceWorld, floor],
   );
+
+  // Populate-Play: send EVERY seated guest walking in from the entrance at once.
+  // Each gets a cleared path to their chair + their own obstacle set; the Crowd
+  // component resolves overlap ("make way") and object clearance per frame. A
+  // small per-guest stagger keeps them from spawning on top of each other.
+  const walkEveryone = useCallback(() => {
+    const agents: CrowdAgent[] = [];
+    let i = 0;
+    for (const [gid, s] of seats) {
+      const g = guestById.get(gid);
+      if (!g || seatStatusOf(g.rsvp) === 'hidden') continue; // declined seats are freed
+      const table = tablesById.get(s.tableId);
+      if (!table) continue;
+      const end = seatWorld(table, s.seatNumber, room);
+      const obstacles = floorObstacles(floor, tables, room, [s.tableId]);
+      const path = steerPath(entranceWorld, end, obstacles, 0.2);
+      const style = guestTokenStyle(g);
+      const color = style?.attireColor ?? style?.color ?? SIDE_COLOR[g.side];
+      agents.push({ id: gid, name: g.name, path, color, startDelay: i * 0.16, obstacles });
+      i += 1;
+    }
+    setWalker(null);
+    setArrived(null);
+    setMode('play');
+    setCrowd(agents.length ? agents : null);
+  }, [seats, guestById, tablesById, room, floor, tables, entranceWorld]);
 
   // --- swap-with-animation: reassign seats (persist) + animate the change ----
   const seatWorldOf = useCallback(
@@ -741,7 +773,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
           <meshBasicMaterial transparent opacity={0} depthWrite={false} />
         </mesh>
 
-        {walker ? (
+        {walker && !crowd ? (
           <Walker
             walker={walker}
             palette={palette}
@@ -750,6 +782,8 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
             reduced={reduced}
           />
         ) : null}
+
+        {mode === 'play' && crowd ? <Crowd agents={crowd} palette={palette} reduced={reduced} /> : null}
 
         {movers.map((m) => (
           <MoverToken key={m.gid} mover={m} onDone={onMoverDone} reduced={reduced} />
@@ -790,6 +824,9 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
         seats={seats}
         seatedCount={seatedCount}
         onGuestTap={onGuestTap}
+        crowdActive={!!crowd}
+        onWalkEveryone={walkEveryone}
+        onClearCrowd={() => setCrowd(null)}
         swapSelId={swapSelId}
         tableSwapArmed={tableSwapArmed}
         onToggleTableSwap={() => {
@@ -1420,6 +1457,115 @@ function Walker({
   );
 }
 
+// One member of the populate-Play crowd: a precomputed path to their chair, a
+// motif colour, a stagger delay (so they queue out of the entrance instead of
+// piling up), and their OWN obstacle set (every object except their destination
+// table, so they can actually reach the chair just inside its avoidance disc).
+type CrowdAgent = {
+  id: string;
+  name: string;
+  path: Vec2[];
+  color: string;
+  startDelay: number;
+  obstacles: { c: Vec2; r: number }[];
+};
+
+/**
+ * Populate-Play: the whole seated guest list walks in at once. Each frame every
+ * agent steps toward its next waypoint, then the set is resolved with
+ * separateAgents ("make way for each other") and each agent is pushed clear of
+ * its objects (pushOutOfDiscs) — so nobody overlaps or crosses a table/stage.
+ * O(n²) separation is fine for a wedding's guest count; a spatial grid is the
+ * documented v2. Reduced motion snaps everyone to their seat.
+ */
+function Crowd({ agents, palette, reduced }: { agents: CrowdAgent[]; palette: Lab3DPalette; reduced: boolean }) {
+  const groups = useRef<(THREE.Group | null)[]>([]);
+  const seg = useRef<number[]>([]);
+  const elapsed = useRef(0);
+  const reducedRef = useRef(reduced);
+  useEffect(() => {
+    reducedRef.current = reduced;
+  }, [reduced]);
+
+  useEffect(() => {
+    seg.current = agents.map(() => 0);
+    elapsed.current = 0;
+    agents.forEach((a, i) => {
+      const g = groups.current[i];
+      if (!g) return;
+      if (reducedRef.current) {
+        const end = a.path[a.path.length - 1] ?? { x: 0, z: 0 };
+        g.position.set(end.x, 0, end.z);
+        seg.current[i] = a.path.length - 1;
+      } else {
+        const s = a.path[0] ?? { x: 0, z: 0 };
+        g.position.set(s.x, 0, s.z);
+      }
+    });
+  }, [agents]);
+
+  useFrame((_, delta) => {
+    if (reducedRef.current) return; // snapped to seats in the effect above
+    elapsed.current += delta;
+    const step = 2.0 * delta; // ~2 m/s walk
+    // 1. Each agent steps toward its next waypoint → desired positions.
+    const desired: Vec2[] = agents.map((a, i) => {
+      const g = groups.current[i];
+      if (!g) return { x: 0, z: 0 };
+      const cur = { x: g.position.x, z: g.position.z };
+      if (elapsed.current < a.startDelay) return cur; // not released yet
+      const ci = seg.current[i]!;
+      if (ci >= a.path.length - 1) return cur; // arrived
+      const next = a.path[ci + 1]!;
+      const dx = next.x - cur.x;
+      const dz = next.z - cur.z;
+      const dist = Math.hypot(dx, dz);
+      if (dist <= step) {
+        seg.current[i] = ci + 1;
+        return { x: next.x, z: next.z };
+      }
+      g.rotation.y = Math.atan2(dx, dz);
+      return { x: cur.x + (dx / dist) * step, z: cur.z + (dz / dist) * step };
+    });
+    // 2. Make way for each other.
+    const sep = separateAgents(desired, 0.5);
+    // 3. Each clears its OWN objects, then commit + bob.
+    agents.forEach((a, i) => {
+      const g = groups.current[i];
+      if (!g) return;
+      const p = pushOutOfDiscs(sep[i]!, a.obstacles);
+      g.position.x = p.x;
+      g.position.z = p.z;
+      const moving = elapsed.current >= a.startDelay && seg.current[i]! < a.path.length - 1;
+      g.position.y = moving
+        ? Math.abs(Math.sin((elapsed.current + i) * 8)) * 0.05
+        : g.position.y + (0 - g.position.y) * Math.min(1, delta * 6);
+    });
+  });
+
+  return (
+    <group>
+      {agents.map((a, i) => (
+        <group
+          key={a.id}
+          ref={(el) => {
+            groups.current[i] = el;
+          }}
+        >
+          <mesh position={[0, 0.5, 0]}>
+            <capsuleGeometry args={[0.15, 0.4, 5, 9]} />
+            <meshStandardMaterial color={a.color} roughness={0.55} />
+          </mesh>
+          <mesh position={[0, 0.9, 0]}>
+            <sphereGeometry args={[0.13, 12, 12]} />
+            <meshStandardMaterial color={palette.table} roughness={0.55} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
 // A guest token walking between seats during a swap. Colour = the guest's RSVP
 // treatment; calls onDone(gid, target) once it reaches the destination chair.
 function MoverToken({ mover, onDone, reduced }: { mover: Mover; onDone: (gid: string, target: SeatRef) => void; reduced: boolean }) {
@@ -1510,6 +1656,9 @@ function Hud({
   seats,
   seatedCount,
   onGuestTap,
+  crowdActive,
+  onWalkEveryone,
+  onClearCrowd,
   swapSelId,
   tableSwapArmed,
   onToggleTableSwap,
@@ -1538,6 +1687,9 @@ function Hud({
   seats: Map<string, SeatRef>;
   seatedCount: number;
   onGuestTap: (g: Lab3DGuest) => void;
+  crowdActive: boolean;
+  onWalkEveryone: () => void;
+  onClearCrowd: () => void;
   swapSelId: string | null;
   tableSwapArmed: boolean;
   onToggleTableSwap: () => void;
@@ -1661,6 +1813,16 @@ function Hud({
               }`}
             >
               {tableSwapArmed ? 'Tap two tables to swap…' : 'Swap two tables'}
+            </button>
+            <button
+              type="button"
+              onClick={crowdActive ? onClearCrowd : onWalkEveryone}
+              disabled={seatedCount === 0}
+              className={`mb-2 w-full rounded-xl border border-white/15 px-3 py-1.5 text-sm font-medium transition disabled:opacity-40 ${
+                crowdActive ? 'bg-white text-ink' : 'bg-white/10 text-white/85 hover:bg-white/20'
+              }`}
+            >
+              {crowdActive ? 'Clear the room' : 'Walk everyone in'}
             </button>
             <div className="-mr-1 flex-1 space-y-1 overflow-y-auto pr-1">
               {guests.length === 0 ? (

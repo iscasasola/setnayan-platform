@@ -378,6 +378,7 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
               <input
                 name="amount_php"
                 type="number"
+                inputMode="decimal"
                 min={0}
                 step="0.01"
                 required

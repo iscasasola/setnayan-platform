@@ -14,8 +14,12 @@ import {
   steerPath,
   pushOutOfDiscs,
   separateAgents,
+  VENUE_OBJECT_CATALOG,
+  venueObjectDims,
+  sceneObjectObstacles,
   type Lab3DFloor,
   type Lab3DTable,
+  type Lab3DSceneObject,
 } from './seating-3d';
 
 const ROOM = { w: 20, d: 20 };
@@ -106,4 +110,27 @@ test('separateAgents: pushes a too-close pair apart; leaves a far pair alone', (
 test('separateAgents: coincident agents are separated deterministically', () => {
   const out = separateAgents([{ x: 1, z: 1 }, { x: 1, z: 1 }], 0.5);
   assert.ok(Math.hypot(out[1]!.x - out[0]!.x, out[1]!.z - out[0]!.z) >= 0.5 - 1e-9);
+});
+
+test('VENUE_OBJECT_CATALOG: kinds unique, positive footprints, dims lookup + fallback', () => {
+  const kinds = VENUE_OBJECT_CATALOG.map((o) => o.kind);
+  assert.equal(new Set(kinds).size, kinds.length, 'kinds are unique');
+  for (const o of VENUE_OBJECT_CATALOG) {
+    assert.ok(o.w > 0 && o.d > 0, `${o.kind} has a positive footprint`);
+    assert.ok(o.label.length > 0, `${o.kind} has a label`);
+  }
+  assert.deepEqual(venueObjectDims('buffet'), { w: 3.0, d: 0.9 });
+  assert.deepEqual(venueObjectDims('not_a_kind'), { w: 1, d: 1 }, 'unknown kind → 1×1 fallback');
+});
+
+test('sceneObjectObstacles: one disc per object, radius = half-footprint + clearance', () => {
+  const objs: Lab3DSceneObject[] = [
+    { id: 'a', kind: 'buffet', label: null, xPct: 50, yPct: 50, rotationDeg: 0 }, // 3.0×0.9
+    { id: 'b', kind: 'plant', label: null, xPct: 0, yPct: 0, rotationDeg: 0 }, // 0.8×0.8
+  ];
+  const discs = sceneObjectObstacles(objs, ROOM);
+  assert.equal(discs.length, 2);
+  assert.ok(Math.abs(discs[0]!.r - (3.0 / 2 + 0.4)) < 1e-9, 'buffet disc uses the long side');
+  // plant at (0,0) pct → top-left world corner of a 20×20 room.
+  assert.deepEqual(discs[1]!.c, { x: -10, z: -10 });
 });

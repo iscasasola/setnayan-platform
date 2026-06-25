@@ -17,9 +17,9 @@
  * useGSAP cleanup, SSR-safe under Next 15 / React 19.
  */
 
-import { Download } from 'lucide-react';
+import { Compass, Download, Home, Sparkles, Users, Wallet } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { Logo } from '@/app/_components/logo';
@@ -139,32 +139,58 @@ function useWindowIntro() {
   return scope;
 }
 
-/* ── Live preview + Dock ─────────────────────────────────────────────────── */
+/* ── Dashboard mock + Dock ───────────────────────────────────────────────────
+   The window frames a high-fidelity ILLUSTRATION of the couple dashboard — the
+   real nav (Home · Guests · Explore · Studio · Budget), countdown, a "today's
+   focus" card, the real overview stats and an upcoming-schedule list. It is NOT
+   a live embed: the dashboard is auth-gated, so it can't be shown live to a
+   logged-out visitor (owner-chosen "polished mock" 2026-06-26). Faithful to the
+   real surface, on the locked --m-* palette, never goes stale, fully responsive.
+   Entirely aria-hidden — every real fact lives in the accessible server hero. */
 
-// The window frames a GENUINE, same-origin LIVE page — the public sample-couple
-// landing (events.is_sample · see project_setnayan_sample_event_maria_jose). The
-// site ships `frame-ancestors 'self'`, so this only ever embeds on Setnayan's own
-// origin. The page is rendered at desktop width then transform-scaled down to the
-// window so it reads as a real Mac app (not a cramped mobile reflow). Scale can't
-// be pure CSS (scale() needs a unitless factor; `100cqw / W` is a length), so a
-// ResizeObserver writes `--preview-scale` from the live container width.
-const PREVIEW_PATH = '/maria-and-jose';
-const PREVIEW_W = 1180;
-const PREVIEW_H = 760;
+const NAV: Array<{ icon: typeof Home; label: string; active?: boolean }> = [
+  { icon: Home, label: 'Home', active: true },
+  { icon: Users, label: 'Guests' },
+  { icon: Compass, label: 'Explore' },
+  { icon: Sparkles, label: 'Studio' },
+  { icon: Wallet, label: 'Budget' },
+];
 
-/** Keep `--preview-scale` = containerWidth / logicalWidth as the window resizes. */
-function usePreviewScale(logicalWidth: number) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const apply = () => el.style.setProperty('--preview-scale', String(el.clientWidth / logicalWidth));
-    apply();
-    const ro = new ResizeObserver(apply);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [logicalWidth]);
-  return ref;
+function NavItem({ icon: Icon, label, active }: (typeof NAV)[number]) {
+  return (
+    <div
+      data-window-item
+      className={`flex items-center gap-1.5 rounded-md px-1.5 py-1 ${active ? 'bg-terracotta/12' : ''}`}
+    >
+      <Icon
+        aria-hidden
+        className={`h-3 w-3 ${active ? 'text-terracotta-700' : 'text-ink/40'}`}
+        strokeWidth={1.75}
+      />
+      <span className={`text-[8px] font-medium ${active ? 'text-ink' : 'text-ink/55'}`}>{label}</span>
+    </div>
+  );
+}
+
+function StatCard({ value, label }: { value: string; label: string }) {
+  return (
+    <div data-window-item className="rounded-md border border-ink/8 bg-cream px-1.5 py-1.5 text-center">
+      <p className="font-serif text-[13px] font-semibold leading-none text-ink">{value}</p>
+      <p className="mt-1 font-mono text-[6px] uppercase tracking-[0.1em] text-ink/45">{label}</p>
+    </div>
+  );
+}
+
+function UpcomingRow({ title, when }: { title: string; when: string }) {
+  return (
+    <div data-window-item className="flex items-center justify-between rounded-md bg-ink/[0.02] px-2 py-1">
+      <span className="flex items-center gap-1.5">
+        <span className="h-1 w-1 rounded-full bg-terracotta" aria-hidden />
+        <span className="text-[8px] text-ink/70">{title}</span>
+      </span>
+      <span className="font-mono text-[6.5px] uppercase tracking-[0.1em] text-ink/40">{when}</span>
+    </div>
+  );
 }
 
 function DockApp({ tone }: { tone: string }) {
@@ -173,14 +199,13 @@ function DockApp({ tone }: { tone: string }) {
 
 /**
  * AppWindowHero — the floating macOS app window + Dock. The window frames a
- * GENUINE live Setnayan page (the public sample-couple landing, same-origin),
- * rendered desktop-width and scaled to fit; the Setnayan icon "runs" in the Dock
- * below. Entirely aria-hidden — the accessible download affordance + every spec
- * live in the server hero.
+ * high-fidelity illustration of the couple dashboard (real nav, countdown,
+ * today's focus, overview stats, upcoming schedule); the Setnayan icon "runs"
+ * in the Dock below. Entirely aria-hidden — the accessible download affordance
+ * + every spec live in the server hero.
  */
 export function AppWindowHero() {
   const scope = useWindowIntro();
-  const previewRef = usePreviewScale(PREVIEW_W);
 
   return (
     <div ref={scope} aria-hidden className="relative mx-auto w-full max-w-[480px] select-none">
@@ -211,27 +236,63 @@ export function AppWindowHero() {
           <span className="w-[42px]" />
         </div>
 
-        {/* body: a genuine live page, rendered desktop-width then scaled to fit */}
-        <div
-          ref={previewRef}
-          data-window-item
-          className="relative overflow-hidden bg-cream"
-          style={{ aspectRatio: `${PREVIEW_W} / ${PREVIEW_H}` }}
-        >
-          <iframe
-            src={PREVIEW_PATH}
-            title="Setnayan, live"
-            aria-hidden
-            tabIndex={-1}
-            loading="lazy"
-            scrolling="no"
-            className="pointer-events-none absolute left-0 top-0 origin-top-left border-0"
-            style={{
-              width: `${PREVIEW_W}px`,
-              height: `${PREVIEW_H}px`,
-              transform: 'scale(var(--preview-scale, 0.4))',
-            }}
-          />
+        {/* body: the couple dashboard — sidebar nav + overview */}
+        <div className="flex">
+          {/* sidebar */}
+          <aside className="w-[33%] border-r border-ink/8 bg-ink/[0.02] px-2 py-2.5">
+            <div data-window-item className="mb-2 px-1">
+              <Logo height={13} />
+            </div>
+            <div className="space-y-0.5">
+              {NAV.map((item) => (
+                <NavItem key={item.label} {...item} />
+              ))}
+            </div>
+          </aside>
+
+          {/* main: overview */}
+          <div className="flex-1 px-3.5 py-3">
+            <div data-window-item className="flex items-start justify-between">
+              <div>
+                <p className="font-serif text-[14px] font-semibold leading-tight text-ink">
+                  Maria &amp; Jose
+                </p>
+                <p className="mt-0.5 font-mono text-[7px] uppercase tracking-[0.16em] text-ink/40">
+                  December 12, 2026
+                </p>
+              </div>
+              <span className="rounded-full bg-terracotta/12 px-2 py-0.5 font-mono text-[7px] uppercase tracking-[0.12em] text-terracotta-700">
+                284 days to go
+              </span>
+            </div>
+
+            <div
+              data-window-item
+              className="mt-2.5 rounded-lg border border-ink/8 bg-gradient-to-br from-terracotta/10 to-transparent px-3 py-2"
+            >
+              <p className="font-mono text-[6.5px] uppercase tracking-[0.16em] text-terracotta-700">
+                Today&rsquo;s focus
+              </p>
+              <p className="mt-0.5 font-serif text-[11px] text-ink">Send your save-the-date</p>
+            </div>
+
+            <div className="mt-2.5 grid grid-cols-3 gap-1.5">
+              <StatCard value="168" label="Guests" />
+              <StatCard value="124" label="RSVP'd" />
+              <StatCard value="₱420k" label="Budget" />
+            </div>
+
+            <p
+              data-window-item
+              className="mt-2.5 font-mono text-[7px] uppercase tracking-[0.16em] text-ink/40"
+            >
+              Upcoming
+            </p>
+            <div className="mt-1 space-y-1">
+              <UpcomingRow title="Venue walkthrough" when="Sat" />
+              <UpcomingRow title="Cake tasting" when="Mar 14" />
+            </div>
+          </div>
         </div>
       </div>
 

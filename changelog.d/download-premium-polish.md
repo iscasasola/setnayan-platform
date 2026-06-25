@@ -8,22 +8,20 @@ Reworked to the Premium-UI Standard (`Premium_UI_Standard_2026-06-25.md`), stayi
 100% on the locked `--m-*` palette and the imagery-free editorial marketing voice:
 
 - **New signature moment (one, orchestrated):** the hero's right side is now a
-  floating macOS **app window** framing a **genuine live Setnayan page** — the
-  public sample-couple landing (`/maria-and-jose`, `events.is_sample`), embedded
-  same-origin (the site ships `frame-ancestors 'self'`) and rendered desktop-width
-  then transform-scaled to fit (a `ResizeObserver` writes `--preview-scale`; pure
-  CSS can't because `scale()` needs a unitless factor). The window rests on a
-  champagne glow with the **Setnayan icon in a Dock beneath it**; on entry the
-  window *opens* (scale/lift) and the dock icon does the classic macOS **launch
-  bounce** — literally illustrating the page's promise: "its own window, with its
-  own Dock icon." Replaces the spec card. GSAP via `useGSAP` (SSR-safe),
-  transform/opacity-only, `prefers-reduced-motion` rests it final; the iframe is
-  non-interactive (`pointer-events-none` / `tabIndex -1` / `loading="lazy"`) and
-  the whole illustration is `aria-hidden`.
-  - Cost noted: the embed pulls a real (heavier) page on the hero and fires one
-    sample-event pageview per `/download` view — an accepted trade for the "live"
-    feel (owner-chosen 2026-06-26). `overflow-hidden` clips the frame so a lagged
-    `ResizeObserver` tick can never spill into the layout.
+  floating macOS **app window** framing a **high-fidelity mock of the couple
+  dashboard** — the real sidebar nav (Home · Guests · Explore · Studio · Budget,
+  with the actual Lucide icons), the countdown chip, a "Today's focus" card, the
+  overview stats (Guests · RSVP'd · Budget) and an upcoming-schedule list, styled
+  to match the real surface on the `--m-*` palette. The window rests on a champagne
+  glow with the **Setnayan icon in a Dock beneath it**; on entry the window *opens*
+  (scale/lift) and the dock icon does the classic macOS **launch bounce** —
+  illustrating the page's promise: "opens straight to your account." Replaces the
+  spec card. GSAP via `useGSAP` (SSR-safe), transform/opacity-only,
+  `prefers-reduced-motion` rests it final, the whole illustration `aria-hidden`.
+  - A mock, not a live embed, by design: the dashboard is auth-gated, so it can't
+    be shown live to a logged-out visitor (an iframe would render a login screen).
+    Owner-chosen "polished mock" over a static screenshot or a public-surface embed
+    (2026-06-26) — it never goes stale and is fully responsive.
 - **Substance:** added a "Why the Mac app" value trio (own window/Dock · opens
   straight to your plan · trusted & always signed in). Spec details demoted to a
   quiet meta line under the CTA; primary CTA keeps the desktop magnetic pull.

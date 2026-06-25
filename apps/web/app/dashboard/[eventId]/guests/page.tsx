@@ -151,13 +151,16 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       fetchGuestGroupsByEvent(supabase, eventId),
       fetchGroupMembershipsByEvent(supabase, eventId),
       fetchJoinUrl(supabase, eventId),
-      // Guest invite-claims awaiting the couple (migration 20261021). RLS scopes
-      // this to couples; a head+count read keeps it cheap.
+      // Unlisted joiners awaiting the couple's reconcile (Invite/Join v2,
+      // 0000 ADDENDUM 2026-06-25). These are real guest rows optimistically
+      // admitted whose name didn't match the list. RLS scopes this to couples;
+      // a head+count read keeps it cheap.
       supabase
-        .from('guest_claims')
-        .select('claim_id', { count: 'exact', head: true })
+        .from('guests')
+        .select('guest_id', { count: 'exact', head: true })
         .eq('event_id', eventId)
-        .in('status', ['pending_review', 'otp_sent']),
+        .eq('entry_source', 'self_added_unlisted')
+        .is('deleted_at', null),
       // Lifecycle-ribbon live progress (Phase 3) — three more head+count reads
       // in the same batch (no extra RTT cost beyond the parallel fan-out).
       // invitation_sent_at isn't part of GUEST_FIELDS, so unsent is counted

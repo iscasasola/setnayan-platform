@@ -145,11 +145,18 @@ export default async function PakantaPage({ params }: Props) {
         </span>
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-ink">Pakanta</h1>
-          <p className="mt-1 text-sm text-ink/65">
-            An original song written for your wedding — yours, forever. We write it from{' '}
-            <span className="font-medium">the story you already told us</span>, so you only need to
-            add a few music notes.
-          </p>
+          {owned ? (
+            <p className="mt-1 text-sm text-ink/65">
+              Your original wedding song. Add or refine the music notes below — we write the
+              lyrics from the story you already told us.
+            </p>
+          ) : (
+            <p className="mt-1 text-sm text-ink/65">
+              An original song written for your wedding — yours, forever. We write it from{' '}
+              <span className="font-medium">the story you already told us</span>, so you only need to
+              add a few music notes.
+            </p>
+          )}
         </div>
       </header>
 

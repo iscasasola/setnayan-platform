@@ -37,14 +37,17 @@ export default async function GuestInvitePage({ params }: Props) {
     .maybeSingle();
   if (!membership) redirect(`/dashboard/${eventId}`);
 
-  const [tokenRes, pendingRes] = await Promise.all([
+  const [tokenRes, pendingRes, eventRes] = await Promise.all([
     supabase.from('event_join_tokens').select('token').eq('event_id', eventId).maybeSingle(),
-    // Requests already waiting (the Confirm stage) — surfaced as a forward nudge.
+    // Unlisted joiners waiting to be reconciled (the Confirm stage) — Invite/Join
+    // v2: real guest rows optimistically admitted whose name didn't match.
     supabase
-      .from('guest_claims')
-      .select('claim_id', { count: 'exact', head: true })
+      .from('guests')
+      .select('guest_id', { count: 'exact', head: true })
       .eq('event_id', eventId)
-      .in('status', ['pending_review', 'otp_sent']),
+      .eq('entry_source', 'self_added_unlisted')
+      .is('deleted_at', null),
+    supabase.from('events').select('slug').eq('event_id', eventId).maybeSingle(),
   ]);
 
   if (tokenRes.error) {
@@ -57,9 +60,15 @@ export default async function GuestInvitePage({ params }: Props) {
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
-  const joinUrl = tokenRes.data?.token
-    ? `${appUrl}/join/${eventId}?token=${tokenRes.data.token}`
-    : null;
+  // Branded invite link when the event has a public slug (e.g. /cale-ice/invite) —
+  // the /[slug]/invite route resolves the token server-side, so it stays out of
+  // the shared URL + QR. Fall back to the opaque token URL otherwise.
+  const slug = (eventRes.data?.slug as string | null) ?? null;
+  const joinUrl = slug
+    ? `${appUrl}/${slug}/invite`
+    : tokenRes.data?.token
+      ? `${appUrl}/join/${eventId}?token=${tokenRes.data.token}`
+      : null;
   const pendingClaims = pendingRes.count ?? 0;
 
   // SVG QR of the join link — crisp at any size, ~3KB inline, no client JS.

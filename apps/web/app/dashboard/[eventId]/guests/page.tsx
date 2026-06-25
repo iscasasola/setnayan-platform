@@ -761,11 +761,10 @@ async function fetchJoinUrl(
   supabase: Awaited<ReturnType<typeof createClient>>,
   eventId: string,
 ): Promise<string | null> {
-  const { data, error } = await supabase
-    .from('event_join_tokens')
-    .select('token')
-    .eq('event_id', eventId)
-    .maybeSingle();
+  const [{ data, error }, { data: ev }] = await Promise.all([
+    supabase.from('event_join_tokens').select('token').eq('event_id', eventId).maybeSingle(),
+    supabase.from('events').select('slug').eq('event_id', eventId).maybeSingle(),
+  ]);
   // Surface silent errors so a future event_join_tokens column rename
   // / RLS regression doesn't quietly hide the share-invite affordance
   // from every host until someone notices. The null fallback keeps the
@@ -778,9 +777,14 @@ async function fetchJoinUrl(
       'graceful_degrade',
     );
   }
-  if (!data?.token) return null;
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
+  // Branded invite link when the event has a public slug (e.g. /cale-ice/invite).
+  // The /[slug]/invite route resolves the join token server-side, so it never
+  // appears in the shared URL. Fall back to the opaque token URL otherwise.
+  const slug = (ev?.slug as string | null) ?? null;
+  if (slug) return `${appUrl}/${slug}/invite`;
+  if (!data?.token) return null;
   return `${appUrl}/join/${eventId}?token=${data.token}`;
 }
 

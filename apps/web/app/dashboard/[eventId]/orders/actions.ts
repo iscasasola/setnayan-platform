@@ -10,6 +10,7 @@ import { sendEmail } from '@/lib/email';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { notifyAdminsOrderAwaitingReconciliation } from '@/lib/order-admin-notify';
+import { PATIKTOK_OVERAGE_PHP } from '@/lib/patiktok';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -52,7 +53,14 @@ export async function createOrder(formData: FormData) {
   if (!Number.isFinite(amount) || amount < 0) {
     throw new Error('Amount must be a non-negative number');
   }
-  const requestedTotalPhp = Math.round(amount * 100) / 100;
+  let requestedTotalPhp = Math.round(amount * 100) / 100;
+  // #9 (money bug-hunt): the legacy createOrder otherwise trusts the posted
+  // total. For a SKU with a fixed server-authoritative price, enforce it
+  // server-side instead of the client amount. patiktok overage is the live one
+  // (a fixed ₱49 / +10-video block).
+  if (serviceKey === 'patiktok:video_overage') {
+    requestedTotalPhp = PATIKTOK_OVERAGE_PHP;
+  }
 
   const supabase = await createClient();
   const {
@@ -106,6 +114,20 @@ export async function createOrder(formData: FormData) {
 
     revalidatePath(`/dashboard/${eventId}/orders`);
     redirect(`/dashboard/${eventId}/orders/${orderResult.orderId}?self_comp=1`);
+  }
+
+  // #13 (money bug-hunt): a standard customer order must be for an event the
+  // buyer belongs to. The orders RLS only checks `user_id = auth.uid()`, so a
+  // forged `event_id` would otherwise bind the order to a stranger's event. The
+  // self-comp branch returns above (a vendor self-comping isn't an event member).
+  const { data: membership } = await supabase
+    .from('event_members')
+    .select('event_id')
+    .eq('event_id', eventId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (!membership) {
+    throw new Error('You can only create an order for your own event.');
   }
 
   // Mint the reference code locally so we can both store it AND pass it to

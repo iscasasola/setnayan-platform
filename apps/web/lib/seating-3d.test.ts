@@ -9,7 +9,14 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { floorObstacles, steerPath, type Lab3DFloor, type Lab3DTable } from './seating-3d';
+import {
+  floorObstacles,
+  steerPath,
+  pushOutOfDiscs,
+  separateAgents,
+  type Lab3DFloor,
+  type Lab3DTable,
+} from './seating-3d';
 
 const ROOM = { w: 20, d: 20 };
 
@@ -74,4 +81,29 @@ test('steerPath hard-clears its discs: no interior waypoint stays inside an obst
   // Endpoints stay exact (the entrance + the target chair are never moved).
   assert.deepEqual(path[0], { x: -9, z: 0 });
   assert.deepEqual(path[path.length - 1], { x: 9, z: 0 });
+});
+
+test('pushOutOfDiscs: moves a point inside a disc to its edge, leaves outside points', () => {
+  const discs = [{ c: { x: 0, z: 0 }, r: 2 }];
+  const inside = pushOutOfDiscs({ x: 0.5, z: 0 }, discs);
+  assert.ok(Math.abs(Math.hypot(inside.x, inside.z) - 2) < 1e-9, 'inside point lands on the edge');
+  const outside = pushOutOfDiscs({ x: 5, z: 0 }, discs);
+  assert.deepEqual(outside, { x: 5, z: 0 }, 'outside point untouched');
+});
+
+test('pushOutOfDiscs: dead-centre point escapes along the perpendicular', () => {
+  const out = pushOutOfDiscs({ x: 0, z: 0 }, [{ c: { x: 0, z: 0 }, r: 2 }], { x: 0, z: 1 });
+  assert.deepEqual(out, { x: 0, z: 2 });
+});
+
+test('separateAgents: pushes a too-close pair apart; leaves a far pair alone', () => {
+  const close = separateAgents([{ x: 0, z: 0 }, { x: 0.2, z: 0 }], 0.6);
+  assert.ok(Math.hypot(close[1]!.x - close[0]!.x, close[1]!.z - close[0]!.z) >= 0.6 - 1e-9);
+  const far = separateAgents([{ x: 0, z: 0 }, { x: 3, z: 0 }], 0.6);
+  assert.deepEqual(far, [{ x: 0, z: 0 }, { x: 3, z: 0 }]);
+});
+
+test('separateAgents: coincident agents are separated deterministically', () => {
+  const out = separateAgents([{ x: 1, z: 1 }, { x: 1, z: 1 }], 0.5);
+  assert.ok(Math.hypot(out[1]!.x - out[0]!.x, out[1]!.z - out[0]!.z) >= 0.5 - 1e-9);
 });

@@ -341,6 +341,67 @@ export function floorObstacles(
 }
 
 /**
+ * Push a point to the edge of any avoidance disc it sits inside (one pass over
+ * the discs). `perp` is the escape heading for the degenerate case where the
+ * point lands exactly on a disc centre (no radial direction to push along).
+ * Pure — shared by steerPath's hard-clearance AND the per-frame crowd re-clamp,
+ * so "don't cross objects" means the same thing for a precomputed path and a
+ * live-walking avatar.
+ */
+export function pushOutOfDiscs(
+  p: Vec2,
+  discs: { c: Vec2; r: number }[],
+  perp: Vec2 = { x: 1, z: 0 },
+): Vec2 {
+  let x = p.x;
+  let z = p.z;
+  for (const d of discs) {
+    const dx = x - d.c.x;
+    const dz = z - d.c.z;
+    const dist = Math.hypot(dx, dz);
+    if (dist < d.r) {
+      const ux = dist < 1e-3 ? perp.x : dx / dist;
+      const uz = dist < 1e-3 ? perp.z : dz / dist;
+      x = d.c.x + ux * d.r;
+      z = d.c.z + uz * d.r;
+    }
+  }
+  return { x, z };
+}
+
+/**
+ * "Make way for each other": any two agents closer than `minDist` are pushed
+ * apart by half their overlap each. Returns NEW positions (input untouched).
+ * One relaxation pass — the crowd loop calls it every frame, so it converges
+ * over time rather than resolving all overlaps in a single tick. Pure.
+ */
+export function separateAgents(agents: Vec2[], minDist: number): Vec2[] {
+  const out = agents.map((a) => ({ x: a.x, z: a.z }));
+  for (let i = 0; i < out.length; i++) {
+    for (let j = i + 1; j < out.length; j++) {
+      const dx = out[j]!.x - out[i]!.x;
+      const dz = out[j]!.z - out[i]!.z;
+      const dist = Math.hypot(dx, dz);
+      if (dist >= minDist) continue;
+      if (dist < 1e-6) {
+        // Exactly coincident — separate deterministically along x by index.
+        out[i]!.x -= minDist / 2;
+        out[j]!.x += minDist / 2;
+        continue;
+      }
+      const push = (minDist - dist) / 2;
+      const ux = dx / dist;
+      const uz = dz / dist;
+      out[i]!.x -= ux * push;
+      out[i]!.z -= uz * push;
+      out[j]!.x += ux * push;
+      out[j]!.z += uz * push;
+    }
+  }
+  return out;
+}
+
+/**
  * Lightweight "walk around the tables" path: sample the straight line start→end,
  * push each interior sample out of any table's avoidance disc (a cheap potential
  * field), then return the smoothed waypoints. Not a true NavMesh — it just reads
@@ -397,20 +458,10 @@ export function steerPath(
   const hz = end.z - start.z;
   const hlen = Math.hypot(hx, hz) || 1;
   const perp = { x: -hz / hlen, z: hx / hlen };
+  const discs = tables.map((tb) => ({ c: tb.c, r: tb.r + skipR }));
   for (let pass = 0; pass < 3; pass++) {
     for (let i = 1; i < out.length - 1; i++) {
-      for (const tb of tables) {
-        const dx = out[i]!.x - tb.c.x;
-        const dz = out[i]!.z - tb.c.z;
-        const dist = Math.hypot(dx, dz);
-        const keep = tb.r + skipR;
-        if (dist < keep) {
-          const ux = dist < 1e-3 ? perp.x : dx / dist;
-          const uz = dist < 1e-3 ? perp.z : dz / dist;
-          out[i]!.x = tb.c.x + ux * keep;
-          out[i]!.z = tb.c.z + uz * keep;
-        }
-      }
+      out[i] = pushOutOfDiscs(out[i]!, discs, perp);
     }
   }
   return out;

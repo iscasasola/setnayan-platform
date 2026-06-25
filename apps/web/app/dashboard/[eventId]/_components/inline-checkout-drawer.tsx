@@ -26,7 +26,7 @@
  *
  * Voucher flow:
  *   • "Have a code?" toggle starts collapsed (per locked policy)
- *   • Input is uppercased on blur · max 8 chars
+ *   • Input is uppercased on blur · max 16 chars
  *   • Apply button calls applyVoucherAction via React server-action wiring
  *   • Result renders inline with brand-voice reason on rejection OR
  *     discount + final total + Remove affordance on success
@@ -177,6 +177,11 @@ export function InlineCheckoutDrawer({
   // index on payments turns a double-submit retry into a 23505 we treat
   // as success (matches createOrder pattern from PR #591/#593).
   const idempotencyKey = useId();
+
+  // Stable id so the visible "Reference number" label is programmatically
+  // associated with its input (a11y · screen readers announce the field name
+  // on focus). Mirrors the wrapped-label pattern the order-detail page uses.
+  const referenceFieldId = useId();
 
   // Compute final price displayed in the drawer header.
   const finalPriceStr =
@@ -425,12 +430,17 @@ export function InlineCheckoutDrawer({
                   className="space-y-3"
                 >
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-ink/70">
+                    <label
+                      htmlFor={referenceFieldId}
+                      className="mb-1 block text-xs font-medium text-ink/70"
+                    >
                       Reference number from your transfer
                     </label>
                     <input
+                      id={referenceFieldId}
                       type="text"
                       name="reference_number"
+                      autoComplete="off"
                       placeholder="e.g. BD123456789"
                       className="input-field"
                     />
@@ -440,15 +450,16 @@ export function InlineCheckoutDrawer({
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-ink/70">
-                      Payment screenshot · required
-                    </label>
+                    {/* label passed to FileUpload so the field name renders with
+                        the dropzone (whose own input is htmlFor-associated),
+                        instead of an orphan <label> with no `for` target. */}
                     <FileUpload
                       bucket="media"
                       pathPrefix={`payment-screenshots/inline-checkout/${eventId}`}
                       maxSizeMB={5}
                       acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
                       name="screenshot_ref"
+                      label="Payment screenshot · required"
                       variant="wide"
                       onChange={(v) => {
                         setScreenshotRef(typeof v === 'string' ? v : null);
@@ -621,7 +632,7 @@ function VoucherBlock({
         </p>
       ) : (
         <p className="text-[11px] text-ink/50">
-          Codes are case-insensitive · 8 characters. Won&rsquo;t apply if the
+          Codes are case-insensitive. Won&rsquo;t apply if the
           original price ({originalPesoDisplay}) is already free.
         </p>
       )}

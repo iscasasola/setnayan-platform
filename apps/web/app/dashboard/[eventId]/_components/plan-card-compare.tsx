@@ -737,7 +737,9 @@ function SlotPickerModal({
 }) {
   return (
     <div
-      role="dialog"
+      // A labeled cluster of controls shown INSIDE the native <dialog> — not a
+      // nested dialog. role="group" (not "dialog") avoids dialog-in-dialog.
+      role="group"
       aria-label={`Pick a time slot for ${vendorName}`}
       className="space-y-3 rounded-lg border border-terracotta/30 bg-terracotta/[0.04] px-4 py-3"
     >
@@ -811,7 +813,10 @@ function ConflictModal({
 }) {
   return (
     <div
-      role="alertdialog"
+      // A warning surfaced INSIDE the native <dialog> in response to the user's
+      // pick — not a nested dialog. role="alert" announces it without the
+      // dialog-in-dialog antipattern.
+      role="alert"
       aria-labelledby="conflict-heading"
       aria-describedby="conflict-body"
       className="space-y-3 rounded-lg border border-warn-300/60 bg-warn-50/70 px-4 py-3"
@@ -893,7 +898,9 @@ function SoftHoldLimitModal({
 }) {
   return (
     <div
-      role="alertdialog"
+      // A warning surfaced INSIDE the native <dialog> — not a nested dialog.
+      // role="alert" announces it without the dialog-in-dialog antipattern.
+      role="alert"
       aria-labelledby="soft-hold-heading"
       aria-describedby="soft-hold-body"
       className="space-y-3 rounded-lg border border-warn-300/60 bg-warn-50/70 px-4 py-3"

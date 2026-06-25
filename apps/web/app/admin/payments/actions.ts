@@ -437,14 +437,24 @@ async function issueReceiptForOrder(args: {
 
   const { data: order } = await admin
     .from('orders')
-    .select('user_id, confirmed_total_php, requested_total_php')
+    .select('user_id, confirmed_total_php, requested_total_php, voucher_discount_centavos')
     .eq('order_id', orderId)
     .maybeSingle();
   if (!order) return;
 
   // The order's *_total_php fields are the **pre-VAT base** (the value Setnayan
   // quotes). VAT is added on top: customer paid (base + 12%).
-  const base = Number(order.confirmed_total_php ?? order.requested_total_php ?? 0);
+  //
+  // #3 (money bug-hunt 2026-06-26): a BIR Official Receipt must reflect the
+  // amount actually paid. `requested_total_php` is the PRE-voucher base, so a
+  // voucher-discounted order whose `confirmed_total_php` is still NULL was
+  // getting a receipt overstating the pre-VAT/VAT/gross. Mirror `orderGrossOwed`:
+  // net the voucher discount off the requested base when not yet confirmed.
+  const voucherDiscountPhp = Number(order.voucher_discount_centavos ?? 0) / 100;
+  const base =
+    order.confirmed_total_php != null
+      ? Number(order.confirmed_total_php)
+      : Math.max(0, Number(order.requested_total_php ?? 0) - voucherDiscountPhp);
   if (base <= 0) return;
 
   const { data: buyer } = await admin

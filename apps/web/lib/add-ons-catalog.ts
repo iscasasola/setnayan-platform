@@ -246,6 +246,9 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
       'The reveal that opens your invitation — in your colors, and it plays itself.',
     cta: 'Choose your reveal',
     studioGroup: 'website',
+    // The content film is FREE; the cinematic openings are a paid in-surface
+    // upgrade (STD_PREMIUM_OPENINGS), so the card itself reads "Free" not "Get".
+    tier: 'free',
     poster: {
       motion: 'scan',
       baseBackground:
@@ -488,6 +491,9 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb: 'Your wedding live — everyone who can’t be there, there.',
     cta: 'Set up',
     studioGroup: 'capture',
+    // Paid SKU — without this the Studio card never flips to Active/Pending when
+    // owned (paid-features-auto-show). Canonical V2 code (sku-catalog-v2.ts).
+    serviceKey: 'PANOOD_SYSTEM',
     poster: {
       motion: 'scan',
       baseBackground:
@@ -533,6 +539,9 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
       'Your photographer’s full-resolution gallery, delivered to your Drive.',
     cta: 'Set up',
     studioGroup: 'capture',
+    // Free tool (Drive hand-off) — mark it so the card shows "Free", not a
+    // money-style "Get".
+    tier: 'free',
     poster: {
       motion: 'drift',
       baseBackground:
@@ -552,6 +561,9 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb: 'Polished vertical reels from your day — ready to post.',
     cta: 'Browse templates',
     studioGroup: 'capture',
+    // Paid SKU — without this the Studio card never flips to Active/Pending when
+    // owned (paid-features-auto-show). Canonical V2 code (sku-catalog-v2.ts).
+    serviceKey: 'PATIKTOK_COMPILER',
     poster: {
       motion: 'scan',
       baseBackground:
@@ -566,7 +578,10 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     label: 'Paprint',
     Icon: Printer,
     iteration: '0018',
-    status: 'web_v1',
+    // Coming Soon (owner default 2026-06-25): the surface is a dead-end (cart
+    // with a permanently-disabled checkout over mock products), so it must not
+    // present as live. Flip to 'web_v1'/'live' when real checkout ships.
+    status: 'coming_soon',
     category: 'tool',
     blurb:
       'Wedding-day print pack + favors from vetted PH suppliers — direct to your venue',

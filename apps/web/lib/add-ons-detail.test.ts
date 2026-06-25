@@ -74,3 +74,18 @@ test('no detail key is orphaned from the catalog', () => {
   const orphans = Object.keys(ADD_ON_DETAILS).filter((k) => !keys.has(k));
   assert.deepEqual(orphans, [], `detail keys not in catalog: ${orphans.join(', ')}`);
 });
+
+test('every buyable service declares free-or-paid (serviceKey or tier:"free")', () => {
+  // Tier-1 consistency invariant (In_App_Services_Consistency_Plan_2026-06-25 §4A):
+  // any service that can be listed/opened must declare WHAT IT IS so the Studio
+  // badge (pillFor) is never a bare money-style "Get" for a real SKU, and free
+  // tools never look paid. coming_soon rows are exempt (not buyable yet).
+  const offenders = ADD_ONS.filter(
+    (a) => a.status !== 'coming_soon' && !a.serviceKey && a.tier !== 'free',
+  ).map((a) => a.key);
+  assert.deepEqual(
+    offenders,
+    [],
+    `services missing both serviceKey AND tier:'free' (their Studio badge would be a meaningless "Get"): ${offenders.join(', ')}`,
+  );
+});

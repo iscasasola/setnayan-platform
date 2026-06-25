@@ -10,9 +10,14 @@
  */
 import type { OnboardingPickChip } from '@/lib/onboarding-refinements';
 
-/** effort axis → how many categories to line up. */
-const EFFORT_LIMIT: Record<string, number> = { simple: 4, balanced: 6, allout: 9 };
-const DEFAULT_LIMIT = 6;
+/** effort axis → how many categories to line up. Shared with persona-packs.ts. */
+export const EFFORT_LIMIT: Record<string, number> = { simple: 4, balanced: 6, allout: 9 };
+export const DEFAULT_LIMIT = 6;
+
+/** Resolve the effort axis to a plan size (defaults to 6). */
+export function effortLimit(effort: string | null | undefined): number {
+  return (effort && EFFORT_LIMIT[effort]) || DEFAULT_LIMIT;
+}
 
 export type GenericPlan = {
   /** Category ids (service_categories.id) → events.style_preferences.interested_categories. */
@@ -25,7 +30,7 @@ export function deriveGenericPlan(
   chips: readonly OnboardingPickChip[],
   effort: string | null | undefined,
 ): GenericPlan {
-  const limit = (effort && EFFORT_LIMIT[effort]) || DEFAULT_LIMIT;
+  const limit = effortLimit(effort);
   const top = chips.slice(0, Math.max(0, limit));
   return { picks: top.map((c) => c.cat), labels: top.map((c) => c.label) };
 }

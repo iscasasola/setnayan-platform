@@ -25,7 +25,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
-import { OrbitControls, Grid, ContactShadows } from '@react-three/drei';
+import { OrbitControls, Grid, ContactShadows, Billboard } from '@react-three/drei';
 import * as THREE from 'three';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { useSeatingLock } from '@/app/dashboard/[eventId]/seating/_components/use-seating-lock';
@@ -107,7 +107,7 @@ const VASE_GEO = new THREE.CylinderGeometry(0.085, 0.12, 0.24, 10);
 const BLOOM_GEO = new THREE.IcosahedronGeometry(0.2, 0);
 
 /** Per-seat token treatment computed from a guest's RSVP (see lib seatStatusOf). */
-type SeatToken = { color: string; opacity: number };
+type SeatToken = { color: string; opacity: number; photoUrl?: string | null };
 
 /** A guest's token colour/opacity, or null when their seat is freed (declined). */
 function guestTokenStyle(g: Lab3DGuest): SeatToken | null {
@@ -116,7 +116,78 @@ function guestTokenStyle(g: Lab3DGuest): SeatToken | null {
   return {
     color: status === 'confirmed' ? SIDE_COLOR[g.side] : TENTATIVE_COLOR,
     opacity: status === 'confirmed' ? 1 : 0.62,
+    photoUrl: g.photoUrl,
   };
+}
+
+/**
+ * Lazily load a remote image into a texture. Manual (not drei's suspending
+ * useTexture) so a failed/forbidden load degrades to null — the avatar falls
+ * back to its coloured head rather than suspending or erroring the whole scene.
+ * Cross-origin is requested so R2-served selfies can paint a WebGL texture
+ * (needs the bucket to send CORS headers; if it doesn't, onError → fallback).
+ */
+function useImageTexture(url: string | null | undefined): THREE.Texture | null {
+  const [tex, setTex] = useState<THREE.Texture | null>(null);
+  useEffect(() => {
+    if (!url) {
+      setTex(null);
+      return;
+    }
+    let alive = true;
+    const loader = new THREE.TextureLoader();
+    loader.setCrossOrigin('anonymous');
+    loader.load(
+      url,
+      (t) => {
+        if (!alive) {
+          t.dispose();
+          return;
+        }
+        t.colorSpace = THREE.SRGBColorSpace;
+        setTex(t);
+      },
+      undefined,
+      () => {
+        if (alive) setTex(null);
+      },
+    );
+    return () => {
+      alive = false;
+    };
+  }, [url]);
+  return tex;
+}
+
+/**
+ * A seated guest: a coloured body token, topped by the guest's selfie as a
+ * camera-facing disc (ringed in their RSVP colour) when a photo is available,
+ * else the plain coloured head. One component per seated chair so the texture
+ * hook is a stable top-level call.
+ */
+function SeatedAvatar({ tok, bodyMat }: { tok: SeatToken; bodyMat: THREE.Material }) {
+  const tex = useImageTexture(tok.photoUrl);
+  return (
+    <group position={[0, 0, -0.04]}>
+      <mesh geometry={TOKEN_BODY_GEO} position={[0, 0.7, 0]} material={bodyMat} />
+      {tex ? (
+        <Billboard position={[0, 1.04, 0]}>
+          {/* RSVP-coloured ring behind the photo */}
+          <mesh position={[0, 0, -0.001]}>
+            <circleGeometry args={[0.17, 28]} />
+            <meshBasicMaterial color={tok.color} transparent opacity={tok.opacity} />
+          </mesh>
+          {/* the selfie */}
+          <mesh>
+            <circleGeometry args={[0.15, 28]} />
+            <meshBasicMaterial map={tex} transparent opacity={tok.opacity} toneMapped={false} />
+          </mesh>
+        </Billboard>
+      ) : (
+        <mesh geometry={TOKEN_HEAD_GEO} position={[0, 1.0, 0]} material={bodyMat} />
+      )}
+    </group>
+  );
 }
 
 // A guest token animating between seats during a swap / table-swap.
@@ -1215,12 +1286,7 @@ function TableMesh({
           <group key={i} position={[c.x, 0, c.z]} rotation={[0, ang, 0]}>
             <mesh geometry={CHAIR_SEAT_GEO} position={[0, 0.46, 0]} material={chairMat} />
             <mesh geometry={CHAIR_BACK_GEO} position={[0, 0.69, 0.19]} material={chairMat} />
-            {tok ? (
-              <group position={[0, 0, -0.04]}>
-                <mesh geometry={TOKEN_BODY_GEO} position={[0, 0.7, 0]} material={tokenMat(tok.color, tok.opacity)} />
-                <mesh geometry={TOKEN_HEAD_GEO} position={[0, 1.0, 0]} material={tokenMat(tok.color, tok.opacity)} />
-              </group>
-            ) : null}
+            {tok ? <SeatedAvatar tok={tok} bodyMat={tokenMat(tok.color, tok.opacity)} /> : null}
           </group>
         );
       })}

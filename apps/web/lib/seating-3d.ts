@@ -69,6 +69,9 @@ export type Lab3DGuest = {
   plusOneAllowed: boolean;
   /** When this row IS someone's +1, the primary guest's id (else null). */
   plusOneOfGuestId: string | null;
+  /** Resolved selfie/avatar URL (consent-gated upstream) — worn by the 3D
+   * avatar's head as a camera-facing photo disc. null → coloured token. */
+  photoUrl: string | null;
 };
 
 /** How a guest's RSVP maps to a seat's treatment. */

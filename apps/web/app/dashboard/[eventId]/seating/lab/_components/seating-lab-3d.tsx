@@ -59,6 +59,7 @@ import {
   contentBounds,
   pctToWorld,
   tableDims,
+  checkPlacement,
   chairLocalPositions,
   serpentineBand,
   serpentineChairs,
@@ -395,6 +396,42 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
     const hi = freeBoard ? 600 : 98;
     const xPct = Math.max(lo, Math.min(hi, (d.x / room.w + 0.5) * 100));
     const yPct = Math.max(lo, Math.min(hi, (d.z / room.d + 0.5) * 100));
+
+    // Placement rules (owner 2026-06-26): no overlap · no tables on the dance
+    // floor · stage = sweetheart only. If the drop breaks one, revert (skip the
+    // commit) — the mesh eases back to its stored spot — and say why.
+    const dragged = tablesById.get(d.id);
+    if (dragged) {
+      const radiusOf = (t: LiveTable) => {
+        const dim = tableDims(t.shape, t.capacity);
+        return Math.max(dim.w, dim.round ? dim.w : dim.d) / 2;
+      };
+      const others = tables
+        .filter((t) => t.id !== d.id)
+        .map((t) => {
+          const p = pctToWorld(t.xPct, t.yPct, room);
+          return { x: p.x, z: p.z, r: radiusOf(t) };
+        });
+      const zone = (xP: number, yP: number, wP: number, hP: number, minW: number, minH: number) => {
+        const c = pctToWorld(xP, yP, room);
+        return { cx: c.x, cz: c.z, hw: Math.max(minW, (wP / 100) * room.w) / 2, hd: Math.max(minH, (hP / 100) * room.d) / 2 };
+      };
+      const stageZone = zone(floor.stage.xPct, floor.stage.yPct, floor.stage.wPct, floor.stage.hPct, 1.5, 1);
+      const danceZone = floor.dance.enabled
+        ? zone(floor.dance.xPct, floor.dance.yPct, floor.dance.wPct, floor.dance.hPct, 1.5, 1.5)
+        : null;
+      const verdict = checkPlacement(
+        { x: d.x, z: d.z, r: radiusOf(dragged), isTable: true, isSweetheart: dragged.shape === 'sweetheart' },
+        others,
+        stageZone,
+        danceZone,
+      );
+      if (!verdict.ok) {
+        setNotice(verdict.reason);
+        return;
+      }
+    }
+
     setTables((prev) => prev.map((t) => (t.id === d.id ? { ...t, xPct, yPct } : t)));
     if (canEdit) {
       const fd = new FormData();
@@ -405,7 +442,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
       fd.set('y_pos', String(yPct));
       void persist(() => updateTablePosition(fd));
     }
-  }, [room, floor, canEdit, eventId, lock.lockId, persist]);
+  }, [room, floor, canEdit, eventId, lock.lockId, persist, tables, tablesById]);
 
   useEffect(() => {
     // Commit on pointerup AND on interruptions (pointercancel / window blur):

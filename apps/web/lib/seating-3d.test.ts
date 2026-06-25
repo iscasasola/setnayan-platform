@@ -16,6 +16,8 @@ import {
   separateAgents,
   firstFreeSeatAtTable,
   contentBounds,
+  checkPlacement,
+  DEFAULT_ROOM,
   type Lab3DFloor,
   type Lab3DTable,
 } from './seating-3d';
@@ -127,4 +129,35 @@ test('contentBounds: empty board falls back to the room; spread tables grow the 
   // x at pct -100 → (-1.5)*20 = -30 (−2 margin); pct 300 → (2.5)*20 = 50 (+2 margin).
   assert.ok(wide.span > 80, `free spread grows the span (got ${wide.span})`);
   assert.ok(Math.abs(wide.cx - 10) < 1e-9, 'centre tracks the content midpoint');
+});
+
+test('DEFAULT_ROOM matches the 2D editor free-board venue (20×30)', () => {
+  assert.deepEqual({ w: DEFAULT_ROOM.w, d: DEFAULT_ROOM.d }, { w: 20, d: 30 });
+});
+
+test('checkPlacement: blocks overlap, dance-floor tables, non-sweetheart on stage', () => {
+  const stage = { cx: 0, cz: -10, hw: 4, hd: 2 };
+  const dance = { cx: 0, cz: 0, hw: 3, hd: 3 };
+  const table = (x: number, z: number, sweet = false) =>
+    ({ x, z, r: 1.5, isTable: true, isSweetheart: sweet });
+
+  // Clear spot, nothing nearby → ok.
+  assert.equal(checkPlacement(table(10, 10), [], stage, dance).ok, true);
+
+  // Overlaps an existing item.
+  const over = checkPlacement(table(10, 10), [{ x: 10.5, z: 10, r: 1.5 }], stage, dance);
+  assert.equal(over.ok, false);
+  assert.match((over as { reason: string }).reason, /overlap/i);
+
+  // Table on the dance floor → blocked.
+  const onDance = checkPlacement(table(0, 0), [], stage, dance);
+  assert.equal(onDance.ok, false);
+  assert.match((onDance as { reason: string }).reason, /dance/i);
+
+  // Non-sweetheart on the stage → blocked; sweetheart → allowed.
+  assert.equal(checkPlacement(table(0, -10, false), [], stage, dance).ok, false);
+  assert.equal(checkPlacement(table(0, -10, true), [], stage, dance).ok, true);
+
+  // A non-table object on the dance floor is fine (rule is tables-only).
+  assert.equal(checkPlacement({ x: 0, z: 0, r: 1, isTable: false, isSweetheart: false }, [], stage, dance).ok, true);
 });

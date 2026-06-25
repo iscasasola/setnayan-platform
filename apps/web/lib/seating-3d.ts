@@ -106,8 +106,49 @@ export type Lab3DPalette = {
 
 export type Vec2 = { x: number; z: number };
 
-/** Default room footprint (metres) when no venue size is set. */
-export const DEFAULT_ROOM = { w: 18, d: 12 } as const;
+// Free-board default — MUST match the 2D editor's default venue (venue_width_m
+// ?? 20 · venue_length_m ?? 30 in seating-editor.tsx). When they drift, the stage
+// (and everything) scales differently between 2D and 3D — most visibly the stage
+// depth (owner 2026-06-26 bug: "stage didn't follow the 2D size").
+export const DEFAULT_ROOM = { w: 20, d: 30 } as const;
+
+/** A rectangular zone in world metres (stage / dance floor). */
+export type PlaceZone = { cx: number; cz: number; hw: number; hd: number };
+
+/** Does an avoidance disc (x,z,r) overlap a rect zone? (closest-point test) */
+function discOverlapsZone(x: number, z: number, r: number, zone: PlaceZone): boolean {
+  const dx = Math.max(Math.abs(x - zone.cx) - zone.hw, 0);
+  const dz = Math.max(Math.abs(z - zone.cz) - zone.hd, 0);
+  return Math.hypot(dx, dz) < r;
+}
+
+/**
+ * Placement rules (owner 2026-06-26): objects can't overlap each other · no
+ * tables on the dance floor · only a SWEETHEART table may sit on the stage.
+ * Pure — the editor calls this on drop and reverts + flags the reason if blocked.
+ * Footprints are modelled as discs; the −0.1 lets edges kiss without tripping.
+ */
+export function checkPlacement(
+  cand: { x: number; z: number; r: number; isTable: boolean; isSweetheart: boolean },
+  others: { x: number; z: number; r: number }[],
+  stage: PlaceZone | null,
+  dance: PlaceZone | null,
+): { ok: true } | { ok: false; reason: string } {
+  for (const o of others) {
+    if (Math.hypot(cand.x - o.x, cand.z - o.z) < cand.r + o.r - 0.1) {
+      return { ok: false, reason: 'Objects can’t overlap each other.' };
+    }
+  }
+  if (cand.isTable && dance && discOverlapsZone(cand.x, cand.z, cand.r, dance)) {
+    return { ok: false, reason: 'No tables on the dance floor.' };
+  }
+  if (stage && discOverlapsZone(cand.x, cand.z, cand.r, stage)) {
+    if (!(cand.isTable && cand.isSweetheart)) {
+      return { ok: false, reason: 'Only a sweetheart table can sit on the stage.' };
+    }
+  }
+  return { ok: true };
+}
 
 export function shapeHintFor(tableType: string): ShapeHint {
   if (tableType.startsWith('round')) return 'round';

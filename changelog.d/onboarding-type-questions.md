@@ -1,0 +1,11 @@
+## 2026-06-25 · feat(onboarding): per-type "signature moment" question — shapes the plan, not dead data (flag-gated, dark)
+
+Iteration 0053 Phase 3 follow-up (the per-type onboarding screens item). The persona quiz is event-agnostic and the persona packs make the PLAN type-appropriate, but the generic flow had no screen for the one thing that distinguishes a debut from a gender reveal from a corporate event. This adds ONE type-specific question per event type — and makes it purposeful: each chosen option contributes the relevant vendor categories to the starter plan, so the answer shapes `interested_categories` rather than collecting unused data.
+
+- **`lib/onboarding/type-questions.ts`** (new) — `PER_TYPE_QUESTIONS` keyed by `personaPackKey` (8 enabled non-wedding types), each a single-select question whose options carry `adds` (taxonomy slugs). `extraPicksFromAnswers()` is a pure resolver. Examples: gender reveal "smoke or pyro" → `fireworks`; debut "cotillion dance" → `choreographer`; corporate "awards night" → `trophies_awards` + `host_mc`. A "just the essentials" option adds nothing.
+- **`app/onboarding/[type]/_components/generic-onboarding.tsx`** — the screen sequence is now built per type (the question screens inject after `region`, before the experience quiz); answers persist in the localStorage draft; the chosen `adds` are merged onto the persona-pack plan, **intersected against the type's real taxonomy tiles** (an inapplicable slug is dropped), deduped, plan order first — used for both the reveal chips and the committed `picks`. Questions are skippable (low friction).
+- **`lib/onboarding/type-questions.test.ts`** (new, 7 cases) — every enabled type has a well-formed question; only the 8 types are keyed; `adds` flow to the plan deduped/order-stable; "none"/unanswered/unknown add nothing; slug shape invariant.
+
+Wedding is untouched (own wizard, never routes here). The whole flow stays **dark** behind `NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED` — no user-visible change until go-live. No migration; answers ride the existing `interested_categories` write (no payload/commit change). The authored questions are sensible defaults — refine per type later.
+
+SPEC IMPACT: onboarding (iteration 0053 Phase 3) — per-type signature-moment screens that feed the starter plan. Logged in `DECISION_LOG.md`.

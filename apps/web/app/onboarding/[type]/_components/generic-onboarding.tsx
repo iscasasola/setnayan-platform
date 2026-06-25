@@ -21,6 +21,7 @@ import { PH_REGIONS } from '@/lib/regions';
 import { commitOnboardingEvent } from '@/app/onboarding/_shared/commit-event';
 import type { GenericOnboardingPayload } from '@/lib/onboarding/types';
 import { derivePackPlan, derivePackServices } from '@/lib/onboarding/persona-packs';
+import { getTypeQuestions, extraPicksFromAnswers } from '@/lib/onboarding/type-questions';
 import type { OnboardingPickChip } from '@/lib/onboarding-refinements';
 
 type Props = {
@@ -47,19 +48,9 @@ type Draft = {
   pax: string;
   region: string;
   axes: Record<string, string>;
+  /** Per-type signature-moment answers (questionId → optionKey). */
+  details: Record<string, string>;
 };
-
-const SCREENS = [
-  'welcome',
-  'name',
-  'date',
-  'pax',
-  'region',
-  ...GENERIC_AXIS_IDS, // for_whom · feel · energy · roots · effort
-  'reveal',
-  'congrats',
-] as const;
-type ScreenId = (typeof SCREENS)[number];
 
 const DRAFT_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
@@ -74,9 +65,28 @@ export function GenericOnboarding(props: Props) {
   const [pax, setPax] = useState('');
   const [region, setRegion] = useState('');
   const [axes, setAxes] = useState<Record<string, string>>({});
+  const [details, setDetails] = useState<Record<string, string>>({});
   const [hydrated, setHydrated] = useState(false);
   const [committing, setCommitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Per-type signature-moment screens, injected into the sequence after 'region'.
+  // typeQuestions is stable (keyed on the personaPackKey prop), so `screens` is too.
+  const typeQuestions = useMemo(() => getTypeQuestions(personaPackKey), [personaPackKey]);
+  const screens = useMemo<string[]>(
+    () => [
+      'welcome',
+      'name',
+      'date',
+      'pax',
+      'region',
+      ...typeQuestions.map((q) => `tq_${q.id}`),
+      ...GENERIC_AXIS_IDS, // for_whom · feel · energy · roots · effort
+      'reveal',
+      'congrats',
+    ],
+    [typeQuestions],
+  );
 
   // -- Hydrate the localStorage draft (30-day TTL). On ?resume=1 (post sign-in)
   //    jump to the final screen so the visitor can finish in one tap. --
@@ -91,7 +101,8 @@ export function GenericOnboarding(props: Props) {
           setPax(d.pax ?? '');
           setRegion(d.region ?? '');
           setAxes(d.axes ?? {});
-          if (resume) setStep(SCREENS.indexOf('congrats'));
+          setDetails(d.details ?? {});
+          if (resume) setStep(screens.indexOf('congrats'));
         } else {
           localStorage.removeItem(draftKey);
         }
@@ -100,22 +111,24 @@ export function GenericOnboarding(props: Props) {
       /* ignore corrupt draft */
     }
     setHydrated(true);
-  }, [draftKey, resume]);
+  }, [draftKey, resume, screens]);
 
   // -- Persist the draft on every change (after hydration). --
   useEffect(() => {
     if (!hydrated) return;
     try {
-      const d: Draft = { v: 1, startedAt: Date.now(), displayName, dateValue, pax, region, axes };
+      const d: Draft = { v: 1, startedAt: Date.now(), displayName, dateValue, pax, region, axes, details };
       localStorage.setItem(draftKey, JSON.stringify(d));
     } catch {
       /* quota / private mode — non-fatal */
     }
-  }, [hydrated, draftKey, displayName, dateValue, pax, region, axes]);
+  }, [hydrated, draftKey, displayName, dateValue, pax, region, axes, details]);
 
-  const screen: ScreenId = SCREENS[step]!;
+  const screen = screens[step]!;
   const axisIndex = GENERIC_AXIS_IDS.indexOf(screen as (typeof GENERIC_AXIS_IDS)[number]);
   const isAxis = axisIndex >= 0;
+  const tqId = screen.startsWith('tq_') ? screen.slice(3) : null;
+  const typeQuestion = tqId ? typeQuestions.find((q) => q.id === tqId) ?? null : null;
 
   const allAxesAnswered = GENERIC_AXIS_IDS.every((id) => Boolean(axes[id]));
   const personaKey = useMemo(
@@ -137,6 +150,26 @@ export function GenericOnboarding(props: Props) {
     () => derivePackServices(personaPackKey, personaKey, axes.effort),
     [personaPackKey, personaKey, axes.effort],
   );
+  // Categories the type-question answers add (e.g. a gender reveal's "smoke" →
+  // fireworks). Merged onto the persona-pack plan, intersected against the type's
+  // taxonomy tiles (so an inapplicable add is dropped), deduped, plan order first.
+  const extraPicks = useMemo(
+    () => extraPicksFromAnswers(personaPackKey, details),
+    [personaPackKey, details],
+  );
+  const finalPlan = useMemo(() => {
+    const labelById = new Map(tiles.map((tile) => [tile.cat, tile.label]));
+    const picks: string[] = [];
+    const labels: string[] = [];
+    const seen = new Set<string>();
+    for (const id of [...plan.picks, ...extraPicks]) {
+      if (seen.has(id) || !labelById.has(id)) continue;
+      seen.add(id);
+      picks.push(id);
+      labels.push(labelById.get(id)!);
+    }
+    return { picks, labels };
+  }, [plan, extraPicks, tiles]);
 
   const canContinue = (() => {
     if (screen === 'name') return displayName.trim().length > 0;
@@ -144,13 +177,20 @@ export function GenericOnboarding(props: Props) {
     return true; // welcome / date / pax / region / reveal are skippable
   })();
 
-  const go = useCallback((delta: number) => {
-    setError(null);
-    setStep((s) => Math.max(0, Math.min(SCREENS.length - 1, s + delta)));
-  }, []);
+  const go = useCallback(
+    (delta: number) => {
+      setError(null);
+      setStep((s) => Math.max(0, Math.min(screens.length - 1, s + delta)));
+    },
+    [screens.length],
+  );
 
   const pickAxis = (axisId: string, key: string) => {
     setAxes((a) => ({ ...a, [axisId]: key }));
+  };
+
+  const pickDetail = (questionId: string, key: string) => {
+    setDetails((d) => ({ ...d, [questionId]: key }));
   };
 
   async function handleCreate() {
@@ -176,8 +216,8 @@ export function GenericOnboarding(props: Props) {
       experienceForWhom:
         forWhom === 'couple' || forWhom === 'guests' || forWhom === 'both' ? forWhom : null,
       experienceAxes: axes,
-      // Starter plan derived from the type's taxonomy (PR3) → interested_categories.
-      picks: plan.picks,
+      // Persona-pack plan + the categories the type-questions added → interested_categories.
+      picks: finalPlan.picks,
       // Per-type/per-persona in-app services (effort-scaled) → interested_services.
       interestedServices: planServices,
       refinements: {},
@@ -296,6 +336,36 @@ export function GenericOnboarding(props: Props) {
         </div>
       );
     }
+    if (typeQuestion) {
+      const selected = details[typeQuestion.id];
+      return (
+        <div>
+          <Eyebrow>{typeQuestion.eyebrow}</Eyebrow>
+          <Title>{typeQuestion.question}</Title>
+          <div className="mt-6 flex flex-col gap-3">
+            {typeQuestion.options.map((o) => {
+              const on = selected === o.key;
+              return (
+                <button
+                  key={o.key}
+                  type="button"
+                  onClick={() => pickDetail(typeQuestion.id, o.key)}
+                  className={[
+                    'rounded-[var(--m-r-md)] border p-4 text-left transition',
+                    on
+                      ? 'border-mulberry bg-mulberry/5 ring-1 ring-mulberry'
+                      : 'border-ink/12 bg-paper hover:border-ink/30',
+                  ].join(' ')}
+                >
+                  <span className="block font-semibold text-ink">{o.title}</span>
+                  <span className="mt-0.5 block text-sm text-ink/60">{o.desc}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
     if (isAxis) {
       const axis = GENERIC_EXP_AXES[axisIndex]!;
       const selected = axes[axis.id];
@@ -335,13 +405,13 @@ export function GenericOnboarding(props: Props) {
             <>
               <Title>{reveal.name}</Title>
               <p className="mx-auto mt-3 max-w-md text-ink/65">{reveal.tagline}</p>
-              {plan.labels.length > 0 ? (
+              {finalPlan.labels.length > 0 ? (
                 <div className="mx-auto mt-7 max-w-md">
                   <p className="mb-3 text-xs font-medium uppercase tracking-[0.18em] text-ink/45">
                     We’ll line up
                   </p>
                   <div className="flex flex-wrap justify-center gap-2">
-                    {plan.labels.map((l) => (
+                    {finalPlan.labels.map((l) => (
                       <span
                         key={l}
                         className="rounded-full border border-ink/12 bg-paper px-3 py-1.5 text-sm text-ink/80"
@@ -405,7 +475,7 @@ export function GenericOnboarding(props: Props) {
       <div className="h-1 w-full bg-ink/5">
         <div
           className="h-full bg-mulberry transition-all"
-          style={{ width: `${Math.round(((step + 1) / SCREENS.length) * 100)}%` }}
+          style={{ width: `${Math.round(((step + 1) / screens.length) * 100)}%` }}
         />
       </div>
 

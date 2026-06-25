@@ -7,6 +7,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { eventPapicSeatsActive } from '@/lib/papic-seats';
 import { countEventGuestCaptures } from '@/lib/papic-guest';
 import { resolveAddOnState } from '@/lib/add-on-state';
+import { RevealList } from '@/app/_components/reveal-list';
 
 export const metadata = { title: 'Galleries · Setnayan' };
 
@@ -150,13 +151,14 @@ export default async function GalleriesHubPage({ params }: Props) {
         </p>
       </header>
 
-      <div className="mt-6 space-y-3">
+      <RevealList as="div" className="mt-6 space-y-3">
         {sources.map((s) => {
           const Icon = s.Icon;
           const ready = s.state === 'ready';
           return (
             <article
               key={s.key}
+              data-reveal-item
               className="flex items-center justify-between gap-4 rounded-2xl border border-ink/10 bg-white p-4 shadow-sm sm:p-5"
             >
               <div className="flex min-w-0 items-start gap-3">
@@ -193,7 +195,7 @@ export default async function GalleriesHubPage({ params }: Props) {
             </article>
           );
         })}
-      </div>
+      </RevealList>
     </div>
   );
 }

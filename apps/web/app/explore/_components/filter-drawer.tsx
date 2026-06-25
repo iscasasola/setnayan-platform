@@ -37,9 +37,10 @@
  * all read at the same h-11 baseline.
  */
 
-import { useEffect, useId, useRef } from 'react';
+import { useId, useRef } from 'react';
 import Link from 'next/link';
 import { X } from 'lucide-react';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 
 export type FilterDrawerProps = {
   /** Open / closed state owned by the parent (StickyMarketplaceHeader). */
@@ -129,33 +130,9 @@ export function FilterDrawer({
   const matchId = useId();
   const venueId = useId();
 
-  // ESC closes the drawer. Focus moves into the panel on open so screen readers
-  // jump straight to the dialog content. Restoring focus to the trigger on
-  // close is handled by the parent component's button (browser restores
-  // focus when the panel unmounts).
-  useEffect(() => {
-    if (!open) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape' && onClose) onClose();
-    }
-    document.addEventListener('keydown', onKey);
-    // Move focus into the panel on open for keyboard + screen-reader users.
-    requestAnimationFrame(() => {
-      panelRef.current?.focus();
-    });
-    return () => document.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
-
-  // Lock body scroll while open so the page underneath doesn't scroll when
-  // the user swipes inside the drawer. Restored on close.
-  useEffect(() => {
-    if (!open) return;
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prevOverflow;
-    };
-  }, [open]);
+  // Focus trap + move-into-panel + restore + Esc-to-close + body-scroll-lock via
+  // the shared hook. The panel is the trap container (holds all form controls).
+  useModalA11y({ open, onClose: () => onClose?.(), containerRef: panelRef });
 
   if (!open) return null;
 

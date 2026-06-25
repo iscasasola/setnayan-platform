@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useRef, useState } from 'react';
 import { CreditCard, X } from 'lucide-react';
 
 import {
   InlineCheckoutDrawer,
   type InlineCheckoutDrawerProps,
 } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 
 // Client-side "Choose plan" sheet rendered as the App Store-style GET button.
 // On mobile it slides up from the bottom (single-thumb reach); on desktop
@@ -81,19 +82,8 @@ export function ChoosePlanSheet({
   settings,
 }: ChoosePlanSheetProps) {
   const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    if (!open) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    window.addEventListener('keydown', handleKey);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      window.removeEventListener('keydown', handleKey);
-      document.body.style.overflow = '';
-    };
-  }, [open]);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalA11y({ open, onClose: () => setOpen(false), containerRef: dialogRef });
 
   return (
     <>
@@ -113,10 +103,11 @@ export function ChoosePlanSheet({
 
       {open ? (
         <div
+          ref={dialogRef}
           role="dialog"
           aria-modal="true"
           aria-labelledby="choose-plan-title"
-          className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:justify-end"
+          className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:justify-end focus:outline-none"
         >
           {/* Backdrop */}
           <button

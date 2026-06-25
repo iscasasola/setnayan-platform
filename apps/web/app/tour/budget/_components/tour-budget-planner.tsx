@@ -30,6 +30,7 @@ import {
   Wallet,
   X,
 } from 'lucide-react';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import {
   computeBudgetAllocation,
   type AllocationConfig,
@@ -347,21 +348,19 @@ function TiltEditor({
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
   const [draft, setDraft] = useState<string>(formatPlain(leaf.amountPhp));
 
+  // Mounts only while a leaf is open, so mount = open. The shared hook handles
+  // focus trap + restore + Esc-to-close + body-scroll-lock; the close button
+  // takes initial focus to preserve the prior behavior.
+  useModalA11y({
+    open: true,
+    onClose,
+    containerRef: overlayRef,
+    initialFocusRef: closeBtnRef,
+  });
+
   useEffect(() => {
     setDraft(formatPlain(leaf.amountPhp));
   }, [leaf.canonicalService, leaf.amountPhp]);
-
-  useEffect(() => {
-    closeBtnRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
 
   const splurgeAmt = roundToThousand(recommendedAmountPhp * 1.25);
   const saveAmt = roundToThousand(recommendedAmountPhp * 0.8);
@@ -378,7 +377,7 @@ function TiltEditor({
       role="dialog"
       aria-modal="true"
       aria-labelledby="tour-tilt-editor-headline"
-      className="fixed inset-0 z-50 flex items-end justify-center bg-[#1E2229]/40 p-4 backdrop-blur-sm sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-[#1E2229]/40 p-4 backdrop-blur-sm focus:outline-none sm:items-center"
       onClick={(e) => {
         if (e.target === overlayRef.current) onClose();
       }}

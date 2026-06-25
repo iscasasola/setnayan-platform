@@ -12,7 +12,7 @@
  * m-card surfaces, gold (#C5A059) accents, obsidian (#1E2229) ink.
  */
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import {
   Activity,
   Archive,
@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 
 import { resolveAllActive, setLogStatus } from './actions';
 
@@ -155,16 +156,6 @@ export function ConnectionLogsClient({
     // createClient returns a stable browser client; run once on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // Close modal on Escape.
-  useEffect(() => {
-    if (!selected) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setSelected(null);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [selected]);
 
   const filteredActive = useMemo(
     () => (filter === 'all' ? active : active.filter((r) => r.event_type === filter)),
@@ -441,6 +432,9 @@ function EmptyState({ tab }: { tab: 'active' | 'resolved' }) {
 
 function InspectModal({ row, onClose }: { row: FaultLogRow; onClose: () => void }) {
   const meta = TYPE_META[row.event_type];
+  // Mounts only while a row is selected, so mount = open.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalA11y({ open: true, onClose, containerRef: dialogRef });
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-[#1E2229]/40 p-0 backdrop-blur-sm sm:items-center sm:p-6"
@@ -448,7 +442,8 @@ function InspectModal({ row, onClose }: { row: FaultLogRow; onClose: () => void 
       role="presentation"
     >
       <div
-        className="m-card flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl bg-white sm:rounded-2xl"
+        ref={dialogRef}
+        className="m-card flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl bg-white focus:outline-none sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"

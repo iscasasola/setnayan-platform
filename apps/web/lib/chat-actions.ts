@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchThreadById } from './chat';
+import { resolveCounterpartyUserIds } from './chat-block';
 import { emitNotification } from './notification-emit';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 import { tierCaps } from '@/lib/vendor-tier-caps';
@@ -659,5 +660,163 @@ async function revealExclusivePerks(args: {
       '[revealExclusivePerks] threw (non-blocking):',
       caught instanceof Error ? caught.message : String(caught),
     );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// UGC safety (Apple App Store Guideline 1.2) — REPORT + BLOCK the chat
+// counterparty from the thread menu. Report reuses public.user_reports
+// (target_type='user'); Block uses the additive blocked_users table (the
+// chat_messages_block_guard RESTRICTIVE policy is the authoritative send
+// block — these actions + the composer gating are the in-app surface).
+// ─────────────────────────────────────────────────────────────────────────
+
+const CHAT_REPORT_REASONS = new Set([
+  'nudity_sexual',
+  'violence',
+  'hate_harassment',
+  'spam',
+  'not_my_event',
+  'other',
+]);
+
+/** couple | vendor | null (not a member) — mirrors sendChatMessage's probe. */
+async function resolveThreadRole(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  thread: { event_id: string; vendor_profile_id: string },
+  userId: string,
+): Promise<'couple' | 'vendor' | null> {
+  const [coupleCheck, vendorCheck] = await Promise.all([
+    supabase
+      .from('event_members')
+      .select('event_id')
+      .eq('event_id', thread.event_id)
+      .eq('user_id', userId)
+      .eq('member_type', 'couple')
+      .maybeSingle(),
+    supabase
+      .from('vendor_profiles')
+      .select('vendor_profile_id')
+      .eq('vendor_profile_id', thread.vendor_profile_id)
+      .eq('user_id', userId)
+      .maybeSingle(),
+  ]);
+  if (coupleCheck.data) return 'couple';
+  if (vendorCheck.data) return 'vendor';
+  return null;
+}
+
+function safeReturn(returnTo: FormDataEntryValue | null, suffix: string): string | null {
+  return typeof returnTo === 'string' && returnTo.startsWith('/')
+    ? `${returnTo}${returnTo.includes('?') ? '&' : '?'}${suffix}`
+    : null;
+}
+
+export async function reportUser(formData: FormData) {
+  const threadId = formData.get('thread_id');
+  const reason = formData.get('reason');
+  const details = formData.get('details');
+  if (
+    typeof threadId !== 'string' ||
+    typeof reason !== 'string' ||
+    !CHAT_REPORT_REASONS.has(reason)
+  ) {
+    throw new Error('Invalid report');
+  }
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  const thread = await fetchThreadById(supabase, threadId);
+  if (!thread) throw new Error('Thread not found');
+  const role = await resolveThreadRole(supabase, thread, user.id);
+  if (!role) throw new Error('Not a member of this thread');
+
+  // target_id must be a real user id (target_type='user'). If we somehow can't
+  // resolve the counterparty, fail loud rather than store a mis-typed id.
+  const targetUserId = (await resolveCounterpartyUserIds(thread, role))[0];
+  if (!targetUserId) throw new Error('Could not identify the person to report.');
+  const { error } = await supabase.from('user_reports').insert({
+    reporter_user_id: user.id,
+    event_id: thread.event_id,
+    target_type: 'user',
+    target_id: targetUserId,
+    reason,
+    details:
+      typeof details === 'string' && details.trim()
+        ? details.trim().slice(0, 1000)
+        : null,
+  });
+  if (error) throw new Error(error.message);
+
+  const dest = safeReturn(formData.get('return_to'), 'reported=1');
+  if (dest) {
+    revalidatePath(dest);
+    redirect(dest);
+  }
+}
+
+export async function blockUser(formData: FormData) {
+  const threadId = formData.get('thread_id');
+  if (typeof threadId !== 'string') throw new Error('Invalid input');
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  const thread = await fetchThreadById(supabase, threadId);
+  if (!thread) throw new Error('Thread not found');
+  const role = await resolveThreadRole(supabase, thread, user.id);
+  if (!role) throw new Error('Not a member of this thread');
+
+  const counterpartyIds = (await resolveCounterpartyUserIds(thread, role)).filter(
+    (id) => id !== user.id,
+  );
+  if (counterpartyIds.length > 0) {
+    const { error } = await supabase.from('blocked_users').upsert(
+      counterpartyIds.map((id) => ({
+        blocker_user_id: user.id,
+        blocked_user_id: id,
+      })),
+      { onConflict: 'blocker_user_id,blocked_user_id', ignoreDuplicates: true },
+    );
+    if (error) throw new Error(error.message);
+  }
+
+  const dest = safeReturn(formData.get('return_to'), 'blocked=1');
+  if (dest) {
+    revalidatePath(dest);
+    redirect(dest);
+  }
+}
+
+export async function unblockUser(formData: FormData) {
+  const threadId = formData.get('thread_id');
+  if (typeof threadId !== 'string') throw new Error('Invalid input');
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  const thread = await fetchThreadById(supabase, threadId);
+  if (!thread) throw new Error('Thread not found');
+  const role = await resolveThreadRole(supabase, thread, user.id);
+  if (!role) throw new Error('Not a member of this thread');
+
+  const counterpartyIds = await resolveCounterpartyUserIds(thread, role);
+  if (counterpartyIds.length > 0) {
+    const { error } = await supabase
+      .from('blocked_users')
+      .delete()
+      .eq('blocker_user_id', user.id)
+      .in('blocked_user_id', counterpartyIds);
+    if (error) throw new Error(error.message);
+  }
+
+  const dest = safeReturn(formData.get('return_to'), 'unblocked=1');
+  if (dest) {
+    revalidatePath(dest);
+    redirect(dest);
   }
 }

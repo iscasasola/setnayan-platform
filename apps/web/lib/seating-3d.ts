@@ -305,6 +305,26 @@ export function tableAvoidR(table: Lab3DTable): number {
 }
 
 /**
+ * Lowest free seat index at a table — the seat a tap-to-place guest takes. A
+ * seat is unavailable if it's removed (deleted chair) or already occupied. Out-
+ * of-range removed/occupied indices are ignored. Returns -1 when the table is
+ * full (caller surfaces "that table is full"). Pure + shared so the auto-seat
+ * walk-in and the precise tap-a-table placement fill seats identically.
+ */
+export function firstFreeSeatAtTable(
+  capacity: number,
+  removedSeats: number[],
+  occupiedSeats: number[],
+): number {
+  const taken = new Set<number>(
+    removedSeats.filter((i) => Number.isInteger(i) && i >= 0 && i < capacity),
+  );
+  for (const s of occupiedSeats) taken.add(s);
+  for (let i = 0; i < capacity; i++) if (!taken.has(i)) return i;
+  return -1;
+}
+
+/**
  * Every fixed obstacle a walking avatar must clear, as avoidance discs (centre +
  * radius, world metres): each table EXCEPT the walker's destination, the stage,
  * and the dance floor when enabled. Centralised so the single walk path and the

@@ -63,6 +63,7 @@ import {
   serpentineChairs,
   seatWorld,
   floorObstacles,
+  firstFreeSeatAtTable,
   pushOutOfDiscs,
   separateAgents,
   steerPath,
@@ -273,6 +274,9 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
   // Populate-Play: when set, the whole seated list walks in at once (mutually
   // exclusive with the single `walker`).
   const [crowd, setCrowd] = useState<CrowdAgent[] | null>(null);
+  // Precise placement: an unseated guest "picked up" from the roster, waiting
+  // for the couple to tap the table they should sit at (vs auto-first-free).
+  const [placingGuestId, setPlacingGuestId] = useState<string | null>(null);
   const [arrived, setArrived] = useState<string | null>(null);
   const [showCloth, setShowCloth] = useState(true);
   const [showAccents, setShowAccents] = useState(true);
@@ -492,21 +496,20 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
 
   // Pick a guest → walk to their seat (seating them in the first free chair if
   // they have none), steering around the other tables.
+  // Seat a guest + walk them in. `preferredTableId` (from tap-to-place) restricts
+  // the search to that one table; otherwise it auto-fills the first free seat
+  // anywhere. Returns false when no seat is available (e.g. the tapped table is
+  // full) so the caller can keep the guest "picked up" and flag it.
   const sendGuest = useCallback(
-    (g: Lab3DGuest) => {
+    (g: Lab3DGuest, preferredTableId?: string): boolean => {
       let seat = seats.get(g.id) ?? null;
       const nextSeats = new Map(seats);
       if (!seat) {
-        for (const t of tables) {
-          // Seed occupancy with the table's DELETED chairs (mirrors the
-          // canonical computeAutoSeat) and scan the real capacity index range —
-          // otherwise a removed low-index chair is offered as "free".
-          const occupied = new Set<number>(
-            t.removedSeats.filter((i) => Number.isInteger(i) && i >= 0 && i < t.capacity),
-          );
-          for (const [, s] of nextSeats) if (s.tableId === t.id) occupied.add(s.seatNumber);
-          let free = -1;
-          for (let i = 0; i < t.capacity; i++) if (!occupied.has(i)) { free = i; break; }
+        const candidates = preferredTableId ? tables.filter((t) => t.id === preferredTableId) : tables;
+        for (const t of candidates) {
+          const occupied: number[] = [];
+          for (const [, s] of nextSeats) if (s.tableId === t.id) occupied.push(s.seatNumber);
+          const free = firstFreeSeatAtTable(t.capacity, t.removedSeats, occupied);
           if (free >= 0) {
             seat = { tableId: t.id, seatNumber: free };
             nextSeats.set(g.id, seat);
@@ -515,9 +518,9 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
           }
         }
       }
-      if (!seat) return;
+      if (!seat) return false;
       const table = tablesById.get(seat.tableId);
-      if (!table) return;
+      if (!table) return false;
       const end = seatWorld(table, seat.seatNumber, room);
       // Clear every fixed object — other tables, the stage, the dance floor —
       // not just the tables, so the walker never cuts across the stage.
@@ -527,6 +530,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
       setArrived(null);
       setCrowd(null); // a single walk-in supersedes any populated crowd
       setWalker({ name: g.name, path, tableId: seat.tableId });
+      return true;
     },
     [seats, tables, tablesById, room, entranceWorld, floor],
   );
@@ -658,6 +662,13 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
 
   const onTableDown = useCallback(
     (id: string) => {
+      // Precise placement: a picked-up guest takes a seat at the tapped table.
+      if (placingGuestId) {
+        const g = guestById.get(placingGuestId);
+        if (g && sendGuest(g, id)) setPlacingGuestId(null);
+        else setNotice('That table is full — pick another.');
+        return;
+      }
       // Table-swap pick mode (Play): first tap arms a table, second swaps them.
       if (tableSwapArmed) {
         if (!tableSwapFirst) {
@@ -678,7 +689,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
       dragRef.current = { id, x: w.x, z: w.z };
       setDraggingId(id);
     },
-    [tableSwapArmed, tableSwapFirst, swapTables, mode, canEdit, room, tablesById],
+    [placingGuestId, guestById, sendGuest, tableSwapArmed, tableSwapFirst, swapTables, mode, canEdit, room, tablesById],
   );
 
   // A guest-list tap: an UNSEATED guest walks in; a SEATED guest enters or
@@ -686,7 +697,11 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
   const onGuestTap = useCallback(
     (g: Lab3DGuest) => {
       if (!seats.has(g.id)) {
-        sendGuest(g);
+        // Pick the guest UP for precise placement — the next table tap seats
+        // them there. Tapping the same guest again puts them back down.
+        setMode('play');
+        setSwapSelId(null);
+        setPlacingGuestId((cur) => (cur === g.id ? null : g.id));
         return;
       }
       if (swapSelId === g.id) {
@@ -700,7 +715,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
       }
       setSwapSelId(g.id);
     },
-    [seats, sendGuest, swapSelId, swapGuests],
+    [seats, swapSelId, swapGuests],
   );
 
   const seatedCount = useMemo(() => {
@@ -827,6 +842,14 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
         crowdActive={!!crowd}
         onWalkEveryone={walkEveryone}
         onClearCrowd={() => setCrowd(null)}
+        placingGuestName={placingGuestId ? guestById.get(placingGuestId)?.name ?? null : null}
+        placingGuestId={placingGuestId}
+        onSeatAnywhere={() => {
+          const g = placingGuestId ? guestById.get(placingGuestId) : null;
+          setPlacingGuestId(null);
+          if (g) sendGuest(g);
+        }}
+        onCancelPlacing={() => setPlacingGuestId(null)}
         swapSelId={swapSelId}
         tableSwapArmed={tableSwapArmed}
         onToggleTableSwap={() => {
@@ -1659,6 +1682,10 @@ function Hud({
   crowdActive,
   onWalkEveryone,
   onClearCrowd,
+  placingGuestName,
+  placingGuestId,
+  onSeatAnywhere,
+  onCancelPlacing,
   swapSelId,
   tableSwapArmed,
   onToggleTableSwap,
@@ -1690,6 +1717,10 @@ function Hud({
   crowdActive: boolean;
   onWalkEveryone: () => void;
   onClearCrowd: () => void;
+  placingGuestName: string | null;
+  placingGuestId: string | null;
+  onSeatAnywhere: () => void;
+  onCancelPlacing: () => void;
   swapSelId: string | null;
   tableSwapArmed: boolean;
   onToggleTableSwap: () => void;
@@ -1800,10 +1831,26 @@ function Hud({
         ) : (
           <div className={`flex min-h-0 flex-1 flex-col p-3 ${glass}`}>
             <p className="mb-1 text-sm font-medium">Guests</p>
+            {placingGuestName ? (
+              <div className="mb-2 rounded-xl bg-amber-400/15 p-2.5 text-xs leading-relaxed text-amber-100">
+                <p className="font-medium">Placing {placingGuestName}</p>
+                <p className="mt-0.5 text-amber-100/80">Tap a table to seat them there.</p>
+                <div className="mt-1.5 flex gap-1.5">
+                  <button type="button" onClick={onSeatAnywhere} className="flex-1 rounded-lg bg-white/90 px-2 py-1 font-medium text-ink hover:bg-white">
+                    Seat anywhere
+                  </button>
+                  <button type="button" onClick={onCancelPlacing} className="flex-1 rounded-lg bg-white/10 px-2 py-1 font-medium text-white hover:bg-white/20">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : null}
             <p className="mb-2 text-[11px] text-white/60">
-              {swapSelId
-                ? 'Tap another seated guest to swap'
-                : `${seatedCount} seated · tap two to swap, or an empty one to walk in`}
+              {placingGuestName
+                ? `Tap a table to seat ${placingGuestName}`
+                : swapSelId
+                  ? 'Tap another seated guest to swap'
+                  : `${seatedCount} seated · tap an empty guest to pick them up, then a table · tap two seated to swap`}
             </p>
             <button
               type="button"
@@ -1831,18 +1878,23 @@ function Hud({
                 guests.map((g) => {
                   const seated = seats.has(g.id);
                   const selected = swapSelId === g.id;
+                  const placing = placingGuestId === g.id;
                   return (
                     <button
                       key={g.id}
                       type="button"
                       onClick={() => onGuestTap(g)}
                       className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-sm text-white/90 transition ${
-                        selected ? 'bg-white/25 ring-1 ring-white/50' : 'hover:bg-white/15'
+                        placing
+                          ? 'bg-amber-400/25 ring-1 ring-amber-300/60'
+                          : selected
+                            ? 'bg-white/25 ring-1 ring-white/50'
+                            : 'hover:bg-white/15'
                       }`}
                     >
                       <span className="truncate">{g.name}</span>
                       <span className={`ml-2 shrink-0 text-[10px] ${seated ? 'text-white/55' : 'text-white/40'}`}>
-                        {selected ? 'swap?' : seated ? 'seated' : 'walk'}
+                        {placing ? 'placing…' : selected ? 'swap?' : seated ? 'seated' : 'place'}
                       </span>
                     </button>
                   );

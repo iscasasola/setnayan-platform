@@ -515,3 +515,81 @@ export function formatBlockTimeRange(startIso: string, endIso: string | null): s
   });
   return sameDay ? `${startStr} – ${endStr}` : `${startStr} → ${end.toLocaleString()}`;
 }
+
+// ── Viewer-local time (mirror of ~/Setnayan-Native/src/lib/timezone.ts) ────────
+// Schedule times are stored as the naive event-local wall-clock at UTC
+// (`…T14:00:00Z` = 2 PM at the venue). To show a viewer their OWN local time we
+// reinterpret that wall-clock through the EVENT's timezone → true instant, then
+// render it in the viewer's (browser) timezone. Client-safe: Intl only, no dep.
+// The event timezone string comes from the venue coords (see
+// lib/event-timezone.server.ts) — derived server-side, passed down as a prop.
+
+/** Fallback when an event has no venue coordinates — most weddings are in PH. */
+export const DEFAULT_EVENT_TZ = 'Asia/Manila';
+
+function partsAsUTC(instantMs: number, tz: string): number {
+  const f = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz,
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+  const p: Record<string, string> = {};
+  for (const part of f.formatToParts(new Date(instantMs))) p[part.type] = part.value;
+  let h = parseInt(p.hour!, 10);
+  if (h === 24) h = 0;
+  return Date.UTC(+p.year!, +p.month! - 1, +p.day!, h, +p.minute!, +p.second!);
+}
+
+/** Wall-clock (y, monthIndex, d, h, mi) in IANA `tz` → its true UTC instant (ms),
+ *  or null if Intl/tz math is unavailable. */
+export function wallClockToInstant(
+  y: number,
+  monthIndex: number,
+  d: number,
+  h: number,
+  mi: number,
+  tz: string,
+): number | null {
+  try {
+    const asUTC = Date.UTC(y, monthIndex, d, h, mi);
+    return asUTC + (asUTC - partsAsUTC(asUTC, tz));
+  } catch {
+    return null;
+  }
+}
+
+/** A stored block time rendered in the VIEWER's (browser) local time ("5:00 AM"),
+ *  or null if it can't be converted (callers then fall back to event-local). */
+export function formatViewerTime(iso: string | null, eventTz: string): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const instant = wallClockToInstant(
+    d.getUTCFullYear(),
+    d.getUTCMonth(),
+    d.getUTCDate(),
+    d.getUTCHours(),
+    d.getUTCMinutes(),
+    eventTz,
+  );
+  if (instant == null) return null;
+  return new Date(instant).toLocaleString(undefined, { hour: 'numeric', minute: '2-digit' });
+}
+
+/** "5:00 AM" or "5:00 AM – 6:30 AM" in the viewer's local time. */
+export function formatViewerTimeRange(
+  startIso: string,
+  endIso: string | null,
+  eventTz: string,
+): string | null {
+  const start = formatViewerTime(startIso, eventTz);
+  if (!start) return null;
+  if (!endIso) return start;
+  const end = formatViewerTime(endIso, eventTz);
+  return end ? `${start} – ${end}` : start;
+}

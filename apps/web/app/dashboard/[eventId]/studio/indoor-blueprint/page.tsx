@@ -93,30 +93,41 @@ export default async function IndoorBlueprintPage({ params }: Props) {
         Back to add-ons
       </Link>
 
-      <header className="space-y-2">
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-          Indoor Blueprint
-        </p>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          Your whole venue, mapped and seated
-        </h1>
-        <p className="max-w-prose text-base text-ink/65">
-          You&rsquo;ve already built your seating chart. Indoor Blueprint turns it
-          into wayfinding: each guest gets a &ldquo;find your table&rdquo; map that
-          marks the entrance, highlights their table, and draws the way there — so
-          nobody wanders the hall looking for their seat.
-        </p>
-      </header>
-
       {owns ? (
-        <OwnedView eventId={eventId} slug={event.slug} supabase={supabase} />
+        <>
+          <header className="space-y-2">
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+              Indoor Blueprint
+            </p>
+            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+              Map your venue
+            </h1>
+          </header>
+          <OwnedView eventId={eventId} slug={event.slug} supabase={supabase} />
+        </>
       ) : (
-        <UnownedView
-          eventId={eventId}
-          supabase={supabase}
-          pricePhp={pricePhp}
-          displayName={event.display_name}
-        />
+        <>
+          <header className="space-y-2">
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+              Indoor Blueprint
+            </p>
+            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+              Your whole venue, mapped and seated
+            </h1>
+            <p className="max-w-prose text-base text-ink/65">
+              You&rsquo;ve already built your seating chart. Indoor Blueprint turns it
+              into wayfinding: each guest gets a &ldquo;find your table&rdquo; map that
+              marks the entrance, highlights their table, and draws the way there — so
+              nobody wanders the hall looking for their seat.
+            </p>
+          </header>
+          <UnownedView
+            eventId={eventId}
+            supabase={supabase}
+            pricePhp={pricePhp}
+            displayName={event.display_name}
+          />
+        </>
       )}
     </section>
   );

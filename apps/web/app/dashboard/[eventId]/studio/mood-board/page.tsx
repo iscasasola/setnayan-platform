@@ -328,18 +328,6 @@ export default async function MoodBoardPage({ params }: Props) {
         </header>
         <ConceptPdfButton eventId={eventId} eventName={event.display_name} />
       </section>
-
-      <section className="space-y-3 rounded-2xl border border-dashed border-ink/15 bg-cream p-5">
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Coming next
-        </p>
-        <ul className="list-inside list-disc space-y-1 text-sm text-ink/65">
-          <li>More treatment options + photo-real swatches per part</li>
-          <li>Per-role attire styles you can recolor (photo-real samples)</li>
-          <li>Custom role palettes + a curated theme library</li>
-          <li>AI Composite Scene — a bespoke photo-real render of your venue (premium)</li>
-        </ul>
-      </section>
     </div>
   );
 }

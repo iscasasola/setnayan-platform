@@ -125,14 +125,32 @@ export default async function CustomQrGuestPage({ params }: Props) {
         <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
           Custom QR per guest
         </p>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          One scan, and your guest finds everything
-        </h1>
-        <p className="max-w-prose text-base text-ink/65">
-          Every guest already has a personal QR that opens their own invitation.
-          This upgrade dresses each one in your monogram and your colors — a
-          branded card you can print, send, or set on every table.
-        </p>
+        {owns ? (
+          // Owner: neutral tool header — no re-pitch. The selling copy
+          // ("One scan… / This upgrade dresses each one…") is gated to the
+          // not-owned state below; the learn-more page (/studio/about/<key>)
+          // carries the marketing for non-owners (Tier 4 surface-hygiene).
+          <>
+            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+              Your branded guest QRs
+            </h1>
+            <p className="max-w-prose text-base text-ink/65">
+              A branded QR card for every guest — print, download, or set on
+              every table.
+            </p>
+          </>
+        ) : (
+          <>
+            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+              One scan, and your guest finds everything
+            </h1>
+            <p className="max-w-prose text-base text-ink/65">
+              Every guest already has a personal QR that opens their own
+              invitation. This upgrade dresses each one in your monogram and your
+              colors — a branded card you can print, send, or set on every table.
+            </p>
+          </>
+        )}
       </header>
 
       {owns ? (

@@ -13,6 +13,13 @@ import {
 } from 'lucide-react';
 import { Logo } from '@/app/_components/logo';
 import { getVendorPrices } from '@/lib/v2-catalog';
+import {
+  HeroReveal,
+  RoleGridReveal,
+  FlowPanel,
+  RevealBlock,
+  FinalCtaReveal,
+} from './_how-it-works-motion';
 
 // SEO/GEO Bucket 8 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — 1hr Vercel
 // edge cache so static marketing routes serve Google's crawl rate-limit
@@ -216,52 +223,60 @@ export default async function HowItWorksPage() {
       />
       <main className="min-h-dvh bg-cream pb-24 sm:pb-0">
 
-        {/* Hero */}
-        <section className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
-          <div className="mb-3 flex items-center justify-between gap-4">
-            <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-              How it works
-            </p>
-            <Link
-              href="/tl/how-it-works"
-              hrefLang="tl-PH"
-              className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55 underline-offset-4 hover:text-ink hover:underline"
-            >
-              Taglish
-            </Link>
-          </div>
-          <h1 className="mt-3 max-w-3xl text-3xl font-semibold tracking-tight sm:text-4xl lg:text-5xl">
-            One platform, six kinds of people. Here&rsquo;s the map.
-          </h1>
-          <p className="mt-4 max-w-2xl text-base text-ink/70 sm:text-lg">
-            Setnayan brings couples, their vendors, and their guests onto one platform —
-            with an admin team behind the scenes. This page is the cheat-sheet for who
-            does what and where they go.
-          </p>
-          <div className="mt-6 flex flex-wrap items-center gap-3">
-            <Link href="/signup" className="button-primary inline-flex h-11 items-center px-5 text-sm">
-              Start planning — free
-            </Link>
-            <Link
-              href="/for-vendors"
-              className="inline-flex h-11 items-center rounded-md border border-ink/15 px-5 text-sm font-medium text-ink hover:bg-ink/5"
-            >
-              I&rsquo;m a vendor
-            </Link>
-          </div>
-        </section>
+        {/* Hero — useLineReveal on the H1 (mount); eyebrow/lede/CTAs quiet rise. No thread. */}
+        <HeroReveal>
+          {(headingRef) => (
+            <>
+              <div data-reveal-item className="mb-3 flex items-center justify-between gap-4">
+                <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
+                  How it works
+                </p>
+                <Link
+                  href="/tl/how-it-works"
+                  hrefLang="tl-PH"
+                  className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55 underline-offset-4 hover:text-ink hover:underline"
+                >
+                  Taglish
+                </Link>
+              </div>
+              <h1
+                ref={headingRef}
+                className="mt-3 max-w-3xl text-3xl font-semibold tracking-tight sm:text-4xl lg:text-5xl"
+              >
+                One platform, six kinds of people. Here&rsquo;s the map.
+              </h1>
+              <p data-reveal-item className="mt-4 max-w-2xl text-base text-ink/70 sm:text-lg">
+                Setnayan brings couples, their vendors, and their guests onto one platform —
+                with an admin team behind the scenes. This page is the cheat-sheet for who
+                does what and where they go.
+              </p>
+              <div data-reveal-item className="mt-6 flex flex-wrap items-center gap-3">
+                <Link href="/signup" className="button-primary inline-flex h-11 items-center px-5 text-sm">
+                  Start planning — free
+                </Link>
+                <Link
+                  href="/for-vendors"
+                  className="inline-flex h-11 items-center rounded-md border border-ink/15 px-5 text-sm font-medium text-ink hover:bg-ink/5"
+                >
+                  I&rsquo;m a vendor
+                </Link>
+              </div>
+            </>
+          )}
+        </HeroReveal>
 
         {/* Role cards */}
         <section
           aria-label="The six kinds of people on Setnayan"
           className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8"
         >
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <RoleGridReveal>
             {ROLE_CARDS.map((card) => {
               const Icon = card.icon;
               return (
                 <article
                   key={card.key}
+                  data-reveal-item
                   className="flex flex-col gap-3 rounded-2xl border border-ink/10 bg-white p-5"
                 >
                   <header className="flex items-start justify-between gap-3">
@@ -300,19 +315,21 @@ export default async function HowItWorksPage() {
                 </article>
               );
             })}
-          </div>
+          </RoleGridReveal>
         </section>
 
-        {/* How they connect */}
-        <section
-          aria-label="How everyone connects"
-          className="mx-auto mt-16 w-full max-w-6xl px-4 sm:px-6 lg:px-8"
-        >
-          <div className="max-w-2xl space-y-3">
+        {/* How they connect — THE signature: the champagne PanelThread is drawn
+            down this section, tracing the six ordered hand-offs, synced to the
+            H2's serif line-reveal via usePanelIntro. The page's ONLY thread. */}
+        <FlowPanel>
+          <div className="relative z-[1] max-w-2xl space-y-3">
             <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
               The flow
             </p>
-            <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+            <h2
+              data-premium-headline
+              className="text-2xl font-semibold tracking-tight sm:text-3xl"
+            >
               How everyone connects, in order
             </h2>
             <p className="text-base text-ink/70">
@@ -320,10 +337,11 @@ export default async function HowItWorksPage() {
               talks to whom and what happens.
             </p>
           </div>
-          <ol className="mt-8 space-y-3">
+          <ol className="relative z-[1] mt-8 space-y-3">
             {FLOW_STEPS.map((step, idx) => (
               <li
                 key={`${step.from}-${step.to}`}
+                data-premium-item
                 className="flex flex-col gap-2 rounded-xl border border-ink/10 bg-white p-4 sm:flex-row sm:items-center sm:gap-4"
               >
                 <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-terracotta/10 font-mono text-xs font-semibold text-terracotta">
@@ -340,10 +358,10 @@ export default async function HowItWorksPage() {
               </li>
             ))}
           </ol>
-        </section>
+        </FlowPanel>
 
-        {/* Coming next — multi-moderator V1.2 */}
-        <section
+        {/* Coming next — multi-moderator V1.2 — single quiet whole-section reveal */}
+        <RevealBlock
           aria-label="What's coming next"
           className="mx-auto mt-16 w-full max-w-6xl px-4 sm:px-6 lg:px-8"
         >
@@ -370,15 +388,15 @@ export default async function HowItWorksPage() {
               </span>
             </div>
           </div>
-        </section>
+        </RevealBlock>
 
-        {/* Final CTA */}
-        <section
+        {/* Final CTA — paired reveal, slight stagger; CTAs untouched */}
+        <FinalCtaReveal
           aria-label="Get started"
           className="mx-auto mt-16 w-full max-w-6xl px-4 pb-16 sm:px-6 lg:px-8"
         >
           <div className="grid gap-4 sm:grid-cols-2">
-            <article className="rounded-2xl border border-ink/10 bg-white p-6">
+            <article data-reveal-item className="rounded-2xl border border-ink/10 bg-white p-6">
               <div className="flex items-center gap-2 text-terracotta">
                 <Heart aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                 <p className="font-mono text-[11px] uppercase tracking-[0.25em]">For couples</p>
@@ -400,7 +418,7 @@ export default async function HowItWorksPage() {
                 Start planning — free
               </Link>
             </article>
-            <article className="rounded-2xl border border-ink/10 bg-white p-6">
+            <article data-reveal-item className="rounded-2xl border border-ink/10 bg-white p-6">
               <div className="flex items-center gap-2 text-terracotta">
                 <Briefcase aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                 <p className="font-mono text-[11px] uppercase tracking-[0.25em]">For vendors</p>
@@ -421,7 +439,7 @@ export default async function HowItWorksPage() {
               </Link>
             </article>
           </div>
-        </section>
+        </FinalCtaReveal>
 
         <Footer />
       </main>

@@ -52,6 +52,7 @@ import type { Metadata } from 'next';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { ANY_OAUTH_ENABLED, OAuthButtonRow } from '@/app/_components/oauth-button-row';
+import { getRequestPlatform } from '@/lib/request-platform';
 import { safeNext } from '@/lib/auth';
 import { readGuestSession } from '@/lib/guest-session';
 import { signUp } from './actions';
@@ -93,6 +94,13 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
   const confirmationSent = params.sent === '1';
   const next = safeNext(params.next);
   const preselectVendor = params.as === 'vendor';
+
+  // Hide OAuth inside the native shells (Tauri desktop / Capacitor): Google/Apple
+  // refuse OAuth in an embedded WebView, so the buttons dead-end there — fall back
+  // to email sign-up. Per-request via the SetnayanApp UA; ships via the remote-URL
+  // shell with no app rebuild. Mirrors /login. (Proper system-browser OAuth fix
+  // is tracked separately.)
+  const showOAuth = ANY_OAUTH_ENABLED && (await getRequestPlatform()) === 'web';
   const prefilledEmail =
     typeof params.prefill_email === 'string' ? params.prefill_email : '';
   // Guest → host attribution. Only `ref=guest` is meaningful today; `src_event`
@@ -311,10 +319,11 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
             </p>
           ) : null}
 
-          {/* OAuth row above email form per industry-standard placement (PR #422) */}
-          <OAuthButtonRow next={next} />
+          {/* OAuth row above email form per industry-standard placement (PR #422).
+              Hidden in native shells (see showOAuth above); the divider follows. */}
+          {showOAuth ? <OAuthButtonRow next={next} /> : null}
 
-          {ANY_OAUTH_ENABLED ? (
+          {showOAuth ? (
             <div
               style={{
                 display: 'flex',

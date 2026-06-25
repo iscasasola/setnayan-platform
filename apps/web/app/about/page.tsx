@@ -4,11 +4,19 @@ import {
   MapPin,
   Languages,
   ShieldCheck,
-  Sparkles,
   ArrowRight,
 } from 'lucide-react';
 import { Footer } from '@/app/_components/marketing/_sections';
 import { HELP_TOPICS } from '@/lib/help';
+// Client motion island (the page itself stays a force-static Server Component).
+// Renders the hero so the serif line-reveal ref sits on the real <h1>, and
+// provides container wrappers that attach the shared quiet reveal to
+// server-passed children. Additive-only: no copy / IA / CTA changes.
+import {
+  AboutHero,
+  RevealGrid,
+  RevealSection,
+} from './_about-motion';
 
 // /about — the canonical brand/entity page. Fully static: brand facts, no DB,
 // no session. This is the surface SEO + GEO engines (ChatGPT-User, Perplexity,
@@ -146,72 +154,35 @@ export default function AboutPage() {
 
 
       <main className="min-h-dvh bg-cream">
-        {/* Hero */}
-        <section className="mx-auto w-full max-w-4xl px-4 pb-12 pt-16 sm:px-6 sm:pt-20 lg:px-8">
-          <nav aria-label="Breadcrumb" className="mb-8 flex items-center justify-between gap-4 text-sm text-ink/50">
-            <span>
-              <Link href="/" className="hover:text-ink hover:underline">
-                Home
-              </Link>
-              <span className="mx-2">/</span>
-              <span className="text-ink/80">About</span>
-            </span>
-            {/* Locale switch — Taglish edition (hreflang reciprocal) */}
-            <Link
-              href="/tl/about"
-              hrefLang="tl-PH"
-              className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55 underline-offset-4 hover:text-ink hover:underline"
-            >
-              Taglish
-            </Link>
-          </nav>
+        {/* Hero — rendered by the client island so the serif line-reveal ref
+            sits on the real <h1>; eyebrow / breadcrumb / leads rise after as one
+            quiet beat. Text ships in the SSR HTML (client components still SSR). */}
+        <AboutHero />
 
-          <p className="mb-4 inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-            <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            About Setnayan
-          </p>
-          <h1 className="max-w-3xl font-display text-4xl leading-tight text-ink sm:text-5xl">
-            Set na &rsquo;yan. Your wedding, all set — on one Filipino platform.
-          </h1>
-          <p className="mt-6 max-w-2xl text-lg leading-relaxed text-ink/75">
-            Setnayan (<span className="font-medium">SET-na-yan</span>, from the
-            Tagalog <em>&ldquo;Set na &rsquo;yan.&rdquo;</em> — &ldquo;that&rsquo;s
-            all set&rdquo;) is the Philippines&rsquo; own all-in-one wedding and
-            life-events platform — and the first built here to do the whole
-            celebration in one place: plan the event, hire from a
-            0%-commission marketplace of verified local vendors, and capture the
-            day so every guest goes home with their own highlight reel.
-          </p>
-          <p className="mt-4 max-w-2xl text-lg leading-relaxed text-ink/75">
-            Not a foreign directory with a Philippine filter — software built and
-            operated entirely in the Philippines, for the way Filipino couples
-            actually plan: a free planning workspace, verified local vendors,
-            transparent peso pricing, and zero commission on what you pay your
-            suppliers.
-          </p>
-        </section>
-
-        {/* Fact grid */}
+        {/* Fact grid — one whole-group reveal with a short stagger across the 4
+            cards (each marked data-reveal-item). CSS hover-lift survives via the
+            hook's clearProps:transform. Fact-card icons demoted gold→ink/55. */}
         <section className="mx-auto w-full max-w-4xl px-4 pb-12 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <RevealGrid>
             {FACTS.map(({ icon: Icon, label, value }) => (
               <div
                 key={label}
+                data-reveal-item
                 className="rounded-xl border border-ink/10 bg-white p-5"
               >
-                <div className="mb-2 inline-flex items-center gap-2 text-terracotta">
+                <div className="mb-2 inline-flex items-center gap-2 text-ink/55">
                   <Icon aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                   <span className="text-sm font-semibold text-ink">{label}</span>
                 </div>
                 <p className="text-sm leading-relaxed text-ink/70">{value}</p>
               </div>
             ))}
-          </div>
+          </RevealGrid>
         </section>
 
-        {/* What Setnayan is */}
+        {/* What Setnayan is — single whole-section reveal (no inner stagger). */}
         <section className="mx-auto w-full max-w-4xl px-4 pb-12 sm:px-6 lg:px-8">
-          <div className="max-w-3xl space-y-4">
+          <RevealSection className="max-w-3xl space-y-4">
             <h2 className="font-display text-2xl text-ink sm:text-3xl">
               Software, not an agency
             </h2>
@@ -243,12 +214,14 @@ export default function AboutPage() {
                 See transparent pricing
               </Link>
             </div>
-          </div>
+          </RevealSection>
         </section>
 
         {/* FAQ — reuses approved about-setnayan help copy; each links to the
-            full help center. Doubles as GEO grounding (verbatim Q&A pairs). */}
+            full help center. Doubles as GEO grounding (verbatim Q&A pairs).
+            ONE whole-section fade (no per-row stagger — scannable reference). */}
         <section className="mx-auto w-full max-w-4xl px-4 pb-16 sm:px-6 lg:px-8">
+          <RevealSection>
           <h2 className="font-display text-2xl text-ink sm:text-3xl">
             Frequently asked
           </h2>
@@ -286,11 +259,12 @@ export default function AboutPage() {
             </Link>
             .
           </p>
+          </RevealSection>
         </section>
 
-        {/* Closing CTA */}
+        {/* Closing CTA — single reveal on scroll-in; buttons untouched. */}
         <section className="mx-auto w-full max-w-4xl px-4 pb-20 sm:px-6 lg:px-8">
-          <div className="rounded-2xl border border-ink/10 bg-white p-6 sm:p-10">
+          <RevealSection className="rounded-2xl border border-ink/10 bg-white p-6 sm:p-10">
             <h2 className="font-display text-2xl text-ink sm:text-3xl">
               Start planning — free.
             </h2>
@@ -311,7 +285,7 @@ export default function AboutPage() {
                 Browse vendors
               </Link>
             </div>
-          </div>
+          </RevealSection>
         </section>
       </main>
 

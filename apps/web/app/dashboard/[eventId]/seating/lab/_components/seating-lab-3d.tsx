@@ -1359,7 +1359,7 @@ function Hud({
       {notice ? (
         <div className={`pointer-events-auto absolute left-1/2 top-16 flex -translate-x-1/2 items-center gap-3 px-4 py-2 text-sm text-amber-100 ${glass}`}>
           <span>{notice}</span>
-          <button type="button" onClick={onDismissNotice} className="text-white/60 hover:text-white">✕</button>
+          <button type="button" onClick={onDismissNotice} aria-label="Dismiss notice" className="text-white/60 hover:text-white"><span aria-hidden>✕</span></button>
         </div>
       ) : null}
 

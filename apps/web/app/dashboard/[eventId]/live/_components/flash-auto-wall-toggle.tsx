@@ -24,6 +24,9 @@ export function FlashAutoWallToggle({
         type="button"
         role="switch"
         aria-checked={enabled}
+        // The wrapping <label> names native form controls, not a <button>, so
+        // the switch needs its own accessible name.
+        aria-label="Flash auto-wall"
         disabled={pending}
         onClick={() =>
           startTransition(async () => {

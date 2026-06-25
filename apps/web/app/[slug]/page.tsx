@@ -28,7 +28,7 @@ import {
   type MonogramMotionKey,
 } from '@/lib/monogram-motion';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { submitRsvp, withdrawFaceConsent, removeMyTag } from './actions';
+import { submitRsvp, withdrawFaceConsent, removeMyTag, claimAccountAction } from './actions';
 import { SelfieCapture } from './_components/selfie-capture';
 import { DayOfFaceEnroll } from './_components/day-of-face-enroll';
 import { CountdownWidget } from './_components/countdown';
@@ -1180,6 +1180,14 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     }
   }
 
+  // Invite/Join v2: offer an accountless guest a "claim your account by email"
+  // prompt on the lifecycle site (RSVP/Event/Editorial). A signed-in account-
+  // holder doesn't need it, so gate on the absence of a Supabase auth session.
+  const cookieScopedClient = await createClient();
+  const {
+    data: { user: viewerAccount },
+  } = await cookieScopedClient.auth.getUser();
+
   return (
     <>
       <InvitationSite
@@ -1218,6 +1226,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         papicGuest={papicGuest}
         pabati={pabati}
         proWatermarkHidden={proWatermarkHidden}
+        showClaimAccountCta={!viewerAccount}
       />
       {papicGuestActive && (
         <Link
@@ -2148,6 +2157,7 @@ function InvitationSite({
   papicGuest,
   pabati,
   proWatermarkHidden,
+  showClaimAccountCta,
 }: {
   event: EventRow;
   guest: GuestRow;
@@ -2243,6 +2253,10 @@ function InvitationSite({
    *  watermark when the event owns the active upgrade. Resolved once at the
    *  top-level page (eventCoupleWebsiteProActive). */
   proWatermarkHidden: boolean;
+  /** Invite/Join v2: show the accountless guest a "claim your account by email"
+   *  prompt (RSVP / Event / Editorial phases — never Save the Date). Computed at
+   *  the page level: true only when there's no signed-in account for this viewer. */
+  showClaimAccountCta: boolean;
 }) {
   const sideLabel =
     guest.side === 'both'
@@ -2346,6 +2360,38 @@ function InvitationSite({
             a glance on every return visit. Hidden from anonymous visitors
             (this branch only runs when a guest session is present). */}
         <GuestHubCard data={guestHubData} />
+
+        {/* Invite/Join v2 — accountless guest's "claim your account" prompt.
+            Per the lifecycle table: RSVP / Event / Editorial only (never Save the
+            Date), and only when there's no signed-in account (showClaimAccountCta).
+            Posts the email to claimAccountAction → emails a passwordless sign-in
+            link that connects this event to a real account. */}
+        {showClaimAccountCta && lifecyclePhase !== 'save_the_date' ? (
+          <section className="rounded-2xl border border-terracotta/20 bg-terracotta/[0.04] p-5">
+            <h2 className="text-base font-semibold text-ink">Keep this on your phone</h2>
+            <p className="mt-1 text-sm text-ink/70">
+              Get a sign-in link by email and your own Setnayan account — reopen this event
+              (your RSVP, your table, your photos) on any device, no password needed.
+            </p>
+            <form
+              action={claimAccountAction.bind(null, event.event_id, event.slug ?? '')}
+              className="mt-3 flex flex-col gap-2 sm:flex-row"
+            >
+              <input
+                type="email"
+                name="email"
+                required
+                placeholder="you@email.com"
+                autoComplete="email"
+                aria-label="Your email"
+                className="input-field flex-1"
+              />
+              <SubmitButton className="button-primary whitespace-nowrap" pendingLabel="Sending…">
+                Email me a link
+              </SubmitButton>
+            </form>
+          </section>
+        ) : null}
 
         {seatMap ? (
           <YourSeatBlock

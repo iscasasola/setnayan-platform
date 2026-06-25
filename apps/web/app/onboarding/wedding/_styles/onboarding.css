@@ -1125,3 +1125,14 @@
    The card's box (bg/border/padding/radius) stays owned by .opt, and width comes
    from the .stack flex stretch — so the no-scroll layout is pixel-unchanged. */
 .onbw button.opt{font:inherit;text-align:left;-webkit-appearance:none;appearance:none;}
+
+/* a11y (2026-06-25, follow-up): the wedding-date day cells, RefineCard/PCard photo
+   cards are now <button> for keyboard access (were clickable <div>s). Each reset is
+   scoped to button.<class> so it never touches the remaining same-class divs (the
+   empty calendar placeholders, etc.), and only neutralizes the UA chrome that
+   differs from a <div>; every class keeps its own box + display + width, so the
+   no-scroll layout is pixel-unchanged.
+   .calday base has no background → button buttonface must be cleared (the .sel /
+   .inrange / .disabled variants have higher specificity and keep their fills). */
+.onbw button.calday{font-family:inherit;background:none;padding:0;-webkit-appearance:none;appearance:none;}
+.onbw button.pcard{font:inherit;text-align:left;-webkit-appearance:none;appearance:none;}

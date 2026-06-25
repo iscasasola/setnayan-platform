@@ -63,3 +63,11 @@ test('isEphemeralKey flags only keys under the sampler segment', () => {
   assert.equal(isEphemeralKey(null), false);
   assert.equal(isEphemeralKey(''), false);
 });
+
+test('isEphemeralKey works on full r2:// refs (the derivative-guard call shape)', () => {
+  // The persistDerivativeRefs guard passes a stored ref, not a bare key.
+  assert.equal(isEphemeralKey('r2://setnayan-media/papic-sampler/e/s/u.jpg'), true);
+  assert.equal(isEphemeralKey('r2://setnayan-media/derivatives/papic-sampler/e/s/u.jpg.display.jpg'), true);
+  assert.equal(isEphemeralKey('r2://setnayan-media/papic/e/s/u.jpg'), false);
+  assert.equal(isEphemeralKey('r2://setnayan-media/derivatives/papic/e/s/u.jpg.thumb.jpg'), false);
+});

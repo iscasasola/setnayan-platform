@@ -99,13 +99,23 @@ export async function makeSamplerPermanent(eventId: string): Promise<number> {
     return 0;
   }
 
-  // (1) Relocate this event's ephemeral-prefixed bytes off `papic-sampler/`.
+  // (1) Relocate this event's ephemeral-prefixed bytes off `papic-sampler/`. Match
+  //     a row if ANY of its five key columns is still under the ephemeral prefix —
+  //     not just r2_object_key. A late capture-derivative after() hook can persist
+  //     a `derivatives/papic-sampler/…` display/thumb key AFTER a convert already
+  //     relocated the original (r2_object_key now `papic/…`); filtering on the
+  //     original alone would miss that row and strand the thumb. relocateRowToPermanent
+  //     moves all five idempotently, and (because this filter ignores expires_at)
+  //     the retention sweep's kept-event self-heal — which calls this function —
+  //     re-picks any such row on a later visit.
   try {
     const { data: rows } = await admin
       .from('papic_photos')
       .select('photo_id, r2_object_key, poster_r2_key, display_r2_key, thumb_r2_key, wall_safe_r2_key')
       .eq('event_id', eventId)
-      .like('r2_object_key', '%papic-sampler/%');
+      .or(
+        'r2_object_key.like.*papic-sampler/*,poster_r2_key.like.*papic-sampler/*,display_r2_key.like.*papic-sampler/*,thumb_r2_key.like.*papic-sampler/*,wall_safe_r2_key.like.*papic-sampler/*',
+      );
     for (const row of (rows ?? []) as SamplerKeyRow[]) {
       await relocateRowToPermanent(admin, row);
     }
@@ -113,13 +123,22 @@ export async function makeSamplerPermanent(eventId: string): Promise<number> {
     /* best-effort — fall through to the expiry clear */
   }
 
-  // (2) Clear the 30-day expiry on the remaining ephemeral rows.
+  // (2) Clear the 30-day expiry on the remaining ephemeral rows — but ONLY rows
+  //     whose bytes are NOT still under `papic-sampler/`. relocateRowToPermanent
+  //     already nulls expires_at on its success (and already-permanent) paths, so a
+  //     row reaching here under the ephemeral prefix is one whose r2Copy FAILED
+  //     (the per-row fail-safe). It MUST keep its expiry so it stays inside the
+  //     retention window and the next convert / sweep self-heal retries the move —
+  //     clearing it here would mark the bytes permanent while they sit under the
+  //     ephemeral prefix, doomed once an R2 lifecycle rule is enabled. So exclude
+  //     still-ephemeral rows; phase 2 then only backstops legacy/non-ephemeral rows.
   try {
     const { data, error } = await admin
       .from('papic_photos')
       .update({ expires_at: null })
       .eq('event_id', eventId)
       .not('expires_at', 'is', null)
+      .not('r2_object_key', 'like', '%papic-sampler/%')
       .select('photo_id');
     if (error) return 0;
     return data?.length ?? 0;

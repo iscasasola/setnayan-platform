@@ -8,6 +8,7 @@ import {
   formatChatTimestamp,
 } from '@/lib/chat';
 import { ThreadListCard } from '@/app/_components/chat/thread-list-card';
+import { RevealList } from '@/app/_components/reveal-list';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 
 export const metadata = { title: 'Messages · Vendor' };
@@ -63,12 +64,12 @@ export default async function VendorMessagesPage() {
           </p>
         </div>
       ) : (
-        <ul className="space-y-2">
+        <RevealList as="ul" className="space-y-2">
           {threads.map((t) => {
             const returning =
               t.inquiry_status === 'pending' ? returningFlags.get(t.event_id) : undefined;
             return (
-            <li key={t.thread_id}>
+            <li key={t.thread_id} data-reveal-item>
               <ThreadListCard
                 href={`/vendor-dashboard/messages/${t.thread_id}`}
                 title={t.event?.display_name ?? 'Event'}
@@ -118,7 +119,7 @@ export default async function VendorMessagesPage() {
             </li>
             );
           })}
-        </ul>
+        </RevealList>
       )}
     </section>
   );

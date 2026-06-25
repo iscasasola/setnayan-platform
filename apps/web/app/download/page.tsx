@@ -166,23 +166,19 @@ export default async function DownloadPage() {
         <div className="mx-auto w-full max-w-6xl px-5 py-20 sm:px-6 sm:py-24 lg:px-8">
           <RevealGroup stagger={0.1}>
             <div className="grid gap-12 lg:grid-cols-2 lg:gap-20">
-              <Note data-reveal-item label="First launch">
+              <Note data-reveal-item label="Signed & notarized">
                 <h3 className="text-xl font-semibold tracking-[-0.01em] text-ink">
-                  The first-open warning is normal.
+                  Just double-click to open.
                 </h3>
                 <p className="mt-3 text-ink/65">
-                  macOS may say{' '}
-                  <span className="text-ink/80">
-                    &ldquo;Setnayan can&rsquo;t be opened because the developer
-                    cannot be verified.&rdquo;
-                  </span>{' '}
-                  The app is signed by us, just not yet notarized by Apple.
+                  Setnayan is signed with an Apple Developer ID and{' '}
+                  <span className="text-ink/80">notarized by Apple</span>, so it
+                  opens like any trusted Mac app — no right-click, no workarounds.
                 </p>
                 <p className="mt-3 text-ink/65">
-                  <span className="text-ink/80">To open it:</span> in Applications,{' '}
-                  <span className="text-ink/80">right-click</span> (or Control-click)
-                  the Setnayan icon → <span className="text-ink/80">Open</span> →{' '}
-                  <span className="text-ink/80">Open</span>. Once only.
+                  The first time, macOS may ask once to confirm you downloaded it
+                  from the internet — click <span className="text-ink/80">Open</span>.
+                  That&rsquo;s it.
                 </p>
               </Note>
 

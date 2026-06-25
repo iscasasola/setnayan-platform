@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { sendEmail } from '@/lib/email';
 import { emitNotification } from '@/lib/notification-emit';
+import { newGuestIsOrphaned, type FinalizeClaimResult } from '@/lib/guest-claim-result';
 
 /** Throw unless the caller is a couple member of this event. */
 async function assertCouple(eventId: string) {
@@ -47,9 +48,13 @@ export async function approveClaimAction(eventId: string, formData: FormData) {
     return;
   }
 
-  let guestId: string | null = claim.target_guest_id;
+  // Whether THIS call mints a fresh seed row (vs. binding the couple-matched one).
+  // Tracked so a concurrent double-approve that loses the finalize race can delete
+  // the now-unused guest it created (see the orphan cleanup after finalize).
+  const guestWasCreated = mode === 'new' || !claim.target_guest_id;
+  let guestId: string | null = guestWasCreated ? null : claim.target_guest_id;
 
-  if (mode === 'new' || !guestId) {
+  if (guestWasCreated) {
     const parts = claim.claimer_name.trim().split(/\s+/);
     const first = parts[0] || 'Guest';
     const last = parts.slice(1).join(' ') || '—';
@@ -81,6 +86,17 @@ export async function approveClaimAction(eventId: string, formData: FormData) {
     p_guest_id: guestId,
     p_reviewer: reviewer.id,
   });
+
+  // Concurrency cleanup: if we minted a fresh guest row but finalize_guest_claim
+  // didn't bind it — a racing approve already finalized this claim (already=true),
+  // or finalize declined — that row is an orphan. Delete it (best-effort) so a
+  // double-submit can't leave a stray pending guest on the couple's list, and
+  // return before the email so only the winning call notifies the claimer.
+  if (guestWasCreated && newGuestIsOrphaned(result as FinalizeClaimResult)) {
+    await admin.from('guests').delete().eq('guest_id', guestId).eq('event_id', eventId);
+    revalidatePath(`/dashboard/${eventId}/guests/claims`);
+    return;
+  }
 
   if (claim.claimer_email && (result as { linked?: boolean } | null)?.linked) {
     await sendEmail({

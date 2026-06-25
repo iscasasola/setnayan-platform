@@ -298,7 +298,7 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
                   {scene.you.tablemates.length > 6 ? ' …' : ''}
                 </p>
               ) : null}
-              <p className="mt-1 text-[11px] text-white/55">Tap the floor to walk around · drag to look · pinch to zoom</p>
+              <p className="mt-1 text-xs text-white/75">Tap the floor to walk around · drag to look · pinch to zoom</p>
             </>
           ) : (
             <p className="text-[12px] text-white/75">Open your personal invite link to find your seat · tap the floor to explore</p>

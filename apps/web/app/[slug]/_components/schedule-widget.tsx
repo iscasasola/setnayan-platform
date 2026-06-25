@@ -103,18 +103,18 @@ export function ScheduleWidget({ blocks, eventTz }: Props) {
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0 space-y-0.5">
-                  <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+                  <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
                     {SCHEDULE_BLOCK_LABEL[b.block_type]}
                   </p>
                   <p className="text-base font-semibold text-ink">{b.label}</p>
                 </div>
                 {isNow ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-terracotta px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-cream">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-terracotta px-2 py-0.5 font-mono text-xs uppercase tracking-[0.15em] text-cream">
                     <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-cream" />
                     Happening now
                   </span>
                 ) : isNext ? (
-                  <span className="rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
+                  <span className="rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-xs uppercase tracking-[0.15em] text-terracotta-700">
                     Up next
                   </span>
                 ) : null}

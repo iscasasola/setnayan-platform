@@ -37,10 +37,15 @@ import {
   updateTablePosition,
   updateTableRotation,
   updateTableType,
+  updateTableLabel,
   publishSeating,
   autoSeatGuests,
+  seatRoleAtTable,
+  unassignGuest,
+  buildSeatingDraft,
+  lockAndFill,
 } from '@/app/dashboard/[eventId]/seating/actions';
-import { TABLE_TYPE_CATALOG } from '@/lib/seating';
+import { TABLE_TYPE_CATALOG, ROLE_TIER_LABELS } from '@/lib/seating';
 
 // A server action's lock guard throws SeatingLockError, but the class identity
 // is lost across the RSC boundary — match defensively (instanceof → code →
@@ -612,6 +617,101 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
     });
   }, [canEdit, eventId, lock.lockId, persist, router]);
 
+  // 2D-parity: rename the selected table (optimistic; server syncs the label
+  // across a linked unit). Mirrors the 2D editor — trim, cap 64, skip no-ops.
+  const renameTable = useCallback(
+    (raw: string) => {
+      if (!selectedId || !canEdit) return;
+      const label = raw.trim().slice(0, 64);
+      const current = tablesById.get(selectedId)?.label ?? '';
+      if (!label || label === current) return;
+      setTables((prev) => prev.map((t) => (t.id === selectedId ? { ...t, label } : t)));
+      const fd = new FormData();
+      fd.set('event_id', eventId);
+      fd.set('lock_id', lock.lockId ?? '');
+      fd.set('table_id', selectedId);
+      fd.set('table_label', label);
+      void persist(() => updateTableLabel(fd));
+    },
+    [selectedId, canEdit, tablesById, eventId, lock.lockId, persist],
+  );
+
+  // 2D-parity: fill the selected table with the next unseated guests of one role
+  // tier (server picks them via the same tier logic), then resync from truth.
+  const seatTier = useCallback(
+    (tier: 1 | 2 | 3 | 4) => {
+      if (!selectedId || !canEdit) return;
+      const fd = new FormData();
+      fd.set('event_id', eventId);
+      fd.set('lock_id', lock.lockId ?? '');
+      fd.set('table_id', selectedId);
+      fd.set('tier', String(tier));
+      void persist(async () => {
+        const res = await seatRoleAtTable(fd);
+        seatResyncRef.current = true;
+        router.refresh();
+        if (res && res.overflow > 0) {
+          setNotice(`Seated ${res.seated} — ${res.overflow} more ${ROLE_TIER_LABELS[tier]} need another table.`);
+        }
+      });
+    },
+    [selectedId, canEdit, eventId, lock.lockId, persist, router],
+  );
+
+  // 2D-parity: unseat a guest (free their chair). Optimistic delete; the key is
+  // simply gone, so no resync is needed.
+  const unseatGuest = useCallback(
+    (guestId: string) => {
+      if (!canEdit) return;
+      setSeats((prev) => {
+        if (!prev.has(guestId)) return prev;
+        const next = new Map(prev);
+        next.delete(guestId);
+        return next;
+      });
+      const fd = new FormData();
+      fd.set('event_id', eventId);
+      fd.set('guest_id', guestId);
+      fd.set('lock_id', lock.lockId ?? '');
+      void persist(() => unassignGuest(fd));
+    },
+    [canEdit, eventId, lock.lockId, persist],
+  );
+
+  // 2D-parity: on an empty floor, lay out a starter table set AND seat the
+  // confirmed guests in one tap (server recommends + seats; refresh paints both).
+  const buildDraft = useCallback(() => {
+    if (!canEdit || tables.length > 0) return;
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
+    void persist(async () => {
+      const res = await buildSeatingDraft(fd);
+      seatResyncRef.current = true;
+      router.refresh();
+      setNotice(
+        res.tables === 0
+          ? 'Add your guests first — then “Start my seating” lays out the whole floor for you.'
+          : `Laid out ${res.tables} tables and seated ${res.seated} guests.`,
+      );
+    });
+  }, [canEdit, tables.length, eventId, lock.lockId, persist, router]);
+
+  // 2D-parity: keep hand-placed (locked) seats, clear the rest, and re-solve
+  // around them honoring keep-apart rules. Resync from the refreshed truth.
+  const fillAroundLocked = useCallback(() => {
+    if (!canEdit) return;
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
+    void persist(async () => {
+      await lockAndFill(fd);
+      seatResyncRef.current = true;
+      router.refresh();
+      setNotice('Filled the open seats around your locked ones.');
+    });
+  }, [canEdit, eventId, lock.lockId, persist, router]);
+
   // Pick a guest → walk to their seat (seating them in the first free chair if
   // they have none), steering around the other tables.
   // Seat a guest + walk them in. `preferredTableId` (from tap-to-place) restricts
@@ -950,8 +1050,13 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
         onDismissNotice={() => setNotice(null)}
         onAddTable={addTable}
         onAutoSeat={autoSeatAll}
+        onBuildDraft={buildDraft}
+        onFillLocked={fillAroundLocked}
         onRotate={rotateSelected}
         onDelete={deleteSelected}
+        onRenameTable={renameTable}
+        onSeatTier={seatTier}
+        onUnseat={unseatGuest}
         showCloth={showCloth}
         setShowCloth={setShowCloth}
         showAccents={showAccents}
@@ -1985,8 +2090,13 @@ function Hud({
   onDismissNotice,
   onAddTable,
   onAutoSeat,
+  onBuildDraft,
+  onFillLocked,
   onRotate,
   onDelete,
+  onRenameTable,
+  onSeatTier,
+  onUnseat,
   showCloth,
   setShowCloth,
   showAccents,
@@ -2025,8 +2135,13 @@ function Hud({
   onDismissNotice: () => void;
   onAddTable: () => void;
   onAutoSeat: () => void;
+  onBuildDraft: () => void;
+  onFillLocked: () => void;
   onRotate: (delta: number) => void;
   onDelete: () => void;
+  onRenameTable: (label: string) => void;
+  onSeatTier: (tier: 1 | 2 | 3 | 4) => void;
+  onUnseat: (guestId: string) => void;
   showCloth: boolean;
   setShowCloth: (v: boolean) => void;
   showAccents: boolean;
@@ -2131,26 +2246,57 @@ function Hud({
                 ) : null}
               </div>
             ) : (
-              <div className="mb-2 flex gap-1.5">
-                <button
-                  type="button"
-                  onClick={onAddTable}
-                  className="flex-1 rounded-xl bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/20"
-                >
-                  + Add a table
-                </button>
-                <button
-                  type="button"
-                  onClick={onAutoSeat}
-                  className="flex-1 rounded-xl bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/20"
-                >
-                  Auto-seat
-                </button>
-              </div>
+              <>
+                {tableCount === 0 ? (
+                  <button
+                    type="button"
+                    onClick={onBuildDraft}
+                    className="mb-2 w-full rounded-xl bg-white/90 px-3 py-2 text-sm font-semibold text-ink transition hover:bg-white"
+                  >
+                    Start my seating
+                  </button>
+                ) : null}
+                <div className="mb-2 flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={onAddTable}
+                    className="flex-1 rounded-xl bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/20"
+                  >
+                    + Add a table
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onAutoSeat}
+                    className="flex-1 rounded-xl bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/20"
+                  >
+                    Auto-seat
+                  </button>
+                </div>
+                {tableCount > 0 ? (
+                  <button
+                    type="button"
+                    onClick={onFillLocked}
+                    className="mb-2 w-full rounded-xl bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/20"
+                  >
+                    Fill around locked seats
+                  </button>
+                ) : null}
+              </>
             )}
             {selectedLabel ? (
               <div className="mb-2 rounded-xl bg-white/[0.06] p-2.5">
-                <p className="mb-1.5 truncate text-xs font-medium text-white/85">{selectedLabel}</p>
+                <input
+                  key={selectedLabel}
+                  defaultValue={selectedLabel}
+                  disabled={!canEdit}
+                  maxLength={64}
+                  aria-label="Table name"
+                  onBlur={(e) => onRenameTable(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                  }}
+                  className="mb-1.5 w-full truncate rounded-lg bg-transparent px-1 py-0.5 text-xs font-medium text-white/85 outline-none focus:bg-white/10 disabled:opacity-60"
+                />
                 <div className="flex items-center gap-1.5">
                   <button type="button" disabled={!canEdit} onClick={() => onRotate(-15)} aria-label="Rotate left" className="flex-1 rounded-lg bg-white/10 py-1.5 text-sm text-white hover:bg-white/20 disabled:opacity-40">⟲</button>
                   <button type="button" disabled={!canEdit} onClick={() => onRotate(15)} aria-label="Rotate right" className="flex-1 rounded-lg bg-white/10 py-1.5 text-sm text-white hover:bg-white/20 disabled:opacity-40">⟳</button>
@@ -2166,6 +2312,24 @@ function Hud({
                   {TABLE_TYPE_CATALOG.map((t) => (
                     <option key={t.type} value={t.type} className="text-ink">
                       {t.label}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value=""
+                  disabled={!canEdit}
+                  onChange={(e) => {
+                    const tier = Number(e.target.value);
+                    if (tier >= 1 && tier <= 4) onSeatTier(tier as 1 | 2 | 3 | 4);
+                    e.target.value = '';
+                  }}
+                  aria-label="Seat a role tier at this table"
+                  className="mt-1.5 w-full rounded-lg border border-white/15 bg-ink/50 px-2 py-1.5 text-sm text-white disabled:opacity-40"
+                >
+                  <option value="" className="text-ink">Seat a tier here…</option>
+                  {([1, 2, 3, 4] as const).map((tier) => (
+                    <option key={tier} value={tier} className="text-ink">
+                      {ROLE_TIER_LABELS[tier]}
                     </option>
                   ))}
                 </select>
@@ -2247,11 +2411,9 @@ function Hud({
                   const selected = swapSelId === g.id;
                   const placing = placingGuestId === g.id;
                   return (
-                    <button
+                    <div
                       key={g.id}
-                      type="button"
-                      onClick={() => onGuestTap(g)}
-                      className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-sm text-white/90 transition ${
+                      className={`flex w-full items-center justify-between rounded-lg pr-1 text-left text-sm text-white/90 transition ${
                         placing
                           ? 'bg-amber-400/25 ring-1 ring-amber-300/60'
                           : selected
@@ -2259,11 +2421,28 @@ function Hud({
                             : 'hover:bg-white/15'
                       }`}
                     >
-                      <span className="truncate">{g.name}</span>
-                      <span className={`ml-2 shrink-0 text-[10px] ${seated ? 'text-white/55' : 'text-white/40'}`}>
-                        {placing ? 'placing…' : selected ? 'swap?' : seated ? 'seated' : 'place'}
-                      </span>
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => onGuestTap(g)}
+                        className="flex min-w-0 flex-1 items-center px-2.5 py-1.5 text-left"
+                      >
+                        <span className="truncate">{g.name}</span>
+                      </button>
+                      {seated && canEdit ? (
+                        <button
+                          type="button"
+                          onClick={() => onUnseat(g.id)}
+                          aria-label={`Unseat ${g.name}`}
+                          className="shrink-0 rounded px-1.5 py-1 text-[10px] text-white/55 transition hover:bg-white/15 hover:text-white"
+                        >
+                          unseat
+                        </button>
+                      ) : (
+                        <span className={`ml-2 shrink-0 pr-1 text-[10px] ${seated ? 'text-white/55' : 'text-white/40'}`}>
+                          {placing ? 'placing…' : selected ? 'swap?' : seated ? 'seated' : 'place'}
+                        </span>
+                      )}
+                    </div>
                   );
                 })
               )}

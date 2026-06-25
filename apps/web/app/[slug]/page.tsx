@@ -28,7 +28,13 @@ import {
   type MonogramMotionKey,
 } from '@/lib/monogram-motion';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { submitRsvp, withdrawFaceConsent, removeMyTag, claimAccountAction } from './actions';
+import {
+  submitRsvp,
+  withdrawFaceConsent,
+  removeMyTag,
+  claimAccountAction,
+  saveAttendedVendorAction,
+} from './actions';
 import { SelfieCapture } from './_components/selfie-capture';
 import { DayOfFaceEnroll } from './_components/day-of-face-enroll';
 import { CountdownWidget } from './_components/countdown';
@@ -74,6 +80,8 @@ import { SdeFilmBlock } from './_components/sde-film-block';
 import { getWallSnapshot } from '@/lib/live-wall';
 import type { WallTile } from '@/lib/live-wall-logic';
 import { getGuestLiveGallery, type GuestLiveGallery } from '@/lib/guest-live-gallery';
+import { fetchEventVendorCredits } from '@/lib/event-vendor-credits';
+import type { VendorCard } from '@/lib/vendor-cards';
 import { parseYouTubeVideoId, youTubeEmbedUrl } from '@/lib/panood-watch';
 import { GuestHubCard, pickNextScheduleBlock, type GuestHubData } from './_components/guest-hub-card';
 import { fetchEntrance, type EntrancePos } from '@/lib/indoor-blueprint';
@@ -162,6 +170,8 @@ type Props = {
     phase?: string;
     // PR4 P1 — per-visit preview of the auto-playing STD film while it bakes.
     film?: string;
+    // Invite/Join v2 — guest "save a vendor" result flash (ok/needs_account/error).
+    save?: string;
   }>;
 };
 
@@ -1201,6 +1211,19 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   const accountlessPhotosClosed =
     !viewerAccount && eventIsPast && dayOfPhase !== 'live' && dayOfPhase !== 'post';
 
+  // Invite/Join v2 — "vendors who made this day": the couple's booked marketplace
+  // vendors, savable to a guest's own account for their future planning. Read
+  // server-side (a guest can't read event_vendors under RLS).
+  const eventVendorCredits = await fetchEventVendorCredits(event.event_id);
+  const saveFlash =
+    search.save === 'ok'
+      ? 'Saved to your account — find it in your Library for your own plans.'
+      : search.save === 'needs_account'
+        ? 'Make a free account (the box above) to save vendors for your future plans.'
+        : search.save === 'error'
+          ? 'Couldn’t save that just now — please try again.'
+          : null;
+
   return (
     <>
       <InvitationSite
@@ -1241,6 +1264,8 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         proWatermarkHidden={proWatermarkHidden}
         showClaimAccountCta={!viewerAccount}
         accountlessPhotosClosed={accountlessPhotosClosed}
+        eventVendorCredits={eventVendorCredits}
+        saveFlash={saveFlash}
       />
       {papicGuestActive && (
         <Link
@@ -2173,6 +2198,8 @@ function InvitationSite({
   proWatermarkHidden,
   showClaimAccountCta,
   accountlessPhotosClosed,
+  eventVendorCredits,
+  saveFlash,
 }: {
   event: EventRow;
   guest: GuestRow;
@@ -2276,6 +2303,11 @@ function InvitationSite({
    *  for this accountless viewer — show the "photos closed, make an account to get
    *  them back" state instead of the gallery. */
   accountlessPhotosClosed: boolean;
+  /** Invite/Join v2: the couple's booked marketplace vendors ("vendors who made
+   *  this day"), each savable to the guest's own account for future planning. */
+  eventVendorCredits: VendorCard[];
+  /** Invite/Join v2: flash after a guest saves a vendor (ok / needs_account / error). */
+  saveFlash: string | null;
 }) {
   const sideLabel =
     guest.side === 'both'
@@ -2733,6 +2765,90 @@ function InvitationSite({
               Setnayan account to keep your invite and your photos — on any device. Use the
               &ldquo;Keep this on your phone&rdquo; box above to get a sign-in link.
             </p>
+          </section>
+        ) : null}
+
+        {/* Invite/Join v2 — "vendors who made this day": the couple's booked
+            marketplace vendors, savable to a guest's OWN account so they carry to
+            the guest's future planning (the growth loop). RSVP / Event / Editorial
+            only (never Save the Date), and only when there are credited vendors. */}
+        {lifecyclePhase !== 'save_the_date' && eventVendorCredits.length > 0 ? (
+          <section
+            aria-label="Vendors who made this day"
+            className="rounded-2xl border border-ink/10 bg-cream p-5 shadow-sm sm:p-6"
+          >
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+              Vendors who made this day
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight">Loved a vendor? Keep them.</h2>
+            <p className="mt-1 text-sm text-ink/70">
+              Save any vendor here to your Setnayan account — they&rsquo;ll be waiting when you
+              plan your own celebration.
+            </p>
+            {saveFlash ? (
+              <p className="mt-3 rounded-lg border border-ink/10 bg-white px-3 py-2 text-sm text-ink/80">
+                {saveFlash}
+              </p>
+            ) : null}
+            <ul className="mt-4 space-y-2">
+              {eventVendorCredits.map((v) => (
+                <li
+                  key={v.vendorProfileId}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-white p-3"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    {v.logoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={v.logoUrl}
+                        alt=""
+                        className="h-10 w-10 shrink-0 rounded-full object-cover"
+                      />
+                    ) : (
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-terracotta/10 text-sm font-semibold text-terracotta">
+                        {v.displayName.trim().charAt(0).toUpperCase() || 'V'}
+                      </span>
+                    )}
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-ink">
+                        {v.businessSlug ? (
+                          <Link href={`/v/${v.businessSlug}`} className="hover:text-terracotta">
+                            {v.displayName}
+                          </Link>
+                        ) : (
+                          v.displayName
+                        )}
+                      </p>
+                      {v.categoryLabel ? (
+                        <p className="truncate text-sm text-ink/60">{v.categoryLabel}</p>
+                      ) : null}
+                    </div>
+                  </div>
+                  {showClaimAccountCta ? (
+                    <span className="shrink-0 text-xs text-ink/45">Account needed</span>
+                  ) : (
+                    <form
+                      action={saveAttendedVendorAction.bind(
+                        null,
+                        event.event_id,
+                        event.slug ?? '',
+                        v.vendorProfileId,
+                      )}
+                      className="shrink-0"
+                    >
+                      <SubmitButton className="button-secondary text-sm" pendingLabel="Saving…">
+                        Save
+                      </SubmitButton>
+                    </form>
+                  )}
+                </li>
+              ))}
+            </ul>
+            {showClaimAccountCta ? (
+              <p className="mt-3 text-sm text-ink/60">
+                Make a free account (the box near the top) to save these for your own plans.
+              </p>
+            ) : null}
           </section>
         ) : null}
 

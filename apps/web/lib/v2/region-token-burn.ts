@@ -58,28 +58,10 @@ export const BURN_CEILING_TOKENS = 3;
 
 export type BurnBand = 1 | 2 | 3;
 
-/**
- * @deprecated Burn bands are now resolved through the canonical region source
- * (lib/region-source.ts · public.regions.burn_band), which absorbs every
- * spelling. This const is kept ONLY for lineage / any direct importer; new code
- * should call `regionBurnTokens()` (which reads region-source) instead.
- *
- * Human-editable source of truth (pre-fix): which region slugs sit in each burn
- * band. Onboarding slugs (events.region) first, then the underscore variants
- * (lib/match-criteria.ts) and PSGC codes (vendor_profiles.hq_region) as aliases.
- */
-export const BURN_BAND_REGIONS: Readonly<Record<BurnBand, readonly string[]>> = {
-  3: ['ncr', 'calabarzon', 'c-luzon', 'central_luzon', 'IV-A', 'III'],
-  2: [
-    'c-visayas', 'central_visayas', 'w-visayas', 'western_visayas',
-    'davao', 'n-mindanao', 'northern_mindanao', 'car', 'ilocos', 'cagayan',
-    'mimaropa', 'VII', 'VI', 'XI', 'X', 'CAR', 'I', 'II', 'IV-B',
-  ],
-  1: [
-    'bicol', 'e-visayas', 'eastern_visayas', 'zamboanga', 'soccsksargen',
-    'caraga', 'barmm', 'V', 'VIII', 'IX', 'XII', 'XIII', 'BARMM',
-  ],
-} as const;
+// (The deprecated `BURN_BAND_REGIONS` band→region map was removed 2026-06-25 — it
+// was a drift-prone second copy of the mapping, unreferenced by any live code path.
+// Burn bands resolve entirely through the canonical region source — region-source.ts
+// backed by `public.regions.burn_band` — via `regionBurnTokens()` below.)
 
 /**
  * Default band for an unknown / null / 'abroad' region — the kind floor.

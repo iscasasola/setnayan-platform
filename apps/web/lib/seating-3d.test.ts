@@ -18,6 +18,7 @@ import {
   walkVector,
   contentBounds,
   checkPlacement,
+  reconcileGrouping,
   DEFAULT_ROOM,
   VENUE_OBJECT_CATALOG,
   venueObjectDims,
@@ -203,3 +204,28 @@ test('checkPlacement: blocks overlap, dance-floor tables, non-sweetheart on stag
   // A non-table object on the dance floor is fine (rule is tables-only).
   assert.equal(checkPlacement({ x: 0, z: 0, r: 1, isTable: false, isSweetheart: false }, [], stage, dance).ok, true);
 });
+
+test('reconcileGrouping: patches link group + label on known rows, leaves position fields, preserves identity', () => {
+  const local = [
+    { id: 'A', linkGroupId: null, label: 'Table 1', xPct: 10, yPct: 20 },
+    { id: 'B', linkGroupId: null, label: 'Table 2', xPct: 80, yPct: 20 },
+    { id: 'C', linkGroupId: null, label: 'Table 3', xPct: 50, yPct: 80 },
+  ];
+  // Server linked A+B into one unit "Head Table" — C unchanged.
+  const server = [
+    { id: 'A', linkGroupId: 'g1', label: 'Head Table' },
+    { id: 'B', linkGroupId: 'g1', label: 'Head Table' },
+    { id: 'C', linkGroupId: null, label: 'Table 3' },
+  ];
+  const out = reconcileGrouping(local, server);
+  assert.equal(out[0]!.linkGroupId, 'g1');
+  assert.equal(out[0]!.label, 'Head Table');
+  assert.equal(out[1]!.linkGroupId, 'g1');
+  // Position fields are untouched (the drag optimism survives the reconcile).
+  assert.equal(out[0]!.xPct, 10);
+  assert.equal(out[1]!.xPct, 80);
+  // C is identical → unchanged reference.
+  assert.equal(out[2], local[2]);
+  // No grouping change → same array reference (no needless re-render).
+  assert.equal(reconcileGrouping(local, local.map((t) => ({ id: t.id, linkGroupId: t.linkGroupId, label: t.label }))), local);
+})

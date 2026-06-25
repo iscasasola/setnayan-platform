@@ -1,0 +1,1 @@
+- **DB hardening:** composite `(event_id, vendor_id)` FK on `event_vendor_payments` + matching unique constraint on `event_vendors` — a payment can no longer be bound to a vendor from a different event. Additive + idempotent; pre-flight confirmed 0 violations. Surfaced by the native app write-flow review; benefits web too.

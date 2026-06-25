@@ -36,7 +36,10 @@ import {
   deleteTable,
   updateTablePosition,
   updateTableRotation,
+  updateTableType,
+  publishSeating,
 } from '@/app/dashboard/[eventId]/seating/actions';
+import { TABLE_TYPE_CATALOG } from '@/lib/seating';
 
 // A server action's lock guard throws SeatingLockError, but the class identity
 // is lost across the RSC boundary — match defensively (instanceof → code →
@@ -499,6 +502,37 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
     void persist(() => deleteTable(fd));
   }, [selectedId, canEdit, eventId, lock.lockId, persist]);
 
+  // 2D-parity: change the selected table's type (server recomputes capacity +
+  // drops surplus assignments). Refresh so the merge effect re-renders the new
+  // shape/seats, exactly like add-a-table.
+  const changeTableType = useCallback(
+    (newType: string) => {
+      if (!selectedId || !canEdit) return;
+      const fd = new FormData();
+      fd.set('event_id', eventId);
+      fd.set('lock_id', lock.lockId ?? '');
+      fd.set('table_id', selectedId);
+      fd.set('table_type', newType);
+      void persist(async () => {
+        await updateTableType(fd);
+        router.refresh();
+      });
+    },
+    [selectedId, canEdit, eventId, lock.lockId, persist, router],
+  );
+
+  // 2D-parity: publish the plan (stamps table QR sheets for the print pack).
+  const publishPlan = useCallback(() => {
+    if (!canEdit) return;
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
+    void persist(async () => {
+      const res = await publishSeating(fd);
+      setNotice(`Published — ${res.published} table QR sheet${res.published === 1 ? '' : 's'} ready to print.`);
+    });
+  }, [canEdit, eventId, lock.lockId, persist]);
+
   // Pick a guest → walk to their seat (seating them in the first free chair if
   // they have none), steering around the other tables.
   // Seat a guest + walk them in. `preferredTableId` (from tap-to-place) restricts
@@ -864,6 +898,10 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
         walker={walker}
         arrived={arrived}
         selectedLabel={selectedId ? tablesById.get(selectedId)?.label ?? null : null}
+        selectedType={selectedId ? tablesById.get(selectedId)?.type ?? null : null}
+        onChangeType={changeTableType}
+        onPublish={publishPlan}
+        printHref={`/dashboard/${eventId}/seating/print`}
         tableCount={tables.length}
       />
     </div>
@@ -1697,6 +1735,10 @@ function Hud({
   walker,
   arrived,
   selectedLabel,
+  selectedType,
+  onChangeType,
+  onPublish,
+  printHref,
   tableCount,
 }: {
   mode: 'build' | 'play';
@@ -1732,6 +1774,10 @@ function Hud({
   walker: WalkerState;
   arrived: string | null;
   selectedLabel: string | null;
+  selectedType: string | null;
+  onChangeType: (newType: string) => void;
+  onPublish: () => void;
+  printHref: string;
   tableCount: number;
 }) {
   const glass =
@@ -1825,6 +1871,19 @@ function Hud({
                   <button type="button" disabled={!canEdit} onClick={() => onRotate(15)} aria-label="Rotate right" className="flex-1 rounded-lg bg-white/10 py-1.5 text-sm text-white hover:bg-white/20 disabled:opacity-40">⟳</button>
                   <button type="button" disabled={!canEdit} onClick={onDelete} className="flex-1 rounded-lg bg-danger-500/30 py-1.5 text-sm text-white hover:bg-danger-500/50 disabled:opacity-40">Delete</button>
                 </div>
+                <select
+                  value={selectedType ?? ''}
+                  disabled={!canEdit}
+                  onChange={(e) => onChangeType(e.target.value)}
+                  aria-label="Table type"
+                  className="mt-1.5 w-full rounded-lg border border-white/15 bg-ink/50 px-2 py-1.5 text-sm text-white disabled:opacity-40"
+                >
+                  {TABLE_TYPE_CATALOG.map((t) => (
+                    <option key={t.type} value={t.type} className="text-ink">
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
               </div>
             ) : null}
             <p className="text-xs leading-relaxed text-white/70">
@@ -1832,6 +1891,24 @@ function Hud({
               scroll to zoom.
             </p>
             <p className="mt-2 text-[11px] text-white/50">{tableCount} tables</p>
+            <div className="mt-2 flex gap-1.5">
+              <button
+                type="button"
+                disabled={!canEdit}
+                onClick={onPublish}
+                className="flex-1 rounded-lg bg-white/10 px-2 py-1.5 text-sm font-medium text-white transition hover:bg-white/20 disabled:opacity-40"
+              >
+                Publish
+              </button>
+              <a
+                href={printHref}
+                target="_blank"
+                rel="noreferrer"
+                className="flex-1 rounded-lg bg-white/10 px-2 py-1.5 text-center text-sm font-medium text-white transition hover:bg-white/20"
+              >
+                Print pack
+              </a>
+            </div>
           </div>
         ) : (
           <div className={`flex min-h-0 flex-1 flex-col p-3 ${glass}`}>

@@ -8,13 +8,22 @@ Reworked to the Premium-UI Standard (`Premium_UI_Standard_2026-06-25.md`), stayi
 100% on the locked `--m-*` palette and the imagery-free editorial marketing voice:
 
 - **New signature moment (one, orchestrated):** the hero's right side is now a
-  floating macOS **app window** showing a calm in-palette Setnayan dashboard
-  (Maria & Jose — the live sample event), resting on a champagne glow, with the
-  **Setnayan icon in a Dock beneath it**. On entry the window *opens* (scale/lift)
-  and the dock icon does the classic macOS **launch bounce** — literally
-  illustrating the page's promise: "its own window, with its own Dock icon."
-  Replaces the spec card. GSAP via `useGSAP` (SSR-safe), transform/opacity-only,
-  `prefers-reduced-motion` rests it final, whole illustration `aria-hidden`.
+  floating macOS **app window** framing a **genuine live Setnayan page** — the
+  public sample-couple landing (`/maria-and-jose`, `events.is_sample`), embedded
+  same-origin (the site ships `frame-ancestors 'self'`) and rendered desktop-width
+  then transform-scaled to fit (a `ResizeObserver` writes `--preview-scale`; pure
+  CSS can't because `scale()` needs a unitless factor). The window rests on a
+  champagne glow with the **Setnayan icon in a Dock beneath it**; on entry the
+  window *opens* (scale/lift) and the dock icon does the classic macOS **launch
+  bounce** — literally illustrating the page's promise: "its own window, with its
+  own Dock icon." Replaces the spec card. GSAP via `useGSAP` (SSR-safe),
+  transform/opacity-only, `prefers-reduced-motion` rests it final; the iframe is
+  non-interactive (`pointer-events-none` / `tabIndex -1` / `loading="lazy"`) and
+  the whole illustration is `aria-hidden`.
+  - Cost noted: the embed pulls a real (heavier) page on the hero and fires one
+    sample-event pageview per `/download` view — an accepted trade for the "live"
+    feel (owner-chosen 2026-06-26). `overflow-hidden` clips the frame so a lagged
+    `ResizeObserver` tick can never spill into the layout.
 - **Substance:** added a "Why the Mac app" value trio (own window/Dock · opens
   straight to your plan · trusted & always signed in). Spec details demoted to a
   quiet meta line under the CTA; primary CTA keeps the desktop magnetic pull.

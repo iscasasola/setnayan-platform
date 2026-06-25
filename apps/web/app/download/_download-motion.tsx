@@ -19,7 +19,7 @@
 
 import { Download } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { Logo } from '@/app/_components/logo';
@@ -139,42 +139,32 @@ function useWindowIntro() {
   return scope;
 }
 
-/* ── Tiny in-palette dashboard parts (decorative illustration) ───────────── */
+/* ── Live preview + Dock ─────────────────────────────────────────────────── */
 
-function NavRow({ active = false }: { active?: boolean }) {
-  return (
-    <div
-      data-window-item
-      className={`relative flex items-center gap-2 rounded-md px-2.5 py-1.5 ${
-        active ? 'bg-terracotta/12' : ''
-      }`}
-    >
-      {active && (
-        <span className="absolute left-0 top-1/2 h-3.5 w-[2.5px] -translate-y-1/2 rounded-full bg-terracotta" />
-      )}
-      <span className={`h-2.5 w-2.5 rounded-[5px] ${active ? 'bg-terracotta' : 'bg-ink/20'}`} />
-      <span className={`h-1.5 rounded-full ${active ? 'w-12 bg-ink/70' : 'w-10 bg-ink/25'}`} />
-    </div>
-  );
-}
+// The window frames a GENUINE, same-origin LIVE page — the public sample-couple
+// landing (events.is_sample · see project_setnayan_sample_event_maria_jose). The
+// site ships `frame-ancestors 'self'`, so this only ever embeds on Setnayan's own
+// origin. The page is rendered at desktop width then transform-scaled down to the
+// window so it reads as a real Mac app (not a cramped mobile reflow). Scale can't
+// be pure CSS (scale() needs a unitless factor; `100cqw / W` is a length), so a
+// ResizeObserver writes `--preview-scale` from the live container width.
+const PREVIEW_PATH = '/maria-and-jose';
+const PREVIEW_W = 1180;
+const PREVIEW_H = 760;
 
-function StatCard({ value, label }: { value: string; label: string }) {
-  return (
-    <div data-window-item className="rounded-lg border border-ink/8 bg-cream px-2.5 py-2">
-      <p className="font-serif text-base font-semibold leading-none text-ink">{value}</p>
-      <p className="mt-1 font-mono text-[7px] uppercase tracking-[0.14em] text-ink/45">{label}</p>
-    </div>
-  );
-}
-
-function GuestRow({ w }: { w: string }) {
-  return (
-    <div data-window-item className="flex items-center gap-2 py-[5px]">
-      <span className="h-4 w-4 shrink-0 rounded-full bg-ink/10" />
-      <span className={`h-1.5 ${w} rounded-full bg-ink/20`} />
-      <span className="ml-auto h-2.5 w-9 rounded-full bg-terracotta/15" />
-    </div>
-  );
+/** Keep `--preview-scale` = containerWidth / logicalWidth as the window resizes. */
+function usePreviewScale(logicalWidth: number) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const apply = () => el.style.setProperty('--preview-scale', String(el.clientWidth / logicalWidth));
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [logicalWidth]);
+  return ref;
 }
 
 function DockApp({ tone }: { tone: string }) {
@@ -182,14 +172,15 @@ function DockApp({ tone }: { tone: string }) {
 }
 
 /**
- * AppWindowHero — the floating macOS app window + Dock. A pure illustration of
- * the desktop app: traffic-light titlebar, a calm Setnayan dashboard inside
- * (the real sample couple), resting on a champagne glow, with the Setnayan icon
- * "running" in the Dock below. Entirely aria-hidden — the accessible download
- * affordance + every spec live in the server hero.
+ * AppWindowHero — the floating macOS app window + Dock. The window frames a
+ * GENUINE live Setnayan page (the public sample-couple landing, same-origin),
+ * rendered desktop-width and scaled to fit; the Setnayan icon "runs" in the Dock
+ * below. Entirely aria-hidden — the accessible download affordance + every spec
+ * live in the server hero.
  */
 export function AppWindowHero() {
   const scope = useWindowIntro();
+  const previewRef = usePreviewScale(PREVIEW_W);
 
   return (
     <div ref={scope} aria-hidden className="relative mx-auto w-full max-w-[480px] select-none">
@@ -220,54 +211,27 @@ export function AppWindowHero() {
           <span className="w-[42px]" />
         </div>
 
-        {/* body: sidebar + main */}
-        <div className="flex">
-          {/* sidebar */}
-          <aside className="w-[34%] space-y-1 border-r border-ink/8 bg-ink/[0.02] px-2.5 py-3">
-            <div data-window-item className="mb-2 flex items-center gap-1.5 px-1.5">
-              <Logo height={14} />
-            </div>
-            <NavRow active />
-            <NavRow />
-            <NavRow />
-            <NavRow />
-            <NavRow />
-          </aside>
-
-          {/* main */}
-          <div className="flex-1 px-4 py-3.5">
-            <div data-window-item className="flex items-center justify-between">
-              <div>
-                <p className="font-serif text-[15px] font-semibold leading-tight text-ink">
-                  Maria &amp; Jose
-                </p>
-                <p className="mt-0.5 font-mono text-[7px] uppercase tracking-[0.16em] text-ink/40">
-                  Your wedding plan
-                </p>
-              </div>
-              <span className="rounded-full bg-terracotta/12 px-2 py-0.5 font-mono text-[7px] uppercase tracking-[0.12em] text-terracotta-700">
-                284 days to go
-              </span>
-            </div>
-
-            <div className="mt-3 grid grid-cols-3 gap-2">
-              <StatCard value="168" label="Guests" />
-              <StatCard value="124" label="RSVP'd" />
-              <StatCard value="18" label="Tables" />
-            </div>
-
-            <div data-window-item className="mt-3 flex items-center justify-between">
-              <span className="font-mono text-[7px] uppercase tracking-[0.16em] text-ink/40">
-                Guest list
-              </span>
-              <span className="h-1 w-6 rounded-full bg-ink/12" />
-            </div>
-            <div className="mt-1 divide-y divide-ink/6">
-              <GuestRow w="w-20" />
-              <GuestRow w="w-16" />
-              <GuestRow w="w-24" />
-            </div>
-          </div>
+        {/* body: a genuine live page, rendered desktop-width then scaled to fit */}
+        <div
+          ref={previewRef}
+          data-window-item
+          className="relative overflow-hidden bg-cream"
+          style={{ aspectRatio: `${PREVIEW_W} / ${PREVIEW_H}` }}
+        >
+          <iframe
+            src={PREVIEW_PATH}
+            title="Setnayan, live"
+            aria-hidden
+            tabIndex={-1}
+            loading="lazy"
+            scrolling="no"
+            className="pointer-events-none absolute left-0 top-0 origin-top-left border-0"
+            style={{
+              width: `${PREVIEW_W}px`,
+              height: `${PREVIEW_H}px`,
+              transform: 'scale(var(--preview-scale, 0.4))',
+            }}
+          />
         </div>
       </div>
 
@@ -282,9 +246,9 @@ export function AppWindowHero() {
         <span className="relative flex flex-col items-center">
           <span
             data-dock-icon
-            className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-ink shadow-[0_6px_14px_-4px_rgba(30,34,41,0.6)]"
+            className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-gradient-to-b from-[#2a2f38] to-ink shadow-[0_6px_16px_-4px_rgba(30,34,41,0.65),inset_0_1px_0_rgba(255,255,255,0.08)] ring-1 ring-white/5"
           >
-            <Logo height={20} />
+            <Logo height={22} />
           </span>
           <span className="mt-1 h-1 w-1 rounded-full bg-ink/50" />
         </span>

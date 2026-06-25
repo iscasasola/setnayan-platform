@@ -494,8 +494,10 @@ export function ShortlistCategories({
           // Lightweight loading shell while fields + saved template resolve.
           <div
             className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
-            role="dialog"
-            aria-modal="true"
+            // Transient busy indicator, not a focus-trapping modal: a live
+            // region announces the load; it hands off to RequirementsModal
+            // (which owns the real dialog a11y) once fields resolve.
+            role="status"
             aria-label={`Loading your saved request for ${reqTarget.label}`}
           >
             <button

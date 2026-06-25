@@ -7,6 +7,8 @@ import {
   fetchTables,
   fetchAssignments,
   fetchFloorPlan,
+  fetchSeatingConstraints,
+  defaultPriorityOrder,
   guestTier,
   defaultTablePosition,
 } from '@/lib/seating';
@@ -38,11 +40,12 @@ export default async function SeatingLabPage({ params }: Props) {
   if (!user) redirect('/login');
   const supabase = await createClient();
 
-  const [tablesRaw, assignments, guestsRaw, floorPlan, moodboard, eventRow, roleSet] = await Promise.all([
+  const [tablesRaw, assignments, guestsRaw, floorPlan, constraints, moodboard, eventRow, roleSet] = await Promise.all([
     fetchTables(supabase, eventId),
     fetchAssignments(supabase, eventId),
     fetchGuestsByEvent(supabase, eventId),
     fetchFloorPlan(supabase, eventId),
+    fetchSeatingConstraints(supabase, eventId),
     supabase
       .from('event_moodboard_saves')
       .select('palette_snapshot')
@@ -125,6 +128,7 @@ export default async function SeatingLabPage({ params }: Props) {
       seatedTableId: seat?.table_id ?? null,
       seatNumber: seat?.seat_number ?? null,
       tier: guestTier(g.role, g.group_category, g.seating_priority, roleSet),
+      seatingPriority: g.seating_priority ?? null,
       rsvp,
       side: g.side,
       plusOneAllowed: Boolean(g.plus_one_allowed),
@@ -197,6 +201,9 @@ export default async function SeatingLabPage({ params }: Props) {
             user.email?.split('@')[0] ||
             'Someone',
         }}
+        keepApart={constraints}
+        priorityOrder={floorPlan.priority_order ?? defaultPriorityOrder(roleSet)}
+        roleSetKey={roleSet.key}
       />
     </section>
   );

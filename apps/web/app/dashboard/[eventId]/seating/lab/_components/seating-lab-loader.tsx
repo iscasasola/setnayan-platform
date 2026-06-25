@@ -10,6 +10,7 @@
 
 import dynamic from 'next/dynamic';
 import type { Lab3DTable, Lab3DFloor, Lab3DGuest, Lab3DMonogram } from '@/lib/seating-3d';
+import type { KeepApartRule, PriorityOrder } from '@/lib/seating';
 
 const SeatingLab3D = dynamic(() => import('./seating-lab-3d'), {
   ssr: false,
@@ -34,6 +35,10 @@ type Props = {
   /** Couple owns the paid ANIMATED_MONOGRAM → the floor mark blooms on Play. */
   animatedMonogram: boolean;
   me: { id: string; name: string };
+  /** Smart seat-plan rules — keep-apart pairs + the couple's tier priority order. */
+  keepApart: KeepApartRule[];
+  priorityOrder: PriorityOrder;
+  roleSetKey: string;
 };
 
 export function SeatingLabLoader(props: Props) {

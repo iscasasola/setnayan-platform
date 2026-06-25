@@ -17,6 +17,7 @@ import {
 import type { SwitcherData } from './get-switcher-data';
 import { formatEventDate } from '@/lib/events';
 import { EventMonogram } from '@/app/_components/event-monogram';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 
 type Props = {
   data: SwitcherData;
@@ -54,21 +55,14 @@ export function AccountSwitcher({ data, currentEventName }: Props) {
   // SSR-safe portal
   useEffect(() => setMounted(true), []);
 
-  // Escape key + click-away
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [open]);
-
-  const initial = data.email?.charAt(0).toUpperCase() ?? '?';
-
   function close() {
     setOpen(false);
   }
+
+  // Focus trap, Esc-to-close, body-scroll-lock, focus-restore (shared hook).
+  useModalA11y({ open, onClose: close, containerRef: panelRef });
+
+  const initial = data.email?.charAt(0).toUpperCase() ?? '?';
 
   function navigate(href: string) {
     close();
@@ -98,6 +92,7 @@ export function AccountSwitcher({ data, currentEventName }: Props) {
         aria-modal="true"
         aria-label="Account switcher"
         className={[
+          'focus:outline-none',
           // Mobile: bottom sheet — inset-x + fixed bottom, slides up
           'fixed inset-x-0 bottom-0 z-[52] flex max-h-[90vh] flex-col overflow-hidden rounded-t-2xl border-t border-ink/10 bg-[var(--m-paper)] pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl',
           // Desktop: left drawer — fixed left full-height, slides from left
@@ -384,18 +379,12 @@ export function AccountSwitcherStandalone({ data }: Props) {
 
   useEffect(() => setMounted(true), []);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [open]);
-
   function close() {
     setOpen(false);
   }
+
+  // Focus trap, Esc-to-close, body-scroll-lock, focus-restore (shared hook).
+  useModalA11y({ open, onClose: close, containerRef: panelRef });
 
   function navigate(href: string) {
     close();
@@ -477,7 +466,7 @@ export function AccountSwitcherStandalone({ data }: Props) {
                 role="dialog"
                 aria-modal="true"
                 aria-label="Account switcher"
-                className="fixed inset-y-0 left-0 z-[52] flex w-80 flex-col overflow-hidden rounded-r-2xl border-r border-ink/10 bg-[var(--m-paper)] shadow-2xl"
+                className="focus:outline-none fixed inset-y-0 left-0 z-[52] flex w-80 flex-col overflow-hidden rounded-r-2xl border-r border-ink/10 bg-[var(--m-paper)] shadow-2xl"
                 style={{ animation: 'sn-switcher-drawer-in 0.3s ease' }}
               >
                 <div className="flex-1 overflow-y-auto">

@@ -19,12 +19,13 @@
  * the server action accepts it even with confirmed vendors.
  */
 
-import { useState, useTransition } from 'react';
+import { useCallback, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { CalendarRange, Users, X } from 'lucide-react';
 import { updateEventDate } from '../actions';
 import { formatDayKey } from '@/lib/vendor-availability';
 import { trackFailure } from '@/lib/telemetry/track-error';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 
 type Props = {
   eventId: string;
@@ -167,12 +168,16 @@ function CalendarModal({
   }
   const months = Array.from(byMonth.keys()).sort();
 
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalA11y({ open: true, onClose, containerRef: dialogRef });
+
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-label="Browse available days"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 focus:outline-none"
       onClick={onClose}
     >
       <div
@@ -228,6 +233,15 @@ function FinalizeDayModal({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
+  const dialogRef = useRef<HTMLDivElement>(null);
+  // Mid-submit guard: don't let Esc / backdrop dismiss while the save is in
+  // flight, matching the Cancel button's `disabled={isPending}` behavior.
+  const handleClose = useCallback(() => {
+    if (isPending) return;
+    onClose();
+  }, [isPending, onClose]);
+  useModalA11y({ open: true, onClose: handleClose, containerRef: dialogRef });
+
   function handleConfirm() {
     setError(null);
     const fd = new FormData();
@@ -253,11 +267,12 @@ function FinalizeDayModal({
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-label="Finalize wedding date"
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/40 p-4"
-      onClick={onClose}
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/40 p-4 focus:outline-none"
+      onClick={handleClose}
     >
       <div
         className="w-full max-w-md rounded-lg bg-cream p-6 shadow-xl"

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
+import { useCallback, useRef, useState, useTransition, type ReactNode } from 'react';
 import {
   Aperture,
   ArrowUpRight,
@@ -45,6 +45,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import { findSku, formatCentavosPhp } from '@/lib/sku-catalog';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import { FileUpload } from '@/app/_components/file-upload';
 import {
   SPATIAL_THEMES,
@@ -966,14 +967,11 @@ function HeroEditSheet({
   onClear: (fd: FormData) => void;
   onClose: () => void;
 }) {
-  // Esc closes the sheet (mirrors the backdrop tap).
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  // Mounted only while open, so open is a constant `true` — mount = open, the
+  // hook's cleanup runs the focus-restore on unmount. Esc-to-close, Tab-trap,
+  // focus-in and body-scroll-lock all come from the shared hook.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalA11y({ open: true, onClose, containerRef: dialogRef });
 
   return (
     <div className="fixed inset-0 z-50 flex">
@@ -984,10 +982,11 @@ function HeroEditSheet({
         className="absolute inset-0 bg-ink/40 backdrop-blur-sm"
       />
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label="Edit hero photo"
-        className="relative z-10 mt-auto max-h-[85dvh] w-full overflow-y-auto rounded-t-2xl bg-cream p-5 text-ink shadow-2xl lg:mt-0 lg:ml-auto lg:h-full lg:max-h-none lg:w-[420px] lg:rounded-none lg:rounded-l-2xl"
+        className="relative z-10 mt-auto max-h-[85dvh] w-full overflow-y-auto rounded-t-2xl bg-cream p-5 text-ink shadow-2xl focus:outline-none lg:mt-0 lg:ml-auto lg:h-full lg:max-h-none lg:w-[420px] lg:rounded-none lg:rounded-l-2xl"
       >
         <div className="mb-4 flex items-start justify-between">
           <div>
@@ -1098,13 +1097,11 @@ function BackdropEditSheet({
   );
   const [intensity, setIntensity] = useState<SpatialIntensity>(current?.intensity ?? 'standard');
 
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  // Mounted only while open, so open is a constant `true` — mount = open, the
+  // hook's cleanup runs the focus-restore on unmount. Esc-to-close, Tab-trap,
+  // focus-in and body-scroll-lock all come from the shared hook.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalA11y({ open: true, onClose, containerRef: dialogRef });
 
   const submit = () => {
     const fd = new FormData();
@@ -1129,10 +1126,11 @@ function BackdropEditSheet({
         className="absolute inset-0 bg-ink/40 backdrop-blur-sm"
       />
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label="Choose a living backdrop"
-        className="relative z-10 mt-auto max-h-[85dvh] w-full overflow-y-auto rounded-t-2xl bg-cream p-5 text-ink shadow-2xl lg:mt-0 lg:ml-auto lg:h-full lg:max-h-none lg:w-[420px] lg:rounded-none lg:rounded-l-2xl"
+        className="relative z-10 mt-auto max-h-[85dvh] w-full overflow-y-auto rounded-t-2xl bg-cream p-5 text-ink shadow-2xl focus:outline-none lg:mt-0 lg:ml-auto lg:h-full lg:max-h-none lg:w-[420px] lg:rounded-none lg:rounded-l-2xl"
       >
         <div className="mb-4 flex items-start justify-between">
           <div>

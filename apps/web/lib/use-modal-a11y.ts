@@ -96,14 +96,15 @@ export function useModalA11y<T extends HTMLElement = HTMLElement>({
       if (event.key !== 'Tab') return;
       const items = focusables();
       const active = document.activeElement;
-      if (items.length === 0) {
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (!first || !last) {
         // Nothing focusable but the container — keep focus pinned inside.
+        // (Also narrows first/last under noUncheckedIndexedAccess.)
         event.preventDefault();
         container?.focus();
         return;
       }
-      const first = items[0];
-      const last = items[items.length - 1];
       if (event.shiftKey) {
         if (active === first || !container?.contains(active)) {
           event.preventDefault();

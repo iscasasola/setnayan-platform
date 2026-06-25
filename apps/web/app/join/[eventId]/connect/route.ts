@@ -28,9 +28,22 @@ export async function GET(
 
   const { connected } = await connectEventForUser(eventId, user.id, user.email ?? null);
 
-  // Connected → straight into the event; otherwise the account home (the event
-  // may still be reconciled by the couple, or the email didn't match a seat).
-  return NextResponse.redirect(
-    new URL(connected ? `/dashboard/${eventId}` : '/dashboard', origin),
-  );
+  // Connected → into the event; otherwise the account home (the event may still
+  // be reconciled by the couple, or the email didn't match a seat).
+  const dest = connected ? `/dashboard/${eventId}` : '/dashboard';
+
+  // Set-password gate (owner directive): a passwordless email-link account is
+  // flagged needs_password at creation → prompt them to set one on first
+  // sign-in, UNLESS they came in via Apple/Google (provider !== 'email'), who
+  // keep using their OAuth provider. The flag is only ever set on accounts WE
+  // created here, so OAuth accounts are inherently never gated.
+  const provider = (user.app_metadata?.provider as string | undefined) ?? 'email';
+  const needsPassword = user.user_metadata?.needs_password === true;
+  if (needsPassword && provider === 'email') {
+    return NextResponse.redirect(
+      new URL(`/join/${eventId}/set-password?next=${encodeURIComponent(dest)}`, origin),
+    );
+  }
+
+  return NextResponse.redirect(new URL(dest, origin));
 }

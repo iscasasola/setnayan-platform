@@ -333,3 +333,77 @@ export function useLineReveal(
 
   return scope;
 }
+
+/**
+ * useSettle — the "scattered fragments resolve into one clean layout" gesture.
+ * Attach the ref to a container; each `[data-settle-item]` declares its START
+ * offset via `data-settle-x` / `data-settle-y` / `data-settle-rotate` (px/px/deg,
+ * default 0) + optional `data-settle-opacity` (start opacity, default 1). On
+ * IntersectionObserver enter the hook transforms every item from its offset to
+ * identity (x/y/rotation→0, opacity→1); the final resting position is the natural
+ * CSS layout, so no layout math is needed. Start state is set synchronously before
+ * paint (no flash). clearProps:transform on finish so CSS hover survives.
+ * transform/opacity only; reduced-motion = items rest already-settled (no offset);
+ * SSR-safe useGSAP cleanup. Covers /why-setnayan's card converge + /papic's tile settle.
+ */
+export function useSettle(
+  opts: { duration?: number; ease?: string; threshold?: number; stagger?: number } = {},
+) {
+  const { duration = 1, ease = 'power3.out', threshold = 0.3, stagger = 0.05 } = opts;
+  const scope = useRef<HTMLElement>(null);
+
+  useGSAP(
+    () => {
+      const root = scope.current;
+      if (!root) return;
+
+      const items = gsap.utils.toArray<HTMLElement>('[data-settle-item]', root);
+      if (items.length === 0) return;
+
+      // Reduced motion: leave everything at its natural (settled) CSS position.
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+      // Declared start offsets → set synchronously before paint (no flash).
+      items.forEach((el) => {
+        gsap.set(el, {
+          x: Number(el.dataset.settleX ?? 0),
+          y: Number(el.dataset.settleY ?? 0),
+          rotation: Number(el.dataset.settleRotate ?? 0),
+          opacity: Number(el.dataset.settleOpacity ?? 1),
+        });
+      });
+
+      let played = false;
+      const play = () => {
+        if (played) return;
+        played = true;
+        gsap.to(items, {
+          x: 0,
+          y: 0,
+          rotation: 0,
+          opacity: 1,
+          duration,
+          ease,
+          stagger,
+          clearProps: 'transform',
+        });
+      };
+
+      const io = new IntersectionObserver(
+        (entries) => {
+          if (entries[0]?.isIntersecting) {
+            play();
+            io.disconnect();
+          }
+        },
+        { threshold },
+      );
+      io.observe(root);
+
+      return () => io.disconnect();
+    },
+    { scope },
+  );
+
+  return scope;
+}

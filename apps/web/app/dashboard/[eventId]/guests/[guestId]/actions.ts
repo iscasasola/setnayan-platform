@@ -4,6 +4,9 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { getCurrentUser } from '@/lib/auth';
+import { sendEventAccountMagicLink } from '@/lib/event-account-link';
 import {
   INVITED_TO_BLOCKS,
   type GuestGroupCategory,
@@ -56,6 +59,50 @@ function parseInvitedToBlocks(formData: FormData): InvitedToBlock[] {
     }
   }
   return result;
+}
+
+/**
+ * Host-initiated email invite (Invite/Join v2). The couple emails this guest a
+ * passwordless sign-in link; on click the event is connected to their Setnayan
+ * account (via connectEventForUser's email-match). Reuses the exact same
+ * machinery as the guest-initiated path — this is just the couple's trigger.
+ *
+ * Authorized explicitly (couple membership) because sendEventAccountMagicLink
+ * uses the service-role client (RLS bypass). The guest must already have an
+ * email saved on their row.
+ */
+export async function inviteGuestByEmailAction(eventId: string, guestId: string) {
+  const user = await getCurrentUser();
+  if (!user) redirect('/login');
+
+  const backTo = `/dashboard/${eventId}/guests/${guestId}`;
+
+  const supabase = await createClient();
+  const { data: membership } = await supabase
+    .from('event_members')
+    .select('member_type')
+    .eq('event_id', eventId)
+    .eq('user_id', user.id)
+    .eq('member_type', 'couple')
+    .maybeSingle();
+  if (!membership) return redirect(`/dashboard/${eventId}`);
+
+  const admin = createAdminClient();
+  const { data: guest } = await admin
+    .from('guests')
+    .select('email, deleted_at')
+    .eq('guest_id', guestId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+
+  const email = (guest?.email as string | null)?.trim();
+  if (!guest || guest.deleted_at || !email) {
+    return redirect(`${backTo}?invite=no_email`);
+  }
+
+  const { ok } = await sendEventAccountMagicLink({ eventId, guestId, email });
+  revalidatePath(backTo);
+  return redirect(`${backTo}?invite=${ok ? 'sent' : 'failed'}`);
 }
 
 export async function updateGuest(eventId: string, guestId: string, formData: FormData) {

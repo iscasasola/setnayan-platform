@@ -31,7 +31,7 @@ import {
 } from '@/lib/guests';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { InvitedToChips } from '../_components/invited-to-chips';
-import { softDeleteGuest, updateGuest } from './actions';
+import { inviteGuestByEmailAction, softDeleteGuest, updateGuest } from './actions';
 
 export const metadata = { title: 'Guest detail' };
 
@@ -124,7 +124,7 @@ const RSVP_PILL_CLASS: Record<RsvpStatus, string> = {
 
 type Props = {
   params: Promise<{ eventId: string; guestId: string }>;
-  searchParams: Promise<{ error?: string; saved?: string }>;
+  searchParams: Promise<{ error?: string; saved?: string; invite?: string }>;
 };
 
 export default async function GuestDetailPage({ params, searchParams }: Props) {
@@ -188,6 +188,17 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
 
   const updateAction = updateGuest.bind(null, eventId, guestId);
   const deleteAction = softDeleteGuest.bind(null, eventId, guestId);
+  const inviteAction = inviteGuestByEmailAction.bind(null, eventId, guestId);
+
+  // Host-initiated email-invite feedback (Invite/Join v2).
+  const inviteFlash =
+    search.invite === 'sent'
+      ? { ok: true, msg: `Sign-in link sent to ${guest.email}.` }
+      : search.invite === 'failed'
+        ? { ok: false, msg: 'We couldn’t send the link just now — please try again.' }
+        : search.invite === 'no_email'
+          ? { ok: false, msg: 'Add an email below and save it first, then send the invite.' }
+          : null;
 
   // Filter to known valid InvitedToBlock values — schema column is
   // string[] so legacy data could contain stale block names.
@@ -296,6 +307,18 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
           className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-2.5 text-sm text-terracotta-700"
         >
           {errorMessage}
+        </p>
+      ) : null}
+      {inviteFlash ? (
+        <p
+          role={inviteFlash.ok ? 'status' : 'alert'}
+          className={
+            inviteFlash.ok
+              ? 'rounded-md border border-success-300/60 bg-success-50 px-4 py-2.5 text-sm text-success-800'
+              : 'rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-2.5 text-sm text-terracotta-700'
+          }
+        >
+          {inviteFlash.msg}
         </p>
       ) : null}
 
@@ -610,6 +633,32 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
           </div>
         </div>
       </form>
+
+      {/* Host-initiated email invite (Invite/Join v2) — emails this guest a
+          passwordless sign-in link; on click the event connects to their
+          Setnayan account. Reuses the guest-initiated machinery. Kept OUTSIDE
+          the edit form (HTML forms can't nest) and reads the SAVED email. */}
+      <div className="rounded-xl border border-ink/10 bg-cream/40 p-5">
+        <h2 className="text-sm font-semibold text-ink">Invite by email</h2>
+        {guest.email?.trim() ? (
+          <>
+            <p className="mt-1 text-sm text-ink/65">
+              Email <span className="font-medium text-ink">{guest.email}</span> a sign-in link.
+              They&rsquo;ll get their own Setnayan account with this event already on it — no
+              password, works on any device.
+            </p>
+            <form action={inviteAction} className="mt-3">
+              <SubmitButton className="button-secondary" pendingLabel="Sending…">
+                Send sign-in link
+              </SubmitButton>
+            </form>
+          </>
+        ) : (
+          <p className="mt-1 text-sm text-ink/55">
+            Add an email above and save to enable a one-tap sign-in invite.
+          </p>
+        )}
+      </div>
     </div>
   );
 }

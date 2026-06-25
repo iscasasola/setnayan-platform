@@ -90,7 +90,7 @@ export default async function PanoodAppStorePage({ params }: Props) {
   const dailyPlan = {
     sku_code: PANOOD_SKU_CODE,
     name: 'Daily Broadcast',
-    scope: 'One day · always multi-cam (up to 6 cameras) · YouTube delivery + auto-archive.',
+    scope: 'One event-day · streamed to your own YouTube, embedded on your event page · auto-archive on your channel.',
     price: dailyPriceLabel,
     unit: ' / day',
     badge: 'Most popular' as const,
@@ -218,8 +218,8 @@ export default async function PanoodAppStorePage({ params }: Props) {
           ),
         },
         {
-          context: 'Every angle',
-          caption: 'The aisle, the altar, the happy tears — all covered.',
+          context: 'Live as it happens',
+          caption: 'The aisle, the vows, the happy tears — in real time.',
           body: (
             <span aria-hidden className="block text-3xl">
               ◧
@@ -240,7 +240,7 @@ export default async function PanoodAppStorePage({ params }: Props) {
         title: "What you'll have",
         items: [
           'Everyone watching live, wherever they are',
-          'Every angle — the aisle, the altar, the happy tears',
+          'The aisle, the vows, the happy tears — live as it happens',
           'Right on your wedding page, in your colors',
           'The whole day, saved for you to keep',
         ],
@@ -249,7 +249,7 @@ export default async function PanoodAppStorePage({ params }: Props) {
         paragraphs: [
           'Half the people who love you can’t fit in the room — or can’t make the trip at all. Panood brings them in. Your wedding streams live, so the people who matter are there for every moment as it happens.',
           'And it doesn’t end when the day does. The whole celebration is saved for you — rewatch the vows, the first dance, the speeches, any time you want.',
-          `Panood covers one day of your celebration (${dailyPriceLabel} / day), from up to six angles. Filipino weddings often run across a few days — prep, ceremony, reception — so add a day for each.`,
+          `Panood covers one day of your celebration (${dailyPriceLabel} / day): you go live on your own YouTube — from a phone or a laptop — and it plays right on your event page, in your colors. Filipino weddings often run across a few days — prep, ceremony, reception — so add a day for each.`,
         ],
         plans: [planRow],
         notIncluded: [

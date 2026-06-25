@@ -129,29 +129,37 @@ type Gesture = {
   Icon: typeof Camera;
 };
 
-const GESTURES: ReadonlyArray<Gesture> = [
+// The shipped web shutter (phone-browser capture) is a simple TAP button with a
+// Photo / Clip toggle — no drag gestures, no flash/torch (the browser camera API
+// can't reliably drive the torch). The richer gesture + flash/torch shutter is a
+// COMING native-app capability (V1.5) and is honest-labeled as such below.
+const WEB_CONTROLS: ReadonlyArray<Gesture> = [
   {
-    id: 'tap',
-    title: 'Tap',
-    body: 'Photo, no flash. Snappy — fires on touch-up.',
+    id: 'tap-photo',
+    title: 'Tap to shoot',
+    body: 'One big shutter button. Tap it for a photo — snappy, fires on touch-up.',
     Icon: Camera,
   },
   {
+    id: 'clip-toggle',
+    title: 'Flip to Clip',
+    body: 'Switch the Photo / Clip toggle, then tap. Every clip runs the full 5 seconds and cannot be cut short.',
+    Icon: ChevronRight,
+  },
+];
+
+// Coming with the native Papic app (V1.5) — the gesture + flash/torch shutter.
+const COMING_GESTURES: ReadonlyArray<Gesture> = [
+  {
     id: 'drag-up',
     title: 'Drag up',
-    body: 'Photo with flash. Single pop synced to the shutter.',
+    body: 'Photo with flash. A single pop synced to the shutter.',
     Icon: ChevronUp,
-  },
-  {
-    id: 'drag-right',
-    title: 'Drag right',
-    body: '5-second clip on release. Runs the full 5 seconds — cannot be cut short.',
-    Icon: ChevronRight,
   },
   {
     id: 'chord',
     title: 'Drag right → drag up',
-    body: '5-second clip with flash. Torch stays on for the full clip.',
+    body: '5-second clip with the torch on for the full clip.',
     Icon: Sparkles,
   },
 ];
@@ -318,10 +326,10 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         </h1>
         <p className="max-w-prose text-base text-ink/65">
           Papic turns friends and family into your candid-capture crew. Each
-          paparazzo claims a seat from their own phone, shoots through the
-          Papic app, and every photo or 5-second clip lands tagged in your
-          gallery in real time. Below: pick where the photos write to, then
-          manage your crew, camera bridges, and gallery settings.
+          paparazzo claims a seat from their own phone and shoots right in their
+          phone browser — no app to install — and every photo or 5-second clip
+          lands tagged in your gallery in real time. Below: pick where the photos
+          write to, then manage your crew, camera bridges, and gallery settings.
         </p>
       </header>
 
@@ -1245,21 +1253,21 @@ function GestureReferenceCard() {
     <article className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
       <div className="space-y-1">
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Section 4 · gesture shutter
+          Section 4 · the shutter
         </p>
         <h2 className="text-xl font-semibold tracking-tight">
-          Teach your crew the four shutter gestures
+          Teach your crew the shutter — it&rsquo;s just a tap
         </h2>
         <p className="max-w-prose text-sm text-ink/65">
-          Papic&rsquo;s shutter handles photo, photo + flash, 5-second clip,
-          and 5-second clip + flash — all from one button. Front camera is
-          disabled by design (rear-only, locked 2026-05-09) so the optical
-          quality stays high.
+          In the phone browser, Papic is one big shutter button with a Photo / Clip
+          toggle — tap for a photo, flip to Clip for a 5-second clip. No app to
+          install. Front camera is disabled by design (rear-only, locked 2026-05-09)
+          so the optical quality stays high.
         </p>
       </div>
 
       <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {GESTURES.map((g) => (
+        {WEB_CONTROLS.map((g) => (
           <li
             key={g.id}
             className="flex items-start gap-3 rounded-xl border border-ink/10 bg-cream/60 p-3 sm:p-4"
@@ -1278,11 +1286,44 @@ function GestureReferenceCard() {
       <div className="flex items-start gap-2 rounded-xl border border-dashed border-ink/15 bg-cream/60 p-3 sm:p-4">
         <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/55" strokeWidth={1.75} />
         <p className="text-xs text-ink/65">
-          Every clip is exactly 5 seconds — no shorter. Once your
-          paparazzo drags right, the recording runs the full 5 seconds and
-          uploads in the background. They can walk away, tag a guest,
-          or shoot again — nothing is lost.
+          Every clip is exactly 5 seconds — no shorter. Once your paparazzo
+          starts a clip, the recording runs the full 5 seconds and uploads in the
+          background. They can walk away, tag a guest, or shoot again — nothing
+          is lost.
         </p>
+      </div>
+
+      <div className="space-y-3 rounded-xl border border-dashed border-ink/15 bg-cream/40 p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="flex items-center gap-2 text-sm font-semibold text-ink/85">
+            <Sparkles aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+            Gesture + flash shutter
+          </p>
+          <span className="inline-flex items-center gap-1 rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+            <Lock aria-hidden className="h-3 w-3" strokeWidth={2} />
+            Coming with the native Papic app (V1.5)
+          </span>
+        </div>
+        <p className="max-w-prose text-xs text-ink/60">
+          Drag-to-shoot and a synced flash/torch aren&rsquo;t possible in a phone
+          browser — they arrive with the native Papic app:
+        </p>
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {COMING_GESTURES.map((g) => (
+            <li
+              key={g.id}
+              className="flex items-start gap-3 rounded-xl border border-ink/10 bg-cream/60 p-3 opacity-80 sm:p-4"
+            >
+              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-ink/5 text-ink/55">
+                <g.Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-ink/80">{g.title}</p>
+                <p className="mt-0.5 text-xs text-ink/55">{g.body}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
       </div>
     </article>
   );

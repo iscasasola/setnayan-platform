@@ -430,6 +430,76 @@ export function floorObstacles(
   return obs;
 }
 
+// ── Venue objects (whole-venue designer) ───────────────────────────────────
+// Placeable NON-seating elements so the 3D edit lays out the ENTIRE space, not
+// just guest tables (owner 2026-06-26). The CANONICAL kind list — keep the DB
+// CHECK in 20270224150000_event_scene_objects.sql in sync when extending. `w`/`d`
+// are the footprint (metres) used for the 3D mesh + the crowd avoidance disc.
+export type VenueObjectKind =
+  | 'arch'
+  | 'buffet'
+  | 'bar'
+  | 'cake_table'
+  | 'gift_table'
+  | 'registration'
+  | 'photo_booth'
+  | 'lounge'
+  | 'led_wall'
+  | 'plant';
+
+export const VENUE_OBJECT_CATALOG: ReadonlyArray<{
+  kind: VenueObjectKind;
+  label: string;
+  w: number;
+  d: number;
+}> = [
+  { kind: 'arch', label: 'Ceremony arch', w: 2.4, d: 0.6 },
+  { kind: 'buffet', label: 'Buffet station', w: 3.0, d: 0.9 },
+  { kind: 'bar', label: 'Bar', w: 2.5, d: 0.8 },
+  { kind: 'cake_table', label: 'Cake table', w: 1.2, d: 1.2 },
+  { kind: 'gift_table', label: 'Gift table', w: 1.6, d: 0.7 },
+  { kind: 'registration', label: 'Registration', w: 1.6, d: 0.7 },
+  { kind: 'photo_booth', label: 'Photo booth', w: 2.0, d: 2.0 },
+  { kind: 'lounge', label: 'Lounge', w: 2.5, d: 1.8 },
+  { kind: 'led_wall', label: 'LED wall', w: 4.0, d: 0.4 },
+  { kind: 'plant', label: 'Plant / greenery', w: 0.8, d: 0.8 },
+];
+
+const VENUE_OBJECT_DIMS: ReadonlyMap<string, { w: number; d: number }> = new Map(
+  VENUE_OBJECT_CATALOG.map((o) => [o.kind, { w: o.w, d: o.d }]),
+);
+
+/** Footprint (metres) for a venue-object kind; a 1×1 fallback for unknown kinds. */
+export function venueObjectDims(kind: string): { w: number; d: number } {
+  return VENUE_OBJECT_DIMS.get(kind) ?? { w: 1, d: 1 };
+}
+
+/** A placed venue object on the couple's percent canvas. */
+export type Lab3DSceneObject = {
+  id: string;
+  kind: VenueObjectKind;
+  label: string | null;
+  xPct: number;
+  yPct: number;
+  rotationDeg: number;
+};
+
+/**
+ * Avoidance discs for placed venue objects, so the walk-in crowd steers around
+ * the buffet / arch / bar just like it does tables. Merge into floorObstacles'
+ * output at the call site (objects don't get "skipped" the way a destination
+ * table does — a guest never walks INTO a buffet).
+ */
+export function sceneObjectObstacles(
+  objects: Lab3DSceneObject[],
+  room: { w: number; d: number },
+): { c: Vec2; r: number }[] {
+  return objects.map((o) => {
+    const dim = venueObjectDims(o.kind);
+    return { c: pctToWorld(o.xPct, o.yPct, room), r: Math.max(dim.w, dim.d) / 2 + 0.4 };
+  });
+}
+
 /**
  * Push a point to the edge of any avoidance disc it sits inside (one pass over
  * the discs). `perp` is the escape heading for the degenerate case where the

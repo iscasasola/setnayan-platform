@@ -49,9 +49,10 @@ import {
   savePriorityOrder,
   setGuestSeatingPriority,
   assignGroup,
+  autoArrange,
 } from '@/app/dashboard/[eventId]/seating/actions';
-import { TABLE_TYPE_CATALOG, ROLE_TIER_LABELS } from '@/lib/seating';
-import type { KeepApartRule, PriorityOrder } from '@/lib/seating';
+import { TABLE_TYPE_CATALOG, ROLE_TIER_LABELS, computeAutoLayout } from '@/lib/seating';
+import type { KeepApartRule, PriorityOrder, EventTableRow } from '@/lib/seating';
 
 // A server action's lock guard throws SeatingLockError, but the class identity
 // is lost across the RSC boundary — match defensively (instanceof → code →
@@ -760,6 +761,58 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
     });
   }, [canEdit, eventId, lock.lockId, persist, router]);
 
+  // 2D-parity: auto-arrange — tidy EVERY table into a stage-out grid AND seat the
+  // guests, in one tap. Layout via the SAME pure solver the 2D editor uses
+  // (computeAutoLayout, fed the lab's live table footprints), painted optimistically;
+  // the server persists positions + assignments, then we resync seats from truth.
+  const autoArrangeAll = useCallback(() => {
+    if (!canEdit || tables.length === 0) return;
+    const layout = computeAutoLayout({
+      tables: tables.map((t) => ({ table_id: t.id, table_type: t.type })) as unknown as EventTableRow[],
+      floorPlan: {
+        stage_x: floor.stage.xPct,
+        stage_y: floor.stage.yPct,
+        stage_w: floor.stage.wPct,
+        stage_h: floor.stage.hPct,
+        entrance_enabled: floor.entrance.enabled,
+        entrance_x: floor.entrance.xPct,
+        entrance_y: floor.entrance.yPct,
+        service_entrance_enabled: false,
+        service_entrance_x: 0,
+        service_entrance_y: 0,
+        dance_enabled: floor.dance.enabled,
+        dance_x: floor.dance.xPct,
+        dance_y: floor.dance.yPct,
+        dance_w: floor.dance.wPct,
+        dance_h: floor.dance.hPct,
+        cocktail_enabled: false,
+        cocktail_x: 0,
+        cocktail_y: 0,
+        cocktail_w: 0,
+        cocktail_h: 0,
+      },
+      rect: { width: room.w, height: room.d },
+      footprintOf: (et) => {
+        const lt = tablesById.get(et.table_id);
+        if (!lt) return { w: 1, h: 1 };
+        const dim = tableDims(lt.shape, lt.capacity);
+        return { w: dim.w, h: dim.round ? dim.w : dim.d };
+      },
+    });
+    setTables((prev) => prev.map((t) => (layout[t.id] ? { ...t, xPct: layout[t.id]!.x, yPct: layout[t.id]!.y } : t)));
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
+    fd.set('positions', JSON.stringify(layout));
+    fd.set('booths', '[]');
+    void persist(async () => {
+      await autoArrange(fd);
+      seatResyncRef.current = true;
+      router.refresh();
+      setNotice('Tidied every table and seated your guests.');
+    });
+  }, [canEdit, tables, floor, room, tablesById, eventId, lock.lockId, persist, router]);
+
   // 2D-parity rules: keep two guests apart (auto-seat never seats them together).
   const addKeepApart = useCallback(
     (aId: string, bId: string) => {
@@ -1200,6 +1253,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
         onAutoSeat={autoSeatAll}
         onBuildDraft={buildDraft}
         onFillLocked={fillAroundLocked}
+        onAutoArrange={autoArrangeAll}
         onRotate={rotateSelected}
         onDelete={deleteSelected}
         onRenameTable={renameTable}
@@ -2360,6 +2414,7 @@ function Hud({
   onAutoSeat,
   onBuildDraft,
   onFillLocked,
+  onAutoArrange,
   onRotate,
   onDelete,
   onRenameTable,
@@ -2417,6 +2472,7 @@ function Hud({
   onAutoSeat: () => void;
   onBuildDraft: () => void;
   onFillLocked: () => void;
+  onAutoArrange: () => void;
   onRotate: (delta: number) => void;
   onDelete: () => void;
   onRenameTable: (label: string) => void;
@@ -2465,6 +2521,8 @@ function Hud({
 }) {
   const glass =
     'rounded-2xl border border-white/15 bg-white/10 backdrop-blur-md text-white shadow-lg';
+  // Two-tap confirm for the destructive auto-arrange (re-tidies every table).
+  const [confirmArrange, setConfirmArrange] = useState(false);
   return (
     <>
       {/* Top bar: mode toggle + prototype badge */}
@@ -2565,13 +2623,44 @@ function Hud({
                   </button>
                 </div>
                 {tableCount > 0 ? (
-                  <button
-                    type="button"
-                    onClick={onFillLocked}
-                    className="mb-2 w-full rounded-xl bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/20"
-                  >
-                    Fill around locked seats
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={onFillLocked}
+                      className="mb-2 w-full rounded-xl bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/20"
+                    >
+                      Fill around locked seats
+                    </button>
+                    {confirmArrange ? (
+                      <div className="mb-2 flex gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setConfirmArrange(false);
+                            onAutoArrange();
+                          }}
+                          className="flex-1 rounded-xl bg-white/90 px-3 py-2 text-sm font-semibold text-ink transition hover:bg-white"
+                        >
+                          Re-tidy all · confirm
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmArrange(false)}
+                          className="rounded-xl bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/20"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmArrange(true)}
+                        className="mb-2 w-full rounded-xl bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/20"
+                      >
+                        Auto-arrange tables
+                      </button>
+                    )}
+                  </>
                 ) : null}
               </>
             )}

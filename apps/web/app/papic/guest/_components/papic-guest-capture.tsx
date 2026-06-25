@@ -1163,6 +1163,7 @@ export function PapicGuestCapture({
                 type="button"
                 onClick={() => void sendFlash()}
                 disabled={isFlashSending || kwentoFlashText.trim().length === 0}
+                aria-label="Send"
                 className="shrink-0 rounded-md bg-mulberry px-3 py-2 text-sm font-medium text-cream disabled:opacity-40"
               >
                 {isFlashSending ? (

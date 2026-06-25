@@ -114,6 +114,16 @@ export type AddOnEntry = {
    * ownership badge; their detail pages handle state.
    */
   serviceKey?: string;
+  /**
+   * When true, the Studio card opens this service's OWN surface directly and
+   * skips the /studio/about/<key> learn-more interstitial — for free, frequently-
+   * revisited tools (the seat plan, the website parts) and services whose own
+   * surface already IS their App Store detail (Panood). Declared here so the
+   * open/learn-more decision is DATA, not a hardcoded if/else in
+   * appStoreDetailHref(). A non-opensDirect, non-coming_soon service MUST have an
+   * add-ons-detail.ts entry (lint-guarded) so its /about page can't 404.
+   */
+  opensDirect?: boolean;
 };
 
 /**
@@ -177,19 +187,15 @@ export function addOnHref(key: string, eventId: string): string {
  *     destination.
  */
 export function appStoreDetailHref(key: string, eventId: string): string {
-  if (key === 'panood') return `/dashboard/${eventId}/studio/panood`;
-  if (key === 'supplies-marketplace') return `/dashboard/${eventId}/studio/supplies-marketplace`;
-  // Seat plan has no /about detail page — the Studio row opens the editor
-  // directly (flag-aware via addOnHref).
-  if (key === 'seating') return addOnHref('seating', eventId);
-  // Website parts — the Studio card opens its editor directly (no /about
-  // interstitial): the three phase editors, and the combined "Whole website"
-  // card → the full-screen editor on its overview tab. These are free editing
-  // tools the couple revisits often; an info page would just add a tap.
+  // landing-page: the "Whole website" card opens the editor OVERVIEW
+  // (/site-editor root), which differs from addOnHref('landing-page') (the
+  // /website hub) — kept explicit pending the website-parts consolidation.
   if (key === 'landing-page') return `/site-editor/${eventId}`;
-  if (key === 'rsvp' || key === 'event' || key === 'editorial') {
-    return `/site-editor/${eventId}/${key}`;
-  }
+  // Everything else is data-driven by the `opensDirect` catalog flag — no
+  // per-feature hardcoding. opensDirect → open the service's own surface
+  // (addOnHref); otherwise → the shared /studio/about/<key> learn-more page.
+  const entry = ADD_ONS.find((a) => a.key === key);
+  if (entry?.opensDirect) return addOnHref(key, eventId);
   return `/dashboard/${eventId}/studio/about/${key}`;
 }
 
@@ -266,6 +272,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   // appStoreDetailHref → /site-editor/[eventId]/<phase>).
   {
     key: 'rsvp',
+    opensDirect: true,
     label: 'RSVP',
     Icon: MailCheck,
     iteration: '0002',
@@ -287,6 +294,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'event',
+    opensDirect: true,
     label: 'Event',
     Icon: PartyPopper,
     iteration: '0031',
@@ -308,6 +316,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'editorial',
+    opensDirect: true,
     label: 'Editorial',
     Icon: Newspaper,
     iteration: '0038',
@@ -329,6 +338,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'landing-page',
+    opensDirect: true,
     label: 'Whole website',
     Icon: Globe2,
     iteration: '0002',
@@ -483,6 +493,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'panood',
+    opensDirect: true,
     label: 'Panood',
     Icon: Tv,
     iteration: '0011',
@@ -575,6 +586,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'supplies-marketplace',
+    opensDirect: true,
     label: 'Paprint',
     Icon: Printer,
     iteration: '0018',
@@ -664,6 +676,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // precedent (indoor-blueprint + mood-board live here) without touching the
     // owner-locked 4-section sub-nav. Its href is flag-aware — see addOnHref.
     key: 'seating',
+    opensDirect: true,
     label: 'Seat Plan',
     Icon: LayoutGrid,
     iteration: '0008',

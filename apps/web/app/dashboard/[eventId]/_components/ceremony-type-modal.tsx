@@ -18,14 +18,14 @@
  * bottom-sheet treatment, desktop center-modal.
  */
 
-import { useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import { X } from 'lucide-react';
 import {
   CeremonyTypeRadioGroup,
   type CeremonyTypeKey,
 } from '@/app/_components/ceremony-type-radio-group';
 import { setEventCeremonyType } from '../actions';
-import { useEscapeKey } from '@/lib/use-escape-key';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 
 type Props = {
   eventId: string;
@@ -54,10 +54,19 @@ export function CeremonyTypeModal({ eventId, currentValue, onClose }: Props) {
   const [selected, setSelected] = useState<CeremonyTypeKey | null>(initial);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const dialogRef = useRef<HTMLDivElement>(null);
 
-  // Escape-to-dismiss (audit: this modal was missing it); suspended mid-submit,
-  // matching the click-outside + close-button !pending guard.
-  useEscapeKey(onClose, !pending);
+  // Focus trap + scroll-lock + Esc-to-close via the shared hook. This modal
+  // mounts only while open, so `open` is the constant true. Esc routes through
+  // the `!pending` guard so it's suspended mid-submit, matching the
+  // click-outside + close-button guards.
+  useModalA11y({
+    open: true,
+    onClose: () => {
+      if (!pending) onClose();
+    },
+    containerRef: dialogRef,
+  });
 
   function handleSave() {
     if (!selected) return;
@@ -77,10 +86,11 @@ export function CeremonyTypeModal({ eventId, currentValue, onClose }: Props) {
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-labelledby="ceremony-modal-title"
-      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/55 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/55 p-0 backdrop-blur-sm focus:outline-none sm:items-center sm:p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget && !pending) onClose();
       }}

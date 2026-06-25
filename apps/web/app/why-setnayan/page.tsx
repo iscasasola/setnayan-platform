@@ -19,6 +19,7 @@
 
 import Link from 'next/link';
 import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
+import { LineRevealHeading, RevealBand, SettleRow } from './_why-motion';
 
 export const dynamic = 'force-static';
 export const revalidate = 3600;
@@ -130,98 +131,140 @@ export default function WhySetnayanPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(PAGE_LD) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_LD) }} />
       <main className="mx-auto w-full max-w-6xl px-5 pb-20 pt-10 sm:pt-14">
-        {/* Hero */}
-        <header className="mx-auto max-w-2xl text-center">
-          <p className="font-mono text-xs uppercase tracking-[0.22em] text-[#8C6932]">Why Setnayan</p>
-          <h1 className="mt-3 font-serif text-4xl leading-tight tracking-tight text-[#1E2229] sm:text-5xl">
+        {/* Hero — H1 gets the serif line-reveal (mount, above-the-fold); the eyebrow
+            + subcopy do a quiet stagger rise. No thread, no gold underline. */}
+        <RevealBand as="header" className="mx-auto max-w-2xl text-center">
+          <p data-reveal-item className="font-mono text-xs uppercase tracking-[0.22em] text-[#8C6932]">
+            Why Setnayan
+          </p>
+          <LineRevealHeading
+            trigger="mount"
+            className="mt-3 font-serif text-4xl leading-tight tracking-tight text-[var(--m-ink)] sm:text-5xl"
+          >
             Three apps&rsquo; worth of wedding, in one.
-          </h1>
-          <p className="mx-auto mt-4 max-w-xl text-base text-[#5F5E5A] sm:text-lg">
+          </LineRevealHeading>
+          <p data-reveal-item className="mx-auto mt-4 max-w-xl text-base text-[#5F5E5A] sm:text-lg">
             To do what Setnayan does, you&rsquo;d normally juggle a planning app, a separate guest-photo app, and a
             vendor directory — none of which talk to each other. Setnayan brings them together, free to start, and adds
             what none of them have.
           </p>
-        </header>
+        </RevealBand>
 
-        {/* What you'd otherwise juggle */}
+        {/* What you'd otherwise juggle — THE signature. The three fragmented "apps"
+            enter SEPARATED (outer two pushed ~28px outward + a faint ±1.2° tilt) and
+            converge/settle into one clean aligned trio in a single GSAP beat
+            (useSettle). The "three logins, three bills" punchline fades in last. */}
         <section className="mx-auto mt-16 max-w-4xl" aria-label="What you would otherwise juggle">
-          <h2 className="text-center font-serif text-2xl text-[#1E2229] sm:text-3xl">What you&rsquo;d otherwise juggle</h2>
-          <div className="mt-7 grid gap-6 sm:grid-cols-3">
-            {JUGGLE.map((j) => (
-              <div key={j.label} className="rounded-2xl border border-[#1E2229]/10 bg-white/50 p-5">
-                <h3 className="font-serif text-lg text-[#9A8F86]">{j.label}</h3>
-                <p className="mt-2 text-sm text-[#5F5E5A]">{j.line}</p>
-              </div>
-            ))}
-          </div>
-          <p className="mx-auto mt-5 max-w-xl text-center text-sm text-[#8C6932]">
-            Three logins, three bills, and nothing that remembers your wedding once it&rsquo;s over.
-          </p>
+          <h2 className="text-center font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">What you&rsquo;d otherwise juggle</h2>
+          <SettleRow className="mt-7 grid gap-6 sm:grid-cols-3">
+            {JUGGLE.map((j, i) => {
+              // Outer cards start offset outward + faintly tilted; middle stays centered.
+              const settle =
+                i === 0
+                  ? { 'data-settle-x': '-28', 'data-settle-rotate': '-1.2' }
+                  : i === JUGGLE.length - 1
+                    ? { 'data-settle-x': '28', 'data-settle-rotate': '1.2' }
+                    : {};
+              return (
+                <div
+                  key={j.label}
+                  data-settle-item
+                  {...settle}
+                  className="rounded-2xl border border-[var(--m-ink)]/10 bg-white/50 p-5"
+                >
+                  <h3 className="font-serif text-lg text-[#9A8F86]">{j.label}</h3>
+                  <p className="mt-2 text-sm text-[#5F5E5A]">{j.line}</p>
+                </div>
+              );
+            })}
+          </SettleRow>
+          <RevealBand className="mx-auto mt-5 max-w-xl text-center" y={10}>
+            <p data-reveal-item className="text-sm text-[#8C6932]">
+              Three logins, three bills, and nothing that remembers your wedding once it&rsquo;s over.
+            </p>
+          </RevealBand>
         </section>
 
-        {/* What Setnayan brings together */}
+        {/* What Setnayan brings together — plain staggered y-rise (useReveal); no
+            per-card spectacle. Gold fill dropped → neutral --m-paper-2 with only a
+            hairline --m-orange border. */}
         <section className="mx-auto mt-16 max-w-3xl" aria-label="What Setnayan brings together">
-          <h2 className="text-center font-serif text-2xl text-[#1E2229] sm:text-3xl">What Setnayan brings together</h2>
-          <div className="mt-7 grid gap-5 sm:grid-cols-2">
+          <h2 className="text-center font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">What Setnayan brings together</h2>
+          <RevealBand className="mt-7 grid gap-5 sm:grid-cols-2">
             {BRINGS.map(([title, line]) => (
-              <div key={title} className="rounded-2xl border border-[#C5A059]/30 bg-[#FBF8F1] p-6">
-                <h3 className="font-serif text-lg text-[#1E2229]">{title}</h3>
+              <div
+                key={title}
+                data-reveal-item
+                className="rounded-2xl border border-[var(--m-orange)]/30 bg-[var(--m-paper-2)] p-6"
+              >
+                <h3 className="font-serif text-lg text-[var(--m-ink)]">{title}</h3>
                 <p className="mt-2 text-sm text-[#5F5E5A]">{line}</p>
               </div>
             ))}
-          </div>
+          </RevealBand>
         </section>
 
-        {/* The part no one else has */}
+        {/* The part no one else has — quiet rise on copy + the two CTAs; no thread. */}
         <section className="mx-auto mt-16 max-w-2xl text-center" aria-label="The part no one else has">
-          <h2 className="font-serif text-2xl text-[#1E2229] sm:text-3xl">The part no one else has</h2>
-          <p className="mx-auto mt-3 max-w-xl text-base text-[#5F5E5A]">
-            Every guest goes home with their own photos and a souvenir reel, and an AI shortlist of vendors that
-            actually fit — woven into the same free platform that handles your whole plan. That combination doesn&rsquo;t
-            exist anywhere else.
-          </p>
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-            <Link
-              href="/papic"
-              className="inline-flex min-h-[44px] items-center justify-center rounded-full border border-[#1E2229]/20 px-5 py-2.5 text-sm font-medium text-[#1E2229] transition-colors hover:bg-[#1E2229]/[0.04]"
-            >
-              Explore Papic
-            </Link>
-            <Link
-              href="/setnayan-ai"
-              className="inline-flex min-h-[44px] items-center justify-center rounded-full border border-[#1E2229]/20 px-5 py-2.5 text-sm font-medium text-[#1E2229] transition-colors hover:bg-[#1E2229]/[0.04]"
-            >
-              Explore Setnayan AI
-            </Link>
-          </div>
+          <h2 className="font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">The part no one else has</h2>
+          <RevealBand>
+            <p data-reveal-item className="mx-auto mt-3 max-w-xl text-base text-[#5F5E5A]">
+              Every guest goes home with their own photos and a souvenir reel, and an AI shortlist of vendors that
+              actually fit — woven into the same free platform that handles your whole plan. That combination doesn&rsquo;t
+              exist anywhere else.
+            </p>
+            <div data-reveal-item className="mt-6 flex flex-wrap items-center justify-center gap-3">
+              <Link
+                href="/papic"
+                className="inline-flex min-h-[44px] items-center justify-center rounded-full border border-[var(--m-ink)]/20 px-5 py-2.5 text-sm font-medium text-[var(--m-ink)] transition-colors hover:bg-[var(--m-ink)]/[0.04]"
+              >
+                Explore Papic
+              </Link>
+              <Link
+                href="/setnayan-ai"
+                className="inline-flex min-h-[44px] items-center justify-center rounded-full border border-[var(--m-ink)]/20 px-5 py-2.5 text-sm font-medium text-[var(--m-ink)] transition-colors hover:bg-[var(--m-ink)]/[0.04]"
+              >
+                Explore Setnayan AI
+              </Link>
+            </div>
+          </RevealBand>
         </section>
 
-        {/* FAQ */}
+        {/* FAQ — stagger-reveal rows (useReveal); no accordion motion. Hairline
+            dividers recolored to --m-line. */}
         <section className="mx-auto mt-16 max-w-2xl" aria-label="Why Setnayan questions">
-          <h2 className="text-center font-serif text-2xl text-[#1E2229] sm:text-3xl">Questions, answered</h2>
-          <dl className="mt-7 divide-y divide-[#1E2229]/10 border-y border-[#1E2229]/10">
+          <h2 className="text-center font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">Questions, answered</h2>
+          <RevealBand as="dl" className="mt-7 divide-y divide-[var(--m-line)] border-y border-[var(--m-line)]">
             {FAQ.map((f) => (
-              <div key={f.q} className="py-5">
-                <dt className="font-serif text-base text-[#1E2229]">{f.q}</dt>
+              <div key={f.q} data-reveal-item className="py-5">
+                <dt className="font-serif text-base text-[var(--m-ink)]">{f.q}</dt>
                 <dd className="mt-1.5 text-sm text-[#5F5E5A]">{f.a}</dd>
               </div>
             ))}
-          </dl>
+          </RevealBand>
         </section>
 
-        {/* CTA */}
-        <section className="mx-auto mt-14 max-w-2xl rounded-3xl border border-[#C5A059]/40 bg-[#FBF6EA] px-6 py-10 text-center">
-          <h2 className="font-serif text-2xl text-[#1E2229] sm:text-3xl">One place for all of it</h2>
-          <p className="mx-auto mt-3 max-w-lg text-base text-[#5F5E5A]">
-            Your plan, your vendors, and your memories — together, free to start. Set na &rsquo;yan.
-          </p>
-          <Link
-            href="/onboarding/wedding?from=why-setnayan"
-            className="mt-5 inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-[#5C2542] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
-          >
-            Start planning · free
-          </Link>
-        </section>
+        {/* CTA — single fade+rise (the whole card reveals as one). Gold-tint fill
+            dropped → --m-paper-2 with ONE hairline --m-orange top-border. Mulberry
+            button untouched (value-equivalent token swaps only). */}
+        <RevealBand
+          as="div"
+          className="mx-auto mt-14 max-w-2xl rounded-3xl border-t border-[var(--m-orange)]/40 bg-[var(--m-paper-2)] px-6 py-10 text-center"
+          y={20}
+        >
+          <section>
+            <h2 className="font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">One place for all of it</h2>
+            <p className="mx-auto mt-3 max-w-lg text-base text-[#5F5E5A]">
+              Your plan, your vendors, and your memories — together, free to start. Set na &rsquo;yan.
+            </p>
+            <Link
+              href="/onboarding/wedding?from=why-setnayan"
+              className="mt-5 inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-[var(--m-mulberry)] px-7 py-3 text-sm font-semibold text-[var(--m-paper)] transition-opacity hover:opacity-90"
+            >
+              Start planning · free
+            </Link>
+          </section>
+        </RevealBand>
       </main>
       <SiteFooter />
     </>

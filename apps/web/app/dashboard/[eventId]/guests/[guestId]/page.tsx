@@ -25,6 +25,7 @@ import {
   type GuestGroupCategory,
   type GuestRole,
   type GuestSide,
+  type GuestAttire,
   type InvitedToBlock,
   type MealPreference,
   type RsvpStatus,
@@ -86,6 +87,15 @@ const MEAL_OPTIONS: MealPreference[] = [
   'kids',
 ];
 const RSVP_OPTIONS: RsvpStatus[] = ['attending', 'pending', 'maybe', 'declined'];
+// 3D seat-plan attire. 'neutral' is the default: the avatar auto-dresses from a
+// gendered wedding-party role, else stays a plain token — so couples only set
+// this for the general crowd they want gowned/suited.
+const ATTIRE_OPTIONS: GuestAttire[] = ['neutral', 'gown', 'suit'];
+const ATTIRE_LABELS: Record<GuestAttire, string> = {
+  neutral: 'Neutral / auto',
+  gown: 'Gown',
+  suit: 'Suit',
+};
 
 const ERROR_COPY: Record<string, string> = {
   missing_name: 'Please enter both first and last name.',
@@ -348,6 +358,12 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
                 options={availableRoles.map((v) => ({ value: v, label: ROLE_LABELS[v] }))}
               />
             )}
+            <Select
+              id="attire"
+              label="Attire · 3D seat plan"
+              defaultValue={guest.attire}
+              options={ATTIRE_OPTIONS.map((v) => ({ value: v, label: ATTIRE_LABELS[v] }))}
+            />
           </div>
         </Section>
 

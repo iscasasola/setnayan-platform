@@ -21,7 +21,8 @@ by role** today, so the room reads correctly immediately.
   suit body (motif-coloured) under the selfie head; `neutral` keeps the plain
   RSVP token. No gender is invented — unmapped guests stay neutral.
 
-Next PR: a gown/suit/neutral picker on the guest detail page so couples can
-dress the general crowd, not just the entourage.
+- **Guest detail page + `updateGuest`** — a Gown / Suit / Neutral·auto picker in
+  the Categorization section so couples dress the general crowd, not just the
+  entourage. The action validates against the closed set (mirrors the DB CHECK).
 
 SPEC IMPACT: 0008 Seating + 0001 Guests — guests carry attire; 3D avatars dress.

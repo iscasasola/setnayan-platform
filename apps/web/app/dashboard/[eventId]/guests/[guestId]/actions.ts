@@ -9,6 +9,7 @@ import {
   type GuestGroupCategory,
   type GuestRole,
   type GuestSide,
+  type GuestAttire,
   type InvitedToBlock,
   type MealPreference,
   type RsvpStatus,
@@ -65,6 +66,10 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   const side = clean(formData.get('side')) as GuestSide;
   const group_category = clean(formData.get('group_category')) as GuestGroupCategory;
   const role = (clean(formData.get('role')) || 'guest') as GuestRole;
+  // What the guest wears on their 3D seat-plan avatar. Validate against the
+  // closed set (DB CHECK enforces the same) rather than blindly casting.
+  const attireRaw = clean(formData.get('attire')) || 'neutral';
+  const attire: GuestAttire = attireRaw === 'gown' || attireRaw === 'suit' ? attireRaw : 'neutral';
   const email = clean(formData.get('email')) || null;
   const mobile = clean(formData.get('mobile')) || null;
   const meal_preference =
@@ -132,6 +137,7 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
       side,
       group_category,
       role,
+      attire,
       email,
       mobile,
       meal_preference,

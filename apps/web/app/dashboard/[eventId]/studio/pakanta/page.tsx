@@ -17,6 +17,7 @@ import {
 } from '@/lib/pakanta-brief';
 import { PakantaMusicForm } from './_components/pakanta-music-form';
 import { UseSongButton } from './_components/use-song-button';
+import { AiDisclosure } from '@/components/AiDisclosure';
 
 export const metadata = { title: 'Pakanta · Setnayan' };
 
@@ -203,6 +204,7 @@ export default async function PakantaPage({ params }: Props) {
             <>
               {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
               <audio controls preload="none" src={songPreviewUrl} className="mt-3 w-full" />
+              <AiDisclosure generator="song" className="mt-2" />
             </>
           ) : null}
           {adopted ? (
@@ -222,8 +224,8 @@ export default async function PakantaPage({ params }: Props) {
               <Clock aria-hidden className="h-5 w-5" strokeWidth={1.75} /> Your song is in production
             </p>
             <p className="text-sm text-ink/70">
-              Our music team is writing your song from your story. When it’s ready it will appear
-              here — and play on your wedding page automatically.
+              Your song is being composed with Setnayan AI from your story. When it’s ready it will
+              appear here — and play on your wedding page automatically.
             </p>
           </div>
           {/* Keep the brief/intake visible while in production so the couple

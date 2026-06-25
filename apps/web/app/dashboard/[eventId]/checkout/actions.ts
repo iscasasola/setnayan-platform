@@ -286,6 +286,20 @@ export async function submitOrderAction(
     };
   }
 
+  // #13 (money bug-hunt): the order must be for an event the buyer belongs to.
+  // The orders RLS only checks `user_id = auth.uid()`, so a forged `event_id`
+  // would otherwise bind the order (and its pax-priced amount) to a stranger's
+  // event.
+  const { data: membership } = await supabase
+    .from('event_members')
+    .select('event_id')
+    .eq('event_id', eventId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (!membership) {
+    return { ok: false, reason: 'You can only check out for your own event.' };
+  }
+
   // ---- Catalog is the single source of truth for the charged price ----
   //
   // The base price originates client-side (the add-on page passes
@@ -558,29 +572,17 @@ export async function submitOrderAction(
       return { ok: false, reason };
     }
 
-    // Increment uses_count on the discount_codes row. This is a
-    // best-effort UPDATE via admin client (RLS gates couple writes).
-    // The redemption row already exists · uses_count tracking is for
-    // admin analytics (the max_uses check at apply-time reads it
-    // synchronously · the cap won't be wrong by more than 1 in worst-
-    // case race). Read-then-update isn't atomic without an RPC; the
-    // discount_codes_uses_within_cap CHECK constraint from PR #594
-    // would reject an over-increment, so the worst case is a silent
-    // failure on the very last redemption (the redemption row already
-    // landed · only the counter lags). Acceptable for V1.
+    // Increment uses_count on the discount_codes row (best-effort via the admin
+    // client). #12 (money bug-hunt): use the atomic increment_discount_uses RPC
+    // instead of a read-then-write — the latter lost updates under concurrency,
+    // so the apply-time cap (uses_count < max_uses) under-counted and the cap
+    // could be exceeded. The counter is now accurate. (Full apply-time atomicity
+    // — gating the discount on an atomic conditional increment — is a larger
+    // follow-up; the discount_codes_uses_within_cap CHECK still backstops an
+    // over-increment.)
     try {
       const admin = createAdminClient();
-      const { data: current } = await admin
-        .from('discount_codes')
-        .select('uses_count')
-        .eq('discount_code_id', voucherCodeId)
-        .maybeSingle();
-      if (current && typeof current.uses_count === 'number') {
-        await admin
-          .from('discount_codes')
-          .update({ uses_count: current.uses_count + 1 })
-          .eq('discount_code_id', voucherCodeId);
-      }
+      await admin.rpc('increment_discount_uses', { p_id: voucherCodeId });
     } catch (counterErr) {
       // Counter drift is recoverable via admin reconciliation; never
       // unwind the parent transaction.

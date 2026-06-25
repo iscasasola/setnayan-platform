@@ -96,6 +96,8 @@ export type ChatMessageRow = {
   sender_role: ChatSenderRole;
   body: string;
   created_at: string;
+  /** Set when this message announces a vendor proposal (renders as a card). */
+  proposal_id?: string | null;
 };
 
 const THREAD_SELECT =
@@ -264,7 +266,7 @@ export async function fetchMessages(
   const { data, error } = await supabase
     .from('chat_messages')
     .select(
-      'message_id,thread_id,event_id,vendor_profile_id,sender_user_id,sender_role,body,created_at',
+      'message_id,thread_id,event_id,vendor_profile_id,sender_user_id,sender_role,body,created_at,proposal_id',
     )
     .eq('thread_id', threadId)
     .order('created_at', { ascending: true });

@@ -27,14 +27,28 @@ import {
   VendorOfferService,
   type VendorOfferOption,
 } from './_components/vendor-offer-service';
+import { SendProposalCard } from './_components/send-proposal-card';
 import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Thread · Vendor' };
 
-type Props = { params: Promise<{ threadId: string }> };
+type Props = {
+  params: Promise<{ threadId: string }>;
+  searchParams?: Promise<{ notice?: string }>;
+};
 
-export default async function VendorThreadPage({ params }: Props) {
+const PROPOSAL_NOTICE: Record<string, string> = {
+  proposal_sent: 'Proposal sent — it’s in the conversation below.',
+  proposal_failed: 'Couldn’t send that proposal. Please try again.',
+  proposal_needs_template: 'Pick a template to send a proposal.',
+  proposal_sent_no_card: 'Proposal sent — find it in your Proposals list (the in-chat card didn’t post).',
+  proposal_thread_closed: 'You can only send a proposal on an open conversation.',
+};
+
+export default async function VendorThreadPage({ params, searchParams }: Props) {
   const { threadId } = await params;
+  const noticeKey = (await searchParams)?.notice;
+  const proposalNotice = typeof noticeKey === 'string' ? PROPOSAL_NOTICE[noticeKey] : undefined;
   const supabase = await createClient();
   const {
     data: { user },
@@ -89,6 +103,25 @@ export default async function VendorThreadPage({ params }: Props) {
           ? VENDOR_CATEGORY_LABEL[s.category as VendorCategory]
           : s.category),
     }));
+
+  // In-chat proposals — the vendor's own templates + packages populate the
+  // "Send a proposal" composer card. RLS scopes both to their org.
+  const [tplRes, pkgRes] = await Promise.all([
+    supabase
+      .from('vendor_proposal_templates')
+      .select('template_id, template_name')
+      .eq('vendor_profile_id', profile.vendor_profile_id),
+    supabase
+      .from('vendor_packages')
+      .select('package_id, package_name')
+      .eq('vendor_profile_id', profile.vendor_profile_id),
+  ]);
+  const proposalTemplates = ((tplRes.data ?? []) as { template_id: string; template_name: string }[]).map(
+    (t) => ({ id: t.template_id, name: t.template_name }),
+  );
+  const proposalPackages = ((pkgRes.data ?? []) as { package_id: string; package_name: string }[]).map(
+    (p) => ({ id: p.package_id, name: p.package_name }),
+  );
 
   // Returning-client flag (owner-locked 2026-06-12) — only relevant while the
   // inquiry is pending (the accept decision). Graceful-degrades pre-migration.
@@ -363,7 +396,19 @@ export default async function VendorThreadPage({ params }: Props) {
             : 'You can no longer message in this conversation.'}
         </div>
       ) : thread.inquiry_status === 'accepted' ? (
-        <ChatSendForm threadId={threadId} sendAction={sendChatMessage} />
+        <div className="space-y-3">
+          {proposalNotice ? (
+            <p className="rounded-xl border border-mulberry/25 bg-mulberry/[0.06] px-4 py-2.5 text-sm text-ink">
+              {proposalNotice}
+            </p>
+          ) : null}
+          <SendProposalCard
+            threadId={threadId}
+            templates={proposalTemplates}
+            packages={proposalPackages}
+          />
+          <ChatSendForm threadId={threadId} sendAction={sendChatMessage} />
+        </div>
       ) : thread.inquiry_status === 'pending' ? (
         <div className="space-y-3 rounded-xl border border-terracotta/30 bg-terracotta/5 p-4">
           <p className="text-sm text-ink">

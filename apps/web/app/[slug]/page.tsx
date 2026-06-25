@@ -33,6 +33,7 @@ import { SelfieCapture } from './_components/selfie-capture';
 import { DayOfFaceEnroll } from './_components/day-of-face-enroll';
 import { CountdownWidget } from './_components/countdown';
 import { ScheduleWidget } from './_components/schedule-widget';
+import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { fetchPublicScheduleBlocks, type ScheduleBlockRow } from '@/lib/schedule';
 import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
 import { GuestToHostCta } from '@/app/_components/guest-to-host-cta';
@@ -1986,7 +1987,7 @@ function PublicHideableWidget({
       // but we still skip the standalone widget when isLive to match
       // the editor's "always-on pin replaces hideable" contract).
       return !isLive && scheduleBlocks.length > 0 ? (
-        <ScheduleWidget blocks={scheduleBlocks} />
+        <ScheduleWidget blocks={scheduleBlocks} eventTz={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)} />
       ) : null;
 
     case 'venue_map':
@@ -2503,7 +2504,7 @@ function InvitationSite({
             aria-label="Day-of schedule"
             className="rounded-2xl border-2 border-success-300 bg-success-50/50 p-2"
           >
-            <ScheduleWidget blocks={scheduleBlocks} />
+            <ScheduleWidget blocks={scheduleBlocks} eventTz={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)} />
           </section>
         ) : null}
 
@@ -2795,7 +2796,7 @@ function HideableWidgetRender({
       // Don't render the same blocks twice. When NOT live, render the
       // standard widget only when there are public blocks to show.
       return !isLive && scheduleBlocks.length > 0 ? (
-        <ScheduleWidget blocks={scheduleBlocks} />
+        <ScheduleWidget blocks={scheduleBlocks} eventTz={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)} />
       ) : null;
 
     case 'venue_map':

@@ -138,12 +138,10 @@ export function FilterDrawer({
 
   return (
     <div
-      // role + aria-modal declare this as a modal dialog. The backdrop is
-      // click-to-close. Z-50 stays above the sticky header (z-30) and
-      // folder strip (z-20) so the drawer always wins the layer war.
-      role="dialog"
-      aria-modal="true"
-      aria-label="Filter vendors"
+      // Fixed backdrop container. Z-50 stays above the sticky header (z-30) and
+      // folder strip (z-20) so the drawer always wins the layer war. The
+      // dialog role/label live on the panel below — the element useModalA11y
+      // focuses + traps — so a screen reader announces the dialog on entry.
       className="fixed inset-0 z-50 flex"
     >
       {/* Backdrop — click closes the drawer. bg-ink/40 gives the standard
@@ -163,6 +161,9 @@ export function FilterDrawer({
       <div
         ref={panelRef}
         tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Filter vendors"
         className="relative ml-auto mt-auto flex w-full max-w-full flex-col rounded-t-2xl bg-cream shadow-xl outline-none sm:max-w-[480px] sm:mt-auto sm:mb-0 sm:rounded-t-2xl lg:my-0 lg:h-full lg:max-w-[420px] lg:rounded-l-2xl lg:rounded-tr-none"
         style={{ maxHeight: 'min(90vh, 100dvh)' }}
       >

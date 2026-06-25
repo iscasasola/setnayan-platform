@@ -130,13 +130,16 @@ export function useModalA11y<T extends HTMLElement = HTMLElement>({
       if (!isTopmost()) return;
 
       if (event.key === 'Escape') {
+        // The topmost modal owns this Escape — stop it reaching global / parent
+        // keydown handlers so one keystroke peels exactly one layer.
+        event.preventDefault();
+        event.stopPropagation();
         onCloseRef.current();
         return;
       }
       if (event.key !== 'Tab') return;
 
       const items = focusables();
-      const active = document.activeElement;
       const first = items[0];
       const last = items[items.length - 1];
       if (!first || !last) {
@@ -146,12 +149,20 @@ export function useModalA11y<T extends HTMLElement = HTMLElement>({
         container?.focus();
         return;
       }
+      // The container itself (tabindex=-1, the default initial-focus target) and
+      // anything outside the trap count as an edge — so the very first Tab /
+      // Shift+Tab after open wraps INWARD instead of leaking to the page behind.
+      const active =
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null;
+      const outsideTrap = !active || !items.includes(active);
       if (event.shiftKey) {
-        if (active === first || !container?.contains(active)) {
+        if (active === first || outsideTrap) {
           event.preventDefault();
           last.focus();
         }
-      } else if (active === last || !container?.contains(active)) {
+      } else if (active === last || outsideTrap) {
         event.preventDefault();
         first.focus();
       }
@@ -163,10 +174,31 @@ export function useModalA11y<T extends HTMLElement = HTMLElement>({
 
     return () => {
       document.removeEventListener('keydown', onKeyDown, true);
+      // Was this the frontmost modal when it closed? Only the topmost should
+      // hand focus back — otherwise a parent closing under a still-open child
+      // would yank focus out of the frontmost dialog.
+      const wasTopmost = modalStack[modalStack.length - 1] === id;
       const idx = modalStack.lastIndexOf(id);
       if (idx !== -1) modalStack.splice(idx, 1);
       if (lockScroll) unlockBodyScroll();
-      previouslyFocused.current?.focus?.();
+      if (wasTopmost) {
+        const prev = previouslyFocused.current;
+        if (prev && prev.isConnected) {
+          prev.focus();
+        } else {
+          // The trigger is gone (unmounted/hidden while the modal was open).
+          // Land on the main landmark instead of stranding focus on <body>.
+          const fallback = document.querySelector<HTMLElement>(
+            'main, [role="main"]',
+          );
+          if (fallback) {
+            if (!fallback.hasAttribute('tabindex')) {
+              fallback.setAttribute('tabindex', '-1');
+            }
+            fallback.focus();
+          }
+        }
+      }
     };
   }, [open, id, containerRef, lockScroll, initialFocusRef]);
 }

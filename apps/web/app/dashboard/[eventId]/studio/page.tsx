@@ -12,6 +12,7 @@ import { StudioSectionTabs } from './_components/studio-section-tabs';
 import { dismissRecommendation, recommendFeature } from './recommend-actions';
 import { createClient } from '@/lib/supabase/server';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { RevealList } from '@/app/_components/reveal-list';
 import Link from 'next/link';
 
 // The cinema-poster card (service-poster.tsx) still owns the `PosterStyle`
@@ -326,7 +327,10 @@ export default async function StudioPage({ params }: Props) {
             ) : null}
 
             {rows.length > 0 ? (
-              <ul className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-cream">
+              <RevealList
+                as="ul"
+                className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-cream"
+              >
                 {rows.map((addon) => {
                   const comingSoon = addon.status === 'coming_soon';
                   return (
@@ -342,7 +346,7 @@ export default async function StudioPage({ params }: Props) {
                     />
                   );
                 })}
-              </ul>
+              </RevealList>
             ) : null}
           </div>
         );

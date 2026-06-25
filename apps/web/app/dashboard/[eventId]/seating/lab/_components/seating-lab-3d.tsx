@@ -52,6 +52,7 @@ import {
   autoArrange,
   linkTables,
   unlinkTable,
+  setTableSeat,
 } from '@/app/dashboard/[eventId]/seating/actions';
 import { TABLE_TYPE_CATALOG, ROLE_TIER_LABELS, computeAutoLayout } from '@/lib/seating';
 import type { KeepApartRule, PriorityOrder, EventTableRow } from '@/lib/seating';
@@ -969,6 +970,36 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
     },
     [canEdit, tablesById, tables, eventId, lock.lockId, persist, router],
   );
+  // 2D-parity: remove/restore an individual chair (tap a chair on the selected
+  // table). Server rejects removing an OCCUPIED seat, so guard it client-side.
+  const toggleSeat = useCallback(
+    (tableId: string, seatNumber: number) => {
+      if (!canEdit) return;
+      const t = tablesById.get(tableId);
+      if (!t) return;
+      const currentlyRemoved = t.removedSeats.includes(seatNumber);
+      if (!currentlyRemoved) {
+        const occupied = Array.from(seats.values()).some((s) => s.tableId === tableId && s.seatNumber === seatNumber);
+        if (occupied) {
+          setNotice('Unseat the guest before removing this chair.');
+          return;
+        }
+      }
+      const nextRemoved = currentlyRemoved
+        ? t.removedSeats.filter((s) => s !== seatNumber)
+        : [...t.removedSeats, seatNumber];
+      setTables((prev) => prev.map((x) => (x.id === tableId ? { ...x, removedSeats: nextRemoved } : x)));
+      const fd = new FormData();
+      fd.set('event_id', eventId);
+      fd.set('lock_id', lock.lockId ?? '');
+      fd.set('table_id', tableId);
+      fd.set('seat_number', String(seatNumber));
+      fd.set('removed', currentlyRemoved ? 'false' : 'true');
+      void persist(() => setTableSeat(fd));
+    },
+    [canEdit, tablesById, seats, eventId, lock.lockId, persist],
+  );
+
   // 2D-parity: break a linked unit back into independent tables.
   const breakApart = useCallback(() => {
     if (!canEdit || !selectedId) return;
@@ -1275,6 +1306,8 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
             dragRef={dragRef}
             interactive={mode === 'build' && canEdit}
             onDown={onTableDown}
+            removable={mode === 'build' && canEdit && selectedId === t.id}
+            onToggleSeat={(seatNumber) => toggleSeat(t.id, seatNumber)}
             showCloth={showCloth}
             showAccents={showAccents}
             seated={seatedByTable.get(t.id)}
@@ -1751,6 +1784,8 @@ function TableMesh({
   dragRef,
   interactive,
   onDown,
+  removable,
+  onToggleSeat,
   showCloth,
   showAccents,
   seated,
@@ -1764,6 +1799,8 @@ function TableMesh({
   dragRef: React.MutableRefObject<{ id: string; x: number; z: number } | null>;
   interactive: boolean;
   onDown: (id: string) => void;
+  removable: boolean;
+  onToggleSeat: (seatNumber: number) => void;
   showCloth: boolean;
   showAccents: boolean;
   seated: Map<number, SeatToken> | undefined;
@@ -1803,6 +1840,11 @@ function TableMesh({
   // cheap pre-instancing win. Full InstancedMesh is the documented v2 collapse.
   const chairMat = useMemo(
     () => new THREE.MeshStandardMaterial({ color: palette.wall, roughness: 0.7 }),
+    [palette.wall],
+  );
+  // Removed chairs render as faint ghosts (tap to restore).
+  const ghostMat = useMemo(
+    () => new THREE.MeshStandardMaterial({ color: palette.wall, roughness: 0.7, transparent: true, opacity: 0.16 }),
     [palette.wall],
   );
   const tokenMats = useRef<Map<string, THREE.MeshStandardMaterial>>(new Map());
@@ -1922,11 +1964,25 @@ function TableMesh({
       {chairs.map((c, i) => {
         const ang = c.faceY;
         const tok = seated?.get(i);
+        const isRemoved = table.removedSeats.includes(i);
+        const mat = isRemoved ? ghostMat : chairMat;
         return (
-          <group key={i} position={[c.x, 0, c.z]} rotation={[0, ang, 0]}>
-            <mesh geometry={CHAIR_SEAT_GEO} position={[0, 0.46, 0]} material={chairMat} />
-            <mesh geometry={CHAIR_BACK_GEO} position={[0, 0.69, 0.19]} material={chairMat} />
-            {tok ? <SeatedAvatar tok={tok} bodyMat={tokenMat(tok.attireColor ?? tok.color, tok.opacity)} /> : null}
+          <group
+            key={i}
+            position={[c.x, 0, c.z]}
+            rotation={[0, ang, 0]}
+            onPointerDown={
+              removable
+                ? (e) => {
+                    e.stopPropagation();
+                    onToggleSeat(i);
+                  }
+                : undefined
+            }
+          >
+            <mesh geometry={CHAIR_SEAT_GEO} position={[0, 0.46, 0]} material={mat} />
+            <mesh geometry={CHAIR_BACK_GEO} position={[0, 0.69, 0.19]} material={mat} />
+            {tok && !isRemoved ? <SeatedAvatar tok={tok} bodyMat={tokenMat(tok.attireColor ?? tok.color, tok.opacity)} /> : null}
           </group>
         );
       })}
@@ -2867,6 +2923,9 @@ function Hud({
                       {linkArmed ? 'Tap another table to link…' : 'Link to another table'}
                     </button>
                   )
+                ) : null}
+                {canEdit ? (
+                  <p className="mt-1.5 text-[10px] leading-snug text-white/45">Tap a chair to remove or restore it.</p>
                 ) : null}
               </div>
             ) : null}

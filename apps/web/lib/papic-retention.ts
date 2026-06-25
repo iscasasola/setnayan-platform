@@ -37,7 +37,7 @@ export async function sweepExpiredSamplerPhotos(eventId: string): Promise<number
       const admin = createAdminClient();
       const { data, error } = await admin
         .from('papic_photos')
-        .select('photo_id, r2_object_key, poster_r2_key')
+        .select('photo_id, r2_object_key, poster_r2_key, display_r2_key, thumb_r2_key, wall_safe_r2_key')
         .eq('event_id', id)
         .not('expires_at', 'is', null)
         .lt('expires_at', new Date().toISOString())

@@ -67,8 +67,22 @@ test('un-converted event with expired rows: deletes bytes + rows, returns the co
       assert.equal(limit, 25, 'the sweep stays bounded');
       return {
         rows: [
-          { photo_id: 'p1', r2_object_key: 'r2://media/a.jpg', poster_r2_key: null },
-          { photo_id: 'p2', r2_object_key: 'r2://media/b.webm', poster_r2_key: 'r2://media/b.jpg' },
+          {
+            photo_id: 'p1',
+            r2_object_key: 'r2://media/a.jpg',
+            poster_r2_key: null,
+            display_r2_key: null,
+            thumb_r2_key: null,
+            wall_safe_r2_key: null,
+          },
+          {
+            photo_id: 'p2',
+            r2_object_key: 'r2://media/b.webm',
+            poster_r2_key: 'r2://media/b.jpg',
+            display_r2_key: null,
+            thumb_r2_key: null,
+            wall_safe_r2_key: null,
+          },
         ],
         readError: false,
       };
@@ -94,6 +108,42 @@ test('un-converted event with expired rows: deletes bytes + rows, returns the co
     ],
     'each r2://bucket/key ref is deleted; non-refs are skipped',
   );
+});
+
+test('deletes ALL five variant keys, deduping a clip’s shared display/poster ref', async () => {
+  const deletedObjects: Array<{ bucket: string; key: string }> = [];
+
+  const removed = await sweepExpiredSamplerPhotosCore(EVENT, {
+    isKept: async () => false,
+    makePermanent: noopPermanent,
+    fetchExpired: async () => ({
+      rows: [
+        {
+          photo_id: 'clip1',
+          r2_object_key: 'r2://media/orig.webm',
+          poster_r2_key: 'r2://media/poster.jpg',
+          // generateClipThumb sets display_r2_key = the poster ref → must dedup.
+          display_r2_key: 'r2://media/poster.jpg',
+          thumb_r2_key: 'r2://media/thumb.jpg',
+          wall_safe_r2_key: 'r2://media/wall.jpg',
+        },
+      ],
+      readError: false,
+    }),
+    deleteRows: async () => {},
+    deleteObject: async (ref) => {
+      deletedObjects.push(ref);
+    },
+  });
+
+  assert.equal(removed, 1);
+  // Four UNIQUE objects deleted — the duplicate display(=poster) ref is swept once.
+  assert.deepEqual(deletedObjects, [
+    { bucket: 'media', key: 'orig.webm' },
+    { bucket: 'media', key: 'poster.jpg' },
+    { bucket: 'media', key: 'thumb.jpg' },
+    { bucket: 'media', key: 'wall.jpg' },
+  ]);
 });
 
 test('un-converted event with no expired rows: no-op', async () => {
@@ -132,7 +182,16 @@ test('a failing R2 object delete never aborts the row cleanup', async () => {
     isKept: async () => false,
     makePermanent: noopPermanent,
     fetchExpired: async () => ({
-      rows: [{ photo_id: 'p1', r2_object_key: 'r2://media/a.jpg', poster_r2_key: null }],
+      rows: [
+        {
+          photo_id: 'p1',
+          r2_object_key: 'r2://media/a.jpg',
+          poster_r2_key: null,
+          display_r2_key: null,
+          thumb_r2_key: null,
+          wall_safe_r2_key: null,
+        },
+      ],
       readError: false,
     }),
     deleteRows: async (ids) => {

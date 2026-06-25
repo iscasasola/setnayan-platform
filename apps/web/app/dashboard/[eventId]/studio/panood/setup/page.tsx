@@ -755,7 +755,7 @@ function StyleAndAddOns({ setup }: { setup: PanoodSetup }) {
           title="AI Edited Highlight"
           price={`${formatPhp(AI_EDITED_HIGHLIGHT_PHP)} / 3 min`}
           owned={setup.aiEditedHighlightCount > 0}
-          blurb="A 3-minute storyline cut of the event — beats, music, and pacing chosen by Claude vision. Multi-purchase if you want alternate cuts."
+          blurb="A 3-minute storyline cut of the event — beats, music, and pacing chosen by Setnayan AI. Multi-purchase if you want alternate cuts."
           state="purchasable"
         />
         <PackCard

@@ -1,10 +1,15 @@
 import Link from 'next/link';
 import { Logo } from '@/app/_components/logo';
-import { Download, Globe, ArrowRight } from 'lucide-react';
+import { AppWindow, ArrowRight, Globe, ShieldCheck, Zap } from 'lucide-react';
 import { DESKTOP_RELEASE } from '@/lib/desktop-release';
 import { SiteHeader } from '@/app/_components/site-header';
 import { getNavSlotMap } from '@/lib/nav-registry';
-import { RevealGroup, LineRevealH1, ProvisionCard } from './_download-motion';
+import {
+  RevealGroup,
+  LineRevealH1,
+  AppWindowHero,
+  MagneticDownloadButton,
+} from './_download-motion';
 
 // GEO Phase G5 (2026-05-28) — canonical URL + openGraph block added.
 // SEO/GEO Bucket 8 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — 1hr Vercel
@@ -31,16 +36,17 @@ function formatMb(bytes: number) {
 
 export default async function DownloadPage() {
   const mac = DESKTOP_RELEASE.mac.aarch64;
+  const sizeLabel = formatMb(mac.sizeBytes);
 
   // Nav/icon/menu-registry overlay for the "Download for Mac" CTA label
-  // (public.download.mac-api) — applied to both buttons + the step-1 instruction.
+  // (public.download.mac-api) — applied to the CTA + the step-1 instruction.
   // Label-only + fails open: this is a server component, so it can't call the
-  // client-only navIconComponent — the Download/Apple icons stay hardcoded in
-  // code; only the button text is admin-renamable from /admin/menus. href + size
-  // suffix stay in code too. NOTE: this page is ISR (revalidate=3600), so an
-  // admin label edit propagates within the 1hr revalidation window (the registry
-  // data cache busts instantly via NAV_REGISTRY_TAG, but the page's prerendered
-  // HTML refreshes on the next ISR pass), not on the next request.
+  // client-only navIconComponent — the icons stay hardcoded in code; only the
+  // button text is admin-renamable from /admin/menus. href + size suffix stay in
+  // code too. NOTE: this page is ISR (revalidate=3600), so an admin label edit
+  // propagates within the 1hr revalidation window (the registry data cache busts
+  // instantly via NAV_REGISTRY_TAG, but the page's prerendered HTML refreshes on
+  // the next ISR pass), not on the next request.
   const navSlots = await getNavSlotMap();
   const macDownloadLabel = navSlots['public.download.mac-api']?.label ?? 'Download for Mac';
 
@@ -49,12 +55,12 @@ export default async function DownloadPage() {
       <SiteHeader />
 
       {/* ───────────────────────── Hero ─────────────────────────
-          Airy two-column editorial split. Copy column leads with a hairline
-          eyebrow + a serif line-reveal headline; the ProvisionCard (the page's
-          one motion moment) self-assembles on the right. Generous vertical
-          rhythm, no competing borders. */}
+          Airy two-column editorial split. Copy leads with a hairline eyebrow + a
+          serif line-reveal headline; the floating macOS app window (the page's
+          ONE motion moment) opens on the right and the Setnayan dock icon
+          launch-bounces — the product story made literal. */}
       <section>
-        <div className="mx-auto grid w-full max-w-6xl items-center gap-12 px-5 py-20 sm:px-6 sm:py-28 lg:grid-cols-[1.05fr,0.95fr] lg:gap-16 lg:px-8">
+        <div className="mx-auto grid w-full max-w-6xl items-center gap-12 px-5 py-20 sm:px-6 sm:py-24 lg:grid-cols-[1fr,1fr] lg:gap-16 lg:px-8 lg:py-28">
           <RevealGroup className="space-y-7">
             <p
               data-reveal-item
@@ -68,27 +74,14 @@ export default async function DownloadPage() {
               Setnayan, on your Mac.
             </LineRevealH1>
 
-            <div data-reveal-item className="max-w-md space-y-4 text-lg leading-relaxed text-ink/65">
-              <p>
-                Your guest list, invitations, planner and seating — in their own
-                window, with their own dock icon. Built for Apple Silicon.
-              </p>
-              <p className="text-ink/80">
-                It opens straight to your account. No browser tab, no landing
-                page — sign in once and you&rsquo;re in.
-              </p>
-            </div>
+            <p data-reveal-item className="max-w-md text-lg leading-relaxed text-ink/65">
+              In its own window, with its own Dock icon — your guest list,
+              invitations, planner and seating, one launch away. It opens straight
+              to your account, no browser tab in sight.
+            </p>
 
-            <div data-reveal-item className="flex flex-wrap items-center gap-3 pt-1">
-              {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-              <a
-                href="/api/download/mac"
-                className="button-primary inline-flex items-center gap-2"
-              >
-                <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                {macDownloadLabel}
-                <span className="text-cream/55">· {formatMb(mac.sizeBytes)}</span>
-              </a>
+            <div data-reveal-item className="flex flex-wrap items-center gap-x-4 gap-y-3 pt-1">
+              <MagneticDownloadButton label={macDownloadLabel} sizeLabel={sizeLabel} />
               <Link
                 href="https://setnayan.com"
                 className="inline-flex items-center gap-1.5 text-sm font-medium text-ink/70 underline-offset-4 transition-colors hover:text-ink hover:underline"
@@ -98,18 +91,55 @@ export default async function DownloadPage() {
               </Link>
             </div>
 
-            <p data-reveal-item className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/45">
-              Apple Silicon (M1 – M4) only · Released {DESKTOP_RELEASE.publishedAt}
-            </p>
+            <div data-reveal-item className="space-y-1.5 pt-1">
+              <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/45">
+                v{DESKTOP_RELEASE.version} · {sizeLabel} · Apple Silicon (M1 – M4) · Released{' '}
+                {DESKTOP_RELEASE.publishedAt}
+              </p>
+              <p className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-terracotta-700">
+                <ShieldCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                Signed &amp; notarized by Apple
+              </p>
+            </div>
           </RevealGroup>
 
-          <ProvisionCard
-            filename={mac.filename}
-            sizeBytes={mac.sizeBytes}
-            version={DESKTOP_RELEASE.version}
-            publishedAt={DESKTOP_RELEASE.publishedAt}
-            label={macDownloadLabel}
-          />
+          <AppWindowHero />
+        </div>
+      </section>
+
+      {/* ───────────────────── Why open it on your Mac ─────────────────────
+          The substance the page was missing — three quiet value columns, gold
+          icon + one confident line each. Hairline-topped, no boxes. */}
+      <section className="border-t border-ink/8">
+        <div className="mx-auto w-full max-w-6xl px-5 py-20 sm:px-6 sm:py-24 lg:px-8">
+          <div className="mb-14 max-w-xl space-y-3">
+            <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-terracotta">
+              Why the Mac app
+            </p>
+            <h2 className="text-3xl font-semibold tracking-[-0.01em] sm:text-4xl">
+              The same Setnayan, closer to hand.
+            </h2>
+          </div>
+
+          <RevealGroup stagger={0.09}>
+            <div className="grid gap-12 sm:grid-cols-3 sm:gap-10">
+              <Value
+                icon={<AppWindow aria-hidden className="h-5 w-5" strokeWidth={1.5} />}
+                title="Its own window & Dock icon"
+                body="Lives in your Dock like any real Mac app. ⌘-Tab straight to it — no hunting through browser tabs."
+              />
+              <Value
+                icon={<Zap aria-hidden className="h-5 w-5" strokeWidth={1.5} />}
+                title="Opens straight to your plan"
+                body="No landing page, no sign-in wall every time. Launch it and you're already inside your wedding."
+              />
+              <Value
+                icon={<ShieldCheck aria-hidden className="h-5 w-5" strokeWidth={1.5} />}
+                title="Trusted & always signed in"
+                body="Signed with an Apple Developer ID and notarized by Apple. Sign in once — it remembers you after that."
+              />
+            </div>
+          </RevealGroup>
         </div>
       </section>
 
@@ -166,14 +196,13 @@ export default async function DownloadPage() {
         <div className="mx-auto w-full max-w-6xl px-5 py-20 sm:px-6 sm:py-24 lg:px-8">
           <RevealGroup stagger={0.1}>
             <div className="grid gap-12 lg:grid-cols-2 lg:gap-20">
-              <Note data-reveal-item label="Signed & notarized">
+              <Note data-reveal-item label="First launch">
                 <h3 className="text-xl font-semibold tracking-[-0.01em] text-ink">
                   Just double-click to open.
                 </h3>
                 <p className="mt-3 text-ink/65">
-                  Setnayan is signed with an Apple Developer ID and{' '}
-                  <span className="text-ink/80">notarized by Apple</span>, so it
-                  opens like any trusted Mac app — no right-click, no workarounds.
+                  Because Setnayan is notarized by Apple, it opens like any trusted
+                  Mac app — no right-click, no Gatekeeper workarounds.
                 </p>
                 <p className="mt-3 text-ink/65">
                   The first time, macOS may ask once to confirm you downloaded it
@@ -209,6 +238,26 @@ export default async function DownloadPage() {
 
       <SiteFooter />
     </main>
+  );
+}
+
+function Value({
+  icon,
+  title,
+  body,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  body: string;
+}) {
+  return (
+    <div data-reveal-item className="border-t border-ink/12 pt-6">
+      <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-terracotta/10 text-terracotta-700">
+        {icon}
+      </span>
+      <h3 className="mt-5 text-lg font-semibold tracking-[-0.01em] text-ink">{title}</h3>
+      <p className="mt-2 text-[15px] leading-relaxed text-ink/60">{body}</p>
+    </div>
   );
 }
 

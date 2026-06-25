@@ -56,6 +56,7 @@ import {
   type Lab3DMonogram,
   type Vec2,
   roomSize,
+  contentBounds,
   pctToWorld,
   tableDims,
   chairLocalPositions,
@@ -333,6 +334,10 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
 
   const tablesById = useMemo(() => new Map(tables.map((t) => [t.id, t])), [tables]);
   const guestById = useMemo(() => new Map(guests.map((g) => [g.id, g])), [guests]);
+  // Open-canvas framing: the free board lets tables sit far outside the default
+  // room, so let the camera zoom out far enough to take the WHOLE layout in
+  // (not just the fixed venue rectangle). Drives OrbitControls maxDistance.
+  const bounds = useMemo(() => contentBounds(tables, room), [tables, room]);
 
   // Per-table, per-seat token treatment from each seated guest's RSVP, plus a
   // ghost "+1 reserved" seat beside any guest the couple allowed a +1 whose +1
@@ -811,7 +816,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
           enableDamping={!reduced}
           dampingFactor={0.08}
           minDistance={6}
-          maxDistance={room.d * 3}
+          maxDistance={Math.max(room.d * 3, bounds.span * 1.4)}
           minPolarAngle={mode === 'build' ? 0.05 : 0.18}
           maxPolarAngle={mode === 'build' ? 0.62 : Math.PI / 2 - 0.04}
           target={[0, 0.5, 0]}

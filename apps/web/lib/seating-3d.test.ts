@@ -15,6 +15,7 @@ import {
   pushOutOfDiscs,
   separateAgents,
   firstFreeSeatAtTable,
+  contentBounds,
   type Lab3DFloor,
   type Lab3DTable,
 } from './seating-3d';
@@ -115,4 +116,15 @@ test('firstFreeSeatAtTable: lowest seat skipping removed + occupied; -1 when ful
   assert.equal(firstFreeSeatAtTable(10, [0, 1], [2]), 3, 'skips removed + occupied');
   assert.equal(firstFreeSeatAtTable(4, [], [0, 1, 2, 3]), -1, 'full → -1');
   assert.equal(firstFreeSeatAtTable(4, [99, -1], [1]), 0, 'out-of-range removed ignored');
+});
+
+test('contentBounds: empty board falls back to the room; spread tables grow the span', () => {
+  const empty = contentBounds([], ROOM);
+  assert.deepEqual({ cx: empty.cx, cz: empty.cz }, { cx: 0, cz: 0 });
+  assert.equal(empty.span, 20, 'empty → room span');
+  // Two tables at the far corners of a free board (pct well beyond 0–100).
+  const wide = contentBounds([{ xPct: -100, yPct: 50 }, { xPct: 300, yPct: 50 }], ROOM);
+  // x at pct -100 → (-1.5)*20 = -30 (−2 margin); pct 300 → (2.5)*20 = 50 (+2 margin).
+  assert.ok(wide.span > 80, `free spread grows the span (got ${wide.span})`);
+  assert.ok(Math.abs(wide.cx - 10) < 1e-9, 'centre tracks the content midpoint');
 });

@@ -131,6 +131,35 @@ export function roomSize(floor: Lab3DFloor): { w: number; d: number } {
   return { w: DEFAULT_ROOM.w, d: DEFAULT_ROOM.d };
 }
 
+/**
+ * World-space bounding box of the placed tables (+ a footprint margin), with its
+ * centre and span. The "open canvas" lets tables sit far outside the default
+ * room (free-board pct can exceed 0–100), so this is how the camera knows how
+ * far to let you zoom out / what to frame — without a fixed venue rectangle.
+ * Empty board → falls back to the room itself. Pure.
+ */
+export function contentBounds(
+  tables: { xPct: number; yPct: number }[],
+  room: { w: number; d: number },
+): { minX: number; maxX: number; minZ: number; maxZ: number; cx: number; cz: number; span: number } {
+  if (tables.length === 0) {
+    return {
+      minX: -room.w / 2, maxX: room.w / 2, minZ: -room.d / 2, maxZ: room.d / 2,
+      cx: 0, cz: 0, span: Math.max(room.w, room.d),
+    };
+  }
+  const M = 2; // metre margin per table for its footprint + chairs
+  let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+  for (const t of tables) {
+    const p = pctToWorld(t.xPct, t.yPct, room);
+    minX = Math.min(minX, p.x - M);
+    maxX = Math.max(maxX, p.x + M);
+    minZ = Math.min(minZ, p.z - M);
+    maxZ = Math.max(maxZ, p.z + M);
+  }
+  return { minX, maxX, minZ, maxZ, cx: (minX + maxX) / 2, cz: (minZ + maxZ) / 2, span: Math.max(maxX - minX, maxZ - minZ) };
+}
+
 /** percent (0–100, origin top-left) → centred world metres (origin room centre). */
 export function pctToWorld(xPct: number, yPct: number, room: { w: number; d: number }): Vec2 {
   return {

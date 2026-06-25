@@ -143,7 +143,7 @@ export function ProvisionCard({
         </Row>
         <Row label="Size">{(sizeBytes / 1024 / 1024).toFixed(1)} MB</Row>
         <Row label="Released">{publishedAt}</Row>
-        <Row label="Verified by">SHA-256 + Tauri code signature</Row>
+        <Row label="Verified by">Apple notarized · Developer ID</Row>
       </dl>
 
       {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}

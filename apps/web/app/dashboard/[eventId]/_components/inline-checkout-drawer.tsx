@@ -66,6 +66,7 @@ import {
   CreditCard,
   ExternalLink,
   Loader2,
+  Lock,
   Tag,
   Upload,
   X,
@@ -133,27 +134,22 @@ export function InlineCheckoutDrawer({
 }: InlineCheckoutDrawerProps) {
   const [open, setOpen] = useState(false);
 
-  // Native (Capacitor) app → hand payment off to the WEBSITE instead of running
-  // the in-app BDO/GCash flow. Two reasons: (1) Apple/Google forbid selling
-  // digital goods in-app via an external rail (BDO/GCash) — that's an App Store
-  // rejection; the purchase must happen out-of-app. (2) The website is the
-  // cheaper path (base catalog price, 0% store cut) — owner 2026-06-16. The
-  // shell tags its WebView UA with 'SetnayanApp'. Detected POST-MOUNT so the
-  // server-rendered markup (web variant) doesn't hydration-mismatch.
+  // Native (Capacitor) app → HIDE the purchase entirely. Apple Guideline 3.1.1
+  // (and Play Billing) forbid selling digital goods in-app via a non-store rail
+  // (BDO/GCash), AND forbid steering links to an external/web purchase — PH
+  // storefronts get no anti-steering carve-out. So in-app we show the feature
+  // with NO buy mechanism and NO pointer to where to buy. Web/PWA/desktop keep
+  // the full in-app BDO/GCash drawer, unchanged. The shell tags its WebView UA
+  // with 'SetnayanApp'; detected POST-MOUNT to avoid a hydration mismatch with
+  // the server-rendered (web) markup. (Supersedes the 2026-06-16 route-to-web
+  // approach — that external link is itself a 3.1.1 violation; full Apple IAP
+  // is the v1.1 plan.)
   const [isNativeApp, setIsNativeApp] = useState(false);
   useEffect(() => {
     if (typeof navigator !== 'undefined' && /SetnayanApp/i.test(navigator.userAgent)) {
       setIsNativeApp(true);
     }
   }, []);
-
-  // Open this checkout page in the EXTERNAL browser ('_system' → Capacitor hands
-  // off to Safari/Chrome), where the buyer completes the purchase out-of-app at
-  // the base price via BDO/GCash. Only ever called on native.
-  const openWebCheckout = () => {
-    if (typeof window === 'undefined') return;
-    window.open(window.location.href, '_system');
-  };
 
   // Voucher state — managed locally because the apply action returns a
   // result we render inline · we don't navigate.
@@ -210,22 +206,32 @@ export function InlineCheckoutDrawer({
 
   // Trigger button styling · default is a terracotta filled pill (matches
   // the app-store/state-cta.tsx "Add" button) but the parent can override.
-  const trigger = (
+  const trigger = isNativeApp ? (
+    // In-app (iOS/Android shell): no purchase mechanism, no price, no steering
+    // link — an inert locked chip so the feature stays visible but is not buyable
+    // here (Guideline 3.1.1 / Play Billing). Full store IAP arrives in v1.1.
+    <span
+      aria-disabled="true"
+      className={
+        triggerClassName
+          ? `${triggerClassName} pointer-events-none cursor-default opacity-60`
+          : 'inline-flex items-center gap-2 rounded-full bg-stone-100 px-5 py-2 text-sm font-semibold text-stone-400'
+      }
+    >
+      <Lock aria-hidden className="h-4 w-4" strokeWidth={2} />
+      {triggerLabel ?? 'Premium feature'}
+    </span>
+  ) : (
     <button
       type="button"
-      onClick={() => (isNativeApp ? openWebCheckout() : setOpen(true))}
+      onClick={() => setOpen(true)}
       className={
         triggerClassName ??
         'inline-flex items-center gap-2 rounded-full bg-mulberry px-5 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600'
       }
-      aria-haspopup={isNativeApp ? undefined : 'dialog'}
-      title={isNativeApp ? 'Opens setnayan.com to pay with BDO/GCash' : undefined}
+      aria-haspopup="dialog"
     >
-      {isNativeApp ? (
-        <ExternalLink aria-hidden className="h-4 w-4" strokeWidth={2} />
-      ) : (
-        <CreditCard aria-hidden className="h-4 w-4" strokeWidth={2} />
-      )}
+      <CreditCard aria-hidden className="h-4 w-4" strokeWidth={2} />
       {triggerLabel ?? 'Add this service'}
       <span className="font-mono text-xs font-normal opacity-90">
         · {originalPesoDisplay}

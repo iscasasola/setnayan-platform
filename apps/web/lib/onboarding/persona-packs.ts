@@ -25,6 +25,7 @@
  * Wedding never routes through the generic flow, so this module is non-wedding only.
  */
 import type { OnboardingPickChip } from '@/lib/onboarding-refinements';
+import { INAPP_TO_SERVICE_CODE } from '@/app/onboarding/wedding/_components/onboarding-pricing';
 import { deriveGenericPlan, effortLimit, type GenericPlan } from './generic-plan';
 
 /** Persona keys — must match `EXP_PERSONAS` in experience-personas.ts. */
@@ -36,11 +37,29 @@ type PersonaKey =
   | 'modern_statement'
   | 'rooted_tradition';
 
+/**
+ * The canonical valid in-app service-key registry. `INAPP_TO_SERVICE_CODE`
+ * (onboarding-pricing.ts) is the single source of truth — its keys are the SAME
+ * keys the wedding wizard writes to `style_preferences.interested_services` and
+ * the ones `INAPP_KEYS` (onboarding-shell.tsx) offers. Authoring a service id
+ * outside this set is a programming error; `derivePackServices` intersects every
+ * pack against it so a retired SKU (e.g. indoor_blueprint, removed 2026-06-08) can
+ * never leak into a write. Exported for the test's only-valid-keys invariant.
+ */
+export const VALID_SERVICE_KEYS: ReadonlySet<string> = new Set(Object.keys(INAPP_TO_SERVICE_CODE));
+
 export type TypePersonaPack = {
   /** Lead categories for this event type, regardless of persona (priority order). */
   essentials: readonly string[];
   /** Per-persona EXTRA categories, beyond the essentials (priority order). */
   byPersona: Record<PersonaKey, readonly string[]>;
+  /**
+   * Per-persona in-app Setnayan SERVICES to pre-surface (priority order). Keys MUST
+   * be in `VALID_SERVICE_KEYS` (= INAPP_TO_SERVICE_CODE); any stray id is dropped by
+   * `derivePackServices`. Mirrors the wedding wizard's persona `services` dimension
+   * (experience-personas.ts), scoped + re-weighted per event type.
+   */
+  servicesByPersona: Record<PersonaKey, readonly string[]>;
 };
 
 /**
@@ -59,6 +78,14 @@ export const PERSONA_PACKS: Record<string, TypePersonaPack> = {
       modern_statement: ['led_wall', 'dj', 'photo_video', 'lights_sound'],
       rooted_tradition: ['live_band', 'food_cart', 'souvenir_giveaways', 'stylist_decorator'],
     },
+    servicesByPersona: {
+      keepsake: ['sde', 'papic_seats', 'animated_monogram', 'advanced_website'],
+      big_celebration: ['papic_seats', 'live_photowall', 'papic_guest', 'pabati'],
+      best_of_both: ['papic_seats', 'sde', 'advanced_website', 'pabati'],
+      intimate_romance: ['advanced_website', 'sde', 'animated_monogram'],
+      modern_statement: ['live_background', 'animated_monogram', 'advanced_website', 'sde'],
+      rooted_tradition: ['papic_seats', 'pabati', 'live_photowall'],
+    },
   },
   debut: {
     essentials: ['reception', 'catering', 'host_mc', 'photo_video'],
@@ -69,6 +96,14 @@ export const PERSONA_PACKS: Record<string, TypePersonaPack> = {
       intimate_romance: ['stylist_decorator', 'florist', 'hmua', 'dessert'],
       modern_statement: ['led_wall', 'lights_sound', 'choreographer', 'stylist_decorator'],
       rooted_tradition: ['choir', 'filipiniana_barongs', 'performers', 'stylist_decorator'],
+    },
+    servicesByPersona: {
+      keepsake: ['sde', 'animated_monogram', 'advanced_website', 'papic_seats'],
+      big_celebration: ['papic_seats', 'live_photowall', 'panood', 'papic_guest', 'pabati'],
+      best_of_both: ['papic_seats', 'advanced_website', 'sde', 'panood'],
+      intimate_romance: ['advanced_website', 'sde', 'animated_monogram'],
+      modern_statement: ['live_background', 'animated_monogram', 'advanced_website', 'sde'],
+      rooted_tradition: ['panood', 'papic_seats', 'pabati'],
     },
   },
   gender_reveal: {
@@ -81,6 +116,14 @@ export const PERSONA_PACKS: Record<string, TypePersonaPack> = {
       modern_statement: ['led_wall', 'fireworks', 'photo_video'],
       rooted_tradition: ['food_cart', 'souvenir_giveaways', 'photo_video'],
     },
+    servicesByPersona: {
+      keepsake: ['sde', 'papic_seats', 'advanced_website'],
+      big_celebration: ['papic_seats', 'live_photowall', 'pabati'],
+      best_of_both: ['papic_seats', 'sde', 'advanced_website'],
+      intimate_romance: ['advanced_website', 'sde', 'pabati'],
+      modern_statement: ['live_background', 'animated_monogram', 'sde'],
+      rooted_tradition: ['papic_seats', 'pabati', 'advanced_website'],
+    },
   },
   christening: {
     essentials: ['ceremony_venue', 'catering', 'cake', 'photo_video'],
@@ -91,6 +134,14 @@ export const PERSONA_PACKS: Record<string, TypePersonaPack> = {
       intimate_romance: ['florist', 'choir', 'coffee_espresso'],
       modern_statement: ['stylist_decorator', 'led_wall', 'host_mc'],
       rooted_tradition: ['choir', 'filipiniana_barongs', 'souvenir_giveaways'],
+    },
+    servicesByPersona: {
+      keepsake: ['sde', 'papic_seats', 'advanced_website'],
+      big_celebration: ['papic_seats', 'panood', 'pabati'],
+      best_of_both: ['papic_seats', 'advanced_website', 'sde'],
+      intimate_romance: ['advanced_website', 'sde', 'pabati'],
+      modern_statement: ['advanced_website', 'animated_monogram', 'sde'],
+      rooted_tradition: ['panood', 'papic_seats', 'pabati'],
     },
   },
   corporate: {
@@ -103,6 +154,16 @@ export const PERSONA_PACKS: Record<string, TypePersonaPack> = {
       modern_statement: ['led_wall', 'livestream', 'digital_services'],
       rooted_tradition: ['performers', 'food_cart', 'trophies_awards'],
     },
+    // No `pakanta`/`animated_monogram` (couple-only concepts) for corporate —
+    // services skew to broadcast (panood), recap film (sde), website + live wall.
+    servicesByPersona: {
+      keepsake: ['sde', 'advanced_website', 'papic_seats'],
+      big_celebration: ['panood', 'live_photowall', 'papic_seats', 'pabati'],
+      best_of_both: ['panood', 'papic_seats', 'advanced_website', 'sde'],
+      intimate_romance: ['advanced_website', 'sde', 'papic_seats'],
+      modern_statement: ['live_background', 'panood', 'advanced_website', 'sde'],
+      rooted_tradition: ['panood', 'papic_seats', 'live_photowall'],
+    },
   },
   tournament: {
     essentials: ['trophies_awards', 'catering', 'host_mc', 'photo_video'],
@@ -113,6 +174,16 @@ export const PERSONA_PACKS: Record<string, TypePersonaPack> = {
       intimate_romance: ['food_truck', 'coffee_espresso', 'catering'],
       modern_statement: ['led_wall', 'livestream', 'digital_services'],
       rooted_tradition: ['food_cart', 'souvenir_giveaways', 'performers'],
+    },
+    // Tournament leans broadcast-heavy: livestream the matches (panood), highlight
+    // film (sde), live scoreboard/photo wall, capture seats. No couple-only SKUs.
+    servicesByPersona: {
+      keepsake: ['sde', 'advanced_website', 'papic_seats'],
+      big_celebration: ['panood', 'live_photowall', 'papic_seats', 'pabati'],
+      best_of_both: ['panood', 'papic_seats', 'sde', 'advanced_website'],
+      intimate_romance: ['papic_seats', 'sde', 'advanced_website'],
+      modern_statement: ['live_background', 'panood', 'advanced_website', 'sde'],
+      rooted_tradition: ['panood', 'papic_seats', 'live_photowall'],
     },
   },
   travel: {
@@ -125,6 +196,16 @@ export const PERSONA_PACKS: Record<string, TypePersonaPack> = {
       modern_statement: ['digital_services', 'editorial', 'livestream'],
       rooted_tradition: ['souvenir_giveaways', 'food_cart'],
     },
+    // Travel/destination: the trip website + candid capture + recap film are the
+    // hero services; greetings (pabati) bring along guests who couldn't fly out.
+    servicesByPersona: {
+      keepsake: ['sde', 'advanced_website', 'papic_seats'],
+      big_celebration: ['papic_seats', 'advanced_website', 'pabati'],
+      best_of_both: ['papic_seats', 'sde', 'advanced_website'],
+      intimate_romance: ['advanced_website', 'sde', 'pabati'],
+      modern_statement: ['advanced_website', 'sde', 'animated_monogram'],
+      rooted_tradition: ['papic_seats', 'pabati', 'advanced_website'],
+    },
   },
   celebration: {
     essentials: ['catering', 'host_mc', 'cake', 'photo_video'],
@@ -135,6 +216,14 @@ export const PERSONA_PACKS: Record<string, TypePersonaPack> = {
       intimate_romance: ['stylist_decorator', 'florist', 'dessert', 'coffee_espresso'],
       modern_statement: ['led_wall', 'dj', 'lights_sound', 'stylist_decorator'],
       rooted_tradition: ['live_band', 'food_cart', 'souvenir_giveaways', 'stylist_decorator'],
+    },
+    servicesByPersona: {
+      keepsake: ['sde', 'papic_seats', 'advanced_website', 'animated_monogram'],
+      big_celebration: ['papic_seats', 'live_photowall', 'papic_guest', 'pabati'],
+      best_of_both: ['papic_seats', 'sde', 'advanced_website', 'pabati'],
+      intimate_romance: ['advanced_website', 'sde', 'animated_monogram'],
+      modern_statement: ['live_background', 'animated_monogram', 'advanced_website', 'sde'],
+      rooted_tradition: ['papic_seats', 'pabati', 'live_photowall'],
     },
   },
 };
@@ -189,4 +278,43 @@ export function derivePackPlan(
   }
 
   return { picks, labels };
+}
+
+/** effort axis → how many in-app services to pre-surface. */
+const SERVICE_LIMIT: Record<string, number> = { simple: 2, balanced: 3, allout: 5 };
+const DEFAULT_SERVICE_LIMIT = 3;
+
+/**
+ * Derive the in-app SERVICES to pre-surface for the generic flow, persona- AND
+ * type-aware. Mirrors `derivePackPlan` but for services rather than categories
+ * (→ `style_preferences.interested_services`, which the dashboard reads to
+ * auto-surface owned/interested SKUs).
+ *
+ * - No pack for `packKey`, or an unknown persona → `[]` (the safe PR2 fallback;
+ *   the generic flow showed nothing extra). The categories plan still derives.
+ * - Otherwise = the persona's `services` list, deduped, INTERSECTED against
+ *   `VALID_SERVICE_KEYS` (so a stray/retired key can never reach the write), then
+ *   sized by the effort axis (simple=2 / balanced=3 / allout=5). Authoring a key
+ *   outside the registry is silently dropped — `derivePackServices` is the guard.
+ *
+ * Pure + deterministic. These are PRE-SURFACED (not purchased) — no paywall here.
+ */
+export function derivePackServices(
+  packKey: string | null | undefined,
+  personaKey: string | null | undefined,
+  effort: string | null | undefined,
+): string[] {
+  const pack = packKey ? PERSONA_PACKS[packKey] : undefined;
+  if (!pack || !isPersonaKey(personaKey)) return [];
+
+  const limit = (effort && SERVICE_LIMIT[effort]) || DEFAULT_SERVICE_LIMIT;
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const key of pack.servicesByPersona[personaKey]) {
+    if (out.length >= limit) break;
+    if (seen.has(key) || !VALID_SERVICE_KEYS.has(key)) continue;
+    seen.add(key);
+    out.push(key);
+  }
+  return out;
 }

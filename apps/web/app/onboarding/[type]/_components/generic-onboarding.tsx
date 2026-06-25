@@ -20,7 +20,7 @@ import { resolvePersona } from '@/app/onboarding/wedding/_data/experience-person
 import { PH_REGIONS } from '@/lib/regions';
 import { commitOnboardingEvent } from '@/app/onboarding/_shared/commit-event';
 import type { GenericOnboardingPayload } from '@/lib/onboarding/types';
-import { derivePackPlan } from '@/lib/onboarding/persona-packs';
+import { derivePackPlan, derivePackServices } from '@/lib/onboarding/persona-packs';
 import type { OnboardingPickChip } from '@/lib/onboarding-refinements';
 
 type Props = {
@@ -130,6 +130,13 @@ export function GenericOnboarding(props: Props) {
     () => derivePackPlan(personaPackKey, personaKey, tiles, axes.effort),
     [personaPackKey, personaKey, tiles, axes.effort],
   );
+  // In-app Setnayan services to pre-surface on the dashboard for this persona +
+  // effort (→ style_preferences.interested_services). No pack / unknown persona → [].
+  // PRE-SURFACED only (not purchased) — no paywall in onboarding.
+  const planServices = useMemo(
+    () => derivePackServices(personaPackKey, personaKey, axes.effort),
+    [personaPackKey, personaKey, axes.effort],
+  );
 
   const canContinue = (() => {
     if (screen === 'name') return displayName.trim().length > 0;
@@ -171,7 +178,8 @@ export function GenericOnboarding(props: Props) {
       experienceAxes: axes,
       // Starter plan derived from the type's taxonomy (PR3) → interested_categories.
       picks: plan.picks,
-      interestedServices: [],
+      // Per-type/per-persona in-app services (effort-scaled) → interested_services.
+      interestedServices: planServices,
       refinements: {},
       basicMoodboard: null,
       places: [],

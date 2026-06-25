@@ -38,6 +38,7 @@ import {
   updateTableRotation,
   updateTableType,
   publishSeating,
+  autoSeatGuests,
 } from '@/app/dashboard/[eventId]/seating/actions';
 import { TABLE_TYPE_CATALOG } from '@/lib/seating';
 
@@ -100,6 +101,15 @@ type Props = {
 type LiveTable = Lab3DTable;
 type SeatRef = { tableId: string; seatNumber: number };
 type WalkerState = { name: string; path: Vec2[]; tableId: string } | null;
+
+/** The local seat map derived from the server's assignments on each guest row. */
+function deriveSeatsFromGuests(guests: Lab3DGuest[]): Map<string, SeatRef> {
+  const m = new Map<string, SeatRef>();
+  for (const g of guests) {
+    if (g.seatedTableId && g.seatNumber != null) m.set(g.id, { tableId: g.seatedTableId, seatNumber: g.seatNumber });
+  }
+  return m;
+}
 
 // Shared GPU buffers reused by every chair across every table (module-level
 // constants are never disposed by R3F — safe to share). The big draw-call
@@ -320,13 +330,17 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
 
   // Local seat map (starts from the real assignments). The walk demo assigns
   // unseated guests into the first free chair — locally, never persisted.
-  const [seats, setSeats] = useState<Map<string, SeatRef>>(() => {
-    const m = new Map<string, SeatRef>();
-    for (const g of guests) {
-      if (g.seatedTableId && g.seatNumber != null) m.set(g.id, { tableId: g.seatedTableId, seatNumber: g.seatNumber });
+  const [seats, setSeats] = useState<Map<string, SeatRef>>(() => deriveSeatsFromGuests(guests));
+  // One-shot: after a server bulk op (auto-seat) + router.refresh, re-derive the
+  // local seat map from the refreshed guest rows (server truth) — WITHOUT
+  // clobbering ordinary optimistic edits, which never arm this ref.
+  const seatResyncRef = useRef(false);
+  useEffect(() => {
+    if (seatResyncRef.current) {
+      seatResyncRef.current = false;
+      setSeats(deriveSeatsFromGuests(guests));
     }
-    return m;
-  });
+  }, [guests]);
 
   // Live world-space drag target (avoids a React re-render every pointer move).
   const dragRef = useRef<{ id: string; x: number; z: number } | null>(null);
@@ -569,6 +583,23 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
       setNotice(`Published — ${res.published} table QR sheet${res.published === 1 ? '' : 's'} ready to print.`);
     });
   }, [canEdit, eventId, lock.lockId, persist]);
+
+  // 2D-parity: auto-seat every unseated guest. Runs the SAME canonical solver
+  // server-side (autoSeatGuests → computeAutoSeat), then arms the one-shot resync
+  // so the lab re-derives its seat map from the refreshed server truth (no client
+  // solver, no drift). The couple can then "Walk everyone in" to animate it.
+  const autoSeatAll = useCallback(() => {
+    if (!canEdit) return;
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
+    void persist(async () => {
+      await autoSeatGuests(fd);
+      seatResyncRef.current = true;
+      router.refresh();
+      setNotice('Auto-seated your guests — tap “Walk everyone in” to watch them arrive.');
+    });
+  }, [canEdit, eventId, lock.lockId, persist, router]);
 
   // Pick a guest → walk to their seat (seating them in the first free chair if
   // they have none), steering around the other tables.
@@ -903,6 +934,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
         notice={notice}
         onDismissNotice={() => setNotice(null)}
         onAddTable={addTable}
+        onAutoSeat={autoSeatAll}
         onRotate={rotateSelected}
         onDelete={deleteSelected}
         showCloth={showCloth}
@@ -1747,6 +1779,7 @@ function Hud({
   notice,
   onDismissNotice,
   onAddTable,
+  onAutoSeat,
   onRotate,
   onDelete,
   showCloth,
@@ -1786,6 +1819,7 @@ function Hud({
   notice: string | null;
   onDismissNotice: () => void;
   onAddTable: () => void;
+  onAutoSeat: () => void;
   onRotate: (delta: number) => void;
   onDelete: () => void;
   showCloth: boolean;
@@ -1892,13 +1926,22 @@ function Hud({
                 ) : null}
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={onAddTable}
-                className="mb-2 w-full rounded-xl bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/20"
-              >
-                + Add a table
-              </button>
+              <div className="mb-2 flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={onAddTable}
+                  className="flex-1 rounded-xl bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/20"
+                >
+                  + Add a table
+                </button>
+                <button
+                  type="button"
+                  onClick={onAutoSeat}
+                  className="flex-1 rounded-xl bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/20"
+                >
+                  Auto-seat
+                </button>
+              </div>
             )}
             {selectedLabel ? (
               <div className="mb-2 rounded-xl bg-white/[0.06] p-2.5">

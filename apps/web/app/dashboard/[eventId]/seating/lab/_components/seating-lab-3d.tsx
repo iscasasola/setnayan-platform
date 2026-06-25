@@ -27,6 +27,7 @@ import { useRouter } from 'next/navigation';
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { OrbitControls, Grid, ContactShadows } from '@react-three/drei';
 import * as THREE from 'three';
+import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { useSeatingLock } from '@/app/dashboard/[eventId]/seating/_components/use-seating-lock';
 import { SeatingLockError } from '@/app/dashboard/[eventId]/seating/seating-lock-error';
 import {
@@ -121,6 +122,11 @@ type Mover = { gid: string; color: string; opacity: number; path: Vec2[]; target
 
 export default function SeatingLab3D({ eventId, tables: initialTables, floor, guests, paletteHexes, monogram, animatedMonogram, me }: Props) {
   const router = useRouter();
+  // ONE reduced-motion flag threaded to every JS-driven motion (camera ease,
+  // walk/swap glide+bob, table slide-lag + pop, orbit momentum). SSR-safe +
+  // live-updating. The flow still COMPLETES when reduced — we drop the easing
+  // and snap to the same final state, firing the same completion callbacks.
+  const reduced = usePrefersReducedMotion();
   const room = useMemo(() => roomSize(floor), [floor]);
   const [mode, setMode] = useState<'build' | 'play'>('build');
   const [paletteKey, setPaletteKey] = useState('mood');
@@ -632,6 +638,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
             showCloth={showCloth}
             showAccents={showAccents}
             seated={seatedByTable.get(t.id)}
+            reduced={reduced}
           />
         ))}
 
@@ -652,18 +659,19 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
             palette={palette}
             entrance={entranceWorld}
             onArrive={() => setArrived(walker.name)}
+            reduced={reduced}
           />
         ) : null}
 
         {movers.map((m) => (
-          <MoverToken key={m.gid} mover={m} onDone={onMoverDone} />
+          <MoverToken key={m.gid} mover={m} onDone={onMoverDone} reduced={reduced} />
         ))}
 
-        <CameraRig mode={mode} room={room} onBusy={setCamBusy} />
+        <CameraRig mode={mode} room={room} onBusy={setCamBusy} reduced={reduced} />
         <OrbitControls
           makeDefault
           enabled={!draggingId && !camBusy}
-          enableDamping
+          enableDamping={!reduced}
           dampingFactor={0.08}
           minDistance={6}
           maxDistance={room.d * 3}
@@ -719,22 +727,47 @@ function CameraRig({
   mode,
   room,
   onBusy,
+  reduced,
 }: {
   mode: 'build' | 'play';
   room: { w: number; d: number };
   onBusy: (b: boolean) => void;
+  reduced: boolean;
 }) {
   const { camera } = useThree();
   const target = useRef(new THREE.Vector3());
   const easing = useRef(false);
+  // Mirror the reduced flag into a ref so the useFrame loop reads it live
+  // (a hook can't be called inside useFrame).
+  const reducedRef = useRef(reduced);
+  useEffect(() => {
+    reducedRef.current = reduced;
+  }, [reduced]);
   useEffect(() => {
     if (mode === 'build') target.current.set(0, room.d * 1.9, room.d * 0.3);
     else target.current.set(0, room.d * 1.05 + 6, room.d * 0.95 + 6);
+    if (reducedRef.current) {
+      // Reduced motion: SNAP to the final composition (no fly-through), but
+      // still complete the flow — settle the camera and release OrbitControls.
+      camera.position.copy(target.current);
+      camera.lookAt(0, 0.5, 0);
+      easing.current = false;
+      onBusy(false);
+      return;
+    }
     easing.current = true;
     onBusy(true);
-  }, [mode, room, onBusy]);
+  }, [mode, room, onBusy, camera]);
   useFrame((_, dt) => {
     if (!easing.current) return;
+    if (reducedRef.current) {
+      // Flag flipped mid-ease → snap to target and finish.
+      camera.position.copy(target.current);
+      camera.lookAt(0, 0.5, 0);
+      easing.current = false;
+      onBusy(false);
+      return;
+    }
     camera.position.lerp(target.current, Math.min(1, dt * 3.2));
     camera.lookAt(0, 0.5, 0);
     if (camera.position.distanceTo(target.current) < 0.06) {
@@ -1008,6 +1041,7 @@ function TableMesh({
   showCloth,
   showAccents,
   seated,
+  reduced,
 }: {
   table: LiveTable;
   room: { w: number; d: number };
@@ -1020,6 +1054,7 @@ function TableMesh({
   showCloth: boolean;
   showAccents: boolean;
   seated: Map<number, SeatToken> | undefined;
+  reduced: boolean;
 }) {
   const ref = useRef<THREE.Group>(null);
   const dims = useMemo(() => tableDims(table.shape, table.capacity), [table.shape, table.capacity]);
@@ -1047,6 +1082,16 @@ function TableMesh({
     if (!g) return;
     const targetX = dragging && dragRef.current ? dragRef.current.x : home.x;
     const targetZ = dragging && dragRef.current ? dragRef.current.z : home.z;
+    if (reduced) {
+      // Reduced motion: no slide-lag, no scale pop. Position tracks the target
+      // directly (drag still works — it just follows the finger 1:1), scale
+      // pinned to 1. Rotation is instantaneous as before.
+      g.position.x = targetX;
+      g.position.z = targetZ;
+      if (g.scale.x !== 1) g.scale.setScalar(1);
+      g.rotation.y = (-table.rotationDeg * Math.PI) / 180;
+      return;
+    }
     const k = Math.min(1, delta * 12);
     g.position.x += (targetX - g.position.x) * k;
     g.position.z += (targetZ - g.position.z) * k;
@@ -1158,29 +1203,62 @@ function Walker({
   palette,
   entrance,
   onArrive,
+  reduced,
 }: {
   walker: NonNullable<WalkerState>;
   palette: Lab3DPalette;
   entrance: Vec2;
   onArrive: () => void;
+  reduced: boolean;
 }) {
   const ref = useRef<THREE.Group>(null);
   const idx = useRef(0);
   const done = useRef(false);
   const t = useRef(0);
+  // Mirror into a ref so the useFrame loop reads the live value (no hook in loop).
+  const reducedRef = useRef(reduced);
+  useEffect(() => {
+    reducedRef.current = reduced;
+  }, [reduced]);
 
   useEffect(() => {
     idx.current = 0;
     done.current = false;
     t.current = 0;
-    if (ref.current) ref.current.position.set(entrance.x, 0, entrance.z);
-  }, [walker, entrance]);
+    if (ref.current) {
+      // Reduced motion: place the avatar AT its final seat immediately (no walk)
+      // and complete the flow — fire onArrive so the "found their seat" payoff
+      // still resolves. Otherwise spawn at the entrance and walk.
+      if (reducedRef.current && walker.path.length > 0) {
+        const end = walker.path[walker.path.length - 1]!;
+        ref.current.position.set(end.x, 0, end.z);
+        idx.current = walker.path.length - 1;
+        done.current = true;
+        onArrive();
+      } else {
+        ref.current.position.set(entrance.x, 0, entrance.z);
+      }
+    }
+  }, [walker, entrance, onArrive]);
 
   useFrame((_, delta) => {
     const g = ref.current;
     if (!g) return;
     t.current += delta;
     const path = walker.path;
+    if (reducedRef.current) {
+      // Reduced motion: pin to the final seat, no bob. Ensure onArrive fired
+      // (covers a mid-walk flag flip) so the flow always completes.
+      if (path.length > 0) {
+        const end = path[path.length - 1]!;
+        g.position.set(end.x, 0, end.z);
+      }
+      if (!done.current) {
+        done.current = true;
+        onArrive();
+      }
+      return;
+    }
     if (done.current || idx.current >= path.length - 1) {
       if (!done.current) {
         done.current = true;
@@ -1225,17 +1303,35 @@ function Walker({
 
 // A guest token walking between seats during a swap. Colour = the guest's RSVP
 // treatment; calls onDone(gid, target) once it reaches the destination chair.
-function MoverToken({ mover, onDone }: { mover: Mover; onDone: (gid: string, target: SeatRef) => void }) {
+function MoverToken({ mover, onDone, reduced }: { mover: Mover; onDone: (gid: string, target: SeatRef) => void; reduced: boolean }) {
   const ref = useRef<THREE.Group>(null);
   const idx = useRef(0);
   const done = useRef(false);
   const t = useRef(0);
   const start = mover.path[0] ?? { x: 0, z: 0 };
+  // Mirror into a ref so the useFrame loop reads the live value (no hook in loop).
+  const reducedRef = useRef(reduced);
+  useEffect(() => {
+    reducedRef.current = reduced;
+  }, [reduced]);
   useFrame((_, delta) => {
     const g = ref.current;
     if (!g) return;
     t.current += delta;
     const path = mover.path;
+    if (reducedRef.current) {
+      // Reduced motion: jump straight to the destination seat (no glide/bob)
+      // and complete the flow — onDone commits the new seat + retires the mover.
+      if (path.length > 0) {
+        const end = path[path.length - 1]!;
+        g.position.set(end.x, 0, end.z);
+      }
+      if (!done.current) {
+        done.current = true;
+        onDone(mover.gid, mover.target);
+      }
+      return;
+    }
     if (done.current || idx.current >= path.length - 1) {
       if (!done.current) {
         done.current = true;

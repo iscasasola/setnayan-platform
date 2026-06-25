@@ -35,6 +35,7 @@ import type * as React from 'react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Music, Volume2, VolumeX } from 'lucide-react';
 import { type StdFilmContent } from '@/lib/save-the-date-content';
+import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { STD_THEMES, resolveStdTheme, type StdTheme, type StdThemeId } from '@/lib/std-themes';
 import { readableTextOn } from '@/lib/site-palette';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
@@ -383,6 +384,16 @@ export function SaveTheDateFilm({
    *  veil itself is drawn by StdBackgroundLayer; this keeps the two paired. */
   tone?: 'light' | 'dark' | null;
 }) {
+  // Honor the OS "reduce motion" setting (SSR-safe, live-updates). When ON we
+  // strip the JS-driven motion — RAF auto-advance, music fade ramp, and video/
+  // audio autoplay — but NEVER the result: every completion callback still fires
+  // and the film still lands on its closing card. React-level branches read this
+  // directly; loops (RAF / the video effect) close over `reducedMotionRef` since a
+  // hook can't be called inside a frame callback.
+  const reducedMotion = usePrefersReducedMotion();
+  const reducedMotionRef = useRef(reducedMotion);
+  reducedMotionRef.current = reducedMotion;
+
   const base = STD_THEMES.find((t) => t.id === resolveStdTheme(themeId)) ?? STD_THEMES[0]!;
   // When a background sets a tone, override the theme's TEXT colours (not the
   // accent button / font) so names + dates always read; otherwise use the theme.
@@ -622,6 +633,9 @@ export function SaveTheDateFilm({
             src={content.videoUrl ?? undefined}
             playsInline
             preload="auto"
+            // Reduced motion: don't autoplay the preview clip either — surface
+            // native controls so it's playable on demand, not a frozen frame.
+            controls={reducedMotion}
             className="max-h-[520px] w-full rounded-2xl object-contain shadow-lg"
           />
         </div>
@@ -832,6 +846,13 @@ export function SaveTheDateFilm({
     const a = audioRef.current;
     if (!a) return;
     musicEnteredRef.current = true;
+    // Reduced motion: no gradual fade ramp — the soundtrack just comes up at full
+    // volume immediately (the music itself still plays; only the volume animation
+    // is removed). Skip the RAF entirely so no frame loop runs.
+    if (reducedMotion) {
+      setVol(a, 1);
+      return;
+    }
     musicEnteringRef.current = true;
     const FADE_MS = 1000;
     const t0 = performance.now();
@@ -852,7 +873,7 @@ export function SaveTheDateFilm({
       cancelAnimationFrame(raf);
       musicEnteringRef.current = false;
     };
-  }, [started, preview, muted]);
+  }, [started, preview, muted, reducedMotion]);
 
   // RAF player — advances timed slides. The video beat (dur Infinity) holds on
   // a timer; it autoplays and the video effect advances it on 'ended'.
@@ -867,7 +888,11 @@ export function SaveTheDateFilm({
     goRef.current = go;
 
     const loop = (now: number) => {
-      if (playingRef.current) {
+      // Reduced motion: never auto-advance timed beats — the guest steps through
+      // them manually (a press advances one beat; see onPointerDown). The loop
+      // itself keeps running but takes no action, so the film waits on each beat
+      // instead of running its own clock.
+      if (playingRef.current && !reducedMotionRef.current) {
         const dur = slides[idxRef.current]?.dur ?? 4000;
         if (dur !== Infinity && now - startRef.current >= dur) {
           go(idxRef.current + 1);
@@ -927,6 +952,47 @@ export function SaveTheDateFilm({
       };
       videoFadeRef.current = requestAnimationFrame(tick);
     };
+
+    if (reducedMotionRef.current) {
+      // Reduced motion: never AUTOPLAY the clip and never warm it / crossfade audio.
+      // The clip sits paused on its first frame with native <controls> (added in the
+      // render below), so the guest chooses to play it. No music duck, no seek-RAF,
+      // no opacity crossfade. We still reveal the overlay on-beat (clipReady) so the
+      // poster/first frame is visible, and the 'ended'/tail-cut/'error' listeners
+      // below stay attached — so if the guest DOES play it through, the film still
+      // advances to the closing card (the flow completes). Off-beat we just pause it.
+      v.loop = false;
+      v.muted = muted || preview;
+      if (onVideo) {
+        setClipReady(true);
+        setVideoSoundBlocked(false);
+      } else {
+        v.pause();
+      }
+      prevOnVideoRef.current = onVideo;
+      const onEndedR = () => {
+        if (idxRef.current === videoSlideIdxRef.current) goRef.current(videoSlideIdxRef.current + 1);
+      };
+      const onTimeUpdateR = () => {
+        if (idxRef.current !== videoSlideIdxRef.current) return;
+        const d = v.duration;
+        if (Number.isFinite(d) && d > 1 && d - v.currentTime <= CLIP_TAIL_TRIM_S) {
+          v.removeEventListener('timeupdate', onTimeUpdateR);
+          goRef.current(videoSlideIdxRef.current + 1);
+        }
+      };
+      const onErrorR = () => {
+        if (idxRef.current === videoSlideIdxRef.current) goRef.current(videoSlideIdxRef.current + 1);
+      };
+      v.addEventListener('ended', onEndedR);
+      v.addEventListener('error', onErrorR);
+      v.addEventListener('timeupdate', onTimeUpdateR);
+      return () => {
+        v.removeEventListener('ended', onEndedR);
+        v.removeEventListener('error', onErrorR);
+        v.removeEventListener('timeupdate', onTimeUpdateR);
+      };
+    }
 
     if (onVideo) {
       if (!prevOnVideoRef.current) {
@@ -1110,7 +1176,7 @@ export function SaveTheDateFilm({
       v.removeEventListener('timeupdate', onTimeUpdate);
       if (clipRevealTimerRef.current) { clearTimeout(clipRevealTimerRef.current); clipRevealTimerRef.current = 0; }
     };
-  }, [idx, playing, muted, videoSlideIndex, content.musicUrl, preview]);
+  }, [idx, playing, muted, videoSlideIndex, content.musicUrl, preview, reducedMotion]);
 
   // Tell the veil's petals whether on-screen TEXT is present, so a petal resting on
   // it can CRAWL down and only FALL once the words are gone (owner 2026-06-21 "if
@@ -1159,6 +1225,19 @@ export function SaveTheDateFilm({
   const onPointerDown = (e: React.PointerEvent) => {
     if (hitControl(e)) return;
     requestFilmFullscreen(); // first stage gesture → true full screen (no-reveal path)
+    // Reduced motion: there's no auto-advance and the clip doesn't autoplay, so a
+    // PRESS steps to the NEXT beat (the manual stepper). This is how a reduced
+    // guest moves through the film and reaches the closing card — the flow still
+    // completes, just under the guest's control. The closing beat (dur Infinity,
+    // last index) absorbs further presses (go() clamps to N-1), so they never
+    // strand. Unlock the soundtrack on this gesture too (browsers need one).
+    if (reducedMotion) {
+      if (audioRef.current && audioRef.current.paused && !muted) {
+        audioRef.current.play().catch(() => {});
+      }
+      goRef.current(idxRef.current + 1);
+      return;
+    }
     // Stir the veil's petals at the press point — the controls RUN the petals, not
     // just hold the film (owner 2026-06-21 "the controls will run the petals and
     // veil"). The veil (z-60) listens for 'std-veil-poke' and bounces the nearest
@@ -1196,6 +1275,10 @@ export function SaveTheDateFilm({
 
   const onPointerUp = (e: React.PointerEvent) => {
     if (hitControl(e)) return;
+    // Reduced motion: the press already stepped to the next beat (onPointerDown);
+    // release does nothing (no resume-on-release, and we must NOT auto-play the
+    // clip here — the guest plays it via its native controls).
+    if (reducedMotion) return;
     // RELEASE (tap or hold) = CONTINUE — the only release behavior (no scrub,
     // owner 2026-06-22). On the video beat, resume the clip; on a text beat,
     // resume the auto-advance and credit the paused span back to the beat's dwell
@@ -1468,6 +1551,9 @@ export function SaveTheDateFilm({
     onPointerDown,
     onPointerUp,
     onPointerCancel: () => {
+      // Reduced motion: nothing was paused and the clip must not auto-play — the
+      // press-to-step already advanced (or not); a cancelled press is a no-op.
+      if (reducedMotionRef.current) return;
       // A cancelled press (lost pointer) must CONTINUE, never strand the film paused.
       if (idxRef.current === videoSlideIdxRef.current) {
         videoElRef.current?.play().catch(() => {});
@@ -1594,8 +1680,38 @@ export function SaveTheDateFilm({
             src={content.videoUrl ?? undefined}
             playsInline
             preload="auto"
-            className={`relative h-full w-full ${videoPosterUrl ? 'object-contain' : 'object-cover'}`}
+            // Reduced motion: the clip does NOT autoplay — show native controls
+            // (and re-enable pointer events on it) so the guest can play it
+            // themselves. Playing it through still fires 'ended' → the film advances
+            // to the close, so the flow completes. The poster attribute paints the
+            // first frame as the still while paused.
+            controls={reducedMotion}
+            {...(reducedMotion && videoPosterUrl ? { poster: videoPosterUrl } : {})}
+            className={`relative h-full w-full ${videoPosterUrl ? 'object-contain' : 'object-cover'} ${
+              reducedMotion ? 'pointer-events-auto' : ''
+            }`}
           />
+
+          {/* Reduced motion: the clip doesn't autoplay and its native controls
+              (pointer-events-auto, full-bleed) sit ABOVE the stage's press-to-step,
+              so a guest who never plays — or pauses — the clip would otherwise be
+              stranded on this dur:Infinity beat. This explicit Continue is the
+              guaranteed escape to the closing card / Add-to-calendar. Sits above
+              the native controls bar; only mounts on the reduced video beat. */}
+          {reducedMotion && idx === videoSlideIndex && clipReady ? (
+            <button
+              type="button"
+              onClick={() => {
+                if (audioRef.current && audioRef.current.paused && !muted) {
+                  audioRef.current.play().catch(() => {});
+                }
+                goRef.current(idxRef.current + 1);
+              }}
+              className="pointer-events-auto absolute bottom-[max(6rem,calc(env(safe-area-inset-bottom)+5rem))] left-1/2 -translate-x-1/2 rounded-full bg-cream/90 px-6 py-2.5 text-sm font-semibold text-ink shadow-lg backdrop-blur transition-colors hover:bg-cream"
+            >
+              Continue
+            </button>
+          ) : null}
 
           {/* "Tap for sound" — shows only when the clip had to auto-play MUTED
               (autoplay policy) and the guest hasn't globally muted. One tap is a

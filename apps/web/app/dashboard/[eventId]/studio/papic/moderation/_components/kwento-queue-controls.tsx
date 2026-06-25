@@ -52,7 +52,11 @@ export function KwentoQueueControls({ eventId, rows }: { eventId: string; rows: 
           <div className="h-16 w-16 flex-none overflow-hidden rounded-md border border-ink/10 bg-ink/5">
             {row.thumbUrl ? (
               // eslint-disable-next-line @next/next/no-img-element -- presigned R2 thumb
-              <img src={row.thumbUrl} alt="" className="h-full w-full object-cover" />
+              <img
+                src={row.thumbUrl}
+                alt={row.author ? `Kwento submission photo from ${row.author}` : 'Kwento submission photo'}
+                className="h-full w-full object-cover"
+              />
             ) : null}
           </div>
           <div className="min-w-0 flex-1">

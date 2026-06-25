@@ -117,7 +117,15 @@ export function PapicGalleryGrid({
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={p.url}
-                    alt=""
+                    alt={
+                      p.kind === 'clip'
+                        ? p.tagged
+                          ? 'Papic gallery video clip of tagged guests'
+                          : 'Papic gallery video clip'
+                        : p.tagged
+                          ? 'Papic gallery photo of tagged guests'
+                          : 'Papic gallery photo'
+                    }
                     loading="lazy"
                     className="h-full w-full object-cover"
                   />

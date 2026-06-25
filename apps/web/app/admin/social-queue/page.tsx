@@ -1258,7 +1258,7 @@ function TikTokManualPanel({ posts }: { posts: SocialPostRow[] }) {
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={socialCardUrl(p.post_id, 'story')}
-                    alt=""
+                    alt="Story card preview — the 9:16 branded card image to attach to the TikTok post"
                     width={45}
                     height={80}
                     className="shrink-0 rounded-md border border-ink/10 bg-cream object-cover"
@@ -1568,7 +1568,7 @@ function CardPreview({ postId, size = 56 }: { postId: string; size?: number }) {
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={socialCardUrl(postId)}
-      alt=""
+      alt="Social card preview — the branded card image for this post"
       width={size}
       height={size}
       className="shrink-0 rounded-md border border-ink/10 bg-cream object-cover"

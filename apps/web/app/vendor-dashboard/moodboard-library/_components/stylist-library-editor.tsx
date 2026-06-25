@@ -255,7 +255,7 @@ export function StylistLibraryEditor({ initialAssets }: { initialAssets: Stylist
                   >
                     <Image
                       src={a.public_url}
-                      alt=""
+                      alt={a.label ? `Moodboard photo: ${a.label}` : 'Moodboard photo thumbnail'}
                       width={48}
                       height={48}
                       loading="lazy"

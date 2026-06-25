@@ -219,7 +219,7 @@ export function EditorialMediaStudio({
                     <video src={m.boomerangUrl} poster={m.stillUrl} autoPlay muted loop playsInline className="h-full w-full object-cover" />
                   ) : (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={m.stillUrl} alt={m.caption ?? ''} className="h-full w-full object-cover" />
+                    <img src={m.stillUrl} alt={m.caption || 'Wedding editorial photo'} className="h-full w-full object-cover" />
                   )}
                 </div>
                 <figcaption className="space-y-1 p-2">
@@ -287,7 +287,7 @@ export function EditorialMediaStudio({
                     <video src={s.previewUrl} autoPlay muted loop playsInline className="h-full w-full object-cover" />
                   ) : (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={s.previewUrl} alt="" className="h-full w-full object-cover" />
+                    <img src={s.previewUrl} alt="Preview of photo staged for the editorial" className="h-full w-full object-cover" />
                   )}
                   <button
                     type="button"

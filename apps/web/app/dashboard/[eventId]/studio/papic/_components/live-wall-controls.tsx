@@ -104,7 +104,7 @@ export function LiveWallControls({
               >
                 {tile.thumbUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element -- presigned R2 thumb
-                  <img src={tile.thumbUrl} alt="" className="h-full w-full object-cover" />
+                  <img src={tile.thumbUrl} alt="Live wall photo" className="h-full w-full object-cover" />
                 ) : (
                   <div className="h-full w-full bg-ink/10" />
                 )}

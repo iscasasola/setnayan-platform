@@ -46,7 +46,7 @@ export default async function AdminHeroVideoPage() {
               <img
                 key={i}
                 src={u}
-                alt=""
+                alt={`Hero video ${['first', 'middle', 'last'][i] ?? 'sample'} frame`}
                 className="h-28 w-28 rounded-lg border border-[var(--m-line,#e2ded4)] object-cover"
               />
             ))}

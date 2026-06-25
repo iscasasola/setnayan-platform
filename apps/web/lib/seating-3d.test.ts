@@ -15,6 +15,7 @@ import {
   pushOutOfDiscs,
   separateAgents,
   firstFreeSeatAtTable,
+  walkVector,
   type Lab3DFloor,
   type Lab3DTable,
 } from './seating-3d';
@@ -115,4 +116,18 @@ test('firstFreeSeatAtTable: lowest seat skipping removed + occupied; -1 when ful
   assert.equal(firstFreeSeatAtTable(10, [0, 1], [2]), 3, 'skips removed + occupied');
   assert.equal(firstFreeSeatAtTable(4, [], [0, 1, 2, 3]), -1, 'full → -1');
   assert.equal(firstFreeSeatAtTable(4, [99, -1], [1]), 0, 'out-of-range removed ignored');
+});
+
+test('walkVector: forward follows yaw, strafe is 90° right of it', () => {
+  const near = (a: number, b: number) => Math.abs(a - b) < 1e-9;
+  // yaw 0 faces +z: forward → +z, strafe right → +x.
+  let v = walkVector(0, 0, 1);
+  assert.ok(near(v.dx, 0) && near(v.dz, 1), 'yaw0 forward → +z');
+  v = walkVector(0, 1, 0);
+  assert.ok(near(v.dx, 1) && near(v.dz, 0), 'yaw0 strafe → +x');
+  // yaw 90°: forward → +x, strafe right → -z.
+  v = walkVector(Math.PI / 2, 0, 1);
+  assert.ok(near(v.dx, 1) && near(v.dz, 0), 'yaw90 forward → +x');
+  v = walkVector(Math.PI / 2, 1, 0);
+  assert.ok(near(v.dx, 0) && near(v.dz, -1), 'yaw90 strafe → -z');
 });

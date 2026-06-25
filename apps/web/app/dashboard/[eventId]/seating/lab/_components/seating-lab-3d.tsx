@@ -66,6 +66,7 @@ import {
   firstFreeSeatAtTable,
   pushOutOfDiscs,
   separateAgents,
+  walkVector,
   steerPath,
   resolvePalette,
   DEMO_PALETTES,
@@ -269,6 +270,10 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [camBusy, setCamBusy] = useState(false);
+  // Game-pad "walk the room" mode (Play only). The on-screen sticks write into
+  // walkInput each frame; WalkController reads it to drive the camera.
+  const [walking, setWalking] = useState(false);
+  const walkInput = useRef<WalkInput>({ moveX: 0, moveZ: 0, lookDX: 0, lookDY: 0, pinch: 0 });
   const [notice, setNotice] = useState<string | null>(null);
   const [walker, setWalker] = useState<WalkerState>(null);
   // Populate-Play: when set, the whole seated list walks in at once (mutually
@@ -333,6 +338,12 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
 
   const tablesById = useMemo(() => new Map(tables.map((t) => [t.id, t])), [tables]);
   const guestById = useMemo(() => new Map(guests.map((g) => [g.id, g])), [guests]);
+  // What the walking camera can't pass through (tables + stage + dance discs).
+  const walkObstacles = useMemo(() => floorObstacles(floor, tables, room, []), [floor, tables, room]);
+  // Walk mode only makes sense in Play — drop it whenever we leave.
+  useEffect(() => {
+    if (mode !== 'play') setWalking(false);
+  }, [mode]);
 
   // Per-table, per-seat token treatment from each seated guest's RSVP, plus a
   // ghost "+1 reserved" seat beside any guest the couple allowed a +1 whose +1
@@ -804,10 +815,14 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
           <MoverToken key={m.gid} mover={m} onDone={onMoverDone} reduced={reduced} />
         ))}
 
-        <CameraRig mode={mode} room={room} onBusy={setCamBusy} reduced={reduced} />
+        {walking ? (
+          <WalkController active={walking} input={walkInput} room={room} obstacles={walkObstacles} />
+        ) : (
+          <CameraRig mode={mode} room={room} onBusy={setCamBusy} reduced={reduced} />
+        )}
         <OrbitControls
           makeDefault
-          enabled={!draggingId && !camBusy}
+          enabled={!draggingId && !camBusy && !walking}
           enableDamping={!reduced}
           dampingFactor={0.08}
           minDistance={6}
@@ -861,6 +876,28 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
         selectedLabel={selectedId ? tablesById.get(selectedId)?.label ?? null : null}
         tableCount={tables.length}
       />
+
+      {/* Game-pad walk controls (Play): toggle + on-screen sticks. */}
+      {mode === 'play' ? (
+        <>
+          <button
+            type="button"
+            onClick={() => setWalking((w) => !w)}
+            className="absolute right-4 top-4 z-30 rounded-xl border border-white/15 bg-white/10 px-3 py-1.5 text-sm font-medium text-white backdrop-blur-md transition hover:bg-white/20"
+          >
+            {walking ? 'Exit walk' : '🚶 Walk around'}
+          </button>
+          {walking ? (
+            <>
+              <LookPad input={walkInput} />
+              <WalkStick input={walkInput} />
+              <div className="pointer-events-none absolute bottom-8 left-1/2 z-20 -translate-x-1/2 text-[11px] text-white/55">
+                Left stick walks · drag right to look · pinch to zoom
+              </div>
+            </>
+          ) : null}
+        </>
+      ) : null}
     </div>
   );
 }
@@ -1653,6 +1690,174 @@ function MoverToken({ mover, onDone, reduced }: { mover: Mover; onDone: (gid: st
         <meshStandardMaterial color={mover.color} roughness={0.5} transparent={transparent} opacity={mover.opacity} />
       </mesh>
     </group>
+  );
+}
+
+/* ---------------------- Game-pad walk controls (Play) -------------------- */
+
+type WalkInput = { moveX: number; moveZ: number; lookDX: number; lookDY: number; pinch: number };
+
+/**
+ * First-person "walk the room" camera, driven by the on-screen sticks (owner
+ * 2026-06-26: "left circle walks, right sets the camera angle, pinch zooms").
+ * Reads the shared `input` ref each frame: left stick → move (relative to look
+ * via the unit-tested walkVector), right pad → yaw/pitch, pinch → FOV. Reuses
+ * pushOutOfDiscs so you can't walk through tables/stage. Renders nothing — it
+ * just drives the existing camera while `active`; CameraRig is unmounted then.
+ */
+function WalkController({
+  active,
+  input,
+  room,
+  obstacles,
+}: {
+  active: boolean;
+  input: React.MutableRefObject<WalkInput>;
+  room: { w: number; d: number };
+  obstacles: { c: Vec2; r: number }[];
+}) {
+  const { camera } = useThree();
+  const yaw = useRef(0);
+  const pitch = useRef(-0.06);
+  const pos = useRef(new THREE.Vector3());
+  const inited = useRef(false);
+
+  useEffect(() => {
+    if (!active) inited.current = false;
+  }, [active]);
+
+  useFrame((_, delta) => {
+    if (!active) return;
+    const cam = camera as THREE.PerspectiveCamera;
+    if (!inited.current) {
+      // Drop in at the current camera spot, at eye height, facing the room centre.
+      pos.current.set(camera.position.x, 1.6, camera.position.z);
+      yaw.current = Math.atan2(-camera.position.x, -camera.position.z);
+      pitch.current = -0.06;
+      inited.current = true;
+    }
+    // Right pad → look. Deltas are consumed (zeroed) each frame.
+    yaw.current -= input.current.lookDX * 0.004;
+    pitch.current = Math.max(-1.25, Math.min(0.5, pitch.current - input.current.lookDY * 0.004));
+    input.current.lookDX = 0;
+    input.current.lookDY = 0;
+    // Pinch → FOV zoom.
+    if (input.current.pinch !== 0) {
+      cam.fov = Math.max(28, Math.min(72, cam.fov - input.current.pinch * 0.04));
+      cam.updateProjectionMatrix();
+      input.current.pinch = 0;
+    }
+    // Left stick → walk, relative to look; clear tables/stage; stay near the room.
+    const speed = 3.4 * delta;
+    const v = walkVector(yaw.current, input.current.moveX, -input.current.moveZ);
+    const cleared = pushOutOfDiscs({ x: pos.current.x + v.dx * speed, z: pos.current.z + v.dz * speed }, obstacles);
+    const lim = Math.max(room.w, room.d) * 1.6;
+    pos.current.x = Math.max(-lim, Math.min(lim, cleared.x));
+    pos.current.z = Math.max(-lim, Math.min(lim, cleared.z));
+    pos.current.y = 1.6;
+    camera.position.copy(pos.current);
+    const cp = Math.cos(pitch.current);
+    camera.lookAt(
+      pos.current.x + Math.sin(yaw.current) * cp,
+      pos.current.y + Math.sin(pitch.current),
+      pos.current.z + Math.cos(yaw.current) * cp,
+    );
+  });
+
+  return null;
+}
+
+/** Left on-screen joystick → input.moveX / moveZ (−1..1), springs back on release. */
+function WalkStick({ input }: { input: React.MutableRefObject<WalkInput> }) {
+  const base = useRef<HTMLDivElement>(null);
+  const id = useRef<number | null>(null);
+  const [nub, setNub] = useState({ x: 0, y: 0 });
+  const R = 46;
+  const track = (e: React.PointerEvent) => {
+    if (id.current !== e.pointerId || !base.current) return;
+    const b = base.current.getBoundingClientRect();
+    let dx = e.clientX - (b.left + b.width / 2);
+    let dy = e.clientY - (b.top + b.height / 2);
+    const len = Math.hypot(dx, dy);
+    if (len > R) {
+      dx = (dx / len) * R;
+      dy = (dy / len) * R;
+    }
+    setNub({ x: dx, y: dy });
+    input.current.moveX = dx / R;
+    input.current.moveZ = dy / R;
+  };
+  const release = () => {
+    id.current = null;
+    setNub({ x: 0, y: 0 });
+    input.current.moveX = 0;
+    input.current.moveZ = 0;
+  };
+  return (
+    <div
+      ref={base}
+      onPointerDown={(e) => {
+        id.current = e.pointerId;
+        (e.target as Element).setPointerCapture(e.pointerId);
+        track(e);
+      }}
+      onPointerMove={track}
+      onPointerUp={release}
+      onPointerCancel={release}
+      className="absolute bottom-6 left-6 z-20 flex h-28 w-28 touch-none items-center justify-center rounded-full border border-white/20 bg-white/10 backdrop-blur-md"
+      aria-label="Walk joystick"
+    >
+      <div className="h-12 w-12 rounded-full bg-white/45" style={{ transform: `translate(${nub.x}px, ${nub.y}px)` }} />
+    </div>
+  );
+}
+
+/** Right-half drag → input.lookDX / lookDY (camera angle). */
+function LookPad({ input }: { input: React.MutableRefObject<WalkInput> }) {
+  const id = useRef<number | null>(null);
+  const last = useRef<{ x: number; y: number } | null>(null);
+  const pinchLast = useRef<number | null>(null);
+  const move = (e: React.PointerEvent) => {
+    if (id.current !== e.pointerId || !last.current) return;
+    input.current.lookDX += e.clientX - last.current.x;
+    input.current.lookDY += e.clientY - last.current.y;
+    last.current = { x: e.clientX, y: e.clientY };
+  };
+  const release = () => {
+    id.current = null;
+    last.current = null;
+  };
+  // Two-finger pinch → input.pinch (WalkController turns it into FOV zoom).
+  // Look is suspended while pinching so a stray finger doesn't yank the camera.
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const d = Math.hypot(
+        e.touches[0]!.clientX - e.touches[1]!.clientX,
+        e.touches[0]!.clientY - e.touches[1]!.clientY,
+      );
+      if (pinchLast.current != null) input.current.pinch += d - pinchLast.current;
+      pinchLast.current = d;
+      last.current = null;
+    }
+  };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (e.touches.length < 2) pinchLast.current = null;
+  };
+  return (
+    <div
+      onPointerDown={(e) => {
+        id.current = e.pointerId;
+        last.current = { x: e.clientX, y: e.clientY };
+        (e.target as Element).setPointerCapture(e.pointerId);
+      }}
+      onPointerMove={move}
+      onPointerUp={release}
+      onPointerCancel={release}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      className="absolute inset-y-0 right-0 z-10 w-1/2 touch-none"
+      aria-label="Look around"
+    />
   );
 }
 

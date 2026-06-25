@@ -422,6 +422,18 @@ export function separateAgents(agents: Vec2[], minDist: number): Vec2[] {
 }
 
 /**
+ * First-person walk movement: given the camera's yaw and a joystick (`moveX` =
+ * strafe right+, `moveForward` = forward+), return the unit-ish world (dx,dz) to
+ * step. yaw 0 faces +z; forward follows the look direction, strafe is 90° right
+ * of it. Pure + unit-tested — the game-pad camera's only directional math.
+ */
+export function walkVector(yaw: number, moveX: number, moveForward: number): { dx: number; dz: number } {
+  const s = Math.sin(yaw);
+  const c = Math.cos(yaw);
+  return { dx: moveForward * s + moveX * c, dz: moveForward * c - moveX * s };
+}
+
+/**
  * Lightweight "walk around the tables" path: sample the straight line start→end,
  * push each interior sample out of any table's avoidance disc (a cheap potential
  * field), then return the smoothed waypoints. Not a true NavMesh — it just reads

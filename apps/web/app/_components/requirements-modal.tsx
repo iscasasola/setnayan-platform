@@ -25,7 +25,7 @@
 import type { ReactNode, RefObject } from 'react';
 import { AlertCircle, Check, MessageCircle, X } from 'lucide-react';
 import { humanizeFacet, type RequirementField } from '@/lib/requirements-capture';
-import { useEscapeKey } from '@/lib/use-escape-key';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 
 /** CTA lifecycle so the footer button reflects submit/sent state. */
 export type RequirementsModalPhase = 'idle' | 'submitting' | 'sent' | 'error';
@@ -91,7 +91,9 @@ export function RequirementsModal({
   dialogRef,
 }: RequirementsModalProps) {
   const sent = phase === 'sent';
-  useEscapeKey(onClose, !isSubmitting); // Escape-to-dismiss (suspended mid-send)
+  // This sub-component mounts only while open, so mount = open. The shared hook
+  // handles focus trap + restore + Esc-to-close + body-scroll-lock.
+  useModalA11y({ open: true, onClose, containerRef: dialogRef });
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
@@ -110,7 +112,7 @@ export function RequirementsModal({
       {/* Modal panel */}
       <div
         ref={dialogRef}
-        className="relative z-10 flex max-h-[90vh] w-full flex-col overflow-hidden rounded-t-3xl border border-ink/10 bg-cream shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] sm:max-h-[85vh] sm:w-full sm:max-w-lg sm:rounded-2xl sm:shadow-[0_30px_80px_-40px_rgba(26,26,26,0.4)]"
+        className="relative z-10 flex max-h-[90vh] w-full flex-col overflow-hidden rounded-t-3xl border border-ink/10 bg-cream shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] focus:outline-none sm:max-h-[85vh] sm:w-full sm:max-w-lg sm:rounded-2xl sm:shadow-[0_30px_80px_-40px_rgba(26,26,26,0.4)]"
       >
         {/* Header */}
         <div className="flex items-start justify-between gap-3 border-b border-ink/10 px-5 py-4">

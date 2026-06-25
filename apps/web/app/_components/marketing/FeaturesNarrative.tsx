@@ -22,6 +22,7 @@
 import Link from 'next/link';
 import { useRef, useState } from 'react';
 import { Blob } from './_motion';
+import { usePanelIntro, PanelThread } from './_premium';
 
 // ─── Panel 0 data ──────────────────────────────────────────────────────────
 // Abstract preview tiles for the "16 features" overview.
@@ -242,8 +243,10 @@ function NextBtn({
 
 // ─── Panel 0 — Overview ────────────────────────────────────────────────────
 function PanelOverview({ onNext }: { onNext: () => void }) {
+  const scope = usePanelIntro();
   return (
     <div
+      ref={scope}
       className="relative overflow-hidden"
       style={{
         background: '#0e0f12',
@@ -255,14 +258,16 @@ function PanelOverview({ onNext }: { onNext: () => void }) {
     >
       <Blob top={-80} left={-60} size={560} color="var(--m-orange)" opacity={0.1} />
       <Blob bottom={-100} right={-60} size={500} color="var(--m-mulberry)" opacity={0.14} />
+      <PanelThread tone="dark" />
 
       <div
         className="relative mx-auto w-full"
-        style={{ maxWidth: 1100, padding: '80px 20px 80px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
+        style={{ maxWidth: 1100, padding: '80px 20px 80px', display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 1 }}
       >
         <StepDots total={4} current={0} />
 
         <div
+          data-premium-item
           className="m-mono text-center"
           style={{ fontSize: 11, letterSpacing: '.24em', textTransform: 'uppercase', color: 'var(--m-orange-3)', marginBottom: 20 }}
         >
@@ -270,6 +275,7 @@ function PanelOverview({ onNext }: { onNext: () => void }) {
         </div>
 
         <h2
+          data-premium-headline
           className="m-serif italic text-center"
           style={{ color: '#FBFBFA', fontSize: 'clamp(2.4rem, 6.5vw, 4.2rem)', lineHeight: 1.05, maxWidth: 740, marginBottom: 20 }}
         >
@@ -278,6 +284,7 @@ function PanelOverview({ onNext }: { onNext: () => void }) {
         </h2>
 
         <p
+          data-premium-item
           className="text-center"
           style={{ color: 'rgba(251,251,250,.62)', fontSize: 'clamp(1rem, 2.4vw, 1.15rem)', lineHeight: 1.65, maxWidth: 540, marginBottom: 52 }}
         >
@@ -287,6 +294,7 @@ function PanelOverview({ onNext }: { onNext: () => void }) {
 
         {/* The 14-tile preview: 6 bright (free) + 8 dimmer (paid) */}
         <div
+          data-premium-item
           style={{
             display: 'flex',
             flexWrap: 'wrap',
@@ -331,7 +339,9 @@ function PanelOverview({ onNext }: { onNext: () => void }) {
           ))}
         </div>
 
-        <NextBtn onClick={onNext} label="See what sets us apart" dark />
+        <div data-premium-item>
+          <NextBtn onClick={onNext} label="See what sets us apart" dark />
+        </div>
       </div>
     </div>
   );
@@ -339,22 +349,28 @@ function PanelOverview({ onNext }: { onNext: () => void }) {
 
 // ─── Free tools · renders at step 2 (differentiator leads) ──────────────────────────────────────────────────
 function PanelFree({ onNext }: { onNext: () => void }) {
+  const scope = usePanelIntro();
   return (
     <div
+      ref={scope}
       style={{
+        position: 'relative',
+        overflow: 'hidden',
         background: 'var(--m-paper)',
         minHeight: '100dvh',
         display: 'flex',
         flexDirection: 'column',
       }}
     >
+      <PanelThread tone="light" />
       <div
         className="mx-auto w-full"
-        style={{ maxWidth: 1100, padding: '64px 20px 80px', flex: 1, display: 'flex', flexDirection: 'column' }}
+        style={{ position: 'relative', zIndex: 1, maxWidth: 1100, padding: '64px 20px 80px', flex: 1, display: 'flex', flexDirection: 'column' }}
       >
         <StepDots total={4} current={2} />
 
         <div
+          data-premium-item
           className="m-mono text-center"
           style={{ fontSize: 11, letterSpacing: '.24em', textTransform: 'uppercase', color: 'var(--m-orange-2)', marginBottom: 16 }}
         >
@@ -362,6 +378,7 @@ function PanelFree({ onNext }: { onNext: () => void }) {
         </div>
 
         <h2
+          data-premium-headline
           className="m-serif italic text-center"
           style={{ fontSize: 'clamp(2rem, 5.5vw, 3.4rem)', lineHeight: 1.08, maxWidth: 680, margin: '0 auto', marginBottom: 12 }}
         >
@@ -369,6 +386,7 @@ function PanelFree({ onNext }: { onNext: () => void }) {
         </h2>
 
         <p
+          data-premium-item
           className="text-center text-[var(--m-slate)]"
           style={{ fontSize: 'clamp(.95rem, 2.4vw, 1.1rem)', lineHeight: 1.6, maxWidth: 520, margin: '0 auto 44px' }}
         >
@@ -382,6 +400,7 @@ function PanelFree({ onNext }: { onNext: () => void }) {
           {FREE_ROOMS.map((r) => (
             <div
               key={r.name}
+              data-premium-item
               className="m-card m-card-lift overflow-hidden"
               style={{ display: 'flex', flexDirection: 'column' }}
             >
@@ -436,7 +455,7 @@ function PanelFree({ onNext }: { onNext: () => void }) {
           ))}
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 48 }}>
+        <div data-premium-item style={{ display: 'flex', justifyContent: 'center', marginTop: 48 }}>
           <NextBtn onClick={onNext} label="Meet the vendors" />
         </div>
       </div>
@@ -446,22 +465,28 @@ function PanelFree({ onNext }: { onNext: () => void }) {
 
 // ─── Premium features · renders at step 1 (differentiator leads) ───────────────────────────────────────────────
 function PanelPremium({ onNext }: { onNext: () => void }) {
+  const scope = usePanelIntro();
   return (
     <div
+      ref={scope}
       style={{
+        position: 'relative',
+        overflow: 'hidden',
         background: 'var(--m-paper-2)',
         minHeight: '100dvh',
         display: 'flex',
         flexDirection: 'column',
       }}
     >
+      <PanelThread tone="light" />
       <div
         className="mx-auto w-full"
-        style={{ maxWidth: 1100, padding: '64px 20px 80px', flex: 1, display: 'flex', flexDirection: 'column' }}
+        style={{ position: 'relative', zIndex: 1, maxWidth: 1100, padding: '64px 20px 80px', flex: 1, display: 'flex', flexDirection: 'column' }}
       >
         <StepDots total={4} current={1} />
 
         <div
+          data-premium-item
           className="m-mono text-center"
           style={{ fontSize: 11, letterSpacing: '.24em', textTransform: 'uppercase', color: 'var(--m-mulberry)', marginBottom: 16 }}
         >
@@ -469,6 +494,7 @@ function PanelPremium({ onNext }: { onNext: () => void }) {
         </div>
 
         <h2
+          data-premium-headline
           className="m-serif italic text-center"
           style={{ fontSize: 'clamp(2rem, 5.5vw, 3.4rem)', lineHeight: 1.08, maxWidth: 680, margin: '0 auto', marginBottom: 12 }}
         >
@@ -476,6 +502,7 @@ function PanelPremium({ onNext }: { onNext: () => void }) {
         </h2>
 
         <p
+          data-premium-item
           className="text-center text-[var(--m-slate)]"
           style={{ fontSize: 'clamp(.95rem, 2.4vw, 1.1rem)', lineHeight: 1.6, maxWidth: 520, margin: '0 auto 44px' }}
         >
@@ -489,6 +516,7 @@ function PanelPremium({ onNext }: { onNext: () => void }) {
           {PAID_FEATURES.map((f) => (
             <div
               key={f.name}
+              data-premium-item
               className="m-card"
               style={{
                 padding: '20px 22px',
@@ -546,7 +574,7 @@ function PanelPremium({ onNext }: { onNext: () => void }) {
           ))}
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 48 }}>
+        <div data-premium-item style={{ display: 'flex', justifyContent: 'center', marginTop: 48 }}>
           <NextBtn onClick={onNext} label="See what's free" />
         </div>
       </div>
@@ -556,8 +584,10 @@ function PanelPremium({ onNext }: { onNext: () => void }) {
 
 // ─── Panel 3 — Vendor marketplace ──────────────────────────────────────────
 function PanelMarketplace() {
+  const scope = usePanelIntro();
   return (
     <div
+      ref={scope}
       className="relative overflow-hidden"
       style={{
         background: '#0e0f12',
@@ -569,14 +599,16 @@ function PanelMarketplace() {
     >
       <Blob top={-80} right={-40} size={520} color="var(--m-mulberry)" opacity={0.12} />
       <Blob bottom={-60} left={-60} size={480} color="var(--m-orange)" opacity={0.1} />
+      <PanelThread tone="dark" />
 
       <div
         className="relative mx-auto w-full"
-        style={{ maxWidth: 1100, padding: '80px 20px 80px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
+        style={{ maxWidth: 1100, padding: '80px 20px 80px', display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 1 }}
       >
         <StepDots total={4} current={3} />
 
         <div
+          data-premium-item
           className="m-mono text-center"
           style={{ fontSize: 11, letterSpacing: '.24em', textTransform: 'uppercase', color: 'var(--m-mulberry)', marginBottom: 20 }}
         >
@@ -584,6 +616,7 @@ function PanelMarketplace() {
         </div>
 
         <h2
+          data-premium-headline
           className="m-serif italic text-center"
           style={{ color: '#FBFBFA', fontSize: 'clamp(2.4rem, 6.5vw, 4.2rem)', lineHeight: 1.05, maxWidth: 700, marginBottom: 20 }}
         >
@@ -591,6 +624,7 @@ function PanelMarketplace() {
         </h2>
 
         <p
+          data-premium-item
           className="text-center"
           style={{ color: 'rgba(251,251,250,.62)', fontSize: 'clamp(1rem, 2.4vw, 1.15rem)', lineHeight: 1.65, maxWidth: 560, marginBottom: 48 }}
         >
@@ -600,6 +634,7 @@ function PanelMarketplace() {
 
         {/* Vendor category chips */}
         <div
+          data-premium-item
           style={{
             display: 'flex',
             flexWrap: 'wrap',
@@ -628,7 +663,7 @@ function PanelMarketplace() {
         </div>
 
         {/* Two CTAs */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+        <div data-premium-item style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
           <Link
             href="/onboarding/wedding"
             className="m-btn m-btn-primary m-btn-lg"

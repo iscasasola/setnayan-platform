@@ -109,96 +109,128 @@ export default async function SetnayanAiPage({ params }: Props) {
         Back to add-ons
       </Link>
 
-      <header className="space-y-2">
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-          Setnayan AI
-        </p>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          Stop guessing who to hire
-        </h1>
-        <p className="max-w-prose text-base text-ink/65">
-          Setnayan AI reads your date, budget, location, guest count and faith,
-          then ranks every available vendor by how well they actually fit —
-          turning a directory into a shortlist made for your wedding.
-        </p>
-      </header>
-
-      <ul className="grid gap-3 sm:grid-cols-3">
-        {WHAT_YOU_GET.map(({ icon: Icon, title, body }) => (
-          <li
-            key={title}
-            className="rounded-xl border border-ink/10 bg-cream p-4"
-          >
-            <Icon aria-hidden className="h-5 w-5 text-mulberry" strokeWidth={1.75} />
-            <p className="mt-2 text-sm font-medium text-ink">{title}</p>
-            <p className="mt-1 text-sm text-ink/65">{body}</p>
-          </li>
-        ))}
-      </ul>
-
+      {/* OPENED-STATE = OUTCOME/ACTION FIRST for anyone who already has access;
+          the marketing pitch (sell hero + "what you get" grid) is gated to the
+          BUY state only — never re-pitch an owner (consistency plan Tier 4 rule,
+          extended to Setnayan AI 2026-06-25). The "tool" itself (the ranked
+          shortlist) lives on /vendors, so the active state leads straight there. */}
       {active ? (
-        <div className="rounded-xl border border-mulberry/20 bg-mulberry/5 p-5">
-          <p className="inline-flex items-center gap-2 text-sm font-medium text-mulberry">
-            <Check aria-hidden className="h-4 w-4" strokeWidth={2.5} />
-            Setnayan AI is on for {event.display_name ?? 'your wedding'}
-          </p>
-          <p className="mt-1 text-sm text-ink/65">
-            Your matches are already ranked. Head to your{' '}
+        <>
+          <header className="space-y-2">
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+              Setnayan AI
+            </p>
+            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+              Your vendor shortlist is ranked
+            </h1>
+            <p className="max-w-prose text-base text-ink/65">
+              Setnayan AI is on for {event.display_name ?? 'your wedding'} — every
+              available vendor is sorted by how well they fit your date, budget,
+              location, guest count and faith, each with a &ldquo;% match&rdquo;.
+            </p>
+          </header>
+
+          <div className="flex flex-col gap-4 rounded-xl border border-mulberry/20 bg-mulberry/5 p-5 sm:flex-row sm:items-center sm:justify-between">
+            <p className="inline-flex items-center gap-2 text-sm font-medium text-mulberry">
+              <Check aria-hidden className="h-4 w-4" strokeWidth={2.5} />
+              Active — your matches are ready
+            </p>
             <Link
               href={`/dashboard/${eventId}/vendors`}
-              className="font-medium text-terracotta underline-offset-4 hover:underline"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 sm:w-auto"
             >
-              vendors
-            </Link>{' '}
-            to see the shortlist.
-          </p>
-        </div>
+              See your ranked vendors
+              <ArrowLeft aria-hidden className="h-3.5 w-3.5 rotate-180" strokeWidth={2} />
+            </Link>
+          </div>
+        </>
       ) : owns || !paywallOn ? (
-        <div className="rounded-xl border border-ink/10 bg-cream p-5">
-          <p className="text-sm font-medium text-ink">
-            Setnayan AI is available for your wedding
-          </p>
-          <p className="mt-1 text-sm text-ink/65">
-            It&rsquo;s currently switched to manual planning. Turn Assisted
-            planning back on from your{' '}
+        <>
+          <header className="space-y-2">
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+              Setnayan AI
+            </p>
+            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+              Setnayan AI is ready for your wedding
+            </h1>
+            <p className="max-w-prose text-base text-ink/65">
+              You have access — it&rsquo;s just switched to manual planning right
+              now. Turn Assisted planning back on and your vendors get ranked for
+              your date, budget and style.
+            </p>
+          </header>
+
+          <div className="flex flex-col gap-4 rounded-xl border border-ink/10 bg-cream p-5 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-ink/65">
+              Assisted planning is currently off.
+            </p>
             <Link
               href={`/dashboard/${eventId}`}
-              className="font-medium text-terracotta underline-offset-4 hover:underline"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 sm:w-auto"
             >
-              planning home
-            </Link>{' '}
-            to get your ranked matches.
-          </p>
-        </div>
+              Turn on Assisted planning
+            </Link>
+          </div>
+        </>
       ) : (
-        <div className="rounded-xl border border-ink/10 bg-white p-5">
-          {pricePhp != null && settings ? (
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-ink/65">
-                One purchase, on through your wedding day ·{' '}
-                <span className="font-mono text-base text-ink">
-                  {formatPhp(pricePhp)}
-                </span>
-              </p>
-              <div className="sm:w-auto">
-                <InlineCheckoutDrawer
-                  eventId={eventId}
-                  serviceKey={SKU_CODE}
-                  displayName={`Setnayan AI${event.display_name ? ` · ${event.display_name}` : ''}`}
-                  originalPriceCentavos={String(Math.round(pricePhp * 100))}
-                  settings={settings}
-                  triggerLabel="Unlock Setnayan AI"
-                  triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70 sm:w-auto"
-                />
-              </div>
-            </div>
-          ) : (
-            <p className="inline-flex items-center gap-2 text-sm text-ink/65">
-              <Sparkles aria-hidden className="h-4 w-4 text-ink/40" />
-              Pricing loads from your catalog &mdash; please refresh in a moment.
+        <>
+          {/* BUY — the only state that sells. Non-owner, paywall on. */}
+          <header className="space-y-2">
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+              Setnayan AI
             </p>
-          )}
-        </div>
+            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+              Stop guessing who to hire
+            </h1>
+            <p className="max-w-prose text-base text-ink/65">
+              Setnayan AI reads your date, budget, location, guest count and
+              faith, then ranks every available vendor by how well they actually
+              fit — turning a directory into a shortlist made for your wedding.
+            </p>
+          </header>
+
+          <ul className="grid gap-3 sm:grid-cols-3">
+            {WHAT_YOU_GET.map(({ icon: Icon, title, body }) => (
+              <li
+                key={title}
+                className="rounded-xl border border-ink/10 bg-cream p-4"
+              >
+                <Icon aria-hidden className="h-5 w-5 text-mulberry" strokeWidth={1.75} />
+                <p className="mt-2 text-sm font-medium text-ink">{title}</p>
+                <p className="mt-1 text-sm text-ink/65">{body}</p>
+              </li>
+            ))}
+          </ul>
+
+          <div className="rounded-xl border border-ink/10 bg-white p-5">
+            {pricePhp != null && settings ? (
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-ink/65">
+                  One purchase, on through your wedding day ·{' '}
+                  <span className="font-mono text-base text-ink">
+                    {formatPhp(pricePhp)}
+                  </span>
+                </p>
+                <div className="sm:w-auto">
+                  <InlineCheckoutDrawer
+                    eventId={eventId}
+                    serviceKey={SKU_CODE}
+                    displayName={`Setnayan AI${event.display_name ? ` · ${event.display_name}` : ''}`}
+                    originalPriceCentavos={String(Math.round(pricePhp * 100))}
+                    settings={settings}
+                    triggerLabel="Unlock Setnayan AI"
+                    triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70 sm:w-auto"
+                  />
+                </div>
+              </div>
+            ) : (
+              <p className="inline-flex items-center gap-2 text-sm text-ink/65">
+                <Sparkles aria-hidden className="h-4 w-4 text-ink/40" />
+                Pricing loads from your catalog &mdash; please refresh in a moment.
+              </p>
+            )}
+          </div>
+        </>
       )}
     </section>
   );

@@ -22,6 +22,12 @@ export type SamplerRow = {
   photo_id: string;
   r2_object_key: string | null;
   poster_r2_key: string | null;
+  // Derivative variants (papic-derivatives.ts / live-wall.ts). A sampler photo can
+  // carry up to five distinct R2 objects; the sweep must delete ALL of them or the
+  // display/thumb/wall-safe bytes leak after the row + original are gone.
+  display_r2_key: string | null;
+  thumb_r2_key: string | null;
+  wall_safe_r2_key: string | null;
 };
 
 /** All seams the sweep needs — injected by the server wrapper, faked by tests. */
@@ -68,7 +74,20 @@ export async function sweepExpiredSamplerPhotosCore(
     if (readError || rows.length === 0) return 0;
 
     for (const row of rows) {
-      for (const ref of [row.r2_object_key, row.poster_r2_key]) {
+      // Delete EVERY R2 object the row references — original, clip poster, the two
+      // display derivatives, and the face-blurred live-wall variant. Dedup by ref
+      // because a clip's display_r2_key IS its poster_r2_key (generateClipThumb),
+      // so they'd otherwise be deleted twice.
+      const seen = new Set<string>();
+      for (const ref of [
+        row.r2_object_key,
+        row.poster_r2_key,
+        row.display_r2_key,
+        row.thumb_r2_key,
+        row.wall_safe_r2_key,
+      ]) {
+        if (!ref || seen.has(ref)) continue;
+        seen.add(ref);
         const parsed = parseR2Ref(ref);
         if (!parsed) continue;
         try {

@@ -58,6 +58,7 @@ import {
 import { computeBudgetOverspend } from '@/lib/budget-overspend';
 import type { PlannerLeafInput } from '@/lib/budget-allocation-data';
 import { formatPhp } from '@/lib/budget';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import {
   saveAllocationSnapshot,
   type SnapshotLeaf,
@@ -574,6 +575,16 @@ function TiltEditor({
   const overlayRef = useRef<HTMLDivElement | null>(null);
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
 
+  // This sub-component only mounts while the editor is open (parent renders
+  // `{openLeafAlloc ? <TiltEditor/> : null}`), so mount = open. Focus the close
+  // button on open — calm default, matches the canonical modal.
+  useModalA11y({
+    open: true,
+    onClose,
+    containerRef: overlayRef,
+    initialFocusRef: closeBtnRef,
+  });
+
   // The peso input is pre-filled with the leaf's CURRENT (final) amount and
   // tracked as a display string so the couple can type freely.
   const [draft, setDraft] = useState<string>(formatPlain(leaf.amountPhp));
@@ -583,20 +594,6 @@ function TiltEditor({
   useEffect(() => {
     setDraft(formatPlain(leaf.amountPhp));
   }, [leaf.canonicalService, leaf.amountPhp]);
-
-  // Focus the close button on open — calm default, matches the canonical modal.
-  useEffect(() => {
-    closeBtnRef.current?.focus();
-  }, []);
-
-  // ESC dismissal.
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
 
   const splurgeAmt = roundToThousand(recommendedAmountPhp * 1.25);
   const saveAmt = roundToThousand(recommendedAmountPhp * 0.8);
@@ -614,7 +611,7 @@ function TiltEditor({
       role="dialog"
       aria-modal="true"
       aria-labelledby="tilt-editor-headline"
-      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm focus:outline-none sm:items-center"
       onClick={(e) => {
         if (e.target === overlayRef.current) onClose();
       }}

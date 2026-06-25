@@ -1117,3 +1117,11 @@
 .onbw .whydate .wdemand.d2{background:rgba(197,160,89,.22);color:var(--gold-deep);}
 .onbw .whydate .wdemand.d3{background:rgba(190,106,69,.2);color:#B5532F;}
 .onbw .whydate .wdemand.d4{background:#BD5B3D;color:#fff;}
+
+/* a11y (2026-06-25): the role/kind option cards are now <button> for keyboard +
+   screen-reader access (was a clickable <div>). Scoped to button.opt so it never
+   touches the remaining .opt divs; neutralizes ONLY the UA-default chrome that
+   differs from a <div> (button font / center text-align / native appearance).
+   The card's box (bg/border/padding/radius) stays owned by .opt, and width comes
+   from the .stack flex stretch — so the no-scroll layout is pixel-unchanged. */
+.onbw button.opt{font:inherit;text-align:left;-webkit-appearance:none;appearance:none;}

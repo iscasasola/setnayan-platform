@@ -3146,13 +3146,13 @@ export function OnboardingShell({
                 {ROLE_OPTIONS.map((o) => (
                   // key includes `role` on the selected card so it remounts when the
                   // selection moves → the .sn-bounce replays on each newly-picked role.
-                  <div key={role === o.value ? `${o.value}-sel-${role}` : o.value} className={`opt${sel(role === o.value)}${role === o.value ? ' sn-bounce' : ''}`} onClick={() => selectRole(o.value)}>
+                  <button type="button" key={role === o.value ? `${o.value}-sel-${role}` : o.value} className={`opt${sel(role === o.value)}${role === o.value ? ' sn-bounce' : ''}`} aria-pressed={role === o.value} onClick={() => selectRole(o.value)}>
                     <div className="otrow">
                       <div className="ot">{o.title}</div>
                       <span className="check" />
                     </div>
                     <div className="od">{o.desc}</div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
@@ -3175,13 +3175,13 @@ export function OnboardingShell({
                 {KIND_OPTIONS.map((o) => (
                   // key includes `kind` on the selected card so it remounts when the
                   // selection moves → the .sn-bounce replays on each newly-picked kind.
-                  <div key={kind === o.value ? `${o.value}-sel-${kind}` : o.value} className={`opt${sel(kind === o.value)}${kind === o.value ? ' sn-bounce' : ''}`} onClick={() => selectKind(o.value)}>
+                  <button type="button" key={kind === o.value ? `${o.value}-sel-${kind}` : o.value} className={`opt${sel(kind === o.value)}${kind === o.value ? ' sn-bounce' : ''}`} aria-pressed={kind === o.value} onClick={() => selectKind(o.value)}>
                     <div className="otrow">
                       <div className="ot">{o.title}</div>
                       <span className="check" />
                     </div>
                     <div className="od">{o.desc}</div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>

@@ -247,3 +247,55 @@ export async function eventSkuActive(
   }
   return false;
 }
+
+/**
+ * BATCH bundle-aware entitlement for a whole event — the same logic as
+ * eventSkuActive (active) + eventOwnsSku's pending notion, but resolved in ONE
+ * query instead of N per-SKU round-trips. Built for the Studio hub grid, which
+ * needs ownership for every service at once.
+ *
+ *   • `active`  — service_codes that are ADMIN-APPROVED (paid/fulfilled),
+ *                 INCLUDING bundle children when the event owns GUIDED_PACK /
+ *                 MEDIA_PACK (so a bundle owner's children read as Active, fixing
+ *                 the grid-vs-surface disagreement).
+ *   • `pending` — service_codes with a submitted / awaiting_payment order (and
+ *                 the children of a pending bundle), for the "Pending" badge.
+ *
+ * Render-path safe: degrades to empty sets on ANY query error (a missing/legacy
+ * orders table must not crash the hub) — the grid then just shows buy pills.
+ * Pass an ADMIN client so a co-host who didn't place the order still sees
+ * ownership (orders RLS is purchaser-scoped — same reason the About redirect
+ * uses the admin client).
+ */
+export async function eventActiveSkus(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<{ active: Set<string>; pending: Set<string> }> {
+  const active = new Set<string>();
+  const pending = new Set<string>();
+
+  const { data, error } = await supabase
+    .from('orders')
+    .select('service_key, status')
+    .eq('event_id', eventId)
+    .in('status', ['paid', 'fulfilled', 'submitted', 'awaiting_payment']);
+
+  if (error || !data) return { active, pending };
+
+  const childrenOf = (key: string): ReadonlyArray<string> =>
+    (BUNDLE_CHILD_SKUS as Record<string, ReadonlyArray<string>>)[key] ?? [];
+
+  for (const row of data) {
+    const key = row.service_key as string | null;
+    if (!key) continue;
+    const status = (row.status as string | null) ?? '';
+    if (ACTIVE_STATUSES.has(status)) {
+      active.add(key);
+      for (const child of childrenOf(key)) active.add(child);
+    } else if (status === 'submitted' || status === 'awaiting_payment') {
+      pending.add(key);
+      for (const child of childrenOf(key)) pending.add(child);
+    }
+  }
+  return { active, pending };
+}

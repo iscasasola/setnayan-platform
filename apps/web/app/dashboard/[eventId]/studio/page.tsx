@@ -1,16 +1,19 @@
 import {
   ADD_ONS,
   appStoreDetailHref,
+  addOnHref,
   type AddOnEntry,
   type StudioGroup,
 } from '@/lib/add-ons-catalog';
 import { addOnDetail } from '@/lib/add-ons-detail';
 import { formatPhp } from '@/lib/orders';
+import { eventActiveSkus } from '@/lib/entitlements';
 import { StudioAppRow, type RowPill } from './_components/studio-app-row';
 import { StudioFeaturedCard } from './_components/studio-featured-card';
 import { StudioSectionTabs } from './_components/studio-section-tabs';
 import { dismissRecommendation, recommendFeature } from './recommend-actions';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { RevealList } from '@/app/_components/reveal-list';
 import Link from 'next/link';
@@ -59,29 +62,25 @@ export default async function StudioPage({ params }: Props) {
 
   const supabase = await createClient();
 
-  // Live order status per service_key (ownership/pending badges) + live admin
-  // catalog prices for the GET pills — fetched together.
+  // Bundle-aware ownership for EVERY service in ONE query + live admin catalog
+  // prices for the GET pills — fetched together. Ownership uses the admin client
+  // (orders RLS is purchaser-scoped — a co-host who didn't place the order is
+  // still an owner) and the bundle-aware reader, so `active` includes GUIDED_PACK
+  // / MEDIA_PACK children — the grid badge can no longer disagree with the tool
+  // surface (which gates on eventSkuActive). The catalog price read stays on the
+  // user client (public catalog).
   const serviceKeys = Array.from(
     new Set(ADD_ONS.map((a) => a.serviceKey).filter((k): k is string => Boolean(k))),
   );
-  const [{ data: liveOrders }, { data: priceRows }] = await Promise.all([
-    supabase
-      .from('orders')
-      .select('service_key, status')
-      .eq('event_id', eventId)
-      .not('status', 'in', '("cancelled","refunded","lapsed")'),
-    supabase
-      .from('platform_retail_catalog_v2')
-      .select('service_code, retail_price_php')
-      .in('service_code', serviceKeys),
-  ]);
+  const [{ active: ownedActive, pending: ownedPending }, { data: priceRows }] =
+    await Promise.all([
+      eventActiveSkus(createAdminClient(), eventId),
+      supabase
+        .from('platform_retail_catalog_v2')
+        .select('service_code, retail_price_php')
+        .in('service_code', serviceKeys),
+    ]);
 
-  const orderStatusMap = new Map<string, string>();
-  for (const o of liveOrders ?? []) {
-    if (o.service_key && !orderStatusMap.has(o.service_key)) {
-      orderStatusMap.set(o.service_key, o.status as string);
-    }
-  }
   const priceMap = new Map<string, string>();
   for (const r of priceRows ?? []) {
     if (r.service_code != null && r.retail_price_php != null) {
@@ -132,10 +131,10 @@ export default async function StudioPage({ params }: Props) {
     });
   }
 
-  // An add-on is "owned" once a non-cancelled order is paid/fulfilled.
+  // An add-on is "owned" once it's active (paid/fulfilled) — directly OR via a
+  // bundle it belongs to (bundle-aware, co-host-aware via the admin read above).
   function isOwned(entry: AddOnEntry): boolean {
-    const s = entry.serviceKey ? orderStatusMap.get(entry.serviceKey) : null;
-    return s === 'paid' || s === 'fulfilled';
+    return entry.serviceKey ? ownedActive.has(entry.serviceKey) : false;
   }
   // Only real, buyable, not-yet-owned add-ons can be recommended — a free,
   // coming-soon, or already-owned feature has nothing for the couple to buy.
@@ -151,14 +150,27 @@ export default async function StudioPage({ params }: Props) {
   // Resolve the App Store-style pill (price/status) for an entry.
   function pillFor(entry: AddOnEntry): RowPill {
     if (entry.status === 'coming_soon') return { text: 'Soon', tone: 'soon' };
-    const status = entry.serviceKey ? orderStatusMap.get(entry.serviceKey) : null;
-    if (status === 'paid' || status === 'fulfilled') return { text: 'Active', tone: 'active' };
-    if (status === 'submitted' || status === 'awaiting_payment')
+    if (entry.serviceKey && ownedActive.has(entry.serviceKey))
+      return { text: 'Active', tone: 'active' };
+    if (entry.serviceKey && ownedPending.has(entry.serviceKey))
       return { text: 'Pending', tone: 'pending' };
     if (entry.tier === 'free') return { text: 'Free', tone: 'free' };
     if (entry.freeTrial) return { text: entry.freeTrial, tone: 'trial' };
     const price = entry.serviceKey ? priceMap.get(entry.serviceKey) : null;
-    return { text: price ?? 'Get', tone: 'price' };
+    // A real SKU with no readable price shows a neutral "View", never a
+    // money-style "Get" (which would imply the paid service is free).
+    return { text: price ?? 'View', tone: 'price' };
+  }
+
+  // Owner deep-link (paid-features-auto-show applied to routing): once a couple
+  // OWNS a service, tapping its card opens the working tool directly and skips
+  // the marketing/learn-more interstitial — generalizing the Patiktok-only
+  // owner redirect to every service. Not-yet-owned → the normal detail route
+  // (opensDirect-aware via appStoreDetailHref).
+  function cardHref(entry: AddOnEntry): string {
+    return isOwned(entry)
+      ? addOnHref(entry.key, eventId)
+      : appStoreDetailHref(entry.key, eventId);
   }
 
   // Coordinator's per-feature control: "Recommend" → "Suggested ✓" once sent,
@@ -252,7 +264,7 @@ export default async function StudioPage({ params }: Props) {
                     </span>
                   </span>
                   <Link
-                    href={appStoreDetailHref(entry.key, eventId)}
+                    href={cardHref(entry)}
                     className="shrink-0 rounded-full bg-terracotta px-3.5 py-1 text-xs font-bold text-cream transition-colors hover:bg-terracotta-700"
                   >
                     View
@@ -312,7 +324,7 @@ export default async function StudioPage({ params }: Props) {
             {featured ? (
               <div className="space-y-2">
                 <StudioFeaturedCard
-                  href={appStoreDetailHref(featured.key, eventId)}
+                  href={cardHref(featured)}
                   eyebrow={label}
                   label={featured.label}
                   tagline={addOnDetail(featured.key)?.tagline ?? featured.blurb}
@@ -336,7 +348,7 @@ export default async function StudioPage({ params }: Props) {
                   return (
                     <StudioAppRow
                       key={addon.key}
-                      href={comingSoon ? null : appStoreDetailHref(addon.key, eventId)}
+                      href={comingSoon ? null : cardHref(addon)}
                       label={addon.label}
                       blurb={addon.blurb}
                       Icon={addon.Icon}

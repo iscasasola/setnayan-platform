@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventSkuActive } from '@/lib/entitlements';
+import { ADD_ONS, addOnHref } from '@/lib/add-ons-catalog';
 import {
   AddOnDetailView,
   addOnAboutTitle,
@@ -27,20 +28,26 @@ export async function generateMetadata({ params }: Props) {
 export default async function AddOnDetailPage({ params }: Props) {
   const { eventId, addon } = await params;
 
-  // 2026-06-22 · A couple who already PAID for Patiktok shouldn't land on the
-  // marketing/about interstitial — deep-link them straight to the working booth
-  // (the operator dashboard). Scoped to Patiktok only; every other feature keeps
-  // its About page. Bundle-aware admin-approved gate (eventSkuActive covers a
-  // direct PATIKTOK_COMPILER order AND the MEDIA_PACK bundle; refund/cancel
-  // releases it). Admin client because orders RLS is purchaser-scoped — a co-
-  // host who didn't place the order is still an owner. Graceful-degrade on a
-  // missing/legacy orders table (42P01 / 42703 → not active) falls through to
-  // the About page rather than crashing.
+  // Owner deep-link (paid-features-auto-show, Tier 3 2026-06-25): a couple who
+  // already OWNS this paid service shouldn't land on the marketing/About
+  // interstitial — send them straight to the working tool. Generalizes the
+  // former Patiktok-only redirect to EVERY paid service. Bundle-aware +
+  // admin-approved gate (eventSkuActive covers a direct order AND the granting
+  // GUIDED_PACK / MEDIA_PACK bundle; refund/cancel releases it). Admin client
+  // because orders RLS is purchaser-scoped — a co-host who didn't place the
+  // order is still an owner. Graceful-degrade on a missing/legacy orders table
+  // (eventSkuActive → not active) falls through to the About page, never crashes.
+  const entry = ADD_ONS.find((a) => a.key === addon);
   if (
-    addon === 'patiktok' &&
-    (await eventSkuActive(createAdminClient(), eventId, 'PATIKTOK_COMPILER'))
+    entry?.serviceKey &&
+    (await eventSkuActive(createAdminClient(), eventId, entry.serviceKey))
   ) {
-    redirect(`/dashboard/${eventId}/studio/patiktok/booth`);
+    // Patiktok owners go to the operator booth (more specific than its index).
+    redirect(
+      addon === 'patiktok'
+        ? `/dashboard/${eventId}/studio/patiktok/booth`
+        : addOnHref(addon, eventId),
+    );
   }
 
   return <AddOnDetailView eventId={eventId} addon={addon} />;

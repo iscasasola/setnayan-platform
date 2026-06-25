@@ -503,8 +503,15 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb: 'Your wedding live — everyone who can’t be there, there.',
     cta: 'Set up',
     studioGroup: 'capture',
-    // Paid SKU — without this the Studio card never flips to Active/Pending when
-    // owned (paid-features-auto-show). Canonical V2 code (sku-catalog-v2.ts).
+    // Single-cam live broadcast is FREE for every host (owner model 2026-06-26 —
+    // "the tool is free; the premium layer is paid"), so the Studio card shows a
+    // "Free" chip rather than a paid buy.
+    tier: 'free',
+    // serviceKey is KEPT on purpose: PANOOD_SYSTEM is RESERVED for the future
+    // PAID multi-camera control room + broadcast-style overlays upgrade. It
+    // still drives the owned-state plumbing, so when that paid tier ships the
+    // card flips to Active/Pending (paid-features-auto-show). Canonical V2 code
+    // (sku-catalog-v2.ts).
     serviceKey: 'PANOOD_SYSTEM',
     poster: {
       motion: 'scan',

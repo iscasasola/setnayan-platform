@@ -80,7 +80,8 @@ import { fetchEntrance, type EntrancePos } from '@/lib/indoor-blueprint';
 import { fetchTables, type EventTableRow } from '@/lib/seating';
 import { YourSeatBlock } from './_components/your-seat-block';
 
-/** Panood Watch-Live data for the day-of page (PANOOD_SYSTEM owners only). */
+/** Panood Watch-Live data for the day-of page (shown whenever a watch URL is
+ *  staged — single-cam Panood live is free for every host). */
 type WatchLiveData = { embedUrl: string; watchUrl: string };
 
 /** Same-Day Edit film threaded into the day-of page (SDE owners, once the crew
@@ -739,21 +740,24 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // page view. Wall trouble must never break the wedding page → try/null.
   let liveWall: LiveWallData | null = null;
   // Panood Watch-Live (owner 2026-06-12: "panood … must be on the on-the-day
-  // part") — when the event holds PANOOD_SYSTEM and the couple staged their
-  // watch link (events.panood_watch_url, migration 20261122000000), the live
-  // page leads with the broadcast for the loved ones watching from afar.
-  // youtube-nocookie embed; the URL was normalize-or-rejected at save time.
+  // part") — when the couple staged their watch link (events.panood_watch_url,
+  // migration 20261122000000), the live page leads with the broadcast for the
+  // loved ones watching from afar. youtube-nocookie embed; the URL was
+  // normalize-or-rejected at save time. Owner model 2026-06-26: single-cam
+  // Panood live is FREE for any host, so the embed is NO LONGER gated on
+  // PANOOD_SYSTEM — the presence of the watch URL is the only condition. The
+  // PANOOD_SYSTEM SKU is reserved for the future PAID multi-camera control room
+  // + broadcast overlays tier. (The LIVE_WALL gate below is unchanged.)
   let watchLive: WatchLiveData | null = null;
   if (dayOfPhase === 'live') {
     try {
-      // Ownership reads off orders.status via eventOwnsSku() (PR4 dead-unlock
-      // repair, 2026-06-15) — bundle-aware, so a Media Pack buyer's day-of page
-      // surfaces both the wall mirror AND the Panood watch-live block. The old
+      // LIVE_WALL ownership reads off orders.status via eventOwnsSku() (PR4
+      // dead-unlock repair, 2026-06-15) — bundle-aware, so a Media Pack buyer's
+      // day-of page surfaces the wall mirror. The old
       // event_software_activations_v2 reads had no payment-path writer (their
       // only writer, verify_and_activate_manual_payment, has zero callers).
-      const [ownsWall, ownsPanood, watchRowRes] = await Promise.all([
+      const [ownsWall, watchRowRes] = await Promise.all([
         eventSkuActive(admin, event.event_id, 'LIVE_WALL'),
-        eventSkuActive(admin, event.event_id, 'PANOOD_SYSTEM'),
         admin
           .from('events')
           .select('panood_watch_url')
@@ -774,7 +778,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         ? null
         : ((watchRowRes.data as { panood_watch_url?: string | null } | null)
             ?.panood_watch_url ?? null);
-      if (ownsPanood && watchUrl) {
+      if (watchUrl) {
         const videoId = parseYouTubeVideoId(watchUrl);
         if (videoId) {
           watchLive = { embedUrl: youTubeEmbedUrl(videoId), watchUrl };
@@ -1649,7 +1653,7 @@ function PublicLanding({
   backdrop?: React.ReactNode;
   /** Live Photo Wall mirror — non-null only during the live window when the event owns LIVE_WALL. */
   liveWall?: LiveWallData | null;
-  /** Panood Watch-Live — non-null only during the live window when PANOOD_SYSTEM is active + a watch URL is staged. */
+  /** Panood Watch-Live — non-null only during the live window when a watch URL is staged (single-cam Panood live is free for every host). */
   watchLive?: WatchLiveData | null;
   /** Same-Day Edit film — non-null in the live/recap windows once the crew has delivered it (SDE active). */
   sdeFilm?: SdeFilmData | null;
@@ -2202,7 +2206,7 @@ function InvitationSite({
   backdrop?: React.ReactNode;
   /** Live Photo Wall mirror — non-null only during the live window when the event owns LIVE_WALL. */
   liveWall?: LiveWallData | null;
-  /** Panood Watch-Live — non-null only during the live window when PANOOD_SYSTEM is active + a watch URL is staged. */
+  /** Panood Watch-Live — non-null only during the live window when a watch URL is staged (single-cam Panood live is free for every host). */
   watchLive?: WatchLiveData | null;
   /** Same-Day Edit film — non-null in the live/recap windows once the crew has delivered it (SDE active). */
   sdeFilm?: SdeFilmData | null;

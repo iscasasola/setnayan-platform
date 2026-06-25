@@ -1530,7 +1530,7 @@ export function SaveTheDateFilm({
   // it stays small + consistent; inherits the tone-aware text colour, very low
   // opacity, pointer-transparent. Hidden behind the full-screen video overlay.
   const brandingNode = (
-    <p className="pointer-events-none absolute inset-x-0 bottom-3.5 z-10 text-center font-mono text-[9px] uppercase tracking-[0.3em] opacity-35">
+    <p className="pointer-events-none absolute inset-x-0 bottom-3.5 z-10 text-center font-mono text-[9px] uppercase tracking-[0.3em] opacity-35"> {/* legibility-ok: subtle non-actionable "Created at Setnayan" branding watermark — owner-set subtle at opacity-35 (2026-06-19), not a guest job element */}
       Created at Setnayan
     </p>
   );

@@ -135,11 +135,11 @@ function Shell({
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
           <Link href={`/${slug}`} className="flex items-center gap-2 text-ink">
             <Logo height={28} />
-            <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/60">
+            <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/60">
               Setnayan
             </span>
           </Link>
-          <span className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/50">
+          <span className="font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
             {displayName}
           </span>
         </div>

@@ -1473,11 +1473,11 @@ function InvitationShell({
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
           <span className="flex items-center gap-2 text-ink">
             <Logo height={28} />
-            <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/60">
+            <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/60">
               Setnayan
             </span>
           </span>
-          <span className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/50">
+          <span className="font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
             Invitation
           </span>
         </div>
@@ -1721,12 +1721,12 @@ function PublicLanding({
   // guest at the venue without a session cookie still sees "happening now".
   const dayOfBadge =
     dayOfPhase === 'live' ? (
-      <p className="inline-flex items-center gap-2 rounded-full bg-success-100 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-success-800">
+      <p className="inline-flex items-center gap-2 rounded-full bg-success-100 px-3 py-1 font-mono text-xs uppercase tracking-[0.15em] text-success-800">
         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success-600" />
         Happening now
       </p>
     ) : dayOfPhase === 'post' ? (
-      <p className="inline-flex rounded-full bg-ink/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/70">
+      <p className="inline-flex rounded-full bg-ink/10 px-3 py-1 font-mono text-xs uppercase tracking-[0.15em] text-ink/70">
         Thank you for celebrating
       </p>
     ) : null;
@@ -2932,7 +2932,7 @@ function OurLoveStoryWidget({ config }: { config: unknown }) {
       </p>
       {howWeMet ? (
         <div className="text-center">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45">How we met</p>
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/45">How we met</p>
           <p className="mx-auto mt-1.5 max-w-prose whitespace-pre-line text-sm leading-relaxed text-ink/80">
             {howWeMet}
           </p>
@@ -2940,7 +2940,7 @@ function OurLoveStoryWidget({ config }: { config: unknown }) {
       ) : null}
       {proposal ? (
         <div className="text-center">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45">
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/45">
             The proposal{proposalSetting ? ` · ${proposalSetting}` : ''}
           </p>
           <p className="mx-auto mt-1.5 max-w-prose whitespace-pre-line text-sm leading-relaxed text-ink/80">
@@ -2955,7 +2955,7 @@ function OurLoveStoryWidget({ config }: { config: unknown }) {
               <span className="mt-1.5 h-2 w-2 flex-none rounded-full bg-terracotta" aria-hidden />
               <div>
                 {m.year ? (
-                  <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta">
+                  <p className="font-mono text-xs uppercase tracking-[0.15em] text-terracotta">
                     {m.year}
                   </p>
                 ) : null}
@@ -3055,7 +3055,7 @@ function Detail({
 }) {
   return (
     <div className={className}>
-      <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
+      <dt className="font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
         {label}
       </dt>
       <dd className="mt-0.5 text-base text-ink">{value}</dd>
@@ -3319,7 +3319,7 @@ function VenueWidget({ event }: { event: EventRow }) {
       <div className="overflow-hidden rounded-lg border border-ink/10">
         <div className="h-32 bg-gradient-to-br from-terracotta/30 via-warn-100 to-success-100" />
         <div className="space-y-3 bg-cream p-4">
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta">
+          <p className="font-mono text-xs uppercase tracking-[0.15em] text-terracotta">
             Ceremony &amp; Reception
           </p>
           <h3 className="text-xl font-semibold tracking-tight">
@@ -3434,7 +3434,7 @@ function DressCodeWidget({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {dos.length > 0 ? (
             <div className="space-y-2 rounded-lg border border-success-200 bg-success-50 p-4 text-sm text-success-900">
-              <p className="font-mono text-[10px] uppercase tracking-[0.15em]">Do</p>
+              <p className="font-mono text-xs uppercase tracking-[0.15em]">Do</p>
               <ul className="space-y-1">
                 {dos.map((row, i) => (
                   <li key={i}>· {row}</li>
@@ -3444,7 +3444,7 @@ function DressCodeWidget({
           ) : null}
           {donts.length > 0 ? (
             <div className="space-y-2 rounded-lg border border-danger-200 bg-danger-50 p-4 text-sm text-danger-900">
-              <p className="font-mono text-[10px] uppercase tracking-[0.15em]">
+              <p className="font-mono text-xs uppercase tracking-[0.15em]">
                 Don&rsquo;t
               </p>
               <ul className="space-y-1">
@@ -3541,7 +3541,7 @@ function PhotoMomentsWidget({ config }: { config: unknown }) {
           >
             <PhotoMomentModeBadge mode={m.mode} />
             {m.time_label.trim().length > 0 ? (
-              <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta">
+              <p className="font-mono text-xs uppercase tracking-[0.15em] text-terracotta">
                 {m.time_label}
               </p>
             ) : null}
@@ -3559,7 +3559,7 @@ function PhotoMomentsWidget({ config }: { config: unknown }) {
 function PhotoMomentModeBadge({ mode }: { mode: PhotoMomentMode }) {
   if (mode === 'camera_ok') {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-800">
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-success-100 px-2 py-0.5 font-mono text-xs uppercase tracking-[0.15em] text-success-800">
         <Camera aria-hidden className="h-3 w-3" strokeWidth={2} />
         Cameras welcome
       </span>
@@ -3567,14 +3567,14 @@ function PhotoMomentModeBadge({ mode }: { mode: PhotoMomentMode }) {
   }
   if (mode === 'papic_only') {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-xs uppercase tracking-[0.15em] text-terracotta-700">
         <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2} />
         Our paparazzo
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/70">
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-ink/5 px-2 py-0.5 font-mono text-xs uppercase tracking-[0.15em] text-ink/70">
       <CircleSlash aria-hidden className="h-3 w-3" strokeWidth={2} />
       Phone-down
     </span>
@@ -3651,7 +3651,7 @@ function DayOfBanner({ kind }: { kind: 'live' | 'post' }) {
           className="inline-flex h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-success-600"
         />
         <div className="flex-1">
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-success-800">
+          <p className="font-mono text-xs uppercase tracking-[0.15em] text-success-800">
             Live now
           </p>
           <p className="text-sm text-success-900">
@@ -3669,7 +3669,7 @@ function DayOfBanner({ kind }: { kind: 'live' | 'post' }) {
       aria-label="Post-event mode"
       className="rounded-xl border border-ink/10 bg-cream p-4 sm:p-5"
     >
-      <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+      <p className="font-mono text-xs uppercase tracking-[0.15em] text-ink/55">
         Thank you for celebrating
       </p>
       <p className="mt-1 text-sm text-ink/70">
@@ -3697,13 +3697,13 @@ function TierComparisonWidget({ limited }: { limited: boolean }) {
         </p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-2 rounded-lg border border-dashed border-ink/15 bg-cream p-5 opacity-55">
-            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
+            <p className="font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
               Public
             </p>
             <p className="text-sm text-ink/60">View invitation · RSVP · 3-day photo window</p>
           </div>
           <div className="space-y-2 rounded-lg border border-dashed border-terracotta/30 bg-cream p-5 opacity-55">
-            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta">
+            <p className="font-mono text-xs uppercase tracking-[0.15em] text-terracotta">
               Registered (locked for +1s)
             </p>
             <p className="text-sm text-ink/60">
@@ -3731,7 +3731,7 @@ function TierComparisonWidget({ limited }: { limited: boolean }) {
       </header>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="space-y-3 rounded-lg border border-ink/15 bg-cream p-5">
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
+          <p className="font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
             Public · As you are now
           </p>
           <p className="font-medium text-ink">Free · No sign-up needed</p>
@@ -3746,7 +3746,7 @@ function TierComparisonWidget({ limited }: { limited: boolean }) {
           </p>
         </div>
         <div className="space-y-3 rounded-lg border border-terracotta/40 bg-gradient-to-br from-terracotta/10 to-cream p-5">
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta">
+          <p className="font-mono text-xs uppercase tracking-[0.15em] text-terracotta">
             With Setnayan account
           </p>
           <p className="font-medium text-ink">Free · One-tap sign-up</p>

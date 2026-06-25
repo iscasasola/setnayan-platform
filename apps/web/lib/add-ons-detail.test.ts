@@ -12,21 +12,16 @@ const VISIBLE_GROUPS = new Set(['setnayan_ai', 'website', 'capture', 'branding']
 
 // Hub features that open their OWN surface directly instead of a
 // /studio/about/<key> detail page — so they need no authored detail content and
-// their detail href intentionally does NOT route under /studio/about:
+// their detail href intentionally does NOT route under /studio/about.
+// DERIVED from the `opensDirect` catalog flag (Tier 2, 2026-06-25) so this set
+// can never drift from the routing: a service is direct-open IFF it declares it.
 //   • panood / supplies-marketplace — bespoke feature surfaces
 //   • seating — opens the seat-plan editor
 //   • rsvp / event / editorial / landing-page — the website parts open the
-//     full-screen site editor (the four-part split, 2026-06-21). Save the Date
-//     is NOT here: it keeps its /studio/about detail page.
-const OPENS_OWN_SURFACE = new Set([
-  'panood',
-  'supplies-marketplace',
-  'seating',
-  'rsvp',
-  'event',
-  'editorial',
-  'landing-page',
-]);
+//     full-screen site editor. Save the Date is NOT here: it keeps its /about page.
+const OPENS_OWN_SURFACE = new Set(
+  ADD_ONS.filter((a) => a.opensDirect).map((a) => a.key),
+);
 
 test('every available hub feature has App Store detail content', () => {
   const missing = ADD_ONS.filter(

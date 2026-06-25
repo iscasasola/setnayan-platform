@@ -42,6 +42,7 @@ import { ForVendorsDeepDive } from './_components/for-vendors-deep-dive';
 import { EditorialBand } from './_components/editorial-band';
 import { VendorDoorScenario } from './_components/vendor-door-scenario';
 import { Voices, FAQ, ClosingCTA, Footer } from './_components/page-tail';
+import { RevealOnView } from './_components/for-vendors-motion';
 import { getVendorPrices } from '@/lib/v2-catalog';
 
 // Per-request rendering (owner 2026-06-08 "make sure these prices are based on
@@ -251,7 +252,9 @@ export default async function ForVendorsPage() {
           tools/tokens/Pro-Enterprise blocks moved to the what-you-get + pricing
           sections below to stop the page repeating itself.
         */}
-        <VendorVision />
+        <RevealOnView>
+          <VendorVision />
+        </RevealOnView>
         {/* EditorialBand · one full-bleed photographic breath (owner 2026-06-15
             "use photos if needed") — bridges the vision into the what-you-get
             stack with a real on-brand reception photo. */}
@@ -262,18 +265,28 @@ export default async function ForVendorsPage() {
             validate, name the true cost, then show the app filter → match →
             walk the couple to his door → step back. Illustrative/labelled. */}
         <VendorDoorScenario />
-        <StackCloseVendor />
-        <ForVendorsDeepDive />
-        <Voices />
-        <FAQ
-          vendorPrices={{
-            soloMonthly: p.soloMonthly,
-            proMonthly: p.proMonthly,
-            enterpriseMonthly: p.enterpriseMonthly,
-            tokenUnit: p.tokenUnit,
-          }}
-        />
-        <ClosingCTA />
+        <RevealOnView>
+          <StackCloseVendor />
+        </RevealOnView>
+        <RevealOnView>
+          <ForVendorsDeepDive />
+        </RevealOnView>
+        <RevealOnView>
+          <Voices />
+        </RevealOnView>
+        <RevealOnView>
+          <FAQ
+            vendorPrices={{
+              soloMonthly: p.soloMonthly,
+              proMonthly: p.proMonthly,
+              enterpriseMonthly: p.enterpriseMonthly,
+              tokenUnit: p.tokenUnit,
+            }}
+          />
+        </RevealOnView>
+        <RevealOnView>
+          <ClosingCTA />
+        </RevealOnView>
         <Footer />
       </main>
     </>

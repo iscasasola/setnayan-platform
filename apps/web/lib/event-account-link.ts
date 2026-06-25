@@ -48,13 +48,17 @@ export async function sendEventAccountMagicLink(params: {
 
   // 2. Ensure an auth user exists for this email. createUser is idempotent for
   //    our purposes — if the address is already registered it errors, which we
-  //    ignore (generateLink below works for the existing user). The
+  //    ignore (generateLink below works for the existing user, and we DON'T
+  //    touch their metadata so an existing account is never re-flagged). The
   //    on_auth_user_created trigger creates the public.users row (account_type
-  //    customer) for brand-new users.
+  //    customer) for brand-new users. `needs_password: true` marks the
+  //    passwordless account so the connect route prompts them to set one on first
+  //    sign-in — OAuth (Apple/Google) accounts are never created here, so they're
+  //    never flagged and keep using their provider.
   await admin.auth.admin.createUser({
     email,
     email_confirm: true,
-    user_metadata: { account_type: 'customer' },
+    user_metadata: { account_type: 'customer', needs_password: true },
   });
 
   // 3. Generate a magic login link (does NOT send email). redirectTo lands on

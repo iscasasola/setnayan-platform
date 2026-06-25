@@ -178,3 +178,23 @@ export function computeOrderTotals(order: OrderRow, payments: PaymentRow[]) {
     remaining: Math.max(0, gross - matched),
   };
 }
+
+/**
+ * The GROSS amount owed on an order (pre-VAT base + 12% VAT), net of any applied
+ * voucher. Base = `confirmed_total_php` once an admin has confirmed it; otherwise
+ * the requested quote minus the voucher discount (`requested_total_php` stores the
+ * PRE-voucher base; the voucher reconciles into `confirmed_total_php` on approval).
+ * Used by the payment-approval shortfall guard so a short/partial transfer can't
+ * silently promote an order to 'paid'. Pure + unit-testable.
+ */
+export function orderGrossOwed(opts: {
+  requestedTotalPhp: number;
+  confirmedTotalPhp: number | null;
+  voucherDiscountPhp?: number;
+}): number {
+  const base =
+    opts.confirmedTotalPhp != null
+      ? opts.confirmedTotalPhp
+      : Math.max(0, opts.requestedTotalPhp - (opts.voucherDiscountPhp ?? 0));
+  return computeVatFromBase(base, DEFAULT_VAT_RATE_PCT).gross;
+}

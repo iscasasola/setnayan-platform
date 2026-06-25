@@ -20,6 +20,7 @@
 import Link from 'next/link';
 import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
 import { PublicMonogramStudio } from './public-monogram-studio';
+import { MonogramHeadline, StepsReveal, ClosingCta } from './_monogram-motion';
 import { registerGatesEnabled } from '@/lib/register-gates';
 
 export const dynamic = 'force-static';
@@ -94,11 +95,9 @@ export default function PublicMonogramPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
       <main className="mx-auto w-full max-w-6xl px-5 pb-20 pt-10 sm:pt-14">
         <header className="mx-auto max-w-2xl text-center">
-          <p className="font-mono text-xs uppercase tracking-[0.22em] text-[#8C6932]">{gated ? 'Free · create an account' : 'Free · no sign-up'}</p>
-          <h1 className="mt-3 font-serif text-4xl leading-tight tracking-tight text-[#1E2229] sm:text-5xl">
-            Make your wedding monogram
-          </h1>
-          <p className="mx-auto mt-4 max-w-xl text-base text-[#5F5E5A] sm:text-lg">
+          <p className="font-mono text-xs uppercase tracking-[0.22em] text-[var(--m-orange-2)]">{gated ? 'Free · create an account' : 'Free · no sign-up'}</p>
+          <MonogramHeadline>Make your wedding monogram</MonogramHeadline>
+          <p className="mx-auto mt-4 max-w-xl text-base text-[var(--m-slate-2)] sm:text-lg">
             Two initials, your way — real vector outlines you can interlock, frame, and colour. Design it here for
             free{gated ? ' — create your free account to start.' : ' and download it crisp. No account needed.'}
           </p>
@@ -106,21 +105,21 @@ export default function PublicMonogramPage() {
 
         <section className="mt-9" aria-label="Monogram studio">
           {gated ? (
-            <div className="mx-auto max-w-md rounded-3xl border border-[#C5A059]/40 bg-[#FBF6EA] px-6 py-12 text-center">
-              <h2 className="font-serif text-2xl text-[#1E2229] sm:text-3xl">Create your free account to design</h2>
-              <p className="mx-auto mt-3 max-w-sm text-base text-[#5F5E5A]">
+            <div className="mx-auto max-w-md rounded-3xl border border-[var(--m-orange)]/40 bg-[var(--m-orange-4)] px-6 py-12 text-center">
+              <h2 className="font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">Create your free account to design</h2>
+              <p className="mx-auto mt-3 max-w-sm text-base text-[var(--m-slate-2)]">
                 Your monogram becomes your wedding&rsquo;s mark — saved to your account so you can refine it, download it,
                 and use it everywhere. It&rsquo;s free.
               </p>
               <Link
                 href="/signup?next=/monogram"
-                className="mt-6 inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-[#5C2542] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
+                className="mt-6 inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-[var(--m-mulberry)] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
               >
                 Create my free account
               </Link>
-              <p className="mt-4 text-sm text-[#5F5E5A]">
+              <p className="mt-4 text-sm text-[var(--m-slate-2)]">
                 Already have one?{' '}
-                <Link href="/login?next=/monogram" className="font-semibold text-[#5C2542] underline">
+                <Link href="/login?next=/monogram" className="font-semibold text-[var(--m-mulberry)] underline">
                   Sign in
                 </Link>
               </p>
@@ -131,31 +130,31 @@ export default function PublicMonogramPage() {
         </section>
 
         <section className="mx-auto mt-16 max-w-3xl">
-          <ol className="grid gap-6 sm:grid-cols-3">
+          <StepsReveal>
             {STEPS.map((s, i) => (
-              <li key={s.t} className="rounded-2xl border border-[#1E2229]/10 bg-white/60 p-5">
-                <span className="font-mono text-xs text-[#8C6932]">{String(i + 1).padStart(2, '0')}</span>
-                <h2 className="mt-2 font-serif text-lg text-[#1E2229]">{s.t}</h2>
-                <p className="mt-1.5 text-sm text-[#5F5E5A]">{s.d}</p>
+              <li key={s.t} data-reveal-item className="rounded-2xl border border-[var(--m-ink)]/10 bg-white/60 p-5">
+                <span className="font-mono text-xs text-[var(--m-orange-2)]">{String(i + 1).padStart(2, '0')}</span>
+                <h2 className="mt-2 font-serif text-lg text-[var(--m-ink)]">{s.t}</h2>
+                <p className="mt-1.5 text-sm text-[var(--m-slate-2)]">{s.d}</p>
               </li>
             ))}
-          </ol>
+          </StepsReveal>
         </section>
 
-        <section className="mx-auto mt-14 max-w-2xl rounded-3xl border border-[#C5A059]/40 bg-[#FBF6EA] px-6 py-10 text-center">
-          <h2 className="font-serif text-2xl text-[#1E2229] sm:text-3xl">Make it official</h2>
-          <p className="mx-auto mt-3 max-w-lg text-base text-[#5F5E5A]">
+        <ClosingCta heading="Make it official">
+          <p data-premium-item className="mx-auto mt-3 max-w-lg text-base text-[var(--m-slate-2)]">
             Couples on Setnayan don&rsquo;t just download their monogram — it becomes their wedding&rsquo;s signature
             across their website, QR invitations, save-the-date, and signage, and can come alive as an animated reveal.
             Planning is free to start.
           </p>
           <Link
+            data-premium-item
             href="/onboarding/wedding?from=monogram"
-            className="mt-5 inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-[#5C2542] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
+            className="mt-5 inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-[var(--m-mulberry)] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
           >
             Start planning · free
           </Link>
-        </section>
+        </ClosingCta>
       </main>
       <SiteFooter />
     </>

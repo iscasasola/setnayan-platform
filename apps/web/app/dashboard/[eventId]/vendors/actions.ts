@@ -1200,6 +1200,13 @@ export async function finalizeVendor(
           event_id: eventId,
           event_vendor_id: vendorId,
           instances_json: instances,
+          // #15 (money bug-hunt): a re-lock re-snapshots the instances, so the
+          // plan must start UNCLEARED — otherwise a previously-cleared plan keeps
+          // cleared_at and a freshly-recomputed (possibly larger) balance shows
+          // as fully settled. planAdmin is service_role, so this bypasses the
+          // cleared_at write-guard. The couple re-confirms via the gated path.
+          cleared_at: null,
+          cleared_by: null,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'event_id,event_vendor_id' },

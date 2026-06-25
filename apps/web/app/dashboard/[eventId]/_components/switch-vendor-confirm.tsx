@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import { Loader2, X } from 'lucide-react';
 import { revertVendorToConsidering } from '../vendors/actions';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 
 // Switch Vendor confirmation modal — finalized-vendor-photo-card
 // (2026-05-22, owner directive PR D).
@@ -53,25 +54,15 @@ export function SwitchVendorConfirm({
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const cancelBtnRef = useRef<HTMLButtonElement | null>(null);
 
-  // Focus the cancel button on open — calmest default, host has to
-  // deliberately move to the destructive action.
-  useEffect(() => {
-    if (isOpen) {
-      cancelBtnRef.current?.focus();
-    }
-  }, [isOpen]);
-
-  // Escape-key dismissal — accessibility default for modals.
-  useEffect(() => {
-    if (!isOpen) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        setOpen(false);
-      }
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [isOpen]);
+  // Focus trap + scroll-lock + Esc-to-close via the shared hook. Initial focus
+  // lands on the Cancel button — calmest default, the host has to deliberately
+  // move to the destructive action.
+  useModalA11y({
+    open: isOpen,
+    onClose: () => setOpen(false),
+    containerRef: dialogRef,
+    initialFocusRef: cancelBtnRef,
+  });
 
   const handleConfirm = () => {
     setErrMsg(null);
@@ -143,7 +134,7 @@ export function SwitchVendorConfirm({
           aria-modal="true"
           aria-labelledby="switch-vendor-headline"
           aria-describedby="switch-vendor-body"
-          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm sm:items-center"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm focus:outline-none sm:items-center"
           onClick={(e) => {
             if (e.target === dialogRef.current) setOpen(false);
           }}

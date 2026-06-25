@@ -26,6 +26,7 @@ import {
   slotOptionLabel,
   type VendorServiceTimeSlot,
 } from '@/lib/vendor-time-slots';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 
 // Lock-this-vendor inline CTA — for the single-pick case (2026-05-22).
 //
@@ -126,26 +127,6 @@ export function PlanCardLock({ eventId, groupId, groupLabel, pick }: Props) {
     return () => clearTimeout(t);
   }, [toast]);
 
-  // Focus the cancel button on open — calmest default, the destructive
-  // path requires a deliberate tab over.
-  useEffect(() => {
-    if (isOpen) {
-      cancelBtnRef.current?.focus();
-    }
-  }, [isOpen]);
-
-  // Escape-key dismissal — accessibility default for modals.
-  useEffect(() => {
-    if (!isOpen) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        setOpen(false);
-      }
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [isOpen]);
-
   const closeModal = () => {
     setOpen(false);
     // Clear ephemeral lock state so the next open starts clean. The toast
@@ -153,6 +134,16 @@ export function PlanCardLock({ eventId, groupId, groupLabel, pick }: Props) {
     // after the dialog closes.
     setLockState({ kind: 'idle' });
   };
+
+  // Focus trap + scroll-lock + Esc-to-close via the shared hook. Initial focus
+  // lands on the Cancel button — calmest default, the destructive path requires
+  // a deliberate tab over.
+  useModalA11y({
+    open: isOpen,
+    onClose: closeModal,
+    containerRef: dialogRef,
+    initialFocusRef: cancelBtnRef,
+  });
 
   // "Yes, lock" entry point — if the booked service has time windows, open the
   // in-modal picker; else lock straight through. Keeps the happy path one
@@ -331,7 +322,7 @@ export function PlanCardLock({ eventId, groupId, groupLabel, pick }: Props) {
           aria-modal="true"
           aria-labelledby="plan-card-lock-headline"
           aria-describedby="plan-card-lock-body"
-          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm sm:items-center"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm focus:outline-none sm:items-center"
           onClick={(e) => {
             if (e.target === dialogRef.current) closeModal();
           }}

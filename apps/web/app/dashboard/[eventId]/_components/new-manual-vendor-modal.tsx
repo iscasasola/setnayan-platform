@@ -20,6 +20,7 @@ import {
   type MarketplaceVendorSuggestion,
 } from '../vendors/actions';
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 
 // Modal for the "+ Add new manual vendor" path inside ManualVendorDropdown.
 //
@@ -92,6 +93,7 @@ export function NewManualVendorModal({
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
   const firstFieldRef = useRef<HTMLInputElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   // Post-save step (owner 2026-06-11: adding your own vendor must be easy to
   // manage — price + invite land HERE, zero navigation). Set after the manual
@@ -107,6 +109,18 @@ export function NewManualVendorModal({
     dismissRef.current = created ? onCreated : onClose;
   }, [created, onClose, onCreated]);
   const dismiss = () => dismissRef.current();
+
+  // Focus trap + scroll-lock + Esc-to-close via the shared hook. Mounts only
+  // while open, so `open` is the constant true. Esc/close route through
+  // `dismiss` so a post-save Esc still refreshes the page (dismissRef points
+  // at onCreated once the vendor exists). Initial focus lands on the Vendor
+  // Name input.
+  useModalA11y({
+    open: true,
+    onClose: dismiss,
+    containerRef: dialogRef,
+    initialFocusRef: firstFieldRef,
+  });
 
   // Autocomplete state — owner directive 2026-05-22.
   // `nameQuery` is the live value of the Vendor Name input. Debounced
@@ -124,17 +138,6 @@ export function NewManualVendorModal({
   // be discarded (last-write-wins). Stronger than AbortController for
   // server actions, which don't expose a cancel signal.
   const queryGenerationRef = useRef(0);
-
-  // Initial focus on Vendor Name + ESC closes. Tiny accessibility win.
-  // ESC goes through dismissRef so a post-save ESC still refreshes the page.
-  useEffect(() => {
-    firstFieldRef.current?.focus();
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') dismissRef.current();
-    }
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
 
   // Debounced marketplace search. Fires 300ms after typing stops to
   // avoid spamming the server on every keystroke. Empty / <2 chars
@@ -322,10 +325,11 @@ export function NewManualVendorModal({
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-labelledby="new-manual-vendor-heading"
-      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/30 backdrop-blur-sm sm:items-center sm:p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/30 backdrop-blur-sm focus:outline-none sm:items-center sm:p-4"
       onClick={(e) => {
         // Click backdrop to close, but ignore clicks inside the form.
         if (e.target === e.currentTarget) dismiss();

@@ -44,8 +44,13 @@ import {
   unassignGuest,
   buildSeatingDraft,
   lockAndFill,
+  addSeatingConstraint,
+  removeSeatingConstraint,
+  savePriorityOrder,
+  setGuestSeatingPriority,
 } from '@/app/dashboard/[eventId]/seating/actions';
 import { TABLE_TYPE_CATALOG, ROLE_TIER_LABELS } from '@/lib/seating';
+import type { KeepApartRule, PriorityOrder } from '@/lib/seating';
 
 // A server action's lock guard throws SeatingLockError, but the class identity
 // is lost across the RSC boundary — match defensively (instanceof → code →
@@ -102,11 +107,21 @@ type Props = {
    *  tool stays free). */
   animatedMonogram: boolean;
   me: { id: string; name: string };
+  /** Smart seat-plan rules — keep-apart pairs + the couple's tier priority order
+   * (both feed the server auto-seat solver; the lab lets the couple edit them). */
+  keepApart: KeepApartRule[];
+  priorityOrder: PriorityOrder;
+  roleSetKey: string;
 };
 
 type LiveTable = Lab3DTable;
 type SeatRef = { tableId: string; seatNumber: number };
 type WalkerState = { name: string; path: Vec2[]; tableId: string } | null;
+
+/** A keep-apart rule is undirected — match a pair in either order. */
+function sameKeepApart(r: KeepApartRule, a: string, b: string): boolean {
+  return (r.guest_a_id === a && r.guest_b_id === b) || (r.guest_a_id === b && r.guest_b_id === a);
+}
 
 /** The local seat map derived from the server's assignments on each guest row. */
 function deriveSeatsFromGuests(guests: Lab3DGuest[]): Map<string, SeatRef> {
@@ -234,7 +249,7 @@ function SeatedAvatar({ tok, bodyMat }: { tok: SeatToken; bodyMat: THREE.Materia
 // A guest token animating between seats during a swap / table-swap.
 type Mover = { gid: string; color: string; opacity: number; path: Vec2[]; target: SeatRef };
 
-export default function SeatingLab3D({ eventId, tables: initialTables, floor, guests, paletteHexes, monogram, animatedMonogram, me }: Props) {
+export default function SeatingLab3D({ eventId, tables: initialTables, floor, guests, paletteHexes, monogram, animatedMonogram, me, keepApart: keepApartProp, priorityOrder: priorityOrderProp }: Props) {
   const router = useRouter();
   // ONE reduced-motion flag threaded to every JS-driven motion (camera ease,
   // walk/swap glide+bob, table slide-lag + pop, orbit momentum). SSR-safe +
@@ -351,6 +366,12 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
       setSeats(deriveSeatsFromGuests(guests));
     }
   }, [guests]);
+
+  // Smart seat-plan rules (the "custom auto-seat rules" — keep-apart pairs + the
+  // couple's tier priority order). Both feed the SERVER solver; the lab just
+  // edits them. DB-only, so optimistic local state + a fire-and-forget persist.
+  const [keepApart, setKeepApart] = useState<KeepApartRule[]>(keepApartProp);
+  const [priorityOrder, setPriorityOrder] = useState<PriorityOrder>(priorityOrderProp);
 
   // Live world-space drag target (avoids a React re-render every pointer move).
   const dragRef = useRef<{ id: string; x: number; z: number } | null>(null);
@@ -712,6 +733,70 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
     });
   }, [canEdit, eventId, lock.lockId, persist, router]);
 
+  // 2D-parity rules: keep two guests apart (auto-seat never seats them together).
+  const addKeepApart = useCallback(
+    (aId: string, bId: string) => {
+      if (!canEdit || !aId || !bId || aId === bId) return;
+      if (keepApart.some((r) => sameKeepApart(r, aId, bId))) return;
+      setKeepApart((prev) => [...prev, { guest_a_id: aId, guest_b_id: bId }]);
+      const fd = new FormData();
+      fd.set('event_id', eventId);
+      fd.set('lock_id', lock.lockId ?? '');
+      fd.set('guest_a_id', aId);
+      fd.set('guest_b_id', bId);
+      void persist(() => addSeatingConstraint(fd));
+    },
+    [canEdit, keepApart, eventId, lock.lockId, persist],
+  );
+  const removeKeepApart = useCallback(
+    (rule: KeepApartRule) => {
+      if (!canEdit) return;
+      setKeepApart((prev) => prev.filter((r) => !sameKeepApart(r, rule.guest_a_id, rule.guest_b_id)));
+      const fd = new FormData();
+      fd.set('event_id', eventId);
+      fd.set('lock_id', lock.lockId ?? '');
+      fd.set('guest_a_id', rule.guest_a_id);
+      fd.set('guest_b_id', rule.guest_b_id);
+      void persist(() => removeSeatingConstraint(fd));
+    },
+    [canEdit, eventId, lock.lockId, persist],
+  );
+  // 2D-parity rules: reorder the tier priority the solver fills seats in.
+  const reorderPriority = useCallback(
+    (from: number, to: number) => {
+      if (!canEdit || to < 0 || to >= priorityOrder.length || from === to) return;
+      const next = priorityOrder.slice();
+      const [moved] = next.splice(from, 1);
+      if (!moved) return;
+      next.splice(to, 0, moved);
+      setPriorityOrder(next);
+      const fd = new FormData();
+      fd.set('event_id', eventId);
+      fd.set('lock_id', lock.lockId ?? '');
+      fd.set('priority_order', JSON.stringify(next));
+      void persist(() => savePriorityOrder(fd));
+    },
+    [canEdit, priorityOrder, eventId, lock.lockId, persist],
+  );
+  // 2D-parity rules: cycle a guest's explicit priority (null→1→2→3→4→null).
+  // Raw priority lives in the guests prop, so refresh re-paints the chip.
+  const cycleGuestPriority = useCallback(
+    (guestId: string, current: number | null) => {
+      if (!canEdit) return;
+      const next = current === null ? 1 : current >= 4 ? null : current + 1;
+      const fd = new FormData();
+      fd.set('event_id', eventId);
+      fd.set('lock_id', lock.lockId ?? '');
+      fd.set('guest_id', guestId);
+      fd.set('priority', next === null ? '' : String(next));
+      void persist(async () => {
+        await setGuestSeatingPriority(fd);
+        router.refresh();
+      });
+    },
+    [canEdit, eventId, lock.lockId, persist, router],
+  );
+
   // Pick a guest → walk to their seat (seating them in the first free chair if
   // they have none), steering around the other tables.
   // Seat a guest + walk them in. `preferredTableId` (from tap-to-place) restricts
@@ -1057,6 +1142,12 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
         onRenameTable={renameTable}
         onSeatTier={seatTier}
         onUnseat={unseatGuest}
+        keepApart={keepApart}
+        priorityOrder={priorityOrder}
+        onAddKeepApart={addKeepApart}
+        onRemoveKeepApart={removeKeepApart}
+        onReorderPriority={reorderPriority}
+        onCyclePriority={cycleGuestPriority}
         showCloth={showCloth}
         setShowCloth={setShowCloth}
         showAccents={showAccents}
@@ -2078,6 +2169,111 @@ function LookPad({ input }: { input: React.MutableRefObject<WalkInput> }) {
   );
 }
 
+/* ------------------------------ Seating rules ----------------------------- */
+
+/** The "custom auto-seat rules" panel — keep-apart pairs + the tier order the
+ *  solver fills in. Collapsible; both edits persist server-side (DB-only). */
+function RulesPanel({
+  keepApart,
+  priorityOrder,
+  guests,
+  canEdit,
+  onAddKeepApart,
+  onRemoveKeepApart,
+  onReorderPriority,
+}: {
+  keepApart: KeepApartRule[];
+  priorityOrder: PriorityOrder;
+  guests: Lab3DGuest[];
+  canEdit: boolean;
+  onAddKeepApart: (aId: string, bId: string) => void;
+  onRemoveKeepApart: (rule: KeepApartRule) => void;
+  onReorderPriority: (from: number, to: number) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [a, setA] = useState('');
+  const [b, setB] = useState('');
+  const nameById = useMemo(() => new Map(guests.map((g) => [g.id, g.name])), [guests]);
+  const selectCls =
+    'min-w-0 flex-1 rounded-lg border border-white/15 bg-ink/50 px-1.5 py-1 text-xs text-white disabled:opacity-40';
+  return (
+    <div className="mb-2 rounded-xl bg-white/[0.06] p-2.5">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between text-xs font-medium text-white/85"
+      >
+        <span>Seating rules</span>
+        <span className="text-white/50">{open ? '▾' : '▸'}</span>
+      </button>
+      {open ? (
+        <div className="mt-2 space-y-3">
+          <div>
+            <p className="mb-1 text-[11px] uppercase tracking-wide text-white/50">Keep apart</p>
+            <div className="flex gap-1.5">
+              <select value={a} disabled={!canEdit} onChange={(e) => setA(e.target.value)} aria-label="Keep-apart guest one" className={selectCls}>
+                <option value="" className="text-ink">Guest…</option>
+                {guests.map((g) => (
+                  <option key={g.id} value={g.id} className="text-ink">{g.name}</option>
+                ))}
+              </select>
+              <select value={b} disabled={!canEdit} onChange={(e) => setB(e.target.value)} aria-label="Keep-apart guest two" className={selectCls}>
+                <option value="" className="text-ink">Guest…</option>
+                {guests.map((g) => (
+                  <option key={g.id} value={g.id} className="text-ink">{g.name}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                disabled={!canEdit || !a || !b || a === b}
+                onClick={() => {
+                  onAddKeepApart(a, b);
+                  setA('');
+                  setB('');
+                }}
+                className="shrink-0 rounded-lg bg-white/10 px-2 py-1 text-xs text-white hover:bg-white/20 disabled:opacity-40"
+              >
+                Add
+              </button>
+            </div>
+            <ul className="mt-1.5 space-y-1">
+              {keepApart.length === 0 ? (
+                <li className="text-[11px] text-white/45">No rules yet — auto-seat won’t separate anyone.</li>
+              ) : (
+                keepApart.map((r, i) => (
+                  <li key={`${r.guest_a_id}-${r.guest_b_id}-${i}`} className="flex items-center justify-between rounded-lg bg-white/5 px-2 py-1 text-[11px] text-white/80">
+                    <span className="truncate">{nameById.get(r.guest_a_id) ?? '—'} ⇹ {nameById.get(r.guest_b_id) ?? '—'}</span>
+                    {canEdit ? (
+                      <button type="button" onClick={() => onRemoveKeepApart(r)} aria-label="Remove keep-apart rule" className="shrink-0 px-1 text-white/50 hover:text-white">✕</button>
+                    ) : null}
+                  </li>
+                ))
+              )}
+            </ul>
+          </div>
+          <div>
+            <p className="mb-1 text-[11px] uppercase tracking-wide text-white/50">Seat in this order</p>
+            <ul className="space-y-1">
+              {priorityOrder.map((t, i) => (
+                <li key={t.tier} className="flex items-center justify-between rounded-lg bg-white/5 px-2 py-1 text-[11px] text-white/80">
+                  <span className="truncate">{i + 1}. {t.label}</span>
+                  {canEdit ? (
+                    <span className="flex shrink-0 gap-0.5">
+                      <button type="button" disabled={i === 0} onClick={() => onReorderPriority(i, i - 1)} aria-label="Move up" className="px-1 text-white/50 hover:text-white disabled:opacity-30">↑</button>
+                      <button type="button" disabled={i === priorityOrder.length - 1} onClick={() => onReorderPriority(i, i + 1)} aria-label="Move down" className="px-1 text-white/50 hover:text-white disabled:opacity-30">↓</button>
+                    </span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 /* -------------------------------- HUD (2D) -------------------------------- */
 
 function Hud({
@@ -2097,6 +2293,12 @@ function Hud({
   onRenameTable,
   onSeatTier,
   onUnseat,
+  keepApart,
+  priorityOrder,
+  onAddKeepApart,
+  onRemoveKeepApart,
+  onReorderPriority,
+  onCyclePriority,
   showCloth,
   setShowCloth,
   showAccents,
@@ -2142,6 +2344,12 @@ function Hud({
   onRenameTable: (label: string) => void;
   onSeatTier: (tier: 1 | 2 | 3 | 4) => void;
   onUnseat: (guestId: string) => void;
+  keepApart: KeepApartRule[];
+  priorityOrder: PriorityOrder;
+  onAddKeepApart: (aId: string, bId: string) => void;
+  onRemoveKeepApart: (rule: KeepApartRule) => void;
+  onReorderPriority: (from: number, to: number) => void;
+  onCyclePriority: (guestId: string, current: number | null) => void;
   showCloth: boolean;
   setShowCloth: (v: boolean) => void;
   showAccents: boolean;
@@ -2339,6 +2547,15 @@ function Hud({
               {canEdit ? 'Tap a table to select · drag to slide it. ' : ''}Drag empty space to orbit ·
               scroll to zoom.
             </p>
+            <RulesPanel
+              keepApart={keepApart}
+              priorityOrder={priorityOrder}
+              guests={guests}
+              canEdit={canEdit}
+              onAddKeepApart={onAddKeepApart}
+              onRemoveKeepApart={onRemoveKeepApart}
+              onReorderPriority={onReorderPriority}
+            />
             <p className="mt-2 text-[11px] text-white/50">{tableCount} tables</p>
             <div className="mt-2 flex gap-1.5">
               <button
@@ -2428,6 +2645,19 @@ function Hud({
                       >
                         <span className="truncate">{g.name}</span>
                       </button>
+                      {canEdit ? (
+                        <button
+                          type="button"
+                          onClick={() => onCyclePriority(g.id, g.seatingPriority)}
+                          aria-label={`Seat-first priority for ${g.name}`}
+                          title="Tap to set how early auto-seat places this guest"
+                          className={`mr-1 shrink-0 rounded px-1 py-0.5 text-[10px] transition ${
+                            g.seatingPriority ? 'bg-white/20 text-white' : 'text-white/35 hover:text-white/70'
+                          }`}
+                        >
+                          {g.seatingPriority ? `P${g.seatingPriority}` : '·'}
+                        </button>
+                      ) : null}
                       {seated && canEdit ? (
                         <button
                           type="button"

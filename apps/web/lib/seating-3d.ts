@@ -63,6 +63,9 @@ export type Lab3DGuest = {
   seatedTableId: string | null;
   seatNumber: number | null;
   tier: 1 | 2 | 3 | 4;
+  /** Explicit per-guest priority override (1–4), or null to use the role tier.
+   * Drives the roster priority chip + feeds the server's auto-seat ordering. */
+  seatingPriority: number | null;
   rsvp: RsvpStatus;
   side: 'bride' | 'groom' | 'both';
   /** Couple allowed this guest a +1 (a held seat beside them). */

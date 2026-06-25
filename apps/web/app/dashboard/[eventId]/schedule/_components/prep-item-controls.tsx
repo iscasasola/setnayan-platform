@@ -23,11 +23,12 @@
 // receives these as leaf controls.
 // ============================================================================
 
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { CalendarPlus, Loader2, Plus, Trash2, X } from 'lucide-react';
 import { addPreparationItem, deletePreparationItem } from '../prep-actions';
 import { PrepKindPicker, type PrepKind } from './prep-kind-picker';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 
 // ── Add ─────────────────────────────────────────────────────────────────
 
@@ -37,24 +38,8 @@ export function AddPreparationItem({ eventId }: { eventId: string }) {
   const [kind, setKind] = useState<PrepKind>('task');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const overlayRef = useRef<HTMLDivElement | null>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
   const labelRef = useRef<HTMLInputElement | null>(null);
-
-  // Focus the label field on open so a couple can type immediately.
-  useEffect(() => {
-    if (open) labelRef.current?.focus();
-  }, [open]);
-
-  // Escape-key dismissal (blocked mid-submit).
-  useEffect(() => {
-    if (!open) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape' && !isPending) close();
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, isPending]);
 
   function close() {
     if (isPending) return;
@@ -62,6 +47,15 @@ export function AddPreparationItem({ eventId }: { eventId: string }) {
     setErrorMessage(null);
     setKind('task');
   }
+
+  // Focus the label field on open so a couple can type immediately; `close`
+  // already blocks mid-submit, so Esc-to-close stays gated while pending.
+  useModalA11y({
+    open,
+    onClose: close,
+    containerRef: overlayRef,
+    initialFocusRef: labelRef,
+  });
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -110,7 +104,7 @@ export function AddPreparationItem({ eventId }: { eventId: string }) {
           role="dialog"
           aria-modal="true"
           aria-labelledby="add-prep-headline"
-          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm sm:items-center"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm focus:outline-none sm:items-center"
           onClick={(e) => {
             if (e.target === overlayRef.current) close();
           }}

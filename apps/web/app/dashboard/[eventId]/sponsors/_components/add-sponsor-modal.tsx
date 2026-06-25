@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import type {
   SponsorSide,
   SponsorTier,
@@ -40,17 +41,9 @@ export function AddSponsorModal({
 }: Props) {
   const [open, setOpen] = useState(false);
   const headingId = useId();
-  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
-  // Close on Escape
-  useEffect(() => {
-    if (!open) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false);
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open]);
+  useModalA11y({ open, onClose: () => setOpen(false), containerRef: dialogRef });
 
   // Auto-focus the first input when opening.
   useEffect(() => {
@@ -74,16 +67,16 @@ export function AddSponsorModal({
 
       {open ? (
         <div
+          ref={dialogRef}
           role="dialog"
           aria-modal="true"
           aria-labelledby={headingId}
-          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/45 p-3 sm:items-center sm:p-6"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/45 p-3 focus:outline-none sm:items-center sm:p-6"
           onClick={(e) => {
             if (e.target === e.currentTarget) setOpen(false);
           }}
         >
           <div
-            ref={dialogRef}
             className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-ink/10 bg-cream shadow-2xl"
           >
             <header className="flex items-start justify-between gap-3 border-b border-ink/10 bg-cream/80 px-5 py-4">

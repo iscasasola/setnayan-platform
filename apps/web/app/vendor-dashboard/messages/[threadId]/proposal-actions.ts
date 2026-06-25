@@ -134,7 +134,17 @@ export async function sendProposalFromChat(formData: FormData) {
     .update({ status: 'sent', sent_at: new Date().toISOString(), updated_at: new Date().toISOString() })
     .eq('proposal_id', inserted.proposal_id)
     .eq('status', 'draft');
-  if (sendErr) redirect(`${back}?notice=proposal_failed`);
+  if (sendErr) {
+    // Don't strand the just-created draft — couples can't see drafts, but a
+    // retry would otherwise pile up orphans. Best-effort cleanup (RLS scopes
+    // the delete to the vendor's own draft).
+    await supabase
+      .from('vendor_proposals')
+      .delete()
+      .eq('proposal_id', inserted.proposal_id)
+      .eq('status', 'draft');
+    redirect(`${back}?notice=proposal_failed`);
+  }
 
   // 6 · Post the proposal AS a message into the thread (the in-thread card).
   // sender_role='vendor' also stamps vendor_first_reply_at via the DB trigger.
@@ -149,13 +159,9 @@ export async function sendProposalFromChat(formData: FormData) {
     body,
     proposal_id: inserted.proposal_id,
   });
-  if (msgErr) {
-    // The proposal is sent and visible at /proposals/{id}; only the in-thread
-    // card failed to post. Surface a soft notice rather than losing the work.
-    redirect(`${back}?notice=proposal_sent_no_card`);
-  }
-
-  // 7 · Notify the couple, same path as a normal vendor message.
+  // 7 · Notify the couple, same path as a normal vendor message — fire even if
+  // the in-thread card failed to post (msgErr), so they still learn a proposal
+  // arrived (it's live at /proposals/{public_id} regardless of the card).
   await notifyOtherParty({
     threadId: thread.thread_id,
     eventId,
@@ -167,5 +173,5 @@ export async function sendProposalFromChat(formData: FormData) {
   });
 
   revalidatePath(back);
-  redirect(`${back}?notice=proposal_sent`);
+  redirect(`${back}?notice=${msgErr ? 'proposal_sent_no_card' : 'proposal_sent'}`);
 }

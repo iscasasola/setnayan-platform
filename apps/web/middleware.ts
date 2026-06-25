@@ -62,7 +62,8 @@ const RESERVED_SUBDOMAINS = new Set([
 ]);
 
 // Native-app login-first entry (0052 design addition · owner-locked
-// 2026-06-10). The Capacitor shell omits the marketing brochure: someone
+// 2026-06-10). The native shells — Capacitor (iOS/Android) and the Tauri
+// desktop wrapper (macOS/Windows) — omit the marketing brochure: someone
 // who installed the app has already converted. App-originated requests to
 // any bucket-① marketing route bounce to /login (or /dashboard when a
 // session exists) so the app boots straight into the product. Bucket-③
@@ -82,9 +83,11 @@ const APP_EXCLUDED_MARKETING_PATHS = new Set([
 // Two detection signals, either suffices:
 //   1. `setnayan-client-type=capacitor` cookie — set by ClientTypeDetector
 //      after the first render inside the shell's WebView.
-//   2. `SetnayanApp` user-agent marker — appended by the shell via
-//      `appendUserAgent` in apps/mobile/capacitor.config.ts. Covers the very
-//      first request of a fresh install, before the cookie exists.
+//   2. `SetnayanApp` user-agent marker — set by the Capacitor shell via
+//      `appendUserAgent` in apps/mobile/capacitor.config.ts and by the Tauri
+//      desktop shell via `app.windows[].userAgent` in src-tauri/tauri.conf.json.
+//      Covers the very first request of a fresh install, before the cookie
+//      exists (desktop relies on this marker; it sets no client-type cookie).
 function isCapacitorClient(request: NextRequest): boolean {
   return (
     request.cookies.get('setnayan-client-type')?.value === 'capacitor' ||

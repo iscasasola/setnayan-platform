@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Reveal, Blob } from './_motion';
 import { AlaalaOrb } from './AlaalaOrb';
+import { OurStoryPivotLine } from '@/app/our-story/_pivot-line';
 
 /**
  * OurStory — the "Living Memories" brand manifesto.
@@ -236,15 +237,11 @@ export function OurStoryManifesto({ clips = [] }: { clips?: string[] }) {
             </p>
           </Reveal>
 
-          <Reveal delay={140}>
-            <p
-              className="m-serif italic mx-auto mt-10"
-              style={{ fontSize: 'clamp(1.4rem, 3.6vw, 2rem)', lineHeight: 1.3, maxWidth: 560 }}
-            >
-              A photograph can’t hold that. An album can’t move.{' '}
-              <span style={{ color: 'var(--m-mulberry)' }}>Until now.</span>
-            </p>
-          </Reveal>
+          {/* The Act 2 PIVOT line — the page's one bold motion moment. The serif
+              line-reveal ENACTS the thesis (stillness → motion); replaces the
+              former `<Reveal delay={140}>` wrapper (never nested — that would
+              fade-then-rise twice). See ./_pivot-line.tsx + _premium.tsx. */}
+          <OurStoryPivotLine />
         </div>
 
         {/* ─────────────────────────────────────────────────────────────

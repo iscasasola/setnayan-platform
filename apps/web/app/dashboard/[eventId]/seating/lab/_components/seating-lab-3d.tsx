@@ -48,6 +48,7 @@ import {
   removeSeatingConstraint,
   savePriorityOrder,
   setGuestSeatingPriority,
+  assignGroup,
 } from '@/app/dashboard/[eventId]/seating/actions';
 import { TABLE_TYPE_CATALOG, ROLE_TIER_LABELS } from '@/lib/seating';
 import type { KeepApartRule, PriorityOrder } from '@/lib/seating';
@@ -66,6 +67,7 @@ import {
   type Lab3DTable,
   type Lab3DFloor,
   type Lab3DGuest,
+  type Lab3DGroup,
   type Lab3DPalette,
   type Lab3DMonogram,
   type Vec2,
@@ -112,6 +114,7 @@ type Props = {
   keepApart: KeepApartRule[];
   priorityOrder: PriorityOrder;
   roleSetKey: string;
+  groups: Lab3DGroup[];
 };
 
 type LiveTable = Lab3DTable;
@@ -249,7 +252,7 @@ function SeatedAvatar({ tok, bodyMat }: { tok: SeatToken; bodyMat: THREE.Materia
 // A guest token animating between seats during a swap / table-swap.
 type Mover = { gid: string; color: string; opacity: number; path: Vec2[]; target: SeatRef };
 
-export default function SeatingLab3D({ eventId, tables: initialTables, floor, guests, paletteHexes, monogram, animatedMonogram, me, keepApart: keepApartProp, priorityOrder: priorityOrderProp }: Props) {
+export default function SeatingLab3D({ eventId, tables: initialTables, floor, guests, paletteHexes, monogram, animatedMonogram, me, keepApart: keepApartProp, priorityOrder: priorityOrderProp, groups }: Props) {
   const router = useRouter();
   // ONE reduced-motion flag threaded to every JS-driven motion (camera ease,
   // walk/swap glide+bob, table slide-lag + pop, orbit momentum). SSR-safe +
@@ -317,6 +320,8 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
   // Precise placement: an unseated guest "picked up" from the roster, waiting
   // for the couple to tap the table they should sit at (vs auto-first-free).
   const [placingGuestId, setPlacingGuestId] = useState<string | null>(null);
+  // "Seat a whole group" — armed group id; the next table tap seats its members.
+  const [placingGroupId, setPlacingGroupId] = useState<string | null>(null);
   const [arrived, setArrived] = useState<string | null>(null);
   const [showCloth, setShowCloth] = useState(true);
   const [showAccents, setShowAccents] = useState(true);
@@ -823,6 +828,32 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
     [canEdit, eventId, lock.lockId, persist],
   );
 
+  // 2D-parity: seat a whole custom group at one table (server fills in order,
+  // overflow surfaces a notice), then resync the seats from server truth.
+  const seatGroupAt = useCallback(
+    (tableId: string, groupId: string) => {
+      if (!canEdit) return;
+      const memberIds = guests
+        .filter((g) => g.groupId === groupId && seatStatusOf(g.rsvp) !== 'hidden')
+        .map((g) => g.id);
+      if (memberIds.length === 0) return;
+      const fd = new FormData();
+      fd.set('event_id', eventId);
+      fd.set('lock_id', lock.lockId ?? '');
+      fd.set('table_id', tableId);
+      fd.set('guest_ids', JSON.stringify(memberIds));
+      void persist(async () => {
+        const res = await assignGroup(fd);
+        seatResyncRef.current = true;
+        router.refresh();
+        if (res && res.overflow > 0) {
+          setNotice(`Seated ${res.seated} — ${res.overflow} group member${res.overflow === 1 ? '' : 's'} need another table.`);
+        }
+      });
+    },
+    [canEdit, guests, eventId, lock.lockId, persist, router],
+  );
+
   // Pick a guest → walk to their seat (seating them in the first free chair if
   // they have none), steering around the other tables.
   // Seat a guest + walk them in. `preferredTableId` (from tap-to-place) restricts
@@ -991,6 +1022,12 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
 
   const onTableDown = useCallback(
     (id: string) => {
+      // Seat a whole picked group at the tapped table.
+      if (placingGroupId) {
+        seatGroupAt(id, placingGroupId);
+        setPlacingGroupId(null);
+        return;
+      }
       // Precise placement: a picked-up guest takes a seat at the tapped table.
       if (placingGuestId) {
         const g = guestById.get(placingGuestId);
@@ -1018,7 +1055,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
       dragRef.current = { id, x: w.x, z: w.z };
       setDraggingId(id);
     },
-    [placingGuestId, guestById, sendGuest, tableSwapArmed, tableSwapFirst, swapTables, mode, canEdit, room, tablesById],
+    [placingGroupId, seatGroupAt, placingGuestId, guestById, sendGuest, tableSwapArmed, tableSwapFirst, swapTables, mode, canEdit, room, tablesById],
   );
 
   // A guest-list tap: an UNSEATED guest walks in; a SEATED guest enters or
@@ -1175,6 +1212,13 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
         onReorderPriority={reorderPriority}
         onCyclePriority={cycleGuestPriority}
         priorityOverride={priorityOverride}
+        groups={groups}
+        placingGroupId={placingGroupId}
+        onPickGroup={(gid) => {
+          setPlacingGuestId(null);
+          setPlacingGroupId((cur) => (cur === gid ? null : gid));
+        }}
+        onCancelGroup={() => setPlacingGroupId(null)}
         showCloth={showCloth}
         setShowCloth={setShowCloth}
         showAccents={showAccents}
@@ -2328,6 +2372,10 @@ function Hud({
   onReorderPriority,
   onCyclePriority,
   priorityOverride,
+  groups,
+  placingGroupId,
+  onPickGroup,
+  onCancelGroup,
   showCloth,
   setShowCloth,
   showAccents,
@@ -2381,6 +2429,10 @@ function Hud({
   onReorderPriority: (from: number, to: number) => void;
   onCyclePriority: (guestId: string, current: number | null) => void;
   priorityOverride: Map<string, number | null>;
+  groups: Lab3DGroup[];
+  placingGroupId: string | null;
+  onPickGroup: (groupId: string) => void;
+  onCancelGroup: () => void;
   showCloth: boolean;
   setShowCloth: (v: boolean) => void;
   showAccents: boolean;
@@ -2523,6 +2575,37 @@ function Hud({
                 ) : null}
               </>
             )}
+            {canEdit && groups.length > 0 ? (
+              <div className="mb-2 rounded-xl bg-white/[0.06] p-2.5">
+                <p className="mb-1.5 text-xs font-medium text-white/85">
+                  {placingGroupId ? 'Tap a table to seat the group' : 'Seat a group'}
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {groups.map((gr) => {
+                    const picked = placingGroupId === gr.id;
+                    return (
+                      <button
+                        key={gr.id}
+                        type="button"
+                        onClick={() => onPickGroup(gr.id)}
+                        className={`rounded-lg px-2 py-1 text-xs transition ${
+                          picked
+                            ? 'bg-amber-400/30 text-white ring-1 ring-amber-300/60'
+                            : 'bg-white/10 text-white/85 hover:bg-white/20'
+                        }`}
+                      >
+                        {gr.label} · {gr.memberCount}
+                      </button>
+                    );
+                  })}
+                  {placingGroupId ? (
+                    <button type="button" onClick={onCancelGroup} className="rounded-lg px-2 py-1 text-xs text-white/55 hover:text-white">
+                      Cancel
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
             {selectedLabel ? (
               <div className="mb-2 rounded-xl bg-white/[0.06] p-2.5">
                 <input

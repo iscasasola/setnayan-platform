@@ -14,6 +14,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { buildEventLandingUrl } from '@/lib/qr';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { RevealList } from '@/app/_components/reveal-list';
 
 export const metadata = { title: 'Wedding website' };
 
@@ -167,26 +168,29 @@ export default async function WebsiteHubPage({
       </div>
 
       {/* Quick links — light hand-offs to the surfaces that pair with the page */}
-      <div className="grid gap-4 sm:grid-cols-2">
+      <RevealList as="div" className="grid gap-4 sm:grid-cols-2">
         <QuickLink
+          data-reveal-item
           href={`/dashboard/${eventId}/invitation`}
           icon={<Pencil aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />}
           title="Invitation & URL"
           blurb="Your monogram, how your names appear, and your public wedding URL."
         />
         <QuickLink
+          data-reveal-item
           href={`/dashboard/${eventId}/website/privacy`}
           icon={<Lock aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />}
           title="Who can view"
           blurb="Choose who reaches your page — anyone with the link, or only your guests."
         />
         <QuickLink
+          data-reveal-item
           href={`/dashboard/${eventId}/website/editorial`}
           icon={<Newspaper aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />}
           title="Editorial"
           blurb="Your front-page story after the day — words, photos, hero, and which features show."
         />
-      </div>
+      </RevealList>
 
       {/* Your page through time — the 4-path lifecycle. One page, but it shows
           guests the phase that fits the date. These previews force a phase so
@@ -203,32 +207,36 @@ export default async function WebsiteHubPage({
               date. Edit each part on its own, or preview how it looks.
             </p>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <RevealList as="div" className="grid gap-3 sm:grid-cols-2">
             <PhasePart
+              data-reveal-item
               editHref={`/dashboard/${eventId}/studio/save-the-date`}
               previewHref={`${publicLandingUrl}?phase=save_the_date`}
               title="Save the Date"
               blurb="Far out — the announcement. Countdown + add-to-calendar."
             />
             <PhasePart
+              data-reveal-item
               editHref={`/site-editor/${eventId}/rsvp`}
               previewHref={`${publicLandingUrl}?phase=rsvp`}
               title="RSVP"
               blurb="The run-up — your invitation and the RSVP form."
             />
             <PhasePart
+              data-reveal-item
               editHref={`/site-editor/${eventId}/event`}
               previewHref={`${publicLandingUrl}?phase=event`}
               title="Event"
               blurb="The wedding day — the live, day-of page."
             />
             <PhasePart
+              data-reveal-item
               editHref={`/site-editor/${eventId}/editorial`}
               previewHref={`${publicLandingUrl}?phase=editorial`}
               title="Editorial"
               blurb="After — the recap, gallery, and thank-you."
             />
-          </div>
+          </RevealList>
         </div>
       ) : null}
     </section>
@@ -244,14 +252,17 @@ function QuickLink({
   icon,
   title,
   blurb,
+  'data-reveal-item': dataRevealItem,
 }: {
   href: string;
   icon: React.ReactNode;
   title: string;
   blurb: string;
+  'data-reveal-item'?: boolean;
 }) {
   return (
     <Link
+      data-reveal-item={dataRevealItem ? '' : undefined}
       href={href}
       className="group flex items-start gap-4 rounded-xl border border-ink/10 bg-cream p-5 transition-colors hover:border-terracotta/40 hover:bg-white/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
     >
@@ -284,14 +295,19 @@ function PhasePart({
   previewHref,
   title,
   blurb,
+  'data-reveal-item': dataRevealItem,
 }: {
   editHref: string;
   previewHref: string;
   title: string;
   blurb: string;
+  'data-reveal-item'?: boolean;
 }) {
   return (
-    <div className="flex flex-col rounded-xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/40">
+    <div
+      data-reveal-item={dataRevealItem ? '' : undefined}
+      className="flex flex-col rounded-xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/40"
+    >
       <span className="min-w-0 flex-1 space-y-1">
         <span className="block text-sm font-semibold text-ink">{title}</span>
         <span className="block text-xs text-ink/65">{blurb}</span>

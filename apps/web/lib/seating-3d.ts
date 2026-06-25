@@ -305,6 +305,42 @@ export function tableAvoidR(table: Lab3DTable): number {
 }
 
 /**
+ * Every fixed obstacle a walking avatar must clear, as avoidance discs (centre +
+ * radius, world metres): each table EXCEPT the walker's destination, the stage,
+ * and the dance floor when enabled. Centralised so the single walk path and the
+ * (coming) crowd populate-Play share ONE source of truth — and so vendor booths
+ * slot in here later as just more discs.
+ */
+export function floorObstacles(
+  floor: Lab3DFloor,
+  tables: Lab3DTable[],
+  room: { w: number; d: number },
+  skipTableIds: readonly (string | null | undefined)[],
+): { c: Vec2; r: number }[] {
+  const skip = new Set(skipTableIds.filter(Boolean));
+  const obs: { c: Vec2; r: number }[] = tables
+    .filter((t) => !skip.has(t.id))
+    .map((t) => ({ c: pctToWorld(t.xPct, t.yPct, room), r: tableAvoidR(t) }));
+  // Stage — always present. Bounding disc of its footprint + a little clearance.
+  const stageW = Math.max(1.5, (floor.stage.wPct / 100) * room.w);
+  const stageD = Math.max(1, (floor.stage.hPct / 100) * room.d);
+  obs.push({
+    c: pctToWorld(floor.stage.xPct, floor.stage.yPct, room),
+    r: Math.max(stageW, stageD) / 2 + 0.6,
+  });
+  // Dance floor — only when the couple enabled one.
+  if (floor.dance.enabled) {
+    const danceW = Math.max(1.5, (floor.dance.wPct / 100) * room.w);
+    const danceD = Math.max(1.5, (floor.dance.hPct / 100) * room.d);
+    obs.push({
+      c: pctToWorld(floor.dance.xPct, floor.dance.yPct, room),
+      r: Math.max(danceW, danceD) / 2 + 0.4,
+    });
+  }
+  return obs;
+}
+
+/**
  * Lightweight "walk around the tables" path: sample the straight line start→end,
  * push each interior sample out of any table's avoidance disc (a cheap potential
  * field), then return the smoothed waypoints. Not a true NavMesh — it just reads
@@ -348,6 +384,35 @@ export function steerPath(
     });
   }
   out.push(pts[pts.length - 1]!);
+  // Hard-clearance: smoothing can pull a waypoint back inside a disc, so push
+  // any interior point that still sits inside an obstacle out to its edge. This
+  // is what makes the walker actually CLEAR the stage / a big table instead of
+  // grazing it — soft repulsion alone under-corrects for large discs. A few
+  // passes settle points that get pushed from one disc into another. Endpoints
+  // (the entrance + the target chair) are left exact.
+  // `perp` is the escape direction for the degenerate case where a waypoint
+  // lands exactly on a disc centre (a straight shot through a table/stage) and
+  // so has no radial direction to push along — side-step across the heading.
+  const hx = end.x - start.x;
+  const hz = end.z - start.z;
+  const hlen = Math.hypot(hx, hz) || 1;
+  const perp = { x: -hz / hlen, z: hx / hlen };
+  for (let pass = 0; pass < 3; pass++) {
+    for (let i = 1; i < out.length - 1; i++) {
+      for (const tb of tables) {
+        const dx = out[i]!.x - tb.c.x;
+        const dz = out[i]!.z - tb.c.z;
+        const dist = Math.hypot(dx, dz);
+        const keep = tb.r + skipR;
+        if (dist < keep) {
+          const ux = dist < 1e-3 ? perp.x : dx / dist;
+          const uz = dist < 1e-3 ? perp.z : dz / dist;
+          out[i]!.x = tb.c.x + ux * keep;
+          out[i]!.z = tb.c.z + uz * keep;
+        }
+      }
+    }
+  }
   return out;
 }
 

@@ -62,7 +62,7 @@ import {
   serpentineBand,
   serpentineChairs,
   seatWorld,
-  tableAvoidR,
+  floorObstacles,
   steerPath,
   resolvePalette,
   DEMO_PALETTES,
@@ -514,15 +514,15 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
       const table = tablesById.get(seat.tableId);
       if (!table) return;
       const end = seatWorld(table, seat.seatNumber, room);
-      const obstacles = tables
-        .filter((t) => t.id !== seat!.tableId)
-        .map((t) => ({ c: pctToWorld(t.xPct, t.yPct, room), r: tableAvoidR(t) }));
+      // Clear every fixed object — other tables, the stage, the dance floor —
+      // not just the tables, so the walker never cuts across the stage.
+      const obstacles = floorObstacles(floor, tables, room, [seat.tableId]);
       const path = steerPath(entranceWorld, end, obstacles, 0.2);
       setMode('play');
       setArrived(null);
       setWalker({ name: g.name, path, tableId: seat.tableId });
     },
-    [seats, tables, tablesById, room, entranceWorld],
+    [seats, tables, tablesById, room, entranceWorld, floor],
   );
 
   // --- swap-with-animation: reassign seats (persist) + animate the change ----
@@ -557,9 +557,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
       if (!g || !t) return;
       const end = seatWorld(t, toSeat, room);
       const fromTableId = seats.get(gid)?.tableId;
-      const obstacles = tables
-        .filter((tb) => tb.id !== toTableId && tb.id !== fromTableId)
-        .map((tb) => ({ c: pctToWorld(tb.xPct, tb.yPct, room), r: tableAvoidR(tb) }));
+      const obstacles = floorObstacles(floor, tables, room, [toTableId, fromTableId]);
       const path = steerPath(fromWorld, end, obstacles, 0.2);
       const style = guestTokenStyle(g) ?? { color: SIDE_COLOR[g.side], opacity: 1 };
       setMovers((prev) => [
@@ -574,7 +572,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
       fd.set('seat_number', String(toSeat));
       void persist(() => assignGuest(fd));
     },
-    [guestById, tablesById, tables, seats, room, eventId, lock.lockId, persist],
+    [guestById, tablesById, tables, seats, room, eventId, lock.lockId, persist, floor],
   );
 
   const swapGuests = useCallback(

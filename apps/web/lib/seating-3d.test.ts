@@ -14,6 +14,7 @@ import {
   steerPath,
   pushOutOfDiscs,
   separateAgents,
+  firstFreeSeatAtTable,
   type Lab3DFloor,
   type Lab3DTable,
 } from './seating-3d';
@@ -106,4 +107,12 @@ test('separateAgents: pushes a too-close pair apart; leaves a far pair alone', (
 test('separateAgents: coincident agents are separated deterministically', () => {
   const out = separateAgents([{ x: 1, z: 1 }, { x: 1, z: 1 }], 0.5);
   assert.ok(Math.hypot(out[1]!.x - out[0]!.x, out[1]!.z - out[0]!.z) >= 0.5 - 1e-9);
+});
+
+test('firstFreeSeatAtTable: lowest seat skipping removed + occupied; -1 when full', () => {
+  assert.equal(firstFreeSeatAtTable(10, [], []), 0, 'empty table → seat 0');
+  assert.equal(firstFreeSeatAtTable(10, [], [0, 1, 2]), 3, 'skips occupied');
+  assert.equal(firstFreeSeatAtTable(10, [0, 1], [2]), 3, 'skips removed + occupied');
+  assert.equal(firstFreeSeatAtTable(4, [], [0, 1, 2, 3]), -1, 'full → -1');
+  assert.equal(firstFreeSeatAtTable(4, [99, -1], [1]), 0, 'out-of-range removed ignored');
 });

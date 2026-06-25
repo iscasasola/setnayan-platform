@@ -138,6 +138,23 @@ export default async function JoinPage({ params, searchParams }: Props) {
                 <p className="mt-1 text-xs text-ink/55">The couple can refine it later.</p>
               </details>
             </div>
+            <div className="space-y-1.5">
+              <label htmlFor="email" className="block text-sm font-medium text-ink">
+                Email <span className="font-normal text-ink/50">(optional)</span>
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                placeholder="you@email.com"
+                autoComplete="email"
+                className="input-field"
+              />
+              <p className="text-sm text-ink/70">
+                Add it and we&rsquo;ll email you a sign-in link, so you can open this event on
+                any device — no password needed.
+              </p>
+            </div>
             <SubmitButton className="button-primary w-full" pendingLabel="Adding you…">
               Add me to the guest list
             </SubmitButton>

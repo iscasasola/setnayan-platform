@@ -63,7 +63,7 @@ import {
   type BuildState,
 } from '@/lib/build-3state';
 import { getCategoryBuildStates } from './build-3state-actions';
-import { BuildSummary } from './_components/build-summary';
+import { SummaryAiToggle } from './_components/summary-ai-toggle';
 import { BuildLocked } from './_components/build-locked';
 import { BuildCompare, type CompareDatesInfo } from './_components/build-compare';
 import { type SavedPlanBuild, type PlanBuildSnapshot } from './build-actions';
@@ -121,13 +121,14 @@ type EventBudgetRow = {
 export default async function VendorsPage({ params, searchParams }: Props) {
   const { eventId } = await params;
   // Takeover deep-link (2026-06-12): ?tab= opens that section; anything
-  // off-registry falls back to the Summary cover page.
+  // off-registry falls back to the Shortlist bench (owner 2026-06-25 — the
+  // Summary cover was removed, the workspace opens straight on Shortlist).
   const sp = await searchParams;
   const initialTab: BudgetBuildTab = (BUDGET_BUILD_TABS as readonly string[]).includes(
     sp.tab ?? '',
   )
     ? (sp.tab as BudgetBuildTab)
-    : 'summary';
+    : 'shortlist';
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const supabase = await createClient();
@@ -689,6 +690,10 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   const shortlistContent = (
     <>
       {aiOfferBanner}
+      {/* Setnayan AI on/off — relocated here from the removed Summary tab
+          (owner 2026-06-25) so the workspace's only AI personalization control
+          still has a home, now atop the bench it actually governs. */}
+      <SummaryAiToggle eventId={eventId} enabled={model.personalizationEnabled} />
       <WaitingForQuotes items={waitingForQuotes} />
       <ShortlistCategories
         folders={shortlistFolders}
@@ -923,7 +928,6 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       <ServicesTakeover
         eventId={eventId}
         initialTab={initialTab}
-        summarySlot={<BuildSummary model={model} eventId={eventId} buildsCount={savedBuilds.length} />}
         shortlistSlot={shortlistContent}
         buildSlot={buildSlot}
         compareSlot={

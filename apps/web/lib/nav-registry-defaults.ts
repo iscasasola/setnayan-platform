@@ -863,18 +863,10 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     customRef: null,
     sortOrder: 4,
   },
-  {
-    key: "customer.budget-subnav.summary",
-    scope: "customer",
-    area: "budget-build-subnav",
-    route: "/dashboard/[eventId]/budget?tab=summary",
-    label: "Summary",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Gauge",
-    customRef: null,
-    sortOrder: 0,
-  },
+  // (The "customer.budget-subnav.summary" slot was removed 2026-06-25 — owner
+  // "start with shortlist right away": the Services takeover's Summary cover
+  // tab is gone, so its sub-nav child default went too, mirroring the 2026-06-20
+  // lock-tab removal below. Shortlist is now the first (sortOrder 0) section.)
   {
     key: "customer.budget-subnav.shortlist",
     scope: "customer",
@@ -885,7 +877,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     iconKind: "lucide",
     lucideName: "Bookmark",
     customRef: null,
-    sortOrder: 1,
+    sortOrder: 0,
   },
   {
     key: "customer.budget-subnav.build",
@@ -897,7 +889,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     iconKind: "lucide",
     lucideName: "Hammer",
     customRef: null,
-    sortOrder: 2,
+    sortOrder: 1,
   },
   {
     key: "customer.budget-subnav.compare",
@@ -909,7 +901,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     iconKind: "lucide",
     lucideName: "Scale",
     customRef: null,
-    sortOrder: 3,
+    sortOrder: 2,
   },
   // (The "customer.budget-subnav.lock" slot was removed 2026-06-20 — "Build
   // absorbs Lock" PR2: the standalone Lock tab is gone; the lock surface now

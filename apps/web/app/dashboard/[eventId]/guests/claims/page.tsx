@@ -1,11 +1,11 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, UserCheck, UserPlus } from 'lucide-react';
+import { ArrowLeft, UserCheck, UserPlus, Link2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { ROLE_LABELS, type GuestRole } from '@/lib/guests';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { keepGuestAction, removeGuestAction } from './actions';
+import { keepGuestAction, removeGuestAction, linkGuestAction } from './actions';
 
 export const metadata = { title: 'Unlisted guests' };
 
@@ -50,6 +50,23 @@ export default async function UnlistedGuestsPage({ params }: Props) {
     .order('created_at', { ascending: false });
 
   const rows = (rowsRaw ?? []) as UnlistedRow[];
+
+  // Existing list members the couple can merge an unlisted joiner INTO (the
+  // "this is actually <name> under a different spelling" case). Host-seeded,
+  // non-deleted, name-ordered. Only fetched when there's something to reconcile.
+  type Candidate = { guest_id: string; first_name: string; last_name: string; display_name: string | null };
+  let candidates: Candidate[] = [];
+  if (rows.length > 0) {
+    const { data: candRaw } = await supabase
+      .from('guests')
+      .select('guest_id, first_name, last_name, display_name')
+      .eq('event_id', eventId)
+      .eq('entry_source', 'host_seeded')
+      .is('deleted_at', null)
+      .order('last_name', { ascending: true })
+      .limit(500);
+    candidates = (candRaw ?? []) as Candidate[];
+  }
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6">
@@ -111,6 +128,38 @@ export default async function UnlistedGuestsPage({ params }: Props) {
                     </button>
                   </form>
                 </div>
+
+                {/* LINK: this joiner is actually someone already on the list. */}
+                {candidates.length > 0 ? (
+                  <form
+                    action={linkGuestAction.bind(null, eventId)}
+                    className="mt-3 flex flex-wrap items-center gap-2 border-t border-ink/5 pt-3"
+                  >
+                    <input type="hidden" name="guest_id" value={g.guest_id} />
+                    <span className="inline-flex items-center gap-1.5 text-sm text-ink/55">
+                      <Link2 className="h-4 w-4" /> Same as
+                    </span>
+                    <select
+                      name="target_guest_id"
+                      required
+                      defaultValue=""
+                      aria-label="Link to an existing guest"
+                      className="input-field h-9 flex-1 py-1 text-sm sm:flex-none"
+                    >
+                      <option value="" disabled>
+                        Choose a guest on your list…
+                      </option>
+                      {candidates.map((c) => (
+                        <option key={c.guest_id} value={c.guest_id}>
+                          {(c.display_name?.trim() || `${c.first_name} ${c.last_name}`).trim()}
+                        </option>
+                      ))}
+                    </select>
+                    <SubmitButton className="button-secondary text-sm" pendingLabel="Linking…">
+                      Link
+                    </SubmitButton>
+                  </form>
+                ) : null}
               </li>
             );
           })}

@@ -395,8 +395,48 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
     return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=join_closed`);
   }
 
-  // 5. Create the guest row (admin) — same minimal shape the couple's quick-add
-  //    uses, tagged `self_added_unlisted`. Split the name best-effort; couple can refine.
+  // 4b. NAME-AS-ANSWER-KEY for accountless joiners — if the typed name confidently
+  //     matches an unclaimed seed row, bind the cookie to THAT existing row rather
+  //     than minting a duplicate (keeps the couple's list clean; no reconcile
+  //     needed). Mirrors joinEventAction's matcher. Unclaimed = not bound in
+  //     event_members (so we never co-opt an account-held seat).
+  const [{ data: seeds }, { data: members }] = await Promise.all([
+    admin
+      .from('guests')
+      .select('guest_id, first_name, last_name, display_name, email, qr_token')
+      .eq('event_id', eventId)
+      .is('deleted_at', null),
+    admin
+      .from('event_members')
+      .select('guest_id')
+      .eq('event_id', eventId)
+      .not('guest_id', 'is', null),
+  ]);
+  const claimed = new Set((members ?? []).map((m) => m.guest_id as string));
+  const qrByGuestId = new Map<string, string>();
+  const candidates: SeedCandidate[] = (seeds ?? [])
+    .filter((s) => !claimed.has(s.guest_id as string) && !!(s.qr_token as string | null))
+    .map((s) => {
+      qrByGuestId.set(s.guest_id as string, s.qr_token as string);
+      const name = (s.display_name as string | null)?.trim() || `${s.first_name} ${s.last_name}`.trim();
+      return { guestId: s.guest_id as string, name, email: s.email as string | null };
+    });
+  const match = classifyClaimMatch(presentedName, candidates);
+  if (match.kind === 'confident') {
+    const qr = qrByGuestId.get(match.candidate.guestId);
+    if (qr) {
+      await setGuestSession({ guest_id: match.candidate.guestId, event_id: eventId, qr_token: qr });
+      if (email) {
+        await sendEventAccountMagicLink({ eventId, guestId: match.candidate.guestId, email });
+        return redirect(`/join/${eventId}/check-email?email=${encodeURIComponent(email)}`);
+      }
+      return redirect(`/${slug}`);
+    }
+  }
+
+  // 5. No confident match → create the guest row (admin) — same minimal shape the
+  //    couple's quick-add uses, tagged `self_added_unlisted`. Split the name
+  //    best-effort; couple can refine.
   const parts = presentedName.split(/\s+/);
   const firstName = parts[0] ?? presentedName;
   const lastName = parts.slice(1).join(' ');

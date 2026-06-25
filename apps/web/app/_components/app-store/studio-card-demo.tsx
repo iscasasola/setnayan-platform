@@ -11,6 +11,7 @@ import {
 // proxy, not the value (the 3349409504 crash). Server + client both import the
 // list from rich-demo-slugs.ts; do NOT re-export it from here.
 import { type RichDemoSlug } from './rich-demo-slugs';
+import { usePrefersReducedMotion } from '@/lib/use-responsive';
 
 const MULB = 'var(--m-mulberry, #5C2542)';
 const GOLD = '#C5A059';
@@ -1245,14 +1246,23 @@ export function StudioCardDemo({
   const useRich = Boolean(rich && rich.length > 0);
   const count = useRich ? rich!.length : frames.length;
 
+  // Honors the OS "reduce motion" setting (SSR-safe, live-updates). When the
+  // user prefers reduced motion we (a) start the on-card demo paused — no
+  // auto-advance interval — and (b) render the RICH_MEDIA video paused with
+  // controls instead of autoplay+loop. The play/pause button + step dots stay,
+  // and the video shows on its final/closing frame, so the flow still completes
+  // and nothing is hidden; we remove the motion, not the result.
+  const reduceMotion = usePrefersReducedMotion();
+
   const [i, setI] = useState(0);
-  const [playing, setPlaying] = useState(true);
+  // Start paused when motion is reduced; the user can still play it manually.
+  const [playing, setPlaying] = useState(!reduceMotion);
 
   useEffect(() => {
-    if (media || !playing || count < 2) return;
+    if (media || !playing || reduceMotion || count < 2) return;
     const t = setInterval(() => setI((p) => (p + 1) % count), ADVANCE_MS);
     return () => clearInterval(t);
-  }, [media, playing, count]);
+  }, [media, playing, reduceMotion, count]);
 
   // Preferred path: a hosted looping MP4 (the four scenes recorded with their
   // captions baked in). Self-contained, so the rotating figcaption + step dots
@@ -1267,13 +1277,17 @@ export function StudioCardDemo({
         <div className="w-[244px] overflow-hidden rounded-3xl border-[7px] border-ink bg-ink">
           <div className="relative aspect-[9/19] w-full bg-ink">
             {/* Decorative, captions baked in — no <track> needed. */}
+            {/* When motion is reduced: no autoPlay/loop — show the poster with
+                controls so the user can play the full demo on demand (the flow
+                still completes, just self-initiated). Otherwise: autoplay loop. */}
             {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
             <video
               src={media.video}
               poster={media.poster}
-              autoPlay
+              autoPlay={!reduceMotion}
+              loop={!reduceMotion}
+              controls={reduceMotion}
               muted
-              loop
               playsInline
               preload="metadata"
               aria-label={`${label} — looping demo`}

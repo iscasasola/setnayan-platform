@@ -16,6 +16,7 @@ import { autoInviteCoordinator } from '@/lib/coordinator-grant';
 import { emitNotification } from '@/lib/notification-emit';
 import { uploadPublicAsset } from '@/lib/storage';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
+import { resolveLivePax } from '@/lib/pax';
 import {
   VENDOR_CATEGORIES,
   VENDOR_STATUSES,
@@ -129,13 +130,39 @@ export async function updateVendorCosts(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  const newTotal = parseMoney(formData.get('total_cost_php'));
+
+  // #7 (money bug-hunt): a manual edit of the base total must re-baseline the
+  // pax-surcharge bookkeeping — otherwise the stale pax_surcharge_php /
+  // pax_quote_base would charge against the NEW total on the next guest-count
+  // confirm (wrong amount). Only re-baseline when the total actually CHANGED
+  // (the form also carries transport/food). The edited total is the price for
+  // the CURRENT pax, so the surcharge re-derives from there (zero until pax
+  // grows further).
+  const { data: existing } = await supabase
+    .from('event_vendors')
+    .select('total_cost_php')
+    .eq('vendor_id', vendorId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const totalChanged =
+    existing != null && Number(existing.total_cost_php ?? 0) !== Number(newTotal ?? 0);
+
+  const updatePayload: Record<string, unknown> = {
+    total_cost_php: newTotal,
+    transport_php: parseMoney(formData.get('transport_php')),
+    food_allowance_php: parseMoney(formData.get('food_allowance_php')),
+  };
+  if (totalChanged) {
+    const livePax = await resolveLivePax(supabase, eventId);
+    updatePayload.pax_quote_base = livePax;
+    updatePayload.pax_surcharge_php = 0;
+    updatePayload.cost_basis_pax = livePax;
+  }
+
   const { error } = await supabase
     .from('event_vendors')
-    .update({
-      total_cost_php: parseMoney(formData.get('total_cost_php')),
-      transport_php: parseMoney(formData.get('transport_php')),
-      food_allowance_php: parseMoney(formData.get('food_allowance_php')),
-    })
+    .update(updatePayload)
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId);
   if (error) throw new Error(error.message);

@@ -131,6 +131,85 @@ export function pctToWorld(xPct: number, yPct: number, room: { w: number; d: num
   };
 }
 
+// ── Serpentine geometry (curved quarter-donut wedge) ───────────────────────
+// The 2D catalog's serpentine is ONE 104° curved band (2026-05-09 lock) — NOT a
+// rectangle and NOT a round. These helpers reproduce that band in metres so the
+// 3D lab draws the real shape: chairs ride the convex OUTER arc (facing in) and
+// the concave INNER arc (facing out), and the band pivots on its visual centre.
+const SERP_RI = 0.95; // inner (concave) radius, m
+const SERP_RO = 1.55; // outer (convex) radius, m
+const SERP_SWEEP = (104 * Math.PI) / 180; // angular span (canonical)
+const SERP_CHAIR_GAP = 0.5; // chair offset just beyond / inside the band edge, m
+
+// φ = 0 points to −z (the band bulges toward −z); +φ sweeps to +x. The centre of
+// curvature sits at the local origin BEFORE the band is recentred on its bbox.
+function serpAt(r: number, phi: number): Vec2 {
+  return { x: r * Math.sin(phi), z: -r * Math.cos(phi) };
+}
+
+export type SerpSeat = { x: number; z: number; faceY: number };
+
+type SerpBand = { outline: Vec2[]; centre: Vec2; bboxW: number; bboxD: number };
+let _serpBand: SerpBand | null = null;
+
+/**
+ * The serpentine band as a recentred outline + its curvature centre + bbox.
+ * Capacity-independent (only the chairs scale), so it's computed once + cached.
+ */
+export function serpentineBand(): SerpBand {
+  if (_serpBand) return _serpBand;
+  const STEP = SERP_SWEEP / 16;
+  const raw: Vec2[] = [];
+  for (let phi = -SERP_SWEEP / 2; phi <= SERP_SWEEP / 2 + 1e-9; phi += STEP) raw.push(serpAt(SERP_RO, phi));
+  for (let phi = SERP_SWEEP / 2; phi >= -SERP_SWEEP / 2 - 1e-9; phi -= STEP) raw.push(serpAt(SERP_RI, phi));
+  let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+  for (const p of raw) {
+    minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+    minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z);
+  }
+  const ox = (minX + maxX) / 2;
+  const oz = (minZ + maxZ) / 2;
+  _serpBand = {
+    outline: raw.map((p) => ({ x: p.x - ox, z: p.z - oz })),
+    centre: { x: -ox, z: -oz }, // curvature centre, in recentred local coords
+    bboxW: maxX - minX,
+    bboxD: maxZ - minZ,
+  };
+  return _serpBand;
+}
+
+// Outer-first fill (mirrors the 2D lock): 1→1+0 · 2→2+0 · 3→2+1 · 4→3+1 · 5→3+2.
+const SERP_FILL: Record<number, [number, number]> = { 1: [1, 0], 2: [2, 0], 3: [2, 1], 4: [3, 1], 5: [3, 2] };
+
+/**
+ * Serpentine chair centres (recentred, table-local) + per-chair facing. Outer
+ * chairs face the curvature centre (inward onto the band); inner chairs face
+ * away from it (outward onto the band). Seat order = outer L→R, then inner L→R,
+ * matching the 2D seat_number map. Replaces the old round-ring approximation.
+ */
+export function serpentineChairs(capacity: number): SerpSeat[] {
+  const cap = Math.max(1, Math.min(5, Math.round(capacity)));
+  const [outerN, innerN] = SERP_FILL[cap]!;
+  const { centre } = serpentineBand();
+  const along = (count: number, r: number, inset: number, outward: boolean): SerpSeat[] => {
+    const half = SERP_SWEEP / 2 - inset;
+    const seats: SerpSeat[] = [];
+    for (let i = 0; i < count; i++) {
+      const phi = count === 1 ? 0 : -half + (2 * half * i) / (count - 1);
+      const p = serpAt(r, phi); // relative to the curvature centre (origin)
+      // Backrest points away from the band. Outer chair: away from centre = +p;
+      // inner chair: toward centre = −p (so the guest faces outward onto the band).
+      const faceY = outward ? Math.atan2(p.x, p.z) : Math.atan2(-p.x, -p.z);
+      seats.push({ x: p.x + centre.x, z: p.z + centre.z, faceY });
+    }
+    return seats;
+  };
+  return [
+    ...along(outerN, SERP_RO + SERP_CHAIR_GAP, 0.18, true),
+    ...along(innerN, SERP_RI - SERP_CHAIR_GAP, 0.36, false),
+  ];
+}
+
 /** Tabletop footprint (metres) per shape. Mirrors the 2D TABLE_FOOTPRINT_M shape, kept lean. */
 export function tableDims(shape: ShapeHint, capacity: number): { w: number; d: number; round: boolean } {
   switch (shape) {
@@ -138,8 +217,10 @@ export function tableDims(shape: ShapeHint, capacity: number): { w: number; d: n
       return { w: capacity >= 12 ? 1.7 : capacity >= 10 ? 1.5 : 1.3, d: 0, round: true };
     case 'sweetheart':
       return { w: 1.1, d: 0.6, round: false };
-    case 'serpentine':
-      return { w: 1.6, d: 0.7, round: false };
+    case 'serpentine': {
+      const b = serpentineBand();
+      return { w: b.bboxW, d: b.bboxD, round: false };
+    }
     case 'long_banquet':
       return { w: 0.8 + capacity * 0.22, d: 0.85, round: false };
     case 'family_head':
@@ -155,7 +236,11 @@ export function tableDims(shape: ShapeHint, capacity: number): { w: number; d: n
  */
 export function chairLocalPositions(shape: ShapeHint, capacity: number): Vec2[] {
   const out: Vec2[] = [];
-  if (shape === 'round' || shape === 'serpentine') {
+  // Serpentine rides its own curved arcs (outer + inner), not a full ring.
+  if (shape === 'serpentine') {
+    return serpentineChairs(capacity).map((c) => ({ x: c.x, z: c.z }));
+  }
+  if (shape === 'round') {
     const r = (tableDims(shape, capacity).w || 1.3) / 2 + 0.45;
     for (let i = 0; i < capacity; i++) {
       const a = (i / capacity) * Math.PI * 2 - Math.PI / 2;

@@ -59,6 +59,8 @@ import {
   pctToWorld,
   tableDims,
   chairLocalPositions,
+  serpentineBand,
+  serpentineChairs,
   seatWorld,
   tableAvoidR,
   steerPath,
@@ -1058,7 +1060,33 @@ function TableMesh({
 }) {
   const ref = useRef<THREE.Group>(null);
   const dims = useMemo(() => tableDims(table.shape, table.capacity), [table.shape, table.capacity]);
-  const chairs = useMemo(() => chairLocalPositions(table.shape, table.capacity), [table.shape, table.capacity]);
+  // Chair centres + facing. Serpentine carries its own per-chair facing (outer
+  // chairs look inward onto the band, inner chairs outward); every other shape
+  // faces the table-local origin via atan2, matching the rendered geometry.
+  const chairs = useMemo(() => {
+    if (table.shape === 'serpentine') return serpentineChairs(table.capacity);
+    return chairLocalPositions(table.shape, table.capacity).map((c) => ({
+      x: c.x,
+      z: c.z,
+      faceY: Math.atan2(c.x, c.z),
+    }));
+  }, [table.shape, table.capacity]);
+  // The serpentine table top is a real curved ribbon (104° quarter-donut),
+  // extruded from the canonical outline. Built once per shape and laid flat
+  // (extrude axis → world +Y), rising from the floor to the tabletop height.
+  const serpGeo = useMemo(() => {
+    if (table.shape !== 'serpentine') return null;
+    const shape = new THREE.Shape();
+    serpentineBand().outline.forEach((p, i) => {
+      // Shape lives in XY; after rotateX(−90°) it maps (x, −z) → world (x, h, z).
+      if (i === 0) shape.moveTo(p.x, -p.z);
+      else shape.lineTo(p.x, -p.z);
+    });
+    shape.closePath();
+    const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.74, bevelEnabled: false, steps: 1 });
+    geo.rotateX(-Math.PI / 2);
+    return geo;
+  }, [table.shape]);
   const home = useMemo(() => pctToWorld(table.xPct, table.yPct, room), [table.xPct, table.yPct, room]);
   // Share materials by reference (one per table, not one per chair/token) — the
   // cheap pre-instancing win. Full InstancedMesh is the documented v2 collapse.
@@ -1118,8 +1146,17 @@ function TableMesh({
   return (
     <group ref={ref} position={[home.x, 0, home.z]} onPointerDown={handleDown}>
       {/* Table: a draped tablecloth (skirt to the floor + top) when cloth is on,
-          else a bare top + pedestal. */}
-      {showCloth ? (
+          else a bare top + pedestal. Serpentine renders its curved ribbon. */}
+      {serpGeo ? (
+        <mesh geometry={serpGeo} castShadow>
+          <meshStandardMaterial
+            color={clothColor}
+            roughness={showCloth ? 0.85 : 0.4}
+            metalness={showCloth ? 0 : 0.05}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      ) : showCloth ? (
         dims.round ? (
           <group>
             <mesh position={[0, 0.37, 0]}>
@@ -1157,8 +1194,9 @@ function TableMesh({
         </group>
       )}
 
-      {/* Centerpiece accent (toggle) */}
-      {showAccents ? (
+      {/* Centerpiece accent (toggle) — skipped for serpentine, whose visual
+          centre falls in the concave gap off the ribbon itself. */}
+      {showAccents && table.shape !== 'serpentine' ? (
         <group position={[0, 0.78, 0]}>
           <mesh geometry={VASE_GEO} position={[0, 0.12, 0]}>
             <meshStandardMaterial color={palette.accent} roughness={0.5} metalness={0.12} />
@@ -1171,7 +1209,7 @@ function TableMesh({
 
       {/* Chairs (seat + backrest, oriented to face the table) + seated guests */}
       {chairs.map((c, i) => {
-        const ang = Math.atan2(c.x, c.z);
+        const ang = c.faceY;
         const tok = seated?.get(i);
         return (
           <group key={i} position={[c.x, 0, c.z]} rotation={[0, ang, 0]}>

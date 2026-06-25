@@ -55,7 +55,7 @@ export type TourCategory = {
 const CSS = `
 .tsl{--paper:var(--m-paper,#FBFBFA);--ink:var(--m-ink,#1E2229);--ink-soft:#4F535B;
   --gold:var(--m-orange,#C5A059);--gold-deep:var(--m-orange-2,#8C6932);
-  --mulberry:var(--m-mulberry,#5C2542);--line:rgba(30,34,41,.12);--card:#fff;
+  --mulberry:var(--m-mulberry,#9A3B23);--line:rgba(30,34,41,.12);--card:#fff;
   --serif:var(--font-display),"Cormorant Garamond",Georgia,serif;
   --sans:var(--font-sans),"Manrope",-apple-system,system-ui,sans-serif;
   --mono:var(--font-mono),"DM Mono",ui-monospace,Menlo,monospace;
@@ -84,7 +84,7 @@ const CSS = `
 .tsl .v .badges{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
 .tsl .bdg{display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:7.5px;letter-spacing:.07em;text-transform:uppercase;padding:3px 7px;border-radius:var(--m-r-full);background:rgba(30,34,41,.06);color:var(--ink-soft);white-space:nowrap}
 .tsl .bdg.verified{color:#2e7d4f;background:rgba(46,125,79,.1)}
-.tsl .bdg.setnayan{color:var(--mulberry);background:rgba(92,37,66,.1)}
+.tsl .bdg.setnayan{color:var(--mulberry);background:rgba(154, 59, 35,.1)}
 .tsl .v .price{font-family:var(--serif);font-style:italic;font-weight:600;font-size:21px;color:var(--ink);margin-top:auto;padding-top:7px}
 .tsl .v .ponq{font-family:var(--mono);font-size:9.5px;letter-spacing:.04em;color:var(--ink-soft);margin-top:auto;padding-top:7px}
 html.dark .tsl{--paper:#1E2229;--ink:#FBFBFA;--ink-soft:#B6B9BE;--line:rgba(251,251,250,.16);--card:#2A2E36}

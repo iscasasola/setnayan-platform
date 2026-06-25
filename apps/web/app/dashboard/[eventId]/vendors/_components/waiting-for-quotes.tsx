@@ -46,7 +46,7 @@ function waitingLabel(iso: string | null): string {
 }
 
 const WFQ_CSS = `
-.wfq{--ink:var(--m-ink,#1E2229);--ink-soft:#4F535B;--mulberry:var(--m-mulberry,#5C2542);
+.wfq{--ink:var(--m-ink,#1E2229);--ink-soft:#4F535B;--mulberry:var(--m-mulberry,#9A3B23);
   --line:var(--m-line,rgba(30,34,41,.12));--card:#fff;
   --serif:var(--font-display),"Cormorant Garamond",Georgia,serif;
   --sans:var(--font-sans),"Manrope",-apple-system,system-ui,sans-serif;
@@ -69,7 +69,7 @@ const WFQ_CSS = `
 .wfq .wfq-sub{font-family:var(--mono);font-size:9px;letter-spacing:.04em;color:var(--ink-soft)}
 .wfq .wfq-rt{display:flex;align-items:center;gap:8px;flex:0 0 auto}
 .wfq .wfq-wait{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;
-  color:var(--mulberry);background:rgba(92,37,66,.08);border-radius: var(--m-r-full);padding:4px 9px;white-space:nowrap}
+  color:var(--mulberry);background:rgba(154, 59, 35,.08);border-radius: var(--m-r-full);padding:4px 9px;white-space:nowrap}
 .wfq .wfq-chev{color:var(--ink-soft);flex:0 0 auto}
 .wfq a:focus-visible{outline:2px solid var(--mulberry);outline-offset:2px}
 html.dark .wfq{--ink:#FBFBFA;--ink-soft:#B6B9BE;--line:rgba(251,251,250,.16);--card:#2A2E36}

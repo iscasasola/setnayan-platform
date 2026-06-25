@@ -274,7 +274,7 @@ export default async function TourGalleryPage() {
       <nav className="mx-auto mt-16 flex max-w-3xl flex-col items-center gap-4 sm:flex-row sm:justify-between">
         <Link
           href="/tour/budget"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-[#5C2542] transition-opacity hover:opacity-80"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-[#9A3B23] transition-opacity hover:opacity-80"
         >
           <ArrowRight aria-hidden className="h-4 w-4 rotate-180" strokeWidth={1.75} />
           The budget
@@ -295,7 +295,7 @@ export default async function TourGalleryPage() {
         </p>
         <Link
           href="/onboarding/wedding?from=tour"
-          className="mt-5 inline-flex min-h-[48px] items-center justify-center rounded-full bg-[#5C2542] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
+          className="mt-5 inline-flex min-h-[48px] items-center justify-center rounded-full bg-[#9A3B23] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
         >
           Start planning &middot; free
         </Link>

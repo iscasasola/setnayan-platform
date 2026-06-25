@@ -14,7 +14,7 @@ export default function TourLayout({ children }: { children: ReactNode }) {
     <>
       <div
         role="note"
-        className="sticky top-0 z-40 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 bg-[#5C2542] px-4 py-2 text-center text-xs font-medium text-[#FBF6EA]"
+        className="sticky top-0 z-40 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 bg-[#9A3B23] px-4 py-2 text-center text-xs font-medium text-[#FBF6EA]"
       >
         <span aria-hidden>●</span>
         <span>

@@ -122,7 +122,7 @@ export function FindYourSeat({ tables, seats, entrance }: Props) {
                       onClick={() => pick(seat)}
                       className={`flex min-h-[44px] w-full items-center justify-between gap-3 rounded-xl border px-3.5 py-2 text-left transition-colors ${
                         isActive
-                          ? 'border-[#5C2542]/40 bg-[#5C2542]/[0.06]'
+                          ? 'border-[#9A3B23]/40 bg-[#9A3B23]/[0.06]'
                           : 'border-[#1E2229]/10 bg-white hover:border-[#C5A059]/50 hover:bg-[#FBF6EA]'
                       }`}
                     >
@@ -143,10 +143,10 @@ export function FindYourSeat({ tables, seats, entrance }: Props) {
 
         {/* Confirmation line once a guest is picked. */}
         {selected ? (
-          <div className="mt-4 rounded-xl border border-[#5C2542]/25 bg-[#5C2542]/[0.05] px-4 py-3">
+          <div className="mt-4 rounded-xl border border-[#9A3B23]/25 bg-[#9A3B23]/[0.05] px-4 py-3">
             <p className="text-sm text-[#5F5E5A]">
               <span className="font-semibold text-[#1E2229]">{selected.name}</span>, you&rsquo;re at{' '}
-              <span className="font-semibold text-[#5C2542]">{selected.tableLabel}</span>. Follow the
+              <span className="font-semibold text-[#9A3B23]">{selected.tableLabel}</span>. Follow the
               path on the map.
             </p>
           </div>

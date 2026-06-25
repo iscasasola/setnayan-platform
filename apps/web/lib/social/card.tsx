@@ -46,7 +46,7 @@ const CREAM = '#FBFBFA'; // card background
 const INK = '#1E2229'; // primary text
 const GOLD = '#C5A059'; // champagne-gold accent / frame
 const GOLD_DEEP = '#A88340';
-const MULBERRY = '#5C2542'; // CTA / deep accent
+const MULBERRY = '#9A3B23'; // CTA / deep accent
 const TERRACOTTA = '#C97B4B'; // monogram default ink
 const INK_SOFT = '#5B6068'; // muted body
 const INK_FAINT = '#9AA0A6'; // eyebrows / captions
@@ -286,7 +286,7 @@ function eyebrow(text: string, color = GOLD_DEEP): VNode {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Mulberry ink shared by all four type-only lockups (mirror lib/monogram.ts). */
-const LOCKUP_INK = '#5C2542';
+const LOCKUP_INK = '#9A3B23';
 
 /** A single positioned glyph inside the lockup box. `cx`/`baseY` are in the
  *  SCALED pixel space of the lockup box; `fs` is the scaled font size. */

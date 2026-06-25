@@ -73,6 +73,7 @@ import {
 import { FileUpload } from '@/app/_components/file-upload';
 import { SDLoader, LOADER_STEPS } from '@/components/sd-loader';
 import { trackFailure } from '@/lib/telemetry/track-error';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import {
   applyVoucherAction,
   submitOrderAction,
@@ -195,19 +196,12 @@ export function InlineCheckoutDrawer({
     return () => clearTimeout(t);
   }, [submitResult?.ok, revealSuccess]);
 
-  // Esc + body-lock when open · matches ChoosePlanSheet semantics.
-  useEffect(() => {
-    if (!open) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    window.addEventListener('keydown', handleKey);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      window.removeEventListener('keydown', handleKey);
-      document.body.style.overflow = '';
-    };
-  }, [open]);
+  // Esc-to-close + body-lock + focus management (move focus in, trap Tab,
+  // restore on close) via the shared modal-a11y primitive. Replaces the
+  // hand-rolled Esc/scroll-lock effect — which had no focus handling — so the
+  // drawer is now a proper keyboard/SR-trapped dialog.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalA11y({ open, onClose: () => setOpen(false), containerRef: dialogRef });
 
   // Trigger button styling · default is a terracotta filled pill (matches
   // the app-store/state-cta.tsx "Add" button) but the parent can override.
@@ -242,10 +236,11 @@ export function InlineCheckoutDrawer({
       {trigger}
       {!open ? null : (
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="inline-checkout-title"
-        className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:justify-end"
+        className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:justify-end focus:outline-none"
       >
         {/* Backdrop */}
         <button

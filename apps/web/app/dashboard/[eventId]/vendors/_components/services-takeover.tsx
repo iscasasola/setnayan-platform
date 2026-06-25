@@ -47,14 +47,12 @@ export function ServicesTakeover({
   // `eventId` stays in the props contract (the page passes it) but is no longer
   // read in the body since the floating "back X" that used it was removed
   // 2026-06-15. Not destructured → no unused-var lint, caller API unchanged.
-  summarySlot,
   shortlistSlot,
   buildSlot,
   compareSlot,
   initialTab = 'shortlist',
 }: {
   eventId: string;
-  summarySlot?: ReactNode;
   shortlistSlot?: ReactNode;
   buildSlot?: ReactNode;
   compareSlot?: ReactNode;
@@ -101,7 +99,6 @@ export function ServicesTakeover({
   }, [selectTab]);
 
   const slots: Record<BudgetBuildTab, ReactNode> = {
-    summary: summarySlot,
     shortlist: shortlistSlot,
     build: buildSlot,
     compare: compareSlot,

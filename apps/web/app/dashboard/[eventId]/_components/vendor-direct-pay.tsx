@@ -35,7 +35,7 @@
 // /budget per-vendor cards and the per-vendor workspace embed.
 // ============================================================================
 
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import {
   AlertTriangle,
   Building2,
@@ -52,6 +52,7 @@ import {
 } from 'lucide-react';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import { Sheet } from '@/app/_components/sheet';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 
 export type VendorDirectPayProps = {
   vendorName: string;
@@ -551,12 +552,20 @@ function ModalShell({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  // Mounts only while open. Nested ABOVE the parent Sheet — useModalA11y's
+  // modal stack makes this confirm the topmost trap (Esc/Tab act here first;
+  // the Sheet resumes when it closes), and the ref-counted scroll-lock keeps
+  // the page locked underneath while the Sheet is still open.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalA11y({ open: true, onClose, containerRef: dialogRef });
+
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
-      className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[60] flex items-center justify-center p-4 focus:outline-none"
     >
       {/* Backdrop — click to dismiss. */}
       <button

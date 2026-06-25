@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useRef, type RefObject } from 'react';
-import { useEscapeKey } from '@/lib/use-escape-key';
+import { useEffect, useId, useRef, type RefObject } from 'react';
 
 /**
  * useModalA11y — the single shared focus-management hook for modal dialogs,
@@ -11,16 +10,24 @@ import { useEscapeKey } from '@/lib/use-escape-key';
  * `role="dialog"` semantics but do NOT manage focus — opening a modal leaves
  * focus on the trigger behind the backdrop, Tab can wander out into the page
  * underneath, and focus isn't restored on close. That's a keyboard/SR dead-end
- * across every modal. Like `useEscapeKey`, this is one hook, called once per
- * overlay, instead of hand-rolled (and missing) focus code per surface.
+ * across every modal. One hook, called once per overlay, instead of hand-rolled
+ * (and missing) focus code per surface.
  *
  * On open it:
  *   • remembers what had focus, then moves focus into the dialog,
  *   • traps Tab / Shift+Tab so focus cycles within the dialog only,
- *   • closes on Escape (composes the shared `useEscapeKey`),
+ *   • closes on Escape,
  *   • optionally locks body scroll.
  * On close/unmount it removes the listeners, unlocks scroll, and restores
  * focus to wherever it was before the modal opened.
+ *
+ * NESTING: a module-level stack tracks open modals. Only the TOPMOST open modal
+ * traps Tab and closes on Escape — so a confirm rendered over a sheet, or a
+ * filter sheet over a search overlay, behaves correctly: Escape peels one layer
+ * at a time and Tab stays in the frontmost layer. Body-scroll-lock is
+ * reference-counted so an inner modal closing doesn't unlock the page while an
+ * outer modal is still open. Lone (non-nested) modals are always topmost, so
+ * behavior is unchanged for them.
  *
  * Usage — attach `containerRef` to the element carrying `role="dialog"`:
  *   const dialogRef = useRef<HTMLDivElement>(null);
@@ -41,6 +48,26 @@ const FOCUSABLE_SELECTOR = [
   '[tabindex]:not([tabindex="-1"])',
 ].join(',');
 
+// Module-level stack of currently-open modal ids — topmost last. Only the
+// topmost modal acts on Tab/Escape; the rest stand down until it closes.
+const modalStack: string[] = [];
+
+// Reference-counted body-scroll lock so nested modals don't unlock the page
+// when an inner one closes while an outer one is still open.
+let scrollLockCount = 0;
+let savedBodyOverflow = '';
+function lockBodyScroll(): void {
+  if (scrollLockCount === 0) {
+    savedBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+  }
+  scrollLockCount += 1;
+}
+function unlockBodyScroll(): void {
+  scrollLockCount = Math.max(0, scrollLockCount - 1);
+  if (scrollLockCount === 0) document.body.style.overflow = savedBodyOverflow;
+}
+
 export function useModalA11y<T extends HTMLElement = HTMLElement>({
   open,
   onClose,
@@ -60,16 +87,22 @@ export function useModalA11y<T extends HTMLElement = HTMLElement>({
    *  SR announces the dialog (via aria-labelledby) before Tab enters it. */
   initialFocusRef?: RefObject<HTMLElement | null>;
 }): void {
-  // Escape-to-close via the shared primitive (reuse, don't reinvent).
-  useEscapeKey(onClose, open);
-
+  // Stable per-instance id for the modal stack.
+  const id = useId();
   // What had focus before the modal opened, so we can hand it back on close.
   const previouslyFocused = useRef<HTMLElement | null>(null);
+  // Latest onClose held in a ref so the effect doesn't re-run (and re-focus)
+  // when an inline `() => setOpen(false)` changes identity each render.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!open) return;
     const container = containerRef.current;
     if (!container) return;
+
+    modalStack.push(id);
+    const isTopmost = () => modalStack[modalStack.length - 1] === id;
 
     previouslyFocused.current =
       (document.activeElement as HTMLElement | null) ?? null;
@@ -93,7 +126,15 @@ export function useModalA11y<T extends HTMLElement = HTMLElement>({
     target.focus();
 
     function onKeyDown(event: KeyboardEvent) {
+      // Only the frontmost modal handles keys; nested-under modals stand down.
+      if (!isTopmost()) return;
+
+      if (event.key === 'Escape') {
+        onCloseRef.current();
+        return;
+      }
       if (event.key !== 'Tab') return;
+
       const items = focusables();
       const active = document.activeElement;
       const first = items[0];
@@ -118,13 +159,14 @@ export function useModalA11y<T extends HTMLElement = HTMLElement>({
     // Capture phase so we intercept Tab before any inner handler.
     document.addEventListener('keydown', onKeyDown, true);
 
-    const prevOverflow = lockScroll ? document.body.style.overflow : '';
-    if (lockScroll) document.body.style.overflow = 'hidden';
+    if (lockScroll) lockBodyScroll();
 
     return () => {
       document.removeEventListener('keydown', onKeyDown, true);
-      if (lockScroll) document.body.style.overflow = prevOverflow;
+      const idx = modalStack.lastIndexOf(id);
+      if (idx !== -1) modalStack.splice(idx, 1);
+      if (lockScroll) unlockBodyScroll();
       previouslyFocused.current?.focus?.();
     };
-  }, [open, containerRef, lockScroll, initialFocusRef]);
+  }, [open, id, containerRef, lockScroll, initialFocusRef]);
 }

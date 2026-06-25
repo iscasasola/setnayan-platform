@@ -19,6 +19,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import { createPortal } from 'react-dom';
 import { saveVendorToPicks } from '@/app/explore/actions';
 import { haptic } from '@/lib/haptics';
@@ -164,6 +165,8 @@ export function CategorySearchOverlay({
   const [draftVerified, setDraftVerified] = useState(false);
   const [draftKm, setDraftKm] = useState<number | null>(null);
   const reqSeq = useRef(0);
+  const csovRef = useRef<HTMLDivElement>(null);
+  const fsheetRef = useRef<HTMLDivElement>(null);
 
   const run = useCallback(
     async (q: string, vOnly: boolean, km: number | null) => {
@@ -231,22 +234,17 @@ export function CategorySearchOverlay({
     return () => clearTimeout(t);
   }, [query, verifiedOnly, maxKm, run]);
 
-  // body scroll-lock + Escape close
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (filterOpen) setFilterOpen(false);
-        else onClose();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => {
-      document.body.style.overflow = prev;
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [onClose, filterOpen]);
+  // Focus-trap + scroll-lock + Escape, via the shared primitive. The filter
+  // sheet nests over the main overlay: useModalA11y's modal stack makes the
+  // filter sheet the topmost trap when open, so Escape peels the filter sheet
+  // first and the overlay second (the old hand-rolled layered Escape), and the
+  // ref-counted scroll-lock stays engaged underneath.
+  useModalA11y({ open: mounted, onClose, containerRef: csovRef });
+  useModalA11y({
+    open: filterOpen,
+    onClose: () => setFilterOpen(false),
+    containerRef: fsheetRef,
+  });
 
   async function add(vendorProfileId: string) {
     if (added.has(vendorProfileId) || pendingId) return;
@@ -412,7 +410,7 @@ export function CategorySearchOverlay({
   if (!mounted) return null;
 
   return createPortal(
-    <div className="csov" role="dialog" aria-modal="true" aria-label={`Add ${label} to your plan`}>
+    <div ref={csovRef} className="csov focus:outline-none" role="dialog" aria-modal="true" aria-label={`Add ${label} to your plan`}>
       <style>{CSS}</style>
 
       <div className="head">
@@ -505,7 +503,7 @@ export function CategorySearchOverlay({
       {filterOpen ? (
         <>
           <div className="fscrim" onClick={() => setFilterOpen(false)} />
-          <div className="fsheet" role="dialog" aria-modal="true" aria-label="Filter vendors">
+          <div ref={fsheetRef} className="fsheet focus:outline-none" role="dialog" aria-modal="true" aria-label="Filter vendors">
             <h4>Refine</h4>
             <div className="frow">
               <div className="ftoggle">

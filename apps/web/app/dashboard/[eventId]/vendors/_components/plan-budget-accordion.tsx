@@ -132,7 +132,7 @@ const PBA_CSS = `
 .pbacc{
   --paper:var(--m-paper,#FBFBFA); --ink:var(--m-ink,#1E2229); --ink-soft:#4F535B;
   --gold:var(--m-orange,#C5A059); --gold-deep:var(--m-orange-2,#8C6932);
-  --mulberry:var(--m-mulberry,#9A3B23); --mulberry-deep:var(--m-mulberry-2,#7E2F1B);
+  --mulberry:var(--m-mulberry,#1E2229); --mulberry-deep:var(--m-mulberry-2,#343A44);
   --line:rgba(30,34,41,.12); --line-soft:rgba(30,34,41,.07);
   --card:#fff; /* white card surface in light; flips to lifted obsidian in dark */
   /* --topbar-h was the dark P0 budget bar height; that bar is removed (owner
@@ -242,7 +242,7 @@ const PBA_CSS = `
 .pbacc .intro-lead{font-family:var(--sans);font-size:14px;line-height:1.55;color:var(--ink-soft)}
 .pbacc .intro-steps{display:flex;flex-direction:column;gap:12px;margin-top:4px}
 .pbacc .istep{display:flex;align-items:center;gap:12px}
-.pbacc .istep-n{flex:0 0 auto;width:27px;height:27px;border-radius: var(--m-r-full);background:rgba(154, 59, 35,.08);color:var(--mulberry);font-family:var(--serif);font-style:italic;font-weight:600;font-size:15px;display:flex;align-items:center;justify-content:center}
+.pbacc .istep-n{flex:0 0 auto;width:27px;height:27px;border-radius: var(--m-r-full);background:rgba(30, 34, 41,.08);color:var(--mulberry);font-family:var(--serif);font-style:italic;font-weight:600;font-size:15px;display:flex;align-items:center;justify-content:center}
 .pbacc .istep-h{font-family:var(--sans);font-weight:700;font-size:13.5px;color:var(--ink);line-height:1.15}
 .pbacc .istep-d{font-family:var(--mono);font-size:9px;letter-spacing:.04em;color:var(--ink-soft);margin-top:1px}
 /* Cover — populated state: a budget progress bar (owner 2026-06-01). Tracks
@@ -284,7 +284,7 @@ const PBA_CSS = `
 .pbacc .cat-head.active .nm{color:var(--mulberry)}
 .pbacc .cat-head.active .chev{transform:rotate(180deg);color:var(--mulberry)}
 .pbacc .cat-body{position:relative;padding:6px 0 12px;background:var(--card);border-radius:0 0 14px 14px}
-.pbacc .cat.open .cat-body::before{content:'';position:absolute;left:18px;top:0;bottom:12px;width:2px;background:rgba(154, 59, 35,.18);border-radius: var(--m-r-xs);pointer-events:none}
+.pbacc .cat.open .cat-body::before{content:'';position:absolute;left:18px;top:0;bottom:12px;width:2px;background:rgba(30, 34, 41,.18);border-radius: var(--m-r-xs);pointer-events:none}
 .pbacc .cat-body .leaf-head{padding-left:30px}
 .pbacc .cat-empty{font-family:var(--serif);font-style:italic;font-size:14px;color:var(--ink-soft);padding:6px 20px 4px}
 
@@ -323,7 +323,7 @@ const PBA_CSS = `
 .pbacc .dep-nudge .di{flex:0 0 auto;font-size:12px;line-height:1.3}
 .pbacc .dep-nudge.blocked{color:var(--gold-deep);background:rgba(197,160,89,.08);border-color:rgba(197,160,89,.32)}
 .pbacc .dep-nudge.blocked.soft{color:var(--ink-soft);background:rgba(30,34,41,.035);border-color:rgba(30,34,41,.1)}
-.pbacc .dep-nudge.ready{color:var(--mulberry);background:rgba(154, 59, 35,.055);border-color:rgba(154, 59, 35,.22)}
+.pbacc .dep-nudge.ready{color:var(--mulberry);background:rgba(30, 34, 41,.055);border-color:rgba(30, 34, 41,.22)}
 .pbacc .dep-nudge strong{font-weight:600}
 
 /* deadline chip */
@@ -381,7 +381,7 @@ const PBA_CSS = `
 .pbacc .v .badges{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
 .pbacc .bdg{font-family:var(--mono);font-size:7.5px;letter-spacing:.07em;text-transform:uppercase;padding:3px 7px;border-radius: var(--m-r-full);background:rgba(30,34,41,.06);color:var(--ink-soft);white-space:nowrap}
 .pbacc .bdg.verified{color:#2e7d4f;background:rgba(46,125,79,.1)}
-.pbacc .bdg.setnayan{color:var(--mulberry);background:rgba(154, 59, 35,.1)}
+.pbacc .bdg.setnayan{color:var(--mulberry);background:rgba(30, 34, 41,.1)}
 .pbacc .bdg.rec{color:var(--gold-deep);background:rgba(197,160,89,.16)}
 .pbacc .bdg.match{font-weight:700}
 .pbacc .bdg.match.strong{color:#2e7d4f;background:rgba(46,125,79,.16)}
@@ -415,12 +415,12 @@ const PBA_CSS = `
 .pbacc .changebtn:disabled{opacity:.6;cursor:default}
 /* dashed find-more card */
 .pbacc .add{flex:0 0 132px;scroll-snap-align:center;display:flex;text-decoration:none}
-.pbacc .add .inner{flex:1;min-height:191px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:7px;background:rgba(154, 59, 35,.05);border:1.5px dashed rgba(154, 59, 35,.4);border-radius: var(--m-r-lg);color:var(--mulberry)}
+.pbacc .add .inner{flex:1;min-height:191px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:7px;background:rgba(30, 34, 41,.05);border:1.5px dashed rgba(30, 34, 41,.4);border-radius: var(--m-r-lg);color:var(--mulberry)}
 .pbacc .add .plus{font-size:26px;line-height:1;font-weight:300}
 .pbacc .add.add-manual .plus{font-size:19px;font-weight:400}
 .pbacc .add .at{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;line-height:1.4}
 /* empty child — slim one-line row */
-.pbacc .empty-child{display:flex;align-items:center;gap:10px;margin:0 20px 8px;padding:11px 14px;border:1.5px dashed rgba(154, 59, 35,.3);border-radius: var(--m-r-md);background:rgba(154, 59, 35,.03);text-decoration:none;color:inherit}
+.pbacc .empty-child{display:flex;align-items:center;gap:10px;margin:0 20px 8px;padding:11px 14px;border:1.5px dashed rgba(30, 34, 41,.3);border-radius: var(--m-r-md);background:rgba(30, 34, 41,.03);text-decoration:none;color:inherit}
 .pbacc .empty-child .ep{font-size:17px;color:var(--mulberry);font-weight:300;line-height:1}
 .pbacc .empty-child .en{font-family:var(--sans);font-size:13.5px;font-weight:600;color:var(--mulberry)}
 .pbacc .empty-child .eh{margin-left:auto;font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:#b8b4ac}
@@ -444,8 +444,8 @@ const PBA_CSS = `
 
 /* ---- Compare (like-for-like; read-only — never sets the pick) ---- */
 .pbacc .cn-right{display:flex;align-items:center;gap:8px}
-.pbacc .cmpbtn{display:inline-flex;align-items:center;gap:4px;border:1px solid rgba(154, 59, 35,.4);background:rgba(154, 59, 35,.06);color:var(--mulberry);border-radius: var(--m-r-full);padding:4px 10px;font-family:var(--mono);font-size:8px;letter-spacing:.08em;text-transform:uppercase;font-weight:500;cursor:pointer;white-space:nowrap;transition:background .2s var(--ease)}
-.pbacc .cmpbtn:active{background:rgba(154, 59, 35,.14)}
+.pbacc .cmpbtn{display:inline-flex;align-items:center;gap:4px;border:1px solid rgba(30, 34, 41,.4);background:rgba(30, 34, 41,.06);color:var(--mulberry);border-radius: var(--m-r-full);padding:4px 10px;font-family:var(--mono);font-size:8px;letter-spacing:.08em;text-transform:uppercase;font-weight:500;cursor:pointer;white-space:nowrap;transition:background .2s var(--ease)}
+.pbacc .cmpbtn:active{background:rgba(30, 34, 41,.14)}
 .pbacc .cmpsheet{position:fixed;inset:0;z-index:90;background:var(--paper);display:flex;flex-direction:column;animation:cmpup .3s var(--ease)}
 @keyframes cmpup{from{transform:translateY(100%)}to{transform:none}}
 .pbacc .cmpwrap{width:100%;max-width:620px;margin:0 auto;flex:1;display:flex;flex-direction:column;min-height:0}
@@ -557,10 +557,10 @@ html.dark .pbacc .cmprow-price td{color:#C99DB0}
    vanishes after the first pick; (3) .pba-coach + .lockhint = one-time first-run
    coachmark + point-of-action Lock helper, shown only while the couple has
    shortlisted but locked nothing, dismissible (localStorage 'pba_coach_v1'). */
-.pbacc .intro-next{display:flex;align-items:center;gap:12px;padding:13px 15px;border-radius: var(--m-r-md);background:rgba(154, 59, 35,.06);border:1px solid rgba(154, 59, 35,.22);text-decoration:none;color:inherit}
+.pbacc .intro-next{display:flex;align-items:center;gap:12px;padding:13px 15px;border-radius: var(--m-r-md);background:rgba(30, 34, 41,.06);border:1px solid rgba(30, 34, 41,.22);text-decoration:none;color:inherit}
 .pbacc .intro-next.calm{background:var(--card);border-color:var(--line)}
 .pbacc .intro-next .nx-ico{flex:0 0 auto;width:34px;height:34px;border-radius: var(--m-r-full);background:var(--mulberry);color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;line-height:1}
-.pbacc .intro-next.calm .nx-ico{background:rgba(154, 59, 35,.12);color:var(--mulberry)}
+.pbacc .intro-next.calm .nx-ico{background:rgba(30, 34, 41,.12);color:var(--mulberry)}
 .pbacc .intro-next .nx-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
 .pbacc .intro-next .nx-k{font-family:var(--mono);font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--mulberry)}
 .pbacc .intro-next.calm .nx-k{color:var(--ink-soft)}
@@ -570,7 +570,7 @@ html.dark .pbacc .cmprow-price td{color:#C99DB0}
 .pbacc .intro-next.calm .nx-go{display:none}
 .pbacc .intro-loop{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:0 4px}
 .pbacc .intro-loop .lp{display:flex;align-items:center;gap:6px;min-width:0}
-.pbacc .intro-loop .lp-n{flex:0 0 auto;width:18px;height:18px;border-radius: var(--m-r-full);background:rgba(154, 59, 35,.1);color:var(--mulberry);font-family:var(--mono);font-size:9px;font-weight:600;display:flex;align-items:center;justify-content:center}
+.pbacc .intro-loop .lp-n{flex:0 0 auto;width:18px;height:18px;border-radius: var(--m-r-full);background:rgba(30, 34, 41,.1);color:var(--mulberry);font-family:var(--mono);font-size:9px;font-weight:600;display:flex;align-items:center;justify-content:center}
 .pbacc .intro-loop .lp-t{font-family:var(--mono);font-size:9px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft);white-space:nowrap}
 .pbacc .intro-loop .lp-sep{flex:0 0 auto;color:var(--ink-soft);opacity:.45;font-size:11px}
 .pbacc .pba-coach{position:relative;margin:14px 18px 2px;padding:14px 42px 14px 15px;border-radius: var(--m-r-md);background:rgba(197,160,89,.1);border:1px solid rgba(197,160,89,.4);animation:pba-rise .5s var(--ease) both}
@@ -608,7 +608,7 @@ html.dark .pbacc .review-cta:hover,.pbacc .review-cta:focus{background:rgba(149,
 .pbacc .svc-motion{mix-blend-mode:screen}
 .pbacc .svc-scrim{background:linear-gradient(to top,rgba(18,16,14,.92) 4%,rgba(18,16,14,.5) 44%,rgba(18,16,14,.08) 80%)}
 .pbacc .svc-top{position:absolute;top:12px;left:12px;right:12px;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:8px}
-.pbacc .svc-badge{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:#fff;background:rgba(154, 59, 35,.62);border:1px solid rgba(255,255,255,.22);border-radius: var(--m-r-full);padding:4px 9px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.pbacc .svc-badge{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:#fff;background:rgba(30, 34, 41,.62);border:1px solid rgba(255,255,255,.22);border-radius: var(--m-r-full);padding:4px 9px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .pbacc .svc-pill{font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:rgba(255,255,255,.18);border-radius: var(--m-r-full);padding:4px 8px;white-space:nowrap;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .pbacc .svc-body{position:absolute;left:0;right:0;bottom:0;z-index:2;padding:14px 16px 16px}
 .pbacc .svc-name{font-family:var(--serif);font-style:italic;font-weight:600;font-size:21px;line-height:1.08;color:#fff}
@@ -629,13 +629,13 @@ html.dark .pbacc .ds-tag{color:#C99DB0}
 .pbacc .tools-row{display:flex;gap:9px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
 .pbacc .tools-row::-webkit-scrollbar{display:none}
 .pbacc .tool{flex:0 0 auto;display:inline-flex;align-items:center;gap:9px;padding:10px 13px;border-radius: var(--m-r-md);border:1px solid var(--line);background:var(--card);text-decoration:none;color:var(--ink)}
-.pbacc .tool:hover{border-color:rgba(154, 59, 35,.35)}
-.pbacc .tool-ico{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius: var(--m-r-sm);background:rgba(154, 59, 35,.08);color:var(--mulberry)}
+.pbacc .tool:hover{border-color:rgba(30, 34, 41,.35)}
+.pbacc .tool-ico{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius: var(--m-r-sm);background:rgba(30, 34, 41,.08);color:var(--mulberry)}
 html.dark .pbacc .tool-ico{color:#C99DB0;background:rgba(201,157,176,.14)}
 .pbacc .tool-tx{display:flex;flex-direction:column;line-height:1.2}
 .pbacc .tool-nm{font-family:var(--sans);font-weight:600;font-size:13px;color:var(--ink)}
 .pbacc .tool-cta{font-family:var(--mono);font-size:8px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft);margin-top:2px}
-.pbacc .tools-all{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;padding:0 16px;border-radius: var(--m-r-md);border:1.5px dashed rgba(154, 59, 35,.4);background:transparent;color:var(--mulberry);font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;white-space:nowrap}
+.pbacc .tools-all{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;padding:0 16px;border-radius: var(--m-r-md);border:1.5px dashed rgba(30, 34, 41,.4);background:transparent;color:var(--mulberry);font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;white-space:nowrap}
 html.dark .pbacc .tools-all{color:#C99DB0}
 .pbacc .tool,.pbacc .tools-all{transition:transform .13s cubic-bezier(.2,.7,.2,1),border-color .2s var(--ease)}
 .pbacc .tool:active,.pbacc .tools-all:active{transform:scale(.97)}

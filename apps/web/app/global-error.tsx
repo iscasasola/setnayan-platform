@@ -120,9 +120,9 @@ export default function GlobalError({ error, reset }: Props) {
                 // 2026-05-22 Facebook blue. global-error.tsx renders OUTSIDE
                 // Tailwind's processing pipeline (Next.js error boundary
                 // root) so colors must be inline hex literals, not utility
-                // classes. The Terracotta Clay value matches the
+                // classes. The Deep Obsidian value matches the
                 // --color-mulberry token in apps/web/app/globals.css.
-                backgroundColor: '#9A3B23',
+                backgroundColor: '#1E2229',
                 color: '#FFFFFF',
                 fontSize: '0.875rem',
                 fontWeight: 500,

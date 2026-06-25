@@ -19,7 +19,7 @@ const C = {
   slate: '#4F535B', // --m-slate   (body copy)
   faint: '#898D94', // --m-slate-3 (footnote)
   line: '#E2DED4', // --m-line     (hairlines)
-  mulberry: '#9A3B23', // --m-mulberry (wordmark + button)
+  mulberry: '#1E2229', // --m-mulberry (wordmark + button)
   gold: '#C5A059', // --m-orange   (accent rule)
 } as const;
 

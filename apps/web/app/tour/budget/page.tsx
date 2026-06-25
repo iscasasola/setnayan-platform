@@ -171,7 +171,7 @@ export default async function TourBudgetPage() {
         </Link>
         <Link
           href="/tour/gallery"
-          className="inline-flex min-h-[48px] items-center justify-center gap-1.5 rounded-full bg-[#9A3B23] px-6 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
+          className="inline-flex min-h-[48px] items-center justify-center gap-1.5 rounded-full bg-[#1E2229] px-6 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
         >
           Next: the gallery
           <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -179,8 +179,8 @@ export default async function TourBudgetPage() {
       </nav>
 
       <section className="mx-auto mt-14 max-w-2xl rounded-3xl border border-[#C5A059]/40 bg-[#FBF6EA] px-6 py-10 text-center">
-        <div className="mx-auto inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#9A3B23]/10">
-          <CheckCircle2 aria-hidden className="h-5 w-5 text-[#9A3B23]" strokeWidth={1.75} />
+        <div className="mx-auto inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#1E2229]/10">
+          <CheckCircle2 aria-hidden className="h-5 w-5 text-[#1E2229]" strokeWidth={1.75} />
         </div>
         <h2 className="mt-4 font-serif text-2xl text-[#1E2229] sm:text-3xl">Plan your own budget, free</h2>
         <p className="mx-auto mt-3 max-w-lg text-base text-[#5F5E5A]">
@@ -188,7 +188,7 @@ export default async function TourBudgetPage() {
         </p>
         <Link
           href="/onboarding/wedding?from=tour"
-          className="mt-5 inline-flex min-h-[48px] items-center justify-center rounded-full bg-[#9A3B23] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
+          className="mt-5 inline-flex min-h-[48px] items-center justify-center rounded-full bg-[#1E2229] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
         >
           Start planning &middot; free
         </Link>
@@ -209,7 +209,7 @@ function SummaryStat({
   tone: 'gold' | 'mulberry' | 'ink';
 }) {
   const valueColor =
-    tone === 'gold' ? 'text-[#8C6932]' : tone === 'mulberry' ? 'text-[#9A3B23]' : 'text-[#1E2229]';
+    tone === 'gold' ? 'text-[#8C6932]' : tone === 'mulberry' ? 'text-[#1E2229]' : 'text-[#1E2229]';
   return (
     <div className="rounded-2xl border border-[#C5A059]/30 bg-[#FBF8F1] p-5 text-center">
       <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-[#8C6932]">{label}</p>

@@ -13,7 +13,7 @@
 // the read-only tour), and a reload resets it.
 //
 // Tokens match the tour (serif headings, #1E2229 ink, #5F5E5A body, #8C6932 /
-// #C5A059 gold, #9A3B23 mulberry, #FBF8F1 cream).
+// #C5A059 gold, #1E2229 mulberry, #FBF8F1 cream).
 // ============================================================================
 
 import { useMemo, useState } from 'react';
@@ -122,7 +122,7 @@ export function TourPalettePreview({ groups }: { groups: TourSwatchGroup[] }) {
           type="button"
           onClick={() => setHueShift(0)}
           disabled={hueShift === 0}
-          className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-[#C5A059]/50 px-3 text-xs font-medium text-[#9A3B23] transition-opacity hover:opacity-80 disabled:opacity-40"
+          className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-[#C5A059]/50 px-3 text-xs font-medium text-[#1E2229] transition-opacity hover:opacity-80 disabled:opacity-40"
         >
           <RotateCcw aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Their palette
@@ -136,7 +136,7 @@ export function TourPalettePreview({ groups }: { groups: TourSwatchGroup[] }) {
         step={5}
         value={hueShift}
         onChange={(e) => setHueShift(Number(e.target.value))}
-        className="mt-3 w-full accent-[#9A3B23]"
+        className="mt-3 w-full accent-[#1E2229]"
         aria-label="Shift the palette hue"
       />
       <p className="mt-1.5 text-xs text-[#9A8F86]">

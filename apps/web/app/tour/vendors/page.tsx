@@ -242,7 +242,7 @@ export default async function TourVendorsPage() {
       <nav className="mx-auto mt-16 flex max-w-2xl items-center justify-between gap-4">
         <Link
           href="/maria-and-jose"
-          className="inline-flex min-h-[44px] items-center text-sm font-medium text-[#9A3B23] transition-opacity hover:opacity-80"
+          className="inline-flex min-h-[44px] items-center text-sm font-medium text-[#1E2229] transition-opacity hover:opacity-80"
         >
           &larr; The invitation
         </Link>
@@ -262,7 +262,7 @@ export default async function TourVendorsPage() {
         </p>
         <Link
           href="/onboarding/wedding?from=tour"
-          className="mt-5 inline-flex min-h-[48px] items-center justify-center rounded-full bg-[#9A3B23] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
+          className="mt-5 inline-flex min-h-[48px] items-center justify-center rounded-full bg-[#1E2229] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
         >
           Start planning &middot; free
         </Link>

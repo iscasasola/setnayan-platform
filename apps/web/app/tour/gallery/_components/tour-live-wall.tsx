@@ -19,7 +19,7 @@
 // updates the on-screen wall, calls NO server, and resets on reload. The merge
 // reuses the wall's own pure mergeTiles so tiles never re-animate once present.
 // Palette retuned to the tour's tokens (serif headings, #1E2229 ink, #5F5E5A
-// body, #8C6932 / #C5A059 gold, #9A3B23 mulberry, #FBF8F1 / #FBF6EA creams).
+// body, #8C6932 / #C5A059 gold, #1E2229 mulberry, #FBF8F1 / #FBF6EA creams).
 // ============================================================================
 
 import { useEffect, useRef, useState } from 'react';
@@ -85,7 +85,7 @@ export function TourLiveWall({
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-[#8C6932]">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#9A3B23]" />
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#1E2229]" />
           Live from the celebration
         </p>
         {count > 0 ? (
@@ -130,7 +130,7 @@ export function TourLiveWall({
             type="button"
             onClick={() => setPlaying(true)}
             disabled={playing}
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full bg-[#9A3B23] px-5 py-2.5 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90 disabled:opacity-60"
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full bg-[#1E2229] px-5 py-2.5 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90 disabled:opacity-60"
           >
             <Play aria-hidden className="h-4 w-4" strokeWidth={2} />
             {playing ? 'Photos arriving…' : 'Bring the wall to life'}

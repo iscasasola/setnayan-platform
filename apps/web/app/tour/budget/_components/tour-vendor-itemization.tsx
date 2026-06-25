@@ -111,7 +111,7 @@ function Money({
 }) {
   const color =
     tone === 'warn'
-      ? 'text-[#9A3B23]'
+      ? 'text-[#1E2229]'
       : tone === 'good'
         ? 'text-emerald-700'
         : tone === 'muted'

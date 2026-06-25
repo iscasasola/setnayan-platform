@@ -26,7 +26,7 @@ const GOLD = '#C5A059';
 const GOLD_DEEP = '#A88340';
 const INK_SOFT = '#5B6068';
 const INK_FAINT = '#9AA0A6';
-const MULBERRY = '#5C2542';
+const MULBERRY = '#9A3B23';
 
 // ── Font buffers (static weights only; cached for the serverless instance). ───
 const FONT_DIR = path.join(process.cwd(), 'lib', 'social', 'fonts');

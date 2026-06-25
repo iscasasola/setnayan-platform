@@ -359,7 +359,7 @@ export async function renderRealStoryOgJpeg(
 // the generic brand image (owner 2026-06-21 "why is the cover photo … not the look
 // of the page with the logo").
 
-const MULBERRY = '#5C2542';
+const MULBERRY = '#9A3B23';
 
 export type CoupleMonogramCardInput = {
   /** "Cale & Ice" */

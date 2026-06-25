@@ -267,7 +267,7 @@ export function PublicMonogramStudio() {
             stashIfAny();
             track('public_monogram_cta', { target: 'onboarding' });
           }}
-          className="mt-3.5 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full bg-[#5C2542] px-6 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
+          className="mt-3.5 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full bg-[#9A3B23] px-6 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
         >
           Start planning · free
           <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />

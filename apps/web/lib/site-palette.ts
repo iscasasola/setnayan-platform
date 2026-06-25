@@ -34,7 +34,7 @@ const DEFAULTS = {
   paper: { r: 251, g: 251, b: 250 }, // --color-cream
   ink: { r: 30, g: 34, b: 41 }, // --color-ink
   accent: { r: 197, g: 160, b: 89 }, // --color-terracotta
-  cta: { r: 92, g: 37, b: 66 }, // --color-mulberry
+  cta: { r: 154, g: 59, b: 35 }, // --color-mulberry (Terracotta Clay #9A3B23)
 } as const;
 
 function hexToRgb(hex: string): RGB | null {

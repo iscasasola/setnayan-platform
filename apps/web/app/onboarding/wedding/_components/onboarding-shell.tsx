@@ -3376,7 +3376,7 @@ export function OnboardingShell({
             </div>
             <div className="tapzone">
               <button type="button" className="btn btn-primary" style={{ width: '100%', marginBottom: 6 }} onClick={loveStart}>Tell it</button>
-              <div className="ghost" onClick={loveSkip}><u>Add it later</u></div>
+              <button type="button" className="ghost" onClick={loveSkip}><u>Add it later</u></button>
             </div>
           </section>
 
@@ -3404,7 +3404,7 @@ export function OnboardingShell({
                   { stem: '📍 the place — ', label: '📍 the place' },
                   { stem: '😅 the awkward part — ', label: '😅 the awkward part' },
                 ].map((c) => (
-                  <span key={state.loveStory.spark_anchor === c.stem ? `${c.stem}-sel` : c.stem} className={`sc${sel(state.loveStory.spark_anchor === c.stem)}${state.loveStory.spark_anchor === c.stem ? ' sn-bounce' : ''}`} onClick={() => dropSpark(c.stem)}>{c.label}</span>
+                  <button type="button" key={state.loveStory.spark_anchor === c.stem ? `${c.stem}-sel` : c.stem} className={`sc${sel(state.loveStory.spark_anchor === c.stem)}${state.loveStory.spark_anchor === c.stem ? ' sn-bounce' : ''}`} aria-pressed={state.loveStory.spark_anchor === c.stem} onClick={() => dropSpark(c.stem)}>{c.label}</button>
                 ))}
               </div>
               <div className={`followup${state.loveStory.spark.trim() ? ' show' : ''}`}>
@@ -3448,7 +3448,7 @@ export function OnboardingShell({
                   { kind: 'different_paths', label: 'Different dreams?' },
                   { kind: 'doubt', label: 'Just wasn’t sure?' },
                 ].map((c) => (
-                  <span key={state.loveStory.obstacle_kind === c.kind ? `${c.kind}-sel` : c.kind} className={`sc${sel(state.loveStory.obstacle_kind === c.kind)}${state.loveStory.obstacle_kind === c.kind ? ' sn-bounce' : ''}`} onClick={() => pickCue(c.kind)}>{c.label}</span>
+                  <button type="button" key={state.loveStory.obstacle_kind === c.kind ? `${c.kind}-sel` : c.kind} className={`sc${sel(state.loveStory.obstacle_kind === c.kind)}${state.loveStory.obstacle_kind === c.kind ? ' sn-bounce' : ''}`} aria-pressed={state.loveStory.obstacle_kind === c.kind} onClick={() => pickCue(c.kind)}>{c.label}</button>
                 ))}
               </div>
               <div className={`followup${state.loveStory.obstacle.trim() ? ' show' : ''}`}>
@@ -3461,7 +3461,7 @@ export function OnboardingShell({
                   onChange={(e) => setLoveText('obstacle_kept', e.target.value)}
                 />
               </div>
-              <div className="ghost" style={{ textAlign: 'left', marginTop: 9 }} onClick={skipAlmost}><u>Ours was easy — skip</u></div>
+              <button type="button" className="ghost" style={{ textAlign: 'left', marginTop: 9 }} onClick={skipAlmost}><u>Ours was easy — skip</u></button>
             </div>
           </section>
 
@@ -3478,7 +3478,7 @@ export function OnboardingShell({
                   { prop: 'trip', label: 'On a trip' },
                   { prop: 'meaningful', label: 'Somewhere meaningful' },
                 ].map((c) => (
-                  <span key={state.loveStory.proposal_setting === c.prop ? `${c.prop}-sel` : c.prop} className={`sc${sel(state.loveStory.proposal_setting === c.prop)}${state.loveStory.proposal_setting === c.prop ? ' sn-bounce' : ''}`} onClick={() => pickProposal(c.prop)}>{c.label}</span>
+                  <button type="button" key={state.loveStory.proposal_setting === c.prop ? `${c.prop}-sel` : c.prop} className={`sc${sel(state.loveStory.proposal_setting === c.prop)}${state.loveStory.proposal_setting === c.prop ? ' sn-bounce' : ''}`} aria-pressed={state.loveStory.proposal_setting === c.prop} onClick={() => pickProposal(c.prop)}>{c.label}</button>
                 ))}
               </div>
               <div className="stem">
@@ -3498,7 +3498,7 @@ export function OnboardingShell({
                   { voice: 'them', label: 'They asked' },
                   { voice: 'both', label: 'We both knew' },
                 ].map((c) => (
-                  <span key={c.voice} className={`wa${sel(state.loveStory.proposal_voice === c.voice)}`} onClick={() => pickProposalVoice(c.voice)}>{c.label}</span>
+                  <button type="button" key={c.voice} className={`wa${sel(state.loveStory.proposal_voice === c.voice)}`} aria-pressed={state.loveStory.proposal_voice === c.voice} onClick={() => pickProposalVoice(c.voice)}>{c.label}</button>
                 ))}
               </div>
               <div className="stem tight" style={{ marginTop: 12 }}>
@@ -3585,7 +3585,7 @@ export function OnboardingShell({
                   <div className="mf-lbl">{momentEditIdx != null ? 'Edit this moment' : 'Add a moment'}</div>
                   <div className="mf-chips">
                     {MOMENT_CHIPS.map((c) => (
-                      <span key={c} className="mf-chip" onClick={() => setMfTitle(c)}>{c}</span>
+                      <button type="button" key={c} className="mf-chip" onClick={() => setMfTitle(c)}>{c}</button>
                     ))}
                   </div>
                   <input className="field mf-title" placeholder="Our first trip together…" maxLength={48} autoComplete="off" value={mfTitle} onChange={(e) => setMfTitle(e.target.value)} />
@@ -3621,7 +3621,7 @@ export function OnboardingShell({
                   { tone: 'playful' as const, label: 'Playful' },
                   { tone: 'formal' as const, label: 'Formal' },
                 ]).map((c) => (
-                  <div key={c.tone} className={`chip${sel(loveTone === c.tone)}`} onClick={() => pickTone(c.tone)}>{c.label}</div>
+                  <button type="button" key={c.tone} className={`chip${sel(loveTone === c.tone)}`} aria-pressed={loveTone === c.tone} onClick={() => pickTone(c.tone)}>{c.label}</button>
                 ))}
               </div>
               <div className="lovebadge">● Appears as &quot;Our Love Story&quot;</div>
@@ -3645,7 +3645,7 @@ export function OnboardingShell({
             </div>
             <div className="tapzone">
               <button type="button" className="btn btn-primary" style={{ width: '100%', marginBottom: 6 }} onClick={() => go(1)}>This is us</button>
-              <div className="ghost" onClick={() => goToId('love_spark')}><u>Change a line</u></div>
+              <button type="button" className="ghost" onClick={() => goToId('love_spark')}><u>Change a line</u></button>
             </div>
           </section>
 
@@ -4202,9 +4202,9 @@ export function OnboardingShell({
                 <SubmitButton className="byo-send" pendingLabel="Creating account…">Create account</SubmitButton>
               </form>
             ) : (
-              <div className="ghost" onClick={() => setEmailMode(true)} style={{ cursor: 'pointer' }}>
+              <button type="button" className="ghost" onClick={() => setEmailMode(true)} style={{ cursor: 'pointer' }}>
                 <u>Use email instead</u>
-              </div>
+              </button>
             )}
             <div className="ghost" style={{ marginTop: 4 }}>
               <a href={`/login?next=${encodeURIComponent(RESUME_NEXT)}`} style={{ color: 'inherit' }}>

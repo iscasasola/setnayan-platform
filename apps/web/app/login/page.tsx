@@ -44,7 +44,8 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { LoginLoadingBridge } from './_components/login-loading-bridge';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { ANY_OAUTH_ENABLED, OAuthButtonRow } from '@/app/_components/oauth-button-row';
-import { getRequestPlatform } from '@/lib/request-platform';
+import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
+import { getClientShell } from '@/lib/request-platform';
 import { safeNext } from '@/lib/auth';
 import { signInWithPassword } from './actions';
 
@@ -73,13 +74,14 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
   const next = safeNext(params.next);
   const signupHref = `/signup${next !== '/' ? `?next=${encodeURIComponent(next)}` : ''}`;
 
-  // Hide OAuth inside the native shells (Tauri desktop / Capacitor): Google (and
-  // Apple) refuse OAuth in an embedded WebView ("disallowed_useragent"), so the
-  // buttons are a dead end there — fall back to email sign-in, which works. The
-  // proper fix is system-browser OAuth with a callback hand-off (tracked
-  // separately). Detected per-request via the SetnayanApp UA marker; ships via
-  // the remote-URL shell with no app rebuild.
-  const showOAuth = ANY_OAUTH_ENABLED && (await getRequestPlatform()) === 'web';
+  // OAuth visibility by shell. Web + the rebuilt desktop app (which has
+  // system-browser loopback OAuth) show the buttons; the mobile / older-native
+  // shells stay email-only because Google refuses OAuth in an embedded WebView.
+  // Desktop renders the loopback variant (DesktopOAuthButtons); web renders the
+  // server-action row.
+  const shell = await getClientShell();
+  const showOAuth = ANY_OAUTH_ENABLED && shell !== 'mobile';
+  const desktopOAuth = showOAuth && shell === 'desktop';
 
   return (
     <main
@@ -212,10 +214,12 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
             </p>
           ) : null}
 
-          {/* OAuth row above email form per industry-standard placement (PR #422
-              from CLAUDE.md 2026-05-23 row 1). Hidden when no provider is enabled
-              OR inside a native shell (see showOAuth above); the divider follows. */}
-          {showOAuth ? <OAuthButtonRow next={next} /> : null}
+          {/* OAuth above the email form (PR #422). Hidden when no provider is
+              enabled or on mobile/older-native shells; desktop gets the loopback
+              variant, web the server-action row (see showOAuth/desktopOAuth). */}
+          {showOAuth ? (
+            desktopOAuth ? <DesktopOAuthButtons next={next} /> : <OAuthButtonRow next={next} />
+          ) : null}
 
           {showOAuth ? (
             <div

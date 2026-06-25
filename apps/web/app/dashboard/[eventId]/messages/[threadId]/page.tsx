@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchMessages, fetchThreadById } from '@/lib/chat';
 import { sendChatMessage, markThreadRead } from '@/lib/chat-actions';
+import { getThreadBlockState } from '@/lib/chat-block';
 import { withdrawInquiry } from '@/app/dashboard/[eventId]/messages/actions';
 import { resolveVendorDisplayName } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
@@ -10,6 +11,7 @@ import { canonicalServiceToPlanGroupId } from '@/lib/wedding-plan-groups';
 import { resolveLivePax } from '@/lib/pax';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
+import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
 import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
 import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -28,6 +30,9 @@ export default async function CoupleThreadPage({ params }: Props) {
 
   const thread = await fetchThreadById(supabase, threadId);
   if (!thread || thread.event_id !== eventId) notFound();
+
+  // UGC block state (Apple 1.2) — drives the thread menu label + composer gating.
+  const blockState = await getThreadBlockState(thread, user.id, 'couple');
 
   // Mark this thread read for the couple viewer so the Messages-icon unread
   // badge clears (migration 20260728000000_chat_thread_reads.sql). No-op +
@@ -128,6 +133,11 @@ export default async function CoupleThreadPage({ params }: Props) {
             </p>
           ) : null}
         </div>
+        <ChatThreadMenu
+          threadId={threadId}
+          returnTo={`/dashboard/${eventId}/messages/${threadId}`}
+          blockedByMe={blockState.blockedByMe}
+        />
       </header>
 
       <ChatPrivacyNotice />
@@ -142,7 +152,13 @@ export default async function CoupleThreadPage({ params }: Props) {
         counterpartyLabel={vendorLabel}
       />
 
-      {thread.inquiry_status === 'accepted' ||
+      {blockState.blockedByMe || blockState.blockedByThem ? (
+        <div className="rounded-xl border border-ink/10 bg-ink/[0.03] p-4 text-sm text-ink/70">
+          {blockState.blockedByMe
+            ? 'You blocked this person. Unblock from the ⋯ menu to message again.'
+            : 'You can no longer message in this conversation.'}
+        </div>
+      ) : thread.inquiry_status === 'accepted' ||
       (thread.inquiry_status === 'pending' && canFollowUpWhilePending) ? (
         <div className="space-y-2">
           {thread.inquiry_status === 'pending' && coupleMsgCount > 0 ? (

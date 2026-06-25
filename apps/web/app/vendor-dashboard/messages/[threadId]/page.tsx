@@ -5,8 +5,10 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchMessages, fetchReturningClientFlags, fetchThreadById } from '@/lib/chat';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { sendChatMessage, acceptInquiry, declineInquiry, markThreadRead } from '@/lib/chat-actions';
+import { getThreadBlockState } from '@/lib/chat-block';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
+import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
 import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
 import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
 import { fetchThreadInterests } from '@/lib/thread-interests';
@@ -44,6 +46,9 @@ export default async function VendorThreadPage({ params }: Props) {
 
   const thread = await fetchThreadById(supabase, threadId);
   if (!thread || thread.vendor_profile_id !== profile.vendor_profile_id) notFound();
+
+  // UGC block state (Apple 1.2) — drives the thread menu label + composer gating.
+  const blockState = await getThreadBlockState(thread, user.id, 'vendor');
 
   // Mark read for the vendor viewer (parity with the couple side). No-op +
   // logged if migration 20260728000000_chat_thread_reads.sql isn't pushed yet.
@@ -173,6 +178,11 @@ export default async function VendorThreadPage({ params }: Props) {
             </p>
           ) : null}
         </div>
+        <ChatThreadMenu
+          threadId={threadId}
+          returnTo={`/vendor-dashboard/messages/${threadId}`}
+          blockedByMe={blockState.blockedByMe}
+        />
       </header>
 
       {/* Pending surcharge confirms (Adaptive Pax Pricing Phase 5) — the count
@@ -346,7 +356,13 @@ export default async function VendorThreadPage({ params }: Props) {
         counterpartyLabel={coupleLabel}
       />
 
-      {thread.inquiry_status === 'accepted' ? (
+      {blockState.blockedByMe || blockState.blockedByThem ? (
+        <div className="rounded-xl border border-ink/10 bg-ink/[0.03] p-4 text-sm text-ink/70">
+          {blockState.blockedByMe
+            ? 'You blocked this person. Unblock from the ⋯ menu to message again.'
+            : 'You can no longer message in this conversation.'}
+        </div>
+      ) : thread.inquiry_status === 'accepted' ? (
         <ChatSendForm threadId={threadId} sendAction={sendChatMessage} />
       ) : thread.inquiry_status === 'pending' ? (
         <div className="space-y-3 rounded-xl border border-terracotta/30 bg-terracotta/5 p-4">

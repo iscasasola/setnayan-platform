@@ -177,3 +177,159 @@ export function PanelThread({ tone = 'light' }: { tone?: 'light' | 'dark' }) {
     </svg>
   );
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Shared marketing primitives (Phase A foundation).
+   Same proven contract as usePanelIntro: opacity (never autoAlpha/visibility) so
+   content stays in the a11y tree · prefers-reduced-motion rests in the FINAL state ·
+   IO-gated so entrances fire when actually on screen · useGSAP/gsap.context
+   auto-cleanup (SSR-safe, Next 15 / React 19). No page consumes these in this PR.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * useReveal — the shared quiet entrance. Attach the returned ref to a container;
+ * every `[data-reveal-item]` inside rises (opacity 0→1, y→0) in a stagger, once, on
+ * IntersectionObserver enter. If no children are marked, the ref element itself is
+ * revealed. `data-reveal-order` overrides DOM order. clearProps:transform on finish
+ * so CSS hover-lift survives. Reduced-motion / no-IO = visible at rest.
+ */
+export function useReveal(
+  opts: { stagger?: number; y?: number; threshold?: number; duration?: number } = {},
+) {
+  const { stagger = 0.06, y = 16, threshold = 0.15, duration = 0.7 } = opts;
+  const scope = useRef<HTMLElement>(null);
+
+  useGSAP(
+    () => {
+      const root = scope.current;
+      if (!root) return;
+
+      let items = gsap.utils.toArray<HTMLElement>('[data-reveal-item]', root);
+      if (items.length === 0) items = [root];
+
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+      items = items
+        .slice()
+        .sort((a, b) => Number(a.dataset.revealOrder ?? 0) - Number(b.dataset.revealOrder ?? 0));
+
+      gsap.set(items, { opacity: 0, y });
+
+      let played = false;
+      const play = () => {
+        if (played) return;
+        played = true;
+        gsap.to(items, {
+          opacity: 1,
+          y: 0,
+          duration,
+          ease: 'power3.out',
+          stagger,
+          clearProps: 'transform',
+        });
+      };
+
+      const io = new IntersectionObserver(
+        (entries) => {
+          if (entries[0]?.isIntersecting) {
+            play();
+            io.disconnect();
+          }
+        },
+        { threshold },
+      );
+      io.observe(root);
+
+      return () => io.disconnect();
+    },
+    { scope },
+  );
+
+  return scope;
+}
+
+/**
+ * useLineReveal — the serif line-reveal, decoupled from usePanelIntro's panel scope
+ * so any single `<h1>`/`<h2>` can get the type moment (multiple per page are fine —
+ * each owns its own element). Attach the ref to the heading itself. `trigger:'view'`
+ * (default) fires IO-gated; `trigger:'mount'` fires immediately after fonts settle
+ * (above-the-fold heroes). Uses opacity (never autoAlpha) so the heading stays in the
+ * a11y tree, runs only after document.fonts.ready so line breaks are correct, and
+ * try/catch → opacity:1 so a SplitText failure never strands the heading hidden.
+ * Reduced-motion = heading rests fully visible.
+ *
+ * NOTE (LCP): the heading starts at opacity:0 until reveal, which delays paint of that
+ * element. Don't point trigger:'mount' at a page's LCP hero headline unless the page's
+ * plan cleared it; prefer it on below-the-fold section headings.
+ */
+export function useLineReveal(
+  opts: { trigger?: 'view' | 'mount'; threshold?: number; stagger?: number; duration?: number } = {},
+) {
+  const { trigger = 'view', threshold = 0.18, stagger = 0.12, duration = 0.9 } = opts;
+  const scope = useRef<HTMLElement>(null);
+
+  useGSAP(
+    () => {
+      const el = scope.current;
+      if (!el) return;
+
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+      gsap.set(el, { opacity: 0 });
+
+      let split: SplitText | null = null;
+      let played = false;
+
+      const reveal = () => {
+        if (played || !scope.current) return;
+        played = true;
+        const run = () => {
+          if (!scope.current) return;
+          try {
+            split = new SplitText(el, { type: 'lines', mask: 'lines' });
+            gsap.set(el, { opacity: 1 });
+            gsap.from(split.lines, {
+              yPercent: 120,
+              duration,
+              ease: 'power4.out',
+              stagger,
+            });
+          } catch {
+            gsap.set(el, { opacity: 1 });
+          }
+        };
+        if (typeof document !== 'undefined' && document.fonts && document.fonts.status !== 'loaded') {
+          document.fonts.ready.then(run);
+        } else {
+          run();
+        }
+      };
+
+      if (trigger === 'mount') {
+        reveal();
+        return () => {
+          split?.revert();
+        };
+      }
+
+      const io = new IntersectionObserver(
+        (entries) => {
+          if (entries[0]?.isIntersecting) {
+            reveal();
+            io.disconnect();
+          }
+        },
+        { threshold },
+      );
+      io.observe(el);
+
+      return () => {
+        io.disconnect();
+        split?.revert();
+      };
+    },
+    { scope },
+  );
+
+  return scope;
+}

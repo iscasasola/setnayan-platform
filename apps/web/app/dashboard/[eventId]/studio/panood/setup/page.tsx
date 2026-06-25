@@ -179,10 +179,10 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
   const monogramPriceLabel = monogramSku ? formatPhp(monogramSku.price_php) : null;
   const sdePriceLabel = sdeSku ? `${formatPhp(sdeSku.price_php)} / 3 min` : null;
 
-  // Base Panood is a single per-day SKU (up to 6 cameras included). There is no
-  // add-on camera/hour SKU in V1, so totals are the base offering — not a faked
-  // "base + add-ons" count.
-  const includedCameras = 6;
+  // Base Panood is a single per-day SKU covering one event-day. There is no
+  // Setnayan camera-ingest pipeline today (couples stream from their own phone or
+  // OBS to their own YouTube), so the surface no longer claims a camera count —
+  // the multi-camera control room is a future streaming-rollout feature.
 
   return (
     <section className="space-y-8">
@@ -203,10 +203,10 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
           Broadcast your wedding live
         </h1>
         <p className="max-w-prose text-base text-ink/65">
-          Connect your YouTube channel, set up the broadcaster, send a setup link to each
-          camera operator, and we&rsquo;ll relay the composited feed to your own channel
-          so family abroad can watch in real time. Highlight markers, projector cast, and
-          auto-archive are included in the base SKU.
+          Connect your YouTube channel, go live from your phone or OBS, and Setnayan
+          embeds your broadcast on your event page so family abroad can watch in real
+          time. The watch URL and auto-archive stay on your own channel. A Setnayan
+          control room with camera-operator links is coming with the streaming rollout.
         </p>
       </header>
 
@@ -257,7 +257,6 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
       <SetupStatus
         eventId={eventId}
         setup={setup}
-        includedCameras={includedCameras}
         panoodPriceLabel={panoodPriceLabel}
       />
 
@@ -435,10 +434,9 @@ function ConnectedPanel({
         </form>
       </div>
       <p className="text-xs text-ink/65">
-        We&rsquo;ll create the live broadcast on this channel with{' '}
-        <span className="font-mono text-ink/80">monetization=false</span> and{' '}
-        <span className="font-mono text-ink/80">latencyPreference=ultraLow</span> the
-        moment the broadcaster opens for the first time.
+        Your broadcast goes live on this channel — start it from the YouTube app or OBS,
+        then paste the watch link below so it appears on your event page. Automatic
+        broadcast creation (with ads switched off) arrives with the streaming rollout.
       </p>
     </div>
   );
@@ -451,12 +449,10 @@ function ConnectedPanel({
 function SetupStatus({
   eventId,
   setup,
-  includedCameras,
   panoodPriceLabel,
 }: {
   eventId: string;
   setup: PanoodSetup;
-  includedCameras: number;
   panoodPriceLabel: string | null;
 }) {
   return (
@@ -487,8 +483,8 @@ function SetupStatus({
       </div>
 
       <p className="text-sm text-ink/70">
-        Panood Daily Broadcast &middot; one event-day, up to {includedCameras} cameras,
-        YouTube delivery + auto-archive
+        Panood Daily Broadcast &middot; one event-day, embedded on your event page,
+        YouTube delivery + auto-archive on your own channel
         {panoodPriceLabel ? (
           <>
             {' '}&middot; <span className="font-mono text-ink">{panoodPriceLabel}</span>
@@ -498,10 +494,10 @@ function SetupStatus({
 
       <div className="grid gap-3 sm:grid-cols-3">
         <Stat
-          label="Cameras"
-          value={`Up to ${includedCameras}`}
-          sub="Included in the day"
-          Icon={Camera}
+          label="Where it plays"
+          value="Your event page"
+          sub="Embedded in your colors"
+          Icon={MonitorPlay}
         />
         <Stat
           label="Coverage"
@@ -510,34 +506,33 @@ function SetupStatus({
           Icon={Clock3}
         />
         <Stat
-          label="Highlight markers"
+          label="Viewers"
           value="Unlimited"
-          sub="Included"
+          sub="Free on YouTube"
           Icon={Star}
         />
       </div>
 
       <ul className="divide-y divide-ink/10 rounded-lg border border-ink/10 bg-cream/60 text-sm">
         <AddOnRow
-          label={`Panood Daily Broadcast (up to ${includedCameras} cameras · 1 event-day)`}
+          label="Panood Daily Broadcast (1 event-day · embedded on your event page)"
           price={panoodPriceLabel ?? '—'}
           owned={setup.baseOwned}
         />
       </ul>
 
       <div className="rounded-lg border border-dashed border-ink/15 bg-cream/60 p-3 text-xs text-ink/60">
-        <p className="font-medium text-ink/75">Add-on cameras &amp; extra hours</p>
+        <p className="font-medium text-ink/75">More days &amp; the multi-camera control room</p>
         <p className="mt-1">
-          Per-camera and per-hour add-ons arrive with the streaming rollout. For now,
-          each Panood day already includes up to {includedCameras} cameras — buy an extra
-          day for prep, ceremony, or reception from the{' '}
+          Today, each Panood day embeds your own YouTube broadcast on your event page —
+          buy an extra day for prep, ceremony, or reception from the{' '}
           <Link
             href={`/dashboard/${eventId}/studio/panood`}
             className="text-terracotta hover:underline"
           >
             Panood page
           </Link>
-          .
+          . A Setnayan multi-camera control room is coming with the streaming rollout.
         </p>
       </div>
     </section>
@@ -609,20 +604,28 @@ function BroadcastSetup({ eventId }: { eventId: string }) {
       className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6"
     >
       <div className="space-y-1">
-        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-          Step 3 · broadcaster + cameras
-        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+            Step 3 · broadcaster + cameras
+          </p>
+          <span className="inline-flex items-center gap-1 rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+            <Lock aria-hidden className="h-3 w-3" strokeWidth={2} />
+            Coming with the streaming rollout
+          </span>
+        </div>
         <h2
           id="broadcast-setup-heading"
           className="flex items-center gap-2 text-xl font-semibold tracking-tight"
         >
           <Radio aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
-          Get the broadcaster + cameras online
+          A multi-camera control room — coming soon
         </h2>
         <p className="max-w-prose text-sm text-ink/65">
-          The broadcaster runs the show: switches between cameras, marks highlights, and
-          decides when to cut to standby. Each camera is a phone running the Panood
-          camera-operator web client &mdash; no install, just open the link.
+          Today you go live from your own phone or OBS and Setnayan embeds that broadcast
+          on your event page. A Setnayan control room is on the way: one broadcaster who
+          switches between several phone cameras, marks highlights, and cuts to standby —
+          each camera a phone running the Panood operator web client, no install. It is
+          not part of what you buy today; you can preview the layout below.
         </p>
       </div>
 
@@ -726,7 +729,7 @@ function StyleAndAddOns({
           title="Animated Monogram"
           price={monogramPriceLabel}
           owned={setup.customMonogramOwned}
-          blurb="Your bespoke monogram on the broadcast watermark, intro/outro, and landing-page chrome — including custom standby screens."
+          blurb="Your bespoke monogram across your event-page chrome today — and on the broadcast watermark, intro/outro and standby screens when the streaming control room arrives."
           state="purchasable"
         />
         {/* SDE — REAL admin-catalog SKU (SDE). Ownership isn't gated on this Panood
@@ -764,7 +767,8 @@ function StyleAndAddOns({
 
       <p className="text-xs text-ink/55">
         Highlight markers (the &ldquo;★ Mark&rdquo; button on the broadcaster) and cast-to-projector
-        are <span className="font-medium text-ink/75">free</span> with Panood.
+        arrive <span className="font-medium text-ink/75">free</span> with the streaming control
+        room &mdash; coming with the rollout.
       </p>
     </section>
   );
@@ -883,10 +887,10 @@ function YouTubeDelivery({
           How viewers watch
         </h2>
         <p className="max-w-prose text-sm text-ink/65">
-          Setnayan ingests every camera, composites them server-side with your monogram
-          and broadcast style, then relays the program feed to YouTube Live on your own
-          channel. Viewers watching on your Setnayan landing page and viewers watching on
-          YouTube directly see the same broadcast served from YouTube&rsquo;s CDN.
+          You stream to <em>your</em> own YouTube — from your phone or from OBS on a
+          laptop — and Setnayan embeds that live broadcast on your event page, dressed in
+          your colors. Viewers watching on your Setnayan landing page and viewers watching
+          on YouTube directly see the same broadcast served from YouTube&rsquo;s CDN.
         </p>
       </div>
 
@@ -894,7 +898,7 @@ function YouTubeDelivery({
         <DeliveryFact
           label="End-to-end latency"
           value="~10 seconds"
-          sub="Ultra-low-latency mode + a couple seconds of composite headroom"
+          sub="YouTube&rsquo;s own ultra-low-latency live delivery — what your viewers see, give or take a few seconds"
         />
         <DeliveryFact
           label="Audience cap"
@@ -908,8 +912,8 @@ function YouTubeDelivery({
         />
         <DeliveryFact
           label="Cast to projector"
-          value="Included free"
-          sub="HDMI from the broadcaster device — full polished feed on a laptop, raw camera feed on iPhone"
+          value="Coming with the rollout"
+          sub="HDMI from the broadcaster device — arrives with the streaming control room"
         />
       </ul>
 
@@ -949,11 +953,10 @@ function YouTubeDelivery({
           </>
         ) : connected ? (
           <p className="mt-1 text-sm text-ink/60">
-            Available once the broadcaster opens the session for the first time.
-            We&rsquo;ll auto-create the broadcast on your channel with{' '}
-            <span className="font-mono text-ink/75">monetization=false</span> and
-            <span className="font-mono text-ink/75"> latencyPreference=ultraLow</span>{' '}
-            so the broadcast is structurally incapable of running ads.
+            Start your broadcast on YouTube — from the YouTube app or OBS — then paste its
+            watch link below and it appears on your event page. Set the broadcast to
+            ultra-low latency and switch off ads when you create it so loved ones watch
+            uninterrupted.
           </p>
         ) : (
           <p className="mt-1 text-sm text-ink/60">

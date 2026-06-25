@@ -33,14 +33,18 @@ type CameraTile = {
   status: 'paused' | 'live' | 'offline';
 };
 
-// Mock camera roster — 3 base cams + 1 add-on. The add-on count is sourced
-// from the parent setup mock; the broadcaster grid renders the active
-// cameras as they'd appear if all operators had joined.
-const CAMERAS: ReadonlyArray<CameraTile> = [
-  { id: 1, label: 'Camera 1 · wide / aisle', status: 'paused' },
-  { id: 2, label: 'Camera 2 · groom side', status: 'paused' },
-  { id: 3, label: 'Camera 3 · bride side', status: 'paused' },
-  { id: 4, label: 'Camera 4 · couple close-up', status: 'paused' },
+// Illustrative camera layout — NOT live data. The live streaming orchestrator
+// (which would publish per-camera health from operators' phones) is not built in
+// V1, so there is no real camera roster to read. These tiles exist only to show
+// the couple how the control room will be arranged so they can rehearse; every
+// tile is shown as 'offline' (no operator has joined — because the session
+// can't run yet) rather than a fake 'paused'/'live' that would imply a real
+// feed. See the "Preview mode" banner below.
+const SAMPLE_CAMERA_LAYOUT: ReadonlyArray<CameraTile> = [
+  { id: 1, label: 'Camera 1 · wide / aisle', status: 'offline' },
+  { id: 2, label: 'Camera 2 · groom side', status: 'offline' },
+  { id: 3, label: 'Camera 3 · bride side', status: 'offline' },
+  { id: 4, label: 'Camera 4 · couple close-up', status: 'offline' },
 ];
 
 type Props = { params: Promise<{ eventId: string }> };
@@ -79,10 +83,10 @@ export default async function PanoodBroadcasterPreview({ params }: Props) {
           {event.display_name} &middot; broadcast preview
         </h1>
         <p className="max-w-prose text-sm text-ink/65">
-          This is what the broadcaster admin looks like on the day. The grid below is a
-          preview &mdash; the camera feeds light up once operators join via their setup
-          links. Highlight marker, cast-to-projector, and audio mute are all included in
-          the base SKU.
+          This is how your control room will look &mdash; live when the streaming rollout
+          lands. The grid below is a sample layout, not a live feed; on the day, camera
+          feeds will light up once operators join via their setup links. Highlight marker,
+          cast-to-projector, and audio mute are all included with Panood.
         </p>
       </header>
 
@@ -92,10 +96,11 @@ export default async function PanoodBroadcasterPreview({ params }: Props) {
           Preview mode
         </span>
         <p className="mt-1">
-          Buttons on this page don&rsquo;t dispatch real actions yet. The Cloudflare
-          Stream Live SFU, YouTube RTMP relay, and projector cast all wire up in a
-          follow-up iteration &mdash; the surface is here so couples can rehearse the
-          layout.
+          Buttons on this page don&rsquo;t dispatch real actions yet, and the cameras and
+          audio rail below are a sample layout, not a live feed. The live streaming
+          session (camera ingest, YouTube relay, and projector cast) goes live when the
+          Panood streaming rollout lands &mdash; this surface is here so couples can
+          rehearse the layout.
         </p>
       </div>
 
@@ -106,11 +111,11 @@ export default async function PanoodBroadcasterPreview({ params }: Props) {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold tracking-tight">Cameras</h2>
           <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-            {CAMERAS.length} cameras
+            Sample layout
           </span>
         </div>
         <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {CAMERAS.map((cam) => (
+          {SAMPLE_CAMERA_LAYOUT.map((cam) => (
             <li key={cam.id}>
               <CameraCard cam={cam} />
             </li>
@@ -150,17 +155,20 @@ export default async function PanoodBroadcasterPreview({ params }: Props) {
             Audio rail
           </h2>
           <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-            3 channels
+            Sample layout
           </span>
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
-          <AudioChannel label="CAM 1 MIC" level={0.45} />
-          <AudioChannel label="CAM 3 PGM" level={0.7} />
-          <AudioChannel label="MUSIC BED" level={0.3} />
+          {/* Levels are 0 — these are not live meters. Real-time audio arrives
+              with the streaming rollout; we show the rail empty rather than
+              animating fake levels that would imply a live feed. */}
+          <AudioChannel label="CAM 1 MIC" level={0} />
+          <AudioChannel label="CAM 3 PGM" level={0} />
+          <AudioChannel label="MUSIC BED" level={0} />
         </div>
         <p className="text-xs text-ink/55">
-          Real-time level meters land in the follow-up iteration &mdash; this preview
-          renders the layout with mock levels so operators can rehearse the cut.
+          Real-time level meters arrive with the streaming rollout &mdash; this preview
+          shows the rail layout so operators can rehearse the cut.
         </p>
       </section>
     </section>

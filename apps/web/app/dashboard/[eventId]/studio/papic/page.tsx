@@ -1,4 +1,5 @@
 import type { ComponentProps } from 'react';
+import { headers } from 'next/headers';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { MiniTour } from '@/app/_components/mini-tour';
@@ -6,7 +7,6 @@ import {
   AlertCircle,
   ArrowLeft,
   Camera,
-  Aperture,
   BatteryWarning,
   Hand,
   Share2,
@@ -33,13 +33,18 @@ import {
 } from '@/lib/papic-drive';
 import {
   eventOwnsPapicSeats,
+  fetchPapicSeats,
+  fetchPapicSamplerSeats,
+  papicSeatClaimUrl,
   PAPIC_SEATS_PRICE_PHP,
   PAPIC_SEATS_SERVICE_KEY,
   PAPIC_SAMPLER_SEAT_COUNT,
   PAPIC_SAMPLER_PHOTO_CAP,
   PAPIC_SAMPLER_CLIP_CAP,
   PAPIC_SAMPLER_RETENTION_DAYS,
+  type PapicSeatRow,
 } from '@/lib/papic-seats';
+import { CopyButton } from './crew/_components/copy-button';
 import { fetchPapicGallery } from '@/lib/papic-gallery';
 import { PapicGalleryGrid } from './_components/papic-gallery-grid';
 import { getKwentoDensity } from '@/lib/kwento-density';
@@ -109,24 +114,13 @@ type Props = {
 // Pro Camera Bridge is INCLUDED with Papic (owner 2026-06-18 · no separate
 // purchase) — its former ₱1,499 SKU constant is retired.
 
-// Mock data only. Real seat + bridge state moves to Supabase once the
-// native pairing pipeline is built (TODO(0012)).
-const MOCK_SEAT_PACK: 'paparazzi_5_seats' | 'paparazzi_3_seats' = 'paparazzi_5_seats';
-
-type MockSeat = {
-  id: string;
-  label: string;
-  claimedBy: string | null;
-  proBridge: { brand: string; model: string } | null;
-};
-
-const MOCK_SEATS: ReadonlyArray<MockSeat> = [
-  { id: 'seat-1', label: 'Seat 1', claimedBy: 'Tita Marites', proBridge: { brand: 'Canon', model: 'EOS R6 Mark II' } },
-  { id: 'seat-2', label: 'Seat 2', claimedBy: 'Kuya Paolo', proBridge: null },
-  { id: 'seat-3', label: 'Seat 3', claimedBy: 'Ate Joy', proBridge: null },
-  { id: 'seat-4', label: 'Seat 4', claimedBy: null, proBridge: null },
-  { id: 'seat-5', label: 'Seat 5', claimedBy: null, proBridge: null },
-];
+// Seat + claim state is now read live from public.paparazzi_seats (paid pass
+// or free sampler) via fetchPapicSeats / fetchPapicSamplerSeats — see the
+// data-fetch in PapicAddonPage. The former MOCK_SEAT_PACK / MockSeat /
+// MOCK_SEATS fakes (with invented claimer names + invented per-seat DSLR
+// bridges) are deleted: paparazzi_seats has no bridge column, so the bridge
+// card is now an honest "included with Papic · pairs in the native app" card
+// rather than a fake "X of Y bridged" roster.
 
 type Gesture = {
   id: string;
@@ -169,10 +163,6 @@ const SDK_MATRIX = [
   { brand: 'Sony', sdk: 'Camera Remote SDK', bodies: '16 α / ZV / FX bodies' },
   { brand: 'Fujifilm', sdk: 'Camera Remote SDK', bodies: '14 X / GFX bodies' },
 ];
-
-function seatPackLabel(pack: 'paparazzi_5_seats' | 'paparazzi_3_seats'): string {
-  return pack === 'paparazzi_5_seats' ? 'Papic 5-seat pack' : 'Papic 3-seat pack';
-}
 
 // Shape of the oauth_grants row we read for the connected-Drive panel.
 type DriveGrant = {
@@ -227,7 +217,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   // of four serial round-trips (owner perf pass 2026-06-03). The price/settings
   // reads keep their own `.catch` fallbacks, so a failure in one never rejects
   // the batch or breaks the always-rendered Papic page.
-  const [grantRaw, ownsPapicSeats, papicSeatsSku, platformSettings] =
+  const [grantRaw, ownsPapicSeats, papicSeatsSku, platformSettings, paidSeats, samplerSeats] =
     await Promise.all([
       // Drive OAuth grant — RLS scopes oauth_grants by event_id IN
       // current_event_ids(), so the anon client is fine (no service role).
@@ -244,6 +234,11 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       // Seat SKU price + platform settings each tolerate failure (.catch).
       formatV2Sku(PAPIC_SEATS_SERVICE_KEY).catch(() => null),
       fetchPlatformSettings(supabase).catch(() => null),
+      // Real seat rows — paid pass + free sampler. Both graceful-degrade to []
+      // on a missing/legacy paparazzi_seats table (the page then shows the
+      // buy / try state rather than crashing).
+      fetchPapicSeats(supabase, eventId),
+      fetchPapicSamplerSeats(supabase, eventId),
     ]);
   const driveGrant = (grantRaw ?? null) as DriveGrant | null;
 
@@ -257,10 +252,27 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
 
   const papicSeatsPricePhp = papicSeatsSku?.price_php ?? PAPIC_SEATS_PRICE_PHP;
 
-  const totalSeats = MOCK_SEATS.length;
-  const claimedSeats = MOCK_SEATS.filter((s) => s.claimedBy !== null).length;
+  // Roster source: paid seats once the pack is owned; otherwise the free
+  // sampler seats when the couple has started one; otherwise [] (the buy/try
+  // state). A seat counts as claimed only when a claimer is bound AND the
+  // claim hasn't been revoked.
+  const rosterSeats: PapicSeatRow[] = ownsPapicSeats
+    ? paidSeats
+    : samplerSeats.length > 0
+      ? samplerSeats
+      : [];
+  const isSamplerRoster = !ownsPapicSeats && samplerSeats.length > 0;
+  const totalSeats = rosterSeats.length;
+  const claimedSeats = rosterSeats.filter(
+    (s) => s.claimer_user_id !== null && s.revoked_at === null,
+  ).length;
   const unclaimedSeats = totalSeats - claimedSeats;
-  const bridgeSeats = MOCK_SEATS.filter((s) => s.proBridge !== null).length;
+
+  // Per-seat claim links, built from the same host the crew page uses.
+  const h = await headers();
+  const seatHost = h.get('host') ?? 'www.setnayan.com';
+  const seatProto = h.get('x-forwarded-proto') ?? 'https';
+  const seatAppUrl = `${seatProto}://${seatHost}`;
 
   // Free-sampler retention signal — drives the on-page "keep your free photos"
   // card and the gallery nudge. Only the free sampler has expiring photos (paid
@@ -466,19 +478,17 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
 
       <SeatStatusCard
         eventId={eventId}
-        pack={MOCK_SEAT_PACK}
         pricePhp={papicSeatsPricePhp}
-        seats={MOCK_SEATS}
+        ownsPapicSeats={ownsPapicSeats}
+        isSampler={isSamplerRoster}
+        seats={rosterSeats}
+        appUrl={seatAppUrl}
         claimed={claimedSeats}
         unclaimed={unclaimedSeats}
         total={totalSeats}
       />
 
-      <ProCameraBridgeCard
-        seats={MOCK_SEATS}
-        bridgeSeats={bridgeSeats}
-        totalSeats={totalSeats}
-      />
+      <ProCameraBridgeCard />
 
       <LiveWallCard eventId={eventId} />
 
@@ -1031,24 +1041,29 @@ function DriveConnectedPanel({
 
 function SeatStatusCard({
   eventId,
-  pack,
   pricePhp,
+  ownsPapicSeats,
+  isSampler,
   seats,
+  appUrl,
   claimed,
   unclaimed,
   total,
 }: {
   eventId: string;
-  pack: 'paparazzi_5_seats' | 'paparazzi_3_seats';
   pricePhp: number;
-  seats: ReadonlyArray<MockSeat>;
+  ownsPapicSeats: boolean;
+  isSampler: boolean;
+  seats: ReadonlyArray<PapicSeatRow>;
+  appUrl: string;
   claimed: number;
   unclaimed: number;
   total: number;
 }) {
-  // TODO(0012): wire the "Send setup QR to crew" CTA to the personal-QR
-  // delivery pipeline (0002). For V1.5+ scaffold this is mock copy-link
-  // only — no real QR is generated.
+  const headingLabel = isSampler
+    ? 'Free Papic sampler'
+    : 'Papic photo crew';
+
   return (
     <article className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1057,201 +1072,169 @@ function SeatStatusCard({
             Section 2 · seat status
           </p>
           <h2 className="text-xl font-semibold tracking-tight">
-            {seatPackLabel(pack)} ·{' '}
+            {headingLabel} ·{' '}
             <span className="font-mono text-base text-terracotta">
               {formatPhp(pricePhp)}
             </span>
           </h2>
         </div>
-        <div className="inline-flex items-center gap-2 rounded-full bg-terracotta/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
-          <Camera aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          {claimed}/{total} claimed
-        </div>
+        {total > 0 ? (
+          <div className="inline-flex items-center gap-2 rounded-full bg-terracotta/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
+            <Camera aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            {claimed}/{total} claimed
+          </div>
+        ) : null}
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Stat label="Total seats" value={total.toString()} />
-        <Stat label="Claimed by crew" value={claimed.toString()} />
-        <Stat label="Still open" value={unclaimed.toString()} accent={unclaimed > 0} />
-      </div>
-
-      <ul className="divide-y divide-ink/5 rounded-xl border border-ink/10 bg-cream/60">
-        {seats.map((seat) => (
-          <li
-            key={seat.id}
-            className="flex items-center justify-between gap-3 p-3 sm:p-4"
+      {total === 0 ? (
+        // No seats provisioned yet — the buy / try entry point. The hero card
+        // at the top of the page owns the actual checkout drawer + free-sampler
+        // link; here we keep an honest "no seats yet" state with the live price.
+        <div className="space-y-3 rounded-xl border border-dashed border-ink/15 bg-cream/60 p-4 sm:p-5 text-center">
+          <p className="text-sm text-ink/70">
+            {ownsPapicSeats
+              ? 'Your photo-crew pack is active, but no seats have been set up yet.'
+              : `No Papic seats yet. Turn five friends into your photo crew for ${formatPhp(pricePhp)}, or try Papic free first.`}
+          </p>
+          <Link
+            href={`/dashboard/${eventId}/studio/papic/crew`}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:text-terracotta-700"
           >
-            <div className="flex min-w-0 items-center gap-3">
-              <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
-                <Smartphone aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              </span>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-ink">
-                  {seat.label}
-                </p>
-                <p className="truncate text-xs text-ink/60">
-                  {seat.claimedBy ?? 'Unclaimed — waiting for crew member'}
+            {ownsPapicSeats ? 'Set up your seats' : 'Set up your crew'}
+            <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
+          </Link>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <Stat label="Total seats" value={total.toString()} />
+            <Stat label="Claimed by crew" value={claimed.toString()} />
+            <Stat label="Still open" value={unclaimed.toString()} accent={unclaimed > 0} />
+          </div>
+
+          <ul className="divide-y divide-ink/5 rounded-xl border border-ink/10 bg-cream/60">
+            {seats.map((seat) => {
+              const isClaimed =
+                seat.claimer_user_id !== null && seat.revoked_at === null;
+              const claimUrl = papicSeatClaimUrl(appUrl, seat.claim_qr_token);
+              return (
+                <li
+                  key={seat.seat_id}
+                  className="flex flex-wrap items-center justify-between gap-3 p-3 sm:p-4"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
+                      <Smartphone aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-ink">
+                        Seat {seat.seat_index}
+                      </p>
+                      <p className="truncate text-xs text-ink/60">
+                        {isClaimed
+                          ? 'Claimed — bound to a crew member'
+                          : 'Unclaimed — share the link below'}
+                      </p>
+                    </div>
+                  </div>
+                  {isClaimed ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-900">
+                      <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+                      Claimed
+                    </span>
+                  ) : (
+                    <CopyButton value={claimUrl} label="Copy claim link" />
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+
+          <div className="space-y-2 rounded-xl border border-dashed border-ink/15 bg-cream/60 p-3 sm:p-4">
+            <div className="flex items-start gap-2">
+              <Share2 aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/55" strokeWidth={1.75} />
+              <div className="min-w-0 space-y-0.5">
+                <p className="text-sm font-medium text-ink">Invite the rest of your crew</p>
+                <p className="text-xs text-ink/60">
+                  Each unclaimed seat above has a wedding-scoped claim link —
+                  copy it and send it to your paparazzo. They open it on their
+                  phone and the seat binds to their device. For printable QR
+                  codes per seat, open the full crew manager.
                 </p>
               </div>
             </div>
-            {seat.proBridge ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
-                <Aperture aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-                {seat.proBridge.brand}
-              </span>
-            ) : seat.claimedBy ? (
-              <span className="rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                Phone only
-              </span>
-            ) : (
-              <span className="rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-                Pending
-              </span>
-            )}
-          </li>
-        ))}
-      </ul>
-
-      <div className="space-y-3 rounded-xl border border-dashed border-ink/15 bg-cream/60 p-3 sm:p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0 space-y-0.5">
-            <p className="text-sm font-medium text-ink">Invite the rest of your crew</p>
-            <p className="text-xs text-ink/60">
-              Each unclaimed seat gets a wedding-scoped setup link — your
-              paparazzo opens it on their phone and the seat token claims to
-              their device.
-            </p>
+            <Link
+              href={`/dashboard/${eventId}/studio/papic/crew`}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:text-terracotta-700"
+            >
+              Open the crew manager
+              <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
+            </Link>
           </div>
-          {/* TODO(0012): replace with a server action that generates a
-              wedding-scoped setup QR via 0002's QR system. For now this is
-              a preview placeholder — Papic native iOS/Android shells are
-              V1.5+ per CLAUDE.md 2026-05-16 Papic architecture lock. */}
-          <span
-            className="inline-flex items-center gap-2 rounded-md border border-ink/15 bg-ink/5 px-4 py-2 text-sm font-medium text-ink/55"
-            aria-label="Send setup QR to crew — coming with the Papic native app (V1.5+)"
-          >
-            <Share2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            Send setup QR to crew
-          </span>
-        </div>
-        <p className="rounded-md bg-ink/5 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
-          Coming with the Papic native app (V1.5+). Setup link preview:{' '}
-          <span className="break-all font-mono text-ink/70">{`setnayan.com/papic/setup/${eventId}`}</span>
-        </p>
-      </div>
+        </>
+      )}
     </article>
   );
 }
 
-function ProCameraBridgeCard({
-  seats,
-  bridgeSeats,
-  totalSeats,
-}: {
-  seats: ReadonlyArray<MockSeat>;
-  bridgeSeats: number;
-  totalSeats: number;
-}) {
-  // TODO(0012): wire DSLR bridge purchase into apply-then-pay (0034)
-  // service_orders flow. Each bridge purchase is per device-pair,
-  // multi-purchase, shared SKU between 0011 Panood and 0012 Papic.
-  // TODO(0012): wire vendor SDK pairing handshakes (Canon EOS Camera
-  // Connect / Nikon SnapBridge / Sony Camera Remote / Fujifilm Camera
-  // Remote) into the native app — web V1 cannot speak these SDKs.
+function ProCameraBridgeCard() {
+  // HONEST card. The paparazzi_seats table has NO per-seat bridge column, so
+  // there is no real "X of Y seats bridged" data to show — the former counts
+  // and the per-seat "paired with Canon EOS R6" roster were 100% fabricated and
+  // are removed. DSLR pairing is a native-app capability (the web build cannot
+  // speak the vendor SDKs); the educational SDK matrix stays so couples can
+  // confirm their camera body is supported when the Papic app ships (V1.5).
   return (
     <article className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Section 3 · DSLR Pro Camera Bridge
-          </p>
-          <h2 className="text-xl font-semibold tracking-tight">
-            Pair a real camera body —{' '}
-            <span className="font-mono text-base text-success-700">
-              included with Papic
-            </span>
-          </h2>
-        </div>
-        <div className="inline-flex items-center gap-2 rounded-full bg-terracotta/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
-          <Aperture aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          {bridgeSeats} of {totalSeats} bridged
-        </div>
+      <div className="space-y-1">
+        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          Section 3 · DSLR Camera Bridge
+        </p>
+        <h2 className="text-xl font-semibold tracking-tight">
+          Pair a real camera body —{' '}
+          <span className="font-mono text-base text-success-700">
+            included with Papic
+          </span>
+        </h2>
       </div>
 
       <p className="max-w-prose text-sm text-ink/70">
         Turn one phone seat into a phone + DSLR pair. The phone keeps doing
         all of the work — gesture shutter, QR tagging, EXIF stamping,
-        adaptive compression, upload — and the camera body
-        provides the optical glass. Multi-purchase: one bridge per phone-
-        camera pair.
+        adaptive compression, upload — and the camera body provides the
+        optical glass. The DSLR Camera Bridge is included with every Papic
+        seat at no extra cost.
       </p>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {SDK_MATRIX.map((row) => (
-          <div
-            key={row.brand}
-            className="rounded-xl border border-ink/10 bg-cream/60 p-3"
-          >
-            <p className="text-sm font-semibold text-ink">{row.brand}</p>
-            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-              {row.sdk}
-            </p>
-            <p className="mt-1 text-xs text-ink/65">{row.bodies}</p>
-          </div>
-        ))}
+      <div className="flex items-start gap-2 rounded-xl border border-dashed border-ink/15 bg-cream/60 p-3 sm:p-4">
+        <Smartphone aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
+        <p className="text-xs text-ink/65">
+          DSLR pairing happens inside the Papic mobile app — pairing a camera
+          body talks to the vendor SDK over Wi-Fi, which only the native app
+          can do (it arrives with the Papic app, V1.5). When it lands, each
+          paparazzo pairs their own camera from their seat; there&rsquo;s
+          nothing to set up here on the web.
+        </p>
       </div>
 
-      <div className="rounded-xl border border-dashed border-ink/15 bg-cream/60 p-3 sm:p-4">
-        <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Active bridges
+      <div className="space-y-2">
+        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          Supported camera bodies at launch
         </p>
-        {bridgeSeats === 0 ? (
-          <p className="text-sm text-ink/65">
-            No seats are bridged yet. Each bridge unlocks per device-pair,
-            so you can mix phone-only and phone + DSLR seats however your
-            crew is rigged.
-          </p>
-        ) : (
-          <ul className="space-y-2">
-            {seats
-              .filter((s) => s.proBridge !== null)
-              .map((s) => (
-                <li
-                  key={s.id}
-                  className="flex items-center justify-between gap-3 rounded-lg bg-cream px-3 py-2"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-ink">
-                      {s.label} · {s.claimedBy}
-                    </p>
-                    <p className="truncate text-xs text-ink/60">
-                      Paired with {s.proBridge?.brand} {s.proBridge?.model}
-                    </p>
-                  </div>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-900">
-                    Active
-                  </span>
-                </li>
-              ))}
-          </ul>
-        )}
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="max-w-prose text-xs text-ink/55">
-          Bridging is included with your Papic seats — no extra purchase. One
-          bridge per phone-camera pair, on whichever surface the paired phone
-          is running (Papic or Panood live stream).
-        </p>
-        <button
-          type="button"
-          className="inline-flex items-center gap-2 rounded-md border border-terracotta px-4 py-2 text-sm font-medium text-terracotta hover:bg-terracotta/5 disabled:opacity-70"
-          disabled
-          aria-label="Pair a Pro Camera Bridge to a seat (coming with native app)"
-        >
-          <Aperture aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          Add bridge to a seat
-        </button>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {SDK_MATRIX.map((row) => (
+            <div
+              key={row.brand}
+              className="rounded-xl border border-ink/10 bg-cream/60 p-3"
+            >
+              <p className="text-sm font-semibold text-ink">{row.brand}</p>
+              <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                {row.sdk}
+              </p>
+              <p className="mt-1 text-xs text-ink/65">{row.bodies}</p>
+            </div>
+          ))}
+        </div>
       </div>
     </article>
   );

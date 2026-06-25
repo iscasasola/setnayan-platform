@@ -9,14 +9,17 @@ type Props = {
   hint?: string;
 };
 
-// Small client widget for the camera-operator setup links + broadcaster URL.
-// Pure mock — the URL is a stub the parent server component computes; this
-// component just exposes the copy-to-clipboard interaction with a visible
-// "Copied" affirmation. No network calls.
+// Small, presentation-only client widget: it renders whatever real `url` it is
+// handed and exposes a copy-to-clipboard interaction with a visible "Copied"
+// affirmation. No network calls, and it does NOT fabricate a URL.
 //
-// TODO(0011): once the real broadcaster orchestrator ships, the URL prop
-// should be a short-lived signed link with a session token. For the scaffold
-// we render the slug-shaped placeholder verbatim.
+// 2026-06-25 honesty pass: the Panood setup page previously fed this a
+// stubbed `setnayan.com/v/panood/<slug>/...` placeholder for broadcaster +
+// camera-operator links. Those session links are minted by the live streaming
+// orchestrator (not built in V1), so the setup page now honest-states them as
+// "arrives with the streaming rollout" instead of passing a fake URL here.
+// Reuse this widget only with a real, copyable URL once the orchestrator can
+// mint short-lived signed links with a session token.
 export function CopyLink({ label, url, hint }: Props) {
   const [copied, setCopied] = useState(false);
 

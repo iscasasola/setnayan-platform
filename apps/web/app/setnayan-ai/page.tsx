@@ -17,8 +17,19 @@
  * tools are free; Setnayan AI is the upgrade that does the finding for you.
  */
 
-import Link from 'next/link';
 import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
+// Client motion island (the page itself stays a force-static Server Component;
+// metadata + both JSON-LD scripts live here in the server file). The island
+// renders the hero so the serif line-reveal ref sits on the real <h1>, and wraps
+// the below-fold sections with the shared premium primitives. Additive-only: no
+// copy / route / IA / CTA / metadata / JSON-LD change.
+import {
+  SetnayanAiHero,
+  HowItWorks,
+  Matchmaking,
+  RevealBlock,
+  CtaPanel,
+} from './_setnayan-ai-motion';
 
 export const dynamic = 'force-static';
 export const revalidate = 3600;
@@ -141,91 +152,38 @@ export default function SetnayanAiLandingPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(APP_LD) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_LD) }} />
       <main className="mx-auto w-full max-w-6xl px-5 pb-20 pt-10 sm:pt-14">
-        {/* Hero — echoes the homepage promise, which Setnayan AI is the answer to */}
-        <header className="mx-auto max-w-2xl text-center">
-          <p className="font-mono text-xs uppercase tracking-[0.22em] text-[#8C6932]">Planning intelligence</p>
-          <h1 className="mt-3 font-serif text-4xl leading-tight tracking-tight text-[#1E2229] sm:text-5xl">
-            Say it once. Find your perfect fit.
-          </h1>
-          <p className="mx-auto mt-4 max-w-xl text-base text-[#5F5E5A] sm:text-lg">
-            A thousand vendor choices, the same questions over and over. Setnayan AI learns what matters to your wedding
-            and finds the verified Filipino vendors that actually fit — then builds your plan and keeps it on track.
-          </p>
-          <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
-            <Link
-              href="/onboarding/wedding?from=setnayan-ai"
-              className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-[#5C2542] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
-            >
-              Start planning · free
-            </Link>
-            <Link
-              href="/pricing"
-              className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full border border-[#1E2229]/20 px-7 py-3 text-sm font-semibold text-[#1E2229] transition-colors hover:bg-[#1E2229]/[0.04]"
-            >
-              See pricing
-            </Link>
-          </div>
-        </header>
+        {/* Hero — the signature self-composing line-reveal lives in the client
+            island so the ref sits on the real <h1>; eyebrow / subcopy / CTAs
+            settle in one quiet beat after. Copy / CTAs verbatim. */}
+        <SetnayanAiHero />
 
-        {/* How it works */}
-        <section className="mx-auto mt-16 max-w-3xl" aria-label="How Setnayan AI works">
-          <ol className="grid gap-6 sm:grid-cols-3">
-            {STEPS.map((s, i) => (
-              <li key={s.t} className="rounded-2xl border border-[#1E2229]/10 bg-white/60 p-5">
-                <span className="font-mono text-xs text-[#8C6932]">{String(i + 1).padStart(2, '0')}</span>
-                <h2 className="mt-2 font-serif text-lg text-[#1E2229]">{s.t}</h2>
-                <p className="mt-1.5 text-sm text-[#5F5E5A]">{s.d}</p>
-              </li>
-            ))}
-          </ol>
-        </section>
+        {/* How it works — the one PanelThread section (champagne stitch + quiet
+            card rise). 01/02/03 numerals + hover-lift preserved. */}
+        <HowItWorks steps={STEPS} />
 
-        {/* Not a generic chatbot — the differentiator */}
-        <section className="mx-auto mt-16 max-w-3xl" aria-label="What makes Setnayan AI different">
-          <h2 className="text-center font-serif text-2xl text-[#1E2229] sm:text-3xl">Matchmaking, not a chatbot</h2>
-          <p className="mx-auto mt-3 max-w-xl text-center text-base text-[#5F5E5A]">
-            It doesn’t hand you a search box and a thousand results. It does the finding.
-          </p>
-          <ul className="mt-7 overflow-hidden rounded-2xl border border-[#1E2229]/10">
-            {VS.map(([before, after], i) => (
-              <li
-                key={after}
-                className={`grid grid-cols-1 gap-1 px-5 py-4 sm:grid-cols-2 sm:gap-6 ${i % 2 ? 'bg-white/40' : 'bg-white/70'}`}
-              >
-                <span className="text-sm text-[#9A8F86] line-through decoration-[#9A8F86]/40">{before}</span>
-                <span className="text-sm font-medium text-[#1E2229]">{after}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
+        {/* Not a generic chatbot — staggered row-rise only (no morph/collapse;
+            the static struck-through → affirmed contrast carries the idea). */}
+        <Matchmaking rows={VS} />
 
-        {/* FAQ (backs the FAQPage schema) */}
+        {/* FAQ (backs the FAQPage schema) — one incidental whole-block fade, no
+            per-row stagger (scannable reference). */}
         <section className="mx-auto mt-16 max-w-2xl" aria-label="Setnayan AI questions">
-          <h2 className="text-center font-serif text-2xl text-[#1E2229] sm:text-3xl">Questions, answered</h2>
-          <dl className="mt-7 divide-y divide-[#1E2229]/10 border-y border-[#1E2229]/10">
-            {FAQ.map((f) => (
-              <div key={f.q} className="py-5">
-                <dt className="font-serif text-base text-[#1E2229]">{f.q}</dt>
-                <dd className="mt-1.5 text-sm text-[#5F5E5A]">{f.a}</dd>
-              </div>
-            ))}
-          </dl>
+          <h2 className="text-center font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">Questions, answered</h2>
+          <RevealBlock>
+            <dl className="mt-7 divide-y divide-[var(--m-ink)]/10 border-y border-[var(--m-ink)]/10">
+              {FAQ.map((f) => (
+                <div key={f.q} className="py-5">
+                  <dt className="font-serif text-base text-[var(--m-ink)]">{f.q}</dt>
+                  <dd className="mt-1.5 text-sm text-[#5F5E5A]">{f.a}</dd>
+                </div>
+              ))}
+            </dl>
+          </RevealBlock>
         </section>
 
-        {/* CTA */}
-        <section className="mx-auto mt-14 max-w-2xl rounded-3xl border border-[#C5A059]/40 bg-[#FBF6EA] px-6 py-10 text-center">
-          <h2 className="font-serif text-2xl text-[#1E2229] sm:text-3xl">Let it find your fit</h2>
-          <p className="mx-auto mt-3 max-w-lg text-base text-[#5F5E5A]">
-            Planning on Setnayan is free to start — guest list, RSVP, seating, budget, and your wedding website. Add
-            Setnayan AI when you want the finding and planning done for you.
-          </p>
-          <Link
-            href="/onboarding/wedding?from=setnayan-ai"
-            className="mt-5 inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-[#5C2542] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
-          >
-            Start planning · free
-          </Link>
-        </section>
+        {/* CTA — headline line-reveal + button rise; gold stays a hairline
+            border on cream (no fill / no glow). */}
+        <CtaPanel />
       </main>
       <SiteFooter />
     </>

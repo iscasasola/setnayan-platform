@@ -670,7 +670,7 @@ function RefineStep({
     is the graceful fallback when no photo is set / it 404s before generation. */
 function RefineCard({ emoji, label, photo, selected, onClick }: { emoji: string; label: string; photo: string | null; selected: boolean; onClick: () => void }) {
   return (
-    <div className={`pcard refine-card${selected ? ' sel' : ''}`} onClick={onClick}>
+    <button type="button" className={`pcard refine-card${selected ? ' sel' : ''}`} aria-pressed={selected} onClick={onClick}>
       <div className={`pimg refine-img ${photo ? 'haspic' : 'imgph'}`} style={photo ? { backgroundImage: `url(${photo})` } : undefined}>
         {photo ? null : <span className="g">{emoji}</span>}
       </div>
@@ -678,7 +678,7 @@ function RefineCard({ emoji, label, photo, selected, onClick }: { emoji: string;
         {label}
         <span className="ck" />
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -686,7 +686,7 @@ function RefineCard({ emoji, label, photo, selected, onClick }: { emoji: string;
     reception-setting + AI-team basics pickers (the refine cards use RefineCard above). */
 function PCard({ emoji, label, photoKey, selected, onClick }: { emoji: string; label: string; photoKey?: string; selected: boolean; onClick: () => void }) {
   return (
-    <div className={`pcard${selected ? ' sel' : ''}`} onClick={onClick}>
+    <button type="button" className={`pcard${selected ? ' sel' : ''}`} aria-pressed={selected} onClick={onClick}>
       <div className={`pimg ${photoKey ? 'haspic' : 'imgph'}`} style={photoKey ? { backgroundImage: `url(${PREFS_ASSET(photoKey)})` } : undefined}>
         {photoKey ? null : <span className="g">{emoji}</span>}
       </div>
@@ -694,7 +694,7 @@ function PCard({ emoji, label, photoKey, selected, onClick }: { emoji: string; l
         {label}
         <span className="ck" />
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -1067,9 +1067,16 @@ function DateCalendar({
               c.d == null ? (
                 <div key={`e${i}`} className={c.cls} />
               ) : (
-                <div key={`d${i}`} className={c.cls} onClick={c.disabled ? undefined : () => c.cur && clickDay(c.cur)}>
+                <button
+                  key={`d${i}`}
+                  type="button"
+                  className={c.cls}
+                  disabled={c.disabled}
+                  aria-pressed={c.cls.split(' ').some((t) => t === 'sel' || t === 'rstart' || t === 'rend')}
+                  onClick={() => c.cur && clickDay(c.cur)}
+                >
                   {c.d}
-                </div>
+                </button>
               ),
             )}
           </div>

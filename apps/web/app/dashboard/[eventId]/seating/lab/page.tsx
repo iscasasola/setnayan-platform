@@ -13,6 +13,7 @@ import {
 import { shapeHintFor, type Lab3DTable, type Lab3DFloor, type Lab3DGuest, type Lab3DMonogram } from '@/lib/seating-3d';
 import { resolveMonogram } from '@/lib/monogram';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { SeatingLabLoader } from './_components/seating-lab-loader';
 
 export const metadata = { title: 'Seating · 3D lab (prototype)' };
@@ -87,6 +88,20 @@ export default async function SeatingLabPage({ params }: Props) {
   });
 
   const seatByGuest = new Map(assignments.map((a) => [a.guest_id, a]));
+
+  // Guest photo_url is a stored r2:// ref (or a raw avatar URL) — resolve each to
+  // a display URL so the 3D avatars wear the guest's actual selfie (owner
+  // 2026-06-25). Mirrors the 2D seating page's resolver; signs in parallel.
+  const photoDisplayUrls: Record<string, string> = Object.fromEntries(
+    (
+      await Promise.all(
+        guestsRaw
+          .filter((g) => g.photo_url)
+          .map(async (g) => [g.photo_url!, await displayUrlForStoredAsset(g.photo_url)] as const),
+      )
+    ).filter((e): e is [string, string] => e[1] !== null),
+  );
+
   const guests: Lab3DGuest[] = guestsRaw.map((g) => {
     const seat = seatByGuest.get(g.guest_id);
     const rsvp = (['attending', 'pending', 'maybe', 'declined'] as const).includes(
@@ -104,6 +119,7 @@ export default async function SeatingLabPage({ params }: Props) {
       side: g.side,
       plusOneAllowed: Boolean(g.plus_one_allowed),
       plusOneOfGuestId: g.plus_one_of_guest_id ?? null,
+      photoUrl: g.photo_url ? photoDisplayUrls[g.photo_url] ?? null : null,
     };
   });
 

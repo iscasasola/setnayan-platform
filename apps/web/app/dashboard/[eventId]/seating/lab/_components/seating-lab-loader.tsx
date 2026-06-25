@@ -9,7 +9,7 @@
  */
 
 import dynamic from 'next/dynamic';
-import type { Lab3DTable, Lab3DFloor, Lab3DGuest, Lab3DMonogram } from '@/lib/seating-3d';
+import type { Lab3DTable, Lab3DFloor, Lab3DGuest, Lab3DGroup, Lab3DMonogram } from '@/lib/seating-3d';
 import type { KeepApartRule, PriorityOrder } from '@/lib/seating';
 
 const SeatingLab3D = dynamic(() => import('./seating-lab-3d'), {
@@ -39,6 +39,7 @@ type Props = {
   keepApart: KeepApartRule[];
   priorityOrder: PriorityOrder;
   roleSetKey: string;
+  groups: Lab3DGroup[];
 };
 
 export function SeatingLabLoader(props: Props) {

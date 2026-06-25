@@ -57,6 +57,13 @@ export type Lab3DFloor = {
 
 export type RsvpStatus = 'attending' | 'pending' | 'maybe' | 'declined';
 
+/** A custom guest group offered for one-tap "seat this group at a table". */
+export type Lab3DGroup = {
+  id: string;
+  label: string;
+  memberCount: number;
+};
+
 export type Lab3DGuest = {
   id: string;
   name: string;
@@ -66,6 +73,8 @@ export type Lab3DGuest = {
   /** Explicit per-guest priority override (1–4), or null to use the role tier.
    * Drives the roster priority chip + feeds the server's auto-seat ordering. */
   seatingPriority: number | null;
+  /** First custom-group membership (null = ungrouped) — drives "seat this group". */
+  groupId: string | null;
   rsvp: RsvpStatus;
   side: 'bride' | 'groom' | 'both';
   /** Couple allowed this guest a +1 (a held seat beside them). */

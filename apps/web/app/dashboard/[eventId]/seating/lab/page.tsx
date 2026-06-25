@@ -2,7 +2,13 @@ import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { getCurrentUser } from '@/lib/auth';
-import { fetchGuestsByEvent, guestDisplayName, resolveGuestAttire } from '@/lib/guests';
+import {
+  fetchGuestsByEvent,
+  guestDisplayName,
+  resolveGuestAttire,
+  fetchGuestGroupsByEvent,
+  fetchGroupMembershipsByEvent,
+} from '@/lib/guests';
 import {
   fetchTables,
   fetchAssignments,
@@ -12,7 +18,7 @@ import {
   guestTier,
   defaultTablePosition,
 } from '@/lib/seating';
-import { shapeHintFor, type Lab3DTable, type Lab3DFloor, type Lab3DGuest, type Lab3DMonogram } from '@/lib/seating-3d';
+import { shapeHintFor, type Lab3DTable, type Lab3DFloor, type Lab3DGuest, type Lab3DGroup, type Lab3DMonogram } from '@/lib/seating-3d';
 import { resolveMonogram } from '@/lib/monogram';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -40,12 +46,14 @@ export default async function SeatingLabPage({ params }: Props) {
   if (!user) redirect('/login');
   const supabase = await createClient();
 
-  const [tablesRaw, assignments, guestsRaw, floorPlan, constraints, moodboard, eventRow, roleSet] = await Promise.all([
+  const [tablesRaw, assignments, guestsRaw, floorPlan, constraints, groupsRaw, memberships, moodboard, eventRow, roleSet] = await Promise.all([
     fetchTables(supabase, eventId),
     fetchAssignments(supabase, eventId),
     fetchGuestsByEvent(supabase, eventId),
     fetchFloorPlan(supabase, eventId),
     fetchSeatingConstraints(supabase, eventId),
+    fetchGuestGroupsByEvent(supabase, eventId),
+    fetchGroupMembershipsByEvent(supabase, eventId),
     supabase
       .from('event_moodboard_saves')
       .select('palette_snapshot')
@@ -129,6 +137,7 @@ export default async function SeatingLabPage({ params }: Props) {
       seatNumber: seat?.seat_number ?? null,
       tier: guestTier(g.role, g.group_category, g.seating_priority, roleSet),
       seatingPriority: g.seating_priority ?? null,
+      groupId: memberships.get(g.guest_id)?.[0] ?? null,
       rsvp,
       side: g.side,
       plusOneAllowed: Boolean(g.plus_one_allowed),
@@ -138,6 +147,12 @@ export default async function SeatingLabPage({ params }: Props) {
       attireColor: attire === 'gown' ? gownColor : attire === 'suit' ? suitColor : null,
     };
   });
+
+  // Custom guest groups (for "seat this whole group at a table"). Only groups
+  // that actually have members are worth offering.
+  const groups: Lab3DGroup[] = groupsRaw
+    .filter((gr) => gr.member_count > 0)
+    .map((gr) => ({ id: gr.group_id, label: gr.label, memberCount: gr.member_count }));
 
   const floor: Lab3DFloor = {
     venueWidthM: floorPlan.venue_width_m ?? null,
@@ -204,6 +219,7 @@ export default async function SeatingLabPage({ params }: Props) {
         keepApart={constraints}
         priorityOrder={floorPlan.priority_order ?? defaultPriorityOrder(roleSet)}
         roleSetKey={roleSet.key}
+        groups={groups}
       />
     </section>
   );

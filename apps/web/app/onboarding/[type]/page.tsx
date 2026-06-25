@@ -68,6 +68,7 @@ export default async function GenericOnboardingPage({
       organizerNoun={profile.terminology.organizerNoun}
       eventWord={profile.terminology.eventWord}
       flowKey={flow.flowKey}
+      personaPackKey={flow.personaPackKey}
       tiles={tiles}
       authed={!!user}
       anonEnabled={anonOnboardingEnabled()}

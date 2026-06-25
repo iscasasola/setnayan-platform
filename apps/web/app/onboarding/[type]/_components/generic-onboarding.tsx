@@ -20,7 +20,7 @@ import { resolvePersona } from '@/app/onboarding/wedding/_data/experience-person
 import { PH_REGIONS } from '@/lib/regions';
 import { commitOnboardingEvent } from '@/app/onboarding/_shared/commit-event';
 import type { GenericOnboardingPayload } from '@/lib/onboarding/types';
-import { deriveGenericPlan } from '@/lib/onboarding/generic-plan';
+import { derivePackPlan } from '@/lib/onboarding/persona-packs';
 import type { OnboardingPickChip } from '@/lib/onboarding-refinements';
 
 type Props = {
@@ -30,7 +30,9 @@ type Props = {
   organizerNoun: string;
   eventWord: string;
   flowKey: string;
-  /** The type's applicable taxonomy categories — drive the derived starter plan (PR3). */
+  /** The profile's persona-pack key (= onboarding_flow_key); selects the per-type plan. */
+  personaPackKey: string;
+  /** The type's applicable taxonomy categories — drive the derived starter plan. */
   tiles: OnboardingPickChip[];
   authed: boolean;
   anonEnabled: boolean;
@@ -62,7 +64,7 @@ type ScreenId = (typeof SCREENS)[number];
 const DRAFT_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 export function GenericOnboarding(props: Props) {
-  const { eventType, label, emoji, eventWord, tiles, authed, resume } = props;
+  const { eventType, label, emoji, eventWord, personaPackKey, tiles, authed, resume } = props;
   const router = useRouter();
   const draftKey = `setnayan_onboarding_generic_${eventType}_draft_v1`;
 
@@ -121,8 +123,13 @@ export function GenericOnboarding(props: Props) {
     [allAxesAnswered, axes],
   );
   const reveal = personaKey ? GENERIC_PERSONA_REVEAL[personaKey] : null;
-  // Starter plan derived from the type's taxonomy categories, sized by the effort axis.
-  const plan = useMemo(() => deriveGenericPlan(tiles, axes.effort), [tiles, axes.effort]);
+  // Starter plan: per-type persona pack (essentials + this persona's extras),
+  // intersected with the type's taxonomy and sized by the effort axis. Falls back
+  // to taxonomy-top-N for any type without a pack.
+  const plan = useMemo(
+    () => derivePackPlan(personaPackKey, personaKey, tiles, axes.effort),
+    [personaPackKey, personaKey, tiles, axes.effort],
+  );
 
   const canContinue = (() => {
     if (screen === 'name') return displayName.trim().length > 0;

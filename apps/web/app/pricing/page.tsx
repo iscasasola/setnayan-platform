@@ -11,6 +11,14 @@ import {
   type V2CustomerSku,
   type BuildStatus,
 } from '@/lib/v2-catalog';
+// Client motion island — the page stays an async Server Component (data fetch +
+// JSON-LD @graph below are untouched); these thin wrappers only attach the
+// premium reveal/panel refs to server-passed children. See _pricing-motion.tsx.
+import {
+  RevealBand,
+  LineRevealHeading,
+  CatalogPanel,
+} from './_pricing-motion';
 
 /**
  * Force dynamic rendering · skip static prerender.
@@ -349,10 +357,14 @@ export default async function PricingPage() {
           <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
             Pricing
           </p>
-          <h1 className="mt-4 text-balance font-display text-5xl font-medium leading-[1.02] tracking-tight sm:text-7xl lg:text-[96px]">
+          <LineRevealHeading
+            as="h1"
+            trigger="mount"
+            className="mt-4 text-balance font-display text-5xl font-medium leading-[1.02] tracking-tight sm:text-7xl lg:text-[96px]"
+          >
             Real software prices.{' '}
             <span className="text-ink/55">Zero commission on vendor bookings.</span>
-          </h1>
+          </LineRevealHeading>
           <p className="mt-8 max-w-2xl text-xl leading-relaxed text-ink/65">
             You buy software at retail. Your vendors keep 100% of what you pay
             them — Setnayan never sits between you and them at checkout.
@@ -371,12 +383,12 @@ export default async function PricingPage() {
             <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
               Included with every account
             </p>
-            <h2 className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
+            <LineRevealHeading className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
               Start free. Stay free as long as you like.
-            </h2>
+            </LineRevealHeading>
           </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <article className="rounded-2xl border-2 border-terracotta/30 bg-cream p-6 sm:p-8">
+          <RevealBand className="grid grid-cols-1 gap-4 sm:grid-cols-2" stagger={0.06}>
+            <article data-reveal-item className="rounded-2xl border-2 border-terracotta/30 bg-cream p-6 sm:p-8">
               <Globe aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
               <p className="mt-4 font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
                 For couples
@@ -390,7 +402,7 @@ export default async function PricingPage() {
                 Free with every account, no card required.
               </p>
             </article>
-            <article className="rounded-2xl border-2 border-terracotta/30 bg-cream p-6 sm:p-8">
+            <article data-reveal-item className="rounded-2xl border-2 border-terracotta/30 bg-cream p-6 sm:p-8">
               <Globe aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
               <p className="mt-4 font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
                 For vendors
@@ -404,7 +416,7 @@ export default async function PricingPage() {
                 profile, in-app chat, bid pipeline, and your vendor microsite.
               </p>
             </article>
-          </div>
+          </RevealBand>
         </div>
       </section>
 
@@ -418,9 +430,9 @@ export default async function PricingPage() {
             <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
               How couples pay
             </p>
-            <h2 className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
+            <LineRevealHeading className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
               One free tier. Three ways to go further.
-            </h2>
+            </LineRevealHeading>
             <p className="text-base leading-relaxed text-ink/65">
               Everything is à la carte below — or pick a tier when you start
               your plan. Setnayan Essentials and Setnayan Complete are offered
@@ -428,8 +440,8 @@ export default async function PricingPage() {
               à-la-carte total.
             </p>
           </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <article className="flex flex-col gap-3 rounded-2xl border border-ink/15 bg-cream p-6">
+          <RevealBand className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4" stagger={0.07}>
+            <article data-reveal-item className="flex flex-col gap-3 rounded-2xl border border-ink/15 bg-cream p-6">
               <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
                 Free — Explore
               </p>
@@ -440,7 +452,7 @@ export default async function PricingPage() {
                 mood board.
               </p>
             </article>
-            <article className="flex flex-col gap-3 rounded-2xl border-2 border-terracotta/40 bg-cream p-6">
+            <article data-reveal-item className="flex flex-col gap-3 rounded-2xl border-2 border-terracotta/40 bg-cream p-6">
               <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
                 Setnayan AI
               </p>
@@ -453,7 +465,7 @@ export default async function PricingPage() {
                 plus the guided planning workspace. One purchase per event.
               </p>
             </article>
-            <article className="flex flex-col gap-3 rounded-2xl border border-ink/15 bg-cream p-6">
+            <article data-reveal-item className="flex flex-col gap-3 rounded-2xl border border-ink/15 bg-cream p-6">
               <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
                 Setnayan Essentials
               </p>
@@ -466,7 +478,7 @@ export default async function PricingPage() {
                 start your plan.
               </p>
             </article>
-            <article className="flex flex-col gap-3 rounded-2xl border border-ink/15 bg-cream p-6">
+            <article data-reveal-item className="flex flex-col gap-3 rounded-2xl border border-ink/15 bg-cream p-6">
               <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
                 Setnayan Complete
               </p>
@@ -478,21 +490,30 @@ export default async function PricingPage() {
                 Offered when you start your plan.
               </p>
             </article>
-          </div>
+          </RevealBand>
         </div>
       </section>
 
-      {/* Customer software catalog — grouped by build_status */}
+      {/* Customer software catalog — grouped by build_status.
+          THE signature: the whole catalog is wrapped in one CatalogPanel
+          (usePanelIntro scope + a single PanelThread). Because PanelThread
+          stretches to its container's full height, that one champagne thread
+          spans all three build-status groups (Live → In build → Coming soon) as
+          one continuous "build" line, drawn as the catalog scrolls in. The H2 is
+          the panel's `data-premium-headline`; the group chips + every SKU card
+          carry `data-premium-item` so they rise in document order as the thread
+          draws past. */}
       <section className="border-b border-ink/5">
         <div className="mx-auto w-full max-w-5xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
+          <CatalogPanel>
           <div className="mb-12 max-w-2xl space-y-3">
-            <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
+            <p data-premium-item className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
               Software catalog
             </p>
-            <h2 className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
+            <h2 data-premium-headline className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
               Pick what you actually need.
             </h2>
-            <p className="text-base leading-relaxed text-ink/65">
+            <p data-premium-item className="text-base leading-relaxed text-ink/65">
               Every SKU lives in your dashboard. We mark each one with{' '}
               <span className="text-ink">Live</span>,{' '}
               <span className="text-ink">In build</span>, or{' '}
@@ -512,7 +533,7 @@ export default async function PricingPage() {
               if (items.length === 0) return null;
               return (
                 <div key={status} className="mt-10 first:mt-0">
-                  <div className="mb-4 flex items-center gap-3">
+                  <div data-premium-item className="mb-4 flex items-center gap-3">
                     <BuildStatusChip status={status} />
                     <p className="text-xs text-ink/55">
                       {BUILD_STATUS_LABEL[status]} · {items.length} item
@@ -523,6 +544,7 @@ export default async function PricingPage() {
                     {items.map((sku) => (
                       <li
                         key={sku.service_code}
+                        data-premium-item
                         className={`flex flex-col gap-3 rounded-2xl border p-6 ${
                           status === 'live'
                             ? 'border-terracotta/40 bg-cream'
@@ -570,10 +592,11 @@ export default async function PricingPage() {
             })
           )}
 
-          <p className="mt-10 text-sm text-ink/55">
+          <p data-premium-item className="mt-10 text-sm text-ink/55">
             Token Worthy SKUs can also be redeemed using vendor tokens — see
             the vendor pricing below for how tokens work.
           </p>
+          </CatalogPanel>
         </div>
       </section>
 
@@ -584,9 +607,9 @@ export default async function PricingPage() {
             <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
               For vendors
             </p>
-            <h2 className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
+            <LineRevealHeading className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
               Subscription + token packs.
-            </h2>
+            </LineRevealHeading>
             <p className="text-base leading-relaxed text-ink/65">
               Vendors subscribe in 28-day prepaid blocks for marketplace
               presence, and top up tokens to redeem the same software SKUs
@@ -598,7 +621,7 @@ export default async function PricingPage() {
 
           {/* Subscriptions · monthly + annual paired per tier (Solo / Pro / Enterprise) */}
           {vendorSubs.length > 0 ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <RevealBand className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" stagger={0.07}>
               {vendorSubs.map((sub) => {
                 const isPro = sub.sku_code.toLowerCase().includes('pro');
                 const seatsLine =
@@ -617,6 +640,7 @@ export default async function PricingPage() {
                 return (
                   <article
                     key={sub.sku_code}
+                    data-reveal-item
                     className={`flex flex-col gap-4 rounded-2xl border-2 p-6 sm:p-8 ${
                       isPro
                         ? 'border-terracotta/40 bg-cream'
@@ -682,7 +706,7 @@ export default async function PricingPage() {
                   </article>
                 );
               })}
-            </div>
+            </RevealBand>
           ) : null}
 
           {/* Token packs */}
@@ -696,10 +720,12 @@ export default async function PricingPage() {
                 <span className="text-ink">Token Worthy</span> customer SKU at
                 the rate set in your dashboard.
               </p>
+              <RevealBand stagger={0.05} y={12}>
               <ul className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
                 {tokenPacks.map((pack) => (
                   <li
                     key={pack.sku_code}
+                    data-reveal-item
                     className="flex flex-col gap-2 rounded-xl border border-ink/15 bg-cream p-4"
                   >
                     <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
@@ -711,6 +737,7 @@ export default async function PricingPage() {
                   </li>
                 ))}
               </ul>
+              </RevealBand>
             </div>
           ) : null}
         </div>
@@ -722,11 +749,14 @@ export default async function PricingPage() {
           <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
             How money flows
           </p>
-          <p className="mt-4 max-w-3xl text-balance text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
+          <LineRevealHeading
+            as="p"
+            className="mt-4 max-w-3xl text-balance text-3xl font-semibold leading-tight tracking-tight sm:text-4xl"
+          >
             Setnayan only sells you software. Vendor bookings are between you and them.
-          </p>
-          <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-3">
-            <div className="rounded-xl border border-ink/10 bg-cream p-5">
+          </LineRevealHeading>
+          <RevealBand className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-3" stagger={0.07}>
+            <div data-reveal-item className="rounded-xl border border-ink/10 bg-cream p-5">
               <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
                 You → Setnayan
               </p>
@@ -736,7 +766,7 @@ export default async function PricingPage() {
                 itemized receipts on every transaction.
               </p>
             </div>
-            <div className="rounded-xl border border-ink/10 bg-cream p-5">
+            <div data-reveal-item className="rounded-xl border border-ink/10 bg-cream p-5">
               <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
                 You → Vendor (off-platform)
               </p>
@@ -746,7 +776,7 @@ export default async function PricingPage() {
                 takes 0% commission.
               </p>
             </div>
-            <div className="rounded-xl border border-ink/10 bg-cream p-5">
+            <div data-reveal-item className="rounded-xl border border-ink/10 bg-cream p-5">
               <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
                 Vendor → Setnayan
               </p>
@@ -756,7 +786,7 @@ export default async function PricingPage() {
                 for their own events.
               </p>
             </div>
-          </div>
+          </RevealBand>
         </div>
       </section>
 

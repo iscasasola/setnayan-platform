@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, type ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 
 // Reusable mobile-first sheet primitive. Slides up from the bottom on
 // small screens (single-thumb reach) and docks as a right-side drawer on
@@ -18,18 +19,18 @@ import { X } from 'lucide-react';
 //     rounded left corners (mobile pattern → desktop pattern per the
 //     "platform-appropriate patterns" responsive memory).
 //
-// Accessibility:
+// Accessibility (all via the shared `useModalA11y` primitive):
 //   - role="dialog" + aria-modal="true"
 //   - aria-labelledby points at a heading the consumer renders
-//   - ESC key closes the sheet
+//   - ESC key closes the sheet (composes `useEscapeKey`)
+//   - focus moves into the sheet on open, Tab is trapped inside it, and
+//     focus is restored to the trigger on close
 //   - body scroll locked while open (no background scrolling under
 //     the sheet)
 //   - backdrop click closes
 //   - close-button is always rendered with a 40×40px hit target
 //
 // NOT handled here (consumer's responsibility):
-//   - initial focus management (autofocus the close button or first
-//     interactive element inside `children` if needed)
 //   - the heading element itself — consumer renders it so it can
 //     style/translate freely. Pass the heading's `id` via
 //     `labelledById`.
@@ -55,28 +56,20 @@ export function Sheet({
   title,
   children,
 }: SheetProps) {
-  useEffect(() => {
-    if (!open) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKey);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      window.removeEventListener('keydown', handleKey);
-      document.body.style.overflow = prevOverflow;
-    };
-  }, [open, onClose]);
+  // Esc-to-close + body-scroll-lock + focus management (focus-in, Tab trap,
+  // restore on close) via the shared primitive.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalA11y({ open, onClose, containerRef: dialogRef });
 
   if (!open) return null;
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-labelledby={labelledById}
-      className="fixed inset-0 z-50 flex items-end justify-center sm:items-stretch sm:justify-end"
+      className="fixed inset-0 z-50 flex items-end justify-center sm:items-stretch sm:justify-end focus:outline-none"
     >
       {/* Backdrop — clicking dismisses. Rendered as a button so keyboard
           users get a focusable affordance, not just a div with onClick. */}

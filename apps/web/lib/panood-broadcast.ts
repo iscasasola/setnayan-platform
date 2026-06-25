@@ -138,3 +138,93 @@ export async function getActivePanoodStreamKey(
     .maybeSingle();
   return (data?.stream_key as string | undefined) ?? null;
 }
+
+/** Postgres "undefined table" — the migration hasn't been applied yet. */
+const UNDEFINED_TABLE = '42P01';
+
+/**
+ * Persist a freshly-created YouTube broadcast as the event's ONE active
+ * panood_broadcasts row. Enforces the single-active-broadcast invariant in
+ * application code (belt-and-braces with the partial unique index in the
+ * migration): any prior non-'complete' row is first flipped to 'complete' so
+ * the unique index can't reject the insert and the event never carries two
+ * live broadcasts. Service-role only — the row holds the secret stream_key.
+ *
+ * Graceful-degrade: on a missing table (42P01, the migration not yet applied)
+ * we throw a friendly Error the calling action catches + surfaces as an
+ * {error} (rather than a 500), so the page never crashes pre-migration.
+ */
+export async function createPanoodBroadcast(
+  eventId: string,
+  input: {
+    broadcastId: string;
+    streamId: string;
+    ingestionUrl: string;
+    streamKey: string;
+    scheduledStartAt: string; // ISO 8601
+  },
+): Promise<PanoodBroadcast> {
+  const admin = createAdminClient();
+
+  // 1) Close out any prior non-complete broadcast for this event so there is
+  //    exactly one active row (and the partial unique index won't reject us).
+  const { error: closeErr } = await admin
+    .from('panood_broadcasts')
+    .update({ status: 'complete', ended_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq('event_id', eventId)
+    .neq('status', 'complete');
+  if (closeErr?.code === UNDEFINED_TABLE) {
+    throw new Error(
+      'Panood broadcasts are not set up yet — the database migration is still pending. Please try again shortly.',
+    );
+  }
+
+  // 2) Insert the new active row.
+  const { data, error } = await admin
+    .from('panood_broadcasts')
+    .insert({
+      event_id: eventId,
+      broadcast_id: input.broadcastId,
+      stream_id: input.streamId,
+      ingestion_url: input.ingestionUrl,
+      stream_key: input.streamKey,
+      status: 'ready',
+      scheduled_start_at: input.scheduledStartAt,
+    })
+    .select(
+      'id, broadcast_id, stream_id, ingestion_url, status, scheduled_start_at, went_live_at, ended_at',
+    )
+    .single();
+
+  if (error?.code === UNDEFINED_TABLE) {
+    throw new Error(
+      'Panood broadcasts are not set up yet — the database migration is still pending. Please try again shortly.',
+    );
+  }
+  if (error || !data) {
+    throw new Error(error?.message ?? 'Could not save the Panood broadcast.');
+  }
+  return data as PanoodBroadcast;
+}
+
+/**
+ * Mark the event's active broadcast 'complete' (the couple pressed "End
+ * broadcast"). Best-effort + idempotent: a no-op when there's no active row.
+ * Returns the broadcast_id of the row that was ended, so the caller can also
+ * transition it complete on YouTube. Graceful-degrade on a missing table.
+ */
+export async function completePanoodBroadcast(
+  eventId: string,
+): Promise<{ broadcastId: string } | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('panood_broadcasts')
+    .update({ status: 'complete', ended_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq('event_id', eventId)
+    .neq('status', 'complete')
+    .select('broadcast_id')
+    .maybeSingle();
+  if (error?.code === UNDEFINED_TABLE) return null;
+  if (!data) return null;
+  return { broadcastId: data.broadcast_id as string };
+}

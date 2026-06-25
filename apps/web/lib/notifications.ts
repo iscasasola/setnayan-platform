@@ -69,10 +69,11 @@ export type NotificationType =
   | 'photo_delivery_failed'
   | 'vendor_token_purchase_pending'
   | 'vendor_tokens_credited'
-  // Added 2026-06-10 alongside migration 20261102000000_guest_invite_claim.sql —
-  // fired (couple-recipient) from lib/guest-claim-flow.ts when an invite-claim
-  // lands in the couple's review queue (no/ambiguous fuzzy match, or OTP
-  // undeliverable). Replaces the signal the old auto-admit placeholder gave.
+  // Added 2026-06-10. Invite/Join v2 (2026-06-25) repurposed it: fired
+  // (couple-recipient) from app/join/[eventId]/actions.ts (notifyCoupleUnlisted)
+  // when an optimistically-admitted joiner didn't match the list and lands in the
+  // couple's reconcile queue. (The original email-OTP claim flow it was created
+  // for has been retired.)
   | 'guest_claim_pending'
   // Added 2026-06-12 alongside migration
   // 20261116000000_notification_type_security_alert.sql — the 10th 0028 V1

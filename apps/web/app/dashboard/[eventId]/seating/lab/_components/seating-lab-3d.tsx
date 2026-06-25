@@ -36,7 +36,10 @@ import {
   deleteTable,
   updateTablePosition,
   updateTableRotation,
+  updateTableType,
+  publishSeating,
 } from '@/app/dashboard/[eventId]/seating/actions';
+import { TABLE_TYPE_CATALOG } from '@/lib/seating';
 
 // A server action's lock guard throws SeatingLockError, but the class identity
 // is lost across the RSC boundary — match defensively (instanceof → code →
@@ -56,13 +59,16 @@ import {
   type Lab3DMonogram,
   type Vec2,
   roomSize,
+  contentBounds,
   pctToWorld,
   tableDims,
+  checkPlacement,
   chairLocalPositions,
   serpentineBand,
   serpentineChairs,
   seatWorld,
   floorObstacles,
+  firstFreeSeatAtTable,
   pushOutOfDiscs,
   separateAgents,
   steerPath,
@@ -273,6 +279,9 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
   // Populate-Play: when set, the whole seated list walks in at once (mutually
   // exclusive with the single `walker`).
   const [crowd, setCrowd] = useState<CrowdAgent[] | null>(null);
+  // Precise placement: an unseated guest "picked up" from the roster, waiting
+  // for the couple to tap the table they should sit at (vs auto-first-free).
+  const [placingGuestId, setPlacingGuestId] = useState<string | null>(null);
   const [arrived, setArrived] = useState<string | null>(null);
   const [showCloth, setShowCloth] = useState(true);
   const [showAccents, setShowAccents] = useState(true);
@@ -329,6 +338,10 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
 
   const tablesById = useMemo(() => new Map(tables.map((t) => [t.id, t])), [tables]);
   const guestById = useMemo(() => new Map(guests.map((g) => [g.id, g])), [guests]);
+  // Open-canvas framing: the free board lets tables sit far outside the default
+  // room, so let the camera zoom out far enough to take the WHOLE layout in
+  // (not just the fixed venue rectangle). Drives OrbitControls maxDistance.
+  const bounds = useMemo(() => contentBounds(tables, room), [tables, room]);
 
   // Per-table, per-seat token treatment from each seated guest's RSVP, plus a
   // ghost "+1 reserved" seat beside any guest the couple allowed a +1 whose +1
@@ -386,6 +399,42 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
     const hi = freeBoard ? 600 : 98;
     const xPct = Math.max(lo, Math.min(hi, (d.x / room.w + 0.5) * 100));
     const yPct = Math.max(lo, Math.min(hi, (d.z / room.d + 0.5) * 100));
+
+    // Placement rules (owner 2026-06-26): no overlap · no tables on the dance
+    // floor · stage = sweetheart only. If the drop breaks one, revert (skip the
+    // commit) — the mesh eases back to its stored spot — and say why.
+    const dragged = tablesById.get(d.id);
+    if (dragged) {
+      const radiusOf = (t: LiveTable) => {
+        const dim = tableDims(t.shape, t.capacity);
+        return Math.max(dim.w, dim.round ? dim.w : dim.d) / 2;
+      };
+      const others = tables
+        .filter((t) => t.id !== d.id)
+        .map((t) => {
+          const p = pctToWorld(t.xPct, t.yPct, room);
+          return { x: p.x, z: p.z, r: radiusOf(t) };
+        });
+      const zone = (xP: number, yP: number, wP: number, hP: number, minW: number, minH: number) => {
+        const c = pctToWorld(xP, yP, room);
+        return { cx: c.x, cz: c.z, hw: Math.max(minW, (wP / 100) * room.w) / 2, hd: Math.max(minH, (hP / 100) * room.d) / 2 };
+      };
+      const stageZone = zone(floor.stage.xPct, floor.stage.yPct, floor.stage.wPct, floor.stage.hPct, 1.5, 1);
+      const danceZone = floor.dance.enabled
+        ? zone(floor.dance.xPct, floor.dance.yPct, floor.dance.wPct, floor.dance.hPct, 1.5, 1.5)
+        : null;
+      const verdict = checkPlacement(
+        { x: d.x, z: d.z, r: radiusOf(dragged), isTable: true, isSweetheart: dragged.shape === 'sweetheart' },
+        others,
+        stageZone,
+        danceZone,
+      );
+      if (!verdict.ok) {
+        setNotice(verdict.reason);
+        return;
+      }
+    }
+
     setTables((prev) => prev.map((t) => (t.id === d.id ? { ...t, xPct, yPct } : t)));
     if (canEdit) {
       const fd = new FormData();
@@ -396,7 +445,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
       fd.set('y_pos', String(yPct));
       void persist(() => updateTablePosition(fd));
     }
-  }, [room, floor, canEdit, eventId, lock.lockId, persist]);
+  }, [room, floor, canEdit, eventId, lock.lockId, persist, tables, tablesById]);
 
   useEffect(() => {
     // Commit on pointerup AND on interruptions (pointercancel / window blur):
@@ -490,23 +539,53 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
     void persist(() => deleteTable(fd));
   }, [selectedId, canEdit, eventId, lock.lockId, persist]);
 
+  // 2D-parity: change the selected table's type (server recomputes capacity +
+  // drops surplus assignments). Refresh so the merge effect re-renders the new
+  // shape/seats, exactly like add-a-table.
+  const changeTableType = useCallback(
+    (newType: string) => {
+      if (!selectedId || !canEdit) return;
+      const fd = new FormData();
+      fd.set('event_id', eventId);
+      fd.set('lock_id', lock.lockId ?? '');
+      fd.set('table_id', selectedId);
+      fd.set('table_type', newType);
+      void persist(async () => {
+        await updateTableType(fd);
+        router.refresh();
+      });
+    },
+    [selectedId, canEdit, eventId, lock.lockId, persist, router],
+  );
+
+  // 2D-parity: publish the plan (stamps table QR sheets for the print pack).
+  const publishPlan = useCallback(() => {
+    if (!canEdit) return;
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
+    void persist(async () => {
+      const res = await publishSeating(fd);
+      setNotice(`Published — ${res.published} table QR sheet${res.published === 1 ? '' : 's'} ready to print.`);
+    });
+  }, [canEdit, eventId, lock.lockId, persist]);
+
   // Pick a guest → walk to their seat (seating them in the first free chair if
   // they have none), steering around the other tables.
+  // Seat a guest + walk them in. `preferredTableId` (from tap-to-place) restricts
+  // the search to that one table; otherwise it auto-fills the first free seat
+  // anywhere. Returns false when no seat is available (e.g. the tapped table is
+  // full) so the caller can keep the guest "picked up" and flag it.
   const sendGuest = useCallback(
-    (g: Lab3DGuest) => {
+    (g: Lab3DGuest, preferredTableId?: string): boolean => {
       let seat = seats.get(g.id) ?? null;
       const nextSeats = new Map(seats);
       if (!seat) {
-        for (const t of tables) {
-          // Seed occupancy with the table's DELETED chairs (mirrors the
-          // canonical computeAutoSeat) and scan the real capacity index range —
-          // otherwise a removed low-index chair is offered as "free".
-          const occupied = new Set<number>(
-            t.removedSeats.filter((i) => Number.isInteger(i) && i >= 0 && i < t.capacity),
-          );
-          for (const [, s] of nextSeats) if (s.tableId === t.id) occupied.add(s.seatNumber);
-          let free = -1;
-          for (let i = 0; i < t.capacity; i++) if (!occupied.has(i)) { free = i; break; }
+        const candidates = preferredTableId ? tables.filter((t) => t.id === preferredTableId) : tables;
+        for (const t of candidates) {
+          const occupied: number[] = [];
+          for (const [, s] of nextSeats) if (s.tableId === t.id) occupied.push(s.seatNumber);
+          const free = firstFreeSeatAtTable(t.capacity, t.removedSeats, occupied);
           if (free >= 0) {
             seat = { tableId: t.id, seatNumber: free };
             nextSeats.set(g.id, seat);
@@ -515,9 +594,9 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
           }
         }
       }
-      if (!seat) return;
+      if (!seat) return false;
       const table = tablesById.get(seat.tableId);
-      if (!table) return;
+      if (!table) return false;
       const end = seatWorld(table, seat.seatNumber, room);
       // Clear every fixed object — other tables, the stage, the dance floor —
       // not just the tables, so the walker never cuts across the stage.
@@ -527,6 +606,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
       setArrived(null);
       setCrowd(null); // a single walk-in supersedes any populated crowd
       setWalker({ name: g.name, path, tableId: seat.tableId });
+      return true;
     },
     [seats, tables, tablesById, room, entranceWorld, floor],
   );
@@ -658,6 +738,13 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
 
   const onTableDown = useCallback(
     (id: string) => {
+      // Precise placement: a picked-up guest takes a seat at the tapped table.
+      if (placingGuestId) {
+        const g = guestById.get(placingGuestId);
+        if (g && sendGuest(g, id)) setPlacingGuestId(null);
+        else setNotice('That table is full — pick another.');
+        return;
+      }
       // Table-swap pick mode (Play): first tap arms a table, second swaps them.
       if (tableSwapArmed) {
         if (!tableSwapFirst) {
@@ -678,7 +765,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
       dragRef.current = { id, x: w.x, z: w.z };
       setDraggingId(id);
     },
-    [tableSwapArmed, tableSwapFirst, swapTables, mode, canEdit, room, tablesById],
+    [placingGuestId, guestById, sendGuest, tableSwapArmed, tableSwapFirst, swapTables, mode, canEdit, room, tablesById],
   );
 
   // A guest-list tap: an UNSEATED guest walks in; a SEATED guest enters or
@@ -686,7 +773,11 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
   const onGuestTap = useCallback(
     (g: Lab3DGuest) => {
       if (!seats.has(g.id)) {
-        sendGuest(g);
+        // Pick the guest UP for precise placement — the next table tap seats
+        // them there. Tapping the same guest again puts them back down.
+        setMode('play');
+        setSwapSelId(null);
+        setPlacingGuestId((cur) => (cur === g.id ? null : g.id));
         return;
       }
       if (swapSelId === g.id) {
@@ -700,7 +791,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
       }
       setSwapSelId(g.id);
     },
-    [seats, sendGuest, swapSelId, swapGuests],
+    [seats, swapSelId, swapGuests],
   );
 
   const seatedCount = useMemo(() => {
@@ -796,7 +887,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
           enableDamping={!reduced}
           dampingFactor={0.08}
           minDistance={6}
-          maxDistance={room.d * 3}
+          maxDistance={Math.max(room.d * 3, bounds.span * 1.4)}
           minPolarAngle={mode === 'build' ? 0.05 : 0.18}
           maxPolarAngle={mode === 'build' ? 0.62 : Math.PI / 2 - 0.04}
           target={[0, 0.5, 0]}
@@ -827,6 +918,14 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
         crowdActive={!!crowd}
         onWalkEveryone={walkEveryone}
         onClearCrowd={() => setCrowd(null)}
+        placingGuestName={placingGuestId ? guestById.get(placingGuestId)?.name ?? null : null}
+        placingGuestId={placingGuestId}
+        onSeatAnywhere={() => {
+          const g = placingGuestId ? guestById.get(placingGuestId) : null;
+          setPlacingGuestId(null);
+          if (g) sendGuest(g);
+        }}
+        onCancelPlacing={() => setPlacingGuestId(null)}
         swapSelId={swapSelId}
         tableSwapArmed={tableSwapArmed}
         onToggleTableSwap={() => {
@@ -836,6 +935,10 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
         walker={walker}
         arrived={arrived}
         selectedLabel={selectedId ? tablesById.get(selectedId)?.label ?? null : null}
+        selectedType={selectedId ? tablesById.get(selectedId)?.type ?? null : null}
+        onChangeType={changeTableType}
+        onPublish={publishPlan}
+        printHref={`/dashboard/${eventId}/seating/print`}
         tableCount={tables.length}
       />
     </div>
@@ -1659,12 +1762,20 @@ function Hud({
   crowdActive,
   onWalkEveryone,
   onClearCrowd,
+  placingGuestName,
+  placingGuestId,
+  onSeatAnywhere,
+  onCancelPlacing,
   swapSelId,
   tableSwapArmed,
   onToggleTableSwap,
   walker,
   arrived,
   selectedLabel,
+  selectedType,
+  onChangeType,
+  onPublish,
+  printHref,
   tableCount,
 }: {
   mode: 'build' | 'play';
@@ -1690,12 +1801,20 @@ function Hud({
   crowdActive: boolean;
   onWalkEveryone: () => void;
   onClearCrowd: () => void;
+  placingGuestName: string | null;
+  placingGuestId: string | null;
+  onSeatAnywhere: () => void;
+  onCancelPlacing: () => void;
   swapSelId: string | null;
   tableSwapArmed: boolean;
   onToggleTableSwap: () => void;
   walker: WalkerState;
   arrived: string | null;
   selectedLabel: string | null;
+  selectedType: string | null;
+  onChangeType: (newType: string) => void;
+  onPublish: () => void;
+  printHref: string;
   tableCount: number;
 }) {
   const glass =
@@ -1789,6 +1908,19 @@ function Hud({
                   <button type="button" disabled={!canEdit} onClick={() => onRotate(15)} aria-label="Rotate right" className="flex-1 rounded-lg bg-white/10 py-1.5 text-sm text-white hover:bg-white/20 disabled:opacity-40">⟳</button>
                   <button type="button" disabled={!canEdit} onClick={onDelete} className="flex-1 rounded-lg bg-danger-500/30 py-1.5 text-sm text-white hover:bg-danger-500/50 disabled:opacity-40">Delete</button>
                 </div>
+                <select
+                  value={selectedType ?? ''}
+                  disabled={!canEdit}
+                  onChange={(e) => onChangeType(e.target.value)}
+                  aria-label="Table type"
+                  className="mt-1.5 w-full rounded-lg border border-white/15 bg-ink/50 px-2 py-1.5 text-sm text-white disabled:opacity-40"
+                >
+                  {TABLE_TYPE_CATALOG.map((t) => (
+                    <option key={t.type} value={t.type} className="text-ink">
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
               </div>
             ) : null}
             <p className="text-xs leading-relaxed text-white/70">
@@ -1796,14 +1928,48 @@ function Hud({
               scroll to zoom.
             </p>
             <p className="mt-2 text-[11px] text-white/50">{tableCount} tables</p>
+            <div className="mt-2 flex gap-1.5">
+              <button
+                type="button"
+                disabled={!canEdit}
+                onClick={onPublish}
+                className="flex-1 rounded-lg bg-white/10 px-2 py-1.5 text-sm font-medium text-white transition hover:bg-white/20 disabled:opacity-40"
+              >
+                Publish
+              </button>
+              <a
+                href={printHref}
+                target="_blank"
+                rel="noreferrer"
+                className="flex-1 rounded-lg bg-white/10 px-2 py-1.5 text-center text-sm font-medium text-white transition hover:bg-white/20"
+              >
+                Print pack
+              </a>
+            </div>
           </div>
         ) : (
           <div className={`flex min-h-0 flex-1 flex-col p-3 ${glass}`}>
             <p className="mb-1 text-sm font-medium">Guests</p>
+            {placingGuestName ? (
+              <div className="mb-2 rounded-xl bg-amber-400/15 p-2.5 text-xs leading-relaxed text-amber-100">
+                <p className="font-medium">Placing {placingGuestName}</p>
+                <p className="mt-0.5 text-amber-100/80">Tap a table to seat them there.</p>
+                <div className="mt-1.5 flex gap-1.5">
+                  <button type="button" onClick={onSeatAnywhere} className="flex-1 rounded-lg bg-white/90 px-2 py-1 font-medium text-ink hover:bg-white">
+                    Seat anywhere
+                  </button>
+                  <button type="button" onClick={onCancelPlacing} className="flex-1 rounded-lg bg-white/10 px-2 py-1 font-medium text-white hover:bg-white/20">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : null}
             <p className="mb-2 text-[11px] text-white/60">
-              {swapSelId
-                ? 'Tap another seated guest to swap'
-                : `${seatedCount} seated · tap two to swap, or an empty one to walk in`}
+              {placingGuestName
+                ? `Tap a table to seat ${placingGuestName}`
+                : swapSelId
+                  ? 'Tap another seated guest to swap'
+                  : `${seatedCount} seated · tap an empty guest to pick them up, then a table · tap two seated to swap`}
             </p>
             <button
               type="button"
@@ -1831,18 +1997,23 @@ function Hud({
                 guests.map((g) => {
                   const seated = seats.has(g.id);
                   const selected = swapSelId === g.id;
+                  const placing = placingGuestId === g.id;
                   return (
                     <button
                       key={g.id}
                       type="button"
                       onClick={() => onGuestTap(g)}
                       className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-sm text-white/90 transition ${
-                        selected ? 'bg-white/25 ring-1 ring-white/50' : 'hover:bg-white/15'
+                        placing
+                          ? 'bg-amber-400/25 ring-1 ring-amber-300/60'
+                          : selected
+                            ? 'bg-white/25 ring-1 ring-white/50'
+                            : 'hover:bg-white/15'
                       }`}
                     >
                       <span className="truncate">{g.name}</span>
                       <span className={`ml-2 shrink-0 text-[10px] ${seated ? 'text-white/55' : 'text-white/40'}`}>
-                        {selected ? 'swap?' : seated ? 'seated' : 'walk'}
+                        {placing ? 'placing…' : selected ? 'swap?' : seated ? 'seated' : 'place'}
                       </span>
                     </button>
                   );

@@ -21,6 +21,7 @@
 // resubscribe we refetch the latest messages so any inserts that happened
 // while we were offline catch up without a page reload.
 
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
@@ -30,7 +31,16 @@ import {
   type ChatMessageRow,
   type ChatSenderRole,
 } from '@/lib/chat';
+import { formatCentavos, PROPOSAL_STATUS_LABEL } from '@/lib/vendor-proposals';
 import { trackFailure } from '@/lib/telemetry/track-error';
+
+/** Display data for the in-thread proposal card, fetched by proposal_id. */
+type ProposalCardData = {
+  publicId: string;
+  title: string;
+  totalCentavos: number;
+  status: string;
+};
 
 type Props = {
   threadId: string;
@@ -66,6 +76,48 @@ export function ChatMessageStream({
 
   const [messages, setMessages] = useState<ChatMessageRow[]>(initialMessages);
   const [counterpartyTyping, setCounterpartyTyping] = useState(false);
+
+  // Proposal cards: a message with proposal_id renders as a card. We fetch the
+  // proposal's display data (RLS-scoped: couple reads sent proposals on their
+  // events, vendor reads their own) once per id, for both SSR + realtime rows.
+  const [proposalCards, setProposalCards] = useState<Record<string, ProposalCardData>>({});
+  const requestedProposalsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const ids = [
+      ...new Set(messages.map((m) => m.proposal_id).filter((x): x is string => !!x)),
+    ].filter((id) => !requestedProposalsRef.current.has(id));
+    if (ids.length === 0) return;
+    ids.forEach((id) => requestedProposalsRef.current.add(id));
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase
+        .from('vendor_proposals')
+        .select('proposal_id, public_id, title, total_centavos, status')
+        .in('proposal_id', ids);
+      if (cancelled || !data) return;
+      setProposalCards((prev) => {
+        const next = { ...prev };
+        for (const p of data as {
+          proposal_id: string;
+          public_id: string;
+          title: string;
+          total_centavos: number;
+          status: string;
+        }[]) {
+          next[p.proposal_id] = {
+            publicId: p.public_id,
+            title: p.title,
+            totalCentavos: p.total_centavos,
+            status: p.status,
+          };
+        }
+        return next;
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [messages, supabase]);
 
   // Scroll management: only auto-stick to bottom if the user IS near the
   // bottom. Tracking this in a ref (not state) avoids spurious re-renders
@@ -304,20 +356,66 @@ export function ChatMessageStream({
           No messages yet — say hi to break the ice.
         </li>
       ) : (
-        messages.map((m) =>
+        messages.map((m) => {
+          // Proposal cards — a vendor-sent structured proposal lands in the
+          // thread. Render the card (title · price · status + a Review/View
+          // link to the existing /proposals page) instead of a plain bubble;
+          // fall back to the message body until the card data loads.
+          if (m.proposal_id) {
+            const card = proposalCards[m.proposal_id];
+            return (
+              <li key={m.message_id} className="flex justify-center">
+                <div className="w-full max-w-[92%] rounded-xl border border-terracotta/40 bg-terracotta/[0.06] p-3">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
+                    📄 Proposal
+                  </p>
+                  {card ? (
+                    <>
+                      <p className="mt-1 text-sm font-semibold text-ink">{card.title}</p>
+                      <p className="text-sm text-ink/70">
+                        {card.totalCentavos > 0
+                          ? formatCentavos(card.totalCentavos)
+                          : 'Price on request'}
+                        {' · '}
+                        {PROPOSAL_STATUS_LABEL[
+                          card.status as keyof typeof PROPOSAL_STATUS_LABEL
+                        ] ?? card.status}
+                      </p>
+                      <Link
+                        href={`/proposals/${card.publicId}`}
+                        className="mt-2 inline-flex h-9 items-center rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600"
+                      >
+                        {viewerRole === 'couple' ? 'Review & accept' : 'View proposal'}
+                      </Link>
+                    </>
+                  ) : (
+                    <p className="mt-1 whitespace-pre-wrap break-words text-sm text-ink/80">
+                      {m.body}
+                    </p>
+                  )}
+                  <p className="mt-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+                    {formatChatTimestamp(m.created_at)}
+                  </p>
+                </div>
+              </li>
+            );
+          }
           // System messages (e.g. the Build re-quote nudge) are automated
           // Setnayan notes — centered, owned by neither side, labelled
           // "Setnayan". Never "from the couple"/"from the vendor".
-          m.sender_role === 'system' ? (
-            <li key={m.message_id} className="flex justify-center">
-              <div className="max-w-[90%] rounded-xl border border-mulberry/20 bg-mulberry/[0.06] px-3 py-2 text-center text-sm text-ink">
-                <p className="whitespace-pre-wrap break-words">{m.body}</p>
-                <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.15em] text-mulberry/70">
-                  Setnayan · {formatChatTimestamp(m.created_at)}
-                </p>
-              </div>
-            </li>
-          ) : (
+          if (m.sender_role === 'system') {
+            return (
+              <li key={m.message_id} className="flex justify-center">
+                <div className="max-w-[90%] rounded-xl border border-mulberry/20 bg-mulberry/[0.06] px-3 py-2 text-center text-sm text-ink">
+                  <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                  <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.15em] text-mulberry/70">
+                    Setnayan · {formatChatTimestamp(m.created_at)}
+                  </p>
+                </div>
+              </li>
+            );
+          }
+          return (
             <li
               key={m.message_id}
               className={`flex ${ownsBubble(m, viewerRole) ? 'justify-end' : 'justify-start'}`}
@@ -341,8 +439,8 @@ export function ChatMessageStream({
                 </p>
               </div>
             </li>
-          ),
-        )
+          );
+        })
       )}
       {counterpartyTyping ? (
         <li className="flex justify-start" data-testid="typing-indicator">

@@ -236,7 +236,7 @@ export async function sendChatMessage(formData: FormData) {
   }
 }
 
-async function notifyOtherParty(args: {
+export async function notifyOtherParty(args: {
   threadId: string;
   eventId: string;
   vendorProfileId: string;

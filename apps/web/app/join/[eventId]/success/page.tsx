@@ -58,7 +58,7 @@ export default async function JoinSuccessPage({ params, searchParams }: Props) {
         <p className="mt-1 text-lg font-medium text-ink">
           {ROLE_LABELS[(membership.role as GuestRole) ?? 'guest']}
         </p>
-        <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.15em] text-ink/40">
+        <p className="mt-3 font-mono text-xs uppercase tracking-[0.15em] text-ink/40">
           Event {event.public_id}
         </p>
       </section>

@@ -423,9 +423,7 @@ export const routes = {
   howItWorks: () => `/how-it-works`,
   join: {
     detail: (eventId: string) => `/join/${eventId}`,
-    pending: (eventId: string) => `/join/${eventId}/pending`,
     success: (eventId: string) => `/join/${eventId}/success`,
-    verify: (eventId: string) => `/join/${eventId}/verify`,
   },
   login: () => `/login`,
   onboarding: {

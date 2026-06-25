@@ -4,9 +4,11 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import { VECTOR_MODEL } from '@/lib/face-embed-core';
 import { readGuestSession } from '@/lib/guest-session';
 import { emitNotification } from '@/lib/notification-emit';
+import { sendEventAccountMagicLink } from '@/lib/event-account-link';
 import type { MealPreference, RsvpStatus } from '@/lib/guests';
 
 const RSVP_VALUES: RsvpStatus[] = ['pending', 'attending', 'declined', 'maybe'];
@@ -22,6 +24,56 @@ const MEAL_VALUES: MealPreference[] = [
 
 function clean(value: FormDataEntryValue | null): string {
   return value ? String(value).trim() : '';
+}
+
+/**
+ * Invite/Join v2 — a guest saves a vendor they liked at this event to THEIR own
+ * account, for future planning (`guest_saved_vendors`). Account-required: it's a
+ * personal bookmark, so an accountless guest is routed to make one (the
+ * claim-account box on the page). Idempotent (one bookmark per vendor per user).
+ */
+export async function saveAttendedVendorAction(
+  eventId: string,
+  slug: string,
+  vendorProfileId: string,
+) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    // No account → can't bookmark for "their future plans" yet; nudge sign-up.
+    return redirect(`/${slug}?save=needs_account`);
+  }
+  if (!vendorProfileId) {
+    return redirect(`/${slug}?save=error`);
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin.from('guest_saved_vendors').upsert(
+    { user_id: user.id, vendor_profile_id: vendorProfileId, source_event_id: eventId },
+    { onConflict: 'user_id,vendor_profile_id', ignoreDuplicates: true },
+  );
+
+  return redirect(`/${slug}?save=${error ? 'error' : 'ok'}`);
+}
+
+/**
+ * Invite/Join v2 — an accountless guest on the lifecycle site claims a real
+ * Setnayan account. Reads the SIGNED guest-session cookie (never a form field)
+ * to identify the guest, then emails a passwordless sign-in link that connects
+ * this event to the account (sendEventAccountMagicLink). Bound with the slug so
+ * we can return to the event page if the cookie's gone stale.
+ */
+export async function claimAccountAction(eventId: string, slug: string, formData: FormData) {
+  const email = clean(formData.get('email'));
+  const session = await readGuestSession();
+  if (!email || !session || session.event_id !== eventId) {
+    return redirect(`/${slug}`);
+  }
+  await sendEventAccountMagicLink({ eventId, guestId: session.guest_id, email });
+  return redirect(`/join/${eventId}/check-email?email=${encodeURIComponent(email)}`);
 }
 
 export async function submitRsvp(

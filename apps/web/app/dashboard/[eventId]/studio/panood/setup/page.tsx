@@ -19,9 +19,14 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { formatPhp } from '@/lib/orders';
 import { getYoutubeOAuthConfig } from '@/lib/panood-youtube';
+import {
+  getActivePanoodBroadcast,
+  getActivePanoodStreamKey,
+} from '@/lib/panood-broadcast';
 import { eventSkuActive } from '@/lib/entitlements';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { savePanoodWatchUrl, clearPanoodWatchUrl } from './actions';
+import { GoLiveCard } from './go-live-card';
 import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Panood setup · Setnayan' };
@@ -164,25 +169,40 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
     // pre-migration env — keep null
   }
 
-  // REAL pricing from the admin catalog (formatV2Sku). Camera/hour add-ons and
+  // REAL broadcast state (Phase 1 one-tap go-live). getActivePanoodBroadcast /
+  // getActivePanoodStreamKey use the service-role admin client (the table holds
+  // the secret stream_key, RLS-policy-less). Wrapped so a pre-migration env
+  // (missing panood_broadcasts table) renders "no active broadcast" instead of
+  // crashing the page — same graceful-degrade posture as the watch-URL read.
+  let activeBroadcast: Awaited<ReturnType<typeof getActivePanoodBroadcast>> = null;
+  let activeStreamKey: string | null = null;
+  try {
+    activeBroadcast = await getActivePanoodBroadcast(eventId);
+    if (activeBroadcast) {
+      activeStreamKey = await getActivePanoodStreamKey(eventId);
+    }
+  } catch {
+    // pre-migration env — keep null (no active broadcast)
+  }
+
+  // REAL pricing from the admin catalog (formatV2Sku). PANOOD_SYSTEM is NOT
+  // priced here: single-cam Panood live is FREE for every host (owner model
+  // 2026-06-26) and PANOOD_SYSTEM is reserved for the future PAID multi-cam
+  // tier. The Animated-Monogram + SDE add-ons keep their real catalog prices;
   // the Broadcast Style Pack / AI Edited Highlight have NO V2 SKU yet, so those
   // surfaces honest-state "arrives with the streaming rollout" instead of a
   // price (owner rule: never hardcode a price).
-  const [panoodSku, monogramSku, sdeSku] = await Promise.all([
-    formatV2Sku('PANOOD_SYSTEM').catch(() => null),
+  const [monogramSku, sdeSku] = await Promise.all([
     formatV2Sku('ANIMATED_MONOGRAM').catch(() => null),
     formatV2Sku('SDE').catch(() => null),
   ]);
-  const panoodPriceLabel = panoodSku
-    ? `${formatPhp(panoodSku.price_php)} / day`
-    : null;
   const monogramPriceLabel = monogramSku ? formatPhp(monogramSku.price_php) : null;
   const sdePriceLabel = sdeSku ? `${formatPhp(sdeSku.price_php)} / 3 min` : null;
 
-  // Base Panood is a single per-day SKU covering one event-day. There is no
-  // Setnayan camera-ingest pipeline today (couples stream from their own phone or
-  // OBS to their own YouTube), so the surface no longer claims a camera count —
-  // the multi-camera control room is a future streaming-rollout feature.
+  // Single-camera live broadcast is the free core tool (no per-day SKU charge).
+  // There is no Setnayan camera-ingest pipeline today (couples stream from their
+  // own phone or OBS to their own YouTube), so the surface claims no camera
+  // count — the multi-camera control room is a future PAID streaming feature.
 
   return (
     <section className="space-y-8">
@@ -254,11 +274,34 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
         youtubeGrant={youtubeGrant}
       />
 
-      <SetupStatus
+      <GoLiveCard
         eventId={eventId}
-        setup={setup}
-        panoodPriceLabel={panoodPriceLabel}
+        oauthReady={oauthReady}
+        connected={!!youtubeGrant}
+        // Single-cam go-live is FREE for any host (owner model 2026-06-26 —
+        // "the tool is free; the premium layer is paid"). This page is already
+        // host-gated, so anyone who can see it may go live without owning the
+        // PANOOD_SYSTEM SKU (that SKU is reserved for the future PAID multi-cam
+        // control room + broadcast overlays). Pass true to unlock the go-live
+        // button; the add-on rows below still reflect REAL ownership.
+        ownsPanood={true}
+        active={
+          activeBroadcast
+            ? {
+                broadcastId: activeBroadcast.broadcast_id,
+                ingestionUrl: activeBroadcast.ingestion_url,
+                status: activeBroadcast.status,
+                // broadcast_id IS the public videoId — derive the canonical
+                // watch URL directly so this doesn't depend on the watch-URL
+                // read order below.
+                watchUrl: `https://www.youtube.com/watch?v=${activeBroadcast.broadcast_id}`,
+              }
+            : null
+        }
+        streamKey={activeStreamKey}
       />
+
+      <SetupStatus eventId={eventId} />
 
       <BroadcastSetup eventId={eventId} />
 
@@ -446,15 +489,7 @@ function ConnectedPanel({
 // Section 2 — Setup status (SKU summary)
 // -----------------------------------------------------------------------------
 
-function SetupStatus({
-  eventId,
-  setup,
-  panoodPriceLabel,
-}: {
-  eventId: string;
-  setup: PanoodSetup;
-  panoodPriceLabel: string | null;
-}) {
+function SetupStatus({ eventId }: { eventId: string }) {
   return (
     <section
       aria-labelledby="setup-status-heading"
@@ -463,33 +498,25 @@ function SetupStatus({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-            Step 2 · what you&rsquo;ve unlocked
+            Step 2 · what you get
           </p>
           <h2 id="setup-status-heading" className="text-xl font-semibold tracking-tight">
-            Your Panood package
+            Your Panood broadcast
           </h2>
         </div>
-        {setup.baseOwned ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-success-100 px-3 py-1 text-xs font-medium text-success-900">
-            <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            Panood owned
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-warn-100 px-3 py-1 text-xs font-medium text-warn-900">
-            <Lock aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            Not yet purchased
-          </span>
-        )}
+        {/* Single-cam live broadcast is FREE for any host (owner model
+            2026-06-26). The green "Included" badge always shows; the
+            PANOOD_SYSTEM SKU is reserved for the future PAID multi-cam tier. */}
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-success-100 px-3 py-1 text-xs font-medium text-success-900">
+          <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+          Included free
+        </span>
       </div>
 
       <p className="text-sm text-ink/70">
-        Panood Daily Broadcast &middot; one event-day, embedded on your event page,
-        YouTube delivery + auto-archive on your own channel
-        {panoodPriceLabel ? (
-          <>
-            {' '}&middot; <span className="font-mono text-ink">{panoodPriceLabel}</span>
-          </>
-        ) : null}
+        Single-camera live broadcast &middot; one event-day, embedded on your event
+        page, YouTube delivery + auto-archive on your own channel &middot;{' '}
+        <span className="font-medium text-success-700">free for every couple</span>
       </p>
 
       <div className="grid gap-3 sm:grid-cols-3">
@@ -514,25 +541,30 @@ function SetupStatus({
       </div>
 
       <ul className="divide-y divide-ink/10 rounded-lg border border-ink/10 bg-cream/60 text-sm">
+        {/* Single-cam live broadcast — FREE for every host (owner model
+            2026-06-26), so it always shows as included rather than as a paid,
+            owned-gated row. */}
         <AddOnRow
-          label="Panood Daily Broadcast (1 event-day · embedded on your event page)"
-          price={panoodPriceLabel ?? '—'}
-          owned={setup.baseOwned}
+          label="Single-camera live broadcast (embedded on your event page)"
+          price="Free"
+          owned={true}
         />
       </ul>
 
       <div className="rounded-lg border border-dashed border-ink/15 bg-cream/60 p-3 text-xs text-ink/60">
-        <p className="font-medium text-ink/75">More days &amp; the multi-camera control room</p>
+        <p className="font-medium text-ink/75">The multi-camera control room — coming (paid upgrade)</p>
         <p className="mt-1">
-          Today, each Panood day embeds your own YouTube broadcast on your event page —
-          buy an extra day for prep, ceremony, or reception from the{' '}
+          Going live with one camera is free. A Setnayan multi-camera control
+          room — switch between several phone cameras, mark highlights, cut to
+          standby, with broadcast-style overlays — is a paid upgrade arriving
+          with the streaming rollout. See what&rsquo;s coming on the{' '}
           <Link
             href={`/dashboard/${eventId}/studio/panood`}
             className="text-terracotta hover:underline"
           >
             Panood page
           </Link>
-          . A Setnayan multi-camera control room is coming with the streaming rollout.
+          .
         </p>
       </div>
     </section>

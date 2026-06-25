@@ -106,8 +106,49 @@ export type Lab3DPalette = {
 
 export type Vec2 = { x: number; z: number };
 
-/** Default room footprint (metres) when no venue size is set. */
-export const DEFAULT_ROOM = { w: 18, d: 12 } as const;
+// Free-board default — MUST match the 2D editor's default venue (venue_width_m
+// ?? 20 · venue_length_m ?? 30 in seating-editor.tsx). When they drift, the stage
+// (and everything) scales differently between 2D and 3D — most visibly the stage
+// depth (owner 2026-06-26 bug: "stage didn't follow the 2D size").
+export const DEFAULT_ROOM = { w: 20, d: 30 } as const;
+
+/** A rectangular zone in world metres (stage / dance floor). */
+export type PlaceZone = { cx: number; cz: number; hw: number; hd: number };
+
+/** Does an avoidance disc (x,z,r) overlap a rect zone? (closest-point test) */
+function discOverlapsZone(x: number, z: number, r: number, zone: PlaceZone): boolean {
+  const dx = Math.max(Math.abs(x - zone.cx) - zone.hw, 0);
+  const dz = Math.max(Math.abs(z - zone.cz) - zone.hd, 0);
+  return Math.hypot(dx, dz) < r;
+}
+
+/**
+ * Placement rules (owner 2026-06-26): objects can't overlap each other · no
+ * tables on the dance floor · only a SWEETHEART table may sit on the stage.
+ * Pure — the editor calls this on drop and reverts + flags the reason if blocked.
+ * Footprints are modelled as discs; the −0.1 lets edges kiss without tripping.
+ */
+export function checkPlacement(
+  cand: { x: number; z: number; r: number; isTable: boolean; isSweetheart: boolean },
+  others: { x: number; z: number; r: number }[],
+  stage: PlaceZone | null,
+  dance: PlaceZone | null,
+): { ok: true } | { ok: false; reason: string } {
+  for (const o of others) {
+    if (Math.hypot(cand.x - o.x, cand.z - o.z) < cand.r + o.r - 0.1) {
+      return { ok: false, reason: 'Objects can’t overlap each other.' };
+    }
+  }
+  if (cand.isTable && dance && discOverlapsZone(cand.x, cand.z, cand.r, dance)) {
+    return { ok: false, reason: 'No tables on the dance floor.' };
+  }
+  if (stage && discOverlapsZone(cand.x, cand.z, cand.r, stage)) {
+    if (!(cand.isTable && cand.isSweetheart)) {
+      return { ok: false, reason: 'Only a sweetheart table can sit on the stage.' };
+    }
+  }
+  return { ok: true };
+}
 
 export function shapeHintFor(tableType: string): ShapeHint {
   if (tableType.startsWith('round')) return 'round';
@@ -129,6 +170,35 @@ export function roomSize(floor: Lab3DFloor): { w: number; d: number } {
     return { w: floor.venueWidthM, d: floor.venueLengthM };
   }
   return { w: DEFAULT_ROOM.w, d: DEFAULT_ROOM.d };
+}
+
+/**
+ * World-space bounding box of the placed tables (+ a footprint margin), with its
+ * centre and span. The "open canvas" lets tables sit far outside the default
+ * room (free-board pct can exceed 0–100), so this is how the camera knows how
+ * far to let you zoom out / what to frame — without a fixed venue rectangle.
+ * Empty board → falls back to the room itself. Pure.
+ */
+export function contentBounds(
+  tables: { xPct: number; yPct: number }[],
+  room: { w: number; d: number },
+): { minX: number; maxX: number; minZ: number; maxZ: number; cx: number; cz: number; span: number } {
+  if (tables.length === 0) {
+    return {
+      minX: -room.w / 2, maxX: room.w / 2, minZ: -room.d / 2, maxZ: room.d / 2,
+      cx: 0, cz: 0, span: Math.max(room.w, room.d),
+    };
+  }
+  const M = 2; // metre margin per table for its footprint + chairs
+  let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+  for (const t of tables) {
+    const p = pctToWorld(t.xPct, t.yPct, room);
+    minX = Math.min(minX, p.x - M);
+    maxX = Math.max(maxX, p.x + M);
+    minZ = Math.min(minZ, p.z - M);
+    maxZ = Math.max(maxZ, p.z + M);
+  }
+  return { minX, maxX, minZ, maxZ, cx: (minX + maxX) / 2, cz: (minZ + maxZ) / 2, span: Math.max(maxX - minX, maxZ - minZ) };
 }
 
 /** percent (0–100, origin top-left) → centred world metres (origin room centre). */
@@ -302,6 +372,26 @@ export function seatWorld(table: Lab3DTable, seatNumber: number, room: { w: numb
 export function tableAvoidR(table: Lab3DTable): number {
   const d = tableDims(table.shape, table.capacity);
   return (d.round ? d.w / 2 : Math.max(d.w, d.d) / 2) + 0.8;
+}
+
+/**
+ * Lowest free seat index at a table — the seat a tap-to-place guest takes. A
+ * seat is unavailable if it's removed (deleted chair) or already occupied. Out-
+ * of-range removed/occupied indices are ignored. Returns -1 when the table is
+ * full (caller surfaces "that table is full"). Pure + shared so the auto-seat
+ * walk-in and the precise tap-a-table placement fill seats identically.
+ */
+export function firstFreeSeatAtTable(
+  capacity: number,
+  removedSeats: number[],
+  occupiedSeats: number[],
+): number {
+  const taken = new Set<number>(
+    removedSeats.filter((i) => Number.isInteger(i) && i >= 0 && i < capacity),
+  );
+  for (const s of occupiedSeats) taken.add(s);
+  for (let i = 0; i < capacity; i++) if (!taken.has(i)) return i;
+  return -1;
 }
 
 /**

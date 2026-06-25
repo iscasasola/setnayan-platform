@@ -302,26 +302,25 @@ export async function fetchPendingVendorPayments(opts: {
   if (payments.length === 0) return [];
 
   // 3. Resolve installment labels from each booking's frozen plan (seq → label).
+  //    ONE batched read keyed by event_vendor_id — not N per-vendor round-trips
+  //    (this runs on the vendor message-thread page, once per pending vendor).
   const planByVendor = new Map<string, Map<number, string>>();
   const uniqueVendorIds = Array.from(new Set(payments.map((p) => p.vendor_id)));
-  await Promise.all(
-    uniqueVendorIds.map(async (evId) => {
-      const { data: plan } = await adminClient
-        .from('event_vendor_payment_plan')
-        .select('instances_json')
-        .eq('event_id', eventId)
-        .eq('event_vendor_id', evId)
-        .maybeSingle();
-      const raw = (plan as { instances_json?: unknown } | null)?.instances_json;
-      const map = new Map<number, string>();
-      if (Array.isArray(raw)) {
-        for (const inst of raw as PlanInstance[]) {
-          if (typeof inst?.seq === 'number') map.set(inst.seq, inst.label);
-        }
+  const { data: plans } = await adminClient
+    .from('event_vendor_payment_plan')
+    .select('event_vendor_id, instances_json')
+    .eq('event_id', eventId)
+    .in('event_vendor_id', uniqueVendorIds);
+  for (const plan of (plans ?? []) as Array<{ event_vendor_id: string; instances_json?: unknown }>) {
+    const raw = plan.instances_json;
+    const map = new Map<number, string>();
+    if (Array.isArray(raw)) {
+      for (const inst of raw as PlanInstance[]) {
+        if (typeof inst?.seq === 'number') map.set(inst.seq, inst.label);
       }
-      planByVendor.set(evId, map);
-    }),
-  );
+    }
+    planByVendor.set(plan.event_vendor_id, map);
+  }
 
   // 4. Presign proof receipts in parallel + assemble.
   return await Promise.all(

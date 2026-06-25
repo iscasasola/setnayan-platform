@@ -88,9 +88,9 @@
     --color-terracotta: 197 160 89;    /* accent → Royal Champagne Gold #C5A059 */
     --color-terracotta-600: 168 131 64; /* accent hover → #A88340 */
     --color-terracotta-700: 140 105 50; /* accent deepest → #8C6932 */
-    --color-mulberry: 154 59 35;       /* CTA → Terracotta Clay #9A3B23 (was Rich Mulberry; token name kept) */
-    --color-mulberry-600: 126 47 27;   /* CTA hover → #7E2F1B */
-    --color-mulberry-700: 100 37 20;   /* CTA deepest → #642514 */
+    --color-mulberry: 30 34 41;        /* CTA → Deep Obsidian #1E2229 (was Mulberry; token name kept) */
+    --color-mulberry-600: 52 58 68;    /* CTA hover (lifted charcoal) → #343A44 */
+    --color-mulberry-700: 21 23 27;    /* CTA deepest → #15171B */
     --accent: #c5a059;
     --accent-deep: #a88340;
     --accent-soft: #f4ecd8;            /* Light champagne wash */
@@ -106,12 +106,12 @@
     --color-terracotta: 224 204 160;   /* accent → brighter champagne #E0CCA0 */
     --color-terracotta-600: 197 160 89; /* hover → #C5A059 */
     --color-terracotta-700: 168 131 64; /* deepest → #A88340 */
-    --color-mulberry: 216 156 133;     /* CTA → clay-soft #D89C85 reads on dark */
-    --color-mulberry-600: 228 182 164; /* CTA hover lighter still */
-    --color-mulberry-700: 154 59 35;   /* CTA deepest → base Terracotta Clay #9A3B23 */
+    --color-mulberry: 74 81 92;        /* CTA → charcoal #4A515C (reads on the dark bg) */
+    --color-mulberry-600: 92 99 110;   /* CTA hover lighter → #5C636E */
+    --color-mulberry-700: 30 34 41;    /* CTA deepest → Deep Obsidian #1E2229 */
     --accent: #e0cca0;
     --accent-deep: #c5a059;
-    --accent-soft: #2a1611;            /* Dark Terracotta Clay tint for accent backgrounds */
+    --accent-soft: #22262c;            /* Dark obsidian tint for accent backgrounds */
     --surface: #1e2229;
     --surface-soft: #2a2e36;           /* Slightly lighter obsidian */
     --ink-soft: 182 185 190;            /* Slate-3 #B6B9BE */
@@ -618,7 +618,7 @@ html.subnav-docked [data-shell-main] {
  *   #FBFBFA Warm Alabaster      → --m-paper (60% background)
  *   #1E2229 Deep Obsidian       → --m-ink (30% text/structure)
  *   #C5A059 Royal Champagne Gold → --m-orange (10% accent · token name kept)
- *   #9A3B23 Terracotta Clay     → --m-mulberry (CTA buttons · token name kept)
+ *   #1E2229 Deep Obsidian       → --m-mulberry (CTA buttons · token name kept; = ink)
  *
  * SUPERSEDES v2.1 § 8 palette (burnt sienna #C96B3A · cream paper #FBF8F2 ·
  * ink #2D3038) per project_setnayan_palette memory rule. Token names retained
@@ -632,10 +632,10 @@ html.subnav-docked [data-shell-main] {
  * or via Tailwind arbitrary syntax
  *   className="bg-[var(--m-mulberry)]"
  *
- * WCAG verified: obsidian on alabaster 16.42:1 AAA · Terracotta Clay on
- * alabaster ~6.7:1 AA · white on Terracotta Clay ~6.9:1 AA (ample for button
- * labels) · champagne on alabaster 2.71:1 (use for non-text UI per WCAG
- * 1.4.11 · escalate --m-orange-2 for text).
+ * WCAG verified: obsidian on alabaster 16.42:1 AAA · white on obsidian CTA
+ * 16.42:1 AAA (the CTA is now the ink colour, so it's the strongest possible
+ * button contrast) · champagne on alabaster 2.71:1 (use for non-text UI per
+ * WCAG 1.4.11 · escalate --m-orange-2 for text).
  */
 :root {
   /* Surfaces — Warm Alabaster (Clean Editorial · was warm paper #FBF8F2) */
@@ -658,11 +658,11 @@ html.subnav-docked [data-shell-main] {
   --m-orange-3:   #E0CCA0;
   --m-orange-4:   #F4ECD8;
 
-  /* CTA — Terracotta Clay (primary interactive buttons; token name `mulberry` kept) */
-  --m-mulberry:    #9A3B23;
-  --m-mulberry-2:  #7E2F1B;
-  --m-mulberry-3:  #D89C85;
-  --m-mulberry-4:  #F6E9E2;
+  /* CTA — Deep Obsidian (primary interactive buttons; token name `mulberry` kept) */
+  --m-mulberry:    #1E2229;
+  --m-mulberry-2:  #343A44;
+  --m-mulberry-3:  #C9CBCE;
+  --m-mulberry-4:  #ECEDEE;
 
   /* Supporting (retained from v2.1 pending owner future call) */
   --m-blush:      #F4D7C9;

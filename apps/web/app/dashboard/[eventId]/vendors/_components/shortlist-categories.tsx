@@ -51,7 +51,7 @@ import {
 const SLCAT_CSS = `
 .slcat{--paper:var(--m-paper,#FBFBFA);--ink:var(--m-ink,#1E2229);--ink-soft:#4F535B;
   --gold:var(--m-orange,#C5A059);--gold-deep:var(--m-orange-2,#8C6932);
-  --mulberry:var(--m-mulberry,#9A3B23);--line:var(--m-line,rgba(30,34,41,.12));
+  --mulberry:var(--m-mulberry,#1E2229);--line:var(--m-line,rgba(30,34,41,.12));
   --line-soft:rgba(30,34,41,.07);--card:#fff;
   --serif:var(--font-display),"Cormorant Garamond",Georgia,serif;
   --sans:var(--font-sans),"Manrope",-apple-system,system-ui,sans-serif;
@@ -74,7 +74,7 @@ const SLCAT_CSS = `
 
 /* ── Level 2 · category rows inside an open folder (connecting rail) ── */
 .slcat .fold-body{position:relative;padding:0 0 8px;animation:slcat-rise .26s var(--ease) both}
-.slcat .fold-body::before{content:'';position:absolute;left:22px;top:0;bottom:14px;width:2px;background:rgba(154, 59, 35,.16);border-radius: var(--m-r-xs);pointer-events:none}
+.slcat .fold-body::before{content:'';position:absolute;left:22px;top:0;bottom:14px;width:2px;background:rgba(30, 34, 41,.16);border-radius: var(--m-r-xs);pointer-events:none}
 @keyframes slcat-rise{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.slcat .fold-body{animation:none}}
 .slcat .cat{margin:0 14px 0 34px;border-top:1px solid var(--line-soft)}
@@ -85,8 +85,8 @@ const SLCAT_CSS = `
 .slcat .cat-rt{display:flex;align-items:center;gap:9px;flex:0 0 auto}
 .slcat .cat-count{font-family:var(--mono);font-size:9.5px;letter-spacing:.04em;color:#fff;background:var(--mulberry);border-radius: var(--m-r-full);padding:3px 9px;font-weight:600;min-width:21px;text-align:center}
 /* "saved request" icon — view/edit the couple's saved requirements for this leaf */
-.slcat .cat-req{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;flex:0 0 auto;border:1px solid rgba(154, 59, 35,.3);background:rgba(154, 59, 35,.07);color:var(--mulberry);border-radius: var(--m-r-full);cursor:pointer;transition:background .18s var(--ease),transform .12s cubic-bezier(.2,.7,.2,1)}
-.slcat .cat-req:hover{background:rgba(154, 59, 35,.13)}
+.slcat .cat-req{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;flex:0 0 auto;border:1px solid rgba(30, 34, 41,.3);background:rgba(30, 34, 41,.07);color:var(--mulberry);border-radius: var(--m-r-full);cursor:pointer;transition:background .18s var(--ease),transform .12s cubic-bezier(.2,.7,.2,1)}
+.slcat .cat-req:hover{background:rgba(30, 34, 41,.13)}
 .slcat .cat-req:active{transform:scale(.94)}
 .slcat .cat-chev{color:var(--ink-soft);transition:transform .22s var(--ease);flex:0 0 auto}
 .slcat .cat.open .cat-chev{transform:rotate(180deg);color:var(--mulberry)}
@@ -109,20 +109,20 @@ const SLCAT_CSS = `
 .slcat .vc .badges{display:flex;flex-wrap:wrap;gap:4px;margin-top:1px}
 .slcat .vc .bdg{display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:7.5px;letter-spacing:.06em;text-transform:uppercase;padding:3px 6px;border-radius: var(--m-r-full);background:rgba(30,34,41,.06);color:var(--ink-soft)}
 .slcat .vc .bdg.verified{color:#2e7d4f;background:rgba(46,125,79,.1)}
-.slcat .vc .bdg.setnayan{color:var(--mulberry);background:rgba(154, 59, 35,.1)}
+.slcat .vc .bdg.setnayan{color:var(--mulberry);background:rgba(30, 34, 41,.1)}
 .slcat .vc .price{font-family:var(--serif);font-style:italic;font-weight:600;font-size:17px;color:var(--ink);margin-top:auto;padding-top:4px}
 /* dashed action cards (in the rail, after the vendors) */
 .slcat .act{flex:0 0 116px;scroll-snap-align:start;display:flex}
 .slcat .act>*{flex:1;min-height:182px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;border-radius: var(--m-r-md);text-decoration:none;font:inherit;cursor:pointer;transition:transform .13s cubic-bezier(.2,.7,.2,1),background .2s var(--ease)}
 .slcat .act>*:active{transform:scale(.97)}
-.slcat .act.find>*{background:rgba(154, 59, 35,.05);border:1.5px dashed rgba(154, 59, 35,.4);color:var(--mulberry)}
+.slcat .act.find>*{background:rgba(30, 34, 41,.05);border:1.5px dashed rgba(30, 34, 41,.4);color:var(--mulberry)}
 .slcat .act.manual>*{background:rgba(30,34,41,.03);border:1.5px dashed var(--line);color:var(--ink-soft)}
 .slcat .act .at{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;line-height:1.4;padding:0 8px}
 /* empty category — Find + Add-manually share a row */
 .slcat .find-set{display:flex;flex-wrap:wrap;gap:8px;padding:2px 16px 2px 0}
 .slcat .fr{display:flex;align-items:center;gap:9px;flex:1 1 150px;padding:12px 14px;border-radius: var(--m-r-md);text-decoration:none;color:inherit;font:inherit;cursor:pointer;text-align:left;appearance:none;-webkit-appearance:none;transition:transform .13s cubic-bezier(.2,.7,.2,1)}
 .slcat .fr:active{transform:scale(.99)}
-.slcat .fr.find{border:1.5px dashed rgba(154, 59, 35,.32);background:rgba(154, 59, 35,.03)}
+.slcat .fr.find{border:1.5px dashed rgba(30, 34, 41,.32);background:rgba(30, 34, 41,.03)}
 .slcat .fr.manual{border:1.5px dashed var(--line);background:rgba(30,34,41,.025)}
 .slcat .fr .fr-i{display:inline-flex;flex:0 0 auto}
 .slcat .fr.find .fr-i,.slcat .fr.find .fr-t{color:var(--mulberry)}

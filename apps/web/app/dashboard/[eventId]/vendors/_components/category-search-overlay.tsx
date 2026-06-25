@@ -32,7 +32,7 @@ import {
 const CSS = `
 .csov{position:fixed;inset:0;z-index:120;display:flex;flex-direction:column;
   --paper:var(--m-paper,#FBFBFA);--ink:var(--m-ink,#1E2229);--ink-soft:var(--m-ink-soft,#5C6660);
-  --gold:var(--m-orange,#C5A059);--gold-deep:var(--m-orange-2,#8C6932);--mulberry:var(--m-mulberry,#9A3B23);
+  --gold:var(--m-orange,#C5A059);--gold-deep:var(--m-orange-2,#8C6932);--mulberry:var(--m-mulberry,#1E2229);
   --line:rgba(30,34,41,.1);
   --serif:var(--font-serif,'Cormorant Garamond',serif);--sans:var(--font-sans,'Manrope',system-ui,sans-serif);--mono:var(--font-mono,'DM Mono',ui-monospace,monospace);
   background:var(--paper);color:var(--ink);font-family:var(--sans);
@@ -56,11 +56,11 @@ const CSS = `
 .csov .r .stars{color:var(--gold-deep);letter-spacing:0}
 .csov .r .badge{display:inline-flex;flex:0 0 auto;align-self:center;min-height:0;align-items:center;gap:3px;border-radius: var(--m-r-full);padding:2px 6px;line-height:1.4;white-space:nowrap;text-transform:uppercase}
 .csov .r .badge.vrf{color:var(--gold-deep);background:rgba(197,160,89,.16)}
-.csov .r .badge.bst{color:var(--mulberry);background:rgba(154, 59, 35,.1)}
+.csov .r .badge.bst{color:var(--mulberry);background:rgba(30, 34, 41,.1)}
 /* Paid-placement disclosure + hybrid-anonymity hint — quiet, ink-soft so
    they read as clarifications, not alarms. */
 .csov .r .disclose{display:block;width:100%;margin-top:4px;font-family:var(--mono);font-size:8px;letter-spacing:.04em;color:var(--ink-soft);opacity:.82}
-.csov .r .badge.mt{font-weight:600;color:var(--mulberry);background:rgba(154, 59, 35,.12)}
+.csov .r .badge.mt{font-weight:600;color:var(--mulberry);background:rgba(30, 34, 41,.12)}
 .csov .r .badge.mt.good{color:var(--gold-deep);background:rgba(197,160,89,.18)}
 .csov .r .badge.mt.fair{color:var(--ink-soft);background:rgba(30,34,41,.06)}
 /* Last-minute (Setnayan AI §4) — opportunity tone, not alarm. */
@@ -70,7 +70,7 @@ const CSS = `
 .csov .r .badge.far{color:#9a6a00;background:rgba(197,160,89,.16)}
 /* Relationship-depth badges */
 .csov .r .badge.rel-3{font-weight:600;color:var(--paper);background:var(--ink)}
-.csov .r .badge.rel-2{font-weight:600;color:var(--mulberry);background:rgba(154, 59, 35,.12);border:1px solid rgba(154, 59, 35,.25)}
+.csov .r .badge.rel-2{font-weight:600;color:var(--mulberry);background:rgba(30, 34, 41,.12);border:1px solid rgba(30, 34, 41,.25)}
 .csov .r .badge.rel-1{font-weight:600;color:var(--gold-deep);background:rgba(197,160,89,.18);border:1px solid rgba(197,160,89,.35)}
 .csov .r .sub .faraway{color:#9a6a00}
 .csov .farther-btn{display:block;width:100%;margin:2px 0 14px;border:1px dashed var(--line);border-radius: var(--m-r-md);background:transparent;color:var(--ink-soft);padding:11px;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;transition:border-color .2s,color .2s}

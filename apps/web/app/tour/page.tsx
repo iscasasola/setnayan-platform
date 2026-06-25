@@ -50,7 +50,7 @@ export default async function TourIntroPage() {
         </p>
         <Link
           href="/maria-and-jose"
-          className="mt-7 inline-flex min-h-[48px] items-center justify-center rounded-full bg-[#9A3B23] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
+          className="mt-7 inline-flex min-h-[48px] items-center justify-center rounded-full bg-[#1E2229] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
         >
           Start the tour &rarr;
         </Link>
@@ -95,7 +95,7 @@ export default async function TourIntroPage() {
         </p>
         <Link
           href="/onboarding/wedding?from=tour"
-          className="mt-5 inline-flex min-h-[48px] items-center justify-center rounded-full bg-[#9A3B23] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
+          className="mt-5 inline-flex min-h-[48px] items-center justify-center rounded-full bg-[#1E2229] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
         >
           Start planning &middot; free
         </Link>

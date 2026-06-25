@@ -104,19 +104,19 @@ const config: Config = {
         },
         mulberry: {
           DEFAULT: 'rgb(var(--color-mulberry) / <alpha-value>)',
-          // Terracotta Clay tint ladder for CTA fills / hover states / soft
+          // Deep Obsidian tint ladder for CTA fills / hover states / soft
           // selection backgrounds (token name `mulberry` kept). Raw hex for
           // non-themed shades.
-          50: '#fdf6f3',
-          100: '#f6e9e2',
-          200: '#eed3c4',
-          300: '#d89c85',
-          400: '#b06a4e',
+          50: '#f6f6f7',
+          100: '#ECEDEE',
+          200: '#D4D6D9',
+          300: '#A9ADB2',
+          400: '#5C636E',
           500: 'rgb(var(--color-mulberry) / <alpha-value>)',
           600: 'rgb(var(--color-mulberry-600) / <alpha-value>)',
           700: 'rgb(var(--color-mulberry-700) / <alpha-value>)',
-          800: '#2a1410',
-          900: '#1a0c08',
+          800: '#15171B',
+          900: '#0E0F12',
         },
         // `burgundy` — DEPRECATED pre-rebrand CTA name. It was never redefined
         // after the Clean Editorial rebrand, so `bg-burgundy` / `text-burgundy`

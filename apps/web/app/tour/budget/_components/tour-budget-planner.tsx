@@ -16,7 +16,7 @@
 // This is the stop's "client-only interactive" moment: local React state
 // (pins) updates the on-screen split, calls NO server, and resets on reload.
 // Palette retuned to the tour's tokens (serif headings, #1E2229 ink, #5F5E5A
-// body, #8C6932 / #C5A059 gold, #9A3B23 mulberry, #FBF8F1 / #FBF6EA creams).
+// body, #8C6932 / #C5A059 gold, #1E2229 mulberry, #FBF8F1 / #FBF6EA creams).
 // ============================================================================
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -161,7 +161,7 @@ export function TourBudgetPlanner({ budgetPhp, leaves, config }: Props) {
               {overBudget ? 'Over budget' : 'Cushion'}
             </p>
             {overBudget ? (
-              <p className="font-serif text-2xl text-[#9A3B23] sm:text-3xl">{formatPhp(Math.abs(cushion))}</p>
+              <p className="font-serif text-2xl text-[#1E2229] sm:text-3xl">{formatPhp(Math.abs(cushion))}</p>
             ) : (
               <p className="font-serif text-2xl text-emerald-700 sm:text-3xl">{formatPhp(cushion)}</p>
             )}
@@ -172,9 +172,9 @@ export function TourBudgetPlanner({ budgetPhp, leaves, config }: Props) {
         {hasShortfall ? (
           <div
             role="status"
-            className="mt-4 flex items-start gap-2 rounded-xl border border-[#9A3B23]/30 bg-[#9A3B23]/[0.06] px-3 py-2.5 text-sm text-[#1E2229]/80"
+            className="mt-4 flex items-start gap-2 rounded-xl border border-[#1E2229]/30 bg-[#1E2229]/[0.06] px-3 py-2.5 text-sm text-[#1E2229]/80"
           >
-            <AlertTriangle aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-[#9A3B23]" strokeWidth={1.75} />
+            <AlertTriangle aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-[#1E2229]" strokeWidth={1.75} />
             <span>
               Your budget is about{' '}
               <strong className="font-medium text-[#1E2229]">{formatPhp(final.shortfallPhp)}</strong> short for these
@@ -233,13 +233,13 @@ function OverspendBanner({ overspend }: { overspend: ReturnType<typeof computeBu
     <div
       role="status"
       className={`mt-4 flex items-start gap-2 rounded-xl border px-3 py-2.5 text-sm text-[#1E2229]/80 ${
-        emerald ? 'border-emerald-300/60 bg-emerald-50/60' : 'border-[#9A3B23]/30 bg-[#9A3B23]/[0.06]'
+        emerald ? 'border-emerald-300/60 bg-emerald-50/60' : 'border-[#1E2229]/30 bg-[#1E2229]/[0.06]'
       }`}
     >
       {emerald ? (
         <CheckCircle2 aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" strokeWidth={1.75} />
       ) : (
-        <AlertTriangle aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-[#9A3B23]" strokeWidth={1.75} />
+        <AlertTriangle aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-[#1E2229]" strokeWidth={1.75} />
       )}
       <span>
         {joinLabels(overLabels)} {overLabels.length === 1 ? 'is' : 'are'} about{' '}
@@ -472,7 +472,7 @@ function TiltEditor({
               onReset();
               setDraft(formatPlain(recommendedAmountPhp));
             }}
-            className="inline-flex items-center justify-center gap-1.5 text-sm font-medium text-[#5F5E5A] transition-colors hover:text-[#9A3B23]"
+            className="inline-flex items-center justify-center gap-1.5 text-sm font-medium text-[#5F5E5A] transition-colors hover:text-[#1E2229]"
           >
             <RotateCcw aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             Reset to suggested
@@ -483,7 +483,7 @@ function TiltEditor({
               commitDraft(draft);
               onClose();
             }}
-            className="inline-flex min-h-[44px] items-center justify-center rounded-full bg-[#9A3B23] px-5 py-2 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-full bg-[#1E2229] px-5 py-2 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
           >
             Done
           </button>

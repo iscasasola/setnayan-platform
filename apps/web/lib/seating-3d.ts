@@ -72,6 +72,11 @@ export type Lab3DGuest = {
   /** Resolved selfie/avatar URL (consent-gated upstream) — worn by the 3D
    * avatar's head as a camera-facing photo disc. null → coloured token. */
   photoUrl: string | null;
+  /** Resolved attire for the avatar's body silhouette. */
+  attire: 'gown' | 'suit' | 'neutral';
+  /** Motif colour for a gown/suit body (mood-board attire palette); null for
+   * neutral, which keeps the RSVP-coloured token body. */
+  attireColor: string | null;
 };
 
 /** How a guest's RSVP maps to a seat's treatment. */

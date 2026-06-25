@@ -2,7 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { getCurrentUser } from '@/lib/auth';
-import { fetchGuestsByEvent, guestDisplayName } from '@/lib/guests';
+import { fetchGuestsByEvent, guestDisplayName, resolveGuestAttire } from '@/lib/guests';
 import {
   fetchTables,
   fetchAssignments,
@@ -14,6 +14,7 @@ import { shapeHintFor, type Lab3DTable, type Lab3DFloor, type Lab3DGuest, type L
 import { resolveMonogram } from '@/lib/monogram';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { sanitizeRolePalette } from '@/lib/mood-board';
 import { SeatingLabLoader } from './_components/seating-lab-loader';
 
 export const metadata = { title: 'Seating · 3D lab (prototype)' };
@@ -55,7 +56,7 @@ export default async function SeatingLabPage({ params }: Props) {
     supabase
       .from('events')
       .select(
-        'display_name, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg',
+        'display_name, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette',
       )
       .eq('event_id', eventId)
       .maybeSingle(),
@@ -102,6 +103,14 @@ export default async function SeatingLabPage({ params }: Props) {
     ).filter((e): e is [string, string] => e[1] !== null),
   );
 
+  // Attire motif colours from the mood-board role palette: a gown takes the
+  // wedding-party (else bride) attire colour, a suit takes the groom attire
+  // colour — each with a tasteful fallback (blush / charcoal) so an avatar
+  // always has a sensible hue even before the couple builds a palette.
+  const rolePalette = sanitizeRolePalette((eventRow.data as Record<string, unknown> | null)?.role_palette);
+  const gownColor = rolePalette.wedding_party?.[0] ?? rolePalette.bride?.[0] ?? '#c9a4ad';
+  const suitColor = rolePalette.groom?.[0] ?? '#2b2f38';
+
   const guests: Lab3DGuest[] = guestsRaw.map((g) => {
     const seat = seatByGuest.get(g.guest_id);
     const rsvp = (['attending', 'pending', 'maybe', 'declined'] as const).includes(
@@ -109,6 +118,7 @@ export default async function SeatingLabPage({ params }: Props) {
     )
       ? (g.rsvp_status as 'attending' | 'pending' | 'maybe' | 'declined')
       : 'pending';
+    const attire = resolveGuestAttire(g.role, g.attire);
     return {
       id: g.guest_id,
       name: guestDisplayName(g),
@@ -120,6 +130,8 @@ export default async function SeatingLabPage({ params }: Props) {
       plusOneAllowed: Boolean(g.plus_one_allowed),
       plusOneOfGuestId: g.plus_one_of_guest_id ?? null,
       photoUrl: g.photo_url ? photoDisplayUrls[g.photo_url] ?? null : null,
+      attire,
+      attireColor: attire === 'gown' ? gownColor : attire === 'suit' ? suitColor : null,
     };
   });
 

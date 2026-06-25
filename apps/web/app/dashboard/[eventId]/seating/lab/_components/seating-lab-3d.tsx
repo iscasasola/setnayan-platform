@@ -103,11 +103,22 @@ const CHAIR_SEAT_GEO = new THREE.BoxGeometry(0.42, 0.07, 0.42);
 const CHAIR_BACK_GEO = new THREE.BoxGeometry(0.42, 0.44, 0.06);
 const TOKEN_BODY_GEO = new THREE.CylinderGeometry(0.13, 0.15, 0.4, 10);
 const TOKEN_HEAD_GEO = new THREE.SphereGeometry(0.12, 12, 12);
+// Attire silhouettes for seated guests: a gown flares to a wide skirt, a suit is
+// a straighter tapered torso. They swap in for the plain body when a guest's
+// resolved attire calls for it (motif-coloured via the body material).
+const GOWN_GEO = new THREE.CylinderGeometry(0.08, 0.26, 0.56, 16);
+const SUIT_GEO = new THREE.CylinderGeometry(0.13, 0.18, 0.5, 12);
 const VASE_GEO = new THREE.CylinderGeometry(0.085, 0.12, 0.24, 10);
 const BLOOM_GEO = new THREE.IcosahedronGeometry(0.2, 0);
 
 /** Per-seat token treatment computed from a guest's RSVP (see lib seatStatusOf). */
-type SeatToken = { color: string; opacity: number; photoUrl?: string | null };
+type SeatToken = {
+  color: string;
+  opacity: number;
+  photoUrl?: string | null;
+  attire?: 'gown' | 'suit' | 'neutral';
+  attireColor?: string | null;
+};
 
 /** A guest's token colour/opacity, or null when their seat is freed (declined). */
 function guestTokenStyle(g: Lab3DGuest): SeatToken | null {
@@ -117,6 +128,8 @@ function guestTokenStyle(g: Lab3DGuest): SeatToken | null {
     color: status === 'confirmed' ? SIDE_COLOR[g.side] : TENTATIVE_COLOR,
     opacity: status === 'confirmed' ? 1 : 0.62,
     photoUrl: g.photoUrl,
+    attire: g.attire,
+    attireColor: g.attireColor,
   };
 }
 
@@ -167,9 +180,13 @@ function useImageTexture(url: string | null | undefined): THREE.Texture | null {
  */
 function SeatedAvatar({ tok, bodyMat }: { tok: SeatToken; bodyMat: THREE.Material }) {
   const tex = useImageTexture(tok.photoUrl);
+  // Attire-driven silhouette: gown / suit / plain token. Gown sits a touch
+  // higher so the flared skirt clears the chair seat.
+  const bodyGeo = tok.attire === 'gown' ? GOWN_GEO : tok.attire === 'suit' ? SUIT_GEO : TOKEN_BODY_GEO;
+  const bodyY = tok.attire === 'gown' ? 0.72 : 0.7;
   return (
     <group position={[0, 0, -0.04]}>
-      <mesh geometry={TOKEN_BODY_GEO} position={[0, 0.7, 0]} material={bodyMat} />
+      <mesh geometry={bodyGeo} position={[0, bodyY, 0]} material={bodyMat} />
       {tex ? (
         <Billboard position={[0, 1.04, 0]}>
           {/* RSVP-coloured ring behind the photo */}
@@ -1286,7 +1303,7 @@ function TableMesh({
           <group key={i} position={[c.x, 0, c.z]} rotation={[0, ang, 0]}>
             <mesh geometry={CHAIR_SEAT_GEO} position={[0, 0.46, 0]} material={chairMat} />
             <mesh geometry={CHAIR_BACK_GEO} position={[0, 0.69, 0.19]} material={chairMat} />
-            {tok ? <SeatedAvatar tok={tok} bodyMat={tokenMat(tok.color, tok.opacity)} /> : null}
+            {tok ? <SeatedAvatar tok={tok} bodyMat={tokenMat(tok.attireColor ?? tok.color, tok.opacity)} /> : null}
           </group>
         );
       })}

@@ -50,6 +50,38 @@ export type GuestRole =
  */
 export const SINGLETON_GUEST_ROLES: ReadonlyArray<GuestRole> = ['bride', 'groom'];
 
+// What a guest's 3D seat-plan avatar wears. 'neutral' is the stored default; the
+// renderer treats it as "unset" and falls back to a role-implied guess (below).
+export type GuestAttire = 'gown' | 'suit' | 'neutral';
+
+// Role → attire for the gendered wedding-party roles, so the entourage dresses
+// itself without the couple tagging every member. Everyone else (generic guests,
+// ungendered sponsors/family) stays 'neutral' until the couple sets it. Kept
+// deliberately conservative: only roles whose gender is unambiguous are mapped.
+const ATTIRE_BY_ROLE: Partial<Record<GuestRole, GuestAttire>> = {
+  bride: 'gown',
+  maid_of_honor: 'gown',
+  matron_of_honor: 'gown',
+  bridesmaid: 'gown',
+  flower_girl: 'gown',
+  groom: 'suit',
+  best_man: 'suit',
+  groomsman: 'suit',
+  ring_bearer: 'suit',
+  bible_bearer: 'suit',
+  coin_bearer: 'suit',
+};
+
+/**
+ * Resolve what a guest wears: an explicit couple-set value wins; otherwise a
+ * gendered wedding-party role implies it; otherwise 'neutral'. Pure + shared so
+ * the 3D lab and any future surface (print, day-of) dress guests identically.
+ */
+export function resolveGuestAttire(role: GuestRole, attire: GuestAttire): GuestAttire {
+  if (attire !== 'neutral') return attire;
+  return ATTIRE_BY_ROLE[role] ?? 'neutral';
+}
+
 export type GuestSide = 'bride' | 'groom' | 'both';
 export type GuestGroupCategory =
   | 'family'
@@ -108,6 +140,8 @@ export type GuestRow = {
   // Explicit seating-priority tier override (1–4); null = derive from role +
   // group via lib/seating guestTier(). Written by the seat-plan editor.
   seating_priority: number | null;
+  // What this guest wears on their 3D seat-plan avatar (see resolveGuestAttire).
+  attire: GuestAttire;
   created_at: string;
 };
 
@@ -245,7 +279,7 @@ export type GuestStats = {
 };
 
 const GUEST_FIELDS =
-  'guest_id,public_id,event_id,first_name,last_name,display_name,side,group_category,role,extra_roles,plus_one_allowed,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,faceblock_enabled,photo_url,photo_source,photo_updated_at,invited_to_blocks,rsvp_status,notes,qr_token,custom_tags,seating_priority,created_at';
+  'guest_id,public_id,event_id,first_name,last_name,display_name,side,group_category,role,extra_roles,plus_one_allowed,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,faceblock_enabled,photo_url,photo_source,photo_updated_at,invited_to_blocks,rsvp_status,notes,qr_token,custom_tags,seating_priority,attire,created_at';
 
 // Bride & groom are the foundation of the event — always Attending, never
 // Pending (owner directive 2026-06-03). The DB trigger from migration

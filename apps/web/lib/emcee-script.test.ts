@@ -64,6 +64,7 @@ function guest(p: Partial<GuestRow>): GuestRow {
     qr_token: 'q',
     custom_tags: [],
     seating_priority: null,
+    attire: 'neutral',
     created_at: '2026-01-01',
     ...p,
   };

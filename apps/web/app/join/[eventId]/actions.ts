@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server';
 import { classifyClaimMatch, MAX_NAME_LENGTH, type SeedCandidate } from '@/lib/guest-claim';
 import { emitNotification } from '@/lib/notification-emit';
 import { readGuestSession, setGuestSession } from '@/lib/guest-session';
+import { sendEventAccountMagicLink } from '@/lib/event-account-link';
 import type { GuestRole } from '@/lib/guests';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 
@@ -327,6 +328,9 @@ export async function joinEventAction(eventId: string, token: string, formData: 
 export async function selfJoinAction(eventId: string, token: string, formData: FormData) {
   const role = String(formData.get('role') ?? '') as GuestRole;
   const presentedName = String(formData.get('name') ?? '').trim().slice(0, MAX_NAME_LENGTH);
+  // Optional: if they give an email we also email a passwordless sign-in link
+  // that connects this event to a real Setnayan account (Invite/Join v2).
+  const email = String(formData.get('email') ?? '').trim();
 
   const roleSet = await resolveRoleSetForEvent(eventId);
   if (!roleSet.selfClaimableRoles.includes(role)) {
@@ -373,6 +377,10 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
   //    no duplicate row (the guest-session cookie is the dedup key).
   const existingSession = await readGuestSession();
   if (existingSession && existingSession.event_id === eventId) {
+    if (email) {
+      await sendEventAccountMagicLink({ eventId, guestId: existingSession.guest_id, email });
+      return redirect(`/join/${eventId}/check-email?email=${encodeURIComponent(email)}`);
+    }
     return redirect(`/${slug}`);
   }
 
@@ -438,6 +446,13 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
     ip_anon: ipAnon,
     context: { entry: 'self_join' },
   });
+
+  // 9. Opted into an account → email a passwordless sign-in link that connects
+  //    this event to their Setnayan account, then tell them to check their inbox.
+  if (email) {
+    await sendEventAccountMagicLink({ eventId, guestId: inserted.guest_id as string, email });
+    return redirect(`/join/${eventId}/check-email?email=${encodeURIComponent(email)}`);
+  }
 
   return redirect(`/${slug}`);
 }

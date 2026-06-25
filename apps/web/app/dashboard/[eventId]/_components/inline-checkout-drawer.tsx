@@ -81,6 +81,7 @@ import {
   type ApplyVoucherResult,
   type SubmitOrderResult,
 } from '@/app/dashboard/[eventId]/checkout/actions';
+import { computeVatFromBase, DEFAULT_VAT_RATE_PCT } from '@/lib/receipts';
 
 export type InlineCheckoutDrawerProps = {
   serviceKey: string;
@@ -118,6 +119,21 @@ export type InlineCheckoutDrawerProps = {
 function formatPesoCentavos(centavosStr: string): string {
   const pesos = Number(centavosStr) / 100;
   return `₱${pesos.toLocaleString('en-PH', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+/**
+ * The VAT-INCLUSIVE gross the couple actually pays, from a PRE-VAT base in
+ * centavos. Owner ruling 2026-06-25: catalog prices are pre-VAT, +12% at
+ * checkout. Uses the SAME computeVatFromBase as the server (submitOrderAction)
+ * and the BIR receipt, so the number shown here equals the amount charged — no
+ * drift, no underpayment.
+ */
+function formatGrossCentavos(centavosStr: string): string {
+  const { gross } = computeVatFromBase(Number(centavosStr) / 100, DEFAULT_VAT_RATE_PCT);
+  return `₱${gross.toLocaleString('en-PH', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
@@ -187,6 +203,9 @@ export function InlineCheckoutDrawer({
       : originalPriceCentavos;
   const finalPesoDisplay = formatPesoCentavos(finalPriceStr);
   const originalPesoDisplay = formatPesoCentavos(originalPriceCentavos);
+  // VAT-inclusive gross = what the couple actually pays (the server charges this).
+  const finalGrossDisplay = formatGrossCentavos(finalPriceStr);
+  const originalGrossDisplay = formatGrossCentavos(originalPriceCentavos);
   const hasVoucher = voucherResult?.applied === true && voucherResult.code !== null;
 
   // On a successful submit, hold the brand loader's "Ready ✓" state briefly,
@@ -234,7 +253,7 @@ export function InlineCheckoutDrawer({
       <CreditCard aria-hidden className="h-4 w-4" strokeWidth={2} />
       {triggerLabel ?? 'Add this service'}
       <span className="font-mono text-xs font-normal opacity-90">
-        · {originalPesoDisplay}
+        · {originalGrossDisplay}
       </span>
     </button>
   );
@@ -278,14 +297,15 @@ export function InlineCheckoutDrawer({
                 {hasVoucher ? (
                   <>
                     <span className="line-through opacity-60">
-                      {originalPesoDisplay}
+                      {originalGrossDisplay}
                     </span>{' '}
-                    <span className="text-terracotta">{finalPesoDisplay}</span>
+                    <span className="text-terracotta">{finalGrossDisplay}</span>
                   </>
                 ) : (
-                  finalPesoDisplay
+                  finalGrossDisplay
                 )}
               </p>
+              <p className="font-mono text-[10px] text-ink/40">incl. 12% VAT</p>
             </div>
             <button
               type="button"
@@ -576,7 +596,7 @@ function VoucherBlock({
             </p>
             <p className="font-mono text-xs text-success-800/80">
               {voucherResult.discount_php} off · final total{' '}
-              {voucherResult.final_php}
+              {formatGrossCentavos(voucherResult.final_centavos)}
             </p>
           </div>
           <button

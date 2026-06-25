@@ -51,6 +51,7 @@ import { uploadPublicAsset } from '@/lib/storage';
 import { validateAndCalculateVoucher } from '@/lib/vouchers/validate';
 import { appendLedger } from '@/lib/ledger';
 import { resolvePaxPricedOrderCentavos, resolveBundleChargeCentavos } from '@/lib/v2-catalog';
+import { computeVatFromBase, DEFAULT_VAT_RATE_PCT } from '@/lib/receipts';
 import { getRequestPlatform, isRequestPlatform } from '@/lib/request-platform';
 import { notifyAdminsOrderAwaitingReconciliation } from '@/lib/order-admin-notify';
 
@@ -410,7 +411,18 @@ export async function submitOrderAction(
 
   const referenceCode = generateReferenceCode();
   const originalPriceForOrderTotal = Number(originalCentavos) / 100;
-  const finalAmountForPayment = Number(voucherFinalCentavos) / 100;
+  // Owner ruling 2026-06-25: catalog prices are PRE-VAT; the couple pays the
+  // VAT-INCLUSIVE gross (+12%). computeOrderTotals + the BIR receipt already gross
+  // the stored pre-VAT base, so the amount we INSTRUCT the couple to pay here
+  // (payment.amount_php + the confirmation email + the admin reconciliation notice)
+  // MUST be the gross too — else the order under-collects the 12% and shows a
+  // phantom 'remaining'. The stored requested_total_php stays the PRE-VAT base
+  // (computeOrderTotals grosses it); the voucher-adjusted base is what VAT applies
+  // to, mirroring the gross the order will owe once approval sets confirmed_total_php.
+  const finalAmountForPayment = computeVatFromBase(
+    Number(voucherFinalCentavos) / 100,
+    DEFAULT_VAT_RATE_PCT,
+  ).gross;
 
   // Existing schema uses NUMERIC(12,2) requested_total_php · we land
   // the ORIGINAL price in that field (consistent with the legacy createOrder

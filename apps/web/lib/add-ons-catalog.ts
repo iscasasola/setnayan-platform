@@ -140,13 +140,14 @@ export function addOnHref(key: string, eventId: string): string {
   // Pakanta"). Both destinations handle their own free-use / paywall.
   if (key === 'landing-page') return `/dashboard/${eventId}/website`;
   if (key === 'music-creator') return `/dashboard/${eventId}/studio/pakanta`;
-  // Seat plan opens its real editor (the couple-sidebar route). When the 3D
-  // experience is enabled it opens the 3D lab instead; NEXT_PUBLIC_* vars are
-  // inlined server-side, and the Studio hub is a server component.
+  // Seat plan opens the 3D lab by default; `NEXT_PUBLIC_SEATING_3D='false'`
+  // is the kill-switch that falls back to the 2D editor (kept in lockstep with
+  // the lab route's own gate). NEXT_PUBLIC_* vars are inlined server-side, and
+  // the Studio hub is a server component.
   if (key === 'seating') {
-    return process.env.NEXT_PUBLIC_SEATING_3D === 'true'
-      ? `/dashboard/${eventId}/seating/lab`
-      : `/dashboard/${eventId}/seating`;
+    return process.env.NEXT_PUBLIC_SEATING_3D === 'false'
+      ? `/dashboard/${eventId}/seating`
+      : `/dashboard/${eventId}/seating/lab`;
   }
   // The three website "parts" (RSVP · Event · Editorial) open the full-screen
   // editor jumped straight to that phase — its own top-level route so it escapes

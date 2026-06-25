@@ -20,15 +20,16 @@ export const metadata = { title: 'Seating · 3D lab (prototype)' };
 type Props = { params: Promise<{ eventId: string }> };
 
 /**
- * 3D seating lab — a flag-gated 3D editor that renders the couple's real plan
- * as a navigable 3D room ("Sims build" + walk-to-seat). Gated by
- * `NEXT_PUBLIC_SEATING_3D`; off → 404 (the route doesn't exist for users).
+ * 3D seating lab — a 3D editor that renders the couple's real plan as a
+ * navigable 3D room ("Sims build" + walk-to-seat). On for every couple by
+ * default; `NEXT_PUBLIC_SEATING_3D='false'` is the kill-switch (→ 404, so the
+ * route disappears) if the prototype needs pulling in production.
  * Edits (move / rotate / delete / add) persist through the SAME single-editor
  * lock + server actions as the 2D editor, so 3D and 2D share one plan. See the
  * as-built doc `0008_Seating_AS_BUILT_2026-06-21.md` for the data contract.
  */
 export default async function SeatingLabPage({ params }: Props) {
-  if (process.env.NEXT_PUBLIC_SEATING_3D !== 'true') notFound();
+  if (process.env.NEXT_PUBLIC_SEATING_3D === 'false') notFound();
 
   const { eventId } = await params;
   const user = await getCurrentUser();

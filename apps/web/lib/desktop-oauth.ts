@@ -61,85 +61,117 @@ export function isTauri(): boolean {
   return tauri() !== null;
 }
 
-function fail(message: string): void {
-  window.location.assign(`/login?error=${encodeURIComponent(message)}`);
-}
-
 /**
- * Run the loopback OAuth flow for `provider`, then land on `next`. Rejects only
- * if the Tauri bridge is missing; provider/exchange errors route to /login?error.
+ * Run the loopback OAuth flow for `provider`, then land on `next`.
+ *
+ * ⚠ DEBUG INSTRUMENTATION (2026-06-26): this build surfaces the exact failure
+ * point via `alert()` + console so the loopback can be diagnosed on a real
+ * desktop install (CI can't exercise it). Only ever runs inside the desktop
+ * shell (gated by the `/desktop` UA + window.__TAURI__), so web users never see
+ * it. Revert to the quiet error-routing version once the round-trip is confirmed.
  */
 export async function signInWithProviderDesktop(
   provider: DesktopOAuthProvider,
   next: string = '/dashboard',
 ): Promise<void> {
-  const t = tauri();
-  if (!t) throw new Error('Not running in the Setnayan desktop app');
-
-  const supabase = createClient();
-  let port: number;
-  try {
-    port = (await t.core.invoke('plugin:oauth|start')) as number;
-  } catch {
-    fail('Could not start the desktop sign-in helper. Please try email sign-in.');
-    return;
-  }
-
-  let unlisten: (() => void) | undefined;
-  const cleanup = async () => {
-    try {
-      unlisten?.();
-    } catch {
-      /* noop */
-    }
-    try {
-      await t.core.invoke('plugin:oauth|cancel', { port });
-    } catch {
-      /* noop */
-    }
+  const log: string[] = [];
+  const dbg = (m: string) => {
+    log.push(m);
+    // eslint-disable-next-line no-console
+    console.log('[sn-oauth]', m);
+  };
+  const stop = (where: string, err?: unknown) => {
+    const detail =
+      err === undefined ? '' : `\n→ ${err instanceof Error ? err.message : String(err)}`;
+    // eslint-disable-next-line no-alert
+    window.alert(
+      `Setnayan desktop sign-in — STOPPED AT: ${where}${detail}\n\n— trace —\n${log.join('\n')}`,
+    );
   };
 
-  unlisten = await t.event.listen('oauth://url', (e) => {
-    void (async () => {
-      try {
-        const redirect = new URL(String(e.payload));
-        const errDesc =
-          redirect.searchParams.get('error_description') ?? redirect.searchParams.get('error');
-        if (errDesc) {
-          fail(errDesc);
-          return;
-        }
-        const code = redirect.searchParams.get('code');
-        if (!code) return; // ignore unrelated hits on the loopback
-        const { error } = await supabase.auth.exchangeCodeForSession(code);
-        if (error) {
-          fail(error.message);
-          return;
-        }
-        window.location.assign(next);
-      } finally {
-        await cleanup();
-      }
-    })();
-  });
-
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider,
-    options: {
-      redirectTo: `http://localhost:${port}`,
-      skipBrowserRedirect: true,
-    },
-  });
-  if (error || !data?.url) {
-    await cleanup();
-    fail(error?.message ?? `${provider} sign-in could not start.`);
-    return;
-  }
-
   try {
-    await t.core.invoke('plugin:opener|open_url', { url: data.url });
-  } catch {
-    await cleanup();
-    fail('Could not open your browser for sign-in. Please try email sign-in.');
+    const w = window as unknown as { __TAURI__?: Record<string, unknown> };
+    dbg(
+      `__TAURI__=${typeof w.__TAURI__}` +
+        (w.__TAURI__ ? ` keys=[${Object.keys(w.__TAURI__).join(',')}]` : ''),
+    );
+    const t = tauri();
+    if (!t) {
+      stop('Tauri bridge missing — window.__TAURI__.core/event not found');
+      return;
+    }
+    dbg(`core.invoke=${typeof t.core?.invoke}  event.listen=${typeof t.event?.listen}`);
+
+    const supabase = createClient();
+
+    dbg('invoke plugin:oauth|start …');
+    let port: number;
+    try {
+      port = (await t.core.invoke('plugin:oauth|start')) as number;
+    } catch (e) {
+      stop('plugin:oauth|start (likely a capability/permission grant)', e);
+      return;
+    }
+    dbg(`oauth loopback started, port=${port}`);
+
+    const unlisten = await t.event.listen('oauth://url', (e) => {
+      void (async () => {
+        try {
+          dbg('oauth://url event received');
+          const redirect = new URL(String(e.payload));
+          const errDesc =
+            redirect.searchParams.get('error_description') ?? redirect.searchParams.get('error');
+          if (errDesc) {
+            stop('provider returned an error in the redirect', errDesc);
+            return;
+          }
+          const code = redirect.searchParams.get('code');
+          if (!code) {
+            dbg('redirect had no ?code, ignoring');
+            return;
+          }
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) {
+            stop('exchangeCodeForSession', error.message);
+            return;
+          }
+          window.location.assign(next);
+        } finally {
+          try {
+            unlisten();
+          } catch {
+            /* noop */
+          }
+          try {
+            await t.core.invoke('plugin:oauth|cancel', { port });
+          } catch {
+            /* noop */
+          }
+        }
+      })();
+    });
+    dbg('listening on oauth://url');
+
+    dbg('supabase.signInWithOAuth (skipBrowserRedirect) …');
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: `http://localhost:${port}`, skipBrowserRedirect: true },
+    });
+    if (error || !data?.url) {
+      stop('signInWithOAuth', error?.message ?? 'no url returned');
+      return;
+    }
+    dbg(`got provider URL: ${data.url.slice(0, 70)}…`);
+
+    dbg('invoke plugin:opener|open_url …');
+    try {
+      await t.core.invoke('plugin:opener|open_url', { url: data.url });
+    } catch (e) {
+      stop('plugin:opener|open_url (opening the system browser)', e);
+      return;
+    }
+    dbg('open_url returned — the system browser should now be open');
+  } catch (e) {
+    stop('unexpected error', e);
   }
 }

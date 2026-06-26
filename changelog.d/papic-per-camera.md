@@ -22,3 +22,25 @@ applied to prod (`setnayan-prod`) and verified.
 SPEC IMPACT: None new — the per-camera model is already captured in the corpus
 (`0012_papic/Papic_v2_Pricing_and_Funnel_Strategy_2026-06-26.md` + DECISION_LOG
 row 2026-06-26). Prices remain provisional admin-catalog dials.
+
+## 2026-06-26 · feat(papic): per-camera buy flow (PR2/4)
+
+The couple-facing per-camera purchase.
+
+- New `apps/web/lib/papic-cameras.ts` — admin-managed rate fetch (from
+  `platform_retail_catalog_v2`, never hardcoded), the pure `computeCameraQuote`
+  cost calc clamped to the event cost cap, and `provisionPaidCamerasAdmin` which
+  materializes paid cameras as tiered `paparazzi_seats` rows in their own index
+  range (≥ 200, no collision with the pack 1–5 or sampler 101–103).
+- New `purchasePapicCameras` server action — couple-guarded, enforces the
+  5-camera minimum, creates an apply-then-pay order (`status='submitted'`), and
+  provisions the cameras PENDING. Mints a unique `SN…` reference code.
+- New `camera-picker.tsx` client component (Roll/Unlimited steppers · live
+  capped cost · min-5 gate) wired into the Papic studio page with a
+  payment-instructions success banner.
+
+Strictly additive — the free sampler + PAPIC_SEATS pack are untouched. Capture
+stays blocked until the order is paid (the presign gate is PR3). Verified:
+typecheck + `next lint` + entitlement-gates + papic-keep all clean.
+
+SPEC IMPACT: None new (captured in the corpus strategy doc + DECISION_LOG).

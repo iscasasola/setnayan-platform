@@ -52,6 +52,8 @@ import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import { setPapicStorageDrive, setPapicStorageR2 } from './actions';
+import { fetchCameraRates } from '@/lib/papic-cameras';
+import CameraPicker from './camera-picker';
 import { LiveWallCard } from './_components/live-wall-card';
 import { MagazineCard } from './_components/magazine-card';
 import { RecapCard } from './_components/recap-card';
@@ -104,6 +106,10 @@ type Props = {
     drive_error?: string;
     storage_set?: string;
     storage_error?: string;
+    papic_purchased?: string;
+    papic_ref?: string;
+    papic_amount?: string;
+    papic_error?: string;
   }>;
 };
 
@@ -195,6 +201,10 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     drive_error: driveError,
     storage_set: storageSet,
     storage_error: storageError,
+    papic_purchased: papicPurchased,
+    papic_ref: papicRef,
+    papic_amount: papicAmount,
+    papic_error: papicError,
   } = await searchParams;
 
   const supabase = await createClient();
@@ -210,7 +220,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   // future migration relaxes it.
   const { data: event } = await supabase
     .from('events')
-    .select('event_id, display_name, papic_storage_target')
+    .select('event_id, display_name, papic_storage_target, papic_cost_cap_php')
     .eq('event_id', eventId)
     .maybeSingle();
   if (!event) notFound();
@@ -306,6 +316,11 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     }
   }
 
+  // Per-camera buy flow (PR2): live admin-managed rates + the event cost cap.
+  const cameraRates = await fetchCameraRates(supabase);
+  const papicCostCapPhp =
+    Number((event as Record<string, unknown>).papic_cost_cap_php ?? 0) || 6999;
+
   return (
     <section className="space-y-8 pb-12">
       <Link
@@ -389,6 +404,51 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
             </Link>
           </div>
         )}
+      </section>
+
+      {/* ----------------------------------------------------------------
+          Papic · per-camera buy flow (PR2 · 2026-06-26)
+          Free first 5 cameras; add paid Roll / Unlimited cameras here.
+          ---------------------------------------------------------------- */}
+      <section className="rounded-2xl border border-terracotta/25 bg-terracotta/[0.04] p-5 sm:p-6">
+        <div className="space-y-1.5">
+          <p className="flex items-center gap-2 text-lg font-semibold tracking-tight text-ink">
+            <Sparkles aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
+            Add cameras
+          </p>
+          <p className="max-w-prose text-sm text-ink/65">
+            Your first 5 cameras are free. Add more — a Roll for each guest, or
+            Unlimited for your key shooters. We total it for you, capped at{' '}
+            {formatPhp(papicCostCapPhp)}.
+          </p>
+        </div>
+        {papicPurchased ? (
+          <div className="mt-4 rounded-lg border border-ink/15 bg-ink/[0.03] p-4 text-sm text-ink/80">
+            <p className="font-medium text-ink">
+              Order received{papicAmount ? ` — ${formatPhp(Number(papicAmount))} due` : ''}.
+            </p>
+            <p className="mt-1">
+              Reference <span className="font-mono">{papicRef}</span>. You’ll get
+              payment instructions by email; your cameras activate once the
+              Setnayan team confirms your transfer.
+            </p>
+          </div>
+        ) : null}
+        {papicError === 'min_cameras' ? (
+          <p className="mt-3 text-sm text-terracotta">Please pick at least 5 cameras.</p>
+        ) : papicError ? (
+          <p className="mt-3 text-sm text-terracotta">
+            Something went wrong — please try again.
+          </p>
+        ) : null}
+        <div className="mt-5 max-w-md">
+          <CameraPicker
+            eventId={eventId}
+            rollRate={cameraRates.roll}
+            unlimitedRate={cameraRates.unlimited}
+            capPhp={papicCostCapPhp}
+          />
+        </div>
       </section>
 
       {/* ----------------------------------------------------------------

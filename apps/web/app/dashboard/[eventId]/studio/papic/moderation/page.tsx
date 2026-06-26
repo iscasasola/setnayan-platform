@@ -8,6 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { reScreenStuckCaptures } from '@/lib/nsfw-screen';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { eventPapicGuestActive } from '@/lib/papic-guest';
+import { eventPapicActive } from '@/lib/papic-seats';
 import { eventSkuActive } from '@/lib/entitlements';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
@@ -79,8 +80,13 @@ export default async function PapicModerationPage({
   // Kwento is paid-to-unlock (owner 2026-06-26 · ₱500). The words-on-a-photo
   // queue is gated on KWENTO (bundle-aware · admin-approved); photo moderation
   // above stays free. Price + pay rails for the inline buy when unowned.
-  const [ownsKwento, kwentoSku, platformSettings] = await Promise.all([
+  // Kwento is a Papic ADD-ON, so it also requires Papic active (owner 2026-06-26):
+  // both the use (queue) and the buy gate on (owns Kwento) AND (Papic active).
+  // papicActive counts bundle owners, so a Complete/Unlock-all buyer is never
+  // blocked.
+  const [ownsKwento, papicActive, kwentoSku, platformSettings] = await Promise.all([
     eventSkuActive(admin, eventId, 'KWENTO'),
+    eventPapicActive(admin, eventId),
     formatV2Sku('KWENTO').catch(() => null),
     fetchPlatformSettings(supabase),
   ]);
@@ -471,7 +477,7 @@ export default async function PapicModerationPage({
         </section>
       )}
 
-      {ownsKwento ? (
+      {ownsKwento && papicActive ? (
         <KwentoQueue eventId={eventId} />
       ) : (
         <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
@@ -491,7 +497,23 @@ export default async function PapicModerationPage({
             chismis to any photo or clip — you approve each one before it shows in
             the gallery and on your editorial page.
           </p>
-          {platformSettings ? (
+          {!papicActive ? (
+            // Papic-active prerequisite (owner 2026-06-26): Kwento rides on Papic
+            // captures, so Papic must be set up first — covers both the buy and a
+            // bundle owner who owns Kwento but hasn't started Papic.
+            <p className="text-sm text-ink/70">
+              Kwento adds words to your Papic photos.{' '}
+              {ownsKwento
+                ? 'You already own it — set up your Papic crew to start using it.'
+                : 'Set up your Papic crew first, then come back to unlock it.'}{' '}
+              <Link
+                href={`/dashboard/${eventId}/studio/papic`}
+                className="font-medium text-mulberry underline-offset-2 hover:underline"
+              >
+                Set up Papic
+              </Link>
+            </p>
+          ) : platformSettings ? (
             <InlineCheckoutDrawer
               eventId={eventId}
               serviceKey="KWENTO"

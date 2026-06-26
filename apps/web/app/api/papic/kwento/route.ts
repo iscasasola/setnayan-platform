@@ -2,6 +2,7 @@ import { NextResponse, after } from 'next/server';
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventSkuActive } from '@/lib/entitlements';
+import { eventPapicActive } from '@/lib/papic-seats';
 import { moderateKwentoText } from '@/lib/kwento-moderation';
 import { emitNotification } from '@/lib/notification-emit';
 
@@ -50,6 +51,12 @@ export async function POST(req: Request) {
   // unlock, no words — a guest can't anchor a Kwento unless the couple bought it.
   const admin = createAdminClient();
   if (!(await eventSkuActive(admin, session.event_id, 'KWENTO'))) {
+    return NextResponse.json({ error: 'feature_not_owned' }, { status: 403 });
+  }
+  // Kwento is a Papic ADD-ON — it also requires Papic active (owner 2026-06-26).
+  // Checked only after KWENTO ownership (saves the read for non-owners).
+  // eventPapicActive counts bundle owners, so a Complete/Unlock-all buyer passes.
+  if (!(await eventPapicActive(admin, session.event_id))) {
     return NextResponse.json({ error: 'feature_not_owned' }, { status: 403 });
   }
 

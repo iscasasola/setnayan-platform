@@ -2,6 +2,7 @@ import { Video } from 'lucide-react';
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventPabatiActive, fetchPabatiQuota } from '@/lib/pabati';
+import { eventPapicActive } from '@/lib/papic-seats';
 import { PabatiPrompt } from '@/app/[slug]/_components/pabati-prompt';
 
 // Pabati · guest video-greeting recorder (PABATI · "Leave the couple a video
@@ -58,8 +59,14 @@ export default async function PabatiGuestPage({
   const admin = createAdminClient();
 
   // The cookie's event is the authoritative identity for the recorder (it POSTs
-  // to the guest's own session). Gate on that event's PABATI ownership.
-  const active = await eventPabatiActive(admin, session.event_id);
+  // to the guest's own session). Gate on that event's PABATI ownership AND on
+  // Papic being active — Pabati is a Papic ADD-ON, so it requires Papic set up
+  // first (owner 2026-06-26). eventPapicActive counts bundle owners, so a
+  // Complete/Unlock-all buyer is never wrongly blocked. Same friendly empty
+  // state for both (the guest needn't know which gate is unmet).
+  const active =
+    (await eventPabatiActive(admin, session.event_id)) &&
+    (await eventPapicActive(admin, session.event_id));
   if (!active) {
     return (
       <Shell>

@@ -113,6 +113,7 @@ type Props = {
     papic_ref?: string;
     papic_amount?: string;
     papic_error?: string;
+    papic_unlock_provisioned?: string;
   }>;
 };
 
@@ -211,6 +212,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     papic_ref: papicRef,
     papic_amount: papicAmount,
     papic_error: papicError,
+    papic_unlock_provisioned: papicUnlockProvisioned,
   } = await searchParams;
 
   const supabase = await createClient();
@@ -323,8 +325,9 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     Number((event as Record<string, unknown>).papic_unli_cap_php ?? 0) || 10000;
 
   // "Unlock all of Papic" umbrella bundle (owner 2026-06-26 · admin-managed price
-  // in platform_package_catalog). Owning it grants every Papic add-on (the
-  // unlimited-Unli camera allowance is a separate, deferred capture-gate bypass).
+  // in platform_package_catalog). Owning it grants every Papic add-on AND makes
+  // the Unli camera tier free + uncapped (capture-gate bypass in papic/actions +
+  // api/upload; ₱0 provisioning in the picker below via unliFree).
   const unlockAdmin = createAdminClient();
   const [{ data: unlockPkg }, ownsPapicUnlock, papicPlatformSettings] =
     await Promise.all([
@@ -480,13 +483,26 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
             Add cameras
           </p>
           <p className="max-w-prose text-sm text-ink/65">
-            Your first 5 cameras are free. Add more — a Ltd camera for each
-            guest, or Unli for your key shooters. We total it for you, and each
-            tier locks: Ltd at {formatPhp(papicLtdCapPhp)}, Unli at{' '}
-            {formatPhp(papicUnliCapPhp)}.
+            {ownsPapicUnlock
+              ? 'Unlock all is active — Unli cameras are free and unlimited. Add as many as you like; you only pay for any Ltd cameras.'
+              : `Your first 5 cameras are free. Add more — a Ltd camera for each guest, or Unli for your key shooters. We total it for you, and each tier locks: Ltd at ${formatPhp(
+                  papicLtdCapPhp,
+                )}, Unli at ${formatPhp(papicUnliCapPhp)}.`}
           </p>
         </div>
-        {papicPurchased ? (
+        {papicUnlockProvisioned ? (
+          <div className="mt-4 rounded-lg border border-success-300/70 bg-success-50 p-4 text-sm text-success-900">
+            <p className="font-medium">
+              {papicUnlockProvisioned} Unli camera
+              {papicUnlockProvisioned === '1' ? '' : 's'} added — free with Unlock
+              all.
+            </p>
+            <p className="mt-1">
+              They’re active now. Head to your crew to share each camera’s claim
+              link.
+            </p>
+          </div>
+        ) : papicPurchased ? (
           <div className="mt-4 rounded-lg border border-ink/15 bg-ink/[0.03] p-4 text-sm text-ink/80">
             <p className="font-medium text-ink">
               Order received{papicAmount ? ` — ${formatPhp(Number(papicAmount))} due` : ''}.
@@ -512,6 +528,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
             unlimitedRate={cameraRates.unlimited}
             ltdCapPhp={papicLtdCapPhp}
             unliCapPhp={papicUnliCapPhp}
+            unliFree={ownsPapicUnlock}
           />
         </div>
       </section>

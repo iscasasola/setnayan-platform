@@ -1,7 +1,9 @@
-import { MonitorPlay } from 'lucide-react';
+import Link from 'next/link';
+import { MonitorPlay, ChevronRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { eventOwnsSku } from '@/lib/entitlements';
+import { eventPapicActive } from '@/lib/papic-seats';
 import { LiveWallControls, type WallScreenRow, type WallTileRow } from './live-wall-controls';
 
 /**
@@ -22,8 +24,39 @@ import { LiveWallControls, type WallScreenRow, type WallTileRow } from './live-w
 export async function LiveWallCard({ eventId }: { eventId: string }) {
   const supabase = await createClient();
 
-  const owns = await eventOwnsSku(supabase, eventId, 'LIVE_WALL');
+  // Photo Wall is a Papic ADD-ON — it projects Papic captures, so it requires
+  // Papic active too (owner 2026-06-26): render only on (owns LIVE_WALL) AND
+  // (Papic active). papicActive counts bundle owners, so a Complete/Unlock-all
+  // buyer (who owns the wall via the bundle) is never wrongly blocked.
+  const [owns, papicActive] = await Promise.all([
+    eventOwnsSku(supabase, eventId, 'LIVE_WALL'),
+    eventPapicActive(supabase, eventId),
+  ]);
   if (!owns) return null;
+  if (!papicActive) {
+    // Owns the wall but Papic isn't set up — there's nothing to project yet.
+    // (Rare: bundle owners are always Papic-active; this is the à-la-carte
+    // LIVE_WALL-without-Papic case.) Point them at the Papic setup.
+    return (
+      <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
+        <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
+          <MonitorPlay aria-hidden className="h-4.5 w-4.5 text-terracotta" strokeWidth={2} />
+          Live Photo Wall
+        </h2>
+        <p className="mt-1 text-sm text-ink/60">
+          The wall projects your Papic photos — set up your Papic crew first and
+          your wall controls appear here.
+        </p>
+        <Link
+          href={`/dashboard/${eventId}/studio/papic/crew`}
+          className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:text-terracotta-700"
+        >
+          Set up your Papic crew
+          <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
+        </Link>
+      </section>
+    );
+  }
 
   const [{ data: sessions }, { data: feed }] = await Promise.all([
     supabase

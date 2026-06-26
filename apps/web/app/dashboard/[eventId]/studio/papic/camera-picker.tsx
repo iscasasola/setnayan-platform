@@ -72,28 +72,33 @@ export default function CameraPicker({
   unlimitedRate,
   ltdCapPhp,
   unliCapPhp,
+  unliFree = false,
 }: {
   eventId: string;
   rollRate: number;
   unlimitedRate: number;
   ltdCapPhp: number;
   unliCapPhp: number;
+  /** PAPIC_UNLOCK owners get the Unli tier free + uncapped (₱0). */
+  unliFree?: boolean;
 }) {
   const [roll, setRoll] = useState(0);
   const [unlimited, setUnlimited] = useState(0);
 
   const paidCount = roll + unlimited;
   // Per-tier cap (owner 2026-06-26): Ltd locks at ₱6,000, Unli at ₱10,000, each
-  // tier independently. Mirrors computeCameraQuote on the server.
+  // tier independently. Mirrors computeCameraQuote on the server. PAPIC_UNLOCK
+  // owners pay ₱0 for Unli (free + uncapped) — unliFree forces its charge to 0.
   const ltdRaw = roll * rollRate;
   const unliRaw = unlimited * unlimitedRate;
   const ltdCharge = Math.min(ltdRaw, ltdCapPhp);
-  const unliCharge = Math.min(unliRaw, unliCapPhp);
+  const unliCharge = unliFree ? 0 : Math.min(unliRaw, unliCapPhp);
   const rawTotal = ltdRaw + unliRaw;
   const total = ltdCharge + unliCharge;
-  const capped = ltdRaw > ltdCapPhp || unliRaw > unliCapPhp;
+  const capped = ltdRaw > ltdCapPhp || (!unliFree && unliRaw > unliCapPhp);
   const belowMin = paidCount > 0 && paidCount < MIN_PAID;
   const canBuy = paidCount >= MIN_PAID;
+  const free = total === 0;
 
   return (
     <form action={purchasePapicCameras} className="flex flex-col gap-3">
@@ -110,8 +115,8 @@ export default function CameraPicker({
       />
       <Stepper
         label="Unli"
-        hint="No limit — archived to your Drive"
-        perDay={unlimitedRate}
+        hint={unliFree ? 'No limit · free with Unlock all' : 'No limit — archived to your Drive'}
+        perDay={unliFree ? 0 : unlimitedRate}
         value={unlimited}
         onChange={setUnlimited}
       />
@@ -120,13 +125,22 @@ export default function CameraPicker({
         <span className="text-sm text-ink/60">
           {paidCount} camera{paidCount === 1 ? '' : 's'} · 1 day
         </span>
-        <span className="text-lg font-medium tabular-nums text-ink">{php(total)}</span>
+        <span className="text-lg font-medium tabular-nums text-ink">
+          {free ? 'Free' : php(total)}
+        </span>
       </div>
+
+      {unliFree ? (
+        <p className="text-xs text-mulberry">
+          Unlock all is active — Unli cameras are free and unlimited. You only pay
+          for any Ltd cameras you add.
+        </p>
+      ) : null}
 
       {capped ? (
         <p className="text-xs text-ink/55">
-          Price locked — Ltd caps at {php(ltdCapPhp)}, Unli at {php(unliCapPhp)}{' '}
-          (would be {php(rawTotal)}).
+          Price locked — Ltd caps at {php(ltdCapPhp)}
+          {unliFree ? '' : `, Unli at ${php(unliCapPhp)}`} (would be {php(rawTotal)}).
         </p>
       ) : null}
 
@@ -141,11 +155,16 @@ export default function CameraPicker({
         disabled={!canBuy}
         className="w-full rounded-md bg-mulberry px-4 py-3 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-40"
       >
-        {canBuy ? `Get ${paidCount} cameras · ${php(total)}` : 'Add at least 5 cameras'}
+        {!canBuy
+          ? 'Add at least 5 cameras'
+          : free
+            ? `Activate ${paidCount} cameras · Free`
+            : `Get ${paidCount} cameras · ${php(total)}`}
       </button>
       <p className="text-center text-xs text-ink/50">
-        Apply-then-pay — you’ll get payment instructions next. Face-sorting &amp;
-        privacy are free.
+        {free
+          ? 'Your cameras activate right away. Face-sorting & privacy are free.'
+          : 'Apply-then-pay — you’ll get payment instructions next. Face-sorting & privacy are free.'}
       </p>
     </form>
   );

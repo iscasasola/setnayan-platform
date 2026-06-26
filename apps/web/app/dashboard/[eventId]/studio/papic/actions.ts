@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { eventSkuActive } from '@/lib/entitlements';
 import { makeSamplerPermanent } from '@/lib/papic-sampler';
 import { cancelSamplerExpiryWarnings } from '@/lib/papic-sampler-emails';
 import {
@@ -11,6 +12,7 @@ import {
   PAPIC_LTD_CAP_FALLBACK_PHP,
   PAPIC_MIN_PAID_CAMERAS,
   PAPIC_UNLI_CAP_FALLBACK_PHP,
+  PAPIC_UNLOCK_BUNDLE_KEY,
   computeCameraQuote,
   fetchCameraRates,
   mintPapicReferenceCode,
@@ -470,16 +472,28 @@ export async function purchasePapicCameras(formData: FormData) {
   };
   const eventDate = (ev?.event_date as string | null) ?? null;
 
+  // PAPIC_UNLOCK umbrella owners get the Unli tier free + uncapped (owner
+  // 2026-06-26): quote with unliFree so the Unli charge collapses to ₱0. Roll
+  // (Ltd) still bills normally — the umbrella covers Unli only.
+  const ownsUnlock = await eventSkuActive(admin, eventId, PAPIC_UNLOCK_BUNDLE_KEY);
   const rates = await fetchCameraRates(admin);
-  const quote = computeCameraQuote({ roll, unlimited }, 1, rates, caps);
+  const quote = computeCameraQuote({ roll, unlimited }, 1, rates, caps, {
+    unliFree: ownsUnlock,
+  });
 
   if (quote.paidCount < PAPIC_MIN_PAID_CAMERAS) {
     redirect(`/dashboard/${eventId}/studio/papic?papic_error=min_cameras`);
   }
 
-  // Apply-then-pay order (status='submitted' → admin reconciles the transfer).
-  // requested_total_php is the pre-VAT base (the order layer adds VAT for the
-  // customer invoice, same as every other SKU).
+  // Order shape: when the whole quote is free (an umbrella owner provisioning
+  // Unli only), nothing needs reconciling — the order lands 'fulfilled' (a ₱0
+  // comp the ACTIVE PAPIC_UNLOCK already covers) so the cameras shoot at once.
+  // Otherwise it's the apply-then-pay 'submitted' order the Setnayan team
+  // reconciles (the Roll part); any free Unli seats provisioned on that same
+  // order are freed by the capture-gate PAPIC_UNLOCK bypass (papic/actions +
+  // api/upload). requested_total_php is the pre-VAT base (the order layer adds
+  // VAT for the customer invoice, same as every other SKU).
+  const isFree = quote.totalPhp === 0;
   const referenceCode = mintPapicReferenceCode();
   const { data: order, error: orderErr } = await admin
     .from('orders')
@@ -490,7 +504,7 @@ export async function purchasePapicCameras(formData: FormData) {
       description: quote.description,
       requested_total_php: quote.totalPhp,
       reference_code: referenceCode,
-      status: 'submitted',
+      status: isFree ? 'fulfilled' : 'submitted',
       platform: 'web',
     })
     .select('order_id, public_id')
@@ -521,6 +535,13 @@ export async function purchasePapicCameras(formData: FormData) {
   }
 
   revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  if (isFree) {
+    // Free Unli provision (umbrella owner) — cameras are already active, no
+    // payment instructions. Surface a "your cameras are ready" confirmation.
+    redirect(
+      `/dashboard/${eventId}/studio/papic?papic_unlock_provisioned=${quote.unlimitedCount}`,
+    );
+  }
   redirect(
     `/dashboard/${eventId}/studio/papic?papic_purchased=${encodeURIComponent(
       order.public_id,

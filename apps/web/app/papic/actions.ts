@@ -19,6 +19,7 @@ import {
   papicPerCameraTier,
   papicCameraOrderPaid,
   papicTierDailyLimit,
+  eventUnliFreeViaUnlock,
 } from '@/lib/papic-cameras';
 
 // Server-side 5-second clip cap (corpus constraint · not configurable). The
@@ -255,6 +256,14 @@ export async function recordSeatCapture(
             admin,
             seat.paid_order_id as string | null,
           );
+          // PAPIC_UNLOCK umbrella (owner 2026-06-26): owning it makes Unli
+          // cameras free + uncapped, so an unpaid Unli seat still shoots. Roll
+          // (Ltd) is NOT freed — the umbrella covers Unli only. Money-gated:
+          // eventUnliFreeViaUnlock is TRUE only on an ACTIVE PAPIC_UNLOCK order,
+          // so a non-owner's paid camera is never freed.
+          if (!paid && cameraTier === 'unlimited') {
+            paid = await eventUnliFreeViaUnlock(admin, seat.event_id as string);
+          }
         } catch {
           paid = false;
         }

@@ -196,7 +196,7 @@ export async function recordSeatCapture(
   const { data: seat, error: seatError } = await supabase
     .from('paparazzi_seats')
     .select(
-      'seat_id, event_id, revoked_at, claimer_user_id, is_free_sampler, tier, sku_code, paid_order_id',
+      'seat_id, event_id, revoked_at, claimer_user_id, is_free_sampler, tier, sku_code, paid_order_id, valid_from, valid_until',
     )
     .eq('claim_qr_token', cleanToken)
     .maybeSingle();
@@ -249,6 +249,26 @@ export async function recordSeatCapture(
   // the presign probe in /api/upload is the orphan-byte leak guard).
   {
     if (cameraTier) {
+      // ── Capture WINDOW gate (owner 2026-06-26) ──────────────────────────
+      // The camera only shoots inside the event's chosen window
+      // (paparazzi_seats.valid_from/valid_until, stamped from the event window).
+      // Closing the window ends CAPTURE only — the gallery + delivery stay open
+      // forever. Fail-OPEN on absent/null bounds (legacy seats had none) so a
+      // pre-window camera is never broken. Applies to per-camera seats only.
+      const nowMs = Date.now();
+      const validFrom = seat.valid_from
+        ? Date.parse(seat.valid_from as string)
+        : NaN;
+      const validUntil = seat.valid_until
+        ? Date.parse(seat.valid_until as string)
+        : NaN;
+      if (Number.isFinite(validFrom) && nowMs < validFrom) {
+        return { ok: false, error: 'capture_not_started' };
+      }
+      if (Number.isFinite(validUntil) && nowMs > validUntil) {
+        return { ok: false, error: 'capture_window_closed' };
+      }
+
       // Papic Unlock (the "Unlock all of Papic" pass · PR9 #2269 grants the
       // FEATURES; this is the deferred ALLOWANCE half): every camera on the event
       // shoots UNLIMITED with NO per-camera payment — skip both the paid-gate and

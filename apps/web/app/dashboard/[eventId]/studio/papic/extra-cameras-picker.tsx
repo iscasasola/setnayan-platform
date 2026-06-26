@@ -27,19 +27,27 @@ export default function ExtraCamerasPicker({
   unlimitedRate,
   unliCapPhp,
   unliFree = false,
+  days = 1,
+  windowSummary = '',
 }: {
   eventId: string;
   unlimitedRate: number;
   unliCapPhp: number;
   /** PAPIC_UNLOCK owners get Unli free + uncapped (₱0). */
   unliFree?: boolean;
+  /** Capture-window day multiplier — price = count × rate × days, then capped. */
+  days?: number;
+  /** Human window label, e.g. "Jun 12–14 · 3 days". */
+  windowSummary?: string;
 }) {
   const [count, setCount] = useState(1);
 
-  const raw = count * unlimitedRate;
+  const d = Math.max(1, Math.floor(days) || 1);
+  const raw = count * unlimitedRate * d;
   const charge = unliFree ? 0 : Math.min(raw, unliCapPhp);
   const capped = !unliFree && raw > unliCapPhp;
   const free = charge === 0;
+  const dayLabel = windowSummary || `${d} day${d === 1 ? '' : 's'}`;
 
   return (
     <form action={purchasePapicExtras} className="flex flex-col gap-3">
@@ -80,7 +88,7 @@ export default function ExtraCamerasPicker({
 
       <div className="flex items-baseline justify-between">
         <span className="text-sm text-ink/60">
-          {count} extra camera{count === 1 ? '' : 's'} · 1 day
+          {count} extra camera{count === 1 ? '' : 's'} · {dayLabel}
         </span>
         <span className="text-lg font-medium tabular-nums text-ink">
           {free ? 'Free' : php(charge)}

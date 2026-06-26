@@ -1,4 +1,3 @@
-import type { ComponentProps } from 'react';
 import { headers } from 'next/headers';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
@@ -36,8 +35,6 @@ import {
   fetchPapicSeats,
   fetchPapicSamplerSeats,
   papicSeatClaimUrl,
-  PAPIC_SEATS_PRICE_PHP,
-  PAPIC_SEATS_SERVICE_KEY,
   PAPIC_SAMPLER_SEAT_COUNT,
   PAPIC_SAMPLER_PHOTO_CAP,
   PAPIC_SAMPLER_CLIP_CAP,
@@ -48,9 +45,6 @@ import { CopyButton } from './crew/_components/copy-button';
 import { fetchPapicGallery } from '@/lib/papic-gallery';
 import { PapicGalleryGrid } from './_components/papic-gallery-grid';
 import { getKwentoDensity } from '@/lib/kwento-density';
-import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
-import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import { setPapicStorageDrive, setPapicStorageR2 } from './actions';
 import { fetchCameraRates } from '@/lib/papic-cameras';
 import CameraPicker from './camera-picker';
@@ -113,10 +107,10 @@ type Props = {
   }>;
 };
 
-// Seat-pack price is read live from the admin catalog (PAPIC_SEATS via
-// formatV2Sku → papicSeatsPricePhp), not a hardcoded number. The former
-// PAPIC_3/5_SEATS_PRICE constants are retired (owner 2026-06-18 · "admin
-// pricing controls all the prices").
+// Papic is per-camera (Roll ₱30/cam/day · Unlimited ₱100/cam/day · first 5
+// free) — the flat ₱2,999 PAPIC_SEATS pass is retired (PR5, 2026-06-26). Live
+// per-camera rates are read from the admin catalog via fetchCameraRates, not a
+// hardcoded number.
 // Pro Camera Bridge is INCLUDED with Papic (owner 2026-06-18 · no separate
 // purchase) — its former ₱1,499 SKU constant is retired.
 
@@ -213,14 +207,14 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  // Read the event row + the current storage target. We need display_name
-  // for the header and papic_storage_target for the radio selection. The
-  // column has a NOT NULL DEFAULT in the migration, so we always get a
-  // value — but defensively narrow to the union type below in case a
-  // future migration relaxes it.
+  // Read the event row + the current storage target. We need
+  // papic_storage_target for the radio selection and papic_cost_cap_php for the
+  // per-camera buy total. The storage column has a NOT NULL DEFAULT in the
+  // migration, so we always get a value — but defensively narrow to the union
+  // type below in case a future migration relaxes it.
   const { data: event } = await supabase
     .from('events')
-    .select('event_id, display_name, papic_storage_target, papic_cost_cap_php')
+    .select('event_id, papic_storage_target, papic_cost_cap_php')
     .eq('event_id', eventId)
     .maybeSingle();
   if (!event) notFound();
@@ -230,34 +224,29 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       ? 'google_drive_only'
       : 'setnayan_r2';
 
-  // Drive-grant lookup, Papic-seat ownership, the seat SKU price, and platform
-  // settings are four mutually independent reads — one parallel batch instead
-  // of four serial round-trips (owner perf pass 2026-06-03). The price/settings
-  // reads keep their own `.catch` fallbacks, so a failure in one never rejects
-  // the batch or breaks the always-rendered Papic page.
-  const [grantRaw, ownsPapicSeats, papicSeatsSku, platformSettings, paidSeats, samplerSeats] =
-    await Promise.all([
-      // Drive OAuth grant — RLS scopes oauth_grants by event_id IN
-      // current_event_ids(), so the anon client is fine (no service role).
-      supabase
-        .from('oauth_grants')
-        .select('grant_id, external_account_display, granted_at, connection_health, metadata')
-        .eq('event_id', eventId)
-        .eq('provider', 'drive')
-        .is('revoked_at', null)
-        .maybeSingle()
-        .then((r) => r.data ?? null),
-      // Photo-crew ownership — graceful-degrades to false on a missing table.
-      eventOwnsPapicSeats(supabase, eventId),
-      // Seat SKU price + platform settings each tolerate failure (.catch).
-      formatV2Sku(PAPIC_SEATS_SERVICE_KEY).catch(() => null),
-      fetchPlatformSettings(supabase).catch(() => null),
-      // Real seat rows — paid pass + free sampler. Both graceful-degrade to []
-      // on a missing/legacy paparazzi_seats table (the page then shows the
-      // buy / try state rather than crashing).
-      fetchPapicSeats(supabase, eventId),
-      fetchPapicSamplerSeats(supabase, eventId),
-    ]);
+  // Drive-grant lookup, Papic-seat ownership, and the seat rows are mutually
+  // independent reads — one parallel batch instead of serial round-trips (owner
+  // perf pass 2026-06-03). The seat reads graceful-degrade to [] so a failure in
+  // one never rejects the batch or breaks the always-rendered Papic page.
+  const [grantRaw, ownsPapicSeats, paidSeats, samplerSeats] = await Promise.all([
+    // Drive OAuth grant — RLS scopes oauth_grants by event_id IN
+    // current_event_ids(), so the anon client is fine (no service role).
+    supabase
+      .from('oauth_grants')
+      .select('grant_id, external_account_display, granted_at, connection_health, metadata')
+      .eq('event_id', eventId)
+      .eq('provider', 'drive')
+      .is('revoked_at', null)
+      .maybeSingle()
+      .then((r) => r.data ?? null),
+    // Photo-crew ownership — graceful-degrades to false on a missing table.
+    eventOwnsPapicSeats(supabase, eventId),
+    // Real seat rows — paid pass + free sampler. Both graceful-degrade to []
+    // on a missing/legacy paparazzi_seats table (the page then shows the
+    // buy / try state rather than crashing).
+    fetchPapicSeats(supabase, eventId),
+    fetchPapicSamplerSeats(supabase, eventId),
+  ]);
   const driveGrant = (grantRaw ?? null) as DriveGrant | null;
 
   // --- Graceful-fallback flag ---
@@ -267,8 +256,6 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   // Cloud verified-app review (1-4 wk window).
   const driveConfig = await getDriveOAuthConfig();
   const driveOAuthReady = driveConfig.ready;
-
-  const papicSeatsPricePhp = papicSeatsSku?.price_php ?? PAPIC_SEATS_PRICE_PHP;
 
   // Roster source: paid seats once the pack is owned; otherwise the free
   // sampler seats when the couple has started one; otherwise [] (the buy/try
@@ -349,11 +336,11 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       </header>
 
       {/* ----------------------------------------------------------------
-          Papic · your photo crew (PAPIC_SEATS) — the real entry point.
-          Owners → the /crew management surface (provision + claim links +
-          QR + reissue). Non-owners → apply-then-pay checkout via the
-          InlineCheckoutDrawer. The mock crew illustration further down on
-          this page stays as an explainer.
+          Papic · your photo crew — the real entry point. Both owners and
+          non-owners go to the /crew management surface (provision + claim
+          links + QR + reissue); the per-camera buy picker lives in the
+          "Add cameras" section just below. The mock crew illustration
+          further down on this page stays as an explainer.
           ---------------------------------------------------------------- */}
       <section className="rounded-2xl border border-terracotta/25 bg-terracotta/[0.04] p-5 sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -395,8 +382,13 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       {/* ----------------------------------------------------------------
           Papic · per-camera buy flow (PR2 · 2026-06-26)
           Free first 5 cameras; add paid Roll / Unlimited cameras here.
+          id="papic-add-cameras" — the sampler-expiry card's "Add a camera"
+          CTA anchors here (the flat ₱2,999 pass is retired, PR5).
           ---------------------------------------------------------------- */}
-      <section className="rounded-2xl border border-terracotta/25 bg-terracotta/[0.04] p-5 sm:p-6">
+      <section
+        id="papic-add-cameras"
+        className="scroll-mt-20 rounded-2xl border border-terracotta/25 bg-terracotta/[0.04] p-5 sm:p-6"
+      >
         <div className="space-y-1.5">
           <p className="flex items-center gap-2 text-lg font-semibold tracking-tight text-ink">
             <Sparkles aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
@@ -445,16 +437,14 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           real actions are: "keep your own copy" anchors DOWN to the storage
           card (which honors the Drive OAuth coming-soon gate itself — we
           never deep-link /api/oauth/drive/start, which 503s when env is
-          unset), and "upgrade to full Papic" reuses the same InlineCheckout
-          drawer the crew pack uses. */}
+          unset), and "add a camera" anchors UP to the per-camera buy picker
+          (#papic-add-cameras). The flat ₱2,999 PAPIC_SEATS pass is retired
+          (PR5, 2026-06-26) — Papic is per-camera, so there is no checkout
+          drawer here. */}
       {!ownsPapicSeats && samplerExpiringCount > 0 && (
         <SamplerRetentionCard
           expiringCount={samplerExpiringCount}
           daysLeft={samplerDaysLeft}
-          eventId={eventId}
-          pricePhp={papicSeatsPricePhp}
-          eventDisplayName={event.display_name ?? null}
-          settings={platformSettings}
         />
       )}
 
@@ -573,26 +563,21 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
 //   • "Keep your own copy — Google Drive" anchors to #papic-storage. We do NOT
 //     deep-link /api/oauth/drive/start (it 503s when GOOGLE_DRIVE_OAUTH_CLIENT_ID
 //     is unset). The storage card owns the connect button + its coming-soon gate.
-//   • "Upgrade to full Papic" reuses the crew pack's InlineCheckoutDrawer.
-// Drive (free) renders even when platform settings are unavailable; the upgrade
-// CTA only renders when settings are present (the drawer needs the QR refs).
+//   • "Add a camera" anchors UP to #papic-add-cameras (the on-page per-camera
+//     buy picker). Papic is per-camera now (Roll ₱30/cam/day · Unlimited
+//     ₱100/cam/day · first 5 free) — the flat ₱2,999 PAPIC_SEATS pass is retired
+//     (PR5, 2026-06-26), so there is no InlineCheckoutDrawer here any more. Paid
+//     cameras archive every shot to your Drive, so new captures never expire.
+// Both CTAs are plain anchors — no platform settings / QR refs needed.
 function SamplerRetentionCard({
-  eventId,
   expiringCount,
   daysLeft,
-  pricePhp,
-  eventDisplayName,
-  settings,
 }: {
-  eventId: string;
   expiringCount: number;
   daysLeft: number | null;
-  pricePhp: number;
-  eventDisplayName: string | null;
-  settings: ComponentProps<typeof InlineCheckoutDrawer>['settings'] | null;
 }) {
   const ctaClass =
-    'inline-flex flex-1 items-center justify-center gap-2 rounded-md border border-mulberry/30 bg-mulberry/5 px-4 py-2.5 text-sm font-medium text-mulberry transition-colors hover:bg-mulberry/10 disabled:opacity-70';
+    'inline-flex flex-1 items-center justify-center gap-2 rounded-md border border-mulberry/30 bg-mulberry/5 px-4 py-2.5 text-sm font-medium text-mulberry transition-colors hover:bg-mulberry/10';
   const noun = expiringCount === 1 ? 'photo' : 'photos';
   const verb = expiringCount === 1 ? 'expires' : 'expire';
 
@@ -619,8 +604,9 @@ function SamplerRetentionCard({
                 : `${verb} in ${daysLeft} ${daysLeft === 1 ? 'day' : 'days'}`}
             .
           </b>{' '}
-          Save your own copy to Google Drive, or upgrade to full Papic to keep
-          every shot forever — and unlock all five seats with unlimited photos.
+          Save your own copy to Google Drive to keep them — or add a camera to go
+          beyond the free sampler, where every shot is archived to your Drive and
+          never expires.
         </p>
       </div>
 
@@ -629,17 +615,10 @@ function SamplerRetentionCard({
           <HardDrive aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           Keep your own copy — Google Drive
         </Link>
-        {settings ? (
-          <InlineCheckoutDrawer
-            eventId={eventId}
-            serviceKey={PAPIC_SEATS_SERVICE_KEY}
-            displayName={`Papic · 5 Seats${eventDisplayName ? ` · ${eventDisplayName}` : ''}`}
-            originalPriceCentavos={String(Math.round(pricePhp * 100))}
-            settings={settings}
-            triggerLabel={`Upgrade to full Papic · ${formatPhp(pricePhp)}`}
-            triggerClassName={ctaClass}
-          />
-        ) : null}
+        <Link href="#papic-add-cameras" className={ctaClass}>
+          <Camera aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          Add a camera
+        </Link>
       </div>
     </section>
   );

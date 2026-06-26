@@ -18,6 +18,7 @@ import {
   papicTierDailyLimit,
   eventUnliFreeViaUnlock,
 } from '@/lib/papic-cameras';
+import { eventHasPapicUnlock } from '@/lib/entitlements';
 
 /**
  * Presigned-URL endpoint used by `<FileUpload>` to upload files directly to
@@ -303,7 +304,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // no URL ⇒ no orphan bytes. The record-layer reserve RPC is the backstop.
     if (cameraTier) {
       const admin = createAdminClient();
-      if (cameraTier === 'roll' || cameraTier === 'unlimited') {
+      // Papic Unlock ("Unlock all of Papic" pass · PR9 #2269 grants the FEATURES;
+      // this is the deferred ALLOWANCE half): every camera shoots UNLIMITED with
+      // NO per-camera payment — skip both the presign paid-gate and the daily
+      // quota probe. Fail toward the normal metered gate on a read error.
+      const unlocked = await eventHasPapicUnlock(
+        admin,
+        seat.event_id as string,
+      ).catch(() => false);
+      if (
+        !unlocked &&
+        (cameraTier === 'roll' || cameraTier === 'unlimited')
+      ) {
         let paid = false;
         try {
           paid = await papicCameraOrderPaid(
@@ -333,7 +345,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const cameraKind = baseContentTypeOf(body.contentType).startsWith('video/')
         ? 'clip'
         : 'photo';
-      const limit = papicTierDailyLimit(cameraTier, cameraKind);
+      const limit = unlocked
+        ? null
+        : papicTierDailyLimit(cameraTier, cameraKind);
       if (limit != null) {
         try {
           const { data: remaining, error: remErr } = await admin.rpc(

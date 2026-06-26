@@ -22,6 +22,8 @@ import {
   autoTagSeatCapture,
 } from '@/app/papic/actions';
 import { makeQrDetector } from '@/lib/qr-scan';
+import { usePapicCamera } from '@/lib/use-papic-camera';
+import { PapicCameraControls } from '@/app/papic/_components/camera-controls';
 
 // Papic · paparazzo capture (client)
 //
@@ -127,9 +129,22 @@ export function PapicSeatCapture({
   clipCap = null,
   isAnon = false,
 }: Props) {
-  const videoRef = useRef<HTMLVideoElement>(null);
+  // The live camera + its flip / lens controls (shared hook owns the stream).
+  const {
+    videoRef,
+    streamRef,
+    ready,
+    camError,
+    canFlip,
+    flip,
+    lensOptions,
+    lens,
+    selectLens,
+    mirrored,
+    switching,
+  } = usePapicCamera({ enabled: true });
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const clipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -147,8 +162,6 @@ export function PapicSeatCapture({
   // immediately on start/stop, so gesture decisions are never stale.
   const recordingRef = useRef(false);
 
-  const [ready, setReady] = useState(false);
-  const [camError, setCamError] = useState(false);
   const [recording, setRecording] = useState(false);
   const [recElapsed, setRecElapsed] = useState(0);
   const [photos, setPhotos] = useState(initialPhotos);
@@ -185,48 +198,14 @@ export function PapicSeatCapture({
   const clipsAllowed = clipCap == null || clipCap > 0;
   const capped = photoCap != null || clipCap != null;
 
+  // The camera stream itself is owned by usePapicCamera; here we only tear down
+  // the capture-side timers on unmount (the hook stops its own tracks).
   useEffect(() => {
-    let cancelled = false;
-    async function acquire(withAudio: boolean) {
-      return navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' } },
-        audio: withAudio,
-      });
-    }
-    async function start() {
-      // ONE stream for the whole session (the iOS-safe shape — a second
-      // getUserMedia while the camera is live can interrupt it). Prefer audio so
-      // clips have sound; if the mic is denied/unavailable, fall back to
-      // video-only (silent clips) rather than losing the camera entirely.
-      try {
-        let stream: MediaStream;
-        try {
-          stream = await acquire(true);
-        } catch {
-          stream = await acquire(false);
-        }
-        if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop());
-          return;
-        }
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play().catch(() => {});
-        }
-        setReady(true);
-      } catch {
-        setCamError(true);
-      }
-    }
-    void start();
     return () => {
-      cancelled = true;
       if (clipTimerRef.current) clearTimeout(clipTimerRef.current);
       if (recTickRef.current) clearInterval(recTickRef.current);
       if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
       if (capNoticeTimerRef.current) clearTimeout(capNoticeTimerRef.current);
-      streamRef.current?.getTracks().forEach((t) => t.stop());
     };
   }, []);
 
@@ -309,7 +288,7 @@ export function PapicSeatCapture({
     return new Promise<Blob | null>((resolve) =>
       canvas.toBlob(resolve, 'image/jpeg', 0.9),
     );
-  }, []);
+  }, [videoRef]);
 
   const flash = useCallback(() => {
     setJustSaved(true);
@@ -487,7 +466,7 @@ export function PapicSeatCapture({
   );
 
   const capturePhoto = useCallback(async () => {
-    if (recordingRef.current || !ready || photoFull) return;
+    if (recordingRef.current || !ready || switching || photoFull) return;
     setSaveError(null);
     const blob = await grabFrame();
     if (!blob) {
@@ -505,7 +484,7 @@ export function PapicSeatCapture({
       contentType: 'image/jpeg',
       ext: 'jpg',
     });
-  }, [ready, photoFull, grabFrame, enqueueShot]);
+  }, [ready, switching, photoFull, grabFrame, enqueueShot]);
 
   const stopClip = useCallback(() => {
     // Flip the synchronous flag the instant we ask the recorder to stop, so a
@@ -524,7 +503,7 @@ export function PapicSeatCapture({
   }, []);
 
   const startClip = useCallback(() => {
-    if (recordingRef.current || !ready || clipFull) return;
+    if (recordingRef.current || !ready || switching || clipFull) return;
     const stream = streamRef.current;
     if (!stream || stream.getVideoTracks().length === 0) return;
     setSaveError(null);
@@ -586,7 +565,7 @@ export function PapicSeatCapture({
     }, 100);
     // Hard 5-second cap — auto-stop. Not configurable (corpus constraint).
     clipTimerRef.current = setTimeout(stopClip, CLIP_MAX_MS);
-  }, [ready, clipFull, grabFrame, enqueueShot, stopClip]);
+  }, [ready, switching, clipFull, grabFrame, enqueueShot, stopClip, streamRef]);
 
   // Flash a transient "you've used your free photos/clips" notice (sampler caps).
   const flashCapNotice = useCallback((kind: 'photos' | 'clips') => {
@@ -601,7 +580,7 @@ export function PapicSeatCapture({
   // a release before HOLD_MS is a tap (photo), a release after is a clip stop.
   const onShutterDown = useCallback(
     (e: RPointerEvent<HTMLButtonElement>) => {
-      if (recordingRef.current || !ready) return;
+      if (recordingRef.current || !ready || switching) return;
       // Capture the pointer so the matching up/cancel always lands on THIS button
       // even if the finger drifts off — robust taps + no stranded recording.
       try {
@@ -622,7 +601,7 @@ export function PapicSeatCapture({
         startClip();
       }, HOLD_MS);
     },
-    [ready, clipsAllowed, clipFull, startClip, flashCapNotice],
+    [ready, switching, clipsAllowed, clipFull, startClip, flashCapNotice],
   );
 
   const onShutterUp = useCallback(
@@ -760,7 +739,7 @@ export function PapicSeatCapture({
       active = false;
       if (timer) clearTimeout(timer);
     };
-  }, [tagging, handleScan]);
+  }, [tagging, handleScan, videoRef]);
 
   if (camError) {
     return (
@@ -838,11 +817,24 @@ export function PapicSeatCapture({
           muted
           autoPlay
           className="h-full w-full object-cover"
+          style={{ transform: mirrored ? 'scaleX(-1)' : undefined }}
         />
-        {!ready && (
+        {(!ready || switching) && (
           <div className="absolute inset-0 flex items-center justify-center bg-ink/80">
             <Loader2 aria-hidden className="h-6 w-6 animate-spin text-cream/70" strokeWidth={2} />
           </div>
+        )}
+        {/* Flip + lens controls (hidden while recording / tagging keep the stage
+            clean; the hook gates each control to what the device actually offers). */}
+        {ready && !tagging && !recording && (
+          <PapicCameraControls
+            canFlip={canFlip}
+            onFlip={flip}
+            lensOptions={lensOptions}
+            lens={lens}
+            onSelectLens={selectLens}
+            disabled={switching}
+          />
         )}
         {recording && (
           <>
@@ -1051,7 +1043,7 @@ export function PapicSeatCapture({
                       onPointerUp={onShutterUp}
                       onPointerCancel={onShutterCancel}
                       onContextMenu={(e) => e.preventDefault()}
-                      disabled={!ready}
+                      disabled={!ready || switching}
                       aria-label={
                         recording
                           ? 'Recording — release to stop'

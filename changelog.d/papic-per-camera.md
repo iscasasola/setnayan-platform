@@ -67,3 +67,24 @@ migration applied to prod; the atomic cap proven live (reserve 3× vs limit 2 �
 2 allowed, 3rd refused; unlimited always allowed).
 
 SPEC IMPACT: None new (captured in the corpus).
+
+## 2026-06-26 · feat(papic): per-camera cameras surface to the couple (PR4/4)
+
+The last mile. The `/crew` page gated the paid roster on `PAPIC_SEATS` pack
+ownership, so a per-camera-only couple never saw the cameras they bought. Now
+the roster shows whenever the event has ANY non-sampler seats (which includes
+the per-camera seats at index ≥ 200), and per-camera seats render as "Camera N"
+(not "Seat 200"). So the couple sees + shares a per-camera claim link, and the
+existing claim → `/papic/seat` → browser-capture → upload → record loop
+completes the per-camera flow end to end (capture gated on payment + daily quota
+via PR3).
+
+The free-funnel taste remains the existing 3-seat sampler (the "first 5 / 5+1"
+figures in the strategy doc are provisional dials, tuned in the holistic pass —
+not forked here). Admin approval of a `PAPIC_CAMERAS` order is safe: the
+activation dispatcher no-ops on the unknown service key, the order flips to paid,
+and PR3's gate unlocks the cameras.
+
+Verified: typecheck + `next lint` + papic-keep clean.
+
+SPEC IMPACT: None new.

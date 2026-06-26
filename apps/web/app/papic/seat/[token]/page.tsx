@@ -105,6 +105,7 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
         initialClips={clipCount ?? 0}
         photoCap={isSampler ? PAPIC_SAMPLER_PHOTO_CAP : null}
         clipCap={isSampler ? PAPIC_SAMPLER_CLIP_CAP : null}
+        isAnon={Boolean(user.is_anonymous)}
       />
       {bridgeEnabled ? (
         <CameraBridgePanel

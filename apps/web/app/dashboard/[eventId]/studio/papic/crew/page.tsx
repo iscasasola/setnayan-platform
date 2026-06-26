@@ -85,11 +85,17 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
 
   const backLink = `/dashboard/${eventId}/studio/papic`;
 
-  const owns = await eventPapicSeatsActive(supabase, eventId);
-  // Paid crew when owned; otherwise the free sampler.
+  // Paid roster shows when the event owns the PAPIC_SEATS pack OR has any paid
+  // per-camera seats (per-camera model 2026-06-26 — those are non-sampler seats
+  // too, provisioned at purchase; capture stays gated on payment via the
+  // record/presign per-camera checks). fetchPapicSeats returns all non-sampler
+  // seats regardless of ownership, so its length is the "has cameras" signal.
+  const ownsPack = await eventPapicSeatsActive(supabase, eventId);
+  const paidSeats = await fetchPapicSeats(supabase, eventId);
+  const owns = ownsPack || paidSeats.length > 0;
   const isSampler = !owns;
   const seats = owns
-    ? await fetchPapicSeats(supabase, eventId)
+    ? paidSeats
     : await fetchPapicSamplerSeats(supabase, eventId);
 
   // Live expiry countdown for the sampler banner — the soonest non-expired
@@ -311,7 +317,11 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
               <div key={s.seat_id} className="rounded-xl border border-ink/10 bg-surface p-4">
                 <div className="flex items-center justify-between">
                   <p className="font-medium text-ink">
-                    {isSampler ? `Free seat ${s.seat_index - 100}` : `Seat ${s.seat_index}`}
+                    {isSampler
+                      ? `Free seat ${s.seat_index - 100}`
+                      : s.seat_index >= 200
+                        ? `Camera ${s.seat_index - 199}` /* per-camera (index base 200) */
+                        : `Seat ${s.seat_index}`}
                   </p>
                   {claimed ? (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-terracotta/10 px-2.5 py-1 text-xs font-medium text-terracotta">

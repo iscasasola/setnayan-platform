@@ -12,6 +12,11 @@ import {
   presignDisplayUrl,
   presignUploadUrl,
 } from '@/lib/uploads';
+import {
+  papicPerCameraTier,
+  papicCameraOrderPaid,
+  papicTierDailyLimit,
+} from '@/lib/papic-cameras';
 
 /**
  * Presigned-URL endpoint used by `<FileUpload>` to upload files directly to
@@ -255,7 +260,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // resolving by token doubles as the auth check; we re-assert it explicitly.
     const { data: seat } = await supabase
       .from('paparazzi_seats')
-      .select('seat_id, event_id, revoked_at, claimer_user_id, is_free_sampler')
+      .select(
+        'seat_id, event_id, revoked_at, claimer_user_id, is_free_sampler, tier, sku_code, paid_order_id',
+      )
       .eq('claim_qr_token', papicSeatToken)
       .maybeSingle();
     if (!seat || seat.claimer_user_id !== user.id || seat.revoked_at) {
@@ -264,10 +271,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         { status: 403 },
       );
     }
+    // Per-camera seats (sku_code PAPIC_CAMERA_*) carry their own paid-gate +
+    // daily quota (below) and are NOT the legacy PAPIC_SEATS pack — so they skip
+    // the pack-ownership re-check. null for legacy pack + sampler seats.
+    const cameraTier = papicPerCameraTier(
+      (seat as { sku_code?: string | null }).sku_code ?? null,
+      (seat as { tier?: string | null }).tier ?? null,
+    );
     // Paid seats: entitlement re-check on the ADMIN client (the claimer can't
     // read orders under RLS). Fail-OPEN on a config/transient error so a paying
     // couple's crew is never blocked by an entitlement-read hiccup.
-    if (!seat.is_free_sampler) {
+    if (!seat.is_free_sampler && !cameraTier) {
       let owned = true;
       try {
         const admin = createAdminClient();
@@ -282,6 +296,64 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         );
       }
     }
+
+    // PER-CAMERA presign gate (per-camera model · PR3): for a per-camera seat,
+    // refuse the URL when its order isn't paid yet or it's at the daily quota —
+    // no URL ⇒ no orphan bytes. The record-layer reserve RPC is the backstop.
+    if (cameraTier) {
+      const admin = createAdminClient();
+      if (cameraTier === 'roll' || cameraTier === 'unlimited') {
+        let paid = false;
+        try {
+          paid = await papicCameraOrderPaid(
+            admin,
+            (seat as { paid_order_id?: string | null }).paid_order_id ?? null,
+          );
+        } catch {
+          paid = false;
+        }
+        if (!paid) {
+          return NextResponse.json(
+            {
+              error: 'This camera activates once your payment is confirmed.',
+              code: 'awaiting_payment',
+            },
+            { status: 402 },
+          );
+        }
+      }
+      const cameraKind = baseContentTypeOf(body.contentType).startsWith('video/')
+        ? 'clip'
+        : 'photo';
+      const limit = papicTierDailyLimit(cameraTier, cameraKind);
+      if (limit != null) {
+        try {
+          const { data: remaining, error: remErr } = await admin.rpc(
+            'papic_camera_remaining',
+            {
+              p_seat_id: seat.seat_id as string,
+              p_kind: cameraKind,
+              p_limit: limit,
+            },
+          );
+          if (!remErr && typeof remaining === 'number' && remaining <= 0) {
+            return NextResponse.json(
+              {
+                error:
+                  cameraKind === 'clip'
+                    ? 'You’ve used today’s videos on this camera.'
+                    : 'You’ve used today’s photos on this camera.',
+                code: cameraKind === 'clip' ? 'camera_video_cap' : 'camera_photo_cap',
+              },
+              { status: 409 },
+            );
+          }
+        } catch {
+          // fail-open — the record-layer reserve is the backstop.
+        }
+      }
+    }
+
     // FREE-SAMPLER CAP — enforced at the PRESIGN layer, not just at record time.
     // A sampler seat is capped at 8 photos + 2 clips (migration 20270103000000).
     // If we minted a presigned URL here for an over-cap shot, the client could

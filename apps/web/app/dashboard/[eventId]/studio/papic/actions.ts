@@ -6,6 +6,14 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { makeSamplerPermanent } from '@/lib/papic-sampler';
 import { cancelSamplerExpiryWarnings } from '@/lib/papic-sampler-emails';
+import {
+  PAPIC_CAMERAS_ORDER_KEY,
+  PAPIC_MIN_PAID_CAMERAS,
+  computeCameraQuote,
+  fetchCameraRates,
+  mintPapicReferenceCode,
+  provisionPaidCamerasAdmin,
+} from '@/lib/papic-cameras';
 
 // Iteration 0012 Papic — storage-target server actions.
 //
@@ -402,5 +410,115 @@ export async function setGuestClipShowcaseApproval(formData: FormData) {
   revalidatePath('/our-story');
   redirect(
     `/dashboard/${eventId}/studio/papic?showcase_set=${approve ? 'approved' : 'removed'}`,
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Papic · per-CAMERA buy flow (owner-locked 2026-06-26 · PR2).
+//
+// A camera = a paparazzi seat with a tier. Beyond the free funnel cameras, a
+// couple buys paid cameras at Roll (₱30/camera/day) or Unlimited
+// (₱100/camera/day), 5-camera minimum, capped at events.papic_cost_cap_php
+// (default ₱6,999). Prices are admin-managed (read from the catalog). This is
+// apply-then-pay: the order lands at status='submitted' for the Setnayan team
+// to reconcile, and the paid cameras are materialized immediately as PENDING
+// seats (paid_order_id set) so the couple can prep invites — but capture stays
+// blocked until the order is paid (the presign gate is PR3). Strictly
+// additive: the free sampler + the PAPIC_SEATS pack are untouched.
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Buy paid Papic cameras (Roll + Unlimited counts in the form). Validates the
+ * 5-camera minimum + cost cap, creates the apply-then-pay order, and provisions
+ * the cameras at their tiers. Redirects back to the Papic page with payment
+ * instructions (reference code + amount).
+ */
+export async function purchasePapicCameras(formData: FormData) {
+  const result = await getCoupleEventId(formData.get('event_id'));
+  if (!result.ok) {
+    redirect(result.redirectTo);
+  }
+  const { eventId } = result;
+
+  // The guard already verified couple membership; re-read the user for the
+  // order's purchaser id (the same createClient session the guard used).
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    redirect('/login');
+  }
+
+  const roll = Number(formData.get('roll') ?? 0);
+  const unlimited = Number(formData.get('unlimited') ?? 0);
+
+  const admin = createAdminClient();
+
+  // Cost cap + event date (the per-day validity window; days defaults to 1 —
+  // "1 day for ~all weddings" per the per-camera spec).
+  const { data: ev } = await admin
+    .from('events')
+    .select('papic_cost_cap_php, event_date')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const capPhp = Number(ev?.papic_cost_cap_php ?? 0) || 6999;
+  const eventDate = (ev?.event_date as string | null) ?? null;
+
+  const rates = await fetchCameraRates(admin);
+  const quote = computeCameraQuote({ roll, unlimited }, 1, rates, capPhp);
+
+  if (quote.paidCount < PAPIC_MIN_PAID_CAMERAS) {
+    redirect(`/dashboard/${eventId}/studio/papic?papic_error=min_cameras`);
+  }
+
+  // Apply-then-pay order (status='submitted' → admin reconciles the transfer).
+  // requested_total_php is the pre-VAT base (the order layer adds VAT for the
+  // customer invoice, same as every other SKU).
+  const referenceCode = mintPapicReferenceCode();
+  const { data: order, error: orderErr } = await admin
+    .from('orders')
+    .insert({
+      event_id: eventId,
+      user_id: user.id,
+      service_key: PAPIC_CAMERAS_ORDER_KEY,
+      description: quote.description,
+      requested_total_php: quote.totalPhp,
+      reference_code: referenceCode,
+      status: 'submitted',
+      platform: 'web',
+    })
+    .select('order_id, public_id')
+    .maybeSingle();
+
+  if (orderErr || !order) {
+    redirect(
+      `/dashboard/${eventId}/studio/papic?papic_error=${encodeURIComponent(
+        (orderErr?.message ?? 'order_failed').slice(0, 64),
+      )}`,
+    );
+  }
+
+  // Materialize the paid cameras (PENDING — capture blocked until paid, PR3).
+  // Best-effort: a provisioning hiccup must not strand the order the couple
+  // already owes on (the activation hook / a later top-up can recover seats).
+  try {
+    await provisionPaidCamerasAdmin(admin, {
+      eventId,
+      orderId: order.order_id,
+      rollCount: quote.rollCount,
+      unlimitedCount: quote.unlimitedCount,
+      validFrom: eventDate,
+      validUntil: eventDate,
+    });
+  } catch {
+    // swallow — order exists; seats can be topped up on approval.
+  }
+
+  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  redirect(
+    `/dashboard/${eventId}/studio/papic?papic_purchased=${encodeURIComponent(
+      order.public_id,
+    )}&papic_ref=${encodeURIComponent(referenceCode)}&papic_amount=${quote.totalPhp}`,
   );
 }

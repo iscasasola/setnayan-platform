@@ -1,13 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import {
   Camera,
   Loader2,
   Check,
   CircleAlert,
-  ImageIcon,
   Video,
   Square,
   PartyPopper,
@@ -41,6 +40,7 @@ import { makeQrDetector } from '@/lib/qr-scan';
 // photos + 2 clips per seat); paid seats are uncapped.
 
 const CLIP_MAX_MS = 5_000; // 5-second hard cap (corpus constraint · not configurable)
+const HOLD_MS = 260; // tap-vs-hold boundary: a press held this long starts a clip
 const TAG_CAP = 10; // max tags per photo (corpus hard cap · mirrored server-side)
 const ROLL_MAX = 24; // most-recent shots kept in the session roll strip
 
@@ -135,16 +135,29 @@ export function PapicSeatCapture({
   const clipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recTickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const clipStartRef = useRef<number>(0);
+  // Gesture shutter: a hold-timer distinguishes a TAP (photo) from a HOLD
+  // (record). didHoldRef remembers a hold crossed the threshold so the matching
+  // release stops the clip instead of also firing a photo.
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const didHoldRef = useRef(false);
+  const capNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Synchronous mirror of the recorder lifecycle. The React `recording` state
+  // only clears in the async recorder.onstop, so a rapid re-press right after a
+  // clip would read a stale `true` and drop the gesture — the ref flips
+  // immediately on start/stop, so gesture decisions are never stale.
+  const recordingRef = useRef(false);
 
   const [ready, setReady] = useState(false);
   const [camError, setCamError] = useState(false);
   const [recording, setRecording] = useState(false);
   const [recElapsed, setRecElapsed] = useState(0);
-  const [mode, setMode] = useState<'photo' | 'clip'>('photo');
   const [photos, setPhotos] = useState(initialPhotos);
   const [clips, setClips] = useState(initialClips);
   const [justSaved, setJustSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  // Transient "you've used all your free photos/clips" feedback when a gesture
+  // is blocked by a sampler cap (paid seats are uncapped → never set).
+  const [capNotice, setCapNotice] = useState<'photos' | 'clips' | null>(null);
 
   // ---- capture roll + background upload queue ------------------------------
   // `shots` is the visible roll (newest first). The queue worker drains shots
@@ -211,6 +224,8 @@ export function PapicSeatCapture({
       cancelled = true;
       if (clipTimerRef.current) clearTimeout(clipTimerRef.current);
       if (recTickRef.current) clearInterval(recTickRef.current);
+      if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+      if (capNoticeTimerRef.current) clearTimeout(capNoticeTimerRef.current);
       streamRef.current?.getTracks().forEach((t) => t.stop());
     };
   }, []);
@@ -472,7 +487,7 @@ export function PapicSeatCapture({
   );
 
   const capturePhoto = useCallback(async () => {
-    if (recording || !ready || photoFull) return;
+    if (recordingRef.current || !ready || photoFull) return;
     setSaveError(null);
     const blob = await grabFrame();
     if (!blob) {
@@ -490,9 +505,12 @@ export function PapicSeatCapture({
       contentType: 'image/jpeg',
       ext: 'jpg',
     });
-  }, [recording, ready, photoFull, grabFrame, enqueueShot]);
+  }, [ready, photoFull, grabFrame, enqueueShot]);
 
   const stopClip = useCallback(() => {
+    // Flip the synchronous flag the instant we ask the recorder to stop, so a
+    // re-press in the window before onstop fires isn't blocked by a stale flag.
+    recordingRef.current = false;
     if (clipTimerRef.current) {
       clearTimeout(clipTimerRef.current);
       clipTimerRef.current = null;
@@ -506,7 +524,7 @@ export function PapicSeatCapture({
   }, []);
 
   const startClip = useCallback(() => {
-    if (recording || !ready || clipFull) return;
+    if (recordingRef.current || !ready || clipFull) return;
     const stream = streamRef.current;
     if (!stream || stream.getVideoTracks().length === 0) return;
     setSaveError(null);
@@ -528,12 +546,18 @@ export function PapicSeatCapture({
       if (e.data && e.data.size > 0) chunksRef.current.push(e.data);
     };
     recorder.onstop = async () => {
+      recordingRef.current = false;
       setRecording(false);
       setRecElapsed(0);
       const durationMs = clipStartRef.current ? Date.now() - clipStartRef.current : 0;
       const blob = new Blob(chunksRef.current, { type: mime });
       chunksRef.current = [];
-      if (blob.size === 0) return;
+      if (blob.size === 0) {
+        // A sub-frame hold produced no data — tell the paparazzo rather than
+        // silently doing nothing (parity with the guest camera).
+        setSaveError('That clip came back empty — hold a little longer.');
+        return;
+      }
       const ext = mime.startsWith('video/mp4') ? 'mp4' : 'webm';
       const poster = await grabFrame(); // last live frame ≈ a fine poster
       enqueueShot({
@@ -552,6 +576,7 @@ export function PapicSeatCapture({
     recorderRef.current = recorder;
     clipStartRef.current = Date.now();
     recorder.start();
+    recordingRef.current = true;
     setRecording(true);
     setRecElapsed(0);
     // Live 5-second countdown — drives the progress bar + ring + numeric readout.
@@ -561,7 +586,84 @@ export function PapicSeatCapture({
     }, 100);
     // Hard 5-second cap — auto-stop. Not configurable (corpus constraint).
     clipTimerRef.current = setTimeout(stopClip, CLIP_MAX_MS);
-  }, [recording, ready, clipFull, grabFrame, enqueueShot, stopClip]);
+  }, [ready, clipFull, grabFrame, enqueueShot, stopClip]);
+
+  // Flash a transient "you've used your free photos/clips" notice (sampler caps).
+  const flashCapNotice = useCallback((kind: 'photos' | 'clips') => {
+    setCapNotice(kind);
+    if (capNoticeTimerRef.current) clearTimeout(capNoticeTimerRef.current);
+    capNoticeTimerRef.current = setTimeout(() => setCapNotice(null), 1800);
+  }, []);
+
+  // ---- gesture shutter -----------------------------------------------------
+  // TAP = photo, HOLD = record (release / 5s cap stops it). One button, no mode
+  // toggle — the muscle-memory camera gesture. pointerdown arms a hold timer;
+  // a release before HOLD_MS is a tap (photo), a release after is a clip stop.
+  const onShutterDown = useCallback(
+    (e: RPointerEvent<HTMLButtonElement>) => {
+      if (recordingRef.current || !ready) return;
+      // Capture the pointer so the matching up/cancel always lands on THIS button
+      // even if the finger drifts off — robust taps + no stranded recording.
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        /* unsupported — degrade to plain pointerup */
+      }
+      didHoldRef.current = false;
+      if (!clipsAllowed) return; // photo-only seat → the tap fires on pointerup
+      holdTimerRef.current = setTimeout(() => {
+        holdTimerRef.current = null;
+        didHoldRef.current = true;
+        if (clipFull) {
+          flashCapNotice('clips');
+          return;
+        }
+        if (typeof navigator !== 'undefined') navigator.vibrate?.(40);
+        startClip();
+      }, HOLD_MS);
+    },
+    [ready, clipsAllowed, clipFull, startClip, flashCapNotice],
+  );
+
+  const onShutterUp = useCallback(
+    (e: RPointerEvent<HTMLButtonElement>) => {
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        /* wasn't captured */
+      }
+      if (holdTimerRef.current) {
+        clearTimeout(holdTimerRef.current);
+        holdTimerRef.current = null;
+      }
+      if (didHoldRef.current) {
+        // The press was a hold — stop the clip (no-op if the 5s cap already did).
+        didHoldRef.current = false;
+        stopClip();
+        return;
+      }
+      // The press was a tap — take a photo (or surface the sampler photo cap).
+      if (photoFull) {
+        flashCapNotice('photos');
+        return;
+      }
+      void capturePhoto();
+    },
+    [photoFull, capturePhoto, stopClip, flashCapNotice],
+  );
+
+  // System interruption (call, notification) mid-press — stop a running clip,
+  // never fire a photo.
+  const onShutterCancel = useCallback(() => {
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+    if (didHoldRef.current) {
+      didHoldRef.current = false;
+      stopClip();
+    }
+  }, [stopClip]);
 
   // ---- tagging -------------------------------------------------------------
 
@@ -682,13 +784,14 @@ export function PapicSeatCapture({
     );
   }
 
-  const currentFull = mode === 'clip' ? clipFull : photoFull;
-  const otherModeHasRoom = mode === 'clip' ? !photoFull : !clipFull && clipsAllowed;
+  // One gesture shutter, so "all used up" means BOTH kinds are exhausted (a
+  // photo-only seat just needs photos gone). Paid seats are uncapped → never full.
+  const allFull = photoFull && (clipFull || !clipsAllowed);
 
   const countLabel = capped
-    ? mode === 'clip'
-      ? `${clips}/${clipCap} ${clips === 1 ? 'clip' : 'clips'}`
-      : `${photos}/${photoCap} ${photos === 1 ? 'photo' : 'photos'}`
+    ? `${photos}/${photoCap} ${photos === 1 ? 'photo' : 'photos'}${
+        clipsAllowed ? ` · ${clips}/${clipCap} ${clips === 1 ? 'clip' : 'clips'}` : ''
+      }`
     : `${photos + clips} ${photos + clips === 1 ? 'shot' : 'shots'}`;
 
   // Countdown ring geometry (a 4.5rem button → r≈30 stroke ring around it).
@@ -704,11 +807,7 @@ export function PapicSeatCapture({
           Papic · seat {seatIndex}
         </p>
         <span className="inline-flex items-center gap-1.5 rounded-full bg-cream/10 px-3 py-1 text-xs font-medium text-cream">
-          {mode === 'clip' ? (
-            <Video aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          ) : (
-            <ImageIcon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          )}
+          <Camera aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           {countLabel}
         </span>
       </header>
@@ -897,119 +996,111 @@ export function PapicSeatCapture({
           </div>
         ) : (
           <>
-            {/* Photo / Clip mode toggle — only when clips are allowed for this seat. */}
-            {clipsAllowed && (
-              <div className="mx-auto flex w-full max-w-[14rem] items-center rounded-full bg-cream/10 p-1">
-                <button
-                  type="button"
-                  onClick={() => !recording && setMode('photo')}
-                  disabled={recording}
-                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                    mode === 'photo' ? 'bg-cream text-ink' : 'text-cream/70'
-                  }`}
-                >
-                  <ImageIcon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Photo
-                </button>
-                <button
-                  type="button"
-                  onClick={() => !recording && setMode('clip')}
-                  disabled={recording}
-                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                    mode === 'clip' ? 'bg-cream text-ink' : 'text-cream/70'
-                  }`}
-                >
-                  <Video aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Clip
-                </button>
-              </div>
-            )}
-
             {saveError && (
               <p className="text-center text-xs text-cream/80">{saveError}</p>
             )}
+            {capNotice && !saveError && (
+              <p className="text-center text-xs text-cream/80">
+                {capNotice === 'photos'
+                  ? 'That’s all your free photos — every one’s in the gallery.'
+                  : 'That’s all your free clips — every one’s in the gallery.'}
+              </p>
+            )}
 
-            {currentFull ? (
+            {allFull ? (
               <div className="mx-auto max-w-sm text-center">
                 <PartyPopper aria-hidden className="mx-auto h-6 w-6 text-terracotta" strokeWidth={1.75} />
                 <p className="mt-2 text-sm font-medium text-cream">
-                  That&rsquo;s all your free {mode === 'clip' ? 'clips' : 'photos'} —
-                  every one&rsquo;s in the couple&rsquo;s gallery.
+                  That&rsquo;s everything you can shoot — every photo and clip is in
+                  the couple&rsquo;s gallery.
                 </p>
-                {otherModeHasRoom && (
-                  <button
-                    type="button"
-                    onClick={() => setMode(mode === 'clip' ? 'photo' : 'clip')}
-                    className="mt-3 inline-flex items-center justify-center gap-1.5 rounded-full bg-cream/10 px-4 py-2 text-xs font-medium text-cream hover:bg-cream/15"
-                  >
-                    {mode === 'clip' ? (
-                      <>
-                        <ImageIcon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Shoot photos instead
-                      </>
-                    ) : (
-                      <>
-                        <Video aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Try a clip instead
-                      </>
-                    )}
-                  </button>
-                )}
               </div>
             ) : (
               <>
                 <div className="flex items-center justify-center">
-                  {mode === 'clip' ? (
-                    <div className="relative h-[4.5rem] w-[4.5rem]">
-                      {/* Draining countdown ring around the record button. */}
-                      {recording && (
-                        <svg
-                          aria-hidden
-                          viewBox="0 0 72 72"
-                          className="pointer-events-none absolute inset-0 -rotate-90"
-                        >
-                          <circle cx="36" cy="36" r="32" fill="none" stroke="rgba(245,240,232,0.18)" strokeWidth="4" />
-                          <circle
-                            cx="36"
-                            cy="36"
-                            r="32"
-                            fill="none"
-                            stroke="var(--m-terracotta, #c4674f)"
-                            strokeWidth="4"
-                            strokeLinecap="round"
-                            strokeDasharray={RING_C}
-                            strokeDashoffset={RING_C * recFrac}
-                            style={{ transition: 'stroke-dashoffset 100ms linear' }}
-                          />
-                        </svg>
-                      )}
-                      <button
-                        type="button"
-                        onClick={recording ? stopClip : startClip}
-                        disabled={!ready}
-                        aria-label={recording ? 'Stop recording' : 'Record a clip'}
-                        className="flex h-full w-full items-center justify-center rounded-full border-4 border-cream/80 bg-cream/10 transition active:scale-95 disabled:opacity-50"
+                  <div className="relative h-[4.5rem] w-[4.5rem]">
+                    {/* Draining countdown ring around the shutter while recording. */}
+                    {recording && (
+                      <svg
+                        aria-hidden
+                        viewBox="0 0 72 72"
+                        className="pointer-events-none absolute inset-0 -rotate-90"
                       >
-                        {recording ? (
-                          <Square aria-hidden className="h-6 w-6 fill-terracotta text-terracotta" strokeWidth={2} />
-                        ) : (
-                          <Video aria-hidden className="h-7 w-7 text-cream" strokeWidth={1.75} />
-                        )}
-                      </button>
-                    </div>
-                  ) : (
+                        <circle cx="36" cy="36" r="32" fill="none" stroke="rgba(245,240,232,0.18)" strokeWidth="4" />
+                        <circle
+                          cx="36"
+                          cy="36"
+                          r="32"
+                          fill="none"
+                          stroke="var(--m-terracotta, #c4674f)"
+                          strokeWidth="4"
+                          strokeLinecap="round"
+                          strokeDasharray={RING_C}
+                          strokeDashoffset={RING_C * recFrac}
+                          style={{ transition: 'stroke-dashoffset 100ms linear' }}
+                        />
+                      </svg>
+                    )}
+                    {/* THE gesture shutter: tap = photo, press-and-hold = record.
+                        Pointer events (not onClick) drive the hold detection; the
+                        guards kill iOS long-press selection / the context menu so a
+                        hold reliably records instead of selecting the button. */}
                     <button
                       type="button"
-                      onClick={capturePhoto}
+                      onPointerDown={onShutterDown}
+                      onPointerUp={onShutterUp}
+                      onPointerCancel={onShutterCancel}
+                      onContextMenu={(e) => e.preventDefault()}
                       disabled={!ready}
-                      aria-label="Take a photo"
-                      className="flex items-center justify-center rounded-full border-4 border-cream/80 bg-cream/10 transition active:scale-95 disabled:opacity-50"
-                      style={{ height: '4.5rem', width: '4.5rem' }}
+                      aria-label={
+                        recording
+                          ? 'Recording — release to stop'
+                          : clipsAllowed
+                            ? 'Tap to take a photo, or press and hold to record a clip'
+                            : 'Tap to take a photo'
+                      }
+                      className="flex h-full w-full items-center justify-center rounded-full border-4 border-cream/80 bg-cream/10 transition active:scale-95 disabled:opacity-50"
+                      style={{
+                        touchAction: 'manipulation',
+                        WebkitUserSelect: 'none',
+                        userSelect: 'none',
+                        WebkitTouchCallout: 'none',
+                      }}
                     >
-                      <Camera aria-hidden className="h-7 w-7 text-cream" strokeWidth={1.75} />
+                      {recording ? (
+                        <Square aria-hidden className="h-6 w-6 fill-terracotta text-terracotta" strokeWidth={2} />
+                      ) : (
+                        <Camera aria-hidden className="h-7 w-7 text-cream" strokeWidth={1.75} />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Keyboard / assistive-tech path — the press gesture is pointer-
+                    only, so expose the two actions as discrete (visually hidden)
+                    controls. */}
+                <div className="sr-only">
+                  <button type="button" onClick={() => (photoFull ? flashCapNotice('photos') : void capturePhoto())}>
+                    Take a photo
+                  </button>
+                  {clipsAllowed && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        recording ? stopClip() : clipFull ? flashCapNotice('clips') : startClip()
+                      }
+                    >
+                      {recording ? 'Stop recording' : 'Record a 5-second clip'}
                     </button>
                   )}
                 </div>
+
                 <p className="text-center text-xs text-cream/60">
-                  {mode === 'clip'
-                    ? 'Up to 5 seconds. Every clip lands in the couple’s gallery.'
-                    : 'Every photo lands in the couple’s gallery in real time.'}
+                  {recording
+                    ? 'Recording… release to stop.'
+                    : clipsAllowed
+                      ? 'Tap for a photo · press and hold to record (up to 5s).'
+                      : 'Tap to take a photo. Every shot lands in the couple’s gallery.'}
                 </p>
               </>
             )}

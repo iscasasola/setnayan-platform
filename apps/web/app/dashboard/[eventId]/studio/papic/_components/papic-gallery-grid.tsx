@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
-import { Play, Download, Sparkles } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Play, Download, Sparkles, X, Loader2 } from 'lucide-react';
 import type { GalleryPhoto, GalleryTagSource } from '@/lib/papic-gallery';
 import { SavePhotoButton } from '@/app/_components/save-photo-button';
+import { saveMediaToDevice } from '@/lib/save-to-device';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import { setClipShowcaseApproval, setGuestClipShowcaseApproval } from '../actions';
 
 // Real Papic gallery grid — the couple's captured photos + clips with working
@@ -48,6 +50,8 @@ export function PapicGalleryGrid({
   kwentoDensity?: Map<string, number>;
 }) {
   const [filter, setFilter] = useState<FilterId>('all');
+  // Clip the couple tapped to play, shown full-screen in the lightbox.
+  const [playing, setPlaying] = useState<GalleryPhoto | null>(null);
 
   const shown = photos.filter((p) => {
     if (filter === 'tagged') return p.tagged;
@@ -132,10 +136,23 @@ export function PapicGalleryGrid({
                 ) : (
                   <div className="h-full w-full bg-ink/10" aria-hidden />
                 )}
+                {/* Clips are playable: a full-tile button opens the lightbox; the
+                    centred play disc is the affordance (decorative, click-through). */}
+                {p.kind === 'clip' && p.playUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setPlaying(p)}
+                    aria-label="Play video clip"
+                    className="absolute inset-0 flex items-center justify-center bg-black/10 transition hover:bg-black/25"
+                  >
+                    <span className="rounded-full bg-black/55 p-2 text-cream">
+                      <Play aria-hidden className="h-4 w-4 fill-cream" strokeWidth={2} />
+                    </span>
+                  </button>
+                )}
                 {p.kind === 'clip' && (
-                  <span className="absolute right-1 top-1 rounded-full bg-black/55 p-1 text-cream">
-                    <Play aria-hidden className="h-3 w-3" strokeWidth={2} />
-                    <span className="sr-only">Video clip</span>
+                  <span className="pointer-events-none absolute right-1 top-1 rounded-full bg-black/55 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-cream">
+                    Video
                   </span>
                 )}
                 {eventId && p.kind === 'clip' ? (
@@ -147,7 +164,9 @@ export function PapicGalleryGrid({
                     consented={Boolean(p.showcaseConsent)}
                   />
                 ) : null}
-                {p.url ? (
+                {/* Photos save straight from the tile; clips download from the
+                    lightbox (the tile thumbnail is only their poster frame). */}
+                {p.url && p.kind === 'photo' ? (
                   <SavePhotoButton url={p.url} filename={`setnayan-photo-${p.id}.jpg`} />
                 ) : null}
                 <span
@@ -166,7 +185,84 @@ export function PapicGalleryGrid({
           ))}
         </ul>
       )}
+
+      {playing?.playUrl ? (
+        <ClipLightbox photo={playing} onClose={() => setPlaying(null)} />
+      ) : null}
     </>
+  );
+}
+
+/**
+ * Full-screen clip player — opens when the couple taps a video tile. Native
+ * <video controls> (autoplay, muted-safe, loop) plus an explicit download of the
+ * real video. Uses the shared modal-a11y primitive (focus trap + Esc + scroll
+ * lock + restore) like every other Setnayan overlay.
+ */
+function ClipLightbox({ photo, onClose }: { photo: GalleryPhoto; onClose: () => void }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const [saving, setSaving] = useState(false);
+  useModalA11y({ open: true, onClose, containerRef: dialogRef });
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/85 p-4"
+      onClick={onClose}
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Video clip"
+        tabIndex={-1}
+        className="relative flex max-h-full w-full max-w-2xl flex-col items-center outline-none"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* video controls include the browser's own download in most engines;
+            autoPlay is muted-safe (mobile blocks autoplay-with-sound). */}
+        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+        <video
+          src={photo.playUrl ?? undefined}
+          poster={photo.url ?? undefined}
+          controls
+          autoPlay
+          playsInline
+          loop
+          className="max-h-[80vh] w-auto max-w-full rounded-lg bg-black"
+        />
+        <div className="mt-3 flex items-center gap-2">
+          <button
+            type="button"
+            disabled={saving}
+            onClick={async () => {
+              if (!photo.playUrl || saving) return;
+              setSaving(true);
+              // fetch→blob→download: a bare cross-origin <a download> is ignored
+              // by browsers (opens instead of saves) + the ext is derived from
+              // the real container (webm vs mp4), not hardcoded.
+              await saveMediaToDevice(photo.playUrl, `setnayan-clip-${photo.id}`);
+              setSaving(false);
+            }}
+            className="inline-flex items-center gap-1.5 rounded-md bg-cream/10 px-3 py-1.5 text-xs font-medium text-cream transition hover:bg-cream/20 disabled:opacity-60"
+          >
+            {saving ? (
+              <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
+            ) : (
+              <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+            )}
+            {saving ? 'Saving…' : 'Download clip'}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex items-center gap-1.5 rounded-md bg-cream px-3 py-1.5 text-xs font-medium text-ink transition hover:bg-cream/90"
+          >
+            <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

@@ -57,6 +57,25 @@ export type Lab3DFloor = {
 
 export type RsvpStatus = 'attending' | 'pending' | 'maybe' | 'declined';
 
+/**
+ * Floor-plan fields the 3D lab does NOT edit but MUST round-trip when it saves
+ * (saveFloorPlan upserts the whole row — omitting these would wipe what the 2D
+ * editor set: the service door + the cocktail/waiting room).
+ */
+export type Lab3DFloorExtras = {
+  serviceEntranceEnabled: boolean;
+  serviceEntranceX: number;
+  serviceEntranceY: number;
+  cocktailEnabled: boolean;
+  cocktailX: number;
+  cocktailY: number;
+  cocktailW: number;
+  cocktailH: number;
+  cocktailLabel: string | null;
+  cocktailVendorEdit: boolean;
+  cocktailLinked: boolean;
+};
+
 /** A custom guest group offered for one-tap "seat this group at a table". */
 export type Lab3DGroup = {
   id: string;

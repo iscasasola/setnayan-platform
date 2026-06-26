@@ -25,6 +25,7 @@ import {
   fetchEventPapicWindow,
   syncGuestCameras,
   type LimitedSnapshotRow,
+  type LimitedTier,
 } from '@/lib/papic-limited';
 import { resolvePapicWindow, formatWindowSummary } from '@/lib/papic-window';
 
@@ -597,24 +598,27 @@ export async function activatePapicLimited(formData: FormData) {
 
   const admin = createAdminClient();
 
-  // Already live? Just re-sync (covers late RSVPs) — no new order, no charge.
+  // Chosen tier (owner 2026-06-26 — "upgrade to Unlimited"). Default Limited(roll).
+  const rawTier = formData.get('tier');
+  const tier: LimitedTier = rawTier === 'unlimited' ? 'unlimited' : 'roll';
+
   const existing = await fetchActiveLimitedSnapshot(admin, eventId);
-  if (existing) {
-    let synced = { added: 0, revoked: 0 };
+
+  // Already live at the SAME tier → just re-sync (covers late RSVPs) — no new
+  // order, no charge.
+  if (existing && (existing.tier ?? 'roll') === tier) {
+    let synced = { added: 0, revoked: 0, retiered: 0 };
     try {
       synced = await syncGuestCameras(admin, eventId, existing);
     } catch {
       // best-effort — the snapshot is already live.
     }
     revalidatePath(`/dashboard/${eventId}/studio/papic`);
-    redirect(
-      `/dashboard/${eventId}/studio/papic?limited_synced=${synced.added}`,
-    );
+    redirect(`/dashboard/${eventId}/studio/papic?limited_synced=${synced.added}`);
   }
 
-  // Fresh activation — count the list, quote against the live Ltd rate + cap.
-  // Minimum 5 cameras (owner 2026-06-26): the free tier already covers the first
-  // 5, so paid Limited starts at a 5-guest list — mirrors PAPIC_MIN_PAID_CAMERAS.
+  // Count the list + enforce the 5-camera minimum (the free tier covers the
+  // first 5). Applies to a fresh activation AND a tier change/upgrade.
   const guestCount = await countLimitedGuests(admin, eventId);
   if (guestCount < 1) {
     redirect(`/dashboard/${eventId}/studio/papic?limited_error=no_guests`);
@@ -623,23 +627,48 @@ export async function activatePapicLimited(formData: FormData) {
     redirect(`/dashboard/${eventId}/studio/papic?limited_error=below_min`);
   }
 
+  // Rate + cap for the chosen tier (both admin-managed).
   const { data: ev } = await admin
     .from('events')
-    .select('papic_ltd_cap_php')
+    .select('papic_ltd_cap_php, papic_unli_cap_php')
     .eq('event_id', eventId)
     .maybeSingle();
-  const capPhp = Number(ev?.papic_ltd_cap_php ?? 0) || PAPIC_LTD_CAP_FALLBACK_PHP;
+  const rates = await fetchCameraRates(admin);
   // The capture window sets the day multiplier (and, via syncGuestCameras, the
   // seat validity bounds). Legacy single-day events fall back to 1 day.
   const win = await fetchEventPapicWindow(admin, eventId);
-  const rates = await fetchCameraRates(admin);
-  const quote = computeLimitedQuote(guestCount, rates.roll, capPhp, win.days);
+  const ratePhp = tier === 'unlimited' ? rates.unlimited : rates.roll;
+  const capPhp =
+    tier === 'unlimited'
+      ? Number(ev?.papic_unli_cap_php ?? 0) || PAPIC_UNLI_CAP_FALLBACK_PHP
+      : Number(ev?.papic_ltd_cap_php ?? 0) || PAPIC_LTD_CAP_FALLBACK_PHP;
+  const quote = computeLimitedQuote(guestCount, ratePhp, capPhp, win.days);
+
+  // Tier CHANGE (upgrade to Unlimited / switch back to Limited): supersede the
+  // current snapshot first — the one-live-per-event index requires it — and
+  // cancel its order while it's still awaiting payment so the couple isn't billed
+  // twice. (If the old order was already PAID, it stays; the new order bills the
+  // full new tier — delta-billing is a holistic-pricing-pass question, flagged.)
+  if (existing) {
+    await admin
+      .from('papic_limited_snapshots')
+      .update({ status: 'superseded', superseded_at: new Date().toISOString() })
+      .eq('snapshot_id', existing.snapshot_id);
+    if (existing.order_id) {
+      await admin
+        .from('orders')
+        .update({ status: 'cancelled' })
+        .eq('order_id', existing.order_id)
+        .eq('status', 'submitted');
+    }
+  }
 
   // Apply-then-pay order (the Setnayan team reconciles the transfer). The order
   // layer adds VAT for the customer invoice; requested_total_php is the base.
+  const tierLabel = tier === 'unlimited' ? 'Unlimited' : 'Limited';
   const referenceCode = mintPapicReferenceCode();
   const windowLabel = formatWindowSummary(win.startIso, win.endIso);
-  const description = `Papic Limited — ${guestCount} guest camera${
+  const description = `Papic ${tierLabel} — ${guestCount} guest camera${
     guestCount === 1 ? '' : 's'
   }${windowLabel ? ` · ${windowLabel}` : ` · ${win.days} day${win.days === 1 ? '' : 's'}`}`;
   const { data: order, error: orderErr } = await admin
@@ -664,7 +693,9 @@ export async function activatePapicLimited(formData: FormData) {
     );
   }
 
-  // Record the frozen snapshot, then materialize the guest cameras from it.
+  // Record the frozen snapshot at the chosen tier, then materialize / re-tier the
+  // guest cameras from it (syncGuestCameras provisions missing + re-tiers any
+  // existing guest seats to match).
   const { data: snapRow, error: snapErr } = await admin
     .from('papic_limited_snapshots')
     .insert({
@@ -677,9 +708,10 @@ export async function activatePapicLimited(formData: FormData) {
       camera_cap: quote.cameraCap,
       days: quote.days,
       status: 'pending_payment',
+      tier,
     })
     .select(
-      'snapshot_id, event_id, order_id, guest_count, rate_php, cap_php, frozen_bill_php, camera_cap, days, status, created_at, activated_at, superseded_at',
+      'snapshot_id, event_id, order_id, guest_count, rate_php, cap_php, frozen_bill_php, camera_cap, days, status, tier, created_at, activated_at, superseded_at',
     )
     .maybeSingle();
   if (snapErr || !snapRow) {
@@ -690,9 +722,6 @@ export async function activatePapicLimited(formData: FormData) {
     );
   }
 
-  // Provision the guest cameras (PENDING — capture is blocked until the order is
-  // paid, same per-camera presign gate). Best-effort: a hiccup must not strand
-  // the order; the page's render-time sync recovers any missing cameras.
   try {
     await syncGuestCameras(admin, eventId, snapRow as LimitedSnapshotRow);
   } catch {

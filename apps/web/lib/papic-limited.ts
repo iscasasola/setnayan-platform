@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   PAPIC_CAMERA_ROLL_SKU,
+  PAPIC_CAMERA_UNLIMITED_SKU,
   PAPIC_CAMERA_ROLL_FALLBACK_PHP,
   PAPIC_LTD_CAP_FALLBACK_PHP,
 } from '@/lib/papic-cameras';
@@ -40,6 +41,16 @@ export async function fetchEventPapicWindow(
     windowEnd: (sel.data?.papic_window_end as string | null) ?? null,
     eventDate: (sel.data?.event_date as string | null) ?? null,
   });
+}
+
+/** The tier the guest-list cameras run at (owner 2026-06-26 — "upgrade to
+ *  Unlimited"). roll = Limited (capped per-day shots) · unlimited = Unlimited
+ *  (no shot cap, Drive-archived). Stored on the snapshot + each guest seat. */
+export type LimitedTier = 'roll' | 'unlimited';
+
+/** The per-camera catalog SKU for a guest-camera tier. */
+export function papicTierSku(tier: LimitedTier): string {
+  return tier === 'unlimited' ? PAPIC_CAMERA_UNLIMITED_SKU : PAPIC_CAMERA_ROLL_SKU;
 }
 
 /**
@@ -90,6 +101,7 @@ export type LimitedSnapshotRow = {
   camera_cap: number;
   days: number;
   status: LimitedSnapshotStatus;
+  tier: LimitedTier;
   created_at: string;
   activated_at: string | null;
   superseded_at: string | null;
@@ -171,7 +183,7 @@ export function computeLimitedQuote(
 }
 
 const SNAPSHOT_COLS =
-  'snapshot_id, event_id, order_id, guest_count, rate_php, cap_php, frozen_bill_php, camera_cap, days, status, created_at, activated_at, superseded_at';
+  'snapshot_id, event_id, order_id, guest_count, rate_php, cap_php, frozen_bill_php, camera_cap, days, status, tier, created_at, activated_at, superseded_at';
 
 /**
  * The current LIVE Limited snapshot for an event (status pending_payment or
@@ -258,7 +270,6 @@ export async function fetchGuestRollSeat(
     .select('seat_id, claim_qr_token, paid_order_id')
     .eq('event_id', eventId)
     .eq('guest_id', guestId)
-    .eq('tier', 'roll')
     .is('revoked_at', null)
     .maybeSingle();
   if (error) {
@@ -335,7 +346,11 @@ export async function resolveGuestCamera(
   };
 }
 
-export type GuestCameraSyncResult = { added: number; revoked: number };
+export type GuestCameraSyncResult = {
+  added: number;
+  revoked: number;
+  retiered: number;
+};
 
 /**
  * The single provisioning path for Limited (guest) cameras — idempotent + self-
@@ -359,7 +374,11 @@ export async function syncGuestCameras(
   eventId: string,
   snapshot: LimitedSnapshotRow,
 ): Promise<GuestCameraSyncResult> {
-  if (!eventId || !snapshot) return { added: 0, revoked: 0 };
+  const EMPTY = { added: 0, revoked: 0, retiered: 0 };
+  if (!eventId || !snapshot) return EMPTY;
+
+  const snapshotTier = (snapshot.tier ?? 'roll') as LimitedTier;
+  const snapshotSku = papicTierSku(snapshotTier);
 
   // Non-declined guests, oldest first (deterministic cap application).
   const { data: guestRows, error: guestErr } = await admin
@@ -369,43 +388,34 @@ export async function syncGuestCameras(
     .neq('rsvp_status', LIMITED_EXCLUDED_RSVP)
     .order('created_at', { ascending: true });
   if (guestErr) {
-    if (guestErr.code === '42P01' || guestErr.code === '42703') {
-      return { added: 0, revoked: 0 };
-    }
+    if (guestErr.code === '42P01' || guestErr.code === '42703') return EMPTY;
     throw new Error(`syncGuestCameras read guests failed: ${guestErr.message}`);
   }
   const eligibleGuestIds = (guestRows ?? []).map((g) => g.guest_id as string);
   const eligibleSet = new Set(eligibleGuestIds);
 
-  // Existing ACTIVE roll seats. guest_id set = a guest camera; guest_id NULL +
-  // tier roll = an orphan (the guest was deleted). Anonymous Unlimited extras
-  // are tier='unlimited' and untouched here.
+  // Existing ACTIVE guest cameras — guest_id bound, ANY tier (a guest camera can
+  // be Limited(roll) or Unlimited per the snapshot tier). Anonymous Unlimited
+  // EXTRAS (guest_id NULL) are a different surface and untouched here.
   const { data: seatRows, error: seatErr } = await admin
     .from('paparazzi_seats')
-    .select('seat_id, guest_id, tier, revoked_at')
+    .select('seat_id, guest_id, tier')
     .eq('event_id', eventId)
-    .eq('tier', 'roll')
+    .not('guest_id', 'is', null)
     .is('revoked_at', null);
   if (seatErr) {
-    if (seatErr.code === '42P01' || seatErr.code === '42703') {
-      return { added: 0, revoked: 0 };
-    }
+    if (seatErr.code === '42P01' || seatErr.code === '42703') return EMPTY;
     throw new Error(`syncGuestCameras read seats failed: ${seatErr.message}`);
   }
   const activeSeats = seatRows ?? [];
-  const haveCameraForGuest = new Set(
-    activeSeats
-      .filter((s) => s.guest_id !== null)
-      .map((s) => s.guest_id as string),
-  );
+  const haveCameraForGuest = new Set(activeSeats.map((s) => s.guest_id as string));
 
-  // 1) REVOKE stale guest cameras: guest declined / deleted (guest_id NULL) /
-  //    no longer eligible. Never delete — photos stay in the gallery.
   const nowIso = new Date().toISOString();
+
+  // 1) REVOKE cameras whose guest is no longer eligible (declined). Never delete
+  //    — photos stay in the gallery.
   const toRevoke = activeSeats
-    .filter(
-      (s) => s.guest_id === null || !eligibleSet.has(s.guest_id as string),
-    )
+    .filter((s) => !eligibleSet.has(s.guest_id as string))
     .map((s) => s.seat_id as string);
   let revoked = 0;
   if (toRevoke.length > 0) {
@@ -415,10 +425,36 @@ export async function syncGuestCameras(
       .in('seat_id', toRevoke);
     if (!revErr) revoked = toRevoke.length;
   }
+  const revokeSet = new Set(toRevoke);
 
-  // 2) PROVISION missing cameras, up to camera_cap. Headroom counts only the
-  //    ELIGIBLE guests who already have a camera — the ones we just revoked
-  //    (declined / deleted) free their slots, so we don't undercount the room.
+  // 1b) RE-TIER still-eligible cameras whose tier != the snapshot tier — an
+  //     upgrade to Unlimited (or a switch back to Limited). Re-point them at the
+  //     snapshot's order so the per-camera paid gate reads the right charge.
+  const toRetier = activeSeats
+    .filter(
+      (s) =>
+        !revokeSet.has(s.seat_id as string) &&
+        eligibleSet.has(s.guest_id as string) &&
+        (s.tier as string) !== snapshotTier,
+    )
+    .map((s) => s.seat_id as string);
+  let retiered = 0;
+  if (toRetier.length > 0) {
+    const { error: retErr } = await admin
+      .from('paparazzi_seats')
+      .update({
+        tier: snapshotTier,
+        sku_code: snapshotSku,
+        paid_order_id: snapshot.order_id,
+        updated_at: nowIso,
+      })
+      .in('seat_id', toRetier);
+    if (!retErr) retiered = toRetier.length;
+  }
+
+  // 2) PROVISION missing cameras at the snapshot tier, up to camera_cap. Headroom
+  //    counts only ELIGIBLE guests who already have a camera (revoked ones free
+  //    their slots).
   const missing = eligibleGuestIds.filter((id) => !haveCameraForGuest.has(id));
   const eligibleWithCamera = eligibleGuestIds.length - missing.length;
   const room = Math.max(0, snapshot.camera_cap - eligibleWithCamera);
@@ -445,8 +481,8 @@ export async function syncGuestCameras(
       const row = {
         event_id: eventId,
         seat_index: next,
-        sku_code: PAPIC_CAMERA_ROLL_SKU,
-        tier: 'roll' as const,
+        sku_code: snapshotSku,
+        tier: snapshotTier,
         guest_id: guestId,
         claim_qr_token: generateSeatClaimToken(),
         is_free_sampler: false,
@@ -466,5 +502,5 @@ export async function syncGuestCameras(
     if (!insErr) added = inserts.length;
   }
 
-  return { added, revoked };
+  return { added, revoked, retiered };
 }

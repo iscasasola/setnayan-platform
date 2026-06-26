@@ -36,7 +36,7 @@ import { eventOwnsPapicSeats } from '@/lib/papic-seats';
 import { fetchPapicGallery } from '@/lib/papic-gallery';
 import { PapicGalleryGrid } from './_components/papic-gallery-grid';
 import { getKwentoDensity } from '@/lib/kwento-density';
-import { setPapicStorageDrive, setPapicStorageR2, activatePapicLimited } from './actions';
+import { setPapicStorageDrive, setPapicStorageR2 } from './actions';
 import { resolveStoredWindow, formatWindowSummary } from '@/lib/papic-window';
 import PapicWindowPicker from './papic-window-picker';
 import {
@@ -53,6 +53,7 @@ import {
   type LimitedSnapshotStatus,
 } from '@/lib/papic-limited';
 import ExtraCamerasPicker from './extra-cameras-picker';
+import GuestCameraTierPicker from './guest-camera-tier-picker';
 import { LiveWallCard } from './_components/live-wall-card';
 import { MagazineCard } from './_components/magazine-card';
 import { RecapCard } from './_components/recap-card';
@@ -255,7 +256,6 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       .from('paparazzi_seats')
       .select('seat_id', { count: 'exact', head: true })
       .eq('event_id', eventId)
-      .eq('tier', 'roll')
       .not('guest_id', 'is', null)
       .is('revoked_at', null);
     guestCameraCount = count ?? 0;
@@ -282,6 +282,15 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     papicLtdCapPhp,
     papicDays,
   );
+  // The Unlimited-tier option for the same guest list (owner 2026-06-26) — same
+  // capture-window day multiplier as the Limited quote.
+  const unlimitedQuote = computeLimitedQuote(
+    limitedGuestCount,
+    cameraRates.unlimited,
+    papicUnliCapPhp,
+    papicDays,
+  );
+  const limitedTier = (limitedSnapshot?.tier ?? null) as 'roll' | 'unlimited' | null;
 
   // Anonymous Unlimited extras (off-list shooters → claim links in /crew).
   let extraCameraCount = 0;
@@ -392,7 +401,9 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           guestCount={limitedGuestCount}
           guestCameraCount={guestCameraCount}
           status={limitedStatus}
-          quote={limitedQuote}
+          currentTier={limitedTier}
+          limitedQuote={limitedQuote}
+          unlimitedQuote={unlimitedQuote}
           days={papicDays}
           windowSummary={papicWindowSummary}
         />
@@ -518,7 +529,9 @@ function LimitedCard({
   guestCount,
   guestCameraCount,
   status,
-  quote,
+  currentTier,
+  limitedQuote,
+  unlimitedQuote,
   days,
   windowSummary,
 }: {
@@ -526,7 +539,9 @@ function LimitedCard({
   guestCount: number;
   guestCameraCount: number;
   status: LimitedSnapshotStatus | null;
-  quote: ReturnType<typeof computeLimitedQuote>;
+  currentTier: 'roll' | 'unlimited' | null;
+  limitedQuote: ReturnType<typeof computeLimitedQuote>;
+  unlimitedQuote: ReturnType<typeof computeLimitedQuote>;
   days: number;
   windowSummary: string;
 }) {
@@ -534,6 +549,7 @@ function LimitedCard({
   const active = status === 'active';
   const pending = status === 'pending_payment';
   const live = active || pending;
+  const tierLabel = currentTier === 'unlimited' ? 'Unlimited' : 'Limited';
 
   return (
     <div className="rounded-xl border border-terracotta/30 bg-cream/80 p-4 sm:p-5">
@@ -545,8 +561,8 @@ function LimitedCard({
           </p>
           <p className="max-w-prose text-xs text-ink/60">
             Everyone who hasn&rsquo;t declined gets their own camera + gallery —
-            their invite QR is the camera. Counted from your list, capped, so even
-            a big wedding never runs over.
+            their invite QR is the camera. Pick Limited or Unlimited for the whole
+            list.
           </p>
         </div>
         {live ? (
@@ -560,7 +576,7 @@ function LimitedCard({
             {active ? (
               <>
                 <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={2} />
-                Active
+                {tierLabel} · active
               </>
             ) : (
               <>
@@ -580,44 +596,21 @@ function LimitedCard({
           guest{guestCount === 1 ? '' : 's'} → {guestCount} camera
           {guestCount === 1 ? '' : 's'}
         </span>
-        {!live && guestCount >= PAPIC_MIN_PAID_CAMERAS ? (
-          <span className="ml-auto text-lg font-medium tabular-nums text-ink">
-            {formatPhp(quote.frozenBillPhp)}
-            <span className="ml-1 text-xs font-normal text-ink/50">· {dayLabel}</span>
-          </span>
-        ) : null}
       </div>
 
-      {quote.overflow > 0 ? (
-        <p className="mt-2 text-xs text-amber-700">
-          {quote.overflow} guest{quote.overflow === 1 ? '' : 's'} beyond the{' '}
-          {quote.cameraCap}-camera cap — add Unlimited extras for them, or they
-          shoot on the free tier.
+      {live ? (
+        <p className="mt-2 text-sm text-ink/70">
+          {guestCameraCount} camera{guestCameraCount === 1 ? '' : 's'} ready. New
+          &ldquo;yes&rdquo; RSVPs are added automatically — no extra charge.
         </p>
       ) : null}
 
-      {live ? (
-        <div className="mt-4 space-y-3">
-          <p className="text-sm text-ink/70">
-            {guestCameraCount} camera{guestCameraCount === 1 ? '' : 's'} ready. New
-            &ldquo;yes&rdquo; RSVPs are added automatically — no extra charge.
-          </p>
-          <form action={activatePapicLimited}>
-            <input type="hidden" name="event_id" value={eventId} />
-            <SubmitButton
-              pendingLabel="Syncing…"
-              className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/5 hover:text-ink"
-            >
-              Re-sync from guest list
-            </SubmitButton>
-          </form>
-        </div>
-      ) : guestCount < PAPIC_MIN_PAID_CAMERAS ? (
+      {!live && guestCount < PAPIC_MIN_PAID_CAMERAS ? (
         <div className="mt-4 rounded-lg border border-dashed border-ink/15 bg-cream/60 p-4 text-center">
           <p className="text-sm text-ink/65">
             {guestCount < 1
               ? 'Add your guests first — Limited cameras come from your guest list.'
-              : `Your first ${PAPIC_FREE_CAMERA_COUNT} cameras are free — you’re covered. Paid Limited starts at a ${PAPIC_MIN_PAID_CAMERAS}-guest list.`}
+              : `Your first ${PAPIC_FREE_CAMERA_COUNT} cameras are free — you’re covered. Paid cameras start at a ${PAPIC_MIN_PAID_CAMERAS}-guest list.`}
           </p>
           <Link
             href={`/dashboard/${eventId}/guests`}
@@ -628,20 +621,23 @@ function LimitedCard({
           </Link>
         </div>
       ) : (
-        <form action={activatePapicLimited} className="mt-4">
-          <input type="hidden" name="event_id" value={eventId} />
-          <SubmitButton
-            pendingLabel="Activating…"
-            className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream hover:bg-mulberry-600 sm:w-auto"
-          >
-            Ready for Papic — activate {guestCount} guest camera
-            {guestCount === 1 ? '' : 's'} · {formatPhp(quote.frozenBillPhp)}
-          </SubmitButton>
-          <p className="mt-2 text-xs text-ink/50">
-            Apply-then-pay — payment instructions next. Edit your list any time; we
-            freeze the price now and cover late guests free.
-          </p>
-        </form>
+        <GuestCameraTierPicker
+          eventId={eventId}
+          guestCount={guestCount}
+          live={live}
+          currentTier={currentTier}
+          dayLabel={dayLabel}
+          limited={{
+            billPhp: limitedQuote.frozenBillPhp,
+            perDayPhp: limitedQuote.ratePhp,
+            cameraCap: limitedQuote.cameraCap,
+          }}
+          unlimited={{
+            billPhp: unlimitedQuote.frozenBillPhp,
+            perDayPhp: unlimitedQuote.ratePhp,
+            cameraCap: unlimitedQuote.cameraCap,
+          }}
+        />
       )}
     </div>
   );

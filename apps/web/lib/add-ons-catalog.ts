@@ -513,13 +513,15 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     studioGroup: 'capture',
     // Single-cam live broadcast is FREE for every host (owner model 2026-06-26 —
     // "the tool is free; the premium layer is paid"), so the Studio card shows a
-    // "Free" chip rather than a paid buy.
+    // "Free" chip rather than a paid buy. Free to start; the multicam control
+    // room is the paid upgrade.
     tier: 'free',
-    // serviceKey is KEPT on purpose: PANOOD_SYSTEM is RESERVED for the future
-    // PAID multi-camera control room + broadcast-style overlays upgrade. It
-    // still drives the owned-state plumbing, so when that paid tier ships the
-    // card flips to Active/Pending (paid-features-auto-show). Canonical V2 code
-    // (sku-catalog-v2.ts).
+    // serviceKey is KEPT on purpose: PANOOD_SYSTEM is the PAID multi-camera
+    // control room + broadcast-style overlays upgrade (the control room is BUILT
+    // at /studio/panood/broadcast — foundation PR1-5). It drives the owned-state
+    // plumbing, so an event that owns the upgrade flips the card to
+    // Active/Pending (paid-features-auto-show). Price is admin-managed
+    // (formatV2Sku) — never hardcoded. Canonical V2 code (sku-catalog-v2.ts).
     serviceKey: 'PANOOD_SYSTEM',
     poster: {
       motion: 'scan',

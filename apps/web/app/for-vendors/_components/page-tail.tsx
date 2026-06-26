@@ -318,8 +318,9 @@ export function Pricing() {
           lineHeight: 1.55,
         }}
       >
-        The planning tools are free forever. Some in-app services are free (mood
-        board, basic schedule). Others are pay-per-use (livestream, paparazzi,
+        The planning tools are free forever. Every service is free to use —
+        mood board, basic schedule, single-camera livestream — and some have
+        pay-per-use upgrades (multicam livestream control room, paparazzi,
         highlight reel). No subscription, no per-guest fee, no checkout
         surprises — what you see is what you pay.
       </p>

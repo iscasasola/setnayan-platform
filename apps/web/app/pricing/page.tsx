@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, Check, Sparkles, Brush, Clock3, Globe, Coins } from 'lucide-react';
+import { ArrowRight, Check, Sparkles, Brush, Clock3, Globe, Coins, Radio, Users } from 'lucide-react';
 import { Logo } from '@/app/_components/logo';
 import {
   fetchV2CustomerCatalog,
@@ -157,6 +157,18 @@ export default async function PricingPage() {
   const setnayanAi = customerSkus.find((s) => s.service_code === 'SETNAYAN_AI');
   const essentialsBundle = bundles.find((b) => b.package_code === 'GUIDED_PACK');
   const completeBundle = bundles.find((b) => b.package_code === 'MEDIA_PACK');
+
+  // Panood is TWO tiers, not one paid product (owner-locked model):
+  //   (a) FREE single-camera livestream — the couple goes live to their own
+  //       YouTube from a phone/laptop, it embeds free on the event page, and
+  //       auto-archives. ₱0, available to everyone, no purchase.
+  //   (b) PAID multicam control room (PANOOD_SYSTEM) — multiple phone cameras,
+  //       live switching, one-tap Moment-Director, overlays, routing to every
+  //       venue screen. The upgrade. Price reads LIVE from the catalog row
+  //       (formatSkuPriceLabel · never hardcoded).
+  // The dedicated callout below frames both; the PANOOD_SYSTEM card also still
+  // appears in the software catalog grid as the upgrade's catalog listing.
+  const panoodSystem = customerSkus.find((s) => s.service_code === 'PANOOD_SYSTEM');
 
   const vendorSubs = vendorSkus.filter((s) => s.offering_type === 'subscription_monthly');
   const vendorAnnualSubs = vendorSkus.filter((s) => s.offering_type === 'subscription_annual');
@@ -449,7 +461,9 @@ export default async function PricingPage() {
               <p className="text-sm leading-relaxed text-ink/65">
                 Browse the marketplace, see your match preview, and plan with
                 the free workspace: schedule, budget, guest list, seat plan,
-                mood board.
+                mood board, and a live single-camera stream on your event page —
+                to your own YouTube — so everyone who can&rsquo;t be there can
+                watch.
               </p>
             </article>
             <article data-reveal-item className="flex flex-col gap-3 rounded-2xl border-2 border-terracotta/40 bg-cream p-6">
@@ -488,6 +502,87 @@ export default async function PricingPage() {
               <p className="text-sm leading-relaxed text-ink/65">
                 Every paid Setnayan service for your event, in one package.
                 Offered when you start your plan.
+              </p>
+            </article>
+          </RevealBand>
+        </div>
+      </section>
+
+      {/* Panood — two tiers, framed honestly. The FREE single-camera
+          livestream is available to everyone with no purchase; the multicam
+          control room is the paid upgrade, priced LIVE from the catalog. This
+          callout exists so Panood never reads as a single paid product. */}
+      <section className="border-b border-ink/5 bg-ink/[0.02]">
+        <div className="mx-auto w-full max-w-5xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
+          <div className="mb-10 max-w-2xl space-y-3">
+            <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
+              Panood · livestream
+            </p>
+            <LineRevealHeading className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
+              Livestream your wedding free. Run a control room when you want more.
+            </LineRevealHeading>
+            <p className="text-base leading-relaxed text-ink/65">
+              Going live so lola abroad can watch is free for everyone. When you
+              want a true broadcast — multiple cameras with live cuts, multi-cam
+              to YouTube or an in-house offline stream, Photowall and LED-Wall
+              routed to every venue screen, overlays, and live replays as the
+              moments happen — that&apos;s the upgrade.
+            </p>
+          </div>
+          <RevealBand className="grid grid-cols-1 gap-4 sm:grid-cols-2" stagger={0.07}>
+            <article
+              data-reveal-item
+              className="flex flex-col gap-3 rounded-2xl border-2 border-terracotta/30 bg-cream p-6 sm:p-8"
+            >
+              <Radio aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
+              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
+                Free · single camera
+              </p>
+              <p className="font-sans text-3xl font-semibold tracking-tight text-ink">₱0</p>
+              <p className="text-sm leading-relaxed text-ink/65">
+                Go live from your phone or laptop so family abroad can watch.
+                It streams straight to your own YouTube, embeds free on your
+                event page, and saves itself for later. Available to everyone,
+                no purchase.
+              </p>
+            </article>
+            <article
+              data-reveal-item
+              className="flex flex-col gap-3 rounded-2xl border-2 border-terracotta/40 bg-cream p-6 sm:p-8"
+            >
+              <Users aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
+              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
+                {panoodSystem?.title ?? 'Multicam control room'} · upgrade
+              </p>
+              <p className="font-sans text-3xl font-semibold tracking-tight text-ink">
+                {panoodSystem ? formatSkuPriceLabel(panoodSystem) : 'See catalog'}
+              </p>
+              <p className="text-sm leading-relaxed text-ink/65">
+                {panoodSystem?.description
+                  ?? 'A full control room for one event-day. Connect multiple cameras and cut between them live, broadcast multi-cam to YouTube or run an in-house offline stream, route Photowall and LED-Wall content to every venue screen, add overlays, and fire a live highlight generator for instant replays.'}
+              </p>
+              <ul className="mt-1 space-y-1 text-xs leading-relaxed text-ink/60">
+                <li>
+                  <span className="font-medium text-ink/75">Cameras</span> · connect
+                  multiple cameras, live switching, one-tap camera switch
+                </li>
+                <li>
+                  <span className="font-medium text-ink/75">Streaming</span> ·
+                  multi-cam YouTube live, live streaming, in-house (offline) stream
+                </li>
+                <li>
+                  <span className="font-medium text-ink/75">Screens</span> ·
+                  Photowall → screen, LED Wall → screen, multi-screen control
+                </li>
+                <li>
+                  <span className="font-medium text-ink/75">Production</span> ·
+                  overlays + live highlight generator (replays during the broadcast)
+                </li>
+              </ul>
+              <p className="text-[11px] leading-relaxed text-ink/45">
+                Live replays are during the broadcast — post-event edits (AI
+                Highlight · SDE · Thank-You) and the standalone PhotoWall /
+                Live-Background content services are separate.
               </p>
             </article>
           </RevealBand>
@@ -762,8 +857,8 @@ export default async function PricingPage() {
               </p>
               <p className="mt-3 text-sm leading-relaxed text-ink/70">
                 Software SKUs above (Animated Monogram, Editorial Website,
-                Panood, Patiktok, etc.) — paid at 100% retail. PHP only ·
-                itemized receipts on every transaction.
+                Patiktok, the Panood control room, etc.) — paid at 100% retail.
+                PHP only · itemized receipts on every transaction.
               </p>
             </div>
             <div data-reveal-item className="rounded-xl border border-ink/10 bg-cream p-5">

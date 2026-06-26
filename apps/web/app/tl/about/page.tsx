@@ -214,10 +214,12 @@ export default function AboutPageTaglish() {
               Hindi wedding coordinator ang Setnayan, at hindi kumukuha ng cut sa
               supplier bills mo. Toolkit &rsquo;to: workspace para sa guest list,
               seating, budget, at schedule; free mood board; marketplace ng
-              verified Pinoy wedding vendors na direkta mong ma-message; at optional
-              in-app services — live streaming (Panood), candid photo capture
-              (Papic), custom wedding song (Pakanta), at bespoke monograms — each
-              clear ang presyo sa piso. Kayo ng vendor ang nag-uusap sa booking;
+              verified Pinoy wedding vendors na direkta mong ma-message; at
+              in-app services — libreng single-camera livestreaming sa sarili
+              mong YouTube (Panood), candid photo capture (Papic), custom
+              wedding song (Pakanta), at bespoke monograms. Libreng gamitin ang
+              bawat service; may malinaw na presyo ang ilang upgrades, gaya ng
+              multicam control room ng Panood. Kayo ng vendor ang nag-uusap sa booking;
               hindi hinahawakan ng Setnayan ang pera.
             </p>
             <p className="text-base leading-relaxed text-ink/75">

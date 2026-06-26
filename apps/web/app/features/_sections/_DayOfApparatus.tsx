@@ -53,8 +53,8 @@ const COPY: Record<
     pricingPrefix: 'Pricing on',
     services: [
       {
-        tagline: 'Multi-cam live broadcast',
-        body: 'Up to six cameras, one broadcaster, broadcast on your own YouTube channel via BYO OAuth. AI Highlight reels post-event. Family who can’t make it sees every moment in 1080p, on whatever device they’re on.',
+        tagline: 'Livestream — free single-cam, paid multicam',
+        body: 'Go live on your own YouTube channel from a phone or laptop — free, embedded right on your event page, auto-archived. Family who can’t make it sees every moment in 1080p, on whatever device they’re on. Upgrade to the multicam control room when you want several cameras, one-tap moment switching, and overlays routed to every screen at the venue.',
       },
       {
         tagline: 'Designated paparazzi',
@@ -96,8 +96,8 @@ const COPY: Record<
     pricingPrefix: 'Pricing nasa',
     services: [
       {
-        tagline: 'Multi-cam live broadcast',
-        body: 'Hanggang anim na camera, isang broadcaster, i-broadcast sa sarili mong YouTube channel via BYO OAuth. AI Highlight reels pagkatapos ng event. Ang pamilyang hindi makakapunta, makikita ang bawat sandali in 1080p, kahit anong device ang gamit nila.',
+        tagline: 'Livestream — libre single-cam, bayad multicam',
+        body: 'Mag-live sa sarili mong YouTube channel mula sa phone o laptop — libre, naka-embed mismo sa event page mo, auto-archived. Ang pamilyang hindi makakapunta, makikita ang bawat sandali in 1080p, kahit anong device ang gamit nila. Mag-upgrade sa multicam control room kapag gusto mo ng maraming camera, one-tap moment switching, at overlays na naka-route sa bawat screen sa venue.',
       },
       {
         tagline: 'Designated paparazzi',

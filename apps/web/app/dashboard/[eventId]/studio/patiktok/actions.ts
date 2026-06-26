@@ -112,6 +112,15 @@ export async function submitPatiktokRender(formData: FormData) {
  *
  * Returns the new clip_id so the component can track the session's captures.
  */
+const TAG_SOURCES = [
+  'guest_select',
+  'qr_scan',
+  'table_qr',
+  'manual_text',
+  'auto_face',
+] as const;
+type PatiktokTagSource = (typeof TAG_SOURCES)[number];
+
 export async function recordPatiktokClip(input: {
   eventId: string;
   templateSlug?: string | null;
@@ -123,6 +132,9 @@ export async function recordPatiktokClip(input: {
   height?: number | null;
   sizeBytes?: number | null;
   performerLabel?: string | null;
+  guestId?: string | null;
+  tableId?: string | null;
+  tagSource?: string | null;
 }): Promise<{ clipId: string }> {
   if (typeof input.eventId !== 'string' || input.eventId.length === 0) {
     throw new Error('eventId required');
@@ -136,6 +148,44 @@ export async function recordPatiktokClip(input: {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  // Resolve the tag. guest_id / table_id are validated against THIS event via
+  // the RLS-scoped client so a clip can never be attributed to a guest/table
+  // from another event (the .eq('event_id') is belt-and-braces over RLS).
+  let guestId: string | null = null;
+  if (typeof input.guestId === 'string' && input.guestId.length > 0) {
+    const { data: g } = await supabase
+      .from('guests')
+      .select('guest_id')
+      .eq('guest_id', input.guestId)
+      .eq('event_id', input.eventId)
+      .maybeSingle();
+    guestId = g ? (g.guest_id as string) : null;
+  }
+  let tableId: string | null = null;
+  if (typeof input.tableId === 'string' && input.tableId.length > 0) {
+    const { data: t } = await supabase
+      .from('event_tables')
+      .select('table_id')
+      .eq('table_id', input.tableId)
+      .eq('event_id', input.eventId)
+      .maybeSingle();
+    tableId = t ? (t.table_id as string) : null;
+  }
+  const performerLabel =
+    typeof input.performerLabel === 'string' && input.performerLabel.trim()
+      ? input.performerLabel.trim()
+      : null;
+  // Only stamp tag_source when a tag actually resolved; drop a stale source
+  // (e.g. a guest_id that failed validation) so the column never lies.
+  let tagSource: PatiktokTagSource | null =
+    typeof input.tagSource === 'string' &&
+    (TAG_SOURCES as readonly string[]).includes(input.tagSource)
+      ? (input.tagSource as PatiktokTagSource)
+      : null;
+  if (!guestId && !tableId) {
+    tagSource = performerLabel ? 'manual_text' : null;
+  }
 
   const { data, error } = await supabase
     .from('patiktok_source_clips')
@@ -153,10 +203,10 @@ export async function recordPatiktokClip(input: {
       width: input.width ?? null,
       height: input.height ?? null,
       size_bytes: input.sizeBytes ?? null,
-      performer_label:
-        typeof input.performerLabel === 'string' && input.performerLabel.trim()
-          ? input.performerLabel.trim()
-          : null,
+      performer_label: performerLabel,
+      guest_id: guestId,
+      table_id: tableId,
+      tag_source: tagSource,
       status: 'uploaded',
     })
     .select('clip_id')

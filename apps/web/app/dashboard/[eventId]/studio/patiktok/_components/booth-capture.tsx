@@ -20,10 +20,13 @@ import {
   Loader2,
   RotateCcw,
   Square,
+  Tag,
   Video,
+  X,
 } from 'lucide-react';
 import Link from 'next/link';
 import { recordPatiktokClip } from '../actions';
+import { TagSheet, type BoothGuest, type BoothTable, type BoothTag } from './tag-sheet';
 
 type CaptureTemplate = {
   slug: string;
@@ -71,9 +74,13 @@ function pickRecorderMime(): string | undefined {
 export function BoothCapture({
   eventId,
   template,
+  guests,
+  tables,
 }: {
   eventId: string;
   template: CaptureTemplate;
+  guests: BoothGuest[];
+  tables: BoothTable[];
 }) {
   const targetSec = Math.min(
     Math.max(1, template.defaultDurationSec || 10),
@@ -86,8 +93,12 @@ export function BoothCapture({
   const [elapsed, setElapsed] = useState(0);
   const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
   const [retakeCount, setRetakeCount] = useState(0);
-  const [performerLabel, setPerformerLabel] = useState('');
+  const [tag, setTag] = useState<BoothTag | null>(null);
+  const [tagSheetOpen, setTagSheetOpen] = useState(false);
   const [captured, setCaptured] = useState<CapturedClip[]>([]);
+  // True while the recording camera was suspended to free it for the tag
+  // scanner — so we reopen it when the sheet closes (one camera at a time).
+  const resumeCamRef = useRef(false);
 
   const liveVideoRef = useRef<HTMLVideoElement | null>(null);
   const reviewVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -281,7 +292,9 @@ export function BoothCapture({
       if (!putRes.ok) {
         throw new Error(`clip upload to storage failed (${putRes.status})`);
       }
-      // 3) record the clip row (RLS-scoped insert)
+      // 3) record the clip row (RLS-scoped insert), carrying the tag set
+      // before recording (guest / table / free-text) — server validates the
+      // guest_id / table_id belong to this event.
       const { clipId } = await recordPatiktokClip({
         eventId,
         templateSlug: template.slug,
@@ -292,27 +305,49 @@ export function BoothCapture({
         width: metaRef.current.width || null,
         height: metaRef.current.height || null,
         sizeBytes: blob.size,
-        performerLabel: performerLabel,
+        performerLabel: tag?.label ?? null,
+        guestId: tag?.kind === 'guest' ? tag.guestId : null,
+        tableId: tag?.kind === 'table' ? tag.tableId : null,
+        tagSource: tag?.source ?? null,
       });
-      setCaptured((prev) => [
-        ...prev,
-        { clipId, label: performerLabel.trim() || null },
-      ]);
+      setCaptured((prev) => [...prev, { clipId, label: tag?.label ?? null }]);
       // reset for the next guest
       revokeRecorded();
       setRecordedUrl(null);
       blobRef.current = null;
-      setPerformerLabel('');
+      setTag(null);
       setRetakeCount(0);
       setPhase('ready');
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Upload failed.');
       setPhase('error');
     }
-  }, [eventId, performerLabel, revokeRecorded, template.slug]);
+  }, [eventId, tag, revokeRecorded, template.slug]);
+
+  // Free the recording camera the moment the tag scanner needs one (iOS runs a
+  // single camera at a time); reopen it when the sheet closes.
+  const handleScanActiveChange = useCallback(
+    (active: boolean) => {
+      if (active && streamRef.current) {
+        stopStream();
+        if (liveVideoRef.current) liveVideoRef.current.srcObject = null;
+        resumeCamRef.current = true;
+      }
+    },
+    [stopStream],
+  );
+
+  const closeTagSheet = useCallback(() => {
+    setTagSheetOpen(false);
+    if (resumeCamRef.current) {
+      resumeCamRef.current = false;
+      void openCamera();
+    }
+  }, [openCamera]);
 
   const cameraOpen = phase !== 'idle' && phase !== 'error';
   const retakesLeft = MAX_RETAKES - retakeCount;
+  const canTag = phase === 'idle' || phase === 'ready' || phase === 'review';
 
   return (
     <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
@@ -393,6 +428,38 @@ export function BoothCapture({
         </p>
       ) : null}
 
+      {/* Recording for — set the tag BEFORE recording (editable at review) */}
+      {canTag ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+            Recording for
+          </span>
+          {tag ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-terracotta/10 px-2.5 py-1 text-sm font-medium text-terracotta-800">
+              {tag.label}
+              <button
+                type="button"
+                onClick={() => setTag(null)}
+                aria-label="Clear tag"
+                className="-mr-0.5 rounded-full p-0.5 text-terracotta-700/70 hover:bg-terracotta/15 hover:text-terracotta-800"
+              >
+                <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+              </button>
+            </span>
+          ) : (
+            <span className="text-sm text-ink/45">anyone (untagged)</span>
+          )}
+          <button
+            type="button"
+            onClick={() => setTagSheetOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-2.5 py-1 text-sm font-medium text-ink/70 transition-colors hover:border-terracotta/40 hover:text-terracotta-700"
+          >
+            <Tag aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            {tag ? 'Change' : 'Tag guest'}
+          </button>
+        </div>
+      ) : null}
+
       {/* Controls */}
       <div className="flex flex-wrap items-center gap-2">
         {phase === 'idle' ? (
@@ -469,23 +536,6 @@ export function BoothCapture({
         ) : null}
       </div>
 
-      {/* Performer label (shown while reviewing — optional) */}
-      {phase === 'review' ? (
-        <label className="block">
-          <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-            Guest name (optional)
-          </span>
-          <input
-            type="text"
-            value={performerLabel}
-            onChange={(e) => setPerformerLabel(e.target.value)}
-            placeholder="e.g. Tita Baby's table"
-            maxLength={80}
-            className="mt-1 w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm outline-none focus:border-terracotta/50"
-          />
-        </label>
-      ) : null}
-
       {/* Continue-to-render link once at least one clip is captured */}
       {captured.length > 0 && phase !== 'recording' && phase !== 'countdown' ? (
         <Link
@@ -499,8 +549,20 @@ export function BoothCapture({
 
       <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
         Captured clips upload to your event gallery · the reel renders in your
-        browser (no server) · face-lock + multi-performer · TODO(0017-phase5.1)
+        browser (no server) · auto face-tagging (when Papic is on) ·
+        TODO(0017-phase-B)
       </p>
+
+      {tagSheetOpen ? (
+        <TagSheet
+          guests={guests}
+          tables={tables}
+          allowScan={phase !== 'review'}
+          onApply={setTag}
+          onClose={closeTagSheet}
+          onScanActiveChange={handleScanActiveChange}
+        />
+      ) : null}
     </section>
   );
 }

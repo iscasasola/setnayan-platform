@@ -13,6 +13,8 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { formatPhp } from '@/lib/orders';
+import { fetchGuestsByEvent, guestDisplayName } from '@/lib/guests';
+import type { BoothGuest, BoothTable } from '../_components/tag-sheet';
 import {
   PATIKTOK_OVERAGE_PHP,
   PATIKTOK_TEMPLATES,
@@ -84,6 +86,27 @@ export default async function PatiktokBoothDashboard({
   const remaining = Math.max(0, PATIKTOK_VIDEO_SOFT_CAP - submissions);
   const overCap = submissions >= PATIKTOK_VIDEO_SOFT_CAP;
 
+  // Guest + table lists power the booth tag sheet (pick-from-list / scan place
+  // card / scan table QR). Resolved server-side, client-side matched by token.
+  const guestRows = await fetchGuestsByEvent(supabase, eventId);
+  const guests: BoothGuest[] = guestRows.map((g) => ({
+    guestId: g.guest_id,
+    name: guestDisplayName(g),
+    qrToken: g.qr_token,
+    photoUrl: g.photo_url ?? null,
+  }));
+  const { data: tableRows } = await supabase
+    .from('event_tables')
+    .select('table_id, public_id, table_label, qr_token')
+    .eq('event_id', eventId)
+    .order('sort_order', { ascending: true });
+  const tables: BoothTable[] = (tableRows ?? []).map((t) => ({
+    tableId: t.table_id as string,
+    label: t.table_label as string,
+    publicId: t.public_id as string,
+    qrToken: t.qr_token as string,
+  }));
+
   // PATIKTOK_TEMPLATES is statically seeded with at least two entries in
   // apps/web/lib/patiktok.ts, so the indexed fallbacks are non-null by
   // construction. The `!` is what tells TS that under noUncheckedIndexedAccess.
@@ -148,6 +171,8 @@ export default async function PatiktokBoothDashboard({
       <RecordCTA
         eventId={eventId}
         primaryTemplate={primaryTemplate}
+        guests={guests}
+        tables={tables}
       />
 
       <OperatorTips />
@@ -326,9 +351,13 @@ function TemplateSlot({
 function RecordCTA({
   eventId,
   primaryTemplate,
+  guests,
+  tables,
 }: {
   eventId: string;
   primaryTemplate: PatiktokTemplate;
+  guests: BoothGuest[];
+  tables: BoothTable[];
 }) {
   return (
     <div className="space-y-3">
@@ -339,6 +368,8 @@ function RecordCTA({
           name: primaryTemplate.name,
           defaultDurationSec: primaryTemplate.defaultDurationSec,
         }}
+        guests={guests}
+        tables={tables}
       />
       <Link
         href={`/dashboard/${eventId}/studio/patiktok/${primaryTemplate.slug}`}

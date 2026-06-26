@@ -53,6 +53,7 @@ import {
   linkTables,
   unlinkTable,
   setTableSeat,
+  saveFloorPlan,
 } from '@/app/dashboard/[eventId]/seating/actions';
 import { TABLE_TYPE_CATALOG, ROLE_TIER_LABELS, computeAutoLayout } from '@/lib/seating';
 import type { KeepApartRule, PriorityOrder, EventTableRow } from '@/lib/seating';
@@ -73,6 +74,7 @@ import {
   reconcileGrouping,
   type Lab3DGuest,
   type Lab3DGroup,
+  type Lab3DFloorExtras,
   type Lab3DPalette,
   type Lab3DMonogram,
   type Vec2,
@@ -120,6 +122,7 @@ type Props = {
   priorityOrder: PriorityOrder;
   roleSetKey: string;
   groups: Lab3DGroup[];
+  floorExtras: Lab3DFloorExtras;
 };
 
 type LiveTable = Lab3DTable;
@@ -257,8 +260,20 @@ function SeatedAvatar({ tok, bodyMat }: { tok: SeatToken; bodyMat: THREE.Materia
 // A guest token animating between seats during a swap / table-swap.
 type Mover = { gid: string; color: string; opacity: number; path: Vec2[]; target: SeatRef };
 
-export default function SeatingLab3D({ eventId, tables: initialTables, floor, guests, paletteHexes, monogram, animatedMonogram, me, keepApart: keepApartProp, priorityOrder: priorityOrderProp, groups }: Props) {
+export default function SeatingLab3D({ eventId, tables: initialTables, floor: floorProp, guests, paletteHexes, monogram, animatedMonogram, me, keepApart: keepApartProp, priorityOrder: priorityOrderProp, groups, floorExtras }: Props) {
   const router = useRouter();
+  // Floor plan is LOCAL state so the lab can edit it (move/resize the stage +
+  // dance floor, toggle entrance/dance) optimistically; it re-syncs from server
+  // truth when props change (loader re-run) — EXCEPT while a floor save is still
+  // in flight, when a concurrent mutation's router.refresh would otherwise clobber
+  // the optimistic edit with stale data (and a later edit would then build on it →
+  // lost edit). The counter holds the resync until every in-flight save settles.
+  const [floor, setFloor] = useState(floorProp);
+  const floorInFlight = useRef(0);
+  useEffect(() => {
+    if (floorInFlight.current > 0) return;
+    setFloor(floorProp);
+  }, [floorProp]);
   // ONE reduced-motion flag threaded to every JS-driven motion (camera ease,
   // walk/swap glide+bob, table slide-lag + pop, orbit momentum). SSR-safe +
   // live-updating. The flow still COMPLETES when reduced — we drop the easing
@@ -333,6 +348,8 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
   const [placingGroupId, setPlacingGroupId] = useState<string | null>(null);
   // Link mode — armed table id; the next OTHER table tap links the two as a unit.
   const [linkArmId, setLinkArmId] = useState<string | null>(null);
+  // Floor-edit "move" mode — armed zone; the next floor tap drops it there.
+  const [placeZone, setPlaceZone] = useState<'stage' | 'dance' | 'entrance' | null>(null);
   const [arrived, setArrived] = useState<string | null>(null);
   const [showCloth, setShowCloth] = useState(true);
   const [showAccents, setShowAccents] = useState(true);
@@ -574,6 +591,91 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
     if (mode === 'play') setSelectedId(null);
   }, [mode]);
 
+  // 2D-parity floor designer: persist the WHOLE floor row. The lab only edits
+  // stage/dance/entrance/venue, so it round-trips the untouched service-door +
+  // cocktail-room fields (floorExtras) — saveFloorPlan upserts the whole row, and
+  // omitting them would wipe what the 2D editor set.
+  const saveFloor = useCallback(
+    (f: Lab3DFloor) => {
+      if (!canEdit) return;
+      const fd = new FormData();
+      fd.set('event_id', eventId);
+      fd.set('lock_id', lock.lockId ?? '');
+      fd.set('stage_x', String(f.stage.xPct));
+      fd.set('stage_y', String(f.stage.yPct));
+      fd.set('stage_w', String(f.stage.wPct));
+      fd.set('stage_h', String(f.stage.hPct));
+      fd.set('entrance_enabled', f.entrance.enabled ? 'true' : 'false');
+      fd.set('entrance_x', String(f.entrance.xPct));
+      fd.set('entrance_y', String(f.entrance.yPct));
+      fd.set('dance_enabled', f.dance.enabled ? 'true' : 'false');
+      fd.set('dance_x', String(f.dance.xPct));
+      fd.set('dance_y', String(f.dance.yPct));
+      fd.set('dance_w', String(f.dance.wPct));
+      fd.set('dance_h', String(f.dance.hPct));
+      if (f.venueWidthM != null) fd.set('venue_width_m', String(f.venueWidthM));
+      if (f.venueLengthM != null) fd.set('venue_length_m', String(f.venueLengthM));
+      // Preserve (else the whole-row upsert wipes them):
+      fd.set('service_entrance_enabled', floorExtras.serviceEntranceEnabled ? 'true' : 'false');
+      fd.set('service_entrance_x', String(floorExtras.serviceEntranceX));
+      fd.set('service_entrance_y', String(floorExtras.serviceEntranceY));
+      fd.set('cocktail_enabled', floorExtras.cocktailEnabled ? 'true' : 'false');
+      fd.set('cocktail_x', String(floorExtras.cocktailX));
+      fd.set('cocktail_y', String(floorExtras.cocktailY));
+      fd.set('cocktail_w', String(floorExtras.cocktailW));
+      fd.set('cocktail_h', String(floorExtras.cocktailH));
+      if (floorExtras.cocktailLabel) fd.set('cocktail_label', floorExtras.cocktailLabel);
+      fd.set('cocktail_vendor_edit', floorExtras.cocktailVendorEdit ? 'true' : 'false');
+      fd.set('cocktail_linked', floorExtras.cocktailLinked ? 'true' : 'false');
+      floorInFlight.current += 1;
+      void persist(async () => {
+        try {
+          await saveFloorPlan(fd);
+        } finally {
+          floorInFlight.current -= 1;
+        }
+      });
+    },
+    [canEdit, eventId, lock.lockId, persist, floorExtras],
+  );
+  // Move a floor zone to a tapped point (pct), optimistic + persist.
+  const moveZone = useCallback(
+    (zone: 'stage' | 'dance' | 'entrance', xPct: number, yPct: number) => {
+      const next: Lab3DFloor =
+        zone === 'stage'
+          ? { ...floor, stage: { ...floor.stage, xPct, yPct } }
+          : zone === 'dance'
+            ? { ...floor, dance: { ...floor.dance, xPct, yPct } }
+            : { ...floor, entrance: { ...floor.entrance, xPct, yPct } };
+      setFloor(next);
+      saveFloor(next);
+    },
+    [floor, saveFloor],
+  );
+  // Resize the stage / dance floor (percent of room), clamped 2–100.
+  const resizeZone = useCallback(
+    (zone: 'stage' | 'dance', dW: number, dD: number) => {
+      const cl = (v: number) => Math.max(2, Math.min(100, Math.round(v)));
+      const next: Lab3DFloor =
+        zone === 'stage'
+          ? { ...floor, stage: { ...floor.stage, wPct: cl(floor.stage.wPct + dW), hPct: cl(floor.stage.hPct + dD) } }
+          : { ...floor, dance: { ...floor.dance, wPct: cl(floor.dance.wPct + dW), hPct: cl(floor.dance.hPct + dD) } };
+      setFloor(next);
+      saveFloor(next);
+    },
+    [floor, saveFloor],
+  );
+  const toggleDance = useCallback(() => {
+    const next: Lab3DFloor = { ...floor, dance: { ...floor.dance, enabled: !floor.dance.enabled } };
+    setFloor(next);
+    saveFloor(next);
+  }, [floor, saveFloor]);
+  const toggleEntrance = useCallback(() => {
+    const next: Lab3DFloor = { ...floor, entrance: { ...floor.entrance, enabled: !floor.entrance.enabled } };
+    setFloor(next);
+    saveFloor(next);
+  }, [floor, saveFloor]);
+
   const onFloorMove = useCallback(
     (e: ThreeEvent<PointerEvent>) => {
       if (!dragRef.current) return;
@@ -588,9 +690,17 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
       // R3F fires this native `click` even after a drag (orbit OR table move).
       // `e.delta` is the pointer's pixel travel — ignore anything that moved.
       if (e.delta > 4) return;
+      // Floor-edit "move" mode: drop the armed zone at the tapped spot.
+      if (placeZone) {
+        const xPct = Math.max(2, Math.min(98, (e.point.x / room.w + 0.5) * 100));
+        const yPct = Math.max(2, Math.min(98, (e.point.z / room.d + 0.5) * 100));
+        moveZone(placeZone, xPct, yPct);
+        setPlaceZone(null);
+        return;
+      }
       if (mode === 'build') setSelectedId(null);
     },
-    [mode],
+    [mode, placeZone, room, moveZone],
   );
 
   // Add a table → createTable (lock-gated), then refresh so the new row (with
@@ -1186,6 +1296,9 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
 
   const onTableDown = useCallback(
     (id: string) => {
+      // A table tap cancels any armed "move a floor element" mode (the tap was
+      // meant for a table, not the floor) so the zone-move never dangles.
+      setPlaceZone(null);
       // Link mode: first table is armed; tapping a different one links them.
       if (linkArmId) {
         if (linkArmId !== id) doLink(linkArmId, id);
@@ -1237,6 +1350,9 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
         // them there. Tapping the same guest again puts them back down.
         setMode('play');
         setSwapSelId(null);
+        setPlaceZone(null);
+        setPlacingGroupId(null);
+        setLinkArmId(null);
         setPlacingGuestId((cur) => (cur === g.id ? null : g.id));
         return;
       }
@@ -1373,6 +1489,18 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
         onBuildDraft={buildDraft}
         onFillLocked={fillAroundLocked}
         onAutoArrange={autoArrangeAll}
+        danceEnabled={floor.dance.enabled}
+        entranceEnabled={floor.entrance.enabled}
+        placeZone={placeZone}
+        onMoveZone={(z) => {
+          setPlacingGuestId(null);
+          setPlacingGroupId(null);
+          setLinkArmId(null);
+          setPlaceZone((cur) => (cur === z ? null : z));
+        }}
+        onResizeZone={resizeZone}
+        onToggleDance={toggleDance}
+        onToggleEntrance={toggleEntrance}
         onRotate={rotateSelected}
         onDelete={deleteSelected}
         onRenameTable={renameTable}
@@ -1389,6 +1517,8 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
         placingGroupId={placingGroupId}
         onPickGroup={(gid) => {
           setPlacingGuestId(null);
+          setLinkArmId(null);
+          setPlaceZone(null);
           setPlacingGroupId((cur) => (cur === gid ? null : gid));
         }}
         onCancelGroup={() => setPlacingGroupId(null)}
@@ -1430,6 +1560,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor, gu
         onArmLink={() => {
           setPlacingGroupId(null);
           setPlacingGuestId(null);
+          setPlaceZone(null);
           setLinkArmId(selectedId);
         }}
         onBreakApart={breakApart}
@@ -2550,6 +2681,95 @@ function RulesPanel({
   );
 }
 
+/* ------------------------------ Floor designer ---------------------------- */
+
+/** The "make full use of the venue" panel — move + resize the stage and dance
+ *  floor, toggle the dance floor + entrance. "Move" arms a tap-to-place: the
+ *  next floor tap drops that element. Collapsible; all edits persist. */
+function FloorPanel({
+  danceEnabled,
+  entranceEnabled,
+  placeZone,
+  canEdit,
+  onMoveZone,
+  onResizeZone,
+  onToggleDance,
+  onToggleEntrance,
+}: {
+  danceEnabled: boolean;
+  entranceEnabled: boolean;
+  placeZone: 'stage' | 'dance' | 'entrance' | null;
+  canEdit: boolean;
+  onMoveZone: (zone: 'stage' | 'dance' | 'entrance') => void;
+  onResizeZone: (zone: 'stage' | 'dance', dW: number, dD: number) => void;
+  onToggleDance: () => void;
+  onToggleEntrance: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  if (!canEdit) return null;
+  const moveBtn = (zone: 'stage' | 'dance' | 'entrance', label: string) => (
+    <button
+      type="button"
+      onClick={() => onMoveZone(zone)}
+      className={`rounded-lg px-2 py-1 text-xs transition ${
+        placeZone === zone ? 'bg-amber-400/30 text-white ring-1 ring-amber-300/60' : 'bg-white/10 text-white/85 hover:bg-white/20'
+      }`}
+    >
+      {placeZone === zone ? 'Tap the floor…' : label}
+    </button>
+  );
+  const sizeRow = (zone: 'stage' | 'dance') => (
+    <div className="mt-1 flex items-center gap-1 text-[11px] text-white/60">
+      <span className="w-8">W</span>
+      <button type="button" onClick={() => onResizeZone(zone, -3, 0)} className="rounded bg-white/10 px-1.5 text-white hover:bg-white/20">−</button>
+      <button type="button" onClick={() => onResizeZone(zone, 3, 0)} className="rounded bg-white/10 px-1.5 text-white hover:bg-white/20">+</button>
+      <span className="ml-2 w-8">D</span>
+      <button type="button" onClick={() => onResizeZone(zone, 0, -3)} className="rounded bg-white/10 px-1.5 text-white hover:bg-white/20">−</button>
+      <button type="button" onClick={() => onResizeZone(zone, 0, 3)} className="rounded bg-white/10 px-1.5 text-white hover:bg-white/20">+</button>
+    </div>
+  );
+  return (
+    <div className="mb-2 rounded-xl bg-white/[0.06] p-2.5">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full items-center justify-between text-xs font-medium text-white/85">
+        <span>Floor &amp; stage</span>
+        <span className="text-white/50">{open ? '▾' : '▸'}</span>
+      </button>
+      {open ? (
+        <div className="mt-2 space-y-3">
+          <div>
+            <p className="mb-1 text-[11px] uppercase tracking-wide text-white/50">Stage</p>
+            {moveBtn('stage', 'Move stage')}
+            {sizeRow('stage')}
+          </div>
+          <div>
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-[11px] uppercase tracking-wide text-white/50">Dance floor</span>
+              <button type="button" onClick={onToggleDance} className={`rounded-lg px-2 py-0.5 text-[11px] transition ${danceEnabled ? 'bg-white/25 text-white' : 'bg-white/10 text-white/60 hover:bg-white/20'}`}>
+                {danceEnabled ? 'On' : 'Off'}
+              </button>
+            </div>
+            {danceEnabled ? (
+              <>
+                {moveBtn('dance', 'Move dance floor')}
+                {sizeRow('dance')}
+              </>
+            ) : null}
+          </div>
+          <div>
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-[11px] uppercase tracking-wide text-white/50">Entrance</span>
+              <button type="button" onClick={onToggleEntrance} className={`rounded-lg px-2 py-0.5 text-[11px] transition ${entranceEnabled ? 'bg-white/25 text-white' : 'bg-white/10 text-white/60 hover:bg-white/20'}`}>
+                {entranceEnabled ? 'On' : 'Off'}
+              </button>
+            </div>
+            {entranceEnabled ? moveBtn('entrance', 'Move entrance') : null}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 /* -------------------------------- HUD (2D) -------------------------------- */
 
 function Hud({
@@ -2565,6 +2785,13 @@ function Hud({
   onBuildDraft,
   onFillLocked,
   onAutoArrange,
+  danceEnabled,
+  entranceEnabled,
+  placeZone,
+  onMoveZone,
+  onResizeZone,
+  onToggleDance,
+  onToggleEntrance,
   onRotate,
   onDelete,
   onRenameTable,
@@ -2627,6 +2854,13 @@ function Hud({
   onBuildDraft: () => void;
   onFillLocked: () => void;
   onAutoArrange: () => void;
+  danceEnabled: boolean;
+  entranceEnabled: boolean;
+  placeZone: 'stage' | 'dance' | 'entrance' | null;
+  onMoveZone: (zone: 'stage' | 'dance' | 'entrance') => void;
+  onResizeZone: (zone: 'stage' | 'dance', dW: number, dD: number) => void;
+  onToggleDance: () => void;
+  onToggleEntrance: () => void;
   onRotate: (delta: number) => void;
   onDelete: () => void;
   onRenameTable: (label: string) => void;
@@ -2933,6 +3167,16 @@ function Hud({
               {canEdit ? 'Tap a table to select · drag to slide it. ' : ''}Drag empty space to orbit ·
               scroll to zoom.
             </p>
+            <FloorPanel
+              danceEnabled={danceEnabled}
+              entranceEnabled={entranceEnabled}
+              placeZone={placeZone}
+              canEdit={canEdit}
+              onMoveZone={onMoveZone}
+              onResizeZone={onResizeZone}
+              onToggleDance={onToggleDance}
+              onToggleEntrance={onToggleEntrance}
+            />
             <RulesPanel
               keepApart={keepApart}
               priorityOrder={priorityOrder}

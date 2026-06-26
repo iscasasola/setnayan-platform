@@ -18,7 +18,7 @@ import {
   guestTier,
   defaultTablePosition,
 } from '@/lib/seating';
-import { shapeHintFor, type Lab3DTable, type Lab3DFloor, type Lab3DGuest, type Lab3DGroup, type Lab3DMonogram } from '@/lib/seating-3d';
+import { shapeHintFor, type Lab3DTable, type Lab3DFloor, type Lab3DFloorExtras, type Lab3DGuest, type Lab3DGroup, type Lab3DMonogram } from '@/lib/seating-3d';
 import { resolveMonogram } from '@/lib/monogram';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -169,6 +169,22 @@ export default async function SeatingLabPage({ params }: Props) {
     published: floorPlan.published_at != null,
   };
 
+  // Fields the lab doesn't edit but must preserve on save (saveFloorPlan writes
+  // the whole row) — the service door + the cocktail/waiting room.
+  const floorExtras: Lab3DFloorExtras = {
+    serviceEntranceEnabled: floorPlan.service_entrance_enabled,
+    serviceEntranceX: floorPlan.service_entrance_x,
+    serviceEntranceY: floorPlan.service_entrance_y,
+    cocktailEnabled: floorPlan.cocktail_enabled,
+    cocktailX: floorPlan.cocktail_x,
+    cocktailY: floorPlan.cocktail_y,
+    cocktailW: floorPlan.cocktail_w,
+    cocktailH: floorPlan.cocktail_h,
+    cocktailLabel: floorPlan.cocktail_label,
+    cocktailVendorEdit: floorPlan.cocktail_vendor_edit,
+    cocktailLinked: floorPlan.cocktail_linked,
+  };
+
   const snapshot = (moodboard.data?.palette_snapshot ?? {}) as Record<string, unknown>;
   const paletteHexes = Object.values(snapshot).filter((v): v is string => typeof v === 'string');
 
@@ -220,6 +236,7 @@ export default async function SeatingLabPage({ params }: Props) {
         priorityOrder={floorPlan.priority_order ?? defaultPriorityOrder(roleSet)}
         roleSetKey={roleSet.key}
         groups={groups}
+        floorExtras={floorExtras}
       />
     </section>
   );

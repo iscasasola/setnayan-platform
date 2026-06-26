@@ -2,6 +2,7 @@ import { Camera } from 'lucide-react';
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
+import { eventSkuActive } from '@/lib/entitlements';
 import { PapicGuestCapture } from './_components/papic-guest-capture';
 
 // Papic · guest camera (PAPIC_GUEST · ₱2,999 — "Every guest's phone, a candid
@@ -59,7 +60,11 @@ export default async function PapicGuestPage() {
   }
 
   const [{ data: ev }, { data: g }, quota, { data: liveEnrollment }] = await Promise.all([
-    admin.from('events').select('display_name').eq('event_id', session.event_id).maybeSingle(),
+    admin
+      .from('events')
+      .select('display_name, kwento_free_grandfathered')
+      .eq('event_id', session.event_id)
+      .maybeSingle(),
     admin
       .from('guests')
       .select('first_name, display_name, ugc_terms_accepted_at')
@@ -80,6 +85,22 @@ export default async function PapicGuestPage() {
   const guestName =
     (g?.first_name as string | null) || (g?.display_name as string | null) || 'friend';
   const eventName = (ev?.display_name as string | null) || 'the wedding';
+
+  // Kwento gate (new events only · 2026-06-26): grandfathered events keep the
+  // free guest-story composer; newer events need the KWENTO entitlement (direct
+  // or via a bundle, e.g. PAPIC_UNLOCK). Fail-OPEN (default true) so a read
+  // hiccup never strips a reception's free composer — the POST route re-checks.
+  let kwentoEnabled = true;
+  try {
+    const grandfathered =
+      (ev as { kwento_free_grandfathered?: boolean } | null)
+        ?.kwento_free_grandfathered === true;
+    kwentoEnabled =
+      grandfathered ||
+      (await eventSkuActive(admin, session.event_id, 'KWENTO'));
+  } catch {
+    kwentoEnabled = true;
+  }
 
   // UGC moderation gate (Apple 1.2 / Google Play UGC): a guest can't be blocked
   // from this event's gallery and must have accepted the objectionable-content
@@ -117,6 +138,7 @@ export default async function PapicGuestPage() {
       total={quota.total}
       termsAccepted={termsAccepted}
       needsFaceEnroll={!liveEnrollment}
+      kwentoEnabled={kwentoEnabled}
     />
   );
 }

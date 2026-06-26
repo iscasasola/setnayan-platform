@@ -132,6 +132,7 @@ export async function checkOrderActive(
 export const BUNDLE_CHILD_SKUS: Readonly<{
   GUIDED_PACK: ReadonlyArray<string>;
   MEDIA_PACK: ReadonlyArray<string>;
+  PAPIC_UNLOCK: ReadonlyArray<string>;
 }> = Object.freeze({
   // Essentials — owner's 7 (onboarding-pricing.ts BUNDLE_MEMBERS.essentials).
   GUIDED_PACK: Object.freeze([
@@ -166,6 +167,20 @@ export const BUNDLE_CHILD_SKUS: Readonly<{
     'LIVE_BACKGROUND',
     'PANOOD_SYSTEM',
     'PAKANTA',
+  ]),
+  // Papic Unlock All — the ₱15,000 Papic add-on bundle (owner-locked 2026-06-26).
+  // Six children (onboarding-pricing.ts BUNDLE_MEMBERS.papicUnlock). NOTE: the
+  // bundle ALSO grants free, uncapped Unli cameras — but that is a per-camera
+  // capture-gate BYPASS (owns PAPIC_UNLOCK ⇒ every Unli-tier seat shoots free,
+  // see lib/papic-cameras.ts), NOT a child SKU here (a camera is a provisioned
+  // seat, not an entitlement).
+  PAPIC_UNLOCK: Object.freeze([
+    'KWENTO',
+    'LIVE_WALL',
+    'PAPIC_ADDON_THANK_YOU',
+    'PAPIC_ADDON_STORIES',
+    'PABATI',
+    'CAMERA_BRIDGE',
   ]),
 });
 

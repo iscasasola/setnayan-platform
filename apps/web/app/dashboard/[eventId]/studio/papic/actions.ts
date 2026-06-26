@@ -11,11 +11,21 @@ import {
   PAPIC_LTD_CAP_FALLBACK_PHP,
   PAPIC_MIN_PAID_CAMERAS,
   PAPIC_UNLI_CAP_FALLBACK_PHP,
+  PAPIC_UNLOCK_ORDER_KEY,
   computeCameraQuote,
   fetchCameraRates,
   mintPapicReferenceCode,
   provisionPaidCamerasAdmin,
 } from '@/lib/papic-cameras';
+import { eventSkuActive } from '@/lib/entitlements';
+
+/**
+ * Per-call sanity bound on a free Unli provisioning request. The Papic Unlock
+ * All allowance is UNCAPPED (owner 2026-06-26), so this is NOT an entitlement
+ * cap — just a fat-finger guard on a single submit; the couple can provision
+ * again to add more. 250 mirrors the per-event guest QR ceiling.
+ */
+const PAPIC_UNLOCK_PROVISION_MAX_PER_CALL = 250;
 
 // Iteration 0012 Papic — storage-target server actions.
 //
@@ -526,4 +536,84 @@ export async function purchasePapicCameras(formData: FormData) {
       order.public_id,
     )}&papic_ref=${encodeURIComponent(referenceCode)}&papic_amount=${quote.totalPhp}`,
   );
+}
+
+/**
+ * Provision FREE Unli cameras for a couple who owns Papic Unlock All. THE
+ * camera-allowance model (owner-locked 2026-06-26): PAPIC_UNLOCK grants free,
+ * uncapped Unli cameras — so this mints Unli-tier seats with NO order + NO
+ * payment step. The capture gate lets them shoot because the event owns
+ * PAPIC_UNLOCK (papicUnliUnlockAllActive); we also stamp paid_order_id to the
+ * (paid) PAPIC_UNLOCK order so the seats are traceable and the order-paid gate
+ * passes too (belt + suspenders — refunding the bundle re-locks both ways).
+ *
+ * Gated: couple-on-event AND eventSkuActive(PAPIC_UNLOCK). Uncapped overall, but
+ * a single submit is bounded (PAPIC_UNLOCK_PROVISION_MAX_PER_CALL) against a
+ * fat-finger; the couple can run it again to add more.
+ */
+export async function provisionUnlockUnliCameras(formData: FormData) {
+  const result = await getCoupleEventId(formData.get('event_id'));
+  if (!result.ok) {
+    redirect(result.redirectTo);
+  }
+  const { eventId } = result;
+
+  const admin = createAdminClient();
+
+  // Entitlement gate — must own (admin-approved) Papic Unlock All. eventSkuActive
+  // is bundle-aware + refund-aware; PAPIC_UNLOCK is a direct package SKU (not a
+  // child of any bundle), so this is the authoritative ownership check.
+  const owned = await eventSkuActive(admin, eventId, PAPIC_UNLOCK_ORDER_KEY);
+  if (!owned) {
+    redirect(`/dashboard/${eventId}/studio/papic?papic_error=unlock_required`);
+  }
+
+  const requested = Math.floor(Number(formData.get('count') ?? 0));
+  const count = Math.min(
+    PAPIC_UNLOCK_PROVISION_MAX_PER_CALL,
+    Number.isFinite(requested) && requested > 0 ? requested : 0,
+  );
+  if (count < 1) {
+    redirect(`/dashboard/${eventId}/studio/papic?papic_error=unlock_count`);
+  }
+
+  // The paid PAPIC_UNLOCK order backs the seats (traceability + the order-paid
+  // gate). eventSkuActive=true guarantees one exists; defensive on the read.
+  const { data: unlockOrder } = await admin
+    .from('orders')
+    .select('order_id')
+    .eq('event_id', eventId)
+    .eq('service_key', PAPIC_UNLOCK_ORDER_KEY)
+    .in('status', ['paid', 'fulfilled'])
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!unlockOrder?.order_id) {
+    redirect(`/dashboard/${eventId}/studio/papic?papic_error=unlock_required`);
+  }
+
+  // Validity window = the event day (matches the per-camera buy flow).
+  const { data: ev } = await admin
+    .from('events')
+    .select('event_date')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const eventDate = (ev?.event_date as string | null) ?? null;
+
+  try {
+    await provisionPaidCamerasAdmin(admin, {
+      eventId,
+      orderId: unlockOrder.order_id as string,
+      rollCount: 0,
+      unlimitedCount: count,
+      validFrom: eventDate,
+      validUntil: eventDate,
+    });
+  } catch {
+    redirect(`/dashboard/${eventId}/studio/papic?papic_error=unlock_provision`);
+  }
+
+  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  revalidatePath(`/dashboard/${eventId}/studio/papic/crew`);
+  redirect(`/dashboard/${eventId}/studio/papic?papic_unlock_added=${count}`);
 }

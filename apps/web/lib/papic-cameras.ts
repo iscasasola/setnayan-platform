@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { generateSeatClaimToken } from '@/lib/papic-seats';
+import { eventSkuActive } from '@/lib/entitlements';
 
 /**
  * apps/web/lib/papic-cameras.ts
@@ -343,6 +344,36 @@ export async function papicCameraOrderPaid(
     if (error || !data) return false;
     const status = (data as { status?: string }).status ?? '';
     return status === 'paid' || status === 'fulfilled';
+  } catch {
+    return false;
+  }
+}
+
+/** orders.service_key marker for the Papic Unlock All bundle (₱15,000). */
+export const PAPIC_UNLOCK_ORDER_KEY = 'PAPIC_UNLOCK';
+
+/**
+ * THE camera-allowance model (owner-locked 2026-06-26): the Papic Unlock All
+ * bundle grants free, UNCAPPED Unli cameras. Owning PAPIC_UNLOCK (admin-approved)
+ * makes every Unli-tier seat shoot WITHOUT its own paid per-camera order — the
+ * capture gate ORs this onto papicCameraOrderPaid. Read on an ADMIN client (the
+ * claimer isn't an event member, so an RLS read would see nothing). eventSkuActive
+ * is bundle-aware and requires paid/fulfilled, so an apply-then-pay PAPIC_UNLOCK
+ * stays dark until the Setnayan team confirms — consistent with the per-camera
+ * paid gate. Fail-CLOSED: any error returns false so an unconfirmed bundle can't
+ * unlock capture.
+ *
+ * Scope: UNLI tier only. Roll/Ltd cameras are NOT unlocked by the bundle (Unli is
+ * the premium tier the bundle covers, and it's strictly better, so there's no
+ * reason to shoot Roll once Unlock All is owned).
+ */
+export async function papicUnliUnlockAllActive(
+  admin: SupabaseClient,
+  eventId: string | null | undefined,
+): Promise<boolean> {
+  if (!eventId) return false;
+  try {
+    return await eventSkuActive(admin, eventId, PAPIC_UNLOCK_ORDER_KEY);
   } catch {
     return false;
   }

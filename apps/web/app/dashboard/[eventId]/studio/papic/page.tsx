@@ -45,8 +45,20 @@ import { CopyButton } from './crew/_components/copy-button';
 import { fetchPapicGallery } from '@/lib/papic-gallery';
 import { PapicGalleryGrid } from './_components/papic-gallery-grid';
 import { getKwentoDensity } from '@/lib/kwento-density';
-import { setPapicStorageDrive, setPapicStorageR2 } from './actions';
+import {
+  setPapicStorageDrive,
+  setPapicStorageR2,
+  provisionUnlockUnliCameras,
+} from './actions';
 import { fetchCameraRates } from '@/lib/papic-cameras';
+import { eventSkuActive } from '@/lib/entitlements';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { fetchV2BundleCatalog } from '@/lib/v2-catalog';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
+import {
+  InlineCheckoutDrawer,
+  type InlineCheckoutDrawerProps,
+} from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import CameraPicker from './camera-picker';
 import { LiveWallCard } from './_components/live-wall-card';
 import { MagazineCard } from './_components/magazine-card';
@@ -104,6 +116,7 @@ type Props = {
     papic_ref?: string;
     papic_amount?: string;
     papic_error?: string;
+    papic_unlock_added?: string;
   }>;
 };
 
@@ -199,6 +212,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     papic_ref: papicRef,
     papic_amount: papicAmount,
     papic_error: papicError,
+    papic_unlock_added: papicUnlockAdded,
   } = await searchParams;
 
   const supabase = await createClient();
@@ -309,6 +323,24 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     Number((event as Record<string, unknown>).papic_ltd_cap_php ?? 0) || 6000;
   const papicUnliCapPhp =
     Number((event as Record<string, unknown>).papic_unli_cap_php ?? 0) || 10000;
+
+  // Papic Unlock All (₱15,000 bundle · 2026-06-26): ownership + live bundle
+  // price + platform settings for the checkout drawer. Ownership is read on the
+  // ADMIN client so a co-host who didn't place the order still sees it as owned
+  // (orders RLS is purchaser-scoped). The user already passed the event-scoped
+  // RLS read above, so the admin read is safe. Graceful-degrade everywhere — a
+  // missing service-role key (build env) just hides the buy/owned surface.
+  let ownsPapicUnlock = false;
+  try {
+    const admin = createAdminClient();
+    ownsPapicUnlock = await eventSkuActive(admin, eventId, 'PAPIC_UNLOCK');
+  } catch {
+    ownsPapicUnlock = false;
+  }
+  const bundles = await fetchV2BundleCatalog().catch(() => []);
+  const unlockPkg =
+    bundles.find((b) => b.package_code === 'PAPIC_UNLOCK') ?? null;
+  const settings = await fetchPlatformSettings(supabase);
 
   return (
     <section className="space-y-8 pb-12">
@@ -432,6 +464,20 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           />
         </div>
       </section>
+
+      {/* ----------------------------------------------------------------
+          Papic Unlock All (₱15,000 bundle · owner-locked 2026-06-26)
+          Every Papic add-on + free, uncapped Unli cameras at one price —
+          the hard ceiling on Papic spend. When owned, this becomes the
+          free-Unli-camera provisioner.
+          ---------------------------------------------------------------- */}
+      <UnlockAllCard
+        eventId={eventId}
+        owned={ownsPapicUnlock}
+        pkg={unlockPkg}
+        settings={settings}
+        justAdded={papicUnlockAdded ? Number(papicUnlockAdded) : null}
+      />
 
       {/* ----------------------------------------------------------------
           Free-sampler retention — "keep your free photos" (2026-06-16)
@@ -623,6 +669,160 @@ function SamplerRetentionCard({
           <Camera aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           Add a camera
         </Link>
+      </div>
+    </section>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Papic Unlock All — the ₱15,000 add-on bundle (owner-locked 2026-06-26)
+// -----------------------------------------------------------------------------
+// Two states:
+//   • NOT owned → "what's included" + the InlineCheckoutDrawer at the live
+//     bundle price (submitOrderAction re-prices PAPIC_UNLOCK authoritatively via
+//     resolveBundleChargeCentavos, so a tampered price can't stick).
+//   • owned → "Unlocked" + the free, uncapped Unli-camera provisioner. The
+//     bundle grants free Unli cameras as a capture-gate entitlement, so there is
+//     no per-camera charge here — just provision and hand out claim links.
+const UNLOCK_INCLUDES: ReadonlyArray<string> = [
+  'Unlimited Unli cameras — free, no per-camera charge',
+  'Kwento — your guests’ stories wall',
+  'Live Photo Wall',
+  'Thank You film',
+  'Guest Stories',
+  'Pabati — video guestbook',
+  'DSLR Camera Bridge',
+];
+
+function UnlockAllCard({
+  eventId,
+  owned,
+  pkg,
+  settings,
+  justAdded,
+}: {
+  eventId: string;
+  owned: boolean;
+  pkg: { package_code: string; title: string; retail_price_php: number } | null;
+  settings: InlineCheckoutDrawerProps['settings'];
+  justAdded: number | null;
+}) {
+  if (owned) {
+    return (
+      <section className="scroll-mt-20 space-y-4 rounded-2xl border border-mulberry/25 bg-mulberry/[0.04] p-5 sm:p-6">
+        <div className="space-y-1.5">
+          <p className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-mulberry">
+            <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+            Papic Unlock All · active
+          </p>
+          <h2 className="text-xl font-semibold tracking-tight text-ink">
+            Every add-on unlocked — Unli cameras are free
+          </h2>
+          <p className="max-w-prose text-sm text-ink/70">
+            Spin up as many Unlimited cameras as you need — each shoots unlimited
+            photos and clips at no per-camera charge. Add a batch below; run it
+            again any time to add more.
+          </p>
+        </div>
+
+        {justAdded ? (
+          <p
+            role="status"
+            className="inline-flex items-center gap-2 rounded-xl border border-success-300/70 bg-success-50 px-4 py-3 text-sm text-success-900"
+          >
+            <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            Added {justAdded} Unli camera{justAdded === 1 ? '' : 's'} — set them up
+            in the crew manager.
+          </p>
+        ) : null}
+
+        <form
+          action={provisionUnlockUnliCameras}
+          className="flex flex-wrap items-end gap-3"
+        >
+          <input type="hidden" name="event_id" value={eventId} />
+          <label className="flex flex-col gap-1 text-sm font-medium text-ink/80">
+            How many Unli cameras?
+            <input
+              type="number"
+              name="count"
+              min={1}
+              max={250}
+              defaultValue={5}
+              className="w-28 rounded-md border border-ink/15 bg-cream px-3 py-2 text-sm text-ink focus:border-mulberry focus:outline-none"
+            />
+          </label>
+          <SubmitButton
+            pendingLabel="Adding…"
+            className="inline-flex items-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70"
+          >
+            <Camera aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            Add Unli cameras
+          </SubmitButton>
+        </form>
+
+        <Link
+          href={`/dashboard/${eventId}/studio/papic/crew`}
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-mulberry hover:text-mulberry-600"
+        >
+          Open the crew manager
+          <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
+        </Link>
+      </section>
+    );
+  }
+
+  // Catalog row missing (e.g. migration not applied / build env) → no buy
+  // surface rather than a broken ₱0 checkout.
+  if (!pkg) return null;
+
+  return (
+    <section className="scroll-mt-20 space-y-4 rounded-2xl border border-mulberry/25 bg-mulberry/[0.04] p-5 sm:p-6">
+      <div className="space-y-1.5">
+        <p className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-mulberry">
+          <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+          Unlock everything
+        </p>
+        <h2 className="text-xl font-semibold tracking-tight text-ink">
+          {pkg.title}
+        </h2>
+        <p className="max-w-prose text-sm text-ink/70">
+          Every Papic add-on plus free, unlimited Unli cameras — one price, and
+          the hard ceiling on your Papic spend.
+        </p>
+      </div>
+
+      <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {UNLOCK_INCLUDES.map((item) => (
+          <li key={item} className="flex items-start gap-2 text-sm text-ink/70">
+            <CheckCircle2
+              aria-hidden
+              className="mt-0.5 h-4 w-4 shrink-0 text-mulberry"
+              strokeWidth={2}
+            />
+            {item}
+          </li>
+        ))}
+      </ul>
+
+      <div className="flex flex-col gap-3 border-t border-mulberry/15 pt-4 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-ink/65">
+          One price for your wedding ·{' '}
+          <span className="font-mono text-base text-ink">
+            {formatPhp(pkg.retail_price_php)}
+          </span>
+        </p>
+        <div className="sm:w-auto">
+          <InlineCheckoutDrawer
+            eventId={eventId}
+            serviceKey={pkg.package_code}
+            displayName={pkg.title}
+            originalPriceCentavos={String(Math.round(pkg.retail_price_php * 100))}
+            settings={settings}
+            triggerLabel="Unlock all"
+            triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70 sm:w-auto"
+          />
+        </div>
       </div>
     </section>
   );

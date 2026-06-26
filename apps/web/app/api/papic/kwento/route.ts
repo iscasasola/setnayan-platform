@@ -3,6 +3,7 @@ import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { moderateKwentoText } from '@/lib/kwento-moderation';
 import { emitNotification } from '@/lib/notification-emit';
+import { eventSkuActive } from '@/lib/entitlements';
 
 // POST /api/papic/kwento — a zero-account guest writes the story behind one
 // of their captures (Kwento P1, 0012 § Kwento; owner-locked: text-only, free
@@ -76,6 +77,39 @@ export async function POST(req: Request) {
   }
 
   const admin = createAdminClient();
+
+  // ── Kwento paywall · new events only (owner 2026-06-26) ───────────────────
+  // Kwento became a paid SKU. Events that existed at the 2026-06-27 cutover are
+  // grandfathered free (events.kwento_free_grandfathered = TRUE); events created
+  // after need the KWENTO entitlement — directly, or via a bundle that grants it
+  // (e.g. PAPIC_UNLOCK). Read on the admin client (the guest has no auth.uid()).
+  // Fail-OPEN: a pre-migration env (column absent) or any read hiccup must never
+  // silence a live reception's guest stories — the paywall is a soft gate on a
+  // new feature, not a hard barrier worth breaking the day-of experience for.
+  try {
+    const { data: evRow, error: evErr } = await admin
+      .from('events')
+      .select('kwento_free_grandfathered')
+      .eq('event_id', session.event_id)
+      .maybeSingle();
+    if (!evErr) {
+      const grandfathered =
+        (evRow as { kwento_free_grandfathered?: boolean } | null)
+          ?.kwento_free_grandfathered === true;
+      if (!grandfathered) {
+        const entitled = await eventSkuActive(admin, session.event_id, 'KWENTO');
+        if (!entitled) {
+          return NextResponse.json(
+            { error: 'kwento_not_enabled' },
+            { status: 402 },
+          );
+        }
+      }
+    }
+  } catch {
+    // fail-open — never break guest stories on an entitlement-read hiccup.
+  }
+
   const { data, error } = await admin.rpc('submit_photo_message', {
     p_guest_id: session.guest_id,
     p_source_table: 'papic_guest_captures',

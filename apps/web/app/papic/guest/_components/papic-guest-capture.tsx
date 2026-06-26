@@ -73,6 +73,12 @@ type Props = {
   /** True when the guest has no active face enrollment — shows the in-camera
    *  "add your face" fallback prompt so their candid shots auto-find them. */
   needsFaceEnroll?: boolean;
+  /** Whether Kwento (the guest-story composer) is enabled for this event. Kwento
+   *  became a paid SKU (2026-06-26 · new events only); grandfathered events stay
+   *  free. When false we hide the composer — the server gate
+   *  (/api/papic/kwento) is the real enforcement; this just avoids showing a
+   *  prompt that would be declined. Defaults true (grandfathered behaviour). */
+  kwentoEnabled?: boolean;
 };
 
 export function PapicGuestCapture({
@@ -82,6 +88,7 @@ export function PapicGuestCapture({
   total,
   termsAccepted,
   needsFaceEnroll = false,
+  kwentoEnabled = true,
 }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1140,7 +1147,9 @@ export function PapicGuestCapture({
         ) : null}
 
         {/* ── Flash prompt — bottom one-liner, auto-dismisses in 5 s ──────── */}
-        {kwentoCaptureId && kwentoPhase === 'flash' ? (
+        {/* Kwento gate (new events only · 2026-06-26): hide the composer when
+            the event isn't entitled — the server gate is the real enforcement. */}
+        {kwentoEnabled && kwentoCaptureId && kwentoPhase === 'flash' ? (
           <div className="rounded-xl border border-cream/20 bg-cream/8 p-3">
             <div className="flex items-center justify-between gap-2">
               <p className="text-sm font-medium text-cream/90">
@@ -1190,7 +1199,7 @@ export function PapicGuestCapture({
         ) : null}
 
         {/* ── Story offer — appears after Flash sends or is dismissed ──────── */}
-        {kwentoCaptureId && kwentoPhase === 'story' ? (
+        {kwentoEnabled && kwentoCaptureId && kwentoPhase === 'story' ? (
           <div className="rounded-xl border border-cream/15 bg-cream/5 p-3">
             <p className="text-sm font-medium text-cream/90">
               ✍️ Tell them more? {sentMessageId ? '(Optional — Flash already sent 💛)' : 'Ano\'ng nangyari dito?'}
@@ -1252,7 +1261,7 @@ export function PapicGuestCapture({
         ) : null}
 
         {/* ── Confirmation / delete ─────────────────────────────────────────── */}
-        {kwentoPhase === 'sent' || kwentoPhase === 'held' ? (
+        {kwentoEnabled && (kwentoPhase === 'sent' || kwentoPhase === 'held') ? (
           <div className="space-y-1 text-center">
             <p className="text-xs text-cream/80">
               {kwentoPhase === 'sent'

@@ -232,6 +232,53 @@ test('BUNDLE_CHILD_SKUS: media children are in MEDIA_PACK; both bundles share Es
   }
 });
 
+// ── PAPIC_UNLOCK — the ₱15,000 "Papic Unlock All" add-on bundle (2026-06-26).
+// Grants six children (Kwento / Photo Wall / Thank You / Stories / Pabati /
+// Camera Bridge). The uncapped-Unli-camera grant is a SEPARATE capture-gate
+// bypass (papicUnliUnlockAllActive), not a child SKU here.
+test('BUNDLE_CHILD_SKUS.PAPIC_UNLOCK is exactly the six Papic add-ons', () => {
+  assert.deepEqual(
+    [...BUNDLE_CHILD_SKUS.PAPIC_UNLOCK].sort(),
+    ['CAMERA_BRIDGE', 'KWENTO', 'LIVE_WALL', 'PABATI', 'PAPIC_ADDON_STORIES', 'PAPIC_ADDON_THANK_YOU'].sort(),
+  );
+});
+
+test('eventOwnsSku: PAPIC_UNLOCK grants KWENTO (a child unique to this bundle)', async () => {
+  const supabase = makeOwnedSupabase(new Set(['PAPIC_UNLOCK']));
+  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'KWENTO'), true);
+});
+
+test('eventOwnsSku: PAPIC_UNLOCK grants a shared child (LIVE_WALL)', async () => {
+  const supabase = makeOwnedSupabase(new Set(['PAPIC_UNLOCK']));
+  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'LIVE_WALL'), true);
+});
+
+test('eventOwnsSku: PAPIC_UNLOCK does NOT grant a non-member (PANOOD_SYSTEM)', async () => {
+  const supabase = makeOwnedSupabase(new Set(['PAPIC_UNLOCK']));
+  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'PANOOD_SYSTEM'), false);
+});
+
+test('eventSkuActive: a PAID PAPIC_UNLOCK grants KWENTO (admin-approved)', async () => {
+  const supabase = makeOwnedSupabase(new Set(['PAPIC_UNLOCK']), 'paid');
+  assert.equal(await eventSkuActive(supabase, 'evt_1', 'KWENTO'), true);
+});
+
+test('eventSkuActive: a still-submitted PAPIC_UNLOCK does NOT yet grant KWENTO', async () => {
+  // Apply-then-pay: a submitted (not-yet-approved) bundle order keeps the
+  // children dark until the Setnayan team confirms payment.
+  const supabase = makeOwnedSupabase(new Set(['PAPIC_UNLOCK']), 'submitted');
+  assert.equal(await eventSkuActive(supabase, 'evt_1', 'KWENTO'), false);
+});
+
+test('no bundle code is nested as a child of any bundle (incl. PAPIC_UNLOCK)', () => {
+  const codes = Object.keys(BUNDLE_CHILD_SKUS);
+  for (const [bundle, children] of Object.entries(BUNDLE_CHILD_SKUS)) {
+    for (const code of codes) {
+      assert.ok(!children.includes(code), `${bundle} must not nest the bundle code ${code}`);
+    }
+  }
+});
+
 // ── PR4b: the Essentials-tier digital children whose gates were left on the
 // bare checkOrderOwnership() reader after PR4. A bundle buyer (single
 // bundle-keyed order, no child decomposition) MUST own each of these via

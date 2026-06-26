@@ -119,6 +119,13 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   // children through their own hooks. See activateBundleChildren below.
   GUIDED_PACK: (ctx) => activateBundleChildren(ctx),
   MEDIA_PACK: (ctx) => activateBundleChildren(ctx),
+  // Papic Unlock All (₱15,000 · 2026-06-26). Its six children are all orders-
+  // backed (KWENTO / LIVE_WALL / Thank You / Stories / Pabati / Camera Bridge —
+  // none carry a stored-flag hook today), so the fan-out is a safe no-op now,
+  // but wiring it keeps a future child-with-hook correct. The bundle's free
+  // uncapped Unli cameras are gated live by eventSkuActive(PAPIC_UNLOCK) in the
+  // capture path, so they need no activation side effect here.
+  PAPIC_UNLOCK: (ctx) => activateBundleChildren(ctx),
 });
 
 /**

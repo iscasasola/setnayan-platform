@@ -1,55 +1,41 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import {
-  ArrowLeft,
-  Tv,
-  Star,
-  Cast,
-  Radio,
-  Mic,
-  AlertTriangle,
-} from 'lucide-react';
+import { ArrowLeft, Tv, Lock, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { eventSkuActive } from '@/lib/entitlements';
+import { fetchPanoodCameras } from '@/lib/panood-camera-seats';
+import { fetchPanoodScreens } from '@/lib/panood-screens';
+import {
+  fetchPanoodMoments,
+  provisionPanoodMomentsAdmin,
+} from '@/lib/panood-moments';
+import { fetchOrInitControlStateAdmin } from '@/lib/panood-control';
+import { PanoodControlRoom } from './control-room';
 
-export const metadata = { title: 'Panood broadcaster · Setnayan' };
+export const metadata = { title: 'Panood control room · Setnayan' };
 
-// Iteration 0011 — Panood broadcaster admin preview.
+// Iteration 0011 — Panood multicam CONTROL ROOM (PR4).
 //
-// This is the broadcaster's tactile surface during the wedding: the camera
-// grid (read-only mock for the scaffold), the highlight-marker button, the
-// cast-to-projector toggle, and a stripped-down audio rail. The whole page
-// is a static preview — none of the controls dispatch real actions in
-// V1.5+. The integration seams are surfaced as `// TODO(0011):` markers so
-// a follow-up iteration can drop the live wiring into clear hooks.
+// Replaces the prior static MOCK broadcaster preview with the REAL,
+// persisting control room wired to the PR1-PR3 foundation
+// (lib/panood-camera-seats · panood-screens · panood-moments ·
+// panood-control). This is the PAID multicam controller: it gates on
+// eventSkuActive(PANOOD_SYSTEM). The FREE single-cam YouTube go-live stays on
+// ./setup (owner model 2026-06-26 — "the tool is free; the premium layer is
+// paid"); PANOOD_SYSTEM is the premium multi-camera control room + moment
+// director + venue-screen routing.
 //
-// Why a static preview is useful even without wiring: the couple can rehearse
-// the layout with the camera operators before broadcast day, screenshot it
-// for vendor briefings, and verify their camera count matches what the
-// orders system says they bought.
+// On load (owner only): seed the default moment rail if empty + get-or-create
+// the single control-state row, then fetch cameras/screens/moments/control-state
+// and hand them to the client console. Every console control persists through a
+// server action in ./actions.ts.
 
-type CameraTile = {
-  id: number;
-  label: string;
-  status: 'paused' | 'live' | 'offline';
-};
-
-// Illustrative camera layout — NOT live data. The live streaming orchestrator
-// (which would publish per-camera health from operators' phones) is not built in
-// V1, so there is no real camera roster to read. These tiles exist only to show
-// the couple how the control room will be arranged so they can rehearse; every
-// tile is shown as 'offline' (no operator has joined — because the session
-// can't run yet) rather than a fake 'paused'/'live' that would imply a real
-// feed. See the "Preview mode" banner below.
-const SAMPLE_CAMERA_LAYOUT: ReadonlyArray<CameraTile> = [
-  { id: 1, label: 'Camera 1 · wide / aisle', status: 'offline' },
-  { id: 2, label: 'Camera 2 · groom side', status: 'offline' },
-  { id: 3, label: 'Camera 3 · bride side', status: 'offline' },
-  { id: 4, label: 'Camera 4 · couple close-up', status: 'offline' },
-];
+const PANOOD_SKU_CODE = 'PANOOD_SYSTEM';
 
 type Props = { params: Promise<{ eventId: string }> };
 
-export default async function PanoodBroadcasterPreview({ params }: Props) {
+export default async function PanoodControlRoomPage({ params }: Props) {
   const { eventId } = await params;
   const supabase = await createClient();
   const {
@@ -64,10 +50,65 @@ export default async function PanoodBroadcasterPreview({ params }: Props) {
     .maybeSingle();
   if (!event) notFound();
 
+  // Control-room membership: a moderator (couple OR coordinator added as one) or
+  // legacy couple membership. Non-members are bounced to the dashboard — this is
+  // a day-of operator surface, not a viewer page.
+  const isMember = await requireControlRoomMember(eventId, user.id);
+  if (!isMember) redirect(`/dashboard/${eventId}`);
+
+  // PAID multicam controller gate. eventSkuActive degrades to false on a missing
+  // orders table (42P01/42703), so a pre-bootstrap env safely shows the upsell.
+  let owned = false;
+  try {
+    owned = await eventSkuActive(supabase, eventId, PANOOD_SKU_CODE);
+  } catch {
+    owned = false;
+  }
+
+  if (!owned) {
+    return <UpsellState eventId={eventId} eventName={event.display_name} />;
+  }
+
+  // Owner path. Seed defaults + get-or-create control state through the
+  // service-role admin client (the control-plane tables are couple-RLS / secret;
+  // these helpers bypass RLS and the gate above is the authorization boundary).
+  const admin = createAdminClient();
+  await provisionPanoodMomentsAdmin(admin, eventId); // idempotent seed-when-empty
+  const controlState = await fetchOrInitControlStateAdmin(admin, eventId);
+
+  // Fetch the foundation data via the ADMIN client. The membership gate above is
+  // the authorization boundary; reading under the host RLS session would BLANK the
+  // console for a coordinator added via event_moderators (the control-plane RLS
+  // keys off event_members.member_type, a different membership notion). All degrade
+  // to []/null on a pre-bootstrap DB.
+  const [camerasRaw, screensRaw, moments] = await Promise.all([
+    fetchPanoodCameras(admin, eventId).catch(() => []),
+    fetchPanoodScreens(admin, eventId).catch(() => []),
+    fetchPanoodMoments(admin, eventId).catch(() => []),
+  ]);
+
+  // STRIP server-only secrets before crossing into the 'use client' console — the
+  // camera claim_qr_token (a per-camera seat-hijack credential) and the screen
+  // pairing_code must NEVER reach the browser / RSC Flight payload. The console
+  // only needs id/index/label/status/current_source.
+  const cameras = camerasRaw.map((c) => ({
+    id: c.id,
+    camera_index: c.camera_index,
+    label: c.label,
+    status: c.status,
+  }));
+  const screens = screensRaw.map((s) => ({
+    id: s.id,
+    screen_index: s.screen_index,
+    name: s.name,
+    current_source: s.current_source,
+    status: s.status,
+  }));
+
   return (
     <section className="space-y-6">
       <Link
-        href={`/dashboard/${eventId}/studio/panood`}
+        href={`/dashboard/${eventId}/studio/panood/setup`}
         className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
@@ -76,200 +117,105 @@ export default async function PanoodBroadcasterPreview({ params }: Props) {
 
       <header className="space-y-2">
         <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          Broadcaster preview
+          Control room
         </p>
         <h1 className="flex items-center gap-3 text-2xl font-semibold tracking-tight sm:text-3xl">
           <Tv aria-hidden className="h-6 w-6 text-terracotta" strokeWidth={1.75} />
-          {event.display_name} &middot; broadcast preview
+          {event.display_name}
         </h1>
         <p className="max-w-prose text-sm text-ink/65">
-          This is how your control room will look &mdash; live when the streaming rollout
-          lands. The grid below is a sample layout, not a live feed; on the day, camera
-          feeds will light up once operators join via their setup links. Highlight marker,
-          cast-to-projector, and audio mute are all included with Panood.
+          Run the show from here. Tap a source to put it on air, fire a moment to
+          recompose the whole shot in one tap, and route each venue screen — every tap
+          is saved live.
         </p>
       </header>
 
-      <div className="rounded-md border border-warn-300/60 bg-warn-50 p-3 text-sm text-warn-900">
-        <span className="inline-flex items-center gap-1.5 font-medium">
-          <AlertTriangle aria-hidden className="h-4 w-4" strokeWidth={2} />
-          Preview mode
-        </span>
-        <p className="mt-1">
-          Buttons on this page don&rsquo;t dispatch real actions yet, and the cameras and
-          audio rail below are a sample layout, not a live feed. The live streaming
-          session (camera ingest, YouTube relay, and projector cast) goes live when the
-          Panood streaming rollout lands &mdash; this surface is here so couples can
-          rehearse the layout.
-        </p>
-      </div>
-
-      <section
-        aria-label="Camera grid"
-        className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-4 sm:p-5"
-      >
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-lg font-semibold tracking-tight">Cameras</h2>
-          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-            Sample layout
-          </span>
-        </div>
-        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {SAMPLE_CAMERA_LAYOUT.map((cam) => (
-            <li key={cam.id}>
-              <CameraCard cam={cam} />
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section
-        aria-label="Broadcaster controls"
-        className="grid gap-3 sm:grid-cols-3"
-      >
-        <ControlButton
-          Icon={Star}
-          label="Mark highlight"
-          sub="Tap during a meaningful moment (vows, first kiss, first dance). AI Highlight reels pull these moments first."
-        />
-        <ControlButton
-          Icon={Cast}
-          label="Cast to projector"
-          sub="Routes the active feed to the venue projector via HDMI from the broadcaster device. Latency ~500ms."
-        />
-        <ControlButton
-          Icon={Radio}
-          label="Go live · hold 1.5s"
-          sub="Hold to confirm. Once live, the broadcast pushes to YouTube and the landing-page IFrame Player lights up."
-          tone="primary"
-        />
-      </section>
-
-      <section
-        aria-label="Audio rail"
-        className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-4 sm:p-5"
-      >
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
-            <Mic aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
-            Audio rail
-          </h2>
-          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-            Sample layout
-          </span>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-3">
-          {/* Levels are 0 — these are not live meters. Real-time audio arrives
-              with the streaming rollout; we show the rail empty rather than
-              animating fake levels that would imply a live feed. */}
-          <AudioChannel label="CAM 1 MIC" level={0} />
-          <AudioChannel label="CAM 3 PGM" level={0} />
-          <AudioChannel label="MUSIC BED" level={0} />
-        </div>
-        <p className="text-xs text-ink/55">
-          Real-time level meters arrive with the streaming rollout &mdash; this preview
-          shows the rail layout so operators can rehearse the cut.
-        </p>
-      </section>
+      <PanoodControlRoom
+        eventId={eventId}
+        cameras={cameras}
+        screens={screens}
+        moments={moments}
+        controlState={controlState}
+      />
     </section>
   );
 }
 
-function CameraCard({ cam }: { cam: CameraTile }) {
-  const statusLabel =
-    cam.status === 'live'
-      ? 'LIVE'
-      : cam.status === 'offline'
-        ? 'OFFLINE'
-        : 'PAUSED';
-  const statusTone =
-    cam.status === 'live'
-      ? 'bg-success-100 text-success-900'
-      : cam.status === 'offline'
-        ? 'bg-danger-100 text-danger-900'
-        : 'bg-ink/10 text-ink/65';
+/**
+ * Read-side control-room membership check (mirrors the action-side
+ * requireControlRoomMembership): a moderator (accepted, not removed — covers the
+ * couple AND a coordinator added as a moderator) OR legacy couple membership.
+ */
+async function requireControlRoomMember(
+  eventId: string,
+  userId: string,
+): Promise<boolean> {
+  const supabase = await createClient();
+  const { data: moderator } = await supabase
+    .from('event_moderators')
+    .select('moderator_id')
+    .eq('event_id', eventId)
+    .eq('user_id', userId)
+    .not('accepted_at', 'is', null)
+    .is('removed_at', null)
+    .maybeSingle();
+  if (moderator) return true;
 
+  const { data: legacy } = await supabase
+    .from('event_members')
+    .select('member_type')
+    .eq('event_id', eventId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  return legacy?.member_type === 'couple';
+}
+
+/**
+ * Honest upsell for an event that doesn't own the paid multicam controller. The
+ * FREE single-cam livestream stays on ./setup — we point there, not at a dead
+ * end. No fake controls.
+ */
+function UpsellState({ eventId, eventName }: { eventId: string; eventName: string }) {
   return (
-    <article className="overflow-hidden rounded-xl border border-ink/10 bg-cream">
-      {/* TODO(0011): replace this placeholder with the real WebRTC <video>
-          element once the SFU subscription wires up. */}
-      <div
-        aria-hidden
-        className="relative flex aspect-video items-center justify-center bg-ink/85 text-cream/80"
+    <section className="space-y-6">
+      <Link
+        href={`/dashboard/${eventId}/studio/panood`}
+        className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
       >
-        <div
-          aria-hidden
-          className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.12),transparent_70%)]"
-        />
-        <span className="font-mono text-xs uppercase tracking-[0.25em]">
-          Cam {cam.id} feed
-        </span>
-        <span
-          className={`absolute right-2 top-2 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${statusTone}`}
-        >
-          {statusLabel}
-        </span>
-      </div>
-      <div className="space-y-1 px-3 py-2">
-        <p className="text-sm font-medium text-ink">{cam.label}</p>
-        <p className="text-xs text-ink/55">Tap to set as program · health check pending</p>
-      </div>
-    </article>
-  );
-}
+        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+        Back to Panood
+      </Link>
 
-function ControlButton({
-  Icon,
-  label,
-  sub,
-  tone,
-}: {
-  Icon: typeof Star;
-  label: string;
-  sub: string;
-  tone?: 'primary';
-}) {
-  const buttonClass =
-    tone === 'primary'
-      ? 'flex h-full flex-col gap-2 rounded-xl border border-terracotta/30 bg-terracotta/10 p-4 text-left text-terracotta-700'
-      : 'flex h-full flex-col gap-2 rounded-xl border border-ink/10 bg-cream p-4 text-left text-ink hover:border-terracotta/40';
-  return (
-    // The button is non-functional in V1.5+ scaffold; keep type=button so it
-    // doesn't accidentally submit a parent form (it has none, but defensive).
-    // TODO(0011): wire to broadcaster server actions once the orchestrator
-    // ships.
-    <button type="button" className={buttonClass}>
-      <span className="flex items-center gap-2 font-semibold">
-        <Icon aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        {label}
-      </span>
-      <span className="text-xs text-ink/65">{sub}</span>
-    </button>
-  );
-}
-
-function AudioChannel({ label, level }: { label: string; level: number }) {
-  const widthPct = Math.round(Math.max(0, Math.min(1, level)) * 100);
-  // Tailwind can't do arbitrary class names for percent widths in JIT mode
-  // unless we use the inline style. Keep the percentage inline; everything
-  // else stays in the class string.
-  return (
-    <div className="rounded-lg border border-ink/10 bg-cream/70 p-3">
-      <div className="flex items-center justify-between">
-        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-          {label}
+      <div className="rounded-2xl border border-ink/10 bg-cream p-6 text-center sm:p-8">
+        <span className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-full bg-terracotta/10">
+          <Lock aria-hidden className="h-6 w-6 text-terracotta" strokeWidth={1.75} />
         </span>
-        <span className="rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-          M · mute
-        </span>
+        <h1 className="mt-4 text-xl font-semibold tracking-tight sm:text-2xl">
+          The multicam control room is a premium upgrade
+        </h1>
+        <p className="mx-auto mt-2 max-w-prose text-sm text-ink/65">
+          {eventName} can already go live for free with a single camera straight to
+          YouTube. The multicam control room adds the part that makes it feel like a
+          real broadcast: switch between several cameras, fire one-tap moments (the
+          Kiss, First Dance, Speeches), and route what plays on every screen at the
+          venue.
+        </p>
+        <div className="mt-6 flex flex-col items-center justify-center gap-2 sm:flex-row">
+          <Link
+            href={`/dashboard/${eventId}/studio/panood`}
+            className="inline-flex items-center gap-1.5 rounded-full bg-terracotta px-5 py-2.5 text-sm font-semibold text-cream hover:opacity-90"
+          >
+            <Sparkles aria-hidden className="h-4 w-4" strokeWidth={2} />
+            See the upgrade
+          </Link>
+          <Link
+            href={`/dashboard/${eventId}/studio/panood/setup`}
+            className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-5 py-2.5 text-sm font-medium text-ink/75 hover:bg-ink/5"
+          >
+            Use the free single-camera livestream
+          </Link>
+        </div>
       </div>
-      <div className="mt-2 h-2 overflow-hidden rounded-full bg-ink/10">
-        <div
-          aria-hidden
-          className="h-full bg-gradient-to-r from-success-400 via-warn-300 to-danger-400"
-          style={{ width: `${widthPct}%` }}
-        />
-      </div>
-    </div>
+    </section>
   );
 }

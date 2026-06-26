@@ -19,7 +19,11 @@ import {
   checkOrderActive,
   eventOwnsSku,
   eventSkuActive,
+  eventActiveSkus,
+  eventHasPapicUnlockAll,
   BUNDLE_CHILD_SKUS,
+  PAPIC_UNLOCK_ALL_SKU,
+  PAPIC_UNLOCK_ALL_GRANTS,
   RELINQUISHED_STATUSES,
   ACTIVE_STATUSES,
 } from './entitlements';
@@ -370,4 +374,116 @@ test('eventSkuActive: GUIDED_PACK (paid) activates a member but not a media-only
 test('eventSkuActive: nothing owned → not active', async () => {
   const supabase = makeOwnedSupabase(new Set(), 'paid');
   assert.equal(await eventSkuActive(supabase, 'evt_1', 'STD_PREMIUM_OPENINGS'), false);
+});
+
+// ──────────────────────────────────────────────────────────────────────────
+// PAPIC_UNLOCK_ALL — the Papic-vertical everything-pass (owner 2026-06-26).
+// A PAID PAPIC_UNLOCK_ALL order grants every Papic feature SKU (allowlist-
+// scoped) WITHOUT a direct child order, mirrors the bundle handshake (pending
+// is owned-but-not-active), and can NEVER confer a non-Papic SKU.
+// ──────────────────────────────────────────────────────────────────────────
+
+test('Unlock All: a PAID pass activates a Papic feature with no direct order (KWENTO)', async () => {
+  // No direct KWENTO order — only the PAPIC_UNLOCK_ALL pass exists.
+  const supabase = makeOwnedSupabase(new Set([PAPIC_UNLOCK_ALL_SKU]), 'paid');
+  assert.equal(await eventSkuActive(supabase, 'evt_1', 'KWENTO'), true);
+});
+
+test('Unlock All: a PAID pass activates every allowlisted Papic SKU', async () => {
+  for (const sku of PAPIC_UNLOCK_ALL_GRANTS) {
+    const supabase = makeOwnedSupabase(new Set([PAPIC_UNLOCK_ALL_SKU]), 'paid');
+    assert.equal(
+      await eventSkuActive(supabase, 'evt_1', sku),
+      true,
+      `Unlock All should activate ${sku}`,
+    );
+  }
+});
+
+test('Unlock All: SCOPE — the pass never activates a non-Papic SKU (PANOOD_SYSTEM, PRO_WEBSITE)', async () => {
+  for (const sku of ['PANOOD_SYSTEM', 'PRO_WEBSITE', 'SETNAYAN_AI', 'PAKANTA']) {
+    const supabase = makeOwnedSupabase(new Set([PAPIC_UNLOCK_ALL_SKU]), 'paid');
+    assert.equal(
+      await eventSkuActive(supabase, 'evt_1', sku),
+      false,
+      `Unlock All must NOT activate non-Papic ${sku}`,
+    );
+  }
+});
+
+test('Unlock All: a SUBMITTED pass does NOT activate features (handshake), but DOES count as owned (no double-buy)', async () => {
+  const a = makeOwnedSupabase(new Set([PAPIC_UNLOCK_ALL_SKU]), 'submitted');
+  assert.equal(await eventSkuActive(a, 'evt_1', 'KWENTO'), false);
+  const b = makeOwnedSupabase(new Set([PAPIC_UNLOCK_ALL_SKU]), 'submitted');
+  assert.equal(await eventOwnsSku(b, 'evt_1', 'KWENTO'), true);
+});
+
+test('Unlock All: eventOwnsSku scope — a paid pass does not confer a non-Papic SKU', async () => {
+  const supabase = makeOwnedSupabase(new Set([PAPIC_UNLOCK_ALL_SKU]), 'paid');
+  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'PANOOD_SYSTEM'), false);
+});
+
+test('eventHasPapicUnlockAll: true only for a paid/fulfilled pass', async () => {
+  assert.equal(
+    await eventHasPapicUnlockAll(makeOwnedSupabase(new Set([PAPIC_UNLOCK_ALL_SKU]), 'paid'), 'evt_1'),
+    true,
+  );
+  assert.equal(
+    await eventHasPapicUnlockAll(makeOwnedSupabase(new Set([PAPIC_UNLOCK_ALL_SKU]), 'submitted'), 'evt_1'),
+    false,
+  );
+  assert.equal(
+    await eventHasPapicUnlockAll(makeOwnedSupabase(new Set(), 'paid'), 'evt_1'),
+    false,
+  );
+});
+
+test('PAPIC_UNLOCK_ALL_GRANTS: holds the Papic features and excludes non-Papic SKUs', () => {
+  for (const sku of ['PAPIC_GUEST', 'PAPIC_SEATS', 'KWENTO', 'LIVE_WALL', 'SDE', 'CAMERA_BRIDGE', 'PABATI']) {
+    assert.ok(PAPIC_UNLOCK_ALL_GRANTS.has(sku), `grants should include ${sku}`);
+  }
+  for (const sku of ['PANOOD_SYSTEM', 'PANOOD_CAMERA_BRIDGE', 'PRO_WEBSITE', 'SETNAYAN_AI', 'PAKANTA', 'EVENT_WEBSITE', PAPIC_UNLOCK_ALL_SKU]) {
+    assert.ok(!PAPIC_UNLOCK_ALL_GRANTS.has(sku), `grants must NOT include ${sku}`);
+  }
+});
+
+// eventActiveSkus batch expansion — a single orders query whose rows include the
+// pass must expand to every granted Papic SKU at the same active/pending level.
+function makeOrdersListSupabase(rows: { service_key: string; status: string }[]) {
+  const builder: Record<string, unknown> = {
+    from() {
+      return builder;
+    },
+    select() {
+      return builder;
+    },
+    eq() {
+      return builder;
+    },
+    in() {
+      return builder;
+    },
+    then(resolve: (value: { data: unknown; error: null }) => unknown) {
+      return Promise.resolve({ data: rows, error: null }).then(resolve);
+    },
+  };
+  return builder as unknown as SupabaseClient;
+}
+
+test('eventActiveSkus: a PAID pass expands active to every granted Papic SKU (not non-Papic)', async () => {
+  const supabase = makeOrdersListSupabase([{ service_key: PAPIC_UNLOCK_ALL_SKU, status: 'paid' }]);
+  const { active, pending } = await eventActiveSkus(supabase, 'evt_1');
+  assert.equal(active.has(PAPIC_UNLOCK_ALL_SKU), true);
+  assert.equal(active.has('KWENTO'), true);
+  assert.equal(active.has('PAPIC_GUEST'), true);
+  assert.equal(active.has('PANOOD_SYSTEM'), false);
+  assert.equal(pending.has('KWENTO'), false);
+});
+
+test('eventActiveSkus: a SUBMITTED pass expands PENDING (not active) to every granted Papic SKU', async () => {
+  const supabase = makeOrdersListSupabase([{ service_key: PAPIC_UNLOCK_ALL_SKU, status: 'submitted' }]);
+  const { active, pending } = await eventActiveSkus(supabase, 'evt_1');
+  assert.equal(pending.has('KWENTO'), true);
+  assert.equal(pending.has('LIVE_WALL'), true);
+  assert.equal(active.has('KWENTO'), false);
 });

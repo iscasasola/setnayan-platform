@@ -1034,7 +1034,12 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // floating CTA / route remains as the QR-scan fallback). Admin reads, all
   // gated so the anonymous public path never touches this.
   let papicGuest:
-    | { initialRemaining: number; total: number; termsAccepted: boolean }
+    | {
+        initialRemaining: number;
+        total: number;
+        termsAccepted: boolean;
+        guestUnlimited: boolean;
+      }
     | null = null;
   if (papicGuestActive) {
     const [quota, { data: ugcRow }, { data: blockRow }] = await Promise.all([
@@ -1059,6 +1064,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
           (ugcRow as { ugc_terms_accepted_at?: string | null } | null)
             ?.ugc_terms_accepted_at,
         ),
+        guestUnlimited: quota.unlimited,
       };
     }
   }
@@ -2284,6 +2290,7 @@ function InvitationSite({
     initialRemaining: number;
     total: number;
     termsAccepted: boolean;
+    guestUnlimited: boolean;
   } | null;
   /** Inline Pabati video-greeting recorder (PABATI) — non-null only when the
    *  event owns the active (admin-approved) pack. Mounts the guest recorder
@@ -2654,6 +2661,7 @@ function InvitationSite({
             total={papicGuest.total}
             termsAccepted={papicGuest.termsAccepted}
             needsFaceEnroll={needsFaceEnroll}
+            guestUnlimited={papicGuest.guestUnlimited}
           />
         ) : null}
 

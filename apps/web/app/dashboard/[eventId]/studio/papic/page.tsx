@@ -48,6 +48,7 @@ import { getKwentoDensity } from '@/lib/kwento-density';
 import { setPapicStorageDrive, setPapicStorageR2 } from './actions';
 import { fetchCameraRates } from '@/lib/papic-cameras';
 import CameraPicker from './camera-picker';
+import { UnlockAllCard } from './_components/unlock-all-card';
 import { LiveWallCard } from './_components/live-wall-card';
 import { MagazineCard } from './_components/magazine-card';
 import { RecapCard } from './_components/recap-card';
@@ -536,6 +537,8 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       />
 
       <ProCameraBridgeCard />
+
+      <UnlockAllCard eventId={eventId} />
 
       <LiveWallCard eventId={eventId} />
 

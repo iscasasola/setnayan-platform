@@ -16,6 +16,7 @@ import {
   mintPapicReferenceCode,
   provisionPaidCamerasAdmin,
 } from '@/lib/papic-cameras';
+import { eventOwnsSku, PAPIC_UNLOCK_ALL_SKU } from '@/lib/entitlements';
 
 // Iteration 0012 Papic — storage-target server actions.
 //
@@ -525,5 +526,87 @@ export async function purchasePapicCameras(formData: FormData) {
     `/dashboard/${eventId}/studio/papic?papic_purchased=${encodeURIComponent(
       order.public_id,
     )}&papic_ref=${encodeURIComponent(referenceCode)}&papic_amount=${quote.totalPhp}`,
+  );
+}
+
+/** Last-resort price if the PAPIC_UNLOCK_ALL catalog row is missing (pre-
+ *  migration). The LIVE price is admin-managed in platform_retail_catalog_v2;
+ *  this constant is the same graceful fallback shape lib/papic-cameras.ts uses,
+ *  never the source of truth. */
+const PAPIC_UNLOCK_ALL_FALLBACK_PHP = 15000;
+
+/**
+ * Apply-then-pay for Papic Unlock All — the Papic-vertical everything-pass. One
+ * `PAPIC_UNLOCK_ALL` order unlocks every Papic feature + lifts every Papic
+ * allowance (cameras unlimited · guest cap lifted) once the Setnayan team
+ * approves the transfer. Mirrors purchasePapicCameras: a 'submitted' order the
+ * admin reconciles, with the price read LIVE from the admin-managed catalog.
+ */
+export async function purchasePapicUnlockAll(formData: FormData) {
+  const result = await getCoupleEventId(formData.get('event_id'));
+  if (!result.ok) {
+    redirect(result.redirectTo);
+  }
+  const { eventId } = result;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    redirect('/login');
+  }
+
+  const admin = createAdminClient();
+
+  // Double-buy guard: if the event already owns the pass (incl. a pending order)
+  // bounce back with a notice instead of stacking a second order.
+  if (await eventOwnsSku(admin, eventId, PAPIC_UNLOCK_ALL_SKU)) {
+    redirect(`/dashboard/${eventId}/studio/papic?papic_error=already_unlocked`);
+  }
+
+  // Admin-managed price (graceful fallback if the catalog row isn't seeded yet).
+  let pricePhp = PAPIC_UNLOCK_ALL_FALLBACK_PHP;
+  try {
+    const { data: priceRow } = await admin
+      .from('platform_retail_catalog_v2')
+      .select('retail_price_php')
+      .eq('service_code', PAPIC_UNLOCK_ALL_SKU)
+      .maybeSingle();
+    const p = Number(priceRow?.retail_price_php);
+    if (Number.isFinite(p) && p > 0) pricePhp = p;
+  } catch {
+    // keep the fallback — the order still records; admin reconciles the amount.
+  }
+
+  const referenceCode = mintPapicReferenceCode();
+  const { data: order, error: orderErr } = await admin
+    .from('orders')
+    .insert({
+      event_id: eventId,
+      user_id: user.id,
+      service_key: PAPIC_UNLOCK_ALL_SKU,
+      description: 'Papic Unlock All',
+      requested_total_php: pricePhp,
+      reference_code: referenceCode,
+      status: 'submitted',
+      platform: 'web',
+    })
+    .select('order_id, public_id')
+    .maybeSingle();
+
+  if (orderErr || !order) {
+    redirect(
+      `/dashboard/${eventId}/studio/papic?papic_error=${encodeURIComponent(
+        (orderErr?.message ?? 'order_failed').slice(0, 64),
+      )}`,
+    );
+  }
+
+  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  redirect(
+    `/dashboard/${eventId}/studio/papic?papic_purchased=${encodeURIComponent(
+      order.public_id,
+    )}&papic_ref=${encodeURIComponent(referenceCode)}&papic_amount=${pricePhp}`,
   );
 }

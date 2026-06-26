@@ -20,6 +20,7 @@ import {
   papicCameraOrderPaid,
   papicTierDailyLimit,
 } from '@/lib/papic-cameras';
+import { eventHasPapicUnlockAll } from '@/lib/entitlements';
 
 // Server-side 5-second clip cap (corpus constraint · not configurable). The
 // client enforces 5s with a recorder timer; this tolerance (5.5s) absorbs
@@ -247,7 +248,20 @@ export async function recordSeatCapture(
   // the presign probe in /api/upload is the orphan-byte leak guard).
   {
     if (cameraTier) {
-      if (cameraTier === 'roll' || cameraTier === 'unlimited') {
+      // Papic Unlock All (the Papic-vertical everything-pass): every camera on
+      // the event shoots UNLIMITED with NO per-camera payment — skip both the
+      // paid-gate and the daily reservation. Fail toward the normal metered gate
+      // on a read error (a paying couple is never worse off than today).
+      let unlockAll = false;
+      try {
+        unlockAll = await eventHasPapicUnlockAll(
+          createAdminClient(),
+          seat.event_id as string,
+        );
+      } catch {
+        unlockAll = false;
+      }
+      if (!unlockAll && (cameraTier === 'roll' || cameraTier === 'unlimited')) {
         let paid = false;
         try {
           const admin = createAdminClient();
@@ -260,7 +274,9 @@ export async function recordSeatCapture(
         }
         if (!paid) return { ok: false, error: 'awaiting_payment' };
       }
-      const limit = papicTierDailyLimit(cameraTier, kind === 'clip' ? 'clip' : 'photo');
+      const limit = unlockAll
+        ? null
+        : papicTierDailyLimit(cameraTier, kind === 'clip' ? 'clip' : 'photo');
       if (limit != null) {
         let reserved = true;
         try {

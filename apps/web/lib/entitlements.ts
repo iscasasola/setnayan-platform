@@ -45,6 +45,34 @@ export const RELINQUISHED_STATUSES = new Set<string>([
  */
 export const ACTIVE_STATUSES = new Set<string>(['paid', 'fulfilled']);
 
+/**
+ * Papic "Unlock All" — the Papic-vertical everything-pass (owner 2026-06-26).
+ * ONE `PAPIC_UNLOCK_ALL` purchase unlocks ALL Papic features for the event, and
+ * ONLY Papic: this allowlist is the structural guarantee it can never confer a
+ * non-Papic SKU. Every entry is a Papic feature gate that flows through
+ * eventSkuActive / eventOwnsSku, so the override in those readers propagates to
+ * every call site automatically.
+ *
+ * NOTE the metered ALLOWANCES are lifted SEPARATELY (not here): the per-camera
+ * day quota in lib/papic-cameras.ts (via eventHasPapicUnlockAll) and the guest
+ * 150-credit cap in the papic_record_guest_capture RPC. Those are usage caps,
+ * not entitlement flags — this set only governs feature ownership.
+ */
+export const PAPIC_UNLOCK_ALL_SKU = 'PAPIC_UNLOCK_ALL';
+
+export const PAPIC_UNLOCK_ALL_GRANTS: ReadonlySet<string> = new Set([
+  'PAPIC_GUEST',
+  'PAPIC_SEATS',
+  'PAPIC_ADDON_STORIES',
+  'PAPIC_ADDON_THANK_YOU',
+  'KWENTO',
+  'LIVE_WALL',
+  'SDE',
+  'CAMERA_BRIDGE',
+  'PABATI',
+  'PATIKTOK_COMPILER',
+]);
+
 export async function checkOrderOwnership(
   supabase: SupabaseClient,
   eventId: string,
@@ -213,6 +241,17 @@ export async function eventOwnsSku(
   //    passed directly).
   if (await checkOrderOwnership(supabase, eventId, serviceKey)) return true;
 
+  // 1b. Papic everything-pass: owning PAPIC_UNLOCK_ALL (incl. a pending order)
+  //     confers every Papic feature SKU — allowlist-scoped so it can never leak
+  //     a non-Papic SKU. Counting a pending pass here suppresses the per-feature
+  //     buy surfaces the moment the couple applies for Unlock All.
+  if (
+    PAPIC_UNLOCK_ALL_GRANTS.has(serviceKey) &&
+    (await checkOrderOwnership(supabase, eventId, PAPIC_UNLOCK_ALL_SKU))
+  ) {
+    return true;
+  }
+
   // 2. Any bundle that includes this child SKU, owned by the event.
   const grantingBundles = BUNDLES_GRANTING_SKU.get(serviceKey);
   if (!grantingBundles || grantingBundles.length === 0) return false;
@@ -240,12 +279,37 @@ export async function eventSkuActive(
   serviceKey: string,
 ): Promise<boolean> {
   if (await checkOrderActive(supabase, eventId, serviceKey)) return true;
+  // Papic everything-pass: an ACTIVE (admin-approved) PAPIC_UNLOCK_ALL order
+  // unlocks every Papic feature SKU — allowlist-scoped (never a non-Papic SKU).
+  if (
+    PAPIC_UNLOCK_ALL_GRANTS.has(serviceKey) &&
+    (await checkOrderActive(supabase, eventId, PAPIC_UNLOCK_ALL_SKU))
+  ) {
+    return true;
+  }
   const grantingBundles = BUNDLES_GRANTING_SKU.get(serviceKey);
   if (!grantingBundles || grantingBundles.length === 0) return false;
   for (const bundleKey of grantingBundles) {
     if (await checkOrderActive(supabase, eventId, bundleKey)) return true;
   }
   return false;
+}
+
+/**
+ * Does this event own an ACTIVE (admin-approved) Papic Unlock All pass? The
+ * capture-ALLOWANCE bypass reader — the per-camera day-quota gates
+ * (lib/papic-cameras.ts call sites) and the guest disposable 150-credit cap read
+ * this to switch a camera/guest to "unlimited". Kept beside the entitlement
+ * logic so every Papic allowance check resolves ownership ONE way. Same
+ * graceful-degrade contract as checkOrderActive (42P01/42703 → false, throws on
+ * an unknown error). Pass an ADMIN client on public/claimer surfaces (orders RLS
+ * is purchaser-scoped).
+ */
+export async function eventHasPapicUnlockAll(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<boolean> {
+  return checkOrderActive(supabase, eventId, PAPIC_UNLOCK_ALL_SKU);
 }
 
 /**
@@ -297,5 +361,15 @@ export async function eventActiveSkus(
       for (const child of childrenOf(key)) pending.add(child);
     }
   }
+
+  // Papic everything-pass expansion: an active/pending PAPIC_UNLOCK_ALL grants
+  // every Papic feature SKU at the same level (so the Studio grid reads them all
+  // as Active/Pending). Allowlist-scoped — never a non-Papic SKU.
+  if (active.has(PAPIC_UNLOCK_ALL_SKU)) {
+    for (const sku of PAPIC_UNLOCK_ALL_GRANTS) active.add(sku);
+  } else if (pending.has(PAPIC_UNLOCK_ALL_SKU)) {
+    for (const sku of PAPIC_UNLOCK_ALL_GRANTS) pending.add(sku);
+  }
+
   return { active, pending };
 }

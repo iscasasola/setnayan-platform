@@ -78,6 +78,9 @@ type Props = {
    *  403s feature_not_owned for unowned events, so showing the prompt would
    *  only let the guest type a message that silently fails. */
   canKwento?: boolean;
+  /** True when the event owns Papic Unlock All — the per-guest 150-credit cap is
+   *  lifted, so the counter reads "Unlimited" and the camera never exhausts. */
+  guestUnlimited?: boolean;
 };
 
 export function PapicGuestCapture({
@@ -88,6 +91,7 @@ export function PapicGuestCapture({
   termsAccepted,
   needsFaceEnroll = false,
   canKwento = false,
+  guestUnlimited = false,
 }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -170,7 +174,7 @@ export function PapicGuestCapture({
   const tagBusyRef = useRef(false);
   const lastScanRef = useRef<string>('');
 
-  const exhausted = remaining <= 0;
+  const exhausted = !guestUnlimited && remaining <= 0;
 
   const acceptTerms = useCallback(async () => {
     if (acceptBusy || !agreeChecked) return;
@@ -904,7 +908,7 @@ export function PapicGuestCapture({
         </p>
         <span className="inline-flex items-center gap-1.5 rounded-full bg-cream/10 px-3 py-1 text-xs font-medium text-cream">
           <ImageIcon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          {remaining} left
+          {guestUnlimited ? 'Unlimited' : `${remaining} left`}
         </span>
       </header>
 

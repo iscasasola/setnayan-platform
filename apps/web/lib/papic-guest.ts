@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
+import { eventOwnsSku, eventSkuActive, eventHasPapicUnlockAll } from '@/lib/entitlements';
 
 /**
  * apps/web/lib/papic-guest.ts
@@ -90,9 +90,18 @@ export type GuestQuota = {
   total: number;
   /** How many captures the guest has already recorded. */
   used: number;
-  /** total − used, floored at 0. */
+  /** total − used, floored at 0. When `unlimited`, a large sentinel so the
+   *  remaining-based gate (route pre-check + client `exhausted`) never trips. */
   remaining: number;
+  /** True when Papic Unlock All lifts the per-guest cap — every guest shoots
+   *  unlimited; the UI shows "Unlimited" instead of a number. */
+  unlimited: boolean;
 };
+
+/** Sentinel `remaining` for an unlimited (Unlock All) guest — large enough that
+ *  the `<= 0` pre-check + client `exhausted` never fire, but still a finite
+ *  number so it serializes cleanly to the client and survives a decrement. */
+const UNLIMITED_REMAINING = Number.MAX_SAFE_INTEGER;
 
 /**
  * Resolve a single guest's quota from papic_guest_captures. `supabase` here is
@@ -106,6 +115,17 @@ export async function fetchGuestQuota(
   eventId: string,
   guestId: string,
 ): Promise<GuestQuota> {
+  // Papic Unlock All lifts the per-guest 150-credit cap entirely. The
+  // authoritative cap-skip is in the papic_record_guest_capture RPC; this read
+  // mirrors it so the display shows "Unlimited" and the route's remaining-based
+  // pre-check passes. Graceful: any read error → false (the normal cap applies).
+  let unlimited = false;
+  try {
+    unlimited = await eventHasPapicUnlockAll(supabase, eventId);
+  } catch {
+    unlimited = false;
+  }
+
   const { count, error } = await supabase
     .from('papic_guest_captures')
     .select('id', { count: 'exact', head: true })
@@ -115,14 +135,22 @@ export async function fetchGuestQuota(
   if (error) {
     // Pre-migration table or read error → assume nothing used yet. The RPC
     // enforces the real cap; this read only drives the display.
-    return { total: GUEST_CAPTURE_CREDITS, used: 0, remaining: GUEST_CAPTURE_CREDITS };
+    return {
+      total: GUEST_CAPTURE_CREDITS,
+      used: 0,
+      remaining: unlimited ? UNLIMITED_REMAINING : GUEST_CAPTURE_CREDITS,
+      unlimited,
+    };
   }
 
   const used = count ?? 0;
   return {
     total: GUEST_CAPTURE_CREDITS,
     used,
-    remaining: Math.max(0, GUEST_CAPTURE_CREDITS - used),
+    remaining: unlimited
+      ? UNLIMITED_REMAINING
+      : Math.max(0, GUEST_CAPTURE_CREDITS - used),
+    unlimited,
   };
 }
 

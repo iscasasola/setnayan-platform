@@ -44,7 +44,7 @@ export type BoothTable = {
   qrToken: string;
 };
 export type BoothTag =
-  | { kind: 'guest'; guestId: string; label: string; source: 'guest_select' | 'qr_scan' }
+  | { kind: 'guest'; guestId: string; label: string; source: 'guest_select' | 'qr_scan' | 'auto_face' }
   | { kind: 'table'; tableId: string; label: string; source: 'table_qr' }
   | { kind: 'manual'; label: string; source: 'manual_text' };
 

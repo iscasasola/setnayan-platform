@@ -47,6 +47,7 @@ import { GuestToHostCta } from '@/app/_components/guest-to-host-cta';
 import { NavLinksRow } from '@/app/_components/nav-links';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
 import { GuestPreload } from './_components/guest-preload';
+import { GuestHubBar } from './_components/guest-hub-bar';
 import { StdViewBeacon } from './_components/std-view-beacon';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { displayUrlForStdBackground } from '@/lib/std-bg-image';
@@ -1292,26 +1293,21 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         eventVendorCredits={eventVendorCredits}
         saveFlash={saveFlash}
       />
-      {guestRollCameraReady && (
-        <Link
-          href={`/papic/me/${guest.qr_token}`}
-          className="fixed bottom-5 left-1/2 z-50 inline-flex -translate-x-1/2 items-center gap-2 rounded-full bg-mulberry px-5 py-3 text-sm font-semibold text-cream shadow-lg transition hover:bg-mulberry-600"
-        >
-          <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
-          Your Papic camera
-        </Link>
-      )}
-      {papicGuestActive && (
-        <Link
-          href="/papic/guest"
-          className={`fixed ${
-            guestRollCameraReady ? 'bottom-20' : 'bottom-5'
-          } left-1/2 z-50 inline-flex -translate-x-1/2 items-center gap-2 rounded-full bg-mulberry px-5 py-3 text-sm font-semibold text-cream shadow-lg transition hover:bg-mulberry-600`}
-        >
-          <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
-          Be a candid camera
-        </Link>
-      )}
+      {/* Guest event-page hub bar (owner 2026-06-26) — fixed bottom control bar
+          (My QR · Camera · Photos) + top-right account affordance. Replaces the
+          two lone floating Papic CTAs that used to sit here; everything it needs
+          is already computed above (no new DB reads). The #claim-account anchor
+          only exists when the claim section renders (no account + not STD). */}
+      <GuestHubBar
+        qrToken={guest.qr_token}
+        invitationUrl={invitationUrl}
+        qrSvg={qrSvg}
+        cameraReady={guestRollCameraReady}
+        papicGuestActive={papicGuestActive}
+        hasAccount={Boolean(viewerAccount)}
+        galleryCount={guestLiveGallery?.total ?? 0}
+        showClaimAnchor={!viewerAccount && lifecyclePhase !== 'save_the_date'}
+      />
     </>
   );
 }
@@ -2455,7 +2451,10 @@ function InvitationSite({
             Posts the email to claimAccountAction → emails a passwordless sign-in
             link that connects this event to a real account. */}
         {showClaimAccountCta && lifecyclePhase !== 'save_the_date' ? (
-          <section className="rounded-2xl border border-terracotta/20 bg-terracotta/[0.04] p-5">
+          <section
+            id="claim-account"
+            className="scroll-mt-24 rounded-2xl border border-terracotta/20 bg-terracotta/[0.04] p-5"
+          >
             <h2 className="text-base font-semibold text-ink">Keep this on your phone</h2>
             <p className="mt-1 text-sm text-ink/70">
               Get a sign-in link by email and your own Setnayan account — reopen this event

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
+import { eventActiveSkus, eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
 
 /**
  * apps/web/lib/papic-seats.ts
@@ -100,6 +100,66 @@ export async function eventPapicSeatsActive(
   eventId: string,
 ): Promise<boolean> {
   return eventSkuActive(supabase, eventId, PAPIC_SEATS_SERVICE_KEY);
+}
+
+/**
+ * Papic-inclusive SKUs/bundles — owning ANY active one means "Papic is set up"
+ * for the event. Three keys transitively cover every Papic-inclusive bundle
+ * because eventActiveSkus() expands bundle children into the active set:
+ *   • PAPIC_SEATS  — direct, OR via MEDIA_PACK (Complete) child.
+ *   • PAPIC_GUEST  — direct, OR via GUIDED_PACK (Essentials) / MEDIA_PACK child.
+ *   • PAPIC_UNLOCK — the per-Papic umbrella (its own bundle key; NOT a child of
+ *                    any other bundle, so it must be listed explicitly).
+ * (owner 2026-06-26 · the "add-ons require Papic active" prerequisite.)
+ */
+const PAPIC_INCLUSIVE_SKUS = ['PAPIC_UNLOCK', 'PAPIC_SEATS', 'PAPIC_GUEST'] as const;
+
+/**
+ * Is "Papic active" for this event — the prerequisite every Papic ADD-ON
+ * (Kwento · Photo Wall · Thank You · Stories · Pabati · Camera Bridge) gates on
+ * (owner 2026-06-26). TRUE when EITHER:
+ *   1. the event has any active (non-revoked) paparazzi_seats row — a paid camera
+ *      OR a free-sampler seat ("Papic is going"); or
+ *   2. the event owns an active Papic-inclusive SKU/bundle (PAPIC_UNLOCK /
+ *      PAPIC_SEATS / PAPIC_GUEST — which transitively covers MEDIA_PACK +
+ *      GUIDED_PACK, see PAPIC_INCLUSIVE_SKUS).
+ *
+ * ⚠ Bundle owners are ALWAYS Papic-active (Complete → PAPIC_SEATS, Essentials →
+ * PAPIC_GUEST, Unlock-all → PAPIC_UNLOCK) even if they NEVER set up cameras — so
+ * the add-on gate never wrongly blocks a Complete/Essentials/Unlock-all buyer who
+ * owns the add-on via the bundle. This is the critical correctness property of the
+ * prerequisite.
+ *
+ * Pass an ADMIN client at guest-facing surfaces (the recorder/composer have no
+ * RLS session); the couple's session is fine on the dashboard. Fails OPEN only on
+ * a genuine seat-read error (never block an owner on a transient hiccup — the
+ * add-on's own ownership gate is the primary protection); a clean "nothing found"
+ * → not active.
+ */
+export async function eventPapicActive(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<boolean> {
+  // 1) Any active (non-revoked) seat — paid camera OR free sampler.
+  const { data: seats, error: seatErr } = await supabase
+    .from('paparazzi_seats')
+    .select('seat_id')
+    .eq('event_id', eventId)
+    .is('revoked_at', null)
+    .limit(1);
+  if (!seatErr && (seats?.length ?? 0) > 0) return true;
+  // A missing/legacy table (42P01 / 42703) is a clean "no seats", not a failure.
+  const seatReadFailed =
+    !!seatErr && seatErr.code !== '42P01' && seatErr.code !== '42703';
+
+  // 2) Owns an active Papic-inclusive SKU/bundle. eventActiveSkus() resolves the
+  //    whole event in one query and expands bundle children, so a bundle owner is
+  //    matched here even with no seats provisioned (the critical case above).
+  const { active } = await eventActiveSkus(supabase, eventId);
+  if (PAPIC_INCLUSIVE_SKUS.some((k) => active.has(k))) return true;
+
+  // No positive Papic signal — block, unless a read genuinely failed (fail-open).
+  return seatReadFailed;
 }
 
 // ── Free Papic sampler (owner-locked 2026-06-16) ─────────────────────────────

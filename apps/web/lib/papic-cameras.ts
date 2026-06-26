@@ -1,5 +1,36 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { generateSeatClaimToken } from '@/lib/papic-seats';
+import { eventSkuActive } from '@/lib/entitlements';
+
+/**
+ * The "Unlock all of Papic" umbrella bundle (owner 2026-06-26 ·
+ * platform_package_catalog 'PAPIC_UNLOCK'). Owning it makes the UNLIMITED (Unli)
+ * camera tier free + uncapped for the whole event — both the per-camera paid-gate
+ * (capture stays blocked until paid) and the picker's Unli price collapse to ₱0.
+ * Roll (Ltd) cameras are NOT freed — the umbrella covers Unli only.
+ */
+export const PAPIC_UNLOCK_BUNDLE_KEY = 'PAPIC_UNLOCK';
+
+/**
+ * Does owning the Unlock-all umbrella make Unli cameras free for this event?
+ *
+ * The admin-approved, bundle-aware FEATURE GATE: TRUE only when the event owns an
+ * ACTIVE (paid/fulfilled) PAPIC_UNLOCK order — so an unpaid/pending umbrella never
+ * frees a camera. Read on the ADMIN client at capture surfaces (a seat claimer is
+ * not an event member, so an RLS-scoped read would see nothing). Fail-CLOSED:
+ * any read error returns false so a hiccup can never free a paid camera for a
+ * non-owner — this is money logic.
+ */
+export async function eventUnliFreeViaUnlock(
+  admin: SupabaseClient,
+  eventId: string,
+): Promise<boolean> {
+  try {
+    return await eventSkuActive(admin, eventId, PAPIC_UNLOCK_BUNDLE_KEY);
+  } catch {
+    return false;
+  }
+}
 
 /**
  * apps/web/lib/papic-cameras.ts
@@ -135,13 +166,20 @@ function intCount(n: unknown): number {
 /**
  * Quote a per-camera order. PURE + unit-testable. Total = (roll·rollRate +
  * unlimited·unlimitedRate) · days, clamped to the event cost cap.
+ *
+ * `opts.unliFree` (PAPIC_UNLOCK owners · owner 2026-06-26): the Unli tier is free
+ * + uncapped, so its subtotal stays computed for display but its CHARGE collapses
+ * to ₱0 and it never trips the cap. Roll (Ltd) is untouched — the umbrella covers
+ * Unli only. Default false (paid path).
  */
 export function computeCameraQuote(
   selection: CameraSelection,
   days: number,
   rates: CameraRates,
   caps: CameraCaps,
+  opts: { unliFree?: boolean } = {},
 ): CameraQuote {
+  const unliFree = opts.unliFree === true;
   const rollCount = intCount(selection.roll);
   const unlimitedCount = intCount(selection.unlimited);
   const d = Math.max(1, Math.floor(Number(days)) || 1);
@@ -159,9 +197,10 @@ export function computeCameraQuote(
   const rawTotalPhp = rollSubtotalPhp + unlimitedSubtotalPhp;
 
   // Per-tier cap (owner 2026-06-26): each tier locks independently — Ltd at
-  // ₱6,000, Unli at ₱10,000 — so 300 guests on Ltd still pay ₱6,000.
+  // ₱6,000, Unli at ₱10,000 — so 300 guests on Ltd still pay ₱6,000. PAPIC_UNLOCK
+  // owners pay ₱0 for Unli (free + uncapped), so its charge is forced to 0.
   const rollChargePhp = Math.min(rollSubtotalPhp, ltdCap);
-  const unlimitedChargePhp = Math.min(unlimitedSubtotalPhp, unliCap);
+  const unlimitedChargePhp = unliFree ? 0 : Math.min(unlimitedSubtotalPhp, unliCap);
   const totalPhp = rollChargePhp + unlimitedChargePhp;
   const paidCount = rollCount + unlimitedCount;
 
@@ -185,7 +224,8 @@ export function computeCameraQuote(
     ltdCapPhp: ltdCap,
     unliCapPhp: unliCap,
     totalPhp,
-    capped: rollSubtotalPhp > ltdCap || unlimitedSubtotalPhp > unliCap,
+    // Unli never "caps" when it's free (PAPIC_UNLOCK) — it's ₱0, not clamped.
+    capped: rollSubtotalPhp > ltdCap || (!unliFree && unlimitedSubtotalPhp > unliCap),
     description,
   };
 }

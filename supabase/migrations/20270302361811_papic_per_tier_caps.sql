@@ -58,6 +58,13 @@ update public.platform_retail_catalog_v2
   set retail_price_php = 500, updated_at = now()
   where service_code = 'PABATI';
 
+-- Camera Bridge repriced to ₱200/seat/day (owner 2026-06-26 · reverses the
+-- 2026-06-18 "included with Papic, no extra cost" decision). Per-seat/day billing
+-- lands with the native pairing feature (V1.5); the catalog row carries the rate.
+update public.platform_retail_catalog_v2
+  set retail_price_php = 200, title = 'Camera Bridge (per seat, per day)', updated_at = now()
+  where service_code = 'CAMERA_BRIDGE';
+
 -- ---------------------------------------------------------------------------
 -- Catalog: retire the ₱2,999 SKUs as couple buy paths (already applied live via
 -- admin edit; encoded here so a fresh DB reproduces the same catalog state).

@@ -1,6 +1,7 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { planAutoTags, type EnrollmentVec } from '@/lib/face-match-core';
+import { accountSeedsForEvent } from '@/lib/account-face-profile';
 
 // Papic face auto-tagging — server-side MATCHER ("match-on-our-server").
 //
@@ -52,6 +53,24 @@ export async function autoTagCapture(params: {
     const enrollments: EnrollmentVec[] = enr
       .map((r) => ({ guestId: r.guest_id as string, vector: r.face_vector as number[] }))
       .filter((e) => e.guestId && Array.isArray(e.vector) && e.vector.length > 0);
+
+    // ACCOUNT-LEVEL FACE PROFILE seed (owner-locked 2026-06-26 reversal of
+    // per-event scoping). When the flag is ON, also seed recognition with the
+    // account-level profiles of users who are THEMSELVES guests at this event
+    // (consented, non-revoked). Each account seed is keyed to that user's OWN
+    // guest_id, so a match can only ever tag the person whose face it is
+    // (guardrail #2). The pure matcher dedupes per guest, so a guest with both
+    // an event enrollment AND account seeds collapses to one tag at the closest
+    // distance. `accountSeedsForEvent` is a clean no-op when the flag is OFF.
+    const accountSeeds = await accountSeedsForEvent(admin, eventId);
+    for (const seed of accountSeeds) {
+      for (const vector of seed.vectors) {
+        if (Array.isArray(vector) && vector.length > 0) {
+          enrollments.push({ guestId: seed.guestId, vector });
+        }
+      }
+    }
+
     if (enrollments.length === 0) return { autoTagged: 0 };
 
     // Existing tags on this photo (QR/manual/auto) — fill the cap, never re-tag.

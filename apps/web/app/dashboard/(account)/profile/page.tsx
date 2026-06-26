@@ -38,6 +38,11 @@ import {
   updatePlannerMode,
   updateRemindersEnabled,
 } from './actions';
+import { accountFaceProfileEnabled } from '@/lib/account-face-profile';
+import {
+  setAccountFaceProfileConsent,
+  forgetMyFaceEverywhere,
+} from './face-profile-actions';
 
 export const metadata = { title: 'Profile' };
 
@@ -50,6 +55,7 @@ type Props = {
     signed_out_others?: string;
     deletion_requested?: string;
     deletion_cancelled?: string;
+    face_forgotten?: string;
   }>;
 };
 
@@ -171,6 +177,22 @@ export default async function ProfilePage({ searchParams }: Props) {
     );
   }
 
+  // ACCOUNT-LEVEL FACE PROFILE (owner-locked 2026-06-26) — only read the opt-in
+  // state when the feature flag is ON; otherwise the section is never rendered
+  // and we skip the query entirely. RLS scopes this to the caller's own row.
+  const faceProfileFlagOn = accountFaceProfileEnabled();
+  let faceProfileOptedIn = false;
+  if (faceProfileFlagOn) {
+    const { data: faceProfile } = await supabase
+      .from('user_face_profiles')
+      .select('profile_id, revoked_at')
+      .eq('user_id', user.id)
+      .is('revoked_at', null)
+      .maybeSingle()
+      .then((r) => (r.error ? { data: null } : r));
+    faceProfileOptedIn = Boolean(faceProfile);
+  }
+
   // If the user has exactly one active event, "Back" lands on that event's
   // home rather than the event-picker. Two+ events fall through to /dashboard.
   const events = await fetchUserEvents(supabase, user.id, 'couple');
@@ -227,6 +249,11 @@ export default async function ProfilePage({ searchParams }: Props) {
       {search.deletion_cancelled ? (
         <FormFlash tone="success">
           Account-deletion request cancelled. Your account stays active.
+        </FormFlash>
+      ) : null}
+      {search.face_forgotten ? (
+        <FormFlash tone="success">
+          Done — your face profile has been forgotten.
         </FormFlash>
       ) : null}
 
@@ -674,6 +701,107 @@ export default async function ProfilePage({ searchParams }: Props) {
             Download .json
           </a>
         </div>
+
+        {/*
+          ACCOUNT-LEVEL FACE PROFILE (owner-locked 2026-06-26 reversal of
+          per-event scoping). OPT-IN, OFF by default. Rendered only when the
+          feature flag is ON — DPO sign-off on this consent copy + retention is
+          required before the flag is flipped. Never names the model ("Setnayan
+          AI"). Two controls: the opt-in toggle, and account-level erasure.
+        */}
+        {faceProfileFlagOn ? (
+          <div className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
+            <div className="min-w-0 space-y-1">
+              <p className="text-sm font-medium text-ink">
+                Remember my face across my events
+              </p>
+              <p className="text-xs text-ink/55">
+                When on, Setnayan AI can use a face profile saved to your account
+                to recognize you and tag your photos faster — at any Setnayan event
+                you attend, not just one. It is only ever used to find{' '}
+                <strong>you</strong>, never to identify anyone else, and you can
+                turn it off and erase it any time. Off by default. Biometric data
+                is handled under the Data Privacy Act (RA 10173).
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {(
+                [
+                  {
+                    key: 'true' as const,
+                    label: 'On',
+                    tagline: 'Reuse my account face profile across my events',
+                  },
+                  {
+                    key: 'false' as const,
+                    label: 'Off',
+                    tagline: 'Don’t save a face profile to my account',
+                  },
+                ]
+              ).map((opt) => {
+                const isActive = (opt.key === 'true') === faceProfileOptedIn;
+                return (
+                  <form key={opt.key} action={setAccountFaceProfileConsent}>
+                    <input type="hidden" name="enabled" value={opt.key} />
+                    <button
+                      type="submit"
+                      disabled={isActive}
+                      className={`group flex w-full flex-col items-start gap-1 rounded-xl border p-4 text-left transition-colors ${
+                        isActive
+                          ? 'border-terracotta bg-terracotta/5'
+                          : 'border-ink/10 bg-cream hover:border-terracotta/50'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-ink">{opt.label}</span>
+                        {isActive ? (
+                          <span className="rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
+                            Active
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="text-xs text-ink/55">{opt.tagline}</span>
+                    </button>
+                  </form>
+                );
+              })}
+            </div>
+
+            {/* Account-level erasure (guardrail #3) — one action wipes the
+                account profile and, optionally, the per-event enrollments too. */}
+            <details className="space-y-3 rounded-md border border-danger-200/60 bg-danger-50/40 p-3">
+              <summary className="flex cursor-pointer items-center gap-2 text-sm font-medium text-danger-800">
+                <AlertTriangle aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                Forget my face everywhere
+              </summary>
+              <form action={forgetMyFaceEverywhere} className="mt-3 space-y-3">
+                <p className="text-sm text-danger-900">
+                  This deletes the face profile saved to your account. Tick the box
+                  below to also remove the face data saved for your individual
+                  events. This can’t be undone.
+                </p>
+                <label className="flex cursor-pointer items-start gap-3 rounded-md border border-danger-200/60 bg-cream p-3 text-sm">
+                  <input
+                    type="checkbox"
+                    name="also_event_enrollments"
+                    value="1"
+                    defaultChecked
+                    className="mt-0.5 h-4 w-4 cursor-pointer accent-terracotta"
+                  />
+                  <span className="text-danger-900">
+                    Also remove the face data saved for my individual events
+                  </span>
+                </label>
+                <SubmitButton
+                  className="inline-flex items-center gap-2 rounded-md bg-danger-700 px-4 py-2 text-sm font-medium text-cream hover:bg-danger-800 disabled:opacity-70"
+                  pendingLabel="Forgetting…"
+                >
+                  Forget my face everywhere
+                </SubmitButton>
+              </form>
+            </details>
+          </div>
+        ) : null}
 
         {/*
           Social Sharing & Featuring Program — live consents the user can

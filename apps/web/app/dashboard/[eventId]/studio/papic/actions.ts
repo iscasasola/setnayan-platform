@@ -18,6 +18,13 @@ import {
   mintPapicReferenceCode,
   provisionPaidCamerasAdmin,
 } from '@/lib/papic-cameras';
+import {
+  countLimitedGuests,
+  computeLimitedQuote,
+  fetchActiveLimitedSnapshot,
+  syncGuestCameras,
+  type LimitedSnapshotRow,
+} from '@/lib/papic-limited';
 
 // Iteration 0012 Papic — storage-target server actions.
 //
@@ -538,6 +545,247 @@ export async function purchasePapicCameras(formData: FormData) {
   if (isFree) {
     // Free Unli provision (umbrella owner) — cameras are already active, no
     // payment instructions. Surface a "your cameras are ready" confirmation.
+    redirect(
+      `/dashboard/${eventId}/studio/papic?papic_unlock_provisioned=${quote.unlimitedCount}`,
+    );
+  }
+  redirect(
+    `/dashboard/${eventId}/studio/papic?papic_purchased=${encodeURIComponent(
+      order.public_id,
+    )}&papic_ref=${encodeURIComponent(referenceCode)}&papic_amount=${quote.totalPhp}`,
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Papic · LIMITED = the guest list (owner-locked 2026-06-26).
+//
+// "Ready for Papic" turns the couple's guest list into Limited cameras: every
+// guest who hasn't declined gets one camera (their personal QR is the credential)
+// + their own gallery. The count auto-derives from the list — no stepper. Sold
+// ONCE via a reversible snapshot; after that, late "yes" RSVPs are covered for
+// free within the cost cap by syncGuestCameras (the page calls it on render).
+//
+// Re-tapping "Ready for Papic" when Limited is already live is a FREE re-sync,
+// never a second charge (the "no surprise charge" rule). A fresh paid activation
+// happens only when there is no live snapshot.
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Activate (or re-sync) Papic Limited for the event's guest list. Apply-then-pay
+ * on the first activation; a free re-sync once Limited is already live.
+ */
+export async function activatePapicLimited(formData: FormData) {
+  const result = await getCoupleEventId(formData.get('event_id'));
+  if (!result.ok) {
+    redirect(result.redirectTo);
+  }
+  const { eventId } = result;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    redirect('/login');
+  }
+
+  const admin = createAdminClient();
+
+  // Already live? Just re-sync (covers late RSVPs) — no new order, no charge.
+  const existing = await fetchActiveLimitedSnapshot(admin, eventId);
+  if (existing) {
+    let synced = { added: 0, revoked: 0 };
+    try {
+      synced = await syncGuestCameras(admin, eventId, existing);
+    } catch {
+      // best-effort — the snapshot is already live.
+    }
+    revalidatePath(`/dashboard/${eventId}/studio/papic`);
+    redirect(
+      `/dashboard/${eventId}/studio/papic?limited_synced=${synced.added}`,
+    );
+  }
+
+  // Fresh activation — count the list, quote against the live Ltd rate + cap.
+  const guestCount = await countLimitedGuests(admin, eventId);
+  if (guestCount < 1) {
+    redirect(`/dashboard/${eventId}/studio/papic?limited_error=no_guests`);
+  }
+
+  const { data: ev } = await admin
+    .from('events')
+    .select('papic_ltd_cap_php')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const capPhp = Number(ev?.papic_ltd_cap_php ?? 0) || PAPIC_LTD_CAP_FALLBACK_PHP;
+  const rates = await fetchCameraRates(admin);
+  const quote = computeLimitedQuote(guestCount, rates.roll, capPhp, 1);
+
+  // Apply-then-pay order (the Setnayan team reconciles the transfer). The order
+  // layer adds VAT for the customer invoice; requested_total_php is the base.
+  const referenceCode = mintPapicReferenceCode();
+  const description = `Papic Limited — ${guestCount} guest camera${
+    guestCount === 1 ? '' : 's'
+  } · 1 day`;
+  const { data: order, error: orderErr } = await admin
+    .from('orders')
+    .insert({
+      event_id: eventId,
+      user_id: user.id,
+      service_key: PAPIC_CAMERAS_ORDER_KEY,
+      description,
+      requested_total_php: quote.frozenBillPhp,
+      reference_code: referenceCode,
+      status: 'submitted',
+      platform: 'web',
+    })
+    .select('order_id, public_id')
+    .maybeSingle();
+  if (orderErr || !order) {
+    redirect(
+      `/dashboard/${eventId}/studio/papic?limited_error=${encodeURIComponent(
+        (orderErr?.message ?? 'order_failed').slice(0, 64),
+      )}`,
+    );
+  }
+
+  // Record the frozen snapshot, then materialize the guest cameras from it.
+  const { data: snapRow, error: snapErr } = await admin
+    .from('papic_limited_snapshots')
+    .insert({
+      event_id: eventId,
+      order_id: order.order_id,
+      guest_count: guestCount,
+      rate_php: quote.ratePhp,
+      cap_php: quote.capPhp,
+      frozen_bill_php: quote.frozenBillPhp,
+      camera_cap: quote.cameraCap,
+      days: quote.days,
+      status: 'pending_payment',
+    })
+    .select(
+      'snapshot_id, event_id, order_id, guest_count, rate_php, cap_php, frozen_bill_php, camera_cap, days, status, created_at, activated_at, superseded_at',
+    )
+    .maybeSingle();
+  if (snapErr || !snapRow) {
+    redirect(
+      `/dashboard/${eventId}/studio/papic?limited_error=${encodeURIComponent(
+        (snapErr?.message ?? 'snapshot_failed').slice(0, 64),
+      )}`,
+    );
+  }
+
+  // Provision the guest cameras (PENDING — capture is blocked until the order is
+  // paid, same per-camera presign gate). Best-effort: a hiccup must not strand
+  // the order; the page's render-time sync recovers any missing cameras.
+  try {
+    await syncGuestCameras(admin, eventId, snapRow as LimitedSnapshotRow);
+  } catch {
+    // swallow — snapshot exists; sync runs again on the next render.
+  }
+
+  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  redirect(
+    `/dashboard/${eventId}/studio/papic?papic_purchased=${encodeURIComponent(
+      order.public_id,
+    )}&papic_ref=${encodeURIComponent(referenceCode)}&papic_amount=${quote.frozenBillPhp}`,
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Papic · UNLIMITED extras — cameras for shooters NOT on the guest list.
+//
+// The ONLY way to add a camera off the guest list (a videographer friend, a
+// hired second shooter). Off-list shooters have no guest record + no personal
+// gallery, so they're Unlimited only — uncapped, archived to Drive. Each extra
+// is a deliberate paid camera at the per-day rate, so the minimum is 1 (no
+// bulk-of-5 gate — owner UX call 2026-06-26; flagged for pricing review). These
+// stay anonymous paparazzi_seats with claim links (the existing per-camera path).
+// ─────────────────────────────────────────────────────────────────────────
+
+/** Buy N Unlimited extra cameras (off the guest list). Min 1. Apply-then-pay. */
+export async function purchasePapicExtras(formData: FormData) {
+  const result = await getCoupleEventId(formData.get('event_id'));
+  if (!result.ok) {
+    redirect(result.redirectTo);
+  }
+  const { eventId } = result;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    redirect('/login');
+  }
+
+  const unlimited = Number(formData.get('unlimited') ?? 0);
+  if (!Number.isFinite(unlimited) || unlimited < 1) {
+    redirect(`/dashboard/${eventId}/studio/papic?papic_error=min_extras`);
+  }
+
+  const admin = createAdminClient();
+  const { data: ev } = await admin
+    .from('events')
+    .select('papic_ltd_cap_php, papic_unli_cap_php, event_date')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const caps = {
+    ltd: Number(ev?.papic_ltd_cap_php ?? 0) || PAPIC_LTD_CAP_FALLBACK_PHP,
+    unli: Number(ev?.papic_unli_cap_php ?? 0) || PAPIC_UNLI_CAP_FALLBACK_PHP,
+  };
+  const eventDate = (ev?.event_date as string | null) ?? null;
+
+  // PAPIC_UNLOCK owners get Unli free + uncapped.
+  const ownsUnlock = await eventSkuActive(admin, eventId, PAPIC_UNLOCK_BUNDLE_KEY);
+  const rates = await fetchCameraRates(admin);
+  const quote = computeCameraQuote({ roll: 0, unlimited }, 1, rates, caps, {
+    unliFree: ownsUnlock,
+  });
+
+  const isFree = quote.totalPhp === 0;
+  const referenceCode = mintPapicReferenceCode();
+  const description = `Papic Unlimited extras — ${quote.unlimitedCount} camera${
+    quote.unlimitedCount === 1 ? '' : 's'
+  } · 1 day`;
+  const { data: order, error: orderErr } = await admin
+    .from('orders')
+    .insert({
+      event_id: eventId,
+      user_id: user.id,
+      service_key: PAPIC_CAMERAS_ORDER_KEY,
+      description,
+      requested_total_php: quote.totalPhp,
+      reference_code: referenceCode,
+      status: isFree ? 'fulfilled' : 'submitted',
+      platform: 'web',
+    })
+    .select('order_id, public_id')
+    .maybeSingle();
+  if (orderErr || !order) {
+    redirect(
+      `/dashboard/${eventId}/studio/papic?papic_error=${encodeURIComponent(
+        (orderErr?.message ?? 'order_failed').slice(0, 64),
+      )}`,
+    );
+  }
+
+  // Anonymous Unlimited seats (guest_id stays NULL → claim-link model).
+  try {
+    await provisionPaidCamerasAdmin(admin, {
+      eventId,
+      orderId: order.order_id,
+      rollCount: 0,
+      unlimitedCount: quote.unlimitedCount,
+      validFrom: eventDate,
+      validUntil: eventDate,
+    });
+  } catch {
+    // swallow — order exists; seats can be topped up on approval.
+  }
+
+  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  if (isFree) {
     redirect(
       `/dashboard/${eventId}/studio/papic?papic_unlock_provisioned=${quote.unlimitedCount}`,
     );

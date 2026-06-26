@@ -37,7 +37,11 @@ import { fetchPapicGallery } from '@/lib/papic-gallery';
 import { PapicGalleryGrid } from './_components/papic-gallery-grid';
 import { getKwentoDensity } from '@/lib/kwento-density';
 import { setPapicStorageDrive, setPapicStorageR2, activatePapicLimited } from './actions';
-import { fetchCameraRates } from '@/lib/papic-cameras';
+import {
+  fetchCameraRates,
+  PAPIC_MIN_PAID_CAMERAS,
+  PAPIC_FREE_CAMERA_COUNT,
+} from '@/lib/papic-cameras';
 import {
   countLimitedGuests,
   computeLimitedQuote,
@@ -531,7 +535,7 @@ function LimitedCard({
           guest{guestCount === 1 ? '' : 's'} → {guestCount} camera
           {guestCount === 1 ? '' : 's'}
         </span>
-        {!live && guestCount > 0 ? (
+        {!live && guestCount >= PAPIC_MIN_PAID_CAMERAS ? (
           <span className="ml-auto text-lg font-medium tabular-nums text-ink">
             {formatPhp(quote.frozenBillPhp)}
             <span className="ml-1 text-xs font-normal text-ink/50">· 1 day</span>
@@ -563,16 +567,18 @@ function LimitedCard({
             </SubmitButton>
           </form>
         </div>
-      ) : guestCount < 1 ? (
+      ) : guestCount < PAPIC_MIN_PAID_CAMERAS ? (
         <div className="mt-4 rounded-lg border border-dashed border-ink/15 bg-cream/60 p-4 text-center">
           <p className="text-sm text-ink/65">
-            Add your guests first — Limited cameras come from your guest list.
+            {guestCount < 1
+              ? 'Add your guests first — Limited cameras come from your guest list.'
+              : `Your first ${PAPIC_FREE_CAMERA_COUNT} cameras are free — you’re covered. Paid Limited starts at a ${PAPIC_MIN_PAID_CAMERAS}-guest list.`}
           </p>
           <Link
             href={`/dashboard/${eventId}/guests`}
             className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:text-terracotta-700"
           >
-            Go to guest list
+            {guestCount < 1 ? 'Go to guest list' : 'Add more guests'}
             <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
           </Link>
         </div>
@@ -701,6 +707,12 @@ function StatusBanners({
         <p className={bad}>
           <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
           Add your guests first — Limited cameras come from the guest list.
+        </p>
+      ) : limitedError === 'below_min' ? (
+        <p className={neutral}>
+          <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
+          Your first 5 cameras are free — you&rsquo;re covered. Paid Limited starts
+          at a 5-guest list.
         </p>
       ) : limitedError ? (
         <p className={bad}>

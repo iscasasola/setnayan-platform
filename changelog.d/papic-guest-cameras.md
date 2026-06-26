@@ -31,11 +31,13 @@ studio page). A "camera" is still a paparazzi seat — this splits how they're s
   Unlimited-only extras). New `apps/web/lib/papic-limited.ts` holds the pure
   quote + the single guest-camera provisioning path. Prices stay admin-managed.
 
-Two packaging deltas flagged for owner pricing review (not price changes — they
-change *quantity rules*): (1) Limited has no 5-camera minimum (it's the real
-guest count); (2) Unlimited extras minimum is 1 (was 5) so a single off-list
-shooter can be added. The guest personal-QR → "open my camera" capture entry is
-a tracked follow-up (waits on PR #2280's capture route to avoid a collision).
+Quantity rules (owner-confirmed 2026-06-26): (1) Limited keeps the **5-camera
+minimum** — the free tier already covers the first 5, so paid Limited starts at a
+5-guest list (events under 5 ride the free tier); (2) Unlimited extras minimum is
+**1** (was 5) so a single off-list shooter can be added. Open for the holistic
+pricing pass: whether the free 5 is *deducted* from the Limited bill (today the
+bill is guestCount × rate capped — no deduction). The guest personal-QR → "open
+my camera" capture entry is a tracked follow-up (waits on PR #2280).
 
 SPEC IMPACT: 0012_papic — Limited/Unlimited split + guest-list binding +
 reversible snapshot recorded in `DECISION_LOG.md` (2026-06-26) and noted in the

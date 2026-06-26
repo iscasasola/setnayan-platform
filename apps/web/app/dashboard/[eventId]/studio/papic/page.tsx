@@ -360,36 +360,22 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           <div className="space-y-1.5">
             <p className="flex items-center gap-2 text-lg font-semibold tracking-tight text-ink">
               <Smartphone aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
-              Your photo crew · 5 seats
+              Your photo crew
             </p>
             <p className="max-w-prose text-sm text-ink/65">
               {ownsPapicSeats
-                ? 'Your photo-crew pack is active. Set up your five seats and share a claim link with each friend.'
-                : 'Turn five friends into your candid camera crew — each shoots from their own phone, and every photo lands in your gallery in real time.'}
+                ? 'Your cameras are ready. Set them up and share a claim link with each shooter.'
+                : 'Turn friends into your candid camera crew — each shoots from their own phone, and every photo lands in your gallery in real time. Add cameras below.'}
             </p>
           </div>
           <div className="shrink-0">
-            {ownsPapicSeats ? (
-              <Link
-                href={`/dashboard/${eventId}/studio/papic/crew`}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 sm:w-auto"
-              >
-                Manage my 5 seats
-                <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
-              </Link>
-            ) : platformSettings ? (
-              <InlineCheckoutDrawer
-                eventId={eventId}
-                serviceKey={PAPIC_SEATS_SERVICE_KEY}
-                displayName={`Papic · 5 Seats${event.display_name ? ` · ${event.display_name}` : ''}`}
-                originalPriceCentavos={String(Math.round(papicSeatsPricePhp * 100))}
-                settings={platformSettings}
-                triggerLabel={`Get the crew pack · ${formatPhp(papicSeatsPricePhp)}`}
-                triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70 sm:w-auto"
-              />
-            ) : (
-              <span className="text-sm font-mono text-ink/60">{formatPhp(papicSeatsPricePhp)}</span>
-            )}
+            <Link
+              href={`/dashboard/${eventId}/studio/papic/crew`}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 sm:w-auto"
+            >
+              {ownsPapicSeats ? 'Manage my cameras' : 'Set up your crew'}
+              <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
+            </Link>
           </div>
         </div>
         {!ownsPapicSeats && (
@@ -546,7 +532,6 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
 
       <SeatStatusCard
         eventId={eventId}
-        pricePhp={papicSeatsPricePhp}
         ownsPapicSeats={ownsPapicSeats}
         isSampler={isSamplerRoster}
         seats={rosterSeats}
@@ -1109,7 +1094,6 @@ function DriveConnectedPanel({
 
 function SeatStatusCard({
   eventId,
-  pricePhp,
   ownsPapicSeats,
   isSampler,
   seats,
@@ -1119,7 +1103,6 @@ function SeatStatusCard({
   total,
 }: {
   eventId: string;
-  pricePhp: number;
   ownsPapicSeats: boolean;
   isSampler: boolean;
   seats: ReadonlyArray<PapicSeatRow>;
@@ -1139,12 +1122,7 @@ function SeatStatusCard({
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
             Section 2 · seat status
           </p>
-          <h2 className="text-xl font-semibold tracking-tight">
-            {headingLabel} ·{' '}
-            <span className="font-mono text-base text-terracotta">
-              {formatPhp(pricePhp)}
-            </span>
-          </h2>
+          <h2 className="text-xl font-semibold tracking-tight">{headingLabel}</h2>
         </div>
         {total > 0 ? (
           <div className="inline-flex items-center gap-2 rounded-full bg-terracotta/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
@@ -1161,8 +1139,8 @@ function SeatStatusCard({
         <div className="space-y-3 rounded-xl border border-dashed border-ink/15 bg-cream/60 p-4 sm:p-5 text-center">
           <p className="text-sm text-ink/70">
             {ownsPapicSeats
-              ? 'Your photo-crew pack is active, but no seats have been set up yet.'
-              : `No Papic seats yet. Turn five friends into your photo crew for ${formatPhp(pricePhp)}, or try Papic free first.`}
+              ? 'Your cameras are active, but none have been set up yet.'
+              : 'No cameras yet — add cameras above, or try Papic free first.'}
           </p>
           <Link
             href={`/dashboard/${eventId}/studio/papic/crew`}

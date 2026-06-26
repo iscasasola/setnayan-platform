@@ -40,7 +40,7 @@ import {
   // Home children:
   LayoutDashboard, ClipboardList,
   // Studio children:
-  Gem, Globe, Camera,
+  Gem, Globe, Camera, Eye,
   // Budget children:
   Gauge, PieChart, Receipt,
   // Day-of phase icons:
@@ -250,6 +250,14 @@ export function buildCustomerMenuTree(
         { key: 'website', label: 'Website', icon: Globe, kind: 'anchor' as const, hash: 'studio-website', slotKey: 'customer.studio-subnav.website' },
         { key: 'capture', label: 'Capture', icon: Camera, kind: 'anchor' as const, hash: 'studio-capture', slotKey: 'customer.studio-subnav.capture' },
         { key: 'branding', label: 'Branding', icon: Palette, kind: 'anchor' as const, hash: 'studio-branding', slotKey: 'customer.studio-subnav.branding' },
+        // "Event page" (owner 2026-06-26 "host should see the same event page we
+        // created") — a ROUTE child (the others are on-page anchors): tapping it
+        // navigates to /event-page, which resolves the slug + redirects to the
+        // live /[slug]. The mixed kind is fine — the dock dispatches per `kind`
+        // (route → router.push; anchor → scroll). On the /studio hub no path
+        // prefixes /event-page, so routeKey stays null and an anchor keeps the
+        // active highlight (this child never false-lights).
+        { key: 'event-page', label: 'Event page', icon: Eye, kind: 'route' as const, href: `${base}/event-page`, match: `${base}/event-page`, slotKey: 'customer.studio-subnav.event-page' },
       ],
     },
     {

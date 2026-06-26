@@ -53,6 +53,7 @@ import {
   Wallet,
   Activity,
   Shield,
+  Eye,
 } from 'lucide-react';
 import { BUDGET_BUILD_TABS, TAB_META } from '@/lib/budget-build';
 import type { LucideIcon } from 'lucide-react';
@@ -178,6 +179,17 @@ export function buildCustomerNavGroups(
           icon: Sparkles,
           matchPrefix: `${base}/studio`,
           children: [
+            {
+              // "Event page" (owner 2026-06-26) — the host's doorway to the
+              // SAME live page their guests see. /event-page resolves the slug
+              // + redirects to /[slug]. First in the Studio group so it's the
+              // most discoverable "view what I built" action.
+              key: 'event-page',
+              label: 'Event page',
+              href: `${base}/event-page`,
+              icon: Eye,
+              matchPrefix: `${base}/event-page`,
+            },
             {
               key: 'website',
               label: 'Website',

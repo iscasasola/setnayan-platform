@@ -95,6 +95,7 @@ const CHILD_SLOT_KEYS: Record<string, string> = {
   dayof: 'customer.sidebar.guests-dayof',
   'event-qr': 'customer.sidebar.event-qr',
   // Studio children
+  'event-page': 'customer.sidebar.event-page',
   website: 'customer.sidebar.website',
   'mood-board': 'customer.sidebar.mood-board',
   monogram: 'customer.sidebar.monogram',

@@ -444,6 +444,20 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 8,
   },
   {
+    // "Event page" — the host's doorway to the live /[slug] page (owner
+    // 2026-06-26). Sits at the top of the Studio group; admin-editable here.
+    key: "customer.sidebar.event-page",
+    scope: "customer",
+    area: "customer-sidebar",
+    route: "/dashboard/[eventId]/event-page",
+    label: "Event page",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Eye",
+    customRef: null,
+    sortOrder: 9,
+  },
+  {
     key: "customer.sidebar.website",
     scope: "customer",
     area: "customer-sidebar",
@@ -958,6 +972,21 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     lucideName: "Palette",
     customRef: null,
     sortOrder: 3,
+  },
+  {
+    // "Event page" — a ROUTE child in the Studio docked sub-nav (the others
+    // are on-page anchors). Taps through to /event-page → the live /[slug].
+    // Owner 2026-06-26 "host should see the same event page we created".
+    key: "customer.studio-subnav.event-page",
+    scope: "customer",
+    area: "studio-subnav",
+    route: "/dashboard/[eventId]/event-page",
+    label: "Event page",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Eye",
+    customRef: null,
+    sortOrder: 4,
   },
   // Budget docked sub-nav — the 3 on-page scroll sections of /budget.
   {

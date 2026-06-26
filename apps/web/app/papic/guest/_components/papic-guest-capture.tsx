@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import { DayOfFaceEnroll } from '@/app/[slug]/_components/day-of-face-enroll';
 import { makeQrDetector } from '@/lib/qr-scan';
+import { usePapicCamera } from '@/lib/use-papic-camera';
+import { PapicCameraControls } from '@/app/papic/_components/camera-controls';
 
 const TAG_CAP = 10; // max tags per photo (corpus hard cap · mirrored server-side)
 const MAX_CLIP_MS = 5000; // 5-SECOND HARD CAP — corpus lock, mirrored route + RPC.
@@ -94,9 +96,7 @@ export function PapicGuestCapture({
   canKwento = false,
   guestUnlimited = false,
 }: Props) {
-  const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
   // Clip recorder (Option A) — mirrors pabati-prompt.tsx.
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -111,8 +111,6 @@ export function PapicGuestCapture({
   // in the async onstop) so a rapid re-press isn't blocked by a stale flag.
   const recordingRef = useRef(false);
 
-  const [ready, setReady] = useState(false);
-  const [camError, setCamError] = useState(false);
   const [busy, setBusy] = useState(false);
   const [remaining, setRemaining] = useState(initialRemaining);
   // Clip recording phase + elapsed (for the 5s countdown ring).
@@ -178,6 +176,23 @@ export function PapicGuestCapture({
   const tagBusyRef = useRef(false);
   const lastScanRef = useRef<string>('');
 
+  // The live camera + its flip / lens controls (shared hook owns the stream).
+  // Hold the camera only behind the UGC gate AND while the front-camera enroll
+  // panel isn't using it — the hook re-acquires the rear stream when enroll ends.
+  const {
+    videoRef,
+    streamRef,
+    ready,
+    camError,
+    canFlip,
+    flip,
+    lensOptions,
+    lens,
+    selectLens,
+    mirrored,
+    switching,
+  } = usePapicCamera({ enabled: accepted && !blocked && !enrolling });
+
   const exhausted = !guestUnlimited && remaining <= 0;
 
   const acceptTerms = useCallback(async () => {
@@ -195,57 +210,8 @@ export function PapicGuestCapture({
     }
   }, [acceptBusy, agreeChecked]);
 
-  useEffect(() => {
-    // Don't request the camera until the guest has accepted the UGC terms and
-    // isn't blocked — no point prompting for camera access behind the gate.
-    // Also release it while enrolling: the front-camera selfie panel owns the
-    // camera then (most phones allow only one active stream), and this effect's
-    // cleanup re-acquires the rear stream when enrolling flips back off.
-    if (!accepted || blocked || enrolling) return;
-    let cancelled = false;
-    setReady(false);
-    async function acquire(withAudio: boolean) {
-      return navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' } },
-        audio: withAudio,
-      });
-    }
-    async function start() {
-      // The gesture shutter means we don't know up front whether the next press
-      // is a photo or a hold-to-record, so prefer audio so a long-press clip has
-      // sound; fall back to video-only (silent clips) if the mic is denied,
-      // rather than losing the camera. The <video> is always muted (no echo).
-      try {
-        let stream: MediaStream;
-        try {
-          stream = await acquire(true);
-        } catch {
-          stream = await acquire(false);
-        }
-        if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop());
-          return;
-        }
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.muted = true; // never echo the guest's own mic
-          await videoRef.current.play().catch(() => {});
-        }
-        setReady(true);
-      } catch {
-        setCamError(true);
-      }
-    }
-    void start();
-    return () => {
-      cancelled = true;
-      streamRef.current?.getTracks().forEach((t) => t.stop());
-    };
-  }, [accepted, blocked, enrolling]);
-
   const capture = useCallback(async () => {
-    if (busy || !ready || exhausted || !accepted || blocked) return;
+    if (busy || !ready || switching || exhausted || !accepted || blocked) return;
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas) return;
@@ -351,7 +317,7 @@ export function PapicGuestCapture({
     } finally {
       setBusy(false);
     }
-  }, [busy, ready, exhausted, accepted, blocked, sharePublicly, canKwento]);
+  }, [busy, ready, switching, exhausted, accepted, blocked, sharePublicly, canKwento, videoRef]);
 
   // Stop any in-flight recording + clear its timers when the component unmounts.
   useEffect(() => {
@@ -410,7 +376,7 @@ export function PapicGuestCapture({
     if (!ctx) return null;
     ctx.drawImage(video, 0, 0, w, h);
     return new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
-  }, []);
+  }, [videoRef]);
 
   const uploadClip = useCallback(
     async (clip: Blob, durationMs: number) => {
@@ -486,7 +452,7 @@ export function PapicGuestCapture({
   }, []);
 
   const startRecording = useCallback(() => {
-    if (!ready || exhausted || busy || recordingRef.current || !accepted || blocked) return;
+    if (!ready || switching || exhausted || busy || recordingRef.current || !accepted || blocked) return;
     const stream = streamRef.current;
     if (!stream) return;
 
@@ -549,14 +515,14 @@ export function PapicGuestCapture({
     tickRef.current = setInterval(() => {
       setRecElapsed(Math.min(MAX_CLIP_MS, Date.now() - startedAtRef.current));
     }, 100);
-  }, [ready, exhausted, busy, accepted, blocked, grabPoster, uploadClip, stopRecording]);
+  }, [ready, switching, exhausted, busy, accepted, blocked, grabPoster, uploadClip, stopRecording, streamRef]);
 
   // ---- gesture shutter -----------------------------------------------------
   // TAP = photo, HOLD = record (release / 5s cap stops it). One button, no mode
   // toggle. pointerdown arms a hold timer; a release before HOLD_MS is a tap.
   const onShutterDown = useCallback(
     (e: RPointerEvent<HTMLButtonElement>) => {
-      if (recordingRef.current || busy || !ready || exhausted || tagging || !accepted || blocked) return;
+      if (recordingRef.current || busy || !ready || switching || exhausted || tagging || !accepted || blocked) return;
       // Capture the pointer so up/cancel land on this button even if the finger
       // drifts off — robust taps + no stranded recording.
       try {
@@ -572,7 +538,7 @@ export function PapicGuestCapture({
         void startRecording();
       }, HOLD_MS);
     },
-    [busy, ready, exhausted, tagging, accepted, blocked, startRecording],
+    [busy, ready, switching, exhausted, tagging, accepted, blocked, startRecording],
   );
 
   const onShutterUp = useCallback(
@@ -707,7 +673,7 @@ export function PapicGuestCapture({
       active = false;
       if (timer) clearTimeout(timer);
     };
-  }, [tagging, handleScan]);
+  }, [tagging, handleScan, videoRef]);
 
   // ---- Kwento Flash countdown timer ----------------------------------------
 
@@ -1027,11 +993,24 @@ export function PapicGuestCapture({
           muted
           autoPlay
           className="h-full w-full object-cover"
+          style={{ transform: mirrored ? 'scaleX(-1)' : undefined }}
         />
-        {!ready && !exhausted && (
+        {((!ready && !exhausted) || switching) && (
           <div className="absolute inset-0 flex items-center justify-center bg-ink/80">
             <Loader2 aria-hidden className="h-6 w-6 animate-spin text-cream/70" strokeWidth={2} />
           </div>
+        )}
+        {/* Flip + lens controls (each gated to what the device exposes; hidden
+            while recording / tagging so the stage stays clean). */}
+        {ready && !exhausted && !tagging && !recording && (
+          <PapicCameraControls
+            canFlip={canFlip}
+            onFlip={flip}
+            lensOptions={lensOptions}
+            lens={lens}
+            onSelectLens={selectLens}
+            disabled={switching}
+          />
         )}
         {recording && (
           <>
@@ -1102,7 +1081,7 @@ export function PapicGuestCapture({
                 onPointerUp={onShutterUp}
                 onPointerCancel={onShutterCancel}
                 onContextMenu={(e) => e.preventDefault()}
-                disabled={busy || !ready || tagging}
+                disabled={busy || !ready || switching || tagging}
                 aria-label={
                   recording
                     ? 'Recording — release to stop'

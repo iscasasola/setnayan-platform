@@ -192,6 +192,113 @@ export async function reconcileLimitedSnapshot(
   return snapshot.status;
 }
 
+/**
+ * A guest's Limited (roll) camera, resolved from their personal QR. The seat's
+ * own claim_qr_token is the credential the capture surface (/papic/seat/[token])
+ * already understands — so the guest-QR bridge resolves to it and reuses the
+ * whole claim → capture pipeline (no duplicated camera UI).
+ */
+export type GuestRollSeat = {
+  seatId: string;
+  /** The seat's claim token — the key /papic/seat/[token] + /papic/claim/[token] use. */
+  claimToken: string;
+  /** The Limited snapshot's order — the per-camera paid gate reads this. */
+  paidOrderId: string | null;
+};
+
+/**
+ * This guest's ACTIVE Limited (roll) camera seat, or null. The partial unique
+ * index (event_id, guest_id) WHERE revoked_at IS NULL guarantees at most one.
+ * Admin client (a guest holding their QR is not an event member, so an RLS read
+ * sees nothing). Graceful-degrade to null on a missing/legacy table/column.
+ */
+export async function fetchGuestRollSeat(
+  admin: SupabaseClient,
+  eventId: string,
+  guestId: string,
+): Promise<GuestRollSeat | null> {
+  const { data, error } = await admin
+    .from('paparazzi_seats')
+    .select('seat_id, claim_qr_token, paid_order_id')
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId)
+    .eq('tier', 'roll')
+    .is('revoked_at', null)
+    .maybeSingle();
+  if (error) {
+    if (error.code === '42P01' || error.code === '42703') return null;
+    throw new Error(`fetchGuestRollSeat failed: ${error.message}`);
+  }
+  if (!data) return null;
+  return {
+    seatId: data.seat_id as string,
+    claimToken: data.claim_qr_token as string,
+    paidOrderId: (data.paid_order_id as string | null) ?? null,
+  };
+}
+
+/**
+ * The state of a guest's Limited camera, resolved from their personal QR:
+ *   • 'none'    — Limited isn't activated for this event, OR this guest has no
+ *                 camera (declined / over the cost cap / not yet synced).
+ *   • 'pending' — the camera exists but the Limited order is still awaiting the
+ *                 Setnayan team's payment reconciliation → "payment under review",
+ *                 capture stays blocked (mirrors the per-camera presign gate).
+ *   • 'ready'   — the Limited snapshot is active (paid) AND this guest has a live
+ *                 camera → route into capture at /papic/seat/[claimToken].
+ */
+export type GuestCameraResolution =
+  | { status: 'none' }
+  | { status: 'pending'; claimToken: string; snapshot: LimitedSnapshotRow }
+  | { status: 'ready'; claimToken: string; snapshot: LimitedSnapshotRow };
+
+/**
+ * Resolve a guest's Limited camera from (eventId, guestId) — the single source
+ * of truth shared by the guest-QR bridge (/papic/me/[token]) and the guest
+ * landing page CTA. Admin client only (the guest is not an event member).
+ *
+ * Gate (task-locked): capture is allowed ONLY under an ACTIVE
+ * papic_limited_snapshots row (the snapshot flips pending_payment → active once
+ * its apply-then-pay order is paid/fulfilled — reconciled lazily here). A
+ * still-pending snapshot returns 'pending' so the surface shows "payment under
+ * review" instead of a working camera. The record layer (recordSeatCapture)
+ * independently re-checks papicCameraOrderPaid — this is the page-level half of
+ * that same gate, defense-in-depth.
+ *
+ * opts.sync (default false): when set, best-effort re-provision the event's
+ * guest cameras before resolving this guest's seat — so a late "yes" RSVP whose
+ * camera hasn't been materialized yet (the couple hasn't reopened the studio
+ * page) still gets one the instant they scan their QR, within the cost cap.
+ */
+export async function resolveGuestCamera(
+  admin: SupabaseClient,
+  eventId: string,
+  guestId: string,
+  opts: { sync?: boolean } = {},
+): Promise<GuestCameraResolution> {
+  const snapshot = await fetchActiveLimitedSnapshot(admin, eventId);
+  if (!snapshot) return { status: 'none' };
+
+  let seat = await fetchGuestRollSeat(admin, eventId, guestId);
+  if (!seat && opts.sync) {
+    // Self-heal a late RSVP: provision the missing guest cameras, then re-read.
+    try {
+      await syncGuestCameras(admin, eventId, snapshot);
+      seat = await fetchGuestRollSeat(admin, eventId, guestId);
+    } catch {
+      // best-effort — fall through to 'none' if provisioning hiccups.
+    }
+  }
+  if (!seat) return { status: 'none' };
+
+  const status = await reconcileLimitedSnapshot(admin, snapshot);
+  return {
+    status: status === 'active' ? 'ready' : 'pending',
+    claimToken: seat.claimToken,
+    snapshot,
+  };
+}
+
 export type GuestCameraSyncResult = { added: number; revoked: number };
 
 /**

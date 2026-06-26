@@ -18,6 +18,7 @@ import { PapicGuestCapture } from '@/app/papic/guest/_components/papic-guest-cap
 import { eventPabatiActive, fetchPabatiQuota } from '@/lib/pabati';
 import { PabatiPrompt } from './_components/pabati-prompt';
 import { eventOwnsPapicSeats } from '@/lib/papic-seats';
+import { resolveGuestCamera } from '@/lib/papic-limited';
 import { eventSkuActive } from '@/lib/entitlements';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
 import { DEFAULT_STUDIO_ANIM } from '@/lib/hero-monogram-data';
@@ -993,6 +994,23 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // Gated, admin read, graceful-degrade so the anonymous public path is untouched.
   const papicGuestActive = await eventPapicGuestActive(admin, event.event_id);
 
+  // Papic LIMITED roll camera (owner 2026-06-26: "the custom QR of the guests
+  // will automatically have their papic camera and gallery"). When this guest
+  // has a live, PAID roll camera under the event's Limited snapshot, surface a
+  // floating CTA into the guest-QR camera bridge (/papic/me/[qr_token]) — the
+  // bridge resolves the seat + reuses the existing /papic/seat capture surface.
+  // Only the 'ready' (paid + active) state lights the CTA; the bridge itself
+  // shows the "payment under review" / not-ready states. Admin read, graceful.
+  let guestRollCameraReady = false;
+  if (guest.rsvp_status !== 'declined') {
+    try {
+      const cam = await resolveGuestCamera(admin, event.event_id, guest.guest_id);
+      guestRollCameraReady = cam.status === 'ready';
+    } catch {
+      guestRollCameraReady = false;
+    }
+  }
+
   // Per-guest gallery (owner 2026-06-12: "the gallery must be on the on-the-day
   // part") — the photos THIS guest is tagged in. Shown through the LIVE window
   // AND the post-event grace (Invite/Join v2): a no-login guest keeps access
@@ -1274,10 +1292,21 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         eventVendorCredits={eventVendorCredits}
         saveFlash={saveFlash}
       />
+      {guestRollCameraReady && (
+        <Link
+          href={`/papic/me/${guest.qr_token}`}
+          className="fixed bottom-5 left-1/2 z-50 inline-flex -translate-x-1/2 items-center gap-2 rounded-full bg-mulberry px-5 py-3 text-sm font-semibold text-cream shadow-lg transition hover:bg-mulberry-600"
+        >
+          <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
+          Your Papic camera
+        </Link>
+      )}
       {papicGuestActive && (
         <Link
           href="/papic/guest"
-          className="fixed bottom-5 left-1/2 z-50 inline-flex -translate-x-1/2 items-center gap-2 rounded-full bg-mulberry px-5 py-3 text-sm font-semibold text-cream shadow-lg transition hover:bg-mulberry-600"
+          className={`fixed ${
+            guestRollCameraReady ? 'bottom-20' : 'bottom-5'
+          } left-1/2 z-50 inline-flex -translate-x-1/2 items-center gap-2 rounded-full bg-mulberry px-5 py-3 text-sm font-semibold text-cream shadow-lg transition hover:bg-mulberry-600`}
         >
           <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
           Be a candid camera

@@ -2,6 +2,7 @@ import { Camera } from 'lucide-react';
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
+import { eventSkuActive } from '@/lib/entitlements';
 import { PapicGuestCapture } from './_components/papic-guest-capture';
 
 // Papic · guest camera (PAPIC_GUEST · ₱2,999 — "Every guest's phone, a candid
@@ -58,24 +59,30 @@ export default async function PapicGuestPage() {
     );
   }
 
-  const [{ data: ev }, { data: g }, quota, { data: liveEnrollment }] = await Promise.all([
-    admin.from('events').select('display_name').eq('event_id', session.event_id).maybeSingle(),
-    admin
-      .from('guests')
-      .select('first_name, display_name, ugc_terms_accepted_at')
-      .eq('guest_id', session.guest_id)
-      .maybeSingle(),
-    fetchGuestQuota(admin, session.event_id, session.guest_id),
-    // Active face enrollment? Drives the in-camera "add your face" fallback for
-    // the guest who skipped the optional RSVP selfie.
-    admin
-      .from('guest_face_enrollments')
-      .select('id')
-      .eq('event_id', session.event_id)
-      .eq('guest_id', session.guest_id)
-      .is('revoked_at', null)
-      .maybeSingle(),
-  ]);
+  const [{ data: ev }, { data: g }, quota, { data: liveEnrollment }, canKwento] =
+    await Promise.all([
+      admin.from('events').select('display_name').eq('event_id', session.event_id).maybeSingle(),
+      admin
+        .from('guests')
+        .select('first_name, display_name, ugc_terms_accepted_at')
+        .eq('guest_id', session.guest_id)
+        .maybeSingle(),
+      fetchGuestQuota(admin, session.event_id, session.guest_id),
+      // Active face enrollment? Drives the in-camera "add your face" fallback for
+      // the guest who skipped the optional RSVP selfie.
+      admin
+        .from('guest_face_enrollments')
+        .select('id')
+        .eq('event_id', session.event_id)
+        .eq('guest_id', session.guest_id)
+        .is('revoked_at', null)
+        .maybeSingle(),
+      // Kwento is a paid unlock (KWENTO SKU · bundle-aware, admin-approved). When
+      // the event doesn't own it the composer must NOT show the "tell the story"
+      // prompt — POST /api/papic/kwento 403s feature_not_owned, so an ungated
+      // prompt would just silently fail. Mirror the server gate on the client.
+      eventSkuActive(admin, session.event_id, 'KWENTO'),
+    ]);
 
   const guestName =
     (g?.first_name as string | null) || (g?.display_name as string | null) || 'friend';
@@ -117,6 +124,7 @@ export default async function PapicGuestPage() {
       total={quota.total}
       termsAccepted={termsAccepted}
       needsFaceEnroll={!liveEnrollment}
+      canKwento={canKwento}
     />
   );
 }

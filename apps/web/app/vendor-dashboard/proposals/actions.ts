@@ -166,11 +166,25 @@ export async function sendProposal(formData: FormData) {
   const publicId = String(formData.get('public_id') ?? '');
 
   // RLS: only the org's own DRAFT rows are updatable — the flip freezes it.
-  const { error } = await supabase
+  // Return the keys so we can retire any earlier live proposal for this pair.
+  const { data: sent, error } = await supabase
     .from('vendor_proposals')
     .update({ status: 'sent', sent_at: new Date().toISOString(), updated_at: new Date().toISOString() })
     .eq('proposal_id', proposalId)
-    .eq('status', 'draft');
+    .eq('status', 'draft')
+    .select('event_id, vendor_profile_id')
+    .maybeSingle();
+
+  // #8 (money bug-hunt): retire any earlier still-live proposal for this
+  // (event, vendor) so the couple can't accept a stale quote. DEFINER RPC —
+  // RLS blocks the vendor from updating non-draft rows directly. Best-effort.
+  if (!error && sent) {
+    await supabase.rpc('supersede_prior_vendor_proposals', {
+      p_event_id: sent.event_id,
+      p_vendor_profile_id: sent.vendor_profile_id,
+      p_keep_proposal_id: proposalId,
+    });
+  }
 
   revalidatePath(`/proposals/${publicId}`);
   revalidatePath(BACK);

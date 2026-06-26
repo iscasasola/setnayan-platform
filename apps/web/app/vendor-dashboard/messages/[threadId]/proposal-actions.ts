@@ -146,6 +146,15 @@ export async function sendProposalFromChat(formData: FormData) {
     redirect(`${back}?notice=proposal_failed`);
   }
 
+  // #8 (money bug-hunt): retire any earlier still-live proposal for this
+  // (event, vendor) so the couple can't accept a stale quote. DEFINER RPC —
+  // RLS blocks the vendor from updating non-draft rows directly. Best-effort.
+  await supabase.rpc('supersede_prior_vendor_proposals', {
+    p_event_id: eventId,
+    p_vendor_profile_id: profile.vendor_profile_id,
+    p_keep_proposal_id: inserted.proposal_id,
+  });
+
   // 6 · Post the proposal AS a message into the thread (the in-thread card).
   // sender_role='vendor' also stamps vendor_first_reply_at via the DB trigger.
   const priceLabel = totalCentavos > 0 ? formatCentavos(totalCentavos) : 'Price on request';

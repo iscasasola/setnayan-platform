@@ -71,7 +71,14 @@ export type ProposalLineItem = {
   amount_centavos: number | null;
 };
 
-export type ProposalStatus = 'draft' | 'sent' | 'viewed' | 'accepted' | 'declined' | 'expired';
+export type ProposalStatus =
+  | 'draft'
+  | 'sent'
+  | 'viewed'
+  | 'accepted'
+  | 'declined'
+  | 'expired'
+  | 'superseded';
 
 export const PROPOSAL_STATUS_LABEL: Record<ProposalStatus, string> = {
   draft: 'Draft',
@@ -80,6 +87,8 @@ export const PROPOSAL_STATUS_LABEL: Record<ProposalStatus, string> = {
   accepted: 'Accepted',
   declined: 'Declined',
   expired: 'Expired',
+  // #8: retired because the vendor sent a newer proposal for this event.
+  superseded: 'Superseded',
 };
 
 export const PROPOSAL_STATUS_TONE: Record<ProposalStatus, string> = {
@@ -89,4 +98,5 @@ export const PROPOSAL_STATUS_TONE: Record<ProposalStatus, string> = {
   accepted: 'bg-success-100 text-success-900',
   declined: 'bg-danger-100 text-danger-800',
   expired: 'bg-ink/5 text-ink/50',
+  superseded: 'bg-ink/5 text-ink/50',
 };

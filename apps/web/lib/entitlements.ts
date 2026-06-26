@@ -132,6 +132,7 @@ export async function checkOrderActive(
 export const BUNDLE_CHILD_SKUS: Readonly<{
   GUIDED_PACK: ReadonlyArray<string>;
   MEDIA_PACK: ReadonlyArray<string>;
+  PAPIC_UNLOCK: ReadonlyArray<string>;
 }> = Object.freeze({
   // Essentials — owner's 7 (onboarding-pricing.ts BUNDLE_MEMBERS.essentials).
   GUIDED_PACK: Object.freeze([
@@ -166,6 +167,21 @@ export const BUNDLE_CHILD_SKUS: Readonly<{
     'LIVE_BACKGROUND',
     'PANOOD_SYSTEM',
     'PAKANTA',
+  ]),
+  // Papic "Unlock all" — the per-Papic umbrella bundle (owner 2026-06-26). Grants
+  // every Papic ADD-ON so eventSkuActive(KWENTO / LIVE_WALL / …) resolves via this
+  // bundle (app-side). The `lint:entitlement-gates` Guard 2 only validates
+  // GUIDED_PACK/MEDIA_PACK by name, so a 3rd key is fine.
+  // ⚠ TWO things NOT done here (deferred · DECISION_LOG 2026-06-26): the per-camera
+  // UNLI ALLOWANCE (unlimited cameras = a capture-gate bypass) and the DB-side
+  // bundles_granting_sku() mirror for PAPIC_UNLOCK. App-side add-on gates work now.
+  PAPIC_UNLOCK: Object.freeze([
+    'KWENTO',
+    'LIVE_WALL',
+    'PAPIC_ADDON_THANK_YOU',
+    'PAPIC_ADDON_STORIES',
+    'PABATI',
+    'CAMERA_BRIDGE',
   ]),
 });
 

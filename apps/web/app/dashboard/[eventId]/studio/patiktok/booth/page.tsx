@@ -107,6 +107,17 @@ export default async function PatiktokBoothDashboard({
     qrToken: t.qr_token as string,
   }));
 
+  // Does this event have consented face enrollments (Papic on)? Gates the
+  // booth's one-shot face pre-fill so we never load the face model for an
+  // event that has nothing to match against.
+  const { count: faceEnrollCount } = await supabase
+    .from('guest_face_enrollments')
+    .select('guest_id', { count: 'exact', head: true })
+    .eq('event_id', eventId)
+    .is('revoked_at', null)
+    .not('face_vector', 'is', null);
+  const faceEnabled = (faceEnrollCount ?? 0) > 0;
+
   // PATIKTOK_TEMPLATES is statically seeded with at least two entries in
   // apps/web/lib/patiktok.ts, so the indexed fallbacks are non-null by
   // construction. The `!` is what tells TS that under noUncheckedIndexedAccess.
@@ -173,6 +184,7 @@ export default async function PatiktokBoothDashboard({
         primaryTemplate={primaryTemplate}
         guests={guests}
         tables={tables}
+        faceEnabled={faceEnabled}
       />
 
       <OperatorTips />
@@ -353,11 +365,13 @@ function RecordCTA({
   primaryTemplate,
   guests,
   tables,
+  faceEnabled,
 }: {
   eventId: string;
   primaryTemplate: PatiktokTemplate;
   guests: BoothGuest[];
   tables: BoothTable[];
+  faceEnabled: boolean;
 }) {
   return (
     <div className="space-y-3">
@@ -370,6 +384,7 @@ function RecordCTA({
         }}
         guests={guests}
         tables={tables}
+        faceEnabled={faceEnabled}
       />
       <Link
         href={`/dashboard/${eventId}/studio/patiktok/${primaryTemplate.slug}`}

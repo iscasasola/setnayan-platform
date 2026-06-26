@@ -6,6 +6,7 @@ import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { findPatiktokTemplate } from '@/lib/patiktok';
+import { planAutoTags, type EnrollmentVec } from '@/lib/face-match-core';
 import { presignDisplayUrl, displayUrlForStoredAsset } from '@/lib/uploads';
 import { isR2Configured, R2_BUCKETS } from '@/lib/r2';
 import { sendPatiktokReelReadyEmail } from '@/lib/patiktok-reel-emails';
@@ -218,6 +219,91 @@ export async function recordPatiktokClip(input: {
 
   revalidatePath(`/dashboard/${input.eventId}/studio/patiktok/booth`);
   return { clipId: data.clip_id as string };
+}
+
+/**
+ * Iteration 0017 Phase B — face pre-fill for the booth tag.
+ *
+ * Given face descriptors embedded IN THE BROWSER (lib/face-embed `embedFaces`,
+ * on-device dlib — vectors never leave as imagery), match them against THIS
+ * event's consented, non-revoked guest face enrollments and return the single
+ * best candidate. Reuses the Papic matcher (`planAutoTags`, dlib Euclidean —
+ * auto ≤0.50 / suggest 0.50–0.60). Writes NOTHING — the booth decides whether to
+ * auto-fill (kind='auto') or surface a "Looks like…?" confirm (kind='suggest').
+ *
+ * Per-event scoped (the vector store is never reused across weddings) and gated
+ * to event members. Never throws — returns null on any miss so the booth simply
+ * falls back to manual / QR tagging.
+ */
+export async function matchPatiktokFace(input: {
+  eventId: string;
+  faceVectors: number[][];
+}): Promise<{ guestId: string; name: string; kind: 'auto' | 'suggest' } | null> {
+  if (typeof input.eventId !== 'string' || input.eventId.length === 0) return null;
+  if (!Array.isArray(input.faceVectors) || input.faceVectors.length === 0) return null;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  // Event-membership gate (RLS-scoped read of the caller's own membership row)
+  // so enrollment vectors are only ever matched by someone on the event.
+  const { data: member } = await supabase
+    .from('event_members')
+    .select('event_id')
+    .eq('event_id', input.eventId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (!member) return null;
+
+  // Admin read of the enrollment vectors (RLS keeps them out of client reach).
+  const admin = createAdminClient();
+  const { data: enr } = await admin
+    .from('guest_face_enrollments')
+    .select('guest_id, face_vector')
+    .eq('event_id', input.eventId)
+    .is('revoked_at', null)
+    .not('consent_at', 'is', null)
+    .not('face_vector', 'is', null);
+
+  const enrollments: EnrollmentVec[] = [];
+  for (const r of enr ?? []) {
+    const v = r.face_vector as unknown;
+    if (Array.isArray(v) && v.length > 0) {
+      enrollments.push({ guestId: r.guest_id as string, vector: v as number[] });
+    }
+  }
+  if (enrollments.length === 0) return null;
+
+  const plan = planAutoTags({ faceVectors: input.faceVectors, enrollments });
+  const closest = (ms: { guestId: string; distance: number }[]) =>
+    ms.reduce<{ guestId: string; distance: number } | null>(
+      (best, m) => (best === null || m.distance < best.distance ? m : best),
+      null,
+    );
+  const auto = closest(plan.autoTags);
+  const suggest = auto ? null : closest(plan.suggestions);
+  const best = auto
+    ? { guestId: auto.guestId, kind: 'auto' as const }
+    : suggest
+      ? { guestId: suggest.guestId, kind: 'suggest' as const }
+      : null;
+  if (!best) return null;
+
+  const { data: g } = await admin
+    .from('guests')
+    .select('display_name, first_name, last_name')
+    .eq('guest_id', best.guestId)
+    .maybeSingle();
+  if (!g) return null;
+  const name =
+    ((g.display_name as string | null)?.trim() ||
+      `${(g.first_name as string | null) ?? ''} ${(g.last_name as string | null) ?? ''}`.trim()) ||
+    'Guest';
+
+  return { guestId: best.guestId, name, kind: best.kind };
 }
 
 /**

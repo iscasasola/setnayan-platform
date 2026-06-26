@@ -19,13 +19,14 @@ import {
   Film,
   Loader2,
   RotateCcw,
+  Sparkles,
   Square,
   Tag,
   Video,
   X,
 } from 'lucide-react';
 import Link from 'next/link';
-import { recordPatiktokClip } from '../actions';
+import { matchPatiktokFace, recordPatiktokClip } from '../actions';
 import { TagSheet, type BoothGuest, type BoothTable, type BoothTag } from './tag-sheet';
 
 type CaptureTemplate = {
@@ -76,11 +77,15 @@ export function BoothCapture({
   template,
   guests,
   tables,
+  faceEnabled,
 }: {
   eventId: string;
   template: CaptureTemplate;
   guests: BoothGuest[];
   tables: BoothTable[];
+  // True when the event has consented face enrollments (Papic on) — unlocks the
+  // one-shot face pre-fill of the "Recording for:" tag. Phase B.
+  faceEnabled: boolean;
 }) {
   const targetSec = Math.min(
     Math.max(1, template.defaultDurationSec || 10),
@@ -96,6 +101,13 @@ export function BoothCapture({
   const [tag, setTag] = useState<BoothTag | null>(null);
   const [tagSheetOpen, setTagSheetOpen] = useState(false);
   const [captured, setCaptured] = useState<CapturedClip[]>([]);
+  // Face pre-fill (Phase B): a 0.50–0.60 "Looks like…?" candidate awaiting
+  // confirm, and a busy flag while the on-device match runs.
+  const [suggestion, setSuggestion] = useState<{ guestId: string; name: string } | null>(null);
+  const [faceBusy, setFaceBusy] = useState(false);
+  // One face attempt per guest (reset on next-guest / fresh camera) so we never
+  // loop, and never re-detect after the operator has made a choice.
+  const faceTriedRef = useRef(false);
   // True while the recording camera was suspended to free it for the tag
   // scanner — so we reopen it when the sheet closes (one camera at a time).
   const resumeCamRef = useRef(false);
@@ -316,6 +328,8 @@ export function BoothCapture({
       setRecordedUrl(null);
       blobRef.current = null;
       setTag(null);
+      setSuggestion(null);
+      faceTriedRef.current = false;
       setRetakeCount(0);
       setPhase('ready');
     } catch (err) {
@@ -344,6 +358,58 @@ export function BoothCapture({
       void openCamera();
     }
   }, [openCamera]);
+
+  // Grab the current live-preview frame as a canvas for on-device face embedding.
+  const grabFrame = useCallback((): HTMLCanvasElement | null => {
+    const video = liveVideoRef.current;
+    if (!video || video.readyState < 2 || !video.videoWidth) return null;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  }, []);
+
+  // Phase B — one-shot face pre-fill. When the camera is ready, the event has
+  // enrollments, and nothing's tagged yet, embed the live frame ON-DEVICE and
+  // ask the server for the best match: auto-fill on a strong match (≤0.50),
+  // surface a "Looks like…?" confirm on a medium one. Best-effort + silent —
+  // a miss just leaves the tag empty (manual / QR still work).
+  useEffect(() => {
+    if (!faceEnabled || phase !== 'ready' || tag || faceTriedRef.current) return;
+    faceTriedRef.current = true;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        setFaceBusy(true);
+        const canvas = grabFrame();
+        if (!canvas) return;
+        const { embedFaces } = await import('@/lib/face-embed');
+        const vectors = await embedFaces(canvas);
+        if (cancelled || vectors.length === 0) return;
+        const result = await matchPatiktokFace({ eventId, faceVectors: vectors });
+        if (cancelled || !result) return;
+        if (result.kind === 'auto') {
+          // Updater form: only fill if the operator hasn't tagged meanwhile.
+          setTag((cur) =>
+            cur ?? { kind: 'guest', guestId: result.guestId, label: result.name, source: 'auto_face' },
+          );
+        } else {
+          setSuggestion({ guestId: result.guestId, name: result.name });
+        }
+      } catch {
+        // best-effort — never disrupt the capture loop
+      } finally {
+        if (!cancelled) setFaceBusy(false);
+      }
+    }, 700);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [faceEnabled, phase, tag, eventId, grabFrame]);
 
   const cameraOpen = phase !== 'idle' && phase !== 'error';
   const retakesLeft = MAX_RETAKES - retakeCount;
@@ -436,6 +502,9 @@ export function BoothCapture({
           </span>
           {tag ? (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-terracotta/10 px-2.5 py-1 text-sm font-medium text-terracotta-800">
+              {tag.kind === 'guest' && tag.source === 'auto_face' ? (
+                <Sparkles aria-label="Auto-recognised" className="h-3.5 w-3.5 text-terracotta" strokeWidth={1.75} />
+              ) : null}
               {tag.label}
               <button
                 type="button"
@@ -445,6 +514,11 @@ export function BoothCapture({
               >
                 <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
               </button>
+            </span>
+          ) : faceBusy ? (
+            <span className="inline-flex items-center gap-1.5 text-sm text-ink/45">
+              <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
+              Recognising…
             </span>
           ) : (
             <span className="text-sm text-ink/45">anyone (untagged)</span>
@@ -456,6 +530,38 @@ export function BoothCapture({
           >
             <Tag aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             {tag ? 'Change' : 'Tag guest'}
+          </button>
+        </div>
+      ) : null}
+
+      {/* Face suggestion (Phase B · 0.50–0.60 match) — confirm or dismiss */}
+      {canTag && !tag && suggestion ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-terracotta/30 bg-terracotta/5 px-3 py-2">
+          <Sparkles aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
+          <span className="text-sm text-ink/75">
+            Looks like <strong className="font-semibold text-ink">{suggestion.name}</strong>?
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setTag({
+                kind: 'guest',
+                guestId: suggestion.guestId,
+                label: suggestion.name,
+                source: 'auto_face',
+              });
+              setSuggestion(null);
+            }}
+            className="inline-flex items-center gap-1.5 rounded-md bg-terracotta px-2.5 py-1 text-sm font-medium text-cream transition-colors hover:bg-terracotta-700"
+          >
+            <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Tag
+          </button>
+          <button
+            type="button"
+            onClick={() => setSuggestion(null)}
+            className="rounded-md px-2.5 py-1 text-sm font-medium text-ink/60 hover:bg-ink/5 hover:text-ink"
+          >
+            Not them
           </button>
         </div>
       ) : null}
@@ -549,8 +655,8 @@ export function BoothCapture({
 
       <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
         Captured clips upload to your event gallery · the reel renders in your
-        browser (no server) · auto face-tagging (when Papic is on) ·
-        TODO(0017-phase-B)
+        browser (no server)
+        {faceEnabled ? ' · faces auto-recognised on-device (Papic)' : ''}
       </p>
 
       {tagSheetOpen ? (

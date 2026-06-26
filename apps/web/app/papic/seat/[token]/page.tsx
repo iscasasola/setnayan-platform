@@ -2,10 +2,12 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { CircleAlert } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import {
   PAPIC_SAMPLER_PHOTO_CAP,
   PAPIC_SAMPLER_CLIP_CAP,
 } from '@/lib/papic-seats';
+import { asPapicStyle } from '@/lib/papic-photo-styles';
 import { PapicSeatCapture } from './_components/papic-seat-capture';
 import { CameraBridgePanel } from './_components/camera-bridge-panel';
 
@@ -79,21 +81,34 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
   // recordSeatCapture). Paid seats are uncapped (caps passed as null below).
   // superseded_at IS NULL scopes the count to the CURRENT claimer — a reissued
   // seat starts clean (prior captures stay in the couple gallery, uncounted).
-  const [{ count: photoCount }, { count: clipCount }] = await Promise.all([
-    supabase
-      .from('papic_photos')
-      .select('photo_id', { count: 'exact', head: true })
-      .eq('paparazzi_seat_id', seat.seat_id)
-      .eq('photo_type', 'photo')
-      .is('superseded_at', null),
-    supabase
-      .from('papic_photos')
-      .select('photo_id', { count: 'exact', head: true })
-      .eq('paparazzi_seat_id', seat.seat_id)
-      .eq('photo_type', 'clip')
-      .is('superseded_at', null),
-  ]);
+  // The locked event-wide look. The claimer isn't an event member, so events
+  // is read on the admin client. Defensive: pre-migration the papic_style column
+  // is absent → error (not throw) → asPapicStyle falls back to ORIG.
+  const admin = createAdminClient();
+  const [{ count: photoCount }, { count: clipCount }, { data: styleRow }] =
+    await Promise.all([
+      supabase
+        .from('papic_photos')
+        .select('photo_id', { count: 'exact', head: true })
+        .eq('paparazzi_seat_id', seat.seat_id)
+        .eq('photo_type', 'photo')
+        .is('superseded_at', null),
+      supabase
+        .from('papic_photos')
+        .select('photo_id', { count: 'exact', head: true })
+        .eq('paparazzi_seat_id', seat.seat_id)
+        .eq('photo_type', 'clip')
+        .is('superseded_at', null),
+      admin
+        .from('events')
+        .select('papic_style')
+        .eq('event_id', seat.event_id as string)
+        .maybeSingle(),
+    ]);
 
+  const eventStyle = asPapicStyle(
+    (styleRow as { papic_style?: string } | null)?.papic_style,
+  );
   const isSampler = Boolean(seat.is_free_sampler);
 
   return (
@@ -106,6 +121,7 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
         photoCap={isSampler ? PAPIC_SAMPLER_PHOTO_CAP : null}
         clipCap={isSampler ? PAPIC_SAMPLER_CLIP_CAP : null}
         isAnon={Boolean(user.is_anonymous)}
+        eventStyle={eventStyle}
       />
       {bridgeEnabled ? (
         <CameraBridgePanel

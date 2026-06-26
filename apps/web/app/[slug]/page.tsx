@@ -18,6 +18,7 @@ import { PapicGuestCapture } from '@/app/papic/guest/_components/papic-guest-cap
 import { eventPabatiActive, fetchPabatiQuota } from '@/lib/pabati';
 import { PabatiPrompt } from './_components/pabati-prompt';
 import { eventOwnsPapicSeats } from '@/lib/papic-seats';
+import { asPapicStyle, type PapicStyle } from '@/lib/papic-photo-styles';
 import { resolveGuestCamera } from '@/lib/papic-limited';
 import { eventSkuActive } from '@/lib/entitlements';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
@@ -1058,23 +1059,32 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         total: number;
         termsAccepted: boolean;
         guestUnlimited: boolean;
+        eventStyle: PapicStyle;
       }
     | null = null;
   if (papicGuestActive) {
-    const [quota, { data: ugcRow }, { data: blockRow }] = await Promise.all([
-      fetchGuestQuota(admin, event.event_id, guest.guest_id),
-      admin
-        .from('guests')
-        .select('ugc_terms_accepted_at')
-        .eq('guest_id', guest.guest_id)
-        .maybeSingle(),
-      admin
-        .from('event_blocked_users')
-        .select('id')
-        .eq('event_id', event.event_id)
-        .eq('blocked_guest_id', guest.guest_id)
-        .maybeSingle(),
-    ]);
+    const [quota, { data: ugcRow }, { data: blockRow }, { data: styleRow }] =
+      await Promise.all([
+        fetchGuestQuota(admin, event.event_id, guest.guest_id),
+        admin
+          .from('guests')
+          .select('ugc_terms_accepted_at')
+          .eq('guest_id', guest.guest_id)
+          .maybeSingle(),
+        admin
+          .from('event_blocked_users')
+          .select('id')
+          .eq('event_id', event.event_id)
+          .eq('blocked_guest_id', guest.guest_id)
+          .maybeSingle(),
+        // Locked event-wide Papic look — defensive read so a pre-migration DB
+        // (no papic_style column) falls back to ORIG instead of breaking.
+        admin
+          .from('events')
+          .select('papic_style')
+          .eq('event_id', event.event_id)
+          .maybeSingle(),
+      ]);
     if (!blockRow) {
       papicGuest = {
         initialRemaining: quota.remaining,
@@ -1084,6 +1094,9 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
             ?.ugc_terms_accepted_at,
         ),
         guestUnlimited: quota.unlimited,
+        eventStyle: asPapicStyle(
+          (styleRow as { papic_style?: string } | null)?.papic_style,
+        ),
       };
     }
   }
@@ -2316,6 +2329,7 @@ function InvitationSite({
     total: number;
     termsAccepted: boolean;
     guestUnlimited: boolean;
+    eventStyle: PapicStyle;
   } | null;
   /** Inline Pabati video-greeting recorder (PABATI) — non-null only when the
    *  event owns the active (admin-approved) pack. Mounts the guest recorder
@@ -2690,6 +2704,7 @@ function InvitationSite({
             termsAccepted={papicGuest.termsAccepted}
             needsFaceEnroll={needsFaceEnroll}
             guestUnlimited={papicGuest.guestUnlimited}
+            eventStyle={papicGuest.eventStyle}
           />
         ) : null}
 

@@ -15,6 +15,7 @@ import {
   Play,
   RotateCcw,
   ShieldCheck,
+  Sparkles,
 } from 'lucide-react';
 import {
   recordSeatCapture,
@@ -22,6 +23,12 @@ import {
   autoTagSeatCapture,
 } from '@/app/papic/actions';
 import { makeQrDetector } from '@/lib/qr-scan';
+import {
+  PAPIC_STYLES,
+  cssPreviewFilter,
+  applyPapicStyle,
+  type PapicStyle,
+} from '@/lib/papic-photo-styles';
 import { usePapicCamera } from '@/lib/use-papic-camera';
 import { PapicCameraControls } from '@/app/papic/_components/camera-controls';
 
@@ -76,6 +83,9 @@ type Props = {
   /** True when the claimer is a Supabase native anonymous user (one-tap claim,
    *  no account yet) — surfaces the opt-in "save to your account" affordance. */
   isAnon?: boolean;
+  /** The event-wide look (set once by the couple at Papic setup). LOCKED — the
+   *  paparazzo can't change it; it's baked into every photo this seat takes. */
+  eventStyle: PapicStyle;
 };
 
 /** A single capture as it moves through the background upload queue. Drives both
@@ -94,6 +104,10 @@ type Shot = {
   ext: string;
   poster?: Blob | null;
   durationMs?: number;
+  /** A CLEAN (un-styled) JPEG of the same frame, used ONLY for on-device face
+   *  embedding. The event look would wreck face-api's descriptors, so faces are
+   *  read from this, never from the styled delivery blob. */
+  faceBlob?: Blob | null;
 };
 
 /** Pick a MediaRecorder container the browser actually supports (Safari → mp4,
@@ -128,7 +142,16 @@ export function PapicSeatCapture({
   photoCap = null,
   clipCap = null,
   isAnon = false,
+  eventStyle,
 }: Props) {
+  // The event-wide look is LOCKED (couple-set at setup) — baked into every photo.
+  // styleRef mirrors the prop so grabFrame reads it without a dep churn.
+  const styleRef = useRef<PapicStyle>(eventStyle);
+  useEffect(() => {
+    styleRef.current = eventStyle;
+  }, [eventStyle]);
+  const styleMeta = PAPIC_STYLES.find((s) => s.id === eventStyle);
+
   // The live camera + its flip / lens controls (shared hook owns the stream).
   const {
     videoRef,
@@ -271,24 +294,41 @@ export function PapicSeatCapture({
     [token],
   );
 
-  // Grab the current video frame as a JPEG blob (the photo body, or a clip's
-  // poster frame). Returns null if the stream isn't producing pixels yet.
-  const grabFrame = useCallback(async (): Promise<Blob | null> => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!video || !canvas) return null;
-    const w = video.videoWidth;
-    const h = video.videoHeight;
-    if (!w || !h) return null;
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return null;
-    ctx.drawImage(video, 0, 0, w, h);
-    return new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, 'image/jpeg', 0.9),
-    );
-  }, [videoRef]);
+  // Grab the current video frame. Returns the DELIVERED JPEG (`blob`) plus a
+  // CLEAN one (`clean`) for face embedding.
+  //
+  // `styled` bakes the locked event look into `blob`. PHOTOS pass true; a CLIP
+  // POSTER passes false — the clip body can't be styled in V1 (no video render
+  // pipeline), so a clean poster honestly matches the un-styled video. `clean`
+  // is always un-styled: face-api would choke on mono/cross-processed pixels, so
+  // faces are read from it, never the styled blob. Null if no pixels yet.
+  const grabFrame = useCallback(
+    async (styled: boolean): Promise<{ blob: Blob; clean: Blob } | null> => {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      if (!video || !canvas) return null;
+      const w = video.videoWidth;
+      const h = video.videoHeight;
+      if (!w || !h) return null;
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+      ctx.drawImage(video, 0, 0, w, h);
+      const clean = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, 'image/jpeg', 0.9),
+      );
+      if (!clean) return null;
+      if (!styled) return { blob: clean, clean };
+      // Bake the locked event look into the delivered photo (clean already kept).
+      applyPapicStyle(canvas, styleRef.current);
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, 'image/jpeg', 0.9),
+      );
+      return blob ? { blob, clean } : { blob: clean, clean };
+    },
+    [videoRef],
+  );
 
   const flash = useCallback(() => {
     setJustSaved(true);
@@ -383,7 +423,9 @@ export function PapicSeatCapture({
         // Arm the inline "tag who's in it" affordance on the freshest saved shot.
         armTagging(result.photoId);
         if (result.photoId) {
-          const faceSource = shot.kind === 'clip' ? shot.poster : shot.blob;
+          // Embed from the CLEAN frame (never the styled delivery blob).
+          const faceSource =
+            shot.faceBlob ?? (shot.kind === 'clip' ? shot.poster : shot.blob);
           if (faceSource) void autoTagFromBlob(result.photoId, faceSource);
         }
         setSaveError(null);
@@ -468,11 +510,12 @@ export function PapicSeatCapture({
   const capturePhoto = useCallback(async () => {
     if (recordingRef.current || !ready || switching || photoFull) return;
     setSaveError(null);
-    const blob = await grabFrame();
-    if (!blob) {
+    const grabbed = await grabFrame(true); // photo → styled with the event look
+    if (!grabbed) {
       setSaveError('Could not grab that frame — try again.');
       return;
     }
+    const { blob, clean } = grabbed;
     // Optimistic: the shutter is already free; the queue does the network work.
     enqueueShot({
       id: newId(),
@@ -483,6 +526,7 @@ export function PapicSeatCapture({
       blob,
       contentType: 'image/jpeg',
       ext: 'jpg',
+      faceBlob: clean,
     });
   }, [ready, switching, photoFull, grabFrame, enqueueShot]);
 
@@ -538,7 +582,10 @@ export function PapicSeatCapture({
         return;
       }
       const ext = mime.startsWith('video/mp4') ? 'mp4' : 'webm';
-      const poster = await grabFrame(); // last live frame ≈ a fine poster
+      // Clip poster stays CLEAN (styled=false) — an honest match to the
+      // un-styled video body; faces embed from the same clean frame.
+      const grabbed = await grabFrame(false);
+      const poster = grabbed?.blob ?? null;
       enqueueShot({
         id: newId(),
         kind: 'clip',
@@ -549,6 +596,7 @@ export function PapicSeatCapture({
         contentType: mime,
         ext,
         poster,
+        faceBlob: grabbed?.clean ?? null,
         durationMs,
       });
     };
@@ -785,10 +833,21 @@ export function PapicSeatCapture({
         <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-cream/70">
           Papic · seat {seatIndex}
         </p>
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-cream/10 px-3 py-1 text-xs font-medium text-cream">
-          <Camera aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          {countLabel}
-        </span>
+        <div className="flex items-center gap-2">
+          {styleMeta && styleMeta.id !== 'ORIG' ? (
+            <span
+              className="inline-flex items-center gap-1 rounded-full bg-cream/10 px-2.5 py-1 text-xs font-medium text-cream/90"
+              title={`Event look: ${styleMeta.blurb} — set by the couple`}
+            >
+              <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2} />
+              {styleMeta.label}
+            </span>
+          ) : null}
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-cream/10 px-3 py-1 text-xs font-medium text-cream">
+            <Camera aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+            {countLabel}
+          </span>
+        </div>
       </header>
 
       {/* Opt-in account sync (anonymous claimers only). One-tap claim stays
@@ -817,7 +876,13 @@ export function PapicSeatCapture({
           muted
           autoPlay
           className="h-full w-full object-cover"
-          style={{ transform: mirrored ? 'scaleX(-1)' : undefined }}
+          /* Live preview of the locked event look. CSS filter is presentation-
+             only — it doesn't touch the pixels grabFrame reads or the QR decode
+             loop, so the captured photo stays the exact engine output. */
+          style={{
+            transform: mirrored ? 'scaleX(-1)' : undefined,
+            filter: cssPreviewFilter(eventStyle),
+          }}
         />
         {(!ready || switching) && (
           <div className="absolute inset-0 flex items-center justify-center bg-ink/80">

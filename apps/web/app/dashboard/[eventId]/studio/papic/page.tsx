@@ -39,6 +39,7 @@ import { getKwentoDensity } from '@/lib/kwento-density';
 import { setPapicStorageDrive, setPapicStorageR2 } from './actions';
 import { resolveStoredWindow, formatWindowSummary } from '@/lib/papic-window';
 import PapicWindowPicker from './papic-window-picker';
+import StylePicker from './style-picker';
 import {
   fetchCameraRates,
   PAPIC_MIN_PAID_CAMERAS,
@@ -168,6 +169,18 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     (event.papic_storage_target as StorageTarget | null) === 'google_drive_only'
       ? 'google_drive_only'
       : 'setnayan_r2';
+
+  // Event-wide Papic look (the couple's locked capture template). Read
+  // defensively: the papic_style column lands in migration 20270307004141, so
+  // on a pre-migration DB this select returns an error (not a throw) and we keep
+  // the ORIG default — the page never breaks on the new column.
+  const { data: styleRow } = await supabase
+    .from('events')
+    .select('papic_style')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const papicStyle =
+    (styleRow as { papic_style?: string } | null)?.papic_style ?? 'ORIG';
 
   const [grantRaw, ownsPapicSeats] = await Promise.all([
     supabase
@@ -458,6 +471,24 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           daysLeft={samplerDaysLeft}
         />
       )}
+
+      {/* Your Papic look — the event-wide capture template the couple picks
+          once. Baked into every camera's photos (seats, sampler, guests) on
+          device at capture. Shooters never see a picker. */}
+      <section className="space-y-4 rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
+        <div className="space-y-1.5">
+          <p className="flex items-center gap-2 text-lg font-semibold tracking-tight text-ink">
+            <Sparkles aria-hidden className="h-5 w-5 text-mulberry" strokeWidth={1.75} />
+            Your Papic look
+          </p>
+          <p className="max-w-prose text-sm text-ink/65">
+            Choose one look for your whole event. Every photo your crew and
+            guests capture gets it automatically, so your gallery feels like one
+            beautiful set.
+          </p>
+        </div>
+        <StylePicker eventId={eventId} current={papicStyle} />
+      </section>
 
       {/* Storage. */}
       <StorageChoiceCard

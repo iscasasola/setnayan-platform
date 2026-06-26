@@ -73,6 +73,11 @@ type Props = {
   /** True when the guest has no active face enrollment — shows the in-camera
    *  "add your face" fallback prompt so their candid shots auto-find them. */
   needsFaceEnroll?: boolean;
+  /** True when the event owns the paid KWENTO SKU. When false the Kwento
+   *  "tell the story" prompt is suppressed entirely — POST /api/papic/kwento
+   *  403s feature_not_owned for unowned events, so showing the prompt would
+   *  only let the guest type a message that silently fails. */
+  canKwento?: boolean;
 };
 
 export function PapicGuestCapture({
@@ -82,6 +87,7 @@ export function PapicGuestCapture({
   total,
   termsAccepted,
   needsFaceEnroll = false,
+  canKwento = false,
 }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -305,8 +311,10 @@ export function PapicGuestCapture({
         setKwentoFlashText('');
         setKwentoStoryText('');
         setKwentoConsent(false);
-        // Open the Flash prompt immediately.
-        setKwentoPhase('flash');
+        // Open the Flash prompt immediately — but only when the event owns
+        // Kwento. Unowned events stay 'idle' so the prompt never appears (the
+        // submit route would 403). Tag-arming below still runs either way.
+        setKwentoPhase(canKwento ? 'flash' : 'idle');
         setFlashCountdown(5);
         setKwentoError(null);
         setSentMessageId(null);
@@ -324,7 +332,7 @@ export function PapicGuestCapture({
     } finally {
       setBusy(false);
     }
-  }, [busy, ready, exhausted, accepted, blocked, sharePublicly]);
+  }, [busy, ready, exhausted, accepted, blocked, sharePublicly, canKwento]);
 
   // Stop any in-flight recording + clear its timers when the component unmounts
   // or the mode flips away from clip (the camera effect re-acquires the stream).
@@ -355,7 +363,8 @@ export function PapicGuestCapture({
     setKwentoFlashText('');
     setKwentoStoryText('');
     setKwentoConsent(false);
-    setKwentoPhase(openFlash ? 'flash' : 'idle');
+    // Only open the Flash prompt when the event owns Kwento (paid KWENTO SKU).
+    setKwentoPhase(canKwento && openFlash ? 'flash' : 'idle');
     setFlashCountdown(5);
     setKwentoError(null);
     setSentMessageId(null);
@@ -366,7 +375,7 @@ export function PapicGuestCapture({
     setTaggedNames([]);
     setTagNotice(null);
     lastScanRef.current = '';
-  }, []);
+  }, [canKwento]);
 
   // Draw the current frame to the hidden canvas → JPEG poster (the NSFW proxy).
   const grabPoster = useCallback(async (): Promise<Blob | null> => {
@@ -1140,7 +1149,8 @@ export function PapicGuestCapture({
         ) : null}
 
         {/* ── Flash prompt — bottom one-liner, auto-dismisses in 5 s ──────── */}
-        {kwentoCaptureId && kwentoPhase === 'flash' ? (
+        {/* canKwento gates the whole Kwento UI: the event must own the paid SKU. */}
+        {canKwento && kwentoCaptureId && kwentoPhase === 'flash' ? (
           <div className="rounded-xl border border-cream/20 bg-cream/8 p-3">
             <div className="flex items-center justify-between gap-2">
               <p className="text-sm font-medium text-cream/90">
@@ -1190,7 +1200,7 @@ export function PapicGuestCapture({
         ) : null}
 
         {/* ── Story offer — appears after Flash sends or is dismissed ──────── */}
-        {kwentoCaptureId && kwentoPhase === 'story' ? (
+        {canKwento && kwentoCaptureId && kwentoPhase === 'story' ? (
           <div className="rounded-xl border border-cream/15 bg-cream/5 p-3">
             <p className="text-sm font-medium text-cream/90">
               ✍️ Tell them more? {sentMessageId ? '(Optional — Flash already sent 💛)' : 'Ano\'ng nangyari dito?'}
@@ -1252,7 +1262,7 @@ export function PapicGuestCapture({
         ) : null}
 
         {/* ── Confirmation / delete ─────────────────────────────────────────── */}
-        {kwentoPhase === 'sent' || kwentoPhase === 'held' ? (
+        {canKwento && (kwentoPhase === 'sent' || kwentoPhase === 'held') ? (
           <div className="space-y-1 text-center">
             <p className="text-xs text-cream/80">
               {kwentoPhase === 'sent'

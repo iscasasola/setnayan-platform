@@ -82,7 +82,10 @@ export async function AddOnDetailView({
   ]);
 
   const isFree = entry.tier === 'free';
-  const priceLabel = sku ? formatPhp(sku.price_php) : null;
+  // Variable/per-unit services (Papic per-camera) never show a single flat SKU
+  // price here — their own surface owns the live multi-SKU pricing.
+  const priceLabel =
+    sku && !entry.variablePricing ? formatPhp(sku.price_php) : null;
   const status = orderRow?.status ?? null;
   const isActive = status === 'paid' || status === 'fulfilled';
   const isPending = status === 'submitted' || status === 'awaiting_payment';

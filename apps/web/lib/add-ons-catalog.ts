@@ -124,6 +124,13 @@ export type AddOnEntry = {
    * add-ons-detail.ts entry (lint-guarded) so its /about page can't 404.
    */
   opensDirect?: boolean;
+  /**
+   * When true, this service prices per-unit / multi-SKU (e.g. Papic's per-camera
+   * Roll/Unlimited rates) so its /about page must NOT render a single flat SKU
+   * price — the feature's own surface fetches the live per-unit rates and owns
+   * the buy. The "Free to try" chip (freeTrial) still carries the entry signal.
+   */
+  variablePricing?: boolean;
 };
 
 /**
@@ -483,6 +490,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     studioGroup: 'capture',
     freeTrial: 'Free to try',
     serviceKey: 'PAPIC_SEATS',
+    variablePricing: true,
     poster: {
       motion: 'pulse',
       baseBackground:

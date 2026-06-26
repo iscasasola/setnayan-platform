@@ -105,7 +105,7 @@ export default async function PanoodAppStorePage({ params }: Props) {
     sku_code: PANOOD_SKU_CODE,
     name: 'Multicam control room',
     scope:
-      'Everything unlocks for one event-day — Cameras: multi-cam + live camera switch + connect multiple cameras · Streaming: multi-cam YouTube live + live streaming + an in-house (offline/local) stream · Screens: Photowall → screen, LED Wall → screen, extended screen control, control multiple screens · Production: overlays + a live highlight generator (live replays during the broadcast).',
+      'Everything unlocks for one event-day — Cameras: multi-cam + live camera switch + connect any camera (phone or DSLR), camera bridge included with no per-camera fee · Streaming: multi-cam YouTube live + live streaming + an in-house (offline/local) stream · Screens: Photowall → screen, LED Wall → screen, extended screen control, control multiple screens · Production: overlays + a live highlight generator (live replays during the broadcast).',
     price: multicamPriceLabel,
     unit: ' / day',
     badge: 'Upgrade' as const,
@@ -191,7 +191,7 @@ export default async function PanoodAppStorePage({ params }: Props) {
         ],
         settings,
         introCopy:
-          'Single-camera livestream is already free for your event. The multicam control room unlocks everything else — connect multiple cameras and switch them live, broadcast multi-cam to YouTube (or run an in-house offline stream), route Photowall and LED-Wall content to every venue screen with extended multi-screen control, add overlays, and fire a live highlight generator for instant replays during the broadcast. Buy one control-room day per event-day.',
+          'Single-camera livestream is already free for your event. The multicam control room unlocks everything else — connect any camera (phone or DSLR, bridge included with no per-camera fee) and switch them live, broadcast multi-cam to YouTube (or run an in-house offline stream), route Photowall and LED-Wall content to every venue screen with extended multi-screen control, add overlays, and fire a live highlight generator for instant replays during the broadcast. Buy one control-room day per event-day.',
         footnote:
           'Apply-then-pay flow · we confirm price before payment · refunds follow the standard 24-hour SLA.',
       }}
@@ -254,7 +254,7 @@ export default async function PanoodAppStorePage({ params }: Props) {
         },
         {
           context: 'Upgrade · cameras',
-          caption: 'Connect several phone cameras and cut between them live.',
+          caption: 'Connect any camera — phone or DSLR, bridge included — and cut between them live.',
           body: (
             <span aria-hidden className="block text-3xl">
               ◧
@@ -304,7 +304,7 @@ export default async function PanoodAppStorePage({ params }: Props) {
           'Free · single-camera livestream on your own YouTube — phone or laptop',
           'Free · right on your wedding page, in your colors',
           'Free · the whole day, auto-archived for you to keep',
-          'Cameras · connect multiple cameras, switch between them live, and a one-tap camera switch',
+          'Cameras · connect any camera — phone or DSLR — switch between them live, with a one-tap camera switch. The camera bridge is included, no per-camera fee.',
           'Streaming · multi-cam YouTube live, live streaming, plus an in-house (offline/local) stream',
           'Screens · Photowall → screen, LED Wall → screen, extended screen control across multiple screens',
           'Production · overlays in your colors and a live highlight generator that makes replays during the broadcast',
@@ -313,7 +313,7 @@ export default async function PanoodAppStorePage({ params }: Props) {
       description={{
         paragraphs: [
           'Half the people who love you can’t fit in the room — or can’t make the trip at all. Panood brings them in. The single-camera livestream is free for every couple: go live on your own YouTube, from a phone or a laptop, and it plays right on your event page, in your colors. The whole celebration auto-archives, so you can rewatch the vows, the first dance, the speeches, any time you want.',
-          `Want a real broadcast? The multicam control room is the premium upgrade (${multicamPriceLabel} / day), and it unlocks everything below for the day. Cameras: connect multiple cameras, switch between them live, and tap a single camera switch. Streaming: multi-cam YouTube live, live streaming, plus an in-house (offline/local) stream so the show plays even when the venue Wi-Fi can’t. Screens: route Photowall content and LED-Wall content straight to the venue screens, with extended screen control across multiple screens at once. Production: overlays in your colors and a live highlight generator that builds replays during the broadcast. The four capabilities, in one line: connect multiple cameras · control multiple screens · broadcast via YouTube · also run an in-house offline stream.`,
+          `Want a real broadcast? The multicam control room is the premium upgrade (${multicamPriceLabel} / day), and it unlocks everything below for the day. Cameras: connect any camera — phone or DSLR — switch between them live, and tap a single camera switch; the camera bridge is included, with no per-camera fee. Streaming: multi-cam YouTube live, live streaming, plus an in-house (offline/local) stream so the show plays even when the venue Wi-Fi can’t. Screens: route Photowall content and LED-Wall content straight to the venue screens, with extended screen control across multiple screens at once. Production: overlays in your colors and a live highlight generator that builds replays during the broadcast. The four capabilities, in one line: connect multiple cameras · control multiple screens · broadcast via YouTube · also run an in-house offline stream.`,
           'Two notes so nothing surprises you. The highlight generator here makes LIVE replays during the broadcast — your post-event edits (AI Highlight, the Same-Day Edit, the Thank-You video) are still their own separate services. And Panood routes Photowall and LED-Wall content onto your screens — the standalone PhotoWall and Live-Background (LED) content services stay separate; the control room is what puts them on the venue screens.',
           'Both tiers cover one event-day. Filipino weddings often run across a few days — prep, ceremony, reception — so go live free on each, and add a multicam control-room day wherever you want the full production.',
         ],

@@ -604,7 +604,8 @@ export default async function PricingPage() {
               <ul className="mt-1 space-y-1 text-xs leading-relaxed text-ink/60">
                 <li>
                   <span className="font-medium text-ink/75">Cameras</span> · connect
-                  multiple cameras, live switching, one-tap camera switch
+                  any camera — phone or DSLR, bridge included with no per-camera fee —
+                  live switching, one-tap camera switch
                 </li>
                 <li>
                   <span className="font-medium text-ink/75">Streaming</span> ·

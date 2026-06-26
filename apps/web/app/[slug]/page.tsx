@@ -756,8 +756,9 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // normalize-or-rejected at save time. Owner model 2026-06-26: single-cam
   // Panood live is FREE for any host, so the embed is NO LONGER gated on
   // PANOOD_SYSTEM — the presence of the watch URL is the only condition. The
-  // PANOOD_SYSTEM SKU is reserved for the future PAID multi-camera control room
-  // + broadcast overlays tier. (The LIVE_WALL gate below is unchanged.)
+  // PANOOD_SYSTEM SKU gates the PAID multi-camera control-room + broadcast
+  // overlays upgrade (built at studio/panood/broadcast). (The LIVE_WALL gate
+  // below is unchanged.)
   let watchLive: WatchLiveData | null = null;
   if (dayOfPhase === 'live') {
     try {

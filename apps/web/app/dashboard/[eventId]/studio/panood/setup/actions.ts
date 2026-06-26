@@ -26,8 +26,9 @@ import {
  * and persist to events.panood_watch_url (migration 20261122000000). The
  * guest day-of page embeds it (youtube-nocookie) during the live window
  * whenever the watch URL is present — single-cam Panood live is FREE for any
- * host (owner model 2026-06-26; PANOOD_SYSTEM is reserved for the future paid
- * multi-camera tier). Non-YouTube input is silently dropped — the value
+ * host (owner model 2026-06-26; PANOOD_SYSTEM gates the PAID multi-camera
+ * control-room upgrade, built at ./broadcast). Non-YouTube input is silently
+ * dropped — the value
  * renders in an iframe on the public wedding page, so normalize-or-reject is
  * the injection barrier. When the broadcaster auto-creation lands (YouTube
  * Data API), it writes this same column and this manual field becomes the
@@ -114,9 +115,10 @@ export async function goLivePanood(eventId: string): Promise<GoLiveResult> {
   // (a) Host-only. requireHostMembership redirects (throws) for non-hosts.
   //     This is the ONLY gate on single-cam go-live: it's an auth scope, not a
   //     paywall. Owner model 2026-06-26 — single-cam Panood live is FREE for any
-  //     host ("the tool is free; the premium layer is paid"). PANOOD_SYSTEM is
-  //     reserved for the future PAID multi-camera control room + broadcast-style
-  //     overlays tier, so we intentionally do NOT eventSkuActive-gate go-live.
+  //     host ("the tool is free; the premium layer is paid"). PANOOD_SYSTEM
+  //     gates the PAID multi-camera control-room + broadcast-style overlays
+  //     upgrade (built at ./broadcast), so we intentionally do NOT
+  //     eventSkuActive-gate go-live.
   await requireHostMembership(eventId);
 
   const supabase = await createClient();

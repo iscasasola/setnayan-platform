@@ -14,6 +14,12 @@ showed two contradictory prices at once. This reconciles them to one model
   "Buy what you need" single-price row; the live per-camera Roll/Unlimited rates
   live on the feature's own surface. The "Free to try" chip + the owner→tool
   redirect (still keyed on `PAPIC_SEATS`) are unchanged.
+- Public `/pricing` à-la-carte — the two per-camera rate rows (Roll ₱30 +
+  Unlimited ₱100) collapse into ONE "Papic Cameras · from ₱30/camera" entry, so
+  the public catalog reads as the per-camera model instead of two raw rows. The
+  raw rows stay in the SEO JSON-LD `@graph` (real ₱30 + ₱100 for extraction),
+  and both per-camera SKUs are marked `live` in the build-status map (they were
+  defaulting to `not_built` → PreOrder).
 
 The free taste stays the shipped 3-seat sampler (8 photos + 2 clips) — reworded
 for consistency, numbers unchanged (the "5 / 5+1" figures remain provisional

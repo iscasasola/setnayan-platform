@@ -149,7 +149,49 @@ export default async function PricingPage() {
     fetchV2VendorCatalog(),
   ]);
 
-  const grouped = groupByStatus(customerSkus);
+  // Collapse the two per-camera Papic rate SKUs into ONE à-la-carte entry
+  // ("Papic Cameras · from ₱30/camera") — owner 2026-06-26. Two raw rows
+  // (Roll ₱30 + Unlimited ₱100) read as a contradiction next to each other; one
+  // "from ₱30" entry matches the per-camera model. The raw rows stay in the
+  // JSON-LD @graph below (real ₱30 + ₱100 for SEO) — only the visible list
+  // collapses.
+  const papicRoll = customerSkus.find(
+    (s) => s.service_code === 'PAPIC_CAMERA_ROLL_DAY',
+  );
+  const papicUnlimited = customerSkus.find(
+    (s) => s.service_code === 'PAPIC_CAMERA_UNLIMITED_DAY',
+  );
+  const alaCarteSkus: V2CustomerSku[] =
+    papicRoll || papicUnlimited
+      ? [
+          ...customerSkus.filter(
+            (s) =>
+              s.service_code !== 'PAPIC_CAMERA_ROLL_DAY' &&
+              s.service_code !== 'PAPIC_CAMERA_UNLIMITED_DAY',
+          ),
+          {
+            service_code: 'PAPIC_CAMERAS',
+            title: 'Papic Cameras',
+            retail_price_php: papicRoll?.retail_price_php ?? 30,
+            saas_overhead_cost_php: 0,
+            is_token_able: false,
+            description: `Roll ₱${formatPeso(papicRoll?.retail_price_php ?? 30)} (30 photos + 10 videos) or Unlimited ₱${formatPeso(papicUnlimited?.retail_price_php ?? 100)} per camera, per day. First 5 cameras free · face-sorting, privacy & Kwento included.`,
+            build_status: 'live',
+            // is_pax_priced drives the "from ₱X" label (no event/pax context on
+            // the public page) — Papic is per-camera, not pax-priced, but the
+            // "from ₱30" prefix is exactly right. The pax_* fields stay null:
+            // the synthetic row never reaches the pax-price computation (it is
+            // display-only on /pricing, never an order line).
+            is_pax_priced: true,
+            pax_floor: null,
+            pax_floor_price_php: null,
+            pax_increment_size: null,
+            pax_increment_price_php: null,
+          },
+        ]
+      : customerSkus;
+
+  const grouped = groupByStatus(alaCarteSkus);
 
   // 4-tier model (owner-locked 2026-06-07 · Pricing.md § 00.A). Tier prices
   // read live: Setnayan AI from platform_retail_catalog_v2 · Essentials

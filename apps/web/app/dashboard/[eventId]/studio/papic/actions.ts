@@ -607,9 +607,14 @@ export async function activatePapicLimited(formData: FormData) {
   }
 
   // Fresh activation — count the list, quote against the live Ltd rate + cap.
+  // Minimum 5 cameras (owner 2026-06-26): the free tier already covers the first
+  // 5, so paid Limited starts at a 5-guest list — mirrors PAPIC_MIN_PAID_CAMERAS.
   const guestCount = await countLimitedGuests(admin, eventId);
   if (guestCount < 1) {
     redirect(`/dashboard/${eventId}/studio/papic?limited_error=no_guests`);
+  }
+  if (guestCount < PAPIC_MIN_PAID_CAMERAS) {
+    redirect(`/dashboard/${eventId}/studio/papic?limited_error=below_min`);
   }
 
   const { data: ev } = await admin

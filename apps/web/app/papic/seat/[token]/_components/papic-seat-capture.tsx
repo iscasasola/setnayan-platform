@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Camera,
@@ -12,6 +13,9 @@ import {
   PartyPopper,
   Users,
   ScanLine,
+  Play,
+  RotateCcw,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   recordSeatCapture,
@@ -25,15 +29,20 @@ import { makeQrDetector } from '@/lib/qr-scan';
 // The working web-capture slice for a claimed seat. Rear camera (getUserMedia
 // facingMode: environment). PHOTO mode freezes a frame to a canvas → JPEG. CLIP
 // mode records up to 5 seconds via MediaRecorder (a HARD client cap — the corpus
-// constraint, not configurable), grabs a poster frame, and uploads both. Bytes
-// are presigned via /api/upload (the media bucket already allows video MIME) →
-// PUT to R2 → recorded through recordSeatCapture (RLS lets the claimer insert on
-// their own seat). Free-sampler seats are capped (8 photos + 2 clips per seat);
-// paid seats are uncapped. Mobile-first: full-bleed stage, thumb-reachable
-// controls.
+// constraint, not configurable), grabs a poster frame, and uploads both.
+//
+// SHUTTER IS OPTIMISTIC (2026-06-26): the frame is frozen instantly, the count
+// bumps, a "Saved" flash fires, and the shot is pushed onto a background upload
+// queue — the paparazzo keeps shooting while bytes drain to R2. A serial worker
+// presigns via /api/upload → PUTs to R2 → records through recordSeatCapture (RLS
+// lets the claimer insert on their own seat). Each shot shows live status in the
+// capture roll; a failed upload offers a one-tap retry (venue Wi-Fi is flaky —
+// the shutter must never feel like it hung). Free-sampler seats are capped (8
+// photos + 2 clips per seat); paid seats are uncapped.
 
 const CLIP_MAX_MS = 5_000; // 5-second hard cap (corpus constraint · not configurable)
 const TAG_CAP = 10; // max tags per photo (corpus hard cap · mirrored server-side)
+const ROLL_MAX = 24; // most-recent shots kept in the session roll strip
 
 /** Friendly, paparazzo-facing copy for a tag failure. The camera never breaks
  *  on a tag miss — these just steer the next scan. */
@@ -62,6 +71,27 @@ type Props = {
   /** null = uncapped (paid seat); a number = the free-sampler per-seat cap. */
   photoCap?: number | null;
   clipCap?: number | null;
+  /** True when the claimer is a Supabase native anonymous user (one-tap claim,
+   *  no account yet) — surfaces the opt-in "save to your account" affordance. */
+  isAnon?: boolean;
+};
+
+/** A single capture as it moves through the background upload queue. Drives both
+ *  the queue worker AND the visible roll strip. The heavy blobs live here (a ref
+ *  list), never in React state, so re-renders stay cheap. */
+type Shot = {
+  id: string;
+  kind: 'photo' | 'clip';
+  /** Object URL for the thumbnail (the clip's poster frame for clips). */
+  thumbUrl: string;
+  status: 'uploading' | 'saved' | 'capped' | 'failed';
+  photoId: string | null;
+  // Upload payload (kept for the worker + retry).
+  blob: Blob;
+  contentType: string;
+  ext: string;
+  poster?: Blob | null;
+  durationMs?: number;
 };
 
 /** Pick a MediaRecorder container the browser actually supports (Safari → mp4,
@@ -81,6 +111,13 @@ function pickClipMime(): string {
   return 'video/webm';
 }
 
+function newId(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+}
+
 export function PapicSeatCapture({
   token,
   seatIndex,
@@ -88,6 +125,7 @@ export function PapicSeatCapture({
   initialClips,
   photoCap = null,
   clipCap = null,
+  isAnon = false,
 }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -95,22 +133,32 @@ export function PapicSeatCapture({
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const clipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const recTickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const clipStartRef = useRef<number>(0);
 
   const [ready, setReady] = useState(false);
   const [camError, setCamError] = useState(false);
-  const [busy, setBusy] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [recElapsed, setRecElapsed] = useState(0);
   const [mode, setMode] = useState<'photo' | 'clip'>('photo');
   const [photos, setPhotos] = useState(initialPhotos);
   const [clips, setClips] = useState(initialClips);
   const [justSaved, setJustSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // ---- tagging (scan-to-tag) ----------------------------------------------
-  // After a capture lands we keep its photo_id so the paparazzo can scan guest /
-  // table QRs to record who's in it. Tagging reuses the SAME live stream (no
-  // second getUserMedia — iOS-safe), running a QR decode loop while open.
+  // ---- capture roll + background upload queue ------------------------------
+  // `shots` is the visible roll (newest first). The queue worker drains shots
+  // with status 'uploading' one at a time so a burst of taps never floods the
+  // network — the shutter stays instant regardless of how far behind uploads are.
+  const [shots, setShots] = useState<Shot[]>([]);
+  const queueRef = useRef<Shot[]>([]);
+  const processingRef = useRef(false);
+
+  // ---- tagging (scan-to-tag) -----------------------------------------------
+  // After a shot finishes uploading we know its photo_id, so the paparazzo can
+  // scan guest / table QRs to record who's in it. Tagging reuses the SAME live
+  // stream (no second getUserMedia — iOS-safe), running a QR decode loop while
+  // open. A roll thumbnail can also re-open tagging for that specific shot.
   const [lastPhotoId, setLastPhotoId] = useState<string | null>(null);
   const [tagging, setTagging] = useState(false);
   const [tagCount, setTagCount] = useState(0);
@@ -162,8 +210,24 @@ export function PapicSeatCapture({
     return () => {
       cancelled = true;
       if (clipTimerRef.current) clearTimeout(clipTimerRef.current);
+      if (recTickRef.current) clearInterval(recTickRef.current);
       streamRef.current?.getTracks().forEach((t) => t.stop());
     };
+  }, []);
+
+  // Free every thumbnail object URL on unmount (the blobs would otherwise leak).
+  useEffect(() => {
+    return () => {
+      queueRef.current = [];
+      setShots((prev) => {
+        prev.forEach((s) => URL.revokeObjectURL(s.thumbUrl));
+        return prev;
+      });
+    };
+  }, []);
+
+  const patchShot = useCallback((id: string, patch: Partial<Shot>) => {
+    setShots((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
   }, []);
 
   // Presign + PUT a blob to R2; returns the stored r2:// ref (or throws).
@@ -183,10 +247,9 @@ export function PapicSeatCapture({
         }),
       });
       if (!presignRes.ok) {
-        // The presign route now refuses to mint a URL once the free sampler seat
-        // is at its per-kind cap (record-/presign-layer leak fix). Surface that
-        // as the SAME cap signal recordSeatCapture returns, so the caller shows
-        // the celebratory "all used up" state instead of a scary save error.
+        // The presign route refuses to mint a URL once the free sampler seat is
+        // at its per-kind cap (record-/presign-layer leak fix). Surface that as
+        // the SAME cap signal recordSeatCapture returns.
         let code: string | undefined;
         try {
           ({ code } = (await presignRes.json()) as { code?: string });
@@ -238,9 +301,7 @@ export function PapicSeatCapture({
     setTimeout(() => setJustSaved(false), 900);
   }, []);
 
-  // Point the tag flow at a freshly-captured photo (resets the running count +
-  // scan debounce). photoId can be null in the degraded insert path — then the
-  // "Tag people" affordance simply doesn't appear for that shot.
+  // Point the tag flow at a shot (resets the running count + scan debounce).
   const armTagging = useCallback((photoId: string | null) => {
     setLastPhotoId(photoId);
     setTagCount(0);
@@ -249,14 +310,12 @@ export function PapicSeatCapture({
     lastScanRef.current = '';
   }, []);
 
-  // FACE auto-tag (best-effort, fire-and-forget) — runs AFTER the photo is saved
-  // so the shutter stays instant and the photo always lands (untagged-still-
-  // delivered). The phone detects faces + computes their 128-d descriptors
-  // on-device (lazy-imported face-api.js) from the just-shot frame and sends ONLY
-  // the vectors to the matcher; the face IMAGE never leaves the device. Dormant
-  // until a face model is hosted (NEXT_PUBLIC_FACE_MODEL_URL) — embedFaces then
-  // returns [] and this no-ops. Any error is swallowed; QR scan stays the manual
-  // fallback either way.
+  // FACE auto-tag (best-effort, fire-and-forget) — runs AFTER the shot records,
+  // off the queue worker, so the shutter never waits on it. The phone detects
+  // faces + computes their 128-d descriptors on-device (lazy-imported
+  // face-api.js) and sends ONLY the vectors to the matcher; the face IMAGE never
+  // leaves the device. Dormant until a face model is hosted
+  // (NEXT_PUBLIC_FACE_MODEL_URL) — embedFaces then returns [] and this no-ops.
   const autoTagFromBlob = useCallback(
     async (photoId: string, imageBlob: Blob) => {
       try {
@@ -283,107 +342,171 @@ export function PapicSeatCapture({
     [token],
   );
 
-  const capturePhoto = useCallback(async () => {
-    if (busy || recording || !ready || photoFull) return;
-    setBusy(true);
-    setSaveError(null);
-    try {
-      const blob = await grabFrame();
-      if (!blob) throw new Error('frame');
-      const r2Ref = await uploadBlob(blob, 'image/jpeg', 'jpg');
-      const result = await recordSeatCapture(token, r2Ref, 'photo');
-      if (!result.ok) {
-        // A cap hit is a SUCCESS state, not an error — reflect "full" so the UI
-        // shows the celebratory cap message instead of "didn't save".
-        if (result.error === 'sampler_photo_cap') {
-          setPhotos(photoCap ?? photos);
-          return;
-        }
-        throw new Error(result.error);
-      }
-      setPhotos((n) => n + 1);
-      flash();
-      armTagging(result.photoId);
-      if (result.photoId) void autoTagFromBlob(result.photoId, blob);
-    } catch (err) {
-      // A cap hit thrown from the presign layer (seat already at cap) is a
-      // "full" success state, not a failure — mirror the recordSeatCapture path.
-      if (err instanceof Error && err.message === 'sampler_photo_cap') {
-        setPhotos(photoCap ?? photos);
-        return;
-      }
-      setSaveError("That shot didn't save — check your signal and try again.");
-    } finally {
-      setBusy(false);
-    }
-  }, [busy, recording, ready, photoFull, grabFrame, uploadBlob, token, photoCap, photos, flash, armTagging, autoTagFromBlob]);
+  // Roll back the optimistic count when a shot fails for a non-cap reason — the
+  // slot is free again (matters for capped sampler seats).
+  const rollbackCount = useCallback((kind: 'photo' | 'clip') => {
+    if (kind === 'photo') setPhotos((n) => Math.max(0, n - 1));
+    else setClips((n) => Math.max(0, n - 1));
+  }, []);
 
-  const finishClip = useCallback(
-    async (clipBlob: Blob, mime: string, durationMs: number) => {
-      setBusy(true);
-      setSaveError(null);
+  // Upload one shot end-to-end (presign+PUT main blob, optional poster, record).
+  const uploadShot = useCallback(
+    async (shot: Shot) => {
       try {
-        const ext = mime.startsWith('video/mp4') ? 'mp4' : 'webm';
-        const poster = await grabFrame(); // last live frame ≈ a fine poster
-        const clipRef = await uploadBlob(clipBlob, mime, ext);
+        const mainRef = await uploadBlob(shot.blob, shot.contentType, shot.ext);
         let posterRef: string | undefined;
-        if (poster) {
+        if (shot.kind === 'clip' && shot.poster) {
           try {
-            posterRef = await uploadBlob(poster, 'image/jpeg', 'jpg');
+            posterRef = await uploadBlob(shot.poster, 'image/jpeg', 'jpg');
           } catch {
             posterRef = undefined; // poster is best-effort; clip still lands
           }
         }
-        const result = await recordSeatCapture(
-          token,
-          clipRef,
-          'clip',
-          posterRef,
-          durationMs,
-        );
+        const result =
+          shot.kind === 'photo'
+            ? await recordSeatCapture(token, mainRef, 'photo')
+            : await recordSeatCapture(token, mainRef, 'clip', posterRef, shot.durationMs);
+
         if (!result.ok) {
-          if (result.error === 'sampler_clip_cap') {
-            setClips(clipCap ?? clips);
+          if (result.error === 'sampler_photo_cap' || result.error === 'sampler_clip_cap') {
+            // Cap hit: the optimistic count was right at the edge — pin it to the
+            // cap and mark the shot capped (it never lands; no retry).
+            if (shot.kind === 'photo') setPhotos(photoCap ?? ((n) => n));
+            else setClips(clipCap ?? ((n) => n));
+            patchShot(shot.id, { status: 'capped' });
             return;
           }
           if (result.error === 'clip_too_long') {
-            // Server 5s guard tripped (rare — the client timer caps it first).
             setSaveError('Clips are capped at 5 seconds — give it another go.');
+            patchShot(shot.id, { status: 'failed' });
+            rollbackCount(shot.kind);
             return;
           }
           throw new Error(result.error);
         }
-        setClips((n) => n + 1);
-        flash();
+
+        patchShot(shot.id, { status: 'saved', photoId: result.photoId });
+        // Arm the inline "tag who's in it" affordance on the freshest saved shot.
         armTagging(result.photoId);
-        // Clips: embed from the poster frame (the still proxy we already grabbed).
-        if (result.photoId && poster) void autoTagFromBlob(result.photoId, poster);
+        if (result.photoId) {
+          const faceSource = shot.kind === 'clip' ? shot.poster : shot.blob;
+          if (faceSource) void autoTagFromBlob(result.photoId, faceSource);
+        }
+        setSaveError(null);
       } catch (err) {
-        // Cap hit thrown from the presign layer (seat already at the clip cap)
-        // is a "full" success state, not a failure.
-        if (err instanceof Error && err.message === 'sampler_clip_cap') {
-          setClips(clipCap ?? clips);
+        if (
+          err instanceof Error &&
+          (err.message === 'sampler_photo_cap' || err.message === 'sampler_clip_cap')
+        ) {
+          if (shot.kind === 'photo') setPhotos(photoCap ?? ((n) => n));
+          else setClips(clipCap ?? ((n) => n));
+          patchShot(shot.id, { status: 'capped' });
           return;
         }
-        setSaveError("That clip didn't save — check your signal and try again.");
-      } finally {
-        setBusy(false);
+        patchShot(shot.id, { status: 'failed' });
+        rollbackCount(shot.kind);
+        setSaveError(
+          shot.kind === 'clip'
+            ? "A clip didn't upload — tap it in the roll to retry."
+            : "A shot didn't upload — tap it in the roll to retry.",
+        );
       }
     },
-    [grabFrame, uploadBlob, token, clipCap, clips, flash, armTagging, autoTagFromBlob],
+    [uploadBlob, token, photoCap, clipCap, patchShot, armTagging, autoTagFromBlob, rollbackCount],
   );
+
+  // Serial queue worker — drains 'uploading' shots one at a time. Re-entrant-safe
+  // via processingRef so multiple enqueues coalesce into one drain loop.
+  const drainQueue = useCallback(async () => {
+    if (processingRef.current) return;
+    processingRef.current = true;
+    try {
+      while (queueRef.current.length > 0) {
+        const next = queueRef.current.shift();
+        if (next) await uploadShot(next);
+      }
+    } finally {
+      processingRef.current = false;
+    }
+  }, [uploadShot]);
+
+  // Push a freshly-captured shot onto the roll + the upload queue. The count is
+  // bumped OPTIMISTICALLY here so the cap (sampler seats) self-enforces on the
+  // very next tap without waiting for the server round-trip.
+  const enqueueShot = useCallback(
+    (shot: Shot) => {
+      if (shot.kind === 'photo') setPhotos((n) => n + 1);
+      else setClips((n) => n + 1);
+      flash();
+      setShots((prev) => {
+        const next = [shot, ...prev];
+        // Cap the visible roll; revoke the URL of anything we drop.
+        if (next.length > ROLL_MAX) {
+          next.slice(ROLL_MAX).forEach((s) => URL.revokeObjectURL(s.thumbUrl));
+        }
+        return next.slice(0, ROLL_MAX);
+      });
+      queueRef.current.push(shot);
+      void drainQueue();
+    },
+    [flash, drainQueue],
+  );
+
+  // Retry a failed shot from the roll (venue Wi-Fi recovers — the bytes are
+  // still in memory). Re-bumps the optimistic count and re-queues.
+  const retryShot = useCallback(
+    (id: string) => {
+      setShots((prev) => {
+        const shot = prev.find((s) => s.id === id);
+        if (!shot || shot.status !== 'failed') return prev;
+        if (shot.kind === 'photo') setPhotos((n) => n + 1);
+        else setClips((n) => n + 1);
+        const requeued: Shot = { ...shot, status: 'uploading' };
+        queueRef.current.push(requeued);
+        void drainQueue();
+        return prev.map((s) => (s.id === id ? requeued : s));
+      });
+      setSaveError(null);
+    },
+    [drainQueue],
+  );
+
+  const capturePhoto = useCallback(async () => {
+    if (recording || !ready || photoFull) return;
+    setSaveError(null);
+    const blob = await grabFrame();
+    if (!blob) {
+      setSaveError('Could not grab that frame — try again.');
+      return;
+    }
+    // Optimistic: the shutter is already free; the queue does the network work.
+    enqueueShot({
+      id: newId(),
+      kind: 'photo',
+      thumbUrl: URL.createObjectURL(blob),
+      status: 'uploading',
+      photoId: null,
+      blob,
+      contentType: 'image/jpeg',
+      ext: 'jpg',
+    });
+  }, [recording, ready, photoFull, grabFrame, enqueueShot]);
 
   const stopClip = useCallback(() => {
     if (clipTimerRef.current) {
       clearTimeout(clipTimerRef.current);
       clipTimerRef.current = null;
     }
+    if (recTickRef.current) {
+      clearInterval(recTickRef.current);
+      recTickRef.current = null;
+    }
     const rec = recorderRef.current;
     if (rec && rec.state !== 'inactive') rec.stop();
   }, []);
 
   const startClip = useCallback(() => {
-    if (busy || recording || !ready || clipFull) return;
+    if (recording || !ready || clipFull) return;
     const stream = streamRef.current;
     if (!stream || stream.getVideoTracks().length === 0) return;
     setSaveError(null);
@@ -404,30 +527,58 @@ export function PapicSeatCapture({
     recorder.ondataavailable = (e) => {
       if (e.data && e.data.size > 0) chunksRef.current.push(e.data);
     };
-    recorder.onstop = () => {
+    recorder.onstop = async () => {
       setRecording(false);
+      setRecElapsed(0);
       const durationMs = clipStartRef.current ? Date.now() - clipStartRef.current : 0;
       const blob = new Blob(chunksRef.current, { type: mime });
       chunksRef.current = [];
-      if (blob.size > 0) void finishClip(blob, mime, durationMs);
+      if (blob.size === 0) return;
+      const ext = mime.startsWith('video/mp4') ? 'mp4' : 'webm';
+      const poster = await grabFrame(); // last live frame ≈ a fine poster
+      enqueueShot({
+        id: newId(),
+        kind: 'clip',
+        thumbUrl: poster ? URL.createObjectURL(poster) : '',
+        status: 'uploading',
+        photoId: null,
+        blob,
+        contentType: mime,
+        ext,
+        poster,
+        durationMs,
+      });
     };
     recorderRef.current = recorder;
     clipStartRef.current = Date.now();
     recorder.start();
     setRecording(true);
+    setRecElapsed(0);
+    // Live 5-second countdown — drives the progress bar + ring + numeric readout.
+    recTickRef.current = setInterval(() => {
+      const elapsed = Date.now() - clipStartRef.current;
+      setRecElapsed(Math.min(elapsed, CLIP_MAX_MS));
+    }, 100);
     // Hard 5-second cap — auto-stop. Not configurable (corpus constraint).
     clipTimerRef.current = setTimeout(stopClip, CLIP_MAX_MS);
-  }, [busy, recording, ready, clipFull, finishClip, stopClip]);
+  }, [recording, ready, clipFull, grabFrame, enqueueShot, stopClip]);
 
   // ---- tagging -------------------------------------------------------------
 
-  const startTagging = useCallback(() => {
-    if (!lastPhotoId) return;
-    lastScanRef.current = '';
-    tagBusyRef.current = false;
-    setTagNotice(null);
-    setTagging(true);
-  }, [lastPhotoId]);
+  const startTagging = useCallback(
+    (photoId?: string) => {
+      const target = photoId ?? lastPhotoId;
+      if (!target) return;
+      if (photoId) armTagging(photoId);
+      else {
+        lastScanRef.current = '';
+        tagBusyRef.current = false;
+        setTagNotice(null);
+      }
+      setTagging(true);
+    },
+    [lastPhotoId, armTagging],
+  );
 
   const stopTagging = useCallback(() => {
     setTagging(false);
@@ -444,18 +595,14 @@ export function PapicSeatCapture({
         setTagNotice(tagErrorMessage(result.error));
         // A transient/server error ('tag_failed') is worth retrying — clear the
         // scan debounce so the SAME code held under the lens self-heals on the
-        // next tick instead of being silently stuck until the next capture.
-        // Deterministic outcomes (unrecognized / not-found / cap / unavailable)
-        // stay debounced so a held code can't spam the RPC.
+        // next tick. Deterministic outcomes stay debounced.
         if (result.error === 'tag_failed') lastScanRef.current = '';
         return;
       }
       if (typeof navigator !== 'undefined') navigator.vibrate?.(60);
       setTagCount(result.tagCount);
       if (result.added > 0) {
-        setTaggedNames((prev) =>
-          Array.from(new Set([...prev, ...result.names])),
-        );
+        setTaggedNames((prev) => Array.from(new Set([...prev, ...result.names])));
       }
       if (result.kind === 'table') {
         if (result.added === 0 && (result.totalAtTable ?? 0) === 0) {
@@ -479,8 +626,8 @@ export function PapicSeatCapture({
   );
 
   // Decode loop — runs only while the tag sheet is open, on the EXISTING live
-  // stream. Serial (awaits each decode before the next) + debounced on the raw
-  // payload so a code held under the lens fires once, not every frame.
+  // stream. Serial (awaits each decode) + debounced on the raw payload so a code
+  // held under the lens fires once, not every frame.
   useEffect(() => {
     if (!tagging) return;
     let active = true;
@@ -544,6 +691,12 @@ export function PapicSeatCapture({
       : `${photos}/${photoCap} ${photos === 1 ? 'photo' : 'photos'}`
     : `${photos + clips} ${photos + clips === 1 ? 'shot' : 'shots'}`;
 
+  // Countdown ring geometry (a 4.5rem button → r≈30 stroke ring around it).
+  const RING_C = 2 * Math.PI * 32;
+  const recFrac = Math.min(recElapsed / CLIP_MAX_MS, 1);
+  const recSecondsLeft = Math.max(0, Math.ceil((CLIP_MAX_MS - recElapsed) / 1000));
+  const uploadingCount = shots.filter((s) => s.status === 'uploading').length;
+
   return (
     <main className="flex min-h-screen flex-col bg-ink text-cream">
       <header className="flex items-center justify-between px-4 py-3">
@@ -560,6 +713,25 @@ export function PapicSeatCapture({
         </span>
       </header>
 
+      {/* Opt-in account sync (anonymous claimers only). One-tap claim stays
+          frictionless; this is the calm "keep these" nudge — /signup attaches an
+          email to the SAME anon uid, so the seat + every capture carry over. */}
+      {isAnon && (
+        <Link
+          href={`/signup?next=${encodeURIComponent(`/papic/seat/${token}`)}`}
+          className="mx-4 mb-1 flex items-center gap-2 rounded-lg border border-champagne-gold/40 bg-champagne-gold/10 px-3 py-2 text-xs text-cream/85 transition hover:bg-champagne-gold/15"
+        >
+          <ShieldCheck aria-hidden className="h-4 w-4 shrink-0 text-champagne-gold" strokeWidth={1.9} />
+          <span className="min-w-0 flex-1">
+            <span className="font-medium text-cream">Shooting as a guest.</span>{' '}
+            Save these to your Setnayan account to find them later.
+          </span>
+          <span className="shrink-0 rounded-full bg-cream/15 px-2.5 py-1 font-medium text-cream">
+            Save
+          </span>
+        </Link>
+      )}
+
       <div className="relative flex-1 overflow-hidden">
         <video
           ref={videoRef}
@@ -574,12 +746,21 @@ export function PapicSeatCapture({
           </div>
         )}
         {recording && (
-          <div className="absolute left-1/2 top-4 -translate-x-1/2">
-            <span className="inline-flex items-center gap-2 rounded-full bg-ink/70 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-cream">
-              <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-terracotta" />
-              Recording · max 5s
-            </span>
-          </div>
+          <>
+            <div className="absolute left-1/2 top-4 -translate-x-1/2">
+              <span className="inline-flex items-center gap-2 rounded-full bg-ink/70 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-cream">
+                <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-terracotta" />
+                Rec · {recSecondsLeft}s
+              </span>
+            </div>
+            {/* 5-second countdown as a draining bottom progress bar. */}
+            <div className="absolute inset-x-0 bottom-0 h-1.5 bg-cream/20">
+              <div
+                className="h-full bg-terracotta transition-[width] duration-100 ease-linear"
+                style={{ width: `${Math.round(recFrac * 100)}%` }}
+              />
+            </div>
+          </>
         )}
         {justSaved && (
           <div className="absolute inset-0 flex items-center justify-center bg-cream/15">
@@ -603,6 +784,73 @@ export function PapicSeatCapture({
           </>
         )}
       </div>
+
+      {/* Capture roll — what you've shot this session, newest first. A spinner
+          rides each upload; a tap retries a failed one or re-opens tagging on a
+          saved one. Hidden during recording / tagging to keep the stage clean. */}
+      {shots.length > 0 && !tagging && !recording && (
+        <div className="px-4 pt-3">
+          <div className="mb-1.5 flex items-center justify-between">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-cream/55">
+              Your shots
+            </p>
+            {uploadingCount > 0 && (
+              <span className="inline-flex items-center gap-1 text-[11px] text-cream/55">
+                <Loader2 aria-hidden className="h-3 w-3 animate-spin" strokeWidth={2} />
+                Uploading {uploadingCount}
+              </span>
+            )}
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {shots.map((shot) => (
+              <button
+                key={shot.id}
+                type="button"
+                onClick={() => {
+                  if (shot.status === 'failed') retryShot(shot.id);
+                  else if (shot.status === 'saved' && shot.photoId) startTagging(shot.photoId);
+                }}
+                disabled={shot.status === 'uploading' || shot.status === 'capped'}
+                aria-label={
+                  shot.status === 'failed'
+                    ? 'Retry upload'
+                    : shot.status === 'saved'
+                      ? 'Tag who’s in this shot'
+                      : shot.kind === 'clip'
+                        ? 'Clip'
+                        : 'Photo'
+                }
+                className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-cream/15 bg-cream/5"
+              >
+                {shot.thumbUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={shot.thumbUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <Video aria-hidden className="absolute inset-0 m-auto h-5 w-5 text-cream/50" strokeWidth={1.75} />
+                )}
+                {shot.kind === 'clip' && shot.thumbUrl && (
+                  <Play aria-hidden className="absolute right-1 top-1 h-3.5 w-3.5 fill-cream/90 text-cream/90" strokeWidth={2} />
+                )}
+                {shot.status === 'uploading' && (
+                  <span className="absolute inset-0 flex items-center justify-center bg-ink/45">
+                    <Loader2 aria-hidden className="h-4 w-4 animate-spin text-cream" strokeWidth={2} />
+                  </span>
+                )}
+                {shot.status === 'failed' && (
+                  <span className="absolute inset-0 flex items-center justify-center bg-ink/55">
+                    <RotateCcw aria-hidden className="h-4 w-4 text-cream" strokeWidth={2} />
+                  </span>
+                )}
+                {shot.status === 'saved' && (
+                  <span className="absolute bottom-1 right-1 rounded-full bg-ink/70 p-0.5">
+                    <Check aria-hidden className="h-3 w-3 text-cream" strokeWidth={2.5} />
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="space-y-3 px-4 pb-8 pt-4">
         {tagging ? (
@@ -649,118 +897,135 @@ export function PapicSeatCapture({
           </div>
         ) : (
           <>
-        {/* Photo / Clip mode toggle — only when clips are allowed for this seat. */}
-        {clipsAllowed && (
-          <div className="mx-auto flex w-full max-w-[14rem] items-center rounded-full bg-cream/10 p-1">
-            <button
-              type="button"
-              onClick={() => !recording && !busy && setMode('photo')}
-              disabled={recording || busy}
-              className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                mode === 'photo' ? 'bg-cream text-ink' : 'text-cream/70'
-              }`}
-            >
-              <ImageIcon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Photo
-            </button>
-            <button
-              type="button"
-              onClick={() => !recording && !busy && setMode('clip')}
-              disabled={recording || busy}
-              className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                mode === 'clip' ? 'bg-cream text-ink' : 'text-cream/70'
-              }`}
-            >
-              <Video aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Clip
-            </button>
-          </div>
-        )}
+            {/* Photo / Clip mode toggle — only when clips are allowed for this seat. */}
+            {clipsAllowed && (
+              <div className="mx-auto flex w-full max-w-[14rem] items-center rounded-full bg-cream/10 p-1">
+                <button
+                  type="button"
+                  onClick={() => !recording && setMode('photo')}
+                  disabled={recording}
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                    mode === 'photo' ? 'bg-cream text-ink' : 'text-cream/70'
+                  }`}
+                >
+                  <ImageIcon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Photo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => !recording && setMode('clip')}
+                  disabled={recording}
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                    mode === 'clip' ? 'bg-cream text-ink' : 'text-cream/70'
+                  }`}
+                >
+                  <Video aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Clip
+                </button>
+              </div>
+            )}
 
-        {saveError && (
-          <p className="text-center text-xs text-cream/80">{saveError}</p>
-        )}
+            {saveError && (
+              <p className="text-center text-xs text-cream/80">{saveError}</p>
+            )}
 
-        {currentFull ? (
-          <div className="mx-auto max-w-sm text-center">
-            <PartyPopper aria-hidden className="mx-auto h-6 w-6 text-terracotta" strokeWidth={1.75} />
-            <p className="mt-2 text-sm font-medium text-cream">
-              That&rsquo;s all your free {mode === 'clip' ? 'clips' : 'photos'} —
-              every one&rsquo;s in the couple&rsquo;s gallery.
-            </p>
-            {otherModeHasRoom && (
+            {currentFull ? (
+              <div className="mx-auto max-w-sm text-center">
+                <PartyPopper aria-hidden className="mx-auto h-6 w-6 text-terracotta" strokeWidth={1.75} />
+                <p className="mt-2 text-sm font-medium text-cream">
+                  That&rsquo;s all your free {mode === 'clip' ? 'clips' : 'photos'} —
+                  every one&rsquo;s in the couple&rsquo;s gallery.
+                </p>
+                {otherModeHasRoom && (
+                  <button
+                    type="button"
+                    onClick={() => setMode(mode === 'clip' ? 'photo' : 'clip')}
+                    className="mt-3 inline-flex items-center justify-center gap-1.5 rounded-full bg-cream/10 px-4 py-2 text-xs font-medium text-cream hover:bg-cream/15"
+                  >
+                    {mode === 'clip' ? (
+                      <>
+                        <ImageIcon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Shoot photos instead
+                      </>
+                    ) : (
+                      <>
+                        <Video aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Try a clip instead
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-center">
+                  {mode === 'clip' ? (
+                    <div className="relative h-[4.5rem] w-[4.5rem]">
+                      {/* Draining countdown ring around the record button. */}
+                      {recording && (
+                        <svg
+                          aria-hidden
+                          viewBox="0 0 72 72"
+                          className="pointer-events-none absolute inset-0 -rotate-90"
+                        >
+                          <circle cx="36" cy="36" r="32" fill="none" stroke="rgba(245,240,232,0.18)" strokeWidth="4" />
+                          <circle
+                            cx="36"
+                            cy="36"
+                            r="32"
+                            fill="none"
+                            stroke="var(--m-terracotta, #c4674f)"
+                            strokeWidth="4"
+                            strokeLinecap="round"
+                            strokeDasharray={RING_C}
+                            strokeDashoffset={RING_C * recFrac}
+                            style={{ transition: 'stroke-dashoffset 100ms linear' }}
+                          />
+                        </svg>
+                      )}
+                      <button
+                        type="button"
+                        onClick={recording ? stopClip : startClip}
+                        disabled={!ready}
+                        aria-label={recording ? 'Stop recording' : 'Record a clip'}
+                        className="flex h-full w-full items-center justify-center rounded-full border-4 border-cream/80 bg-cream/10 transition active:scale-95 disabled:opacity-50"
+                      >
+                        {recording ? (
+                          <Square aria-hidden className="h-6 w-6 fill-terracotta text-terracotta" strokeWidth={2} />
+                        ) : (
+                          <Video aria-hidden className="h-7 w-7 text-cream" strokeWidth={1.75} />
+                        )}
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={capturePhoto}
+                      disabled={!ready}
+                      aria-label="Take a photo"
+                      className="flex items-center justify-center rounded-full border-4 border-cream/80 bg-cream/10 transition active:scale-95 disabled:opacity-50"
+                      style={{ height: '4.5rem', width: '4.5rem' }}
+                    >
+                      <Camera aria-hidden className="h-7 w-7 text-cream" strokeWidth={1.75} />
+                    </button>
+                  )}
+                </div>
+                <p className="text-center text-xs text-cream/60">
+                  {mode === 'clip'
+                    ? 'Up to 5 seconds. Every clip lands in the couple’s gallery.'
+                    : 'Every photo lands in the couple’s gallery in real time.'}
+                </p>
+              </>
+            )}
+
+            {/* After a capture: offer to tag who's in the latest saved shot
+                (skippable — untagged photos still land in the gallery). */}
+            {lastPhotoId && !recording && (
               <button
                 type="button"
-                onClick={() => setMode(mode === 'clip' ? 'photo' : 'clip')}
-                className="mt-3 inline-flex items-center justify-center gap-1.5 rounded-full bg-cream/10 px-4 py-2 text-xs font-medium text-cream hover:bg-cream/15"
+                onClick={() => startTagging()}
+                className="mx-auto flex w-fit items-center justify-center gap-2 rounded-full border border-cream/25 bg-cream/5 px-4 py-2 text-xs font-medium text-cream transition hover:bg-cream/10"
               >
-                {mode === 'clip' ? (
-                  <>
-                    <ImageIcon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Shoot photos instead
-                  </>
-                ) : (
-                  <>
-                    <Video aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Try a clip instead
-                  </>
-                )}
+                <Users aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                {tagCount > 0 ? `Tagged ${tagCount} · tag more` : 'Tag who’s in it'}
               </button>
             )}
-          </div>
-        ) : (
-          <>
-            <div className="flex items-center justify-center">
-              {mode === 'clip' ? (
-                <button
-                  type="button"
-                  onClick={recording ? stopClip : startClip}
-                  disabled={busy || !ready}
-                  aria-label={recording ? 'Stop recording' : 'Record a clip'}
-                  className="flex items-center justify-center rounded-full border-4 border-cream/80 bg-cream/10 transition active:scale-95 disabled:opacity-50"
-                  style={{ height: '4.5rem', width: '4.5rem' }}
-                >
-                  {busy ? (
-                    <Loader2 aria-hidden className="h-7 w-7 animate-spin text-cream" strokeWidth={2} />
-                  ) : recording ? (
-                    <Square aria-hidden className="h-6 w-6 fill-terracotta text-terracotta" strokeWidth={2} />
-                  ) : (
-                    <Video aria-hidden className="h-7 w-7 text-cream" strokeWidth={1.75} />
-                  )}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={capturePhoto}
-                  disabled={busy || !ready}
-                  aria-label="Take a photo"
-                  className="flex items-center justify-center rounded-full border-4 border-cream/80 bg-cream/10 transition active:scale-95 disabled:opacity-50"
-                  style={{ height: '4.5rem', width: '4.5rem' }}
-                >
-                  {busy ? (
-                    <Loader2 aria-hidden className="h-7 w-7 animate-spin text-cream" strokeWidth={2} />
-                  ) : (
-                    <Camera aria-hidden className="h-7 w-7 text-cream" strokeWidth={1.75} />
-                  )}
-                </button>
-              )}
-            </div>
-            <p className="text-center text-xs text-cream/60">
-              {mode === 'clip'
-                ? 'Up to 5 seconds. Every clip lands in the couple’s gallery.'
-                : 'Every photo lands in the couple’s gallery in real time.'}
-            </p>
-          </>
-        )}
-
-        {/* After a capture: offer to tag who's in it (skippable — untagged
-            photos still land in the gallery). */}
-        {lastPhotoId && !recording && !busy && (
-          <button
-            type="button"
-            onClick={startTagging}
-            className="mx-auto flex w-fit items-center justify-center gap-2 rounded-full border border-cream/25 bg-cream/5 px-4 py-2 text-xs font-medium text-cream transition hover:bg-cream/10"
-          >
-            <Users aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            {tagCount > 0 ? `Tagged ${tagCount} · tag more` : 'Tag who’s in it'}
-          </button>
-        )}
           </>
         )}
       </div>

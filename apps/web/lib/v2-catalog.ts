@@ -97,6 +97,8 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
   PATIKTOK_COMPILER:   'partial',  // booth scaffold · TikTok app review pending
   PAPIC_GUEST:         'live',     // guest camera end-to-end: cookie identity + server quota (150) + capture · 2026-06-02
   PAPIC_SEATS:         'live',     // photo crew end-to-end: provision + claim + capture · PR #731 + migration 20260718000000 · 2026-06-01
+  PAPIC_CAMERA_ROLL_DAY:      'live', // per-camera Ltd (Roll) rate ₱30/cam/day · 30 photos + 10 videos · #2246 · 2026-06-26
+  PAPIC_CAMERA_UNLIMITED_DAY: 'live', // per-camera Unli (Unlimited) rate ₱100/cam/day · #2246 · 2026-06-26
   HIGH_RES_ARCHIVE:    'partial',  // 0009 photo delivery partial
   LIVE_BACKGROUND:     'partial',  // 0005 Pailaw engineering brief · code not verified
   PABATI:              'live',     // video guestbook end-to-end: gated day-of card + 5s guest recorder + recap section · collector exists · 2026-06-22

@@ -214,7 +214,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   // type below in case a future migration relaxes it.
   const { data: event } = await supabase
     .from('events')
-    .select('event_id, papic_storage_target, papic_cost_cap_php')
+    .select('event_id, papic_storage_target, papic_ltd_cap_php, papic_unli_cap_php')
     .eq('event_id', eventId)
     .maybeSingle();
   if (!event) notFound();
@@ -305,8 +305,10 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
 
   // Per-camera buy flow (PR2): live admin-managed rates + the event cost cap.
   const cameraRates = await fetchCameraRates(supabase);
-  const papicCostCapPhp =
-    Number((event as Record<string, unknown>).papic_cost_cap_php ?? 0) || 6999;
+  const papicLtdCapPhp =
+    Number((event as Record<string, unknown>).papic_ltd_cap_php ?? 0) || 6000;
+  const papicUnliCapPhp =
+    Number((event as Record<string, unknown>).papic_unli_cap_php ?? 0) || 10000;
 
   return (
     <section className="space-y-8 pb-12">
@@ -395,9 +397,10 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
             Add cameras
           </p>
           <p className="max-w-prose text-sm text-ink/65">
-            Your first 5 cameras are free. Add more — a Roll for each guest, or
-            Unlimited for your key shooters. We total it for you, capped at{' '}
-            {formatPhp(papicCostCapPhp)}.
+            Your first 5 cameras are free. Add more — a Ltd camera for each
+            guest, or Unli for your key shooters. We total it for you, and each
+            tier locks: Ltd at {formatPhp(papicLtdCapPhp)}, Unli at{' '}
+            {formatPhp(papicUnliCapPhp)}.
           </p>
         </div>
         {papicPurchased ? (
@@ -424,7 +427,8 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
             eventId={eventId}
             rollRate={cameraRates.roll}
             unlimitedRate={cameraRates.unlimited}
-            capPhp={papicCostCapPhp}
+            ltdCapPhp={papicLtdCapPhp}
+            unliCapPhp={papicUnliCapPhp}
           />
         </div>
       </section>

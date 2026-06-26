@@ -42,7 +42,10 @@ export const PAPIC_CAMERA_INDEX_BASE = 200;
 /** Last-resort fallbacks if the catalog row is missing. Live prices come from the catalog. */
 export const PAPIC_CAMERA_ROLL_FALLBACK_PHP = 30;
 export const PAPIC_CAMERA_UNLIMITED_FALLBACK_PHP = 100;
-export const PAPIC_DEFAULT_COST_CAP_PHP = 6999;
+export const PAPIC_DEFAULT_COST_CAP_PHP = 6999; // deprecated single cap (pre per-tier)
+/** Per-tier price caps (owner 2026-06-26) — each tier's subtotal locks here. */
+export const PAPIC_LTD_CAP_FALLBACK_PHP = 6000; // Ltd (Roll) ≈ 200 cameras × ₱30
+export const PAPIC_UNLI_CAP_FALLBACK_PHP = 10000; // Unli ≈ 100 cameras × ₱100
 
 export type CameraTier = 'free' | 'roll' | 'unlimited';
 
@@ -104,17 +107,22 @@ export async function fetchCameraRates(
 
 export type CameraSelection = { roll: number; unlimited: number };
 
+export type CameraCaps = { ltd: number; unli: number };
+
 export type CameraQuote = {
   rollCount: number;
   unlimitedCount: number;
   paidCount: number;
   days: number;
-  rollSubtotalPhp: number;
-  unlimitedSubtotalPhp: number;
+  rollSubtotalPhp: number; // raw Ltd subtotal, before the cap
+  unlimitedSubtotalPhp: number; // raw Unli subtotal, before the cap
+  rollChargePhp: number; // Ltd subtotal after its ₱6,000 cap
+  unlimitedChargePhp: number; // Unli subtotal after its ₱10,000 cap
   rawTotalPhp: number;
-  capPhp: number;
+  ltdCapPhp: number;
+  unliCapPhp: number;
   totalPhp: number;
-  capped: boolean;
+  capped: boolean; // true if EITHER tier hit its cap
   description: string;
 };
 
@@ -132,7 +140,7 @@ export function computeCameraQuote(
   selection: CameraSelection,
   days: number,
   rates: CameraRates,
-  capPhp: number,
+  caps: CameraCaps,
 ): CameraQuote {
   const rollCount = intCount(selection.roll);
   const unlimitedCount = intCount(selection.unlimited);
@@ -141,17 +149,25 @@ export function computeCameraQuote(
   const unlimitedRate =
     Number(rates.unlimited) || PAPIC_CAMERA_UNLIMITED_FALLBACK_PHP;
 
+  const ltdCap =
+    Number(caps.ltd) > 0 ? Number(caps.ltd) : PAPIC_LTD_CAP_FALLBACK_PHP;
+  const unliCap =
+    Number(caps.unli) > 0 ? Number(caps.unli) : PAPIC_UNLI_CAP_FALLBACK_PHP;
+
   const rollSubtotalPhp = rollCount * rollRate * d;
   const unlimitedSubtotalPhp = unlimitedCount * unlimitedRate * d;
   const rawTotalPhp = rollSubtotalPhp + unlimitedSubtotalPhp;
 
-  const cap = Number(capPhp) > 0 ? Number(capPhp) : PAPIC_DEFAULT_COST_CAP_PHP;
-  const totalPhp = Math.min(rawTotalPhp, cap);
+  // Per-tier cap (owner 2026-06-26): each tier locks independently — Ltd at
+  // ₱6,000, Unli at ₱10,000 — so 300 guests on Ltd still pay ₱6,000.
+  const rollChargePhp = Math.min(rollSubtotalPhp, ltdCap);
+  const unlimitedChargePhp = Math.min(unlimitedSubtotalPhp, unliCap);
+  const totalPhp = rollChargePhp + unlimitedChargePhp;
   const paidCount = rollCount + unlimitedCount;
 
   const parts: string[] = [];
-  if (rollCount) parts.push(`${rollCount} Roll`);
-  if (unlimitedCount) parts.push(`${unlimitedCount} Unlimited`);
+  if (rollCount) parts.push(`${rollCount} Ltd`);
+  if (unlimitedCount) parts.push(`${unlimitedCount} Unli`);
   const description = `Papic cameras — ${parts.join(' + ') || 'none'} · ${d} day${
     d > 1 ? 's' : ''
   }`;
@@ -163,10 +179,13 @@ export function computeCameraQuote(
     days: d,
     rollSubtotalPhp,
     unlimitedSubtotalPhp,
+    rollChargePhp,
+    unlimitedChargePhp,
     rawTotalPhp,
-    capPhp: cap,
+    ltdCapPhp: ltdCap,
+    unliCapPhp: unliCap,
     totalPhp,
-    capped: rawTotalPhp > cap,
+    capped: rollSubtotalPhp > ltdCap || unlimitedSubtotalPhp > unliCap,
     description,
   };
 }

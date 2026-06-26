@@ -127,7 +127,7 @@ type Props = {
 
 type LiveTable = Lab3DTable;
 type SeatRef = { tableId: string; seatNumber: number };
-type WalkerState = { name: string; path: Vec2[]; tableId: string } | null;
+type WalkerState = { gid: string; name: string; path: Vec2[]; tableId: string } | null;
 
 /** A keep-apart rule is undirected — match a pair in either order. */
 function sameKeepApart(r: KeepApartRule, a: string, b: string): boolean {
@@ -454,19 +454,30 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       }
       return m;
     };
+    // Guests currently walking IN — the single walk-in OR the populate-Play crowd
+    // — are drawn by their walking avatar, never also as a static seated token.
+    // Without this they'd render twice: a ghost glued to the chair while the real
+    // one walks in (owner: "the person on the seat never left"). Same rule as the
+    // mid-swap exclusion below; the seated token reappears once they settle.
+    const walkingIn = new Set<string>();
+    if (crowd) for (const a of crowd) walkingIn.add(a.id);
+    if (walker) walkingIn.add(walker.gid);
     const plusOneSeated = new Set<string>(); // primaries whose +1 is already seated
     for (const [gid, s] of seats) {
       const g = guestById.get(gid);
       if (!g) continue;
       if (g.plusOneOfGuestId) plusOneSeated.add(g.plusOneOfGuestId);
       if (movingGuests.has(gid)) continue; // mid-swap → drawn by its mover instead
+      if (walkingIn.has(gid)) continue; // walking in → drawn by its walker/crowd agent
       const style = guestTokenStyle(g);
       if (!style) continue; // declined → freed seat
       slot(s.tableId).set(s.seatNumber, style);
     }
     for (const [gid, s] of seats) {
       const g = guestById.get(gid);
-      if (!g || !g.plusOneAllowed || plusOneSeated.has(gid) || seatStatusOf(g.rsvp) === 'hidden') continue;
+      // A walking-in primary also suppresses their hovering +1 ghost — they
+      // arrive together, so neither is drawn at rest until the walk settles.
+      if (!g || !g.plusOneAllowed || plusOneSeated.has(gid) || walkingIn.has(gid) || seatStatusOf(g.rsvp) === 'hidden') continue;
       const t = tablesById.get(s.tableId);
       if (!t) continue;
       const occ = slot(s.tableId);
@@ -483,7 +494,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       if (chosen >= 0) occ.set(chosen, { color: PLUS_ONE_COLOR, opacity: 0.4 });
     }
     return out;
-  }, [seats, guestById, tablesById, movingGuests]);
+  }, [seats, guestById, tablesById, movingGuests, crowd, walker]);
 
   const commitDrag = useCallback(() => {
     const d = dragRef.current;
@@ -1163,7 +1174,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       setMode('play');
       setArrived(null);
       setCrowd(null); // a single walk-in supersedes any populated crowd
-      setWalker({ name: g.name, path, tableId: seat.tableId });
+      setWalker({ gid: g.id, name: g.name, path, tableId: seat.tableId });
       return true;
     },
     [seats, tables, tablesById, room, entranceWorld, floor],
@@ -1194,6 +1205,24 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
     setMode('play');
     setCrowd(agents.length ? agents : null);
   }, [seats, guestById, tablesById, room, floor, tables, entranceWorld]);
+
+  // A single walk-in that has reached its chair settles into the seat: clear the
+  // walker so the static SeatedAvatar takes over (the guest is already in `seats`).
+  // Only the single walker sets `arrived`; the crowd settles via onAllArrived.
+  useEffect(() => {
+    if (!arrived || !walker) return;
+    const id = window.setTimeout(() => {
+      setWalker(null);
+      setArrived(null);
+    }, 1200);
+    return () => window.clearTimeout(id);
+  }, [arrived, walker]);
+
+  // Populate-Play: Crowd fires this once everyone has reached their chair (after a
+  // short in-component "stand a beat" delay). Clearing the crowd returns the seated
+  // view — the avatars "sit down". Synchronous + idempotent, so re-running "Walk
+  // everyone in" can't be clobbered by a stale timer. "Clear the room" still skips ahead.
+  const settleCrowd = useCallback(() => setCrowd(null), []);
 
   // --- swap-with-animation: reassign seats (persist) + animate the change ----
   const seatWorldOf = useCallback(
@@ -1452,7 +1481,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
           />
         ) : null}
 
-        {mode === 'play' && crowd ? <Crowd agents={crowd} palette={palette} reduced={reduced} /> : null}
+        {mode === 'play' && crowd ? <Crowd agents={crowd} palette={palette} reduced={reduced} onAllArrived={settleCrowd} /> : null}
 
         {movers.map((m) => (
           <MoverToken key={m.gid} mover={m} onDone={onMoverDone} reduced={reduced} />
@@ -2253,7 +2282,17 @@ type CrowdAgent = {
  * O(n²) separation is fine for a wedding's guest count; a spatial grid is the
  * documented v2. Reduced motion snaps everyone to their seat.
  */
-function Crowd({ agents, palette, reduced }: { agents: CrowdAgent[]; palette: Lab3DPalette; reduced: boolean }) {
+function Crowd({
+  agents,
+  palette,
+  reduced,
+  onAllArrived,
+}: {
+  agents: CrowdAgent[];
+  palette: Lab3DPalette;
+  reduced: boolean;
+  onAllArrived: () => void;
+}) {
   const groups = useRef<(THREE.Group | null)[]>([]);
   const seg = useRef<number[]>([]);
   const elapsed = useRef(0);
@@ -2261,10 +2300,23 @@ function Crowd({ agents, palette, reduced }: { agents: CrowdAgent[]; palette: La
   useEffect(() => {
     reducedRef.current = reduced;
   }, [reduced]);
+  // Fire onAllArrived exactly once per crowd, a short beat AFTER everyone arrives
+  // (lets them stand at the chair before the parent swaps in seated avatars). The
+  // beat is tracked in elapsed-time refs owned by this component, so it resets with
+  // the crowd — no detached timer that could outlive a re-run. Mirror the (stable)
+  // callback into a ref so the frame loop reads it without re-subscribing.
+  const firedRef = useRef(false); // onAllArrived already fired for this crowd?
+  const settleAtRef = useRef<number | null>(null); // elapsed when everyone first arrived
+  const onAllArrivedRef = useRef(onAllArrived);
+  useEffect(() => {
+    onAllArrivedRef.current = onAllArrived;
+  }, [onAllArrived]);
 
   useEffect(() => {
     seg.current = agents.map(() => 0);
     elapsed.current = 0;
+    firedRef.current = false;
+    settleAtRef.current = null;
     agents.forEach((a, i) => {
       const g = groups.current[i];
       if (!g) return;
@@ -2277,6 +2329,12 @@ function Crowd({ agents, palette, reduced }: { agents: CrowdAgent[]; palette: La
         g.position.set(s.x, 0, s.z);
       }
     });
+    // Reduced motion snaps everyone straight to their seat → settle immediately
+    // (no walk, so no "stand a beat").
+    if (reducedRef.current && agents.length && !firedRef.current) {
+      firedRef.current = true;
+      onAllArrivedRef.current();
+    }
   }, [agents]);
 
   useFrame((_, delta) => {
@@ -2316,13 +2374,45 @@ function Crowd({ agents, palette, reduced }: { agents: CrowdAgent[]; palette: La
         ? Math.abs(Math.sin((elapsed.current + i) * 8)) * 0.05
         : g.position.y + (0 - g.position.y) * Math.min(1, delta * 6);
     });
+    // 4. Everyone released AND at their final waypoint → settle (once), holding a
+    // ~0.6s beat so they stand at the chair before sitting. seg is logical progress
+    // (advanced before separation), so a guest nudged off the exact spot by make-way
+    // still counts as arrived — no hang.
+    if (!firedRef.current && agents.length) {
+      let all = true;
+      for (let i = 0; i < agents.length; i++) {
+        const a = agents[i]!;
+        if (elapsed.current < a.startDelay || seg.current[i]! < a.path.length - 1) {
+          all = false;
+          break;
+        }
+      }
+      if (!all) {
+        settleAtRef.current = null;
+      } else {
+        if (settleAtRef.current == null) settleAtRef.current = elapsed.current;
+        else if (elapsed.current - settleAtRef.current >= 0.6) {
+          firedRef.current = true;
+          onAllArrivedRef.current();
+        }
+      }
+    }
   });
 
   return (
     <group>
-      {agents.map((a, i) => (
+      {agents.map((a, i) => {
+        // Under reduced motion the frame loop never runs, so place the agent AT its
+        // seat right here in the JSX — correct at mount regardless of effect/render
+        // ordering (no reliance on the imperative snap, no one-frame flash). For
+        // normal motion the effect+frame loop own the position (entrance → walk),
+        // so we leave it unset to avoid snapping a mid-walk agent back on re-render.
+        const seat = a.path[a.path.length - 1] ?? { x: 0, z: 0 };
+        const posed: [number, number, number] | undefined = reduced ? [seat.x, 0, seat.z] : undefined;
+        return (
         <group
           key={a.id}
+          position={posed}
           ref={(el) => {
             groups.current[i] = el;
           }}
@@ -2336,7 +2426,8 @@ function Crowd({ agents, palette, reduced }: { agents: CrowdAgent[]; palette: La
             <meshStandardMaterial color={palette.table} roughness={0.55} />
           </mesh>
         </group>
-      ))}
+        );
+      })}
     </group>
   );
 }

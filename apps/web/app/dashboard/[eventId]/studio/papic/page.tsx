@@ -26,6 +26,10 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { formatPhp } from '@/lib/orders';
+import { eventSkuActive } from '@/lib/entitlements';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import {
   getDriveOAuthConfig,
   PAPIC_DRIVE_SUBFOLDERS,
@@ -91,6 +95,11 @@ import { SubmitButton } from '@/app/_components/submit-button';
 // `StorageChoiceCard` doc comment below.
 
 export const metadata = { title: 'Papic · Setnayan' };
+
+// Per-request render: the page reads live event/catalog state and uses an admin
+// client (the Unlock-all bundle fetch). force-dynamic guarantees no build-time
+// prerender — createAdminClient throws without a service-role key in CI builds.
+export const dynamic = 'force-dynamic';
 
 type Props = {
   params: Promise<{ eventId: string }>;
@@ -310,6 +319,24 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   const papicUnliCapPhp =
     Number((event as Record<string, unknown>).papic_unli_cap_php ?? 0) || 10000;
 
+  // "Unlock all of Papic" umbrella bundle (owner 2026-06-26 · admin-managed price
+  // in platform_package_catalog). Owning it grants every Papic add-on (the
+  // unlimited-Unli camera allowance is a separate, deferred capture-gate bypass).
+  const unlockAdmin = createAdminClient();
+  const [{ data: unlockPkg }, ownsPapicUnlock, papicPlatformSettings] =
+    await Promise.all([
+      unlockAdmin
+        .from('platform_package_catalog')
+        .select('retail_price_php, is_active')
+        .eq('package_code', 'PAPIC_UNLOCK')
+        .maybeSingle(),
+      eventSkuActive(unlockAdmin, eventId, 'PAPIC_UNLOCK'),
+      fetchPlatformSettings(supabase),
+    ]);
+  const papicUnlockPricePhp = unlockPkg?.is_active
+    ? Number(unlockPkg.retail_price_php)
+    : null;
+
   return (
     <section className="space-y-8 pb-12">
       <Link
@@ -336,6 +363,59 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           write to, then manage your crew, camera bridges, and gallery settings.
         </p>
       </header>
+
+      {/* ----------------------------------------------------------------
+          Unlock all of Papic — the umbrella bundle (owner 2026-06-26). Presents
+          every Papic feature as one buy: unlimited Unli cameras + all add-ons.
+          ---------------------------------------------------------------- */}
+      {papicUnlockPricePhp ? (
+        <section className="rounded-2xl border border-mulberry/30 bg-mulberry/[0.05] p-5 sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-1.5">
+              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-mulberry">
+                Unlock all of Papic
+              </p>
+              <h2 className="text-xl font-semibold tracking-tight">
+                Everything Papic, one price
+              </h2>
+              <p className="max-w-prose text-sm text-ink/70">
+                Unlimited Unli cameras for the whole wedding, plus every Papic
+                add-on. Bought one by one it adds up to more — this is the bundle.
+              </p>
+              <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink/55">
+                <li>Unlimited Unli cameras</li>
+                <li>· Kwento</li>
+                <li>· Photo Wall</li>
+                <li>· Thank You</li>
+                <li>· Stories</li>
+                <li>· Pabati</li>
+                <li>· Camera Bridge</li>
+              </ul>
+            </div>
+            <div className="shrink-0">
+              {ownsPapicUnlock ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-success-50 px-3 py-1.5 text-sm font-medium text-success-800">
+                  Unlocked ✓
+                </span>
+              ) : papicPlatformSettings ? (
+                <InlineCheckoutDrawer
+                  eventId={eventId}
+                  serviceKey="PAPIC_UNLOCK"
+                  displayName="Unlock all of Papic"
+                  originalPriceCentavos={String(Math.round(papicUnlockPricePhp * 100))}
+                  settings={papicPlatformSettings}
+                  triggerLabel={`Unlock all · ${formatPhp(papicUnlockPricePhp)}`}
+                  triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70 sm:w-auto"
+                />
+              ) : (
+                <span className="text-sm font-mono text-ink/60">
+                  {formatPhp(papicUnlockPricePhp)}
+                </span>
+              )}
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       {/* ----------------------------------------------------------------
           Papic · your photo crew — the real entry point. Both owners and

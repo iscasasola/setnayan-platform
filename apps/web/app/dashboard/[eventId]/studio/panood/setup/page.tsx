@@ -58,7 +58,8 @@ const STYLE_PACK_MODES = 4;
 // decision log): the prior mockPanoodSetup() faked baseOwned:true + an extra
 // cam/hour + null packs regardless of what the couple actually bought. This
 // type now reflects ONLY what has a real source:
-//   • baseOwned          ← eventSkuActive(PANOOD_SYSTEM) (orders.status)
+//   • baseOwned          ← eventSkuActive(PANOOD_SYSTEM) (orders.status) — owns
+//                          the PAID multicam control-room upgrade
 //   • customMonogramOwned← eventSkuActive(ANIMATED_MONOGRAM)
 //   • youtubeWatchUrl    ← events.panood_watch_url (existing real read)
 // Camera/hour add-ons, the Broadcast Style Pack, and the AI Edited Highlight
@@ -187,8 +188,9 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
 
   // REAL pricing from the admin catalog (formatV2Sku). PANOOD_SYSTEM is NOT
   // priced here: single-cam Panood live is FREE for every host (owner model
-  // 2026-06-26) and PANOOD_SYSTEM is reserved for the future PAID multi-cam
-  // tier. The Animated-Monogram + SDE add-ons keep their real catalog prices;
+  // 2026-06-26) and PANOOD_SYSTEM is the PAID multicam control-room upgrade
+  // (built at /studio/panood/broadcast). The Animated-Monogram + SDE add-ons
+  // keep their real catalog prices;
   // the Broadcast Style Pack / AI Edited Highlight have NO V2 SKU yet, so those
   // surfaces honest-state "arrives with the streaming rollout" instead of a
   // price (owner rule: never hardcode a price).
@@ -200,9 +202,9 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
   const sdePriceLabel = sdeSku ? `${formatPhp(sdeSku.price_php)} / 3 min` : null;
 
   // Single-camera live broadcast is the free core tool (no per-day SKU charge).
-  // There is no Setnayan camera-ingest pipeline today (couples stream from their
-  // own phone or OBS to their own YouTube), so the surface claims no camera
-  // count — the multi-camera control room is a future PAID streaming feature.
+  // Today couples stream from their own phone or OBS to their own YouTube, so
+  // this surface claims no camera count — the multi-camera control room is the
+  // PAID upgrade (built at /studio/panood/broadcast).
 
   return (
     <section className="space-y-8">
@@ -225,8 +227,9 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
         <p className="max-w-prose text-base text-ink/65">
           Connect your YouTube channel, go live from your phone or OBS, and Setnayan
           embeds your broadcast on your event page so family abroad can watch in real
-          time. The watch URL and auto-archive stay on your own channel. A Setnayan
-          control room with camera-operator links is coming with the streaming rollout.
+          time. The watch URL and auto-archive stay on your own channel. Want more
+          than one camera? The Setnayan multicam control room — the paid upgrade —
+          lets you switch between several phones with broadcast-style overlays.
         </p>
       </header>
 
@@ -281,9 +284,9 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
         // Single-cam go-live is FREE for any host (owner model 2026-06-26 —
         // "the tool is free; the premium layer is paid"). This page is already
         // host-gated, so anyone who can see it may go live without owning the
-        // PANOOD_SYSTEM SKU (that SKU is reserved for the future PAID multi-cam
-        // control room + broadcast overlays). Pass true to unlock the go-live
-        // button; the add-on rows below still reflect REAL ownership.
+        // PANOOD_SYSTEM SKU (that SKU is the PAID multicam control-room + over-
+        // lays upgrade, built at /studio/panood/broadcast). Pass true to unlock
+        // the go-live button; the add-on rows below still reflect REAL ownership.
         ownsPanood={true}
         active={
           activeBroadcast
@@ -506,7 +509,7 @@ function SetupStatus({ eventId }: { eventId: string }) {
         </div>
         {/* Single-cam live broadcast is FREE for any host (owner model
             2026-06-26). The green "Included" badge always shows; the
-            PANOOD_SYSTEM SKU is reserved for the future PAID multi-cam tier. */}
+            PANOOD_SYSTEM SKU is the PAID multicam control-room upgrade. */}
         <span className="inline-flex items-center gap-1.5 rounded-full bg-success-100 px-3 py-1 text-xs font-medium text-success-900">
           <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           Included free
@@ -552,12 +555,12 @@ function SetupStatus({ eventId }: { eventId: string }) {
       </ul>
 
       <div className="rounded-lg border border-dashed border-ink/15 bg-cream/60 p-3 text-xs text-ink/60">
-        <p className="font-medium text-ink/75">The multi-camera control room — coming (paid upgrade)</p>
+        <p className="font-medium text-ink/75">The multi-camera control room — the paid upgrade</p>
         <p className="mt-1">
-          Going live with one camera is free. A Setnayan multi-camera control
+          Going live with one camera is free. The Setnayan multi-camera control
           room — switch between several phone cameras, mark highlights, cut to
-          standby, with broadcast-style overlays — is a paid upgrade arriving
-          with the streaming rollout. See what&rsquo;s coming on the{' '}
+          standby, with broadcast-style overlays — is the paid upgrade. See what
+          it does on the{' '}
           <Link
             href={`/dashboard/${eventId}/studio/panood`}
             className="text-terracotta hover:underline"
@@ -640,9 +643,9 @@ function BroadcastSetup({ eventId }: { eventId: string }) {
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
             Step 3 · broadcaster + cameras
           </p>
-          <span className="inline-flex items-center gap-1 rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-            <Lock aria-hidden className="h-3 w-3" strokeWidth={2} />
-            Coming with the streaming rollout
+          <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
+            <Star aria-hidden className="h-3 w-3" strokeWidth={2} />
+            Paid upgrade
           </span>
         </div>
         <h2
@@ -650,39 +653,40 @@ function BroadcastSetup({ eventId }: { eventId: string }) {
           className="flex items-center gap-2 text-xl font-semibold tracking-tight"
         >
           <Radio aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
-          A multi-camera control room — coming soon
+          The multi-camera control room
         </h2>
         <p className="max-w-prose text-sm text-ink/65">
-          Today you go live from your own phone or OBS and Setnayan embeds that broadcast
-          on your event page. A Setnayan control room is on the way: one broadcaster who
-          switches between several phone cameras, marks highlights, and cuts to standby —
-          each camera a phone running the Panood operator web client, no install. It is
-          not part of what you buy today; you can preview the layout below.
+          Going live with one camera from your own phone or OBS is free. The Setnayan
+          multicam control room is the paid upgrade: one broadcaster who switches between
+          several phone cameras, marks highlights, and cuts to standby — each camera a
+          phone running the Panood operator web client, no install. Open the control room
+          below to set it up.
         </p>
       </div>
 
-      {/* Honest state: the broadcaster/camera-operator session links are minted by
-          the live streaming orchestrator, which is not built in V1. We don't show a
-          fake setnayan.com/... URL here — instead we surface a labeled preview of the
-          control room and an honest "arrives with the streaming rollout" note. */}
+      {/* Honest state: the control room is built (foundation PR1-5), but the
+          live per-camera ingest + camera-operator session links are minted by
+          the streaming engine, which finishes wiring with the streaming rollout.
+          We don't show a fake setnayan.com/... URL here — instead we point at the
+          real control room and keep an honest note on the live camera links. */}
       <div className="rounded-xl border border-dashed border-ink/15 bg-cream/60 p-4">
         <div className="flex items-start gap-3">
           <span
             aria-hidden
             className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-ink/5 text-ink/55"
           >
-            <Lock className="h-4 w-4" strokeWidth={1.75} />
+            <Clock3 className="h-4 w-4" strokeWidth={1.75} />
           </span>
           <div className="space-y-1">
             <p className="text-sm font-semibold text-ink/85">
-              Setup links arrive with the streaming rollout
+              Live camera links finish with the streaming rollout
             </p>
             <p className="max-w-prose text-xs text-ink/60">
-              On broadcast day you&rsquo;ll get a single broadcaster link for the person
-              running the show, plus a private setup link for each camera operator — no
-              install, just open on any modern phone. The live session and these links
-              go live when the Panood streaming rollout lands; we&rsquo;ll email you the
-              moment it&rsquo;s ready.
+              On broadcast day you&rsquo;ll run the control room from a single broadcaster
+              link, plus a private setup link for each camera operator — no install, just
+              open on any modern phone. The control room is built and you can open it now;
+              the live per-camera ingest finishes wiring with the streaming rollout, and
+              we&rsquo;ll email you the moment it&rsquo;s ready.
             </p>
           </div>
         </div>
@@ -691,18 +695,18 @@ function BroadcastSetup({ eventId }: { eventId: string }) {
       <article className="space-y-3 rounded-xl border border-ink/10 bg-cream/70 p-4">
         <h3 className="flex items-center gap-2 text-base font-semibold text-ink">
           <Video aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-          Preview the control room
+          Open the control room
         </h3>
         <p className="text-sm text-ink/65">
-          See how the broadcaster admin will look so you and your camera operators can
-          rehearse the layout ahead of the day.
+          Lay out the broadcaster admin and rehearse the camera switching so you and your
+          camera operators are ready ahead of the day.
         </p>
         <Link
           href={`/dashboard/${eventId}/studio/panood/broadcast`}
           className="inline-flex items-center gap-2 rounded-md bg-mulberry px-3 py-1.5 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
         >
           <Tv aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          Open broadcaster preview
+          Open the control room
         </Link>
       </article>
 

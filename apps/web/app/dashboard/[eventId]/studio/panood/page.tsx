@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { ExternalLink, Tv } from 'lucide-react';
+import { Radio, Tv } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { formatPhp } from '@/lib/orders';
 import {
@@ -26,19 +26,30 @@ import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 
 // Iteration 0011 — Panood App Store-style detail surface.
 //
-// Replaces the prior single-page setup wall (now moved to ./setup/page.tsx).
-// On this page couples discover, compare, and buy; once they own a plan,
-// the hero CTA flips to "Open Panood setup" and routes into the setup
-// surface that holds YouTube OAuth, broadcaster + camera-operator links.
+// RESTRUCTURED 2026-06-26 to the LOCKED two-tier packaging (see
+// Panood_Multicam_Architecture_2026-06-26.md § "Packaging LOCKED" + the
+// free-vs-paid boundary memory "every service free to use; some have
+// upgrades"):
+//
+//   • FREE — single-camera livestream. The couple goes live on their OWN
+//     YouTube (phone or laptop), it embeds on the event page in their colours,
+//     and auto-archives forever. ₱0, available NOW to everyone, no purchase.
+//     The PRIMARY hero CTA is a free "Go live — free" → ./setup. This honours
+//     the "every service free to use" positioning — leading with a paid "Add"
+//     mis-frames Panood as a paywalled product, which it is not.
+//
+//   • PAID upgrade — Multicam control room (PANOOD_SYSTEM). Multiple cameras,
+//     live switching, one-tap moments (Cake / First Dance / …), overlays, and
+//     routing every venue screen. Priced LIVE from the admin catalog via
+//     formatV2Sku(PANOOD_SYSTEM) — NEVER hardcoded. The buy reuses the existing
+//     AddOnStateCta / InlineCheckoutDrawer machinery; when OWNED, the CTA opens
+//     the control room → ./broadcast (NOT ./setup, which is the free relay).
 //
 // Pricing source of truth: the admin-managed V2 catalog row PANOOD_SYSTEM in
 // platform_retail_catalog_v2, read live via formatV2Sku (owner 2026-06-18 ·
-// "admin pricing controls all the prices on the app"). Panood is ONE per-day
-// SKU; the prior hardcoded 5-SKU ladder (Daily / Annual / AI-Highlight /
-// AI-Edited / Same-Day-Edit) used V1 keys absent from the catalog, so admin
-// price edits were silently ignored on the charge. The checkout's serviceKey
-// is now PANOOD_SYSTEM, so submitOrderAction re-resolves the price from the
-// catalog — editing it at /admin/pricing now propagates here.
+// "admin pricing controls all the prices on the app"). The checkout's
+// serviceKey is PANOOD_SYSTEM, so submitOrderAction re-resolves the price from
+// the catalog — editing it at /admin/pricing now propagates here.
 
 export const metadata = { title: 'Panood · Setnayan' };
 
@@ -62,46 +73,59 @@ export default async function PanoodAppStorePage({ params }: Props) {
     .maybeSingle();
   if (!event) notFound();
 
+  const setupHref = `/dashboard/${eventId}/studio/panood/setup`;
+  const controlRoomHref = `/dashboard/${eventId}/studio/panood/broadcast`;
+
   // Parallel-fetch the platform settings alongside stats + state. The
   // settings feed the InlineCheckoutDrawer in ChoosePlanSheet · zero
   // extra round-trips because we're already awaiting two things here.
+  //
+  // The PAID multicam controller opens the CONTROL ROOM (./broadcast) once
+  // owned — so the resolved 'launch' href routes there, not to the free
+  // ./setup relay.
   const [stats, stateCtx, settings, panoodSku] = await Promise.all([
     fetchAddOnStats(supabase, 'panood'),
-    resolveAddOnState(
-      supabase,
-      eventId,
-      'panood',
-      'couple',
-      `/dashboard/${eventId}/studio/panood/setup`,
-    ),
+    resolveAddOnState(supabase, eventId, 'panood', 'couple', controlRoomHref),
     fetchPlatformSettings(supabase),
     formatV2Sku(PANOOD_SKU_CODE).catch(() => null),
   ]);
-  const owned = stateCtx.state === 'launch';
 
-  // Single per-day SKU, priced live from the admin catalog. The charge itself
-  // is re-resolved server-side from PANOOD_SKU_CODE (the serviceKey), so this
-  // price is for display; a catalog miss only blanks the label, never bills a
-  // stale number.
-  const dailyCentavos = panoodSku?.price_centavos ?? 0;
-  const dailyPriceLabel = panoodSku ? formatPhp(panoodSku.price_php) : '—';
-  const fromPriceFormatted = `${dailyPriceLabel} / day`;
+  // Multicam controller SKU, priced live from the admin catalog. The charge
+  // itself is re-resolved server-side from PANOOD_SKU_CODE (the serviceKey), so
+  // this price is for display; a catalog miss only blanks the label, never
+  // bills a stale number.
+  const multicamCentavos = panoodSku?.price_centavos ?? 0;
+  const multicamPriceLabel = panoodSku ? formatPhp(panoodSku.price_php) : '—';
+  const multicamFromLabel = `${multicamPriceLabel} / day`;
 
-  const dailyPlan = {
+  // The PAID multicam upgrade plan row + sheet plan. The FREE single-cam tier
+  // is presented as its own ₱0 plan row alongside it (no purchase flow — the
+  // hero's primary CTA links straight into ./setup).
+  const multicamPlan = {
     sku_code: PANOOD_SKU_CODE,
-    name: 'Daily Broadcast',
-    scope: 'One event-day · streamed to your own YouTube, embedded on your event page · auto-archive on your channel.',
-    price: dailyPriceLabel,
+    name: 'Multicam control room',
+    scope:
+      'Everything unlocks for one event-day — Cameras: multi-cam + live camera switch + connect multiple cameras · Streaming: multi-cam YouTube live + live streaming + an in-house (offline/local) stream · Screens: Photowall → screen, LED Wall → screen, extended screen control, control multiple screens · Production: overlays + a live highlight generator (live replays during the broadcast).',
+    price: multicamPriceLabel,
     unit: ' / day',
-    badge: 'Most popular' as const,
-    priceCentavos: String(dailyCentavos),
+    badge: 'Upgrade' as const,
+    priceCentavos: String(multicamCentavos),
   };
-  const planRow: PlanRow = {
-    name: dailyPlan.name,
-    scope: dailyPlan.scope,
-    price: dailyPlan.price,
-    unit: dailyPlan.unit,
-    badge: dailyPlan.badge,
+
+  const freePlanRow: PlanRow = {
+    name: 'Single-camera livestream',
+    scope:
+      'Go live on your own YouTube — phone or laptop. Embeds on your event page in your colours, auto-archived forever.',
+    price: 'Free',
+    unit: '',
+    badge: 'Included',
+  };
+  const multicamPlanRow: PlanRow = {
+    name: multicamPlan.name,
+    scope: multicamPlan.scope,
+    price: multicamPlan.price,
+    unit: multicamPlan.unit,
+    badge: multicamPlan.badge,
   };
 
   const stats4: StatTile[] = [
@@ -133,40 +157,57 @@ export default async function PanoodAppStorePage({ params }: Props) {
     },
     {
       eyebrow: 'Pricing',
-      value: dailyPriceLabel,
-      caption: 'per day',
+      value: 'Free',
+      caption: `+ multicam from ${multicamPriceLabel}`,
     },
   ];
 
-  const heroCta = (
+  // The PAID multicam upgrade CTA. In the 'add' state it opens the plan sheet
+  // for PANOOD_SYSTEM; once owned it flips to "Open control room" → ./broadcast
+  // (the resolved 'launch' href). The FREE single-cam tier never goes through
+  // this — it's the primary hero CTA below, a plain link into ./setup.
+  const multicamCta = (
     <AddOnStateCta
       context={stateCtx}
-      launchLabel="Launch"
+      launchLabel="Open control room"
       choosePlan={{
         eventId,
-        triggerLabel: 'Add',
-        priceFromLabel: fromPriceFormatted,
-        // Single per-day plan. serviceKey = PANOOD_SKU_CODE so the drawer's
-        // order re-resolves the price from the admin catalog; priceCentavos is
-        // the live catalog price threaded through for the inline voucher math.
+        triggerLabel: 'Upgrade to multicam',
+        priceFromLabel: multicamFromLabel,
+        // Single per-day multicam SKU. serviceKey = PANOOD_SKU_CODE so the
+        // drawer's order re-resolves the price from the admin catalog;
+        // priceCentavos is the live catalog price threaded through for the
+        // inline voucher math.
         plans: [
           {
-            sku_code: dailyPlan.sku_code,
-            name: dailyPlan.name,
-            scope: dailyPlan.scope,
-            price: dailyPlan.price,
-            unit: dailyPlan.unit,
-            badge: dailyPlan.badge,
-            priceCentavos: dailyPlan.priceCentavos,
+            sku_code: multicamPlan.sku_code,
+            name: multicamPlan.name,
+            scope: multicamPlan.scope,
+            price: multicamPlan.price,
+            unit: multicamPlan.unit,
+            badge: multicamPlan.badge,
+            priceCentavos: multicamPlan.priceCentavos,
           },
         ],
         settings,
         introCopy:
-          'Filipino weddings often have separate event-days for prep, ceremony, and reception — buy one Panood broadcast day per event-day.',
+          'Single-camera livestream is already free for your event. The multicam control room unlocks everything else — connect multiple cameras and switch them live, broadcast multi-cam to YouTube (or run an in-house offline stream), route Photowall and LED-Wall content to every venue screen with extended multi-screen control, add overlays, and fire a live highlight generator for instant replays during the broadcast. Buy one control-room day per event-day.',
         footnote:
           'Apply-then-pay flow · we confirm price before payment · refunds follow the standard 24-hour SLA.',
       }}
     />
+  );
+
+  // PRIMARY hero CTA = the FREE single-cam livestream. Leads the page so Panood
+  // reads as "free to use, with an optional upgrade" — never as a paywall.
+  const freeGoLiveCta = (
+    <Link
+      href={setupHref}
+      className="inline-flex items-center gap-2 rounded-full bg-mulberry px-5 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600"
+    >
+      <Radio aria-hidden className="h-4 w-4" strokeWidth={2} />
+      Go live — free
+    </Link>
   );
 
   return (
@@ -177,33 +218,27 @@ export default async function PanoodAppStorePage({ params }: Props) {
         eyebrow: 'Panood',
         title: 'No one misses your day.',
         tagline:
-          'Family abroad, friends who couldn’t fly in, lola in the province — all watching live as it happens. And the whole day is yours to keep, forever.',
+          'Stream your day live on your own YouTube — free for every couple, kept forever. Need a real broadcast? Upgrade to the multicam control room: connect multiple cameras and switch live, stream multi-cam to YouTube or run an in-house offline feed, route Photowall + LED-Wall content to every venue screen, add overlays, and fire live replays as the moments happen.',
         statusPill:
-          statusPillForState(stateCtx.state) ?? { label: 'Web V1', tone: 'accent' },
-        cta: heroCta,
-        secondary: owned ? (
-          <Link
-            href={`/dashboard/${eventId}/studio/panood/broadcast`}
-            className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-4 py-2 text-xs font-medium text-ink/75 transition-colors hover:bg-ink/5"
-          >
-            <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            Broadcaster preview
-          </Link>
-        ) : null,
+          statusPillForState(stateCtx.state) ?? { label: 'Free · Web V1', tone: 'accent' },
+        // FREE single-cam is the lead. The PAID multicam upgrade sits beside it
+        // (or, once owned, becomes the "Open control room" launch button).
+        cta: freeGoLiveCta,
+        secondary: multicamCta,
       }}
       stats={stats4}
       justLaunchedChip={stats.hasLaunchSignal ? null : 'Just launched · early access'}
       preview={[
         {
-          context: 'Watching live',
-          caption: 'Family anywhere watches it happen, in real time.',
+          context: 'Free · single cam',
+          caption: 'Go live on your own YouTube from a phone or laptop.',
           body: (
             <span>
               <span aria-hidden className="block text-3xl">
                 ▶
               </span>
               <span className="mt-2 block text-[11px] text-ink/55">
-                No matter where they are
+                Free for every couple
               </span>
             </span>
           ),
@@ -218,8 +253,8 @@ export default async function PanoodAppStorePage({ params }: Props) {
           ),
         },
         {
-          context: 'Live as it happens',
-          caption: 'The aisle, the vows, the happy tears — in real time.',
+          context: 'Upgrade · cameras',
+          caption: 'Connect several phone cameras and cut between them live.',
           body: (
             <span aria-hidden className="block text-3xl">
               ◧
@@ -227,8 +262,35 @@ export default async function PanoodAppStorePage({ params }: Props) {
           ),
         },
         {
+          context: 'Upgrade · streaming',
+          caption: 'Multi-cam to YouTube — or run an in-house offline stream.',
+          body: (
+            <span aria-hidden className="block text-3xl">
+              ▶
+            </span>
+          ),
+        },
+        {
+          context: 'Upgrade · screens',
+          caption: 'Route Photowall + LED-Wall to every venue screen at once.',
+          body: (
+            <span aria-hidden className="block text-3xl">
+              ▦
+            </span>
+          ),
+        },
+        {
+          context: 'Upgrade · production',
+          caption: 'Overlays in your colors + live replays as moments happen.',
+          body: (
+            <span aria-hidden className="block text-3xl">
+              ✦
+            </span>
+          ),
+        },
+        {
           context: 'Yours forever',
-          caption: 'Saved for you to rewatch any time.',
+          caption: 'Auto-archived for you to rewatch any time.',
           body: (
             <span aria-hidden className="block text-3xl">
               ❖
@@ -239,22 +301,29 @@ export default async function PanoodAppStorePage({ params }: Props) {
       highlights={{
         title: "What you'll have",
         items: [
-          'Everyone watching live, wherever they are',
-          'The aisle, the vows, the happy tears — live as it happens',
-          'Right on your wedding page, in your colors',
-          'The whole day, saved for you to keep',
+          'Free · single-camera livestream on your own YouTube — phone or laptop',
+          'Free · right on your wedding page, in your colors',
+          'Free · the whole day, auto-archived for you to keep',
+          'Cameras · connect multiple cameras, switch between them live, and a one-tap camera switch',
+          'Streaming · multi-cam YouTube live, live streaming, plus an in-house (offline/local) stream',
+          'Screens · Photowall → screen, LED Wall → screen, extended screen control across multiple screens',
+          'Production · overlays in your colors and a live highlight generator that makes replays during the broadcast',
         ],
       }}
       description={{
         paragraphs: [
-          'Half the people who love you can’t fit in the room — or can’t make the trip at all. Panood brings them in. Your wedding streams live, so the people who matter are there for every moment as it happens.',
-          'And it doesn’t end when the day does. The whole celebration is saved for you — rewatch the vows, the first dance, the speeches, any time you want.',
-          `Panood covers one day of your celebration (${dailyPriceLabel} / day): you go live on your own YouTube — from a phone or a laptop — and it plays right on your event page, in your colors. Filipino weddings often run across a few days — prep, ceremony, reception — so add a day for each.`,
+          'Half the people who love you can’t fit in the room — or can’t make the trip at all. Panood brings them in. The single-camera livestream is free for every couple: go live on your own YouTube, from a phone or a laptop, and it plays right on your event page, in your colors. The whole celebration auto-archives, so you can rewatch the vows, the first dance, the speeches, any time you want.',
+          `Want a real broadcast? The multicam control room is the premium upgrade (${multicamPriceLabel} / day), and it unlocks everything below for the day. Cameras: connect multiple cameras, switch between them live, and tap a single camera switch. Streaming: multi-cam YouTube live, live streaming, plus an in-house (offline/local) stream so the show plays even when the venue Wi-Fi can’t. Screens: route Photowall content and LED-Wall content straight to the venue screens, with extended screen control across multiple screens at once. Production: overlays in your colors and a live highlight generator that builds replays during the broadcast. The four capabilities, in one line: connect multiple cameras · control multiple screens · broadcast via YouTube · also run an in-house offline stream.`,
+          'Two notes so nothing surprises you. The highlight generator here makes LIVE replays during the broadcast — your post-event edits (AI Highlight, the Same-Day Edit, the Thank-You video) are still their own separate services. And Panood routes Photowall and LED-Wall content onto your screens — the standalone PhotoWall and Live-Background (LED) content services stay separate; the control room is what puts them on the venue screens.',
+          'Both tiers cover one event-day. Filipino weddings often run across a few days — prep, ceremony, reception — so go live free on each, and add a multicam control-room day wherever you want the full production.',
         ],
-        plans: [planRow],
+        plans: [freePlanRow, multicamPlanRow],
         notIncluded: [
           'Your camera people are friends or family with phones — not a hired crew.',
-          'Streams to YouTube, not Facebook.',
+          'The free tier is single-camera. Multi-cam switching, multi-cam YouTube, the in-house offline stream, Photowall/LED routing, multi-screen control, overlays, and the live highlight generator are the paid control-room upgrade.',
+          'The live highlight generator makes replays during the broadcast — post-event edits (AI Highlight · SDE · Thank-You video) are separate services.',
+          'Panood routes Photowall + LED-Wall content to your screens — the standalone PhotoWall and Live-Background (LED) content services are bought separately.',
+          'Build state: the control room and these surfaces are in place; live multi-cam video is rolling out as the streaming infrastructure comes online.',
         ],
       }}
       reviews={{

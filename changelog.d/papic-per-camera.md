@@ -52,7 +52,7 @@ per-camera seats ONLY (sku_code `PAPIC_CAMERA_*`; the legacy pack + sampler are
 untouched — per-camera seats also skip the legacy `PAPIC_SEATS` ownership check
 since they carry their own paid-gate).
 
-- New migration `20270301010000_papic_camera_quota_rpcs.sql` — two SECURITY
+- New migration `20270301349537_papic_camera_quota_rpcs.sql` — two SECURITY
   DEFINER fns over `papic_seat_day_usage`: `papic_reserve_camera_capture` (the
   atomic, race-safe conditional-increment record-layer gate) and
   `papic_camera_remaining` (read-only presign probe).

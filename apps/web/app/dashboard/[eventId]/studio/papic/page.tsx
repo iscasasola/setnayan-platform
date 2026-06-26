@@ -111,17 +111,18 @@ type Props = {
 // free) — the flat ₱2,999 PAPIC_SEATS pass is retired (PR5, 2026-06-26). Live
 // per-camera rates are read from the admin catalog via fetchCameraRates, not a
 // hardcoded number.
-// Camera Bridge is a PAID add-on at ₱200/seat/day (owner 2026-06-26 · reverses
-// the 2026-06-18 "included with Papic, no separate purchase" decision). Price is
-// admin-managed in platform_retail_catalog_v2 (CAMERA_BRIDGE); the DSLR pairing
-// itself is native-app V1.5, so the web card is informational.
+// Camera Bridge is a PAID add-on at ₱100/seat/day, capped at ₱2,000 (owner
+// 2026-06-26 · reverses the 2026-06-18 "included with Papic, no separate
+// purchase" decision). Price is admin-managed in platform_retail_catalog_v2
+// (CAMERA_BRIDGE); the DSLR pairing itself is native-app V1.5, so the web card
+// is informational (the per-seat/day + cap billing lands with that feature).
 
 // Seat + claim state is now read live from public.paparazzi_seats (paid pass
 // or free sampler) via fetchPapicSeats / fetchPapicSamplerSeats — see the
 // data-fetch in PapicAddonPage. The former MOCK_SEAT_PACK / MockSeat /
 // MOCK_SEATS fakes (with invented claimer names + invented per-seat DSLR
 // bridges) are deleted: paparazzi_seats has no bridge column, so the bridge
-// card is now an honest "₱200/seat/day · pairs in the native app" card
+// card is now an honest "₱100/seat/day · pairs in the native app" card
 // rather than a fake "X of Y bridged" roster.
 
 type Gesture = {
@@ -1224,7 +1225,7 @@ function ProCameraBridgeCard() {
         <h2 className="text-xl font-semibold tracking-tight">
           Pair a real camera body —{' '}
           <span className="font-mono text-base text-terracotta">
-            ₱200 / seat / day
+            ₱100 / seat / day
           </span>
         </h2>
       </div>
@@ -1233,8 +1234,8 @@ function ProCameraBridgeCard() {
         Turn one phone seat into a phone + DSLR pair. The phone keeps doing
         all of the work — gesture shutter, QR tagging, EXIF stamping,
         adaptive compression, upload — and the camera body provides the
-        optical glass. The DSLR Camera Bridge is ₱200 per seat, per day
-        (pairs in the native Papic app · V1.5).
+        optical glass. The DSLR Camera Bridge is ₱100 per seat, per day
+        (capped at ₱2,000 · pairs in the native Papic app · V1.5).
       </p>
 
       <div className="flex items-start gap-2 rounded-xl border border-dashed border-ink/15 bg-cream/60 p-3 sm:p-4">

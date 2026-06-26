@@ -16,8 +16,8 @@ tiers are renamed Ltd/Unli, and the à-la-carte add-ons are repriced.
   (never-rename-technical-ids lock) — display-only rename.
 - **Add-on reprice** (admin catalog): Thank You ₱3,499 → **₱1,500** ·
   Stories ₱1,499 → **₱2,000** · Pabati (video guestbook) ₱999 → **₱500** ·
-  Camera Bridge ₱1,499 → **₱200/seat/day** (reverses the 2026-06-18 "included
-  free" decision; "included free" studio copy corrected to the ₱200 rate).
+  Camera Bridge ₱1,499 → **₱100/seat/day, max ₱2,000** (reverses the 2026-06-18
+  "included free" decision; studio copy corrected to the ₱100 rate + cap).
 - **₱2,999 removed**: `PAPIC_GUEST` (Disposable) deactivated, joining
   `PAPIC_SEATS`. Encoded in the migration so a fresh DB reproduces it.
 - Re-applies the public `/pricing` "Papic Cameras · from ₱30/camera" collapse +

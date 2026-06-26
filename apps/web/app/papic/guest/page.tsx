@@ -2,7 +2,7 @@ import { Camera } from 'lucide-react';
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
-import { eventSkuActive } from '@/lib/entitlements';
+import { eventKwentoEnabled } from '@/lib/kwento-access';
 import { PapicGuestCapture } from './_components/papic-guest-capture';
 
 // Papic · guest camera (PAPIC_GUEST · ₱2,999 — "Every guest's phone, a candid
@@ -77,11 +77,12 @@ export default async function PapicGuestPage() {
         .eq('guest_id', session.guest_id)
         .is('revoked_at', null)
         .maybeSingle(),
-      // Kwento is a paid unlock (KWENTO SKU · bundle-aware, admin-approved). When
-      // the event doesn't own it the composer must NOT show the "tell the story"
-      // prompt — POST /api/papic/kwento 403s feature_not_owned, so an ungated
-      // prompt would just silently fail. Mirror the server gate on the client.
-      eventSkuActive(admin, session.event_id, 'KWENTO'),
+      // Kwento is a paid unlock — NEW EVENTS ONLY (grandfathered events stay
+      // free; newer events need KWENTO directly or via a bundle). When the event
+      // isn't enabled the composer must NOT show the "tell the story" prompt —
+      // POST /api/papic/kwento 403s feature_not_owned, so an ungated prompt would
+      // just silently fail. Mirror the server gate on the client.
+      eventKwentoEnabled(admin, session.event_id),
     ]);
 
   const guestName =

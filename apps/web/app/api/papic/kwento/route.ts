@@ -1,7 +1,7 @@
 import { NextResponse, after } from 'next/server';
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { eventSkuActive } from '@/lib/entitlements';
+import { eventKwentoEnabled } from '@/lib/kwento-access';
 import { eventPapicActive } from '@/lib/papic-seats';
 import { moderateKwentoText } from '@/lib/kwento-moderation';
 import { emitNotification } from '@/lib/notification-emit';
@@ -46,11 +46,12 @@ export async function POST(req: Request) {
   const session = await readGuestSession();
   if (!session) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
-  // Kwento is paid-to-unlock (owner 2026-06-26 · ₱500). Gate the whole
-  // submission on the event owning KWENTO (bundle-aware · admin-approved). No
-  // unlock, no words — a guest can't anchor a Kwento unless the couple bought it.
+  // Kwento is paid-to-unlock (owner 2026-06-26) — NEW EVENTS ONLY: events that
+  // existed at the 2026-06-27 cutover are grandfathered free; newer events need
+  // the KWENTO entitlement (direct or via a bundle, e.g. PAPIC_UNLOCK). No
+  // enablement, no words — a guest can't anchor a Kwento unless the event has it.
   const admin = createAdminClient();
-  if (!(await eventSkuActive(admin, session.event_id, 'KWENTO'))) {
+  if (!(await eventKwentoEnabled(admin, session.event_id))) {
     return NextResponse.json({ error: 'feature_not_owned' }, { status: 403 });
   }
   // Kwento is a Papic ADD-ON — it also requires Papic active (owner 2026-06-26).

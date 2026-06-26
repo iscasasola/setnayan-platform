@@ -125,6 +125,7 @@ export default async function PapicGuestPage() {
       termsAccepted={termsAccepted}
       needsFaceEnroll={!liveEnrollment}
       canKwento={canKwento}
+      guestUnlimited={quota.unlimited}
     />
   );
 }

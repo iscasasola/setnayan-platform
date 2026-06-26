@@ -19,7 +19,9 @@ import {
   checkOrderActive,
   eventOwnsSku,
   eventSkuActive,
+  eventHasPapicUnlock,
   BUNDLE_CHILD_SKUS,
+  PAPIC_UNLOCK_SKU,
   RELINQUISHED_STATUSES,
   ACTIVE_STATUSES,
 } from './entitlements';
@@ -370,4 +372,53 @@ test('eventSkuActive: GUIDED_PACK (paid) activates a member but not a media-only
 test('eventSkuActive: nothing owned → not active', async () => {
   const supabase = makeOwnedSupabase(new Set(), 'paid');
   assert.equal(await eventSkuActive(supabase, 'evt_1', 'STD_PREMIUM_OPENINGS'), false);
+});
+
+// ──────────────────────────────────────────────────────────────────────────
+// PAPIC_UNLOCK — the "Unlock all of Papic" umbrella bundle (PR9 #2269) +
+// eventHasPapicUnlock, the deferred-allowance reader (this PR). A PAID
+// PAPIC_UNLOCK activates every Papic feature SKU via the bundle, and
+// eventHasPapicUnlock gates the per-camera + guest-cap allowance bypasses.
+// ──────────────────────────────────────────────────────────────────────────
+
+test('PAPIC_UNLOCK bundle grants every Papic add-on (incl. the reconcile additions)', async () => {
+  for (const sku of BUNDLE_CHILD_SKUS.PAPIC_UNLOCK) {
+    const supabase = makeOwnedSupabase(new Set([PAPIC_UNLOCK_SKU]), 'paid');
+    assert.equal(
+      await eventSkuActive(supabase, 'evt_1', sku),
+      true,
+      `a paid PAPIC_UNLOCK should activate ${sku}`,
+    );
+  }
+});
+
+test('PAPIC_UNLOCK includes PAPIC_GUEST (so the guest camera unlocks = "unli guests") + SDE + Patiktok', () => {
+  for (const sku of ['PAPIC_GUEST', 'SDE', 'PATIKTOK_COMPILER', 'KWENTO', 'LIVE_WALL', 'CAMERA_BRIDGE']) {
+    assert.ok(
+      BUNDLE_CHILD_SKUS.PAPIC_UNLOCK.includes(sku),
+      `PAPIC_UNLOCK should include ${sku}`,
+    );
+  }
+  // Deprecated crew pack stays OUT (superseded by the per-camera model).
+  assert.ok(!BUNDLE_CHILD_SKUS.PAPIC_UNLOCK.includes('PAPIC_SEATS'));
+});
+
+test('eventHasPapicUnlock: true only for a paid/fulfilled PAPIC_UNLOCK pass', async () => {
+  assert.equal(
+    await eventHasPapicUnlock(makeOwnedSupabase(new Set([PAPIC_UNLOCK_SKU]), 'paid'), 'evt_1'),
+    true,
+  );
+  assert.equal(
+    await eventHasPapicUnlock(makeOwnedSupabase(new Set([PAPIC_UNLOCK_SKU]), 'fulfilled'), 'evt_1'),
+    true,
+  );
+  // Pending pass does NOT lift allowances (the handshake).
+  assert.equal(
+    await eventHasPapicUnlock(makeOwnedSupabase(new Set([PAPIC_UNLOCK_SKU]), 'submitted'), 'evt_1'),
+    false,
+  );
+  assert.equal(
+    await eventHasPapicUnlock(makeOwnedSupabase(new Set(), 'paid'), 'evt_1'),
+    false,
+  );
 });

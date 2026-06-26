@@ -169,12 +169,19 @@ export const BUNDLE_CHILD_SKUS: Readonly<{
     'PAKANTA',
   ]),
   // Papic "Unlock all" — the per-Papic umbrella bundle (owner 2026-06-26). Grants
-  // every Papic ADD-ON so eventSkuActive(KWENTO / LIVE_WALL / …) resolves via this
-  // bundle (app-side). The `lint:entitlement-gates` Guard 2 only validates
+  // every Papic feature SKU so eventSkuActive(KWENTO / LIVE_WALL / …) resolves via
+  // this bundle (app-side). The `lint:entitlement-gates` Guard 2 only validates
   // GUIDED_PACK/MEDIA_PACK by name, so a 3rd key is fine.
-  // ⚠ TWO things NOT done here (deferred · DECISION_LOG 2026-06-26): the per-camera
-  // UNLI ALLOWANCE (unlimited cameras = a capture-gate bypass) and the DB-side
-  // bundles_granting_sku() mirror for PAPIC_UNLOCK. App-side add-on gates work now.
+  //
+  // The per-camera UNLI ALLOWANCE (unlimited cameras) + the guest 150-credit cap
+  // lift — flagged as deferred when PR9 (#2269) shipped the bundle — now land via
+  // eventHasPapicUnlock() below: a capture-gate bypass in the lib/papic-cameras
+  // call sites + the papic_record_guest_capture RPC. PAPIC_GUEST is in the list
+  // so the guest disposable camera surface unlocks (its cap is then lifted =
+  // "unli guests"). PAPIC_SEATS stays OUT — it's the deprecated ₱2,999 crew pack
+  // (superseded by the per-camera model, whose cameras the bypass makes
+  // unlimited regardless). Still deferred: the DB-side bundles_granting_sku()
+  // mirror for PAPIC_UNLOCK.
   PAPIC_UNLOCK: Object.freeze([
     'KWENTO',
     'LIVE_WALL',
@@ -182,6 +189,9 @@ export const BUNDLE_CHILD_SKUS: Readonly<{
     'PAPIC_ADDON_STORIES',
     'PABATI',
     'CAMERA_BRIDGE',
+    'PAPIC_GUEST',
+    'SDE',
+    'PATIKTOK_COMPILER',
   ]),
 });
 
@@ -262,6 +272,27 @@ export async function eventSkuActive(
     if (await checkOrderActive(supabase, eventId, bundleKey)) return true;
   }
   return false;
+}
+
+/** The "Unlock all of Papic" umbrella package code (PR9 · #2269). */
+export const PAPIC_UNLOCK_SKU = 'PAPIC_UNLOCK';
+
+/**
+ * Does this event own an ACTIVE (admin-approved) "Unlock all of Papic" pass? The
+ * Papic ALLOWANCE-bypass reader: the per-camera day-quota gates (lib/papic-cameras
+ * call sites) and the guest disposable 150-credit cap read this to switch a
+ * camera/guest to "unlimited" — the deferred half of PR9 (#2269), which unlocked
+ * the add-on FEATURES via BUNDLE_CHILD_SKUS.PAPIC_UNLOCK but left the metered
+ * allowances in place. Active-only (paid/fulfilled) — a pending pass never lifts
+ * a limit. Same graceful-degrade contract as checkOrderActive (42P01/42703 →
+ * false, throws on unknown). Pass an ADMIN client on public/claimer surfaces
+ * (orders RLS is purchaser-scoped).
+ */
+export async function eventHasPapicUnlock(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<boolean> {
+  return checkOrderActive(supabase, eventId, PAPIC_UNLOCK_SKU);
 }
 
 /**

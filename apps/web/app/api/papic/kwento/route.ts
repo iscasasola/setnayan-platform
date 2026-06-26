@@ -1,6 +1,7 @@
 import { NextResponse, after } from 'next/server';
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { eventSkuActive } from '@/lib/entitlements';
 import { moderateKwentoText } from '@/lib/kwento-moderation';
 import { emitNotification } from '@/lib/notification-emit';
 
@@ -44,6 +45,14 @@ export async function POST(req: Request) {
   const session = await readGuestSession();
   if (!session) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
+  // Kwento is paid-to-unlock (owner 2026-06-26 · ₱500). Gate the whole
+  // submission on the event owning KWENTO (bundle-aware · admin-approved). No
+  // unlock, no words — a guest can't anchor a Kwento unless the couple bought it.
+  const admin = createAdminClient();
+  if (!(await eventSkuActive(admin, session.event_id, 'KWENTO'))) {
+    return NextResponse.json({ error: 'feature_not_owned' }, { status: 403 });
+  }
+
   let body: { captureId?: string; body?: string; consent?: boolean; voiceDepth?: string };
   try {
     body = (await req.json()) as typeof body;
@@ -75,7 +84,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'keep_it_sweet' }, { status: 422 });
   }
 
-  const admin = createAdminClient();
   const { data, error } = await admin.rpc('submit_photo_message', {
     p_guest_id: session.guest_id,
     p_source_table: 'papic_guest_captures',

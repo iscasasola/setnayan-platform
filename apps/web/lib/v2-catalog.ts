@@ -102,6 +102,7 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
   HIGH_RES_ARCHIVE:    'partial',  // 0009 photo delivery partial
   LIVE_BACKGROUND:     'partial',  // 0005 Pailaw engineering brief · code not verified
   PABATI:              'live',     // video guestbook end-to-end: gated day-of card + 5s guest recorder + recap section · collector exists · 2026-06-22
+  KWENTO:              'live',     // words-on-a-photo · paid-to-unlock ₱500 · gated at route + moderation · 2026-06-26
 
   // Not built · catalog-only · no fulfillment yet
   PAKANTA:               'live',       // custom-song delivery end-to-end: intake + admin upload → auto-plays on the couple's site (PR #2038) · 2026-06-22

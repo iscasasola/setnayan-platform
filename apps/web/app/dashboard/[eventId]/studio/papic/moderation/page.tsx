@@ -8,6 +8,10 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { reScreenStuckCaptures } from '@/lib/nsfw-screen';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { eventPapicGuestActive } from '@/lib/papic-guest';
+import { eventSkuActive } from '@/lib/entitlements';
+import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import { KwentoQueue } from './_components/kwento-queue';
 import {
   reportCapture,
@@ -71,6 +75,19 @@ export default async function PapicModerationPage({
   const admin = createAdminClient();
 
   const owns = await eventPapicGuestActive(admin, eventId);
+
+  // Kwento is paid-to-unlock (owner 2026-06-26 · ₱500). The words-on-a-photo
+  // queue is gated on KWENTO (bundle-aware · admin-approved); photo moderation
+  // above stays free. Price + pay rails for the inline buy when unowned.
+  const [ownsKwento, kwentoSku, platformSettings] = await Promise.all([
+    eventSkuActive(admin, eventId, 'KWENTO'),
+    formatV2Sku('KWENTO').catch(() => null),
+    fetchPlatformSettings(supabase),
+  ]);
+  const kwentoPricePhp = kwentoSku?.price_php ?? 500;
+  const kwentoPriceLabel = `₱${Number(kwentoPricePhp).toLocaleString('en-PH', {
+    maximumFractionDigits: 0,
+  })}`;
 
   // Captures (newest first), the blocked-guest list, any open reports, and the
   // NSFW-screened (auto-filtered) captures from BOTH capture tables — one
@@ -454,7 +471,41 @@ export default async function PapicModerationPage({
         </section>
       )}
 
-      <KwentoQueue eventId={eventId} />
+      {ownsKwento ? (
+        <KwentoQueue eventId={eventId} />
+      ) : (
+        <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="space-y-1">
+              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+                Kwento · words on a photo
+              </p>
+              <h2 className="text-xl font-semibold tracking-tight">
+                Let guests leave a message
+              </h2>
+            </div>
+            <span className="font-mono text-base text-terracotta">{kwentoPriceLabel}</span>
+          </div>
+          <p className="max-w-prose text-sm text-ink/70">
+            Unlock Kwento and your guests can anchor a short message, story, or
+            chismis to any photo or clip — you approve each one before it shows in
+            the gallery and on your editorial page.
+          </p>
+          {platformSettings ? (
+            <InlineCheckoutDrawer
+              eventId={eventId}
+              serviceKey="KWENTO"
+              displayName="Kwento — words on a photo"
+              originalPriceCentavos={String(Math.round(kwentoPricePhp * 100))}
+              settings={platformSettings}
+              triggerLabel={`Unlock Kwento · ${kwentoPriceLabel}`}
+              triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70 sm:w-auto"
+            />
+          ) : (
+            <span className="text-sm font-mono text-ink/60">{kwentoPriceLabel}</span>
+          )}
+        </section>
+      )}
 
       <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
         Source · iteration 0012 Papic · UGC moderation (Apple 1.2 / Google Play UGC)

@@ -17,6 +17,9 @@ export type GalleryTagSource = 'auto_face' | 'qr' | 'manual' | 'untagged';
 export type GalleryPhoto = {
   id: string;
   url: string | null;
+  /** Presigned URL of the actual VIDEO for clips (so the gallery can play it),
+   *  null for photos. `url` stays the poster/thumb for the tile either way. */
+  playUrl?: string | null;
   kind: 'photo' | 'clip';
   // Which capture table the row lives in. The showcase-approval toggle routes
   // to the matching action: seat clips flip papic_photos, guest clips flip
@@ -105,7 +108,10 @@ export async function fetchPapicGallery(
     /* untagged fallback */
   }
 
-  type Pre = Omit<GalleryPhoto, 'url'> & { ref: string | null };
+  type Pre = Omit<GalleryPhoto, 'url' | 'playUrl'> & {
+    ref: string | null;
+    videoRef: string | null;
+  };
 
   const seatPhotos: Pre[] = visibleSeat.map((r) => {
     const isClip = r.photo_type === 'clip';
@@ -120,6 +126,9 @@ export async function fetchPapicGallery(
         (r.display_r2_key as string | null) ??
         (isClip ? (r.poster_r2_key as string | null) : (r.r2_object_key as string | null)) ??
         (r.r2_object_key as string | null),
+      // The playable video lives at r2_object_key for a clip (the tile shows its
+      // poster). Photos have no separate video.
+      videoRef: isClip ? (r.r2_object_key as string | null) : null,
       kind: isClip ? 'clip' : 'photo',
       source: 'seat',
       tagged: Boolean(tagSrc),
@@ -149,6 +158,7 @@ export async function fetchPapicGallery(
         (r.display_r2_key as string | null) ??
         (isClip ? (r.poster_r2_key as string | null) : (r.r2_object_key as string | null)) ??
         (r.r2_object_key as string | null),
+      videoRef: isClip ? (r.r2_object_key as string | null) : null,
       kind: isClip ? 'clip' : 'photo',
       source: 'guest',
       tagged: Boolean(tagSrc),
@@ -164,9 +174,10 @@ export async function fetchPapicGallery(
   );
 
   return Promise.all(
-    merged.map(async ({ ref, ...rest }) => ({
+    merged.map(async ({ ref, videoRef, ...rest }) => ({
       ...rest,
       url: ref ? await displayUrlForStoredAsset(ref) : null,
+      playUrl: videoRef ? await displayUrlForStoredAsset(videoRef) : null,
     })),
   );
 }

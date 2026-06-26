@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import {
   Camera,
   Loader2,
@@ -13,7 +13,6 @@ import {
   ScanLine,
   Users,
   Globe,
-  Video,
   Square,
 } from 'lucide-react';
 import { DayOfFaceEnroll } from '@/app/[slug]/_components/day-of-face-enroll';
@@ -21,6 +20,7 @@ import { makeQrDetector } from '@/lib/qr-scan';
 
 const TAG_CAP = 10; // max tags per photo (corpus hard cap · mirrored server-side)
 const MAX_CLIP_MS = 5000; // 5-SECOND HARD CAP — corpus lock, mirrored route + RPC.
+const HOLD_MS = 260; // tap-vs-hold boundary: a press held this long starts a clip
 
 /** Friendly, guest-facing copy for a tag failure. The camera never breaks on a
  *  tag miss — these just steer the next scan. */
@@ -54,8 +54,8 @@ function tagErrorMessage(error: string): string {
 // authoritative `remaining` credit count, so the client never owns the cap —
 // it just reflects what the server returns.
 //
-// PHOTO + CLIP (Option A): a mode toggle adds a "record a 5-second clip" path.
-// In clip mode the stream also grabs audio and a MediaRecorder records with a
+// PHOTO + CLIP: the gesture shutter (tap = photo, press-and-hold = record) — no
+// mode toggle. The stream always grabs audio and a MediaRecorder records with a
 // HARD 5000ms client stop (the corpus 5s cap, re-clamped server-side) plus a
 // poster frame (first frame to a canvas, JPEG — the NSFW-screen proxy). The
 // clip + poster + duration POST to the SAME route with media_type=clip. Guest
@@ -104,14 +104,17 @@ export function PapicGuestCapture({
   const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const posterBlobRef = useRef<Blob | null>(null);
+  // Gesture shutter: a hold-timer tells a TAP (photo) from a HOLD (record).
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const didHoldRef = useRef(false);
+  // Synchronous mirror of the recorder lifecycle (React `recording` only clears
+  // in the async onstop) so a rapid re-press isn't blocked by a stale flag.
+  const recordingRef = useRef(false);
 
   const [ready, setReady] = useState(false);
   const [camError, setCamError] = useState(false);
   const [busy, setBusy] = useState(false);
   const [remaining, setRemaining] = useState(initialRemaining);
-  // Capture mode: 'photo' (the default JPEG path) | 'clip' (a 5s video). The
-  // toggle re-acquires the stream — clip mode needs audio, photo mode doesn't.
-  const [mode, setMode] = useState<'photo' | 'clip'>('photo');
   // Clip recording phase + elapsed (for the 5s countdown ring).
   const [recording, setRecording] = useState(false);
   const [recElapsed, setRecElapsed] = useState(0);
@@ -201,13 +204,24 @@ export function PapicGuestCapture({
     if (!accepted || blocked || enrolling) return;
     let cancelled = false;
     setReady(false);
+    async function acquire(withAudio: boolean) {
+      return navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' } },
+        audio: withAudio,
+      });
+    }
     async function start() {
+      // The gesture shutter means we don't know up front whether the next press
+      // is a photo or a hold-to-record, so prefer audio so a long-press clip has
+      // sound; fall back to video-only (silent clips) if the mic is denied,
+      // rather than losing the camera. The <video> is always muted (no echo).
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' } },
-          // Clip mode records sound; photo mode never opens the mic.
-          audio: mode === 'clip',
-        });
+        let stream: MediaStream;
+        try {
+          stream = await acquire(true);
+        } catch {
+          stream = await acquire(false);
+        }
         if (cancelled) {
           stream.getTracks().forEach((t) => t.stop());
           return;
@@ -215,7 +229,7 @@ export function PapicGuestCapture({
         streamRef.current = stream;
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          videoRef.current.muted = true; // never echo the guest's own mic in clip mode
+          videoRef.current.muted = true; // never echo the guest's own mic
           await videoRef.current.play().catch(() => {});
         }
         setReady(true);
@@ -228,7 +242,7 @@ export function PapicGuestCapture({
       cancelled = true;
       streamRef.current?.getTracks().forEach((t) => t.stop());
     };
-  }, [accepted, blocked, enrolling, mode]);
+  }, [accepted, blocked, enrolling]);
 
   const capture = useCallback(async () => {
     if (busy || !ready || exhausted || !accepted || blocked) return;
@@ -339,12 +353,12 @@ export function PapicGuestCapture({
     }
   }, [busy, ready, exhausted, accepted, blocked, sharePublicly, canKwento]);
 
-  // Stop any in-flight recording + clear its timers when the component unmounts
-  // or the mode flips away from clip (the camera effect re-acquires the stream).
+  // Stop any in-flight recording + clear its timers when the component unmounts.
   useEffect(() => {
     return () => {
       if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
       if (tickRef.current) clearInterval(tickRef.current);
+      if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
       const rec = recorderRef.current;
       if (rec && rec.state !== 'inactive') {
         try {
@@ -354,7 +368,7 @@ export function PapicGuestCapture({
         }
       }
     };
-  }, [mode]);
+  }, []);
 
   // ---- clip recording (Option A · mirrors pabati-prompt.tsx) ----------------
 
@@ -456,6 +470,9 @@ export function PapicGuestCapture({
   );
 
   const stopRecording = useCallback(() => {
+    // Flip the synchronous flag the instant we ask to stop, so a re-press in the
+    // window before onstop fires isn't blocked by a stale flag.
+    recordingRef.current = false;
     if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
     if (tickRef.current) clearInterval(tickRef.current);
     const rec = recorderRef.current;
@@ -468,14 +485,16 @@ export function PapicGuestCapture({
     }
   }, []);
 
-  const startRecording = useCallback(async () => {
-    if (!ready || exhausted || busy || recording || !accepted || blocked) return;
+  const startRecording = useCallback(() => {
+    if (!ready || exhausted || busy || recordingRef.current || !accepted || blocked) return;
     const stream = streamRef.current;
     if (!stream) return;
 
-    // Grab the poster frame up front (first frame) for the NSFW screen.
-    posterBlobRef.current = await grabPoster();
-
+    // Create + START the recorder SYNCHRONOUSLY (no await before start) so the
+    // moment a hold fires there is a live recorder the matching release can
+    // stop. (A prior `await grabPoster()` here stranded a recording when a quick
+    // hold-release landed in that async window.) The poster is grabbed in onstop
+    // from the last live frame instead.
     chunksRef.current = [];
     let mimeType = '';
     if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported) {
@@ -494,8 +513,13 @@ export function PapicGuestCapture({
     rec.ondataavailable = (e) => {
       if (e.data && e.data.size > 0) chunksRef.current.push(e.data);
     };
-    rec.onstop = () => {
+    rec.onstop = async () => {
+      recordingRef.current = false;
       setRecording(false);
+      if (tickRef.current) {
+        clearInterval(tickRef.current);
+        tickRef.current = null;
+      }
       const durationMs = Math.min(Date.now() - startedAtRef.current, MAX_CLIP_MS);
       const type = rec.mimeType || mimeType || 'video/mp4';
       const clip = new Blob(chunksRef.current, { type });
@@ -504,6 +528,7 @@ export function PapicGuestCapture({
         setSaveError('That recording came back empty — try again.');
         return;
       }
+      posterBlobRef.current = await grabPoster(); // last live frame ≈ NSFW proxy
       void uploadClip(clip, durationMs);
     };
 
@@ -516,6 +541,7 @@ export function PapicGuestCapture({
       setSaveError('Couldn’t start recording — try again.');
       return;
     }
+    recordingRef.current = true;
     setRecording(true);
 
     // HARD 5-second stop — the corpus cap (route + RPC clamp too).
@@ -523,7 +549,64 @@ export function PapicGuestCapture({
     tickRef.current = setInterval(() => {
       setRecElapsed(Math.min(MAX_CLIP_MS, Date.now() - startedAtRef.current));
     }, 100);
-  }, [ready, exhausted, busy, recording, accepted, blocked, grabPoster, uploadClip, stopRecording]);
+  }, [ready, exhausted, busy, accepted, blocked, grabPoster, uploadClip, stopRecording]);
+
+  // ---- gesture shutter -----------------------------------------------------
+  // TAP = photo, HOLD = record (release / 5s cap stops it). One button, no mode
+  // toggle. pointerdown arms a hold timer; a release before HOLD_MS is a tap.
+  const onShutterDown = useCallback(
+    (e: RPointerEvent<HTMLButtonElement>) => {
+      if (recordingRef.current || busy || !ready || exhausted || tagging || !accepted || blocked) return;
+      // Capture the pointer so up/cancel land on this button even if the finger
+      // drifts off — robust taps + no stranded recording.
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        /* unsupported — degrade to plain pointerup */
+      }
+      didHoldRef.current = false;
+      holdTimerRef.current = setTimeout(() => {
+        holdTimerRef.current = null;
+        didHoldRef.current = true;
+        if (typeof navigator !== 'undefined') navigator.vibrate?.(40);
+        void startRecording();
+      }, HOLD_MS);
+    },
+    [busy, ready, exhausted, tagging, accepted, blocked, startRecording],
+  );
+
+  const onShutterUp = useCallback(
+    (e: RPointerEvent<HTMLButtonElement>) => {
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        /* wasn't captured */
+      }
+      if (holdTimerRef.current) {
+        clearTimeout(holdTimerRef.current);
+        holdTimerRef.current = null;
+      }
+      if (didHoldRef.current) {
+        didHoldRef.current = false;
+        stopRecording();
+        return;
+      }
+      void capture();
+    },
+    [capture, stopRecording],
+  );
+
+  // System interruption mid-press — stop a running clip, never fire a photo.
+  const onShutterCancel = useCallback(() => {
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+    if (didHoldRef.current) {
+      didHoldRef.current = false;
+      stopRecording();
+    }
+  }, [stopRecording]);
 
   // ---- scan-to-tag ---------------------------------------------------------
 
@@ -986,94 +1069,86 @@ export function PapicGuestCapture({
       <div className="space-y-3 px-4 pb-8 pt-4">
         {saveError && <p className="text-center text-xs text-cream/80">{saveError}</p>}
 
-        {/* Photo / Clip mode toggle (Option A). Hidden while exhausted, tagging,
-            or mid-record (no swapping the stream out from under a recording). */}
-        {!exhausted && !tagging && !recording ? (
-          <div className="mx-auto flex w-fit items-center gap-1 rounded-full bg-cream/10 p-1" role="tablist" aria-label="Capture mode">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === 'photo'}
-              onClick={() => setMode('photo')}
-              className={
-                mode === 'photo'
-                  ? 'inline-flex items-center gap-1.5 rounded-full bg-cream px-3.5 py-1.5 text-xs font-medium text-ink'
-                  : 'inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium text-cream/70 hover:text-cream'
-              }
-            >
-              <Camera aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-              Photo
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === 'clip'}
-              onClick={() => setMode('clip')}
-              className={
-                mode === 'clip'
-                  ? 'inline-flex items-center gap-1.5 rounded-full bg-cream px-3.5 py-1.5 text-xs font-medium text-ink'
-                  : 'inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium text-cream/70 hover:text-cream'
-              }
-            >
-              <Video aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-              5s clip
-            </button>
-          </div>
-        ) : null}
-
-        <div className="flex items-center justify-center">
-          {mode === 'clip' ? (
-            recording ? (
+        {/* THE gesture shutter: tap = photo, press-and-hold = record. Pointer
+            events (not onClick) drive the hold detection; the guards kill iOS
+            long-press selection / the context menu so a hold reliably records. */}
+        {!exhausted ? (
+          <div className="flex items-center justify-center">
+            <div className="relative h-[4.5rem] w-[4.5rem]">
+              {recording && (
+                <svg
+                  aria-hidden
+                  viewBox="0 0 72 72"
+                  className="pointer-events-none absolute inset-0 -rotate-90"
+                >
+                  <circle cx="36" cy="36" r="32" fill="none" stroke="rgba(245,240,232,0.18)" strokeWidth="4" />
+                  <circle
+                    cx="36"
+                    cy="36"
+                    r="32"
+                    fill="none"
+                    stroke="var(--m-terracotta, #c4674f)"
+                    strokeWidth="4"
+                    strokeLinecap="round"
+                    strokeDasharray={2 * Math.PI * 32}
+                    strokeDashoffset={2 * Math.PI * 32 * Math.min(recElapsed / MAX_CLIP_MS, 1)}
+                    style={{ transition: 'stroke-dashoffset 100ms linear' }}
+                  />
+                </svg>
+              )}
               <button
                 type="button"
-                onClick={stopRecording}
-                aria-label="Stop recording"
-                className="flex items-center justify-center rounded-full border-4 border-cream/80 bg-terracotta/30 transition active:scale-95"
-                style={{ height: '4.5rem', width: '4.5rem' }}
-              >
-                <Square aria-hidden className="h-6 w-6 text-cream" strokeWidth={2.5} />
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => void startRecording()}
-                disabled={busy || !ready || exhausted || tagging}
-                aria-label="Record a 5-second clip"
-                className="flex items-center justify-center rounded-full border-4 border-cream/80 bg-cream/10 transition active:scale-95 disabled:opacity-40"
-                style={{ height: '4.5rem', width: '4.5rem' }}
+                onPointerDown={onShutterDown}
+                onPointerUp={onShutterUp}
+                onPointerCancel={onShutterCancel}
+                onContextMenu={(e) => e.preventDefault()}
+                disabled={busy || !ready || tagging}
+                aria-label={
+                  recording
+                    ? 'Recording — release to stop'
+                    : 'Tap to take a photo, or press and hold to record a clip'
+                }
+                className={`flex h-full w-full items-center justify-center rounded-full border-4 border-cream/80 transition active:scale-95 disabled:opacity-40 ${
+                  recording ? 'bg-terracotta/30' : 'bg-cream/10'
+                }`}
+                style={{
+                  touchAction: 'manipulation',
+                  WebkitUserSelect: 'none',
+                  userSelect: 'none',
+                  WebkitTouchCallout: 'none',
+                }}
               >
                 {busy ? (
                   <Loader2 aria-hidden className="h-7 w-7 animate-spin text-cream" strokeWidth={2} />
+                ) : recording ? (
+                  <Square aria-hidden className="h-6 w-6 text-cream" strokeWidth={2.5} />
                 ) : (
-                  <Video aria-hidden className="h-7 w-7 text-cream" strokeWidth={1.75} />
+                  <Camera aria-hidden className="h-7 w-7 text-cream" strokeWidth={1.75} />
                 )}
               </button>
-            )
-          ) : (
-            <button
-              type="button"
-              onClick={capture}
-              disabled={busy || !ready || exhausted || tagging}
-              aria-label="Take a photo"
-              className="flex items-center justify-center rounded-full border-4 border-cream/80 bg-cream/10 transition active:scale-95 disabled:opacity-40"
-              style={{ height: '4.5rem', width: '4.5rem' }}
-            >
-              {busy ? (
-                <Loader2 aria-hidden className="h-7 w-7 animate-spin text-cream" strokeWidth={2} />
-              ) : (
-                <Camera aria-hidden className="h-7 w-7 text-cream" strokeWidth={1.75} />
-              )}
-            </button>
-          )}
-        </div>
+            </div>
+
+            {/* Keyboard / assistive-tech path — the press gesture is pointer-only. */}
+            <div className="sr-only">
+              <button type="button" onClick={() => void capture()} disabled={busy || !ready || tagging}>
+                Take a photo
+              </button>
+              <button
+                type="button"
+                onClick={() => (recording ? stopRecording() : void startRecording())}
+                disabled={busy || !ready || tagging}
+              >
+                {recording ? 'Stop recording' : 'Record a 5-second clip'}
+              </button>
+            </div>
+          </div>
+        ) : null}
         <p className="text-center text-xs text-cream/60">
           {exhausted
             ? 'Your camera is all used up — enjoy the celebration.'
-            : mode === 'clip'
-              ? recording
-                ? `Recording… ${Math.ceil((MAX_CLIP_MS - recElapsed) / 1000)}s left`
-                : 'Tap to record up to 5 seconds. It lands in the couple’s gallery.'
-              : 'Every photo lands in the couple’s gallery in real time.'}
+            : recording
+              ? `Recording… ${Math.ceil((MAX_CLIP_MS - recElapsed) / 1000)}s left`
+              : 'Tap for a photo · press and hold to record (up to 5s).'}
         </p>
 
         {/* Public-sharing opt-in (Alaala orb gate · RA 10173). Explicit, never

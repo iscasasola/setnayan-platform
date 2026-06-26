@@ -8,6 +8,7 @@ import {
   Check,
   CircleAlert,
   Clock,
+  Printer,
   RefreshCw,
   Sparkles,
   UserCheck,
@@ -231,9 +232,20 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
           )}
         </p>
         {seats.length > 0 && (
-          <p className="text-sm text-ink/55">
-            {claimedCount} of {seats.length} seats claimed.
-          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-sm text-ink/55">
+              {claimedCount} of {seats.length} seats claimed.
+            </p>
+            <Link
+              href={`${backLink}/crew/print`}
+              target="_blank"
+              rel="noopener"
+              className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:bg-ink/10 hover:text-ink"
+            >
+              <Printer aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+              Print QR cards
+            </Link>
+          </div>
         )}
       </header>
 

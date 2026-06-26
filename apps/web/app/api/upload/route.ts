@@ -263,7 +263,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const { data: seat } = await supabase
       .from('paparazzi_seats')
       .select(
-        'seat_id, event_id, revoked_at, claimer_user_id, is_free_sampler, tier, sku_code, paid_order_id',
+        'seat_id, event_id, revoked_at, claimer_user_id, is_free_sampler, tier, sku_code, paid_order_id, valid_from, valid_until',
       )
       .eq('claim_qr_token', papicSeatToken)
       .maybeSingle();
@@ -303,6 +303,26 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // refuse the URL when its order isn't paid yet or it's at the daily quota —
     // no URL ⇒ no orphan bytes. The record-layer reserve RPC is the backstop.
     if (cameraTier) {
+      // Capture WINDOW gate (owner 2026-06-26): refuse the URL outside the
+      // event's chosen window (no URL ⇒ no orphan bytes). Mirrors the
+      // record-layer gate in app/papic/actions.ts. Fail-OPEN on null bounds
+      // (legacy seats) so a pre-window camera is never broken.
+      {
+        const nowMs = Date.now();
+        const vf = (seat as { valid_from?: string | null }).valid_from;
+        const vu = (seat as { valid_until?: string | null }).valid_until;
+        const validFrom = vf ? Date.parse(vf) : NaN;
+        const validUntil = vu ? Date.parse(vu) : NaN;
+        if (
+          (Number.isFinite(validFrom) && nowMs < validFrom) ||
+          (Number.isFinite(validUntil) && nowMs > validUntil)
+        ) {
+          return NextResponse.json(
+            { error: 'This camera’s capture window isn’t open.' },
+            { status: 403 },
+          );
+        }
+      }
       const admin = createAdminClient();
       // Papic Unlock ("Unlock all of Papic" pass · PR9 #2269 grants the FEATURES;
       // this is the deferred ALLOWANCE half): every camera shoots UNLIMITED with

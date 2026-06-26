@@ -33,6 +33,7 @@ function TierOption({
   info,
   selected,
   isCurrent,
+  dayLabel,
   onSelect,
 }: {
   tier: 'roll' | 'unlimited';
@@ -41,6 +42,7 @@ function TierOption({
   info: TierInfo;
   selected: boolean;
   isCurrent: boolean;
+  dayLabel: string;
   onSelect: () => void;
 }) {
   return (
@@ -83,7 +85,7 @@ function TierOption({
         <span className="block text-sm font-medium tabular-nums text-ink">
           {php(info.billPhp)}
         </span>
-        <span className="block text-[10px] text-ink/45">1 day</span>
+        <span className="block text-[10px] text-ink/45">{dayLabel}</span>
       </span>
     </button>
   );
@@ -94,6 +96,7 @@ export default function GuestCameraTierPicker({
   guestCount,
   live,
   currentTier,
+  dayLabel,
   limited,
   unlimited,
 }: {
@@ -101,6 +104,7 @@ export default function GuestCameraTierPicker({
   guestCount: number;
   live: boolean;
   currentTier: 'roll' | 'unlimited' | null;
+  dayLabel: string;
   limited: TierInfo;
   unlimited: TierInfo;
 }) {
@@ -136,6 +140,7 @@ export default function GuestCameraTierPicker({
           info={limited}
           selected={tier === 'roll'}
           isCurrent={currentTier === 'roll'}
+          dayLabel={dayLabel}
           onSelect={() => setTier('roll')}
         />
         <TierOption
@@ -145,6 +150,7 @@ export default function GuestCameraTierPicker({
           info={unlimited}
           selected={tier === 'unlimited'}
           isCurrent={currentTier === 'unlimited'}
+          dayLabel={dayLabel}
           onSelect={() => setTier('unlimited')}
         />
       </div>

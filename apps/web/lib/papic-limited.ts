@@ -6,6 +6,42 @@ import {
   PAPIC_LTD_CAP_FALLBACK_PHP,
 } from '@/lib/papic-cameras';
 import { generateSeatClaimToken } from '@/lib/papic-seats';
+import { resolveStoredWindow, type StoredWindow } from '@/lib/papic-window';
+
+/**
+ * The event's Papic capture WINDOW (owner 2026-06-26), graceful pre-migration.
+ * Returns the validity bounds (paparazzi_seats.valid_from/valid_until) + the
+ * DAYS multiplier the pricing paths use. Falls back to legacy single-day
+ * (anchored to event_date) when no window is set OR the columns don't exist yet.
+ */
+export async function fetchEventPapicWindow(
+  admin: SupabaseClient,
+  eventId: string,
+): Promise<StoredWindow> {
+  const sel = await admin
+    .from('events')
+    .select('papic_window_start, papic_window_end, event_date')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (sel.error?.code === '42703') {
+    // Pre-migration: window columns absent — read just the anchor date.
+    const fb = await admin
+      .from('events')
+      .select('event_date')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    return resolveStoredWindow({
+      windowStart: null,
+      windowEnd: null,
+      eventDate: (fb.data?.event_date as string | null) ?? null,
+    });
+  }
+  return resolveStoredWindow({
+    windowStart: (sel.data?.papic_window_start as string | null) ?? null,
+    windowEnd: (sel.data?.papic_window_end as string | null) ?? null,
+    eventDate: (sel.data?.event_date as string | null) ?? null,
+  });
+}
 
 /** The tier the guest-list cameras run at (owner 2026-06-26 — "upgrade to
  *  Unlimited"). roll = Limited (capped per-day shots) · unlimited = Unlimited
@@ -435,13 +471,11 @@ export async function syncGuestCameras(
       .limit(1);
     let next = ((maxRow?.[0]?.seat_index as number | undefined) ?? 199) + 1;
 
-    // Validity window mirrors the per-camera flow (event_date single-day).
-    const { data: ev } = await admin
-      .from('events')
-      .select('event_date')
-      .eq('event_id', eventId)
-      .maybeSingle();
-    const eventDate = (ev?.event_date as string | null) ?? null;
+    // Validity window = the event's chosen Papic capture window (owner
+    // 2026-06-26). Both Limited guest cameras and Unlimited extras share it, so
+    // every camera on the event opens + closes together. Legacy single-day
+    // events fall back inside fetchEventPapicWindow.
+    const win = await fetchEventPapicWindow(admin, eventId);
 
     const inserts = toAdd.map((guestId) => {
       const row = {
@@ -453,8 +487,8 @@ export async function syncGuestCameras(
         claim_qr_token: generateSeatClaimToken(),
         is_free_sampler: false,
         paid_order_id: snapshot.order_id,
-        valid_from: eventDate,
-        valid_until: eventDate,
+        valid_from: win.startIso,
+        valid_until: win.endIso,
       };
       next += 1;
       return row;

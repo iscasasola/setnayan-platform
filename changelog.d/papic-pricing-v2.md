@@ -15,7 +15,7 @@ tiers are renamed Ltd/Unli, and the à-la-carte add-ons are repriced.
   internal `service_code` + the `tier` enum stay `roll`/`unlimited`
   (never-rename-technical-ids lock) — display-only rename.
 - **Add-on reprice** (admin catalog): Thank You ₱3,499 → **₱1,500** ·
-  Stories ₱1,499 → **₱2,000**.
+  Stories ₱1,499 → **₱2,000** · Pabati (video guestbook) ₱999 → **₱500**.
 - **₱2,999 removed**: `PAPIC_GUEST` (Disposable) deactivated, joining
   `PAPIC_SEATS`. Encoded in the migration so a fresh DB reproduces it.
 - Re-applies the public `/pricing` "Papic Cameras · from ₱30/camera" collapse +

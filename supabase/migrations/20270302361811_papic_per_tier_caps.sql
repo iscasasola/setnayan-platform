@@ -53,6 +53,11 @@ update public.platform_retail_catalog_v2
   set retail_price_php = 2000, title = 'Stories (Papic Add-on)', updated_at = now()
   where service_code = 'PAPIC_ADDON_STORIES';
 
+-- Pabati (video guestbook · up to 300×5s clips) repriced to ₱500 (owner 2026-06-26).
+update public.platform_retail_catalog_v2
+  set retail_price_php = 500, updated_at = now()
+  where service_code = 'PABATI';
+
 -- ---------------------------------------------------------------------------
 -- Catalog: retire the ₱2,999 SKUs as couple buy paths (already applied live via
 -- admin edit; encoded here so a fresh DB reproduces the same catalog state).

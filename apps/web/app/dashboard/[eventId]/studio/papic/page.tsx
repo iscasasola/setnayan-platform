@@ -37,6 +37,8 @@ import { fetchPapicGallery } from '@/lib/papic-gallery';
 import { PapicGalleryGrid } from './_components/papic-gallery-grid';
 import { getKwentoDensity } from '@/lib/kwento-density';
 import { setPapicStorageDrive, setPapicStorageR2, activatePapicLimited } from './actions';
+import { resolveStoredWindow, formatWindowSummary } from '@/lib/papic-window';
+import PapicWindowPicker from './papic-window-picker';
 import {
   fetchCameraRates,
   PAPIC_MIN_PAID_CAMERAS,
@@ -98,6 +100,8 @@ type Props = {
     papic_unlock_provisioned?: string;
     limited_synced?: string;
     limited_error?: string;
+    papic_window_saved?: string;
+    papic_window_error?: string;
   }>;
 };
 
@@ -140,6 +144,8 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     papic_unlock_provisioned: papicUnlockProvisioned,
     limited_synced: limitedSynced,
     limited_error: limitedError,
+    papic_window_saved: papicWindowSaved,
+    papic_window_error: papicWindowError,
   } = await searchParams;
 
   const supabase = await createClient();
@@ -150,7 +156,9 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
 
   const { data: event } = await supabase
     .from('events')
-    .select('event_id, papic_storage_target, papic_ltd_cap_php, papic_unli_cap_php')
+    .select(
+      'event_id, event_type, event_date, papic_storage_target, papic_ltd_cap_php, papic_unli_cap_php, papic_window_start, papic_window_end',
+    )
     .eq('event_id', eventId)
     .maybeSingle();
   if (!event) notFound();
@@ -203,6 +211,20 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     Number((event as Record<string, unknown>).papic_ltd_cap_php ?? 0) || 6000;
   const papicUnliCapPhp =
     Number((event as Record<string, unknown>).papic_unli_cap_php ?? 0) || 10000;
+
+  // Capture window → DAYS multiplier (price) + the picker's current state.
+  const ev = event as Record<string, unknown>;
+  const papicWindow = resolveStoredWindow({
+    windowStart: (ev.papic_window_start as string | null) ?? null,
+    windowEnd: (ev.papic_window_end as string | null) ?? null,
+    eventDate: (ev.event_date as string | null) ?? null,
+  });
+  const papicDays = papicWindow.days;
+  const papicWindowSummary = formatWindowSummary(
+    papicWindow.startIso,
+    papicWindow.endIso,
+  );
+  const windowIsSet = !!(ev.papic_window_start && ev.papic_window_end);
 
   // Unlock-all umbrella (admin-managed price; owning it frees Unli).
   const unlockAdmin = createAdminClient();
@@ -258,7 +280,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     limitedGuestCount,
     cameraRates.roll,
     papicLtdCapPhp,
-    1,
+    papicDays,
   );
 
   // Anonymous Unlimited extras (off-list shooters → claim links in /crew).
@@ -312,6 +334,8 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         papicError={papicError}
         limitedSynced={limitedSynced}
         limitedError={limitedError}
+        papicWindowSaved={papicWindowSaved}
+        papicWindowError={papicWindowError}
       />
 
       {/* Unlock-all — the one-price headline (only when not yet owned). */}
@@ -351,12 +375,26 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           <h2 className="text-xl font-semibold tracking-tight">Your cameras</h2>
         </div>
 
+        {/* Capture window — sets the price (days) AND how long cameras shoot. */}
+        <PapicWindowPicker
+          eventId={eventId}
+          eventType={(ev.event_type as string | null) ?? null}
+          eventDate={(ev.event_date as string | null) ?? null}
+          windowStart={(ev.papic_window_start as string | null) ?? null}
+          windowEnd={(ev.papic_window_end as string | null) ?? null}
+          windowIsSet={windowIsSet}
+          days={papicDays}
+          summary={papicWindowSummary}
+        />
+
         <LimitedCard
           eventId={eventId}
           guestCount={limitedGuestCount}
           guestCameraCount={guestCameraCount}
           status={limitedStatus}
           quote={limitedQuote}
+          days={papicDays}
+          windowSummary={papicWindowSummary}
         />
 
         {/* Unlimited extras — the only off-list path. */}
@@ -385,6 +423,8 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
               unlimitedRate={cameraRates.unlimited}
               unliCapPhp={papicUnliCapPhp}
               unliFree={ownsPapicUnlock}
+              days={papicDays}
+              windowSummary={papicWindowSummary}
             />
           </div>
         </div>
@@ -479,13 +519,18 @@ function LimitedCard({
   guestCameraCount,
   status,
   quote,
+  days,
+  windowSummary,
 }: {
   eventId: string;
   guestCount: number;
   guestCameraCount: number;
   status: LimitedSnapshotStatus | null;
   quote: ReturnType<typeof computeLimitedQuote>;
+  days: number;
+  windowSummary: string;
 }) {
+  const dayLabel = windowSummary || `${days} day${days === 1 ? '' : 's'}`;
   const active = status === 'active';
   const pending = status === 'pending_payment';
   const live = active || pending;
@@ -538,7 +583,7 @@ function LimitedCard({
         {!live && guestCount >= PAPIC_MIN_PAID_CAMERAS ? (
           <span className="ml-auto text-lg font-medium tabular-nums text-ink">
             {formatPhp(quote.frozenBillPhp)}
-            <span className="ml-1 text-xs font-normal text-ink/50">· 1 day</span>
+            <span className="ml-1 text-xs font-normal text-ink/50">· {dayLabel}</span>
           </span>
         ) : null}
       </div>
@@ -620,6 +665,8 @@ function StatusBanners({
   papicError,
   limitedSynced,
   limitedError,
+  papicWindowSaved,
+  papicWindowError,
 }: {
   driveConnected: boolean;
   driveDisconnected: boolean;
@@ -634,6 +681,8 @@ function StatusBanners({
   papicError: string | undefined;
   limitedSynced: string | undefined;
   limitedError: string | undefined;
+  papicWindowSaved: string | undefined;
+  papicWindowError: string | undefined;
 }) {
   const ok =
     'inline-flex items-center gap-2 rounded-2xl border border-success-300/70 bg-success-50 px-4 py-3 text-sm text-success-900';
@@ -652,7 +701,9 @@ function StatusBanners({
     papicUnlockProvisioned ||
     papicError ||
     limitedSynced !== undefined ||
-    limitedError;
+    limitedError ||
+    papicWindowSaved !== undefined ||
+    papicWindowError;
   if (!hasAny) return null;
 
   return (
@@ -683,6 +734,27 @@ function StatusBanners({
           {Number(limitedSynced) > 0
             ? `${limitedSynced} new guest camera${limitedSynced === '1' ? '' : 's'} added from your list.`
             : 'Your guest cameras are up to date.'}
+        </p>
+      ) : null}
+
+      {papicWindowSaved !== undefined ? (
+        <p className={ok}>
+          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          Capture window saved — {papicWindowSaved} day
+          {papicWindowSaved === '1' ? '' : 's'}. Your camera prices reflect it.
+        </p>
+      ) : null}
+
+      {papicWindowError ? (
+        <p className={bad}>
+          <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
+          {papicWindowError === 'end_after_event_date'
+            ? 'Capture has to cover your event day — start on or before it.'
+            : papicWindowError === 'start_after_end'
+              ? 'The end date is before the start date.'
+              : papicWindowError === 'missing_event_date'
+                ? 'Set your event date first, then choose a window.'
+                : 'Could not save the window — please try again.'}
         </p>
       ) : null}
 

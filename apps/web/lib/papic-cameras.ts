@@ -265,3 +265,66 @@ export function mintPapicReferenceCode(): string {
   for (const b of bytes) body += alphabet[b % alphabet.length];
   return `SN${body}`;
 }
+
+// ── Per-camera enforcement (PR3) ────────────────────────────────────────────
+
+/** The free funnel per-camera SKU (forward-compat; free-tier provisioning is a later PR). */
+export const PAPIC_CAMERA_FREE_SKU = 'PAPIC_CAMERA_FREE';
+
+const PER_CAMERA_SKUS: ReadonlySet<string> = new Set([
+  PAPIC_CAMERA_ROLL_SKU,
+  PAPIC_CAMERA_UNLIMITED_SKU,
+  PAPIC_CAMERA_FREE_SKU,
+]);
+
+/**
+ * The per-camera tier to ENFORCE for a seat, or null if the seat is NOT a
+ * per-camera seat. Enforcement applies ONLY to seats provisioned by the
+ * per-camera buy flow (sku_code PAPIC_CAMERA_*). The legacy PAPIC_SEATS pack and
+ * the free sampler also carry tier='free' from the column backfill, but keep
+ * their own behaviour (uncapped pack / RPC-capped sampler) — so they return
+ * null here and are left untouched.
+ */
+export function papicPerCameraTier(
+  skuCode: string | null | undefined,
+  tier: string | null | undefined,
+): CameraTier | null {
+  if (!skuCode || !PER_CAMERA_SKUS.has(skuCode)) return null;
+  if (tier === 'roll' || tier === 'unlimited' || tier === 'free') return tier;
+  return null;
+}
+
+/** The per-camera per-day limit for a capture kind (null = unlimited). */
+export function papicTierDailyLimit(
+  tier: CameraTier,
+  kind: 'photo' | 'clip',
+): number | null {
+  const q = PAPIC_TIER_QUOTA[tier];
+  return kind === 'clip' ? q.videos : q.photos;
+}
+
+/**
+ * Is the order that provisioned a paid camera actually PAID? Apply-then-pay: a
+ * paid camera (roll/unlimited) only shoots once its order reaches paid/fulfilled
+ * (a still-'submitted' order is awaiting the Setnayan team's reconciliation).
+ * Read on the admin client (the claimer isn't an event member). Fail-CLOSED:
+ * any miss returns false so an unpaid/unknown camera cannot capture.
+ */
+export async function papicCameraOrderPaid(
+  admin: SupabaseClient,
+  orderId: string | null | undefined,
+): Promise<boolean> {
+  if (!orderId) return false;
+  try {
+    const { data, error } = await admin
+      .from('orders')
+      .select('status')
+      .eq('order_id', orderId)
+      .maybeSingle();
+    if (error || !data) return false;
+    const status = (data as { status?: string }).status ?? '';
+    return status === 'paid' || status === 'fulfilled';
+  } catch {
+    return false;
+  }
+}

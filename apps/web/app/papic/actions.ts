@@ -15,6 +15,11 @@ import {
   eventOwnsPapicSeats,
   papicSeatAnonEnabled,
 } from '@/lib/papic-seats';
+import {
+  papicPerCameraTier,
+  papicCameraOrderPaid,
+  papicTierDailyLimit,
+} from '@/lib/papic-cameras';
 
 // Server-side 5-second clip cap (corpus constraint · not configurable). The
 // client enforces 5s with a recorder timer; this tolerance (5.5s) absorbs
@@ -188,7 +193,9 @@ export async function recordSeatCapture(
   // the claimer — so resolving the seat by token doubles as the auth check.
   const { data: seat, error: seatError } = await supabase
     .from('paparazzi_seats')
-    .select('seat_id, event_id, revoked_at, claimer_user_id, is_free_sampler')
+    .select(
+      'seat_id, event_id, revoked_at, claimer_user_id, is_free_sampler, tier, sku_code, paid_order_id',
+    )
     .eq('claim_qr_token', cleanToken)
     .maybeSingle();
 
@@ -203,6 +210,14 @@ export async function recordSeatCapture(
   }
   if (seat.revoked_at) return { ok: false, error: 'revoked' };
 
+  // Per-camera seats (sku_code PAPIC_CAMERA_*) have their OWN paid-gate + daily
+  // quota (below) and are NOT the legacy PAPIC_SEATS pack — so they skip the
+  // pack ownership check. null for legacy pack + sampler seats (unchanged).
+  const cameraTier = papicPerCameraTier(
+    seat.sku_code as string | null,
+    seat.tier as string | null,
+  );
+
   // Entitlement re-check (paid seats only). A claimed seat must not keep
   // accepting captures forever if the event's PAPIC_SEATS order was cancelled /
   // refunded / lapsed. Mirrors the guest disposable-camera path, which gates
@@ -213,7 +228,7 @@ export async function recordSeatCapture(
   // nothing under their session and wrongly block every capture. Fail-OPEN on a
   // config/transient error (admin client unavailable) — a refunded event still
   // capturing is far better than the camera breaking for a paying couple.
-  if (!seat.is_free_sampler) {
+  if (!seat.is_free_sampler && !cameraTier) {
     let owned = true;
     try {
       const admin = createAdminClient();
@@ -222,6 +237,63 @@ export async function recordSeatCapture(
       owned = true; // fail-open — never break the camera on an entitlement read
     }
     if (!owned) return { ok: false, error: 'not_owned' };
+  }
+
+  // ── Per-CAMERA enforcement (per-camera model · PR3) ─────────────────────
+  // Applies ONLY to per-camera seats (sku_code PAPIC_CAMERA_*) — the legacy
+  // PAPIC_SEATS pack stays uncapped, the sampler keeps its own RPC cap. A paid
+  // camera (roll/unlimited) only shoots once its order is PAID; the daily tier
+  // quota is reserved atomically at the record layer (the authoritative gate;
+  // the presign probe in /api/upload is the orphan-byte leak guard).
+  {
+    if (cameraTier) {
+      if (cameraTier === 'roll' || cameraTier === 'unlimited') {
+        let paid = false;
+        try {
+          const admin = createAdminClient();
+          paid = await papicCameraOrderPaid(
+            admin,
+            seat.paid_order_id as string | null,
+          );
+        } catch {
+          paid = false;
+        }
+        if (!paid) return { ok: false, error: 'awaiting_payment' };
+      }
+      const limit = papicTierDailyLimit(cameraTier, kind === 'clip' ? 'clip' : 'photo');
+      if (limit != null) {
+        let reserved = true;
+        try {
+          const admin = createAdminClient();
+          const { data: reserveOk, error: reserveErr } = await admin.rpc(
+            'papic_reserve_camera_capture',
+            {
+              p_seat_id: seat.seat_id,
+              p_event_id: seat.event_id,
+              p_kind: kind === 'clip' ? 'clip' : 'photo',
+              p_limit: limit,
+            },
+          );
+          // Fail-OPEN on a missing RPC / transient error (pre-migration DB) so a
+          // config hiccup never breaks the camera; fail-CLOSED on a definitive
+          // "at cap" answer (reserveOk === false).
+          if (reserveErr) {
+            reserved =
+              reserveErr.code === '42883' || reserveErr.code === 'PGRST202';
+          } else {
+            reserved = reserveOk === true;
+          }
+        } catch {
+          reserved = true;
+        }
+        if (!reserved) {
+          return {
+            ok: false,
+            error: kind === 'clip' ? 'daily_video_quota' : 'daily_photo_quota',
+          };
+        }
+      }
+    }
   }
 
   // Free Papic sampler — per-seat caps (8 photos + 2 clips) + 30-day expiry.

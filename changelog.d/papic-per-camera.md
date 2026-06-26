@@ -44,3 +44,26 @@ stays blocked until the order is paid (the presign gate is PR3). Verified:
 typecheck + `next lint` + entitlement-gates + papic-keep all clean.
 
 SPEC IMPACT: None new (captured in the corpus strategy doc + DECISION_LOG).
+
+## 2026-06-26 · feat(papic): per-camera enforcement — paid-gate + daily quotas (PR3/4)
+
+Makes the per-camera tiers bite, at both the record and presign layers, for
+per-camera seats ONLY (sku_code `PAPIC_CAMERA_*`; the legacy pack + sampler are
+untouched — per-camera seats also skip the legacy `PAPIC_SEATS` ownership check
+since they carry their own paid-gate).
+
+- New migration `20270301010000_papic_camera_quota_rpcs.sql` — two SECURITY
+  DEFINER fns over `papic_seat_day_usage`: `papic_reserve_camera_capture` (the
+  atomic, race-safe conditional-increment record-layer gate) and
+  `papic_camera_remaining` (read-only presign probe).
+- `recordSeatCapture` (`app/papic/actions.ts`) — a paid camera (roll/unlimited)
+  records only once its order is PAID; the daily tier quota (Free 5+1 · Roll
+  30+10 · Unlimited unbounded) is reserved atomically.
+- `/api/upload` presign — refuses the URL (402 awaiting-payment / 409 at-cap)
+  for an unpaid or over-quota per-camera seat, so no orphan R2 bytes accrue.
+
+Verified: typecheck + `next lint` + entitlement-gates + papic-keep clean;
+migration applied to prod; the atomic cap proven live (reserve 3× vs limit 2 →
+2 allowed, 3rd refused; unlimited always allowed).
+
+SPEC IMPACT: None new (captured in the corpus).

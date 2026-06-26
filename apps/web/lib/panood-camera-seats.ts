@@ -25,6 +25,32 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 export const PANOOD_CAMERA_CLAIM_PATH = '/panood/cam';
 
 /**
+ * Login-free camera-operator claim flag (owner-gated). A SIBLING of
+ * papicSeatAnonEnabled() — same native-anon-session machinery, flips
+ * independently so login-free Panood camera join can go live on its own clock.
+ *
+ * When ON, an operator claims a camera WITHOUT signing in: claimPanoodCamera
+ * mints a Supabase NATIVE anonymous session (a real auth.uid()) on the claim
+ * POST, so the authenticated-only panood_claim_camera() RPC and every
+ * claimer-keyed row keep working unchanged. The operator's whole experience
+ * becomes scan QR → one "Join as Camera N" tap → local preview. (The tap can't
+ * be zero — claim happens on a POST, never on the GET page load, so a chat-app
+ * link-preview bot can't silently claim the camera.)
+ *
+ * Default OFF. Going live needs the SAME three owner actions Papic login-free
+ * needs (they share the native-anon-session machinery):
+ *   1. Enable `enable_anonymous_sign_ins` in the Supabase Auth dashboard.
+ *   2. Apply the null-email-tolerant auth-user trigger migration (20270205204166).
+ *   …then set NEXT_PUBLIC_PANOOD_CAM_ANON_ENABLED=true.
+ *
+ * NEXT_PUBLIC_ so the claim page (server component) and the claim action read the
+ * SAME flag — one source of truth.
+ */
+export function panoodCameraAnonEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_PANOOD_CAM_ANON_ENABLED === 'true';
+}
+
+/**
  * Camera-operator seat statuses (mirror the table CHECK constraint):
  *   open     — provisioned, not yet claimed
  *   live     — claimed operator is streaming (recent heartbeat)
@@ -103,6 +129,54 @@ export function generateCameraClaimToken(): string {
 export function panoodCameraClaimUrl(appUrl: string, token: string): string {
   const base = appUrl.replace(/\/+$/, '');
   return `${base}${PANOOD_CAMERA_CLAIM_PATH}/${encodeURIComponent(token)}`;
+}
+
+/**
+ * The public-facing shape of a camera the operator has CLAIMED — only the
+ * non-secret fields the publish view needs. Never carries claim_qr_token.
+ */
+export type ClaimedCameraView = {
+  camera_index: number;
+  label: string | null;
+  event_id: string;
+  status: PanoodCameraStatus;
+};
+
+/**
+ * Resolve the camera a token points at IF AND ONLY IF it is bound to this user.
+ *
+ * The /panood/cam GET page can't read panood_camera_operators under the
+ * operator's session (RLS is control-room-only and the operator is neither
+ * couple nor coordinator), so the GET page uses the admin client — but ONLY to
+ * confirm the operator's OWN binding (claimer_user_id = userId) before rendering
+ * the publish view. Returns null for any token that isn't this user's live
+ * (non-revoked) camera, so the admin read can never leak another operator's
+ * camera or the secret token. Graceful-degrade to null on a missing/legacy table.
+ */
+export async function fetchClaimedCameraForUser(
+  admin: SupabaseClient,
+  token: string,
+  userId: string,
+): Promise<ClaimedCameraView | null> {
+  if (!token || !userId) return null;
+  try {
+    const { data, error } = await admin
+      .from('panood_camera_operators')
+      .select('camera_index, label, event_id, status, claimer_user_id, revoked_at')
+      .eq('claim_qr_token', token)
+      .maybeSingle();
+    if (error || !data) return null;
+    if (data.revoked_at || data.status === 'revoked') return null;
+    if (data.claimer_user_id !== userId) return null;
+    return {
+      camera_index: data.camera_index as number,
+      label: (data.label as string | null) ?? null,
+      event_id: data.event_id as string,
+      status: data.status as PanoodCameraStatus,
+    };
+  } catch {
+    return null;
+  }
 }
 
 /**

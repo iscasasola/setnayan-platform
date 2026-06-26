@@ -19,9 +19,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  fetchClaimedCameraForUser,
   fetchPanoodCameras,
   generateCameraClaimToken,
   missingCameraIndexes,
+  panoodCameraAnonEnabled,
   panoodCameraClaimUrl,
 } from './panood-camera-seats';
 
@@ -126,4 +128,108 @@ test('fetchPanoodCameras passes rows through on success', async () => {
   const rows = [{ id: 1, camera_index: 1 }];
   const supabase = fakeSupabase({ data: rows, error: null });
   assert.deepEqual(await fetchPanoodCameras(supabase, 'evt-1'), rows);
+});
+
+// ── 5. Login-free flag (PR5) ─────────────────────────────────────────────────
+
+test('panoodCameraAnonEnabled is OFF by default (env unset)', () => {
+  const prev = process.env.NEXT_PUBLIC_PANOOD_CAM_ANON_ENABLED;
+  delete process.env.NEXT_PUBLIC_PANOOD_CAM_ANON_ENABLED;
+  assert.equal(panoodCameraAnonEnabled(), false);
+  if (prev !== undefined) process.env.NEXT_PUBLIC_PANOOD_CAM_ANON_ENABLED = prev;
+});
+
+test('panoodCameraAnonEnabled is ON only for the exact "true" string', () => {
+  const prev = process.env.NEXT_PUBLIC_PANOOD_CAM_ANON_ENABLED;
+  process.env.NEXT_PUBLIC_PANOOD_CAM_ANON_ENABLED = 'true';
+  assert.equal(panoodCameraAnonEnabled(), true);
+  process.env.NEXT_PUBLIC_PANOOD_CAM_ANON_ENABLED = '1';
+  assert.equal(panoodCameraAnonEnabled(), false, '"1" must not enable the flag');
+  process.env.NEXT_PUBLIC_PANOOD_CAM_ANON_ENABLED = 'TRUE';
+  assert.equal(panoodCameraAnonEnabled(), false, 'case-sensitive — only "true"');
+  if (prev === undefined) delete process.env.NEXT_PUBLIC_PANOOD_CAM_ANON_ENABLED;
+  else process.env.NEXT_PUBLIC_PANOOD_CAM_ANON_ENABLED = prev;
+});
+
+// ── 6. fetchClaimedCameraForUser — post-claim view scoping (PR5) ──────────────
+//
+// A maybeSingle()-shaped fake builder: the awaited builder resolves to a
+// PostgREST { data, error } payload. The helper must ONLY return a camera that
+// is (a) live (not revoked), and (b) bound to THIS user — never leak another
+// operator's camera or the secret token.
+function fakeAdmin(result: { data: unknown; error: unknown }) {
+  const builder: Record<string, unknown> = {
+    select: () => builder,
+    eq: () => builder,
+    maybeSingle: () => Promise.resolve(result),
+  };
+  return { from: () => builder } as unknown as Parameters<typeof fetchClaimedCameraForUser>[0];
+}
+
+test('fetchClaimedCameraForUser returns the camera when it is bound to this user', async () => {
+  const admin = fakeAdmin({
+    data: {
+      camera_index: 2,
+      label: 'Stage left',
+      event_id: 'evt-1',
+      status: 'live',
+      claimer_user_id: 'user-1',
+      revoked_at: null,
+    },
+    error: null,
+  });
+  assert.deepEqual(await fetchClaimedCameraForUser(admin, 'tok', 'user-1'), {
+    camera_index: 2,
+    label: 'Stage left',
+    event_id: 'evt-1',
+    status: 'live',
+  });
+});
+
+test('fetchClaimedCameraForUser returns null when bound to a DIFFERENT user (no leak)', async () => {
+  const admin = fakeAdmin({
+    data: {
+      camera_index: 2,
+      label: 'Stage left',
+      event_id: 'evt-1',
+      status: 'live',
+      claimer_user_id: 'someone-else',
+      revoked_at: null,
+    },
+    error: null,
+  });
+  assert.equal(await fetchClaimedCameraForUser(admin, 'tok', 'user-1'), null);
+});
+
+test('fetchClaimedCameraForUser returns null for a revoked camera even if bound to this user', async () => {
+  const admin = fakeAdmin({
+    data: {
+      camera_index: 2,
+      label: null,
+      event_id: 'evt-1',
+      status: 'revoked',
+      claimer_user_id: 'user-1',
+      revoked_at: '2026-06-26T00:00:00Z',
+    },
+    error: null,
+  });
+  assert.equal(await fetchClaimedCameraForUser(admin, 'tok', 'user-1'), null);
+});
+
+test('fetchClaimedCameraForUser returns null on a missing row / error / blank input', async () => {
+  assert.equal(
+    await fetchClaimedCameraForUser(fakeAdmin({ data: null, error: null }), 'tok', 'user-1'),
+    null,
+  );
+  assert.equal(
+    await fetchClaimedCameraForUser(
+      fakeAdmin({ data: null, error: { code: '42P01' } }),
+      'tok',
+      'user-1',
+    ),
+    null,
+  );
+  // Blank token / user short-circuit before any read.
+  assert.equal(await fetchClaimedCameraForUser(fakeAdmin({ data: null, error: null }), '', 'user-1'), null);
+  assert.equal(await fetchClaimedCameraForUser(fakeAdmin({ data: null, error: null }), 'tok', ''), null);
 });

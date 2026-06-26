@@ -8,7 +8,9 @@ import { makeSamplerPermanent } from '@/lib/papic-sampler';
 import { cancelSamplerExpiryWarnings } from '@/lib/papic-sampler-emails';
 import {
   PAPIC_CAMERAS_ORDER_KEY,
+  PAPIC_LTD_CAP_FALLBACK_PHP,
   PAPIC_MIN_PAID_CAMERAS,
+  PAPIC_UNLI_CAP_FALLBACK_PHP,
   computeCameraQuote,
   fetchCameraRates,
   mintPapicReferenceCode,
@@ -418,7 +420,7 @@ export async function setGuestClipShowcaseApproval(formData: FormData) {
 //
 // A camera = a paparazzi seat with a tier. Beyond the free funnel cameras, a
 // couple buys paid cameras at Roll (₱30/camera/day) or Unlimited
-// (₱100/camera/day), 5-camera minimum, capped at events.papic_cost_cap_php
+// (₱100/camera/day), 5-camera minimum, capped per tier (events.papic_ltd_cap_php / papic_unli_cap_php)
 // (default ₱6,999). Prices are admin-managed (read from the catalog). This is
 // apply-then-pay: the order lands at status='submitted' for the Setnayan team
 // to reconcile, and the paid cameras are materialized immediately as PENDING
@@ -459,14 +461,17 @@ export async function purchasePapicCameras(formData: FormData) {
   // "1 day for ~all weddings" per the per-camera spec).
   const { data: ev } = await admin
     .from('events')
-    .select('papic_cost_cap_php, event_date')
+    .select('papic_ltd_cap_php, papic_unli_cap_php, event_date')
     .eq('event_id', eventId)
     .maybeSingle();
-  const capPhp = Number(ev?.papic_cost_cap_php ?? 0) || 6999;
+  const caps = {
+    ltd: Number(ev?.papic_ltd_cap_php ?? 0) || PAPIC_LTD_CAP_FALLBACK_PHP,
+    unli: Number(ev?.papic_unli_cap_php ?? 0) || PAPIC_UNLI_CAP_FALLBACK_PHP,
+  };
   const eventDate = (ev?.event_date as string | null) ?? null;
 
   const rates = await fetchCameraRates(admin);
-  const quote = computeCameraQuote({ roll, unlimited }, 1, rates, capPhp);
+  const quote = computeCameraQuote({ roll, unlimited }, 1, rates, caps);
 
   if (quote.paidCount < PAPIC_MIN_PAID_CAMERAS) {
     redirect(`/dashboard/${eventId}/studio/papic?papic_error=min_cameras`);

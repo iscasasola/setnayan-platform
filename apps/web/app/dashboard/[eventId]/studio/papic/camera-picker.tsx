@@ -70,20 +70,28 @@ export default function CameraPicker({
   eventId,
   rollRate,
   unlimitedRate,
-  capPhp,
+  ltdCapPhp,
+  unliCapPhp,
 }: {
   eventId: string;
   rollRate: number;
   unlimitedRate: number;
-  capPhp: number;
+  ltdCapPhp: number;
+  unliCapPhp: number;
 }) {
   const [roll, setRoll] = useState(0);
   const [unlimited, setUnlimited] = useState(0);
 
   const paidCount = roll + unlimited;
-  const rawTotal = roll * rollRate + unlimited * unlimitedRate;
-  const total = Math.min(rawTotal, capPhp);
-  const capped = rawTotal > capPhp;
+  // Per-tier cap (owner 2026-06-26): Ltd locks at ₱6,000, Unli at ₱10,000, each
+  // tier independently. Mirrors computeCameraQuote on the server.
+  const ltdRaw = roll * rollRate;
+  const unliRaw = unlimited * unlimitedRate;
+  const ltdCharge = Math.min(ltdRaw, ltdCapPhp);
+  const unliCharge = Math.min(unliRaw, unliCapPhp);
+  const rawTotal = ltdRaw + unliRaw;
+  const total = ltdCharge + unliCharge;
+  const capped = ltdRaw > ltdCapPhp || unliRaw > unliCapPhp;
   const belowMin = paidCount > 0 && paidCount < MIN_PAID;
   const canBuy = paidCount >= MIN_PAID;
 
@@ -94,14 +102,14 @@ export default function CameraPicker({
       <input type="hidden" name="unlimited" value={unlimited} readOnly />
 
       <Stepper
-        label="Roll"
+        label="Ltd"
         hint="30 photos + 10 videos each, per day"
         perDay={rollRate}
         value={roll}
         onChange={setRoll}
       />
       <Stepper
-        label="Unlimited"
+        label="Unli"
         hint="No limit — archived to your Drive"
         perDay={unlimitedRate}
         value={unlimited}
@@ -117,7 +125,8 @@ export default function CameraPicker({
 
       {capped ? (
         <p className="text-xs text-ink/55">
-          Capped at {php(capPhp)} (would be {php(rawTotal)}).
+          Price locked — Ltd caps at {php(ltdCapPhp)}, Unli at {php(unliCapPhp)}{' '}
+          (would be {php(rawTotal)}).
         </p>
       ) : null}
 
@@ -135,8 +144,8 @@ export default function CameraPicker({
         {canBuy ? `Get ${paidCount} cameras · ${php(total)}` : 'Add at least 5 cameras'}
       </button>
       <p className="text-center text-xs text-ink/50">
-        Apply-then-pay — you’ll get payment instructions next. Face-sorting,
-        privacy &amp; Kwento are free.
+        Apply-then-pay — you’ll get payment instructions next. Face-sorting &amp;
+        privacy are free.
       </p>
     </form>
   );

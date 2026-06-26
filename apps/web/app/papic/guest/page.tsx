@@ -3,6 +3,7 @@ import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
 import { eventKwentoEnabled } from '@/lib/kwento-access';
+import { asPapicStyle } from '@/lib/papic-photo-styles';
 import { PapicGuestCapture } from './_components/papic-guest-capture';
 
 // Papic · guest camera (PAPIC_GUEST · ₱2,999 — "Every guest's phone, a candid
@@ -59,8 +60,14 @@ export default async function PapicGuestPage() {
     );
   }
 
-  const [{ data: ev }, { data: g }, quota, { data: liveEnrollment }, canKwento] =
-    await Promise.all([
+  const [
+    { data: ev },
+    { data: g },
+    quota,
+    { data: liveEnrollment },
+    canKwento,
+    { data: styleRow },
+  ] = await Promise.all([
       admin.from('events').select('display_name').eq('event_id', session.event_id).maybeSingle(),
       admin
         .from('guests')
@@ -83,11 +90,22 @@ export default async function PapicGuestPage() {
       // POST /api/papic/kwento 403s feature_not_owned, so an ungated prompt would
       // just silently fail. Mirror the server gate on the client.
       eventKwentoEnabled(admin, session.event_id),
+      // Locked event-wide Papic look. Separate read (not folded into the event
+      // select) so a pre-migration DB without papic_style can't break the
+      // guest/event name above — asPapicStyle falls back to ORIG on a null.
+      admin
+        .from('events')
+        .select('papic_style')
+        .eq('event_id', session.event_id)
+        .maybeSingle(),
     ]);
 
   const guestName =
     (g?.first_name as string | null) || (g?.display_name as string | null) || 'friend';
   const eventName = (ev?.display_name as string | null) || 'the wedding';
+  const eventStyle = asPapicStyle(
+    (styleRow as { papic_style?: string } | null)?.papic_style,
+  );
 
   // UGC moderation gate (Apple 1.2 / Google Play UGC): a guest can't be blocked
   // from this event's gallery and must have accepted the objectionable-content
@@ -127,6 +145,7 @@ export default async function PapicGuestPage() {
       needsFaceEnroll={!liveEnrollment}
       canKwento={canKwento}
       guestUnlimited={quota.unlimited}
+      eventStyle={eventStyle}
     />
   );
 }

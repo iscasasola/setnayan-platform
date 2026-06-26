@@ -110,6 +110,48 @@ export async function setPapicStorageR2(formData: FormData) {
   redirect(`/dashboard/${eventId}/studio/papic?storage_set=r2`);
 }
 
+/** The five event-wide Papic looks (mirrors the CHECK on events.papic_style and
+ *  PapicStyle in lib/papic-photo-styles.ts). Validated server-side so a tampered
+ *  form can't write an off-list value. */
+const PAPIC_STYLE_VALUES = ['ORIG', 'RETRO', 'MONO', 'CINE', 'LOMO'] as const;
+
+/**
+ * Set the event-wide Papic capture look. Couple-only (getCoupleEventId), the
+ * chosen style is validated against the allow-list, then written to
+ * events.papic_style via the admin client (events writes are RLS-gated).
+ * Every camera on the event inherits it at capture time.
+ */
+export async function setPapicStyle(formData: FormData) {
+  const result = await getCoupleEventId(formData.get('event_id'));
+  if (!result.ok) {
+    redirect(result.redirectTo);
+  }
+  const { eventId } = result;
+
+  const raw = formData.get('style');
+  const style = typeof raw === 'string' ? raw.trim().toUpperCase() : '';
+  if (!(PAPIC_STYLE_VALUES as readonly string[]).includes(style)) {
+    redirect(`/dashboard/${eventId}/studio/papic?style_error=invalid`);
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('events')
+    .update({ papic_style: style })
+    .eq('event_id', eventId);
+
+  if (error) {
+    redirect(
+      `/dashboard/${eventId}/studio/papic?style_error=${encodeURIComponent(
+        error.message.slice(0, 64),
+      )}`,
+    );
+  }
+
+  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  redirect(`/dashboard/${eventId}/studio/papic?style_set=${style}`);
+}
+
 /**
  * Switch Papic photo storage to Google Drive only. Requires an active
  * oauth_grants row for the event (provider='drive', revoked_at IS NULL).

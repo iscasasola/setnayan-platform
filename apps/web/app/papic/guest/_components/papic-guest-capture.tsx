@@ -18,6 +18,11 @@ import {
 import { DayOfFaceEnroll } from '@/app/[slug]/_components/day-of-face-enroll';
 import { makeQrDetector } from '@/lib/qr-scan';
 import { usePapicCamera } from '@/lib/use-papic-camera';
+import {
+  applyPapicStyle,
+  cssPreviewFilter,
+  type PapicStyle,
+} from '@/lib/papic-photo-styles';
 import { PapicCameraControls } from '@/app/papic/_components/camera-controls';
 
 const TAG_CAP = 10; // max tags per photo (corpus hard cap · mirrored server-side)
@@ -84,6 +89,9 @@ type Props = {
    *  cap is lifted, so the counter reads "Unlimited" and the camera never
    *  exhausts. */
   guestUnlimited?: boolean;
+  /** The event-wide look (set once by the couple at Papic setup). LOCKED — the
+   *  guest can't change it; it's baked into every photo they capture. */
+  eventStyle: PapicStyle;
 };
 
 export function PapicGuestCapture({
@@ -95,7 +103,13 @@ export function PapicGuestCapture({
   needsFaceEnroll = false,
   canKwento = false,
   guestUnlimited = false,
+  eventStyle,
 }: Props) {
+  // The event-wide look is LOCKED (couple-set at setup) — baked into every photo.
+  const styleRef = useRef<PapicStyle>(eventStyle);
+  useEffect(() => {
+    styleRef.current = eventStyle;
+  }, [eventStyle]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   // Clip recorder (Option A) — mirrors pabati-prompt.tsx.
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -232,6 +246,22 @@ export function PapicGuestCapture({
     }
     ctx.drawImage(video, 0, 0, w, h);
 
+    // FACE auto-tag runs on the CLEAN frame, BEFORE the look is applied — the
+    // event style (mono / cross-process / etc.) would otherwise wreck face-api's
+    // 128-d descriptors. ON-DEVICE: only the tiny vectors leave the phone, never
+    // the face image. Dormant until a model is hosted (NEXT_PUBLIC_FACE_MODEL_URL)
+    // → []; the 'saved' feedback never waits on it failing.
+    let faceVectors: number[][] = [];
+    try {
+      const { embedFaces } = await import('@/lib/face-embed');
+      faceVectors = await embedFaces(canvas);
+    } catch {
+      // best-effort — a face-tag miss never affects the saved photo
+    }
+
+    // Bake the LOCKED event look into the delivered photo (after the clean embed).
+    applyPapicStyle(canvas, styleRef.current);
+
     const blob = await new Promise<Blob | null>((resolve) =>
       canvas.toBlob(resolve, 'image/jpeg', 0.9),
     );
@@ -247,19 +277,7 @@ export function PapicGuestCapture({
       // Public-sharing consent for THIS shot (Alaala orb gate). Only sent when
       // the guest opted in; the server sets consent_to_public from it.
       if (sharePublicly) form.append('share_publicly', '1');
-      // FACE auto-tag: detect faces + compute their 128-d descriptors ON-DEVICE
-      // (lazy-imported face-api.js) from the frame we just froze, and send ONLY
-      // the tiny vectors — the face IMAGE never leaves the phone. The server
-      // matcher tags whoever's enrolled; QR scan stays the manual fallback.
-      // Dormant until a model is hosted (NEXT_PUBLIC_FACE_MODEL_URL) → []; the
-      // 'saved' feedback never waits on it failing.
-      try {
-        const { embedFaces } = await import('@/lib/face-embed');
-        const vectors = await embedFaces(canvas);
-        if (vectors.length > 0) form.append('face_vectors', JSON.stringify(vectors));
-      } catch {
-        // best-effort — a face-tag miss never affects the saved photo
-      }
+      if (faceVectors.length > 0) form.append('face_vectors', JSON.stringify(faceVectors));
       const res = await fetch('/api/papic/guest-capture', { method: 'POST', body: form });
       const json = (await res.json().catch(() => ({}))) as {
         status?: string;
@@ -993,7 +1011,12 @@ export function PapicGuestCapture({
           muted
           autoPlay
           className="h-full w-full object-cover"
-          style={{ transform: mirrored ? 'scaleX(-1)' : undefined }}
+          /* Live preview of the locked event look — presentation-only, so the
+             captured pixels (and the clean face embed) are unaffected. */
+          style={{
+            transform: mirrored ? 'scaleX(-1)' : undefined,
+            filter: cssPreviewFilter(eventStyle),
+          }}
         />
         {((!ready && !exhausted) || switching) && (
           <div className="absolute inset-0 flex items-center justify-center bg-ink/80">

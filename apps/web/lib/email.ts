@@ -91,10 +91,8 @@ export async function isEmailConfigured(): Promise<boolean> {
 }
 
 /**
- * Cancel a previously-scheduled (future-dated) Resend email by id. Used to pull
- * back the Papic sampler T-7/T-1 expiry warnings once the couple converts — their
- * photos became permanent, so the "your free photos roll off" reminder would be
- * wrong. Gated on the key and best-effort; returns whether the cancel succeeded.
+ * Cancel a previously-scheduled (future-dated) Resend email by id. Gated on the
+ * key and best-effort; returns whether the cancel succeeded.
  */
 export async function cancelScheduledEmail(id: string): Promise<boolean> {
   const { apiKey } = await resolveResendConfig();

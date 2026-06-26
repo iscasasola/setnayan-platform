@@ -485,7 +485,6 @@ export async function syncGuestCameras(
         tier: snapshotTier,
         guest_id: guestId,
         claim_qr_token: generateSeatClaimToken(),
-        is_free_sampler: false,
         paid_order_id: snapshot.order_id,
         valid_from: win.startIso,
         valid_until: win.endIso,

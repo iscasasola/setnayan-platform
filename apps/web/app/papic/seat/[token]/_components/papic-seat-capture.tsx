@@ -45,13 +45,26 @@ import { PapicCameraControls } from '@/app/papic/_components/camera-controls';
 // presigns via /api/upload → PUTs to R2 → records through recordSeatCapture (RLS
 // lets the claimer insert on their own seat). Each shot shows live status in the
 // capture roll; a failed upload offers a one-tap retry (venue Wi-Fi is flaky —
-// the shutter must never feel like it hung). Free-sampler seats are capped (8
-// photos + 2 clips per seat); paid seats are uncapped.
+// the shutter must never feel like it hung). A seat may carry a per-day capture
+// cap (per-camera tiers); pack seats are uncapped.
 
 const CLIP_MAX_MS = 5_000; // 5-second hard cap (corpus constraint · not configurable)
 const HOLD_MS = 260; // tap-vs-hold boundary: a press held this long starts a clip
 const TAG_CAP = 10; // max tags per photo (corpus hard cap · mirrored server-side)
 const ROLL_MAX = 24; // most-recent shots kept in the session roll strip
+
+// Server cap codes — the presign route (camera_*) and recordSeatCapture
+// (daily_*) both signal "this seat is at its per-kind cap". Either rolls the
+// optimistic count back to the cap and marks the shot capped (no retry).
+const CAP_CODES: ReadonlySet<string> = new Set([
+  'camera_photo_cap',
+  'camera_video_cap',
+  'daily_photo_quota',
+  'daily_video_quota',
+]);
+function isCapCode(code: string | null | undefined): boolean {
+  return code != null && CAP_CODES.has(code);
+}
 
 /** Friendly, paparazzo-facing copy for a tag failure. The camera never breaks
  *  on a tag miss — these just steer the next scan. */
@@ -77,7 +90,7 @@ type Props = {
   seatIndex: number;
   initialPhotos: number;
   initialClips: number;
-  /** null = uncapped (paid seat); a number = the free-sampler per-seat cap. */
+  /** null = uncapped (pack seat); a number = a per-seat cap to surface in the UI. */
   photoCap?: number | null;
   clipCap?: number | null;
   /** True when the claimer is a Supabase native anonymous user (one-tap claim,
@@ -191,8 +204,8 @@ export function PapicSeatCapture({
   const [clips, setClips] = useState(initialClips);
   const [justSaved, setJustSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  // Transient "you've used all your free photos/clips" feedback when a gesture
-  // is blocked by a sampler cap (paid seats are uncapped → never set).
+  // Transient "you've used all your photos/clips" feedback when a gesture is
+  // blocked by a per-seat cap (uncapped seats → never set).
   const [capNotice, setCapNotice] = useState<'photos' | 'clips' | null>(null);
 
   // ---- capture roll + background upload queue ------------------------------
@@ -264,16 +277,16 @@ export function PapicSeatCapture({
         }),
       });
       if (!presignRes.ok) {
-        // The presign route refuses to mint a URL once the free sampler seat is
-        // at its per-kind cap (record-/presign-layer leak fix). Surface that as
-        // the SAME cap signal recordSeatCapture returns.
+        // The presign route refuses to mint a URL once a per-camera seat is at
+        // its per-kind daily cap. Surface that as the SAME cap signal
+        // recordSeatCapture returns.
         let code: string | undefined;
         try {
           ({ code } = (await presignRes.json()) as { code?: string });
         } catch {
           // non-JSON body — fall through to the generic presign error
         }
-        if (code === 'sampler_photo_cap' || code === 'sampler_clip_cap') {
+        if (isCapCode(code)) {
           throw new Error(code);
         }
         throw new Error('presign');
@@ -377,7 +390,7 @@ export function PapicSeatCapture({
   );
 
   // Roll back the optimistic count when a shot fails for a non-cap reason — the
-  // slot is free again (matters for capped sampler seats).
+  // slot is free again (matters for capped seats).
   const rollbackCount = useCallback((kind: 'photo' | 'clip') => {
     if (kind === 'photo') setPhotos((n) => Math.max(0, n - 1));
     else setClips((n) => Math.max(0, n - 1));
@@ -402,7 +415,7 @@ export function PapicSeatCapture({
             : await recordSeatCapture(token, mainRef, 'clip', posterRef, shot.durationMs);
 
         if (!result.ok) {
-          if (result.error === 'sampler_photo_cap' || result.error === 'sampler_clip_cap') {
+          if (isCapCode(result.error)) {
             // Cap hit: the optimistic count was right at the edge — pin it to the
             // cap and mark the shot capped (it never lands; no retry).
             if (shot.kind === 'photo') setPhotos(photoCap ?? ((n) => n));
@@ -430,10 +443,7 @@ export function PapicSeatCapture({
         }
         setSaveError(null);
       } catch (err) {
-        if (
-          err instanceof Error &&
-          (err.message === 'sampler_photo_cap' || err.message === 'sampler_clip_cap')
-        ) {
+        if (err instanceof Error && isCapCode(err.message)) {
           if (shot.kind === 'photo') setPhotos(photoCap ?? ((n) => n));
           else setClips(clipCap ?? ((n) => n));
           patchShot(shot.id, { status: 'capped' });
@@ -467,7 +477,7 @@ export function PapicSeatCapture({
   }, [uploadShot]);
 
   // Push a freshly-captured shot onto the roll + the upload queue. The count is
-  // bumped OPTIMISTICALLY here so the cap (sampler seats) self-enforces on the
+  // bumped OPTIMISTICALLY here so a per-seat cap self-enforces on the
   // very next tap without waiting for the server round-trip.
   const enqueueShot = useCallback(
     (shot: Shot) => {
@@ -615,7 +625,7 @@ export function PapicSeatCapture({
     clipTimerRef.current = setTimeout(stopClip, CLIP_MAX_MS);
   }, [ready, switching, clipFull, grabFrame, enqueueShot, stopClip, streamRef]);
 
-  // Flash a transient "you've used your free photos/clips" notice (sampler caps).
+  // Flash a transient "you've used your photos/clips" notice (per-seat caps).
   const flashCapNotice = useCallback((kind: 'photos' | 'clips') => {
     setCapNotice(kind);
     if (capNoticeTimerRef.current) clearTimeout(capNoticeTimerRef.current);
@@ -669,7 +679,7 @@ export function PapicSeatCapture({
         stopClip();
         return;
       }
-      // The press was a tap — take a photo (or surface the sampler photo cap).
+      // The press was a tap — take a photo (or surface the per-seat photo cap).
       if (photoFull) {
         flashCapNotice('photos');
         return;

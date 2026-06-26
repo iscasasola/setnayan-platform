@@ -247,8 +247,7 @@ export async function r2Delete(args: {
 
 /**
  * Server-side COPY of one object to a new key within the SAME bucket (no byte
- * download — R2 copies internally). Used by the Papic sampler→permanent prefix
- * relocation. Object keys are UUID-pinned (api/upload) so `CopySource` needs no
+ * download — R2 copies internally). Object keys are UUID-pinned (api/upload) so `CopySource` needs no
  * special encoding. Throws if R2 isn't configured or the source is missing —
  * callers MUST treat a throw as "did not relocate" and leave the row untouched.
  */

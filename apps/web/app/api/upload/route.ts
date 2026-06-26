@@ -4,7 +4,6 @@ import * as Sentry from '@sentry/nextjs';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventOwnsPapicSeats } from '@/lib/papic-seats';
-import { eventSamplerIsKept } from '@/lib/papic-sampler';
 import { rateLimit } from '@/lib/rate-limit';
 import { R2_BUCKETS, isR2Configured, type R2BucketKey } from '@/lib/r2';
 import {
@@ -154,8 +153,8 @@ const MAX_FILENAME_LEN = 120;
 const MAX_PATH_PREFIX_LEN = 256;
 
 // MediaRecorder appends `;codecs=…`; strip parameters to get the base MIME.
-// Used by the sampler-cap probe (it must decide photo-vs-clip before the main
-// content-type validation block runs further down).
+// Used by the per-camera quota probe (it must decide photo-vs-clip before the
+// main content-type validation block runs further down).
 function baseContentTypeOf(raw: string | undefined): string {
   return (typeof raw === 'string' ? raw : '').split(';')[0]?.trim() ?? '';
 }
@@ -263,7 +262,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const { data: seat } = await supabase
       .from('paparazzi_seats')
       .select(
-        'seat_id, event_id, revoked_at, claimer_user_id, is_free_sampler, tier, sku_code, paid_order_id, valid_from, valid_until',
+        'seat_id, event_id, revoked_at, claimer_user_id, tier, sku_code, paid_order_id, valid_from, valid_until',
       )
       .eq('claim_qr_token', papicSeatToken)
       .maybeSingle();
@@ -275,15 +274,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
     // Per-camera seats (sku_code PAPIC_CAMERA_*) carry their own paid-gate +
     // daily quota (below) and are NOT the legacy PAPIC_SEATS pack — so they skip
-    // the pack-ownership re-check. null for legacy pack + sampler seats.
+    // the pack-ownership re-check. null for legacy pack seats.
     const cameraTier = papicPerCameraTier(
       (seat as { sku_code?: string | null }).sku_code ?? null,
       (seat as { tier?: string | null }).tier ?? null,
     );
-    // Paid seats: entitlement re-check on the ADMIN client (the claimer can't
-    // read orders under RLS). Fail-OPEN on a config/transient error so a paying
-    // couple's crew is never blocked by an entitlement-read hiccup.
-    if (!seat.is_free_sampler && !cameraTier) {
+    // Legacy PAPIC_SEATS pack: entitlement re-check on the ADMIN client (the
+    // claimer can't read orders under RLS). Fail-OPEN on a config/transient error
+    // so a paying couple's crew is never blocked by an entitlement-read hiccup.
+    if (!cameraTier) {
       let owned = true;
       try {
         const admin = createAdminClient();
@@ -396,83 +395,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
     }
 
-    // FREE-SAMPLER CAP — enforced at the PRESIGN layer, not just at record time.
-    // A sampler seat is capped at 8 photos + 2 clips (migration 20270103000000).
-    // If we minted a presigned URL here for an over-cap shot, the client could
-    // PUT the bytes to R2 and only get rejected at recordSeatCapture's INSERT —
-    // leaving ORPHAN BYTES no papic_photos row accounts for (R2 is Setnayan's
-    // only marginal per-couple cost). So refuse the URL the moment the seat is
-    // at cap: no URL ⇒ no unaccounted bytes. The atomic
-    // papic_sampler_insert_capture RPC at record time is the authoritative
-    // backstop against a presign-time race; this is the leak-prevention.
-    if (seat.is_free_sampler) {
-      // Anon-farming backstop — the per-user.id limiter above is weak for the
-      // sampler: login-free claim mints a FRESH anonymous user.id per leaked
-      // link, so an attacker rotates identities to dodge the per-user budget.
-      // Add a tighter PER-IP limit scoped to sampler presigns. The whole sampler
-      // ceiling is tiny (3 seats × (8 photos + 2 clips) = 30 captures/event), so
-      // a legitimate burst stays well under 40/min; this just blunts the "spin
-      // endless anon claimers from one host" farm. Best-effort / per-instance
-      // (same honest limitation as lib/rate-limit) — defense-in-depth. Scoped to
-      // sampler seats so a paid DSLR/camera-bridge burst is never throttled.
-      const ip =
-        request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-        request.headers.get('x-real-ip') ||
-        'unknown';
-      const samplerRl = rateLimit(`papic-sampler-upload:${ip}`, 40, 60_000);
-      if (!samplerRl.ok) {
-        return NextResponse.json(
-          { error: 'Too many uploads from this connection — give it a moment.' },
-          {
-            status: 429,
-            headers: {
-              'Retry-After': String(Math.ceil(samplerRl.retryAfterMs / 1000)),
-            },
-          },
-        );
-      }
-      const sampleKind = baseContentTypeOf(body.contentType).startsWith('video/')
-        ? 'clip'
-        : 'photo';
-      try {
-        const admin = createAdminClient();
-        const { data: remaining, error: capError } = await admin.rpc(
-          'papic_sampler_remaining',
-          { p_seat_id: seat.seat_id as string, p_kind: sampleKind },
-        );
-        // Fail-OPEN on a missing RPC / transient error (pre-migration DB, etc.)
-        // so a config hiccup never breaks the live sampler — the record-layer
-        // RPC still rejects over-cap inserts. But when the probe DOES answer and
-        // the seat is at cap, refuse the presign so no bytes reach R2.
-        if (!capError && typeof remaining === 'number' && remaining <= 0) {
-          return NextResponse.json(
-            {
-              error:
-                sampleKind === 'clip'
-                  ? 'Your free sampler clips are all used up.'
-                  : 'Your free sampler photos are all used up.',
-              code: sampleKind === 'clip' ? 'sampler_clip_cap' : 'sampler_photo_cap',
-            },
-            { status: 409 },
-          );
-        }
-      } catch {
-        // fail-open — never break the camera on a capacity-probe hiccup.
-      }
-    }
     bucketKey = 'media';
-    // A free-sampler seat normally writes under the EPHEMERAL `papic-sampler/`
-    // prefix (an R2 lifecycle rule reaps abandoned sampler bytes there). But once
-    // the event has CONVERTED (Drive connected / paid Papic owned), its shots are
-    // permanent — so they're born under `papic/`, where the lifecycle rule never
-    // threatens them (matching the convert-time relocation in makeSamplerPermanent).
-    // Fail-open to ephemeral: a kept-probe hiccup just defers the byte to the
-    // relocation sweep rather than silently stranding a kept couple's photo.
-    const ephemeral =
-      seat.is_free_sampler && !(await eventSamplerIsKept(seat.event_id).catch(() => false));
+    // Seat captures are permanent — written under the `papic/` prefix.
     // event-/seat-scoped, server-derived (sanitized — UUIDs only, but defensive).
     pathPrefix = sanitizePathPrefix(
-      `papic${ephemeral ? '-sampler' : ''}/event-${seat.event_id}/seat-${seat.seat_id}`,
+      `papic/event-${seat.event_id}/seat-${seat.seat_id}`,
     );
     seatMode = true;
   } else {

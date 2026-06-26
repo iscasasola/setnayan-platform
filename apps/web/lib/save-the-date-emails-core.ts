@@ -6,7 +6,7 @@ import { renderBrandedEmail } from '@/lib/email-template';
 // `save-the-date-emails.ts` reads guests via the admin client and sends through
 // sendEmail(), delegating the content shaping here.
 //
-// Mirrors the lib/papic-retention-core.ts split: edges that surface on a guest-
+// Pure content-shaping core (split out for unit testing): edges that surface on a guest-
 // facing email (a wrong greeting, a leaked stale date, a junk recipient) are
 // pinned by the core's unit suite.
 

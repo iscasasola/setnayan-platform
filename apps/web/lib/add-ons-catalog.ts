@@ -102,10 +102,10 @@ export type AddOnEntry = {
    */
   tier?: 'free';
   /**
-   * For a PAID add-on that offers a no-card free trial (e.g. Papic's 3-seat
-   * free sampler), a short chip label surfaced on the Studio card so couples
-   * can discover the trial from the grid. Never a price source — the feature
-   * page still owns the real price + purchase.
+   * For a PAID add-on that offers a no-card free taste (e.g. Papic's first 5
+   * guest cameras free), a short chip label surfaced on the Studio card so
+   * couples can discover the trial from the grid. Never a price source — the
+   * feature page still owns the real price + purchase.
    */
   freeTrial?: string;
   /**

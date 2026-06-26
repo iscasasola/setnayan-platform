@@ -5,8 +5,6 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventSkuActive } from '@/lib/entitlements';
-import { makeSamplerPermanent } from '@/lib/papic-sampler';
-import { cancelSamplerExpiryWarnings } from '@/lib/papic-sampler-emails';
 import {
   PAPIC_CAMERAS_ORDER_KEY,
   PAPIC_LTD_CAP_FALLBACK_PHP,
@@ -198,13 +196,6 @@ export async function setPapicStorageDrive(formData: FormData) {
     );
   }
 
-  // Switching Papic storage to Drive also satisfies "connect Drive = permanent":
-  // make any already-captured sampler photos permanent + cancel the expiry
-  // emails. (The OAuth callback usually does this at connect time; this covers a
-  // switch made after the grant already existed.) Best-effort, never throws.
-  await makeSamplerPermanent(eventId);
-  await cancelSamplerExpiryWarnings(eventId);
-
   revalidatePath(`/dashboard/${eventId}/studio/papic`);
   redirect(`/dashboard/${eventId}/studio/papic?storage_set=drive`);
 }
@@ -258,36 +249,6 @@ export async function provisionPapicSeats(formData: FormData) {
   redirect(`/dashboard/${eventId}/studio/papic/crew?seat_set=provisioned`);
 }
 
-/**
- * Materialize the 3 FREE SAMPLER seats so a couple can TRY Papic before buying.
- * Couple-gated + idempotent + one-per-event — the papic_provision_sampler() RPC
- * re-checks auth.uid() is a couple and won't re-provision an event that already
- * has sampler seats. No paid ownership needed (it's free); the sampler seats sit
- * in their own seat_index range so they never collide with a later paid pass.
- */
-export async function provisionPapicSampler(formData: FormData) {
-  const result = await getCoupleEventId(formData.get('event_id'));
-  if (!result.ok) {
-    redirect(result.redirectTo);
-  }
-  const { eventId } = result;
-
-  const supabase = await createClient();
-  const { error } = await supabase.rpc('papic_provision_sampler', {
-    p_event_id: eventId,
-  });
-
-  if (error) {
-    redirect(
-      `/dashboard/${eventId}/studio/papic/crew?seat_error=${encodeURIComponent(
-        error.message.slice(0, 80),
-      )}`,
-    );
-  }
-
-  revalidatePath(`/dashboard/${eventId}/studio/papic/crew`);
-  redirect(`/dashboard/${eventId}/studio/papic/crew?seat_set=sampler`);
-}
 
 /**
  * Reissue one seat: clear the claimer + claimed_at, lift any revoke, and mint
@@ -339,7 +300,7 @@ export async function reissuePapicSeat(formData: FormData) {
 
   // Reissue hands the seat to a NEW friend — reset the per-seat capture caps so
   // they start clean. Mark the prior claimer's captures superseded (excluded
-  // from the new claimer's per-seat count + free-sampler cap) WITHOUT deleting
+  // from the new claimer's per-seat count) WITHOUT deleting
   // them: every photo still belongs to the event and still appears in the
   // couple's gallery (untagged-/superseded-still-delivered). Best-effort and
   // result-ignored — the token is already rotated, so a stamping hiccup (or a
@@ -480,7 +441,7 @@ export async function setGuestClipShowcaseApproval(formData: FormData) {
 // to reconcile, and the paid cameras are materialized immediately as PENDING
 // seats (paid_order_id set) so the couple can prep invites — but capture stays
 // blocked until the order is paid (the presign gate is PR3). Strictly
-// additive: the free sampler + the PAPIC_SEATS pack are untouched.
+// additive: the PAPIC_SEATS pack is untouched.
 // ─────────────────────────────────────────────────────────────────────────
 
 /**
@@ -953,8 +914,8 @@ export async function setPapicWindow(formData: FormData) {
 
   // Re-stamp any already-provisioned per-camera seats so their capture window
   // matches the (possibly edited) event window. Per-camera seats live at
-  // seat_index >= 200; the legacy pack (1–5) and free sampler (101–103) keep
-  // their own lifecycle and are untouched. Best-effort — a hiccup never blocks
+  // seat_index >= 200; the legacy pack (1–5) keeps
+  // its own lifecycle and is untouched. Best-effort — a hiccup never blocks
   // saving the window itself.
   try {
     await admin

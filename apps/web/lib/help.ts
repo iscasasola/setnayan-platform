@@ -394,7 +394,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'turn-on-papic',
         title: 'How do I turn on Papic and invite my photo crew?',
-        body: "Open your dashboard → Studio → Papic. Pick how many crew seats you want, then share each seat's link with a friend (one link per friend). They open it on their phone, sign in, and their phone becomes a candid camera bound to your wedding. You can re-issue a seat to someone else anytime. Try it free with the sampler before you commit.",
+        body: "Open your dashboard → Studio → Papic. Your first 5 guest cameras are free to try. Pick how many crew seats you want, then share each seat's link with a friend (one link per friend). They open it on their phone, sign in, and their phone becomes a candid camera bound to your wedding. You can re-issue a seat to someone else anytime.",
       },
       {
         slug: 'how-papic-tagging-works',

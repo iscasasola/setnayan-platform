@@ -91,7 +91,7 @@ export async function eventOwnsPapicSeats(
 
 /**
  * Are the paid Papic seats ACTIVE (admin-approved)? The handshake FEATURE GATE —
- * the paid Papic feature set (crew, moderation, sampler→paid) unlocks only after
+ * the paid Papic feature set (crew, moderation) unlocks only after
  * the Setnayan team verifies the payment (owner 2026-06-18). The buy surface
  * keeps eventOwnsPapicSeats (which counts a pending order).
  */
@@ -119,7 +119,7 @@ const PAPIC_INCLUSIVE_SKUS = ['PAPIC_UNLOCK', 'PAPIC_SEATS', 'PAPIC_GUEST'] as c
  * (Kwento · Photo Wall · Thank You · Stories · Pabati · Camera Bridge) gates on
  * (owner 2026-06-26). TRUE when EITHER:
  *   1. the event has any active (non-revoked) paparazzi_seats row — a paid camera
- *      OR a free-sampler seat ("Papic is going"); or
+ *      ("Papic is going"); or
  *   2. the event owns an active Papic-inclusive SKU/bundle (PAPIC_UNLOCK /
  *      PAPIC_SEATS / PAPIC_GUEST — which transitively covers MEDIA_PACK +
  *      GUIDED_PACK, see PAPIC_INCLUSIVE_SKUS).
@@ -140,7 +140,7 @@ export async function eventPapicActive(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<boolean> {
-  // 1) Any active (non-revoked) seat — paid camera OR free sampler.
+  // 1) Any active (non-revoked) seat — a paid camera.
   const { data: seats, error: seatErr } = await supabase
     .from('paparazzi_seats')
     .select('seat_id')
@@ -162,20 +162,6 @@ export async function eventPapicActive(
   return seatReadFailed;
 }
 
-// ── Free Papic sampler (owner-locked 2026-06-16) ─────────────────────────────
-// A couple can TRY Papic free so they experience the tag→gallery loop: 3 seats,
-// 8 photos + 2 clips EACH (the 5-sec clip cap still applies), kept 30 days unless
-// they connect Drive (their own copy) or upgrade to paid Papic. Reuses the whole
-// seat→claim→capture→tag pipeline; sampler seats carry is_free_sampler = TRUE and
-// live in their own seat_index range (101..103) so they never collide with the
-// paid pass's 1..5. Provisioned by papic_provision_sampler() (migration
-// 20270103000000). FREE entitlement — never zeroes the paid PAPIC_SEATS ₱2,999.
-export const PAPIC_SAMPLER_SERVICE_KEY = 'PAPIC_SEATS_FREE';
-export const PAPIC_SAMPLER_SEAT_COUNT = 3;
-export const PAPIC_SAMPLER_PHOTO_CAP = 8; // per seat
-export const PAPIC_SAMPLER_CLIP_CAP = 2; // per seat
-export const PAPIC_SAMPLER_RETENTION_DAYS = 30;
-
 // ─────────────────────────────────────────────────────────────────────────
 // Seat rows — the read shape + provisioning helpers. The paparazzi_seats
 // table (migration 20260520015000) is RLS couple-only for direct reads, so
@@ -191,7 +177,6 @@ export type PapicSeatRow = {
   claimer_user_id: string | null;
   claimed_at: string | null;
   revoked_at: string | null;
-  is_free_sampler: boolean;
 };
 
 /**
@@ -204,31 +189,10 @@ export async function fetchPapicSeats(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<PapicSeatRow[]> {
-  return fetchSeatRows(supabase, eventId, false);
-}
-
-/**
- * Fetch this event's FREE SAMPLER seats (is_free_sampler = TRUE). Same graceful-
- * degrade as fetchPapicSeats so a pre-migration DB shows the "start sampler"
- * prompt instead of crashing.
- */
-export async function fetchPapicSamplerSeats(
-  supabase: SupabaseClient,
-  eventId: string,
-): Promise<PapicSeatRow[]> {
-  return fetchSeatRows(supabase, eventId, true);
-}
-
-async function fetchSeatRows(
-  supabase: SupabaseClient,
-  eventId: string,
-  sampler: boolean,
-): Promise<PapicSeatRow[]> {
   const { data, error } = await supabase
     .from('paparazzi_seats')
-    .select('seat_id, seat_index, claim_qr_token, claimer_user_id, claimed_at, revoked_at, is_free_sampler')
+    .select('seat_id, seat_index, claim_qr_token, claimer_user_id, claimed_at, revoked_at')
     .eq('event_id', eventId)
-    .eq('is_free_sampler', sampler)
     .order('seat_index', { ascending: true });
 
   if (error) {
@@ -285,9 +249,9 @@ export function papicSeatClaimUrl(appUrl: string, token: string): string {
  * (event_id, seat_index) UNIQUE constraint is the hard backstop. Mirrors the
  * RPC's behaviour exactly (dense 1..5, sku_code 'PAPIC_SEATS', fresh token).
  *
- * Best-effort + non-fatal (matches makeSamplerPermanent): any error returns 0 so
- * a write failure here can never roll back the payment approval. Returns the
- * number of NEW seats inserted (0 when all five already existed).
+ * Best-effort + non-fatal: any error returns 0 so a write failure here can never
+ * roll back the payment approval. Returns the number of NEW seats inserted (0
+ * when all five already existed).
  */
 export async function provisionPapicSeatsAdmin(
   admin: SupabaseClient,
@@ -295,13 +259,12 @@ export async function provisionPapicSeatsAdmin(
 ): Promise<number> {
   if (!eventId) return 0;
   try {
-    // Which paid seat indexes already exist? (Sampler seats live in 101.. so the
-    // is_free_sampler filter keeps this scoped to the paid 1..5 range.)
+    // Which paid pack seat indexes (1..5) already exist?
     const { data: existing, error: readError } = await admin
       .from('paparazzi_seats')
       .select('seat_index')
       .eq('event_id', eventId)
-      .eq('is_free_sampler', false);
+      .lte('seat_index', PAPIC_SEAT_COUNT);
     // Missing/legacy table (42P01) or column (42703) → a pre-bootstrap DB; the
     // couple can still self-serve from /crew once migrated. Don't throw.
     if (readError) return 0;

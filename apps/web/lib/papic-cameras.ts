@@ -50,8 +50,8 @@ export async function eventUnliFreeViaUnlock(
  * the paid cameras as paparazzi_seats rows at their chosen tier. Capture stays
  * blocked until the order is paid (presign enforcement is PR3).
  *
- * Strictly ADDITIVE: the free sampler (is_free_sampler seats at index 101–103)
- * and the PAPIC_SEATS 5-pack (index 1–5) are untouched. Paid per-camera seats
+ * Strictly ADDITIVE: the PAPIC_SEATS 5-pack (index 1–5) is untouched. Paid
+ * per-camera seats
  * live in their own index range (>= PAPIC_CAMERA_INDEX_BASE) so they never
  * collide. Prices are admin-managed — read from the catalog, never hardcoded
  * (the constants below are last-resort fallbacks only).
@@ -67,7 +67,7 @@ export const PAPIC_CAMERAS_ORDER_KEY = 'PAPIC_CAMERAS';
 export const PAPIC_FREE_CAMERA_COUNT = 5;
 export const PAPIC_MIN_PAID_CAMERAS = 5;
 
-/** Paid per-camera seats start here so they never collide with pack (1–5) or sampler (101–103). */
+/** Paid per-camera seats start here so they never collide with the pack (1–5). */
 export const PAPIC_CAMERA_INDEX_BASE = 200;
 
 /** Last-resort fallbacks if the catalog row is missing. Live prices come from the catalog. */
@@ -246,7 +246,7 @@ type ProvisionPaidCamerasInput = {
  * paid_order_id. The cameras exist immediately (so the couple can prep invites)
  * but capture is gated on the order being paid (PR3 presign check). Seats use a
  * dedicated index range (>= PAPIC_CAMERA_INDEX_BASE) so they never collide with
- * the pack (1–5) or the sampler (101–103). Returns the number inserted.
+ * the pack (1–5). Returns the number inserted.
  */
 export async function provisionPaidCamerasAdmin(
   admin: SupabaseClient,
@@ -278,7 +278,6 @@ export async function provisionPaidCamerasAdmin(
     sku_code: string;
     tier: CameraTier;
     claim_qr_token: string;
-    is_free_sampler: boolean;
     paid_order_id: string;
     valid_from: string | null;
     valid_until: string | null;
@@ -291,7 +290,6 @@ export async function provisionPaidCamerasAdmin(
       sku_code: sku,
       tier,
       claim_qr_token: generateSeatClaimToken(),
-      is_free_sampler: false,
       paid_order_id: orderId,
       valid_from: validFrom,
       valid_until: validUntil,
@@ -339,10 +337,9 @@ const PER_CAMERA_SKUS: ReadonlySet<string> = new Set([
 /**
  * The per-camera tier to ENFORCE for a seat, or null if the seat is NOT a
  * per-camera seat. Enforcement applies ONLY to seats provisioned by the
- * per-camera buy flow (sku_code PAPIC_CAMERA_*). The legacy PAPIC_SEATS pack and
- * the free sampler also carry tier='free' from the column backfill, but keep
- * their own behaviour (uncapped pack / RPC-capped sampler) — so they return
- * null here and are left untouched.
+ * per-camera buy flow (sku_code PAPIC_CAMERA_*). The legacy PAPIC_SEATS pack
+ * also carries tier='free' from the column backfill, but keeps its own
+ * behaviour (uncapped) — so it returns null here and is left untouched.
  */
 export function papicPerCameraTier(
   skuCode: string | null | undefined,

@@ -64,7 +64,7 @@ test('missingCameraIndexes: partial top-up fills only the gaps', () => {
 });
 
 test('missingCameraIndexes: out-of-range existing indexes never block the 1..count top-up', () => {
-  // 101 (a sampler-style high index) and 0 can't collide with 1..3.
+  // 101 (a high index) and 0 can't collide with 1..3.
   assert.deepEqual(missingCameraIndexes([101, 0, 1], 3), [2, 3]);
 });
 

@@ -49,7 +49,11 @@ import { CopyButton } from './crew/_components/copy-button';
 import { fetchPapicGallery } from '@/lib/papic-gallery';
 import { PapicGalleryGrid } from './_components/papic-gallery-grid';
 import { getKwentoDensity } from '@/lib/kwento-density';
-import { setPapicStorageDrive, setPapicStorageR2 } from './actions';
+import {
+  setPapicStorageDrive,
+  setPapicStorageR2,
+  provisionUnlockUnliCameras,
+} from './actions';
 import { fetchCameraRates } from '@/lib/papic-cameras';
 import CameraPicker from './camera-picker';
 import { LiveWallCard } from './_components/live-wall-card';
@@ -113,6 +117,7 @@ type Props = {
     papic_ref?: string;
     papic_amount?: string;
     papic_error?: string;
+    papic_unlock_added?: string;
   }>;
 };
 
@@ -211,6 +216,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     papic_ref: papicRef,
     papic_amount: papicAmount,
     papic_error: papicError,
+    papic_unlock_added: papicUnlockAdded,
   } = await searchParams;
 
   const supabase = await createClient();
@@ -417,6 +423,66 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
               )}
             </div>
           </div>
+
+          {/* Owned → deliver the bundle's promise: free, uncapped Unli cameras.
+              The couple provisions as many as they like (each shoots unlimited
+              photos/clips at no per-camera charge); the capture gate passes
+              because the event owns PAPIC_UNLOCK. */}
+          {ownsPapicUnlock ? (
+            <div className="mt-4 space-y-3 border-t border-mulberry/15 pt-4">
+              <p className="text-sm text-ink/70">
+                Add Unlimited cameras — free, no per-camera charge. Spin up as
+                many as you need; run it again any time to add more.
+              </p>
+              {papicUnlockAdded ? (
+                <p
+                  role="status"
+                  className="inline-flex items-center gap-2 rounded-xl border border-success-300/70 bg-success-50 px-4 py-2.5 text-sm text-success-900"
+                >
+                  <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                  Added {papicUnlockAdded} Unli camera
+                  {papicUnlockAdded === '1' ? '' : 's'} — set them up in the crew
+                  manager.
+                </p>
+              ) : null}
+              {papicError === 'unlock_count' ? (
+                <p className="text-sm text-terracotta">Enter how many Unli cameras to add (1 or more).</p>
+              ) : papicError === 'unlock_provision' ? (
+                <p className="text-sm text-terracotta">Couldn&rsquo;t add those cameras — please try again.</p>
+              ) : null}
+              <form
+                action={provisionUnlockUnliCameras}
+                className="flex flex-wrap items-end gap-3"
+              >
+                <input type="hidden" name="event_id" value={eventId} />
+                <label className="flex flex-col gap-1 text-sm font-medium text-ink/80">
+                  How many Unli cameras?
+                  <input
+                    type="number"
+                    name="count"
+                    min={1}
+                    max={250}
+                    defaultValue={5}
+                    className="w-28 rounded-md border border-ink/15 bg-cream px-3 py-2 text-sm text-ink focus:border-mulberry focus:outline-none"
+                  />
+                </label>
+                <SubmitButton
+                  pendingLabel="Adding…"
+                  className="inline-flex items-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70"
+                >
+                  <Camera aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                  Add Unli cameras
+                </SubmitButton>
+                <Link
+                  href={`/dashboard/${eventId}/studio/papic/crew`}
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-mulberry hover:text-mulberry-600"
+                >
+                  Crew manager
+                  <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
+                </Link>
+              </form>
+            </div>
+          ) : null}
         </section>
       ) : null}
 

@@ -113,7 +113,11 @@ export const OUT_ANCHORS: Record<string, number> = {
  * also has RSVP_WEBSITE + RSVP_PRO_WEBSITE (added out-of-band) — deliberately
  * EXCLUDED here pending owner confirm (flagged in the PR).
  */
-export const BUNDLE_MEMBERS: { essentials: string[]; complete: string[] } = {
+export const BUNDLE_MEMBERS: {
+  essentials: string[];
+  complete: string[];
+  papicUnlock: string[];
+} = {
   // Essentials — the owner's 7 (2026-06-08).
   essentials: [
     'SETNAYAN_AI',
@@ -144,6 +148,20 @@ export const BUNDLE_MEMBERS: { essentials: string[]; complete: string[] } = {
     'LIVE_BACKGROUND',
     'PANOOD_SYSTEM',
     'PAKANTA',
+  ],
+  // "Unlock all of Papic" — the ₱15,000 Papic add-on bundle (owner 2026-06-26).
+  // NOT an onboarding bundle (buildOnboardingPricing only renders essentials +
+  // complete); this is the canonical membership mirror that BUNDLE_CHILD_SKUS
+  // .PAPIC_UNLOCK (entitlements.ts) + bundles_granting_sku() (migration) must
+  // match — enforced by lint-entitlement-gates.mjs. The bundle's free uncapped
+  // Unli cameras are a capture-gate bypass, not a child SKU (see entitlements.ts).
+  papicUnlock: [
+    'KWENTO',
+    'LIVE_WALL',
+    'PAPIC_ADDON_THANK_YOU',
+    'PAPIC_ADDON_STORIES',
+    'PABATI',
+    'CAMERA_BRIDGE',
   ],
 };
 

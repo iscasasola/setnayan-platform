@@ -161,10 +161,13 @@ function diff(a, b) {
 
 let guided = null;
 let media = null;
+let papicUnlock = null;
 let essentials = null;
 let complete = null;
+let papicUnlockMembers = null;
 let sqlGuided = null;
 let sqlMedia = null;
+let sqlPapicUnlock = null;
 
 // --- source 1: BUNDLE_CHILD_SKUS in lib/entitlements.ts ---
 {
@@ -172,8 +175,9 @@ let sqlMedia = null;
   const src = readFileSync(f, 'utf8');
   const g = sliceBlock(src, 'GUIDED_PACK: Object.freeze(', '[', ']');
   const m = sliceBlock(src, 'MEDIA_PACK: Object.freeze(', '[', ']');
-  if (!g || !m) guard2Errors.push('Could not parse BUNDLE_CHILD_SKUS (GUIDED_PACK/MEDIA_PACK arrays) in lib/entitlements.ts — did the shape change? Update this linter.');
-  else { guided = skuTokens(g); media = skuTokens(m); }
+  const p = sliceBlock(src, 'PAPIC_UNLOCK: Object.freeze(', '[', ']');
+  if (!g || !m || !p) guard2Errors.push('Could not parse BUNDLE_CHILD_SKUS (GUIDED_PACK/MEDIA_PACK/PAPIC_UNLOCK arrays) in lib/entitlements.ts — did the shape change? Update this linter.');
+  else { guided = skuTokens(g); media = skuTokens(m); papicUnlock = skuTokens(p); }
 }
 
 // --- source 2: BUNDLE_MEMBERS in onboarding-pricing.ts ---
@@ -190,31 +194,47 @@ let sqlMedia = null;
   else {
     const e = sliceBlock(obj, 'essentials:', '[', ']');
     const c = sliceBlock(obj, 'complete:', '[', ']');
-    if (!e || !c) guard2Errors.push('Could not parse BUNDLE_MEMBERS.essentials/.complete arrays — update this linter.');
-    else { essentials = skuTokens(e); complete = skuTokens(c); }
+    const pu = sliceBlock(obj, 'papicUnlock:', '[', ']');
+    if (!e || !c || !pu) guard2Errors.push('Could not parse BUNDLE_MEMBERS.essentials/.complete/.papicUnlock arrays — update this linter.');
+    else { essentials = skuTokens(e); complete = skuTokens(c); papicUnlockMembers = skuTokens(pu); }
   }
 }
 
 // --- source 3: bundles_granting_sku() VALUES in the migration ---
+// bundles_granting_sku is CREATE OR REPLACE'd across migrations (it grew from 2
+// bundles to 3). The LIVE definition is the one in the NEWEST migration that
+// defines it — so find every migration whose body defines the function and read
+// the latest by filename (timestamp-prefixed → lexical sort = chronological).
 {
   const migDir = join(REPO_ROOT, 'supabase', 'migrations');
-  const migFile = existsSync(migDir)
-    ? readdirSync(migDir).find((n) => n.endsWith('_papic_ownership_bundle_aware.sql'))
-    : null;
+  const DEFINES = 'FUNCTION public.bundles_granting_sku';
+  const defining = existsSync(migDir)
+    ? readdirSync(migDir)
+        .filter((n) => n.endsWith('.sql'))
+        .filter((n) => readFileSync(join(migDir, n), 'utf8').includes(DEFINES))
+        .sort()
+    : [];
+  const migFile = defining.length ? defining[defining.length - 1] : null;
   if (!migFile) {
-    guard2Errors.push('Could not find *_papic_ownership_bundle_aware.sql migration (bundles_granting_sku) — update this linter.');
+    guard2Errors.push('Could not find a migration defining bundles_granting_sku() — update this linter.');
   } else {
     const src = readFileSync(join(migDir, migFile), 'utf8');
-    sqlGuided = new Set();
-    sqlMedia = new Set();
-    const re = /\(\s*'(GUIDED_PACK|MEDIA_PACK)'\s*,\s*'([A-Z0-9_]+)'\s*\)/g;
+    const byBundle = new Map(); // bundle_key → Set(child)
+    const re = /\(\s*'([A-Z0-9_]+)'\s*,\s*'([A-Z0-9_]+)'\s*\)/g;
     let mm;
     while ((mm = re.exec(src)) !== null) {
-      (mm[1] === 'GUIDED_PACK' ? sqlGuided : sqlMedia).add(mm[2]);
+      const set = byBundle.get(mm[1]) ?? new Set();
+      set.add(mm[2]);
+      byBundle.set(mm[1], set);
     }
-    if (sqlGuided.size === 0 || sqlMedia.size === 0) {
-      guard2Errors.push('Parsed 0 pairs from bundles_granting_sku() VALUES — did the SQL shape change? Update this linter.');
-      sqlGuided = sqlMedia = null;
+    sqlGuided = byBundle.get('GUIDED_PACK') ?? null;
+    sqlMedia = byBundle.get('MEDIA_PACK') ?? null;
+    sqlPapicUnlock = byBundle.get('PAPIC_UNLOCK') ?? null;
+    if (!sqlGuided || !sqlMedia || !sqlPapicUnlock) {
+      guard2Errors.push(
+        `Parsed bundles_granting_sku() in ${migFile} but missing one of GUIDED_PACK/MEDIA_PACK/PAPIC_UNLOCK VALUES — did the SQL shape change? Update this linter.`,
+      );
+      sqlGuided = sqlMedia = sqlPapicUnlock = null;
     }
   }
 }
@@ -235,12 +255,15 @@ compare('Essentials', guided, 'BUNDLE_CHILD_SKUS.GUIDED_PACK', essentials, 'BUND
 compare('Essentials', guided, 'BUNDLE_CHILD_SKUS.GUIDED_PACK', sqlGuided, 'bundles_granting_sku(GUIDED_PACK)');
 compare('Complete', media, 'BUNDLE_CHILD_SKUS.MEDIA_PACK', complete, 'BUNDLE_MEMBERS.complete');
 compare('Complete', media, 'BUNDLE_CHILD_SKUS.MEDIA_PACK', sqlMedia, 'bundles_granting_sku(MEDIA_PACK)');
+compare('PapicUnlock', papicUnlock, 'BUNDLE_CHILD_SKUS.PAPIC_UNLOCK', papicUnlockMembers, 'BUNDLE_MEMBERS.papicUnlock');
+compare('PapicUnlock', papicUnlock, 'BUNDLE_CHILD_SKUS.PAPIC_UNLOCK', sqlPapicUnlock, 'bundles_granting_sku(PAPIC_UNLOCK)');
 
 // A bundle code must never appear as a CHILD of any bundle (the activation
 // fan-out in sku-activation.ts relies on this to avoid infinite recursion).
-for (const [name, set] of [['GUIDED_PACK', guided], ['MEDIA_PACK', media]]) {
+const BUNDLE_CODES = ['GUIDED_PACK', 'MEDIA_PACK', 'PAPIC_UNLOCK'];
+for (const [name, set] of [['GUIDED_PACK', guided], ['MEDIA_PACK', media], ['PAPIC_UNLOCK', papicUnlock]]) {
   if (!set) continue;
-  for (const code of ['GUIDED_PACK', 'MEDIA_PACK']) {
+  for (const code of BUNDLE_CODES) {
     if (set.has(code)) guard2Errors.push(`${name} lists the bundle code ${code} as a child — bundles must not nest (breaks activateBundleChildren recursion guarantee).`);
   }
 }
@@ -280,6 +303,7 @@ if (failed) process.exit(1);
 console.log(
   `✓ entitlement gates clean — ${SOURCE_FILES.length} files scanned; ` +
     `bundle membership in sync across all 3 mirrors ` +
-    `(Essentials ${guided ? guided.size : '?'} · Complete ${media ? media.size : '?'}).`,
+    `(Essentials ${guided ? guided.size : '?'} · Complete ${media ? media.size : '?'} · ` +
+    `PapicUnlock ${papicUnlock ? papicUnlock.size : '?'}).`,
 );
 process.exit(0);

@@ -8,7 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { reScreenStuckCaptures } from '@/lib/nsfw-screen';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { eventPapicGuestActive } from '@/lib/papic-guest';
-import { eventSkuActive } from '@/lib/entitlements';
+import { eventKwentoEnabled } from '@/lib/kwento-access';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
@@ -76,11 +76,12 @@ export default async function PapicModerationPage({
 
   const owns = await eventPapicGuestActive(admin, eventId);
 
-  // Kwento is paid-to-unlock (owner 2026-06-26 · ₱500). The words-on-a-photo
-  // queue is gated on KWENTO (bundle-aware · admin-approved); photo moderation
-  // above stays free. Price + pay rails for the inline buy when unowned.
+  // Kwento is paid-to-unlock (owner 2026-06-26) — NEW EVENTS ONLY (grandfathered
+  // events stay free; newer events need KWENTO directly or via a bundle). The
+  // words-on-a-photo queue is gated on Kwento being enabled; photo moderation
+  // above stays free. Price + pay rails for the inline buy when not enabled.
   const [ownsKwento, kwentoSku, platformSettings] = await Promise.all([
-    eventSkuActive(admin, eventId, 'KWENTO'),
+    eventKwentoEnabled(admin, eventId),
     formatV2Sku('KWENTO').catch(() => null),
     fetchPlatformSettings(supabase),
   ]);

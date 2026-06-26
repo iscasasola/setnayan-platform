@@ -19,6 +19,7 @@ import {
   papicPerCameraTier,
   papicCameraOrderPaid,
   papicTierDailyLimit,
+  papicUnliUnlockAllActive,
 } from '@/lib/papic-cameras';
 
 // Server-side 5-second clip cap (corpus constraint · not configurable). The
@@ -255,6 +256,12 @@ export async function recordSeatCapture(
             admin,
             seat.paid_order_id as string | null,
           );
+          // "Unlock all of Papic" grants free, uncapped Unli cameras: owning
+          // PAPIC_UNLOCK lets every Unli-tier seat shoot without its own paid
+          // per-camera order. Unli tier only (the bundle's premium grant).
+          if (!paid && cameraTier === 'unlimited') {
+            paid = await papicUnliUnlockAllActive(admin, seat.event_id as string);
+          }
         } catch {
           paid = false;
         }

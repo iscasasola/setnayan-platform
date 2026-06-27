@@ -51,6 +51,10 @@ import {
   RequirementsModal,
   type RequirementsModalPhase,
 } from '@/app/_components/requirements-modal';
+import {
+  SaveToContinue,
+  SaveGateHint,
+} from '@/app/_components/anon-gate/save-to-continue';
 
 export type InquiryComposerService = {
   vendorServiceId: string;
@@ -125,6 +129,16 @@ type Props = {
    * Must be non-null when existingThreadId is non-null.
    */
   existingThreadHref?: string | null;
+  /**
+   * Anon-draft: true when the viewer is a Supabase ANONYMOUS user (finished
+   * onboarding without an account). The public vendor page lives outside the
+   * dashboard's AnonGateProvider, so it passes this explicitly. When true, the
+   * Inquire click shows the "save your plan" prompt up front instead of
+   * optimistically firing the inquiry and bouncing on `not_secured`. Default
+   * false (secured users + signed-out visitors are unaffected — a signed-out
+   * visitor still falls through to the server `not_signed_in` → /login path).
+   */
+  viewerIsAnonymous?: boolean;
 };
 
 type ModalState =
@@ -159,10 +173,12 @@ export function InquiryComposer({
   guestEditHref,
   existingThreadId,
   existingThreadHref,
+  viewerIsAnonymous = false,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [modal, setModal] = useState<ModalState>({ kind: 'closed' });
+  const [gateOpen, setGateOpen] = useState(false);
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -359,6 +375,12 @@ export function InquiryComposer({
   // pop-up. (The existing-thread "Update what you're looking for" affordance
   // always opens the pop-up — an explicit edit intent is never auto-fired.)
   function onInquireClick() {
+    // Anon-draft: opening a vendor thread needs a secured account. Ask up front
+    // rather than letting them fill the pop-up (or auto-fire) and bounce.
+    if (viewerIsAnonymous) {
+      setGateOpen(true);
+      return;
+    }
     if (autoCarry) {
       void autoInquire();
     } else {
@@ -611,8 +633,16 @@ export function InquiryComposer({
         )}
       </button>
 
+      {/* Anon-draft pre-emptive note — the account step is visible before the
+          tap. Suppressed once they've an existing-thread shortcut (no CTA). */}
+      {viewerIsAnonymous ? (
+        <SaveGateHint>
+          Free to plan — you’ll save your account to send this to the vendor.
+        </SaveGateHint>
+      ) : null}
+
       {/* Auto carry-forward hint — sets expectation that saved prefs go along. */}
-      {autoCarry && autoState.kind === 'idle' ? (
+      {!viewerIsAnonymous && autoCarry && autoState.kind === 'idle' ? (
         <p className="mt-2 flex items-center gap-1.5 text-xs text-ink/55">
           <Sparkles aria-hidden className="h-3.5 w-3.5 text-terracotta" strokeWidth={1.75} />
           Your saved {categoryName} preferences will be included automatically.
@@ -647,6 +677,8 @@ export function InquiryComposer({
           dialogRef={dialogRef}
         />
       ) : null}
+
+      <SaveToContinue open={gateOpen} onClose={() => setGateOpen(false)} action="message" />
     </>
   );
 }

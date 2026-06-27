@@ -1324,6 +1324,11 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
                   ? `/dashboard/${coupleEventId}/messages/${existingThreadId}`
                   : null
               }
+              // Anon-draft: an anonymous viewer (finished onboarding without an
+              // account) gets the "save your plan" prompt up front instead of
+              // bouncing on the server `not_secured` guard. Secured users and
+              // signed-out visitors are unaffected.
+              viewerIsAnonymous={user?.is_anonymous ?? false}
             />
           ) : null}
           <div className="flex flex-wrap gap-3">

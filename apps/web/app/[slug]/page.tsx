@@ -198,7 +198,7 @@ const fetchEventBySlug = cache(async (slug: string) => {
   const { data } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_accent_hex, is_sample',
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_accent_hex, is_sample',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -1361,6 +1361,11 @@ type EventRow = {
   venue_latitude: number | null;
   venue_longitude: number | null;
   slug: string;
+  // Ceremony faith (events.ceremony_type, iteration 0043). Read on the public
+  // site so faith-specific guest guidance can fill an empty section — e.g. the
+  // INC dress-code empty state surfaces the Church's modest-attire expectation
+  // even when the host hasn't authored a dress code yet.
+  ceremony_type?: string | null;
   // Couple's mood-board palette (events.role_palette JSONB, iteration 0010).
   // Read here to skin the public site's --color-* tokens via buildSitePaletteVars
   // in InvitationShell. Shape is Partial<Record<PaletteKey, string[]>>; typed
@@ -2113,7 +2118,7 @@ function PublicHideableWidget({
       return <VenueWidget event={event} />;
 
     case 'dress_code':
-      return <DressCodeWidget config={event.dress_code_config ?? null} />;
+      return <DressCodeWidget config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} />;
 
     case 'photo_moments':
       return <PhotoMomentsWidget config={event.photo_moments_config} />;
@@ -3103,7 +3108,7 @@ function HideableWidgetRender({
       return <VenueWidget event={event} />;
 
     case 'dress_code':
-      return <DressCodeWidget config={event.dress_code_config ?? null} />;
+      return <DressCodeWidget config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} />;
 
     case 'photo_moments':
       return <PhotoMomentsWidget config={event.photo_moments_config} />;
@@ -3602,8 +3607,10 @@ function VenueWidget({ event }: { event: EventRow }) {
  */
 function DressCodeWidget({
   config,
+  ceremonyType,
 }: {
   config: EventRow['dress_code_config'];
+  ceremonyType?: string | null;
 }) {
   // Defensive read — JSONB column defaults to `{}` so every field may be
   // absent. Skip rows in palette that aren't valid #RRGGBB to avoid CSS
@@ -3634,8 +3641,31 @@ function DressCodeWidget({
     palette.length > 0;
 
   // Empty state — section stays visible (so guests know to expect it) but
-  // reads as an intentional "coming soon" note in the host's brand voice.
+  // reads as an intentional note in the host's brand voice.
   if (!hasAnything) {
+    // INC weddings require modest, formal attire of everyone present (no
+    // sleeveless / short), so even when the host hasn't authored a dress code
+    // we surface that expectation — it spares guests the most common INC-
+    // wedding friction. See INC_Wedding_Practices_Reference_2026-06-28.md § 5.4.
+    if (ceremonyType === 'inc') {
+      return (
+        <section className="space-y-3 rounded-xl border border-ink/10 bg-cream p-6">
+          <header>
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+              Dress code
+            </p>
+            <h3 className="mt-1 text-2xl font-semibold tracking-tight">
+              Modest &amp; formal
+            </h3>
+          </header>
+          <p className="text-sm text-ink/70">
+            Our ceremony is held in the INC chapel, so we kindly ask everyone to
+            dress modestly and formally — please avoid sleeveless tops and short
+            dresses or skirts. Thank you for honoring the occasion with us.
+          </p>
+        </section>
+      );
+    }
     return (
       <section className="space-y-3 rounded-xl border border-ink/10 bg-cream p-6">
         <header>

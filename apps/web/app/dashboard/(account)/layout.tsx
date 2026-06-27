@@ -54,6 +54,7 @@ export default async function AccountDashboardLayout({
     userId: user.id,
     displayName: null,
     email: user.email ?? '',
+    isAnonymous: !!user.is_anonymous,
     photoUrl: null,
     events: [],
     gallery: [],

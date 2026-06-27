@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { setPasswordAction } from './actions';
 
@@ -39,8 +40,15 @@ export default async function SetPasswordPage({ params, searchParams }: Props) {
         <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">Almost there</p>
         <h1 className="text-2xl font-semibold tracking-tight">Set a password</h1>
         <p className="text-sm text-ink/70">
-          You&rsquo;re signed in as <span className="font-medium text-ink">{user.email}</span>. Set a
-          password so you can log back in any time — or skip and keep using email sign-in links.
+          You&rsquo;re signed in
+          {isPlaceholderEmail(user.email) ? null : (
+            <>
+              {' '}
+              as <span className="font-medium text-ink">{user.email}</span>
+            </>
+          )}
+          . Set a password so you can log back in any time — or skip and keep using email
+          sign-in links.
         </p>
       </header>
 

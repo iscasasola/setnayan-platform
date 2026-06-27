@@ -44,6 +44,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     userId: user.id,
     displayName: null,
     email: user.email ?? '',
+    isAnonymous: !!user.is_anonymous,
     photoUrl: null,
     events: [],
     gallery: [],

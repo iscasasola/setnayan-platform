@@ -144,6 +144,7 @@ export default async function EventLayout({ children, params }: Props) {
     userId: user.id,
     displayName: null,
     email: user.email ?? '',
+    isAnonymous: !!user.is_anonymous,
     photoUrl: null,
     events: [],
     gallery: [],

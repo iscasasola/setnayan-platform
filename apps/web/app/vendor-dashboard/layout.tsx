@@ -47,6 +47,7 @@ export default async function VendorDashboardLayout({
     userId: user.id,
     displayName: null,
     email: user.email ?? '',
+    isAnonymous: !!user.is_anonymous,
     photoUrl: null,
     events: [],
     gallery: [],

@@ -240,6 +240,18 @@
   .onbw #screen-region .loccard {
     height: clamp(150px, 26vh, 300px);
   }
+  /* Region's tapzone stretched (flex:1 1 auto) and its `.locresults-wrap` bottom-docks
+     its carousel (justify-content:flex-end — right for the mobile thumb zone). On the
+     wide desktop canvas that left a dead band between the heading and the cards. Stop
+     the tapzone stretching and top-anchor the wrap so the heading → carousel → search
+     read as one compact group (the screen's justify-content:center then balances it). */
+  .onbw #screen-region.screen.active .tapzone {
+    flex: 0 0 auto;
+  }
+  .onbw #screen-region.screen.active .locresults-wrap {
+    flex: 0 0 auto;
+    justify-content: flex-start;
+  }
 
   /* Congrats two-pane (owner 2026-06-22 "make it fit + look better"): hero + countdown
      LEFT, recap + share RIGHT, so the tall finish card splits across the width and fits

@@ -100,6 +100,16 @@ const STATIC_ROUTES: ReadonlyArray<{
   // for "AI wedding planner Philippines" / vendor matchmaking.
   { path: '/setnayan-ai', lastmod: '2026-06-20', changefreq: 'monthly', priority: '0.8' },
 
+  // "Pa-" feature landing pages — five force-static differentiator surfaces, each
+  // with SoftwareApplication + FAQPage JSON-LD (owner-approved 2026-06-27; Pa-
+  // naming LOCKED; shipped 2026-06-28). SEO/GEO surfaces for live-stream, 3D
+  // reception, animated monogram, wedding website, and highlight reels.
+  { path: '/panood', lastmod: '2026-06-28', changefreq: 'monthly', priority: '0.8' },
+  { path: '/pa3d', lastmod: '2026-06-28', changefreq: 'monthly', priority: '0.7' },
+  { path: '/palogo', lastmod: '2026-06-28', changefreq: 'monthly', priority: '0.7' },
+  { path: '/pawebsite', lastmod: '2026-06-28', changefreq: 'monthly', priority: '0.8' },
+  { path: '/patiktok', lastmod: '2026-06-28', changefreq: 'monthly', priority: '0.7' },
+
   // /why-setnayan — comparison / differentiation page (WebPage + FAQPage JSON-LD).
   // New 2026-06-20; the GEO/SEO surface for "wedding app comparison" / "best
   // wedding app Philippines" — the citable "three apps in one" frame.

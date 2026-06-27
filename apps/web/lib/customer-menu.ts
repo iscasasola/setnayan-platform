@@ -113,6 +113,12 @@ export type CustomerMenuCtx = {
   /** When set, overrides the returned tree with the phase-appropriate menus.
    *  Day-of and After menus have no children (the dock hides). */
   phase?: LifecyclePhase;
+  /** Top-level menu keys to drop for this event type, derived from its
+   *  Event-Type Profile (e.g. ['explore','budget'] for a vendor-free Simple
+   *  Event). Empty/undefined → every menu shows (wedding + all existing types
+   *  byte-identical). Only filters the planning tree; the Day-of/After phase
+   *  takeovers carry no explore/budget menu so they're unaffected. */
+  hideKeys?: string[];
 };
 
 /**
@@ -154,7 +160,7 @@ export function buildCustomerMenuTree(
   const base = `/dashboard/${eventId}`;
   const guestStages = buildGuestJourney(eventId, { dayOfOpen: ctx.dayOfOpen });
 
-  return [
+  const planningMenus: CustomerMenu[] = [
     {
       key: 'home',
       label: 'Home',
@@ -280,6 +286,10 @@ export function buildCustomerMenuTree(
       ],
     },
   ];
+
+  return ctx.hideKeys?.length
+    ? planningMenus.filter((m) => !ctx.hideKeys!.includes(m.key))
+    : planningMenus;
 }
 
 /** True when the pathname sits inside a menu's docked-sub-nav SECTION (narrow

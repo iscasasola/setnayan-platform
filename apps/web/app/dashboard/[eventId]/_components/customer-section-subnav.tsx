@@ -50,6 +50,7 @@ export function CustomerSectionSubnav({
   eventDate,
   navSlots,
   phase,
+  hideKeys,
 }: {
   eventId: string;
   eventDate: string | null;
@@ -58,6 +59,9 @@ export function CustomerSectionSubnav({
    *  code default — so every sub-nav child is editable from /admin/menus. */
   navSlots?: Record<string, NavSlotLite>;
   phase?: LifecyclePhase;
+  /** Top-level menu keys to drop for this event type (e.g. ['explore','budget']
+   *  for a vendor-free Simple Event). Resolved from the profile in layout.tsx. */
+  hideKeys?: string[];
 }) {
   const pathname = usePathname() ?? '';
   const router = useRouter();
@@ -70,7 +74,7 @@ export function CustomerSectionSubnav({
     setDayOfOpen(isDayOfOpen(eventDate, new Date()));
   }, [eventDate]);
 
-  const tree = buildCustomerMenuTree(eventId, { dayOfOpen, phase });
+  const tree = buildCustomerMenuTree(eventId, { dayOfOpen, phase, hideKeys });
   const activeMenu = tree.find((m) => matchesMenuSection(pathname, m)) ?? null;
   // Overlay the nav-registry admin override (label · icon · hidden) onto each
   // child by its slotKey — the registry SSOT now drives the sub-nav children,

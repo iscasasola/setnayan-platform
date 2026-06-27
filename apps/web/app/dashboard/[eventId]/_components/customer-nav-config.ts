@@ -69,7 +69,7 @@ import { buildGuestJourney } from '@/lib/guest-journey';
  */
 export function buildCustomerNavGroups(
   eventId: string,
-  opts?: { dayOfOpen?: boolean },
+  opts?: { dayOfOpen?: boolean; hideKeys?: string[] },
 ): NavGroup[] {
   const base = `/dashboard/${eventId}`;
 
@@ -86,7 +86,7 @@ export function buildCustomerNavGroups(
     muted: stage.muted,
   }));
 
-  return [
+  const groups: NavGroup[] = [
     {
       key: 'root',
       label: '', // header-less — SidebarSection skips the heading button
@@ -248,4 +248,11 @@ export function buildCustomerNavGroups(
       ],
     },
   ];
+
+  // Per-event-type gating (e.g. a vendor-free Simple Event drops 'explore' +
+  // 'budget'). Empty/undefined hideKeys → unchanged for wedding + all existing
+  // types. Mirrors the same filter on the mobile tree (lib/customer-menu.ts).
+  if (!opts?.hideKeys?.length) return groups;
+  const hide = new Set(opts.hideKeys);
+  return groups.map((g) => ({ ...g, items: g.items.filter((i) => !hide.has(i.key)) }));
 }

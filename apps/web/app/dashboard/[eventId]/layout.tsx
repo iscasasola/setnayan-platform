@@ -3,6 +3,7 @@ import { ClipboardList } from 'lucide-react';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getLifecyclePhase } from '@/lib/day-of-mode';
+import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { getDashboardShell } from '@/lib/dashboard-shell';
 import { countUnreadMessages } from '@/lib/chat';
@@ -243,6 +244,19 @@ export default async function EventLayout({ children, params }: Props) {
     (event as { cleared_at?: string | null }).cleared_at ?? null,
   );
 
+  // Per-event-type nav gating (iteration 0053 — Simple Event, owner 2026-06-27).
+  // A vendor-free type drops the Explore (vendor marketplace) tab when its
+  // profile sets marketplace_enabled=FALSE, and the Budget tab when 'budget' is
+  // not an enabled surface. For wedding + every existing type the profile keeps
+  // both (marketplace_enabled DEFAULTs TRUE; their surfaces include budget), so
+  // navHideKeys is [] → byte-identical. resolveProfile is React-cached + degrades
+  // to a hard-coded profile on any DB hiccup.
+  const profile = await resolveProfile((event.event_type as string | null) ?? 'wedding');
+  const navHideKeys = [
+    ...(profile.marketplaceEnabled ? [] : ['explore']),
+    ...(surfaceEnabled(profile, 'budget') ? [] : ['budget']),
+  ];
+
   const tr = makeT(locale);
 
   // Top bar lives inside SidebarShell's topBar slot. Carries the event-
@@ -305,6 +319,7 @@ export default async function EventLayout({ children, params }: Props) {
             eventId={eventId}
             navSlots={navSlots}
             eventDate={(event.event_date as string | null) ?? null}
+            hideKeys={navHideKeys}
           />
         }
         topBar={topBar}
@@ -329,7 +344,7 @@ export default async function EventLayout({ children, params }: Props) {
       {/* Mobile BottomNav — auto-hides at lg via lg:hidden inside the
           BottomNav primitive. Sits outside SidebarShell so it doesn't
           inherit the desktop sidebar offset. */}
-      <CustomerBottomNav eventId={eventId} phase={phase} navSlots={navSlots} />
+      <CustomerBottomNav eventId={eventId} phase={phase} navSlots={navSlots} hideKeys={navHideKeys} />
       {/* NAV-2 broken-out primary action (the Shazam satellite) — a SIBLING of
           the locked BottomNav pill, never a 7th tab. Floats above the pill's
           right end, hides when the docked SubNav is up + in the After phase. */}
@@ -345,7 +360,7 @@ export default async function EventLayout({ children, params }: Props) {
           the server-built panel, and the bottom nav collapses to icons-only while
           it's docked. Self-gates to null outside any menu's section. eventDate
           drives the Guests Day-of time-gate. */}
-      <CustomerSectionSubnav eventId={eventId} eventDate={(event.event_date as string | null) ?? null} navSlots={navSlots} phase={phase} />
+      <CustomerSectionSubnav eventId={eventId} eventDate={(event.event_date as string | null) ?? null} navSlots={navSlots} phase={phase} hideKeys={navHideKeys} />
     </>
   );
 }

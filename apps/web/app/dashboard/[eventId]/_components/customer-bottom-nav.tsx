@@ -31,12 +31,16 @@ export function CustomerBottomNav({
   eventId,
   phase = 'plan',
   navSlots,
+  hideKeys,
 }: {
   eventId: string;
   phase?: LifecyclePhase;
   navSlots?: Record<string, NavSlotLite>;
+  /** Top-level menu keys to drop for this event type (e.g. ['explore','budget']
+   *  for a vendor-free Simple Event). Resolved from the profile in layout.tsx. */
+  hideKeys?: string[];
 }) {
-  const tree = buildCustomerMenuTree(eventId, { phase, dayOfOpen: false });
+  const tree = buildCustomerMenuTree(eventId, { phase, dayOfOpen: false, hideKeys });
 
   const items: BottomNavItem[] = tree.flatMap((m) => {
     if (phase === 'plan') {

@@ -142,6 +142,7 @@ export function CustomerSidebar({
   eventId,
   navSlots,
   eventDate,
+  hideKeys,
 }: {
   eventId: string;
   navSlots?: Record<string, NavSlotLite>;
@@ -152,6 +153,9 @@ export function CustomerSidebar({
    * pattern as <GuestsSectionSubnav>.
    */
   eventDate?: string | null;
+  /** Top-level nav keys to drop for this event type (e.g. ['explore','budget']
+   *  for a vendor-free Simple Event). Resolved from the profile in layout.tsx. */
+  hideKeys?: string[];
 }) {
   const pathname = usePathname() ?? `/dashboard/${eventId}`;
   const [dayOfOpen, setDayOfOpen] = useState(false);
@@ -159,7 +163,7 @@ export function CustomerSidebar({
     setDayOfOpen(isDayOfOpen(eventDate ?? null, new Date()));
   }, [eventDate]);
   const groups = applyRegistry(
-    buildCustomerNavGroups(eventId, { dayOfOpen }),
+    buildCustomerNavGroups(eventId, { dayOfOpen, hideKeys }),
     navSlots,
   );
 

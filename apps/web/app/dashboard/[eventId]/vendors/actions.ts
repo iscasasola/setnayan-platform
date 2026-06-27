@@ -38,6 +38,7 @@ import {
   type CeremonyType,
   type MeaningfulDateKind,
 } from '@/lib/auspicious-date';
+import { isChineseWedding } from '@/lib/chinese-wedding';
 import { buildClaimUrl, ensureAutoShareInvite } from '@/lib/vendor-invites';
 import {
   fetchSlotsForCoupleBooking,
@@ -1484,7 +1485,7 @@ export async function finalizeVendor(
   if (forcedDateKey && confirmDateLock) {
     const { data: stillRow } = await supabase
       .from('events')
-      .select('event_date, ceremony_type')
+      .select('event_date, ceremony_type, secondary_ceremony_type')
       .eq('event_id', eventId)
       .maybeSingle();
     const stillNoDate = !(stillRow as { event_date?: string | null } | null)?.event_date;
@@ -1506,6 +1507,7 @@ export async function finalizeVendor(
           kind: r.kind as MeaningfulDateKind,
           note: (r.note as string | null) ?? null,
         })),
+        isChineseWedding(stillRow),
       );
       const { error: dateErr } = await supabase
         .from('events')

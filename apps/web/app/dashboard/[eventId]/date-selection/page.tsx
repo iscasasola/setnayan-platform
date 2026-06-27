@@ -36,6 +36,7 @@ import {
   type MeaningfulDate,
   type MeaningfulDateKind,
 } from '@/lib/auspicious-date';
+import { isChineseWedding } from '@/lib/chinese-wedding';
 import { fetchEventVendors, displayServiceLabel } from '@/lib/vendors';
 import { getBatchVendorAvailableDays } from '@/lib/vendor-availability';
 import { intersectViableCandidates } from '@/lib/candidate-dates';
@@ -43,6 +44,7 @@ import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { DatePicker } from './_components/date-picker';
 import { FourQuestionFlow } from './_components/four-question-flow';
 import { CandidateDatePicker, type CandidateInsight } from './_components/candidate-date-picker';
+import { ChineseSpecialistNudge } from './_components/chinese-specialist-nudge';
 import { markDateUndecided } from './actions';
 
 export const metadata = { title: 'Pick your date · Setnayan' };
@@ -205,9 +207,15 @@ function reasonsFor(
   dateKey: string,
   ceremonyType: CeremonyType | null,
   meaningfulDates: MeaningfulDate[],
+  chineseTradition: boolean,
 ): { meaningful: string[]; why: string[] } {
   const [y = 1970, m = 1, d = 1] = dateKey.split('-').map(Number);
-  const groups = computeAuspiciousReasonsDetailed(new Date(y, m - 1, d), ceremonyType, meaningfulDates);
+  const groups = computeAuspiciousReasonsDetailed(
+    new Date(y, m - 1, d),
+    ceremonyType,
+    meaningfulDates,
+    chineseTradition,
+  );
 
   const meaningful: string[] = [];
   const why: string[] = [];
@@ -302,7 +310,7 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
     supabase
       .from('events')
       .select(
-        'event_id, display_name, event_date, ceremony_type, date_status, event_date_precision, date_candidates, estimated_budget_centavos',
+        'event_id, display_name, event_date, ceremony_type, secondary_ceremony_type, date_status, event_date_precision, date_candidates, estimated_budget_centavos',
       )
       .eq('event_id', eventId)
       .maybeSingle(),
@@ -320,6 +328,17 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
     ? (event.ceremony_type as CeremonyType)
     : null;
 
+  // Chinese (Tsinoy) tradition applies as the primary rite OR as the
+  // secondary/overlay rite. Derived from the shared predicate over BOTH
+  // ceremony columns so the advisory layer fires for the common church-primary
+  // + Chinese-secondary case, not just primary chinese.
+  const secondaryCeremonyType =
+    (event as { secondary_ceremony_type?: string | null }).secondary_ceremony_type ?? null;
+  const chineseTradition = isChineseWedding({
+    ceremony_type: event.ceremony_type as string | null | undefined,
+    secondary_ceremony_type: secondaryCeremonyType,
+  });
+
   const meaningfulDates: MeaningfulDate[] = (meaningfulRes.data ?? []).map((r) => ({
     date: r.meaningful_date as string,
     kind: r.kind as MeaningfulDateKind,
@@ -333,10 +352,12 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
   // Path: direct calendar pick
   if (path === 'direct') {
     return (
-      <section className="mx-auto max-w-2xl">
+      <section className="mx-auto max-w-2xl space-y-6">
+        {chineseTradition ? <ChineseSpecialistNudge /> : null}
         <DatePicker
           eventId={eventId}
           ceremonyType={ceremonyType}
+          secondaryCeremonyType={secondaryCeremonyType}
           meaningfulDates={meaningfulDates}
           initialDate={event.event_date ?? null}
           backLabel="Pick another path"
@@ -349,7 +370,8 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
   // Path: 4-question guided flow
   if (path === 'guided') {
     return (
-      <section className="mx-auto max-w-2xl">
+      <section className="mx-auto max-w-2xl space-y-6">
+        {chineseTradition ? <ChineseSpecialistNudge /> : null}
         <FourQuestionFlow
           eventId={eventId}
           initialCeremonyType={ceremonyType}
@@ -476,7 +498,7 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
       const booked = vendorStates.filter((v) => v.state === 'booked').length;
 
       const mkt = marketplaceCoverage(vpRows, blockRows, dateKey);
-      const { meaningful, why } = reasonsFor(dateKey, ceremonyType, meaningfulDates);
+      const { meaningful, why } = reasonsFor(dateKey, ceremonyType, meaningfulDates, chineseTradition);
       const [, m = 1] = dateKey.split('-').map(Number);
       const { label, dow, fullLabel } = labelFor(dateKey);
 
@@ -511,6 +533,7 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
           <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           Back to {(event as { display_name: string }).display_name}
         </a>
+        {chineseTradition ? <ChineseSpecialistNudge /> : null}
         <CandidateDatePicker
           eventId={eventId}
           candidates={insights}
@@ -545,6 +568,8 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
           you find yours — and show you what makes the day you pick special.
         </p>
       </header>
+
+      {chineseTradition ? <ChineseSpecialistNudge /> : null}
 
       <div className="grid gap-3">
         <PathCard

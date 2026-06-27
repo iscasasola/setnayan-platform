@@ -261,6 +261,7 @@ function venueDirectoryTypeToCategory(venueType: string): VendorCategory {
     case 'mosque':
     case 'cultural_site':
     case 'civil_registrar':
+    case 'temple':
       return 'religious_venue';
     case 'hotel_ballroom':
     case 'garden':

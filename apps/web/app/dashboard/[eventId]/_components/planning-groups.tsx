@@ -34,6 +34,7 @@ import {
 } from '@/lib/wedding-plan-groups';
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
 import { WEDDING_FOLDER_SLUG } from '@/lib/taxonomy';
+import { isChineseWedding } from '@/lib/chinese-wedding';
 import type { PaperworkSummary } from '@/lib/paperwork';
 import { deleteVendor } from '../vendors/actions';
 import { DirectionsButtons } from './directions-buttons';
@@ -125,6 +126,15 @@ type Props = {
    */
   ceremonyType?: string | null;
   /**
+   * Host's `events.secondary_ceremony_type` (overlay axis · iteration 0043).
+   * Combined with `ceremonyType` via isChineseWedding to decide whether the
+   * conditional Chinese tea-ceremony tile renders — the common Tsinoy case is a
+   * church/civil primary with a Chinese SECONDARY rite, so the secondary must be
+   * read too. `null` for events without an overlay. Non-Chinese events
+   * unaffected.
+   */
+  secondaryCeremonyType?: string | null;
+  /**
    * Host's picked `events.venue_setting` (PR B 2026-05-22). Feeds the
    * per-pick compatibility-mismatch check — vendors whose
    * compatible_venue_settings[] doesn't cover the host's current
@@ -197,6 +207,7 @@ export function PlanningGroups({
   venueLatitude,
   venueLongitude,
   ceremonyType,
+  secondaryCeremonyType,
   venueSetting,
   vendors,
   paperworkSummary,
@@ -232,6 +243,15 @@ export function PlanningGroups({
   const resolvedCeremony: CeremonyType | null = isCeremonyType(ceremonyType)
     ? ceremonyType
     : null;
+
+  // Chinese (Tsinoy) overlay flag — primary OR secondary 'chinese' (the common
+  // Tsinoy case is a church/civil primary with a Chinese secondary rite). When
+  // on, surface the FREE tea-ceremony serving-order helper as a tile. Non-
+  // Chinese events render nothing extra.
+  const chineseWedding = isChineseWedding({
+    ceremony_type: ceremonyType ?? null,
+    secondary_ceremony_type: secondaryCeremonyType ?? null,
+  });
 
   // Officiant venue-linking — owner directive 2026-05-22:
   //   "officiant will be listed by the locked ceremony venue then add a
@@ -378,6 +398,39 @@ export function PlanningGroups({
           </div>
         </div>
       </header>
+
+      {/* Chinese (Tsinoy) tea-ceremony helper — a FREE, ceremony-gated tile.
+          Renders only for Chinese weddings (primary or secondary rite). The tea
+          ceremony (敬茶) is the signature moment; this links to the serving-order
+          helper so couples can prepare the groom's-side-then-bride's-side order
+          with both families. Never routed through the paid add-ons catalog. */}
+      {chineseWedding ? (
+        <Link
+          href={`/dashboard/${eventId}/guests/tea-ceremony`}
+          className="flex items-center gap-3 rounded-xl border border-terracotta/25 bg-terracotta/[0.04] px-4 py-3 transition-colors hover:border-terracotta/45 hover:bg-terracotta/[0.07]"
+        >
+          <span
+            aria-hidden
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-terracotta/10 text-terracotta-700"
+          >
+            <Sparkles className="h-4 w-4" strokeWidth={1.75} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold text-ink">
+              Tea ceremony serving order
+            </span>
+            <span className="block text-xs text-ink/60">
+              Plan who you serve first — groom&rsquo;s side, then bride&rsquo;s,
+              in order of seniority.
+            </span>
+          </span>
+          <ChevronRight
+            aria-hidden
+            className="h-4 w-4 shrink-0 text-ink/40"
+            strokeWidth={2}
+          />
+        </Link>
+      ) : null}
 
       {PLAN_GROUP_TIER_ORDER.map((tier) => {
         const tierGroups = cardsByTier.get(tier) ?? [];

@@ -35,6 +35,7 @@ const VENUE_TYPE_FILTERS: ReadonlyArray<{ value: string; label: string }> = [
   { value: 'destination_resort', label: 'Destination Resort' },
   { value: 'heritage', label: 'Heritage' },
   { value: 'outdoor_tent', label: 'Outdoor Tent' },
+  { value: 'temple', label: 'Temple' },
 ];
 
 export default async function AdminVenuesPage({ searchParams }: Props) {

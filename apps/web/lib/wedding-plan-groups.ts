@@ -203,6 +203,11 @@ export type CeremonyType =
   | 'christian'
   | 'muslim'
   | 'cultural'
+  // Chinese (Tsinoy) is an active ceremony_type (migrations 20260804000000 +
+  // 20260806000000). Added here 2026-06-28 so a Chinese event's planning
+  // groups / Home-tile adaptivity resolve it instead of treating it as null —
+  // PR #2312 only fixed the matching union in lib/paperwork.ts.
+  | 'chinese'
   | 'mixed';
 
 /**
@@ -336,6 +341,7 @@ export function isCeremonyType(value: unknown): value is CeremonyType {
     value === 'christian' ||
     value === 'muslim' ||
     value === 'cultural' ||
+    value === 'chinese' ||
     value === 'mixed'
   );
 }

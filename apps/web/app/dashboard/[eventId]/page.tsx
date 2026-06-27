@@ -24,6 +24,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { sweepLapsedSubscriptions } from '@/lib/subscriptions';
 import { computeGuestStats, fetchGuestsByEvent } from '@/lib/guests';
+import { isChineseWedding } from '@/lib/chinese-wedding';
 // fetchEventActivity + fetchAttributedActivity moved into ActivityFeedAsync
 // (2026-05-30 Phase 2 — Suspense streaming · see _components/activity-feed-async.tsx
 // + CLAUDE.md 2026-05-30 row). Page no longer awaits these — the activity feed
@@ -1711,6 +1712,46 @@ export default async function EventHomePage({
           weddingDateMissing={false}
           totalRemainingTasks={remainingTaskCount}
         />
+      ) : null}
+
+      {/* Chinese (Tsinoy) tea-ceremony helper — a FREE, ceremony-gated tile.
+       *  Renders only for Chinese weddings (primary OR secondary 'chinese' rite,
+       *  per the locked overlay model · isChineseWedding). The tea ceremony
+       *  (敬茶) is the signature moment; the tile links to the serving-order
+       *  helper so couples prepare the groom's-side-then-bride's-side order with
+       *  both families. Never routed through the paid add-ons catalog. */}
+      {isChineseWedding({
+        ceremony_type:
+          (event as { ceremony_type?: string | null }).ceremony_type ?? null,
+        secondary_ceremony_type:
+          (event as { secondary_ceremony_type?: string | null })
+            .secondary_ceremony_type ?? null,
+      }) ? (
+        <Link
+          href={`/dashboard/${eventId}/guests/tea-ceremony`}
+          className="flex items-center gap-3 rounded-xl border border-terracotta/25 bg-terracotta/[0.04] px-4 py-3 transition-colors hover:border-terracotta/45 hover:bg-terracotta/[0.07]"
+        >
+          <span
+            aria-hidden
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-terracotta/10 text-terracotta-700"
+          >
+            <Sparkles className="h-4 w-4" strokeWidth={1.75} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold text-ink">
+              Tea ceremony serving order
+            </span>
+            <span className="block text-xs text-ink/60">
+              Plan who you serve first — groom&rsquo;s side, then bride&rsquo;s,
+              in order of seniority.
+            </span>
+          </span>
+          <ArrowRight
+            aria-hidden
+            className="h-4 w-4 shrink-0 text-ink/40"
+            strokeWidth={2}
+          />
+        </Link>
       ) : null}
 
       {/* Things to complete — the free wedding roadmap (owner 2026-06-05). The

@@ -38,6 +38,7 @@ import {
   type TraditionGuideKey,
   type TraditionItem,
 } from '@/lib/wedding-traditions';
+import { isChineseWedding } from '@/lib/chinese-wedding';
 import {
   markPaperworkReceived,
   markPaperworkRequested,
@@ -62,7 +63,9 @@ export default async function PaperworkPage({ params }: Props) {
   const [eventRes, rows] = await Promise.all([
     supabase
       .from('events')
-      .select('event_id, display_name, event_date, ceremony_type, event_type')
+      .select(
+        'event_id, display_name, event_date, ceremony_type, secondary_ceremony_type, event_type',
+      )
       .eq('event_id', eventId)
       .maybeSingle(),
     fetchEventPaperwork(supabase, eventId),
@@ -74,6 +77,7 @@ export default async function PaperworkPage({ params }: Props) {
         display_name: string;
         event_date: string | null;
         ceremony_type: string | null;
+        secondary_ceremony_type: string | null;
         event_type: string | null;
       }
     | null;
@@ -190,7 +194,21 @@ export default async function PaperworkPage({ params }: Props) {
         )}
       </header>
 
-      <TraditionsGuide ceremony={ceremony} items={traditionItems} />
+      <TraditionsGuide
+        ceremony={ceremony}
+        items={traditionItems}
+        // Chinese (Tsinoy) events — primary OR secondary 'chinese' — get a link
+        // from the tradition guide's tea-ceremony note to the actionable
+        // serving-order helper. null hides the link for every other event.
+        teaCeremonyHref={
+          isChineseWedding({
+            ceremony_type: event.ceremony_type,
+            secondary_ceremony_type: event.secondary_ceremony_type,
+          })
+            ? `/dashboard/${eventId}/guests/tea-ceremony`
+            : null
+        }
+      />
 
       {needsSeed ? (
         <SeedPrompt eventId={eventId} ceremonyLabel={ceremonyLabel(ceremony)} />
@@ -250,9 +268,13 @@ export default async function PaperworkPage({ params }: Props) {
 function TraditionsGuide({
   ceremony,
   items,
+  teaCeremonyHref,
 }: {
   ceremony: TraditionGuideKey;
   items?: TraditionItem[] | null;
+  /** When set (Chinese events), renders a link from the tea-ceremony note to
+   *  the actionable serving-order helper. null for every other ceremony. */
+  teaCeremonyHref?: string | null;
 }) {
   const guide = WEDDING_TRADITIONS_GUIDE[ceremony];
   if (!guide) return null;
@@ -285,6 +307,16 @@ function TraditionsGuide({
           </li>
         ))}
       </ul>
+      {teaCeremonyHref ? (
+        <Link
+          href={teaCeremonyHref}
+          className="inline-flex items-center gap-2 rounded-md border border-terracotta/30 bg-cream px-3 py-2 text-sm font-medium text-terracotta-700 transition-colors hover:border-terracotta/50 hover:text-terracotta-800"
+        >
+          <ScrollText className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
+          Plan your tea-ceremony serving order
+          <ArrowRight className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
+        </Link>
+      ) : null}
       {guide.confirmWith ? (
         <p className="text-xs text-ink/55">
           General guidance to help you plan — traditions vary by family, parish,

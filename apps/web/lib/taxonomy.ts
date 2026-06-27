@@ -119,6 +119,7 @@ export type WeddingTile =
   | 'ceremony_venue'
   // PLANNING
   | 'coordinator'
+  | 'date_specialist'
   // FEAST
   | 'cake'
   | 'catering'
@@ -185,6 +186,7 @@ export const TILE_PARENT: Record<WeddingTile, WeddingFolder> = {
   reception: 'venue',
   ceremony_venue: 'venue',
   coordinator: 'planning',
+  date_specialist: 'planning',
   cake: 'feast',
   catering: 'feast',
   stations: 'feast',
@@ -246,6 +248,7 @@ export const WEDDING_TILE_ORDER: ReadonlyArray<WeddingTile> = [
   'ceremony_venue',
   // PLANNING
   'coordinator',
+  'date_specialist',
   // FEAST
   'cake',
   'catering',
@@ -313,6 +316,7 @@ export const WEDDING_TILE_LABEL: Record<WeddingTile, string> = {
   reception: 'Reception',
   ceremony_venue: 'Ceremony',
   coordinator: 'Coordinator / Planner',
+  date_specialist: 'Date & Feng-shui Specialist',
   cake: 'Cake',
   catering: 'Catering',
   stations: 'Stations',
@@ -372,6 +376,7 @@ export const WEDDING_TILE_SLUG: Record<WeddingTile, string> = {
   reception: 'reception',
   ceremony_venue: 'ceremony-venue',
   coordinator: 'coordinator',
+  date_specialist: 'date-specialist',
   cake: 'cake',
   catering: 'catering',
   stations: 'stations',
@@ -628,6 +633,9 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   inc_wedding_coordinator:           { folder: 'planning', tile: 'coordinator', phase: 'V1.3', faith: 'INC' },
   mahr_coordination:                 { folder: 'planning', tile: 'coordinator', phase: 'V1.4', faith: 'Muslim' },
   setnayan_concierge:                { folder: 'planning', tile: 'coordinator', phase: 'V1.1 base', setnayan: true },
+  // Chinese (Tsinoy) date/feng-shui (BaZi) advisor — the deep-link target for the
+  // date-selection "Consult a date specialist" CTA. Own tile (NOT 'coordinator').
+  date_fengshui_consultant:          { folder: 'planning', tile: 'date_specialist', phase: 'V1.1.1', faith: 'Chinese', ph: true, tradition: true },
   // Travel + niche logistics leave the marketplace (wizard host-task / deferred).
   honeymoon_planner:                 { folder: 'planning', marketplaceHidden: true, phase: 'V1.1 base' },
   destination_wedding_travel_coordinator: { folder: 'planning', marketplaceHidden: true, phase: 'V1.2' },
@@ -640,6 +648,11 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   wedding_cake:                      { folder: 'feast', tile: 'cake', phase: 'V1.1 base' },
   catering:                          { folder: 'feast', tile: 'catering', phase: 'V1.1 base' },
   lechonero:                         { folder: 'feast', tile: 'catering', phase: 'V1.1 base', ph: true },
+  // Lauriat / Chinese banquet caterer. FOOD service → faith INTENTIONALLY NULL
+  // (de-faith lock, 2026-06-11): a faith tag would HIDE a Chinese-banquet caterer
+  // from non-Chinese couples. `tradition` keeps it Chinese-discoverable; it stays
+  // universal via the INCLUDE-only faith filter. NEVER add faith or dietary here.
+  chinese_lauriat_caterer:           { folder: 'feast', tile: 'catering', phase: 'V1.1.1', ph: true, tradition: true },
   halal_catering:                    { folder: 'feast', tile: 'catering', phase: 'V1.1.1', dietary: 'halal' },
   live_cooking_station:              { folder: 'feast', tile: 'stations', phase: 'V1.1.1' },
 
@@ -653,6 +666,7 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   hacienda_heritage_decor:           { folder: 'design', tile: 'stylist_decorator', phase: 'V1.2', ph: true, tradition: true },
   maranao_okir_decor:                { folder: 'design', tile: 'stylist_decorator', phase: 'V1.4', faith: 'Muslim', tradition: true },
   double_happiness_decor:            { folder: 'design', tile: 'stylist_decorator', phase: 'V1.1.1', faith: 'Chinese', tradition: true },
+  tea_set_styling:                   { folder: 'design', tile: 'stylist_decorator', phase: 'V1.1.1', faith: 'Chinese', tradition: true },
   chuppah_rental:                    { folder: 'design', tile: 'stylist_decorator', phase: 'V1.1.1', faith: 'Jewish', rental: true, tradition: true },
   mandap_decor:                      { folder: 'design', tile: 'stylist_decorator', phase: 'V1.1.1', faith: 'Hindu', tradition: true },
   setnayan_custom_monogram:          { folder: 'design', tile: 'digital_services', phase: 'V1.1 base', setnayan: true },
@@ -694,6 +708,7 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   kulintang_ensemble:                { folder: 'program', tile: 'performers', phase: 'V1.4', ph: true, faith: 'Muslim' },
   rondalla_ensemble:                 { folder: 'program', tile: 'performers', phase: 'V1.5+', ph: true },
   folk_performer:                    { folder: 'program', tile: 'performers', phase: 'V1.5+', ph: true },
+  lion_dance_troupe:                 { folder: 'program', tile: 'performers', phase: 'V1.1.1', faith: 'Chinese', tradition: true },
   host_emcee:                        { folder: 'program', tile: 'host_mc', phase: 'V1.1 base' },
   tea_ceremony_master:               { folder: 'program', tile: 'host_mc', phase: 'V1.1.1', faith: 'Chinese', ph: true, tradition: true },
 
@@ -855,6 +870,7 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   pasalubong_box:                    { folder: 'prints', tile: 'souvenir_giveaways', phase: 'V1.2', ph: true },
   sponsor_token:                     { folder: 'prints', tile: 'souvenir_giveaways', phase: 'V1.2', ph: true },
   godchild_token:                    { folder: 'prints', tile: 'souvenir_giveaways', phase: 'V1.2', ph: true },
+  angpao_betrothal_supplier:         { folder: 'prints', tile: 'souvenir_giveaways', phase: 'V1.1.1', faith: 'Chinese', tradition: true },
   trophy_supplier:                   { folder: 'prints', tile: 'trophies_awards', phase: 'V1.1.1' },
   medals_plaques:                    { folder: 'prints', tile: 'trophies_awards', phase: 'V1.1.1' },
 

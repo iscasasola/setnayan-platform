@@ -142,6 +142,12 @@ export type GuestRow = {
   seating_priority: number | null;
   // What this guest wears on their 3D seat-plan avatar (see resolveGuestAttire).
   attire: GuestAttire;
+  // Chinese tea-ceremony serving order — within-side serve order (lower serves
+  // first; null = unset, falls back to role importance) + a free-text relation
+  // label ("Grandparents", "Eldest Uncle"). Both optional · migration
+  // 20270309030000_guest_seniority.sql.
+  seniority_rank: number | null;
+  relation: string | null;
   created_at: string;
 };
 
@@ -279,7 +285,7 @@ export type GuestStats = {
 };
 
 const GUEST_FIELDS =
-  'guest_id,public_id,event_id,first_name,last_name,display_name,side,group_category,role,extra_roles,plus_one_allowed,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,faceblock_enabled,photo_url,photo_source,photo_updated_at,invited_to_blocks,rsvp_status,notes,qr_token,custom_tags,seating_priority,attire,created_at';
+  'guest_id,public_id,event_id,first_name,last_name,display_name,side,group_category,role,extra_roles,plus_one_allowed,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,faceblock_enabled,photo_url,photo_source,photo_updated_at,invited_to_blocks,rsvp_status,notes,qr_token,custom_tags,seating_priority,attire,seniority_rank,relation,created_at';
 
 // Bride & groom are the foundation of the event — always Attending, never
 // Pending (owner directive 2026-06-03). The DB trigger from migration

@@ -32,6 +32,7 @@ const VENUE_TYPE_LABEL: Record<(typeof VENUE_TYPES)[number], string> = {
   destination_resort: 'Destination Resort',
   heritage: 'Heritage',
   outdoor_tent: 'Outdoor Tent',
+  temple: 'Temple',
 };
 
 const CEREMONY_TYPE_LABEL: Record<(typeof CEREMONY_TYPES)[number], string> = {

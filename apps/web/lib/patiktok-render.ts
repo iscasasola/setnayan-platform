@@ -34,17 +34,32 @@
 // is the owner action gating this end to end — same gate as PR2's upload.
 
 import { ArrayBufferTarget, Muxer } from 'mp4-muxer';
+import type { BeatGrid } from './stories-templates';
 
+/**
+ * One render source. Historically every source was a booth CLIP (a short
+ * <video>); Guest Stories (the free, photo-driven tier) adds still PHOTOS,
+ * which paint a frozen <img> for the slot's whole span instead of seeking a
+ * video. `kind` defaults to `'clip'` so every existing caller (the Patiktok
+ * booth) keeps working untouched.
+ */
 export type RenderClip = {
   clipId: string;
   url: string;
   durationSec: number | null;
+  /** 'clip' = moving <video> (default), 'photo' = still <img>. */
+  kind?: 'clip' | 'photo';
 };
 
 export type RenderTemplate = {
   slug: string;
   name: string;
   palette: readonly [string, string, string, string];
+  /**
+   * Footer wordmark baked into the bottom scrim. Defaults to the Patiktok
+   * booth's mark; Guest Stories passes its own ('Stories · Setnayan').
+   */
+  footerLabel?: string;
 };
 
 export type RenderResult = {
@@ -61,6 +76,20 @@ export type RenderOptions = {
   template: RenderTemplate;
   durationSec: number;
   musicUrl?: string | null;
+  /**
+   * The chosen music track's beat grid (the `beat_grid` JSONB on
+   * `patiktok_music_tracks`). When present, cut points snap to the music's
+   * beats so the montage hits the rhythm; when NULL/absent the renderer falls
+   * back to the legacy EVEN split — behavior never regresses for a track that
+   * hasn't been analyzed yet.
+   */
+  beatGrid?: BeatGrid | null;
+  /**
+   * Beats between cuts — 1 = cut on every beat (frenetic), 2 = every other,
+   * 4 = roughly once per bar (calm). Mirrors a Stories template's
+   * `beatsPerCut`. Only consulted when `beatGrid` is present. Defaults to 1.
+   */
+  beatsPerCut?: number;
   onProgress?: (fraction: number) => void;
   signal?: AbortSignal;
 };
@@ -152,6 +181,19 @@ function loadVideo(url: string): Promise<HTMLVideoElement> {
   });
 }
 
+/** Load a still photo for a Guest Stories slot (cross-origin, CORS-safe). */
+function loadImage(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.decoding = 'async';
+    img.onload = () => resolve(img);
+    img.onerror = () =>
+      reject(new Error('Could not load a tagged photo (check R2 CORS).'));
+    img.src = url;
+  });
+}
+
 function destroyVideo(video: HTMLVideoElement) {
   try {
     video.pause();
@@ -190,27 +232,196 @@ function effectiveDuration(video: HTMLVideoElement, fallbackSec: number | null):
 }
 
 /** Even frame split across clips; remainder goes to the earlier clips. */
-function splitFrames(total: number, parts: number): number[] {
+export function splitFrames(total: number, parts: number): number[] {
+  if (parts <= 0) return [];
   const base = Math.floor(total / parts);
   const rem = total - base * parts;
   return Array.from({ length: parts }, (_, i) => base + (i < rem ? 1 : 0));
 }
 
+/** Hard cap on any single CLIP slot, in seconds (CLAUDE.md hard constraint). */
+const CLIP_SLOT_MAX_SEC = 5;
+
+/**
+ * Per-source duration schedule (SECONDS), beat-aware.
+ *
+ * Walks the track's beat onsets with a `beatsPerCut` stride and assigns one
+ * source per cut, so each source's on-screen span is a run of beats — cuts land
+ * on the rhythm. A clip source is hard-capped at {@link CLIP_SLOT_MAX_SEC}; a
+ * photo can hold a longer beat gap (a still doesn't run out of footage). The
+ * returned spans always sum to `totalSec` (the last span absorbs any remainder)
+ * so the reel is exactly the requested length.
+ *
+ * Falls back to an EVEN split (every source gets `totalSec / n`, clips still
+ * capped) when there's no usable beat grid — so a NULL `beat_grid` reproduces
+ * the legacy behavior exactly.
+ *
+ * Pure + exported so the scheduler is unit-testable in Node (no DOM/canvas).
+ *
+ * @param totalSec  Target reel length, seconds.
+ * @param kinds     Per-source media kind, in order ('clip' | 'photo').
+ * @param opts      `beatGrid` (nullable) + `beatsPerCut` (default 1).
+ */
+export function buildBeatSchedule(
+  totalSec: number,
+  kinds: ReadonlyArray<'clip' | 'photo'>,
+  opts: { beatGrid?: BeatGrid | null; beatsPerCut?: number } = {},
+): number[] {
+  const n = kinds.length;
+  if (n === 0 || totalSec <= 0) return [];
+
+  const cap = (kind: 'clip' | 'photo', span: number) =>
+    kind === 'clip' ? Math.min(span, CLIP_SLOT_MAX_SEC) : span;
+
+  const evenFallback = (): number[] => {
+    const each = totalSec / n;
+    const out = kinds.map((k) => cap(k, each));
+    // Make the spans cover exactly [0, totalSec]: stretch the LAST span to
+    // absorb the rounding/cap remainder (a photo can grow; a capped clip can't,
+    // so a residual tail just means the previous frame holds — acceptable).
+    return normalizeToTotal(out, totalSec, kinds);
+  };
+
+  const grid = opts.beatGrid;
+  const beats = grid?.beats;
+  if (!beats || beats.length < 2) return evenFallback();
+
+  const stride = Math.max(1, Math.round(opts.beatsPerCut ?? 1));
+  const sorted = [...beats].filter((b) => Number.isFinite(b) && b >= 0).sort((a, b) => a - b);
+  if (sorted.length < 2) return evenFallback();
+
+  // Re-base so the first usable beat is t=0 of the reel, then keep beats inside
+  // the reel window.
+  const t0 = sorted[0]!;
+  const rel = sorted.map((b) => b - t0).filter((b) => b <= totalSec + 1e-6);
+  if (rel.length < 2) return evenFallback();
+
+  const spans: number[] = [];
+  let cursor = 0;
+  let beatIdx = 0;
+  for (let i = 0; i < n; i++) {
+    const isLast = i === n - 1;
+    if (isLast) {
+      // Last source fills to the end so the reel is exactly totalSec.
+      spans.push(cap(kinds[i]!, totalSec - cursor));
+      break;
+    }
+    // Next cut = `stride` beats ahead of the current beat onset.
+    const nextIdx = Math.min(beatIdx + stride, rel.length - 1);
+    let cutAt = rel[nextIdx]!;
+    // Guard against a stalled cursor (duplicate/degenerate beats): always move
+    // forward by at least one beat's worth, else evenly.
+    if (cutAt <= cursor + 1e-3) cutAt = cursor + totalSec / n;
+    cutAt = Math.min(cutAt, totalSec);
+    spans.push(cap(kinds[i]!, cutAt - cursor));
+    cursor = cutAt;
+    beatIdx = nextIdx;
+    if (cursor >= totalSec - 1e-3) {
+      // Beats ran out before all sources placed — even-split the rest.
+      const remaining = n - spans.length;
+      if (remaining > 0) {
+        const tail = Math.max(0, totalSec - cursor);
+        const each = remaining > 0 ? tail / remaining : 0;
+        for (let j = i + 1; j < n; j++) spans.push(cap(kinds[j]!, each));
+      }
+      break;
+    }
+  }
+  return normalizeToTotal(spans, totalSec, kinds);
+}
+
+/**
+ * Stretch/scale a span list so it sums to `totalSec`, WITHOUT ever pushing a
+ * clip span past the {@link CLIP_SLOT_MAX_SEC} hard cap.
+ *
+ * Positive residual is poured first onto PHOTO spans (uncapped — a still holds
+ * for any length), then onto clip spans only up to their 5s cap. If no
+ * uncapped headroom remains, the residual is intentionally left UNFILLED: the
+ * 5-second clip cap is a hard product constraint that outranks hitting the
+ * exact target duration, so an all-clips reel with too little footage just ends
+ * a touch short rather than violating the cap. Negative residual (cap math
+ * overshot) trims the longest span. Keeps every span ≥ 0.
+ */
+function normalizeToTotal(
+  spans: number[],
+  totalSec: number,
+  kinds: ReadonlyArray<'clip' | 'photo'>,
+): number[] {
+  const out = spans.map((s) => Math.max(0, s));
+  const sum = out.reduce((a, b) => a + b, 0);
+  let residual = totalSec - sum;
+  if (Math.abs(residual) < 1e-3) return out;
+
+  if (residual > 0) {
+    // Pass 1 — photo spans absorb residual freely (uncapped).
+    for (let i = 0; i < out.length && residual > 1e-6; i++) {
+      if (kinds[i] === 'photo') {
+        out[i] = (out[i] ?? 0) + residual;
+        residual = 0;
+        break;
+      }
+    }
+    // Pass 2 — clip spans take residual only up to the 5s cap.
+    for (let i = 0; i < out.length && residual > 1e-6; i++) {
+      if (kinds[i] === 'clip') {
+        const headroom = Math.max(0, CLIP_SLOT_MAX_SEC - (out[i] ?? 0));
+        const give = Math.min(headroom, residual);
+        out[i] = (out[i] ?? 0) + give;
+        residual -= give;
+      }
+    }
+    // Any remaining residual is dropped — the 5s cap wins over exact duration.
+  } else {
+    // Over-allocated (cap math overshot) — trim the longest span down.
+    let longest = 0;
+    for (let i = 1; i < out.length; i++) if ((out[i] ?? 0) > (out[longest] ?? 0)) longest = i;
+    out[longest] = Math.max(0, (out[longest] ?? 0) + residual);
+  }
+  return out;
+}
+
+/**
+ * Convert a per-source SECONDS schedule into a per-source UNIT count (frames or
+ * milliseconds), preserving the exact `totalUnits` (remainder rides the largest
+ * spans). Used by both render paths so the beat schedule maps cleanly onto the
+ * frame loop (WebCodecs) or the wall-clock loop (MediaRecorder).
+ */
+export function spansToUnits(spans: number[], totalUnits: number): number[] {
+  const total = spans.reduce((a, b) => a + b, 0);
+  if (total <= 0 || spans.length === 0) return splitFrames(totalUnits, Math.max(1, spans.length));
+  const raw = spans.map((s) => (s / total) * totalUnits);
+  const floored = raw.map((r) => Math.floor(r));
+  let used = floored.reduce((a, b) => a + b, 0);
+  let leftover = totalUnits - used;
+  // Hand the leftover units to the sources with the largest fractional parts.
+  const order = raw
+    .map((r, i) => ({ i, frac: r - Math.floor(r) }))
+    .sort((a, b) => b.frac - a.frac);
+  for (const { i } of order) {
+    if (leftover <= 0) break;
+    floored[i] = (floored[i] ?? 0) + 1;
+    leftover--;
+  }
+  return floored;
+}
+
 function drawCover(
   ctx: CanvasRenderingContext2D,
-  video: HTMLVideoElement,
+  source: HTMLVideoElement | HTMLImageElement,
   template: RenderTemplate,
 ) {
   const [, , , dark] = template.palette;
   ctx.fillStyle = dark;
   ctx.fillRect(0, 0, OUT_W, OUT_H);
-  const vw = video.videoWidth;
-  const vh = video.videoHeight;
+  const vw =
+    source instanceof HTMLVideoElement ? source.videoWidth : source.naturalWidth;
+  const vh =
+    source instanceof HTMLVideoElement ? source.videoHeight : source.naturalHeight;
   if (!vw || !vh) return;
   const scale = Math.max(OUT_W / vw, OUT_H / vh);
   const dw = vw * scale;
   const dh = vh * scale;
-  ctx.drawImage(video, (OUT_W - dw) / 2, (OUT_H - dh) / 2, dw, dh);
+  ctx.drawImage(source, (OUT_W - dw) / 2, (OUT_H - dh) / 2, dw, dh);
 }
 
 function drawOverlay(ctx: CanvasRenderingContext2D, template: RenderTemplate) {
@@ -235,7 +446,7 @@ function drawOverlay(ctx: CanvasRenderingContext2D, template: RenderTemplate) {
   // Footer wordmark
   ctx.fillStyle = 'rgba(255,255,255,0.85)';
   ctx.font = '500 30px ui-monospace, SFMono-Regular, monospace';
-  ctx.fillText('Patiktok · Setnayan', OUT_W / 2, OUT_H - 56, OUT_W - 120);
+  ctx.fillText(template.footerLabel ?? 'Patiktok · Setnayan', OUT_W / 2, OUT_H - 56, OUT_W - 120);
   // Bottom palette ticks
   const tickW = OUT_W / 4;
   [bg, a1, a2].forEach((c, i) => {
@@ -307,7 +518,13 @@ async function renderWithWebCodecs(
   });
 
   const totalFrames = Math.max(1, Math.round(durationSec * FPS));
-  const perClip = splitFrames(totalFrames, clips.length);
+  const kinds = clips.map((c) => c.kind ?? 'clip');
+  // Beat-aware frame budget when a grid is present; even split otherwise.
+  const spans = buildBeatSchedule(durationSec, kinds, {
+    beatGrid: opts.beatGrid,
+    beatsPerCut: opts.beatsPerCut,
+  });
+  const perClip = spansToUnits(spans, totalFrames);
   const frameDurUs = Math.round(1_000_000 / FPS);
   let frameIdx = 0;
 
@@ -316,9 +533,34 @@ async function renderWithWebCodecs(
       if (signal?.aborted) throw new DOMException('Render cancelled', 'AbortError');
       const n = perClip[ci] ?? 0;
       if (n === 0) continue;
-      const video = await loadVideo(clips[ci]!.url);
+      const source = clips[ci]!;
+      if ((source.kind ?? 'clip') === 'photo') {
+        // PHOTO slot — paint the still once per frame across its span (no seek).
+        const img = await loadImage(source.url);
+        try {
+          for (let f = 0; f < n; f++) {
+            if (encoderError) throw encoderError;
+            if (signal?.aborted) throw new DOMException('Render cancelled', 'AbortError');
+            drawCover(ctx, img, template);
+            drawOverlay(ctx, template);
+            const frame = new VideoFrame(canvas, {
+              timestamp: frameIdx * frameDurUs,
+              duration: frameDurUs,
+            });
+            encoder.encode(frame, { keyFrame: frameIdx % (FPS * 2) === 0 });
+            frame.close();
+            frameIdx++;
+            if (frameIdx % 4 === 0) onProgress?.(Math.min(0.97, frameIdx / totalFrames));
+            if (encoder.encodeQueueSize > 8) await new Promise((r) => setTimeout(r, 0));
+          }
+        } finally {
+          img.removeAttribute('src');
+        }
+        continue;
+      }
+      const video = await loadVideo(source.url);
       try {
-        const span = effectiveDuration(video, clips[ci]!.durationSec);
+        const span = effectiveDuration(video, source.durationSec);
         for (let f = 0; f < n; f++) {
           if (encoderError) throw encoderError;
           if (signal?.aborted) throw new DOMException('Render cancelled', 'AbortError');
@@ -545,7 +787,13 @@ async function renderWithMediaRecorder(opts: RenderOptions): Promise<RenderResul
   // Start the song the instant recording begins so audio and video share a t0.
   audio?.start();
   const totalMs = Math.max(500, durationSec * 1000);
-  const perClipMs = splitFrames(Math.round(totalMs), clips.length);
+  const kinds = clips.map((c) => c.kind ?? 'clip');
+  // Beat-aware wall-clock budget when a grid is present; even split otherwise.
+  const spans = buildBeatSchedule(durationSec, kinds, {
+    beatGrid: opts.beatGrid,
+    beatsPerCut: opts.beatsPerCut,
+  });
+  const perClipMs = spansToUnits(spans, Math.round(totalMs));
   const startedAt = performance.now();
 
   try {
@@ -553,7 +801,34 @@ async function renderWithMediaRecorder(opts: RenderOptions): Promise<RenderResul
       if (signal?.aborted) throw new DOMException('Render cancelled', 'AbortError');
       const ms = perClipMs[ci] ?? 0;
       if (ms === 0) continue;
-      const video = await loadVideo(clips[ci]!.url);
+      const source = clips[ci]!;
+      if ((source.kind ?? 'clip') === 'photo') {
+        // PHOTO slot — hold the still on the canvas for the slot's span.
+        const img = await loadImage(source.url);
+        try {
+          await new Promise<void>((resolve) => {
+            const slotStart = performance.now();
+            const tick = () => {
+              drawCover(ctx, img, template);
+              drawOverlay(ctx, template);
+              const elapsed = performance.now() - slotStart;
+              if (elapsed % 200 < 20) {
+                onProgress?.(Math.min(0.97, (performance.now() - startedAt) / totalMs));
+              }
+              if (elapsed >= ms || signal?.aborted) {
+                resolve();
+                return;
+              }
+              requestAnimationFrame(tick);
+            };
+            requestAnimationFrame(tick);
+          });
+        } finally {
+          img.removeAttribute('src');
+        }
+        continue;
+      }
+      const video = await loadVideo(source.url);
       video.muted = true;
       try {
         await video.play().catch(() => {});

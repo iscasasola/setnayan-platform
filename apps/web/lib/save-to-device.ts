@@ -57,6 +57,46 @@ export async function saveImageToDevice(url: string, filename: string): Promise<
   }
 }
 
+/**
+ * Save an already-in-hand Blob (e.g. a client-rendered reel) to the device.
+ * Like saveMediaToDevice but skips the network fetch — the blob is local. The
+ * filename's extension is derived from the blob's type. Best-effort; never
+ * throws. A dismissed share sheet counts as 'shared' (the user saw the option).
+ */
+export async function shareBlobToDevice(
+  blob: Blob,
+  baseName: string,
+): Promise<SaveResult> {
+  try {
+    const filename = `${baseName}.${extForType(blob.type)}`;
+    const file = new File([blob], filename, {
+      type: blob.type || 'application/octet-stream',
+    });
+
+    if (canShareFiles() && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file] });
+        return 'shared';
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') return 'shared';
+        // else fall through to download
+      }
+    }
+
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 10_000);
+    return 'downloaded';
+  } catch {
+    return 'failed';
+  }
+}
+
 /** File extension for a fetched media blob, so a saved file is labelled right
  *  (a Papic clip is webm on Chrome/Firefox, mp4 on Safari — the container the
  *  recorder picked, not a fixed guess). */

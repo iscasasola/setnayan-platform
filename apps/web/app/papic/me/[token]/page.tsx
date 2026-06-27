@@ -3,6 +3,7 @@ import { ArrowRight, Camera, CircleAlert, Clock, Images } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveGuestCamera } from '@/lib/papic-limited';
 import { getGuestLiveGallery } from '@/lib/guest-live-gallery';
+import { GuestStoryMaker } from './_components/guest-story-maker';
 
 // Papic · MY camera (guest personal-QR → Limited roll camera).
 //
@@ -48,9 +49,11 @@ function Shell({ children }: { children: React.ReactNode }) {
 async function GuestGallery({
   eventId,
   guestId,
+  token,
 }: {
   eventId: string;
   guestId: string;
+  token: string;
 }) {
   const gallery = await getGuestLiveGallery(eventId, guestId);
   if (!gallery || gallery.photos.length === 0) return null;
@@ -79,6 +82,8 @@ async function GuestGallery({
           </a>
         ))}
       </div>
+      {/* FREE Guest Stories — one-tap 30s reel from these tagged photos. */}
+      <GuestStoryMaker token={token} />
     </section>
   );
 }
@@ -171,7 +176,7 @@ export default async function PapicMyCameraPage({ params }: Props) {
           The couple hasn&rsquo;t turned on Papic for the guest list yet — or your
           spot is still being set up. Check back closer to the day.
         </p>
-        <GuestGallery eventId={guest.event_id} guestId={guest.guest_id} />
+        <GuestGallery eventId={guest.event_id} guestId={guest.guest_id} token={cleanToken!} />
         {backLink}
       </Shell>
     );
@@ -190,7 +195,7 @@ export default async function PapicMyCameraPage({ params }: Props) {
           payment — this usually clears within a day. Come back and your camera
           will be ready to shoot.
         </p>
-        <GuestGallery eventId={guest.event_id} guestId={guest.guest_id} />
+        <GuestGallery eventId={guest.event_id} guestId={guest.guest_id} token={cleanToken!} />
         {backLink}
       </Shell>
     );
@@ -218,7 +223,7 @@ export default async function PapicMyCameraPage({ params }: Props) {
         Open my camera
         <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />
       </Link>
-      <GuestGallery eventId={guest.event_id} guestId={guest.guest_id} />
+      <GuestGallery eventId={guest.event_id} guestId={guest.guest_id} token={cleanToken!} />
       {backLink}
     </Shell>
   );

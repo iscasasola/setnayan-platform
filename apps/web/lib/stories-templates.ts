@@ -117,6 +117,20 @@ export type StoriesTemplate = {
 /** The 30s Stories template the task requires (at least one). */
 export const STORIES_DURATION = 30;
 
+// ---------------------------------------------------------------------------
+// Guest Stories (free tier) client-safe constants
+// ---------------------------------------------------------------------------
+// These live here (a pure, no-server-import module) so the client surface can
+// import them without pulling in the server-only data reader (lib/guest-stories
+// → lib/uploads → 'server-only').
+
+/** Minimum tagged photos before a guest can make a Story. */
+export const STORY_MIN_PHOTOS = 3;
+/** Photos pulled for a 30s reel — ~3–4s each. Capped to keep the render light. */
+export const STORY_MAX_PHOTOS = 10;
+/** Slug of the default Stories template (the free 30s montage). */
+export const DEFAULT_STORY_TEMPLATE = 'golden-hour-stories-30';
+
 export const STORIES_TEMPLATES: readonly [StoriesTemplate, ...StoriesTemplate[]] = [
   {
     slug: 'golden-hour-stories-30',

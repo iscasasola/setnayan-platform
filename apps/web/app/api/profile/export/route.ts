@@ -28,12 +28,29 @@ export async function GET() {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 
-  const [profileRes, eventsRes, vendorProfileRes, messagesRes] = await Promise.all([
+  const [profileRes, eventsRes, ownedEventsRes, vendorProfileRes, messagesRes] = await Promise.all([
     supabase.from('users').select('*').eq('user_id', user.id).maybeSingle(),
     supabase
       .from('event_members')
       .select('event_id, member_type, joined_via, created_at, events(public_id, display_name, event_date, slug)')
       .eq('user_id', user.id),
+    // RA 10173 completeness (PR-G) — events the user OWNS (member_type='couple')
+    // carry sensitive per-partner birth date/time + consent for the BaZi
+    // date-check. The membership join above under-exports events (public_id /
+    // display_name / event_date / slug only), so the opt-in birth fields would
+    // be invisible without this owner-scoped select. RLS-enforced reads via the
+    // user-session client (couple_can read their own event), so a user only ever
+    // exports their OWN event birth data. Kept to the couple grain: a
+    // coordinator on someone else's event must NOT export the couple's birth data.
+    supabase
+      .from('event_members')
+      .select(
+        'event_id, events(public_id, display_name, event_date, ceremony_type, secondary_ceremony_type, ' +
+          'partner_a_birth_date, partner_a_birth_time, partner_b_birth_date, ' +
+          'partner_b_birth_time, bazi_birthdata_consent_at)',
+      )
+      .eq('user_id', user.id)
+      .eq('member_type', 'couple'),
     supabase
       .from('vendor_profiles')
       .select('*')
@@ -96,6 +113,29 @@ export async function GET() {
     },
     profile: profileRes.data ?? null,
     event_memberships: eventsRes.data ?? [],
+    // RA 10173 (PR-G) — the sensitive birth fields the user opted in to (BaZi
+    // date-check), for events they own. The `events` join shape is the owner's
+    // own row; flatten to the birth-relevant fields so the export is explicit
+    // about what sensitive data Setnayan holds.
+    owned_event_birth_data: (ownedEventsRes.data ?? []).map((row) => {
+      // Supabase types a to-one embed as an object, but can surface it as a
+      // single-element array depending on the relationship hint — normalize both.
+      const rawEv = (row as { events?: unknown }).events;
+      const ev = (Array.isArray(rawEv) ? rawEv[0] : rawEv) as Record<string, unknown> | null;
+      return {
+        event_id: (row as { event_id?: string }).event_id ?? null,
+        public_id: (ev?.public_id as string | null) ?? null,
+        display_name: (ev?.display_name as string | null) ?? null,
+        event_date: (ev?.event_date as string | null) ?? null,
+        ceremony_type: (ev?.ceremony_type as string | null) ?? null,
+        secondary_ceremony_type: (ev?.secondary_ceremony_type as string | null) ?? null,
+        partner_a_birth_date: (ev?.partner_a_birth_date as string | null) ?? null,
+        partner_a_birth_time: (ev?.partner_a_birth_time as string | null) ?? null,
+        partner_b_birth_date: (ev?.partner_b_birth_date as string | null) ?? null,
+        partner_b_birth_time: (ev?.partner_b_birth_time as string | null) ?? null,
+        bazi_birthdata_consent_at: (ev?.bazi_birthdata_consent_at as string | null) ?? null,
+      };
+    }),
     vendor_profile: vendorProfileRes.data ?? null,
     vendor_portfolio_media: vendorPortfolioMedia,
     vendor_submitted_media: vendorSubmittedMedia,

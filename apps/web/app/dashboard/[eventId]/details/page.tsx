@@ -5,6 +5,8 @@ import { ArrowRight, Store } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getConfirmedVendorCount } from '@/lib/events';
 import { titleCase } from '@/lib/personalized-menu';
+import { baziBirthDataEnabled } from '@/lib/bazi-birthdata';
+import { isChineseWedding } from '@/lib/chinese-wedding';
 import { DetailsForm } from './_components/details-form';
 import { GovernedFields } from './_components/governed-fields';
 import { PaxSettingsCard } from './_components/pax-settings-card';
@@ -58,7 +60,12 @@ export default async function PersonalizationPage({
         'ceremony_type_locked_at, event_date, event_date_precision, date_mode, date_candidates, ' +
         'date_window_start, date_window_end, estimated_pax, venue_setting, ' +
         'guest_list_edit_deadline, adaptive_pricing_mode, ' +
-        'monogram_text, monogram_frame_key, monogram_font_key, music_playlist_seed',
+        'monogram_text, monogram_frame_key, monogram_font_key, music_playlist_seed, ' +
+        // PR-G — opt-in BaZi birth-data (Chinese weddings). Read back only here,
+        // on the couple-dashboard details surface; never selected by any
+        // public/guest renderer. Behind baziBirthDataEnabled() at render time.
+        'partner_a_birth_date, partner_a_birth_time, partner_b_birth_date, ' +
+        'partner_b_birth_time, bazi_birthdata_consent_at',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -88,6 +95,21 @@ export default async function PersonalizationPage({
   // handles pre-#796 events that stored a first-name-only value.
   const brideName = splitName(str('bride_name'));
   const groomName = splitName(str('groom_name'));
+
+  // PR-G — BaZi birth-data opt-in section. Triple gate (render side): the
+  // feature flag is on AND this is a Chinese wedding (primary OR overlay). The
+  // third gate (explicit consent checkbox) lives inside the form. With the flag
+  // OFF or a non-Chinese event, showBaziBirthData is false → the section never
+  // renders and the form is byte-identical to today. Birth time stores as
+  // HH:MM:SS (Postgres `time`); trim to HH:MM for <input type="time">.
+  const showBaziBirthData =
+    baziBirthDataEnabled() &&
+    isChineseWedding({
+      ceremony_type: str('ceremony_type'),
+      secondary_ceremony_type: str('secondary_ceremony_type'),
+    });
+  const trimTime = (v: string | null): string => (v ? v.slice(0, 5) : '');
+  const baziConsentAt = str('bazi_birthdata_consent_at');
 
   // --- Documented values (band 3) -------------------------------------------
   const ceremonyType = str('ceremony_type');
@@ -158,6 +180,12 @@ export default async function PersonalizationPage({
           initialRegion={str('region') ?? ''}
           initialFeel={moodFeel ?? ''}
           initialBudgetPesos={initialBudgetPesos}
+          showBaziBirthData={showBaziBirthData}
+          baziHasConsent={baziConsentAt != null}
+          initialPartnerABirthDate={str('partner_a_birth_date') ?? ''}
+          initialPartnerABirthTime={trimTime(str('partner_a_birth_time'))}
+          initialPartnerBBirthDate={str('partner_b_birth_date') ?? ''}
+          initialPartnerBBirthTime={trimTime(str('partner_b_birth_time'))}
         />
       </div>
 

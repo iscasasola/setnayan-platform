@@ -72,6 +72,8 @@ import {
   X,
 } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
+import { useAnonGate } from '@/app/_components/anon-gate/anon-gate-context';
+import { SaveToContinue } from '@/app/_components/anon-gate/save-to-continue';
 import { SDLoader, LOADER_STEPS } from '@/components/sd-loader';
 import { trackFailure } from '@/lib/telemetry/track-error';
 import { useModalA11y } from '@/lib/use-modal-a11y';
@@ -149,6 +151,12 @@ export function InlineCheckoutDrawer({
   triggerClassName,
 }: InlineCheckoutDrawerProps) {
   const [open, setOpen] = useState(false);
+  const { isAnonymous } = useAnonGate();
+  // Anon-draft: gate at the TRIGGER, not at final submit — so an anonymous
+  // buyer is asked to secure their account BEFORE filling payment details and
+  // uploading a screenshot, never after. The submitOrderAction `needsAccount`
+  // path below stays as a server-side backstop.
+  const [gateOpen, setGateOpen] = useState(false);
 
   // Native (Capacitor) app → HIDE the purchase entirely. Apple Guideline 3.1.1
   // (and Play Billing) forbid selling digital goods in-app via a non-store rail
@@ -243,7 +251,7 @@ export function InlineCheckoutDrawer({
   ) : (
     <button
       type="button"
-      onClick={() => setOpen(true)}
+      onClick={() => (isAnonymous ? setGateOpen(true) : setOpen(true))}
       className={
         triggerClassName ??
         'inline-flex items-center gap-2 rounded-full bg-mulberry px-5 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600'
@@ -264,6 +272,7 @@ export function InlineCheckoutDrawer({
   return (
     <>
       {trigger}
+      <SaveToContinue open={gateOpen} onClose={() => setGateOpen(false)} action="order" />
       {!open ? null : (
       <div
         ref={dialogRef}

@@ -90,6 +90,23 @@
     height: auto;
     margin-top: clamp(14px, 2vh, 26px);
   }
+  /* …EXCEPT the three simple option screens (role/kind/faith). Letting their hero
+     fill the full column height pinned the eyebrow+question to the very top, while
+     the short answer stack stayed vertically centred in the right column — so the
+     question and its answers read as detached, floating apart (owner 2026-06-28
+     "the texts are not properly aligned"). Cap the hero to a centred portrait so the
+     left column's eyebrow+question+image GROUP centres vertically (.viewzone is
+     justify-content:center) and lines up with the centred answers as one composition.
+     pax/budget keep the full-fill above — their tapzone holds a tall slider/number
+     control, so the hero filling reads balanced there. */
+  .onbw #screen-role.onb-twopane.screen.active .rolephoto,
+  .onbw #screen-kind.onb-twopane.screen.active .kindphoto,
+  .onbw #screen-faith.onb-twopane.screen.active .faithphoto {
+    flex: 0 0 auto;
+    aspect-ratio: 4 / 5;
+    max-height: min(56vh, 540px);
+    height: auto;
+  }
   /* RIGHT column: answers stacked as ROWS, filling the column height. The mobile
      thumb-dock (margin-top:auto) is reset; max-width cap removed so each option is
      a full-width row; the stack flips from role/kind's single shared row to a

@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Link2, X, ArrowRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { resolveProfileByEvent } from '@/lib/event-type-profile';
+import { resolveRoleSetKeyForEvent } from '@/lib/event-type-profile';
 import { getCurrentUser } from '@/lib/auth';
 import {
   computeGuestStats,
@@ -83,6 +83,10 @@ type SortKey = (typeof SORT_OPTIONS)[number]['value'];
 const VIEW_FILTERS: { key: string; label: string }[] = [
   { key: 'all', label: 'All guests' },
   { key: 'vip_family', label: ROLE_GROUP_LABELS.vip_family },
+  // Nikah principals — only populated on muslim weddings; like the sibling
+  // role filters it's a static option (an empty result on a non-muslim wedding,
+  // same as Principal Sponsors etc. on a muslim one).
+  { key: 'muslim_principals', label: ROLE_GROUP_LABELS.muslim_principals },
   // Wedding Party — owner directive 2026-05-23 (post-PR #424). Distinct
   // from the social-grouping filters (family/friends/work/school) that
   // were retired into custom guest_groups: wedding party = a defined
@@ -130,8 +134,10 @@ type Props = {
 export default async function GuestsPage({ params, searchParams }: Props) {
   const { eventId } = await params;
   const search = await searchParams;
-  // Per-event-type role set for the quick-add picker (iteration 0053 P2).
-  const eventTypeProfile = await resolveProfileByEvent(eventId);
+  // Per-event-type role set for the quick-add picker (iteration 0053 P2),
+  // ceremony-aware so muslim weddings offer the Nikah roles (resolveRoleSetKeyForEvent
+  // returns 'wedding_muslim' for them) and Catholic weddings keep 'wedding'.
+  const guestRoleSetKey = await resolveRoleSetKeyForEvent(eventId);
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const supabase = await createClient();
@@ -575,7 +581,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           unsent={unsentCount}
           unseated={Math.max(0, stats.attending - seatedCount)}
           arrived={arrivedCount}
-          roleSetKey={eventTypeProfile.roleSetKey}
+          roleSetKey={guestRoleSetKey}
         />
       </Suspense>
 
@@ -635,7 +641,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
                       ? 'importance'
                       : 'flat'
               }
-              roleSetKey={eventTypeProfile.roleSetKey}
+              roleSetKey={guestRoleSetKey}
               recentlyDeleted={search.bulk_deleted}
               recentlyApplied={Boolean(
                 search.bulk_assigned ||
@@ -652,7 +658,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         eventId={eventId}
         existingGuests={quickAddPool}
         groups={quickAddGroups}
-        roleSetKey={eventTypeProfile.roleSetKey}
+        roleSetKey={guestRoleSetKey}
       />
     </section>
   );

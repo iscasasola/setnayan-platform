@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase/server';
 import { guestEditsLocked } from '@/lib/pax';
 import {
   INVITED_TO_BLOCKS,
+  singletonRoleDuplicateMessage,
+  singletonRoleFromIndexError,
   type GuestGroupCategory,
   type GuestRole,
   type GuestSide,
@@ -149,16 +151,16 @@ export async function createGuest(eventId: string, formData: FormData) {
     .single();
 
   if (error || !inserted) {
-    // 23505 from the partial unique indexes (migration 20260531010000)
-    // when trying to set a second bride or groom. Friendlier copy than
-    // the raw constraint name.
-    const friendly =
-      error && (error as { code?: string }).code === '23505' &&
-      /guests_one_(bride|groom)_per_event/.test(error.message)
-        ? role === 'bride'
-          ? 'Already a Bride in this event — change theirs first.'
-          : 'Already a Groom in this event — change theirs first.'
-        : (error?.message ?? 'insert_failed');
+    // 23505 from the partial unique indexes (bride/groom: migration
+    // 20260531010000; Muslim wali/imam/wakil: 20270308998862) when setting a
+    // second singleton. Friendlier copy than the raw constraint name.
+    const dupRole =
+      error && (error as { code?: string }).code === '23505'
+        ? singletonRoleFromIndexError(error.message)
+        : null;
+    const friendly = dupRole
+      ? singletonRoleDuplicateMessage(dupRole)
+      : (error?.message ?? 'insert_failed');
     return redirect(
       `/dashboard/${eventId}/guests/new?error=${encodeURIComponent(friendly)}`,
     );

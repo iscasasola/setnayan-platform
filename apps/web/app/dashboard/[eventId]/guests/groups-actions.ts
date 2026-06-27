@@ -7,6 +7,8 @@ import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import {
   GUEST_GROUP_TEAM_SIDES,
   SINGLETON_GUEST_ROLES,
+  singletonRoleDuplicateMessage,
+  singletonRoleFromIndexError,
   type GuestGroupTeamSide,
   type GuestRole,
   type GuestSide,
@@ -119,16 +121,16 @@ export async function bulkAssignGuestRole(
     .in('guest_id', guestIds);
 
   if (error) {
-    // 23505 from migration 20260531010000 partial unique indexes — fires
-    // when someone tries to set a second bride/groom even via the bulk
-    // path (e.g. via a race with another tab).
-    const friendly =
-      (error as { code?: string }).code === '23505' &&
-      /guests_one_(bride|groom)_per_event/.test(error.message)
-        ? role === 'bride'
-          ? 'Already a Bride in this event — change theirs first.'
-          : 'Already a Groom in this event — change theirs first.'
-        : error.message;
+    // 23505 from the partial unique indexes — fires when someone tries to set a
+    // second singleton (bride/groom or Muslim wali/imam/wakil) even via the
+    // bulk path (e.g. via a race with another tab).
+    const dupRole =
+      (error as { code?: string }).code === '23505'
+        ? singletonRoleFromIndexError(error.message)
+        : null;
+    const friendly = dupRole
+      ? singletonRoleDuplicateMessage(dupRole)
+      : error.message;
     redirect(backToList(eventId, { error: encodeURIComponent(friendly) }));
   }
 
@@ -251,13 +253,13 @@ export async function bulkApplyRoleAndGroup(
       .eq('event_id', eventId)
       .in('guest_id', guestIds);
     if (error) {
-      const friendly =
-        (error as { code?: string }).code === '23505' &&
-        /guests_one_(bride|groom)_per_event/.test(error.message)
-          ? role === 'bride'
-            ? 'Already a Bride in this event — change theirs first.'
-            : 'Already a Groom in this event — change theirs first.'
-          : error.message;
+      const dupRole =
+        (error as { code?: string }).code === '23505'
+          ? singletonRoleFromIndexError(error.message)
+          : null;
+      const friendly = dupRole
+        ? singletonRoleDuplicateMessage(dupRole)
+        : error.message;
       redirect(backToList(eventId, { error: encodeURIComponent(friendly) }));
     }
     didRole = true;

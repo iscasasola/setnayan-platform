@@ -110,6 +110,10 @@ const SECTION_CONFIG: {
 }[] = [
   { group: 'couple', label: ROLE_GROUP_LABELS.couple, mobileCols: 'grid-cols-2' },
   { group: 'vip_family', label: ROLE_GROUP_LABELS.vip_family, mobileCols: 'grid-cols-2' },
+  // Nikah principals (wali/witness/imam/wakil) — only populated for muslim
+  // weddings; the section is filtered out when empty, so it never shows on a
+  // Catholic/civil wedding. Ranked just under VIP family to mirror ROLE_IMPORTANCE.
+  { group: 'muslim_principals', label: ROLE_GROUP_LABELS.muslim_principals, mobileCols: 'grid-cols-2' },
   { group: 'wedding_party', label: ROLE_GROUP_LABELS.wedding_party, mobileCols: 'grid-cols-2' },
   { group: 'principal_sponsors', label: ROLE_GROUP_LABELS.principal_sponsors, mobileCols: 'grid-cols-2' },
   { group: 'secondary_sponsors', label: ROLE_GROUP_LABELS.secondary_sponsors, mobileCols: 'grid-cols-2' },

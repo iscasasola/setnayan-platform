@@ -91,6 +91,7 @@ import { SetDateNudge } from './_components/set-date-nudge';
 import { EventCountdownHeader } from './_components/event-countdown-header';
 import { countUnlockedCategories, pickTodaysOneThing } from '@/lib/todays-one-thing';
 import { TodaysOneThing } from './_components/todays-one-thing';
+import { NikahEssentialsCard } from './_components/nikah-essentials-card';
 import {
   WeddingRoadmapAsync,
   WeddingRoadmapSkeleton,
@@ -415,7 +416,7 @@ export default async function EventHomePage({
       // returns null rather than 500-ing the page.
       (async () => {
         const fullSelect =
-          'event_id, display_name, event_date, event_date_precision, slug, venue_name, venue_latitude, venue_longitude, monogram_text, palette_finalized_at, concierge_status, concierge_tier, concierge_activated_at, concierge_expires_at, concierge_long_engagement_advised_at, event_type, ceremony_type, ceremony_type_locked_at, secondary_ceremony_type, venue_setting, estimated_pax, estimated_budget_centavos, region, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, style_preferences, date_status, auspicious_reasons, wizard_state, planning_mode, setnayan_ai_active, cleared_at';
+          'event_id, display_name, event_date, event_date_precision, slug, venue_name, venue_latitude, venue_longitude, monogram_text, palette_finalized_at, concierge_status, concierge_tier, concierge_activated_at, concierge_expires_at, concierge_long_engagement_advised_at, event_type, ceremony_type, ceremony_type_locked_at, secondary_ceremony_type, venue_setting, mahr_description, mahr_prompt_deferred, gender_separation, estimated_pax, estimated_budget_centavos, region, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, style_preferences, date_status, auspicious_reasons, wizard_state, planning_mode, setnayan_ai_active, cleared_at';
         const fullRes = await supabase
           .from('events')
           .select(fullSelect)
@@ -1690,6 +1691,34 @@ export default async function EventHomePage({
         totalLockable={totalLockableCategories}
         now={now}
       />
+
+      {/* The five essentials of your Nikah — the signature card for the Muslim
+       *  wedding track. Shows ONLY for muslim weddings (primary ceremony OR a
+       *  mixed ceremony with a muslim leg). Turns the five validity pillars of
+       *  the Islamic marriage contract into a tangible checklist + hosts the
+       *  mahr / gender-separation editor. Sits high, right under the countdown. */}
+      {(() => {
+        const ceremony =
+          (event as { ceremony_type?: string | null }).ceremony_type ?? null;
+        const secondary =
+          (event as { secondary_ceremony_type?: string | null })
+            .secondary_ceremony_type ?? null;
+        return ceremony === 'muslim' || secondary === 'muslim' ? (
+          <NikahEssentialsCard
+            eventId={eventId}
+            eventDateSet={!!event.event_date}
+            mahrDescription={
+              (event as { mahr_description?: string | null }).mahr_description ??
+              null
+            }
+            genderSeparation={
+              (event as { gender_separation?: string | null })
+                .gender_separation ?? null
+            }
+            guests={guests}
+          />
+        ) : null;
+      })()}
 
       {/* Set-your-date nudge — date-as-output keeps onboarding's event_date NULL,
        *  but the couple still needs a clear, low-friction way to lock the date

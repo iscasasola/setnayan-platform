@@ -140,6 +140,94 @@ export const WEDDING_ROLE_SET: RoleSet = {
   coupleRoles: new Set<string>(['bride', 'groom']),
 };
 
+// --- Muslim wedding --------------------------------------------------------
+// A wedding whose ceremony_type is 'muslim' (or a mixed ceremony with a muslim
+// leg). Same event_type ('wedding') as a Catholic wedding, but the Nikah's cast
+// differs: it drops the Catholic-specific roles (ninong/ninang principal +
+// candle/veil/cord/coin sponsors, bible/coin bearers, the lector, the generic
+// officiant) and adds the Nikah principals — wali (the bride's guardian), the
+// witnesses, the imam/qadi, and the optional wakil (groom's proxy). The Filipino
+// entourage (maid/matron of honor, best man, bridesmaids, groomsmen, ring bearer,
+// flower girl, musicians) is kept — Muslim weddings have one too.
+//
+// This is routed by ceremony, NOT event_type: resolveRoleSetForEvent reads
+// events.ceremony_type and returns this set instead of WEDDING_ROLE_SET. So
+// WEDDING_ROLE_SET stays byte-identical (role-sets.test.ts pins it).
+
+const MUSLIM_OFFERED: GuestRole[] = [
+  'guest',
+  'bride',
+  'groom',
+  'wali',
+  'witness',
+  'imam',
+  'wakil',
+  'bride_parents',
+  'groom_parents',
+  'bride_immediate_family',
+  'groom_immediate_family',
+  'maid_of_honor',
+  'matron_of_honor',
+  'best_man',
+  'bridesmaid',
+  'groomsman',
+  'ring_bearer',
+  'flower_girl',
+  'soloist_musician',
+];
+
+// Self-claim excludes the couple AND the Nikah officials (wali/imam/wakil/witness
+// are appointed by the host/families, not self-claimed) AND the VIP-family roles,
+// mirroring how the wedding set excludes the couple + VIP family from self-claim.
+const MUSLIM_SELF_CLAIMABLE: GuestRole[] = [
+  'guest',
+  'maid_of_honor',
+  'matron_of_honor',
+  'best_man',
+  'bridesmaid',
+  'groomsman',
+  'ring_bearer',
+  'flower_girl',
+  'soloist_musician',
+];
+
+export const MUSLIM_ROLE_SET: RoleSet = {
+  key: 'wedding_muslim',
+  offeredRoles: MUSLIM_OFFERED,
+  selfClaimableRoles: MUSLIM_SELF_CLAIMABLE,
+  // wali/imam/wakil are one-per-event (partial unique indexes, migration
+  // 20270308998862). witness is NOT singleton — a nikah needs at least two.
+  singletonRoles: ['bride', 'groom', 'wali', 'imam', 'wakil'],
+  tier1Roles: new Set<string>([
+    'wali',
+    'imam',
+    'witness',
+    'wakil',
+    'soloist_musician',
+    'bride_parents',
+    'groom_parents',
+    'bride_immediate_family',
+    'groom_immediate_family',
+  ]),
+  tier2Roles: new Set<string>([
+    'maid_of_honor',
+    'matron_of_honor',
+    'best_man',
+    'bridesmaid',
+    'groomsman',
+    'ring_bearer',
+    'flower_girl',
+  ]),
+  tier3Roles: new Set<string>(), // empty → tier 3 stays group_category-based
+  tierLabels: {
+    1: 'Family & Nikah principals',
+    2: 'Entourage',
+    3: 'Extended family',
+    4: 'Friends & others',
+  },
+  coupleRoles: new Set<string>(['bride', 'groom']),
+};
+
 // --- Generic ---------------------------------------------------------------
 // The neutral default for any non-wedding event type. Uses the additive enum
 // values (migration 20270220984328): host/vip/family/helper + the universal
@@ -192,6 +280,7 @@ export const SIMPLE_ROLE_SET: RoleSet = {
 
 export const ROLE_SETS: Record<string, RoleSet> = {
   wedding: WEDDING_ROLE_SET,
+  wedding_muslim: MUSLIM_ROLE_SET,
   generic: GENERIC_ROLE_SET,
   simple: SIMPLE_ROLE_SET,
 };

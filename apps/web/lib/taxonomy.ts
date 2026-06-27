@@ -745,6 +745,11 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   sherwani_groom:                    { folder: 'look', tile: 'grooms_attire', phase: 'V1.1.1', faith: 'Hindu', tradition: true },
   muslim_groom_attire:               { folder: 'look', tile: 'grooms_attire', phase: 'V1.1.1', faith: 'Muslim', tradition: true },
   maranao_groom_attire:              { folder: 'look', tile: 'grooms_attire', phase: 'V1.1.1', faith: 'Muslim', ph: true, tradition: true },
+  // Groom-side ethno-cultural Muslim attire — parity with the 4 bride leaves
+  // (2026-06-11 audit G1). Seeded into canonical_service_schemas by migration
+  // 20270309397413; muslim_groom_attire + maranao_groom_attire were already here.
+  tausug_groom_attire:               { folder: 'look', tile: 'grooms_attire', phase: 'V1.1.1', faith: 'Muslim', ph: true, tradition: true },
+  yakan_groom_attire:                { folder: 'look', tile: 'grooms_attire', phase: 'V1.1.1', faith: 'Muslim', ph: true, tradition: true },
   // Women's Attire (entourage + family)
   bridesmaid_dress:                  { folder: 'look', tile: 'womens_attire', phase: 'V1.1 base' },
   junior_bridesmaid_dress:           { folder: 'look', tile: 'womens_attire', phase: 'V1.1.4' },

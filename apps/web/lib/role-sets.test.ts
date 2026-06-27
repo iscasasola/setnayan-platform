@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   WEDDING_ROLE_SET,
+  MUSLIM_ROLE_SET,
   GENERIC_ROLE_SET,
   SIMPLE_ROLE_SET,
   resolveRoleSet,
@@ -10,13 +11,65 @@ import {
 import { roleTier, ROLE_TIER_LABELS } from './seating';
 
 // --- resolveRoleSet routing ------------------------------------------------
-test('resolveRoleSet routes wedding → wedding, simple → simple, everything else → generic', () => {
+test('resolveRoleSet routes wedding → wedding, muslim → muslim, simple → simple, everything else → generic', () => {
   assert.equal(resolveRoleSet('wedding'), WEDDING_ROLE_SET);
+  assert.equal(resolveRoleSet('wedding_muslim'), MUSLIM_ROLE_SET);
   assert.equal(resolveRoleSet('generic'), GENERIC_ROLE_SET);
   assert.equal(resolveRoleSet('simple'), SIMPLE_ROLE_SET);
   assert.equal(resolveRoleSet(null), GENERIC_ROLE_SET);
   assert.equal(resolveRoleSet(undefined), GENERIC_ROLE_SET);
   assert.equal(resolveRoleSet('birthday'), GENERIC_ROLE_SET); // no row yet → generic
+});
+
+// --- MUSLIM_ROLE_SET: Nikah cast, no Catholic sponsors ---------------------
+test('MUSLIM_ROLE_SET swaps Catholic sponsors for the Nikah principals', () => {
+  // Adds the Nikah cast.
+  for (const r of ['wali', 'witness', 'imam', 'wakil'] as const) {
+    assert.ok(MUSLIM_ROLE_SET.offeredRoles.includes(r), `offers ${r}`);
+  }
+  // Drops the Catholic-specific roles.
+  for (const r of [
+    'principal_sponsor',
+    'candle_sponsor',
+    'veil_sponsor',
+    'cord_sponsor',
+    'coin_sponsor',
+    'bible_bearer',
+    'coin_bearer',
+    'reader_lector',
+    'officiant',
+  ] as const) {
+    assert.ok(!MUSLIM_ROLE_SET.offeredRoles.includes(r), `drops ${r}`);
+  }
+  // Keeps the couple + Filipino entourage.
+  for (const r of ['bride', 'groom', 'maid_of_honor', 'groomsman'] as const) {
+    assert.ok(MUSLIM_ROLE_SET.offeredRoles.includes(r), `keeps ${r}`);
+  }
+  // wali/imam/wakil are one-per-event; witness is NOT (a nikah needs ≥2).
+  assert.deepEqual(MUSLIM_ROLE_SET.singletonRoles, [
+    'bride',
+    'groom',
+    'wali',
+    'imam',
+    'wakil',
+  ]);
+  assert.ok(!MUSLIM_ROLE_SET.singletonRoles.includes('witness' as never));
+  // Officials are host-assigned, never self-claimed.
+  for (const r of ['wali', 'imam', 'wakil', 'witness'] as const) {
+    assert.ok(!MUSLIM_ROLE_SET.selfClaimableRoles.includes(r), `${r} not self-claim`);
+  }
+  // Nikah principals seat in tier 1.
+  assert.ok(MUSLIM_ROLE_SET.tier1Roles.has('wali'));
+  assert.ok(MUSLIM_ROLE_SET.tier1Roles.has('imam'));
+  assert.equal(MUSLIM_ROLE_SET.tierLabels[1], 'Family & Nikah principals');
+  assert.deepEqual([...MUSLIM_ROLE_SET.coupleRoles].sort(), ['bride', 'groom']);
+});
+
+// --- WEDDING_ROLE_SET stays byte-identical (Muslim work must not touch it) --
+test('adding MUSLIM_ROLE_SET leaves WEDDING_ROLE_SET untouched', () => {
+  assert.equal(WEDDING_ROLE_SET.offeredRoles.length, 24);
+  assert.ok(!WEDDING_ROLE_SET.offeredRoles.includes('wali' as never));
+  assert.deepEqual(WEDDING_ROLE_SET.singletonRoles, ['bride', 'groom']);
 });
 
 // --- SIMPLE_ROLE_SET: a single flat 'guest' role ---------------------------

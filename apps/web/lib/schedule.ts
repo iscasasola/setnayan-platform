@@ -297,11 +297,11 @@ const CEREMONY_PARTS: Record<SeedCeremonyType, string[]> = {
 };
 
 /** Default sub-blocks under the Reception parent · universal Filipino
- *  reception spine. Catholic, civil, INC, Muslim, etc. all run the same
+ *  reception spine. Catholic, civil, Christian, Muslim, etc. run the same
  *  reception program (grand entrance → first dance → dinner → toasts →
  *  cake → money dance → open floor → closing). Per-faith adaptations
- *  (e.g., no alcohol toasts at INC, no money dance at conservative
- *  Muslim) happen via host editing after the seed. */
+ *  (e.g., no money dance at conservative Muslim) happen via host editing
+ *  after the seed — EXCEPT INC, which seeds its own spine below. */
 const RECEPTION_PARTS: ReadonlyArray<string> = [
   'Grand entrance',
   'Opening prayer',
@@ -316,6 +316,25 @@ const RECEPTION_PARTS: ReadonlyArray<string> = [
   'Garter + bouquet toss',
   'Anniversary dance',
   'Open floor / DJ set',
+  'Closing remarks',
+];
+
+/** INC (Iglesia ni Cristo) reception spine · honors the Church's
+ *  kapayakan (simplicity): a prayer-led, wholesome program WITHOUT the
+ *  dance set (first dance / father-daughter / mother-son / money /
+ *  anniversary / open-floor DJ) that the universal spine assumes. INC
+ *  receptions are traditionally alcohol-free and dance-free — this seed
+ *  starts the couple from that posture rather than the party spine. The
+ *  host can still add any block back via the editor; some families decide
+ *  differently. See 02_Specifications/INC_Wedding_Practices_Reference_2026-06-28.md § 4. */
+const INC_RECEPTION_PARTS: ReadonlyArray<string> = [
+  'Grand entrance',
+  'Opening prayer',
+  'Welcome remarks',
+  'Dinner / catering service',
+  'Program + special numbers',
+  'Toasts / well-wishes',
+  'Cake cutting',
   'Closing remarks',
 ];
 
@@ -461,9 +480,11 @@ export function buildScheduleSeed(
       },
     );
 
+    const receptionParts =
+      ceremonyType === 'inc' ? INC_RECEPTION_PARTS : RECEPTION_PARTS;
     const receptionDurationMs = 5 * 60 * 60 * 1000; // 5 hours
-    const receptionStepMs = receptionDurationMs / RECEPTION_PARTS.length;
-    const receptionChildren: ScheduleSeedChild[] = RECEPTION_PARTS.map(
+    const receptionStepMs = receptionDurationMs / receptionParts.length;
+    const receptionChildren: ScheduleSeedChild[] = receptionParts.map(
       (label, idx) => {
         const startMs = new Date(receptionStart).getTime() + idx * receptionStepMs;
         const endMs = startMs + receptionStepMs;

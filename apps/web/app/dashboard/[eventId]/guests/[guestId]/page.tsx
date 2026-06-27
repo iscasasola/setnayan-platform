@@ -164,6 +164,16 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
     (r) => !roleSet.coupleRoles.has(r) && !(r in singletonHolders),
   );
 
+  // INC weddings cap non-member principal sponsors at one pair (one Ninong +
+  // one Ninang), so we surface that rule beside the role picker. Advisory only
+  // — not enforced in the DB. See INC_Wedding_Practices_Reference_2026-06-28.md § 3.6.
+  const { data: ceremonyRow } = await supabase
+    .from('events')
+    .select('ceremony_type')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const isIncWedding = ceremonyRow?.ceremony_type === 'inc';
+
   // Pull the +1 guest row (if any) so the edit form can show the
   // current state of this primary's +1 — name (or TBA placeholder),
   // whether the +1 has confirmed their name via /[slug]/welcome, etc.
@@ -374,12 +384,20 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
                 <input type="hidden" name="role" value={guest.role} />
               </div>
             ) : (
-              <Select
-                id="role"
-                label="Role in wedding"
-                defaultValue={guest.role}
-                options={availableRoles.map((v) => ({ value: v, label: ROLE_LABELS[v] }))}
-              />
+              <div className="space-y-1.5">
+                <Select
+                  id="role"
+                  label="Role in wedding"
+                  defaultValue={guest.role}
+                  options={availableRoles.map((v) => ({ value: v, label: ROLE_LABELS[v] }))}
+                />
+                {isIncWedding ? (
+                  <p className="text-xs text-ink/55">
+                    INC note: non-member principal sponsors (Ninong/Ninang) are
+                    limited to one pair. Member sponsors aren&rsquo;t capped.
+                  </p>
+                ) : null}
+              </div>
             )}
             <Select
               id="attire"

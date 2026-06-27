@@ -26,7 +26,23 @@ self-contained changes, no migration:
   destructive: it only seeds the form's default values; nothing persists until
   the host reviews and clicks Save, and a note explains the prefill.
 
-Verified: typecheck + lint + production build all pass.
+End-to-end completion (code · page · data) so an INC wedding behaves like one:
+
+- `lib/schedule.ts` — INC now seeds its own **reception spine** (the code already
+  anticipated "no alcohol toasts at INC"). The default INC reception is prayer-
+  led and wholesome WITHOUT the dance set (first dance / father-daughter /
+  mother-son / money / anniversary / open-floor DJ) the universal spine assumes,
+  honoring kapayakan (simplicity). Host can still add any block back. Makes the
+  onboarding faith-chip's "your reception comes pre-set alcohol-free" promise real.
+- `app/[slug]/page.tsx` — the public invitation's DressCodeWidget **empty state**
+  now surfaces INC modest-attire guidance for `ceremony_type='inc'` events even
+  when the host never authored a dress code, so guests always know the chapel's
+  expectation. (Added `ceremony_type` to the event select + EventRow.)
+- `app/dashboard/[eventId]/guests/[guestId]/page.tsx` — the guest role picker now
+  shows the INC rule (non-member principal sponsors limited to one pair) for INC
+  weddings, right where sponsors are assigned. Advisory, not DB-enforced.
+
+Verified: typecheck + lint + 584 unit tests + production build all pass.
 
 SPEC IMPACT: Documented in
 02_Specifications/INC_Wedding_Practices_Reference_2026-06-28.md (new) +

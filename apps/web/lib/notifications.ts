@@ -167,7 +167,17 @@ export type NotificationType =
   // Replaces the borrowed 'vendor_tokens_credited' so a plan activation no
   // longer wears a "Tokens credited" badge (the body still mentions any bundled
   // vendor tokens — those are real and stay).
-  | 'subscription_activated';
+  | 'subscription_activated'
+  // Added 2026-06-28 alongside migration
+  // 20270308120000_mood_board_share_notification_type.sql. Fired
+  // (vendor-recipient) from
+  // app/dashboard/[eventId]/studio/mood-board/actions.ts →
+  // shareMoodBoardWithVendors() when the couple presses "Share with vendors" on
+  // their Mood Board. One notification per booked marketplace vendor, deep-linking
+  // to the read-only /vendor-dashboard/clients/[eventId]/mood-board view they
+  // already have access to (get_vendor_mood_board RPC). Informational nudge —
+  // NOT on the email/push allowlists.
+  | 'mood_board_share';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   chat_message: 'New message',
@@ -224,6 +234,8 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   order_awaiting_reconciliation: 'Awaiting reconciliation',
   // Vendor subscription went live (2026-06-24). NOT "Tokens credited".
   subscription_activated: 'Plan active',
+  // The couple shared their mood board with their booked vendors (2026-06-28).
+  mood_board_share: 'Mood board shared',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -323,6 +335,9 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   // A plan going live = a positive money-in confirmation → emerald (matches
   // order_paid / the vendor_tokens_credited it replaces here).
   subscription_activated: 'bg-success-200 text-success-900',
+  // The couple sharing their mood board = a positive, informational arrival in
+  // the vendor's tray → sky (matches editorial_decision / the informational register).
+  mood_board_share: 'bg-sky-100 text-sky-800',
 };
 
 export type NotificationRow = {

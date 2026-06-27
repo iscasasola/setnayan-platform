@@ -41,7 +41,7 @@ export default async function DressCodeEditorPage({
 
   const { data: event } = await supabase
     .from('events')
-    .select('event_id, display_name, slug, dress_code_config')
+    .select('event_id, display_name, slug, dress_code_config, ceremony_type')
     .eq('event_id', eventId)
     .maybeSingle();
 
@@ -51,7 +51,20 @@ export default async function DressCodeEditorPage({
   // pre-bind args like this so the page-level eventId travels with the form.
   const updateAction = updateDressCode.bind(null, eventId);
 
-  const config = normalizeConfig(event.dress_code_config);
+  const savedConfig = normalizeConfig(event.dress_code_config);
+  const isConfigEmpty =
+    !savedConfig.title &&
+    !savedConfig.description &&
+    savedConfig.dos.length === 0 &&
+    savedConfig.donts.length === 0 &&
+    savedConfig.palette.length === 0;
+  // INC weddings require modest, formal attire OF GUESTS (no sleeveless/short),
+  // so when an INC host opens an empty editor we pre-fill that guidance as a
+  // starting point. Non-destructive: it only seeds the form's default values —
+  // nothing is written until the host reviews and clicks Save, and they can
+  // edit or clear every field first.
+  const showIncPrefill = event.ceremony_type === 'inc' && isConfigEmpty;
+  const config = showIncPrefill ? INC_DRESS_CODE_SUGGESTION : savedConfig;
   const saved = search.saved === '1';
   const error = search.error;
 
@@ -95,6 +108,16 @@ export default async function DressCodeEditorPage({
             className="rounded-md border border-danger-300/60 bg-danger-50 px-3 py-2 text-sm text-danger-800"
           >
             {error}
+          </div>
+        ) : null}
+        {showIncPrefill ? (
+          <div
+            role="note"
+            className="rounded-md border border-terracotta/30 bg-terracotta-50/60 px-3 py-2 text-sm text-ink/75"
+          >
+            We&rsquo;ve started you off with the modest, formal guidance INC weddings
+            ask of guests (no sleeveless or short attire). Make it your own, then
+            <strong className="font-medium"> Save</strong> to share it with your guests.
           </div>
         ) : null}
       </header>
@@ -214,6 +237,32 @@ export default async function DressCodeEditorPage({
     </section>
   );
 }
+
+/**
+ * Suggested starter guidance for INC (Iglesia ni Cristo) weddings. INC asks
+ * for modest, formal attire of everyone present — no sleeveless tops, no short
+ * dresses/skirts — so we pre-fill that for INC hosts who haven't set a dress
+ * code yet. It is a default form value only (the host saves it themselves);
+ * see 02_Specifications/INC_Wedding_Practices_Reference_2026-06-28.md § 5.4.
+ */
+const INC_DRESS_CODE_SUGGESTION: DressCodeConfig = {
+  title: 'Modest & formal',
+  description:
+    'Our ceremony is held in the INC chapel, so we kindly ask everyone to dress modestly and formally. Thank you for honoring the occasion with us.',
+  dos: [
+    'Formal, modest attire',
+    'Covered shoulders / sleeves',
+    'Dresses and skirts at or below the knee',
+    'Smart formal for the gentlemen',
+  ],
+  donts: [
+    'Sleeveless tops or bared shoulders',
+    'Short dresses or skirts above the knee',
+    'Plunging, sheer, or backless cuts',
+    'Overly casual wear (shorts, slippers)',
+  ],
+  palette: [],
+};
 
 /**
  * Read a config blob defensively — the column defaults to `{}` so brand-new

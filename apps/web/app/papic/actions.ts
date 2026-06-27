@@ -7,11 +7,9 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { enqueueDriveCopy, runDriveCopyBatch } from '@/lib/drive-copy';
 import { screenCapture } from '@/lib/nsfw-screen';
 import { ingestToWall } from '@/lib/live-wall';
-import { eventSamplerIsKept } from '@/lib/papic-sampler';
 import { parsePapicTagScan } from '@/lib/papic-tag';
 import { autoTagCapture } from '@/lib/face-match';
 import {
-  PAPIC_SAMPLER_RETENTION_DAYS,
   eventOwnsPapicSeats,
   papicSeatAnonEnabled,
 } from '@/lib/papic-seats';
@@ -196,7 +194,7 @@ export async function recordSeatCapture(
   const { data: seat, error: seatError } = await supabase
     .from('paparazzi_seats')
     .select(
-      'seat_id, event_id, revoked_at, claimer_user_id, is_free_sampler, tier, sku_code, paid_order_id, valid_from, valid_until',
+      'seat_id, event_id, revoked_at, claimer_user_id, tier, sku_code, paid_order_id, valid_from, valid_until',
     )
     .eq('claim_qr_token', cleanToken)
     .maybeSingle();
@@ -214,23 +212,23 @@ export async function recordSeatCapture(
 
   // Per-camera seats (sku_code PAPIC_CAMERA_*) have their OWN paid-gate + daily
   // quota (below) and are NOT the legacy PAPIC_SEATS pack — so they skip the
-  // pack ownership check. null for legacy pack + sampler seats (unchanged).
+  // pack ownership check. null for legacy pack seats (unchanged).
   const cameraTier = papicPerCameraTier(
     seat.sku_code as string | null,
     seat.tier as string | null,
   );
 
-  // Entitlement re-check (paid seats only). A claimed seat must not keep
-  // accepting captures forever if the event's PAPIC_SEATS order was cancelled /
-  // refunded / lapsed. Mirrors the guest disposable-camera path, which gates
-  // every insert on ownership. Free-sampler seats are FREE — never gated.
+  // Entitlement re-check (legacy PAPIC_SEATS pack only). A claimed seat must not
+  // keep accepting captures forever if the event's PAPIC_SEATS order was
+  // cancelled / refunded / lapsed. Mirrors the guest disposable-camera path,
+  // which gates every insert on ownership.
   //
   // Read on the ADMIN client, not the friend's session: a claimer (esp. an
   // anonymous one) is NOT an event member, so the orders RLS read would return
   // nothing under their session and wrongly block every capture. Fail-OPEN on a
   // config/transient error (admin client unavailable) — a refunded event still
   // capturing is far better than the camera breaking for a paying couple.
-  if (!seat.is_free_sampler && !cameraTier) {
+  if (!cameraTier) {
     let owned = true;
     try {
       const admin = createAdminClient();
@@ -243,7 +241,7 @@ export async function recordSeatCapture(
 
   // ── Per-CAMERA enforcement (per-camera model · PR3) ─────────────────────
   // Applies ONLY to per-camera seats (sku_code PAPIC_CAMERA_*) — the legacy
-  // PAPIC_SEATS pack stays uncapped, the sampler keeps its own RPC cap. A paid
+  // PAPIC_SEATS pack stays uncapped. A paid
   // camera (roll/unlimited) only shoots once its order is PAID; the daily tier
   // quota is reserved atomically at the record layer (the authoritative gate;
   // the presign probe in /api/upload is the orphan-byte leak guard).
@@ -342,64 +340,13 @@ export async function recordSeatCapture(
     }
   }
 
-  // Free Papic sampler — per-seat caps (8 photos + 2 clips) + 30-day expiry.
-  // Paid/normal seats are uncapped and permanent (expires_at stays null).
-  let expiresAt: string | null = null;
-  if (seat.is_free_sampler) {
-    // "connect Drive OR upgrade = permanent": if the couple has ALREADY converted
-    // (active Drive grant) these shots are born permanent (expires_at stays null);
-    // otherwise they roll off in 30 days. The sample-THEN-convert ordering is
-    // handled separately by makeSamplerPermanent() at the convert moment.
-    expiresAt = (await eventSamplerIsKept(seat.event_id))
-      ? null
-      : new Date(
-          Date.now() + PAPIC_SAMPLER_RETENTION_DAYS * 86_400_000,
-        ).toISOString();
-  }
+  // Captures are uncapped and permanent (expires_at stays null). The retired
+  // free sampler was the only path that ever set an expiry.
+  const expiresAt: string | null = null;
 
   let insertedPhotoId: string | null = null;
 
-  if (seat.is_free_sampler) {
-    // RECORD-LAYER CAP (the core leak fix). Route the sampler INSERT through the
-    // atomic papic_sampler_insert_capture RPC: it locks the seat, counts the
-    // CURRENT (non-superseded) captures of this kind, and inserts ONLY when under
-    // cap — all in one transaction. So the (cap+1)th capture is IMPOSSIBLE to
-    // persist even under concurrent requests, which makes over-cap R2 bytes
-    // impossible to justify (the presign route already refuses the URL at cap).
-    // Replaces the old non-atomic count-then-insert. The per-kind caps (8 / 2)
-    // live in lib/papic-seats.ts as PAPIC_SAMPLER_PHOTO_CAP / _CLIP_CAP and are
-    // mirrored inside the RPC.
-    const { data: rpcData, error: rpcError } = await supabase.rpc(
-      'papic_sampler_insert_capture',
-      {
-        p_seat_id: seat.seat_id,
-        p_kind: kind === 'clip' ? 'clip' : 'photo',
-        p_r2_object_key: cleanKey,
-        p_poster_r2_key: cleanPoster,
-        p_expires_at: expiresAt,
-      },
-    );
-    if (rpcError) {
-      // Missing RPC (pre-migration · 42883 / PGRST202) → fall back to the direct
-      // insert below so a not-yet-migrated DB still records the capture. The
-      // presign-layer probe also fails open in that env, so behaviour matches the
-      // pre-fix path until the migration lands. Any other RPC error is surfaced.
-      if (rpcError.code !== '42883' && rpcError.code !== 'PGRST202') {
-        return { ok: false, error: rpcError.message.slice(0, 80) };
-      }
-    } else {
-      const r = (rpcData ?? {}) as { ok?: boolean; error?: string; photo_id?: string };
-      if (!r.ok) {
-        return { ok: false, error: r.error || 'sampler_cap' };
-      }
-      insertedPhotoId = (r.photo_id as string) ?? null;
-    }
-  }
-
-  // Paid/normal seats — and the pre-migration sampler fallback — use the direct
-  // insert. (When the RPC ran for a sampler seat, insertedPhotoId is already set
-  // and we skip this.)
-  if (insertedPhotoId === null) {
+  {
     const insertWithoutPoster = () =>
       supabase
         .from('papic_photos')
@@ -449,10 +396,8 @@ export async function recordSeatCapture(
   // projects), THEN run the wall gate. ingestToWall never throws; a non-clean
   // or non-LIVE_WALL event is a silent no-op.
   after(async () => {
-    // NSFW screen ALWAYS runs (Apple 1.2 / corpus hard constraint) — even for the
-    // sampler. The wall gate + FaceBlock bake are SKIPPED for sampler captures:
-    // the free sampler is a private "try it", not the day-of live wall, so it
-    // stays self-contained (nothing to expire out of wall_feed either).
+    // NSFW screen ALWAYS runs (Apple 1.2 / corpus hard constraint), then the
+    // FaceBlock bake + wall gate.
     await screenCapture({ table: 'papic_photos', r2ObjectKey: cleanKey }).catch(() => {});
     // Cheap display + thumbnail derivatives (best-effort, AFTER the screen) so
     // the gallery serves compressed tiles instead of full-res originals.
@@ -476,7 +421,7 @@ export async function recordSeatCapture(
         // best-effort — derivatives never break a capture
       }
     }
-    if (insertedPhotoId && !seat.is_free_sampler) {
+    if (insertedPhotoId) {
       // P2 FaceBlock bake between the screen and the wall gate: a FaceBlock
       // event requires the baked blur derivative before ingest admits the
       // row. Cheap no-op on non-FaceBlock events; FAILS CLOSED on any error.
@@ -486,14 +431,6 @@ export async function recordSeatCapture(
         sourceId: insertedPhotoId,
       });
       await ingestToWall('papic_photos', insertedPhotoId);
-    }
-    if (seat.is_free_sampler && expiresAt) {
-      // Cron-free expiry warnings: schedule (once per event, self-guarded) the
-      // T-7 / T-1 emails with Resend at capture time. Best-effort.
-      const { scheduleSamplerExpiryWarnings } = await import(
-        '@/lib/papic-sampler-emails'
-      );
-      await scheduleSamplerExpiryWarnings(seat.event_id as string, expiresAt);
     }
   });
 

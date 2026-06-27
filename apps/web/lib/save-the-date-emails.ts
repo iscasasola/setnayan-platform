@@ -19,7 +19,7 @@ import {
 // emails, so this gracefully covers ONLY guests WITH an email; the shared join
 // link stays the fallback for everyone else.
 //
-// Design mirrors lib/papic-sampler-emails.ts:
+// Design:
 //   • runs inside a Next 15 after() hook (CRON-FREE — no scheduler on our side)
 //   • best-effort — one failure never blocks the launch or the other guests
 //   • idempotent — each guest's guests.std_sent_at stamp guards re-launch from

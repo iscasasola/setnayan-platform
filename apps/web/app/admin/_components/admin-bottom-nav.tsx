@@ -95,7 +95,6 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/admin/social-queue',
       '/admin/pakanta',
       '/admin/help',
-      '/admin/papic-sampler',
     ],
   },
   {

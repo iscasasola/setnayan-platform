@@ -8,8 +8,9 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 // the auth-bound dashboard page only.
 //
 // What's filtered OUT: NSFW-blocked (moderation_state), couple-hidden (hidden_at),
-// and EXPIRED free-sampler photos (expires_at in the past — the read-time half of
-// the 30-day sampler retention). "Untagged-still-delivered" is honoured — a
+// and any photo past its expires_at (a vestigial column — no capture path sets
+// it any more, so this filter is a no-op kept for safety).
+// "Untagged-still-delivered" is honoured — a
 // missing tag never drops a photo, it just shows as untagged.
 
 export type GalleryTagSource = 'auto_face' | 'qr' | 'manual' | 'untagged';

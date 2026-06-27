@@ -1824,20 +1824,6 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 18,
   },
   {
-    // Free Papic-sampler abuse monitor. Lives in the Work group in
-    // ADMIN_NAV_GROUPS; this default makes its label + icon admin-editable.
-    key: "admin.sidebar.papic-sampler",
-    scope: "admin",
-    area: "admin-sidebar",
-    route: "/admin/papic-sampler",
-    label: "Papic sampler",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Camera",
-    customRef: null,
-    sortOrder: 19,
-  },
-  {
     key: "admin.sidebar.users",
     scope: "admin",
     area: "admin-sidebar",

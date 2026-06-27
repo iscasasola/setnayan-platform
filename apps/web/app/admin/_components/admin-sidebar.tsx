@@ -109,7 +109,6 @@ import {
   Newspaper,
   Images,
   Radar,
-  Camera,
   Film,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
@@ -304,15 +303,6 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: 'Help',
         href: '/admin/help',
         icon: LifeBuoy,
-      },
-      {
-        // Free Papic sampler abuse monitor — couples farming the 1-per-event
-        // free seat across multiple events. Surfaces at /admin/papic-sampler
-        // with a ⚠ flag on any account holding 2+ sampler events.
-        key: 'papic-sampler',
-        label: 'Papic sampler',
-        href: '/admin/papic-sampler',
-        icon: Camera,
       },
     ],
   },

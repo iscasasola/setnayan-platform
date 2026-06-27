@@ -1,12 +1,7 @@
 import { headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import {
-  eventPapicSeatsActive,
-  fetchPapicSeats,
-  fetchPapicSamplerSeats,
-  papicSeatClaimUrl,
-} from '@/lib/papic-seats';
+import { fetchPapicSeats, papicSeatClaimUrl } from '@/lib/papic-seats';
 import { renderUrlQrSvg } from '@/lib/qr';
 
 // Papic · printable photo-crew QR pack.
@@ -22,8 +17,7 @@ export const dynamic = 'force-dynamic';
 
 type Props = { params: Promise<{ eventId: string }> };
 
-function seatLabel(seatIndex: number, isSampler: boolean): string {
-  if (isSampler) return `Free seat ${seatIndex - 100}`;
+function seatLabel(seatIndex: number): string {
   if (seatIndex >= 200) return `Camera ${seatIndex - 199}`; // per-camera (base 200)
   return `Seat ${seatIndex}`;
 }
@@ -55,11 +49,7 @@ export default async function PapicCrewPrintPage({ params }: Props) {
     .maybeSingle();
   if (!event) notFound();
 
-  const ownsPack = await eventPapicSeatsActive(supabase, eventId);
-  const paidSeats = await fetchPapicSeats(supabase, eventId);
-  const owns = ownsPack || paidSeats.length > 0;
-  const isSampler = !owns;
-  const seats = owns ? paidSeats : await fetchPapicSamplerSeats(supabase, eventId);
+  const seats = await fetchPapicSeats(supabase, eventId);
 
   const h = await headers();
   const host = h.get('host') ?? 'www.setnayan.com';
@@ -71,7 +61,7 @@ export default async function PapicCrewPrintPage({ params }: Props) {
       const claimUrl = papicSeatClaimUrl(appUrl, s.claim_qr_token);
       return {
         seatId: s.seat_id,
-        label: seatLabel(s.seat_index as number, isSampler),
+        label: seatLabel(s.seat_index as number),
         claimUrl,
         svg: await renderUrlQrSvg(claimUrl, 200),
       };

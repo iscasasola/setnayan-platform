@@ -12,7 +12,6 @@
     "lint:navicon": "node scripts/lint-nav-icon-source.mjs",
     "lint:email-links": "node scripts/lint-email-links.mjs",
     "lint:entitlement-gates": "node scripts/lint-entitlement-gates.mjs",
-    "lint:papic-keep": "node scripts/lint-papic-keep-permanent.mjs",
     "lint:chat-guard": "node scripts/lint-admin-chat-guard.mjs",
     "lint:legibility": "node scripts/lint-guest-legibility.mjs",
     "lint:radius": "node scripts/lint-radius.mjs",

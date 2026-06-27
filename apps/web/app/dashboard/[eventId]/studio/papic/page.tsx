@@ -198,27 +198,6 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   const driveConfig = await getDriveOAuthConfig();
   const driveOAuthReady = driveConfig.ready;
 
-  // Free-sampler retention signal (only the sampler has expiring photos).
-  let samplerExpiringCount = 0;
-  let samplerDaysLeft: number | null = null;
-  if (!ownsPapicSeats) {
-    const { data: expiring } = await supabase
-      .from('papic_photos')
-      .select('expires_at')
-      .eq('event_id', eventId)
-      .not('expires_at', 'is', null)
-      .gt('expires_at', new Date().toISOString())
-      .order('expires_at', { ascending: true });
-    samplerExpiringCount = expiring?.length ?? 0;
-    const soonest = expiring?.[0]?.expires_at as string | undefined;
-    if (soonest) {
-      samplerDaysLeft = Math.max(
-        0,
-        Math.ceil((new Date(soonest).getTime() - Date.now()) / 86_400_000),
-      );
-    }
-  }
-
   // Live admin-managed rates + per-tier caps.
   const cameraRates = await fetchCameraRates(supabase);
   const papicLtdCapPhp =
@@ -453,27 +432,10 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           </div>
         </div>
 
-        {!ownsPapicSeats && guestCameraCount === 0 && (
-          <Link
-            href={`/dashboard/${eventId}/studio/papic/crew`}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-terracotta underline-offset-2 hover:underline"
-          >
-            Or try Papic free first — 3 seats, 8 photos + 2 clips each
-            <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
-          </Link>
-        )}
       </section>
 
-      {/* Free-sampler retention. */}
-      {!ownsPapicSeats && samplerExpiringCount > 0 && (
-        <SamplerRetentionCard
-          expiringCount={samplerExpiringCount}
-          daysLeft={samplerDaysLeft}
-        />
-      )}
-
       {/* Your Papic look — the event-wide capture template the couple picks
-          once. Baked into every camera's photos (seats, sampler, guests) on
+          once. Baked into every camera's photos (seats, guests) on
           device at capture. Shooters never see a picker. */}
       <section className="space-y-4 rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
         <div className="space-y-1.5">
@@ -490,6 +452,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         <StylePicker eventId={eventId} current={papicStyle} />
       </section>
 
+
       {/* Storage. */}
       <StorageChoiceCard
         eventId={eventId}
@@ -500,11 +463,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       />
 
       {/* Gallery. */}
-      <GalleryPreviewCard
-        eventId={eventId}
-        samplerExpiringCount={samplerExpiringCount}
-        samplerDaysLeft={samplerDaysLeft}
-      />
+      <GalleryPreviewCard eventId={eventId} />
 
       {/* Moderation — a slim, real action. */}
       <section className="flex flex-col gap-3 rounded-2xl border border-ink/10 bg-surface p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
@@ -1168,69 +1127,13 @@ function DriveConnectedPanel({
 }
 
 // -----------------------------------------------------------------------------
-// Free-sampler retention card
-// -----------------------------------------------------------------------------
-
-function SamplerRetentionCard({
-  expiringCount,
-  daysLeft,
-}: {
-  expiringCount: number;
-  daysLeft: number | null;
-}) {
-  const ctaClass =
-    'inline-flex flex-1 items-center justify-center gap-2 rounded-md border border-mulberry/30 bg-mulberry/5 px-4 py-2.5 text-sm font-medium text-mulberry transition-colors hover:bg-mulberry/10';
-  const noun = expiringCount === 1 ? 'photo' : 'photos';
-  const verb = expiringCount === 1 ? 'expires' : 'expire';
-
-  return (
-    <section
-      id="papic-keep"
-      className="scroll-mt-20 space-y-4 rounded-2xl border border-terracotta/30 bg-terracotta/[0.05] p-5 sm:p-6"
-    >
-      <div className="space-y-1.5">
-        <p className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-          <Clock aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          Free sampler
-        </p>
-        <h2 className="text-lg font-semibold tracking-tight text-ink">
-          Keep your free photos forever
-        </h2>
-        <p className="max-w-prose text-sm text-ink/70">
-          <b className="font-medium text-ink">
-            Your {expiringCount === 1 ? '' : `${expiringCount} `}free {noun}{' '}
-            {daysLeft === null
-              ? `${verb} soon`
-              : daysLeft === 0
-                ? `${verb} today`
-                : `${verb} in ${daysLeft} ${daysLeft === 1 ? 'day' : 'days'}`}
-            .
-          </b>{' '}
-          Save a copy to Google Drive, or activate Papic to keep every photo.
-        </p>
-      </div>
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <Link href="#papic-storage" className={ctaClass}>
-          <HardDrive aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          Keep your own copy — Google Drive
-        </Link>
-      </div>
-    </section>
-  );
-}
-
-// -----------------------------------------------------------------------------
 // Gallery preview
 // -----------------------------------------------------------------------------
 
 async function GalleryPreviewCard({
   eventId,
-  samplerExpiringCount,
-  samplerDaysLeft,
 }: {
   eventId: string;
-  samplerExpiringCount: number;
-  samplerDaysLeft: number | null;
 }) {
   const supabase = await createClient();
   const [photos, densityRows] = await Promise.all([
@@ -1251,29 +1154,6 @@ async function GalleryPreviewCard({
           photos still land here — Papic never drops a photo.
         </p>
       </div>
-
-      {samplerExpiringCount > 0 && (
-        <div className="flex items-start gap-2 rounded-lg border border-terracotta/30 bg-terracotta/5 px-4 py-3 text-sm text-ink/80">
-          <Clock aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
-          <span>
-            <b className="font-medium">
-              {samplerExpiringCount === 1
-                ? 'Your free sampler photo '
-                : `Your ${samplerExpiringCount} free sampler photos `}
-              {samplerDaysLeft === null
-                ? 'expire soon'
-                : samplerDaysLeft === 0
-                  ? `${samplerExpiringCount === 1 ? 'expires' : 'expire'} today`
-                  : `${samplerExpiringCount === 1 ? 'expires' : 'expire'} in ${samplerDaysLeft} ${samplerDaysLeft === 1 ? 'day' : 'days'}`}
-              .
-            </b>{' '}
-            <Link href="#papic-keep" className="font-medium text-terracotta underline-offset-2 hover:underline">
-              Keep them
-            </Link>
-            .
-          </span>
-        </div>
-      )}
 
       {hasPhotos ? (
         <PapicGalleryGrid photos={photos} eventId={eventId} kwentoDensity={kwentoDensity} />

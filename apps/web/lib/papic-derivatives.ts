@@ -4,7 +4,6 @@ import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { parseStoredAsset, encodeR2Ref } from '@/lib/uploads';
 import { getR2Client, r2Upload, R2_BUCKETS, type R2BucketName } from '@/lib/r2';
-import { isEphemeralKey } from '@/lib/papic-relocation-core';
 
 /**
  * Papic display-derivative pipeline.
@@ -206,32 +205,7 @@ async function persistDerivativeRefs(
   patch: { display_r2_key: string; thumb_r2_key: string },
 ): Promise<void> {
   const admin = createAdminClient();
-  let effectivePatch: Partial<typeof patch> = patch;
-  // Guard the convert race (papic_photos / free sampler only): this generator runs
-  // fire-and-forget in the capture after() hook off the ORIGINAL ref captured at
-  // capture time. If a convert (Drive connect / paid upgrade) relocated the row off
-  // the ephemeral `papic-sampler/` prefix and nulled its expiry BEFORE this hook
-  // ran, persisting a `derivatives/papic-sampler/…` key here would re-strand the
-  // thumb under the ephemeral prefix on an already-permanent row — invisible to the
-  // expiry-based sweep and doomed once an R2 lifecycle rule is enabled. So for a
-  // permanent papic_photos row, never persist an ephemeral derivative key; drop it
-  // (the gallery falls back to the relocated permanent original) and let the leftover
-  // bytes be reaped as orphans by the lifecycle rule.
-  if (table === 'papic_photos' && (isEphemeralKey(patch.display_r2_key) || isEphemeralKey(patch.thumb_r2_key))) {
-    const { data: cur } = await admin
-      .from(table)
-      .select('expires_at')
-      .eq(idColumn, idValue)
-      .maybeSingle();
-    if (cur && (cur as { expires_at: string | null }).expires_at === null) {
-      const safe: Partial<typeof patch> = {};
-      if (!isEphemeralKey(patch.display_r2_key)) safe.display_r2_key = patch.display_r2_key;
-      if (!isEphemeralKey(patch.thumb_r2_key)) safe.thumb_r2_key = patch.thumb_r2_key;
-      if (Object.keys(safe).length === 0) return; // nothing safe to persist
-      effectivePatch = safe;
-    }
-  }
-  const { error } = await admin.from(table).update(effectivePatch).eq(idColumn, idValue);
+  const { error } = await admin.from(table).update(patch).eq(idColumn, idValue);
   if (error && error.code !== 'PGRST204') {
     throw new Error(error.message);
   }

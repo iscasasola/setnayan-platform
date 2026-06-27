@@ -18,7 +18,7 @@ import { getSwitcherData, type SwitcherEvent } from '@/app/_components/account-s
  *  • OWNED (role 'couple') — read under the user's RLS session (couple policies
  *    on papic_photos + papic_guest_captures), reusing the EXACT visibility filter
  *    from lib/papic-gallery.ts: drop moderation_state='nsfw_blocked', drop
- *    hidden_at, drop expired free-sampler rows (expires_at in the past). Clip
+ *    hidden_at, drop any expired rows (expires_at in the past — now vestigial). Clip
  *    thumbnail = poster_r2_key ?? r2_object_key. Both tables counted per event.
  *
  *  • ATTENDED (role 'guest') — RLS does NOT let a guest read those tables, so we

@@ -405,7 +405,6 @@ export default async function AdminOverview() {
         <Tile href="/admin/users" icon="users" title="Users" body="Search, filter, flag team-pool members." />
         <Tile href="/admin/events" icon="calendar" title="Events" body="All events in the system + couple-side stats." />
         <Tile href="/admin/vendors" icon="briefcase" title="Vendors" body="Every vendor_profile + published status." />
-        <Tile href="/admin/papic-sampler" icon="camera" title="Papic sampler" body="Free-sampler usage + cross-event abuse watch." />
         <Tile href="/admin/patiktok" icon="camera" title="Patiktok renders" body="Client-side reel render queue + failures." />
         <Tile href="/admin/integrations" icon="layout-grid" title="Integrations" body="Turn email + integrations on without a redeploy." />
         <Tile

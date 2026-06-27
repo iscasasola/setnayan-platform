@@ -220,19 +220,39 @@ function toProfile(row: ProfileRow): EventTypeProfile {
  * The Event-Type Profile for a given type. Cached per request. Falls back to the
  * hard-coded WEDDING_PROFILE / GENERIC_PROFILE on any error or missing row.
  */
+// The profile columns, split so `marketplace_enabled` (added by a LATER migration
+// than the table) can be dropped when reading a not-yet-migrated prod without
+// losing the rest of the row. See the deploy-order note in resolveProfile.
+const PROFILE_BASE_COLUMNS =
+  'event_type, terminology, enabled_surfaces, onboarding_flow_key, role_set_key, template_pack_key, monogram_set_key, reveal_pack_key, budget_taxonomy_key, schedule_seed_key, statutory_pack_key';
+
 export const resolveProfile = cache(
   async (eventType: string): Promise<EventTypeProfile> => {
     try {
       const sb = await createClient();
-      const { data, error } = await sb
+      // Try the full row (incl. marketplace_enabled). If that column does not
+      // exist yet — i.e. the code deployed before its migration applied — the
+      // whole select errors, which would degrade EVERY type to its hard-coded
+      // fallback and so strip the 8 seeded non-wedding types of their per-type
+      // terminology. So on error we retry WITHOUT the new column: the row's
+      // terminology/surfaces/packs are preserved and marketplace_enabled falls
+      // back to the code default (TRUE for all but Simple Event). Once the
+      // migration is applied the first select succeeds and the column is read.
+      const full = await sb
         .from('event_type_profiles')
-        .select(
-          'event_type, terminology, enabled_surfaces, marketplace_enabled, onboarding_flow_key, role_set_key, template_pack_key, monogram_set_key, reveal_pack_key, budget_taxonomy_key, schedule_seed_key, statutory_pack_key',
-        )
+        .select(`${PROFILE_BASE_COLUMNS}, marketplace_enabled`)
         .eq('event_type', eventType)
         .maybeSingle();
-      if (error || !data) return fallbackFor(eventType);
-      return toProfile(data as ProfileRow);
+      if (!full.error) {
+        return full.data ? toProfile(full.data as ProfileRow) : fallbackFor(eventType);
+      }
+      const base = await sb
+        .from('event_type_profiles')
+        .select(PROFILE_BASE_COLUMNS)
+        .eq('event_type', eventType)
+        .maybeSingle();
+      if (base.error || !base.data) return fallbackFor(eventType);
+      return toProfile({ ...(base.data as object), marketplace_enabled: null } as ProfileRow);
     } catch {
       return fallbackFor(eventType);
     }

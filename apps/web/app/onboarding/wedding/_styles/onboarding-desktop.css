@@ -132,25 +132,26 @@
     flex-direction: column;
   }
   /* Faith renders its options as a horizontal scrolling pill row (`.chips`, not the
-     `.stack`/`.opt` every other option screen uses), so the two-pane row treatment
-     above misses it. id-inclusive override (beats the `#screen-faith .chips` flex-row
-     rule) lays the faith options out as full-width ROWS too — one per row — so desktop
-     is consistent with role/kind. Mobile (<1024) keeps its horizontal scroll row. */
+     `.stack`/`.opt` every other option screen uses). Stacking all of them in ONE
+     full-width column was the bug behind the "empty left pane" report: with ~16
+     faith traditions the column grew ~1900px tall, overflowed the sheet, and the
+     two-pane `align-items:stretch` then dragged the left eyebrow+question+image
+     down to the vertical middle of that giant column — off-screen. Lay the chips out
+     as a TWO-COLUMN grid instead: ~8 rows fits the sheet, the left content stays put,
+     and the screen never overflows. Mobile (<1024) keeps its horizontal scroll row. */
   .onbw #screen-faith.onb-twopane.screen.active .tapzone .chips {
-    display: flex;
-    flex-direction: column;
-    flex-wrap: nowrap;
-    overflow-x: visible;
-    align-items: stretch;
-    gap: 12px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    overflow: visible;
   }
   .onbw #screen-faith.onb-twopane.screen.active .tapzone .chip {
-    width: 100%;
+    width: auto;
     justify-content: flex-start;
     text-align: left;
     min-height: 0;
-    padding: 15px 18px;
-    font-size: 15px;
+    padding: 13px 16px;
+    font-size: 14px;
   }
 
   /* ── Editorial type — the question becomes a magazine headline on the left. ── */
@@ -166,6 +167,12 @@
      screen horizontally. ── */
   .onbw .screen.active:not(.onb-twopane) {
     align-items: center;
+    /* …and centre vertically. Short screens (love-story steps, account, aigate,
+       congrats recap) were pinned to the top with the whole bottom half empty.
+       Safe against tall content: `.screen.active` is `flex:1 0 auto` (never shrinks),
+       so a tall screen grows to its content height — no slack to centre, body scrolls,
+       nothing clips — while a short screen gets the body's slack and centres. */
+    justify-content: center;
   }
   /* Cap the readable column for single-column screens. The blocks that own a
      full-width control (calendar / carousels / vendor results / persona markup)
@@ -241,6 +248,13 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     align-items: stretch;
+  }
+  /* Congrats wraps its recap in a `.viewzone` that — unlike the other single-column
+     screens — stretches (flex:1 1 auto), which pinned the finish card to the top with
+     the bottom half empty. Let it wrap its content so the screen-level
+     justify-content:center actually centres the card. */
+  .onbw #screen-congrats.screen.active:not(.onb-twopane) .viewzone {
+    flex: 0 0 auto;
   }
   .onbw #screen-congrats .dash-col-l {
     border-right: 1px solid var(--line);

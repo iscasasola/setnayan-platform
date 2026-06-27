@@ -230,6 +230,26 @@ export function papicSeatClaimUrl(appUrl: string, token: string): string {
 }
 
 /**
+ * Build the public HYBRID join URL for a seat token (`/papic/join/[token]`).
+ *
+ * This is the one entry link the couple shares on a seat QR. On a phone where
+ * the Setnayan native app is installed, the OS intercepts the Universal/App
+ * Link (scoped to /papic/* in the .well-known files) and opens the app
+ * directly; everywhere else the web route resolves the token and forwards into
+ * the existing /papic/claim flow (no duplicated capture UI). The `?kind=seat`
+ * hint lets the join route skip the guest-token lookup — the seat resolve is a
+ * single indexed read either way, so the hint is a small latency win, not a
+ * correctness requirement (the route still infers the kind if it's absent).
+ *
+ * The legacy papicSeatClaimUrl() above keeps working unchanged — any QR printed
+ * before this hybrid link still lands on /papic/claim directly.
+ */
+export function papicSeatJoinUrl(appUrl: string, token: string): string {
+  const base = appUrl.replace(/\/+$/, '');
+  return `${base}/papic/join/${encodeURIComponent(token)}?kind=seat`;
+}
+
+/**
  * Admin-side idempotent seat provisioning — the activation-hook half of "a paid
  * feature is ready with NO manual activate step once the order is approved".
  *

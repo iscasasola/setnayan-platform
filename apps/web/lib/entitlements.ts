@@ -1,6 +1,27 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
+ * Returns true if the authenticated user holds an active (non-revoked)
+ * comp_grant with scope='all_services'. Used to give the internal owner
+ * unrestricted access to every paid SKU without needing per-event orders.
+ * Degrades to false on schema errors (42P01/42703) — same contract as the
+ * order helpers below.
+ */
+async function hasAllServicesGrant(supabase: SupabaseClient): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('comp_grants')
+    .select('grant_id')
+    .eq('scope', 'all_services')
+    .is('revoked_at', null)
+    .limit(1);
+  if (error) {
+    if (error.code === '42P01' || error.code === '42703') return false;
+    throw new Error(`hasAllServicesGrant failed: ${error.message}`);
+  }
+  return (data ?? []).length > 0;
+}
+
+/**
  * apps/web/lib/entitlements.ts
  *
  * Single source of truth for couple-SKU ownership ("does this event own a
@@ -235,6 +256,9 @@ export async function eventOwnsSku(
   eventId: string,
   serviceKey: string,
 ): Promise<boolean> {
+  // 0. Owner all-services comp grant — short-circuits every SKU check.
+  if (await hasAllServicesGrant(supabase)) return true;
+
   // 1. Direct order for the SKU (covers à-la-carte purchase AND a bundle code
   //    passed directly).
   if (await checkOrderOwnership(supabase, eventId, serviceKey)) return true;
@@ -265,6 +289,9 @@ export async function eventSkuActive(
   eventId: string,
   serviceKey: string,
 ): Promise<boolean> {
+  // Owner all-services comp grant — bypass the handshake gate too.
+  if (await hasAllServicesGrant(supabase)) return true;
+
   if (await checkOrderActive(supabase, eventId, serviceKey)) return true;
   const grantingBundles = BUNDLES_GRANTING_SKU.get(serviceKey);
   if (!grantingBundles || grantingBundles.length === 0) return false;
@@ -320,6 +347,16 @@ export async function eventActiveSkus(
 ): Promise<{ active: Set<string>; pending: Set<string> }> {
   const active = new Set<string>();
   const pending = new Set<string>();
+
+  // Owner all-services comp grant — mark every known SKU as active.
+  if (await hasAllServicesGrant(supabase)) {
+    const allSkus = [
+      ...Object.keys(BUNDLE_CHILD_SKUS),
+      ...Object.values(BUNDLE_CHILD_SKUS).flat(),
+    ];
+    for (const key of allSkus) active.add(key);
+    return { active, pending };
+  }
 
   const { data, error } = await supabase
     .from('orders')

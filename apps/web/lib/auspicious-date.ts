@@ -35,6 +35,7 @@ export type CeremonyType =
   | 'christian'
   | 'muslim'
   | 'cultural'
+  | 'chinese'
   | 'aglipayan'
   | 'lds'
   | 'sda'

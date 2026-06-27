@@ -54,6 +54,7 @@ const CEREMONY_TYPES: CeremonyType[] = [
   'christian',
   'muslim',
   'cultural',
+  'chinese',
   'aglipayan',
   'lds',
   'sda',

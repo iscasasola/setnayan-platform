@@ -29,6 +29,7 @@ import { eventOwnsPapicSeats } from '@/lib/papic-seats';
 import { asPapicStyle, type PapicStyle } from '@/lib/papic-photo-styles';
 import { resolveGuestCamera } from '@/lib/papic-limited';
 import { eventSkuActive } from '@/lib/entitlements';
+import { eventOwnsCustomQrGuest } from '@/lib/seat-pass';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
 import { DEFAULT_STUDIO_ANIM } from '@/lib/hero-monogram-data';
 import { sanitizeStudioConfig } from '@/lib/monogram-studio-shared';
@@ -1035,6 +1036,14 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     }
   }
 
+  // Custom-QR seat pass (CUSTOM_QR_GUEST · seat-finding PR4) — when the couple
+  // owns the branded-QR SKU, the cookie-bearing guest gets a "Your seat pass"
+  // entry into /[slug]/seat (their exact seat + arrival bloom). Gated, admin
+  // read, graceful-degrade; ADDITIVE alongside the find-my-table link (a
+  // separate INDOOR_BLUEPRINT surface, left untouched). The pass route does its
+  // own gating too, so this link only controls whether we advertise it here.
+  const seatPassActive = await eventOwnsCustomQrGuest(admin, event.event_id);
+
   // Per-guest gallery (owner 2026-06-12: "the gallery must be on the on-the-day
   // part") — the photos THIS guest is tagged in. Shown through the LIVE window
   // AND the post-event grace (Invite/Join v2): a no-login guest keeps access
@@ -1317,6 +1326,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         sdeFilm={sdeFilm}
         sdeOwnedPending={sdeOwnedPending}
         guestLiveGallery={guestLiveGallery}
+        seatPassActive={seatPassActive}
         needsFaceEnroll={needsFaceEnroll}
         guestHubData={guestHubData}
         seatMap={seatMap}
@@ -2257,6 +2267,7 @@ function InvitationSite({
   sdeFilm,
   sdeOwnedPending,
   guestLiveGallery,
+  seatPassActive,
   needsFaceEnroll,
   guestHubData,
   seatMap,
@@ -2333,6 +2344,9 @@ function InvitationSite({
   sdeOwnedPending?: boolean;
   /** This guest's tagged photos so far — live window only, clean-screened. */
   guestLiveGallery?: GuestLiveGallery | null;
+  /** Event owns CUSTOM_QR_GUEST → advertise the personalized seat pass link
+   *  (seat-finding PR4). Additive; the find-my-table link is unaffected. */
+  seatPassActive?: boolean;
   /** True in the live window when the guest has no active face enrollment —
    *  drives the day-of "add your face" prompt so their photos auto-find them. */
   needsFaceEnroll?: boolean;
@@ -2960,6 +2974,21 @@ function InvitationSite({
               <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
               Find my table
             </Link>
+            {/* Personalized seat pass (CUSTOM_QR_GUEST · seat-finding PR4) —
+                ADDITIVE, separately gated, and only when the couple bought the
+                branded-QR SKU. Routes through /seat/claim so the cookie is set
+                before landing on the pass (their exact seat + arrival bloom).
+                The find-my-table link above (a separate INDOOR_BLUEPRINT
+                surface) is untouched — both can show. */}
+            {seatPassActive && guest.qr_token ? (
+              <Link
+                href={`/${event.slug}/seat/claim?t=${guest.qr_token}`}
+                className="ml-2 mt-5 inline-flex items-center gap-1.5 rounded-md border border-terracotta/40 bg-terracotta/5 px-3 py-1.5 text-xs font-medium text-terracotta hover:border-terracotta hover:bg-terracotta/10"
+              >
+                <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                Your seat pass
+              </Link>
+            ) : null}
           </section>
         ) : null}
 

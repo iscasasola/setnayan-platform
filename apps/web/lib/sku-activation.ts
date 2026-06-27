@@ -10,9 +10,10 @@ import { provisionPapicSeatsAdmin } from '@/lib/papic-seats';
  *
  * Per-SKU activation dispatcher. After admin approvePayment flips an order to
  * 'paid', SOME SKUs need a side effect to actually unlock the capability
- * (Setnayan AI boolean, concierge state machine, vendor branch flag, and — PR4
- * — Papic seat-pass provisioning). MOST SKUs need nothing: ownership is read
- * straight off orders.status by checkOrderOwnership(), so their entry is a no-op.
+ * (Setnayan AI boolean, concierge state machine, vendor branch flag, Papic seat
+ * provisioning, and — PR4 — Custom-QR seat-pass QR publication). MOST SKUs need
+ * nothing: ownership is read straight off orders.status by checkOrderOwnership(),
+ * so their entry is a no-op.
  *
  * CONTRACT (do not break):
  *   • Every hook is NON-FATAL. activateOrderSku NEVER throws. The order is
@@ -20,8 +21,8 @@ import { provisionPapicSeatsAdmin } from '@/lib/papic-seats';
  *     leaves a recoverable state (admin re-runs / flips the row manually) but
  *     MUST NOT roll back the approval.
  *   • Hooks are idempotent (re-running on a re-approved order is safe).
- *   • The dispatcher map is Object.frozen — PR4 adds PAPIC_SEATS by editing
- *     THIS file's map, never approvePayment.
+ *   • The dispatcher map is Object.frozen — new hooks (e.g. PR4's CUSTOM_QR_GUEST
+ *     seat-pass gating SKU) are added by editing THIS file's map, never approvePayment.
  *   • Default (unmatched service_key) = no-op. New couple SKUs activate purely
  *     via orders.status with no entry here.
  */
@@ -95,6 +96,35 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
     } catch (e) {
       console.error('[sku-activation] PAPIC_SEATS seat provisioning threw (non-fatal):', e);
     }
+  },
+
+  // Seat-pass activation (seat-finding PR4). The seat pass (/[slug]/seat)
+  // resolves + gates on CUSTOM_QR_GUEST — the SKU whose branded per-guest /
+  // per-table QR codes point at the pass — so the hook binds to CUSTOM_QR_GUEST
+  // (distinct from PAPIC_SEATS above, the already-'live' photo-crew SKU). When a
+  // CUSTOM_QR_GUEST order is approved, ensure every table for the event has its
+  // QR sheet marked published so the printed Custom-QR sheet + the table-QR
+  // resolver work immediately. Idempotent + defensive: event_tables.qr_token
+  // already default-exists from row creation (migration 20261101000000), so this
+  // is a published-at STAMP, not a destructive reset — it touches only rows still
+  // NULL. NEVER throws (dispatcher contract).
+  CUSTOM_QR_GUEST: async (ctx) => {
+    if (!ctx.eventId) return;
+    // event_tables.qr_token already has a NOT NULL DEFAULT token; this only
+    // stamps qr_published_at so the table-QR resolver knows the sheet is live.
+    // No row mutation if already set.
+    await ctx.admin
+      .from('event_tables')
+      .update({ qr_published_at: new Date().toISOString() })
+      .eq('event_id', ctx.eventId)
+      .is('qr_published_at', null);
+    await appendLedger(ctx.admin, {
+      order_id: ctx.orderId,
+      event_type: 'service_activated',
+      actor_user_id: ctx.actorUserId,
+      actor_role: 'admin',
+      metadata: { service_key: ctx.serviceKey, event_id: ctx.eventId },
+    });
   },
 
   // Bundle activation (bundle-buyer dead-flag repair) — fan the bundle's

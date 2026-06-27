@@ -4,17 +4,35 @@ import assert from 'node:assert/strict';
 import {
   WEDDING_ROLE_SET,
   GENERIC_ROLE_SET,
+  SIMPLE_ROLE_SET,
   resolveRoleSet,
 } from './role-sets';
 import { roleTier, ROLE_TIER_LABELS } from './seating';
 
 // --- resolveRoleSet routing ------------------------------------------------
-test('resolveRoleSet routes wedding → wedding, everything else → generic', () => {
+test('resolveRoleSet routes wedding → wedding, simple → simple, everything else → generic', () => {
   assert.equal(resolveRoleSet('wedding'), WEDDING_ROLE_SET);
   assert.equal(resolveRoleSet('generic'), GENERIC_ROLE_SET);
+  assert.equal(resolveRoleSet('simple'), SIMPLE_ROLE_SET);
   assert.equal(resolveRoleSet(null), GENERIC_ROLE_SET);
   assert.equal(resolveRoleSet(undefined), GENERIC_ROLE_SET);
   assert.equal(resolveRoleSet('birthday'), GENERIC_ROLE_SET); // no row yet → generic
+});
+
+// --- SIMPLE_ROLE_SET: a single flat 'guest' role ---------------------------
+test('SIMPLE_ROLE_SET offers only guest and has no tiers/singletons', () => {
+  assert.deepEqual(SIMPLE_ROLE_SET.offeredRoles, ['guest']);
+  assert.deepEqual(SIMPLE_ROLE_SET.selfClaimableRoles, ['guest']);
+  assert.deepEqual(SIMPLE_ROLE_SET.singletonRoles, []);
+  assert.equal(SIMPLE_ROLE_SET.tier1Roles.size, 0);
+  assert.equal(SIMPLE_ROLE_SET.tier2Roles.size, 0);
+  assert.equal(SIMPLE_ROLE_SET.tier3Roles.size, 0);
+  assert.equal(SIMPLE_ROLE_SET.coupleRoles.size, 0);
+  // No ROLE promotes anyone (all tier sets empty), so guests fall to tier 4 —
+  // except the universal group_category==='family' → tier 3 rule in roleTier,
+  // which is role-set-independent (same as wedding/generic).
+  assert.equal(roleTier('guest', 'friends', SIMPLE_ROLE_SET), 4);
+  assert.equal(roleTier('guest', 'family', SIMPLE_ROLE_SET), 3);
 });
 
 // --- WEDDING_ROLE_SET byte-identity anchors --------------------------------

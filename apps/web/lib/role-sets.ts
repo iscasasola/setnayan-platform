@@ -165,9 +165,35 @@ export const GENERIC_ROLE_SET: RoleSet = {
   coupleRoles: new Set<string>(), // no couple → no sweetheart exclusion
 };
 
+// --- Simple ----------------------------------------------------------------
+// The role set for the "Simple Event" type (owner 2026-06-27): a stripped-down
+// event whose only guest concept is a flat 'guest'. No host/vip/family tiers, no
+// bride/groom — every attendee is just a guest. So the add-guest picker offers a
+// single role, nothing is self-claim-restricted or singleton, and every guest
+// lands in the one "Other guests" seating ring (tier 4). This makes a Simple
+// Event's guest list as generic as possible — the leanest of the three sets.
+
+export const SIMPLE_ROLE_SET: RoleSet = {
+  key: 'simple',
+  offeredRoles: ['guest'],
+  selfClaimableRoles: ['guest'],
+  singletonRoles: [],
+  tier1Roles: new Set<string>(),
+  tier2Roles: new Set<string>(),
+  tier3Roles: new Set<string>(),
+  tierLabels: {
+    1: 'Guests of honor',
+    2: 'Honored guests',
+    3: 'Family',
+    4: 'Guests',
+  },
+  coupleRoles: new Set<string>(), // no couple → no sweetheart exclusion
+};
+
 export const ROLE_SETS: Record<string, RoleSet> = {
   wedding: WEDDING_ROLE_SET,
   generic: GENERIC_ROLE_SET,
+  simple: SIMPLE_ROLE_SET,
 };
 
 /**

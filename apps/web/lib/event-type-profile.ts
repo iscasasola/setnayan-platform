@@ -46,6 +46,13 @@ export type EventTypeProfile = {
   eventType: string;
   terminology: ProfileTerminology;
   enabledSurfaces: ProfileSurface[];
+  /** Whether the vendor marketplace ("Explore") applies to this type. TRUE for
+   *  every existing type (the column DEFAULTs TRUE → no behaviour change); the
+   *  "Simple Event" type sets it FALSE so its dashboard hides Explore/vendors
+   *  and stays in-app-services-only. A deny-by-exception flag (not an
+   *  enabledSurfaces allow-list entry) so pre-existing profile rows — which
+   *  predate it — keep Explore exactly as today. (Owner 2026-06-27.) */
+  marketplaceEnabled: boolean;
   onboardingFlowKey: string | null;
   roleSetKey: string | null;
   templatePackKey: string | null;
@@ -80,6 +87,7 @@ export const WEDDING_PROFILE: EventTypeProfile = {
     vipTierLabel: 'Family & sponsors',
   },
   enabledSurfaces: ALL_SURFACES,
+  marketplaceEnabled: true,
   onboardingFlowKey: 'wedding',
   roleSetKey: 'wedding',
   templatePackKey: 'wedding',
@@ -107,6 +115,7 @@ export const GENERIC_PROFILE: EventTypeProfile = {
     vipTierLabel: 'Guests of honor',
   },
   enabledSurfaces: ['seating', 'budget', 'schedule', 'day_of', 'gallery'],
+  marketplaceEnabled: true,
   onboardingFlowKey: null,
   roleSetKey: null,
   templatePackKey: null,
@@ -117,8 +126,40 @@ export const GENERIC_PROFILE: EventTypeProfile = {
   statutoryPackKey: null,
 };
 
+/**
+ * Simple Event (owner 2026-06-27) — a vendor-free event whose only purpose is to
+ * exercise the in-app Setnayan services. So `marketplaceEnabled` is FALSE (the
+ * dashboard hides Explore/vendors) and the enabled content surfaces are the
+ * couple TOOLS that work without vendors — seating / schedule / day_of / gallery.
+ * The public website, Save-the-Date, RSVP, monogram and budget stay OFF; the
+ * in-app services hub (Studio) is always available and is the point of the type.
+ * roleSetKey 'simple' → SIMPLE_ROLE_SET (a single flat 'guest' role).
+ */
+export const SIMPLE_PROFILE: EventTypeProfile = {
+  eventType: 'simple_event',
+  terminology: {
+    organizerNoun: 'host',
+    personA: null,
+    personB: null,
+    seatWord: 'table',
+    eventWord: 'event',
+    vipTierLabel: 'Guests',
+  },
+  enabledSurfaces: ['seating', 'schedule', 'day_of', 'gallery'],
+  marketplaceEnabled: false,
+  onboardingFlowKey: 'simple',
+  roleSetKey: 'simple',
+  templatePackKey: null,
+  monogramSetKey: null,
+  revealPackKey: null,
+  budgetTaxonomyKey: null,
+  scheduleSeedKey: null,
+  statutoryPackKey: null,
+};
+
 function fallbackFor(eventType: string): EventTypeProfile {
   if (eventType === 'wedding') return WEDDING_PROFILE;
+  if (eventType === 'simple_event') return SIMPLE_PROFILE;
   return { ...GENERIC_PROFILE, eventType };
 }
 
@@ -126,6 +167,7 @@ type ProfileRow = {
   event_type: string;
   terminology: Record<string, unknown> | null;
   enabled_surfaces: string[] | null;
+  marketplace_enabled: boolean | null;
   onboarding_flow_key: string | null;
   role_set_key: string | null;
   template_pack_key: string | null;
@@ -159,6 +201,10 @@ function toProfile(row: ProfileRow): EventTypeProfile {
             (ALL_SURFACES as string[]).includes(s),
           ))
         : fb.enabledSurfaces,
+    marketplaceEnabled:
+      typeof row.marketplace_enabled === 'boolean'
+        ? row.marketplace_enabled
+        : fb.marketplaceEnabled,
     onboardingFlowKey: row.onboarding_flow_key ?? fb.onboardingFlowKey,
     roleSetKey: row.role_set_key ?? fb.roleSetKey,
     templatePackKey: row.template_pack_key ?? fb.templatePackKey,
@@ -181,7 +227,7 @@ export const resolveProfile = cache(
       const { data, error } = await sb
         .from('event_type_profiles')
         .select(
-          'event_type, terminology, enabled_surfaces, onboarding_flow_key, role_set_key, template_pack_key, monogram_set_key, reveal_pack_key, budget_taxonomy_key, schedule_seed_key, statutory_pack_key',
+          'event_type, terminology, enabled_surfaces, marketplace_enabled, onboarding_flow_key, role_set_key, template_pack_key, monogram_set_key, reveal_pack_key, budget_taxonomy_key, schedule_seed_key, statutory_pack_key',
         )
         .eq('event_type', eventType)
         .maybeSingle();

@@ -26,6 +26,18 @@ import {
   formatRetailValueCentavos,
   type CompGrantRow,
 } from '@/lib/comp-grants';
+import {
+  fetchV2CustomerCatalog,
+  fetchV2BundleCatalog,
+  fetchV2VendorCatalog,
+} from '@/lib/v2-catalog';
+
+type ServiceOption = {
+  sku_code: string;
+  display_name: string;
+  category: string;
+  price_centavos: number;
+};
 
 export const metadata = { title: 'Users · Admin' };
 
@@ -124,6 +136,47 @@ export default async function AdminUsersPage({ searchParams }: Props) {
     const { data, error } = await query;
     userRows = (data ?? []) as UserRow[];
     queryError = error?.message ?? null;
+  }
+
+  // Catalog for the comp-grant SKU picker — fetched once per page load,
+  // shared across all expanded panels. Degrades to empty array on error
+  // (the form falls back to the textarea path gracefully).
+  let compGrantServices: ServiceOption[] = [];
+  try {
+    const [customers, bundles, vendors] = await Promise.all([
+      fetchV2CustomerCatalog(),
+      fetchV2BundleCatalog(),
+      fetchV2VendorCatalog(),
+    ]);
+    compGrantServices = [
+      ...customers.map((c) => ({
+        sku_code: c.service_code,
+        display_name: c.title,
+        category: 'Customer service',
+        price_centavos: Math.round(c.retail_price_php * 100),
+      })),
+      ...bundles.map((b) => ({
+        sku_code: b.package_code,
+        display_name: b.title,
+        category: 'Bundle',
+        price_centavos: Math.round(b.retail_price_php * 100),
+      })),
+      ...vendors.map((v) => ({
+        sku_code: v.sku_code,
+        display_name: v.title,
+        category:
+          v.offering_type === 'subscription_monthly'
+            ? 'Vendor subscription'
+            : 'Vendor tokens',
+        price_centavos: Math.round(v.price_php * 100),
+      })),
+    ].sort((a, b) =>
+      a.category === b.category
+        ? a.display_name.localeCompare(b.display_name)
+        : a.category.localeCompare(b.category),
+    );
+  } catch {
+    compGrantServices = [];
   }
 
   // Fetch comp grants for the expanded user (if the panel is open AND the
@@ -537,6 +590,7 @@ function UsersTable({
                         userId={u.user_id}
                         userEmail={u.email}
                         grants={expandedGrants}
+                        services={compGrantServices}
                       />
                     </td>
                   </tr>,
@@ -630,11 +684,19 @@ function CompGrantsPanel({
   userId,
   userEmail,
   grants,
+  services,
 }: {
   userId: string;
   userEmail: string | null;
   grants: CompGrantRow[];
+  services: ServiceOption[];
 }) {
+  const grouped = services.reduce<Map<string, ServiceOption[]>>((acc, s) => {
+    const list = acc.get(s.category) ?? [];
+    list.push(s);
+    acc.set(s.category, list);
+    return acc;
+  }, new Map());
   const active = grants.filter((g) => g.revoked_at === null);
   const revoked = grants.filter((g) => g.revoked_at !== null);
   return (
@@ -692,23 +754,42 @@ function CompGrantsPanel({
             </p>
           </div>
           <div>
-            <label
-              htmlFor={`scoped-${userId}`}
-              className="mb-1 block text-xs font-medium text-ink/70"
-            >
-              Service codes (only when scope is specific services)
-            </label>
-            <textarea
-              id={`scoped-${userId}`}
-              name="scoped_skus"
-              rows={2}
-              placeholder="monogram_hero_upgrade, panood_daily_broadcast, patiktok_setnayan_tiktok"
-              className="input-field font-mono text-xs"
-            />
-            <p className="mt-1 text-xs text-ink/55">
-              Comma- or newline-separated. SKU codes match{' '}
-              <code className="font-mono text-[11px]">service_catalog.sku_code</code>.
+            <p className="mb-2 text-xs font-medium text-ink/70">
+              Services (only when scope is specific services)
             </p>
+            {grouped.size === 0 ? (
+              <p className="text-xs text-ink/45">No catalog SKUs found.</p>
+            ) : (
+              <div className="max-h-56 overflow-y-auto rounded-lg border border-ink/10 bg-white p-3 space-y-4">
+                {Array.from(grouped.entries()).map(([category, skus]) => (
+                  <div key={category}>
+                    <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-ink/45">
+                      {category}
+                    </p>
+                    <div className="space-y-1.5">
+                      {skus.map((s) => (
+                        <label
+                          key={s.sku_code}
+                          className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-xs hover:bg-ink/[0.03]"
+                        >
+                          <input
+                            type="checkbox"
+                            name="scoped_skus"
+                            value={s.sku_code}
+                            className="h-3.5 w-3.5 accent-terracotta-600"
+                          />
+                          <span className="flex-1 text-ink">{s.display_name}</span>
+                          <span className="font-mono text-[10px] text-ink/40">{s.sku_code}</span>
+                          <span className="text-ink/55">
+                            ₱{(s.price_centavos / 100).toLocaleString()}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>

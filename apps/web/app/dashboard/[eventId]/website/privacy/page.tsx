@@ -1,6 +1,15 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Check, Globe, Lock, EyeOff, Heart } from 'lucide-react';
+import {
+  ArrowLeft,
+  Check,
+  Globe,
+  Lock,
+  EyeOff,
+  Heart,
+  CalendarClock,
+  Rocket,
+} from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
@@ -48,7 +57,7 @@ export default async function PrivacyEditorPage({
   const { data: event } = await supabase
     .from('events')
     .select(
-      'event_id, display_name, slug, landing_page_visibility',
+      'event_id, display_name, slug, landing_page_visibility, scheduled_launch_at, std_launched_at',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -60,6 +69,21 @@ export default async function PrivacyEditorPage({
     | 'unlisted'
     | 'private';
   const saved = search.saved === '1';
+
+  // Launch status (read-only mirror — the controls live in the Save-the-Date
+  // studio, owner 2026-06-28). Live when public/launched; otherwise scheduled or
+  // private. Formatted in Manila time to match the studio scheduler.
+  const launched =
+    Boolean(event.std_launched_at) || currentVisibility === 'public';
+  const scheduledAt =
+    typeof event.scheduled_launch_at === 'string' ? event.scheduled_launch_at : null;
+  const scheduledLabel = scheduledAt
+    ? new Intl.DateTimeFormat('en-PH', {
+        timeZone: 'Asia/Manila',
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      }).format(new Date(scheduledAt))
+    : null;
 
   // Real Weddings showcase consent (user-level). Read via the admin client so
   // the toggle reflects the true state regardless of users-table RLS; defaults
@@ -118,6 +142,44 @@ export default async function PrivacyEditorPage({
           <p>Saved. Your wedding page now follows this setting.</p>
         </div>
       ) : null}
+
+      {/* Launch status — read-only mirror of the Save-the-Date studio control
+          (owner 2026-06-28). Tells the host whether their page is live, scheduled,
+          or private, and links to where they actually launch / schedule it. */}
+      <div className="flex flex-col gap-3 rounded-xl border border-ink/10 bg-cream/60 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          {launched ? (
+            <Globe aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-success-700" strokeWidth={1.75} />
+          ) : scheduledLabel ? (
+            <CalendarClock aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-mulberry" strokeWidth={1.75} />
+          ) : (
+            <Lock aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-ink/55" strokeWidth={1.75} />
+          )}
+          <div className="space-y-0.5">
+            <p className="text-sm font-semibold text-ink">
+              {launched
+                ? 'Your page is live'
+                : scheduledLabel
+                  ? 'Launch scheduled'
+                  : 'Your page is private'}
+            </p>
+            <p className="text-sm text-ink/65">
+              {launched
+                ? 'Your Save-the-Date is launched — anyone with your link can view your page.'
+                : scheduledLabel
+                  ? `Goes live ${scheduledLabel} (Manila time). Until then, only you and invited guests can see it.`
+                  : 'Launch your Save-the-Date to make your page public — now, or at a time you choose.'}
+            </p>
+          </div>
+        </div>
+        <Link
+          href={`/dashboard/${eventId}/studio/save-the-date`}
+          className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-full border border-mulberry/30 px-4 py-2 text-sm font-semibold text-mulberry transition hover:bg-mulberry/10 sm:self-center"
+        >
+          <Rocket aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          {launched ? 'Manage launch' : scheduledLabel ? 'Change schedule' : 'Launch or schedule'}
+        </Link>
+      </div>
 
       {/* The picker — three radio cards in a single form */}
       <form action={updateLandingPageVisibility} className="space-y-4">

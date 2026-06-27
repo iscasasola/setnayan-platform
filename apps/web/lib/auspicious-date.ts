@@ -1016,6 +1016,16 @@ export function computeAuspiciousReasonsDetailed(
 ): AuspiciousReasonGroup[] {
   const groups: AuspiciousReasonGroup[] = [];
 
+  // Doctrinal suppression — Iglesia ni Cristo rejects luck/numerology/astrology
+  // ("superstition"), so the folk-luck layers below are skipped for INC. The
+  // practical layers (personal resonance, ceremony notes, cultural day-of-week
+  // /season, practical reframes) stay — those reflect INC's real date drivers
+  // (congregation/minister availability, community gathering). NOTE: Catholic
+  // intentionally KEEPS numerology with an honest "folk observance" overlay
+  // (see numerologyReasons) — folk Catholicism blends the two — so this gate is
+  // INC-only by design, not a blanket religious suppression.
+  const suppressFolkLuck = ceremonyType === 'inc';
+
   // 1. Personal resonance (only when host flagged dates)
   const personal = meaningfulDateResonance(date, meaningfulDates);
   if (personal.length > 0) {
@@ -1026,8 +1036,8 @@ export function computeAuspiciousReasonsDetailed(
     });
   }
 
-  // 2. Numerology (always present)
-  const numerology = numerologyReasons(date, ceremonyType);
+  // 2. Numerology (present for all except INC — see suppressFolkLuck)
+  const numerology = suppressFolkLuck ? [] : numerologyReasons(date, ceremonyType);
   if (numerology.length > 0) {
     groups.push({
       category: 'numerology',
@@ -1036,8 +1046,8 @@ export function computeAuspiciousReasonsDetailed(
     });
   }
 
-  // 3. Astrology (always present · Western zodiac + Chinese year + lunar phase)
-  const astrology = astrologyReasons(date);
+  // 3. Astrology (present for all except INC · Western zodiac + Chinese year + lunar phase)
+  const astrology = suppressFolkLuck ? [] : astrologyReasons(date);
   if (astrology.length > 0) {
     groups.push({
       category: 'astrology',

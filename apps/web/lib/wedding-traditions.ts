@@ -103,12 +103,15 @@ export const WEDDING_TRADITIONS_GUIDE: Record<TraditionGuideKey, WeddingTraditio
   inc: {
     label: 'INC (Iglesia ni Cristo)',
     overview:
-      'Held in an Iglesia ni Cristo chapel (Kapilya) and officiated by an INC minister, for members of the Church.',
+      'A reverent worship-rite held in an Iglesia ni Cristo chapel (Kapilya) and officiated by an INC minister, for members of the Church. Guided by kabanalan (sanctity) and kapayakan (simplicity) — confirm every specific with your local congregation (lokal).',
     items: [
-      { dimension: 'officiant', label: 'INC minister', note: 'Only an INC minister officiates — arrange through your local congregation (lokal).' },
-      { dimension: 'ceremonial', label: 'INC chapel (Kapilya)', note: 'Held in the chapel following the Church’s order of service; modest, formal attire is expected.' },
-      { dimension: 'custom', label: 'Members in good standing', note: 'Both parties are INC members; a non-member partner first studies the doctrine and is baptized into the Church. Pre-marital guidance is given by the ministry.' },
-      { dimension: 'food', label: 'Reception', note: 'Receptions are kept alcohol-free, with a wholesome program and music — confirm specifics with your congregation.' },
+      { dimension: 'officiant', label: 'INC minister', note: 'Only an INC minister officiates, and everything is arranged through your local congregation (lokal) — you don’t book an officiant on the open marketplace.' },
+      { dimension: 'ceremonial', label: 'INC chapel (Kapilya)', note: 'Held in the chapel following the Church’s order of service. The ceremony typically runs about 1 to 1.5 hours; conduct and the guest seating inside the chapel are directed by officials of the local congregation.' },
+      { dimension: 'ceremonial', label: 'Modest, formal attire — guests too', note: 'Dignified, modest dress is expected of everyone present, not just the couple. No skin-revealing clothing — no sleeveless tops, no short dresses or skirts. Let your guests know in advance.' },
+      { dimension: 'ceremonial', label: 'Principal sponsors (Ninong/Ninang)', note: 'If you include non-member principal sponsors, they are limited to one pair (one Ninong and one Ninang). Member sponsors are not capped the same way.' },
+      { dimension: 'ceremonial', label: 'Simplicity over spectacle', note: 'In keeping with the Church’s simplicity, an entourage of bridesmaids/groomsmen, a performing choir, and elaborate or costly props are typically not used inside the chapel.' },
+      { dimension: 'custom', label: 'Members in good standing', note: 'Both parties are expected to be INC members. A non-member partner first studies the doctrine and is baptized into the Church — start this with your minister early, as it can set your timeline. Pre-marital guidance is given by the ministry.' },
+      { dimension: 'food', label: 'Reception — prayer first', note: 'It is standard to open the reception with a prayer before the meal. Receptions are traditionally kept alcohol-free and without a dance program, with a wholesome program and appropriate music — some families decide differently; confirm what’s right for you with your family and congregation.' },
       { dimension: 'paperwork', label: 'Marriage license', note: 'The civil marriage license applies (tracked below).' },
     ],
     confirmWith: 'the minister at your local INC congregation',

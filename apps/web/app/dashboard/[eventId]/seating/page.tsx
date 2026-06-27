@@ -21,6 +21,7 @@ import {
   groupColorFor,
 } from '@/lib/seating';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { isChineseWedding } from '@/lib/chinese-wedding';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { SeatingEditor, type SeatingGuest, type SeatingGroup } from './_components/seating-editor';
 import { DayOfEditingBanner } from './_components/day-of-editing-banner';
@@ -45,12 +46,20 @@ export default async function SeatingPage({ params }: Props) {
       fetchFloorPlan(supabase, eventId),
       fetchBooths(supabase, eventId),
       fetchSigns(supabase, eventId),
-      supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle(),
+      supabase
+        .from('events')
+        .select('event_date, ceremony_type, secondary_ceremony_type')
+        .eq('event_id', eventId)
+        .maybeSingle(),
       fetchSeatingConstraints(supabase, eventId),
       // Iteration 0053 P4 Unit 6: per-event-type role set for seating tiers/labels.
       resolveRoleSetForEvent(eventId),
     ]);
   const eventDate = (eventRow.data?.event_date as string | null) ?? null;
+  // Chinese (Tsinoy) tradition avoids table number 4 (四 ≈ 死). Advisory only:
+  // drives a gentle notice on a manual "Table 4" + the skip-4 auto-draft. Derived
+  // via the shared overlay predicate (primary OR secondary Chinese rite).
+  const chineseTradition = isChineseWedding(eventRow.data ?? null);
 
   const seatByGuest = new Map(assignments.map((a) => [a.guest_id, a]));
 
@@ -142,6 +151,7 @@ export default async function SeatingPage({ params }: Props) {
       <SeatingEditor
         eventId={eventId}
         roleSetKey={roleSet.key}
+        chineseTradition={chineseTradition}
         tables={tables}
         guests={seatingGuests}
         groups={groups}

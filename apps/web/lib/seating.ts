@@ -1231,7 +1231,31 @@ const COUPLE_ROLES = new Set(['bride', 'groom']);
 
 export type RecommendGuest = Pick<AutoSeatGuest, 'role' | 'rsvp_status'>;
 
-export function recommendTableSet(guests: ReadonlyArray<RecommendGuest>): RecommendedTable[] {
+// Chinese (Tsinoy) tradition avoids the number 4 (四 ≈ 死, "death"). This is the
+// single, conservative rule every Chinese-aware seating surface shares: parse the
+// label's TRAILING integer and warn/skip only when its ONES digit is 4 — so 4, 14,
+// 24, 34, 44… match, but 40 (→0) and 42 (→2) do NOT, and a label with no trailing
+// number never matches. Pure + advisory: it powers the editor's gentle notice and
+// recommendTableSet's auto-number skip; it never blocks a save. Derive the *event*
+// flag from isChineseWedding() (lib/chinese-wedding.ts), never an inline check.
+export function tableNumberEndsInFour(label: string): boolean {
+  const m = /(\d+)\s*$/.exec(label);
+  if (!m) return false;
+  // Parse just the trailing run of digits; large labels never overflow because we
+  // only need the ones digit, which the regex's last character already gives us.
+  const onesDigit = m[1]!.charCodeAt(m[1]!.length - 1) - 48; // '0' === 48
+  return onesDigit === 4;
+}
+
+export function recommendTableSet(
+  guests: ReadonlyArray<RecommendGuest>,
+  // Optional, default-off so the non-Chinese / default path is byte-identical.
+  // When true (a Chinese wedding — derive via isChineseWedding), the generated
+  // table numbers ADVANCE PAST any ones-digit-4 value (4, 14, 24, 34, 44…) while
+  // still producing the requested COUNT of round tables. Advisory only.
+  options?: { skipFour?: boolean },
+): RecommendedTable[] {
+  const skipFour = options?.skipFour ?? false;
   // Everyone we should reserve a chair for: not explicitly declined. The couple
   // (bride/groom) get the Sweetheart, so they're excluded from the round count.
   const toSeat = guests.filter(
@@ -1244,8 +1268,16 @@ export function recommendTableSet(guests: ReadonlyArray<RecommendGuest>): Recomm
 
   const roundCount =
     toSeat > 0 ? Math.min(DRAFT_MAX_ROUND_TABLES, Math.ceil(toSeat / DRAFT_ROUND_SEATS)) : 0;
+  // Running display number. Default path = i + 1 (byte-identical). With skipFour,
+  // advance the counter past every ones-digit-4 number so the labels skip 4, 14,
+  // 24… and we still emit exactly `roundCount` tables.
+  let tableNumber = 0;
   for (let i = 0; i < roundCount; i++) {
-    out.push({ type: DRAFT_ROUND_TYPE, capacity: DRAFT_ROUND_SEATS, label: `Table ${i + 1}` });
+    tableNumber += 1;
+    if (skipFour) {
+      while (tableNumber % 10 === 4) tableNumber += 1;
+    }
+    out.push({ type: DRAFT_ROUND_TYPE, capacity: DRAFT_ROUND_SEATS, label: `Table ${tableNumber}` });
   }
   return out;
 }

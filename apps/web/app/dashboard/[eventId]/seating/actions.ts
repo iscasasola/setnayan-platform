@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { fetchGuestsByEvent, fetchGroupMembershipsByEvent } from '@/lib/guests';
+import { isChineseWedding } from '@/lib/chinese-wedding';
 import { SeatingLockError } from './seating-lock-error';
 import {
   BOOTH_CATALOG,
@@ -1588,11 +1589,16 @@ export async function buildSeatingDraft(
   const lockId = lockIdFrom(formData);
   await assertSeatingLockHeld(supabase, eventId, lockId);
 
-  const [existing, guests, floorPlan, memberships] = await Promise.all([
+  const [existing, guests, floorPlan, memberships, eventRow] = await Promise.all([
     fetchTables(supabase, eventId),
     fetchGuestsByEvent(supabase, eventId),
     fetchFloorPlan(supabase, eventId),
     fetchGroupMembershipsByEvent(supabase, eventId),
+    supabase
+      .from('events')
+      .select('ceremony_type, secondary_ceremony_type')
+      .eq('event_id', eventId)
+      .maybeSingle(),
   ]);
 
   // Guard: only ever build onto a blank floor — never clobber existing tables.
@@ -1601,8 +1607,13 @@ export async function buildSeatingDraft(
     return { tables: 0, seated: 0 };
   }
 
+  // Chinese (Tsinoy) tradition avoids table number 4 (四 ≈ 死). Advisory: the
+  // generated draft's auto-numbering skips ones-digit-4 numbers. Derived via the
+  // shared overlay predicate so it fires for primary AND secondary Chinese rites.
+  const skipFour = isChineseWedding(eventRow.data ?? null);
   const recommended = recommendTableSet(
     guests.map((g) => ({ role: g.role, rsvp_status: g.rsvp_status })),
+    { skipFour },
   );
   // No guests yet → nothing to size a floor from; the CTA stays a no-op.
   if (recommended.length <= 1) {

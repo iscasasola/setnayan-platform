@@ -75,6 +75,7 @@ const CEREMONY_OPTIONS: Array<{
   { value: 'christian', label: 'Christian', hint: 'Born-again, evangelical, others' },
   { value: 'muslim', label: 'Muslim', hint: 'Akad nikah with walimah' },
   { value: 'cultural', label: 'Cultural', hint: 'Filipino tribal or other traditions' },
+  { value: 'chinese', label: 'Chinese', hint: 'Tea ceremony and Chinese customs, often with a church or civil rite' },
   { value: 'aglipayan', label: 'Aglipayan (IFI)', hint: 'Aglipayan rite at an IFI parish' },
   { value: 'lds', label: 'LDS (Latter-day Saints)', hint: 'Latter-day Saint chapel ceremony' },
   { value: 'sda', label: 'Seventh-day Adventist', hint: 'Adventist ceremony with a pastor' },

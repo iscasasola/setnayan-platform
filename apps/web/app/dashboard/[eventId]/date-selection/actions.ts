@@ -38,6 +38,7 @@ import {
   type CeremonyType,
   type MeaningfulDateKind,
 } from '@/lib/auspicious-date';
+import { isChineseWedding } from '@/lib/chinese-wedding';
 
 const ALLOWED_KINDS: MeaningfulDateKind[] = [
   'honor',
@@ -118,7 +119,7 @@ export async function lockEventDate(formData: FormData): Promise<void> {
   // Read prior event state for the vendor-lock gate.
   const { data: priorRow } = await supabase
     .from('events')
-    .select('event_date, ceremony_type')
+    .select('event_date, ceremony_type, secondary_ceremony_type')
     .eq('event_id', eventId)
     .maybeSingle();
 
@@ -170,6 +171,11 @@ export async function lockEventDate(formData: FormData): Promise<void> {
       kind: r.kind as MeaningfulDateKind,
       note: (r.note as string | null) ?? null,
     })),
+    // Persist the Chinese advisory lines too (primary OR overlay) so the
+    // stored reasons match what the picker preview showed — otherwise a Chinese
+    // couple's locked-date reasons would silently drop the 8/6/9, avoid-4,
+    // Ghost-Month and BaZi notes.
+    isChineseWedding(priorRow),
   );
 
   const { error } = await supabase

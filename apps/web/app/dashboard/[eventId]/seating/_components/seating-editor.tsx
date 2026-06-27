@@ -71,6 +71,7 @@ import {
   TABLE_TYPE_LABEL,
   shapeHintFor,
   tableGeometry,
+  tableNumberEndsInFour,
   relaxLowestPriorityRule,
   type BoothType,
   type EventTableRow,
@@ -166,6 +167,11 @@ type Props = {
   // Iteration 0053 P4 Unit 6: the event's role-set key (string, RSC-serializable).
   // The editor re-resolves it client-side to tier/label by the event type.
   roleSetKey: string;
+  // Chinese (Tsinoy) tradition avoids table number 4 (四 ≈ 死). ADVISORY ONLY:
+  // when true, a manual "Table 4" (ones-digit-4) shows a gentle notice but the
+  // save still proceeds. Derived from isChineseWedding() in the page (primary OR
+  // secondary Chinese rite). Optional → non-Chinese events behave identically.
+  chineseTradition?: boolean;
   tables: EventTableRow[];
   guests: SeatingGuest[];
   groups: SeatingGroup[];
@@ -179,6 +185,13 @@ type Props = {
 };
 
 const NEUTRAL = '#B7B1A6';
+
+// Chinese (Tsinoy) tradition avoids the number 4 (四 sounds like 死, "death").
+// ADVISORY copy only — surfaced via setNotice when a Chinese-wedding couple names
+// a table with a ones-digit-4 number. We never block the save; the couple may
+// keep "Table 4" if they insist.
+const TABLE_FOUR_ADVISORY =
+  'Heads up: many Chinese families avoid table number 4 (四 sounds like 死). You can still use it.';
 
 type LocalPos = { x: number; y: number };
 
@@ -198,6 +211,7 @@ const defaultGrid = defaultTablePosition;
 export function SeatingEditor({
   eventId,
   roleSetKey,
+  chineseTradition = false,
   tables: tablesProp,
   guests: guestsProp,
   groups,
@@ -1035,6 +1049,9 @@ export function SeatingEditor({
     const trimmed = label.trim();
     const current = tables.find((t) => t.table_id === tableId)?.table_label ?? '';
     if (!trimmed || trimmed === current) return;
+    // Advisory only (never blocks): a Chinese-wedding couple renaming a table to a
+    // ones-digit-4 number gets a gentle heads-up; the rename proceeds regardless.
+    if (chineseTradition && tableNumberEndsInFour(trimmed)) setNotice(TABLE_FOUR_ADVISORY);
     const fd = new FormData();
     fd.set('event_id', eventId);
     fd.set('lock_id', lock.lockId ?? '');
@@ -2591,6 +2608,8 @@ export function SeatingEditor({
           <AddTablePanel
             eventId={eventId}
             lockId={lock.lockId}
+            chineseTradition={chineseTradition}
+            onTableFourWarning={() => setNotice(TABLE_FOUR_ADVISORY)}
             onDone={() => setShowAddTable(false)}
             onLockLost={handleLockLost}
           />
@@ -5413,11 +5432,18 @@ function SeatBadge({ guest, color }: { guest: SeatingGuest; color: string }) {
 function AddTablePanel({
   eventId,
   lockId,
+  chineseTradition = false,
+  onTableFourWarning,
   onDone,
   onLockLost,
 }: {
   eventId: string;
   lockId: string | null;
+  // Chinese (Tsinoy) tradition avoids table number 4 (四 ≈ 死). ADVISORY ONLY:
+  // when true and the entered label is a ones-digit-4 number, we surface a gentle
+  // notice (via onTableFourWarning) but still create the table.
+  chineseTradition?: boolean;
+  onTableFourWarning?: () => void;
   onDone: () => void;
   // Called when createTable reports the editor lock was lost (peer takeover) so
   // the parent drops to view-only + notices, instead of an unhandled throw.
@@ -5437,6 +5463,12 @@ function AddTablePanel({
       action={(fd) => {
         fd.set('event_id', eventId);
         fd.set('lock_id', lockId ?? '');
+        // Advisory only (never blocks the create): a Chinese-wedding couple adding
+        // a ones-digit-4 table gets a gentle heads-up; the table is still created.
+        const label = fd.get('table_label');
+        if (chineseTradition && typeof label === 'string' && tableNumberEndsInFour(label.trim())) {
+          onTableFourWarning?.();
+        }
         startTransition(async () => {
           try {
             await createTable(fd);

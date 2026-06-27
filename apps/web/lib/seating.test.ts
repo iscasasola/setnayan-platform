@@ -12,6 +12,8 @@ import {
   computeAutoSeat,
   solveSeatPlan,
   relaxLowestPriorityRule,
+  recommendTableSet,
+  tableNumberEndsInFour,
   defaultPriorityOrder,
   parsePriorityOrder,
   resolvePriorityRank,
@@ -19,6 +21,7 @@ import {
   type AutoSeatGuest,
   type PriorityOrder,
   type KeepApartRule,
+  type RecommendGuest,
 } from './seating';
 
 // Checked index access — the repo typechecks with noUncheckedIndexedAccess, so a
@@ -372,4 +375,94 @@ test('computeAutoSeat seats pending/maybe (held) and excludes only declined', ()
     .map((r) => r.guest_id)
     .sort();
   assert.deepEqual(seated, ['att', 'maybe', 'pend']); // declined left out, the rest held
+});
+
+// ---------------------------------------------------------------------------
+// Chinese (Tsinoy) tradition · table-4 avoidance (advisory only). The number 4
+// (四 ≈ 死, "death") is avoided, so a Chinese wedding's auto-draft skips
+// ones-digit-4 table numbers, and the editor warns on a manual one. The rule is
+// conservative: only the ONES digit being 4 counts.
+// ---------------------------------------------------------------------------
+
+// Pull the trailing number from each generated round-table label so we can assert
+// over the actual table numbers (the Sweetheart has no trailing number → null).
+function trailingNumber(label: string): number | null {
+  const m = /(\d+)\s*$/.exec(label);
+  return m ? Number(m[1]) : null;
+}
+
+test('tableNumberEndsInFour matches ONLY a ones-digit-4 trailing number', () => {
+  // Matches: trailing number whose ones digit is 4.
+  for (const label of ['Table 4', 'Table 14', 'Table 24', 'Table 34', 'Table 44', 'Sponsors 4', '104']) {
+    assert.equal(tableNumberEndsInFour(label), true, label);
+  }
+  // No match: 4 not in the ones place, or no trailing number at all.
+  for (const label of ['Table 40', 'Table 42', 'Table 1', 'Table 10', 'Sweetheart', 'Table 4B', '', 'Head Table']) {
+    assert.equal(tableNumberEndsInFour(label), false, label);
+  }
+});
+
+test('recommendTableSet default path is byte-identical (Table 1..N, no skip)', () => {
+  // 25 non-couple guests → ceil(25/10) = 3 round tables, labelled Table 1..3.
+  const guests: RecommendGuest[] = Array.from({ length: 25 }, () => ({
+    role: 'guest',
+    rsvp_status: 'attending',
+  }));
+  const def = recommendTableSet(guests);
+  const off = recommendTableSet(guests, { skipFour: false });
+  // The Sweetheart leads, then the round tables in plain order.
+  const expected = [
+    { type: 'sweetheart_2', capacity: 2, label: 'Sweetheart' },
+    { type: 'round_10', capacity: 10, label: 'Table 1' },
+    { type: 'round_10', capacity: 10, label: 'Table 2' },
+    { type: 'round_10', capacity: 10, label: 'Table 3' },
+  ];
+  assert.deepEqual(def, expected);
+  assert.deepEqual(off, expected); // explicit skipFour:false === default
+});
+
+test('recommendTableSet skipFour:true emits the SAME count with no ones-digit-4 numbers', () => {
+  // 55 non-couple guests → ceil(55/10) = 6 round tables. With skip-4, the numbers
+  // advance past 4 → Table 1,2,3,5,6,7 (still exactly 6 round tables).
+  const guests: RecommendGuest[] = Array.from({ length: 55 }, () => ({
+    role: 'guest',
+    rsvp_status: 'attending',
+  }));
+  const def = recommendTableSet(guests);
+  const skip = recommendTableSet(guests, { skipFour: true });
+
+  // Same table COUNT (Sweetheart + 6 rounds) on both paths.
+  assert.equal(skip.length, def.length);
+
+  // No generated round-table label has a ones-digit-4 trailing number.
+  for (const t of skip) {
+    const n = trailingNumber(t.label);
+    if (n !== null) assert.notEqual(n % 10, 4, `label "${t.label}" must not end in 4`);
+  }
+
+  // Exact labels — the skip jumps 4 → 5.
+  assert.deepEqual(
+    skip.map((t) => t.label),
+    ['Sweetheart', 'Table 1', 'Table 2', 'Table 3', 'Table 5', 'Table 6', 'Table 7'],
+  );
+});
+
+test('recommendTableSet skipFour:true skips every ones-digit-4 across many tables', () => {
+  // 200 guests → 20 round tables. Skipping 4,14 yields 1..3,5..13,15..22 (20 tables).
+  const guests: RecommendGuest[] = Array.from({ length: 200 }, () => ({
+    role: 'guest',
+    rsvp_status: 'attending',
+  }));
+  const skip = recommendTableSet(guests, { skipFour: true });
+  const rounds = skip.filter((t) => t.type === 'round_10');
+  assert.equal(rounds.length, 20); // requested count preserved
+  for (const t of rounds) {
+    const n = trailingNumber(t.label);
+    assert.ok(n !== null && n % 10 !== 4, `label "${t.label}" must skip ones-digit-4`);
+  }
+  // The two skipped numbers (4, 14) never appear; the next clean number (22) does.
+  const labels = rounds.map((t) => t.label);
+  assert.ok(!labels.includes('Table 4'));
+  assert.ok(!labels.includes('Table 14'));
+  assert.equal(labels[labels.length - 1], 'Table 22');
 });

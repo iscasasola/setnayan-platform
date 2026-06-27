@@ -93,19 +93,25 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     customWebsiteName: false,
     inquireLink: true,
   },
+  // Verified — legacy FREE tier kept for backward compatibility. RETUNED
+  // 2026-06-25 (owner-approved) so the ladder is strictly monotonic
+  // Free < Verified < Solo: parentCategories 3→1, agentAccounts 1→0, and
+  // inAppGated false→true (verified now burns tokens per in-app answer — but
+  // still keeps its 10/week cap, enforced in unlock_vendor_event). Solo stays
+  // strictly better (servicesPerLeaf 3 vs 2, inAppCustomersPerWeek ∞ vs 10).
   verified: {
     serviceRadiusKm: 20,
     servicesPerLeaf: 2,
     chat: 'chat',
-    parentCategories: 3,
-    agentAccounts: 1,
+    parentCategories: 1,
+    agentAccounts: 0,
     scheduling: 'hybrid',
     marketplaceSearchable: true,
     nameMode: 'screen',
     slotsPerDay: 1,
     slotsTimeBounded: false,
     inAppCustomersPerWeek: 10,
-    inAppGated: false,
+    inAppGated: true,
     importCustomerTokenCost: 1,
     portfolioPhotos: 50,
     editorialTagged: false,

@@ -470,6 +470,20 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 9,
   },
   {
+    // "Launch" — preview every part + go live now or on a schedule (owner
+    // 2026-06-28). Sibling of Website; gated to website-enabled event types.
+    key: "customer.sidebar.launch",
+    scope: "customer",
+    area: "customer-sidebar",
+    route: "/dashboard/[eventId]/website/launch",
+    label: "Launch",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Rocket",
+    customRef: null,
+    sortOrder: 9,
+  },
+  {
     key: "customer.sidebar.mood-board",
     scope: "customer",
     area: "customer-sidebar",
@@ -987,6 +1001,19 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     lucideName: "Eye",
     customRef: null,
     sortOrder: 4,
+  },
+  {
+    // "Launch" route child (owner 2026-06-28) — preview + go-live surface.
+    key: "customer.studio-subnav.launch",
+    scope: "customer",
+    area: "studio-subnav",
+    route: "/dashboard/[eventId]/website/launch",
+    label: "Launch",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Rocket",
+    customRef: null,
+    sortOrder: 5,
   },
   // Budget docked sub-nav — the 3 on-page scroll sections of /budget.
   {

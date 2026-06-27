@@ -54,6 +54,7 @@ import {
   Activity,
   Shield,
   Eye,
+  Rocket,
 } from 'lucide-react';
 import { BUDGET_BUILD_TABS, TAB_META } from '@/lib/budget-build';
 import type { LucideIcon } from 'lucide-react';
@@ -69,7 +70,7 @@ import { buildGuestJourney } from '@/lib/guest-journey';
  */
 export function buildCustomerNavGroups(
   eventId: string,
-  opts?: { dayOfOpen?: boolean; hideKeys?: string[] },
+  opts?: { dayOfOpen?: boolean; hideKeys?: string[]; websiteEnabled?: boolean },
 ): NavGroup[] {
   const base = `/dashboard/${eventId}`;
 
@@ -197,6 +198,20 @@ export function buildCustomerNavGroups(
               icon: Globe,
               matchPrefix: `/site-editor/${eventId}`,
             },
+            // "Launch" (owner 2026-06-28) — preview every part + go live now or
+            // on a schedule. Only present when the event type enables the
+            // 'website' surface (websiteEnabled, resolved in layout.tsx).
+            ...(opts?.websiteEnabled
+              ? [
+                  {
+                    key: 'launch',
+                    label: 'Launch',
+                    href: `${base}/website/launch`,
+                    icon: Rocket,
+                    matchPrefix: `${base}/website/launch`,
+                  },
+                ]
+              : []),
             {
               key: 'mood-board',
               label: 'Mood Board',

@@ -42,3 +42,27 @@ SPEC IMPACT: 0024 (Save-the-Date) + 0002 (invitation site) — launch is now
 schedulable (cron-free read-time flip) in addition to launch-now; new
 `events.scheduled_launch_at` column. Corpus notes applied to both iteration .md
 files + a DECISION_LOG row.
+
+## 2026-06-28 · feat(nav): "Launch" is now a first-class sidebar surface for every event
+
+Owner follow-up 2026-06-28: launch + preview should be on the sidebar for ALL
+users/events, not buried in the Save-the-Date studio.
+
+- New route `/dashboard/[eventId]/website/launch` — a couple-gated surface that
+  composes the launch panel (reuses `LaunchStdButton` so the scheduling control
+  + `scheduled_launch_at` semantics never fork) with a standalone phase preview
+  (Live / Invitation / Wedding-day / After tabs over a host-gated `?phase=`
+  iframe + open-full-screen links). Plus "Edit your website" / "Who can view".
+- Added "Launch" as a Studio child on BOTH nav SSOTs — desktop sidebar
+  (`customer-nav-config.ts`) and mobile section sub-nav (`customer-menu.ts`) —
+  with nav-registry default slots (`customer.sidebar.launch` /
+  `customer.studio-subnav.launch`) so it's admin-editable from `/admin/menus`.
+- **Event-type aware**: the item + the page are gated on the profile's `website`
+  surface (`surfaceEnabled(profile,'website')`, threaded through `layout.tsx` →
+  `CustomerSidebar` + `CustomerSectionSubnav`). Weddings show it; vendor-free
+  Simple Events (no website surface) don't — defence-in-depth (nav hidden AND
+  the page redirects).
+- Website → Privacy launch-status banner now links to the new Launch surface.
+
+SPEC IMPACT: 0021 (couple dashboard nav) + 0024/0002 — new couple-facing
+"Launch" sidebar surface; nav-registry slots added. No schema/pricing change.

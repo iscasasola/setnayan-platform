@@ -173,7 +173,7 @@ export default async function PrivacyEditorPage({
           </div>
         </div>
         <Link
-          href={`/dashboard/${eventId}/studio/save-the-date`}
+          href={`/dashboard/${eventId}/website/launch`}
           className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-full border border-mulberry/30 px-4 py-2 text-sm font-semibold text-mulberry transition hover:bg-mulberry/10 sm:self-center"
         >
           <Rocket aria-hidden className="h-4 w-4" strokeWidth={1.75} />

@@ -931,6 +931,8 @@ function ceremonyLabel(ceremony: ReturnType<typeof resolveCeremonyType>): string
       return 'Muslim';
     case 'cultural':
       return 'cultural';
+    case 'chinese':
+      return 'Chinese';
     case 'aglipayan':
       return 'Aglipayan (IFI)';
     case 'lds':

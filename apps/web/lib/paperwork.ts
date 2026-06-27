@@ -70,6 +70,7 @@ export type CeremonyType =
   | 'christian'
   | 'muslim'
   | 'cultural'
+  | 'chinese'
   | 'aglipayan'
   | 'lds'
   | 'sda'
@@ -338,6 +339,18 @@ export const DOCUMENTS_BY_CEREMONY_TYPE: Record<
     'cenomar_partner_2',
     'marriage_license',
   ],
+  // Chinese (Tsinoy) weddings register the legal marriage through a paired
+  // church or civil rite, so the paperwork is the universal PH base — PSA +
+  // CENOMAR + Marriage License. The tea ceremony, betrothal gifts, and
+  // auspicious-date customs are tradition (see WEDDING_TRADITIONS_GUIDE),
+  // not government paperwork. See Chinese_Wedding_Traditions_Reference_2026-06-28.
+  chinese: [
+    'psa_birth_cert_partner_1',
+    'psa_birth_cert_partner_2',
+    'cenomar_partner_1',
+    'cenomar_partner_2',
+    'marriage_license',
+  ],
   // The 8 worldwide-expansion faiths (migration 20261117000000) start on
   // the universal base — PSA + CENOMAR + Marriage License apply to every
   // PH marriage regardless of rite. Faith-specific counseling/certificate
@@ -573,6 +586,7 @@ export function resolveCeremonyType(
     raw === 'christian' ||
     raw === 'muslim' ||
     raw === 'cultural' ||
+    raw === 'chinese' ||
     raw === 'aglipayan' ||
     raw === 'lds' ||
     raw === 'sda' ||

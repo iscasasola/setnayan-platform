@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -36,10 +36,24 @@ export function EventTypePicker({ types }: { types: EventTypeRow[] }) {
   const router = useRouter();
   const [selectedKey, setSelectedKey] = useState<EventTypeKey | null>(null);
   const conciergeChoice: ConciergeChoice = 'diy';
+  const formRef = useRef<HTMLFormElement | null>(null);
 
   const selected = selectedKey
     ? (types.find((t) => t.key === selectedKey) ?? null)
     : null;
+
+  // Inline name-form fallback (types without their own onboarding, exp-quiz
+  // flag off) mounts BELOW the full-bleed photo deck — on a phone that's past
+  // the fold, so the tap looked dead ("the picker isn't clickable"). Bring the
+  // form into view and focus its field the moment a type is chosen, so every
+  // tap is visibly acknowledged. (owner bug 2026-06-28)
+  useEffect(() => {
+    if (!selectedKey) return;
+    const form = formRef.current;
+    if (!form) return;
+    form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    form.querySelector<HTMLInputElement>('#display_name')?.focus({ preventScroll: true });
+  }, [selectedKey]);
 
   function handleSelect(type: EventTypeRow) {
     if (!type.enabled) return;
@@ -69,7 +83,7 @@ export function EventTypePicker({ types }: { types: EventTypeRow[] }) {
       </section>
 
       {selected ? (
-        <form action={createWeddingEvent} className="mt-10 space-y-6">
+        <form ref={formRef} action={createWeddingEvent} className="mt-10 space-y-6">
           <input type="hidden" name="event_type" value={selected.key} />
           <input type="hidden" name="concierge_choice" value={conciergeChoice} />
 
@@ -79,7 +93,6 @@ export function EventTypePicker({ types }: { types: EventTypeRow[] }) {
             </label>
             <input
               autoComplete="off"
-              autoFocus
               className="input-field"
               id="display_name"
               name="display_name"

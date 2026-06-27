@@ -47,6 +47,14 @@ const NAV_ROUTES = new Set<string>([
   '/monogram',
   '/papic',
   '/setnayan-ai',
+  // "Pa-" feature landing pages (owner-approved 2026-06-27; Pa- naming LOCKED) —
+  // same gating posture as /papic + /setnayan-ai: these marketing routes show the
+  // persistent SiteChrome nav.
+  '/panood',
+  '/pa3d',
+  '/palogo',
+  '/pawebsite',
+  '/patiktok',
   '/why-setnayan',
   '/tl/about',
   '/tl/how-it-works',

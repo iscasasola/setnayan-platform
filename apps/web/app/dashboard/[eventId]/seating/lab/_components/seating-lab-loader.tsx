@@ -11,6 +11,7 @@
 import dynamic from 'next/dynamic';
 import type { Lab3DTable, Lab3DFloor, Lab3DFloorExtras, Lab3DGuest, Lab3DGroup, Lab3DMonogram } from '@/lib/seating-3d';
 import type { KeepApartRule, PriorityOrder } from '@/lib/seating';
+import type { RolePalette } from '@/lib/mood-board';
 
 const SeatingLab3D = dynamic(() => import('./seating-lab-3d'), {
   ssr: false,
@@ -31,6 +32,7 @@ type Props = {
   floor: Lab3DFloor;
   guests: Lab3DGuest[];
   paletteHexes: string[];
+  rolePalette: RolePalette;
   monogram: Lab3DMonogram;
   /** Couple owns the paid ANIMATED_MONOGRAM → the floor mark blooms on Play. */
   animatedMonogram: boolean;

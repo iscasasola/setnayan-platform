@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { GuestVenueLoader } from './_components/guest-venue-loader';
+import { sanitizeRolePalette } from '@/lib/mood-board';
 import type { VenueScene } from './_components/guest-venue-3d';
 
 // Guest-facing 3D venue explorer (owner 2026-06-26, Sims-style). Public, no
@@ -23,8 +24,12 @@ export default async function VenuePage({
   const token = (t ?? '').trim() || null;
 
   const admin = createAdminClient();
-  const { data, error } = await admin.rpc('public_venue_scene', { p_slug: slug, p_token: token });
-  const scene = (data ?? null) as VenueScene | null;
+  const [{ data, error }, paletteRow] = await Promise.all([
+    admin.rpc('public_venue_scene', { p_slug: slug, p_token: token }),
+    admin.from('events').select('role_palette').eq('slug', slug).maybeSingle(),
+  ]);
+  const rolePalette = sanitizeRolePalette(paletteRow.data?.role_palette ?? null);
+  const scene = data ? ({ ...(data as object), rolePalette } as VenueScene) : null;
 
   if (error || !scene || !scene.published) {
     return (

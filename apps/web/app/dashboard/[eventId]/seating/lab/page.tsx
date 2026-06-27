@@ -222,6 +222,7 @@ export default async function SeatingLabPage({ params }: Props) {
         floor={floor}
         guests={guests}
         paletteHexes={paletteHexes}
+        rolePalette={rolePalette}
         monogram={monogram}
         animatedMonogram={ownsAnimatedMonogram}
         me={{

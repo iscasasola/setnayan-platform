@@ -14,6 +14,7 @@
  */
 
 import type { MonogramConfig } from '@/lib/monogram';
+import type { RolePalette } from '@/lib/mood-board';
 
 export type ShapeHint = 'round' | 'long_banquet' | 'family_head' | 'sweetheart' | 'serpentine';
 
@@ -705,6 +706,23 @@ export function resolvePalette(hexes: string[]): Lab3DPalette {
     floor: at(2, '#e7e1d8'),
     wall: at(3, '#d8cfc2'),
     ambient: at(0, '#fbe9d8'),
+  };
+}
+
+/**
+ * Map `events.role_palette` (the couple's mood-board palette) to scene materials.
+ * Reception colors drive venue surfaces: [0]=accent/stage, [1]=table linen,
+ * [2]=floor, [3]=backdrop wall. Falls back to resolvePalette([]) when unset.
+ */
+export function resolvePaletteFromRoles(rp: RolePalette): Lab3DPalette {
+  const r = (rp.reception ?? []).filter((h): h is string => HEX.test(h));
+  if (r.length === 0) return resolvePalette([]);
+  return {
+    accent:  r[0] ?? '#c89b6c',
+    table:   r[1] ?? '#f3efe9',
+    floor:   r[2] ?? '#e7e1d8',
+    wall:    r[3] ?? '#d8cfc2',
+    ambient: r[0] ?? '#fbe9d8',
   };
 }
 

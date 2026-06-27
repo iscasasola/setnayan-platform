@@ -151,6 +151,24 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
           />
         </div>
 
+        {/* Tea-ceremony serving order (Chinese / Tsinoy weddings) — optional for
+            every guest; only the tea-ceremony helper reads them. Relation is
+            free text; the order is the within-side serve sequence (lower serves
+            first). Harmless for non-Chinese events. */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field
+            id="relation"
+            label="Relationship"
+            placeholder="e.g. Grandparents · Eldest Uncle"
+          />
+          <Field
+            id="seniority_rank"
+            label="Tea-ceremony order"
+            type="number"
+            placeholder="Lower serves first"
+          />
+        </div>
+
         <div className="space-y-1.5">
           <label className="block text-sm font-medium text-ink">Invited to</label>
           {/*

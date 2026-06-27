@@ -48,6 +48,8 @@ function guest(p: Partial<GuestRow>): GuestRow {
     custom_tags: [],
     seating_priority: null,
     attire: 'neutral',
+    seniority_rank: null,
+    relation: null,
     created_at: '2026-01-01',
     ...p,
   };

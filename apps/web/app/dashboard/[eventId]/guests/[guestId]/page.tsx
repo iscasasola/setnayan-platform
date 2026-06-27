@@ -288,6 +288,8 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
     !!guest.email?.trim() ||
     !!guest.mobile?.trim() ||
     !!guest.dietary_restrictions?.trim() ||
+    !!guest.relation?.trim() ||
+    guest.seniority_rank !== null ||
     !!guest.notes?.trim();
 
   return (
@@ -599,6 +601,27 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
               defaultValue={guest.dietary_restrictions ?? ''}
               placeholder="halal · nut allergy · …"
             />
+            {/* Tea-ceremony serving order (Chinese / Tsinoy weddings). Optional
+                for every guest; only the tea-ceremony helper reads them. Relation
+                is free text; seniority is the within-side serve order (lower
+                serves first). Shown to all events — harmless when unused. */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field
+                id="relation"
+                label="Relationship"
+                defaultValue={guest.relation ?? ''}
+                placeholder="e.g. Grandparents · Eldest Uncle"
+              />
+              <Field
+                id="seniority_rank"
+                label="Tea-ceremony order"
+                type="number"
+                defaultValue={
+                  guest.seniority_rank !== null ? String(guest.seniority_rank) : ''
+                }
+                placeholder="Lower serves first"
+              />
+            </div>
             {/* Custom tags input RETIRED — owner directive 2026-05-23 PM.
                 Tags now auto-derived from side / group / role / table /
                 custom groups in the Tags section below. */}

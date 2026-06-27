@@ -17,6 +17,7 @@ export const VENUE_TYPES = [
   'destination_resort',
   'heritage',
   'outdoor_tent',
+  'temple',
 ] as const;
 export type VenueType = (typeof VENUE_TYPES)[number];
 

@@ -75,6 +75,13 @@ export async function createGuest(eventId: string, formData: FormData) {
   const rsvp_status = (clean(formData.get('rsvp_status')) || 'pending') as RsvpStatus;
   const photo_consent = clean(formData.get('photo_consent')) === 'on';
   const notes = clean(formData.get('notes')) || null;
+  // Tea-ceremony serving order (Chinese / Tsinoy weddings) — both optional. A
+  // free-text relationship label + an integer within-side serve order (lower
+  // serves first). Parse seniority defensively — non-numeric / empty → null.
+  const relation = clean(formData.get('relation')) || null;
+  const seniorityRaw = clean(formData.get('seniority_rank'));
+  const seniorityParsed = seniorityRaw ? Number.parseInt(seniorityRaw, 10) : NaN;
+  const seniority_rank = Number.isFinite(seniorityParsed) ? seniorityParsed : null;
   // Custom tags RETIRED 2026-05-23 PM — owner directive: tags now
   // auto-derived from side/group/role/table at render time, host can't
   // pick free-text. Legacy column stays in schema (no migration) but
@@ -146,6 +153,8 @@ export async function createGuest(eventId: string, formData: FormData) {
       invited_to_blocks,
       plus_one_allowed,
       plus_one_name,
+      relation,
+      seniority_rank,
     })
     .select('guest_id')
     .single();

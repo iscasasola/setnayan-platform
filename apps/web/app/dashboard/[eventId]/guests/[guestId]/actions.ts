@@ -124,6 +124,13 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   const meal_preference =
     (clean(formData.get('meal_preference')) || null) as MealPreference | null;
   const dietary_restrictions = clean(formData.get('dietary_restrictions')) || null;
+  // Tea-ceremony serving order (Chinese / Tsinoy weddings). Both optional: a
+  // free-text relationship label + an integer within-side serve order (lower
+  // serves first). Parse seniority defensively — non-numeric / empty → null.
+  const relation = clean(formData.get('relation')) || null;
+  const seniorityRaw = clean(formData.get('seniority_rank'));
+  const seniorityParsed = seniorityRaw ? Number.parseInt(seniorityRaw, 10) : NaN;
+  const seniority_rank = Number.isFinite(seniorityParsed) ? seniorityParsed : null;
   const rsvp_status = (clean(formData.get('rsvp_status')) || 'pending') as RsvpStatus;
   // Bride & groom are the foundation of the event — always Attending, never
   // Pending (owner directive 2026-06-03). Force it regardless of the submitted
@@ -191,6 +198,8 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
       mobile,
       meal_preference,
       dietary_restrictions,
+      relation,
+      seniority_rank,
       rsvp_status: effectiveRsvp,
       photo_consent,
       faceblock_enabled,

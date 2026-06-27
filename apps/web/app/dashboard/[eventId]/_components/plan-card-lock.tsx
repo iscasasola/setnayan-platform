@@ -21,12 +21,17 @@ import {
   listLockTimeSlots,
   revertVendorToConsidering,
   type FinalizeVendorResult,
+  type LockMilestone,
 } from '../vendors/actions';
 import {
   slotOptionLabel,
   type VendorServiceTimeSlot,
 } from '@/lib/vendor-time-slots';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import {
+  LockDateConfirmModal,
+  LockMilestoneToast,
+} from '../vendors/_components/lock-milestone';
 
 // Lock-this-vendor inline CTA — for the single-pick case (2026-05-22).
 //
@@ -89,6 +94,14 @@ type LockState =
       slots: VendorServiceTimeSlot[];
       selectedSlotId: string;
     }
+  // Locking this vendor narrows the couple's candidate dates to one — confirm
+  // the lock also finalizes the wedding date.
+  | {
+      kind: 'date_confirm';
+      dateLabel: string;
+      override: boolean;
+      slotId: string | null;
+    }
   | { kind: 'error'; message: string };
 
 type ToastState =
@@ -98,6 +111,7 @@ type ToastState =
       vendorId: string;
       vendorName: string;
       undoUntil: number;
+      milestone: LockMilestone;
     };
 
 type Props = {
@@ -115,9 +129,11 @@ export function PlanCardLock({ eventId, groupId, groupLabel, pick }: Props) {
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const cancelBtnRef = useRef<HTMLButtonElement | null>(null);
 
-  // Auto-dismiss the toast after TOAST_AUTO_DISMISS_MS.
+  // Auto-dismiss the toast after TOAST_AUTO_DISMISS_MS — milestone toasts with
+  // a finalize CTA or a freshly-locked date persist until manually dismissed.
   useEffect(() => {
     if (toast.kind !== 'locked') return;
+    if (toast.milestone.finalizeReady || toast.milestone.dateLocked) return;
     const remaining = toast.undoUntil - Date.now();
     if (remaining <= 0) {
       setToast({ kind: 'hidden' });
@@ -166,11 +182,15 @@ export function PlanCardLock({ eventId, groupId, groupLabel, pick }: Props) {
         });
         return;
       }
-      performLock(false, null);
+      performLock(false, null, false);
     });
   };
 
-  const performLock = (overrideExisting: boolean, slotId: string | null) => {
+  const performLock = (
+    overrideExisting: boolean,
+    slotId: string | null,
+    confirmDateLock: boolean,
+  ) => {
     setLockState({ kind: 'pending' });
     startTransition(async () => {
       const fd = new FormData();
@@ -178,6 +198,7 @@ export function PlanCardLock({ eventId, groupId, groupLabel, pick }: Props) {
       fd.set('vendor_id', pick.vendor_id);
       if (overrideExisting) fd.set('override_existing', '1');
       if (slotId) fd.set('service_time_slot_id', slotId);
+      if (confirmDateLock) fd.set('confirm_date_lock', '1');
       let result: FinalizeVendorResult;
       try {
         result = await finalizeVendor(fd);
@@ -200,6 +221,14 @@ export function PlanCardLock({ eventId, groupId, groupLabel, pick }: Props) {
             vendorId: pick.vendor_id,
             vendorName: pick.vendor_name,
             undoUntil: Date.now() + TOAST_AUTO_DISMISS_MS,
+            milestone:
+              result.status === 'ok'
+                ? result.milestone
+                : {
+                    pickedLabel: pick.vendor_name,
+                    dateLocked: false,
+                    finalizeReady: null,
+                  },
           });
           // Close the modal. revalidatePath on the server action refreshes
           // the page — the card flips to the LockedCard variant on the
@@ -267,6 +296,14 @@ export function PlanCardLock({ eventId, groupId, groupLabel, pick }: Props) {
           }
           return;
         }
+        case 'date_will_lock':
+          setLockState({
+            kind: 'date_confirm',
+            dateLabel: result.dateLabel,
+            override: overrideExisting,
+            slotId,
+          });
+          return;
         case 'not_signed_in':
           setLockState({
             kind: 'error',
@@ -406,7 +443,7 @@ export function PlanCardLock({ eventId, groupId, groupLabel, pick }: Props) {
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={() => performLock(true, null)}
+                    onClick={() => performLock(true, null, false)}
                     disabled={isPending}
                     className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-md bg-mulberry px-3 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry disabled:opacity-60"
                   >
@@ -530,7 +567,7 @@ export function PlanCardLock({ eventId, groupId, groupLabel, pick }: Props) {
                   </button>
                   <button
                     type="button"
-                    onClick={() => performLock(false, lockState.selectedSlotId)}
+                    onClick={() => performLock(false, lockState.selectedSlotId, false)}
                     disabled={isPending || !lockState.selectedSlotId}
                     className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry disabled:opacity-60"
                   >
@@ -595,12 +632,22 @@ export function PlanCardLock({ eventId, groupId, groupLabel, pick }: Props) {
         </div>
       ) : null}
 
-      {/* Undo toast — outlives the modal so a host who clicks Lock then
-          immediately rethinks can roll back without re-opening the dialog.
-          Mirrors the PlanCardCompare toast UX for consistency. */}
+      {/* Date-lock confirmation — locking this vendor finalizes the date. */}
+      {lockState.kind === 'date_confirm' ? (
+        <LockDateConfirmModal
+          vendorName={pick.vendor_name}
+          dateLabel={lockState.dateLabel}
+          isPending={isPending}
+          onConfirm={() => performLock(lockState.override, lockState.slotId, true)}
+          onDismiss={() => setLockState({ kind: 'idle' })}
+        />
+      ) : null}
+
+      {/* Congrats + undo toast — outlives the modal so a host who clicks Lock
+          then immediately rethinks can roll back without re-opening the dialog. */}
       {toast.kind === 'locked' ? (
-        <UndoToast
-          vendorName={toast.vendorName}
+        <LockMilestoneToast
+          milestone={toast.milestone}
           onUndo={() => performUndo(toast.vendorId)}
           onDismiss={() => setToast({ kind: 'hidden' })}
         />
@@ -622,53 +669,4 @@ function resolveBrowseSimilarHref(groupId: PlanGroupId): string {
   if (!group) return '/explore';
   const slug = WEDDING_FOLDER_SLUG[group.catalogFolder];
   return `/explore?folder=${slug}#${slug}`;
-}
-
-function UndoToast({
-  vendorName,
-  onUndo,
-  onDismiss,
-}: {
-  vendorName: string;
-  onUndo: () => void;
-  onDismiss: () => void;
-}) {
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="fixed bottom-4 left-1/2 z-50 w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 rounded-xl border border-success-300/60 bg-cream px-4 py-3 shadow-lg"
-    >
-      <div className="flex items-start gap-3">
-        <BookmarkCheck
-          aria-hidden
-          className="mt-0.5 h-5 w-5 shrink-0 text-success-700"
-          strokeWidth={2}
-        />
-        <div className="min-w-0 flex-1 space-y-1">
-          <p className="text-sm font-medium text-ink">
-            {vendorName} is locked in.
-          </p>
-          <p className="text-[11px] text-ink/60">
-            Changed your mind?{' '}
-            <button
-              type="button"
-              onClick={onUndo}
-              className="font-medium text-terracotta underline underline-offset-2 hover:text-terracotta/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-            >
-              Undo · revert to considering
-            </button>
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onDismiss}
-          aria-label="Dismiss"
-          className="shrink-0 rounded-md p-1 text-ink/45 hover:bg-ink/5 hover:text-ink/70"
-        >
-          <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-        </button>
-      </div>
-    </div>
-  );
 }

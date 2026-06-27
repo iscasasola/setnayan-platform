@@ -376,9 +376,21 @@ type Props = {
   eventId: string;
   candidates: CandidateInsight[];
   displayName: string;
+  /** The candidate list was narrowed because a locked vendor isn't free on
+   *  every date the couple was considering. */
+  narrowedByLocks?: boolean;
+  /** A locked vendor conflicts with EVERY candidate date — nothing survives the
+   *  intersection, so we show the full list with a warning. */
+  lockConflict?: boolean;
 };
 
-export function CandidateDatePicker({ eventId, candidates, displayName }: Props) {
+export function CandidateDatePicker({
+  eventId,
+  candidates,
+  displayName,
+  narrowedByLocks = false,
+  lockConflict = false,
+}: Props) {
   const [pinned, setPinned] = useState<string | null>(null);
 
   // Distinct pinnable vendors (on-platform only — off-platform can't be checked).
@@ -422,6 +434,25 @@ export function CandidateDatePicker({ eventId, candidates, displayName }: Props)
           marketplace, here is how each date compares. Only pros shown — these all work.
         </p>
       </header>
+
+      {narrowedByLocks && !lockConflict ? (
+        <p className="flex items-start gap-2 rounded-xl border border-ink/10 bg-ink/[0.03] px-3.5 py-2.5 text-xs text-ink/65">
+          <CalendarCheck2 aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-terracotta" strokeWidth={2} />
+          <span>
+            We narrowed these to the dates your locked vendors are still free on. Lock more
+            vendors and your date may settle on its own.
+          </span>
+        </p>
+      ) : null}
+      {lockConflict ? (
+        <p className="flex items-start gap-2 rounded-xl border border-amber-300/60 bg-amber-50 px-3.5 py-2.5 text-xs text-amber-800">
+          <CalendarCheck2 aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+          <span>
+            Heads up — one of your locked vendors isn&apos;t free on any of these dates. Showing
+            all your candidates; you may need to switch that vendor or pick a different date.
+          </span>
+        </p>
+      ) : null}
 
       {/* Our pick banner */}
       {top ? (

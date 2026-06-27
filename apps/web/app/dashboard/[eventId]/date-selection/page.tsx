@@ -36,9 +36,10 @@ import {
   type MeaningfulDate,
   type MeaningfulDateKind,
 } from '@/lib/auspicious-date';
-import { fetchEventVendors } from '@/lib/vendors';
+import { fetchEventVendors, displayServiceLabel } from '@/lib/vendors';
 import { getBatchVendorAvailableDays } from '@/lib/vendor-availability';
-import { displayServiceLabel } from '@/lib/vendors';
+import { intersectViableCandidates } from '@/lib/candidate-dates';
+import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { DatePicker } from './_components/date-picker';
 import { FourQuestionFlow } from './_components/four-question-flow';
 import { CandidateDatePicker, type CandidateInsight } from './_components/candidate-date-picker';
@@ -370,10 +371,8 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
 
   if (!path && hasCandidates && !hasDate) {
     const admin = createAdminClient();
-    const topCandidates = rawCandidates.slice(0, 3);
-    const sorted = [...topCandidates].sort();
 
-    const [vendors, vpRes, blockRes] = await Promise.all([
+    const [vendors, vpRes] = await Promise.all([
       fetchEventVendors(supabase, eventId),
       admin
         .from('vendor_profiles')
@@ -382,23 +381,23 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
         .or('is_demo.is.null,is_demo.eq.false')
         .or('is_setnayan_service.is.null,is_setnayan_service.eq.false')
         .not('services', 'is', null),
-      admin
-        .from('vendor_calendar_blocks')
-        .select('vendor_profile_id, blocked_at, blocked_until')
-        .lte('blocked_at', `${sorted[sorted.length - 1] ?? sorted[0]}T23:30:00+08:00`)
-        .gte('blocked_until', `${sorted[0]}T00:00:00+08:00`),
     ]);
 
     const vpRows: VpRow[] = (vpRes.data ?? []) as VpRow[];
-    const blockRows: BlockRow[] = (blockRes.data ?? []) as BlockRow[];
 
-    // Availability of shortlisted marketplace vendors across the candidate span.
+    // Availability of shortlisted marketplace vendors across the FULL candidate
+    // span (so narrowing can consider every candidate, not just the first 3).
     const marketplacePicks = vendors.filter((v) => v.marketplace_vendor_id);
     const profileIds = [...new Set(marketplacePicks.map((v) => v.marketplace_vendor_id as string))];
+    const fullSorted = [...rawCandidates].sort();
     let availByProfile = new Map<string, Set<string>>();
     if (profileIds.length > 0) {
-      const [ys = 2027, ms = 1, ds = 1] = (sorted[0] ?? '2027-01-01').split('-').map(Number);
-      const [ye = 2027, me = 1, de = 1] = ((sorted[sorted.length - 1] ?? sorted[0]) ?? '2027-01-01')
+      const [ys = 2027, ms = 1, ds = 1] = (fullSorted[0] ?? '2027-01-01').split('-').map(Number);
+      const [ye = 2027, me = 1, de = 1] = (
+        fullSorted[fullSorted.length - 1] ??
+        fullSorted[0] ??
+        '2027-01-01'
+      )
         .split('-')
         .map(Number);
       availByProfile = await getBatchVendorAvailableDays(
@@ -408,6 +407,40 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
         new Date(ye, me - 1, de),
       );
     }
+
+    // Date-shrinking: dates the couple's ALREADY-LOCKED vendors are free on.
+    // The candidate set narrows to the intersection; if locks conflict on every
+    // candidate we keep the full set (and the UI flags the conflict).
+    const lockedProfileIds = [
+      ...new Set(
+        vendors
+          .filter(
+            (v) =>
+              v.marketplace_vendor_id &&
+              (CONFIRMED_VENDOR_STATUSES as readonly string[]).includes(v.status),
+          )
+          .map((v) => v.marketplace_vendor_id as string),
+      ),
+    ];
+    const viableCandidates = intersectViableCandidates(
+      rawCandidates,
+      availByProfile,
+      lockedProfileIds,
+    );
+    const narrowedByLocks =
+      lockedProfileIds.length > 0 && viableCandidates.length < rawCandidates.length;
+    const effectiveCandidates = viableCandidates.length > 0 ? viableCandidates : rawCandidates;
+    const lockConflict = lockedProfileIds.length > 0 && viableCandidates.length === 0;
+
+    const topCandidates = effectiveCandidates.slice(0, 3);
+    const sorted = [...topCandidates].sort();
+
+    const blockRes = await admin
+      .from('vendor_calendar_blocks')
+      .select('vendor_profile_id, blocked_at, blocked_until')
+      .lte('blocked_at', `${sorted[sorted.length - 1] ?? sorted[0]}T23:30:00+08:00`)
+      .gte('blocked_until', `${sorted[0]}T00:00:00+08:00`);
+    const blockRows: BlockRow[] = (blockRes.data ?? []) as BlockRow[];
 
     // Budget range from shortlist (date-independent shared context).
     const { lo: shortlistLo, hi: shortlistHi } = shortlistBudgetRange(
@@ -481,6 +514,8 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
           eventId={eventId}
           candidates={insights}
           displayName={(event as { display_name: string }).display_name}
+          narrowedByLocks={narrowedByLocks}
+          lockConflict={lockConflict}
         />
       </section>
     );

@@ -13,11 +13,13 @@ import {
   listLockTimeSlots,
   revertVendorToConsidering,
   type FinalizeVendorResult,
+  type LockMilestone,
 } from '../actions';
 import {
   slotOptionLabel,
   type VendorServiceTimeSlot,
 } from '@/lib/vendor-time-slots';
+import { LockDateConfirmModal, LockMilestoneToast } from './lock-milestone';
 
 /**
  * AccordionLockButton + ChangePickButton — the Plan + Budget card's lock /
@@ -67,11 +69,20 @@ type LockState =
       slots: VendorServiceTimeSlot[];
       selectedSlotId: string;
     }
+  // Locking this vendor narrows the couple's candidate dates to one — confirm
+  // that the lock also finalizes the wedding date. Carries the override/slot
+  // context so the confirmed re-call preserves any prior switch/slot choice.
+  | {
+      kind: 'date_confirm';
+      dateLabel: string;
+      override: boolean;
+      slotId: string | null;
+    }
   | { kind: 'error'; message: string };
 
 type ToastState =
   | { kind: 'hidden' }
-  | { kind: 'locked'; undoUntil: number };
+  | { kind: 'locked'; undoUntil: number; milestone: LockMilestone };
 
 export function AccordionLockButton({
   eventId,
@@ -110,9 +121,11 @@ export function AccordionLockButton({
     };
   }, []);
 
-  // Auto-dismiss the undo toast.
+  // Auto-dismiss the undo toast — but keep milestone toasts that carry a
+  // finalize CTA or a freshly-locked date on screen until manually dismissed.
   useEffect(() => {
     if (toast.kind !== 'locked') return;
+    if (toast.milestone.finalizeReady || toast.milestone.dateLocked) return;
     const remaining = toast.undoUntil - Date.now();
     if (remaining <= 0) {
       setToast({ kind: 'hidden' });
@@ -140,17 +153,18 @@ export function AccordionLockButton({
         setState({ kind: 'slot_select', slots, selectedSlotId: firstSlot.slot_id });
         return;
       }
-      performLock(false, null);
+      performLock(false, null, false);
     });
   };
 
-  const performLock = (override: boolean, slotId: string | null) => {
+  const performLock = (override: boolean, slotId: string | null, confirmDateLock: boolean) => {
     startTransition(async () => {
       const fd = new FormData();
       fd.set('event_id', eventId);
       fd.set('vendor_id', vendorId);
       if (override) fd.set('override_existing', '1');
       if (slotId) fd.set('service_time_slot_id', slotId);
+      if (confirmDateLock) fd.set('confirm_date_lock', '1');
       let result: FinalizeVendorResult;
       try {
         result = await finalizeVendor(fd);
@@ -167,8 +181,15 @@ export function AccordionLockButton({
         case 'already_locked':
           haptic('confirm');
           setState({ kind: 'idle' });
-          // Undo toast outlives the (now revalidated) card flip.
-          setToast({ kind: 'locked', undoUntil: Date.now() + TOAST_AUTO_DISMISS_MS });
+          // Congrats + undo toast outlives the (now revalidated) card flip.
+          setToast({
+            kind: 'locked',
+            undoUntil: Date.now() + TOAST_AUTO_DISMISS_MS,
+            milestone:
+              result.status === 'ok'
+                ? result.milestone
+                : { pickedLabel: vendorName, dateLocked: false, finalizeReady: null },
+          });
           try {
             const mod = await import('posthog-js');
             const client = (mod.default ?? mod) as unknown as {
@@ -223,6 +244,16 @@ export function AccordionLockButton({
           }
           return;
         }
+        case 'date_will_lock':
+          // Locking narrows the couple's candidates to one date — confirm the
+          // date lock, preserving the override/slot context of this attempt.
+          setState({
+            kind: 'date_confirm',
+            dateLabel: result.dateLabel,
+            override,
+            slotId,
+          });
+          return;
         case 'not_signed_in':
           setState({ kind: 'error', message: 'Sign in again to lock this vendor.' });
           return;
@@ -281,7 +312,7 @@ export function AccordionLockButton({
             vendorName={vendorName}
             groupId={groupId}
             isPending={isPending}
-            onSwitch={() => performLock(true, null)}
+            onSwitch={() => performLock(true, null, false)}
             onDismiss={() => setState({ kind: 'idle' })}
           />,
         )}
@@ -297,19 +328,29 @@ export function AccordionLockButton({
             onSelect={(slotId) =>
               setState({ ...state, selectedSlotId: slotId })
             }
-            onConfirm={() => performLock(false, state.selectedSlotId)}
+            onConfirm={() => performLock(false, state.selectedSlotId, false)}
             onDismiss={() => setState({ kind: 'idle' })}
           />,
         )}
 
-      {toast.kind === 'locked' &&
-        portal(
-          <UndoToast
-            vendorName={vendorName}
-            onUndo={performUndo}
-            onDismiss={() => setToast({ kind: 'hidden' })}
-          />,
-        )}
+      {/* Date-lock confirmation — locking this vendor finalizes the date. */}
+      {state.kind === 'date_confirm' ? (
+        <LockDateConfirmModal
+          vendorName={vendorName}
+          dateLabel={state.dateLabel}
+          isPending={isPending}
+          onConfirm={() => performLock(state.override, state.slotId, true)}
+          onDismiss={() => setState({ kind: 'idle' })}
+        />
+      ) : null}
+
+      {toast.kind === 'locked' ? (
+        <LockMilestoneToast
+          milestone={toast.milestone}
+          onUndo={performUndo}
+          onDismiss={() => setToast({ kind: 'hidden' })}
+        />
+      ) : null}
     </div>
   );
 }
@@ -566,53 +607,6 @@ function SlotPickerModal({
             )}
           </button>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function UndoToast({
-  vendorName,
-  onUndo,
-  onDismiss,
-}: {
-  vendorName: string;
-  onUndo: () => void;
-  onDismiss: () => void;
-}) {
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="fixed bottom-4 left-1/2 z-[100] w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 rounded-xl border border-success-300/60 bg-cream px-4 py-3 shadow-lg"
-    >
-      <div className="flex items-start gap-3">
-        <BookmarkCheck
-          aria-hidden
-          className="mt-0.5 h-5 w-5 shrink-0 text-success-700"
-          strokeWidth={2}
-        />
-        <div className="min-w-0 flex-1 space-y-1">
-          <p className="text-sm font-medium text-ink">{vendorName} is locked in.</p>
-          <p className="text-[11px] text-ink/60">
-            Changed your mind?{' '}
-            <button
-              type="button"
-              onClick={onUndo}
-              className="font-medium text-terracotta underline underline-offset-2 hover:text-terracotta/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-            >
-              Undo · revert to considering
-            </button>
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onDismiss}
-          aria-label="Dismiss"
-          className="shrink-0 rounded-md p-1 text-ink/45 hover:bg-ink/5 hover:text-ink/70"
-        >
-          <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-        </button>
       </div>
     </div>
   );

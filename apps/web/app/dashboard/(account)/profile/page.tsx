@@ -71,6 +71,12 @@ export default async function ProfilePage({ searchParams }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  // Anon-draft: a not-yet-secured (anonymous) account has no password and no
+  // meaningful multi-device sessions. Hide the Change-password + Sessions
+  // sections for them — the "Not secured yet" email banner below already nudges
+  // them to add an email (which IS where they set their first password).
+  const isAnon = !!user.is_anonymous;
+
   // Use `.maybeSingle()` per the canonical guard pattern established in
   // `apps/web/app/dashboard/[eventId]/layout.tsx` (post-third-hotfix-pass):
   // `.single()` flags PGRST116 "0 rows" as an error which silently drops
@@ -365,6 +371,8 @@ export default async function ProfilePage({ searchParams }: Props) {
         </form>
       </section>
 
+      {isAnon ? null : (
+      <>
       <section className="mb-10 space-y-4">
         <div className="space-y-1">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
@@ -457,6 +465,8 @@ export default async function ProfilePage({ searchParams }: Props) {
           </ConfirmForm>
         </div>
       </section>
+      </>
+      )}
 
       <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Row

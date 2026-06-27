@@ -213,6 +213,17 @@ export async function connectExistingVendorProfile(
   if (!user) {
     return { ok: false, code: 'NOT_AUTHENTICATED', message: 'Sign in to connect vendors.' };
   }
+  // Anon-draft guard: connecting links the couple to a real vendor profile
+  // (follow + chat unlock) — a vendor-contact surface where the couple identity
+  // would degrade to a placeholder. Require securing the account first, mirroring
+  // sendVendorInvite above.
+  if (user.is_anonymous) {
+    return {
+      ok: false,
+      code: 'NOT_SECURED',
+      message: 'Secure your account first to connect vendors.',
+    };
+  }
 
   const { error: linkErr } = await supabase
     .from('event_vendors')

@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
+import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { joinEventAction, selfJoinAction } from '../actions';
 import { JoinShell } from './join-shell';
@@ -217,8 +218,13 @@ export async function JoinFlow({
       {errorMessage ? <FormFlash tone="error">{errorMessage}</FormFlash> : null}
 
       <p className="text-base text-ink/70">
-        Welcome, <span className="font-medium text-ink">{user.email}</span>. Tell us your
-        name so the couple can find you on their guest list.
+        Welcome
+        {isPlaceholderEmail(user.email) ? null : (
+          <>
+            , <span className="font-medium text-ink">{user.email}</span>
+          </>
+        )}
+        . Tell us your name so the couple can find you on their guest list.
       </p>
 
       <form action={action} className="mt-6 space-y-4">

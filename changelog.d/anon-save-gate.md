@@ -32,3 +32,34 @@ on, so every secured user in prod today renders exactly as before.
 
 SPEC IMPACT: None (UX refinement on the already-specced anon-draft model; logged
 at the bottom of the corpus DECISION_LOG.md per the relaxed sync mandate).
+
+## 2026-06-28 · fix(anon-draft): pre-launch completeness pass — close gaps before flag-on
+
+Audited the whole anon-draft surface (12-point sweep) ahead of enabling the
+feature live. Closed the gaps so it complements every surface:
+
+- **Vendor-contact guard gap** — `connectExistingVendorProfile`
+  (`lib/vendor-invite-actions.ts`) only checked `!user`, so an anon couple could
+  link a marketplace vendor (follow + chat unlock) without securing. Added the
+  `is_anonymous → NOT_SECURED` guard mirroring `sendVendorInvite`. The
+  `invite-modal.tsx` now routes `NOT_SECURED`/`NOT_AUTHENTICATED` from both the
+  invite and connect paths to `/signup?next=` instead of a dead-end error.
+- **Placeholder-email leaks** — the guest join surfaces rendered raw `user.email`
+  (would show `anon+…@anon.setnayan.local`). Guarded with `isPlaceholderEmail` in
+  `join/[eventId]/set-password/page.tsx` and `join/[eventId]/_components/join-flow.tsx`.
+- **Anon-inappropriate controls hidden** — the profile page
+  (`dashboard/(account)/profile/page.tsx`) now hides the Change-password +
+  Sessions (sign-out-other-devices) sections for an anon account (no password /
+  no meaningful sessions; the "Not secured yet" banner already nudges them).
+- **Sign-out → secure swap** — the account switcher (`get-switcher-data.ts` +
+  `account-switcher.tsx`, both footer variants) replaces "Sign out" — which would
+  destroy an anon user's only key to their plan — with a "Secure your plan" →
+  `/signup` CTA. New `isAnonymous` field on `SwitcherData`; the 4 layout fallback
+  literals (admin / account / event / vendor) set it from `user.is_anonymous`.
+
+DB go-live step is already done: migration `20270205204166` (null-email-tolerant
+`handle_new_auth_user`) is applied on prod and verified. Remaining to flip live:
+enable anonymous sign-ins in Supabase Auth (owner dashboard) + set
+`NEXT_PUBLIC_ANON_ONBOARDING_ENABLED=true` (Vercel). tsc + lint green.
+
+SPEC IMPACT: None.

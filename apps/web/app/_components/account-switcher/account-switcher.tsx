@@ -262,11 +262,20 @@ export function AccountSwitcher({ data, currentEventName }: Props) {
                   <Users aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Hosts
                 </button>
               ) : null}
-              <form action="/auth/sign-out" method="post" className="ml-auto">
-                <button type="submit" className="inline-flex items-center gap-1 text-red-600 hover:text-red-700">
-                  <LogOut aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Sign out
-                </button>
-              </form>
+              {data.isAnonymous ? (
+                <Link
+                  href="/signup"
+                  className="ml-auto inline-flex items-center gap-1 font-medium text-mulberry hover:text-mulberry-600"
+                >
+                  <ShieldCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Secure your plan
+                </Link>
+              ) : (
+                <form action="/auth/sign-out" method="post" className="ml-auto">
+                  <button type="submit" className="inline-flex items-center gap-1 text-red-600 hover:text-red-700">
+                    <LogOut aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Sign out
+                  </button>
+                </form>
+              )}
             </div>
           </div>
         </div>
@@ -559,11 +568,20 @@ export function AccountSwitcherStandalone({ data }: Props) {
                           <Users aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Hosts
                         </button>
                       ) : null}
-                      <form action="/auth/sign-out" method="post" className="ml-auto">
-                        <button type="submit" className="inline-flex items-center gap-1 text-red-600 hover:text-red-700">
-                          <LogOut aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Sign out
-                        </button>
-                      </form>
+                      {data.isAnonymous ? (
+                        <Link
+                          href="/signup"
+                          className="ml-auto inline-flex items-center gap-1 font-medium text-mulberry hover:text-mulberry-600"
+                        >
+                          <ShieldCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Secure your plan
+                        </Link>
+                      ) : (
+                        <form action="/auth/sign-out" method="post" className="ml-auto">
+                          <button type="submit" className="inline-flex items-center gap-1 text-red-600 hover:text-red-700">
+                            <LogOut aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Sign out
+                          </button>
+                        </form>
+                      )}
                     </div>
                   </div>
                 </div>

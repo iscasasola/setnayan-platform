@@ -52,6 +52,12 @@ export type SwitcherData = {
   userId: string;
   displayName: string | null;
   email: string;
+  /**
+   * Anon-draft: true when this principal hasn't secured an account yet (carries
+   * the placeholder email). The switcher swaps "Sign out" — which would lose
+   * their only key to the plan — for a "Secure your plan" CTA.
+   */
+  isAnonymous: boolean;
   photoUrl: string | null;
   events: SwitcherEvent[];
   gallery: SwitcherGallery[];
@@ -224,6 +230,7 @@ export async function getSwitcherData(userId: string): Promise<SwitcherData> {
     // Anon-draft: hide the non-routable placeholder email from the switcher
     // (it would read "anon+<uuid>@…"); the dashboard banner carries the secure CTA.
     email: isPlaceholderEmail(profile?.email) ? '' : (profile?.email ?? ''),
+    isAnonymous: isPlaceholderEmail(profile?.email),
     photoUrl: photoUrl ?? null,
     events,
     gallery,
@@ -236,6 +243,7 @@ export async function getSwitcherData(userId: string): Promise<SwitcherData> {
       userId,
       displayName: null,
       email: '',
+      isAnonymous: false,
       photoUrl: null,
       events: [],
       gallery: [],

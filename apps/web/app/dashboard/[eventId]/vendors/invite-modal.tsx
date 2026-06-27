@@ -42,6 +42,19 @@ export function InviteVendorButton({
     containerRef: dialogRef,
   });
 
+  // Anon-draft: inviting/connecting a vendor is a vendor-contact action that
+  // needs a secured account. When a server action returns NOT_SECURED, send the
+  // anon couple to /signup to convert in place (returning here after), rather
+  // than showing a dead-end error. Returns true when it handled the redirect.
+  function routeIfNotSecured(code: string): boolean {
+    if (code === 'NOT_SECURED' || code === 'NOT_AUTHENTICATED') {
+      const next = encodeURIComponent(window.location.pathname + window.location.search);
+      window.location.href = `/signup?next=${next}`;
+      return true;
+    }
+    return false;
+  }
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData();
@@ -51,6 +64,7 @@ export function InviteVendorButton({
     startTransition(async () => {
       const result: SendInviteResult = await sendVendorInvite(form);
       if (!result.ok) {
+        if (routeIfNotSecured(result.code)) return;
         setView({ kind: 'error', message: result.message });
         return;
       }
@@ -77,6 +91,7 @@ export function InviteVendorButton({
     startTransition(async () => {
       const result = await connectExistingVendorProfile(form);
       if (!result.ok) {
+        if (routeIfNotSecured(result.code)) return;
         setView({ kind: 'error', message: result.message });
         return;
       }

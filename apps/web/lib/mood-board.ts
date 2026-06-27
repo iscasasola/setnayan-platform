@@ -20,7 +20,11 @@ export type PaletteKey =
   | 'ceremony'
   | 'reception'
   | CouplePaletteKey
-  | Exclude<RoleGroup, 'other_roles' | 'couple'>
+  // 'muslim_principals' (the Nikah cast — wali/witness/imam/wakil) is a
+  // guest-list + seating grouping, not an attire-palette group, so it is NOT a
+  // mood-board palette key — excluded like 'other_roles' to keep every mood
+  // board unchanged.
+  | Exclude<RoleGroup, 'other_roles' | 'couple' | 'muslim_principals'>
   | 'guest';
 
 export type RolePalette = Partial<Record<PaletteKey, string[]>>;
@@ -186,13 +190,20 @@ export function sanitizeRolePalette(raw: unknown): RolePalette {
 
 export function getPrimaryColor(
   palette: RolePalette,
-  key: PaletteKey | 'other_roles' | 'couple',
+  key: PaletteKey | 'other_roles' | 'couple' | 'muslim_principals',
 ): string | undefined {
   // 'other_roles' is the fallback bucket from role-groups.ts (no palette).
   // 'couple' is the role group bride + groom belong to, but the palette
   // splits attire colors into separate `bride` and `groom` keys, so
   // there's no aggregate "couple" primary to surface here.
-  if (key === 'other_roles' || key === 'couple') return undefined;
+  // 'muslim_principals' (the Nikah cast) has no attire palette — same as couple.
+  if (
+    key === 'other_roles' ||
+    key === 'couple' ||
+    key === 'muslim_principals'
+  ) {
+    return undefined;
+  }
   const arr = palette[key as PaletteKey];
   return arr && arr.length > 0 ? arr[0] : undefined;
 }

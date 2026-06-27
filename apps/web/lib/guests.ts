@@ -41,14 +41,32 @@ export type GuestRole =
   | 'host'
   | 'vip'
   | 'family'
-  | 'helper';
+  | 'helper'
+  // Muslim wedding Nikah roles — the structural participants of the Islamic
+  // marriage contract. Enum values added via migration 20270308910536. These
+  // surface ONLY for muslim weddings via the ceremony-aware MUSLIM_ROLE_SET
+  // (lib/role-sets.ts). wali/imam/wakil are at-most-one-per-event (partial
+  // unique indexes, migration 20270308998862); witness is multi-instance (a
+  // nikah needs at least two).
+  | 'wali'
+  | 'witness'
+  | 'imam'
+  | 'wakil';
 
 /**
  * Roles that may exist at most once per event. Enforced at the DB layer
  * via partial unique indexes (migration 20260531010000); UI uses this
  * list to filter the role dropdown.
  */
-export const SINGLETON_GUEST_ROLES: ReadonlyArray<GuestRole> = ['bride', 'groom'];
+export const SINGLETON_GUEST_ROLES: ReadonlyArray<GuestRole> = [
+  'bride',
+  'groom',
+  // Muslim Nikah singletons (migration 20270308998862). witness is NOT here — a
+  // nikah needs at least two, which a one-per-event guard would forbid.
+  'wali',
+  'imam',
+  'wakil',
+];
 
 // What a guest's 3D seat-plan avatar wears. 'neutral' is the stored default; the
 // renderer treats it as "unset" and falls back to a role-implied guess (below).
@@ -70,6 +88,12 @@ const ATTIRE_BY_ROLE: Partial<Record<GuestRole, GuestAttire>> = {
   ring_bearer: 'suit',
   bible_bearer: 'suit',
   coin_bearer: 'suit',
+  // Muslim Nikah principals whose role is gendered male (the wali is the
+  // bride's male guardian; the imam/qadi and the groom's wakil are male).
+  // witness is left 'neutral' (a witness may be of any gender).
+  wali: 'suit',
+  imam: 'suit',
+  wakil: 'suit',
 };
 
 /**
@@ -185,6 +209,10 @@ const INNER_CIRCLE_ROLES: ReadonlySet<GuestRole> = new Set([
   'bridesmaid',
   'groomsman',
   'principal_sponsor',
+  // Muslim Nikah principals are inner-circle (invited to every block).
+  'wali',
+  'imam',
+  'wakil',
 ]);
 
 /**
@@ -245,7 +273,42 @@ export const ROLE_LABELS: Record<GuestRole, string> = {
   vip: 'VIP',
   family: 'Family',
   helper: 'Helper',
+  // Muslim wedding Nikah roles.
+  wali: "Wali (Bride's Guardian)",
+  witness: 'Witness (Shahid)',
+  imam: 'Imam / Qadi (Officiant)',
+  wakil: "Wakil (Groom's Proxy)",
 };
+
+// --- Singleton-role messaging (one source for every guest write path) -------
+// bride/groom + the Muslim Nikah singletons (wali/imam/wakil) are one-per-event,
+// enforced both in the UI (SINGLETON_GUEST_ROLES) and at the DB layer (the
+// guests_one_<role>_per_event partial-unique indexes, which raise 23505). These
+// helpers keep the user-facing copy + the constraint-name detection in ONE
+// place, so adding a future singleton only touches SINGLETON_GUEST_ROLES +
+// SINGLETON_INDEX_RE — not a half-dozen drifting bride/groom ternaries.
+
+/** Copy when a couple tries to ADD a singleton role as a second/extra role. */
+export function singletonRoleConflictMessage(role: GuestRole): string {
+  return `${ROLE_LABELS[role]} can only be one person — change their primary role instead.`;
+}
+
+/** Copy when the DB blocks a duplicate singleton (a 23505 on its index). */
+export function singletonRoleDuplicateMessage(role: GuestRole): string {
+  return `There’s already a ${ROLE_LABELS[role]} in this event — change theirs first.`;
+}
+
+const SINGLETON_INDEX_RE = /guests_one_(bride|groom|wali|imam|wakil)_per_event/;
+
+/** Map a Postgres 23505 message on a guests_one_<role>_per_event index back to
+ *  the offending role; null if the message isn't one of those constraints. */
+export function singletonRoleFromIndexError(
+  message: string | null | undefined,
+): GuestRole | null {
+  if (!message) return null;
+  const m = SINGLETON_INDEX_RE.exec(message);
+  return m ? (m[1] as GuestRole) : null;
+}
 
 export const SIDE_LABELS: Record<GuestSide, string> = {
   bride: "Bride's side",

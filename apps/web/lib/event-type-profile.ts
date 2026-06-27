@@ -289,9 +289,50 @@ export const resolveProfileByEvent = cache(
   },
 );
 
+/**
+ * Server helper: the ROLE-SET KEY for an event id, ceremony-aware.
+ *
+ * Role sets are keyed off the event-type profile (wedding/generic/simple). But
+ * within a WEDDING, the Nikah's cast differs by ceremony_type: a muslim wedding
+ * wants the wali/witness/imam/wakil principals and none of the Catholic
+ * sponsors. Rather than fork the profile spine (which is event_type-shaped), we
+ * branch here: a wedding whose ceremony_type (primary OR a mixed secondary) is
+ * 'muslim' resolves to the 'wedding_muslim' role set; everything else keeps its
+ * profile's roleSetKey. This is the single chokepoint every guest picker, its
+ * server-action validator, the join self-claim flow, and the seating tier
+ * resolution all flow through — so they become ceremony-aware atomically while
+ * WEDDING_ROLE_SET stays byte-identical for Catholic/civil/etc. weddings.
+ *
+ * Returns a plain string so it can also feed the CLIENT quick-add sheet (which
+ * resolves its picker list from a roleSetKey prop via resolveRoleSet). Cached
+ * per request + per eventId; degrades to the profile key on any read error.
+ */
+export const resolveRoleSetKeyForEvent = cache(
+  async (eventId: string): Promise<string | null> => {
+    const profile = await resolveProfileByEvent(eventId);
+    // Only weddings get a ceremony-specific role set; everything else (generic /
+    // simple / future types) uses its profile default untouched.
+    if (profile.roleSetKey !== 'wedding') return profile.roleSetKey;
+    try {
+      const sb = await createClient();
+      const { data } = await sb
+        .from('events')
+        .select('ceremony_type, secondary_ceremony_type')
+        .eq('event_id', eventId)
+        .maybeSingle();
+      const primary = (data?.ceremony_type as string | null) ?? null;
+      const secondary = (data?.secondary_ceremony_type as string | null) ?? null;
+      if (primary === 'muslim' || secondary === 'muslim') return 'wedding_muslim';
+      return profile.roleSetKey;
+    } catch {
+      return profile.roleSetKey;
+    }
+  },
+);
+
 /** Server helper: the RoleSet for an event id (iteration 0053 Phase 2). */
 export const resolveRoleSetForEvent = cache(
   async (eventId: string): Promise<RoleSet> => {
-    return resolveRoleSet((await resolveProfileByEvent(eventId)).roleSetKey);
+    return resolveRoleSet(await resolveRoleSetKeyForEvent(eventId));
   },
 );

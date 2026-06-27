@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Download, TrendingUp } from 'lucide-react';
+import { Download, TrendingUp, Gift, ArrowRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
@@ -41,7 +41,9 @@ export default async function BudgetPage({ params }: Props) {
   const [eventRes, snapshot, paidOrdersRes, allocInputs] = await Promise.all([
     supabase
       .from('events')
-      .select('event_id, display_name, estimated_budget_centavos, region, event_type')
+      .select(
+        'event_id, display_name, estimated_budget_centavos, region, event_type, ceremony_type, secondary_ceremony_type, mahr_description',
+      )
       .eq('event_id', eventId)
       .maybeSingle(),
     fetchBudgetSnapshot(supabase, eventId),
@@ -56,15 +58,51 @@ export default async function BudgetPage({ params }: Props) {
     resolveAllocationInputs(supabase, eventId),
   ]);
 
-  const event = eventRes.data as
+  // Migration-drift fallback (mirrors app/dashboard/[eventId]/page.tsx): the
+  // explicit select above names mahr_description (migration 20270308998862). On
+  // an un-migrated env PostgREST 42703s the WHOLE query (not just that field),
+  // which would null display_name/region/budget too — so on a column-missing
+  // error, re-read with '*' to keep the core event fields. Normal prod ships the
+  // migration with this code, so this only covers a transient ordering window.
+  let eventData = eventRes.data;
+  if (
+    !eventData &&
+    eventRes.error &&
+    /column .* does not exist|undefined_column|42703/i.test(
+      (eventRes.error as { message?: string; code?: string }).message ??
+        (eventRes.error as { code?: string }).code ??
+        '',
+    )
+  ) {
+    const fb = await supabase
+      .from('events')
+      .select('*')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    eventData = fb.data;
+  }
+
+  const event = eventData as
     | {
         event_id: string;
         display_name: string;
         estimated_budget_centavos: number | null;
         region: string | null;
         event_type: string | null;
+        ceremony_type: string | null;
+        secondary_ceremony_type: string | null;
+        mahr_description: string | null;
       }
     | null;
+
+  // Muslim weddings carry a Mahr — the groom's mandatory gift to the bride. It
+  // is hers alone and is NOT a Setnayan or vendor charge, so it never enters the
+  // budget math (committed totals / overspend); it's surfaced as a distinct,
+  // non-billable reminder card.
+  const isMuslimCeremony =
+    ((event?.ceremony_type as string | null) ?? null) === 'muslim' ||
+    ((event?.secondary_ceremony_type as string | null) ?? null) === 'muslim';
+  const mahrDescription = (event?.mahr_description as string | null) ?? null;
 
   // Iteration 0053 P4 Unit 2: the suggested budget SPLIT (wedding cost
   // categories + benchmarks) is the wedding budget-taxonomy pack. 'wedding' is
@@ -215,6 +253,10 @@ export default async function BudgetPage({ params }: Props) {
         targetCentavos={initialBudgetCentavos}
         committedPhp={committedPhpTotal}
       />
+
+      {isMuslimCeremony ? (
+        <MahrInfoCard eventId={eventId} mahrDescription={mahrDescription} />
+      ) : null}
 
       <UnlocksHint />
 
@@ -395,6 +437,59 @@ function SummaryStat({
  * [[feedback_setnayan_no_dev_text_post_launch]]: outcome-first copy,
  * no engineering jargon, no exclamation marks.
  */
+// The Mahr — a Muslim wedding's groom-to-bride gift. Deliberately rendered as a
+// distinct, NON-billable card (emerald, "gift" framing) so it never reads as a
+// Setnayan/vendor charge and is never folded into the committed/overspend math.
+// Setnayan neither holds nor processes the mahr; this is the couple's private
+// record, set from the Nikah-essentials card on Home.
+function MahrInfoCard({
+  eventId,
+  mahrDescription,
+}: {
+  eventId: string;
+  mahrDescription: string | null;
+}) {
+  const isSet = !!mahrDescription && mahrDescription.trim().length > 0;
+  return (
+    <section
+      aria-labelledby="mahr-info-heading"
+      className="rounded-xl border border-emerald-200/70 bg-emerald-50/40 p-4 sm:p-5"
+    >
+      <div className="flex items-center gap-2">
+        <Gift aria-hidden className="h-4 w-4 text-emerald-700" strokeWidth={1.75} />
+        <h2
+          id="mahr-info-heading"
+          className="font-mono text-[11px] uppercase tracking-[0.2em] text-emerald-800"
+        >
+          Mahr — a gift to the bride
+        </h2>
+      </div>
+      <p className="mt-2 text-sm text-ink/75">
+        {isSet ? (
+          <>
+            Your mahr: <span className="font-medium text-ink">{mahrDescription}</span>.
+            It belongs to the bride alone — Setnayan never charges or processes
+            it, so it stays out of your budget totals.
+          </>
+        ) : (
+          <>
+            A Muslim marriage includes the mahr — the groom&rsquo;s gift to the
+            bride, hers alone. It isn&rsquo;t a Setnayan or vendor charge, so it
+            lives outside your budget. Record yours from the Nikah card on Home.
+          </>
+        )}
+      </p>
+      <Link
+        href={`/dashboard/${eventId}`}
+        className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-emerald-800 hover:text-emerald-900"
+      >
+        {isSet ? 'Update mahr' : 'Set mahr'}
+        <ArrowRight aria-hidden className="h-3 w-3" strokeWidth={2} />
+      </Link>
+    </section>
+  );
+}
+
 function UnlocksHint() {
   return (
     <section

@@ -9,6 +9,8 @@ import { getCurrentUser } from '@/lib/auth';
 import { sendEventAccountMagicLink } from '@/lib/event-account-link';
 import {
   INVITED_TO_BLOCKS,
+  singletonRoleDuplicateMessage,
+  singletonRoleFromIndexError,
   type GuestGroupCategory,
   type GuestRole,
   type GuestSide,
@@ -202,17 +204,17 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
     .eq('guest_id', guestId);
 
   if (error) {
-    // The partial unique indexes from migration 20260531010000 raise
-    // 23505 (unique_violation) when a second bride or groom is set.
-    // Rewrite the cryptic constraint name into something the couple can
-    // act on; everything else falls through to the raw message.
-    const friendly =
-      (error as { code?: string }).code === '23505' &&
-      /guests_one_(bride|groom)_per_event/.test(error.message)
-        ? role === 'bride'
-          ? 'Already a Bride in this event — change theirs first.'
-          : 'Already a Groom in this event — change theirs first.'
-        : error.message;
+    // The partial unique indexes (bride/groom: migration 20260531010000;
+    // Muslim wali/imam/wakil: 20270308998862) raise 23505 (unique_violation)
+    // when a second singleton is set. Rewrite the cryptic constraint name into
+    // something the couple can act on; everything else falls through.
+    const dupRole =
+      (error as { code?: string }).code === '23505'
+        ? singletonRoleFromIndexError(error.message)
+        : null;
+    const friendly = dupRole
+      ? singletonRoleDuplicateMessage(dupRole)
+      : error.message;
     return redirect(`${backTo}?error=${encodeURIComponent(friendly)}`);
   }
 

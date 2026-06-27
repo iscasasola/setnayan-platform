@@ -6,6 +6,10 @@ import { guestEditsLocked } from '@/lib/pax';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import {
   defaultInvitedToForRole,
+  SINGLETON_GUEST_ROLES,
+  singletonRoleConflictMessage,
+  singletonRoleDuplicateMessage,
+  singletonRoleFromIndexError,
   type GuestRole,
   type GuestSide,
 } from '@/lib/guests';
@@ -215,7 +219,10 @@ export type QuickRoleResult =
     }
   | { ok: false; error: string };
 
-const SINGLETON_ROLES: GuestRole[] = ['bride', 'groom'];
+// Canonical singleton list (lib/guests) — bride/groom + the Muslim Nikah
+// singletons (wali/imam/wakil). Imported rather than re-declared so this guard
+// can't drift from the DB partial-unique indexes.
+const SINGLETON_ROLES: ReadonlyArray<GuestRole> = SINGLETON_GUEST_ROLES;
 
 /**
  * Multi-role (iteration 0001 — 2026-06-02). When the quick-add finds a
@@ -224,10 +231,11 @@ const SINGLETON_ROLES: GuestRole[] = ['bride', 'groom'];
  * untouched (it keeps driving the seating tier + invite defaults); the
  * new role is appended to `extra_roles`.
  *
- * Bride/Groom are one-per-event singletons — guarded by the partial-
- * unique indexes on the primary `role` column AND the
- * guests_extra_roles_no_singletons CHECK — so they can't be a second
- * role here.
+ * Singleton roles (Bride/Groom + the Muslim Nikah singletons wali/imam/
+ * wakil) are one-per-event — guarded by the partial-unique indexes on the
+ * primary `role` column and, for bride/groom, the
+ * guests_extra_roles_no_singletons CHECK. The SINGLETON_ROLES guard below
+ * blocks any of them from being added as a SECOND role here.
  */
 export async function addRoleToGuest(
   eventId: string,
@@ -240,13 +248,7 @@ export async function addRoleToGuest(
     return { ok: false, error: 'That role isn’t valid.' };
   }
   if (SINGLETON_ROLES.includes(role)) {
-    return {
-      ok: false,
-      error:
-        role === 'bride'
-          ? 'Bride can only be one person — change their primary role instead.'
-          : 'Groom can only be one person — change their primary role instead.',
-    };
+    return { ok: false, error: singletonRoleConflictMessage(role) };
   }
 
   const supabase = await createClient();
@@ -328,13 +330,13 @@ export async function setGuestPrimaryRole(
     .update({ role, extra_roles: nextExtras })
     .eq('guest_id', guestId);
   if (updErr) {
-    const friendly =
-      (updErr as { code?: string }).code === '23505' &&
-      /guests_one_(bride|groom)_per_event/.test(updErr.message)
-        ? role === 'bride'
-          ? 'There’s already a Bride — change theirs first.'
-          : 'There’s already a Groom — change theirs first.'
-        : (updErr.message ?? 'Couldn’t change that role.');
+    const dupRole =
+      (updErr as { code?: string }).code === '23505'
+        ? singletonRoleFromIndexError(updErr.message)
+        : null;
+    const friendly = dupRole
+      ? singletonRoleDuplicateMessage(dupRole)
+      : (updErr.message ?? 'Couldn’t change that role.');
     await insertFaultLog({
       event_type: 'SUPABASE_SAVE_ERROR',
       element_name: 'Set guest primary role (update)',

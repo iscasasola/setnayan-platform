@@ -1,25 +1,26 @@
-## 2026-06-28 · fix(create-event): event-type tap now scrolls its name form into view
+## 2026-06-28 · fix(create-event): event-type tiles are now single-tap clickable
 
-The create-event "what kind of event" photo picker (`event-type-picker.tsx`)
-felt "not clickable" for the event types that have no tailored onboarding yet
-(debut, gender_reveal, birthday, celebration, travel, corporate, tournament,
-christening — `onboarding_href` NULL in `event_type_vocab`). Tapping one set
-`selectedKey` and mounted the inline "Event name" form BELOW the full-bleed
-photo deck; on a phone that's past the fold with no scroll, so the tap produced
-no visible change.
+The create-event "What kind of event" photo picker felt "all not clickable":
+the full-page `EventTypePhotoPicker` was a TWO-STEP picker — a tap on any
+off-center photo only re-centered it, and only the already-centered photo
+actually began (2026-06-04 behavior). So tapping any tile that wasn't dead-center
+did nothing visible. (The in-chrome add-event carousel already committed on any
+tap; only this picker was two-step.)
 
-- `event-type-picker.tsx` — on select, `scrollIntoView({block:'center'})` the
-  inline form and focus the name field (`preventScroll` so focus doesn't fight
-  the smooth scroll). Replaced the input's `autoFocus` (which only fired on
-  mount and didn't scroll) with the explicit ref-driven focus.
+- `event-type-photo-picker.tsx` — `onTap` now commits on a single tap of ANY
+  enabled tile: snap it to center for continuity, then `onSelect` (which
+  navigates). Swipe still browses without committing. Footer hint updated to
+  "tap any photo to begin". This revises the 2026-06-04 "only the centered photo
+  is clickable" directive — flagged to owner.
+- `event-type-picker.tsx` — defensive hardening of the inline name-form fallback
+  (scroll it into view + focus on select). This path is only reached when
+  `NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED` is OFF; it's on in prod today, but the
+  fallback should never feel dead if the flag is ever flipped off.
 
-Context surfaced to owner (no code change here): only `wedding` (/onboarding/
-wedding) and `simple_event` (/onboarding/simple) have a tailored onboarding. The
-other 8 enabled types have a BUILT-but-DARK generic onboarding at
-`/onboarding/[type]` gated behind `NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED`. The
-backing migration (events.experience_persona/for_whom/axes) is ALREADY APPLIED
-in prod, so go-live is now a single env flip + redeploy — but that same flag
-also reshapes the LIVE wedding funnel (swaps the vendor-category picker screens
-for the experience quiz), so it stays an explicit owner go-live decision.
+Verified live: the experience-quiz flag is ALREADY `true` in prod (set 6d ago,
+built since), so all 9 enabled event types already route to a real onboarding
+(`/onboarding/wedding`, `/onboarding/simple`, `/onboarding/[type]` for the rest —
+confirmed `/onboarding/birthday` renders "Let's plan your birthday"). No env or
+schema change needed; this PR is purely the picker tap fix.
 
-SPEC IMPACT: None — UX hardening of an existing fallback path; no schema/SKU/pricing/flow change.
+SPEC IMPACT: None — picker interaction fix; no schema/SKU/pricing/flow change.

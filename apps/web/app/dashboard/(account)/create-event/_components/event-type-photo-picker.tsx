@@ -109,12 +109,16 @@ export function EventTypePhotoPicker({ types, onSelect, initialIndex = 0, classN
 
   const onTap = useCallback(
     (i: number) => {
-      if (i === active) {
-        const t = types[i];
-        if (t?.enabled) onSelect(t);
-      } else {
-        centerTo(i);
-      }
+      // Single-tap commits (owner bug 2026-06-28: "the pick-an-event tiles are
+      // all not clickable"). The earlier 2026-06-04 behavior acted only on the
+      // already-centered photo and merely re-centered a side tap, so tapping any
+      // off-center tile felt dead. Now ANY enabled tile begins on first tap; we
+      // still snap it to center first for visual continuity before onSelect
+      // navigates away. Swipe remains the way to browse without committing.
+      const t = types[i];
+      if (!t?.enabled) return;
+      if (i !== active) centerTo(i);
+      onSelect(t);
     },
     [active, types, onSelect, centerTo],
   );
@@ -190,7 +194,7 @@ export function EventTypePhotoPicker({ types, onSelect, initialIndex = 0, classN
       </div>
 
       <p className="mt-5 text-center text-xs text-ink/40">
-        Swipe to explore · tap the centered photo to begin
+        Swipe to explore · tap any photo to begin
       </p>
     </div>
   );

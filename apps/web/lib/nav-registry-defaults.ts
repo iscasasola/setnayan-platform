@@ -347,7 +347,6 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     customRef: null,
     sortOrder: 6,
   },
-  {
   // Day-of phase bottom-nav tabs (lifecycle phase 'dayof' in
   // lib/customer-menu.ts buildCustomerMenuTree). Same `customer.bottom-nav.*`
   // area + lookup the customer-bottom-nav chokepoint uses for the plan tabs, so

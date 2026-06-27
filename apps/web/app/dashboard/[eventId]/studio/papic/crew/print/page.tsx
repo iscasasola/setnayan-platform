@@ -1,7 +1,7 @@
 import { headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { fetchPapicSeats, papicSeatClaimUrl } from '@/lib/papic-seats';
+import { fetchPapicSeats, papicSeatJoinUrl } from '@/lib/papic-seats';
 import { renderUrlQrSvg } from '@/lib/qr';
 
 // Papic · printable photo-crew QR pack.
@@ -58,7 +58,10 @@ export default async function PapicCrewPrintPage({ params }: Props) {
 
   const cards = await Promise.all(
     seats.map(async (s) => {
-      const claimUrl = papicSeatClaimUrl(appUrl, s.claim_qr_token);
+      // Hybrid join link (native app opens directly when installed, otherwise
+      // forwards to the existing /papic/claim flow). Legacy /papic/claim links
+      // still work, so any card printed before this stays valid.
+      const claimUrl = papicSeatJoinUrl(appUrl, s.claim_qr_token);
       return {
         seatId: s.seat_id,
         label: seatLabel(s.seat_index as number),

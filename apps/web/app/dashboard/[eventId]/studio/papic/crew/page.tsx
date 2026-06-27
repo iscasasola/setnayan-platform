@@ -15,7 +15,7 @@ import { createClient } from '@/lib/supabase/server';
 import {
   eventPapicSeatsActive,
   fetchPapicSeats,
-  papicSeatClaimUrl,
+  papicSeatJoinUrl,
   PAPIC_SEAT_COUNT,
 } from '@/lib/papic-seats';
 import { renderUrlQrSvg } from '@/lib/qr';
@@ -111,7 +111,10 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
 
   const seatViews = await Promise.all(
     seats.map(async (s) => {
-      const claimUrl = papicSeatClaimUrl(appUrl, s.claim_qr_token);
+      // Hybrid join link: native app opens directly when installed, otherwise
+      // forwards to the existing /papic/claim flow. Legacy /papic/claim links
+      // still work, so any QR printed before this stays valid.
+      const claimUrl = papicSeatJoinUrl(appUrl, s.claim_qr_token);
       const qrSvg = await renderUrlQrSvg(claimUrl, 128);
       return { ...s, claimUrl, qrSvg };
     }),

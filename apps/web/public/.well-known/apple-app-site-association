@@ -4,7 +4,7 @@
     "details": [
       {
         "appID": "P95JPDWWB3.com.setnayan.app",
-        "paths": ["/dashboard/*"]
+        "paths": ["/dashboard/*", "/papic/*"]
       }
     ]
   }

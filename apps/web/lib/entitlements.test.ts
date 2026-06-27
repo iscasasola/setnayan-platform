@@ -19,8 +19,10 @@ import {
   checkOrderActive,
   eventOwnsSku,
   eventSkuActive,
+  eventActiveSkus,
   eventHasPapicUnlock,
   BUNDLE_CHILD_SKUS,
+  SKU_OWNERSHIP_ALIASES,
   PAPIC_UNLOCK_SKU,
   RELINQUISHED_STATUSES,
   ACTIVE_STATUSES,
@@ -110,20 +112,38 @@ test('any other DB error throws (so we never silently mis-gate)', async () => {
   );
 });
 
-test('canonical query shape is preserved (event_id + service_key + relinquished filter)', async () => {
+test('canonical query shape is preserved (event_id eq + service_key in + relinquished filter)', async () => {
   const { supabase, calls } = makeSupabase({ data: [{ status: 'paid' }], error: null });
   await checkOrderOwnership(supabase, 'evt_42', 'PRO_WEBSITE');
   assert.deepEqual(calls.find((c) => c.method === 'from')?.args, ['orders']);
   assert.deepEqual(calls.find((c) => c.method === 'select')?.args, ['status']);
   const eqCalls = calls.filter((c) => c.method === 'eq');
-  assert.equal(eqCalls.length, 2);
+  assert.equal(eqCalls.length, 1);
   assert.deepEqual(eqCalls[0]?.args, ['event_id', 'evt_42']);
-  assert.deepEqual(eqCalls[1]?.args, ['service_key', 'PRO_WEBSITE']);
+  // service_key now filters via .in() over the canonical key + any aliases. A
+  // non-aliased SKU (PRO_WEBSITE) yields a single-element list.
+  const inCalls = calls.filter((c) => c.method === 'in');
+  assert.deepEqual(inCalls.find((c) => (c.args[0] as string) === 'service_key')?.args, [
+    'service_key',
+    ['PRO_WEBSITE'],
+  ]);
   assert.deepEqual(calls.find((c) => c.method === 'not')?.args, [
     'status',
     'in',
     '("cancelled","refunded","lapsed")',
   ]);
+});
+
+test('alias query shape: an aliased SKU filters over canonical + alias keys', async () => {
+  const { supabase, calls } = makeSupabase({ data: [], error: null });
+  await checkOrderOwnership(supabase, 'evt_42', 'PATIKTOK_COMPILER');
+  const skuIn = calls
+    .filter((c) => c.method === 'in')
+    .find((c) => (c.args[0] as string) === 'service_key');
+  const keys = skuIn?.args[1] as string[];
+  assert.ok(keys.includes('PATIKTOK_COMPILER'), 'includes the canonical key');
+  assert.ok(keys.includes('patiktok_setnayan_tiktok'), 'includes the Setnayan-tier alias');
+  assert.ok(keys.includes('patiktok_personal_tiktok'), 'includes the Personal-tier alias');
 });
 
 test('RELINQUISHED_STATUSES is the canonical exported set', () => {
@@ -149,7 +169,10 @@ test('RELINQUISHED_STATUSES is the canonical exported set', () => {
  * everything else resolves to zero rows.
  */
 function makeOwnedSupabase(owned: Set<string>, status = 'paid') {
-  let currentServiceKey: string | null = null;
+  // The ownership query now filters service_key via .in([canonical, ...aliases]).
+  // Capture that key list and resolve "owned" when ANY of the queried keys is in
+  // the owned set (so an alias order confers its canonical SKU too).
+  let currentServiceKeys: string[] | null = null;
   const builder: Record<string, unknown> = {
     from() {
       return builder;
@@ -157,22 +180,25 @@ function makeOwnedSupabase(owned: Set<string>, status = 'paid') {
     select() {
       return builder;
     },
-    eq(col: string, val: string) {
-      if (col === 'service_key') currentServiceKey = val;
+    eq() {
       return builder;
     },
     not() {
       return builder;
     },
-    in() {
+    in(col: string, vals: unknown) {
+      if (col === 'service_key' && Array.isArray(vals)) {
+        currentServiceKeys = vals as string[];
+      }
       return builder;
     },
     then(resolve: (value: QueryResult) => unknown) {
-      const data = currentServiceKey && owned.has(currentServiceKey)
-        ? [{ status }]
-        : [];
+      const data =
+        currentServiceKeys && currentServiceKeys.some((k) => owned.has(k))
+          ? [{ status }]
+          : [];
       // Reset for the next chained query (each check rebuilds).
-      currentServiceKey = null;
+      currentServiceKeys = null;
       return Promise.resolve({ data, error: null } as QueryResult).then(resolve);
     },
   };
@@ -318,10 +344,12 @@ test('checkOrderActive: no rows → not active', async () => {
 test('checkOrderActive: queries status IN (paid, fulfilled)', async () => {
   const { supabase, calls } = makeSupabase({ data: [{ status: 'paid' }], error: null });
   await checkOrderActive(supabase, 'evt_9', 'STD_PREMIUM_OPENINGS');
-  assert.deepEqual(calls.find((c) => c.method === 'in')?.args, [
-    'status',
-    ['paid', 'fulfilled'],
-  ]);
+  // Two .in() calls now: service_key (canonical + aliases) then status. Assert
+  // the status filter specifically.
+  const statusIn = calls
+    .filter((c) => c.method === 'in')
+    .find((c) => (c.args[0] as string) === 'status');
+  assert.deepEqual(statusIn?.args, ['status', ['paid', 'fulfilled']]);
 });
 
 test('checkOrderActive: 42P01 → false (graceful)', async () => {
@@ -372,6 +400,82 @@ test('eventSkuActive: GUIDED_PACK (paid) activates a member but not a media-only
 test('eventSkuActive: nothing owned → not active', async () => {
   const supabase = makeOwnedSupabase(new Set(), 'paid');
   assert.equal(await eventSkuActive(supabase, 'evt_1', 'STD_PREMIUM_OPENINGS'), false);
+});
+
+// ──────────────────────────────────────────────────────────────────────────
+// SKU_OWNERSHIP_ALIASES — a purchase under an alternate per-tier key confers
+// ownership of the canonical SKU (patiktok buy-gate repair, 2026-06-28). The
+// Patiktok buy CTAs create per-DAY tier orders ('patiktok_setnayan_tiktok' /
+// 'patiktok_personal_tiktok'); the gate reads the canonical 'PATIKTOK_COMPILER'.
+// ──────────────────────────────────────────────────────────────────────────
+
+test('SKU_OWNERSHIP_ALIASES: PATIKTOK_COMPILER aliases the two per-day tier keys', () => {
+  const aliases = SKU_OWNERSHIP_ALIASES.PATIKTOK_COMPILER ?? [];
+  assert.ok(aliases.includes('patiktok_setnayan_tiktok'));
+  assert.ok(aliases.includes('patiktok_personal_tiktok'));
+});
+
+test('eventOwnsSku: a Patiktok per-day (Setnayan tier) order owns PATIKTOK_COMPILER', async () => {
+  const supabase = makeOwnedSupabase(new Set(['patiktok_setnayan_tiktok']));
+  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'PATIKTOK_COMPILER'), true);
+});
+
+test('eventOwnsSku: a Patiktok per-day (Personal tier) order owns PATIKTOK_COMPILER', async () => {
+  const supabase = makeOwnedSupabase(new Set(['patiktok_personal_tiktok']));
+  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'PATIKTOK_COMPILER'), true);
+});
+
+test('eventSkuActive: a PAID Patiktok per-day order activates PATIKTOK_COMPILER (the gate fires)', async () => {
+  const supabase = makeOwnedSupabase(new Set(['patiktok_setnayan_tiktok']), 'paid');
+  assert.equal(await eventSkuActive(supabase, 'evt_1', 'PATIKTOK_COMPILER'), true);
+});
+
+test('eventSkuActive: a SUBMITTED Patiktok per-day order does NOT activate PATIKTOK_COMPILER', async () => {
+  const supabase = makeOwnedSupabase(new Set(['patiktok_setnayan_tiktok']), 'submitted');
+  assert.equal(await eventSkuActive(supabase, 'evt_1', 'PATIKTOK_COMPILER'), false);
+});
+
+// eventActiveSkus reads ALL orders in one query (no per-key filter), so its
+// stub differs — it returns the configured rows verbatim. Assert the alias
+// collapse: a paid per-day patiktok row lands BOTH its raw key AND the canonical
+// PATIKTOK_COMPILER in the active set (the latter is what the Studio grid reads).
+function makeRowsSupabase(rows: { service_key: string; status: string }[]) {
+  const builder: Record<string, unknown> = {
+    from() {
+      return builder;
+    },
+    select() {
+      return builder;
+    },
+    eq() {
+      return builder;
+    },
+    in() {
+      return builder;
+    },
+    then(resolve: (value: { data: typeof rows; error: null }) => unknown) {
+      return Promise.resolve({ data: rows, error: null }).then(resolve);
+    },
+  };
+  return builder as unknown as SupabaseClient;
+}
+
+test('eventActiveSkus: a paid per-day Patiktok order marks PATIKTOK_COMPILER active (Studio grid flips)', async () => {
+  const supabase = makeRowsSupabase([
+    { service_key: 'patiktok_setnayan_tiktok', status: 'paid' },
+  ]);
+  const { active } = await eventActiveSkus(supabase, 'evt_1');
+  assert.ok(active.has('PATIKTOK_COMPILER'), 'canonical SKU is active for the grid');
+  assert.ok(active.has('patiktok_setnayan_tiktok'), 'raw per-tier key is kept too');
+});
+
+test('eventActiveSkus: a submitted per-day Patiktok order is PENDING, not active', async () => {
+  const supabase = makeRowsSupabase([
+    { service_key: 'patiktok_personal_tiktok', status: 'submitted' },
+  ]);
+  const { active, pending } = await eventActiveSkus(supabase, 'evt_1');
+  assert.equal(active.has('PATIKTOK_COMPILER'), false);
+  assert.ok(pending.has('PATIKTOK_COMPILER'), 'canonical SKU shows Pending');
 });
 
 // ──────────────────────────────────────────────────────────────────────────

@@ -20,6 +20,8 @@ import {
   type InspirationItem,
 } from './_components/inspiration-board';
 import { ConceptPdfButton } from './_components/concept-pdf-button';
+import { PrintablePdfButton } from './_components/printable-pdf-button';
+import { ShareWithVendorsButton } from './_components/share-with-vendors-button';
 
 export const metadata = { title: 'Mood Board' };
 
@@ -69,7 +71,14 @@ export default async function MoodBoardPage({ params }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [eventRes, guests, attireRes, venueFlowerRes, inspirationRes] = await Promise.all([
+  const [
+    eventRes,
+    guests,
+    attireRes,
+    venueFlowerRes,
+    inspirationRes,
+    bookedVendorRes,
+  ] = await Promise.all([
     supabase
       .from('events')
       .select(
@@ -107,9 +116,24 @@ export default async function MoodBoardPage({ params }: Props) {
       .select('slot_key, slot_position, image_url')
       .eq('event_id', eventId)
       .is('removed_at', null),
+    // Booked marketplace vendors for the "Share with vendors" affordance. Mirrors
+    // the get_vendor_mood_board RPC's booked-gate EXACTLY (any event_vendors row
+    // with a non-null marketplace_vendor_id; no status filter). Distinct rows here
+    // can repeat a vendor across categories — we de-dupe below for the count.
+    supabase
+      .from('event_vendors')
+      .select('marketplace_vendor_id')
+      .eq('event_id', eventId)
+      .not('marketplace_vendor_id', 'is', null),
   ]);
   const event = eventRes.data;
   if (!event) notFound();
+
+  const bookedVendorCount = new Set(
+    (bookedVendorRes.data ?? [])
+      .map((r) => r.marketplace_vendor_id as string | null)
+      .filter((id): id is string => Boolean(id)),
+  ).size;
 
   const inspirations: InspirationItem[] = (inspirationRes.data ?? []).map((r) => ({
     slot_key: r.slot_key,
@@ -317,16 +341,31 @@ export default async function MoodBoardPage({ params }: Props) {
         <InspirationBoard eventId={eventId} initial={inspirations} />
       </section>
 
-      <section className="space-y-4 rounded-2xl border border-ink/10 bg-white p-5">
+      <section className="space-y-4 border-t border-ink/10 pt-6">
         <header className="space-y-1">
-          <h2 className="text-2xl font-semibold text-ink">Your concept book</h2>
+          <h2 className="text-2xl font-semibold text-ink">Share with your vendors</h2>
           <p className="max-w-prose text-sm text-ink/65">
-            Your palette, your reception design, your custom template, and your inspirations —
-            gathered into a printable PDF to keep or share. When you’re ready, “Make it real”
-            adds the photo-real render to it.
+            Send your booked vendors a heads-up that your mood board is ready, so they can
+            match their styling, decor, and booth to your palette and reception design. They
+            see a read-only view — your palette, design, and inspirations, no guest details.
           </p>
         </header>
-        <ConceptPdfButton eventId={eventId} eventName={event.display_name} />
+        <ShareWithVendorsButton eventId={eventId} bookedVendorCount={bookedVendorCount} />
+      </section>
+
+      <section className="space-y-4 rounded-2xl border border-ink/10 bg-white p-5">
+        <header className="space-y-1">
+          <h2 className="text-2xl font-semibold text-ink">Keep a copy</h2>
+          <p className="max-w-prose text-sm text-ink/65">
+            Download a one-page printable of your palette and reception design — pin it to a
+            board or hand it to a vendor. Or grab your full concept book: palette, reception
+            design, custom template, and inspirations gathered into one PDF.
+          </p>
+        </header>
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start">
+          <PrintablePdfButton eventId={eventId} eventName={event.display_name} />
+          <ConceptPdfButton eventId={eventId} eventName={event.display_name} />
+        </div>
       </section>
     </div>
   );

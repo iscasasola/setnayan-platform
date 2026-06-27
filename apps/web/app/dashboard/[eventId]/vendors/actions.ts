@@ -20,6 +20,7 @@ import { resolveLivePax } from '@/lib/pax';
 import {
   VENDOR_CATEGORIES,
   VENDOR_STATUSES,
+  displayServiceLabel,
   type VendorCategory,
   type VendorStatus,
 } from '@/lib/vendors';
@@ -29,6 +30,14 @@ import {
   planGroupForCategory,
 } from '@/lib/wedding-plan-groups';
 import { CONFIRMED_VENDOR_STATUSES, recomputeReceptionAnchor } from '@/lib/events';
+import { getBatchVendorAvailableDays } from '@/lib/vendor-availability';
+import { intersectViableCandidates, formatCandidateDate } from '@/lib/candidate-dates';
+import { computeFinalizeReady } from '@/lib/lock-milestones';
+import {
+  computeAuspiciousReasons,
+  type CeremonyType,
+  type MeaningfulDateKind,
+} from '@/lib/auspicious-date';
 import { buildClaimUrl, ensureAutoShareInvite } from '@/lib/vendor-invites';
 import {
   fetchSlotsForCoupleBooking,
@@ -51,6 +60,23 @@ function isValidCategory(value: unknown): value is VendorCategory {
 
 function isValidStatus(value: unknown): value is VendorStatus {
   return typeof value === 'string' && (VENDOR_STATUSES as readonly string[]).includes(value);
+}
+
+const CEREMONY_TYPE_VALUES = [
+  'catholic',
+  'civil',
+  'inc',
+  'christian',
+  'muslim',
+  'cultural',
+  'mixed',
+] as const;
+
+function asCeremonyType(value: unknown): CeremonyType | null {
+  return typeof value === 'string' &&
+    (CEREMONY_TYPE_VALUES as readonly string[]).includes(value)
+    ? (value as CeremonyType)
+    : null;
 }
 
 function parseMoney(raw: FormDataEntryValue | null): number | null {
@@ -489,8 +515,29 @@ export async function deleteVendor(formData: FormData) {
 // signed-out users; everything beyond that is RLS-enforced.
 // ============================================================================
 
+/** What the just-completed lock unlocked — drives the milestone congrats card. */
+export type LockMilestone = {
+  /** "Reception venue" — the plan-group (or category) the couple just picked. */
+  pickedLabel: string;
+  /** True when this action ALSO finalized the wedding date (force-to-one flow). */
+  dateLocked: boolean;
+  /** Set only when the new lock completed a downstream feature's prerequisites. */
+  finalizeReady: { featureLabel: string; helper: string; href: string } | null;
+};
+
 export type FinalizeVendorResult =
-  | { status: 'ok'; vendorId: string; lockedStatus: string }
+  | { status: 'ok'; vendorId: string; lockedStatus: string; milestone: LockMilestone }
+  // Locking this vendor narrows the couple's remaining candidate dates to a
+  // single day — so confirming the lock also finalizes the wedding date. The
+  // UI surfaces "Locking this service will finally set your date to {date} —
+  // continue?"; on confirm it re-calls with confirm_date_lock=1.
+  | {
+      status: 'date_will_lock';
+      vendorId: string;
+      vendorName: string;
+      resultingDate: string; // 'YYYY-MM-DD'
+      dateLabel: string; // "Saturday, September 12, 2027"
+    }
   | { status: 'not_signed_in' }
   | { status: 'not_secured' }
   | { status: 'not_found' }
@@ -591,6 +638,10 @@ export async function finalizeVendor(
     typeof chosenSlotIdRaw === 'string' && chosenSlotIdRaw.length > 0
       ? chosenSlotIdRaw
       : null;
+  // Set by the date-lock confirmation modal — the couple agreed that locking
+  // this vendor (which narrows their candidates to one) also finalizes the date.
+  const confirmDateLockRaw = formData.get('confirm_date_lock');
+  const confirmDateLock = confirmDateLockRaw === '1' || confirmDateLockRaw === 'true';
 
   if (typeof eventId !== 'string' || eventId.length === 0) {
     return { status: 'error', message: 'Missing event id' };
@@ -709,6 +760,77 @@ export async function finalizeVendor(
       .eq('event_id', eventId);
     if (revertErr) {
       return { status: 'error', message: revertErr.message };
+    }
+  }
+
+  // ── Candidate-date narrowing gate (date-as-output, force-to-one) ─────────
+  // If the couple has NOT yet locked a wedding date but committed candidate
+  // dates at onboarding, locking this marketplace vendor narrows those
+  // candidates to the days every locked vendor (the already-contracted ones +
+  // this target) is free. When that leaves exactly ONE candidate, confirming
+  // the lock should ALSO finalize the wedding date — so we gate behind a
+  // confirmation: return 'date_will_lock' unless the couple already confirmed.
+  // forcedDateKey is carried to the post-lock block, which writes the date.
+  // Off-platform vendors (no marketplace profile) can't constrain a date and
+  // never trigger this gate.
+  let forcedDateKey: string | null = null;
+  if (targetVendor.marketplace_vendor_id) {
+    const { data: dateRow } = await supabase
+      .from('events')
+      .select('event_date, date_candidates')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    const existingDate = (dateRow as { event_date?: string | null } | null)?.event_date ?? null;
+    const candidates = Array.isArray(
+      (dateRow as { date_candidates?: unknown } | null)?.date_candidates,
+    )
+      ? ((dateRow as { date_candidates: unknown[] }).date_candidates).filter(
+          (s): s is string => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s),
+        )
+      : [];
+
+    if (!existingDate && candidates.length > 0) {
+      // Profile ids of vendors that constrain the date: already-locked
+      // marketplace vendors + this target.
+      const { data: lockedRows } = await supabase
+        .from('event_vendors')
+        .select('marketplace_vendor_id')
+        .eq('event_id', eventId)
+        .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[])
+        .is('archived_at', null)
+        .not('marketplace_vendor_id', 'is', null);
+      const profileIds = [
+        ...new Set<string>([
+          ...(lockedRows ?? []).map((r) => r.marketplace_vendor_id as string),
+          targetVendor.marketplace_vendor_id,
+        ]),
+      ];
+
+      const sorted = [...candidates].sort();
+      const [ys = 2027, ms = 1, ds = 1] = (sorted[0] ?? '2027-01-01').split('-').map(Number);
+      const [ye = 2027, me = 1, de = 1] = (sorted[sorted.length - 1] ?? sorted[0] ?? '2027-01-01')
+        .split('-')
+        .map(Number);
+      const avail = await getBatchVendorAvailableDays(
+        createAdminClient(),
+        profileIds,
+        new Date(ys, ms - 1, ds),
+        new Date(ye, me - 1, de),
+      );
+      const viable = intersectViableCandidates(candidates, avail, profileIds);
+
+      if (viable.length === 1) {
+        forcedDateKey = viable[0]!;
+        if (!confirmDateLock) {
+          return {
+            status: 'date_will_lock',
+            vendorId,
+            vendorName: targetVendor.vendor_name as string,
+            resultingDate: forcedDateKey,
+            dateLabel: formatCandidateDate(forcedDateKey),
+          };
+        }
+      }
     }
   }
 
@@ -1351,13 +1473,114 @@ export async function finalizeVendor(
     await recomputeReceptionAnchor(createAdminClient(), eventId);
   }
 
+  // ── Force-to-one: finalize the wedding date the lock just narrowed to. ───
+  // Only fires when the gate above set forcedDateKey AND the couple confirmed.
+  // Guarded with `.is('event_date', null)` so a concurrent date-lock wins
+  // (never clobbers an existing date). Mirrors lockEventDate's writes:
+  // event_date + precision 'day' + date_status 'locked' + auspicious_reasons.
+  // Best-effort — the vendor lock already succeeded; a date-write hiccup must
+  // never roll it back.
+  let dateLockedNow = false;
+  if (forcedDateKey && confirmDateLock) {
+    const { data: stillRow } = await supabase
+      .from('events')
+      .select('event_date, ceremony_type')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    const stillNoDate = !(stillRow as { event_date?: string | null } | null)?.event_date;
+    if (stillNoDate) {
+      const ceremonyType = asCeremonyType(
+        (stillRow as { ceremony_type?: unknown } | null)?.ceremony_type,
+      );
+      const meaningAdmin = createAdminClient();
+      const { data: meaningfulRows } = await meaningAdmin
+        .from('event_meaningful_dates')
+        .select('meaningful_date, kind, note')
+        .eq('event_id', eventId);
+      const [yy = 2027, mm = 1, dd = 1] = forcedDateKey.split('-').map(Number);
+      const reasons = computeAuspiciousReasons(
+        new Date(yy, mm - 1, dd),
+        ceremonyType,
+        (meaningfulRows ?? []).map((r) => ({
+          date: r.meaningful_date as string,
+          kind: r.kind as MeaningfulDateKind,
+          note: (r.note as string | null) ?? null,
+        })),
+      );
+      const { error: dateErr } = await supabase
+        .from('events')
+        .update({
+          event_date: forcedDateKey,
+          event_date_precision: 'day',
+          date_status: 'locked',
+          auspicious_reasons: reasons,
+        })
+        .eq('event_id', eventId)
+        .is('event_date', null);
+      if (!dateErr) dateLockedNow = true;
+    }
+  }
+
+  // ── Milestone: "you picked X" + optional "you can now finalize Y". ───────
+  // Best-effort — failure here must never roll back the lock. Reads the
+  // post-lock confirmed set so a venue lock that completes both venues (plus a
+  // date) surfaces the Save-the-Date finalize CTA on this very lock.
+  const lockedGroupId = planGroupForCategory(targetCategory);
+  let milestone: LockMilestone = {
+    pickedLabel: displayServiceLabel(targetCategory),
+    dateLocked: dateLockedNow,
+    finalizeReady: null,
+  };
+  try {
+    const { PLAN_GROUPS: planGroups } = await import('@/lib/wedding-plan-groups');
+    const pickedLabel =
+      planGroups.find((g) => g.id === lockedGroupId)?.label ??
+      displayServiceLabel(targetCategory);
+
+    const [{ data: confirmedRows }, { data: evDateRow }] = await Promise.all([
+      supabase
+        .from('event_vendors')
+        .select('category')
+        .eq('event_id', eventId)
+        .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[])
+        .is('archived_at', null),
+      supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle(),
+    ]);
+    const confirmedGroupIds = new Set<string>();
+    for (const r of confirmedRows ?? []) {
+      const gid = planGroupForCategory(r.category as VendorCategory);
+      if (gid) confirmedGroupIds.add(gid);
+    }
+    const hasDateNow = Boolean((evDateRow as { event_date?: string | null } | null)?.event_date);
+
+    const finalizeDef = computeFinalizeReady({
+      hasDate: hasDateNow,
+      confirmedGroupIds,
+      justLockedGroupId: lockedGroupId,
+      dateJustLocked: dateLockedNow,
+    });
+    milestone = {
+      pickedLabel,
+      dateLocked: dateLockedNow,
+      finalizeReady: finalizeDef
+        ? {
+            featureLabel: finalizeDef.featureLabel,
+            helper: finalizeDef.helper,
+            href: finalizeDef.href(eventId),
+          }
+        : null,
+    };
+  } catch (e) {
+    console.error(`[finalizeVendor] milestone compute failed for event=${eventId}:`, e);
+  }
+
   // Refresh both the event home (FinalizedChipStrip + PlanningGroups read
   // from the same event_vendors fetch) and the vendor tracker (separate
   // surface that lists every vendor + status).
   revalidatePath(`/dashboard/${eventId}`, 'layout');
   revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
 
-  return { status: 'ok', vendorId, lockedStatus: LOCKED_STATUS };
+  return { status: 'ok', vendorId, lockedStatus: LOCKED_STATUS, milestone };
 }
 
 // ============================================================================

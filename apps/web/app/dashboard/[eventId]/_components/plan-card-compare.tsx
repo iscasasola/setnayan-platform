@@ -24,11 +24,16 @@ import {
   listLockTimeSlots,
   revertVendorToConsidering,
   type FinalizeVendorResult,
+  type LockMilestone,
 } from '../vendors/actions';
 import {
   slotOptionLabel,
   type VendorServiceTimeSlot,
 } from '@/lib/vendor-time-slots';
+import {
+  LockDateConfirmModal,
+  LockMilestoneToast,
+} from '../vendors/_components/lock-milestone';
 import { trackFailure } from '@/lib/telemetry/track-error';
 
 // Owner-locked 2026-05-24: comparison capped at 2 across every surface
@@ -110,6 +115,16 @@ type LockState =
       slots: VendorServiceTimeSlot[];
       selectedSlotId: string;
     }
+  // Locking this vendor narrows the couple's candidate dates to one — confirm
+  // the lock also finalizes the wedding date.
+  | {
+      kind: 'date_confirm';
+      vendorId: string;
+      vendorName: string;
+      dateLabel: string;
+      override: boolean;
+      slotId: string | null;
+    }
   | { kind: 'error'; message: string };
 
 type ToastState =
@@ -119,6 +134,7 @@ type ToastState =
       vendorId: string;
       vendorName: string;
       undoUntil: number;
+      milestone: LockMilestone;
     };
 
 /**
@@ -184,9 +200,11 @@ export function PlanCardCompare({
     return () => dlg.removeEventListener('close', onClose);
   }, []);
 
-  // Auto-dismiss the toast after TOAST_AUTO_DISMISS_MS.
+  // Auto-dismiss the toast after TOAST_AUTO_DISMISS_MS — milestone toasts with
+  // a finalize CTA or a freshly-locked date persist until manually dismissed.
   useEffect(() => {
     if (toast.kind !== 'locked') return;
+    if (toast.milestone.finalizeReady || toast.milestone.dateLocked) return;
     const remaining = toast.undoUntil - Date.now();
     if (remaining <= 0) {
       setToast({ kind: 'hidden' });
@@ -229,7 +247,7 @@ export function PlanCardCompare({
         });
         return;
       }
-      performLock(vendorId, vendorName, false, null);
+      performLock(vendorId, vendorName, false, null, false);
     });
   };
 
@@ -238,6 +256,7 @@ export function PlanCardCompare({
     vendorName: string,
     overrideExisting: boolean,
     slotId: string | null,
+    confirmDateLock: boolean,
   ) => {
     setLockState({ kind: 'pending', vendorId });
     startTransition(async () => {
@@ -246,6 +265,7 @@ export function PlanCardCompare({
       fd.set('vendor_id', vendorId);
       if (overrideExisting) fd.set('override_existing', '1');
       if (slotId) fd.set('service_time_slot_id', slotId);
+      if (confirmDateLock) fd.set('confirm_date_lock', '1');
       let result: FinalizeVendorResult;
       try {
         result = await finalizeVendor(fd);
@@ -337,6 +357,10 @@ export function PlanCardCompare({
             vendorId,
             vendorName,
             undoUntil: Date.now() + TOAST_AUTO_DISMISS_MS,
+            milestone:
+              result.status === 'ok'
+                ? result.milestone
+                : { pickedLabel: vendorName, dateLocked: false, finalizeReady: null },
           });
           // Close the dialog after the brief locked-flash state.
           setTimeout(() => {
@@ -388,6 +412,16 @@ export function PlanCardCompare({
           }
           return;
         }
+        case 'date_will_lock':
+          setLockState({
+            kind: 'date_confirm',
+            vendorId,
+            vendorName,
+            dateLabel: result.dateLabel,
+            override: overrideExisting,
+            slotId,
+          });
+          return;
         case 'not_signed_in':
           setLockState({
             kind: 'error',
@@ -488,7 +522,7 @@ export function PlanCardCompare({
               existingVendorName={lockState.existingVendorName}
               newVendorName={lockState.vendorName}
               onSwitch={() =>
-                performLock(lockState.vendorId, lockState.vendorName, true, null)
+                performLock(lockState.vendorId, lockState.vendorName, true, null, false)
               }
               onCancel={cancelConflict}
               isPending={isPending}
@@ -520,6 +554,25 @@ export function PlanCardCompare({
                   lockState.vendorName,
                   false,
                   lockState.selectedSlotId,
+                  false,
+                )
+              }
+              onDismiss={() => setLockState({ kind: 'idle' })}
+            />
+          ) : null}
+
+          {lockState.kind === 'date_confirm' ? (
+            <LockDateConfirmModal
+              vendorName={lockState.vendorName}
+              dateLabel={lockState.dateLabel}
+              isPending={isPending}
+              onConfirm={() =>
+                performLock(
+                  lockState.vendorId,
+                  lockState.vendorName,
+                  lockState.override,
+                  lockState.slotId,
+                  true,
                 )
               }
               onDismiss={() => setLockState({ kind: 'idle' })}
@@ -701,13 +754,11 @@ export function PlanCardCompare({
         {groupId}
       </span>
 
-      {/* Undo toast — outlives the dialog so a host who clicks Lock then
-          immediately rethinks can roll back without re-opening Compare.
-          Lives at the bottom of the viewport with the polite "Undo" link
-          per the brand-voice rule (no dev-text, no jargon). */}
+      {/* Congrats + undo toast — outlives the dialog so a host who clicks Lock
+          then immediately rethinks can roll back without re-opening Compare. */}
       {toast.kind === 'locked' ? (
-        <UndoToast
-          vendorName={toast.vendorName}
+        <LockMilestoneToast
+          milestone={toast.milestone}
           onUndo={() => performUndo(toast.vendorId)}
           onDismiss={() => setToast({ kind: 'hidden' })}
         />
@@ -963,53 +1014,4 @@ function resolveBrowseSimilarHref(groupId: PlanGroupId): string {
   if (!group) return '/explore';
   const slug = WEDDING_FOLDER_SLUG[group.catalogFolder];
   return `/explore?folder=${slug}#${slug}`;
-}
-
-function UndoToast({
-  vendorName,
-  onUndo,
-  onDismiss,
-}: {
-  vendorName: string;
-  onUndo: () => void;
-  onDismiss: () => void;
-}) {
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="fixed bottom-4 left-1/2 z-50 w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 rounded-xl border border-success-300/60 bg-cream px-4 py-3 shadow-lg"
-    >
-      <div className="flex items-start gap-3">
-        <BookmarkCheck
-          aria-hidden
-          className="mt-0.5 h-5 w-5 shrink-0 text-success-700"
-          strokeWidth={2}
-        />
-        <div className="min-w-0 flex-1 space-y-1">
-          <p className="text-sm font-medium text-ink">
-            {vendorName} is locked in.
-          </p>
-          <p className="text-[11px] text-ink/60">
-            Changed your mind?{' '}
-            <button
-              type="button"
-              onClick={onUndo}
-              className="font-medium text-terracotta underline underline-offset-2 hover:text-terracotta/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-            >
-              Undo · revert to considering
-            </button>
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onDismiss}
-          aria-label="Dismiss"
-          className="shrink-0 rounded-md p-1 text-ink/45 hover:bg-ink/5 hover:text-ink/70"
-        >
-          <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-        </button>
-      </div>
-    </div>
-  );
 }

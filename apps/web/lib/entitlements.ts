@@ -45,6 +45,47 @@ export const RELINQUISHED_STATUSES = new Set<string>([
  */
 export const ACTIVE_STATUSES = new Set<string>(['paid', 'fulfilled']);
 
+/**
+ * Ownership ALIASES — purchase-time service_keys that confer the SAME ownership
+ * as a canonical catalog SKU.
+ *
+ * WHY (patiktok buy-gate repair, 2026-06-28): a feature can be SOLD under a
+ * different service_key than the one its gates read. Patiktok is the live case —
+ * the gate (this file), the Studio grid (eventActiveSkus), the add-on catalog
+ * (lib/add-ons-catalog.ts) and the Media Pack bundle all key on the canonical
+ * 'PATIKTOK_COMPILER', but the buy CTAs on studio/patiktok create per-DAY tier
+ * orders keyed 'patiktok_setnayan_tiktok' / 'patiktok_personal_tiktok' (the V1
+ * dual-tier per-day pricing, lib/patiktok.ts PATIKTOK_TIERS). With no bridge a
+ * couple who paid for a Patiktok day never reads as owning PATIKTOK_COMPILER, so
+ * the buy tiers re-show forever and the Studio card never flips to Active. This
+ * map closes that on the READ side: an order under any alias key grants its
+ * canonical SKU. No migration, no price change — ownership still IS orders.status,
+ * read one extra way (mirrors the bundle-aware read in eventOwnsSku).
+ *
+ * Keyed by CANONICAL service_key → the alternate purchase keys that grant it.
+ * Aligns with V1_TO_V2_SKU_MAP in lib/v2/sku-catalog-v2.ts (which already maps
+ * 'patiktok_setnayan_daily' → 'PATIKTOK_COMPILER').
+ */
+export const SKU_OWNERSHIP_ALIASES: Readonly<Record<string, ReadonlyArray<string>>> =
+  Object.freeze({
+    PATIKTOK_COMPILER: Object.freeze([
+      'patiktok_setnayan_tiktok',
+      'patiktok_personal_tiktok',
+      'patiktok_setnayan_daily',
+      'patiktok_personal_daily',
+    ]),
+  });
+
+/**
+ * Every service_key that confers ownership of `serviceKey` — the canonical key
+ * itself plus any purchase-time aliases. Used so a single ownership query
+ * matches an order placed under the SKU directly OR under an alias key.
+ */
+function ownershipKeysFor(serviceKey: string): string[] {
+  const aliases = SKU_OWNERSHIP_ALIASES[serviceKey];
+  return aliases ? [serviceKey, ...aliases] : [serviceKey];
+}
+
 export async function checkOrderOwnership(
   supabase: SupabaseClient,
   eventId: string,
@@ -54,7 +95,7 @@ export async function checkOrderOwnership(
     .from('orders')
     .select('status')
     .eq('event_id', eventId)
-    .eq('service_key', serviceKey)
+    .in('service_key', ownershipKeysFor(serviceKey))
     .not('status', 'in', '("cancelled","refunded","lapsed")');
 
   // Pre-bootstrap / schema-drift tolerance — undefined table or column means
@@ -90,7 +131,7 @@ export async function checkOrderActive(
     .from('orders')
     .select('status')
     .eq('event_id', eventId)
-    .eq('service_key', serviceKey)
+    .in('service_key', ownershipKeysFor(serviceKey))
     .in('status', ['paid', 'fulfilled']);
 
   if (error) {
@@ -207,6 +248,20 @@ const BUNDLES_GRANTING_SKU: ReadonlyMap<string, ReadonlyArray<string>> = (() => 
       list.push(bundleKey);
       m.set(child, list);
     }
+  }
+  return m;
+})();
+
+/**
+ * Reverse index: alias purchase key → its CANONICAL service_key. Built once from
+ * SKU_OWNERSHIP_ALIASES so the batch reader (eventActiveSkus) can collapse a
+ * per-tier order key (e.g. 'patiktok_setnayan_tiktok') to the canonical SKU
+ * (PATIKTOK_COMPILER) the Studio grid + add-on catalog read.
+ */
+const CANONICAL_FOR_ALIAS: ReadonlyMap<string, string> = (() => {
+  const m = new Map<string, string>();
+  for (const [canonical, aliases] of Object.entries(SKU_OWNERSHIP_ALIASES)) {
+    for (const alias of aliases) m.set(alias, canonical);
   }
   return m;
 })();
@@ -333,15 +388,25 @@ export async function eventActiveSkus(
     (BUNDLE_CHILD_SKUS as Record<string, ReadonlyArray<string>>)[key] ?? [];
 
   for (const row of data) {
-    const key = row.service_key as string | null;
-    if (!key) continue;
+    const rawKey = row.service_key as string | null;
+    if (!rawKey) continue;
     const status = (row.status as string | null) ?? '';
+    // Collapse a per-tier alias purchase key to its canonical SKU so a Patiktok
+    // per-day buyer reads as owning PATIKTOK_COMPILER (the key the Studio grid +
+    // add-on catalog gate on). Keep the raw key too — some surfaces read the
+    // per-tier code directly.
+    const canonical = CANONICAL_FOR_ALIAS.get(rawKey);
+    const keys = canonical ? [rawKey, canonical] : [rawKey];
     if (ACTIVE_STATUSES.has(status)) {
-      active.add(key);
-      for (const child of childrenOf(key)) active.add(child);
+      for (const key of keys) {
+        active.add(key);
+        for (const child of childrenOf(key)) active.add(child);
+      }
     } else if (status === 'submitted' || status === 'awaiting_payment') {
-      pending.add(key);
-      for (const child of childrenOf(key)) pending.add(child);
+      for (const key of keys) {
+        pending.add(key);
+        for (const child of childrenOf(key)) pending.add(child);
+      }
     }
   }
   return { active, pending };

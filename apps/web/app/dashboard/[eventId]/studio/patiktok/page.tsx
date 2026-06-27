@@ -165,15 +165,18 @@ export default async function PatiktokGallery({
 
   // 2026-06-22 · Paid owners land on their working booth, not a buy page.
   // Resolve admin-APPROVED ownership ONCE via the shared bundle-aware reader
-  // (lib/entitlements.eventSkuActive — covers a direct PATIKTOK_COMPILER order
-  // AND the MEDIA_PACK bundle that includes it; refund/cancel/lapse releases
-  // it). Read with the ADMIN client: orders RLS is purchaser-scoped, so a
-  // co-host member who didn't personally place the order would otherwise see
-  // the buy tiers. Graceful-degrade on a missing/legacy orders table (42P01 /
-  // 42703 → false) keeps pre-bootstrap DBs on the buy view rather than
-  // crashing. When active we HIDE the PricingTiers buy block and promote the
-  // booth launch + Your renders to the top; when inactive the buy-tiers view
-  // is unchanged. Mirrors the custom-qr-guest auto-show gate (PR #2019).
+  // (lib/entitlements.eventSkuActive — covers a direct PATIKTOK_COMPILER order,
+  // the per-day tier orders that the buy CTAs below actually create
+  // ('patiktok_setnayan_tiktok' / 'patiktok_personal_tiktok' · resolved via
+  // SKU_OWNERSHIP_ALIASES, 2026-06-28), AND the MEDIA_PACK bundle that includes
+  // it; refund/cancel/lapse releases it). Read with the ADMIN client: orders RLS
+  // is purchaser-scoped, so a co-host member who didn't personally place the
+  // order would otherwise see the buy tiers. Graceful-degrade on a missing/legacy
+  // orders table (42P01 / 42703 → false) keeps pre-bootstrap DBs on the buy view
+  // rather than crashing. When active we HIDE the PricingTiers buy block and
+  // promote the booth launch + Your renders to the top (additional days/overage
+  // are bought from the booth); when inactive the buy-tiers view is unchanged.
+  // Mirrors the custom-qr-guest auto-show gate (PR #2019).
   const patiktokActive = await eventSkuActive(
     createAdminClient(),
     eventId,

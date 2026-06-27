@@ -94,12 +94,14 @@ import {
   walkVector,
   steerPath,
   resolvePalette,
+  resolvePaletteFromRoles,
   DEMO_PALETTES,
   seatStatusOf,
   SIDE_COLOR,
   TENTATIVE_COLOR,
   PLUS_ONE_COLOR,
 } from '@/lib/seating-3d';
+import type { RolePalette } from '@/lib/mood-board';
 import { svgToMonogramTexture } from '@/lib/svg-monogram-texture';
 
 type Props = {
@@ -108,6 +110,8 @@ type Props = {
   floor: Lab3DFloor;
   guests: Lab3DGuest[];
   paletteHexes: string[];
+  /** Structured role palette from `events.role_palette` — the canonical source for scene materials. */
+  rolePalette: RolePalette;
   /** The couple's canonical mark — rendered as a medallion on the floor centre
    *  (the Play-mode camera's focal point). null → no mark. */
   monogram: Lab3DMonogram;
@@ -260,7 +264,7 @@ function SeatedAvatar({ tok, bodyMat }: { tok: SeatToken; bodyMat: THREE.Materia
 // A guest token animating between seats during a swap / table-swap.
 type Mover = { gid: string; color: string; opacity: number; path: Vec2[]; target: SeatRef };
 
-export default function SeatingLab3D({ eventId, tables: initialTables, floor: floorProp, guests, paletteHexes, monogram, animatedMonogram, me, keepApart: keepApartProp, priorityOrder: priorityOrderProp, groups, floorExtras }: Props) {
+export default function SeatingLab3D({ eventId, tables: initialTables, floor: floorProp, guests, paletteHexes, rolePalette, monogram, animatedMonogram, me, keepApart: keepApartProp, priorityOrder: priorityOrderProp, groups, floorExtras }: Props) {
   const router = useRouter();
   // Floor plan is LOCAL state so the lab can edit it (move/resize the stage +
   // dance floor, toggle entrance/dance) optimistically; it re-syncs from server
@@ -283,9 +287,9 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
   const [mode, setMode] = useState<'build' | 'play'>('build');
   const [paletteKey, setPaletteKey] = useState('mood');
   const palette = useMemo<Lab3DPalette>(() => {
-    if (paletteKey === 'mood') return resolvePalette(paletteHexes);
-    return DEMO_PALETTES.find((p) => p.key === paletteKey)?.palette ?? resolvePalette(paletteHexes);
-  }, [paletteKey, paletteHexes]);
+    if (paletteKey === 'mood') return resolvePaletteFromRoles(rolePalette);
+    return DEMO_PALETTES.find((p) => p.key === paletteKey)?.palette ?? resolvePaletteFromRoles(rolePalette);
+  }, [paletteKey, rolePalette]);
 
   // Single-editor lock — the SAME one the 2D editor uses, so 3D and 2D never
   // write at once. Acquire on mount; canEdit is false (view-only) until granted.

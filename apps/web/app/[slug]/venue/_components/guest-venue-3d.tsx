@@ -26,11 +26,13 @@ import {
   steerPath,
   floorObstacles,
   resolvePalette,
+  resolvePaletteFromRoles,
   type Lab3DFloor,
   type Lab3DTable,
   type Lab3DPalette,
   type Vec2,
 } from '@/lib/seating-3d';
+import type { RolePalette } from '@/lib/mood-board';
 
 export type VenueScene = {
   published: boolean;
@@ -45,6 +47,8 @@ export type VenueScene = {
   objects: { kind: string; xPct: number; yPct: number; rotationDeg: number }[];
   occupancy: { table: string; seats: number[] }[];
   you: { table: string; seatNumber: number; tablemates: { name: string; seatNumber: number }[] } | null;
+  /** The couple's mood-board role palette — drives 3D scene materials. Optional for backwards compat. */
+  rolePalette?: RolePalette;
 };
 
 const CHAIR_GEO = new THREE.BoxGeometry(0.42, 0.5, 0.42);
@@ -190,7 +194,10 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
     [scene],
   );
   const room = useMemo(() => roomSize(floor), [floor]);
-  const palette = useMemo(() => resolvePalette([]), []);
+  const palette = useMemo(
+    () => (scene.rolePalette ? resolvePaletteFromRoles(scene.rolePalette) : resolvePalette([])),
+    [scene.rolePalette],
+  );
   const tables: Lab3DTable[] = useMemo(
     () =>
       scene.tables.map((t) => ({

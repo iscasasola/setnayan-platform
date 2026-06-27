@@ -1,12 +1,20 @@
 import { cache } from 'react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
+import { after } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { Camera, CircleSlash, Lock, MapPin, Sparkles, X } from 'lucide-react';
 import { Logo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { readGuestSession } from '@/lib/guest-session';
+import {
+  resolveEffectiveVisibility,
+  isScheduledLaunchDue,
+  publishSaveTheDate,
+} from '@/lib/launch-save-the-date';
+import { fanOutSaveTheDateEmails } from '@/lib/save-the-date-emails';
 import { formatEventDate } from '@/lib/events';
 import { ROLE_LABELS, type GuestRole } from '@/lib/guests';
 import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
@@ -190,7 +198,7 @@ const fetchEventBySlug = cache(async (slug: string) => {
   const { data } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_accent_hex, is_sample',
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_accent_hex, is_sample',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -210,11 +218,10 @@ export async function generateMetadata({ params }: Pick<Props, 'params'>) {
 
   // Private by default (owner 2026-06-20): a wedding page is private until the
   // couple LAUNCHES their Save-the-Date (which flips this to 'public'). NULL /
-  // legacy rows coalesce to 'private' so they fail safe, not open.
-  const visibility = (event.landing_page_visibility ?? 'private') as
-    | 'public'
-    | 'unlisted'
-    | 'private';
+  // legacy rows coalesce to 'private' so they fail safe, not open. A SCHEDULED
+  // launch (owner 2026-06-28) reads as 'public' once its time has passed, so the
+  // page is indexable from the scheduled instant — same resolver as the body.
+  const visibility = resolveEffectiveVisibility(event);
 
   // Unlisted = reachable by link but not discoverable; private = lock screen
   // for strangers. Neither should be in a search index, and neither should
@@ -573,10 +580,25 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // Private by default (owner 2026-06-20): a wedding page is private until the
   // couple LAUNCHES their Save-the-Date (which flips this to 'public'). NULL /
   // legacy rows coalesce to 'private' so they fail safe, not open.
-  const visibility = (event.landing_page_visibility ?? 'private') as
-    | 'public'
-    | 'unlisted'
-    | 'private';
+  //
+  // SCHEDULED launch (owner 2026-06-28): if the couple set a future go-live and
+  // that moment has passed, the page reads as 'public' right now — visibility is
+  // exact at the scheduled instant. Cron-free (no timer flips the row): we
+  // persist the flip + push Save-the-Date emails AFTER the response, on this
+  // first load past the schedule. Idempotent — once visibility is 'public' the
+  // branch never re-fires, and per-guest guests.std_sent_at guards the emails.
+  if (isScheduledLaunchDue(event)) {
+    after(async () => {
+      try {
+        const published = await publishSaveTheDate(admin, event.event_id);
+        if (published?.slug) revalidatePath(`/${published.slug}`);
+        await fanOutSaveTheDateEmails(event.event_id);
+      } catch {
+        /* best-effort — the page already renders public this request */
+      }
+    });
+  }
+  const visibility = resolveEffectiveVisibility(event);
 
   if (visibility === 'private') {
     // Path A — guest cookie session for this exact event. Legitimate

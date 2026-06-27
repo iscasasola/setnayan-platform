@@ -118,6 +118,24 @@ const TAB_TITLE: Record<Tab, string> = {
   editorial: 'Editorial',
 };
 
+/**
+ * One-line "what this is + when guests see it" caption per phase — so a couple
+ * stepping through the preview understands which part of their site each tab
+ * shows, and when it goes live for guests. Settings = the page as it is now.
+ */
+const PHASE_CAPTION: Record<Tab, string> = {
+  settings: 'Your page as it looks right now to anyone you share it with.',
+  rsvp: 'The invitation guests see in the run-up — names, details, and the RSVP.',
+  event: 'The live day-of page guests open on the wedding day itself.',
+  editorial: 'The story page guests revisit after the day — photos and highlights.',
+};
+
+/** Preview URL for a phase: Settings shows the real live page; the other phases
+ *  load it with the matching `?phase=` host-only override. */
+function previewSrcFor(publicLandingUrl: string, phase: Tab): string {
+  return phase === 'settings' ? publicLandingUrl : `${publicLandingUrl}?phase=${phase}`;
+}
+
 export type SiteEditorProps = {
   eventId: string;
   slug: string | null;
@@ -223,22 +241,21 @@ export function SiteEditor(props: SiteEditorProps) {
           // host membership before honoring the param). Settings shows the
           // real live page (whatever phase the calendar says). Keying by tab
           // remounts the iframe on switch so each phase loads fresh.
-          <iframe
-            key={`preview-${previewNonce}-${tab}`}
-            title={
-              tab === 'settings'
-                ? 'Live preview of your wedding website'
-                : `Preview of your ${TAB_TITLE[tab]} page`
-            }
-            src={
-              tab === 'settings'
-                ? publicLandingUrl
-                : `${publicLandingUrl}?phase=${tab}`
-            }
-            className="pointer-events-none h-full w-full border-0 bg-white"
-            sandbox="allow-scripts allow-same-origin"
-            loading="lazy"
-          />
+          <>
+            <iframe
+              key={`preview-${previewNonce}-${tab}`}
+              title={
+                tab === 'settings'
+                  ? 'Live preview of your wedding website'
+                  : `Preview of your ${TAB_TITLE[tab]} page`
+              }
+              src={previewSrcFor(publicLandingUrl, tab)}
+              className="pointer-events-none h-full w-full border-0 bg-white"
+              sandbox="allow-scripts allow-same-origin"
+              loading="lazy"
+            />
+            <OpenPreviewLink href={previewSrcFor(publicLandingUrl, tab)} label={TAB_TITLE[tab]} />
+          </>
         ) : (
           <PreviewNoSlug eventId={eventId} />
         )}
@@ -294,6 +311,7 @@ export function SiteEditor(props: SiteEditorProps) {
               Swipe →
             </span>
           </div>
+          <p className="px-4 pb-1 text-xs text-ink/55">{PHASE_CAPTION[tab]}</p>
           {tab === 'settings' && <Carousel cards={settingsCards(props)} />}
           {tab === 'rsvp' && (
             <Carousel cards={rsvpCards(props, { onEditBackdrop: () => setEditing('backdrop') })} />
@@ -381,14 +399,17 @@ export function PhaseEditor({
           // Host-gated ?phase override — the couple's own session rides into the
           // same-origin iframe and the [slug] page verifies host membership
           // before honoring the param (so a guest can never force a phase).
-          <iframe
-            key={`preview-${previewNonce}`}
-            title={`Preview of your ${title} page`}
-            src={`${publicLandingUrl}?phase=${phase}`}
-            className="pointer-events-none h-full w-full border-0 bg-white"
-            sandbox="allow-scripts allow-same-origin"
-            loading="lazy"
-          />
+          <>
+            <iframe
+              key={`preview-${previewNonce}`}
+              title={`Preview of your ${title} page`}
+              src={`${publicLandingUrl}?phase=${phase}`}
+              className="pointer-events-none h-full w-full border-0 bg-white"
+              sandbox="allow-scripts allow-same-origin"
+              loading="lazy"
+            />
+            <OpenPreviewLink href={`${publicLandingUrl}?phase=${phase}`} label={title} />
+          </>
         ) : (
           <PreviewNoSlug eventId={eventId} />
         )}
@@ -402,6 +423,7 @@ export function PhaseEditor({
             Swipe →
           </span>
         </div>
+        <p className="px-4 pb-1 text-xs text-ink/55">{PHASE_CAPTION[phase]}</p>
         <Carousel cards={cards} />
       </div>
 
@@ -920,6 +942,26 @@ function editorialCards(p: SiteEditorProps): ReactNode[] {
 /* ─────────────────────────── preview placeholders ─────────────────────────── */
 /* (PreviewSoon retired 2026-06-11 — the Editorial tab now previews the REAL
    editorial page via the host-gated `?phase=editorial` override.) */
+
+/**
+ * OpenPreviewLink — a small "open this preview full-screen in a new tab" affordance
+ * over the (pointer-events-none) preview iframe. The href carries the same
+ * `?phase=` override the iframe uses, so the new tab lands on exactly what the
+ * couple is previewing. Host-gated server-side, same as the iframe.
+ */
+function OpenPreviewLink({ href, label }: { href: string; label: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="absolute bottom-3 right-3 z-30 inline-flex items-center gap-1.5 rounded-full bg-ink/45 px-3 py-1.5 text-[11px] font-medium text-cream backdrop-blur-sm transition hover:bg-ink/65"
+    >
+      Open {label} preview
+      <ArrowUpRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+    </a>
+  );
+}
 
 function PreviewNoSlug({ eventId }: { eventId: string }) {
   return (

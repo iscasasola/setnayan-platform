@@ -526,6 +526,12 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
               ))}
             </ul>
           )}
+          <Link
+            href={`/vendor-dashboard/clients/${eventId}/mood-board`}
+            className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-terracotta hover:underline"
+          >
+            View full mood board — reception design &amp; inspirations →
+          </Link>
         </div>
 
         {/* Monogram */}

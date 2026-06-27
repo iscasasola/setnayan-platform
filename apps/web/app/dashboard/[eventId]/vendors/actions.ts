@@ -1638,7 +1638,24 @@ export async function listLockTimeSlots(
 // ============================================================================
 
 export type AddRecommendedVendorResult =
-  | { status: 'ok'; eventVendorId: string; locked: boolean }
+  | {
+      status: 'ok';
+      eventVendorId: string;
+      locked: boolean;
+      /** Present when the Lock-too path locked the vendor (mirrors finalizeVendor). */
+      milestone: LockMilestone | null;
+    }
+  // Lock-too narrowed the couple's candidate dates to one — the considering row
+  // is already inserted; the UI confirms then calls finalizeVendor directly with
+  // this eventVendorId + confirm_date_lock=1 (re-calling THIS action would hit
+  // 'already_picked' on the now-existing row).
+  | {
+      status: 'date_will_lock';
+      eventVendorId: string;
+      vendorName: string;
+      resultingDate: string;
+      dateLabel: string;
+    }
   | { status: 'not_signed_in' }
   | { status: 'source_vendor_not_found' }
   | { status: 'service_not_found' }
@@ -1782,6 +1799,7 @@ export async function addRecommendedVendorToCategory(
   // same hard-single conflict + cleanup logic so the host gets one
   // coherent flow regardless of entry point.
   let locked = false;
+  let milestone: LockMilestone | null = null;
   if (lockImmediately) {
     const lockForm = new FormData();
     lockForm.set('event_id', eventId);
@@ -1794,7 +1812,24 @@ export async function addRecommendedVendorToCategory(
     // host into that modal.
     lockForm.set('override_existing', '0');
     const finalizeResult = await finalizeVendor(lockForm);
+
+    // Lock-too would finalize the wedding date — surface the confirmation up so
+    // the UI can show the date-lock modal. The considering row is already
+    // inserted; the UI confirms then calls finalizeVendor directly (re-calling
+    // this action would hit 'already_picked').
+    if (finalizeResult.status === 'date_will_lock') {
+      revalidatePath(`/dashboard/${eventId}`, 'layout');
+      revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
+      return {
+        status: 'date_will_lock',
+        eventVendorId: inserted.vendor_id,
+        vendorName: insertedVendorName,
+        resultingDate: finalizeResult.resultingDate,
+        dateLabel: finalizeResult.dateLabel,
+      };
+    }
     locked = finalizeResult.status === 'ok';
+    if (finalizeResult.status === 'ok') milestone = finalizeResult.milestone;
     // Note: we don't surface the conflict result up here — the
     // recommendation UI is a "Consider" path; locking is a secondary
     // affordance. If the lock fails, the row still exists as a
@@ -1803,7 +1838,7 @@ export async function addRecommendedVendorToCategory(
 
   revalidatePath(`/dashboard/${eventId}`, 'layout');
   revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
-  return { status: 'ok', eventVendorId: inserted.vendor_id, locked };
+  return { status: 'ok', eventVendorId: inserted.vendor_id, locked, milestone };
 }
 
 // ============================================================================

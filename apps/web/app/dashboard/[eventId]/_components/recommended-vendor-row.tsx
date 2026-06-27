@@ -3,7 +3,15 @@
 import Image from 'next/image';
 import { useState, useTransition } from 'react';
 import { AlertCircle, BookmarkCheck, Check, Sparkles } from 'lucide-react';
-import { addRecommendedVendorToCategory } from '../vendors/actions';
+import {
+  addRecommendedVendorToCategory,
+  finalizeVendor,
+  type LockMilestone,
+} from '../vendors/actions';
+import {
+  LockDateConfirmModal,
+  LockMilestoneToast,
+} from '../vendors/_components/lock-milestone';
 
 /**
  * RecommendedVendorRow — cross-category vendor recommendation row on each
@@ -31,6 +39,8 @@ import { addRecommendedVendorToCategory } from '../vendors/actions';
 
 type Mode = 'idle' | 'pending' | 'added' | 'locked' | 'error';
 
+type DateConfirm = { eventVendorId: string; dateLabel: string } | null;
+
 type Props = {
   eventId: string;
   marketplaceVendorId: string;
@@ -55,6 +65,42 @@ export function RecommendedVendorRow({
   const [pending, startTransition] = useTransition();
   const [mode, setMode] = useState<Mode>('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [dateConfirm, setDateConfirm] = useState<DateConfirm>(null);
+  const [milestone, setMilestone] = useState<LockMilestone | null>(null);
+
+  // Confirm path for the date-lock modal: the considering row already exists, so
+  // we call finalizeVendor DIRECTLY (re-running submit() would hit already_picked).
+  function confirmDateLock(eventVendorId: string) {
+    if (pending) return;
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('vendor_id', eventVendorId);
+    fd.set('confirm_date_lock', '1');
+    startTransition(async () => {
+      setMode('pending');
+      try {
+        const result = await finalizeVendor(fd);
+        if (result.status === 'ok' || result.status === 'already_locked') {
+          setDateConfirm(null);
+          setMode('locked');
+          if (result.status === 'ok') setMilestone(result.milestone);
+        } else if (result.status === 'error') {
+          setDateConfirm(null);
+          setMode('error');
+          setErrorMsg(result.message);
+        } else {
+          // conflict / soft-hold / slot — keep it simple here (secondary path):
+          // the considering row stands; the host can lock from the card.
+          setDateConfirm(null);
+          setMode('added');
+        }
+      } catch {
+        setDateConfirm(null);
+        setMode('error');
+        setErrorMsg('Couldn’t reach our servers. Try again.');
+      }
+    });
+  }
 
   function submit(desiredStatus: 'considering' | 'contracted') {
     if (pending) return;
@@ -71,6 +117,14 @@ export function RecommendedVendorRow({
         const result = await addRecommendedVendorToCategory(form);
         if (result.status === 'ok') {
           setMode(result.locked ? 'locked' : 'added');
+          if (result.milestone) setMilestone(result.milestone);
+        } else if (result.status === 'date_will_lock') {
+          // Lock-too would finalize the wedding date — confirm first.
+          setMode('idle');
+          setDateConfirm({
+            eventVendorId: result.eventVendorId,
+            dateLabel: result.dateLabel,
+          });
         } else if (result.status === 'already_picked') {
           // Idempotent — surface as added so the host sees the same
           // success affordance regardless of whether they double-clicked.
@@ -186,6 +240,22 @@ export function RecommendedVendorRow({
           </p>
         )}
       </div>
+
+      {/* Date-lock confirmation — Lock-too would finalize the wedding date. */}
+      {dateConfirm ? (
+        <LockDateConfirmModal
+          vendorName={vendorName}
+          dateLabel={dateConfirm.dateLabel}
+          isPending={pending}
+          onConfirm={() => confirmDateLock(dateConfirm.eventVendorId)}
+          onDismiss={() => setDateConfirm(null)}
+        />
+      ) : null}
+
+      {/* Congrats toast — no undo here (secondary affordance). */}
+      {milestone ? (
+        <LockMilestoneToast milestone={milestone} onDismiss={() => setMilestone(null)} />
+      ) : null}
     </div>
   );
 }

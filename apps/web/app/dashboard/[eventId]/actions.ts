@@ -26,6 +26,8 @@ import {
   sanitizeName,
 } from '@/lib/match-criteria';
 import { resolveRegion } from '@/lib/region-source';
+import { baziBirthDataEnabled } from '@/lib/bazi-birthdata';
+import { isChineseWedding } from '@/lib/chinese-wedding';
 import {
   computeCompatibilityIssue,
   type EventVendorRowInput,
@@ -509,6 +511,10 @@ type UpdateMatchCriteriaResult =
   | { ok: true }
   | { ok: false; code: 'invalid_input' | 'unauthorized' | 'db_error'; message: string };
 
+// PR-G — sentinel returned by the BaZi birth-data parsers to distinguish
+// "field cleared" (null) from "field malformed" (INVALID → reject the write).
+const INVALID = Symbol('invalid');
+
 export async function updateEventMatchCriteria(
   formData: FormData,
 ): Promise<UpdateMatchCriteriaResult> {
@@ -627,7 +633,15 @@ export async function updateEventMatchCriteria(
   const admin = createAdminClient();
   const { data: before } = await admin
     .from('events')
-    .select('region, mood_feel_key, estimated_budget_centavos, bride_name, groom_name, display_name')
+    .select(
+      'region, mood_feel_key, estimated_budget_centavos, bride_name, groom_name, display_name, ' +
+        // PR-G — read the stored ceremony so the BaZi birth-data write gates on
+        // the SERVER's view of the event (never trusts the client), and capture
+        // the prior birth fields for the audit before/after.
+        'ceremony_type, secondary_ceremony_type, ' +
+        'partner_a_birth_date, partner_a_birth_time, partner_b_birth_date, ' +
+        'partner_b_birth_time, bazi_birthdata_consent_at',
+    )
     .eq('event_id', eventId)
     .maybeSingle();
 
@@ -642,6 +656,79 @@ export async function updateEventMatchCriteria(
   // is present — never blank an existing display_name.
   if (recomputedDisplay !== '') {
     updatePatch.display_name = recomputedDisplay;
+  }
+
+  // PR-G — opt-in, consent-gated, flag-gated BaZi birth-data write. TRIPLE GATE
+  // (all three required to touch any birth column):
+  //   1. baziBirthDataEnabled()              — feature flag (default OFF).
+  //   2. isChineseWedding(stored ceremony)   — server's view, not the client's.
+  //   3. the explicit consent checkbox        — 'bazi_birthdata_consent' === '1'.
+  // When the gate is closed we DO NOT add any birth key to updatePatch, so the
+  // write is byte-identical to before. The app never computes a clash verdict —
+  // these fields exist only to hand to a date specialist (RA 10173 purpose
+  // limitation). Sensitive data; never read on any public/guest surface.
+  const beforeRow = (before ?? null) as Record<string, unknown> | null;
+  if (
+    baziBirthDataEnabled() &&
+    isChineseWedding({
+      ceremony_type: (beforeRow?.ceremony_type as string | null) ?? null,
+      secondary_ceremony_type: (beforeRow?.secondary_ceremony_type as string | null) ?? null,
+    })
+  ) {
+    const consent = formData.get('bazi_birthdata_consent') === '1';
+    if (consent) {
+      // Parse + validate each field; '' clears that field. Reject malformed
+      // values rather than writing garbage. Date = YYYY-MM-DD, time = HH:MM.
+      const parseDate = (key: string): string | null | typeof INVALID => {
+        const raw = formData.get(key);
+        const s = typeof raw === 'string' ? raw.trim() : '';
+        if (s === '') return null;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return INVALID;
+        // Parse in UTC and round-trip: JS Date rolls impossible days over
+        // (2020-02-30 → Mar 1) instead of NaN-ing, so a NaN check alone lets
+        // them through to Postgres as a generic db_error. Comparing the
+        // reconstructed YYYY-MM-DD (UTC, since the input is date-only) back to
+        // the input rejects 2020-02-30 / 2021-04-31 here with a friendly message.
+        const d = new Date(`${s}T00:00:00Z`);
+        if (Number.isNaN(d.getTime())) return INVALID;
+        if (d.toISOString().slice(0, 10) !== s) return INVALID;
+        // Reasonable adult-birth bounds: not in the future, not absurdly old.
+        const year = Number(s.slice(0, 4));
+        if (year < 1900 || d.getTime() > Date.now()) return INVALID;
+        return s;
+      };
+      const parseTime = (key: string): string | null | typeof INVALID => {
+        const raw = formData.get(key);
+        const s = typeof raw === 'string' ? raw.trim() : '';
+        if (s === '') return null;
+        if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(s)) return INVALID;
+        return s;
+      };
+
+      const pAD = parseDate('partner_a_birth_date');
+      const pAT = parseTime('partner_a_birth_time');
+      const pBD = parseDate('partner_b_birth_date');
+      const pBT = parseTime('partner_b_birth_time');
+      if (pAD === INVALID || pAT === INVALID || pBD === INVALID || pBT === INVALID) {
+        return { ok: false, code: 'invalid_input', message: 'Enter a valid birth date and time' };
+      }
+
+      updatePatch.partner_a_birth_date = pAD;
+      updatePatch.partner_a_birth_time = pAT;
+      updatePatch.partner_b_birth_date = pBD;
+      updatePatch.partner_b_birth_time = pBT;
+      // Stamp a FRESH consent receipt on every consented write — never write the
+      // birth fields without one (RA 10173). now() server-side.
+      updatePatch.bazi_birthdata_consent_at = new Date().toISOString();
+    } else {
+      // Consent withdrawn (box unticked) — purge any previously-stored birth
+      // data and clear the consent receipt. Right-to-erasure on opt-out.
+      updatePatch.partner_a_birth_date = null;
+      updatePatch.partner_a_birth_time = null;
+      updatePatch.partner_b_birth_date = null;
+      updatePatch.partner_b_birth_time = null;
+      updatePatch.bazi_birthdata_consent_at = null;
+    }
   }
 
   const { error: updateError } = await admin

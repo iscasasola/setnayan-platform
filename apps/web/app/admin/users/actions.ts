@@ -6,6 +6,81 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revokeAllSessions } from '@/lib/force-logout';
 
+/**
+ * RA 10173 right-to-erasure helper (PR-G).
+ *
+ * Account hard-delete removes auth.users → cascades to public.users + the
+ * event_members membership rows. But `events` has NO foreign key to its owner
+ * (the link is via event_members only), so the events ROW — and any sensitive
+ * per-partner birth date/time captured for the BaZi date-check — SURVIVES the
+ * delete. That's a right-to-erasure violation for sensitive data.
+ *
+ * This NULLs the 5 birth/consent columns on every event the deleted user OWNS
+ * (member_type='couple') BEFORE the auth delete cascades the membership rows
+ * away (after which we'd no longer be able to find the owner→event link). The
+ * rest of the event row is intentionally left intact — a wedding can have two
+ * partners + coordinators; we purge the leaving user's sensitive data, not the
+ * shared event. Best-effort: a purge failure is logged but does not block the
+ * deletion (a stuck purge must never trap an account in an undeletable state);
+ * the column-level COMMENTs flag this data for a manual sweep if needed.
+ *
+ * Uses the service-role admin client (passed in) so it isn't subject to the
+ * leaving user's RLS, which may already be partially torn down.
+ */
+async function purgeOwnedEventBirthData(
+  admin: ReturnType<typeof createAdminClient>,
+  targetUserId: string,
+  actorUserId: string,
+): Promise<void> {
+  // RA 10173 right-to-erasure: a purge failure must NOT trap the account in an
+  // undeletable state, but it also must not silently vanish — the irreversible
+  // auth-delete that follows severs the owner→event link, so un-purged birth
+  // data would orphan undiscoverably. On any failure we leave a durable
+  // admin_audit_log row so the erasure miss is recoverable via a manual sweep.
+  const recordErasureFailure = async (stage: string, message: string, eventIds: string[]) => {
+    console.error(`[purgeOwnedEventBirthData] ${stage} failed`, message);
+    await admin
+      .from('admin_audit_log')
+      .insert({
+        action: 'erasure_purge_failed',
+        target_id: targetUserId,
+        actor_user_id: actorUserId,
+        metadata: { stage, message, event_ids: eventIds, kind: 'bazi_birth_data' },
+      })
+      .then(({ error }) => {
+        if (error) console.error('[purgeOwnedEventBirthData] audit-log write failed', error.message);
+      });
+  };
+
+  const { data: owned, error: lookupErr } = await admin
+    .from('event_members')
+    .select('event_id')
+    .eq('user_id', targetUserId)
+    .eq('member_type', 'couple');
+  if (lookupErr) {
+    await recordErasureFailure('owned-event-lookup', lookupErr.message, []);
+    return;
+  }
+  const eventIds = (owned ?? [])
+    .map((r) => (r as { event_id?: string }).event_id)
+    .filter((v): v is string => typeof v === 'string' && v.length > 0);
+  if (eventIds.length === 0) return;
+
+  const { error: purgeErr } = await admin
+    .from('events')
+    .update({
+      partner_a_birth_date: null,
+      partner_a_birth_time: null,
+      partner_b_birth_date: null,
+      partner_b_birth_time: null,
+      bazi_birthdata_consent_at: null,
+    })
+    .in('event_id', eventIds);
+  if (purgeErr) {
+    await recordErasureFailure('birth-data-purge', purgeErr.message, eventIds);
+  }
+}
+
 async function requireAdmin() {
   const supabase = await createClient();
   const {
@@ -147,6 +222,11 @@ export async function deleteUser(formData: FormData) {
     throw new Error('Cannot delete an internal account');
   }
 
+  // RA 10173 (PR-G) — purge sensitive birth data on owned events BEFORE the auth
+  // delete cascades the membership rows away (events have no owner FK, so the
+  // data would otherwise survive the delete). Right-to-erasure.
+  await purgeOwnedEventBirthData(admin, targetUserId, adminUserId);
+
   const { error } = await admin.auth.admin.deleteUser(targetUserId);
   if (error) throw new Error(error.message);
 
@@ -201,6 +281,10 @@ export async function blacklistUser(formData: FormData) {
   if (bError && !bError.message.toLowerCase().includes('duplicate')) {
     throw new Error(bError.message);
   }
+
+  // RA 10173 (PR-G) — purge sensitive birth data on owned events BEFORE the auth
+  // delete cascades the membership rows away (same no-owner-FK gap as deleteUser).
+  await purgeOwnedEventBirthData(admin, targetUserId, adminUserId);
 
   const { error: dError } = await admin.auth.admin.deleteUser(targetUserId);
   if (dError) throw new Error(dError.message);

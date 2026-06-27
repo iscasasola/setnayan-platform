@@ -6,6 +6,7 @@ import {
   ArrowRight,
   CheckCircle2,
   Clock,
+  Compass,
   ExternalLink,
   FileText,
   ScrollText,
@@ -163,6 +164,14 @@ export default async function PaperworkPage({ params }: Props) {
 
   const summary = summarize(rows, event.event_date);
 
+  // Chinese (Tsinoy) wedding — primary OR secondary 'chinese' (the overlay).
+  // Gates the tea-ceremony helper link (PR-F) + the BaZi date-specialist
+  // deep-link (PR-G) in the traditions guide.
+  const isChinese = isChineseWedding({
+    ceremony_type: event.ceremony_type,
+    secondary_ceremony_type: event.secondary_ceremony_type,
+  });
+
   return (
     <section className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -197,17 +206,14 @@ export default async function PaperworkPage({ params }: Props) {
       <TraditionsGuide
         ceremony={ceremony}
         items={traditionItems}
-        // Chinese (Tsinoy) events — primary OR secondary 'chinese' — get a link
-        // from the tradition guide's tea-ceremony note to the actionable
-        // serving-order helper. null hides the link for every other event.
-        teaCeremonyHref={
-          isChineseWedding({
-            ceremony_type: event.ceremony_type,
-            secondary_ceremony_type: event.secondary_ceremony_type,
-          })
-            ? `/dashboard/${eventId}/guests/tea-ceremony`
-            : null
-        }
+        // Chinese (Tsinoy) events — primary OR secondary 'chinese' — get two
+        // links from the tradition guide: the tea-ceremony serving-order helper
+        // (PR-F) and the BaZi date-specialist deep-link (PR-G). Both null for
+        // every other event. The BaZi card stays ADVISORY — it routes to a real
+        // date/feng-shui consultant (the `date_fengshui_consultant` vendor leaf);
+        // the app never computes a clash/compatibility verdict.
+        teaCeremonyHref={isChinese ? `/dashboard/${eventId}/guests/tea-ceremony` : null}
+        baziSpecialistHref={isChinese ? `/explore?category=date_fengshui_consultant` : null}
       />
 
       {needsSeed ? (
@@ -269,12 +275,18 @@ function TraditionsGuide({
   ceremony,
   items,
   teaCeremonyHref,
+  baziSpecialistHref,
 }: {
   ceremony: TraditionGuideKey;
   items?: TraditionItem[] | null;
   /** When set (Chinese events), renders a link from the tea-ceremony note to
    *  the actionable serving-order helper. null for every other ceremony. */
   teaCeremonyHref?: string | null;
+  /** When set (Chinese events, PR-G), renders an ADVISORY link to the BaZi
+   *  date/feng-shui specialist (the `date_fengshui_consultant` vendor leaf).
+   *  The app never computes a clash verdict — this routes to a real reader.
+   *  null for every other ceremony. */
+  baziSpecialistHref?: string | null;
 }) {
   const guide = WEDDING_TRADITIONS_GUIDE[ceremony];
   if (!guide) return null;
@@ -307,15 +319,36 @@ function TraditionsGuide({
           </li>
         ))}
       </ul>
-      {teaCeremonyHref ? (
-        <Link
-          href={teaCeremonyHref}
-          className="inline-flex items-center gap-2 rounded-md border border-terracotta/30 bg-cream px-3 py-2 text-sm font-medium text-terracotta-700 transition-colors hover:border-terracotta/50 hover:text-terracotta-800"
-        >
-          <ScrollText className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
-          Plan your tea-ceremony serving order
-          <ArrowRight className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
-        </Link>
+      {teaCeremonyHref || baziSpecialistHref ? (
+        <div className="flex flex-wrap gap-2">
+          {teaCeremonyHref ? (
+            <Link
+              href={teaCeremonyHref}
+              className="inline-flex items-center gap-2 rounded-md border border-terracotta/30 bg-cream px-3 py-2 text-sm font-medium text-terracotta-700 transition-colors hover:border-terracotta/50 hover:text-terracotta-800"
+            >
+              <ScrollText className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
+              Plan your tea-ceremony serving order
+              <ArrowRight className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
+            </Link>
+          ) : null}
+          {baziSpecialistHref ? (
+            <Link
+              href={baziSpecialistHref}
+              className="inline-flex items-center gap-2 rounded-md border border-terracotta/30 bg-cream px-3 py-2 text-sm font-medium text-terracotta-700 transition-colors hover:border-terracotta/50 hover:text-terracotta-800"
+            >
+              <Compass className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
+              Find a date / feng-shui specialist
+              <ArrowRight className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
+      {baziSpecialistHref ? (
+        <p className="text-xs text-ink/55">
+          A traditional Four Pillars (BaZi) reading weighs each partner&apos;s birth
+          date and time of birth against the wedding day. It&apos;s a blessing a
+          specialist gives — we never calculate compatibility for you.
+        </p>
       ) : null}
       {guide.confirmWith ? (
         <p className="text-xs text-ink/55">

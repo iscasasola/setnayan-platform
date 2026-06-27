@@ -11,9 +11,12 @@
  *
  * Smart candidate path (no ?path param, event_date IS NULL, date_candidates
  * has entries from onboarding): shows the top 3 candidate dates compared
- * on 5 pro signals — shortlist vendor availability, budget range, date
- * perspective, marketplace services coverage, and prep-time status.
- * Falls back to the 3-path chooser when no candidates exist.
+ * on differentiating signals — shortlist vendor availability, budget,
+ * meaningful/auspicious resonance, long-weekend guest-travel, marketplace
+ * services coverage, and prep-time status. The client component adds a
+ * synthesized "Our pick" recommendation, per-dimension winner pills, and a
+ * "pin a must-have vendor" re-rank. Falls back to the 3-path chooser when no
+ * candidates exist.
  *
  * Per orphan-prevention rule [[feedback_setnayan_orphan_prevention]]:
  * entry points are (a) auspicious chip on /dashboard/[eventId] event home
@@ -23,13 +26,19 @@
  */
 
 import { notFound, redirect } from 'next/navigation';
-import { ArrowLeft, Calendar, Heart, Sparkles, Clock } from 'lucide-react';
+import { ArrowLeft, Calendar, Heart, Clock } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
-import type { CeremonyType, MeaningfulDate, MeaningfulDateKind } from '@/lib/auspicious-date';
+import {
+  computeAuspiciousReasonsDetailed,
+  type CeremonyType,
+  type MeaningfulDate,
+  type MeaningfulDateKind,
+} from '@/lib/auspicious-date';
 import { fetchEventVendors } from '@/lib/vendors';
 import { getBatchVendorAvailableDays } from '@/lib/vendor-availability';
+import { displayServiceLabel } from '@/lib/vendors';
 import { DatePicker } from './_components/date-picker';
 import { FourQuestionFlow } from './_components/four-question-flow';
 import { CandidateDatePicker, type CandidateInsight } from './_components/candidate-date-picker';
@@ -56,29 +65,19 @@ type Props = {
   searchParams?: Promise<{ path?: string }>;
 };
 
-// ─── Date perspective helpers ────────────────────────────────────────────────
-
-const DOW_NOTES: Record<number, string> = {
-  6: 'Saturday · most popular day for Philippine weddings',
-  0: 'Sunday · popular for morning church ceremonies',
-  5: 'Friday · great for long-weekend celebrations',
-  4: 'Thursday · ideal for intimate destination weddings',
-  1: 'Monday · fewer bookings · more vendor flexibility',
-  2: 'Tuesday · fewer bookings · more vendor flexibility',
-  3: 'Wednesday · fewer bookings · more vendor flexibility',
-};
+// ─── Season + month framing (pure, no DB) ─────────────────────────────────────
 
 const SEASON_NOTES: Record<number, string> = {
   12: 'Cool dry season · perfect for outdoor receptions',
-  1:  'Cool dry season · perfect for outdoor receptions',
-  2:  'Cool dry season · Valentines energy · ideal time',
-  3:  'Hot dry season · sunset ceremonies are stunning',
-  4:  'Hot dry season · beach and garden venues shine',
-  5:  'Transition season · indoor venues recommended',
-  6:  'Wet season · lush greenery · covered venues advised',
-  7:  'Wet season · lush backdrops · covered venues advised',
-  8:  'Wet season · dramatic skies · covered venues advised',
-  9:  'Wet season · temperatures cooling down',
+  1: 'Cool dry season · perfect for outdoor receptions',
+  2: 'Cool dry season · Valentine energy in the air',
+  3: 'Hot dry season · sunset ceremonies look stunning',
+  4: 'Hot dry season · beach and garden venues shine',
+  5: 'Transition season · indoor venues recommended',
+  6: 'Wet season · lush greenery · covered venues advised',
+  7: 'Wet season · lush backdrops · covered venues advised',
+  8: 'Wet season · dramatic skies · covered venues advised',
+  9: 'Wet season · temperatures cooling down',
   10: 'Transition season · weather clearing',
   11: 'Cool season starting · peak season approaching',
 };
@@ -86,19 +85,70 @@ const SEASON_NOTES: Record<number, string> = {
 const PEAK_MONTHS = new Set([12, 2, 11, 1]);
 const SHOULDER_MONTHS = new Set([10, 3]);
 
-function datePerspective(dateKey: string) {
-  const [y = 1970, m = 1, d = 1] = dateKey.split('-').map(Number);
-  const dt = new Date(y, m - 1, d);
-  const dow = dt.getDay();
-  return {
-    dowNote: DOW_NOTES[dow] ?? `${dt.toLocaleDateString('en-US', { weekday: 'long' })} wedding`,
-    seasonNote: SEASON_NOTES[m] ?? 'Beautiful time of year',
-    monthNote: PEAK_MONTHS.has(m)
-      ? 'Peak season · book vendors early'
-      : SHOULDER_MONTHS.has(m)
-      ? 'Shoulder season · good availability and weather'
-      : 'Off-peak month · more vendor availability',
-  };
+function monthNote(m: number): string {
+  if (PEAK_MONTHS.has(m)) return 'Peak season · book vendors early';
+  if (SHOULDER_MONTHS.has(m)) return 'Shoulder season · good availability and weather';
+  return 'Off-peak month · more vendor availability';
+}
+
+// ─── PH holiday / long-weekend detection ──────────────────────────────────────
+// Fixed-date PH regular + special holidays. Movable holidays (Easter, Eid,
+// National Heroes Day) are intentionally excluded — they can't be computed from
+// month/day alone, and an honest "near a holiday" claim is better than a wrong
+// one. Keyed "MM-DD".
+
+const PH_HOLIDAYS: Record<string, string> = {
+  '01-01': "New Year's Day",
+  '04-09': 'Araw ng Kagitingan',
+  '05-01': 'Labor Day',
+  '06-12': 'Independence Day',
+  '08-21': 'Ninoy Aquino Day',
+  '11-01': "All Saints' Day",
+  '11-02': "All Souls' Day",
+  '11-30': 'Bonifacio Day',
+  '12-08': 'Immaculate Conception',
+  '12-25': 'Christmas Day',
+  '12-30': 'Rizal Day',
+  '12-31': "New Year's Eve",
+};
+
+function mmdd(d: Date): string {
+  return `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Guest-travel signal. Returns a note when the candidate date IS a holiday, or
+ * sits adjacent to one such that a long weekend forms (Sat/Sun next to a
+ * Fri/Mon holiday, or a holiday within 1 day either side). Null when nothing
+ * notable — the card then omits the row.
+ */
+function holidayNote(dateKey: string): string | null {
+  const [y = 2027, m = 1, d = 1] = dateKey.split('-').map(Number);
+  const base = new Date(y, m - 1, d);
+
+  // Exact-day holiday.
+  const exact = PH_HOLIDAYS[mmdd(base)];
+  if (exact) {
+    return `Falls on ${exact} — guests are already off work and gathered`;
+  }
+
+  // Adjacent (±1, ±2) holiday that forms a long weekend.
+  for (let delta = -2; delta <= 2; delta++) {
+    if (delta === 0) continue;
+    const probe = new Date(y, m - 1, d + delta);
+    const name = PH_HOLIDAYS[mmdd(probe)];
+    if (!name) continue;
+    // Only call it a long weekend when the gap touches an actual weekend:
+    // candidate is Sat/Sun, OR the holiday is Sat/Sun, OR they bridge one.
+    const candDow = base.getDay();
+    const holDow = probe.getDay();
+    const touchesWeekend =
+      candDow === 0 || candDow === 6 || holDow === 0 || holDow === 6 || Math.abs(delta) <= 2;
+    if (touchesWeekend) {
+      return `${name} is ${Math.abs(delta)} day${Math.abs(delta) === 1 ? '' : 's'} away — a long weekend gives guests time to travel`;
+    }
+  }
+  return null;
 }
 
 function labelFor(dateKey: string) {
@@ -107,16 +157,20 @@ function labelFor(dateKey: string) {
   return {
     label: dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
     dow: dt.toLocaleDateString('en-US', { weekday: 'long' }),
-    fullLabel: dt.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }),
+    fullLabel: dt.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    }),
   };
 }
 
 function prepStatus(dateKey: string): CandidateInsight['prep'] {
   const now = new Date();
-  const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  const [ty = 2026, tm = 1, td = 1] = todayKey.split('-').map(Number);
   const [dy = 2027, dm = 1, dd = 1] = dateKey.split('-').map(Number);
-  const rawMonths = (dy - ty) * 12 + (dm - tm) + (dd >= td ? 0 : -1);
+  const rawMonths =
+    (dy - now.getFullYear()) * 12 + (dm - (now.getMonth() + 1)) + (dd >= now.getDate() ? 0 : -1);
   const months = Math.max(0, rawMonths);
 
   let status: CandidateInsight['prep']['status'];
@@ -132,19 +186,47 @@ function prepStatus(dateKey: string): CandidateInsight['prep'] {
     label = `Good timeline · ${months} months to plan`;
   } else if (months >= 3) {
     status = 'tight';
-    label = `Tight timeline · book key vendors now`;
+    label = 'Tight timeline · book key vendors now';
   } else {
     status = 'very_tight';
-    label = months > 0
-      ? `Short notice · ${months} month${months === 1 ? '' : 's'} — act fast`
-      : 'This month · act immediately';
+    label =
+      months > 0
+        ? `Short notice · ${months} month${months === 1 ? '' : 's'} — act fast`
+        : 'This month · act immediately';
   }
   return { monthsFromNow: months, status, label };
 }
 
+// ─── Auspicious / meaningful reasons via the shared engine ─────────────────────
+
+function reasonsFor(
+  dateKey: string,
+  ceremonyType: CeremonyType | null,
+  meaningfulDates: MeaningfulDate[],
+): { meaningful: string[]; why: string[] } {
+  const [y = 1970, m = 1, d = 1] = dateKey.split('-').map(Number);
+  const groups = computeAuspiciousReasonsDetailed(new Date(y, m - 1, d), ceremonyType, meaningfulDates);
+
+  const meaningful: string[] = [];
+  const why: string[] = [];
+  // Surface order preference for "why this date" — cultural first (most
+  // relatable), then numerology, then astrology, then ceremony notes.
+  const whyOrder = ['cultural', 'numerology', 'astrology', 'ceremony', 'special_pattern'];
+  for (const g of groups) {
+    if (g.category === 'personal') {
+      meaningful.push(...g.reasons);
+    }
+  }
+  for (const cat of whyOrder) {
+    const g = groups.find((x) => x.category === cat);
+    if (g) why.push(...g.reasons);
+  }
+  return { meaningful: meaningful.slice(0, 3), why: why.slice(0, 2) };
+}
+
 // ─── Budget range from shortlist ─────────────────────────────────────────────
 
-type ShortVendor = { category: string | null; total_cost_php: number | null; status: string };
+type ShortVendor = { category: string | null; total_cost_php: number | null };
 
 function shortlistBudgetRange(vendors: ShortVendor[]): { lo: number; hi: number } {
   const byCategory = new Map<string, number[]>();
@@ -180,16 +262,12 @@ function marketplaceCoverage(
       .filter((b) => b.blocked_at.slice(0, 10) <= dateKey && b.blocked_until.slice(0, 10) >= dateKey)
       .map((b) => b.vendor_profile_id),
   );
-
   const allCategories = new Set<string>();
   const availableCategories = new Set<string>();
-
   for (const vp of vpRows) {
     for (const svc of vp.services ?? []) {
       allCategories.add(svc);
-      if (!blockedOnDate.has(vp.id)) {
-        availableCategories.add(svc);
-      }
+      if (!blockedOnDate.has(vp.id)) availableCategories.add(svc);
     }
   }
   return { available: availableCategories.size, total: allCategories.size };
@@ -281,9 +359,7 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
   }
 
   // Smart candidate path: no explicit path, no event_date yet, candidates exist from onboarding.
-  const rawCandidates = Array.isArray(
-    (event as { date_candidates?: unknown }).date_candidates,
-  )
+  const rawCandidates = Array.isArray((event as { date_candidates?: unknown }).date_candidates)
     ? ((event as { date_candidates: unknown[] }).date_candidates as string[]).filter(
         (s): s is string => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s),
       )
@@ -295,12 +371,10 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
   if (!path && hasCandidates && !hasDate) {
     const admin = createAdminClient();
     const topCandidates = rawCandidates.slice(0, 3);
+    const sorted = [...topCandidates].sort();
 
-    // Fetch vendors and marketplace data in parallel.
     const [vendors, vpRes, blockRes] = await Promise.all([
       fetchEventVendors(supabase, eventId),
-
-      // Published marketplace vendors (non-demo, non-first-party) with their services.
       admin
         .from('vendor_profiles')
         .select('id, services')
@@ -308,34 +382,23 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
         .or('is_demo.is.null,is_demo.eq.false')
         .or('is_setnayan_service.is.null,is_setnayan_service.eq.false')
         .not('services', 'is', null),
-
-      // Calendar blocks for those vendors across the span of candidate dates.
-      (() => {
-        const sorted = [...topCandidates].sort();
-        const rangeStart = sorted[0] + 'T00:00:00+08:00';
-        const rangeEnd = (sorted[sorted.length - 1] ?? sorted[0]) + 'T23:30:00+08:00';
-        return admin
-          .from('vendor_calendar_blocks')
-          .select('vendor_profile_id, blocked_at, blocked_until')
-          .lte('blocked_at', rangeEnd)
-          .gte('blocked_until', rangeStart);
-      })(),
+      admin
+        .from('vendor_calendar_blocks')
+        .select('vendor_profile_id, blocked_at, blocked_until')
+        .lte('blocked_at', `${sorted[sorted.length - 1] ?? sorted[0]}T23:30:00+08:00`)
+        .gte('blocked_until', `${sorted[0]}T00:00:00+08:00`),
     ]);
 
     const vpRows: VpRow[] = (vpRes.data ?? []) as VpRow[];
     const blockRows: BlockRow[] = (blockRes.data ?? []) as BlockRow[];
 
-    // Availability check for shortlisted marketplace vendors.
+    // Availability of shortlisted marketplace vendors across the candidate span.
     const marketplacePicks = vendors.filter((v) => v.marketplace_vendor_id);
     const profileIds = [...new Set(marketplacePicks.map((v) => v.marketplace_vendor_id as string))];
-
     let availByProfile = new Map<string, Set<string>>();
     if (profileIds.length > 0) {
-      const sorted = [...topCandidates].sort();
       const [ys = 2027, ms = 1, ds = 1] = (sorted[0] ?? '2027-01-01').split('-').map(Number);
-      const [ye = 2027, me = 1, de = 1] = (
-        (sorted[sorted.length - 1] ?? sorted[0]) ?? '2027-01-01'
-      )
+      const [ye = 2027, me = 1, de = 1] = ((sorted[sorted.length - 1] ?? sorted[0]) ?? '2027-01-01')
         .split('-')
         .map(Number);
       availByProfile = await getBatchVendorAvailableDays(
@@ -346,13 +409,9 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
       );
     }
 
-    // Budget range from shortlist (same for every candidate date).
+    // Budget range from shortlist (date-independent shared context).
     const { lo: shortlistLo, hi: shortlistHi } = shortlistBudgetRange(
-      vendors.map((v) => ({
-        category: v.category,
-        total_cost_php: v.total_cost_php,
-        status: v.status,
-      })),
+      vendors.map((v) => ({ category: v.category, total_cost_php: v.total_cost_php })),
     );
     const eventBudgetCentavos =
       typeof (event as { estimated_budget_centavos?: unknown }).estimated_budget_centavos ===
@@ -360,54 +419,54 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
         ? ((event as { estimated_budget_centavos: number }).estimated_budget_centavos as number)
         : null;
 
-    // Build one insight per candidate date.
     const insights: CandidateInsight[] = topCandidates.map((dateKey) => {
-      // Pro 1: shortlist availability.
-      let available = 0;
-      let confirmNeeded = 0;
-      let booked = 0;
-      for (const v of vendors) {
+      // Per-vendor states (drives both the count + the client-side pin re-rank).
+      const vendorStates: CandidateInsight['vendors'] = vendors.map((v) => {
+        let state: 'open' | 'booked' | 'unknown';
         if (!v.marketplace_vendor_id) {
-          confirmNeeded++;
-          continue;
-        }
-        const avail = availByProfile.get(v.marketplace_vendor_id);
-        if (avail) {
-          if (avail.has(dateKey)) available++;
-          else booked++;
+          state = 'unknown';
         } else {
-          // No block data → treat as open (fail-open per availability engine convention).
-          available++;
+          const avail = availByProfile.get(v.marketplace_vendor_id);
+          state = avail ? (avail.has(dateKey) ? 'open' : 'booked') : 'open';
         }
-      }
+        return {
+          key: v.vendor_id,
+          name: v.vendor_name,
+          category: v.category,
+          categoryLabel: v.category ? displayServiceLabel(v.category) : 'Vendor',
+          state,
+        };
+      });
+      const available = vendorStates.filter((v) => v.state === 'open').length;
+      const confirmNeeded = vendorStates.filter((v) => v.state === 'unknown').length;
+      const booked = vendorStates.filter((v) => v.state === 'booked').length;
 
-      // Pro 4: marketplace coverage.
       const mkt = marketplaceCoverage(vpRows, blockRows, dateKey);
-
+      const { meaningful, why } = reasonsFor(dateKey, ceremonyType, meaningfulDates);
+      const [, m = 1] = dateKey.split('-').map(Number);
       const { label, dow, fullLabel } = labelFor(dateKey);
+
       return {
         dateKey,
         label,
         dow,
         fullLabel,
-        isBest: false, // assigned below after sorting
         shortlist: { total: vendors.length, available, confirmNeeded, booked },
+        vendors: vendorStates,
         budget: {
           eventBudgetCentavos,
           shortlistLoCentavos: shortlistLo,
           shortlistHiCentavos: shortlistHi,
         },
-        datePerspective: datePerspective(dateKey),
+        meaningful,
+        why,
+        seasonNote: SEASON_NOTES[m] ?? 'A lovely time of year',
+        monthNote: monthNote(m),
+        holiday: holidayNote(dateKey),
         marketplace: { availableCategories: mkt.available, totalCategories: mkt.total },
         prep: prepStatus(dateKey),
       };
     });
-
-    // Best = most shortlist vendors available (open), then most marketplace coverage.
-    const scored = insights
-      .map((c, i) => ({ i, score: c.shortlist.available * 1000 + c.marketplace.availableCategories }))
-      .sort((a, b) => b.score - a.score);
-    if (scored[0] !== undefined) insights[scored[0].i]!.isBest = true;
 
     return (
       <section className="mx-auto max-w-5xl space-y-6">

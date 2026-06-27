@@ -119,6 +119,10 @@ export type CustomerMenuCtx = {
    *  byte-identical). Only filters the planning tree; the Day-of/After phase
    *  takeovers carry no explore/budget menu so they're unaffected. */
   hideKeys?: string[];
+  /** Whether this event type enables the 'website' surface — gates the Studio
+   *  "Launch" route child (preview + go-live). Resolved from the profile in
+   *  layout.tsx. Undefined/false → the child is omitted. */
+  websiteEnabled?: boolean;
 };
 
 /**
@@ -268,6 +272,21 @@ export function buildCustomerMenuTree(
         // prefixes /event-page, so routeKey stays null and an anchor keeps the
         // active highlight (this child never false-lights).
         { key: 'event-page', label: 'Event page', icon: Eye, kind: 'route' as const, href: `${base}/event-page`, match: `${base}/event-page`, slotKey: 'customer.studio-subnav.event-page' },
+        // "Launch" (owner 2026-06-28) — a ROUTE child to the preview + go-live
+        // surface. Only when the event type enables the 'website' surface.
+        ...(ctx.websiteEnabled
+          ? [
+              {
+                key: 'launch',
+                label: 'Launch',
+                icon: Rocket,
+                kind: 'route' as const,
+                href: `${base}/website/launch`,
+                match: `${base}/website/launch`,
+                slotKey: 'customer.studio-subnav.launch',
+              },
+            ]
+          : []),
       ],
     },
     {

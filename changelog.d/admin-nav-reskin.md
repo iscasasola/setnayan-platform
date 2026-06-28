@@ -22,6 +22,12 @@ opening the page*. Plus a vocabulary re-skin of the same nav surface.
 - **Topbar escalation pill** (`app/admin/layout.tsx`): a red "**N overdue**" / amber "**N due soon**" pill leads the topbar utility cluster, visible on **every** admin page (not just when the eye is on the Work nav), linking to the command center. Only shows when something is actually due.
 - Unit tests (`lib/admin/queue-counts.test.ts`) pin the overdue / due-soon / ok boundaries + the tally logic — the meaningful proof since prod is 0-open and the urgency UI can't be shown live yet.
 
+### Morning digest email — cron-free (the "while you're away" channel)
+- `runAdminDigestFlush()` (`lib/admin/digest-flush.ts`): a once-a-morning ops digest, **cron-free** — mirrors `runSocialFlush`, fired via Next 15 `after()` from the **public `/explore`** render (so it reaches an admin who isn't in the console) + the admin layout. In-memory throttle + a durable **single-row conditional-UPDATE claim** on `platform_settings` → exactly one send/day across instances. Trade-off vs a real cron: fires shortly *after* the 08:00 Asia/Manila target when the next visitor hits, not on the dot — fine for a daily snapshot (the badges + pill are the real-time channel).
+- Branded email (Resend, via `lib/email-template.ts`) summarises open work by lane (Trust/Money/Growth/Support) with overdue counts + a "Open the work list" CTA. Pure content in `digest-content.ts` (unit-tested); IO/scheduling in `digest-flush.ts`.
+- Migration `20270316513402_admin_digest_settings.sql`: two additive columns on `platform_settings` — `admin_digest_enabled` (**OFF by default** — no recurring email until the owner flips it on) + `admin_digest_last_sent_at` (the daily claim lock). No RLS change (existing table; service-role flush).
+- **Triple-gated & safe to ship dormant:** sends nothing until (a) owner enables the toggle, (b) there's open work, (c) Resend is configured. Recipients = internal admins (`users.is_internal`).
+
 ### Vocabulary re-skin (secondary)
 Keeps the owner-signed-off **verb axis** (act/find/tune, `Admin_Console_Nav_Redesign_2026-06-08.md`) — does **not** flip to topic-grouping — and **drops zero surfaces** / changes **zero URLs**.
 

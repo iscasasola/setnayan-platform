@@ -3,6 +3,7 @@ import Image from 'next/image';
 import { cookies } from 'next/headers';
 import { after } from 'next/server';
 import { runSocialFlush } from '@/lib/social/flush';
+import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
 import { Star, MapPin, ChevronLeft, ChevronRight, Navigation, Sparkles } from 'lucide-react';
 import { haversineKm, formatDistanceKm } from '@/lib/geo';
 import { Wordmark } from '@/app/_components/brand-marks';
@@ -2092,6 +2093,10 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // committed), but all dynamic-API reads must precede it. Moving it here
   // (after the last createClient/cookies call) fixes the Sentry NEXTJS-A error.
   after(() => runSocialFlush().catch(() => {}));
+  // Admin morning-digest flush — cron-free, piggybacks on this PUBLIC page's
+  // traffic so it can reach an admin who isn't in the console. Throttled +
+  // single-claim internally; gated OFF by default. See lib/admin/digest-flush.ts.
+  after(() => runAdminDigestFlush().catch(() => {}));
 
   return (
     <main className="min-h-dvh bg-cream">

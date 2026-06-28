@@ -448,6 +448,7 @@ export async function loadRecapCoupleSummary(eventId: string): Promise<RecapCoup
         .from('papic_guest_captures')
         .select('capture_id', { count: 'exact', head: true })
         .eq('event_id', eventId)
+        .eq('media_type', 'photo')
         .is('hidden_at', null),
       admin
         .from('photo_messages')

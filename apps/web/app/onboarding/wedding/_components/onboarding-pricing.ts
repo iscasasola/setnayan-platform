@@ -42,7 +42,7 @@ import {
 } from '@/lib/v2-catalog';
 
 /**
- * The 14 onboarding in-app service keys → their platform_retail_catalog_v2
+ * The onboarding in-app service keys → their platform_retail_catalog_v2
  * service_code. Single source of truth for the inapp-key ↔ catalog mapping.
  *
  * VERIFIED against live platform_retail_catalog_v2 (is_active=true, 2026-06-08).
@@ -58,7 +58,6 @@ export const INAPP_TO_SERVICE_CODE: Record<string, string> = {
   animated_monogram: 'ANIMATED_MONOGRAM',
   panood: 'PANOOD_SYSTEM',
   papic_guest: 'PAPIC_GUEST',
-  sde: 'SDE',
   pakanta: 'PAKANTA',
   custom_qr: 'CUSTOM_QR_GUEST',
   // indoor_blueprint RETIRED (owner 2026-06-08) — dropped from the catalog + the offered set.
@@ -83,7 +82,6 @@ export const INAPP_TO_SERVICE_CODE: Record<string, string> = {
 export const OUT_ANCHORS: Record<string, number> = {
   advanced_website: 25000,
   papic_guest: 32000,
-  sde: 35000,
   guest_stories: 8000,
   pabati: 12000,
   papic_seats: 75000,
@@ -108,7 +106,7 @@ export const OUT_ANCHORS: Record<string, number> = {
  * Owner-decided 2026-06-08: bundles are ONBOARDING-ONLY (bought only during the
  * flow). `essentials` = the owner's 7 (Setnayan AI · Animated Monogram · Custom
  * QR · Pro RSVP · Papic Guest · Event Website · Editorial Website). `complete` =
- * the canonical-18 paid catalog (FIXED list — NOT "all active", so the worth is
+ * the canonical paid catalog (FIXED list — NOT "all active", so the worth is
  * controlled + doesn't drift when SKUs are added). NOTE: the live catalog now
  * also has RSVP_WEBSITE + RSVP_PRO_WEBSITE (added out-of-band) — deliberately
  * EXCLUDED here pending owner confirm (flagged in the PR).
@@ -124,7 +122,7 @@ export const BUNDLE_MEMBERS: { essentials: string[]; complete: string[] } = {
     'EVENT_WEBSITE',
     'PRO_WEBSITE', // = "Editorial Website"
   ],
-  // Complete — the canonical 18 paid SKUs.
+  // Complete — the canonical paid SKUs.
   complete: [
     'SETNAYAN_AI',
     'ANIMATED_MONOGRAM',
@@ -139,7 +137,6 @@ export const BUNDLE_MEMBERS: { essentials: string[]; complete: string[] } = {
     'PABATI',
     'PATIKTOK_COMPILER',
     'PAPIC_ADDON_THANK_YOU', // Thank You
-    'SDE',
     'LIVE_WALL', // PhotoWall
     'LIVE_BACKGROUND',
     'PANOOD_SYSTEM',

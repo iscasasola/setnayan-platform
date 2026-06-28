@@ -185,8 +185,8 @@ export const BUNDLE_CHILD_SKUS: Readonly<{
     'EVENT_WEBSITE',
     'PRO_WEBSITE',
   ]),
-  // Complete — the canonical 18 paid SKUs (BUNDLE_MEMBERS.complete). Includes
-  // every crew-delivered media child (LIVE_WALL, PANOOD_SYSTEM, SDE, …) that
+  // Complete — the canonical paid SKUs (BUNDLE_MEMBERS.complete). Includes
+  // every crew-delivered media child (LIVE_WALL, PANOOD_SYSTEM, …) that
   // the dead verify_and_activate_manual_payment() MEDIA_PACK branch used to
   // fan out.
   MEDIA_PACK: Object.freeze([
@@ -203,7 +203,6 @@ export const BUNDLE_CHILD_SKUS: Readonly<{
     'PABATI',
     'PATIKTOK_COMPILER',
     'PAPIC_ADDON_THANK_YOU',
-    'SDE',
     'LIVE_WALL',
     'LIVE_BACKGROUND',
     'PANOOD_SYSTEM',
@@ -231,7 +230,6 @@ export const BUNDLE_CHILD_SKUS: Readonly<{
     'PABATI',
     'CAMERA_BRIDGE',
     'PAPIC_GUEST',
-    'SDE',
     'PATIKTOK_COMPILER',
   ]),
 });

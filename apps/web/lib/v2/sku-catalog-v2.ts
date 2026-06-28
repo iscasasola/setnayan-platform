@@ -46,7 +46,7 @@ export const V2_SKU_CODES = [
   // unlock" (0024 PR4 P5; owner-set price, admin-editable at /admin/pricing).
   // is_token_able=FALSE (couple-paid). Seeded by migration 20270113942330.
   'STD_PREMIUM_OPENINGS',
-  // 10 crew-delivered token-worthy (is_token_able=TRUE)
+  // 9 crew-delivered token-worthy (is_token_able=TRUE)
   'LIVE_BACKGROUND',
   'LIVE_WALL',
   'PAKANTA',
@@ -56,7 +56,6 @@ export const V2_SKU_CODES = [
   'PAPIC_SEATS',
   'PATIKTOK_COMPILER',
   'PRO_WEBSITE',
-  'SDE',
   // Website lifecycle + planner · seeded by migration 20260915000000 but were
   // MISSING from this allowlist, so formatV2Sku() returned null for them even
   // though the live catalog rows exist (silently price-null'd every surface that

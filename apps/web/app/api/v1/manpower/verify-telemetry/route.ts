@@ -10,12 +10,11 @@
  *   - Credits `vendor_wallets.earned_tokens` (45-day expiring vouchers)
  *   - Writes immutable audit row to `token_rewards_log`
  *
- * The 8 is_token_able services + their checkpoint criteria:
+ * The is_token_able services + their checkpoint criteria:
  *   PAPIC          · ≥3 of 5 devices upload ≥50 valid files >500KB each
  *   PANOOD         · RTMP/HLS continuous transmission >30 min
  *   PATIKTOK       · WASM render writes ≥1 valid reel asset
  *   PABATI         · guests record >15 unique approved 5-sec clips
- *   SDE            · render status callback OK
  *   CAMERA_BRIDGE  · >1 GB uncompressed media transit
  *   LIVE_WALL      · WebSocket continuous >1 hr
  *   PAKANTA        · Suno API audio stream mapping validation OK (added 2026-05-28)
@@ -45,7 +44,6 @@ type TelemetryPayload = {
   panood?:       { continuous_rtmp_minutes: number };
   patiktok?:     { rendered_reel_assets: number };
   pabati?:       { unique_5s_clips: number };
-  sde?:          { render_callback_status: 'ok' | 'failed'; render_id?: string };
   camera_bridge?:{ media_transit_bytes: number };
   live_wall?:    { socket_uninterrupted_minutes: number };
   pakanta?:      { suno_audio_url?: string; suno_validation_status: 'ok' | 'failed' };
@@ -61,7 +59,6 @@ const TOKEN_ABLE_CODES = new Set([
   'PAPIC_GUEST_STORIES', // tracked under PAPIC family
   'PAPIC_MEDIA_PACK',    // tracked under PAPIC family
   'PANOOD_SYSTEM',
-  'SDE',
   'CAMERA_BRIDGE',
   'LIVE_WALL',
   'PAKANTA',
@@ -295,14 +292,6 @@ function validateCheckpoint(serviceCode: string, t: TelemetryPayload): Checkpoin
       if (!p) return { passed: false, reason: 'pabati telemetry section missing' };
       if (p.unique_5s_clips <= 15) {
         return { passed: false, reason: `unique_5s_clips=${p.unique_5s_clips} (need >15)` };
-      }
-      return { passed: true };
-    }
-    case 'SDE': {
-      const p = t.sde;
-      if (!p) return { passed: false, reason: 'sde telemetry section missing' };
-      if (p.render_callback_status !== 'ok') {
-        return { passed: false, reason: `render_callback_status=${p.render_callback_status} (need ok)` };
       }
       return { passed: true };
     }

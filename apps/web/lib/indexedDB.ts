@@ -30,7 +30,6 @@ export type MediaServiceCode =
   | 'PABATI'
   | 'PANOOD'
   | 'PATIKTOK'
-  | 'SDE'
   | 'CAMERA_BRIDGE'
   | 'LIVE_WALL';
 

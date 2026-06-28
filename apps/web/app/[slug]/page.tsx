@@ -93,7 +93,6 @@ import {
 import { SpatialBackdrop } from '@/app/_components/spatial-backdrop';
 import { parseRsvpBackdropConfig } from '@/lib/spatial-backdrop';
 import { LiveWallBlock } from './_components/live-wall-block';
-import { SdeFilmBlock } from './_components/sde-film-block';
 import { getWallSnapshot } from '@/lib/live-wall';
 import type { WallTile } from '@/lib/live-wall-logic';
 import { getGuestLiveGallery, type GuestLiveGallery } from '@/lib/guest-live-gallery';
@@ -108,10 +107,6 @@ import { YourSeatBlock } from './_components/your-seat-block';
 /** Panood Watch-Live data for the day-of page (shown whenever a watch URL is
  *  staged — single-cam Panood live is free for every host). */
 type WatchLiveData = { embedUrl: string; watchUrl: string };
-
-/** Same-Day Edit film threaded into the day-of page (SDE owners, once the crew
- *  has delivered it). videoUrl + optional poster are presigned R2 URLs. */
-type SdeFilmData = { videoUrl: string; posterUrl: string | null };
 
 /** Live Photo Wall data threaded into the day-of page (LIVE_WALL owners only). */
 type LiveWallData = {
@@ -843,57 +838,6 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     }
   }
 
-  // Same-Day Edit film (owner rule: a paid feature auto-shows the moment it
-  // exists). When the event holds SDE (eventSkuActive — admin-approved,
-  // bundle-aware via the Media Pack) AND the crew has delivered the film
-  // (sde_published_at + sde_video_r2_key, migration 20270213100000), the
-  // finished cut plays on the day-of page through the live AND post (recap)
-  // windows — no separate couple-publish step. All sde_* reads graceful-degrade
-  // (42703/42P01 → treated as not-delivered); any trouble must never break the
-  // wedding page → try/null.
-  let sdeFilm: SdeFilmData | null = null;
-  // True when the couple owns SDE but the crew hasn't delivered the film yet —
-  // drives the quiet "being cut" stand-in so guests know it's coming.
-  let sdeOwnedPending = false;
-  if (dayOfPhase === 'live' || dayOfPhase === 'post') {
-    try {
-      const ownsSde = await eventSkuActive(admin, event.event_id, 'SDE');
-      if (ownsSde) {
-        const { data: sdeRow, error: sdeErr } = await admin
-          .from('events')
-          .select('sde_video_r2_key, sde_poster_r2_key, sde_published_at')
-          .eq('event_id', event.event_id)
-          .maybeSingle();
-        // 42703 (undefined column) / 42P01 (undefined table) → pre-migration →
-        // treat as not-delivered, don't throw.
-        if (!sdeErr && sdeRow) {
-          const row = sdeRow as {
-            sde_video_r2_key?: string | null;
-            sde_poster_r2_key?: string | null;
-            sde_published_at?: string | null;
-          };
-          if (row.sde_published_at && row.sde_video_r2_key) {
-            const videoUrl = await displayUrlForStoredAsset(row.sde_video_r2_key);
-            if (videoUrl) {
-              const posterUrl = row.sde_poster_r2_key
-                ? await displayUrlForStoredAsset(row.sde_poster_r2_key)
-                : null;
-              sdeFilm = { videoUrl, posterUrl };
-            } else {
-              sdeOwnedPending = true;
-            }
-          } else {
-            sdeOwnedPending = true;
-          }
-        } else {
-          sdeOwnedPending = true;
-        }
-      }
-    } catch {
-      sdeFilm = null;
-      sdeOwnedPending = false;
-    }
-  }
 
   // Event-day chrome for the no-guest PublicLanding paths (owner 2026-06-28 —
   // unify the three event-day views so an anonymous open / host `?phase=event`
@@ -939,8 +883,6 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         backdrop={backdrop}
         liveWall={liveWall}
         watchLive={watchLive}
-        sdeFilm={sdeFilm}
-        sdeOwnedPending={sdeOwnedPending}
         bespokeSvg={bespokeSvg}
         proWatermarkHidden={proWatermarkHidden}
       />
@@ -977,8 +919,6 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         backdrop={backdrop}
         liveWall={liveWall}
         watchLive={watchLive}
-        sdeFilm={sdeFilm}
-        sdeOwnedPending={sdeOwnedPending}
         bespokeSvg={bespokeSvg}
         proWatermarkHidden={proWatermarkHidden}
       />
@@ -1022,8 +962,6 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         backdrop={backdrop}
         liveWall={liveWall}
         watchLive={watchLive}
-        sdeFilm={sdeFilm}
-        sdeOwnedPending={sdeOwnedPending}
         bespokeSvg={bespokeSvg}
         proWatermarkHidden={proWatermarkHidden}
       />
@@ -1361,8 +1299,6 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         backdrop={backdrop}
         liveWall={liveWall}
         watchLive={watchLive}
-        sdeFilm={sdeFilm}
-        sdeOwnedPending={sdeOwnedPending}
         guestLiveGallery={guestLiveGallery}
         seatPassActive={seatPassActive}
         needsFaceEnroll={needsFaceEnroll}
@@ -1758,8 +1694,6 @@ function PublicLanding({
   backdrop,
   liveWall,
   watchLive,
-  sdeFilm,
-  sdeOwnedPending,
   bespokeSvg,
   proWatermarkHidden,
   publicCandidCameraActive,
@@ -1830,10 +1764,6 @@ function PublicLanding({
   liveWall?: LiveWallData | null;
   /** Panood Watch-Live — non-null only during the live window when a watch URL is staged (single-cam Panood live is free for every host). */
   watchLive?: WatchLiveData | null;
-  /** Same-Day Edit film — non-null in the live/recap windows once the crew has delivered it (SDE active). */
-  sdeFilm?: SdeFilmData | null;
-  /** True when the event owns SDE but the film isn't delivered yet — shows the "being cut" stand-in. */
-  sdeOwnedPending?: boolean;
   /** Sanitized bespoke monogram SVG (uploaded ?? Cipher) — feeds the anonymous
    *  hero's HeroMonogram + the STD film's monogram beats. Required (all call
    *  sites pass it) so HeroMonogram, which needs a non-optional value, can
@@ -2105,15 +2035,6 @@ function PublicLanding({
         </section>
       ) : null}
 
-      {/* Same-Day Edit film — auto-shows the moment the crew delivers it (SDE
-          active), across the live AND recap (post) windows. Pending → the quiet
-          "being cut" stand-in. */}
-      {(dayOfPhase === 'live' || dayOfPhase === 'post') && (sdeFilm || sdeOwnedPending) ? (
-        <section className="mt-10">
-          <SdeFilmBlock videoUrl={sdeFilm?.videoUrl ?? null} posterUrl={sdeFilm?.posterUrl ?? null} />
-        </section>
-      ) : null}
-
       {/* Public widgets — owner directive 2026-05-23. Renders the
        *  host-configured hideable widgets that carry event-level data
        *  only (no guest-personalized fields), in the display order set
@@ -2333,8 +2254,6 @@ function InvitationSite({
   backdrop,
   liveWall,
   watchLive,
-  sdeFilm,
-  sdeOwnedPending,
   guestLiveGallery,
   seatPassActive,
   needsFaceEnroll,
@@ -2407,10 +2326,6 @@ function InvitationSite({
   liveWall?: LiveWallData | null;
   /** Panood Watch-Live — non-null only during the live window when a watch URL is staged (single-cam Panood live is free for every host). */
   watchLive?: WatchLiveData | null;
-  /** Same-Day Edit film — non-null in the live/recap windows once the crew has delivered it (SDE active). */
-  sdeFilm?: SdeFilmData | null;
-  /** True when the event owns SDE but the film isn't delivered yet — shows the "being cut" stand-in. */
-  sdeOwnedPending?: boolean;
   /** This guest's tagged photos so far — live window only, clean-screened. */
   guestLiveGallery?: GuestLiveGallery | null;
   /** Event owns CUSTOM_QR_GUEST → advertise the personalized seat pass link
@@ -2781,13 +2696,6 @@ function InvitationSite({
             initialCount={liveWall.count}
             initialCaption={liveWall.caption}
           />
-        ) : null}
-
-        {/* Same-Day Edit film — auto-shows the moment the crew delivers it (SDE
-            active), across the live AND recap (post) windows. Pending → the quiet
-            "being cut" stand-in. */}
-        {(isLive || isPost) && (sdeFilm || sdeOwnedPending) ? (
-          <SdeFilmBlock videoUrl={sdeFilm?.videoUrl ?? null} posterUrl={sdeFilm?.posterUrl ?? null} />
         ) : null}
 
         {/* "Add your face" — shown across the whole pre-event window (gated in

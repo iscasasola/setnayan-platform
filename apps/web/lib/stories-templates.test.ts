@@ -1,4 +1,4 @@
-// Stories+SDE P0 — pure beat→slot derivation tests.
+// Stories P0 — pure beat→slot derivation tests.
 //
 // These exercise the inert P0 scaffold: the beat-grid types and the pure
 // `buildSlotsFromBeatGrid` / `evenSplitSlots` helpers that P1/P2 will consume.
@@ -19,7 +19,7 @@ import {
 } from './stories-templates';
 
 const stories = findStoriesTemplate('golden-hour-stories-30')!;
-const sde = findStoriesTemplate('sde-fast-cut-30')!;
+const fastCut = findStoriesTemplate('midnight-fast-cut-30')!;
 
 // Even 0.5s grid (120 BPM) covering 30s, every other downbeat marked.
 function makeGrid(spacing: number, total = STORIES_DURATION): BeatGrid {
@@ -40,9 +40,9 @@ test('ships at least one 30s Stories template', () => {
 });
 
 test('clip slots never exceed the 5-second hard cap (dense grid)', () => {
-  // 1.5s between beats so a 2-beat stride spans 3s > would-be, and an SDE
+  // 1.5s between beats so a 2-beat stride spans 3s > would-be, and a
   // 1-beat stride could still try to fill long gaps — both must clamp clips.
-  for (const tpl of [stories, sde] as StoriesTemplate[]) {
+  for (const tpl of [stories, fastCut] as StoriesTemplate[]) {
     const slots = buildSlotsFromBeatGrid(tpl, makeGrid(1.5));
     for (const s of slots) {
       if (s.kind === 'clip') {
@@ -86,7 +86,7 @@ test('falls back to an even split when the grid is degenerate', () => {
 });
 
 test('even-split fallback also respects the 5s clip cap', () => {
-  for (const s of evenSplitSlots(sde)) {
+  for (const s of evenSplitSlots(fastCut)) {
     if (s.kind === 'clip') {
       assert.ok(s.endSec - s.startSec <= CLIP_MAX_SEC + 1e-6);
     }

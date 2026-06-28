@@ -14,7 +14,7 @@
  *   4. ProblemSection · "Six apps. Twelve spreadsheets." before/after
  *   5. TwoSides  · For couples / For vendors side-by-side
  *   6. MarketplacePreview · vendor card grid
- *   7. OnTheDay  · day-of livestream + Same-Day Edit
+ *   7. OnTheDay  · day-of livestream
  *   8. PersonalSite · phone mock with guest microsite
  *   9. DashboardPreview · couple dashboard mock
  *   10. PricingSection · publisher posture · 0% commission
@@ -377,7 +377,7 @@ export function ProblemSection() {
               Everything, <span className="text-[var(--m-orange)]">in one app.</span>
             </div>
             <div className="text-[14px] text-[var(--m-slate-4)] mt-2.5 leading-relaxed">
-              Guest list, vendors, budget, invitations, livestream, same-day reel — every moving piece in the same app
+              Guest list, vendors, budget, invitations, livestream, candid gallery — every moving piece in the same app
               you&rsquo;ll use on the day.
             </div>
             <div className="mt-4 grid grid-cols-3 gap-2">
@@ -494,7 +494,7 @@ export function MarketplacePreview() {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// 7. OnTheDay — day-of livestream + Same-Day Edit
+// 7. OnTheDay — day-of livestream
 // ─────────────────────────────────────────────────────────────────────
 export function OnTheDay() {
   return (
@@ -503,7 +503,7 @@ export function OnTheDay() {
       <h2 className="m-serif m-h-lg text-[var(--m-ink)] mt-5 mb-7" style={{ maxWidth: 1200 }}>
         The wedding films <em className="italic text-[var(--m-blush-deep)]">itself.</em>
       </h2>
-      <div className="grid lg:grid-cols-2 gap-12 items-start">
+      <div className="grid gap-12 items-start">
         <Reveal>
           <div className="m-card p-7">
             <div className="m-label-mono text-[var(--m-orange-2)]">Live Panood</div>
@@ -515,32 +515,6 @@ export function OnTheDay() {
             <div className="mt-5 p-4 bg-[var(--m-ink)] text-[var(--m-paper)] rounded-lg inline-flex items-center gap-2.5">
               <span className="w-[7px] h-[7px] rounded-full bg-[var(--m-orange)]" />
               <span className="m-mono text-[12px]">● Live · 1:24:18 · 218 watching</span>
-            </div>
-          </div>
-        </Reveal>
-        <Reveal delay={150}>
-          <div className="m-card p-7">
-            <div className="m-label-mono text-[var(--m-orange-2)]">Same-Day Edit</div>
-            <div className="m-display text-[34px] mt-2.5">Highlight reel · 30 min</div>
-            <p className="text-[15px] text-[var(--m-slate)] mt-3.5 leading-relaxed">
-              A 90-second cinematic edit, ready before the reception starts. We capture the ceremony, edit on-site, and
-              play it back at the cocktail hour. Guests cheer. You cry. Everyone shares it that night.
-            </p>
-            <div className="mt-5 grid grid-cols-3 gap-2">
-              {['Capture', 'Edit', 'Play'].map((t, i) => (
-                <div
-                  key={t}
-                  className="text-center p-2.5 rounded-lg"
-                  style={{ background: i === 2 ? 'var(--m-orange-4)' : 'var(--m-paper-2)' }}
-                >
-                  <div
-                    className="m-display text-[18px]"
-                    style={{ color: i === 2 ? 'var(--m-orange-2)' : 'var(--m-ink)' }}
-                  >
-                    {t}
-                  </div>
-                </div>
-              ))}
             </div>
           </div>
         </Reveal>
@@ -795,7 +769,7 @@ export async function PricingSection() {
             sub: 'Offered when you start your plan',
             items: [
               'Every paid Setnayan service',
-              'Papic · Panood · SDE · Pakanta',
+              'Papic · Panood · Pakanta',
               'One package, one price',
             ],
             cta: 'Start your plan',

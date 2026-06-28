@@ -462,7 +462,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'How does Setnayan make money?',
-    a: "Three ways. (1) Verified is free (₱0) — getting verified costs nothing. Vendors who want extra reach take an optional 28-day prepaid subscription: ₱6,000/28d Pro or ₱10,000/28d Enterprise (annual prepay saves ~25%). (2) Tokens: a token is ₱100, and a Pro/Enterprise vendor spends 1–3 tokens (₱100–₱300, banded by the wedding's region) to unlock a couple who was matched to them — one unlock covers every service they offer for that wedding. Verified vendors get up to 10 free unlocks a week. (3) Setnayan Productions — the in-app services like Editorial Website, Panood livestream, Papic, SDE, Live Background — are sold by Setnayan directly to couples. We don't touch what couples pay their vendors. Zero commission, zero middleman, zero surcharge.",
+    a: "Three ways. (1) Verified is free (₱0) — getting verified costs nothing. Vendors who want extra reach take an optional 28-day prepaid subscription: ₱6,000/28d Pro or ₱10,000/28d Enterprise (annual prepay saves ~25%). (2) Tokens: a token is ₱100, and a Pro/Enterprise vendor spends 1–3 tokens (₱100–₱300, banded by the wedding's region) to unlock a couple who was matched to them — one unlock covers every service they offer for that wedding. Verified vendors get up to 10 free unlocks a week. (3) Setnayan Productions — the in-app services like Editorial Website, Panood livestream, Papic, Live Background — are sold by Setnayan directly to couples. We don't touch what couples pay their vendors. Zero commission, zero middleman, zero surcharge.",
   },
   {
     q: 'How do I know a vendor is legit?',
@@ -484,7 +484,7 @@ export function FAQ({
     item.q === 'How does Setnayan make money?'
       ? {
           ...item,
-          a: `Two ways. (1) Vendor subscriptions — Solo at ${vendorPrices.soloMonthly}/28d, Pro at ${vendorPrices.proMonthly}/28d, Enterprise at ${vendorPrices.enterpriseMonthly}/28d (annual prepay saves ~25%). (2) Tokens: a token is ${vendorPrices.tokenUnit}, and Solo/Pro/Enterprise vendors spend 1–3 tokens (banded by the wedding's region) to unlock a couple matched to them — one unlock covers every service they offer for that wedding. Setnayan Productions — the in-app services like Editorial Website, Panood livestream, Papic, SDE, Live Background — are sold by Setnayan directly to couples. We don't touch what couples pay their vendors. Zero commission, zero middleman, zero surcharge.`,
+          a: `Two ways. (1) Vendor subscriptions — Solo at ${vendorPrices.soloMonthly}/28d, Pro at ${vendorPrices.proMonthly}/28d, Enterprise at ${vendorPrices.enterpriseMonthly}/28d (annual prepay saves ~25%). (2) Tokens: a token is ${vendorPrices.tokenUnit}, and Solo/Pro/Enterprise vendors spend 1–3 tokens (banded by the wedding's region) to unlock a couple matched to them — one unlock covers every service they offer for that wedding. Setnayan Productions — the in-app services like Editorial Website, Panood livestream, Papic, Live Background — are sold by Setnayan directly to couples. We don't touch what couples pay their vendors. Zero commission, zero middleman, zero surcharge.`,
         }
       : item,
   );

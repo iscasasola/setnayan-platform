@@ -160,7 +160,7 @@ export const EXP_PERSONAS: ExpPersona[] = [
     ideal: { for_whom: ['couple'], feel: ['intimate', 'midsize'], energy: ['calm', 'refined'], roots: ['modern', 'blend'], effort: ['balanced', 'simple'] },
     feel: 'modern',
     extras: ['stylist', 'florist', 'bride_attire'],
-    services: ['pakanta', 'sde', 'animated_monogram', 'papic_seats'],
+    services: ['pakanta', 'animated_monogram', 'papic_seats'],
     refinementSeeds: { photo_video: ['pv_cinematic', 'pv_fineart'], catering: ['cuisine_filipino'], stylist: ['Modern minimalist'] },
   },
   {
@@ -182,7 +182,7 @@ export const EXP_PERSONAS: ExpPersona[] = [
     ideal: { for_whom: ['both'], feel: ['midsize', 'grand'], energy: ['lively', 'refined'], roots: ['blend'], effort: ['balanced', 'allout'] },
     feel: 'timeless',
     extras: ['host_mc', 'stylist', 'dj', 'photo_booth'],
-    services: ['papic_seats', 'advanced_website', 'sde', 'panood'],
+    services: ['papic_seats', 'advanced_website', 'panood'],
     refinementSeeds: { photo_video: ['pv_classic'], catering: ['cuisine_filipino'] },
   },
   {
@@ -193,7 +193,7 @@ export const EXP_PERSONAS: ExpPersona[] = [
     ideal: { for_whom: ['both', 'couple'], feel: ['intimate'], energy: ['calm'], roots: ['blend', 'tradition'], effort: ['simple', 'balanced'] },
     feel: 'boho',
     extras: ['florist', 'stylist', 'bride_attire'],
-    services: ['advanced_website', 'sde', 'animated_monogram'],
+    services: ['advanced_website', 'animated_monogram'],
     refinementSeeds: { florist: ['Lush & garden'], photo_video: ['pv_fineart'], catering: ['cuisine_filipino'] },
   },
   {
@@ -204,7 +204,7 @@ export const EXP_PERSONAS: ExpPersona[] = [
     ideal: { for_whom: ['couple', 'guests'], feel: ['midsize', 'grand'], energy: ['refined'], roots: ['modern'], effort: ['allout', 'balanced'] },
     feel: 'modern',
     extras: ['stylist', 'led_wall', 'lights_sound', 'dj', 'bride_attire'],
-    services: ['live_background', 'animated_monogram', 'advanced_website', 'sde'],
+    services: ['live_background', 'animated_monogram', 'advanced_website'],
     refinementSeeds: { stylist: ['Modern minimalist'], photo_video: ['pv_editorial'], catering: ['cuisine_fusion'] },
   },
   {

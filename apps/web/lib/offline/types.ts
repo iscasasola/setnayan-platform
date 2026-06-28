@@ -16,11 +16,11 @@
 // real upload paths in V1.x.
 
 /**
- * The 7 media services that own an offline queue. Each maps to an
+ * The media services that own an offline queue. Each maps to an
  * IndexedDB object store + a stub handler under ./service-handlers/.
  *
  * The ordering follows the canonical service catalog in CLAUDE.md
- * 2026-05-28 third row (Papic → Panood → Patiktok → Pabati → SDE →
+ * 2026-05-28 third row (Papic → Panood → Patiktok → Pabati →
  * Camera Bridge → Live Wall). Keep the union literal in the same
  * order so grep over the codebase reads in the same sequence the
  * brief uses.
@@ -30,7 +30,6 @@ export type ServiceCode =
   | 'panood'
   | 'patiktok'
   | 'pabati'
-  | 'sde'
   | 'camera_bridge'
   | 'live_wall';
 
@@ -48,7 +47,6 @@ export const SERVICE_CODES: readonly ServiceCode[] = [
   'panood',
   'patiktok',
   'pabati',
-  'sde',
   'camera_bridge',
   'live_wall',
 ] as const;
@@ -65,7 +63,6 @@ export const SERVICE_LABELS: Record<ServiceCode, string> = {
   panood: 'Panood — livestream cache',
   patiktok: 'Patiktok — booth video',
   pabati: 'Pabati — guest clips',
-  sde: 'Same-day-edit working copies',
   camera_bridge: 'Camera Bridge — DSLR transit',
   live_wall: 'Live Wall — gallery cache',
 };
@@ -104,7 +101,7 @@ export interface OfflineItem {
 /**
  * Output shape of `getOfflineQueueStats()` — one row per service with
  * the current pending count. The admin diagnostic renders this as a
- * 7-row table; the sync daemon uses it as a pre-flight check before
+ * per-service table; the sync daemon uses it as a pre-flight check before
  * triggering uploads.
  */
 export interface OfflineQueueStat {

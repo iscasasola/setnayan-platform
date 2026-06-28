@@ -622,7 +622,7 @@ export default async function PricingPage() {
               </ul>
               <p className="text-[11px] leading-relaxed text-ink/45">
                 Live replays are during the broadcast — post-event edits (AI
-                Highlight · SDE · Thank-You) and the standalone PhotoWall /
+                Highlight · Thank-You) and the standalone PhotoWall /
                 Live-Background content services are separate.
               </p>
             </article>

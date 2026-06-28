@@ -14,8 +14,7 @@
  *   • a Setnayan-owned music track (source_url + beat_grid) — owned catalogue
  *     ONLY, never major-label; NULL source_url → the reel renders silent.
  *
- * FREE TIER — no entitlement gate, no price. Pricing for the PAID SDE tier is
- * admin-catalog managed and lives elsewhere; nothing here charges anything.
+ * FREE TIER — no entitlement gate, no price; nothing here charges anything.
  *
  * SAFETY: admin-client reads are scoped by the caller's verified guest (the
  * caller resolves guest_id from the qr_token capability before calling). Only

@@ -57,27 +57,6 @@ export type AddOnDetail = {
 };
 
 export const ADD_ON_DETAILS: Record<string, AddOnDetail> = {
-  sde: {
-    eyebrow: 'Same-Day Edit',
-    heroTitle: 'Your wedding film, before the night ends.',
-    tagline:
-      'A cinematic edit of your day — cut by the Setnayan crew and playing on your page while the reception is still going.',
-    paragraphs: [
-      'The best moments pass in a blur, and the film usually takes weeks to arrive.',
-      'Not this one. The crew cuts a same-day edit during your reception, and it appears on your wedding page the moment it’s ready — for you and every guest to relive that night.',
-    ],
-    highlights: [
-      'A short cinematic edit of your day',
-      'Delivered the same night, not weeks later',
-      'Plays right on your wedding page',
-      'Every guest can watch and rewatch',
-    ],
-    preview: [
-      { context: 'The day', glyph: '▤', caption: 'Shot by the crew as it happens.' },
-      { context: 'The cut', glyph: '✂', caption: 'Edited same-day, set to your song.', aspect: '9/16' },
-      { context: 'On your page', glyph: '▶', caption: 'Auto-plays for you and your guests.' },
-    ],
-  },
   'setnayan-ai': {
     eyebrow: 'Setnayan AI',
     heroTitle: 'Your shortlist. Already made.',

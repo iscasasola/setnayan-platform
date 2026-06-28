@@ -47,7 +47,6 @@ export const ADD_ON_SKU_MAP: Record<string, ReadonlyArray<string>> = {
     'panood_annual_streaming',
     'ai_video_highlight_60s',
     'ai_edited_highlight_3min',
-    'same_day_edit',
     'custom_monogram_pack',
     'broadcast_style_pack',
     'pro_camera_bridge_addon',

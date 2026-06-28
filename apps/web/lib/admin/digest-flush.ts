@@ -25,25 +25,13 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { sendEmail } from '@/lib/email';
-import { buildDigestEmail } from '@/lib/admin/digest-content';
+import { buildDigestEmail, sendThresholdMs } from '@/lib/admin/digest-content';
 import { getAdminQueueDigest, deriveQueueUrgency } from '@/lib/admin/queue-counts';
 
 /** Min gap between DB checks per instance — makes the after() hooks ~free. */
 const CHECK_THROTTLE_MS = 30 * 60 * 1000;
-/** Local hour (Asia/Manila) the daily digest may first go out. */
-const SEND_HOUR_MANILA = 8;
-const MANILA_OFFSET = '+08:00'; // PH has no DST.
 
 let lastCheckMs = 0;
-
-/** Today's send-window start (SEND_HOUR_MANILA, Manila) as a UTC instant (ms). */
-function sendThresholdMs(nowMs: number): number {
-  const manilaDate = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Manila',
-  }).format(new Date(nowMs)); // YYYY-MM-DD
-  const hh = String(SEND_HOUR_MANILA).padStart(2, '0');
-  return Date.parse(`${manilaDate}T${hh}:00:00${MANILA_OFFSET}`);
-}
 
 export async function runAdminDigestFlush(): Promise<void> {
   const nowMs = Date.now();
@@ -82,10 +70,12 @@ export async function runAdminDigestFlush(): Promise<void> {
     // Nothing waiting → claim stands (no re-check today) but no email goes out.
     if (urgency.totalOpen === 0) return;
 
+    // Every admin who clears queues: internal + team-pool + account_type admin
+    // (mirrors the /admin doorway gate in app/admin/layout.tsx).
     const { data: admins, error: adminErr } = await admin
       .from('users')
       .select('email')
-      .eq('is_internal', true)
+      .or('is_internal.eq.true,is_team_member.eq.true,account_type.eq.admin')
       .not('email', 'is', null);
     if (adminErr) {
       logQueryError('runAdminDigestFlush (recipients)', adminErr);

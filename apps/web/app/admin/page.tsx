@@ -1,8 +1,13 @@
 import Link from 'next/link';
-import { ArrowRight, AlertTriangle } from 'lucide-react';
+import { ArrowRight, AlertTriangle, ListChecks } from 'lucide-react';
 import { Tile } from './_overview-tile';
 import { AppleSecretReminder } from './_apple-secret-reminder';
 import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  getAdminQueueDigest,
+  deriveQueueUrgency,
+  type AdminQueueDueState,
+} from '@/lib/admin/queue-counts';
 
 export const metadata = { title: 'Overview · Setnayan HQ' };
 
@@ -14,111 +19,44 @@ export default async function AdminOverview() {
   const admin = createAdminClient();
 
   const head = { count: 'exact', head: true } as const;
+  // Stats + the one Action-queue NOT in the shared digest (taxonomy requests is
+  // a Data-Structure governance queue, not a Work-nav queue), fetched alongside
+  // the shared queue digest. Every OTHER queue count + its urgency now comes
+  // from the ONE source (lib/admin/queue-counts.ts) — same numbers as the nav
+  // badges + the /admin/work command center, by construction. This removes the
+  // 3rd hand-maintained copy of the per-queue filters (which had drifted before).
   const [
-    usersRes,
-    couplesRes,
-    vendorUsersRes,
-    eventsRes,
-    vendorProfilesRes,
-    threadsRes,
-    internalRes,
-    teamPoolRes,
-    // ── Action-queue counts (command-center Home · 2026-06-09) ───────────
-    // Ops-shaped nav redesign (Admin_Console_Nav_Redesign_2026-06-08): Home
-    // surfaces EVERY pending queue grouped by lane, not just 4. Each fetch
-    // uses head:true + count='exact' (count only, no rows) and mirrors the
-    // exact filter each queue page uses so the number here matches the rows
-    // the admin sees on arrival. A missing/renamed table resolves with an
-    // { error } (not a throw) → take() degrades that one tile to null (—)
-    // instead of 500-ing the whole page.
-    //
-    // Two-admin approvals are intentionally NOT surfaced yet: the
-    // `admin_approval_requests` table is unbuilt (V1.x per § 9.1), so there
-    // is nothing to count. It lands with the dedicated /admin/approvals PR.
-    //
-    // Trust & supply
-    verifyQueueRes,
-    taxonomyReqRes,
-    paymentOptionsRes,
-    // Money to reconcile
-    paymentsQueueRes,
-    payoutsRes,
-    tokenSalesRes,
-    // Recourse
-    disputesQueueRes,
-    forceMajeureRes,
-    appealsQueueRes,
-    abuseRes,
-    // Approvals & support
-    approvalsRes,
-    helpRes,
+    [
+      usersRes,
+      couplesRes,
+      vendorUsersRes,
+      eventsRes,
+      vendorProfilesRes,
+      threadsRes,
+      internalRes,
+      teamPoolRes,
+      taxonomyReqRes,
+    ],
+    digest,
   ] = await Promise.all([
-    admin.from('users').select('*', head),
-    admin.from('users').select('*', head).eq('account_type', 'customer'),
-    admin.from('users').select('*', head).eq('account_type', 'vendor'),
-    admin.from('events').select('*', head),
-    admin.from('vendor_profiles').select('*', head),
-    admin.from('chat_threads').select('*', head),
-    admin.from('users').select('*', head).eq('is_internal', true),
-    admin.from('users').select('*', head).eq('is_team_member', true),
-    // Verification — applications awaiting review. The /admin/verify DEFAULT
-    // surface is 'applications' (vendor_verification_applications · pending_review
-    // tab), NOT the secondary ?surface=visibility (vendor_profiles coming_soon).
-    // Count the applications queue so Home matches what the admin sees on arrival.
-    // (Fixes a pre-existing mismatch where Home/Work counted coming_soon.)
-    admin
-      .from('vendor_verification_applications')
-      .select('*', head)
-      .eq('status', 'pending_review'),
-    // Taxonomy requests — vendor category/refinement proposals awaiting review.
-    admin
-      .from('taxonomy_category_requests')
-      .select('*', head)
-      .eq('status', 'pending'),
-    // Payment options — vendor payment destinations awaiting a fraud screen.
-    admin
-      .from('vendor_payment_methods')
-      .select('*', head)
-      .in('moderation_status', ['pending_review', 'held']),
-    // Payments — order payments awaiting reconciliation.
-    admin.from('payments').select('*', head).eq('status', 'pending'),
-    // Payouts — vendor payouts ready to release (unpaid, not on hold).
-    admin
-      .from('vendor_payouts')
-      .select('*', head)
-      .is('paid_at', null)
-      .eq('on_hold', false),
-    // Token sales — vendor token-pack purchases awaiting confirmation.
-    admin
-      .from('vendor_token_purchases')
-      .select('*', head)
-      .eq('status', 'pending_payment'),
-    // Disputes — open couple/vendor disputes.
-    admin.from('vendor_disputes').select('*', head).eq('status', 'open'),
-    // Force majeure — event-impacting flags to triage.
-    admin
-      .from('force_majeure_flags')
-      .select('*', head)
-      .in('status', ['open', 'under_review']),
-    // Review appeals — self-review gate appeals awaiting a decision.
-    admin.from('vendor_review_appeals').select('*', head).is('decided_at', null),
-    // Setnayan AI abuse — trial-cycling flags to review.
-    admin
-      .from('concierge_abuse_flags')
-      .select('*', head)
-      .eq('status', 'pending_review'),
-    // Two-admin approvals — pending requests awaiting a second admin (§9.1).
-    admin
-      .from('admin_approval_requests')
-      .select('*', head)
-      .eq('status', 'pending')
-      .gt('expires_at', new Date().toISOString()),
-    // Help — open help-center tickets.
-    admin
-      .from('help_messages')
-      .select('*', head)
-      .in('status', ['new', 'in_progress']),
+    Promise.all([
+      admin.from('users').select('*', head),
+      admin.from('users').select('*', head).eq('account_type', 'customer'),
+      admin.from('users').select('*', head).eq('account_type', 'vendor'),
+      admin.from('events').select('*', head),
+      admin.from('vendor_profiles').select('*', head),
+      admin.from('chat_threads').select('*', head),
+      admin.from('users').select('*', head).eq('is_internal', true),
+      admin.from('users').select('*', head).eq('is_team_member', true),
+      // Taxonomy requests — vendor category/refinement proposals awaiting review.
+      admin
+        .from('taxonomy_category_requests')
+        .select('*', head)
+        .eq('status', 'pending'),
+    ]),
+    getAdminQueueDigest(),
   ]);
+  const urgency = deriveQueueUrgency(digest, Date.now());
 
   const users = take(usersRes.count);
   const couples = take(couplesRes.count);
@@ -129,27 +67,50 @@ export default async function AdminOverview() {
   const internal = take(internalRes.count);
   const teamPool = take(teamPoolRes.count);
 
-  // Per-queue open counts.
+  // Per-queue open counts + urgency, keyed to the overview's camelCase tiles.
+  // dc/ds pull from the shared digest (kebab keys); taxonomy stays standalone.
+  const dc = (k: string) => digest[k]?.count ?? null;
+  const ds = (k: string): AdminQueueDueState | undefined => urgency.states[k];
   const q = {
-    verify: take(verifyQueueRes.count),
+    verify: dc('verify'),
     taxonomy: take(taxonomyReqRes.count),
-    paymentOptions: take(paymentOptionsRes.count),
-    payments: take(paymentsQueueRes.count),
-    payouts: take(payoutsRes.count),
-    tokenSales: take(tokenSalesRes.count),
-    disputes: take(disputesQueueRes.count),
-    forceMajeure: take(forceMajeureRes.count),
-    appeals: take(appealsQueueRes.count),
-    abuse: take(abuseRes.count),
-    approvals: take(approvalsRes.count),
-    help: take(helpRes.count),
+    paymentOptions: dc('payment-options'),
+    payments: dc('payments'),
+    payouts: dc('payouts'),
+    tokenSales: dc('token-purchases'),
+    disputes: dc('disputes'),
+    forceMajeure: dc('force-majeure'),
+    appeals: dc('reviews'),
+    abuse: dc('concierge-abuse'),
+    approvals: dc('approvals'),
+    help: dc('help'),
+  };
+  const qState: Record<string, AdminQueueDueState | undefined> = {
+    verify: ds('verify'),
+    taxonomy: undefined, // not in the digest — no SLA clock
+    paymentOptions: ds('payment-options'),
+    payments: ds('payments'),
+    payouts: ds('payouts'),
+    tokenSales: ds('token-purchases'),
+    disputes: ds('disputes'),
+    forceMajeure: ds('force-majeure'),
+    appeals: ds('reviews'),
+    abuse: ds('concierge-abuse'),
+    approvals: ds('approvals'),
+    help: ds('help'),
   };
 
   // Lanes — mirror the Work nav grouping (Trust / Money / Recourse / Support).
   const lanes: {
     key: string;
     label: string;
-    tiles: { label: string; value: number | null; sub: string; href: string }[];
+    tiles: {
+      label: string;
+      value: number | null;
+      state?: AdminQueueDueState;
+      sub: string;
+      href: string;
+    }[];
   }[] = [
     {
       key: 'trust',
@@ -158,18 +119,21 @@ export default async function AdminOverview() {
         {
           label: 'Vendors to verify',
           value: q.verify,
+          state: qState.verify,
           sub: 'Coming-soon awaiting review',
           href: '/admin/verify',
         },
         {
           label: 'Taxonomy requests',
           value: q.taxonomy,
+          state: qState.taxonomy,
           sub: 'New category / refinement proposals',
           href: '/admin/taxonomy',
         },
         {
           label: 'Payment options',
           value: q.paymentOptions,
+          state: qState.paymentOptions,
           sub: 'Vendor bank/QR links to screen',
           href: '/admin/payment-options',
         },
@@ -182,18 +146,21 @@ export default async function AdminOverview() {
         {
           label: 'Payments to confirm',
           value: q.payments,
+          state: qState.payments,
           sub: 'Awaiting reconciliation',
           href: '/admin/payments?filter=pending',
         },
         {
           label: 'Payouts to release',
           value: q.payouts,
+          state: qState.payouts,
           sub: 'Verified T+1 schedule',
           href: '/admin/payouts',
         },
         {
           label: 'Token sales',
           value: q.tokenSales,
+          state: qState.tokenSales,
           sub: 'Vendor packs to confirm',
           href: '/admin/token-purchases',
         },
@@ -206,24 +173,28 @@ export default async function AdminOverview() {
         {
           label: 'Open disputes',
           value: q.disputes,
+          state: qState.disputes,
           sub: 'Couple ↔ vendor conflicts',
           href: '/admin/disputes?status=open',
         },
         {
           label: 'Force majeure',
           value: q.forceMajeure,
+          state: qState.forceMajeure,
           sub: 'Event-impacting flags',
           href: '/admin/force-majeure',
         },
         {
           label: 'Review appeals',
           value: q.appeals,
+          state: qState.appeals,
           sub: 'Self-review claims pending',
           href: '/admin/reviews?filter=pending',
         },
         {
           label: 'Setnayan AI abuse',
           value: q.abuse,
+          state: qState.abuse,
           sub: 'Trial-cycling flags',
           href: '/admin/concierge-abuse',
         },
@@ -236,12 +207,14 @@ export default async function AdminOverview() {
         {
           label: 'Two-admin approvals',
           value: q.approvals,
+          state: qState.approvals,
           sub: 'A colleague needs your second sign-off',
           href: '/admin/approvals',
         },
         {
           label: 'Help tickets',
           value: q.help,
+          state: qState.help,
           sub: 'Open · 24-hr SLA',
           href: '/admin/help',
         },
@@ -329,11 +302,24 @@ export default async function AdminOverview() {
           >
             Action queues
           </h2>
-          <p className="text-xs text-ink/55">
-            {totalOpen === 0
-              ? 'All queues clear · nothing pending.'
-              : `${totalOpen} open across all queues`}
-          </p>
+          <div className="flex items-center gap-3">
+            <p className="text-xs text-ink/55">
+              {totalOpen === 0
+                ? 'All queues clear · nothing pending.'
+                : urgency.overdue > 0
+                  ? `${totalOpen} open · ${urgency.overdue} past SLA`
+                  : `${totalOpen} open across all queues`}
+            </p>
+            {/* The ranked, busiest-first worklist — same data, single-screen
+                triage view (overdue → due-soon → busiest). */}
+            <Link
+              href="/admin/work"
+              className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-terracotta-700 hover:text-terracotta-800"
+            >
+              <ListChecks aria-hidden className="h-3.5 w-3.5" />
+              Open the work list
+            </Link>
+          </div>
         </div>
 
         <div className="space-y-5">
@@ -348,6 +334,7 @@ export default async function AdminOverview() {
                     key={t.href}
                     label={t.label}
                     value={t.value}
+                    dueState={t.state}
                     sub={t.sub}
                     href={t.href}
                   />
@@ -502,58 +489,76 @@ function Stat({ label, value }: { label: string; value: number | null }) {
 function ActionQueueTile({
   label,
   value,
+  dueState,
   sub,
   href,
 }: {
   label: string;
   value: number | null;
+  dueState?: AdminQueueDueState;
   sub: string;
   href: string;
 }) {
   const hasWork = (value ?? 0) > 0;
+  // Overdue (past SLA) escalates the tile to RED — matching the nav badges +
+  // the command center; everything-else-with-work stays amber, clear is muted.
+  const overdue = dueState === 'overdue';
+  const tone = overdue
+    ? {
+        border: 'border-red-300/70 bg-red-50/70 hover:bg-red-50',
+        icon: 'text-red-700',
+        label: 'text-red-800',
+        arrow: 'text-red-700',
+        value: 'text-red-900',
+        sub: 'text-red-800/80',
+      }
+    : hasWork
+      ? {
+          border: 'border-warn-300/60 bg-warn-50/60 hover:bg-warn-50',
+          icon: 'text-warn-700',
+          label: 'text-warn-800',
+          arrow: 'text-warn-700',
+          value: 'text-warn-900',
+          sub: 'text-warn-800/80',
+        }
+      : {
+          border: 'border-ink/10 bg-cream/80 hover:bg-ink/[0.03]',
+          icon: '',
+          label: 'text-ink/55',
+          arrow: 'text-ink/35',
+          value: 'text-ink',
+          sub: 'text-ink/55',
+        };
   return (
     <Link
       href={href}
-      className={`block rounded-xl border p-4 transition-colors ${
-        hasWork
-          ? 'border-warn-300/60 bg-warn-50/60 hover:bg-warn-50'
-          : 'border-ink/10 bg-cream/80 hover:bg-ink/[0.03]'
-      }`}
+      className={`block rounded-xl border p-4 transition-colors ${tone.border}`}
     >
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
           {hasWork ? (
             <AlertTriangle
-              className="h-3.5 w-3.5 shrink-0 text-warn-700"
+              className={`h-3.5 w-3.5 shrink-0 ${tone.icon}`}
               strokeWidth={2}
               aria-hidden
             />
           ) : null}
           <span
-            className={`m-mono text-[10px] uppercase tracking-[0.15em] ${
-              hasWork ? 'text-warn-800' : 'text-ink/55'
-            }`}
+            className={`m-mono text-[10px] uppercase tracking-[0.15em] ${tone.label}`}
           >
             {label}
           </span>
         </div>
-        <ArrowRight
-          aria-hidden
-          className={`h-3.5 w-3.5 shrink-0 ${
-            hasWork ? 'text-warn-700' : 'text-ink/35'
-          }`}
-        />
+        <ArrowRight aria-hidden className={`h-3.5 w-3.5 shrink-0 ${tone.arrow}`} />
       </div>
       <p
-        className={`text-3xl font-semibold tracking-tight tabular-nums ${
-          hasWork ? 'text-warn-900' : 'text-ink'
-        }`}
+        className={`text-3xl font-semibold tracking-tight tabular-nums ${tone.value}`}
         style={{ fontFamily: 'var(--m-display)' }}
       >
         {value === null ? '—' : value}
       </p>
-      <p className={`mt-1 text-xs ${hasWork ? 'text-warn-800/80' : 'text-ink/55'}`}>
-        {sub}
+      <p className={`mt-1 text-xs ${tone.sub}`}>
+        {overdue ? `${sub} · past SLA` : sub}
       </p>
     </Link>
   );

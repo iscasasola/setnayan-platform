@@ -15,6 +15,23 @@ import {
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com';
 
+/** Local hour (Asia/Manila) the daily digest may first go out. */
+export const SEND_HOUR_MANILA = 8;
+const MANILA_OFFSET = '+08:00'; // PH has no DST.
+
+/**
+ * Today's send-window start (SEND_HOUR_MANILA, Manila) as a UTC instant (ms).
+ * Pure (clock passed in) so the flush's daily-claim boundary is unit-testable
+ * without the flush's server-only deps.
+ */
+export function sendThresholdMs(nowMs: number): number {
+  const manilaDate = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Manila',
+  }).format(new Date(nowMs)); // YYYY-MM-DD
+  const hh = String(SEND_HOUR_MANILA).padStart(2, '0');
+  return Date.parse(`${manilaDate}T${hh}:00:00${MANILA_OFFSET}`);
+}
+
 const LANE_LABEL: Record<AdminQueueLane, string> = {
   money: 'Money',
   trust: 'Trust & recourse',

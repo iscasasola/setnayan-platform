@@ -1700,6 +1700,20 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 0,
   },
   {
+    // "All work" — desktop entry to the /admin/work command center (the ranked
+    // worklist). Sits at the top of the Work group; renamable/hideable here.
+    key: "admin.sidebar.work-home",
+    scope: "admin",
+    area: "admin-sidebar",
+    route: "/admin/work",
+    label: "All work",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "ListChecks",
+    customRef: null,
+    sortOrder: 1,
+  },
+  {
     key: "admin.sidebar.verify",
     scope: "admin",
     area: "admin-sidebar",
@@ -1709,7 +1723,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     iconKind: "lucide",
     lucideName: "BadgeCheck",
     customRef: null,
-    sortOrder: 1,
+    sortOrder: 2,
   },
   {
     // Vendor partnerships two-admin verification queue (PR #11 vendor-quality).

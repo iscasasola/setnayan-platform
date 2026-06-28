@@ -34,6 +34,7 @@ import {
   LifeBuoy,
   UserX,
   Handshake,
+  MessageSquareWarning,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -75,6 +76,7 @@ const BASE_ROWS: BaseRow[] = [
   { key: 'approvals', label: 'Two-admin approvals', href: '/admin/approvals', icon: CheckCheck, description: 'A colleague is waiting on your second sign-off.' },
   { key: 'help', label: 'Help', href: '/admin/help', icon: LifeBuoy, description: 'Open help-center tickets.' },
   { key: 'vendor-partnerships', label: 'Partnerships', href: '/admin/vendor-partnerships', icon: Handshake, description: 'Vendor-to-vendor partnership claims awaiting two-admin verification.' },
+  { key: 'user-reports', label: 'User reports', href: '/admin/user-reports', icon: MessageSquareWarning, description: 'Reported guest-gallery content awaiting moderation.' },
 ];
 
 // Compact age string from the oldest open item: 45m · 6h · 3d.

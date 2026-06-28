@@ -45,6 +45,7 @@ export const ADMIN_QUEUE_META: Record<
   reviews: { lane: 'support', slaHours: 72 },
   verify: { lane: 'growth', slaHours: 48 }, // a vendor is waiting for the badge
   'vendor-partnerships': { lane: 'growth', slaHours: 72 },
+  'user-reports': { lane: 'trust', slaHours: 24 }, // UGC moderation (Apple 1.2)
 };
 
 type QueueDef = {
@@ -135,7 +136,26 @@ const QUEUE_DEFS: QueueDef[] = [
     table: 'vendor_partnerships',
     filter: (q) => q.eq('admin_verified', false).eq('is_active', true),
   },
+  // User reports — UGC moderation queue (Apple 1.2 / Play UGC). status='open'
+  // is the actionable cut (open → actioned/dismissed).
+  {
+    key: 'user-reports',
+    table: 'user_reports',
+    filter: (q) => q.eq('status', 'open'),
+  },
 ];
+
+// DELIBERATELY NOT in QUEUE_DEFS (so they carry NO badge/urgency) — their
+// "pending count" and/or actionable age is COMPUTED, not a single-table head-
+// count, so an approximate filter would show a WRONG number (worse than none):
+//   • pax-changes      — pax_change_audit joined across vendor_profiles + events
+//   • completions      — event_vendors, multi-column actionable age (vendor-marked
+//                        vs disputed) + a JS "stuck" cut the DB can't replicate
+//   • social-queue     — social_posts auto-publish states ≠ "awaiting admin"
+//   • pakanta          — orders filtered to the Pakanta SKU (cross-table)
+//   • editorial-review — event_editorial flag severity computed from a jsonb array
+// These keep their /admin/<route> pages; closing this would need per-queue
+// count RPCs, tracked as a follow-up — NOT a silent omission.
 
 const num = (c: number | null | undefined): number | null =>
   typeof c === 'number' ? c : null;

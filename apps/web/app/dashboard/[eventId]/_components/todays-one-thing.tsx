@@ -14,9 +14,9 @@ import type { ResolvedTask, TodaysTaskStatus } from '@/lib/todays-one-thing';
 //
 // SINGLE-FOCUS hero card replacing the would-have-been 5-card carousel.
 // The host sees ONE thing to do today, not 5 — reduces decision
-// paralysis. The 12-card PlanningGroups grid below collapses behind a
-// "Show all N more tasks" disclosure beneath this hero, so a host who
-// IS ready to ladder through multiple categories can still see them.
+// paralysis. (The 12-card planning grid that used to sit beneath this
+// hero was retired with the lean-home restructure 2026-06-02 — the full
+// category ladder now lives on the Vendors/Services tab.)
 //
 // Three render variants:
 //   - Resolved task → the canonical "Setnayan AI" card with status

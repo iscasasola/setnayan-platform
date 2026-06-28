@@ -32,8 +32,8 @@ import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 //   - ✓ Locked badge in small terracotta below
 //   - Single tap → vendor detail at /dashboard/[eventId]/vendors
 //   - NO edit pencil · NO compare button · NO un-lock affordance
-//     here. The host re-enters compare flow via the locked-card
-//     variant in planning-groups.tsx (which carries the Switch action).
+//     here. The host re-enters the compare / switch flow from the
+//     Vendors tab, whose locked-card variant carries the Switch action.
 //
 // 4-tier avatar fallback (2026-05-22 owner directive — manual vendor
 // photo extension on top of the prior 3-tier ladder from PR #341 / #343):

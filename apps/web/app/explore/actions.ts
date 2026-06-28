@@ -184,9 +184,9 @@ export async function saveVendorToPicks(formData: FormData): Promise<SaveVendorR
     return { status: 'already_saved', eventVendorId: existing.vendor_id };
   }
 
-  // 4. Insert. Stamp source='host_manual' so the auto-cascade chip
-  // (planning-groups.tsx AutoCascadedChip) doesn't fire on rows the
-  // host added themselves from /vendors marketplace.
+  // 4. Insert. Stamp source='host_manual' so any auto-cascade "added for
+  // you" badge doesn't fire on rows the host added themselves from the
+  // /vendors marketplace.
   const category = coerceCategory((vendor.services ?? []) as string[]);
   const { data: inserted, error: iError } = await admin
     .from('event_vendors')
@@ -334,9 +334,9 @@ export async function addVenueDirectoryEntryToPlan(
     return { status: 'already_added', eventVendorId: existing.vendor_id };
   }
 
-  // 4. Insert. Stamp source='host_manual' so the auto-cascade chip
-  // (planning-groups.tsx AutoCascadedChip) doesn't fire on rows the
-  // host added themselves from PairedVenuePanel.
+  // 4. Insert. Stamp source='host_manual' so any auto-cascade "added for
+  // you" badge doesn't fire on rows the host added themselves from
+  // PairedVenuePanel.
   const category = venueDirectoryTypeToCategory(venue.venue_type as string);
   const { data: inserted, error: iError } = await admin
     .from('event_vendors')

@@ -444,9 +444,9 @@ type Props = {
      *  query silently — only the FILTER UI is hidden.
      *
      *  Set by `buildPlanGroupSearchHref` in `lib/wedding-plan-groups.ts`
-     *  (used by 3 in-dashboard surfaces: planning-groups [Search] +
-     *  todays-one-thing CTA + event-home-detail-pane Browse vendors
-     *  button — the next-steps CTA was removed 2026-05-24). Direct
+     *  (now used by the todays-one-thing hero CTA — the planning-groups
+     *  [Search], event-home detail-pane Browse, and next-steps CTAs were
+     *  all removed with their surfaces). Direct
      *  visits to /vendors (top-nav
      *  Browse, sitemap, /realstories, /venue, /waitlist, /not-found, etc.)
      *  never set this param so the full chrome renders unchanged. */
@@ -646,7 +646,7 @@ function parseFilters(
   eventType: EventTypeFilter | null;
   /** Task #47 — catalog-mode folder scope. When set to one of the 12
    *  WeddingFolder values, CatalogView renders only that single section.
-   *  Source: dashboard planning-group [Search] buttons (planning-groups.tsx).
+   *  Source: dashboard plan-search CTAs (e.g. the todays-one-thing hero).
    *  Absent / invalid → render all 10 parents (universal Browse). */
   folder: WeddingFolder | null;
   /** 10-parent model (2026-05-31) — tile-scoped vendor grid. When set to a

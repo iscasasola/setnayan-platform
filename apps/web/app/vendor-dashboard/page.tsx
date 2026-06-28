@@ -14,7 +14,8 @@ import { createClient } from '@/lib/supabase/server';
 import {
   fetchOwnVendorProfile,
   fetchVendorCompletedEventStats,
-  profileCompletion,
+  fetchHasBusinessDocuments,
+  businessProfileChecklist,
 } from '@/lib/vendor-profile';
 import { fetchVendorThreads } from '@/lib/chat';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
@@ -189,7 +190,7 @@ export default async function VendorHomePage() {
         activeServicesCount: 0,
         confirmedBookingsCount: 0,
         tokenBalance: { purchased: 0, earned: 0 },
-        completion: profileCompletion(null),
+        completion: businessProfileChecklist(null, { hasDocuments: false }),
         vendorProfileId: null,
       };
     } else {
@@ -273,7 +274,9 @@ export default async function VendorHomePage() {
           purchased: walletRes.data?.purchased_tokens ?? 0,
           earned: walletRes.data?.earned_tokens ?? 0,
         },
-        completion: profileCompletion(profile),
+        completion: businessProfileChecklist(profile, {
+          hasDocuments: await fetchHasBusinessDocuments(supabase, profile.vendor_profile_id),
+        }),
         vendorProfileId: profile.vendor_profile_id,
       };
     }

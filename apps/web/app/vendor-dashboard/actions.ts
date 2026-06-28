@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { vendorExperienceEnabled } from '@/lib/vendor-experience';
+import { fetchHasBusinessDocuments } from '@/lib/vendor-profile';
 import { geocodeNominatim } from '@/lib/geo';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import { getTaxonomy } from '@/lib/taxonomy-db';
@@ -295,20 +296,27 @@ export async function saveVendorProfile(formData: FormData) {
     );
   }
 
-  // Declared experience (service-card trust signal) — flag-gated + schema-
-  // dependent, so we only read/write these columns when the feature is live
-  // (NEXT_PUBLIC_VENDOR_EXPERIENCE_ENABLED, flipped AFTER the migration applies).
-  // Changing the declared YEAR invalidates any prior admin DTI-verification (the
-  // confirmed year no longer matches), so we clear it → the badge falls back to
-  // "self-reported" until an admin re-confirms.
+  // Business owner / representative name — a required Business Profile field.
+  const business_owner_name = nullIfBlank(formData.get('business_owner_name'));
+
+  // Year started — a core required Business Profile field, ALWAYS parsed
+  // (independent of the experience-verification flag). Public profile shows
+  // "X years in business".
+  const yearRaw = formData.get('in_business_since_year');
+  let in_business_since_year: number | null = null;
+  if (typeof yearRaw === 'string' && yearRaw.trim()) {
+    const y = Number(yearRaw.trim());
+    if (Number.isInteger(y) && y >= 1900 && y <= 2100) in_business_since_year = y;
+  }
+
+  // Declared experience extras (service-card trust signal) — flag-gated + schema-
+  // dependent (NEXT_PUBLIC_VENDOR_EXPERIENCE_ENABLED). Changing the declared YEAR
+  // invalidates any prior admin DTI-verification (the confirmed year no longer
+  // matches), so we clear it → the badge falls back to "self-reported" until an
+  // admin re-confirms. `in_business_since_year` itself is written from the core
+  // field above, not here.
   let experienceFields: Record<string, unknown> = {};
   if (vendorExperienceEnabled()) {
-    const yearRaw = formData.get('in_business_since_year');
-    let in_business_since_year: number | null = null;
-    if (typeof yearRaw === 'string' && yearRaw.trim()) {
-      const y = Number(yearRaw.trim());
-      if (Number.isInteger(y) && y >= 1900 && y <= 2100) in_business_since_year = y;
-    }
     const wedRaw = formData.get('weddings_done_approx');
     let weddings_done_approx: number | null = null;
     if (typeof wedRaw === 'string' && wedRaw.trim()) {
@@ -322,7 +330,6 @@ export async function saveVendorProfile(formData: FormData) {
       .maybeSingle();
     const priorYear = (prior as { in_business_since_year?: number | null } | null)?.in_business_since_year ?? null;
     experienceFields = {
-      in_business_since_year,
       weddings_done_approx,
       ...(priorYear !== in_business_since_year
         ? { experience_verified_at: null, experience_verified_by: null }
@@ -342,6 +349,8 @@ export async function saveVendorProfile(formData: FormData) {
     tagline: nullIfBlank(formData.get('tagline')),
     logo_url: parseLogoValue(formData.get('logo_url')),
     services: parseServices(formData.get('services'), extraCanonicalSet),
+    business_owner_name,
+    in_business_since_year,
     location_city,
     hq_address,
     website: nullIfBlank(formData.get('website')),
@@ -372,6 +381,37 @@ export async function saveVendorProfile(formData: FormData) {
     ...experienceFields,
     updated_at: new Date().toISOString(),
   };
+
+  // Business Profile publish gate (vendor onboarding · owner 2026-06-28): a
+  // vendor can only go LIVE once their Business Profile is complete (the 8
+  // required fields incl. uploaded documents). If they tick "publish" while
+  // incomplete, we still save their edits but keep them unpublished and tell
+  // them what's missing — never silently publish a half-built profile.
+  let publishBlockedMissing: string[] = [];
+  if (payload.is_published) {
+    const { data: idRow } = await supabase
+      .from('vendor_profiles')
+      .select('vendor_profile_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    const vendorProfileId = (idRow as { vendor_profile_id?: string } | null)?.vendor_profile_id ?? null;
+    const hasDocuments = vendorProfileId
+      ? await fetchHasBusinessDocuments(supabase, vendorProfileId)
+      : false;
+    const missing: string[] = [];
+    if (!payload.business_name) missing.push('Business name');
+    if (!business_owner_name) missing.push('Business owner');
+    if (!payload.contact_phone) missing.push('Contact number');
+    if (!payload.contact_email) missing.push('Business email');
+    if (!hq_address) missing.push('Maps pin');
+    if (payload.services.length === 0) missing.push('Services covered');
+    if (!in_business_since_year) missing.push('Year started');
+    if (!hasDocuments) missing.push('Updated business documents');
+    if (missing.length > 0) {
+      payload.is_published = false;
+      publishBlockedMissing = missing;
+    }
+  }
 
   const { error } = await supabase
     .from('vendor_profiles')
@@ -406,6 +446,14 @@ export async function saveVendorProfile(formData: FormData) {
   }
 
   revalidatePath('/vendor-dashboard/profile');
+  if (publishBlockedMissing.length > 0) {
+    // Saved, but publishing was blocked — surface exactly what's still missing.
+    redirect(
+      `/vendor-dashboard/profile?saved=1&publish_blocked=${encodeURIComponent(
+        publishBlockedMissing.join(', '),
+      )}`,
+    );
+  }
   redirect('/vendor-dashboard/profile?saved=1');
 }
 

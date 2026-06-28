@@ -17,6 +17,18 @@ export type VendorProfileRow = {
    */
   logo_url: string | null;
   services: string[];
+  /**
+   * Business owner / representative name — the person who owns or runs the
+   * business, distinct from the login account. Required field of the vendor
+   * Business Profile (added 2026-06-28). Kept private (not shown publicly).
+   */
+  business_owner_name: string | null;
+  /**
+   * Year the business started operating. A required Business Profile field
+   * (surfaced 2026-06-28 independent of the experience-verification flag).
+   * Public profile shows "X years in business".
+   */
+  in_business_since_year: number | null;
   location_city: string | null;
   /** Free-text street address for the vendor's HQ. Optional. Used by
    *  the geocoder + the marketplace distance chip. Added 2026-05-21. */
@@ -83,7 +95,7 @@ export type VendorProfileRow = {
 // callers see compatible_* as null in that mode, identical to a vendor
 // who hasn't picked any tags yet — "open to all" semantics.
 const FULL_VENDOR_PROFILE_SELECT =
-  'vendor_profile_id,public_id,user_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,is_published,portfolio_r2_keys,show_team_bookings_in_backend_count,public_visibility,compatible_ceremony_types,compatible_venue_settings,event_types,created_at,updated_at';
+  'vendor_profile_id,public_id,user_id,business_name,business_slug,tagline,logo_url,services,business_owner_name,in_business_since_year,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,is_published,portfolio_r2_keys,show_team_bookings_in_backend_count,public_visibility,compatible_ceremony_types,compatible_venue_settings,event_types,created_at,updated_at';
 
 // LEGACY select omits hq_address/lat/lng + 0043 compat cols so the page
 // can render against pre-0043 / pre-0521 schemas. Callers see hq_*
@@ -139,6 +151,10 @@ export async function fetchOwnVendorProfile(
       hq_address: null,
       hq_latitude: null,
       hq_longitude: null,
+      // Business Profile fields added 2026-06-28 — null in the legacy/pre-
+      // migration read; the completion gate simply reads them as "missing".
+      business_owner_name: null,
+      in_business_since_year: null,
     } as typeof data;
   }
   if (!data) {
@@ -242,35 +258,95 @@ export async function fetchVendorCompletedEventStats(
 }
 
 /**
- * Completion check used by the vendor dashboard to nudge the vendor toward
- * a publishable profile. "Logo mandatory" per spec — but V1 only warns, it
- * doesn't block save.
+ * Whether the vendor has uploaded their full set of required business
+ * documents (the "Updated Business Documents" item of the Business Profile).
+ * Reads `vendor_verification_applications.docs_complete` — TRUE once every
+ * required VENDOR_DOC_SLOT in the verification flow is filled. Swallows a
+ * missing-table error (pre-migration envs) → false.
+ */
+export async function fetchHasBusinessDocuments(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+): Promise<boolean> {
+  const { data } = await supabase
+    .from('vendor_verification_applications')
+    .select('docs_complete')
+    .eq('vendor_profile_id', vendorProfileId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return Boolean((data as { docs_complete?: boolean } | null)?.docs_complete);
+}
+
+/**
+ * The required Business Profile (vendor onboarding · owner 2026-06-28).
+ *
+ * A vendor "must have their Business Profile" — these 8 fields — before they
+ * can be published / listed / take inquiries. Each item maps to a concrete
+ * column (or the verification-docs flow). `complete` gates publication; the
+ * checklist drives the dashboard onboarding card + the profile completion UI.
+ *
+ * `hasDocuments` is resolved by the caller via `fetchHasBusinessDocuments`
+ * (separate table) so this function stays pure/synchronous.
+ */
+export type BusinessProfileItem = {
+  key: string;
+  label: string;
+  ok: boolean;
+  /** Where to go to fix it: 'profile' (the edit form) or 'documents' (/verify). */
+  surface: 'profile' | 'documents';
+};
+
+export function businessProfileChecklist(
+  profile: VendorProfileRow | null,
+  opts: { hasDocuments: boolean },
+): { items: BusinessProfileItem[]; done: number; total: number; complete: boolean; missing: string[] } {
+  const items: BusinessProfileItem[] = [
+    { key: 'business_name', label: 'Business name', surface: 'profile', ok: !!profile?.business_name?.trim() },
+    { key: 'business_owner_name', label: 'Business owner', surface: 'profile', ok: !!profile?.business_owner_name?.trim() },
+    { key: 'contact_phone', label: 'Contact number', surface: 'profile', ok: !!profile?.contact_phone?.trim() },
+    { key: 'contact_email', label: 'Business email', surface: 'profile', ok: !!profile?.contact_email?.trim() },
+    {
+      key: 'maps_pin',
+      label: 'Maps pin',
+      surface: 'profile',
+      // The pin is the geocoded HQ — require the address AND a resolved lat/lng
+      // so a typo that fails geocoding doesn't pass as "located".
+      ok: !!profile?.hq_address?.trim() && profile?.hq_latitude != null && profile?.hq_longitude != null,
+    },
+    { key: 'services', label: 'Services covered', surface: 'profile', ok: (profile?.services?.length ?? 0) > 0 },
+    {
+      key: 'in_business_since_year',
+      label: 'Year started',
+      surface: 'profile',
+      ok: !!profile?.in_business_since_year && profile.in_business_since_year > 1900,
+    },
+    { key: 'business_documents', label: 'Updated business documents', surface: 'documents', ok: opts.hasDocuments },
+  ];
+  const done = items.filter((i) => i.ok).length;
+  return {
+    items,
+    done,
+    total: items.length,
+    complete: done === items.length,
+    missing: items.filter((i) => !i.ok).map((i) => i.label),
+  };
+}
+
+/**
+ * Backward-compatible profile-fields-only gauge (excludes the documents item,
+ * which lives in a separate table + flow). Kept sync for callers that only have
+ * the profile row (e.g. the vendor-activity soft score). The full publish gate
+ * is `businessProfileChecklist` (8 items incl. documents).
  */
 export function profileCompletion(profile: VendorProfileRow | null): {
   done: number;
   total: number;
   missing: string[];
 } {
-  const checks: Array<{ key: string; label: string; ok: boolean }> = [
-    { key: 'business_name', label: 'Business name', ok: !!profile?.business_name?.trim() },
-    { key: 'business_slug', label: 'Slug', ok: !!profile?.business_slug },
-    { key: 'tagline', label: 'Tagline', ok: !!profile?.tagline?.trim() },
-    { key: 'logo_url', label: 'Logo URL (mandatory)', ok: !!profile?.logo_url?.trim() },
-    {
-      key: 'services',
-      label: 'At least one service',
-      ok: (profile?.services?.length ?? 0) > 0,
-    },
-    { key: 'location_city', label: 'City', ok: !!profile?.location_city?.trim() },
-    {
-      key: 'contact_email',
-      label: 'Contact email',
-      ok: !!profile?.contact_email?.trim(),
-    },
-  ];
-  return {
-    done: checks.filter((c) => c.ok).length,
-    total: checks.length,
-    missing: checks.filter((c) => !c.ok).map((c) => c.label),
-  };
+  const items = businessProfileChecklist(profile, { hasDocuments: true }).items.filter(
+    (i) => i.surface === 'profile',
+  );
+  const done = items.filter((i) => i.ok).length;
+  return { done, total: items.length, missing: items.filter((i) => !i.ok).map((i) => i.label) };
 }

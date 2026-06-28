@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { AlertTriangle, KeyRound, MonitorSmartphone, BadgeCheck } from 'lucide-react';
 import { vendorExperienceEnabled } from '@/lib/vendor-experience';
@@ -7,7 +8,8 @@ import { sweepLapsedSubscriptions } from '@/lib/subscriptions';
 import {
   fetchOwnVendorProfile,
   fetchVendorCompletedEventStats,
-  profileCompletion,
+  fetchHasBusinessDocuments,
+  businessProfileChecklist,
 } from '@/lib/vendor-profile';
 import { fetchVendorThreads } from '@/lib/chat';
 import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
@@ -94,6 +96,7 @@ type Props = {
     error?: string;
     password_changed?: string;
     signed_out_others?: string;
+    publish_blocked?: string;
   }>;
 };
 
@@ -411,7 +414,14 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
     expWeddings,
     expVerifiedAt,
   } = loaderState;
-  const completion = profileCompletion(profile);
+  // Required Business Profile (vendor onboarding · owner 2026-06-28) — the 8
+  // fields a vendor must complete to be published/listed. The documents item
+  // lives in a separate table (verification flow), fetched here.
+  const bpSupabase = await createClient();
+  const hasDocuments = profile
+    ? await fetchHasBusinessDocuments(bpSupabase, profile.vendor_profile_id)
+    : false;
+  const completion = businessProfileChecklist(profile, { hasDocuments });
   const pct = completion.total === 0 ? 0 : Math.round((completion.done / completion.total) * 100);
 
   // Live admin-taxonomy DISPLAY labels for the "what do you offer" picker. The
@@ -551,7 +561,15 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
       {search.error ? (
         <FormFlash tone="error">{search.error}</FormFlash>
       ) : null}
-      {search.saved ? <FormFlash tone="success">Profile saved.</FormFlash> : null}
+      {search.saved && !search.publish_blocked ? (
+        <FormFlash tone="success">Profile saved.</FormFlash>
+      ) : null}
+      {search.publish_blocked ? (
+        <FormFlash tone="error">
+          Saved — but your profile stays unpublished until your Business Profile is complete. Still
+          needed: {search.publish_blocked}.
+        </FormFlash>
+      ) : null}
       {search.password_changed ? (
         <FormFlash tone="success">
           Password changed. Your session stays active; use the new password next time you sign in.
@@ -590,7 +608,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
       >
         <div className="flex items-center justify-between">
           <h2 className="m-label-mono" style={{ color: 'var(--m-slate)' }}>
-            Completion
+            Business Profile
           </h2>
           <span className="font-mono text-sm font-semibold" style={{ color: 'var(--m-orange-2)' }}>
             {pct}%
@@ -606,13 +624,37 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
           />
         </div>
         <p className="text-xs" style={{ color: 'var(--m-slate)' }}>
-          {completion.done} of {completion.total} fields complete
-          {completion.missing.length > 0 ? ` · still needed: ${completion.missing.join(', ')}` : ''}
+          {completion.done} of {completion.total} required fields complete. Couples can only see
+          and contact you once your Business Profile is complete.
         </p>
-        {!profile?.logo_url ? (
+        <ul className="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2">
+          {completion.items.map((item) => (
+            <li
+              key={item.key}
+              className="inline-flex items-center gap-1.5 text-xs"
+              style={{ color: item.ok ? 'var(--m-slate)' : 'var(--m-ink)' }}
+            >
+              {item.ok ? (
+                <BadgeCheck aria-hidden className="h-3.5 w-3.5 text-success-700" strokeWidth={2} />
+              ) : (
+                <AlertTriangle aria-hidden className="h-3.5 w-3.5 text-warn-900" strokeWidth={2} />
+              )}
+              {item.surface === 'documents' && !item.ok ? (
+                <Link href="/vendor-dashboard/verify" className="underline hover:no-underline">
+                  {item.label}
+                </Link>
+              ) : (
+                <span className={item.ok ? 'line-through opacity-70' : 'font-medium'}>
+                  {item.label}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+        {!completion.complete ? (
           <p className="inline-flex items-center gap-1 text-xs text-warn-900">
             <AlertTriangle className="h-3.5 w-3.5" strokeWidth={2} />
-            Logo URL is mandatory before couples can see this profile.
+            Complete every item to publish your profile and start receiving inquiries.
           </p>
         ) : null}
       </section>
@@ -626,6 +668,35 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
             maxLength={128}
             defaultValue={profile?.business_name ?? ''}
             placeholder="Your studio / company name"
+            className="input-field"
+          />
+        </Field>
+
+        <Field label="Business owner" htmlFor="business_owner_name" required>
+          <input
+            id="business_owner_name"
+            name="business_owner_name"
+            maxLength={128}
+            defaultValue={profile?.business_owner_name ?? ''}
+            placeholder="Owner / representative full name"
+            className="input-field"
+          />
+        </Field>
+
+        <Field
+          label="Year started"
+          htmlFor="in_business_since_year"
+          required
+          help="The year your business began operating. Shown to couples as “X years in business.”"
+        >
+          <input
+            id="in_business_since_year"
+            name="in_business_since_year"
+            type="number"
+            min={1900}
+            max={new Date().getFullYear()}
+            defaultValue={profile?.in_business_since_year ?? expSinceYear ?? ''}
+            placeholder="2017"
             className="input-field"
           />
         </Field>
@@ -678,31 +749,20 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
               Shown on your card so couples see you&rsquo;re established. We confirm your
               &ldquo;in business since&rdquo; year against your DTI registration during verification.
             </p>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="In business since (year)" htmlFor="in_business_since_year">
-                <input
-                  id="in_business_since_year"
-                  name="in_business_since_year"
-                  type="number"
-                  min={1900}
-                  max={new Date().getFullYear()}
-                  defaultValue={expSinceYear ?? ''}
-                  placeholder="2017"
-                  className="input-field"
-                />
-              </Field>
-              <Field label="Approx. weddings done" htmlFor="weddings_done_approx">
-                <input
-                  id="weddings_done_approx"
-                  name="weddings_done_approx"
-                  type="number"
-                  min={0}
-                  defaultValue={expWeddings ?? ''}
-                  placeholder="240"
-                  className="input-field"
-                />
-              </Field>
-            </div>
+            {/* "Year started" now lives in the core Business Profile section
+                above (always required). This block keeps the extra trust signal:
+                approximate weddings done + the DTI-verified badge. */}
+            <Field label="Approx. weddings done" htmlFor="weddings_done_approx">
+              <input
+                id="weddings_done_approx"
+                name="weddings_done_approx"
+                type="number"
+                min={0}
+                defaultValue={expWeddings ?? ''}
+                placeholder="240"
+                className="input-field"
+              />
+            </Field>
             {expVerifiedAt ? (
               <p className="text-xs text-ink/45">Changing your &ldquo;since&rdquo; year will need us to re-verify it.</p>
             ) : null}

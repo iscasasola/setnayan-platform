@@ -217,11 +217,20 @@ export function SongBankStep({
 
       <div className="songbar songbank-bar">
         <span className="songbar-count">
-          Picked <b>{n}</b>
-          {' · '}
-          <span className={n >= 10 ? 'done' : undefined}>
-            {n >= 10 ? 'we’ll build the rest of your playlist' : `pick at least ${10 - n} more`}
-          </span>
+          {/* No quota. The step is optional — framing it as "pick at least 10 more"
+              read as a chore and nobody finished it (0 of 56 weddings picked any
+              song · 2026-06-28). Invite a couple of favourites and reward ANY pick:
+              even one means "we'll build the rest around it", so the music actually
+              feeds the couple's wedding videos instead of staying empty. */}
+          {n === 0 ? (
+            <>Tap a few you love — <span className="done">we’ll build the playlist around them</span></>
+          ) : (
+            <>
+              <b>{n}</b> {n === 1 ? 'song' : 'songs'} in
+              {' · '}
+              <span className="done">we’ll build the rest of your playlist</span>
+            </>
+          )}
         </span>
       </div>
     </div>

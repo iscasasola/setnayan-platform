@@ -8,6 +8,7 @@ import {
   Loader2,
   RotateCcw,
   ShieldCheck,
+  Upload,
 } from 'lucide-react';
 import type { FaceGateResult } from '@/lib/face-gate';
 
@@ -41,6 +42,31 @@ const POSE_HINTS = [
   'And slightly to the right',
 ];
 
+/** Decode an uploaded image File into a downscaled canvas (≤1280px long edge),
+ *  ready for the same gate + embed + upload pipeline a live frame uses. */
+async function fileToCanvas(file: File): Promise<HTMLCanvasElement> {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = () => reject(new Error('That image could not be read.'));
+      i.src = url;
+    });
+    const maxDim = 1280;
+    const scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight, 1));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas unavailable.');
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 export function SelfieCapture({
   onReadyChange,
   multiShot = false,
@@ -58,6 +84,7 @@ export function SelfieCapture({
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [consent, setConsent] = useState(false);
   const [phase, setPhase] = useState<Phase>('idle');
@@ -121,6 +148,62 @@ export function SelfieCapture({
     void startCamera();
   }, [startCamera]);
 
+  // Shared pipeline for any frame (live capture OR uploaded photo): advisory
+  // quality gate → on-device face fingerprint → presign + PUT the full-res JPEG
+  // to R2. Returns the enrollment asset, or null on a soft failure (sets error).
+  // Both lazy imports keep MediaPipe / face-api off the bundle until used.
+  const processCanvas = useCallback(
+    async (
+      canvas: HTMLCanvasElement,
+    ): Promise<{ ref: string; vector: number[] | null; gate: FaceGateResult | null } | null> => {
+      let gateLocal: FaceGateResult | null = null;
+      try {
+        const { runFaceGate } = await import('@/lib/face-gate');
+        gateLocal = await runFaceGate(canvas);
+      } catch {
+        gateLocal = null;
+      }
+
+      let vectorLocal: number[] | null = null;
+      try {
+        const { embedSingleFace } = await import('@/lib/face-embed');
+        const r = await embedSingleFace(canvas);
+        vectorLocal = r ? r.vector : null;
+      } catch {
+        vectorLocal = null;
+      }
+
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, 'image/jpeg', 0.92),
+      );
+      if (!blob) {
+        setError('Could not read that image — please try another.');
+        return null;
+      }
+      const presignRes = await fetch('/api/guest-selfie', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contentType: 'image/jpeg', sizeBytes: blob.size }),
+      });
+      const data = (await presignRes.json()) as {
+        uploadUrl?: string;
+        r2Ref?: string;
+        error?: string;
+      };
+      if (!presignRes.ok || !data.uploadUrl || !data.r2Ref) {
+        throw new Error(data.error ?? 'Upload could not start.');
+      }
+      const putRes = await fetch(data.uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'image/jpeg' },
+        body: blob,
+      });
+      if (!putRes.ok) throw new Error('Upload failed — check your signal.');
+      return { ref: data.r2Ref, vector: vectorLocal, gate: gateLocal };
+    },
+    [],
+  );
+
   const capture = useCallback(async () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -150,71 +233,20 @@ export function SelfieCapture({
     stopStream();
     setPhase('review');
 
-    // Advisory quality gate — lazy import pulls MediaPipe only now (keeps it
-    // off the bundle until a guest actually takes a selfie). Keep a local
-    // (not just state) so multi-shot can attach it to the committed angle.
-    let gateLocal: FaceGateResult | null = null;
     try {
-      const { runFaceGate } = await import('@/lib/face-gate');
-      gateLocal = await runFaceGate(canvas);
-    } catch {
-      gateLocal = null;
-    }
-    setGate(gateLocal);
-
-    // On-device face fingerprint (dlib via face-api.js) — best-effort, DORMANT
-    // until a model is hosted. The 128-d descriptor is the guest's enrollment
-    // fingerprint for gallery auto-tagging; the lazy import keeps face-api/TF.js
-    // off the bundle until a guest actually takes a selfie. Never blocks the RSVP.
-    let vectorLocal: number[] | null = null;
-    try {
-      const { embedSingleFace } = await import('@/lib/face-embed');
-      const r = await embedSingleFace(canvas);
-      vectorLocal = r ? r.vector : null;
-    } catch {
-      vectorLocal = null;
-    }
-    setSelfieVector(vectorLocal);
-
-    // Upload the full-res JPEG (the face-rec enrollment asset) to R2.
-    const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, 'image/jpeg', 0.92),
-    );
-    if (!blob) {
-      setError('Could not grab that frame — please retake.');
-      setBusy(false);
-      return;
-    }
-    try {
-      const presignRes = await fetch('/api/guest-selfie', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contentType: 'image/jpeg', sizeBytes: blob.size }),
-      });
-      const data = (await presignRes.json()) as {
-        uploadUrl?: string;
-        r2Ref?: string;
-        error?: string;
-      };
-      if (!presignRes.ok || !data.uploadUrl || !data.r2Ref) {
-        throw new Error(data.error ?? 'Upload could not start.');
+      const shot = await processCanvas(canvas);
+      if (!shot) {
+        setBusy(false);
+        return;
       }
-      const putRes = await fetch(data.uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'image/jpeg' },
-        body: blob,
-      });
-      if (!putRes.ok) throw new Error('Upload failed — check your signal.');
-      setR2Ref(data.r2Ref);
+      setGate(shot.gate);
+      setSelfieVector(shot.vector);
+      setR2Ref(shot.ref);
       if (multiShot) {
         // Commit this angle, then return to the gallery for the next pose.
         const preview = canvas.toDataURL('image/jpeg', 0.6);
-        const quality = gateLocal
-          ? { score: gateLocal.score, ...gateLocal.meta }
-          : null;
-        const ref = data.r2Ref;
-        setShots((prev) => [...prev, { ref, vector: vectorLocal, quality, preview }]);
-        // Clear the single-shot temp so the next capture starts clean.
+        const quality = shot.gate ? { score: shot.gate.score, ...shot.gate.meta } : null;
+        setShots((prev) => [...prev, { ref: shot.ref, vector: shot.vector, quality, preview }]);
         setR2Ref(null);
         setGate(null);
         setSelfieVector(null);
@@ -226,7 +258,38 @@ export function SelfieCapture({
     } finally {
       setBusy(false);
     }
-  }, [ready, stopStream, multiShot]);
+  }, [ready, stopStream, multiShot, processCanvas]);
+
+  // Multi-shot only: add up to the remaining angles from uploaded photos
+  // (owner 2026-06-28 — guests can upload up to 3, min 1, instead of posing).
+  const handleUploadFiles = useCallback(
+    async (files: FileList | null) => {
+      if (!files || files.length === 0) return;
+      setBusy(true);
+      setError(null);
+      const remaining = Math.max(0, maxShots - shots.length);
+      for (const file of Array.from(files).slice(0, remaining)) {
+        try {
+          const canvas = await fileToCanvas(file);
+          const shot = await processCanvas(canvas);
+          if (shot) {
+            const preview = canvas.toDataURL('image/jpeg', 0.6);
+            const quality = shot.gate ? { score: shot.gate.score, ...shot.gate.meta } : null;
+            setShots((prev) =>
+              prev.length >= maxShots
+                ? prev
+                : [...prev, { ref: shot.ref, vector: shot.vector, quality, preview }],
+            );
+          }
+        } catch (e) {
+          setError(e instanceof Error ? e.message : 'Could not add that photo — try another.');
+        }
+      }
+      setBusy(false);
+      setPhase('gallery');
+    },
+    [maxShots, shots.length, processCanvas],
+  );
 
   // Withdrawing consent drops any captured selfie — no consent, no photo.
   const onConsentChange = (checked: boolean) => {
@@ -337,21 +400,49 @@ export function SelfieCapture({
         </span>
       </label>
 
+      {/* Hidden picker for the multi-shot upload path (up to maxShots photos). */}
+      {multiShot ? (
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="sr-only"
+          onChange={(e) => {
+            void handleUploadFiles(e.target.files);
+            e.target.value = '';
+          }}
+        />
+      ) : null}
+
       <div className="mt-3">
         {phase === 'idle' ? (
-          <button
-            type="button"
-            disabled={!consent}
-            onClick={startCamera}
-            className="inline-flex items-center gap-2 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <Camera aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            {multiShot
-              ? `Take ${maxShots} quick angles`
-              : r2Ref
-                ? 'Retake selfie'
-                : 'Take a selfie'}
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              disabled={!consent}
+              onClick={startCamera}
+              className="inline-flex items-center gap-2 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Camera aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              {multiShot
+                ? 'Take selfies'
+                : r2Ref
+                  ? 'Retake selfie'
+                  : 'Take a selfie'}
+            </button>
+            {multiShot ? (
+              <button
+                type="button"
+                disabled={!consent || busy}
+                onClick={() => fileInputRef.current?.click()}
+                className="inline-flex items-center gap-2 rounded-full border border-ink/20 px-4 py-2 text-sm font-medium text-ink/75 transition-colors hover:border-terracotta hover:text-terracotta disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Upload aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                Upload photos
+              </button>
+            ) : null}
+          </div>
         ) : null}
 
         {phase === 'camera' ? (
@@ -486,14 +577,25 @@ export function SelfieCapture({
                 />
               ))}
               {shots.length < maxShots ? (
-                <button
-                  type="button"
-                  onClick={startCamera}
-                  className="flex h-16 w-16 flex-col items-center justify-center gap-0.5 rounded-lg border border-dashed border-ink/30 text-ink/55 transition-colors hover:border-terracotta hover:text-terracotta"
-                >
-                  <Camera aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                  <span className="text-[0.6rem] leading-none">Add</span>
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={startCamera}
+                    className="flex h-16 w-16 flex-col items-center justify-center gap-0.5 rounded-lg border border-dashed border-ink/30 text-ink/55 transition-colors hover:border-terracotta hover:text-terracotta"
+                  >
+                    <Camera aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                    <span className="text-[0.6rem] leading-none">Camera</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex h-16 w-16 flex-col items-center justify-center gap-0.5 rounded-lg border border-dashed border-ink/30 text-ink/55 transition-colors hover:border-terracotta hover:text-terracotta disabled:opacity-50"
+                  >
+                    <Upload aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                    <span className="text-[0.6rem] leading-none">Upload</span>
+                  </button>
+                </>
               ) : null}
             </div>
             <p className="inline-flex items-center gap-1.5 text-xs text-success-700">

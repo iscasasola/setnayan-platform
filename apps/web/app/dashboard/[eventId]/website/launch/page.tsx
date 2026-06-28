@@ -116,7 +116,7 @@ export default async function WebsiteLaunchPage({
       <div className="space-y-3">
         <h2 className="font-serif text-2xl italic tracking-tight">See each part</h2>
         {publicLandingUrl ? (
-          <WebsiteLaunchPreview publicLandingUrl={publicLandingUrl} />
+          <WebsiteLaunchPreview eventId={eventId} publicLandingUrl={publicLandingUrl} />
         ) : (
           <div className="flex flex-col items-start gap-3 rounded-2xl border border-ink/10 bg-cream/60 p-6">
             <p className="flex items-center gap-2 text-sm font-semibold text-ink">

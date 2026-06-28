@@ -60,6 +60,7 @@ export function EditorialEditor({
   shareUrl = null,
   showcaseOptedIn = false,
   landingVisibility = 'public',
+  isWedding = true,
 }: {
   eventId: string;
   slug: string | null;
@@ -70,6 +71,10 @@ export function EditorialEditor({
   showcaseOptedIn?: boolean;
   /** Landing-page visibility — a private page can't be featured publicly. */
   landingVisibility?: LandingVisibility;
+  /** Real Stories only aggregates weddings (loadPublishedShowcases filters
+   *  event_type='wedding'), so the opt-in toggle is wedding-only — a non-wedding
+   *  couple toggling it would set consent that never surfaces. */
+  isWedding?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -362,7 +367,10 @@ export function EditorialEditor({
             </p>
           )}
 
-          {/* Real Stories opt-in (RA 10173 explicit consent). */}
+          {/* Real Stories opt-in (RA 10173 explicit consent). Wedding-only —
+              the public gallery aggregates weddings, so a non-wedding couple
+              toggling it would set consent that never surfaces. */}
+          {isWedding ? (
           <div className="mt-5 border-t border-ink/10 pt-5">
             <button
               type="button"
@@ -407,6 +415,7 @@ export function EditorialEditor({
               </p>
             ) : null}
           </div>
+          ) : null}
         </section>
       ) : null}
     </div>

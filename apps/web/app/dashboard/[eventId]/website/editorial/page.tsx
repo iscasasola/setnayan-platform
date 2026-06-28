@@ -9,8 +9,11 @@ import {
   type EditorialSections,
 } from '@/app/[slug]/_components/editorial/data';
 import { composeCopy } from '@/app/[slug]/_components/editorial/compose';
+import { siteUrl } from '@/lib/social/urls';
 import { EditorialEditor } from './_components/editorial-editor';
 import type { EditorialEditorInput } from './actions';
+
+type LandingVisibility = 'public' | 'unlisted' | 'private';
 
 /**
  * Consolidated editorial editor (iteration 0046). One page where the couple
@@ -37,10 +40,32 @@ export default async function EditorialEditorPage({
 
   const { data: event, error } = await supabase
     .from('events')
-    .select('event_id, display_name, slug')
+    .select('event_id, display_name, slug, landing_page_visibility')
     .eq('event_id', eventId)
     .maybeSingle();
   if (error || !event) notFound();
+
+  // Showcase props — so the couple can publish AND opt into Real Stories from
+  // here (the consent flag is per-user; the visibility gates hub eligibility).
+  const landingVisibility = ((event.landing_page_visibility as string) ??
+    'public') as LandingVisibility;
+  let showcaseOptedIn = false;
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      const admin = createAdminClient();
+      const { data: me } = await admin
+        .from('users')
+        .select('public_summary_consent_at')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      showcaseOptedIn = Boolean(me?.public_summary_consent_at);
+    }
+  } catch {
+    showcaseOptedIn = false;
+  }
 
   let draft: Record<string, unknown> = {};
   let status = 'draft';
@@ -119,7 +144,14 @@ export default async function EditorialEditorPage({
         </p>
       </header>
 
-      <EditorialEditor eventId={eventId} slug={event.slug ?? null} initial={initial} />
+      <EditorialEditor
+        eventId={eventId}
+        slug={event.slug ?? null}
+        initial={initial}
+        shareUrl={event.slug ? `${siteUrl().replace(/\/$/, '')}/${event.slug}` : null}
+        showcaseOptedIn={showcaseOptedIn}
+        landingVisibility={landingVisibility}
+      />
     </main>
   );
 }

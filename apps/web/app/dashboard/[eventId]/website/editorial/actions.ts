@@ -158,6 +158,13 @@ export async function saveEditorial(
  * `landing_page_visibility`; a private page still won't surface (the
  * loadPublishedShowcases `!= 'private'` guard), and the editor surfaces that
  * caveat rather than silently making the page public.
+ *
+ * Wedding-gated on opt-IN (server-side, behind the wedding-only UI toggle):
+ * `public_summary_consent_at` is a per-USER flag and Real Stories only
+ * aggregates weddings (loadPublishedShowcases filters event_type='wedding'), so
+ * a non-wedding event must not be able to flip it (a direct action call would
+ * otherwise set consent that affects the user's OTHER wedding events). Opt-OUT
+ * is always allowed.
  */
 export async function setStoryShowcase(
   eventId: string,
@@ -167,6 +174,18 @@ export async function setStoryShowcase(
   if (!userId) return { ok: false, error: 'You don’t have access to this wedding.' };
 
   const admin = createAdminClient();
+
+  if (optIn) {
+    const { data: ev } = await admin
+      .from('events')
+      .select('event_type')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (((ev?.event_type as string | null) ?? 'wedding') !== 'wedding') {
+      return { ok: false, error: 'Real Stories features weddings only.' };
+    }
+  }
+
   const { error } = await admin
     .from('users')
     .update({ public_summary_consent_at: optIn ? new Date().toISOString() : null })

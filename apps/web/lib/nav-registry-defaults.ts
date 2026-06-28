@@ -1362,6 +1362,18 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 7,
   },
   {
+    key: "vendor.sidebar.deliveries",
+    scope: "vendor",
+    area: "vendor-sidebar",
+    route: "/vendor-dashboard/deliveries",
+    label: "Deliveries",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "PackageCheck",
+    customRef: null,
+    sortOrder: 7.5,
+  },
+  {
     key: "vendor.sidebar.contracts",
     scope: "vendor",
     area: "vendor-sidebar",

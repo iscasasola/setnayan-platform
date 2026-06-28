@@ -150,6 +150,13 @@ export function ServiceWizard({
           <input type="checkbox" name="crew_meal_required" className="h-4 w-4 accent-terracotta" />
           Crew meal required
         </label>
+        <label className="flex items-start gap-2 text-sm text-ink/75">
+          <input type="checkbox" name="per_guest_delivery" className="mt-0.5 h-4 w-4 accent-terracotta" />
+          <span>
+            Delivered per guest — adds a QR scan station at the event to confirm
+            each guest received it (you see a count, not names)
+          </span>
+        </label>
         <details className="rounded-lg border border-ink/10 p-3">
           <summary className="cursor-pointer text-sm font-medium text-ink/75">Pricing rules (advanced) — optional</summary>
           <div className="mt-3 space-y-3">

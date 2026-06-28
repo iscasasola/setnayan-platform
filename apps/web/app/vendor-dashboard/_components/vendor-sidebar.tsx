@@ -110,6 +110,7 @@ import {
   Building2,
   Images,
   Handshake,
+  PackageCheck,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { SidebarSection } from '@/app/_components/nav/sidebar-section';
@@ -181,6 +182,9 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
       { key: 'clients', label: 'Clients', href: '/vendor-dashboard/clients', icon: Users, matchPrefix: '/vendor-dashboard/clients' },
       { key: 'messages', label: 'Messages', href: '/vendor-dashboard/messages', icon: MessageSquare, matchPrefix: '/vendor-dashboard/messages' },
       { key: 'services', label: 'Services', href: '/vendor-dashboard/services', icon: ClipboardList, matchPrefix: '/vendor-dashboard/services' },
+      // Per-guest delivery scan station (owner 2026-06-28). Lands on a friendly
+      // "turn it on" empty state until a service is toggled delivered-per-guest.
+      { key: 'deliveries', label: 'Deliveries', href: '/vendor-dashboard/deliveries', icon: PackageCheck, matchPrefix: '/vendor-dashboard/deliveries' },
       { key: 'contracts', label: 'Contracts', href: '/vendor-dashboard/contracts', icon: FileSignature, matchPrefix: '/vendor-dashboard/contracts' },
       // Data-link program ③ — auto-filled proposals for booked clients.
       { key: 'proposals', label: 'Proposals', href: '/vendor-dashboard/proposals', icon: FileText, matchPrefix: '/vendor-dashboard/proposals' },

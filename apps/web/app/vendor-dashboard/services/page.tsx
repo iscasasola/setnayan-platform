@@ -388,6 +388,22 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                     </span>
                   </span>
                 </label>
+                <label className="flex items-start gap-3 rounded-xl border border-ink/10 bg-cream p-3">
+                  <input
+                    type="checkbox"
+                    name="per_guest_delivery"
+                    className="mt-0.5 h-4 w-4 cursor-pointer accent-terracotta"
+                  />
+                  <span>
+                    <span className="block text-sm font-medium text-ink">
+                      Delivered per guest
+                    </span>
+                    <span className="block text-xs text-ink/55">
+                      Adds a QR scan station to confirm each guest received it —
+                      you see a count, never guest details.
+                    </span>
+                  </span>
+                </label>
                 <LastMinuteFields idPrefix={`new-${addCategory}`} />
                 {showBranchPicker ? (
                   <BranchSelect
@@ -609,6 +625,18 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                         className="h-4 w-4 cursor-pointer accent-terracotta"
                       />
                       <span>Crew meal required (feeds couple&rsquo;s budget)</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-ink/75">
+                      <input
+                        type="checkbox"
+                        name="per_guest_delivery"
+                        defaultChecked={svc.per_guest_delivery}
+                        className="h-4 w-4 cursor-pointer accent-terracotta"
+                      />
+                      <span>
+                        Delivered per guest — adds a QR scan station to confirm
+                        each guest received it (you see a count, not names)
+                      </span>
                     </label>
                     <LastMinuteFields
                       idPrefix={svc.vendor_service_id}

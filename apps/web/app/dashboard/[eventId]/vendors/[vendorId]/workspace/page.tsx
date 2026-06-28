@@ -231,7 +231,7 @@ export default async function VendorWorkspacePage({ params }: Props) {
   const { data: vendorRow, error: vendorErr } = await supabase
     .from('event_vendors')
     .select(
-      'vendor_id, event_id, category, vendor_name, contact_email, contact_phone, status, workspace_status, total_cost_php, transport_php, food_allowance_php, deposit_paid_php, notes, marketplace_vendor_id, manual_vendor_id, event_vendor_package_id, host_inclusions, covers_plan_groups, created_at',
+      'vendor_id, event_id, service_id, category, vendor_name, contact_email, contact_phone, status, workspace_status, total_cost_php, transport_php, food_allowance_php, deposit_paid_php, notes, marketplace_vendor_id, manual_vendor_id, event_vendor_package_id, host_inclusions, covers_plan_groups, created_at',
     )
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId)
@@ -242,6 +242,7 @@ export default async function VendorWorkspacePage({ params }: Props) {
   const ev = vendorRow as {
     vendor_id: string;
     event_id: string;
+    service_id: string | null;
     category: string;
     vendor_name: string;
     contact_email: string | null;
@@ -260,6 +261,30 @@ export default async function VendorWorkspacePage({ params }: Props) {
     covers_plan_groups: string[] | null;
     created_at: string;
   };
+
+  // Per-guest delivery progress (owner 2026-06-28). When the booked service is
+  // toggled "delivered per guest", the couple sees how many guests the vendor
+  // has confirmed at the event. Couple reads via event_service_deliveries'
+  // member_read RLS; best-effort (failures just hide the line).
+  let deliveryDelivered = 0;
+  let showDelivery = false;
+  if (ev.service_id) {
+    const [{ data: svcRow }, { count: deliveredCount }] = await Promise.all([
+      supabase
+        .from('vendor_services')
+        .select('per_guest_delivery')
+        .eq('vendor_service_id', ev.service_id)
+        .maybeSingle(),
+      supabase
+        .from('event_service_deliveries')
+        .select('delivery_id', { count: 'exact', head: true })
+        .eq('event_vendor_id', ev.vendor_id),
+    ]);
+    deliveryDelivered = deliveredCount ?? 0;
+    showDelivery =
+      Boolean((svcRow as { per_guest_delivery?: boolean } | null)?.per_guest_delivery) ||
+      deliveryDelivered > 0;
+  }
 
   // DIY parity (2026-06-11): "also covers" options for the host-authored
   // links on a manual vendor — every plan group except this vendor's own.
@@ -896,6 +921,15 @@ export default async function VendorWorkspacePage({ params }: Props) {
         >
           Order &amp; payment status
         </h2>
+
+        {showDelivery ? (
+          <p className="inline-flex items-center gap-1.5 rounded-lg bg-success-50 px-3 py-1.5 text-sm text-success-800">
+            <PackageIcon aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            {deliveryDelivered}{' '}
+            {deliveryDelivered === 1 ? 'guest has' : 'guests have'} received this
+            at the event
+          </p>
+        ) : null}
 
         <ol className="grid grid-cols-3 gap-1 sm:gap-2" role="list">
           {STAGE_ORDER.map((s, idx) => {

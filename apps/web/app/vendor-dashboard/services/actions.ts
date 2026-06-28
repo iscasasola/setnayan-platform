@@ -356,6 +356,12 @@ export async function createVendorService(formData: FormData) {
     discount_expires_at,
     discount_conditions_md,
     exclusive_perk_text,
+    // Owner 2026-06-28: per-guest delivery tracking opt-in. When on, this
+    // service's event bookings get a vendor QR scan station to confirm each
+    // guest received it (operational-only — no guest PII surfaced).
+    per_guest_delivery: ['on', '1', 'true'].includes(
+      String(formData.get('per_guest_delivery') ?? ''),
+    ),
     // New services are created as drafts (is_active: false) so the publish gate
     // (exclusive_perk_text required) is enforced only on the toggle action.
     is_active: false,
@@ -486,6 +492,9 @@ export async function updateVendorService(formData: FormData) {
       discount_expires_at,
       discount_conditions_md,
       exclusive_perk_text,
+      per_guest_delivery: ['on', '1', 'true'].includes(
+        String(formData.get('per_guest_delivery') ?? ''),
+      ),
       updated_at: new Date().toISOString(),
     })
     .eq('vendor_service_id', idRaw)
@@ -832,6 +841,11 @@ export async function commitVendorService(formData: FormData) {
       discount_conditions_md: discount.discount_conditions_md,
       exclusive_perk_text: parseExclusivePerk(formData),
       primary_photo_r2_key: parsePrimaryPhoto(formData),
+      // Owner 2026-06-28: per-guest delivery opt-in carried through the guided
+      // wizard's atomic save (save_vendor_service reads this from p_fields).
+      per_guest_delivery: ['on', '1', 'true'].includes(
+        String(formData.get('per_guest_delivery') ?? ''),
+      ),
     };
   } catch (e) {
     return back((e as Error).message);

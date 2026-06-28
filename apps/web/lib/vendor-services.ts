@@ -42,13 +42,17 @@ export type VendorServiceRow = {
   /** Never shown publicly. Revealed in-thread when the vendor token-pursues.
    *  Required to publish (is_active=true). Drafts may be null. */
   exclusive_perk_text: string | null;
+  /** Vendor opt-in (owner 2026-06-28): this service is delivered per guest, so
+   *  its event bookings get a QR scan station to confirm each guest received it
+   *  (operational-only — no guest PII surfaced to the vendor). */
+  per_guest_delivery: boolean;
   created_at: string;
   updated_at: string;
 };
 
 const BASE_COLS =
   'vendor_service_id,public_id,vendor_profile_id,category,starting_price_php,added_pax_price_php,crew_size,crew_meal_required,is_active,created_at,updated_at';
-const FULL_SELECT = `${BASE_COLS},title,branch_id,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,daily_capacity,discount_type,discount_value,discount_expires_at,discount_conditions_md,exclusive_perk_text`;
+const FULL_SELECT = `${BASE_COLS},title,branch_id,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,daily_capacity,discount_type,discount_value,discount_expires_at,discount_conditions_md,exclusive_perk_text,per_guest_delivery`;
 
 export async function fetchVendorServices(
   supabase: SupabaseClient,
@@ -83,7 +87,9 @@ export async function fetchVendorServices(
         | 'discount_expires_at'
         | 'discount_conditions_md'
         | 'exclusive_perk_text'
+        | 'per_guest_delivery'
       >),
+      per_guest_delivery: false,
       title: null,
       branch_id: null,
       recommended_lead_time_months: null,

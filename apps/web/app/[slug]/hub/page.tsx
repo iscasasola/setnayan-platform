@@ -373,7 +373,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
               : 'border-ink/10 bg-cream'
           }`}
         >
-          <p className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-terracotta">
+          <p className="inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.18em] text-terracotta">
             {arrived && tableLabel ? (
               <PartyPopper aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             ) : (
@@ -403,7 +403,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
         </article>
       ) : (
         <article className="space-y-1 rounded-2xl border border-ink/10 bg-cream p-5">
-          <p className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-terracotta">
+          <p className="inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.18em] text-terracotta">
             <Activity aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             Welcome
           </p>
@@ -535,13 +535,13 @@ export default async function EventHubPage({ params, searchParams }: Props) {
       {guest ? (
         <article className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
           <div className="flex items-center justify-between">
-            <p className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-terracotta">
+            <p className="inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.18em] text-terracotta">
               <Images aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
               Photos of you
             </p>
             <Link
               href={`/papic/me/${guest.qr_token}`}
-              className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55 hover:text-terracotta"
+              className="font-mono text-xs uppercase tracking-[0.15em] text-ink/55 hover:text-terracotta"
             >
               See all{galleryTotal > 0 ? ` (${galleryTotal})` : ''} →
             </Link>

@@ -67,6 +67,7 @@
 
 import {
   Home,
+  ListChecks,
   Banknote,
   Coins,
   BadgeCheck,
@@ -160,6 +161,17 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
     key: 'queues',
     label: 'Work',
     items: [
+      {
+        // All work — the command-center worklist: every act-now queue ranked
+        // most-urgent-first (overdue → due-soon → busiest) in one view. This is
+        // the desktop entry to the /admin/work feed the mobile Work tab already
+        // lands on. Unbadged on purpose — the per-queue rows below carry counts.
+        key: 'work-home',
+        label: 'All work',
+        href: '/admin/work',
+        icon: ListChecks,
+        matchPrefix: '/admin/work',
+      },
       {
         key: 'verify',
         label: 'Verify',

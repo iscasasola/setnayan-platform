@@ -1,23 +1,22 @@
 /**
- * /admin/work — mobile triage action feed for the Work group.
+ * /admin/work — the admin command center: every act-now queue in ONE ranked
+ * worklist, most-urgent first, each row one click into the work.
  *
- * WHY: ops-shaped nav redesign (Admin_Console_Nav_Redesign_2026-06-08.md ·
- * owner conditionally signed off). The mobile "Work" tab lands on a
- * PRIORITIZED action feed — every act-now queue with its live open-count,
- * busiest first, one tap into the work. This is the renamed + expanded
- * successor to the old /admin/queues feed: it now also carries Payouts +
- * Token sales (pulled in from the dissolved Money group), so the mobile
- * job — approvals-on-the-go — covers ALL pending work in one place.
+ * WHY: ~95% of admin sessions are "clear a queue." Instead of remembering to
+ * check 14 separate pages, the admin lands on a single list that already knows
+ * what needs them and in what order — overdue first (past its SLA window),
+ * then due-soon, then busiest. Ranking + the per-queue "open" filters come from
+ * the shared lib/admin/queue-counts.ts helpers, so this feed, the nav badges,
+ * and the /admin overview all agree by construction.
  *
- * Counts come from the shared getAdminQueueCounts() helper
- * (lib/admin/queue-counts.ts) — the SAME source that badges the Work nav items
- * and the /admin overview, so all three agree by construction. The canonical
- * per-queue filter table lives in that helper now (it used to be duplicated
- * here, which is how the verify filter drifted once).
+ * Urgency = the oldest open item's age vs the queue's slaHours (ADMIN_QUEUE_META
+ * — owner-tunable). A queue whose timestamp is unavailable degrades to volume
+ * ranking; a thrown query fails the whole feed open to "all clear" rather than
+ * 500-ing. Renders at every breakpoint (the feed component handles the
+ * responsive layout) — it's the desktop home as well as the mobile Work tab.
  *
- * A missing/renamed table resolves to a null count (not a throw), so that one
- * row degrades to a chevron instead of 500-ing the whole feed. Desktop redirect
- * implicit via lg:hidden on the feed.
+ * Per [[feedback_setnayan_no_dev_text_post_launch]] all copy is brand-voice;
+ * no schema names leak into the UI.
  */
 
 import {
@@ -35,155 +34,109 @@ import {
   LifeBuoy,
   UserX,
   Handshake,
+  type LucideIcon,
 } from 'lucide-react';
 import {
   QueuesTriageFeed,
   type TriageItem,
 } from '../queues/_components/queues-triage-feed';
 import {
-  getAdminQueueCounts,
-  type AdminQueueCounts,
+  getAdminQueueDigest,
+  computeDueState,
+  ADMIN_QUEUE_META,
+  type AdminQueueDigest,
 } from '@/lib/admin/queue-counts';
 
 export const metadata = { title: 'Work · Admin' };
 
+// Presentation constants per queue (key MUST match ADMIN_QUEUE_META + the
+// digest keys + the sidebar item keys 1:1). Urgency/count/lane are layered on
+// from the digest below — this array only holds the brand-voice label/copy.
+type BaseRow = {
+  key: string;
+  label: string;
+  href: string;
+  icon: LucideIcon;
+  description: string;
+};
+
+const BASE_ROWS: BaseRow[] = [
+  { key: 'verify', label: 'Verify', href: '/admin/verify', icon: BadgeCheck, description: 'Vendors awaiting the verification badge.' },
+  { key: 'payments', label: 'Payments', href: '/admin/payments', icon: Banknote, description: 'Order payments awaiting reconciliation.' },
+  { key: 'payouts', label: 'Payouts', href: '/admin/payouts', icon: Wallet, description: 'Vendor payouts ready to release.' },
+  { key: 'token-purchases', label: 'Token sales', href: '/admin/token-purchases', icon: ShoppingBag, description: 'Vendor token-pack purchases awaiting confirmation.' },
+  { key: 'subscriptions', label: 'Subscriptions', href: '/admin/subscriptions', icon: Crown, description: 'Vendor Pro / Enterprise upgrades awaiting confirmation.' },
+  { key: 'payment-options', label: 'Payment options', href: '/admin/payment-options', icon: CreditCard, description: 'Vendor payment destinations awaiting a fraud screen.' },
+  { key: 'disputes', label: 'Disputes', href: '/admin/disputes', icon: Shield, description: 'Open customer and vendor disputes.' },
+  { key: 'force-majeure', label: 'Force majeure', href: '/admin/force-majeure', icon: AlertOctagon, description: 'Event-impacting flags to triage.' },
+  { key: 'reviews', label: 'Reviews', href: '/admin/reviews', icon: Star, description: 'Review appeals awaiting a decision.' },
+  { key: 'concierge-abuse', label: 'Setnayan AI abuse', href: '/admin/concierge-abuse', icon: Flag, description: 'Trial-cycling flags to review.' },
+  { key: 'account-deletions', label: 'Account deletions', href: '/admin/account-deletions', icon: UserX, description: 'Self-serve account-deletion requests to review.' },
+  { key: 'approvals', label: 'Two-admin approvals', href: '/admin/approvals', icon: CheckCheck, description: 'A colleague is waiting on your second sign-off.' },
+  { key: 'help', label: 'Help', href: '/admin/help', icon: LifeBuoy, description: 'Open help-center tickets.' },
+  { key: 'vendor-partnerships', label: 'Partnerships', href: '/admin/vendor-partnerships', icon: Handshake, description: 'Vendor-to-vendor partnership claims awaiting two-admin verification.' },
+];
+
+// Compact age string from the oldest open item: 45m · 6h · 3d.
+function ageShort(iso: string | null, nowMs: number): string | null {
+  if (!iso) return null;
+  const mins = Math.max(0, Math.floor((nowMs - new Date(iso).getTime()) / 60_000));
+  if (mins < 60) return `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 48) return `${hrs}h`;
+  return `${Math.floor(hrs / 24)}d`;
+}
+
+// Worklist priority: overdue first, then due-soon, then open work (busiest),
+// then unknown, then clear — canonical order breaks ties within a band.
+const DUE_RANK: Record<string, number> = {
+  overdue: 0,
+  'due-soon': 1,
+  ok: 2,
+  unknown: 3,
+  clear: 4,
+};
+
 export default async function AdminWorkLanding() {
-  // Single source of truth — the same head-counts that badge the Work nav
-  // items (lib/admin/queue-counts.ts). Fails open: a thrown query degrades the
-  // feed to "unknown" chevrons rather than 500-ing the mobile triage page.
-  const counts = await getAdminQueueCounts().catch(() => ({}) as AdminQueueCounts);
+  // One round-trip per queue (count + oldest-open age). Fails open: a thrown
+  // query degrades the whole feed to "all clear" rather than 500-ing.
+  const digest = await getAdminQueueDigest().catch(() => ({}) as AdminQueueDigest);
+  const nowMs = Date.now();
 
-  const rows: TriageItem[] = [
-    {
-      key: 'verify',
-      label: 'Verify',
-      href: '/admin/verify',
-      icon: BadgeCheck,
-      description: 'Vendors awaiting the verification badge.',
-      count: counts.verify ?? null,
-    },
-    {
-      key: 'payments',
-      label: 'Payments',
-      href: '/admin/payments',
-      icon: Banknote,
-      description: 'Order payments awaiting reconciliation.',
-      count: counts.payments ?? null,
-    },
-    {
-      key: 'payouts',
-      label: 'Payouts',
-      href: '/admin/payouts',
-      icon: Wallet,
-      description: 'Vendor payouts ready to release.',
-      count: counts.payouts ?? null,
-    },
-    {
-      key: 'token-purchases',
-      label: 'Token sales',
-      href: '/admin/token-purchases',
-      icon: ShoppingBag,
-      description: 'Vendor token-pack purchases awaiting confirmation.',
-      count: counts["token-purchases"] ?? null,
-    },
-    {
-      key: 'subscriptions',
-      label: 'Subscriptions',
-      href: '/admin/subscriptions',
-      icon: Crown,
-      description: 'Vendor Pro / Enterprise upgrades awaiting confirmation.',
-      count: counts.subscriptions ?? null,
-    },
-    {
-      key: 'payment-options',
-      label: 'Payment options',
-      href: '/admin/payment-options',
-      icon: CreditCard,
-      description: 'Vendor payment destinations awaiting a fraud screen.',
-      count: counts["payment-options"] ?? null,
-    },
-    {
-      key: 'disputes',
-      label: 'Disputes',
-      href: '/admin/disputes',
-      icon: Shield,
-      description: 'Open customer and vendor disputes.',
-      count: counts.disputes ?? null,
-    },
-    {
-      key: 'force-majeure',
-      label: 'Force majeure',
-      href: '/admin/force-majeure',
-      icon: AlertOctagon,
-      description: 'Event-impacting flags to triage.',
-      count: counts["force-majeure"] ?? null,
-    },
-    {
-      key: 'reviews',
-      label: 'Reviews',
-      href: '/admin/reviews',
-      icon: Star,
-      description: 'Review appeals awaiting a decision.',
-      count: counts.reviews ?? null,
-    },
-    {
-      key: 'concierge-abuse',
-      label: 'Setnayan AI abuse',
-      href: '/admin/concierge-abuse',
-      icon: Flag,
-      description: 'Trial-cycling flags to review.',
-      count: counts["concierge-abuse"] ?? null,
-    },
-    {
-      key: 'account-deletions',
-      label: 'Account deletions',
-      href: '/admin/account-deletions',
-      icon: UserX,
-      description: 'Self-serve account-deletion requests to review.',
-      count: counts["account-deletions"] ?? null,
-    },
-    {
-      key: 'approvals',
-      label: 'Two-admin approvals',
-      href: '/admin/approvals',
-      icon: CheckCheck,
-      description: 'A colleague is waiting on your second sign-off.',
-      count: counts.approvals ?? null,
-    },
-    {
-      key: 'help',
-      label: 'Help',
-      href: '/admin/help',
-      icon: LifeBuoy,
-      description: 'Open help-center tickets.',
-      count: counts.help ?? null,
-    },
-    {
-      // Vendor partnerships — unverified partnership claims awaiting two-admin
-      // review before their badge renders on couple search results.
-      key: 'vendor-partnerships',
-      label: 'Partnerships',
-      href: '/admin/vendor-partnerships',
-      icon: Handshake,
-      description: 'Vendor-to-vendor partnership claims awaiting two-admin verification.',
-      count: counts["vendor-partnerships"] ?? null,
-    },
-  ];
+  const rows: TriageItem[] = BASE_ROWS.map((base, index) => {
+    const d = digest[base.key] ?? { count: null, oldestAt: null };
+    const meta = ADMIN_QUEUE_META[base.key];
+    const slaHours = meta?.slaHours ?? 48;
+    const dueState = computeDueState(d, slaHours, nowMs);
+    const age = ageShort(d.oldestAt, nowMs);
 
-  // Prioritize: queues with open work first (busiest first), then clear /
-  // unavailable, preserving the canonical order within each band.
-  const ordered = rows
-    .map((row, index) => ({ row, index }))
+    let ageLabel: string | undefined;
+    if (age && dueState === 'overdue') ageLabel = `Oldest ${age} · past SLA`;
+    else if (age && dueState === 'due-soon') ageLabel = `Oldest ${age} · due soon`;
+    else if (age && dueState === 'ok') ageLabel = `Oldest ${age}`;
+
+    return {
+      ...base,
+      count: d.count,
+      lane: meta?.lane,
+      dueState,
+      ageLabel,
+      _index: index,
+    } as TriageItem & { _index: number };
+  });
+
+  const ordered = (rows as (TriageItem & { _index: number })[])
+    .slice()
     .sort((a, b) => {
-      const ca = a.row.count ?? 0;
-      const cb = b.row.count ?? 0;
-      const aOpen = ca > 0 ? 1 : 0;
-      const bOpen = cb > 0 ? 1 : 0;
-      if (aOpen !== bOpen) return bOpen - aOpen;
+      const ra = DUE_RANK[a.dueState ?? 'unknown'] ?? 3;
+      const rb = DUE_RANK[b.dueState ?? 'unknown'] ?? 3;
+      if (ra !== rb) return ra - rb;
+      const ca = a.count ?? 0;
+      const cb = b.count ?? 0;
       if (cb !== ca) return cb - ca;
-      return a.index - b.index;
+      return a._index - b._index;
     })
-    .map((entry) => entry.row);
+    .map(({ _index, ...row }) => row as TriageItem);
 
   const totalOpen = rows.reduce(
     (sum, row) => sum + Math.max(0, row.count ?? 0),

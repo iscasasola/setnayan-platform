@@ -11,6 +11,12 @@ opening the page*. Plus a vocabulary re-skin of the same nav surface.
 - `admin-bottom-nav.tsx`: the mobile **Work** tab badges the **sum** of all queue counts.
 - `app/admin/work/page.tsx` refactored to consume the helper — **net code reduction** (~75 lines of duplicated query deleted).
 
+### Command center — urgency-ranked worklist on desktop
+- `/admin/work` was a complete prioritized triage feed but `lg:hidden` (dead on desktop). It's now the **desktop command center** too — reachable via a new **"All work"** entry atop the Work nav group.
+- Ranking upgraded from **volume** to **urgency**: new `getAdminQueueDigest()` returns each queue's open count **plus its oldest-open age** (one round-trip per queue: `count:'exact'` + oldest-first + `limit(1)`); `ADMIN_QUEUE_META` gives each queue a **lane** (money/trust/growth/support) + an **owner-tunable `slaHours`**; `computeDueState()` ranks **overdue → due-soon → busiest**.
+- The feed now splits an **"Needs attention now"** group (anything past SLA, red) from the rest, shows a per-row **lane tag** + **age line** ("Oldest 3d · past SLA"), tints by urgency, and lays out responsively (1-col phone / 2-col desktop). Fails open to "all clear" on a query error.
+- `getAdminQueueCounts()` (nav badges) and `getAdminQueueDigest()` (command center) now share **one `QUEUE_DEFS` filter table** — a queue's "open" definition is written once, so the badge count and the worklist count can never disagree.
+
 ### Vocabulary re-skin (secondary)
 Keeps the owner-signed-off **verb axis** (act/find/tune, `Admin_Console_Nav_Redesign_2026-06-08.md`) — does **not** flip to topic-grouping — and **drops zero surfaces** / changes **zero URLs**.
 

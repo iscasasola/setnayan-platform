@@ -5,6 +5,11 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
+import {
+  fetchBudgetSnapshot,
+  buildBudgetLiveSummary,
+  type BudgetLiveSummary,
+} from '@/lib/budget';
 
 // Hard upper bound on the budget setter (₱100,000,000 = 10_000_000_000
 // centavos). Captures real-world Filipino wedding budgets without
@@ -370,5 +375,34 @@ export async function deletePayment(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/budget`);
   if (paymentRow?.vendor_id) {
     revalidatePath(`/dashboard/${eventId}/vendors/${paymentRow.vendor_id}/workspace`);
+  }
+}
+
+/**
+ * Re-read the budget snapshot and return the live payment-progress summary
+ * (total to pay / paid / balance / % + next coming payments). Called by the
+ * BudgetLiveSummaryCard whenever a Realtime change lands on the event's
+ * payments or line items, so the card refreshes its numbers without a page
+ * reload.
+ *
+ * Uses the RLS-scoped authed client — the snapshot only ever covers the
+ * caller's own event. Returns null on no-auth / bad input / transient
+ * failure; the card keeps its last-known values rather than flashing an
+ * error (Realtime auto-reconnects and the next event heals the gap).
+ */
+export async function getBudgetLiveSummary(
+  eventId: string,
+): Promise<BudgetLiveSummary | null> {
+  if (typeof eventId !== 'string' || eventId.length === 0) return null;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+  try {
+    const snapshot = await fetchBudgetSnapshot(supabase, eventId);
+    return buildBudgetLiveSummary(snapshot);
+  } catch {
+    return null;
   }
 }

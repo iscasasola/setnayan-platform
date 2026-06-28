@@ -18,9 +18,18 @@ import { ArrowUpRight, Pencil } from 'lucide-react';
  */
 
 type PhaseKey = 'live' | 'rsvp' | 'event' | 'editorial';
+type Phase = { key: PhaseKey; label: string; caption: string };
 
-const PHASES: { key: PhaseKey; label: string; caption: string }[] = [
-  { key: 'live', label: 'Live now', caption: 'Your page exactly as anyone you share it with sees it today.' },
+// 'live' is the definite fallback (referenced directly so `current` is never
+// typed `undefined` under noUncheckedIndexedAccess — no non-null assertion).
+const LIVE_PHASE: Phase = {
+  key: 'live',
+  label: 'Live now',
+  caption: 'Your page exactly as anyone you share it with sees it today.',
+};
+
+const PHASES: Phase[] = [
+  LIVE_PHASE,
   { key: 'rsvp', label: 'Invitation', caption: 'The run-up invitation — your names, the details, and the RSVP.' },
   { key: 'event', label: 'Wedding day', caption: 'The live day-of page guests open on the wedding day itself.' },
   { key: 'editorial', label: 'After', caption: 'The story page guests revisit after the day — photos and highlights.' },
@@ -45,7 +54,7 @@ export function WebsiteLaunchPreview({
   publicLandingUrl: string;
 }) {
   const [active, setActive] = useState<PhaseKey>('live');
-  const current = PHASES.find((p) => p.key === active) ?? PHASES[0];
+  const current: Phase = PHASES.find((p) => p.key === active) ?? LIVE_PHASE;
   const src = viewSrc(publicLandingUrl, active);
   const edit = editHref(eventId, active);
 

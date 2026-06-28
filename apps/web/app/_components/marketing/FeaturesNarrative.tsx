@@ -20,31 +20,36 @@
  */
 
 import Link from 'next/link';
-import { useRef, useState } from 'react';
+import { useRef, useState, type CSSProperties } from 'react';
 import { Blob } from './_motion';
 import { usePanelIntro, PanelThread } from './_premium';
 
 // ─── Panel 0 data ──────────────────────────────────────────────────────────
-// Abstract preview tiles for the "16 features" overview.
-const OVERVIEW_FREE = [
-  'Guest List',
-  'Seat Plan',
-  'Budget',
-  'Timeline',
-  'Mood Board',
-  'Checklist',
-  'Save the Date',
-  'Website',
+// Abstract preview tiles for the "16 features" overview. Each label that has a
+// dedicated marketing page carries an `href` so the chip becomes a real link;
+// the rest stay as plain text. (Discoverability fix 2026-06-28 — these pages
+// were previously only reachable by typing the URL.)
+type OverviewTile = { name: string; href?: string };
+
+const OVERVIEW_FREE: OverviewTile[] = [
+  { name: 'Guest List' },
+  { name: 'Seat Plan', href: '/pa3d' },
+  { name: 'Budget' },
+  { name: 'Timeline' },
+  { name: 'Mood Board' },
+  { name: 'Checklist' },
+  { name: 'Save the Date' },
+  { name: 'Website', href: '/pawebsite' },
 ];
-const OVERVIEW_PAID = [
-  'Setnayan AI',
-  'Papic',
-  'Monogram',
-  'Panood',
-  'Pakanta',
-  'Contracts',
-  'Cinematic Reveal',
-  'Patiktok',
+const OVERVIEW_PAID: OverviewTile[] = [
+  { name: 'Setnayan AI', href: '/setnayan-ai' },
+  { name: 'Papic', href: '/papic' },
+  { name: 'Monogram', href: '/palogo' },
+  { name: 'Panood', href: '/panood' },
+  { name: 'Pakanta' },
+  { name: 'Contracts' },
+  { name: 'Cinematic Reveal' },
+  { name: 'Patiktok', href: '/patiktok' },
 ];
 
 // ─── Panel 1 data ──────────────────────────────────────────────────────────
@@ -241,6 +246,106 @@ function NextBtn({
   );
 }
 
+// ─── Overview chip ─────────────────────────────────────────────────────────
+// Renders a feature tile. Tiles with an `href` become real <Link>s — same
+// visual weight as the static chips, plus a restrained hover affordance (a
+// trailing arrow that fades in + a touch more border/colour) so they read as
+// interactive without disrupting the premium grid. Tiles without an href stay
+// exactly as before — plain, non-interactive text.
+function OverviewChip({
+  tile,
+  variant,
+}: {
+  tile: OverviewTile;
+  variant: 'free' | 'paid';
+}) {
+  const base: CSSProperties =
+    variant === 'free'
+      ? {
+          padding: '9px 16px',
+          borderRadius: 'var(--m-r-sm)',
+          background: 'rgba(197,160,89,.16)',
+          border: '1px solid rgba(197,160,89,.32)',
+          color: 'var(--m-orange-3)',
+          fontSize: 13,
+          fontWeight: 500,
+          letterSpacing: '.01em',
+        }
+      : {
+          padding: '9px 16px',
+          borderRadius: 'var(--m-r-sm)',
+          background: 'rgba(255,255,255,.04)',
+          border: '1px solid rgba(255,255,255,.1)',
+          color: 'rgba(251,251,250,.48)',
+          fontSize: 13,
+          letterSpacing: '.01em',
+        };
+
+  if (!tile.href) {
+    return <div style={base}>{tile.name}</div>;
+  }
+
+  // Linked chip: same footprint, a hairline-stronger border, an arrow that
+  // reveals on hover/focus, and a subtle lift — all via inline event handlers
+  // so we don't restyle the section or add a stylesheet rule.
+  return (
+    <Link
+      href={tile.href}
+      className="group"
+      style={{
+        ...base,
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        textDecoration: 'none',
+        borderColor:
+          variant === 'free' ? 'rgba(197,160,89,.5)' : 'rgba(255,255,255,.22)',
+        color: variant === 'free' ? 'var(--m-orange-3)' : 'rgba(251,251,250,.78)',
+        cursor: 'pointer',
+        transition: 'transform .2s ease, border-color .2s ease, background .2s ease, color .2s ease',
+        willChange: 'transform',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = 'translateY(-1px)';
+        e.currentTarget.style.borderColor =
+          variant === 'free' ? 'var(--m-orange-3)' : 'rgba(255,255,255,.4)';
+        e.currentTarget.style.background =
+          variant === 'free' ? 'rgba(197,160,89,.24)' : 'rgba(255,255,255,.08)';
+        e.currentTarget.style.color =
+          variant === 'free' ? 'var(--m-orange-3)' : '#FBFBFA';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = 'translateY(0)';
+        e.currentTarget.style.borderColor =
+          variant === 'free' ? 'rgba(197,160,89,.5)' : 'rgba(255,255,255,.22)';
+        e.currentTarget.style.background =
+          variant === 'free' ? 'rgba(197,160,89,.16)' : 'rgba(255,255,255,.04)';
+        e.currentTarget.style.color =
+          variant === 'free' ? 'var(--m-orange-3)' : 'rgba(251,251,250,.78)';
+      }}
+    >
+      {tile.name}
+      <svg
+        width="11"
+        height="8"
+        viewBox="0 0 14 8"
+        fill="none"
+        aria-hidden
+        className="opacity-50 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100"
+        style={{ flexShrink: 0 }}
+      >
+        <path
+          d="M0 4h11M8 1l3 3-3 3"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </Link>
+  );
+}
+
 // ─── Panel 0 — Overview ────────────────────────────────────────────────────
 function PanelOverview({ onNext }: { onNext: () => void }) {
   const scope = usePanelIntro();
@@ -304,38 +409,11 @@ function PanelOverview({ onNext }: { onNext: () => void }) {
             marginBottom: 52,
           }}
         >
-          {OVERVIEW_FREE.map((name) => (
-            <div
-              key={name}
-              style={{
-                padding: '9px 16px',
-                borderRadius: 'var(--m-r-sm)',
-                background: 'rgba(197,160,89,.16)',
-                border: '1px solid rgba(197,160,89,.32)',
-                color: 'var(--m-orange-3)',
-                fontSize: 13,
-                fontWeight: 500,
-                letterSpacing: '.01em',
-              }}
-            >
-              {name}
-            </div>
+          {OVERVIEW_FREE.map((tile) => (
+            <OverviewChip key={tile.name} tile={tile} variant="free" />
           ))}
-          {OVERVIEW_PAID.map((name) => (
-            <div
-              key={name}
-              style={{
-                padding: '9px 16px',
-                borderRadius: 'var(--m-r-sm)',
-                background: 'rgba(255,255,255,.04)',
-                border: '1px solid rgba(255,255,255,.1)',
-                color: 'rgba(251,251,250,.48)',
-                fontSize: 13,
-                letterSpacing: '.01em',
-              }}
-            >
-              {name}
-            </div>
+          {OVERVIEW_PAID.map((tile) => (
+            <OverviewChip key={tile.name} tile={tile} variant="paid" />
           ))}
         </div>
 

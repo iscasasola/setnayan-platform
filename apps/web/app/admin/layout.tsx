@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { runSocialFlush } from '@/lib/social/flush';
+import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { countUnread } from '@/lib/notifications';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
@@ -93,6 +94,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // traffic via after(). Fire-and-forget; the 10-min throttle inside
   // runSocialFlush makes this effectively free, and it never throws.
   after(() => runSocialFlush().catch(() => {}));
+  // Morning-digest flush (cron-free, throttled, single-claim, OFF by default).
+  // Also hooked on the public /explore page so it fires when no admin is around.
+  after(() => runAdminDigestFlush().catch(() => {}));
 
   const displayName = profile?.display_name ?? profile?.email ?? 'Setnayan Team';
 

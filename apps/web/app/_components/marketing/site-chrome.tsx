@@ -56,6 +56,7 @@ const NAV_ROUTES = new Set<string>([
   '/pawebsite',
   '/patiktok',
   '/why-setnayan',
+  '/alaala',
   '/tl/about',
   '/tl/how-it-works',
 ]);

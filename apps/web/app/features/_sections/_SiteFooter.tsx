@@ -11,6 +11,7 @@ import { Apple } from 'lucide-react';
 // Marketing feature pages — surfaced here so they're reachable by clicking
 // (added 2026-06-28). Public-facing names match each page's own title.
 const FEATURE_LINKS: { href: string; label: string }[] = [
+  { href: '/alaala', label: 'Alaala' },
   { href: '/papic', label: 'Papic' },
   { href: '/setnayan-ai', label: 'Setnayan AI' },
   { href: '/panood', label: 'Panood' },

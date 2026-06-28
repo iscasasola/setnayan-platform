@@ -90,6 +90,10 @@ type Props = {
   /** Mood-Board-derived accent shown beneath the picker when no override is set
    *  ("From your Mood Board") — and used as the preview accent while inheriting. */
   initialAccentDefault: string;
+  /** TRUE when the event is a Chinese (Tsinoy) wedding — primary OR secondary rite.
+   *  Surfaces a one-line red/gold accent SUGGESTION above the accent picker. Does
+   *  NOT change anything for non-Chinese events. */
+  isChinese?: boolean;
   // RevealPreviewCard props (forwarded)
   displayName: string;
   dateIso: string | null;
@@ -134,6 +138,7 @@ export function StdBuilderClient({
   initialFilmStory,
   initialFilmAccentColor,
   initialAccentDefault,
+  isChinese = false,
   dateIso,
   markSvg,
   lockup = null,
@@ -504,6 +509,11 @@ export function StdBuilderClient({
                 It follows your Mood Board automatically; tap the swatch to set your own.
               </p>
             </div>
+            {isChinese ? (
+              <p className={helperCls}>
+                Suggested for your Chinese ceremony — an auspicious red &amp; gold.
+              </p>
+            ) : null}
             <div className="rounded-xl border border-ink/10 bg-cream p-3">
               <ColorRow
                 label="Accent colour"

@@ -2552,6 +2552,41 @@ function EmptyState({
   const showAllAvailable =
     hasStrictFilter && broadenedCount !== null && broadenedCount > 0;
 
+  // Vendor-outreach CTA (2026-06-28) — the cheapest REAL acquisition surface.
+  // When a visitor drilled into a SPECIFIC canonical leaf (`?category=`) and
+  // the marketplace returned zero REAL vendors, that thin/empty category is a
+  // recruitment opportunity, not a dead end. Demo vendors (`is_demo=TRUE`) are
+  // already filtered out of the grid for non-admin viewers upstream, so a
+  // category whose only inventory is synthetic ALSO lands here — meaning the
+  // outreach prompt fires for the exact "looks populated to admins, empty to
+  // couples" case the Chinese-specialist demo seed created.
+  //
+  // Gated on `filters.category` (a canonical leaf was picked), NOT on faith /
+  // event-type / any specific tradition — every thin category benefits equally.
+  // We deliberately DON'T show it for a bare text search (`filters.q` with no
+  // category) because there's no canonical leaf to scope the "list your
+  // business" entry to. The broadened "Show all" recovery (match/verified
+  // dropped but inventory exists) takes precedence — if real vendors exist one
+  // filter away, we point the couple at them rather than asking them to recruit.
+  //
+  // Routes to the canonical vendor-registration entry (`/signup?as=vendor`,
+  // mirrored from /for-vendors), carrying `next=/vendor-dashboard/profile` so a
+  // brand-new vendor lands directly on the services picker that already surfaces
+  // this leaf as a checkbox. The leaf key rides along as `prefill_service` for
+  // future deep-linking + signup-source attribution (harmless today — the
+  // signup route ignores unknown params).
+  const outreachCanonical =
+    filters.category && !showAllAvailable ? filters.category : null;
+  const outreachLabel = outreachCanonical
+    ? taxonomyLabel(outreachCanonical)
+    : null;
+  const outreachNext = `/vendor-dashboard/profile?prefill_service=${encodeURIComponent(
+    outreachCanonical ?? '',
+  )}`;
+  const outreachSignupHref = `/signup?as=vendor&next=${encodeURIComponent(
+    outreachNext,
+  )}`;
+
   // Iteration 0041 — event-type-specific empty state. When the marketplace
   // is filtered to an event_type and zero vendors match, frame the empty
   // result as "Coming Soon — vendors being recruited" rather than a
@@ -2615,6 +2650,41 @@ function EmptyState({
           >
             Clear all filters
           </Link>
+        </div>
+      ) : null}
+
+      {/* Vendor-outreach CTA — turns an empty/sparse category into a real
+          recruitment surface. Renders only when a canonical leaf was drilled
+          into AND no real vendors back it (faith-agnostic; helps every thin
+          category). Two doors: the couple invites a vendor they know, or a
+          prospective vendor self-lists straight into this category. */}
+      {outreachCanonical && outreachLabel ? (
+        <div className="mx-auto mt-6 max-w-prose rounded-xl border border-terracotta/30 bg-terracotta/[0.04] p-5 text-left">
+          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-terracotta">
+            Help this category grow
+          </p>
+          <p className="mt-2 text-sm font-medium text-ink">
+            Know a great {outreachLabel}? Invite them — or list your own business
+            here.
+          </p>
+          <p className="mt-1 text-xs text-ink/60">
+            Setnayan is onboarding {outreachLabel} vendors now. Listing is free
+            to start, and you choose this category in 90 seconds.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link
+              href={outreachSignupHref}
+              className="button-primary inline-flex h-10 items-center px-4 text-sm"
+            >
+              List your business
+            </Link>
+            <Link
+              href="/for-vendors"
+              className="inline-flex h-10 items-center text-sm font-medium text-terracotta underline-offset-4 hover:underline"
+            >
+              How vendor listings work →
+            </Link>
+          </div>
         </div>
       ) : null}
     </div>

@@ -333,12 +333,23 @@ export async function seedDefaultScheduleBlocks(
   // catholic-default ceremony + the Filipino reception spine). It is currently
   // DEAD CODE (zero call sites), but guard on event_type so a future wiring can
   // never inject a wedding timeline into a non-wedding event. No live change.
+  //
+  // We also pull BOTH ceremony columns here (not just event_type) so that when
+  // this seed is eventually wired to a live caller, the overlay-aware
+  // buildScheduleSeed can surface the 敬茶 Tea-ceremony beat for the common
+  // Tsinoy case (church/civil PRIMARY + secondary_ceremony_type='chinese'),
+  // which the primary ceremony_type column alone can't express.
   const { data: ev } = await supabase
     .from('events')
-    .select('event_type')
+    .select('event_type, ceremony_type, secondary_ceremony_type')
     .eq('event_id', eventId)
     .maybeSingle();
-  if (((ev as { event_type?: string | null } | null)?.event_type ?? 'wedding') !== 'wedding') {
+  const eventRow = ev as {
+    event_type?: string | null;
+    ceremony_type?: string | null;
+    secondary_ceremony_type?: string | null;
+  } | null;
+  if ((eventRow?.event_type ?? 'wedding') !== 'wedding') {
     return 0;
   }
 
@@ -346,7 +357,18 @@ export async function seedDefaultScheduleBlocks(
   // (the membership check above already confirmed the host owns this event).
   const admin = createAdminClient();
 
-  const seed = buildScheduleSeed(ceremonyType, eventDate);
+  // Pass the event's two ceremony columns as the overlay signal so a
+  // church-primary + Chinese-secondary couple gets the tea-ceremony beat
+  // injected. Fall back to the explicit `ceremonyType` arg for the primary
+  // when the DB row is unavailable (keeps the existing contract intact).
+  const seed = buildScheduleSeed(
+    ceremonyType ?? (eventRow?.ceremony_type as SeedCeremonyType | null) ?? null,
+    eventDate,
+    {
+      ceremony_type: eventRow?.ceremony_type ?? null,
+      secondary_ceremony_type: eventRow?.secondary_ceremony_type ?? null,
+    },
+  );
 
   // Pass 1 · insert the 4 top-level blocks and capture their block_ids
   // keyed by `key` so pass 2 can wire children correctly.

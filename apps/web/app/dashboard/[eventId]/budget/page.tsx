@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Download, TrendingUp, Gift, ArrowRight, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { isChineseWedding } from '@/lib/chinese-wedding';
+import { isChineseWedding, isMuslimWedding } from '@/lib/chinese-wedding';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchBudgetSnapshot, formatPhp } from '@/lib/budget';
@@ -43,7 +43,7 @@ export default async function BudgetPage({ params }: Props) {
     supabase
       .from('events')
       .select(
-        'event_id, display_name, estimated_budget_centavos, region, event_type, ceremony_type, secondary_ceremony_type, mahr_description',
+        'event_id, display_name, estimated_budget_centavos, estimated_pax, region, event_type, ceremony_type, secondary_ceremony_type, mahr_description',
       )
       .eq('event_id', eventId)
       .maybeSingle(),
@@ -88,6 +88,7 @@ export default async function BudgetPage({ params }: Props) {
         event_id: string;
         display_name: string;
         estimated_budget_centavos: number | null;
+        estimated_pax: number | null;
         region: string | null;
         event_type: string | null;
         ceremony_type: string | null;
@@ -100,9 +101,10 @@ export default async function BudgetPage({ params }: Props) {
   // is hers alone and is NOT a Setnayan or vendor charge, so it never enters the
   // budget math (committed totals / overspend); it's surfaced as a distinct,
   // non-billable reminder card.
-  const isMuslimCeremony =
-    ((event?.ceremony_type as string | null) ?? null) === 'muslim' ||
-    ((event?.secondary_ceremony_type as string | null) ?? null) === 'muslim';
+  const isMuslimCeremony = isMuslimWedding({
+    ceremony_type: event?.ceremony_type ?? null,
+    secondary_ceremony_type: event?.secondary_ceremony_type ?? null,
+  });
   const mahrDescription = (event?.mahr_description as string | null) ?? null;
 
   // Chinese (Tsinoy) weddings carry tradition-specific spend that doesn't map
@@ -115,6 +117,17 @@ export default async function BudgetPage({ params }: Props) {
     ceremony_type: event?.ceremony_type ?? null,
     secondary_ceremony_type: event?.secondary_ceremony_type ?? null,
   });
+
+  // Guest count for the lauriat table-count advisory. A lauriat is priced PER
+  // TABLE (~10 pax/table), so the one derived fact worth surfacing is the table
+  // count — not a ₱ figure (prices are admin-managed, never hardcoded). Normalize
+  // estimated_pax to a positive integer; anything missing/zero/invalid → null,
+  // which keeps the card on its "set your guest count" copy.
+  const paxRaw = event?.estimated_pax ?? null;
+  const chineseGuestCount =
+    paxRaw != null && Number.isFinite(Number(paxRaw)) && Number(paxRaw) > 0
+      ? Math.floor(Number(paxRaw))
+      : null;
 
   // Iteration 0053 P4 Unit 2: the suggested budget SPLIT (wedding cost
   // categories + benchmarks) is the wedding budget-taxonomy pack. 'wedding' is
@@ -270,7 +283,7 @@ export default async function BudgetPage({ params }: Props) {
         <MahrInfoCard eventId={eventId} mahrDescription={mahrDescription} />
       ) : null}
 
-      {isChineseCeremony ? <ChineseTraditionInfoCard /> : null}
+      {isChineseCeremony ? <ChineseTraditionInfoCard pax={chineseGuestCount} /> : null}
 
       <UnlocksHint />
 
@@ -510,7 +523,16 @@ function MahrInfoCard({
 // Setnayan or vendor charge, so the card carries no setter and no price. Purely
 // informational guidance to help the couple shape their own budget. Editorial
 // voice, no exclamation marks.
-function ChineseTraditionInfoCard() {
+//
+// The lauriat banquet is priced PER TABLE (~10 pax/table), not per head — that's
+// the one cost-model fact worth surfacing. When the couple's guest count is set,
+// we show the DERIVED TABLE COUNT (a fact, fine to compute), never a ₱ figure:
+// per-table catering rates are admin-managed and not readily in scope here, so we
+// keep the estimate advisory (table count + lauriat note) rather than hardcode a
+// price.
+const LAURIAT_PAX_PER_TABLE = 10;
+function ChineseTraditionInfoCard({ pax }: { pax: number | null }) {
+  const tables = pax !== null ? Math.ceil(pax / LAURIAT_PAX_PER_TABLE) : null;
   return (
     <section
       aria-labelledby="chinese-tradition-heading"
@@ -529,10 +551,21 @@ function ChineseTraditionInfoCard() {
         A Chinese wedding carries a few costs worth planning for. Ang pao — red
         envelopes — are given to elders during the tea ceremony, kept aside from
         your vendor spend. The lauriat banquet is typically the main reception
-        cost, so it&rsquo;s worth anchoring your budget around it early. These are
-        your own arrangements, not a Setnayan or vendor charge, so they stay
-        outside your committed totals.
+        cost, and it&rsquo;s priced per table — about {LAURIAT_PAX_PER_TABLE}{' '}
+        guests to a table — so it&rsquo;s worth anchoring your budget around it
+        early. These are your own arrangements, not a Setnayan or vendor charge,
+        so they stay outside your committed totals.
       </p>
+      {tables !== null && pax !== null ? (
+        <p className="mt-2 text-sm font-medium text-emerald-900">
+          About {tables} lauriat {tables === 1 ? 'table' : 'tables'} for {pax}{' '}
+          guests.
+        </p>
+      ) : (
+        <p className="mt-2 text-sm text-ink/60">
+          Set your guest count to see an estimated table count.
+        </p>
+      )}
     </section>
   );
 }

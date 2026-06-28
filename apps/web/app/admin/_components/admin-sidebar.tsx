@@ -16,39 +16,49 @@
  * single source of truth for admin nav structure on desktop. The 4-item
  * mobile BottomNav lives in admin-bottom-nav.tsx alongside this file.
  *
- * 6 GROUPS — a 3-item spine (Home · Work · Directory) + 3 collapsible
- * tune-groups (Insights · Money & Catalog · Platform). Group KEYS are
- * deliberately preserved across the relabel so localStorage open-state
- * survives: key 'queues' now renders label "Work"; key 'money' renders
- * "Money & Catalog"; key 'funnels' renders "Insights"; key 'content'
- * renders "Platform".
+ * 8 GROUPS — a 3-item spine (Home · Work · Directory · the "Operations"
+ * region) + 5 collapsible tune-groups. The VERB axis is unchanged
+ * (act / find / tune): this 2026-06-28 pass is a VOCABULARY RE-SKIN, not
+ * an axis flip. It (a) adopts the Operations / App Engine / Settings
+ * naming and (b) splits the former 21-item "Platform" mega-group into
+ * three scannable collapsibles (Data Structure · Content & Media ·
+ * Settings) so the engine-room is browseable. No surface was dropped and
+ * no URL changed — see the route map in the same PR's changelog fragment.
+ *
+ * Group KEYS are preserved so localStorage open-state survives a relabel:
+ * key 'queues' renders "Work"; 'money' renders "Monetization"; 'funnels'
+ * renders "Insights"; 'content' renders "Data Structure" (Platform's
+ * successor). NEW keys 'media' + 'settings-group' carry the two surfaces
+ * split out of Platform.
  *   1. Home  (key 'home')      — Overview (/admin)
  *   2. Work  (key 'queues')    — every act-now queue: Verify · Payments ·
  *                   Payouts · Token sales · Payment options · Disputes ·
- *                   Force majeure · Reviews · AI abuse · Help. (Payouts +
- *                   Token sales pulled in from the dissolved Money group.)
+ *                   Force majeure · Reviews · AI abuse · Help.
  *   3. Directory (key 'directory') — Users · Vendors · Demo vendors ·
- *                   Events · Venues. (Wedding types + traditions moved to
- *                   Platform — governance + content, not look-up.)
- *   4. Insights (key 'funnels') — Growth · Funnels · Operations & Hiring ·
- *                   Telemetry · Connection logs · Offline daemon.
- *   5. Money & Catalog (key 'money') — config, NOT the act-now queues:
- *                   Pricing · Add-ons · Discount codes · Token bands ·
- *                   Budget Planner · Receipts · Payment methods. (Payouts +
- *                   Token sales moved to Work.)
- *   6. Platform (key 'content') — Settings · Taxonomy · Website · Ads ·
- *                   AI brain · Moodboard library · Songs · Wedding types ·
- *                   Wedding traditions · Notifications · Demo mode.
- *                   (Notifications gets a nav home — it was an orphan.)
+ *                   Events · Venues.
+ *   4. Insights (key 'funnels') — Growth · Intelligence · Funnels ·
+ *                   Operations & Hiring · Connection logs · Offline daemon.
+ *   5. Monetization (key 'money') — the App-Engine money lane: Pricing ·
+ *                   Add-ons · Discount codes · Token bands · Budget Planner ·
+ *                   Receipts · Payment methods. (Act-now money QUEUES stay
+ *                   in Work; this group is config + records.)
+ *   6. Data Structure (key 'content') — the App-Engine structure lane:
+ *                   Menus & icons · Taxonomy · Event Types · Refinements ·
+ *                   Onboarding · Wedding types · Wedding traditions · AI brain.
+ *   7. Content & Media (key 'media') — Website · Hero video · Same-Day Edit ·
+ *                   Reveal Studio · Real Stories · Recaps · Patiktok · Songs ·
+ *                   Moodboard library.
+ *   8. Settings (key 'settings-group') — Settings · Notifications ·
+ *                   Demo mode · My account.
  *
- * REQUIRED FOLLOW-UP (owner sign-off condition): the Work view's Money-lane
- * filter (Payments + Payouts + Token sales surfaced together) ships with the
- * Work master-detail PR, so finance keeps a one-stop money view after the
- * Money group dissolves. RBAC handler-lane scoping is a later, separate build.
+ * REQUIRED FOLLOW-UP (carried from 2026-06-08 sign-off): the Work view's
+ * Money-lane filter (Payments + Payouts + Token sales surfaced together)
+ * ships with the Work master-detail PR, so finance keeps a one-stop money
+ * view. RBAC handler-lane scoping is a later, separate build.
  *
- * PAYMENT METHODS: canonical home is Money & Catalog (the data IS money —
+ * PAYMENT METHODS: canonical home is Monetization (the data IS money —
  * vendor payouts + customer payment instructions both consume it). Not
- * duplicated into Platform/Settings.
+ * duplicated into Settings.
  *
  * BRAND-LAYER RENAME 2026-05-28 V2 CUTOVER: Concierge abuse keeps its route
  * + DB table names (concierge_abuse_flags) for bookmark + audit continuity,
@@ -395,11 +405,12 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    // MONEY & CATALOG (key 'money') — config + records, NOT the act-now money
-    // queues (Payments/Payouts/Token sales moved to Work). The Work Money-lane
-    // filter reunites them in one view per the sign-off condition.
+    // MONETIZATION (key 'money' kept for localStorage continuity) — the
+    // App-Engine money lane: config + records, NOT the act-now money queues
+    // (Payments/Payouts/Token sales live in Work). The Work Money-lane filter
+    // reunites them in one view per the 2026-06-08 sign-off condition.
     key: 'money',
-    label: 'Money & Catalog',
+    label: 'Monetization',
     defaultOpen: false,
     items: [
       {
@@ -448,22 +459,15 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    // PLATFORM (key 'content') — config, content & security. Absorbs Wedding
-    // types + traditions (governance + content) and gives Notifications a nav
-    // home (it was an orphan — no nav entry on origin/main).
+    // DATA STRUCTURE (key 'content' kept — Platform's successor, so the old
+    // setnayan.nav.section.content.open localStorage state survives). The
+    // App-Engine structure lane: the taxonomy/event-type/registry surfaces an
+    // admin tunes to shape how the product is organised. Wedding types +
+    // traditions live here (governance + content, not look-up).
     key: 'content',
-    label: 'Platform',
+    label: 'Data Structure',
     defaultOpen: false,
     items: [
-      {
-        key: 'settings',
-        label: 'Settings',
-        href: '/admin/settings',
-        icon: Settings,
-        // /admin/settings/payment-methods lives under Money & Catalog —
-        // exclude it so that entry stays lit when viewing payment methods.
-        matchPrefix: '/admin/settings',
-      },
       {
         // Nav/icon/menu registry — the single source for the name + icon of
         // every menu across all account types (foundation 2026-06-16).
@@ -471,14 +475,6 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: 'Menus & icons',
         href: '/admin/menus',
         icon: Shapes,
-      },
-      {
-        // Onboarding-flow config (background music + future per-flow knobs),
-        // grouped by onboarding type. Scales as new event-type onboardings ship.
-        key: 'onboarding',
-        label: 'Onboarding',
-        href: '/admin/onboarding',
-        icon: Compass,
       },
       {
         key: 'taxonomy',
@@ -500,6 +496,42 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/refinements',
         icon: SlidersHorizontal,
       },
+      {
+        // Onboarding-flow config (background music + future per-flow knobs),
+        // grouped by onboarding type. Scales as new event-type onboardings ship.
+        key: 'onboarding',
+        label: 'Onboarding',
+        href: '/admin/onboarding',
+        icon: Compass,
+      },
+      {
+        key: 'wedding-types',
+        label: 'Wedding types',
+        href: '/admin/wedding-types',
+        icon: Church,
+      },
+      {
+        key: 'wedding-traditions',
+        label: 'Wedding traditions',
+        href: '/admin/wedding-traditions',
+        icon: BookOpen,
+      },
+      {
+        key: 'brain',
+        label: "Setnayan AI brain",
+        href: '/admin/brain',
+        icon: Brain,
+      },
+    ],
+  },
+  {
+    // CONTENT & MEDIA (key 'media' — NEW group split out of Platform 2026-06-28).
+    // Every couple-facing publishing surface + asset library. Distinct from
+    // Data Structure (how the product is organised) and Settings (system config).
+    key: 'media',
+    label: 'Content & Media',
+    defaultOpen: false,
+    items: [
       {
         key: 'website',
         label: 'Website',
@@ -549,24 +581,12 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         // Patiktok template library oversight — short-form vertical video
         // templates for the post-event personal reels. Page existed at
         // /admin/patiktok but had no nav entry (orphan doorway); slotted into
-        // Platform next to the other content surfaces 2026-06-19.
+        // Content & Media next to the other content surfaces 2026-06-19.
         key: 'patiktok',
         label: 'Patiktok',
         href: '/admin/patiktok',
         icon: Film,
         matchPrefix: '/admin/patiktok',
-      },
-      {
-        key: 'brain',
-        label: "Setnayan AI brain",
-        href: '/admin/brain',
-        icon: Brain,
-      },
-      {
-        key: 'moodboard-library',
-        label: 'Moodboard library',
-        href: '/admin/moodboard-library',
-        icon: Palette,
       },
       {
         key: 'songs',
@@ -576,16 +596,29 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/songs',
       },
       {
-        key: 'wedding-types',
-        label: 'Wedding types',
-        href: '/admin/wedding-types',
-        icon: Church,
+        key: 'moodboard-library',
+        label: 'Moodboard library',
+        href: '/admin/moodboard-library',
+        icon: Palette,
       },
+    ],
+  },
+  {
+    // SETTINGS (key 'settings-group' — NEW group split out of Platform
+    // 2026-06-28). The "Global Configuration" region: system + personal config,
+    // the system-last bucket an admin visits least often.
+    key: 'settings-group',
+    label: 'Settings',
+    defaultOpen: false,
+    items: [
       {
-        key: 'wedding-traditions',
-        label: 'Wedding traditions',
-        href: '/admin/wedding-traditions',
-        icon: BookOpen,
+        key: 'settings',
+        label: 'Settings',
+        href: '/admin/settings',
+        icon: Settings,
+        // /admin/settings/payment-methods lives under Monetization — exclude
+        // it so that entry stays lit when viewing payment methods.
+        matchPrefix: '/admin/settings',
       },
       {
         key: 'notifications',

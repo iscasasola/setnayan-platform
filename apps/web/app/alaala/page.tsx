@@ -9,16 +9,16 @@
  * Mulberry-accent primary CTA, and the shared SiteFooter. The persistent
  * SiteChrome nav renders because '/alaala' is registered in NAV_ROUTES.
  *
- * Alaala is the PRODUCTIZED memory-dashboard doorway for the Living Memories
- * pillar (the fuller manifesto lives at /our-story, deep-linked below). It is
- * the cross-event umbrella, so copy is event-AGNOSTIC ("your day", "every
- * event") — previewing the all-events lead while weddings stay the deepest path.
+ * DEFINITION (owner, 2026-06-28): Alaala is the COMBINATION of the five Pa-
+ * services — Papic + Panood + Pawebsite + Pa3D + PaLogo — woven into one living
+ * memory. Each stands alone (its own doorway); together they are the Alaala.
+ * The fuller manifesto lives at /our-story, deep-linked below.
  *
- * POSITIONING (locked Living Memories thesis): sell FEELING — moments, people,
- * stories, forever — never implementation names; honor the load-bearing
- * guardrail "the essence of the day is never ruined" (presence over production).
- * Copy sells BENEFITS only (public-surface hygiene) and quotes NO price
- * (admin-managed + provisional — links to /pricing).
+ * Copy is event-AGNOSTIC ("your day", "every event") — previewing the all-events
+ * lead while weddings stay the deepest path. Sells FEELING (Living Memories
+ * thesis); honors the guardrail "the essence of the day is never ruined"
+ * (presence over production); BENEFITS only (public-surface hygiene); quotes NO
+ * price (admin-managed + provisional — links to /pricing).
  */
 
 import Link from 'next/link';
@@ -39,7 +39,7 @@ const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com')
 
 const PAGE_TITLE = 'Alaala — A New Way to Remember · Setnayan';
 const PAGE_DESCRIPTION =
-  'Alaala gathers everything from your day — the candid photos, the people who joined from afar, the messages, the story — into one living memory you can open any time. A new way to remember, for every event you’ll ever hold.';
+  'Alaala brings together everything you create on Setnayan — Papic, Panood, your event website, your 3D plan, and your monogram — into one living memory you can open any time. A new way to remember, for every event you’ll ever hold.';
 const OG_IMAGE = `${SITE_URL}/brand/og-card.webp`;
 
 export const metadata = {
@@ -82,7 +82,7 @@ const APP_LD = {
   operatingSystem: 'Any (web browser)',
   description: PAGE_DESCRIPTION,
   featureList: [
-    'Gathers candid photos, live moments, messages, and your story into one place',
+    'Brings together Papic, Panood, your event website, your 3D plan, and your monogram',
     'A living memory you can relive, share, and keep — not a folder of files',
     'Guests join from your event link — nothing to download',
     'Works for every kind of event, not just weddings',
@@ -96,11 +96,11 @@ const APP_LD = {
 const FAQ = [
   {
     q: 'What is Alaala?',
-    a: 'Alaala (ah-LAH-lah) is Tagalog for the memory you keep. It’s how Setnayan gathers everything from your day — the candid photos, the people who joined from afar, the messages, and the story — into one living place you can return to any time.',
+    a: 'Alaala (ah-LAH-lah) is Tagalog for the memory you keep. On Setnayan it’s everything you create for your event, in one place — your candid photos (Papic), your live broadcast (Panood), your website (Pawebsite), your 3D plan (Pa3D), and your monogram (PaLogo) — gathered into one living memory you can return to any time.',
   },
   {
     q: 'Is it free?',
-    a: 'Your Setnayan event is free to plan, and your memories gather as you go. Some pieces — like live broadcast or extra capture — are upgrades. You’ll always see what’s free and what’s an add-on before anything.',
+    a: 'Your Setnayan event is free to plan, and your Alaala gathers as you go. Some pieces — like live broadcast or extra capture — are upgrades. You’ll always see what’s free and what’s an add-on before anything.',
   },
   {
     q: 'Do my guests need an app?',
@@ -126,9 +126,8 @@ const FAQ_LD = {
   })),
 };
 
-// The four ways one builds an Alaala — each links to its own doorway where one
-// exists (honest doorways: no dead links). Stories + keepsake live inside the
-// story page + event website today.
+// Alaala = the combination of the five Pa- services (owner, 2026-06-28). Each
+// links to its own live doorway — honest doorways, no dead links.
 const PILLARS: { role: string; name: string; desc: string; href: string }[] = [
   {
     role: 'Capture',
@@ -143,16 +142,22 @@ const PILLARS: { role: string; name: string; desc: string; href: string }[] = [
     href: '/panood',
   },
   {
-    role: 'Stories',
-    name: 'Kwento',
-    desc: 'The messages and well-wishes from the people who came, kept beside the photos.',
-    href: '/our-story',
+    role: 'Story',
+    name: 'Pawebsite',
+    desc: 'Your event’s home on the web — the story, the details, and the RSVP, all in one place.',
+    href: '/pawebsite',
   },
   {
-    role: 'Keepsake',
-    name: 'Editorial',
-    desc: 'The front-page story of your day — beautiful enough to print, alive enough to revisit.',
-    href: '/pawebsite',
+    role: 'Space',
+    name: 'Pa3D',
+    desc: 'Walk your venue and seating before the day — and keep the space long after.',
+    href: '/pa3d',
+  },
+  {
+    role: 'Mark',
+    name: 'PaLogo',
+    desc: 'Your monogram, drawn to life — the mark that signs every piece of the day.',
+    href: '/palogo',
   },
 ];
 
@@ -185,8 +190,8 @@ export default function AlaalaLandingPage() {
           <RevealBand stagger={0.08} y={14}>
             <p data-reveal-item className="mx-auto mt-4 max-w-xl text-base text-[#5F5E5A] sm:text-lg">
               Albums freeze a day into a few still frames. Alaala holds what it was really like — moving,
-              many-voiced, alive. Every photo, every face, every word, gathered into one living memory you can
-              open any time.
+              many-voiced, alive. Everything you make on Setnayan — Papic, Panood, your website, your plan, your
+              mark — woven into one living memory you can open any time.
             </p>
             <div data-reveal-item className="mt-7 flex flex-wrap items-center justify-center gap-3">
               <Link
@@ -210,24 +215,26 @@ export default function AlaalaLandingPage() {
         <section className="mt-14 flex flex-col items-center" aria-label="A living memory">
           <AlaalaOrb className="h-[260px] w-[260px] sm:h-[320px] sm:w-[320px]" />
           <p className="mt-6 max-w-md text-center text-sm text-[#5F5E5A]">
-            Capture, presence, stories, and keepsake — woven into one. Memories that move.
+            Papic, Panood, Pawebsite, Pa3D, PaLogo — woven into one. Memories that move.
           </p>
         </section>
 
-        {/* The four ways — mirrors the proven HowItWorksPanel pattern. */}
-        <section className="mx-auto mt-16 max-w-3xl" aria-label="The four ways an Alaala is made">
+        {/* The five pieces — Alaala is the combination of all of them. */}
+        <section className="mx-auto mt-16 max-w-3xl" aria-label="The five pieces that make an Alaala">
           <LineRevealHeading className="text-center font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">
-            Four ways to remember, one living memory
+            Five pieces. One living memory.
           </LineRevealHeading>
           <p className="mx-auto mt-3 max-w-xl text-center text-base text-[#5F5E5A]">
-            Each one stands on its own — and together they become your Alaala.
+            Each one stands on its own — and together, they are your Alaala.
           </p>
           <HowItWorksPanel>
-            <ol className="grid gap-6 sm:grid-cols-2">
-              {PILLARS.map((p) => (
+            <ol className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {PILLARS.map((p, i) => (
                 <li key={p.name} data-premium-item className="rounded-2xl border border-[var(--m-ink)]/10 bg-white/60">
                   <Link href={p.href} className="group block rounded-2xl p-5 transition-colors hover:bg-white/80">
-                    <span className="font-mono text-xs uppercase tracking-[0.18em] text-[#8C6932]">{p.role}</span>
+                    <span className="font-mono text-xs uppercase tracking-[0.18em] text-[#8C6932]">
+                      {String(i + 1).padStart(2, '0')} · {p.role}
+                    </span>
                     <h2 className="mt-2 font-serif text-lg text-[var(--m-ink)]">{p.name}</h2>
                     <p className="mt-1.5 text-sm text-[#5F5E5A]">{p.desc}</p>
                     <span className="mt-3 inline-block text-sm font-medium text-[var(--m-ink)] group-hover:underline">
@@ -240,15 +247,16 @@ export default function AlaalaLandingPage() {
           </HowItWorksPanel>
         </section>
 
-        {/* The memory dashboard — create + collect into one living place. */}
+        {/* The whole — the five gathered into one place. */}
         <section className="mx-auto mt-16 max-w-2xl text-center" aria-label="One home for every memory">
           <LineRevealHeading className="font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">
-            One home for every memory
+            All of it, in one home
           </LineRevealHeading>
           <RevealBand stagger={0.08} y={14}>
             <p data-reveal-item className="mx-auto mt-3 max-w-xl text-base text-[#5F5E5A]">
-              Everything from your day lands in one living place — yours to relive, to share with the people you
-              love, and to keep for good. Not a folder of files. A memory that moves.
+              The five pieces don’t live in five places. They come together in one living memory — yours to
+              relive, to share with the people you love, and to keep for good. Not a folder of files. A memory
+              that moves.
             </p>
             <p data-reveal-item className="mx-auto mt-4 max-w-xl text-base text-[#5F5E5A]">
               And it never gets in the way. The tech stays in the background, so you and your guests can simply

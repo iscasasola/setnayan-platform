@@ -26,6 +26,12 @@ import {
 import { PapicCameraControls } from '@/app/papic/_components/camera-controls';
 import { enqueuePapicGuestCapture } from '@/lib/offline/service-handlers/papic-drain';
 import { triggerSyncNow } from '@/lib/offline/sync-daemon';
+import {
+  getPapicQualityTier,
+  photoJpegQuality,
+  clipVideoBitsPerSecond,
+  recordUploadSample,
+} from '@/lib/papic-adaptive-quality';
 
 const TAG_CAP = 10; // max tags per photo (corpus hard cap · mirrored server-side)
 const MAX_CLIP_MS = 5000; // 5-SECOND HARD CAP — corpus lock, mirrored route + RPC.
@@ -268,12 +274,36 @@ export function PapicGuestCapture({
     // Bake the LOCKED event look into the delivered photo (after the clean embed).
     applyPapicStyle(canvas, styleRef.current);
 
+    // Adaptive: the delivered photo shrinks on a weak link (the clean face
+    // embed above already ran at full fidelity).
+    const tier = getPapicQualityTier();
     const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, 'image/jpeg', 0.9),
+      canvas.toBlob(resolve, 'image/jpeg', photoJpegQuality(tier)),
     );
     if (!blob) {
       setBusy(false);
       setSaveError('Could not grab that frame — try again.');
+      return;
+    }
+
+    // Link effectively unusable — skip the doomed POST, queue the (reduced) shot.
+    if (tier === 'queue_only') {
+      const queued = await enqueuePapicGuestCapture({
+        eventId,
+        mediaType: 'photo',
+        contentType: 'image/jpeg',
+        filename: `papic-${Date.now()}.jpg`,
+        blob,
+        sharePublicly,
+        faceVectors: faceVectors.length > 0 ? JSON.stringify(faceVectors) : undefined,
+        reason: 'low_bandwidth',
+      });
+      setBusy(false);
+      setSaveError(
+        queued
+          ? "Weak signal — this shot will upload once you're back online."
+          : "That shot didn't save — check your signal and try again.",
+      );
       return;
     }
 
@@ -284,7 +314,9 @@ export function PapicGuestCapture({
       // the guest opted in; the server sets consent_to_public from it.
       if (sharePublicly) form.append('share_publicly', '1');
       if (faceVectors.length > 0) form.append('face_vectors', JSON.stringify(faceVectors));
+      const postStart = Date.now();
       const res = await fetch('/api/papic/guest-capture', { method: 'POST', body: form });
+      if (res.ok) recordUploadSample(blob.size, Date.now() - postStart);
       const json = (await res.json().catch(() => ({}))) as {
         status?: string;
         remaining?: number;
@@ -447,6 +479,28 @@ export function PapicGuestCapture({
     async (clip: Blob, durationMs: number) => {
       setBusy(true);
       setSaveError(null);
+      // Link effectively unusable — skip the doomed POST, queue the clip.
+      if (getPapicQualityTier() === 'queue_only') {
+        const queued = await enqueuePapicGuestCapture({
+          eventId,
+          mediaType: 'clip',
+          contentType: clip.type || 'video/mp4',
+          filename: `papic-${Date.now()}.mp4`,
+          blob: clip,
+          posterBlob: posterBlobRef.current,
+          posterFilename: `papic-${Date.now()}.jpg`,
+          durationMs: Math.min(durationMs, MAX_CLIP_MS),
+          sharePublicly,
+          reason: 'low_bandwidth',
+        });
+        setSaveError(
+          queued
+            ? "Weak signal — this clip will upload once you're back online."
+            : "That clip didn't save — check your signal and try again.",
+        );
+        setBusy(false);
+        return;
+      }
       try {
         const form = new FormData();
         form.append('media_type', 'clip');
@@ -459,7 +513,9 @@ export function PapicGuestCapture({
         // the guest opted in; the server sets consent_to_public from it.
         if (sharePublicly) form.append('share_publicly', '1');
 
+        const postStart = Date.now();
         const res = await fetch('/api/papic/guest-capture', { method: 'POST', body: form });
+        if (res.ok) recordUploadSample(clip.size, Date.now() - postStart);
         const json = (await res.json().catch(() => ({}))) as {
           status?: string;
           remaining?: number;
@@ -551,7 +607,12 @@ export function PapicGuestCapture({
     }
     let rec: MediaRecorder;
     try {
-      rec = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      // Adaptive: cap the clip bitrate on a weak link (undefined = browser default).
+      const bitrate = clipVideoBitsPerSecond(getPapicQualityTier());
+      const opts: MediaRecorderOptions = {};
+      if (mimeType) opts.mimeType = mimeType;
+      if (bitrate) opts.videoBitsPerSecond = bitrate;
+      rec = new MediaRecorder(stream, opts);
     } catch {
       setSaveError('Recording isn’t supported on this browser — try another phone.');
       return;

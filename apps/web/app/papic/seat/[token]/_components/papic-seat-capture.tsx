@@ -37,6 +37,12 @@ import {
   isPapicTerminalError,
 } from '@/lib/offline/service-handlers/papic-drain';
 import { triggerSyncNow } from '@/lib/offline/sync-daemon';
+import {
+  getPapicQualityTier,
+  photoJpegQuality,
+  clipVideoBitsPerSecond,
+  recordUploadSample,
+} from '@/lib/papic-adaptive-quality';
 
 // Papic · paparazzo capture (client)
 //
@@ -323,12 +329,16 @@ export function PapicSeatCapture({
         r2Ref?: string;
       };
       if (!uploadUrl || !r2Ref) throw new Error('presign');
+      const putStart = Date.now();
       const putRes = await fetch(uploadUrl, {
         method: 'PUT',
         headers: { 'Content-Type': contentType },
         body: blob,
       });
       if (!putRes.ok) throw new Error('put');
+      // Feed real throughput into the adaptive-quality estimate so the NEXT
+      // capture's encode reacts to how this venue's link actually performs.
+      recordUploadSample(blob.size, Date.now() - putStart);
       return r2Ref;
     },
     [token],
@@ -362,8 +372,10 @@ export function PapicSeatCapture({
       if (!styled) return { blob: clean, clean };
       // Bake the locked event look into the delivered photo (clean already kept).
       applyPapicStyle(canvas, styleRef.current);
+      // Adaptive: the DELIVERY blob shrinks on a weak link; the clean face frame
+      // above stays at full fidelity so face descriptors aren't degraded.
       const blob = await new Promise<Blob | null>((resolve) =>
-        canvas.toBlob(resolve, 'image/jpeg', 0.9),
+        canvas.toBlob(resolve, 'image/jpeg', photoJpegQuality(getPapicQualityTier())),
       );
       return blob ? { blob, clean } : { blob: clean, clean };
     },
@@ -426,6 +438,27 @@ export function PapicSeatCapture({
   // Upload one shot end-to-end (presign+PUT main blob, optional poster, record).
   const uploadShot = useCallback(
     async (shot: Shot) => {
+      // Adaptive: when the link is effectively unusable, skip the doomed live
+      // upload and hand the shot straight to the durable offline queue at the
+      // (already reduced) encode size — the foreground drain uploads it the
+      // moment throughput recovers. Same ownership transfer as the catch path.
+      if (getPapicQualityTier() === 'queue_only') {
+        const queuedId = await enqueuePapicSeatCapture({
+          eventId,
+          seatToken: token,
+          seatIndex,
+          kind: shot.kind,
+          contentType: shot.contentType,
+          blob: shot.blob,
+          durationMs: shot.durationMs,
+          reason: 'low_bandwidth',
+        });
+        if (queuedId) {
+          patchShot(shot.id, { status: 'queued' });
+          return;
+        }
+        // Couldn't persist (no IndexedDB) — fall through and try the network.
+      }
       try {
         const mainRef = await uploadBlob(shot.blob, shot.contentType, shot.ext);
         let posterRef: string | undefined;
@@ -643,7 +676,11 @@ export function PapicSeatCapture({
       // Record the live session stream directly (video + audio if the mic was
       // granted at startup) — no second getUserMedia, so iOS never drops the
       // camera mid-clip.
-      recorder = new MediaRecorder(stream, { mimeType: mime });
+      const clipBitrate = clipVideoBitsPerSecond(getPapicQualityTier());
+      recorder = new MediaRecorder(
+        stream,
+        clipBitrate ? { mimeType: mime, videoBitsPerSecond: clipBitrate } : { mimeType: mime },
+      );
     } catch {
       setSaveError('Clips aren’t supported on this browser — photos still work.');
       return;

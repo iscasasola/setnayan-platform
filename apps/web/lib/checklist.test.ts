@@ -95,9 +95,14 @@ test('rankUrgentChecklistItems: undated items sort after dated ones', () => {
   assert.deepEqual(top.map((t) => t.item_id), ['dated', 'undated']);
 });
 
-test('buildChecklistSeed: one row per template item, ascending sort_order', () => {
-  const seed = buildChecklistSeed('event-123');
-  assert.equal(seed.length, CHECKLIST_TEMPLATE.length);
+test('buildChecklistSeed: one row per applicable template item, ascending sort_order', () => {
+  const seed = buildChecklistSeed('event-123'); // null ceremony
+  // null ceremony seeds every universal + church (catholic/null) item, but NOT
+  // the faith-specific items gated to a chosen faith (e.g. INC-only steps).
+  const applicableToNull = CHECKLIST_TEMPLATE.filter(
+    (t) => !t.appliesTo || t.appliesTo(null),
+  ).length;
+  assert.equal(seed.length, applicableToNull);
   assert.equal(seed[0]!.event_id, 'event-123');
   assert.ok(seed.every((r) => r.status === 'pending'));
   for (let i = 1; i < seed.length; i++) {
@@ -113,13 +118,22 @@ test('isChurchCeremony: catholic / unset = church path, civil = not', () => {
 });
 
 test('buildChecklistSeed: ceremony tailoring drops church steps for a civil wedding', () => {
-  const all = buildChecklistSeed('e'); // no ceremony → everything
+  const all = buildChecklistSeed('e'); // no ceremony → universal + church(catholic/null)
   const catholic = buildChecklistSeed('e', 'catholic');
   const civil = buildChecklistSeed('e', 'civil');
 
-  assert.equal(catholic.length, CHECKLIST_TEMPLATE.length);
-  assert.equal(all.length, CHECKLIST_TEMPLATE.length);
+  // null + catholic both get every universal + Catholic-church item, but NOT
+  // the faith-specific items gated to another faith (e.g. INC-only steps).
+  const catholicApplicable = CHECKLIST_TEMPLATE.filter(
+    (t) => !t.appliesTo || t.appliesTo('catholic'),
+  ).length;
+  assert.equal(catholic.length, catholicApplicable);
+  assert.equal(all.length, catholicApplicable); // null behaves like the church default
   assert.ok(civil.length < catholic.length, 'civil drops church-only tasks');
+
+  const catholicKeys = new Set(catholic.map((r) => r.template_key));
+  assert.ok(catholicKeys.has('pre_cana'), 'Pre-Cana present for Catholic');
+  assert.ok(!catholicKeys.has('inc_lokal_coordinate'), 'no INC step leaks into Catholic');
 
   const civilKeys = new Set(civil.map((r) => r.template_key));
   assert.ok(!civilKeys.has('pre_cana'), 'no Pre-Cana for a civil wedding');
@@ -131,6 +145,21 @@ test('buildChecklistSeed: ceremony tailoring drops church steps for a civil wedd
   const licAll = all.find((r) => r.template_key === 'marriage_license')!;
   const licCivil = civil.find((r) => r.template_key === 'marriage_license')!;
   assert.equal(licAll.sort_order, licCivil.sort_order);
+});
+
+test('buildChecklistSeed: INC gets congregation steps, not Catholic-worded ones', () => {
+  const inc = buildChecklistSeed('e', 'inc');
+  const incKeys = new Set(inc.map((r) => r.template_key));
+  // INC-specific congregation-coordination steps seed for INC...
+  assert.ok(incKeys.has('inc_lokal_coordinate'), 'INC lokal coordination present');
+  assert.ok(incKeys.has('inc_premarital_guidance'), 'INC ministry guidance present');
+  assert.ok(incKeys.has('inc_confirm_minister'), 'INC minister confirmation present');
+  // ...but the doctrinally-Catholic steps never leak into an INC checklist.
+  assert.ok(!incKeys.has('pre_cana'), 'no Pre-Cana for INC');
+  assert.ok(!incKeys.has('confirm_banns'), 'no banns for INC');
+  assert.ok(!incKeys.has('canonical_interview'), 'no canonical interview for INC');
+  // Universal tasks still seed for INC.
+  assert.ok(incKeys.has('marriage_license'), 'universal license still included for INC');
 });
 
 test('phaseForOffset: each offset lands in the right countdown phase', () => {

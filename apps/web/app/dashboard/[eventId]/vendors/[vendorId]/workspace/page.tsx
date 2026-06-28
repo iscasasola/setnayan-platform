@@ -24,8 +24,8 @@
 // RLS handles auth — event membership gates the row; notFound() when the
 // event_vendors row is missing or RLS denies.
 //
-// Deep-link anchors PRESERVED (other surfaces link to them, e.g.
-// planning-groups.tsx): #conversation · #documents · #payments.
+// Deep-link anchors PRESERVED (other surfaces link to them, e.g. the
+// Vendors-tab cards): #conversation · #documents · #payments.
 // ============================================================================
 
 import Link from 'next/link';

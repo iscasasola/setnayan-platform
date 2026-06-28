@@ -18,11 +18,11 @@
  * 4 sequential round trips to 2 (~150-600ms saved per render); this row
  * is the visible-feedback half of the same fix.
  *
- * Shape mirrors the event-home render order from page.tsx lines
- * 1600-1853 (WelcomeHeader → AuspiciousChip → EventMetaLine → StageStrip
- * → BudgetCountdownHeader → FinalizedChipStrip → MarketplaceTeaseStrip
- * → PlanningGroups 12-card grid → YourPlanSection 9-tile grid → NavGrid
- * 8-tile grid → MoneyInFlight → UpcomingSchedules → ActivityFeed).
+ * Shape mirrors the lean event-home render order (anchor header →
+ * Today's-one-thing hero → roadmap → upcoming schedules → checklist →
+ * activity feed). The pre-lean clustered grid (PlanningGroups /
+ * YourPlanSection / NavGrid) was retired 2026-06-02; each of those
+ * surfaces now lives on its own tab.
  *
  * Palette uses `ink/[N]` opacity classes — the Facebook brand pivot per
  * CLAUDE.md 2026-05-22 row — NOT the `--m-*` marketing-site tokens.

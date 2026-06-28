@@ -1576,9 +1576,9 @@ export async function finalizeVendor(
     console.error(`[finalizeVendor] milestone compute failed for event=${eventId}:`, e);
   }
 
-  // Refresh both the event home (FinalizedChipStrip + PlanningGroups read
-  // from the same event_vendors fetch) and the vendor tracker (separate
-  // surface that lists every vendor + status).
+  // Refresh both the event home (FinalizedChipStrip + Today's-one-thing
+  // hero read from the same event_vendors fetch) and the vendor tracker
+  // (separate surface that lists every vendor + status).
   revalidatePath(`/dashboard/${eventId}`, 'layout');
   revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
 

@@ -52,7 +52,7 @@ export function Tile({
   // v2.1 deep-fix (2026-05-28) — Overview tile card chrome adopts
   // --m-paper surface + --m-line hairline + --m-shadow-sm + sienna
   // accent on icon chip + Open CTA. Matches the .m-card pattern
-  // and mirrors couple planning-groups tiles from PR #587 deep-fix.
+  // (the same couple-tile chrome from the PR #587 deep-fix).
   // Disabled state uses dashed --m-line-soft + muted --m-slate body.
   // Tile geometry + Link wrapper + ArrowRight micro-affordance
   // unchanged per [[feedback_setnayan_button_preservation]].

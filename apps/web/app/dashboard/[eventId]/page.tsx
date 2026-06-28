@@ -82,7 +82,7 @@ import { AutoPreloadOnEventDay } from '@/app/_components/auto-preload-on-event-d
 // underlying split-pane primitive lives on in the lg desktop sidebar
 // (bottom-nav.tsx + sidebar-resize-handle.tsx) — those usages are
 // unchanged.
-import { buildCrossCategoryRecommendations, PLAN_GROUPS } from '@/lib/wedding-plan-groups';
+import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 import {
   summarize as summarizePaperwork,
   type PaperworkRow,
@@ -347,10 +347,9 @@ export default async function EventHomePage({
   const { eventId } = await params;
   const search = searchParams ? await searchParams : {};
   // `?card=<id>` URL state retired 2026-05-23 alongside the Finder-column
-  // split-view. The PlanningGroups grid no longer renders a "selected"
-  // ring + the EventHomeDetailPane right column is gone, so there's
-  // nothing for the param to drive. Stale bookmarks land cleanly on
-  // event home with no UI affordance differences.
+  // split-view — there's no selectable card grid or detail right column
+  // for the param to drive. Stale bookmarks land cleanly on event home
+  // with no UI affordance differences.
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const supabase = await createClient();
@@ -519,16 +518,17 @@ export default async function EventHomePage({
         return 0;
       }),
       Promise.resolve(getLocale()).catch(() => 'en' as const),
-      // 12-group planner needs every saved vendor for this event, bucketed
-      // by category. RLS already restricts to couples on this event.
+      // Event home needs every saved vendor for this event, enriched and
+      // attached to the eventVendors array below. RLS already restricts to
+      // couples on this event.
       //
       // PR B 2026-05-22 — adds `marketplace_vendor_id` + `source_venue_directory_id`
-      // so the compatibility-mismatch check downstream can resolve the
+      // so the compatibility check downstream can resolve the
       // picked vendor's `compatible_ceremony_types[]` /
       // `compatible_venue_settings[]` arrays against the host's current
       // events.ceremony_type / events.venue_setting. Two follow-up batch
       // queries against vendor_profiles + venue_directory enrich each
-      // row with its compat arrays before bucketVendorsByGroup runs.
+      // row with its compat arrays (see compatibilityFetches[0]/[1] above).
       //
       // source + source_category (added 2026-05-22, migration
       // 20260604120000_event_vendors_source_tracking) drive the
@@ -1039,45 +1039,13 @@ export default async function EventHomePage({
         return empty;
       }
     })(),
-    // Cross-category vendor services lifted into round 2 by the perf
-    // pass 2026-05-28. Only depends on `marketplaceIds` which was
-    // computed BEFORE this Promise.all from round-1 results, so it
-    // can run alongside the other compat fetches instead of waiting
-    // for them to resolve first. Saves a full Singapore round-trip on
-    // every event-home render. Same admin-client + is_active=true +
-    // graceful-degrade contract as the prior standalone serial await.
-    (async () => {
-      type ServiceRow = {
-        vendor_service_id: string;
-        vendor_profile_id: string;
-        category: string;
-        is_active: boolean;
-      };
-      const empty: { data: ServiceRow[] } = { data: [] };
-      if (marketplaceIds.length === 0) return empty;
-      try {
-        return await adminClient
-          .from('vendor_services')
-          .select(
-            'vendor_service_id, vendor_profile_id, category, is_active',
-          )
-          .in('vendor_profile_id', marketplaceIds)
-          .eq('is_active', true);
-      } catch (caught) {
-        logQueryError(
-          'EventHome (compatibilityFetches[4] vendor_services cross-category threw)',
-          caught instanceof Error ? caught : new Error(String(caught)),
-          { event_id: eventId, user_id: user.id, marketplace_ids: marketplaceIds.length },
-          'graceful_degrade',
-        );
-        return empty;
-      }
-    })(),
     // (2026-05-30 Phase 2) fetchUpcomingItems lifted into
     // MoneyAndUpcomingAsync below — the panels stream in their own
     // Suspense boundary after the shell renders. compatibilityFetches
-    // is now 5 entries (indices 0-4); the prior [5] upcoming slot is
-    // gone. No other code accessed compatibilityFetches[5].
+    // is now 4 entries (indices 0-3); the prior [4] cross-category
+    // vendor_services fetch was removed with the retired PlanningGroups
+    // cross-recommendation grid (2026-06-28), and the earlier [5]
+    // upcoming slot is gone. No other code accesses [4] or [5].
   ]);
   const marketplaceCompatMap = new Map<
     string,
@@ -1285,43 +1253,6 @@ export default async function EventHomePage({
   // recap (couple-home-cockpit 2026-06-04) — their only consumer. Ceremony
   // type is read inline by the Needs-you (Upcoming) wrapper below; venue now
   // lives on the Services "Matching you on" strip.
-
-  // Cross-category vendor recommendations (CLAUDE.md 2026-05-22 owner
-  // directive). For every marketplace vendor the host has picked, fetch
-  // ALL of that vendor's vendor_services rows so we can recommend them
-  // for other categories they cover. e.g. a caterer who also offers
-  // cake + cocktail bar surfaces as RECOMMENDED on the Cake card +
-  // Music & Entertainment card with badge "also doing your catering."
-  //
-  // The actual fetch was lifted into the `compatibilityFetches` Promise.all
-  // above by the perf pass 2026-05-28 — it only depends on `marketplaceIds`
-  // which is computed BEFORE the Promise.all from round-1 results, so it
-  // can run in parallel with the 4 compat lookups instead of waiting for
-  // them to resolve first. Same admin-client + is_active=true + graceful-
-  // degrade contract as before. See compatibilityFetches[4] above.
-  //
-  // adminClient used (same as the compat fetches) because vendor_services
-  // RLS is restricted to the owning vendor — couples can't read other
-  // vendors' service rows. The admin path is safe here because the
-  // marketplace_vendor_id set is already gated by the couple's RLS read
-  // on event_vendors above; we're not exposing anything they can't see.
-  const crossCategoryServicesRaw = compatibilityFetches[4]?.data ?? [];
-  const crossCategoryRecommendations = buildCrossCategoryRecommendations({
-    picks: eventVendors.map((v) => ({
-      marketplace_vendor_id: v.marketplace_vendor_id,
-      category: v.category,
-      status: v.status,
-      marketplace_business_name: v.marketplace_business_name,
-      marketplace_logo_url: v.marketplace_logo_url,
-      vendor_name: v.vendor_name,
-    })),
-    vendor_services: (crossCategoryServicesRaw ?? []) as Array<{
-      vendor_service_id: string;
-      vendor_profile_id: string;
-      category: string;
-      is_active: boolean;
-    }>,
-  });
 
   // Setnayan AI computation moved UP into the couple-home-cockpit block
   // (2026-06-04) — see `todaysTask` / `remainingTaskCount` near the render.

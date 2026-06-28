@@ -42,8 +42,11 @@ export async function saveAttendedVendorAction(
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    // No account → can't bookmark for "their future plans" yet; nudge sign-up.
+  if (!user || user.is_anonymous) {
+    // No real account (signed-out OR an unsecured anon-draft) → can't bookmark
+    // for "their future plans" yet; nudge them to make/secure one. Saving a
+    // vendor persists vendor-discovery intent to the user, so an anon guest
+    // converts first via the page's claim-account box.
     return redirect(`/${slug}?save=needs_account`);
   }
   if (!vendorProfileId) {

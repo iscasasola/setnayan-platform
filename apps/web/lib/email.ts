@@ -1,5 +1,6 @@
 import 'server-only';
 import { resolveResendConfig, isResendConfigured } from '@/lib/integration-config';
+import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 
 export type SendEmailArgs = {
   to: string;
@@ -30,7 +31,11 @@ export type SendEmailArgs = {
 
 export type SendEmailResult =
   | { ok: true; id: string; via: 'resend' }
-  | { ok: false; reason: 'not_configured' | 'send_failed'; error?: string };
+  | {
+      ok: false;
+      reason: 'not_configured' | 'send_failed' | 'placeholder_recipient';
+      error?: string;
+    };
 
 /**
  * Sends a single email via Resend. Gated entirely on env vars — when
@@ -47,6 +52,16 @@ export type SendEmailResult =
  * sandbox only delivers to the Resend account holder's own email address.
  */
 export async function sendEmail(args: SendEmailArgs): Promise<SendEmailResult> {
+  // Anon-draft root guard: an anonymous (not-yet-secured) user carries a
+  // non-routable placeholder address (anon+<uuid>@anon.setnayan.local). Sending
+  // to it would hard-bounce at Resend. Short-circuit centrally so EVERY sender
+  // (notifications, papic/patiktok/anniversary digests, order receipts, future
+  // ones) is covered by one guard — the in-app notification still lands; only
+  // the dead email is skipped. They start receiving email the moment they secure.
+  if (isPlaceholderEmail(args.to)) {
+    return { ok: false, reason: 'placeholder_recipient' };
+  }
+
   // DB-first (Integration Activation Console), env-fallback. Lets the owner set
   // the Resend key from /admin/integrations without a redeploy.
   const { apiKey, fromAddress } = await resolveResendConfig();

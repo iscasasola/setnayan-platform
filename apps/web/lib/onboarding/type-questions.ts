@@ -157,9 +157,21 @@ export function extraPicksFromAnswers(
   packKey: string | null | undefined,
   answers: Record<string, string>,
 ): string[] {
+  return extraPicksFrom(getTypeQuestions(packKey), answers);
+}
+
+/**
+ * Same as `extraPicksFromAnswers` but takes the QUESTIONS directly — the DB-driven
+ * path: `getOnboardingSpec` resolves the questions (admin override OR the TS
+ * default) and the shell passes them straight in. Pure + deterministic.
+ */
+export function extraPicksFrom(
+  questions: readonly TypeQuestion[],
+  answers: Record<string, string>,
+): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
-  for (const q of getTypeQuestions(packKey)) {
+  for (const q of questions) {
     const chosen = answers[q.id];
     if (!chosen) continue;
     const opt = q.options.find((o) => o.key === chosen);

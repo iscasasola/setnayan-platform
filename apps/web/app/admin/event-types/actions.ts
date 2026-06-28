@@ -515,3 +515,213 @@ export async function upsertEventTypeProfile(formData: FormData) {
   revalidatePath(`${BASE}/${key}/profile`);
   profileRedirect(key, 'ok', 'Onboarding profile saved.');
 }
+
+/* ---- Onboarding CONTENT editor (event_type_onboarding · 2026-06-28) ----
+ *
+ * Admin-editable per-type onboarding spec — the signature questions, the persona
+ * starter-plan pack, and the reveal + intro copy of the generic onboarding flow.
+ * The client editor serializes the whole spec to one JSON field; this action
+ * normalizes + clamps it (the normalizers ARE the validation) and upserts the
+ * override row. A missing/empty field stays an override of its default; "Reset"
+ * deletes the row → the flow falls back to the code defaults (onboarding-spec.ts).
+ * Wedding is never edited here (its bespoke wizard owns its content). */
+
+/** Persona keys — must match EXP_PERSONAS / persona-packs.ts. */
+const ONBOARDING_PERSONA_KEYS = [
+  'keepsake',
+  'big_celebration',
+  'best_of_both',
+  'intimate_romance',
+  'modern_statement',
+  'rooted_tradition',
+] as const;
+
+function onboardingRedirect(eventType: string, kind: 'ok' | 'error', msg: string): never {
+  const p = new URLSearchParams();
+  p.set(kind, msg);
+  redirect(`${BASE}/${eventType}/onboarding?${p.toString()}`);
+}
+
+function trimStr(v: unknown, max: number): string {
+  return typeof v === 'string' ? v.trim().slice(0, max) : '';
+}
+
+/** lowercase snake slug for ids/keys (questions, options). */
+function slugifyKey(v: unknown, max = 40): string {
+  return trimStr(v, max)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+/** Clean + dedupe a string-id array, clamped to maxItems. */
+function idArray(v: unknown, maxItems: number, maxLen = 60): string[] {
+  if (!Array.isArray(v)) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const x of v) {
+    const t = trimStr(x, maxLen);
+    if (!t || seen.has(t)) continue;
+    seen.add(t);
+    out.push(t);
+    if (out.length >= maxItems) break;
+  }
+  return out;
+}
+
+function normalizeQuestions(v: unknown): unknown[] {
+  if (!Array.isArray(v)) return [];
+  const out: unknown[] = [];
+  const seenIds = new Set<string>();
+  for (const q of v.slice(0, 8)) {
+    if (!q || typeof q !== 'object') continue;
+    const x = q as Record<string, unknown>;
+    const id = slugifyKey(x.id);
+    const question = trimStr(x.question, 160);
+    if (!id || seenIds.has(id) || !question) continue;
+    const rawOptions = Array.isArray(x.options) ? x.options.slice(0, 8) : [];
+    const options: unknown[] = [];
+    const seenKeys = new Set<string>();
+    for (const o of rawOptions) {
+      if (!o || typeof o !== 'object') continue;
+      const ox = o as Record<string, unknown>;
+      const key = slugifyKey(ox.key);
+      const title = trimStr(ox.title, 80);
+      if (!key || seenKeys.has(key) || !title) continue;
+      seenKeys.add(key);
+      options.push({ key, title, desc: trimStr(ox.desc, 160), adds: idArray(ox.adds, 12) });
+    }
+    if (options.length === 0) continue;
+    seenIds.add(id);
+    out.push({ id, eyebrow: trimStr(x.eyebrow, 60), question, options });
+  }
+  return out;
+}
+
+function normalizePack(v: unknown): Record<string, unknown> | null {
+  if (!v || typeof v !== 'object') return null;
+  const x = v as Record<string, unknown>;
+  const byPersonaIn = (x.byPersona ?? {}) as Record<string, unknown>;
+  const servicesIn = (x.servicesByPersona ?? {}) as Record<string, unknown>;
+  const byPersona: Record<string, string[]> = {};
+  const servicesByPersona: Record<string, string[]> = {};
+  for (const p of ONBOARDING_PERSONA_KEYS) {
+    byPersona[p] = idArray(byPersonaIn[p], 12);
+    servicesByPersona[p] = idArray(servicesIn[p], 8);
+  }
+  const essentials = idArray(x.essentials, 12);
+  // Nothing chosen anywhere → no pack override (fall back to the code default).
+  const empty =
+    essentials.length === 0 &&
+    ONBOARDING_PERSONA_KEYS.every(
+      (p) => byPersona[p]!.length === 0 && servicesByPersona[p]!.length === 0,
+    );
+  return empty ? null : { essentials, byPersona, servicesByPersona };
+}
+
+function normalizeReveal(v: unknown): Record<string, unknown> | null {
+  if (!v || typeof v !== 'object') return null;
+  const x = v as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const p of ONBOARDING_PERSONA_KEYS) {
+    const r = x[p];
+    if (!r || typeof r !== 'object') continue;
+    const rx = r as Record<string, unknown>;
+    const name = trimStr(rx.name, 80);
+    const tagline = trimStr(rx.tagline, 200);
+    const feel = trimStr(rx.feel, 40);
+    if (name || tagline || feel) out[p] = { name, tagline, feel };
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
+
+function normalizeIntro(v: unknown): Record<string, string> | null {
+  if (!v || typeof v !== 'object') return null;
+  const x = v as Record<string, unknown>;
+  const eyebrow = trimStr(x.eyebrow, 80);
+  const headline = trimStr(x.headline, 200);
+  const subcopy = trimStr(x.subcopy, 300);
+  // All-or-nothing: a partial intro would render blank lines, so treat it as none.
+  return eyebrow && headline && subcopy ? { eyebrow, headline, subcopy } : null;
+}
+
+/** Save a type's onboarding content (questions / plan / reveal / intro). */
+export async function upsertOnboardingSpec(formData: FormData) {
+  const user = await requireAdmin();
+  const key = String(formData.get('event_type') ?? '')
+    .trim()
+    .toLowerCase();
+  if (!KEY_RE.test(key)) {
+    redirect(`${BASE}?error=${encodeURIComponent('Bad event-type key.')}`);
+  }
+  if (key === 'wedding') {
+    onboardingRedirect(key, 'error', 'Wedding uses its own bespoke onboarding — not editable here.');
+  }
+
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(String(formData.get('spec_json') ?? '{}')) as Record<string, unknown>;
+  } catch {
+    onboardingRedirect(key, 'error', 'Could not read the form — please try again.');
+  }
+
+  // The override row. Omit axis_overrides so an existing one is PRESERVED (the
+  // editor doesn't touch axis copy); questions stores [] verbatim (explicit
+  // "no questions"), distinct from a missing row which falls back to defaults.
+  const row = {
+    event_type: key,
+    intro: normalizeIntro(parsed.intro),
+    questions: normalizeQuestions(parsed.questions),
+    persona_pack: normalizePack(parsed.personaPack),
+    reveal_overrides: normalizeReveal(parsed.reveal),
+  };
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('event_type_onboarding')
+    .upsert(row, { onConflict: 'event_type' });
+  if (error) {
+    if (error.code === '23503') {
+      onboardingRedirect(key, 'error', `"${key}" is not a known event type.`);
+    }
+    onboardingRedirect(key, 'error', error.message);
+  }
+
+  await admin.from('admin_audit_log').insert({
+    action: 'event_types.onboarding_upsert',
+    target_table: 'event_type_onboarding',
+    target_id: key,
+    after_json: row,
+    actor_user_id: user.id,
+  });
+  revalidateRosterSurfaces();
+  revalidatePath(`${BASE}/${key}/onboarding`);
+  revalidatePath(`/onboarding/${key}`);
+  onboardingRedirect(key, 'ok', 'Onboarding content saved.');
+}
+
+/** Reset a type's onboarding content to the code defaults (delete the override row). */
+export async function resetOnboardingSpec(formData: FormData) {
+  const user = await requireAdmin();
+  const key = String(formData.get('event_type') ?? '')
+    .trim()
+    .toLowerCase();
+  if (!KEY_RE.test(key)) {
+    redirect(`${BASE}?error=${encodeURIComponent('Bad event-type key.')}`);
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin.from('event_type_onboarding').delete().eq('event_type', key);
+  if (error) onboardingRedirect(key, 'error', error.message);
+
+  await admin.from('admin_audit_log').insert({
+    action: 'event_types.onboarding_reset',
+    target_table: 'event_type_onboarding',
+    target_id: key,
+    actor_user_id: user.id,
+  });
+  revalidateRosterSurfaces();
+  revalidatePath(`${BASE}/${key}/onboarding`);
+  revalidatePath(`/onboarding/${key}`);
+  onboardingRedirect(key, 'ok', 'Reset to default content.');
+}

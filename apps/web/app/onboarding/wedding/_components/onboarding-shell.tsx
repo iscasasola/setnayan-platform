@@ -816,6 +816,12 @@ function heatTier(d: Date): 0 | 1 | 2 | 3 | 4 {
 /** Fade-in hero image (prototype setHero: add `loaded` on load; gradient shows on error/missing). */
 function HeroImg({ src, alt = '' }: { src: string; alt?: string }) {
   const [loaded, setLoaded] = useState(false);
+  // Several screens pass src='' as a deliberate "no image yet" state (pax/budget
+  // before a value, the faith placeholder, etc.). Rendering <img src=""> trips a
+  // React warning AND makes the browser re-request the whole current page — so
+  // render nothing until there's a real src; the figure's own placeholder styling
+  // already fills the space. (Hooks stay above the guard — rules-of-hooks safe.)
+  if (!src) return null;
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img

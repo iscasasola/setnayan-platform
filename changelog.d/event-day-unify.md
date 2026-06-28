@@ -26,3 +26,28 @@ SPEC IMPACT: Logged at the bottom of `DECISION_LOG.md` (event-day chrome is now
 unified across the guest, anonymous, and host-preview views; public bar = candid
 Camera + public Photos only). Code is canonical per the 2026-06-07 ground-truth
 posture; iteration `0031_day_of_guest` remains the reference home.
+
+## 2026-06-28 · feat(face): 3-angle day-of face enrollment for better photo-tagging
+
+The day-of "Add your face" enrollment captured a single frontal selfie. Faces
+at an event are turned, side-lit, mid-laugh — one reference descriptor misses
+them. The capture now guides up to **three angles** (center · slight-left ·
+slight-right) and writes **one `guest_face_enrollments` row per angle**;
+`lib/face-match.ts` already compares a photo against every non-revoked row per
+guest, so more angles = more chances to match.
+
+- `SelfieCapture` gains an opt-in `multiShot` mode (default off → the RSVP
+  single-selfie path is byte-identical). It accumulates committed angles, shows
+  a per-angle pose hint + an "add another angle" gallery, and submits
+  `selfie_refs[]` / `selfie_vectors[]` / `selfie_qualities[]` (plus the single
+  inputs = first angle for the action's guard + display-photo write).
+- `enrollGuestFace` parses the arrays and inserts up to 3 rows (single-input
+  fallback preserved for RSVP + older clients). Cap of 3 enforced client + server.
+- `day-of-face-enroll.tsx` opts into `multiShot`; RSVP untouched.
+
+Still subject to the hosted-model gate (`lib/face-embed.ts` is dormant until
+`NEXT_PUBLIC_FACE_MODEL_URL` is live) — this future-proofs the enrollment data
+so the accuracy lands the moment the model is hosted. Biometric consent stays a
+single, skippable RA 10173 gate.
+
+SPEC IMPACT: Logged in `DECISION_LOG.md` (same event-day hub program row).

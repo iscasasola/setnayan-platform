@@ -255,12 +255,29 @@ export function derivePackPlan(
   tiles: readonly OnboardingPickChip[],
   effort: string | null | undefined,
 ): GenericPlan {
-  const pack = packKey ? PERSONA_PACKS[packKey] : undefined;
+  return derivePackPlanFrom(packKey ? PERSONA_PACKS[packKey] : undefined, personaKey, tiles, effort);
+}
+
+/**
+ * Same as `derivePackPlan` but takes the pack OBJECT directly — the DB-driven
+ * path: `getOnboardingSpec` resolves the pack (admin override OR the TS default)
+ * and the shell passes it straight in, so a per-type admin edit flows through
+ * without a key lookup. `null/undefined` pack → `deriveGenericPlan` (PR3
+ * behaviour). Pure + deterministic.
+ */
+export function derivePackPlanFrom(
+  pack: TypePersonaPack | null | undefined,
+  personaKey: string | null | undefined,
+  tiles: readonly OnboardingPickChip[],
+  effort: string | null | undefined,
+): GenericPlan {
   if (!pack) return deriveGenericPlan(tiles, effort);
 
   const byId = new Map(tiles.map((t) => [t.cat, t] as const));
   const taxonomyOrder = tiles.map((t) => t.cat);
-  const extras = isPersonaKey(personaKey) ? pack.byPersona[personaKey] : [];
+  // A DB-authored pack may omit a persona — default its extras to [] so the
+  // spread never throws (the TS packs always carry all six personas).
+  const extras = (isPersonaKey(personaKey) && pack.byPersona[personaKey]) || [];
 
   const limit = effortLimit(effort);
   const picks: string[] = [];
@@ -304,13 +321,25 @@ export function derivePackServices(
   personaKey: string | null | undefined,
   effort: string | null | undefined,
 ): string[] {
-  const pack = packKey ? PERSONA_PACKS[packKey] : undefined;
+  return derivePackServicesFrom(packKey ? PERSONA_PACKS[packKey] : undefined, personaKey, effort);
+}
+
+/**
+ * Same as `derivePackServices` but takes the pack OBJECT directly — the DB-driven
+ * path (see `derivePackPlanFrom`). `null`/unknown persona → `[]`. Pure.
+ */
+export function derivePackServicesFrom(
+  pack: TypePersonaPack | null | undefined,
+  personaKey: string | null | undefined,
+  effort: string | null | undefined,
+): string[] {
   if (!pack || !isPersonaKey(personaKey)) return [];
 
+  const personaServices = pack.servicesByPersona[personaKey] || [];
   const limit = (effort && SERVICE_LIMIT[effort]) || DEFAULT_SERVICE_LIMIT;
   const out: string[] = [];
   const seen = new Set<string>();
-  for (const key of pack.servicesByPersona[personaKey]) {
+  for (const key of personaServices) {
     if (out.length >= limit) break;
     if (seen.has(key) || !VALID_SERVICE_KEYS.has(key)) continue;
     seen.add(key);

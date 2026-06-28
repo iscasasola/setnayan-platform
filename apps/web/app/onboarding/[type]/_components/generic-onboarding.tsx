@@ -11,17 +11,18 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  GENERIC_EXP_AXES,
-  GENERIC_PERSONA_REVEAL,
-  GENERIC_AXIS_IDS,
-} from '@/lib/onboarding/generic-content';
-import { resolvePersona } from '@/app/onboarding/wedding/_data/experience-personas';
+import { resolvePersona, type ExpAxis } from '@/app/onboarding/wedding/_data/experience-personas';
 import { PH_REGIONS } from '@/lib/regions';
 import { commitOnboardingEvent } from '@/app/onboarding/_shared/commit-event';
 import type { GenericOnboardingPayload } from '@/lib/onboarding/types';
-import { derivePackPlan, derivePackServices } from '@/lib/onboarding/persona-packs';
-import { getTypeQuestions, extraPicksFromAnswers } from '@/lib/onboarding/type-questions';
+import {
+  derivePackPlanFrom,
+  derivePackServicesFrom,
+  type TypePersonaPack,
+} from '@/lib/onboarding/persona-packs';
+import { extraPicksFrom, type TypeQuestion } from '@/lib/onboarding/type-questions';
+import type { GenericPersonaReveal } from '@/lib/onboarding/generic-content';
+import type { OnboardingIntro } from '@/lib/onboarding/onboarding-db';
 import type { OnboardingPickChip } from '@/lib/onboarding-refinements';
 
 type Props = {
@@ -35,6 +36,12 @@ type Props = {
   personaPackKey: string;
   /** The type's applicable taxonomy categories — drive the derived starter plan. */
   tiles: OnboardingPickChip[];
+  /** Admin-editable onboarding content (DB override OR TS default; see onboarding-db.ts). */
+  intro: OnboardingIntro | null;
+  questions: TypeQuestion[];
+  personaPack: TypePersonaPack | null;
+  revealByPersona: Record<string, GenericPersonaReveal>;
+  quizAxes: ExpAxis[];
   authed: boolean;
   anonEnabled: boolean;
   resume: boolean;
@@ -55,7 +62,20 @@ type Draft = {
 const DRAFT_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 export function GenericOnboarding(props: Props) {
-  const { eventType, label, emoji, eventWord, personaPackKey, tiles, authed, resume } = props;
+  const {
+    eventType,
+    label,
+    emoji,
+    eventWord,
+    tiles,
+    intro,
+    questions,
+    personaPack,
+    revealByPersona,
+    quizAxes,
+    authed,
+    resume,
+  } = props;
   const router = useRouter();
   const draftKey = `setnayan_onboarding_generic_${eventType}_draft_v1`;
 
@@ -70,9 +90,9 @@ export function GenericOnboarding(props: Props) {
   const [committing, setCommitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // The experience-quiz axis ids, in order (keys are locked; copy is editable).
+  const axisIds = useMemo<string[]>(() => quizAxes.map((a) => a.id), [quizAxes]);
   // Per-type signature-moment screens, injected into the sequence after 'region'.
-  // typeQuestions is stable (keyed on the personaPackKey prop), so `screens` is too.
-  const typeQuestions = useMemo(() => getTypeQuestions(personaPackKey), [personaPackKey]);
   const screens = useMemo<string[]>(
     () => [
       'welcome',
@@ -80,12 +100,12 @@ export function GenericOnboarding(props: Props) {
       'date',
       'pax',
       'region',
-      ...typeQuestions.map((q) => `tq_${q.id}`),
-      ...GENERIC_AXIS_IDS, // for_whom · feel · energy · roots · effort
+      ...questions.map((q) => `tq_${q.id}`),
+      ...axisIds, // for_whom · feel · energy · roots · effort
       'reveal',
       'congrats',
     ],
-    [typeQuestions],
+    [questions, axisIds],
   );
 
   // -- Hydrate the localStorage draft (30-day TTL). On ?resume=1 (post sign-in)
@@ -125,37 +145,37 @@ export function GenericOnboarding(props: Props) {
   }, [hydrated, draftKey, displayName, dateValue, pax, region, axes, details]);
 
   const screen = screens[step]!;
-  const axisIndex = GENERIC_AXIS_IDS.indexOf(screen as (typeof GENERIC_AXIS_IDS)[number]);
+  const axisIndex = axisIds.indexOf(screen);
   const isAxis = axisIndex >= 0;
   const tqId = screen.startsWith('tq_') ? screen.slice(3) : null;
-  const typeQuestion = tqId ? typeQuestions.find((q) => q.id === tqId) ?? null : null;
+  const typeQuestion = tqId ? questions.find((q) => q.id === tqId) ?? null : null;
 
-  const allAxesAnswered = GENERIC_AXIS_IDS.every((id) => Boolean(axes[id]));
+  const allAxesAnswered = axisIds.every((id) => Boolean(axes[id]));
   const personaKey = useMemo(
     () => (allAxesAnswered ? resolvePersona(axes) : null),
     [allAxesAnswered, axes],
   );
-  const reveal = personaKey ? GENERIC_PERSONA_REVEAL[personaKey] : null;
+  const reveal = personaKey ? revealByPersona[personaKey] ?? null : null;
   // Starter plan: per-type persona pack (essentials + this persona's extras),
   // intersected with the type's taxonomy and sized by the effort axis. Falls back
   // to taxonomy-top-N for any type without a pack.
   const plan = useMemo(
-    () => derivePackPlan(personaPackKey, personaKey, tiles, axes.effort),
-    [personaPackKey, personaKey, tiles, axes.effort],
+    () => derivePackPlanFrom(personaPack, personaKey, tiles, axes.effort),
+    [personaPack, personaKey, tiles, axes.effort],
   );
   // In-app Setnayan services to pre-surface on the dashboard for this persona +
   // effort (→ style_preferences.interested_services). No pack / unknown persona → [].
   // PRE-SURFACED only (not purchased) — no paywall in onboarding.
   const planServices = useMemo(
-    () => derivePackServices(personaPackKey, personaKey, axes.effort),
-    [personaPackKey, personaKey, axes.effort],
+    () => derivePackServicesFrom(personaPack, personaKey, axes.effort),
+    [personaPack, personaKey, axes.effort],
   );
   // Categories the type-question answers add (e.g. a gender reveal's "smoke" →
   // fireworks). Merged onto the persona-pack plan, intersected against the type's
   // taxonomy tiles (so an inapplicable add is dropped), deduped, plan order first.
   const extraPicks = useMemo(
-    () => extraPicksFromAnswers(personaPackKey, details),
-    [personaPackKey, details],
+    () => extraPicksFrom(questions, details),
+    [questions, details],
   );
   const finalPlan = useMemo(() => {
     const labelById = new Map(tiles.map((tile) => [tile.cat, tile.label]));
@@ -173,7 +193,7 @@ export function GenericOnboarding(props: Props) {
 
   const canContinue = (() => {
     if (screen === 'name') return displayName.trim().length > 0;
-    if (isAxis) return Boolean(axes[GENERIC_AXIS_IDS[axisIndex]!]);
+    if (isAxis) return Boolean(axes[axisIds[axisIndex]!]);
     return true; // welcome / date / pax / region / reveal are skippable
   })();
 
@@ -196,7 +216,7 @@ export function GenericOnboarding(props: Props) {
   async function handleCreate() {
     setCommitting(true);
     setError(null);
-    const feel = personaKey ? GENERIC_PERSONA_REVEAL[personaKey]?.feel ?? null : null;
+    const feel = personaKey ? revealByPersona[personaKey]?.feel ?? null : null;
     const forWhom = axes.for_whom;
     const payload: GenericOnboardingPayload = {
       eventType,
@@ -261,9 +281,12 @@ export function GenericOnboarding(props: Props) {
           <div className="mb-4 text-5xl" aria-hidden>
             {emoji}
           </div>
-          <Eyebrow>Let’s plan your {label.toLowerCase()}</Eyebrow>
-          <Title>A few quick questions and we’ll shape a plan made for your celebration.</Title>
-          <p className="mt-4 text-ink/60">Free to start — no account needed yet.</p>
+          <Eyebrow>{intro?.eyebrow ?? `Let’s plan your ${label.toLowerCase()}`}</Eyebrow>
+          <Title>
+            {intro?.headline ??
+              'A few quick questions and we’ll shape a plan made for your celebration.'}
+          </Title>
+          <p className="mt-4 text-ink/60">{intro?.subcopy ?? 'Free to start — no account needed yet.'}</p>
         </div>
       );
     }
@@ -367,7 +390,7 @@ export function GenericOnboarding(props: Props) {
       );
     }
     if (isAxis) {
-      const axis = GENERIC_EXP_AXES[axisIndex]!;
+      const axis = quizAxes[axisIndex]!;
       const selected = axes[axis.id];
       return (
         <div>

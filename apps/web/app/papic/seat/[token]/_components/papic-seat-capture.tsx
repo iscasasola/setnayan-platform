@@ -16,6 +16,7 @@ import {
   RotateCcw,
   ShieldCheck,
   Sparkles,
+  CloudOff,
 } from 'lucide-react';
 import {
   recordSeatCapture,
@@ -31,6 +32,11 @@ import {
 } from '@/lib/papic-photo-styles';
 import { usePapicCamera } from '@/lib/use-papic-camera';
 import { PapicCameraControls } from '@/app/papic/_components/camera-controls';
+import {
+  enqueuePapicSeatCapture,
+  isPapicTerminalError,
+} from '@/lib/offline/service-handlers/papic-drain';
+import { triggerSyncNow } from '@/lib/offline/sync-daemon';
 
 // Papic · paparazzo capture (client)
 //
@@ -88,6 +94,9 @@ function tagErrorMessage(error: string): string {
 type Props = {
   token: string;
   seatIndex: number;
+  /** The event this seat belongs to — tags offline-queued captures so the admin
+   *  diagnostic can group a venue's pending uploads by wedding. */
+  eventId: string;
   initialPhotos: number;
   initialClips: number;
   /** null = uncapped (pack seat); a number = a per-seat cap to surface in the UI. */
@@ -109,7 +118,7 @@ type Shot = {
   kind: 'photo' | 'clip';
   /** Object URL for the thumbnail (the clip's poster frame for clips). */
   thumbUrl: string;
-  status: 'uploading' | 'saved' | 'capped' | 'failed';
+  status: 'uploading' | 'saved' | 'capped' | 'failed' | 'queued';
   photoId: string | null;
   // Upload payload (kept for the worker + retry).
   blob: Blob;
@@ -150,6 +159,7 @@ function newId(): string {
 export function PapicSeatCapture({
   token,
   seatIndex,
+  eventId,
   initialPhotos,
   initialClips,
   photoCap = null,
@@ -164,6 +174,23 @@ export function PapicSeatCapture({
     styleRef.current = eventStyle;
   }, [eventStyle]);
   const styleMeta = PAPIC_STYLES.find((s) => s.id === eventStyle);
+
+  // Drain any captures that were persisted to the offline queue (a venue WiFi
+  // blip, or a prior session that closed before reconnecting). This runs the
+  // drain in the FOREGROUND — independent of the global offline-daemon feature
+  // flag + Background Sync (which iOS Safari/PWA lacks) — so a paparazzo's
+  // queued shots upload the moment connectivity returns while they keep shooting.
+  // `triggerSyncNow()` is best-effort + idempotent (IDB transactions serialize,
+  // so at-most-once delivery per item) and no-ops when every queue is empty.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const drain = () => {
+      void triggerSyncNow();
+    };
+    drain();
+    window.addEventListener('online', drain);
+    return () => window.removeEventListener('online', drain);
+  }, []);
 
   // The live camera + its flip / lens controls (shared hook owns the stream).
   const {
@@ -449,16 +476,64 @@ export function PapicSeatCapture({
           patchShot(shot.id, { status: 'capped' });
           return;
         }
-        patchShot(shot.id, { status: 'failed' });
-        rollbackCount(shot.kind);
-        setSaveError(
-          shot.kind === 'clip'
-            ? "A clip didn't upload — tap it in the roll to retry."
-            : "A shot didn't upload — tap it in the roll to retry.",
-        );
+        const code = err instanceof Error ? err.message : '';
+        const failManualRetry = () => {
+          patchShot(shot.id, { status: 'failed' });
+          rollbackCount(shot.kind);
+          setSaveError(
+            shot.kind === 'clip'
+              ? "A clip didn't upload — tap it in the roll to retry."
+              : "A shot didn't upload — tap it in the roll to retry.",
+          );
+        };
+        // A terminal server rejection (revoked seat, window closed, …) can never
+        // succeed on retry — surface it and roll the optimistic count back.
+        if (isPapicTerminalError(code)) {
+          failManualRetry();
+          return;
+        }
+        // Infrastructure failure (presign / PUT / network). Hand the shot off to
+        // the durable offline queue so it survives a reconnect — or the
+        // paparazzo closing the tab — and the sync daemon drains it on reconnect.
+        // OWNERSHIP TRANSFERS to the queue: keep the optimistic count (the shot
+        // WILL land) and mark it 'queued' so the manual-retry path (which only
+        // re-fires 'failed' shots) can't double-deliver the same capture.
+        const queuedId = await enqueuePapicSeatCapture({
+          eventId,
+          seatToken: token,
+          seatIndex,
+          kind: shot.kind,
+          contentType: shot.contentType,
+          blob: shot.blob,
+          durationMs: shot.durationMs,
+          reason: code || 'network',
+        });
+        if (queuedId) {
+          patchShot(shot.id, { status: 'queued' });
+          setSaveError(
+            shot.kind === 'clip'
+              ? "A clip will finish uploading once you're back online."
+              : "A shot will finish uploading once you're back online.",
+          );
+        } else {
+          // No durable storage (e.g. private-mode IndexedDB) — fall back to the
+          // in-memory "tap to retry" path so the bytes aren't lost this session.
+          failManualRetry();
+        }
       }
     },
-    [uploadBlob, token, photoCap, clipCap, patchShot, armTagging, autoTagFromBlob, rollbackCount],
+    [
+      uploadBlob,
+      token,
+      eventId,
+      seatIndex,
+      photoCap,
+      clipCap,
+      patchShot,
+      armTagging,
+      autoTagFromBlob,
+      rollbackCount,
+    ],
   );
 
   // Serial queue worker — drains 'uploading' shots one at a time. Re-entrant-safe
@@ -976,15 +1051,21 @@ export function PapicSeatCapture({
                   if (shot.status === 'failed') retryShot(shot.id);
                   else if (shot.status === 'saved' && shot.photoId) startTagging(shot.photoId);
                 }}
-                disabled={shot.status === 'uploading' || shot.status === 'capped'}
+                disabled={
+                  shot.status === 'uploading' ||
+                  shot.status === 'capped' ||
+                  shot.status === 'queued'
+                }
                 aria-label={
                   shot.status === 'failed'
                     ? 'Retry upload'
-                    : shot.status === 'saved'
-                      ? 'Tag who’s in this shot'
-                      : shot.kind === 'clip'
-                        ? 'Clip'
-                        : 'Photo'
+                    : shot.status === 'queued'
+                      ? 'Waiting to upload when back online'
+                      : shot.status === 'saved'
+                        ? 'Tag who’s in this shot'
+                        : shot.kind === 'clip'
+                          ? 'Clip'
+                          : 'Photo'
                 }
                 className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-cream/15 bg-cream/5"
               >
@@ -1005,6 +1086,11 @@ export function PapicSeatCapture({
                 {shot.status === 'failed' && (
                   <span className="absolute inset-0 flex items-center justify-center bg-ink/55">
                     <RotateCcw aria-hidden className="h-4 w-4 text-cream" strokeWidth={2} />
+                  </span>
+                )}
+                {shot.status === 'queued' && (
+                  <span className="absolute inset-0 flex items-center justify-center bg-ink/55">
+                    <CloudOff aria-hidden className="h-4 w-4 text-cream" strokeWidth={2} />
                   </span>
                 )}
                 {shot.status === 'saved' && (

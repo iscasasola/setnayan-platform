@@ -261,6 +261,10 @@ export default async function EventLayout({ children, params }: Props) {
   // profile enables the public website (weddings today). Threaded to the
   // desktop sidebar + the mobile section sub-nav.
   const websiteEnabled = surfaceEnabled(profile, 'website');
+  // Gates the Studio "Monogram" child to event types whose profile enables the
+  // 'monogram' surface (weddings today). Non-wedding events without it never see
+  // the monogram maker in the nav. Threaded to the desktop sidebar.
+  const monogramEnabled = surfaceEnabled(profile, 'monogram');
 
   const tr = makeT(locale);
 
@@ -326,6 +330,7 @@ export default async function EventLayout({ children, params }: Props) {
             eventDate={(event.event_date as string | null) ?? null}
             hideKeys={navHideKeys}
             websiteEnabled={websiteEnabled}
+            monogramEnabled={monogramEnabled}
           />
         }
         topBar={topBar}

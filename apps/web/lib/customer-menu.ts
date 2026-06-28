@@ -261,7 +261,12 @@ export function buildCustomerMenuTree(
       subnavLabel: 'Studio sections',
       children: [
         { key: 'setnayan-ai', label: 'Setnayan AI', icon: Gem, kind: 'anchor' as const, hash: 'studio-ai', slotKey: 'customer.studio-subnav.setnayan-ai' },
-        { key: 'website', label: 'Website', icon: Globe, kind: 'anchor' as const, hash: 'studio-website', slotKey: 'customer.studio-subnav.website' },
+        // 'website' anchor — only when the event type enables the 'website'
+        // surface (its hub section is gated the same way; the anchor would scroll
+        // to nothing otherwise). Wedding enables it → byte-identical.
+        ...(ctx.websiteEnabled
+          ? [{ key: 'website', label: 'Website', icon: Globe, kind: 'anchor' as const, hash: 'studio-website', slotKey: 'customer.studio-subnav.website' }]
+          : []),
         { key: 'capture', label: 'Capture', icon: Camera, kind: 'anchor' as const, hash: 'studio-capture', slotKey: 'customer.studio-subnav.capture' },
         { key: 'branding', label: 'Branding', icon: Palette, kind: 'anchor' as const, hash: 'studio-branding', slotKey: 'customer.studio-subnav.branding' },
         // "Event page" (owner 2026-06-26 "host should see the same event page we
@@ -271,7 +276,9 @@ export function buildCustomerMenuTree(
         // (route → router.push; anchor → scroll). On the /studio hub no path
         // prefixes /event-page, so routeKey stays null and an anchor keeps the
         // active highlight (this child never false-lights).
-        { key: 'event-page', label: 'Event page', icon: Eye, kind: 'route' as const, href: `${base}/event-page`, match: `${base}/event-page`, slotKey: 'customer.studio-subnav.event-page' },
+        ...(ctx.websiteEnabled
+          ? [{ key: 'event-page', label: 'Event page', icon: Eye, kind: 'route' as const, href: `${base}/event-page`, match: `${base}/event-page`, slotKey: 'customer.studio-subnav.event-page' }]
+          : []),
         // "Launch" (owner 2026-06-28) — a ROUTE child to the preview + go-live
         // surface. Only when the event type enables the 'website' surface.
         ...(ctx.websiteEnabled

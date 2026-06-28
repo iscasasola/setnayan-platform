@@ -6,6 +6,8 @@ The `supabase-migrations.yml` auto-apply workflow was failing on every migration
 
 2. **Out-of-order guard (this PR):** the remaining genuinely-pending migrations have timestamps that sort before the latest applied version, so `db push` refuses without `--include-all`. Added the flag. The `pnpm migration:new` allocator keeps new prefixes monotonic, so `--include-all` is a no-op on the normal path and only matters for the out-of-order tail.
 
+3. **Flaky telemetry exit code (this PR):** the Supabase CLI flushes analytics to PostHog on exit; in CI that egress intermittently times out and the CLI returns a non-zero exit code *after* the real work succeeded (`Finished supabase link.` → `Timeout while shutting down PostHog` → exit 1), reddening the workflow at random. Set `DO_NOT_TRACK=1` (the cross-tool standard the CLI honors) at the job level so exit codes reflect only the migration work.
+
 Net: every future migration now self-applies on merge to `main` — no manual `db push`, no out-of-band applies (the practice that created the drift).
 
 SPEC IMPACT: None. CI/infra only.

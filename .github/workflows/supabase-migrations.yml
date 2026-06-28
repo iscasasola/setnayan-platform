@@ -90,6 +90,14 @@ jobs:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+      # Disable Supabase CLI telemetry. The CLI flushes analytics to PostHog on
+      # exit; in CI that egress intermittently times out and the CLI returns a
+      # NON-ZERO exit code AFTER the real work succeeded ("Finished supabase
+      # link." → "Timeout while shutting down PostHog" → exit 1), reddening the
+      # workflow at random. DO_NOT_TRACK (the cross-tool standard the Supabase
+      # CLI honors) skips the telemetry entirely, so exit codes reflect only the
+      # migration work.
+      DO_NOT_TRACK: "1"
     steps:
       # Dormant-until-configured gate. With the push trigger ARMED, this runs on
       # every migration merge to main — but it must NOT spam a red failure while

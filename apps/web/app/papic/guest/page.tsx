@@ -139,6 +139,7 @@ export default async function PapicGuestPage() {
     <PapicGuestCapture
       guestName={guestName}
       eventName={eventName}
+      eventId={session.event_id}
       initialRemaining={quota.remaining}
       total={quota.total}
       termsAccepted={termsAccepted}

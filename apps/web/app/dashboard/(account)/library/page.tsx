@@ -6,7 +6,7 @@ import { PhotosTab } from './_components/photos-tab';
 import { VendorsTab } from './_components/vendors-tab';
 import { EditorialsTab } from './_components/editorials-tab';
 
-export const metadata = { title: 'Collection' };
+export const metadata = { title: 'Memories Hub' };
 
 /**
  * Collection — the account-level, CROSS-EVENT hub. One sidebar entry, three tabs:
@@ -51,10 +51,10 @@ export default async function LibraryPage({
 
       <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2">
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Collection</h1>
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Memories Hub</h1>
           <p className="max-w-prose text-base text-ink/65">
-            Everything that&rsquo;s yours — your photos &amp; videos, saved vendors, and the
-            editorials you&rsquo;re part of, kept across all your events.
+            Every photo, video, and memory — kept for life, across every event you host or
+            attend. Your saved vendors and the editorials you&rsquo;re part of live here too.
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2 text-sm">

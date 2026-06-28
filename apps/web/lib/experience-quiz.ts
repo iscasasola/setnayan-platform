@@ -25,6 +25,13 @@
  * server action (which guards the new columns) read the SAME flag — one source of
  * truth, no client/server drift. Inlined at build time.
  */
+// LAUNCHED 2026-06-28 (owner-authorized). Migration 20270208703382 is applied in
+// prod (events.experience_persona / experience_for_whom / experience_axes all
+// exist) and the quiz flow was verified end-to-end (screens render + align, the
+// 5-axis quiz derives a persona, and the commit's data-path passes every
+// constraint under a real user). The flag now defaults ON; it remains a
+// KILL-SWITCH — set NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED=false to fall back to the
+// legacy manual-picker flow with no code change.
 export function experienceQuizEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED === 'true';
+  return process.env.NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED !== 'false';
 }

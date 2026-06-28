@@ -19,7 +19,15 @@
  * truth, no client/server drift.
  */
 export function anonOnboardingEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_ANON_ONBOARDING_ENABLED === 'true';
+  // LAUNCHED 2026-06-28 (owner-authorized). Both prerequisites are LIVE in prod:
+  // (1) anonymous sign-ins are enabled (verified — a signInAnonymously probe
+  // returns a valid session), and (2) the null-email-tolerant handle_new_auth_user
+  // trigger is applied (migration 20270205204166) and handles anon users without
+  // crashing. The anon commit data-path was verified end-to-end (event + members +
+  // moderator + guests insert cleanly under an anonymous uid). The flag now
+  // defaults ON; it remains a KILL-SWITCH — set NEXT_PUBLIC_ANON_ONBOARDING_ENABLED
+  // =false to restore the account-gate-before-commit flow with no code change.
+  return process.env.NEXT_PUBLIC_ANON_ONBOARDING_ENABLED !== 'false';
 }
 
 /**

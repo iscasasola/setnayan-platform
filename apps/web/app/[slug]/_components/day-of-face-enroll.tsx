@@ -68,8 +68,9 @@ export function DayOfFaceEnroll({
             Add your face
           </h2>
           <p className="mt-1 text-sm text-ink/65">
-            Take a few quick angles and the candid shots of you get gathered for
-            you automatically — no scanning, no searching.
+            Take a few quick selfies — or upload up to 3 photos — and the candid
+            shots of you get gathered for you automatically. No scanning, no
+            searching.
           </p>
         </div>
       </div>

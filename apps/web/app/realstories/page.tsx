@@ -46,6 +46,12 @@ export const metadata: Metadata = {
       'Real Filipino life milestones — weddings, debuts, anniversaries, and more — told in full by the people who were there. Sample showcases now live; real editorials begin December 2026.',
     url: '/realstories',
   },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Real stories · Setnayan',
+    description:
+      'Real Filipino life milestones — weddings, debuts, anniversaries, and more — told in full by the people who were there. Sample showcases now live; real editorials begin December 2026.',
+  },
 };
 
 // DB-backed (consent-gated showcases) → ISR. Degrades to samples gracefully.

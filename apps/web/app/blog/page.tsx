@@ -40,6 +40,13 @@ export const metadata = {
     locale: 'en_PH',
     images: [{ url: `${SITE_URL}/blog/hero.webp`, width: 1820, height: 1024 }],
   },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Setnayan Journal — Filipino wedding planning guides',
+    description:
+      'Filipino wedding planning guides — timelines, supplier costs, and customs explained.',
+    images: [`${SITE_URL}/blog/hero.webp`],
+  },
 };
 
 const MONTHS = [

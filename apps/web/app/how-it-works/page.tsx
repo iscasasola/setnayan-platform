@@ -58,6 +58,13 @@ export const metadata = {
     locale: 'en_PH',
     images: [{ url: `${SITE_URL}/brand/og-card.webp`, width: 1200, height: 630 }],
   },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'How Setnayan works — couples, vendors, guests, admins',
+    description:
+      "The complete map of who's who on Setnayan and where each person spends their time. One paragraph per role, plus how the flow connects.",
+    images: [`${SITE_URL}/brand/og-card.webp`],
+  },
 };
 
 const HOW_IT_WORKS_JSONLD = {

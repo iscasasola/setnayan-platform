@@ -20,6 +20,12 @@ export const metadata = {
       'How Setnayan handles personal data under the Philippine Data Privacy Act (RA 10173).',
     url: '/privacy',
   },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Privacy policy · Setnayan',
+    description:
+      'How Setnayan handles personal data under the Philippine Data Privacy Act (RA 10173).',
+  },
 };
 
 export default function PrivacyPage() {

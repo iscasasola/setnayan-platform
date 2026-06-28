@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { registerGatesEnabled } from '@/lib/register-gates';
 import { getCurrentUser } from '@/lib/auth';
 import { resolveMonogram } from '@/lib/monogram';
+import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { VectorStudio } from './studio';
 import { sanitizeStudioConfig } from '@/lib/monogram-studio-shared';
 import { MonogramDraftRestore } from './draft-restore';
@@ -72,6 +73,13 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
     .eq('event_id', eventId)
     .maybeSingle();
   if (!event) redirect(`/dashboard/${eventId}`);
+
+  // Event-type backstop (0053 · 2026-06-28): the monogram maker is a wedding
+  // surface. If this event type's profile doesn't enable 'monogram' (e.g. a
+  // birthday), the nav + Studio hub already hide it — this guards a direct URL.
+  // Wedding enables it → no redirect (byte-identical). Degrades to WEDDING_PROFILE.
+  const profile = await resolveProfileByEvent(eventId);
+  if (!surfaceEnabled(profile, 'monogram')) redirect(`/dashboard/${eventId}`);
 
   const monogram = resolveMonogram(event);
 

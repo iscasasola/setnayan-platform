@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import type { PosterStyle } from '@/app/dashboard/[eventId]/studio/_components/service-poster';
 import type { PlanGroupId } from '@/lib/wedding-plan-groups';
+import type { ProfileSurface } from '@/lib/event-type-profile';
 
 export type AddOnStatus = 'live' | 'web_v1' | 'coming_soon';
 
@@ -131,6 +132,15 @@ export type AddOnEntry = {
    * the buy. The "Free to try" chip (freeTrial) still carries the entry signal.
    */
   variablePricing?: boolean;
+  /**
+   * Event-type SURFACE this add-on belongs to (0053 · 2026-06-28). When set, the
+   * add-on shows in the Studio hub ONLY for event types whose profile enables
+   * that surface — so a birthday (no 'website'/'save_the_date'/'rsvp'/'monogram'
+   * surface) never sees the Save-the-Date, RSVP, website parts, or Animated
+   * Monogram. Unset → a universal in-app service, shown for every type. Wedding
+   * enables ALL surfaces, so nothing is filtered there (byte-identical).
+   */
+  surface?: ProfileSurface;
 };
 
 /**
@@ -251,6 +261,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'save-the-date',
+    surface: 'save_the_date',
     label: 'Save the Date',
     Icon: Sparkles,
     iteration: '0024',
@@ -280,6 +291,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   // appStoreDetailHref → /site-editor/[eventId]/<phase>).
   {
     key: 'rsvp',
+    surface: 'rsvp',
     opensDirect: true,
     label: 'RSVP',
     Icon: MailCheck,
@@ -302,6 +314,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'event',
+    surface: 'website',
     opensDirect: true,
     label: 'Event',
     Icon: PartyPopper,
@@ -324,6 +337,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'editorial',
+    surface: 'website',
     opensDirect: true,
     label: 'Editorial',
     Icon: Newspaper,
@@ -346,6 +360,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'landing-page',
+    surface: 'website',
     opensDirect: true,
     label: 'Whole website',
     Icon: Globe2,
@@ -433,6 +448,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'animated-monogram',
+    surface: 'monogram',
     label: 'Monogram Maker',
     Icon: Type,
     iteration: '0004',

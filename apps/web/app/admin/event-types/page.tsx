@@ -293,6 +293,14 @@ export default async function AdminEventTypesPage({ searchParams }: { searchPara
                       Onboarding profile →
                     </Link>
                   ) : null}
+                  {!retired && r.event_type !== 'wedding' ? (
+                    <Link
+                      href={`/admin/event-types/${r.event_type}/onboarding`}
+                      className="font-medium text-terracotta hover:underline"
+                    >
+                      Onboarding content →
+                    </Link>
+                  ) : null}
                 </div>
 
                 <details className="mt-3">

@@ -144,3 +144,36 @@ export async function saveEditorial(
 
   return { ok: true };
 }
+
+/**
+ * Real Stories showcase consent, co-located on the editorial editor so the
+ * couple can publish AND choose to be featured in one place (instead of hunting
+ * for the separate privacy-page toggle). Mirrors `setShowcaseConsent` in
+ * website/privacy/actions.ts — sets/clears the caller's OWN
+ * `users.public_summary_consent_at` via the admin client (the users self-update
+ * path isn't exposed to the auth client), gated on host membership.
+ *
+ * RA 10173: consent stays an EXPLICIT, reversible opt-in — this only flips the
+ * couple's own flag when they ask. It deliberately does NOT touch
+ * `landing_page_visibility`; a private page still won't surface (the
+ * loadPublishedShowcases `!= 'private'` guard), and the editor surfaces that
+ * caveat rather than silently making the page public.
+ */
+export async function setStoryShowcase(
+  eventId: string,
+  optIn: boolean,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const userId = await hostUserId(eventId);
+  if (!userId) return { ok: false, error: 'You don’t have access to this wedding.' };
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('users')
+    .update({ public_summary_consent_at: optIn ? new Date().toISOString() : null })
+    .eq('user_id', userId);
+  if (error) return { ok: false, error: 'Could not update. Please try again.' };
+
+  revalidatePath(`/dashboard/${eventId}/website/editorial`);
+  revalidatePath(`/dashboard/${eventId}/website/privacy`);
+  return { ok: true };
+}

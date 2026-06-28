@@ -19,7 +19,7 @@ import {
   fetchPendingVendorPayments,
   fetchPlanProgressForVendor,
 } from '@/lib/vendor-service-payment-schedules.server';
-import { canClearPlan } from '@/lib/vendor-service-payment-schedules';
+import { canClearPlan, computePlanRollup } from '@/lib/vendor-service-payment-schedules';
 import { PaymentPlanStepper } from '@/app/_components/payment-plan-stepper';
 import { acceptPaxSurcharge, declinePaxSurcharge } from './pax-actions';
 import { confirmVendorPayment, clearVendorPaymentPlan } from './pay-confirm-actions';
@@ -326,6 +326,11 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         const cleared = p.clearedAt != null;
         const steps = p.steps ?? [];
         const canClear = canClearPlan(steps);
+        // Glance-level money roll-up for this booking — the vendor-side mirror
+        // of the couple's live summary, derived purely from the steps already
+        // loaded (no couple-RLS access). Hidden when nothing has resolved to a
+        // peso amount yet (total 0) — the stepper alone is clearer then.
+        const rollup = computePlanRollup(steps);
         return (
           <div
             key={p.eventVendorId}
@@ -334,6 +339,57 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
             <p className="text-sm font-semibold text-ink">
               Payment plan — {p.vendorLabel}
             </p>
+            {rollup.total > 0 ? (
+              <div className="mt-3 space-y-2 rounded-lg border border-ink/10 bg-paper/60 p-3">
+                <div className="flex items-baseline justify-between gap-2">
+                  <p className="text-sm text-ink/70">
+                    <span className="font-semibold text-ink">{peso(rollup.received)}</span>
+                    <span className="text-ink/45"> of </span>
+                    <span className="font-semibold text-ink">{peso(rollup.total)}</span>
+                    <span className="text-ink/45"> received</span>
+                  </p>
+                  <p className="font-display text-xl text-ink">{rollup.percentReceived}%</p>
+                </div>
+                <div
+                  className="h-1.5 w-full overflow-hidden rounded-full bg-ink/10"
+                  role="progressbar"
+                  aria-valuenow={rollup.percentReceived}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label="Percent of plan received"
+                >
+                  <div
+                    className="h-full rounded-full bg-success-600"
+                    style={{ width: `${rollup.percentReceived}%` }}
+                  />
+                </div>
+                <p className="text-xs text-ink/55">
+                  {cleared ? (
+                    'Plan cleared — nothing outstanding.'
+                  ) : rollup.pending > 0 ? (
+                    <>
+                      <span className="font-medium text-warn-700">
+                        {peso(rollup.pending)} awaiting your confirmation
+                      </span>
+                      {rollup.next ? (
+                        <>
+                          {' · next: '}
+                          {rollup.next.label}
+                          {rollup.next.dueDate ? ` (due ${rollup.next.dueDate})` : ''}
+                        </>
+                      ) : null}
+                    </>
+                  ) : rollup.next ? (
+                    <>
+                      Next: {rollup.next.label} — {peso(rollup.next.amountPhp)}
+                      {rollup.next.dueDate ? ` · due ${rollup.next.dueDate}` : ''}
+                    </>
+                  ) : (
+                    'All installments confirmed.'
+                  )}
+                </p>
+              </div>
+            ) : null}
             <div className="mt-3">
               <PaymentPlanStepper steps={steps} clearedAt={p.clearedAt} />
             </div>

@@ -250,6 +250,61 @@ export function computeStepper(
 }
 
 /**
+ * A glance-level money roll-up for one booking's installment plan — the
+ * vendor-side mirror of the couple's BudgetLiveSummary, but derived purely from
+ * the stepper steps already loaded (no extra query, no couple-RLS access). Used
+ * to crown the per-booking plan card on the vendor thread with "received of
+ * total · %" + the next installment owed.
+ */
+export type PlanRollup = {
+  /** Σ of every installment's resolved amount (PHP). Null amounts count as 0. */
+  total: number;
+  /** Σ of vendor-confirmed installments (state 'paid'). */
+  received: number;
+  /** Σ of logged-but-unconfirmed installments (state 'pending'). */
+  pending: number;
+  /** Whole-number percent received (0–100); 0 when total is 0. */
+  percentReceived: number;
+  /** Earliest not-yet-paid installment (due or pending), or null if all paid. */
+  next: { label: string; amountPhp: number; dueDate: string | null } | null;
+};
+
+/**
+ * Collapse a booking's stepper into its PlanRollup. Pure. `next` is the
+ * earliest non-paid installment by due_date (dated first, then by seq), so the
+ * vendor sees what's owed next at a glance. Amounts that haven't resolved yet
+ * (percent installments before the total exists) count as 0 toward the totals.
+ */
+export function computePlanRollup(steps: StepperInstallment[]): PlanRollup {
+  let total = 0;
+  let received = 0;
+  let pending = 0;
+  for (const s of steps) {
+    const amt = Number(s.amount_php) || 0;
+    total += amt;
+    if (s.state === 'paid') received += amt;
+    else if (s.state === 'pending') pending += amt;
+  }
+  const percentReceived =
+    total > 0 ? Math.min(100, Math.round((received / total) * 100)) : 0;
+
+  const open = steps
+    .filter((s) => s.state !== 'paid')
+    .sort((a, b) => {
+      if (a.due_date && b.due_date) return a.due_date.localeCompare(b.due_date);
+      if (a.due_date) return -1;
+      if (b.due_date) return 1;
+      return a.seq - b.seq;
+    });
+  const n = open[0];
+  const next = n
+    ? { label: n.label, amountPhp: Number(n.amount_php) || 0, dueDate: n.due_date ?? null }
+    : null;
+
+  return { total, received, pending, percentReceived, next };
+}
+
+/**
  * Whether the vendor may mark the whole plan cleared: every installment must be
  * 'paid' (vendor-confirmed). An empty plan (no formal schedule) is vacuously
  * clearable at the vendor's discretion — mirrors the DB guard's gate exactly.

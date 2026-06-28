@@ -23,14 +23,37 @@ import type { FaceGateResult } from '@/lib/face-gate';
  * CAPTURE UI, never the RSVP submit. The MediaPipe quality gate is advisory —
  * it warns + offers a retake but the selfie still saves.
  */
-type Phase = 'idle' | 'camera' | 'review';
+type Phase = 'idle' | 'camera' | 'review' | 'gallery';
+
+/** A committed angle in multi-shot mode. */
+type Shot = {
+  ref: string;
+  vector: number[] | null;
+  quality: Record<string, unknown> | null;
+  preview: string;
+};
+
+/** Pose hints shown one per angle (owner 2026-06-28 — 3 angles lift face-match
+ *  recall vs. a single frontal frame). Index = shot number. */
+const POSE_HINTS = [
+  'Look straight at the camera',
+  'Now turn your head slightly left',
+  'And slightly to the right',
+];
 
 export function SelfieCapture({
   onReadyChange,
+  multiShot = false,
+  maxShots = 3,
 }: {
   /** Fires when a consented selfie is captured + uploaded (or cleared) — lets a
    *  standalone enroll form gate its submit. The RSVP form omits it (no-op). */
   onReadyChange?: (ready: boolean) => void;
+  /** Capture up to `maxShots` angles (center / left / right) and submit them as
+   *  `selfie_refs[]` / `selfie_vectors[]` / `selfie_qualities[]` for multi-vector
+   *  enrollment. Default false → unchanged single-shot behavior (RSVP path). */
+  multiShot?: boolean;
+  maxShots?: number;
 } = {}) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -46,6 +69,8 @@ export function SelfieCapture({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [gate, setGate] = useState<FaceGateResult | null>(null);
   const [selfieVector, setSelfieVector] = useState<number[] | null>(null);
+  // Multi-shot only: the committed angles so far.
+  const [shots, setShots] = useState<Shot[]>([]);
 
   const stopStream = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -58,8 +83,9 @@ export function SelfieCapture({
   // A consented, uploaded selfie is "ready to enroll" — surface it so a
   // standalone enroll form (day-of / camera) can enable its submit button.
   useEffect(() => {
-    onReadyChange?.(Boolean(consent && r2Ref));
-  }, [consent, r2Ref, onReadyChange]);
+    const has = multiShot ? shots.length > 0 : Boolean(r2Ref);
+    onReadyChange?.(Boolean(consent && has));
+  }, [consent, r2Ref, shots.length, multiShot, onReadyChange]);
 
   const startCamera = useCallback(async () => {
     setError(null);
@@ -125,25 +151,30 @@ export function SelfieCapture({
     setPhase('review');
 
     // Advisory quality gate — lazy import pulls MediaPipe only now (keeps it
-    // off the bundle until a guest actually takes a selfie).
+    // off the bundle until a guest actually takes a selfie). Keep a local
+    // (not just state) so multi-shot can attach it to the committed angle.
+    let gateLocal: FaceGateResult | null = null;
     try {
       const { runFaceGate } = await import('@/lib/face-gate');
-      setGate(await runFaceGate(canvas));
+      gateLocal = await runFaceGate(canvas);
     } catch {
-      setGate(null);
+      gateLocal = null;
     }
+    setGate(gateLocal);
 
     // On-device face fingerprint (dlib via face-api.js) — best-effort, DORMANT
     // until a model is hosted. The 128-d descriptor is the guest's enrollment
     // fingerprint for gallery auto-tagging; the lazy import keeps face-api/TF.js
     // off the bundle until a guest actually takes a selfie. Never blocks the RSVP.
+    let vectorLocal: number[] | null = null;
     try {
       const { embedSingleFace } = await import('@/lib/face-embed');
       const r = await embedSingleFace(canvas);
-      setSelfieVector(r ? r.vector : null);
+      vectorLocal = r ? r.vector : null;
     } catch {
-      setSelfieVector(null);
+      vectorLocal = null;
     }
+    setSelfieVector(vectorLocal);
 
     // Upload the full-res JPEG (the face-rec enrollment asset) to R2.
     const blob = await new Promise<Blob | null>((resolve) =>
@@ -175,12 +206,27 @@ export function SelfieCapture({
       });
       if (!putRes.ok) throw new Error('Upload failed — check your signal.');
       setR2Ref(data.r2Ref);
+      if (multiShot) {
+        // Commit this angle, then return to the gallery for the next pose.
+        const preview = canvas.toDataURL('image/jpeg', 0.6);
+        const quality = gateLocal
+          ? { score: gateLocal.score, ...gateLocal.meta }
+          : null;
+        const ref = data.r2Ref;
+        setShots((prev) => [...prev, { ref, vector: vectorLocal, quality, preview }]);
+        // Clear the single-shot temp so the next capture starts clean.
+        setR2Ref(null);
+        setGate(null);
+        setSelfieVector(null);
+        setPreviewUrl(null);
+        setPhase('gallery');
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Upload failed — please retake.');
     } finally {
       setBusy(false);
     }
-  }, [ready, stopStream]);
+  }, [ready, stopStream, multiShot]);
 
   // Withdrawing consent drops any captured selfie — no consent, no photo.
   const onConsentChange = (checked: boolean) => {
@@ -190,28 +236,67 @@ export function SelfieCapture({
       setR2Ref(null);
       setGate(null);
       setPreviewUrl(null);
+      setShots([]);
       setPhase('idle');
     }
   };
 
+  // Derived multi-shot hidden-input payload (computed here so TS can narrow the
+  // first angle once, instead of re-indexing shots[0] inside JSX).
+  const firstShot = shots[0] ?? null;
+  const multiHidden =
+    multiShot && firstShot
+      ? {
+          ref: firstShot.ref,
+          refs: JSON.stringify(shots.map((s) => s.ref)),
+          quality: firstShot.quality ? JSON.stringify(firstShot.quality) : null,
+          qualities: JSON.stringify(shots.map((s) => s.quality)),
+          vector: firstShot.vector ? JSON.stringify(firstShot.vector) : null,
+          vectors: JSON.stringify(shots.map((s) => s.vector)),
+        }
+      : null;
+
   return (
     <div className="rounded-xl border border-ink/10 bg-cream/60 p-4">
-      {/* Hidden inputs the RSVP form (submitRsvp) reads on submit. */}
-      {r2Ref ? <input type="hidden" name="selfie_ref" value={r2Ref} /> : null}
-      {r2Ref && gate ? (
-        <input
-          type="hidden"
-          name="selfie_quality"
-          value={JSON.stringify({ score: gate.score, ...gate.meta })}
-        />
-      ) : null}
-      {r2Ref && selfieVector ? (
-        <input
-          type="hidden"
-          name="selfie_vector"
-          value={JSON.stringify(selfieVector)}
-        />
-      ) : null}
+      {/* Hidden inputs the enroll/RSVP action reads on submit. In multi-shot
+          mode we emit the arrays AND the single inputs (= first angle) so the
+          single-path guard + display-photo write still work. */}
+      {multiHidden ? (
+        <>
+          <input type="hidden" name="selfie_ref" value={multiHidden.ref} />
+          <input type="hidden" name="selfie_refs" value={multiHidden.refs} />
+          {multiHidden.quality ? (
+            <input type="hidden" name="selfie_quality" value={multiHidden.quality} />
+          ) : null}
+          <input
+            type="hidden"
+            name="selfie_qualities"
+            value={multiHidden.qualities}
+          />
+          {multiHidden.vector ? (
+            <input type="hidden" name="selfie_vector" value={multiHidden.vector} />
+          ) : null}
+          <input type="hidden" name="selfie_vectors" value={multiHidden.vectors} />
+        </>
+      ) : multiShot ? null : (
+        <>
+          {r2Ref ? <input type="hidden" name="selfie_ref" value={r2Ref} /> : null}
+          {r2Ref && gate ? (
+            <input
+              type="hidden"
+              name="selfie_quality"
+              value={JSON.stringify({ score: gate.score, ...gate.meta })}
+            />
+          ) : null}
+          {r2Ref && selfieVector ? (
+            <input
+              type="hidden"
+              name="selfie_vector"
+              value={JSON.stringify(selfieVector)}
+            />
+          ) : null}
+        </>
+      )}
 
       <div className="flex items-start gap-2">
         <ShieldCheck
@@ -261,7 +346,11 @@ export function SelfieCapture({
             className="inline-flex items-center gap-2 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Camera aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            {r2Ref ? 'Retake selfie' : 'Take a selfie'}
+            {multiShot
+              ? `Take ${maxShots} quick angles`
+              : r2Ref
+                ? 'Retake selfie'
+                : 'Take a selfie'}
           </button>
         ) : null}
 
@@ -281,6 +370,14 @@ export function SelfieCapture({
               </div>
             ) : (
               <>
+                {multiShot ? (
+                  <p className="text-center text-xs font-medium text-ink/70">
+                    Angle {shots.length + 1} of {maxShots} ·{' '}
+                    <span className="text-terracotta">
+                      {POSE_HINTS[shots.length] ?? 'One more angle'}
+                    </span>
+                  </p>
+                ) : null}
                 <div className="relative mx-auto aspect-square w-full max-w-[260px] overflow-hidden rounded-xl bg-ink">
                   <video
                     ref={videoRef}
@@ -317,7 +414,7 @@ export function SelfieCapture({
                     className="inline-flex items-center gap-2 rounded-full bg-terracotta px-5 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta/90 disabled:opacity-50"
                   >
                     <Camera aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                    Capture
+                    {multiShot ? `Capture angle ${shots.length + 1}` : 'Capture'}
                   </button>
                 </div>
               </>
@@ -373,6 +470,41 @@ export function SelfieCapture({
               <RotateCcw aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
               Retake
             </button>
+          </div>
+        ) : null}
+
+        {phase === 'gallery' ? (
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              {shots.map((s, i) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={i}
+                  src={s.preview}
+                  alt={`Angle ${i + 1}`}
+                  className="h-16 w-16 rounded-lg object-cover ring-1 ring-ink/10"
+                />
+              ))}
+              {shots.length < maxShots ? (
+                <button
+                  type="button"
+                  onClick={startCamera}
+                  className="flex h-16 w-16 flex-col items-center justify-center gap-0.5 rounded-lg border border-dashed border-ink/30 text-ink/55 transition-colors hover:border-terracotta hover:text-terracotta"
+                >
+                  <Camera aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                  <span className="text-[0.6rem] leading-none">Add</span>
+                </button>
+              ) : null}
+            </div>
+            <p className="inline-flex items-center gap-1.5 text-xs text-success-700">
+              <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
+              {shots.length} of {maxShots} angles added
+              {shots.length < maxShots
+                ? ' — more angles help the photos find you'
+                : ' — perfect'}
+              .
+            </p>
+            {error ? <p className="text-xs text-terracotta-700">{error}</p> : null}
           </div>
         ) : null}
       </div>

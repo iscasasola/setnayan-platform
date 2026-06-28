@@ -66,6 +66,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { FileUpload } from '@/app/_components/file-upload';
 import { VendorDirectPay } from '@/app/dashboard/[eventId]/_components/vendor-direct-pay';
+import { SuggestMilestonesButton } from '@/app/dashboard/[eventId]/budget/_components/suggest-milestones-button';
 import {
   addLineItem,
   deleteLineItem,
@@ -140,6 +141,7 @@ export function VendorItemizationCard({
           eventId={eventId}
           vendorId={vendor.vendor_id}
           vendorMarketplaceId={vendor.marketplace_vendor_id}
+          suggestTotalPhp={itemizedTotal}
         />
         <PaymentSection
           payments={payments}
@@ -266,6 +268,7 @@ function LineItemSection({
   eventId,
   vendorId,
   vendorMarketplaceId,
+  suggestTotalPhp,
 }: {
   priceSource: VendorPriceSource;
   vendorControlledItems: VendorControlledLineItem[];
@@ -273,6 +276,7 @@ function LineItemSection({
   eventId: string;
   vendorId: string;
   vendorMarketplaceId: string | null;
+  suggestTotalPhp: number;
 }) {
   const hasVendorControlled = vendorControlledItems.length > 0;
   const hasManual = lineItems.length > 0;
@@ -385,9 +389,17 @@ function LineItemSection({
       {priceSource === 'manual' ? (
         <>
           {!hasManual ? (
-            <p className="text-xs text-ink/55">
-              No line items yet — add a Deposit, Balance, or Tip below.
-            </p>
+            <div className="space-y-2">
+              <p className="text-xs text-ink/55">
+                No line items yet — add a Deposit, Balance, or Tip below.
+              </p>
+              {/* One-click split — only when there's a total to divide. Seeds an
+                  editable Deposit 50% + Balance 50% so the live "next payments"
+                  list + .ics export populate without typing each milestone. */}
+              {suggestTotalPhp > 0 ? (
+                <SuggestMilestonesButton eventId={eventId} vendorId={vendorId} />
+              ) : null}
+            </div>
           ) : null}
           <form
             action={addLineItem}

@@ -40,7 +40,7 @@ export default async function EditorialEditorPage({
 
   const { data: event, error } = await supabase
     .from('events')
-    .select('event_id, display_name, slug, landing_page_visibility')
+    .select('event_id, display_name, slug, landing_page_visibility, event_type')
     .eq('event_id', eventId)
     .maybeSingle();
   if (error || !event) notFound();
@@ -151,6 +151,7 @@ export default async function EditorialEditorPage({
         shareUrl={event.slug ? `${siteUrl().replace(/\/$/, '')}/${event.slug}` : null}
         showcaseOptedIn={showcaseOptedIn}
         landingVisibility={landingVisibility}
+        isWedding={(event.event_type ?? 'wedding') === 'wedding'}
       />
     </main>
   );

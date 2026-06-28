@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import Link from 'next/link';
-import { Camera, Images, QrCode, User, UserPlus, X } from 'lucide-react';
+import { Camera, Images, LayoutGrid, QrCode, User, UserPlus, X } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 
 // Guest event-page hub bar (owner 2026-06-26). When a guest scans their
@@ -32,6 +32,7 @@ export function GuestHubBar({
   hasAccount,
   galleryCount,
   showClaimAnchor,
+  hubHref,
 }: {
   /** Guest personal QR token — the /papic/me/[token] bridge resolves it. */
   qrToken: string;
@@ -49,6 +50,9 @@ export function GuestHubBar({
   galleryCount: number;
   /** The #claim-account section is rendered on this page (so anchor works). */
   showClaimAnchor: boolean;
+  /** When set (event-day live/post), a top-left chip opens the fullscreen
+   *  no-scroll guest hub at this href. Undefined outside the event day. */
+  hubHref?: string | null;
 }) {
   const [qrOpen, setQrOpen] = useState(false);
   const qrDialogRef = useRef<HTMLDivElement>(null);
@@ -71,6 +75,22 @@ export function GuestHubBar({
 
   return (
     <>
+      {/* Top-left "Live hub" entry (event-day only) — opens the fullscreen,
+          no-scroll toggle-menu hub. The hub is a separate route, so the long
+          event page stays intact; this is its doorway from the day-of bar. */}
+      {hubHref ? (
+        <div className="fixed left-3 top-3 z-40 [padding-top:env(safe-area-inset-top)]">
+          <Link
+            href={hubHref}
+            aria-label="Open the live event hub"
+            className="inline-flex h-10 items-center gap-1.5 rounded-full bg-ink px-3.5 text-sm font-semibold text-cream shadow-sm transition hover:bg-ink/90"
+          >
+            <LayoutGrid aria-hidden className="h-4 w-4" strokeWidth={2} />
+            <span>Live hub</span>
+          </Link>
+        </div>
+      ) : null}
+
       {/* Top-right account affordance. Fixed so it rides above the page chrome;
           safe-area inset keeps it clear of notches. */}
       <div className="fixed right-3 top-3 z-40 [padding-top:env(safe-area-inset-top)]">

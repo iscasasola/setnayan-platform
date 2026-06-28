@@ -25,6 +25,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { assembleStoryPhotoSet } from '@/lib/guest-stories-photo-set';
 import {
   STORIES_TEMPLATES,
   STORY_MAX_PHOTOS,
@@ -125,6 +126,12 @@ async function readTaggedPhotos(
           .select('capture_id, r2_object_key')
           .in('capture_id', captureIds)
           .eq('moderation_state', 'clean')
+          // Guest CLIPS (media_type='clip') are excluded — Stories are
+          // PHOTO-driven (see module header). A clip's r2_object_key is an MP4,
+          // and feeding it to the client-side <img> loader rejects the whole
+          // render with "Could not load a tagged photo". Mirrors the
+          // photo_type='photo' filter on the papic_photos query above.
+          .eq('media_type', 'photo')
           .is('hidden_at', null)
       : Promise.resolve({ data: [] as { capture_id: string; r2_object_key: string }[] }),
   ]);
@@ -133,9 +140,10 @@ async function readTaggedPhotos(
   for (const p of photosRes.data ?? []) keyById.set(p.photo_id, p.r2_object_key);
   for (const c of capturesRes.data ?? []) keyById.set(c.capture_id, c.r2_object_key);
 
-  const ordered = tags
-    .map((t) => ({ id: t.source_id as string, key: keyById.get(t.source_id as string) }))
-    .filter((x): x is { id: string; key: string } => Boolean(x.key));
+  const { ordered, total } = assembleStoryPhotoSet(
+    tags.map((t) => ({ source_id: t.source_id as string })),
+    keyById,
+  );
 
   const top = ordered.slice(0, STORY_MAX_PHOTOS);
   const photos = (
@@ -149,7 +157,7 @@ async function readTaggedPhotos(
     )
   ).filter((p): p is StoryPhoto => Boolean(p));
 
-  return { photos, total: ordered.length };
+  return { photos, total };
 }
 
 /**

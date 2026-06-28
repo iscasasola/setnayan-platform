@@ -95,6 +95,19 @@ export function isMuslimCeremony(ceremonyType: string | null | undefined): boole
 }
 
 /**
+ * INC (Iglesia ni Cristo) path predicate. The Catholic church steps above
+ * (Pre-Cana, banns, canonical interview, parish) are doctrinally Catholic and
+ * are correctly hidden from INC by {@link isChurchCeremony}. INC has its own
+ * congregation-coordination steps (lokal coordination, ministry pre-marital
+ * guidance, minister/chapel confirmation) — gated here so they seed ONLY for
+ * an INC ceremony, never leaking Catholic wording to INC or INC wording to
+ * Catholic. See 02_Specifications/INC_Wedding_Practices_Reference_2026-06-28.md.
+ */
+export function isIncCeremony(ceremonyType: string | null | undefined): boolean {
+  return ceremonyType === 'inc';
+}
+
+/**
  * The standard PH-wedding planning checklist, ordered from earliest planning
  * runway (≈12 months out) to the final-week tasks. `dueOffsetDays` places each
  * item on the countdown; the ranking filter reads it to know what's urgent now.
@@ -116,6 +129,7 @@ export const CHECKLIST_TEMPLATE: ReadonlyArray<ChecklistTemplateItem> = [
   { key: 'shortlist_reception_venue', title: 'Research & shortlist reception venues (hall, hotel, or garden)', category: 'vendors', dueOffsetDays: 480 },
   { key: 'shortlist_venues', title: 'Research & shortlist ceremony venues (church, chapel, or garden)', category: 'vendors', dueOffsetDays: 470 },
   { key: 'ask_parish', title: 'Ask your parish for its full requirements list & timeline', category: 'paperwork', dueOffsetDays: 460, appliesTo: isChurchCeremony },
+  { key: 'inc_lokal_coordinate', title: 'Coordinate your wedding with your local INC congregation (lokal)', category: 'paperwork', dueOffsetDays: 460, appliesTo: isIncCeremony },
   { key: 'find_date', title: 'Find the date both venues share — use the date finder', category: 'foundations', dueOffsetDays: 420 },
   { key: 'set_date', title: 'Lock your date — the day your ceremony and reception venue both agree on', category: 'foundations', dueOffsetDays: 400 },
 
@@ -154,6 +168,7 @@ export const CHECKLIST_TEMPLATE: ReadonlyArray<ChecklistTemplateItem> = [
   { key: 'prenup_shoot', title: 'Book your prenup / engagement shoot', category: 'vendors', dueOffsetDays: 165 },
   { key: 'first_fitting', title: 'First gown fitting & makeup trial', category: 'attire', dueOffsetDays: 160 },
   { key: 'pre_cana', title: 'Book a pre-Cana / marriage seminar', category: 'paperwork', dueOffsetDays: 150, appliesTo: isChurchCeremony },
+  { key: 'inc_premarital_guidance', title: 'Complete your INC pre-marital guidance with the ministry', category: 'paperwork', dueOffsetDays: 150, appliesTo: isIncCeremony },
   { key: 'choose_favours', title: 'Choose your guest favours', category: 'design', dueOffsetDays: 145 },
   { key: 'reception_flow', title: 'Finalize your reception flow with your coordinator', category: 'logistics', dueOffsetDays: 140 },
   { key: 'pick_songs', title: 'Pick your processional, first-dance & parents’ songs', category: 'design', dueOffsetDays: 135 },
@@ -167,6 +182,7 @@ export const CHECKLIST_TEMPLATE: ReadonlyArray<ChecklistTemplateItem> = [
   { key: 'monogram', title: 'Finalize your monogram', category: 'design', dueOffsetDays: 110 },
   { key: 'confirm_banns', title: 'Confirm your church banns are posted', category: 'paperwork', dueOffsetDays: 108, appliesTo: isChurchCeremony },
   { key: 'church_fee', title: 'Pay your church wedding fee / package', category: 'paperwork', dueOffsetDays: 105, appliesTo: isChurchCeremony },
+  { key: 'inc_confirm_minister', title: 'Confirm your INC minister and chapel schedule with the lokal', category: 'paperwork', dueOffsetDays: 105, appliesTo: isIncCeremony },
   { key: 'guest_list', title: 'Finalize your guest list', category: 'guests', dueOffsetDays: 90 },
   { key: 'sponsors', title: 'Confirm your principal sponsors', category: 'guests', dueOffsetDays: 90, appliesTo: (ct) => !isMuslimCeremony(ct) },
   { key: 'second_fitting', title: 'Second gown fitting', category: 'attire', dueOffsetDays: 80 },

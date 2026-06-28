@@ -39,7 +39,7 @@ import {
   type TraditionGuideKey,
   type TraditionItem,
 } from '@/lib/wedding-traditions';
-import { isChineseWedding } from '@/lib/chinese-wedding';
+import { isChineseWedding, isChineseOverlay } from '@/lib/chinese-wedding';
 import {
   markPaperworkReceived,
   markPaperworkRequested,
@@ -123,10 +123,33 @@ export default async function PaperworkPage({ params }: Props) {
   }
 
   const ceremony = resolveCeremonyType(event.ceremony_type);
+
+  // Chinese (Tsinoy) wedding — primary 'chinese' OR (the common case) a
+  // church/civil primary with secondary_ceremony_type='chinese' (overlay).
+  // Gates the tea-ceremony helper link (PR-F) + the BaZi date-specialist
+  // deep-link (PR-G), and — when it's the OVERLAY case — surfaces the rich
+  // Chinese traditions body (敬茶 tea ceremony, betrothal gifts, 上頭 hair-
+  // combing, lauriat, skip-table-4) ALONGSIDE the primary rite's guide, instead
+  // of replacing it. When 'chinese' is the PRIMARY rite, the single guide below
+  // already renders the Chinese body — overlay is the only second-guide case.
+  const isChinese = isChineseWedding({
+    ceremony_type: event.ceremony_type,
+    secondary_ceremony_type: event.secondary_ceremony_type,
+  });
+  const chineseOverlay = isChineseOverlay({
+    ceremony_type: event.ceremony_type,
+    secondary_ceremony_type: event.secondary_ceremony_type,
+  });
+
   // Per-religion traditions: admin-editable rows from wedding_tradition_items
   // when present, else the code defaults in TraditionsGuide. Null on
   // empty/absent/error (pre-migration or before an admin loads starter content).
-  const traditionItems = await fetchTraditionItems(supabase, ceremony);
+  // For overlay couples we also pull the 'chinese' rows in the SAME round-trip
+  // (one Promise.all, no extra serial hop) so we can render a second guide.
+  const [traditionItems, chineseTraditionItems] = await Promise.all([
+    fetchTraditionItems(supabase, ceremony),
+    chineseOverlay ? fetchTraditionItems(supabase, 'chinese') : Promise.resolve(null),
+  ]);
   const expectedDocs = DOCUMENTS_BY_CEREMONY_TYPE[ceremony];
 
   // Resolve r2 display URLs for any existing uploads. The FileUpload
@@ -164,14 +187,6 @@ export default async function PaperworkPage({ params }: Props) {
 
   const summary = summarize(rows, event.event_date);
 
-  // Chinese (Tsinoy) wedding — primary OR secondary 'chinese' (the overlay).
-  // Gates the tea-ceremony helper link (PR-F) + the BaZi date-specialist
-  // deep-link (PR-G) in the traditions guide.
-  const isChinese = isChineseWedding({
-    ceremony_type: event.ceremony_type,
-    secondary_ceremony_type: event.secondary_ceremony_type,
-  });
-
   return (
     <section className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -206,15 +221,36 @@ export default async function PaperworkPage({ params }: Props) {
       <TraditionsGuide
         ceremony={ceremony}
         items={traditionItems}
-        // Chinese (Tsinoy) events — primary OR secondary 'chinese' — get two
-        // links from the tradition guide: the tea-ceremony serving-order helper
-        // (PR-F) and the BaZi date-specialist deep-link (PR-G). Both null for
-        // every other event. The BaZi card stays ADVISORY — it routes to a real
-        // date/feng-shui consultant (the `date_fengshui_consultant` vendor leaf);
-        // the app never computes a clash/compatibility verdict.
-        teaCeremonyHref={isChinese ? `/dashboard/${eventId}/guests/tea-ceremony` : null}
-        baziSpecialistHref={isChinese ? `/explore?category=date_fengshui_consultant` : null}
+        // Chinese helper links (tea-ceremony serving order PR-F + BaZi date-
+        // specialist PR-G) live on the guide whose BODY actually describes the
+        // Chinese rite. When 'chinese' is the PRIMARY ceremony the links belong
+        // here. When it's the OVERLAY (church/civil primary + Chinese secondary)
+        // they move to the SECOND guide below — pinning the tea-ceremony note to
+        // the Catholic/civil body would be incoherent. So: links here only when
+        // Chinese is the primary rite (isChinese && NOT overlay).
+        teaCeremonyHref={
+          isChinese && !chineseOverlay ? `/dashboard/${eventId}/guests/tea-ceremony` : null
+        }
+        baziSpecialistHref={
+          isChinese && !chineseOverlay ? `/explore?category=date_fengshui_consultant` : null
+        }
       />
+
+      {/* Overlay couples (church/civil primary + secondary 'chinese') get a
+       *  SECOND guide rendering the full Chinese traditions body — 敬茶 tea
+       *  ceremony, betrothal gifts, 上頭 hair-combing, lauriat, skip-table-4 —
+       *  alongside the primary rite's "What to expect", plus the tea-ceremony +
+       *  BaZi helper links (which belong with the Chinese body, not the primary
+       *  one). For a chinese-PRIMARY event this never renders — the single guide
+       *  above already carries the Chinese body + its links. */}
+      {chineseOverlay ? (
+        <TraditionsGuide
+          ceremony={'chinese'}
+          items={chineseTraditionItems}
+          teaCeremonyHref={`/dashboard/${eventId}/guests/tea-ceremony`}
+          baziSpecialistHref={`/explore?category=date_fengshui_consultant`}
+        />
+      ) : null}
 
       {needsSeed ? (
         <SeedPrompt eventId={eventId} ceremonyLabel={ceremonyLabel(ceremony)} />

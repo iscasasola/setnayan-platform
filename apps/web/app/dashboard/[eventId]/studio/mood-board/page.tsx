@@ -4,7 +4,12 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchGuestsByEvent } from '@/lib/guests';
 import { roleGroupOf, type RoleGroup } from '@/lib/role-groups';
 import { sanitizeRolePalette, type PaletteKey } from '@/lib/mood-board';
-import { seedPaletteFromFeel } from '@/lib/feel-palettes';
+import {
+  seedPaletteFromColors,
+  seedPaletteFromFeel,
+  RED_GOLD_PALETTE,
+} from '@/lib/feel-palettes';
+import { isChineseWedding } from '@/lib/chinese-wedding';
 import type { ColorRangeSlot } from '@/lib/color-recolor';
 import type { ReceptionDesign } from '@/lib/reception-scene';
 import { saveRolePalette } from './actions';
@@ -82,7 +87,7 @@ export default async function MoodBoardPage({ params }: Props) {
     supabase
       .from('events')
       .select(
-        'event_id, display_name, role_palette, mood_board_updated_at, reception_design, mood_feel_key',
+        'event_id, display_name, role_palette, mood_board_updated_at, reception_design, mood_feel_key, ceremony_type, secondary_ceremony_type',
       )
       .eq('event_id', eventId)
       .maybeSingle(),
@@ -166,20 +171,33 @@ export default async function MoodBoardPage({ params }: Props) {
   if (presentRoleGroups.has('bearers_flower_girl')) visibleKeys.add('bearers_flower_girl');
   if (presentRoleGroups.has('officiants')) visibleKeys.add('officiants');
 
-  // Draft, don't blank: when the couple has NO saved palette yet but picked a
-  // wedding "feel" in onboarding, pre-fill the editor with a starter palette
-  // derived from that feel. Display-only — the existing Save action remains the
-  // ONLY path that writes role_palette; seeded values aren't persisted until the
-  // couple explicitly saves.
-  const seededPalette =
-    Object.keys(palette).length === 0
-      ? seedPaletteFromFeel(
+  // Draft, don't blank: when the couple has NO saved palette yet, pre-fill the
+  // editor with a starter palette. For a Chinese (Tsinoy) wedding we suggest the
+  // auspicious red & gold default; otherwise we derive a starter from the wedding
+  // "feel" picked in onboarding. Display-only — the existing Save action remains
+  // the ONLY path that writes role_palette; seeded values aren't persisted until
+  // the couple explicitly saves, so this is a suggestion, never a forced override.
+  const hasSavedPalette = Object.keys(palette).length > 0;
+  const isChineseCeremony = isChineseWedding({
+    ceremony_type: (event as { ceremony_type?: string | null }).ceremony_type ?? null,
+    secondary_ceremony_type:
+      (event as { secondary_ceremony_type?: string | null }).secondary_ceremony_type ?? null,
+  });
+  const seededPalette = hasSavedPalette
+    ? {}
+    : isChineseCeremony
+      ? seedPaletteFromColors(RED_GOLD_PALETTE, Array.from(visibleKeys))
+      : seedPaletteFromFeel(
           (event as { mood_feel_key?: string | null }).mood_feel_key,
           Array.from(visibleKeys),
-        )
-      : {};
+        );
   const isSeeded = Object.keys(seededPalette).length > 0;
   const initialPalette = isSeeded ? seededPalette : palette;
+  // True only when the editor is currently pre-filled with the Chinese red & gold
+  // default (Chinese event + nothing saved yet) — gates the small Chinese-default
+  // note above the editor. Non-Chinese events never set this, so their render is
+  // byte-identical.
+  const showChineseDefaultNote = isChineseCeremony && isSeeded;
 
   // ── one representative figure per attire subtype (first wins) ───────────
   const figureBySubtype: Record<string, { url: string; label: string }> = {};
@@ -287,10 +305,23 @@ export default async function MoodBoardPage({ params }: Props) {
         ) : null}
       </header>
 
+      {showChineseDefaultNote ? (
+        <p className="rounded-lg border border-[#7A1F2B]/25 bg-[#7A1F2B]/[0.05] px-3 py-2 text-sm text-ink/75">
+          We&rsquo;ve suggested a red &amp; gold palette — the auspicious colours of a
+          Chinese wedding. Tweak it to your taste, then{' '}
+          <span className="font-medium">Save palette</span> to keep it. Nothing is saved
+          until you do.
+        </p>
+      ) : null}
+
+      {/* For the Chinese default we surface our own accurate red & gold note
+          above, so we suppress the editor's generic "from your wedding feel" hint
+          (seeded -> false) to avoid a duplicate, inaccurate message. Non-Chinese
+          events keep seeded={isSeeded} exactly as before — byte-identical. */}
       <PaletteEditor
         eventId={eventId}
         initial={initialPalette}
-        seeded={isSeeded}
+        seeded={isSeeded && !showChineseDefaultNote}
         visibleKeys={Array.from(visibleKeys)}
         saveAction={saveRolePalette}
       />

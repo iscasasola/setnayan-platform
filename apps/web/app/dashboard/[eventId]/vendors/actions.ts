@@ -198,73 +198,6 @@ export async function updateVendorCosts(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`, 'layout');
 }
 
-// ============================================================================
-// Inline custom-vendor add from the home-page planner cards (2026-05-21).
-//
-// Same insert shape as createVendor but returns a Result so the client
-// component can render pending / added / error states without the
-// "thrown error → page-level fault" UX that createVendor produces inside
-// a `<form action={...}>`.
-// ============================================================================
-
-export type AddCustomVendorResult =
-  | { status: 'ok'; eventVendorId: string }
-  | { status: 'not_signed_in' }
-  | { status: 'error'; message: string };
-
-export async function addCustomVendor(
-  formData: FormData,
-): Promise<AddCustomVendorResult> {
-  const eventId = formData.get('event_id');
-  const name = formData.get('vendor_name');
-  const category = formData.get('category');
-
-  if (typeof eventId !== 'string' || eventId.length === 0) {
-    return { status: 'error', message: 'Missing event id' };
-  }
-  if (typeof name !== 'string') {
-    return { status: 'error', message: 'Missing vendor name' };
-  }
-  if (!isValidCategory(category)) {
-    return { status: 'error', message: 'Unknown category' };
-  }
-  const trimmedName = name.trim();
-  if (trimmedName.length === 0) {
-    return { status: 'error', message: 'Vendor name is required' };
-  }
-  if (trimmedName.length > 128) {
-    return { status: 'error', message: 'Name must be 128 chars or fewer' };
-  }
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return { status: 'not_signed_in' };
-  }
-
-  const { data: inserted, error } = await supabase
-    .from('event_vendors')
-    .insert({
-      event_id: eventId,
-      category,
-      vendor_name: trimmedName,
-      status: 'considering',
-      source: 'host_manual',
-    })
-    .select('vendor_id')
-    .single();
-
-  if (error || !inserted) {
-    return { status: 'error', message: error?.message ?? 'Insert failed' };
-  }
-
-  revalidatePath(`/dashboard/${eventId}`, 'layout');
-  revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
-  return { status: 'ok', eventVendorId: inserted.vendor_id };
-}
-
 export async function updateVendorStatus(formData: FormData) {
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
@@ -1609,248 +1542,13 @@ export async function listLockTimeSlots(
 }
 
 // ============================================================================
-// addRecommendedVendorToCategory (2026-05-22) — Cross-category vendor
-// recommendations · CLAUDE.md owner directive.
-//
-// When the host picks Vendor A in Catering, and Vendor A also offers Cake +
-// Mobile Bar services via their vendor_services rows, the planning grid
-// surfaces Vendor A as RECOMMENDED on the Cake card + Music & Entertainment
-// card. This action lets the host accept that recommendation — adding Vendor
-// A to the new category with the same marketplace link + service link as
-// their existing pick.
-//
-// Two modes via the `status` form field:
-//   - 'considering' — adds as a new option-on-the-table for the host to
-//     compare against other vendors they might browse.
-//   - 'contracted' — locks the vendor in the new category directly (the
-//     host already trusts them from the source category, the "Lock too"
-//     shortcut). Cascades the finalize cleanup (auto-archive other
-//     considering picks in this category).
-//
-// Verification at the action boundary:
-//   - host must be signed in (redirect to /login if not).
-//   - host must have access to this event (RLS on event_vendors gates writes).
-//   - the source vendor row must exist on this event (defensive — the
-//     recommendation surfaces only when the home page bundled this vendor,
-//     but a stale form submission with a wrong vendor_id should fail
-//     loudly rather than insert a phantom pick).
-//   - vendor_services row must exist + be active + match the requested
-//     category (defensive — the form submits service_id + category, so
-//     we verify they match what the vendor actually offers).
-// ============================================================================
-
-export type AddRecommendedVendorResult =
-  | {
-      status: 'ok';
-      eventVendorId: string;
-      locked: boolean;
-      /** Present when the Lock-too path locked the vendor (mirrors finalizeVendor). */
-      milestone: LockMilestone | null;
-    }
-  // Lock-too narrowed the couple's candidate dates to one — the considering row
-  // is already inserted; the UI confirms then calls finalizeVendor directly with
-  // this eventVendorId + confirm_date_lock=1 (re-calling THIS action would hit
-  // 'already_picked' on the now-existing row).
-  | {
-      status: 'date_will_lock';
-      eventVendorId: string;
-      vendorName: string;
-      resultingDate: string;
-      dateLabel: string;
-    }
-  | { status: 'not_signed_in' }
-  | { status: 'source_vendor_not_found' }
-  | { status: 'service_not_found' }
-  | { status: 'invalid_category' }
-  | { status: 'already_picked' }
-  | { status: 'error'; message: string };
-
-export async function addRecommendedVendorToCategory(
-  formData: FormData,
-): Promise<AddRecommendedVendorResult> {
-  const eventId = formData.get('event_id');
-  const sourceMarketplaceVendorId = formData.get('marketplace_vendor_id');
-  const serviceId = formData.get('service_id');
-  const categoryRaw = formData.get('category');
-  const desiredStatusRaw = formData.get('desired_status');
-
-  if (typeof eventId !== 'string' || eventId.length === 0) {
-    return { status: 'error', message: 'Missing event id' };
-  }
-  if (
-    typeof sourceMarketplaceVendorId !== 'string' ||
-    sourceMarketplaceVendorId.length === 0
-  ) {
-    return { status: 'error', message: 'Missing marketplace vendor id' };
-  }
-  if (typeof serviceId !== 'string' || serviceId.length === 0) {
-    return { status: 'error', message: 'Missing service id' };
-  }
-  if (!isValidCategory(categoryRaw)) {
-    return { status: 'invalid_category' };
-  }
-  const lockImmediately =
-    desiredStatusRaw === 'contracted' || desiredStatusRaw === 'lock';
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return { status: 'not_signed_in' };
-  }
-
-  // Verify the source vendor row exists on this event AND is linked to
-  // the marketplace vendor we're recommending. Belt-and-suspenders against
-  // stale form submissions — the recommendation surface only renders when
-  // the home page bundled this vendor as a pick.
-  const { data: sourcePick, error: sourceErr } = await supabase
-    .from('event_vendors')
-    .select('vendor_id, vendor_name, status')
-    .eq('event_id', eventId)
-    .eq('marketplace_vendor_id', sourceMarketplaceVendorId)
-    .is('archived_at', null)
-    .limit(1)
-    .maybeSingle();
-  if (sourceErr) {
-    return { status: 'error', message: sourceErr.message };
-  }
-  if (!sourcePick) {
-    return { status: 'source_vendor_not_found' };
-  }
-
-  // Defensive: confirm the vendor_services row matches the marketplace
-  // vendor + category we were told. The form data is host-supplied so a
-  // race condition (vendor deactivates a service after the page renders
-  // but before the host clicks Consider) should fail cleanly.
-  // We use the admin client because vendor_services RLS restricts to
-  // the vendor's own user_id — same reason page.tsx uses adminClient
-  // for the cross-category fetch.
-  const { createAdminClient } = await import('@/lib/supabase/admin');
-  const adminClient = createAdminClient();
-  const { data: serviceRow, error: serviceErr } = await adminClient
-    .from('vendor_services')
-    .select('vendor_service_id, vendor_profile_id, category, is_active')
-    .eq('vendor_service_id', serviceId)
-    .maybeSingle();
-  if (serviceErr) {
-    return { status: 'error', message: serviceErr.message };
-  }
-  if (
-    !serviceRow ||
-    !serviceRow.is_active ||
-    serviceRow.vendor_profile_id !== sourceMarketplaceVendorId ||
-    serviceRow.category !== categoryRaw
-  ) {
-    return { status: 'service_not_found' };
-  }
-
-  // Already picked in this category? Idempotent no-op — surface the state
-  // so the UI can collapse the action without a misleading "added" toast.
-  const { data: existing, error: existingErr } = await supabase
-    .from('event_vendors')
-    .select('vendor_id')
-    .eq('event_id', eventId)
-    .eq('marketplace_vendor_id', sourceMarketplaceVendorId)
-    .eq('category', categoryRaw)
-    .is('archived_at', null)
-    .limit(1)
-    .maybeSingle();
-  if (existingErr) {
-    return { status: 'error', message: existingErr.message };
-  }
-  if (existing) {
-    return { status: 'already_picked' };
-  }
-
-  // Look up the canonical vendor name from vendor_profiles for the new row.
-  // Falls back to the source pick's vendor_name if the join misses (the
-  // marketplace vendor row was deleted after the recommendation rendered).
-  const { data: marketplaceProfile } = await adminClient
-    .from('vendor_profiles')
-    .select('business_name')
-    .eq('vendor_profile_id', sourceMarketplaceVendorId)
-    .maybeSingle();
-  const insertedVendorName =
-    marketplaceProfile?.business_name ?? sourcePick.vendor_name;
-
-  // Insert the new pick. Same marketplace_vendor_id + service_id as the
-  // source — that's what makes this a cross-category recommendation
-  // rather than a brand-new vendor entry. Status defaults to 'considering'
-  // (lockImmediately flag handled below as a follow-up update).
-  const { data: inserted, error: insertErr } = await supabase
-    .from('event_vendors')
-    .insert({
-      event_id: eventId,
-      category: categoryRaw,
-      vendor_name: insertedVendorName,
-      status: 'considering',
-      marketplace_vendor_id: sourceMarketplaceVendorId,
-      service_id: serviceId,
-    })
-    .select('vendor_id')
-    .single();
-  if (insertErr || !inserted) {
-    return {
-      status: 'error',
-      message: insertErr?.message ?? 'Insert failed',
-    };
-  }
-
-  // Lock-too path: chain into the finalize action. This goes through the
-  // same hard-single conflict + cleanup logic so the host gets one
-  // coherent flow regardless of entry point.
-  let locked = false;
-  let milestone: LockMilestone | null = null;
-  if (lockImmediately) {
-    const lockForm = new FormData();
-    lockForm.set('event_id', eventId);
-    lockForm.set('vendor_id', inserted.vendor_id);
-    // Don't override existing locked vendors silently — if the host hits
-    // Lock-too on a category that already has a locked vendor, they need
-    // to see the SwitchVendorConfirm modal explicitly. The result surface
-    // for that is already handled in PlanCardCompare's existing finalize
-    // flow; we just return ok+locked=false here so the UI can route the
-    // host into that modal.
-    lockForm.set('override_existing', '0');
-    const finalizeResult = await finalizeVendor(lockForm);
-
-    // Lock-too would finalize the wedding date — surface the confirmation up so
-    // the UI can show the date-lock modal. The considering row is already
-    // inserted; the UI confirms then calls finalizeVendor directly (re-calling
-    // this action would hit 'already_picked').
-    if (finalizeResult.status === 'date_will_lock') {
-      revalidatePath(`/dashboard/${eventId}`, 'layout');
-      revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
-      return {
-        status: 'date_will_lock',
-        eventVendorId: inserted.vendor_id,
-        vendorName: insertedVendorName,
-        resultingDate: finalizeResult.resultingDate,
-        dateLabel: finalizeResult.dateLabel,
-      };
-    }
-    locked = finalizeResult.status === 'ok';
-    if (finalizeResult.status === 'ok') milestone = finalizeResult.milestone;
-    // Note: we don't surface the conflict result up here — the
-    // recommendation UI is a "Consider" path; locking is a secondary
-    // affordance. If the lock fails, the row still exists as a
-    // considering pick, which is the correct safe default.
-  }
-
-  revalidatePath(`/dashboard/${eventId}`, 'layout');
-  revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
-  return { status: 'ok', eventVendorId: inserted.vendor_id, locked, milestone };
-}
-
-// ============================================================================
 // revertVendorToConsidering (2026-05-22) — Undo for the lock action.
 //
 // Companion to finalizeVendor. Used by the 5-second Undo affordance on the
 // confirmation toast so a host who clicks Lock then immediately realizes
 // they meant a different vendor can roll back without leaving the compare
 // drawer. Sets the row's status back to 'considering' (the canonical
-// pre-lock state for picks added via /vendors or addCustomVendor).
+// pre-lock state for picks added via /vendors or the manual-add flow).
 // ============================================================================
 
 export type RevertVendorResult =
@@ -2384,9 +2082,9 @@ export async function createManualVendorInvite(input: {
 //
 // Auth: host must be signed in. We use the admin client for the
 // vendor_profiles + vendor_services reads because vendor_services RLS
-// restricts to the vendor's own user_id (same pattern as
-// addRecommendedVendorToCategory at line 763). The signed-in check still
-// gates the action — anonymous browsers can't search.
+// restricts to the vendor's own user_id (same admin-client pattern as
+// the other marketplace-add actions in this file). The signed-in check
+// still gates the action — anonymous browsers can't search.
 //
 // Graceful-degrade: if vendor_profiles / vendor_services / event_vendors
 // tables aren't on prod (42P01) or columns are missing (42703), the
@@ -2453,7 +2151,7 @@ export async function searchMarketplaceVendorsByName(
   }
 
   // adminClient bypasses RLS on vendor_services (restricted to vendor's
-  // own user_id) the same way addRecommendedVendorToCategory does. The
+  // own user_id) the same way the other marketplace-add actions do. The
   // signed-in check above + the per-event filter below remain the
   // authorization gates.
   const { createAdminClient } = await import('@/lib/supabase/admin');
@@ -2583,16 +2281,16 @@ export async function searchMarketplaceVendorsByName(
 // attachManualVendorToCategory; called when the host picks a marketplace
 // vendor from the autocomplete dropdown.
 //
-// Reuses the same shape as addRecommendedVendorToCategory (above at line
-// 702) — insert an event_vendors row with marketplace_vendor_id +
+// Reuses the cross-category recommended-add shape — insert an
+// event_vendors row with marketplace_vendor_id +
 // service_id (when an active service exists for the category) + status =
 // 'considering' + source = 'host_marketplace_search'. Idempotent: if
 // (event_id, marketplace_vendor_id, category) already exists, returns
 // 'already_attached' so the UI can surface a friendly toast instead of
 // a duplicate row.
 //
-// Unlike addRecommendedVendorToCategory, this action doesn't require a
-// "source pick" on the event — the host is starting from a name-search
+// Unlike the cross-category recommended-add flow, this action doesn't
+// require a "source pick" on the event — the host is starting from a name-search
 // in a brand-new card, not from a cross-category recommendation. The
 // service_id is best-effort: if the vendor has an active service for
 // the current category we attach it; if not, the row inserts WITHOUT a
@@ -2675,8 +2373,8 @@ export async function attachMarketplaceVendorToCategory(
 
   // Look up the marketplace vendor's canonical name + the active
   // vendor_services row for this category. adminClient bypasses
-  // vendor_services RLS (same pattern as addRecommendedVendorToCategory
-  // line 763).
+  // vendor_services RLS (same admin-client pattern as the other
+  // marketplace-add actions).
   const { createAdminClient } = await import('@/lib/supabase/admin');
   const adminClient = createAdminClient();
   const { data: profile, error: profileErr } = await adminClient

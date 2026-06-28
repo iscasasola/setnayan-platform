@@ -97,6 +97,7 @@ const CHILD_SLOT_KEYS: Record<string, string> = {
   // Studio children
   'event-page': 'customer.sidebar.event-page',
   website: 'customer.sidebar.website',
+  launch: 'customer.sidebar.launch',
   'mood-board': 'customer.sidebar.mood-board',
   monogram: 'customer.sidebar.monogram',
   live: 'customer.sidebar.live',
@@ -143,6 +144,8 @@ export function CustomerSidebar({
   navSlots,
   eventDate,
   hideKeys,
+  websiteEnabled,
+  monogramEnabled,
 }: {
   eventId: string;
   navSlots?: Record<string, NavSlotLite>;
@@ -156,6 +159,12 @@ export function CustomerSidebar({
   /** Top-level nav keys to drop for this event type (e.g. ['explore','budget']
    *  for a vendor-free Simple Event). Resolved from the profile in layout.tsx. */
   hideKeys?: string[];
+  /** Whether this event type enables the 'website' surface — gates the Studio
+   *  Event page / Website / Launch children. Resolved from the profile in layout. */
+  websiteEnabled?: boolean;
+  /** Whether this event type enables the 'monogram' surface — gates the Studio
+   *  "Monogram" child. Resolved from the profile in layout. */
+  monogramEnabled?: boolean;
 }) {
   const pathname = usePathname() ?? `/dashboard/${eventId}`;
   const [dayOfOpen, setDayOfOpen] = useState(false);
@@ -163,7 +172,7 @@ export function CustomerSidebar({
     setDayOfOpen(isDayOfOpen(eventDate ?? null, new Date()));
   }, [eventDate]);
   const groups = applyRegistry(
-    buildCustomerNavGroups(eventId, { dayOfOpen, hideKeys }),
+    buildCustomerNavGroups(eventId, { dayOfOpen, hideKeys, websiteEnabled, monogramEnabled }),
     navSlots,
   );
 

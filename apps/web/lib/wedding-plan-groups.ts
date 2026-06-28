@@ -823,7 +823,7 @@ export type PlanCardPick = {
    * they're handling your {source_category}".
    *
    * `null` for legacy rows (pre-2026-05-22) — UI treats null as no
-   * badge. 'host_manual' for createVendor / addCustomVendor inserts;
+   * badge. 'host_manual' for createVendor / manual-add inserts;
    * UI treats this the same as null (no badge — the host added it
    * themselves, no need to explain).
    */
@@ -1004,6 +1004,7 @@ const CEREMONY_TYPE_READABLE_LABEL: Record<string, string> = {
   christian: 'Christian',
   muslim: 'Muslim',
   cultural: 'Cultural',
+  chinese: 'Chinese',
   mixed: 'Mixed',
 };
 

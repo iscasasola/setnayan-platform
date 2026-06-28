@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Download, TrendingUp, Gift, ArrowRight } from 'lucide-react';
+import { Download, TrendingUp, Gift, ArrowRight, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { isChineseWedding } from '@/lib/chinese-wedding';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchBudgetSnapshot, formatPhp } from '@/lib/budget';
@@ -103,6 +104,17 @@ export default async function BudgetPage({ params }: Props) {
     ((event?.ceremony_type as string | null) ?? null) === 'muslim' ||
     ((event?.secondary_ceremony_type as string | null) ?? null) === 'muslim';
   const mahrDescription = (event?.mahr_description as string | null) ?? null;
+
+  // Chinese (Tsinoy) weddings carry tradition-specific spend that doesn't map
+  // cleanly to a vendor line — ang pao (red envelopes) gifted during the tea
+  // ceremony, and the lauriat banquet that is usually the single largest
+  // reception cost. Surfaced as a non-billable advisory (mirrors the Mahr card)
+  // via the shared overlay predicate, so it also catches the common
+  // church-primary + Chinese-secondary case, not just ceremony_type === 'chinese'.
+  const isChineseCeremony = isChineseWedding({
+    ceremony_type: event?.ceremony_type ?? null,
+    secondary_ceremony_type: event?.secondary_ceremony_type ?? null,
+  });
 
   // Iteration 0053 P4 Unit 2: the suggested budget SPLIT (wedding cost
   // categories + benchmarks) is the wedding budget-taxonomy pack. 'wedding' is
@@ -257,6 +269,8 @@ export default async function BudgetPage({ params }: Props) {
       {isMuslimCeremony ? (
         <MahrInfoCard eventId={eventId} mahrDescription={mahrDescription} />
       ) : null}
+
+      {isChineseCeremony ? <ChineseTraditionInfoCard /> : null}
 
       <UnlocksHint />
 
@@ -486,6 +500,39 @@ function MahrInfoCard({
         {isSet ? 'Update mahr' : 'Set mahr'}
         <ArrowRight aria-hidden className="h-3 w-3" strokeWidth={2} />
       </Link>
+    </section>
+  );
+}
+
+// Chinese (Tsinoy) tradition note — a NON-billable advisory mirroring MahrInfoCard
+// (same card shell + emerald "gift" framing). It records nothing and charges
+// nothing: ang pao and the lauriat are the couple's own arrangements, not a
+// Setnayan or vendor charge, so the card carries no setter and no price. Purely
+// informational guidance to help the couple shape their own budget. Editorial
+// voice, no exclamation marks.
+function ChineseTraditionInfoCard() {
+  return (
+    <section
+      aria-labelledby="chinese-tradition-heading"
+      className="rounded-xl border border-emerald-200/70 bg-emerald-50/40 p-4 sm:p-5"
+    >
+      <div className="flex items-center gap-2">
+        <Sparkles aria-hidden className="h-4 w-4 text-emerald-700" strokeWidth={1.75} />
+        <h2
+          id="chinese-tradition-heading"
+          className="font-mono text-[11px] uppercase tracking-[0.2em] text-emerald-800"
+        >
+          Chinese traditions — a budget note
+        </h2>
+      </div>
+      <p className="mt-2 text-sm text-ink/75">
+        A Chinese wedding carries a few costs worth planning for. Ang pao — red
+        envelopes — are given to elders during the tea ceremony, kept aside from
+        your vendor spend. The lauriat banquet is typically the main reception
+        cost, so it&rsquo;s worth anchoring your budget around it early. These are
+        your own arrangements, not a Setnayan or vendor charge, so they stay
+        outside your committed totals.
+      </p>
     </section>
   );
 }

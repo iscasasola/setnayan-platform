@@ -31,11 +31,56 @@ import Link from 'next/link';
 import { getVendorPrices } from '@/lib/v2-catalog';
 import { VendorPricingMatrix } from './vendor-pricing-matrix';
 
-const BENEFITS = [
+// PRIMARY — the advantages no directory or SaaS stack can copy, ordered most →
+// least important (owner 2026-06-28 "focus on our advantages as our primary
+// post"). 0% commission leads as its own hero strip below; these are the
+// ecosystem moat. Each is verified-shipped (couple matchmaking, earned badges
+// via vendor-badges.ts, category benchmarks + theft watch on Pro, Productions
+// co-listing). No unbuilt claims — per [[project_setnayan_public_claims_purge]].
+const ADVANTAGES = [
+  {
+    num: '1',
+    tag: '🔗 The couples',
+    title: 'Couple matchmaking',
+    body: "We hand-curate couple → vendor matches from briefs already in the platform. Not lead-gen ads — actual ops-team intros.",
+  },
+  {
+    num: '2',
+    tag: '🏅 Earned, never bought',
+    title: 'Your ranking is earned',
+    body: 'Top Pick and Most Booked badges come from real reviews and real bookings — never paid placement. Do great work and rise; no one can buy their way over you.',
+  },
+  {
+    num: '3',
+    tag: '📊 The data',
+    title: 'Category benchmarks',
+    body: "Your funnel, your pricing, your reply-time — vs the median for your category. Know if you're under-priced before you lose a deal.",
+  },
+  {
+    num: '4',
+    tag: '🛡️ The data',
+    title: 'Reverse-image theft watch',
+    body: 'Monthly scans of the open web for stolen versions of your portfolio. We surface the evidence — you decide what to do with it. Only possible because we see the marketplace.',
+  },
+  {
+    num: '5',
+    tag: '🎬 First-party',
+    title: 'Co-listing with Productions',
+    body: "Setnayan Productions is in every couple's bundle recommendation. Pro lets your service ride alongside ours.",
+  },
+];
+
+// THE REST — the table-stakes a vendor expects, ordered most → least important.
+const ESSENTIALS = [
   {
     tag: 'Lead capture',
     title: 'Couples find you, message you, book you — without leaving Setnayan.',
     body: "Show up in every couple's vendor finder for your category. No third-party fees, no inboxes to juggle.",
+  },
+  {
+    tag: 'Bid pipeline',
+    title: 'Request bid → Chat → Quote → Accept in one rail.',
+    body: 'Couples request a bid through your microsite, you spend 1 token to open the thread, you chat and finalize pricing together, customer accepts. Reply-time stats show on your public profile — fast vendors get more bookings.',
   },
   {
     tag: 'Calendar that means something',
@@ -43,9 +88,9 @@ const BENEFITS = [
     body: 'Your team sees what they need to see — service captains see crew counts, dispatch sees addresses, accounts sees the invoice. No more shared Google sheets.',
   },
   {
-    tag: 'Bid pipeline',
-    title: 'Request bid → Chat → Quote → Accept in one rail.',
-    body: 'Couples request a bid through your microsite, you spend 1 token to open the thread, you chat and finalize pricing together, customer accepts. Reply-time stats show on your public profile — fast vendors get more bookings.',
+    tag: 'Trust, free',
+    title: 'Verified badge + reviews from real couples — at no cost.',
+    body: 'Verification is free during launch. Your badge and your 0–5★ reviews come only from couples who actually booked you through Setnayan — no fakes, no pay-to-play.',
   },
   {
     tag: 'Grow with the platform',
@@ -56,33 +101,6 @@ const BENEFITS = [
     tag: 'Crew-rate marketplace',
     title: 'Coming soon — list your crew, earn from every booking they take.',
     body: "Service captains, photographers, AV ops can opt into Setnayan's crew rates. You earn a referral cut on every gig your team picks up.",
-  },
-];
-
-const LOCKS = [
-  {
-    num: '1',
-    tag: '🔗 The couples',
-    title: 'Couple matchmaking',
-    body: "We hand-curate couple → vendor matches from briefs already in the platform. Not lead-gen ads — actual ops-team intros.",
-  },
-  {
-    num: '2',
-    tag: '📊 The data',
-    title: 'Category benchmarks',
-    body: "Your funnel, your pricing, your reply-time — vs the median for your category. Know if you're under-priced before you lose a deal.",
-  },
-  {
-    num: '3',
-    tag: '📊 The data',
-    title: 'Reverse-image theft watch',
-    body: 'Monthly scans of the open web for stolen versions of your portfolio. We surface the evidence — you decide what to do with it. Only possible because we see the marketplace.',
-  },
-  {
-    num: '4',
-    tag: '🎬 First-party',
-    title: 'Co-listing with Productions',
-    body: "Setnayan Productions is in every couple's bundle recommendation. Pro lets your service ride alongside ours.",
   },
 ];
 
@@ -132,40 +150,15 @@ export async function ForVendorsDeepDive() {
           }}
         >
           You&apos;re already great at the work. We just want fewer DMs, cleaner
-          books, and more couples knowing you exist. Free to start — pay only
-          when you opt into a boost.
+          books, and more couples knowing you exist. Free to start — upgrade
+          only when you&apos;re ready for more reach.
         </p>
       </div>
 
-      {/* Tier intro */}
-      <div style={{ marginBottom: 14 }}>
-        <div className="m-eyebrow" style={{ color: 'var(--m-slate-2)' }}>
-          Solo · Pro · Enterprise — one tier for every stage of your business
-        </div>
-        <div
-          style={{
-            fontSize: 14,
-            color: 'var(--m-slate)',
-            marginTop: 8,
-            maxWidth: 760,
-            lineHeight: 1.5,
-          }}
-        >
-          Solo is a complete business: one category, one operator, the full
-          in-app suite. Pro and Enterprise don&rsquo;t unlock your craft — they expand
-          it: more categories, more team, wider reach, and tools that scale as
-          you grow. Every tool on the list is{' '}
-          <em style={{ color: 'var(--m-ink)' }}>only possible because Setnayan</em>{' '}
-          has the couples, the data, and the ops team behind it.
-        </div>
-      </div>
-
-      {/* 3-tier matrix — desktop grid + mobile tier switcher */}
-      <VendorPricingMatrix prices={p} />
-
-      {/* Why Pro is locked to Setnayan — 4 ecosystem reasons */}
-      <div style={{ marginTop: 28 }}>
-        <div className="m-eyebrow">Why Pro can&apos;t be bought elsewhere</div>
+      {/* PRIMARY — our advantages first (owner 2026-06-28). 0% commission
+          leads as the hero, then the ecosystem moat no directory can copy. */}
+      <div>
+        <div className="m-eyebrow">Your edge · only on Setnayan</div>
         <h3
           className="m-serif"
           style={{
@@ -177,83 +170,18 @@ export async function ForVendorsDeepDive() {
             maxWidth: 760,
           }}
         >
-          Four ecosystem locks. Each one is impossible to replicate{' '}
+          The advantages no directory can{' '}
           <em style={{ fontStyle: 'italic', color: 'var(--m-blush-deep)' }}>
-            with any stack of SaaS.
+            copy.
           </em>
         </h3>
-        <div
-          className="m-locks-grid"
-          style={{
-            display: 'grid',
-            gap: 14,
-          }}
-        >
-          {LOCKS.map((c) => (
-            <div
-              key={c.num}
-              className="m-card"
-              style={{
-                padding: 22,
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 10,
-                background: 'var(--m-paper)',
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                }}
-              >
-                <span
-                  className="m-mono"
-                  style={{ fontSize: 11, color: 'var(--m-orange-2)' }}
-                >
-                  {c.tag}
-                </span>
-                <span
-                  className="m-display"
-                  style={{ fontSize: 22, color: 'var(--m-orange-3)' }}
-                >
-                  {c.num}
-                </span>
-              </div>
-              <div
-                className="m-display"
-                style={{
-                  fontSize: 20,
-                  color: 'var(--m-ink)',
-                  textTransform: 'uppercase',
-                  lineHeight: 1.1,
-                  marginTop: 4,
-                }}
-              >
-                {c.title}
-              </div>
-              <div
-                style={{
-                  fontSize: 13,
-                  color: 'var(--m-slate)',
-                  lineHeight: 1.5,
-                }}
-              >
-                {c.body}
-              </div>
-            </div>
-          ))}
-        </div>
       </div>
 
-      {/* 0% commission strip */}
+      {/* 0% commission strip — the headline advantage */}
       <div
         className="m-card m-callout"
         style={{
           padding: 22,
-          marginTop: 16,
           display: 'grid',
           gap: 20,
           alignItems: 'center',
@@ -292,6 +220,170 @@ export async function ForVendorsDeepDive() {
           vendor keeps 100%
         </span>
       </div>
+
+      {/* Advantages grid — the ecosystem moat, most → least important */}
+      <div
+        className="m-advantages-grid"
+        style={{
+          display: 'grid',
+          gap: 14,
+          marginTop: 16,
+        }}
+      >
+        {ADVANTAGES.map((c) => (
+          <div
+            key={c.num}
+            className="m-card"
+            style={{
+              padding: 22,
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 10,
+              background: 'var(--m-paper)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <span
+                className="m-mono"
+                style={{ fontSize: 11, color: 'var(--m-orange-2)' }}
+              >
+                {c.tag}
+              </span>
+              <span
+                className="m-display"
+                style={{ fontSize: 22, color: 'var(--m-orange-3)' }}
+              >
+                {c.num}
+              </span>
+            </div>
+            <div
+              className="m-display"
+              style={{
+                fontSize: 20,
+                color: 'var(--m-ink)',
+                textTransform: 'uppercase',
+                lineHeight: 1.1,
+                marginTop: 4,
+              }}
+            >
+              {c.title}
+            </div>
+            <div
+              style={{
+                fontSize: 13,
+                color: 'var(--m-slate)',
+                lineHeight: 1.5,
+              }}
+            >
+              {c.body}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* SECONDARY — everything else you get, most → least important */}
+      <div style={{ marginTop: 40 }}>
+        <div className="m-eyebrow">Everything else you get</div>
+        <h3
+          className="m-serif"
+          style={{
+            fontSize: 'clamp(1.75rem, 4vw, 40px)',
+            lineHeight: 1.06,
+            margin: '12px 0 24px',
+            color: 'var(--m-ink)',
+            fontWeight: 400,
+            maxWidth: 760,
+          }}
+        >
+          The tools that make the day-to-day{' '}
+          <em style={{ fontStyle: 'italic', color: 'var(--m-blush-deep)' }}>
+            run itself.
+          </em>
+        </h3>
+      </div>
+
+      {/* Essentials grid */}
+      <div
+        className="m-benefits-grid"
+        style={{
+          display: 'grid',
+          gap: 16,
+        }}
+      >
+        {ESSENTIALS.map((b) => (
+          <div
+            key={b.tag}
+            className="m-card"
+            style={{
+              padding: 22,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 10,
+              height: '100%',
+            }}
+          >
+            <span
+              className="m-mono"
+              style={{ fontSize: 11, color: 'var(--m-orange-2)' }}
+            >
+              {b.tag}
+            </span>
+            <div
+              className="m-display"
+              style={{
+                fontSize: 22,
+                color: 'var(--m-ink)',
+                textTransform: 'uppercase',
+                lineHeight: 1.08,
+              }}
+            >
+              {b.title}
+            </div>
+            <div
+              style={{
+                fontSize: 13,
+                color: 'var(--m-slate)',
+                lineHeight: 1.55,
+              }}
+            >
+              {b.body}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Pricing — value first, price after. Tier intro + 3-tier matrix. */}
+      <div style={{ marginBottom: 14, marginTop: 48 }}>
+        <div className="m-eyebrow" style={{ color: 'var(--m-slate-2)' }}>
+          Solo · Pro · Enterprise — one tier for every stage of your business
+        </div>
+        <div
+          style={{
+            fontSize: 14,
+            color: 'var(--m-slate)',
+            marginTop: 8,
+            maxWidth: 760,
+            lineHeight: 1.5,
+          }}
+        >
+          Solo is a complete business: one category, one operator, the full
+          in-app suite. Pro and Enterprise don&rsquo;t unlock your craft — they expand
+          it: more categories, more team, wider reach, and tools that scale as
+          you grow. Every tool on the list is{' '}
+          <em style={{ color: 'var(--m-ink)' }}>only possible because Setnayan</em>{' '}
+          has the couples, the data, and the ops team behind it.
+        </div>
+      </div>
+
+      {/* 3-tier matrix — desktop grid + mobile tier switcher */}
+      <VendorPricingMatrix prices={p} />
 
       {/* Enterprise tier teaser */}
       <div
@@ -334,57 +426,6 @@ export async function ForVendorsDeepDive() {
         >
           Talk to ops →
         </Link>
-      </div>
-
-      {/* Benefit grid */}
-      <div
-        className="m-benefits-grid"
-        style={{
-          display: 'grid',
-          gap: 16,
-          marginTop: 28,
-        }}
-      >
-        {BENEFITS.map((b) => (
-          <div
-            key={b.tag}
-            className="m-card"
-            style={{
-              padding: 22,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 10,
-              height: '100%',
-            }}
-          >
-            <span
-              className="m-mono"
-              style={{ fontSize: 11, color: 'var(--m-orange-2)' }}
-            >
-              {b.tag}
-            </span>
-            <div
-              className="m-display"
-              style={{
-                fontSize: 22,
-                color: 'var(--m-ink)',
-                textTransform: 'uppercase',
-                lineHeight: 1.08,
-              }}
-            >
-              {b.title}
-            </div>
-            <div
-              style={{
-                fontSize: 13,
-                color: 'var(--m-slate)',
-                lineHeight: 1.55,
-              }}
-            >
-              {b.body}
-            </div>
-          </div>
-        ))}
       </div>
 
       {/* Vendor CTA strip */}
@@ -450,17 +491,22 @@ export async function ForVendorsDeepDive() {
       <style>{`
         @media (min-width: 1024px) {
           .m-grid-2 { grid-template-columns: 1fr 1fr; }
-          .m-locks-grid { grid-template-columns: repeat(4, 1fr); }
+          .m-advantages-grid { grid-template-columns: repeat(3, 1fr); }
           .m-benefits-grid { grid-template-columns: repeat(3, 1fr); }
           .m-callout { grid-template-columns: auto 1fr auto; }
           .m-vendor-cta-strip { grid-template-columns: 1.4fr 1fr; }
         }
+        @media (min-width: 600px) and (max-width: 1023px) {
+          .m-advantages-grid { grid-template-columns: repeat(2, 1fr); }
+        }
         @media (max-width: 1023px) {
           .m-grid-2 { grid-template-columns: 1fr; }
-          .m-locks-grid { grid-template-columns: repeat(2, 1fr); }
           .m-benefits-grid { grid-template-columns: 1fr; }
           .m-callout { grid-template-columns: 1fr; }
           .m-vendor-cta-strip { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 599px) {
+          .m-advantages-grid { grid-template-columns: 1fr; }
         }
       `}</style>
     </section>

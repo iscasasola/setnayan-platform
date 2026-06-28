@@ -54,6 +54,7 @@ import {
   Activity,
   Shield,
   Eye,
+  Rocket,
 } from 'lucide-react';
 import { BUDGET_BUILD_TABS, TAB_META } from '@/lib/budget-build';
 import type { LucideIcon } from 'lucide-react';
@@ -69,7 +70,12 @@ import { buildGuestJourney } from '@/lib/guest-journey';
  */
 export function buildCustomerNavGroups(
   eventId: string,
-  opts?: { dayOfOpen?: boolean; hideKeys?: string[] },
+  opts?: {
+    dayOfOpen?: boolean;
+    hideKeys?: string[];
+    websiteEnabled?: boolean;
+    monogramEnabled?: boolean;
+  },
 ): NavGroup[] {
   const base = `/dashboard/${eventId}`;
 
@@ -179,24 +185,36 @@ export function buildCustomerNavGroups(
           icon: Sparkles,
           matchPrefix: `${base}/studio`,
           children: [
-            {
-              // "Event page" (owner 2026-06-26) — the host's doorway to the
-              // SAME live page their guests see. /event-page resolves the slug
-              // + redirects to /[slug]. First in the Studio group so it's the
-              // most discoverable "view what I built" action.
-              key: 'event-page',
-              label: 'Event page',
-              href: `${base}/event-page`,
-              icon: Eye,
-              matchPrefix: `${base}/event-page`,
-            },
-            {
-              key: 'website',
-              label: 'Website',
-              href: `/site-editor/${eventId}`,
-              icon: Globe,
-              matchPrefix: `/site-editor/${eventId}`,
-            },
+            // Website surface — Event page (the host's doorway to the live guest
+            // page), the site editor, and Launch (preview + go-live). Shown ONLY
+            // for event types whose profile enables 'website' (weddings today;
+            // resolved in layout.tsx → websiteEnabled). A birthday with no website
+            // surface never sees these. Wedding enables it → byte-identical.
+            ...(opts?.websiteEnabled
+              ? [
+                  {
+                    key: 'event-page',
+                    label: 'Event page',
+                    href: `${base}/event-page`,
+                    icon: Eye,
+                    matchPrefix: `${base}/event-page`,
+                  },
+                  {
+                    key: 'website',
+                    label: 'Website',
+                    href: `/site-editor/${eventId}`,
+                    icon: Globe,
+                    matchPrefix: `/site-editor/${eventId}`,
+                  },
+                  {
+                    key: 'launch',
+                    label: 'Launch',
+                    href: `${base}/website/launch`,
+                    icon: Rocket,
+                    matchPrefix: `${base}/website/launch`,
+                  },
+                ]
+              : []),
             {
               key: 'mood-board',
               label: 'Mood Board',
@@ -204,13 +222,19 @@ export function buildCustomerNavGroups(
               icon: Palette,
               matchPrefix: `${base}/studio/mood-board`,
             },
-            {
-              key: 'monogram',
-              label: 'Monogram',
-              href: `${base}/monogram`,
-              icon: Type,
-              matchPrefix: `${base}/monogram`,
-            },
+            // Monogram surface — gated per event type (weddings today). A
+            // non-wedding event whose profile omits 'monogram' never sees it.
+            ...(opts?.monogramEnabled
+              ? [
+                  {
+                    key: 'monogram',
+                    label: 'Monogram',
+                    href: `${base}/monogram`,
+                    icon: Type,
+                    matchPrefix: `${base}/monogram`,
+                  },
+                ]
+              : []),
             {
               key: 'live',
               label: 'Live Wall',

@@ -8,9 +8,35 @@ import { Apple } from 'lucide-react';
 // Once both PRs land, this can be lifted into _components/site-footer.tsx
 // in a follow-up cleanup.
 
+// Marketing feature pages — surfaced here so they're reachable by clicking
+// (added 2026-06-28). Public-facing names match each page's own title.
+const FEATURE_LINKS: { href: string; label: string }[] = [
+  { href: '/papic', label: 'Papic' },
+  { href: '/setnayan-ai', label: 'Setnayan AI' },
+  { href: '/panood', label: 'Panood' },
+  { href: '/pa3d', label: 'Pa3D' },
+  { href: '/palogo', label: 'Animated Monogram' },
+  { href: '/pawebsite', label: 'Wedding Website' },
+  { href: '/patiktok', label: 'Patiktok' },
+];
+
 export function SiteFooter() {
   return (
     <footer>
+      <div className="mx-auto w-full max-w-6xl px-4 pt-10 sm:px-6 lg:px-8">
+        <div className="flex flex-col gap-2 border-t border-ink/10 pt-8 text-sm text-ink/55 sm:flex-row sm:items-baseline sm:gap-6">
+          <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/40">
+            Explore
+          </span>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+            {FEATURE_LINKS.map((f) => (
+              <Link key={f.href} href={f.href} className="hover:text-ink">
+                {f.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+      </div>
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-10 text-sm text-ink/55 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
         <div className="flex items-center gap-2">
           <span

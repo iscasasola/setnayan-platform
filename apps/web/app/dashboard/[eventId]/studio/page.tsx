@@ -14,6 +14,7 @@ import { StudioSectionTabs } from './_components/studio-section-tabs';
 import { dismissRecommendation, recommendFeature } from './recommend-actions';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { RevealList } from '@/app/_components/reveal-list';
 import Link from 'next/link';
@@ -61,6 +62,15 @@ export default async function StudioPage({ params }: Props) {
   const { eventId } = await params;
 
   const supabase = await createClient();
+
+  // Event-type surface gating (0053 · 2026-06-28): an add-on tagged with a
+  // `surface` shows only when this event type's profile enables it — so a
+  // non-wedding event never sees the wedding-only tools (Save-the-Date, RSVP,
+  // website parts, Animated Monogram). Wedding enables ALL surfaces → nothing
+  // filtered (byte-identical). Degrades to WEDDING_PROFILE on any read error.
+  const profile = await resolveProfileByEvent(eventId);
+  const surfaceOk = (a: (typeof ADD_ONS)[number]) =>
+    !a.surface || surfaceEnabled(profile, a.surface);
 
   // Bundle-aware ownership for EVERY service in ONE query + live admin catalog
   // prices for the GET pills — fetched together. Ownership uses the admin client
@@ -305,7 +315,7 @@ export default async function StudioPage({ params }: Props) {
       <StudioSectionTabs tabs={tabs} />
 
       {SECTIONS.map(({ group, label, anchor, flagship }) => {
-        const addOns = ADD_ONS.filter((a) => a.studioGroup === group)
+        const addOns = ADD_ONS.filter((a) => a.studioGroup === group && surfaceOk(a))
           .slice()
           .sort(comingSoonLast);
         if (addOns.length === 0) return null;

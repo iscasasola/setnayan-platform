@@ -9,6 +9,7 @@ import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { vendorExperienceEnabled } from '@/lib/vendor-experience';
 import { geocodeNominatim } from '@/lib/geo';
 import { getEventTypeVocab } from '@/lib/event-types-db';
+import { getTaxonomy } from '@/lib/taxonomy-db';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -34,6 +35,50 @@ function parseSlug(raw: FormDataEntryValue | null): string | null {
 }
 
 const CANONICAL_SERVICE_SET: ReadonlySet<string> = new Set(VENDOR_CATEGORIES);
+
+/**
+ * Resolves the EXTRA canonical leaf keys the services picker is allowed to
+ * store verbatim in vendor_profiles.services[] — beyond the 30 coarse
+ * VENDOR_CATEGORIES. These are the tradition / specialty leaves (e.g. the
+ * Chinese specialist set: date_fengshui_consultant, chinese_lauriat_caterer,
+ * tea_set_styling, angpao_betrothal_supplier, lion_dance_troupe) that the
+ * /explore marketplace tiles + the date-specialist CTA match against, but that
+ * no vendor could self-list under before this change.
+ *
+ * The set is DB-driven and MUST mirror the picker's selection rule in
+ * app/vendor-dashboard/profile/page.tsx so the two never disagree: every
+ * marketplace-VISIBLE `tradition` leaf with a real tile that either carries a
+ * faith tag (genuine cultural specialists) OR is the de-faith'd Chinese
+ * banquet caterer (food rows are never faith-tagged per the 2026-06-11
+ * de-faith lock, so it's admitted by explicit key allowlist). getTaxonomy() is
+ * itself fallback-safe (lib/taxonomy.ts constant when the DB is unseeded), and
+ * the whole resolution is wrapped so a hiccup yields an EMPTY set — which makes
+ * Save behave exactly as before (any leaf falls through to the custom path /
+ * gets dropped), never widening acceptance on a failed read.
+ */
+const DEFAULT_FOOD_TRADITION_LEAVES: ReadonlySet<string> = new Set([
+  'chinese_lauriat_caterer',
+]);
+
+async function resolveExtraCanonicalSet(): Promise<ReadonlySet<string>> {
+  try {
+    const tax = await getTaxonomy();
+    const out = new Set<string>();
+    for (const [key, meta] of Object.entries(tax.map)) {
+      if (meta.tradition !== true) continue;
+      if (meta.marketplaceHidden) continue;
+      if (!meta.tile) continue;
+      if (meta.faith != null || DEFAULT_FOOD_TRADITION_LEAVES.has(key)) {
+        out.add(key);
+      }
+    }
+    return out;
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[/vendor-dashboard] extra-canonical resolution failed', err);
+    return new Set<string>();
+  }
+}
 
 // Iteration 0043 — wedding-type compatibility tags. Allowed values mirror
 // the live events.ceremony_type CHECK constraint AND the CEREMONY_TYPES
@@ -163,7 +208,13 @@ function parseLogoValue(raw: FormDataEntryValue | null): string | null {
   return null;
 }
 
-function parseServices(raw: FormDataEntryValue | null): string[] {
+function parseServices(
+  raw: FormDataEntryValue | null,
+  // Extra canonical leaf keys (tradition / specialty leaves) accepted VERBATIM
+  // in addition to the 30 coarse VENDOR_CATEGORIES. Defaults to empty so any
+  // submission WITHOUT an extra canonical is parsed byte-identically to before.
+  extraCanonical: ReadonlySet<string> = new Set<string>(),
+): string[] {
   if (typeof raw !== 'string') return [];
   let parsed: unknown;
   try {
@@ -176,8 +227,11 @@ function parseServices(raw: FormDataEntryValue | null): string[] {
   const seen = new Set<string>();
   for (const item of parsed) {
     if (typeof item !== 'string') continue;
-    // Canonical entries — keep the enum key verbatim.
-    if (CANONICAL_SERVICE_SET.has(item)) {
+    // Canonical entries — keep the key verbatim. Either a coarse
+    // VENDOR_CATEGORIES enum key OR a real, currently-offered canonical leaf
+    // (tradition / specialty). Both are validated against a known set — never
+    // an arbitrary string — so this stays a tight allowlist.
+    if (CANONICAL_SERVICE_SET.has(item) || extraCanonical.has(item)) {
       if (seen.has(item)) continue;
       seen.add(item);
       out.push(item);
@@ -276,12 +330,18 @@ export async function saveVendorProfile(formData: FormData) {
     };
   }
 
+  // Extra canonical leaves the picker is currently allowed to offer (tradition /
+  // specialty leaves). DB-driven + fallback-safe; empty on any hiccup, which
+  // makes parseServices behave exactly as before. Mirrors the picker's set in
+  // app/vendor-dashboard/profile/page.tsx so the two never disagree.
+  const extraCanonicalSet = await resolveExtraCanonicalSet();
+
   const payload = {
     business_name: nonBlank(formData.get('business_name'), 128),
     business_slug,
     tagline: nullIfBlank(formData.get('tagline')),
     logo_url: parseLogoValue(formData.get('logo_url')),
-    services: parseServices(formData.get('services')),
+    services: parseServices(formData.get('services'), extraCanonicalSet),
     location_city,
     hq_address,
     website: nullIfBlank(formData.get('website')),

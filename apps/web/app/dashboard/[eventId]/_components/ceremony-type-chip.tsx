@@ -52,6 +52,7 @@ const DISPLAY_LABEL: Record<string, string> = {
   sikh: 'Sikh',
   buddhist: 'Buddhist',
   orthodox: 'Orthodox Christian',
+  chinese: 'Chinese',
   mixed: 'Mixed',
 };
 

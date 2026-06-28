@@ -375,6 +375,7 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
         <FourQuestionFlow
           eventId={eventId}
           initialCeremonyType={ceremonyType}
+          secondaryCeremonyType={secondaryCeremonyType}
           initialMeaningfulDates={meaningfulDates}
           backHref={backToChooserHref}
         />

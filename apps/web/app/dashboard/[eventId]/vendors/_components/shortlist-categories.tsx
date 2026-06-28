@@ -130,6 +130,21 @@ const SLCAT_CSS = `
 .slcat .fr .fr-t{font-family:var(--sans);font-size:13px;font-weight:600}
 .slcat a:focus-visible,.slcat button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 
+/* ── "Your plan" strip — the couple's onboarding category picks, surfaced atop
+   the bench so the plan the reveal promised is one tap from acting on it ── */
+.slcat .plan-strip{margin:0 0 14px;padding:13px 15px;background:rgba(30,34,41,.035);border:0.5px solid var(--line);border-radius:var(--m-r-md)}
+.slcat .plan-eyebrow{font-family:var(--mono);font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--gold-deep);margin:0 0 9px;display:flex;align-items:center;gap:6px}
+.slcat .plan-chips{display:flex;flex-wrap:wrap;gap:7px}
+.slcat .plan-chip{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;background:var(--card);border:1px solid var(--line);border-radius:var(--m-r-full);font:inherit;font-family:var(--sans);font-size:12.5px;font-weight:600;color:var(--ink);cursor:pointer;transition:border-color .18s var(--ease),transform .12s cubic-bezier(.2,.7,.2,1)}
+.slcat .plan-chip:hover{border-color:rgba(30,34,41,.32)}
+.slcat .plan-chip:active{transform:scale(.97)}
+.slcat .plan-chip .pc-dot{width:6px;height:6px;border-radius:var(--m-r-full);background:var(--gold);flex:0 0 auto}
+.slcat .plan-chip.done .pc-dot{background:#2e7d4f}
+/* "In your plan" marker beside a category name */
+.slcat .cat-plan{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-deep);background:rgba(197,160,89,.13);border-radius:var(--m-r-full);padding:3px 8px;font-weight:600;white-space:nowrap}
+
+html.dark .slcat .plan-strip{background:rgba(251,251,250,.04)}
+html.dark .slcat .plan-chip{background:#2A2E36}
 html.dark .slcat{--paper:#1E2229;--ink:#FBFBFA;--ink-soft:#B6B9BE;--line:rgba(251,251,250,.16);--line-soft:rgba(251,251,250,.1);--card:#2A2E36}
 html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dark .slcat .act.find>*,html.dark .slcat .fr.find .fr-i,html.dark .slcat .fr.find .fr-t,html.dark .slcat .vc .bdg.setnayan{color:#C99DB0}
 html.dark .slcat .cat-req{border-color:rgba(201,157,176,.4);background:rgba(201,157,176,.12);color:#C99DB0}
@@ -352,13 +367,62 @@ export function ShortlistCategories({
 
   const reqIsSubmitting = reqSaving || reqPhase === 'submitting';
 
+  // "Your plan" — the couple's onboarding category picks (tiles flagged `planned`
+  // by buildShortlistFolders), flattened across folders in display order. Drives
+  // the strip atop the bench; tapping a chip opens that folder + category so the
+  // plan the reveal promised is one tap from finding a vendor. Empty → no strip.
+  const plannedList = folders.flatMap((f) =>
+    f.tiles
+      .filter((t) => t.planned)
+      .map((t) => ({
+        folder: f.folder,
+        slug: f.slug,
+        tile: t.tile,
+        label: t.label,
+        done: t.vendors.length > 0,
+      })),
+  );
+
+  function openPlan(folder: string, tile: string, slug: string) {
+    setOpenFolder(folder);
+    setOpenTile(tile);
+    // Scroll the folder into view after it expands (next frame).
+    window.setTimeout(() => {
+      document.getElementById(`slfold-${slug}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 60);
+  }
+
   return (
     <div className="slcat">
       <style>{SLCAT_CSS}</style>
+      {plannedList.length > 0 ? (
+        <div className="plan-strip">
+          <p className="plan-eyebrow">
+            <Sparkles size={11} strokeWidth={2} aria-hidden /> From your plan
+          </p>
+          <div className="plan-chips">
+            {plannedList.map((p) => (
+              <button
+                key={p.tile}
+                type="button"
+                className={`plan-chip${p.done ? ' done' : ''}`}
+                onClick={() => openPlan(p.folder, p.tile, p.slug)}
+              >
+                <span className="pc-dot" aria-hidden />
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
       {folders.map((folder) => {
         const folderOpen = openFolder === folder.folder;
         return (
-          <section key={folder.folder} className={`fold${folderOpen ? ' open' : ''}`}>
+          <section
+            key={folder.folder}
+            id={`slfold-${folder.slug}`}
+            className={`fold${folderOpen ? ' open' : ''}`}
+          >
             <button
               type="button"
               className="fold-head"
@@ -400,6 +464,9 @@ export function ShortlistCategories({
                         >
                           <span className="cat-nm">{t.label}</span>
                           <span className="cat-rt">
+                            {t.planned && t.vendors.length === 0 ? (
+                              <span className="cat-plan">In your plan</span>
+                            ) : null}
                             {t.vendors.length > 0 ? (
                               <span className="cat-count">{t.vendors.length}</span>
                             ) : null}

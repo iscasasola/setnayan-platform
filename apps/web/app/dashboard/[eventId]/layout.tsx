@@ -257,6 +257,10 @@ export default async function EventLayout({ children, params }: Props) {
     ...(profile.marketplaceEnabled ? [] : ['explore']),
     ...(surfaceEnabled(profile, 'budget') ? [] : ['budget']),
   ];
+  // Gates the Studio "Launch" child (preview + go-live) to event types whose
+  // profile enables the public website (weddings today). Threaded to the
+  // desktop sidebar + the mobile section sub-nav.
+  const websiteEnabled = surfaceEnabled(profile, 'website');
 
   const tr = makeT(locale);
 
@@ -321,6 +325,7 @@ export default async function EventLayout({ children, params }: Props) {
             navSlots={navSlots}
             eventDate={(event.event_date as string | null) ?? null}
             hideKeys={navHideKeys}
+            websiteEnabled={websiteEnabled}
           />
         }
         topBar={topBar}
@@ -361,7 +366,7 @@ export default async function EventLayout({ children, params }: Props) {
           the server-built panel, and the bottom nav collapses to icons-only while
           it's docked. Self-gates to null outside any menu's section. eventDate
           drives the Guests Day-of time-gate. */}
-      <CustomerSectionSubnav eventId={eventId} eventDate={(event.event_date as string | null) ?? null} navSlots={navSlots} phase={phase} hideKeys={navHideKeys} />
+      <CustomerSectionSubnav eventId={eventId} eventDate={(event.event_date as string | null) ?? null} navSlots={navSlots} phase={phase} hideKeys={navHideKeys} websiteEnabled={websiteEnabled} />
     </>
   );
 }

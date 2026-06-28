@@ -9,22 +9,15 @@
  * Token sales (pulled in from the dissolved Money group), so the mobile
  * job — approvals-on-the-go — covers ALL pending work in one place.
  *
- * Counts mirror the exact filters each queue page uses so the number here
- * matches the rows the admin sees on arrival:
- *   verify          vendor_verification_applications status='pending_review' → /admin/verify
- *   payments        status='pending'                          → /admin/payments
- *   payouts         paid_at IS NULL AND on_hold=false         → /admin/payouts
- *   token-purchases status='pending_payment'                  → /admin/token-purchases
- *   payment-options moderation_status in (pending_review,held)→ /admin/payment-options
- *   disputes        status='open'                             → /admin/disputes
- *   force-majeure   status in (open, under_review)            → /admin/force-majeure
- *   reviews         decided_at IS NULL                        → /admin/reviews
- *   abuse           status='pending_review'                   → /admin/concierge-abuse
- *   help            status in (new, in_progress)              → /admin/help
+ * Counts come from the shared getAdminQueueCounts() helper
+ * (lib/admin/queue-counts.ts) — the SAME source that badges the Work nav items
+ * and the /admin overview, so all three agree by construction. The canonical
+ * per-queue filter table lives in that helper now (it used to be duplicated
+ * here, which is how the verify filter drifted once).
  *
- * A missing/renamed table resolves with an { error } (not a throw), so
- * take() degrades that one row to null (chevron) instead of 500-ing the
- * whole feed. Desktop redirects implicit via lg:hidden on the feed.
+ * A missing/renamed table resolves to a null count (not a throw), so that one
+ * row degrades to a chevron instead of 500-ing the whole feed. Desktop redirect
+ * implicit via lg:hidden on the feed.
  */
 
 import {
@@ -43,94 +36,22 @@ import {
   UserX,
   Handshake,
 } from 'lucide-react';
-import { createAdminClient } from '@/lib/supabase/admin';
 import {
   QueuesTriageFeed,
   type TriageItem,
 } from '../queues/_components/queues-triage-feed';
+import {
+  getAdminQueueCounts,
+  type AdminQueueCounts,
+} from '@/lib/admin/queue-counts';
 
 export const metadata = { title: 'Work · Admin' };
 
-function take(c: number | null | undefined): number | null {
-  return typeof c === 'number' ? c : null;
-}
-
 export default async function AdminWorkLanding() {
-  const admin = createAdminClient();
-  const head = { count: 'exact', head: true } as const;
-  const nowIso = new Date().toISOString();
-
-  const [
-    verifyRes,
-    paymentsRes,
-    payoutsRes,
-    tokenSalesRes,
-    subscriptionsRes,
-    paymentOptionsRes,
-    disputesRes,
-    forceMajeureRes,
-    reviewsRes,
-    abuseRes,
-    accountDeletionsRes,
-    approvalsRes,
-    helpRes,
-    partnershipsRes,
-  ] = await Promise.all([
-    // Verify — applications awaiting review. /admin/verify defaults to the
-    // 'applications' surface (vendor_verification_applications · pending_review),
-    // NOT the secondary ?surface=visibility (vendor_profiles coming_soon).
-    admin
-      .from('vendor_verification_applications')
-      .select('*', head)
-      .eq('status', 'pending_review'),
-    admin.from('payments').select('*', head).eq('status', 'pending'),
-    admin
-      .from('vendor_payouts')
-      .select('*', head)
-      .is('paid_at', null)
-      .eq('on_hold', false),
-    admin
-      .from('vendor_token_purchases')
-      .select('*', head)
-      .eq('status', 'pending_payment'),
-    admin
-      .from('vendor_subscriptions')
-      .select('*', head)
-      .eq('status', 'pending_payment'),
-    admin
-      .from('vendor_payment_methods')
-      .select('*', head)
-      .in('moderation_status', ['pending_review', 'held']),
-    admin.from('vendor_disputes').select('*', head).eq('status', 'open'),
-    admin
-      .from('force_majeure_flags')
-      .select('*', head)
-      .in('status', ['open', 'under_review']),
-    admin.from('vendor_review_appeals').select('*', head).is('decided_at', null),
-    admin
-      .from('concierge_abuse_flags')
-      .select('*', head)
-      .eq('status', 'pending_review'),
-    admin
-      .from('account_deletion_requests')
-      .select('*', head)
-      .eq('status', 'pending'),
-    admin
-      .from('admin_approval_requests')
-      .select('*', head)
-      .eq('status', 'pending')
-      .gt('expires_at', nowIso),
-    admin
-      .from('help_messages')
-      .select('*', head)
-      .in('status', ['new', 'in_progress']),
-    // Vendor partnerships — unverified + active = awaiting HQ two-admin review.
-    admin
-      .from('vendor_partnerships')
-      .select('*', head)
-      .eq('admin_verified', false)
-      .eq('is_active', true),
-  ]);
+  // Single source of truth — the same head-counts that badge the Work nav
+  // items (lib/admin/queue-counts.ts). Fails open: a thrown query degrades the
+  // feed to "unknown" chevrons rather than 500-ing the mobile triage page.
+  const counts = await getAdminQueueCounts().catch(() => ({}) as AdminQueueCounts);
 
   const rows: TriageItem[] = [
     {
@@ -139,7 +60,7 @@ export default async function AdminWorkLanding() {
       href: '/admin/verify',
       icon: BadgeCheck,
       description: 'Vendors awaiting the verification badge.',
-      count: take(verifyRes.count),
+      count: counts.verify ?? null,
     },
     {
       key: 'payments',
@@ -147,7 +68,7 @@ export default async function AdminWorkLanding() {
       href: '/admin/payments',
       icon: Banknote,
       description: 'Order payments awaiting reconciliation.',
-      count: take(paymentsRes.count),
+      count: counts.payments ?? null,
     },
     {
       key: 'payouts',
@@ -155,7 +76,7 @@ export default async function AdminWorkLanding() {
       href: '/admin/payouts',
       icon: Wallet,
       description: 'Vendor payouts ready to release.',
-      count: take(payoutsRes.count),
+      count: counts.payouts ?? null,
     },
     {
       key: 'token-purchases',
@@ -163,7 +84,7 @@ export default async function AdminWorkLanding() {
       href: '/admin/token-purchases',
       icon: ShoppingBag,
       description: 'Vendor token-pack purchases awaiting confirmation.',
-      count: take(tokenSalesRes.count),
+      count: counts["token-purchases"] ?? null,
     },
     {
       key: 'subscriptions',
@@ -171,7 +92,7 @@ export default async function AdminWorkLanding() {
       href: '/admin/subscriptions',
       icon: Crown,
       description: 'Vendor Pro / Enterprise upgrades awaiting confirmation.',
-      count: take(subscriptionsRes.count),
+      count: counts.subscriptions ?? null,
     },
     {
       key: 'payment-options',
@@ -179,7 +100,7 @@ export default async function AdminWorkLanding() {
       href: '/admin/payment-options',
       icon: CreditCard,
       description: 'Vendor payment destinations awaiting a fraud screen.',
-      count: take(paymentOptionsRes.count),
+      count: counts["payment-options"] ?? null,
     },
     {
       key: 'disputes',
@@ -187,7 +108,7 @@ export default async function AdminWorkLanding() {
       href: '/admin/disputes',
       icon: Shield,
       description: 'Open customer and vendor disputes.',
-      count: take(disputesRes.count),
+      count: counts.disputes ?? null,
     },
     {
       key: 'force-majeure',
@@ -195,7 +116,7 @@ export default async function AdminWorkLanding() {
       href: '/admin/force-majeure',
       icon: AlertOctagon,
       description: 'Event-impacting flags to triage.',
-      count: take(forceMajeureRes.count),
+      count: counts["force-majeure"] ?? null,
     },
     {
       key: 'reviews',
@@ -203,7 +124,7 @@ export default async function AdminWorkLanding() {
       href: '/admin/reviews',
       icon: Star,
       description: 'Review appeals awaiting a decision.',
-      count: take(reviewsRes.count),
+      count: counts.reviews ?? null,
     },
     {
       key: 'concierge-abuse',
@@ -211,7 +132,7 @@ export default async function AdminWorkLanding() {
       href: '/admin/concierge-abuse',
       icon: Flag,
       description: 'Trial-cycling flags to review.',
-      count: take(abuseRes.count),
+      count: counts["concierge-abuse"] ?? null,
     },
     {
       key: 'account-deletions',
@@ -219,7 +140,7 @@ export default async function AdminWorkLanding() {
       href: '/admin/account-deletions',
       icon: UserX,
       description: 'Self-serve account-deletion requests to review.',
-      count: take(accountDeletionsRes.count),
+      count: counts["account-deletions"] ?? null,
     },
     {
       key: 'approvals',
@@ -227,7 +148,7 @@ export default async function AdminWorkLanding() {
       href: '/admin/approvals',
       icon: CheckCheck,
       description: 'A colleague is waiting on your second sign-off.',
-      count: take(approvalsRes.count),
+      count: counts.approvals ?? null,
     },
     {
       key: 'help',
@@ -235,7 +156,7 @@ export default async function AdminWorkLanding() {
       href: '/admin/help',
       icon: LifeBuoy,
       description: 'Open help-center tickets.',
-      count: take(helpRes.count),
+      count: counts.help ?? null,
     },
     {
       // Vendor partnerships — unverified partnership claims awaiting two-admin
@@ -245,7 +166,7 @@ export default async function AdminWorkLanding() {
       href: '/admin/vendor-partnerships',
       icon: Handshake,
       description: 'Vendor-to-vendor partnership claims awaiting two-admin verification.',
-      count: take(partnershipsRes.count),
+      count: counts["vendor-partnerships"] ?? null,
     },
   ];
 

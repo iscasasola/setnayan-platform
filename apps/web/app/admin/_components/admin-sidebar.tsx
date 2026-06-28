@@ -127,6 +127,7 @@ import { SidebarItem } from '@/app/_components/nav/sidebar-item';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import type { NavGroup } from '@/app/_components/nav/types';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
+import type { AdminQueueCounts } from '@/lib/admin/queue-counts';
 
 /**
  * Canonical admin NavGroup[] export. Mobile-overflow landing pages at
@@ -676,9 +677,58 @@ function applyAdminRegistry(
   }));
 }
 
-export function AdminSidebar({ navSlots }: { navSlots?: Record<string, NavSlotLite> }) {
+// Work queues whose backlog is time-critical — a legal/recourse clock or a
+// colleague blocked on your second sign-off. These badge RED; every other queue
+// with open work badges AMBER. (Set of nav-item keys, matched in applyQueueBadges.)
+const SLA_CRITICAL_KEYS = new Set([
+  'disputes',
+  'force-majeure',
+  'account-deletions',
+  'approvals',
+  'user-reports',
+]);
+
+/**
+ * Injects live open-work counts (getAdminQueueCounts, keyed by nav-item key)
+ * onto the matching Work items as a NavBadge. Only a positive count badges — a
+ * null count (queue unavailable) or 0 (clear) shows nothing, and items absent
+ * from the map (Directory + the config groups) are untouched. Runs AFTER the
+ * registry overlay so an admin-renamed label keeps its count.
+ */
+function applyQueueBadges(
+  groups: NavGroup[],
+  queueCounts?: AdminQueueCounts,
+): NavGroup[] {
+  if (!queueCounts) return groups;
+  return groups.map((group) => ({
+    ...group,
+    items: group.items.map((item) => {
+      const count = queueCounts[item.key];
+      if (typeof count !== 'number' || count <= 0) return item;
+      return {
+        ...item,
+        badge: {
+          count,
+          tone: SLA_CRITICAL_KEYS.has(item.key) ? ('red' as const) : ('amber' as const),
+          label: `${count} pending`,
+        },
+      };
+    }),
+  }));
+}
+
+export function AdminSidebar({
+  navSlots,
+  queueCounts,
+}: {
+  navSlots?: Record<string, NavSlotLite>;
+  queueCounts?: AdminQueueCounts;
+}) {
   const pathname = usePathname() ?? '/admin';
-  const groups = applyAdminRegistry(ADMIN_NAV_GROUPS, navSlots);
+  const groups = applyQueueBadges(
+    applyAdminRegistry(ADMIN_NAV_GROUPS, navSlots),
+    queueCounts,
+  );
 
   return (
     <>

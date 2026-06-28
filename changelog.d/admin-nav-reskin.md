@@ -1,10 +1,18 @@
-## 2026-06-28 · refactor(admin-nav): re-skin admin sidebar to Operations / App-Engine / Settings vocabulary
+## 2026-06-28 · feat(admin-nav): live queue-count badges on the Work nav + one shared count source (+ sidebar re-skin)
 
-Vocabulary re-skin of the admin doorway nav — **keeps the owner-signed-off
-verb axis** (act / find / tune from `Admin_Console_Nav_Redesign_2026-06-08.md`),
-does **not** flip to topic-grouping, and **drops zero surfaces** / changes
-**zero URLs**. Frequency-first + system-last + collapsible were already in place;
-this pass adopts clearer naming and breaks up an overstuffed group.
+Headline: the always-on admin nav now shows **live open-work counts** so the
+95%-of-sessions "is there work in this queue?" question is answered *without
+opening the page*. Plus a vocabulary re-skin of the same nav surface.
+
+### Live queue-count badges (the throughput win)
+- New `lib/admin/queue-counts.ts` → `getAdminQueueCounts()`: the **single source of truth** for every Work queue's open count (keyed by nav-item key). The same head-count `Promise.all` had been copy-pasted **three times** (`/admin/work`, `/admin` overview, per-page) and had **already drifted once** (verify counted `coming_soon` vs `pending_review`); this consolidates it.
+- `app/admin/layout.tsx` fetches counts (parallel with nav slots, **fails open to `{}`** — a count error never blanks the chrome) and passes them to both nav surfaces.
+- `admin-sidebar.tsx`: each Work item badges its count — **red** for SLA-critical queues (disputes · force-majeure · account-deletions · approvals · user-reports), **amber** otherwise. Uses the already-shipped `NavBadge` → `<Badge>` render path (no new UI).
+- `admin-bottom-nav.tsx`: the mobile **Work** tab badges the **sum** of all queue counts.
+- `app/admin/work/page.tsx` refactored to consume the helper — **net code reduction** (~75 lines of duplicated query deleted).
+
+### Vocabulary re-skin (secondary)
+Keeps the owner-signed-off **verb axis** (act/find/tune, `Admin_Console_Nav_Redesign_2026-06-08.md`) — does **not** flip to topic-grouping — and **drops zero surfaces** / changes **zero URLs**.
 
 - **Desktop sidebar** (`app/admin/_components/admin-sidebar.tsx`):
   - `Money & Catalog` → **Monetization** (key `money` preserved for localStorage continuity).

@@ -14,6 +14,7 @@ import { AdminSidebar } from './_components/admin-sidebar';
 import { AdminBottomNav } from './_components/admin-bottom-nav';
 import { AdminNavFab } from './_components/admin-nav-fab';
 import { getNavSlotMap } from '@/lib/nav-registry';
+import { getAdminQueueCounts, type AdminQueueCounts } from '@/lib/admin/queue-counts';
 import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
@@ -125,13 +126,19 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   // Nav registry: admin-managed name+icon overrides, resolved server-side and
   // handed to the (client) admin nav. Cached via NAV_REGISTRY_TAG, fails open.
-  const navSlots = await getNavSlotMap();
+  // Queue counts: live open-work per Work queue, badged onto the nav so the
+  // 95%-of-sessions "is there work?" question is answered without opening a
+  // page. Fails open to {} — a count error must never blank the admin chrome.
+  const [navSlots, queueCounts] = await Promise.all([
+    getNavSlotMap(),
+    getAdminQueueCounts().catch(() => ({}) as AdminQueueCounts),
+  ]);
 
   return (
     <div className="app-surface">
       <SidebarShell
         sidebarHeader={<DoorwaySidebarHeader label="Setnayan HQ" switcherData={switcherData} />}
-        sidebar={<AdminSidebar navSlots={navSlots} />}
+        sidebar={<AdminSidebar navSlots={navSlots} queueCounts={queueCounts} />}
         topBar={topBar}
       >
         {/* Pad the bottom on mobile so BottomNav doesn't cover the last
@@ -142,7 +149,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       {/* Mobile BottomNav — auto-hides at lg via lg:hidden inside the
           BottomNav primitive. Sits outside SidebarShell so it doesn't
           inherit the desktop sidebar offset. */}
-      <AdminBottomNav navSlots={navSlots} />
+      <AdminBottomNav navSlots={navSlots} queueCounts={queueCounts} />
       {/* NAV-2 broken-out action — Payment requests (a sibling of the pill,
           never a tab). Hides itself when a docked SubNav is up. */}
       <AdminNavFab />

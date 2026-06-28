@@ -73,6 +73,7 @@ const SIDEBAR_SLOT_KEYS: Record<string, string> = {
   guests: 'customer.sidebar.guests',
   explore: 'customer.sidebar.explore',
   studio: 'customer.sidebar.studio',
+  launch: 'customer.sidebar.launch',
   budget: 'customer.sidebar.budget',
 };
 
@@ -97,7 +98,6 @@ const CHILD_SLOT_KEYS: Record<string, string> = {
   // Studio children
   'event-page': 'customer.sidebar.event-page',
   website: 'customer.sidebar.website',
-  launch: 'customer.sidebar.launch',
   'mood-board': 'customer.sidebar.mood-board',
   monogram: 'customer.sidebar.monogram',
   live: 'customer.sidebar.live',

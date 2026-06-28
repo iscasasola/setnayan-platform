@@ -206,13 +206,6 @@ export function buildCustomerNavGroups(
                     icon: Globe,
                     matchPrefix: `/site-editor/${eventId}`,
                   },
-                  {
-                    key: 'launch',
-                    label: 'Launch',
-                    href: `${base}/website/launch`,
-                    icon: Rocket,
-                    matchPrefix: `${base}/website/launch`,
-                  },
                 ]
               : []),
             {
@@ -244,6 +237,23 @@ export function buildCustomerNavGroups(
             },
           ],
         },
+        // "Launch" (owner 2026-06-28) — a TOP-LEVEL, always-visible sidebar
+        // entry. NOT a Studio child: the sidebar collapses a parent's children
+        // unless the active route is inside that section, so as a Studio child it
+        // was invisible from Home/Guests/etc. (owner: "it's not there"). Gated on
+        // the 'website' surface (websiteEnabled). Not added to the locked 5-tab
+        // mobile bottom nav; mobile reaches it via the Studio section sub-nav.
+        ...(opts?.websiteEnabled
+          ? [
+              {
+                key: 'launch',
+                label: 'Launch',
+                href: `${base}/website/launch`,
+                icon: Rocket,
+                matchPrefix: `${base}/website/launch`,
+              } as NavItem,
+            ]
+          : []),
         {
           // 5 · Budget — financial planning. Activity + Disputes are secondary
           // financial views surfaced only on the desktop sidebar.

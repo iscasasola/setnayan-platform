@@ -93,6 +93,102 @@ export type BudgetSnapshot = {
 };
 
 /**
+ * A single still-owed milestone with a due date — one row in the budget
+ * page's live "next coming payments" list. `remainingPhp` is the unpaid
+ * portion after payments matched to this line; `dueDate` is an ISO date
+ * (YYYY-MM-DD). Past-due-but-unpaid milestones are included (they sort to
+ * the top) so the host sees what's overdue, not just what's ahead.
+ */
+export type UpcomingPayment = {
+  /** Stable React key — the line_item_id. */
+  key: string;
+  vendorId: string;
+  vendorName: string;
+  label: string;
+  /** Full milestone amount (PHP). */
+  amountPhp: number;
+  /** Still-owed portion after payments logged against this line (PHP). */
+  remainingPhp: number;
+  /** ISO date the payment is due (YYYY-MM-DD). */
+  dueDate: string;
+};
+
+/**
+ * Serializable summary the live payment-progress card renders: the three
+ * headline totals, the whole-number percent paid, and the soonest unpaid
+ * milestones. Produced by buildBudgetLiveSummary — see there for the
+ * derivation rules.
+ */
+export type BudgetLiveSummary = {
+  /** Total amount to pay — sum of every vendor's itemized total (PHP). */
+  budget: number;
+  /** Total paid so far across all vendors (PHP). */
+  paid: number;
+  /** Outstanding balance, budget − paid floored at 0 (PHP). */
+  remaining: number;
+  /** Whole-number percent of budget paid (0–100); 0 when budget is 0. */
+  percentPaid: number;
+  /** Soonest unpaid milestones with a due date, earliest first. */
+  upcoming: UpcomingPayment[];
+};
+
+/**
+ * Collapse a BudgetSnapshot into the serializable shape the live
+ * payment-progress card renders. Pure (no I/O) so it runs both during the
+ * server render of the budget page AND inside the realtime refetch server
+ * action — one definition, identical math on both paths.
+ *
+ * `upcoming` lists host-entered line items (event_vendor_line_items) that
+ * still owe money and carry a due_date, earliest first. Per-line "still
+ * owed" is computed exactly the way renderBudgetIcs does it — payments
+ * matched by line_item_id — so the card, the .ics export, and the per-vendor
+ * cards all agree on what's outstanding. Vendor-controlled catalog items and
+ * the legacy headline total_cost_php have no due dates, so they feed the
+ * totals but never appear in the upcoming list.
+ */
+export function buildBudgetLiveSummary(
+  snapshot: BudgetSnapshot,
+  limit = 5,
+): BudgetLiveSummary {
+  const { budget, paid, remaining } = snapshot.totals;
+  const percentPaid =
+    budget > 0 ? Math.min(100, Math.round((paid / budget) * 100)) : 0;
+
+  const upcoming: UpcomingPayment[] = [];
+  for (const s of snapshot.vendors) {
+    for (const li of s.lineItems) {
+      if (!li.due_date) continue;
+      const amount = Number(li.amount_php);
+      const paidForLine = s.payments
+        .filter((p) => p.line_item_id === li.line_item_id)
+        .reduce((acc, p) => acc + Number(p.amount_php), 0);
+      const remainingForLine = amount - paidForLine;
+      if (remainingForLine <= 0) continue;
+      upcoming.push({
+        key: li.line_item_id,
+        vendorId: s.vendor.vendor_id,
+        vendorName: s.vendor.vendor_name,
+        label: li.label,
+        amountPhp: amount,
+        remainingPhp: remainingForLine,
+        dueDate: li.due_date,
+      });
+    }
+  }
+  // Earliest due first — overdue milestones (dates in the past) naturally
+  // sort to the top so the host sees them before what's merely upcoming.
+  upcoming.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+
+  return {
+    budget,
+    paid,
+    remaining,
+    percentPaid,
+    upcoming: upcoming.slice(0, limit),
+  };
+}
+
+/**
  * Per-vendor lookup table mapping event_vendors.vendor_id to the vendor's
  * marketplace identity + pricing source. Built once per fetchBudgetSnapshot
  * call by joining event_vendors → vendor_profiles → vendor_packages /

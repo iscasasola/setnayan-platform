@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { isChineseWedding } from '@/lib/chinese-wedding';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
-import { fetchBudgetSnapshot, formatPhp } from '@/lib/budget';
+import { fetchBudgetSnapshot, buildBudgetLiveSummary, formatPhp } from '@/lib/budget';
 import { resolveAllocationInputs } from '@/lib/budget-allocation-data';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { fetchPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
@@ -14,6 +14,7 @@ import { fetchPlanForCouple } from '@/lib/vendor-service-payment-schedules.serve
 import type { PlanInstance } from '@/lib/vendor-service-payment-schedules';
 import { BudgetSetter } from './_components/budget-setter';
 import { BudgetAllocationPlanner } from './_components/budget-allocation-planner';
+import { BudgetLiveSummaryCard } from './_components/budget-live-summary';
 import { VendorItemizationCard } from '../_components/vendor-itemization-card';
 
 export const metadata = { title: 'Budget' };
@@ -324,7 +325,10 @@ export default async function BudgetPage({ params }: Props) {
           </p>
         </div>
 
-        <StatsStrip totals={snapshot.totals} />
+        <BudgetLiveSummaryCard
+          eventId={eventId}
+          initial={buildBudgetLiveSummary(snapshot)}
+        />
 
         {!hasAnyVendors ? (
           <EmptyBudget eventId={eventId} />
@@ -554,66 +558,6 @@ function UnlocksHint() {
         where you stand. Update it anytime as your plans evolve.
       </p>
     </section>
-  );
-}
-
-function StatsStrip({
-  totals,
-}: {
-  totals: {
-    budget: number;
-    paid: number;
-    remaining: number;
-    upcomingDueAmount: number;
-    upcomingDueCount: number;
-  };
-}) {
-  return (
-    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <StatTile label="Total budget" value={formatPhp(totals.budget)} />
-      <StatTile label="Paid so far" value={formatPhp(totals.paid)} />
-      <StatTile
-        label="Still to pay"
-        value={formatPhp(totals.remaining)}
-        tone={totals.remaining > 0 ? 'warn' : 'good'}
-      />
-      <StatTile
-        label="Due in 30 days"
-        value={
-          totals.upcomingDueCount > 0
-            ? `${formatPhp(totals.upcomingDueAmount)} · ${totals.upcomingDueCount}`
-            : '—'
-        }
-        tone={totals.upcomingDueCount > 0 ? 'warn' : 'default'}
-      />
-    </ul>
-  );
-}
-
-function StatTile({
-  label,
-  value,
-  tone = 'default',
-}: {
-  label: string;
-  value: string;
-  tone?: 'default' | 'warn' | 'good';
-}) {
-  return (
-    <li className="rounded-xl border border-ink/10 bg-cream p-4">
-      <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">{label}</p>
-      <p
-        className={`mt-1 text-xl font-semibold tracking-tight ${
-          tone === 'warn'
-            ? 'text-terracotta-700'
-            : tone === 'good'
-              ? 'text-success-700'
-              : 'text-ink'
-        }`}
-      >
-        {value}
-      </p>
-    </li>
   );
 }
 

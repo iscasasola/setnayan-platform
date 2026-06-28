@@ -218,7 +218,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-account",
     route: "/dashboard/library",
-    label: "Collection",
+    label: "Memories Hub",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "LayoutGrid",

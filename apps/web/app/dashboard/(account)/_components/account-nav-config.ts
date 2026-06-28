@@ -41,12 +41,13 @@ export function buildAccountNavGroups(): NavGroup[] {
           matchPrefix: '__home__',
         },
         {
-          // Collection — cross-event hub: Photos & Videos · Saved Vendors · Editorials,
-          // aggregated across every event the user hosts or attends. Labelled
-          // "Collection" (not "Account") so it no longer collides with the
-          // identity surface "Profile & Settings" below.
+          // Memories Hub — the cross-event lifelong archive (Photos & Videos ·
+          // Saved Vendors · Editorials), aggregated across every event the user
+          // hosts or attends. Renamed Collection → Memories Hub (owner 5-focus
+          // reframe 2026-06-28); key + href + slot key stay stable (public URL
+          // unchanged; admin overrides key off the slot).
           key: 'library',
-          label: 'Collection',
+          label: 'Memories Hub',
           href: '/dashboard/library',
           icon: LayoutGrid,
           matchPrefix: '/dashboard/library',

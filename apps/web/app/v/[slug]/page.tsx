@@ -49,6 +49,7 @@ import { getEventPreference } from '@/lib/event-preferences';
 import { isSetnayanAiActive } from '@/lib/setnayan-ai';
 import { resolveSetnayanAiPaywallEnabled } from '@/lib/integration-config';
 import { NavLinksRow } from '@/app/_components/nav-links';
+import { VendorLocationMap } from '@/app/_components/vendor-location-map';
 import {
   fetchReviewsForVendorWithCouple,
   fetchReviewStats,
@@ -1073,6 +1074,15 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
                 />
               </div>
             ) : null}
+            {/* Visual map (2026-06-28). The picture-of-the-map above the
+                directions chips — OSM embed with a marker pin, key-free.
+                Renders only when coordinates exist; label uses location_city
+                so a hidden vendor's business name never leaks. */}
+            <VendorLocationMap
+              latitude={vendor.hq_latitude}
+              longitude={vendor.hq_longitude}
+              label={vendor.location_city ?? null}
+            />
             {/* Nav deep-links (2026-05-21). Renders Google Maps · Waze ·
                 Apple Maps when the vendor has hq_lat/lng. Falls back to
                 a single Google Maps text-search when only the address

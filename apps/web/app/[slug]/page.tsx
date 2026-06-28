@@ -60,6 +60,7 @@ import { NavLinksRow } from '@/app/_components/nav-links';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
 import { GuestPreload } from './_components/guest-preload';
 import { GuestHubBar } from './_components/guest-hub-bar';
+import { PublicEventDayBar } from './_components/public-event-day-bar';
 import { StdViewBeacon } from './_components/std-view-beacon';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { displayUrlForStdBackground } from '@/lib/std-bg-image';
@@ -894,6 +895,22 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     }
   }
 
+  // Event-day chrome for the no-guest PublicLanding paths (owner 2026-06-28 —
+  // unify the three event-day views so an anonymous open / host `?phase=event`
+  // preview shares the same bottom bar a real guest sees). The candid camera
+  // surfaces only during the live window when the couple's PAPIC_GUEST camera
+  // is open; the public album points at the Live Photo Wall during the day and
+  // the recap after. One cheap read, and only in the live window.
+  const publicCandidCameraActive =
+    dayOfPhase === 'live'
+      ? await eventPapicGuestActive(admin, event.event_id)
+      : false;
+  const publicAlbumHref = liveWall
+    ? `/${event.slug}/live-wall`
+    : dayOfPhase === 'post'
+      ? `/${event.slug}/recap`
+      : null;
+
   if (!session) {
     return (
       <PublicLanding
@@ -901,6 +918,8 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         monogram={monogram}
         animatedMonogram={animatedMonogram}
         studioAnim={studioAnim}
+        publicCandidCameraActive={publicCandidCameraActive}
+        publicAlbumHref={publicAlbumHref}
         reason={inviteError === 'invalid_token' ? 'invalid_invite' : null}
         dayOfPhase={dayOfPhase}
         phasesEnabled={phasesEnabled}
@@ -937,6 +956,8 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         monogram={monogram}
         animatedMonogram={animatedMonogram}
         studioAnim={studioAnim}
+        publicCandidCameraActive={publicCandidCameraActive}
+        publicAlbumHref={publicAlbumHref}
         reason="wrong_event"
         dayOfPhase={dayOfPhase}
         phasesEnabled={phasesEnabled}
@@ -980,6 +1001,8 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         monogram={monogram}
         animatedMonogram={animatedMonogram}
         studioAnim={studioAnim}
+        publicCandidCameraActive={publicCandidCameraActive}
+        publicAlbumHref={publicAlbumHref}
         reason="invalid_invite"
         dayOfPhase={dayOfPhase}
         phasesEnabled={phasesEnabled}
@@ -1739,6 +1762,8 @@ function PublicLanding({
   sdeOwnedPending,
   bespokeSvg,
   proWatermarkHidden,
+  publicCandidCameraActive,
+  publicAlbumHref,
 }: {
   event: EventRow;
   // The couple's resolved mark (resolveMonogram) — feeds the anonymous hero's
@@ -1818,6 +1843,12 @@ function PublicLanding({
    *  watermark when the event owns the active upgrade. Resolved once at the
    *  top-level page (eventCoupleWebsiteProActive). */
   proWatermarkHidden: boolean;
+  /** Couple's PAPIC_GUEST candid camera is open (live window) — drives the
+   *  public event-day bar's center Camera action. */
+  publicCandidCameraActive: boolean;
+  /** Public album destination (Live Wall / recap), or null — drives the public
+   *  event-day bar's Photos action. */
+  publicAlbumHref: string | null;
 }) {
   // Public-safe hideable widgets in the host's display order. The 6
   // types below all carry event-level data (no per-guest fields) so
@@ -2023,6 +2054,16 @@ function PublicLanding({
           </p>
         )}
       </div>
+
+      {/* Public event-day bar (owner 2026-06-28) — gives the no-guest /
+          host-preview view the same bottom chrome a real guest sees, so the
+          three event-day views stop looking like different pages. Fixed-position
+          and self-hiding: renders nothing outside the live/post window (both
+          inputs fall to false/null). */}
+      <PublicEventDayBar
+        candidCameraActive={publicCandidCameraActive}
+        photosHref={publicAlbumHref}
+      />
 
       {/* Find your seat — the FREE guest finder (seat-finding PR 1). Pure
           navigation on this always-rendered public landing: the /find-seat

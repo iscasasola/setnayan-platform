@@ -131,7 +131,18 @@ jobs:
 
       - name: Apply pending migrations
         if: steps.gate.outputs.enabled == 'true'
-        run: supabase db push --yes
+        # --include-all: apply EVERY local migration missing from the remote
+        # ledger, even one whose timestamp sorts BEFORE the latest applied
+        # version. Without it, `db push` aborts ("Found local migration files to
+        # be inserted before the last migration on remote database") whenever an
+        # older-timestamp migration lands after a newer one was already applied —
+        # which happens with cross-branch timestamp interleaving and after any
+        # out-of-band apply. The repo's `pnpm migration:new` allocator keeps new
+        # prefixes monotonic, so in the normal path --include-all is a no-op; it
+        # only matters for the out-of-order tail, where skipping a real migration
+        # is the worse failure. (2026-06-28: this is what unblocked the auto-apply
+        # after the phantom-ledger reconciliation.)
+        run: supabase db push --include-all --yes
 
       - name: Show migration history after apply
         if: always() && steps.gate.outputs.enabled == 'true'

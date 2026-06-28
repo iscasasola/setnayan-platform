@@ -1326,6 +1326,11 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         hasAccount={Boolean(viewerAccount)}
         galleryCount={guestLiveGallery?.total ?? 0}
         showClaimAnchor={!viewerAccount && lifecyclePhase !== 'save_the_date'}
+        hubHref={
+          dayOfPhase === 'live' || dayOfPhase === 'post'
+            ? `/${event.slug}/hub`
+            : null
+        }
       />
     </>
   );
@@ -1993,6 +1998,11 @@ function PublicLanding({
       <PublicEventDayBar
         candidCameraActive={publicCandidCameraActive}
         photosHref={publicAlbumHref}
+        hubHref={
+          dayOfPhase === 'live' || dayOfPhase === 'post'
+            ? `/${event.slug}/hub`
+            : null
+        }
       />
 
       {/* Find your seat — the FREE guest finder (seat-finding PR 1). Pure

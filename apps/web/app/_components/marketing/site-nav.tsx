@@ -83,7 +83,7 @@ export function Nav({
   // SiteChrome; it fails open to the code label whenever a slot has no override
   // (or the map didn't resolve at all).
   const navLinks: Array<{ label: string; href: string; slot: string }> = [
-    { label: 'Explore', href: '/vendors', slot: 'public.site-nav.explore' },
+    { label: 'Explore', href: '/explore', slot: 'public.site-nav.explore' },
     { label: 'For vendors', href: '/for-vendors', slot: 'public.site-nav.for-vendors' },
     { label: 'Our story', href: '/our-story', slot: 'public.site-nav.our-story' },
     { label: 'Journal', href: '/blog', slot: 'public.site-nav.journal' },

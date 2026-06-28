@@ -28,6 +28,13 @@ export const metadata = {
     locale: 'en_PH',
     images: [{ url: '/brand/og-card.webp', width: 1200, height: 630 }],
   },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Help & support · Setnayan',
+    description:
+      'Step-by-step guides for couples, vendors, guests, and admins using Setnayan. Pick your role tile or send us a message.',
+    images: ['/brand/og-card.webp'],
+  },
 };
 
 const FAQ_JSONLD = {

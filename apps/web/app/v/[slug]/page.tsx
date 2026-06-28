@@ -813,6 +813,20 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
       price: String(Math.round(pkg.total_price_centavos / 100)),
       priceCurrency: 'PHP',
     }));
+
+    // priceRange — a one-glance cost band derived from the vendor's OWN
+    // published package prices (never invented). Lets AI answer engines
+    // place the vendor in a budget tier ("affordable", "premium") without
+    // parsing every makesOffer entry, the way Google/Yelp surface "₱₱" bands.
+    // Single-package vendors collapse to one figure (min === max → "₱X").
+    const pkgPesos = offerPackages.map((pkg) =>
+      Math.round(pkg.total_price_centavos / 100),
+    );
+    const minPeso = Math.min(...pkgPesos);
+    const maxPeso = Math.max(...pkgPesos);
+    const peso = (n: number) => `₱${n.toLocaleString('en-PH')}`;
+    vendorJsonLd.priceRange =
+      minPeso === maxPeso ? peso(minPeso) : `${peso(minPeso)}–${peso(maxPeso)}`;
   }
 
   // SEO/GEO Bucket 4 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — explicit

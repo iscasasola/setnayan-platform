@@ -35,6 +35,12 @@ export const metadata = {
       'Guest list, seating, budget, mood board, schedule, vendor ledger, plus day-of apparatus (Panood, Papic, Pakulay).',
     url: '/features',
   },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Every Feature in Setnayan — Wedding & Life-Events Platform Philippines',
+    description:
+      'Guest list, seating, budget, mood board, schedule, vendor ledger, plus day-of apparatus (Panood, Papic, Pakulay).',
+  },
 };
 
 export default function FeaturesPage() {

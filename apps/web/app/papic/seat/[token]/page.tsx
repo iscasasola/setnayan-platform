@@ -112,6 +112,7 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
       <PapicSeatCapture
         token={token}
         seatIndex={seat.seat_index as number}
+        eventId={(seat.event_id as string) ?? ''}
         initialPhotos={photoCount ?? 0}
         initialClips={clipCount ?? 0}
         photoCap={null}

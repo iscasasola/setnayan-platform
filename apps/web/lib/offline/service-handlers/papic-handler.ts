@@ -1,27 +1,23 @@
-// V2 Cutover Phase G — Papic offline upload handler stub.
+// Papic offline upload handler — drains the `papic` IndexedDB queue.
 //
-// CLAUDE.md 2026-05-28 third row "V1 → V2 ARCHITECTURAL PIVOT LOCK"
-// lists Papic (photo capture) as one of the 7 media services with offline
-// queue scaffolding. Phase G ships ONLY the bus + stubs; the real upload
-// path (R2 multipart, event_photos INSERT, face-detect kick-off) wires
-// up in V1.x once the V2 Papic surface lands per the canonical brief.
-//
-// Stub contract: return `{ ok: false, error: 'V1.x post-pilot' }` so the
-// sync daemon keeps items in the queue + the admin diagnostic surfaces
-// the placeholder reason. Once a real handler lands here, it returns
-// `{ ok: true }` on successful upload + the daemon dequeues.
+// Group A · PR A1 replaces the V2-Phase-G stub (which returned
+// `{ ok: false, error: 'V1.x post-pilot' }` so items stayed parked). The real
+// drain lives in `papic-drain.ts` and replays the shipped seat delivery
+// (presign /api/upload → PUT to R2 → recordSeatCapture). The seat capture UI
+// enqueues a capture here only on an INFRASTRUCTURE failure, so a venue WiFi
+// blip — or the paparazzo closing the tab before reconnecting — never loses a
+// shot: the sync daemon (foreground + Background Sync) drains it on reconnect.
 
 import type { OfflineItem, SyncResult } from '../types';
+import { drainPapicCapture } from './papic-drain';
 
 /**
- * Upload one Papic capture from the offline queue. STUB — V1.x.
+ * Upload one Papic capture from the offline queue.
  *
- * @param item - Pending queue entry (unused in the stub).
- * @returns Always `{ ok: false, error: 'V1.x post-pilot' }` until the
- *          V1.x Papic upload pipeline ships.
+ * @param item - Pending queue entry (seat token + bytes + kind in `payload`).
+ * @returns `{ ok: true }` on a successful land (daemon dequeues) or
+ *          `{ ok: false, error }` to keep the item visible with its reason.
  */
-export async function syncOne(_item: OfflineItem): Promise<SyncResult> {
-  // TODO(V1.x · Papic Phase G+1): Wire to R2 multipart upload + event_photos
-  // INSERT. See CLAUDE.md 2026-05-28 third row for the V2 architecture.
-  return { ok: false, error: 'V1.x post-pilot' };
+export async function syncOne(item: OfflineItem): Promise<SyncResult> {
+  return drainPapicCapture(item);
 }

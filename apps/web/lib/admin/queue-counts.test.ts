@@ -10,11 +10,18 @@ import assert from 'node:assert/strict';
 import {
   computeDueState,
   deriveQueueUrgency,
+  ADMIN_QUEUE_META,
   type AdminQueueDigest,
+  type AdminQueueDigestRow,
 } from './queue-counts';
 
 const NOW = Date.parse('2026-06-28T12:00:00Z');
 const hoursAgo = (h: number) => new Date(NOW - h * 3_600_000).toISOString();
+
+// A complete digest (all metadata queues present) — mirrors what
+// getAdminQueueDigest always returns in prod (every key, count maybe null).
+const fullDigest = (fill: () => AdminQueueDigestRow): AdminQueueDigest =>
+  Object.fromEntries(Object.keys(ADMIN_QUEUE_META).map((k) => [k, fill()]));
 
 test('computeDueState — empty / unknown states', () => {
   assert.equal(computeDueState({ count: null, oldestAt: null }, 24, NOW), 'unknown');
@@ -63,4 +70,22 @@ test('deriveQueueUrgency — ignores keys not in the queue metadata', () => {
   assert.equal(u.overdue, 0);
   assert.equal(u.totalOpen, 0);
   assert.deepEqual(u.states, {});
+});
+
+test('deriveQueueUrgency — distinguishes genuinely-clear from a degraded read', () => {
+  // Every queue reports 0 → genuinely all-clear (no unknowns).
+  const clear = deriveQueueUrgency(
+    fullDigest(() => ({ count: 0, oldestAt: null })),
+    NOW,
+  );
+  assert.equal(clear.totalOpen, 0);
+  assert.equal(clear.unknownCount, 0, 'all-zero is genuinely clear');
+
+  // Every queue count is null → read failed; must NOT look like all-clear.
+  const degraded = deriveQueueUrgency(
+    fullDigest(() => ({ count: null, oldestAt: null })),
+    NOW,
+  );
+  assert.equal(degraded.totalOpen, 0);
+  assert.ok(degraded.unknownCount > 0, 'all-null is degraded, not clear');
 });

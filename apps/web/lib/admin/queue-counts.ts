@@ -241,6 +241,13 @@ export type QueueUrgency = {
   dueSoon: number;
   /** Sum of open items across all queues. */
   totalOpen: number;
+  /**
+   * Queues whose count came back NULL (query degraded/unavailable). Lets a
+   * caller tell "genuinely all-clear" (totalOpen 0, unknownCount 0) from a
+   * "read failed" all-clear (totalOpen 0, unknownCount > 0) — so an outage
+   * never renders a falsely reassuring "all clear".
+   */
+  unknownCount: number;
 };
 
 /**
@@ -258,14 +265,19 @@ export function deriveQueueUrgency(
   let overdue = 0;
   let dueSoon = 0;
   let totalOpen = 0;
+  let unknownCount = 0;
   for (const [key, meta] of Object.entries(ADMIN_QUEUE_META)) {
     const row = digest[key];
-    if (!row) continue;
-    totalOpen += Math.max(0, row.count ?? 0);
+    if (!row || row.count === null) {
+      unknownCount += 1; // queue missing from digest, or its count query degraded
+      if (row) states[key] = computeDueState(row, meta.slaHours, nowMs);
+      continue;
+    }
+    totalOpen += Math.max(0, row.count);
     const state = computeDueState(row, meta.slaHours, nowMs);
     states[key] = state;
     if (state === 'overdue') overdue += 1;
     else if (state === 'due-soon') dueSoon += 1;
   }
-  return { states, overdue, dueSoon, totalOpen };
+  return { states, overdue, dueSoon, totalOpen, unknownCount };
 }

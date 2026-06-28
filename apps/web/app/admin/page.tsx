@@ -108,7 +108,11 @@ export default async function AdminOverview() {
     vendorPartnerships: ds('vendor-partnerships'),
   };
 
-  // Lanes — mirror the Work nav grouping (Trust / Money / Recourse / Support).
+  // Lanes — the overview's OWN curated consequence grouping (Trust & supply /
+  // Money / Recourse / Approvals & support). Deliberately more granular than,
+  // and NOT identical to, the canonical ADMIN_QUEUE_META lanes (money / trust /
+  // growth / support) the command center + digest tag by — the per-queue COUNTS
+  // agree across surfaces; this presentational lane split is overview-only.
   const lanes: {
     key: string;
     label: string;
@@ -259,11 +263,13 @@ export default async function AdminOverview() {
   ];
 
   // Total covers EVERY digest queue (urgency.totalOpen) + taxonomy (the one
-  // standalone queue). Derived from the digest, NOT the tile roster, so the
-  // "all clear" banner can never read false if a tile is ever dropped from a
-  // lane again (the bug this audit caught). Belt-and-suspenders below: the
-  // banner also checks urgency.overdue, so an overdue queue always blocks it.
+  // standalone queue). Derived from the digest, NOT the tile roster, so a tile
+  // dropped from a lane can't make the "all clear" banner read false.
   const totalOpen = urgency.totalOpen + Math.max(0, q.taxonomy ?? 0);
+  // Tell "genuinely empty" from "read failed": a null count (degraded query)
+  // must NOT render a reassuring all-clear. taxonomy is the standalone queue, so
+  // a null there counts as unavailable too.
+  const anyUnavailable = urgency.unknownCount > 0 || q.taxonomy === null;
 
   // Recent admin activity — the last few admin_audit_log entries (real data,
   // not a fake feed) so an admin lands and sees what teammates just did, which
@@ -319,14 +325,16 @@ export default async function AdminOverview() {
           rest of the year. See ./_apple-secret-reminder.tsx. */}
       <AppleSecretReminder />
 
-      {/* COMMAND CENTER · action queues grouped by lane.
-       *  Ops-shaped nav redesign (Admin_Console_Nav_Redesign_2026-06-08 ·
-       *  owner sign-off 2026-06-08). Surfaces ALL pending queues — not just
-       *  4 — so an admin lands and sees the whole workload without drilling.
-       *  Lanes mirror the Work nav grouping; the "Money to reconcile" lane
-       *  is the always-visible one-stop money view that satisfies the
-       *  Money-lane sign-off condition (the dissolved Money group's queues,
-       *  reunited here). */}
+      {/* ACTION QUEUES · every pending queue grouped by the overview's own
+       *  curated consequence lanes (Trust & supply / Money / Recourse /
+       *  Approvals & support — overview-only, distinct from the canonical
+       *  ADMIN_QUEUE_META lanes). Ops-shaped nav redesign
+       *  (Admin_Console_Nav_Redesign_2026-06-08 · owner sign-off 2026-06-08):
+       *  surfaces ALL pending queues so an admin lands and sees the whole
+       *  workload. The "Money to reconcile" lane is the always-visible
+       *  one-stop money view (the dissolved Money group's queues, reunited).
+       *  Per-queue counts come from the shared digest, so they agree with the
+       *  nav badges + /admin/work + the digest email by construction. */}
       <section
         aria-labelledby="action-queues-heading"
         className="mb-8 rounded-2xl border border-terracotta/20 bg-gradient-to-br from-cream to-terracotta-50/30 p-5 sm:p-6"
@@ -340,11 +348,13 @@ export default async function AdminOverview() {
           </h2>
           <div className="flex items-center gap-3">
             <p className="text-xs text-ink/55">
-              {totalOpen === 0
-                ? 'All queues clear · nothing pending.'
-                : urgency.overdue > 0
+              {totalOpen > 0
+                ? urgency.overdue > 0
                   ? `${totalOpen} open · ${urgency.overdue} past SLA`
-                  : `${totalOpen} open across all queues`}
+                  : `${totalOpen} open across all queues`
+                : anyUnavailable
+                  ? 'Some queue counts are unavailable — refresh'
+                  : 'All queues clear · nothing pending.'}
             </p>
             {/* The ranked, busiest-first worklist — same data, single-screen
                 triage view (overdue → due-soon → busiest). */}

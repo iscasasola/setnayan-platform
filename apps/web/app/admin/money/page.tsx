@@ -1,5 +1,5 @@
 /**
- * /admin/money — mobile overflow landing for the Money & Catalog group.
+ * /admin/money — mobile overflow landing for the Monetization group.
  *
  * WHY: nav tune 2026-06-15 (owner-approved this session — "6 tabs, keep
  * 'Work'"). The 2026-06-08 ops redesign had dissolved the Money tab and
@@ -9,9 +9,9 @@
  * a real card-grid landing again — config surfaces only (the act-now money
  * QUEUES — Payments · Payouts · Token sales — stay in Work, not here).
  *
- * Mirrors the desktop sidebar's Money & Catalog group (key 'money') 1:1 per
- * [[feedback_setnayan_orphan_prevention]]; items lifted verbatim from the old
- * /admin/more accordion's Money & Catalog section.
+ * Mirrors the desktop sidebar's Monetization group (key 'money', relabelled
+ * from "Money & Catalog" in the 2026-06-28 vocabulary re-skin) 1:1 per
+ * [[feedback_setnayan_orphan_prevention]].
  *
  * Payment methods lives under /admin/settings/payment-methods, so on that
  * page the More tab lights up (via its '/admin/settings' umbrella), not this
@@ -19,7 +19,7 @@
  * a double-highlight. The card still links there from this landing.
  *
  * SCOPE: server component (same pattern as /admin/directory). Hidden at lg+
- * via lg:hidden — desktop reaches these through the sidebar Money group.
+ * via lg:hidden — desktop reaches these through the sidebar Monetization group.
  */
 
 import {
@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 import { MobileLandingGrid, type LandingItem } from '../_components/mobile-landing-grid';
 
-export const metadata = { title: 'Money & Catalog · Admin' };
+export const metadata = { title: 'Monetization · Admin' };
 
 const MONEY_ITEMS: LandingItem[] = [
   {
@@ -97,7 +97,7 @@ const MONEY_ITEMS: LandingItem[] = [
 export default function AdminMoneyLanding() {
   return (
     <MobileLandingGrid
-      title="Money & Catalog"
+      title="Monetization"
       subtitle="Pricing, catalog, vouchers, and the receiving accounts couples pay into."
       items={MONEY_ITEMS}
     />

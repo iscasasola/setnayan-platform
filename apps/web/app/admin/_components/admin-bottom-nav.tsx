@@ -136,10 +136,11 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     label: 'More',
     href: '/admin/more',
     icon: Menu,
-    // NAV TUNE 2026-06-15 / 2026-06-21 — More carries the Platform group + the
-    // Insights group (Insights demoted from its dedicated tab in the <=5
-    // reroster; Money still its own tab). Every route is enumerated so none
-    // goes "unlit" on mobile per [[feedback_setnayan_orphan_prevention]].
+    // NAV TUNE 2026-06-15 / 2026-06-21 — More carries the Insights group + the
+    // three groups the desktop "Platform" group split into on 2026-06-28 (Data
+    // Structure · Content & Media · Settings; Money still its own tab). Every
+    // route is enumerated so none goes "unlit" on mobile per
+    // [[feedback_setnayan_orphan_prevention]].
     activeMatch: [
       '/admin/more',
       // Insights group (demoted from its dedicated tab in the 2026-06-21 <=5
@@ -152,8 +153,9 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/admin/operations-hiring',
       '/admin/connection-logs',
       '/admin/offline',
-      // Platform group (note: /admin/settings also covers
-      // /admin/settings/payment-methods + /admin/settings/demo-mode)
+      // Data Structure + Content & Media + Settings groups (note:
+      // /admin/settings also covers /admin/settings/demo-mode; payment-methods
+      // sits under the Money tab's domain but is matched via this umbrella)
       '/admin/settings',
       '/admin/menus',
       '/admin/onboarding',

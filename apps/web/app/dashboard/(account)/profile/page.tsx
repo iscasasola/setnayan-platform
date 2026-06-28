@@ -348,23 +348,27 @@ export default async function ProfilePage({ searchParams }: Props) {
               </span>
             </span>
           </label>
-          <label className="flex cursor-pointer items-start gap-3 rounded-md border border-ink/10 bg-cream p-3 text-sm">
-            <input
-              type="checkbox"
-              name="marketing_opt_in"
-              defaultChecked={profile?.marketing_opt_in ?? false}
-              className="mt-0.5 h-4 w-4 cursor-pointer accent-terracotta"
-            />
-            <span>
-              <span className="block font-medium text-ink">
-                Receive marketing emails
+          {/* Anon-draft: marketing email would go to the non-routable
+              placeholder address. Hide until they secure a real email. */}
+          {isAnon ? null : (
+            <label className="flex cursor-pointer items-start gap-3 rounded-md border border-ink/10 bg-cream p-3 text-sm">
+              <input
+                type="checkbox"
+                name="marketing_opt_in"
+                defaultChecked={profile?.marketing_opt_in ?? false}
+                className="mt-0.5 h-4 w-4 cursor-pointer accent-terracotta"
+              />
+              <span>
+                <span className="block font-medium text-ink">
+                  Receive marketing emails
+                </span>
+                <span className="block text-xs text-ink/55">
+                  Product updates · new templates · seasonal promos. RA 10173 opt-in. Default
+                  off.
+                </span>
               </span>
-              <span className="block text-xs text-ink/55">
-                Product updates · new templates · seasonal promos. RA 10173 opt-in. Default
-                off.
-              </span>
-            </span>
-          </label>
+            </label>
+          )}
           <SubmitButton className="button-primary" pendingLabel="Saving…">
             Save personal info
           </SubmitButton>
@@ -917,6 +921,21 @@ export default async function ProfilePage({ searchParams }: Props) {
               </SubmitButton>
             </form>
           </div>
+        ) : isAnon ? (
+          // Anon-draft: there's no permanent account to delete — the deletion
+          // queue is for real accounts. Explain instead of showing a confirm
+          // box that just redirects to /signup.
+          <p className="rounded-xl border border-ink/10 bg-cream p-4 text-sm text-ink/70">
+            Your plan isn&rsquo;t saved to an account yet, so there&rsquo;s nothing to delete. To
+            discard it, just close the tab; to keep it,{' '}
+            <Link
+              href="/signup?next=%2Fdashboard%2Fprofile"
+              className="font-medium text-mulberry hover:text-mulberry-600"
+            >
+              secure your plan
+            </Link>
+            .
+          </p>
         ) : (
           <details className="space-y-3 rounded-xl border border-danger-200/60 bg-danger-50/50 p-4">
             <summary className="flex cursor-pointer items-center gap-2 text-sm font-medium text-danger-800">
@@ -993,11 +1012,20 @@ export default async function ProfilePage({ searchParams }: Props) {
             Setnayan HQ ↗
           </Link>
         ) : null}
-        <form action="/auth/sign-out" method="post">
-          <SubmitButton pendingLabel="Signing out…" className="button-secondary">
-            {tr('cta.sign_out')}
-          </SubmitButton>
-        </form>
+        {isAnon ? (
+          // Anon-draft: signing out destroys their only key to the plan (no
+          // password to get back in). Offer "Secure your plan" instead of a
+          // one-way "Sign out".
+          <Link href="/signup?next=%2Fdashboard%2Fprofile" className="button-primary">
+            Secure your plan
+          </Link>
+        ) : (
+          <form action="/auth/sign-out" method="post">
+            <SubmitButton pendingLabel="Signing out…" className="button-secondary">
+              {tr('cta.sign_out')}
+            </SubmitButton>
+          </form>
+        )}
       </section>
     </div>
   );

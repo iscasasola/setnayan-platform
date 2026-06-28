@@ -80,12 +80,10 @@ type SortKey = (typeof SORT_OPTIONS)[number]['value'];
 // bridesmaid / groomsman) still map there — but is hidden from the
 // View sidebar because owner wants those guests categorized through
 // custom groups instead.
-const VIEW_FILTERS: { key: string; label: string }[] = [
+const ALL_VIEW_FILTERS: { key: string; label: string }[] = [
   { key: 'all', label: 'All guests' },
   { key: 'vip_family', label: ROLE_GROUP_LABELS.vip_family },
-  // Nikah principals — only populated on muslim weddings; like the sibling
-  // role filters it's a static option (an empty result on a non-muslim wedding,
-  // same as Principal Sponsors etc. on a muslim one).
+  // Nikah principals — only applies to muslim weddings.
   { key: 'muslim_principals', label: ROLE_GROUP_LABELS.muslim_principals },
   // Wedding Party — owner directive 2026-05-23 (post-PR #424). Distinct
   // from the social-grouping filters (family/friends/work/school) that
@@ -101,6 +99,27 @@ const VIEW_FILTERS: { key: string; label: string }[] = [
   { key: 'bearers_flower_girl', label: ROLE_GROUP_LABELS.bearers_flower_girl },
   { key: 'officiants', label: ROLE_GROUP_LABELS.officiants },
 ];
+
+// The Catholic-Filipino role filters that have no Nikah equivalent. Keep the
+// View sidebar ceremony-correct: a muslim wedding shows 'Nikah Principals' and
+// hides these; every other wedding hides 'Nikah Principals'. (Avoids a couple
+// ever seeing an always-empty wrong-faith filter row.)
+const CATHOLIC_ONLY_VIEW_FILTERS = new Set([
+  'principal_sponsors',
+  'secondary_sponsors',
+  'bearers_flower_girl',
+]);
+
+function viewFiltersFor(
+  roleSetKey: string | null | undefined,
+): { key: string; label: string }[] {
+  const isMuslim = roleSetKey === 'wedding_muslim';
+  return ALL_VIEW_FILTERS.filter((f) => {
+    if (f.key === 'muslim_principals') return isMuslim;
+    if (CATHOLIC_ONLY_VIEW_FILTERS.has(f.key)) return !isMuslim;
+    return true;
+  });
+}
 
 type Props = {
   params: Promise<{ eventId: string }>;
@@ -138,6 +157,9 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // ceremony-aware so muslim weddings offer the Nikah roles (resolveRoleSetKeyForEvent
   // returns 'wedding_muslim' for them) and Catholic weddings keep 'wedding'.
   const guestRoleSetKey = await resolveRoleSetKeyForEvent(eventId);
+  // Ceremony-aware View-sidebar filters: muslim weddings get the Nikah-principals
+  // filter and not the Catholic sponsor/bearer ones, and vice-versa.
+  const viewFilters = viewFiltersFor(guestRoleSetKey);
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const supabase = await createClient();
@@ -564,7 +586,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           q={q}
           sorts={SORT_OPTIONS.map((o) => ({ key: o.value, label: o.label }))}
           currentSort={sort}
-          views={VIEW_FILTERS}
+          views={viewFilters}
           activeView={view}
           groups={groups}
           currentGroupId={currentGroupId}
@@ -611,6 +633,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         <FacetsSidebar
           eventId={eventId}
           view={view}
+          views={viewFilters}
           team={teamFilter}
           teamCounts={teamCounts}
           tagFilter={tagFilter}
@@ -1085,6 +1108,7 @@ function Toolbar({
 function FacetsSidebar({
   eventId,
   view,
+  views,
   team,
   teamCounts,
   tagFilter,
@@ -1095,6 +1119,7 @@ function FacetsSidebar({
 }: {
   eventId: string;
   view: string;
+  views: { key: string; label: string }[];
   team: 'all' | 'bride' | 'groom';
   teamCounts: { all: number; bride: number; groom: number };
   tagFilter: string;
@@ -1171,7 +1196,7 @@ function FacetsSidebar({
 
       <FacetGroup label="View">
         <ul className="space-y-1">
-          {VIEW_FILTERS.map((v) => (
+          {views.map((v) => (
             <li key={v.key}>
               <Link
                 href={buildHref({ view: v.key === 'all' ? null : v.key })}

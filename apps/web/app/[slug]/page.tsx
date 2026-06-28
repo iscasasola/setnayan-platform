@@ -199,7 +199,7 @@ const fetchEventBySlug = cache(async (slug: string) => {
   const { data } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_accent_hex, is_sample',
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_accent_hex, is_sample',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -2128,7 +2128,7 @@ function PublicHideableWidget({
       return <VenueWidget event={event} />;
 
     case 'dress_code':
-      return <DressCodeWidget config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} />;
+      return <DressCodeWidget config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} />;
 
     case 'photo_moments':
       return <PhotoMomentsWidget config={event.photo_moments_config} />;
@@ -3137,7 +3137,7 @@ function HideableWidgetRender({
       return <VenueWidget event={event} />;
 
     case 'dress_code':
-      return <DressCodeWidget config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} />;
+      return <DressCodeWidget config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} />;
 
     case 'photo_moments':
       return <PhotoMomentsWidget config={event.photo_moments_config} />;
@@ -3637,10 +3637,21 @@ function VenueWidget({ event }: { event: EventRow }) {
 function DressCodeWidget({
   config,
   ceremonyType,
+  genderSeparation,
 }: {
   config: EventRow['dress_code_config'];
   ceremonyType?: string | null;
+  genderSeparation?: string | null;
 }) {
+  // The couple's walima seating posture, surfaced to guests so they know what to
+  // expect at the reception. Muslim-only; 'none' (default) shows nothing. Neutral
+  // tone per the spec — we describe, never editorialize.
+  const genderNote =
+    ceremonyType === 'muslim' && genderSeparation === 'sections'
+      ? 'Seating: separate sections for men and women.'
+      : ceremonyType === 'muslim' && genderSeparation === 'separate_spaces'
+        ? 'Seating: separate spaces for men and women.'
+        : null;
   // Defensive read — JSONB column defaults to `{}` so every field may be
   // absent. Skip rows in palette that aren't valid #RRGGBB to avoid CSS
   // injection via the inline style attribute.
@@ -3692,6 +3703,31 @@ function DressCodeWidget({
             dress modestly and formally — please avoid sleeveless tops and short
             dresses or skirts. Thank you for honoring the occasion with us.
           </p>
+        </section>
+      );
+    }
+    // Muslim weddings carry a strong modesty expectation (lib/wedding-traditions
+    // 'muslim': modest dress), so surface it even when the host hasn't authored a
+    // dress code — it spares guests the most common Nikah/walima friction.
+    if (ceremonyType === 'muslim') {
+      return (
+        <section className="space-y-3 rounded-xl border border-ink/10 bg-cream p-6">
+          <header>
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+              Dress code
+            </p>
+            <h3 className="mt-1 text-2xl font-semibold tracking-tight">
+              Modest dress
+            </h3>
+          </header>
+          <p className="text-sm text-ink/70">
+            We warmly ask everyone to dress modestly — shoulders and knees
+            covered. Ladies, please feel free to bring a scarf for the ceremony.
+            Thank you for honoring the occasion with us.
+          </p>
+          {genderNote ? (
+            <p className="text-sm font-medium text-ink/75">{genderNote}</p>
+          ) : null}
         </section>
       );
     }
@@ -3764,6 +3800,9 @@ function DressCodeWidget({
             </div>
           ) : null}
         </div>
+      ) : null}
+      {genderNote ? (
+        <p className="text-sm font-medium text-ink/75">{genderNote}</p>
       ) : null}
     </section>
   );

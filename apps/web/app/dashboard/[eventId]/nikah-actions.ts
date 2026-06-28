@@ -18,9 +18,10 @@ const MAHR_MAX = 600;
  * client so the events-table RLS is the access gate — a non-owner update simply
  * affects no rows.
  *
- * mahr_prompt_deferred tracks the onboarding-prompt state: once the couple sets
- * a description it flips to 'provided'; clearing it drops back to 'pending'
- * (asked, not yet answered) rather than 'deferred' (never asked).
+ * mahr_description is the single source of truth for the "Mahr set" essential;
+ * the events.mahr_prompt_deferred column exists for a future onboarding mahr
+ * nudge but nothing reads it yet, so we intentionally do NOT write it here
+ * (no dead state).
  */
 export async function updateNikahDetails(eventId: string, formData: FormData) {
   const user = await getCurrentUser();
@@ -37,7 +38,6 @@ export async function updateNikahDetails(eventId: string, formData: FormData) {
     .from('events')
     .update({
       mahr_description: mahr,
-      mahr_prompt_deferred: mahr ? 'provided' : 'pending',
       gender_separation: gender,
     })
     .eq('event_id', eventId);

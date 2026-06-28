@@ -83,6 +83,18 @@ export function isChurchCeremony(ceremonyType: string | null | undefined): boole
 }
 
 /**
+ * A Muslim (Nikah) wedding. Used to DROP the Catholic-Filipino sponsor tasks
+ * (ninong/ninang, candle/veil/cord) for Muslim couples — a Nikah has no
+ * sponsors; its principals are the wali/witnesses/imam, managed in the guest
+ * list + the Five-essentials card. Gated narrowly on 'muslim' (not via
+ * isChurchCeremony) so Christian/INC/civil couples, who DO use sponsors, keep
+ * those tasks.
+ */
+export function isMuslimCeremony(ceremonyType: string | null | undefined): boolean {
+  return ceremonyType === 'muslim';
+}
+
+/**
  * The standard PH-wedding planning checklist, ordered from earliest planning
  * runway (≈12 months out) to the final-week tasks. `dueOffsetDays` places each
  * item on the countdown; the ranking filter reads it to know what's urgent now.
@@ -118,7 +130,7 @@ export const CHECKLIST_TEMPLATE: ReadonlyArray<ChecklistTemplateItem> = [
   { key: 'book_florist', title: 'Book your florist / stylist', category: 'vendors', dueOffsetDays: 300 },
   { key: 'hotel_block', title: 'Reserve hotel room blocks for out-of-town guests', category: 'logistics', dueOffsetDays: 290 },
   { key: 'honeymoon_plan', title: 'Start planning your honeymoon (visas, peak-season bookings)', category: 'logistics', dueOffsetDays: 285 },
-  { key: 'invite_sponsors', title: 'Personally invite your principal sponsors (Ninong & Ninang)', category: 'guests', dueOffsetDays: 280 },
+  { key: 'invite_sponsors', title: 'Personally invite your principal sponsors (Ninong & Ninang)', category: 'guests', dueOffsetDays: 280, appliesTo: (ct) => !isMuslimCeremony(ct) },
 
   // ══ 9–6 months before — The details take shape ══
   { key: 'book_caterer', title: 'Book your caterer', category: 'vendors', dueOffsetDays: 270 },
@@ -132,7 +144,7 @@ export const CHECKLIST_TEMPLATE: ReadonlyArray<ChecklistTemplateItem> = [
   { key: 'book_coordinator', title: 'Book your coordinator', category: 'vendors', dueOffsetDays: 230 },
   { key: 'book_bridal_car', title: 'Book your bridal car / transportation', category: 'logistics', dueOffsetDays: 225 },
   { key: 'book_groom_attire', title: 'Book groom & groomsmen attire (barong / suit)', category: 'attire', dueOffsetDays: 215 },
-  { key: 'choose_secondary_sponsors', title: 'Choose your secondary sponsors (candle, veil, cord) & bearers', category: 'guests', dueOffsetDays: 205 },
+  { key: 'choose_secondary_sponsors', title: 'Choose your secondary sponsors (candle, veil, cord) & bearers', category: 'guests', dueOffsetDays: 205, appliesTo: (ct) => !isMuslimCeremony(ct) },
 
   // ══ 6–4 months before — Invitations, fittings & flow ══
   { key: 'attire', title: 'Order wedding attire (gown & suit)', category: 'attire', dueOffsetDays: 180 },
@@ -156,7 +168,7 @@ export const CHECKLIST_TEMPLATE: ReadonlyArray<ChecklistTemplateItem> = [
   { key: 'confirm_banns', title: 'Confirm your church banns are posted', category: 'paperwork', dueOffsetDays: 108, appliesTo: isChurchCeremony },
   { key: 'church_fee', title: 'Pay your church wedding fee / package', category: 'paperwork', dueOffsetDays: 105, appliesTo: isChurchCeremony },
   { key: 'guest_list', title: 'Finalize your guest list', category: 'guests', dueOffsetDays: 90 },
-  { key: 'sponsors', title: 'Confirm your principal sponsors', category: 'guests', dueOffsetDays: 90 },
+  { key: 'sponsors', title: 'Confirm your principal sponsors', category: 'guests', dueOffsetDays: 90, appliesTo: (ct) => !isMuslimCeremony(ct) },
   { key: 'second_fitting', title: 'Second gown fitting', category: 'attire', dueOffsetDays: 80 },
   { key: 'menu_tasting', title: 'Do your menu tasting', category: 'vendors', dueOffsetDays: 75 },
   { key: 'party_gifts', title: 'Buy gifts for your wedding party & parents', category: 'design', dueOffsetDays: 70 },

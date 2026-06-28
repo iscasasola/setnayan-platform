@@ -14,4 +14,16 @@ Follow-up to the admin queue-intelligence work (#2355/#2373) — closes the gaps
 - **#6 — badges/pill/digest stay LIVE (no cache TTL).** An ops urgency signal must be real-time; a TTL would lag the overdue escalation. The per-admin-page query cost (one cache()-deduped digest fetch) is acceptable for the low-traffic admin doorway.
 - **#5 — SLA windows stay code-defined** in `ADMIN_QUEUE_META` (clear, owner-editable via a one-line PR that auto-deploys). A 15-field UI editor coupled to the urgency hot path is gold-plating; logged as a future enhancement.
 
-SPEC IMPACT: None (implementation-only). tsc + 8/8 admin unit tests + nav-icon/bottom-nav guards + registry-defaults test green.
+### Adversarial audit (3 rounds · loop-until-dry: 9 → 2 → 0 confirmed)
+A multi-agent audit (7 dimensions, each finding independently verified) then caught issues the self-audit missed — including a HIGH bug in the fix above:
+- **HIGH — overview dropped 4 live queues + false all-clear.** The consolidated overview only listed 11 of the digest's queues, so subscriptions / account-deletions / user-reports / vendor-partnerships were invisible on the home page AND excluded from "X open across all queues" — a falsely reassuring "all clear" when only those had work. Added their tiles; `totalOpen` now derives from `urgency.totalOpen + taxonomy` (the digest), not the tile roster.
+- **HIGH — digest burned the daily claim before confirming work.** A degraded read (all-null counts) or a quiet 08:00 silently ate the whole day's digest. Restructured: pre-check → fetch digest → bail WITHOUT claiming if `totalOpen===0` → only then the atomic claim → send. Work arriving later the same morning now still fires.
+- **MED — degraded-read all-clear.** Even after the above, the overview banner read green on a *failed* digest read. Added `unknownCount` to `deriveQueueUrgency`; the banner now shows "Some queue counts are unavailable — refresh" vs a genuine all-clear (unit-tested).
+- **MED — /explore hook after the catalog early-return** (bare `/explore` skipped it) → moved before the return.
+- **MED — bottom-nav Work tab missing** `/admin/vendor-partnerships` + `/admin/editorial-review` (unlit on mobile) → added.
+- **MED — command-center count badge** failed WCAG AA (white on champagne gold) → darkened open-state to `#8A6A2E`.
+- **LOW** — stale verify sub-copy + misleading lane comments corrected.
+
+Two HIGH and a MED here were genuine pre-merge defects an eyeball pass would've shipped. Round-3 (regression + full per-queue cross-surface matrix) returned **0** — converged.
+
+SPEC IMPACT: None (implementation-only). tsc + 9/9 admin unit tests + nav-icon/bottom-nav guards + registry-defaults test green.

@@ -51,6 +51,12 @@ type QueueDef = {
   table: string;
   /** Applies the queue's "open work" filter to a select()-ed builder. */
   filter: (q: any, ctx: { nowIso: string }) => any;
+  /**
+   * Timestamp column the command center ages the oldest open item from.
+   * Defaults to 'created_at' (present on 13/14 queue tables, verified against
+   * prod 2026-06-28). Override where a table names it differently.
+   */
+  tsCol?: string;
 };
 
 /**
@@ -95,9 +101,12 @@ const QUEUE_DEFS: QueueDef[] = [
     filter: (q) => q.in('status', ['open', 'under_review']),
   },
   {
+    // vendor_review_appeals has no created_at (verified vs prod) — it ages on
+    // submitted_at, when the vendor filed the appeal.
     key: 'reviews',
     table: 'vendor_review_appeals',
     filter: (q) => q.is('decided_at', null),
+    tsCol: 'submitted_at',
   },
   {
     key: 'concierge-abuse',
@@ -164,20 +173,20 @@ export async function getAdminQueueDigest(): Promise<AdminQueueDigest> {
   const admin = createAdminClient();
   const nowIso = new Date().toISOString();
   const results = await Promise.all(
-    QUEUE_DEFS.map((d) =>
-      d
-        .filter(admin.from(d.table).select('created_at', { count: 'exact' }), { nowIso })
-        .order('created_at', { ascending: true })
-        .limit(1),
-    ),
+    QUEUE_DEFS.map((d) => {
+      const ts = d.tsCol ?? 'created_at';
+      return d
+        .filter(admin.from(d.table).select(ts, { count: 'exact' }), { nowIso })
+        .order(ts, { ascending: true })
+        .limit(1);
+    }),
   );
   const out: AdminQueueDigest = {};
   QUEUE_DEFS.forEach((d, i) => {
+    const ts = d.tsCol ?? 'created_at';
     const r = results[i];
     const oldestAt =
-      Array.isArray(r?.data) && r.data[0]?.created_at
-        ? String(r.data[0].created_at)
-        : null;
+      Array.isArray(r?.data) && r.data[0]?.[ts] ? String(r.data[0][ts]) : null;
     out[d.key] = { count: num(r?.count), oldestAt };
   });
   return out;

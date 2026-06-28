@@ -17,6 +17,8 @@ export type PlatformSettingsRow = {
   onboarding_bg_music_r2_key: string | null;
   /** Master toggle — onboarding music plays only when TRUE AND a track is set. */
   onboarding_bg_music_enabled: boolean;
+  /** Ops digest email toggle — OFF by default. See lib/admin/digest-flush.ts. */
+  admin_digest_enabled: boolean;
   /** Admin default brand icon (owner 2026-06-10) — public asset URLs + version. */
   brand_icon_master_url: string | null;
   brand_favicon_ico_url: string | null;
@@ -28,7 +30,7 @@ export type PlatformSettingsRow = {
 };
 
 const SELECT =
-  'id,business_name,business_tin,business_address,business_email,bdo_account_name,bdo_account_number,bdo_qr_url,gcash_account_name,gcash_number,gcash_qr_url,default_vat_rate_pct,onboarding_bg_music_r2_key,onboarding_bg_music_enabled,brand_icon_master_url,brand_favicon_ico_url,brand_apple_touch_url,brand_icon_png_512_url,brand_icon_svg_url,brand_icon_version,updated_at';
+  'id,business_name,business_tin,business_address,business_email,bdo_account_name,bdo_account_number,bdo_qr_url,gcash_account_name,gcash_number,gcash_qr_url,default_vat_rate_pct,onboarding_bg_music_r2_key,onboarding_bg_music_enabled,admin_digest_enabled,brand_icon_master_url,brand_favicon_ico_url,brand_apple_touch_url,brand_icon_png_512_url,brand_icon_svg_url,brand_icon_version,updated_at';
 
 const FALLBACK: PlatformSettingsRow = {
   id: 1,
@@ -45,6 +47,7 @@ const FALLBACK: PlatformSettingsRow = {
   default_vat_rate_pct: 12,
   onboarding_bg_music_r2_key: null,
   onboarding_bg_music_enabled: true,
+  admin_digest_enabled: false,
   brand_icon_master_url: null,
   brand_favicon_ico_url: null,
   brand_apple_touch_url: null,

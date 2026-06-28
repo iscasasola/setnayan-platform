@@ -99,6 +99,26 @@ export async function saveBusinessIdentity(formData: FormData) {
   redirect('/admin/settings?saved=1');
 }
 
+/**
+ * Toggle the cron-free morning ops digest (lib/admin/digest-flush.ts). An
+ * unchecked checkbox doesn't submit, so absence = off. Sending stays triple-
+ * gated downstream (enabled + open work + Resend configured).
+ */
+export async function saveAdminDigest(formData: FormData) {
+  await requireAdmin();
+  const enabled = formData.get('admin_digest_enabled') === 'on';
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('platform_settings')
+    .update({ admin_digest_enabled: enabled, updated_at: new Date().toISOString() })
+    .eq('id', 1);
+  if (error) {
+    return redirect(`/admin/settings?error=${encodeURIComponent(error.message)}`);
+  }
+  revalidatePath('/admin/settings');
+  redirect('/admin/settings?saved=1');
+}
+
 export async function savePaymentInstruments(formData: FormData) {
   await requireAdmin();
 

@@ -5,6 +5,7 @@ import {
   Building,
   CreditCard,
   Image as ImageIcon,
+  Mail,
   Music,
   Trash2,
 } from 'lucide-react';
@@ -13,7 +14,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { Field } from '@/app/_components/forms/field';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { removeBrandIcon, saveBusinessIdentity } from './actions';
+import { removeBrandIcon, saveAdminDigest, saveBusinessIdentity } from './actions';
 import { TinInput } from './_components/tin-input';
 import { BrandIconUploadForm } from './_components/brand-icon-form';
 import { SentrySmokeTestButton } from './_components/sentry-smoke-test-button';
@@ -233,6 +234,59 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
           </div>
         </Link>
       </div>
+
+      <form
+        action={saveAdminDigest}
+        className="mt-10 space-y-4 border-t border-ink/10 pt-8"
+      >
+        <header className="space-y-1">
+          <div className="flex items-center gap-2">
+            <Mail className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+            <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+              Ops notifications
+            </h2>
+          </div>
+          <p className="text-sm text-ink/60">
+            A once-a-morning email digest of what&rsquo;s waiting in the work
+            queues &mdash; sent around 8:00&nbsp;AM (Manila) to internal admins,
+            and only when something is actually waiting. The in-app badges and
+            the top-bar pill are the real-time channel; this is the
+            &ldquo;while you&rsquo;re away&rdquo; one.
+          </p>
+        </header>
+
+        <section className="rounded-xl border border-ink/10 bg-cream p-5">
+          <label className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              name="admin_digest_enabled"
+              defaultChecked={settings.admin_digest_enabled}
+              className="mt-0.5 h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+            />
+            <span className="flex flex-col gap-0.5">
+              <span className="text-sm font-semibold text-ink">
+                Send the morning queue digest
+              </span>
+              <span className="text-xs text-ink/60">
+                Currently{' '}
+                <span className="font-semibold text-ink/80">
+                  {settings.admin_digest_enabled ? 'on' : 'off'}
+                </span>
+                . Email delivery also requires Resend to be configured; until
+                then this saves the preference but sends nothing.
+              </span>
+            </span>
+          </label>
+          <div className="mt-4">
+            <SubmitButton
+              className="button-primary inline-flex items-center gap-2"
+              pendingLabel="Saving…"
+            >
+              Save
+            </SubmitButton>
+          </div>
+        </section>
+      </form>
 
       <div className="mt-10 space-y-4 border-t border-ink/10 pt-8">
         <header className="space-y-1">

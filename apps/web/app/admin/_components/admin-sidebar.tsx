@@ -67,6 +67,7 @@
 
 import {
   Home,
+  ListChecks,
   Banknote,
   Coins,
   BadgeCheck,
@@ -127,6 +128,10 @@ import { SidebarItem } from '@/app/_components/nav/sidebar-item';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import type { NavGroup } from '@/app/_components/nav/types';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
+import type {
+  AdminQueueCounts,
+  AdminQueueDueState,
+} from '@/lib/admin/queue-counts';
 
 /**
  * Canonical admin NavGroup[] export. Mobile-overflow landing pages at
@@ -159,6 +164,17 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
     key: 'queues',
     label: 'Work',
     items: [
+      {
+        // All work — the command-center worklist: every act-now queue ranked
+        // most-urgent-first (overdue → due-soon → busiest) in one view. This is
+        // the desktop entry to the /admin/work feed the mobile Work tab already
+        // lands on. Unbadged on purpose — the per-queue rows below carry counts.
+        key: 'work-home',
+        label: 'All work',
+        href: '/admin/work',
+        icon: ListChecks,
+        matchPrefix: '/admin/work',
+      },
       {
         key: 'verify',
         label: 'Verify',
@@ -668,9 +684,63 @@ function applyAdminRegistry(
   }));
 }
 
-export function AdminSidebar({ navSlots }: { navSlots?: Record<string, NavSlotLite> }) {
+// Badge tone tracks REAL urgency (oldest item vs the queue's SLA), not the
+// queue's identity: red only when something is actually overdue, amber when
+// approaching SLA, neutral for open-but-fine. So a queue screams red because
+// work is late, never just because it's "important".
+function badgeTone(state?: AdminQueueDueState): 'red' | 'amber' | 'neutral' {
+  if (state === 'overdue') return 'red';
+  if (state === 'due-soon') return 'amber';
+  return 'neutral';
+}
+
+/**
+ * Injects live open-work counts onto the matching Work items as a NavBadge,
+ * toned by the queue's urgency (queueStates, keyed by nav-item key). Only a
+ * positive count badges — a null count (queue unavailable) or 0 (clear) shows
+ * nothing, and items absent from the map (Directory + config groups) are
+ * untouched. Runs AFTER the registry overlay so an admin-renamed label keeps
+ * its count.
+ */
+function applyQueueBadges(
+  groups: NavGroup[],
+  queueCounts?: AdminQueueCounts,
+  queueStates?: Record<string, AdminQueueDueState>,
+): NavGroup[] {
+  if (!queueCounts) return groups;
+  return groups.map((group) => ({
+    ...group,
+    items: group.items.map((item) => {
+      const count = queueCounts[item.key];
+      if (typeof count !== 'number' || count <= 0) return item;
+      const state = queueStates?.[item.key];
+      return {
+        ...item,
+        badge: {
+          count,
+          tone: badgeTone(state),
+          label: state === 'overdue' ? `${count} overdue` : `${count} pending`,
+        },
+      };
+    }),
+  }));
+}
+
+export function AdminSidebar({
+  navSlots,
+  queueCounts,
+  queueStates,
+}: {
+  navSlots?: Record<string, NavSlotLite>;
+  queueCounts?: AdminQueueCounts;
+  queueStates?: Record<string, AdminQueueDueState>;
+}) {
   const pathname = usePathname() ?? '/admin';
-  const groups = applyAdminRegistry(ADMIN_NAV_GROUPS, navSlots);
+  const groups = applyQueueBadges(
+    applyAdminRegistry(ADMIN_NAV_GROUPS, navSlots),
+    queueCounts,
+    queueStates,
+  );
 
   return (
     <>

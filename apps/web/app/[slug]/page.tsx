@@ -849,8 +849,13 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     dayOfPhase === 'live'
       ? await eventPapicGuestActive(admin, event.event_id)
       : false;
+  // During the live window the Live Photo Wall is already mirrored INLINE on
+  // this page (the #live-photo-wall section below), so "Photos" anchors to it —
+  // NOT to `/[slug]/live-wall`, which is a JSON poll-feed route handler (the
+  // LiveWallBlock's freshness endpoint), never a navigable page. After the day,
+  // it points at the viewable recap album.
   const publicAlbumHref = liveWall
-    ? `/${event.slug}/live-wall`
+    ? `/${event.slug}#live-photo-wall`
     : dayOfPhase === 'post'
       ? `/${event.slug}/recap`
       : null;
@@ -2033,9 +2038,11 @@ function PublicLanding({
 
       {/* Live Photo Wall mirror — anonymous visitors at the venue (master-QR
           scans without a guest cookie) get the live wall too during the
-          celebration window. Same screened feed as the projector. */}
+          celebration window. Same screened feed as the projector. The id is the
+          anchor the event-day bar's "Photos" button scrolls to (publicAlbumHref
+          above) — scroll-margin keeps it clear of the fixed bottom bar. */}
       {dayOfPhase === 'live' && liveWall ? (
-        <section className="mt-10">
+        <section id="live-photo-wall" className="mt-10 scroll-mt-6">
           <LiveWallBlock
             slug={event.slug}
             initialTiles={liveWall.tiles}

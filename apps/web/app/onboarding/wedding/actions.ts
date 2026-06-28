@@ -183,7 +183,7 @@ export type OnboardingCommitPayload = {
    * screen-12 "Add your own vendor" sheet — off-platform vendors the couple typed in
    * (name + contact person + email). Persisted at commit as event_vendors 'considering'
    * freeform rows (category 'misc', source 'host_manual') so they show on the dashboard
-   * Services tab — same shape the dashboard's addCustomVendor writes for a manual vendor.
+   * Services tab — same shape the dashboard's manual-vendor add writes.
    */
   byoVendors: { name: string; person: string; email: string }[];
   /**
@@ -569,7 +569,7 @@ export async function commitOnboardingWedding(
   // Persist BYO vendors — the off-platform vendors the couple typed into the
   // screen-12 "Add your own vendor" sheet — as event_vendors 'considering'
   // freeform rows (category 'misc', source 'host_manual'), the same shape the
-  // dashboard's addCustomVendor writes. event_vendors already has nullable
+  // dashboard's manual-vendor add writes. event_vendors already has nullable
   // contact_email + notes columns, so name/contact-person/email all land with
   // NO new table or column. Best-effort: the event + membership are already
   // committed, so a BYO insert failure must NEVER reject the action (mirrors

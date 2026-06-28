@@ -83,6 +83,12 @@ export async function GET(
       .from('papic_guest_captures')
       .select('capture_id, r2_object_key, captured_at')
       .eq('event_id', eventId)
+      // Photos only — guest clips (media_type='clip') carry a video r2_object_key
+      // that `sharp()` can't decode below, so they must never enter the magazine
+      // spine. Mirrors the papic_photos `photo_type='photo'` gate above (and the
+      // #2335 guest-stories fix). 'photo' is the column default, so legacy rows
+      // (pre media_type migration 20270216612756) still match.
+      .eq('media_type', 'photo')
       .is('hidden_at', null)
       .order('captured_at', { ascending: true })
       .limit(400),

@@ -24,7 +24,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { sweepLapsedSubscriptions } from '@/lib/subscriptions';
 import { computeGuestStats, fetchGuestsByEvent } from '@/lib/guests';
-import { isChineseWedding } from '@/lib/chinese-wedding';
+import { isChineseWedding, isMuslimWedding } from '@/lib/chinese-wedding';
 // fetchEventActivity + fetchAttributedActivity moved into ActivityFeedAsync
 // (2026-05-30 Phase 2 — Suspense streaming · see _components/activity-feed-async.tsx
 // + CLAUDE.md 2026-05-30 row). Page no longer awaits these — the activity feed
@@ -1572,13 +1572,13 @@ export default async function EventHomePage({
   // venue auto-resolves the imam (computeOfficiantAutoResolution → muslim_mosque,
   // which also surfaces the PD 1083 hint). Only runs for muslim events, and the
   // auto-resolve query only fires when no officiant vendor is already booked.
-  const nikahCeremony =
-    (event as { ceremony_type?: string | null }).ceremony_type ?? null;
-  const nikahSecondary =
-    (event as { secondary_ceremony_type?: string | null })
-      .secondary_ceremony_type ?? null;
-  const isNikahEvent =
-    nikahCeremony === 'muslim' || nikahSecondary === 'muslim';
+  const isNikahEvent = isMuslimWedding({
+    ceremony_type:
+      (event as { ceremony_type?: string | null }).ceremony_type ?? null,
+    secondary_ceremony_type:
+      (event as { secondary_ceremony_type?: string | null })
+        .secondary_ceremony_type ?? null,
+  });
   const OFFICIANT_LOCKED_STATUSES = new Set([
     'contracted',
     'deposit_paid',

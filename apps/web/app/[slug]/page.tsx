@@ -50,6 +50,8 @@ import { SelfieCapture } from './_components/selfie-capture';
 import { DayOfFaceEnroll } from './_components/day-of-face-enroll';
 import { CountdownWidget } from './_components/countdown';
 import { ScheduleWidget } from './_components/schedule-widget';
+import { TeaCeremonyCard } from './_components/tea-ceremony-card';
+import { isChineseWedding } from '@/lib/chinese-wedding';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { fetchPublicScheduleBlocks, type ScheduleBlockRow } from '@/lib/schedule';
 import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
@@ -79,7 +81,9 @@ import {
   sealColorFromPalette,
   veilColorFromPalette,
   stdAccentFromPalette,
+  paletteSwatches,
 } from '@/lib/site-palette';
+import { RED_GOLD_PALETTE } from '@/lib/feel-palettes';
 import {
   fallbackSeedFromPublicId,
   sanitizeWaxSealConfig,
@@ -199,7 +203,7 @@ const fetchEventBySlug = cache(async (slug: string) => {
   const { data } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_accent_hex, is_sample',
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_accent_hex, is_sample',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -293,9 +297,20 @@ function revealVeilColor(palette: unknown): string {
 
 /** Save-the-Date film accent (button + accent marks): the couple's manual
  *  override (events.std_film_accent_hex) when set, else their Mood-Board accent
- *  (deep, button-legible), else brand mulberry. Mirrors revealWaxColor. */
+ *  (deep, button-legible), else brand mulberry. Mirrors revealWaxColor.
+ *
+ *  Chinese-wedding default: when there's no manual override AND the Mood Board is
+ *  empty (yields no swatch), a Chinese (Tsinoy) event falls back to the auspicious
+ *  red/gold deep red instead of brand mulberry — so the PUBLISHED page matches the
+ *  builder's suggested default. This is a pure FALLBACK only: a manual override or
+ *  any real palette swatch always wins, and nothing is written to the DB. */
 function stdAccentColor(event: EventRow): string {
-  return event.std_film_accent_hex ?? stdAccentFromPalette(sanitizeRolePalette(event.role_palette));
+  if (event.std_film_accent_hex) return event.std_film_accent_hex;
+  const palette = sanitizeRolePalette(event.role_palette);
+  if (isChineseWedding(event) && paletteSwatches(palette).length === 0) {
+    return RED_GOLD_PALETTE[0]!; // #7A1F2B — auspicious deep red
+  }
+  return stdAccentFromPalette(palette);
 }
 
 /**
@@ -1376,6 +1391,11 @@ type EventRow = {
   // INC dress-code empty state surfaces the Church's modest-attire expectation
   // even when the host hasn't authored a dress code yet.
   ceremony_type?: string | null;
+  // Secondary/overlay ceremony (events.secondary_ceremony_type, iteration 0043).
+  // Read on the public site so the Chinese (Tsinoy) overlay fires on the common
+  // church-primary + Chinese-secondary case — the guest-facing tea-ceremony card
+  // gates on isChineseWedding(event), which unions primary + secondary.
+  secondary_ceremony_type?: string | null;
   // Couple's mood-board palette (events.role_palette JSONB, iteration 0010).
   // Read here to skin the public site's --color-* tokens via buildSitePaletteVars
   // in InvitationShell. Shape is Partial<Record<PaletteKey, string[]>>; typed
@@ -2121,7 +2141,10 @@ function PublicHideableWidget({
       // but we still skip the standalone widget when isLive to match
       // the editor's "always-on pin replaces hideable" contract).
       return !isLive && scheduleBlocks.length > 0 ? (
-        <ScheduleWidget blocks={scheduleBlocks} eventTz={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)} />
+        <>
+          <ScheduleWidget blocks={scheduleBlocks} eventTz={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)} />
+          {isChineseWedding(event) ? <TeaCeremonyCard event={event} /> : null}
+        </>
       ) : null;
 
     case 'venue_map':
@@ -2700,6 +2723,11 @@ function InvitationSite({
           </section>
         ) : null}
 
+        {/* Chinese (Tsinoy) tea-ceremony card — static, guest-safe tradition copy
+            (no roster / no PII). Mirrors the public + identified-guest paths for
+            parity; gates on isChineseWedding (primary OR secondary rite). */}
+        {isChineseWedding(event) ? <TeaCeremonyCard event={event} /> : null}
+
         {/* Live Photo Wall mirror — the venue wall on the guest's own phone
             while the celebration runs (owner 2026-06-12: the wall + live
             gallery belong ON the on-the-day page). Renders only when the
@@ -3129,6 +3157,9 @@ function HideableWidgetRender({
       // the top of the article (Task #13 day-of-mode safety belt).
       // Don't render the same blocks twice. When NOT live, render the
       // standard widget only when there are public blocks to show.
+      // (The tea-ceremony card is rendered once in the identified-guest
+      // article body — NOT here too, or a Chinese event with visible
+      // schedule blocks would show the card twice.)
       return !isLive && scheduleBlocks.length > 0 ? (
         <ScheduleWidget blocks={scheduleBlocks} eventTz={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)} />
       ) : null;

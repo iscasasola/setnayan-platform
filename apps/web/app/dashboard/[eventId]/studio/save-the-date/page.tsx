@@ -3,7 +3,14 @@ import { redirect } from 'next/navigation';
 import { ArrowLeft, Check, Eye, Sparkles, Stamp } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { sanitizeRolePalette } from '@/lib/mood-board';
-import { sealColorFromPalette, veilColorFromPalette, stdAccentFromPalette } from '@/lib/site-palette';
+import {
+  sealColorFromPalette,
+  veilColorFromPalette,
+  stdAccentFromPalette,
+  paletteSwatches,
+} from '@/lib/site-palette';
+import { isChineseWedding } from '@/lib/chinese-wedding';
+import { RED_GOLD_PALETTE } from '@/lib/feel-palettes';
 import { manilaToday, summarizeStdViews } from '@/lib/std-views';
 import { fallbackSeedFromPublicId, sanitizeWaxSealConfig } from '@/lib/wax-seal/types';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -64,7 +71,7 @@ export default async function SaveTheDatePage({ params }: Props) {
   const { data: event } = await supabase
     .from('events')
     .select(
-      'public_id, slug, display_name, event_date, venue_name, venue_address, love_story, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_film_date, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_story, std_film_accent_hex, std_background, std_media, our_photos, site_bg_music_enabled, site_bg_music_r2_key, landing_page_hero_image_url, date_candidates, date_mode, landing_page_visibility, std_launched_at, scheduled_launch_at',
+      'public_id, slug, display_name, event_date, venue_name, venue_address, ceremony_type, secondary_ceremony_type, love_story, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_film_date, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_story, std_film_accent_hex, std_background, std_media, our_photos, site_bg_music_enabled, site_bg_music_r2_key, landing_page_hero_image_url, date_candidates, date_mode, landing_page_visibility, std_launched_at, scheduled_launch_at',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -98,10 +105,26 @@ export default async function SaveTheDatePage({ params }: Props) {
   const palette = sanitizeRolePalette(event?.role_palette);
   const waxColor = sealColorFromPalette(palette);
   const veilColor = veilColorFromPalette(palette);
+  // Chinese (Tsinoy) overlay — primary OR secondary rite (the common church-primary
+  // + Chinese-secondary case). Gates the red/gold accent SUGGESTION below.
+  const isChinese = isChineseWedding({
+    ceremony_type: event?.ceremony_type ?? null,
+    secondary_ceremony_type: event?.secondary_ceremony_type ?? null,
+  });
   // Film accent: the couple's manual override (std_film_accent_hex) wins; the
   // builder shows the Mood-Board-derived default beneath it when they haven't
   // set one ("From your Mood Board"). Mirrors the live page's stdAccentColor.
-  const accentDefault = stdAccentFromPalette(palette);
+  //
+  // Chinese default: when the couple hasn't set a manual accent AND their Mood
+  // Board is empty (no swatch), a Chinese event's default becomes the auspicious
+  // red/gold deep red instead of brand mulberry — a one-tap-ready SUGGESTION that
+  // matches the published page's fallback. PURE default: never written to the DB;
+  // a manual override or any real palette swatch always wins. (event.std_film_accent_hex
+  // = the override; stdAccentHex below mirrors it.)
+  const accentDefault =
+    isChinese && !event?.std_film_accent_hex && paletteSwatches(palette).length === 0
+      ? RED_GOLD_PALETTE[0]! // #7A1F2B — auspicious deep red
+      : stdAccentFromPalette(palette);
   const sealConfig = sanitizeWaxSealConfig(event?.wax_seal_config);
   const sealFallbackSeed = fallbackSeedFromPublicId(event?.public_id);
   const hasMintedSeal = sealConfig !== null;
@@ -359,6 +382,7 @@ export default async function SaveTheDatePage({ params }: Props) {
         initialFilmStory={stdStory}
         initialFilmAccentColor={stdAccentHex}
         initialAccentDefault={accentDefault}
+        isChinese={isChinese}
         displayName={event?.display_name ?? ''}
         dateIso={event?.event_date ?? null}
         markSvg={markSvg}

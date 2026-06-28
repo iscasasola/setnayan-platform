@@ -26,6 +26,9 @@
 /** The canonical Chinese ceremony key — lowercase, matches the events CHECK. */
 export const CHINESE_CEREMONY_KEY = 'chinese' as const;
 
+/** The canonical Muslim ceremony key — lowercase, matches the events CHECK. */
+export const MUSLIM_CEREMONY_KEY = 'muslim' as const;
+
 /** Minimal shape every caller can satisfy from an `events` row select. */
 export type CeremonyOverlayInput = {
   ceremony_type?: string | null;
@@ -33,16 +36,44 @@ export type CeremonyOverlayInput = {
 };
 
 /**
+ * Generic two-column ceremony predicate: true when `faithKey` is the event's
+ * primary rite OR its secondary/overlay rite. This is the single primitive every
+ * overlay-aware faith check derives from, so an inline `ceremony_type === 'x'`
+ * never silently under-delivers to the common church-primary + secondary-overlay
+ * case (the drift that hid Chinese traditions before PR #2312).
+ *
+ * Use this — or one of the named wrappers below — instead of hand-rolling the
+ * two-column OR at the call site. NOTE: it deliberately matches an OVERLAY on
+ * EITHER axis; surfaces that need "X is specifically the PRIMARY rite" semantics
+ * (e.g. the sponsors-page muslim-primary redirect) must NOT use this — they have
+ * a different, primary-only contract.
+ */
+export function ceremonyMatches(
+  event: CeremonyOverlayInput | null | undefined,
+  faithKey: string,
+): boolean {
+  if (!event) return false;
+  return event.ceremony_type === faithKey || event.secondary_ceremony_type === faithKey;
+}
+
+/**
  * True when Chinese tradition applies to the event — as the primary rite OR as
  * the secondary/overlay rite. This is the single connective spine for the
  * Chinese feature set.
  */
 export function isChineseWedding(event: CeremonyOverlayInput | null | undefined): boolean {
-  if (!event) return false;
-  return (
-    event.ceremony_type === CHINESE_CEREMONY_KEY ||
-    event.secondary_ceremony_type === CHINESE_CEREMONY_KEY
-  );
+  return ceremonyMatches(event, CHINESE_CEREMONY_KEY);
+}
+
+/**
+ * True when Muslim (Nikah) tradition applies to the event — as the primary rite
+ * OR as the secondary/overlay rite. The overlay twin of the inline two-column
+ * `=== 'muslim'` checks that powered the Mahr budget card and the Nikah-
+ * essentials card; deriving them from this predicate keeps every Muslim-aware
+ * surface in lock-step with the primary-or-secondary model.
+ */
+export function isMuslimWedding(event: CeremonyOverlayInput | null | undefined): boolean {
+  return ceremonyMatches(event, MUSLIM_CEREMONY_KEY);
 }
 
 /**

@@ -48,7 +48,7 @@ export default async function SeatingPage({ params }: Props) {
       fetchSigns(supabase, eventId),
       supabase
         .from('events')
-        .select('event_date, ceremony_type, secondary_ceremony_type')
+        .select('event_date, ceremony_type, secondary_ceremony_type, gender_separation')
         .eq('event_id', eventId)
         .maybeSingle(),
       fetchSeatingConstraints(supabase, eventId),
@@ -60,6 +60,19 @@ export default async function SeatingPage({ params }: Props) {
   // drives a gentle notice on a manual "Table 4" + the skip-4 auto-draft. Derived
   // via the shared overlay predicate (primary OR secondary Chinese rite).
   const chineseTradition = isChineseWedding(eventRow.data ?? null);
+  // Muslim walima seating posture the couple chose in the Nikah card. Advisory
+  // only — Setnayan does NOT auto-reflow seats (the couple confirms the exact
+  // arrangement with their imam); this is a banner so whoever lays out the tables
+  // knows the couple's intent. 'none' (default / most common) shows nothing.
+  const genderSeparation =
+    (eventRow.data as { gender_separation?: string | null } | null)
+      ?.gender_separation ?? null;
+  const genderSeparationNote =
+    genderSeparation === 'sections'
+      ? 'This couple requested separate men’s & women’s sections for the walima — arrange tables accordingly.'
+      : genderSeparation === 'separate_spaces'
+        ? 'This couple requested separate spaces / halls for men and women at the walima — plan the layout accordingly.'
+        : null;
 
   const seatByGuest = new Map(assignments.map((a) => [a.guest_id, a]));
 
@@ -147,6 +160,13 @@ export default async function SeatingPage({ params }: Props) {
       </div>
 
       <DayOfEditingBanner eventDate={eventDate} />
+
+      {genderSeparationNote ? (
+        <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/40 px-4 py-3 text-sm text-ink/80">
+          <span className="font-medium text-emerald-800">Walima seating:</span>{' '}
+          {genderSeparationNote}
+        </div>
+      ) : null}
 
       <SeatingEditor
         eventId={eventId}

@@ -94,6 +94,10 @@ import { countUnlockedCategories, pickTodaysOneThing } from '@/lib/todays-one-th
 import { TodaysOneThing } from './_components/todays-one-thing';
 import { NikahEssentialsCard } from './_components/nikah-essentials-card';
 import {
+  computeOfficiantAutoResolution,
+  getOfficiantAutoResolvedHint,
+} from '@/lib/officiant-auto-resolve';
+import {
   WeddingRoadmapAsync,
   WeddingRoadmapSkeleton,
 } from './_components/wedding-roadmap-async';
@@ -416,7 +420,7 @@ export default async function EventHomePage({
       // returns null rather than 500-ing the page.
       (async () => {
         const fullSelect =
-          'event_id, display_name, event_date, event_date_precision, slug, venue_name, venue_latitude, venue_longitude, monogram_text, palette_finalized_at, concierge_status, concierge_tier, concierge_activated_at, concierge_expires_at, concierge_long_engagement_advised_at, event_type, ceremony_type, ceremony_type_locked_at, secondary_ceremony_type, venue_setting, mahr_description, mahr_prompt_deferred, gender_separation, estimated_pax, estimated_budget_centavos, region, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, style_preferences, date_status, auspicious_reasons, wizard_state, planning_mode, setnayan_ai_active, cleared_at';
+          'event_id, display_name, event_date, event_date_precision, slug, venue_name, venue_latitude, venue_longitude, monogram_text, palette_finalized_at, concierge_status, concierge_tier, concierge_activated_at, concierge_expires_at, concierge_long_engagement_advised_at, event_type, ceremony_type, ceremony_type_locked_at, secondary_ceremony_type, venue_setting, mahr_description, gender_separation, estimated_pax, estimated_budget_centavos, region, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, style_preferences, date_status, auspicious_reasons, wizard_state, planning_mode, setnayan_ai_active, cleared_at';
         const fullRes = await supabase
           .from('events')
           .select(fullSelect)
@@ -1561,6 +1565,47 @@ export default async function EventHomePage({
     await resolveSetnayanAiPaywallEnabled(),
   );
 
+  // Nikah imam designation (Muslim track). The Five-essentials card ticks the
+  // "Imam / qadi" essential when a guest has role 'imam' (computed in the card
+  // from `guests`), OR — computed here, since the card only sees guests — when
+  // the couple has booked an officiant vendor (locked), OR when a locked mosque
+  // venue auto-resolves the imam (computeOfficiantAutoResolution → muslim_mosque,
+  // which also surfaces the PD 1083 hint). Only runs for muslim events, and the
+  // auto-resolve query only fires when no officiant vendor is already booked.
+  const nikahCeremony =
+    (event as { ceremony_type?: string | null }).ceremony_type ?? null;
+  const nikahSecondary =
+    (event as { secondary_ceremony_type?: string | null })
+      .secondary_ceremony_type ?? null;
+  const isNikahEvent =
+    nikahCeremony === 'muslim' || nikahSecondary === 'muslim';
+  const OFFICIANT_LOCKED_STATUSES = new Set([
+    'contracted',
+    'deposit_paid',
+    'delivered',
+    'complete',
+  ]);
+  let nikahImamBooked = false;
+  let nikahImamNote: string | null = null;
+  if (isNikahEvent) {
+    nikahImamBooked = eventVendorsRaw.some(
+      (v) =>
+        v.category === 'officiant' &&
+        OFFICIANT_LOCKED_STATUSES.has(v.status ?? ''),
+    );
+    if (!nikahImamBooked) {
+      const resolved = await computeOfficiantAutoResolution(supabase, {
+        eventId,
+        ceremonyType: 'muslim',
+        vendorRows: eventVendorsRaw,
+      }).catch(() => null);
+      if (resolved?.framing === 'muslim_mosque') {
+        nikahImamBooked = true;
+        nikahImamNote = getOfficiantAutoResolvedHint('muslim_mosque');
+      }
+    }
+  }
+
   return (
     // Column effect retired 2026-05-23 per owner directive — event home
     // renders as a single column on every breakpoint. Prior shape was a
@@ -1629,28 +1674,23 @@ export default async function EventHomePage({
        *  mixed ceremony with a muslim leg). Turns the five validity pillars of
        *  the Islamic marriage contract into a tangible checklist + hosts the
        *  mahr / gender-separation editor. Sits high, right under the countdown. */}
-      {(() => {
-        const ceremony =
-          (event as { ceremony_type?: string | null }).ceremony_type ?? null;
-        const secondary =
-          (event as { secondary_ceremony_type?: string | null })
-            .secondary_ceremony_type ?? null;
-        return ceremony === 'muslim' || secondary === 'muslim' ? (
-          <NikahEssentialsCard
-            eventId={eventId}
-            eventDateSet={!!event.event_date}
-            mahrDescription={
-              (event as { mahr_description?: string | null }).mahr_description ??
-              null
-            }
-            genderSeparation={
-              (event as { gender_separation?: string | null })
-                .gender_separation ?? null
-            }
-            guests={guests}
-          />
-        ) : null;
-      })()}
+      {isNikahEvent ? (
+        <NikahEssentialsCard
+          eventId={eventId}
+          eventDateSet={!!event.event_date}
+          mahrDescription={
+            (event as { mahr_description?: string | null }).mahr_description ??
+            null
+          }
+          genderSeparation={
+            (event as { gender_separation?: string | null })
+              .gender_separation ?? null
+          }
+          guests={guests}
+          imamBooked={nikahImamBooked}
+          imamNote={nikahImamNote}
+        />
+      ) : null}
 
       {/* Set-your-date nudge — date-as-output keeps onboarding's event_date NULL,
        *  but the couple still needs a clear, low-friction way to lock the date

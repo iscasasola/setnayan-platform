@@ -43,6 +43,11 @@ type Props = {
   mahrDescription: string | null;
   genderSeparation: string | null;
   guests: ReadonlyArray<GuestLike>;
+  /** True when an officiant is designated outside the guest list — a booked
+   *  officiant vendor OR a mosque venue that auto-resolves the imam. */
+  imamBooked?: boolean;
+  /** Optional hint when the imam was auto-resolved from a mosque venue. */
+  imamNote?: string | null;
 };
 
 function hasRole(guests: ReadonlyArray<GuestLike>, role: string): number {
@@ -57,10 +62,13 @@ export function NikahEssentialsCard({
   mahrDescription,
   genderSeparation,
   guests,
+  imamBooked = false,
+  imamNote = null,
 }: Props) {
   const waliCount = hasRole(guests, 'wali');
   const witnessCount = hasRole(guests, 'witness');
   const imamCount = hasRole(guests, 'imam');
+  const imamDone = imamCount >= 1 || imamBooked;
   const mahrSet = !!mahrDescription && mahrDescription.trim().length > 0;
 
   const guestsHref = `/dashboard/${eventId}/guests`;
@@ -106,12 +114,13 @@ export function NikahEssentialsCard({
     {
       icon: UserCheck,
       label: 'Imam / qadi',
-      done: imamCount >= 1 ? 'done' : 'todo',
-      help:
-        imamCount >= 1
+      done: imamDone ? 'done' : 'todo',
+      help: imamDone
+        ? imamCount >= 1
           ? 'Your officiant is on your guest list.'
-          : 'Add the imam or qadi who will solemnize the nikah.',
-      cta: imamCount >= 1 ? null : { href: guestsHref, label: 'Add imam' },
+          : imamNote ?? 'Your officiant is booked in your vendor list.'
+        : 'Add the imam or qadi who will solemnize the nikah.',
+      cta: imamDone ? null : { href: guestsHref, label: 'Add imam' },
     },
   ];
 

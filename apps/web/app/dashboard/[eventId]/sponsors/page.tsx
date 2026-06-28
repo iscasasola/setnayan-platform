@@ -119,7 +119,7 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
     // Event meta — used for the invitation template + page header.
     admin
       .from('events')
-      .select('display_name, event_date, ceremony_type, venue_name')
+      .select('display_name, event_date, ceremony_type, secondary_ceremony_type, venue_name')
       .eq('event_id', eventId)
       .maybeSingle(),
     // Sponsors — all rows on this event.
@@ -138,6 +138,23 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
     ceremony_type: null,
     venue_name: null,
   };
+
+  // The Sponsors surface is the Catholic-Filipino ninong/ninang + cord/veil/
+  // coin/candle machinery — none of which exists in a Nikah. A pure Muslim
+  // wedding has no sponsors; its Nikah principals (wali/witness/imam/wakil) are
+  // managed in the guest list + the Five-essentials card. So redirect a
+  // muslim-primary wedding here, UNLESS it's a mixed ceremony with a non-muslim
+  // (e.g. Catholic) secondary leg that legitimately uses sponsors.
+  const secondaryCeremony =
+    (event as { secondary_ceremony_type?: string | null })
+      .secondary_ceremony_type ?? null;
+  if (
+    event.ceremony_type === 'muslim' &&
+    (!secondaryCeremony || secondaryCeremony === 'muslim')
+  ) {
+    redirect(`/dashboard/${eventId}/guests`);
+  }
+
   const eventName = event.display_name ?? 'Your event';
   const coupleNames = event.display_name ?? 'we';
   const sponsors = (sponsorRows ?? []) as SponsorRow[];

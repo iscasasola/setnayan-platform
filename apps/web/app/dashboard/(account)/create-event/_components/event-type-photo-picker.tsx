@@ -62,15 +62,26 @@ export function EventTypePhotoPicker({ types, onSelect, initialIndex = 0, classN
   const [active, setActive] = useState(initialIndex);
 
   // The most-centered card is "active" — the only one that begins on tap.
+  //
+  // Geometry is measured in VIEWPORT coordinates via getBoundingClientRect, NOT
+  // offsetLeft. offsetLeft is relative to the nearest *positioned* ancestor, and
+  // this scrolling deck is not positioned — so on the centered desktop layout
+  // (max-w-2xl) the card's offsetLeft is measured from <body>, hundreds of px
+  // off from deck.scrollLeft's coordinate space. That made computeActive pick
+  // the wrong card: the visually-centered photo never became `active`, so the
+  // "Begin →" affordance was missing and tapping it only re-centered an
+  // already-centered card — it looked permanently unclickable on desktop.
+  // (owner bug 2026-06-28: "why are the events still unclickable?")
   const computeActive = useCallback(() => {
     const deck = deckRef.current;
     if (!deck) return;
-    const center = deck.scrollLeft + deck.clientWidth / 2;
+    const center = deck.getBoundingClientRect().left + deck.clientWidth / 2;
     let best = 0;
     let bestDist = Infinity;
     cardRefs.current.forEach((el, i) => {
       if (!el) return;
-      const c = el.offsetLeft + el.offsetWidth / 2;
+      const box = el.getBoundingClientRect();
+      const c = box.left + box.width / 2;
       const d = Math.abs(c - center);
       if (d < bestDist) {
         bestDist = d;
@@ -92,8 +103,14 @@ export function EventTypePhotoPicker({ types, onSelect, initialIndex = 0, classN
     const deck = deckRef.current;
     const el = cardRefs.current[i];
     if (!deck || !el) return;
+    // Same viewport-coordinate basis as computeActive — scroll by the delta
+    // between the card's center and the deck's visible center, so this works
+    // regardless of where the deck sits on the page (see computeActive note).
+    const deckBox = deck.getBoundingClientRect();
+    const elBox = el.getBoundingClientRect();
+    const delta = elBox.left + elBox.width / 2 - (deckBox.left + deck.clientWidth / 2);
     deck.scrollTo({
-      left: el.offsetLeft - (deck.clientWidth - el.offsetWidth) / 2,
+      left: deck.scrollLeft + delta,
       behavior: smooth ? 'smooth' : 'auto',
     });
   }, []);

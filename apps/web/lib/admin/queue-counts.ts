@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 /**
@@ -139,26 +140,15 @@ const QUEUE_DEFS: QueueDef[] = [
 const num = (c: number | null | undefined): number | null =>
   typeof c === 'number' ? c : null;
 
-// ── Counts (nav badges · runs on EVERY admin page · head-only, cheapest) ──
-
-/** Keyed by nav-item key; `number` = open count, `null` = query unavailable. */
+/**
+ * The badge-number shape: keyed by nav-item key, `number` = open count, `null`
+ * = query unavailable. Counts are derived from the digest below (one fetch path
+ * — the digest already returns the count, so no separate head-count query).
+ */
 export type AdminQueueCounts = Record<string, number | null>;
 
-export async function getAdminQueueCounts(): Promise<AdminQueueCounts> {
-  const admin = createAdminClient();
-  const nowIso = new Date().toISOString();
-  const head = { count: 'exact', head: true } as const;
-  const results = await Promise.all(
-    QUEUE_DEFS.map((d) => d.filter(admin.from(d.table).select('*', head), { nowIso })),
-  );
-  const out: AdminQueueCounts = {};
-  QUEUE_DEFS.forEach((d, i) => {
-    out[d.key] = num(results[i]?.count);
-  });
-  return out;
-}
-
-// ── Digest (command center · ONE page · count + oldest-open age for ranking) ──
+// ── Digest — the single fetch: count + oldest-open age per queue, for badges,
+//    the topbar pill, AND the command-center worklist (cache()'d per request) ──
 
 export type AdminQueueDigestRow = { count: number | null; oldestAt: string | null };
 export type AdminQueueDigest = Record<string, AdminQueueDigestRow>;
@@ -169,7 +159,7 @@ export type AdminQueueDigest = Record<string, AdminQueueDigestRow>;
  * limit(1) returns both). A table without a `created_at` column degrades to
  * oldestAt:null (that queue ranks by volume only) — never blocks the feed.
  */
-export async function getAdminQueueDigest(): Promise<AdminQueueDigest> {
+export const getAdminQueueDigest = cache(async (): Promise<AdminQueueDigest> => {
   const admin = createAdminClient();
   const nowIso = new Date().toISOString();
   const results = await Promise.all(
@@ -190,7 +180,7 @@ export async function getAdminQueueDigest(): Promise<AdminQueueDigest> {
     out[d.key] = { count: num(r?.count), oldestAt };
   });
   return out;
-}
+});
 
 export type AdminQueueDueState =
   | 'overdue'
@@ -219,4 +209,43 @@ export function computeDueState(
   if (ageHours >= slaHours) return 'overdue';
   if (ageHours >= slaHours * 0.75) return 'due-soon';
   return 'ok';
+}
+
+/** Per-queue urgency + the rolled-up tallies the nav chrome escalates on. */
+export type QueueUrgency = {
+  /** dueState per nav-item key (only queues with open work appear). */
+  states: Record<string, AdminQueueDueState>;
+  /** Queues with at least one item past its SLA. */
+  overdue: number;
+  /** Queues approaching SLA (last quarter of the window). */
+  dueSoon: number;
+  /** Sum of open items across all queues. */
+  totalOpen: number;
+};
+
+/**
+ * Collapses a digest into the urgency signal the nav surfaces share: a
+ * per-queue dueState (so a badge is red only when something is ACTUALLY overdue,
+ * not merely because the queue is "important"), plus the overdue/due-soon queue
+ * tallies the topbar escalates on. Pure — pass Date.now() so callers control the
+ * clock (and tests can pin it).
+ */
+export function deriveQueueUrgency(
+  digest: AdminQueueDigest,
+  nowMs: number,
+): QueueUrgency {
+  const states: Record<string, AdminQueueDueState> = {};
+  let overdue = 0;
+  let dueSoon = 0;
+  let totalOpen = 0;
+  for (const [key, meta] of Object.entries(ADMIN_QUEUE_META)) {
+    const row = digest[key];
+    if (!row) continue;
+    totalOpen += Math.max(0, row.count ?? 0);
+    const state = computeDueState(row, meta.slaHours, nowMs);
+    states[key] = state;
+    if (state === 'overdue') overdue += 1;
+    else if (state === 'due-soon') dueSoon += 1;
+  }
+  return { states, overdue, dueSoon, totalOpen };
 }

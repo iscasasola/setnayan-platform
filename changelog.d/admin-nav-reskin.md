@@ -17,6 +17,11 @@ opening the page*. Plus a vocabulary re-skin of the same nav surface.
 - The feed now splits an **"Needs attention now"** group (anything past SLA, red) from the rest, shows a per-row **lane tag** + **age line** ("Oldest 3d · past SLA"), tints by urgency, and lays out responsively (1-col phone / 2-col desktop). Fails open to "all clear" on a query error.
 - `getAdminQueueCounts()` (nav badges) and `getAdminQueueDigest()` (command center) now share **one `QUEUE_DEFS` filter table** — a queue's "open" definition is written once, so the badge count and the worklist count can never disagree.
 
+### Real-urgency escalation — one signal, everywhere
+- Badge tone now tracks **actual overdue state**, not queue identity: a queue is red only when its oldest item has passed its SLA, amber when approaching, neutral when open-but-fine. (Before, "disputes" was always red even with a fresh item.) `getAdminQueueDigest()` is now the single fetch — wrapped in React `cache()` so the layout and the `/admin/work` page share one execution per request — and feeds badges + pill + worklist off the same `deriveQueueUrgency()` summary. Removed the now-redundant `getAdminQueueCounts()`.
+- **Topbar escalation pill** (`app/admin/layout.tsx`): a red "**N overdue**" / amber "**N due soon**" pill leads the topbar utility cluster, visible on **every** admin page (not just when the eye is on the Work nav), linking to the command center. Only shows when something is actually due.
+- Unit tests (`lib/admin/queue-counts.test.ts`) pin the overdue / due-soon / ok boundaries + the tally logic — the meaningful proof since prod is 0-open and the urgency UI can't be shown live yet.
+
 ### Vocabulary re-skin (secondary)
 Keeps the owner-signed-off **verb axis** (act/find/tune, `Admin_Console_Nav_Redesign_2026-06-08.md`) — does **not** flip to topic-grouping — and **drops zero surfaces** / changes **zero URLs**.
 

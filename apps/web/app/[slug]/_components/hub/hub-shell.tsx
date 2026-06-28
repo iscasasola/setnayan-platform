@@ -41,7 +41,14 @@
  * `*-bottom-nav.tsx` (the delegation lint guard keys on that name).
  */
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ButtonHTMLAttributes,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+} from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Activity,
@@ -153,6 +160,42 @@ export function HubShell({
     setMoreOpen(false);
   }
 
+  // The toggle menu is an ARIA tab set, not navigation: the bar is a `tablist`,
+  // each pill a `tab` controlling the single `tabpanel` stage, with roving
+  // tabindex + arrow-key movement (APG tabs pattern). The panel is labelled by
+  // whichever control is active — a primary tab, or the "More" disclosure when
+  // an overflow panel is showing.
+  const PANEL_ID = 'hub-panel';
+  const MORE_ID = 'hub-more-tab';
+  const SHEET_ID = 'hub-more-sheet';
+  const tabId = (key: HubPanelKey) => `hub-tab-${key}`;
+  const activeControlId = overflowActive ? MORE_ID : tabId(active);
+  // Exactly one primary tab is tabbable (roving): the active one, or the first
+  // when the active panel lives in the overflow sheet.
+  const focusKey = primary.some((m) => m.key === active) ? active : primary[0]?.key;
+
+  const tablistRef = useRef<HTMLDivElement>(null);
+  function onTablistKeyDown(e: ReactKeyboardEvent<HTMLDivElement>) {
+    if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(e.key)) return;
+    const tabs = Array.from(
+      tablistRef.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]') ?? [],
+    );
+    if (tabs.length === 0) return;
+    const current = tabs.findIndex((t) => t === document.activeElement);
+    let next = current;
+    if (e.key === 'ArrowRight') next = current < 0 ? 0 : (current + 1) % tabs.length;
+    else if (e.key === 'ArrowLeft')
+      next = current < 0 ? tabs.length - 1 : (current - 1 + tabs.length) % tabs.length;
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = tabs.length - 1;
+    const target = tabs[next];
+    if (!target) return;
+    e.preventDefault();
+    target.focus();
+    const key = target.getAttribute('data-tabkey');
+    if (key) setActive(key as HubPanelKey);
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-cream text-ink">
       {/* Signature header — slim, safe-area aware. */}
@@ -160,45 +203,72 @@ export function HubShell({
         {header}
       </header>
 
-      {/* Panel stage — the ONLY scrollable region (a long Schedule). The page
-          itself never scrolls. Re-mounted per panel so the entrance plays. */}
-      <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 pt-4">
+      {/* Panel stage (tabpanel) — the ONLY scrollable region (a long Schedule).
+          The page itself never scrolls. Re-mounted per panel so the entrance
+          plays. */}
+      <main
+        id={PANEL_ID}
+        role="tabpanel"
+        aria-labelledby={activeControlId}
+        tabIndex={0}
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 pt-4 focus-visible:outline-none"
+      >
         <PanelFade key={active}>{panels[active]}</PanelFade>
       </main>
 
-      {/* Bottom toggle menu — ≤5 primary pills + a More overflow sheet. */}
+      {/* Bottom toggle menu — ≤5 primary tabs + a More overflow sheet. */}
       <nav
         aria-label="Event hub"
         className="shrink-0 border-t border-ink/10 bg-cream/92 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 backdrop-blur"
       >
-        <ul
+        <div
           className="mx-auto grid max-w-md gap-1"
           style={{
             gridTemplateColumns: `repeat(${primary.length + (overflow.length > 0 ? 1 : 0)}, minmax(0, 1fr))`,
           }}
         >
-          {primary.map((m) => (
-            <li key={m.key}>
+          {/* `display:contents` so the tab buttons remain direct grid items. */}
+          <div
+            ref={tablistRef}
+            role="tablist"
+            aria-label="Event hub sections"
+            aria-orientation="horizontal"
+            onKeyDown={onTablistKeyDown}
+            className="contents"
+          >
+            {primary.map((m) => (
               <HubMenuButton
+                key={m.key}
                 label={m.label}
                 icon={m.icon}
                 active={active === m.key}
                 onClick={() => select(m.key)}
+                buttonProps={{
+                  role: 'tab',
+                  id: tabId(m.key),
+                  'data-tabkey': m.key,
+                  'aria-selected': active === m.key,
+                  'aria-controls': PANEL_ID,
+                  tabIndex: m.key === focusKey ? 0 : -1,
+                }}
               />
-            </li>
-          ))}
+            ))}
+          </div>
           {overflow.length > 0 ? (
-            <li>
-              <HubMenuButton
-                label="More"
-                icon={MoreHorizontal}
-                active={overflowActive}
-                onClick={() => setMoreOpen((v) => !v)}
-                expanded={moreOpen}
-              />
-            </li>
+            <HubMenuButton
+              label="More"
+              icon={MoreHorizontal}
+              active={overflowActive}
+              onClick={() => setMoreOpen((v) => !v)}
+              buttonProps={{
+                id: MORE_ID,
+                'aria-haspopup': 'dialog',
+                'aria-expanded': moreOpen,
+                'aria-controls': SHEET_ID,
+              }}
+            />
           ) : null}
-        </ul>
+        </div>
       </nav>
 
       {/* More overflow sheet — anchored above the menu. */}
@@ -209,6 +279,7 @@ export function HubShell({
         >
           <div
             ref={moreSheetRef}
+            id={SHEET_ID}
             role="dialog"
             aria-modal="true"
             aria-label="More event functions"
@@ -237,6 +308,7 @@ export function HubShell({
                     <button
                       type="button"
                       onClick={() => select(m.key)}
+                      aria-current={active === m.key ? 'true' : undefined}
                       className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium transition ${
                         active === m.key
                           ? 'bg-ink text-cream'
@@ -258,30 +330,30 @@ export function HubShell({
 }
 
 /** One toggle pill in the bottom menu. Active = filled ink pill (the signature
- *  read), restrained transition. ≥44px tap target. */
+ *  read), restrained transition. ≥44px tap target. `buttonProps` carries the
+ *  ARIA tab (or More-disclosure) wiring from the shell. */
 function HubMenuButton({
   label,
   icon: Icon,
   active,
   onClick,
-  expanded,
+  buttonProps,
 }: {
   label: string;
   icon: LucideIcon;
   active: boolean;
   onClick: () => void;
-  expanded?: boolean;
+  buttonProps?: ButtonHTMLAttributes<HTMLButtonElement> & {
+    'data-tabkey'?: string;
+  };
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-current={active ? 'true' : undefined}
-      aria-expanded={expanded}
-      className={`flex min-h-[44px] w-full select-none flex-col items-center justify-center gap-0.5 rounded-full px-1 py-1.5 transition ${
-        active
-          ? 'bg-ink text-cream'
-          : 'text-ink/60 hover:text-ink'
+      {...buttonProps}
+      className={`flex min-h-[44px] w-full select-none flex-col items-center justify-center gap-0.5 rounded-full px-1 py-1.5 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta ${
+        active ? 'bg-ink text-cream' : 'text-ink/60 hover:text-ink'
       }`}
       style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
     >

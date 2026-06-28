@@ -27,6 +27,7 @@ export const CEREMONY_LABEL: Record<string, string> = {
   christian: 'Christian ceremony',
   muslim: 'Muslim ceremony',
   cultural: 'Cultural ceremony',
+  chinese: 'Chinese ceremony',
   mixed: 'Mixed ceremony',
 };
 

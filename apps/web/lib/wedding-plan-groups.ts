@@ -1004,6 +1004,7 @@ const CEREMONY_TYPE_READABLE_LABEL: Record<string, string> = {
   christian: 'Christian',
   muslim: 'Muslim',
   cultural: 'Cultural',
+  chinese: 'Chinese',
   mixed: 'Mixed',
 };
 

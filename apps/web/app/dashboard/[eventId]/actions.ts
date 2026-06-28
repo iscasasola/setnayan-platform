@@ -28,6 +28,7 @@ import {
 import { resolveRegion } from '@/lib/region-source';
 import { baziBirthDataEnabled } from '@/lib/bazi-birthdata';
 import { isChineseWedding } from '@/lib/chinese-wedding';
+import { ALLOWED_CEREMONY_VALUES } from '@/lib/faith-registry';
 import {
   computeCompatibilityIssue,
   type EventVendorRowInput,
@@ -335,6 +336,15 @@ const ALLOWED_CEREMONY_TYPES = [
 ] as const;
 type AllowedCeremonyType = (typeof ALLOWED_CEREMONY_TYPES)[number];
 
+// Secondary (overlay) ceremony pick — any registry faith or civil, never
+// 'mixed'. Mirrors `ALLOWED_SECONDARY` in create-event/actions.ts +
+// onboarding/wedding/actions.ts (the canonical source of truth), so the
+// post-create overlay editor and the create-time mixed flow validate against
+// one identical list. Imported (not re-hardcoded) so the roster stays DB-driven
+// per the 2026-06-13 faith-registry cutover.
+const ALLOWED_SECONDARY_CEREMONY_TYPES: readonly string[] =
+  ALLOWED_CEREMONY_VALUES.filter((v) => v !== 'mixed');
+
 type SetCeremonyResult =
   | { ok: true; ceremony_type: AllowedCeremonyType; updated: boolean }
   | { ok: false; code: 'invalid_input' | 'unauthorized' | 'vendor_lock' | 'not_wedding' | 'db_error'; message: string };
@@ -351,6 +361,28 @@ export async function setEventCeremonyType(formData: FormData): Promise<SetCerem
     return { ok: false, code: 'invalid_input', message: 'Invalid ceremony type' };
   }
   const ceremony_type = ceremonyRaw as AllowedCeremonyType;
+
+  // OPTIONAL secondary (overlay) ceremony — the common Tsinoy "church-primary +
+  // Chinese tea ceremony" case (secondary_ceremony_type='chinese'). The field is
+  // OPTIONAL: callers that don't send it leave the column untouched (the update
+  // below stays byte-identical for them). When present:
+  //   - '' (empty string) CLEARS the overlay → null.
+  //   - any value must be in ALLOWED_SECONDARY_CEREMONY_TYPES (registry faith or
+  //     civil, never 'mixed'), else reject.
+  // `undefined` = field absent → don't touch the column; `null`/string = write.
+  const secondaryProvided = formData.has('secondary_ceremony_type');
+  const secondaryRaw = formData.get('secondary_ceremony_type');
+  let secondary_ceremony_type: string | null | undefined = undefined;
+  if (secondaryProvided) {
+    const s = typeof secondaryRaw === 'string' ? secondaryRaw.trim() : '';
+    if (s === '') {
+      secondary_ceremony_type = null;
+    } else if (ALLOWED_SECONDARY_CEREMONY_TYPES.includes(s)) {
+      secondary_ceremony_type = s;
+    } else {
+      return { ok: false, code: 'invalid_input', message: 'Invalid secondary ceremony type' };
+    }
+  }
 
   const supabase = await createClient();
   const {
@@ -395,7 +427,7 @@ export async function setEventCeremonyType(formData: FormData): Promise<SetCerem
   const admin = createAdminClient();
   const { data: eventRow, error: selectError } = await admin
     .from('events')
-    .select('event_id, event_type, ceremony_type, ceremony_type_locked_at')
+    .select('event_id, event_type, ceremony_type, secondary_ceremony_type, ceremony_type_locked_at')
     .eq('event_id', eventId)
     .maybeSingle();
   if (selectError) {
@@ -410,6 +442,7 @@ export async function setEventCeremonyType(formData: FormData): Promise<SetCerem
 
   const wasConfirmedBefore = Boolean(eventRow.ceremony_type_locked_at);
   const previousType = eventRow.ceremony_type ?? null;
+  const previousSecondary = (eventRow.secondary_ceremony_type as string | null) ?? null;
 
   // Vendor-confirmed gate — once any vendor is at-or-past `contracted`,
   // the wedding type locks at its current default. Mirrors the 2026-05-17
@@ -443,9 +476,14 @@ export async function setEventCeremonyType(formData: FormData): Promise<SetCerem
     };
   }
 
-  // No-op short-circuit: same value already saved. Returns ok=true so the
-  // modal closes cleanly, but we don't write or audit-log.
-  if (previousType === ceremony_type && wasConfirmedBefore) {
+  // No-op short-circuit: same value(s) already saved. Returns ok=true so the
+  // modal closes cleanly, but we don't write or audit-log. The secondary leg
+  // only counts as "unchanged" when the caller actually sent it (or didn't
+  // touch it) AND it matches the stored value — so a secondary-only edit still
+  // falls through to the write below.
+  const secondaryUnchanged =
+    secondary_ceremony_type === undefined || secondary_ceremony_type === previousSecondary;
+  if (previousType === ceremony_type && secondaryUnchanged && wasConfirmedBefore) {
     return { ok: true, ceremony_type, updated: false };
   }
 
@@ -454,13 +492,20 @@ export async function setEventCeremonyType(formData: FormData): Promise<SetCerem
   // default from the biconditional CHECK invariant). It is NOT load-bearing
   // for the UI lock — the UI gates on live confirmedVendorCount instead.
   const nowIso = new Date().toISOString();
+  const updatePatch: Record<string, unknown> = {
+    ceremony_type,
+    ceremony_type_locked_at: nowIso,
+    ceremony_type_locked_by: user.id,
+  };
+  // Only touch secondary_ceremony_type when the caller actually sent the field;
+  // omitting it keeps the write byte-identical for existing callers (the modal's
+  // primary-only "Change" flow).
+  if (secondary_ceremony_type !== undefined) {
+    updatePatch.secondary_ceremony_type = secondary_ceremony_type;
+  }
   const { error: updateError } = await admin
     .from('events')
-    .update({
-      ceremony_type,
-      ceremony_type_locked_at: nowIso,
-      ceremony_type_locked_by: user.id,
-    })
+    .update(updatePatch)
     .eq('event_id', eventId);
   if (updateError) {
     await insertFaultLog({
@@ -480,10 +525,18 @@ export async function setEventCeremonyType(formData: FormData): Promise<SetCerem
     target_id: eventId,
     before_json: {
       ceremony_type: previousType,
+      secondary_ceremony_type: previousSecondary,
       ceremony_type_locked_at: eventRow.ceremony_type_locked_at,
       confirmed_vendor_count: confirmed,
     },
-    after_json: { ceremony_type, ceremony_type_locked_at: nowIso },
+    after_json: {
+      ceremony_type,
+      ceremony_type_locked_at: nowIso,
+      // Only record the secondary in the audit when it was part of this write.
+      ...(secondary_ceremony_type !== undefined
+        ? { secondary_ceremony_type }
+        : {}),
+    },
     actor_user_id: user.id,
   });
 

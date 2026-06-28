@@ -27,6 +27,7 @@ opening the page*. Plus a vocabulary re-skin of the same nav surface.
 - Branded email (Resend, via `lib/email-template.ts`) summarises open work by lane (Trust/Money/Growth/Support) with overdue counts + a "Open the work list" CTA. Pure content in `digest-content.ts` (unit-tested); IO/scheduling in `digest-flush.ts`.
 - Migration `20270316513402_admin_digest_settings.sql`: two additive columns on `platform_settings` — `admin_digest_enabled` (**OFF by default** — no recurring email until the owner flips it on) + `admin_digest_last_sent_at` (the daily claim lock). No RLS change (existing table; service-role flush).
 - **Triple-gated & safe to ship dormant:** sends nothing until (a) owner enables the toggle, (b) there's open work, (c) Resend is configured. Recipients = internal admins (`users.is_internal`).
+- **UI toggle** (`/admin/settings` → "Ops notifications"): flip `admin_digest_enabled` from the dashboard instead of SQL — new `saveAdminDigest` action + checkbox, wired through `platform-settings.ts` (type + select + fallback).
 
 ### Vocabulary re-skin (secondary)
 Keeps the owner-signed-off **verb axis** (act/find/tune, `Admin_Console_Nav_Redesign_2026-06-08.md`) — does **not** flip to topic-grouping — and **drops zero surfaces** / changes **zero URLs**.

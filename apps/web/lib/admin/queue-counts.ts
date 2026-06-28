@@ -45,6 +45,7 @@ export const ADMIN_QUEUE_META: Record<
   reviews: { lane: 'support', slaHours: 72 },
   verify: { lane: 'growth', slaHours: 48 }, // a vendor is waiting for the badge
   'vendor-partnerships': { lane: 'growth', slaHours: 72 },
+  'user-reports': { lane: 'trust', slaHours: 24 }, // UGC moderation (Apple 1.2)
 };
 
 type QueueDef = {
@@ -135,7 +136,26 @@ const QUEUE_DEFS: QueueDef[] = [
     table: 'vendor_partnerships',
     filter: (q) => q.eq('admin_verified', false).eq('is_active', true),
   },
+  // User reports — UGC moderation queue (Apple 1.2 / Play UGC). status='open'
+  // is the actionable cut (open → actioned/dismissed).
+  {
+    key: 'user-reports',
+    table: 'user_reports',
+    filter: (q) => q.eq('status', 'open'),
+  },
 ];
+
+// DELIBERATELY NOT in QUEUE_DEFS (so they carry NO badge/urgency) — their
+// "pending count" and/or actionable age is COMPUTED, not a single-table head-
+// count, so an approximate filter would show a WRONG number (worse than none):
+//   • pax-changes      — pax_change_audit joined across vendor_profiles + events
+//   • completions      — event_vendors, multi-column actionable age (vendor-marked
+//                        vs disputed) + a JS "stuck" cut the DB can't replicate
+//   • social-queue     — social_posts auto-publish states ≠ "awaiting admin"
+//   • pakanta          — orders filtered to the Pakanta SKU (cross-table)
+//   • editorial-review — event_editorial flag severity computed from a jsonb array
+// These keep their /admin/<route> pages; closing this would need per-queue
+// count RPCs, tracked as a follow-up — NOT a silent omission.
 
 const num = (c: number | null | undefined): number | null =>
   typeof c === 'number' ? c : null;
@@ -221,6 +241,13 @@ export type QueueUrgency = {
   dueSoon: number;
   /** Sum of open items across all queues. */
   totalOpen: number;
+  /**
+   * Queues whose count came back NULL (query degraded/unavailable). Lets a
+   * caller tell "genuinely all-clear" (totalOpen 0, unknownCount 0) from a
+   * "read failed" all-clear (totalOpen 0, unknownCount > 0) — so an outage
+   * never renders a falsely reassuring "all clear".
+   */
+  unknownCount: number;
 };
 
 /**
@@ -238,14 +265,19 @@ export function deriveQueueUrgency(
   let overdue = 0;
   let dueSoon = 0;
   let totalOpen = 0;
+  let unknownCount = 0;
   for (const [key, meta] of Object.entries(ADMIN_QUEUE_META)) {
     const row = digest[key];
-    if (!row) continue;
-    totalOpen += Math.max(0, row.count ?? 0);
+    if (!row || row.count === null) {
+      unknownCount += 1; // queue missing from digest, or its count query degraded
+      if (row) states[key] = computeDueState(row, meta.slaHours, nowMs);
+      continue;
+    }
+    totalOpen += Math.max(0, row.count);
     const state = computeDueState(row, meta.slaHours, nowMs);
     states[key] = state;
     if (state === 'overdue') overdue += 1;
     else if (state === 'due-soon') dueSoon += 1;
   }
-  return { states, overdue, dueSoon, totalOpen };
+  return { states, overdue, dueSoon, totalOpen, unknownCount };
 }

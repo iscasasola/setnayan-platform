@@ -7,11 +7,28 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { rollupByLane } from './digest-content';
+import { rollupByLane, sendThresholdMs } from './digest-content';
 import { deriveQueueUrgency, type AdminQueueDigest } from './queue-counts';
 
 const NOW = Date.parse('2026-06-28T12:00:00Z');
 const hoursAgo = (h: number) => new Date(NOW - h * 3_600_000).toISOString();
+
+test('sendThresholdMs — today 08:00 Manila as a UTC instant', () => {
+  // 12:00 UTC = 20:00 Manila on 2026-06-28 → window opened at 08:00 Manila,
+  // which is 00:00 UTC the same day. now is well past it.
+  const t = sendThresholdMs(NOW);
+  assert.equal(new Date(t).toISOString(), '2026-06-28T00:00:00.000Z');
+  assert.ok(NOW >= t, 'noon UTC is after the 08:00-Manila window');
+});
+
+test('sendThresholdMs — before 08:00 Manila → threshold is in the future', () => {
+  // 23:00 UTC on the 27th = 07:00 Manila on the 28th (before 8am). The window
+  // for the 28th (00:00 UTC) is still ahead, so the digest must NOT fire yet.
+  const before = Date.parse('2026-06-27T23:00:00Z');
+  const t = sendThresholdMs(before);
+  assert.equal(new Date(t).toISOString(), '2026-06-28T00:00:00.000Z');
+  assert.ok(before < t, '07:00 Manila is before the 08:00-Manila window');
+});
 
 test('rollupByLane — groups open + overdue by lane, skips empty lanes, ordered', () => {
   const digest: AdminQueueDigest = {

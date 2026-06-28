@@ -32,10 +32,12 @@
  * per request.
  */
 
+import { after } from 'next/server';
 import { Hero } from '@/app/_components/marketing/_sections';
 import { PostHeroReveal } from '@/app/_components/marketing/PostHeroReveal';
 import { FeaturesNarrative } from '@/app/_components/marketing/FeaturesNarrative';
 import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
+import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
 
 // GEO Phase G2 (2026-05-28) — brand-first title + value-prop description.
 // Carried forward from prior page.tsx so AI answer engines + SERP cards
@@ -158,6 +160,12 @@ export default async function HomePage({
   // hero-copy change can be previewed without unpublishing the live video.
   const { hero } = await searchParams;
   const forceKeynote = hero === 'text';
+  // Admin morning-digest flush — cron-free, piggybacks on the homepage's
+  // guaranteed public traffic so the digest reaches an admin who isn't in the
+  // console even on a quiet day. Throttled + single-claim + gated OFF by
+  // default internally; uses the service-role client (no cookies → safe in
+  // after()). See lib/admin/digest-flush.ts.
+  after(() => runAdminDigestFlush().catch(() => {}));
   return (
     <>
       <script

@@ -25,25 +25,13 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { sendEmail } from '@/lib/email';
-import { buildDigestEmail } from '@/lib/admin/digest-content';
+import { buildDigestEmail, sendThresholdMs } from '@/lib/admin/digest-content';
 import { getAdminQueueDigest, deriveQueueUrgency } from '@/lib/admin/queue-counts';
 
 /** Min gap between DB checks per instance — makes the after() hooks ~free. */
 const CHECK_THROTTLE_MS = 30 * 60 * 1000;
-/** Local hour (Asia/Manila) the daily digest may first go out. */
-const SEND_HOUR_MANILA = 8;
-const MANILA_OFFSET = '+08:00'; // PH has no DST.
 
 let lastCheckMs = 0;
-
-/** Today's send-window start (SEND_HOUR_MANILA, Manila) as a UTC instant (ms). */
-function sendThresholdMs(nowMs: number): number {
-  const manilaDate = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Manila',
-  }).format(new Date(nowMs)); // YYYY-MM-DD
-  const hh = String(SEND_HOUR_MANILA).padStart(2, '0');
-  return Date.parse(`${manilaDate}T${hh}:00:00${MANILA_OFFSET}`);
-}
 
 export async function runAdminDigestFlush(): Promise<void> {
   const nowMs = Date.now();
@@ -55,16 +43,43 @@ export async function runAdminDigestFlush(): Promise<void> {
     // Before today's send hour → nothing to do yet.
     if (Number.isNaN(thresholdMs) || nowMs < thresholdMs) return;
     const thresholdIso = new Date(thresholdMs).toISOString();
+    const nowIso = new Date(nowMs).toISOString();
 
     const admin = createAdminClient();
 
-    // Atomic daily claim: only succeeds when the digest is ENABLED and hasn't
-    // been sent since today's send hour. The row-level lock makes concurrent
-    // callers (other requests / regions) lose the claim and bail — exactly one
-    // send per day.
+    // Cheap pre-check — skip the digest fetch when the feature is off or today's
+    // digest already went out. (The atomic claim below is the real concurrency
+    // guard; this just avoids work. Parsed to ms so the comparison is robust to
+    // ISO offset/format differences.)
+    const { data: cfg } = await admin
+      .from('platform_settings')
+      .select('admin_digest_enabled, admin_digest_last_sent_at')
+      .eq('id', 1)
+      .maybeSingle();
+    if (!cfg || cfg.admin_digest_enabled !== true) return;
+    if (
+      cfg.admin_digest_last_sent_at &&
+      new Date(cfg.admin_digest_last_sent_at).getTime() >= thresholdMs
+    ) {
+      return; // already sent since today's send hour
+    }
+
+    // Confirm there is REAL work BEFORE spending the day's claim. A degraded
+    // read (any null count → totalOpen 0) OR a genuinely quiet morning both
+    // return here WITHOUT claiming, so the next visitor retries and work that
+    // lands later in the morning still gets a digest. (Fixes: a transient read
+    // at the send minute silently eating the whole day's digest, and a quiet
+    // 08:00 suppressing a 10:00 arrival.)
+    const digest = await getAdminQueueDigest();
+    const urgency = deriveQueueUrgency(digest, nowMs);
+    if (urgency.totalOpen === 0) return;
+
+    // Atomic daily claim — NOW that there's something to send. Only one
+    // concurrent caller wins (the row-level lock re-checks the condition); the
+    // rest bail. `enabled` is re-checked so a toggle-off mid-flight is honored.
     const { data: claim, error: claimErr } = await admin
       .from('platform_settings')
-      .update({ admin_digest_last_sent_at: new Date(nowMs).toISOString() })
+      .update({ admin_digest_last_sent_at: nowIso })
       .eq('admin_digest_enabled', true)
       .or(
         `admin_digest_last_sent_at.is.null,admin_digest_last_sent_at.lt.${thresholdIso}`,
@@ -74,18 +89,14 @@ export async function runAdminDigestFlush(): Promise<void> {
       logQueryError('runAdminDigestFlush (claim)', claimErr);
       return;
     }
-    if (!claim || claim.length === 0) return; // disabled, already sent, or lost the race
+    if (!claim || claim.length === 0) return; // toggled off, or lost the race
 
-    // Won the claim. Build today's snapshot (shared cache() fetch).
-    const digest = await getAdminQueueDigest();
-    const urgency = deriveQueueUrgency(digest, nowMs);
-    // Nothing waiting → claim stands (no re-check today) but no email goes out.
-    if (urgency.totalOpen === 0) return;
-
+    // Every admin who clears queues: internal + team-pool + account_type admin
+    // (mirrors the /admin doorway gate in app/admin/layout.tsx).
     const { data: admins, error: adminErr } = await admin
       .from('users')
       .select('email')
-      .eq('is_internal', true)
+      .or('is_internal.eq.true,is_team_member.eq.true,account_type.eq.admin')
       .not('email', 'is', null);
     if (adminErr) {
       logQueryError('runAdminDigestFlush (recipients)', adminErr);

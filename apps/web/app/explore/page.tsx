@@ -1135,6 +1135,13 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   ).replace(/\/$/, '');
   const vendorsItemListJsonLd = buildVendorsItemListJsonLd(vendorsSiteUrl);
 
+  // Admin morning-digest flush — placed BEFORE the catalog-mode early return so
+  // it fires on bare/unfiltered /explore visits too (the marketplace's main
+  // public entry), not only filtered/searched views. Cookie-free (service-role
+  // client), so the cookies()-ordering constraint that pins runSocialFlush
+  // below doesn't apply. Throttled + single-claim + OFF by default internally.
+  after(() => runAdminDigestFlush().catch(() => {}));
+
   if (isCatalogMode) {
     return (
       <>
@@ -2093,10 +2100,8 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // committed), but all dynamic-API reads must precede it. Moving it here
   // (after the last createClient/cookies call) fixes the Sentry NEXTJS-A error.
   after(() => runSocialFlush().catch(() => {}));
-  // Admin morning-digest flush — cron-free, piggybacks on this PUBLIC page's
-  // traffic so it can reach an admin who isn't in the console. Throttled +
-  // single-claim internally; gated OFF by default. See lib/admin/digest-flush.ts.
-  after(() => runAdminDigestFlush().catch(() => {}));
+  // (runAdminDigestFlush is hooked earlier — before the catalog-mode return —
+  // so it also covers bare /explore visits.)
 
   return (
     <main className="min-h-dvh bg-cream">

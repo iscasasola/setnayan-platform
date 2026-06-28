@@ -79,6 +79,7 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       // legacy landing — /admin/queues now redirects to /admin/work
       '/admin/queues',
       '/admin/verify',
+      '/admin/vendor-partnerships',
       '/admin/payments',
       '/admin/payouts',
       '/admin/token-purchases',
@@ -95,6 +96,7 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/admin/approvals',
       '/admin/social-queue',
       '/admin/pakanta',
+      '/admin/editorial-review',
       '/admin/help',
     ],
   },

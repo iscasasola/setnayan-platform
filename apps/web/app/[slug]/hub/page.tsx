@@ -10,16 +10,24 @@
  *
  * This server component resolves the viewer's identity + every panel's data and
  * renders each panel's CONTENT, handing them to <HubShell> (the client chrome).
- * It reuses the same helpers /[slug] uses — getDayOfPhase, the schedule fetch,
- * the per-guest live gallery, the candid-camera gate, the QR render, the nav
- * deep-links — so the hub never diverges from the canonical day-of behavior.
+ * It reuses the same helpers /[slug] uses — the visibility gate, getDayOfPhase,
+ * the schedule fetch, the per-guest live gallery, the live-wall snapshot, the
+ * candid-camera gate, the QR render, the nav deep-links — so the hub never
+ * diverges from the canonical day-of behavior.
  *
  * A no-guest viewer (anonymous open) degrades to the public panels only — the
  * same posture as the public event-day bar (candid Camera + public Photos, no
  * personal QR / "photos of you" / face enroll).
+ *
+ * PRIVACY: like every other /[slug] sub-route, this gates on canViewSlugEvent —
+ * a private (pre-Save-the-Date-launch) wedding is NEVER exposed to a stranger
+ * with a guessable URL (redirect to /[slug], which renders PrivateLanding). And
+ * generateMetadata marks the whole route noindex,nofollow — a day-of utility
+ * surface is never a crawl/SEO target, and this fail-safes the private case.
  */
 
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
   Activity,
@@ -36,6 +44,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { readGuestSession } from '@/lib/guest-session';
+import { canViewSlugEvent } from '@/lib/slug-access';
+import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
 import { fetchPublicScheduleBlocks } from '@/lib/schedule';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
@@ -43,6 +53,9 @@ import { eventPapicGuestActive } from '@/lib/papic-guest';
 import { eventOwnsPapicSeats } from '@/lib/papic-seats';
 import { resolveGuestCamera } from '@/lib/papic-limited';
 import { getGuestLiveGallery } from '@/lib/guest-live-gallery';
+import { eventSkuActive } from '@/lib/entitlements';
+import { getWallSnapshot } from '@/lib/live-wall';
+import type { WallTile } from '@/lib/live-wall-logic';
 import { parseYouTubeVideoId, youTubeEmbedUrl } from '@/lib/panood-watch';
 import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
 import { resolveMonogram } from '@/lib/monogram';
@@ -50,6 +63,7 @@ import { NavLinksRow } from '@/app/_components/nav-links';
 import { ScheduleWidget } from '../_components/schedule-widget';
 import { DayOfFaceEnroll } from '../_components/day-of-face-enroll';
 import { WhatsHappeningCard } from '@/app/dashboard/[eventId]/_components/day-of-mode/whats-happening-card';
+import { LiveWallBlock, type LiveWallCaption } from '../_components/live-wall-block';
 import { HubShell } from '../_components/hub/hub-shell';
 
 const RESERVED_TOP_LEVEL = new Set([
@@ -66,6 +80,17 @@ type Props = {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
+/**
+ * The hub is a private, day-of utility surface — never a crawl/SEO target. Mark
+ * the whole route noindex,nofollow so a private/unlisted event's schedule/venue
+ * can't leak through a crawler (a fail-safe alongside the canViewSlugEvent gate
+ * in the body). Matches the canonical page's noindex-for-non-public posture but
+ * is unconditional here, which is strictly safer for a utility route.
+ */
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
+
 export default async function EventHubPage({ params, searchParams }: Props) {
   const { slug } = await params;
   const search = await searchParams;
@@ -75,11 +100,12 @@ export default async function EventHubPage({ params, searchParams }: Props) {
 
   // Focused event read — only the columns the hub panels need (a far smaller
   // select than the full /[slug] page, since the hub has no hero/STD/widget
-  // chrome). panood_watch_url is included for the Watch panel.
+  // chrome). landing_page_visibility + scheduled_launch_at drive the privacy
+  // gate; panood_watch_url is for the Watch panel.
   const { data: event } = await admin
     .from('events')
     .select(
-      'event_id, slug, display_name, event_type, event_date, venue_name, venue_address, venue_latitude, venue_longitude, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key, panood_watch_url',
+      'event_id, slug, display_name, event_type, event_date, venue_name, venue_address, venue_latitude, venue_longitude, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key, panood_watch_url, landing_page_visibility, scheduled_launch_at',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -89,6 +115,18 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   // surface; non-website profiles 404 (mirrors the page's resolveProfile gate).
   const eventTypeProfile = await resolveProfile(event.event_type);
   if (!surfaceEnabled(eventTypeProfile, 'website')) notFound();
+
+  // Private-event visibility gate — the SAME gate /[slug] and every sibling
+  // sub-route (find-seat / find-my-table / recap) apply via canViewSlugEvent.
+  // A wedding is private until the Save-the-Date launches (NULL → 'private',
+  // fail-safe); a stranger with a guessable URL is bounced to /[slug], where
+  // they correctly see PrivateLanding instead of this event's schedule/venue.
+  // resolveEffectiveVisibility folds in a due scheduled-launch so the hub reads
+  // public at the same instant the canonical page does.
+  const effectiveVisibility = resolveEffectiveVisibility(event);
+  if (!(await canViewSlugEvent(event.event_id, effectiveVisibility))) {
+    redirect(`/${slug}`);
+  }
 
   const monogram = resolveMonogram(event);
 
@@ -154,7 +192,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
         await admin
           .from('guests')
           .select(
-            'guest_id, first_name, last_name, display_name, rsvp_status, qr_token',
+            'guest_id, first_name, last_name, display_name, rsvp_status, qr_token, plus_one_of_guest_id, plus_one_name_confirmed_at',
           )
           .eq('guest_id', session!.guest_id)
           .is('deleted_at', null)
@@ -162,14 +200,28 @@ export default async function EventHubPage({ params, searchParams }: Props) {
       ).data
     : null;
 
-  // ── Shared data: public schedule (every viewer). ───────────────────────────
+  // A TBA +1 who hasn't confirmed their own name yet must finish onboarding
+  // first — exactly as /[slug] redirects them to /welcome — before we render
+  // their personal hub (the QR/seat/gallery key off a real identity).
+  if (
+    guest &&
+    guest.plus_one_of_guest_id !== null &&
+    !guest.plus_one_name_confirmed_at &&
+    (!guest.first_name || guest.first_name.toLowerCase() === 'tba')
+  ) {
+    redirect(`/${slug}/welcome`);
+  }
+
+  // ── Shared data: public schedule (every viewer). fetchPublicScheduleBlocks
+  // already returns only is_public rows, so we just split out the top-level
+  // blocks for the "happening now" card. ────────────────────────────────────
   const scheduleBlocks = await fetchPublicScheduleBlocks(admin, event.event_id);
   const eventTz = eventTimezoneFromCoords(
     event.venue_latitude,
     event.venue_longitude,
   );
   const topLevelBlocks = scheduleBlocks
-    .filter((b) => !b.parent_block_id && b.is_public)
+    .filter((b) => !b.parent_block_id)
     .map((b) => ({
       block_id: b.block_id,
       label: b.label,
@@ -191,11 +243,13 @@ export default async function EventHubPage({ params, searchParams }: Props) {
     }
   }
 
-  // ── Candid camera (PAPIC_GUEST) availability — live window only (matches the
-  // public event-day bar). ──────────────────────────────────────────────────
-  const candidCameraActive = isLive
-    ? await eventPapicGuestActive(admin, event.event_id)
-    : false;
+  // ── Candid camera (PAPIC_GUEST) ownership — ONE read, reused for the camera
+  // CTA AND the face-enroll gate. For an identified guest the candid CTA shows
+  // whenever the couple owns the pack (matches guest-hub-bar.tsx — the capture
+  // window is enforced inside /papic/guest); for a no-guest viewer it's
+  // live-only (matches public-event-day-bar.tsx). ───────────────────────────
+  const papicGuestOwned = await eventPapicGuestActive(admin, event.event_id);
+  const candidActive = guest ? papicGuestOwned : isLive && papicGuestOwned;
 
   // ── Per-guest day-of reads (skip entirely for a no-guest viewer). ──────────
   let guestRollCameraReady = false;
@@ -241,11 +295,10 @@ export default async function EventHubPage({ params, searchParams }: Props) {
 
     // Face enroll catch — when this event has candid capture, the guest hasn't
     // declined, and they have no live enrollment (self-hides once enrolled).
+    // Reuses papicGuestOwned (no second PAPIC_GUEST read).
     if (
       guest.rsvp_status !== 'declined' &&
-      (candidCameraActive ||
-        (await eventPapicGuestActive(admin, event.event_id)) ||
-        (await eventOwnsPapicSeats(admin, event.event_id)))
+      (papicGuestOwned || (await eventOwnsPapicSeats(admin, event.event_id)))
     ) {
       const { data: liveEnrollment } = await admin
         .from('guest_face_enrollments')
@@ -300,16 +353,34 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   // ── Camera destinations (mirror guest-hub-bar / public-event-day-bar). ──────
   const rollHref =
     guest && guestRollCameraReady ? `/papic/me/${guest.qr_token}` : null;
-  const candidHref = candidCameraActive ? '/papic/guest' : null;
+  const candidHref = candidActive ? '/papic/guest' : null;
   const hasCamera = Boolean(rollHref || candidHref);
 
-  // ── Public album (Live Wall during the day, recap after). ──────────────────
-  const publicAlbumHref = isLive
-    ? `/${event.slug}/live-wall`
-    : isPost
-      ? `/${event.slug}/recap`
-      : null;
-  const hasPhotos = Boolean(guest) || Boolean(publicAlbumHref);
+  // ── Live Photo Wall — embed the SAME wall the venue projector renders
+  // (getWallSnapshot, LIVE_WALL-gated, live window only). LiveWallBlock polls
+  // the /[slug]/live-wall freshness FEED internally — that route is a JSON
+  // endpoint, never a page, so we mount the block rather than link to it. The
+  // post-event RECAP is the viewable album page. ────────────────────────────
+  let liveWall: { tiles: WallTile[]; count: number; caption: LiveWallCaption } | null =
+    null;
+  if (isLive) {
+    try {
+      if (await eventSkuActive(admin, event.event_id, 'LIVE_WALL')) {
+        const snap = await getWallSnapshot(event.event_id, null, { limit: 12 });
+        liveWall = {
+          tiles: snap.tiles,
+          count: snap.count,
+          caption: snap.caption
+            ? { text: snap.caption.text, author: snap.caption.author }
+            : null,
+        };
+      }
+    } catch {
+      liveWall = null; // wall trouble must never break the hub
+    }
+  }
+  const recapHref = isPost ? `/${event.slug}/recap` : null;
+  const hasPhotos = Boolean(guest) || Boolean(liveWall) || Boolean(recapHref);
 
   // ── Directions availability. ───────────────────────────────────────────────
   const hasCoords =
@@ -320,6 +391,19 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   const hasDirections = hasCoords || Boolean((event.venue_address ?? '').trim());
 
   const firstName = guest?.first_name ?? null;
+  // Only the LIVE window with an active/upcoming block should read "happening
+  // now" — WhatsHappeningCard is built for the live dashboard and its idle copy
+  // is host-voiced, so we render it ONLY live-with-blocks and show a guest-voiced
+  // status card otherwise (no false live badge at pre/post/inactive).
+  const showWhatsHappening = isLive && topLevelBlocks.length > 0;
+  const phaseStatus =
+    dayOfPhase === 'live'
+      ? 'The celebration is underway — enjoy every moment.'
+      : dayOfPhase === 'post'
+        ? 'The celebration has wrapped. Thank you for being part of the day.'
+        : dayOfPhase === 'pre'
+          ? 'The celebration is almost here. We can’t wait to see you.'
+          : 'Your event hub — everything for the day, in one place.';
   const phaseLabel =
     dayOfPhase === 'live'
       ? 'Happening now'
@@ -363,7 +447,17 @@ export default async function EventHubPage({ params, searchParams }: Props) {
 
   const nowPanel = (
     <div className="mx-auto max-w-md space-y-4">
-      <WhatsHappeningCard blocks={topLevelBlocks} />
+      {showWhatsHappening ? (
+        <WhatsHappeningCard blocks={topLevelBlocks} />
+      ) : (
+        <article className="space-y-1 rounded-2xl border border-ink/10 bg-cream p-5">
+          <p className="inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.18em] text-terracotta">
+            <Activity aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+            {phaseLabel}
+          </p>
+          <p className="text-sm text-ink/65">{phaseStatus}</p>
+        </article>
+      )}
 
       {guest ? (
         <article
@@ -569,14 +663,26 @@ export default async function EventHubPage({ params, searchParams }: Props) {
         </article>
       ) : null}
 
-      {publicAlbumHref ? (
+      {/* The shared Live Photo Wall, mirrored to the phone during the day
+          (polls /[slug]/live-wall internally). */}
+      {liveWall ? (
+        <LiveWallBlock
+          slug={event.slug}
+          initialTiles={liveWall.tiles}
+          initialCount={liveWall.count}
+          initialCaption={liveWall.caption}
+        />
+      ) : null}
+
+      {/* After the day, the viewable recap album. */}
+      {recapHref ? (
         <Link
-          href={publicAlbumHref}
+          href={recapHref}
           className="flex items-center justify-between gap-3 rounded-2xl border border-ink/10 bg-cream p-5 transition hover:border-terracotta"
         >
           <span className="inline-flex items-center gap-2 text-sm font-medium text-ink">
             <Images aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-            {isLive ? 'See the live photo wall' : 'See the recap gallery'}
+            See the recap gallery
           </span>
           <span aria-hidden className="text-ink/40">→</span>
         </Link>
@@ -603,6 +709,9 @@ export default async function EventHubPage({ params, searchParams }: Props) {
           className="mx-auto mt-5 inline-block rounded-2xl bg-white p-3 shadow-sm [&_svg]:h-auto [&_svg]:w-48"
           dangerouslySetInnerHTML={{ __html: qrSvg }}
         />
+        <p className="mx-auto mt-4 break-all font-mono text-[0.65rem] tracking-[0.05em] text-ink/45">
+          {invitationUrl}
+        </p>
         {guest.rsvp_status === 'attending' ? (
           <p className="mt-4 inline-flex items-center gap-1.5 text-xs text-success-700">
             <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />

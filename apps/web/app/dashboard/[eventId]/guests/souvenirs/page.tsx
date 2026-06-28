@@ -1,13 +1,13 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Gift, QrCode } from 'lucide-react';
+import { ArrowLeft, Gift } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { guestDisplayName, type GuestRole, type GuestSide } from '@/lib/guests';
-import { CheckinDesk, type DeskGuest, type DeskCheckin } from './_components/checkin-desk';
+import { SouvenirDesk, type DeskGuest, type DeskClaim } from './_components/souvenir-desk';
 import { LiveRefresher } from '@/app/_components/live-refresher';
 
-export const metadata = { title: 'Check-in desk' };
+export const metadata = { title: 'Souvenir table' };
 
 type Props = { params: Promise<{ eventId: string }> };
 
@@ -24,14 +24,14 @@ type GuestRow = {
   qr_token: string;
 };
 
-export default async function CheckinDeskPage({ params }: Props) {
+export default async function SouvenirTablePage({ params }: Props) {
   const { eventId } = await params;
 
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const supabase = await createClient();
 
-  // Door crew = couple OR coordinator (matches guest_checkins RLS).
+  // Station crew = couple OR coordinator (matches guest_souvenir_claims RLS).
   const { data: membership } = await supabase
     .from('event_members')
     .select('member_type')
@@ -45,7 +45,7 @@ export default async function CheckinDeskPage({ params }: Props) {
     { data: guestsRaw },
     { data: assignmentsRaw },
     { data: tablesRaw },
-    { data: checkinsRaw },
+    { data: claimsRaw },
     { data: eventRow },
   ] = await Promise.all([
     supabase
@@ -65,13 +65,12 @@ export default async function CheckinDeskPage({ params }: Props) {
       .select('table_id, table_label, link_group_label')
       .eq('event_id', eventId),
     supabase
-      .from('guest_checkins')
-      .select('guest_id, checked_in_at, method')
+      .from('guest_souvenir_claims')
+      .select('guest_id, claimed_at')
       .eq('event_id', eventId),
     supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle(),
   ]);
 
-  // Linked tables (#1266) display as the unit's name when one is set.
   const tableLabelById = new Map<string, string>();
   for (const t of tablesRaw ?? []) {
     tableLabelById.set(t.table_id, (t.link_group_label?.trim() || t.table_label || '').trim());
@@ -85,21 +84,16 @@ export default async function CheckinDeskPage({ params }: Props) {
   const guests: DeskGuest[] = ((guestsRaw ?? []) as GuestRow[]).map((g) => ({
     guestId: g.guest_id,
     name: guestDisplayName(g),
-    side: g.side,
-    role: g.role,
-    rsvpStatus: g.rsvp_status,
     photoUrl: g.photo_url,
     plusOneName: g.plus_one_name,
     qrToken: g.qr_token,
     tableLabel: tableByGuestId.get(g.guest_id) ?? null,
   }));
 
-  const checkins: DeskCheckin[] = (checkinsRaw ?? []).map((c) => ({
+  const claims: DeskClaim[] = (claimsRaw ?? []).map((c) => ({
     guestId: c.guest_id,
-    checkedInAt: c.checked_in_at,
+    claimedAt: c.claimed_at,
   }));
-
-  const expected = guests.filter((g) => g.rsvpStatus === 'attending').length;
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6">
@@ -112,26 +106,19 @@ export default async function CheckinDeskPage({ params }: Props) {
 
       <header className="mt-3 space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <QrCode className="h-6 w-6 text-terracotta" /> Check-in desk
+          <Gift className="h-6 w-6 text-terracotta" /> Souvenir table
         </h1>
         <p className="text-sm text-ink/60">
-          Scan a guest&rsquo;s QR (or search their name) as they arrive — you&rsquo;ll see their
-          table and party at a glance, and the headcount keeps itself.
+          Scan a guest&rsquo;s QR (or search their name) as you hand out the giveaway —
+          the count keeps itself, so no one gets missed or double-served.
         </p>
-        <Link
-          href={`/dashboard/${eventId}/guests/souvenirs`}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:underline"
-        >
-          <Gift className="h-4 w-4" strokeWidth={1.75} /> Souvenir table →
-        </Link>
       </header>
 
-      <CheckinDesk eventId={eventId} guests={guests} initialCheckins={checkins} expected={expected} />
+      <div className="mt-5">
+        <SouvenirDesk eventId={eventId} guests={guests} initialClaims={claims} />
+      </div>
 
-      {/* Day-of: silently re-pull the roster so a live reseat updates each
-          guest's table on the board without a manual reload (seat-finding PR 5).
-          router.refresh() re-runs this server component; the desk's local
-          check-in / scanner state is preserved across the refresh. */}
+      {/* Day-of: silently re-pull so a guest added at the door appears here. */}
       <LiveRefresher eventDate={(eventRow?.event_date as string | null) ?? null} />
     </div>
   );

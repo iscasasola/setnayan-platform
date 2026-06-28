@@ -19,10 +19,8 @@ import {
   fetchPendingVendorPayments,
   fetchPlanProgressForVendor,
 } from '@/lib/vendor-service-payment-schedules.server';
-import { canClearPlan, computePlanRollup } from '@/lib/vendor-service-payment-schedules';
-import { PaymentPlanStepper } from '@/app/_components/payment-plan-stepper';
 import { acceptPaxSurcharge, declinePaxSurcharge } from './pax-actions';
-import { confirmVendorPayment, clearVendorPaymentPlan } from './pay-confirm-actions';
+import { VendorPaymentLive } from './_components/vendor-payment-live';
 import {
   VendorOfferService,
   type VendorOfferOption,
@@ -266,168 +264,17 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         );
       })}
 
-      {/* Pending payment confirms (Phase 2 PR-C) — the couple logged an
-          off-platform payment (with optional proof) against this booking.
-          Nothing on the couple's side is "received" until the vendor taps
-          Confirm — the DB guard (confirm_vendor_payment) re-checks ownership. */}
-      {pendingPayments.map((p) => (
-        <div
-          key={p.paymentId}
-          className="rounded-xl border border-success-700/30 bg-success-50/60 p-4"
-        >
-          <p className="text-sm font-semibold text-ink">
-            The couple logged a {peso(p.amountPhp)} payment
-          </p>
-          <p className="mt-1 text-sm text-ink/70">
-            {p.installmentLabel ? `For ${p.installmentLabel} · ` : ''}
-            Paid {p.paidAt}
-            {p.method ? ` · ${p.method}` : ''}
-            {p.reference ? ` · ref ${p.reference}` : ''}.
-            {p.notes ? ` “${p.notes}”` : ''}
-          </p>
-          {p.proofUrl ? (
-            <p className="mt-1.5 text-sm">
-              <a
-                href={p.proofUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium text-mulberry underline hover:text-mulberry-600"
-              >
-                View attached receipt
-              </a>
-            </p>
-          ) : null}
-          <p className="mt-2 text-xs text-ink/55">
-            Setnayan never holds this money — confirm only what you actually
-            received.
-          </p>
-          <div className="mt-3">
-            <form action={confirmVendorPayment}>
-              <input type="hidden" name="payment_id" value={p.paymentId} />
-              <input type="hidden" name="thread_id" value={threadId} />
-              <SubmitButton
-                pendingLabel="Confirming…"
-                className="inline-flex h-9 items-center rounded-lg bg-success-700 px-4 text-sm font-medium text-cream hover:bg-success-800"
-              >
-                Confirm received
-              </SubmitButton>
-            </form>
-          </div>
-        </div>
-      ))}
-
-      {/* Payment plan progress + clear (Phase 2 PR-D) — one card per booking of
-          this vendor's that carries a frozen plan. The stepper shows each
-          installment's state (due → pending → paid); "Mark payment cleared"
-          enables only when every installment is confirmed (or the booking has
-          no schedule). The DB guard (clear_vendor_payment_plan) re-checks
-          ownership + the gate; success notifies the couple (payment_cleared). */}
-      {planProgress.map((p) => {
-        const cleared = p.clearedAt != null;
-        const steps = p.steps ?? [];
-        const canClear = canClearPlan(steps);
-        // Glance-level money roll-up for this booking — the vendor-side mirror
-        // of the couple's live summary, derived purely from the steps already
-        // loaded (no couple-RLS access). Hidden when nothing has resolved to a
-        // peso amount yet (total 0) — the stepper alone is clearer then.
-        const rollup = computePlanRollup(steps);
-        return (
-          <div
-            key={p.eventVendorId}
-            className="rounded-xl border border-ink/10 bg-cream p-4"
-          >
-            <p className="text-sm font-semibold text-ink">
-              Payment plan — {p.vendorLabel}
-            </p>
-            {rollup.total > 0 ? (
-              <div className="mt-3 space-y-2 rounded-lg border border-ink/10 bg-paper/60 p-3">
-                <div className="flex items-baseline justify-between gap-2">
-                  <p className="text-sm text-ink/70">
-                    <span className="font-semibold text-ink">{peso(rollup.received)}</span>
-                    <span className="text-ink/45"> of </span>
-                    <span className="font-semibold text-ink">{peso(rollup.total)}</span>
-                    <span className="text-ink/45"> received</span>
-                  </p>
-                  <p className="font-display text-xl text-ink">{rollup.percentReceived}%</p>
-                </div>
-                <div
-                  className="h-1.5 w-full overflow-hidden rounded-full bg-ink/10"
-                  role="progressbar"
-                  aria-valuenow={rollup.percentReceived}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-label="Percent of plan received"
-                >
-                  <div
-                    className="h-full rounded-full bg-success-600"
-                    style={{ width: `${rollup.percentReceived}%` }}
-                  />
-                </div>
-                <p className="text-xs text-ink/55">
-                  {cleared ? (
-                    'Plan cleared — nothing outstanding.'
-                  ) : rollup.pending > 0 ? (
-                    <>
-                      <span className="font-medium text-warn-700">
-                        {peso(rollup.pending)} awaiting your confirmation
-                      </span>
-                      {rollup.next ? (
-                        <>
-                          {' · next: '}
-                          {rollup.next.label}
-                          {rollup.next.dueDate ? ` (due ${rollup.next.dueDate})` : ''}
-                        </>
-                      ) : null}
-                    </>
-                  ) : rollup.next ? (
-                    <>
-                      Next: {rollup.next.label} — {peso(rollup.next.amountPhp)}
-                      {rollup.next.dueDate ? ` · due ${rollup.next.dueDate}` : ''}
-                    </>
-                  ) : (
-                    'All installments confirmed.'
-                  )}
-                </p>
-              </div>
-            ) : null}
-            <div className="mt-3">
-              <PaymentPlanStepper steps={steps} clearedAt={p.clearedAt} />
-            </div>
-            {!cleared ? (
-              <>
-                <div className="mt-3">
-                  <form action={clearVendorPaymentPlan}>
-                    <input
-                      type="hidden"
-                      name="event_vendor_id"
-                      value={p.eventVendorId}
-                    />
-                    <input type="hidden" name="thread_id" value={threadId} />
-                    <SubmitButton
-                      pendingLabel="Clearing…"
-                      disabled={!canClear}
-                      className="inline-flex h-9 items-center rounded-lg bg-success-700 px-4 text-sm font-medium text-cream hover:bg-success-800 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Mark payment cleared
-                    </SubmitButton>
-                  </form>
-                </div>
-                {!canClear ? (
-                  <p className="mt-2 text-xs text-ink/55">
-                    Confirm every installment above before you can mark the plan
-                    cleared.
-                  </p>
-                ) : (
-                  <p className="mt-2 text-xs text-ink/55">
-                    All installments confirmed — mark the plan cleared to let the
-                    couple know nothing more is owed.
-                  </p>
-                )}
-              </>
-            ) : null}
-          </div>
-        );
-      })}
+      {/* Pending payment confirms + per-booking plan progress — moved into a
+          live client component so the vendor's payment cards update in real
+          time (Realtime on the couple-RLS payment tables, gated by the
+          vendor-read policy in 20270315091571). The server still computes the
+          initial state above and passes it in. */}
+      <VendorPaymentLive
+        threadId={threadId}
+        eventId={thread.event_id}
+        initialPending={pendingPayments}
+        initialPlans={planProgress}
+      />
 
       <ChatPrivacyNotice />
 

@@ -20,6 +20,11 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { fetchThreadById } from '@/lib/chat';
+import {
+  fetchPendingVendorPayments,
+  fetchPlanProgressForVendor,
+} from '@/lib/vendor-service-payment-schedules.server';
 
 /**
  * Confirm a couple-logged payment was received. The DB guard
@@ -190,4 +195,51 @@ export async function clearVendorPaymentPlan(formData: FormData): Promise<void> 
 
   if (threadId) revalidatePath(`/vendor-dashboard/messages/${threadId}`);
   revalidatePath('/vendor-dashboard/messages');
+}
+
+/**
+ * Re-read this thread's vendor payment state — pending couple-logged payments
+ * awaiting confirmation + the per-booking plan progress. Called by
+ * VendorPaymentLive whenever a Realtime change lands on the event's payments or
+ * line items, so the vendor's payment cards refresh without a reload.
+ *
+ * Same ownership gate as the page: the caller must own the thread. Admin-reads
+ * the couple-RLS payment tables AFTER that gate (mirrors the page's load).
+ * Returns null on no-auth / not-owner / bad input — the card keeps its
+ * last-known state rather than flashing empty.
+ */
+export async function getVendorPaymentState(threadId: string): Promise<{
+  pending: Awaited<ReturnType<typeof fetchPendingVendorPayments>>;
+  plans: Awaited<ReturnType<typeof fetchPlanProgressForVendor>>;
+} | null> {
+  if (typeof threadId !== 'string' || threadId.length === 0) return null;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  if (!profile) return null;
+  const thread = await fetchThreadById(supabase, threadId);
+  if (!thread || thread.vendor_profile_id !== profile.vendor_profile_id) return null;
+
+  const admin = createAdminClient();
+  try {
+    const [pending, plans] = await Promise.all([
+      fetchPendingVendorPayments({
+        adminClient: admin,
+        eventId: thread.event_id,
+        vendorProfileId: profile.vendor_profile_id,
+      }),
+      fetchPlanProgressForVendor({
+        adminClient: admin,
+        eventId: thread.event_id,
+        vendorProfileId: profile.vendor_profile_id,
+      }),
+    ]);
+    return { pending, plans };
+  } catch (e) {
+    console.error('[getVendorPaymentState] threw', e);
+    return null;
+  }
 }

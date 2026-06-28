@@ -56,6 +56,7 @@ import { BottomNav } from '@/app/_components/nav/bottom-nav';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import type { BottomNavItem } from '@/app/_components/nav/types';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
+import type { AdminQueueCounts } from '@/lib/admin/queue-counts';
 
 const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
   {
@@ -178,19 +179,43 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
 
 export function AdminBottomNav({
   navSlots,
+  queueCounts,
 }: {
   navSlots?: Record<string, NavSlotLite>;
+  queueCounts?: AdminQueueCounts;
 }) {
+  // The mobile "Work" tab rolls up ALL queues, so its badge is the SUM of open
+  // work across every Work queue (the per-queue split lives in the sidebar +
+  // the /admin/work feed). One rolled-up tab can only say "you have work" →
+  // amber; the red/amber SLA distinction is the sidebar's job.
+  const workTotal = queueCounts
+    ? Object.values(queueCounts).reduce<number>(
+        (sum, c) => sum + (typeof c === 'number' && c > 0 ? c : 0),
+        0,
+      )
+    : 0;
+
+  const withWorkBadge = (item: BottomNavItem): BottomNavItem =>
+    item.key === 'work' && workTotal > 0
+      ? {
+          ...item,
+          badge: { count: workTotal, tone: 'amber', label: `${workTotal} pending` },
+        }
+      : item;
+
   // Nav registry overlay: label + icon per tab from its admin.bottom-nav.<key>
   // slot (keys match the slot suffix 1:1). Fallback = the hardcoded default;
   // hidden slot drops the tab; href/activeMatch stay in code. No-op when absent.
-  const items = navSlots
-    ? ADMIN_BOTTOM_NAV_ITEMS.flatMap((item) => {
-        const slot = navSlots[`admin.bottom-nav.${item.key}`];
-        if (!slot) return [item];
-        if (slot.isHidden) return [];
-        return [{ ...item, label: slot.label, icon: navIconComponent(slot.icon) }];
-      })
-    : ADMIN_BOTTOM_NAV_ITEMS;
+  const items = (
+    navSlots
+      ? ADMIN_BOTTOM_NAV_ITEMS.flatMap((item) => {
+          const slot = navSlots[`admin.bottom-nav.${item.key}`];
+          if (!slot) return [item];
+          if (slot.isHidden) return [];
+          return [{ ...item, label: slot.label, icon: navIconComponent(slot.icon) }];
+        })
+      : ADMIN_BOTTOM_NAV_ITEMS
+  ).map(withWorkBadge);
+
   return <BottomNav items={items} />;
 }

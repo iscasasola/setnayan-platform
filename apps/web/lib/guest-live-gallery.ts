@@ -75,6 +75,12 @@ export async function getGuestLiveGallery(
             .select('capture_id, r2_object_key')
             .in('capture_id', captureIds)
             .eq('moderation_state', 'clean')
+            // Guest CLIPS (media_type='clip') are excluded — this gallery is
+            // PHOTO-only (see module header); the Living Moments strip owns clip
+            // playback. A clip's r2_object_key is an MP4, which would render as a
+            // broken thumbnail in the photo grid. Mirrors the photo_type='photo'
+            // filter on the papic_photos query above.
+            .eq('media_type', 'photo')
             .is('hidden_at', null)
         : Promise.resolve({ data: [] as { capture_id: string; r2_object_key: string }[] }),
     ]);

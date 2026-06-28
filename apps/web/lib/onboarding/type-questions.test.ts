@@ -84,3 +84,44 @@ test('every adds slug is a non-empty lowercase taxonomy-style id', () => {
     }
   }
 });
+
+// Snapshot of tier-2 `service_categories` valid for the generic (non-wedding)
+// flow: the UNIVERSAL ids (applicable_event_types = null) plus the type-scoped
+// extras. Mirrors the live taxonomy (verified 2026-06-28). Guards every option's
+// `adds` against typos / a removed category / a wedding-only id leaking in — the
+// "no dangling ids" contract (a non-applicable id is silently dropped at runtime,
+// so a typo would just vanish from the plan unnoticed without this test).
+const UNIVERSAL_CATEGORIES = new Set([
+  'arcade_games', 'cake', 'caricature_calligraphy_painting', 'catering', 'ceremony_venue',
+  'choir', 'choreographer', 'coffee_espresso', 'coordinator', 'dance_floor', 'date_specialist',
+  'dessert', 'digital_services', 'dj', 'editorial', 'engraving_embroidery', 'escort',
+  'filipiniana_barongs', 'fireworks', 'florist', 'food_cart', 'food_truck', 'grooming',
+  'guest_shuttle', 'henna_tattoo', 'hmua', 'host_mc', 'jewelleries_accessories', 'led_wall',
+  'lights_sound', 'live_band', 'livestream', 'massage_chair', 'mens_attire', 'mini_nail_bar',
+  'mobile_bar', 'mocktail', 'orchestra', 'outdoor', 'performers', 'perfume_bar', 'photo_booth',
+  'photo_video', 'printing', 'reception', 'souvenir_giveaways', 'stations', 'stylist_decorator',
+  'tarot_astrology_palmistry', 'wellness_fitness', 'womens_attire',
+]);
+const TYPE_SCOPED_CATEGORIES: Record<string, string[]> = {
+  tournament: ['trophies_awards'],
+  corporate: ['trophies_awards'],
+};
+
+test('every adds id is a real taxonomy category applicable to its type', () => {
+  for (const [type, qs] of Object.entries(PER_TYPE_QUESTIONS)) {
+    const allowed = new Set([...UNIVERSAL_CATEGORIES, ...(TYPE_SCOPED_CATEGORIES[type] ?? [])]);
+    for (const q of qs) {
+      for (const o of q.options) {
+        for (const id of o.adds) {
+          assert.ok(allowed.has(id), `${type}/${q.id}/${o.key}: "${id}" is not an applicable category`);
+        }
+      }
+    }
+  }
+});
+
+test('each type now has 3–4 signature questions (Standard depth)', () => {
+  for (const [type, qs] of Object.entries(PER_TYPE_QUESTIONS)) {
+    assert.ok(qs.length >= 3 && qs.length <= 4, `${type} has ${qs.length} questions (want 3–4)`);
+  }
+});

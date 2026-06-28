@@ -175,6 +175,135 @@ export async function addLineItem(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`);
 }
 
+export type SuggestMilestonesResult =
+  | { ok: true; created: number }
+  | { ok: false; error: string };
+
+/**
+ * One-click "suggest a deposit + balance split" for an off-platform (manual)
+ * vendor that has a lump-sum total but no dated milestones yet. Seeds two
+ * editable, deletable line items — Deposit (50%, due now) + Balance (50%, due
+ * ~2 weeks before the event) — so the couple's live "next payments" list and
+ * the .ics export populate without hand-typing each milestone.
+ *
+ * Deliberately NOT silent auto-creation: it fires only from an explicit button,
+ * only when the vendor is manual-priced (no vendor catalog items — adding manual
+ * rows on top of those would double-count the total), has a total > 0, and has
+ * ZERO existing line items (so it never duplicates or fights host edits). The
+ * 50/50 split is the common PH vendor term; every field stays editable after.
+ */
+export async function addSuggestedMilestones(
+  formData: FormData,
+): Promise<SuggestMilestonesResult> {
+  const eventId = formData.get('event_id');
+  const vendorId = formData.get('vendor_id');
+  if (typeof eventId !== 'string' || typeof vendorId !== 'string') {
+    return { ok: false, error: 'Invalid input.' };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // Resolve the vendor's headline total + the event date (for the balance due
+  // date) under the couple's RLS — proves ownership implicitly.
+  const [vendorRes, eventRes, existingRes] = await Promise.all([
+    supabase
+      .from('event_vendors')
+      .select('vendor_id, total_cost_php, marketplace_vendor_id')
+      .eq('event_id', eventId)
+      .eq('vendor_id', vendorId)
+      .maybeSingle(),
+    supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle(),
+    supabase
+      .from('event_vendor_line_items')
+      .select('line_item_id')
+      .eq('event_id', eventId)
+      .eq('vendor_id', vendorId)
+      .limit(1),
+  ]);
+
+  const vendor = vendorRes.data as
+    | { total_cost_php: number | null; marketplace_vendor_id: string | null }
+    | null;
+  if (!vendor) return { ok: false, error: 'Vendor not found.' };
+
+  // Marketplace vendors set their own payment plan / catalog pricing — manual
+  // milestones there would double-count. Suggestion is for off-platform vendors.
+  if (vendor.marketplace_vendor_id !== null) {
+    return {
+      ok: false,
+      error: 'This vendor sets their own payment plan, so a suggested split isn’t needed.',
+    };
+  }
+
+  const total = Number(vendor.total_cost_php ?? 0);
+  if (!Number.isFinite(total) || total <= 0) {
+    return {
+      ok: false,
+      error: 'Add a total cost for this vendor first, then we can suggest a split.',
+    };
+  }
+
+  // Guard against duplicates / fighting host edits — only seed when empty.
+  if ((existingRes.data ?? []).length > 0) {
+    return {
+      ok: false,
+      error: 'This vendor already has line items. Add or edit them individually.',
+    };
+  }
+
+  // 50/50 split; balance absorbs the rounding remainder so the two always sum
+  // to the exact total (no centavo drift).
+  const deposit = Math.round(total * 0.5 * 100) / 100;
+  const balance = Math.round((total - deposit) * 100) / 100;
+
+  // Deposit due today (deposits are paid at contracting); balance due ~14 days
+  // before the event when a date exists and that date is still in the future,
+  // else left undated for the host to set.
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  const today = new Date();
+  const depositDue = iso(today);
+  let balanceDue: string | null = null;
+  const eventDateRaw = (eventRes.data as { event_date: string | null } | null)?.event_date;
+  if (eventDateRaw && isIsoDate(eventDateRaw)) {
+    const bal = new Date(`${eventDateRaw}T00:00:00`);
+    bal.setDate(bal.getDate() - 14);
+    if (bal > today) balanceDue = iso(bal);
+  }
+
+  const { error } = await supabase.from('event_vendor_line_items').insert([
+    {
+      event_id: eventId,
+      vendor_id: vendorId,
+      label: 'Deposit (50%)',
+      amount_php: deposit,
+      due_date: depositDue,
+      sort_order: 0,
+    },
+    {
+      event_id: eventId,
+      vendor_id: vendorId,
+      label: 'Balance (50%)',
+      amount_php: balance,
+      due_date: balanceDue,
+      sort_order: 1,
+    },
+  ]);
+  if (error) {
+    return {
+      ok: false,
+      error: 'Couldn’t add the suggested payments. Please try again.',
+    };
+  }
+
+  revalidatePath(`/dashboard/${eventId}/budget`);
+  revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`);
+  return { ok: true, created: 2 };
+}
+
 export async function deleteLineItem(formData: FormData) {
   const eventId = formData.get('event_id');
   const lineItemId = formData.get('line_item_id');

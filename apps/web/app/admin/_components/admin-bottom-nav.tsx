@@ -180,26 +180,40 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
 export function AdminBottomNav({
   navSlots,
   queueCounts,
+  overdue = 0,
+  dueSoon = 0,
 }: {
   navSlots?: Record<string, NavSlotLite>;
   queueCounts?: AdminQueueCounts;
+  /** Count of queues past SLA — turns the Work tab badge red. */
+  overdue?: number;
+  /** Count of queues approaching SLA — turns it amber. */
+  dueSoon?: number;
 }) {
   // The mobile "Work" tab rolls up ALL queues, so its badge is the SUM of open
   // work across every Work queue (the per-queue split lives in the sidebar +
-  // the /admin/work feed). One rolled-up tab can only say "you have work" →
-  // amber; the red/amber SLA distinction is the sidebar's job.
+  // the /admin/work feed). Tone escalates with the worst queue: red if anything
+  // is overdue, amber if anything is due-soon, else neutral.
   const workTotal = queueCounts
     ? Object.values(queueCounts).reduce<number>(
         (sum, c) => sum + (typeof c === 'number' && c > 0 ? c : 0),
         0,
       )
     : 0;
+  const workTone = overdue > 0 ? 'red' : dueSoon > 0 ? 'amber' : 'neutral';
 
   const withWorkBadge = (item: BottomNavItem): BottomNavItem =>
     item.key === 'work' && workTotal > 0
       ? {
           ...item,
-          badge: { count: workTotal, tone: 'amber', label: `${workTotal} pending` },
+          badge: {
+            count: workTotal,
+            tone: workTone,
+            label:
+              overdue > 0
+                ? `${workTotal} pending, ${overdue} overdue`
+                : `${workTotal} pending`,
+          },
         }
       : item;
 

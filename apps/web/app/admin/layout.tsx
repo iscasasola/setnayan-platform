@@ -13,8 +13,15 @@ import { DoorwaySidebarHeader } from '@/app/_components/nav/doorway-sidebar-head
 import { AdminSidebar } from './_components/admin-sidebar';
 import { AdminBottomNav } from './_components/admin-bottom-nav';
 import { AdminNavFab } from './_components/admin-nav-fab';
+import Link from 'next/link';
+import { TriangleAlert, Clock } from 'lucide-react';
 import { getNavSlotMap } from '@/lib/nav-registry';
-import { getAdminQueueCounts, type AdminQueueCounts } from '@/lib/admin/queue-counts';
+import {
+  getAdminQueueDigest,
+  deriveQueueUrgency,
+  type AdminQueueCounts,
+  type AdminQueueDigest,
+} from '@/lib/admin/queue-counts';
 import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
@@ -95,11 +102,47 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       ? { label: '🟢 Team Pool', tone: 'bg-success-100 text-success-800' }
       : { label: 'Setnayan Team', tone: 'bg-ink/10 text-ink/70' };
 
+  // Nav registry + live queue digest (count + oldest-open age per Work queue).
+  // Fails open to {}. cache()'d, so the /admin/work command center shares this
+  // exact fetch in the same request. Counts feed the badge number; urgency
+  // feeds the badge TONE (red only when actually overdue) + the topbar pill.
+  const [navSlots, digest] = await Promise.all([
+    getNavSlotMap(),
+    getAdminQueueDigest().catch(() => ({}) as AdminQueueDigest),
+  ]);
+  const queueCounts: AdminQueueCounts = Object.fromEntries(
+    Object.entries(digest).map(([k, v]) => [k, v.count]),
+  );
+  const urgency = deriveQueueUrgency(digest, Date.now());
+
   // Top bar — right-aligned utilities cluster. AccountSwitcher pill is
   // mobile-only (lg:hidden); desktop users open the switcher from the
-  // AccountSwitcherStandalone row in the sidebar header.
+  // AccountSwitcherStandalone row in the sidebar header. The overdue/due-soon
+  // escalation pill leads the cluster so a breach is visible on EVERY admin
+  // page, not just when the eye is on the Work nav group.
   const topBar = (
     <div className="flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-end gap-2 px-4 py-3 sm:px-6 lg:mx-auto lg:px-8">
+      {urgency.overdue > 0 ? (
+        <Link
+          href="/admin/work"
+          className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition-opacity hover:opacity-90"
+          style={{ background: '#FEE4E2', color: '#B42318' }}
+          aria-label={`${urgency.overdue} ${urgency.overdue === 1 ? 'queue is' : 'queues are'} past SLA — open the work list`}
+        >
+          <TriangleAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={2.25} />
+          {urgency.overdue} overdue
+        </Link>
+      ) : urgency.dueSoon > 0 ? (
+        <Link
+          href="/admin/work"
+          className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition-opacity hover:opacity-90"
+          style={{ background: '#FEF0C7', color: '#B54708' }}
+          aria-label={`${urgency.dueSoon} ${urgency.dueSoon === 1 ? 'queue is' : 'queues are'} approaching SLA — open the work list`}
+        >
+          <Clock aria-hidden className="h-3.5 w-3.5" strokeWidth={2.25} />
+          {urgency.dueSoon} due soon
+        </Link>
+      ) : null}
       <UnreadBellBadge
         userId={user.id}
         initialUnread={unreadCount}
@@ -124,21 +167,17 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     </div>
   );
 
-  // Nav registry: admin-managed name+icon overrides, resolved server-side and
-  // handed to the (client) admin nav. Cached via NAV_REGISTRY_TAG, fails open.
-  // Queue counts: live open-work per Work queue, badged onto the nav so the
-  // 95%-of-sessions "is there work?" question is answered without opening a
-  // page. Fails open to {} — a count error must never blank the admin chrome.
-  const [navSlots, queueCounts] = await Promise.all([
-    getNavSlotMap(),
-    getAdminQueueCounts().catch(() => ({}) as AdminQueueCounts),
-  ]);
-
   return (
     <div className="app-surface">
       <SidebarShell
         sidebarHeader={<DoorwaySidebarHeader label="Setnayan HQ" switcherData={switcherData} />}
-        sidebar={<AdminSidebar navSlots={navSlots} queueCounts={queueCounts} />}
+        sidebar={
+          <AdminSidebar
+            navSlots={navSlots}
+            queueCounts={queueCounts}
+            queueStates={urgency.states}
+          />
+        }
         topBar={topBar}
       >
         {/* Pad the bottom on mobile so BottomNav doesn't cover the last
@@ -149,7 +188,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       {/* Mobile BottomNav — auto-hides at lg via lg:hidden inside the
           BottomNav primitive. Sits outside SidebarShell so it doesn't
           inherit the desktop sidebar offset. */}
-      <AdminBottomNav navSlots={navSlots} queueCounts={queueCounts} />
+      <AdminBottomNav
+        navSlots={navSlots}
+        queueCounts={queueCounts}
+        overdue={urgency.overdue}
+        dueSoon={urgency.dueSoon}
+      />
       {/* NAV-2 broken-out action — Payment requests (a sibling of the pill,
           never a tab). Hides itself when a docked SubNav is up. */}
       <AdminNavFab />

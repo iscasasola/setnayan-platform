@@ -421,16 +421,84 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
   // itself fallback-safe (uses lib/taxonomy.ts when the DB is unseeded), so this
   // is safe before any migration. Wrapped so a taxonomy hiccup leaves the picker
   // rendering exactly as before (labels=undefined → in-code labels).
+  //
+  // Same try/catch also sources the EXTRA canonical leaves the picker offers
+  // beyond the 30 coarse VENDOR_CATEGORIES (see below) so one taxonomy read +
+  // one guard serves both. getTaxonomy() is request-cached, so a hiccup here
+  // degrades BOTH to their safe defaults (in-code labels · no extra leaves).
   let serviceLabels: Record<string, string> | undefined;
+  let extraServiceLeaves: { key: string; label: string }[] = [];
   try {
     const tax = await getTaxonomy();
     serviceLabels = Object.fromEntries(
       VENDOR_CATEGORIES.map((c) => [c, labelForVendorCategory(c, tax)]),
     );
+
+    // Tradition / specialty leaves (e.g. the Chinese specialist set —
+    // date_fengshui_consultant, chinese_lauriat_caterer, tea_set_styling,
+    // angpao_betrothal_supplier, lion_dance_troupe) are real marketplace tiles
+    // that NO vendor could self-list under: the profile picker only ever
+    // offered the 30 coarse VENDOR_CATEGORIES, so a leaf could never reach
+    // vendor_profiles.services[] and the /explore tiles (+ the date-specialist
+    // CTA at /explore?category=date_fengshui_consultant) stayed zero-vendor.
+    //
+    // We surface them as additional canonical checkboxes. The SET is DB-driven:
+    // we read it straight from the taxonomy map (DB-backed via getTaxonomy with
+    // the lib/taxonomy.ts constant as fallback) — every marketplace-VISIBLE
+    // `tradition` leaf that carries a faith tag (the genuine cultural
+    // specialists) PLUS the de-faith'd Chinese banquet caterer (food rows are
+    // never faith-tagged per the 2026-06-11 de-faith lock, so it's selected by
+    // an explicit key allowlist). We deliberately scope to this tradition /
+    // specialty set — never the full ~200 canonicals.
+    const FOOD_TRADITION_LEAVES: ReadonlySet<string> = new Set([
+      'chinese_lauriat_caterer',
+    ]);
+    const extraLeafKeys = Object.entries(tax.map)
+      .filter(([key, meta]) => {
+        if (meta.tradition !== true) return false;
+        if (meta.marketplaceHidden) return false;
+        if (!meta.tile) return false; // must roll up into a real tile
+        // Genuine cultural specialists carry a faith tag; the lauriat caterer
+        // is de-faith'd but still a Chinese tradition leaf (explicit allowlist).
+        return meta.faith != null || FOOD_TRADITION_LEAVES.has(key);
+      })
+      .map(([key]) => key);
+
+    if (extraLeafKeys.length > 0) {
+      // Public marketplace display copy — the SAME source /explore reads
+      // (canonical_service_schemas.display_name_en). Admin-scoped because RLS
+      // gates the table for non-admin users; falls back to a title-cased key if
+      // the read misses so a leaf never renders blank.
+      const titleCase = (key: string) =>
+        key
+          .split('_')
+          .map((w) => (w.length === 0 ? w : w.charAt(0).toUpperCase() + w.slice(1)))
+          .join(' ');
+      let nameByKey: Record<string, string> = {};
+      try {
+        const admin = createAdminClient();
+        const { data: schemaRows } = await admin
+          .from('canonical_service_schemas')
+          .select('canonical_service, display_name_en')
+          .in('canonical_service', extraLeafKeys);
+        nameByKey = Object.fromEntries(
+          ((schemaRows ?? []) as { canonical_service: string; display_name_en: string | null }[])
+            .filter((r) => r.display_name_en && r.display_name_en.length > 0)
+            .map((r) => [r.canonical_service, r.display_name_en as string]),
+        );
+      } catch (nameErr) {
+        // eslint-disable-next-line no-console
+        console.error('[/vendor-dashboard] tradition-leaf display names failed', nameErr);
+      }
+      extraServiceLeaves = extraLeafKeys
+        .map((key) => ({ key, label: nameByKey[key] ?? titleCase(key) }))
+        .sort((a, b) => a.label.localeCompare(b.label));
+    }
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('[/vendor-dashboard] taxonomy label lookup failed', err);
     serviceLabels = undefined;
+    extraServiceLeaves = [];
   }
 
   return (
@@ -687,6 +755,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
             name="services"
             initial={profile?.services ?? []}
             labels={serviceLabels}
+            extraCanonicals={extraServiceLeaves}
           />
         </Field>
 

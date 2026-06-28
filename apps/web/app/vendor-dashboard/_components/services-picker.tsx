@@ -18,17 +18,48 @@ type Props = {
    * VENDOR_CATEGORY_LABEL, so omitting the prop renders exactly as before.
    */
   labels?: Record<string, string>;
+  /**
+   * Optional EXTRA canonical leaves to offer beyond the 30 coarse
+   * VENDOR_CATEGORIES (e.g. the Chinese tradition/specialty leaves
+   * `date_fengshui_consultant`, `chinese_lauriat_caterer`, …). Each entry's
+   * `key` is a real canonical_service leaf stored VERBATIM in
+   * vendor_profiles.services[] (the same opaque string the /explore marketplace
+   * matches via `.contains('services', [key])`); `label` is the public
+   * marketplace display copy.
+   *
+   * When empty/absent, NOTHING about this picker changes — the extra group
+   * isn't rendered and the customs computation is identical to before, so
+   * non-Chinese / legacy vendor flows stay byte-identical. The list is
+   * DB-driven (sourced from the taxonomy by the parent page), never hardcoded
+   * here.
+   */
+  extraCanonicals?: { key: string; label: string }[];
 };
 
 const MAX_SERVICES = 24;
 const MAX_CUSTOM_LEN = 48;
 
-export function ServicesPicker({ name, initial, labels }: Props) {
+export function ServicesPicker({ name, initial, labels, extraCanonicals }: Props) {
   const [selected, setSelected] = useState<string[]>(() => initial);
   const [customDraft, setCustomDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  const customs = useMemo(() => selected.filter((s) => !isCanonicalService(s)), [selected]);
+  // The set of EXTRA canonical leaf keys offered in this render. These count as
+  // canonical (NOT custom) for the chip-vs-checkbox split below, so a ticked
+  // leaf renders as a checkbox in its group rather than leaking into the custom
+  // pills. Empty when the prop is absent → behavior identical to before.
+  const extraCanonicalKeys = useMemo(
+    () => new Set((extraCanonicals ?? []).map((c) => c.key)),
+    [extraCanonicals],
+  );
+  const isAnyCanonical = (s: string) =>
+    isCanonicalService(s) || extraCanonicalKeys.has(s);
+
+  const customs = useMemo(
+    () => selected.filter((s) => !isAnyCanonical(s)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selected, extraCanonicalKeys],
+  );
 
   const isAtMax = selected.length >= MAX_SERVICES;
 
@@ -57,8 +88,9 @@ export function ServicesPicker({ name, initial, labels }: Props) {
       setError(`At most ${MAX_SERVICES} services. Remove one to add another.`);
       return;
     }
-    if (isCanonicalService(t)) {
-      // If they typed the canonical key, toggle it instead.
+    if (isAnyCanonical(t)) {
+      // If they typed a canonical key (coarse category OR an offered extra
+      // leaf), toggle it instead of storing it as free-text custom.
       if (!selected.includes(t)) setSelected((s) => [...s, t]);
       setCustomDraft('');
       return;
@@ -132,6 +164,38 @@ export function ServicesPicker({ name, initial, labels }: Props) {
           })}
         </div>
       </fieldset>
+
+      {extraCanonicals && extraCanonicals.length > 0 ? (
+        <fieldset className="space-y-2">
+          <legend className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+            Tradition &amp; specialty services
+          </legend>
+          <div className="grid grid-cols-1 gap-1 rounded-xl border border-ink/10 bg-cream p-3 sm:grid-cols-2 md:grid-cols-3">
+            {extraCanonicals.map((c) => {
+              const checked = selected.includes(c.key);
+              return (
+                <label
+                  key={c.key}
+                  className={`flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
+                    checked
+                      ? 'bg-terracotta/10 text-terracotta-700'
+                      : 'text-ink/75 hover:bg-ink/[0.04]'
+                  } ${!checked && isAtMax ? 'opacity-50' : ''}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggle(c.key)}
+                    disabled={!checked && isAtMax}
+                    className="h-4 w-4 cursor-pointer accent-terracotta disabled:cursor-not-allowed"
+                  />
+                  <span>{c.label}</span>
+                </label>
+              );
+            })}
+          </div>
+        </fieldset>
+      ) : null}
 
       <fieldset className="space-y-2">
         <legend className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">

@@ -1309,6 +1309,13 @@ export function suggestMeaningfulDates(
   meaningfulDates: MeaningfulDate[],
   ceremonyType: CeremonyType | null,
   baseYear: number = new Date().getFullYear() + 1,
+  /**
+   * Optional Chinese-tradition flag — threaded straight into
+   * computeAuspiciousReasons so the guided path surfaces the same advisory
+   * layer the direct DatePicker path does. Defaults to false → byte-identical
+   * suggestions for every non-Chinese caller. Set from isChineseWedding(event).
+   */
+  chineseTradition: boolean = false,
 ): DateSuggestion[] {
   const suggestions: DateSuggestion[] = [];
   const today = new Date();
@@ -1332,7 +1339,7 @@ export function suggestMeaningfulDates(
     if (avoidExact.has(ymd)) return;
     if (suggestions.some((s) => s.date === ymd)) return; // dedupe by date
 
-    const reasons = computeAuspiciousReasons(date, ceremonyType, meaningfulDates);
+    const reasons = computeAuspiciousReasons(date, ceremonyType, meaningfulDates, chineseTradition);
     if (reasons.length === 0) return;
 
     // Build headline from the most personal/specific reason available.

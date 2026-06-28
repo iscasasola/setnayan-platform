@@ -1,4 +1,5 @@
-import { Compass } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowRight, Compass } from 'lucide-react';
 
 /**
  * Advisory nudge shown on the date-selection surfaces for Chinese (Tsinoy)
@@ -9,9 +10,9 @@ import { Compass } from 'lucide-react';
  * the couple to a real reader — we NEVER compute a compatibility/clash verdict
  * or a date "score". Server component (no hooks) so any surface can mount it.
  *
- * TODO: deep-link the closing line to the `date_fengshui_consultant` vendor
- * leaf once that leaf lands (a later PR). Until then it stays advisory copy,
- * never a route, so we never ship a broken link.
+ * The closing line deep-links to the `date_fengshui_consultant` marketplace
+ * leaf via the same `/explore?category=…` target the /paperwork guide uses,
+ * so both Chinese surfaces route the couple to the same real specialist.
  */
 export function ChineseSpecialistNudge() {
   return (
@@ -34,9 +35,17 @@ export function ChineseSpecialistNudge() {
             on your date.
           </p>
           <p className="text-xs text-ink/55">
-            Consult a date specialist — look for a Chinese-almanac reader or feng-shui
-            consultant whose families you trust.
+            Consult a date specialist — a Chinese-almanac reader or feng-shui
+            consultant whose families you trust can give that reading.
           </p>
+          <Link
+            href="/explore?category=date_fengshui_consultant"
+            className="inline-flex items-center gap-2 rounded-md border border-terracotta/30 bg-cream px-3 py-2 text-sm font-medium text-terracotta-700 transition-colors hover:border-terracotta/50 hover:text-terracotta-800"
+          >
+            <Compass className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
+            Find a date / feng-shui specialist
+            <ArrowRight className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
+          </Link>
         </div>
       </div>
     </div>

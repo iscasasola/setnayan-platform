@@ -108,7 +108,6 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
   PAKANTA:               'live',       // custom-song delivery end-to-end: intake + admin upload → auto-plays on the couple's site (PR #2038) · 2026-06-22
   PAPIC_ADDON_STORIES:   'not_built',
   PAPIC_ADDON_THANK_YOU: 'not_built',
-  SDE:                   'live',       // crew-rendered film delivered via admin upload (PR #2031), auto-shows on day-of page + recap
   CAMERA_BRIDGE:         'not_built',  // needs native iOS/Android + DSLR SDK
   LIVE_WALL:             'not_built',  // WebSocket display surface not built
   CALL_TIME_ESCALATOR:   'not_built',  // no SMS infrastructure

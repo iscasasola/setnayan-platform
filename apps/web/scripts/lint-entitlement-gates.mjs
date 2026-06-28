@@ -30,8 +30,8 @@
  *     • BUNDLE_MEMBERS         — app/onboarding/wedding/_components/onboarding-pricing.ts
  *                                (canonical: the "what's included" buy surface)
  *     • BUNDLE_CHILD_SKUS      — lib/entitlements.ts  (the read-side gate map)
- *     • bundles_granting_sku() — supabase/migrations/*_papic_ownership_bundle_aware.sql
- *                                (the DB provisioning RPC)
+ *     • bundles_granting_sku() — the LATEST supabase/migration that defines it
+ *                                via CREATE OR REPLACE (the DB provisioning RPC)
  *   Drift = silent breakage: a child in the buy list but missing from the gate
  *   map → bundle buyer denied; the inverse → over-grant. essentials↔GUIDED_PACK,
  *   complete↔MEDIA_PACK.
@@ -196,15 +196,25 @@ let sqlMedia = null;
 }
 
 // --- source 3: bundles_granting_sku() VALUES in the migration ---
+// Migrations are immutable history: the function is (re)defined via
+// CREATE OR REPLACE across one or more migrations, and the LATEST definition
+// wins at runtime. Parse the lexicographically-last migration that defines
+// bundles_granting_sku() so a forward "create or replace" migration (e.g. the
+// SDE removal) becomes the authority — never an edit to an older file.
 {
   const migDir = join(REPO_ROOT, 'supabase', 'migrations');
-  const migFile = existsSync(migDir)
-    ? readdirSync(migDir).find((n) => n.endsWith('_papic_ownership_bundle_aware.sql'))
+  const definerNeedle = 'CREATE OR REPLACE FUNCTION public.bundles_granting_sku';
+  const definerFile = existsSync(migDir)
+    ? readdirSync(migDir)
+        .filter((n) => n.endsWith('.sql'))
+        .sort()
+        .reverse()
+        .find((n) => readFileSync(join(migDir, n), 'utf8').includes(definerNeedle))
     : null;
-  if (!migFile) {
-    guard2Errors.push('Could not find *_papic_ownership_bundle_aware.sql migration (bundles_granting_sku) — update this linter.');
+  if (!definerFile) {
+    guard2Errors.push('Could not find a migration defining bundles_granting_sku() (CREATE OR REPLACE FUNCTION public.bundles_granting_sku) — update this linter.');
   } else {
-    const src = readFileSync(join(migDir, migFile), 'utf8');
+    const src = readFileSync(join(migDir, definerFile), 'utf8');
     sqlGuided = new Set();
     sqlMedia = new Set();
     const re = /\(\s*'(GUIDED_PACK|MEDIA_PACK)'\s*,\s*'([A-Z0-9_]+)'\s*\)/g;

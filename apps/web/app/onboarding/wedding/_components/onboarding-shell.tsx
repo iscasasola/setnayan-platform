@@ -1097,13 +1097,12 @@ function DateCalendar({
    onboarding-pricing.ts → buildOnboardingPricing reading platform_retail_catalog_v2). These maps carry
    only display copy + posters; pricing.svc[k] carries the numbers. */
 const BUNDLE_ITEMS: Record<string, string> = {
-  advanced_website: 'Advanced Website', papic_guest: 'Papic for guests', sde: 'Same-Day Edit', guest_stories: 'Guest Stories', pabati: 'Pabati guestbook', papic_seats: 'Papic · 5 seats', animated_monogram: 'Animated Monogram', thank_you: 'Thank-You Video', pakanta: 'Pakanta · your song', custom_qr: 'Custom QR per guest', panood: 'Panood livestream', live_background: 'Live Background', live_photowall: 'Live Photo Wall', indoor_blueprint: 'Indoor Blueprint', high_res: 'High-Res Archive',
+  advanced_website: 'Advanced Website', papic_guest: 'Papic for guests', guest_stories: 'Guest Stories', pabati: 'Pabati guestbook', papic_seats: 'Papic · 5 seats', animated_monogram: 'Animated Monogram', thank_you: 'Thank-You Video', pakanta: 'Pakanta · your song', custom_qr: 'Custom QR per guest', panood: 'Panood livestream', live_background: 'Live Background', live_photowall: 'Live Photo Wall', indoor_blueprint: 'Indoor Blueprint', high_res: 'High-Res Archive',
 };
 /* Plain-language benefit copy — functional outcome + emotional anchor (JTBD · Bundle_Benefits_Best_Practices_2026-06-02.md). */
 const BUNDLE_BENEFIT: Record<string, string> = {
   advanced_website: "One link replaces 200 group-chat messages. RSVP, schedule, dress code, photos — your guests find their own answers, you stay present.",
   papic_guest: "Every guest's phone becomes a camera — their candids land in your gallery live, so you keep the unposed moments a single photographer would miss.",
-  sde: "A 3-minute wedding film, edited and screened the same night at your reception — the rare gift of reliving your day with the people who lived it with you.",
   guest_stories: "Tito Boy's joke, Lola's blessing, your maid of honor's tears — short video greetings captured at the event, before the night blurs.",
   pabati: "A video guestbook — short wishes from everyone you love, kept forever. Better than a signed card you'll file away and forget.",
   papic_seats: "Five trusted friends, five cameras roaming the venue — the candid angles a single photographer can't catch from the front of the aisle.",
@@ -1143,7 +1142,7 @@ const groupDigits = (raw: string) => {
    the inapp keys here map 1:1 to service_codes in onboarding-pricing.ts INAPP_TO_SERVICE_CODE. */
 // indoor_blueprint RETIRED from the catalog (owner 2026-06-08) → removed from the offered set
 // (a retired SKU drops out of fetchV2CustomerCatalog → would otherwise render at ₱0).
-const INAPP_KEYS = ['papic_seats', 'advanced_website', 'animated_monogram', 'panood', 'papic_guest', 'sde', 'pakanta', 'custom_qr', 'live_background', 'pabati', 'guest_stories', 'thank_you', 'live_photowall'];
+const INAPP_KEYS = ['papic_seats', 'advanced_website', 'animated_monogram', 'panood', 'papic_guest', 'pakanta', 'custom_qr', 'live_background', 'pabati', 'guest_stories', 'thank_you', 'live_photowall'];
 // Onboarding pick → its in-app add-on checkout route (the InlineCheckoutDrawer · BDO/GCash QR +
 // reference card). Only services with a BUILT checkout page are listed; Purchase Now jumps to the
 // first picked one of these, else falls back to the Services tab (owner 2026-06-06).
@@ -1155,7 +1154,7 @@ const INAPP_TO_ADDON_SLUG: Record<string, string> = {
   indoor_blueprint: 'indoor-blueprint',
 };
 const INAPP_VS: Record<string, string> = {
-  papic_seats: '5 hired photographers', advanced_website: 'a hired web developer', animated_monogram: 'a motion studio', panood: 'a livestream crew', papic_guest: '20+ disposable cams + developing', sde: 'a same-day-edit crew', pakanta: 'a composer + singer', custom_qr: 'an invitation designer', indoor_blueprint: 'a floor-plan service', live_background: 'an LED wall rental + crew', pabati: 'a guestbook booth + attendant', guest_stories: 'per-guest manual editing', thank_you: 'a hired cinematographer', live_photowall: 'an onsite slideshow team',
+  papic_seats: '5 hired photographers', advanced_website: 'a hired web developer', animated_monogram: 'a motion studio', panood: 'a livestream crew', papic_guest: '20+ disposable cams + developing', pakanta: 'a composer + singer', custom_qr: 'an invitation designer', indoor_blueprint: 'a floor-plan service', live_background: 'an LED wall rental + crew', pabati: 'a guestbook booth + attendant', guest_stories: 'per-guest manual editing', thank_you: 'a hired cinematographer', live_photowall: 'an onsite slideshow team',
 };
 
 /* Onboarding promo — 20% off any in-app add-on when added during onboarding (owner 2026-06-05,
@@ -1176,12 +1175,12 @@ const PICK_TO_INAPP: Record<string, string[]> = {
   cake: ['papic_guest'], stations: ['papic_guest'],
   // Design
   stylist: ['animated_monogram', 'live_background'], florist: ['animated_monogram'], lights_sound: ['live_background'],
-  dance_floor: ['live_photowall'], led_wall: ['live_background'], fireworks: ['sde', 'thank_you'], outdoor: ['panood'],
+  dance_floor: ['live_photowall'], led_wall: ['live_background'], fireworks: ['thank_you'], outdoor: ['panood'],
   // Program
   host_mc: ['pabati'], live_band: ['pakanta'], orchestra: ['pakanta'], choir: ['pakanta'], wedding_singer: ['pakanta'],
-  dj: ['pakanta'], performers: ['sde'], choreographer: ['sde'],
+  dj: ['pakanta'], performers: ['thank_you'], choreographer: ['thank_you'],
   // Documentary
-  photo_video: ['sde', 'thank_you', 'guest_stories', 'papic_guest'], livestream: ['panood'], editorial: ['advanced_website'],
+  photo_video: ['thank_you', 'guest_stories', 'papic_guest'], livestream: ['panood'], editorial: ['advanced_website'],
   // Look
   bride_attire: ['animated_monogram'], groom_attire: ['animated_monogram'], women_attire: ['animated_monogram'],
   men_attire: ['animated_monogram'], filipiniana: ['animated_monogram'], jewelry: ['animated_monogram'],
@@ -1194,11 +1193,11 @@ const PICK_TO_INAPP: Record<string, string[]> = {
   // Prints
   printing: ['custom_qr', 'animated_monogram'], souvenirs: ['custom_qr', 'animated_monogram'],
   // Transport
-  bridal_car: ['sde'], guest_shuttle: ['custom_qr'], escort: ['custom_qr'],
+  bridal_car: ['thank_you'], guest_shuttle: ['custom_qr'], escort: ['custom_qr'],
 };
 /* Priority order for the recommended set. Dedup against the picks bounds the union to the ≤14
    in-app services, so every chosen leaf surfaces its matched add-on(s) — no cap (owner 2026-06-05). */
-const REC_PRIORITY = ['sde', 'papic_seats', 'thank_you', 'animated_monogram', 'pakanta', 'panood', 'live_background', 'live_photowall', 'papic_guest', 'guest_stories', 'pabati', 'advanced_website', 'custom_qr'];
+const REC_PRIORITY = ['papic_seats', 'thank_you', 'animated_monogram', 'pakanta', 'panood', 'live_background', 'live_photowall', 'papic_guest', 'guest_stories', 'pabati', 'advanced_website', 'custom_qr'];
 function recommendedInappFor(picks: string[]): string[] {
   const set = new Set<string>();
   for (const p of picks) for (const k of (PICK_TO_INAPP[p] ?? [])) set.add(k);

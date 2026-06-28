@@ -298,18 +298,6 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
     purchaserRole: 'couple',
     isActive: true,
   },
-  {
-    skuCode: 'same_day_edit',
-    displayName: 'Same-Day Edit',
-    category: 'panood',
-    priceCentavos: 999900,
-    unit: 'render',
-    multiPurchase: false,
-    subscription: false,
-    refundable: true,
-    purchaserRole: 'couple',
-    isActive: true,
-  },
 
   // ---- Patiktok dual-tier ----
   {

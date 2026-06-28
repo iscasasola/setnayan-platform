@@ -28,7 +28,7 @@ test('wedding-surface add-ons carry the right surface', () => {
 
 test('universal in-app services carry NO surface (shown for every event type)', () => {
   // A representative set of non-wedding-gated services — they must stay universal.
-  for (const key of ['setnayan-ai', 'papic', 'panood', 'sde', 'pakanta', 'mood-board', 'seating']) {
+  for (const key of ['setnayan-ai', 'papic', 'panood', 'pakanta', 'mood-board', 'seating']) {
     const entry = byKey.get(key);
     if (!entry) continue; // tolerate catalog churn — only assert when present
     assert.equal(entry.surface, undefined, `${key} must stay universal (no surface)`);

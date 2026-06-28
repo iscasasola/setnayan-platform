@@ -137,7 +137,6 @@ export const COUPLE_FEATURES = [
   'Personal QR invitations for every guest, with optional branded monogram.',
   "Day-of livestream so anyone who can't be there sees every moment.",
   "Papic guest capture — your guests' phones become a coordinated photo crew.",
-  'Same-Day Edit highlight reel delivered 30 minutes before the reception starts.',
   '0% commission on vendor bookings. Vendors keep 100% of what you pay them.',
 ];
 
@@ -160,7 +159,6 @@ export const LIVE_TODAY = [
   'QR invitations',
   'Verified vendor marketplace',
   'Day-of livestream',
-  'Same-Day Edit highlight reel',
   'Multi-host event access',
   'In-app chat with vendors',
   '0% commission · always',

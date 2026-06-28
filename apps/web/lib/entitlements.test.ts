@@ -247,7 +247,7 @@ test('eventOwnsSku: passing a bundle code directly works via the direct check', 
 
 test('BUNDLE_CHILD_SKUS: media children are in MEDIA_PACK; both bundles share Essentials members', () => {
   // The crew-delivered media children the dead DB fan-out used to grant.
-  for (const child of ['LIVE_WALL', 'PANOOD_SYSTEM', 'SDE', 'PAPIC_SEATS', 'CAMERA_BRIDGE', 'PABATI', 'PAKANTA']) {
+  for (const child of ['LIVE_WALL', 'PANOOD_SYSTEM', 'PAPIC_SEATS', 'CAMERA_BRIDGE', 'PABATI', 'PAKANTA']) {
     assert.ok(
       BUNDLE_CHILD_SKUS.MEDIA_PACK.includes(child),
       `MEDIA_PACK should include ${child}`,
@@ -496,8 +496,8 @@ test('PAPIC_UNLOCK bundle grants every Papic add-on (incl. the reconcile additio
   }
 });
 
-test('PAPIC_UNLOCK includes PAPIC_GUEST (so the guest camera unlocks = "unli guests") + SDE + Patiktok', () => {
-  for (const sku of ['PAPIC_GUEST', 'SDE', 'PATIKTOK_COMPILER', 'KWENTO', 'LIVE_WALL', 'CAMERA_BRIDGE']) {
+test('PAPIC_UNLOCK includes PAPIC_GUEST (so the guest camera unlocks = "unli guests") + Patiktok', () => {
+  for (const sku of ['PAPIC_GUEST', 'PATIKTOK_COMPILER', 'KWENTO', 'LIVE_WALL', 'CAMERA_BRIDGE']) {
     assert.ok(
       BUNDLE_CHILD_SKUS.PAPIC_UNLOCK.includes(sku),
       `PAPIC_UNLOCK should include ${sku}`,

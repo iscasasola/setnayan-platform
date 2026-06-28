@@ -45,7 +45,7 @@
  *   6. Data Structure (key 'content') — the App-Engine structure lane:
  *                   Menus & icons · Taxonomy · Event Types · Refinements ·
  *                   Onboarding · Wedding types · Wedding traditions · AI brain.
- *   7. Content & Media (key 'media') — Website · Hero video · Same-Day Edit ·
+ *   7. Content & Media (key 'media') — Website · Hero video ·
  *                   Reveal Studio · Real Stories · Recaps · Patiktok · Songs ·
  *                   Moodboard library.
  *   8. Settings (key 'settings-group') — Settings · Notifications ·
@@ -543,14 +543,6 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: 'Hero video',
         href: '/admin/hero-video',
         icon: Video,
-      },
-      {
-        // Same-Day Edit delivery — upload each couple's finished SDE film; it
-        // auto-publishes to their day-of page + recap the moment it lands.
-        key: 'sde',
-        label: 'Same-Day Edit',
-        href: '/admin/sde',
-        icon: Film,
       },
       {
         key: 'reveal-studio',

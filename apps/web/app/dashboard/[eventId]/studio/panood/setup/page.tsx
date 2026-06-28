@@ -189,17 +189,13 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
   // REAL pricing from the admin catalog (formatV2Sku). PANOOD_SYSTEM is NOT
   // priced here: single-cam Panood live is FREE for every host (owner model
   // 2026-06-26) and PANOOD_SYSTEM is the PAID multicam control-room upgrade
-  // (built at /studio/panood/broadcast). The Animated-Monogram + SDE add-ons
-  // keep their real catalog prices;
+  // (built at /studio/panood/broadcast). The Animated-Monogram add-on
+  // keeps its real catalog price;
   // the Broadcast Style Pack / AI Edited Highlight have NO V2 SKU yet, so those
   // surfaces honest-state "arrives with the streaming rollout" instead of a
   // price (owner rule: never hardcode a price).
-  const [monogramSku, sdeSku] = await Promise.all([
-    formatV2Sku('ANIMATED_MONOGRAM').catch(() => null),
-    formatV2Sku('SDE').catch(() => null),
-  ]);
+  const monogramSku = await formatV2Sku('ANIMATED_MONOGRAM').catch(() => null);
   const monogramPriceLabel = monogramSku ? formatPhp(monogramSku.price_php) : null;
-  const sdePriceLabel = sdeSku ? `${formatPhp(sdeSku.price_php)} / 3 min` : null;
 
   // Single-camera live broadcast is the free core tool (no per-day SKU charge).
   // Today couples stream from their own phone or OBS to their own YouTube, so
@@ -312,7 +308,6 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
         setup={setup}
         styleModes={STYLE_PACK_MODES}
         monogramPriceLabel={monogramPriceLabel}
-        sdePriceLabel={sdePriceLabel}
       />
 
       <YouTubeDelivery
@@ -377,7 +372,7 @@ function YoutubeConnect({
       <ul className="grid gap-2 text-xs text-ink/55 sm:grid-cols-2">
         <li className="rounded-md border border-ink/10 bg-cream/70 px-3 py-2">
           <span className="font-mono text-ink/65">Scopes requested:</span> YouTube manage
-          + upload (broadcast lifecycle + same-day-edit archive).
+          + upload (broadcast lifecycle + recording archive).
         </li>
         <li className="rounded-md border border-ink/10 bg-cream/70 px-3 py-2">
           <span className="font-mono text-ink/65">One-time consent:</span> disconnect any
@@ -727,12 +722,10 @@ function StyleAndAddOns({
   setup,
   styleModes,
   monogramPriceLabel,
-  sdePriceLabel,
 }: {
   setup: PanoodSetup;
   styleModes: number;
   monogramPriceLabel: string | null;
-  sdePriceLabel: string | null;
 }) {
   return (
     <section
@@ -766,16 +759,6 @@ function StyleAndAddOns({
           price={monogramPriceLabel}
           owned={setup.customMonogramOwned}
           blurb="Your bespoke monogram across your event-page chrome today — and on the broadcast watermark, intro/outro and standby screens when the streaming control room arrives."
-          state="purchasable"
-        />
-        {/* SDE — REAL admin-catalog SKU (SDE). Ownership isn't gated on this Panood
-            surface, so it renders purchasable with the catalog price. */}
-        <PackCard
-          Icon={Video}
-          title="Same-Day Edit"
-          price={sdePriceLabel}
-          owned={false}
-          blurb="A cinematic compilation cut, delivered fast — perfect to play on the big screen before the reception ends."
           state="purchasable"
         />
         {/* Broadcast Style Pack — NO admin-catalog SKU in V1 (no real price source),

@@ -29,7 +29,7 @@ const ADD_ON_META: Record<
     iteration: 'Iteration 0011',
     title: 'Panood',
     blurb:
-      'Cloudflare Stream Live SFU → YouTube RTMP relay. Web broadcaster + camera operator. AI Video Highlight · AI Edited Highlight · Same-Day Edit.',
+      'Cloudflare Stream Live SFU → YouTube RTMP relay. Web broadcaster + camera operator. AI Video Highlight · AI Edited Highlight.',
   },
   'photo-delivery': {
     iteration: 'Iteration 0009',

@@ -78,7 +78,7 @@ test('valid persona_pack override replaces; malformed falls back', () => {
   const pack = {
     essentials: ['cake'],
     byPersona: { keepsake: ['photo_video'] },
-    servicesByPersona: { keepsake: ['sde'] },
+    servicesByPersona: { keepsake: ['papic_seats'] },
   };
   const good = resolveOnboardingSpec('birthday', 'birthday', {
     intro: null,

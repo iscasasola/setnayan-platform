@@ -549,31 +549,6 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     },
   },
   {
-    // Same-Day Edit — a cinematic film cut from the day's footage, delivered by
-    // the Setnayan crew. It auto-shows on the couple's day-of page + recap the
-    // moment the crew uploads it (admin /admin/sde); the three-state ownership
-    // pill on the Studio hub resolves via serviceKey:'SDE' (pillFor), so no
-    // studio/page.tsx change is needed. Poster copied from panood.
-    key: 'sde',
-    label: 'Same-Day Edit',
-    Icon: Film,
-    iteration: '0012',
-    status: 'web_v1',
-    category: 'photography',
-    serviceKey: 'SDE',
-    blurb: 'A cinematic cut of your day — ready the same night.',
-    cta: 'Set up',
-    studioGroup: 'capture',
-    poster: {
-      motion: 'scan',
-      baseBackground:
-        'linear-gradient(135deg, #1F0808 0%, #4A1212 50%, #8B1A1A 100%)',
-      motionBackground:
-        'linear-gradient(90deg, transparent 0%, rgba(255, 90, 90, 0.8) 50%, transparent 100%)',
-      iconBadgeClass: 'bg-danger-100/15 text-danger-50',
-    },
-  },
-  {
     key: 'photo-delivery',
     label: 'Photo Delivery',
     Icon: ImageDown,

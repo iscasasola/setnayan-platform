@@ -1,5 +1,5 @@
 /**
- * Stories+SDE P0 — beat-aware template manifest scaffold.
+ * Stories P0 — beat-aware template manifest scaffold.
  *
  * PURE DATA + TYPES. No rendering, no DOM, no DB, no network. This module is
  * INERT groundwork: it defines the shape of a beat-aware Stories template and
@@ -21,7 +21,7 @@
  *     so cuts hit the rhythm. (CLIP slots also start on a beat but are capped
  *     at 5s, so a long beat gap leaves a clip shorter than the gap.)
  *
- * No prices live here — Stories/SDE pricing is admin-catalog managed.
+ * No prices live here — Stories pricing is admin-catalog managed.
  */
 
 // ---------------------------------------------------------------------------
@@ -80,7 +80,7 @@ export type StorySlot = {
 // Template manifest
 // ---------------------------------------------------------------------------
 
-export type StoriesTemplateCategory = 'stories' | 'sde';
+export type StoriesTemplateCategory = 'stories';
 
 /**
  * A beat-aware template manifest. Pure data — a later renderer consumes it.
@@ -144,11 +144,11 @@ export const STORIES_TEMPLATES: readonly [StoriesTemplate, ...StoriesTemplate[]]
     mediaPattern: ['photo', 'photo', 'clip'],
   },
   {
-    slug: 'sde-fast-cut-30',
-    name: 'SDE Fast-Cut',
-    category: 'sde',
+    slug: 'midnight-fast-cut-30',
+    name: 'Midnight Fast-Cut',
+    category: 'stories',
     durationSec: STORIES_DURATION,
-    vibe: 'Black + gold — same-day-edit hype cut, cut on every beat.',
+    vibe: 'Black + gold — high-energy hype cut, cut on every beat.',
     palette: ['#0F0F0F', '#C9A14B', '#FAF7F2', '#3A2A1C'],
     beatsPerCut: 1,
     mediaPattern: ['clip', 'photo'],
@@ -173,7 +173,7 @@ export function findStoriesTemplate(slug: string): StoriesTemplate | null {
  *
  * Pure + deterministic so P1/P2 can unit-test and preview without rendering.
  *
- * @param template The chosen Stories/SDE template.
+ * @param template The chosen Stories template.
  * @param grid     The track's beat grid (from `patiktok_music_tracks.beat_grid`).
  * @returns        Ordered, non-overlapping slots covering [0, durationSec].
  */

@@ -116,6 +116,9 @@ type EventBudgetRow = {
   // Per-event Setnayan AI entitlement — only consulted when the paywall flag
   // is on (lib/setnayan-ai). Optional: absent on rows selected before the col.
   setnayan_ai_active?: boolean | null;
+  // The couple's onboarding plan blob — interested_categories drives the
+  // Shortlist "Your plan" strip (non-wedding generic onboarding · 2026-06-28).
+  style_preferences?: Record<string, unknown> | null;
 };
 
 export default async function VendorsPage({ params, searchParams }: Props) {
@@ -143,7 +146,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     supabase
       .from('events')
       .select(
-        'event_date, event_date_precision, estimated_budget_centavos, mood_board_updated_at, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, venue_setting, region, estimated_pax, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, planning_mode, setnayan_ai_active',
+        'event_date, event_date_precision, estimated_budget_centavos, mood_board_updated_at, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, venue_setting, region, estimated_pax, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, planning_mode, setnayan_ai_active, style_preferences',
       )
       .eq('id', eventId)
       .maybeSingle(),
@@ -646,6 +649,20 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // tile-driven category browser with a carousel of considered vendors per tile;
   // decoupled from the plan-group lock/build model so it can't destabilize the
   // other tabs. Faith set unions the primary + secondary rite (mixed weddings).
+  // "Your plan" surfacing (non-wedding generic onboarding · 2026-06-28). The
+  // couple's onboarding category picks live in style_preferences.interested_-
+  // categories (taxonomy ids = shortlist tile ids). Mark + surface them so the
+  // plan the reveal promised is front-and-center where they act on it. Scoped to
+  // NON-wedding (wedding keeps its own rich plan/build machinery untouched).
+  const plannedTiles = (() => {
+    if ((ev?.event_type ?? 'wedding') === 'wedding') return undefined;
+    const prefs = (ev?.style_preferences ?? {}) as Record<string, unknown>;
+    const picks = Array.isArray(prefs.interested_categories)
+      ? (prefs.interested_categories as unknown[]).filter((p): p is string => typeof p === 'string')
+      : [];
+    return picks.length > 0 ? new Set(picks) : undefined;
+  })();
+
   const shortlistFolders = buildShortlistFolders({
     vendorRows,
     enrichmentByVendorId,
@@ -657,6 +674,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     }),
     taxonomy,
     eventId,
+    plannedTiles,
   });
 
   // Phase 1b PR-4 · per-category "saved request" icons. Load the couple's saved

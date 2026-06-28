@@ -126,6 +126,10 @@ export type ShortlistTile = {
   exploreHref: string;
   /** VendorCategory to store an "Add manually" vendor under for this tile. */
   category: string;
+  /** TRUE when this category is in the couple's onboarding plan
+   *  (events.style_preferences.interested_categories). Drives the "Your plan"
+   *  strip + the "In your plan" marker on the Shortlist. */
+  planned: boolean;
 };
 
 /** One folder section: its sticky head + the tiles under it. */
@@ -136,6 +140,8 @@ export type ShortlistFolder = {
   tiles: ShortlistTile[];
   /** Considered vendors across all tiles in this folder (the head subline). */
   pickCount: number;
+  /** Tiles in this folder that are in the couple's onboarding plan. */
+  plannedCount: number;
 };
 
 /** Does any canonical service under `tile` pass the couple's faith filter?
@@ -168,8 +174,12 @@ export function buildShortlistFolders(args: {
   faithSet: ReadonlySet<string>;
   taxonomy?: TaxonomySnapshot;
   eventId: string;
+  /** Category ids from the couple's onboarding plan (style_preferences.
+   *  interested_categories) — the tiles to mark as "in your plan". */
+  plannedTiles?: ReadonlySet<string>;
 }): ShortlistFolder[] {
-  const { vendorRows, enrichmentByVendorId, eventType, faithSet, taxonomy, eventId } = args;
+  const { vendorRows, enrichmentByVendorId, eventType, faithSet, taxonomy, eventId, plannedTiles } =
+    args;
 
   const folderOrder = taxonomy?.folderOrder ?? WEDDING_FOLDER_ORDER;
   const folderLabelMap = taxonomy?.folderLabel ?? WEDDING_FOLDER_LABEL;
@@ -219,12 +229,15 @@ export function buildShortlistFolders(args: {
     const tileIds = (tilesByParent[folder] ?? []) as WeddingTile[];
     const tiles: ShortlistTile[] = [];
     let pickCount = 0;
+    let plannedCount = 0;
     for (const tile of tileIds) {
       // Event-type scope (tile-grain primary control) + faith scope.
       if (!passesEventTypeFilter(tileEventTypes[tile] ?? null, eventType)) continue;
       if (!tilePassesFaith(tile, faithSet, map)) continue;
       const vendors = byTile.get(tile) ?? [];
       pickCount += vendors.length;
+      const planned = plannedTiles?.has(tile) ?? false;
+      if (planned) plannedCount += 1;
       const slug = tileSlugMap[tile] ?? tile;
       tiles.push({
         tile,
@@ -233,6 +246,7 @@ export function buildShortlistFolders(args: {
         vendors,
         exploreHref: `/explore?tile=${encodeURIComponent(slug)}`,
         category: categoryForTile(tile),
+        planned,
       });
     }
     if (tiles.length === 0) continue;
@@ -242,6 +256,7 @@ export function buildShortlistFolders(args: {
       slug: folderSlugMap[folder] ?? folder,
       tiles,
       pickCount,
+      plannedCount,
     });
   }
   return folders;

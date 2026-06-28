@@ -2740,6 +2740,7 @@ function InvitationSite({
           <PapicGuestCapture
             guestName={guest.first_name}
             eventName={event.display_name}
+            eventId={event.event_id}
             initialRemaining={papicGuest.initialRemaining}
             total={papicGuest.total}
             termsAccepted={papicGuest.termsAccepted}

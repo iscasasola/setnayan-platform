@@ -16,7 +16,10 @@ import {
   isPapicTerminalError,
   buildSeatSinkDeps,
   drainPapicCaptureWith,
+  drainGuestCaptureWith,
   type PapicSeatQueuePayload,
+  type PapicGuestQueuePayload,
+  type GuestPostResult,
 } from './papic-drain';
 
 function payload(overrides: Partial<PapicSeatQueuePayload> = {}): PapicSeatQueuePayload {
@@ -111,4 +114,71 @@ test('buildSeatSinkDeps: a clip records with its real durationMs (not dropped)',
   assert.equal(clipRecord.kind, 'clip');
   assert.equal(clipRecord.poster, 'r2://poster-1');
   assert.equal(clipRecord.durationMs, 5_000); // preserved via the closure
+});
+
+// ── guest drain ────────────────────────────────────────────────────────────
+
+function guestPayload(overrides: Partial<PapicGuestQueuePayload> = {}): PapicGuestQueuePayload {
+  return {
+    mode: 'guest',
+    media_type: 'photo',
+    content_type: 'image/jpeg',
+    filename: 'papic-1.jpg',
+    bytes: new Blob([new Uint8Array([1, 2, 3])], { type: 'image/jpeg' }),
+    captured_at_ms: 1_760_000_000_000,
+    ...overrides,
+  };
+}
+
+test('drainGuestCaptureWith: a queued clip re-POSTs the full multipart form', async () => {
+  let seen: FormData | null = null;
+  const post = async (form: FormData): Promise<GuestPostResult> => {
+    seen = form;
+    return { ok: true, status: 200, body: { status: 'ok' } };
+  };
+
+  const result = await drainGuestCaptureWith(
+    post,
+    guestPayload({
+      media_type: 'clip',
+      content_type: 'video/mp4',
+      filename: 'papic-1.mp4',
+      duration_ms: 5_000,
+      share_publicly: true,
+      poster_bytes: new Blob([new Uint8Array([9])], { type: 'image/jpeg' }),
+      poster_filename: 'papic-1-poster.jpg',
+    }),
+  );
+
+  assert.deepEqual(result, { ok: true });
+  assert.ok(seen);
+  const form = seen as FormData;
+  assert.equal(form.get('media_type'), 'clip');
+  assert.equal(form.get('duration_ms'), '5000');
+  assert.equal(form.get('share_publicly'), '1');
+  assert.ok(form.get('file'));
+  assert.ok(form.get('poster'));
+});
+
+test('drainGuestCaptureWith: a terminal state (quota_exhausted) resolves the item (dequeue)', async () => {
+  const post = async (): Promise<GuestPostResult> => ({
+    ok: false,
+    status: 409,
+    body: { status: 'quota_exhausted' },
+  });
+  const result = await drainGuestCaptureWith(post, guestPayload());
+  assert.deepEqual(result, { ok: true }); // dropped, not retried forever
+});
+
+test('drainGuestCaptureWith: a 5xx is kept for retry; a network throw is kept', async () => {
+  const serverError = await drainGuestCaptureWith(
+    async () => ({ ok: false, status: 502, body: null }),
+    guestPayload(),
+  );
+  assert.equal(serverError.ok, false);
+
+  const networkError = await drainGuestCaptureWith(async () => {
+    throw new Error('offline');
+  }, guestPayload());
+  assert.deepEqual(networkError, { ok: false, error: 'network' });
 });

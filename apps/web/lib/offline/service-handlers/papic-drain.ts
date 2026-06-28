@@ -172,12 +172,8 @@ export async function drainPapicCaptureWith(
   return result.ok ? { ok: true } : { ok: false, error: result.error };
 }
 
-/**
- * Browser entry the sync daemon calls for the `papic` queue. Lazily imports the
- * server action + poster extractor so this module stays cheap in the daemon's
- * initial bundle.
- */
-export async function drainPapicCapture(item: OfflineItem): Promise<SyncResult> {
+/** Drain one queued SEAT capture (the default `papic` payload). */
+async function drainSeatCapture(item: OfflineItem): Promise<SyncResult> {
   const parsed = parsePayload(item.payload);
   if (!parsed) return { ok: false, error: 'invalid_payload' };
 
@@ -191,6 +187,140 @@ export async function drainPapicCapture(item: OfflineItem): Promise<SyncResult> 
     extractClipPosterBytes,
   );
   return drainPapicCaptureWith(deps, parsed, await toBytes(parsed.bytes));
+}
+
+// ── Guest (per-guest disposable camera) path ───────────────────────────────
+// The PAPIC_GUEST surface uploads through a DIFFERENT contract than the seat:
+// a multipart POST to /api/papic/guest-capture (cookie-authed guest session,
+// server-side PUT + quota-enforcing papic_record_guest_capture RPC). So its
+// drain re-POSTs the same form rather than presign+recordSeatCapture. Both
+// share the one `papic` IndexedDB store, discriminated by payload.mode.
+
+/** Queue payload for a guest capture — written by `enqueuePapicGuestCapture`. */
+export interface PapicGuestQueuePayload {
+  mode: 'guest';
+  media_type: 'photo' | 'clip';
+  content_type: string;
+  filename: string;
+  duration_ms?: number;
+  share_publicly?: boolean;
+  /** Pre-computed face vectors (JSON string), photos only — same as the live form. */
+  face_vectors?: string;
+  bytes: Blob | ArrayBuffer;
+  poster_bytes?: Blob | ArrayBuffer | null;
+  poster_filename?: string;
+  captured_at_ms: number;
+}
+
+/** Guest server states that resolve a queued item WITHOUT a successful land —
+ *  the capture can never deliver (quota gone, blocked, terms revoked), so the
+ *  drain drops it (dequeue) instead of retrying to the 7-day TTL. */
+const GUEST_RESOLVED_STATES: ReadonlySet<string> = new Set([
+  'quota_exhausted',
+  'blocked',
+  'terms_required',
+]);
+
+function parseGuestPayload(payload: Record<string, unknown>): PapicGuestQueuePayload | null {
+  const mediaType = payload.media_type;
+  const contentType = payload.content_type;
+  const filename = payload.filename;
+  const bytes = payload.bytes;
+  if (
+    payload.mode !== 'guest' ||
+    (mediaType !== 'photo' && mediaType !== 'clip') ||
+    typeof contentType !== 'string' ||
+    typeof filename !== 'string' ||
+    !(bytes instanceof Blob || bytes instanceof ArrayBuffer)
+  ) {
+    return null;
+  }
+  const poster = payload.poster_bytes;
+  return {
+    mode: 'guest',
+    media_type: mediaType,
+    content_type: contentType,
+    filename,
+    duration_ms: typeof payload.duration_ms === 'number' ? payload.duration_ms : undefined,
+    share_publicly: payload.share_publicly === true,
+    face_vectors: typeof payload.face_vectors === 'string' ? payload.face_vectors : undefined,
+    bytes,
+    poster_bytes: poster instanceof Blob || poster instanceof ArrayBuffer ? poster : null,
+    poster_filename:
+      typeof payload.poster_filename === 'string' ? payload.poster_filename : undefined,
+    captured_at_ms:
+      typeof payload.captured_at_ms === 'number' ? payload.captured_at_ms : 0,
+  };
+}
+
+export interface GuestPostResult {
+  ok: boolean;
+  status: number;
+  body: { status?: string; error?: string } | null;
+}
+
+/** Core guest drain with an injected `post` — unit-testable without a browser. */
+export async function drainGuestCaptureWith(
+  post: (form: FormData) => Promise<GuestPostResult>,
+  parsed: PapicGuestQueuePayload,
+): Promise<SyncResult> {
+  const form = new FormData();
+  if (parsed.media_type === 'clip') form.append('media_type', 'clip');
+  const fileBlob =
+    parsed.bytes instanceof Blob
+      ? parsed.bytes
+      : new Blob([parsed.bytes], { type: parsed.content_type });
+  form.append('file', fileBlob, parsed.filename);
+  if (parsed.poster_bytes) {
+    const posterBlob =
+      parsed.poster_bytes instanceof Blob
+        ? parsed.poster_bytes
+        : new Blob([parsed.poster_bytes], { type: 'image/jpeg' });
+    form.append('poster', posterBlob, parsed.poster_filename ?? 'poster.jpg');
+  }
+  if (typeof parsed.duration_ms === 'number') {
+    form.append('duration_ms', String(parsed.duration_ms));
+  }
+  if (parsed.share_publicly) form.append('share_publicly', '1');
+  if (parsed.face_vectors) form.append('face_vectors', parsed.face_vectors);
+
+  let res: GuestPostResult;
+  try {
+    res = await post(form);
+  } catch {
+    return { ok: false, error: 'network' };
+  }
+
+  const state = res.body?.status;
+  if (res.ok && state === 'ok') return { ok: true };
+  // Terminal: the capture can never land — resolve the item so the daemon drops
+  // it (ok:true is the only dequeue signal SyncResult exposes).
+  if (state && GUEST_RESOLVED_STATES.has(state)) return { ok: true };
+  // Anything else (5xx, transient) — keep the item; the daemon retries.
+  return { ok: false, error: res.body?.error ?? `http_${res.status}` };
+}
+
+/** Drain one queued GUEST capture. */
+async function drainGuestCapture(item: OfflineItem): Promise<SyncResult> {
+  const parsed = parseGuestPayload(item.payload);
+  if (!parsed) return { ok: false, error: 'invalid_payload' };
+  return drainGuestCaptureWith(async (form) => {
+    const res = await fetch('/api/papic/guest-capture', { method: 'POST', body: form });
+    const body = (await res.json().catch(() => null)) as
+      | { status?: string; error?: string }
+      | null;
+    return { ok: res.ok, status: res.status, body };
+  }, parsed);
+}
+
+/**
+ * Browser entry the sync daemon calls for the `papic` queue. Dispatches on the
+ * payload's `mode`: seat captures (default) replay presign+recordSeatCapture;
+ * guest captures re-POST the multipart endpoint.
+ */
+export async function drainPapicCapture(item: OfflineItem): Promise<SyncResult> {
+  if (item.payload.mode === 'guest') return drainGuestCapture(item);
+  return drainSeatCapture(item);
 }
 
 /**
@@ -221,6 +351,52 @@ export async function enqueuePapicSeatCapture(input: {
     captured_at_ms: input.capturedAtMs ?? Date.now(),
     duration_ms: input.durationMs,
     bytes: input.blob,
+  };
+  try {
+    return await enqueueOfflineItem('papic', {
+      event_id: input.eventId,
+      payload: payload as unknown as Record<string, unknown>,
+      last_error: input.reason,
+    });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Persist a GUEST capture that couldn't deliver live into the `papic` queue.
+ * Called by the per-guest camera UI on an infrastructure failure. The drain
+ * re-POSTs the same multipart form to /api/papic/guest-capture (the guest
+ * session rides the cookie, present at foreground-drain time). Returns the item
+ * id, or null when persistence isn't available / fails.
+ */
+export async function enqueuePapicGuestCapture(input: {
+  eventId: string;
+  mediaType: 'photo' | 'clip';
+  contentType: string;
+  filename: string;
+  blob: Blob;
+  posterBlob?: Blob | null;
+  posterFilename?: string;
+  durationMs?: number;
+  sharePublicly?: boolean;
+  faceVectors?: string;
+  capturedAtMs?: number;
+  reason?: string;
+}): Promise<string | null> {
+  if (typeof window === 'undefined' || typeof indexedDB === 'undefined') return null;
+  const payload: PapicGuestQueuePayload = {
+    mode: 'guest',
+    media_type: input.mediaType,
+    content_type: input.contentType,
+    filename: input.filename,
+    duration_ms: input.durationMs,
+    share_publicly: input.sharePublicly,
+    face_vectors: input.faceVectors,
+    bytes: input.blob,
+    poster_bytes: input.posterBlob ?? null,
+    poster_filename: input.posterFilename,
+    captured_at_ms: input.capturedAtMs ?? Date.now(),
   };
   try {
     return await enqueueOfflineItem('papic', {

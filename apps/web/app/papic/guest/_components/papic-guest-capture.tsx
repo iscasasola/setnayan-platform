@@ -24,6 +24,8 @@ import {
   type PapicStyle,
 } from '@/lib/papic-photo-styles';
 import { PapicCameraControls } from '@/app/papic/_components/camera-controls';
+import { enqueuePapicGuestCapture } from '@/lib/offline/service-handlers/papic-drain';
+import { triggerSyncNow } from '@/lib/offline/sync-daemon';
 
 const TAG_CAP = 10; // max tags per photo (corpus hard cap · mirrored server-side)
 const MAX_CLIP_MS = 5000; // 5-SECOND HARD CAP — corpus lock, mirrored route + RPC.
@@ -73,6 +75,9 @@ function tagErrorMessage(error: string): string {
 type Props = {
   guestName: string;
   eventName: string;
+  /** The event this guest camera belongs to — tags offline-queued captures so a
+   *  failed upload can drain on reconnect (and groups them in the diagnostic). */
+  eventId: string;
   initialRemaining: number;
   total: number;
   /** Has this guest already accepted the one-time UGC terms of use? */
@@ -97,6 +102,7 @@ type Props = {
 export function PapicGuestCapture({
   guestName,
   eventName,
+  eventId,
   initialRemaining,
   total,
   termsAccepted,
@@ -331,11 +337,52 @@ export function PapicGuestCapture({
         lastScanRef.current = '';
       }
     } catch {
-      setSaveError("That shot didn't save — check your signal and try again.");
+      // Infrastructure failure (no signal / 5xx). Persist to the offline queue so
+      // the shot uploads on reconnect instead of being lost. Terminal states
+      // (quota / blocked / terms) returned earlier, so they never reach here.
+      const queued = await enqueuePapicGuestCapture({
+        eventId,
+        mediaType: 'photo',
+        contentType: 'image/jpeg',
+        filename: `papic-${Date.now()}.jpg`,
+        blob,
+        sharePublicly,
+        faceVectors: faceVectors.length > 0 ? JSON.stringify(faceVectors) : undefined,
+        reason: 'network',
+      });
+      setSaveError(
+        queued
+          ? "No signal — this shot will upload once you're back online."
+          : "That shot didn't save — check your signal and try again.",
+      );
     } finally {
       setBusy(false);
     }
-  }, [busy, ready, switching, exhausted, accepted, blocked, sharePublicly, canKwento, videoRef]);
+  }, [
+    busy,
+    ready,
+    switching,
+    exhausted,
+    accepted,
+    blocked,
+    sharePublicly,
+    canKwento,
+    videoRef,
+    eventId,
+  ]);
+
+  // Drain any guest captures persisted to the offline queue (a signal drop, or a
+  // prior session that closed before reconnecting). Foreground + flag-independent
+  // (iOS Safari has no Background Sync) so queued shots upload on reconnect.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const drain = () => {
+      void triggerSyncNow();
+    };
+    drain();
+    window.addEventListener('online', drain);
+    return () => window.removeEventListener('online', drain);
+  }, []);
 
   // Stop any in-flight recording + clear its timers when the component unmounts.
   useEffect(() => {
@@ -445,12 +492,29 @@ export function PapicGuestCapture({
         // Clips skip the Flash prompt (the moment's already captured as video).
         if (json.captureId) onSavedCapture(json.captureId, false);
       } catch {
-        setSaveError("That clip didn't save — check your signal and try again.");
+        // Infra failure — persist so the clip uploads on reconnect.
+        const queued = await enqueuePapicGuestCapture({
+          eventId,
+          mediaType: 'clip',
+          contentType: clip.type || 'video/mp4',
+          filename: `papic-${Date.now()}.mp4`,
+          blob: clip,
+          posterBlob: posterBlobRef.current,
+          posterFilename: `papic-${Date.now()}.jpg`,
+          durationMs: Math.min(durationMs, MAX_CLIP_MS),
+          sharePublicly,
+          reason: 'network',
+        });
+        setSaveError(
+          queued
+            ? "No signal — this clip will upload once you're back online."
+            : "That clip didn't save — check your signal and try again.",
+        );
       } finally {
         setBusy(false);
       }
     },
-    [sharePublicly, onSavedCapture],
+    [sharePublicly, onSavedCapture, eventId],
   );
 
   const stopRecording = useCallback(() => {

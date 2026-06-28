@@ -84,6 +84,10 @@ export default async function AdminOverview() {
     abuse: dc('concierge-abuse'),
     approvals: dc('approvals'),
     help: dc('help'),
+    subscriptions: dc('subscriptions'),
+    accountDeletions: dc('account-deletions'),
+    userReports: dc('user-reports'),
+    vendorPartnerships: dc('vendor-partnerships'),
   };
   const qState: Record<string, AdminQueueDueState | undefined> = {
     verify: ds('verify'),
@@ -98,6 +102,10 @@ export default async function AdminOverview() {
     abuse: ds('concierge-abuse'),
     approvals: ds('approvals'),
     help: ds('help'),
+    subscriptions: ds('subscriptions'),
+    accountDeletions: ds('account-deletions'),
+    userReports: ds('user-reports'),
+    vendorPartnerships: ds('vendor-partnerships'),
   };
 
   // Lanes — mirror the Work nav grouping (Trust / Money / Recourse / Support).
@@ -120,8 +128,15 @@ export default async function AdminOverview() {
           label: 'Vendors to verify',
           value: q.verify,
           state: qState.verify,
-          sub: 'Coming-soon awaiting review',
+          sub: 'Applications awaiting review',
           href: '/admin/verify',
+        },
+        {
+          label: 'Partnerships',
+          value: q.vendorPartnerships,
+          state: qState.vendorPartnerships,
+          sub: 'Vendor-to-vendor claims to verify',
+          href: '/admin/vendor-partnerships',
         },
         {
           label: 'Taxonomy requests',
@@ -164,6 +179,13 @@ export default async function AdminOverview() {
           sub: 'Vendor packs to confirm',
           href: '/admin/token-purchases',
         },
+        {
+          label: 'Subscriptions',
+          value: q.subscriptions,
+          state: qState.subscriptions,
+          sub: 'Vendor Pro / Enterprise to confirm',
+          href: '/admin/subscriptions',
+        },
       ],
     },
     {
@@ -198,6 +220,20 @@ export default async function AdminOverview() {
           sub: 'Trial-cycling flags',
           href: '/admin/concierge-abuse',
         },
+        {
+          label: 'User reports',
+          value: q.userReports,
+          state: qState.userReports,
+          sub: 'Reported gallery content to moderate',
+          href: '/admin/user-reports',
+        },
+        {
+          label: 'Account deletions',
+          value: q.accountDeletions,
+          state: qState.accountDeletions,
+          sub: 'Self-serve deletion requests (RA 10173)',
+          href: '/admin/account-deletions',
+        },
       ],
     },
     {
@@ -222,12 +258,12 @@ export default async function AdminOverview() {
     },
   ];
 
-  // Total open across every queue — null counts treated as 0 so a transient
-  // query error doesn't make the section read as "all clear".
-  const totalOpen = Object.values(q).reduce<number>(
-    (sum, v) => sum + Math.max(0, v ?? 0),
-    0,
-  );
+  // Total covers EVERY digest queue (urgency.totalOpen) + taxonomy (the one
+  // standalone queue). Derived from the digest, NOT the tile roster, so the
+  // "all clear" banner can never read false if a tile is ever dropped from a
+  // lane again (the bug this audit caught). Belt-and-suspenders below: the
+  // banner also checks urgency.overdue, so an overdue queue always blocks it.
+  const totalOpen = urgency.totalOpen + Math.max(0, q.taxonomy ?? 0);
 
   // Recent admin activity — the last few admin_audit_log entries (real data,
   // not a fake feed) so an admin lands and sees what teammates just did, which

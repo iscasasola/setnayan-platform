@@ -62,10 +62,14 @@ const DUE_ACCENT: Partial<Record<AdminQueueDueState, string>> = {
   'due-soon': '#B54708',
 };
 
+// Returns a TEXT-SAFE colour: the count badge renders white text on this as a
+// background, so the open/ok case uses a darker champagne (#8A6A2E ≈ 4.7:1 vs
+// white) rather than --m-orange-2 (#A88340 ≈ 3.1:1, which is for non-text UI
+// per WCAG 1.4.11). overdue/due-soon are already AA-dark.
 function badgeColor(dueState?: AdminQueueDueState): string {
   if (dueState === 'overdue') return '#B42318';
   if (dueState === 'due-soon') return '#B54708';
-  return 'var(--m-orange-2)';
+  return '#8A6A2E';
 }
 
 function TriageRow({ item }: { item: TriageItem }) {

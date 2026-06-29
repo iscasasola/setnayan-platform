@@ -786,33 +786,40 @@ export default async function PricingPage() {
                     <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
                       {sub.title}
                     </p>
-                    <p className="flex items-baseline gap-2">
-                      <span className="font-sans text-5xl font-semibold tracking-tight text-ink">
-                        ₱{formatPeso(sub.price_php)}
-                      </span>
-                      <span className="text-sm text-ink/55">/ 28 days</span>
-                    </p>
-                    {/* Annual deal callout · paired with 28-day per tier ·
-                        added 2026-05-29 per CLAUDE.md eleventh 2026-05-28 row ·
-                        updated 2026-05-30 per CLAUDE.md "🔒 V2.1 BRIEF
-                        AMENDMENT #2 LOCKED" row § 4 (Pro Annual ₱24,999 ·
-                        symmetric ~23% off Pro 28-day × 13 and Enterprise
-                        28-day × 13 sticker totals).
-                        Renders only when annual counterpart exists in
-                        vendor_billing_catalog (lookup by SKU naming
-                        convention via annualFor() helper). Standard SaaS
-                        retention lever · mid-range 23% off. */}
+                    {/* Annual-first display (owner 2026-06-29 "vendor show
+                        annual then offer the monthly"). The annual prepay is
+                        the headline — the 28-day run-rate (×13 cycles/year)
+                        sits at the top of each competitor band; the ~23%
+                        annual prepay is what makes the tier competitive, so it
+                        leads. The 28-day price is shown as the secondary line.
+                        Both prices come from vendor_billing_catalog (sub =
+                        *_vendor_monthly · annualDeal.annual = *_vendor_annual
+                        via the annualFor() lookup) — nothing hardcoded. Falls
+                        back to 28-day-as-hero only if an annual counterpart is
+                        somehow missing from the catalog. */}
                     {annualDeal ? (
-                      <p className="rounded-lg border border-terracotta/30 bg-terracotta/[0.06] px-3 py-2 text-xs leading-relaxed">
-                        <span className="text-ink">
-                          Or <span className="font-semibold">₱{formatPeso(annualDeal.annual.price_php)}/yr
-                          </span> billed annually
+                      <>
+                        <p className="flex items-baseline gap-2">
+                          <span className="font-sans text-5xl font-semibold tracking-tight text-ink">
+                            ₱{formatPeso(annualDeal.annual.price_php)}
+                          </span>
+                          <span className="text-sm text-ink/55">/ year</span>
+                        </p>
+                        <p className="-mt-2 text-xs font-medium text-terracotta">
+                          Best value · save ₱{formatPeso(annualDeal.savings)} ({annualDeal.savingsPct}%) vs paying per 28 days
+                        </p>
+                        <p className="rounded-lg border border-ink/15 bg-ink/[0.03] px-3 py-2 text-xs leading-relaxed text-ink/75">
+                          Or <span className="font-semibold text-ink">₱{formatPeso(sub.price_php)} / 28 days</span> — prepaid blocks, 13 cycles a year
+                        </p>
+                      </>
+                    ) : (
+                      <p className="flex items-baseline gap-2">
+                        <span className="font-sans text-5xl font-semibold tracking-tight text-ink">
+                          ₱{formatPeso(sub.price_php)}
                         </span>
-                        <span className="ml-1 text-terracotta">
-                          · save ₱{formatPeso(annualDeal.savings)} ({annualDeal.savingsPct}%)
-                        </span>
+                        <span className="text-sm text-ink/55">/ 28 days</span>
                       </p>
-                    ) : null}
+                    )}
                     <ul className="space-y-2 text-sm">
                       <li className="flex items-start gap-2">
                         <Check

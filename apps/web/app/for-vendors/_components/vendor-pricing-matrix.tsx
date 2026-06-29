@@ -24,6 +24,8 @@ interface MatrixSection {
 /** The fields of getVendorPrices() this component reads. */
 export interface VendorMatrixPrices {
   soloMonthly: string;
+  soloAnnual: string;
+  soloAnnualSave: string;
   proMonthly: string;
   proAnnual: string;
   proAnnualSave: string;
@@ -169,10 +171,12 @@ function MatrixCell({ value, isPro }: { value: CellValue; isPro: boolean }): Rea
 
 interface TierMeta {
   label: string;
+  /** Hero price — annual is the headline (owner 2026-06-29 "show annual then offer the monthly"). */
   price: string;
   unit: string;
   note: string;
-  annual?: string;
+  /** Secondary line — the 28-day run-rate, shown under the annual hero. */
+  secondary?: string;
   ink: boolean;
 }
 
@@ -183,25 +187,26 @@ export function VendorPricingMatrix({ prices }: { prices: VendorMatrixPrices }) 
   const tiers: TierMeta[] = [
     {
       label: 'Solo',
-      price: prices.soloMonthly,
-      unit: '/ 28d',
+      price: prices.soloAnnual,
+      unit: '/ yr',
       note: '1 category · solo operator',
+      secondary: `or ${prices.soloMonthly} / 28 days · save ${prices.soloAnnualSave}/yr`,
       ink: false,
     },
     {
       label: '★ Pro',
-      price: prices.proMonthly,
-      unit: '/ 28d',
+      price: prices.proAnnual,
+      unit: '/ yr',
       note: '3 categories · 3 agent seats',
-      annual: `or ${prices.proAnnual}/yr · save ${prices.proAnnualSave}`,
+      secondary: `or ${prices.proMonthly} / 28 days · save ${prices.proAnnualSave}/yr`,
       ink: true,
     },
     {
       label: '⬢ Enterprise',
-      price: prices.enterpriseMonthly,
-      unit: '/ 28d',
+      price: prices.enterpriseAnnual,
+      unit: '/ yr',
       note: 'all categories · unlimited team',
-      annual: `or ${prices.enterpriseAnnual}/yr · save ${prices.enterpriseAnnualSave}`,
+      secondary: `or ${prices.enterpriseMonthly} / 28 days · save ${prices.enterpriseAnnualSave}/yr`,
       ink: false,
     },
   ];
@@ -234,11 +239,14 @@ export function VendorPricingMatrix({ prices }: { prices: VendorMatrixPrices }) 
           >
             <div className="m-label-mono">Solo</div>
             <div className="m-display" style={{ fontSize: 22, color: 'var(--m-ink)', marginTop: 4 }}>
-              {prices.soloMonthly}{' '}
-              <span style={{ fontSize: 12, color: 'var(--m-slate-2)' }}>/ 28d</span>
+              {prices.soloAnnual}{' '}
+              <span style={{ fontSize: 12, color: 'var(--m-slate-2)' }}>/ yr</span>
             </div>
             <div className="m-mono" style={{ fontSize: 10, color: 'var(--m-slate-2)', marginTop: 4 }}>
               1 category · solo operator
+            </div>
+            <div className="m-mono" style={{ fontSize: 10, color: 'var(--m-slate-2)', marginTop: 6 }}>
+              or {prices.soloMonthly} / 28d · save {prices.soloAnnualSave}/yr
             </div>
           </div>
           {/* PRO (highlighted) */}
@@ -252,14 +260,17 @@ export function VendorPricingMatrix({ prices }: { prices: VendorMatrixPrices }) 
           >
             <div className="m-label-mono" style={{ color: 'var(--m-orange-3)' }}>★ Pro</div>
             <div className="m-display" style={{ fontSize: 22, color: 'var(--m-paper)', marginTop: 4 }}>
-              {prices.proMonthly}{' '}
-              <span style={{ fontSize: 12, color: 'var(--m-slate-4)' }}>/ 28d</span>
+              {prices.proAnnual}{' '}
+              <span style={{ fontSize: 12, color: 'var(--m-slate-4)' }}>/ yr</span>
+            </div>
+            <div className="m-mono" style={{ fontSize: 10, color: 'var(--m-orange-3)', marginTop: 4 }}>
+              save {prices.proAnnualSave}/yr vs 28-day
             </div>
             <div className="m-mono" style={{ fontSize: 10, color: 'var(--m-slate-4)', marginTop: 4 }}>
               3 categories · 3 agent seats
             </div>
-            <div className="m-mono" style={{ fontSize: 10, color: 'var(--m-orange-3)', marginTop: 6 }}>
-              or {prices.proAnnual}/yr · save {prices.proAnnualSave}
+            <div className="m-mono" style={{ fontSize: 10, color: 'var(--m-slate-4)', marginTop: 6 }}>
+              or {prices.proMonthly} / 28d
             </div>
           </div>
           {/* ENTERPRISE */}
@@ -272,14 +283,17 @@ export function VendorPricingMatrix({ prices }: { prices: VendorMatrixPrices }) 
           >
             <div className="m-label-mono">⬢ Enterprise</div>
             <div className="m-display" style={{ fontSize: 22, color: 'var(--m-ink)', marginTop: 4 }}>
-              {prices.enterpriseMonthly}{' '}
-              <span style={{ fontSize: 12, color: 'var(--m-slate-2)' }}>/ 28d</span>
+              {prices.enterpriseAnnual}{' '}
+              <span style={{ fontSize: 12, color: 'var(--m-slate-2)' }}>/ yr</span>
+            </div>
+            <div className="m-mono" style={{ fontSize: 10, color: 'var(--m-orange-2)', marginTop: 4 }}>
+              save {prices.enterpriseAnnualSave}/yr vs 28-day
             </div>
             <div className="m-mono" style={{ fontSize: 10, color: 'var(--m-slate-2)', marginTop: 4 }}>
               all categories · unlimited team
             </div>
-            <div className="m-mono" style={{ fontSize: 10, color: 'var(--m-orange-2)', marginTop: 6 }}>
-              or {prices.enterpriseAnnual}/yr · save {prices.enterpriseAnnualSave}
+            <div className="m-mono" style={{ fontSize: 10, color: 'var(--m-slate-2)', marginTop: 6 }}>
+              or {prices.enterpriseMonthly} / 28d
             </div>
           </div>
         </div>
@@ -385,7 +399,7 @@ export function VendorPricingMatrix({ prices }: { prices: VendorMatrixPrices }) 
               <span className="m-tier-banner-unit">{active.unit}</span>
             </div>
             <div className="m-tier-banner-note">{active.note}</div>
-            {active.annual ? <div className="m-tier-banner-annual">{active.annual}</div> : null}
+            {active.secondary ? <div className="m-tier-banner-annual">{active.secondary}</div> : null}
           </div>
         </div>
 

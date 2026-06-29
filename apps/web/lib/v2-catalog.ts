@@ -225,6 +225,7 @@ export const getVendorPrices = cache(async () => {
   const rows = await fetchV2VendorCatalog();
   const price = (code: string) => rows.find((r) => r.sku_code === code)?.price_php ?? null;
   const soloMo = price('solo_vendor_monthly');
+  const soloYr = price('solo_vendor_annual');
   const proMo = price('pro_vendor_monthly');
   const proYr = price('pro_vendor_annual');
   const entMo = price('enterprise_vendor_monthly');
@@ -237,6 +238,8 @@ export const getVendorPrices = cache(async () => {
     mo != null && yr != null ? `₱${formatPeso(mo * 13 - yr)}` : fb;
   return {
     soloMonthly: fmt(soloMo, '₱2,000'),
+    soloAnnual: fmt(soloYr, '₱20,000'),
+    soloAnnualSave: save(soloMo, soloYr, '₱6,000'),
     proMonthly: fmt(proMo, '₱6,000'),
     proAnnual: fmt(proYr, '₱60,000'),
     proAnnualSave: save(proMo, proYr, '₱18,000'),
@@ -248,6 +251,7 @@ export const getVendorPrices = cache(async () => {
     // Raw numbers for the schema.org JSON-LD Offers (need unformatted values).
     num: {
       soloMonthly: soloMo ?? 2000,
+      soloAnnual: soloYr ?? 20000,
       proMonthly: proMo ?? 6000,
       proAnnual: proYr ?? 60000,
       enterpriseMonthly: entMo ?? 10000,

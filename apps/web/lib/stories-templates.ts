@@ -24,6 +24,8 @@
  * No prices live here — Stories pricing is admin-catalog managed.
  */
 
+import type { CameraMove } from './stories-camera-move';
+
 // ---------------------------------------------------------------------------
 // Beat grid — mirrors the patiktok_music_tracks.beat_grid JSONB shape
 // ---------------------------------------------------------------------------
@@ -74,6 +76,13 @@ export type StorySlot = {
   kind: SlotMediaKind;
   /** Does this slot's start land on a downbeat (bar start)? Hint for emphasis. */
   onDownbeat: boolean;
+  /**
+   * Optional virtual camera move for a `photo` slot (§16.9) — push-in / pan /
+   * roll / orbit-feel that makes a still read as filmed. Deterministic, ₱0 per
+   * render. Omitted = no move (legacy behavior). When unset, the builder/preview
+   * may fall back to `defaultCameraMove(slotIndex)` from `stories-camera-move`.
+   */
+  cameraMove?: CameraMove;
 };
 
 // ---------------------------------------------------------------------------

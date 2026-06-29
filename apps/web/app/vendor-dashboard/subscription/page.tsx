@@ -12,12 +12,14 @@ import {
   type VendorTier,
 } from '@/lib/vendor-tier-caps';
 import { fetchVendorPesoScorecard } from '@/lib/vendor-peso';
+import { fetchVendorPricePosition } from '@/lib/price-position';
 import { SubscriptionCycleToggle } from './_components/cycle-toggle';
 import {
   SubscriptionCards,
   type SubscriptionCardData,
 } from './_components/subscription-cards';
 import { PesoPerLeadCard } from './_components/peso-per-lead-card';
+import { PricePositionCard } from './_components/price-position-card';
 
 /**
  * /vendor-dashboard/subscription — self-serve Pro / Enterprise upgrade
@@ -114,10 +116,11 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
 
   // DB prices for the chosen cycle, keyed by sku_code. Peso-per-lead scorecard
   // is read in the same batch (ownership-gated RPC — null on any error).
-  const [vendorCatalog, settings, pesoScorecard] = await Promise.all([
+  const [vendorCatalog, settings, pesoScorecard, pricePosition] = await Promise.all([
     fetchV2VendorCatalog(),
     fetchPlatformSettings(supabase),
     fetchVendorPesoScorecard(supabase, profile.vendor_profile_id),
+    fetchVendorPricePosition(profile),
   ]);
   const priceBySku = new Map<string, number>();
   for (const r of vendorCatalog) {
@@ -232,6 +235,9 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
 
       {/* Peso-per-lead scorecard — unit economics for this cycle (Wave 6) */}
       {pesoScorecard && <PesoPerLeadCard scorecard={pesoScorecard} />}
+
+      {/* Price-position meter — where the vendor's price sits in the market (Wave 6) */}
+      {pricePosition && <PricePositionCard result={pricePosition} />}
 
       {/* Apply-then-pay payment instructions when an order was just started */}
       {search.ordered && (

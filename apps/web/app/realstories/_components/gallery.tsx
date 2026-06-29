@@ -24,6 +24,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Search, X, ArrowRight, Play } from 'lucide-react';
+import { VendorCreditChip } from '@/app/_components/vendor-credit-chip';
 
 export type GalleryItem = {
   href: string;
@@ -48,7 +49,12 @@ export type GalleryItem = {
   witnessAttribution?: string | null;
   services?: string[] | null;    // ['Papic', 'Panood', 'Monogram', 'Setnayan AI']
   editionNumber?: number | null; // Vol. I, No. X
+  // Style-Twin Discovery: credited Pro/Enterprise vendors behind the story,
+  // rendered as tappable chips below the card that deep-link to /v/[slug].
+  vendors?: VendorChip[] | null;
 };
+
+export type VendorChip = { name: string; slug: string; logoUrl: string | null };
 
 // ── Boomerang (ping-pong) video player ──────────────────────────────────────
 // Pre-baked boomerang source → native loop gives seamless forward→reverse.
@@ -168,6 +174,7 @@ function Tile({ item, size, tag }: { item: GalleryItem; size: TileSize; tag?: st
   const showVideo = Boolean(item.heroVideoUrl);
 
   return (
+    <div className="flex flex-col">
     <Link
       href={item.href}
       className={`group relative flex flex-col justify-end overflow-hidden rounded-2xl sm:rounded-3xl ${minH}`}
@@ -292,6 +299,20 @@ function Tile({ item, size, tag }: { item: GalleryItem; size: TileSize; tag?: st
         ) : null}
       </div>
     </Link>
+    {/* Style-Twin Discovery — tap straight through to the vendors who made this
+        story. Sibling of the card Link (never a nested anchor); only real
+        stories carry credits, so sample tiles render nothing here. */}
+    {item.vendors && item.vendors.length > 0 ? (
+      <div className="mt-2 flex flex-wrap items-center gap-1.5 px-0.5">
+        <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/40">
+          Team
+        </span>
+        {item.vendors.map((v) => (
+          <VendorCreditChip key={v.slug} vendor={v} />
+        ))}
+      </div>
+    ) : null}
+    </div>
   );
 }
 

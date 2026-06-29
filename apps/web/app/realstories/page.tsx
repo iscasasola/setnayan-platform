@@ -87,6 +87,8 @@ export default async function RealStoriesIndexPage() {
     : showcases.map((s) => ({
         href: s.href,
         coupleNames: s.coupleNames,
+        // Style-Twin Discovery — credited vendors tap through to /v/[slug].
+        vendors: s.vendors,
         metaLine: [s.city, s.dateLabel].filter(Boolean).join(' · ') || 'Real story',
         city: s.city,
         palette: s.monogramColor ? [s.monogramColor] : ['#6B4E3D'],

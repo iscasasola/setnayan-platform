@@ -29,11 +29,11 @@ export async function GET(
   const supabase = auth.supabase;
 
   const profile = await fetchOwnVendorProfile(supabase, auth.user.id);
-  if (!profile) return Response.json({ error: 'not_owner' }, { status: 403 });
+  if (!profile) return Response.json({ error: 'not_owner', message: 'This conversation isn’t available.' }, { status: 403 });
 
   const thread = await fetchThreadById(supabase, threadId);
   if (!thread || thread.vendor_profile_id !== profile.vendor_profile_id) {
-    return Response.json({ error: 'not_owner' }, { status: 403 });
+    return Response.json({ error: 'not_owner', message: 'This conversation isn’t available.' }, { status: 403 });
   }
 
   // Offerable services = active services not already recorded on the thread.

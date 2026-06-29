@@ -185,7 +185,12 @@ export async function sendChatMessageCore(
     sender_role: senderRole,
     body: trimmed,
   });
-  if (error) return { ok: false, code: 'insert_failed', message: error.message };
+  if (error) {
+    // Never surface raw Postgres/PostgREST text to the client (constraint/RLS
+    // internals). Log it server-side for observability; return friendly copy.
+    console.error('[sendChatMessageCore] message insert failed:', error.message);
+    return { ok: false, code: 'insert_failed', message: 'Couldn’t send your message. Please try again.' };
+  }
 
   // vendor_first_reply_at — stamp the thread when the vendor sends their first
   // message. The DB trigger `stamp_vendor_first_reply` (migration 20270110320018)

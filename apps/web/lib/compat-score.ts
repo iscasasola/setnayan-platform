@@ -71,6 +71,15 @@ export type CompatInputs = {
   /** Fraction of the couple's candidate dates the vendor is free on (0–1).
    *  Null = neutral (we haven't resolved per-date availability for this row). */
   dateHeadroomRatio?: number | null;
+  /** First-Look Window (Wave 2): the vendor replied to recent in-region
+   *  inquiries within the admin SLA → earns a responsiveness head-start.
+   *  Undefined/false = no head-start (sits at neutral, never a penalty). */
+  respondsFast?: boolean;
+  /** Admin-managed `platform_settings.firstlook_boost_weight` (0–0.5). The
+   *  fast-responder blend scales the five-dimension score by (1 - boostWeight)
+   *  and adds boostWeight for fast responders, so COMPAT_WEIGHTS still sum to 1
+   *  internally. Default 0 → no effect (every existing caller is unchanged). */
+  boostWeight?: number;
 };
 
 const DEFAULT_RADIUS_KM = 25;
@@ -130,7 +139,18 @@ export function computeCompatScore(input: CompatInputs): { score: number; tier: 
     COMPAT_WEIGHTS.dateHeadroom * dateHeadroom +
     COMPAT_WEIGHTS.trust * trust;
 
-  const score = Math.round(clamp01(raw) * 100);
+  // First-Look Window responsiveness blend (Wave 2). Admin-tunable boostWeight
+  // (default 0 → no-op, so existing callers are byte-for-byte unchanged). A fast
+  // responder's responsiveness sub-score is 1; an unknown/slow vendor sits at
+  // NEUTRAL — a head-start for the fast, never a penalty for the rest. Mixing as
+  // (1 - bw)·raw + bw·respSub keeps the five COMPAT_WEIGHTS summing to 1
+  // internally: the boost is a top-level blend, not a sixth weight that would
+  // break the normalization.
+  const bw = Math.max(0, Math.min(input.boostWeight ?? 0, 0.5));
+  const respSub = input.respondsFast === true ? 1 : NEUTRAL;
+  const blended = bw > 0 ? (1 - bw) * raw + bw * respSub : raw;
+
+  const score = Math.round(clamp01(blended) * 100);
   const tier: CompatTier = score >= 80 ? 'strong' : score >= 60 ? 'good' : 'fair';
   return { score, tier };
 }

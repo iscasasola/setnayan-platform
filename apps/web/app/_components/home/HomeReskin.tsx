@@ -25,6 +25,12 @@ import { PILLARS, PILLAR_HEROES, HOME_SCENE } from './pillars';
 import { HomeOverlays, type OverlayId } from './HomeOverlays';
 import type { PricingData } from './pricing-data';
 import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
+import {
+  readConsent,
+  writeConsent,
+  openConsentManager,
+  OPEN_CONSENT_EVENT,
+} from '@/lib/cookie-consent';
 
 const HOME_HERO = {
   kick: 'Set na ’yan',
@@ -587,11 +593,7 @@ export function HomeReskin({ pricing, bgVideos }: { pricing: PricingData; bgVide
           </Link>
         </section>
 
-        <footer className="hr-footer">
-          <span>Setnayan · setnayan.com</span>
-          <span>Ala Ala · Likhaan · Planuhan · Surian · Tiangge</span>
-          <span>© 2026 · Made in the Philippines</span>
-        </footer>
+        <HomeFooter />
       </main>
 
       <HomeOverlays current={overlay} onClose={closeOverlay} pricing={pricing} />
@@ -612,16 +614,160 @@ function Mock({ active, children }: { active: boolean; children: ReactNode }) {
   return cloneElement(children, { className, 'aria-hidden': !active });
 }
 
+// Real cookie-consent pill for the homepage. Persists the choice and gates
+// analytics via lib/cookie-consent (the PostHog provider reads the same
+// state). Starts "decided" so nothing flashes during hydration, then resolves
+// the true state on mount. "Cookie settings" links anywhere re-open it.
 function CookiePill() {
-  const [hidden, setHidden] = useState(false);
-  if (hidden) return null;
+  const [decided, setDecided] = useState(true);
+  const [manage, setManage] = useState(false);
+  const [analytics, setAnalytics] = useState(true);
+
+  useEffect(() => {
+    const c = readConsent();
+    setDecided(c !== null);
+    setAnalytics(c?.analytics ?? true);
+    const onOpen = () => {
+      setDecided(false);
+      setManage(true);
+    };
+    window.addEventListener(OPEN_CONSENT_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_CONSENT_EVENT, onOpen);
+  }, []);
+
+  const choose = (a: boolean) => {
+    writeConsent(a);
+    setDecided(true);
+    setManage(false);
+  };
+
+  if (decided) return null;
+
   return (
     <div className="hr-cookie hr-glass-dark">
-      Cookies help us remember
-      <button onClick={() => setHidden(true)}>Accept</button>
-      <button className="hr-mng" onClick={() => setHidden(true)}>
-        Manage
-      </button>
+      {!manage ? (
+        <>
+          Cookies help us remember
+          <button onClick={() => choose(true)}>Accept</button>
+          <button className="hr-mng" onClick={() => choose(false)}>
+            Decline
+          </button>
+          <button className="hr-mng" onClick={() => setManage(true)}>
+            Manage
+          </button>
+        </>
+      ) : (
+        <div className="hr-cookie-manage">
+          <label className="hr-cookie-row">
+            <span>
+              <b>Essential</b> · always on
+            </span>
+            <input type="checkbox" checked disabled aria-label="Essential cookies (always on)" />
+          </label>
+          <label className="hr-cookie-row">
+            <span>
+              <b>Analytics</b> · helps us improve
+            </span>
+            <input
+              type="checkbox"
+              checked={analytics}
+              onChange={(e) => setAnalytics(e.target.checked)}
+              aria-label="Analytics cookies"
+            />
+          </label>
+          <div className="hr-cookie-actions">
+            <Link href="/cookies" className="hr-mng">
+              Cookie policy
+            </Link>
+            <button onClick={() => choose(analytics)}>Save</button>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+// The site footer for the homepage. Carries every compliance link (Legal
+// column) plus product/company links, and "crawls in" — translateY + fade,
+// staggered per column — when it scrolls into view. Respects reduced motion.
+function HomeFooter() {
+  const ref = useRef<HTMLElement>(null);
+  const [inView, setInView] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (reduceMotion()) {
+      setInView(true);
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            setInView(true);
+            io.disconnect();
+          }
+        }
+      },
+      { threshold: 0.12 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  return (
+    <footer ref={ref} className={`hr-footer${inView ? ' hr-foot-in' : ''}`}>
+      <div className="hr-foot-grid">
+        <div className="hr-foot-brand">
+          <span className="hr-foot-mark">
+            <SetnayanMark />
+          </span>
+          <span className="hr-foot-word">Setnayan</span>
+          <p className="hr-foot-tag">
+            One place that plans it, runs it, remembers it — and keeps it, for
+            life. <i>Set na &rsquo;yan.</i>
+          </p>
+        </div>
+
+        <nav className="hr-foot-col" aria-label="Explore">
+          <h3>Explore</h3>
+          <Link href="/pricing">Prices</Link>
+          <Link href="/explore">Vendors</Link>
+          <Link href="/papic">Papic</Link>
+          <Link href="/monogram">Monogram maker</Link>
+          <Link href="/download">Download app</Link>
+        </nav>
+
+        <nav className="hr-foot-col" aria-label="Company">
+          <h3>Company</h3>
+          <Link href="/about">About</Link>
+          <Link href="/blog">Journal</Link>
+          <Link href="/weddings">Real stories</Link>
+          <Link href="/help">Help center</Link>
+          <Link href="/for-vendors">For vendors</Link>
+        </nav>
+
+        <nav className="hr-foot-col" aria-label="Legal">
+          <h3>Legal</h3>
+          <Link href="/privacy">Privacy</Link>
+          <Link href="/terms">Terms</Link>
+          <Link href="/refunds">Refunds &amp; cancellations</Link>
+          <Link href="/cookies">Cookie policy</Link>
+          <Link href="/acceptable-use">Acceptable use</Link>
+          <button type="button" className="hr-foot-linkbtn" onClick={() => openConsentManager()}>
+            Cookie settings
+          </button>
+        </nav>
+      </div>
+
+      <div className="hr-foot-base">
+        <span>&copy; 2026 Setnayan &middot; Made in the Philippines</span>
+        <span>
+          Data Protection Officer ·{' '}
+          <a href="mailto:dpo@setnayan.com">dpo@setnayan.com</a>
+        </span>
+      </div>
+    </footer>
   );
 }

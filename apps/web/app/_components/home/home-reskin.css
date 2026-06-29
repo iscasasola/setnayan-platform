@@ -1338,15 +1338,185 @@ html.hr-snap {
   border: none;
   font-family: var(--hr-sans);
 }
+/* ── Footer (crawls in on scroll) ──────────────────────── */
 .home-reskin footer.hr-footer {
-  padding: 34px 24px;
+  scroll-snap-align: end;
+  border-top: 1px solid var(--hr-line);
+  padding: 64px 24px 40px;
+  background: var(--hr-bg);
+}
+.home-reskin .hr-foot-grid {
+  max-width: 1080px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.6fr 1fr 1fr 1fr;
+  gap: 32px;
+}
+.home-reskin .hr-foot-brand {
   display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: 320px;
+}
+.home-reskin .hr-foot-mark {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  align-items: center;
   justify-content: center;
-  gap: 18px;
+  color: var(--hr-ink);
+}
+.home-reskin .hr-foot-mark svg {
+  width: 22px;
+  height: 22px;
+}
+.home-reskin .hr-foot-word {
+  font-family: var(--hr-serif);
+  font-size: 20px;
+  letter-spacing: -0.01em;
+  color: var(--hr-ink);
+}
+.home-reskin .hr-foot-tag {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--hr-grey);
+}
+.home-reskin .hr-foot-tag i {
+  font-family: var(--hr-serif);
+  font-style: italic;
+  color: var(--hr-ink);
+}
+.home-reskin .hr-foot-col {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.home-reskin .hr-foot-col h3 {
+  margin: 0 0 4px;
+  font-family: var(--hr-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--hr-grey-2);
+}
+.home-reskin .hr-foot-col a,
+.home-reskin .hr-foot-linkbtn {
+  font-size: 13.5px;
+  color: var(--hr-grey);
+  transition: color 0.18s ease;
+}
+.home-reskin .hr-foot-linkbtn {
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--hr-sans);
+}
+.home-reskin .hr-foot-col a:hover,
+.home-reskin .hr-foot-linkbtn:hover {
+  color: var(--hr-ink);
+}
+.home-reskin .hr-foot-base {
+  max-width: 1080px;
+  margin: 44px auto 0;
+  padding-top: 22px;
+  border-top: 1px solid var(--hr-line);
+  display: flex;
   flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 18px;
   font-size: 12px;
   color: var(--hr-grey-2);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
+}
+.home-reskin .hr-foot-base a {
+  color: var(--hr-grey);
+  border-bottom: 1px solid transparent;
+}
+.home-reskin .hr-foot-base a:hover {
+  color: var(--hr-ink);
+}
+
+/* crawl-in: each child rises + fades, staggered. */
+.home-reskin .hr-foot-grid > *,
+.home-reskin .hr-foot-base {
+  opacity: 0;
+  transform: translateY(26px);
+  transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.home-reskin .hr-foot-in .hr-foot-grid > *,
+.home-reskin .hr-foot-in .hr-foot-base {
+  opacity: 1;
+  transform: translateY(0);
+}
+.home-reskin .hr-foot-in .hr-foot-grid > *:nth-child(2) {
+  transition-delay: 0.06s;
+}
+.home-reskin .hr-foot-in .hr-foot-grid > *:nth-child(3) {
+  transition-delay: 0.12s;
+}
+.home-reskin .hr-foot-in .hr-foot-grid > *:nth-child(4) {
+  transition-delay: 0.18s;
+}
+.home-reskin .hr-foot-in .hr-foot-base {
+  transition-delay: 0.24s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-reskin .hr-foot-grid > *,
+  .home-reskin .hr-foot-base {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+@media (max-width: 720px) {
+  .home-reskin footer.hr-footer {
+    padding: 48px 22px 32px;
+  }
+  .home-reskin .hr-foot-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 28px 24px;
+  }
+  .home-reskin .hr-foot-brand {
+    grid-column: 1 / -1;
+  }
+  .home-reskin .hr-foot-base {
+    flex-direction: column;
+  }
+}
+
+/* Cookie pill — manage panel + extra action button */
+.home-reskin .hr-cookie {
+  flex-wrap: wrap;
+  max-width: min(92vw, 420px);
+}
+.home-reskin .hr-cookie-manage {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 260px;
+  max-width: 84vw;
+}
+.home-reskin .hr-cookie-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12.5px;
+}
+.home-reskin .hr-cookie-row b {
+  font-weight: 600;
+}
+.home-reskin .hr-cookie-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 2px;
 }
 
 /* kinetic feelings ticker */

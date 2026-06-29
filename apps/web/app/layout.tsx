@@ -21,6 +21,7 @@ import './globals.css';
 import { Suspense } from 'react';
 import { ClientTypeDetector } from './_components/client-type-detector';
 import { NativeBridge } from './_components/native-bridge';
+import { CookieConsentBanner } from './_components/cookie-consent-banner';
 import { DemoModeBanner } from './_components/demo-mode-banner';
 import { OfflineDaemonMount } from './_components/offline-daemon-mount';
 import { PilotModeBanner } from './_components/pilot-mode-banner';
@@ -552,6 +553,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         </Providers>
         <ClientTypeDetector />
         <NativeBridge />
+        {/* Site-wide cookie-consent banner (RA 10173). Self-hides on '/',
+            where HomeReskin renders its own bespoke pill — both share the
+            same consent state via lib/cookie-consent. */}
+        <CookieConsentBanner />
         {/*
           V2 Cutover Phase G — offline daemon mount (IndexedDB + SW for
           7 media services). Default OFF for pilot per CLAUDE.md

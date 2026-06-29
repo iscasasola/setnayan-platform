@@ -26,6 +26,7 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 
 import { createClient } from '@/lib/supabase/client';
+import { analyticsAllowed, CONSENT_CHANGE_EVENT } from '@/lib/cookie-consent';
 
 // Type-only import — erased at compile time, so no runtime cost.
 import type posthogType from 'posthog-js';
@@ -71,11 +72,24 @@ function isLoaded(client: PostHog | null): boolean {
 }
 
 export function PostHogProvider({ children, userId }: PostHogProviderProps) {
-  // Init once on mount. The library guards against double-init internally,
-  // but the explicit `__loaded` check keeps the React 19 strict
+  // Cookie-consent gate (RA 10173). Analytics is opt-in: PostHog is only
+  // initialized once the visitor has accepted analytics cookies. We re-check
+  // whenever the consent banner saves a new choice, so accepting activates
+  // analytics live (and the SDK is never loaded for visitors who decline).
+  const [consentReady, setConsentReady] = useState(false);
+  useEffect(() => {
+    const sync = () => setConsentReady(analyticsAllowed());
+    sync();
+    window.addEventListener(CONSENT_CHANGE_EVENT, sync);
+    return () => window.removeEventListener(CONSENT_CHANGE_EVENT, sync);
+  }, []);
+
+  // Init once consent is granted. The library guards against double-init
+  // internally, but the explicit `__loaded` check keeps the React 19 strict
   // double-invoke clean too.
   useEffect(() => {
     if (!isPostHogConfigured()) return;
+    if (!consentReady) return;
     let cancelled = false;
     void loadPostHog().then((client) => {
       if (cancelled || !client) return;
@@ -93,7 +107,7 @@ export function PostHogProvider({ children, userId }: PostHogProviderProps) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [consentReady]);
 
   // Resolve the Supabase user_id ourselves when the caller didn't pass it.
   // This keeps `providers.tsx` clean of server-only plumbing — the rest

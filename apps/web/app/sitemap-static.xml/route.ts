@@ -123,10 +123,17 @@ const STATIC_ROUTES: ReadonlyArray<{
 
   // /privacy — RA 10173 disclosures (last meaningful update: 2026-05-28
   // PR #273 + Concierge processing disclosure section).
-  { path: '/privacy', lastmod: '2026-05-28', changefreq: 'monthly', priority: '0.5' },
+  { path: '/privacy', lastmod: '2026-06-30', changefreq: 'monthly', priority: '0.5' },
 
-  // /terms — Setnayan publisher posture (v2.1 cutover).
-  { path: '/terms', lastmod: '2026-05-28', changefreq: 'monthly', priority: '0.5' },
+  // /terms — full terms rewrite 2026-06-30 (eligibility, payments/refunds,
+  // content license, vendor rules, liability, PH governing law).
+  { path: '/terms', lastmod: '2026-06-30', changefreq: 'monthly', priority: '0.5' },
+
+  // Compliance pages added 2026-06-30 — refund/cancellation policy, cookie
+  // policy, and acceptable use / community guidelines.
+  { path: '/refunds', lastmod: '2026-06-30', changefreq: 'monthly', priority: '0.5' },
+  { path: '/cookies', lastmod: '2026-06-30', changefreq: 'monthly', priority: '0.5' },
+  { path: '/acceptable-use', lastmod: '2026-06-30', changefreq: 'monthly', priority: '0.5' },
 
   // /login + /signup — auth surfaces, structurally stable. OAuth providers
   // last updated 2026-05-23 (PR #422 Google + Facebook).

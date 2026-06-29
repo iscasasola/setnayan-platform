@@ -15,3 +15,29 @@ to prod + ledger recorded. **Lands INERT** — the admin curation surface + queu
 
 SPEC IMPACT: Decision logged in corpus `DECISION_LOG.md` (2026-06-30 — curation
 model = two-way).
+
+## 2026-06-30 · feat(admin): vendor recommendations map editor + curation queue
+
+New admin surface at `/admin/vendor-recommendations` — the Phase 2 UI on top of
+the tables above.
+
+- **page.tsx** (server, admin-gated via the shared `requireAdmin()` pattern):
+  reads `vendor_service_recommendations` joined to SKU titles
+  (`platform_retail_catalog_v2`) + leaf labels (`service_categories.label_en`,
+  tier 2), grouped by leaf then priority; loads the tier-2 leaf picker, the
+  active-SKU picker, and the pending `vendor_recommendation_feedback` queue
+  (vendor business name via `vendor_profiles.business_name` + SKU title).
+- **actions.ts** — `addRecommendation` (UNIQUE-safe upsert/ignore),
+  `updateRecommendation`, `deleteRecommendation`, and `resolveFeedback`
+  (accept `suggest_add` → upsert into the map; accept `not_a_fit` → deactivate
+  the matching map row; always stamp status + resolver + resolved_at). All
+  service-role writes, best-effort `admin_audit_log`, `revalidatePath`.
+- **_editor.tsx** — client islands (row editor, add form, feedback Accept/Decline
+  cards) reusing `ConfirmForm` / `SubmitButton` + existing palette primitives.
+- **Nav:** registered `admin.sidebar.vendor-recommendations` in
+  `ADMIN_NAV_GROUPS` (Monetization group, after Add-ons, `Lightbulb` icon) and
+  the matching slot default in `lib/nav-registry-defaults.ts` so the registry
+  overlay (/admin/menus) governs its label + icon.
+
+SPEC IMPACT: None. New admin surface on already-applied tables; no schema,
+pricing, SKU, or product-lock change. (Phase 3 vendor-facing panel still pending.)

@@ -40,7 +40,14 @@
 
 import { ArrayBufferTarget, Muxer } from 'mp4-muxer';
 import type { BeatGrid } from './stories-templates';
-import { cameraAt, type CameraMove, type Transform } from './stories-camera-move';
+import {
+  cameraAt,
+  beatPunchAtDownbeats,
+  resolveFocus,
+  type CameraMove,
+  type Transform,
+  type Focus,
+} from './stories-camera-move';
 
 /**
  * One render source. Historically every source was a booth CLIP (a short
@@ -61,6 +68,19 @@ export type RenderClip = {
    * reads as filmed. Ignored for clips (they already move). ₱0 per render.
    */
   cameraMove?: CameraMove;
+  /**
+   * Tier 2 — normalized subject center (0–1) from a detector at ingest, if
+   * available. When `cameraMove.auto_reframe` is on, the zoom converges here so
+   * the subject stays framed. Null/absent → a portrait-biased default.
+   */
+  subjectCenter?: Focus | null;
+  /**
+   * Tier 3 — URL of a grayscale DEPTH MAP for this photo (white = near, black =
+   * far), produced once at ingest. When present, the render does a 2-layer
+   * 2.5D parallax (near layer moves more than far) for the "orbit" depth. Absent
+   * → a flat rigid move. Generating the map is the owner-infra model step.
+   */
+  depthUrl?: string | null;
 };
 
 export type RenderTemplate = {
@@ -422,11 +442,37 @@ export function spansToUnits(spans: number[], totalUnits: number): number[] {
 const MOVE_TX_BASE = 360;
 const MOVE_TY_BASE = 640;
 
+/** Apply a camera transform about a focal point, then run `paint`. */
+function withCamera(
+  ctx: CanvasRenderingContext2D,
+  move: Transform | undefined,
+  focal: Focus,
+  paint: () => void,
+) {
+  if (!move) {
+    paint();
+    return;
+  }
+  const fx = focal.x * OUT_W;
+  const fy = focal.y * OUT_H;
+  const txPx = (move.tx / MOVE_TX_BASE) * OUT_W;
+  const tyPx = (move.ty / MOVE_TY_BASE) * OUT_H;
+  ctx.save();
+  ctx.translate(fx + txPx, fy + tyPx);
+  ctx.rotate((move.rot * Math.PI) / 180);
+  ctx.scale(move.scale, move.scale);
+  ctx.translate(-fx, -fy);
+  paint();
+  ctx.restore();
+}
+
 function drawCover(
   ctx: CanvasRenderingContext2D,
   source: HTMLVideoElement | HTMLImageElement,
   template: RenderTemplate,
   move?: Transform,
+  focal: Focus = { x: 0.5, y: 0.5 },
+  nearLayer?: HTMLCanvasElement | null,
 ) {
   const [, , , dark] = template.palette;
   ctx.fillStyle = dark;
@@ -439,21 +485,90 @@ function drawCover(
   const scale = Math.max(OUT_W / vw, OUT_H / vh);
   const dw = vw * scale;
   const dh = vh * scale;
-  if (move) {
-    // Apply the virtual camera about the canvas center. The engine's overscan
-    // (scale ≥ 1.16) guarantees pan/roll never reveal the dark backdrop.
-    const txPx = (move.tx / MOVE_TX_BASE) * OUT_W;
-    const tyPx = (move.ty / MOVE_TY_BASE) * OUT_H;
-    ctx.save();
-    ctx.translate(OUT_W / 2 + txPx, OUT_H / 2 + tyPx);
-    ctx.rotate((move.rot * Math.PI) / 180);
-    ctx.scale(move.scale, move.scale);
-    ctx.translate(-OUT_W / 2, -OUT_H / 2);
+  // FAR layer: the full photo. The engine's overscan (scale ≥ 1.16) plus the
+  // focal-point convergence keep pan/roll/zoom inside the frame.
+  withCamera(ctx, move, focal, () => {
     ctx.drawImage(source, (OUT_W - dw) / 2, (OUT_H - dh) / 2, dw, dh);
-    ctx.restore();
-    return;
+  });
+  // NEAR layer (Tier 3): the depth-masked foreground, moved MORE than the far
+  // layer so foreground separates from background → 2.5D "orbit" depth.
+  if (nearLayer && move) {
+    const amp: Transform = {
+      scale: 1 + (move.scale - 1) * 1.6,
+      tx: move.tx * 1.6,
+      ty: move.ty * 1.6,
+      rot: move.rot,
+    };
+    withCamera(ctx, amp, focal, () => {
+      ctx.drawImage(nearLayer, 0, 0);
+    });
   }
-  ctx.drawImage(source, (OUT_W - dw) / 2, (OUT_H - dh) / 2, dw, dh);
+}
+
+/**
+ * Tier 3 — build the depth-masked NEAR layer once per photo: the cover-fit photo
+ * with per-pixel alpha taken from the depth map's luminance (white = near =
+ * opaque, black = far = transparent). Returns an OUT-sized canvas the render
+ * draws (shifted more than the far layer) for parallax. One O(pixels) pass at
+ * photo load — never per frame.
+ */
+function buildNearLayer(
+  image: HTMLImageElement,
+  depth: HTMLImageElement,
+): HTMLCanvasElement | null {
+  const vw = image.naturalWidth;
+  const vh = image.naturalHeight;
+  if (!vw || !vh) return null;
+  const cnv = document.createElement('canvas');
+  cnv.width = OUT_W;
+  cnv.height = OUT_H;
+  const c = cnv.getContext('2d');
+  if (!c) return null;
+  const scale = Math.max(OUT_W / vw, OUT_H / vh);
+  const dw = vw * scale;
+  const dh = vh * scale;
+  c.drawImage(image, (OUT_W - dw) / 2, (OUT_H - dh) / 2, dw, dh);
+  // Depth, cover-fit to the same frame.
+  const dcnv = document.createElement('canvas');
+  dcnv.width = OUT_W;
+  dcnv.height = OUT_H;
+  const dc = dcnv.getContext('2d');
+  if (!dc) return null;
+  const dscale = Math.max(OUT_W / depth.naturalWidth, OUT_H / depth.naturalHeight);
+  const ddw = depth.naturalWidth * dscale;
+  const ddh = depth.naturalHeight * dscale;
+  dc.drawImage(depth, (OUT_W - ddw) / 2, (OUT_H - ddh) / 2, ddw, ddh);
+  const img = c.getImageData(0, 0, OUT_W, OUT_H);
+  const dep = dc.getImageData(0, 0, OUT_W, OUT_H).data;
+  const px = img.data;
+  for (let i = 0; i < px.length; i += 4) {
+    // Rec.601 luminance of the depth map → alpha of the photo pixel.
+    const lum = 0.299 * dep[i]! + 0.587 * dep[i + 1]! + 0.114 * dep[i + 2]!;
+    px[i + 3] = lum;
+  }
+  c.putImageData(img, 0, 0);
+  return cnv;
+}
+
+/**
+ * Load + build the depth near-layer for a photo when it has a `depthUrl` and
+ * parallax is requested. Returns null (flat move) when there's no depth map or
+ * the depth image can't be read (e.g. CORS-tainted) — never throws.
+ */
+async function maybeBuildNearLayer(
+  image: HTMLImageElement,
+  source: RenderClip,
+): Promise<HTMLCanvasElement | null> {
+  const parallax = source.cameraMove?.parallax;
+  if (!source.depthUrl || !parallax || parallax === 'none') return null;
+  try {
+    const depth = await loadImage(source.depthUrl);
+    const layer = buildNearLayer(image, depth);
+    depth.removeAttribute('src');
+    return layer;
+  } catch {
+    return null;
+  }
 }
 
 function drawOverlay(ctx: CanvasRenderingContext2D, template: RenderTemplate) {
@@ -558,6 +673,7 @@ async function renderWithWebCodecs(
   });
   const perClip = spansToUnits(spans, totalFrames);
   const frameDurUs = Math.round(1_000_000 / FPS);
+  const downbeats = opts.beatGrid?.downbeats ?? [];
   let frameIdx = 0;
 
   try {
@@ -569,13 +685,16 @@ async function renderWithWebCodecs(
       if ((source.kind ?? 'clip') === 'photo') {
         // PHOTO slot — paint the still once per frame across its span (no seek).
         const img = await loadImage(source.url);
+        const nearLayer = await maybeBuildNearLayer(img, source);
+        const focal = resolveFocus(source.cameraMove, source.subjectCenter);
         try {
           for (let f = 0; f < n; f++) {
             if (encoderError) throw encoderError;
             if (signal?.aborted) throw new DOMException('Render cancelled', 'AbortError');
             const p = n <= 1 ? 0 : f / (n - 1);
             const move = source.cameraMove ? cameraAt(source.cameraMove, p) : undefined;
-            drawCover(ctx, img, template, move);
+            if (move) move.scale *= beatPunchAtDownbeats(frameIdx / FPS, downbeats);
+            drawCover(ctx, img, template, move, focal, nearLayer);
             drawOverlay(ctx, template);
             const frame = new VideoFrame(canvas, {
               timestamp: frameIdx * frameDurUs,
@@ -828,6 +947,7 @@ async function renderWithMediaRecorder(opts: RenderOptions): Promise<RenderResul
     beatsPerCut: opts.beatsPerCut,
   });
   const perClipMs = spansToUnits(spans, Math.round(totalMs));
+  const downbeats = opts.beatGrid?.downbeats ?? [];
   const startedAt = performance.now();
 
   try {
@@ -839,6 +959,8 @@ async function renderWithMediaRecorder(opts: RenderOptions): Promise<RenderResul
       if ((source.kind ?? 'clip') === 'photo') {
         // PHOTO slot — hold the still on the canvas for the slot's span.
         const img = await loadImage(source.url);
+        const nearLayer = await maybeBuildNearLayer(img, source);
+        const focal = resolveFocus(source.cameraMove, source.subjectCenter);
         try {
           await new Promise<void>((resolve) => {
             const slotStart = performance.now();
@@ -846,7 +968,13 @@ async function renderWithMediaRecorder(opts: RenderOptions): Promise<RenderResul
               const elapsed = performance.now() - slotStart;
               const p = ms <= 0 ? 0 : Math.min(1, elapsed / ms);
               const move = source.cameraMove ? cameraAt(source.cameraMove, p) : undefined;
-              drawCover(ctx, img, template, move);
+              if (move) {
+                move.scale *= beatPunchAtDownbeats(
+                  (performance.now() - startedAt) / 1000,
+                  downbeats,
+                );
+              }
+              drawCover(ctx, img, template, move, focal, nearLayer);
               drawOverlay(ctx, template);
               if (elapsed % 200 < 20) {
                 onProgress?.(Math.min(0.97, (performance.now() - startedAt) / totalMs));

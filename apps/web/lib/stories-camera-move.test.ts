@@ -14,6 +14,8 @@ import {
   depthAdjust,
   parallaxStrength,
   beatPunch,
+  beatPunchAtDownbeats,
+  resolveFocus,
   toSvgTransform,
   defaultMoveForIndex,
   defaultCameraMove,
@@ -100,4 +102,24 @@ test('default moves cycle and wrap on negative index', () => {
   assert.equal(m.type, 'orbit_feel');
   assert.equal(m.parallax, 'subtle');
   assert.equal(m.auto_reframe, true);
+});
+
+test('beatPunchAtDownbeats peaks on a downbeat and decays; 1 with no grid', () => {
+  const beats = [0, 0.5, 1.0, 1.5];
+  assert.equal(beatPunchAtDownbeats(2.0, []), 1, 'no downbeats → no punch');
+  assert.ok(beatPunchAtDownbeats(1.0, beats) > 1, 'punch right on a downbeat');
+  assert.equal(beatPunchAtDownbeats(1.3, beats), 1, 'decayed before the next beat');
+  // before the first downbeat there is nothing to punch from
+  assert.equal(beatPunchAtDownbeats(-0.2, beats), 1);
+});
+
+test('resolveFocus: center when off, portrait-biased default, clamps subject', () => {
+  const off: CameraMove = { type: 'push_in', amount: 0.5, auto_reframe: false };
+  assert.deepEqual(resolveFocus(off), { x: 0.5, y: 0.5 });
+  const on: CameraMove = { type: 'push_in', amount: 0.5, auto_reframe: true };
+  assert.equal(resolveFocus(on).y < 0.5, true, 'default biases slightly up');
+  const focused = resolveFocus(on, { x: 1.4, y: -0.2 });
+  assert.equal(focused.x, 1, 'clamps x into [0,1]');
+  assert.equal(focused.y, 0, 'clamps y into [0,1]');
+  assert.deepEqual(resolveFocus(undefined), { x: 0.5, y: 0.5 });
 });

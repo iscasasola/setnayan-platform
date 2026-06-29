@@ -13,7 +13,7 @@ Setnayan is software, not an agency. Couples start free with the planning worksp
 - [Vendor Public Profiles](https://www.setnayan.com/v/) — Each vendor has a profile at `/v/[slug]` with services, packages, coverage cities, and tier badge where applicable.
 - [Wedding Venues Directory](https://www.setnayan.com/venues) — 100+ real Philippine wedding venues curated by the Setnayan team, browsable by city at `/venues/[city]` (Tagaytay, Cebu, Makati, and more) with per-venue capacity and day-rate details at `/venue/[slug]`. Informational directory in this release — venue booking through Setnayan is on the roadmap.
 - [Pricing](https://www.setnayan.com/pricing) — Planning tiers, customer software SKUs, vendor subscriptions, and vendor token packs.
-- [List Your Wedding Business](https://www.setnayan.com/for-vendors) — Vendor-acquisition page. Free verified profiles during launch — no listing fee, no per-lead fee, no booking commission. Paid tiers add reach: Pro (₱6,000 / 28-day prepaid block), Enterprise (₱10,000 / 28-day prepaid block). 0% commission on all bookings, all tiers.
+- [List Your Wedding Business](https://www.setnayan.com/for-vendors) — Vendor-acquisition page. Free verified profiles during launch — no listing fee, no per-lead fee, no booking commission. Paid tiers add reach: Solo (₱9,999 / year or ₱999 / 28-day prepaid block), Pro (₱24,999 / year or ₱2,499 / 28-day prepaid block), Enterprise (₱49,999 / year or ₱4,999 / 28-day prepaid block). 0% commission on all bookings, all tiers.
 - [Features](https://www.setnayan.com/features) — Detailed list of planning tools and in-app services.
 - [How It Works](https://www.setnayan.com/how-it-works) — Step-by-step couple and vendor onboarding.
 - [About Setnayan](https://www.setnayan.com/about) — Brand story, what the platform is (software, not an agency), who it's for, geography, languages, 0% commission, and a brand/entity FAQ.
@@ -33,37 +33,35 @@ Setnayan is software, not an agency. Couples start free with the planning worksp
 - **Public launch:** 2026-12-01 alongside the founder's wedding (December 18, 2026) as the first event shipped through the platform.
 - **Geography:** Philippines — Metro Manila (Quezon City, Makati, Pasig, Taguig, Manila), Cebu, Davao, Tagaytay, Iloilo, Baguio, Pampanga, Cavite, Batangas, Laguna, Bulacan, and any city Filipino wedding vendors serve.
 - **Languages:** English (primary). Tagalog (TL) on the dashboard. Cebuano (CEB) localization on the marketing site is on the V1.1 roadmap.
-- **Pricing model:** Software publisher. Couples start free; planning tiers are Free — Explore (₱0), Setnayan AI (₱3,999), Setnayan Essentials (₱12,999), and Setnayan Complete (₱27,999). Individual software services retail from ₱999 to ₱7,999 in PHP. 0% commission on vendor bookings — Setnayan never takes a cut of money couples pay vendors directly.
+- **Pricing model:** Software publisher. Couples start free; the one paid planning tier is Setnayan AI (₱3,999), after which everything else is purchased à la carte — no package bundles. Individual software services retail from ₱100 to ₱3,999 in PHP. 0% commission on vendor bookings — Setnayan never takes a cut of money couples pay vendors directly.
 - **Privacy:** No public sharing of guest data without explicit couple opt-in. Couples own their event content. Vendor-to-couple payments settle off-platform; vendors handle their own documentation on those direct bookings.
 
 ## Planning tiers (couple-side)
 
 - **Free — Explore** — ₱0. Browse the vendor marketplace, see a personalized match preview, and plan with the free workspace: schedule, budget, guest list, seat plan, mood board. No card required.
-- **Setnayan AI** — ₱3,999 one-time per event. The first paid tier: full vendor matchmaking (date, availability, budget, venue, guest count, religion, and reviews cross-referenced) plus the guided planning workspace.
-- **Setnayan Essentials** — ₱12,999 one-time per event. Setnayan AI + Animated Monogram + Custom QR + Pro RSVP + Papic Guest + Event Website + Editorial Website. Offered while the couple sets up their wedding plan.
-- **Setnayan Complete** — ₱27,999 one-time per event. Every paid Setnayan service for the event in one package. Offered while the couple sets up their wedding plan.
+- **Setnayan AI** — ₱3,999 one-time per event. The first paid tier: full vendor matchmaking (date, availability, budget, venue, guest count, religion, and reviews cross-referenced) plus the guided planning workspace. Beyond this, couples add any in-app services à la carte — there are no package bundles.
 
 ## Customer software services (à la carte)
 
 Couples can purchase the following in-app services individually. Pricing in PHP. All sales final on digital deliverables.
 
 - **Setnayan AI** — ₱3,999 one-time per event. Assisted planning: match, sort, and cross-reference vendors plus the guided planning workspace.
-- **Event Website** — ₱1,999. The couple's published wedding website — schedule, directions, story, and RSVP.
-- **Editorial Website** — ₱7,999. Premium invitation + event page + post-wedding editorial at a custom slug.
-- **RSVP Pro** — ₱4,499. The premium RSVP tier of the wedding website.
-- **Pro RSVP** — ₱1,999. Premium RSVP upgrade — guest questions, meal choices, sub-events, and live tracking.
-- **Animated Monogram** — ₱1,999. Bespoke monogram with animation, generated from the couple's inputs.
-- **Custom QR per Guest** — ₱999. Individual QR codes for up to 250 guests (RSVP, seating, photo tagging).
-- **Pabati** — ₱999. Up to 300 5-second guest-recorded greeting videos.
+- **Live Studio** — single-camera livestream on the event page is free; multicam is ₱3,499 per day. Live streaming embedded directly on the event website.
 - **Pakanta** — ₱2,499. Custom Filipino-style song written for the couple.
-- **Papic Guest (Disposable Camera)** — from ₱2,999 (scales with guest count). Guest-side photo capture mode. 24 photos plus 10 5-second videos per guest.
-- **Papic (5 Seats)** — ₱2,999. Five paparazzi photographer seats for designated friends and family. Unlimited photos plus unlimited videos for 5 hours.
-- **Guest Stories (Papic Add-on)** — ₱1,499. 30-second story maker for each guest.
-- **Thank You Video (Papic Add-on)** — ₱3,499. 5-minute compiled thank-you video for all attendees.
-- **Camera Bridge** — ₱1,499. Connects external DSLR cameras to Papic and Panood services.
-- **Panood (Website Add-on)** — ₱2,499 per day. Live streaming embedded directly on the event page.
-- **Live Venue Photo Wall** — ₱2,499. Live photo collage of event photos with live attendance count, displayed at the venue.
-- **Live Background** — ₱2,499. LED wall design background with monogram and theme matched to the wedding palette.
+- **3D Plan** — ₱2,499. Three-dimensional venue and seating plan view for the event.
+- **Thank You Video** — ₱2,499. Compiled thank-you video for all attendees.
+- **Live Photo Wall** — ₱2,499 per day. Live photo collage of event photos with live attendance count, displayed at the venue.
+- **Animated Monogram** — ₱1,999. Bespoke monogram with animation, generated from the couple's inputs.
+- **Couple Website PRO** — ₱1,999. The couple's published wedding website — invitation, schedule, directions, story, and RSVP.
+- **Stories** — ₱2,000 per day (cap). 30-second story maker for guests.
+- **Cinematic Reveal** — ₱1,499. Premium save-the-date cinematic opening animations.
+- **Camera Bridge** — ₱1,299 per day (flat, event-wide). Connects external DSLR cameras to Papic and Live Studio.
+- **Pabati** — ₱1,299 per day. Guest-recorded 5-second greeting videos.
+- **Live Background** — ₱499. LED wall design background with monogram and theme matched to the wedding palette.
+- **Kwento** — ₱299 (whole event). Guest-contributed story and message collection for the couple.
+- **Papic Unli** — ₱100 per camera per day. Unlimited photos and 5-second videos per paparazzi camera.
+- **Papic Ltd** — ₱30 per camera per day (capped at ₱15,000 per day). Limited-shot disposable-camera mode per camera.
+- **Custom QR per Guest** — free. Individual QR codes for guests (RSVP, seating, photo tagging).
 
 ## The mood board is free
 
@@ -74,13 +72,13 @@ The visual mood board — palette, location feel, dress codes — is included fr
 | Tier | Cost | Public profile | Verified badge | Commission |
 |---|---|---|---|---|
 | Verified | ₱0 — free during launch | Listed in marketplace (business name hidden until first chat reply) | Yes | 0% |
-| Solo | ₱2,000 / 28-day prepaid block | Listed in marketplace · 1 category · solo operator (no agent seats) · custom website + slug · business name shown from day 1 | Yes | 0% |
-| Pro | ₱6,000 / 28-day prepaid block OR ₱60,000 / year (~23% off) | 3 categories + 3 agent seats · custom website + slug + premium tools · business name shown from day 1 | Yes | 0% |
-| Enterprise | ₱10,000 / 28-day prepaid block OR ₱100,000 / year (~23% off) | All categories + unlimited team + extended radius · business name shown from day 1 | Yes | 0% |
+| Solo | ₱9,999 / year OR ₱999 / 28-day prepaid block | Listed in marketplace · 1 category · solo operator (no agent seats) · custom website + slug · business name shown from day 1 | Yes | 0% |
+| Pro | ₱24,999 / year OR ₱2,499 / 28-day prepaid block | 3 categories + 3 agent seats · custom website + slug + premium tools · business name shown from day 1 | Yes | 0% |
+| Enterprise | ₱49,999 / year OR ₱4,999 / 28-day prepaid block | All categories + unlimited team + extended radius · business name shown from day 1 | Yes | 0% |
 
-Verified vendors complete a business-legitimacy check plus a short video call with a Setnayan admin. Verification is free during launch — no listing fee and no badge fee. Only verified businesses reach couples. Solo is the entry-level paid tier (₱2,000 / 28-day prepaid block) for single-category solo operators — it shows the real business name from day 1 and uses the same token-to-unlock-a-couple model as Pro and Enterprise; it has no annual option and no agent seats.
+Verified vendors complete a business-legitimacy check plus a short video call with a Setnayan admin. Verification is free during launch — no listing fee and no badge fee. Only verified businesses reach couples. Solo is the entry-level paid tier (₱9,999 / year or ₱999 / 28-day prepaid block) for single-category solo operators — it shows the real business name from day 1 and uses the same token-to-unlock-a-couple model as Pro and Enterprise; it has no agent seats.
 
-Pro and Enterprise subscriptions are 28-day prepaid blocks (13 cycles per year, not calendar months). They are also available as annual prepaid blocks at roughly 23% off the 28-day cycle aggregate — Pro ₱60,000 per year (saves ₱18,000 vs ₱6,000 × 13 cycles = ₱78,000) or Enterprise ₱100,000 per year (saves ₱30,000 vs ₱10,000 × 13 cycles = ₱130,000). Vendors pick 28-day or annual at signup. No recurring auto-charge in V1 — manual renewal with a 7-day email + dashboard reminder before expiry.
+All three paid tiers are available as either 28-day prepaid blocks (13 cycles per year, not calendar months) or annual prepaid blocks at a discount — Solo ₱9,999/year (vs ₱999 × 13 cycles), Pro ₱24,999/year (vs ₱2,499 × 13 cycles), Enterprise ₱49,999/year (vs ₱4,999 × 13 cycles). Vendors pick 28-day or annual at signup. No recurring auto-charge in V1 — manual renewal with a 7-day email + dashboard reminder before expiry.
 
 Vendors verified before 2027-01-31 receive 100 complimentary tokens as a founder bonus.
 
@@ -124,8 +122,8 @@ These tools live in the couple dashboard after sign-in. Not publicly indexable b
 
 ## Common questions Setnayan answers
 
-- **How much does Setnayan cost?** Couples start free (Free — Explore: marketplace browse, match preview, and the planning workspace — schedule, budget, guest list, seat plan, mood board). Paid planning tiers: Setnayan AI ₱3,999, Setnayan Essentials ₱12,999, Setnayan Complete ₱27,999 — all one-time per event. Individual software services retail ₱999–₱7,999. Vendor side: Verified is free during launch, Solo ₱2,000 / 28-day prepaid block, Pro ₱6,000 / 28-day prepaid block, Enterprise ₱10,000 / 28-day prepaid block, with annual prepay on Pro and Enterprise at ~23% off. 0% commission on vendor bookings — Setnayan never takes a cut.
-- **Is Setnayan free?** Starting is free and the planning workspace stays free — schedule, budget, guest list, seat plan, mood board, plus marketplace browse and a match preview. Full vendor matchmaking (Setnayan AI ₱3,999), the wedding website (Event Website ₱1,999), and RSVP are optional paid software.
+- **How much does Setnayan cost?** Couples start free (Free — Explore: marketplace browse, match preview, and the planning workspace — schedule, budget, guest list, seat plan, mood board). The one paid planning tier is Setnayan AI ₱3,999 one-time per event; everything else is purchased à la carte, with no package bundles. Individual software services retail from ₱100 to ₱3,999. Vendor side: Verified is free during launch, Solo ₱9,999 / year (or ₱999 / 28-day prepaid block), Pro ₱24,999 / year (or ₱2,499 / 28-day prepaid block), Enterprise ₱49,999 / year (or ₱4,999 / 28-day prepaid block). 0% commission on vendor bookings — Setnayan never takes a cut.
+- **Is Setnayan free?** Starting is free and the planning workspace stays free — schedule, budget, guest list, seat plan, mood board, plus marketplace browse and a match preview. Full vendor matchmaking (Setnayan AI ₱3,999) and the couple's wedding website (Couple Website PRO ₱1,999) are optional paid software. A single-camera livestream on the event page is free.
 - **Does Setnayan support discount codes or vouchers?** Yes — admins issue discount codes for promos, refunds, comp grants, or partner partnerships. Couples paste a code at checkout via the "Have a code?" field. Three voucher types are supported: percentage discount (e.g., 20% off), capped percentage (e.g., 20% off up to ₱500 max discount), and 100% free (full comp). One voucher per order, one redemption per couple per code, codes are case-insensitive 8-character alphanumeric, codes carry an expiry date and optional max-uses cap. Discounted purchases show the net paid amount on the order receipt.
 - **What is Setnayan AI?** Setnayan's assisted-planning tier. ₱3,999 one-time per event. Matches, sorts, and cross-references vendors against the couple's date, availability, budget, venue, guest count, religion, and reviews — plus the guided planning workspace from venue lock to thank-you cards.
 - **Does Setnayan work for Filipino weddings specifically?** Yes — built and operated in the Philippines for Filipino weddings. Supports seven ceremony types (Catholic, Civil, INC, Christian, Muslim, Cultural, Mixed) and seven venue settings (banquet hall, garden, beach, destination, heritage, outdoor tent, civil registrar). 20 Filipino wedding role tiers in the guest list. Multi-faith vendor compatibility tagging.
@@ -137,8 +135,8 @@ These tools live in the couple dashboard after sign-in. Not publicly indexable b
 - **Can a vendor with multiple branches list each location?** Yes — Pro and Enterprise vendors can add additional branches at ₱999 per 28-day prepaid block per branch. Each branch operates as a sub-account with its own service city and coverage radius but shares the parent vendor's tier perks, portfolio, reviews, and token wallet.
 - **Why is some vendor's name hidden in the marketplace?** Verified vendor business names are screened from marketplace cards and microsite browse until the vendor sends their first chat reply to a couple. The reveal then applies globally — every couple browsing Setnayan sees the real business name from then on, on every page and in every thread. This light hybrid-anonymity protects new vendors from cold-spam outreach while still letting couples discover them by category and city. Pro and Enterprise vendors retain full name visibility from day 1 unchanged.
 - **What is Pakanta?** A custom Filipino-style song written for the couple. ₱2,499.
-- **What is Papic?** Guest-side photo capture with two purchase modes — Papic Guest (from ₱2,999, disposable-camera mode for general guests, scales with guest count) and Papic 5 Seats (₱2,999, five seats for designated paparazzi friends and family).
-- **What is Panood?** Live streaming embedded on the event website. ₱2,499 per day.
+- **What is Papic?** Guests' phones become a coordinated photo-and-video capture crew, priced per camera per day — Papic Unli (₱100 per camera per day, unlimited photos and 5-second videos) and Papic Ltd (₱30 per camera per day, capped at ₱15,000 per day, limited-shot disposable-camera mode). Photos auto-tag to guests and feed per-guest personal highlight reels.
+- **What is Live Studio?** Live streaming embedded on the event website. A single-camera stream is free; multicam is ₱3,499 per day. (Formerly branded "Panood.")
 - **What about my privacy?** RA 10173 (Data Privacy Act of the Philippines) compliant. Guest list and event details are never publicly shared without explicit couple opt-in. Real-wedding editorials publish 30 days post-event with explicit couple consent. National Privacy Commission registration in progress.
 - **What languages does Setnayan support?** English (primary) and Tagalog (TL) on the dashboard. Cebuano (CEB) localization on the marketing site is on the V1.1 roadmap.
 - **How do I contact Setnayan support?** Through the contact form at /help. Email channel via Setnayan's transactional pipeline; DPO contact at dpo@setnayan.com (mailbox standing up before public launch).
@@ -155,4 +153,4 @@ These tools live in the couple dashboard after sign-in. Not publicly indexable b
 
 Several surfaces in the SEO playbook (`/supplies` marketplace, `/blog`, `/coverage`, `/for-event-creators`) are planned but not yet shipped. They are intentionally NOT listed above to avoid sending AI assistants to dead links. This file is updated when those surfaces go live.
 
-This file was last refreshed on 2026-06-28 — vendor-tier and mobile-app freshness pass: added the Solo vendor tier (₱2,000 / 28-day prepaid block · 1 category · solo operator · real name shown day 1 · token-to-unlock model · no annual option) to the tier table and the "How much does Setnayan cost?" answer, verified against the live `vendor_billing_catalog` and the /for-vendors page (Solo ₱2,000 · Pro ₱6,000 · Enterprise ₱10,000 per 28-day block); and corrected the mobile-app answer (web-first PWA + macOS/Windows desktop app live now; native iOS/Android apps in preparation for the App Store + Google Play, not "Expo shells on the V1.5 roadmap"). Prior refresh 2026-06-13 — pricing site-sync to the owner-locked 4-tier model: planning tiers added (Free — Explore ₱0 · Setnayan AI ₱3,999 · Essentials ₱12,999 · Complete ₱27,999), à-la-carte catalog realigned to the live pricing page (19 services, ₱999–₱7,999; Indoor Blueprint, Call-Time Escalator, Pro Website, and High Res Archive retired), and token packs corrected to the flat ₱100-per-token ladder.
+This file was last refreshed on 2026-06-29 — full pricing re-sync to the current canonical catalog. Vendor tiers repriced and shown annual-first (Solo ₱9,999/yr or ₱999/28d · Pro ₱24,999/yr or ₱2,499/28d · Enterprise ₱49,999/yr or ₱4,999/28d; 0% commission; verification free; 100 free founder tokens; tokens flat ₱100 each). À-la-carte catalog realigned to canonical prices (Setnayan AI ₱3,999 · Live Studio multicam ₱3,499/day with single-cam free · Pakanta ₱2,499 · 3D Plan ₱2,499 · Thank You Video ₱2,499 · Live Photo Wall ₱2,499/day · Animated Monogram ₱1,999 · Couple Website PRO ₱1,999 · Stories ₱2,000/day cap · Cinematic Reveal ₱1,499 · Camera Bridge ₱1,299/day · Pabati ₱1,299/day · Live Background ₱499 · Kwento ₱299 · Papic Unli ₱100/cam·day · Papic Ltd ₱30/cam·day cap ₱15,000/day · Custom QR free). Retired SKUs removed (Patiktok, Indoor Blueprint, High Res Archive, Call-Time Escalator, Papic 5-Seats, Papic Guest, Pro/Event/Editorial Website, RSVP / RSVP Pro standalone, SDE / Same-Day Edit, token wallet, "Setnayan Concierge"). Package bundle tiers removed entirely (Essentials and Complete deactivated) — the model is now Free ₱0 → Setnayan AI ₱3,999 → à-la-carte services, with no bundles. Prior refresh 2026-06-28 — vendor-tier and mobile-app freshness pass.

@@ -3066,17 +3066,25 @@ export async function recordDeposit(
   // Log the money against the couple's ledger (their own record — not a charge
   // through Setnayan). Best-effort: a failed ledger insert never unwinds the
   // already-landed date-hold + marker.
-  const { error: payErr } = await supabase.from('event_vendor_payments').insert({
-    event_id: eventId,
-    vendor_id: vendorId,
-    amount_php: amountPhp,
-    method: nullIfBlank(formData.get('method')),
-    reference: nullIfBlank(formData.get('reference')),
-    notes: 'Deposit (date held · awaiting vendor confirmation)',
-  });
-  if (payErr) {
-    // eslint-disable-next-line no-console
-    console.error(`[recordDeposit] ledger insert failed for vendor_id=${vendorId}:`, payErr.message);
+  //
+  // IDEMPOTENT WITH THE MARKER: only insert the payment row on the FIRST record.
+  // The deposit_recorded_at marker above is COALESCE-idempotent (a re-record /
+  // double-submit / retry keeps the original moment), so the ledger insert must
+  // match — guarding on the PRE-update marker (ev.deposit_recorded_at) means a
+  // second call lands NO duplicate payment row (which would overstate "paid").
+  if (!ev.deposit_recorded_at) {
+    const { error: payErr } = await supabase.from('event_vendor_payments').insert({
+      event_id: eventId,
+      vendor_id: vendorId,
+      amount_php: amountPhp,
+      method: nullIfBlank(formData.get('method')),
+      reference: nullIfBlank(formData.get('reference')),
+      notes: 'Deposit (date held · awaiting vendor confirmation)',
+    });
+    if (payErr) {
+      // eslint-disable-next-line no-console
+      console.error(`[recordDeposit] ledger insert failed for vendor_id=${vendorId}:`, payErr.message);
+    }
   }
 
   // Notify the vendor that a deposit was logged against their booking. Reuses

@@ -246,7 +246,7 @@ const AlaDashboard = (
 const sw = (bg: string, h = 54): React.CSSProperties => ({
   position: 'relative',
   height: h,
-  borderRadius: 8,
+  borderRadius: 'var(--hr-r8)',
   background: bg,
 });
 const tagPill: React.CSSProperties = {
@@ -257,7 +257,7 @@ const tagPill: React.CSSProperties = {
   background: 'rgba(0,0,0,.45)',
   color: '#fff',
   padding: '1px 6px',
-  borderRadius: 10,
+  borderRadius: 'var(--hr-r10)',
 };
 
 const LikhaanWebsite = (
@@ -265,7 +265,7 @@ const LikhaanWebsite = (
     <div
       style={{
         height: 72,
-        borderRadius: 10,
+        borderRadius: 'var(--hr-r10)',
         background: 'linear-gradient(120deg,#E7DCC8,#B7C2B0)',
         marginBottom: 12,
         display: 'flex',
@@ -389,7 +389,7 @@ const LikhaanLiveStudio = (
       style={{
         position: 'relative',
         height: 118,
-        borderRadius: 10,
+        borderRadius: 'var(--hr-r10)',
         background: 'linear-gradient(120deg,#757d86,#383f47)',
         display: 'flex',
         alignItems: 'center',
@@ -410,7 +410,7 @@ const LikhaanLiveStudio = (
           background: '#b3402f',
           color: '#fff',
           padding: '2px 8px',
-          borderRadius: 20,
+          borderRadius: 'var(--hr-r20)',
         }}
       >
         ● LIVE
@@ -430,9 +430,9 @@ const LikhaanLiveStudio = (
       </span>
     </div>
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 7, marginTop: 8 }}>
-      <div className="hr-msw hr-ph" style={{ height: 32, borderRadius: 7 }} />
-      <div className="hr-msw hr-ph" style={{ height: 32, borderRadius: 7 }} />
-      <div className="hr-msw hr-ph" style={{ height: 32, borderRadius: 7 }} />
+      <div className="hr-msw hr-ph" style={{ height: 32, borderRadius: 'var(--hr-r7)' }} />
+      <div className="hr-msw hr-ph" style={{ height: 32, borderRadius: 'var(--hr-r7)' }} />
+      <div className="hr-msw hr-ph" style={{ height: 32, borderRadius: 'var(--hr-r7)' }} />
     </div>
     <div className="hr-mk-h" style={{ margin: '11px 0 0', color: '#97742f' }}>
       For everyone who couldn’t make the trip · live streaming rolling out
@@ -447,7 +447,7 @@ const Likhaan3D = (
       style={{
         position: 'relative',
         border: '1px solid var(--hr-line)',
-        borderRadius: 10,
+        borderRadius: 'var(--hr-r10)',
         height: 128,
         marginTop: 4,
         overflow: 'hidden',
@@ -461,7 +461,7 @@ const Likhaan3D = (
           transform: 'translateX(-50%)',
           width: '46%',
           height: 7,
-          borderRadius: 4,
+          borderRadius: 'var(--hr-r4)',
           background: 'rgba(197,160,89,.45)',
         }}
       />
@@ -548,7 +548,7 @@ const PlanSeat = (
         height: 8,
         width: '60%',
         margin: '6px auto 18px',
-        borderRadius: 4,
+        borderRadius: 'var(--hr-r4)',
         background: 'rgba(197,160,89,.3)',
       }}
     />
@@ -574,8 +574,8 @@ const PlanMood = (
       <div className="hr-msw" style={{ background: '#EDEAE0' }} />
     </div>
     <div className="hr-mgrid2">
-      <div className="hr-msw hr-ph" style={{ height: 64, borderRadius: 10 }} />
-      <div className="hr-msw hr-ph" style={{ height: 64, borderRadius: 10 }} />
+      <div className="hr-msw hr-ph" style={{ height: 64, borderRadius: 'var(--hr-r10)' }} />
+      <div className="hr-msw hr-ph" style={{ height: 64, borderRadius: 'var(--hr-r10)' }} />
     </div>
     <div className="hr-mbtn-s" style={{ marginTop: 14 }}>
       Share with all vendors →
@@ -700,7 +700,7 @@ const PlanPrint = (
       style={{
         flex: 1,
         border: '1px solid var(--hr-line)',
-        borderRadius: 8,
+        borderRadius: 'var(--hr-r8)',
         background: '#fff',
         padding: 14,
         display: 'flex',

@@ -36,6 +36,29 @@
   background: var(--hr-bg);
   -webkit-font-smoothing: antialiased;
   letter-spacing: -0.01em;
+
+  /* Corner-radius scale for the reskin — its OWN token source of truth (this is
+     a self-contained, scoped design system ported px-perfect from the locked
+     prototype; the global --m-r-* scale doesn't match the ELN geometry). Every
+     radius below routes through these vars so the radius-token guard stays
+     happy and the values live in one place. */
+  --hr-r2: 2px;
+  --hr-r3: 3px;
+  --hr-r4: 4px;
+  --hr-r6: 6px;
+  --hr-r7: 7px;
+  --hr-r8: 8px;
+  --hr-r9: 9px;
+  --hr-r10: 10px;
+  --hr-r11: 11px;
+  --hr-r12: 12px;
+  --hr-r14: 14px;
+  --hr-r16: 16px;
+  --hr-r18: 18px;
+  --hr-r20: 20px;
+  --hr-r22: 22px;
+  --hr-r24: 24px;
+  --hr-r30: 30px;
 }
 .home-reskin *,
 .home-reskin *::before,
@@ -359,7 +382,7 @@ html.hr-snap {
 .home-reskin .hr-dock .hr-w {
   width: 78px;
   height: 52px;
-  border-radius: 11px;
+  border-radius: var(--hr-r11);
   cursor: pointer;
   position: relative;
   overflow: hidden;
@@ -528,7 +551,7 @@ html.hr-snap {
 }
 .home-reskin .hr-pw-frame {
   border: 1px solid var(--hr-line);
-  border-radius: 16px;
+  border-radius: var(--hr-r16);
   background: #fff;
   overflow: hidden;
   box-shadow: 0 30px 70px rgba(20, 22, 26, 0.1);
@@ -551,7 +574,7 @@ html.hr-snap {
   margin-left: 8px;
   flex: 1;
   height: 19px;
-  border-radius: 6px;
+  border-radius: var(--hr-r6);
   background: #fff;
   border: 1px solid var(--hr-line);
   font-family: var(--hr-mono);
@@ -619,7 +642,7 @@ html.hr-snap {
   scroll-snap-align: center;
   background: #fff;
   border: 1px solid var(--hr-line);
-  border-radius: 14px;
+  border-radius: var(--hr-r14);
   padding: 13px 14px 12px;
   transition: box-shadow 0.18s ease;
   cursor: pointer;
@@ -638,7 +661,7 @@ html.hr-snap {
 .home-reskin .hr-pfeat .hr-ic {
   width: 32px;
   height: 32px;
-  border-radius: 9px;
+  border-radius: var(--hr-r9);
   background: var(--hr-bg-2);
   border: 1px solid var(--hr-line);
   display: flex;
@@ -722,7 +745,7 @@ html.hr-snap {
 }
 .home-reskin .hr-mbar {
   height: 7px;
-  border-radius: 4px;
+  border-radius: var(--hr-r4);
   background: var(--hr-bg-2);
   overflow: hidden;
 }
@@ -738,12 +761,12 @@ html.hr-snap {
 }
 .home-reskin .hr-mtile {
   border: 1px solid var(--hr-line);
-  border-radius: 10px;
+  border-radius: var(--hr-r10);
   padding: 11px;
 }
 .home-reskin .hr-msw {
   height: 30px;
-  border-radius: 8px;
+  border-radius: var(--hr-r8);
   border: 1px solid rgba(0, 0, 0, 0.04);
 }
 .home-reskin .hr-mcal {
@@ -756,7 +779,7 @@ html.hr-snap {
 }
 .home-reskin .hr-mcal span {
   padding: 6px 0;
-  border-radius: 6px;
+  border-radius: var(--hr-r6);
 }
 .home-reskin .hr-mcal .hr-on {
   background: var(--hr-pop2);
@@ -778,7 +801,7 @@ html.hr-snap {
 .home-reskin .hr-mbox {
   width: 15px;
   height: 15px;
-  border-radius: 4px;
+  border-radius: var(--hr-r4);
   border: 1.4px solid var(--hr-line);
   flex: none;
   position: relative;
@@ -842,7 +865,7 @@ html.hr-snap {
 }
 .home-reskin .hr-mline {
   height: 5px;
-  border-radius: 3px;
+  border-radius: var(--hr-r3);
   background: var(--hr-line);
 }
 .home-reskin .hr-ph {
@@ -865,7 +888,7 @@ html.hr-snap {
   gap: 6px;
   flex: 0 0 auto;
   border: 1px solid var(--hr-line);
-  border-radius: 999px;
+  border-radius: var(--hr-r);
   padding: 5px 11px 5px 8px;
   background: #fff;
   font-size: 11px;
@@ -972,7 +995,7 @@ html.hr-snap {
 }
 .home-reskin .hr-me-fig {
   height: 64px;
-  border-radius: 8px;
+  border-radius: var(--hr-r8);
   background: linear-gradient(135deg, #d8cdbb, #a9b0b8 58%, #62656b);
   position: relative;
   overflow: hidden;
@@ -1081,7 +1104,7 @@ html.hr-snap {
 .home-reskin .hr-m-db2 .hr-me-evhd .hr-mk {
   width: 34px;
   height: 34px;
-  border-radius: 9px;
+  border-radius: var(--hr-r9);
   flex: none;
   background: linear-gradient(135deg, #cfccc4, #a7a39b 70%, #7d7a73);
   display: flex;
@@ -1148,7 +1171,7 @@ html.hr-snap {
 }
 .home-reskin .hr-m-db2 .hr-me-mod {
   border: 1px solid var(--hr-line);
-  border-radius: 9px;
+  border-radius: var(--hr-r9);
   padding: 9px 9px 8px;
   display: flex;
   flex-direction: column;
@@ -1227,7 +1250,7 @@ html.hr-snap {
     max-width: 286px;
   }
   .home-reskin .hr-pw-frame {
-    border-radius: 30px;
+    border-radius: var(--hr-r30);
     border: 7px solid #1c1e22;
   }
   .home-reskin .hr-pw-bar {
@@ -1244,7 +1267,7 @@ html.hr-snap {
     content: '';
     width: 46px;
     height: 5px;
-    border-radius: 3px;
+    border-radius: var(--hr-r3);
     background: rgba(255, 255, 255, 0.28);
   }
   .home-reskin .hr-pw-screen {
@@ -1363,7 +1386,7 @@ html.hr-snap {
 }
 .home-reskin .hr-storyc {
   position: relative;
-  border-radius: 24px;
+  border-radius: var(--hr-r24);
   overflow: hidden;
   min-height: clamp(168px, 26vh, 228px);
   display: flex;
@@ -1447,7 +1470,7 @@ html.hr-snap {
   gap: 5px;
   min-width: 128px;
   padding: 18px 20px;
-  border-radius: 18px;
+  border-radius: var(--hr-r18);
   background: rgba(140, 140, 140, 0.14);
   border: 1px solid var(--hr-line);
   transition: transform 0.2s ease;
@@ -1537,7 +1560,7 @@ html.hr-snap {
 .home-reskin-ov .hr-ov-card {
   background: var(--hr-bg);
   border: 1px solid rgba(255, 255, 255, 0.7);
-  border-radius: 22px;
+  border-radius: var(--hr-r22);
   width: 100%;
   max-width: 880px;
   margin: auto;
@@ -1608,7 +1631,7 @@ html.hr-snap {
 }
 .home-reskin-ov .hr-pr-tier {
   border: 1px solid var(--hr-line);
-  border-radius: 14px;
+  border-radius: var(--hr-r14);
   padding: 15px 14px;
   background: #fff;
   display: flex;
@@ -1653,7 +1676,7 @@ html.hr-snap {
   align-items: flex-end;
   background: #fff;
   border: 1px solid var(--hr-line);
-  border-radius: 14px;
+  border-radius: var(--hr-r14);
   padding: 15px 18px;
   margin-bottom: 18px;
 }
@@ -1688,7 +1711,7 @@ html.hr-snap {
   appearance: none;
   width: 100%;
   height: 3px;
-  border-radius: 2px;
+  border-radius: var(--hr-r2);
   background: var(--hr-line);
   outline: none;
   margin: 0;
@@ -1749,7 +1772,7 @@ html.hr-snap {
 }
 .home-reskin-ov .hr-pr-papic {
   background: rgba(197, 160, 89, 0.06);
-  border-radius: 12px;
+  border-radius: var(--hr-r12);
   padding: 3px 16px;
   margin-bottom: 8px;
 }
@@ -1767,7 +1790,7 @@ html.hr-snap {
   align-items: center;
   gap: 6px;
   border: 1px solid var(--hr-line);
-  border-radius: 999px;
+  border-radius: var(--hr-r);
   padding: 6px 13px;
   font-size: 12px;
   color: var(--hr-ink);
@@ -1838,7 +1861,7 @@ html.hr-snap {
 }
 .home-reskin-ov .hr-dl-card {
   border: 1px solid var(--hr-line);
-  border-radius: 14px;
+  border-radius: var(--hr-r14);
   padding: 18px 16px;
   background: #fff;
   text-align: left;
@@ -1885,7 +1908,7 @@ html.hr-snap {
   align-items: center;
   gap: 8px;
   border: 1px solid var(--hr-line);
-  border-radius: 11px;
+  border-radius: var(--hr-r11);
   padding: 10px 16px;
   font-size: 13px;
   color: var(--hr-ink);
@@ -1907,14 +1930,14 @@ html.hr-snap {
 }
 .home-reskin-ov .hr-vd-card {
   border: 1px solid var(--hr-line);
-  border-radius: 14px;
+  border-radius: var(--hr-r14);
   padding: 16px;
   background: #fff;
 }
 .home-reskin-ov .hr-vd-card .hr-ic {
   width: 34px;
   height: 34px;
-  border-radius: 10px;
+  border-radius: var(--hr-r10);
   background: var(--hr-bg-2);
   border: 1px solid var(--hr-line);
   display: flex;
@@ -1940,7 +1963,7 @@ html.hr-snap {
   text-transform: uppercase;
   color: var(--hr-pop1);
   border: 1px solid #d9cbea;
-  border-radius: 20px;
+  border-radius: var(--hr-r20);
   padding: 1px 6px;
   font-weight: 500;
 }
@@ -1960,7 +1983,7 @@ html.hr-snap {
   background: var(--hr-ink);
   color: #fff;
   border: none;
-  border-radius: 11px;
+  border-radius: var(--hr-r11);
   padding: 14px 24px;
   font-size: 14px;
   font-weight: 600;
@@ -1982,7 +2005,7 @@ html.hr-snap {
   color: var(--hr-ink);
   background: rgba(197, 160, 89, 0.06);
   border: 1px solid var(--hr-line);
-  border-radius: 12px;
+  border-radius: var(--hr-r12);
   padding: 12px 15px;
   margin-bottom: 22px;
   line-height: 1.5;
@@ -2039,7 +2062,7 @@ html.hr-snap {
   text-transform: uppercase;
   color: var(--hr-pop1);
   border: 1px solid #d9cbea;
-  border-radius: 20px;
+  border-radius: var(--hr-r20);
   padding: 1px 6px;
   font-weight: 500;
 }

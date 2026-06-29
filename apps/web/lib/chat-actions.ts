@@ -1,5 +1,6 @@
 'use server';
 
+import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -9,6 +10,7 @@ import { sendChatMessageCore } from './chat-send';
 import { resolveCounterpartyUserIds } from './chat-block';
 import { emitNotification } from './notification-emit';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
+import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 
 /**
@@ -348,6 +350,11 @@ export async function acceptInquiry(formData: FormData) {
       eventId: thread.event_id,
       vendorProfileId: thread.vendor_profile_id,
     });
+
+    // Accepting IS the vendor's "answer" to an inquiry — refresh their
+    // responsiveness/conversion stats (response_rate_pct, inquiry_to_booking_pct)
+    // off the request path (cron-free; after() runs post-response).
+    after(() => triggerVendorActivityRecompute(thread.vendor_profile_id));
   }
 
   if (typeof returnTo === 'string' && returnTo.startsWith('/')) {

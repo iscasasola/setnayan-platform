@@ -8,6 +8,7 @@
 // manual reload. Same canonical fix as wizard-actions.ts (PR #514) — see
 // CLAUDE.md 2026-05-24 "Fix: chrome monogram (+ layout-cached fields) stay
 // stale after wizard save".
+import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -30,6 +31,7 @@ import {
   planGroupForCategory,
 } from '@/lib/wedding-plan-groups';
 import { CONFIRMED_VENDOR_STATUSES, recomputeReceptionAnchor } from '@/lib/events';
+import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
 import { getBatchVendorAvailableDays } from '@/lib/vendor-availability';
 import { intersectViableCandidates, formatCandidateDate } from '@/lib/candidate-dates';
 import { computeFinalizeReady } from '@/lib/lock-milestones';
@@ -350,6 +352,14 @@ export async function updateVendorStatus(formData: FormData) {
       body: 'Their service is marked delivered. Take a minute to leave a public review.',
       relatedUrl: `/dashboard/${eventId}/vendors/${vendorId}/review`,
     });
+  }
+
+  // A marketplace vendor's booking status just changed — refresh their
+  // finalized_booking_count / inquiry_to_booking_pct off the request path
+  // (cron-free; after() runs post-response; wrapper swallows its own errors).
+  if (prevRow?.marketplace_vendor_id) {
+    const vpid = prevRow.marketplace_vendor_id;
+    after(() => triggerVendorActivityRecompute(vpid));
   }
 
   revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
@@ -1515,6 +1525,14 @@ export async function finalizeVendor(
   revalidatePath(`/dashboard/${eventId}`, 'layout');
   revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
 
+  // The vendor just reached the first FINALIZED status ('contracted') — refresh
+  // their finalized_booking_count / inquiry_to_booking_pct off the request path
+  // (cron-free; after() runs post-response; wrapper swallows its own errors).
+  if (targetVendor.marketplace_vendor_id) {
+    const vpid = targetVendor.marketplace_vendor_id as string;
+    after(() => triggerVendorActivityRecompute(vpid));
+  }
+
   return { status: 'ok', vendorId, lockedStatus: LOCKED_STATUS, milestone };
 }
 
@@ -1580,7 +1598,7 @@ export async function revertVendorToConsidering(
 
   const { data: current, error: readErr } = await supabase
     .from('event_vendors')
-    .select('status')
+    .select('status, marketplace_vendor_id')
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId)
     .maybeSingle();
@@ -1622,6 +1640,14 @@ export async function revertVendorToConsidering(
 
   revalidatePath(`/dashboard/${eventId}`, 'layout');
   revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
+
+  // Reverting out of a CONFIRMED status drops this vendor from
+  // finalized_booking_count — refresh their stats off the request path
+  // (cron-free; after() runs post-response; wrapper swallows its own errors).
+  const revertedVpid = (current as { marketplace_vendor_id?: string | null }).marketplace_vendor_id;
+  if (revertedVpid) {
+    after(() => triggerVendorActivityRecompute(revertedVpid));
+  }
 
   return { status: 'ok', vendorId };
 }

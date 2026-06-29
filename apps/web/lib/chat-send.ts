@@ -1,6 +1,8 @@
+import { after } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { tierCaps } from '@/lib/vendor-tier-caps';
+import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
 import { fetchThreadById } from './chat';
 import { notifyOtherParty } from './chat-actions';
 
@@ -210,6 +212,13 @@ export async function sendChatMessageCore(
       // Non-fatal — DB trigger covers this path. Log for observability.
       console.warn('[sendChatMessageCore] vendor_first_reply_at stamp skipped:', stampErr.message);
     }
+
+    // The vendor's FIRST reply just landed — this is the exact moment
+    // avg_response_minutes / response_rate_pct become (re)computable. Refresh
+    // vendor_activity_stats off the request path (cron-free per the no-pollers
+    // lock; after() runs post-response). Fire-and-forget: the wrapper swallows
+    // its own errors so a stale stat never blocks the send.
+    after(() => triggerVendorActivityRecompute(thread.vendor_profile_id));
   }
 
   // Notify the OTHER party. The couple side notifies the vendor user;

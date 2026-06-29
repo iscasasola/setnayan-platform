@@ -65,12 +65,12 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'how-much-does-setnayan-cost',
         title: 'How much does Setnayan cost?',
-        body: 'Couples start free (planning workspace: schedule, budget, guest list, seat plan, mood board, plus marketplace browse with a match preview). Paid planning tiers: Setnayan AI ₱3,999, Essentials ₱12,999, Complete ₱27,999 — one-time per event. Individual services retail ₱999–₱7,999. Vendor side: Verified is free during launch; Pro ₱6,000 and Enterprise ₱10,000 per 28-day prepaid block. 0% commission on vendor bookings — Setnayan never takes a cut.',
+        body: 'Couples start free (planning workspace: schedule, budget, guest list, seat plan, mood board, plus marketplace browse with a match preview). The paid planner is Setnayan AI — a ₱499 / 28-day subscription that stays active until your wedding day, then ends. Individual services retail ₱999–₱7,999. Vendor side: Verified is free during launch; Pro ₱6,000 and Enterprise ₱10,000 per 28-day prepaid block. 0% commission on vendor bookings — Setnayan never takes a cut.',
       },
       {
         slug: 'is-setnayan-free-for-couples',
         title: 'Is Setnayan free for couples?',
-        body: 'Starting is free — schedule, budget, guest list, seat plan, and mood board are free with every account, plus marketplace browse and a preview of your vendor matches. Premium tools like Setnayan AI (₱3,999 one-time), the Event Website (₱1,999), and premium RSVP are optional paid software. You only pay for what you choose to add.',
+        body: 'Starting is free — schedule, budget, guest list, seat plan, and mood board are free with every account, plus marketplace browse and a preview of your vendor matches. Premium tools like Setnayan AI (₱499 / 28 days, active until your wedding day), the Event Website (₱1,999), and premium RSVP are optional paid software. You only pay for what you choose to add.',
       },
       {
         slug: 'does-setnayan-take-commission',

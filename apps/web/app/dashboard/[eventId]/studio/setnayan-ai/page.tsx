@@ -4,7 +4,7 @@ import { ArrowLeft, Check, Sparkles, Wand2, ListChecks, CalendarHeart } from 'lu
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
-import { formatPhp } from '@/lib/orders';
+import { getCustomerSkuPriceLabel } from '@/lib/v2-catalog';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { eventOwnsSku } from '@/lib/entitlements';
 import { isSetnayanAiActive } from '@/lib/setnayan-ai';
@@ -15,10 +15,18 @@ export const metadata = { title: 'Setnayan AI · Setnayan' };
 
 /**
  * /dashboard/[eventId]/studio/setnayan-ai — the BUY surface for the Setnayan AI
- * planner (the first paywall · catalog SETNAYAN_AI ₱3,999). This is the missing
+ * planner (the first paywall · catalog SETNAYAN_AI, now a ₱499 / 28-day
+ * subscription · owner 2026-06-29, was a ₱3,999 one-time unlock). This is the
  * purchase path the audit flagged: the entitlement chain (checkout → admin
  * approve → events.setnayan_ai_active → lib/setnayan-ai.ts gate) was fully wired,
  * but nothing let a couple actually buy SETNAYAN_AI. This page closes that.
+ *
+ * V1.5: this checkout charges ONE 28-day term up front (manual apply-then-pay).
+ * Recurring auto-renew (a per-cycle charge until the wedding day, then auto-end)
+ * is NOT wired — it hooks in at the order-activation path + a provider-run
+ * subscription (PayMongo / GCash) once those land. The wedding-anchor (window
+ * ends at events.event_date) is recorded as the user_ai_subscription.active_until
+ * stamping rule (see the migration); the stamping hook is the same later PR.
  *
  * Three states, all driven by lib/setnayan-ai.ts (the single governing gate) so
  * this stays in lockstep with every match/ranking surface:
@@ -52,8 +60,8 @@ const WHAT_YOU_GET = [
   },
   {
     icon: Wand2,
-    title: 'One purchase, the whole wedding',
-    body: 'Pay once for this event and Setnayan AI stays on through your wedding day. No subscription.',
+    title: 'On until your wedding day',
+    body: 'A ₱499 / 28-day subscription that stays active until your wedding day, then auto-ends right after. No charge after the event.',
   },
 ];
 
@@ -92,8 +100,14 @@ export default async function SetnayanAiPage({ params }: Props) {
   // Pricing from the live V2 catalog (single source of truth). null when the
   // row is unreadable (e.g. no service-role key in CI / pre-seed) → the buy
   // block degrades gracefully instead of inventing a number.
+  //   • pricePhp     → the raw pesos used ONLY for the checkout charge centavos
+  //     (the server re-resolves the authoritative charge at order time anyway).
+  //   • priceLabel   → the DISPLAY string WITH its recurrence unit ("₱499 / 28
+  //     days") so the per-28d subscription never reads as a one-time price. Both
+  //     come from the catalog; neither is hardcoded.
   const skuRecord = await formatV2Sku(SKU_CODE).catch(() => null);
   const pricePhp = skuRecord?.price_php ?? null;
+  const priceLabel = await getCustomerSkuPriceLabel(SKU_CODE).catch(() => null);
 
   // Only the BUY branch needs the BDO/GCash settings · fetch lazily there.
   const showBuy = !active && !owns && paywallOn;
@@ -206,9 +220,9 @@ export default async function SetnayanAiPage({ params }: Props) {
             {pricePhp != null && settings ? (
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm text-ink/65">
-                  One purchase, on through your wedding day ·{' '}
+                  Active until your wedding day, then it ends ·{' '}
                   <span className="font-mono text-base text-ink">
-                    {formatPhp(pricePhp)}
+                    {priceLabel ?? `₱${Math.round(pricePhp).toLocaleString('en-PH')} / 28 days`}
                   </span>
                 </p>
                 <div className="sm:w-auto">

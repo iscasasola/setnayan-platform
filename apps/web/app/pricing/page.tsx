@@ -6,6 +6,7 @@ import {
   fetchV2VendorCatalog,
   formatPeso,
   formatSkuPriceLabel,
+  formatBillingPeriodSuffix,
   BUILD_STATUS_LABEL,
   type V2CustomerSku,
   type BuildStatus,
@@ -173,6 +174,9 @@ export default async function PricingPage() {
             is_token_able: false,
             description: `Ltd ₱${formatPeso(papicRoll?.retail_price_php ?? 30)} (30 photos + 10 videos) or Unli ₱${formatPeso(papicUnlimited?.retail_price_php ?? 100)} per camera, per day · first 5 free, then each tier is price-capped. Face-sorting & privacy included.`,
             build_status: 'live',
+            // Per-camera, per-day flat charge — NOT a recurring subscription,
+            // so one_time (no "/ period" suffix), like every SKU but SETNAYAN_AI.
+            billing_period: 'one_time',
             // is_pax_priced drives the "from ₱X" label (no event/pax context on
             // the public page) — Papic is per-camera, not pax-priced, but the
             // "from ₱30" prefix is exactly right. pax_* stay null: the synthetic
@@ -314,6 +318,21 @@ export default async function PricingPage() {
           priceCurrency: 'PHP',
           availability: buildAvailability(sku.build_status),
           seller: ORGANIZATION_REF,
+          // Per-28-day subscription SKUs (SETNAYAN_AI ₱499/28d) carry a
+          // recurring UnitPriceSpecification so the structured data matches the
+          // rendered "/ 28 days" — same billingDuration=P28D the vendor subs
+          // below use. One-time SKUs emit a bare price (no recurrence).
+          ...(sku.billing_period === 'per_28d'
+            ? {
+                priceSpecification: {
+                  '@type': 'UnitPriceSpecification',
+                  price: String(Math.round(sku.retail_price_php)),
+                  priceCurrency: 'PHP',
+                  billingDuration: 'P28D',
+                  unitText: '28-day cycle',
+                },
+              }
+            : {}),
         },
       })),
       // Customer bundle tiers (Essentials/Complete) REMOVED from the @graph
@@ -498,12 +517,15 @@ export default async function PricingPage() {
                 Setnayan AI
               </p>
               <p className="font-sans text-3xl font-semibold tracking-tight text-ink">
-                {setnayanAi ? `₱${formatPeso(setnayanAi.retail_price_php)}` : 'See catalog'}
+                {setnayanAi
+                  ? `₱${formatPeso(setnayanAi.retail_price_php)}${formatBillingPeriodSuffix(setnayanAi.billing_period)}`
+                  : 'See catalog'}
               </p>
               <p className="text-sm leading-relaxed text-ink/65">
                 The full matchmaking engine — date, availability, budget,
                 venue, guest count, religion, and reviews cross-referenced —
-                plus the guided planning workspace. One purchase per event.
+                plus the guided planning workspace. A ₱499 / 28-day subscription
+                that stays active until your wedding day, then ends.
               </p>
             </article>
           </RevealBand>

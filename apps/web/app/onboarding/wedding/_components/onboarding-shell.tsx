@@ -4442,7 +4442,7 @@ export function OnboardingShell({
               {pricing.setnayanAi && (
                 <div className="aikeep-price">
                   <span className="aikeep-now">{pricing.setnayanAi.label}</span>
-                  <span className="aikeep-unit">your whole wedding</span>
+                  <span className="aikeep-unit">active until your wedding day</span>
                   <span className="aikeep-anchor">₱30,000+ coordinator</span>
                 </div>
               )}

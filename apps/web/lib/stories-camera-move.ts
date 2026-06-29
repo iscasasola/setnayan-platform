@@ -132,3 +132,54 @@ export function defaultCameraMove(i: number, amount = 0.55): CameraMove {
     parallax: 'subtle',
   };
 }
+
+/**
+ * Beat-sync zoom punch driven by the music's ACTUAL downbeats (not a uniform
+ * bpm). Returns a transient scale ≥ 1 that decays over `decayMs` after the most
+ * recent downbeat ≤ `tSec`. Use this in the live render where the real beat grid
+ * (`beat_grid.downbeats`, seconds) is available; falls back to `beatPunch` when
+ * only a bpm is known. Multiply the result into `Transform.scale`.
+ */
+export function beatPunchAtDownbeats(
+  tSec: number,
+  downbeatsSec: readonly number[],
+  decayMs = 180,
+  amountPct = 0.045,
+): number {
+  if (!downbeatsSec || downbeatsSec.length === 0) return 1;
+  // Most recent downbeat at or before tSec (downbeats are ascending).
+  let since = Infinity;
+  for (let i = 0; i < downbeatsSec.length; i++) {
+    const d = downbeatsSec[i]!;
+    if (d > tSec) break;
+    since = tSec - d;
+  }
+  if (!Number.isFinite(since)) return 1;
+  const env = since < decayMs / 1000 ? 1 - since / (decayMs / 1000) : 0;
+  return 1 + env * amountPct;
+}
+
+/** A normalized focal point in [0,1]² — the point a zoom converges toward. */
+export interface Focus { x: number; y: number; }
+
+/**
+ * Tier 2 — where the camera should focus. With `auto_reframe` on, the zoom
+ * converges on the subject instead of dead center:
+ *  - an explicit `subjectCenter` (from a detector at ingest, when available), or
+ *  - a deterministic portrait bias (slightly above center, where faces usually
+ *    sit) so push-ins keep faces in frame even with no detector.
+ * Returns plain center when `auto_reframe` is off.
+ */
+export function resolveFocus(
+  move: CameraMove | undefined,
+  subjectCenter?: Focus | null,
+): Focus {
+  if (!move?.auto_reframe) return { x: 0.5, y: 0.5 };
+  if (subjectCenter) {
+    return {
+      x: Math.min(1, Math.max(0, subjectCenter.x)),
+      y: Math.min(1, Math.max(0, subjectCenter.y)),
+    };
+  }
+  return { x: 0.5, y: 0.44 };
+}

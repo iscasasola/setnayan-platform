@@ -58,6 +58,51 @@
 
 ---
 
+## 2026-06-30 · ACTIVATE Papic face recognition (host the face model on R2) 🟢 one-time, no code
+
+**What this turns on:** the *entire* Papic face engine — guests' photos automatically
+find the right people by face, and (later) walk-up guests get back to their camera by
+face. **It is already built and shipped — it's just switched off** because the face model
+isn't hosted yet. The code says so itself: *"DORMANT until a model is hosted
+(`NEXT_PUBLIC_FACE_MODEL_URL`)."* No code change, no migration, no server — just host the
+model and set one env var.
+
+**How it works (so you know what you're hosting):** face matching runs **on the guest's
+phone** (`face-api.js`, dlib ResNet, 128-d). Only a tiny math fingerprint ever leaves the
+device — never the photo. Weights are public-domain/MIT (vetted 2026-06-17). Consent is
+mandatory at enrollment (RA 10173).
+
+### Steps
+
+1. **Get the files** (all from the public `face-api.js` weights — `vladmandic/face-api` or
+   `justadudewhohacks/face-api.js` `/weights`):
+   - `ssd_mobilenetv1_model-weights_manifest.json` + its `-shard1` (detector)
+   - `face_landmark_68_model-weights_manifest.json` + its `-shard1`
+   - `face_recognition_model-weights_manifest.json` + its `-shard1` + `-shard2`
+   - the `face-api.js` UMD build (the single `.js` file)
+2. **Upload them to R2** — into a **public-readable, CORS-enabled** path, e.g. the
+   `setnayan-media` bucket under `face-models/` (the same bucket/host as `R2_PUBLIC_URL`;
+   CORS GET must allow `https://www.setnayan.com` — the existing `r2-cors.sh` covers it).
+3. **Set the env var** in Vercel (Production + Preview):
+   - `NEXT_PUBLIC_FACE_MODEL_URL` = the public base URL of that folder
+     (e.g. `https://media.setnayan.com/face-models`).
+   - Optional `NEXT_PUBLIC_FACE_API_URL` if you host the `face-api.js` script elsewhere
+     (defaults to `${NEXT_PUBLIC_FACE_MODEL_URL}/face-api.js`).
+4. **Redeploy** (any push to `main`, or redeploy current).
+
+### Check it worked
+- A guest who enrolls a selfie now produces a non-null `guest_face_enrollments.face_vector`
+  (before: null).
+- Their candid photos start auto-tagging to them (`photo_tags` with `source='auto_face'`),
+  with no QR scan.
+
+Until this is done everything keeps working **image-only** (QR-scan tagging is the fallback);
+nothing breaks, the face layer is just inert. Reference: `apps/web/lib/face-embed.ts`,
+`lib/face-match.ts`, `app/papic/face-enroll-actions.ts`. Plan:
+`~/Documents/Claude/Projects/Setnayan/0012_papic/Papic_Walkup_Face_Identity_Plan_2026-06-29.md` § 2 (AS-BUILT).
+
+---
+
 ## 2026-06-16 · OPTIONAL — Free Papic sampler: R2 lifecycle auto-cleanup
 
 Free-sampler photos now upload under their own R2 key prefix `papic-sampler/`

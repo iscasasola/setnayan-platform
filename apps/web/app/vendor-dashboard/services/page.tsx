@@ -1,10 +1,19 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Briefcase, ChevronDown, Clock, Eye, EyeOff, Gift, Plus, Tag, Trash2 } from 'lucide-react';
+import { Briefcase, ChevronDown, Clock, Eye, EyeOff, Gift, Plus, Snowflake, Tag, Trash2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorServices } from '@/lib/vendor-services';
 import { fetchVendorBranches } from '@/lib/vendor-branches';
+import {
+  fetchVendorPoolBookings,
+  fetchVendorBlocks,
+} from '@/lib/vendor-schedule';
+import {
+  deriveLeanMonths,
+  formatLeanMonths,
+  suggestPromoExpiry,
+} from '@/lib/vendor-lean-months';
 import { tierCaps, asVendorTier, canPlotTimeSlots } from '@/lib/vendor-tier-caps';
 import {
   fetchVendorTimeSlotsByService,
@@ -45,7 +54,16 @@ import {
 export const metadata = { title: 'Services · Vendor' };
 
 type Props = {
-  searchParams: Promise<{ saved?: string; error?: string; add?: string; requested?: string }>;
+  searchParams: Promise<{
+    saved?: string;
+    error?: string;
+    add?: string;
+    requested?: string;
+    /** Off-Season Promos nudge — when set to one of the vendor's own
+     *  vendor_service_id values, that service's Discount section opens
+     *  pre-filled with an `off_peak` discount keyed to the lean months. */
+    offpeak?: string;
+  }>;
 };
 
 type CategoryRequestRow = {
@@ -183,6 +201,72 @@ export default async function VendorServicesPage({ searchParams }: Props) {
   const labelFor = (cat: VendorCategory): string =>
     tax ? labelForVendorCategory(cat, tax) : VENDOR_CATEGORY_LABEL[cat];
 
+  // ── Off-Season Promos nudge (Wave 5 "Soon" vendor benefit) ──────────────
+  // Derive the vendor's LEAN months from their own booking calendar (pool
+  // bookings + calendar blocks), falling back to the admin-seeded
+  // wedding_season_factors troughs, then a conservative PH off-season default.
+  // We then surface a one-line nudge: "Your <months> look light — launch an
+  // off-season offer", whose CTA pre-fills the EXISTING `off_peak` discount
+  // fields on a chosen service (no new pricing schema).
+  //
+  // A vendor who already has a LIVE off-peak offer (off_peak discount with a
+  // future expiry on any active service) doesn't need the nudge — we suppress
+  // it so the page stays calm.
+  const now = new Date();
+  const hasLiveOffPeak = services.some(
+    (s) =>
+      s.is_active &&
+      s.discount_type === 'off_peak' &&
+      s.discount_expires_at !== null &&
+      new Date(s.discount_expires_at).getTime() > now.getTime(),
+  );
+  // The service the nudge CTA targets (its Discount section pre-fills). Prefer
+  // an active service; fall back to the first service so a vendor with only
+  // draft services can still be nudged.
+  const offPeakCandidate =
+    services.find((s) => s.is_active) ?? services[0] ?? null;
+  // When the URL targets a service for off-peak pre-fill, that service's
+  // editor opens pre-filled. Validate against the vendor's OWN services so a
+  // stray param can't pre-fill an arbitrary id.
+  const offPeakPrefillId =
+    typeof search.offpeak === 'string' &&
+    services.some((s) => s.vendor_service_id === search.offpeak)
+      ? search.offpeak
+      : null;
+
+  // Derive lean months when EITHER the nudge could show (no live offer yet +
+  // a candidate exists) OR the page was deep-linked to pre-fill a service.
+  // One booking-calendar read either way.
+  let leanMonthsLabel = '';
+  let suggestedExpiry: string | null = null;
+  let suggestedConditions = '';
+  let showOffSeasonNudge = false;
+  if ((!hasLiveOffPeak && offPeakCandidate) || offPeakPrefillId) {
+    try {
+      const [bookings, blocks] = await Promise.all([
+        fetchVendorPoolBookings(supabase, profile.vendor_profile_id),
+        fetchVendorBlocks(supabase, profile.vendor_profile_id),
+      ]);
+      const lean = await deriveLeanMonths(
+        bookings.map((b) => ({ date: b.bookedDate })),
+        blocks.map((b) => ({ date: b.startDate })),
+        { client: supabase, regionHint: profile.location_city },
+      );
+      leanMonthsLabel = formatLeanMonths(lean.months);
+      suggestedExpiry = suggestPromoExpiry(lean.months, now);
+      suggestedConditions = leanMonthsLabel
+        ? `Off-season rate for ${leanMonthsLabel} bookings.`
+        : 'Off-season rate for our lighter months.';
+      // Only nudge (banner) when there's a real lean signal + no live offer.
+      showOffSeasonNudge =
+        !hasLiveOffPeak && offPeakCandidate !== null && leanMonthsLabel.length > 0;
+    } catch {
+      // Calendar read hiccup → skip the nudge + pre-fill this load.
+      showOffSeasonNudge = false;
+    }
+  }
+  const offPeakTargetId = offPeakCandidate?.vendor_service_id ?? null;
+
   return (
     <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
       <header className="space-y-3">
@@ -224,6 +308,38 @@ export default async function VendorServicesPage({ searchParams }: Props) {
         >
           Thanks — we&rsquo;ll review your category request and get back to you. There&rsquo;s always a place for what you do.
         </p>
+      ) : null}
+
+      {/* Off-Season Promos nudge (Wave 5). Surfaced when the vendor's booking
+          calendar (or regional seasonality) points to lighter months and they
+          aren't already running a live off-peak offer. The CTA deep-links to
+          the target service's editor with ?offpeak=<id>, which opens its
+          Discount section pre-filled with an `off_peak` discount keyed to the
+          lean window. No new pricing schema — it reuses the existing per-
+          service discount fields. */}
+      {showOffSeasonNudge && offPeakTargetId ? (
+        <div className="flex flex-col gap-3 rounded-2xl border border-sky-300/60 bg-sky-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-700">
+              <Snowflake aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+            </span>
+            <div className="space-y-0.5">
+              <p className="text-sm font-semibold text-ink">
+                Your {leanMonthsLabel} look light — launch an off-season offer
+              </p>
+              <p className="text-xs text-ink/65">
+                Couples shopping these months will see your deal first. We&rsquo;ll
+                pre-fill an off-peak discount — you set the amount.
+              </p>
+            </div>
+          </div>
+          <Link
+            href={`/vendor-dashboard/services?offpeak=${offPeakTargetId}#svc-${offPeakTargetId}`}
+            className="button-primary shrink-0 whitespace-nowrap text-center"
+          >
+            Set up off-season offer
+          </Link>
+        </div>
       ) : null}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_2fr]">
@@ -430,8 +546,13 @@ export default async function VendorServicesPage({ searchParams }: Props) {
               {services.map((svc) => (
                 <li
                   key={svc.vendor_service_id}
-                  className={`rounded-2xl border bg-cream p-4 ${
+                  id={`svc-${svc.vendor_service_id}`}
+                  className={`scroll-mt-24 rounded-2xl border bg-cream p-4 ${
                     svc.is_active ? 'border-ink/10' : 'border-ink/10 opacity-70'
+                  } ${
+                    offPeakPrefillId === svc.vendor_service_id
+                      ? 'ring-2 ring-sky-300/70'
+                      : ''
                   }`}
                 >
                   <div className="mb-3 flex items-start justify-between gap-3">
@@ -623,13 +744,39 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                         defaultValue={svc.branch_id ?? ''}
                       />
                     ) : null}
-                    <DiscountFields
-                      idPrefix={svc.vendor_service_id}
-                      typeDefault={svc.discount_type ?? undefined}
-                      valueDefault={svc.discount_value ?? undefined}
-                      expiresDefault={svc.discount_expires_at ?? undefined}
-                      conditionsDefault={svc.discount_conditions_md ?? undefined}
-                    />
+                    {(() => {
+                      // Off-Season Promos pre-fill: when this is the deep-linked
+                      // target AND the service has no discount yet, seed the
+                      // Discount section with an `off_peak` type, the lean-window
+                      // conditions, and a suggested expiry. The vendor still
+                      // enters the discount amount (the value is theirs to set —
+                      // admin-policy safe, nothing hardcoded). Existing discounts
+                      // are never overwritten.
+                      const isPrefillTarget =
+                        offPeakPrefillId === svc.vendor_service_id &&
+                        !svc.discount_type;
+                      return (
+                        <DiscountFields
+                          idPrefix={svc.vendor_service_id}
+                          typeDefault={
+                            svc.discount_type ??
+                            (isPrefillTarget ? 'off_peak' : undefined)
+                          }
+                          valueDefault={svc.discount_value ?? undefined}
+                          expiresDefault={
+                            svc.discount_expires_at ??
+                            (isPrefillTarget && suggestedExpiry
+                              ? suggestedExpiry
+                              : undefined)
+                          }
+                          conditionsDefault={
+                            svc.discount_conditions_md ??
+                            (isPrefillTarget ? suggestedConditions : undefined)
+                          }
+                          forceOpen={isPrefillTarget}
+                        />
+                      );
+                    })()}
                     <ExclusivePerkField
                       idPrefix={svc.vendor_service_id}
                       perkDefault={svc.exclusive_perk_text ?? undefined}
@@ -944,14 +1091,18 @@ function DiscountFields({
   valueDefault,
   expiresDefault,
   conditionsDefault,
+  forceOpen = false,
 }: {
   idPrefix: string;
   typeDefault?: string;
   valueDefault?: number;
   expiresDefault?: string;
   conditionsDefault?: string;
+  /** Off-Season Promos: force the section open even with no saved discount,
+   *  so a deep-linked pre-fill is immediately visible. */
+  forceOpen?: boolean;
 }) {
-  const hasDiscount = Boolean(typeDefault);
+  const hasDiscount = Boolean(typeDefault) || forceOpen;
   // Convert stored ISO string to YYYY-MM-DD for <input type="date">
   let expiresDateVal = '';
   if (expiresDefault) {

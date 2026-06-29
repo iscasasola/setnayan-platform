@@ -5,10 +5,10 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchThreadById } from './chat';
+import { sendChatMessageCore } from './chat-send';
 import { resolveCounterpartyUserIds } from './chat-block';
 import { emitNotification } from './notification-emit';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
-import { tierCaps } from '@/lib/vendor-tier-caps';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 
 /**
@@ -73,162 +73,18 @@ export async function sendChatMessage(formData: FormData) {
   if (typeof threadId !== 'string' || typeof body !== 'string') {
     throw new Error('Invalid input');
   }
-  const trimmed = body.trim();
-  if (trimmed.length === 0) {
-    if (typeof returnTo === 'string' && returnTo.startsWith('/')) redirect(returnTo);
-    return;
-  }
-  if (trimmed.length > 4000) {
-    throw new Error('Message too long — max 4,000 characters');
-  }
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  const thread = await fetchThreadById(supabase, threadId);
-  if (!thread) throw new Error('Thread not found');
-
-  // Determine the user's role on this thread.
-  const [coupleCheck, vendorCheck] = await Promise.all([
-    supabase
-      .from('event_members')
-      .select('event_id')
-      .eq('event_id', thread.event_id)
-      .eq('user_id', user.id)
-      .eq('member_type', 'couple')
-      .maybeSingle(),
-    supabase
-      .from('vendor_profiles')
-      .select('vendor_profile_id')
-      .eq('vendor_profile_id', thread.vendor_profile_id)
-      .eq('user_id', user.id)
-      .maybeSingle(),
-  ]);
-
-  let senderRole: 'couple' | 'vendor';
-  if (coupleCheck.data) {
-    senderRole = 'couple';
-  } else if (vendorCheck.data) {
-    senderRole = 'vendor';
-  } else {
-    throw new Error('Not a member of this thread');
-  }
-
-  // Iteration 0028 follow-up — count existing messages on this thread so we
-  // can distinguish the FIRST couple-to-vendor message (a booking inquiry)
-  // from a subsequent reply in an ongoing conversation. The count runs via
-  // the admin client below; here we just record whether the recipient should
-  // see a "new inquiry" alert instead of the generic "new message" one.
-  const admin = createAdminClient();
-  let isFirstMessage = false;
-  // Existing message count on this thread BEFORE this insert. While the thread
-  // is pending only the couple can post (the vendor is accept-gated below), so
-  // this count == the number of couple messages so far. Used both for the
-  // "first message = inquiry" notification swap AND the one-follow-up gate.
-  let priorMessageCount = 0;
-  if (senderRole === 'couple') {
-    const { count } = await admin
-      .from('chat_messages')
-      .select('*', { count: 'exact', head: true })
-      .eq('thread_id', thread.thread_id);
-    priorMessageCount = count ?? 0;
-    isFirstMessage = priorMessageCount === 0;
-  }
-
-  // Accept-gate (CLAUDE.md 2026-06-02) — a couple→vendor chat only opens both
-  // ways once the vendor accepts. The couple may post their FIRST message (the
-  // inquiry) into a pending thread, PLUS exactly ONE follow-up nudge while they
-  // wait (inquiry-followthrough 2026-06-16) — so the couple can add a detail or
-  // gently bump a quiet vendor without forcing the chat open. Everything after
-  // that waits for acceptance. The vendor still cannot post until they have
-  // accepted (accept-gate semantics unchanged). Defense-in-depth — the UI hides
-  // the composer past the follow-up; this also guards the no-JS form path.
-  if (senderRole === 'couple') {
-    if (thread.inquiry_status === 'declined') {
-      throw new Error('This vendor declined the inquiry — browse similar vendors instead.');
+  const result = await sendChatMessageCore(supabase, { threadId, body });
+  if (!result.ok) {
+    // Empty body is a no-op redirect on web (the textarea simply stays put).
+    if (result.code === 'empty') {
+      if (typeof returnTo === 'string' && returnTo.startsWith('/')) redirect(returnTo);
+      return;
     }
-    // Allow the inquiry (priorMessageCount 0) and ONE follow-up (count 1).
-    // A second follow-up (count ≥ 2) re-disables until the vendor accepts.
-    if (thread.inquiry_status === 'pending' && priorMessageCount >= 2) {
-      throw new Error(
-        'You’ve sent a follow-up — waiting for the vendor to accept before you can keep chatting.',
-      );
-    }
-  } else if (thread.inquiry_status !== 'accepted') {
-    throw new Error('Accept the inquiry first to reply.');
+    if (result.code === 'unauthenticated') redirect('/login');
+    throw new Error(result.message);
   }
-
-  // Tier gate (Phase C #4). FREE vendors cannot message couples in-app
-  // (tierCaps.chat === 'none'); verified/pro/enterprise pass. The DB RPC
-  // `unlock_vendor_event` (migration 20260911000000:66-67) already raises
-  // TIER_FREE_NO_INAPP on the normal accept path, but `adminAcceptInquiry`
-  // (admin/demo-vendors/inquiries/actions.ts) sets inquiry_status='accepted'
-  // via the service-role client WITHOUT that RPC — so a claimed demo FREE
-  // vendor could otherwise reach this insert. This closes that hole.
-  // tier_state is excluded from FULL_VENDOR_PROFILE_SELECT → isolated probe
-  // (matches the branches/actions.ts soft-probe convention).
-  if (senderRole === 'vendor') {
-    let tier: string | null = null;
-    try {
-      const { data: tierRow } = await supabase
-        .from('vendor_profiles')
-        .select('tier_state')
-        .eq('vendor_profile_id', thread.vendor_profile_id)
-        .maybeSingle();
-      tier = (tierRow as { tier_state?: string } | null)?.tier_state ?? null;
-    } catch {
-      tier = null;
-    }
-    if (tierCaps(tier).chat === 'none') {
-      throw new Error('Get your account verified to message couples in the app.');
-    }
-  }
-
-  const { error } = await supabase.from('chat_messages').insert({
-    thread_id: thread.thread_id,
-    event_id: thread.event_id,
-    vendor_profile_id: thread.vendor_profile_id,
-    sender_user_id: user.id,
-    sender_role: senderRole,
-    body: trimmed,
-  });
-  if (error) throw new Error(error.message);
-
-  // vendor_first_reply_at — stamp the thread when the vendor sends their first
-  // message. The DB trigger `stamp_vendor_first_reply` (migration 20270110320018)
-  // does this atomically on every chat_messages INSERT where sender_role='vendor'
-  // and the thread's vendor_first_reply_at IS NULL, so this application-level
-  // path is defense-in-depth only. It is intentionally a best-effort UPDATE
-  // that never blocks the send — if the column doesn't exist yet (pre-migration)
-  // or the RLS policy denies the write, we log and continue.
-  if (senderRole === 'vendor' && !thread.vendor_first_reply_at) {
-    const adminForStamp = createAdminClient();
-    const { error: stampErr } = await adminForStamp
-      .from('chat_threads')
-      .update({ vendor_first_reply_at: new Date().toISOString() })
-      .eq('thread_id', thread.thread_id)
-      .is('vendor_first_reply_at', null); // idempotent: only stamps first reply
-    if (stampErr) {
-      // Non-fatal — DB trigger covers this path. Log for observability.
-      console.warn('[sendChatMessage] vendor_first_reply_at stamp skipped:', stampErr.message);
-    }
-  }
-
-  // Notify the OTHER party. The couple side notifies the vendor user;
-  // the vendor side notifies every couple member on the event. Use the
-  // admin client so the lookup bypasses RLS without leaking auth scope.
-  await notifyOtherParty({
-    threadId: thread.thread_id,
-    eventId: thread.event_id,
-    vendorProfileId: thread.vendor_profile_id,
-    senderRole,
-    senderUserId: user.id,
-    body: trimmed,
-    isFirstMessage,
-  });
 
   if (typeof returnTo === 'string' && returnTo.startsWith('/')) {
     revalidatePath(returnTo);

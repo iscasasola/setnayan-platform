@@ -10,6 +10,7 @@ import {
   Zap,
 } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { fetchFirstLookConfig, isFirstLookEligible } from '@/lib/firstlook';
 
 /**
  * vendor-stats-panel.tsx — Vendor performance dashboard panel.
@@ -426,6 +427,20 @@ export async function VendorStatsPanel({
   }
 
   const responseTimeLabel = formatResponseTime(stats.avg_response_minutes);
+
+  // First-Look Window (Wave 2) — the vendor earns the marketplace head-start +
+  // "Replies fast" badge when its responsiveness clears the admin SLA + rate
+  // floor (lib/firstlook, read defensively — the SLA column may still be
+  // mid-apply, falls back to {24h, 0.10}). "Earned" vs "At-risk" mirrors the
+  // exact gate the couple-facing matcher uses, so the chip is honest.
+  const firstLook = await fetchFirstLookConfig(supabase);
+  const firstLookEarned = isFirstLookEligible(
+    {
+      avg_response_minutes: stats.avg_response_minutes,
+      response_rate_pct: stats.response_rate_pct,
+    },
+    firstLook.slaHours,
+  );
   // Use passed-in count (already queried by home page) or fall back to
   // stats row so we don't add an extra DB round-trip.
   const completedCount =
@@ -470,12 +485,31 @@ export async function VendorStatsPanel({
     <section className="space-y-4">
       {/* Section header */}
       <div className="flex items-baseline justify-between">
-        <h2
-          className="font-mono text-[11px] uppercase tracking-[0.18em]"
-          style={{ color: 'var(--m-slate)' }}
-        >
-          Performance
-        </h2>
+        <div className="flex items-center gap-2">
+          <h2
+            className="font-mono text-[11px] uppercase tracking-[0.18em]"
+            style={{ color: 'var(--m-slate)' }}
+          >
+            Performance
+          </h2>
+          {/* First-Look chip — Earned (within SLA + rate floor) floats this
+              vendor in marketplace ranking; At-risk is a nudge, not alarm. */}
+          <span
+            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+              firstLookEarned
+                ? 'bg-emerald-500/12 text-emerald-700'
+                : 'bg-ink/8 text-ink/55'
+            }`}
+            title={
+              firstLookEarned
+                ? `First-Look: Earned — you reply within ${firstLook.slaHours}h, so you get a ranking head-start with couples.`
+                : `First-Look: At-risk — reply within ${firstLook.slaHours}h and keep your response rate up to earn a ranking head-start.`
+            }
+          >
+            <Zap className="h-3 w-3" strokeWidth={2} aria-hidden />
+            First-Look: {firstLookEarned ? 'Earned' : 'At-risk'}
+          </span>
+        </div>
         {lastUpdatedLabel ? (
           <span className="text-xs text-ink/40">
             Updated {lastUpdatedLabel}

@@ -94,7 +94,7 @@ export async function Hero({ forceKeynote = false }: { forceKeynote?: boolean } 
               fontWeight: 400,
             }}
           >
-            Your wedding is one day.
+            Keep your memories.
           </h1>
           <div className="mt-2 sm:mt-3.5">
             <span
@@ -106,7 +106,7 @@ export async function Hero({ forceKeynote = false }: { forceKeynote?: boolean } 
                 lineHeight: 1.02,
               }}
             >
-              Keep it <span className="text-[var(--m-orange)]">forever.</span>
+              Plan your <span className="text-[var(--m-orange)]">moments.</span>
             </span>
           </div>
           <div className="mt-4 flex items-center gap-3.5">
@@ -122,10 +122,9 @@ export async function Hero({ forceKeynote = false }: { forceKeynote?: boolean } 
             className="m-serif italic text-[var(--m-slate)] mt-5 sm:mt-8 max-w-[560px]"
             style={{ fontSize: 21, lineHeight: 1.65, textWrap: 'pretty' as 'pretty' }}
           >
-            Keep every photo, every video, every memory — in one place, for life.{' '}
+            The independent hub to store lifetime memories, design custom event media,{' '}
             <span className="not-italic font-[var(--font-sans-marketing,var(--font-sans))] text-[17px] text-[var(--m-ink)]">
-              The planning that gets you there — guest list, verified vendors, seating, schedule — runs in one
-              place, free from the day you start.
+              and plan any occasion — with powerful free tools.
             </span>
           </p>
           <div className="mt-4 hidden sm:inline-flex items-center gap-3 px-3.5 py-2.5 rounded-md bg-[var(--m-ivory)] border border-[var(--m-line)] max-w-[560px]">
@@ -142,11 +141,29 @@ export async function Hero({ forceKeynote = false }: { forceKeynote?: boolean } 
               links, so the hero sells one thing — start planning. */}
           <div className="flex gap-3 mt-6 sm:mt-8 flex-wrap">
             <Link href="/onboarding/wedding" className="m-btn m-btn-primary m-btn-lg">
-              Start planning <span className="text-[var(--m-orange-3)]">· free</span>
+              Launch web app <span className="text-[var(--m-orange-3)]">· free</span>
             </Link>
             <Link href="/tour" className="m-btn m-btn-ghost m-btn-lg">
-              See a real wedding →
+              See a real event →
             </Link>
+          </div>
+          {/* One hub, every device — cross-platform download cross-links (the
+              /download hub shows what's live per platform; macOS ships today,
+              the app stores + Windows installer follow as each goes live). */}
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+            <span className="m-mono text-[11px] tracking-[0.16em] uppercase text-[var(--m-slate-2)]">
+              One hub, every device
+            </span>
+            <Link href="/download" className="text-[13px] text-[var(--m-ink)] underline underline-offset-2 hover:text-[var(--m-orange-2)]">
+              App Store
+            </Link>
+            <Link href="/download" className="text-[13px] text-[var(--m-ink)] underline underline-offset-2 hover:text-[var(--m-orange-2)]">
+              Google Play
+            </Link>
+            <Link href="/download" className="text-[13px] text-[var(--m-ink)] underline underline-offset-2 hover:text-[var(--m-orange-2)]">
+              Windows
+            </Link>
+            <span className="text-[13px] text-[var(--m-slate-2)]">· or use it free in your browser</span>
           </div>
           <div className="m-mono text-xs text-[var(--m-slate-2)] mt-6 flex gap-3.5 flex-wrap items-center">
             <span>Built in the Philippines</span>

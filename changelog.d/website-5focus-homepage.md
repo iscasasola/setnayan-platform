@@ -1,0 +1,8 @@
+## 2026-06-28 · feat(homepage): 5-focus reframe — memory-centric hero + features grouped under the 5 parents
+
+Phase 1 of the "Memories Hub & Independent Event App" reframe (owner system-design 2026-06-28). Names apply to the homepage + app shell only — public URLs are unchanged (no SEO migration); 0% commission retained; no prices hardcoded.
+
+- Hero (`_sections.tsx`): headline → "Keep your memories. / Plan your moments."; subhead → "The independent hub to store lifetime memories, design custom event media, and plan any occasion — with powerful free tools."; primary CTA → "Launch web app · free"; secondary → "See a real event →"; new cross-platform "One hub, every device" band (App Store · Google Play · Windows → `/download`, plus browser). NOTE: this is the keynote/fallback hero — the live homepage shows the admin-published scroll-scrub video until it's re-published, so the new copy is visible via `?hero=text` and wherever the video is unpublished.
+- Homepage overview (`FeaturesNarrative.tsx`): replaced the flat 14-feature chip cloud with the **5 parent focuses** — Memories Hub · Ala ala Set · Planado · Setnayan AI · Marketplace — each a card with its modules and a short blurb. Gold chips = free (Memories Hub, Planado); white = paid (Ala ala Set, Setnayan AI, Marketplace). Category headers link to live doorways where they exist (Ala ala Set → /alaala, Setnayan AI → /setnayan-ai, Marketplace → /explore). Panels 1–3 (free tools / premium / marketplace step-through) unchanged.
+
+SPEC IMPACT: Recorded in `03_Strategy/Website_Master_Plan_2026-06-28.md` + DECISION_LOG 2026-06-28 (5-focus architecture). Homepage presentation only; no schema, no routes renamed, no pricing change.

@@ -31,25 +31,64 @@ import { usePanelIntro, PanelThread } from './_premium';
 // were previously only reachable by typing the URL.)
 type OverviewTile = { name: string; href?: string };
 
-const OVERVIEW_FREE: OverviewTile[] = [
-  { name: 'Guest List' },
-  { name: 'Seat Plan', href: '/pa3d' },
-  { name: 'Budget' },
-  { name: 'Timeline' },
-  { name: 'Mood Board' },
-  { name: 'Checklist' },
-  { name: 'Save the Date' },
-  { name: 'Website', href: '/pawebsite' },
-];
-const OVERVIEW_PAID: OverviewTile[] = [
-  { name: 'Setnayan AI', href: '/setnayan-ai' },
-  { name: 'Papic', href: '/papic' },
-  { name: 'Monogram', href: '/palogo' },
-  { name: 'Panood', href: '/panood' },
-  { name: 'Pakanta' },
-  { name: 'Contracts' },
-  { name: 'Cinematic Reveal' },
-  { name: 'Patiktok', href: '/patiktok' },
+// The 5 parent focuses (owner system-design 2026-06-28). Gold chips (free) =
+// Memories Hub + Planado; white chips (paid) = Ala ala Set + Setnayan AI +
+// Marketplace. Names apply to the homepage + app shell; public URLs unchanged.
+type OverviewCategory = {
+  name: string;
+  blurb: string;
+  href?: string;
+  variant: 'free' | 'paid';
+  tiles: OverviewTile[];
+};
+
+const CATEGORIES: OverviewCategory[] = [
+  {
+    name: 'Memories Hub',
+    blurb: 'Every photo, video, and memory — kept for life, across every event you hold or attend.',
+    variant: 'free',
+    tiles: [{ name: 'Lifetime gallery' }, { name: 'Every event' }, { name: 'Relive anytime' }],
+  },
+  {
+    name: 'Ala ala Set',
+    blurb: 'The creative studio for your event media — five tools, woven into one living memory.',
+    href: '/alaala',
+    variant: 'paid',
+    tiles: [
+      { name: 'Papic', href: '/papic' },
+      { name: 'Panood', href: '/panood' },
+      { name: 'Pa3D', href: '/pa3d' },
+      { name: 'Pawebsite', href: '/pawebsite' },
+      { name: 'PaLogo', href: '/palogo' },
+    ],
+  },
+  {
+    name: 'Planado',
+    blurb: 'The free management suite — everything you need to plan any occasion.',
+    variant: 'free',
+    tiles: [
+      { name: 'Guest List' },
+      { name: 'Seat Plan' },
+      { name: 'Budget' },
+      { name: 'Timeline' },
+      { name: 'Mood Board' },
+      { name: 'Checklist' },
+    ],
+  },
+  {
+    name: 'Setnayan AI',
+    blurb: 'The engine woven through Planado and the Marketplace — finds your vendors, drafts your timeline, adapts your checklist.',
+    href: '/setnayan-ai',
+    variant: 'paid',
+    tiles: [{ name: 'Vendor match' }, { name: 'Smart timeline' }, { name: 'Adaptive checklist' }],
+  },
+  {
+    name: 'Marketplace',
+    blurb: 'Verified Filipino vendors — with 0% commission on every booking.',
+    href: '/explore',
+    variant: 'paid',
+    tiles: [{ name: 'Verified vendors', href: '/explore' }, { name: '0% commission' }, { name: 'Contracts' }],
+  },
 ];
 
 // ─── Panel 1 data ──────────────────────────────────────────────────────────
@@ -376,7 +415,7 @@ function PanelOverview({ onNext }: { onNext: () => void }) {
           className="m-mono text-center"
           style={{ fontSize: 11, letterSpacing: '.24em', textTransform: 'uppercase', color: 'var(--m-orange-3)', marginBottom: 20 }}
         >
-          One platform
+          Five focuses
         </div>
 
         <h2
@@ -384,36 +423,64 @@ function PanelOverview({ onNext }: { onNext: () => void }) {
           className="m-serif italic text-center"
           style={{ color: '#FBFBFA', fontSize: 'clamp(2.4rem, 6.5vw, 4.2rem)', lineHeight: 1.05, maxWidth: 740, marginBottom: 20 }}
         >
-          Sixteen features.{' '}
+          Five focuses.{' '}
           <span style={{ color: 'var(--m-orange-3)' }}>One home.</span>
         </h2>
 
         <p
           data-premium-item
           className="text-center"
-          style={{ color: 'rgba(251,251,250,.62)', fontSize: 'clamp(1rem, 2.4vw, 1.15rem)', lineHeight: 1.65, maxWidth: 540, marginBottom: 52 }}
+          style={{ color: 'rgba(251,251,250,.62)', fontSize: 'clamp(1rem, 2.4vw, 1.15rem)', lineHeight: 1.65, maxWidth: 560, marginBottom: 48 }}
         >
-          A live guest photo gallery, an AI that finds your vendors — the things other planners
-          don&rsquo;t have. Plus everything you need to plan, free. All on one platform.
+          Keep your memories, create your event media, plan any occasion, get matched, and book
+          verified vendors — all in one hub.{' '}
+          <span style={{ color: 'rgba(251,251,250,.85)' }}>Gold is free.</span>
         </p>
 
-        {/* The 14-tile preview: 6 bright (free) + 8 dimmer (paid) */}
+        {/* The 5 parent focuses, each a card with its modules. */}
         <div
           data-premium-item
           style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 8,
-            justifyContent: 'center',
-            maxWidth: 700,
-            marginBottom: 52,
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(270px, 1fr))',
+            gap: 14,
+            width: '100%',
+            maxWidth: 1000,
+            marginBottom: 48,
           }}
         >
-          {OVERVIEW_FREE.map((tile) => (
-            <OverviewChip key={tile.name} tile={tile} variant="free" />
-          ))}
-          {OVERVIEW_PAID.map((tile) => (
-            <OverviewChip key={tile.name} tile={tile} variant="paid" />
+          {CATEGORIES.map((cat) => (
+            <div
+              key={cat.name}
+              style={{
+                border: '1px solid rgba(255,255,255,.1)',
+                background: 'rgba(255,255,255,.03)',
+                borderRadius: 16,
+                padding: '20px 18px',
+                textAlign: 'left',
+              }}
+            >
+              <div style={{ marginBottom: 12 }}>
+                {cat.href ? (
+                  <Link
+                    href={cat.href}
+                    className="group"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}
+                  >
+                    <span className="m-serif italic" style={{ fontSize: 22, color: '#FBFBFA' }}>{cat.name}</span>
+                    <span style={{ color: 'var(--m-orange-3)' }} aria-hidden>→</span>
+                  </Link>
+                ) : (
+                  <span className="m-serif italic" style={{ fontSize: 22, color: '#FBFBFA' }}>{cat.name}</span>
+                )}
+                <p style={{ color: 'rgba(251,251,250,.55)', fontSize: 13.5, lineHeight: 1.55, marginTop: 6 }}>{cat.blurb}</p>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+                {cat.tiles.map((tile) => (
+                  <OverviewChip key={tile.name} tile={tile} variant={cat.variant} />
+                ))}
+              </div>
+            </div>
           ))}
         </div>
 

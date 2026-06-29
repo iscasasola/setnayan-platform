@@ -3042,3 +3042,229 @@ export async function acknowledgeDeposit(
   if (env.status === 'not_recorded') return { status: 'not_recorded' };
   return { status: 'error', message: `Unexpected acknowledge status: ${env.status ?? 'none'}` };
 }
+
+// ==========================================================================
+// Change-Order Trail (Wave 3 · booking-lifecycle cluster)
+//
+// The missing booking-lifecycle artifact: a BOTH-ACKNOWLEDGED record of a
+// mid-plan add-on or removal. Line items (event_vendor_line_items) are
+// unilaterally couple-edited today — no audit trail, no vendor sign-off when
+// scope/price changes after booking. A change order is a propose →
+// accept/decline/withdraw STATE MACHINE on a ROW (like vendor_proposals /
+// event_schedule_suggestions) — NEVER a 2-way write into the other side's data.
+//
+// OFF-PLATFORM MONEY / 0% COMMISSION (owner lock): Setnayan NEVER holds funds.
+// delta_amount_php is a host/vendor-entered PHP figure (signed: +add-on /
+// −removal). On ACCEPT the single-winner accept_change_order RPC settles it into
+// the existing budget ledger (event_vendor_line_items) — the single source of
+// truth — and is single-winner + idempotent. No gateway, no OR, no tax.
+//
+// These are the COUPLE-side actions (raise / accept / decline / withdraw); the
+// VENDOR-side mirror lives in vendor-dashboard/clients/[eventId]/actions.ts.
+// ==========================================================================
+
+/**
+ * raiseChangeOrder — COUPLE raises a change order against a booked vendor.
+ *
+ * Inserts a `proposed` vendor_change_orders row (RLS-gated: couple-on-event +
+ * raised_by='couple' + proposed_by_user_id=auth.uid()). The signed delta is
+ * derived from a positive magnitude (`amount_php`) and an explicit
+ * `change_kind` ∈ add-on/removal — removals are stored negative. The vendor
+ * acknowledges (accept/decline) on their client page; only on ACCEPT does the
+ * RPC settle the delta into the budget ledger. Notifies the vendor best-effort.
+ */
+export async function raiseChangeOrder(
+  formData: FormData,
+): Promise<{ status: 'ok' | 'error' | 'not_signed_in'; message?: string }> {
+  const eventId = formData.get('event_id');
+  const vendorId = formData.get('vendor_id');
+  if (typeof eventId !== 'string' || typeof vendorId !== 'string') {
+    return { status: 'error', message: 'Invalid input' };
+  }
+  const title = nullIfBlank(formData.get('title'));
+  if (!title) {
+    return { status: 'error', message: 'Give the change order a short title.' };
+  }
+  const magnitude = parseMoney(formData.get('amount_php'));
+  if (magnitude === null || magnitude <= 0) {
+    return { status: 'error', message: 'Enter the change amount in pesos.' };
+  }
+  const kind = formData.get('change_kind');
+  const isRemoval = kind === 'removal';
+  const delta = isRemoval ? -magnitude : magnitude;
+  const dueDateRaw = formData.get('proposed_due_date');
+  const dueDate = typeof dueDateRaw === 'string' && dueDateRaw.length > 0 ? dueDateRaw : null;
+  const description = (() => {
+    const d = nullIfBlank(formData.get('description'));
+    return d ? d.slice(0, 2000) : null;
+  })();
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { status: 'not_signed_in' };
+
+  // RLS-gated read (couple-on-event). Resolve the vendor profile so the row
+  // carries the denormalized vendor_profile_id the vendor-side read RLS keys on.
+  const { data: row, error: readErr } = await supabase
+    .from('event_vendors')
+    .select('vendor_id, vendor_name, marketplace_vendor_id')
+    .eq('vendor_id', vendorId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (readErr) return { status: 'error', message: readErr.message };
+  if (!row) return { status: 'error', message: 'Vendor not found on this event.' };
+  const ev = row as {
+    vendor_id: string;
+    vendor_name: string | null;
+    marketplace_vendor_id: string | null;
+  };
+
+  const { error: insertErr } = await supabase.from('vendor_change_orders').insert({
+    event_vendor_id: vendorId,
+    event_id: eventId,
+    vendor_profile_id: ev.marketplace_vendor_id,
+    raised_by: 'couple',
+    title: title.slice(0, 120),
+    description,
+    delta_amount_php: delta,
+    proposed_due_date: dueDate,
+    status: 'proposed',
+    proposed_by_user_id: user.id,
+  });
+  if (insertErr) return { status: 'error', message: insertErr.message };
+
+  // Notify the vendor a change order awaits their acknowledgement. Best-effort.
+  if (ev.marketplace_vendor_id) {
+    const { data: vp } = await createAdminClient()
+      .from('vendor_profiles')
+      .select('user_id')
+      .eq('vendor_profile_id', ev.marketplace_vendor_id)
+      .maybeSingle();
+    const vendorUserId = (vp as { user_id?: string } | null)?.user_id ?? null;
+    if (vendorUserId) {
+      await emitNotification({
+        userId: vendorUserId,
+        type: 'schedule_suggestion',
+        title: 'A couple proposed a change order',
+        body: `${title.slice(0, 80)} — open the client to accept or decline.`,
+        relatedUrl: `/vendor-dashboard/clients/${eventId}`,
+      });
+    }
+  }
+
+  revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`, 'layout');
+  return { status: 'ok' };
+}
+
+/**
+ * respondChangeOrder — COUPLE accepts/declines a VENDOR-raised change order.
+ *
+ * Forwards to the single-winner accept_change_order / decline_change_order
+ * SECURITY DEFINER RPCs (SELECT … FOR UPDATE + status=proposed precondition;
+ * idempotent). Ownership (couple is the counterparty to a vendor-raised order)
+ * is enforced inside the RPC. On accept the RPC settles the delta into
+ * event_vendor_line_items atomically. Notifies the vendor best-effort.
+ */
+export async function respondChangeOrder(
+  formData: FormData,
+): Promise<{ status: 'ok' | 'already' | 'error' | 'not_signed_in'; message?: string }> {
+  const eventId = formData.get('event_id');
+  const vendorId = formData.get('vendor_id');
+  const changeOrderId = formData.get('change_order_id');
+  const decision = formData.get('decision');
+  if (
+    typeof eventId !== 'string' ||
+    typeof vendorId !== 'string' ||
+    typeof changeOrderId !== 'string' ||
+    (decision !== 'accept' && decision !== 'decline')
+  ) {
+    return { status: 'error', message: 'Invalid input' };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { status: 'not_signed_in' };
+
+  const { data, error } =
+    decision === 'accept'
+      ? await supabase.rpc('accept_change_order', { p_change_order_id: changeOrderId })
+      : await supabase.rpc('decline_change_order', {
+          p_change_order_id: changeOrderId,
+          p_reason: nullIfBlank(formData.get('reason')),
+        });
+  if (error) return { status: 'error', message: error.message };
+  const env = (data ?? {}) as { status?: string };
+
+  // Notify the vendor only on a fresh resolution (status 'ok'). Best-effort.
+  if (env.status === 'ok') {
+    const { data: co } = await supabase
+      .from('vendor_change_orders')
+      .select('vendor_profile_id, title')
+      .eq('change_order_id', changeOrderId)
+      .maybeSingle();
+    const vendorProfileId = (co as { vendor_profile_id?: string } | null)?.vendor_profile_id ?? null;
+    const coTitle = (co as { title?: string } | null)?.title ?? 'Change order';
+    if (vendorProfileId) {
+      const { data: vp } = await createAdminClient()
+        .from('vendor_profiles')
+        .select('user_id')
+        .eq('vendor_profile_id', vendorProfileId)
+        .maybeSingle();
+      const vendorUserId = (vp as { user_id?: string } | null)?.user_id ?? null;
+      if (vendorUserId) {
+        await emitNotification({
+          userId: vendorUserId,
+          type: 'schedule_suggestion',
+          title: decision === 'accept' ? 'Change order accepted' : 'Change order declined',
+          body: `The couple ${decision === 'accept' ? 'accepted' : 'declined'} "${coTitle.slice(0, 80)}".`,
+          relatedUrl: `/vendor-dashboard/clients/${eventId}`,
+        });
+      }
+    }
+  }
+
+  revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`, 'layout');
+  if (env.status === 'ok') return { status: 'ok' };
+  if (env.status === 'already') return { status: 'already' };
+  return { status: 'error', message: `Unexpected change-order status: ${env.status ?? 'none'}` };
+}
+
+/**
+ * withdrawChangeOrder — COUPLE retracts their own (couple-raised) proposed
+ * change order. Forwards to the single-winner withdraw_change_order RPC.
+ */
+export async function withdrawChangeOrder(
+  formData: FormData,
+): Promise<{ status: 'ok' | 'already' | 'error' | 'not_signed_in'; message?: string }> {
+  const eventId = formData.get('event_id');
+  const vendorId = formData.get('vendor_id');
+  const changeOrderId = formData.get('change_order_id');
+  if (
+    typeof eventId !== 'string' ||
+    typeof vendorId !== 'string' ||
+    typeof changeOrderId !== 'string'
+  ) {
+    return { status: 'error', message: 'Invalid input' };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { status: 'not_signed_in' };
+
+  const { data, error } = await supabase.rpc('withdraw_change_order', {
+    p_change_order_id: changeOrderId,
+  });
+  if (error) return { status: 'error', message: error.message };
+  const env = (data ?? {}) as { status?: string };
+
+  revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`, 'layout');
+  if (env.status === 'ok') return { status: 'ok' };
+  if (env.status === 'already') return { status: 'already' };
+  return { status: 'error', message: `Unexpected change-order status: ${env.status ?? 'none'}` };
+}

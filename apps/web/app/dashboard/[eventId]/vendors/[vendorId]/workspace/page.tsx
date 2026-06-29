@@ -55,6 +55,7 @@ import { updateVendorCosts } from '../../actions';
 import { createAutoShareInviteAction } from './actions';
 import { HostServiceDetails } from './_components/host-service-details';
 import { DepositReservation } from './_components/deposit-reservation';
+import { ChangeOrderTrail, type ChangeOrderRow } from './_components/change-order-trail';
 import { fetchVendorBudgetSummary } from '@/lib/budget';
 import { fetchPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
@@ -264,6 +265,18 @@ export default async function VendorWorkspacePage({ params }: Props) {
     covers_plan_groups: string[] | null;
     created_at: string;
   };
+
+  // Change-Order Trail (Wave 3) — the both-acknowledged add-on/removal log for
+  // this booking. RLS-gated to couple-on-event reads. Rendered immutable-trail
+  // style; the couple raises + responds to vendor-raised orders via the RPCs.
+  const { data: changeOrderRows } = await supabase
+    .from('vendor_change_orders')
+    .select(
+      'change_order_id, raised_by, title, description, delta_amount_php, proposed_due_date, status, acknowledged_at, decline_reason, created_at',
+    )
+    .eq('event_vendor_id', ev.vendor_id)
+    .order('created_at', { ascending: false });
+  const changeOrders = (changeOrderRows ?? []) as ChangeOrderRow[];
 
   // DIY parity (2026-06-11): "also covers" options for the host-authored
   // links on a manual vendor — every plan group except this vendor's own.
@@ -997,6 +1010,19 @@ export default async function VendorWorkspacePage({ params }: Props) {
             depositRecordedAt={ev.deposit_recorded_at}
             depositAcknowledgedAt={ev.deposit_acknowledged_at}
             depositProofUrl={ev.deposit_proof_url}
+          />
+
+          {/*
+            Change-Order Trail — the both-acknowledged add-on/removal log. The
+            couple raises a change order; the vendor accepts/declines on their
+            client page. On accept the delta settles into the budget ledger.
+            Setnayan never holds the money — the amount is the couple's record.
+          */}
+          <ChangeOrderTrail
+            eventId={eventId}
+            vendorId={ev.vendor_id}
+            vendorName={displayName}
+            changeOrders={changeOrders}
           />
 
           {vendorBudgetSummary ? (

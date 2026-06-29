@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   Church,
   Clock3,
+  FilePlus2,
   FileText,
   LayoutGrid,
   Martini,
@@ -26,6 +27,9 @@ import {
   suggestScheduleChange,
   vendorMarkServiceComplete,
   vendorAcknowledgeDeposit,
+  vendorRaiseChangeOrder,
+  vendorRespondChangeOrder,
+  vendorWithdrawChangeOrder,
 } from './actions';
 
 export const metadata = { title: 'Event Brief · Vendor' };
@@ -149,6 +153,42 @@ function fmtTime(iso: string | null): string | null {
   return new Date(iso).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' });
 }
 
+// Change-Order Trail formatters (signed delta + short date).
+function fmtCODate(iso: string | null): string {
+  if (!iso) return '';
+  try {
+    return new Date(iso).toLocaleDateString('en-PH', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  } catch {
+    return '';
+  }
+}
+
+function fmtDelta(raw: number | string | null): string {
+  const n = typeof raw === 'string' ? Number(raw) : raw;
+  if (n === null || !Number.isFinite(n)) return '—';
+  const abs = Math.abs(n).toLocaleString('en-PH', {
+    style: 'currency',
+    currency: 'PHP',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
+  return n < 0 ? `−${abs}` : `+${abs}`;
+}
+
+const CO_STATUS: Record<
+  VendorChangeOrderRow['status'],
+  { label: string; cls: string }
+> = {
+  proposed: { label: 'Awaiting response', cls: 'border-warn-300 bg-warn-50 text-warn-900' },
+  accepted: { label: 'Accepted', cls: 'border-success-400 bg-success-50 text-success-700' },
+  declined: { label: 'Declined', cls: 'border-ink/15 bg-ink/5 text-ink/60' },
+  withdrawn: { label: 'Withdrawn', cls: 'border-ink/15 bg-ink/5 text-ink/60' },
+};
+
 type LiveBlock = {
   block_id: string;
   label: string;
@@ -167,9 +207,28 @@ type SuggestionRow = {
   created_at: string;
 };
 
+type VendorChangeOrderRow = {
+  change_order_id: string;
+  raised_by: 'couple' | 'vendor';
+  title: string | null;
+  description: string | null;
+  delta_amount_php: number | string | null;
+  proposed_due_date: string | null;
+  status: 'proposed' | 'accepted' | 'declined' | 'withdrawn';
+  acknowledged_at: string | null;
+  decline_reason: string | null;
+  created_at: string;
+};
+
 type Props = {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ suggest?: string; lens?: string; deposit_ack?: string }>;
+  searchParams: Promise<{
+    suggest?: string;
+    lens?: string;
+    deposit_ack?: string;
+    change_order?: string;
+    change_order_resp?: string;
+  }>;
 };
 
 export default async function VendorEventBriefPage({ params, searchParams }: Props) {
@@ -270,6 +329,21 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
   const hasContract = (contractRes.data?.length ?? 0) > 0;
   const allBlocks = (liveBlocks ?? []) as LiveBlock[];
   const suggestions = (mySuggestions ?? []) as SuggestionRow[];
+
+  // Change-Order Trail (Wave 3) — the both-acknowledged add-on/removal log for
+  // this booking, sitting beside the Suggest flow. RLS-gated to the vendor's
+  // own bookings (booked event + own profile). The vendor raises + responds to
+  // couple-raised orders via the single-winner RPCs.
+  const { data: changeOrderRows } = eventVendorId
+    ? await supabase
+        .from('vendor_change_orders')
+        .select(
+          'change_order_id, raised_by, title, description, delta_amount_php, proposed_due_date, status, acknowledged_at, decline_reason, created_at',
+        )
+        .eq('event_vendor_id', eventVendorId)
+        .order('created_at', { ascending: false })
+    : { data: null };
+  const changeOrders = (changeOrderRows ?? []) as VendorChangeOrderRow[];
   const blockLabel = new Map(allBlocks.map((b) => [b.block_id, b.label]));
 
   // ① Category-aware lens: deterministic relevance per block (rule map in
@@ -466,6 +540,196 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
                 </SubmitButton>
               </form>
             </div>
+          )}
+        </div>
+      ) : null}
+
+      {/* Change-Order Trail (Wave 3) — the both-acknowledged add-on/removal log,
+          sitting beside the Suggest flow. The vendor proposes; the couple
+          accepts/declines on their workspace. On accept the delta settles into
+          the couple's budget ledger via the single-winner accept RPC. No money
+          moves — 0% commission, off-platform pay. */}
+      {eventVendorId ? (
+        <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+          <div className="mb-3 flex items-center gap-2">
+            <FilePlus2 aria-hidden className="h-5 w-5 shrink-0 text-terracotta" strokeWidth={1.75} />
+            <h2 className="text-sm font-semibold text-ink">Change orders</h2>
+          </div>
+
+          {search.change_order === 'sent' || search.change_order_resp === 'ok' ? (
+            <p className="mb-3 rounded-lg bg-success-50 px-3 py-2 text-xs text-success-700">
+              Done — the couple has been notified.
+            </p>
+          ) : null}
+          {search.change_order === 'error' || search.change_order_resp === 'error' ? (
+            <p role="alert" className="mb-3 rounded-lg bg-warn-50 px-3 py-2 text-xs text-warn-900">
+              That didn&rsquo;t go through — try again.
+            </p>
+          ) : null}
+
+          <p className="mb-3 text-sm text-ink/65">
+            Added or dropped something after booking? Log a change order — the
+            couple accepts or declines, and an accepted change updates their
+            budget. Setnayan never holds the money.
+          </p>
+
+          {/* Propose a change (vendor-raised). */}
+          <details className="mb-4 rounded-xl border border-ink/10 bg-white p-3">
+            <summary className="cursor-pointer text-sm font-medium text-terracotta">
+              Propose a change
+            </summary>
+            <form action={vendorRaiseChangeOrder} className="mt-3 space-y-3">
+              <input type="hidden" name="event_id" value={eventId} />
+              <div className="flex flex-wrap items-center gap-4 text-xs text-ink/70">
+                <label className="inline-flex items-center gap-1.5">
+                  <input type="radio" name="change_kind" value="add-on" defaultChecked />
+                  Add-on (adds cost)
+                </label>
+                <label className="inline-flex items-center gap-1.5">
+                  <input type="radio" name="change_kind" value="removal" />
+                  Removal (credit back)
+                </label>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block text-xs font-medium text-ink/70">
+                  What&rsquo;s changing
+                  <input
+                    type="text"
+                    name="title"
+                    required
+                    maxLength={120}
+                    placeholder="e.g. Extra hour of coverage"
+                    className="mt-1 w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+                  />
+                </label>
+                <label className="block text-xs font-medium text-ink/70">
+                  Amount (₱)
+                  <input
+                    type="number"
+                    name="amount_php"
+                    min="1"
+                    step="0.01"
+                    required
+                    inputMode="decimal"
+                    placeholder="e.g. 5000"
+                    className="mt-1 w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+                  />
+                </label>
+              </div>
+              <label className="block text-xs font-medium text-ink/70">
+                Due date <span className="text-ink/40">(optional)</span>
+                <input
+                  type="date"
+                  name="proposed_due_date"
+                  className="mt-1 w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta sm:w-56"
+                />
+              </label>
+              <label className="block text-xs font-medium text-ink/70">
+                Details <span className="text-ink/40">(optional)</span>
+                <textarea
+                  name="description"
+                  rows={2}
+                  maxLength={2000}
+                  placeholder="Anything the couple should know"
+                  className="mt-1 w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+                />
+              </label>
+              <SubmitButton className="button-primary" pendingLabel="Sending…">
+                Send to couple
+              </SubmitButton>
+            </form>
+          </details>
+
+          {/* Trail. */}
+          {changeOrders.length === 0 ? (
+            <p className="text-xs italic text-ink/45">No change orders yet.</p>
+          ) : (
+            <ul className="space-y-2">
+              {changeOrders.map((co) => {
+                const chip = CO_STATUS[co.status];
+                const isCoupleRaised = co.raised_by === 'couple';
+                const isProposed = co.status === 'proposed';
+                const deltaNum =
+                  typeof co.delta_amount_php === 'string'
+                    ? Number(co.delta_amount_php)
+                    : co.delta_amount_php ?? 0;
+                return (
+                  <li
+                    key={co.change_order_id}
+                    className="rounded-xl border border-ink/10 bg-white px-3 py-2.5"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-ink">
+                          {co.title ?? 'Change order'}
+                          <span className="font-normal text-ink/40">·</span>
+                          <span
+                            className={`font-mono ${deltaNum < 0 ? 'text-success-700' : 'text-ink/75'}`}
+                          >
+                            {fmtDelta(co.delta_amount_php)}
+                          </span>
+                        </p>
+                        <p className="text-[11px] text-ink/50">
+                          {isCoupleRaised ? 'Couple proposed' : 'You proposed'} ·{' '}
+                          {fmtCODate(co.created_at)}
+                          {co.proposed_due_date ? ` · due ${fmtCODate(co.proposed_due_date)}` : ''}
+                        </p>
+                        {co.description ? (
+                          <p className="mt-1 text-xs text-ink/60">{co.description}</p>
+                        ) : null}
+                        {co.status === 'declined' && co.decline_reason ? (
+                          <p className="mt-1 text-xs text-ink/55">Reason: {co.decline_reason}</p>
+                        ) : null}
+                      </div>
+                      <span
+                        className={`inline-flex shrink-0 items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${chip.cls}`}
+                      >
+                        {chip.label}
+                      </span>
+                    </div>
+
+                    {/* Vendor is the counterparty to a COUPLE-raised proposed order. */}
+                    {isProposed && isCoupleRaised ? (
+                      <div className="mt-2 flex items-center gap-2">
+                        <form action={vendorRespondChangeOrder}>
+                          <input type="hidden" name="event_id" value={eventId} />
+                          <input type="hidden" name="change_order_id" value={co.change_order_id} />
+                          <input type="hidden" name="decision" value="accept" />
+                          <SubmitButton className="button-primary text-[11px]" pendingLabel="Accepting…">
+                            Accept
+                          </SubmitButton>
+                        </form>
+                        <form action={vendorRespondChangeOrder}>
+                          <input type="hidden" name="event_id" value={eventId} />
+                          <input type="hidden" name="change_order_id" value={co.change_order_id} />
+                          <input type="hidden" name="decision" value="decline" />
+                          <SubmitButton
+                            className="rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-[11px] font-medium text-ink/70 hover:bg-cream"
+                            pendingLabel="Declining…"
+                          >
+                            Decline
+                          </SubmitButton>
+                        </form>
+                      </div>
+                    ) : null}
+
+                    {/* Vendor withdraws their OWN proposed order. */}
+                    {isProposed && !isCoupleRaised ? (
+                      <form action={vendorWithdrawChangeOrder} className="mt-2">
+                        <input type="hidden" name="event_id" value={eventId} />
+                        <input type="hidden" name="change_order_id" value={co.change_order_id} />
+                        <SubmitButton
+                          className="rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-[11px] font-medium text-ink/70 hover:bg-cream"
+                          pendingLabel="Withdrawing…"
+                        >
+                          Withdraw
+                        </SubmitButton>
+                      </form>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </div>
       ) : null}

@@ -46,6 +46,51 @@ export const RELINQUISHED_STATUSES = new Set<string>([
 export const ACTIVE_STATUSES = new Set<string>(['paid', 'fulfilled']);
 
 /**
+ * Comp-grant gate (admin "Issue a comp grant" → app/admin/users/actions.ts).
+ *
+ * A comp grant gifts a user free in-app access. It is USER-scoped, but feature
+ * gates are EVENT-scoped, so the mapping (event → host users → their active
+ * grants) lives in the SECURITY DEFINER fn event_has_comp_for_sku() — see
+ * migration 20270322000000. Resolving host-scoping server-side is what makes
+ * this safe under the service-role admin client the gates routinely use: a bare
+ * client-side comp_grants read would see EVERY grant in the DB and leak access
+ * across accounts (the never-merged owner-all-services-grant branch's bug).
+ *
+ * Honors both scopes — 'all_services' and 'specific_skus' (containing the SKU) —
+ * and respects revoked_at + expiry. Graceful-degrade to false on ANY RPC error
+ * (pre-migration: PostgREST PGRST202 "function not found"), matching the
+ * order-helper contract so a missing function never throws at a gate.
+ */
+export async function eventHasCompGrant(
+  supabase: SupabaseClient,
+  eventId: string,
+  serviceKey: string,
+): Promise<boolean> {
+  const { data, error } = await supabase.rpc('event_has_comp_for_sku', {
+    p_event_id: eventId,
+    p_service_key: serviceKey,
+  });
+  if (error) return false;
+  return data === true;
+}
+
+/**
+ * Batch companion to eventHasCompGrant — every SKU the event's host comp grants
+ * cover. all_services → the full live catalog; specific_skus → just those codes.
+ * Empty array on no comp / any error. See migration 20270322000000.
+ */
+export async function eventCompActiveSkus(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<string[]> {
+  const { data, error } = await supabase.rpc('event_comp_active_skus', {
+    p_event_id: eventId,
+  });
+  if (error || !Array.isArray(data)) return [];
+  return data.filter((s): s is string => typeof s === 'string');
+}
+
+/**
  * Ownership ALIASES — purchase-time service_keys that confer the SAME ownership
  * as a canonical catalog SKU.
  *
@@ -280,10 +325,17 @@ export async function eventOwnsSku(
 
   // 2. Any bundle that includes this child SKU, owned by the event.
   const grantingBundles = BUNDLES_GRANTING_SKU.get(serviceKey);
-  if (!grantingBundles || grantingBundles.length === 0) return false;
-  for (const bundleKey of grantingBundles) {
-    if (await checkOrderOwnership(supabase, eventId, bundleKey)) return true;
+  if (grantingBundles && grantingBundles.length > 0) {
+    for (const bundleKey of grantingBundles) {
+      if (await checkOrderOwnership(supabase, eventId, bundleKey)) return true;
+    }
   }
+
+  // 3. Admin comp grant — a host of this event was gifted free access covering
+  //    this SKU (all_services or specific_skus). Host-scoped server-side so it
+  //    never leaks across accounts. Checked last: it's the rare path.
+  if (await eventHasCompGrant(supabase, eventId, serviceKey)) return true;
+
   return false;
 }
 
@@ -306,10 +358,16 @@ export async function eventSkuActive(
 ): Promise<boolean> {
   if (await checkOrderActive(supabase, eventId, serviceKey)) return true;
   const grantingBundles = BUNDLES_GRANTING_SKU.get(serviceKey);
-  if (!grantingBundles || grantingBundles.length === 0) return false;
-  for (const bundleKey of grantingBundles) {
-    if (await checkOrderActive(supabase, eventId, bundleKey)) return true;
+  if (grantingBundles && grantingBundles.length > 0) {
+    for (const bundleKey of grantingBundles) {
+      if (await checkOrderActive(supabase, eventId, bundleKey)) return true;
+    }
   }
+
+  // Admin comp grant — bypass the handshake gate too (a gifted feature is
+  // unlocked immediately; there's no payment to verify). Host-scoped server-side.
+  if (await eventHasCompGrant(supabase, eventId, serviceKey)) return true;
+
   return false;
 }
 
@@ -366,32 +424,44 @@ export async function eventActiveSkus(
     .eq('event_id', eventId)
     .in('status', ['paid', 'fulfilled', 'submitted', 'awaiting_payment']);
 
-  if (error || !data) return { active, pending };
-
   const childrenOf = (key: string): ReadonlyArray<string> =>
     (BUNDLE_CHILD_SKUS as Record<string, ReadonlyArray<string>>)[key] ?? [];
 
-  for (const row of data) {
-    const rawKey = row.service_key as string | null;
-    if (!rawKey) continue;
-    const status = (row.status as string | null) ?? '';
-    // Collapse a per-tier alias purchase key to its canonical SKU so a buyer
-    // reads as owning the canonical SKU (the key the Studio grid + add-on
-    // catalog gate on). Keep the raw key too — some surfaces read the per-tier
-    // code directly.
-    const canonical = CANONICAL_FOR_ALIAS.get(rawKey);
-    const keys = canonical ? [rawKey, canonical] : [rawKey];
-    if (ACTIVE_STATUSES.has(status)) {
-      for (const key of keys) {
-        active.add(key);
-        for (const child of childrenOf(key)) active.add(child);
-      }
-    } else if (status === 'submitted' || status === 'awaiting_payment') {
-      for (const key of keys) {
-        pending.add(key);
-        for (const child of childrenOf(key)) pending.add(child);
+  // Populate from orders when available. A missing/legacy orders table must not
+  // crash the hub — but it also must NOT skip the comp union below, so we guard
+  // the loop instead of early-returning.
+  if (!error && data) {
+    for (const row of data) {
+      const rawKey = row.service_key as string | null;
+      if (!rawKey) continue;
+      const status = (row.status as string | null) ?? '';
+      // Collapse a per-tier alias purchase key to its canonical SKU so a buyer
+      // reads as owning the canonical SKU (the key the Studio grid + add-on
+      // catalog gate on). Keep the raw key too — some surfaces read the per-tier
+      // code directly.
+      const canonical = CANONICAL_FOR_ALIAS.get(rawKey);
+      const keys = canonical ? [rawKey, canonical] : [rawKey];
+      if (ACTIVE_STATUSES.has(status)) {
+        for (const key of keys) {
+          active.add(key);
+          for (const child of childrenOf(key)) active.add(child);
+        }
+      } else if (status === 'submitted' || status === 'awaiting_payment') {
+        for (const key of keys) {
+          pending.add(key);
+          for (const child of childrenOf(key)) pending.add(child);
+        }
       }
     }
   }
+
+  // Admin comp grants — union every comped SKU into `active` (a gift is unlocked,
+  // never "pending"). all_services → the full live catalog; specific_skus → just
+  // those codes. Host-scoped server-side (event_comp_active_skus), so it never
+  // leaks across accounts. Graceful-degrade to [] pre-migration.
+  for (const sku of await eventCompActiveSkus(supabase, eventId)) {
+    active.add(sku);
+  }
+
   return { active, pending };
 }

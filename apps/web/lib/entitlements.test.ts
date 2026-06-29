@@ -61,6 +61,11 @@ function makeSupabase(result: QueryResult) {
     then(resolve: (value: QueryResult) => unknown) {
       return Promise.resolve(result).then(resolve);
     },
+    // No comp grant by default — `data: null` makes eventHasCompGrant() return
+    // false and eventCompActiveSkus() return [] (the no-gift path).
+    rpc() {
+      return Promise.resolve({ data: null, error: null });
+    },
   };
   return { supabase: builder as unknown as SupabaseClient, calls };
 }
@@ -167,7 +172,11 @@ test('RELINQUISHED_STATUSES is the canonical exported set', () => {
  * `owned` is the set of service_keys that should resolve to a live 'paid' row;
  * everything else resolves to zero rows.
  */
-function makeOwnedSupabase(owned: Set<string>, status = 'paid') {
+function makeOwnedSupabase(
+  owned: Set<string>,
+  status = 'paid',
+  comp?: { forSku?: Set<string> | 'all'; activeSkus?: string[] },
+) {
   // The ownership query now filters service_key via .in([canonical, ...aliases]).
   // Capture that key list and resolve "owned" when ANY of the queried keys is in
   // the owned set (so an alias order confers its canonical SKU too).
@@ -199,6 +208,20 @@ function makeOwnedSupabase(owned: Set<string>, status = 'paid') {
       // Reset for the next chained query (each check rebuilds).
       currentServiceKeys = null;
       return Promise.resolve({ data, error: null } as QueryResult).then(resolve);
+    },
+    // Stub the two comp-grant SECURITY DEFINER fns. Default = no comp.
+    rpc(fn: string, params: { p_service_key?: string }) {
+      if (fn === 'event_has_comp_for_sku') {
+        const sku = params?.p_service_key ?? '';
+        const hit =
+          comp?.forSku === 'all' ||
+          (comp?.forSku instanceof Set && comp.forSku.has(sku));
+        return Promise.resolve({ data: Boolean(hit), error: null });
+      }
+      if (fn === 'event_comp_active_skus') {
+        return Promise.resolve({ data: comp?.activeSkus ?? [], error: null });
+      }
+      return Promise.resolve({ data: null, error: null });
     },
   };
   return builder as unknown as SupabaseClient;
@@ -242,6 +265,33 @@ test('eventOwnsSku: a non-bundleable SKU with no direct order → not owned (no 
 test('eventOwnsSku: passing a bundle code directly works via the direct check', async () => {
   const supabase = makeOwnedSupabase(new Set(['MEDIA_PACK']));
   assert.equal(await eventOwnsSku(supabase, 'evt_1', 'MEDIA_PACK'), true);
+});
+
+// ── Comp grants (admin "Issue a comp grant") — the gift path. A host's active
+// comp grant unlocks a SKU even with NO order. all_services covers everything;
+// specific_skus covers only the listed codes. Host-scoping is enforced in the
+// SECURITY DEFINER fn (migration 20270322000000); here we lock the app-side OR.
+test('eventOwnsSku: an all_services comp grant unlocks a SKU with no order', async () => {
+  const supabase = makeOwnedSupabase(new Set(), 'paid', { forSku: 'all' });
+  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'PANOOD_SYSTEM'), true);
+});
+
+test('eventOwnsSku: a specific_skus comp grant unlocks only the listed SKU', async () => {
+  const supabase = makeOwnedSupabase(new Set(), 'paid', {
+    forSku: new Set(['ANIMATED_MONOGRAM']),
+  });
+  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'ANIMATED_MONOGRAM'), true);
+  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'PANOOD_SYSTEM'), false);
+});
+
+test('eventSkuActive: a comp grant bypasses the handshake gate (no paid order needed)', async () => {
+  const supabase = makeOwnedSupabase(new Set(), 'paid', { forSku: 'all' });
+  assert.equal(await eventSkuActive(supabase, 'evt_1', 'SDE'), true);
+});
+
+test('eventOwnsSku: no order and no comp → not owned', async () => {
+  const supabase = makeOwnedSupabase(new Set()); // no order, no comp
+  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'PANOOD_SYSTEM'), false);
 });
 
 test('BUNDLE_CHILD_SKUS: media children are in MEDIA_PACK; both bundles share Essentials members', () => {

@@ -1,6 +1,10 @@
-import { ExternalLink, LineChart } from 'lucide-react';
+import { ExternalLink, LineChart, Filter } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { FormFlash } from '@/app/_components/forms/form-flash';
+import {
+  fetchVendorFunnelTotals,
+  buildFunnelSteps,
+} from '@/lib/vendor-funnel';
 
 export const metadata = { title: 'Funnels · Admin' };
 
@@ -25,7 +29,13 @@ type Funnel = {
 };
 
 type Props = {
-  searchParams: Promise<{ range?: string }>;
+  searchParams: Promise<{ range?: string; vendor?: string }>;
+};
+
+type VendorPickRow = {
+  vendor_profile_id: string;
+  business_name: string;
+  business_slug: string | null;
 };
 
 // PostHog dashboard URL — surfaces the 4 funnels we keep on PostHog rather
@@ -149,6 +159,40 @@ export default async function AdminFunnelsPage({ searchParams }: Props) {
 
   const postHogUrl = buildPostHogDashboardUrl();
 
+  // ── Per-vendor Quote-to-Booking Funnel drill-down (Wave 6) ────────────────
+  // A vendor picker + the views→inquiries→quotes→booked funnel for the selected
+  // vendor, computed on the admin client (is_admin RLS read). Views come from
+  // the net-new vendor_profile_views table; the other three stages reuse the
+  // shipped chat_threads / vendor_proposals / event_vendors data.
+  const { data: vendorPickRows } = await admin
+    .from('vendor_profiles')
+    .select('vendor_profile_id, business_name, business_slug')
+    .order('business_name', { ascending: true })
+    .limit(500);
+  const vendorOptions = (vendorPickRows ?? []) as VendorPickRow[];
+  const selectedVendorId =
+    typeof search.vendor === 'string' && search.vendor.length > 0
+      ? search.vendor
+      : null;
+  const selectedVendor =
+    selectedVendorId != null
+      ? vendorOptions.find((v) => v.vendor_profile_id === selectedVendorId) ?? null
+      : null;
+  const vendorFunnel: Funnel | null = selectedVendor
+    ? {
+        key: `vendor_${selectedVendor.vendor_profile_id}`,
+        title: `${selectedVendor.business_name} — Quote-to-Booking`,
+        blurb: 'Profile views → inquiries → quotes sent → booked, for this vendor.',
+        steps: buildFunnelSteps(
+          await fetchVendorFunnelTotals(
+            admin,
+            selectedVendor.vendor_profile_id,
+            sinceIso,
+          ),
+        ),
+      }
+    : null;
+
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-2">
@@ -166,6 +210,10 @@ export default async function AdminFunnelsPage({ searchParams }: Props) {
       </header>
 
       <form method="get" className="mb-4 flex flex-wrap items-center gap-2">
+        {/* Preserve the selected vendor drill-down when changing the range. */}
+        {typeof search.vendor === 'string' && search.vendor.length > 0 ? (
+          <input type="hidden" name="vendor" value={search.vendor} />
+        ) : null}
         <label
           htmlFor="range"
           className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55"
@@ -203,6 +251,55 @@ export default async function AdminFunnelsPage({ searchParams }: Props) {
           <FunnelTable key={f.key} funnel={f} />
         ))}
       </div>
+
+      {/* ── Per-vendor Quote-to-Booking drill-down (Wave 6) ─────────────── */}
+      <section className="mt-8 rounded-xl border border-ink/10 bg-cream p-5">
+        <header className="mb-3 flex items-center gap-2">
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
+            <Filter aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          </span>
+          <div className="space-y-0.5">
+            <h2 className="text-base font-semibold text-ink">Vendor drill-down</h2>
+            <p className="text-xs text-ink/55">
+              Pick a vendor to see their views → inquiries → quotes → booked
+              funnel for the selected range.
+            </p>
+          </div>
+        </header>
+        <form method="get" className="mb-4 flex flex-wrap items-center gap-2">
+          {/* Preserve the current range when changing vendor. */}
+          <input type="hidden" name="range" value={range} />
+          <label
+            htmlFor="vendor"
+            className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55"
+          >
+            Vendor
+          </label>
+          <select
+            id="vendor"
+            name="vendor"
+            defaultValue={selectedVendorId ?? ''}
+            className="input-field h-9 max-w-[22rem] py-0 text-sm"
+          >
+            <option value="">Select a vendor…</option>
+            {vendorOptions.map((v) => (
+              <option key={v.vendor_profile_id} value={v.vendor_profile_id}>
+                {v.business_name}
+              </option>
+            ))}
+          </select>
+          <button type="submit" className="button-secondary h-9 px-3 text-xs">
+            Show funnel
+          </button>
+        </form>
+        {vendorFunnel ? (
+          <FunnelTable funnel={vendorFunnel} />
+        ) : (
+          <p className="text-sm text-ink/55">
+            No vendor selected. Pick one above to load their funnel.
+          </p>
+        )}
+      </section>
 
       <section className="mt-8 rounded-xl border border-dashed border-ink/15 bg-cream p-5">
         <h2 className="mb-1 text-sm font-semibold text-ink">

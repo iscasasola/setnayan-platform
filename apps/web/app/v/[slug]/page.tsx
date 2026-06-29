@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { cookies } from 'next/headers';
+import { after } from 'next/server';
 import { notFound } from 'next/navigation';
 import { Mail, Phone, Globe, MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck } from 'lucide-react';
 import { Wordmark } from '@/app/_components/brand-marks';
@@ -76,6 +77,7 @@ import {
 } from '@/lib/vendor-service-attributes';
 import type { AttributeFieldDef } from '@/lib/marketplaces/schemas';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { recordVendorProfileView } from '@/lib/record-vendor-view';
 
 export const dynamic = 'force-dynamic';
 
@@ -83,7 +85,17 @@ const REVIEWS_PAGE_SIZE = 5;
 
 type Props = {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ reviewsPage?: string; wl?: string }>;
+  // utm_* keys (+ a bare `utm`) are captured opaquely for the funnel's VIEWS
+  // stage attribution — see the recordVendorProfileView() after() call below.
+  searchParams: Promise<{
+    reviewsPage?: string;
+    wl?: string;
+    utm_source?: string;
+    utm_medium?: string;
+    utm_campaign?: string;
+    utm?: string;
+    src?: string;
+  }>;
 };
 
 type PublicVendorRow = {
@@ -955,6 +967,39 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
       },
     ],
   };
+
+  // ── Wave 6 Quote-to-Booking Funnel · VIEWS stage capture ─────────────────
+  // Fire-and-forget AFTER the response flushes (Next 15 after() · cron-free) so
+  // it never blocks this render. Best-effort: a dropped view never errors the
+  // page. The viewer is de-identified inside recordVendorProfileView (stored as
+  // sha256(salt || id), never the raw id). Skip demo vendors — their views are
+  // admin-only browsing, not real funnel signal. `source='profile_direct'`
+  // marks a /v/[slug] view; the explore-card impression source is a separate
+  // entry point (deferred — see PR notes).
+  if (!isDemoVendor) {
+    const utmParam =
+      search.utm ??
+      (search.utm_source || search.utm_medium || search.utm_campaign
+        ? [
+            search.utm_source ? `utm_source=${search.utm_source}` : null,
+            search.utm_medium ? `utm_medium=${search.utm_medium}` : null,
+            search.utm_campaign ? `utm_campaign=${search.utm_campaign}` : null,
+          ]
+            .filter(Boolean)
+            .join('&')
+        : null);
+    const viewSource = search.src ?? 'profile_direct';
+    const viewVendorProfileId = vendor.vendor_profile_id;
+    const viewEventId = coupleEventId;
+    after(() =>
+      recordVendorProfileView({
+        vendorProfileId: viewVendorProfileId,
+        source: viewSource,
+        utm: utmParam,
+        eventId: viewEventId,
+      }),
+    );
+  }
 
   return (
     <main className="min-h-dvh bg-cream">

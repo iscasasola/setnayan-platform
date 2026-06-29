@@ -18,6 +18,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { AI_SUB_SKU } from '@/lib/setnayan-ai-subscription';
+import { computeUserAiDigest } from '@/lib/setnayan-ai-snapshot';
+import { renderTemplate, WEDDING_TERMINOLOGY } from '@/lib/setnayan-ai-templates';
 
 import { SetnayanAiSubscribe } from './_components/setnayan-ai-subscribe';
 
@@ -49,6 +51,12 @@ export default async function SetnayanAiSubscriptionPage() {
 
   const paymentSettings = await fetchPlatformSettings(supabase);
 
+  // The weekly digest — only when the assistant is on AND the user is subscribed.
+  // Computed from real budget data via the snapshot adapter (the money guard
+  // floor today). Dormant otherwise → never rendered.
+  const live = perUserOn && isActive;
+  const digestResult = live ? await computeUserAiDigest(admin, user.id, new Date()) : null;
+
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6 p-4 sm:p-6">
       <header className="flex items-center gap-3">
@@ -68,6 +76,28 @@ export default async function SetnayanAiSubscriptionPage() {
           <p className="text-sm font-medium text-ink">Your subscription is active.</p>
           <p className="mt-1 text-xs text-ink/60">Covered through {formatDate(activeUntil)}.</p>
         </div>
+      )}
+
+      {live && digestResult && (
+        <section className="rounded-2xl border border-ink/10 bg-white p-5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-ink/50">
+            This week from Setnayan AI
+          </p>
+          {digestResult.interventions.length > 0 ? (
+            <ul className="mt-3 flex flex-col gap-2">
+              {digestResult.interventions.map((iv) => (
+                <li
+                  key={iv.dedupeKey}
+                  className="rounded-xl border border-ink/10 bg-cream p-3 text-sm text-ink/85"
+                >
+                  {renderTemplate(iv.templateId, iv.slots, WEDDING_TERMINOLOGY, iv.variant ?? 'default')}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 whitespace-pre-line text-sm text-ink/70">{digestResult.digest}</p>
+          )}
+        </section>
       )}
 
       {perUserOn ? (

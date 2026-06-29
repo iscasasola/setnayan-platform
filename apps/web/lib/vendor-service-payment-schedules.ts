@@ -35,7 +35,83 @@ export type PaymentScheduleItemRow = {
   due_offset_days: number | null;
   created_at: string;
   updated_at: string;
+  // No-Show Downpayment Protection — reservation policy on the downpayment
+  // (seq 0) row only. Null/false on every non-downpayment installment.
+  cancellation_terms: string | null;
+  downpayment_non_refundable: boolean;
+  refund_window_days: number | null;
+  no_show_forfeit: boolean;
 };
+
+// ===========================================================================
+// No-Show Downpayment Protection — reservation policy on the downpayment row.
+//
+// The vendor's no-show / cancellation terms attach to the seq-0 downpayment
+// installment. The couple must ACKNOWLEDGE them before a lock commits (when
+// the downpayment is non-refundable OR carries a no-show forfeit); the policy
+// text is then FROZEN into event_vendor_policy_acknowledgements at lock so a
+// later template edit can't rewrite forfeit-dispute history. No money moves.
+// ===========================================================================
+
+/** The reservation policy fields as carried on the seq-0 downpayment row. */
+export type DownpaymentPolicy = {
+  cancellation_terms: string | null;
+  downpayment_non_refundable: boolean;
+  refund_window_days: number | null;
+  no_show_forfeit: boolean;
+};
+
+/**
+ * The immutable policy snapshot stored in
+ * event_vendor_policy_acknowledgements.policy_snapshot_json at lock. Captures
+ * the downpayment's policy fields + its human label + the resolved amount, so
+ * an admin can adjudicate a forfeit from this row alone.
+ */
+export type PolicySnapshot = DownpaymentPolicy & {
+  /** The downpayment installment's label at lock-time (e.g. "Downpayment"). */
+  downpayment_label: string | null;
+  /** The resolved downpayment amount (PHP) at lock, when computable. */
+  downpayment_amount_php: number | null;
+};
+
+/**
+ * Whether a reservation policy is "protected" — i.e. it carries terms a couple
+ * must explicitly acknowledge before locking (non-refundable downpayment OR a
+ * no-show forfeit). A plain refund-window-only disclosure is NOT a gate.
+ */
+export function isProtectedPolicy(p: DownpaymentPolicy | null | undefined): boolean {
+  if (!p) return false;
+  return Boolean(p.downpayment_non_refundable) || Boolean(p.no_show_forfeit);
+}
+
+/**
+ * Pull the reservation policy off a service's schedule rows. The policy lives
+ * on the seq-0 (downpayment) row only; returns null when there's no downpayment
+ * row or it carries no terms at all. A refund-window-only policy is still
+ * returned so the disclosure can render, but isProtectedPolicy gates the
+ * acknowledgement.
+ */
+export function downpaymentPolicyFromRows(
+  rows: Pick<
+    PaymentScheduleItemRow,
+    'seq' | 'cancellation_terms' | 'downpayment_non_refundable' | 'refund_window_days' | 'no_show_forfeit'
+  >[],
+): DownpaymentPolicy | null {
+  const dp = rows.find((r) => r.seq === 0);
+  if (!dp) return null;
+  const policy: DownpaymentPolicy = {
+    cancellation_terms: dp.cancellation_terms ?? null,
+    downpayment_non_refundable: Boolean(dp.downpayment_non_refundable),
+    refund_window_days: dp.refund_window_days ?? null,
+    no_show_forfeit: Boolean(dp.no_show_forfeit),
+  };
+  const hasAny =
+    policy.cancellation_terms != null ||
+    policy.downpayment_non_refundable ||
+    policy.refund_window_days != null ||
+    policy.no_show_forfeit;
+  return hasAny ? policy : null;
+}
 
 /** Hard ceiling on installments per service — keeps the card/editor tidy. */
 export const MAX_SCHEDULE_ITEMS = 12;
@@ -60,6 +136,12 @@ export type ScheduleItemDraft = {
   due_anchor: DueAnchor | null;
   /** Days relative to the anchor; null when no anchor. */
   due_offset_days: number | null;
+  // No-Show Downpayment Protection — only meaningful on the downpayment (seq 0)
+  // row; the editor renders these fields on that row alone.
+  cancellation_terms: string | null;
+  downpayment_non_refundable: boolean;
+  refund_window_days: number | null;
+  no_show_forfeit: boolean;
 };
 
 /** Display-shaped installment for couple-facing surfaces (PR-B renders it). */
@@ -332,6 +414,10 @@ export function rowToDraft(row: PaymentScheduleItemRow): ScheduleItemDraft {
     amount_php: row.amount_centavos != null ? centavosToPhp(row.amount_centavos) : null,
     due_anchor: row.due_anchor,
     due_offset_days: row.due_offset_days,
+    cancellation_terms: row.cancellation_terms ?? null,
+    downpayment_non_refundable: Boolean(row.downpayment_non_refundable),
+    refund_window_days: row.refund_window_days ?? null,
+    no_show_forfeit: Boolean(row.no_show_forfeit),
   };
 }
 

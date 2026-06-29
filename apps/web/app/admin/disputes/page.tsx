@@ -1,10 +1,14 @@
-import { Gavel, Filter } from 'lucide-react';
+import { Gavel, Filter, ShieldCheck } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { relativeTime } from '@/lib/activity';
 import { resolveDispute } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
+import {
+  fetchPolicyAcknowledgementsByVendor,
+  type PolicyAcknowledgement,
+} from '@/lib/vendor-service-payment-schedules.server';
 
 export const metadata = { title: 'Disputes · Admin' };
 
@@ -185,6 +189,21 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
     );
   }
 
+  // No-Show Downpayment Protection — pull the FROZEN reservation-policy
+  // acknowledgements for every vendor in view, keyed by vendor_profile_id. These
+  // are the immutable evidence rows a forfeit dispute (esp. category=no_show)
+  // is adjudicated against. Admin-only surface (the layout already gates on
+  // is_admin), so the service-role read is in-bounds.
+  let policyAcksByVendor = new Map<string, PolicyAcknowledgement[]>();
+  try {
+    policyAcksByVendor = await fetchPolicyAcknowledgementsByVendor({
+      adminClient: admin,
+      vendorProfileIds: vendorIds,
+    });
+  } catch (e) {
+    logQueryError('AdminDisputesPage (policy acknowledgements)', e);
+  }
+
   const openerMap = new Map<string, { name: string; email: string | null }>();
   for (const u of openerData ?? []) {
     const display = ((u.display_name as string | null) ?? '').trim();
@@ -246,7 +265,12 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
       ) : null}
 
       <div className="mt-4">
-        <DisputesTable rows={rows} vendorMap={vendorMap} openerMap={openerMap} />
+        <DisputesTable
+          rows={rows}
+          vendorMap={vendorMap}
+          openerMap={openerMap}
+          policyAcksByVendor={policyAcksByVendor}
+        />
       </div>
 
       <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
@@ -375,10 +399,12 @@ function DisputesTable({
   rows,
   vendorMap,
   openerMap,
+  policyAcksByVendor,
 }: {
   rows: DisputeRow[];
   vendorMap: Map<string, string>;
   openerMap: Map<string, { name: string; email: string | null }>;
+  policyAcksByVendor: Map<string, PolicyAcknowledgement[]>;
 }) {
   if (rows.length === 0) {
     return (
@@ -413,6 +439,10 @@ function DisputesTable({
               ? openerMap.get(r.opened_by_user_id)
               : null;
             const descPreview = truncate(r.description, 80);
+            // No-Show Downpayment Protection — frozen reservation-policy evidence
+            // for this vendor. Surfaced under the description so support can
+            // adjudicate a forfeit against immutable, acknowledged-at-lock terms.
+            const acks = policyAcksByVendor.get(r.vendor_profile_id) ?? [];
             return (
               <tr
                 key={r.dispute_id}
@@ -448,6 +478,19 @@ function DisputesTable({
                 </td>
                 <td className="hidden px-3 py-3 text-ink/80 lg:table-cell">
                   <p title={r.description}>{descPreview}</p>
+                  {acks.length > 0 ? (
+                    <details className="mt-2">
+                      <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-[11px] font-medium text-terracotta">
+                        <ShieldCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
+                        Reservation policy evidence ({acks.length})
+                      </summary>
+                      <ul className="mt-2 space-y-2">
+                        {acks.map((a) => (
+                          <PolicyEvidence key={a.ackId} ack={a} />
+                        ))}
+                      </ul>
+                    </details>
+                  ) : null}
                 </td>
                 <td className="px-3 py-3">
                   <span
@@ -514,6 +557,49 @@ function DisputesTable({
         </tbody>
       </table>
     </div>
+  );
+}
+
+/**
+ * No-Show Downpayment Protection — one frozen reservation-policy acknowledgement
+ * rendered as immutable forfeit evidence in the admin dispute view. Shows the
+ * EXACT terms the couple acknowledged at lock + when, so support adjudicates a
+ * forfeit against the snapshot, not the (editable) live vendor template.
+ */
+function PolicyEvidence({ ack }: { ack: PolicyAcknowledgement }) {
+  const p = ack.snapshot;
+  const acknowledgedAt = (() => {
+    const d = new Date(ack.acknowledgedAt);
+    return Number.isNaN(d.getTime())
+      ? ack.acknowledgedAt
+      : d.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
+  })();
+  const amountLabel =
+    p?.downpayment_amount_php != null
+      ? `₱${Math.round(p.downpayment_amount_php).toLocaleString('en-PH')}`
+      : null;
+  return (
+    <li className="rounded-lg border border-terracotta/20 bg-terracotta/[0.04] p-2.5 text-[11px] text-ink/80">
+      <p className="font-mono text-[9.5px] uppercase tracking-[0.12em] text-terracotta-700">
+        Acknowledged {acknowledgedAt}
+      </p>
+      <ul className="mt-1 space-y-0.5">
+        {p?.downpayment_non_refundable ? (
+          <li>
+            • Downpayment{amountLabel ? ` (${amountLabel})` : ''} non-refundable
+          </li>
+        ) : null}
+        {p?.no_show_forfeit ? <li>• No-show forfeits the downpayment</li> : null}
+        {p?.refund_window_days != null ? (
+          <li>• Refundable within {p.refund_window_days} day{p.refund_window_days === 1 ? '' : 's'} of booking</li>
+        ) : null}
+      </ul>
+      {p?.cancellation_terms ? (
+        <p className="mt-1 whitespace-pre-wrap border-t border-terracotta/15 pt-1 text-ink/65">
+          “{p.cancellation_terms}”
+        </p>
+      ) : null}
+    </li>
   );
 }
 

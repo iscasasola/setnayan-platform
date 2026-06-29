@@ -15,6 +15,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { ShieldCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { PaymentPlanStepper } from '@/app/_components/payment-plan-stepper';
@@ -26,7 +27,19 @@ import {
 import type { PendingVendorPayment } from '@/lib/vendor-service-payment-schedules.server';
 import { confirmVendorPayment, clearVendorPaymentPlan, getVendorPaymentState } from '../pay-confirm-actions';
 
-type PlanProgressItem = PlanProgress & { eventVendorId: string; vendorLabel: string };
+type PlanProgressItem = PlanProgress & {
+  eventVendorId: string;
+  vendorLabel: string;
+  // No-Show Downpayment Protection — set when the couple acknowledged this
+  // booking's reservation policy at lock.
+  reservationAcknowledgedAt?: string | null;
+};
+
+function fmtAckDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
+}
 
 const peso = (n: number) => `₱${Math.abs(Math.round(n)).toLocaleString('en-PH')}`;
 
@@ -171,6 +184,13 @@ export function VendorPaymentLive({
             <p className="text-sm font-semibold text-ink">
               Payment plan — {p.vendorLabel}
             </p>
+            {p.reservationAcknowledgedAt ? (
+              <p className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-terracotta/10 px-2.5 py-1 text-[11px] font-medium text-terracotta-700">
+                <ShieldCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                Protected by your reservation policy — acknowledged{' '}
+                {fmtAckDate(p.reservationAcknowledgedAt)}
+              </p>
+            ) : null}
             {rollup.total > 0 ? (
               <div className="mt-3 space-y-2 rounded-lg border border-ink/10 bg-paper/60 p-3">
                 <div className="flex items-baseline justify-between gap-2">

@@ -54,8 +54,12 @@ import {
 } from '@/lib/schedule-pools';
 import {
   computePlanInstances,
+  downpaymentPolicyFromRows,
+  isProtectedPolicy,
   type PaymentScheduleItemRow,
+  type PolicySnapshot,
 } from '@/lib/vendor-service-payment-schedules';
+import { snapshotPolicyAcknowledgement } from '@/lib/vendor-service-payment-schedules.server';
 
 function isValidCategory(value: unknown): value is VendorCategory {
   return typeof value === 'string' && (VENDOR_CATEGORIES as readonly string[]).includes(value);
@@ -520,6 +524,19 @@ export type FinalizeVendorResult =
       vendorId: string;
       vendorName: string;
     }
+  // No-Show Downpayment Protection — the booked service's downpayment carries a
+  // PROTECTED reservation policy (non-refundable downpayment and/or no-show
+  // forfeit) the couple must explicitly acknowledge before the lock commits.
+  // The UI surfaces a "Reservation terms" gate with the frozen terms text + a
+  // tick-box; on confirm it re-calls with acknowledge_reservation_terms=1. The
+  // server snapshots the acknowledged policy into an immutable evidence row at
+  // lock. No money moves — this is the couple's consent + the paper trail.
+  | {
+      status: 'reservation_terms_required';
+      vendorId: string;
+      vendorName: string;
+      policy: PolicySnapshot;
+    }
   | { status: 'error'; message: string };
 
 const LOCKED_STATUS: VendorStatus = 'contracted';
@@ -586,6 +603,10 @@ export async function finalizeVendor(
   // this vendor (which narrows their candidates to one) also finalizes the date.
   const confirmDateLockRaw = formData.get('confirm_date_lock');
   const confirmDateLock = confirmDateLockRaw === '1' || confirmDateLockRaw === 'true';
+  // No-Show Downpayment Protection — set when the couple ticked the reservation-
+  // terms acknowledgement in the lock gate. Drives the acknowledgement snapshot.
+  const ackTermsRaw = formData.get('acknowledge_reservation_terms');
+  const acknowledgedReservationTerms = ackTermsRaw === '1' || ackTermsRaw === 'true';
 
   if (typeof eventId !== 'string' || eventId.length === 0) {
     return { status: 'error', message: 'Missing event id' };
@@ -774,6 +795,69 @@ export async function finalizeVendor(
             dateLabel: formatCandidateDate(forcedDateKey),
           };
         }
+      }
+    }
+  }
+
+  // No-Show Downpayment Protection — reservation-terms acknowledgement gate.
+  //
+  // If the booked service's downpayment (seq 0) carries a PROTECTED policy
+  // (non-refundable downpayment and/or no-show forfeit), the couple must
+  // explicitly acknowledge the terms before the lock commits. We resolve the
+  // policy + its frozen snapshot here (BEFORE any lock side-effect: the slot
+  // acquire and the status flip below), so a couple who hasn't ticked the box
+  // is sent back the 'reservation_terms_required' result to surface the gate.
+  // Setnayan holds no money — this records the couple's consent + (post-lock)
+  // freezes the policy text into immutable evidence for a forfeit dispute.
+  //
+  // Only marketplace services carry a schedule (off-platform/manual vendors have
+  // no vendor_services row), so the gate is naturally scoped to them. Reading
+  // the template needs the vendor's owner-RLS'd rows — use the admin client
+  // (the couple has already proven they own this booking via the supabase
+  // lookups above). reservationSnapshot is reused by the post-lock evidence
+  // write so the policy is read once.
+  let reservationSnapshot: PolicySnapshot | null = null;
+  if (targetVendor.marketplace_vendor_id && targetVendor.service_id) {
+    const { data: schedRows } = await createAdminClient()
+      .from('vendor_service_payment_schedules')
+      .select('*')
+      .eq('vendor_service_id', targetVendor.service_id)
+      .order('seq', { ascending: true });
+    const rows = (schedRows ?? []) as PaymentScheduleItemRow[];
+    const policy = downpaymentPolicyFromRows(rows);
+    if (isProtectedPolicy(policy) && policy) {
+      const dpRow = rows.find((r) => r.seq === 0) ?? null;
+      const totalCostPhp =
+        typeof targetVendor.total_cost_php === 'string'
+          ? Number(targetVendor.total_cost_php)
+          : ((targetVendor.total_cost_php as number | null) ?? null);
+      // Resolve the downpayment amount for the evidence snapshot when possible.
+      let downpaymentAmountPhp: number | null = null;
+      if (dpRow) {
+        if (dpRow.amount_kind === 'fixed' && dpRow.amount_centavos != null) {
+          downpaymentAmountPhp = Math.round(dpRow.amount_centavos / 100);
+        } else if (
+          dpRow.amount_kind === 'percent' &&
+          dpRow.percent_bps != null &&
+          totalCostPhp != null
+        ) {
+          downpaymentAmountPhp = Math.round((totalCostPhp * dpRow.percent_bps) / 10000);
+        }
+      }
+      reservationSnapshot = {
+        ...policy,
+        downpayment_label: dpRow?.label ?? null,
+        downpayment_amount_php: downpaymentAmountPhp,
+      };
+      // Gate: the couple must have ticked the acknowledgement. Surface the terms
+      // so the UI can render the gate with the exact policy text.
+      if (!acknowledgedReservationTerms) {
+        return {
+          status: 'reservation_terms_required',
+          vendorId,
+          vendorName: targetVendor.vendor_name as string,
+          policy: reservationSnapshot,
+        };
       }
     }
   }
@@ -1321,6 +1405,24 @@ export async function finalizeVendor(
             ? `Your booking is locked. We've prepared the payment plan for ${targetVendor.vendor_name as string} — open the workspace to see each payment and how to pay.`
             : `Your booking with ${targetVendor.vendor_name as string} is locked. Open the workspace to see how to pay them directly.`,
         relatedUrl: `/dashboard/${eventId}/vendors/${vendorId}/workspace#payments`,
+      });
+    }
+
+    // No-Show Downpayment Protection — freeze the acknowledged reservation
+    // policy into immutable evidence. reservationSnapshot is non-null only when
+    // the booked service carried a PROTECTED policy AND the couple ticked the
+    // acknowledgement gate above (otherwise we returned reservation_terms_required
+    // and never reach here). Write-once via the service-role client; a re-lock
+    // never overwrites the original acknowledgement. Best-effort — never rolls
+    // back the lock (this is the same fail-soft contract as the plan upsert).
+    if (reservationSnapshot) {
+      await snapshotPolicyAcknowledgement({
+        adminClient: planAdmin,
+        eventId,
+        eventVendorId: vendorId,
+        vendorProfileId: targetVendor.marketplace_vendor_id ?? null,
+        snapshot: reservationSnapshot,
+        acknowledgedBy: user.id,
       });
     }
   } catch (e) {

@@ -6,10 +6,13 @@ music track and (optionally) writes it back to the nullable
 `20270307940821_add_beat_grid_to_patiktok_music_tracks.sql`; the table was
 renamed from `patiktok_music_tracks` → `reel_music_tracks` on 2026-06-29).
 
-This is **inert groundwork** for beat-aware Stories/SDE rendering. Nothing in the
-app reads `beat_grid` yet — that lands in a later phase. By default the script
-only **prints** the grids; it never touches prod unless you explicitly pass
-`--write` against a non-prod Supabase.
+The render path **does** consume `beat_grid` (`lib/guest-stories.ts` `pickMusic` →
+`lib/reel-render.ts` → `lib/stories-templates.ts`); a NULL grid is harmless —
+the renderer falls back to an even time-split, so reels still render, just not
+beat-snapped. So this job is the **"make the cuts land on the beat" upgrade**,
+run once the owned masters are ingested. By default the script only **prints**
+the grids; it never writes prod directly — use `--emit-migration` for the prod
+path (see below).
 
 ## What a `beat_grid` looks like
 
@@ -83,6 +86,29 @@ The script **refuses to `--write`** when `SUPABASE_URL` contains the known prod
 project ref (override the guarded ref via `BEAT_GRIDS_PROD_REF` only if you know
 what you're doing). Reads are always allowed; only writes are gated.
 
+### D) Land grids in PROD — emit a migration (the sanctioned prod path)
+
+There is **no direct prod write** (by design). To get grids into prod, emit an
+idempotent migration and ship it like any other DB change (file → PR → CI →
+`supabase db push`). Reads — including from prod — are fine, so you can analyze
+the live masters and emit in one step:
+
+```bash
+# from a local manifest of the ingested masters:
+node scripts/analyze-beat-grids.mjs --manifest ./tracks.json --emit-migration
+
+# or read source_urls from prod (read-only) and emit:
+SUPABASE_URL=<prod> SUPABASE_SERVICE_ROLE_KEY=<service-role> \
+  node scripts/analyze-beat-grids.mjs --emit-migration
+```
+
+`--emit-migration` calls the `new-migration.mjs` allocator (so the file gets a
+collision-safe, never-round prefix that passes the CI timestamp guard) and
+writes a `BEGIN; UPDATE … beat_grid …; COMMIT;` body — one `UPDATE` per analyzed
+track. It's **idempotent** (re-applying re-sets the same grids) and a track
+missing in prod simply matches 0 rows. Review the emitted file, commit it on a
+branch, open a PR, then `supabase db push`.
+
 > Note: most seeded catalogue rows currently have `source_url = NULL` (the Suno
 > Premier masters aren't ingested yet) — those are **skipped** with a message.
 > Point the script at real audio (manifest or ingested URLs) when the catalogue
@@ -95,5 +121,6 @@ what you're doing). Reads are always allowed; only writes are gated.
 | `--manifest <file>` | Read `{track_slug, source_url}[]` from a local JSON file (skips the DB). |
 | `--out <file>` | Write the `{track_slug: beat_grid}` map to a local JSON file. |
 | `--write` | Update `reel_music_tracks.beat_grid` in the DB (non-prod only). |
+| `--emit-migration` | PROD path: allocate a CI-safe migration of idempotent `beat_grid` UPDATEs (no direct prod write). |
 | `--limit <n>` | Cap how many tracks are analyzed. |
 | `--help` | Usage. |

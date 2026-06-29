@@ -1472,6 +1472,20 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 17,
   },
   {
+    // "Recommend to your couples" (Phase 3a) — curated add-on map keyed to the
+    // vendor's own leaves. Grow group · owner/admin only.
+    key: "vendor.sidebar.recommendations",
+    scope: "vendor",
+    area: "vendor-sidebar",
+    route: "/vendor-dashboard/recommendations",
+    label: "Recommend",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Lightbulb",
+    customRef: null,
+    sortOrder: 17,
+  },
+  {
     key: "vendor.sidebar.reviews",
     scope: "vendor",
     area: "vendor-sidebar",

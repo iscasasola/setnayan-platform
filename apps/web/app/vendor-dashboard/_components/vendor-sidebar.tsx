@@ -113,6 +113,7 @@ import {
   Images,
   Handshake,
   Filter,
+  Lightbulb,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { SidebarSection } from '@/app/_components/nav/sidebar-section';
@@ -226,6 +227,12 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
       { key: 'demand', label: 'Demand Radar', href: '/vendor-dashboard/demand', icon: Radar, matchPrefix: '/vendor-dashboard/demand' },
       // Wave 6 Quote-to-Booking Funnel — views → inquiries → quotes → booked.
       { key: 'funnel', label: 'Funnel', href: '/vendor-dashboard/funnel', icon: Filter, matchPrefix: '/vendor-dashboard/funnel' },
+      // "Recommend to your couples" (Phase 3a) — curated Setnayan add-ons that
+      // amplify the vendor's own work. A reach/visibility surface, so it lives
+      // in Grow next to Partnerships/Reviews. Owner/admin only (key absent from
+      // VENDOR_SCOPED_NAV_ITEM_KEYS — agents/viewers don't curate what the
+      // business recommends).
+      { key: 'recommendations', label: 'Recommend', href: '/vendor-dashboard/recommendations', icon: Lightbulb, matchPrefix: '/vendor-dashboard/recommendations' },
       { key: 'reviews', label: 'Reviews', href: '/vendor-dashboard/reviews', icon: Star, matchPrefix: '/vendor-dashboard/reviews' },
       { key: 'real-stories', label: 'Real Stories', href: '/vendor-dashboard/real-stories', icon: Sparkles, matchPrefix: '/vendor-dashboard/real-stories' },
       { key: 'recaps', label: 'Recaps', href: '/vendor-dashboard/recaps', icon: Images, matchPrefix: '/vendor-dashboard/recaps' },

@@ -1,7 +1,7 @@
 import { cache } from 'react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { Camera, Film, Quote, Radio, Sparkles } from 'lucide-react';
+import { Camera, Quote, Radio, Sparkles } from 'lucide-react';
 import { Logo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
@@ -154,7 +154,6 @@ export default async function RecapPage({ params }: { params: Promise<{ slug: st
         {model.curatedPhotoUrls.length > 0 ? (
           <CuratedGallery urls={model.curatedPhotoUrls} />
         ) : null}
-        {model.reelUrls.length > 0 ? <Reels urls={model.reelUrls} /> : null}
         {model.panoodEmbedUrl ? <PanoodReplay embedUrl={model.panoodEmbedUrl} /> : null}
         {model.voices.length > 0 ? <Voices voices={model.voices} /> : null}
         <RecapClosing model={model} shareUrl={shareUrl} shareImage={shareImage} />
@@ -349,41 +348,6 @@ function CuratedGallery({ urls }: { urls: string[] }) {
         </p>
       </div>
       <PhotoGrid urls={urls} />
-    </section>
-  );
-}
-
-function Reels({ urls }: { urls: string[] }) {
-  return (
-    <section className="mb-12">
-      <div className="mb-4">
-        <h2 className="flex items-center gap-2 font-display text-2xl text-mulberry">
-          <Film aria-hidden className="h-5 w-5 text-gold" strokeWidth={1.75} />
-          Reels from the day
-        </h2>
-        <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/50">
-          Short clips, made on the day
-        </p>
-      </div>
-      {/* 9:16 vertical reels — a responsive row of tap-to-watch players. */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {urls.map((url, i) => (
-          <div
-            key={i}
-            className="overflow-hidden rounded-2xl border border-ink/10 bg-ink shadow-sm"
-          >
-            {/* presigned URL → raw <video> (controlled, tap-to-watch). */}
-            {/* eslint-disable-next-line jsx-a11y/media-has-caption -- guest-rendered reel, no caption track */}
-            <video
-              src={url}
-              controls
-              playsInline
-              preload="metadata"
-              className="aspect-[9/16] w-full bg-ink object-contain"
-            />
-          </div>
-        ))}
-      </div>
     </section>
   );
 }

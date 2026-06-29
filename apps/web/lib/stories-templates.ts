@@ -4,12 +4,13 @@
  * PURE DATA + TYPES. No rendering, no DOM, no DB, no network. This module is
  * INERT groundwork: it defines the shape of a beat-aware Stories template and
  * the rules that a later phase's renderer will follow, plus the helpers that
- * turn a track's `beat_grid` (the new JSONB column on `patiktok_music_tracks`,
- * see migration 20270307940821_add_beat_grid_to_patiktok_music_tracks.sql) into
+ * turn a track's `beat_grid` (the JSONB column on `reel_music_tracks`,
+ * added by migration 20270307940821_add_beat_grid_to_patiktok_music_tracks.sql;
+ * table renamed from patiktok_music_tracks → reel_music_tracks 2026-06-29) into
  * a sequence of clip/photo SLOTS snapped to beats.
  *
  * It is intentionally decoupled from the existing client render engine
- * (`patiktok-render.ts`), which still does an even time-split today. Nothing
+ * (`reel-render.ts`), which still does an even time-split today. Nothing
  * imports this yet — P1 (Stories surface) and P2 (beat-aware render) will.
  *
  * HARD PRODUCT CONSTRAINTS honored here (CLAUDE.md "Hard product constraints"):
@@ -27,11 +28,11 @@
 import type { CameraMove } from './stories-camera-move';
 
 // ---------------------------------------------------------------------------
-// Beat grid — mirrors the patiktok_music_tracks.beat_grid JSONB shape
+// Beat grid — mirrors the reel_music_tracks.beat_grid JSONB shape
 // ---------------------------------------------------------------------------
 
 /**
- * The shape stored in `patiktok_music_tracks.beat_grid` (JSONB, nullable).
+ * The shape stored in `reel_music_tracks.beat_grid` (JSONB, nullable).
  * Produced offline by `scripts/analyze-beat-grids.mjs`. All times in SECONDS
  * from t=0. `beats` is ascending; `downbeats` (optional) is a subset marking
  * bar starts. NULL in the DB → consumers fall back to an even time-split.
@@ -56,7 +57,7 @@ export type BeatGrid = {
 /** 5-second hard cap on any CLIP slot (CLAUDE.md hard constraint). */
 export const CLIP_MAX_SEC = 5;
 
-/** Personal Reels render at 9:16 (1080×1920). Mirrors patiktok-render.ts. */
+/** Personal Reels render at 9:16 (1080×1920). Mirrors reel-render.ts. */
 export const STORIES_ASPECT = { width: 1080, height: 1920 } as const;
 
 /** A slot either shows a still PHOTO or plays a guest/couple CLIP. */
@@ -183,7 +184,7 @@ export function findStoriesTemplate(slug: string): StoriesTemplate | null {
  * Pure + deterministic so P1/P2 can unit-test and preview without rendering.
  *
  * @param template The chosen Stories template.
- * @param grid     The track's beat grid (from `patiktok_music_tracks.beat_grid`).
+ * @param grid     The track's beat grid (from `reel_music_tracks.beat_grid`).
  * @returns        Ordered, non-overlapping slots covering [0, durationSec].
  */
 export function buildSlotsFromBeatGrid(

@@ -108,7 +108,7 @@ export type RoadmapSignals = {
   coreVendorBooked: boolean;
   /** ≥1 seating table created. */
   seatingStarted: boolean;
-  /** ≥1 paid/fulfilled Setnayan capture order (Papic / Panood / Patiktok family). */
+  /** ≥1 paid/fulfilled Setnayan capture order (Papic / Panood family). */
   setnayanCaptureSet: boolean;
 };
 

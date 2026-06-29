@@ -12,7 +12,7 @@
  * live DB.
  *
  * Regression: before the fix, a clip row's MP4 key reached the client-side
- * <img> loader (lib/patiktok-render loadImage), firing img.onerror and rejecting
+ * <img> loader (lib/reel-render loadImage), firing img.onerror and rejecting
  * the WHOLE render with "Could not load a tagged photo (check R2 CORS)."
  */
 import { test } from 'node:test';

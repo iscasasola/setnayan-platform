@@ -29,7 +29,6 @@ export type MediaServiceCode =
   | 'PAPIC'
   | 'PABATI'
   | 'PANOOD'
-  | 'PATIKTOK'
   | 'CAMERA_BRIDGE'
   | 'LIVE_WALL';
 

@@ -70,23 +70,11 @@ export type SupplyProduct = {
   readonly takeRatePct: 10 | 15;
   readonly blurb: string;
   /** Recommended-for pairing key (cross-iteration). */
-  readonly pairsWith?: ReadonlyArray<'patiktok' | 'papic' | 'panood' | 'seating' | 'photo-delivery'>;
+  readonly pairsWith?: ReadonlyArray<'papic' | 'panood' | 'seating' | 'photo-delivery'>;
 };
 
 export const SUPPLY_PRODUCTS: ReadonlyArray<SupplyProduct> = [
   // --- Print fulfillment ---
-  {
-    slug: 'patiktok-background-print',
-    name: 'Patiktok background print',
-    category: 'print-fulfillment',
-    pricePhp: 599,
-    unit: 'per backdrop',
-    vendor: 'Manila Print Co.',
-    takeRatePct: 10,
-    blurb:
-      'Custom-printed 2.4×1.8m vertical-format Patiktok backdrop. Matte vinyl finish, hemmed edges, grommets for hanging.',
-    pairsWith: ['patiktok'],
-  },
   {
     slug: 'place-cards-print',
     name: 'Place cards (100-pack)',
@@ -134,7 +122,7 @@ export const SUPPLY_PRODUCTS: ReadonlyArray<SupplyProduct> = [
     takeRatePct: 15,
     blurb:
       'iOS Lightning + USB-C HDMI adapters bundled. Delivered to venue tech team, picked up next day.',
-    pairsWith: ['patiktok', 'panood'],
+    pairsWith: ['panood'],
   },
   {
     slug: 'monitor-rental-32in',
@@ -145,8 +133,8 @@ export const SUPPLY_PRODUCTS: ReadonlyArray<SupplyProduct> = [
     vendor: 'AV Pilipinas Rentals',
     takeRatePct: 15,
     blurb:
-      '32" 1080p monitor + adjustable stand. For Patiktok wall, slideshow loops, or speaker support.',
-    pairsWith: ['patiktok'],
+      '32" 1080p monitor + adjustable stand. For the live photo wall, slideshow loops, or speaker support.',
+    pairsWith: ['panood'],
   },
   {
     slug: 'tripod-mount-rental',

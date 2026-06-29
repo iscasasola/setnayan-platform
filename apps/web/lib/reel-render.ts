@@ -1,8 +1,13 @@
-// Iteration 0017 PR3 — Patiktok client-side reel render engine.
+// Shared client-side reel render engine.
+//
+// (Formerly lib/patiktok-render.ts. Patiktok was retired 2026-06-29; this
+// generic 9:16 reel encoder is kept because Guest Stories — the free,
+// photo-driven personal-reel tier — renders through it. No remaining Patiktok
+// caller; renamed to drop the retired product's name.)
 //
 // Render host (owner-locked 2026-06-18): CLIENT-SIDE, ₱0 server compute. The
-// booth tablet / couple browser stitches the captured clips into a 9:16 MP4
-// and uploads the finished file to R2. There is NO server ffmpeg/Remotion.
+// couple browser stitches the captured clips/photos into a 9:16 MP4 and uploads
+// the finished file to R2. There is NO server ffmpeg/Remotion.
 //
 // Two paths:
 //   • PRIMARY — WebCodecs `VideoEncoder` feeding `mp4-muxer` (clean H.264 MP4,
@@ -56,8 +61,8 @@ export type RenderTemplate = {
   name: string;
   palette: readonly [string, string, string, string];
   /**
-   * Footer wordmark baked into the bottom scrim. Defaults to the Patiktok
-   * booth's mark; Guest Stories passes its own ('Stories · Setnayan').
+   * Footer wordmark baked into the bottom scrim. Defaults to the plain
+   * 'Setnayan' mark; Guest Stories passes its own ('Stories · Setnayan').
    */
   footerLabel?: string;
 };
@@ -78,7 +83,7 @@ export type RenderOptions = {
   musicUrl?: string | null;
   /**
    * The chosen music track's beat grid (the `beat_grid` JSONB on
-   * `patiktok_music_tracks`). When present, cut points snap to the music's
+   * `reel_music_tracks`). When present, cut points snap to the music's
    * beats so the montage hits the rhythm; when NULL/absent the renderer falls
    * back to the legacy EVEN split — behavior never regresses for a track that
    * hasn't been analyzed yet.
@@ -128,7 +133,7 @@ export function shouldUseMediaRecorder(opts: {
 }
 
 /** Entry point. Picks the WebCodecs path when possible, else MediaRecorder. */
-export async function renderPatiktokReel(
+export async function renderReel(
   opts: RenderOptions,
 ): Promise<RenderResult> {
   if (!opts.clips.length) {
@@ -446,7 +451,7 @@ function drawOverlay(ctx: CanvasRenderingContext2D, template: RenderTemplate) {
   // Footer wordmark
   ctx.fillStyle = 'rgba(255,255,255,0.85)';
   ctx.font = '500 30px ui-monospace, SFMono-Regular, monospace';
-  ctx.fillText(template.footerLabel ?? 'Patiktok · Setnayan', OUT_W / 2, OUT_H - 56, OUT_W - 120);
+  ctx.fillText(template.footerLabel ?? 'Setnayan', OUT_W / 2, OUT_H - 56, OUT_W - 120);
   // Bottom palette ticks
   const tickW = OUT_W / 4;
   [bg, a1, a2].forEach((c, i) => {
@@ -485,7 +490,7 @@ async function pickAvcConfig(): Promise<AvcConfig | null> {
 // NOTE (audio follow-up): this path is VIDEO-ONLY. Mixing the backing track
 // here would mean standing up a WebCodecs `AudioEncoder` (AAC/opus), decoding
 // `musicUrl` to PCM, encoding it, and feeding `mp4-muxer`'s audio track — a
-// substantial encoder/muxer change. Until then, `renderPatiktokReel` steers any
+// substantial encoder/muxer change. Until then, `renderReel` steers any
 // reel that has a `musicUrl` to the MediaRecorder path (see
 // `shouldUseMediaRecorder`), which DOES mux audio. So a reel with a song never
 // silently loses it just because WebCodecs was available.

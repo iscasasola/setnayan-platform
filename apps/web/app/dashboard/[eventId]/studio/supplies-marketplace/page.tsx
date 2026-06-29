@@ -41,14 +41,12 @@ type Props = { params: Promise<{ eventId: string }> };
 // rentals, backdrop+decor, NFC+QR keepsakes, specialty merch).
 
 // Which past orders should trigger which supply recommendations.
-// Mirrors the spec's coordinator narrative ("You bought Patiktok →
-// recommended supplies: HDMI dongle, monitor rental, background print").
+// Mirrors the spec's coordinator narrative ("You bought Panood →
+// recommended supplies: HDMI dongle, monitor rental").
 const RECOMMENDATION_KEYS_BY_ORDER: Record<
   string,
-  ReadonlyArray<'patiktok' | 'papic' | 'panood' | 'seating' | 'photo-delivery'>
+  ReadonlyArray<'papic' | 'panood' | 'seating' | 'photo-delivery'>
 > = {
-  patiktok: ['patiktok'],
-  'patiktok:': ['patiktok'],
   papic: ['papic'],
   'papic:': ['papic'],
   panood: ['panood'],
@@ -96,8 +94,8 @@ export default async function SuppliesMarketplacePage({ params }: Props) {
   if (!user) redirect('/login');
 
   // Pull existing orders to drive the recommended-for rail. Today this
-  // is best-effort scaffold work — most of the iterations the spec
-  // mentions (Patiktok, Panood) are still coming_soon. When users
+  // is best-effort scaffold work — some of the iterations the spec
+  // mentions (e.g. Panood) are still coming_soon. When users
   // start buying those services, this rail will light up automatically.
   const orders = await fetchOrdersForEvent(supabase, eventId);
   const orderServiceKeys = orders

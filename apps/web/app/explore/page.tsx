@@ -1345,7 +1345,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // Sort chain (PR #6 updated — quality_score added as step 2):
   //   1. is_setnayan_service DESC (owner directive 2026-05-22 PM) —
   //      first-party Setnayan canonicals (Papic, Panood, Pailaw,
-  //      Patiktok, Pakanta, Setnayan AI, Animated Monogram,
+  //      Pakanta, Setnayan AI, Animated Monogram,
   //      Save-the-Date Video, AI Highlights) float ABOVE everything else.
   //      Vendor's services[] is checked at view-compute time via the
   //      10-canonical array in migration 20260607020000.

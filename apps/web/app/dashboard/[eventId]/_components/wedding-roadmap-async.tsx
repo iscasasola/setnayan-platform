@@ -25,9 +25,9 @@ const VENUE_CATEGORIES = new Set<string>([
   ...RECEPTION_VENUE_CATEGORIES,
   ...CEREMONY_VENUE_CATEGORIES,
 ]);
-// Setnayan capture SKU families (Papic / Panood / Patiktok). Prefix-matched so
+// Setnayan capture SKU families (Papic / Panood). Prefix-matched so
 // new variants (papic_guest_captures, panood_daily_broadcast, …) still count.
-const CAPTURE_SKU_RE = /^(papic|panood|patiktok)/i;
+const CAPTURE_SKU_RE = /^(papic|panood)/i;
 
 /**
  * WeddingRoadmapAsync — the free "things to complete" list on the couple Home

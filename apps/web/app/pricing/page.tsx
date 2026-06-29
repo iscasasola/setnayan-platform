@@ -898,7 +898,7 @@ export default async function PricingPage() {
               </p>
               <p className="mt-3 text-sm leading-relaxed text-ink/70">
                 Software SKUs above (Animated Monogram, Editorial Website,
-                Patiktok, the Panood control room, etc.) — paid at 100% retail.
+                the Panood control room, etc.) — paid at 100% retail.
                 PHP only · itemized receipts on every transaction.
               </p>
             </div>

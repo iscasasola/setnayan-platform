@@ -3,12 +3,13 @@
 // Stories+SDE P0 — offline beat-grid analyzer for the Patiktok music catalogue.
 // ============================================================================
 //
-// ONE-TIME / ad-hoc offline job. Given the seeded `patiktok_music_tracks`
+// ONE-TIME / ad-hoc offline job. Given the seeded `reel_music_tracks`
 // (their `source_url`s) OR a local JSON manifest of tracks, it decodes each
 // audio file to mono PCM, detects the tempo + beat onsets with `music-tempo`,
-// and emits a `beat_grid` JSON object per track (the shape stored in the new
-// nullable `patiktok_music_tracks.beat_grid` JSONB column — see migration
-// 20270307940821_add_beat_grid_to_patiktok_music_tracks.sql).
+// and emits a `beat_grid` JSON object per track (the shape stored in the
+// nullable `reel_music_tracks.beat_grid` JSONB column — added by migration
+// 20270307940821_add_beat_grid_to_patiktok_music_tracks.sql, table since
+// renamed to reel_music_tracks 2026-06-29).
 //
 // THIS SCRIPT IS INERT GROUNDWORK. By default it ONLY PRINTS the computed
 // grids (or writes them to a local --out file). It NEVER writes prod unless you
@@ -57,7 +58,7 @@ function parseArgs(argv) {
 
 function printHelp() {
   console.log(`
-analyze-beat-grids — compute beat_grid JSON for patiktok_music_tracks (offline).
+analyze-beat-grids — compute beat_grid JSON for reel_music_tracks (offline).
 
 USAGE
   node scripts/analyze-beat-grids.mjs [--manifest <file.json>] [--out <file.json>]
@@ -72,7 +73,7 @@ SOURCES (pick one)
 OUTPUT
   (default)           Print a { track_slug: beat_grid } map to stdout.
   --out <file>        Also write that map to <file> (local JSON).
-  --write             Write each beat_grid back to patiktok_music_tracks.
+  --write             Write each beat_grid back to reel_music_tracks.
                       Refuses the prod project ref "${PROD_PROJECT_REF}".
 
 beat_grid shape: { bpm, beats:number[] (sec), downbeats?:number[], source, analyzed_at }
@@ -164,7 +165,7 @@ async function makeSupabase() {
 
 async function tracksFromDb(client, limit) {
   const { data, error } = await client
-    .from('patiktok_music_tracks')
+    .from('reel_music_tracks')
     .select('track_slug, source_url, is_active')
     .eq('is_active', true)
     .limit(Number.isFinite(limit) ? limit : 1000);
@@ -217,7 +218,7 @@ async function main() {
       process.stderr.write(`bpm=${grid.bpm} beats=${grid.beats.length}\n`);
       if (args.write && supa) {
         const { error } = await supa.client
-          .from('patiktok_music_tracks')
+          .from('reel_music_tracks')
           .update({ beat_grid: grid })
           .eq('track_slug', t.track_slug);
         if (error) console.error(`  ! write failed for ${t.track_slug}: ${error.message}`);

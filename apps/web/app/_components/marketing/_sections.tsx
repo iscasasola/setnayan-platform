@@ -36,7 +36,7 @@ import { Wordmark } from '@/app/_components/brand-marks';
 import { Reveal, Blob } from './_motion';
 import { HeroVideoScrub } from './HeroVideoScrub';
 import { fetchPublishedHeroVideo } from '@/lib/hero-video';
-import { fetchV2BundleCatalog, fetchV2CustomerCatalog, formatPeso, getCustomerSkuPrice } from '@/lib/v2-catalog';
+import { fetchV2CustomerCatalog, formatPeso, getCustomerSkuPrice } from '@/lib/v2-catalog';
 import {
   PILOT_EVENT,
   PILOT_VENDORS,
@@ -694,21 +694,13 @@ export async function PricingSection() {
   // tables — the same source /pricing reads — so /admin/pricing edits propagate
   // here automatically. The homepage is force-dynamic for this reason.
   //
-  // 2026-06-13: re-cut to the owner-locked 2026-06-07 4-tier model
-  // (Pricing.md § 00.A): Free–Explore ₱0 · Setnayan AI · Essentials ·
-  // Complete. The old "Free to plan / 18 free tools / free personal site"
-  // card promised paid SKUs as free (owner reversals § 00.D). Essentials +
-  // Complete are purchasable only during onboarding (owner 2026-06-08), so
-  // their CTAs point at the plan-start flow.
-  const [bundles, catalog] = await Promise.all([
-    fetchV2BundleCatalog(),
-    fetchV2CustomerCatalog(),
-  ]);
+  // 2026-06-29: the Essentials + Complete bundle cards were REMOVED (owner "no
+  // more essentials and complete"). The homepage pricing model is now Free →
+  // Setnayan AI → à-la-carte (every other service is sold on /pricing). The two
+  // bundles are deactivated; no bundle fetch here.
+  const catalog = await fetchV2CustomerCatalog();
   const svc = (code: string) => catalog.find((s) => s.service_code === code);
   const setnayanAi = svc('SETNAYAN_AI');
-  const sortedBundles = [...bundles].sort((a, b) => a.retail_price_php - b.retail_price_php);
-  const essentials = sortedBundles.find((b) => b.package_code === 'GUIDED_PACK');
-  const complete = sortedBundles.find((b) => b.package_code === 'MEDIA_PACK');
 
   return (
     <section className="m-section bg-[var(--m-paper-2)]">
@@ -721,8 +713,8 @@ export async function PricingSection() {
         earns only from the Setnayan software you choose — never from what you pay your vendor. Every service is also
         sold à la carte on the pricing page.
       </p>
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {[
+      <div className="grid sm:grid-cols-2 gap-5">
+        {([
           {
             title: 'Free — Explore',
             price: '₱0',
@@ -735,7 +727,7 @@ export async function PricingSection() {
             ],
             cta: 'Start planning',
             ctaHref: '/signup',
-            tone: 'paper' as const,
+            tone: 'paper',
           },
           {
             title: 'Setnayan AI',
@@ -745,38 +737,25 @@ export async function PricingSection() {
               'Full vendor matchmaking',
               'Date · budget · venue · pax · faith cross-referenced',
               'Guided planning workspace',
+              'Add any service à la carte',
             ],
             cta: 'See pricing',
             ctaHref: '/pricing',
-            tone: 'orange' as const,
+            tone: 'orange',
           },
-          {
-            title: 'Essentials',
-            price: essentials ? `₱${formatPeso(essentials.retail_price_php)}` : 'See pricing',
-            sub: 'Offered when you start your plan',
-            items: [
-              'Setnayan AI + Animated Monogram',
-              'Custom QR + Pro RSVP + Papic Guest',
-              'Event + Editorial Website',
-            ],
-            cta: 'Start your plan',
-            ctaHref: '/onboarding/wedding',
-            tone: 'paper' as const,
-          },
-          {
-            title: 'Complete',
-            price: complete ? `₱${formatPeso(complete.retail_price_php)}` : 'See pricing',
-            sub: 'Offered when you start your plan',
-            items: [
-              'Every paid Setnayan service',
-              'Papic · Panood · Pakanta',
-              'One package, one price',
-            ],
-            cta: 'Start your plan',
-            ctaHref: '/onboarding/wedding',
-            tone: 'ink' as const,
-          },
-        ].map((p, i) => (
+          // tone retains the full 'paper' | 'orange' | 'ink' union the card
+          // renderer below switches on, even though the 'ink' card (the retired
+          // Complete bundle) is no longer present — keeps the renderer type-safe
+          // and ready if a third tier is reintroduced.
+        ] as Array<{
+          title: string;
+          price: string;
+          sub: string;
+          items: string[];
+          cta: string;
+          ctaHref: string;
+          tone: 'paper' | 'orange' | 'ink';
+        }>).map((p, i) => (
           <Reveal key={p.title} delay={i * 100}>
             <div
               className="m-card p-7 h-full flex flex-col"

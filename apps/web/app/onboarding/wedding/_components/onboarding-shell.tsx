@@ -191,6 +191,7 @@ function buildSequence(kind: OnboardingState['kind'], authed: boolean, loveSkipp
   const hasStylist = picks.includes('stylist');
   return FLOW_IDS.filter((id) =>
     !REMOVED_SCREENS.has(id) &&                     // owner 2026-06-22 — info-only steps + love-story arc removed for now
+    id !== 'bundle' &&                              // owner 2026-06-29 "no more essentials and complete" — the Essentials/Complete bundle offer screen is dropped from the flow (model is Free → Setnayan AI → à-la-carte). The screen JSX + selectedBundle branch stay inert (never active).
     !(id === 'faith' && kind === 'civil') &&        // Civil skips the faith screen
     !(EXP_SCREENS.has(id) && !EXPERIENCE_QUIZ_ENABLED) &&         // exp_* experience quiz only when the flag is ON
     !(EXPERIENCE_QUIZ_ENABLED && LEGACY_PICKER_SCREENS.has(id)) && // flag ON drops the manual picker chain (the persona derives it)

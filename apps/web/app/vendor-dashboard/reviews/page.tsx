@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { Star, Reply, Pencil, Flag, Heart } from 'lucide-react';
+import { Star, Reply, Flag, Heart } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { countVendorRecommendingCouples } from '@/lib/vendor-recommendations';
@@ -56,8 +56,9 @@ export default async function VendorReviewsPage() {
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Reviews</h1>
         <p className="max-w-prose text-base text-ink/65">
           Reviews from real Setnayan couples post-event. They&rsquo;re permanent per the
-          Vendor Agreement &sect;&nbsp;3.10 — they can&rsquo;t be hidden, but you can
-          reply publicly and edit your response anytime.
+          Vendor Agreement &sect;&nbsp;3.10 — they can&rsquo;t be hidden, but you get
+          one public reply under each review. Your reply shows to every couple,
+          on every plan — make it count, it&rsquo;s final once posted.
         </p>
         {recommendingCouples > 0 ? (
           <p className="inline-flex items-center gap-1.5 rounded-full bg-mulberry/10 px-3 py-1 text-xs font-medium text-mulberry">
@@ -235,9 +236,9 @@ function VendorReviewCard({
 }
 
 /**
- * Shows the existing reply with its timestamp and an inline "Edit response"
- * form below. Since the DB trigger now allows edits, we render both the
- * current reply and the edit form together.
+ * Shows the vendor's single public reply, read-only. The reply is IMMUTABLE
+ * once posted (owner 2026-06-29 · one public reply per review): the DB trigger
+ * `lock_vendor_reply` rejects any change, so there is no edit affordance.
  */
 function ExistingReplySection({
   review,
@@ -255,62 +256,15 @@ function ExistingReplySection({
     : null;
 
   return (
-    <div className="space-y-3">
-      {/* Current reply display */}
-      <div className="rounded-md border-l-4 border-terracotta/40 bg-terracotta/[0.06] p-3 pl-4">
-        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta-700">
-          Response from {vendorName}
-          {repliedAt ? ` · ${repliedAt}` : null}
-        </p>
-        <p className="mt-1 whitespace-pre-line text-sm text-ink/80">{review.vendor_reply}</p>
-      </div>
-
-      {/* Inline edit form */}
-      <details className="group">
-        <summary className="inline-flex cursor-pointer select-none list-none items-center gap-1.5 text-[11px] font-medium text-ink/55 hover:text-ink/80">
-          <Pencil
-            aria-hidden
-            className="h-3.5 w-3.5 group-open:text-mulberry"
-            strokeWidth={2}
-          />
-          <span className="group-open:text-mulberry">Edit response</span>
-        </summary>
-        <form
-          action={postVendorReply}
-          className="mt-2 space-y-2 rounded-lg border border-ink/10 p-3"
-        >
-          <input type="hidden" name="review_id" value={review.review_id} />
-          <label
-            htmlFor={`edit_reply_${review.review_id}`}
-            className="block font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55"
-          >
-            Updated public response
-          </label>
-          <textarea
-            id={`edit_reply_${review.review_id}`}
-            name="reply"
-            required
-            rows={3}
-            maxLength={VENDOR_REPLY_MAX_CHARS}
-            defaultValue={review.vendor_reply ?? ''}
-            placeholder="Edit your public response…"
-            className="input-field min-h-[80px] py-2"
-          />
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-[11px] text-ink/50">
-              Up to {VENDOR_REPLY_MAX_CHARS} characters. Visible to all couples on
-              your public profile.
-            </p>
-            <SubmitButton
-              className="inline-flex items-center gap-1.5 rounded-md bg-mulberry px-3 py-2 text-xs font-medium text-cream hover:bg-mulberry-600 disabled:opacity-60"
-              pendingLabel="Saving…"
-            >
-              <Pencil className="h-3.5 w-3.5" strokeWidth={2} />
-              Save
-            </SubmitButton>
-          </div>
-        </form>
-      </details>
+    <div className="rounded-md border-l-4 border-terracotta/40 bg-terracotta/[0.06] p-3 pl-4">
+      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta-700">
+        Response from {vendorName}
+        {repliedAt ? ` · ${repliedAt}` : null}
+      </p>
+      <p className="mt-1 whitespace-pre-line text-sm text-ink/80">{review.vendor_reply}</p>
+      <p className="mt-2 text-[11px] text-ink/45">
+        Your public reply is final — it can’t be edited once posted.
+      </p>
     </div>
   );
 }
@@ -336,7 +290,8 @@ function ReplyForm({ reviewId }: { reviewId: string }) {
       />
       <div className="flex items-center justify-between gap-2">
         <p className="text-[11px] text-ink/50">
-          Up to {VENDOR_REPLY_MAX_CHARS} characters. You can edit this later.
+          Up to {VENDOR_REPLY_MAX_CHARS} characters. One public reply — it&rsquo;s
+          final once posted, so take a moment.
         </p>
         <SubmitButton
           className="inline-flex items-center gap-1.5 rounded-md bg-mulberry px-3 py-2 text-xs font-medium text-cream hover:bg-mulberry-600 disabled:opacity-60"

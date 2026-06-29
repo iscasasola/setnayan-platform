@@ -442,9 +442,6 @@ export function HomeReskin({ pricing, bgVideos }: { pricing: PricingData; bgVide
         </div>
       </section>
 
-      {/* Cookie pill (voice riff) */}
-      <CookiePill />
-
       {/* ── CONTENT — revealed when the gate opens ── */}
       <main className="hr-content" id="hr-content">
         <section className="hr-manifesto">
@@ -610,18 +607,4 @@ function Mock({ active, children }: { active: boolean; children: ReactNode }) {
   const base = children.props.className ?? '';
   const className = active ? `${base} hr-on` : base;
   return cloneElement(children, { className, 'aria-hidden': !active });
-}
-
-function CookiePill() {
-  const [hidden, setHidden] = useState(false);
-  if (hidden) return null;
-  return (
-    <div className="hr-cookie hr-glass-dark">
-      Cookies help us remember
-      <button onClick={() => setHidden(true)}>Accept</button>
-      <button className="hr-mng" onClick={() => setHidden(true)}>
-        Manage
-      </button>
-    </div>
-  );
 }

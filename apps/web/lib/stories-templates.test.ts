@@ -92,3 +92,29 @@ test('even-split fallback also respects the 5s clip cap', () => {
     }
   }
 });
+
+test('photo slots carry a camera move (§16.9); clip slots do not', () => {
+  for (const builder of [
+    () => buildSlotsFromBeatGrid(stories, makeGrid(1.0)),
+    () => evenSplitSlots(stories),
+  ]) {
+    const slots = builder();
+    const photos = slots.filter((s) => s.kind === 'photo');
+    const clips = slots.filter((s) => s.kind === 'clip');
+    assert.ok(photos.length > 0, 'expected photo slots');
+    for (const p of photos) {
+      assert.ok(p.cameraMove, 'photo slot has a cameraMove');
+      assert.equal(typeof p.cameraMove!.type, 'string');
+      assert.ok(p.cameraMove!.amount > 0);
+    }
+    for (const c of clips) {
+      assert.equal(c.cameraMove, undefined, 'clip slot has no cameraMove');
+    }
+  }
+});
+
+test('camera moves vary across photo slots in a reel', () => {
+  const photos = evenSplitSlots(stories).filter((s) => s.kind === 'photo');
+  const types = new Set(photos.map((p) => p.cameraMove!.type));
+  assert.ok(types.size > 1, 'reel uses more than one camera move');
+});

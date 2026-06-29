@@ -28,6 +28,7 @@ import { renderReel, type RenderTemplate } from '@/lib/reel-render';
 import { shareBlobToDevice } from '@/lib/save-to-device';
 import { prepareGuestStory } from '../actions';
 import { STORY_MIN_PHOTOS } from '@/lib/stories-templates';
+import { defaultCameraMove } from '@/lib/stories-camera-move';
 
 type Phase = 'idle' | 'preparing' | 'rendering' | 'ready' | 'too_few' | 'error';
 
@@ -74,11 +75,14 @@ export function GuestStoryMaker({ token }: { token: string }) {
 
       setPhase('rendering');
       const result = await renderReel({
-        clips: plan.photos.map((p) => ({
+        clips: plan.photos.map((p, i) => ({
           clipId: p.id,
           url: p.url,
           durationSec: null,
-          kind: 'photo',
+          kind: 'photo' as const,
+          // §16.9 — each still gets a deterministic camera move so the reel
+          // reads as filmed, not slideshowed. ₱0 per render.
+          cameraMove: defaultCameraMove(i),
         })),
         template,
         durationSec: plan.template.durationSec,

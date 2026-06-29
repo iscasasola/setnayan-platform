@@ -25,7 +25,7 @@
  * No prices live here — Stories pricing is admin-catalog managed.
  */
 
-import type { CameraMove } from './stories-camera-move';
+import { defaultCameraMove, type CameraMove } from './stories-camera-move';
 
 // ---------------------------------------------------------------------------
 // Beat grid — mirrors the reel_music_tracks.beat_grid JSONB shape
@@ -220,6 +220,8 @@ export function buildSlotsFromBeatGrid(
       endSec: round3(end),
       kind,
       onDownbeat: downbeats.has(round3(beats[i]!)),
+      // Photo slots get a deterministic camera move (§16.9); clips already move.
+      ...(kind === 'photo' ? { cameraMove: defaultCameraMove(slots.length) } : {}),
     });
     patternIdx++;
   }
@@ -231,7 +233,13 @@ export function buildSlotsFromBeatGrid(
     const kind = template.mediaPattern[patternIdx % template.mediaPattern.length]!;
     let end = total;
     if (kind === 'clip') end = Math.min(end, last.endSec + CLIP_MAX_SEC);
-    slots.push({ startSec: last.endSec, endSec: round3(end), kind, onDownbeat: false });
+    slots.push({
+      startSec: last.endSec,
+      endSec: round3(end),
+      kind,
+      onDownbeat: false,
+      ...(kind === 'photo' ? { cameraMove: defaultCameraMove(slots.length) } : {}),
+    });
   }
   return slots;
 }
@@ -251,7 +259,13 @@ export function evenSplitSlots(template: StoriesTemplate): StorySlot[] {
     const kind = template.mediaPattern[i % template.mediaPattern.length]!;
     let end = Math.min(template.durationSec, start + slotLen);
     if (kind === 'clip') end = Math.min(end, start + CLIP_MAX_SEC);
-    slots.push({ startSec: round3(start), endSec: round3(end), kind, onDownbeat: i === 0 });
+    slots.push({
+      startSec: round3(start),
+      endSec: round3(end),
+      kind,
+      onDownbeat: i === 0,
+      ...(kind === 'photo' ? { cameraMove: defaultCameraMove(slots.length) } : {}),
+    });
   }
   return slots;
 }

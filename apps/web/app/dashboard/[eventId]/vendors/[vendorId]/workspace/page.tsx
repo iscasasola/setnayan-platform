@@ -56,6 +56,7 @@ import { createAutoShareInviteAction } from './actions';
 import { HostServiceDetails } from './_components/host-service-details';
 import { DepositReservation } from './_components/deposit-reservation';
 import { ChangeOrderTrail, type ChangeOrderRow } from './_components/change-order-trail';
+import { HandoverInbox, type HandoverRow } from './_components/handover-inbox';
 import { fetchVendorBudgetSummary } from '@/lib/budget';
 import { fetchPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
@@ -280,6 +281,21 @@ export default async function VendorWorkspacePage({ params }: Props) {
     .eq('event_vendor_id', ev.vendor_id)
     .order('created_at', { ascending: false });
   const changeOrders = (changeOrderRows ?? []) as ChangeOrderRow[];
+
+  // Delivery Handover (Wave 4) — the vendor-posted deliverables for this
+  // booking. RLS-gated to couple-on-event reads (current_event_ids). The couple
+  // confirms receipt via the single-winner acknowledge_handover RPC.
+  const { data: handoverRows } = await supabase
+    .from('booking_handovers')
+    .select(
+      'handover_id, kind, label, payload, status, delivered_at, couple_acknowledged_at',
+    )
+    .eq('event_vendor_id', ev.vendor_id)
+    .order('created_at', { ascending: false });
+  const handovers = (handoverRows ?? []) as HandoverRow[];
+  // Offer the "also mark delivered" opt-in only when the booking hasn't already
+  // reached delivered/complete (matches updateVendorStatus's own emit guard).
+  const canAdvanceToDelivered = ev.status !== 'delivered' && ev.status !== 'complete';
 
   // DIY parity (2026-06-11): "also covers" options for the host-authored
   // links on a manual vendor — every plan group except this vendor's own.
@@ -1049,6 +1065,20 @@ export default async function VendorWorkspacePage({ params }: Props) {
             vendorId={ev.vendor_id}
             vendorName={displayName}
             changeOrders={changeOrders}
+          />
+
+          {/*
+            Delivery Handover — the vendor posted finished work (gallery link /
+            proof image / note / sign-off); the couple confirms receipt here.
+            Acknowledge is a single-winner RPC; confirming can also mark the
+            booking delivered (reuses the existing review-request emit).
+          */}
+          <HandoverInbox
+            eventId={eventId}
+            vendorId={ev.vendor_id}
+            vendorName={displayName}
+            handovers={handovers}
+            canAdvanceToDelivered={canAdvanceToDelivered}
           />
 
           {vendorBudgetSummary ? (

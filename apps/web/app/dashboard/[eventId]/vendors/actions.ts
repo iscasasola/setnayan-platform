@@ -3146,6 +3146,87 @@ export async function acknowledgeDeposit(
 }
 
 // ==========================================================================
+// Delivery Handover (Wave 4 · day-of run-of-show & handover)
+//
+// The COUPLE confirms receipt of a vendor-posted handover (gallery link / file
+// / note / sign-off). acknowledge_handover is a single-winner SECURITY DEFINER
+// RPC (FOR UPDATE + status='delivered' precondition + ROW_COUNT + idempotent),
+// couple-gated via current_event_ids. On a successful first acknowledge we
+// OPTIONALLY advance event_vendors.status→'delivered' by REUSING the existing
+// delivered transition in updateVendorStatus (which owns the review-request
+// emit + schedule-pool gate) — no duplicate emit, no money. The vendor-side
+// post action lives in vendor-dashboard/clients/[eventId]/actions.ts.
+// ==========================================================================
+
+/**
+ * acknowledgeHandover — COUPLE confirms receipt of a vendor delivery handover.
+ *
+ * Calls the single-winner acknowledge_handover RPC, then — only on the first
+ * 'ok' (the single-winner that flipped delivered→acknowledged) and when the
+ * caller opted in (advance_status) — advances the booking to 'delivered' by
+ * reusing updateVendorStatus, which is the SOLE owner of the review-request
+ * emit. We never re-implement that emit here.
+ */
+export async function acknowledgeHandover(
+  formData: FormData,
+): Promise<{ status: 'ok' | 'already' | 'not_ackable' | 'error' | 'not_signed_in'; message?: string }> {
+  const handoverId = formData.get('handover_id');
+  const eventId = formData.get('event_id');
+  const vendorId = formData.get('vendor_id');
+  const advanceStatus = formData.get('advance_status') === 'on';
+  if (typeof handoverId !== 'string') {
+    return { status: 'error', message: 'Invalid input' };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { status: 'not_signed_in' };
+
+  const { data, error } = await supabase.rpc('acknowledge_handover', {
+    p_handover_id: handoverId,
+  });
+  if (error) return { status: 'error', message: error.message };
+
+  const env = (data ?? {}) as { status?: string; event_vendor_id?: string | null };
+
+  // Optionally advance the booking to 'delivered' — but ONLY on the first
+  // acknowledge (status 'ok'), and ONLY by reusing updateVendorStatus so the
+  // existing review-request emit fires exactly once (it self-guards against a
+  // re-emit when the row is already delivered/complete).
+  if (env.status === 'ok' && advanceStatus) {
+    const eventVendorId = env.event_vendor_id ?? (typeof vendorId === 'string' ? vendorId : null);
+    if (eventVendorId && typeof eventId === 'string' && eventId.length > 0) {
+      try {
+        const fd = new FormData();
+        fd.set('event_id', eventId);
+        fd.set('vendor_id', eventVendorId);
+        fd.set('status', 'delivered');
+        await updateVendorStatus(fd);
+      } catch {
+        // Best-effort — a failed status advance never undoes the acknowledge
+        // (the receipt is already recorded). The couple can mark delivered
+        // manually from the vendor row if needed.
+      }
+    }
+  }
+
+  if (typeof eventId === 'string' && eventId.length > 0) {
+    revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
+    if (typeof vendorId === 'string' && vendorId.length > 0) {
+      revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`, 'layout');
+    }
+    revalidatePath(`/vendor-dashboard/clients/${eventId}`, 'layout');
+  }
+
+  if (env.status === 'ok') return { status: 'ok' };
+  if (env.status === 'already') return { status: 'already' };
+  if (env.status === 'not_ackable') return { status: 'not_ackable' };
+  return { status: 'error', message: `Unexpected acknowledge status: ${env.status ?? 'none'}` };
+}
+
+// ==========================================================================
 // Change-Order Trail (Wave 3 · booking-lifecycle cluster)
 //
 // The missing booking-lifecycle artifact: a BOTH-ACKNOWLEDGED record of a

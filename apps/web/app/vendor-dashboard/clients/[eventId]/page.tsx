@@ -10,8 +10,10 @@ import {
   FilePlus2,
   FileText,
   LayoutGrid,
+  Link2,
   Martini,
   MessageSquarePlus,
+  PackageCheck,
   Palette,
   Sparkles,
   Users,
@@ -23,10 +25,13 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { getEditorialEligibility } from '@/lib/editorial-vendor-media';
 import { blockRelevance, deriveCallTime } from '@/lib/vendor-timeline';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { RunOfShowHeader } from '@/app/_components/run-of-show-header';
+import type { RunOfShowBlock } from '@/lib/run-of-show';
 import {
   suggestScheduleChange,
   vendorMarkServiceComplete,
   vendorAcknowledgeDeposit,
+  vendorPostHandover,
   vendorRaiseChangeOrder,
   vendorRespondChangeOrder,
   vendorWithdrawChangeOrder,
@@ -196,6 +201,18 @@ type LiveBlock = {
   start_at: string | null;
   end_at: string | null;
   location: string | null;
+  run_state?: 'upcoming' | 'live' | 'done' | null;
+  actual_start_at?: string | null;
+};
+
+type HandoverRow = {
+  handover_id: string;
+  kind: 'gallery_link' | 'file' | 'note' | 'signoff';
+  label: string | null;
+  payload: string | null;
+  status: 'delivered' | 'acknowledged' | 'disputed';
+  delivered_at: string;
+  couple_acknowledged_at: string | null;
 };
 
 type SuggestionRow = {
@@ -228,7 +245,15 @@ type Props = {
     deposit_ack?: string;
     change_order?: string;
     change_order_resp?: string;
+    handover?: string;
   }>;
+};
+
+const HANDOVER_KIND_LABEL: Record<'gallery_link' | 'file' | 'note' | 'signoff', string> = {
+  gallery_link: 'Gallery link',
+  file: 'Sample / proof',
+  note: 'Note',
+  signoff: 'All delivered',
 };
 
 export default async function VendorEventBriefPage({ params, searchParams }: Props) {
@@ -305,7 +330,7 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
   const [{ data: liveBlocks }, { data: mySuggestions }, contractRes] = await Promise.all([
     supabase
       .from('event_schedule_blocks')
-      .select('block_id, label, block_type, start_at, end_at, location')
+      .select('block_id, label, block_type, start_at, end_at, location, run_state, actual_start_at')
       .eq('event_id', eventId)
       .order('start_at', { ascending: true })
       .order('sort_order', { ascending: true }),
@@ -345,6 +370,32 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
     : { data: null };
   const changeOrders = (changeOrderRows ?? []) as VendorChangeOrderRow[];
   const blockLabel = new Map(allBlocks.map((b) => [b.block_id, b.label]));
+
+  // Delivery Handover (Wave 4) — this org's posted handovers for the booking,
+  // beside the Suggest flow. RLS-gated to the vendor's own profile.
+  const { data: handoverRows } = await supabase
+    .from('booking_handovers')
+    .select('handover_id, kind, label, payload, status, delivered_at, couple_acknowledged_at')
+    .eq('event_id', eventId)
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .order('created_at', { ascending: false })
+    .limit(20);
+  const handovers = (handoverRows ?? []) as HandoverRow[];
+
+  // Run-of-show header rows (now/next/±N) — derived from the live timeline's
+  // run_state. Booked vendors may advance the run-state (the RPC allows it), so
+  // canAdvance is true here.
+  const runOfShowBlocks: RunOfShowBlock[] = allBlocks
+    .filter((b) => b.start_at)
+    .map((b) => ({
+      block_id: b.block_id,
+      label: b.label,
+      start_at: b.start_at as string,
+      end_at: b.end_at,
+      location: b.location,
+      run_state: (b.run_state ?? 'upcoming') as RunOfShowBlock['run_state'],
+      actual_start_at: b.actual_start_at ?? null,
+    }));
 
   // ① Category-aware lens: deterministic relevance per block (rule map in
   // lib/vendor-timeline.ts). A lens, never a gate — "My slots" filters the
@@ -933,6 +984,14 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
             </div>
           </div>
 
+          {/* Run-of-show header — live now/next/±N off the shared run-state.
+              Booked vendors may advance it (the single-winner RPC allows it). */}
+          {runOfShowBlocks.length > 0 ? (
+            <div className="mt-3">
+              <RunOfShowHeader eventId={eventId} initial={runOfShowBlocks} canAdvance compact />
+            </div>
+          ) : null}
+
           {/* Suggested call time — earliest key slot minus the trade's setup
               lead. Always a suggestion routed through the Suggest flow. */}
           {callTime && !callTimeAlreadyRequested ? (
@@ -1104,6 +1163,139 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
               </ul>
             </div>
           ) : null}
+
+          {/* Delivery handover (Wave 4) — post a gallery link / proof image /
+              note / sign-off; the couple confirms receipt on their side. */}
+          <div className="mt-5 border-t border-ink/10 pt-4">
+            <h3 className="flex items-center gap-2 text-sm font-semibold">
+              <PackageCheck aria-hidden className="h-4 w-4 text-terracotta" /> Deliver the handover
+            </h3>
+            <p className="mt-1 text-xs text-ink/55">
+              Send the couple their finished work — a gallery link, a sample/proof
+              image, or a closing note. They confirm receipt, which marks your
+              booking delivered.
+            </p>
+
+            {search.handover === 'sent' ? (
+              <p role="status" className="mt-3 rounded-lg bg-success-50 px-3 py-2 text-xs text-success-900">
+                Handover sent — the couple will confirm receipt.
+              </p>
+            ) : null}
+            {search.handover && search.handover !== 'sent' ? (
+              <p role="alert" className="mt-3 rounded-lg bg-warn-50 px-3 py-2 text-xs text-warn-900">
+                {search.handover === 'badurl'
+                  ? 'That gallery link needs to start with http(s)://.'
+                  : search.handover === 'nofile'
+                    ? 'Choose an image to upload.'
+                    : search.handover === 'empty'
+                      ? 'Add a note before sending.'
+                      : search.handover === 'upload'
+                        ? 'That image couldn’t upload — try a PNG/JPEG under 6 MB.'
+                        : 'That didn’t send — try again.'}
+              </p>
+            ) : null}
+
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              {/* Gallery link */}
+              <details className="rounded-xl border border-ink/10 bg-white/50 p-3">
+                <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-medium">
+                  <Link2 aria-hidden className="h-3.5 w-3.5 text-ink/55" /> Share a gallery link
+                </summary>
+                <form action={vendorPostHandover} className="mt-2 grid gap-2">
+                  <input type="hidden" name="event_id" value={eventId} />
+                  <input type="hidden" name="kind" value="gallery_link" />
+                  <input type="text" name="label" maxLength={200} placeholder="e.g. Full wedding gallery" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
+                  <input type="url" name="payload" required placeholder="https://…" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
+                  <p className="text-[11px] text-ink/45">Big galleries stay on your link (Drive, Pixieset, etc.) — we don’t re-host them.</p>
+                  <SubmitButton pendingLabel="Sending…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
+                    Send link
+                  </SubmitButton>
+                </form>
+              </details>
+
+              {/* Proof / sample image */}
+              <details className="rounded-xl border border-ink/10 bg-white/50 p-3">
+                <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-medium">
+                  <FileText aria-hidden className="h-3.5 w-3.5 text-ink/55" /> Upload a sample/proof
+                </summary>
+                <form action={vendorPostHandover} className="mt-2 grid gap-2">
+                  <input type="hidden" name="event_id" value={eventId} />
+                  <input type="hidden" name="kind" value="file" />
+                  <input type="text" name="label" maxLength={200} placeholder="e.g. Edited preview" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
+                  <input type="file" name="file" accept="image/png,image/jpeg,image/webp,image/gif,image/heic" required className="text-xs" />
+                  <p className="text-[11px] text-ink/45">A single image, max 6 MB. For full sets, share a gallery link instead.</p>
+                  <SubmitButton pendingLabel="Uploading…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
+                    Upload
+                  </SubmitButton>
+                </form>
+              </details>
+
+              {/* Note */}
+              <details className="rounded-xl border border-ink/10 bg-white/50 p-3">
+                <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-medium">
+                  <MessageSquarePlus aria-hidden className="h-3.5 w-3.5 text-ink/55" /> Leave a note
+                </summary>
+                <form action={vendorPostHandover} className="mt-2 grid gap-2">
+                  <input type="hidden" name="event_id" value={eventId} />
+                  <input type="hidden" name="kind" value="note" />
+                  <input type="text" name="label" maxLength={200} placeholder="Subject (optional)" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
+                  <textarea name="payload" required maxLength={4000} rows={2} placeholder="e.g. Drive folder shared to your email — download within 30 days." className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
+                  <SubmitButton pendingLabel="Sending…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
+                    Send note
+                  </SubmitButton>
+                </form>
+              </details>
+
+              {/* Sign-off */}
+              <details className="rounded-xl border border-ink/10 bg-white/50 p-3">
+                <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-medium">
+                  <PackageCheck aria-hidden className="h-3.5 w-3.5 text-ink/55" /> All delivered (sign-off)
+                </summary>
+                <form action={vendorPostHandover} className="mt-2 grid gap-2">
+                  <input type="hidden" name="event_id" value={eventId} />
+                  <input type="hidden" name="kind" value="signoff" />
+                  <textarea name="payload" maxLength={4000} rows={2} placeholder="Closing note (optional) — e.g. Everything’s been delivered. Thank you!" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
+                  <SubmitButton pendingLabel="Sending…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
+                    Mark all delivered
+                  </SubmitButton>
+                </form>
+              </details>
+            </div>
+
+            {handovers.length > 0 ? (
+              <div className="mt-4">
+                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+                  Your handovers
+                </p>
+                <ul className="mt-1.5 space-y-1.5">
+                  {handovers.map((h) => (
+                    <li key={h.handover_id} className="flex flex-wrap items-baseline gap-x-2 text-xs">
+                      <span
+                        className={`rounded-full px-2 py-0.5 font-medium ${
+                          h.status === 'acknowledged'
+                            ? 'bg-success-100 text-success-900'
+                            : h.status === 'disputed'
+                              ? 'bg-warn-100 text-warn-900'
+                              : 'bg-ink/5 text-ink/60'
+                        }`}
+                      >
+                        {h.status === 'acknowledged' ? 'received' : h.status}
+                      </span>
+                      <span className="text-ink/70">
+                        {HANDOVER_KIND_LABEL[h.kind]}
+                        {h.label ? ` — ${h.label}` : ''}
+                      </span>
+                      {h.kind === 'gallery_link' && h.payload ? (
+                        <a href={h.payload} target="_blank" rel="noreferrer" className="text-terracotta underline">
+                          open link
+                        </a>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
         </div>
 
         {/* Seat plan status */}

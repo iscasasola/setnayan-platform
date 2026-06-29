@@ -61,10 +61,17 @@ export type ScheduleBlockRow = {
    *  Depth is one-level only — no grandchildren. */
   parent_block_id: string | null;
   created_at: string;
+  /** Day-of run-of-show (migration 20270321980372). run_state is advanced by
+   *  advance_schedule_block; actual_start_at is when the block actually went
+   *  live (drives the "running ±N min" header). Additive — defaults to
+   *  'upcoming' / null on rows created before the run-of-show feature. */
+  run_state: 'upcoming' | 'live' | 'done';
+  actual_start_at: string | null;
+  actual_end_at: string | null;
 };
 
 const SELECT =
-  'block_id,public_id,event_id,label,block_type,start_at,end_at,location,notes,is_public,sort_order,parent_block_id,created_at';
+  'block_id,public_id,event_id,label,block_type,start_at,end_at,location,notes,is_public,sort_order,parent_block_id,created_at,run_state,actual_start_at,actual_end_at';
 
 export async function fetchScheduleBlocks(
   supabase: SupabaseClient,

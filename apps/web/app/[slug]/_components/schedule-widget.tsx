@@ -9,6 +9,8 @@ import {
   wallClockToInstant,
   type ScheduleBlockRow,
 } from '@/lib/schedule';
+import { RunOfShowHeader } from '@/app/_components/run-of-show-header';
+import type { RunOfShowBlock } from '@/lib/run-of-show';
 
 type Props = {
   blocks: ScheduleBlockRow[];
@@ -81,11 +83,33 @@ export function ScheduleWidget({ blocks, eventTz }: Props) {
     }
   }
 
+  // Run-of-show header — read-only for guests (no advance control). Driven by
+  // the shared run-state on the public blocks; realtime keeps it current as the
+  // host advances the day. eventId comes off any block (all share the event).
+  const eventId = ordered[0]?.event_id ?? null;
+  const runOfShowBlocks: RunOfShowBlock[] = ordered.map((b) => ({
+    block_id: b.block_id,
+    label: b.label,
+    start_at: b.start_at,
+    end_at: b.end_at,
+    location: b.location,
+    run_state: b.run_state,
+    actual_start_at: b.actual_start_at,
+  }));
+  // Only surface the live header once the host has actually started the run of
+  // show (some block is live or done) — before that, the static schedule below
+  // already says "up next", so a "Not started" header would just be noise.
+  const showRunOfShow =
+    eventId !== null && runOfShowBlocks.some((b) => b.run_state !== 'upcoming');
+
   return (
     <section className="space-y-4">
       <h2 className="font-mono text-xs uppercase tracking-[0.25em] text-terracotta">
         Day-of schedule
       </h2>
+      {showRunOfShow && eventId ? (
+        <RunOfShowHeader eventId={eventId} initial={runOfShowBlocks} compact />
+      ) : null}
       <ol className="space-y-3">
         {ordered.map((b, i) => {
           const isNow = i === currentIndex;

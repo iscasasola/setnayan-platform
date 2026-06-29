@@ -32,9 +32,8 @@ export const metadata = { title: 'Clients · Vendor' };
 type Props = { searchParams: Promise<{ notice?: string }> };
 
 const NOTICES: Record<string, { tone: 'ok' | 'warn'; text: string }> = {
-  client_imported: { tone: 'ok', text: 'Client imported — 1 token used. They now hold a slot on that schedule.' },
+  client_imported: { tone: 'ok', text: 'Client imported — free. They now hold a slot on that schedule.' },
   block_removed: { tone: 'ok', text: 'Outside client removed — the date is open again.' },
-  no_tokens: { tone: 'warn', text: 'Not enough tokens — importing an outside client costs 1 token.' },
   bad_dates: { tone: 'warn', text: 'Those dates don’t work — check the start and end date.' },
   bad_name: { tone: 'warn', text: 'The client needs a name.' },
   bad_pool: { tone: 'warn', text: 'Pick which schedule this client belongs to.' },
@@ -270,7 +269,7 @@ export default async function VendorClientsPage({ searchParams }: Props) {
         {pools.length > 0 ? (
           <details className="mt-4 rounded-xl border border-ink/10 bg-white/50 p-4">
             <summary className="cursor-pointer text-sm font-semibold">
-              Import an outside client · 1 token
+              Import an outside client · free
             </summary>
             <form action={importExternalClient} className="mt-3 grid max-w-md gap-2">
               <input type="hidden" name="return_to" value="clients" />
@@ -290,7 +289,7 @@ export default async function VendorClientsPage({ searchParams }: Props) {
                 <input type="date" name="end_date" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
               </div>
               <SubmitButton pendingLabel="Importing…" className="justify-self-start rounded-lg bg-ink px-4 py-1.5 text-sm font-medium text-cream">
-                Import · 1 token
+                Import · free
               </SubmitButton>
             </form>
           </details>

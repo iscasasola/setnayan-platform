@@ -8,8 +8,8 @@
  *   - manual block = CLOSES the date(s) for one pool, or org-wide when no
  *     pool is chosen (vacation). Couples only ever see "unavailable".
  *   - external client = the vendor's off-app booking; category-pool-scoped,
- *     consumes 1 capacity unit per date, costs 1 token (tier matrix
- *     importCustomerTokenCost) — both writes atomic in the
+ *     consumes 1 capacity unit per date, FREE (owner 2026-06-30 — the free
+ *     CRM on-ramp; the old 1-token import fee is retired) — written in the
  *     import_external_client RPC.
  *   - merge = pointing a category at another pool ("same team serves
  *     both"); per-category pools stay the default.
@@ -164,8 +164,9 @@ export async function addManualBlock(formData: FormData): Promise<void> {
 }
 
 /**
- * Import an off-app client: named external_client block + 1-token burn,
- * atomic in the import_external_client RPC. NOT an app client.
+ * Import an off-app client: a named external_client block via the
+ * import_external_client RPC. FREE (owner 2026-06-30 — the free CRM on-ramp;
+ * the old 1-token import fee is retired). NOT an app client.
  */
 export async function importExternalClient(formData: FormData): Promise<void> {
   const { supabase, profile } = await requireVendor();
@@ -190,11 +191,9 @@ export async function importExternalClient(formData: FormData): Promise<void> {
     p_end_date: endDate,
   });
   if (error) {
-    // The RPC RAISES on insufficient token balance and rolls the block back.
-    backToCalendar(
-      formData,
-      error.message.includes('INSUFFICIENT') ? 'no_tokens' : 'save_failed',
-    );
+    // Import is free now — the RPC no longer burns tokens, so there's no
+    // insufficient-balance path left; any error is a genuine save failure.
+    backToCalendar(formData, 'save_failed');
   }
   const status = (data as { status?: string; reason?: string } | null)?.status;
   if (status !== 'ok') {

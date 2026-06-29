@@ -58,14 +58,13 @@ type Props = {
 const NOTICES: Record<string, { tone: 'ok' | 'warn'; text: string }> = {
   block_added: { tone: 'ok', text: 'Date block added.' },
   block_removed: { tone: 'ok', text: 'Entry removed.' },
-  client_imported: { tone: 'ok', text: 'Client imported — 1 token used. They now hold a slot on this schedule.' },
+  client_imported: { tone: 'ok', text: 'Client imported — free. They now hold a slot on this schedule.' },
   capacity_saved: { tone: 'ok', text: 'Daily capacity saved.' },
   capacity_clamped: { tone: 'warn', text: 'Saved at your plan’s maximum bookings-per-day. Upgrade to raise the ceiling.' },
   pool_saved: { tone: 'ok', text: 'Schedule assignment saved.' },
   waitlist_notified: { tone: 'ok', text: 'Waitlisted couples emailed — they know the date is open again.' },
   calendar_created: { tone: 'ok', text: 'Calendar created. Assign services + set its limit any time.' },
   calendar_saved: { tone: 'ok', text: 'Calendar saved.' },
-  no_tokens: { tone: 'warn', text: 'Not enough tokens — importing an outside client costs 1 token. Top up under Tokens.' },
   bad_dates: { tone: 'warn', text: 'Those dates don’t work — check the start and end date.' },
   bad_name: { tone: 'warn', text: 'Give it a name first.' },
   bad_pool: { tone: 'warn', text: 'Pick which schedule this belongs to.' },
@@ -405,14 +404,6 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
           }`}
         >
           {notice.text}
-          {search.notice === 'no_tokens' ? (
-            <>
-              {' '}
-              <Link href="/vendor-dashboard/tokens" className="font-medium underline">
-                Get tokens
-              </Link>
-            </>
-          ) : null}
         </p>
       ) : null}
 
@@ -728,7 +719,7 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
               </summary>
               <p className="mt-2 text-sm text-ink/65">
                 A booking you took outside Setnayan. It holds a slot on its schedule
-                so the app never double-books you. Costs <strong>1 token</strong>.
+                so the app never double-books you. <strong>Free</strong>.
                 Outside clients aren&rsquo;t app clients — no chat thread, no stats,
                 no reviews.
               </p>
@@ -754,7 +745,7 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
                   <input type="date" name="end_date" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
                 </div>
                 <SubmitButton pendingLabel="Importing…" className="justify-self-start rounded-lg bg-ink px-4 py-1.5 text-sm font-medium text-cream">
-                  Import · 1 token
+                  Import · free
                 </SubmitButton>
               </form>
             </details>

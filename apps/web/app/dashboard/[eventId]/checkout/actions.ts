@@ -300,6 +300,22 @@ export async function submitOrderAction(
     return { ok: false, reason: 'You can only check out for your own event.' };
   }
 
+  // Retired-bundle guard (owner 2026-06-29 "no more essentials and complete").
+  // The Essentials (GUIDED_PACK) + Complete (MEDIA_PACK) bundles are deactivated
+  // and removed from every UI + the /studio/bundle route now 404s, so nothing
+  // submits these codes. But submitOrderAction does NOT require serviceKey to map
+  // to an active catalog row, and for a deactivated bundle resolveBundleChargeCentavos
+  // returns null (it honors is_active) — which would let the order fall back to the
+  // tamperable CLIENT price. Hard-reject the retired codes here so a forged/stale
+  // POST can never create a bundle order. Defense-in-depth alongside the UI removal.
+  const RETIRED_BUNDLE_CODES = new Set(['GUIDED_PACK', 'MEDIA_PACK']);
+  if (RETIRED_BUNDLE_CODES.has(serviceKey)) {
+    return {
+      ok: false,
+      reason: 'This bundle is no longer available. Pick the software you want from your dashboard instead.',
+    };
+  }
+
   // ---- Catalog is the single source of truth for the charged price ----
   //
   // The base price originates client-side (the add-on page passes

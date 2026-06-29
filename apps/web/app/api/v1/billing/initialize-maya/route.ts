@@ -371,9 +371,15 @@ async function readBundlePrice(bundleCode: string): Promise<number> {
     .from('platform_package_catalog')
     .select('retail_price_php')
     .eq('package_code', bundleCode)
+    // Honor is_active (owner 2026-06-29 "no more essentials and complete"):
+    // GUIDED_PACK + MEDIA_PACK are deactivated, so this read returns no row and
+    // the function FAILS CLOSED (throws below) — a deactivated bundle can never
+    // be priced or billed through the Maya/QR gateway. Same is_active semantics
+    // as fetchV2BundleCatalog + resolveBundleChargeCentavos.
+    .eq('is_active', true)
     .maybeSingle();
   if (data?.retail_price_php) return Number(data.retail_price_php);
-  throw new Error(`No admin price for bundle ${bundleCode} (platform_package_catalog)`);
+  throw new Error(`No active admin price for bundle ${bundleCode} (platform_package_catalog)`);
 }
 
 function makeReferenceNumber(eventId: string, channel: 'QR' | 'MAYA'): string {

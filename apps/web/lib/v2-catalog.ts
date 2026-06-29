@@ -175,6 +175,13 @@ export async function fetchV2BundleCatalog(): Promise<V2BundleSku[]> {
   const { data, error } = await admin
     .from('platform_package_catalog')
     .select('package_code, title, retail_price_php')
+    // Honor is_active (owner 2026-06-29 "no more essentials and complete"):
+    // GUIDED_PACK + MEDIA_PACK are is_active=false, so this reader now returns
+    // ZERO bundles. Every consumer (onboarding `bundleVM`, /pricing tier cards
+    // + JSON-LD bundle map) finds nothing and renders nothing — defense-in-depth
+    // alongside the explicit UI removal in those files. Same is_active semantics
+    // as fetchV2CustomerCatalog + resolveBundleChargeCentavos.
+    .eq('is_active', true)
     .order('retail_price_php', { ascending: true });
 
   if (error || !data) return [];

@@ -3,7 +3,6 @@ import { ArrowRight, Check, Sparkles, Brush, Clock3, Globe, Coins, Radio, Users 
 import { Logo } from '@/app/_components/logo';
 import {
   fetchV2CustomerCatalog,
-  fetchV2BundleCatalog,
   fetchV2VendorCatalog,
   formatPeso,
   formatSkuPriceLabel,
@@ -23,8 +22,8 @@ import {
 /**
  * Force dynamic rendering · skip static prerender.
  *
- * WHY: this page calls fetchV2CustomerCatalog / fetchV2BundleCatalog /
- * fetchV2VendorCatalog from lib/v2-catalog.ts. Those helpers call
+ * WHY: this page calls fetchV2CustomerCatalog / fetchV2VendorCatalog from
+ * lib/v2-catalog.ts. Those helpers call
  * createAdminClient (lib/supabase/admin.ts) which throws "Missing SUPABASE
  * env vars for admin client" when SUPABASE_SERVICE_ROLE_KEY is unset — the
  * case in GitHub Actions `production build` (.github/workflows/ci.yml runs
@@ -48,10 +47,11 @@ export const dynamic = 'force-dynamic';
 /**
  * /pricing — V2 customer-side pricing surface.
  *
- * Sourced live from the 3 V2 catalog tables:
- *   - platform_retail_catalog_v2  (19 customer SKUs · is_token_able flag)
- *   - platform_package_catalog    (2 bundles · Guided Pack + Media Pack)
- *   - vendor_billing_catalog      (2 vendor subs + 5 token packs)
+ * Sourced live from the V2 catalog tables:
+ *   - platform_retail_catalog_v2  (customer SKUs · is_token_able flag)
+ *   - vendor_billing_catalog      (vendor subs + token packs)
+ * (The platform_package_catalog bundles — Essentials/Complete — were removed
+ *  from this surface 2026-06-29; both are deactivated.)
  *
  * What changed from the V1 page (rewritten 2026-05-28):
  *   - Removed Setnayan Concierge ₱2,499 / 3-day trial hero · Setnayan AI is
@@ -138,14 +138,11 @@ function groupByStatus(skus: Array<V2CustomerSku>): Record<BuildStatus, Array<V2
 export default async function PricingPage() {
   // Reads in parallel · helpers return [] on error, so the page still
   // renders a polite empty state rather than 500'ing.
-  // Bundles (Essentials/Complete) stay PURCHASABLE ONLY during onboarding
-  // (owner 2026-06-08 — "never sold outside"): the tier overview below
-  // PRESENTS the locked 4-tier model (Pricing.md § 00 · 2026-06-07) for price
-  // transparency + GEO coherence, but carries no buy path — the only place a
-  // bundle can be bought remains the onboarding flow.
-  const [customerSkus, bundles, vendorSkus] = await Promise.all([
+  // The Essentials/Complete bundle tiers were removed 2026-06-29 (owner "no
+  // more essentials and complete") — both are deactivated and the pricing
+  // model is Free → Setnayan AI → à-la-carte SKUs. No bundle fetch here.
+  const [customerSkus, vendorSkus] = await Promise.all([
     fetchV2CustomerCatalog(),
-    fetchV2BundleCatalog(),
     fetchV2VendorCatalog(),
   ]);
 
@@ -191,12 +188,9 @@ export default async function PricingPage() {
 
   const grouped = groupByStatus(alaCarteSkus);
 
-  // 4-tier model (owner-locked 2026-06-07 · Pricing.md § 00.A). Tier prices
-  // read live: Setnayan AI from platform_retail_catalog_v2 · Essentials
-  // (GUIDED_PACK) + Complete (MEDIA_PACK) from platform_package_catalog.
+  // Setnayan AI price reads live from platform_retail_catalog_v2 (the one paid
+  // planner tier above Free). Bundle tiers removed 2026-06-29.
   const setnayanAi = customerSkus.find((s) => s.service_code === 'SETNAYAN_AI');
-  const essentialsBundle = bundles.find((b) => b.package_code === 'GUIDED_PACK');
-  const completeBundle = bundles.find((b) => b.package_code === 'MEDIA_PACK');
 
   // Panood is TWO tiers, not one paid product (owner-locked model):
   //   (a) FREE single-camera livestream — the couple goes live to their own
@@ -260,7 +254,7 @@ export default async function PricingPage() {
   //
   // Composition rules:
   //   - Customer SKUs (19)         → @type Product · brand → Organization
-  //   - Customer Bundles (2)       → @type Product · brand → Organization
+  //   - (Customer bundles removed 2026-06-29 — deactivated · no longer listed)
   //   - Vendor Monthly Subs (2)    → @type Service · provider → Organization ·
   //                                  PriceSpecification with billingDuration P1M
   //   - Token Packs (5)            → @type Product · brand → Organization
@@ -322,27 +316,12 @@ export default async function PricingPage() {
           seller: ORGANIZATION_REF,
         },
       })),
-      // Customer tiers (Essentials/Complete) · @type Product. Re-listed
-      // 2026-06-13 for GEO coherence with the visible tier overview below —
-      // AI engines were citing stale tier pricing. The offer URL points at
-      // the onboarding flow because that is the ONLY purchase point
-      // (owner 2026-06-08 "never sold outside" is unchanged).
-      ...bundles.map((b) => ({
-        '@type': 'Product',
-        '@id': `${SITE_URL}/pricing#tier-${b.package_code}`,
-        name: b.title,
-        description: `${b.title} — Setnayan planning tier, offered when you start your wedding plan.`,
-        brand: ORGANIZATION_REF,
-        category: 'Wedding planning software',
-        offers: {
-          '@type': 'Offer',
-          url: `${SITE_URL}/onboarding/wedding`,
-          price: String(Math.round(b.retail_price_php)),
-          priceCurrency: 'PHP',
-          availability: 'https://schema.org/InStock',
-          seller: ORGANIZATION_REF,
-        },
-      })),
+      // Customer bundle tiers (Essentials/Complete) REMOVED from the @graph
+      // 2026-06-29 (owner "no more essentials and complete"). The two bundles
+      // are deactivated (is_active=false) and `fetchV2BundleCatalog()` now
+      // returns []; the pricing model is Free → Setnayan AI → à-la-carte SKUs,
+      // with no bundle product entities. The Setnayan AI SKU is already listed
+      // among the customer software SKUs above.
       // Vendor subscriptions · @type Service with PriceSpecification ·
       // both 28-day prepaid + annual cadence per CLAUDE.md 2026-05-30 row
       // "🔒 V2.1 BRIEF AMENDMENT #2 LOCKED" § 1(a) cadence correction +
@@ -479,10 +458,11 @@ export default async function PricingPage() {
         </div>
       </section>
 
-      {/* The 4-tier ladder — owner-locked 2026-06-07 (Pricing.md § 00.A).
-          Display-only price transparency: Setnayan AI is bought in-app like
-          any SKU; Essentials + Complete are offered ONLY while you set up
-          your plan (onboarding · owner 2026-06-08), so no buy CTA here. */}
+      {/* How couples pay — Free → Setnayan AI → à-la-carte SKUs.
+          The Essentials + Complete bundle tiers were removed 2026-06-29
+          (owner "no more essentials and complete"). The model is now one free
+          tier, one paid planner (Setnayan AI), and the à-la-carte software
+          catalog below — no packaged bundles. */}
       <section className="border-b border-ink/5">
         <div className="mx-auto w-full max-w-5xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
           <div className="mb-12 max-w-2xl space-y-3">
@@ -490,16 +470,16 @@ export default async function PricingPage() {
               How couples pay
             </p>
             <LineRevealHeading className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
-              One free tier. Three ways to go further.
+              Start free. Add Setnayan AI. Build the rest à la carte.
             </LineRevealHeading>
             <p className="text-base leading-relaxed text-ink/65">
-              Everything is à la carte below — or pick a tier when you start
-              your plan. Setnayan Essentials and Setnayan Complete are offered
-              while you set up your wedding, at a packaged price below their
-              à-la-carte total.
+              Plan free for as long as you like. Add Setnayan AI to unlock the
+              full matchmaking engine and guided planning — then pick exactly
+              the software you want from the catalog below. No packages, no
+              commitments.
             </p>
           </div>
-          <RevealBand className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4" stagger={0.07}>
+          <RevealBand className="grid grid-cols-1 gap-4 sm:grid-cols-2" stagger={0.07}>
             <article data-reveal-item className="flex flex-col gap-3 rounded-2xl border border-ink/15 bg-cream p-6">
               <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
                 Free — Explore
@@ -524,31 +504,6 @@ export default async function PricingPage() {
                 The full matchmaking engine — date, availability, budget,
                 venue, guest count, religion, and reviews cross-referenced —
                 plus the guided planning workspace. One purchase per event.
-              </p>
-            </article>
-            <article data-reveal-item className="flex flex-col gap-3 rounded-2xl border border-ink/15 bg-cream p-6">
-              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-                Setnayan Essentials
-              </p>
-              <p className="font-sans text-3xl font-semibold tracking-tight text-ink">
-                {essentialsBundle ? `₱${formatPeso(essentialsBundle.retail_price_php)}` : '—'}
-              </p>
-              <p className="text-sm leading-relaxed text-ink/65">
-                Setnayan AI + Animated Monogram + Custom QR + Pro RSVP + Papic
-                Guest + Event Website + Editorial Website. Offered when you
-                start your plan.
-              </p>
-            </article>
-            <article data-reveal-item className="flex flex-col gap-3 rounded-2xl border border-ink/15 bg-cream p-6">
-              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-                Setnayan Complete
-              </p>
-              <p className="font-sans text-3xl font-semibold tracking-tight text-ink">
-                {completeBundle ? `₱${formatPeso(completeBundle.retail_price_php)}` : '—'}
-              </p>
-              <p className="text-sm leading-relaxed text-ink/65">
-                Every paid Setnayan service for your event, in one package.
-                Offered when you start your plan.
               </p>
             </article>
           </RevealBand>

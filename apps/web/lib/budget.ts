@@ -729,6 +729,9 @@ export function renderBudgetIcs(args: {
   for (const summary of vendors) {
     for (const li of summary.lineItems) {
       if (!li.due_date) continue;
+      // Credits (change-order removals store a signed-negative amount_php) are
+      // NOT money owed — never emit a "Payment due" calendar event for them.
+      if (Number(li.amount_php) <= 0) continue;
       // Skip line items that are fully covered by payments to keep the
       // calendar focused on still-owed money.
       const paidForLine = summary.payments

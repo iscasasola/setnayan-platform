@@ -1,6 +1,42 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
+ * Returns the active comp_grant scopes + scoped_skus for the authenticated
+ * user. Used to bypass entitlement gates without needing per-event orders.
+ *   - scope='all_services' → every SKU is unlocked
+ *   - scope='specific_skus' → only the listed sku codes are unlocked
+ * Degrades gracefully on schema errors (42P01/42703 → empty result).
+ */
+async function fetchActiveCompGrants(
+  supabase: SupabaseClient,
+): Promise<{ allServices: boolean; specificSkus: Set<string> }> {
+  const { data, error } = await supabase
+    .from('comp_grants')
+    .select('scope, scoped_skus')
+    .in('scope', ['all_services', 'specific_skus'])
+    .is('revoked_at', null);
+  if (error) {
+    if (error.code === '42P01' || error.code === '42703')
+      return { allServices: false, specificSkus: new Set() };
+    throw new Error(`fetchActiveCompGrants failed: ${error.message}`);
+  }
+  let allServices = false;
+  const specificSkus = new Set<string>();
+  for (const row of data ?? []) {
+    if (row.scope === 'all_services') { allServices = true; break; }
+    if (row.scope === 'specific_skus' && Array.isArray(row.scoped_skus)) {
+      for (const sku of row.scoped_skus) specificSkus.add(sku as string);
+    }
+  }
+  return { allServices, specificSkus };
+}
+
+async function hasAllServicesGrant(supabase: SupabaseClient): Promise<boolean> {
+  const { allServices } = await fetchActiveCompGrants(supabase);
+  return allServices;
+}
+
+/**
  * apps/web/lib/entitlements.ts
  *
  * Single source of truth for couple-SKU ownership ("does this event own a
@@ -288,6 +324,11 @@ export async function eventOwnsSku(
   eventId: string,
   serviceKey: string,
 ): Promise<boolean> {
+  // 0. Comp grant bypass — all_services OR specific SKU match.
+  const grants = await fetchActiveCompGrants(supabase);
+  if (grants.allServices) return true;
+  if (grants.specificSkus.has(serviceKey)) return true;
+
   // 1. Direct order for the SKU (covers à-la-carte purchase AND a bundle code
   //    passed directly).
   if (await checkOrderOwnership(supabase, eventId, serviceKey)) return true;
@@ -318,6 +359,11 @@ export async function eventSkuActive(
   eventId: string,
   serviceKey: string,
 ): Promise<boolean> {
+  // Comp grant bypass — all_services OR specific SKU match.
+  const grants = await fetchActiveCompGrants(supabase);
+  if (grants.allServices) return true;
+  if (grants.specificSkus.has(serviceKey)) return true;
+
   if (await checkOrderActive(supabase, eventId, serviceKey)) return true;
   const grantingBundles = BUNDLES_GRANTING_SKU.get(serviceKey);
   if (!grantingBundles || grantingBundles.length === 0) return false;
@@ -373,6 +419,19 @@ export async function eventActiveSkus(
 ): Promise<{ active: Set<string>; pending: Set<string> }> {
   const active = new Set<string>();
   const pending = new Set<string>();
+
+  // Comp grant bypass — populate active set from grants, then continue
+  // to also pick up any real orders (so pending badges still appear).
+  const grants = await fetchActiveCompGrants(supabase);
+  if (grants.allServices) {
+    const allSkus = [
+      ...Object.keys(BUNDLE_CHILD_SKUS),
+      ...Object.values(BUNDLE_CHILD_SKUS).flat(),
+    ];
+    for (const key of allSkus) active.add(key);
+    return { active, pending };
+  }
+  for (const sku of grants.specificSkus) active.add(sku);
 
   const { data, error } = await supabase
     .from('orders')

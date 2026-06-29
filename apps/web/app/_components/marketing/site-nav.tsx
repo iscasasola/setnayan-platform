@@ -28,6 +28,7 @@ import Link from 'next/link';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { useHideOnScroll } from '@/app/_components/nav/use-hide-on-scroll';
 import { MobileMenu } from './_nav-mobile';
+import { SignInButton } from '@/app/_components/auth/sign-in-modal';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 
 // ─────────────────────────────────────────────────────────────────────
@@ -131,12 +132,13 @@ export function Nav({
         ))}
       </div>
       <div className="flex gap-2.5 items-center">
-        <Link
-          href="/login"
-          className="hidden lg:inline whitespace-nowrap text-sm text-[var(--m-slate)] hover:text-[var(--m-ink)]"
-        >
+        {/* Sign in → popup, consistent with the homepage glass nav (owner
+            2026-06-30 "login should be like the rest of the upper menu. a
+            popup."). Was a hard <Link href="/login">. SignInButton self-detects
+            the client shell for OAuth gating. */}
+        <SignInButton className="hidden lg:inline appearance-none border-0 bg-transparent p-0 m-0 cursor-pointer whitespace-nowrap text-sm text-[var(--m-slate)] hover:text-[var(--m-ink)]">
           Sign in
-        </Link>
+        </SignInButton>
         <Link href="/onboarding/wedding" className="m-btn m-btn-primary px-[18px] py-2.5 text-[13px]">
           Start planning
         </Link>

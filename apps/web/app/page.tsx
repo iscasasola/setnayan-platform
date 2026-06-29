@@ -30,6 +30,8 @@ import { HomeReskin } from './_components/home/HomeReskin';
 import { getHomePricingData } from './_components/home/pricing-data';
 import { fetchPublishedBackgroundVideos } from '@/lib/background-videos';
 import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
+import { ANY_OAUTH_ENABLED } from './_components/oauth-button-row';
+import { getClientShell } from '@/lib/request-platform';
 
 // GEO Phase G2 (2026-05-28) — brand-first title + value-prop description.
 // Carried forward so AI answer engines + SERP cards keep extracting the same
@@ -138,6 +140,16 @@ export default async function HomePage() {
   // Catalog-driven pricing for the Prices overlay (no hardcoded numbers).
   const pricing = await getHomePricingData();
 
+  // OAuth visibility for the Sign-in overlay — same shell gating as /login:
+  // shown on web + the rebuilt desktop app (system-browser loopback OAuth),
+  // hidden on the mobile/older-native shell where Google refuses OAuth in an
+  // embedded WebView. Desktop renders the loopback variant; web the
+  // server-action row. Resolved here (server) and threaded down because the
+  // overlay is a client component that can't read headers()/cookies().
+  const shell = await getClientShell();
+  const showOAuth = ANY_OAUTH_ENABLED && shell !== 'mobile';
+  const oauth = { show: showOAuth, desktop: showOAuth && shell === 'desktop' };
+
   // Admin-uploaded homepage background videos (/admin/background-videos):
   // slot 0 = the main cinematic hero backdrop; slots 1-5 = the five pillar
   // dock "icon" videos, in PILLAR_HEROES order (Ala Ala · Likha · Plano ·
@@ -166,7 +178,7 @@ export default async function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareAppJsonLd) }}
       />
-      <HomeReskin pricing={pricing} bgVideos={bgVideos} />
+      <HomeReskin pricing={pricing} bgVideos={bgVideos} oauth={oauth} />
     </>
   );
 }

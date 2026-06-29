@@ -11,6 +11,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { SignInButton } from '@/app/_components/auth/sign-in-modal';
 
 export function MobileMenu({ links }: { links: Array<{ label: string; href: string }> }) {
   const [open, setOpen] = useState(false);
@@ -44,9 +45,14 @@ export function MobileMenu({ links }: { links: Array<{ label: string; href: stri
             </Link>
           ))}
           <div className="flex gap-2.5 items-center pt-3 mt-2 border-t border-[var(--m-line-soft)]">
-            <Link href="/login" onClick={() => setOpen(false)} className="m-btn m-btn-ghost flex-1 justify-center">
+            {/* Sign in → popup (owner 2026-06-30). Closes the hamburger sheet
+                as the modal opens. */}
+            <SignInButton
+              onOpen={() => setOpen(false)}
+              className="m-btn m-btn-ghost flex-1 justify-center"
+            >
               Sign in
-            </Link>
+            </SignInButton>
             <Link
               href="/onboarding/wedding"
               onClick={() => setOpen(false)}

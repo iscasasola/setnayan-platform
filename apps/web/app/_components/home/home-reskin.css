@@ -1988,6 +1988,124 @@ html.hr-snap {
   cursor: pointer;
   font-family: var(--hr-sans);
 }
+
+/* ── Sign-in overlay (owner 2026-06-30 "login is a popup like the rest of
+   the upper menu"). Greige-card form chrome matching the overlay tokens; the
+   OAuth row + SubmitButton bring their own global Tailwind classes. ─────── */
+.home-reskin-ov .hr-si-oauth {
+  margin-bottom: 4px;
+}
+.home-reskin-ov .hr-si-or {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0 16px;
+}
+.home-reskin-ov .hr-si-or::before,
+.home-reskin-ov .hr-si-or::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--hr-line);
+}
+.home-reskin-ov .hr-si-or span {
+  font-family: var(--hr-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--hr-grey-2);
+}
+.home-reskin-ov .hr-si-form {
+  display: grid;
+  gap: 12px;
+}
+.home-reskin-ov .hr-si-field {
+  display: grid;
+  gap: 5px;
+}
+.home-reskin-ov .hr-si-label {
+  font-family: var(--hr-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--hr-grey-2);
+}
+.home-reskin-ov .hr-si-input {
+  width: 100%;
+  padding: 11px 13px;
+  background: #fff;
+  border: 1px solid var(--hr-line);
+  border-radius: var(--hr-r10);
+  font-size: 14px;
+  font-family: var(--hr-sans);
+  color: var(--hr-ink);
+  outline: none;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+.home-reskin-ov .hr-si-input::placeholder {
+  color: var(--hr-grey-2);
+}
+.home-reskin-ov .hr-si-input:focus {
+  border-color: var(--hr-pop2);
+  box-shadow: 0 0 0 3px rgba(197, 160, 89, 0.18);
+}
+.home-reskin-ov .hr-si-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12.5px;
+}
+.home-reskin-ov .hr-si-remember {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--hr-grey);
+  cursor: pointer;
+  user-select: none;
+}
+.home-reskin-ov .hr-si-remember input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--hr-pop2);
+  cursor: pointer;
+}
+.home-reskin-ov .hr-si-link {
+  color: var(--hr-pop1);
+  text-decoration: none;
+  font-weight: 500;
+}
+.home-reskin-ov .hr-si-link:hover {
+  text-decoration: underline;
+}
+.home-reskin-ov .hr-si-submit {
+  width: 100%;
+  justify-content: center;
+  margin-top: 4px;
+  background: var(--hr-ink);
+  color: #fff;
+  border: none;
+  border-radius: var(--hr-r);
+  padding: 13px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: var(--hr-sans);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}
+.home-reskin-ov .hr-si-submit:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+.home-reskin-ov .hr-si-foot {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--hr-grey);
+}
 .home-reskin-ov .hr-vb-stat {
   font-size: 13.5px;
   color: var(--hr-ink);

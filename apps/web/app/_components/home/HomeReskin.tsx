@@ -22,7 +22,7 @@ import { cloneElement, isValidElement, useCallback, useEffect, useRef, useState 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { PILLARS, PILLAR_HEROES, HOME_SCENE } from './pillars';
-import { HomeOverlays, type OverlayId } from './HomeOverlays';
+import { HomeOverlays, type OverlayId, type SignInOAuth } from './HomeOverlays';
 import type { PricingData } from './pricing-data';
 import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
 
@@ -75,7 +75,15 @@ function reduceMotion() {
  */
 export type HomeBgVideos = { main: string | null; pillars: (string | null)[] };
 
-export function HomeReskin({ pricing, bgVideos }: { pricing: PricingData; bgVideos?: HomeBgVideos }) {
+export function HomeReskin({
+  pricing,
+  bgVideos,
+  oauth,
+}: {
+  pricing: PricingData;
+  bgVideos?: HomeBgVideos;
+  oauth: SignInOAuth;
+}) {
   const mainVideo = bgVideos?.main ?? null;
   const pillarVideos = bgVideos?.pillars ?? [];
   const rootRef = useRef<HTMLDivElement>(null);
@@ -358,12 +366,15 @@ export function HomeReskin({ pricing, bgVideos }: { pricing: PricingData; bgVide
           <button onClick={() => setOverlay('download')}>Download</button>
           <button onClick={() => setOverlay('vendors')}>Vendors</button>
         </div>
-        {/* Sign in → the REAL auth at /login (Google + Apple via OAuthButtonRow,
-            the desktop loopback variant, and email/password — env-flag gated).
-            No mockup overlay: this is a direct link into the working login. */}
-        <Link className="hr-signin hr-glass-dark" href="/login">
+        {/* Sign in → a popup overlay, consistent with Prices / Download /
+            Vendors (owner 2026-06-30 "login should be like the rest of the
+            upper menu — a popup"). The overlay hosts the REAL auth (Google +
+            Apple via OAuthButtonRow / the desktop loopback variant, plus
+            email/password — env-flag gated), wired to the same server actions
+            as /login. Not a mockup. */}
+        <button className="hr-signin hr-glass-dark" onClick={() => setOverlay('signin')}>
           Sign in
-        </Link>
+        </button>
       </nav>
 
       {/* ── HERO — fullscreen, scroll locked ── */}
@@ -591,7 +602,7 @@ export function HomeReskin({ pricing, bgVideos }: { pricing: PricingData; bgVide
         </footer>
       </main>
 
-      <HomeOverlays current={overlay} onClose={closeOverlay} pricing={pricing} />
+      <HomeOverlays current={overlay} onClose={closeOverlay} pricing={pricing} oauth={oauth} />
     </div>
   );
 }

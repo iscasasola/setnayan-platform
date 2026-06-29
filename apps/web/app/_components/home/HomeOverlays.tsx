@@ -11,20 +11,43 @@
  * from the live catalog (see pricing-data.ts) and a client slider recomputes the
  * per-day / per-guest-day lines off the CATALOG base rate (never hardcoded).
  *
- * Real navigation: every CTA points at a real route — sign-in → /login, start
- * planning → /onboarding/wedding, full pricing → /pricing, register → /for-vendors.
+ * Real navigation: every CTA points at a real route — start planning →
+ * /onboarding/wedding, full pricing → /pricing, register → /for-vendors.
+ *
+ * SIGN IN (owner 2026-06-30 "login should be like the rest of the upper menu —
+ * a popup"): the glass-nav "Sign in" is now a fourth overlay, consistent with
+ * Prices / Download / Vendors, instead of a hard navigation to /login. It is a
+ * REAL working login, not a mockup — it renders the SAME OAuth row + email /
+ * password form as the /login page, wired to the SAME server actions
+ * (signInWithPassword + signInWith{Google,Apple}). On a successful sign-in the
+ * server action redirects to the account home; on a credential error it
+ * redirects to the full /login page with the error banner (the action's
+ * existing contract), so the overlay degrades gracefully rather than swallowing
+ * errors. OAuth visibility is shell-gated server-side (web/desktop only) and
+ * threaded in via the `oauth` prop, mirroring /login's getClientShell() logic.
  */
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { SubmitButton } from '@/app/_components/submit-button';
+import { OAuthButtonRow } from '@/app/_components/oauth-button-row';
+import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
+import { signInWithPassword } from '@/app/login/actions';
 import type { PricingData, PriceRow } from './pricing-data';
 import { VENDOR_HERO_CARDS, VENDOR_GROUPS } from './vendor-benefits';
 
-// 'signin' is intentionally NOT here — the homepage "Sign in" links straight to
-// the real /login (Google + Apple + email), never a mockup overlay.
-export type OverlayId = 'prices' | 'download' | 'vendors' | null;
+export type OverlayId = 'prices' | 'download' | 'vendors' | 'signin' | null;
+
+/**
+ * Shell-gated OAuth visibility, resolved server-side (getClientShell) in
+ * page.tsx and threaded down — the overlay is a client component so it can't
+ * read headers()/cookies() itself. `show` mirrors /login's `showOAuth`
+ * (provider enabled AND not the mobile WebView shell); `desktop` picks the
+ * Tauri loopback variant over the web server-action row.
+ */
+export type SignInOAuth = { show: boolean; desktop: boolean };
 
 function OverlayShell({
   id,
@@ -328,14 +351,115 @@ function VendorsOverlay({ current, onClose }: { current: OverlayId; onClose: () 
   );
 }
 
+function SignInOverlay({
+  current,
+  onClose,
+  oauth,
+}: {
+  current: OverlayId;
+  onClose: () => void;
+  oauth: SignInOAuth;
+}) {
+  // No explicit `next`: '/' lets signInWithPassword route to the account home
+  // by account_type (couple → /dashboard, vendor → /vendor-dashboard, …) —
+  // same default the /login page passes when arrived at without a ?next.
+  const next = '/';
+  return (
+    <OverlayShell
+      id="signin"
+      current={current}
+      onClose={onClose}
+      label="Sign in"
+      cardStyle={{ maxWidth: 460 }}
+    >
+      <div className="hr-ov-eyebrow">Welcome back</div>
+      <h2 className="hr-ov-title">Sign in to Setnayan.</h2>
+      <p className="hr-ov-sub">
+        One account for couples and vendors. Pick up right where you left off.
+      </p>
+
+      {/* OAuth above the email form — same placement + components as /login.
+          Shell-gated server-side; desktop gets the loopback variant. */}
+      {oauth.show ? (
+        <div className="hr-si-oauth">
+          {oauth.desktop ? <DesktopOAuthButtons next={next} /> : <OAuthButtonRow next={next} />}
+        </div>
+      ) : null}
+
+      {oauth.show ? (
+        <div className="hr-si-or">
+          <span>or continue with email</span>
+        </div>
+      ) : null}
+
+      <form action={signInWithPassword} className="hr-si-form">
+        <input type="hidden" name="next" value={next} />
+        <div className="hr-si-field">
+          <label htmlFor="hr-si-email" className="hr-si-label">
+            Email
+          </label>
+          <input
+            id="hr-si-email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            inputMode="email"
+            placeholder="you@setnayan.com"
+            required
+            className="hr-si-input"
+          />
+        </div>
+        <div className="hr-si-field">
+          <label htmlFor="hr-si-password" className="hr-si-label">
+            Password
+          </label>
+          <input
+            id="hr-si-password"
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            placeholder="••••••••"
+            required
+            className="hr-si-input"
+          />
+        </div>
+        {/* "Stay signed in" defaults CHECKED — explicit opt-out only (matches
+            /login; the server action downgrades sb-* cookies to session-only
+            when unchecked). */}
+        <div className="hr-si-row">
+          <label htmlFor="hr-si-remember" className="hr-si-remember">
+            <input id="hr-si-remember" name="remember" type="checkbox" defaultChecked />
+            <span>Stay signed in</span>
+          </label>
+          <Link href="/forgot-password" className="hr-si-link" onClick={onClose}>
+            Forgot password?
+          </Link>
+        </div>
+        <SubmitButton className="hr-si-submit" pendingLabel="Signing in…">
+          Continue
+        </SubmitButton>
+      </form>
+
+      <div className="hr-si-foot">
+        No account yet?{' '}
+        <Link href="/signup" className="hr-si-link" onClick={onClose}>
+          Create one — free
+        </Link>
+      </div>
+    </OverlayShell>
+  );
+}
+
 export function HomeOverlays({
   current,
   onClose,
   pricing,
+  oauth,
 }: {
   current: OverlayId;
   onClose: () => void;
   pricing: PricingData;
+  oauth: SignInOAuth;
 }) {
   // Device-detect for the Download overlay (client-only).
   const [detected, setDetected] = useState('your device');
@@ -353,6 +477,7 @@ export function HomeOverlays({
       <PricesOverlay current={current} onClose={onClose} pricing={pricing} />
       <DownloadOverlay current={current} onClose={onClose} detected={detected} match={match} />
       <VendorsOverlay current={current} onClose={onClose} />
+      <SignInOverlay current={current} onClose={onClose} oauth={oauth} />
     </>
   );
 }

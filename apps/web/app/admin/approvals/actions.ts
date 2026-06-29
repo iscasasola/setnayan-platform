@@ -128,7 +128,7 @@ export async function requestPrivilegedGrant(formData: FormData) {
 /** Execute the underlying privileged-role change. Service-role only. */
 async function executeApproved(
   admin: AdminClient,
-  row: { action_type: ApprovalActionType; target_user_id: string | null },
+  row: { action_type: ApprovalActionType; target_user_id: string | null; approval_id: string },
 ): Promise<void> {
   if (!row.target_user_id) throw new Error('Request has no target user');
   const t = row.target_user_id;
@@ -147,9 +147,14 @@ async function executeApproved(
       .eq('user_id', t);
     if (error) throw new Error(`Grant team-pool failed: ${error.message}`);
   } else if (row.action_type === 'promote_to_admin') {
+    // Carry the approval id so the DB two-admin gate (Phase 2b
+    // users_two_admin_gate trigger) can validate + consume it when the flag is
+    // ON. When the flag is OFF the column is simply set and the trigger is
+    // inert — harmless either way. Without this, flipping the gate ON would
+    // block this already-shipped two-admin promotion path.
     const { error } = await admin
       .from('users')
-      .update({ account_type: 'admin' })
+      .update({ account_type: 'admin', promote_approval_request_id: row.approval_id })
       .eq('user_id', t);
     if (error) throw new Error(`Promote to admin failed: ${error.message}`);
   } else {
@@ -188,7 +193,7 @@ export async function approveRequest(formData: FormData) {
   }
 
   try {
-    await executeApproved(admin, claimed as { action_type: ApprovalActionType; target_user_id: string | null });
+    await executeApproved(admin, claimed as { action_type: ApprovalActionType; target_user_id: string | null; approval_id: string });
   } catch (e) {
     // Execution failed AFTER the claim — roll the request back to pending so it
     // isn't stuck "approved" but unexecuted, and surface the error.

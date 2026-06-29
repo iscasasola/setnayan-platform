@@ -14,7 +14,18 @@ export type ApprovalActionType =
   | 'grant_internal_account'
   | 'grant_team_pool'
   | 'promote_to_admin'
-  | 'approve_vendor_partnership';
+  | 'approve_vendor_partnership'
+  // Phase 2b DB-enforced high-risk gates (Admin Account-Access Model §4). These
+  // four request types are CONSUMED by DB triggers, not by the approvals-page
+  // executor — the gated write (refund / comp / receiving-account / SKU re-price)
+  // carries the approved approval_id and the trigger claims it. They are NOT in
+  // APPROVAL_ACTIONS below (which only lists the executor-driven privilege grants
+  // surfaced by the manual /admin/approvals picker), but they are valid
+  // action_type values in the DB CHECK and may be requested programmatically.
+  | 'refund_over_25k'
+  | 'comp_grant_over_10k'
+  | 'change_receiving_account'
+  | 'service_catalog_price_change';
 
 export type ApprovalActionMeta = {
   type: ApprovalActionType;

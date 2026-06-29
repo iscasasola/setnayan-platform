@@ -27,6 +27,26 @@ fourth overlay, consistent with the other three.
 links, OAuth callbacks, error states, password reset). The homepage popup is an
 additive faster path.
 
+### Non-homepage marketing nav (same directive, follow-up)
+
+The other marketing chrome — the shared `Nav` (`site-nav.tsx`, on every
+non-home marketing route) + its mobile hamburger sheet, plus the legacy
+`SiteHeader` (`site-header.tsx`, still on `/download` + `/waitlist`) — also
+hard-navigated "Sign in" to `/login`. Now a popup too, via one reusable
+component:
+
+- New `app/_components/auth/sign-in-modal.tsx` — `SignInModal` (portaled,
+  `useModalA11y`, --m-* Clean Editorial chrome) + `SignInButton` drop-in. Same
+  real OAuth row + email/password form + `signInWithPassword` action as
+  `/login`; same graceful error fallback.
+- `SignInButton` **self-detects the client shell** (`useClientSignInOAuth`, a
+  client mirror of `getClientShell`) for OAuth gating, so the root layout never
+  reads cookies()/headers() — verified `/about` stays statically rendered
+  (`○`), no static→dynamic regression.
+- Wired into `site-nav.tsx` (desktop), `_nav-mobile.tsx` (mobile sheet, closes
+  on open), and `site-header.tsx` (desktop + mobile sheet). The homepage keeps
+  its own home-reskin-styled `SignInOverlay` (matches its sibling overlays).
+
 SPEC IMPACT: Logged at the bottom of `DECISION_LOG.md` (2026-06-30). The
 homepage reskin is code-canonical per the 2026-06-07 source-of-truth flip; no
 iteration `.md`/`.docx` carries the homepage nav behavior.

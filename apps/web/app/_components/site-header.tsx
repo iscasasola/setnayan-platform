@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { Menu, Search } from 'lucide-react';
 import { Logo } from './logo';
 import { Sheet } from './sheet';
+import { SignInButton } from './auth/sign-in-modal';
 
 // Marketing-site chrome header. Single persistent strip (per the 2026-05-14
 // "Top-nav redesign locked + token-wallet pill removed from chrome"
@@ -167,12 +168,11 @@ export function SiteHeader({ user = null }: SiteHeaderProps = {}) {
             </Link>
           ) : (
             <>
-              <Link
-                href="/login"
-                className="hidden text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline lg:inline"
-              >
+              {/* Sign in → popup (owner 2026-06-30 "login should be like the
+                  rest of the upper menu. a popup."). Was a hard <Link>. */}
+              <SignInButton className="hidden appearance-none border-0 bg-transparent p-0 m-0 cursor-pointer text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline lg:inline">
                 Sign in
-              </Link>
+              </SignInButton>
               <Link
                 href={signupHref}
                 className="button-primary hidden h-10 px-5 text-sm lg:inline-flex"
@@ -262,13 +262,14 @@ export function SiteHeader({ user = null }: SiteHeaderProps = {}) {
             ) : (
               <>
                 <li>
-                  <Link
-                    href="/login"
-                    onClick={() => setNavOpen(false)}
-                    className="flex min-h-[48px] items-center rounded-md px-4 text-base font-medium text-ink hover:bg-ink/5"
+                  {/* Sign in → popup (owner 2026-06-30). Closes the sheet as
+                      the modal opens. */}
+                  <SignInButton
+                    onOpen={() => setNavOpen(false)}
+                    className="flex w-full appearance-none border-0 bg-transparent m-0 min-h-[48px] items-center rounded-md px-4 text-left text-base font-medium text-ink hover:bg-ink/5 cursor-pointer"
                   >
                     Sign in
-                  </Link>
+                  </SignInButton>
                 </li>
                 <li className="px-4 pt-3">
                   <Link

@@ -98,6 +98,7 @@ import {
   MessageSquare,
   Music,
   Palette,
+  Radar,
   Globe,
   ShieldCheck,
   Sparkles,
@@ -219,6 +220,10 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
         icon: Handshake,
         matchPrefix: '/vendor-dashboard/partnerships',
       },
+      // Demand Radar (Wave 6) — de-identified "where to focus" rollup for the
+      // vendor's own market. Owner/admin only (absent from
+      // VENDOR_SCOPED_NAV_ITEM_KEYS, like earnings/payday — surfaces market intel).
+      { key: 'demand', label: 'Demand Radar', href: '/vendor-dashboard/demand', icon: Radar, matchPrefix: '/vendor-dashboard/demand' },
       // Wave 6 Quote-to-Booking Funnel — views → inquiries → quotes → booked.
       { key: 'funnel', label: 'Funnel', href: '/vendor-dashboard/funnel', icon: Filter, matchPrefix: '/vendor-dashboard/funnel' },
       { key: 'reviews', label: 'Reviews', href: '/vendor-dashboard/reviews', icon: Star, matchPrefix: '/vendor-dashboard/reviews' },

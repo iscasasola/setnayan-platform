@@ -31,6 +31,8 @@ import { BlockTimeEditor } from './_components/block-time-editor';
 import { ScheduleModeToggle } from './_components/schedule-mode-toggle';
 import { EmceeScriptButton } from './_components/emcee-script-button';
 import { PreparationAgendaView } from './_components/preparation-agenda';
+import { RunOfShowHeader } from '@/app/_components/run-of-show-header';
+import type { RunOfShowBlock } from '@/lib/run-of-show';
 
 export const metadata = { title: 'Schedule' };
 
@@ -111,6 +113,20 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
         ? 'preparation'
         : 'event-day';
 
+  // Run-of-show header rows (now/next/±N) off the shared run-state. Top-level
+  // blocks only — the header tracks the headline timeline, not sub-parts.
+  const runOfShowBlocks: RunOfShowBlock[] = blocks
+    .filter((b) => b.parent_block_id === null)
+    .map((b) => ({
+      block_id: b.block_id,
+      label: b.label,
+      start_at: b.start_at,
+      end_at: b.end_at,
+      location: b.location,
+      run_state: b.run_state,
+      actual_start_at: b.actual_start_at,
+    }));
+
   return (
     <section className="space-y-6">
       <header className="space-y-3">
@@ -141,6 +157,12 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
         />
       ) : (
         <>
+          {/* Run-of-show header — live now/next/±N driven by the shared
+              run-state. The couple/host (and a delegate coordinator) advance it
+              via the single-winner advance_schedule_block RPC. */}
+          {runOfShowBlocks.length > 0 ? (
+            <RunOfShowHeader eventId={eventId} initial={runOfShowBlocks} canAdvance />
+          ) : null}
           <VendorSuggestionsQueue
             eventId={eventId}
             suggestions={openSuggestions}

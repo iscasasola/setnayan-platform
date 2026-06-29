@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
+import { uploadPublicAsset } from '@/lib/storage';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 
 /**
@@ -218,6 +219,134 @@ export async function suggestScheduleChange(formData: FormData) {
   redirect(
     `/vendor-dashboard/clients/${eventId}?suggest=${error ? 'error' : 'sent'}`,
   );
+}
+
+// ==========================================================================
+// Delivery Handover (Wave 4) — VENDOR side.
+//
+// The vendor posts a deliverable on a booked event: a gallery link (external —
+// big galleries stay Drive/Pixieset, never proxied), a small proof/sample image
+// (uploaded to R2 via uploadPublicAsset — R2 is the record), a note, or a
+// closing sign-off. RLS-gated insert (booked event ∩ own profile ∩
+// status='delivered'). The couple confirms receipt via the single-winner
+// acknowledge_handover RPC on their workspace; on acknowledge the booking can
+// advance to 'delivered' (reusing the existing review-request emit). No money.
+// ==========================================================================
+
+/**
+ * vendorPostHandover — VENDOR posts a delivery handover on a booked event.
+ *
+ * Resolves the booked event_vendors row (vendor_id) for the denormalized
+ * columns, builds the payload per `kind` (gallery_link → URL, file → R2 image
+ * upload, note/signoff → text), inserts the RLS-gated row, and notifies the
+ * couple best-effort. Vendors never write the couple's data directly — a
+ * handover is a row they own; the couple acknowledges it.
+ */
+export async function vendorPostHandover(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const kindRaw = formData.get('kind');
+  const kind =
+    kindRaw === 'gallery_link' || kindRaw === 'file' || kindRaw === 'note' || kindRaw === 'signoff'
+      ? kindRaw
+      : null;
+  if (typeof eventId !== 'string' || !kind) {
+    redirect('/vendor-dashboard/clients');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  if (!profile) redirect('/vendor-dashboard');
+
+  // Resolve THIS org's booking (event_vendors.vendor_id) — RLS already scopes
+  // vendor reads to their own bookings — for the denormalized event_vendor_id.
+  const { data: ev } = await supabase
+    .from('event_vendors')
+    .select('vendor_id')
+    .eq('event_id', eventId)
+    .eq('marketplace_vendor_id', profile.vendor_profile_id)
+    .maybeSingle();
+  const eventVendorId = (ev as { vendor_id?: string } | null)?.vendor_id ?? null;
+  if (!eventVendorId) {
+    redirect(`/vendor-dashboard/clients/${eventId}?handover=error`);
+  }
+
+  const label = nullIfBlank(formData.get('label'), 200);
+
+  // Build the payload per kind. gallery_link / note / signoff are text; file is
+  // an R2 upload (small proof/sample image only — large galleries stay links).
+  let payload: string | null = null;
+  if (kind === 'gallery_link') {
+    const url = nullIfBlank(formData.get('payload'), 4000);
+    if (!url || !/^https?:\/\//i.test(url)) {
+      redirect(`/vendor-dashboard/clients/${eventId}?handover=badurl`);
+    }
+    payload = url;
+  } else if (kind === 'file') {
+    const file = formData.get('file');
+    if (!(file instanceof File) || file.size === 0) {
+      redirect(`/vendor-dashboard/clients/${eventId}?handover=nofile`);
+    }
+    const up = await uploadPublicAsset({
+      pathPrefix: `handovers/${eventId}`,
+      file: file as File,
+    });
+    if (!up.ok) {
+      redirect(`/vendor-dashboard/clients/${eventId}?handover=upload`);
+    }
+    payload = up.publicUrl;
+  } else {
+    // note / signoff — free text (signoff text optional).
+    payload = nullIfBlank(formData.get('payload'), 4000);
+    if (kind === 'note' && !payload) {
+      redirect(`/vendor-dashboard/clients/${eventId}?handover=empty`);
+    }
+  }
+
+  // RLS enforces: booked on the event, own profile, status='delivered'.
+  const { error } = await supabase.from('booking_handovers').insert({
+    event_vendor_id: eventVendorId,
+    event_id: eventId,
+    vendor_profile_id: profile.vendor_profile_id,
+    kind,
+    label,
+    payload,
+    status: 'delivered',
+  });
+
+  // Notify the couple a delivery is waiting for their confirmation (best-effort).
+  // Reuses the schedule_suggestion notification type — the same generic
+  // "vendor posted something, open the workspace" nudge the change-order flow
+  // uses — pointed at the couple's vendor workspace.
+  if (!error) {
+    try {
+      const admin = createAdminClient();
+      const vendorName = profile.business_name?.trim() || 'A vendor';
+      const { data: members } = await admin
+        .from('event_members')
+        .select('user_id')
+        .eq('event_id', eventId)
+        .eq('member_type', 'couple');
+      for (const m of members ?? []) {
+        if (!m.user_id) continue;
+        await emitNotification({
+          userId: m.user_id,
+          type: 'schedule_suggestion',
+          title: `${vendorName} delivered your handover`,
+          body: `${label ? `${label.slice(0, 100)} — ` : ''}open the vendor to confirm receipt.`,
+          relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`,
+        });
+      }
+    } catch (e) {
+      console.error('[vendorPostHandover] couple notify failed:', e);
+    }
+  }
+
+  revalidatePath(`/vendor-dashboard/clients/${eventId}`);
+  redirect(`/vendor-dashboard/clients/${eventId}?handover=${error ? 'error' : 'sent'}`);
 }
 
 // ==========================================================================

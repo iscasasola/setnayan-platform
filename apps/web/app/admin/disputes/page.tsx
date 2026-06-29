@@ -1,4 +1,4 @@
-import { Gavel, Filter, ShieldCheck } from 'lucide-react';
+import { Gavel, Filter, ShieldCheck, PackageCheck } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { relativeTime } from '@/lib/activity';
@@ -9,6 +9,10 @@ import {
   fetchPolicyAcknowledgementsByVendor,
   type PolicyAcknowledgement,
 } from '@/lib/vendor-service-payment-schedules.server';
+import {
+  fetchHandoversByVendor,
+  type HandoverEvidenceRow,
+} from '@/lib/booking-handovers.server';
 
 export const metadata = { title: 'Disputes · Admin' };
 
@@ -204,6 +208,20 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
     logQueryError('AdminDisputesPage (policy acknowledgements)', e);
   }
 
+  // Delivery Handover (Wave 4) — delivery + couple-acknowledgement state for
+  // every vendor in view, keyed by vendor_profile_id. Surfaced beside a dispute
+  // so support can see whether the vendor delivered and whether the couple
+  // confirmed receipt. Admin-only surface (layout gates is_admin).
+  let handoversByVendor = new Map<string, HandoverEvidenceRow[]>();
+  try {
+    handoversByVendor = await fetchHandoversByVendor({
+      adminClient: admin,
+      vendorProfileIds: vendorIds,
+    });
+  } catch (e) {
+    logQueryError('AdminDisputesPage (handovers)', e);
+  }
+
   const openerMap = new Map<string, { name: string; email: string | null }>();
   for (const u of openerData ?? []) {
     const display = ((u.display_name as string | null) ?? '').trim();
@@ -270,6 +288,7 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
           vendorMap={vendorMap}
           openerMap={openerMap}
           policyAcksByVendor={policyAcksByVendor}
+          handoversByVendor={handoversByVendor}
         />
       </div>
 
@@ -400,11 +419,13 @@ function DisputesTable({
   vendorMap,
   openerMap,
   policyAcksByVendor,
+  handoversByVendor,
 }: {
   rows: DisputeRow[];
   vendorMap: Map<string, string>;
   openerMap: Map<string, { name: string; email: string | null }>;
   policyAcksByVendor: Map<string, PolicyAcknowledgement[]>;
+  handoversByVendor: Map<string, HandoverEvidenceRow[]>;
 }) {
   if (rows.length === 0) {
     return (
@@ -443,6 +464,7 @@ function DisputesTable({
             // for this vendor. Surfaced under the description so support can
             // adjudicate a forfeit against immutable, acknowledged-at-lock terms.
             const acks = policyAcksByVendor.get(r.vendor_profile_id) ?? [];
+            const handovers = handoversByVendor.get(r.vendor_profile_id) ?? [];
             return (
               <tr
                 key={r.dispute_id}
@@ -487,6 +509,19 @@ function DisputesTable({
                       <ul className="mt-2 space-y-2">
                         {acks.map((a) => (
                           <PolicyEvidence key={a.ackId} ack={a} />
+                        ))}
+                      </ul>
+                    </details>
+                  ) : null}
+                  {handovers.length > 0 ? (
+                    <details className="mt-2">
+                      <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-[11px] font-medium text-terracotta">
+                        <PackageCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
+                        Delivery handover ({handovers.length})
+                      </summary>
+                      <ul className="mt-2 space-y-2">
+                        {handovers.map((h) => (
+                          <HandoverEvidence key={h.handoverId} handover={h} />
                         ))}
                       </ul>
                     </details>
@@ -601,6 +636,58 @@ function PolicyEvidence({ ack }: { ack: PolicyAcknowledgement }) {
       ) : null}
     </li>
   );
+}
+
+/**
+ * Delivery Handover — one vendor handover rendered as delivery/acknowledgement
+ * evidence in the admin dispute view. Shows what was delivered, when, and
+ * whether the couple confirmed receipt — so support sees the "did they deliver,
+ * did the couple confirm?" trail when adjudicating a quality/no-show dispute.
+ */
+function HandoverEvidence({ handover }: { handover: HandoverEvidenceRow }) {
+  const kindLabel =
+    handover.kind === 'gallery_link'
+      ? 'Gallery link'
+      : handover.kind === 'file'
+        ? 'Sample / proof'
+        : handover.kind === 'note'
+          ? 'Note'
+          : 'All delivered';
+  const deliveredAt = fmtPhDate(handover.deliveredAt);
+  const ackedAt = fmtPhDate(handover.coupleAcknowledgedAt);
+  return (
+    <li className="rounded-lg border border-terracotta/20 bg-terracotta/[0.04] p-2.5 text-[11px] text-ink/80">
+      <p className="font-mono text-[9.5px] uppercase tracking-[0.12em] text-terracotta-700">
+        {kindLabel} · delivered {deliveredAt}
+      </p>
+      {handover.label ? <p className="mt-0.5 text-ink/70">{handover.label}</p> : null}
+      <p className="mt-1">
+        {handover.status === 'acknowledged' && ackedAt
+          ? `Couple confirmed receipt ${ackedAt}.`
+          : handover.status === 'disputed'
+            ? 'Marked disputed.'
+            : 'Awaiting couple confirmation.'}
+      </p>
+      {handover.kind === 'gallery_link' && handover.payload ? (
+        <a
+          href={handover.payload}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-0.5 inline-block text-terracotta underline"
+        >
+          open link
+        </a>
+      ) : null}
+    </li>
+  );
+}
+
+function fmtPhDate(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? iso
+    : d.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────

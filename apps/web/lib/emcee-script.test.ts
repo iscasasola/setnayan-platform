@@ -29,6 +29,9 @@ function block(p: Partial<ScheduleBlockRow>): ScheduleBlockRow {
     sort_order: p.sort_order ?? 0,
     parent_block_id: p.parent_block_id ?? null,
     created_at: '2026-01-01',
+    run_state: p.run_state ?? 'upcoming',
+    actual_start_at: p.actual_start_at ?? null,
+    actual_end_at: p.actual_end_at ?? null,
     ...p,
   };
 }

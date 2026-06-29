@@ -97,14 +97,9 @@ export const OAUTH_SPECS = {
     redirectUriColumn: 'photo_delivery_oauth_redirect_uri',
     redirectUriEnv: 'PHOTO_DELIVERY_OAUTH_REDIRECT_URI',
   },
-  tiktok: {
-    secretColumn: 'tiktok_client_secret_enc',
-    secretEnv: 'TIKTOK_CLIENT_SECRET',
-    clientIdColumn: 'tiktok_client_key',
-    clientIdEnv: 'TIKTOK_CLIENT_KEY',
-    redirectUriColumn: 'tiktok_oauth_redirect_uri',
-    redirectUriEnv: 'TIKTOK_OAUTH_REDIRECT_URI',
-  },
+  // (The per-couple TikTok OAuth client spec was removed with Patiktok, retired
+  // 2026-06-29. The Setnayan-account social auto-publish credential — path B —
+  // lives in SOCIAL_INTEGRATIONS below and is unaffected.)
 } satisfies Record<string, OAuthResolveSpec>;
 
 // ── OAuth console cards (PR3b) ──────────────────────────────────────────────
@@ -204,31 +199,6 @@ export const OAUTH_INTEGRATIONS: readonly OAuthIntegrationDef[] = [
     guidance:
       'One shared Google OAuth client powers both Papic and Photo Delivery — register BOTH redirect URIs against it.',
   },
-  {
-    id: 'tiktok',
-    label: 'TikTok — Patiktok',
-    category: 'social',
-    secretColumn: 'tiktok_client_secret_enc',
-    secretEnv: 'TIKTOK_CLIENT_SECRET',
-    secretLabel: 'Client secret',
-    configFields: [
-      {
-        column: 'tiktok_client_key',
-        env: 'TIKTOK_CLIENT_KEY',
-        label: 'Client key',
-        placeholder: 'aw…',
-      },
-      {
-        column: 'tiktok_oauth_redirect_uri',
-        env: 'TIKTOK_OAUTH_REDIRECT_URI',
-        label: 'Redirect URI',
-        placeholder: 'https://www.setnayan.com/api/tiktok/auth/callback',
-        validate: 'url',
-      },
-    ],
-    guidance:
-      'TikTok developer portal → your app. The redirect URI must match the registered one exactly.',
-  },
 ];
 
 // ── Social-publish credentials (PR4a) ───────────────────────────────────────
@@ -274,7 +244,7 @@ export const SOCIAL_INTEGRATIONS: readonly OAuthIntegrationDef[] = [
     secretLabel: 'Account access token',
     configFields: [],
     guidance:
-      'The Setnayan TikTok account user access token (path B auto-publish). Distinct from the TikTok OAuth client above (per-couple Patiktok). Dormant until a token is set AND the Content-Posting-API audit clears.',
+      'The Setnayan TikTok account user access token (path B auto-publish — the only TikTok integration; the per-couple Patiktok OAuth client was retired 2026-06-29). Dormant until a token is set AND the Content-Posting-API audit clears.',
   },
 ];
 

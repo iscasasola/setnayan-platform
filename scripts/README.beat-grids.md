@@ -1,9 +1,10 @@
 # `analyze-beat-grids.mjs` — offline beat-grid analyzer (Stories+SDE P0)
 
 One-time / ad-hoc offline job that computes a **`beat_grid`** for each Setnayan
-music track and (optionally) writes it back to the new nullable
-`patiktok_music_tracks.beat_grid` JSONB column (migration
-`20270307940821_add_beat_grid_to_patiktok_music_tracks.sql`).
+music track and (optionally) writes it back to the nullable
+`reel_music_tracks.beat_grid` JSONB column (column added by migration
+`20270307940821_add_beat_grid_to_patiktok_music_tracks.sql`; the table was
+renamed from `patiktok_music_tracks` → `reel_music_tracks` on 2026-06-29).
 
 This is **inert groundwork** for beat-aware Stories/SDE rendering. Nothing in the
 app reads `beat_grid` yet — that lands in a later phase. By default the script
@@ -93,6 +94,6 @@ what you're doing). Reads are always allowed; only writes are gated.
 |---|---|
 | `--manifest <file>` | Read `{track_slug, source_url}[]` from a local JSON file (skips the DB). |
 | `--out <file>` | Write the `{track_slug: beat_grid}` map to a local JSON file. |
-| `--write` | Update `patiktok_music_tracks.beat_grid` in the DB (non-prod only). |
+| `--write` | Update `reel_music_tracks.beat_grid` in the DB (non-prod only). |
 | `--limit <n>` | Cap how many tracks are analyzed. |
 | `--help` | Usage. |

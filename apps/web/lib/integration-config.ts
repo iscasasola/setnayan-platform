@@ -300,8 +300,8 @@ export async function resolveMetaConfig(): Promise<MetaConfig> {
 //
 // DB-first / env-fallback resolver for the master-account TikTok access token
 // (path B auto-publish). Single secret, no config. UNCACHED. Byte-identical to
-// the env read when the DB column is empty. Distinct from the OAuth client
-// secret (resolveOAuthClientConfig with OAUTH_SPECS.tiktok).
+// the env read when the DB column is empty. (This is the only remaining TikTok
+// secret — the per-couple Patiktok OAuth client was retired 2026-06-29.)
 export async function resolveTikTokAccessToken(): Promise<string | null> {
   try {
     const admin = createAdminClient();

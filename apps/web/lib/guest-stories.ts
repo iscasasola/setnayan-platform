@@ -4,7 +4,7 @@
  * A guest's tagged Papic photos → a 30s, 9:16 auto-reel rendered ENTIRELY
  * CLIENT-SIDE (no server render pipeline; that decision is still pending and
  * isn't needed for this). This module is the server-side READ that assembles a
- * render plan the browser's render engine (lib/patiktok-render.ts) consumes:
+ * render plan the browser's render engine (lib/reel-render.ts) consumes:
  *
  *   • the guest's tagged, clean-screened photos as presigned GET URLs
  *     (the same photo_tags pipeline the day-of gallery uses — Papic's
@@ -170,7 +170,7 @@ async function pickMusic(): Promise<StoryMusic | null> {
   const admin = createAdminClient();
   try {
     const { data, error } = await admin
-      .from('patiktok_music_tracks')
+      .from('reel_music_tracks')
       .select('track_slug, display_name, source_url, beat_grid')
       .eq('is_active', true)
       .eq('is_premium', false)
@@ -181,7 +181,7 @@ async function pickMusic(): Promise<StoryMusic | null> {
       // 42703 = missing beat_grid column on an older DB — retry without it.
       if (error?.code === '42703') {
         const { data: bare } = await admin
-          .from('patiktok_music_tracks')
+          .from('reel_music_tracks')
           .select('track_slug, display_name, source_url')
           .eq('is_active', true)
           .eq('is_premium', false)

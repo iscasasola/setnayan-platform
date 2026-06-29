@@ -49,7 +49,6 @@ const OVERVIEW_PAID: OverviewTile[] = [
   { name: 'Pakanta' },
   { name: 'Contracts' },
   { name: 'Cinematic Reveal' },
-  { name: 'Patiktok', href: '/patiktok' },
 ];
 
 // ─── Panel 1 data ──────────────────────────────────────────────────────────
@@ -149,12 +148,6 @@ const PAID_FEATURES: Array<{ icon: string; name: string; line: string; tag: stri
     name: 'Cinematic Reveal',
     line: 'A premium opening that unveils your Save the Date like a film — sheer veils, doors, and more.',
     tag: 'Film',
-  },
-  {
-    icon: '◐',
-    name: 'Patiktok',
-    line: 'Short personal reels — one for every guest to take home.',
-    tag: 'Reels',
   },
 ];
 

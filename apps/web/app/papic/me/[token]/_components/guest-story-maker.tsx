@@ -4,7 +4,7 @@
 // personal camera/gallery page.
 //
 // One tap auto-builds a 30s, 9:16 reel from the guest's tagged Papic photos,
-// rendered ENTIRELY IN THE BROWSER (lib/patiktok-render.ts — WebCodecs→mp4,
+// rendered ENTIRELY IN THE BROWSER (lib/reel-render.ts — WebCodecs→mp4,
 // MediaRecorder fallback) over a Setnayan-owned music track, with cuts snapped
 // to the track's beat grid. No server render, no paywall — this is the free
 // viral loop. Finished reel → one-tap share (native share sheet → "Save to
@@ -24,7 +24,7 @@ import {
   Share2,
   Sparkles,
 } from 'lucide-react';
-import { renderPatiktokReel, type RenderTemplate } from '@/lib/patiktok-render';
+import { renderReel, type RenderTemplate } from '@/lib/reel-render';
 import { shareBlobToDevice } from '@/lib/save-to-device';
 import { prepareGuestStory } from '../actions';
 import { STORY_MIN_PHOTOS } from '@/lib/stories-templates';
@@ -73,7 +73,7 @@ export function GuestStoryMaker({ token }: { token: string }) {
       };
 
       setPhase('rendering');
-      const result = await renderPatiktokReel({
+      const result = await renderReel({
         clips: plan.photos.map((p) => ({
           clipId: p.id,
           url: p.url,

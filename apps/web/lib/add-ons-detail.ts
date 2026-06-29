@@ -299,28 +299,6 @@ export const ADD_ON_DETAILS: Record<string, AddOnDetail> = {
     ],
   },
 
-  patiktok: {
-    eyebrow: 'Patiktok',
-    heroTitle: 'Your wedding, ready to post.',
-    tagline:
-      'Polished vertical reels from your photos and clips — made for phones and stories.',
-    paragraphs: [
-      'Your wedding deserves to live where your friends actually watch.',
-      'Pick a style, and out comes a clean vertical reel — no editing app, no timeline, ready to share.',
-    ],
-    highlights: [
-      'Vertical reels, made for stories',
-      'A gallery of styles to choose from',
-      'Ready to post in minutes',
-      'Set to music you’re cleared to use',
-    ],
-    preview: [
-      { context: 'Styles', glyph: '▤', caption: 'Pick a vertical look.', aspect: '9/16' },
-      { context: 'Made', glyph: '▷', caption: 'Out comes a clean reel.', aspect: '9/16' },
-      { context: 'Posted', glyph: '↗', caption: 'Straight to your stories.', aspect: '9/16' },
-    ],
-  },
-
   led: {
     eyebrow: 'LED Background',
     heroTitle: 'Your name, twenty feet tall.',

@@ -702,7 +702,7 @@ function CompGrantsPanel({
               id={`scoped-${userId}`}
               name="scoped_skus"
               rows={2}
-              placeholder="monogram_hero_upgrade, panood_daily_broadcast, patiktok_setnayan_tiktok"
+              placeholder="monogram_hero_upgrade, panood_daily_broadcast, pakanta_premium"
               className="input-field font-mono text-xs"
             />
             <p className="mt-1 text-xs text-ink/55">

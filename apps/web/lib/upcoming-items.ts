@@ -372,8 +372,8 @@ async function fetchSkuRenewalItems(
   eventId: string,
   now: Date,
 ): Promise<UpcomingItem[]> {
-  // Subscription SKUs (Concierge, Pro Weekly, Panood Annual, Patiktok
-  // per-day, Tool Weeklies) carry expires_at. Order status 'paid'
+  // Subscription SKUs (Concierge, Pro Weekly, Panood Annual,
+  // Tool Weeklies) carry expires_at. Order status 'paid'
   // means the renewal hasn't lapsed yet. Once expires_at is in the
   // past, sweepLapsedSubscriptions flips it to 'lapsed' — we only
   // want to surface upcoming renewals, so filter expires_at > now.

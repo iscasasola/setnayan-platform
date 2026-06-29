@@ -61,7 +61,6 @@ Couples can purchase the following in-app services individually. Pricing in PHP.
 - **Guest Stories (Papic Add-on)** — ₱1,499. 30-second story maker for each guest.
 - **Thank You Video (Papic Add-on)** — ₱3,499. 5-minute compiled thank-you video for all attendees.
 - **Camera Bridge** — ₱1,499. Connects external DSLR cameras to Papic and Panood services.
-- **Patiktok** — ₱1,499. Up to 250 TikTok-style 9:16 vertical video recordings of guests.
 - **Panood (Website Add-on)** — ₱2,499 per day. Live streaming embedded directly on the event page.
 - **Live Venue Photo Wall** — ₱2,499. Live photo collage of event photos with live attendance count, displayed at the venue.
 - **Live Background** — ₱2,499. LED wall design background with monogram and theme matched to the wedding palette.

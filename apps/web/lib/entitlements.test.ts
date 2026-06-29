@@ -19,10 +19,8 @@ import {
   checkOrderActive,
   eventOwnsSku,
   eventSkuActive,
-  eventActiveSkus,
   eventHasPapicUnlock,
   BUNDLE_CHILD_SKUS,
-  SKU_OWNERSHIP_ALIASES,
   PAPIC_UNLOCK_SKU,
   RELINQUISHED_STATUSES,
   ACTIVE_STATUSES,
@@ -134,16 +132,17 @@ test('canonical query shape is preserved (event_id eq + service_key in + relinqu
   ]);
 });
 
-test('alias query shape: an aliased SKU filters over canonical + alias keys', async () => {
+test('alias query shape: a non-aliased SKU filters over just its own key', async () => {
+  // SKU_OWNERSHIP_ALIASES is empty post-Patiktok-retirement; ownershipKeysFor
+  // therefore returns [serviceKey] only. (The aliasing machinery is retained for
+  // the next SKU that needs a purchase-key→canonical bridge.)
   const { supabase, calls } = makeSupabase({ data: [], error: null });
-  await checkOrderOwnership(supabase, 'evt_42', 'PATIKTOK_COMPILER');
+  await checkOrderOwnership(supabase, 'evt_42', 'SOME_SKU');
   const skuIn = calls
     .filter((c) => c.method === 'in')
     .find((c) => (c.args[0] as string) === 'service_key');
   const keys = skuIn?.args[1] as string[];
-  assert.ok(keys.includes('PATIKTOK_COMPILER'), 'includes the canonical key');
-  assert.ok(keys.includes('patiktok_setnayan_tiktok'), 'includes the Setnayan-tier alias');
-  assert.ok(keys.includes('patiktok_personal_tiktok'), 'includes the Personal-tier alias');
+  assert.deepEqual(keys, ['SOME_SKU'], 'filters over only the canonical key');
 });
 
 test('RELINQUISHED_STATUSES is the canonical exported set', () => {
@@ -403,82 +402,6 @@ test('eventSkuActive: nothing owned → not active', async () => {
 });
 
 // ──────────────────────────────────────────────────────────────────────────
-// SKU_OWNERSHIP_ALIASES — a purchase under an alternate per-tier key confers
-// ownership of the canonical SKU (patiktok buy-gate repair, 2026-06-28). The
-// Patiktok buy CTAs create per-DAY tier orders ('patiktok_setnayan_tiktok' /
-// 'patiktok_personal_tiktok'); the gate reads the canonical 'PATIKTOK_COMPILER'.
-// ──────────────────────────────────────────────────────────────────────────
-
-test('SKU_OWNERSHIP_ALIASES: PATIKTOK_COMPILER aliases the two per-day tier keys', () => {
-  const aliases = SKU_OWNERSHIP_ALIASES.PATIKTOK_COMPILER ?? [];
-  assert.ok(aliases.includes('patiktok_setnayan_tiktok'));
-  assert.ok(aliases.includes('patiktok_personal_tiktok'));
-});
-
-test('eventOwnsSku: a Patiktok per-day (Setnayan tier) order owns PATIKTOK_COMPILER', async () => {
-  const supabase = makeOwnedSupabase(new Set(['patiktok_setnayan_tiktok']));
-  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'PATIKTOK_COMPILER'), true);
-});
-
-test('eventOwnsSku: a Patiktok per-day (Personal tier) order owns PATIKTOK_COMPILER', async () => {
-  const supabase = makeOwnedSupabase(new Set(['patiktok_personal_tiktok']));
-  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'PATIKTOK_COMPILER'), true);
-});
-
-test('eventSkuActive: a PAID Patiktok per-day order activates PATIKTOK_COMPILER (the gate fires)', async () => {
-  const supabase = makeOwnedSupabase(new Set(['patiktok_setnayan_tiktok']), 'paid');
-  assert.equal(await eventSkuActive(supabase, 'evt_1', 'PATIKTOK_COMPILER'), true);
-});
-
-test('eventSkuActive: a SUBMITTED Patiktok per-day order does NOT activate PATIKTOK_COMPILER', async () => {
-  const supabase = makeOwnedSupabase(new Set(['patiktok_setnayan_tiktok']), 'submitted');
-  assert.equal(await eventSkuActive(supabase, 'evt_1', 'PATIKTOK_COMPILER'), false);
-});
-
-// eventActiveSkus reads ALL orders in one query (no per-key filter), so its
-// stub differs — it returns the configured rows verbatim. Assert the alias
-// collapse: a paid per-day patiktok row lands BOTH its raw key AND the canonical
-// PATIKTOK_COMPILER in the active set (the latter is what the Studio grid reads).
-function makeRowsSupabase(rows: { service_key: string; status: string }[]) {
-  const builder: Record<string, unknown> = {
-    from() {
-      return builder;
-    },
-    select() {
-      return builder;
-    },
-    eq() {
-      return builder;
-    },
-    in() {
-      return builder;
-    },
-    then(resolve: (value: { data: typeof rows; error: null }) => unknown) {
-      return Promise.resolve({ data: rows, error: null }).then(resolve);
-    },
-  };
-  return builder as unknown as SupabaseClient;
-}
-
-test('eventActiveSkus: a paid per-day Patiktok order marks PATIKTOK_COMPILER active (Studio grid flips)', async () => {
-  const supabase = makeRowsSupabase([
-    { service_key: 'patiktok_setnayan_tiktok', status: 'paid' },
-  ]);
-  const { active } = await eventActiveSkus(supabase, 'evt_1');
-  assert.ok(active.has('PATIKTOK_COMPILER'), 'canonical SKU is active for the grid');
-  assert.ok(active.has('patiktok_setnayan_tiktok'), 'raw per-tier key is kept too');
-});
-
-test('eventActiveSkus: a submitted per-day Patiktok order is PENDING, not active', async () => {
-  const supabase = makeRowsSupabase([
-    { service_key: 'patiktok_personal_tiktok', status: 'submitted' },
-  ]);
-  const { active, pending } = await eventActiveSkus(supabase, 'evt_1');
-  assert.equal(active.has('PATIKTOK_COMPILER'), false);
-  assert.ok(pending.has('PATIKTOK_COMPILER'), 'canonical SKU shows Pending');
-});
-
-// ──────────────────────────────────────────────────────────────────────────
 // PAPIC_UNLOCK — the "Unlock all of Papic" umbrella bundle (PR9 #2269) +
 // eventHasPapicUnlock, the deferred-allowance reader (this PR). A PAID
 // PAPIC_UNLOCK activates every Papic feature SKU via the bundle, and
@@ -496,8 +419,8 @@ test('PAPIC_UNLOCK bundle grants every Papic add-on (incl. the reconcile additio
   }
 });
 
-test('PAPIC_UNLOCK includes PAPIC_GUEST (so the guest camera unlocks = "unli guests") + Patiktok', () => {
-  for (const sku of ['PAPIC_GUEST', 'PATIKTOK_COMPILER', 'KWENTO', 'LIVE_WALL', 'CAMERA_BRIDGE']) {
+test('PAPIC_UNLOCK includes PAPIC_GUEST (so the guest camera unlocks = "unli guests")', () => {
+  for (const sku of ['PAPIC_GUEST', 'KWENTO', 'LIVE_WALL', 'CAMERA_BRIDGE']) {
     assert.ok(
       BUNDLE_CHILD_SKUS.PAPIC_UNLOCK.includes(sku),
       `PAPIC_UNLOCK should include ${sku}`,

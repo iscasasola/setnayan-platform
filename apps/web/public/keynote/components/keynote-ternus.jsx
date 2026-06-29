@@ -602,7 +602,6 @@ const T_PRICING = () => (
             { name: "Photo Delivery · full-res handoff", price: "from ₱3,500", note: "photographer&apos;s Drive → your gallery" },
             { name: "Pakanta · AI wedding song",        price: "from ₱4,500",   note: "royalty-free, cleared for stream + reel" },
             { name: "Pailaw · LED background loops",    price: "from ₱6,000",   note: "8K, USB-deliverable for offline" },
-            { name: "Patiktok · vertical photo booth",  price: "from ₱6,500",   note: "30-sec clips, next-day compilation" },
             { name: "Papic · paparazzi app for guests", price: "from ₱8,000",   note: "real-time tagged photos, no app install" },
             { name: "AI Highlight Reel · same-day",     price: "from ₱12,000",  note: "90-sec edit before reception ends" },
             { name: "Panood · multi-cam livestream",    price: "from ₱18,000",  note: "4K · 5 cameras · broadcast style pack" },

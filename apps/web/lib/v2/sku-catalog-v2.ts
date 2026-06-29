@@ -54,7 +54,6 @@ export const V2_SKU_CODES = [
   'PAPIC_ADDON_THANK_YOU',
   'PAPIC_GUEST',
   'PAPIC_SEATS',
-  'PATIKTOK_COMPILER',
   'PRO_WEBSITE',
   // Website lifecycle + planner · seeded by migration 20260915000000 but were
   // MISSING from this allowlist, so formatV2Sku() returned null for them even
@@ -107,7 +106,6 @@ const V1_TO_V2_SKU_MAP: ReadonlyMap<string, V2SkuCode | null> = new Map([
   ['paparazzi_3_seats', 'PAPIC_SEATS'],
   ['paparazzi_5_seats', 'PAPIC_SEATS'],
   ['panood_daily_broadcast', 'PANOOD_SYSTEM'],
-  ['patiktok_setnayan_daily', 'PATIKTOK_COMPILER'],
   ['pakanta_basic', 'PAKANTA'],
   ['pakanta_premium', 'PAKANTA'],
   ['pakanta_wedding_suite', 'PAKANTA'],

@@ -135,7 +135,6 @@ export const BUNDLE_MEMBERS: { essentials: string[]; complete: string[] } = {
     'PAPIC_SEATS',
     'CAMERA_BRIDGE',
     'PABATI',
-    'PATIKTOK_COMPILER',
     'PAPIC_ADDON_THANK_YOU', // Thank You
     'LIVE_WALL', // PhotoWall
     'LIVE_BACKGROUND',

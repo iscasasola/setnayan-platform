@@ -32,7 +32,6 @@ import {
 } from './db';
 import { syncOne as syncOnePapic } from './service-handlers/papic-handler';
 import { syncOne as syncOnePanood } from './service-handlers/panood-handler';
-import { syncOne as syncOnePatiktok } from './service-handlers/patiktok-handler';
 import { syncOne as syncOnePabati } from './service-handlers/pabati-handler';
 import { syncOne as syncOneCameraBridge } from './service-handlers/camera-bridge-handler';
 import { syncOne as syncOneLiveWall } from './service-handlers/live-wall-handler';
@@ -61,7 +60,6 @@ export const OFFLINE_SYNC_TAG = 'setnayan-offline-sync';
 const HANDLERS: Record<ServiceCode, (item: OfflineItem) => Promise<SyncResult>> = {
   papic: syncOnePapic,
   panood: syncOnePanood,
-  patiktok: syncOnePatiktok,
   pabati: syncOnePabati,
   camera_bridge: syncOneCameraBridge,
   live_wall: syncOneLiveWall,

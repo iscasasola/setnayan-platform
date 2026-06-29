@@ -174,8 +174,8 @@ export default async function StudioPage({ params }: Props) {
 
   // Owner deep-link (paid-features-auto-show applied to routing): once a couple
   // OWNS a service, tapping its card opens the working tool directly and skips
-  // the marketing/learn-more interstitial — generalizing the Patiktok-only
-  // owner redirect to every service. Not-yet-owned → the normal detail route
+  // the marketing/learn-more interstitial — applied to every service.
+  // Not-yet-owned → the normal detail route
   // (opensDirect-aware via appStoreDetailHref).
   function cardHref(entry: AddOnEntry): string {
     return isOwned(entry)

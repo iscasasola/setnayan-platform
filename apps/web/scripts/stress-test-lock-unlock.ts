@@ -14,9 +14,7 @@
  *   2. Pro Weekly — purchase → fast-forward expiry → simulate sweep →
  *      verify status flip → renew.
  *   3. Panood Annual — purchase → fast-forward 365 days → verify expiry.
- *   4. Patiktok per-day — create order → capture window opens for 24h →
- *      close → verify state.
- *   5. Refund — complete a paid order → file refund → verify reversal of
+ *   4. Refund — complete a paid order → file refund → verify reversal of
  *      all downstream activations.
  *
  * After all 500 iterations, asserts:
@@ -60,12 +58,11 @@ const SCENARIOS = [
   'concierge',
   'pro_weekly',
   'panood_annual',
-  'patiktok_daily',
   'refund',
   // S6 (Task #23 — pilot blocker). Exercises sweepLapsedSubscriptions
   // against Pro Weekly + Panood Annual backdated orders, plus confirms
-  // the sweep correctly IGNORES Patiktok per-day (which is not a
-  // subscription — it's a multi-purchase per-day window order).
+  // the sweep correctly IGNORES Pabati (which is not a subscription —
+  // it's a multi-purchase order).
   'sweep_lapsed',
 ] as const;
 type Scenario = (typeof SCENARIOS)[number];
@@ -292,9 +289,6 @@ async function runScenario(
           break;
         case 'panood_annual':
           await runPanoodAnnualIteration(admin, ctx, i);
-          break;
-        case 'patiktok_daily':
-          await runPatiktokDailyIteration(admin, ctx, i);
           break;
         case 'refund':
           await runRefundIteration(admin, ctx, i);
@@ -557,56 +551,6 @@ async function runPanoodAnnualIteration(
 }
 
 // ---------------------------------------------------------------------------
-// Scenario 4: Patiktok per-day 24-hour capture window
-// ---------------------------------------------------------------------------
-
-async function runPatiktokDailyIteration(
-  admin: SupabaseClient,
-  ctx: TestContext,
-  i: number,
-): Promise<void> {
-  const now = new Date();
-
-  // Purchase: ₱999 patiktok_setnayan_tiktok daily-booth order.
-  const orderId = await insertPaidOrder(admin, ctx, 'patiktok_setnayan_tiktok', 999, i);
-
-  // Capture window opens (status = paid as proxy for "active window"). Real
-  // V1 keeps the booth-active state in admin_notes JSON or a future
-  // booth_sessions table; the order.status flag is sufficient proxy.
-  const { data: openRow } = await admin
-    .from('orders')
-    .select('status')
-    .eq('order_id', orderId)
-    .maybeSingle();
-  if (openRow?.status !== 'paid') {
-    throw new Error(`booth window did not open (status: ${openRow?.status})`);
-  }
-
-  // Fast-forward 25 hours.
-  const past = new Date(now.getTime() - 25 * 3_600_000).toISOString();
-  await admin.from('orders').update({ created_at: past, updated_at: past }).eq('order_id', orderId);
-
-  // Close window: simulate the day-end sweep that should mark the booth
-  // 'fulfilled' once its 24h window lapses.
-  const dailyCutoff = new Date(now.getTime() - 24 * 3_600_000).toISOString();
-  await admin
-    .from('orders')
-    .update({ status: 'fulfilled' })
-    .eq('service_key', 'patiktok_setnayan_tiktok')
-    .eq('status', 'paid')
-    .lt('updated_at', dailyCutoff);
-
-  const { data: closedRow } = await admin
-    .from('orders')
-    .select('status')
-    .eq('order_id', orderId)
-    .maybeSingle();
-  if (closedRow?.status !== 'fulfilled') {
-    throw new Error(`daily window did not close (status: ${closedRow?.status})`);
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Scenario 5: Refund + cancellation
 // ---------------------------------------------------------------------------
 
@@ -723,15 +667,14 @@ async function insertPaidOrder(
 
 // ---------------------------------------------------------------------------
 // Scenario 6: sweepLapsedSubscriptions — Pro Weekly + Panood Annual lapse +
-// Patiktok per-day MUST NOT lapse (Task #23)
+// Pabati MUST NOT lapse (Task #23)
 // ---------------------------------------------------------------------------
 //
 // Verifies the production lib/subscriptions.ts:sweepLapsedSubscriptions
 // function correctly transitions only `subscription:true` SKUs from
-// 'paid' → 'lapsed' when their expires_at has passed. The Patiktok per-day
-// SKU is `subscription:false` in sku-catalog.ts even though it is a time-
-// bounded order — the sweep must IGNORE it (the day-bound capture window
-// is enforced separately by the booth code, not by the subscription sweep).
+// 'paid' → 'lapsed' when their expires_at has passed. Pabati is
+// `subscription:false` in sku-catalog.ts (a one-off multi-purchase order)
+// — the sweep must IGNORE it.
 //
 // Idempotency: a second sweep call within ~100ms returns swept_count=0
 // because the first call has already advanced status away from 'paid'.
@@ -753,11 +696,10 @@ async function runSweepLapsedIteration(
   const past = new Date(now.getTime() - 60_000).toISOString();
 
   // Insert 3 paid orders: Pro Weekly + Panood Annual (both subscription:true
-  // → should lapse) and Patiktok per-day (subscription:false → must NOT
-  // lapse even though its 24h window has passed).
+  // → should lapse) and Pabati (subscription:false → must NOT lapse).
   const proId = await insertPaidOrder(admin, ctx, 'vendor_pro_weekly', 499, i);
   const panoodId = await insertPaidOrder(admin, ctx, 'panood_annual_streaming', 19999, i);
-  const patiktokId = await insertPaidOrder(admin, ctx, 'patiktok_setnayan_tiktok', 999, i);
+  const pabatiId = await insertPaidOrder(admin, ctx, 'pabati', 999, i);
 
   // Backdate expires_at to the past — mirror the production activate
   // helper (lib/subscriptions.ts:computeSubscriptionExpiry) but with
@@ -770,10 +712,10 @@ async function runSweepLapsedIteration(
     .from('orders')
     .update({ expires_at: past, updated_at: oneYearOneDayAgo })
     .eq('order_id', panoodId);
-  // Patiktok per-day order: expires_at intentionally NULL (matches
-  // sku-catalog.ts subscription:false; production wouldn't set this column
-  // at all for non-subscription SKUs).
-  await admin.from('orders').update({ updated_at: oneYearOneDayAgo }).eq('order_id', patiktokId);
+  // Pabati order: expires_at intentionally NULL (matches sku-catalog.ts
+  // subscription:false; production wouldn't set this column at all for
+  // non-subscription SKUs).
+  await admin.from('orders').update({ updated_at: oneYearOneDayAgo }).eq('order_id', pabatiId);
 
   // Run the production sweep query inline. Duplicated from
   // lib/subscriptions.ts so the script stays import-free (matches
@@ -838,15 +780,15 @@ async function runSweepLapsedIteration(
     throw new Error(`panood_annual did not lapse (status: ${String(panoodRow?.status)})`);
   }
 
-  // Verify Patiktok per-day did NOT lapse (it's not a subscription).
-  const { data: patiktokRow } = await admin
+  // Verify Pabati did NOT lapse (it's not a subscription).
+  const { data: pabatiRow } = await admin
     .from('orders')
     .select('status')
-    .eq('order_id', patiktokId)
+    .eq('order_id', pabatiId)
     .maybeSingle();
-  if (patiktokRow?.status !== 'paid') {
+  if (pabatiRow?.status !== 'paid') {
     throw new Error(
-      `patiktok per-day lapsed but shouldn't have (status: ${String(patiktokRow?.status)})`,
+      `pabati lapsed but shouldn't have (status: ${String(pabatiRow?.status)})`,
     );
   }
 

@@ -46,7 +46,7 @@ const LEAVES = [
   { key: 'food_truck', label: 'Food Truck', genOptions: ['Burgers', 'Pizza', 'Tacos', 'Asian fusion', 'Filipino street food', 'Ice cream', 'Grilled skewers'] },
   { key: 'dessert', label: 'Dessert Station', genOptions: ['Pastries', 'Macarons', 'Cupcakes', 'Chocolate fountain', 'Candy buffet', 'Donut wall', 'Churros', 'Kakanin'] },
   { key: 'food_cart', label: 'Food Cart', genOptions: ['Halo-halo', 'Ice cream', 'Crepe / pancake', 'Cotton candy', 'Charcuterie', 'Mini lechon', 'Sorbetes'] },
-  { key: 'photo_booth', label: 'Photo Booth', genOptions: ['Traditional', '360 booth', 'GIF', 'Polaroid / instax', 'Magic mirror', 'Patiktok'] },
+  { key: 'photo_booth', label: 'Photo Booth', genOptions: ['Traditional', '360 booth', 'GIF', 'Polaroid / instax', 'Magic mirror'] },
   { key: 'henna', label: 'Henna / Tattoo', genOptions: ['Traditional Arabic', 'Modern minimalist', 'Elaborate bridal', 'Philippine Muslim'] },
   { key: 'printing', label: 'Printing & Invites', genOptions: ['Invitations', 'Save-the-date', 'Program', 'Place cards', 'Menu', 'Signage'] },
   { key: 'souvenirs', label: 'Souvenirs / Giveaways', genOptions: ['Edible', 'Practical / keychain', 'Decorative figurine', 'Native Filipino', 'Candle DIY', 'Succulent'] },

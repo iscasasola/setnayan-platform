@@ -31,7 +31,6 @@ export type SkuCategory =
   | 'couple_addon'
   | 'panood'
   | 'papic'
-  | 'patiktok'
   | 'vendor_verification'
   | 'vendor_tools'
   | 'vendor_subscription'
@@ -76,9 +75,6 @@ export const LAUNCH_PROMO_SKU_CODES: ReadonlySet<string> = new Set([
   'pro_widget_schedule',
   'panood_daily_broadcast',
   'panood_annual_streaming',
-  'patiktok_setnayan_tiktok',
-  'patiktok_personal_tiktok',
-  'patiktok_video_overage',
 
   // Vendor-side (7)
   'vendor_pro_weekly',
@@ -292,46 +288,6 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
     // Repriced 2026-05-16: was 499900 (₱4,999), now 349900 (₱3,499).
     priceCentavos: 349900,
     unit: 'render',
-    multiPurchase: true,
-    subscription: false,
-    refundable: true,
-    purchaserRole: 'couple',
-    isActive: true,
-  },
-
-  // ---- Patiktok dual-tier ----
-  {
-    skuCode: 'patiktok_setnayan_tiktok',
-    displayName: 'Patiktok — Setnayan TikTok',
-    category: 'patiktok',
-    priceCentavos: 99900,
-    unit: 'day',
-    multiPurchase: true,
-    subscription: false,
-    refundable: true,
-    purchaserRole: 'couple',
-    softCap: 40,
-    isActive: true,
-  },
-  {
-    skuCode: 'patiktok_personal_tiktok',
-    displayName: 'Patiktok — Personal TikTok (BYO)',
-    category: 'patiktok',
-    priceCentavos: 199900,
-    unit: 'day',
-    multiPurchase: true,
-    subscription: false,
-    refundable: true,
-    purchaserRole: 'couple',
-    softCap: 40,
-    isActive: true,
-  },
-  {
-    skuCode: 'patiktok_video_overage',
-    displayName: 'Patiktok +10 videos overage',
-    category: 'patiktok',
-    priceCentavos: 4900,
-    unit: 'each',
     multiPurchase: true,
     subscription: false,
     refundable: true,
@@ -595,7 +551,15 @@ export const RETIRED_SKU_CODES = [
   'save_the_date_video',             // retired 2026-06-16 → Save-the-Date is now the free page-opening reveal
   'daily_co_video_meeting',          // Daily.co retired 2026-05-16
   'video_meeting_addon',             // Daily.co retired 2026-05-16
-  'patiktok_booth_5hr',              // -> patiktok_setnayan_tiktok + _personal_tiktok
+  // Patiktok — entire product RETIRED 2026-06-29 (owner "remove patiktok ...
+  // just remove them entirely"). All 6 SKUs deleted from service_catalog by
+  // migration 20270319000000; kept here so legacy order rows resolve.
+  'patiktok_booth_5hr',
+  'patiktok_setnayan_tiktok',
+  'patiktok_personal_tiktok',
+  'patiktok_setnayan_daily',
+  'patiktok_personal_daily',
+  'patiktok_video_overage',
   'sponsored_boost_weekly',          // -> sponsored_boost_quarterly_30km + _annual_30km
   'pro_widget_bundle',
   'pro_widget_story',

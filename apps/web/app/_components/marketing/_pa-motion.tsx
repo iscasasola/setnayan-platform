@@ -1,8 +1,8 @@
 'use client';
 
 /**
- * Shared client motion island for the five "Pa-" public marketing landing pages
- * — /panood, /pa3d, /palogo, /pawebsite, /patiktok (Pa- naming LOCKED, owner
+ * Shared client motion island for the "Pa-" public marketing landing pages
+ * — /panood, /pa3d, /palogo, /pawebsite (Pa- naming LOCKED, owner
  * 2026-06-27). Each page's page.tsx stays a force-static Server Component that
  * owns ALL copy, routes, metadata, and the two JSON-LD blocks; this file adds
  * NOTHING to any page's information architecture. Every wrapper renders the

@@ -29,8 +29,9 @@ import {
 // run handles slow drift. The cron-runner must POST with the
 // x-cron-secret header matching OAUTH_REFRESH_CRON_SECRET.
 //
-// TODO(0017, Agent C): tiktok rows live in `patiktok_oauth_grants` for V1;
-// either migrate them into oauth_grants or fork a sibling refresh worker.
+// (Patiktok's per-couple TikTok OAuth grants were retired 2026-06-29 along
+// with the product; this worker now refreshes only the youtube + drive
+// providers in oauth_grants.)
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -142,10 +143,9 @@ export async function POST(req: NextRequest) {
         }
       }
     } else {
-      // tiktok grants still live in patiktok_oauth_grants for V1 (see
-      // 20260516240000_iteration_0017_patiktok_oauth.sql + its own
-      // refresh sweep). If a 'tiktok' row ever lands in oauth_grants
-      // before consolidation, skip it here so we don't blow up.
+      // Unknown provider in oauth_grants — skip rather than blow up. (Only
+      // youtube + drive are wired; Patiktok's tiktok grants were retired
+      // 2026-06-29 with the product.)
       skipReason = 'provider_not_yet_implemented';
     }
 

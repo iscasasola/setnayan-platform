@@ -103,7 +103,6 @@ export type WizardTaskId =
   | 'save_the_date_video'
   | 'papic'
   | 'panood'
-  | 'patiktok'
   | 'attire'
   | 'hair_makeup'
   | 'principal_sponsors'
@@ -690,25 +689,6 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     title: 'Activate Panood',
     whyItMatters:
       "Live-stream the ceremony + reception to your overseas family on YOUR own YouTube channel — no Setnayan brand on the broadcast. Setnayan handles multi-cam switching; you keep the recordings forever. T-2 months gives the broadcaster setup time + your YouTube OAuth gate.",
-    pillLabel: 'Programming',
-    prerequisites: ['reception_venue'],
-  },
-  {
-    // Added 2026-05-24 (owner directive · same row as Papic + Panood).
-    // Patiktok = physical TikTok booth at the venue (iteration 0017 ·
-    // CLAUDE.md row 2026-05-16). Dual-tier per-day pricing: Setnayan
-    // master TikTok ₱999/day · couple's own TikTok ₱1,999/day via OAuth.
-    // 40-video soft cap per booth per day + ₱49/+10 overage. T-3mo entry,
-    // T-14d floor.
-    id: 'patiktok',
-    // 2026-05-24 owner directive (see papic comment above): moved from
-    // 17.7 to 16.8 · before save_the_date_video.
-    order: 16.8,
-    phase: 'programming',
-    kind: 'external_process',
-    title: 'Activate Patiktok',
-    whyItMatters:
-      "TikTok booth at the venue — guests step up, pick a trending sound from the printed QR menu, perform the dance, the booth auto-compiles + posts. Pick which TikTok handle owns the content (Setnayan or yours). T-3 months gives time for sound curation + booth slot reservation.",
     pillLabel: 'Programming',
     prerequisites: ['reception_venue'],
   },

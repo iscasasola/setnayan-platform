@@ -10,7 +10,6 @@ import { sendEmail } from '@/lib/email';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { notifyAdminsOrderAwaitingReconciliation } from '@/lib/order-admin-notify';
-import { PATIKTOK_OVERAGE_PHP } from '@/lib/patiktok';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -53,14 +52,7 @@ export async function createOrder(formData: FormData) {
   if (!Number.isFinite(amount) || amount < 0) {
     throw new Error('Amount must be a non-negative number');
   }
-  let requestedTotalPhp = Math.round(amount * 100) / 100;
-  // #9 (money bug-hunt): the legacy createOrder otherwise trusts the posted
-  // total. For a SKU with a fixed server-authoritative price, enforce it
-  // server-side instead of the client amount. patiktok overage is the live one
-  // (a fixed ₱49 / +10-video block).
-  if (serviceKey === 'patiktok:video_overage') {
-    requestedTotalPhp = PATIKTOK_OVERAGE_PHP;
-  }
+  const requestedTotalPhp = Math.round(amount * 100) / 100;
 
   const supabase = await createClient();
   const {

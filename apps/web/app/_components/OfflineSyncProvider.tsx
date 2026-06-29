@@ -13,7 +13,7 @@
  * triggers a mass upload synchronization."
  *
  * Mount near the root of every capture-surface tree (Papic seat,
- * Pabati guestbook, Patiktok booth, Panood camera op, Camera Bridge
+ * Pabati guestbook, Panood camera op, Camera Bridge
  * UI, Live Wall projector handshake).
  *
  * Companions:

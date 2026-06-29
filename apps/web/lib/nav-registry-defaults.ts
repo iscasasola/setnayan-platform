@@ -2018,6 +2018,18 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 20.5,
   },
   {
+    key: "admin.sidebar.journal-spotlights",
+    scope: "admin",
+    area: "admin-sidebar",
+    route: "/admin/journal-spotlights",
+    label: "Journal Spotlights",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "BookOpen",
+    customRef: null,
+    sortOrder: 20.6,
+  },
+  {
     key: "admin.sidebar.events",
     scope: "admin",
     area: "admin-sidebar",

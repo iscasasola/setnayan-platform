@@ -24,6 +24,7 @@ import Link from 'next/link';
 import { PILLARS, PILLAR_HEROES, HOME_SCENE } from './pillars';
 import { HomeOverlays, type OverlayId } from './HomeOverlays';
 import type { PricingData } from './pricing-data';
+import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
 
 const HOME_HERO = {
   kick: 'Set na ’yan',
@@ -285,11 +286,12 @@ export function HomeReskin({ pricing }: { pricing: PricingData }) {
           title="Home"
           onClick={goHome}
         >
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <circle cx="8" cy="9" r="3" fill="currentColor" />
-            <circle cx="16" cy="9" r="3" fill="currentColor" />
-            <circle cx="12" cy="15.5" r="3" fill="currentColor" />
-          </svg>
+          {/* Official Setnayan mark (filled glyph, paints in currentColor). The
+              .hr-logo button drives color: #fff on the gate and var(--hr-ink)
+              when the nav switches to the unlocked glass state, so the mark is
+              white on the cinematic gate and ink once opened — the same adaptive
+              behavior the old 3-dot placeholder had. */}
+          <SetnayanMark className="h-5 w-5" aria-hidden="true" />
         </button>
         <div className="hr-links hr-glass-dark">
           <button onClick={() => setOverlay('prices')}>Prices</button>

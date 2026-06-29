@@ -159,3 +159,41 @@ export function isSetnayanAiActiveForUser(
     event?.setnayan_ai_active === true || userAiSubscriptionActive(subscription, now);
   return notManuallyOff && entitled;
 }
+
+/**
+ * Per-USER-aware sibling of `shouldOfferSetnayanAiPurchase`. Decides whether to
+ * show the PAID "Unlock Setnayan AI" CTA, accounting for the per-user fan-out.
+ *
+ * - `perUserEnabled` OFF (default): byte-identical to
+ *   `shouldOfferSetnayanAiPurchase(event, paywallEnabled)` — the per-event CTA,
+ *   unchanged.
+ * - `perUserEnabled` ON: offer only when the paywall is enforced AND the event
+ *   hasn't bought the per-event entitlement AND no host has an active
+ *   subscription window. A subscriber must never be re-offered a per-event
+ *   purchase (the never-double-charge guarantee), mirroring how the per-event
+ *   form excludes an event that already owns `setnayan_ai_active`.
+ */
+export function shouldOfferSetnayanAiPurchaseForUser(
+  event: { setnayan_ai_active?: boolean | null } | null | undefined,
+  opts: {
+    paywallEnabled?: boolean;
+    perUserEnabled?: boolean;
+    subscription?: UserAiSubscription;
+    now?: Date;
+  } = {},
+): boolean {
+  const {
+    paywallEnabled = isSetnayanAiPaywallEnabled(),
+    perUserEnabled = false,
+    subscription = null,
+    now,
+  } = opts;
+
+  if (!perUserEnabled) return shouldOfferSetnayanAiPurchase(event, paywallEnabled);
+
+  return (
+    paywallEnabled &&
+    event?.setnayan_ai_active !== true &&
+    !userAiSubscriptionActive(subscription, now)
+  );
+}

@@ -25,8 +25,15 @@ import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { buildPlanBudgetModel, type VendorEnrichment } from '@/lib/vendors-plan-budget';
 import Link from 'next/link';
 import { getTaxonomy } from '@/lib/taxonomy-db';
-import { isSetnayanAiActive, shouldOfferSetnayanAiPurchase } from '@/lib/setnayan-ai';
-import { resolveSetnayanAiPaywallEnabled } from '@/lib/integration-config';
+import {
+  isSetnayanAiActiveForUser,
+  shouldOfferSetnayanAiPurchaseForUser,
+} from '@/lib/setnayan-ai';
+import { getEventHostAiSubscription } from '@/lib/setnayan-ai-server';
+import {
+  resolveSetnayanAiPaywallEnabled,
+  resolveSetnayanAiPerUserEnabled,
+} from '@/lib/integration-config';
 import {
   BUDGET_BUILD_TABS,
   isBudgetBuildEnabled,
@@ -469,7 +476,16 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // Paywall flag is DB-first/env-fallback (Integration Activation Console);
   // resolved once and threaded into both gates on this surface.
   const paywallEnabled = await resolveSetnayanAiPaywallEnabled();
-  const aiActive = isSetnayanAiActive(ev, paywallEnabled);
+  const perUserEnabled = await resolveSetnayanAiPerUserEnabled();
+  const aiSubscription = perUserEnabled
+    ? await getEventHostAiSubscription(createAdminClient(), eventId)
+    : null;
+  const aiGateOpts = {
+    paywallEnabled,
+    perUserEnabled,
+    subscription: aiSubscription,
+  };
+  const aiActive = isSetnayanAiActiveForUser(ev, aiGateOpts);
 
   // DB-driven category headers (owner 2026-06-09 — "taxonomy applies to all 5
   // menus"): the 10 folder labels/order/slugs come from `service_categories`
@@ -531,7 +547,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // (shouldOfferSetnayanAiPurchase returns false while the paywall is off → no
   // banner today). Links to the /studio/setnayan-ai buy page (catalog price +
   // checkout). Renders in both the takeover shortlist slot and the bare return.
-  const aiOffer = shouldOfferSetnayanAiPurchase(ev, paywallEnabled);
+  const aiOffer = shouldOfferSetnayanAiPurchaseForUser(ev, aiGateOpts);
   const aiOfferBanner = aiOffer ? (
     <Link
       href={`/dashboard/${eventId}/studio/setnayan-ai`}

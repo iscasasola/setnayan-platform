@@ -18,8 +18,12 @@ import {
 import { countUnread } from '@/lib/notifications';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
-import { isSetnayanAiActive } from '@/lib/setnayan-ai';
-import { resolveSetnayanAiPaywallEnabled } from '@/lib/integration-config';
+import { isSetnayanAiActiveForUser } from '@/lib/setnayan-ai';
+import { getEventHostAiSubscription } from '@/lib/setnayan-ai-server';
+import {
+  resolveSetnayanAiPaywallEnabled,
+  resolveSetnayanAiPerUserEnabled,
+} from '@/lib/integration-config';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { sweepLapsedSubscriptions } from '@/lib/subscriptions';
@@ -1560,9 +1564,18 @@ export default async function EventHomePage({
   // Setnayan's automated layer: hide Setnayan AI (auto-task) + Upcoming
   // schedules (per-service + statutory deadlines). The countdown + activity
   // feed stay. Default 'guided' (and any unknown value) keeps everything on.
-  const planningManual = !isSetnayanAiActive(
+  const aiPaywallEnabled = await resolveSetnayanAiPaywallEnabled();
+  const aiPerUserEnabled = await resolveSetnayanAiPerUserEnabled();
+  const aiSubscription = aiPerUserEnabled
+    ? await getEventHostAiSubscription(adminClient, eventId)
+    : null;
+  const planningManual = !isSetnayanAiActiveForUser(
     event as { planning_mode?: string | null; setnayan_ai_active?: boolean | null },
-    await resolveSetnayanAiPaywallEnabled(),
+    {
+      paywallEnabled: aiPaywallEnabled,
+      perUserEnabled: aiPerUserEnabled,
+      subscription: aiSubscription,
+    },
   );
 
   // Nikah imam designation (Muslim track). The Five-essentials card ticks the

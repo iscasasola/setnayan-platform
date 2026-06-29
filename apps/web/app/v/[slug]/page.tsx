@@ -49,8 +49,12 @@ import { fetchRequirementFields, type RequirementField } from '@/lib/requirement
 import { joinVendorWaitlist } from './waitlist-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { getEventPreference } from '@/lib/event-preferences';
-import { isSetnayanAiActive } from '@/lib/setnayan-ai';
-import { resolveSetnayanAiPaywallEnabled } from '@/lib/integration-config';
+import { isSetnayanAiActiveForUser } from '@/lib/setnayan-ai';
+import { getEventHostAiSubscription } from '@/lib/setnayan-ai-server';
+import {
+  resolveSetnayanAiPaywallEnabled,
+  resolveSetnayanAiPerUserEnabled,
+} from '@/lib/integration-config';
 import { NavLinksRow } from '@/app/_components/nav-links';
 import { VendorLocationMap } from '@/app/_components/vendor-location-map';
 import {
@@ -752,9 +756,21 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
       .select('planning_mode, setnayan_ai_active')
       .eq('event_id', coupleEventId)
       .maybeSingle();
-    aiActive = isSetnayanAiActive(
+    const aiPaywallEnabled = await resolveSetnayanAiPaywallEnabled();
+    const aiPerUserEnabled = await resolveSetnayanAiPerUserEnabled();
+    // Resolve via the admin client + the event id in scope — the public page has
+    // no session, so the host's subscription window can only be read with the
+    // service-role client (RLS-bypassed).
+    const aiSubscription = aiPerUserEnabled
+      ? await getEventHostAiSubscription(admin, coupleEventId)
+      : null;
+    aiActive = isSetnayanAiActiveForUser(
       aiEventRow as { planning_mode?: string | null; setnayan_ai_active?: boolean | null } | null,
-      await resolveSetnayanAiPaywallEnabled(),
+      {
+        paywallEnabled: aiPaywallEnabled,
+        perUserEnabled: aiPerUserEnabled,
+        subscription: aiSubscription,
+      },
     );
   }
 

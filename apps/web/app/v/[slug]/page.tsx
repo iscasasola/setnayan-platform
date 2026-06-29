@@ -2,7 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { Mail, Phone, Globe, MapPin, Star, Sparkles, Heart, BadgeCheck } from 'lucide-react';
+import { Mail, Phone, Globe, MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck } from 'lucide-react';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
@@ -55,11 +55,15 @@ import { VendorLocationMap } from '@/app/_components/vendor-location-map';
 import {
   fetchReviewsForVendorWithCouple,
   fetchReviewStats,
+  fetchVendorCompletedEvents,
   formatStarRating,
+  formatTrackRecordMonth,
+  formatEventTypeLabel,
   REVIEW_AXIS_LABEL,
   type ReviewAxis,
   type ReviewWithCouple,
   type ReviewStatsRow,
+  type VendorCompletedEventRow,
 } from '@/lib/reviews';
 import { countVendorRecommendingCouples } from '@/lib/vendor-recommendations';
 import {
@@ -471,7 +475,7 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
   const limit = reviewsPage * REVIEWS_PAGE_SIZE;
 
   const admin = createAdminClient();
-  const [reviewStats, reviews, allServices, vendorPackages, recommendingCouples, finalizedBookingCount] = await Promise.all([
+  const [reviewStats, reviews, allServices, vendorPackages, recommendingCouples, finalizedBookingCount, completedEvents] = await Promise.all([
     fetchReviewStats(admin, vendor.vendor_profile_id),
     fetchReviewsForVendorWithCouple(admin, vendor.vendor_profile_id, { limit, offset: 0 }),
     fetchVendorServices(admin, vendor.vendor_profile_id),
@@ -499,6 +503,11 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
       }
       return (data as { finalized_booking_count: number | null } | null)?.finalized_booking_count ?? null;
     })(),
+    // Receipt-backed dated track record (Wave 5) — one row per delivered/
+    // complete LINKED booking, with the same owner/team/internal/self-comp
+    // exclusions as the public completed-events count. Best-effort: a missing
+    // view (stale deploy) returns [] and the Track Record section is omitted.
+    fetchVendorCompletedEvents(admin, vendor.vendor_profile_id, { limit: 60 }),
   ]);
   // Spec §5 experience tier — surfaced as a subtle hero badge. We render the
   // tier even for "New to Setnayan" on the profile (honest, not negative).
@@ -1330,6 +1339,7 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
           showStars={viewerTierCaps.reviewStarsCounted}
           showComments={viewerTierCaps.reviewCommentsViewable}
           recommendingCouples={recommendingCouples}
+          completedEvents={completedEvents}
         />
 
         <section className="space-y-4 py-8">
@@ -1653,6 +1663,7 @@ function ReviewsSection({
   showStars,
   showComments,
   recommendingCouples,
+  completedEvents,
 }: {
   slug: string;
   businessName: string;
@@ -1666,6 +1677,8 @@ function ReviewsSection({
   showComments: boolean;
   /** "Recommended by N couples" (Event Lifecycle Menu §6.3) — 0 hides it. */
   recommendingCouples: number;
+  /** Receipt-backed dated track record (Wave 5) — [] hides the section. */
+  completedEvents: ReadonlyArray<VendorCompletedEventRow>;
 }) {
   return (
     <section className="space-y-6 border-b border-ink/10 py-8">
@@ -1685,6 +1698,14 @@ function ReviewsSection({
           </p>
         ) : null}
       </header>
+
+      {/* Receipt-backed track record (Wave 5). A dated list of events this
+          vendor delivered THROUGH Setnayan — same owner/team/internal/self-comp
+          exclusions as the public completed-events count, so it can't be
+          padded. Renders for every viewer tier; omitted only when empty. */}
+      {completedEvents.length > 0 ? (
+        <TrackRecord events={completedEvents} />
+      ) : null}
 
       {/* Phase C: Free vendors (showStars=false) hide the star metrics
           entirely — no average, no histogram. The per-card "new" treatment
@@ -1822,10 +1843,14 @@ function ReviewRow({
   return (
     <article className="rounded-xl border border-ink/10 bg-cream p-4">
       <header className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Phase C: star row hidden for tiers that don't count stars. */}
           {showStars ? <StarRow value={review.rating_overall} /> : null}
           <span className="text-sm font-medium text-ink">{author}</span>
+          {/* Receipt-backed provenance (Wave 5). PLATFORM-DERIVED — couples
+              can't set it. Renders only when the review's booking links to
+              this vendor's Setnayan profile. */}
+          {review.booked_through_setnayan ? <BookedThroughSetnayanPill /> : null}
         </div>
         <time className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
           {dateLabel}
@@ -1854,6 +1879,65 @@ function ReviewRow({
         <VendorReplyBlock review={review} vendorName={vendorName} />
       ) : null}
     </article>
+  );
+}
+
+/**
+ * Receipt-backed "Booked through Setnayan" pill. Surfaces only when a review's
+ * source booking is linked to this vendor's marketplace profile (provenance is
+ * platform-derived; couples can never set it). The trust signal that this is a
+ * real, paid-through-the-platform engagement — not a drive-by review.
+ */
+function BookedThroughSetnayanPill() {
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full bg-mulberry/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-mulberry"
+      title="This couple booked this vendor through Setnayan — verified by the platform."
+    >
+      <BadgeCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
+      Booked through Setnayan
+    </span>
+  );
+}
+
+/**
+ * Receipt-backed dated track record. A list of `{event type · month-year}`
+ * entries for events this vendor delivered THROUGH Setnayan. Sourced from the
+ * `vendor_completed_events` view, which applies the same owner/team/internal/
+ * self-comp exclusions as the public completed-events count — so the list can
+ * never be padded by the vendor's own bookings.
+ */
+function TrackRecord({ events }: { events: ReadonlyArray<VendorCompletedEventRow> }) {
+  return (
+    <div className="rounded-2xl border border-ink/10 bg-cream p-5">
+      <div className="mb-3 flex items-center gap-2">
+        <CalendarCheck aria-hidden className="h-4 w-4 text-mulberry" strokeWidth={1.75} />
+        <h3 className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55">
+          Track record
+        </h3>
+        <span className="text-xs text-ink/45">
+          {events.length} event{events.length === 1 ? '' : 's'} delivered through Setnayan
+        </span>
+      </div>
+      <ul className="grid gap-1.5 sm:grid-cols-2">
+        {events.map((ev) => {
+          const month = formatTrackRecordMonth(ev);
+          return (
+            <li
+              key={ev.vendor_id}
+              className="flex items-center justify-between gap-3 rounded-md bg-ink/[0.03] px-3 py-1.5 text-sm"
+            >
+              <span className="text-ink/80">{formatEventTypeLabel(ev.event_type)}</span>
+              {month ? (
+                <time className="font-mono text-[11px] uppercase tracking-[0.12em] text-ink/45">
+                  {month}
+                </time>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 

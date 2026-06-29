@@ -89,6 +89,69 @@ export async function vendorMarkServiceComplete(formData: FormData) {
   redirect(`/vendor-dashboard/clients/${eventId}?completed=1`);
 }
 
+/**
+ * Vendor-side deposit acknowledgement (Deposit Reservation Lock-Free · Wave 3).
+ * The couple recorded a deposit off-platform and the date is held; the vendor
+ * confirms "deposit received" here. Single-winner + idempotent serialization
+ * lives in the acknowledge_vendor_deposit SECURITY DEFINER RPC (SELECT … FOR
+ * UPDATE + deposit_acknowledged_at-IS-NULL precondition), which also enforces
+ * ownership (current_vendor_event_vendor_ids / is_admin) — so we forward
+ * directly under the vendor's own RLS client. No money moves: acknowledge is a
+ * signal, Setnayan never holds funds. Notifies the couple best-effort.
+ */
+export async function vendorAcknowledgeDeposit(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const eventVendorId = formData.get('vendor_id');
+  if (typeof eventId !== 'string' || typeof eventVendorId !== 'string') {
+    throw new Error('Invalid input');
+  }
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data, error } = await supabase.rpc('acknowledge_vendor_deposit', {
+    p_event_vendor_id: eventVendorId,
+  });
+
+  // Notify the couple only on a fresh acknowledgement (status 'ok'); a re-call
+  // ('already') stays silent. Best-effort — never blocks the ack itself.
+  const env = (data ?? {}) as { status?: string };
+  if (!error && env.status === 'ok') {
+    try {
+      const admin = createAdminClient();
+      const { data: ev } = await admin
+        .from('event_vendors')
+        .select('vendor_name')
+        .eq('vendor_id', eventVendorId)
+        .maybeSingle();
+      const vendorName = (ev as { vendor_name?: string } | null)?.vendor_name ?? 'Your vendor';
+      const { data: members } = await admin
+        .from('event_members')
+        .select('user_id')
+        .eq('event_id', eventId)
+        .eq('member_type', 'couple');
+      for (const m of members ?? []) {
+        if (!m.user_id) continue;
+        await emitNotification({
+          userId: m.user_id,
+          type: 'payment_confirmed',
+          title: `${vendorName} confirmed your deposit`,
+          body: 'Your date is locked in — the vendor confirmed they received your deposit.',
+          relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`,
+        });
+      }
+    } catch (e) {
+      console.error('[vendorAcknowledgeDeposit] couple notify failed:', e);
+    }
+  }
+
+  revalidatePath(`/vendor-dashboard/clients/${eventId}`);
+  const flag = error ? 'error' : env.status ?? 'ok';
+  redirect(`/vendor-dashboard/clients/${eventId}?deposit_ack=${flag}`);
+}
+
 export async function suggestScheduleChange(formData: FormData) {
   const eventId = formData.get('event_id');
   const note = formData.get('note');

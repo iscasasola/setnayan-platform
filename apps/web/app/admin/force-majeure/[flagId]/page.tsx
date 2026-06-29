@@ -46,6 +46,9 @@ type EventVendorLookup = {
   vendor_id: string;
   vendor_name: string;
   category: string;
+  deposit_recorded_at: string | null;
+  deposit_acknowledged_at: string | null;
+  deposit_proof_url: string | null;
 };
 
 type UserLookup = {
@@ -82,7 +85,9 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
     row.event_vendor_id
       ? admin
           .from('event_vendors')
-          .select('vendor_id, vendor_name, category')
+          .select(
+            'vendor_id, vendor_name, category, deposit_recorded_at, deposit_acknowledged_at, deposit_proof_url',
+          )
           .eq('vendor_id', row.event_vendor_id)
           .maybeSingle()
       : Promise.resolve({ data: null as EventVendorLookup | null, error: null }),
@@ -210,6 +215,46 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
             )
           }
         />
+        {/* Deposit Reservation Lock-Free — surface the deposit state so an
+            admin handling the dispute sees whether a deposit was recorded (date
+            held) and whether the vendor acknowledged it, plus the proof link.
+            Record/acknowledge only — Setnayan never held the money. */}
+        {vendor ? (
+          <Field
+            label="Deposit"
+            value={
+              vendor.deposit_recorded_at ? (
+                <span className="text-ink/75">
+                  {vendor.deposit_acknowledged_at ? (
+                    <span className="font-medium text-ink">
+                      Acknowledged by vendor ({vendor.deposit_acknowledged_at.slice(0, 10)})
+                    </span>
+                  ) : (
+                    <span className="font-medium text-ink">
+                      Recorded · date held, awaiting vendor confirmation (
+                      {vendor.deposit_recorded_at.slice(0, 10)})
+                    </span>
+                  )}
+                  {vendor.deposit_proof_url ? (
+                    <>
+                      <br />
+                      <a
+                        href={vendor.deposit_proof_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-terracotta hover:underline"
+                      >
+                        View deposit proof
+                      </a>
+                    </>
+                  ) : null}
+                </span>
+              ) : (
+                <span className="text-ink/55">No deposit recorded</span>
+              )
+            }
+          />
+        ) : null}
       </dl>
 
       <section className="mb-6 space-y-2">

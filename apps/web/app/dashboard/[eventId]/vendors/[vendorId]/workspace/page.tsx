@@ -54,6 +54,7 @@ import { formatCentavosPhp } from '@/lib/vendor-packages';
 import { updateVendorCosts } from '../../actions';
 import { createAutoShareInviteAction } from './actions';
 import { HostServiceDetails } from './_components/host-service-details';
+import { DepositReservation } from './_components/deposit-reservation';
 import { fetchVendorBudgetSummary } from '@/lib/budget';
 import { fetchPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
@@ -231,7 +232,7 @@ export default async function VendorWorkspacePage({ params }: Props) {
   const { data: vendorRow, error: vendorErr } = await supabase
     .from('event_vendors')
     .select(
-      'vendor_id, event_id, category, vendor_name, contact_email, contact_phone, status, workspace_status, total_cost_php, transport_php, food_allowance_php, deposit_paid_php, notes, marketplace_vendor_id, manual_vendor_id, event_vendor_package_id, host_inclusions, covers_plan_groups, created_at',
+      'vendor_id, event_id, category, vendor_name, contact_email, contact_phone, status, workspace_status, total_cost_php, transport_php, food_allowance_php, deposit_paid_php, deposit_recorded_at, deposit_acknowledged_at, deposit_proof_url, notes, marketplace_vendor_id, manual_vendor_id, event_vendor_package_id, host_inclusions, covers_plan_groups, created_at',
     )
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId)
@@ -252,6 +253,9 @@ export default async function VendorWorkspacePage({ params }: Props) {
     transport_php: number | string | null;
     food_allowance_php: number | string | null;
     deposit_paid_php: number | string | null;
+    deposit_recorded_at: string | null;
+    deposit_acknowledged_at: string | null;
+    deposit_proof_url: string | null;
     notes: string | null;
     marketplace_vendor_id: string | null;
     manual_vendor_id: string | null;
@@ -979,6 +983,21 @@ export default async function VendorWorkspacePage({ params }: Props) {
               />
             </div>
           ) : null}
+
+          {/*
+            Deposit Reservation Lock-Free — record a deposit to HOLD the date
+            the instant it's logged, distinct from a cleared payment, with a
+            vendor-acknowledgement handshake. Setnayan never holds the money;
+            recording does not change the order status (orthogonal markers).
+          */}
+          <DepositReservation
+            eventId={eventId}
+            vendorId={ev.vendor_id}
+            vendorName={displayName}
+            depositRecordedAt={ev.deposit_recorded_at}
+            depositAcknowledgedAt={ev.deposit_acknowledged_at}
+            depositProofUrl={ev.deposit_proof_url}
+          />
 
           {vendorBudgetSummary ? (
             <VendorItemizationCard

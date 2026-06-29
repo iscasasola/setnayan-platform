@@ -22,10 +22,15 @@ import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
 import { VendorStatsPanel } from './_components/vendor-stats-panel';
 import { ShortlistRadarCard } from './_components/shortlist-radar-card';
 import { SpotlightAwardBanner } from './_components/spotlight-award-banner';
+import { JournalFeatureCard } from './_components/journal-feature-card';
 import {
   fetchVendorCurrentAwards,
   type SpotlightAwardType,
 } from '@/lib/spotlight-awards';
+import {
+  fetchVendorJournalSpotlights,
+  type VendorJournalFeature,
+} from '@/lib/journal-spotlights';
 
 /**
  * /vendor-dashboard — vendor doorway HOME / Overview page.
@@ -114,6 +119,10 @@ type LoaderState =
       /** Spotlight Awards (Wave 5) the vendor holds this period — drives the
        *  "You earned a Spotlight Award" banner. Empty when none / no profile. */
       spotlightAwards: SpotlightAwardType[];
+      /** Approved Journal Spotlights (Wave 5) crediting this vendor in published
+       *  articles — drives the "You're featured in the Journal" list. Empty when
+       *  none / no profile. */
+      journalFeatures: VendorJournalFeature[];
     }
   | { ok: false; message: string };
 
@@ -202,6 +211,7 @@ export default async function VendorHomePage() {
         completion: businessProfileChecklist(null, { hasDocuments: false }),
         vendorProfileId: null,
         spotlightAwards: [],
+        journalFeatures: [],
       };
     } else {
       // Expanded data fetch (2026-05-29 · Task #10).
@@ -274,6 +284,14 @@ export default async function VendorHomePage() {
         profile.vendor_profile_id,
       );
 
+      // Approved Journal Spotlights crediting this vendor (Wave 5). Public-read
+      // table → the vendor's own session client resolves the approved rows.
+      // Fail-soft inside the helper (returns []), so it never blocks Home.
+      const journalFeatures = await fetchVendorJournalSpotlights(
+        supabase,
+        profile.vendor_profile_id,
+      );
+
       loaderState = {
         ok: true,
         profileExists: true,
@@ -297,6 +315,7 @@ export default async function VendorHomePage() {
         }),
         vendorProfileId: profile.vendor_profile_id,
         spotlightAwards,
+        journalFeatures,
       };
     }
   } catch (err) {
@@ -347,6 +366,7 @@ export default async function VendorHomePage() {
     completion,
     vendorProfileId,
     spotlightAwards,
+    journalFeatures,
   } = loaderState;
 
   // VendorStatsPanel needs a fresh supabase client for its own fetch.
@@ -630,6 +650,11 @@ export default async function VendorHomePage() {
        *  merge collision with the parallel First-Look PR). Self-fetches via
        *  getShortlistRadar(); shown only when the vendor owns a profile. */}
       {profileExists && vendorProfileId ? <ShortlistRadarCard /> : null}
+
+      {/* "You're featured in the Journal" (Wave 5 Editorial & Journal
+       *  Spotlights) — read-only list of published articles that credit this
+       *  vendor. Renders nothing when the vendor isn't featured anywhere yet. */}
+      {profileExists ? <JournalFeatureCard features={journalFeatures} /> : null}
 
       {/* Recent activity placeholder */}
       <section>

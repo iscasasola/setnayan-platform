@@ -1,48 +1,38 @@
 /**
- * Homepage · / — HERO → "tap to learn more" → 4-step features narrative.
+ * Homepage · / — the ELN-style reskin (owner-approved 2026-06-29).
  *
- * The hero is the admin-uploaded scroll-scrub video (HeroVideoScrub) when one
- * is published, falling back to the default keynote hero otherwise — see
- * lib/hero-video.ts + _sections.tsx Hero().
+ * REPLACES the prior Hero → PostHeroReveal → FeaturesNarrative composition with
+ * the cinematic no-scroll gate + 5-pillar dock + interactive pillar widgets +
+ * Real Stories + kinetic ticker + the four nav overlays, ported faithfully from
+ * the prototype `03_Strategy/Home_ELN_Reskin_2026-06-28.html`. The design
+ * intentionally overrides the warm-Alabaster + Instrument-Serif locks FOR THE
+ * HOMEPAGE ONLY — everything is scoped under `.home-reskin` / `.home-reskin-ov`
+ * so no other surface changes.
  *
- * COMPOSITION (the top Nav is NOT here — it's the ONE persistent site-wide
- * nav mounted in the root layout via SiteChrome, so it survives navigations;
- * see _components/marketing/site-chrome.tsx):
- *   1. Hero              — full-screen scroll-scrub video → end-of-scroll CTA
- *   2. PostHeroReveal    — gates the content below: at the hero end the page LOCKS
- *                          (the collapsed content makes the hero end the page
- *                          bottom), a "Tap to learn more ↓" pill fades in, and a
- *                          tap expands + scrolls into:
- *                            • FeaturesNarrative — 4-panel step-through:
- *                                Panel 0  "Fourteen features. One home."
- *                                Panel 1  Six free tools (with product mocks)
- *                                Panel 2  Eight premium features
- *                                Panel 3  Vendor marketplace → "Read our story"
- *                            • SiteFooter
+ * The persistent SiteChrome top-nav is suppressed on `/` (see site-chrome.tsx)
+ * because the reskin renders its own floating glass nav.
  *
- * 2026-06-18 (owner): replaced the long-scroll WhatYouGet + OurStoryTeaser with
- * FeaturesNarrative — a click-to-advance step-through that takes the visitor
- * through the 14-feature narrative before landing on the vendor marketplace and
- * the Our Story link.
+ * PRESERVED (no visual footprint):
+ *   • GEO/SERP metadata + the WebSite + SoftwareApplication JSON-LD graph, so AI
+ *     answer engines + search cards keep their extractable surface.
+ *   • The cron-free admin morning-digest flush via after() — it piggybacks on
+ *     the homepage's guaranteed public traffic.
+ *   • force-dynamic — getHomePricingData() reads the live catalog per request.
  *
- * KEPT INTENTIONALLY (invisible, no visual footprint): GEO/SERP metadata + the
- * WebSite + SoftwareApplication JSON-LD graph, so AI answer engines + search
- * cards keep their extractable surface. force-dynamic stays because Hero()
- * reads the published hero-video row (createAdminClient) + resolves frame URLs
- * per request.
+ * PRICING IS CATALOG-DRIVEN, NOT HARDCODED: getHomePricingData() resolves every
+ * displayed price from platform_retail_catalog_v2 (lib/v2-catalog.ts) so admin
+ * price edits propagate without a redeploy. See _components/home/pricing-data.ts.
  */
 
 import { after } from 'next/server';
-import { Hero } from '@/app/_components/marketing/_sections';
-import { PostHeroReveal } from '@/app/_components/marketing/PostHeroReveal';
-import { FeaturesNarrative } from '@/app/_components/marketing/FeaturesNarrative';
-import { SpotlightAwardsStrip } from '@/app/_components/marketing/SpotlightAwardsStrip';
-import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
+import './_components/home/home-reskin.css';
+import { HomeReskin } from './_components/home/HomeReskin';
+import { getHomePricingData } from './_components/home/pricing-data';
 import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
 
 // GEO Phase G2 (2026-05-28) — brand-first title + value-prop description.
-// Carried forward from prior page.tsx so AI answer engines + SERP cards
-// keep extracting the same brand + price + 0% commission signals. Pricing
+// Carried forward so AI answer engines + SERP cards keep extracting the same
+// brand + price + 0% commission signals.
 const HOME_TITLE = 'Setnayan · Plan your Filipino wedding free — keep it forever';
 const HOME_DESCRIPTION =
   'Plan your whole Filipino wedding free — then keep every photo, video, and memory in one place, for life. Verified vendor marketplace, 0% commission.';
@@ -72,29 +62,20 @@ export const metadata = {
   },
 };
 
-// Per-request rendering: Hero() reads the published hero-video row via
-// createAdminClient and resolves frame URLs (presigned per render) — so the
-// page must render per request, not at build time. force-dynamic also keeps
-// the CI build from hitting the createAdminClient "missing service key" throw.
-// Trade-off accepted: the homepage loses static CDN caching. (Was force-static.)
+// Per-request rendering: getHomePricingData() reads the live catalog via
+// createAdminClient. force-dynamic keeps the CI build from hitting the
+// "missing service key" throw and keeps prices fresh without a redeploy.
 export const dynamic = 'force-dynamic';
 
 const SITE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
 ).replace(/\/$/, '');
 
-// Homepage JSON-LD graph — RESTORED 2026-06-13. The v2.1 marketing port
-// (e0a739b8) dropped the WebSite + SoftwareApplication graph this file's header
-// (lines 40-42) still claims to emit; only the layout-level basic Organization
-// survived. Consequences: the homepage stopped naming any product to AI answer
-// engines (so they describe Setnayan as a generic "guest list + marketplace"
-// tool), and the site-wide `${SITE_URL}/#website` node that /about references via
-// `isPartOf` was left dangling (defined nowhere). This restores both: the
-// canonical WebSite node + a SoftwareApplication whose featureList enumerates the
-// differentiated capture/media layer (Papic, Panood, Setnayan AI, Pakanta,
-// Animated Monogram) so ChatGPT / Perplexity / Claude / Gemini ground on the moat.
-// Facts only — no SKU prices (those drift; /pricing is the source of truth); the
-// free couple baseline is expressed as a single ₱0 Offer.
+// Homepage JSON-LD graph — the canonical WebSite node + a SoftwareApplication
+// whose featureList enumerates the differentiated capture/media layer so
+// ChatGPT / Perplexity / Claude / Gemini ground on the moat. Facts only — no SKU
+// prices (those drift; /pricing is the source of truth); the free couple
+// baseline is expressed as a single ₱0 Offer.
 const websiteJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'WebSite',
@@ -152,21 +133,17 @@ const softwareAppJsonLd = {
   },
 };
 
-export default async function HomePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ hero?: string }>;
-}) {
-  // ?hero=text forces the text/keynote hero (skipping a published video) so a
-  // hero-copy change can be previewed without unpublishing the live video.
-  const { hero } = await searchParams;
-  const forceKeynote = hero === 'text';
+export default async function HomePage() {
+  // Catalog-driven pricing for the Prices overlay (no hardcoded numbers).
+  const pricing = await getHomePricingData();
+
   // Admin morning-digest flush — cron-free, piggybacks on the homepage's
   // guaranteed public traffic so the digest reaches an admin who isn't in the
   // console even on a quiet day. Throttled + single-claim + gated OFF by
   // default internally; uses the service-role client (no cookies → safe in
   // after()). See lib/admin/digest-flush.ts.
   after(() => runAdminDigestFlush().catch(() => {}));
+
   return (
     <>
       <script
@@ -177,17 +154,7 @@ export default async function HomePage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareAppJsonLd) }}
       />
-      <main className="bg-[var(--m-paper)] text-[var(--m-ink)]">
-        <Hero forceKeynote={forceKeynote} />
-        <PostHeroReveal>
-          <FeaturesNarrative />
-          {/* Spotlight Awards — admin-gated: renders nothing unless an admin has
-              featured awards (is_homepage_featured). Inert until owner sign-off
-              + featuring. See SpotlightAwardsStrip + /admin/spotlight-awards. */}
-          <SpotlightAwardsStrip />
-          <SiteFooter />
-        </PostHeroReveal>
-      </main>
+      <HomeReskin pricing={pricing} />
     </>
   );
 }

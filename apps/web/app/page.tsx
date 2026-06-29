@@ -36,6 +36,7 @@ import { after } from 'next/server';
 import { Hero } from '@/app/_components/marketing/_sections';
 import { PostHeroReveal } from '@/app/_components/marketing/PostHeroReveal';
 import { FeaturesNarrative } from '@/app/_components/marketing/FeaturesNarrative';
+import { SpotlightAwardsStrip } from '@/app/_components/marketing/SpotlightAwardsStrip';
 import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
 import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
 
@@ -180,6 +181,10 @@ export default async function HomePage({
         <Hero forceKeynote={forceKeynote} />
         <PostHeroReveal>
           <FeaturesNarrative />
+          {/* Spotlight Awards — admin-gated: renders nothing unless an admin has
+              featured awards (is_homepage_featured). Inert until owner sign-off
+              + featuring. See SpotlightAwardsStrip + /admin/spotlight-awards. */}
+          <SpotlightAwardsStrip />
           <SiteFooter />
         </PostHeroReveal>
       </main>

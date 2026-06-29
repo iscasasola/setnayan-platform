@@ -21,6 +21,11 @@ import { fetchVendorThreads } from '@/lib/chat';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
 import { VendorStatsPanel } from './_components/vendor-stats-panel';
 import { ShortlistRadarCard } from './_components/shortlist-radar-card';
+import { SpotlightAwardBanner } from './_components/spotlight-award-banner';
+import {
+  fetchVendorCurrentAwards,
+  type SpotlightAwardType,
+} from '@/lib/spotlight-awards';
 
 /**
  * /vendor-dashboard — vendor doorway HOME / Overview page.
@@ -106,6 +111,9 @@ type LoaderState =
        *  vendor_activity_stats without needing the supabase client from
        *  inside the try/catch scope. */
       vendorProfileId: string | null;
+      /** Spotlight Awards (Wave 5) the vendor holds this period — drives the
+       *  "You earned a Spotlight Award" banner. Empty when none / no profile. */
+      spotlightAwards: SpotlightAwardType[];
     }
   | { ok: false; message: string };
 
@@ -193,6 +201,7 @@ export default async function VendorHomePage() {
         tokenBalance: { purchased: 0, earned: 0 },
         completion: businessProfileChecklist(null, { hasDocuments: false }),
         vendorProfileId: null,
+        spotlightAwards: [],
       };
     } else {
       // Expanded data fetch (2026-05-29 · Task #10).
@@ -257,6 +266,14 @@ export default async function VendorHomePage() {
         (t) => t.inquiry_status === 'accepted',
       ).length;
 
+      // Spotlight Awards (Wave 5) this vendor holds in the current period.
+      // Public-read table → the vendor's own session client resolves it.
+      // Fail-soft inside the helper (returns []), so it never blocks Home.
+      const spotlightAwards = await fetchVendorCurrentAwards(
+        supabase,
+        profile.vendor_profile_id,
+      );
+
       loaderState = {
         ok: true,
         profileExists: true,
@@ -279,6 +296,7 @@ export default async function VendorHomePage() {
           hasDocuments: await fetchHasBusinessDocuments(supabase, profile.vendor_profile_id),
         }),
         vendorProfileId: profile.vendor_profile_id,
+        spotlightAwards,
       };
     }
   } catch (err) {
@@ -328,6 +346,7 @@ export default async function VendorHomePage() {
     tokenBalance,
     completion,
     vendorProfileId,
+    spotlightAwards,
   } = loaderState;
 
   // VendorStatsPanel needs a fresh supabase client for its own fetch.
@@ -372,6 +391,10 @@ export default async function VendorHomePage() {
           </span>
         </div>
       </header>
+
+      {/* Spotlight Award (Wave 5) — celebratory banner, shown only to vendors
+          who hold an award this period. Renders nothing otherwise. */}
+      <SpotlightAwardBanner awards={spotlightAwards} />
 
       {/* V2.1 brief amendment #2 (locked 2026-05-30 · CLAUDE.md row
        *  "🔒 V2.1 BRIEF AMENDMENT #2 LOCKED" § 1(d) + memory rule

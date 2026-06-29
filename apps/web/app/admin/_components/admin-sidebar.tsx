@@ -86,6 +86,7 @@ import {
   Users,
   Briefcase,
   TestTube,
+  Trophy,
   CalendarDays,
   MapPin,
   Church,
@@ -356,6 +357,13 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/demo-vendors',
         icon: TestTube,
         matchPrefix: '/admin/demo-vendors',
+      },
+      {
+        key: 'spotlight-awards',
+        label: 'Spotlight Awards',
+        href: '/admin/spotlight-awards',
+        icon: Trophy,
+        matchPrefix: '/admin/spotlight-awards',
       },
       {
         key: 'events',

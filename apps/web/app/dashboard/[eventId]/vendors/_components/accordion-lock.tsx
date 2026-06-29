@@ -3,7 +3,16 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import { AlertTriangle, BookmarkCheck, Clock, Loader2, RotateCcw, X } from 'lucide-react';
+import {
+  AlertTriangle,
+  BookmarkCheck,
+  Clock,
+  Loader2,
+  RotateCcw,
+  ShieldCheck,
+  X,
+} from 'lucide-react';
+import type { PolicySnapshot } from '@/lib/vendor-service-payment-schedules';
 import { PLAN_GROUPS, type PlanGroupId } from '@/lib/wedding-plan-groups';
 import { WEDDING_FOLDER_SLUG } from '@/lib/taxonomy';
 import { haptic } from '@/lib/haptics';
@@ -77,6 +86,17 @@ type LockState =
       dateLabel: string;
       override: boolean;
       slotId: string | null;
+    }
+  // No-Show Downpayment Protection — the booked downpayment carries protected
+  // reservation terms; the couple must acknowledge them before the lock commits.
+  // Carries the override/slot/date context so the acknowledged re-call preserves
+  // any prior choice.
+  | {
+      kind: 'reservation_terms';
+      policy: PolicySnapshot;
+      override: boolean;
+      slotId: string | null;
+      confirmDateLock: boolean;
     }
   | { kind: 'error'; message: string };
 
@@ -157,7 +177,12 @@ export function AccordionLockButton({
     });
   };
 
-  const performLock = (override: boolean, slotId: string | null, confirmDateLock: boolean) => {
+  const performLock = (
+    override: boolean,
+    slotId: string | null,
+    confirmDateLock: boolean,
+    acknowledgeReservationTerms = false,
+  ) => {
     startTransition(async () => {
       const fd = new FormData();
       fd.set('event_id', eventId);
@@ -165,6 +190,7 @@ export function AccordionLockButton({
       if (override) fd.set('override_existing', '1');
       if (slotId) fd.set('service_time_slot_id', slotId);
       if (confirmDateLock) fd.set('confirm_date_lock', '1');
+      if (acknowledgeReservationTerms) fd.set('acknowledge_reservation_terms', '1');
       let result: FinalizeVendorResult;
       try {
         result = await finalizeVendor(fd);
@@ -252,6 +278,18 @@ export function AccordionLockButton({
             dateLabel: result.dateLabel,
             override,
             slotId,
+          });
+          return;
+        case 'reservation_terms_required':
+          // The booked downpayment carries protected reservation terms — surface
+          // the acknowledgement gate. The re-call preserves the override/slot/
+          // date context so the couple doesn't re-answer those.
+          setState({
+            kind: 'reservation_terms',
+            policy: result.policy,
+            override,
+            slotId,
+            confirmDateLock,
           });
           return;
         case 'not_signed_in':
@@ -343,6 +381,21 @@ export function AccordionLockButton({
           onDismiss={() => setState({ kind: 'idle' })}
         />
       ) : null}
+
+      {/* Reservation terms — couple acknowledges the no-show downpayment policy
+          before the lock commits. */}
+      {state.kind === 'reservation_terms' &&
+        portal(
+          <ReservationTermsModal
+            vendorName={vendorName}
+            policy={state.policy}
+            isPending={isPending}
+            onAcknowledge={() =>
+              performLock(state.override, state.slotId, state.confirmDateLock, true)
+            }
+            onDismiss={() => setState({ kind: 'idle' })}
+          />,
+        )}
 
       {toast.kind === 'locked' ? (
         <LockMilestoneToast
@@ -603,6 +656,150 @@ function SlotPickerModal({
               <>
                 <BookmarkCheck aria-hidden className="h-4 w-4" strokeWidth={2} />
                 Lock this slot
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * No-Show Downpayment Protection — the reservation-terms acknowledgement gate.
+ * Renders the vendor's frozen downpayment policy + a tick-box the couple MUST
+ * check before the lock commits. Setnayan holds no money; this records consent.
+ */
+function ReservationTermsModal({
+  vendorName,
+  policy,
+  isPending,
+  onAcknowledge,
+  onDismiss,
+}: {
+  vendorName: string;
+  policy: PolicySnapshot;
+  isPending: boolean;
+  onAcknowledge: () => void;
+  onDismiss: () => void;
+}) {
+  const [agreed, setAgreed] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalA11y({ open: true, onClose: onDismiss, containerRef: dialogRef });
+
+  const amountLabel =
+    policy.downpayment_amount_php != null
+      ? `₱${Math.round(policy.downpayment_amount_php).toLocaleString('en-PH')}`
+      : null;
+
+  return (
+    <div
+      ref={dialogRef}
+      role="alertdialog"
+      aria-modal="true"
+      aria-label={`Reservation terms for ${vendorName}`}
+      className="fixed inset-0 z-[100] flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm focus:outline-none sm:items-center"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onDismiss();
+      }}
+    >
+      <div className="relative w-full max-w-md rounded-2xl border border-terracotta/30 bg-cream p-5 shadow-xl sm:p-6">
+        <button
+          type="button"
+          aria-label="Close"
+          onClick={onDismiss}
+          className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full text-ink/55 transition-colors hover:bg-ink/5 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+        >
+          <X aria-hidden className="h-4 w-4" strokeWidth={2} />
+        </button>
+
+        <div className="flex items-start gap-2.5 pr-6">
+          <ShieldCheck aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-terracotta" strokeWidth={2} />
+          <div className="space-y-1">
+            <h3 className="text-sm font-semibold text-ink">
+              Reservation terms for {vendorName}
+            </h3>
+            <p className="text-xs leading-snug text-ink/65">
+              Before you lock, please read {vendorName}&rsquo;s downpayment policy.
+              Locking records that you understood and agreed to these terms.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 space-y-2 rounded-lg border border-ink/10 bg-white/60 p-3 text-xs text-ink/85">
+          <ul className="space-y-1.5">
+            {policy.downpayment_non_refundable ? (
+              <li className="flex items-start gap-1.5">
+                <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" />
+                <span>
+                  The downpayment{amountLabel ? ` (${amountLabel})` : ''} is{' '}
+                  <strong>non-refundable</strong>.
+                </span>
+              </li>
+            ) : null}
+            {policy.no_show_forfeit ? (
+              <li className="flex items-start gap-1.5">
+                <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" />
+                <span>
+                  A <strong>no-show forfeits</strong> the downpayment.
+                </span>
+              </li>
+            ) : null}
+            {policy.refund_window_days != null ? (
+              <li className="flex items-start gap-1.5">
+                <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-ink/40" />
+                <span>
+                  Refundable if you cancel within{' '}
+                  <strong>{policy.refund_window_days} day{policy.refund_window_days === 1 ? '' : 's'}</strong>{' '}
+                  of booking.
+                </span>
+              </li>
+            ) : null}
+          </ul>
+          {policy.cancellation_terms ? (
+            <p className="whitespace-pre-wrap border-t border-ink/10 pt-2 text-ink/70">
+              {policy.cancellation_terms}
+            </p>
+          ) : null}
+        </div>
+
+        <label className="mt-4 flex items-start gap-2 text-xs text-ink/85">
+          <input
+            type="checkbox"
+            checked={agreed}
+            onChange={(e) => setAgreed(e.target.checked)}
+            className="mt-0.5 h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+          />
+          <span>
+            I understand the downpayment is non-refundable on no-show and agree to{' '}
+            {vendorName}&rsquo;s reservation terms.
+          </span>
+        </label>
+
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
+          <button
+            type="button"
+            onClick={onDismiss}
+            disabled={isPending}
+            className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-ink/15 bg-cream px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-ink/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onAcknowledge}
+            disabled={isPending || !agreed}
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry disabled:opacity-60"
+          >
+            {isPending ? (
+              <>
+                <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
+                Locking…
+              </>
+            ) : (
+              <>
+                <BookmarkCheck aria-hidden className="h-4 w-4" strokeWidth={2} />
+                Agree &amp; lock
               </>
             )}
           </button>

@@ -621,6 +621,13 @@ export async function setServicePaymentSchedule(formData: FormData) {
   const values = formData.getAll('item_value');
   const anchors = formData.getAll('item_due_anchor');
   const offsets = formData.getAll('item_due_offset_days');
+  // No-Show Downpayment Protection — reservation-policy parallel arrays. The
+  // editor emits one entry per row (always present, even on non-downpayment
+  // rows, to keep the index aligned); only seq 0 ever carries real values.
+  const nonRefundables = formData.getAll('item_downpayment_non_refundable');
+  const noShowForfeits = formData.getAll('item_no_show_forfeit');
+  const refundWindows = formData.getAll('item_refund_window_days');
+  const cancellationTerms = formData.getAll('item_cancellation_terms');
 
   type Insert = {
     vendor_service_id: string;
@@ -632,6 +639,10 @@ export async function setServicePaymentSchedule(formData: FormData) {
     amount_centavos: number | null;
     due_anchor: DueAnchor | null;
     due_offset_days: number | null;
+    cancellation_terms: string | null;
+    downpayment_non_refundable: boolean;
+    refund_window_days: number | null;
+    no_show_forfeit: boolean;
   };
   const rows: Insert[] = [];
 
@@ -690,6 +701,33 @@ export async function setServicePaymentSchedule(formData: FormData) {
         }
       }
 
+      // No-Show Downpayment Protection — the reservation policy lives on the
+      // downpayment (seq 0) ONLY. Parse it for row 0; force defaults elsewhere
+      // so a stray submitted value can't smuggle a policy onto a later
+      // installment.
+      let cancellation_terms: string | null = null;
+      let downpayment_non_refundable = false;
+      let refund_window_days: number | null = null;
+      let no_show_forfeit = false;
+      if (i === 0) {
+        downpayment_non_refundable = nonRefundables[i] === '1';
+        no_show_forfeit = noShowForfeits[i] === '1';
+        const termsRaw =
+          typeof cancellationTerms[i] === 'string'
+            ? (cancellationTerms[i] as string).trim()
+            : '';
+        cancellation_terms = termsRaw.length > 0 ? termsRaw.slice(0, 2000) : null;
+        const windowRaw =
+          typeof refundWindows[i] === 'string' ? (refundWindows[i] as string).trim() : '';
+        if (windowRaw.length > 0) {
+          const w = Number(windowRaw);
+          if (!Number.isInteger(w) || w < 0) {
+            throw new Error('Refund window must be a non-negative whole number of days.');
+          }
+          refund_window_days = w;
+        }
+      }
+
       rows.push({
         vendor_service_id: serviceId,
         vendor_profile_id: profile.vendor_profile_id,
@@ -700,6 +738,10 @@ export async function setServicePaymentSchedule(formData: FormData) {
         amount_centavos,
         due_anchor,
         due_offset_days,
+        cancellation_terms,
+        downpayment_non_refundable,
+        refund_window_days,
+        no_show_forfeit,
       });
     }
   } catch (e) {

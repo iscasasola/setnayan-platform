@@ -21,7 +21,7 @@
  */
 
 import { useState } from 'react';
-import { CalendarClock, Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
+import { CalendarClock, Plus, Trash2, ArrowUp, ArrowDown, ShieldCheck } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { setServicePaymentSchedule } from '../actions';
 import {
@@ -37,6 +37,12 @@ type Row = {
   value: string; // whole percent (0–100) or whole pesos
   due_anchor: '' | DueAnchor;
   due_offset_days: string;
+  // No-Show Downpayment Protection — the reservation policy. Only the
+  // downpayment (row 0) renders + submits these; non-downpayment rows ignore them.
+  cancellation_terms: string;
+  downpayment_non_refundable: boolean;
+  refund_window_days: string;
+  no_show_forfeit: boolean;
 };
 
 function draftToRow(d: ScheduleItemDraft): Row {
@@ -53,11 +59,25 @@ function draftToRow(d: ScheduleItemDraft): Row {
           : '',
     due_anchor: d.due_anchor ?? '',
     due_offset_days: d.due_offset_days != null ? String(d.due_offset_days) : '',
+    cancellation_terms: d.cancellation_terms ?? '',
+    downpayment_non_refundable: Boolean(d.downpayment_non_refundable),
+    refund_window_days: d.refund_window_days != null ? String(d.refund_window_days) : '',
+    no_show_forfeit: Boolean(d.no_show_forfeit),
   };
 }
 
 function blankRow(label: string): Row {
-  return { label, amount_kind: 'percent', value: '', due_anchor: '', due_offset_days: '' };
+  return {
+    label,
+    amount_kind: 'percent',
+    value: '',
+    due_anchor: '',
+    due_offset_days: '',
+    cancellation_terms: '',
+    downpayment_non_refundable: false,
+    refund_window_days: '',
+    no_show_forfeit: false,
+  };
 }
 
 export function PaymentScheduleEditor({
@@ -253,6 +273,111 @@ export function PaymentScheduleEditor({
                     />
                   </label>
                 </div>
+
+                {/*
+                  No-Show Downpayment Protection — reservation policy. Visible
+                  ONLY on the downpayment row (i === 0). Hidden inputs are
+                  emitted for EVERY row so the parallel arrays stay index-aligned
+                  on the server; non-downpayment rows submit empty/false values
+                  (the server only keeps the policy on seq 0 anyway).
+                */}
+                {/*
+                  Booleans submit via ALWAYS-PRESENT hidden inputs (driven by
+                  state) — NOT raw checkboxes — so every row contributes exactly
+                  one array entry and the server's parallel-array indexing stays
+                  aligned (an unchecked checkbox submits nothing, which would
+                  misalign). The visible checkbox below is pure UI state on row 0.
+                */}
+                <input
+                  type="hidden"
+                  name="item_downpayment_non_refundable"
+                  value={i === 0 && r.downpayment_non_refundable ? '1' : ''}
+                />
+                <input
+                  type="hidden"
+                  name="item_no_show_forfeit"
+                  value={i === 0 && r.no_show_forfeit ? '1' : ''}
+                />
+                {i === 0 ? (
+                  <div className="space-y-2 rounded-lg border border-terracotta/25 bg-terracotta/[0.04] p-3">
+                    <div className="flex items-center gap-1.5">
+                      <ShieldCheck
+                        aria-hidden
+                        className="h-3.5 w-3.5 text-terracotta"
+                        strokeWidth={1.75}
+                      />
+                      <p className="text-xs font-semibold text-ink">
+                        No-show protection (reservation terms)
+                      </p>
+                    </div>
+                    <p className="text-[11px] leading-snug text-ink/55">
+                      Spell out your cancellation / no-show terms for this
+                      downpayment. The couple must tick &ldquo;I understand&rdquo; before
+                      they can lock, and we freeze these exact words as proof if a
+                      forfeit is ever disputed. Setnayan never holds the money — you
+                      collect it directly.
+                    </p>
+
+                    <label className="flex items-start gap-2 text-xs text-ink/80">
+                      <input
+                        type="checkbox"
+                        checked={r.downpayment_non_refundable}
+                        onChange={(e) =>
+                          update(i, { downpayment_non_refundable: e.target.checked })
+                        }
+                        className="mt-0.5 h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+                      />
+                      <span>Downpayment is non-refundable</span>
+                    </label>
+
+                    <label className="flex items-start gap-2 text-xs text-ink/80">
+                      <input
+                        type="checkbox"
+                        checked={r.no_show_forfeit}
+                        onChange={(e) => update(i, { no_show_forfeit: e.target.checked })}
+                        className="mt-0.5 h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+                      />
+                      <span>A no-show forfeits the downpayment</span>
+                    </label>
+
+                    <label className="block space-y-1">
+                      <span className="block text-xs font-medium text-ink/75">
+                        Refundable up to (days after booking · optional)
+                      </span>
+                      <input
+                        name="item_refund_window_days"
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={r.refund_window_days}
+                        onChange={(e) => update(i, { refund_window_days: e.target.value })}
+                        placeholder="e.g. 7 — leave blank for none"
+                        className="input-field"
+                      />
+                    </label>
+
+                    <label className="block space-y-1">
+                      <span className="block text-xs font-medium text-ink/75">
+                        Cancellation terms (shown to the couple verbatim)
+                      </span>
+                      <textarea
+                        name="item_cancellation_terms"
+                        rows={3}
+                        maxLength={2000}
+                        value={r.cancellation_terms}
+                        onChange={(e) => update(i, { cancellation_terms: e.target.value })}
+                        placeholder="e.g. The reservation downpayment secures your date and is non-refundable. If you cancel within 7 days of booking, the downpayment is returned in full."
+                        className="input-field"
+                      />
+                    </label>
+                  </div>
+                ) : (
+                  <>
+                    {/* Index-aligners for non-downpayment rows (empty policy). */}
+                    <input type="hidden" name="item_refund_window_days" value="" />
+                    <input type="hidden" name="item_cancellation_terms" value="" />
+                  </>
+                )}
               </div>
             </li>
           ))}

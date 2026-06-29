@@ -62,12 +62,15 @@ import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import {
   fetchPlanForCouple,
   fetchPlanProgressForCouple,
+  fetchPolicyAcknowledgementForCouple,
+  type PolicyAcknowledgement,
 } from '@/lib/vendor-service-payment-schedules.server';
 import type {
   PlanInstance,
   PlanProgress,
 } from '@/lib/vendor-service-payment-schedules';
 import { PaymentPlanStepper } from '@/app/_components/payment-plan-stepper';
+import { ReservationTermsAck } from './_components/reservation-terms-ack';
 // First-party Setnayan-service order-and-pay (owner directive 2026-06-04):
 // reuse the SAME apply-then-pay surface the add-on SKUs use (InlineCheckoutDrawer
 // + platform_settings receiving accounts), with a Setnayan admin accepting the
@@ -451,6 +454,20 @@ export default async function VendorWorkspacePage({ params }: Props) {
     });
   } catch {
     planProgress = { steps: null, clearedAt: null };
+  }
+
+  // No-Show Downpayment Protection — the frozen reservation-terms acknowledgement
+  // (when the booking locked under a protected downpayment policy). Read-only
+  // here; couple-RLS read of the couple's own immutable evidence row. Best-effort.
+  let policyAck: PolicyAcknowledgement | null = null;
+  try {
+    policyAck = await fetchPolicyAcknowledgementForCouple({
+      authedClient: supabase,
+      eventId,
+      eventVendorId: ev.vendor_id,
+    });
+  } catch {
+    policyAck = null;
   }
 
   const contracts = (contractsRes.data ?? []) as Array<{
@@ -996,6 +1013,15 @@ export default async function VendorWorkspacePage({ params }: Props) {
               />
             </div>
           ) : null}
+
+          {/*
+            No-Show Downpayment Protection — the frozen reservation terms the
+            couple acknowledged at lock, rendered read-only beside the plan. The
+            snapshot is immutable evidence (a later vendor policy edit can't
+            rewrite it). Only shows when the booking locked under a protected
+            downpayment policy.
+          */}
+          {policyAck ? <ReservationTermsAck ack={policyAck} vendorName={displayName} /> : null}
 
           {/*
             Deposit Reservation Lock-Free — record a deposit to HOLD the date

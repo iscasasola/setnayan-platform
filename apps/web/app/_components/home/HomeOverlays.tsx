@@ -102,7 +102,7 @@ function PricesOverlay({
       <div className="hr-ov-eyebrow">Pricing · in Philippine pesos</div>
       <h2 className="hr-ov-title">Plan free. Pay only for what you add.</h2>
       <p className="hr-ov-sub">
-        Planuhan, Likhaan and Ala Ala are free, end to end. Add the planning brain when you want it,
+        Plano, Likha and Ala Ala are free, end to end. Add the planning brain when you want it,
         and pick up any service à la carte. 0% vendor commission, always.
       </p>
 
@@ -111,7 +111,7 @@ function PricesOverlay({
           <div className="hr-t">Free</div>
           <div className="hr-p">₱0</div>
           <div className="hr-d">
-            The full Planuhan planner, the free Likhaan studio, a live event page, and Ala Ala basics
+            The full Plano planner, the free Likha studio, a live event page, and Ala Ala basics
             — enough to plan a real event, end to end, and start keeping it.
           </div>
         </div>
@@ -122,7 +122,7 @@ function PricesOverlay({
             <span className="hr-per">{pricing.aiPeriod}</span>
           </div>
           <div className="hr-d">
-            Adds Surian — the planning brain that filters the vendors that fit you, paces your
+            Adds Suri — the planning brain that filters the vendors that fit you, paces your
             checklist, and guides your budget.
           </div>
         </div>
@@ -206,7 +206,7 @@ function PricesOverlay({
 
       <p className="hr-pr-foot">
         Prices render live from the Setnayan catalog and are admin-managed. The free single-camera
-        livestream and the full Planuhan planner always stay free. Curated bundles (Essentials &amp;
+        livestream and the full Plano planner always stay free. Curated bundles (Essentials &amp;
         Complete) are on the way.
       </p>
       <Link className="hr-pr-seefull" href="/pricing" onClick={onClose}>

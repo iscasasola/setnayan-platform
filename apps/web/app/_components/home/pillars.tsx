@@ -40,7 +40,7 @@ export const PILLAR_HEROES: PillarHero[] = [
   },
   {
     id: 'hr-p2',
-    name: 'Likhaan',
+    name: 'Likha',
     role: 'Creative Studio',
     head: 'Your event has a look. Give it a voice.',
     desc: 'A free studio that turns your plan into the invite, the page, the monogram, the capture — one look across it all.',
@@ -48,7 +48,7 @@ export const PILLAR_HEROES: PillarHero[] = [
   },
   {
     id: 'hr-p3',
-    name: 'Planuhan',
+    name: 'Plano',
     role: 'Planner',
     head: 'The planner that does the work.',
     desc: 'Guest list, seating, budget, schedule, mood board — one connected suite, free, for any event.',
@@ -56,7 +56,7 @@ export const PILLAR_HEROES: PillarHero[] = [
   },
   {
     id: 'hr-p4',
-    name: 'Surian',
+    name: 'Suri',
     role: 'Setnayan AI',
     head: 'Twelve tabs. No decision.',
     desc: 'The quiet planning brain — the attention of a full coordination team, checking every option against your plan instantly.',
@@ -242,7 +242,7 @@ const AlaDashboard = (
   </div>
 );
 
-/* ── Likhaan mocks ──────────────────────────────────────────────────── */
+/* ── Likha mocks ──────────────────────────────────────────────────── */
 const sw = (bg: string, h = 54): React.CSSProperties => ({
   position: 'relative',
   height: h,
@@ -513,7 +513,7 @@ const Likhaan3D = (
   </div>
 );
 
-/* ── Planuhan mocks ─────────────────────────────────────────────────── */
+/* ── Plano mocks ─────────────────────────────────────────────────── */
 const PlanGuests = (
   <div className="hr-pmock" data-i="0">
     <div className="hr-mk-h">Guest list · 166 / 213 going</div>
@@ -741,7 +741,7 @@ const PlanScheduler = (
   </div>
 );
 
-/* ── Surian mocks ───────────────────────────────────────────────────── */
+/* ── Suri mocks ───────────────────────────────────────────────────── */
 const SurianFilter = (
   <div className="hr-pmock" data-i="0">
     <div className="hr-mk-h">Smart filtering · photography</div>
@@ -1045,11 +1045,11 @@ export const PILLARS: Pillar[] = [
     ],
   },
   {
-    num: '02 — Likhaan · Creative Studio',
+    num: '02 — Likha · Creative Studio',
     name: 'Your event has a look. Give it a voice.',
     def: (
       <>
-        <em>Likhaan</em> means “a place to create.” A free studio that turns your plan into something
+        <em>Likha</em> means “to create.” A free studio that turns your plan into something
         guests can see and feel — an adaptive website that stays alive, your own monogram, Papic
         candid capture, Live Studio, and the 3D Plan. And it keeps growing.
       </>
@@ -1108,11 +1108,11 @@ export const PILLARS: Pillar[] = [
     ],
   },
   {
-    num: '03 — Planuhan · Planner',
+    num: '03 — Plano · Planner',
     name: 'Your spreadsheet doesn’t know your day.',
     def: (
       <>
-        <em>Planuhan</em> means “a place to plan.” A free, connected suite where every piece talks to
+        <em>Plano</em> means “to plan.” A free, connected suite where every piece talks to
         the others — guest list, seat plan, budget, date picker, checklist, scheduler. Change one
         thing and the whole plan stays honest. The reason to open the app on a Tuesday night.
       </>
@@ -1176,7 +1176,7 @@ export const PILLARS: Pillar[] = [
         fn: 'Printable PDF',
         fl: (
           <>
-            Free to print — seating, mood board, QR, and invites today, with every Planuhan tool
+            Free to print — seating, mood board, QR, and invites today, with every Plano tool
             rolling out. <em>All tools printable rolling out</em>
           </>
         ),
@@ -1189,11 +1189,11 @@ export const PILLARS: Pillar[] = [
     ],
   },
   {
-    num: '04 — Surian · Setnayan AI',
+    num: '04 — Suri · Setnayan AI',
     name: 'Twelve tabs, and you’ve decided nothing.',
     def: (
       <>
-        <em>Surian</em> means “where every option is weighed.” The quiet planning brain — the
+        <em>Suri</em> means “to analyze closely.” The quiet planning brain — the
         attention of a full coordination team, checking every option against your plan instantly. It
         narrows the field to a few good options, reshapes your checklist, and guides your budget, so
         you choose instead of drown. <span style={{ opacity: 0.7 }}>Unlocks with a paid tier.</span>
@@ -1237,7 +1237,7 @@ export const PILLARS: Pillar[] = [
     def: (
       <>
         <em>Tiangge</em> — the marketplace, when you want it. You don’t need it to get full value:
-        Planuhan, Likhaan, and Ala Ala stand on their own. But when you’re ready for vendors, they’re
+        Plano, Likha, and Ala Ala stand on their own. But when you’re ready for vendors, they’re
         verified, with real reviews and a track record, the right price, and 0% commission.
         Supporting cast — there when you’re ready, invisible when you’re not.
       </>

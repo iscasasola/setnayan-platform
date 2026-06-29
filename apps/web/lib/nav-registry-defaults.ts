@@ -2335,6 +2335,18 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 42,
   },
   {
+    key: "admin.sidebar.background-videos",
+    scope: "admin",
+    area: "admin-sidebar",
+    route: "/admin/background-videos",
+    label: "Background videos",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Film",
+    customRef: null,
+    sortOrder: 42,
+  },
+  {
     key: "admin.sidebar.reveal-studio",
     scope: "admin",
     area: "admin-sidebar",

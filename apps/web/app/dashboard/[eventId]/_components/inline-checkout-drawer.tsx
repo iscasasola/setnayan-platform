@@ -96,6 +96,13 @@ export type InlineCheckoutDrawerProps = {
    */
   originalPriceCentavos: string;
   eventId: string;
+  /**
+   * Per-USER subscription mode (Setnayan AI term pass): when set, the drawer
+   * passes a `cycles` count to the checkout and the order is eventless (the
+   * parent passes eventId=''). Charge = catalog unit × cycles, re-resolved
+   * server-side. Omitted for every normal event-scoped SKU.
+   */
+  cycles?: number;
   /** Pre-fetched platform settings · drawer just renders. */
   settings: {
     bdo_account_name: string | null;
@@ -146,6 +153,7 @@ export function InlineCheckoutDrawer({
   displayName,
   originalPriceCentavos,
   eventId,
+  cycles,
   settings,
   triggerLabel,
   triggerClassName,
@@ -418,6 +426,7 @@ export function InlineCheckoutDrawer({
                     }
                     const fd = new FormData(e.currentTarget);
                     fd.set('event_id', eventId);
+                    if (typeof cycles === 'number') fd.set('cycles', String(cycles));
                     fd.set('service_key', serviceKey);
                     fd.set('display_name', displayName);
                     fd.set('original_centavos', originalPriceCentavos);

@@ -1723,8 +1723,8 @@ function ReviewRow({
           {dateLabel}
         </time>
       </header>
-      {/* Phase C: comment body + per-axis stats + vendor reply are all gated
-          behind showComments (Free + Verified hidden, Pro/Enterprise shown). */}
+      {/* Phase C: comment body + per-axis stats stay gated behind showComments
+          (Free + Verified hidden, Pro/Enterprise shown). */}
       {showComments ? (
         <>
           {review.body ? (
@@ -1736,10 +1736,14 @@ function ReviewRow({
             <AxisStat axis="value" value={review.rating_value} />
             <AxisStat axis="on_time" value={review.rating_on_time} />
           </dl>
-          {review.vendor_reply ? (
-            <VendorReplyBlock review={review} vendorName={vendorName} />
-          ) : null}
         </>
+      ) : null}
+      {/* Right-of-reply (owner 2026-06-29): a vendor's ONE public reply renders
+          for EVERY viewer regardless of tier — a Free/Verified vendor's reply is
+          no longer hidden behind the showComments gate. The reply is its own
+          right, independent of the comment-body tier cap. */}
+      {review.vendor_reply ? (
+        <VendorReplyBlock review={review} vendorName={vendorName} />
       ) : null}
     </article>
   );

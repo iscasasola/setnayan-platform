@@ -74,6 +74,29 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 export type VendorBadge = 'new' | 'verified' | 'most_booking' | 'top_pick';
 
 /**
+ * Spotlight Awards bridge (Wave 5 vendor benefit).
+ *
+ * The two EXCLUSIVE, monthly-rotating badges computed here — `top_pick` and
+ * `most_booking` — are the source signals for the persisted Spotlight Awards
+ * record. `new` and `verified` are NOT awards: `verified` is a trust state and
+ * `new` is a recency window, neither is an exclusive monthly recognition.
+ *
+ * `apps/web/lib/spotlight-awards.ts` snapshots the badges this engine produces
+ * into `public.vendor_spotlight_awards` once a month (cron-free — admin
+ * "Run now" or a Next 15 after() piggyback). It maps these badge keys to the
+ * awards vocabulary via `SPOTLIGHT_AWARD_BADGES` below:
+ *
+ *   top_pick     → 'top_pick'
+ *   most_booking → 'most_booked'
+ *
+ * Keep this list in sync if a new exclusive badge is added that should also
+ * become an award.
+ */
+export const SPOTLIGHT_AWARD_BADGES: ReadonlyArray<
+  Extract<VendorBadge, 'top_pick' | 'most_booking'>
+> = ['top_pick', 'most_booking'];
+
+/**
  * Vendor row shape needed for badge computation. Pull these columns from
  * `vendor_profiles` (or join through `vendor_market_stats` which has them).
  */

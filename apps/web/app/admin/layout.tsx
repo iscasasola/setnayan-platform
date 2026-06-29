@@ -3,6 +3,7 @@ import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { runSocialFlush } from '@/lib/social/flush';
 import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
+import { maybeRecomputeSpotlightAwards } from '@/lib/spotlight-awards';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { countUnread } from '@/lib/notifications';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
@@ -97,6 +98,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // Morning-digest flush (cron-free, throttled, single-claim, OFF by default).
   // Also hooked on the public /explore page so it fires when no admin is around.
   after(() => runAdminDigestFlush().catch(() => {}));
+  // Spotlight Awards monthly recompute — cron-free: fires AT MOST once per
+  // period per instance on the first admin page view of a new month, then
+  // short-circuits. Idempotent (UPSERT) + never throws. The admin "Run now"
+  // button is the manual fallback if no admin visits.
+  after(() => maybeRecomputeSpotlightAwards().catch(() => {}));
 
   const displayName = profile?.display_name ?? profile?.email ?? 'Setnayan Team';
 

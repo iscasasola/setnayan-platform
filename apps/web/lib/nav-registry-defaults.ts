@@ -2006,6 +2006,18 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 20,
   },
   {
+    key: "admin.sidebar.spotlight-awards",
+    scope: "admin",
+    area: "admin-sidebar",
+    route: "/admin/spotlight-awards",
+    label: "Spotlight Awards",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Trophy",
+    customRef: null,
+    sortOrder: 20.5,
+  },
+  {
     key: "admin.sidebar.events",
     scope: "admin",
     area: "admin-sidebar",

@@ -44,6 +44,14 @@ export type ReviewRow = {
   vendor_reply: string | null;
   vendor_reply_at: string | null;
   created_at: string;
+  /**
+   * Receipt-backed provenance. TRUE when this review's source `event_vendors`
+   * booking links to the reviewed vendor's marketplace profile (via
+   * `linked_vendor_profile_id` or `marketplace_vendor_id`). PLATFORM-DERIVED —
+   * stamped server-side + re-derived by a DB trigger; couples can never set it.
+   * Drives the "Booked through Setnayan" pill.
+   */
+  booked_through_setnayan: boolean;
 };
 
 export type ReviewWithCouple = ReviewRow & {
@@ -62,7 +70,7 @@ export type ReviewStatsRow = {
 };
 
 const REVIEW_COLUMNS =
-  'review_id,public_id,vendor_profile_id,event_id,couple_user_id,rating_overall,rating_communication,rating_quality,rating_value,rating_on_time,body,vendor_reply,vendor_reply_at,created_at';
+  'review_id,public_id,vendor_profile_id,event_id,couple_user_id,rating_overall,rating_communication,rating_quality,rating_value,rating_on_time,body,vendor_reply,vendor_reply_at,created_at,booked_through_setnayan';
 
 export type FetchReviewsOpts = {
   limit?: number;
@@ -245,13 +253,49 @@ export type CreateReviewArgs = {
 };
 
 /**
+ * Resolve, SERVER-SIDE, whether this couple's booking links to THIS vendor's
+ * marketplace profile — the "Booked through Setnayan" receipt. Reads the
+ * platform-derived linkage via the `review_is_booked_through_setnayan` RPC
+ * (SECURITY DEFINER over `event_vendors`). This is the receipt proof; couples
+ * never pass it. The DB trigger re-derives the identical value as an
+ * authoritative backstop, so even if this resolution and the trigger ever
+ * disagreed, the trigger wins and the couple's input is always discarded.
+ *
+ * Best-effort: a resolution error returns false (the conservative outcome —
+ * the review still posts, the trigger still stamps the truth on write).
+ */
+export async function resolveBookedThroughSetnayan(
+  supabase: SupabaseClient,
+  eventId: string,
+  vendorProfileId: string,
+): Promise<boolean> {
+  const { data, error } = await supabase.rpc('review_is_booked_through_setnayan', {
+    p_event_id: eventId,
+    p_vendor_profile_id: vendorProfileId,
+  });
+  if (error) return false;
+  return data === true;
+}
+
+/**
  * Couple-side INSERT. The DB-level RLS + unique constraint enforce the
  * "must be delivered/complete" + "one per (vendor, event, couple)" rules.
+ *
+ * Provenance (`booked_through_setnayan`) is resolved SERVER-SIDE here and
+ * passed explicitly, but is NOT couple-controllable: the
+ * `stamp_review_provenance` BEFORE trigger overwrites whatever value reaches
+ * the row with the platform-derived truth on every write. We pass our resolved
+ * value so the intent is visible in the call path; the trigger guarantees it.
  */
 export async function createReview(
   supabase: SupabaseClient,
   args: CreateReviewArgs,
 ): Promise<{ review_id: string }> {
+  const bookedThroughSetnayan = await resolveBookedThroughSetnayan(
+    supabase,
+    args.eventId,
+    args.vendorProfileId,
+  );
   const { data, error } = await supabase
     .from('vendor_reviews')
     .insert({
@@ -264,6 +308,9 @@ export async function createReview(
       rating_value: args.ratings.value,
       rating_on_time: args.ratings.on_time,
       body: args.body && args.body.length > 0 ? args.body : null,
+      // Server-resolved provenance. The BEFORE trigger re-derives the canonical
+      // value, so this is advisory — couples cannot set it by tampering.
+      booked_through_setnayan: bookedThroughSetnayan,
     })
     .select('review_id')
     .single();
@@ -391,4 +438,74 @@ export function averageByAxis(reviews: ReadonlyArray<ReviewRow>): Record<ReviewA
 export function formatStarRating(value: number): string {
   if (!value) return '—';
   return value.toFixed(1);
+}
+
+// ----------------------------------------------------------------------------
+// Track record — dated list of completed events that flowed through Setnayan.
+// ----------------------------------------------------------------------------
+
+/**
+ * One row of a vendor's dated track record. Sourced from the
+ * `vendor_completed_events` VIEW, which applies the SAME self-review / team /
+ * internal / self-comp / archived exclusions as the public completed-events
+ * stats view — so this list can never be padded by a vendor's own bookings.
+ */
+export type VendorCompletedEventRow = {
+  vendor_profile_id: string;
+  vendor_id: string;
+  event_id: string;
+  event_type: string | null;
+  event_date: string | null;
+  completed_at: string | null;
+};
+
+const COMPLETED_EVENT_COLUMNS =
+  'vendor_profile_id,vendor_id,event_id,event_type,event_date,completed_at';
+
+/**
+ * Fetch a vendor's dated track record (most recent first). Reads the public
+ * `vendor_completed_events` view (GRANTed to anon + authenticated), so it works
+ * from both the public /v/[slug] surface and the vendor dashboard. Best-effort:
+ * if the view is missing in a stale deploy environment, returns [].
+ */
+export async function fetchVendorCompletedEvents(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+  opts: { limit?: number } = {},
+): Promise<VendorCompletedEventRow[]> {
+  const limit = opts.limit ?? 60;
+  const { data, error } = await supabase
+    .from('vendor_completed_events')
+    .select(COMPLETED_EVENT_COLUMNS)
+    .eq('vendor_profile_id', vendorProfileId)
+    .order('completed_at', { ascending: false, nullsFirst: false })
+    .limit(limit);
+  if (error) return [];
+  return (data ?? []) as VendorCompletedEventRow[];
+}
+
+/**
+ * Format a track-record entry's date as "Month YYYY" (e.g. "Jun 2026"),
+ * preferring `completed_at` then `event_date`. Returns null when neither is set
+ * so the caller can omit the date suffix.
+ */
+export function formatTrackRecordMonth(row: VendorCompletedEventRow): string | null {
+  const raw = row.completed_at ?? row.event_date;
+  if (!raw) return null;
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString('en-PH', { year: 'numeric', month: 'short' });
+}
+
+/**
+ * Title-case a raw event_type slug for display ("wedding" → "Wedding",
+ * "gender_reveal" → "Gender Reveal"). Falls back to "Event" when unset.
+ */
+export function formatEventTypeLabel(eventType: string | null): string {
+  if (!eventType || eventType.trim().length === 0) return 'Event';
+  return eventType
+    .trim()
+    .split(/[_\s]+/)
+    .map((w) => (w.length === 0 ? w : w.charAt(0).toUpperCase() + w.slice(1)))
+    .join(' ');
 }

@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { Star, Reply, Flag, Heart } from 'lucide-react';
+import { Star, Reply, Flag, Heart, BadgeCheck, CalendarCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { countVendorRecommendingCouples } from '@/lib/vendor-recommendations';
@@ -7,13 +7,17 @@ import {
   averageByAxis,
   fetchReviewsForVendorWithCouple,
   fetchReviewStats,
+  fetchVendorCompletedEvents,
   formatStarRating,
+  formatTrackRecordMonth,
+  formatEventTypeLabel,
   REVIEW_AXIS_LABEL,
   VENDOR_REPLY_MAX_CHARS,
   REVIEW_FLAG_REASON_LABEL,
   type ReviewAxis,
   type ReviewWithCouple,
   type ReviewStatsRow,
+  type VendorCompletedEventRow,
 } from '@/lib/reviews';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { postVendorReply, submitFlagAsFake } from './actions';
@@ -40,12 +44,15 @@ export default async function VendorReviewsPage() {
     );
   }
 
-  const [stats, reviews, recommendingCouples] = await Promise.all([
+  const [stats, reviews, recommendingCouples, completedEvents] = await Promise.all([
     fetchReviewStats(supabase, profile.vendor_profile_id),
     fetchReviewsForVendorWithCouple(supabase, profile.vendor_profile_id, { limit: 200 }),
     // "Recommended by N couples" (Event Lifecycle Menu §6.3) — the proof-backed
     // trust signal couples build for you post-event; also shows on your profile.
     countVendorRecommendingCouples(supabase, profile.vendor_profile_id),
+    // Receipt-backed dated track record (Wave 5) — the same dated list of
+    // Setnayan-delivered events that renders on your public /v/[slug].
+    fetchVendorCompletedEvents(supabase, profile.vendor_profile_id, { limit: 60 }),
   ]);
 
   const axisAverages = averageByAxis(reviews);
@@ -69,6 +76,12 @@ export default async function VendorReviewsPage() {
       </header>
 
       <StatsOverview stats={stats} axisAverages={axisAverages} />
+
+      {/* Receipt-backed track record (Wave 5) — dated list of events you
+          delivered through Setnayan, the same list couples see on your public
+          profile. Same owner/team/internal/self-comp exclusions as the public
+          count, so it can't be padded. Omitted when you have none yet. */}
+      {completedEvents.length > 0 ? <TrackRecord events={completedEvents} /> : null}
 
       {reviews.length === 0 ? (
         <div className="mt-8 rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center text-sm text-ink/55">
@@ -201,9 +214,13 @@ function VendorReviewCard({
   return (
     <article className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
       <header className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <StarRow value={review.rating_overall} />
           <span className="text-sm font-medium text-ink">{author}</span>
+          {/* Receipt-backed provenance (Wave 5). PLATFORM-DERIVED — couples
+              can't set it. Shows when this review's booking links to your
+              Setnayan profile. */}
+          {review.booked_through_setnayan ? <BookedThroughSetnayanPill /> : null}
         </div>
         <div className="flex items-center gap-3">
           <time className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
@@ -356,6 +373,63 @@ function FlagForm({ reviewId }: { reviewId: string }) {
         </form>
       </div>
     </details>
+  );
+}
+
+/**
+ * Receipt-backed "Booked through Setnayan" pill — same platform-derived signal
+ * that renders on the public /v/[slug] review. A couple can never set it; it's
+ * stamped server-side from the booking linkage.
+ */
+function BookedThroughSetnayanPill() {
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full bg-mulberry/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-mulberry"
+      title="This couple booked you through Setnayan — verified by the platform."
+    >
+      <BadgeCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
+      Booked through Setnayan
+    </span>
+  );
+}
+
+/**
+ * Receipt-backed dated track record. The same `{event type · month-year}` list
+ * that renders on your public profile — sourced from the
+ * `vendor_completed_events` view, which excludes your own team / internal /
+ * self-comp bookings so the count is always honest.
+ */
+function TrackRecord({ events }: { events: ReadonlyArray<VendorCompletedEventRow> }) {
+  return (
+    <section className="mt-8 rounded-2xl border border-ink/10 bg-cream p-5">
+      <div className="mb-3 flex items-center gap-2">
+        <CalendarCheck aria-hidden className="h-4 w-4 text-mulberry" strokeWidth={1.75} />
+        <h2 className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55">
+          Track record
+        </h2>
+        <span className="text-xs text-ink/45">
+          {events.length} event{events.length === 1 ? '' : 's'} delivered through Setnayan
+        </span>
+      </div>
+      <ul className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+        {events.map((ev) => {
+          const month = formatTrackRecordMonth(ev);
+          return (
+            <li
+              key={ev.vendor_id}
+              className="flex items-center justify-between gap-3 rounded-md bg-ink/[0.03] px-3 py-1.5 text-sm"
+            >
+              <span className="text-ink/80">{formatEventTypeLabel(ev.event_type)}</span>
+              {month ? (
+                <time className="font-mono text-[11px] uppercase tracking-[0.12em] text-ink/45">
+                  {month}
+                </time>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 

@@ -25,9 +25,25 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 
+/**
+ * A credited vendor surfaced on a Real Story card (Style-Twin Discovery): the
+ * couples who love a story can tap straight through to the marketplace vendors
+ * who made it. Only Pro/Enterprise credited vendors with a public business_slug
+ * appear (the same tier gate as the /[slug] editorial "Team Behind the Day" —
+ * Free/Verified are excluded), so every chip deep-links to a real /v/[slug].
+ */
+export type ShowcaseVendorCredit = {
+  name: string;
+  slug: string;
+  logoUrl: string | null;
+};
+
 export type ShowcaseEntry = {
   href: string; // canonical editorial — the couple's own /[slug] page
   coupleNames: string;
+  // Style-Twin Discovery: the credited Pro/Enterprise vendors behind this story,
+  // rendered as tappable chips on the card that deep-link to /v/[slug].
+  vendors: ShowcaseVendorCredit[];
   city: string | null;
   dateLabel: string | null; // display, e.g. "February 2026"
   eventDate: string | null; // ISO — sitemap lastmod
@@ -121,6 +137,7 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
     // featured:false), so /realstories keeps surfacing real showcases even
     // before the owner runs `supabase db push`.
     type EventRow = {
+      event_id: string;
       slug: string | null;
       display_name: string | null;
       event_date: string | null;
@@ -136,7 +153,7 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
     const featuredAware = await admin
       .from('events')
       .select(
-        'slug, display_name, event_date, venue_name, venue_address, monogram_color, landing_page_hero_image_url, landing_page_hero_video_r2_key, showcase_featured_at, showcase_feature_rank',
+        'event_id, slug, display_name, event_date, venue_name, venue_address, monogram_color, landing_page_hero_image_url, landing_page_hero_video_r2_key, showcase_featured_at, showcase_feature_rank',
       )
       .eq('event_type', 'wedding')
       // Defense-in-depth (owner 2026-06-20 private-by-default): never surface a
@@ -157,7 +174,7 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
       // Pre-migration fallback — drop the featuring columns + ordering.
       const legacy = await admin
         .from('events')
-        .select('slug, display_name, event_date, venue_name, venue_address, monogram_color, landing_page_hero_image_url, landing_page_hero_video_r2_key')
+        .select('event_id, slug, display_name, event_date, venue_name, venue_address, monogram_color, landing_page_hero_image_url, landing_page_hero_video_r2_key')
         .eq('event_type', 'wedding')
         .in('event_id', eventIds)
         .lte('event_date', cutoff)
@@ -167,10 +184,70 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
       events = legacy.data as EventRow[] | null;
     }
 
+    // Style-Twin Discovery — batch-fetch the credited vendors behind each story
+    // so cards can deep-link to /v/[slug]. Same tier gate as the /[slug]
+    // editorial credit (Pro/Enterprise WITH a public business_slug; Free/Verified
+    // excluded). One round trip across all stories (no N+1), deduped + capped
+    // per card. Best-effort: any failure leaves vendors=[] and the card still
+    // renders (the credits are a discovery affordance, not load-bearing).
+    const evList = events ?? [];
+    const creditsByEvent = new Map<string, ShowcaseVendorCredit[]>();
+    if (evList.length > 0) {
+      const { data: links } = await admin
+        .from('event_vendors')
+        .select('event_id, linked_vendor_profile_id')
+        .in('event_id', evList.map((e) => e.event_id))
+        .not('linked_vendor_profile_id', 'is', null);
+      const linkRows = (links ?? []) as Array<{
+        event_id: string;
+        linked_vendor_profile_id: string;
+      }>;
+      const profileIds = Array.from(
+        new Set(linkRows.map((r) => r.linked_vendor_profile_id).filter(Boolean)),
+      );
+      if (profileIds.length > 0) {
+        const { data: profs } = await admin
+          .from('vendor_profiles')
+          .select('vendor_profile_id, business_name, business_slug, logo_url, tier_state')
+          .in('vendor_profile_id', profileIds);
+        // Resolve each eligible profile's logo once (not per story).
+        const profMap = new Map<string, ShowcaseVendorCredit>();
+        await Promise.all(
+          (
+            (profs ?? []) as Array<{
+              vendor_profile_id: string;
+              business_name: string | null;
+              business_slug: string | null;
+              logo_url: string | null;
+              tier_state: string | null;
+            }>
+          ).map(async (p) => {
+            const tier = p.tier_state ?? '';
+            if ((tier !== 'pro' && tier !== 'enterprise') || !p.business_slug) return;
+            profMap.set(p.vendor_profile_id, {
+              name: p.business_name?.trim() || 'Vendor',
+              slug: p.business_slug,
+              logoUrl: p.logo_url ? await displayUrlForStoredAsset(p.logo_url) : null,
+            });
+          }),
+        );
+        for (const r of linkRows) {
+          const credit = profMap.get(r.linked_vendor_profile_id);
+          if (!credit) continue;
+          const list = creditsByEvent.get(r.event_id) ?? [];
+          if (list.length < 4 && !list.some((c) => c.slug === credit.slug)) {
+            list.push(credit);
+            creditsByEvent.set(r.event_id, list);
+          }
+        }
+      }
+    }
+
     return await Promise.all(
-      (events ?? []).map(async (e) => ({
+      evList.map(async (e) => ({
         href: `/${e.slug as string}`,
         coupleNames: e.display_name?.trim() || 'A Setnayan wedding',
+        vendors: creditsByEvent.get(e.event_id) ?? [],
         city: deriveCity(e.venue_name, e.venue_address),
         dateLabel: monthYear(e.event_date),
         eventDate: e.event_date ?? null,

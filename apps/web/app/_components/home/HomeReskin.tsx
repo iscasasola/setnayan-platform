@@ -25,12 +25,7 @@ import { PILLARS, PILLAR_HEROES, HOME_SCENE } from './pillars';
 import { HomeOverlays, type OverlayId } from './HomeOverlays';
 import type { PricingData } from './pricing-data';
 import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
-import {
-  readConsent,
-  writeConsent,
-  openConsentManager,
-  OPEN_CONSENT_EVENT,
-} from '@/lib/cookie-consent';
+import { openConsentManager } from '@/lib/cookie-consent';
 
 const HOME_HERO = {
   kick: 'Set na ’yan',
@@ -448,9 +443,6 @@ export function HomeReskin({ pricing, bgVideos }: { pricing: PricingData; bgVide
         </div>
       </section>
 
-      {/* Cookie pill (voice riff) */}
-      <CookiePill />
-
       {/* ── CONTENT — revealed when the gate opens ── */}
       <main className="hr-content" id="hr-content">
         <section className="hr-manifesto">
@@ -613,80 +605,6 @@ function Mock({ active, children }: { active: boolean; children: ReactNode }) {
   const className = active ? `${base} hr-on` : base;
   return cloneElement(children, { className, 'aria-hidden': !active });
 }
-
-// Real cookie-consent pill for the homepage. Persists the choice and gates
-// analytics via lib/cookie-consent (the PostHog provider reads the same
-// state). Starts "decided" so nothing flashes during hydration, then resolves
-// the true state on mount. "Cookie settings" links anywhere re-open it.
-function CookiePill() {
-  const [decided, setDecided] = useState(true);
-  const [manage, setManage] = useState(false);
-  const [analytics, setAnalytics] = useState(true);
-
-  useEffect(() => {
-    const c = readConsent();
-    setDecided(c !== null);
-    setAnalytics(c?.analytics ?? true);
-    const onOpen = () => {
-      setDecided(false);
-      setManage(true);
-    };
-    window.addEventListener(OPEN_CONSENT_EVENT, onOpen);
-    return () => window.removeEventListener(OPEN_CONSENT_EVENT, onOpen);
-  }, []);
-
-  const choose = (a: boolean) => {
-    writeConsent(a);
-    setDecided(true);
-    setManage(false);
-  };
-
-  if (decided) return null;
-
-  return (
-    <div className="hr-cookie hr-glass-dark">
-      {!manage ? (
-        <>
-          Cookies help us remember
-          <button onClick={() => choose(true)}>Accept</button>
-          <button className="hr-mng" onClick={() => choose(false)}>
-            Decline
-          </button>
-          <button className="hr-mng" onClick={() => setManage(true)}>
-            Manage
-          </button>
-        </>
-      ) : (
-        <div className="hr-cookie-manage">
-          <label className="hr-cookie-row">
-            <span>
-              <b>Essential</b> · always on
-            </span>
-            <input type="checkbox" checked disabled aria-label="Essential cookies (always on)" />
-          </label>
-          <label className="hr-cookie-row">
-            <span>
-              <b>Analytics</b> · helps us improve
-            </span>
-            <input
-              type="checkbox"
-              checked={analytics}
-              onChange={(e) => setAnalytics(e.target.checked)}
-              aria-label="Analytics cookies"
-            />
-          </label>
-          <div className="hr-cookie-actions">
-            <Link href="/cookies" className="hr-mng">
-              Cookie policy
-            </Link>
-            <button onClick={() => choose(analytics)}>Save</button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // The site footer for the homepage. Carries every compliance link (Legal
 // column) plus product/company links, and "crawls in" — translateY + fade,
 // staggered per column — when it scrolls into view. Respects reduced motion.

@@ -12,6 +12,8 @@ import assert from 'node:assert/strict';
 import {
   isSetnayanAiActive,
   isSetnayanAiActiveForUser,
+  shouldOfferSetnayanAiPurchase,
+  shouldOfferSetnayanAiPurchaseForUser,
   userAiSubscriptionActive,
 } from './setnayan-ai';
 
@@ -89,6 +91,72 @@ test('per-user ON: Manual toggle still wins over an active subscription', () => 
     isSetnayanAiActiveForUser(ev, {
       perUserEnabled: true,
       subscription: { active_until: FUTURE },
+    }),
+    false,
+  );
+});
+
+// ---- shouldOfferSetnayanAiPurchaseForUser (buy CTA) -------------------------
+
+test('buy CTA per-user OFF: byte-identical to the per-event offer', () => {
+  const evUnpaid = { setnayan_ai_active: false };
+  const evPaid = { setnayan_ai_active: true };
+  for (const paywallEnabled of [false, true]) {
+    for (const ev of [evUnpaid, evPaid]) {
+      assert.equal(
+        shouldOfferSetnayanAiPurchaseForUser(ev, {
+          perUserEnabled: false,
+          paywallEnabled,
+        }),
+        shouldOfferSetnayanAiPurchase(ev, paywallEnabled),
+      );
+    }
+  }
+});
+
+test('buy CTA per-user ON: offered when paywall on, unpaid, no active sub', () => {
+  const ev = { setnayan_ai_active: false };
+  assert.equal(
+    shouldOfferSetnayanAiPurchaseForUser(ev, {
+      paywallEnabled: true,
+      perUserEnabled: true,
+      subscription: { active_until: PAST },
+    }),
+    true,
+  );
+});
+
+test('buy CTA per-user ON: SUPPRESSED for an active subscriber', () => {
+  const ev = { setnayan_ai_active: false };
+  assert.equal(
+    shouldOfferSetnayanAiPurchaseForUser(ev, {
+      paywallEnabled: true,
+      perUserEnabled: true,
+      subscription: { active_until: FUTURE },
+    }),
+    false,
+  );
+});
+
+test('buy CTA per-user ON: SUPPRESSED for a per-event owner (never double-charge)', () => {
+  const ev = { setnayan_ai_active: true };
+  assert.equal(
+    shouldOfferSetnayanAiPurchaseForUser(ev, {
+      paywallEnabled: true,
+      perUserEnabled: true,
+      subscription: null,
+    }),
+    false,
+  );
+});
+
+test('buy CTA per-user ON: never offered while the paywall is off', () => {
+  const ev = { setnayan_ai_active: false };
+  assert.equal(
+    shouldOfferSetnayanAiPurchaseForUser(ev, {
+      paywallEnabled: false,
+      perUserEnabled: true,
+      subscription: { active_until: PAST },
     }),
     false,
   );

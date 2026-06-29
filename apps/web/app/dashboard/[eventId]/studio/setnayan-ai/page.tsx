@@ -7,8 +7,13 @@ import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { getCustomerSkuPriceLabel } from '@/lib/v2-catalog';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { eventOwnsSku } from '@/lib/entitlements';
-import { isSetnayanAiActive } from '@/lib/setnayan-ai';
-import { resolveSetnayanAiPaywallEnabled } from '@/lib/integration-config';
+import { isSetnayanAiActiveForUser } from '@/lib/setnayan-ai';
+import { getEventHostAiSubscription } from '@/lib/setnayan-ai-server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  resolveSetnayanAiPaywallEnabled,
+  resolveSetnayanAiPerUserEnabled,
+} from '@/lib/integration-config';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 
 export const metadata = { title: 'Setnayan AI · Setnayan' };
@@ -84,7 +89,15 @@ export default async function SetnayanAiPage({ params }: Props) {
   // DB-first paywall flag (Integration Activation Console — flips without a
   // redeploy); env-fallback when unset. Resolved once, threaded into the gate.
   const paywallOn = await resolveSetnayanAiPaywallEnabled();
-  const active = isSetnayanAiActive(event, paywallOn);
+  const perUserOn = await resolveSetnayanAiPerUserEnabled();
+  const aiSubscription = perUserOn
+    ? await getEventHostAiSubscription(createAdminClient(), eventId)
+    : null;
+  const active = isSetnayanAiActiveForUser(event, {
+    paywallEnabled: paywallOn,
+    perUserEnabled: perUserOn,
+    subscription: aiSubscription,
+  });
 
   // "Owns" = the entitlement is stamped OR a SETNAYAN_AI order (à-la-carte OR a
   // GUIDED_PACK/MEDIA_PACK bundle that includes it) is in flight (submitted /

@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   readConsent,
@@ -10,13 +9,10 @@ import {
 } from '@/lib/cookie-consent';
 
 // Site-wide cookie-consent banner under RA 10173. Mounted once in the root
-// layout so it appears on any marketing/entry page. The homepage runs its
-// own bespoke pill (CookiePill in HomeReskin) that matches the reskin's
-// glass styling, so this banner self-hides on '/' to avoid a duplicate.
-// Both read/write the same consent state via lib/cookie-consent, and both
-// gate the same PostHog analytics.
+// layout so it appears on every route, including the homepage. Reads/writes
+// consent via lib/cookie-consent and gates PostHog analytics. "Cookie
+// settings" links anywhere re-open it via OPEN_CONSENT_EVENT.
 export function CookieConsentBanner() {
-  const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const [decided, setDecided] = useState(true);
   const [manage, setManage] = useState(false);
@@ -35,8 +31,7 @@ export function CookieConsentBanner() {
     return () => window.removeEventListener(OPEN_CONSENT_EVENT, onOpen);
   }, []);
 
-  // The homepage owns its own consent pill; never double up.
-  if (!mounted || pathname === '/' || decided) return null;
+  if (!mounted || decided) return null;
 
   const choose = (a: boolean) => {
     writeConsent(a);

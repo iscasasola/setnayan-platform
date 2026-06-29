@@ -11,11 +11,12 @@ column; the cookie pill now actually works.
   reduced-motion safe). Legal column links Privacy · Terms · Refunds · Cookie
   policy · Acceptable use · Cookie settings.
 - **Working cookie consent** (`lib/cookie-consent.ts`): single source of truth
-  (localStorage + window events). The homepage `CookiePill` and a new site-wide
-  `CookieConsentBanner` (mounted in `layout.tsx`, self-hides on `/`) both
-  Accept / Decline / Manage and persist the choice. `posthog-provider.tsx` now
+  (localStorage + window events). A new site-wide `CookieConsentBanner` (mounted
+  in `layout.tsx`, shown on every route including the homepage) does
+  Accept / Decline / Manage and persists the choice. `posthog-provider.tsx` now
   GATES PostHog init on analytics consent — declined visitors never load the
-  SDK; accepting activates it live. RA 10173 opt-in.
+  SDK; accepting activates it live. RA 10173 opt-in. (The homepage's old fake
+  `CookiePill` was removed on `origin/main`; the global banner now covers it.)
 - **New policy pages**: `/refunds` (digital services final once activated, full
   refund if undelivered — RA 7394), `/cookies` (essential vs opt-in analytics,
   no ad cookies), `/acceptable-use` (prohibited content, always-on NSFW filter,

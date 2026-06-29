@@ -41,8 +41,12 @@ import {
 } from '@/lib/taxonomy-filters';
 import { computeCompatScore } from '@/lib/compat-score';
 import { fetchFirstLookConfig, isFirstLookEligible } from '@/lib/firstlook';
-import { isSetnayanAiActive } from '@/lib/setnayan-ai';
-import { resolveSetnayanAiPaywallEnabled } from '@/lib/integration-config';
+import { isSetnayanAiActiveForUser } from '@/lib/setnayan-ai';
+import { getEventHostAiSubscription } from '@/lib/setnayan-ai-server';
+import {
+  resolveSetnayanAiPaywallEnabled,
+  resolveSetnayanAiPerUserEnabled,
+} from '@/lib/integration-config';
 import {
   monthsToWedding,
   lastMinuteZone,
@@ -234,9 +238,18 @@ export async function searchCategoryVendors(input: {
   // "% match" pill AND the reception-proximity sort, so the order falls back to
   // boosted → reviews → rating. The one governing gate lives in lib/setnayan-ai
   // so every surface agrees (owner 2026-06-08: "govern now, monetize next").
-  const aiActive = isSetnayanAiActive(
+  const aiPaywallEnabled = await resolveSetnayanAiPaywallEnabled();
+  const aiPerUserEnabled = await resolveSetnayanAiPerUserEnabled();
+  const aiSubscription = aiPerUserEnabled
+    ? await getEventHostAiSubscription(createAdminClient(), eventId)
+    : null;
+  const aiActive = isSetnayanAiActiveForUser(
     ev as { planning_mode?: string | null; setnayan_ai_active?: boolean | null },
-    await resolveSetnayanAiPaywallEnabled(),
+    {
+      paywallEnabled: aiPaywallEnabled,
+      perUserEnabled: aiPerUserEnabled,
+      subscription: aiSubscription,
+    },
   );
   const assistOff = !aiActive;
 

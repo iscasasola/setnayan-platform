@@ -467,43 +467,6 @@ html.hr-snap {
   }
 }
 
-/* cookie pill */
-.home-reskin .hr-cookie {
-  position: fixed;
-  bottom: 22px;
-  right: 22px;
-  z-index: 60;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 11px 16px;
-  font-size: 13px;
-  color: #fff;
-}
-.home-reskin.hr-open .hr-cookie {
-  color: var(--hr-ink);
-  backdrop-filter: blur(22px) saturate(1.5);
-  -webkit-backdrop-filter: blur(22px) saturate(1.5);
-  background: rgba(255, 255, 255, 0.5);
-}
-.home-reskin .hr-cookie button {
-  background: none;
-  border: none;
-  font-family: var(--hr-sans);
-  font-size: 13px;
-  cursor: pointer;
-  color: inherit;
-  font-weight: 500;
-  opacity: 0.85;
-}
-.home-reskin .hr-cookie button:hover {
-  opacity: 1;
-}
-.home-reskin .hr-cookie .hr-mng {
-  opacity: 0.6;
-  font-weight: 400;
-}
-
 /* ── CONTENT (revealed after gate opens) ───────────────── */
 .home-reskin .hr-content {
   background: var(--hr-bg);
@@ -1487,36 +1450,6 @@ html.hr-snap {
   .home-reskin .hr-foot-base {
     flex-direction: column;
   }
-}
-
-/* Cookie pill — manage panel + extra action button */
-.home-reskin .hr-cookie {
-  flex-wrap: wrap;
-  max-width: min(92vw, 420px);
-}
-.home-reskin .hr-cookie-manage {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  width: 260px;
-  max-width: 84vw;
-}
-.home-reskin .hr-cookie-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  font-size: 12.5px;
-}
-.home-reskin .hr-cookie-row b {
-  font-weight: 600;
-}
-.home-reskin .hr-cookie-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
-  padding-top: 2px;
 }
 
 /* kinetic feelings ticker */

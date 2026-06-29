@@ -366,6 +366,13 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/spotlight-awards',
       },
       {
+        key: 'journal-spotlights',
+        label: 'Journal Spotlights',
+        href: '/admin/journal-spotlights',
+        icon: BookOpen,
+        matchPrefix: '/admin/journal-spotlights',
+      },
+      {
         key: 'events',
         label: 'Events',
         href: '/admin/events',

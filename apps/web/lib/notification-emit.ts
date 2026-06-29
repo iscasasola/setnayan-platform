@@ -95,6 +95,12 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   // invites the vendor to add a moment to the couple's editorial — worth an
   // email (same booking-relationship register as booking_confirmed / review_received).
   'completion_accepted',
+  // Vendor → couple suggestion (Phase 3b delivery polish, 2026-06-30). A 1:1
+  // vendor suggesting a buyable Studio add-on is high-signal + actionable — the
+  // couple should hear about it even when they're not in the app. (Sibling
+  // mood_board_share stays in-app-only; this earns email because it's a
+  // paid-service nudge the couple acts on, not an informational fan-out.)
+  'vendor_feature_suggested',
 ]);
 
 export type EmitNotificationArgs = {

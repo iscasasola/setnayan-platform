@@ -1,0 +1,25 @@
+-- vendor_feature_suggested notification type
+-- ============================================================================
+-- Phase 3b delivery polish (2026-06-30). Adds 'vendor_feature_suggested' to
+-- public.notification_type so suggestToCouple() (apps/web/app/vendor-dashboard/
+-- recommendations/share-actions.ts) can ping the COUPLE when a connected vendor
+-- suggests a buyable Studio add-on — closing the delivery gap (a suggestion that
+-- only lives in the Studio hub goes unseen until the couple happens to visit).
+--
+-- Recipient: COUPLE (each couple member of the event). Deep-links to the Studio
+-- hub (/dashboard/[eventId]/studio) where the "Suggested by your vendors" strip
+-- renders it.
+--
+-- UNLIKE the sibling mood_board_share (in-app only), this IS added to the email
+-- allowlist in lib/notification-emit.ts: a 1:1 vendor suggestion of a paid
+-- service is high-signal + actionable (not the automated-flood class the
+-- allowlist guards against), and email is the channel that actually reaches a
+-- couple who isn't currently in the app. Owner can dial back to in-app-only by
+-- dropping it from EMAIL_ENABLED_TYPES (one line).
+--
+-- ALTER TYPE … ADD VALUE IF NOT EXISTS is idempotent + re-run safe. ADD VALUE
+-- cannot run inside an explicit transaction block, so this migration is
+-- intentionally bare (matches 20270308120000_mood_board_share_notification_type.sql).
+-- ============================================================================
+
+ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'vendor_feature_suggested';

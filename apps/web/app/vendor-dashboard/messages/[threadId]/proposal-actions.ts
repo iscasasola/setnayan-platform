@@ -20,6 +20,7 @@ import { sendProposalCore, type SendProposalError } from '@/lib/proposal-send';
 const NOTICE_BY_CODE: Record<Exclude<SendProposalError, 'unauthenticated' | 'not_owner'>, string> = {
   thread_closed: 'proposal_thread_closed',
   needs_template: 'proposal_needs_template',
+  tier_free: 'proposal_tier_free',
   failed: 'proposal_failed',
 };
 

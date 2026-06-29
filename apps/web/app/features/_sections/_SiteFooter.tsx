@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Apple } from 'lucide-react';
+import { CookieSettingsLink } from '@/app/_components/legal/cookie-settings-link';
 
 // Footer matching the main marketing pages (apps/web/app/page.tsx +
 // apps/web/app/for-vendors/page.tsx use the same shape). Kept inline
@@ -34,6 +35,19 @@ export function SiteFooter() {
                 {f.label}
               </Link>
             ))}
+          </div>
+        </div>
+        <div className="mt-4 flex flex-col gap-2 text-sm text-ink/55 sm:flex-row sm:items-baseline sm:gap-6">
+          <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/40">
+            Legal
+          </span>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+            <Link href="/privacy" className="hover:text-ink">Privacy</Link>
+            <Link href="/terms" className="hover:text-ink">Terms</Link>
+            <Link href="/refunds" className="hover:text-ink">Refunds</Link>
+            <Link href="/cookies" className="hover:text-ink">Cookie policy</Link>
+            <Link href="/acceptable-use" className="hover:text-ink">Acceptable use</Link>
+            <CookieSettingsLink className="hover:text-ink" />
           </div>
         </div>
       </div>
@@ -72,12 +86,6 @@ export function SiteFooter() {
           <Link href="/download" className="inline-flex items-center gap-1 hover:text-ink">
             <Apple aria-hidden className="h-3 w-3" strokeWidth={1.75} />
             Mac app
-          </Link>
-          <Link href="/privacy" className="hover:text-ink">
-            Privacy
-          </Link>
-          <Link href="/terms" className="hover:text-ink">
-            Terms
           </Link>
           <Link href="/login" className="hover:text-ink">
             Sign in

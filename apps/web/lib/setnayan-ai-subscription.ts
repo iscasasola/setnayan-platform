@@ -19,6 +19,22 @@ export const AI_SUB_CYCLE_DAYS = 28;
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
+/** Max cycles a single term-pass order may buy (≈ 2 years of 28-day cycles). */
+export const AI_SUB_MAX_CYCLES = 24;
+
+/**
+ * Parse + clamp a client-supplied cycle count for a term-pass purchase.
+ * Returns an integer in [1, AI_SUB_MAX_CYCLES], or null if the input isn't a
+ * positive whole number (so the server can reject a malformed buy). The server
+ * is authoritative: the CHARGE is always unit × this validated count.
+ */
+export function parseCycles(raw: unknown): number | null {
+  const n =
+    typeof raw === 'number' ? raw : typeof raw === 'string' ? Number(raw.trim()) : NaN;
+  if (!Number.isInteger(n) || n < 1) return null;
+  return Math.min(n, AI_SUB_MAX_CYCLES);
+}
+
 /**
  * How many 28-day cycles a paid amount buys, given the admin-managed unit price.
  * Rounds to the nearest whole cycle (the buyer paid unit × cycles) and never

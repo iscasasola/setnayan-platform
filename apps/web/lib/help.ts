@@ -80,7 +80,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-is-todays-focus',
         title: "What is Setnayan AI?",
-        body: 'Setnayan\'s assisted-planning tier, ₱3,999 one-time per event. Matches, sorts, and cross-references vendors against your date, budget, venue, guest count, religion, and reviews — and walks you through every decision from venue lock through thank-you cards, with religion-adaptive guidance and hard-floor deadlines specific to Filipino weddings (Pre-Cana, marriage license validity windows, sponsor coordination, etc.).',
+        body: 'Setnayan\'s assisted-planning tier, ₱499 per 28-day cycle — a subscription that runs until your event date. Matches, sorts, and cross-references vendors against your date, budget, venue, guest count, religion, and reviews — and walks you through every decision from venue lock through thank-you cards, with religion-adaptive guidance and hard-floor deadlines specific to Filipino weddings (Pre-Cana, marriage license validity windows, sponsor coordination, etc.).',
       },
       {
         slug: 'does-setnayan-support-filipino-customs',

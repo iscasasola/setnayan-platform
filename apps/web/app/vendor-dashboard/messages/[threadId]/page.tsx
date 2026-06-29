@@ -39,6 +39,7 @@ const PROPOSAL_NOTICE: Record<string, string> = {
   proposal_sent: 'Proposal sent — it’s in the conversation below.',
   proposal_failed: 'Couldn’t send that proposal. Please try again.',
   proposal_needs_template: 'Pick a template to send a proposal.',
+  proposal_tier_free: 'Get your account verified to send proposals to couples.',
   proposal_sent_no_card: 'Proposal sent — find it in your Proposals list (the in-chat card didn’t post).',
   proposal_thread_closed: 'You can only send a proposal on an open conversation.',
 };

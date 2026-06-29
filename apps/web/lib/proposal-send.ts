@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchThreadById } from '@/lib/chat';
 import { notifyOtherParty } from '@/lib/chat-actions';
+import { tierCaps } from '@/lib/vendor-tier-caps';
 import { resolveTokens, formatCentavos } from '@/lib/vendor-proposals';
 import {
   resolveProposalValues,
@@ -24,6 +25,7 @@ export type SendProposalError =
   | 'unauthenticated'
   | 'not_owner'
   | 'thread_closed'
+  | 'tier_free'
   | 'needs_template'
   | 'failed';
 
@@ -67,6 +69,35 @@ export async function sendProposalCore(
       code: 'thread_closed',
       message: 'You can only send a proposal on an open conversation.',
     };
+  }
+
+  // FREE-tier block — a proposal posts a vendor chat_messages row, so it must
+  // clear the SAME in-app messaging gate sendChatMessageCore enforces. Without
+  // this, a FREE vendor on an admin-accepted thread (accepted via the
+  // service-role path that skips unlock_vendor_event's TIER_FREE_NO_INAPP) could
+  // post a proposal card here, bypassing the FREE in-app block. Isolated tier
+  // probe (tier_state is excluded from the full profile select).
+  // NOTE: mirrors the probe in lib/chat-send.ts — worth extracting into one
+  // shared vendor-chat tier-gate helper so the two can't drift.
+  {
+    let tier: string | null = null;
+    try {
+      const { data: tierRow } = await supabase
+        .from('vendor_profiles')
+        .select('tier_state')
+        .eq('vendor_profile_id', profile.vendor_profile_id)
+        .maybeSingle();
+      tier = (tierRow as { tier_state?: string } | null)?.tier_state ?? null;
+    } catch {
+      tier = null;
+    }
+    if (tierCaps(tier).chat === 'none') {
+      return {
+        ok: false,
+        code: 'tier_free',
+        message: 'Get your account verified to message couples in the app.',
+      };
+    }
   }
 
   const templateId = input.templateId?.trim() ?? '';

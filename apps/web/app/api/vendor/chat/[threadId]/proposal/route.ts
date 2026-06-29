@@ -12,6 +12,7 @@ const STATUS_BY_CODE: Record<SendProposalError, number> = {
   unauthenticated: 401,
   not_owner: 403,
   thread_closed: 403,
+  tier_free: 403,
   needs_template: 422,
   failed: 500,
 };
@@ -34,7 +35,7 @@ export async function POST(
   try {
     payload = (await req.json()) as typeof payload;
   } catch {
-    return Response.json({ error: 'invalid_json' }, { status: 422 });
+    return Response.json({ error: 'invalid_json', message: 'Couldn’t read your request.' }, { status: 422 });
   }
 
   const totalPhp = Number(payload.totalPhp);

@@ -37,7 +37,7 @@ export async function POST(
     const json = (await req.json()) as { body?: unknown };
     body = typeof json.body === 'string' ? json.body : '';
   } catch {
-    return Response.json({ error: 'invalid_json' }, { status: 422 });
+    return Response.json({ error: 'invalid_json', message: 'Couldn’t read your request.' }, { status: 422 });
   }
 
   const result = await sendChatMessageCore(auth.supabase, { threadId, body });

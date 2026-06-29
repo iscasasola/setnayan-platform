@@ -27,6 +27,8 @@ import {
   WifiOff,
 } from 'lucide-react';
 import { MobileLandingGrid, type LandingItem } from '../_components/mobile-landing-grid';
+import { fetchAdminPesoOverview } from '@/lib/vendor-peso';
+import { PesoPerLeadAdminCard } from './_components/peso-per-lead-admin-card';
 
 export const metadata = { title: 'Insights · Admin' };
 
@@ -81,12 +83,23 @@ const INSIGHTS_ITEMS: LandingItem[] = [
   },
 ];
 
-export default function AdminInsightsLanding() {
+export default async function AdminInsightsLanding() {
+  // Vendor unit-economics scorecard (Wave 6). The /admin layout already 404s
+  // non-admins, and the RPC self-gates on is_console_admin(), so this only
+  // resolves for admins. Visible at all breakpoints (unlike the mobile-only
+  // nav grid below).
+  const pesoOverview = await fetchAdminPesoOverview();
+
   return (
-    <MobileLandingGrid
-      title="Insights"
-      subtitle="How we're doing — growth, intelligence, funnels, and service health in one place."
-      items={INSIGHTS_ITEMS}
-    />
+    <>
+      <div className="mx-auto w-full max-w-3xl px-4 pt-6 sm:px-6 lg:max-w-6xl">
+        <PesoPerLeadAdminCard overview={pesoOverview} />
+      </div>
+      <MobileLandingGrid
+        title="Insights"
+        subtitle="How we're doing — growth, intelligence, funnels, and service health in one place."
+        items={INSIGHTS_ITEMS}
+      />
+    </>
   );
 }

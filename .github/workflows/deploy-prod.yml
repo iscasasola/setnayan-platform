@@ -1,0 +1,127 @@
+name: deploy-prod
+
+# ─── WHY THIS EXISTS ─────────────────────────────────────────────────
+# Sequences DB migrations BEFORE the Vercel production deploy, so deployed code
+# never outruns its schema. Today Vercel's NATIVE git auto-deploy fires on every
+# push to main and runs FULLY IN PARALLEL with `supabase-migrations.yml`
+# (`supabase db push`). Vercel's build+deploy usually finishes before the Action
+# (checkout → install CLI → link → push) does, so freshly-merged code lands in
+# prod referencing columns/tables/functions the migration hasn't applied yet —
+# a multi-minute window where the new feature 42703/42P01-errors (the apply-lag
+# that recurred 3× during the 2026-06-29 vendor-benefits build: the Wave-2
+# substrate, No-Show, and Batch-1 Wave-5 all caught it). See memory
+# project_setnayan_migration_application.
+#
+# THE FIX: make ONE pipeline own the order — apply migrations, THEN trigger the
+# Vercel deploy (via a Deploy Hook). Vercel still builds; it's just triggered by
+# this Action AFTER db push succeeds, so the schema is always ahead of the code.
+#
+# ─── CUTOVER (owner, one-time) ───────────────────────────────────────
+# Until the cutover this workflow is a GREEN NO-OP and Vercel's native git
+# auto-deploy stays in charge — so MERGING this file changes NOTHING. Flip it on
+# in ONE maintenance window (order matters — avoid both a no-deployer gap and
+# double-deploys):
+#
+#   1. Vercel → Project → Settings → Git → turn OFF "Automatically deploy"
+#      for the production (main) branch — OR add to apps/web/vercel.json:
+#        "git": { "deploymentEnabled": { "main": false } }
+#      (Now nothing auto-deploys on push — this is the brief gap; do step 2 next.)
+#   2. Vercel → Project → Settings → Git → Deploy Hooks → create a hook for the
+#      production branch (main); copy its URL into a repo secret:
+#        Settings → Secrets and variables → Actions → New repository secret
+#          Name:  VERCEL_DEPLOY_HOOK_URL
+#          Value: https://api.vercel.com/v1/integrations/deploy/prj_…/…
+#      (The 3 supabase secrets — SUPABASE_ACCESS_TOKEN / SUPABASE_DB_PASSWORD /
+#      the SUPABASE_PROJECT_REF variable — are already set; this workflow reuses
+#      them. The moment VERCEL_DEPLOY_HOOK_URL exists, the gate below flips on.)
+#   3. Retire `supabase-migrations.yml` (this workflow subsumes its db push). To
+#      avoid two concurrent db-pushes during any overlap, this workflow shares
+#      its concurrency group (`supabase-migrations-prod`) so they SERIALIZE even
+#      before you delete it — deleting it is just cleanup.
+#   4. Verify: Actions → deploy-prod → "Run workflow" on main → confirm it
+#      applies migrations (or no-ops) THEN the deploy hook returns 201, and the
+#      Vercel deployment shows the migrated commit. Then merge a normal change
+#      and watch the order hold.
+#
+# After cutover: push to main → migrations apply (db push) → on SUCCESS → the
+# deploy hook fires → Vercel builds + deploys the already-migrated commit. If
+# db push FAILS, the deploy never triggers (fail-closed — far safer than today's
+# deploy-anyway race).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Share the supabase-migrations concurrency group so this and the legacy
+# workflow never run `db push` against prod at the same time (they SERIALIZE;
+# a half-applied set is worse than a queued run, so cancel-in-progress is false).
+concurrency:
+  group: supabase-migrations-prod
+  cancel-in-progress: false
+
+jobs:
+  migrate-then-deploy:
+    name: apply migrations → deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+      VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+      # The Supabase CLI flushes telemetry to PostHog on exit; in CI that egress
+      # intermittently times out and the CLI exits non-zero AFTER the work
+      # succeeded. DO_NOT_TRACK skips telemetry so exit codes reflect only the
+      # migration work (same rationale as supabase-migrations.yml).
+      DO_NOT_TRACK: "1"
+
+    steps:
+      # Dormant-until-configured gate (mirrors supabase-migrations.yml). With the
+      # push trigger live, this runs on every merge to main — but GREEN no-ops
+      # until VERCEL_DEPLOY_HOOK_URL (+ the 3 supabase secrets) are present, so
+      # merging this file is non-breaking. Vercel's native git auto-deploy stays
+      # in charge until the owner does the cutover above.
+      - name: Gate — is migrate-then-deploy configured?
+        id: gate
+        run: |
+          if [ -n "$VERCEL_DEPLOY_HOOK_URL" ] && [ -n "$SUPABASE_ACCESS_TOKEN" ] && [ -n "$SUPABASE_DB_PASSWORD" ] && [ -n "$SUPABASE_PROJECT_REF" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "✅ Configured — applying migrations, then triggering the deploy."
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=migrate-then-deploy DORMANT::Set VERCEL_DEPLOY_HOOK_URL (the 3 supabase secrets are already set) AND disable Vercel git auto-deploy to flip this on — see the header CUTOVER steps. Vercel's native auto-deploy remains in charge until then; nothing changed."
+          fi
+
+      - name: Checkout
+        if: steps.gate.outputs.enabled == 'true'
+        uses: actions/checkout@v4
+
+      - name: Install Supabase CLI
+        if: steps.gate.outputs.enabled == 'true'
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link Supabase project
+        if: steps.gate.outputs.enabled == 'true'
+        run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+
+      # Apply BEFORE deploy. --include-all matches supabase-migrations.yml so an
+      # out-of-order tail still applies; idempotent / no-op when nothing pends.
+      - name: Apply pending migrations (db push) — BEFORE deploy
+        if: steps.gate.outputs.enabled == 'true'
+        run: supabase db push --include-all --yes
+
+      # Only reached when db push SUCCEEDED (fail-closed). Trigger the Vercel
+      # production build+deploy for the now-migrated commit. -f → curl exits
+      # non-zero on an HTTP error so a failed hook reddens the run.
+      - name: Trigger Vercel production deploy (post-migration)
+        if: steps.gate.outputs.enabled == 'true'
+        run: |
+          echo "Migrations applied — triggering Vercel production deploy of the migrated commit."
+          curl -fsS -X POST "$VERCEL_DEPLOY_HOOK_URL" -o /dev/null -w "Vercel deploy hook → HTTP %{http_code}\n"
+
+      - name: Show migration history
+        if: always() && steps.gate.outputs.enabled == 'true'
+        run: supabase migration list

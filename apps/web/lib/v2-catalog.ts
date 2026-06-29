@@ -236,26 +236,30 @@ export const getVendorPrices = cache(async () => {
   const fmt = (n: number | null, fb: string) => (n == null ? fb : `₱${formatPeso(n)}`);
   const save = (mo: number | null, yr: number | null, fb: string) =>
     mo != null && yr != null ? `₱${formatPeso(mo * 13 - yr)}` : fb;
+  // Fallback strings/numbers mirror the LIVE vendor_billing_catalog ladder
+  // (Solo ₱999/₱9,999 · Pro ₱2,499/₱24,999 · Enterprise ₱4,999/₱49,999) so a
+  // DB-unreachable build never renders a stale pre-reprice price. They only
+  // ever surface if the catalog read returns empty — the live read wins.
   return {
-    soloMonthly: fmt(soloMo, '₱2,000'),
-    soloAnnual: fmt(soloYr, '₱20,000'),
-    soloAnnualSave: save(soloMo, soloYr, '₱6,000'),
-    proMonthly: fmt(proMo, '₱6,000'),
-    proAnnual: fmt(proYr, '₱60,000'),
-    proAnnualSave: save(proMo, proYr, '₱18,000'),
-    enterpriseMonthly: fmt(entMo, '₱10,000'),
-    enterpriseAnnual: fmt(entYr, '₱100,000'),
-    enterpriseAnnualSave: save(entMo, entYr, '₱30,000'),
+    soloMonthly: fmt(soloMo, '₱999'),
+    soloAnnual: fmt(soloYr, '₱9,999'),
+    soloAnnualSave: save(soloMo, soloYr, '₱2,988'),
+    proMonthly: fmt(proMo, '₱2,499'),
+    proAnnual: fmt(proYr, '₱24,999'),
+    proAnnualSave: save(proMo, proYr, '₱7,488'),
+    enterpriseMonthly: fmt(entMo, '₱4,999'),
+    enterpriseAnnual: fmt(entYr, '₱49,999'),
+    enterpriseAnnualSave: save(entMo, entYr, '₱14,988'),
     branch: fmt(branch, '₱999'),
     tokenUnit: `₱${formatPeso(tokenUnit)}`,
     // Raw numbers for the schema.org JSON-LD Offers (need unformatted values).
     num: {
-      soloMonthly: soloMo ?? 2000,
-      soloAnnual: soloYr ?? 20000,
-      proMonthly: proMo ?? 6000,
-      proAnnual: proYr ?? 60000,
-      enterpriseMonthly: entMo ?? 10000,
-      enterpriseAnnual: entYr ?? 100000,
+      soloMonthly: soloMo ?? 999,
+      soloAnnual: soloYr ?? 9999,
+      proMonthly: proMo ?? 2499,
+      proAnnual: proYr ?? 24999,
+      enterpriseMonthly: entMo ?? 4999,
+      enterpriseAnnual: entYr ?? 49999,
     },
   };
 });

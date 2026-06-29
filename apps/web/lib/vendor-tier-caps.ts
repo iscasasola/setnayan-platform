@@ -4,7 +4,9 @@
  *
  * `tier_state` enum on vendor_profiles = free | verified | solo | pro | enterprise.
  * free + verified are legacy states kept for backward compatibility.
- * The three marketed tiers are Solo (₱2,000/28d) · Pro (₱6,000/28d) · Enterprise (₱10,000/28d).
+ * The three marketed tiers are Solo (₱999/28d) · Pro (₱2,499/28d) · Enterprise (₱4,999/28d).
+ * (Prices shown for reference only — the live figures are read from
+ * vendor_billing_catalog; this file only carries capability caps, not prices.)
  *
  * Numeric caps use `Infinity` for "Unlimited" and `0` for "✗ / none".
  */
@@ -121,7 +123,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     customWebsiteName: false,
     inquireLink: true,
   },
-  // Solo — ₱2,000/28d entry-level paid tier (2027-02-18).
+  // Solo — ₱999/28d entry-level paid tier (price from vendor_billing_catalog).
   // One category, one operator. Real name shown day-1 (paid). Token-burn model
   // same as Pro/Enterprise (inAppGated = true). No agent seats (truly solo).
   solo: {

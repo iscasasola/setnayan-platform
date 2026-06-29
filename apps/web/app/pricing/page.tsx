@@ -219,6 +219,13 @@ export default async function PricingPage() {
   const branchSku = vendorSkus.find((s) => s.sku_code === 'vendor_branch_28day');
   const branchPriceLabel = `₱${formatPeso(branchSku?.price_php ?? 999)}`;
 
+  // Solo 28-day price for the "For vendors" intro copy, read from the catalog
+  // (same row the tier cards below render) so the headline price can never
+  // drift from /admin/pricing. The ₱999 fallback only renders if the row is
+  // missing — NOT a hardcoded current price.
+  const soloMonthlySku = vendorSubs.find((s) => s.sku_code === 'solo_vendor_monthly');
+  const soloMonthlyLabel = `₱${formatPeso(soloMonthlySku?.price_php ?? 999)}`;
+
   // Annual counterpart lookup by SKU naming convention.
   // Convention: pro_vendor_monthly ↔ pro_vendor_annual ·
   // enterprise_vendor_monthly ↔ enterprise_vendor_annual. Per migration
@@ -464,7 +471,7 @@ export default async function PricingPage() {
               </p>
               <p className="mt-3 text-sm leading-relaxed text-ink/65">
                 Create your account and set up your profile at no cost. Solo
-                at ₱2,000/28d activates your marketplace presence — verified
+                at {soloMonthlyLabel}/28d activates your marketplace presence — verified
                 profile, in-app chat, bid pipeline, and your vendor microsite.
               </p>
             </article>

@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import { after } from 'next/server';
 import { runSocialFlush } from '@/lib/social/flush';
 import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
-import { Star, MapPin, ChevronLeft, ChevronRight, Navigation, Sparkles } from 'lucide-react';
+import { Star, MapPin, ChevronLeft, ChevronRight, Navigation, Sparkles, Snowflake } from 'lucide-react';
 import { haversineKm, formatDistanceKm } from '@/lib/geo';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -402,6 +402,9 @@ type Props = {
     page?: string;
     verified?: string;
     match?: string;
+    /** Off-Season Promos (Wave 5) — `?offseason=1` narrows the grid to
+     *  vendors with a live off-peak offer. */
+    offseason?: string;
     event_type?: string;
     /** Task #12 · CLAUDE.md 2026-05-22 — middleware redirects
      *  /vendors/compare here with `notice=compare_v1_2`. Surfaces the
@@ -617,6 +620,13 @@ type VendorCardRow = {
     recommending_vendor_name: string;
     discount_pct: number | null;
   } | null;
+  /**
+   * Off-Season Promos (Wave 5). A LIVE off-peak offer on one of the vendor's
+   * active services — `discount_type='off_peak'` with a future expiry. Set in
+   * the enrichment loop from `servicesByVendorId`. Null = no live deal. Drives
+   * the "Off-season savings" badge on the card + the `?offseason=1` filter.
+   */
+  off_peak_offer?: { value: number; expiresAt: string } | null;
 };
 
 /** Reverse map: tile URL slug (e.g. `photo-video`) → WeddingTile key. */
@@ -644,6 +654,11 @@ function parseFilters(
   page: number;
   verifiedOnly: boolean;
   matchEvent: boolean;
+  /** Off-Season Promos (Wave 5) — `?offseason=1` narrows the grid to vendors
+   *  running a LIVE off-peak offer (a `vendor_services` row with
+   *  `discount_type='off_peak'` AND `discount_expires_at > now()`). OFF by
+   *  default. */
+  offSeason: boolean;
   eventType: EventTypeFilter | null;
   /** Task #47 — catalog-mode folder scope. When set to one of the 12
    *  WeddingFolder values, CatalogView renders only that single section.
@@ -723,6 +738,9 @@ function parseFilters(
   // No-op (toggle hidden) for non-logged-in visitors and couples without
   // an event yet.
   const matchEvent = raw.match === '1' || raw.match === 'on';
+  // Off-Season Promos (Wave 5) — `?offseason=1` narrows to vendors with a
+  // live off-peak offer. OFF by default (so the bare marketplace is unchanged).
+  const offSeason = raw.offseason === '1' || raw.offseason === 'on';
   // Iteration 0041 — event-type filter. Restricts the marketplace to
   // vendors who serve a specific event_type (debut, gender_reveal, etc.).
   // Default null = show vendors who serve any event_type. The CHECK
@@ -785,6 +803,7 @@ function parseFilters(
     page,
     verifiedOnly,
     matchEvent,
+    offSeason,
     eventType,
     folder,
     tile,
@@ -882,6 +901,45 @@ const FAITH_KEYS_ORDER: ReadonlyArray<FaithKey> = [
   'Buddhist',
   'Orthodox',
 ];
+
+/**
+ * Off-Season Promos (Wave 5) — the set of vendor_profile_ids that have a LIVE
+ * off-peak offer right now: at least one ACTIVE `vendor_services` row with
+ * `discount_type='off_peak'` AND `discount_expires_at > now()`. Used only when
+ * the `?offseason=1` filter is on, to constrain the marketplace query (the
+ * `vendor_market_stats` view doesn't carry the per-service discount columns,
+ * so we resolve the eligible vendor set here and `.in()` it — same shape as
+ * the demo-vendor include/exclude pattern). Fail-soft: returns [] on error so
+ * a DB hiccup degrades to "no off-season matches" rather than a 500.
+ */
+async function fetchLiveOffPeakVendorIds(
+  admin: ReturnType<typeof createAdminClient>,
+): Promise<string[]> {
+  try {
+    const { data, error } = await admin
+      .from('vendor_services')
+      .select('vendor_profile_id')
+      .eq('is_active', true)
+      .eq('discount_type', 'off_peak')
+      .not('discount_value', 'is', null)
+      .gt('discount_value', 0)
+      .not('discount_expires_at', 'is', null)
+      .gt('discount_expires_at', new Date().toISOString());
+    if (error) {
+      console.warn('[off-season] fetchLiveOffPeakVendorIds failed:', error.message);
+      return [];
+    }
+    const ids = new Set<string>();
+    for (const row of data ?? []) {
+      const id = (row as { vendor_profile_id?: string }).vendor_profile_id;
+      if (id) ids.add(id);
+    }
+    return [...ids];
+  } catch (e) {
+    console.warn('[off-season] fetchLiveOffPeakVendorIds threw:', e);
+    return [];
+  }
+}
 
 /**
  * Look up the minimum `starting_price_php` per vendor_profile_id for
@@ -1277,6 +1335,23 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   }
   if (filters.city.length > 0) {
     query = query.ilike('location_city', `%${filters.city}%`);
+  }
+
+  // Off-Season Promos (Wave 5) — `?offseason=1` narrows to vendors running a
+  // LIVE off-peak offer. The market_stats view doesn't carry the per-service
+  // discount columns, so we resolve the eligible vendor set from
+  // vendor_services and constrain with `.in()`. An empty set means the page
+  // shows the (off-season-aware) empty state, never the full marketplace.
+  if (filters.offSeason) {
+    const offPeakVendorIds = await fetchLiveOffPeakVendorIds(admin);
+    if (offPeakVendorIds.length === 0) {
+      // No live off-season offers anywhere → force an empty result set without
+      // a roundtrip. `.in(col, [])` already yields zero rows, but we keep it
+      // explicit for readability.
+      query = query.in('vendor_profile_id', []);
+    } else {
+      query = query.in('vendor_profile_id', offPeakVendorIds);
+    }
   }
 
   // 0043 compatibility filter — only applies when the toggle is on AND the
@@ -1684,22 +1759,38 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         return out;
       })(),
       (async (): Promise<
-        Map<string, { startingPrice: number | null; photoR2Key: string | null }>
+        Map<
+          string,
+          {
+            startingPrice: number | null;
+            photoR2Key: string | null;
+            /** Off-Season Promos (Wave 5): a LIVE off-peak offer on any of the
+             *  vendor's active services — `discount_type='off_peak'` with a
+             *  future `discount_expires_at`. Null = no live off-season deal.
+             *  Drives the "Off-season savings" badge + the explore filter. */
+            offPeak: { value: number; expiresAt: string } | null;
+          }
+        >
       > => {
         if (visibleVendorIds.length === 0) return new Map();
         const { data, error } = await admin
           .from('vendor_services')
           .select(
-            'vendor_profile_id, starting_price_php, primary_photo_r2_key, is_active',
+            'vendor_profile_id, starting_price_php, primary_photo_r2_key, is_active, discount_type, discount_value, discount_expires_at',
           )
           .in('vendor_profile_id', visibleVendorIds);
         if (error) {
           console.error('[vendors] vendor_services fetch failed', error);
           return new Map();
         }
+        const nowMs = Date.now();
         const out = new Map<
           string,
-          { startingPrice: number | null; photoR2Key: string | null }
+          {
+            startingPrice: number | null;
+            photoR2Key: string | null;
+            offPeak: { value: number; expiresAt: string } | null;
+          }
         >();
         for (const row of data ?? []) {
           const r = row as {
@@ -1707,9 +1798,12 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
             starting_price_php: number | null;
             primary_photo_r2_key: string | null;
             is_active: boolean | null;
+            discount_type: string | null;
+            discount_value: number | null;
+            discount_expires_at: string | null;
           };
           // Skip inactive services — they shouldn't drive the
-          // surfaced starting price.
+          // surfaced starting price or the off-season offer.
           if (r.is_active === false) continue;
           const existing = out.get(r.vendor_profile_id);
           // Lowest starting price wins. Photo lookup picks the first
@@ -1724,10 +1818,26 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
             r.primary_photo_r2_key && r.primary_photo_r2_key.length > 0
               ? r.primary_photo_r2_key
               : null;
+          // Live off-peak offer on this service (future expiry only — an
+          // off-peak discount with no end date or a past end date isn't a
+          // "live promo window", matching the couple-facing filter contract).
+          const isLiveOffPeak =
+            r.discount_type === 'off_peak' &&
+            r.discount_value !== null &&
+            r.discount_value > 0 &&
+            r.discount_expires_at !== null &&
+            new Date(r.discount_expires_at).getTime() > nowMs;
+          const newOffPeak = isLiveOffPeak
+            ? {
+                value: r.discount_value as number,
+                expiresAt: r.discount_expires_at as string,
+              }
+            : null;
           if (!existing) {
             out.set(r.vendor_profile_id, {
               startingPrice: newPrice,
               photoR2Key: newPhoto,
+              offPeak: newOffPeak,
             });
             continue;
           }
@@ -1738,7 +1848,17 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                 ? existing.startingPrice
                 : Math.min(existing.startingPrice, newPrice);
           const photoR2Key = existing.photoR2Key ?? newPhoto;
-          out.set(r.vendor_profile_id, { startingPrice, photoR2Key });
+          // Keep the offer that expires LATEST (most generous live window).
+          const offPeak =
+            newOffPeak === null
+              ? existing.offPeak
+              : existing.offPeak === null
+                ? newOffPeak
+                : new Date(newOffPeak.expiresAt).getTime() >
+                    new Date(existing.offPeak.expiresAt).getTime()
+                  ? newOffPeak
+                  : existing.offPeak;
+          out.set(r.vendor_profile_id, { startingPrice, photoR2Key, offPeak });
         }
         return out;
       })(),
@@ -1974,6 +2094,9 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     v.primary_photo_url = svc?.photoR2Key
       ? r2PublicUrl(R2_BUCKETS.media, svc.photoR2Key)
       : null;
+    // Off-Season Promos (Wave 5) — surface a LIVE off-peak offer (if any) so
+    // the card shows the "Off-season savings" badge + the filter can narrow.
+    v.off_peak_offer = svc?.offPeak ?? null;
     // Only expose starting_price_php on demo cards in V1; real cards
     // keep the price line hidden per hide-prices lock.
     v.starting_price_php =
@@ -2227,6 +2350,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                   filters.sort !== 'most_reviews' ||
                   filters.verifiedOnly ||
                   filters.matchEvent ||
+                  filters.offSeason ||
                   filters.venueDefault === 'off' ||
                   // 2026-05-30 PM — Clear button surfaces when faith narrow
                   // is active so couples can clear back to baseline without
@@ -2295,6 +2419,44 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
             windowLabel={availability.windowLabel}
           />
         ) : null}
+
+        {/* Off-Season Promos (Wave 5) — couple-facing toggle band. OFF by
+            default (the bare marketplace is unchanged). When on, the grid is
+            narrowed to vendors running a live off-peak offer; the band turns
+            into an active chip with a one-click clear. Rendered in vendor-grid
+            mode only (catalog mode has its own landing chrome). */}
+        <div className="mt-4">
+          {filters.offSeason ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sky-300/60 bg-sky-50 px-4 py-3">
+              <p className="inline-flex items-center gap-2 text-sm text-ink/80">
+                <Snowflake
+                  aria-hidden
+                  className="h-4 w-4 text-sky-600"
+                  strokeWidth={1.75}
+                />
+                <span>
+                  Showing vendors with{' '}
+                  <span className="font-medium text-ink">off-season savings</span>{' '}
+                  — a live off-peak deal.
+                </span>
+              </p>
+              <Link
+                href={buildHref(filters, { offSeason: false, page: 1 })}
+                className="text-sm font-medium text-terracotta underline-offset-4 hover:underline"
+              >
+                Show all vendors
+              </Link>
+            </div>
+          ) : (
+            <Link
+              href={buildHref(filters, { offSeason: true, page: 1 })}
+              className="inline-flex items-center gap-2 rounded-full border border-sky-300/60 bg-sky-50 px-4 py-2 text-sm font-medium text-sky-800 transition-colors hover:border-sky-400 hover:bg-sky-100"
+            >
+              <Snowflake aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              Off-season savings
+            </Link>
+          )}
+        </div>
 
         {visible.length === 0 ? (
           <EmptyState
@@ -2369,6 +2531,7 @@ function buildHref(
     page: number;
     verifiedOnly: boolean;
     matchEvent: boolean;
+    offSeason?: boolean;
     eventType?: EventTypeFilter | null;
     folder?: WeddingFolder | null;
     tile?: WeddingTile | null;
@@ -2384,6 +2547,7 @@ function buildHref(
     page: number;
     verifiedOnly: boolean;
     matchEvent: boolean;
+    offSeason: boolean;
     eventType: EventTypeFilter | null;
     folder: WeddingFolder | null;
     tile: WeddingTile | null;
@@ -2401,6 +2565,9 @@ function buildHref(
   if (merged.page && merged.page > 1) params.set('page', String(merged.page));
   if (merged.verifiedOnly) params.set('verified', '1');
   if (merged.matchEvent) params.set('match', '1');
+  // Off-Season Promos (Wave 5) — preserve the off-season narrow across
+  // pagination + filter toggles + the "Clear" link.
+  if (merged.offSeason) params.set('offseason', '1');
   if (merged.eventType) params.set('event_type', merged.eventType);
   if (merged.folder) params.set('folder', merged.folder);
   // 10-parent model — preserve tile scope across pagination + filter toggles.
@@ -2530,6 +2697,7 @@ function EmptyState({
     page: number;
     verifiedOnly: boolean;
     matchEvent: boolean;
+    offSeason: boolean;
     eventType: EventTypeFilter | null;
     folder: WeddingFolder | null;
     venueDefault: 'on' | 'off';
@@ -2545,8 +2713,36 @@ function EmptyState({
     filters.city ||
     filters.verifiedOnly ||
     filters.matchEvent ||
+    filters.offSeason ||
     filters.eventType
   );
+
+  // Off-Season Promos (Wave 5) — when the off-season narrow returned nothing,
+  // frame it honestly: no vendor is running a live off-peak offer right now.
+  // Offer a one-click drop of just the off-season filter so the couple keeps
+  // the rest of their search.
+  if (filters.offSeason) {
+    return (
+      <div className="mt-8 rounded-2xl border border-dashed border-sky-300/60 bg-sky-50/60 p-10 text-center">
+        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-sky-700">
+          Off-season savings
+        </p>
+        <p className="mt-3 text-base font-medium text-ink">
+          No live off-season offers match your search yet.
+        </p>
+        <p className="mx-auto mt-2 max-w-prose text-sm text-ink/65">
+          Vendors run off-peak deals for their quieter months. Check back as the
+          season shifts, or browse every vendor below.
+        </p>
+        <Link
+          href={buildHref(filters, { offSeason: false, page: 1 })}
+          className="mt-5 inline-flex items-center justify-center rounded-md bg-terracotta px-5 py-2.5 text-sm font-medium text-cream hover:bg-terracotta-600"
+        >
+          Show all vendors
+        </Link>
+      </div>
+    );
+  }
 
   // Task #42 (2026-05-22) — "Show all" CTA appears when strict filters
   // (match-my-wedding, verified-only) shrank the result to zero but the

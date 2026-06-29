@@ -45,6 +45,8 @@ import {
   type SavedRequirements,
 } from './_components/inquiry-composer';
 import { fetchRequirementFields, type RequirementField } from '@/lib/requirements-capture';
+import { joinVendorWaitlist } from './waitlist-actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { getEventPreference } from '@/lib/event-preferences';
 import { isSetnayanAiActive } from '@/lib/setnayan-ai';
 import { resolveSetnayanAiPaywallEnabled } from '@/lib/integration-config';
@@ -77,7 +79,7 @@ const REVIEWS_PAGE_SIZE = 5;
 
 type Props = {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ reviewsPage?: string }>;
+  searchParams: Promise<{ reviewsPage?: string; wl?: string }>;
 };
 
 type PublicVendorRow = {
@@ -616,6 +618,9 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
   } = await supabase.auth.getUser();
   let initialFollowing = false;
   let coupleEventId: string | null = null;
+  /** The couple's intended event date (ISO YYYY-MM-DD) — drives the Booked-Out
+   *  Waitlist CTA when the vendor is unavailable on it. */
+  let coupleEventDate: string | null = null;
   let isAlreadySaved = false;
   /** Existing chat thread for this (coupleEvent, vendor) pair — non-null when
    *  the couple already sent an inquiry (any status except declined). Passed
@@ -626,6 +631,7 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
     initialFollowing = await isFollowingVendor(supabase, user.id, vendor.vendor_profile_id);
     const events = await fetchUserEvents(supabase, user.id, 'couple');
     coupleEventId = events[0]?.event_id ?? null;
+    coupleEventDate = events[0]?.event_date ?? null;
     if (coupleEventId) {
       const [savedResult, threadResult] = await Promise.all([
         supabase
@@ -730,6 +736,55 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
       await resolveSetnayanAiPaywallEnabled(),
     );
   }
+
+  // ── Booked-Out Waitlist (Wave 4 vendor benefit) ──────────────────────────
+  // When a signed-in couple's intended date is unavailable on this vendor, offer
+  // a "join the waitlist" CTA. "Unavailable" = a business-wide closure (pool_id
+  // IS NULL) OR a Setnayan booking covers the date — couples only ever see
+  // "unavailable", never the label/reason (privacy lock). Pool-scoped manual
+  // blocks gate specific services, not the whole vendor, so they don't trigger
+  // the vendor-level CTA here. Reads run on the admin client (couples have no
+  // SELECT on vendor_calendar_blocks). Strict YYYY-MM-DD + future-dated only —
+  // year/month-mode event dates and past dates never show the CTA.
+  const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+  const phToday = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
+  let waitlistDate: string | null = null;
+  let alreadyWaitlisted = false;
+  if (
+    user &&
+    bookable &&
+    coupleEventDate &&
+    DATE_ONLY_RE.test(coupleEventDate) &&
+    coupleEventDate >= phToday
+  ) {
+    // PH civil-day bounds for the intended date (blocks store +08:00).
+    const dayStart = `${coupleEventDate}T00:00:00+08:00`;
+    const dayEnd = `${coupleEventDate}T23:30:00+08:00`;
+    const { data: covering } = await admin
+      .from('vendor_calendar_blocks')
+      .select('block_id')
+      .eq('vendor_profile_id', vendor.vendor_profile_id)
+      .is('pool_id', null)
+      .in('block_source', ['manual', 'setnayan_booking'])
+      .lte('blocked_at', dayEnd)
+      .gte('blocked_until', dayStart)
+      .limit(1);
+    const isUnavailable = Array.isArray(covering) && covering.length > 0;
+    if (isUnavailable) {
+      waitlistDate = coupleEventDate;
+      // Has this couple already joined (pending/notified)?
+      const { data: existing } = await admin
+        .from('vendor_date_waitlist')
+        .select('waitlist_id')
+        .eq('vendor_profile_id', vendor.vendor_profile_id)
+        .eq('user_id', user.id)
+        .eq('requested_date', coupleEventDate)
+        .in('status', ['pending', 'notified'])
+        .limit(1);
+      alreadyWaitlisted = Array.isArray(existing) && existing.length > 0;
+    }
+  }
+  const waitlistNotice = typeof search?.wl === 'string' ? search.wl : null;
 
   // GEO Phase G4 (2026-05-28) — LocalBusiness JSON-LD lets AI answer engines
   // (ChatGPT-User · OAI-SearchBot · PerplexityBot · ClaudeBot — allowlisted
@@ -1355,6 +1410,59 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
               viewerIsAnonymous={user?.is_anonymous ?? false}
             />
           ) : null}
+
+          {/* Booked-Out Waitlist CTA — shown only when this couple's intended
+              date is unavailable on this vendor (Wave 4 vendor benefit). The
+              couple joins; when the date frees up the vendor notifies them by
+              email. Additive + privacy-respecting: the couple sees "unavailable",
+              never the reason. */}
+          {waitlistDate ? (
+            <div className="mt-4 rounded-2xl border border-terracotta/30 bg-terracotta/[0.04] p-4 sm:p-5">
+              <p className="text-sm font-semibold text-ink">
+                {displayLabel} is booked on{' '}
+                {new Date(`${waitlistDate}T00:00:00+08:00`).toLocaleDateString('en-PH', {
+                  weekday: 'long',
+                  month: 'long',
+                  day: 'numeric',
+                  year: 'numeric',
+                })}
+                .
+              </p>
+              {alreadyWaitlisted || waitlistNotice === 'joined' ? (
+                <p className="mt-1 text-sm text-ink/70">
+                  You&rsquo;re on the waitlist for this date — we&rsquo;ll email you the moment it
+                  opens up.
+                </p>
+              ) : (
+                <>
+                  <p className="mt-1 text-sm text-ink/70">
+                    Join the waitlist for this date and we&rsquo;ll email you if it frees up.
+                  </p>
+                  {waitlistNotice === 'error' ? (
+                    <p className="mt-2 text-sm text-warn-900">
+                      That didn&rsquo;t save — please try again.
+                    </p>
+                  ) : null}
+                  <form action={joinVendorWaitlist} className="mt-3">
+                    <input type="hidden" name="slug" value={slug} />
+                    <input
+                      type="hidden"
+                      name="vendor_profile_id"
+                      value={vendor.vendor_profile_id}
+                    />
+                    <input type="hidden" name="requested_date" value={waitlistDate} />
+                    <SubmitButton
+                      pendingLabel="Joining…"
+                      className="rounded-lg bg-terracotta px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta/90"
+                    >
+                      Join the waitlist for this date
+                    </SubmitButton>
+                  </form>
+                </>
+              )}
+            </div>
+          ) : null}
+
           <div className="flex flex-wrap gap-3">
             <Link href="/signup" className="button-primary">
               Plan with Setnayan

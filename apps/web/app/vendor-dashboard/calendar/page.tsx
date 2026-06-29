@@ -18,10 +18,13 @@ import {
   createCalendar,
   editCalendar,
   importExternalClient,
+  notifyWaitlistSlot,
   removeBlock,
   reassignCategoryPool,
   updatePoolCapacity,
 } from './actions';
+import { fetchVendorWaitlist, type WaitlistDateGroup } from '@/lib/vendor-waitlist';
+import { BellRing } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 
@@ -59,6 +62,7 @@ const NOTICES: Record<string, { tone: 'ok' | 'warn'; text: string }> = {
   capacity_saved: { tone: 'ok', text: 'Daily capacity saved.' },
   capacity_clamped: { tone: 'warn', text: 'Saved at your plan’s maximum bookings-per-day. Upgrade to raise the ceiling.' },
   pool_saved: { tone: 'ok', text: 'Schedule assignment saved.' },
+  waitlist_notified: { tone: 'ok', text: 'Waitlisted couples emailed — they know the date is open again.' },
   calendar_created: { tone: 'ok', text: 'Calendar created. Assign services + set its limit any time.' },
   calendar_saved: { tone: 'ok', text: 'Calendar saved.' },
   no_tokens: { tone: 'warn', text: 'Not enough tokens — importing an outside client costs 1 token. Top up under Tokens.' },
@@ -162,16 +166,19 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
   const namedCalendars =
     process.env.NEXT_PUBLIC_NAMED_CALENDARS_ENABLED !== 'false';
 
-  const [pools, bookings, blocks, services] = await Promise.all([
+  const now = new Date();
+  const todayIso = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
+
+  const [pools, bookings, blocks, services, waitlist] = await Promise.all([
     fetchVendorPools(supabase, profile.vendor_profile_id),
     fetchVendorPoolBookings(supabase, profile.vendor_profile_id),
     fetchVendorBlocks(supabase, profile.vendor_profile_id),
     namedCalendars
       ? fetchVendorServicesForPicker(supabase, profile.vendor_profile_id)
       : Promise.resolve([] as CalendarServiceOption[]),
+    fetchVendorWaitlist(supabase, profile.vendor_profile_id, todayIso),
   ]);
 
-  const now = new Date();
   const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const month = /^\d{4}-\d{2}$/.test(search.m ?? '') ? (search.m as string) : thisMonth;
   // Universal "All schedules" is the default view for multi-schedule vendors;
@@ -189,7 +196,7 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
   const dateOf = (day: number) => `${month}-${String(day).padStart(2, '0')}`;
   const statesByPool = buildDayStates(pools, bookings, blocks, month, daysInMonth);
 
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
+  const today = todayIso;
   const visiblePools = isAllView ? pools : activePool ? [activePool] : [];
   const visiblePoolIds = new Set(visiblePools.map((p) => p.poolId));
   const poolById = new Map(pools.map((p) => [p.poolId, p]));
@@ -309,6 +316,56 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
           {d}
         </div>
       ))}
+    </div>
+  );
+
+  // Booked-Out Waitlist queue (Wave 4 vendor benefit). Vendor-wide (not pool-
+  // scoped) — couples waitlist a *date*, not a service. Each date with pending
+  // waiters gets a one-click "a slot opened — notify them" button that emails
+  // everyone waiting + flips them to notified. Auto-fires too when the vendor
+  // removes a block (see removeBlock), so this is the manual escape hatch +
+  // visibility surface.
+  const waitlistSection: WaitlistDateGroup[] = waitlist;
+  const waitlistQueue = (
+    <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+      <h3 className="flex items-center gap-2 text-base font-semibold">
+        <BellRing aria-hidden className="h-4 w-4 text-terracotta" /> Booked-Out Waitlist
+      </h3>
+      <p className="mt-1 text-sm text-ink/65">
+        Couples who wanted a date you were full on. When a slot frees up, let them know — a
+        notify emails everyone waiting on that day. (Removing a block does this automatically.)
+      </p>
+      {waitlistSection.length === 0 ? (
+        <p className="mt-3 text-sm text-ink/55">No one is waiting on a date right now.</p>
+      ) : (
+        <ul className="mt-3 divide-y divide-ink/10">
+          {waitlistSection.map((w) => (
+            <li
+              key={w.requestedDate}
+              className="flex flex-wrap items-center justify-between gap-3 py-2.5"
+            >
+              <div>
+                <p className="text-sm font-medium">{fmtDate(w.requestedDate)}</p>
+                <p className="text-xs text-ink/55">
+                  {w.pendingCount === 1
+                    ? '1 couple waiting'
+                    : `${w.pendingCount} couples waiting`}
+                </p>
+              </div>
+              <form action={notifyWaitlistSlot}>
+                {returnFields}
+                <input type="hidden" name="requested_date" value={w.requestedDate} />
+                <SubmitButton
+                  pendingLabel="Notifying…"
+                  className="rounded-lg border border-terracotta/40 px-3 py-1.5 text-sm font-medium text-terracotta hover:bg-terracotta/5"
+                >
+                  A slot opened — notify them
+                </SubmitButton>
+              </form>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 
@@ -806,6 +863,8 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
           ) : null}
         </>
       )}
+
+      {waitlistQueue}
     </section>
   );
 }

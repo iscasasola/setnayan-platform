@@ -510,3 +510,96 @@ export async function sendVendorFeaturedInStoryEmail(
     text,
   });
 }
+
+// ---------------------------------------------------------------------------
+// 9. Booked-Out Waitlist — a slot opened up on a vendor the couple is waiting on
+//    Couple-facing. Fired by the vendor's one-click "notify" action and by the
+//    auto-on-free path when a vendor removes a calendar block (Next 15 after()).
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolve a couple's notification email from their auth/user account.
+ * Mirrors the vendor lookup above but on the couple side (users.email keyed by
+ * user_id). Returns null when the user can't be found.
+ */
+async function fetchCoupleContact(userId: string): Promise<{
+  email: string;
+  displayName: string;
+} | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('users')
+    .select('email, display_name')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error || !data?.email) {
+    console.error('[vendor-email] fetchCoupleContact failed:', error?.message ?? 'not found', { userId });
+    return null;
+  }
+
+  return {
+    email: data.email,
+    displayName: data.display_name?.trim() || 'there',
+  };
+}
+
+/**
+ * Tells a couple on a vendor's Booked-Out Waitlist that the date they wanted
+ * has freed up — the payoff of the waitlist benefit. Best-effort: a failed send
+ * never blocks the calling server action (vendor one-click / block removal).
+ *
+ * `vendorLabel` is the vendor's public/display name (the caller passes the
+ * already-resolved label so the couple sees what they saw on the profile).
+ * `requestedDate` is the ISO `YYYY-MM-DD` the couple waitlisted.
+ */
+export async function sendWaitlistSlotOpenedEmail(
+  userId: string,
+  vendorLabel: string,
+  requestedDate: string,
+  vendorSlug: string | null,
+): Promise<SendEmailResult> {
+  const contact = await fetchCoupleContact(userId);
+  if (!contact) return { ok: false, reason: 'send_failed', error: 'couple contact not found' };
+
+  const prettyDate = (() => {
+    try {
+      return new Date(`${requestedDate}T00:00:00+08:00`).toLocaleDateString('en-PH', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+    } catch {
+      return requestedDate;
+    }
+  })();
+
+  const profileUrl = vendorSlug ? `${APP_URL}/v/${vendorSlug}` : `${APP_URL}/explore`;
+
+  const text = [
+    `Hi ${contact.displayName},`,
+    ``,
+    `Good news — a date you were waiting on just opened up.`,
+    ``,
+    `Vendor:  ${vendorLabel}`,
+    `Date:    ${prettyDate}`,
+    ``,
+    `You joined ${vendorLabel}'s waitlist for this date because it was booked at`,
+    `the time. It's available again now — but dates like this don't stay open`,
+    `long, so reach out soon if you'd still like to book.`,
+    ``,
+    `View their profile and send an inquiry:`,
+    profileUrl,
+    ``,
+    `—`,
+    `Set na 'yan.`,
+    `Setnayan HQ`,
+  ].join('\n');
+
+  return sendEmail({
+    to: contact.email,
+    subject: `A date opened up with ${vendorLabel}`,
+    text,
+  });
+}

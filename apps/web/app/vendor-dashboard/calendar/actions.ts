@@ -21,9 +21,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { asVendorTier, tierCaps } from '@/lib/vendor-tier-caps';
+import {
+  notifyWaitlistForDate,
+  notifyWaitlistForFreedRange,
+} from '@/lib/vendor-waitlist';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -200,12 +205,35 @@ export async function importExternalClient(formData: FormData): Promise<void> {
   backToCalendar(formData, 'client_imported');
 }
 
+/** PH civil date (YYYY-MM-DD) of a stored timestamptz (blocks are written in
+ *  +08:00 — see addManualBlock). Asia/Manila has no DST, so a fixed offset is
+ *  exact. */
+function phDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
+}
+
 /** Remove a vendor-authored block (manual / external client). Booking-sourced
- *  blocks are platform state and can't be removed here. */
+ *  blocks are platform state and can't be removed here.
+ *
+ *  Booked-Out Waitlist auto-notify (Wave 4, cron-free): a freed slot emails any
+ *  pending waitlisters for the now-open dates. We snapshot the block's date
+ *  range BEFORE deleting (the row is gone afterward), then fan out via Next 15
+ *  after() so the email round-trips never block the redirect. Only manual /
+ *  org-wide closures free a *bookable* date — an external_client removal frees
+ *  one consumed capacity unit, which may or may not re-open the day, so we
+ *  notify there too (a no-waiter date is a cheap no-op). */
 export async function removeBlock(formData: FormData): Promise<void> {
   const { supabase, profile } = await requireVendor();
   const blockId = str(formData, 'block_id');
   if (!blockId) backToCalendar(formData, 'save_failed');
+
+  // Snapshot the freed date range before the row disappears.
+  const { data: blockRow } = await supabase
+    .from('vendor_calendar_blocks')
+    .select('blocked_at, blocked_until')
+    .eq('block_id', blockId)
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .maybeSingle();
 
   const { error } = await supabase
     .from('vendor_calendar_blocks')
@@ -215,8 +243,40 @@ export async function removeBlock(formData: FormData): Promise<void> {
     .in('block_source', ['manual', 'external_client']);
   if (error) backToCalendar(formData, 'save_failed');
 
+  const range = blockRow as { blocked_at: string; blocked_until: string } | null;
+  if (range) {
+    const vendorProfileId = profile.vendor_profile_id;
+    const startDate = phDate(range.blocked_at);
+    const endDate = phDate(range.blocked_until);
+    after(() =>
+      notifyWaitlistForFreedRange(vendorProfileId, startDate, endDate).catch((e) => {
+        console.error('[waitlist] auto-notify on block removal failed:', String(e));
+      }),
+    );
+  }
+
   revalidateScheduleSurfaces();
   backToCalendar(formData, 'block_removed');
+}
+
+/** Vendor one-click "a slot opened — notify them": flips every pending
+ *  waitlist row for a (vendor, date) to notified + emails each couple. Date is
+ *  validated to YYYY-MM-DD; the notify runs through the service-role client
+ *  inside notifyWaitlistForDate. */
+export async function notifyWaitlistSlot(formData: FormData): Promise<void> {
+  const { profile } = await requireVendor();
+  const requestedDate = str(formData, 'requested_date');
+  if (!DATE_RE.test(requestedDate)) backToCalendar(formData, 'save_failed');
+
+  const vendorProfileId = profile.vendor_profile_id;
+  // Run synchronously so the notice reflects the real outcome; emails inside
+  // are best-effort (Promise.allSettled) so a slow provider can't hang us long.
+  await notifyWaitlistForDate(vendorProfileId, requestedDate).catch((e) => {
+    console.error('[waitlist] one-click notify failed:', String(e));
+  });
+
+  revalidateScheduleSurfaces();
+  backToCalendar(formData, 'waitlist_notified');
 }
 
 /** Pool daily capacity — clamped to the tier's slotsPerDay ceiling (the

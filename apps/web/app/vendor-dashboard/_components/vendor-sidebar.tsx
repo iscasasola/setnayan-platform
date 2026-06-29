@@ -111,6 +111,7 @@ import {
   Building2,
   Images,
   Handshake,
+  Filter,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { SidebarSection } from '@/app/_components/nav/sidebar-section';
@@ -218,6 +219,8 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
         icon: Handshake,
         matchPrefix: '/vendor-dashboard/partnerships',
       },
+      // Wave 6 Quote-to-Booking Funnel — views → inquiries → quotes → booked.
+      { key: 'funnel', label: 'Funnel', href: '/vendor-dashboard/funnel', icon: Filter, matchPrefix: '/vendor-dashboard/funnel' },
       { key: 'reviews', label: 'Reviews', href: '/vendor-dashboard/reviews', icon: Star, matchPrefix: '/vendor-dashboard/reviews' },
       { key: 'real-stories', label: 'Real Stories', href: '/vendor-dashboard/real-stories', icon: Sparkles, matchPrefix: '/vendor-dashboard/real-stories' },
       { key: 'recaps', label: 'Recaps', href: '/vendor-dashboard/recaps', icon: Images, matchPrefix: '/vendor-dashboard/recaps' },

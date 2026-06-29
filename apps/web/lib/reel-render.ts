@@ -40,6 +40,7 @@
 
 import { ArrayBufferTarget, Muxer } from 'mp4-muxer';
 import type { BeatGrid } from './stories-templates';
+import { cameraAt, type CameraMove, type Transform } from './stories-camera-move';
 
 /**
  * One render source. Historically every source was a booth CLIP (a short
@@ -54,6 +55,12 @@ export type RenderClip = {
   durationSec: number | null;
   /** 'clip' = moving <video> (default), 'photo' = still <img>. */
   kind?: 'clip' | 'photo';
+  /**
+   * Optional virtual camera move for a PHOTO (§16.9) — a deterministic
+   * push-in / pan / roll / orbit-feel applied across the slot so the still
+   * reads as filmed. Ignored for clips (they already move). ₱0 per render.
+   */
+  cameraMove?: CameraMove;
 };
 
 export type RenderTemplate = {
@@ -410,10 +417,16 @@ export function spansToUnits(spans: number[], totalUnits: number): number[] {
   return floored;
 }
 
+// The camera-move engine's translate units are tuned against a 360×640 frame
+// (the §16.9 preview viewBox); scale them to the real output dimensions.
+const MOVE_TX_BASE = 360;
+const MOVE_TY_BASE = 640;
+
 function drawCover(
   ctx: CanvasRenderingContext2D,
   source: HTMLVideoElement | HTMLImageElement,
   template: RenderTemplate,
+  move?: Transform,
 ) {
   const [, , , dark] = template.palette;
   ctx.fillStyle = dark;
@@ -426,6 +439,20 @@ function drawCover(
   const scale = Math.max(OUT_W / vw, OUT_H / vh);
   const dw = vw * scale;
   const dh = vh * scale;
+  if (move) {
+    // Apply the virtual camera about the canvas center. The engine's overscan
+    // (scale ≥ 1.16) guarantees pan/roll never reveal the dark backdrop.
+    const txPx = (move.tx / MOVE_TX_BASE) * OUT_W;
+    const tyPx = (move.ty / MOVE_TY_BASE) * OUT_H;
+    ctx.save();
+    ctx.translate(OUT_W / 2 + txPx, OUT_H / 2 + tyPx);
+    ctx.rotate((move.rot * Math.PI) / 180);
+    ctx.scale(move.scale, move.scale);
+    ctx.translate(-OUT_W / 2, -OUT_H / 2);
+    ctx.drawImage(source, (OUT_W - dw) / 2, (OUT_H - dh) / 2, dw, dh);
+    ctx.restore();
+    return;
+  }
   ctx.drawImage(source, (OUT_W - dw) / 2, (OUT_H - dh) / 2, dw, dh);
 }
 
@@ -546,7 +573,9 @@ async function renderWithWebCodecs(
           for (let f = 0; f < n; f++) {
             if (encoderError) throw encoderError;
             if (signal?.aborted) throw new DOMException('Render cancelled', 'AbortError');
-            drawCover(ctx, img, template);
+            const p = n <= 1 ? 0 : f / (n - 1);
+            const move = source.cameraMove ? cameraAt(source.cameraMove, p) : undefined;
+            drawCover(ctx, img, template, move);
             drawOverlay(ctx, template);
             const frame = new VideoFrame(canvas, {
               timestamp: frameIdx * frameDurUs,
@@ -814,9 +843,11 @@ async function renderWithMediaRecorder(opts: RenderOptions): Promise<RenderResul
           await new Promise<void>((resolve) => {
             const slotStart = performance.now();
             const tick = () => {
-              drawCover(ctx, img, template);
-              drawOverlay(ctx, template);
               const elapsed = performance.now() - slotStart;
+              const p = ms <= 0 ? 0 : Math.min(1, elapsed / ms);
+              const move = source.cameraMove ? cameraAt(source.cameraMove, p) : undefined;
+              drawCover(ctx, img, template, move);
+              drawOverlay(ctx, template);
               if (elapsed % 200 < 20) {
                 onProgress?.(Math.min(0.97, (performance.now() - startedAt) / totalMs));
               }

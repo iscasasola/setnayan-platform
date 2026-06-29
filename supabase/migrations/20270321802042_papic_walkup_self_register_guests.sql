@@ -23,11 +23,13 @@
 --
 --   3. papic_walkup_register(p_walkup_token) — SECURITY DEFINER, public
 --      (anon|authenticated), the join route's only write path. Resolves the
---      event by papic_walkup_token, REQUIRES the event to own PAPIC_GUEST
---      (reusing papic_event_owns_service from 20260718000000 — so a leaked
---      walk-up token can't mint guests on an event that never bought guest
---      cameras), inserts a lightweight nameless guest (first_name 'Guest',
---      neutral side/category), returns { guest_id, event_id, qr_token }.
+--      event by papic_walkup_token, REQUIRES guest cameras to be active —
+--      PAPIC_GUEST OR the PAPIC_UNLOCK umbrella bundle, mirroring the app-side
+--      eventPapicGuestActive / eventSkuActive('PAPIC_GUEST') so walk-up is
+--      available exactly when the capture surface (/papic/guest) is — then
+--      inserts a lightweight nameless guest (first_name 'Guest', neutral
+--      side/category) and returns { guest_id, event_id, qr_token }. The
+--      authoritative gate is the app-side route; this is the DB backstop.
 --
 -- WHY SECURITY DEFINER + grant to anon: the walk-up surface has no Supabase auth
 -- session (the cookie is the identity), and guests RLS is couple-write only — a
@@ -102,7 +104,14 @@ BEGIN
     RETURN jsonb_build_object('status', 'invalid_token');
   END IF;
 
-  v_owns := public.papic_event_owns_service(v_event_id, 'PAPIC_GUEST');
+  -- Mirror eventPapicGuestActive / eventSkuActive('PAPIC_GUEST'): a literal
+  -- PAPIC_GUEST order OR the PAPIC_UNLOCK umbrella bundle (which grants
+  -- PAPIC_GUEST per BUNDLE_CHILD_SKUS — SKU_OWNERSHIP_ALIASES is empty, so there
+  -- are no other alias keys). The AUTHORITATIVE, bundle-aware gate is the
+  -- app-side join route (eventPapicGuestActive); this is the DB backstop for
+  -- direct RPC calls. Keep the two in sync.
+  v_owns := public.papic_event_owns_service(v_event_id, 'PAPIC_GUEST')
+         OR public.papic_event_owns_service(v_event_id, 'PAPIC_UNLOCK');
   IF NOT v_owns THEN
     RETURN jsonb_build_object('status', 'not_owned');
   END IF;

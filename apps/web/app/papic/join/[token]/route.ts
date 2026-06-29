@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { buildGuestSessionCookie, readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { eventPapicGuestActive } from '@/lib/papic-guest';
 
 // Papic WALK-UP entry — scan the EVENT walk-up QR, get a camera, no roster / no
 // name (Papic_Walkup_Face_Identity_Plan_2026-06-29 §1, §5).
@@ -47,6 +48,12 @@ export async function GET(
     .eq('papic_walkup_token', token)
     .maybeSingle();
   if (evErr || !ev) return fallback();
+
+  // Authoritative gate: walk-up is available IFF the capture surface it leads to
+  // (/papic/guest) is — same alias/bundle-aware check, so we never mint a guest
+  // for an event whose capture page would just reject them. The RPC repeats a DB
+  // backstop for direct calls.
+  if (!(await eventPapicGuestActive(admin, ev.event_id as string))) return fallback();
 
   // RESUME — already have a camera for THIS event on this device.
   const session = await readGuestSession();

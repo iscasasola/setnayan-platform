@@ -9,7 +9,7 @@ import { R2_BUCKETS, r2SignedGet } from '@/lib/r2';
  * The owner uploads them in /admin/background-videos:
  *   • slot 0    — the MAIN homepage background video (the looping hero).
  *   • slots 1-5 — the five PILLAR "icon" videos in the bottom dock
- *                 (Ala Ala · Likhaan · Planuhan · Surian · Tiangge).
+ *                 (Ala Ala · Likha · Plano · Suri · Tiangge).
  *
  * Unlike the scroll-scrub hero (lib/hero-video.ts, an extracted JPEG frame
  * sequence), each of these is a single looping <video> file: the row stores the

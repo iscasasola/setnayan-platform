@@ -2,12 +2,13 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { buildGuestSessionCookie, readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 
-// Papic WALK-UP entry — scan the EVENT master QR, get a camera, no roster / no
+// Papic WALK-UP entry — scan the EVENT walk-up QR, get a camera, no roster / no
 // name (Papic_Walkup_Face_Identity_Plan_2026-06-29 §1, §5).
 //
-// The master QR encodes /papic/join/<events.master_qr_token>. This handler does
-// the "resume-or-create" of an anonymous walk-up identity, then drops the guest
-// at the existing capture surface (/papic/guest):
+// The walk-up QR encodes /papic/join/<events.papic_walkup_token> — a DEDICATED
+// guest-facing token, separate from the privileged crew master_qr_token. This
+// handler does the "resume-or-create" of an anonymous walk-up identity, then
+// drops the guest at the existing capture surface (/papic/guest):
 //
 //   1. RESUME — a valid setnayan_guest_session cookie already bound to THIS
 //      event → reuse the same camera (the fix for "re-scan makes a new camera").
@@ -39,11 +40,11 @@ export async function GET(
 
   const admin = createAdminClient();
 
-  // Resolve the event behind this master QR so we can RESUME a same-event cookie.
+  // Resolve the event behind this walk-up token so we can RESUME a same-event cookie.
   const { data: ev, error: evErr } = await admin
     .from('events')
     .select('event_id')
-    .eq('master_qr_token', token)
+    .eq('papic_walkup_token', token)
     .maybeSingle();
   if (evErr || !ev) return fallback();
 
@@ -55,7 +56,7 @@ export async function GET(
 
   // CREATE — mint a lightweight walk-up guest (RPC enforces PAPIC_GUEST ownership).
   const { data, error } = await admin.rpc('papic_walkup_register', {
-    p_master_qr_token: token,
+    p_walkup_token: token,
   });
   if (error) return fallback();
 

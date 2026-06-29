@@ -1787,6 +1787,21 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 55,
   },
   {
+    // Vendor "recommend to your couples" map — leaf → SKU recommendation table
+    // + two-way curation review queue (Monetization group). Item key matches
+    // the admin-sidebar item suffix 1:1 so the registry overlay applies.
+    key: "admin.sidebar.vendor-recommendations",
+    scope: "admin",
+    area: "admin-sidebar",
+    route: "/admin/vendor-recommendations",
+    label: "Vendor recommendations",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Lightbulb",
+    customRef: null,
+    sortOrder: 56,
+  },
+  {
     key: "admin.sidebar.subscriptions",
     scope: "admin",
     area: "admin-sidebar",

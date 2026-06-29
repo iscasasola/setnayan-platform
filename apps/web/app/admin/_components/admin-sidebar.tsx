@@ -122,6 +122,7 @@ import {
   Newspaper,
   Images,
   Radar,
+  Lightbulb,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { SidebarSection } from '@/app/_components/nav/sidebar-section';
@@ -455,6 +456,15 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: 'Add-ons',
         href: '/admin/addons',
         icon: Sparkles,
+      },
+      {
+        // Vendor "recommend to your couples" map — the admin-editable vendor-leaf
+        // → recommendable-SKU table + the two-way curation review queue.
+        key: 'vendor-recommendations',
+        label: 'Vendor recommendations',
+        href: '/admin/vendor-recommendations',
+        icon: Lightbulb,
+        matchPrefix: '/admin/vendor-recommendations',
       },
       {
         key: 'discount-codes',

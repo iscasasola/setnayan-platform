@@ -27,6 +27,11 @@ import {
 } from './_components/vendor-offer-service';
 import { SendProposalCard } from './_components/send-proposal-card';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { fetchReasonCodes } from '@/lib/inquiry-outcomes';
+import {
+  InquiryOutcomeCapture,
+  type OutcomeReasonOption,
+} from './_components/inquiry-outcome-capture';
 
 export const metadata = { title: 'Thread · Vendor' };
 
@@ -42,6 +47,11 @@ const PROPOSAL_NOTICE: Record<string, string> = {
   proposal_tier_free: 'Get your account verified to send proposals to couples.',
   proposal_sent_no_card: 'Proposal sent — find it in your Proposals list (the in-chat card didn’t post).',
   proposal_thread_closed: 'You can only send a proposal on an open conversation.',
+  // Won & Lost Reasons capture (Wave 6).
+  outcome_saved: 'Outcome saved — thanks for logging it.',
+  outcome_invalid: 'Pick won, lost, or no-response to log this inquiry.',
+  outcome_bad_reason: 'That reason is no longer available — pick another.',
+  outcome_failed: 'Couldn’t save that outcome. Please try again.',
 };
 
 export default async function VendorThreadPage({ params, searchParams }: Props) {
@@ -183,6 +193,37 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   const peso = (n: number) =>
     `₱${Math.abs(Math.round(n)).toLocaleString('en-PH')}`;
 
+  // Won & Lost Reasons (Wave 6) — the live admin-managed reason taxonomy +
+  // any outcome already logged for THIS thread. The reason list is read from
+  // the table (never hardcoded); both degrade to empty/null pre-migration.
+  const reasonCodes = await fetchReasonCodes(supabase);
+  const reasonOptions: OutcomeReasonOption[] = reasonCodes.map((r) => ({
+    reasonCode: r.reasonCode,
+    label: r.label,
+    appliesTo: r.appliesTo,
+  }));
+  const { data: existingOutcome } = await supabase
+    .from('inquiry_outcomes')
+    .select('outcome, reason_code, free_text')
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .eq('chat_thread_id', threadId)
+    .is('vendor_proposal_id', null)
+    .maybeSingle();
+  const currentOutcome = existingOutcome
+    ? {
+        outcome: existingOutcome.outcome as 'won' | 'lost' | 'no_response',
+        reasonCode: existingOutcome.reason_code as string | null,
+        freeText: existingOutcome.free_text as string | null,
+      }
+    : null;
+  const outcomeCapture = (
+    <InquiryOutcomeCapture
+      threadId={threadId}
+      reasons={reasonOptions}
+      current={currentOutcome}
+    />
+  );
+
   return (
     <section className="mx-auto flex h-[calc(100dvh-12rem)] w-full max-w-3xl flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">
       <header className="flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-cream p-4">
@@ -311,6 +352,9 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
             templates={proposalTemplates}
             packages={proposalPackages}
           />
+          {/* Won & Lost Reasons (Wave 6) — log the outcome of this booked/active
+              inquiry. Self-reported; "Won" is off-platform, not a payment. */}
+          {outcomeCapture}
           <ChatSendForm threadId={threadId} sendAction={sendChatMessage} />
         </div>
       ) : thread.inquiry_status === 'pending' ? (
@@ -361,11 +405,21 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           </div>
         </div>
       ) : (
-        <div className="rounded-xl border border-ink/10 bg-ink/[0.03] p-4">
-          <p className="text-sm text-ink/70">
-            You declined this inquiry. The couple has been notified and pointed to
-            other vendors.
-          </p>
+        <div className="space-y-3">
+          {proposalNotice ? (
+            <p className="rounded-xl border border-mulberry/25 bg-mulberry/[0.06] px-4 py-2.5 text-sm text-ink">
+              {proposalNotice}
+            </p>
+          ) : null}
+          <div className="rounded-xl border border-ink/10 bg-ink/[0.03] p-4">
+            <p className="text-sm text-ink/70">
+              You declined this inquiry. The couple has been notified and pointed to
+              other vendors.
+            </p>
+          </div>
+          {/* Won & Lost Reasons (Wave 6) — even on a decline, log WHY so your
+              roll-up reflects it. */}
+          {outcomeCapture}
         </div>
       )}
     </section>

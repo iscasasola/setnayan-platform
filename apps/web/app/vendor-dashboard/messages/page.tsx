@@ -10,6 +10,8 @@ import {
 import { ThreadListCard } from '@/app/_components/chat/thread-list-card';
 import { RevealList } from '@/app/_components/reveal-list';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { fetchVendorOutcomeRollup } from '@/lib/inquiry-outcomes';
+import { InquiryOutcomesRollup } from './_components/inquiry-outcomes-rollup';
 
 export const metadata = { title: 'Messages · Vendor' };
 
@@ -35,6 +37,14 @@ export default async function VendorMessagesPage() {
     threads.filter((t) => t.inquiry_status === 'pending').map((t) => t.event_id),
   );
 
+  // Won & Lost Reasons roll-up (Wave 6) — the vendor's own self-reported outcome
+  // breakdown. Ownership-gated RPC; renders nothing until at least one outcome
+  // is logged (graceful-degrades to null pre-migration).
+  const outcomeRollup = await fetchVendorOutcomeRollup(
+    supabase,
+    profile.vendor_profile_id,
+  );
+
   return (
     <section className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-2">
@@ -44,6 +54,8 @@ export default async function VendorMessagesPage() {
           identified themselves with — personal names stay private until they choose to share.
         </p>
       </header>
+
+      <InquiryOutcomesRollup rollup={outcomeRollup} />
 
       {threads.length === 0 ? (
         <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center">

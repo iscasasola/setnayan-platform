@@ -29,6 +29,8 @@ import {
 import { MobileLandingGrid, type LandingItem } from '../_components/mobile-landing-grid';
 import { fetchAdminPesoOverview } from '@/lib/vendor-peso';
 import { PesoPerLeadAdminCard } from './_components/peso-per-lead-admin-card';
+import { fetchAdminOutcomeOverview } from '@/lib/inquiry-outcomes';
+import { WonLostAdminCard } from './_components/won-lost-admin-card';
 
 export const metadata = { title: 'Insights · Admin' };
 
@@ -88,12 +90,17 @@ export default async function AdminInsightsLanding() {
   // non-admins, and the RPC self-gates on is_console_admin(), so this only
   // resolves for admins. Visible at all breakpoints (unlike the mobile-only
   // nav grid below).
-  const pesoOverview = await fetchAdminPesoOverview();
+  const [pesoOverview, outcomeOverview] = await Promise.all([
+    fetchAdminPesoOverview(),
+    // Won & Lost Reasons aggregate (Wave 6). Same admin-only gating as above.
+    fetchAdminOutcomeOverview(),
+  ]);
 
   return (
     <>
       <div className="mx-auto w-full max-w-3xl px-4 pt-6 sm:px-6 lg:max-w-6xl">
         <PesoPerLeadAdminCard overview={pesoOverview} />
+        <WonLostAdminCard overview={outcomeOverview} />
       </div>
       <MobileLandingGrid
         title="Insights"

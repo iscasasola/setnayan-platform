@@ -4,6 +4,11 @@ import { activateConcierge } from '@/app/dashboard/(account)/profile/concierge/a
 import { branchIdFromServiceKey } from '@/lib/vendor-branches';
 import { BUNDLE_CHILD_SKUS, eventSkuActive } from '@/lib/entitlements';
 import { provisionPapicSeatsAdmin } from '@/lib/papic-seats';
+import {
+  AI_SUB_SKU,
+  cyclesFromAmount,
+  extendUserAiSubscription,
+} from '@/lib/setnayan-ai-subscription';
 
 /**
  * apps/web/lib/sku-activation.ts
@@ -78,6 +83,80 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
     // Throwing is safe: the order is already 'paid', the dispatcher swallows +
     // logs and never rolls back the approval.
     if (error) throw new Error(`SETNAYAN_AI activation write failed: ${error.message}`);
+  },
+
+  // 'SETNAYAN_AI_SUB' → per-USER subscription term pass (₱499 / 28-day cycle,
+  // owner 2026-06-29). Extends the BUYER's user_ai_subscription window by
+  // (paid amount ÷ admin unit price) cycles × 28 days, fanning AI out to all
+  // their events. Idempotent two ways: a prior 'service_activated' ledger row
+  // for this order, OR the window already carrying this order as last_order_id —
+  // either short-circuits so a re-approval never double-grants. INERT while the
+  // per-user flag is off (the gate ignores the window), but the grant records
+  // safely regardless. Throws only on the write so the dispatcher logs + retries.
+  [AI_SUB_SKU]: async (ctx) => {
+    // (1) Idempotency — already activated this order?
+    const { data: priorLedger } = await ctx.admin
+      .from('order_ledger')
+      .select('order_id')
+      .eq('order_id', ctx.orderId)
+      .eq('event_type', 'service_activated')
+      .limit(1)
+      .maybeSingle();
+    if (priorLedger) return;
+
+    // (2) Buyer + paid amount off the order.
+    const { data: order } = await ctx.admin
+      .from('orders')
+      .select('user_id, confirmed_total_php, requested_total_php')
+      .eq('order_id', ctx.orderId)
+      .maybeSingle();
+    if (!order?.user_id) return;
+    const amountPhp = Number(order.confirmed_total_php ?? order.requested_total_php ?? 0);
+
+    // (3) Admin-managed unit price (single source = the catalog).
+    const { data: sku } = await ctx.admin
+      .from('platform_retail_catalog_v2')
+      .select('retail_price_php')
+      .eq('service_code', AI_SUB_SKU)
+      .maybeSingle();
+    const cycles = cyclesFromAmount(amountPhp, sku?.retail_price_php ?? null);
+    if (cycles <= 0) return;
+
+    // (4) Current window (one row per user) → extend, with a second idempotency
+    // guard for the upsert-succeeded-but-ledger-failed retry case.
+    const { data: existing } = await ctx.admin
+      .from('user_ai_subscription')
+      .select('active_until, last_order_id')
+      .eq('user_id', order.user_id)
+      .maybeSingle();
+    if (existing?.last_order_id === ctx.orderId) return;
+    const newUntil = extendUserAiSubscription(
+      existing?.active_until ?? null,
+      cycles,
+      new Date(),
+    );
+
+    const { error } = await ctx.admin.from('user_ai_subscription').upsert(
+      {
+        user_id: order.user_id,
+        active_until: newUntil.toISOString(),
+        source: 'paid',
+        last_order_id: ctx.orderId,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id' },
+    );
+    if (error) {
+      throw new Error(`SETNAYAN_AI_SUB activation write failed: ${error.message}`);
+    }
+
+    await appendLedger(ctx.admin, {
+      order_id: ctx.orderId,
+      event_type: 'service_activated',
+      actor_user_id: ctx.actorUserId,
+      actor_role: 'admin',
+      metadata: { service_key: ctx.serviceKey, cycles, active_until: newUntil.toISOString() },
+    });
   },
 
   // 'PAPIC_SEATS' → paid Papic upgrade. Ownership reads off orders.status (no

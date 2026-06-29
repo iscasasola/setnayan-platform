@@ -11,7 +11,11 @@ import { eventActiveSkus } from '@/lib/entitlements';
 import { StudioAppRow, type RowPill } from './_components/studio-app-row';
 import { StudioFeaturedCard } from './_components/studio-featured-card';
 import { StudioSectionTabs } from './_components/studio-section-tabs';
-import { dismissRecommendation, recommendFeature } from './recommend-actions';
+import {
+  dismissRecommendation,
+  dismissVendorRecommendation,
+  recommendFeature,
+} from './recommend-actions';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
@@ -141,6 +145,40 @@ export default async function StudioPage({ params }: Props) {
     });
   }
 
+  // ── Vendor "suggest to a couple" (owner 2026-06-30) ───────────────────────
+  // The vendor-side twin of the coordinator strip: a connected vendor (accepted
+  // chat thread) suggests a buyable Studio add-on, and the couple sees it here as
+  // a "Suggested by your vendors" strip alongside the coordinator one. Read under
+  // RLS (vfr_couple_select scopes to current_couple_event_ids), pending only. A
+  // coordinator viewing the hub isn't a couple member, so RLS returns no rows for
+  // them — the strip is couple-only without an extra role check. We resolve the
+  // recommending vendor's business_name to attribute each suggestion.
+  const { data: vendorRecRows } = await supabase
+    .from('vendor_feature_recommendations')
+    .select('addon_key, note, vendor_profile_id')
+    .eq('event_id', eventId)
+    .eq('status', 'pending');
+  const vendorRecs = (vendorRecRows ?? []) as {
+    addon_key: string;
+    note: string | null;
+    vendor_profile_id: string;
+  }[];
+
+  const vendorNameById = new Map<string, string>();
+  if (vendorRecs.length > 0) {
+    const vendorIds = Array.from(new Set(vendorRecs.map((r) => r.vendor_profile_id)));
+    const { data: vendorRows } = await supabase
+      .from('vendor_profiles')
+      .select('vendor_profile_id, business_name')
+      .in('vendor_profile_id', vendorIds);
+    for (const v of (vendorRows ?? []) as {
+      vendor_profile_id: string;
+      business_name: string | null;
+    }[]) {
+      if (v.business_name) vendorNameById.set(v.vendor_profile_id, v.business_name);
+    }
+  }
+
   // An add-on is "owned" once it's active (paid/fulfilled) — directly OR via a
   // bundle it belongs to (bundle-aware, co-host-aware via the admin read above).
   function isOwned(entry: AddOnEntry): boolean {
@@ -230,6 +268,27 @@ export default async function StudioPage({ params }: Props) {
             Boolean(x.entry) && isRecommendable(x.entry as AddOnEntry),
         );
 
+  // The couple's vendor digest: every pending, still-buyable add-on a connected
+  // vendor has suggested, attributed to the vendor's business name. Same
+  // recommendable/not-owned gate as the coordinator strip (drops free,
+  // coming-soon, junk-key, or already-owned add-ons). RLS already returns no rows
+  // for a coordinator, so this is empty for them.
+  const vendorSuggestions = vendorRecs
+    .map((r) => ({
+      entry: entryByKey.get(r.addon_key),
+      note: r.note,
+      vendorProfileId: r.vendor_profile_id,
+      vendorName: vendorNameById.get(r.vendor_profile_id) ?? 'Your vendor',
+    }))
+    .filter(
+      (x): x is {
+        entry: AddOnEntry;
+        note: string | null;
+        vendorProfileId: string;
+        vendorName: string;
+      } => Boolean(x.entry) && isRecommendable(x.entry as AddOnEntry),
+    );
+
   const tabs = SECTIONS.map((s) => ({ id: s.anchor, label: s.label }));
 
   return (
@@ -281,6 +340,58 @@ export default async function StudioPage({ params }: Props) {
                   </Link>
                   <form action={dismissRecommendation}>
                     <input type="hidden" name="event_id" value={eventId} />
+                    <input type="hidden" name="addon_key" value={entry.key} />
+                    <SubmitButton
+                      pendingLabel="Dismissing…"
+                      className="shrink-0 rounded-full px-2.5 py-1 text-xs font-medium text-ink/45 transition-colors hover:text-ink/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
+                    >
+                      Dismiss
+                    </SubmitButton>
+                  </form>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
+
+      {vendorSuggestions.length > 0 ? (
+        <div className="rounded-2xl border border-terracotta/30 bg-terracotta/[0.04] p-5 sm:p-6">
+          <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-terracotta-600">
+            Suggested by your vendors
+          </p>
+          <ul className="mt-3 space-y-3">
+            {vendorSuggestions.map(({ entry, note, vendorProfileId, vendorName }) => {
+              const Icon = entry.Icon;
+              return (
+                <li key={`${vendorProfileId}:${entry.key}`} className="flex items-center gap-3">
+                  <span
+                    aria-hidden
+                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-cream"
+                    style={{ background: entry.poster.baseBackground }}
+                  >
+                    <Icon className="h-5 w-5" strokeWidth={1.75} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[15px] font-semibold text-ink">
+                      {entry.label}
+                    </span>
+                    <span className="mt-0.5 block truncate text-[11px] font-medium uppercase tracking-[0.1em] text-terracotta-600">
+                      {vendorName}
+                    </span>
+                    <span className="mt-0.5 line-clamp-2 block text-[13px] leading-snug text-ink/60">
+                      {note ? `“${note}”` : entry.blurb}
+                    </span>
+                  </span>
+                  <Link
+                    href={cardHref(entry)}
+                    className="shrink-0 rounded-full bg-terracotta px-3.5 py-1 text-xs font-bold text-cream transition-colors hover:bg-terracotta-700"
+                  >
+                    View
+                  </Link>
+                  <form action={dismissVendorRecommendation}>
+                    <input type="hidden" name="event_id" value={eventId} />
+                    <input type="hidden" name="vendor_profile_id" value={vendorProfileId} />
                     <input type="hidden" name="addon_key" value={entry.key} />
                     <SubmitButton
                       pendingLabel="Dismissing…"

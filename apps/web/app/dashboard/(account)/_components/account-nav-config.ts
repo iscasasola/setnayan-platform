@@ -21,7 +21,7 @@
  * AccountSidebar and any Server Component can import + call this.
  */
 
-import { CalendarHeart, LayoutGrid, Bell, Settings, Store, Plus } from 'lucide-react';
+import { CalendarHeart, LayoutGrid, Bell, Settings, Store, Plus, Sparkles } from 'lucide-react';
 import type { NavGroup } from '@/app/_components/nav/types';
 
 export function buildAccountNavGroups(): NavGroup[] {
@@ -51,6 +51,17 @@ export function buildAccountNavGroups(): NavGroup[] {
           href: '/dashboard/library',
           icon: LayoutGrid,
           matchPrefix: '/dashboard/library',
+        },
+        {
+          // Setnayan AI — the per-USER subscription (₱499 / 28-day cycle) that
+          // covers ALL of the user's events. Account-level (eventless) buy page.
+          // Safe to link now: while the per-user flag is off the page renders a
+          // "coming soon" state (the buy UI is dormant).
+          key: 'setnayan-ai',
+          label: 'Setnayan AI',
+          href: '/dashboard/setnayan-ai',
+          icon: Sparkles,
+          matchPrefix: '/dashboard/setnayan-ai',
         },
         {
           key: 'notifications',

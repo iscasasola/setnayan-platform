@@ -177,7 +177,16 @@ export type NotificationType =
   // to the read-only /vendor-dashboard/clients/[eventId]/mood-board view they
   // already have access to (get_vendor_mood_board RPC). Informational nudge —
   // NOT on the email/push allowlists.
-  | 'mood_board_share';
+  | 'mood_board_share'
+  // Added 2026-06-30 (Phase 3b delivery polish · migration
+  // 20270327434080_vendor_feature_suggested_notification_type.sql). Fired
+  // (COUPLE-recipient) from
+  // app/vendor-dashboard/recommendations/share-actions.ts → suggestToCouple()
+  // when a connected vendor suggests a buyable Studio add-on. One notification
+  // per couple member, deep-linking to /dashboard/[eventId]/studio where the
+  // "Suggested by your vendors" strip renders it. ON the email allowlist (reaches
+  // a couple who isn't currently in the app); NOT on the push allowlist.
+  | 'vendor_feature_suggested';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   chat_message: 'New message',
@@ -236,6 +245,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   subscription_activated: 'Plan active',
   // The couple shared their mood board with their booked vendors (2026-06-28).
   mood_board_share: 'Mood board shared',
+  vendor_feature_suggested: 'A vendor suggested a service',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -338,6 +348,7 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   // The couple sharing their mood board = a positive, informational arrival in
   // the vendor's tray → sky (matches editorial_decision / the informational register).
   mood_board_share: 'bg-sky-100 text-sky-800',
+  vendor_feature_suggested: 'bg-terracotta-100 text-terracotta-900',
 };
 
 export type NotificationRow = {

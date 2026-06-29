@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { defaultTablePosition, type EventTableRow, type TableType } from '@/lib/seating';
-import { checkOrderOwnership } from '@/lib/entitlements';
+import { checkOrderOwnership, eventHasCompGrant } from '@/lib/entitlements';
 
 /**
  * apps/web/lib/indoor-blueprint.ts
@@ -47,7 +47,12 @@ export async function eventOwnsIndoorBlueprint(
   // never granted by GUIDED_PACK/MEDIA_PACK, so the bare exact-key reader is
   // correct here and eventOwnsSku would be misleading. Verified against
   // BUNDLE_CHILD_SKUS.)
-  return checkOrderOwnership(supabase, eventId, INDOOR_BLUEPRINT_SERVICE_KEY);
+  if (await checkOrderOwnership(supabase, eventId, INDOOR_BLUEPRINT_SERVICE_KEY)) {
+    return true;
+  }
+  // Admin comp grant — an all_services / specific_skus gift covering this SKU
+  // unlocks it too (host-scoped server-side · lib/entitlements eventHasCompGrant).
+  return eventHasCompGrant(supabase, eventId, INDOOR_BLUEPRINT_SERVICE_KEY);
 }
 
 // ─────────────────────────────────────────────────────────────────────────

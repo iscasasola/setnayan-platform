@@ -49,6 +49,9 @@ function makeOwnershipSupabase(result: QueryResult) {
     in: () => builder,
     then: (resolve: (value: QueryResult) => unknown) =>
       Promise.resolve(result).then(resolve),
+    // Gates now consult the comp-grant SECURITY DEFINER fns; default = no comp
+    // (`data: null` → eventHasCompGrant false, eventCompActiveSkus []).
+    rpc: () => Promise.resolve({ data: null, error: null }),
   };
   return builder as unknown as SupabaseClient;
 }

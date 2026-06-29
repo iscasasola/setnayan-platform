@@ -3,54 +3,51 @@ import { test, expect } from '@playwright/test';
 /**
  * Homepage critical-path tests (Task #35).
  *
- * Renders the marketing-site landing page and asserts the load-bearing
- * CTAs are present. If this test breaks, signup conversion is broken —
- * every other test in the suite assumes a couple can land on `/` and
- * see the primary action surface.
+ * Renders the marketing-site landing page and asserts the load-bearing CTAs are
+ * present. If this test breaks, signup conversion is broken — every other test
+ * in the suite assumes a couple can land on `/` and see the primary action
+ * surface.
  *
- * Selectors target the actual copy on
- * `apps/web/app/_components/marketing/_sections.tsx` (the consolidated
- * marketing surface shipped via the 2026-05-28 v2.1 visual treatment
- * port · supersedes the prior `_Hero.tsx` file referenced here pre-2026-05-28)
- * plus `apps/web/app/_components/site-header.tsx`. Per the orphan-prevention
- * convention, every assertion here references a real route + real copy
- * shipping on `origin/main`.
+ * 2026-06-29 — ELN-style homepage reskin (PR #2432). The homepage is now the
+ * cinematic no-scroll gate rendered by `HomeReskin`
+ * (apps/web/app/_components/home/HomeReskin.tsx). The OLD "_sections.tsx" hero
+ * ("Your wedding is one day." / "Keep it forever.") was removed. These
+ * assertions target the reskin's INITIAL gate state — everything checked here is
+ * visible on load WITHOUT opening the gate (no scroll/unlock required):
+ *   • h1 `.hr-htitle` → "Keep your memories." / "Plan your moments."
+ *   • eyebrow `.hr-kick` → the brand phrase "Set na 'yan"
+ *   • hero primary CTA → "Start planning · free" link → /onboarding/wedding
+ *   • nav "Sign in" link → /login (the real Google + Apple + email auth)
  *
- * Hero structure note (2026-06-24 memory-home repositioning · PR-H): the h1 is
- * "Your wedding is one day." and the punchline "Keep it forever." renders as a
- * styled display span (not a heading). The brand phrase "SET NA 'YAN" stays in
- * the eyebrow above the headline, so the heading assertion targets the h1 copy
- * and the brand phrase is still verified as text via a case-insensitive
- * "Set na" match (tolerates the uppercase eyebrow + any apostrophe codepoint).
- * (CI renders this keynote fallback because no hero video is published there.)
+ * The gate is a client island, so the elements hydrate after first paint;
+ * Playwright's auto-waiting handles that. All four assertions are above the
+ * fold in the gate, so none depend on the unlock/scroll interaction.
  */
 test.describe('Homepage', () => {
   test('renders with primary CTAs', async ({ page }) => {
     await page.goto('/');
 
-    // Hero headline — `_sections.tsx` ships the h1 "Your wedding is one day."
-    // with the punchline "Keep it forever." rendered as a styled span beneath.
-    await expect(
-      page.getByRole('heading', { name: /Your wedding is one day/i }),
-    ).toBeVisible();
-    // Punchline + brand phrase still present (eyebrow keeps "SET NA 'YAN").
-    // "forever." is its own styled span, so match that single text node.
-    await expect(page.getByText(/forever/i).first()).toBeVisible();
+    // Hero headline — the reskin's h1 carries both lines (a <br> between them),
+    // so the accessible name is "Keep your memories.Plan your moments.". Match
+    // each line independently so a copy tweak to one doesn't fail the smoke test.
+    const heroHeading = page.getByRole('heading', { name: /Keep your memories/i });
+    await expect(heroHeading).toBeVisible();
+    await expect(heroHeading).toHaveText(/Plan your moments/i);
+
+    // Brand phrase — the eyebrow keeps "Set na 'yan" (any apostrophe codepoint).
     await expect(page.getByText(/Set na/i).first()).toBeVisible();
 
-    // Hero primary CTA — `_sections.tsx` ships "Start planning" → /signup.
-    // Multiple instances render across the page; `.first()` picks the hero
-    // one which is what couples see above the fold.
-    await expect(
-      page.getByRole('link', { name: /Start planning/i }).first(),
-    ).toBeVisible();
+    // Hero primary CTA — "Start planning · free" → /onboarding/wedding. (Uses a
+    // non-breaking space around the middot, so match the leading words only.)
+    const startPlanning = page.getByRole('link', { name: /Start planning/i }).first();
+    await expect(startPlanning).toBeVisible();
+    await expect(startPlanning).toHaveAttribute('href', '/onboarding/wedding');
 
-    // Site header desktop sign-in link — `site-header.tsx` ships
-    // "Sign in" gated to md+. 1280×800 viewport in the config is md+,
-    // so the link must be visible without opening the mobile sheet.
-    await expect(
-      page.getByRole('link', { name: /^Sign in$/i }).first(),
-    ).toBeVisible();
+    // Nav sign-in — the reskin's glass nav ships a "Sign in" link → the real
+    // /login (Google + Apple + email). Visible in the gate on every viewport.
+    const signIn = page.getByRole('link', { name: /^Sign in$/i }).first();
+    await expect(signIn).toBeVisible();
+    await expect(signIn).toHaveAttribute('href', '/login');
   });
 
   test('homepage responds with 200', async ({ page }) => {

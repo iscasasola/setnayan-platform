@@ -40,6 +40,7 @@ import {
   passesFaithFilter,
 } from '@/lib/taxonomy-filters';
 import { computeCompatScore } from '@/lib/compat-score';
+import { fetchFirstLookConfig, isFirstLookEligible } from '@/lib/firstlook';
 import { isSetnayanAiActive } from '@/lib/setnayan-ai';
 import { resolveSetnayanAiPaywallEnabled } from '@/lib/integration-config';
 import {
@@ -83,6 +84,11 @@ export type CategoryVendorResult = {
   /** null when Setnayan Assist is OFF (Manual mode) — the pill is hidden. */
   compatScore: number | null;
   compatTier: 'strong' | 'good' | 'fair' | null;
+  /** First-Look Window (Wave 2): the vendor replies to recent inquiries within
+   *  the admin SLA + clears the response-rate floor → it earned a ranking
+   *  head-start (lib/firstlook + lib/compat-score) AND we badge it "Replies
+   *  fast". False = no head-start (sat at neutral, never penalized). */
+  respondsFast: boolean;
   /** Last-minute mechanic (Setnayan AI §4). True when this vendor's matched
    *  service is in its last-minute window (END ≤ R ≤ leaf START) AND visible
    *  to this couple → render the "Last-minute" badge. AI-only by nature
@@ -462,6 +468,43 @@ export async function searchCategoryVendors(input: {
     });
   }
 
+  // ── First-Look Window (Wave 2) ───────────────────────────────────────────
+  // Read the admin-managed config defensively (lib/firstlook — the two columns
+  // may still be mid-apply in prod, so this is a dedicated try/catch reader that
+  // falls back to {sla 24h, weight 0.10} and never folds into fetchPlatformSettings)
+  // + batch-fetch each candidate's responsiveness from vendor_activity_stats
+  // (mirrors the /explore PR #6 read). Fail-soft: an empty map means no vendor
+  // earns the boost (respondsFast=false → neutral in the score, never a penalty).
+  const firstLook = await fetchFirstLookConfig(supabase);
+  const activityByVendor = new Map<
+    string,
+    { avg_response_minutes: number | null; response_rate_pct: number | null }
+  >();
+  {
+    const { data: actRows, error: actErr } = await admin
+      .from('vendor_activity_stats')
+      .select('vendor_profile_id, avg_response_minutes, response_rate_pct')
+      .in('vendor_profile_id', ids);
+    if (actErr) {
+      console.warn(
+        '[category-search] vendor_activity_stats fetch failed',
+        actErr.message,
+      );
+    } else {
+      for (const row of actRows ?? []) {
+        const r = row as {
+          vendor_profile_id: string;
+          avg_response_minutes: number | null;
+          response_rate_pct: number | null;
+        };
+        activityByVendor.set(r.vendor_profile_id, {
+          avg_response_minutes: r.avg_response_minutes ?? null,
+          response_rate_pct: r.response_rate_pct ?? null,
+        });
+      }
+    }
+  }
+
   // Per-vendor last-minute zone (§4, vendor-owned START 2026-06-16): the START
   // is the vendor's own per-service RECOMMENDED LEAD TIME
   // (recommended_lead_time_months); the platform leaf/group START is only a soft
@@ -582,6 +625,14 @@ export async function searchCategoryVendors(input: {
     const serviceRadiusKm =
       Number.isFinite(radiusKm) && radiusKm > 0 ? radiusKm : null;
     const adRank = (r.ad_rank as number | null) ?? 0;
+    // First-Look eligibility: replied within the admin SLA AND cleared the
+    // response-rate floor. respondsFast only ever RAISES the score (the boost
+    // blend in compat-score is (1-bw)·raw + bw·1 for fast responders; a non-fast
+    // vendor sits at neutral, never a penalty). Surfaced on the row for the badge.
+    const respondsFast = isFirstLookEligible(
+      activityByVendor.get(r.vendor_profile_id),
+      firstLook.slaHours,
+    );
     const compat = assistOff
       ? null
       : computeCompatScore({
@@ -590,6 +641,8 @@ export async function searchCategoryVendors(input: {
           reviewCount: r.review_count ?? null,
           verified: r.public_visibility === 'verified',
           boosted: adRank > 0,
+          respondsFast,
+          boostWeight: firstLook.boostWeight,
         });
     const compatScore: number | null = compat ? compat.score : null;
     const compatTier: 'strong' | 'good' | 'fair' | null = compat ? compat.tier : null;
@@ -611,6 +664,7 @@ export async function searchCategoryVendors(input: {
       boosted: adRank > 0,
       compatScore,
       compatTier,
+      respondsFast,
       lastMinuteAvailable: lm.zone === 'last_minute' && searchable,
       lastMinuteSurchargePct: lm.zone === 'last_minute' ? lm.surchargePct : null,
       alreadyAdded: addedIds.has(r.vendor_profile_id),
@@ -711,6 +765,7 @@ export async function searchCategoryVendors(input: {
     boosted: s.boosted,
     compatScore: s.compatScore,
     compatTier: s.compatTier,
+    respondsFast: s.respondsFast,
     lastMinuteAvailable: s.lastMinuteAvailable,
     lastMinuteSurchargePct: s.lastMinuteSurchargePct,
     alreadyAdded: s.alreadyAdded,

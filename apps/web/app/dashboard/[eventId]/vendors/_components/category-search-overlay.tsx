@@ -68,6 +68,8 @@ const CSS = `
 .csov .r .badge.lm .pct{font-weight:700;margin-left:2px}
 .csov .r .badge.near{color:#2f7d4f;background:rgba(47,125,79,.12)}
 .csov .r .badge.far{color:#9a6a00;background:rgba(197,160,89,.16)}
+/* First-Look "Replies fast" (Wave 2) — calm, trustworthy green, subtle. */
+.csov .r .badge.rf{color:#2f7d4f;background:rgba(47,125,79,.12)}
 /* Relationship-depth badges */
 .csov .r .badge.rel-3{font-weight:600;color:var(--paper);background:var(--ink)}
 .csov .r .badge.rel-2{font-weight:600;color:var(--mulberry);background:rgba(30, 34, 41,.12);border:1px solid rgba(30, 34, 41,.25)}
@@ -365,6 +367,14 @@ export function CategorySearchOverlay({
               <span>{r.city}</span>
             ) : null}
             {r.verified ? <span className="badge vrf">Verified</span> : null}
+            {r.respondsFast ? (
+              <span
+                className="badge rf"
+                title="Replies quickly to inquiries (First-Look vendor)"
+              >
+                Replies fast
+              </span>
+            ) : null}
             {r.boosted ? (
               <span
                 className="badge bst"

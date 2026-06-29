@@ -90,6 +90,7 @@ import {
   Home,
   Briefcase,
   CalendarDays,
+  CalendarClock,
   ClipboardList,
   FileSignature,
   FileText,
@@ -232,6 +233,10 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
     label: 'Business',
     items: [
       { key: 'earnings', label: 'Earnings', href: '/vendor-dashboard/earnings', icon: Wallet, matchPrefix: '/vendor-dashboard/earnings' },
+      // Payday Calendar & Cash-Flow (Wave 4) — read-only timeline of installment
+      // due-dates across booked events. Owner/admin only (key absent from
+      // VENDOR_SCOPED_NAV_ITEM_KEYS, like earnings) — it surfaces money figures.
+      { key: 'payday', label: 'Payday', href: '/vendor-dashboard/payday', icon: CalendarClock, matchPrefix: '/vendor-dashboard/payday' },
       { key: 'payment-options', label: 'How clients pay you', href: '/vendor-dashboard/payment-options', icon: Wallet, matchPrefix: '/vendor-dashboard/payment-options' },
       { key: 'manpower', label: 'Manpower', href: '/vendor-dashboard/manpower', icon: HardHat, matchPrefix: '/vendor-dashboard/manpower' },
       // Branches — Enterprise sub-location accounts (owner-locked 2026-06-05).

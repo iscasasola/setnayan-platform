@@ -140,8 +140,8 @@ export default async function HomePage() {
 
   // Admin-uploaded homepage background videos (/admin/background-videos):
   // slot 0 = the main cinematic hero backdrop; slots 1-5 = the five pillar
-  // dock "icon" videos, in PILLAR_HEROES order (Ala Ala · Likhaan · Planuhan ·
-  // Surian · Tiangge). Each is null until its slot is published → the dock
+  // dock "icon" videos, in PILLAR_HEROES order (Ala Ala · Likha · Plano ·
+  // Suri · Tiangge). Each is null until its slot is published → the dock
   // tile / hero scene falls back to its gradient. See lib/background-videos.ts.
   const bg = await fetchPublishedBackgroundVideos();
   const bgVideos = {

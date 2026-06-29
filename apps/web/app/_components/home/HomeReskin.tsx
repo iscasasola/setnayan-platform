@@ -69,7 +69,7 @@ function reduceMotion() {
  * Admin-uploaded homepage background videos (/admin/background-videos):
  *   • main      — the cinematic hero backdrop (slot 0), shown on the home scene.
  *   • pillars[] — the five dock "icon" videos in PILLAR_HEROES order
- *                 (Ala Ala · Likhaan · Planuhan · Surian · Tiangge). Each entry
+ *                 (Ala Ala · Likha · Plano · Suri · Tiangge). Each entry
  *                 is a URL or null (null → that tile / hero swap keeps its
  *                 gradient). A selected pillar's video also takes over the hero.
  */
@@ -536,9 +536,9 @@ export function HomeReskin({ pricing, bgVideos }: { pricing: PricingData; bgVide
           <div className="hr-pnum">Pricing</div>
           <h2 className="hr-pname">Start free. Stay if it earns you.</h2>
           <p className="hr-pdef">
-            No tricks at the floor — the free tier is a real planner, not a demo: the full Planuhan
-            suite, the free Likhaan studio, a live event page, and Ala Ala basics. Add Surian and
-            premium Likhaan when you want the brain and the polish. The full breakdown lives on the
+            No tricks at the floor — the free tier is a real planner, not a demo: the full Plano
+            suite, the free Likha studio, a live event page, and Ala Ala basics. Add Suri and
+            premium Likha when you want the brain and the polish. The full breakdown lives on the
             pricing page.
           </p>
           <button className="hr-btn-dark" onClick={() => setOverlay('prices')}>
@@ -589,7 +589,7 @@ export function HomeReskin({ pricing, bgVideos }: { pricing: PricingData; bgVide
 
         <footer className="hr-footer">
           <span>Setnayan · setnayan.com</span>
-          <span>Ala Ala · Likhaan · Planuhan · Surian · Tiangge</span>
+          <span>Ala Ala · Likha · Plano · Suri · Tiangge</span>
           <span>© 2026 · Made in the Philippines</span>
         </footer>
       </main>

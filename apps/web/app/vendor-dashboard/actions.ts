@@ -7,7 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { vendorExperienceEnabled } from '@/lib/vendor-experience';
-import { fetchHasBusinessDocuments } from '@/lib/vendor-profile';
+import { fetchHasBusinessDocuments, fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { geocodeNominatim } from '@/lib/geo';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import { getTaxonomy } from '@/lib/taxonomy-db';
@@ -532,4 +532,72 @@ export async function toggleVendorBackendCount(formData: FormData) {
 
   revalidatePath('/vendor-dashboard');
   redirect('/vendor-dashboard?saved=1');
+}
+
+/**
+ * Shortlist Radar (Wave 2) — vendor-facing demand read.
+ *
+ * Resolves the caller's OWN vendor_profile_id, then calls the two RLS-scoped
+ * SECURITY DEFINER RPCs:
+ *   • count_saves_for_vendor   → live "N couples saved you" tally (distinct
+ *     savers across vendor_follows + guest_saved_vendors, count only — never
+ *     a user_id, so guest_saved_vendors stays owner-only at the RLS layer).
+ *   • rival_signals_for_vendor → de-identified (month, region, count) demand
+ *     rollup in the vendor's hq_region; the RPC itself honors the admin
+ *     radar_enabled toggle + min-N floor, so nothing below the floor and no
+ *     couple identity ever reaches this process.
+ *
+ * Best-effort: any failure (no profile, RPC error, pre-migration deploy)
+ * collapses to zeros/empty so the dashboard home never breaks.
+ */
+export type ShortlistRadarSignal = {
+  month_bucket: string;
+  region_code: string;
+  signal_count: number;
+};
+
+export type ShortlistRadar = {
+  savedCount: number;
+  signals: ShortlistRadarSignal[];
+};
+
+export async function getShortlistRadar(): Promise<ShortlistRadar> {
+  const empty: ShortlistRadar = { savedCount: 0, signals: [] };
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return empty;
+
+    const profile = await fetchOwnVendorProfile(supabase, user.id);
+    if (!profile) return empty;
+    const vendorProfileId = profile.vendor_profile_id;
+
+    const [savesRes, signalsRes] = await Promise.all([
+      supabase.rpc('count_saves_for_vendor', {
+        p_vendor_profile_id: vendorProfileId,
+      }),
+      supabase.rpc('rival_signals_for_vendor', {
+        p_vendor_profile_id: vendorProfileId,
+      }),
+    ]);
+
+    const savedCount =
+      typeof savesRes.data === 'number' ? savesRes.data : 0;
+
+    const signals: ShortlistRadarSignal[] = Array.isArray(signalsRes.data)
+      ? (signalsRes.data as ShortlistRadarSignal[]).map((row) => ({
+          month_bucket: String(row.month_bucket),
+          region_code: String(row.region_code),
+          signal_count: Number(row.signal_count) || 0,
+        }))
+      : [];
+
+    return { savedCount, signals };
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[getShortlistRadar] failed', err);
+    return empty;
+  }
 }

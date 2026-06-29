@@ -20,6 +20,7 @@ import {
 import { fetchVendorThreads } from '@/lib/chat';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
 import { VendorStatsPanel } from './_components/vendor-stats-panel';
+import { ShortlistRadarCard } from './_components/shortlist-radar-card';
 
 /**
  * /vendor-dashboard — vendor doorway HOME / Overview page.
@@ -599,6 +600,13 @@ export default async function VendorHomePage() {
           finalized_booking_count={completedStats.full_completed_count}
         />
       ) : null}
+
+      {/* Shortlist Radar (Wave 2 · 2026-06-29) — live saved-you tally +
+       *  de-identified rival-in-your-area demand feed. Its own server
+       *  component (separate file from vendor-stats-panel.tsx to dodge a
+       *  merge collision with the parallel First-Look PR). Self-fetches via
+       *  getShortlistRadar(); shown only when the vendor owns a profile. */}
+      {profileExists && vendorProfileId ? <ShortlistRadarCard /> : null}
 
       {/* Recent activity placeholder */}
       <section>

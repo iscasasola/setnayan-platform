@@ -55,7 +55,12 @@ export interface TierCaps {
    * reverted the earlier same-day "verified also pays" choice.
    */
   inAppGated: boolean;
-  /** Token cost to import/sync an outside customer. 1 for all tiers. */
+  /**
+   * Token cost to import/sync an outside customer. 0 for all tiers — import
+   * is FREE (owner 2026-06-30; the free CRM on-ramp + viral acquisition
+   * engine, retiring the old 1-token import fee). Kept as a field for the
+   * tier matrix's shape; not read for gating.
+   */
   importCustomerTokenCost: number;
   /** Portfolio photo cap. Infinity = unlimited. */
   portfolioPhotos: number;
@@ -86,7 +91,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     slotsTimeBounded: false,
     inAppCustomersPerWeek: 0,
     inAppGated: false,
-    importCustomerTokenCost: 1,
+    importCustomerTokenCost: 0,
     portfolioPhotos: 30,
     editorialTagged: false,
     reviewStarsCounted: false,
@@ -114,7 +119,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     slotsTimeBounded: false,
     inAppCustomersPerWeek: 10,
     inAppGated: true,
-    importCustomerTokenCost: 1,
+    importCustomerTokenCost: 0,
     portfolioPhotos: 50,
     editorialTagged: false,
     reviewStarsCounted: true,
@@ -139,7 +144,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     slotsTimeBounded: false,
     inAppCustomersPerWeek: Infinity,
     inAppGated: true,
-    importCustomerTokenCost: 1,
+    importCustomerTokenCost: 0,
     portfolioPhotos: 50,
     editorialTagged: false,
     reviewStarsCounted: true,
@@ -161,7 +166,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     slotsTimeBounded: true,
     inAppCustomersPerWeek: Infinity,
     inAppGated: true,
-    importCustomerTokenCost: 1,
+    importCustomerTokenCost: 0,
     portfolioPhotos: 100,
     editorialTagged: true,
     reviewStarsCounted: true,
@@ -183,7 +188,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     slotsTimeBounded: true,
     inAppCustomersPerWeek: Infinity,
     inAppGated: true,
-    importCustomerTokenCost: 1,
+    importCustomerTokenCost: 0,
     portfolioPhotos: Infinity,
     editorialTagged: true,
     reviewStarsCounted: true,

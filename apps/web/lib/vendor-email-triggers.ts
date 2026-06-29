@@ -467,3 +467,46 @@ export async function sendVendorSlowResponseEmail(
     text,
   });
 }
+
+// ---------------------------------------------------------------------------
+// 8. Featured in a Real Wedding Story → credited vendor
+// ---------------------------------------------------------------------------
+
+/**
+ * Tells a credited vendor that one of their weddings has been featured on
+ * Setnayan's Real Stories — the marketing payoff of the Featured-in-Real-Stories
+ * benefit. The couple is notified separately (admin/real-stories action); this
+ * is the vendor-facing half. Best-effort: callers ignore the result so a failed
+ * send never blocks the admin feature action.
+ */
+export async function sendVendorFeaturedInStoryEmail(
+  vendorProfileId: string,
+  storyUrl: string,
+  coupleLabel: string,
+): Promise<SendEmailResult> {
+  const contact = await fetchVendorContact(vendorProfileId);
+  if (!contact) return { ok: false, reason: 'send_failed', error: 'vendor contact not found' };
+
+  const text = [
+    `Hi ${contact.businessName},`,
+    ``,
+    `Good news — ${coupleLabel}'s wedding, which you worked on, has been`,
+    `featured on Setnayan's Real Wedding Stories. Your work is credited in the`,
+    `story, in front of every couple browsing for inspiration.`,
+    ``,
+    `See the story (and your credit):`,
+    storyUrl,
+    ``,
+    `Share it with your own audience — a featured wedding is a great proof point.`,
+    ``,
+    `—`,
+    `Set na 'yan.`,
+    `Setnayan HQ`,
+  ].join('\n');
+
+  return sendEmail({
+    to: contact.email,
+    subject: `Your work is featured in a Setnayan Real Wedding Story`,
+    text,
+  });
+}

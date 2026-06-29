@@ -5,6 +5,10 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
+import { sendVendorFeaturedInStoryEmail } from '@/lib/vendor-email-triggers';
+
+const APP_URL =
+  process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
 
 /**
  * Setnayan HQ · Real Stories actions — curate which published, consent-gated
@@ -142,6 +146,57 @@ async function notifyCoupleShowcaseFeatured(
   }
 }
 
+/**
+ * The vendor-facing half of "you've been featured": email every CREDITED vendor
+ * on the event. Credited = a booked marketplace vendor whose
+ * linked_vendor_profile_id was stamped on lock (the same join that builds the
+ * editorial credit). Free-tier vendors are HIDDEN from the editorial credit, so
+ * we skip them — only tiers that actually surface in the story are emailed.
+ * Best-effort: never blocks the admin feature action.
+ */
+async function notifyCreditedVendorsShowcaseFeatured(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+  slug: string,
+  displayName: string,
+): Promise<void> {
+  try {
+    const { data: rows } = await admin
+      .from('event_vendors')
+      .select('linked_vendor_profile_id')
+      .eq('event_id', eventId)
+      .not('linked_vendor_profile_id', 'is', null);
+    const profileIds = Array.from(
+      new Set(
+        (rows ?? [])
+          .map((r) => r.linked_vendor_profile_id as string)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    );
+    if (profileIds.length === 0) return;
+
+    // Tier filter — free vendors don't appear in the credit, so don't email them.
+    const { data: profiles } = await admin
+      .from('vendor_profiles')
+      .select('vendor_profile_id, tier_state')
+      .in('vendor_profile_id', profileIds);
+    const eligible = (profiles ?? [])
+      .filter((p) => {
+        const tier = (p.tier_state as string | null) ?? null;
+        return tier !== null && tier !== 'free';
+      })
+      .map((p) => p.vendor_profile_id as string);
+    if (eligible.length === 0) return;
+
+    const storyUrl = `${APP_URL}/${slug}`;
+    await Promise.all(
+      eligible.map((vpid) => sendVendorFeaturedInStoryEmail(vpid, storyUrl, displayName)),
+    );
+  } catch (e) {
+    console.error('[real-stories] credited-vendor featured email failed:', e);
+  }
+}
+
 /** Pin or unpin a wedding on /realstories. */
 export async function setShowcaseFeatured(formData: FormData) {
   const user = await requireAdmin();
@@ -160,6 +215,15 @@ export async function setShowcaseFeatured(formData: FormData) {
         eventId,
       );
     }
+    // Read prior state for idempotency (only email credited vendors on the FIRST
+    // feature, not on a re-feature/rank tweak) + the slug for the story link.
+    const { data: priorEv } = await admin
+      .from('events')
+      .select('slug, showcase_featured_at')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    const wasAlreadyFeatured = Boolean(priorEv?.showcase_featured_at);
+
     const { error } = await admin
       .from('events')
       .update({ showcase_featured_at: new Date().toISOString(), updated_at: new Date().toISOString() })
@@ -175,6 +239,16 @@ export async function setShowcaseFeatured(formData: FormData) {
     });
     // Tell the couple they've been featured (best-effort · never blocks).
     await notifyCoupleShowcaseFeatured(admin, eventId, name as string);
+    // Tell the credited vendors too — only on the first feature, and only if the
+    // event still has a public slug to link the story (best-effort · never blocks).
+    if (!wasAlreadyFeatured && priorEv?.slug) {
+      await notifyCreditedVendorsShowcaseFeatured(
+        admin,
+        eventId,
+        priorEv.slug as string,
+        name as string,
+      );
+    }
     revalidatePath('/realstories');
     revalidatePath(BASE);
     redirectBack('ok', `${name} is now featured on Real Stories.`, eventId);

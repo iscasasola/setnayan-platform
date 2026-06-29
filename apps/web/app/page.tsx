@@ -28,6 +28,7 @@ import { after } from 'next/server';
 import './_components/home/home-reskin.css';
 import { HomeReskin } from './_components/home/HomeReskin';
 import { getHomePricingData } from './_components/home/pricing-data';
+import { fetchPublishedBackgroundVideos } from '@/lib/background-videos';
 import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
 
 // GEO Phase G2 (2026-05-28) — brand-first title + value-prop description.
@@ -137,6 +138,17 @@ export default async function HomePage() {
   // Catalog-driven pricing for the Prices overlay (no hardcoded numbers).
   const pricing = await getHomePricingData();
 
+  // Admin-uploaded homepage background videos (/admin/background-videos):
+  // slot 0 = the main cinematic hero backdrop; slots 1-5 = the five pillar
+  // dock "icon" videos, in PILLAR_HEROES order (Ala Ala · Likhaan · Planuhan ·
+  // Surian · Tiangge). Each is null until its slot is published → the dock
+  // tile / hero scene falls back to its gradient. See lib/background-videos.ts.
+  const bg = await fetchPublishedBackgroundVideos();
+  const bgVideos = {
+    main: bg.main?.url ?? null,
+    pillars: [1, 2, 3, 4, 5].map((slot) => bg.pillars.find((p) => p.slot === slot)?.url ?? null),
+  };
+
   // Admin morning-digest flush — cron-free, piggybacks on the homepage's
   // guaranteed public traffic so the digest reaches an admin who isn't in the
   // console even on a quiet day. Throttled + single-claim + gated OFF by
@@ -154,7 +166,7 @@ export default async function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareAppJsonLd) }}
       />
-      <HomeReskin pricing={pricing} />
+      <HomeReskin pricing={pricing} bgVideos={bgVideos} />
     </>
   );
 }

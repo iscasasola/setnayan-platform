@@ -65,7 +65,19 @@ function reduceMotion() {
   );
 }
 
-export function HomeReskin({ pricing }: { pricing: PricingData }) {
+/**
+ * Admin-uploaded homepage background videos (/admin/background-videos):
+ *   • main      — the cinematic hero backdrop (slot 0), shown on the home scene.
+ *   • pillars[] — the five dock "icon" videos in PILLAR_HEROES order
+ *                 (Ala Ala · Likhaan · Planuhan · Surian · Tiangge). Each entry
+ *                 is a URL or null (null → that tile / hero swap keeps its
+ *                 gradient). A selected pillar's video also takes over the hero.
+ */
+export type HomeBgVideos = { main: string | null; pillars: (string | null)[] };
+
+export function HomeReskin({ pricing, bgVideos }: { pricing: PricingData; bgVideos?: HomeBgVideos }) {
+  const mainVideo = bgVideos?.main ?? null;
+  const pillarVideos = bgVideos?.pillars ?? [];
   const rootRef = useRef<HTMLDivElement>(null);
   const [opened, setOpened] = useState(false);
   const [overlay, setOverlay] = useState<OverlayId>(null);
@@ -134,13 +146,17 @@ export function HomeReskin({ pricing }: { pricing: PricingData }) {
     else openGate(PILLAR_HEROES[activePillar]?.id);
   }, [activePillar, openGate]);
 
-  // ── Hero scene (cross-fade between two layers) ──
+  // ── Hero scene (cross-fade between two gradient layers, with optional video) ──
+  // The home scene + each selected pillar can be an admin-uploaded looping
+  // VIDEO (bgVideos) instead of the gradient: when a slot has a video it plays
+  // under the cinematic overlays and both gradient layers fade out; otherwise
+  // the gradient cross-fades in as before. The hero gracefully degrades to the
+  // original gradient cinematic when no videos are published.
   const sceneARef = useRef<HTMLDivElement>(null);
   const sceneBRef = useRef<HTMLDivElement>(null);
   const sceneCur = useRef(0);
-  useEffect(() => {
-    if (sceneARef.current) sceneARef.current.style.background = HOME_SCENE;
-  }, []);
+  const heroVideoRef = useRef<HTMLVideoElement>(null);
+
   const crossFade = useCallback((bg: string) => {
     const layers = [sceneARef.current, sceneBRef.current];
     const next = layers[1 - sceneCur.current];
@@ -153,18 +169,62 @@ export function HomeReskin({ pricing }: { pricing: PricingData }) {
     sceneCur.current = 1 - sceneCur.current;
   }, []);
 
+  // Show the hero <video> backdrop (url) or hide it (null). Showing it fades
+  // BOTH gradient layers out so the video reads; hiding it lets the caller
+  // cross-fade a gradient back in.
+  const showHeroVideo = useCallback((url: string | null) => {
+    const v = heroVideoRef.current;
+    if (url) {
+      if (v) {
+        if (v.dataset.src !== url) {
+          v.src = url;
+          v.dataset.src = url;
+        }
+        v.style.opacity = '1';
+        void v.play?.()?.catch(() => {});
+      }
+      if (sceneARef.current) sceneARef.current.style.opacity = '0';
+      if (sceneBRef.current) sceneBRef.current.style.opacity = '0';
+    } else if (v) {
+      v.style.opacity = '0';
+      v.pause?.();
+    }
+  }, []);
+
+  // Paint a scene by index (null = home): the slot's video wins, else gradient.
+  const paintScene = useCallback(
+    (index: number | null) => {
+      const url = index === null ? mainVideo : pillarVideos[index] ?? null;
+      if (url) {
+        showHeroVideo(url);
+      } else {
+        showHeroVideo(null);
+        crossFade(index === null ? HOME_SCENE : PILLAR_HEROES[index]?.photo ?? HOME_SCENE);
+      }
+    },
+    [mainVideo, pillarVideos, showHeroVideo, crossFade],
+  );
+
+  // Initial paint: home scene. With a video, play it; without, set the gradient
+  // directly (no fade-from-black on first load).
+  useEffect(() => {
+    if (mainVideo) showHeroVideo(mainVideo);
+    else if (sceneARef.current) sceneARef.current.style.background = HOME_SCENE;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const selectPillar = useCallback(
     (i: number) => {
       const p = PILLAR_HEROES[i];
       if (!p) return;
       setActivePillar(i);
-      crossFade(p.photo);
+      paintScene(i);
     },
-    [crossFade],
+    [paintScene],
   );
   useEffect(() => {
-    if (activePillar === null) crossFade(HOME_SCENE);
-  }, [activePillar, crossFade]);
+    if (activePillar === null) paintScene(null);
+  }, [activePillar, paintScene]);
 
   // ── Kinetic feelings ticker ──
   const tickerRef = useRef<HTMLElement>(null);
@@ -309,6 +369,20 @@ export function HomeReskin({ pricing }: { pricing: PricingData }) {
       {/* ── HERO — fullscreen, scroll locked ── */}
       <section className="hr-hero" id="hr-hero">
         <div className="hr-film" aria-hidden="true">
+          {/* Admin-uploaded looping backdrop (main / selected pillar video). Sits
+              below the gradient layers; paintScene() fades the gradients out to
+              reveal it. Hidden (opacity 0) until a published video is shown. */}
+          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+          <video
+            ref={heroVideoRef}
+            className="hr-hero-video"
+            muted
+            loop
+            playsInline
+            preload="auto"
+            aria-hidden="true"
+            style={{ opacity: 0 }}
+          />
           <div className="hr-scene" ref={sceneARef} />
           <div className="hr-scene" ref={sceneBRef} style={{ opacity: 0 }} />
           <div className="hr-bokeh" />
@@ -332,21 +406,39 @@ export function HomeReskin({ pricing }: { pricing: PricingData }) {
           </div>
         </div>
 
-        {/* The 5 pillars as the dock: each swaps the hero photo + its description */}
+        {/* The 5 pillars as the dock: each swaps the hero photo + its description.
+            When a pillar slot has an admin-uploaded video it plays as the tile
+            (the "icon" video); otherwise the gradient thumbnail shows. */}
         <div className="hr-dock">
-          {PILLAR_HEROES.map((p, i) => (
-            <button
-              key={p.id}
-              className={`hr-w${activePillar === i ? ' hr-active' : ''}`}
-              style={{ backgroundImage: p.photo }}
-              aria-label={`${p.name} · ${p.role}`}
-              onClick={() => selectPillar(i)}
-            >
-              <span className="hr-lab">
-                {p.name} · {p.role}
-              </span>
-            </button>
-          ))}
+          {PILLAR_HEROES.map((p, i) => {
+            const tileVideo = pillarVideos[i] ?? null;
+            return (
+              <button
+                key={p.id}
+                className={`hr-w${activePillar === i ? ' hr-active' : ''}${tileVideo ? ' hr-has-video' : ''}`}
+                style={{ backgroundImage: p.photo }}
+                aria-label={`${p.name} · ${p.role}`}
+                onClick={() => selectPillar(i)}
+              >
+                {tileVideo && (
+                  // eslint-disable-next-line jsx-a11y/media-has-caption
+                  <video
+                    className="hr-w-video"
+                    src={tileVideo}
+                    muted
+                    loop
+                    autoPlay
+                    playsInline
+                    preload="metadata"
+                    aria-hidden="true"
+                  />
+                )}
+                <span className="hr-lab">
+                  {p.name} · {p.role}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </section>
 

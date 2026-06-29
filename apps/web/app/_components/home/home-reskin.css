@@ -258,6 +258,17 @@ html.hr-snap {
   transition: opacity 0.9s ease;
   will-change: opacity;
 }
+/* Admin-uploaded looping hero backdrop — sits below the gradient scene layers
+   so the bokeh / vignette / grain / scrim overlays still read over it. */
+.home-reskin .hr-film .hr-hero-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: opacity 0.9s ease;
+  will-change: opacity;
+}
 .home-reskin .hr-film .hr-bokeh {
   position: absolute;
   inset: 0;
@@ -404,6 +415,20 @@ html.hr-snap {
   color: rgba(255, 255, 255, 0.9);
   font-size: 11px;
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  z-index: 1;
+}
+/* Admin-uploaded looping pillar "icon" video — fills the dock tile. The ▶
+   play hint is hidden once a real clip plays. */
+.home-reskin .hr-dock .hr-w .hr-w-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+}
+.home-reskin .hr-dock .hr-w.hr-has-video::after {
+  display: none;
 }
 .home-reskin .hr-dock .hr-w:hover {
   transform: translateY(-6px);

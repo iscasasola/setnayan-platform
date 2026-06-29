@@ -34,7 +34,12 @@ import { Nav } from './site-nav';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 
 const NAV_ROUTES = new Set<string>([
-  '/',
+  // NOTE: '/' is intentionally OMITTED. The homepage (ELN reskin · 2026-06-29)
+  // renders its OWN floating glass nav (HomeNav in app/_components/home/),
+  // which is part of the cinematic no-scroll gate design (logo = Home, the
+  // Prices/Download/Vendors/Sign-in overlays). Mounting the persistent
+  // SiteChrome nav on top of it would double the chrome. Every OTHER marketing
+  // route keeps the shared persistent nav.
   '/about',
   '/how-it-works',
   '/pricing',

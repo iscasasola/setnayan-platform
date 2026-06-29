@@ -70,6 +70,7 @@ import {
   ListChecks,
   Banknote,
   Coins,
+  Gauge,
   BadgeCheck,
   CheckCheck,
   Compass,
@@ -467,6 +468,12 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: 'Token bands',
         href: '/admin/token-bands',
         icon: Coins,
+      },
+      {
+        key: 'price-bands',
+        label: 'Price bands',
+        href: '/admin/price-bands',
+        icon: Gauge,
       },
       {
         key: 'budget-planner',

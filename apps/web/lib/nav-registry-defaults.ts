@@ -2174,6 +2174,18 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 32,
   },
   {
+    key: "admin.sidebar.price-bands",
+    scope: "admin",
+    area: "admin-sidebar",
+    route: "/admin/price-bands",
+    label: "Price bands",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Gauge",
+    customRef: null,
+    sortOrder: 32,
+  },
+  {
     key: "admin.sidebar.budget-planner",
     scope: "admin",
     area: "admin-sidebar",

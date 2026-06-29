@@ -22,7 +22,11 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { getEditorialEligibility } from '@/lib/editorial-vendor-media';
 import { blockRelevance, deriveCallTime } from '@/lib/vendor-timeline';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { suggestScheduleChange, vendorMarkServiceComplete } from './actions';
+import {
+  suggestScheduleChange,
+  vendorMarkServiceComplete,
+  vendorAcknowledgeDeposit,
+} from './actions';
 
 export const metadata = { title: 'Event Brief · Vendor' };
 
@@ -165,7 +169,7 @@ type SuggestionRow = {
 
 type Props = {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ suggest?: string; lens?: string }>;
+  searchParams: Promise<{ suggest?: string; lens?: string; deposit_ack?: string }>;
 };
 
 export default async function VendorEventBriefPage({ params, searchParams }: Props) {
@@ -201,15 +205,26 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
   // vendor is already booked-gated by the RPC above.
   const { data: completionRow } = await createAdminClient()
     .from('event_vendors')
-    .select('completion_status, service_marked_complete_at, customer_confirmed_received_at')
+    .select(
+      'vendor_id, completion_status, service_marked_complete_at, customer_confirmed_received_at, deposit_recorded_at, deposit_acknowledged_at, deposit_proof_url',
+    )
     .eq('event_id', eventId)
     .eq('marketplace_vendor_id', profile.vendor_profile_id)
     .maybeSingle();
   const completion = (completionRow ?? null) as {
+    vendor_id: string | null;
     completion_status: string | null;
     service_marked_complete_at: string | null;
     customer_confirmed_received_at: string | null;
+    deposit_recorded_at: string | null;
+    deposit_acknowledged_at: string | null;
+    deposit_proof_url: string | null;
   } | null;
+  // Deposit Reservation Lock-Free — the couple recorded a deposit (date held);
+  // the vendor confirms receipt here. Acknowledge is a signal, not money.
+  const depositRecorded = Boolean(completion?.deposit_recorded_at);
+  const depositAcked = Boolean(completion?.deposit_acknowledged_at);
+  const eventVendorId = completion?.vendor_id ?? null;
   const isCompleteConfirmed =
     completion?.completion_status === 'confirmed' ||
     completion?.completion_status === 'auto_confirmed' ||
@@ -388,6 +403,70 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
                 : `Once ${brief.event.display_name ?? 'the couple'} marks your service complete, you can add a photo or a 5-second clip to their story — credited to you on their front-page editorial.`}
             </span>
           </span>
+        </div>
+      ) : null}
+
+      {/* Deposit Reservation Lock-Free — the couple recorded a deposit off-platform
+          and the date is held; the vendor confirms receipt here. Single-winner +
+          idempotent via the acknowledge_vendor_deposit RPC. No money moves. */}
+      {depositRecorded && eventVendorId ? (
+        <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+          {search.deposit_ack === 'error' ? (
+            <p role="alert" className="mb-3 rounded-lg bg-warn-50 px-3 py-2 text-xs text-warn-900">
+              That didn&rsquo;t go through — try again.
+            </p>
+          ) : null}
+          {depositAcked ? (
+            <div className="flex items-center gap-3 text-sm">
+              <CheckCircle2 aria-hidden className="h-5 w-5 shrink-0 text-success-600" strokeWidth={1.75} />
+              <span className="text-ink/75">
+                <span className="font-medium text-ink">Deposit confirmed.</span> You&rsquo;ve confirmed
+                you received the couple&rsquo;s deposit — their date is locked in.
+                {completion?.deposit_proof_url ? (
+                  <>
+                    {' '}
+                    <a
+                      href={completion.deposit_proof_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-terracotta underline-offset-2 hover:underline"
+                    >
+                      <FileText aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                      View proof
+                    </a>
+                  </>
+                ) : null}
+              </span>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-sm text-ink/70">
+                <span className="font-medium text-ink">A couple recorded a deposit.</span> The date is
+                held for you. Confirm you received it to lock it in.
+                {completion?.deposit_proof_url ? (
+                  <>
+                    {' '}
+                    <a
+                      href={completion.deposit_proof_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-terracotta underline-offset-2 hover:underline"
+                    >
+                      <FileText aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                      View proof
+                    </a>
+                  </>
+                ) : null}
+              </div>
+              <form action={vendorAcknowledgeDeposit}>
+                <input type="hidden" name="event_id" value={eventId} />
+                <input type="hidden" name="vendor_id" value={eventVendorId} />
+                <SubmitButton className="button-primary shrink-0" pendingLabel="Confirming…">
+                  Confirm deposit received
+                </SubmitButton>
+              </form>
+            </div>
+          )}
         </div>
       ) : null}
 

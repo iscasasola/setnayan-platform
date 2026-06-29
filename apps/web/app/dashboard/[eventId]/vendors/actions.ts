@@ -2807,3 +2807,238 @@ export async function cancelBookingAsHost(
 
   return { status: 'ok', vendorId: ev.vendor_id, vendorName: ev.vendor_name };
 }
+
+// ==========================================================================
+// Deposit Reservation Lock-Free (Wave 3 · booking-lifecycle cluster)
+//
+// The missing booking-lifecycle state: "the host RECORDED a deposit → the date
+// is HELD → awaiting the vendor's confirmation" — DISTINCT from confirmed-paid.
+//
+// OFF-PLATFORM MONEY / 0% COMMISSION (owner lock): Setnayan NEVER holds funds.
+// recordDeposit + acknowledgeDeposit are RECORD + ACKNOWLEDGE + date-hold ONLY
+// — not money movement, no gateway, no OR, no tax. The deposit amount is a
+// host-entered PHP figure for the couple's own ledger.
+//
+// ORTHOGONAL MARKERS (owner lock): these write the orthogonal
+// deposit_recorded_at / deposit_acknowledged_at / deposit_proof_url columns —
+// they NEVER repurpose the event_vendors.status enum (precedent:
+// contract_signed_at). The host can still advance status separately.
+// ==========================================================================
+
+const DEPOSIT_PROOF_PATH_PREFIX = 'deposit-proof';
+
+/**
+ * recordDeposit — COUPLE side.
+ *
+ * Records that the host paid a deposit off-platform: stamps
+ * deposit_recorded_at = now(), optionally uploads a proof artifact to R2 →
+ * deposit_proof_url, logs an event_vendor_payments row, and — crucially — HOLDS
+ * the date the INSTANT the deposit is logged by calling the existing
+ * acquireSchedulePools with pools resolved via resolvePoolIdsForService /
+ * resolvePoolIdsForCategory (same gate updateVendorStatus uses on the booked
+ * transition). Then notifies the vendor (payment_logged).
+ *
+ * Does NOT flip status — recorded-but-unsettled is orthogonal to the status
+ * enum. The host advances status (→ deposit_paid) separately when ready.
+ *
+ * Idempotent-friendly: re-recording on an already-recorded row leaves
+ * deposit_recorded_at at its original value (we COALESCE) but still logs the
+ * new payment row + refreshes the hold; the vendor's acknowledge is the
+ * single-winner half (acknowledge_vendor_deposit RPC).
+ */
+export async function recordDeposit(
+  formData: FormData,
+): Promise<{ status: 'ok' | 'error' | 'not_signed_in'; message?: string }> {
+  const eventId = formData.get('event_id');
+  const vendorId = formData.get('vendor_id');
+  if (typeof eventId !== 'string' || typeof vendorId !== 'string') {
+    return { status: 'error', message: 'Invalid input' };
+  }
+  const amountPhp = parseMoney(formData.get('deposit_php'));
+  if (amountPhp === null || amountPhp <= 0) {
+    return { status: 'error', message: 'Enter the deposit amount you paid.' };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { status: 'not_signed_in' };
+
+  // RLS-gated read (couple-on-event only). We need the pool-resolution inputs
+  // and the prior recorded marker so a re-record doesn't reset the hold clock.
+  const { data: row, error: readErr } = await supabase
+    .from('event_vendors')
+    .select(
+      'vendor_id, vendor_name, marketplace_vendor_id, service_id, category, deposit_recorded_at, contact_email',
+    )
+    .eq('vendor_id', vendorId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (readErr) return { status: 'error', message: readErr.message };
+  if (!row) return { status: 'error', message: 'Vendor not found on this event.' };
+
+  const ev = row as {
+    vendor_id: string;
+    vendor_name: string | null;
+    marketplace_vendor_id: string | null;
+    service_id: string | null;
+    category: string | null;
+    deposit_recorded_at: string | null;
+    contact_email: string | null;
+  };
+
+  // Optional proof artifact. Same uploadPublicAsset pipeline manual-vendor
+  // photos use — validates MIME/size, falls back to Supabase Storage in dev,
+  // returns a public URL we persist. Record-keeping only; Setnayan is not the
+  // payee and does not verify funds.
+  let proofUrl: string | null = null;
+  const proofEntry = formData.get('proof');
+  if (proofEntry instanceof File && proofEntry.size > 0) {
+    const uploadResult = await uploadPublicAsset({
+      pathPrefix: `${DEPOSIT_PROOF_PATH_PREFIX}/${eventId}`,
+      file: proofEntry,
+    });
+    if (!uploadResult.ok) {
+      return { status: 'error', message: uploadResult.error };
+    }
+    proofUrl = uploadResult.publicUrl;
+  }
+
+  // HOLD THE DATE the instant the deposit is logged (not only on full payment).
+  // Reuse the exact pool-resolution + acquire path updateVendorStatus uses on
+  // the booked transition. Off-platform vendors (no marketplace_vendor_id) and
+  // rows without a booked service degrade open — no shared scheduling primitive.
+  if (ev.marketplace_vendor_id && (ev.service_id || ev.category)) {
+    const poolIds = ev.service_id
+      ? await resolvePoolIdsForService(supabase, ev.marketplace_vendor_id, ev.service_id)
+      : await resolvePoolIdsForCategory(supabase, ev.marketplace_vendor_id, ev.category);
+    if (poolIds.length > 0) {
+      const acq = await acquireSchedulePools(supabase, eventId, vendorId, poolIds);
+      if (acq.status === 'full') {
+        return {
+          status: 'error',
+          message: `That date is fully booked for ${acq.poolLabel || 'this category'} on the vendor's schedule — message the vendor or adjust the date before recording the deposit.`,
+        };
+      }
+      if (acq.status === 'blocked') {
+        return {
+          status: 'error',
+          message: "The vendor has closed this date on their calendar — message them before recording the deposit.",
+        };
+      }
+      if (acq.status === 'error') {
+        return { status: 'error', message: acq.message };
+      }
+      // 'ok' | 'no_date' | 'no_pools' | 'not_authorized' fall through:
+      // no_date/no_pools degrade open; not_authorized can't happen past the
+      // RLS-gated read above.
+    }
+  }
+
+  // Stamp the orthogonal markers. COALESCE keeps the ORIGINAL recorded moment
+  // on a re-record (the date was held then); a re-record never reopens the
+  // vendor's acknowledgement (we leave deposit_acknowledged_at alone — only the
+  // RPC may set it). Update proof_url only when a new file was uploaded.
+  const update: Record<string, unknown> = {
+    deposit_recorded_at: ev.deposit_recorded_at ?? new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  if (proofUrl !== null) update.deposit_proof_url = proofUrl;
+
+  const { error: updateErr } = await supabase
+    .from('event_vendors')
+    .update(update)
+    .eq('vendor_id', vendorId)
+    .eq('event_id', eventId);
+  if (updateErr) {
+    // The acquire above may have held a date for a record that never landed —
+    // free it so the date isn't phantom-held (only when WE just acquired it,
+    // i.e. this is the first record).
+    if (!ev.deposit_recorded_at) {
+      await releaseSchedulePools(supabase, vendorId, 'status_downgrade');
+    }
+    return { status: 'error', message: updateErr.message };
+  }
+
+  // Log the money against the couple's ledger (their own record — not a charge
+  // through Setnayan). Best-effort: a failed ledger insert never unwinds the
+  // already-landed date-hold + marker.
+  const { error: payErr } = await supabase.from('event_vendor_payments').insert({
+    event_id: eventId,
+    vendor_id: vendorId,
+    amount_php: amountPhp,
+    method: nullIfBlank(formData.get('method')),
+    reference: nullIfBlank(formData.get('reference')),
+    notes: 'Deposit (date held · awaiting vendor confirmation)',
+  });
+  if (payErr) {
+    // eslint-disable-next-line no-console
+    console.error(`[recordDeposit] ledger insert failed for vendor_id=${vendorId}:`, payErr.message);
+  }
+
+  // Notify the vendor that a deposit was logged against their booking. Reuses
+  // the existing payment_logged type (vendor-recipient). emitNotification fails
+  // soft — never rolls back the record above.
+  if (ev.marketplace_vendor_id) {
+    const { data: vp } = await createAdminClient()
+      .from('vendor_profiles')
+      .select('user_id')
+      .eq('vendor_profile_id', ev.marketplace_vendor_id)
+      .maybeSingle();
+    const vendorUserId = (vp as { user_id?: string } | null)?.user_id ?? null;
+    if (vendorUserId) {
+      await emitNotification({
+        userId: vendorUserId,
+        type: 'payment_logged',
+        title: 'Deposit recorded — please confirm',
+        body: 'A couple recorded a deposit for your booking and the date is held. Open the client to confirm you received it.',
+        relatedUrl: `/vendor-dashboard/clients/${eventId}`,
+      });
+    }
+  }
+
+  revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`, 'layout');
+  revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
+  return { status: 'ok' };
+}
+
+/**
+ * acknowledgeDeposit — VENDOR side.
+ *
+ * Calls the single-winner acknowledge_vendor_deposit RPC (SELECT … FOR UPDATE +
+ * deposit_acknowledged_at-IS-NULL precondition; idempotent). Ownership is
+ * enforced inside the SECURITY DEFINER RPC (current_vendor_event_vendor_ids /
+ * is_admin), so this wrapper just forwards. No money moves — acknowledge is a
+ * signal.
+ */
+export async function acknowledgeDeposit(
+  formData: FormData,
+): Promise<{ status: 'ok' | 'already' | 'not_recorded' | 'error' | 'not_signed_in'; message?: string }> {
+  const eventVendorId = formData.get('vendor_id');
+  const eventId = formData.get('event_id');
+  if (typeof eventVendorId !== 'string') {
+    return { status: 'error', message: 'Invalid input' };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { status: 'not_signed_in' };
+
+  const { data, error } = await supabase.rpc('acknowledge_vendor_deposit', {
+    p_event_vendor_id: eventVendorId,
+  });
+  if (error) return { status: 'error', message: error.message };
+
+  const env = (data ?? {}) as { status?: string };
+  if (typeof eventId === 'string' && eventId.length > 0) {
+    revalidatePath(`/vendor-dashboard/clients/${eventId}`, 'layout');
+    revalidatePath(`/dashboard/${eventId}/vendors/${eventVendorId}/workspace`, 'layout');
+  }
+  if (env.status === 'ok') return { status: 'ok' };
+  if (env.status === 'already') return { status: 'already' };
+  if (env.status === 'not_recorded') return { status: 'not_recorded' };
+  return { status: 'error', message: `Unexpected acknowledge status: ${env.status ?? 'none'}` };
+}

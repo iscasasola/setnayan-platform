@@ -36,7 +36,12 @@ import { Wordmark } from '@/app/_components/brand-marks';
 import { Reveal, Blob } from './_motion';
 import { HeroVideoScrub } from './HeroVideoScrub';
 import { fetchPublishedHeroVideo } from '@/lib/hero-video';
-import { fetchV2CustomerCatalog, formatPeso, getCustomerSkuPrice } from '@/lib/v2-catalog';
+import {
+  fetchV2CustomerCatalog,
+  formatPeso,
+  formatBillingPeriodSuffix,
+  getCustomerSkuPriceLabel,
+} from '@/lib/v2-catalog';
 import {
   PILOT_EVENT,
   PILOT_VENDORS,
@@ -595,11 +600,13 @@ export function PersonalSite() {
 // 9. DashboardPreview — full dashboard mock
 // ─────────────────────────────────────────────────────────────────────
 export async function DashboardPreview() {
-  // SETNAYAN_AI is the live ₱3,999 planner SKU (owner-locked 2026-06-07
-  // 4-tier reprice). TODAYS_FOCUS — the retired ₱1,499 planner row — was
-  // wrongly referenced here and leaked the stale price. Fallback matches
-  // the locked tier price; the DB read wins whenever reachable.
-  const plannerPrice = await getCustomerSkuPrice('SETNAYAN_AI');
+  // SETNAYAN_AI is the live planner SKU — now a ₱499 / 28-day subscription
+  // (owner 2026-06-29; was a ₱3,999 one-time unlock). The label helper returns
+  // the price WITH its recurrence unit ("₱499 / 28 days") straight from the
+  // catalog, so the number + the "/ 28 days" both come from the DB, never
+  // hardcoded. Fallback matches the locked per-28d price; the DB read wins.
+  const plannerPriceLabel =
+    (await getCustomerSkuPriceLabel('SETNAYAN_AI')) ?? `₱499${formatBillingPeriodSuffix('per_28d')}`;
   return (
     <section className="m-section">
       <div className="m-eyebrow">In the app</div>
@@ -608,7 +615,7 @@ export async function DashboardPreview() {
       </h2>
       <p className="text-[17px] text-[var(--m-slate)] max-w-[720px] leading-relaxed mb-12">
         Setnayan AI is the AI-assisted wedding planner that pulls the right vendors, drafts your timeline, and
-        answers your questions in your own language. One purchase at {plannerPrice ? `₱${plannerPrice}` : '₱3,999'}, full access through your wedding day.
+        answers your questions in your own language. {plannerPriceLabel} — active until your wedding day, then it ends.
       </p>
 
       <div
@@ -731,8 +738,11 @@ export async function PricingSection() {
           },
           {
             title: 'Setnayan AI',
-            price: setnayanAi ? `₱${formatPeso(setnayanAi.retail_price_php)}` : 'See pricing',
-            sub: 'One purchase per event',
+            // Price + recurrence unit ("₱499 / 28 days") both from the catalog row.
+            price: setnayanAi
+              ? `₱${formatPeso(setnayanAi.retail_price_php)}${formatBillingPeriodSuffix(setnayanAi.billing_period)}`
+              : 'See pricing',
+            sub: 'Active until your wedding day',
             items: [
               'Full vendor matchmaking',
               'Date · budget · venue · pax · faith cross-referenced',

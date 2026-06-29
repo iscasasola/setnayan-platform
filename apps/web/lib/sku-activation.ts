@@ -67,6 +67,21 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   },
 
   // 'SETNAYAN_AI' → flat per-event boolean, idempotent.
+  //
+  // SETNAYAN_AI is now a ₱499 / 28-day subscription (owner 2026-06-29; was a
+  // ₱3,999 one-time unlock). For V1 the entitlement model is UNCHANGED: one
+  // approved order flips this per-event flag and the planner is on for the
+  // wedding. Pricing.md / migration 20270322883953 only changed the price +
+  // the recurrence UNIT; the activation contract is the same boolean.
+  //
+  // V1.5: a recurring per-28-day charge (until the wedding day, then auto-end)
+  // hooks in HERE. On approval, stamp the per-user window
+  // `user_ai_subscription.active_until` anchored to events.event_date (the
+  // wedding-anchor rule — recorded on that column's comment), gated by
+  // platform_settings.setnayan_ai_per_user_enabled (default OFF, foundation in
+  // PR #2407), then schedule the next-cycle charge via the provider-run
+  // subscription (PayMongo / GCash). Until then the couple pays one term up
+  // front via the manual apply-then-pay rails and this boolean is the gate.
   SETNAYAN_AI: async (ctx) => {
     if (!ctx.eventId) return;
     const { error } = await ctx.admin

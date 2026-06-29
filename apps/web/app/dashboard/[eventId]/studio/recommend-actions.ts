@@ -88,3 +88,42 @@ export async function dismissRecommendation(formData: FormData) {
 
   revalidatePath(`/dashboard/${eventId}/studio`);
 }
+
+/**
+ * Couple → dismiss a VENDOR's suggestion (vendor-side twin of
+ * dismissRecommendation, owner 2026-06-30). Only the couple can resolve a
+ * recommendation (RLS `vfr_couple_update`, scoped to current_couple_event_ids());
+ * flips a pending row to dismissed so the "Suggested by your vendors" strip
+ * clears and it can't reappear.
+ *
+ * A vendor recommendation is keyed by (event_id, vendor_profile_id, addon_key)
+ * — unlike the coordinator table there can be one per vendor, so we MUST narrow
+ * by vendor_profile_id too (otherwise dismissing Vendor A's Papic suggestion
+ * would also clear Vendor B's). The render passes vendor_profile_id alongside
+ * addon_key; both are couple-readable under RLS, so trusting them here only
+ * scopes the UPDATE — it can never reach another couple's event (the UPDATE
+ * policy's USING/WITH CHECK still bounds it to current_couple_event_ids()).
+ */
+export async function dismissVendorRecommendation(formData: FormData) {
+  const eventId = str(formData, 'event_id');
+  const vendorProfileId = str(formData, 'vendor_profile_id');
+  const addonKey = str(formData, 'addon_key');
+
+  if (!eventId || !vendorProfileId || !addonKey) return;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  await supabase
+    .from('vendor_feature_recommendations')
+    .update({ status: 'dismissed', resolved_at: new Date().toISOString() })
+    .eq('event_id', eventId)
+    .eq('vendor_profile_id', vendorProfileId)
+    .eq('addon_key', addonKey)
+    .eq('status', 'pending');
+
+  revalidatePath(`/dashboard/${eventId}/studio`);
+}

@@ -8,9 +8,11 @@ import {
   ThumbsDown,
   Plus,
   ChevronDown,
+  Send,
 } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { setOptIn, flagFeedback } from './actions';
+import { suggestToCouple } from './share-actions';
 
 /**
  * RecommendationsPanel — the vendor's private "Recommend to your couples"
@@ -36,6 +38,19 @@ export type RecCard = {
   optInEnabled: boolean;
   /** True when a pending not_a_fit flag already exists for this pairing. */
   flaggedNotAFit: boolean;
+  /**
+   * Studio add-on key IF this SKU maps to a recommendable in-app service —
+   * drives the "Suggest to a couple" control. null → no control (the SKU isn't a
+   * buyable Studio add-on, so there's nothing the couple could buy from the hub).
+   */
+  addonKey: string | null;
+};
+
+/** A connected couple the vendor can suggest to — an accepted-thread event. */
+export type ConnectedCouple = {
+  eventId: string;
+  /** The event display_name the couple identified themselves with. */
+  label: string;
 };
 
 export type LeafGroup = {
@@ -58,16 +73,25 @@ export type SkuOption = {
 export function RecommendationsPanel({
   groups,
   suggestSkuOptions,
+  connectedCouples,
+  suggestedKeys,
   savedFlash,
   flaggedFlash,
+  suggestedFlash,
   errorFlash,
 }: {
   groups: LeafGroup[];
   suggestSkuOptions: SkuOption[];
+  /** Accepted-thread couples the vendor can suggest add-ons to. */
+  connectedCouples: ConnectedCouple[];
+  /** "<event_id>::<addon_key>" pairs this vendor has already suggested (pending). */
+  suggestedKeys: string[];
   savedFlash: boolean;
   flaggedFlash: boolean;
+  suggestedFlash: boolean;
   errorFlash: string | null;
 }) {
+  const suggestedSet = new Set(suggestedKeys);
   return (
     <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
       <header className="space-y-3">
@@ -114,6 +138,14 @@ export function RecommendationsPanel({
           Thanks — we&rsquo;ll review your note and get back to you.
         </p>
       ) : null}
+      {suggestedFlash ? (
+        <p
+          role="status"
+          className="rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800"
+        >
+          Suggested — the couple will see it in their Studio.
+        </p>
+      ) : null}
 
       {groups.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-ink/15 bg-cream p-8 text-center">
@@ -137,6 +169,8 @@ export function RecommendationsPanel({
               key={group.tileId}
               group={group}
               suggestSkuOptions={suggestSkuOptions}
+              connectedCouples={connectedCouples}
+              suggestedSet={suggestedSet}
             />
           ))}
         </div>
@@ -148,9 +182,13 @@ export function RecommendationsPanel({
 function LeafSection({
   group,
   suggestSkuOptions,
+  connectedCouples,
+  suggestedSet,
 }: {
   group: LeafGroup;
   suggestSkuOptions: SkuOption[];
+  connectedCouples: ConnectedCouple[];
+  suggestedSet: Set<string>;
 }) {
   return (
     <div className="space-y-3">
@@ -168,7 +206,11 @@ function LeafSection({
         <ul className="space-y-3">
           {group.active.map((rec) => (
             <li key={`${rec.tileId}:${rec.serviceCode}`}>
-              <ActiveRecCard rec={rec} />
+              <ActiveRecCard
+                rec={rec}
+                connectedCouples={connectedCouples}
+                suggestedSet={suggestedSet}
+              />
             </li>
           ))}
         </ul>
@@ -179,7 +221,11 @@ function LeafSection({
         <ul className="space-y-3">
           {group.offers.map((rec) => (
             <li key={`${rec.tileId}:${rec.serviceCode}`}>
-              <OptInOfferCard rec={rec} />
+              <OptInOfferCard
+                rec={rec}
+                connectedCouples={connectedCouples}
+                suggestedSet={suggestedSet}
+              />
             </li>
           ))}
         </ul>
@@ -196,7 +242,15 @@ function LeafSection({
 
 /** An active recommendation card — title, price, "Why this helps you", and the
  *  "Not a fit for me" affordance. */
-function ActiveRecCard({ rec }: { rec: RecCard }) {
+function ActiveRecCard({
+  rec,
+  connectedCouples,
+  suggestedSet,
+}: {
+  rec: RecCard;
+  connectedCouples: ConnectedCouple[];
+  suggestedSet: Set<string>;
+}) {
   return (
     <div className="rounded-2xl border border-ink/10 bg-cream p-4">
       <div className="flex items-start justify-between gap-3">
@@ -240,6 +294,16 @@ function ActiveRecCard({ rec }: { rec: RecCard }) {
         </div>
       ) : null}
 
+      {rec.addonKey ? (
+        <div className="mt-3 border-t border-ink/10 pt-3">
+          <SuggestToCoupleControl
+            addonKey={rec.addonKey}
+            connectedCouples={connectedCouples}
+            suggestedSet={suggestedSet}
+          />
+        </div>
+      ) : null}
+
       <div className="mt-3">
         <NotAFitControl rec={rec} />
       </div>
@@ -249,7 +313,15 @@ function ActiveRecCard({ rec }: { rec: RecCard }) {
 
 /** An opt-in offer card — frames the overlap honestly and offers a toggle to
  *  turn the recommendation on. */
-function OptInOfferCard({ rec }: { rec: RecCard }) {
+function OptInOfferCard({
+  rec,
+  connectedCouples,
+  suggestedSet,
+}: {
+  rec: RecCard;
+  connectedCouples: ConnectedCouple[];
+  suggestedSet: Set<string>;
+}) {
   return (
     <div className="rounded-2xl border border-sky-300/60 bg-sky-50 p-4">
       <div className="flex items-start justify-between gap-3">
@@ -284,10 +356,135 @@ function OptInOfferCard({ rec }: { rec: RecCard }) {
         <p className="mt-2 text-sm text-ink/75">{rec.rationale}</p>
       ) : null}
 
+      {rec.addonKey ? (
+        <div className="mt-3 border-t border-sky-300/40 pt-3">
+          <SuggestToCoupleControl
+            addonKey={rec.addonKey}
+            connectedCouples={connectedCouples}
+            suggestedSet={suggestedSet}
+          />
+        </div>
+      ) : null}
+
       <div className="mt-3">
         <NotAFitControl rec={rec} />
       </div>
     </div>
+  );
+}
+
+/**
+ * "Suggest to a couple" — the vendor picks WHICH connected couple to suggest this
+ * buyable add-on to. Mirrors the panel's existing collapse-to-form pattern
+ * (SuggestControl / NotAFitControl): a subtle trigger that opens a tiny form with
+ * a couple <select> + hidden addon_key + submit → suggestToCouple. With no
+ * accepted-thread couples, shows a muted "Connect with a couple first" hint
+ * instead. Once a (couple, add-on) pair is already suggested, that couple drops
+ * out of the picker; if all connected couples have been suggested this add-on, it
+ * shows "Suggested ✓".
+ */
+function SuggestToCoupleControl({
+  addonKey,
+  connectedCouples,
+  suggestedSet,
+}: {
+  addonKey: string;
+  connectedCouples: ConnectedCouple[];
+  suggestedSet: Set<string>;
+}) {
+  const [open, setOpen] = useState(false);
+
+  // No connected couples → nothing to suggest to yet.
+  if (connectedCouples.length === 0) {
+    return (
+      <p className="text-xs text-ink/45">
+        Connect with a couple first to suggest this.
+      </p>
+    );
+  }
+
+  // Couples this add-on hasn't been suggested to yet (a sent suggestion drops the
+  // couple out so the vendor can't re-suggest the same pair).
+  const remaining = connectedCouples.filter(
+    (c) => !suggestedSet.has(`${c.eventId}::${addonKey}`),
+  );
+
+  if (remaining.length === 0) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-success-100 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-success-800">
+        <Check className="h-3 w-3" strokeWidth={2.5} />
+        Suggested&nbsp;&#10003;
+      </span>
+    );
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-1.5 text-xs font-medium text-terracotta hover:text-terracotta-700"
+      >
+        <Send className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+        Suggest to a couple
+      </button>
+    );
+  }
+
+  return (
+    <form
+      action={suggestToCouple}
+      className="w-full max-w-md space-y-2 rounded-xl border border-ink/10 bg-cream p-3"
+    >
+      <input type="hidden" name="addon_key" value={addonKey} />
+      <p className="text-xs font-medium text-ink/75">
+        Suggest this to one of your couples
+      </p>
+      <div className="relative">
+        <select
+          name="event_id"
+          required
+          defaultValue=""
+          className="input-field cursor-pointer appearance-none pr-9"
+        >
+          <option value="" disabled>
+            Pick a couple…
+          </option>
+          {remaining.map((c) => (
+            <option key={c.eventId} value={c.eventId}>
+              {c.label}
+            </option>
+          ))}
+        </select>
+        <ChevronDown
+          aria-hidden
+          className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/40"
+          strokeWidth={1.75}
+        />
+      </div>
+      <textarea
+        name="note"
+        rows={2}
+        maxLength={280}
+        placeholder="Add a short note for the couple (optional)"
+        className="input-field resize-none text-sm"
+      />
+      <div className="flex items-center justify-end gap-3">
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="text-xs text-ink/55 hover:text-ink"
+        >
+          Cancel
+        </button>
+        <SubmitButton
+          className="button-primary h-8 px-3 text-[11px]"
+          pendingLabel="Suggesting…"
+        >
+          Suggest
+        </SubmitButton>
+      </div>
+    </form>
   );
 }
 

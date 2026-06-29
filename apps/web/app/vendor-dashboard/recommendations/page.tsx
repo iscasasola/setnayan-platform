@@ -1,19 +1,39 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { fetchVendorThreads } from '@/lib/chat';
+import { ADD_ONS } from '@/lib/add-ons-catalog';
 import { formatSkuPriceLabel, type PaxPricingConfig } from '@/lib/v2-catalog';
 import { RecommendationsPanel } from './_panel';
 import type {
+  ConnectedCouple,
   LeafGroup,
   RecCard,
   SkuOption,
 } from './_panel';
 
+// service_code → Studio add-on key, restricted to RECOMMENDABLE add-ons (real,
+// buyable, not-free, has a serviceKey — mirrors the Studio hub's isRecommendable
+// + the suggest action's RECOMMENDABLE_KEYS). A recommendation whose SKU isn't a
+// recommendable add-on (e.g. a free tool, or a SKU with no Studio surface) gets
+// no "Suggest to a couple" control — there's nothing the couple could buy in the
+// Studio hub from it.
+const ADDON_KEY_BY_SERVICE_CODE = new Map<string, string>(
+  ADD_ONS.filter(
+    (a) => a.status !== 'coming_soon' && a.tier !== 'free' && Boolean(a.serviceKey),
+  ).map((a) => [a.serviceKey as string, a.key]),
+);
+
 export const metadata = { title: 'Recommend · Vendor' };
 export const dynamic = 'force-dynamic';
 
 type Props = {
-  searchParams: Promise<{ saved?: string; error?: string; flagged?: string }>;
+  searchParams: Promise<{
+    saved?: string;
+    error?: string;
+    flagged?: string;
+    suggested?: string;
+  }>;
 };
 
 /**
@@ -46,6 +66,35 @@ export default async function VendorRecommendationsPage({ searchParams }: Props)
   const vendorProfileId = profile.vendor_profile_id;
   const services = profile.services ?? [];
 
+  // Connected couples the vendor can suggest to = their ACCEPTED chat threads
+  // (one per couple/event). Reuse the canonical vendor-inbox query
+  // (fetchVendorThreads, used by Clients + Messages) so the label matches every
+  // other vendor surface: the couple appears as the event display_name they
+  // identified themselves with (personal names stay private). RLS already scopes
+  // these threads to this vendor's profile.
+  const allThreads = await fetchVendorThreads(supabase, vendorProfileId);
+  const connectedCouples: ConnectedCouple[] = allThreads
+    .filter((t) => t.inquiry_status === 'accepted')
+    .map((t) => ({
+      eventId: t.event_id,
+      label: t.event?.display_name ?? 'A Setnayan event',
+    }));
+
+  // Existing pending suggestions this vendor has already sent, so a (couple,
+  // add-on) pair the vendor already suggested renders "Suggested ✓" instead of
+  // the picker. Key: "<event_id>::<addon_key>". RLS (vfr_vendor_select) scopes
+  // these to this vendor's own rows.
+  const { data: sentRows } = await supabase
+    .from('vendor_feature_recommendations')
+    .select('event_id, addon_key')
+    .eq('vendor_profile_id', vendorProfileId)
+    .eq('status', 'pending');
+  const suggestedKeys = new Set(
+    ((sentRows ?? []) as { event_id: string; addon_key: string }[]).map(
+      (r) => `${r.event_id}::${r.addon_key}`,
+    ),
+  );
+
   // 1) The vendor's leaves: services[] (canonical_service codes) → DISTINCT
   //    tile_ids via canonical_service_taxonomy. A vendor advertising
   //    `videography` maps to the `photo_video` tile; recommendations key off
@@ -71,8 +120,11 @@ export default async function VendorRecommendationsPage({ searchParams }: Props)
       <RecommendationsPanel
         groups={[]}
         suggestSkuOptions={[]}
+        connectedCouples={connectedCouples}
+        suggestedKeys={[...suggestedKeys]}
         savedFlash={!!search.saved}
         flaggedFlash={!!search.flagged}
+        suggestedFlash={!!search.suggested}
         errorFlash={search.error ? decodeURIComponent(search.error) : null}
       />
     );
@@ -211,6 +263,10 @@ export default async function VendorRecommendationsPage({ searchParams }: Props)
         // Opt-in is "active" only when the vendor has an enabled optin row.
         optInEnabled: enabledOptin === true,
         flaggedNotAFit: pendingNotAFit.has(`${r.tile_id}::${r.service_code}`),
+        // Studio add-on key IF this SKU is a recommendable in-app service — drives
+        // the "Suggest to a couple" control. null → no control (free / coming-soon
+        // / no Studio surface, so nothing the couple could buy from the hub).
+        addonKey: ADDON_KEY_BY_SERVICE_CODE.get(r.service_code) ?? null,
       };
       if (r.is_opt_in && enabledOptin !== true) {
         offers.push(card);
@@ -242,8 +298,11 @@ export default async function VendorRecommendationsPage({ searchParams }: Props)
     <RecommendationsPanel
       groups={groups}
       suggestSkuOptions={suggestSkuOptions}
+      connectedCouples={connectedCouples}
+      suggestedKeys={[...suggestedKeys]}
       savedFlash={!!search.saved}
       flaggedFlash={!!search.flagged}
+      suggestedFlash={!!search.suggested}
       errorFlash={search.error ? decodeURIComponent(search.error) : null}
     />
   );

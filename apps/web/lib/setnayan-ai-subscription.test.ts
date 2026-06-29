@@ -10,13 +10,27 @@ import assert from 'node:assert/strict';
 
 import {
   AI_SUB_CYCLE_DAYS,
+  AI_SUB_MAX_CYCLES,
   cyclesFromAmount,
   extendUserAiSubscription,
+  parseCycles,
 } from './setnayan-ai-subscription';
 
 const DAY = 24 * 60 * 60 * 1000;
 const CYCLE = AI_SUB_CYCLE_DAYS * DAY;
 const NOW = new Date('2026-01-01T00:00:00.000Z');
+
+test('parseCycles: accepts positive whole numbers, clamps to the max, rejects junk', () => {
+  assert.equal(parseCycles(1), 1);
+  assert.equal(parseCycles('6'), 6);
+  assert.equal(parseCycles(AI_SUB_MAX_CYCLES + 5), AI_SUB_MAX_CYCLES); // clamped
+  assert.equal(parseCycles(0), null);
+  assert.equal(parseCycles(-3), null);
+  assert.equal(parseCycles(2.5), null);
+  assert.equal(parseCycles('abc'), null);
+  assert.equal(parseCycles(null), null);
+  assert.equal(parseCycles(undefined), null);
+});
 
 test('cyclesFromAmount: paid amount ÷ unit price, min 1, rounded', () => {
   assert.equal(cyclesFromAmount(499, 499), 1);

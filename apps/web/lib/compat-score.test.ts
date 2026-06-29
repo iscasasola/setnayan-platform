@@ -99,3 +99,44 @@ test('explainCompatScore: ordered + capped at 3 reasons', () => {
   // Push order is refinement → distance → reviews → dateHeadroom → trust.
   assert.deepEqual(reasons, ['Matches your style', 'Nearest to your venue', '4.8★']);
 });
+
+// ── First-Look Window responsiveness blend (Wave 2) ─────────────────────────
+
+test('First-Look: boostWeight defaults to 0 → respondsFast has no effect', () => {
+  const base = computeCompatScore({ verified: true, avgRating: 5, reviewCount: 30 });
+  // Same inputs, fast responder, but NO boostWeight → byte-for-byte identical.
+  const noWeight = computeCompatScore({
+    verified: true,
+    avgRating: 5,
+    reviewCount: 30,
+    respondsFast: true,
+  });
+  assert.equal(noWeight.score, base.score);
+});
+
+test('First-Look: a fast responder out-scores an identical slow vendor at the same boost weight', () => {
+  const inputs = { verified: true, avgRating: 4.5, reviewCount: 20, boostWeight: 0.1 } as const;
+  const fast = computeCompatScore({ ...inputs, respondsFast: true });
+  const slow = computeCompatScore({ ...inputs, respondsFast: false });
+  assert.ok(fast.score > slow.score, `fast ${fast.score} !> slow ${slow.score}`);
+});
+
+test('First-Look: the boost is bounded — weight is clamped to 0.5 and the score stays 0–100', () => {
+  // An over-large weight can't run the score past 100 or invert the scale.
+  const huge = computeCompatScore({ respondsFast: true, boostWeight: 5 });
+  assert.ok(huge.score >= 0 && huge.score <= 100, `blended score out of range: ${huge.score}`);
+  // Clamped to 0.5: a perfect-everything fast responder tops out near the cap
+  // (blend of a ~0.98 raw and a 1.0 responsiveness sub), never above 100.
+  const maxed = computeCompatScore({
+    songOverlapRatio: 1,
+    distanceKm: 0,
+    avgRating: 5,
+    reviewCount: 100,
+    verified: true,
+    boosted: true,
+    dateHeadroomRatio: 1,
+    respondsFast: true,
+    boostWeight: 0.5,
+  });
+  assert.ok(maxed.score >= 99 && maxed.score <= 100, `maxed score was ${maxed.score}`);
+});

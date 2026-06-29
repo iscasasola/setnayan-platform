@@ -401,10 +401,12 @@ export async function ForVendorsDeepDive() {
           className="m-display"
           style={{ fontSize: 'clamp(1.6rem, 3.5vw, 36px)', color: 'var(--m-orange-2)' }}
         >
-          {p.enterpriseMonthly}
+          {p.enterpriseAnnual}/yr
         </div>
         <div>
-          <div className="m-label-mono">Enterprise · {p.enterpriseMonthly} / 28 days</div>
+          <div className="m-label-mono">
+            Enterprise · {p.enterpriseAnnual} / year · or {p.enterpriseMonthly} / 28 days
+          </div>
           <div
             style={{
               fontSize: 14,

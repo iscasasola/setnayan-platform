@@ -48,6 +48,14 @@ export async function startTokenPurchase(formData: FormData): Promise<void> {
   }
   const packSku = (sku as string).trim();
 
+  // Optional recipient — an admin may buy a pack FOR a teammate (personal,
+  // non-transferable once credited). Blank/self → the buyer holds them.
+  const holderRaw = formData.get('holder_user_id');
+  const holder =
+    typeof holderRaw === 'string' && holderRaw.trim().length > 0
+      ? holderRaw.trim()
+      : null;
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -56,12 +64,19 @@ export async function startTokenPurchase(formData: FormData): Promise<void> {
 
   const { data, error } = await supabase.rpc('create_vendor_token_purchase', {
     p_pack_sku_code: packSku,
+    p_holder_user_id: holder,
   });
 
   if (error) {
     const m = error.message?.toUpperCase() ?? '';
     if (m.includes('NO_VENDOR_PROFILE')) {
       ERR('Sign in with your vendor account to buy tokens.');
+    }
+    if (m.includes('NOT_VENDOR_ADMIN')) {
+      ERR('Only an admin can buy tokens for a teammate.');
+    }
+    if (m.includes('NOT_A_MEMBER')) {
+      ERR('That person is not on your team.');
     }
     if (m.includes('INVALID_PACK')) {
       ERR('That token pack is no longer available. Refresh and try again.');

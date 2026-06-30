@@ -1908,10 +1908,16 @@ function ReviewRow({
           {/* Phase C: star row hidden for tiers that don't count stars. */}
           {showStars ? <StarRow value={review.rating_overall} /> : null}
           <span className="text-sm font-medium text-ink">{author}</span>
-          {/* Receipt-backed provenance (Wave 5). PLATFORM-DERIVED — couples
-              can't set it. Renders only when the review's booking links to
-              this vendor's Setnayan profile. */}
-          {review.booked_through_setnayan ? <BookedThroughSetnayanPill /> : null}
+          {/* Receipt-backed provenance (Wave 5 + import polish). PLATFORM-DERIVED
+              — couples can't set it. "Verified booking" when the relationship
+              came via the vendor's invite QR (import); "Verified wedding" when
+              the couple booked on-platform themselves; nothing for off-platform
+              bookings with no linked profile. */}
+          {review.via_vendor_import ? (
+            <VerifiedBookingPill />
+          ) : review.booked_through_setnayan ? (
+            <VerifiedWeddingPill />
+          ) : null}
         </div>
         <time className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
           {dateLabel}
@@ -1944,19 +1950,39 @@ function ReviewRow({
 }
 
 /**
- * Receipt-backed "Booked through Setnayan" pill. Surfaces only when a review's
- * source booking is linked to this vendor's marketplace profile (provenance is
- * platform-derived; couples can never set it). The trust signal that this is a
- * real, paid-through-the-platform engagement — not a drive-by review.
+ * Receipt-backed provenance pills. Both surface only when a review's source
+ * booking is linked to this vendor's marketplace profile (provenance is
+ * platform-derived; couples can never set it).
+ *
+ * "Verified wedding" — the couple found + booked this vendor through Setnayan
+ * themselves: a real on-platform engagement, not a drive-by review.
  */
-function BookedThroughSetnayanPill() {
+function VerifiedWeddingPill() {
   return (
     <span
       className="inline-flex items-center gap-1 rounded-full bg-mulberry/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-mulberry"
       title="This couple booked this vendor through Setnayan — verified by the platform."
     >
       <BadgeCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
-      Booked through Setnayan
+      Verified wedding
+    </span>
+  );
+}
+
+/**
+ * "Verified booking" — the vendor brought this couple onto Setnayan via their
+ * invite QR (event_vendors.source = 'vendor_invite'). Still a verified,
+ * platform-confirmed relationship — just sourced from the vendor's own client
+ * rather than on-platform discovery.
+ */
+function VerifiedBookingPill() {
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full bg-terracotta/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-terracotta-700"
+      title="The vendor invited this couple to Setnayan — a verified booking relationship."
+    >
+      <BadgeCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
+      Verified booking
     </span>
   );
 }

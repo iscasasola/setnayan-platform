@@ -10,6 +10,7 @@
  */
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { safeNext } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { resolveProfile } from '@/lib/event-type-profile';
@@ -34,10 +35,17 @@ export default async function GenericOnboardingPage({
   searchParams,
 }: {
   params: Promise<{ type: string }>;
-  searchParams: Promise<{ resume?: string }>;
+  searchParams: Promise<{ resume?: string; next?: string }>;
 }) {
   const { type } = await params;
   const sp = await searchParams;
+  // Optional vendor-invite return path (2026-06-30): a 0-event couple sent here
+  // from /vendor-invite/[slug] to create their first (non-wedding) event is
+  // returned to it after the commit so they can finish shortlisting the vendor.
+  // The create-event picker threads `next` via withNext() (#2452); the wedding
+  // route already honors it — this closes the gap for the generic flow.
+  // safeNext() keeps it to internal paths only.
+  const nextPath = safeNext(sp.next);
 
   // Dark until the experience-quiz flag is flipped on (the go-live switch).
   if (!experienceQuizEnabled()) notFound();
@@ -82,6 +90,7 @@ export default async function GenericOnboardingPage({
       authed={!!user}
       anonEnabled={anonOnboardingEnabled()}
       resume={sp.resume === '1'}
+      nextPath={nextPath !== '/' ? nextPath : null}
     />
   );
 }

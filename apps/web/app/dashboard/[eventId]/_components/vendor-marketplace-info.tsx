@@ -202,7 +202,7 @@ export async function fetchMarketplaceReviews(
     const reviewsRes = await supabase
       .from('vendor_reviews')
       .select(
-        'review_id,public_id,vendor_profile_id,event_id,couple_user_id,rating_overall,rating_communication,rating_quality,rating_value,rating_on_time,body,vendor_reply,vendor_reply_at,created_at,booked_through_setnayan',
+        'review_id,public_id,vendor_profile_id,event_id,couple_user_id,rating_overall,rating_communication,rating_quality,rating_value,rating_on_time,body,vendor_reply,vendor_reply_at,created_at,booked_through_setnayan,via_vendor_import',
       )
       .eq('vendor_profile_id', vendorProfileId)
       .order('created_at', { ascending: false })
@@ -224,6 +224,7 @@ export async function fetchMarketplaceReviews(
         vendor_reply_at: string | null;
         created_at: string;
         booked_through_setnayan: boolean;
+        via_vendor_import: boolean;
       }>;
 
       // Attribute each review to the EVENT's couple (events.display_name), never

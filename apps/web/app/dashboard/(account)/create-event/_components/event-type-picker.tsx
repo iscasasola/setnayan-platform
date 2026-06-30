@@ -55,6 +55,15 @@ export function EventTypePicker({ types, next }: { types: EventTypeRow[]; next?:
     form.querySelector<HTMLInputElement>('#display_name')?.focus({ preventScroll: true });
   }, [selectedKey]);
 
+  // Carry an internal return path (vendor-invite claim loop) THROUGH the tailored
+  // onboarding routes, so a 0-event couple who picks Wedding here lands back on
+  // /vendor-invite/[slug] after committing. The inline name form below already
+  // threads `next` via a hidden field; this covers the onboardingHref branch.
+  function withNext(href: string): string {
+    if (!next) return href;
+    return `${href}${href.includes('?') ? '&' : '?'}next=${encodeURIComponent(next)}`;
+  }
+
   function handleSelect(type: EventTypeRow) {
     if (!type.enabled) return;
     if (type.onboardingHref) {
@@ -62,7 +71,7 @@ export function EventTypePicker({ types, next }: { types: EventTypeRow[]; next?:
       // as a Back target behind the tailored onboarding — backing out of onboarding at
       // its first screen returns to the dashboard, never "the old onboarding page".
       // (owner bug 2026-06-15)
-      router.replace(type.onboardingHref);
+      router.replace(withNext(type.onboardingHref));
       return;
     }
     // Iteration 0053 Phase 3: non-wedding types route into the generic experience
@@ -70,7 +79,7 @@ export function EventTypePicker({ types, next }: { types: EventTypeRow[]; next?:
     // off the route 404s, so we fall back to the inline name form. Wedding never
     // reaches here (its onboardingHref branch above is byte-identical / unchanged).
     if (experienceQuizEnabled() && type.key !== 'wedding') {
-      router.replace(`/onboarding/${type.key}`);
+      router.replace(withNext(`/onboarding/${type.key}`));
       return;
     }
     setSelectedKey(type.key);

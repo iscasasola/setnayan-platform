@@ -107,6 +107,7 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
   // Partially working
   ANIMATED_MONOGRAM:   'live',     // drawn-live monogram bound to the SKU · PR #729 · 2026-06-01
   PANOOD_SYSTEM:       'partial',  // OAuth + UI shipped · pending YouTube verified-app
+  PATIKTOK_COMPILER:   'partial',  // booth scaffold · TikTok app review pending
   PAPIC_GUEST:         'live',     // guest camera end-to-end: cookie identity + server quota (150) + capture · 2026-06-02
   PAPIC_SEATS:         'live',     // photo crew end-to-end: provision + claim + capture · PR #731 + migration 20260718000000 · 2026-06-01
   PAPIC_CAMERA_ROLL_DAY:      'live', // per-camera Ltd (Roll) rate ₱30/cam/day · 30 photos + 10 videos · #2246 · 2026-06-26

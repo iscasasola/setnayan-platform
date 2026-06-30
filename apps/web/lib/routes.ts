@@ -141,6 +141,11 @@ export const routes = {
       index: () => `/api/health`,
       deep: () => `/api/health/deep`,
     },
+    internal: {
+      patiktok: {
+        processJob: () => `/api/internal/patiktok/process-job`,
+      },
+    },
     ledBackground: {
       save: () => `/api/led-background/save`,
     },
@@ -201,6 +206,12 @@ export const routes = {
     telemetry: {
       autoResolve: () => `/api/telemetry/auto-resolve`,
       clientFault: () => `/api/telemetry/client-fault`,
+    },
+    tiktok: {
+      auth: {
+        callback: () => `/api/tiktok/auth/callback`,
+        start: () => `/api/tiktok/auth/start`,
+      },
     },
     upload: () => `/api/upload`,
     v1: {
@@ -288,6 +299,11 @@ export const routes = {
         magazine: (eventId: string) => `/dashboard/${eventId}/studio/papic/magazine`,
         moderation: (eventId: string) => `/dashboard/${eventId}/studio/papic/moderation`,
         recap: (eventId: string) => `/dashboard/${eventId}/studio/papic/recap`,
+      },
+      patiktok: {
+        index: (eventId: string) => `/dashboard/${eventId}/studio/patiktok`,
+        booth: (eventId: string) => `/dashboard/${eventId}/studio/patiktok/booth`,
+        detail: (eventId: string, templateId: string) => `/dashboard/${eventId}/studio/patiktok/${templateId}`,
       },
       photoDelivery: (eventId: string) => `/dashboard/${eventId}/studio/photo-delivery`,
       playlist: (eventId: string) => `/dashboard/${eventId}/studio/playlist`,

@@ -542,7 +542,7 @@ html.subnav-docked [data-shell-main] {
  *   - poster-pulse: centered scaling pulse (creative/generative services —
  *     Papic, Music Creator, Monogram Creator)
  *   - poster-scan: horizontal sweep line (broadcast/render services —
- *     Panood, Save the Date Video, Paprint, LED Background)
+ *     Panood, Save the Date Video, Patiktok, Paprint, LED Background)
  *
  * All three are transform/opacity-only so they composite on the GPU
  * without forcing layout/paint. `will-change: transform` hints the

@@ -76,6 +76,7 @@ const SERVICE_LABELS: Record<string, string> = {
   PAPIC_ADDON_THANK_YOU: 'Thank-You Video',
   PAPIC_GUEST: 'Papic Guest',
   PAPIC_SEATS: 'Papic',
+  PATIKTOK_COMPILER: 'Patiktok',
   PRO_RSVP: 'Pro RSVP',
   PRO_WEBSITE: 'Pro Website',
   RSVP_PRO_WEBSITE: 'Pro Website',

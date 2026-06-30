@@ -46,6 +46,7 @@ const CUSTOMER_CATEGORIES = new Set<string>([
   'couple_addon',
   'panood',
   'papic',
+  'patiktok',
   'concierge',
 ]);
 

@@ -46,7 +46,7 @@
  *                   Menus & icons · Taxonomy · Event Types · Refinements ·
  *                   Onboarding · Wedding types · Wedding traditions · AI brain.
  *   7. Content & Media (key 'media') — Website · Hero video ·
- *                   Reveal Studio · Real Stories · Recaps · Songs ·
+ *                   Reveal Studio · Real Stories · Recaps · Patiktok · Songs ·
  *                   Moodboard library.
  *   8. Settings (key 'settings-group') — Settings · Notifications ·
  *                   Demo mode · My account.
@@ -124,6 +124,7 @@ import {
   Images,
   Radar,
   Lightbulb,
+  Film,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { SidebarSection } from '@/app/_components/nav/sidebar-section';
@@ -626,6 +627,16 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/recaps',
         icon: Images,
         matchPrefix: '/admin/recaps',
+      },
+      {
+        // Patiktok template-library oversight + render-job monitor (un-retired
+        // 2026-07-01). Page at /admin/patiktok; slotted into Content & Media
+        // next to the other content surfaces.
+        key: 'patiktok',
+        label: 'Patiktok',
+        href: '/admin/patiktok',
+        icon: Film,
+        matchPrefix: '/admin/patiktok',
       },
       {
         key: 'songs',

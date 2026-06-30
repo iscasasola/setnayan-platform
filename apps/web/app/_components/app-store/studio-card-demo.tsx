@@ -557,6 +557,80 @@ const PHOTO_DELIVERY_SCENES: RichFrame[] = [
   },
 ];
 
+// ── Patiktok — pick → set → render → ready ──
+const PATIKTOK_SCENES: RichFrame[] = [
+  {
+    caption: 'Pick a vertical look you love.',
+    hint: 'Tap a style to choose it.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+        <span className="font-mono text-[7px] uppercase tracking-[0.2em] text-terracotta">Patiktok · reel station</span>
+        <p className="text-[12px] font-semibold">Pick the reel templates</p>
+        <div className="mt-1.5 flex gap-1">
+          <span className="rounded-full bg-terracotta px-2 py-0.5 text-[7px] text-cream">All</span>
+          <span className="rounded-full border border-ink/10 px-2 py-0.5 text-[7px] text-ink/55">Ceremony</span>
+          <span className="rounded-full border border-ink/10 px-2 py-0.5 text-[7px] text-ink/55">Reception</span>
+        </div>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <div className="flex aspect-[9/16] flex-col justify-between overflow-hidden rounded-lg border border-ink/10 p-2" style={{ background: '#FAF7F2' }}>
+            <span className="h-1 w-full rounded bg-terracotta" />
+            <span className="text-center text-[10px]" style={{ fontFamily: SERIF, color: '#5a3a2a' }}>Ana &amp; Marco</span>
+            <div className="flex gap-0.5">{PAL.map((c, k) => <span key={k} className="h-1 flex-1" style={{ background: c }} />)}</div>
+          </div>
+          <div className="flex aspect-[9/16] items-center justify-center overflow-hidden rounded-lg border border-ink/10" style={{ background: '#0F0F0F' }}>
+            <span className="text-[10px]" style={{ fontFamily: SERIF, color: GOLD }}>A &amp; M</span>
+          </div>
+        </div>
+      </div>
+    ),
+  },
+  {
+    caption: 'Set the length and the song.',
+    hint: 'Slide the length, pick a track.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+        <span className="font-mono text-[7px] uppercase tracking-[0.2em] text-terracotta">Cebu Sunrise</span>
+        <div className="mt-1.5 rounded-lg border border-ink/10 bg-white p-2.5">
+          <p className="text-[10px] font-medium">Render this reel</p>
+          <div className="mt-2 flex items-center justify-between text-[9px]"><span className="text-ink/60">Mimic duration</span><span className="font-mono">15s</span></div>
+          <div className="mt-1 h-1.5 w-full rounded-full bg-ink/10"><div className="relative h-full w-1/2 rounded-full bg-terracotta"><span className="absolute -right-1.5 -top-1 h-3.5 w-3.5 rounded-full bg-terracotta" /></div></div>
+          <div className="mt-3 flex items-center gap-1.5 rounded-md border border-ink/15 px-2 py-1.5 text-[9px]">
+            <Music aria-hidden className="h-3 w-3 text-ink/50" /><span className="text-ink/70">Auto-pick from template</span>
+          </div>
+          <button type="button" className="mt-2 inline-flex w-full items-center justify-center rounded-md bg-mulberry py-1.5 text-[10px] font-medium text-cream">Render reel</button>
+        </div>
+      </div>
+    ),
+  },
+  {
+    caption: 'Watch it come together right here.',
+    hint: 'Tap Render — keep the tab open.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-4 text-ink">
+        <div className="rounded-md bg-emerald-600/10 px-2 py-1 text-[8px] font-medium text-emerald-800">Render queued — ready soon</div>
+        <div className="mt-2 rounded-lg p-3" style={{ background: 'rgba(30, 34, 41,.05)', border: '1px solid rgba(30, 34, 41,.3)' }}>
+          <p className="text-[10px] font-medium" style={{ color: MULB }}>Rendering in your browser… 68%</p>
+          <div className="mt-2 h-2 w-full rounded-full bg-ink/10"><div className="h-full rounded-full" style={{ width: '68%', background: MULB }} /></div>
+          <p className="mt-1.5 text-[8px] text-ink/55">No server, no wait queue.</p>
+        </div>
+      </div>
+    ),
+  },
+  {
+    caption: 'Your reel, ready to share.',
+    hint: 'Tap Download, post to your stories.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-cream px-4 text-ink">
+        <div className="flex aspect-[9/16] w-[128px] items-center justify-center rounded-lg bg-black text-cream"><Play aria-hidden className="h-6 w-6" strokeWidth={1.5} /></div>
+        <button type="button" className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-[10px] font-medium text-white">
+          <Download aria-hidden className="h-3 w-3" strokeWidth={2} /> Download reel
+        </button>
+        <span className="mt-1.5 font-mono text-[7px] uppercase tracking-[0.15em] text-ink/45">Saved to your event gallery</span>
+      </div>
+    ),
+  },
+];
+
 // ── LED Background — hero → templates → customize → ready ──
 const LED_SCENES: RichFrame[] = [
   {
@@ -1111,6 +1185,7 @@ export const RICH_SCENES: Record<RichDemoSlug, RichFrame[]> = {
   'mood-board': MOOD_BOARD_SCENES,
   'custom-qr-guest': CUSTOM_QR_SCENES,
   'photo-delivery': PHOTO_DELIVERY_SCENES,
+  patiktok: PATIKTOK_SCENES,
   led: LED_SCENES,
   'indoor-blueprint': INDOOR_BLUEPRINT_SCENES,
   'setnayan-ai': SETNAYAN_AI_SCENES,
@@ -1146,6 +1221,7 @@ const RICH_MEDIA: Record<string, DemoMedia> = {
   'mood-board': m('mood-board'),
   'custom-qr-guest': m('custom-qr-guest'),
   'photo-delivery': m('photo-delivery'),
+  patiktok: m('patiktok'),
   led: m('led'),
   'indoor-blueprint': m('indoor-blueprint'),
   'setnayan-ai': m('setnayan-ai'),

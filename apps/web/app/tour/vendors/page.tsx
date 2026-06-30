@@ -168,6 +168,10 @@ export default async function TourVendorsPage() {
         matchEventId: eventId,
         excludeVendorIds: [],
         limit: PER_CATEGORY_LIMIT,
+        // PR-B — the guided tour runs on is_demo sample vendors that may be
+        // unverified. Opt out of the always-on verification gate so the tour
+        // still has inventory to show (demo-scoped carve-out only).
+        includeDemoUnverified: true,
       }),
     ),
   );

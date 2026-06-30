@@ -160,6 +160,20 @@ type PublicVendorRow = {
   // `?? null` everywhere so a missing column degrades to free (safe:
   // name stays hidden, reviews stay gated).
   tier_state?: string | null;
+  // PR-B public-visibility verification gate. `verification_state` is a
+  // public.vendor_verification_state enum on vendor_profiles with FIVE values
+  // (unverified | pending_review | verified | demoted | rejected, NOT NULL
+  // DEFAULT 'unverified'). The gate is intentionally allow-listed to the
+  // single 'verified' value: every other state (including pending_review,
+  // demoted, rejected) has NO public website — the page 404s for everyone
+  // EXCEPT the owning vendor (self-preview, matched on `user_id`) and admins
+  // in demo mode. Optional + `!== 'verified'` everywhere so a missing column
+  // degrades to hidden (safe).
+  verification_state?: string | null;
+  // PR-B self-preview. `user_id` is the owning vendor account. When the
+  // logged-in viewer's id matches, an unverified page is shown to its owner
+  // so they can preview before verification lands. Optional/nullable.
+  user_id?: string | null;
 };
 
 // Iteration 0043 — labels for wedding-type compatibility badges rendered on
@@ -247,7 +261,7 @@ async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
   // screen_name silently null (resolver falls back to computed
   // placeholder).
   const fullSelect =
-    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state';
+    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,verification_state,user_id';
   const legacySelect =
     'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings';
 
@@ -256,7 +270,12 @@ async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
     .select(fullSelect)
     .ilike('business_slug', slug)
     .maybeSingle();
-  if (error && /(is_demo|name_revealed_at|screen_name|tier_state)/i.test(error.message)) {
+  if (
+    error &&
+    /(is_demo|name_revealed_at|screen_name|tier_state|verification_state|user_id)/i.test(
+      error.message,
+    )
+  ) {
     ({ data } = await admin
       .from('vendor_profiles')
       .select(legacySelect)
@@ -481,6 +500,25 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
   const isDemoVendor = vendor.is_demo === true;
   const inDemoMode = await isAdminInDemoMode();
   if (isDemoVendor && !inDemoMode) notFound();
+
+  // PR-B public-visibility verification gate. An UNVERIFIED vendor has no
+  // public website — the page 404s so it never surfaces on the public web.
+  // Two carve-outs: (1) admins in demo mode (so they can preview demo
+  // inventory, which may include unverified rows); (2) the OWNING vendor —
+  // when the logged-in viewer's user_id matches vendor.user_id, the vendor
+  // can preview their own page before verification lands. The reconcile
+  // migration 20270331400000 marked the founder + every paid vendor
+  // 'verified', so no real/paid public site is hidden. Defensive: a missing
+  // verification_state column reads as not-verified (hidden) — conservative.
+  if (vendor.verification_state !== 'verified' && !inDemoMode) {
+    const supabase = await createClient();
+    const {
+      data: { user: viewer },
+    } = await supabase.auth.getUser();
+    const isOwner =
+      viewer != null && vendor.user_id != null && viewer.id === vendor.user_id;
+    if (!isOwner) notFound();
+  }
 
   const visibility = parseVisibility(vendor.public_visibility);
   const bookable = isBookable(visibility);

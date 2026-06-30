@@ -51,6 +51,11 @@ export async function FolderVendorsSection({
    *  mode (chrome stripped). Direct visits leave false → href is
    *  unchanged from prior behavior. */
   focusedMode = false,
+  /** PR-B demo carve-out — threaded from CatalogView `inDemoMode`. Default
+   *  false = VERIFIED-ONLY preview cards (an unverified vendor is never
+   *  surfaced as a named card to the public). Admin demo mode passes TRUE
+   *  to surface unverified is_demo sample vendors. */
+  includeDemoUnverified = false,
 }: {
   folder: WeddingFolder;
   /** Demo-mode exclusion list, threaded through from the page-level
@@ -63,12 +68,14 @@ export async function FolderVendorsSection({
   currentEventId: string | null;
   featured?: boolean;
   focusedMode?: boolean;
+  includeDemoUnverified?: boolean;
 }) {
   const admin = createAdminClient();
   const vendors = await findTopVendorsByFolder(admin, {
     folder,
     limit: 9,
     excludeVendorIds,
+    includeDemoUnverified,
   });
 
   // Empty-state — return null so the folder header + tile grid still render

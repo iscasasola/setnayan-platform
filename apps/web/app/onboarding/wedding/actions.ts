@@ -1019,6 +1019,10 @@ export async function getOnboardingVendorCounts(input: {
         'hq_region,location_city,compatible_ceremony_types,compatible_venue_settings,event_types,capacity_max,venue_type',
       )
       .in('public_visibility', ['verified', 'coming_soon'])
+      // PR-B — count only VERIFIED vendors so the congrats stat tile matches
+      // what the couple can actually find on Explore (unverified vendors are
+      // private). Keeps the "real numbers only" guarantee honest.
+      .eq('verification_state', 'verified')
       .not('business_name', 'is', null)
       .neq('business_name', '')
       .limit(5000); // ceiling well above the V1 pool · keeps `total` exact

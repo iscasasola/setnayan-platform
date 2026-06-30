@@ -1051,6 +1051,9 @@ async function fetchActiveCategoryMarketPool(
       .from('vendor_market_stats')
       .select('vendor_profile_id', { count: 'exact', head: true })
       .in('public_visibility', ['verified', 'coming_soon'])
+      // PR-B — the available-pool count must match the gated marketplace:
+      // count only VERIFIED vendors (unverified are private).
+      .eq('verification_state', 'verified')
       .not('business_name', 'is', null)
       .neq('business_name', '')
       .overlaps('services', [...canonical]);

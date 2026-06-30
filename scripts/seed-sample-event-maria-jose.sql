@@ -174,3 +174,27 @@ BEGIN
     VALUES (v_event, 'makeup_artist'::vendor_category, r.biz, v_vp, v_vp, 'considering');
   END LOOP;
 END $$;
+
+-- ===== BLOCK 4: bump the 5 "chosen" demo vendors to Pro =====
+-- ROOT-CAUSE fix (2026-07-01): the vendor INSERTs above carry no tier_state, so
+-- they land on the DEFAULT tier_state='free'. The /realstories style-twin chips
+-- AND the /[slug] editorial "Team Behind the Day" credit ONLY Pro/Enterprise
+-- vendors (by design), so a fresh re-seed otherwise reintroduces the zero-Pro
+-- gap (no style-twin chips, empty credits) — exactly what migration
+-- 20270331300000 was written to patch after the fact. Setting tier_state here
+-- makes the seed ALONE fully provision the Real Story (no follow-up migration
+-- needed). Same 5 picks (one per key category) + same predicate as that
+-- migration; idempotent + demo-only (is_demo=TRUE), so it never touches real
+-- vendor billing or tier counts (admin/stats queries already exclude is_demo).
+UPDATE public.vendor_profiles
+   SET tier_state = 'pro'
+ WHERE demo_batch_id = 'a1a1a1a1-0000-4000-8000-000000000a01'
+   AND is_demo = TRUE
+   AND business_name IN (
+     'Habi Photo Co.',   -- photographer
+     'Alon Films',       -- videographer
+     'Bulaklak & Co.',   -- florist
+     'Hain Catering',    -- catering
+     'Araw Planners'     -- planner_coordinator
+   )
+   AND tier_state IS DISTINCT FROM 'pro';

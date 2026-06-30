@@ -87,7 +87,13 @@ function distanceTone(d: number): string {
 export default async function AdminRepostWatchPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; rescanned?: string; refs?: string }>;
+  searchParams: Promise<{
+    status?: string;
+    rescanned?: string;
+    refs?: string;
+    rematched?: string;
+    flagged?: string;
+  }>;
 }) {
   const search = await searchParams;
   const status = normalizeStatus(search.status ?? 'open');
@@ -171,8 +177,9 @@ export default async function AdminRepostWatchPage({
         <div className="mb-4">
           <FormFlash tone="success">
             Rescan complete — {search.rescanned ?? '0'} real vendor(s),{' '}
-            {search.refs ?? '0'} image(s) considered. New matches (if any) appear
-            below.
+            {search.refs ?? '0'} image(s) considered;{' '}
+            {search.rematched ?? '0'} hashed image(s) re-matched at the current
+            threshold. New matches (if any) appear below.
           </FormFlash>
         </div>
       )}

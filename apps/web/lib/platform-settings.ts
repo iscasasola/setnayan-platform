@@ -29,7 +29,9 @@ export type PlatformSettingsRow = {
   /**
    * Max Hamming distance (0..64) at which two vendor-image pHashes count as a
    * repost match in the reverse-image repost-watch (migration 20270330665855).
-   * Admin-managed; default 10.
+   * Admin-managed via the "Repost-watch match sensitivity" field on
+   * /admin/settings (saveBusinessIdentity in app/admin/settings/actions.ts);
+   * default 10.
    */
   repost_watch_hamming_threshold: number;
   updated_at: string;

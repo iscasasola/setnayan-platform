@@ -286,7 +286,9 @@ export async function createVendorService(formData: FormData) {
     | null;
   const baseCaps = tierCaps(asVendorTier(tierRowTyped?.tier_state));
   // Founder override (owner 2026-06-09): unlimited categories + services-per-leaf
-  // (the token-gate bypass lives in unlock_vendor_event). Other caps unchanged.
+  // ONLY. There is NO founder token-gate bypass — the bypass was dropped at
+  // migration 20270221294989, so founders burn tokens like any paid tier in
+  // unlock_vendor_event. Other caps unchanged.
   const caps =
     tierRowTyped?.is_founder === true
       ? { ...baseCaps, parentCategories: Infinity, servicesPerLeaf: Infinity }

@@ -391,7 +391,7 @@ export async function StackCloseVendor() {
               Profile, inbox, pipeline, calendar, contracts, payments,
               reviews — one login.{' '}
               <strong style={{ color: 'var(--m-paper)' }}>
-                Verified is free; Pro at {p.proMonthly}/28d
+                The verified badge is free; Pro at {p.proMonthly}/28d
               </strong>{' '}
               for ecosystem-locked extras.
             </div>

@@ -21,7 +21,9 @@ import {
  *      guard is reserved for legacy EXTERNAL http refs).
  *   2. Compute a 64-bit DCT pHash (computePHash, lib/perceptual-hash).
  *   3. Upsert into vendor_image_hashes (denormalizing is_demo).
- *   4. Match against OTHER non-demo vendors' hashes (Hamming <= admin threshold).
+ *   4. Match against OTHER non-demo vendors' hashes (Hamming <= the admin-set
+ *      threshold from /admin/settings · platform_settings
+ *      .repost_watch_hamming_threshold; fallback DEFAULT_HAMMING_THRESHOLD).
  *   5. Insert a vendor_image_flags row (deduped) for each non-demo cross-vendor
  *      hit, for the /admin/repost-watch queue.
  *
@@ -44,6 +46,10 @@ import {
 
 export type RepostSurface = 'service_primary' | 'portfolio';
 
+// Fallback only — the live threshold is admin-managed via the "Repost-watch
+// match sensitivity" field on /admin/settings (platform_settings
+// .repost_watch_hamming_threshold, read by resolveThreshold below). This
+// default applies only when that row is missing/out-of-range or the fetch fails.
 const DEFAULT_HAMMING_THRESHOLD = 10;
 
 type HashRow = {

@@ -41,7 +41,7 @@ const PILLARS = [
 const DISCOVERY = [
   ['Matched on fit, not fame', 'A new vendor who’s right for a couple ranks above a famous one who’s booked or out of budget.'],
   ['No track record doesn’t bury you', '“No reviews yet” reads as unknown, never as bad — it costs you nothing in the rankings.'],
-  ['Free weekly unlocks to start', 'Verified vendors get free couple unlocks every week — so a new vendor can answer matched couples without spending a peso.'],
+  ['Weekly unlocks to start', 'Verified vendors get up to 10 couple unlocks a week (each burns 1–3 region-banded tokens on accept); Solo, Pro, and Enterprise unlock uncapped — every tier burns per accept, so a new vendor can start answering matched couples right away.'],
   ['Hidden until you reply', 'Your name stays private until you answer, so couples choose you for the fit — before they’ve heard of you.'],
   ['Every search shows real matches', 'Couples always get a fillable shortlist, so new vendors get real attention from day one.'],
   ['You climb by merit', 'Reply fast, finish well, earn real reviews. Nail your first five couples and you rise fast. No budget can fake that.'],

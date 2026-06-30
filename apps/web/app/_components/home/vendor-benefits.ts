@@ -50,10 +50,11 @@
  *   - "No pay-to-rank, no fake reviews" / "Dispute mediation": fraud screening is
  *     a manual flag→HQ queue only (no automated pipeline) — kept Soon.
  * 2026-07-01 (c) — token-burn correction: the burn-on-answer is LIVE
- *   (`unlock_vendor_event` consumes 1–3 region-banded tokens for Pro/Enterprise
- *   on accept; ₱0 in prod only because the sole real vendor is founder-exempt +
- *   no other paid vendors yet — see DECISION_LOG 2026-07-01). The prior "burn is
- *   economically inert" claim on the peso-per-lead surfaces was stale + corrected.
+ *   (`unlock_vendor_event` consumes 1–3 region-banded tokens for every paid tier
+ *   on accept — verified ≤10/wk and burns, solo/pro/enterprise unlimited and
+ *   burns; ₱0 in prod only because no paid vendor has burned a qualifying inquiry
+ *   yet — see DECISION_LOG 2026-07-01). The prior "burn is economically inert"
+ *   claim on the peso-per-lead surfaces was stale + corrected.
  *   "Peso-per-lead scorecard" tag cleared; the two "matched intent" tags stay
  *   Soon pending owner copy sign-off.
  * NOTE (owner sign-off): two items couples might expect are NOT real benefits

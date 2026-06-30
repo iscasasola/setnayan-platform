@@ -8,10 +8,10 @@ import type { VendorPesoScorecard } from '@/lib/vendor-peso';
  * booked couple."
  *
  * BEHAVIORAL HONESTY: token burn-on-answer IS live — `unlock_vendor_event`
- * consumes 1–3 region-banded (minimum-wage) tokens when a PRO/ENTERPRISE vendor
- * accepts an inquiry (FREE blocked · VERIFIED ≤10/wk free · FOUNDER exempt).
- * Token spend reads ₱0 for a vendor who simply hasn't burned this cycle — no
- * answered inquiries, or a founder-exempt account. The card says THAT plainly
+ * consumes 1–3 region-banded (minimum-wage) tokens when a paid-tier vendor
+ * accepts an inquiry (FREE blocked · VERIFIED ≤10/wk AND burns · SOLO/PRO/
+ * ENTERPRISE unlimited AND burns). Token spend reads ₱0 for a vendor who simply
+ * hasn't answered a burning inquiry this cycle. The card says THAT plainly
  * when `burnInert` (= ₱0 token spend this cycle); it never implies the vendor is
  * getting paid leads for free as a perk, and never claims the burn is "off."
  * (The misnomer flag name `burnInert` is kept for compatibility; it means "₱0

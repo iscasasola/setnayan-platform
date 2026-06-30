@@ -3,10 +3,10 @@
 Investigating the owner's "flip the token burn live" directive surfaced that the
 burn is **already live**: `unlock_vendor_event` (chat acceptInquiry) calls
 `consume_vendor_assets_per_voucher` and burns 1–3 region-banded (minimum-wage)
-tokens for PRO/ENTERPRISE vendors (FREE blocked · VERIFIED ≤10/wk free · FOUNDER
-exempt), blocking on insufficient balance. There is no off-switch. Token spend
-reads ₱0 in prod only because the lone real vendor is the founder (token-gate-
-exempt) and no other paid vendor has burned yet.
+tokens for every paid tier (FREE blocked · VERIFIED ≤10/wk AND burns · SOLO/PRO/
+ENTERPRISE unlimited AND burns), blocking on insufficient balance. There is no
+off-switch. Token spend reads ₱0 in prod only because no paid vendor has burned a
+qualifying inquiry yet (the lone real vendor is the founder).
 
 But several shipped surfaces still claimed the opposite — that "the consume call
 isn't wired" / "burn is economically inert" / "₱0 until burn is activated." That
@@ -20,8 +20,8 @@ doesn't charge) and missed the real consume in the DB RPC. Corrected:
   and explains ₱0 truthfully ("you haven't answered an inquiry that burned tokens
   this cycle").
 - `admin/insights/.../peso-per-lead-admin-card.tsx` — "Soon" → "Live" badge; the
-  "consume call isn't wired" note → the real reason for ₱0 (founder-exempt + no
-  paid vendors yet).
+  "consume call isn't wired" note → the real reason for ₱0 (no paid vendor has
+  burned a qualifying inquiry yet).
 - `lib/vendor-peso.ts` — header + the `burnInert` JSDoc corrected (flag name kept
   for compat; it means "₱0 token spend this window," not "burn disabled").
 - `lib/v2/region-token-burn.ts` — clarified it's the pricing DEFINITION only; the

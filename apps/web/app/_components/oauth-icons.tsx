@@ -33,11 +33,14 @@ export function GoogleGIcon() {
   );
 }
 
-export function AppleIcon() {
+export function AppleIcon({ fill = '#000000' }: { fill?: string } = {}) {
+  // `fill` defaults to the black light-mode glyph (Apple's sanctioned mark on
+  // white "Sign in with Apple" buttons). The dark-variant OAuth row passes the
+  // white glyph so it stays visible on a translucent dark button.
   return (
     <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" aria-hidden role="img" focusable={false}>
       <path
-        fill="#000000"
+        fill={fill}
         d="M16.365 1.43c0 1.14-.493 2.27-1.177 3.08-.744.9-1.99 1.57-2.987 1.57-.12 0-.23-.02-.3-.03-.01-.06-.04-.22-.04-.39 0-1.15.572-2.27 1.206-2.98.804-.94 2.142-1.64 3.248-1.68.03.13.05.28.05.43zm4.565 15.71c-.03.07-.463 1.58-1.518 3.12-.91 1.33-1.852 2.66-3.347 2.69-1.468.03-1.94-.87-3.61-.87-1.67 0-2.19.84-3.58.9-1.44.05-2.53-1.43-3.45-2.75-1.886-2.71-3.32-7.65-1.39-10.99.96-1.65 2.68-2.7 4.54-2.73 1.42-.03 2.76.96 3.63.96.86 0 2.5-1.19 4.22-1.01.72.03 2.74.29 4.04 2.18-.105.07-2.41 1.41-2.38 4.22.03 3.36 2.95 4.48 2.98 4.49z"
       />
     </svg>

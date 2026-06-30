@@ -7,6 +7,7 @@ import { generateUniqueSlug } from '@/lib/slugs';
 import { captureEvent } from '@/lib/analytics';
 import { ALLOWED_CEREMONY_VALUES } from '@/lib/faith-registry';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
+import { safeNext } from '@/lib/auth';
 
 /* Retired 2026-05-28 V2 cutover */
 // V1 imported startConciergeTrial + CONCIERGE_ENABLED here to route
@@ -78,6 +79,11 @@ const ALLOWED_CULTURAL_SUB = [
 export async function createWeddingEvent(formData: FormData) {
   const display_name = String(formData.get('display_name') ?? '').trim();
   const event_type = String(formData.get('event_type') ?? 'wedding');
+  // Optional return path (e.g. the vendor-invite claim flow sends the couple
+  // here to create their first event, then back to finish shortlisting the
+  // vendor). safeNext() rejects anything that isn't an internal path, so the
+  // default dashboard redirect is unchanged when `next` is absent/unsafe.
+  const next = safeNext(formData.get('next'));
   const concierge_choice = String(formData.get('concierge_choice') ?? 'diy') as ConciergeChoice;
 
   // Validate event_type up front so we know whether to read the wedding-
@@ -276,6 +282,11 @@ export async function createWeddingEvent(formData: FormData) {
   // the daily planner.
   void choice; // suppress unused-var warning
 
+  // Honor an internal return path when one was passed (vendor-invite claim
+  // loop). Otherwise land on the freshly-created event's dashboard as before.
+  if (next !== '/') {
+    return redirect(next);
+  }
   return redirect(`/dashboard/${insertedEvent.event_id}`);
 }
 

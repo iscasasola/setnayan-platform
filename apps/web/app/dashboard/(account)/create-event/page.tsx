@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
+import { safeNext } from '@/lib/auth';
 import { EventTypePicker } from './_components/event-type-picker';
 /* Retired 2026-05-28 V2 cutover — CONCIERGE_ENABLED import removed.
    V2 has no Concierge choice card on create-event; every new event
@@ -17,10 +18,13 @@ const ERROR_COPY: Record<string, string> = {
   missing_secondary: 'Pick a secondary ceremony for your interfaith wedding.',
 };
 
-type SearchParams = Promise<{ error?: string }>;
+type SearchParams = Promise<{ error?: string; next?: string }>;
 
 export default async function CreateEventPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
+  // Optional return path threaded through to the inline create form (e.g. the
+  // vendor-invite claim loop). safeNext() keeps it to internal paths only.
+  const next = safeNext(params.next);
   // DB-driven roster (2026-06-13): status='active' AND enabled=TRUE vocab
   // rows, ordered. Falls back to the pre-cutover constant on DB hiccups.
   const eventTypes = await getCreatableEventTypes();
@@ -53,7 +57,7 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
         </p>
       ) : null}
 
-      <EventTypePicker types={eventTypes} />
+      <EventTypePicker types={eventTypes} next={next !== '/' ? next : undefined} />
     </div>
   );
 }

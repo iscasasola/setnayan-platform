@@ -8,12 +8,14 @@ import type { AdminPesoOverview } from '@/lib/vendor-peso';
  * platform blended line. Visible at all breakpoints (the page's
  * MobileLandingGrid below is mobile-only nav overflow).
  *
- * BEHAVIORAL HONESTY: token burn is economically inert in the pilot — the
- * consume call isn't wired (lib/v2/region-token-burn.ts), so token spend is ₱0
- * platform-wide and cost-per-lead reads ₱0 until burn activates. This card
- * states that when `burnInert`, and the ₱/token used to peso-ify token counts
- * is the admin-managed TOKEN_PRICE_PHP (read in lib/vendor-peso.ts, not
- * hardcoded). It never fabricates spend.
+ * BEHAVIORAL HONESTY: token burn-on-answer IS live — `unlock_vendor_event`
+ * consumes 1–3 region-banded tokens when a PRO/ENTERPRISE vendor accepts an
+ * inquiry. Platform-wide token spend reads ₱0 today only because the lone real
+ * vendor is the founder (token-gate-exempt) and no other paid vendor has burned
+ * yet — NOT because the consume is off. This card states that when `burnInert`
+ * (= ₱0 platform token spend), and the ₱/token used to peso-ify token counts is
+ * the admin-managed TOKEN_PRICE_PHP (read in lib/vendor-peso.ts, not hardcoded).
+ * It never fabricates spend.
  */
 
 function peso(n: number | null | undefined, maxFrac = 0): string {
@@ -46,8 +48,8 @@ export function PesoPerLeadAdminCard({ overview }: { overview: AdminPesoOverview
             {periodDays} days.
           </p>
         </div>
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-warn-300/70 bg-warn-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-warn-800">
-          <Coins className="h-3.5 w-3.5" strokeWidth={2} aria-hidden /> Soon
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-success-300/70 bg-success-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-success-800">
+          <Coins className="h-3.5 w-3.5" strokeWidth={2} aria-hidden /> Live
         </span>
       </div>
 
@@ -72,10 +74,12 @@ export function PesoPerLeadAdminCard({ overview }: { overview: AdminPesoOverview
 
       {burnInert && (
         <p className="mt-4 rounded-md border border-ink/10 bg-ink/[0.02] px-3 py-2.5 text-[12px] leading-relaxed text-ink/60">
-          <span className="font-medium text-ink/75">Pilot note —</span> token
-          burn-on-answer is economically inert right now (the consume call isn&apos;t
-          wired), so token spend is <span className="font-mono">₱0</span>{' '}
-          platform-wide and cost-per-lead reads ₱0 until burn is activated.
+          <span className="font-medium text-ink/75">Why ₱0 —</span> burn-on-answer
+          is live (Pro/Enterprise vendors burn 1–3 region-banded tokens to accept
+          an inquiry), but platform token spend is{' '}
+          <span className="font-mono">₱0</span> because the only active vendor is
+          the founder account (token-gate-exempt) and no other paid vendor has
+          burned yet. It starts tracking real spend as paid vendors onboard.
           Subscription spend is real. Token counts are valued at the
           admin-managed {peso(tokenPricePhp)}/token.
         </p>

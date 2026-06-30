@@ -15,14 +15,16 @@
  * has ONE source of truth across the app — this module never inlines a literal.
  * Subscription spend already arrives as real PHP from vendor_subscriptions.
  *
- * BEHAVIORAL HONESTY — "burn is economically inert in the pilot"
- * -------------------------------------------------------------
- * The burn-on-answer path (region-token-burn.ts · unlock_vendor_event) is NOT
- * charged in the pilot — the consume call is a deliberate post-pilot activation.
- * So `tokens_burned_total` is 0 in prod today, token spend resolves to ₱0, and
- * cost-per-lead is ₱0 until burn activates. This reader surfaces that truthfully
- * via `burnInert` / `tokenSpendInert` flags — it NEVER fabricates spend. The UI
- * shows a "burn is inert in pilot → ₱0/lead until activated" note when spend=0.
+ * BEHAVIORAL HONESTY — why token spend can read ₱0
+ * ------------------------------------------------
+ * The burn-on-answer path (unlock_vendor_event) IS live: a PRO/ENTERPRISE vendor
+ * consumes 1–3 region-banded tokens to accept an inquiry (via
+ * consume_vendor_assets_per_voucher). `tokens_burned_total` is 0 in prod today
+ * only because the lone real vendor is the founder (token-gate-exempt) and no
+ * other paid vendor has burned yet — NOT because the consume is off. This reader
+ * surfaces that truthfully via the `burnInert` flag (a misnomer kept for
+ * compatibility: it means "₱0 token spend in the window," not "burn disabled");
+ * it NEVER fabricates spend.
  */
 
 import 'server-only';
@@ -51,9 +53,9 @@ export type VendorPesoScorecard = {
   periodDays: number;
   since: string;
   tokenPricePhp: number;
-  /** Σ(tokens_burned) over the window. 0 in pilot (burn inert). */
+  /** Σ(tokens_burned) over the window. 0 when no paid vendor burned this window. */
   tokensBurnedTotal: number;
-  /** tokensBurnedTotal × tokenPricePhp. ₱0 in pilot. */
+  /** tokensBurnedTotal × tokenPricePhp. ₱0 when no burns this window. */
   tokenSpendPhp: number;
   /** Real PHP from paid subscription orders in the window. */
   subscriptionSpendPhp: number;
@@ -69,7 +71,11 @@ export type VendorPesoScorecard = {
   costPerLeadPhp: number | null;
   /** All-in (token + subscription) ÷ leadsAnswered. null when 0 leads. */
   allInCostPerLeadPhp: number | null;
-  /** TRUE when token burn produced ₱0 — the pilot reality (burn not charged). */
+  /**
+   * TRUE when token spend is ₱0 in the window. NOTE: a misnomer kept for
+   * compatibility — the burn is LIVE (unlock_vendor_event consumes for Pro/Ent);
+   * this only means "no burns in this window" (none answered, or founder-exempt).
+   */
   burnInert: boolean;
   /** TRUE when there is no spend at all (token OR subscription) to report. */
   noSpendYet: boolean;

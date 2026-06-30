@@ -18,10 +18,12 @@
  *      follow-gate RLS) → open the chat thread → post the first couple message
  *      (a booking inquiry that lands in the vendor's inbox).
  *
- * NOTE — the region-weighted token-burn layer on inquiries (the §7b
- * "inquiry fan-out" economics, design-locked V1.x) is NOT wired yet, so today
- * the inquiry is a chat thread + vendor_inquiry_received notification only —
- * economically inert. The token charge attaches when that economy ships.
+ * NOTE — this COUPLE-side path never burns tokens: unlocking a category opens a
+ * chat thread + vendor_inquiry_received notification only. The region-weighted
+ * token burn is a VENDOR-side charge and it is LIVE — it fires when the vendor
+ * ACCEPTS the inquiry (chat acceptInquiry → unlock_vendor_event burns 1–3
+ * region-banded tokens for Pro/Enterprise). So nothing is charged here, by
+ * design, but the inquiry this creates does carry a real downstream burn.
  *
  * Best-effort on the message: a messaging hiccup (e.g. an event_moderators-only
  * host that sendChatMessage's couple-role check doesn't recognize) must NOT

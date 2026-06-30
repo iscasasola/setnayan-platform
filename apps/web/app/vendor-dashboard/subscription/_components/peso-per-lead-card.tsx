@@ -7,12 +7,16 @@ import type { VendorPesoScorecard } from '@/lib/vendor-peso';
  * interactivity): "you spent ₱X tokens + ₱Y subscription this cycle = ₱Z per
  * booked couple."
  *
- * BEHAVIORAL HONESTY: token burn-on-answer is economically inert in the pilot
- * (the consume call isn't wired yet — see lib/v2/region-token-burn.ts), so token
- * spend is ₱0 and cost-per-lead reads ₱0 "until burn is activated." The card
- * states that plainly when `burnInert` — it never implies the vendor is getting
- * paid leads for free as a perk. The ₱/token price is admin-managed and read
- * from TOKEN_PRICE_PHP, not hardcoded here.
+ * BEHAVIORAL HONESTY: token burn-on-answer IS live — `unlock_vendor_event`
+ * consumes 1–3 region-banded (minimum-wage) tokens when a PRO/ENTERPRISE vendor
+ * accepts an inquiry (FREE blocked · VERIFIED ≤10/wk free · FOUNDER exempt).
+ * Token spend reads ₱0 for a vendor who simply hasn't burned this cycle — no
+ * answered inquiries, or a founder-exempt account. The card says THAT plainly
+ * when `burnInert` (= ₱0 token spend this cycle); it never implies the vendor is
+ * getting paid leads for free as a perk, and never claims the burn is "off."
+ * (The misnomer flag name `burnInert` is kept for compatibility; it means "₱0
+ * token spend this cycle," not "burn disabled.") The ₱/token price is
+ * admin-managed and read from TOKEN_PRICE_PHP, not hardcoded here.
  */
 
 function peso(n: number | null | undefined, opts?: { maxFrac?: number }): string {
@@ -49,9 +53,6 @@ export function PesoPerLeadCard({ scorecard }: { scorecard: VendorPesoScorecard 
             subscription — measured against the couples you actually booked.
           </p>
         </div>
-        <span className="rounded-full border border-warn-300/70 bg-warn-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-warn-800">
-          Soon
-        </span>
       </div>
 
       {/* Spend breakdown */}
@@ -62,7 +63,7 @@ export function PesoPerLeadCard({ scorecard }: { scorecard: VendorPesoScorecard 
           value={peso(tokenSpendPhp)}
           sub={
             burnInert
-              ? 'Burn is inert in pilot'
+              ? 'No token answers this cycle'
               : `${scorecard.tokensBurnedTotal} tokens × ${peso(tokenPricePhp)}`
           }
         />
@@ -99,21 +100,20 @@ export function PesoPerLeadCard({ scorecard }: { scorecard: VendorPesoScorecard 
           value={burnInert ? peso(0) : peso(costPerLeadPhp, { maxFrac: 2 })}
           note={
             burnInert
-              ? '₱0 until burn-on-answer is activated'
+              ? 'No answered leads burned this cycle'
               : `${peso(tokenSpendPhp)} ÷ ${leadsAnswered} answered`
           }
         />
       </div>
 
-      {/* Pilot-reality honesty note */}
+      {/* ₱0 honesty note — the burn IS live; this explains why spend reads ₱0. */}
       {(burnInert || noSpendYet) && (
         <p className="mt-4 rounded-md border border-ink/10 bg-ink/[0.02] px-3 py-2.5 text-[12px] leading-relaxed text-ink/60">
-          <span className="font-medium text-ink/75">During the pilot,</span>{' '}
-          answering an inquiry doesn&apos;t burn tokens yet — so your peso-per-lead
-          reads <span className="font-mono">₱0</span>. Once burn-on-answer is
-          switched on, each answered lead will cost {peso(tokenPricePhp)}–
-          {peso(tokenPricePhp * 3)} (by the wedding&apos;s region) and this
-          scorecard will start tracking it for real.
+          <span className="font-medium text-ink/75">Your peso-per-lead reads</span>{' '}
+          <span className="font-mono">₱0</span> because you haven&apos;t answered an
+          inquiry that burned tokens this cycle. Each answered lead burns{' '}
+          {peso(tokenPricePhp)}–{peso(tokenPricePhp * 3)} (by the wedding&apos;s
+          region) — this scorecard tracks it the moment you do.
         </p>
       )}
     </section>

@@ -13,9 +13,11 @@
  * NOT when only the infrastructure exists. Kept `soon` (with reason) where the
  * feature is partial, manual-only, economically inert in the pilot, empty
  * pre-launch, or not built:
- *   - "Only the leads that fit" / "Pay only for inquiries that fit" / "Peso-per-lead":
- *     token-burn is economically INERT in the pilot (lib/v2/region-token-burn.ts
- *     "Does NOT charge anything") — vendors aren't actually charged yet.
+ *   - "Only the leads that fit" / "Pay only for inquiries that fit": the token
+ *     burn IS live (unlock_vendor_event consumes for Pro/Ent — see the 2026-07-01
+ *     correction below); these two are kept Soon only pending owner sign-off on the
+ *     "matched, intent-qualified, never junk" curation framing. "Peso-per-lead
+ *     scorecard" was CLEARED 2026-07-01 (the scorecard surface is live).
  *   - "Run it all in one place" / "One-tap RA 8792 contracts" / "Contract-on-record":
  *     contracts are UPLOAD-ONLY today; in-app e-sign is not built.
  *   - "Automated bookings" / "Headcount that quotes itself": no inquiry→quote→
@@ -47,6 +49,13 @@
  *     couple-facing routing yet.
  *   - "No pay-to-rank, no fake reviews" / "Dispute mediation": fraud screening is
  *     a manual flag→HQ queue only (no automated pipeline) — kept Soon.
+ * 2026-07-01 (c) — token-burn correction: the burn-on-answer is LIVE
+ *   (`unlock_vendor_event` consumes 1–3 region-banded tokens for Pro/Enterprise
+ *   on accept; ₱0 in prod only because the sole real vendor is founder-exempt +
+ *   no other paid vendors yet — see DECISION_LOG 2026-07-01). The prior "burn is
+ *   economically inert" claim on the peso-per-lead surfaces was stale + corrected.
+ *   "Peso-per-lead scorecard" tag cleared; the two "matched intent" tags stay
+ *   Soon pending owner copy sign-off.
  * NOTE (owner sign-off): two items couples might expect are NOT real benefits
  * today and were intentionally NOT added — a vendor "direct invite QR" to bring a
  * customer in does not exist, and customer import is token-gated (1 token, thin
@@ -178,7 +187,7 @@ export const VENDOR_GROUPS: VendorGroup[] = [
       { n: 'Demand radar', b: 'Which dates, regions, and looks couples book hardest.' },
       { n: 'Won & lost reasons', soon: true, b: 'Why couples said yes or walked — fix the real leak.' },
       { n: 'Quote-to-booking funnel', b: 'Where couples drop off + each booking’s source.' },
-      { n: 'Peso-per-lead scorecard', soon: true, b: 'True cost of each booked couple vs your spend.' },
+      { n: 'Peso-per-lead scorecard', b: 'True cost of each booked couple vs your spend.' },
     ],
   },
   {

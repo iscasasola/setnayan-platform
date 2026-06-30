@@ -29,6 +29,7 @@ import { ARTICLES_RITUALS } from '@/lib/blog-batches/rituals-symbols';
 import { ARTICLES_REGIONAL } from '@/lib/blog-batches/regional-faith';
 import { ARTICLES_SEASON } from '@/lib/blog-batches/seasonal-rainy';
 import { ARTICLES_DECNEWS } from '@/lib/blog-batches/december-news';
+import { ARTICLES_LAUNCH_SEED } from '@/lib/blog-batches/launch-seed';
 
 export type BlogCategoryKey =
   | 'planning'
@@ -828,6 +829,7 @@ export const BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
   ...ARTICLES_REGIONAL,
   ...ARTICLES_SEASON,
   ...ARTICLES_DECNEWS,
+  ...ARTICLES_LAUNCH_SEED,
 ];
 
 // ───────────────────────────────────────────────────────────────────────────

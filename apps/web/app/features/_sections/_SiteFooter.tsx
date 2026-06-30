@@ -19,6 +19,7 @@ const FEATURE_LINKS: { href: string; label: string }[] = [
   { href: '/pa3d', label: 'Pa3D' },
   { href: '/palogo', label: 'Animated Monogram' },
   { href: '/pawebsite', label: 'Wedding Website' },
+  { href: '/patiktok', label: 'Patiktok' },
 ];
 
 export function SiteFooter() {

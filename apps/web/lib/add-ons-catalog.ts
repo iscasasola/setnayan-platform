@@ -22,6 +22,7 @@ import {
   Tv,
   Gem,
   Sparkles,
+  Film,
   Printer,
   ImageDown,
   QrCode,
@@ -568,6 +569,28 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
       motionBackground:
         'radial-gradient(circle at 70% 60%, #A0D8F5 0%, transparent 55%)',
       iconBadgeClass: 'bg-blue-100/15 text-blue-100',
+    },
+  },
+  {
+    key: 'patiktok',
+    label: 'Patiktok',
+    Icon: Film,
+    iteration: '0017',
+    status: 'web_v1',
+    category: 'photobooth',
+    blurb: 'Polished vertical reels from your day — ready to post.',
+    cta: 'Browse templates',
+    studioGroup: 'capture',
+    // Paid SKU — without this the Studio card never flips to Active/Pending when
+    // owned (paid-features-auto-show). Canonical V2 code (sku-catalog-v2.ts).
+    serviceKey: 'PATIKTOK_COMPILER',
+    poster: {
+      motion: 'scan',
+      baseBackground:
+        'linear-gradient(135deg, #0F0F1A 0%, #1A1A2E 50%, #2E1F4E 100%)',
+      motionBackground:
+        'linear-gradient(90deg, transparent 0%, rgba(255, 100, 180, 0.7) 30%, rgba(100, 220, 255, 0.7) 70%, transparent 100%)',
+      iconBadgeClass: 'bg-pink-100/15 text-pink-100',
     },
   },
   {

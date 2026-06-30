@@ -596,7 +596,7 @@ html.dark .pbacc .review-cta:hover,.pbacc .review-cta:focus{background:rgba(149,
 
 /* ---- In-app Setnayan service cards (nested, supplementary, float-to-top) ----
    Rendered as the FIRST cards in a category rail (Papic/Panood/Save-the-Date →
-   Photography & Video · LED → LED Background) + in the
+   Photography & Video · Patiktok → Photobooth · LED → LED Background) + in the
    synthetic Design › Digital Services rail. A full-bleed cinema poster (not the
    white vendor card) so they read instantly as a Setnayan first-party
    production, distinct from external-vendor picks — same 300px rail-card sizing

@@ -23,6 +23,7 @@ export const RICH_DEMO_SLUGS = [
   'mood-board',
   'custom-qr-guest',
   'photo-delivery',
+  'patiktok',
   'led',
   'indoor-blueprint',
   'setnayan-ai',

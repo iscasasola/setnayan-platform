@@ -16,7 +16,7 @@
  * Auth: admin layout already gates access (see app/admin/layout.tsx);
  * this page renders unconditionally because non-admins never reach it.
  */
-import { X, Package, Sparkles, Video, Camera, Tv, Music, Type, Globe2, Receipt, ImageDown, Printer, Star, Wrench, BadgeCheck, type LucideIcon } from 'lucide-react';
+import { X, Package, Sparkles, Video, Camera, Tv, Film, Music, Type, Globe2, Receipt, ImageDown, Printer, Star, Wrench, BadgeCheck, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -45,6 +45,7 @@ const CUSTOMER_CATEGORIES = new Set<string>([
   'couple_addon',
   'panood',
   'papic',
+  'patiktok',
   'concierge',
 ]);
 
@@ -52,6 +53,7 @@ const CATEGORY_DISPLAY: Record<string, string> = {
   couple_addon: 'Couple add-on',
   panood: 'Panood (Live stream)',
   papic: 'Papic (Candid capture)',
+  patiktok: 'Patiktok (Reels)',
   // Brand-layer rename 2026-05-28 V2 cutover — "Setnayan Concierge" SKU
   // retired (replaced by ₱1,499 TODAYS_FOCUS one-time). Category key in
   // service_catalog still reads `concierge`; display label aligns with the
@@ -72,6 +74,7 @@ function iconForSku(skuCode: string, category: string): LucideIcon {
   if (skuCode.startsWith('pro_widget_schedule')) return Star;
   if (skuCode.startsWith('panood_')) return Tv;
   if (skuCode.startsWith('papic_')) return Camera;
+  if (skuCode.startsWith('patiktok_')) return Film;
   if (skuCode.startsWith('concierge')) return Sparkles;
   if (skuCode.startsWith('pakanta')) return Music;
   if (skuCode.startsWith('photo_delivery')) return ImageDown;
@@ -83,6 +86,7 @@ function iconForSku(skuCode: string, category: string): LucideIcon {
   if (skuCode.startsWith('all_tools') || skuCode.startsWith('tool_')) return Wrench;
   if (category === 'panood') return Tv;
   if (category === 'papic') return Camera;
+  if (category === 'patiktok') return Film;
   if (category === 'concierge') return Sparkles;
   if (category === 'couple_addon') return Receipt;
   return Package;

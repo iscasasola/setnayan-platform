@@ -34,7 +34,7 @@ const FFMPEG = process.env.FFMPEG_BIN || 'ffmpeg';
 // Mirror of RICH_DEMO_SLUGS (studio-card-demo.tsx) — the 14 features with scenes.
 const ALL_SLUGS = [
   'papic', 'save-the-date', 'animated-monogram', 'mood-board', 'custom-qr-guest',
-  'photo-delivery', 'led', 'indoor-blueprint', 'setnayan-ai',
+  'photo-delivery', 'patiktok', 'led', 'indoor-blueprint', 'setnayan-ai',
   'landing-page', 'music-creator', 'pakanta', 'playlist',
 ];
 

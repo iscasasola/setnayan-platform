@@ -4,7 +4,7 @@
  * Phone exports are often huge (cale-ice's was 45s / 135 MB / ~25 Mbps) — far too
  * heavy to stream, so the clip stalls and re-buffers on playback. There is NO
  * server-side video processing in the stack (Vercel can't run ffmpeg; everything
- * video is done in the browser — see reel-render / boomerang-encoder). So we
+ * video is done in the browser — see patiktok-render / boomerang-encoder). So we
  * compress in the browser, at upload time, with ffmpeg.wasm (single-thread build —
  * no SharedArrayBuffer, so no cross-origin-isolation / CSP changes).
  *

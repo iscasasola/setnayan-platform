@@ -57,6 +57,7 @@ export const ADD_ON_SKU_MAP: Record<string, ReadonlyArray<string>> = {
   'mood-board': [],
   'save-the-date': [], // now the free page-opening reveal (no SKU); video render retired 2026-06-16
   led: [],
+  patiktok: [],
   'photo-delivery': [],
   'supplies-marketplace': [],
 };

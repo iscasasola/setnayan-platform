@@ -108,6 +108,7 @@ const STATIC_ROUTES: ReadonlyArray<{
   { path: '/pa3d', lastmod: '2026-06-28', changefreq: 'monthly', priority: '0.7' },
   { path: '/palogo', lastmod: '2026-06-28', changefreq: 'monthly', priority: '0.7' },
   { path: '/pawebsite', lastmod: '2026-06-28', changefreq: 'monthly', priority: '0.8' },
+  { path: '/patiktok', lastmod: '2026-06-28', changefreq: 'monthly', priority: '0.7' },
 
   // /why-setnayan — comparison / differentiation page (WebPage + FAQPage JSON-LD).
   // New 2026-06-20; the GEO/SEO surface for "wedding app comparison" / "best

@@ -45,7 +45,7 @@ const ARC: ReadonlyArray<Stage> = [
     eyebrow: 'The moment',
     title: 'What the day actually was',
     line: 'Candid capture by the people right beside you — the reactions and laughter the one camera up front will always miss.',
-    chips: [{ key: 'papic' }],
+    chips: [{ key: 'papic' }, { key: 'patiktok' }],
   },
   {
     eyebrow: 'The people',

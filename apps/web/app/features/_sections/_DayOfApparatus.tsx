@@ -2,6 +2,7 @@ import Link from 'next/link';
 import {
   Tv,
   Camera,
+  Video,
   Palette,
   Lightbulb,
   Music,
@@ -11,7 +12,7 @@ import {
 } from 'lucide-react';
 import type { MarketingLocale } from '@/lib/marketing-i18n';
 
-// Day-of apparatus (in-app services) — Panood, Papic, Pakulay,
+// Day-of apparatus (in-app services) — Panood, Papic, Patiktok, Pakulay,
 // Pailaw, Pakanta, Photo Delivery, Supplies Marketplace. One card per
 // service. NO PHP figures (prices live on /pricing and the in-app cart).
 //
@@ -22,6 +23,7 @@ import type { MarketingLocale } from '@/lib/marketing-i18n';
 const META: { Icon: LucideIcon; sku: string }[] = [
   { Icon: Tv, sku: 'Panood' },
   { Icon: Camera, sku: 'Papic' },
+  { Icon: Video, sku: 'Patiktok' },
   { Icon: Palette, sku: 'Pakulay' },
   { Icon: Lightbulb, sku: 'Pailaw' },
   { Icon: Music, sku: 'Pakanta' },
@@ -57,6 +59,10 @@ const COPY: Record<
       {
         tagline: 'Designated paparazzi',
         body: 'Native iOS/Android app for friends and family. Gesture shutter, QR-tag photos to specific guests or whole tables, untagged photos still land in the couple’s gallery. Real-time delivery — guests can flip through tagged photos before the reception is over.',
+      },
+      {
+        tagline: 'TikTok-format booth at the venue',
+        body: 'A booth station capturing 30-second TikTok-format videos from your guests during cocktail or reception. Two tiers: post to your own TikTok handle, or to Setnayan’s curated showcase. Compilation arrives in your gallery the next morning.',
       },
       {
         tagline: 'Mood-board engine',
@@ -96,6 +102,10 @@ const COPY: Record<
       {
         tagline: 'Designated paparazzi',
         body: 'Native iOS/Android app para sa mga kaibigan at pamilya. Gesture shutter, QR-tag ang photos sa specific guests o buong tables, ang untagged photos ay lalapag pa rin sa gallery ng couple. Real-time delivery — pwede nang tingnan ng guests ang tagged photos nila bago pa matapos ang reception.',
+      },
+      {
+        tagline: 'TikTok-format booth sa venue',
+        body: 'Isang booth station na kumukuha ng 30-second TikTok-format videos mula sa guests mo tuwing cocktail o reception. Dalawang tier: i-post sa sarili mong TikTok handle, o sa curated showcase ng Setnayan. Dumarating ang compilation sa gallery mo kinabukasan ng umaga.',
       },
       {
         tagline: 'Mood-board engine',

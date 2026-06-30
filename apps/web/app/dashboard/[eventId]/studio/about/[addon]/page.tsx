@@ -30,19 +30,24 @@ export default async function AddOnDetailPage({ params }: Props) {
 
   // Owner deep-link (paid-features-auto-show, Tier 3 2026-06-25): a couple who
   // already OWNS this paid service shouldn't land on the marketing/About
-  // interstitial — send them straight to the working tool. Applies to EVERY paid
-  // service. Bundle-aware + admin-approved gate (eventSkuActive covers a direct
-  // order AND the granting GUIDED_PACK / MEDIA_PACK bundle; refund/cancel
-  // releases it). Admin client because orders RLS is purchaser-scoped — a co-host
-  // who didn't place the order is still an owner. Graceful-degrade on a
-  // missing/legacy orders table (eventSkuActive → not active) falls through to
-  // the About page, never crashes.
+  // interstitial — send them straight to the working tool. Generalizes the
+  // former Patiktok-only redirect to EVERY paid service. Bundle-aware +
+  // admin-approved gate (eventSkuActive covers a direct order AND the granting
+  // GUIDED_PACK / MEDIA_PACK bundle; refund/cancel releases it). Admin client
+  // because orders RLS is purchaser-scoped — a co-host who didn't place the
+  // order is still an owner. Graceful-degrade on a missing/legacy orders table
+  // (eventSkuActive → not active) falls through to the About page, never crashes.
   const entry = ADD_ONS.find((a) => a.key === addon);
   if (
     entry?.serviceKey &&
     (await eventSkuActive(createAdminClient(), eventId, entry.serviceKey))
   ) {
-    redirect(addOnHref(addon, eventId));
+    // Patiktok owners go to the operator booth (more specific than its index).
+    redirect(
+      addon === 'patiktok'
+        ? `/dashboard/${eventId}/studio/patiktok/booth`
+        : addOnHref(addon, eventId),
+    );
   }
 
   return <AddOnDetailView eventId={eventId} addon={addon} />;

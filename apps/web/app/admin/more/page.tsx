@@ -13,7 +13,7 @@
  * Mirrors the desktop sidebar's successor groups (keys 'content' · 'media' ·
  * 'settings-group') per [[feedback_setnayan_orphan_prevention]]. Mobile carries
  * a pre-existing SUBSET — menus · refinements · hero-video · reveal-studio
- * · recaps are desktop-only and stay so (a parity gap that predates
+ * · recaps · patiktok are desktop-only and stay so (a parity gap that predates
  * this re-skin, not introduced by it).
  *
  * SCOPE: server component. Hidden at lg+ via lg:hidden — desktop reaches
@@ -104,7 +104,7 @@ const INSIGHTS_ITEMS: LandingItem[] = [
 // desktop sidebar's three successor groups (Data Structure · Content & Media ·
 // Settings) per [[feedback_setnayan_orphan_prevention]]. NOTE: mobile carries a
 // pre-existing subset — menus · refinements · hero-video · reveal-studio ·
-// recaps are desktop-only and remain so (separate parity gap, not
+// recaps · patiktok are desktop-only and remain so (separate parity gap, not
 // introduced by this re-skin).
 
 // DATA STRUCTURE — the App-Engine structure lane (mirrors desktop key 'content').

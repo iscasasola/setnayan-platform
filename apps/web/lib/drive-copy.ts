@@ -15,7 +15,7 @@ import {
 //           2026-06-03 "Storage & Drive-copy architecture LOCKED".
 //
 // R2 is the system of record; Google Drive is the couple's PERMANENT COPY of
-// five artifacts — Papic · Pabati · Pakanta · Monogram · QR codes.
+// six artifacts — Papic · Patiktok · Pabati · Pakanta · Monogram · QR codes.
 // Every feeder, after finalizing its R2 object, calls pushToDriveCopy() and
 // the bytes are copied into the couple's Drive: one event folder, one
 // subfolder per artifact type. (Panood is NOT here — YouTube only.)
@@ -35,6 +35,7 @@ import {
 
 export const DRIVE_COPY_ARTIFACT_TYPES = [
   'papic',
+  'patiktok',
   'pabati',
   'pakanta',
   'monogram',
@@ -47,6 +48,7 @@ export type DriveCopyArtifactType = (typeof DRIVE_COPY_ARTIFACT_TYPES)[number];
 // root Drive folder. Matches the layout in the architecture doc.
 export const ARTIFACT_SUBFOLDER_NAME: Record<DriveCopyArtifactType, string> = {
   papic: 'Papic',
+  patiktok: 'Patiktok',
   pabati: 'Pabati',
   pakanta: 'Pakanta',
   monogram: 'Monogram',

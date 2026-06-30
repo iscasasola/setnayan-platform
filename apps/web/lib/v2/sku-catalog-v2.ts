@@ -54,6 +54,7 @@ export const V2_SKU_CODES = [
   'PAPIC_ADDON_THANK_YOU',
   'PAPIC_GUEST',
   'PAPIC_SEATS',
+  'PATIKTOK_COMPILER',
   'PRO_WEBSITE',
   // Website lifecycle + planner · seeded by migration 20260915000000 but were
   // MISSING from this allowlist, so formatV2Sku() returned null for them even

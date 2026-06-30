@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { grantTokensToVendor, setVendorTier } from '../../actions';
 import { VENDOR_TIERS, TIER_LABEL, asVendorTier } from '@/lib/vendor-tier-caps';
+import { enrichTeamWithUsers, fetchVendorTeam } from '@/lib/vendor-team';
 
 export const metadata = {
   title: 'Grant tokens · Admin',
@@ -114,6 +115,18 @@ export default async function AdminVendorTokensPage({
   const purchased = wallet?.purchased_tokens ?? 0;
   const totalBalance = earned + purchased;
   const isClaimed = vendor.user_id !== null;
+
+  // Team members → the grant-recipient picker. A grant to the founder uses the
+  // store's earned-voucher wallet (expiring); a grant to another member credits
+  // their personal purchased balance (never-expire). Value '' = founder.
+  const teamRows = isClaimed ? await fetchVendorTeam(admin, vendorProfileId) : [];
+  const team = await enrichTeamWithUsers(admin, teamRows);
+  const grantRecipients = team
+    .filter((m) => m.user_id !== vendor.user_id)
+    .map((m) => ({
+      user_id: m.user_id,
+      label: m.display_name?.trim() || m.email || 'Team member',
+    }));
   const hasWalletRow = wallet !== null;
   const grantedCount = search?.granted ? Number(search.granted) : null;
   const tierSet = search?.tier ? asVendorTier(search.tier) : null;
@@ -281,6 +294,31 @@ export default async function AdminVendorTokensPage({
         </h2>
         <form action={grantTokensToVendor} className="space-y-4">
           <input type="hidden" name="vendor_id" value={vendor.vendor_profile_id} />
+
+          {grantRecipients.length > 0 ? (
+            <div>
+              <label htmlFor="holder_user_id" className="block text-sm font-medium text-ink">
+                Credit to
+              </label>
+              <p className="mt-1 text-xs text-ink/60">
+                Founder = the store wallet (expiring earned tokens). A teammate gets the credit on
+                their own personal balance (never expires · non-transferable).
+              </p>
+              <select
+                id="holder_user_id"
+                name="holder_user_id"
+                defaultValue=""
+                className="mt-2 block w-full rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
+              >
+                <option value="">Founder (store wallet)</option>
+                {grantRecipients.map((r) => (
+                  <option key={r.user_id} value={r.user_id}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div>

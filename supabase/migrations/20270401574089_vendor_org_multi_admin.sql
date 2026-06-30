@@ -26,12 +26,15 @@ UPDATE public.vendor_team_members
    SET role = 'admin', updated_at = now()
  WHERE role = 'owner';
 
--- Safety: every vendor_profile must have at least one admin. Seed the founder
--- (vendor_profiles.user_id) as admin where a profile somehow has none.
+-- Safety: every CLAIMED vendor_profile must have at least one admin. Seed the
+-- founder (vendor_profiles.user_id) as admin where a claimed profile has none.
+-- UNCLAIMED profiles (user_id IS NULL · admin-pre-staged, not yet claimed) have
+-- no human to seat and are skipped — vendor_team_members.user_id is NOT NULL.
 INSERT INTO public.vendor_team_members (vendor_profile_id, user_id, role)
 SELECT vp.vendor_profile_id, vp.user_id, 'admin'
   FROM public.vendor_profiles vp
- WHERE NOT EXISTS (
+ WHERE vp.user_id IS NOT NULL
+   AND NOT EXISTS (
    SELECT 1 FROM public.vendor_team_members tm
     WHERE tm.vendor_profile_id = vp.vendor_profile_id AND tm.role = 'admin'
  )

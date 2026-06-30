@@ -35,8 +35,9 @@ export function canManageVendor(role: VendorTeamRole | null | undefined): boolea
  *
  * Source of truth = `vendor_team_members` (a user can sit on multiple vendors;
  * we take the highest-ranked membership). Legacy fallback: a user who owns a
- * `vendor_profiles` row but has no membership row (pre-owner-seed trigger) is
- * treated as 'owner'. Returns null if the user has no vendor relationship.
+ * `vendor_profiles` row but has no membership row (pre-seed trigger) is treated
+ * as 'admin' (the store creator is the founding admin in the multi-admin org
+ * model). Returns null if the user has no vendor relationship.
  */
 export async function resolveVendorRole(
   supabase: SupabaseClient,
@@ -59,7 +60,7 @@ export async function resolveVendorRole(
     .select('vendor_profile_id')
     .eq('user_id', userId)
     .maybeSingle();
-  return owned ? 'owner' : null;
+  return owned ? 'admin' : null;
 }
 
 /**

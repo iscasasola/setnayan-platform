@@ -60,6 +60,9 @@ export async function startSubscriptionPurchase(formData: FormData): Promise<voi
 
   if (error) {
     const m = error.message?.toUpperCase() ?? '';
+    if (m.includes('NOT_VENDOR_ADMIN')) {
+      ERR('Only a store admin can purchase a subscription. Ask an admin on your team to upgrade.');
+    }
     if (m.includes('NO_VENDOR_PROFILE')) {
       ERR('Sign in with your vendor account to upgrade.');
     }

@@ -9,19 +9,35 @@ export const VENDOR_TEAM_ROLES: ReadonlyArray<VendorTeamRole> = [
   'viewer',
 ];
 
+/**
+ * Roles an admin may ASSIGN. `owner` is retired (multi-admin org model,
+ * 2026-07-01) — a store is run by one or more peer admins, so the picker
+ * never offers Owner. The `owner` enum value lingers only for legacy data.
+ */
+export const VENDOR_ASSIGNABLE_ROLES: ReadonlyArray<VendorTeamRole> = [
+  'admin',
+  'agent',
+  'viewer',
+];
+
 export const VENDOR_TEAM_ROLE_LABEL: Record<VendorTeamRole, string> = {
-  owner: 'Owner',
+  owner: 'Admin', // legacy rows surface as Admin
   admin: 'Admin',
   agent: 'Agent',
   viewer: 'Viewer',
 };
 
 export const VENDOR_TEAM_ROLE_BLURB: Record<VendorTeamRole, string> = {
-  owner: 'Full access; only role that can change other roles.',
-  admin: 'Manages bookings, services, and team (except Owner role).',
+  owner: 'Top role — manages the whole store, including team and roles.',
+  admin: 'Top role — manages the whole store, including team and roles.',
   agent: 'Assigned to specific services; sees only their own work.',
   viewer: 'Read-only access to the schedule and bookings.',
 };
+
+/** Admin and the legacy `owner` value both count as the top management role. */
+export function isVendorAdminRole(role: VendorTeamRole): boolean {
+  return role === 'admin' || role === 'owner';
+}
 
 export type VendorTeamMemberRow = {
   vendor_team_member_id: string;
@@ -129,4 +145,92 @@ export async function fetchAgentServiceAssignments(
     (map[memberId] ??= []).push(serviceId);
   }
   return map;
+}
+
+// ── Multi-admin org governance (2026-07-01) ───────────────────────────────
+
+export type VendorAdminContext = {
+  vendorProfileId: string;
+  /** vendor_profiles.user_id — the store creator (free seat; seat-cap anchor). */
+  founderUserId: string;
+  tierState: string | null;
+};
+
+/**
+ * Resolve the store the caller manages AS AN ADMIN. Team management, the
+ * subscription buy, and the demotion-vote flow are all admin-gated, so every
+ * one of those surfaces resolves through here. Returns null when the caller is
+ * not an admin of any store (agents/viewers/non-vendors → blocked).
+ */
+export async function fetchAdminVendorContext(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<VendorAdminContext | null> {
+  const { data: membership } = await supabase
+    .from('vendor_team_members')
+    .select('vendor_profile_id, role, vendor_profiles!inner(user_id, tier_state)')
+    .eq('user_id', userId)
+    .in('role', ['admin', 'owner'])
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (!membership) return null;
+  // Supabase types an embedded FK as an array; normalize to a single row.
+  const vpRaw = (membership as {
+    vendor_profiles:
+      | { user_id: string; tier_state: string | null }
+      | { user_id: string; tier_state: string | null }[]
+      | null;
+  }).vendor_profiles;
+  const vp = Array.isArray(vpRaw) ? vpRaw[0] : vpRaw;
+  if (!vp) return null;
+  return {
+    vendorProfileId: (membership as { vendor_profile_id: string }).vendor_profile_id,
+    founderUserId: vp.user_id,
+    tierState: vp.tier_state ?? null,
+  };
+}
+
+export type VendorAdminMotion = {
+  motion_id: string;
+  vendor_profile_id: string;
+  target_user_id: string;
+  target_member_id: string;
+  kind: 'demote' | 'remove';
+  new_role: VendorTeamRole;
+  proposed_by: string;
+  status: 'open' | 'executed' | 'rejected' | 'cancelled';
+  created_at: string;
+  resolved_at: string | null;
+};
+
+export type VendorAdminMotionVote = {
+  motion_id: string;
+  voter_user_id: string;
+  approve: boolean;
+};
+
+/** Open peer-admin demotion/removal motions for a store + their votes. */
+export async function fetchOpenAdminMotions(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+): Promise<{ motions: VendorAdminMotion[]; votes: VendorAdminMotionVote[] }> {
+  const { data: motions } = await supabase
+    .from('vendor_admin_motions')
+    .select(
+      'motion_id,vendor_profile_id,target_user_id,target_member_id,kind,new_role,proposed_by,status,created_at,resolved_at',
+    )
+    .eq('vendor_profile_id', vendorProfileId)
+    .eq('status', 'open')
+    .order('created_at', { ascending: true });
+  const list = (motions ?? []) as VendorAdminMotion[];
+  if (list.length === 0) return { motions: [], votes: [] };
+  const { data: votes } = await supabase
+    .from('vendor_admin_motion_votes')
+    .select('motion_id,voter_user_id,approve')
+    .in(
+      'motion_id',
+      list.map((m) => m.motion_id),
+    );
+  return { motions: list, votes: (votes ?? []) as VendorAdminMotionVote[] };
 }

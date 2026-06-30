@@ -48,6 +48,9 @@ import { existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+// Beat-grid computation is shared with scripts/ingest-owned-music.mjs so the two
+// scripts can never drift on the algorithm or the stored JSON shape.
+import { computeBeatGrid, loadBytes } from './lib/beat-grid.mjs';
 
 // Refuse to WRITE to the known prod project ref. (Reads are harmless; writes
 // are gated. Mirrors the guard in scripts/seed-demo-vendors.ts.)
@@ -94,66 +97,8 @@ beat_grid shape: { bpm, beats:number[] (sec), downbeats?:number[], source, analy
 `);
 }
 
-// --- audio decode → mono Float32 PCM + sampleRate ---------------------------
-async function decodeToMonoPcm(bytes) {
-  // Dynamic import so `--help` works even if the optional codec deps aren't
-  // installed in a given checkout.
-  let decode;
-  try {
-    ({ default: decode } = await import('audio-decode'));
-  } catch (e) {
-    throw new Error(
-      'audio-decode is not installed. Run `pnpm install` in apps/web (it is a ' +
-        'devDependency there), or run this script from apps/web. ' +
-        `Underlying error: ${e?.message ?? e}`,
-    );
-  }
-  const audioBuffer = await decode(bytes);
-  const { numberOfChannels, sampleRate, length } = audioBuffer;
-  // Downmix to mono.
-  const mono = new Float32Array(length);
-  for (let ch = 0; ch < numberOfChannels; ch++) {
-    const data = audioBuffer.getChannelData(ch);
-    for (let i = 0; i < length; i++) mono[i] += data[i] / numberOfChannels;
-  }
-  return { mono, sampleRate };
-}
-
-// --- beat detection ---------------------------------------------------------
-async function computeBeatGrid(bytes) {
-  const { default: MusicTempo } = await import('music-tempo');
-  const { mono } = await decodeToMonoPcm(bytes);
-  // music-tempo wants a plain Array of samples.
-  const mt = new MusicTempo(Array.from(mono));
-  const bpm = Number(mt.tempo);
-  // mt.beats is an array of beat times in SECONDS.
-  const beats = (mt.beats ?? [])
-    .map((b) => Math.round(Number(b) * 1000) / 1000)
-    .filter((b) => Number.isFinite(b) && b >= 0)
-    .sort((a, b) => a - b);
-  if (!beats.length) throw new Error('music-tempo found no beats.');
-  // Infer downbeats as every 4th beat (4/4 assumption) when we have enough.
-  const downbeats = beats.length >= 4 ? beats.filter((_, i) => i % 4 === 0) : undefined;
-  return {
-    bpm: Number.isFinite(bpm) ? Math.round(bpm) : 0,
-    beats,
-    ...(downbeats ? { downbeats } : {}),
-    source: 'music-tempo',
-    analyzed_at: new Date().toISOString(),
-  };
-}
-
-// --- fetch source bytes (local path OR http(s) url) -------------------------
-async function loadBytes(sourceUrl) {
-  if (!sourceUrl) throw new Error('track has no source_url');
-  if (/^https?:\/\//i.test(sourceUrl)) {
-    const res = await fetch(sourceUrl);
-    if (!res.ok) throw new Error(`fetch ${sourceUrl} → HTTP ${res.status}`);
-    return new Uint8Array(await res.arrayBuffer());
-  }
-  const path = resolve(process.cwd(), sourceUrl);
-  return new Uint8Array(await readFile(path));
-}
+// Audio decode + beat detection + source-bytes loading now live in the shared
+// scripts/lib/beat-grid.mjs module (imported above).
 
 // --- track sources ----------------------------------------------------------
 async function tracksFromManifest(file) {

@@ -26,11 +26,17 @@ export type PlatformSettingsRow = {
   brand_icon_png_512_url: string | null;
   brand_icon_svg_url: string | null;
   brand_icon_version: number;
+  /**
+   * Max Hamming distance (0..64) at which two vendor-image pHashes count as a
+   * repost match in the reverse-image repost-watch (migration 20270330665855).
+   * Admin-managed; default 10.
+   */
+  repost_watch_hamming_threshold: number;
   updated_at: string;
 };
 
 const SELECT =
-  'id,business_name,business_tin,business_address,business_email,bdo_account_name,bdo_account_number,bdo_qr_url,gcash_account_name,gcash_number,gcash_qr_url,default_vat_rate_pct,onboarding_bg_music_r2_key,onboarding_bg_music_enabled,admin_digest_enabled,brand_icon_master_url,brand_favicon_ico_url,brand_apple_touch_url,brand_icon_png_512_url,brand_icon_svg_url,brand_icon_version,updated_at';
+  'id,business_name,business_tin,business_address,business_email,bdo_account_name,bdo_account_number,bdo_qr_url,gcash_account_name,gcash_number,gcash_qr_url,default_vat_rate_pct,onboarding_bg_music_r2_key,onboarding_bg_music_enabled,admin_digest_enabled,brand_icon_master_url,brand_favicon_ico_url,brand_apple_touch_url,brand_icon_png_512_url,brand_icon_svg_url,brand_icon_version,repost_watch_hamming_threshold,updated_at';
 
 const FALLBACK: PlatformSettingsRow = {
   id: 1,
@@ -54,6 +60,7 @@ const FALLBACK: PlatformSettingsRow = {
   brand_icon_png_512_url: null,
   brand_icon_svg_url: null,
   brand_icon_version: 0,
+  repost_watch_hamming_threshold: 10,
   updated_at: new Date(0).toISOString(),
 };
 

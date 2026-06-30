@@ -45,6 +45,13 @@ type Props = {
   authed: boolean;
   anonEnabled: boolean;
   resume: boolean;
+  /**
+   * Optional internal return path (vendor-invite claim loop). When a 0-event
+   * couple is sent here from /vendor-invite/[slug] to create their first event,
+   * the post-commit nav returns them to it instead of the dashboard so they can
+   * finish shortlisting the vendor. Null = land on the dashboard as usual.
+   */
+  nextPath?: string | null;
 };
 
 type Draft = {
@@ -75,6 +82,7 @@ export function GenericOnboarding(props: Props) {
     quizAxes,
     authed,
     resume,
+    nextPath = null,
   } = props;
   const router = useRouter();
   const draftKey = `setnayan_onboarding_generic_${eventType}_draft_v1`;
@@ -255,7 +263,11 @@ export function GenericOnboarding(props: Props) {
       } catch {
         /* ignore */
       }
-      router.replace(`/dashboard/${res.eventId}`);
+      // Plain "continue free" finish: if the couple was sent here from a
+      // vendor-invite claim to create their first event, return them to it
+      // (/vendor-invite/[slug]) to finish shortlisting; else land on the
+      // event dashboard. Mirrors the wedding flow's post-commit goToDashboard.
+      router.replace(nextPath ?? `/dashboard/${res.eventId}`);
       return;
     }
     setCommitting(false);

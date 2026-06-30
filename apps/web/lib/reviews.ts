@@ -49,9 +49,18 @@ export type ReviewRow = {
    * booking links to the reviewed vendor's marketplace profile (via
    * `linked_vendor_profile_id` or `marketplace_vendor_id`). PLATFORM-DERIVED —
    * stamped server-side + re-derived by a DB trigger; couples can never set it.
-   * Drives the "Booked through Setnayan" pill.
+   * Drives the "Booked through Setnayan" / "Verified wedding" pill.
    */
   booked_through_setnayan: boolean;
+  /**
+   * Receipt-backed provenance SUBSET of `booked_through_setnayan`. TRUE only when
+   * the source `event_vendors` booking also carries `source = 'vendor_invite'` —
+   * the vendor brought this couple onto Setnayan via their invite QR. PLATFORM-
+   * DERIVED — stamped server-side + re-derived by a DB trigger; couples can never
+   * set it. Drives the "Verified booking" (import) pill instead of the
+   * "Verified wedding" (on-platform) one.
+   */
+  via_vendor_import: boolean;
 };
 
 export type ReviewWithCouple = ReviewRow & {
@@ -70,7 +79,7 @@ export type ReviewStatsRow = {
 };
 
 const REVIEW_COLUMNS =
-  'review_id,public_id,vendor_profile_id,event_id,couple_user_id,rating_overall,rating_communication,rating_quality,rating_value,rating_on_time,body,vendor_reply,vendor_reply_at,created_at,booked_through_setnayan';
+  'review_id,public_id,vendor_profile_id,event_id,couple_user_id,rating_overall,rating_communication,rating_quality,rating_value,rating_on_time,body,vendor_reply,vendor_reply_at,created_at,booked_through_setnayan,via_vendor_import';
 
 export type FetchReviewsOpts = {
   limit?: number;
@@ -278,24 +287,46 @@ export async function resolveBookedThroughSetnayan(
 }
 
 /**
+ * Resolve, SERVER-SIDE, whether this review's source booking came in via the
+ * vendor's invite QR (the import path) rather than the couple's own on-platform
+ * discovery — the "Verified booking" vs "Verified wedding" split. Reads the
+ * `review_via_vendor_import` RPC (SECURITY DEFINER over `event_vendors`), a
+ * strict subset of resolveBookedThroughSetnayan. Advisory only: the DB trigger
+ * re-derives the authoritative value on write, so couples never control it.
+ * Best-effort: a resolution error returns false (the conservative outcome — the
+ * review still falls back to the broader "Verified wedding" pill).
+ */
+export async function resolveViaVendorImport(
+  supabase: SupabaseClient,
+  eventId: string,
+  vendorProfileId: string,
+): Promise<boolean> {
+  const { data, error } = await supabase.rpc('review_via_vendor_import', {
+    p_event_id: eventId,
+    p_vendor_profile_id: vendorProfileId,
+  });
+  if (error) return false;
+  return data === true;
+}
+
+/**
  * Couple-side INSERT. The DB-level RLS + unique constraint enforce the
  * "must be delivered/complete" + "one per (vendor, event, couple)" rules.
  *
- * Provenance (`booked_through_setnayan`) is resolved SERVER-SIDE here and
- * passed explicitly, but is NOT couple-controllable: the
+ * Provenance (`booked_through_setnayan` + `via_vendor_import`) is resolved
+ * SERVER-SIDE here and passed explicitly, but is NOT couple-controllable: the
  * `stamp_review_provenance` BEFORE trigger overwrites whatever value reaches
  * the row with the platform-derived truth on every write. We pass our resolved
- * value so the intent is visible in the call path; the trigger guarantees it.
+ * values so the intent is visible in the call path; the trigger guarantees it.
  */
 export async function createReview(
   supabase: SupabaseClient,
   args: CreateReviewArgs,
 ): Promise<{ review_id: string }> {
-  const bookedThroughSetnayan = await resolveBookedThroughSetnayan(
-    supabase,
-    args.eventId,
-    args.vendorProfileId,
-  );
+  const [bookedThroughSetnayan, viaVendorImport] = await Promise.all([
+    resolveBookedThroughSetnayan(supabase, args.eventId, args.vendorProfileId),
+    resolveViaVendorImport(supabase, args.eventId, args.vendorProfileId),
+  ]);
   const { data, error } = await supabase
     .from('vendor_reviews')
     .insert({
@@ -309,8 +340,9 @@ export async function createReview(
       rating_on_time: args.ratings.on_time,
       body: args.body && args.body.length > 0 ? args.body : null,
       // Server-resolved provenance. The BEFORE trigger re-derives the canonical
-      // value, so this is advisory — couples cannot set it by tampering.
+      // values, so these are advisory — couples cannot set them by tampering.
       booked_through_setnayan: bookedThroughSetnayan,
+      via_vendor_import: viaVendorImport,
     })
     .select('review_id')
     .single();

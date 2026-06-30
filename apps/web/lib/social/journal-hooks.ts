@@ -11,6 +11,7 @@ import { HOOKS_RITUALS } from '@/lib/blog-batches/rituals-symbols';
 import { HOOKS_REGIONAL } from '@/lib/blog-batches/regional-faith';
 import { HOOKS_SEASON } from '@/lib/blog-batches/seasonal-rainy';
 import { HOOKS_DECNEWS } from '@/lib/blog-batches/december-news';
+import { HOOKS_LAUNCH_SEED } from '@/lib/blog-batches/launch-seed';
 
 /**
  * Teaser captions for the Journal → Facebook auto-syndication sweep
@@ -38,6 +39,7 @@ export const JOURNAL_SOCIAL_HOOKS: Record<string, string> = {
   ...HOOKS_REGIONAL,
   ...HOOKS_SEASON,
   ...HOOKS_DECNEWS,
+  ...HOOKS_LAUNCH_SEED,
   'free-printable-wedding-checklist-philippines':
     "Planning a Filipino wedding and not sure where to begin? We made a free, printable checklist that takes you from “yes” to “I do” — every step, none of the overwhelm. ✨",
   'what-to-do-12-months-before-your-philippine-wedding':

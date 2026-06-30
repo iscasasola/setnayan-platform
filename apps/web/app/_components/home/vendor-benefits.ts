@@ -20,8 +20,6 @@
  *     contracts are UPLOAD-ONLY today; in-app e-sign is not built.
  *   - "Automated bookings" / "Headcount that quotes itself": no inquiry→quote→
  *     milestone pipeline state machine / live re-quote yet.
- *   - "Date-open priority": availability logic exists but is not wired into the
- *     couple-facing search ranking yet.
  *   - "Style-twin discovery" / "Featured in Real Wedding stories" / "Editorial &
  *     Journal spotlights" / "Spotlight awards": surfaces built but empty
  *     pre-launch and/or backlinks are generic category links (no SEO value yet),
@@ -30,9 +28,17 @@
  *     creations, but vendor-credited auto-share is limited and TikTok is not wired.
  *   - "One profile, every life event": multi-event-type tags exist but reviews/
  *     history are not pooled across event types yet.
- *   - "No-show downpayment protection" / "Change-order trail" / "Day-of run-of-show"
- *     / "Reverse-image theft watch" / "Profile score" / "Won & lost reasons" /
- *     "White-label couple tools" / "Couple referral rewards": not built.
+ *   - "No-show downpayment protection" / "Reverse-image theft watch" /
+ *     "Profile score" / "Won & lost reasons" / "White-label couple tools" /
+ *     "Couple referral rewards": not built.
+ * 2026-06-30 (b) — further `soon` clears after their features shipped:
+ *   - "Change-order trail" (PR #2403) + "Day-of run-of-show" (PR #2411) both
+ *     merged ~6h before the (a) audit ran but were missed by it — live surfaces
+ *     in the couple↔vendor workspace + vendor clients page.
+ *   - "Date-open priority" — the existing vendor calendar availability
+ *     (vendor_calendar_blocks via lib/vendor-availability.ts) is now wired into
+ *     the couple-facing Explore render order: vendors free on the couple's date
+ *     window rank above vendors already booked that date (app/explore/page.tsx).
  *   - "Resell Setnayan Productions": vendor can recommend add-ons, not yet
  *     resell/bundle into a quote.
  *   - "Crew-rate marketplace": the "pull a vetted hand" half (Manpower gigs) is
@@ -102,7 +108,7 @@ export const VENDOR_GROUPS: VendorGroup[] = [
         n: 'Faith & region matchmaking',
         b: 'Found by the rites you serve — Catholic, Muslim, Chinese/Tsinoy, Mixed and more — and the provinces your crew covers.',
       },
-      { n: 'Date-open priority', soon: true, b: 'Couples filter for who’s free; a current calendar ranks you up.' },
+      { n: 'Date-open priority', b: 'Couples filter for who’s free; a current calendar ranks you up.' },
       { n: 'Lead capture + matchmaking', b: 'Every couple who finds you is a captured, well-fitted lead.' },
       { n: 'Shortlist radar', b: 'See who saved you; get alerted when a rival enters your date.' },
       { n: 'First-look window', b: 'Reply fast → a head-start slot in front of new couples.' },
@@ -119,8 +125,8 @@ export const VENDOR_GROUPS: VendorGroup[] = [
       { n: 'One-tap RA 8792 contracts', soon: true, b: 'Pull, fill, e-sign in-app — legally valid, no printing.' },
       { n: 'Deposit reservation, lock-free', soon: true, b: 'A recorded deposit holds the date; the money goes to you.' },
       { n: 'Double-booking guard', b: 'A held slot blocks a second booking, per service + role.' },
-      { n: 'Change-order trail', soon: true, b: 'Mid-plan changes become logged, acknowledged orders.' },
-      { n: 'Day-of run-of-show', soon: true, b: 'A shared live timeline + a clean delivery handover.' },
+      { n: 'Change-order trail', b: 'Mid-plan changes become logged, acknowledged orders.' },
+      { n: 'Day-of run-of-show', b: 'A shared live timeline + a clean delivery handover.' },
     ],
   },
   {

@@ -124,7 +124,7 @@ export const VENDOR_GROUPS: VendorGroup[] = [
         n: 'Faith & region matchmaking',
         b: 'Found by the rites you serve — Catholic, Muslim, Chinese/Tsinoy, Mixed and more — and the provinces your crew covers.',
       },
-      { n: 'Date-open priority', b: 'Couples filter for who’s free; a current calendar ranks you up.' },
+      { n: 'Date-open priority', b: 'Couples filter for who’s free; if you’re open on their date you rank above vendors already booked then.' },
       { n: 'Lead capture + matchmaking', b: 'Every couple who finds you is a captured, well-fitted lead.' },
       { n: 'Shortlist radar', b: 'See who saved you; get alerted when a rival enters your date.' },
       { n: 'First-look window', b: 'Reply fast → a head-start slot in front of new couples.' },

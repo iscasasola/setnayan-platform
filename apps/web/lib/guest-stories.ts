@@ -160,14 +160,68 @@ async function readTaggedPhotos(
 }
 
 /**
+ * INTERIM music source — the couple's delivered Pakanta song (0036).
+ *
+ * Mirrors the couple-side Patiktok render path
+ * (app/dashboard/[eventId]/studio/patiktok/actions.ts): when
+ * `events.pakanta_song_r2_key` is non-null the couple owns a delivered, paid
+ * Pakanta song, and that song is the backing track for every Setnayan render at
+ * their wedding — guest Stories included. Tried FIRST so guest reels have sound
+ * the moment a couple owns a Pakanta song, even before the owned reel-music
+ * catalogue masters are ingested. Presigns the `r2://` ref (or passes a legacy
+ * URL through verbatim). No `beat_grid` → the renderer uses its even-split
+ * fallback (still a clean reel, just not beat-snapped). Graceful-degrade on a
+ * missing column/table (42703/42P01 → "no Pakanta song"); never blocks a Story.
+ */
+async function pickPakantaSong(eventId: string): Promise<StoryMusic | null> {
+  const admin = createAdminClient();
+  try {
+    const { data, error } = await admin
+      .from('events')
+      .select('pakanta_song_r2_key, pakanta_song_filename')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (error) {
+      // 42703 = undefined_column, 42P01 = undefined_table — treat as "no song".
+      if (error.code === '42703' || error.code === '42P01') return null;
+      return null;
+    }
+    const songKey = (data?.pakanta_song_r2_key as string | null) ?? null;
+    if (!songKey) return null;
+    // displayUrlForStoredAsset handles both `r2://bucket/key` refs and legacy
+    // URLs, and returns null when storage can't presign — fall back to the
+    // owned catalogue in that case.
+    const url = await displayUrlForStoredAsset(songKey);
+    if (!url) return null;
+    return {
+      trackSlug: 'pakanta',
+      displayName:
+        (data?.pakanta_song_filename as string | null) ?? 'Your Pakanta song',
+      url,
+      beatGrid: null,
+    };
+  } catch {
+    return null; // music trouble must never block a free Story
+  }
+}
+
+/**
  * Pick the music for a Story: the first ACTIVE Setnayan-owned catalogue track
  * (owned catalogue only — never major-label). Returns its presigned/owned
  * `source_url` (NULL when the master isn't ingested → silent render) and its
  * `beat_grid` (NULL → even-split fallback in the renderer). Defensive against a
  * missing `beat_grid` column (graceful-degrade to no grid).
+ *
+ * `source_url` is presigned through `displayUrlForStoredAsset`, so a catalogue
+ * row may store either an `r2://bucket/key` ref (the convention written by
+ * scripts/ingest-owned-music.mjs) or a legacy plain URL (passed through
+ * verbatim). The browser always receives a fetchable URL.
  */
 async function pickMusic(): Promise<StoryMusic | null> {
   const admin = createAdminClient();
+  // Presign a stored `source_url` (r2:// ref → signed GET; plain URL verbatim).
+  const resolveUrl = async (ref: string | null): Promise<string | null> =>
+    ref ? await displayUrlForStoredAsset(ref) : null;
   try {
     const { data, error } = await admin
       .from('reel_music_tracks')
@@ -192,7 +246,7 @@ async function pickMusic(): Promise<StoryMusic | null> {
         return {
           trackSlug: bare.track_slug as string,
           displayName: bare.display_name as string,
-          url: (bare.source_url as string | null) ?? null,
+          url: await resolveUrl((bare.source_url as string | null) ?? null),
           beatGrid: null,
         };
       }
@@ -201,7 +255,7 @@ async function pickMusic(): Promise<StoryMusic | null> {
     return {
       trackSlug: data.track_slug as string,
       displayName: data.display_name as string,
-      url: (data.source_url as string | null) ?? null,
+      url: await resolveUrl((data.source_url as string | null) ?? null),
       beatGrid: (data.beat_grid as BeatGrid | null) ?? null,
     };
   } catch {
@@ -223,7 +277,12 @@ export async function buildGuestStoryPlan(
   try {
     const { photos, total } = await readTaggedPhotos(eventId, guestId);
     const canRender = photos.length >= STORY_MIN_PHOTOS;
-    const music = canRender ? await pickMusic() : null;
+    // INTERIM → owned-catalogue priority: the couple's Pakanta song first (so
+    // guest reels have sound today), else the first owned reel-music master.
+    // Both are Setnayan-owned (no major-label); NULL on both → silent render.
+    const music = canRender
+      ? ((await pickPakantaSong(eventId)) ?? (await pickMusic()))
+      : null;
     return {
       taggedPhotoCount: total,
       canRender,

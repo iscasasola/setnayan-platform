@@ -9,10 +9,11 @@ import type { AdminPesoOverview } from '@/lib/vendor-peso';
  * MobileLandingGrid below is mobile-only nav overflow).
  *
  * BEHAVIORAL HONESTY: token burn-on-answer IS live — `unlock_vendor_event`
- * consumes 1–3 region-banded tokens when a PRO/ENTERPRISE vendor accepts an
- * inquiry. Platform-wide token spend reads ₱0 today only because the lone real
- * vendor is the founder (token-gate-exempt) and no other paid vendor has burned
- * yet — NOT because the consume is off. This card states that when `burnInert`
+ * consumes 1–3 region-banded tokens when a paid-tier vendor accepts an inquiry
+ * (VERIFIED ≤10/wk AND burns · SOLO/PRO/ENTERPRISE unlimited AND burns).
+ * Platform-wide token spend reads ₱0 today only because no paid vendor has burned
+ * a qualifying inquiry yet (the lone real vendor is the founder) — NOT because
+ * the consume is off. This card states that when `burnInert`
  * (= ₱0 platform token spend), and the ₱/token used to peso-ify token counts is
  * the admin-managed TOKEN_PRICE_PHP (read in lib/vendor-peso.ts, not hardcoded).
  * It never fabricates spend.
@@ -75,11 +76,11 @@ export function PesoPerLeadAdminCard({ overview }: { overview: AdminPesoOverview
       {burnInert && (
         <p className="mt-4 rounded-md border border-ink/10 bg-ink/[0.02] px-3 py-2.5 text-[12px] leading-relaxed text-ink/60">
           <span className="font-medium text-ink/75">Why ₱0 —</span> burn-on-answer
-          is live (Pro/Enterprise vendors burn 1–3 region-banded tokens to accept
-          an inquiry), but platform token spend is{' '}
-          <span className="font-mono">₱0</span> because the only active vendor is
-          the founder account (token-gate-exempt) and no other paid vendor has
-          burned yet. It starts tracking real spend as paid vendors onboard.
+          is live (paid-tier vendors burn 1–3 region-banded tokens to accept an
+          inquiry), but platform token spend is{' '}
+          <span className="font-mono">₱0</span> because no paid vendor has burned a
+          qualifying inquiry yet — the only active vendor is the founder account.
+          It starts tracking real spend as paid vendors onboard.
           Subscription spend is real. Token counts are valued at the
           admin-managed {peso(tokenPricePhp)}/token.
         </p>

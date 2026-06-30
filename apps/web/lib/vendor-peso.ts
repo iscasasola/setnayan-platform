@@ -17,11 +17,12 @@
  *
  * BEHAVIORAL HONESTY — why token spend can read ₱0
  * ------------------------------------------------
- * The burn-on-answer path (unlock_vendor_event) IS live: a PRO/ENTERPRISE vendor
- * consumes 1–3 region-banded tokens to accept an inquiry (via
- * consume_vendor_assets_per_voucher). `tokens_burned_total` is 0 in prod today
- * only because the lone real vendor is the founder (token-gate-exempt) and no
- * other paid vendor has burned yet — NOT because the consume is off. This reader
+ * The burn-on-answer path (unlock_vendor_event) IS live: a paid-tier vendor
+ * consumes 1–3 region-banded tokens to accept an inquiry — VERIFIED ≤10/wk AND
+ * burns, SOLO/PRO/ENTERPRISE unlimited AND burns — via
+ * consume_vendor_assets_per_voucher. `tokens_burned_total` is 0 in prod today
+ * only because no paid vendor has burned a qualifying inquiry yet (the lone real
+ * vendor is the founder) — NOT because the consume is off. This reader
  * surfaces that truthfully via the `burnInert` flag (a misnomer kept for
  * compatibility: it means "₱0 token spend in the window," not "burn disabled");
  * it NEVER fabricates spend.
@@ -74,7 +75,7 @@ export type VendorPesoScorecard = {
   /**
    * TRUE when token spend is ₱0 in the window. NOTE: a misnomer kept for
    * compatibility — the burn is LIVE (unlock_vendor_event consumes for Pro/Ent);
-   * this only means "no burns in this window" (none answered, or founder-exempt).
+   * this only means "no burns in this window" (no qualifying inquiry answered yet).
    */
   burnInert: boolean;
   /** TRUE when there is no spend at all (token OR subscription) to report. */

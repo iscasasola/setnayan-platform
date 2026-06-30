@@ -1,10 +1,13 @@
 /**
  * Iteration 0017 Phase 3 — TikTok OAuth helpers (server-side only).
  *
- * Implements the OAuth 2.0 authorization-code flow against TikTok's v2 API
- * for Personal-tier Patiktok couples (₱1,999/day). Setnayan-tier couples
- * (₱999/day) post to @SetnayanWeddings using platform-owned credentials
- * held separately on the worker; this module does not handle that path.
+ * Patiktok is a single admin-managed SKU (PATIKTOK_COMPILER); there is no
+ * per-day or per-tier pricing axis. This module handles only the per-event
+ * (path-A) OAuth 2.0 authorization-code grant against TikTok's v2 API, which
+ * lets a couple connect their OWN TikTok account so a rendered compilation can
+ * be auto-posted there. If a worker-side refresh token is ever used to post to
+ * a Setnayan-owned handle instead, that credential is managed worker-side and
+ * does not flow through this module.
  *
  * TikTok endpoints (per developers.tiktok.com/doc/oauth-user-access-token-management):
  *   AUTHORIZE  https://www.tiktok.com/v2/auth/authorize/
@@ -18,10 +21,6 @@
  *   TIKTOK_OAUTH_REDIRECT_URI — must exactly match the Redirect URI registered
  *                              on the TikTok app (e.g.
  *                              https://www.setnayan.com/api/tiktok/auth/callback)
- *
- * Setnayan-tier (master handle) credentials are managed separately on the
- * worker side and do not flow through this module:
- *   TIKTOK_SETNAYAN_REFRESH_TOKEN — long-lived refresh for @SetnayanWeddings
  *
  * THIS MODULE IS SERVER-SIDE ONLY. Never import from a client component.
  */
@@ -165,10 +164,15 @@ export async function fetchTiktokUserInfo(
  * sequence). Phase 2's render worker calls this once the compilation MP4 is
  * available in R2.
  *
+ * NOTE: `tier` here is NOT a pricing tier (Patiktok is one flat SKU). It only
+ * selects the auto-post TARGET ACCOUNT — `'personal'` posts to the couple's own
+ * TikTok via the path-A grant; `'setnayan'` posts to a Setnayan-owned master
+ * handle.
+ *
  * TODO(0017-phase3): wire the real chunked upload flow against the TikTok
- *   Content Posting API. For Personal tier, reads the per-event access_token
- *   from `patiktok_oauth_grants` (refreshing if expired). For Setnayan tier,
- *   uses TIKTOK_SETNAYAN_REFRESH_TOKEN on the master account.
+ *   Content Posting API. For the `'personal'` target, reads the per-event
+ *   access_token from `patiktok_oauth_grants` (refreshing if expired). For the
+ *   `'setnayan'` target, uses a worker-side refresh token on the master account.
  */
 export async function publishPatiktokCompilation(_input: {
   tier: 'setnayan' | 'personal';

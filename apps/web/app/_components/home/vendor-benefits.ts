@@ -57,10 +57,16 @@
  *   claim on the peso-per-lead surfaces was stale + corrected.
  *   "Peso-per-lead scorecard" tag cleared; the two "matched intent" tags stay
  *   Soon pending owner copy sign-off.
- * NOTE (owner sign-off): two items couples might expect are NOT real benefits
- * today and were intentionally NOT added — a vendor "direct invite QR" to bring a
- * customer in does not exist, and customer import is token-gated (1 token, thin
- * calendar block), NOT a free CRM import.
+ * NOTE (owner clarification 2026-07-01): customer import is FREE in BOTH
+ * directions — the prior "doesn't exist / token-gated" note is RETIRED.
+ *   (1) Vendor → customer via QR: the vendor "direct invite QR" now EXISTS
+ *       (/vendor-invite/[slug], #2449) — vendor shows/sends a QR, the couple
+ *       scans → joins as a real client. FREE (#2448 retired the 1-token fee).
+ *   (2) Customer → vendor: a couple adding/inviting a new vendor into their
+ *       shortlist (createVendor, source='host_manual') is also FREE — the
+ *       vendor is rendered/added at no token cost to anyone.
+ * Neither is surfaced as a VENDOR_HERO_CARD yet — promoting either to a hero
+ * benefit is pending owner sign-off on the framing.
  */
 
 export type VendorHeroCard = {
